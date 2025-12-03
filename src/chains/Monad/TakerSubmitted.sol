@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
-import {SonicMixin} from "./Common.sol";
+import {MonadMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -15,12 +15,27 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
-contract SonicSettler is Settler, SonicMixin {
+contract MonadSettler is Settler, MonadMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
+        } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
+            (
+                address recipient,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory sig,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256)
+            );
+
+            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector)) {
             (
                 address recipient,
@@ -54,7 +69,7 @@ contract SonicSettler is Settler, SonicMixin {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(Settler, SonicMixin)
+        override(Settler, MonadMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);

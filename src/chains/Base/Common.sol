@@ -36,7 +36,14 @@ import {
     solidlyV3ForkId,
     ISolidlyV3Callback
 } from "../../core/univ3forks/SolidlyV3.sol";
-import {aerodromeFactory, aerodromeInitHash, aerodromeForkId} from "../../core/univ3forks/AerodromeSlipstream.sol";
+import {
+    aerodromeFactoryV3_0,
+    aerodromeFactoryV3_1,
+    aerodromeInitHashV3_0,
+    aerodromeInitHashV3_1,
+    aerodromeForkIdV3_0,
+    aerodromeForkIdV3_1
+} from "../../core/univ3forks/AerodromeSlipstream.sol";
 import {alienBaseV3Factory, alienBaseV3ForkId} from "../../core/univ3forks/AlienBaseV3.sol";
 import {baseXFactory, baseXForkId} from "../../core/univ3forks/BaseX.sol";
 import {swapBasedV3Factory, swapBasedV3ForkId} from "../../core/univ3forks/SwapBasedV3.sol";
@@ -167,9 +174,9 @@ abstract contract BaseMixin is
                     factory = solidlyV3Factory;
                     initHash = solidlyV3InitHash;
                     callbackSelector = uint32(ISolidlyV3Callback.solidlyV3SwapCallback.selector);
-                } else if (forkId == aerodromeForkId) {
-                    factory = aerodromeFactory;
-                    initHash = aerodromeInitHash;
+                } else if (forkId == aerodromeForkIdV3_0) {
+                    factory = aerodromeFactoryV3_0;
+                    initHash = aerodromeInitHashV3_0;
                     callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else {
                     revertUnknownForkId(forkId);
@@ -204,6 +211,10 @@ abstract contract BaseMixin is
                 } else if (forkId == kinetixV3ForkId) {
                     factory = kinetixV3BaseFactory;
                     initHash = uniswapV3InitHash;
+                    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+                } else if (forkId == aerodromeForkIdV3_1) {
+                    factory = aerodromeFactoryV3_1;
+                    initHash = aerodromeInitHashV3_1;
                     callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
                 } else {
                     revertUnknownForkId(forkId);

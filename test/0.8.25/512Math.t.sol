@@ -218,4 +218,24 @@ contract Lib512MathTest is Test {
 
         assertTrue(r == e);
     }
+
+    function test512Math_sqrt(uint256 x_hi, uint256 x_lo) external pure {
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint256 r = x.sqrt();
+
+        (uint256 r2_lo, uint256 r2_hi) = SlowMath.fullMul(r, r);
+        assertTrue((r2_hi < x_hi) || (r2_hi == x_hi && r2_lo <= x_lo), "sqrt too high");
+
+        if (r == type(uint256).max) {
+            assertTrue(
+                x_hi > 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe
+                    || (x_hi == 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe && x_lo != 0),
+                "sqrt too low (overflow)"
+            );
+        } else {
+            r++;
+            (r2_lo, r2_hi) = SlowMath.fullMul(r, r);
+            assertTrue((r2_hi > x_hi) || (r2_hi == x_hi && r2_lo > x_lo), "sqrt too low");
+        }
+    }
 }

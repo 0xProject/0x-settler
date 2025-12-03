@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
-import {SonicMixin} from "./Common.sol";
+import {MonadMixin} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -14,7 +14,7 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
-contract SonicSettlerMetaTxn is SettlerMetaTxn, SonicMixin {
+contract MonadSettlerMetaTxn is SettlerMetaTxn, MonadMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -26,6 +26,20 @@ contract SonicSettlerMetaTxn is SettlerMetaTxn, SonicMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
+        } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
+            (
+                address recipient,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, uint256)
+            );
+
+            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else if (action == uint32(ISettlerActions.METATXN_BALANCERV3_VIP.selector)) {
             (
                 address recipient,
@@ -50,7 +64,7 @@ contract SonicSettlerMetaTxn is SettlerMetaTxn, SonicMixin {
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
-        override(SettlerAbstract, SettlerBase, SonicMixin)
+        override(SettlerAbstract, SettlerBase, MonadMixin)
         returns (bool)
     {
         return super._dispatch(i, action, data);
