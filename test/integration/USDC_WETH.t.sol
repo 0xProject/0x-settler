@@ -33,8 +33,6 @@ contract USDCWETHTest is
     TokenTransferTest,
     Permit2TransferTest
 {
-    address private constant _eth = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
     function setUp()
         public
         override(
@@ -92,11 +90,11 @@ contract USDCWETHTest is
 
     function uniswapV3Path()
         internal
-        pure
+        view
         override(SettlerPairTest, AllowanceHolderPairTest, SettlerMetaTxnPairTest)
         returns (bytes memory)
     {
-        return abi.encodePacked(fromToken(), uint8(0), uint24(500), toToken());
+        return abi.encodePacked(fromToken(), uint8(0), uint24(500), sqrtPriceLimitX96FromTo(), toToken());
     }
 
     function uniswapV3PathCompat() internal pure override(UniswapV3PairTest, ZeroExPairTest) returns (bytes memory) {

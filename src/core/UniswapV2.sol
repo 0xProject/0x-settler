@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Panic} from "../utils/Panic.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-
+import {Ternary} from "../utils/Ternary.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 interface IUniV2Pair {
@@ -18,17 +18,72 @@ interface IUniV2Pair {
     function swap(uint256, uint256, address, bytes calldata) external;
 }
 
+library fastUniswapV2Pool {
+    using Ternary for bool;
+
+    function fastGetReserves(address pool, bool zeroForOne)
+        internal
+        view
+        returns (uint256 sellReserve, uint256 buyReserve)
+    {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x0902f1ac) // selector for `getReserves()`
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x40)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if lt(returndatasize(), 0x40) { revert(0x00, 0x00) }
+            let r := shl(0x05, zeroForOne)
+            buyReserve := mload(r)
+            sellReserve := mload(xor(0x20, r))
+        }
+    }
+
+    function fastToken0or1(address pool, bool zeroForOne) internal view returns (IERC20 token) {
+        // selector for `token1()` or `token0()`
+        uint256 selector = zeroForOne.ternary(uint256(0xd21220a7), uint256(0x0dfe1681));
+        assembly ("memory-safe") {
+            mstore(0x00, selector)
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            token := mload(0x00)
+            if or(gt(0x20, returndatasize()), shr(0xa0, token)) { revert(0x00, 0x00) }
+        }
+    }
+
+    function fastSwap(address pool, bool zeroForOne, uint256 buyAmount, address recipient) internal {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            mstore(ptr, 0x022c0d9f) // selector for `swap(uint256,uint256,address,bytes)`
+            // set amount0Out and amount1Out
+            let buyAmountBaseOffset := add(0x20, ptr)
+            // If `zeroForOne`, buyAmount offset is 0x40, else 0x20
+            let directionOffset := shl(0x05, zeroForOne)
+            mstore(add(buyAmountBaseOffset, directionOffset), buyAmount)
+            mstore(add(buyAmountBaseOffset, xor(0x20, directionOffset)), 0x00)
+
+            mstore(add(0x60, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, recipient))
+            mstore(add(0x80, ptr), 0x80) // offset to length of data
+            mstore(add(0xa0, ptr), 0x00) // length of data
+
+            // perform swap at the pool sending bought tokens to the recipient
+            if iszero(call(gas(), pool, 0x00, add(0x1c, ptr), 0xa4, 0x00, 0x00)) {
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
+            }
+        }
+    }
+}
+
 abstract contract UniswapV2 is SettlerAbstract {
     using SafeTransferLib for IERC20;
-
-    // bytes4(keccak256("getReserves()"))
-    uint32 private constant UNI_PAIR_RESERVES_SELECTOR = 0x0902f1ac;
-    // bytes4(keccak256("swap(uint256,uint256,address,bytes)"))
-    uint32 private constant UNI_PAIR_SWAP_SELECTOR = 0x022c0d9f;
-    // bytes4(keccak256("transfer(address,uint256)"))
-    uint32 private constant ERC20_TRANSFER_SELECTOR = 0xa9059cbb;
-    // bytes4(keccak256("balanceOf(address)"))
-    uint32 private constant ERC20_BALANCEOF_SELECTOR = 0x70a08231;
+    using fastUniswapV2Pool for address;
 
     /// @dev Sell a token for another token using UniswapV2.
     function sellToUniswapV2(
@@ -62,90 +117,20 @@ abstract contract UniswapV2 is SettlerAbstract {
             unchecked {
                 sellAmount = IERC20(sellToken).fastBalanceOf(address(this)) * bps / BASIS;
             }
+            IERC20(sellToken).safeTransfer(address(pool), sellAmount);
         }
-        assembly ("memory-safe") {
-            pool := and(0xffffffffffffffffffffffffffffffffffffffff, pool)
-            let ptr := mload(0x40)
-
-            // transfer sellAmount (a non zero amount) of sellToken to the pool
-            if sellAmount {
-                mstore(0x00, ERC20_TRANSFER_SELECTOR)
-                mstore(0x20, pool)
-                mstore(0x40, sellAmount)
-                // ...||ERC20_TRANSFER_SELECTOR|pool|sellAmount|
-                if iszero(call(gas(), sellToken, 0, 0x1c, 0x44, 0x00, 0x20)) { bubbleRevert(ptr) }
-                if iszero(or(iszero(returndatasize()), and(iszero(lt(returndatasize(), 0x20)), eq(mload(0x00), 1)))) {
-                    revert(0, 0)
-                }
-            }
-
-            // get pool reserves
-            let sellReserve
-            let buyReserve
-            mstore(0x00, UNI_PAIR_RESERVES_SELECTOR)
-            // ||UNI_PAIR_RESERVES_SELECTOR|
-            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x40)) { bubbleRevert(ptr) }
-            if lt(returndatasize(), 0x40) { revert(0, 0) }
-            {
-                let r := shl(5, zeroForOne)
-                buyReserve := mload(r)
-                sellReserve := mload(xor(0x20, r))
-            }
-
-            // Update the sell amount in the following cases:
-            //   the funds are in the pool already (flagged by sellAmount being 0)
-            //   the sell token has a fee (flagged by sellTokenHasFee)
-            if or(iszero(sellAmount), sellTokenHasFee) {
-                // retrieve the sellToken balance of the pool
-                mstore(0x00, ERC20_BALANCEOF_SELECTOR)
-                mstore(0x20, pool)
-                // ||ERC20_BALANCEOF_SELECTOR|pool|
-                if iszero(staticcall(gas(), sellToken, 0x1c, 0x24, 0x00, 0x20)) { bubbleRevert(ptr) }
-                if lt(returndatasize(), 0x20) { revert(0, 0) }
-                let bal := mload(0x00)
-
-                // determine real sellAmount by comparing pool's sellToken balance to reserve amount
-                if lt(bal, sellReserve) {
-                    mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                    mstore(0x20, 0x11) // panic code for arithmetic underflow
-                    revert(0x1c, 0x24)
-                }
-                sellAmount := sub(bal, sellReserve)
-            }
-
-            // compute buyAmount based on sellAmount and reserves
-            let sellAmountWithFee := mul(sellAmount, sub(10000, feeBps))
-            buyAmount := div(mul(sellAmountWithFee, buyReserve), add(sellAmountWithFee, mul(sellReserve, 10000)))
-            // set up swap call selector and empty callback data
-            mstore(ptr, UNI_PAIR_SWAP_SELECTOR)
-            mstore(add(ptr, 0x80), 0x80) // offset to length of data
-            mstore(add(ptr, 0xa0), 0) // length of data
-
-            // set amount0Out and amount1Out
-            let swapCalldata := add(ptr, 0x1c)
-            {
-                // If `zeroForOne`, offset is 0x24, else 0x04
-                let offset := add(0x04, shl(5, zeroForOne))
-                mstore(add(swapCalldata, offset), buyAmount)
-                mstore(add(swapCalldata, xor(0x20, offset)), 0)
-            }
-
-            mstore(add(swapCalldata, 0x44), and(0xffffffffffffffffffffffffffffffffffffffff, recipient))
-            // ...||UNI_PAIR_SWAP_SELECTOR|amount0Out|amount1Out|recipient|data|
-
-            // perform swap at the pool sending bought tokens to the recipient
-            if iszero(call(gas(), pool, 0, swapCalldata, 0xa4, 0, 0)) { bubbleRevert(ptr) }
-
-            // revert with the return data from the most recent call
-            function bubbleRevert(p) {
-                returndatacopy(p, 0, returndatasize())
-                revert(p, returndatasize())
-            }
+        (uint256 sellReserve, uint256 buyReserve) = fastUniswapV2Pool.fastGetReserves(pool, zeroForOne);
+        if (sellAmount == 0 || sellTokenHasFee) {
+            uint256 bal = IERC20(sellToken).fastBalanceOf(pool);
+            sellAmount = bal - sellReserve;
+        }
+        unchecked {
+            uint256 sellAmountWithFee = sellAmount * (10000 - feeBps);
+            buyAmount = (sellAmountWithFee * buyReserve) / (sellAmountWithFee + sellReserve * 10000);
         }
         if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(
-                IERC20(zeroForOne ? IUniV2Pair(pool).token1() : IUniV2Pair(pool).token0()), minBuyAmount, buyAmount
-            );
+            revertTooMuchSlippage(pool.fastToken0or1(zeroForOne), minBuyAmount, buyAmount);
         }
+        pool.fastSwap(zeroForOne, buyAmount, recipient);
     }
 }

@@ -35,8 +35,8 @@ contract WETHUSDCTest is UniswapV2PairTest, UniswapV3PairTest {
         return 1000e6;
     }
 
-    function uniswapV3Path() internal pure override(SettlerPairTest) returns (bytes memory) {
-        return abi.encodePacked(fromToken(), uint8(0), uint24(500), toToken());
+    function uniswapV3Path() internal view override(SettlerPairTest) returns (bytes memory) {
+        return abi.encodePacked(fromToken(), uint8(0), uint24(500), sqrtPriceLimitX96FromTo(), toToken());
     }
 
     function uniswapV3PathCompat() internal pure override(UniswapV3PairTest) returns (bytes memory) {

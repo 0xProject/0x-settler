@@ -11,6 +11,9 @@ interface IBridgeSettlerActions {
     /// @dev Execute swaps in Settler
     function SETTLER_SWAP(address token, uint256 amount, address settler, bytes calldata settlerData) external;
 
+    /// @dev msgValueMin is interpreted as an lower bound on the expected msg.value, not as an exact specification
+    function UNDERPAYMENT_CHECK(uint256 msgValueMin) external;
+
     /// @dev Bridge through a Bridge that follows the approval, transferFrom(msg.sender) interaction
     /// Pre-req: Funded
     function BASIC(address bridgeToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
@@ -40,7 +43,7 @@ interface IBridgeSettlerActions {
     function BRIDGE_NATIVE_TO_STARGATE_V2(address pool, uint256 destinationGas, bytes calldata sendData) external;
 
     /// @dev Bridge ERC20 through LayerZeroOFT
-    function BRIDGE_ERC20_TO_LAYER_ZERO_OFT(address token, address oft, bytes calldata sendData) external;
+    function BRIDGE_TO_LAYER_ZERO_OFT(address token, uint256 nativeFee, address oft, bytes calldata sendData) external;
 
     /// @dev Bridge ERC20 through DeBridge
     function BRIDGE_TO_DEBRIDGE(uint256 globalFee, bytes calldata createOrderData) external;

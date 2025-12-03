@@ -36,10 +36,11 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
                 bytes32 salt,
                 bool tokenAIn,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                int32 tickLimit,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, uint256));
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, int32, uint256));
 
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.METATXN_EKUBO_VIP.selector)) {
             revert("unimplemented");
         } /* else if (action == uint32(ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector)) {

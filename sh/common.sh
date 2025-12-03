@@ -8,6 +8,8 @@ fi
 if [[ $(forge --version) != *b918f9b4ab0616b44e660a6bf8c5a47feece6505* ]] ; then
     echo 'Wrong foundry version installed' >&2
     echo 'Run `foundryup -i v1.3.0`' >&2
+    echo 'This doesn'"'"'t work on old versions of `foundryup`' >&2
+    echo 'You have to `curl -L https://foundry.paradigm.xyz | bash` to update `foundryup`' >&2
     exit 1
 fi
 
@@ -68,6 +70,17 @@ if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
     fi
 fi
 
+declare era_vm
+era_vm="$(get_config isEraVm)"
+declare -r era_vm
+
+if [[ $era_vm != [Ff]alse ]] ; then
+    if (( $(get_config gasMultiplierPercent) < 500 )) ; then
+        echo 'EraVm chains must set a gas multiplier of 5x or more' >&2
+        exit 1
+    fi
+fi
+
 declare -i chainid
 chainid="$(get_config chainId)"
 declare -r -i chainid
@@ -80,7 +93,7 @@ declare rpc_url
 rpc_url="$(get_api_secret rpcUrl)"
 declare -r rpc_url
 
-if [[ ${rpc_url:-unset} = 'unset' ]] || [[ $rpc_url == 'null' ]] ; then
+if [[ ${rpc_url:-unset} = 'unset' ]] || [[ $rpc_url = 'null' ]] ; then
     echo '`rpcUrl` is unset in `api_secrets.json` for chain "'"$chain_name"'"' >&2
     exit 1
 fi
@@ -122,7 +135,7 @@ function verify_contract {
         if [[ ${_verify_etherscanKey:-null} == [nN][uU][lL][lL] ]] ; then
             forge verify-contract --watch --verifier custom --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
         elif [[ $_verify_etherscanApi == https://api.etherscan.io/v2/api* ]] ; then
-            forge verify-contract --watch --verifier custom --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+            forge verify-contract --watch --verifier etherscan --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
         else
             forge verify-contract --watch --chain "$chainid" --verifier custom --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
         fi

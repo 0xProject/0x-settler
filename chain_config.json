@@ -4,7 +4,9 @@
     "displayName": "Sepolia",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 130,
     "minGasPriceGwei": 10,
     "wnative": "0xfff9976782d46cc05630d1f6ebab18b2324d6b14",
@@ -19,7 +21,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -27,7 +30,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api-sepolia.etherscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=11155111",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "mainnet": {
@@ -35,7 +38,9 @@
     "displayName": "Mainnet",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 130,
     "minGasPriceGwei": 10,
     "wnative": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
@@ -50,7 +55,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -58,7 +64,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.etherscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=1",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "polygon": {
@@ -66,7 +72,9 @@
     "displayName": "Polygon",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 200,
     "wnative": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
@@ -81,7 +89,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -89,7 +98,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.polygonscan.com/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=137",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "base": {
@@ -97,7 +106,9 @@
     "displayName": "Base",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "wnative": "0x4200000000000000000000000000000000000006",
@@ -112,7 +123,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -120,7 +132,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.basescan.org/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=8453",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "optimism": {
@@ -128,7 +140,9 @@
     "displayName": "Optimism",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "wnative": "0x4200000000000000000000000000000000000006",
@@ -143,7 +157,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -151,7 +166,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api-optimistic.etherscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=10",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "arbitrum": {
@@ -159,7 +174,9 @@
     "displayName": "Arbitrum",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 300,
     "minGasPriceGwei": 1,
     "wnative": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
@@ -174,7 +191,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -182,7 +200,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.arbiscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=42161",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "bsc": {
@@ -190,7 +208,9 @@
     "displayName": "Bnb",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 130,
     "minGasPriceGwei": 3,
     "wnative": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
@@ -205,7 +225,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -213,7 +234,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.bscscan.com/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=56",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "avalanche": {
@@ -221,7 +242,9 @@
     "displayName": "Avalanche",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 115,
     "minGasPriceGwei": 10,
     "wnative": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
@@ -236,7 +259,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -252,7 +276,9 @@
     "displayName": "Blast",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "wnative": "0x4300000000000000000000000000000000000004",
@@ -267,7 +293,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -275,14 +302,16 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.blastscan.io/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=81457"
   },
   "linea": {
     "chainId": 59144,
     "displayName": "Linea",
     "isShanghai": false,
     "isCancun": false,
+    "isEraVm": false,
     "extraFlags": "",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "wnative": "0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f",
@@ -297,7 +326,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0xBE71A746C7AE0f9D18E6DB4f71d09732B0Ee5b9c"
+      "pause": "0xBE71A746C7AE0f9D18E6DB4f71d09732B0Ee5b9c",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -305,7 +335,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.lineascan.build/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=59144",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "scroll": {
@@ -313,7 +343,9 @@
     "displayName": "Scroll",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 120,
     "minGasPriceGwei": 1,
     "wnative": "0x5300000000000000000000000000000000000004",
@@ -328,7 +360,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -336,7 +369,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.scrollscan.com/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=534352",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "mantle": {
@@ -344,7 +377,9 @@
     "displayName": "Mantle",
     "isShanghai": true,
     "isCancun": false,
+    "isEraVm": false,
     "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "wnative": "0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8",
@@ -359,7 +394,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -367,7 +403,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.mantlescan.xyz/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=5000",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "mode": {
@@ -375,7 +411,9 @@
     "displayName": "Mode",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "wnative": "0x4200000000000000000000000000000000000006",
@@ -390,7 +428,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
@@ -406,7 +445,9 @@
     "displayName": "Taiko",
     "isShanghai": true,
     "isCancun": false,
+    "isEraVm": false,
     "extraFlags": "",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "wnative": "0xA51894664A773981C6C112C43ce576f315d5b1B6",
@@ -421,7 +462,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -429,14 +471,16 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.taikoscan.io/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=167000"
   },
   "world": {
     "chainId": 480,
     "displayName": "WorldChain",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "wnative": "0x4200000000000000000000000000000000000006",
@@ -451,7 +495,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -459,7 +504,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.worldscan.org/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=480",
     "blockscoutApi": "https://worldchain-mainnet.explorer.alchemy.com/api"
   },
   "xdai": {
@@ -467,7 +512,9 @@
     "displayName": "Gnosis",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 140,
     "minGasPriceGwei": 2,
     "wnative": "0xe91D153E0b41518A2Ce8Dd3D7944Fa863463a97d",
@@ -482,7 +529,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -490,7 +538,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.gnosisscan.io/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=100",
     "sourcifyApi": "https://sourcify.dev/server/"
   },
   "sonic": {
@@ -498,7 +546,9 @@
     "displayName": "Sonic",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 150,
     "minGasPriceGwei": 2,
     "wnative": "0x039e2fB66102314Ce7b64Ce5Ce3E5183bc94aD38",
@@ -513,7 +563,8 @@
     "governance": {
       "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
       "deploymentSafe": "0x059bD6D6DDE3769A7467fE21cC5a2C4c30D3dbfb",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
@@ -521,14 +572,16 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.sonicscan.org/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=146"
   },
   "ink": {
     "chainId": 57073,
     "displayName": "Ink",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "wnative": "0x4200000000000000000000000000000000000006",
@@ -543,7 +596,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -558,8 +612,10 @@
     "displayName": "MonadTestnet",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "",
-    "gasMultiplierPercent": 200,
+    "extraScriptFlags": "--isolate",
+    "gasMultiplierPercent": 110,
     "minGasPriceGwei": 50,
     "wnative": "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701",
     "safe": {
@@ -573,7 +629,8 @@
     "governance": {
       "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
       "deploymentSafe": "0x059bD6D6DDE3769A7467fE21cC5a2C4c30D3dbfb",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": null
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
@@ -581,15 +638,16 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "sourcifyApi": "https://sourcify-api-monad.blockvision.org",
-    "blockscoutApi": "https://api.socialscan.io/monad-testnet/v1/explorer/command_api/contract"
+    "sourcifyApi": "https://sourcify-api-monad.blockvision.org"
   },
   "unichain": {
     "chainId": 130,
     "displayName": "Unichain",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "wnative": "0x4200000000000000000000000000000000000006",
@@ -604,7 +662,8 @@
     "governance": {
       "upgradeSafe": "0xC6eE74143546ab222bFB6FDDB5726D0502B39184",
       "deploymentSafe": "0x059bD6D6DDE3769A7467fE21cC5a2C4c30D3dbfb",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
@@ -612,7 +671,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.uniscan.xyz/api",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=130",
     "blockscoutApi": "https://unichain.blockscout.com/api"
   },
   "berachain": {
@@ -620,7 +679,9 @@
     "displayName": "Berachain",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "wnative": "0x6969696969696969696969696969696969696969",
@@ -635,7 +696,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
@@ -643,7 +705,7 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.berascan.com/api"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=80094"
   },
   "hyperliquid": {
     "chainId": 999,
@@ -651,7 +713,9 @@
     "wnative": "0x5555555555555555555555555555555555555555",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 300,
     "minGasPriceGwei": 2,
     "safe": {
@@ -665,7 +729,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
@@ -682,7 +747,9 @@
     "wnative": "0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "safe": {
@@ -696,7 +763,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
@@ -713,7 +781,9 @@
     "wnative": "0x6100E367285b01F48D07953803A2d8dCA5D19873",
     "isShanghai": true,
     "isCancun": true,
+    "isEraVm": false,
     "extraFlags": "",
+    "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 2,
     "safe": {
@@ -727,7 +797,8 @@
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
       "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
-      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
     },
     "deployment": {
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
@@ -736,5 +807,92 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
     },
     "etherscanApi": "https://api.routescan.io/v2/network/mainnet/evm/9745/etherscan/api"
+  },
+  "monad": {
+    "chainId": 143,
+    "displayName": "Monad",
+    "wnative": "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
+    "isShanghai": true,
+    "isCancun": true,
+    "isEraVm": false,
+    "extraFlags": "",
+    "extraScriptFlags": "--isolate",
+    "gasMultiplierPercent": 110,
+    "minGasPriceGwei": 52,
+    "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "governance": {
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"
+    },
+    "deployment": {
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
+    },
+    "sourcifyApi": "https://sourcify-api-monad.blockvision.org",
+    "blockscoutApi": "https://api.socialscan.io/monad/v1/explorer/command_api/contract"
+  },
+  "abstract-testnet": {
+    "chainId": 11124,
+    "displayName": "AbstractSepolia",
+    "wnative": "0x9EDCde0257F2386Ce177C3a7FCdd97787F0D841d",
+    "isShanghai": true,
+    "isCancun": true,
+    "isEraVm": true,
+    "extraFlags": "",
+    "extraScriptFlags": "",
+    "gasMultiplierPercent": 500,
+    "minGasPriceGwei": 1,
+    "safe": {
+      "toehold": "0xaECDbB0a3B1C6D1Fe1755866e330D82eC81fD4FD",
+      "singleton": "0x1727c2c531cf966f902E5927b98490fDFb3b2b70",
+      "factory": "0xDAec33641865E4651fB43181C6DB6f7232Ee91c2",
+      "fallback": "0x2f870a80647BbC554F3a0EBD093f11B4d2a7492A",
+      "multiCall": "0xf220D3b4DFb23C4ade8C88E526C1353AbAcbC38F",
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "governance": {
+      "upgradeSafe": "0x0a3ba9036e62df32fAeC7753c3372B4375c6E20A",
+      "deploymentSafe": "0xcF20bD8fbd83C484a34A3f48B30612b42E87e7bb",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
+    },
+    "deployment": {
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
+    },
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=11124"
+  },
+  "abstract": {
+    "chainId": 2741,
+    "displayName": "Abstract",
+    "wnative": "0x3439153EB7AF838Ad19d56E1571FBD09333C2809",
+    "isShanghai": null,
+    "isCancun": null,
+    "isEraVm": true,
+    "extraFlags": "",
+    "extraScriptFlags": "",
+    "gasMultiplierPercent": 500,
+    "minGasPriceGwei": 1,
+    "safe": {
+      "toehold": "0xaECDbB0a3B1C6D1Fe1755866e330D82eC81fD4FD",
+      "singleton": "0x1727c2c531cf966f902E5927b98490fDFb3b2b70",
+      "factory": "0xDAec33641865E4651fB43181C6DB6f7232Ee91c2",
+      "fallback": "0x2f870a80647BbC554F3a0EBD093f11B4d2a7492A",
+      "multiCall": "0xf220D3b4DFb23C4ade8C88E526C1353AbAcbC38F",
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=2741"
   }
 }
