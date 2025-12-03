@@ -93,7 +93,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (maverickV2Pool(), permit, sig)),
             abi.encodeCall(
-                ISettlerActions.MAVERICKV2, (FROM, address(fromToken()), 0, maverickV2Pool(), maverickV2TokenAIn(), 0)
+                ISettlerActions.MAVERICKV2, (FROM, address(fromToken()), 0, maverickV2Pool(), maverickV2TokenAIn(), maverickV2TickLimit(), 0)
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
