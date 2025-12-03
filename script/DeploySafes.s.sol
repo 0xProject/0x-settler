@@ -2,12 +2,14 @@
 pragma solidity ^0.8.25;
 
 import {Script} from "@forge-std/Script.sol";
+import {Vm, VmSafe} from "@forge-std/Vm.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Create3} from "src/utils/Create3.sol";
 import {ZeroExSettlerDeployerSafeModule} from "src/deployer/SafeModule.sol";
 import {Deployer, Feature, Nonce, salt} from "src/deployer/Deployer.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {SafeConfig} from "./SafeConfig.sol";
+import {SafeBytecodes} from "./SafeCode.sol";
 
 interface ISafeFactory {
     function createProxyWithNonce(address singleton, bytes calldata initializer, uint256 saltNonce)
@@ -78,9 +80,32 @@ interface ISafeMulticall {
 
 contract DeploySafes is Script {
     bytes32 internal constant singletonHash = 0x21842597390c4c6e3c1239e434a682b054bd9548eee5e9b1d6a4482731023c0f;
+    bytes32 internal constant singletonHashEraVm = 0xe2ca068330339d608367d83a0b25545efe39e619098597699ab8ff828cb1ddd8;
     bytes32 internal constant factoryHash = 0x337d7f54be11b6ed55fef7b667ea5488db53db8320a05d1146aa4bd169a39a9b;
+    bytes32 internal constant factoryHashEraVm = 0x55daa5d390d283edbc5fa835bd53befce45179c758feaac8c149a95850d0a6b6;
     bytes32 internal constant fallbackHash = 0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf;
+    bytes32 internal constant fallbackHashEraVm = 0x017e9a83d5513f503fb85274f4d1ad1811040d7caa31772750ffb08638c28fbb;
     bytes32 internal constant multicallHash = 0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad;
+    bytes32 internal constant multicallHashEraVm = 0x064ddbf252714bcd4cb79f679e8c12df96d998ce07bbb13b3118c1dbf4a31942;
+    uint256 internal constant safeDeploymentSaltNonce = 0;
+
+    // This is derived from calling `proxyCreationCode()` on the factory and then decoding the EraVm-style encoded
+    // inithash from that blob.
+    // ref: https://web.archive.org/web/20251108135035/https://docs.zksync.io/zksync-protocol/era-vm/differences/evm-instructions#datasize-dataoffset-datacopy
+    // ref: https://web.archive.org/web/20251108134721/https://matter-labs.github.io/zksync-era/core/latest/guides/advanced/12_alternative_vm_intro.html#bytecode-hashes
+    bytes32 internal constant safeProxyInitHashEraVm =
+        0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d;
+    bytes32 internal constant safeProxyHashEraVm = 0x3d70c4a51cf0b92f04e5e281833aeece55198933569c08f5d11fcc45c495253e;
+
+    struct SafeCompatConfig {
+        bool isEraVm;
+        uint256 privateKey;
+        ISafeFactory safeFactory;
+        address safeSingleton;
+        address safeFallback;
+        address safeMulticall;
+        SafeBytecodes safeBytecodes;
+    }
 
     function _encodeMultisend(bytes[] memory calls) internal view returns (bytes memory result) {
         // The Gnosis multicall contract uses a very obnoxious packed encoding
@@ -143,7 +168,192 @@ contract DeploySafes is Script {
         return subCalls;
     }
 
+    modifier eraVmCompat(
+        bool isEraVm,
+        uint256 privateKey,
+        ISafeExecute safe,
+        ISafeFactory safeFactory,
+        address safeSingleton,
+        address safeFallback,
+        address safeMulticall,
+        SafeBytecodes memory safeBytecodes
+    ) {
+        if (isEraVm) {
+            (VmSafe.CallerMode callerMode, address msgSender, address txOrigin) = vm.readCallers();
+            require(callerMode != VmSafe.CallerMode.Broadcast);
+            if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
+                require(msgSender == txOrigin);
+                require(msgSender == vm.addr(privateKey));
+                vm.stopBroadcast();
+            }
+
+            bytes memory oldFactoryCode = address(safeFactory).code;
+            vm.etch(address(safeFactory), safeBytecodes.factoryCode);
+            bytes memory oldSingletonCode = safeSingleton.code;
+            vm.etch(safeSingleton, safeBytecodes.singletonCode);
+            bytes memory oldFallbackCode = safeFallback.code;
+            vm.etch(safeFallback, safeBytecodes.fallbackCode);
+            bytes memory oldMulticallCode = safeMulticall.code;
+            vm.etch(safeMulticall, safeBytecodes.multicallCode);
+
+            bytes memory oldSafeCode;
+            if (address(safe) != address(0)) {
+                oldSafeCode = address(safe).code;
+                vm.etch(address(safe), safeBytecodes.proxyCode);
+            }
+
+            vm.startPrank(msgSender, txOrigin);
+            vm.startStateDiffRecording();
+            _;
+            uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
+            Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
+            vm.stopPrank();
+            gasUsed = gasUsed * 6 / 5;
+
+            Vm.AccountAccess memory theOneImportantCall;
+            for (uint256 i; i < accesses.length; i++) {
+                theOneImportantCall = accesses[i];
+                if (theOneImportantCall.kind == VmSafe.AccountAccessKind.Call) {
+                    require(theOneImportantCall.accessor == msgSender, "unexpected top-level call");
+                    for (uint256 j = i + 1; j < accesses.length; j++) {
+                        Vm.AccountAccess memory jAA = accesses[j];
+                        if (jAA.kind == VmSafe.AccountAccessKind.Call) {
+                            require(jAA.accessor != msgSender || jAA.account == address(vm), "duplicate top-level call");
+                        }
+                    }
+                    break;
+                }
+            }
+
+            vm.etch(address(safeFactory), oldFactoryCode);
+            vm.etch(safeSingleton, oldSingletonCode);
+            vm.etch(safeFallback, oldFallbackCode);
+            vm.etch(safeMulticall, oldMulticallCode);
+
+            if (address(safe) != address(0)) {
+                vm.etch(address(safe), oldSafeCode);
+            }
+
+            if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
+                vm.startBroadcast(privateKey);
+
+                // repeat the call from the modified function, blindly, while broadcasting
+                {
+                    address target = theOneImportantCall.account;
+                    uint256 value = theOneImportantCall.value;
+                    bytes memory data = theOneImportantCall.data;
+                    assembly ("memory-safe") {
+                        pop(call(gasUsed, target, value, add(0x20, data), mload(data), 0x00, 0x00))
+                    }
+                }
+            }
+        } else {
+            _;
+        }
+    }
+
+    function _createProxyWithNonce(SafeCompatConfig memory compatConfig, bytes memory initializer, uint256 saltNonce)
+        private
+        eraVmCompat(
+            compatConfig.isEraVm,
+            compatConfig.privateKey,
+            ISafeExecute(address(0)),
+            compatConfig.safeFactory,
+            compatConfig.safeSingleton,
+            compatConfig.safeFallback,
+            compatConfig.safeMulticall,
+            compatConfig.safeBytecodes
+        )
+        returns (address deployedSafe)
+    {
+        bool isEraVm = compatConfig.isEraVm;
+        ISafeFactory safeFactory = compatConfig.safeFactory;
+        address safeSingleton = compatConfig.safeSingleton;
+        deployedSafe = safeFactory.createProxyWithNonce(safeSingleton, initializer, saltNonce);
+
+        if (isEraVm) {
+            bytes32 constructorHash = keccak256(abi.encode(safeSingleton));
+            bytes32 eraVmCreate2Salt = keccak256(abi.encode(keccak256(initializer), saltNonce));
+
+            // Foundry does not and cannot simulate EraVM bytecode, so we have to blindly assume that this is the
+            // correct derivation. We lie to the rest of the script about this address.
+            address deployedSafeEraVm = AddressDerivation.deriveDeterministicContractEraVm(
+                address(safeFactory), eraVmCreate2Salt, safeProxyInitHashEraVm, constructorHash
+            );
+            require(deployedSafeEraVm.codehash == 0);
+
+            // Set up the EraVm-pattern deployed address state to match the EVM-pattern deployed address.
+            vm.etch(deployedSafeEraVm, compatConfig.safeBytecodes.proxyCodeEraVm);
+            vm.copyStorage(deployedSafe, deployedSafeEraVm);
+            deployedSafe = deployedSafeEraVm;
+            require(deployedSafe.codehash == safeProxyHashEraVm);
+
+            // We are unable to check whether the configuration will succeed on EraVm, but we assume that the EVM
+            // bytecode overrides done in the `eraVmCompat` modifier are faithful.
+        }
+    }
+
+    function _execTransaction(
+        SafeCompatConfig memory compatConfig,
+        ISafeExecute safe,
+        address to,
+        uint256 value,
+        bytes memory data,
+        ISafeExecute.Operation operation,
+        uint256 safeTxGas,
+        uint256 baseGas,
+        uint256 gasPrice,
+        address gasToken,
+        address refundReceiver,
+        bytes memory signatures
+    )
+        internal
+        eraVmCompat(
+            compatConfig.isEraVm,
+            compatConfig.privateKey,
+            safe,
+            compatConfig.safeFactory,
+            compatConfig.safeSingleton,
+            compatConfig.safeFallback,
+            compatConfig.safeMulticall,
+            compatConfig.safeBytecodes
+        )
+        returns (bool)
+    {
+        return safe.execTransaction(
+            to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
+        );
+    }
+
+    function _getOwners(SafeCompatConfig memory compatConfig, ISafeOwners safe)
+        internal
+        eraVmCompat(
+            compatConfig.isEraVm,
+            compatConfig.privateKey,
+            ISafeExecute(address(safe)),
+            compatConfig.safeFactory,
+            compatConfig.safeSingleton,
+            compatConfig.safeFallback,
+            compatConfig.safeMulticall,
+            compatConfig.safeBytecodes
+        )
+        returns (address[] memory)
+    {
+        return safe.getOwners();
+    }
+
+    function _startBroadcast(SafeCompatConfig memory compatConfig, uint256 privateKey) private {
+        compatConfig.privateKey = privateKey;
+        vm.startBroadcast(privateKey);
+    }
+
+    function _stopBroadcast(SafeCompatConfig memory compatConfig) private {
+        compatConfig.privateKey = 0;
+        vm.stopBroadcast();
+    }
+
     function run(
+        bool isEraVm,
         address moduleDeployer,
         address proxyDeployer,
         address iceColdCoffee,
@@ -166,10 +376,34 @@ contract DeploySafes is Script {
         bytes calldata constructorArgs,
         address[] calldata solvers
     ) public {
-        require(address(safeFactory).codehash == factoryHash, "Safe factory codehash");
-        require(safeSingleton.codehash == singletonHash, "Safe singleton codehash");
-        require(safeFallback.codehash == fallbackHash, "Safe fallback codehash");
-        require(safeMulticall.codehash == multicallHash, "Safe multicall codehash");
+        SafeCompatConfig memory safeCompatConfig = SafeCompatConfig({
+            isEraVm: SafeConfig.isEraVm(),
+            privateKey: 0,
+            safeFactory: safeFactory,
+            safeSingleton: safeSingleton,
+            safeFallback: safeFallback,
+            safeMulticall: safeMulticall,
+            safeBytecodes: SafeBytecodes("", "", "", "", "", "")
+        });
+        safeCompatConfig.safeBytecodes.load(vm);
+
+        require(isEraVm == safeCompatConfig.isEraVm, "isEraVm mismatch");
+        require(
+            address(safeFactory).codehash == (safeCompatConfig.isEraVm ? factoryHashEraVm : factoryHash),
+            "Safe factory codehash"
+        );
+        require(
+            safeSingleton.codehash == (safeCompatConfig.isEraVm ? singletonHashEraVm : singletonHash),
+            "Safe singleton codehash"
+        );
+        require(
+            safeFallback.codehash == (safeCompatConfig.isEraVm ? fallbackHashEraVm : fallbackHash),
+            "Safe fallback codehash"
+        );
+        require(
+            safeMulticall.codehash == (safeCompatConfig.isEraVm ? multicallHashEraVm : multicallHash),
+            "Safe multicall codehash"
+        );
 
         require(Feature.unwrap(takerSubmittedFeature) == 2, "wrong taker-submitted feature (tokenId)");
         require(Feature.unwrap(metaTxFeature) == 3, "wrong metatransaction feature (tokenId)");
@@ -196,30 +430,50 @@ contract DeploySafes is Script {
         require(upgradeSafe.code.length == 0, "upgrade safe is already deployed");
 
         // precompute safe addresses
-        bytes memory creationCode = safeFactory.proxyCreationCode();
-        bytes32 initHash = keccak256(bytes.concat(creationCode, bytes32(uint256(uint160(safeSingleton)))));
-
         address[] memory owners = new address[](1);
         owners[0] = moduleDeployer;
         bytes memory deploymentInitializer = abi.encodeCall(
             ISafeSetup.setup, (owners, 1, address(0), new bytes(0), safeFallback, address(0), 0, payable(address(0)))
         );
+        bytes32 deploymentDerivedSalt =
+            keccak256(bytes.concat(keccak256(deploymentInitializer), bytes32(safeDeploymentSaltNonce)));
         owners[0] = proxyDeployer;
         bytes memory upgradeInitializer = abi.encodeCall(
             ISafeSetup.setup, (owners, 1, address(0), new bytes(0), safeFallback, address(0), 0, payable(address(0)))
         );
-        require(
-            AddressDerivation.deriveDeterministicContract(
-                address(safeFactory), keccak256(bytes.concat(keccak256(deploymentInitializer), bytes32(0))), initHash
-            ) == deploymentSafe,
-            "deployment safe address mismatch"
-        );
-        require(
-            AddressDerivation.deriveDeterministicContract(
-                address(safeFactory), keccak256(bytes.concat(keccak256(upgradeInitializer), bytes32(0))), initHash
-            ) == upgradeSafe,
-            "upgrade safe address mismatch"
-        );
+        bytes32 upgradeDerivedSalt =
+            keccak256(bytes.concat(keccak256(upgradeInitializer), bytes32(safeDeploymentSaltNonce)));
+
+        if (safeCompatConfig.isEraVm) {
+            bytes32 constructorHash = keccak256(abi.encode(safeSingleton));
+
+            require(
+                AddressDerivation.deriveDeterministicContractEraVm(
+                    address(safeFactory), deploymentDerivedSalt, safeProxyInitHashEraVm, constructorHash
+                ) == deploymentSafe,
+                "deployment safe address mismatch"
+            );
+            require(
+                AddressDerivation.deriveDeterministicContractEraVm(
+                    address(safeFactory), upgradeDerivedSalt, safeProxyInitHashEraVm, constructorHash
+                ) == upgradeSafe,
+                "upgrade safe address mismatch"
+            );
+        } else {
+            bytes memory creationCode = safeFactory.proxyCreationCode();
+            bytes32 initHash = keccak256(bytes.concat(creationCode, bytes32(uint256(uint160(safeSingleton)))));
+
+            require(
+                AddressDerivation.deriveDeterministicContract(address(safeFactory), deploymentDerivedSalt, initHash)
+                    == deploymentSafe,
+                "deployment safe address mismatch"
+            );
+            require(
+                AddressDerivation.deriveDeterministicContract(address(safeFactory), upgradeDerivedSalt, initHash)
+                    == upgradeSafe,
+                "upgrade safe address mismatch"
+            );
+        }
 
         // after everything is deployed, we're going to need to set up permissions; these are those calls
         bytes memory addModuleCall = abi.encodeCall(ISafeModule.enableModule, (iceColdCoffee));
@@ -240,7 +494,8 @@ contract DeploySafes is Script {
                 )
             )
         );
-        address predictedTakerSubmittedSettler = Create3.predict(salt(takerSubmittedFeature, Nonce.wrap(1)), deployerProxy);
+        address predictedTakerSubmittedSettler =
+            Create3.predict(salt(takerSubmittedFeature, Nonce.wrap(1)), deployerProxy);
 
         bytes memory metaTxSetDescriptionCall =
             abi.encodeCall(Deployer.setDescription, (metaTxFeature, initialDescriptionMetaTx));
@@ -283,7 +538,9 @@ contract DeploySafes is Script {
             (
                 bridgeFeature,
                 bytes.concat(
-                    vm.getCode(string.concat(chainDisplayName, "BridgeSettlerFlat.sol:", chainDisplayName, "BridgeSettler")),
+                    vm.getCode(
+                        string.concat(chainDisplayName, "BridgeSettlerFlat.sol:", chainDisplayName, "BridgeSettler")
+                    ),
                     constructorArgs
                 )
             )
@@ -340,7 +597,7 @@ contract DeploySafes is Script {
 
         uint256[] memory gasSplits = new uint256[](10);
 
-        vm.startBroadcast(moduleDeployerKey);
+        _startBroadcast(safeCompatConfig, moduleDeployerKey);
 
         // first, we deploy the module to get the correct address
         gasSplits[0] = gasleft();
@@ -350,12 +607,13 @@ contract DeploySafes is Script {
         address deployerImpl = address(new Deployer(1));
         // now we deploy the safe that's responsible *ONLY* for deploying new instances
         gasSplits[2] = gasleft();
-        address deployedDeploymentSafe = safeFactory.createProxyWithNonce(safeSingleton, deploymentInitializer, 0);
+        address deployedDeploymentSafe =
+            _createProxyWithNonce(safeCompatConfig, deploymentInitializer, safeDeploymentSaltNonce);
 
         gasSplits[3] = gasleft();
-        vm.stopBroadcast();
+        _stopBroadcast(safeCompatConfig);
 
-        vm.startBroadcast(proxyDeployerKey);
+        _startBroadcast(safeCompatConfig, proxyDeployerKey);
 
         // first we deploy the proxy for the deployer to get the correct address
         gasSplits[4] = gasleft();
@@ -363,11 +621,14 @@ contract DeploySafes is Script {
             ERC1967UUPSProxy.createLondon(deployerImpl, abi.encodeCall(Deployer.initialize, (upgradeSafe)));
         // then we deploy the safe that's going to own the proxy
         gasSplits[5] = gasleft();
-        address deployedUpgradeSafe = safeFactory.createProxyWithNonce(safeSingleton, upgradeInitializer, 0);
+        address deployedUpgradeSafe =
+            _createProxyWithNonce(safeCompatConfig, upgradeInitializer, safeDeploymentSaltNonce);
 
         // configure the deployer (accept ownership; set descriptions; authorize; set new owners)
         gasSplits[6] = gasleft();
-        ISafeExecute(upgradeSafe).execTransaction(
+        _execTransaction(
+            safeCompatConfig,
+            ISafeExecute(upgradeSafe),
             safeMulticall,
             0,
             upgradeSetupCall,
@@ -381,13 +642,15 @@ contract DeploySafes is Script {
         );
 
         gasSplits[7] = gasleft();
-        vm.stopBroadcast();
+        _stopBroadcast(safeCompatConfig);
 
-        vm.startBroadcast(moduleDeployerKey);
+        _startBroadcast(safeCompatConfig, moduleDeployerKey);
 
         // add rollback module; deploy settlers; set new owners
         gasSplits[8] = gasleft();
-        ISafeExecute(deploymentSafe).execTransaction(
+        _execTransaction(
+            safeCompatConfig,
+            ISafeExecute(deploymentSafe),
             safeMulticall,
             0,
             deploySetupCall,
@@ -401,7 +664,7 @@ contract DeploySafes is Script {
         );
 
         gasSplits[9] = gasleft();
-        vm.stopBroadcast();
+        _stopBroadcast(safeCompatConfig);
 
         {
             uint256 gasPrev = gasSplits[0];
@@ -431,13 +694,14 @@ contract DeploySafes is Script {
             Deployer(deployerProxy).ownerOf(Feature.unwrap(bridgeFeature)) == predictedBridgeSettler,
             "predicted bridgesettler address mismatch"
         );
+
         require(
-            keccak256(abi.encodePacked(ISafeOwners(deploymentSafe).getOwners()))
+            keccak256(abi.encodePacked(_getOwners(safeCompatConfig, ISafeOwners(deploymentSafe))))
                 == keccak256(abi.encodePacked(deployerOwners)),
             "deployment safe owners mismatch"
         );
         require(
-            keccak256(abi.encodePacked(ISafeOwners(upgradeSafe).getOwners()))
+            keccak256(abi.encodePacked(_getOwners(safeCompatConfig, ISafeOwners(upgradeSafe))))
                 == keccak256(abi.encodePacked(upgradeOwners)),
             "upgrade safe owners mismatch"
         );

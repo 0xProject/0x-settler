@@ -6,6 +6,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Ternary} from "../utils/Ternary.sol";
 
 interface IDodoV1 {
     function sellBaseToken(uint256 amount, uint256 minReceiveQuote, bytes calldata data) external returns (uint256);
@@ -291,6 +292,7 @@ library DodoMath {
 abstract contract DodoSellHelper {
     using Math for uint256;
     using FastDodoV1 for IDodoV1;
+    using Ternary for bool;
 
     enum RStatus {
         ONE,
@@ -298,41 +300,31 @@ abstract contract DodoSellHelper {
         BELOW_ONE
     }
 
-    struct DodoState {
-        uint256 oraclePrice;
-        uint256 K;
-        uint256 B;
-        uint256 Q;
-        uint256 baseTarget;
-        uint256 quoteTarget;
-        RStatus rStatus;
-    }
-
     function dodoQuerySellQuoteToken(IDodoV1 dodo, uint256 amount) internal view returns (uint256) {
-        DodoState memory state;
-        (state.baseTarget, state.quoteTarget) = dodo.fastGetExpectedTarget();
-        state.rStatus = RStatus(dodo.fast_R_STATUS_());
-        state.oraclePrice = dodo.fastGetOraclePrice();
-        state.Q = dodo.fast_QUOTE_BALANCE_();
-        state.B = dodo.fast_BASE_BALANCE_();
-        state.K = dodo.fast_K_();
+        (uint256 baseTarget, uint256 quoteTarget) = dodo.fastGetExpectedTarget();
+        RStatus rStatus = RStatus(dodo.fast_R_STATUS_());
+        uint256 oraclePrice = dodo.fastGetOraclePrice();
+        uint256 B = dodo.fast_BASE_BALANCE_();
+        uint256 K = dodo.fast_K_();
 
         unchecked {
             uint256 boughtAmount;
+            uint256 i = DecimalMath.divFloor(DecimalMath.ONE, oraclePrice);
             // Determine the status (RStatus) and calculate the amount based on the
             // state
-            if (state.rStatus == RStatus.ONE) {
-                boughtAmount = _ROneSellQuoteToken(amount, state);
-            } else if (state.rStatus == RStatus.ABOVE_ONE) {
-                boughtAmount = _RAboveSellQuoteToken(amount, state);
-            } else {
-                uint256 backOneBase = state.B - state.baseTarget;
-                uint256 backOneQuote = state.quoteTarget - state.Q;
+            if (rStatus == RStatus.BELOW_ONE) {
+                uint256 Q = dodo.fast_QUOTE_BALANCE_();
+                uint256 backOneBase = B - baseTarget;
+                uint256 backOneQuote = quoteTarget - Q;
                 if (amount <= backOneQuote) {
-                    boughtAmount = _RBelowSellQuoteToken(amount, state);
+                    uint256 Q1 = Q + amount;
+                    boughtAmount = DodoMath._GeneralIntegrate(quoteTarget, Q1, Q, i, K);
                 } else {
-                    boughtAmount = backOneBase + _ROneSellQuoteToken(amount - backOneQuote, state);
+                    boughtAmount = backOneBase + _SellQuoteToken(amount - backOneQuote, i, baseTarget, baseTarget, K);
                 }
+            } else {
+                uint256 Q1 = (rStatus == RStatus.ONE).ternary(baseTarget, B);
+                boughtAmount = _SellQuoteToken(amount, i, baseTarget, Q1, K);
             }
             // Calculate fees
             return DecimalMath.divFloor(
@@ -341,43 +333,13 @@ abstract contract DodoSellHelper {
         }
     }
 
-    function _ROneSellQuoteToken(uint256 amount, DodoState memory state)
+    function _SellQuoteToken(uint256 amount, uint256 i, uint256 Q0, uint256 Q1, uint256 K)
         private
         pure
         returns (uint256 receiveBaseToken)
     {
         unchecked {
-            uint256 i = DecimalMath.divFloor(DecimalMath.ONE, state.oraclePrice);
-            uint256 B2 = DodoMath._SolveQuadraticFunctionForTrade(
-                state.baseTarget, state.baseTarget, DecimalMath.mul(i, amount), false, state.K
-            );
-            return state.baseTarget - B2;
-        }
-    }
-
-    function _RAboveSellQuoteToken(uint256 amount, DodoState memory state)
-        private
-        pure
-        returns (uint256 receieBaseToken)
-    {
-        unchecked {
-            uint256 i = DecimalMath.divFloor(DecimalMath.ONE, state.oraclePrice);
-            uint256 B2 = DodoMath._SolveQuadraticFunctionForTrade(
-                state.baseTarget, state.B, DecimalMath.mul(i, amount), false, state.K
-            );
-            return state.B - B2;
-        }
-    }
-
-    function _RBelowSellQuoteToken(uint256 amount, DodoState memory state)
-        private
-        pure
-        returns (uint256 receiveBaseToken)
-    {
-        unchecked {
-            uint256 Q1 = state.Q + amount;
-            uint256 i = DecimalMath.divFloor(DecimalMath.ONE, state.oraclePrice);
-            return DodoMath._GeneralIntegrate(state.quoteTarget, Q1, state.Q, i, state.K);
+            return Q1 - DodoMath._SolveQuadraticFunctionForTrade(Q0, Q1, DecimalMath.mul(i, amount), false, K);
         }
     }
 }

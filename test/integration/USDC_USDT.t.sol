@@ -53,7 +53,7 @@ contract USDCUSDTTest is SettlerPairTest, SettlerMetaTxnPairTest, EulerSwapTest 
         override(SettlerPairTest, SettlerMetaTxnPairTest, AllowanceHolderPairTest)
         returns (bytes memory)
     {
-        return abi.encodePacked(fromToken(), uint8(0), uint24(100), toToken());
+        return abi.encodePacked(fromToken(), uint8(0), uint24(100), sqrtPriceLimitX96FromTo(), toToken());
     }
 
     function uniswapV2Pool() internal pure override(AllowanceHolderPairTest, SettlerPairTest) returns (address) {

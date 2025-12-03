@@ -6,6 +6,7 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {Ternary} from "../utils/Ternary.sol";
 
 interface IDodoV2 {
     function sellBase(address to) external returns (uint256 receiveQuoteAmount);
@@ -16,6 +17,8 @@ interface IDodoV2 {
 }
 
 library FastDodoV2 {
+    using Ternary for bool;
+
     function _callAddressReturnUint(IDodoV2 dodo, uint256 sig, address addr) private returns (uint256 r) {
         assembly ("memory-safe") {
             mstore(0x14, addr)
@@ -29,14 +32,6 @@ library FastDodoV2 {
 
             r := mload(0x00)
         }
-    }
-
-    function fastSellBase(IDodoV2 dodo, address to) internal returns (uint256 receiveQuoteAmount) {
-        return _callAddressReturnUint(dodo, uint32(dodo.sellBase.selector), to);
-    }
-
-    function fastSellQuote(IDodoV2 dodo, address to) internal returns (uint256 receiveBaseAmount) {
-        return _callAddressReturnUint(dodo, uint32(dodo.sellQuote.selector), to);
     }
 
     function _get(IDodoV2 dodo, uint256 sig) private view returns (bytes32 r) {
@@ -53,16 +48,17 @@ library FastDodoV2 {
         }
     }
 
-    function fast_BASE_TOKEN_(IDodoV2 dodo) internal view returns (IERC20) {
-        uint256 result = uint256(_get(dodo, uint32(dodo._BASE_TOKEN_.selector)));
+    function fastToken(IDodoV2 dodo, bool isBase) internal view returns (IERC20) {
+        uint256 result =
+            uint256(_get(dodo, isBase.ternary(uint32(dodo._BASE_TOKEN_.selector), uint32(dodo._QUOTE_TOKEN_.selector))));
         require(result >> 160 == 0);
         return IERC20(address(uint160(result)));
     }
 
-    function fast_QUOTE_TOKEN_(IDodoV2 dodo) internal view returns (IERC20) {
-        uint256 result = uint256(_get(dodo, uint32(dodo._QUOTE_TOKEN_.selector)));
-        require(result >> 160 == 0);
-        return IERC20(address(uint160(result)));
+    function fastSell(IDodoV2 dodo, bool isBase, address to) internal returns (uint256 receiveQuoteAmount) {
+        return _callAddressReturnUint(
+            dodo, isBase.ternary(uint32(dodo.sellBase.selector), uint32(dodo.sellQuote.selector)), to
+        );
     }
 }
 
@@ -86,16 +82,9 @@ abstract contract DodoV2 is SettlerAbstract {
             }
             sellToken.safeTransfer(address(dodo), sellAmount);
         }
-        if (quoteForBase) {
-            buyAmount = dodo.fastSellQuote(recipient);
-            if (buyAmount < minBuyAmount) {
-                revertTooMuchSlippage(dodo.fast_BASE_TOKEN_(), minBuyAmount, buyAmount);
-            }
-        } else {
-            buyAmount = dodo.fastSellBase(recipient);
-            if (buyAmount < minBuyAmount) {
-                revertTooMuchSlippage(dodo.fast_QUOTE_TOKEN_(), minBuyAmount, buyAmount);
-            }
+        buyAmount = dodo.fastSell(!quoteForBase, recipient);
+        if (buyAmount < minBuyAmount) {
+            revertTooMuchSlippage(dodo.fastToken(quoteForBase), minBuyAmount, buyAmount);
         }
     }
 }

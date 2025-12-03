@@ -35,10 +35,65 @@ Master list of UniV3 forks:
   32. KittenSwap (factory is upgradeable; pools are not)
   33. Hybra
   34. HyperSwap
+  35. Velodrome/Aerodrome Slipstream V3.1
 
 ---
 
 ## [Unreleased]
+
+### Breaking changes
+
+* Removed BridgeSettler action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` in favor of
+  `BRIDGE_TO_LAYER_ZERO_OFT` that accepts ERC20 and Native tokens.
+* Changes for price impact caps on tick-based AMMs
+  * Modified `MAVERICKV2` and `MAVERICKV2_VIP` to include `tickLimit` as a parameter
+  * Modified fills of UniV4, PancakeInfinity and Ekubo to include `priceSqrt`
+  * Modified UniV3 `encodedPath` to include `priceSqrt`
+
+### Non-breaking changes
+
+* Add Aerodrome Slipstream V3.1 UniswapV3 fork to Base
+* Add `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad mainnet chain
+* Update the BridgeSettler Across actions `BRIDGE_NATIVE_TO_ACROSS` and
+  `BRIDGE_ERC20_TO_ACROSS` to use a different underlying function: `deposit`
+  (`0xad5425c6`) instead of `depositV3` (`0x7b939232`)
+* Add new Renegade action `RENEGADE` to supported chains:
+  * Add action `RENEGADE` to Arbitrum
+  * Add action `RENEGADE` to Base
+* Added `UNDERPAYMENT_CHECK` action to `BridgeSettlerBase`.
+* Added another set of 60 solvers whitelisted on the `SettlerIntent` instances
+
+## 2025-11-24
+
+### Non-breaking changes
+
+* Deploy Settler to Monad mainnet
+  * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+    `METATXN_BALANCERV3_VIP`) to Monad mainnet
+  * Add UniswapV4 actions to Monad mainnet
+  * Add PancakeSwapV3 UniV3 fork to Monad mainnet
+  * Add UniswapV3 UniV3 fork on Monad mainnet
+
+## 2025-11-11
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add support for EraVM chains
+* Deploy Settler to Abstract Sepolia chain
+  * Add UniswapV3 UniV3 fork to Abstract Sepolia
+
+## 2025-10-02
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+  `METATXN_BALANCERV3_VIP`) to Sonic
+
+## 2025-09-29
 
 ### Breaking changes
 
@@ -49,8 +104,8 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
-* Add `NATIVE_CHECK` action to Mainnet
 * Add `EULERSWAP` action to Plasma
+* Add `NATIVE_CHECK` action to Mainnet
 
 ## 2025-09-15
 

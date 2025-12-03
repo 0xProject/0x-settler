@@ -195,6 +195,7 @@ interface ISettlerActions {
         uint256 bps,
         address pool,
         bool tokenAIn,
+        int32 tickLimit,
         uint256 minBuyAmount
     ) external;
     /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback
@@ -206,6 +207,7 @@ interface ISettlerActions {
         bool tokenAIn,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
+        int32 tickLimit,
         uint256 minBuyAmount
     ) external;
     /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback; metatransaction variant
@@ -214,6 +216,7 @@ interface ISettlerActions {
         bytes32 salt,
         bool tokenAIn,
         ISignatureTransfer.PermitTransferFrom memory permit,
+        int32 tickLimit,
         uint256 minBuyAmount
     ) external;
 
@@ -271,6 +274,17 @@ interface ISettlerActions {
     ) external;
 
     function EULERSWAP(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        address pool,
+        bool zeroForOne,
+        uint256 amountOutMin
+    ) external;
+
+    function RENEGADE(address target, address baseToken, bytes memory data) external;
+
+    function LFJTM(
         address recipient,
         address sellToken,
         uint256 bps,
