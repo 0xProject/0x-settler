@@ -102,87 +102,24 @@ unset -v setsolver_calldata
 
 if [[ -n "${deployer_address-}" ]] ; then
     declare -a deploy_calldatas
-    if (( chainid == 1 )) || (( chainid == 10 )) || (( chainid == 56 )) || (( chainid == 8453 )) || (( chainid == 42161 )) || (( chainid == 43114 )) || (( chainid == 534352 )) || (( chainid == 11155111 )) ; then
-        declare setsolver_calldata
-        for setsolver_calldata in "${setsolver_calldatas[@]}" ; do
-            deploy_calldatas+=(
-                "$(
-                    cast concat-hex                                               \
-                    0x00                                                          \
-                    "$next_intent_settler_address"                                \
-                    "$(cast to-uint256 0)"                                        \
-                    "$(cast to-uint256 $(( (${#setsolver_calldata} - 2) / 2 )) )" \
-                    "$setsolver_calldata"
-                )"
-            )
-        done
-        deploy_calldatas=(
-            0 "$deploy_taker_calldata" "$deployer_address"
-            0 "$deploy_metatx_calldata" "$deployer_address"
-            0 "$deploy_intent_calldata" "$deployer_address"
-            1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")" "$multicall_address"
-        )
-    else
+
+    declare setsolver_calldata
+    for setsolver_calldata in "${setsolver_calldatas[@]}" ; do
         deploy_calldatas+=(
             "$(
-                cast concat-hex                                                   \
-                0x00                                                              \
-                "$deployer_address"                                               \
-                "$(cast to-uint256 0)"                                            \
-                "$(cast to-uint256 $(( (${#deploy_taker_calldata} - 2) / 2 )) )"  \
-                "$deploy_taker_calldata"
-            )"
-
-            "$(
-                cast concat-hex                                                   \
-                0x00                                                              \
-                "$deployer_address"                                               \
-                "$(cast to-uint256 0)"                                            \
-                "$(cast to-uint256 $(( (${#deploy_metatx_calldata} - 2) / 2 )) )" \
-                "$deploy_metatx_calldata"
-            )"
-
-            "$(
-                cast concat-hex                                                   \
-                0x00                                                              \
-                "$deployer_address"                                               \
-                "$(cast to-uint256 0)"                                            \
-                "$(cast to-uint256 $(( (${#deploy_intent_calldata} - 2) / 2 )) )" \
-                "$deploy_intent_calldata"
+                cast concat-hex                                               \
+                0x00                                                          \
+                "$next_intent_settler_address"                                \
+                "$(cast to-uint256 0)"                                        \
+                "$(cast to-uint256 $(( (${#setsolver_calldata} - 2) / 2 )) )" \
+                "$setsolver_calldata"
             )"
         )
-        for setsolver_calldata in "${setsolver_calldatas[@]}" ; do
-            deploy_calldatas+=(
-                "$(
-                    cast concat-hex                                               \
-                    0x00                                                          \
-                    "$next_intent_settler_address"                                \
-                    "$(cast to-uint256 0)"                                        \
-                    "$(cast to-uint256 $(( (${#setsolver_calldata} - 2) / 2 )) )" \
-                    "$setsolver_calldata"
-                )"
-            )
-        done
-        declare multicall_args
-        multicall_args="$(cast concat-hex "${deploy_calldatas[@]}")"
-        multicall_args="${multicall_args:2}"
-
-        declare multicall_args_length="${#multicall_args}"
-
-        declare -i padding_length=$((multicall_args_length % 64))
-        if (( padding_length )) ; then
-            padding_length=$((64 - padding_length))
-            multicall_args="$multicall_args""$(seq 1 $padding_length | xargs printf '0%.0s')"
-        fi
-
-        multicall_args_length=$(( multicall_args_length / 2 ))
-        multicall_args_length="$(cast to-uint256 $multicall_args_length)"
-        multicall_args_length="${multicall_args_length:2}"
-
-        multicall_args="$multisend_selector"'0000000000000000000000000000000000000000000000000000000000000020'"$multicall_args_length""$multicall_args"
-
-        deploy_calldatas=(
-            1 "$multicall_args" "$multicall_address"
-        )
-    fi
+    done
+    deploy_calldatas=(
+        0 "$deploy_taker_calldata" "$deployer_address"
+        0 "$deploy_metatx_calldata" "$deployer_address"
+        0 "$deploy_intent_calldata" "$deployer_address"
+        1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")" "$multicall_address"
+    )
 fi
