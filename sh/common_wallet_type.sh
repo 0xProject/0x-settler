@@ -5,7 +5,7 @@ if [[ -f "$saved_wallet_type" && -r "$saved_wallet_type" ]] ; then
     wallet_type="$(<"$saved_wallet_type")"
 else
     PS3='What kind of wallet are you using? '
-    select wallet_type in ledger trezor hot frame ; do break ; done
+    select wallet_type in ledger trezor hot frame browser ; do break ; done
 
     if [[ ${wallet_type:-unset} = 'unset' ]] ; then
         exit 1
@@ -29,6 +29,9 @@ case $wallet_type in
         ;;
     'frame')
         wallet_args=(--unlocked)
+        ;;
+    'browser')
+        wallet_args=(--browser)
         ;;
     *)
         echo 'Unrecognized wallet type: '"$wallet_type" >&2
