@@ -60,6 +60,7 @@ Master list of UniV3 forks:
 * Add new Renegade action `RENEGADE` to supported chains:
   * Add action `RENEGADE` to Arbitrum
   * Add action `RENEGADE` to Base
+* Added `UNDERPAYMENT_CHECK` action to `BridgeSettlerBase`.
 
 ## 2025-11-24
 
