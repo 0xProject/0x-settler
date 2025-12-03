@@ -61,6 +61,7 @@ Master list of UniV3 forks:
   * Add action `RENEGADE` to Arbitrum
   * Add action `RENEGADE` to Base
 * Added `UNDERPAYMENT_CHECK` action to `BridgeSettlerBase`.
+* Added another set of 60 solvers whitelisted on the `SettlerIntent` instances
 
 ## 2025-11-24
 
