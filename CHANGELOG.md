@@ -49,9 +49,34 @@ Master list of UniV3 forks:
 ### Non-breaking changes
 
 * Add Aerodrome Slipstream V3.1 UniswapV3 fork to Base
+* Add `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad mainnet chain
+* Update the BridgeSettler Across actions `BRIDGE_NATIVE_TO_ACROSS` and
+  `BRIDGE_ERC20_TO_ACROSS` to use a different underlying function: `deposit`
+  (`0xad5425c6`) instead of `depositV3` (`0x7b939232`)
 * Add new Renegade action `RENEGADE` to supported chains:
   * Add action `RENEGADE` to Arbitrum
   * Add action `RENEGADE` to Base
+
+## 2025-11-24
+
+### Non-breaking changes
+
+* Deploy Settler to Monad mainnet
+  * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+    `METATXN_BALANCERV3_VIP`) to Monad mainnet
+  * Add UniswapV4 actions to Monad mainnet
+  * Add PancakeSwapV3 UniV3 fork to Monad mainnet
+  * Add UniswapV3 UniV3 fork on Monad mainnet
+
+## 2025-11-11
+
+### Breaking changes
+
+### Non-breaking changes
+
+* Add support for EraVM chains
+* Deploy Settler to Abstract Sepolia chain
+  * Add UniswapV3 UniV3 fork to Abstract Sepolia
 
 ## 2025-10-02
 
@@ -73,8 +98,8 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
-* Add `NATIVE_CHECK` action to Mainnet
 * Add `EULERSWAP` action to Plasma
+* Add `NATIVE_CHECK` action to Mainnet
 
 ## 2025-09-15
 
