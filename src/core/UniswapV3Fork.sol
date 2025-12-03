@@ -134,7 +134,7 @@ abstract contract UniswapV3Fork is SettlerAbstract {
                 address factory;
                 bytes32 initHash;
                 (factory, initHash, callbackSelector) = _uniV3ForkInfo(forkId);
-                pool = _toPool(factory, initHash, token0, token1, poolId);
+                pool = _toPool(forkId, factory, initHash, token0, token1, poolId);
                 _updateSwapCallbackData(swapCallbackData, sellToken, payer);
             }
 
@@ -270,8 +270,12 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         }
     }
 
+    function _isEraVmUniV3Fork(uint8) internal pure virtual returns (bool) {
+        return false;
+    }
+
     // Compute the pool address given two tokens and a poolId.
-    function _toPool(address factory, bytes32 initHash, IERC20 token0, IERC20 token1, uint24 poolId)
+    function _toPool(uint8 forkId, address factory, bytes32 initHash, IERC20 token0, IERC20 token1, uint24 poolId)
         private
         pure
         returns (IUniswapV3Pool)
@@ -293,7 +297,15 @@ abstract contract UniswapV3Fork is SettlerAbstract {
             salt := keccak256(0x00, sub(0x60, shl(0x05, iszero(poolId))))
             mstore(0x40, ptr)
         }
-        return IUniswapV3Pool(AddressDerivation.deriveDeterministicContract(factory, salt, initHash));
+        if (_isEraVmUniV3Fork(forkId)) {
+            return IUniswapV3Pool(
+                AddressDerivation.deriveDeterministicContractEraVm(
+                    factory, salt, initHash, 0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470
+                )
+            );
+        } else {
+            return IUniswapV3Pool(AddressDerivation.deriveDeterministicContract(factory, salt, initHash));
+        }
     }
 
     function _uniV3ForkInfo(uint8 forkId) internal view virtual returns (address, bytes32, uint32);
