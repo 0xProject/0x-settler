@@ -38,11 +38,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             // `shl(0x08, data.length)` can't overflow because we're going to
             // `calldatacopy(..., data.length)` later. It would OOG. We check
             // for underflow in `sub(data.length, 0x04)` later.
-            let mask :=
-                shr(
-                    shl(0x08, sub(data.length, 0x04)),
-                    0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-                )
+            let mask := shr(shl(0x08, sub(data.length, 0x04)), not(0x00))
             // Zero the low bits of `target` if `data` is short. Dirty low bits
             // are only ever possible with nonstandard encodings, like ERC-2771.
             target := and(not(mask), target)
