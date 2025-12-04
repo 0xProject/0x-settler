@@ -6,6 +6,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {CheckCall} from "../utils/CheckCall.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
+import {Panic} from "../utils/Panic.sol";
 import {TransientStorageLayout} from "./TransientStorageLayout.sol";
 
 /// @notice Thrown when validating the target, avoiding executing against an ERC20 directly
@@ -101,8 +102,8 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         _rejectIfERC20(target, data);
 
         address sender = _msgSender();
-        TSlot allowance = _ephemeralAllowance(operator, sender, token);
-        _set(allowance, amount);
+        TSlot allowanceSlot = _ephemeralAllowance(operator, sender, token);
+        _set(allowanceSlot, amount);
 
         // For gas efficiency we're omitting a bunch of checks here. Notably,
         // we're omitting the check that `address(this)` has sufficient value to
@@ -133,7 +134,7 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             }
         }
 
-        _set(allowance, 0);
+        _set(allowanceSlot, 0);
     }
 
     /// @dev This provides the implementation of the function of the same name
@@ -141,11 +142,21 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
     ///      documented there.
     function transferFrom(address token, address owner, address recipient, uint256 amount) private {
         // `msg.sender` is the assumed and later validated `operator`.
-        TSlot allowance = _ephemeralAllowance(msg.sender, owner, token);
+        TSlot allowanceSlot = _ephemeralAllowance(msg.sender, owner, token);
+        uint256 allowanceValue = _get(allowanceSlot);
+
         // We validate the ephemeral allowance for the 3-tuple of `operator`
         // (`msg.sender`), `owner`, and `token` by reverting on unsigned integer
-        // underflow (built in to Solidity 0.8).
-        _set(allowance, _get(allowance) - amount);
+        // underflow.
+        if (allowanceValue < amount) {
+            Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+        }
+
+        // Update the ephemeral allowance
+        unchecked {
+            _set(allowanceSlot, allowanceValue - amount);
+        }
+
         // `safeTransferFrom` does not check that `token` actually contains
         // code. It is the responsibility of integrating code to check for that,
         // if vacuous success is a security concern.
