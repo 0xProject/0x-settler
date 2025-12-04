@@ -33,21 +33,21 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
         // `data`, we use 0xdead instead.
 
         address target; // = address(uint160(bytes20(data[0x10:])));
-        if (data.length >= 4) {
-            assembly ("memory-safe") {
-                target := calldataload(add(0x04, data.offset))
-                // `shl(0x08, data.length)` can't overflow because we're going to
-                // `calldatacopy(..., data.length)` later. It would OOG.
-                let mask :=
-                    shr(
-                        shl(0x08, sub(data.length, 0x04)),
-                        0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-                    )
-                // Zero the low bits of `target` if `data` is short. Dirty low
-                // bits are only ever possible with nonstandard encodings, like
-                // ERC-2771.
-                target := and(not(mask), target)
-            }
+        assembly ("memory-safe") {
+            target := calldataload(add(0x04, data.offset))
+            // `shl(0x08, data.length)` can't overflow because we're going to
+            // `calldatacopy(..., data.length)` later. It would OOG. We check
+            // for underflow in `sub(data.length, 0x04)` later.
+            let mask :=
+                shr(
+                    shl(0x08, sub(data.length, 0x04)),
+                    0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
+                )
+            // Zero the low bits of `target` if `data` is short. Dirty low bits
+            // are only ever possible with nonstandard encodings, like ERC-2771.
+            target := and(not(mask), target)
+            // Zero `target` if `sub(data.length, 0x04)` underflowed.
+            target := mul(lt(0x03, data.length), target)
         }
 
         // EIP-1352 (not adopted) specifies 0xffff as the maximum precompile
