@@ -143,7 +143,6 @@ declare -r bridge_settler_skip_clean=Yes
 
 . "$project_root"/sh/common_deploy_bridge_settler.sh
 
-
 declare module_deployer
 module_deployer="$(get_secret iceColdCoffee deployer)"
 declare -r module_deployer
@@ -158,7 +157,7 @@ declare ice_cold_coffee
 ice_cold_coffee="$(get_secret iceColdCoffee address)"
 declare -r ice_cold_coffee
 declare deployer_impl
-deployer_impl="$(cast keccak "$(cast to-rlp '["0x6d4197897b4e776C96c04309cF1CA47179C2B543", "0x01"]')")"
+deployer_impl="$(cast keccak "$(cast to-rlp '["'"$module_deployer"'", "0x01"]')")"
 deployer_impl="$(cast to-check-sum-address "0x${deployer_impl:26:40}")"
 declare -r deployer_impl
 
