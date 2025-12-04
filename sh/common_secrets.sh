@@ -33,7 +33,7 @@ declare secrets
 function decrypt_secrets {
     secrets="$(scrypt dec -f "$project_root"/secrets.json.scrypt)"
 
-    if [[ "$(jq -crM <<<"$secrets" | sha256sum)" != '9ab39d18541f716172c96cc7a1bf79350364bae743faf846109d89de32a2db4e  -' ]] ; then
+    if [[ "$(jq -cM <<<"$secrets" | sha256sum)" != '9ab39d18541f716172c96cc7a1bf79350364bae743faf846109d89de32a2db4e  -' ]] ; then
         echo "Decrypted secrets.json hash verification failed" >&2
         exit 1
     fi
