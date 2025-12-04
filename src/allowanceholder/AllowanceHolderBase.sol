@@ -7,6 +7,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {CheckCall} from "../utils/CheckCall.sol";
 import {FreeMemory} from "../utils/FreeMemory.sol";
 import {Panic} from "../utils/Panic.sol";
+import {Ternary} from "../utils/Ternary.sol";
 import {TransientStorageLayout} from "./TransientStorageLayout.sol";
 
 /// @notice Thrown when validating the target, avoiding executing against an ERC20 directly
@@ -15,6 +16,7 @@ error ConfusedDeputy();
 abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
     using SafeTransferLib for IERC20;
     using CheckCall for address payable;
+    using Ternary for bool;
 
     address internal constant _MULTICALL = 0x00000000000000CF9E3c5A26621af382fA17f24f;
 
@@ -46,11 +48,10 @@ abstract contract AllowanceHolderBase is TransientStorageLayout, FreeMemory {
             target := mul(lt(0x03, data.length), target)
         }
 
-        // EIP-1352 (not adopted) specifies 0xffff as the maximum precompile
-        if (target <= address(0xffff)) {
-            // 0xdead is a conventional burn address; we assume that it is not treated specially
-            target = address(0xdead);
-        }
+        // EIP-1352 (not adopted) specifies 0xffff as the maximum precompile.
+        // 0xdead is a conventional burn address; we assume that it is not
+        // treated specially.
+        target = (target > address(0xffff)).ternary(target, address(0xdead));
 
         bytes memory testData; // = abi.encodeCall(IERC20.balanceOf, target);
         assembly ("memory-safe") {
