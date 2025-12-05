@@ -107,7 +107,6 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
 
         Settler _settler = settler;
 
-        bool zeroForOne = fromToken() < toToken();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(_settler), uniswapV3Path(), permit, sig, 0 wei)),
             abi.encodeCall(
@@ -134,7 +133,6 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
     {
         Settler _settler = settler;
 
-        bool zeroForOne = fromToken() < toToken();
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.BASIC,

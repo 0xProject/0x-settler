@@ -41,8 +41,8 @@ contract Across {
 
             let len := mload(depositData)
             // temporarily clobber `depositData` size memory area
-            mstore(depositData, 0x7b939232) // selector for `depositV3(address,address,address,address,uint256,uint256,uint256,address,uint32,uint32,uint32,bytes)`
-            // `depositV3` doesn't clash with any relevant function of restricted targets so we can skip checking spoke
+            mstore(depositData, 0xad5425c6) // selector for `deposit(bytes32,bytes32,bytes32,bytes32,uint256,uint256,uint256,bytes32,uint32,uint32,uint32,bytes)`
+            // `deposit` doesn't clash with any relevant function of restricted targets so we can skip checking spoke
             if iszero(call(gas(), spoke, value, add(0x1c, depositData), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())

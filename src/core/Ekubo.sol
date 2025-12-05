@@ -78,8 +78,6 @@ library UnsafeEkuboCore {
             mstore(ptr, 0x00000000) // selector for `swap_611415377((address,address,bytes32),int128,bool,uint96,uint256)`
             let poolKeyPtr := add(0x20, ptr)
             mcopy(poolKeyPtr, poolKey, 0x60)
-            let token0 := mload(poolKeyPtr)
-            mstore(poolKeyPtr, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0))
             // ABI decoding in Ekubo will check if amount fits in int128
             mstore(add(0x80, ptr), amount)
             mstore(add(0xa0, ptr), isToken1)
@@ -112,8 +110,6 @@ library UnsafeEkuboCore {
 
             let poolKeyPtr := add(0x34, ptr)
             mcopy(poolKeyPtr, poolKey, 0x60)
-            let token0 := mload(poolKeyPtr)
-            mstore(poolKeyPtr, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0))
             mstore(add(0x94, ptr), amount)
             mstore(add(0xb4, ptr), isToken1)
             mstore(add(0xd4, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
@@ -172,7 +168,8 @@ abstract contract Ekubo is SettlerAbstract {
     //// running balance at the moment that the fill is settled. If the uppermost bit of `bps` is
     //// set, then the swap is treated as a swap through an extension that requires forwarding. Only
     //// the lower 15 bits of `bps` are used for the amount calculation.
-    //// Second, encode the packing key for that fill as 1 byte. The packing key byte depends on the
+    //// Second, encode the price caps sqrtRatio as 12 bytes.
+    //// Third, encode the packing key for that fill as 1 byte. The packing key byte depends on the
     //// tokens involved in the previous fill. The packing key for the first fill must be 1;
     //// i.e. encode only the buy token for the first fill.
     ////   0 -> sell and buy tokens remain unchanged from the previous fill (pure multiplex)
@@ -182,7 +179,7 @@ abstract contract Ekubo is SettlerAbstract {
     //// Obviously, after encoding the packing key, you encode 0, 1, or 2 tokens (each as 20 bytes),
     //// as appropriate.
     //// The remaining fields of the fill are mandatory.
-    //// Third, encode the config of the pool as 32 bytes. It contains pool parameters which are
+    //// Fourth, encode the config of the pool as 32 bytes. It contains pool parameters which are
     //// 20 bytes extension address, 8 bytes fee, and 4 bytes tickSpacing.
     ////
     //// Repeat the process for each fill and concatenate the results without padding.
@@ -314,9 +311,10 @@ abstract contract Ekubo is SettlerAbstract {
 
     // the mandatory fields are
     // 2 - sell bps
+    // 12 - sqrtRatio
     // 1 - pool key tokens case
     // 32 - config (20 extension, 8 fee, 4 tickSpacing)
-    uint256 private constant _HOP_DATA_LENGTH = 35;
+    uint256 private constant _HOP_DATA_LENGTH = 47;
 
     function locked(bytes calldata data) private returns (bytes memory) {
         address recipient;
@@ -359,11 +357,15 @@ abstract contract Ekubo is SettlerAbstract {
 
         while (data.length >= _HOP_DATA_LENGTH) {
             uint256 bps;
+            SqrtRatio sqrtRatio;
             assembly ("memory-safe") {
                 bps := shr(0xf0, calldataload(data.offset))
-
                 data.offset := add(0x02, data.offset)
-                data.length := sub(data.length, 0x02)
+
+                sqrtRatio := shr(0xa0, calldataload(data.offset))
+                data.offset := add(0x0c, data.offset)
+
+                data.length := sub(data.length, 0x0e)
                 // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
             }
 
@@ -376,7 +378,7 @@ abstract contract Ekubo is SettlerAbstract {
                 amountSpecified = int256((state.sell().amount() * (bps & 0x7fff)).unsafeDiv(BASIS));
             }
 
-            bool isToken1;
+            bool isToken1; // opposite of regular zeroForOne
             {
                 (IERC20 sellToken, IERC20 buyToken) = (state.sell().token(), state.buy().token());
                 assembly ("memory-safe") {
@@ -394,6 +396,12 @@ abstract contract Ekubo is SettlerAbstract {
                         )
                 }
                 (poolKey.token0, poolKey.token1) = isToken1.maybeSwap(address(sellToken), address(buyToken));
+                assembly ("memory-safe") {
+                    let token0 := mload(poolKey)
+                    // set poolKey to address(0) if it is the native token
+                    mstore(poolKey, mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0))))
+                }
+                // poolKey.token0 is not represented according to ERC-7528 to match the format expected by Ekubo
             }
 
             {
@@ -410,9 +418,6 @@ abstract contract Ekubo is SettlerAbstract {
             Decoder.overflowCheck(data);
 
             {
-                SqrtRatio sqrtRatio = SqrtRatio.wrap(
-                    uint96((!isToken1).ternary(uint256(4611797791050542631), uint256(79227682466138141934206691491)))
-                );
                 int256 delta0;
                 int256 delta1;
                 if (bps & 0x8000 == 0) {

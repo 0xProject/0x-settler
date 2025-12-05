@@ -168,10 +168,11 @@ abstract contract MainnetMixin is
                 uint256 bps,
                 IMaverickV2Pool pool,
                 bool tokenAIn,
+                int32 tickLimit,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
 
-            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
+            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
             (
                 address recipient,
