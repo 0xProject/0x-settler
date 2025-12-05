@@ -120,14 +120,25 @@ declare -r project_root
 cd "$project_root"
 
 . "$project_root"/sh/common.sh
+. "$project_root"/sh/common_secrets.sh
 
+# Determine which safe to abandon based on last argument
 declare safe_address
+declare initial_owner
 if [[ ${@: -1} = [Uu]pgrade ]] ; then
     safe_address="$(get_config governance.upgradeSafe)"
+    # Upgrade safe goes back to deployer.deployer (the deployer proxy deployer)
+    initial_owner="$(get_secret deployer deployer)"
 else
     safe_address="$(get_config governance.deploymentSafe)"
+    # Deployment safe goes back to iceColdCoffee.deployer
+    initial_owner="$(get_secret iceColdCoffee deployer)"
 fi
 declare -r safe_address
+declare -r initial_owner
+
+echo "Abandoning Safe: $safe_address" >&2
+echo "Will set sole owner to: $initial_owner" >&2
 
 . "$project_root"/sh/common_safe.sh
 
@@ -139,30 +150,73 @@ declare -r signer
 . "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_gas.sh
 
-declare new_owner
-new_owner="$1"
-shift
-new_owner="$(cast to-checksum "$new_owner")"
-declare -r new_owner
+# Verify the initial owner is not already the only owner
+if (( ${#owners_array[@]} == 1 )) && [[ $(cast to-checksum "${owners_array[0]}") = $(cast to-checksum "$initial_owner") ]] ; then
+    echo 'Safe is already abandoned (initial owner is the only owner)' >&2
+    exit 0
+fi
 
-declare -r getThreshold_sig='getThreshold()(uint256)'
-declare -i threshold
-threshold="$(cast call --rpc-url "$rpc_url" "$safe_address" "$getThreshold_sig")"
-declare -r -i threshold
+declare -r removeOwner_sig='removeOwner(address,address,uint256)'
+declare -r swapOwner_sig='swapOwner(address,address,address)'
+declare -r sentinel='0x0000000000000000000000000000000000000001'
 
-declare -r addOwner_sig='addOwnerWithThreshold(address,uint256)'
-declare addOwner_call
-addOwner_call="$(cast calldata "$addOwner_sig" "$new_owner" $threshold)"
-declare -r addOwner_call
+declare -a calls=()
+
+# Remove owners until only one remains
+declare -a current_owners=("${owners_array[@]}")
+
+while (( ${#current_owners[@]} > 1 )) ; do
+    declare owner_to_remove="${current_owners[0]}"
+
+    declare removeOwner_call
+    removeOwner_call="$(cast calldata "$removeOwner_sig" "$sentinel" "$owner_to_remove" 1)"
+
+    calls+=(
+        "$(
+            cast concat-hex                                              \
+            0x00                                                         \
+            "$safe_address"                                              \
+            "$(cast to-uint256 0)"                                       \
+            "$(cast to-uint256 "$(((${#removeOwner_call} - 2) / 2))")"   \
+            "$removeOwner_call"
+        )"
+    )
+
+    # Update working state
+    current_owners=("${current_owners[@]:1}")
+done
+
+# Swap the last remaining owner with initial_owner
+declare last_owner="${current_owners[0]}"
+
+declare swapOwner_call
+swapOwner_call="$(cast calldata "$swapOwner_sig" "$sentinel" "$last_owner" "$initial_owner")"
+declare -r swapOwner_call
+
+calls+=(
+    "$(
+        cast concat-hex                                            \
+        0x00                                                       \
+        "$safe_address"                                            \
+        "$(cast to-uint256 0)"                                     \
+        "$(cast to-uint256 "$(((${#swapOwner_call} - 2) / 2))")"   \
+        "$swapOwner_call"
+    )"
+)
+
+# Wrap in multiSend call
+declare multisend_calldata
+multisend_calldata="$(cast calldata "$multisend_sig" "$(cast concat-hex "${calls[@]}")")"
+declare -r multisend_calldata
 
 declare packed_signatures
-packed_signatures="$(retrieve_signatures add_signer "$addOwner_call" 0 "$safe_address")"
+packed_signatures="$(retrieve_signatures abandon_chain "$multisend_calldata" 1)"
 declare -r packed_signatures
 
 declare -r -a args=(
     "$safe_address" "$execTransaction_sig"
     # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
-    "$safe_address" 0 "$addOwner_call" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+    "$multicall_address" 0 "$multisend_calldata" 1 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
 )
 
 declare -i gas_estimate
@@ -177,3 +231,5 @@ if [[ $wallet_type = 'frame' ]] ; then
 else
     cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
 fi
+
+echo "Safe abandoned successfully!" >&2

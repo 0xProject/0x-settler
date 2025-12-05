@@ -131,19 +131,7 @@ IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD7011
 declare -r signer
 
 . "$project_root"/sh/common_wallet_type.sh
-
-# set minimum gas price to (mostly for Arbitrum and BNB)
-declare -i min_gas_price
-min_gas_price="$(get_config minGasPriceGwei)"
-min_gas_price=$((min_gas_price * 1000000000))
-declare -r -i min_gas_price
-declare -i gas_price
-gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-if (( gas_price < min_gas_price )) ; then
-    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
-    gas_price=$min_gas_price
-fi
-declare -r -i gas_price
+. "$project_root"/sh/common_gas.sh
 
 export FOUNDRY_OPTIMIZER_RUNS=1000000
 export FOUNDRY_EVM_VERSION=london
@@ -152,35 +140,11 @@ export FOUNDRY_SOLC_VERSION=0.8.28
 forge clean
 forge build src/multicall/MultiCall.sol
 
-declare -i gas_estimate_multiplier
-gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
-declare -r -i gas_estimate_multiplier
+declare -i gas_estimate
+gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid 0x4e59b44847b379578588920cA78FbF26c0B4956C "$(cast concat-hex 0x0000000000000000000000000000000000000031a5e6991d522b26211cf840ce "$(forge inspect src/multicall/MultiCall.sol:MultiCall bytecode)")")"
+declare -r -i gas_estimate
 declare -i gas_limit
-gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid 0x4e59b44847b379578588920cA78FbF26c0B4956C "$(cast concat-hex 0x0000000000000000000000000000000000000031a5e6991d522b26211cf840ce "$(forge inspect src/multicall/MultiCall.sol:MultiCall bytecode)")")"
-
-# Mantle has some real funky gas rules, exclude it from this logic
-if (( chainid != 5000 )) ; then
-    if (( gas_limit > 16777215 )) ; then
-        echo 'MultiCall deployment gas limit exceeds the EIP-7825 limit' >&2
-        exit 1
-    fi
-fi
-
-# Add some buffer
-gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
-if (( chainid != 5000 )) ; then
-    if (( gas_limit > 16777215 )) ; then
-        declare gas_limit_keep_going
-        IFS='' read -p 'Gas limit with multiplier exceeds EIP-7825 limit. Cap gas limit and keep going? [y/N]: ' -e -r -i n gas_limit_keep_going
-        declare -r gas_limit_keep_going
-        if [[ "${gas_limit_keep_going:-n}" != [Yy] ]] ; then
-            echo >&2
-            echo 'Exiting as requested' >&2
-            exit 1
-        fi
-        gas_limit=16777215
-    fi
-fi
+gas_limit="$(apply_gas_multiplier $gas_estimate)"
 declare -r -i gas_limit
 
 declare -a maybe_broadcast=()

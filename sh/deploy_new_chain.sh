@@ -143,7 +143,6 @@ declare -r bridge_settler_skip_clean=Yes
 
 . "$project_root"/sh/common_deploy_bridge_settler.sh
 
-
 declare module_deployer
 module_deployer="$(get_secret iceColdCoffee deployer)"
 declare -r module_deployer
@@ -158,7 +157,7 @@ declare ice_cold_coffee
 ice_cold_coffee="$(get_secret iceColdCoffee address)"
 declare -r ice_cold_coffee
 declare deployer_impl
-deployer_impl="$(cast keccak "$(cast to-rlp '["0x6d4197897b4e776C96c04309cF1CA47179C2B543", "0x01"]')")"
+deployer_impl="$(cast keccak "$(cast to-rlp '["'"$module_deployer"'", "0x01"]')")"
 deployer_impl="$(cast to-check-sum-address "0x${deployer_impl:26:40}")"
 declare -r deployer_impl
 
@@ -267,23 +266,7 @@ fi
 upgrade_safe="$(cast to-check-sum-address "0x${upgrade_safe:26:40}")"
 declare -r upgrade_safe
 
-# set minimum gas price to (mostly for Arbitrum and BNB)
-declare -i min_gas_price
-min_gas_price="$(get_config minGasPriceGwei)"
-min_gas_price=$((min_gas_price * 1000000000))
-declare -r -i min_gas_price
-declare -i gas_price
-gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-if (( gas_price < min_gas_price )) ; then
-    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
-    gas_price=$min_gas_price
-fi
-declare -r -i gas_price
-
-# set gas multiplier/headroom (again mostly for Arbitrum)
-declare -i gas_estimate_multiplier
-gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
-declare -r -i gas_estimate_multiplier
+. "$project_root"/sh/common_gas.sh
 
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then

@@ -133,6 +133,7 @@ IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD7011
 declare -r signer
 
 . "$project_root"/sh/common_wallet_type.sh
+. "$project_root"/sh/common_gas.sh
 
 declare -r -i feature="$1"
 shift
@@ -208,37 +209,21 @@ declare new_feature_calldata
 new_feature_calldata="$(cast calldata "$multisend_sig" "$(cast concat-hex "${calls[@]}")")"
 declare -r new_feature_calldata
 
-# set minimum gas price to (mostly for Arbitrum and BNB)
-declare -i min_gas_price
-min_gas_price="$(get_config minGasPriceGwei)"
-min_gas_price=$((min_gas_price * 1000000000))
-declare -r -i min_gas_price
-declare -i gas_price
-gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-if (( gas_price < min_gas_price )) ; then
-    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
-    gas_price=$min_gas_price
-fi
-declare -r -i gas_price
-declare -i gas_estimate_multiplier
-gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
-declare -r -i gas_estimate_multiplier
-
 declare packed_signatures
 packed_signatures="$(retrieve_signatures new_feature "$new_feature_calldata" 1)"
 declare -r packed_signatures
 
-# configure gas limit
 declare -r -a args=(
     "$safe_address" "$execTransaction_sig"
     # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
     "$multicall_address" 0 "$new_feature_calldata" 1 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
 )
 
-# set gas limit and add multiplier/headroom (again mostly for Arbitrum)
+declare -i gas_estimate
+gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
+declare -r -i gas_estimate
 declare -i gas_limit
-gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
-gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
+gas_limit="$(apply_gas_multiplier $gas_estimate)"
 declare -r -i gas_limit
 
 if [[ $wallet_type = 'frame' ]] ; then
