@@ -174,11 +174,10 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     declare packed_calldata
     packed_calldata="$(cast concat-hex "$execTransaction_selector" "$(cast to-uint256 "$target")" "$(cast to-uint256 0)" "$(cast to-uint256 320)" "$(cast to-uint256 $operation)" "$(cast to-uint256 0)" "$(cast to-uint256 0)" "$(cast to-uint256 0)" "$(cast to-uint256 "$(cast address-zero)")" "$(cast to-uint256 "$(cast address-zero)")" "$(cast to-uint256 $((320 + 32 + ${#deploy_calldata} / 2)))")""$deploy_calldata_length""$deploy_calldata""$packed_signatures_length""$packed_signatures"
 
-    ## set gas limit and add multiplier/headroom (again mostly for Arbitrum)
-    declare gas_limit
     # again, we have to do this in an awkward fashion to avoid the command-line
     # argument length limit
-    gas_limit="$(
+    declare gas_estimate
+    gas_estimate="$(
         jq -Mc \
         '
         {
@@ -210,8 +209,11 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
         --url "$rpc_url"                                    \
         --data '@-'                                         \
     )"
-    gas_limit="$(jq -rM '.result' <<<"$gas_limit")"
-    gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
+    gas_estimate="$(jq -rM '.result' <<<"$gas_estimate")"
+    declare -r -i gas_estimate
+    declare -i gas_limit
+    gas_limit="$(apply_gas_multiplier $gas_estimate)"
+    declare -r -i gas_limit
 
     # switch the wallet to the correct chain
     jq -Mc \

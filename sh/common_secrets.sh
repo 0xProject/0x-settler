@@ -6,7 +6,13 @@ if [[ ${DECRYPT_SECRETS-yes} = [Nn]o ]] ; then
     fi
 
     function get_secret {
-        jq -Mr ."$1"."$2" < "$project_root"/secrets.json.template
+        declare _secret_value
+        _secret_value="$(jq -Mr ."$1"."$2" < "$project_root"/secrets.json.template)"
+        if [[ ${_secret_value:-unset} = 'unset' ]] || [[ $_secret_value = 'null' ]] ; then
+            echo 'Secret "'"$1"'.'"$2"'" requires decryption but DECRYPT_SECRETS=no' >&2
+            exit 1
+        fi
+        echo "$_secret_value"
     }
 else
     if ! hash sha256sum &>/dev/null ; then
