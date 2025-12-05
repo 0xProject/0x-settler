@@ -807,9 +807,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     mstore(0x20, address())
 
                     if iszero(staticcall(gas(), wnative, 0x1c, 0x24, callvalue(), 0x20)) {
-                        let ptr := mload(0x40)
-                        returndatacopy(ptr, callvalue(), returndatasize())
-                        revert(ptr, returndatasize())
+                        // this should never happen
+                        revert(codesize(), callvalue())
                     }
 
                     wrappedBalance := mload(callvalue())
@@ -825,9 +824,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     mstore(0x20, toUnwrap)
 
                     if iszero(call(gas(), wnative, callvalue(), 0x1c, 0x24, codesize(), callvalue())) {
-                        let ptr := mload(0x40)
-                        returndatacopy(ptr, callvalue(), returndatasize())
-                        revert(ptr, returndatasize())
+                        // this should never happen
+                        revert(codesize(), callvalue())
                     }
                 }
             }
@@ -885,9 +883,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     if iszero(
                         call(gas(), wnative, selfbalance(), codesize(), returndatasize(), codesize(), returndatasize())
                     ) {
-                        let ptr := mload(0x40)
-                        returndatacopy(ptr, callvalue(), returndatasize())
-                        revert(ptr, returndatasize())
+                        // this should never happen
+                        revert(codesize(), callvalue())
                     }
                 }
             }
@@ -1071,9 +1068,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             assembly ("memory-safe") {
                 if iszero(call(gas(), wnative, callvalue(), codesize(), returndatasize(), codesize(), returndatasize()))
                 {
-                    let ptr := mload(0x40)
-                    returndatacopy(ptr, 0x00, returndatasize())
-                    revert(ptr, returndatasize())
+                    // this should never happen
+                    revert(codesize(), callvalue())
                 }
             }
         }
