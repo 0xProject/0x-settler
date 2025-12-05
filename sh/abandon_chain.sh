@@ -190,6 +190,7 @@ declare last_owner="${current_owners[0]}"
 
 declare swapOwner_call
 swapOwner_call="$(cast calldata "$swapOwner_sig" "$sentinel" "$last_owner" "$initial_owner")"
+declare -r swapOwner_call
 
 calls+=(
     "$(
