@@ -6,8 +6,7 @@ import {ItoA} from "src/utils/ItoA.sol";
 library SafeConfig {
     function _isTestnet() internal view returns (bool) {
         if (
-            block.chainid == 10143 // monad testnet
-                || block.chainid == 11124 // abstract sepolia
+            block.chainid == 11124 // abstract sepolia
                 || block.chainid == 11155111 // sepolia
         ) {
             return true;
@@ -59,7 +58,6 @@ library SafeConfig {
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
                 || block.chainid == 9745 // plasma
-                || block.chainid == 10143 // monad testnet
                 || block.chainid == 11124 // abstract sepolia
                 || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
@@ -89,13 +87,13 @@ library SafeConfig {
                 || block.chainid == 100 // gnosis
                 || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
+                || block.chainid == 143 // monad
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
                 || block.chainid == 999 // hyperevm
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
                 || block.chainid == 9745 // plasma
-                || block.chainid == 10143 // monad testnet
                 || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche

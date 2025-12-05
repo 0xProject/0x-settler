@@ -15,7 +15,6 @@ address constant uniswapV3WorldChainFactory = 0x7a5028BDa40e7B173C278C5342087826
 address constant uniswapV3GnosisFactory = 0xe32F7dD7e3f098D518ff19A22d5f028e076489B1;
 address constant uniswapV3SonicFactory = 0xcb2436774C3e191c85056d248EF4260ce5f27A9D;
 address constant uniswapV3InkFactory = 0x640887A9ba3A9C53Ed27D0F7e8246A4F933f3424;
-address constant uniswapV3MonadTestnetFactory = 0x961235a9020B05C44DF1026D956D1F4D78014276;
 address constant uniswapV3UnichainFactory = 0x1F98400000000000000000000000000000000003; // https://github.com/Uniswap/contracts/blob/main/deployments/130.md#fri-nov-08-2024
 address constant uniswapV3PlasmaFactory = 0xcb2436774C3e191c85056d248EF4260ce5f27A9D;
 address constant uniswapV3MonadFactory = 0x204FAca1764B154221e35c0d20aBb3c525710498;
