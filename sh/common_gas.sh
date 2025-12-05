@@ -29,7 +29,7 @@ function apply_gas_multiplier {
 
     # Mantle has some real funky gas rules, exclude it from this logic
     if (( chainid != 5000 )) && (( _gas_estimate > eip7825_gas_limit )) ; then
-        echo 'Gas estimate exceeds the EIP-7825 limit' >&2
+        echo 'Gas estimate without buffer /already/ exceeds the EIP-7825 limit' >&2
         exit 1
     fi
 
