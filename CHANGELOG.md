@@ -43,6 +43,8 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Deprecate MonadTestnet chain
+
 ### Non-breaking changes
 
 ## 2025-12-03
