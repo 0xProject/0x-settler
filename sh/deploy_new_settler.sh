@@ -210,10 +210,8 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
         --data '@-'                                         \
     )"
     gas_estimate="$(jq -rM '.result' <<<"$gas_estimate")"
-    declare -r -i gas_estimate
     declare -i gas_limit
     gas_limit="$(apply_gas_multiplier $gas_estimate)"
-    declare -r -i gas_limit
 
     # switch the wallet to the correct chain
     jq -Mc \
