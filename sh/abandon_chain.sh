@@ -120,7 +120,7 @@ declare -r project_root
 cd "$project_root"
 
 . "$project_root"/sh/common.sh
-. "$project_root"/sh/common_public_secrets.sh
+. "$project_root"/sh/common_secrets.sh
 
 # Determine which safe to abandon based on last argument
 declare safe_address
@@ -128,11 +128,11 @@ declare initial_owner
 if [[ ${@: -1} = [Uu]pgrade ]] ; then
     safe_address="$(get_config governance.upgradeSafe)"
     # Upgrade safe goes back to deployer.deployer (the deployer proxy deployer)
-    initial_owner="$(get_public_secret deployer deployer)"
+    initial_owner="$(get_secret deployer deployer)"
 else
     safe_address="$(get_config governance.deploymentSafe)"
     # Deployment safe goes back to iceColdCoffee.deployer
-    initial_owner="$(get_public_secret iceColdCoffee deployer)"
+    initial_owner="$(get_secret iceColdCoffee deployer)"
 fi
 declare -r safe_address
 declare -r initial_owner
