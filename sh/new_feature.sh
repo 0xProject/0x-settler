@@ -128,6 +128,14 @@ declare -r safe_address
 . "$project_root"/sh/common_safe.sh
 . "$project_root"/sh/common_safe_deployer.sh
 
+declare deployment_safe_address
+if [[ ${@: -1} = [Dd][Aa][Oo] ]] ; then
+    deployment_safe_address="$(get_config governance.daoSafe)"
+else
+    deployment_safe_address="$(get_config governance.deploymentSafe)"
+fi
+declare -r deployment_safe_address
+
 declare signer
 IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
 declare -r signer
@@ -191,7 +199,7 @@ calls+=(
 )
 
 declare authorize_call
-authorize_call="$(cast calldata "$authorize_sig" $feature "$(get_config governance.deploymentSafe)" "$auth_deadline")"
+authorize_call="$(cast calldata "$authorize_sig" $feature "$deployment_safe_address" "$auth_deadline")"
 declare -r authorize_call
 
 calls+=(

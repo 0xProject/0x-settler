@@ -135,6 +135,14 @@ shift
 declare -r description_file="$1"
 shift
 
+declare deployment_safe_address
+if [[ ${@: -1} = [Dd][Aa][Oo] ]] ; then
+    deployment_safe_address="$(get_config governance.daoSafe)"
+else
+    deployment_safe_address="$(get_config governance.deploymentSafe)"
+fi
+declare -r deployment_safe_address
+
 declare description
 description="$(jq -MRs < "$description_file")"
 description="${description:1:$((${#description} - 2))}"
@@ -185,7 +193,7 @@ calls+=(
 )
 
 declare authorize_call
-authorize_call="$(cast calldata "$authorize_sig" $feature "$(get_config governance.deploymentSafe)" "$auth_deadline")"
+authorize_call="$(cast calldata "$authorize_sig" $feature "$deployment_safe_address" "$auth_deadline")"
 declare -r authorize_call
 
 calls+=(
