@@ -46,12 +46,26 @@ abstract contract LfjTmTest is AllowanceHolderPairTest {
         return ILfjTmMarket(0xE14d2602E27F2dD779E427D2e33eaf450Fb1e8e0);
     }
 
+    function lfjTmZeroForOne() internal pure virtual returns (bool) {
+        return true;
+    }
+
     function fromToken() internal view virtual override returns (IERC20) {
         return IERC20(0x012Dc9b54623C37aEDb6f1b751c568a9995926a9); // launchpad token
     }
 
     function toToken() internal view virtual override returns (IERC20) {
         return IERC20(0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A); // WMON
+    }
+
+    function testLfjTm_zeroForOne() public skipIf(address(lfjTmPool()) == address(0)) {
+        if (lfjTmZeroForOne()) {
+            assertEq(address(lfjTmPool().getBaseToken()), address(fromToken()));
+            assertEq(address(lfjTmPool().getQuoteToken()), address(toToken()));
+        } else {
+            assertEq(address(lfjTmPool().getBaseToken()), address(toToken()));
+            assertEq(address(lfjTmPool().getQuoteToken()), address(fromToken()));
+        }
     }
 
     function testLfjTm() public skipIf(address(lfjTmPool()) == address(0)) {
@@ -65,7 +79,7 @@ abstract contract LfjTmTest is AllowanceHolderPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(_settler), permit, sig)),
-            abi.encodeCall(ISettlerActions.LFJTM, (FROM, address(_fromToken), 10000, address(lfjTmPool()), true, 0))
+            abi.encodeCall(ISettlerActions.LFJTM, (FROM, address(_fromToken), 10000, address(lfjTmPool()), lfjTmZeroForOne(), 0))
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),
@@ -102,7 +116,7 @@ abstract contract LfjTmTest is AllowanceHolderPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(lfjTmPool()), permit, sig)),
-            abi.encodeCall(ISettlerActions.LFJTM, (FROM, address(_fromToken), 0, address(lfjTmPool()), true, 0))
+            abi.encodeCall(ISettlerActions.LFJTM, (FROM, address(_fromToken), 0, address(lfjTmPool()), lfjTmZeroForOne(), 0))
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),
@@ -139,7 +153,7 @@ abstract contract LfjTmTest is AllowanceHolderPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(_settler), permit, sig)),
-            abi.encodeCall(ISettlerActions.LFJTM, (FROM, address(_fromToken), 10000, address(lfjTmPool()), false, 0))
+            abi.encodeCall(ISettlerActions.LFJTM, (FROM, address(_fromToken), 10000, address(lfjTmPool()), !lfjTmZeroForOne(), 0))
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),
