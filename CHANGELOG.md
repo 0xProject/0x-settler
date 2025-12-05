@@ -45,6 +45,9 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Fix bug that was causing bad revert reason for expired `AllowanceHolder`
+  trades.
+
 ## 2025-12-03
 
 ### Breaking changes
