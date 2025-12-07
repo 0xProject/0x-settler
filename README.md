@@ -125,9 +125,8 @@ your integration.
 
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum mainnet, Ethereum Sepolia testnet, Polygon, Base, Optimism,
-  Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
-  testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm, Katana, Plasma,
-  Monad mainnet)
+  Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Avalanche,
+  Unichain, Berachain, Scroll, HyperEvm, Katana, Plasma, Monad mainnet)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
   hardfork (Mantle, Taiko)
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
