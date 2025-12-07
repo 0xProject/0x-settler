@@ -21,6 +21,10 @@ interface ICrossChainReceiverFactory is IERC1271, IERC5267, IOwnable {
     /// Only available on proxies
     function approvePermit2(IERC20 token, uint256 amount) external returns (bool);
 
+    /// Utility function for getting stuck native/tokens out of the ERC2771-forwarding multicall contract
+    /// @dev This function DOES NOT WORK if the token implements ERC2771 with the multicall as its forwarder
+    function getFromMulticall(IERC20 token, address payable recipient) external returns (bool);
+
     /// Only available on proxies
     function call(address payable target, uint256 value, bytes calldata data) external returns (bytes memory);
 

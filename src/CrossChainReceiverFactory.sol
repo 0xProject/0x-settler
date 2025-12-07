@@ -413,6 +413,84 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     }
 
     /// @inheritdoc ICrossChainReceiverFactory
+    function getFromMulticall(IERC20 token, address payable recipient) external override returns (bool) {
+        assembly ("memory-safe") {
+            for {} true {} {
+                if shl(0x60, xor(_NATIVE_ADDRESS, token)) {
+                    mstore(callvalue(), 0x70a08231)
+                    mstore(0x20, MULTICALL_ADDRESS)
+                    if iszero(staticcall(gas(), token, 0x1c, 0x24, callvalue(), 0x20)) {
+                        let ptr_ := mload(0x40)
+                        returndatacopy(ptr_, callvalue(), returndatasize())
+                        revert(ptr_, returndatasize())
+                    }
+                    let amount := mload(callvalue())
+                    if iszero(amount) {
+                        break
+                    }
+
+                    let ptr := mload(0x40)
+
+                    mstore(ptr, 0x669a7d5e)                                                        // `IMultiCall.multicall.selector`
+                    mstore(add(0x20, ptr), 0x40)                                                   // calls.offset
+                    mstore(add(0x40, ptr), callvalue())                                            // contextdepth (ignored because we set `revertPolicy = REVERT`)
+                    mstore(add(0x60, ptr), 0x01)                                                   // calls.length
+                    mstore(add(0x80, ptr), 0x20)                                                   // calls[0].offset
+                    mstore(add(0xa0, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, token)) // calls[0].target
+                    mstore(add(0xc0, ptr), callvalue())                                            // calls[0].revertPolicy = RevertPolicy.REVERT
+                    mstore(add(0xe0, ptr), callvalue())                                            // calls[0].value
+                    mstore(add(0x100, ptr), 0x80)                                                  // calls[0].data.offset
+
+                    mstore(add(0x164, ptr), amount)
+                    mstore(add(0x144, ptr), recipient)
+                    mstore(add(0x130, ptr), 0xa9059cbb) // `IERC20.transfer.selector` with `recipient`'s padding
+
+                    mstore(add(0x120, ptr), 0x44)                                                  // calls[0].data.length
+
+                    if iszero(call(gas(), MULTICALL_ADDRESS, callvalue(), add(0x1c, ptr), 0x168, codesize(), callvalue())) {
+                        let ptr_ := mload(0x40)
+                        returndatacopy(ptr_, callvalue(), returndatasize())
+                        revert(ptr_, returndatasize())
+                    }
+
+                    break
+                }
+
+                {
+                    let amount := balance(MULTICALL_ADDRESS)
+                    if iszero(amount) {
+                        break
+                    }
+
+                    let ptr := mload(0x40)
+
+                    mstore(ptr, 0x669a7d5e)                                                            // `IMultiCall.multicall.selector`
+                    mstore(add(0x20, ptr), 0x40)                                                       // calls.offset
+                    mstore(add(0x40, ptr), callvalue())                                                // contextdepth (ignored because we set `revertPolicy = REVERT`)
+                    mstore(add(0x60, ptr), 0x01)                                                       // calls.length
+                    mstore(add(0x80, ptr), 0x20)                                                       // calls[0].offset
+                    mstore(add(0xa0, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, recipient)) // calls[0].target
+                    mstore(add(0xc0, ptr), callvalue())                                                // calls[0].revertPolicy = RevertPolicy.REVERT
+                    mstore(add(0xe0, ptr), amount)                                                     // calls[0].value
+                    mstore(add(0x100, ptr), 0x80)                                                      // calls[0].data.offset
+                    mstore(add(0x120, ptr), callvalue())                                               // calls[0].data.length
+
+                    if iszero(call(gas(), MULTICALL_ADDRESS, callvalue(), add(0x1c, ptr), 0x124, codesize(), callvalue())) {
+                        let ptr_ := mload(0x40)
+                        returndatacopy(ptr_, callvalue(), returndatasize())
+                        revert(ptr_, returndatasize())
+                    }
+
+                    break
+                }
+            }
+
+            mstore(callvalue(), 0x01)
+            return(callvalue(), 0x20)
+        }
+    }
+
+    /// @inheritdoc ICrossChainReceiverFactory
     function call(address payable target, uint256 value, bytes calldata data)
         external
         override
