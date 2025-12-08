@@ -45,6 +45,9 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to Plasma
+* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to HyperEVM
+
 ## 2025-12-03
 
 ### Breaking changes
