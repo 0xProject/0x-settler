@@ -127,6 +127,11 @@ contract LayerZeroOFTPlasmaTest is BridgeSettlerIntegrationTest {
     // XPL NativeOFTAdapter
     address oft = 0x405FBc9004D857903bFD6b3357792D71a50726b0;
 
+    function setUp() public override {
+        super.setUp();
+        token = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    }
+
     receive() external payable {}
 
     function _testBridgeSettler() internal virtual override {
@@ -142,9 +147,7 @@ contract LayerZeroOFTPlasmaTest is BridgeSettlerIntegrationTest {
     }
 
     function testBridgeNative() public {
-        token = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
         uint256 amount = 10 ether;
-        deal(address(this), amount);
 
         IOFT.SendParam memory sendParam = IOFT.SendParam({
             dstEid: uint32(30102), // BNB
@@ -177,5 +180,44 @@ contract LayerZeroOFTPlasmaTest is BridgeSettlerIntegrationTest {
         uint256 balanceAfter = address(oft).balance;
 
         assertEq(balanceAfter - balanceBefore, amount, "Assets were not received");
+    }
+
+    function testBridgeNativeWithDust() public {
+        uint256 dust = 1000;
+        uint256 amount = 10 ether + dust;
+
+        IOFT.SendParam memory sendParam = IOFT.SendParam({
+            dstEid: uint32(30102), // BNB
+            to: bytes32(uint256(uint160(makeAddr("recipient")))),
+            amountLD: amount,
+            minAmountLD: amount - dust,
+            extraOptions: bytes(""),
+            composeMsg: bytes(""),
+            oftCmd: bytes("")
+        });
+
+        (,, IOFT.OFTReceipt memory receipt) = IOFT(oft).quoteOFT(sendParam);
+        sendParam.minAmountLD = receipt.amountReceivedLD;
+
+        IOFT.MessagingFee memory messagingFee = IOFT(oft).quoteSend(sendParam, false);
+        uint256 fee = messagingFee.nativeFee;
+
+        sendParam.amountLD = 0; // send 0 to let settler inject the value
+        bytes[] memory bridgeActions = new bytes[](2);
+        bridgeActions[0] = abi.encodeCall(
+            IBridgeSettlerActions.BRIDGE_TO_LAYER_ZERO_OFT,
+            (address(token), fee, oft, abi.encode(sendParam, messagingFee, address(this)))
+        );
+        bridgeActions[1] =
+            abi.encodeCall(IBridgeSettlerActions.BASIC, (address(token), 10000, address(this), 0, bytes("")));
+        sendParam.amountLD = amount - dust;
+
+        deal(address(this), amount + fee);
+        uint256 balanceBefore = address(oft).balance;
+        vm.expectCall(oft, amount + fee - dust, abi.encodeCall(IOFT.send, (sendParam, messagingFee, address(this))));
+        bridgeSettler.execute{value: amount + fee}(bridgeActions, bytes32(0));
+        uint256 balanceAfter = address(oft).balance;
+
+        assertEq(balanceAfter - balanceBefore, amount - dust, "Assets were not received");
     }
 }
