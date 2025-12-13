@@ -100,6 +100,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     );
     IWrappedNative private immutable _WNATIVE =
         IWrappedNative(payable(address(uint160(uint256(bytes32(_WNATIVE_STORAGE.code))))));
+    bool private immutable _HAS_WNATIVE = true;
+    bool private immutable _MISSING_WNATIVE = false;
 
     address private constant _PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
     ISignatureTransfer private constant _PERMIT2 = ISignatureTransfer(_PERMIT2_ADDRESS);
@@ -139,8 +141,14 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         );
         require(_CALL_TYPEHASH == keccak256("Call(address target,uint8 revertPolicy,uint256 value,bytes data)"));
 
-        // do some behavioral checks on `_WNATIVE`
-        {
+        if (address(_WNATIVE) == address(0)) {
+            require(_WNATIVE_STORAGE.codehash == 0xa4675c945174b9ec4e7010035cbc327beed918e1ea949cf630df20b201167a0c);
+            // `_WNATIVE` is deliberately unset
+            _HAS_WNATIVE = false;
+            _MISSING_WNATIVE = true;
+        } else {
+            // do some behavioral checks on `_WNATIVE`
+
             // we need some value in order to perform the behavioral checks
             require(address(this).balance > 1 wei);
 
@@ -337,6 +345,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         noDelegateCall
         returns (ICrossChainReceiverFactory proxy)
     {
+        setOwnerNotCleanup = setOwnerNotCleanup.or(_MISSING_WNATIVE);
         bytes32 proxyInitCode0 = _proxyInitCode0;
         bytes32 proxyInitCode1 = _proxyInitCode1;
         assembly ("memory-safe") {
@@ -381,6 +390,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     /// @inheritdoc ICrossChainReceiverFactory
     function approvePermit2(IERC20 token, uint256 amount) external override onlyProxy returns (bool) {
         if (token == _NATIVE) {
+            require(!_MISSING_WNATIVE);
             token = _WNATIVE;
             assembly ("memory-safe") {
                 if iszero(call(gas(), token, amount, codesize(), callvalue(), codesize(), callvalue())) {
@@ -877,9 +887,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
         unchecked {
             if (address(this).balance < value) {
-                IWrappedNative wnative = _WNATIVE;
-
                 uint256 wrappedBalance;
+                IWrappedNative wnative = _WNATIVE;
+                bool hasWnative = _HAS_WNATIVE;
                 assembly ("memory-safe") {
                     mstore(0x00, 0x70a08231) // `IERC20.balanceOf.selector`
                     mstore(0x20, address())
@@ -889,7 +899,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                         revert(codesize(), callvalue())
                     }
 
-                    wrappedBalance := mload(callvalue())
+                    wrappedBalance := mul(_HAS_WNATIVE, mload(callvalue()))
                 }
 
                 uint256 toUnwrap = (address(this).balance + wrappedBalance < value).ternary(
@@ -898,7 +908,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 value = toUnwrap + address(this).balance;
 
                 assembly ("memory-safe") {
-                    mstore(callvalue(), 0x2e1a7d4d) // IWrappedNative.withdraw.selector
+                    mstore(callvalue(), 0x2e1a7d4d) // `IWrappedNative.withdraw.selector`
                     mstore(0x20, toUnwrap)
 
                     if iszero(call(gas(), wnative, callvalue(), 0x1c, 0x24, codesize(), callvalue())) {
@@ -1141,7 +1151,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     }
 
     receive() external payable override onlyProxy {
-        if (msg.sender != address(_WNATIVE)) {
+        if ((msg.sender != address(_WNATIVE)).andNot(_MISSING_WNATIVE)) {
             IWrappedNative wnative = _WNATIVE;
             assembly ("memory-safe") {
                 if iszero(call(gas(), wnative, callvalue(), codesize(), returndatasize(), codesize(), returndatasize()))
