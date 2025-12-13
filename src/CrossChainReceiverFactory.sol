@@ -435,9 +435,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                         revert(ptr_, returndatasize())
                     }
                     let amount := mload(callvalue())
-                    if iszero(amount) {
-                        break
-                    }
+                    if iszero(amount) { break }
 
                     let ptr := mload(0x40)
 
@@ -457,7 +455,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
                     mstore(add(0x120, ptr), 0x44)                                                  // calls[0].data.length
 
-                    if iszero(call(gas(), MULTICALL_ADDRESS, callvalue(), add(0x1c, ptr), 0x168, codesize(), callvalue())) {
+                    if iszero(
+                        call(gas(), MULTICALL_ADDRESS, callvalue(), add(0x1c, ptr), 0x168, codesize(), callvalue())
+                    ) {
                         let ptr_ := mload(0x40)
                         returndatacopy(ptr_, callvalue(), returndatasize())
                         revert(ptr_, returndatasize())
@@ -468,9 +468,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
                 {
                     let amount := balance(MULTICALL_ADDRESS)
-                    if iszero(amount) {
-                        break
-                    }
+                    if iszero(amount) { break }
 
                     let ptr := mload(0x40)
 
@@ -485,7 +483,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     mstore(add(0x100, ptr), 0x80)                                                      // calls[0].data.offset
                     mstore(add(0x120, ptr), callvalue())                                               // calls[0].data.length
 
-                    if iszero(call(gas(), MULTICALL_ADDRESS, callvalue(), add(0x1c, ptr), 0x124, codesize(), callvalue())) {
+                    if iszero(
+                        call(gas(), MULTICALL_ADDRESS, callvalue(), add(0x1c, ptr), 0x124, codesize(), callvalue())
+                    ) {
                         let ptr_ := mload(0x40)
                         returndatacopy(ptr_, callvalue(), returndatasize())
                         revert(ptr_, returndatasize())
