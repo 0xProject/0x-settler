@@ -451,7 +451,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
                     mstore(add(0x164, ptr), amount)
                     mstore(add(0x144, ptr), recipient)
-                    mstore(add(0x130, ptr), 0xa9059cbb) // `IERC20.transfer.selector` with `recipient`'s padding
+                    mstore(add(0x130, ptr), 0xa9059cbb000000000000000000000000) // `IERC20.transfer.selector` with `recipient`'s padding
 
                     mstore(add(0x120, ptr), 0x44)                                                  // calls[0].data.length
 
