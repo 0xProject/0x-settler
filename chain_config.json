@@ -879,8 +879,8 @@
     "chainId": 2741,
     "displayName": "Abstract",
     "wnative": "0x3439153EB7AF838Ad19d56E1571FBD09333C2809",
-    "isShanghai": null,
-    "isCancun": null,
+    "isShanghai": true,
+    "isCancun": true,
     "isEraVm": true,
     "extraFlags": "",
     "extraScriptFlags": "",
@@ -893,6 +893,9 @@
       "fallback": "0x2f870a80647BbC554F3a0EBD093f11B4d2a7492A",
       "multiCall": "0xf220D3b4DFb23C4ade8C88E526C1353AbAcbC38F",
       "apiUrl": "https://transaction.safe.abs.xyz/api"
+    },
+    "deployment": {
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f"
     },
     "etherscanApi": "https://api.etherscan.io/v2/api?chainid=2741"
   }
