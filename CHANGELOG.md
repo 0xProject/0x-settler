@@ -48,6 +48,11 @@ Master list of UniV3 forks:
 
 * Fix bug that was causing bad revert reason for expired `AllowanceHolder`
   trades.
+
+## 2025-12-15
+
+### Non-breaking changes
+
 * Deploy Settler and BridgeSettler to Abstract mainnet chain
   * Add UniswapV3 UniswapV3 fork to Abstract chain
   * Add Aborean UniswapV3 fork to Abstract chain
