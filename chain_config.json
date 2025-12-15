@@ -897,7 +897,13 @@
     "deployment": {
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325",
-      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734"
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
+    },
+    "governance": {
+      "upgradeSafe": "0x0a3ba9036e62df32fAeC7753c3372B4375c6E20A",
+      "deploymentSafe": "0xcF20bD8fbd83C484a34A3f48B30612b42E87e7bb",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "etherscanApi": "https://api.etherscan.io/v2/api?chainid=2741"
   }
