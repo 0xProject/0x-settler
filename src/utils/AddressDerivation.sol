@@ -3,9 +3,11 @@ pragma solidity ^0.8.25;
 
 import {Panic} from "./Panic.sol";
 import {UnsafeMath} from "./UnsafeMath.sol";
+import {FastLogic} from "./FastLogic.sol";
 
 library AddressDerivation {
     using UnsafeMath for uint256;
+    using FastLogic for bool;
 
     uint256 internal constant _SECP256K1_P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
     uint256 internal constant _SECP256K1_N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
@@ -19,7 +21,7 @@ library AddressDerivation {
         if (k == 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);
         }
-        if (k >= _SECP256K1_N || x >= _SECP256K1_P || y >= _SECP256K1_P) {
+        if ((k >= _SECP256K1_N).or(x >= _SECP256K1_P).or(y >= _SECP256K1_P)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
 
@@ -27,9 +29,10 @@ library AddressDerivation {
         // coordinate against 0. if it is 0, then the other is too (the point at
         // infinity) or the point is invalid
         if (
-            x == 0
-                || y.unsafeMulMod(y, _SECP256K1_P)
+            (x == 0).or(
+                y.unsafeMulMod(y, _SECP256K1_P)
                     != x.unsafeMulMod(x, _SECP256K1_P).unsafeMulMod(x, _SECP256K1_P).unsafeAddMod(7, _SECP256K1_P)
+            )
         ) {
             revert InvalidCurve(x, y);
         }
@@ -64,25 +67,17 @@ library AddressDerivation {
                 result := keccak256(0x1e, 0x17)
             }
         } else {
+            if (~uint256(nonce) << 192 == 0) {
+                Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+            }
             // compute ceil(log_256(nonce)) + 1
             uint256 nonceLength = 8;
             unchecked {
-                if ((uint256(nonce) >> 32) != 0) {
-                    nonceLength += 32;
-                    if (nonce == type(uint64).max) {
-                        Panic.panic(Panic.ARITHMETIC_OVERFLOW);
-                    }
-                }
-                if ((uint256(nonce) >> 8) >= (1 << nonceLength)) {
-                    nonceLength += 16;
-                }
-                if (uint256(nonce) >= (1 << nonceLength)) {
-                    nonceLength += 8;
-                }
+                nonceLength += (0 < (uint256(nonce) >> 32)).toUint() << 5;
+                nonceLength += ((uint256(nonce) >> 8) >= (1 << nonceLength)).toUint() << 4;
+                nonceLength += (uint256(nonce) >= (1 << nonceLength)).toUint() << 3;
                 // ceil
-                if ((uint256(nonce) << 8) >= (1 << nonceLength)) {
-                    nonceLength += 8;
-                }
+                nonceLength += ((uint256(nonce) << 8) >= (1 << nonceLength)).toUint() << 3;
                 // bytes, not bits
                 nonceLength >>= 3;
             }
