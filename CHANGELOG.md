@@ -36,7 +36,7 @@ Master list of UniV3 forks:
   33. Hybra
   34. HyperSwap
   35. Velodrome/Aerodrome Slipstream V3.1
-  36. AboreanCL 
+  36. AboreanCL
 
 ---
 
@@ -45,6 +45,8 @@ Master list of UniV3 forks:
 ### Breaking changes
 
 ### Non-breaking changes
+
+* Add Arborean UniswapV3 fork to Abstract chain
 
 ## 2025-12-03
 
