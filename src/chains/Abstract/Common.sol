@@ -5,6 +5,7 @@ import {SettlerBase} from "../../SettlerBase.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {FastLogic} from "../../utils/FastLogic.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -16,11 +17,18 @@ import {
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
+import {
+    aboreanCLSwapFactory,
+    aboreanCLSwapInitHash,
+    aboreanCLSwapForkId
+} from "../../core/univ3forks/AboreanCL.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
 abstract contract AbstractMixin is FreeMemory, SettlerBase {
+    using FastLogic for bool;
+
     constructor() {
         assert(block.chainid == 2741 || block.chainid == 31337);
     }
@@ -41,7 +49,7 @@ abstract contract AbstractMixin is FreeMemory, SettlerBase {
     }
 
     function _isEraVmUniV3Fork(uint8 forkId) internal pure virtual override returns (bool) {
-        return forkId == uniswapV3ForkId;
+        return (forkId == uniswapV3ForkId).or(forkId == aboreanCLSwapForkId);
     }
 
     function _uniV3ForkInfo(uint8 forkId)
@@ -53,6 +61,10 @@ abstract contract AbstractMixin is FreeMemory, SettlerBase {
         if (forkId == uniswapV3ForkId) {
             factory = uniswapV3AbstractFactory;
             initHash = uniswapV3InitHashEraVm;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == aboreanCLSwapForkId) {
+            factory = aboreanCLSwapFactory;
+            initHash = aboreanCLSwapInitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
