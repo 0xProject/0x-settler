@@ -44,6 +44,8 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Deprecate Abstract Sepolia testnet
+
 ### Non-breaking changes
 
 * Fix bug that was causing bad revert reason for expired `AllowanceHolder`

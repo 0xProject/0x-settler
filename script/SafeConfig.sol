@@ -7,7 +7,6 @@ library SafeConfig {
     function _isTestnet() internal view returns (bool) {
         if (
             block.chainid == 10143 // monad testnet
-                || block.chainid == 11124 // abstract sepolia
                 || block.chainid == 11155111 // sepolia
         ) {
             return true;
@@ -62,7 +61,6 @@ library SafeConfig {
                 || block.chainid == 8453 // base
                 || block.chainid == 9745 // plasma
                 || block.chainid == 10143 // monad testnet
-                || block.chainid == 11124 // abstract sepolia
                 || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
@@ -83,7 +81,6 @@ library SafeConfig {
     function isEraVm() internal view returns (bool) {
         if (
             block.chainid == 2741 // abstract
-                || block.chainid == 11124 // abstract sepolia
         ) {
             return true;
         }
