@@ -46,7 +46,8 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
-* Add Arborean UniswapV3 fork to Abstract chain
+* Deploy Settler and BridgeSettler to Abstract mainnet chain
+  * Add Arborean UniswapV3 fork to Abstract chain
 
 ## 2025-12-03
 
