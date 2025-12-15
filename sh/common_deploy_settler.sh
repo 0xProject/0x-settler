@@ -69,7 +69,7 @@ declare -r deploy_intent_calldata
 
 declare next_intent_settler_address
 if [[ -z "${deployer_address-}" ]] ; then
-    if [[ $(get_config isShanghai) != [Tt]rue ]] ; then
+    if [[ $(get_config hardfork.shanghai) != [Tt]rue ]] ; then
         echo 'NO NEW LONDON CHAINS!!!' >&2
         exit 1
     fi

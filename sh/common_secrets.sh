@@ -1,3 +1,5 @@
+declare secrets
+
 if [[ ${DECRYPT_SECRETS-yes} = [Nn]o ]] ; then
     # Read public values from secrets.json.template (no decryption needed)
     if [ ! -f "$project_root"/secrets.json.template ] ; then
@@ -5,9 +7,13 @@ if [[ ${DECRYPT_SECRETS-yes} = [Nn]o ]] ; then
         exit 1
     fi
 
+    function decrypt_secrets {
+        secrets="$(<"$project_root"/secrets.json.template)"
+    }
+
     function get_secret {
         declare _secret_value
-        _secret_value="$(jq -Mr ."$1"."$2" < "$project_root"/secrets.json.template)"
+        _secret_value="$(jq -Mr ."$1"."$2" <<<"$secrets")"
         if [[ ${_secret_value:-unset} = 'unset' ]] || [[ $_secret_value = 'null' ]] ; then
             echo 'Secret "'"$1"'.'"$2"'" requires decryption but DECRYPT_SECRETS=no' >&2
             exit 1
@@ -44,8 +50,6 @@ else
         echo 'secrets.json exists, remove it - will use secrets.json.scrypt only' >&2
         exit 1
     fi
-
-    declare secrets
 
     function decrypt_secrets {
         secrets="$(scrypt dec -f "$project_root"/secrets.json.scrypt)"

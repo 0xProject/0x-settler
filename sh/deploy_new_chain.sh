@@ -287,8 +287,13 @@ fi
 
 export FOUNDRY_OPTIMIZER_RUNS=1000000
 
-ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" \
-    forge script                                         \
+declare ICECOLDCOFFEE_DEPLOYER_KEY
+ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)"
+export ICECOLDCOFFEE_DEPLOYER_KEY
+declare DEPLOYER_PROXY_DEPLOYER_KEY
+DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)"
+export DEPLOYER_PROXY_DEPLOYER_KEY
+forge script                                             \
     --slow                                               \
     --no-storage-caching                                 \
     --skip 'Flat.sol'                                    \
@@ -311,6 +316,8 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
     2 3 4 5 "$taker_submitted_description" "$metatransaction_description" "$intents_description" "$bridge_description" \
     "$chain_display_name" "$constructor_args" "$(IFS=, ; echo "[${solvers[*]}]")"
+unset -v ICECOLDCOFFEE_DEPLOYER_KEY
+unset -v DEPLOYER_PROXY_DEPLOYER_KEY
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     echo 'Waiting for 1 minute for Etherscan to pick up the deployment' >&2

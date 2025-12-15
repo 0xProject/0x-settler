@@ -122,6 +122,8 @@ cd "$project_root"
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
 
+decrypt_secrets
+
 # Determine which safe to abandon based on last argument
 declare safe_address
 declare initial_owner

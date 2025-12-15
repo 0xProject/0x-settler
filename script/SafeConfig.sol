@@ -23,6 +23,7 @@ library SafeConfig {
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
                 || block.chainid == 999 // hyperevm
+                || block.chainid == 2741 // abstract
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
                 || block.chainid == 9745 // plasma
@@ -56,6 +57,7 @@ library SafeConfig {
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
                 || block.chainid == 999 // hyperevm
+                || block.chainid == 2741 // abstract
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
                 || block.chainid == 9745 // plasma
@@ -79,7 +81,10 @@ library SafeConfig {
     }
 
     function isEraVm() internal view returns (bool) {
-        if (block.chainid == 11124) {
+        if (
+            block.chainid == 2741 // abstract
+                || block.chainid == 11124 // abstract sepolia
+        ) {
             return true;
         }
         if (
