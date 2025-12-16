@@ -288,7 +288,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "NOT SUPPORTED"
+      "apiUrl": "https://api.safe.global/tx-service/blastmainnet/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -724,7 +724,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "NOT SUPPORTED"
+      "apiUrl": "https://api.safe.global/tx-service/hyper/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -792,7 +792,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "NOT SUPPORTED"
+      "apiUrl": "https://api.safe.global/tx-service/plasma/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -825,7 +825,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "NOT SUPPORTED"
+      "apiUrl": "https://api.safe.global/tx-service/monad/api"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -840,7 +840,8 @@
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
     },
     "sourcifyApi": "https://sourcify-api-monad.blockvision.org",
-    "blockscoutApi": "https://api.socialscan.io/monad/v1/explorer/command_api/contract"
+    "blockscoutApi": "https://api.socialscan.io/monad/v1/explorer/command_api/contract",
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=143"
   },
   "abstract-testnet": {
     "chainId": 11124,
@@ -859,7 +860,7 @@
       "factory": "0xDAec33641865E4651fB43181C6DB6f7232Ee91c2",
       "fallback": "0x2f870a80647BbC554F3a0EBD093f11B4d2a7492A",
       "multiCall": "0xf220D3b4DFb23C4ade8C88E526C1353AbAcbC38F",
-      "apiUrl": "NOT SUPPORTED"
+      "apiUrl": "https://transaction-testnet.safe.abs.xyz/api"
     },
     "governance": {
       "upgradeSafe": "0x0a3ba9036e62df32fAeC7753c3372B4375c6E20A",
@@ -878,8 +879,8 @@
     "chainId": 2741,
     "displayName": "Abstract",
     "wnative": "0x3439153EB7AF838Ad19d56E1571FBD09333C2809",
-    "isShanghai": null,
-    "isCancun": null,
+    "isShanghai": true,
+    "isCancun": true,
     "isEraVm": true,
     "extraFlags": "",
     "extraScriptFlags": "",
@@ -891,7 +892,18 @@
       "factory": "0xDAec33641865E4651fB43181C6DB6f7232Ee91c2",
       "fallback": "0x2f870a80647BbC554F3a0EBD093f11B4d2a7492A",
       "multiCall": "0xf220D3b4DFb23C4ade8C88E526C1353AbAcbC38F",
-      "apiUrl": "NOT SUPPORTED"
+      "apiUrl": "https://transaction.safe.abs.xyz/api"
+    },
+    "deployment": {
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
+      "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
+    },
+    "governance": {
+      "upgradeSafe": "0x0a3ba9036e62df32fAeC7753c3372B4375c6E20A",
+      "deploymentSafe": "0xcF20bD8fbd83C484a34A3f48B30612b42E87e7bb",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "etherscanApi": "https://api.etherscan.io/v2/api?chainid=2741"
   }

@@ -344,7 +344,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
             if (block.timestamp > permit.deadline) {
                 assembly ("memory-safe") {
                     mstore(0x00, 0xcd21db4f) // selector for `SignatureExpired(uint256)`
-                    mstore(0x20, mload(add(0x60, permit)))
+                    mstore(0x20, mload(add(0x40, permit)))
                     revert(0x1c, 0x24)
                 }
             }
