@@ -1153,7 +1153,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 if iszero(call(gas(), wnative, callvalue(), codesize(), returndatasize(), codesize(), returndatasize()))
                 {
                     // this should never happen
-                    revert(codesize(), 0x00)
+                    revert(codesize(), calldatasize())
                 }
             }
         }
