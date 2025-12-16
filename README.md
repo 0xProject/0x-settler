@@ -127,7 +127,7 @@ your integration.
   hardfork (Ethereum mainnet, Ethereum Sepolia testnet, Polygon, Base, Optimism,
   Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
   testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm, Katana, Plasma,
-  Monad mainnet)
+  Monad mainnet, Abstract)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
   hardfork (Mantle, Taiko)
 * `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
@@ -1506,12 +1506,18 @@ it up, make sure you learn from your mistakes for the next step.
 Sixth, deploy `CrossChainReceiverFactory`. Send 2 wei of value to the wnative
 storage setter address (`0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc` unless
 something has gone very wrong). Run the deployment script in simulation mode
-[`BROADCAST=no ./sh/deploy_crosschainfactory.sh
-<CHAIN_NAME>`](sh/deploy_crosschainfactory.sh). Then fully fund the wnative
-storage setter address (it takes about 1.4Mgas; give yourself some buffer and
-adjust for the prevailing gas price) and re-run with `BROADCAST=yes`. It's
-annoying if you mess this one up, but it is (probably) recoverable because the
-vanity comes from the Arachnid deployer rather than from the EVM itself.
+[`DECRYPT_SECRETS=no BROADCAST=no ./sh/deploy_crosschainfactory.sh
+<CHAIN_NAME>`](sh/deploy_crosschainfactory.sh). On EraVM chains, simulation
+doesn't work correctly; you can temporarily substitute the EraVM-native
+non-forwarding multicall in `chain_config.json` with the EVM one from another
+chain to fix this. On chains without `SELFDESTRUCT` support, you will need to
+edit the script to comment-out the cleanup calls to `"$shim"` and
+`"$wnative_storage"` (the ones with a payload/calldata of `0x00000000`). Then
+fully fund the wnative storage setter address (it takes about 1.4Mgas; give
+yourself some buffer and adjust for the prevailing gas price) and re-run with
+`BROADCAST=yes` (and without `DECRYPT_SECRETS=no`). It's annoying if you mess
+this one up, but it is (probably) recoverable because the vanity comes from the
+Arachnid deployer rather than from the EVM itself.
 
 Seventh, deploy `AllowanceHolder`. Obviously, if you're deploying to a
 Cancun-supporting chain, you don't need to fund the deployer for the old
