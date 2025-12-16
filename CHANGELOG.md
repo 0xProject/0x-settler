@@ -36,6 +36,7 @@ Master list of UniV3 forks:
   33. Hybra
   34. HyperSwap
   35. Velodrome/Aerodrome Slipstream V3.1
+  36. AboreanCL
 
 ---
 
@@ -44,6 +45,19 @@ Master list of UniV3 forks:
 ### Breaking changes
 
 ### Non-breaking changes
+
+* Fix bug that was causing bad revert reason for expired `AllowanceHolder`
+  trades.
+* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to Plasma
+* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to HyperEVM
+
+## 2025-12-15
+
+### Non-breaking changes
+
+* Deploy Settler and BridgeSettler to Abstract mainnet chain
+  * Add UniswapV3 UniswapV3 fork to Abstract chain
+  * Add Aborean UniswapV3 fork to Abstract chain
 
 ## 2025-12-03
 
