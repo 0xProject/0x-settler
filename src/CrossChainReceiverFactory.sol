@@ -434,6 +434,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                         returndatacopy(ptr_, callvalue(), returndatasize())
                         revert(ptr_, returndatasize())
                     }
+                    if gt(0x20, returndatasize()) { revert(codesize(), callvalue()) }
+
                     let amount := mload(callvalue())
                     if iszero(amount) { break }
 
