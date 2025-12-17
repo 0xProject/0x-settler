@@ -307,8 +307,8 @@
   "linea": {
     "chainId": 59144,
     "displayName": "Linea",
-    "isShanghai": false,
-    "isCancun": false,
+    "isShanghai": true,
+    "isCancun": true,
     "isEraVm": false,
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
