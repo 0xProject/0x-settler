@@ -127,11 +127,9 @@ your integration.
   hardfork (Ethereum mainnet, Ethereum Sepolia testnet, Polygon, Base, Optimism,
   Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
   testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm, Katana, Plasma,
-  Monad mainnet, Abstract)
+  Monad mainnet, Abstract, Linea)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
   hardfork (Mantle, Taiko)
-* `0x000000000000175a8b9bC6d539B3708EEd92EA6c` on chains supporting the London
-  hardfork (Linea)
 
 ### ERC2771 forwarding MultiCall address
 
@@ -1318,11 +1316,7 @@ You need to be an approved deployer. The "pause" operation is 1-of-n, not 2-of-n
 like deploying a new `Settler`. `0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30`
 (ice cold coffees) is the address of the pauser contract. It's at the same
 address on all chains unless somebody screwed up the vanity addresses and didn't
-update this document. On Linea, the address of the pauser contract is
-`0xBE71A746C7AE0f9D18E6DB4f71d09732B0Ee5b9c` because the code deployed to the
-usual address relies on `PUSH0`, which is not supported on that chain. When
-Linea adopts the Shanghai hardfork (`PUSH0`), remove the preceeding sentence
-from this document.
+update this document.
 
 0. Go to that address on the relevant block explorer.
 
