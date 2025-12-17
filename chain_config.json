@@ -623,7 +623,8 @@
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
-    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=146"
+    "etherscanApi": "https://api.etherscan.io/v2/api?chainid=146",
+    "sourcifyApi": "https://sourcify.dev/server/"
   },
   "ink": {
     "chainId": 57073,

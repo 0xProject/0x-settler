@@ -144,7 +144,7 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
 
     declare packed_signatures
     packed_signatures="$(retrieve_signatures bridge_settler_confirmation "$deploy_calldata" $operation "$target")"
-    
+
     declare -a args=(
         "$safe_address" "$execTransaction_sig"
         # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
@@ -157,7 +157,7 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     declare -i gas_limit
     gas_limit="$(apply_gas_multiplier $gas_estimate)"
     declare -r -i gas_limit
-    
+
     if [[ $wallet_type = 'frame' ]] ; then
         cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "${args[@]}"
     else
