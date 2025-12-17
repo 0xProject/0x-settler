@@ -194,7 +194,7 @@
       "eraVm": false
     },
     "extraFlags": "--legacy",
-    "extraScriptFlags": "--isolate",
+    "extraScriptFlags": "--isolate --skip-simulation",
     "gasMultiplierPercent": 300,
     "minGasPriceGwei": 1,
     "wnative": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
@@ -415,7 +415,7 @@
       "eraVm": false
     },
     "extraFlags": "--legacy",
-    "extraScriptFlags": "--isolate",
+    "extraScriptFlags": "--isolate --skip-simulation",
     "gasMultiplierPercent": 200,
     "minGasPriceGwei": 1,
     "wnative": "0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8",
@@ -892,7 +892,7 @@
       "eraVm": false
     },
     "extraFlags": "",
-    "extraScriptFlags": "--isolate",
+    "extraScriptFlags": "--isolate --skip-simulation",
     "gasMultiplierPercent": 110,
     "minGasPriceGwei": 52,
     "safe": {
