@@ -44,6 +44,9 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Update Linea chain to Cancun hardfork (AllowanceHolder is now
+  `0x0000000000001fF3684f28c67538d4D072C22734`)
+
 ### Non-breaking changes
 
 * Fix bug that was causing bad revert reason for expired `AllowanceHolder`
