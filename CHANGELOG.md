@@ -48,8 +48,15 @@ Master list of UniV3 forks:
 
 * Fix bug that was causing bad revert reason for expired `AllowanceHolder`
   trades.
+
+## 2025-12-17
+
+### Non-breaking changes
+
 * Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to Plasma
 * Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to HyperEVM
+* Fix bug that was sending un-settleable native asset dust via OFT,
+  causing reverts.
 
 ## 2025-12-15
 
