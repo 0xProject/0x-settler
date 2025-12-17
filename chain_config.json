@@ -917,7 +917,7 @@
     "isEraVm": false,
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
-    "gasMultiplierPercent": 5000,
+    "gasMultiplierPercent": 6000,
     "minGasPriceGwei": 1,
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
