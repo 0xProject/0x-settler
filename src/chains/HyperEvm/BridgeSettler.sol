@@ -32,5 +32,6 @@ contract HyperEvmBridgeSettler is BridgeSettler, DeBridge, Across {
         } else {
             return false;
         }
+        return true;
     }
 }
