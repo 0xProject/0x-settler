@@ -125,15 +125,24 @@ function verify_contract {
     shift
 
     declare _verify_etherscanApi
-    _verify_etherscanApi="$(get_config etherscanApi)"
+    _verify_etherscanApi="$(get_api_secret etherscanApi)"
+    if [[ ${_verify_etherscanApi:-null} != [nN][uU][lL][lL] ]] ; then
+        _verify_etherscanApi="$(get_config etherscanApi)"
+    fi
     declare -r _verify_etherscanApi
 
     declare _verify_blockscoutApi
-    _verify_blockscoutApi="$(get_config blockscoutApi)"
+    _verify_blockscoutApi="$(get_api_secret blockscoutApi)"
+    if [[ ${_verify_blockscoutApi:-null} != [nN][uU][lL][lL] ]] ; then
+        _verify_blockscoutApi="$(get_config blockscoutApi)"
+    fi
     declare -r _verify_blockscoutApi
 
     declare _verify_sourcifyApi
-    _verify_sourcifyApi="$(get_config sourcifyApi)"
+    _verify_sourcifyApi="$(get_api_secret sourcifyApi)"
+    if [[ ${_verify_sourcifyApi:-null} != [nN][uU][lL][lL] ]] ; then
+        _verify_sourcifyApi="$(get_config sourcifyApi)"
+    fi
     declare -r _verify_sourcifyApi
 
     if [[ ${_verify_etherscanApi:-null} != [nN][uU][lL][lL] ]] ; then
