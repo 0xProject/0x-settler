@@ -8,6 +8,8 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {FullMath} from "../vendor/FullMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
+import {revertTooMuchSlippage} from "./SettlerErrors.sol";
+
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 interface IBebopSettlement {
@@ -128,6 +130,9 @@ abstract contract Bebop is SettlerAbstract {
             uint256 maxTakerAmount = order.taker_amount;
             takerFilledAmount = (takerAmount > maxTakerAmount).ternary(maxTakerAmount, takerAmount);
             makerFilledAmount = order.maker_amount.unsafeMulDiv(takerFilledAmount, maxTakerAmount);
+        }
+        if (makerFilledAmount < amountOutMin) {
+            revertTooMuchSlippage(order.maker_token, amountOutMin, makerFilledAmount);
         }
 
         _BEBOP.fastSwapSingle(recipient, _msgSender(), sellToken, order, makerSignature, takerFilledAmount);
