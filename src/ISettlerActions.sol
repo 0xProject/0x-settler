@@ -305,7 +305,7 @@ interface ISettlerActions {
         address maker_token;
         uint256 taker_amount;
         uint256 maker_amount;
-        uint256 flags;
+        uint256 flags; // TODO: replace this with a `eventId` field so that `partnerId` is always zeroed
     }
 
     function BEBOP(
