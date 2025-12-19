@@ -8,13 +8,11 @@ import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {Settler} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
 import {IBebopSettlement} from "src/core/Bebop.sol";
 
-import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
+import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 
-abstract contract BebopTest is AllowanceHolderPairTest {
+abstract contract BebopPairTest is SettlerBasePairTest {
     IBebopSettlement internal constant BEBOP = IBebopSettlement(0xbbbbbBB520d69a9775E85b458C58c648259FAD5F);
 
     // EIP-712 domain separator for Bebop on mainnet:
@@ -31,34 +29,17 @@ abstract contract BebopTest is AllowanceHolderPairTest {
     // keccak256("SingleOrder(uint64 partner_id,uint256 expiry,address taker_address,address maker_address,uint256 maker_nonce,address taker_token,address maker_token,uint256 taker_amount,uint256 maker_amount,address receiver,uint256 packed_commands)")
     bytes32 internal constant SINGLE_ORDER_TYPEHASH = 0xe34225bc7cd92038d42c258ee3ff66d30f9387dd932213ba32a52011df0603fc;
 
-    function _testBlockNumber() internal pure virtual override returns (uint256) {
-        return 21427000; // Recent mainnet block where Bebop is active
-    }
-
-    function _testChainId() internal pure virtual override returns (string memory) {
-        return "mainnet";
-    }
-
-    function settlerInitCode() internal virtual override returns (bytes memory) {
-        return bytes.concat(type(MainnetSettler).creationCode, abi.encode(bytes20(0)));
-    }
-
     function setUp() public virtual override {
         super.setUp();
         vm.label(address(BEBOP), "BebopSettlement");
+
+        // Approve allowanceHolder to spend FROM's tokens (needed for AllowanceHolder.exec)
+        safeApproveIfBelow(fromToken(), FROM, address(allowanceHolder), amount());
 
         // Deal maker tokens to MAKER and approve Bebop
         deal(address(toToken()), MAKER, amount() * 2);
         vm.prank(MAKER);
         toToken().approve(address(BEBOP), type(uint256).max);
-    }
-
-    function uniswapV3Path() internal pure virtual override returns (bytes memory) {
-        return new bytes(0);
-    }
-
-    function uniswapV2Pool() internal pure virtual override returns (address) {
-        return address(0);
     }
 
     /// @dev Creates a Bebop order. The order will be filled by MAKER who provides toToken()
@@ -341,41 +322,5 @@ abstract contract BebopTest is AllowanceHolderPairTest {
 
         uint256 afterBalanceFrom = _fromToken.balanceOf(FROM);
         assertEq(afterBalanceFrom, beforeBalanceFrom - halfAmount, "Should send half of taker tokens");
-    }
-}
-
-contract BebopWethUsdcTest is BebopTest {
-    function _testName() internal pure override returns (string memory) {
-        return "bebop_weth_usdc";
-    }
-
-    function fromToken() internal pure override returns (IERC20) {
-        return IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH
-    }
-
-    function toToken() internal pure override returns (IERC20) {
-        return IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // USDC
-    }
-
-    function amount() internal pure override returns (uint256) {
-        return 1 ether;
-    }
-}
-
-contract BebopUsdcWethTest is BebopTest {
-    function _testName() internal pure override returns (string memory) {
-        return "bebop_usdc_weth";
-    }
-
-    function fromToken() internal pure override returns (IERC20) {
-        return IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48); // USDC
-    }
-
-    function toToken() internal pure override returns (IERC20) {
-        return IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2); // WETH
-    }
-
-    function amount() internal pure override returns (uint256) {
-        return 1000 * 1e6; // 1000 USDC
     }
 }
