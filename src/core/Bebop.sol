@@ -66,7 +66,7 @@ library FastBebop {
     ) internal {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, 0x4dcebcba)
+            mstore(ptr, 0x4dcebcba) // IBebopSettlement.swapSingle.selector
             mstore(add(0x20, ptr), mload(order)) // expiry
             mstore(add(0x40, ptr), address()) // taker_address
             mcopy(add(0x60, ptr), add(0x20, order), 0x40) // maker_address; maker_nonce
@@ -106,7 +106,7 @@ abstract contract Bebop is SettlerAbstract {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
+    function _isRestrictedTarget(address target) internal view virtual override returns (bool) {
         return (target == address(_BEBOP)).or(super._isRestrictedTarget(target));
     }
 
@@ -120,15 +120,15 @@ abstract contract Bebop is SettlerAbstract {
 
     function sellToBebop(
         address payable recipient,
-        address sellToken,
+        IERC20 sellToken,
         FastBebop.BebopSingleReduced memory order,
         IBebopSettlement.MakerSignature memory makerSignature,
         uint256 amountOutMin
     ) internal returns (uint256 makerFilledAmount) {
-        uint256 takerFilledAmount = order.sellToken.fastBalanceOf(address(this));
+        uint256 takerFilledAmount = sellToken.fastBalanceOf(address(this));
         {
             uint256 maxTakerAmount = order.taker_amount;
-            takerFilledAmount = (takerAmount > maxTakerAmount).ternary(maxTakerAmount, takerAmount);
+            takerFilledAmount = (takerFilledAmount > maxTakerAmount).ternary(maxTakerAmount, takerFilledAmount);
             makerFilledAmount = order.maker_amount.unsafeMulDiv(takerFilledAmount, maxTakerAmount);
         }
         if (makerFilledAmount < amountOutMin) {
@@ -137,6 +137,6 @@ abstract contract Bebop is SettlerAbstract {
 
         _BEBOP.fastSwapSingle(recipient, _msgSender(), sellToken, order, makerSignature, takerFilledAmount);
 
-        _logBebopOrder(uint128(order.flags >> 128), makerFilledAmount);
+        _logBebopOrder(uint128(order.flags >> 128), uint128(makerFilledAmount));
     }
 }
