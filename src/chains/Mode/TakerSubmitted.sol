@@ -23,7 +23,7 @@ contract ModeSettler is Settler, ModeMixin {
     }
 
     function _isRestrictedTarget(address target) internal view override(Settler, ModeMixin) returns (bool) {
-        return ModeMixin._isRestrictedTarget(target) || Settler._isRestrictedTarget(target);
+        return super._isRestrictedTarget(target);
     }
 
     // Solidity inheritance is stupid

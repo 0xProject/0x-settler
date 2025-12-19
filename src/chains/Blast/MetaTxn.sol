@@ -55,7 +55,7 @@ contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
         override(SettlerMetaTxn, BlastMixin)
         returns (bool)
     {
-        return BlastMixin._isRestrictedTarget(target) || SettlerMetaTxn._isRestrictedTarget(target);
+        return super._isRestrictedTarget(target);
     }
 
     // Solidity inheritance is stupid

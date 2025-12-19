@@ -36,7 +36,7 @@ contract ModeSettlerMetaTxn is SettlerMetaTxn, ModeMixin {
         override(SettlerMetaTxn, ModeMixin)
         returns (bool)
     {
-        return ModeMixin._isRestrictedTarget(target) || SettlerMetaTxn._isRestrictedTarget(target);
+        return super._isRestrictedTarget(target);
     }
 
     // Solidity inheritance is stupid

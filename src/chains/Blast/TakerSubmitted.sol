@@ -43,7 +43,7 @@ contract BlastSettler is Settler, BlastMixin {
     }
 
     function _isRestrictedTarget(address target) internal view override(Settler, BlastMixin) returns (bool) {
-        return BlastMixin._isRestrictedTarget(target) || Settler._isRestrictedTarget(target);
+        return super._isRestrictedTarget(target);
     }
 
     // Solidity inheritance is stupid
