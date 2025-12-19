@@ -94,4 +94,14 @@ contract PolygonSettlerIntent is SettlerIntent, PolygonSettlerMetaTxn {
     {
         return super._permitToSellAmount(permit);
     }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(PolygonSettlerMetaTxn, SettlerIntent)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
 }

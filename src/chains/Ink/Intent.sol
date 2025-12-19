@@ -94,4 +94,14 @@ contract InkSettlerIntent is SettlerIntent, InkSettlerMetaTxn {
     {
         return super._permitToSellAmount(permit);
     }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(InkSettlerMetaTxn, SettlerIntent)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
 }

@@ -94,4 +94,14 @@ contract TaikoSettlerIntent is SettlerIntent, TaikoSettlerMetaTxn {
     {
         return super._permitToSellAmount(permit);
     }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(TaikoSettlerMetaTxn, SettlerIntent)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
 }

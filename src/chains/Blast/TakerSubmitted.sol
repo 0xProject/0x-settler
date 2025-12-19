@@ -42,7 +42,7 @@ contract BlastSettler is Settler, BlastMixin {
         return true;
     }
 
-    function _isRestrictedTarget(address target) internal pure override(Settler, BlastMixin) returns (bool) {
+    function _isRestrictedTarget(address target) internal view override(Settler, BlastMixin) returns (bool) {
         return BlastMixin._isRestrictedTarget(target) || Settler._isRestrictedTarget(target);
     }
 

@@ -22,7 +22,7 @@ contract ModeSettler is Settler, ModeMixin {
         return super._dispatchVIP(action, data);
     }
 
-    function _isRestrictedTarget(address target) internal pure override(Settler, ModeMixin) returns (bool) {
+    function _isRestrictedTarget(address target) internal view override(Settler, ModeMixin) returns (bool) {
         return ModeMixin._isRestrictedTarget(target) || Settler._isRestrictedTarget(target);
     }
 

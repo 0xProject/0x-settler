@@ -35,7 +35,7 @@ abstract contract ModeMixin is FreeMemory, SettlerBase {
 
     function _isRestrictedTarget(address target)
         internal
-        pure
+        view
         virtual
         override(Permit2PaymentAbstract)
         returns (bool)

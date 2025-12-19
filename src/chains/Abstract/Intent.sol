@@ -99,4 +99,14 @@ contract AbstractSettlerIntent is SettlerIntent, AbstractSettlerMetaTxn {
     {
         return super._permitToSellAmount(permit);
     }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(AbstractSettlerMetaTxn, SettlerIntent)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
 }

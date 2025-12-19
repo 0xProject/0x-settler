@@ -79,8 +79,8 @@ contract ModeSettlerIntent is SettlerIntent, ModeSettlerMetaTxn {
 
     function _isRestrictedTarget(address target)
         internal
-        pure
-        override(ModeSettlerMetaTxn, Permit2PaymentAbstract, Permit2PaymentBase)
+        view
+        override(ModeSettlerMetaTxn, SettlerIntent)
         returns (bool)
     {
         return super._isRestrictedTarget(target);

@@ -105,4 +105,14 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
     {
         return super._div512to256(n, d);
     }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(ScrollSettlerMetaTxn, SettlerIntent)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
 }
