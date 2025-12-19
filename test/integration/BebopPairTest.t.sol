@@ -56,9 +56,7 @@ abstract contract BebopPairTest is SettlerBasePairTest {
             maker_token: address(toToken()),
             taker_amount: takerAmount,
             maker_amount: makerAmount,
-            // flags layout: eventId (upper 128 bits) | partnerId (bits 64-127) | unused (bits 0-63)
-            // eventId = 12345, partnerId = 42
-            flags: (uint256(uint128(12345)) << 128) | (uint256(42) << 64)
+            event_id: 12345
         });
     }
 
@@ -122,12 +120,11 @@ abstract contract BebopPairTest is SettlerBasePairTest {
         // - taker_address = address(this) = settler
         // - packed_commands = taker << 96 (where taker = _msgSender() = FROM)
         // - receiver = recipient
-        // - partner_id is extracted from bits 64-127 of flags
-        uint64 partnerId = uint64(order.flags >> 64);
+        // - partner_id is always zero (Settler doesn't pass partnerId to Bebop)
         uint256 packedCommands = uint256(uint160(address(FROM))) << 96;
 
         return _computeBebopDigest(
-            partnerId,
+            0, // partnerId is always zero
             order.expiry,
             address(settler), // taker_address is settler in fastSwapSingle
             order.maker_address,
