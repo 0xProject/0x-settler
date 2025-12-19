@@ -9,6 +9,7 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {Settler} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {IBebopSettlement} from "src/core/Bebop.sol";
+import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 
@@ -322,5 +323,66 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         uint256 afterBalanceFrom = _fromToken.balanceOf(FROM);
         assertEq(afterBalanceFrom, beforeBalanceFrom - halfAmount, "Should send half of taker tokens");
+    }
+
+    /// @dev Helper to build actions that attempt to call a restricted target via BASIC
+    function _buildRestrictedTargetActions(address restrictedTarget) internal pure returns (bytes[] memory) {
+        return ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, restrictedTarget, 0, ""))
+        );
+    }
+
+    function testBebop_restrictedTarget_bebop() public {
+        uint256 _amount = amount();
+        Settler _settler = settler;
+        IERC20 _fromToken = fromToken();
+
+        bytes[] memory actions = _buildRestrictedTargetActions(address(BEBOP));
+
+        ISettlerBase.AllowedSlippage memory allowedSlippage =
+            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+
+        bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
+
+        vm.startPrank(FROM, FROM);
+        vm.expectRevert(abi.encodeWithSignature("ConfusedDeputy()"));
+        allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
+        vm.stopPrank();
+    }
+
+    function testBebop_restrictedTarget_permit2() public {
+        uint256 _amount = amount();
+        Settler _settler = settler;
+        IERC20 _fromToken = fromToken();
+
+        bytes[] memory actions = _buildRestrictedTargetActions(address(PERMIT2));
+
+        ISettlerBase.AllowedSlippage memory allowedSlippage =
+            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+
+        bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
+
+        vm.startPrank(FROM, FROM);
+        vm.expectRevert(abi.encodeWithSignature("ConfusedDeputy()"));
+        allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
+        vm.stopPrank();
+    }
+
+    function testBebop_restrictedTarget_allowanceHolder() public {
+        uint256 _amount = amount();
+        Settler _settler = settler;
+        IERC20 _fromToken = fromToken();
+
+        bytes[] memory actions = _buildRestrictedTargetActions(address(ALLOWANCE_HOLDER));
+
+        ISettlerBase.AllowedSlippage memory allowedSlippage =
+            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+
+        bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
+
+        vm.startPrank(FROM, FROM);
+        vm.expectRevert(abi.encodeWithSignature("ConfusedDeputy()"));
+        allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
+        vm.stopPrank();
     }
 }
