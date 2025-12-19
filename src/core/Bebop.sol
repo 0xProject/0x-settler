@@ -122,6 +122,7 @@ abstract contract Bebop is SettlerAbstract {
             revertTooMuchSlippage(IERC20(order.maker_token), amountOutMin, makerFilledAmount);
         }
 
+        sellToken.safeApproveIfBelow(address(_BEBOP), takerFilledAmount);
         _BEBOP.fastSwapSingle(recipient, _msgSender(), sellToken, order, makerSignature, takerFilledAmount);
 
         _logBebopOrder(uint128(order.flags >> 128), uint128(makerFilledAmount));
