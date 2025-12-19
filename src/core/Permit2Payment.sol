@@ -170,13 +170,14 @@ library TransientStorage {
 }
 
 abstract contract Permit2PaymentBase is Context, SettlerAbstract {
+    using FastLogic for bool;
     using Revert for bool;
 
     /// @dev Permit2 address
     ISignatureTransfer internal constant _PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
 
     function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
-        return target == address(_PERMIT2);
+        return (target == address(_PERMIT2)).or(super._isRestrictedTarget(target));
     }
 
     function _operator() internal view virtual override returns (address) {
