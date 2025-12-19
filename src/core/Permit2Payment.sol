@@ -176,7 +176,7 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
     /// @dev Permit2 address
     ISignatureTransfer internal constant _PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
 
-    function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
+    function _isRestrictedTarget(address target) internal view virtual override returns (bool) {
         return (target == address(_PERMIT2)).or(super._isRestrictedTarget(target));
     }
 
@@ -377,7 +377,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         }
     }
 
-    function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
+    function _isRestrictedTarget(address target) internal view virtual override returns (bool) {
         return (target == address(ALLOWANCE_HOLDER)).or(super._isRestrictedTarget(target));
     }
 

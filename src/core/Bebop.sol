@@ -3,6 +3,8 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
+import {ISettlerActions} from "../ISettlerActions.sol";
+
 import {FastLogic} from "../utils/FastLogic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {FullMath} from "../vendor/FullMath.sol";
@@ -30,38 +32,23 @@ interface IBebopSettlement {
         uint256 flags; // `hashSingleOrder` doesn't use this field for SingleOrder hash
     }
 
-    struct MakerSignature {
-        bytes signatureBytes;
-        uint256 flags;
-    }
-
     /// @notice Taker execution of one-to-one trade with one maker
     /// @param order Single order struct
     /// @param makerSignature Maker's signature for SingleOrder
     /// @param filledTakerAmount Partially filled taker amount, 0 for full fill
-    function swapSingle(Single calldata order, MakerSignature calldata makerSignature, uint256 filledTakerAmount)
+    function swapSingle(Single calldata order, ISettlerActions.BebopMakerSignature calldata makerSignature, uint256 filledTakerAmount)
         external
         payable;
 }
 
 library FastBebop {
-    struct BebopSingleReduced {
-        uint256 expiry;
-        address maker_address;
-        uint256 maker_nonce;
-        IERC20 maker_token;
-        uint256 taker_amount;
-        uint256 maker_amount;
-        uint256 flags;
-    }
-
     function fastSwapSingle(
         IBebopSettlement bebop,
         address payable recipient,
         address taker,
         IERC20 sellToken,
-        BebopSingleReduced memory order,
-        IBebopSettlement.MakerSignature memory makerSignature,
+        ISettlerActions.BebopOrder memory order,
+        ISettlerActions.BebopMakerSignature memory makerSignature,
         uint256 filledTakerAmount
     ) internal {
         assembly ("memory-safe") {
@@ -121,8 +108,8 @@ abstract contract Bebop is SettlerAbstract {
     function sellToBebop(
         address payable recipient,
         IERC20 sellToken,
-        FastBebop.BebopSingleReduced memory order,
-        IBebopSettlement.MakerSignature memory makerSignature,
+        ISettlerActions.BebopOrder memory order,
+        ISettlerActions.BebopMakerSignature memory makerSignature,
         uint256 amountOutMin
     ) internal returns (uint256 makerFilledAmount) {
         uint256 takerFilledAmount = sellToken.fastBalanceOf(address(this));
@@ -132,7 +119,7 @@ abstract contract Bebop is SettlerAbstract {
             makerFilledAmount = order.maker_amount.unsafeMulDiv(takerFilledAmount, maxTakerAmount);
         }
         if (makerFilledAmount < amountOutMin) {
-            revertTooMuchSlippage(order.maker_token, amountOutMin, makerFilledAmount);
+            revertTooMuchSlippage(IERC20(order.maker_token), amountOutMin, makerFilledAmount);
         }
 
         _BEBOP.fastSwapSingle(recipient, _msgSender(), sellToken, order, makerSignature, takerFilledAmount);

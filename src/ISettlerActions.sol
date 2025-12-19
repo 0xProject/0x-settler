@@ -292,4 +292,27 @@ interface ISettlerActions {
         bool zeroForOne,
         uint256 amountOutMin
     ) external;
+
+    struct BebopMakerSignature {
+        bytes signatureBytes;
+        uint256 flags;
+    }
+
+    struct BebopOrder {
+        uint256 expiry;
+        address maker_address;
+        uint256 maker_nonce;
+        address maker_token;
+        uint256 taker_amount;
+        uint256 maker_amount;
+        uint256 flags;
+    }
+
+    function BEBOP(
+        address recipient,
+        address sellToken,
+        ISettlerActions.BebopOrder memory order,
+        ISettlerActions.BebopMakerSignature memory makerSignature,
+        uint256 amountOutMin
+    ) external;
 }
