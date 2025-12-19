@@ -1408,7 +1408,12 @@ Zeroth, verify the configuration for your chain in
 [`chain_config.json`](chain_config.json),
 [`api_secrets.json.template`](api_secrets.json.template), and
 [`script/SafeConfig.sol`](script/SafeConfig.sol). Add the new chain to the list
-of `AllowanceHolder` addresses at the top of this file.
+of `AllowanceHolder` addresses at the top of this file. Pay attention to the
+`extraFlags` and `extraScriptFlags` fields. `extraFlags` should be `--legacy` on
+L2s that bill the DA fee directly in the native asset (e.g. OP stack
+rollups). `extraScriptFlags` should have `--isolate` on chains that aren't
+EraVM. `extraScriptFlags` should have `--skip-simulation` on chains with weird
+gas rules (i.e. Arbitrum, Mantle, Monad, MegaEth).
 
 First, you need somebody to give you a copy of `secrets.json`. If you don't have
 this, give up. Install [`scrypt`](https://github.com/Tarsnap/scrypt) and use it
