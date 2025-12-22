@@ -112,6 +112,22 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     error InvalidSigner();
     error SignatureExpired(uint256 deadline);
 
+    function _eip150RatioTest() private returns (bool isWeird) {
+        address invalidTarget;
+        assembly ("memory-safe") {
+            mstore(0x00, 0x6001600060fe8153f3)
+            invalidTarget := create(0x00, 0x17, 0x09)
+            if iszero(invalidTarget) { revert(0x00, 0x00) }
+        }
+
+        Call[] memory calls = new Call[](1);
+        calls[0].target = invalidTarget;
+        calls[0].revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
+
+        bytes memory data = abi.encodeCall(IMultiCall.multicall, (calls, 0));
+        (isWeird,) = MULTICALL_ADDRESS.call{gas: 100_000}(data);
+    }
+
     constructor() payable {
         // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
         // cheat code. It is a no-op at deploy time.
