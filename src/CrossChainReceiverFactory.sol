@@ -111,7 +111,17 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         assembly ("memory-safe") {
             mstore(0x00, 0x5b5860fe3d533df3)
             invalidTarget := create(0x00, 0x18, 0x08)
-            if iszero(invalidTarget) { revert(0x00, 0x00) }
+        }
+
+        if (invalidTarget == address(0)) {
+            // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
+            // cheat code. It is a no-op at deploy time.
+            if ((block.chainid == 31337).and(msg.sender == address(_WNATIVE)).and(msg.value > 1 wei)) {
+                assembly ("memory-safe") {
+                    stop()
+                }
+            }
+            revert();
         }
 
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
@@ -136,14 +146,6 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     error SignatureExpired(uint256 deadline);
 
     constructor() payable {
-        // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
-        // cheat code. It is a no-op at deploy time.
-        if ((block.chainid == 31337).and(msg.sender == address(_WNATIVE)).and(msg.value > 1 wei)) {
-            assembly ("memory-safe") {
-                stop()
-            }
-        }
-
         require(((msg.sender == _TOEHOLD).and(uint160(address(this)) >> 104 == 0)).or(block.chainid == 31337));
         require(uint160(_WNATIVE_SETTER) >> 112 == 0);
         require(_NAMEHASH == keccak256(bytes(name)));
