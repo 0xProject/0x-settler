@@ -109,8 +109,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     function _eip150RatioTest() private returns (bool isWeird) {
         address invalidTarget;
         assembly ("memory-safe") {
-            mstore(0x00, 0x6001600060fe8153f3)
-            invalidTarget := create(0x00, 0x17, 0x09)
+            mstore(0x00, 0x5b5860fe3d533df3)
+            invalidTarget := create(0x00, 0x18, 0x08)
             if iszero(invalidTarget) { revert(0x00, 0x00) }
         }
 
