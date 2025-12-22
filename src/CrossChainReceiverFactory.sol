@@ -171,7 +171,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             IMultiCall.Result[] memory results = _MULTICALL().multicall(calls, 1);
             require(results.length == 1);
             require(results[0].success);
-            require(keccak256(results[0].data) == keccak256("Hello, World!"));
+            require(keccak256(results[0].data) == keccak256(bytes.concat("Hello, World!", bytes20(uint160(address(this))))));
         }
 
         if (address(_WNATIVE) == address(0)) {
