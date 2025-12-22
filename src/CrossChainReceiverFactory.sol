@@ -107,21 +107,19 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     bool private immutable _MISSING_WNATIVE = false;
 
     function _eip150RatioTest() private returns (bool isWeird) {
+        // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
+        // cheat code. It is a no-op at deploy time.
+        if ((block.chainid == 31337).and(msg.sender == address(_WNATIVE)).and(msg.value > 1 wei)) {
+            assembly ("memory-safe") {
+                stop()
+            }
+        }
+
         address invalidTarget;
         assembly ("memory-safe") {
             mstore(0x00, 0x5b5860fe3d533df3)
             invalidTarget := create(0x00, 0x18, 0x08)
-        }
-
-        if (invalidTarget == address(0)) {
-            // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
-            // cheat code. It is a no-op at deploy time.
-            if ((block.chainid == 31337).and(msg.sender == address(_WNATIVE)).and(msg.value > 1 wei)) {
-                assembly ("memory-safe") {
-                    stop()
-                }
-            }
-            revert();
+            if iszero(invalidTarget) { revert(codesize(), 0x00) }
         }
 
         IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
