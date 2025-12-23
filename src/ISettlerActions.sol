@@ -318,8 +318,8 @@ interface ISettlerActions {
     function BEBOP(
         address recipient,
         address sellToken,
-        ISettlerActions.BebopOrder memory order,
-        ISettlerActions.BebopMakerSignature memory makerSignature,
+        BebopOrder memory order,
+        BebopMakerSignature memory makerSignature,
         uint256 amountOutMin
     ) external;
 }
