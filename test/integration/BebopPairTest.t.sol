@@ -56,7 +56,8 @@ abstract contract BebopPairTest is SettlerBasePairTest {
             maker_token: address(toToken()),
             taker_amount: takerAmount,
             maker_amount: makerAmount,
-            event_id: 12345
+            // Layout: unused (5 bits) | flags (3 bits) | unused (120 bits) | event_id (128 bits)
+            event_id_and_flags: 12345
         });
     }
 
