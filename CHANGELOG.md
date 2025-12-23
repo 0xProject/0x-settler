@@ -44,10 +44,18 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* On Ethereum mainnet, the address
+  `0xbbbbbBB520d69a9775E85b458C58c648259FAD5F` (Bebop) is now on the
+  list of restricted targets for the `BASIC` action
+
 ### Non-breaking changes
 
 * Fix bug that was causing bad revert reason for expired `AllowanceHolder`
   trades.
+* Add `BEBOP` action on Ethereum mainnet for 3rd-party RFQ provider
+  Bebop. This action has special functionality that binds the actual
+  taker of the RFQ order (`_msgSender()`) to the order itself to allow
+  market makers better opportunity to screen takers.
 
 ## 2025-12-17
 
