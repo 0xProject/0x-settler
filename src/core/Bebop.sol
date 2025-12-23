@@ -60,8 +60,11 @@ library FastBebop {
             mstore(add(0xa0, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, sellToken)) // taker_token
             mcopy(add(0xc0, ptr), add(0x60, order), 0x60) // maker_token, taker_amount, maker_amount
             mstore(add(0x120, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, recipient)) // receiver
-            mstore(add(0x140, ptr), shl(0x60, taker)) // packed_commands // TODO: might want to handle `takerHasNative`, `makerHasNative`, or `takerUsingPermit2` flags
-            mstore(add(0x160, ptr), shl(0x80, mload(add(0xc0, order)))) // flags
+
+            let event_id_and_flags := mload(add(0xc0, order))
+            mstore(add(0x140, ptr), or(shl(0x60, taker), shr(0xf8, event_id_and_flags))) // packed_commands
+            mstore(add(0x160, ptr), shl(0x80, event_id_and_flags)) // flags
+
             mstore(add(0x180, ptr), 0x1a0) // makerSignature.offset
             mstore(add(0x1a0, ptr), filledTakerAmount)
             mstore(add(0x1c0, ptr), 0x40) // makerSignature.signatureBytes.offset

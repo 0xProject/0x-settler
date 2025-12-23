@@ -305,7 +305,14 @@ interface ISettlerActions {
         address maker_token;
         uint256 taker_amount;
         uint256 maker_amount;
-        uint128 event_id;
+
+        // the high 5 bits are unused
+        // the next 3 bits are the `takerHasNative`, `makerHasNative`, and
+        //   `takerUsingPermit2` flags (in that order from high to low) from the
+        //   original `packed_commands` field
+        // the next 120 bits are unused
+        // the low 128 bits are the `event_id` from the original `flags` field
+        uint256 event_id_and_flags;
     }
 
     function BEBOP(
