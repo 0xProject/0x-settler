@@ -96,20 +96,6 @@ abstract contract BebopPairTest is SettlerBasePairTest {
         return keccak256(abi.encodePacked("\x19\x01", BEBOP_DOMAIN_SEPARATOR, structHash));
     }
 
-    /// @dev Mock ecrecover and set up expectCall to verify the hash computation.
-    /// @param expectedDigest The EIP-712 digest we expect Bebop to compute
-    function _mockAndExpectEcrecover(bytes32 expectedDigest) internal {
-        // The ecrecover precompile is called with (digest, v, r, s)
-        // Our dummy signature has v=27, r=0, s=0
-        bytes memory expectedCalldata = abi.encode(expectedDigest, uint8(27), bytes32(0), bytes32(0));
-
-        // Expect the call to ecrecover with the computed digest
-        vm.expectCall(address(1), expectedCalldata);
-
-        // Mock ecrecover to return MAKER only when called with exact expected arguments
-        vm.mockCall(address(1), expectedCalldata, abi.encode(MAKER));
-    }
-
     /// @dev Compute expected digest for a Bebop order executed through Settler
     /// The digest is computed from the original order parameters, independent of fill amount.
     function _computeExpectedDigest(ISettlerActions.BebopOrder memory order, address recipient)
@@ -139,12 +125,15 @@ abstract contract BebopPairTest is SettlerBasePairTest {
         );
     }
 
-    /// @dev Create a dummy signature. The actual signature verification is mocked via ecrecover.
-    function _createMakerSignature() internal pure returns (ISettlerActions.BebopMakerSignature memory) {
-        // 65 bytes: r (32) + s (32) + v (1)
-        // Values don't matter since ecrecover is mocked
-        bytes memory sig = new bytes(65);
-        sig[64] = bytes1(uint8(27)); // v = 27
+    /// @dev Create a real signature using MAKER_PRIVATE_KEY.
+    /// @param digest The EIP-712 digest to sign
+    function _createMakerSignature(bytes32 digest) internal pure returns (ISettlerActions.BebopMakerSignature memory) {
+        // Sign the digest with MAKER's private key
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(MAKER_PRIVATE_KEY, digest);
+
+        // Bebop expects 65 bytes: r (32) + s (32) + v (1)
+        bytes memory sig = abi.encodePacked(r, s, v);
+
         return ISettlerActions.BebopMakerSignature({signatureBytes: sig, flags: 0});
     }
 
@@ -156,7 +145,10 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         // 1:1 swap for simplicity
         ISettlerActions.BebopOrder memory order = _createBebopOrder(_amount, _amount);
-        ISettlerActions.BebopMakerSignature memory makerSig = _createMakerSignature();
+
+        // Compute EIP-712 digest and create real signature
+        bytes32 digest = _computeExpectedDigest(order, FROM);
+        ISettlerActions.BebopMakerSignature memory makerSig = _createMakerSignature(digest);
 
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(_fromToken), _amount, 0);
@@ -176,10 +168,6 @@ abstract contract BebopPairTest is SettlerBasePairTest {
         uint256 beforeBalanceTo = balanceOf(_toToken, FROM);
         uint256 beforeMakerBalanceFrom = balanceOf(_fromToken, MAKER);
         uint256 beforeMakerBalanceTo = balanceOf(_toToken, MAKER);
-
-        // Compute expected EIP-712 digest and verify ecrecover is called with it
-        bytes32 expectedDigest = _computeExpectedDigest(order, FROM);
-        _mockAndExpectEcrecover(expectedDigest);
 
         vm.startPrank(FROM, FROM);
         snapStartName("allowanceHolder_bebop");
@@ -210,7 +198,10 @@ abstract contract BebopPairTest is SettlerBasePairTest {
         IERC20 _fromToken = fromToken();
 
         ISettlerActions.BebopOrder memory order = _createBebopOrder(_amount, _amount);
-        ISettlerActions.BebopMakerSignature memory makerSig = _createMakerSignature();
+
+        // Compute EIP-712 digest and create real signature
+        bytes32 digest = _computeExpectedDigest(order, FROM);
+        ISettlerActions.BebopMakerSignature memory makerSig = _createMakerSignature(digest);
 
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(_fromToken), _amount, 0);
@@ -229,10 +220,6 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
 
-        // Compute expected EIP-712 digest and verify ecrecover is called with it
-        bytes32 expectedDigest = _computeExpectedDigest(order, FROM);
-        _mockAndExpectEcrecover(expectedDigest);
-
         vm.startPrank(FROM, FROM);
         snapStartName("allowanceHolder_bebop_slippage");
         allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
@@ -248,7 +235,10 @@ abstract contract BebopPairTest is SettlerBasePairTest {
         // Order gives less than taker expects
         uint256 makerAmount = (_amount * 90) / 100; // Only 90% of expected
         ISettlerActions.BebopOrder memory order = _createBebopOrder(_amount, makerAmount);
-        ISettlerActions.BebopMakerSignature memory makerSig = _createMakerSignature();
+
+        // Compute EIP-712 digest and create real signature
+        bytes32 digest = _computeExpectedDigest(order, FROM);
+        ISettlerActions.BebopMakerSignature memory makerSig = _createMakerSignature(digest);
 
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(_fromToken), _amount, 0);
@@ -284,7 +274,11 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         // Order is for full amount, but we only transfer half
         ISettlerActions.BebopOrder memory order = _createBebopOrder(_amount, _amount);
-        ISettlerActions.BebopMakerSignature memory makerSig = _createMakerSignature();
+
+        // Compute EIP-712 digest and create real signature
+        // Note: The hash is computed from original order params, independent of fill amount
+        bytes32 digest = _computeExpectedDigest(order, FROM);
+        ISettlerActions.BebopMakerSignature memory makerSig = _createMakerSignature(digest);
 
         // Only transfer half the amount
         ISignatureTransfer.PermitTransferFrom memory permit =
@@ -303,11 +297,6 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         uint256 beforeBalanceFrom = balanceOf(_fromToken, FROM);
         uint256 beforeBalanceTo = balanceOf(_toToken, FROM);
-
-        // Compute expected EIP-712 digest and verify ecrecover is called with it
-        // Note: The hash is computed from original order params, independent of fill amount
-        bytes32 expectedDigest = _computeExpectedDigest(order, FROM);
-        _mockAndExpectEcrecover(expectedDigest);
 
         vm.startPrank(FROM, FROM);
         snapStartName("allowanceHolder_bebop_partial");
