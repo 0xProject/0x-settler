@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
-import {InvalidOffset, revertConfusedDeputy, InvalidTarget} from "./SettlerErrors.sol";
+import {InvalidOffset, revertConfusedDeputy, InvalidTarget, InvalidBasisPoints} from "./SettlerErrors.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
@@ -45,7 +45,7 @@ abstract contract Basic is SettlerAbstract {
                 }
             }
         } else if (address(sellToken) == address(0)) {
-            // TODO: check for zero `bps`
+            if (bps == 0) revert InvalidBasisPoints();
             if (offset != 0) revert InvalidOffset();
         } else {
             // We treat `bps > BASIS` as a GIGO error
