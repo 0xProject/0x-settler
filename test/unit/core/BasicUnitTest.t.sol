@@ -203,4 +203,25 @@ contract BasicUnitTest is Utils, Test {
         vm.expectRevert();
         basic.sellToPool(IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bps, POOL, offset, data);
     }
+
+    /// @dev Test that zero bps reverts for non-token, non-ETH case (address(0) sellToken)
+    function testBasicSellZeroBpsReverts() public {
+        uint256 bps = 0;
+        uint256 offset = 0;
+        bytes memory data;
+
+        vm.expectRevert(abi.encodeWithSignature("InvalidBasisPoints()"));
+        basic.sellToPool(IERC20(address(0)), bps, POOL, offset, data);
+    }
+
+    /// @dev Test that non-zero bps with address(0) sellToken works without reverting
+    function testBasicSellNonZeroBpsAddressZero() public {
+        uint256 bps = 10_000;
+        uint256 offset = 0;
+        bytes memory data;
+
+        // This should not revert - just a no-op case
+        _mockExpectCall(address(POOL), 0, data, abi.encode(true));
+        basic.sellToPool(IERC20(address(0)), bps, POOL, offset, data);
+    }
 }
