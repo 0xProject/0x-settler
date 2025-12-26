@@ -6,6 +6,9 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 /// @notice Thrown when an offset is not the expected value
 error InvalidOffset();
 
+/// @notice Thrown when basis points (bps) value is invalid (e.g., zero when it shouldn't be)
+error InvalidBasisPoints();
+
 /// @notice Thrown when a validating a target contract to avoid certain types of targets
 error ConfusedDeputy();
 
