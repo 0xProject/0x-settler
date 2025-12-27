@@ -94,4 +94,14 @@ contract BnbSettlerIntent is SettlerIntent, BnbSettlerMetaTxn {
     {
         return super._permitToSellAmount(permit);
     }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(BnbSettlerMetaTxn, SettlerIntent)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
 }

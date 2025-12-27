@@ -18,6 +18,7 @@ import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {Permit2TransferTest} from "./Permit2TransferTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {EkuboTest} from "./Ekubo.t.sol";
+import {BebopPairTest} from "./BebopPairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
@@ -35,7 +36,8 @@ contract USDCWETHTest is
     MaverickV2PairTest,
     TokenTransferTest,
     Permit2TransferTest,
-    EkuboTest
+    EkuboTest,
+    BebopPairTest
 {
     function setUp()
         public
@@ -49,7 +51,8 @@ contract USDCWETHTest is
             UniswapV3PairTest,
             TokenTransferTest,
             Permit2TransferTest,
-            EkuboTest
+            EkuboTest,
+            BebopPairTest
         )
     {
         super.setUp();

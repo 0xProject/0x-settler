@@ -5,6 +5,7 @@ import {Test} from "@forge-std/Test.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ERC20} from "@solmate/tokens/ERC20.sol";
 import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
+import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
 import {uint512} from "src/utils/512Math.sol";
 import {Renegade, ARBITRUM_SELECTOR, BASE_SELECTOR} from "src/core/Renegade.sol";
 import {Utils} from "../Utils.sol";
@@ -28,6 +29,15 @@ abstract contract RenegadeDummy is Permit2PaymentTakerSubmitted, Renegade {
 
     function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        override(Permit2PaymentTakerSubmitted, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }
 

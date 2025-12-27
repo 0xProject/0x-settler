@@ -94,4 +94,14 @@ contract MonadTestnetSettlerIntent is SettlerIntent, MonadTestnetSettlerMetaTxn 
     {
         return super._permitToSellAmount(permit);
     }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(MonadTestnetSettlerMetaTxn, SettlerIntent)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
 }

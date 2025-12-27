@@ -31,12 +31,12 @@ contract ModeSettlerMetaTxn is SettlerMetaTxn, ModeMixin {
 
     function _isRestrictedTarget(address target)
         internal
-        pure
+        view
         virtual
-        override(Permit2PaymentBase, ModeMixin, Permit2PaymentAbstract)
+        override(SettlerMetaTxn, ModeMixin)
         returns (bool)
     {
-        return ModeMixin._isRestrictedTarget(target) || Permit2PaymentBase._isRestrictedTarget(target);
+        return super._isRestrictedTarget(target);
     }
 
     // Solidity inheritance is stupid

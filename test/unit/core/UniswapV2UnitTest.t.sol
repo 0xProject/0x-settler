@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {UniswapV2, IUniV2Pair} from "src/core/UniswapV2.sol";
 import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
+import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
 import {Context} from "src/Context.sol";
 
 import {uint512} from "src/utils/512Math.sol";
@@ -38,6 +39,15 @@ contract UniswapV2Dummy is Permit2PaymentTakerSubmitted, UniswapV2 {
 
     function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        override(Permit2PaymentTakerSubmitted, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }
 

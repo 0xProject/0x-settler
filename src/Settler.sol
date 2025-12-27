@@ -157,7 +157,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
 
     function _isRestrictedTarget(address target)
         internal
-        pure
+        view
         virtual
         override(Permit2PaymentTakerSubmitted, Permit2PaymentAbstract)
         returns (bool)

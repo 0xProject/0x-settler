@@ -563,7 +563,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
                     Take._callSelector(
                         uint32(IBalancerV3Vault.sendTo.selector),
                         globalSellToken,
-                        (payer == address(this)).ternary(address(this), _msgSender()),
+                        payer == address(this) ? address(this) : _msgSender(),
                         globalSellAmount
                     );
                 }

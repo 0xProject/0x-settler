@@ -50,12 +50,12 @@ contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
 
     function _isRestrictedTarget(address target)
         internal
-        pure
+        view
         virtual
-        override(Permit2PaymentBase, BlastMixin, Permit2PaymentAbstract)
+        override(SettlerMetaTxn, BlastMixin)
         returns (bool)
     {
-        return BlastMixin._isRestrictedTarget(target) || Permit2PaymentBase._isRestrictedTarget(target);
+        return super._isRestrictedTarget(target);
     }
 
     // Solidity inheritance is stupid

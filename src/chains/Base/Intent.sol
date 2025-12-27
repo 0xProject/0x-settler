@@ -15,7 +15,7 @@ import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
 import {AbstractContext, Context} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
-import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
+import {Permit2Payment, Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
 contract BaseSettlerIntent is SettlerIntent, BaseSettlerMetaTxn {
@@ -93,5 +93,25 @@ contract BaseSettlerIntent is SettlerIntent, BaseSettlerMetaTxn {
         returns (uint256)
     {
         return super._permitToSellAmount(permit);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(BaseSettlerMetaTxn, SettlerIntent)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
+
+    function _chainSpecificFallback(bytes calldata data)
+        internal
+        view
+        virtual
+        override(Permit2Payment, BaseSettlerMetaTxn)
+        returns (bytes memory)
+    {
+        return super._chainSpecificFallback(data);
     }
 }

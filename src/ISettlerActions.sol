@@ -292,4 +292,34 @@ interface ISettlerActions {
         bool zeroForOne,
         uint256 amountOutMin
     ) external;
+
+    struct BebopMakerSignature {
+        bytes signatureBytes;
+        uint256 flags;
+    }
+
+    struct BebopOrder {
+        uint256 expiry;
+        address maker_address;
+        uint256 maker_nonce;
+        address maker_token;
+        uint256 taker_amount;
+        uint256 maker_amount;
+
+        // the high 5 bits are unused
+        // the next 3 bits are the `takerHasNative`, `makerHasNative`, and
+        //   `takerUsingPermit2` flags (in that order from high to low) from the
+        //   original `packed_commands` field
+        // the next 120 bits are unused
+        // the low 128 bits are the `event_id` from the original `flags` field
+        uint256 event_id_and_flags;
+    }
+
+    function BEBOP(
+        address recipient,
+        address sellToken,
+        BebopOrder memory order,
+        BebopMakerSignature memory makerSignature,
+        uint256 amountOutMin
+    ) external;
 }

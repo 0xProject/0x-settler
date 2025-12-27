@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IUniswapV3Pool, UniswapV3Fork} from "src/core/UniswapV3Fork.sol";
 import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
+import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
@@ -71,6 +72,15 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
         } else {
             revertUnknownForkId(forkId);
         }
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        override(Permit2PaymentTakerSubmitted, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }
 

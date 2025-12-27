@@ -12,6 +12,7 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
+import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
 contract HyperEvmSettlerMetaTxn is SettlerMetaTxn, HyperEvmMixin {
@@ -44,5 +45,15 @@ contract HyperEvmSettlerMetaTxn is SettlerMetaTxn, HyperEvmMixin {
 
     function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(SettlerMetaTxn, HyperEvmMixin)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

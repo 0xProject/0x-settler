@@ -12,6 +12,7 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
+import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
 contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
@@ -79,6 +80,16 @@ contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
         returns (bool)
     {
         return super._dispatch(i, action, data);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(SettlerMetaTxn, BnbMixin)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 
     function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {
