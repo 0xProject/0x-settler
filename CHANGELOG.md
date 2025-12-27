@@ -44,18 +44,35 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
-* On Ethereum mainnet, the address `0xbbbbbBB520d69a9775E85b458C58c648259FAD5F`
-  (Bebop) is now on the list of restricted targets for the `BASIC` action
+* The address `0xbbbbbBB520d69a9775E85b458C58c648259FAD5F` (Bebop) is now on the
+  list of restricted targets for the `BASIC` action for the following chains:
+  * Arbitrum
+  * Avalanche
+  * Base
+  * Bnb
+  * Ethereum mainnet
+  * Optimism
+  * Polygon
+  * HyperEvm
 
 ### Non-breaking changes
 
 * Fix bug that was causing bad revert reason for expired `AllowanceHolder`
   trades.
-* Add `BEBOP` action on Ethereum mainnet for 3rd-party RFQ provider Bebop. This
-  action has special functionality that binds the actual taker of the RFQ order
-  (`_msgSender()`) to the order itself to allow market makers better opportunity
-  to screen takers as well as normalizing the representation of the event
-  emitted for RFQ orders between the `RFQ` action and Bebop.
+* Add `BEBOP` action for 3rd-party RFQ provider Bebop. This action has special
+  functionality that binds the actual taker of the RFQ order (`_msgSender()`) to
+  the order itself to allow market makers better opportunity to screen takers as
+  well as normalizing the representation of the event emitted for RFQ orders
+  between the `RFQ` action and Bebop. This action is added on the following
+  chains:
+  * Arbitrum
+  * Avalanche
+  * Base
+  * Bnb
+  * Ethereum mainnet
+  * Optimism
+  * Polygon
+  * HyperEvm
 
 ## 2025-12-17
 
