@@ -7,6 +7,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
+import {Bebop} from "../../core/Bebop.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -33,8 +34,9 @@ import {OPTIMISM_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4, BalancerV3 {
+abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4, BalancerV3, Bebop {
     constructor() {
         assert(block.chainid == 10 || block.chainid == 31337);
     }
@@ -74,6 +76,18 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4, BalancerV
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                ISettlerActions.BebopOrder memory order,
+                ISettlerActions.BebopMakerSignature memory makerSignature,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, IERC20, ISettlerActions.BebopOrder, ISettlerActions.BebopMakerSignature, uint256)
+            );
+
+            sellToBebop(payable(recipient), sellToken, order, makerSignature, amountOutMin);
         } else {
             return false;
         }
@@ -113,5 +127,16 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4, BalancerV
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return OPTIMISM_POOL_MANAGER;
+    }
+
+    // I hate Solidity inheritance
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(Bebop, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

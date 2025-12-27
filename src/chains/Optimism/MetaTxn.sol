@@ -12,7 +12,6 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
-import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
@@ -76,7 +75,7 @@ contract OptimismSettlerMetaTxn is SettlerMetaTxn, OptimismMixin {
         internal
         view
         virtual
-        override(SettlerMetaTxn, Permit2PaymentAbstract)
+        override(SettlerMetaTxn, OptimismMixin)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
