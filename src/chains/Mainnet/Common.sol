@@ -196,7 +196,9 @@ abstract contract MainnetMixin is
                 ISettlerActions.BebopOrder memory order,
                 ISettlerActions.BebopMakerSignature memory makerSignature,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, ISettlerActions.BebopOrder, ISettlerActions.BebopMakerSignature, uint256));
+            ) = abi.decode(
+                data, (address, IERC20, ISettlerActions.BebopOrder, ISettlerActions.BebopMakerSignature, uint256)
+            );
 
             sellToBebop(payable(recipient), sellToken, order, makerSignature, amountOutMin);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
@@ -257,7 +259,13 @@ abstract contract MainnetMixin is
     }
 
     // I hate Solidity inheritance
-    function _isRestrictedTarget(address target) internal view virtual override(Bebop, Permit2PaymentAbstract) returns (bool) {
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(Bebop, Permit2PaymentAbstract)
+        returns (bool)
+    {
         return super._isRestrictedTarget(target);
     }
 }
