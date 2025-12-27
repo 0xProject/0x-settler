@@ -51,7 +51,7 @@ library TransientStorage {
     // `foundry.toml` enforces the use of the IR pipeline, so the point is moot.
     //
     // `operator` must not be `address(0)`. This is not checked.
-    // `callback` must not be zero. This is checked in `_invokeCallback`.
+    // `callback` must not be zero. This is checked in `fallback`.
     function setOperatorAndCallback(
         address operator,
         uint32 selector,
@@ -99,8 +99,9 @@ library TransientStorage {
     {
         assembly ("memory-safe") {
             let slotValue := tload(_OPERATOR_SLOT)
+            let badCallerOrSelector := or(shr(0xe0, xor(calldataload(0), slotValue)), shl(0x60, xor(caller(), slotValue)))
             callback := and(0xffff, shr(0xa0, slotValue))
-            callback := mul(iszero(or(shr(0xe0, xor(calldataload(0), slotValue)), shl(0x60, xor(caller(), slotValue)))), callback)
+            callback := mul(iszero(badCallerOrSelector), callback)
             tstore(_OPERATOR_SLOT, 0x00)
         }
     }
@@ -224,11 +225,6 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
         function (bytes calldata) internal returns (bytes memory) callback
     ) internal override returns (bytes memory) {
         return _setOperatorAndCall(payable(target), 0, data, selector, callback);
-    }
-
-    function _invokeCallback(bytes calldata data) internal returns (bytes memory) {
-        // Retrieve callback and perform call with untrusted calldata
-        return (data[4:]);
     }
 }
 

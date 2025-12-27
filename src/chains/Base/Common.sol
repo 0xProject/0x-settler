@@ -248,15 +248,11 @@ abstract contract BaseMixin is
 
     function _chainSpecificFallback(bytes calldata data) internal view virtual returns (bytes memory result) {
         address msgSender = _msgSender();
-        uint32 selector;
+        uint256 selector;
         assembly ("memory-safe") {
             selector := shr(0xe0, calldataload(data.offset))
         }
-        require(
-            (uint256(selector) ^ uint256(uint32(IMsgSender.msgSender.selector)) << 224 == 0).and(
-                uint256(uint160(msgSender)) << 96 != 0
-            )
-        );
+        require((selector == uint32(IMsgSender.msgSender.selector)).and(uint256(uint160(msgSender)) << 96 != 0));
         assembly ("memory-safe") {
             result := mload(0x40)
             mstore(0x40, add(0x40, result))
