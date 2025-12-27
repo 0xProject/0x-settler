@@ -238,7 +238,15 @@ abstract contract Permit2Payment is Permit2PaymentBase {
     fallback(bytes calldata) external virtual returns (bytes memory) {
         function (bytes calldata) internal returns (bytes memory) callback = TransientStorage.getAndClearCallback();
         bytes calldata data = _msgData();
-        return callback.isNull() ? _chainSpecificFallback(data) : callback(data[4:]);
+        if (callback.isNull()) {
+            return _chainSpecificFallback(data);
+        } else {
+            assembly ("memory-safe") {
+                data.offset := add(0x04, data.offset)
+                data.length := sub(data.length, 0x04)
+            }
+            return callback(data);
+        }
     }
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
