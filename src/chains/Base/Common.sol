@@ -13,7 +13,10 @@ import {BalancerV3} from "../../core/BalancerV3.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 import {Renegade, BASE_SELECTOR} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
+
+import {IMsgSender} from "../../interfaces/IMsgSender.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {FastLogic} from "../../utils/FastLogic.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -71,6 +74,8 @@ abstract contract BaseMixin is
     Renegade,
     Bebop
 {
+    using FastLogic for bool;
+
     constructor() {
         assert(block.chainid == 8453 || block.chainid == 31337);
     }
@@ -241,9 +246,23 @@ abstract contract BaseMixin is
         return IEVC(0x5301c7dD20bD945D2013b48ed0DEE3A284ca8989);
     }
 
-    function msgSender() external view returns (address result) {
-        result = _msgSender();
-        require(result != address(0));
+    function _chainSpecificFallback(bytes calldata data) internal view virtual returns (bytes memory result) {
+        address msgSender = _msgSender();
+        uint32 selector;
+        assembly ("memory-safe") {
+            selector := shr(0xe0, calldataload(data.offset))
+        }
+        require(
+            (uint256(selector) ^ uint256(uint32(IMsgSender.msgSender.selector)) << 224 == 0).and(
+                uint256(uint160(msgSender)) << 96 != 0
+            )
+        );
+        assembly ("memory-safe") {
+            result := mload(0x40)
+            mstore(0x40, add(0x40, result))
+            mstore(result, 0x20)
+            mstore(add(0x20, result), and(0xffffffffffffffffffffffffffffffffffffffff, msgSender))
+        }
     }
 
     function _renegadeSelector() internal pure override returns (uint32) {

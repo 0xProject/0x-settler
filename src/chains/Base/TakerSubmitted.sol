@@ -12,6 +12,7 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
+import {Permit2Payment} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
 contract BaseSettler is Settler, BaseMixin {
@@ -103,5 +104,15 @@ contract BaseSettler is Settler, BaseMixin {
 
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+
+    function _chainSpecificFallback(bytes calldata data)
+        internal
+        view
+        virtual
+        override(Permit2Payment, BaseMixin)
+        returns (bytes memory)
+    {
+        return BaseMixin._chainSpecificFallback(data);
     }
 }

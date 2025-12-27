@@ -28,6 +28,14 @@ import {Revert} from "../utils/Revert.sol";
 import {AbstractContext, Context} from "../Context.sol";
 import {AllowanceHolderContext, ALLOWANCE_HOLDER} from "../allowanceholder/AllowanceHolderContext.sol";
 
+library FunctionPointerChecker {
+    function isNull(function (bytes calldata) internal returns (bytes memory) callback) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            r := iszero(callback)
+        }
+    }
+}
+
 library TransientStorage {
     // bytes32((uint256(keccak256("operator slot")) - 1) & type(uint96).max)
     bytes32 private constant _OPERATOR_SLOT = 0x0000000000000000000000000000000000000000cdccd5c65a7d4860ce3abbe9;
@@ -91,10 +99,8 @@ library TransientStorage {
     {
         assembly ("memory-safe") {
             let slotValue := tload(_OPERATOR_SLOT)
-            if or(shr(0xe0, xor(calldataload(0), slotValue)), shl(0x60, xor(caller(), slotValue))) {
-                revert(0x00, 0x00)
-            }
             callback := and(0xffff, shr(0xa0, slotValue))
+            callback := mul(iszero(or(shr(0xe0, xor(calldataload(0), slotValue)), shl(0x60, xor(caller(), slotValue)))), callback)
             tstore(_OPERATOR_SLOT, 0x00)
         }
     }
@@ -222,13 +228,21 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
 
     function _invokeCallback(bytes calldata data) internal returns (bytes memory) {
         // Retrieve callback and perform call with untrusted calldata
-        return TransientStorage.getAndClearCallback()(data[4:]);
+        return (data[4:]);
     }
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {
+    using FunctionPointerChecker for function (bytes calldata) internal returns (bytes memory);
+
+    function _chainSpecificFallback(bytes calldata) internal virtual returns (bytes memory) {
+        revert();
+    }
+
     fallback(bytes calldata) external virtual returns (bytes memory) {
-        return _invokeCallback(_msgData());
+        function (bytes calldata) internal returns (bytes memory) callback = TransientStorage.getAndClearCallback();
+        bytes calldata data = _msgData();
+        return callback.isNull() ? _chainSpecificFallback(data) : callback(data[4:]);
     }
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
