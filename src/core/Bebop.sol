@@ -93,7 +93,11 @@ abstract contract Bebop is SettlerAbstract {
     IBebopSettlement internal constant _BEBOP = IBebopSettlement(0xbbbbbBB520d69a9775E85b458C58c648259FAD5F);
 
     constructor() {
-        assert(block.chainid == 1 || block.chainid == 31337);
+        assert(
+            block.chainid == 1 || block.chainid == 10 || block.chainid == 56 || block.chainid == 137
+                || block.chainid == 999 || block.chainid == 8453 || block.chainid == 31337 || block.chainid == 42161
+                || block.chainid == 43114
+        );
     }
 
     function _isRestrictedTarget(address target) internal view virtual override returns (bool) {
