@@ -11,7 +11,6 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
-import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
@@ -83,7 +82,7 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
     function _isRestrictedTarget(address target)
         internal
         view
-        override(Settler, Permit2PaymentAbstract)
+        override(Settler, ArbitrumMixin)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
