@@ -252,12 +252,13 @@ abstract contract BaseMixin is
         assembly ("memory-safe") {
             selector := shr(0xe0, calldataload(data.offset))
         }
-        require((selector == uint32(IMsgSender.msgSender.selector)).and(uint256(uint160(msgSender)) << 96 != 0));
+        uint256 msgSenderShifted = uint256(uint160(msgSender)) << 96;
+        require((selector == uint32(IMsgSender.msgSender.selector)).and(msgSenderShifted != 0));
         assembly ("memory-safe") {
             result := mload(0x40)
             mstore(0x40, add(0x40, result))
             mstore(result, 0x20)
-            mstore(add(0x20, result), and(0xffffffffffffffffffffffffffffffffffffffff, msgSender))
+            mstore(add(0x20, result), shr(0x60, msgSenderShifted))
         }
     }
 
