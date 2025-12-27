@@ -99,7 +99,7 @@ library TransientStorage {
     {
         assembly ("memory-safe") {
             let slotValue := tload(_OPERATOR_SLOT)
-            let badCallerOrSelector := or(shr(0xe0, xor(calldataload(0), slotValue)), shl(0x60, xor(caller(), slotValue)))
+            let badCallerOrSelector := or(shr(0xe0, xor(calldataload(0x00), slotValue)), shl(0x60, xor(caller(), slotValue)))
             callback := and(0xffff, shr(0xa0, slotValue))
             callback := mul(iszero(badCallerOrSelector), callback)
             tstore(_OPERATOR_SLOT, 0x00)
