@@ -30,6 +30,11 @@ jobs:
       - name: Install node dependencies
         run: npm install
 
+      - name: Build AllowanceHolder and Deployer
+        run: forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol src/deployer/BlastDeployer.sol src/deployer/ModeDeployer.sol
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.25
+
       - name: Run tests
         run: forge test --skip 'src/*' --skip 'test/0.8.28/*' --skip 'test/integration/arbitrum/*'
         env:

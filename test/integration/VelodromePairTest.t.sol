@@ -10,7 +10,6 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {BaseSettler as Settler} from "src/chains/Base/TakerSubmitted.sol";
 import {Shim} from "./SettlerBasePairTest.t.sol";
 
-import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
 contract VelodromePairTest is BasePairTest {
@@ -36,7 +35,7 @@ contract VelodromePairTest is BasePairTest {
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);
         settler = new Settler(bytes20(0));
-        vm.etch(address(allowanceHolder), address(new AllowanceHolder()).code);
+        vm.etch(address(allowanceHolder), vm.getDeployedCode("AllowanceHolder.sol:AllowanceHolder"));
         vm.chainId(forkChainId);
 
         // USDT is obnoxious about throwing errors, so let's check here before
