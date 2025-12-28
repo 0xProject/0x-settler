@@ -49,6 +49,21 @@ Master list of UniV3 forks:
 * Fix bug that was causing bad revert reason for expired `AllowanceHolder`
   trades.
 
+## 2025-12-17
+
+### Breaking changes
+
+* Update Linea chain to Cancun hardfork (AllowanceHolder is now
+  `0x0000000000001fF3684f28c67538d4D072C22734`)
+
+### Non-breaking changes
+
+* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to Plasma
+* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to HyperEVM
+* Fix bug that was sending un-settleable native asset dust via OFT,
+  causing reverts.
+* Fix bug in HyperEvm BridgeSettler that was causing spurious reverts.
+
 ## 2025-12-15
 
 ### Non-breaking changes

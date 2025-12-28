@@ -8,8 +8,9 @@ import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {StargateV2} from "../../core/StargateV2.sol";
 import {DeBridge} from "../../core/DeBridge.sol";
+import {Across} from "../../core/Across.sol";
 
-contract PlasmaBridgeSettler is BridgeSettler, StargateV2, DeBridge {
+contract PlasmaBridgeSettler is BridgeSettler, StargateV2, DeBridge, Across {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 9745 || block.chainid == 31337);
     }
@@ -30,6 +31,12 @@ contract PlasmaBridgeSettler is BridgeSettler, StargateV2, DeBridge {
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_DEBRIDGE.selector)) {
             (uint256 globalFee, bytes memory createOrderData) = abi.decode(data, (uint256, bytes));
             bridgeToDeBridge(globalFee, createOrderData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_ACROSS.selector)) {
+            (address spoke, bytes memory depositData) = abi.decode(data, (address, bytes));
+            bridgeERC20ToAcross(spoke, depositData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_ACROSS.selector)) {
+            (address spoke, bytes memory depositData) = abi.decode(data, (address, bytes));
+            bridgeNativeToAcross(spoke, depositData);
         } else {
             return false;
         }
