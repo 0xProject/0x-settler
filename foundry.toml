@@ -7,11 +7,11 @@ auto_detect_remappings = false
 cbor_metadata = false
 sparse_mode = false
 
-solc_version = "0.8.33"
+solc_version = "0.8.25"
 optimizer = true
 via_ir = true
 optimizer_runs = 2_000
-evm_version = "osaka"
+evm_version = "cancun"
 no_match_path = "test/integration/*"
 # needed for marktoda/forge-gas-snapshot
 ffi = true

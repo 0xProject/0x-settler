@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.33;
+pragma solidity =0.8.25;
 
 import {MainnetMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
