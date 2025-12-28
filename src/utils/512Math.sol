@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {Panic} from "./Panic.sol";
 import {UnsafeMath} from "./UnsafeMath.sol";
@@ -1099,33 +1099,6 @@ library Lib512MathArithmetic {
         // y_hi != 0) and that x ≥ y
     }
 
-    /// Modified from Solady (https://github.com/Vectorized/solady/blob/a3d6a974f9c9f00dcd95b235619a209a63c61d94/src/utils/LibBit.sol#L33-L45)
-    /// The original code was released under the MIT license.
-    function _clzLower(uint256 x) private pure returns (uint256 r) {
-        assembly ("memory-safe") {
-            r := shl(0x06, lt(0xffffffffffffffff, x))
-            r := or(r, shl(0x05, lt(0xffffffff, shr(r, x))))
-            r := or(r, shl(0x04, lt(0xffff, shr(r, x))))
-            r := or(r, shl(0x03, lt(0xff, shr(r, x))))
-            // We use a 5-bit deBruijn Sequence to convert `x`'s 8
-            // most-significant bits into an index. We then index the lookup
-            // table (bytewise) by the deBruijn symbol to obtain the bitwise
-            // inverse of its logarithm.
-            r :=
-                xor(
-                    r,
-                    byte(
-                        and(0x1f, shr(shr(r, x), 0x8421084210842108cc6318c6db6d54be)),
-                        0x7879797a797d7a7b797d7c7d7a7b7c7e797a7d7a7c7c7b7e7a7a7c7b7f7f7f7f
-                    )
-                )
-        }
-    }
-
-    function _clzUpper(uint256 x) private pure returns (uint256) {
-        return _clzLower(x >> 128);
-    }
-
     function _shl256(uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_hi := shr(sub(0x100, s), x_lo)
@@ -1188,7 +1161,7 @@ library Lib512MathArithmetic {
             // even-more-costly division-by-inversion operation later into a
             // simple shift. This still ultimately satisfies the postcondition
             // (y_hi >> 128 >= 1 << 127) without overflowing.
-            s = _clzUpper(y_hi);
+            s = y_hi.clz();
             uint256 x_ex;
             (x_ex, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
             (, y_hi, y_lo) = _shl256(y_hi, y_lo, s);
@@ -1234,7 +1207,7 @@ library Lib512MathArithmetic {
 
             // Normalize. Ensure the most significant limb of y ≥ 2¹²⁷ (step D1)
             // See above comment about the use of a shift instead of division.
-            s = _clzLower(y_hi);
+            s = (y_hi << 128).clz();
             (, y_hi, y_lo) = _shl256(y_hi, y_lo, s);
             // `y_next` is the second-most-significant, nonzero, normalized limb
             // of y
