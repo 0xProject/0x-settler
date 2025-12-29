@@ -107,8 +107,10 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
     modifier setBalancerV3Block() {
         uint256 blockNumber = vm.getBlockNumber();
         vm.rollFork(balancerV3BloackNumber());
+        vm.setEvmVersion("cancun");
         _;
         vm.rollFork(blockNumber);
+        vm.setEvmVersion("cancun");
     }
 
     function fills() internal virtual returns (bytes memory) {

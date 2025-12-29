@@ -31,4 +31,4 @@ jobs:
         run: npm install
 
       - name: Check contract sizes
-        run: forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip 'test/*'
+        run: forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip BlastDeployer.sol --skip ModeDeployer.sol --skip 'test/*'

@@ -74,6 +74,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
 
     function setUp() public {
         vm.createSelectFork(_testChainId(), _testBlockNumber());
+        vm.setEvmVersion("cancun");
 
         address alice_;
         (alice_, alicePk) = makeAddrAndKey("Alice");

@@ -49,8 +49,10 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
     modifier setEkuboBlock() {
         uint256 blockNumber = vm.getBlockNumber();
         vm.rollFork(ekuboBlockNumber());
+        vm.setEvmVersion("cancun");
         _;
         vm.rollFork(blockNumber);
+        vm.setEvmVersion("cancun");
     }
 
     function _setEkuboLabels() private setEkuboBlock {

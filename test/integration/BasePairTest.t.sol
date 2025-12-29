@@ -32,18 +32,11 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
     IERC20 internal constant ETH = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
     IERC20 internal constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
-    bytes32 internal immutable permit2Domain;
+    bytes32 private constant _PERMIT2_NAME_HASH = keccak256("Permit2");
+    bytes32 private constant _PERMIT2_TYPE_HASH =
+        keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)");
 
-    constructor() {
-        vm.createSelectFork(_testChainId(), _testBlockNumber());
-        permit2Domain = PERMIT2.DOMAIN_SEPARATOR();
-        if (address(fromToken()).code.length > 0) {
-            vm.label(address(fromToken()), fromToken().symbol());
-        }
-        if (address(toToken()).code.length > 0) {
-            vm.label(address(toToken()), toToken().symbol());
-        }
-    }
+    bytes32 internal permit2Domain;
 
     function _testName() internal view virtual returns (string memory);
     function fromToken() internal view virtual returns (IERC20);
@@ -56,11 +49,19 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
 
     function setUp() public virtual {
         vm.createSelectFork(_testChainId(), _testBlockNumber());
+        vm.setEvmVersion("cancun");
+        permit2Domain = keccak256(abi.encode(_PERMIT2_TYPE_HASH, _PERMIT2_NAME_HASH, block.chainid, address(PERMIT2)));
         vm.label(address(this), "FoundryTest");
         vm.label(address(PERMIT2), "Permit2");
         vm.label(FROM, "FROM");
         vm.label(MAKER, "MAKER");
         vm.label(BURN_ADDRESS, "BURN");
+        if (address(fromToken()).code.length > 0) {
+            vm.label(address(fromToken()), fromToken().symbol());
+        }
+        if (address(toToken()).code.length > 0) {
+            vm.label(address(toToken()), toToken().symbol());
+        }
 
         // Initialize addresses with non-zero balances
         // https://github.com/0xProject/0x-settler#gas-comparisons

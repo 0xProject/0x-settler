@@ -80,9 +80,11 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
     modifier setMakerPsmLiteBlockNumber() {
         uint256 blockNumber = (new Shim()).blockNumber();
         vm.rollFork(makerPsmLiteBlockNumber());
+        vm.setEvmVersion("cancun");
         assert(address(makerPsm()).code.length > 0);
         _;
         vm.rollFork(blockNumber);
+        vm.setEvmVersion("cancun");
     }
 
     function makerPsm() internal view virtual returns (IPSM) {
