@@ -22,11 +22,19 @@ contract VelodromePairTest is BasePairTest {
     uint256 private _amount;
 
     function setUp() public override {
+        super.setUp();
         // the pool specified below doesn't have very much liquidity, so we only swap a small amount
         IERC20 sellToken = IERC20(address(fromToken()));
         _amount = 10 ** sellToken.decimals() * 100;
-
-        super.setUp();
+        if (address(fromToken()).code.length != 0) {
+            deal(address(fromToken()), FROM, _amount);
+            deal(address(fromToken()), MAKER, 1);
+            deal(address(fromToken()), BURN_ADDRESS, 1);
+        }
+        if (address(toToken()).code.length != 0) {
+            deal(address(toToken()), MAKER, _amount);
+            deal(address(toToken()), BURN_ADDRESS, 1);
+        }
         safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
         warmPermit2Nonce(FROM);
 
