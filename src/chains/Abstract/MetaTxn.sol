@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {AbstractMixin} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
@@ -12,6 +12,8 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
+import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 import {UniswapV3Fork} from "../../core/UniswapV3Fork.sol";
 
 /// @custom:security-contact security@0x.org
@@ -41,6 +43,16 @@ contract AbstractSettlerMetaTxn is SettlerMetaTxn, AbstractMixin {
         returns (bool)
     {
         return super._dispatch(i, action, data);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(SettlerMetaTxn, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 
     function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {

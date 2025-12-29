@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {SonicSettlerMetaTxn} from "./MetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
@@ -93,5 +93,15 @@ contract SonicSettlerIntent is SettlerIntent, SonicSettlerMetaTxn {
         returns (uint256)
     {
         return super._permitToSellAmount(permit);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(SonicSettlerMetaTxn, SettlerIntent)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

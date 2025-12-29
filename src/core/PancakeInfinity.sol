@@ -12,30 +12,7 @@ import {Ternary} from "../utils/Ternary.sol";
 import {ZeroSellAmount, UnknownPoolManagerId} from "./SettlerErrors.sol";
 
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
-
-/// @dev Two `int128` values packed into a single `int256` where the upper 128 bits represent the amount0
-/// and the lower 128 bits represent the amount1.
-type BalanceDelta is int256;
-
-/// @notice Library for getting the amount0 and amount1 deltas from the BalanceDelta type
-library BalanceDeltaLibrary {
-    /// @notice Constant for a BalanceDelta of zero value
-    BalanceDelta public constant ZERO_DELTA = BalanceDelta.wrap(0);
-
-    function amount0(BalanceDelta balanceDelta) internal pure returns (int128 _amount0) {
-        assembly ("memory-safe") {
-            _amount0 := sar(0x80, balanceDelta)
-        }
-    }
-
-    function amount1(BalanceDelta balanceDelta) internal pure returns (int128 _amount1) {
-        assembly ("memory-safe") {
-            _amount1 := signextend(0x0f, balanceDelta)
-        }
-    }
-}
-
-using BalanceDeltaLibrary for BalanceDelta global;
+import {BalanceDelta} from "./UniswapV4Types.sol";
 
 interface IPancakeInfinityVault {
     /// @notice Called by the user to net out some value owed to the user

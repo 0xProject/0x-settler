@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {SettlerBase} from "../../SettlerBase.sol";
 
@@ -15,6 +15,7 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {Ekubo} from "../../core/Ekubo.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
+import {Bebop} from "../../core/Bebop.sol";
 
 import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -48,6 +49,7 @@ import {MAINNET_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract MainnetMixin is
     FreeMemory,
@@ -60,7 +62,8 @@ abstract contract MainnetMixin is
     UniswapV4,
     BalancerV3,
     Ekubo,
-    EulerSwap
+    EulerSwap,
+    Bebop
 {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
@@ -186,6 +189,18 @@ abstract contract MainnetMixin is
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToEkubo(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                ISettlerActions.BebopOrder memory order,
+                ISettlerActions.BebopMakerSignature memory makerSignature,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, IERC20, ISettlerActions.BebopOrder, ISettlerActions.BebopMakerSignature, uint256)
+            );
+
+            sellToBebop(payable(recipient), sellToken, order, makerSignature, amountOutMin);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
@@ -241,5 +256,16 @@ abstract contract MainnetMixin is
 
     function _EVC() internal pure override returns (IEVC) {
         return IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
+    }
+
+    // I hate Solidity inheritance
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(Bebop, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

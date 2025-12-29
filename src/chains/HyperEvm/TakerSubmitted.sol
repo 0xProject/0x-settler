@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {HyperEvmMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
@@ -11,7 +11,6 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
-import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
@@ -30,8 +29,8 @@ contract HyperEvmSettler is Settler, HyperEvmMixin {
     // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
-        pure
-        override(Settler, Permit2PaymentAbstract)
+        view
+        override(Settler, HyperEvmMixin)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
