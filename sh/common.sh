@@ -5,9 +5,9 @@ if ! hash forge &>/dev/null ; then
     exit 1
 fi
 
-if [[ $(forge --version) != *d2415887096b10226d13af9240b5bef5e6b0d815* ]] ; then
+if [[ $(forge --version) != *b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2* ]] ; then
     echo 'Wrong foundry version installed' >&2
-    echo 'Run `foundryup -i v1.3.6`' >&2
+    echo 'Run `foundryup -i v1.5.1`' >&2
     echo 'This doesn'"'"'t work on old versions of `foundryup`' >&2
     echo 'You have to `curl -L https://foundry.paradigm.xyz | bash` to update `foundryup`' >&2
     exit 1
