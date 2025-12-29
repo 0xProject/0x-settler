@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {SettlerBase} from "../../SettlerBase.sol";
 
@@ -12,6 +12,8 @@ import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {Renegade, ARBITRUM_SELECTOR} from "../../core/Renegade.sol";
+import {Bebop} from "../../core/Bebop.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -44,6 +46,7 @@ import {ARBITRUM_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract ArbitrumMixin is
     FreeMemory,
@@ -53,7 +56,9 @@ abstract contract ArbitrumMixin is
     DodoV1,
     DodoV2,
     UniswapV4,
-    BalancerV3
+    BalancerV3,
+    Renegade,
+    Bebop
 {
     constructor() {
         assert(block.chainid == 42161 || block.chainid == 31337);
@@ -101,10 +106,23 @@ abstract contract ArbitrumMixin is
                 uint256 bps,
                 IMaverickV2Pool pool,
                 bool tokenAIn,
+                int32 tickLimit,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
 
-            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
+            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                ISettlerActions.BebopOrder memory order,
+                ISettlerActions.BebopMakerSignature memory makerSignature,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, IERC20, ISettlerActions.BebopOrder, ISettlerActions.BebopMakerSignature, uint256)
+            );
+
+            sellToBebop(payable(recipient), sellToken, order, makerSignature, amountOutMin);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
@@ -115,6 +133,10 @@ abstract contract ArbitrumMixin is
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
             sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
+            (address target, IERC20 baseToken, bytes memory renegadeData) = abi.decode(data, (address, IERC20, bytes));
+
+            sellToRenegade(target, baseToken, renegadeData);
         } else {
             return false;
         }
@@ -168,5 +190,20 @@ abstract contract ArbitrumMixin is
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return ARBITRUM_POOL_MANAGER;
+    }
+
+    function _renegadeSelector() internal pure override returns (uint32) {
+        return ARBITRUM_SELECTOR;
+    }
+
+    // I hate Solidity inheritance
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(Bebop, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

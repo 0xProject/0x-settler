@@ -45,7 +45,7 @@ function retrieve_signatures {
         fi
     else
         declare signatures_json
-        signatures_json="$(curl --fail -s "$safe_url"'/v1/multisig-transactions/'"$_retrieve_signatures_signing_hash"'/confirmations/?executed=false' -X GET)"
+        signatures_json="$(curl --fail --retry 5 -s "$safe_url"'/v1/multisig-transactions/'"$_retrieve_signatures_signing_hash"'/confirmations/?executed=false' -X GET)"
         declare -r signatures_json
 
         if (( $(jq -Mr .count <<<"$signatures_json") < 2 )) ; then

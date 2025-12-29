@@ -36,6 +36,7 @@ Master list of UniV3 forks:
   33. Hybra
   34. HyperSwap
   35. Velodrome/Aerodrome Slipstream V3.1
+  36. AboreanCL
 
 ---
 
@@ -43,12 +44,100 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+### Non-breaking changes
+
+## 2025-12-29
+
+### Breaking changes
+
+* Update Settler on Ethereum and Base to the Osaka hardfork
+* The address `0xbbbbbBB520d69a9775E85b458C58c648259FAD5F` (Bebop) is now on the
+  list of restricted targets for the `BASIC` action for the following chains:
+  * Arbitrum
+  * Avalanche
+  * Base
+  * Bnb
+  * Ethereum mainnet
+  * Optimism
+  * Polygon
+  * HyperEvm
+
+### Non-breaking changes
+
+* Fix bug that was causing bad revert reason for expired `AllowanceHolder`
+  trades.
+* Add `BEBOP` action for 3rd-party RFQ provider Bebop. This action has special
+  functionality that binds the actual taker of the RFQ order (`_msgSender()`) to
+  the order itself to allow market makers better opportunity to screen takers as
+  well as normalizing the representation of the event emitted for RFQ orders
+  between the `RFQ` action and Bebop. This action is added on the following
+  chains:
+  * Arbitrum
+  * Avalanche
+  * Base
+  * Bnb
+  * Ethereum mainnet
+  * Optimism
+  * Polygon
+  * HyperEvm
+
+## 2025-12-17
+
+### Breaking changes
+
+* Update Linea chain to Cancun hardfork (AllowanceHolder is now
+  `0x0000000000001fF3684f28c67538d4D072C22734`)
+
+### Non-breaking changes
+
+* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to Plasma
+* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to HyperEVM
+* Fix bug that was sending un-settleable native asset dust via OFT,
+  causing reverts.
+* Fix bug in HyperEvm BridgeSettler that was causing spurious reverts.
+
+## 2025-12-15
+
+### Non-breaking changes
+
+* Deploy Settler and BridgeSettler to Abstract mainnet chain
+  * Add UniswapV3 UniswapV3 fork to Abstract chain
+  * Add Aborean UniswapV3 fork to Abstract chain
+
+## 2025-12-03
+
+### Breaking changes
+
 * Removed BridgeSettler action `BRIDGE_ERC20_TO_LAYER_ZERO_OFT` in favor of
   `BRIDGE_TO_LAYER_ZERO_OFT` that accepts ERC20 and Native tokens.
+* Changes for price impact caps on tick-based AMMs
+  * Modified `MAVERICKV2` and `MAVERICKV2_VIP` to include `tickLimit` as a parameter
+  * Modified fills of UniV4, PancakeInfinity and Ekubo to include `priceSqrt`
+  * Modified UniV3 `encodedPath` to include `priceSqrt`
 
 ### Non-breaking changes
 
 * Add Aerodrome Slipstream V3.1 UniswapV3 fork to Base
+* Add `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad mainnet chain
+* Update the BridgeSettler Across actions `BRIDGE_NATIVE_TO_ACROSS` and
+  `BRIDGE_ERC20_TO_ACROSS` to use a different underlying function: `deposit`
+  (`0xad5425c6`) instead of `depositV3` (`0x7b939232`)
+* Add new Renegade action `RENEGADE` to supported chains:
+  * Add action `RENEGADE` to Arbitrum
+  * Add action `RENEGADE` to Base
+* Added `UNDERPAYMENT_CHECK` action to `BridgeSettlerBase`.
+* Added another set of 60 solvers whitelisted on the `SettlerIntent` instances
+
+## 2025-11-24
+
+### Non-breaking changes
+
+* Deploy Settler to Monad mainnet
+  * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
+    `METATXN_BALANCERV3_VIP`) to Monad mainnet
+  * Add UniswapV4 actions to Monad mainnet
+  * Add PancakeSwapV3 UniV3 fork to Monad mainnet
+  * Add UniswapV3 UniV3 fork on Monad mainnet
 
 ## 2025-11-11
 
@@ -80,12 +169,8 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
-* Add `NATIVE_CHECK` action to Mainnet
 * Add `EULERSWAP` action to Plasma
-* Deploy Settler to Monad mainnet
-  * Add BalancerV3 actions (`BALANCERV3`, `BALANCERV3_VIP`, and
-    `METATXN_BALANCERV3_VIP`) to Monad mainnet
-  * Add PancakeSwapV3 UniV3 fork on Plasma
+* Add `NATIVE_CHECK` action to Mainnet
 
 ## 2025-09-15
 

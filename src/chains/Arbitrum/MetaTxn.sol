@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {ArbitrumMixin} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
@@ -12,6 +12,7 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
+import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
 contract ArbitrumSettlerMetaTxn is SettlerMetaTxn, ArbitrumMixin {
@@ -60,10 +61,11 @@ contract ArbitrumSettlerMetaTxn is SettlerMetaTxn, ArbitrumMixin {
                 bytes32 salt,
                 bool tokenAIn,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                int32 tickLimit,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, uint256));
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, int32, uint256));
 
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address recipient,
@@ -87,6 +89,16 @@ contract ArbitrumSettlerMetaTxn is SettlerMetaTxn, ArbitrumMixin {
         returns (bool)
     {
         return super._dispatch(i, action, data);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(SettlerMetaTxn, ArbitrumMixin)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 
     function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {

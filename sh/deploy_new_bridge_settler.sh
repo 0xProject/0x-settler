@@ -134,22 +134,7 @@ declare -r signer
 . "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_safe_deployer.sh
 . "$project_root"/sh/common_deploy_bridge_settler.sh
-
-# set minimum gas price to (mostly for Arbitrum and BNB)
-declare -i min_gas_price
-min_gas_price="$(get_config minGasPriceGwei)"
-min_gas_price=$((min_gas_price * 1000000000))
-declare -r -i min_gas_price
-declare -i gas_price
-gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-if (( gas_price < min_gas_price )) ; then
-    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
-    gas_price=$min_gas_price
-fi
-declare -r -i gas_price
-declare -i gas_estimate_multiplier
-gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
-declare -r -i gas_estimate_multiplier
+. "$project_root"/sh/common_gas.sh
 
 while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     declare -i operation="${deploy_calldatas[0]}"
@@ -160,18 +145,19 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     declare packed_signatures
     packed_signatures="$(retrieve_signatures bridge_settler_confirmation "$deploy_calldata" $operation "$target")"
     
-    # configure gas limit
     declare -a args=(
         "$safe_address" "$execTransaction_sig"
         # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         "$target" 0 "$deploy_calldata" $operation 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
     )
 
-    # set gas limit and add multiplier/headroom (again mostly for Arbitrum)
+    declare -i gas_estimate
+    gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
+    declare -r -i gas_estimate
     declare -i gas_limit
-    gas_limit="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
-    gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
-
+    gas_limit="$(apply_gas_multiplier $gas_estimate)"
+    declare -r -i gas_limit
+    
     if [[ $wallet_type = 'frame' ]] ; then
         cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" $(get_config extraFlags) "${args[@]}"
     else

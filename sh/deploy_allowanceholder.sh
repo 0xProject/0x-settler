@@ -124,20 +124,11 @@ cd "$project_root"
 
 decrypt_secrets
 
-# set minimum gas price to (mostly for Arbitrum and BNB)
-declare -i min_gas_price
-min_gas_price="$(get_config minGasPriceGwei)"
-min_gas_price=$((min_gas_price * 1000000000))
-declare -r -i min_gas_price
-declare -i gas_price
-gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-if (( gas_price < min_gas_price )) ; then
-    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
-    gas_price=$min_gas_price
-fi
-declare -r -i gas_price
+. "$project_root"/sh/common_gas.sh
 
 export FOUNDRY_OPTIMIZER_RUNS=1000000
+export FOUNDRY_SOLC_VERSION=0.8.25
+export FOUNDRY_EVM_HARDFORK=cancun
 
 forge clean
 forge build src/allowanceholder/AllowanceHolder.sol
@@ -146,43 +137,19 @@ declare allowanceholder_initcode
 allowanceholder_initcode="$(jq -rM '.bytecode.object' < out/AllowanceHolder.sol/AllowanceHolder.json)"
 declare -r allowanceholder_initcode
 
-declare -i gas_estimate_multiplier
-gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
-declare -r -i gas_estimate_multiplier
-
 declare -i gas_limit
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    gas_limit="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid --create "$allowanceholder_initcode")"
+    declare -i gas_estimate
+    gas_estimate="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid --create "$allowanceholder_initcode")"
+    declare -r -i gas_estimate
 
-    # Mantle has some real funky gas rules, exclude it from this logic
-    if (( chainid != 5000 )) ; then
-        if (( gas_limit > 16777215 )) ; then
-            echo 'AllowanceHolder deployment gas limit exceeds the EIP-7825 limit' >&2
-            exit 1
-        fi
-    fi
-
-    # Add some buffer
-    gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
-    if (( chainid != 5000 )) ; then
-        if (( gas_limit > 16777215 )) ; then
-            declare gas_limit_keep_going
-            IFS='' read -p 'Gas limit with multiplier exceeds EIP-7825 limit. Cap gas limit and keep going? [y/N]: ' -e -r -i n gas_limit_keep_going
-            declare -r gas_limit_keep_going
-            if [[ "${gas_limit_keep_going:-n}" != [Yy] ]] ; then
-                echo >&2
-                echo 'Exiting as requested' >&2
-                exit 1
-            fi
-            gas_limit=16777215
-        fi
-    fi
+    gas_limit="$(apply_gas_multiplier $gas_estimate)"
 
     maybe_broadcast+=(send --chain $chainid --private-key)
     maybe_broadcast+=("$(get_secret allowanceHolder key)")
 else
-    gas_limit=16777215
+    gas_limit=$eip7825_gas_limit
     maybe_broadcast+=(call --trace -vvvv)
 fi
 declare -r -i gas_limit

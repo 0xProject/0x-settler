@@ -16,6 +16,7 @@ import {BnbSettlerMetaTxn} from "src/chains/Bnb/MetaTxn.sol";
 
 import {NotesLib} from "src/core/FlashAccountingCommon.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
+import {FullMath} from "src/vendor/FullMath.sol";
 
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
@@ -29,8 +30,17 @@ import {
     IPancakeInfinityPoolManager
 } from "src/core/PancakeInfinity.sol";
 
+interface IPancakeInfinityCLPoolManagerSlot0 {
+    function getSlot0(bytes32 poolId) external view returns (uint160 sqrtPriceX96);
+}
+
 abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxnPairTest {
     using UnsafeMath for uint256;
+
+    uint160 private constant MIN_SQRT_RATIO = 4295128740;
+    uint160 private constant MAX_SQRT_RATIO = 1461446703485210103287273052203988822378723970341;
+    uint256 private constant Q96 = 1 << 96;
+    uint256 private constant SQRT_2_Q96 = 112045541949572279837463876454;
 
     function uniswapV3Path()
         internal
@@ -85,7 +95,54 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         vm.label(address(BIN_MANAGER), "BINPoolManager");
     }
 
-    function pancakeInfinityFills(address token) internal view virtual returns (bytes memory) {
+    function _readSlot0Cold(bytes32 poolId_) private view returns (uint160 sqrtPriceX96) {
+        // Revert with the return value so the access list stays cold for gas snapshots.
+        (bool ok, bytes memory data) =
+            address(this).staticcall(abi.encodeCall(this._readSlot0AndRevert, (poolId_)));
+        if (ok || data.length != 32) {
+            revert();
+        }
+        return abi.decode(data, (uint160));
+    }
+
+    function _readSlot0AndRevert(bytes32 poolId_) external view {
+        uint160 sqrtPriceX96 = IPancakeInfinityCLPoolManagerSlot0(address(CL_MANAGER)).getSlot0(poolId_);
+        assembly ("memory-safe") {
+            mstore(0x00, sqrtPriceX96)
+            revert(0x00, 0x20)
+        }
+    }
+
+    function sqrtPriceLimitX96(IERC20 sellToken, IERC20 buyToken)
+        internal
+        view
+        virtual
+        override
+        returns (uint160)
+    {
+        if (poolManagerId() != 0 || poolId() == bytes32(0)) {
+            return super.sqrtPriceLimitX96(sellToken, buyToken);
+        }
+
+        uint160 current = _readSlot0Cold(poolId());
+        bool zeroForOne = (sellToken == IERC20(ETH)) || ((buyToken != IERC20(ETH)) && (sellToken < buyToken));
+
+        uint256 limitX96;
+        if (zeroForOne) {
+            limitX96 = FullMath.mulDiv(uint256(current), Q96, SQRT_2_Q96);
+            if (limitX96 < MIN_SQRT_RATIO) {
+                limitX96 = MIN_SQRT_RATIO;
+            }
+        } else {
+            limitX96 = FullMath.mulDiv(uint256(current), SQRT_2_Q96, Q96);
+            if (limitX96 > MAX_SQRT_RATIO) {
+                limitX96 = MAX_SQRT_RATIO;
+            }
+        }
+        return uint160(limitX96);
+    }
+
+    function pancakeInfinityFills(IERC20 fromToken, IERC20 toToken) internal view virtual returns (bytes memory) {
         bytes32 poolId_ = poolId();
         uint8 managerId = poolManagerId();
         PoolKey memory poolKey = (
@@ -94,8 +151,9 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
 
         return abi.encodePacked(
             uint16(10_000),
+            sqrtPriceLimitX96(fromToken, toToken),
             bytes1(0x01),
-            token,
+            toToken,
             poolKey.hooks,
             managerId,
             poolKey.fee,
@@ -106,11 +164,11 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
     }
 
     function pancakeInfinityFills() internal view virtual returns (bytes memory) {
-        return pancakeInfinityFills(address(toToken()));
+        return pancakeInfinityFills(fromToken(), toToken());
     }
 
     function poolId() internal view virtual returns (bytes32) {
-        return bytes32(0x0000000000000000000000000000000000000000000000000000000000000000);
+        return bytes32(0);
     }
 
     function poolManagerId() internal view virtual returns (uint8) {
@@ -375,6 +433,6 @@ contract USDTWBNBTest is PancakeInfinityTest {
     }
 
     function pancakeInfinityFills() internal view virtual override returns (bytes memory) {
-        return pancakeInfinityFills(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+        return pancakeInfinityFills(fromToken(), ETH);
     }
 }

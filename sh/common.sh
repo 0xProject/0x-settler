@@ -5,9 +5,9 @@ if ! hash forge &>/dev/null ; then
     exit 1
 fi
 
-if [[ $(forge --version) != *b918f9b4ab0616b44e660a6bf8c5a47feece6505* ]] ; then
+if [[ $(forge --version) != *b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2* ]] ; then
     echo 'Wrong foundry version installed' >&2
-    echo 'Run `foundryup -i v1.3.0`' >&2
+    echo 'Run `foundryup -i v1.5.1`' >&2
     echo 'This doesn'"'"'t work on old versions of `foundryup`' >&2
     echo 'You have to `curl -L https://foundry.paradigm.xyz | bash` to update `foundryup`' >&2
     exit 1
@@ -59,19 +59,24 @@ function get_config {
 }
 
 if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
-    if [[ $(get_config isShanghai) != [Tt]rue ]] ; then
-        echo 'Chains without the Shanghai hardfork (PUSH0) are not supported' >&2
+    if [[ $(get_config hardfork.shanghai) != [Tt]rue ]] ; then
+        echo 'You are on the wrong branch (switch to `dcmt/london`)' >&2
         exit 1
     fi
 
-    if [[ $(get_config isCancun) != [Tt]rue ]] ; then
-        echo 'You are on the wrong branch' >&2
+    if [[ $(get_config hardfork.cancun) != [Tt]rue ]] ; then
+        echo 'You are on the wrong branch (switch to `dcmt/shanghai`)' >&2
+        exit 1
+    fi
+
+    if [[ $(get_config hardfork.osaka) != [Tt]rue ]] ; then
+        echo 'You are on the wrong branch (switch to `dcmt/cancun`)' >&2
         exit 1
     fi
 fi
 
 declare era_vm
-era_vm="$(get_config isEraVm)"
+era_vm="$(get_config hardfork.eraVm)"
 declare -r era_vm
 
 if [[ $era_vm != [Ff]alse ]] ; then
