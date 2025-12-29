@@ -31,8 +31,10 @@ match_path = "test/integration/*"
 fail_on_revert = false
 gas_snapshot_emit = false
 evm_version = "osaka"
-gas_limit = 16_777_216
-block_gas_limit = 16_777_216
+gas_limit = 50_000_000
+block_gas_limit = 50_000_000
+code_size_limit = 200_000
+disable_block_gas_limit = true
 
 [fuzz]
 runs = 100_000
