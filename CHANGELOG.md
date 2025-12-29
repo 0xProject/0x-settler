@@ -44,6 +44,8 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Update Settler on Ethereum and Base to the Osaka hardfork
+
 ### Non-breaking changes
 
 * Fix bug that was causing bad revert reason for expired `AllowanceHolder`
