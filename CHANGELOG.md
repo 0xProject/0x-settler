@@ -44,6 +44,12 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+### Non-breaking changes
+
+## 2025-12-29
+
+### Breaking changes
+
 * Update Settler on Ethereum and Base to the Osaka hardfork
 * The address `0xbbbbbBB520d69a9775E85b458C58c648259FAD5F` (Bebop) is now on the
   list of restricted targets for the `BASIC` action for the following chains:
