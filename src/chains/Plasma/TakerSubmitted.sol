@@ -45,7 +45,7 @@ contract PlasmaSettler is Settler, PlasmaMixin {
     // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
-        pure
+        view
         override(Settler, Permit2PaymentAbstract)
         returns (bool)
     {

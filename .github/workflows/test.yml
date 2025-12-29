@@ -28,7 +28,7 @@ jobs:
           FOUNDRY_SOLC_VERSION: 0.8.28
 
       - name: Build contracts
-        run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip BlastDeployer.sol --skip ModeDeployer.sol --skip 'test/*'
+        run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip BlastDeployer.sol --skip ModeDeployer.sol --skip 'test/*' --skip 'script/*'
 
       - name: Build AllowanceHolder and Deployer
         run: forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol src/deployer/BlastDeployer.sol src/deployer/ModeDeployer.sol
@@ -69,7 +69,7 @@ jobs:
         run: forge test --skip 'src/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --skip 'test/0.8.25/*' --mp test/unit/CrossChainReceiverFactory.t.sol
 
       - name: Run all the other tests
-        run: FOUNDRY_FUZZ_SEED="0x$(python3 -c 'import secrets, binascii; print(binascii.hexlify((secrets.randbits(256)).to_bytes(32, byteorder="big")).decode("ascii"))')" forge test --skip 'src/*' --skip 'test/0.8.28/*' --skip 'test/0.8.25/*' --skip CrossChainReceiverFactory.t.sol --skip MultiCall.t.sol
+        run: FOUNDRY_FUZZ_SEED="0x$(python3 -c 'import secrets, binascii; print(binascii.hexlify((secrets.randbits(256)).to_bytes(32, byteorder="big")).decode("ascii"))')" forge test --skip 'src/*' --skip 'test/0.8.28/*' --skip CrossChainReceiverFactory.t.sol --skip MultiCall.t.sol
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}

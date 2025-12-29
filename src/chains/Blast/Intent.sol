@@ -34,8 +34,8 @@ contract BlastSettlerIntent is SettlerIntent, BlastSettlerMetaTxn {
 
     function _isRestrictedTarget(address target)
         internal
-        pure
-        override(BlastSettlerMetaTxn, Permit2PaymentBase, Permit2PaymentAbstract)
+        view
+        override(BlastSettlerMetaTxn, SettlerIntent)
         returns (bool)
     {
         return super._isRestrictedTarget(target);

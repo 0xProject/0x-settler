@@ -28,6 +28,14 @@ import {Revert} from "../utils/Revert.sol";
 import {AbstractContext, Context} from "../Context.sol";
 import {AllowanceHolderContext, ALLOWANCE_HOLDER} from "../allowanceholder/AllowanceHolderContext.sol";
 
+library FunctionPointerChecker {
+    function isNull(function (bytes calldata) internal returns (bytes memory) callback) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            r := iszero(callback)
+        }
+    }
+}
+
 library TransientStorage {
     // bytes32((uint256(keccak256("operator slot")) - 1) & type(uint96).max)
     bytes32 private constant _OPERATOR_SLOT = 0x0000000000000000000000000000000000000000cdccd5c65a7d4860ce3abbe9;
@@ -43,7 +51,7 @@ library TransientStorage {
     // `foundry.toml` enforces the use of the IR pipeline, so the point is moot.
     //
     // `operator` must not be `address(0)`. This is not checked.
-    // `callback` must not be zero. This is checked in `_invokeCallback`.
+    // `callback` must not be zero. This is checked in `fallback`.
     function setOperatorAndCallback(
         address operator,
         uint32 selector,
@@ -91,10 +99,9 @@ library TransientStorage {
     {
         assembly ("memory-safe") {
             let slotValue := tload(_OPERATOR_SLOT)
-            if or(shr(0xe0, xor(calldataload(0), slotValue)), shl(0x60, xor(caller(), slotValue))) {
-                revert(0x00, 0x00)
-            }
+            let badCallerOrSelector := or(shr(0xe0, xor(calldataload(0x00), slotValue)), shl(0x60, xor(caller(), slotValue)))
             callback := and(0xffff, shr(0xa0, slotValue))
+            callback := mul(iszero(badCallerOrSelector), callback)
             tstore(_OPERATOR_SLOT, 0x00)
         }
     }
@@ -170,13 +177,14 @@ library TransientStorage {
 }
 
 abstract contract Permit2PaymentBase is Context, SettlerAbstract {
+    using FastLogic for bool;
     using Revert for bool;
 
     /// @dev Permit2 address
     ISignatureTransfer internal constant _PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
 
-    function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
-        return target == address(_PERMIT2);
+    function _isRestrictedTarget(address target) internal view virtual override returns (bool) {
+        return (target == address(_PERMIT2)).or(super._isRestrictedTarget(target));
     }
 
     function _operator() internal view virtual override returns (address) {
@@ -218,16 +226,27 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
     ) internal override returns (bytes memory) {
         return _setOperatorAndCall(payable(target), 0, data, selector, callback);
     }
-
-    function _invokeCallback(bytes calldata data) internal returns (bytes memory) {
-        // Retrieve callback and perform call with untrusted calldata
-        return TransientStorage.getAndClearCallback()(data[4:]);
-    }
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {
+    using FunctionPointerChecker for function (bytes calldata) internal returns (bytes memory);
+
+    function _chainSpecificFallback(bytes calldata) internal virtual returns (bytes memory) {
+        revert();
+    }
+
     fallback(bytes calldata) external virtual returns (bytes memory) {
-        return _invokeCallback(_msgData());
+        function (bytes calldata) internal returns (bytes memory) callback = TransientStorage.getAndClearCallback();
+        bytes calldata data = _msgData();
+        if (callback.isNull()) {
+            return _chainSpecificFallback(data);
+        } else {
+            assembly ("memory-safe") {
+                data.offset := add(0x04, data.offset)
+                data.length := sub(data.length, 0x04)
+            }
+            return callback(data);
+        }
     }
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
@@ -376,7 +395,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         }
     }
 
-    function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
+    function _isRestrictedTarget(address target) internal view virtual override returns (bool) {
         return (target == address(ALLOWANCE_HOLDER)).or(super._isRestrictedTarget(target));
     }
 
