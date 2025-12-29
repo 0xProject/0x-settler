@@ -69,8 +69,8 @@ if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
         exit 1
     fi
 
-    if [[ $(get_config hardfork.osaka) != [Tt]rue ]] ; then
-        echo 'You are on the wrong branch (switch to `dcmt/cancun`)' >&2
+    if [[ $(get_config hardfork.osaka) != [Ff]alse ]] ; then
+        echo 'You are on the wrong branch (switch to `master`)' >&2
         exit 1
     fi
 fi
