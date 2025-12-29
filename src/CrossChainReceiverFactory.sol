@@ -106,33 +106,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     bool private immutable _HAS_WNATIVE = true;
     bool private immutable _MISSING_WNATIVE = false;
 
-    function _eip150RatioTest() private returns (bool isWeird) {
-        // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
-        // cheat code. It is a no-op at deploy time.
-        if ((block.chainid == 31337).and(msg.sender == address(_WNATIVE)).and(msg.value > 1 wei)) {
-            assembly ("memory-safe") {
-                stop()
-            }
-        }
-
-        address invalidTarget;
-        assembly ("memory-safe") {
-            mstore(0x00, 0x5b5860fe3d533df3)
-            invalidTarget := create(0x00, 0x18, 0x08)
-            if iszero(invalidTarget) { revert(codesize(), 0x00) }
-        }
-
-        IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
-        calls[0].target = invalidTarget;
-        calls[0].revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
-
-        bytes memory data = abi.encodeCall(IMultiCall.multicall, (calls, 0));
-        (isWeird,) = EIP150_MULTICALL_ADDRESS.call{gas: 100_000}(data);
-    }
-
     bytes32 private constant _MULTICALL_STORAGE_SALT = keccak256("ERC2771-forwarding MultiCall Address");
-    IMultiCall private immutable _CHAIN_SPECIFIC_MULTICALL =
-        IMultiCall(payable(_eip150RatioTest() ? _getImmutableAddress(_MULTICALL_STORAGE_SALT) : EIP150_MULTICALL_ADDRESS));
+    IMultiCall private immutable _CHAIN_SPECIFIC_MULTICALL = IMultiCall(payable(_getImmutableAddress(_MULTICALL_STORAGE_SALT)));
 
     address private constant _PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
     ISignatureTransfer private constant _PERMIT2 = ISignatureTransfer(_PERMIT2_ADDRESS);
@@ -144,6 +119,14 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     error SignatureExpired(uint256 deadline);
 
     constructor() payable {
+        // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
+        // cheat code. It is a no-op at deploy time.
+        if ((block.chainid == 31337).and(msg.sender == address(_WNATIVE)).and(msg.value > 1 wei)) {
+            assembly ("memory-safe") {
+                stop()
+            }
+        }
+
         require(((msg.sender == _TOEHOLD).and(uint160(address(this)) >> 104 == 0)).or(block.chainid == 31337));
         require(uint160(_WNATIVE_SETTER) >> 112 == 0);
         require(_NAMEHASH == keccak256(bytes(name)));
@@ -165,8 +148,39 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         require(_CALL_TYPEHASH == keccak256("Call(address target,uint8 revertPolicy,uint256 value,bytes data)"));
 
         {
+            // Check that an OOG revert is bubbled, even when `revertPolicy == CONTINUE`
+            address invalidTarget;
+            assembly ("memory-safe") {
+                mstore(0x00, 0x5b5860fe3d533df3)
+                invalidTarget := create(0x00, 0x18, 0x08)
+                if iszero(invalidTarget) { revert(codesize(), 0x00) }
+            }
+
             IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
+            calls[0].target = invalidTarget;
+            calls[0].revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
+            bytes memory data = abi.encodeCall(IMultiCall.multicall, (calls, 0));
+            (bool success,) = address(_MULTICALL()).call{gas: 100_000}(data);
+            require(!success);
+
+            // Check that a non-OOG revert is swallowed when `revertPolicy == CONTINUE`
+            address revertTarget;
+            assembly ("memory-safe") {
+                mstore(0x00, 0x623d3dfd3d526003601df3)
+                revertTarget := create(0x00, 0x15, 0x0b)
+                if iszero(revertTarget) { revert(codesize(), 0x00) }
+            }
+
+            calls[0].target = revertTarget;
+            IMultiCall.Result[] memory results = _MULTICALL().multicall{gas: 100_000}(calls, 1);
+            require(results.length == 1);
+            require(!results[0].success);
+            require(results[0].data.length == 0);
+
+            // Check that calling the identity precompile returns success and the expected echoed
+            // data (including appended ERC2771 metadata)
             calls[0].target = address(4); // identity
+            calls[0].revertPolicy = IMultiCall.RevertPolicy.REVERT;
             calls[0].data = "Hello, World!";
             IMultiCall.Result[] memory results = _MULTICALL().multicall(calls, 1);
             require(results.length == 1);
