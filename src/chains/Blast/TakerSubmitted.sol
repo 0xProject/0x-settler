@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {BlastMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
@@ -42,8 +42,8 @@ contract BlastSettler is Settler, BlastMixin {
         return true;
     }
 
-    function _isRestrictedTarget(address target) internal pure override(Settler, BlastMixin) returns (bool) {
-        return BlastMixin._isRestrictedTarget(target) || Settler._isRestrictedTarget(target);
+    function _isRestrictedTarget(address target) internal view override(Settler, BlastMixin) returns (bool) {
+        return super._isRestrictedTarget(target);
     }
 
     // Solidity inheritance is stupid

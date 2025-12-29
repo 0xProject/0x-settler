@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {SettlerBase} from "../../SettlerBase.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {UniswapV4} from "../../core/UniswapV4.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
+import {LfjTokenMill} from "../../core/LfjTokenMill.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -17,7 +19,6 @@ import {
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
-
 import {
     pancakeSwapV3Factory,
     pancakeSwapV3InitHash,
@@ -25,15 +26,13 @@ import {
     IPancakeSwapV3Callback
 } from "../../core/univ3forks/PancakeSwapV3.sol";
 
-import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
-
 import {MONAD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
-abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4 {
+abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, LfjTokenMill {
     constructor() {
         assert(block.chainid == 143 || block.chainid == 31337);
     }
@@ -73,6 +72,11 @@ abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4 {
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        } else if (action == uint32(ISettlerActions.LFJTM.selector)) {
+            (address recipient, IERC20 sellToken, uint256 bps, address pool, bool zeroForOne, uint256 minBuyAmount) =
+                abi.decode(data, (address, IERC20, uint256, address, bool, uint256));
+
+            sellToLfjTokenMill(recipient, sellToken, bps, pool, zeroForOne, minBuyAmount);
         } else {
             return false;
         }
@@ -85,14 +89,14 @@ abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4 {
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        if (forkId == pancakeSwapV3ForkId) {
-            factory = pancakeSwapV3Factory;
-            initHash = pancakeSwapV3InitHash;
-            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-        } else if (forkId == uniswapV3ForkId) {
+        if (forkId == uniswapV3ForkId) {
             factory = uniswapV3MonadFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == pancakeSwapV3ForkId) {
+            factory = pancakeSwapV3Factory;
+            initHash = pancakeSwapV3InitHash;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }

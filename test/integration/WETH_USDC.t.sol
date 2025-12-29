@@ -6,14 +6,15 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UniswapV2PairTest} from "./UniswapV2PairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
 import {UniswapV4PairTest} from "./UniswapV4PairTest.t.sol";
+import {BebopPairTest} from "./BebopPairTest.t.sol";
 
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
 
-contract WETHUSDCTest is UniswapV2PairTest, UniswapV3PairTest, UniswapV4PairTest {
-    function setUp() public override(SettlerBasePairTest, SettlerPairTest, UniswapV3PairTest) {
+contract WETHUSDCTest is UniswapV2PairTest, UniswapV3PairTest, UniswapV4PairTest, BebopPairTest {
+    function setUp() public override(SettlerBasePairTest, SettlerPairTest, UniswapV3PairTest, BebopPairTest) {
         super.setUp();
     }
 
@@ -37,8 +38,8 @@ contract WETHUSDCTest is UniswapV2PairTest, UniswapV3PairTest, UniswapV4PairTest
         return 1000e6;
     }
 
-    function uniswapV3Path() internal pure override(SettlerPairTest) returns (bytes memory) {
-        return abi.encodePacked(fromToken(), uint8(0), uint24(500), toToken());
+    function uniswapV3Path() internal view override(SettlerPairTest) returns (bytes memory) {
+        return abi.encodePacked(fromToken(), uint8(0), uint24(500), sqrtPriceLimitX96FromTo(), toToken());
     }
 
     function uniswapV3PathCompat() internal pure override(UniswapV3PairTest) returns (bytes memory) {

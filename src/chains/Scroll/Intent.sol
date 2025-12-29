@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {ScrollSettlerMetaTxn} from "./MetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
@@ -104,5 +104,15 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
         returns (uint256)
     {
         return super._div512to256(n, d);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(ScrollSettlerMetaTxn, SettlerIntent)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

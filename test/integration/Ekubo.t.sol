@@ -49,20 +49,31 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
     modifier setEkuboBlock() {
         uint256 blockNumber = vm.getBlockNumber();
         vm.rollFork(ekuboBlockNumber());
+        vm.setEvmVersion("osaka");
         _;
         vm.rollFork(blockNumber);
+        vm.setEvmVersion("osaka");
     }
 
     function _setEkuboLabels() private setEkuboBlock {
         vm.label(address(CORE), "Ekubo CORE");
     }
 
+    function ekuboSqrtRatio() internal view virtual returns (uint96) {
+        return ekuboSqrtRatio(fromToken(), toToken());
+    }
+
+    function ekuboSqrtRatio(IERC20 sellToken, IERC20 buyToken) internal view virtual returns (uint96) {
+        bool zeroForOne = (sellToken == IERC20(ETH)) || ((buyToken != IERC20(ETH)) && (sellToken < buyToken));
+        return zeroForOne ? 4611797791050542631 : 79227682466138141934206691491;
+    }
+
     function ekuboFills() internal view virtual returns (bytes memory) {
-        return abi.encodePacked(uint16(10_000), bytes1(0x01), address(toToken()), ekuboPoolConfig());
+        return abi.encodePacked(uint16(10_000), ekuboSqrtRatio(), bytes1(0x01), address(toToken()), ekuboPoolConfig());
     }
 
     function ekuboExtensionFills() internal view virtual returns (bytes memory) {
-        return abi.encodePacked(uint16(42768), bytes1(0x01), address(toToken()), ekuboExtensionConfig());
+        return abi.encodePacked(uint16(42768), ekuboSqrtRatio(), bytes1(0x01), address(toToken()), ekuboExtensionConfig());
     }
 
     function ekuboExtraActions(bytes[] memory actions) internal view virtual returns (bytes[] memory) {
@@ -278,8 +289,8 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
         vm.stopPrank();
 
         uint256 afterBalanceTo = toToken().balanceOf(FROM);
-        assertGt(afterBalanceTo, beforeBalanceTo);
+        assertGt(afterBalanceTo, beforeBalanceTo, "fooo");
         uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
-        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
+        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom, "faaaa");
     }
 }

@@ -195,6 +195,7 @@ interface ISettlerActions {
         uint256 bps,
         address pool,
         bool tokenAIn,
+        int32 tickLimit,
         uint256 minBuyAmount
     ) external;
     /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback
@@ -206,6 +207,7 @@ interface ISettlerActions {
         bool tokenAIn,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
+        int32 tickLimit,
         uint256 minBuyAmount
     ) external;
     /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback; metatransaction variant
@@ -214,6 +216,7 @@ interface ISettlerActions {
         bytes32 salt,
         bool tokenAIn,
         ISignatureTransfer.PermitTransferFrom memory permit,
+        int32 tickLimit,
         uint256 minBuyAmount
     ) external;
 
@@ -276,6 +279,47 @@ interface ISettlerActions {
         uint256 bps,
         address pool,
         bool zeroForOne,
+        uint256 amountOutMin
+    ) external;
+
+    function RENEGADE(address target, address baseToken, bytes memory data) external;
+
+    function LFJTM(
+        address recipient,
+        address sellToken,
+        uint256 bps,
+        address pool,
+        bool zeroForOne,
+        uint256 amountOutMin
+    ) external;
+
+    struct BebopMakerSignature {
+        bytes signatureBytes;
+        uint256 flags;
+    }
+
+    struct BebopOrder {
+        uint256 expiry;
+        address maker_address;
+        uint256 maker_nonce;
+        address maker_token;
+        uint256 taker_amount;
+        uint256 maker_amount;
+
+        // the high 5 bits are unused
+        // the next 3 bits are the `takerHasNative`, `makerHasNative`, and
+        //   `takerUsingPermit2` flags (in that order from high to low) from the
+        //   original `packed_commands` field
+        // the next 120 bits are unused
+        // the low 128 bits are the `event_id` from the original `flags` field
+        uint256 event_id_and_flags;
+    }
+
+    function BEBOP(
+        address recipient,
+        address sellToken,
+        BebopOrder memory order,
+        BebopMakerSignature memory makerSignature,
         uint256 amountOutMin
     ) external;
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {ArbitrumMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
@@ -11,7 +11,6 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
-import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
@@ -58,10 +57,11 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
                 bool tokenAIn,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes memory sig,
+                int32 tickLimit,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, int32, uint256));
 
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address recipient,
@@ -81,8 +81,8 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
     // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
-        pure
-        override(Settler, Permit2PaymentAbstract)
+        view
+        override(Settler, ArbitrumMixin)
         returns (bool)
     {
         return super._isRestrictedTarget(target);

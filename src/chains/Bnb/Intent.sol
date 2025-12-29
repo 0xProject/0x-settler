@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {BnbSettlerMetaTxn} from "./MetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
@@ -93,5 +93,15 @@ contract BnbSettlerIntent is SettlerIntent, BnbSettlerMetaTxn {
         returns (uint256)
     {
         return super._permitToSellAmount(permit);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(BnbSettlerMetaTxn, SettlerIntent)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

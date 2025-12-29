@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {SettlerBase} from "../../SettlerBase.sol";
 
@@ -9,6 +9,7 @@ import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
+import {Bebop} from "../../core/Bebop.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -26,8 +27,9 @@ import {AVALANCHE_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2, UniswapV4, BalancerV3, EulerSwap {
+abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2, UniswapV4, BalancerV3, EulerSwap, Bebop {
     constructor() {
         assert(block.chainid == 43114 || block.chainid == 31337);
     }
@@ -72,6 +74,18 @@ abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2, UniswapV4, 
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                ISettlerActions.BebopOrder memory order,
+                ISettlerActions.BebopMakerSignature memory makerSignature,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, IERC20, ISettlerActions.BebopOrder, ISettlerActions.BebopMakerSignature, uint256)
+            );
+
+            sellToBebop(payable(recipient), sellToken, order, makerSignature, amountOutMin);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
@@ -108,5 +122,16 @@ abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2, UniswapV4, 
 
     function _EVC() internal pure override returns (IEVC) {
         return IEVC(0xddcbe30A761Edd2e19bba930A977475265F36Fa1);
+    }
+
+    // I hate Solidity inheritance
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(Bebop, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {SettlerBase} from "../../SettlerBase.sol";
 
@@ -59,10 +59,11 @@ abstract contract SepoliaMixin is FreeMemory, SettlerBase, MaverickV2, UniswapV4
                 uint256 bps,
                 IMaverickV2Pool pool,
                 bool tokenAIn,
+                int32 tickLimit,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
 
-            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, minBuyAmount);
+            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit, minBuyAmount);
         } else {
             return false;
         }

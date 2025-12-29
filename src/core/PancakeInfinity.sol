@@ -9,34 +9,10 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {Ternary} from "../utils/Ternary.sol";
-
 import {ZeroSellAmount, UnknownPoolManagerId} from "./SettlerErrors.sol";
 
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
-
-/// @dev Two `int128` values packed into a single `int256` where the upper 128 bits represent the amount0
-/// and the lower 128 bits represent the amount1.
-type BalanceDelta is int256;
-
-/// @notice Library for getting the amount0 and amount1 deltas from the BalanceDelta type
-library BalanceDeltaLibrary {
-    /// @notice Constant for a BalanceDelta of zero value
-    BalanceDelta public constant ZERO_DELTA = BalanceDelta.wrap(0);
-
-    function amount0(BalanceDelta balanceDelta) internal pure returns (int128 _amount0) {
-        assembly ("memory-safe") {
-            _amount0 := sar(0x80, balanceDelta)
-        }
-    }
-
-    function amount1(BalanceDelta balanceDelta) internal pure returns (int128 _amount1) {
-        assembly ("memory-safe") {
-            _amount1 := signextend(0x0f, balanceDelta)
-        }
-    }
-}
-
-using BalanceDeltaLibrary for BalanceDelta global;
+import {BalanceDelta} from "./UniswapV4Types.sol";
 
 interface IPancakeInfinityVault {
     /// @notice Called by the user to net out some value owed to the user
@@ -150,6 +126,7 @@ library UnsafePancakeInfinityVault {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
+            // No checks on returndata as Pancake Infinity vault is trusted and not arbitrary
             r := mload(0x00)
         }
     }
@@ -165,16 +142,13 @@ library UnsafePancakeInfinityPoolManager {
         PoolKey memory key,
         bool zeroForOne,
         int256 amountSpecified,
-        uint160 sqrtPriceLimitX96,
+        uint256 sqrtPriceLimitX96,
         bytes calldata hookData
     ) internal returns (BalanceDelta r) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0xcd0cc1ce) // selector for `swap((address,address,address,address,uint24,bytes32),(bool,int256,uint160),bytes)`
-            let token0 := mload(key)
-            token0 := mul(token0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)))
-            mstore(add(0x20, ptr), token0)
-            mcopy(add(0x40, ptr), add(0x20, key), 0xA0)
+            mcopy(add(0x20, ptr), key, 0xc0)
             mstore(add(0xe0, ptr), zeroForOne)
             mstore(add(0x100, ptr), amountSpecified)
             mstore(add(0x120, ptr), sqrtPriceLimitX96)
@@ -186,6 +160,7 @@ library UnsafePancakeInfinityPoolManager {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
+            // No checks on returndata as Pancake Infinity cl pool manager is trusted and not arbitrary
             r := mload(0x00)
         }
     }
@@ -202,10 +177,7 @@ library UnsafePancakeInfinityBinPoolManager {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0x911a63b7) // selector for `swap((address,address,address,address,uint24,bytes32),bool,int128,bytes)`
-            let token0 := mload(key)
-            token0 := mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token0)), token0)
-            mstore(add(0x20, ptr), token0)
-            mcopy(add(0x40, ptr), add(0x20, key), 0xa0)
+            mcopy(add(0x20, ptr), key, 0xc0)
             mstore(add(0xe0, ptr), swapForY)
             mstore(add(0x100, ptr), signextend(0x0f, amountSpecified))
             mstore(add(0x120, ptr), 0x120)
@@ -216,6 +188,7 @@ library UnsafePancakeInfinityBinPoolManager {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
+            // No checks on returndata as Pancake Infinity bin pool manager is trusted and not arbitrary
             r := mload(0x00)
         }
     }
@@ -261,7 +234,8 @@ abstract contract PancakeInfinity is SettlerAbstract {
     //// Now that you have a list of fills, encode each fill as follows.
     //// First encode the `bps` for the fill as 2 bytes. Remember that this `bps` is relative to the
     //// running balance at the moment that the fill is settled.
-    //// Second, encode the packing key for that fill as 1 byte. The packing key byte depends on the
+    //// Second, encode the price caps sqrtPriceLimitX96 as 20 bytes.
+    //// Third, encode the packing key for that fill as 1 byte. The packing key byte depends on the
     //// tokens involved in the previous fill. The packing key for the first fill must be 1;
     //// i.e. encode only the buy token for the first fill.
     ////   0 -> sell and buy tokens remain unchanged from the previous fill (pure multiplex)
@@ -271,14 +245,14 @@ abstract contract PancakeInfinity is SettlerAbstract {
     //// Obviously, after encoding the packing key, you encode 0, 1, or 2 tokens (each as 20 bytes),
     //// as appropriate.
     //// The remaining fields of the fill are mandatory.
-    //// Third, encode the hook address as 20 bytes
-    //// Fourth, encode the identity of the pool manager for this fill as 1 byte
+    //// Fourth, encode the hook address as 20 bytes
+    //// Fifth, encode the identity of the pool manager for this fill as 1 byte
     ////   0 -> discontinuous-liquidity constant-product (UniV3-like) AKA CL
     ////   1 -> constant-sum (LFJ Liquidity Book -like) AKA Bin
-    //// Fifth, encode the pool fee as 3 bytes
-    //// Sixth, encode the pool parameters according to the semantics of the selected pool manager,
+    //// Sixth, encode the pool fee as 3 bytes
+    //// Seventh, encode the pool parameters according to the semantics of the selected pool manager,
     //// as 32 bytes
-    //// Seventh, encode the hook data for the fill. Encode the length of the hook data as 3 bytes,
+    //// Eighth, encode the hook data for the fill. Encode the length of the hook data as 3 bytes,
     //// then append the hook data itself.
     ////
     //// Repeat the process for each fill and concatenate the results without padding.
@@ -382,13 +356,14 @@ abstract contract PancakeInfinity is SettlerAbstract {
 
     // the mandatory fields are
     // 2 - sell bps
+    // 20 - sqrtPriceLimitX96
     // 1 - pool key tokens case
     // 20 - hook
     // 1 - pool manager ID
     // 3 - pool fee
     // 32 - parameters
     // 3 - hook data length
-    uint256 private constant _HOP_DATA_LENGTH = 62;
+    uint256 private constant _HOP_DATA_LENGTH = 82;
 
     uint256 private constant _ADDRESS_MASK = 0x00ffffffffffffffffffffffffffffffffffffffff;
 
@@ -429,17 +404,24 @@ abstract contract PancakeInfinity is SettlerAbstract {
         PoolKey memory poolKey;
 
         while (data.length >= _HOP_DATA_LENGTH) {
-            uint16 bps;
-            assembly ("memory-safe") {
-                bps := shr(0xf0, calldataload(data.offset))
+            int256 amountSpecified;
+            uint160 sqrtPriceLimitX96;
+            {
+                uint16 bps;
+                assembly ("memory-safe") {
+                    bps := shr(0xf0, calldataload(data.offset))
+                    data.offset := add(0x02, data.offset)
 
-                data.offset := add(0x02, data.offset)
-                data.length := sub(data.length, 0x02)
-                // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+                    sqrtPriceLimitX96 := shr(0x60, calldataload(data.offset))
+                    data.offset := add(0x14, data.offset)
+
+                    data.length := sub(data.length, 0x16)
+                    // we don't check for array out-of-bounds here; we will check it later in `Decoder.overflowCheck`
+                }
+
+                data = Decoder.updateState(state, notes, data);
+                amountSpecified = int256((state.sell().amount() * bps).unsafeDiv(BASIS)).unsafeNeg();
             }
-
-            data = Decoder.updateState(state, notes, data);
-            int256 amountSpecified = int256((state.sell().amount() * bps).unsafeDiv(BASIS)).unsafeNeg();
             bool zeroForOne;
             {
                 (IERC20 sellToken, IERC20 buyToken) = (state.sell().token(), state.buy().token());
@@ -458,6 +440,12 @@ abstract contract PancakeInfinity is SettlerAbstract {
                         )
                 }
                 (poolKey.currency0, poolKey.currency1) = zeroForOne.maybeSwap(buyToken, sellToken);
+                assembly ("memory-safe") {
+                    let currency0 := mload(poolKey)
+                    // set poolKey to address(0) if it is the native token
+                    mstore(poolKey, mul(currency0, iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, currency0))))
+                }
+                // poolKey.currency0 is not represented according to ERC-7528 to match the format expected by Pancake Infinity
             }
 
             {
@@ -515,12 +503,7 @@ abstract contract PancakeInfinity is SettlerAbstract {
                         poolKey,
                         zeroForOne,
                         amountSpecified,
-                        // TODO: price limits
-                        uint160(
-                            zeroForOne.ternary(
-                                uint160(4295128740), uint160(1461446703485210103287273052203988822378723970341)
-                            )
-                        ),
+                        sqrtPriceLimitX96,
                         hookData
                     );
                 } else if (uint256(poolManagerId) == 1) {

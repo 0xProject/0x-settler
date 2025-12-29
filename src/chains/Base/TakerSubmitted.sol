@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {BaseMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
@@ -11,8 +11,8 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
-import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
+import {Permit2Payment} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
 contract BaseSettler is Settler, BaseMixin {
@@ -58,10 +58,11 @@ contract BaseSettler is Settler, BaseMixin {
                 bool tokenAIn,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes memory sig,
+                int32 tickLimit,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, int32, uint256));
 
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.PANCAKE_INFINITY_VIP.selector)) {
             (
                 address recipient,
@@ -86,8 +87,8 @@ contract BaseSettler is Settler, BaseMixin {
     // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
-        pure
-        override(Settler, Permit2PaymentAbstract)
+        view
+        override(Settler, BaseMixin)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -103,5 +104,15 @@ contract BaseSettler is Settler, BaseMixin {
 
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+
+    function _chainSpecificFallback(bytes calldata data)
+        internal
+        view
+        virtual
+        override(Permit2Payment, BaseMixin)
+        returns (bytes memory)
+    {
+        return BaseMixin._chainSpecificFallback(data);
     }
 }

@@ -4,21 +4,21 @@ flat_taker_source="$project_root"/src/flat/"$chain_display_name"TakerSubmittedFl
 declare -r flat_taker_source
 trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_taker_source")" EXIT
 forge flatten -o "$flat_taker_source" src/chains/"$chain_display_name"/TakerSubmitted.sol >/dev/null
-forge build "$flat_taker_source"
+FOUNDRY_SOLC_VERSION=0.8.33 forge build "$flat_taker_source"
 
 declare flat_metatx_source
 flat_metatx_source="$project_root"/src/flat/"$chain_display_name"MetaTxnFlat.sol
 declare -r flat_metatx_source
 trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_taker_source")"' '"$(_escape "$flat_metatx_source")" EXIT
 forge flatten -o "$flat_metatx_source" src/chains/"$chain_display_name"/MetaTxn.sol >/dev/null
-forge build "$flat_metatx_source"
+FOUNDRY_SOLC_VERSION=0.8.33 forge build "$flat_metatx_source"
 
 declare flat_intent_source
 flat_intent_source="$project_root"/src/flat/"$chain_display_name"IntentFlat.sol
 declare -r flat_intent_source
 trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_taker_source")"' '"$(_escape "$flat_metatx_source")"' '"$(_escape "$flat_intent_source")" EXIT
 forge flatten -o "$flat_intent_source" src/chains/"$chain_display_name"/Intent.sol >/dev/null
-forge build "$flat_intent_source"
+FOUNDRY_SOLC_VERSION=0.8.33 forge build "$flat_intent_source"
 
 declare taker_artifact
 taker_artifact="$project_root"/out/"$chain_display_name"TakerSubmittedFlat.sol/"$chain_display_name"Settler.json
@@ -69,7 +69,7 @@ declare -r deploy_intent_calldata
 
 declare next_intent_settler_address
 if [[ -z "${deployer_address-}" ]] ; then
-    if [[ $(get_config isShanghai) != [Tt]rue ]] ; then
+    if [[ $(get_config hardfork.shanghai) != [Tt]rue ]] ; then
         echo 'NO NEW LONDON CHAINS!!!' >&2
         exit 1
     fi
@@ -102,87 +102,24 @@ unset -v setsolver_calldata
 
 if [[ -n "${deployer_address-}" ]] ; then
     declare -a deploy_calldatas
-    if (( chainid == 1 )) || (( chainid == 10 )) || (( chainid == 56 )) || (( chainid == 8453 )) || (( chainid == 42161 )) || (( chainid == 43114 )) || (( chainid == 534352 )) ; then
-        declare setsolver_calldata
-        for setsolver_calldata in "${setsolver_calldatas[@]}" ; do
-            deploy_calldatas+=(
-                "$(
-                    cast concat-hex                                               \
-                    0x00                                                          \
-                    "$next_intent_settler_address"                                \
-                    "$(cast to-uint256 0)"                                        \
-                    "$(cast to-uint256 $(( (${#setsolver_calldata} - 2) / 2 )) )" \
-                    "$setsolver_calldata"
-                )"
-            )
-        done
-        deploy_calldatas=(
-            0 "$deploy_taker_calldata" "$deployer_address"
-            0 "$deploy_metatx_calldata" "$deployer_address"
-            0 "$deploy_intent_calldata" "$deployer_address"
-            1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")" "$multicall_address"
-        )
-    else
+
+    declare setsolver_calldata
+    for setsolver_calldata in "${setsolver_calldatas[@]}" ; do
         deploy_calldatas+=(
             "$(
-                cast concat-hex                                                   \
-                0x00                                                              \
-                "$deployer_address"                                               \
-                "$(cast to-uint256 0)"                                            \
-                "$(cast to-uint256 $(( (${#deploy_taker_calldata} - 2) / 2 )) )"  \
-                "$deploy_taker_calldata"
-            )"
-
-            "$(
-                cast concat-hex                                                   \
-                0x00                                                              \
-                "$deployer_address"                                               \
-                "$(cast to-uint256 0)"                                            \
-                "$(cast to-uint256 $(( (${#deploy_metatx_calldata} - 2) / 2 )) )" \
-                "$deploy_metatx_calldata"
-            )"
-
-            "$(
-                cast concat-hex                                                   \
-                0x00                                                              \
-                "$deployer_address"                                               \
-                "$(cast to-uint256 0)"                                            \
-                "$(cast to-uint256 $(( (${#deploy_intent_calldata} - 2) / 2 )) )" \
-                "$deploy_intent_calldata"
+                cast concat-hex                                               \
+                0x00                                                          \
+                "$next_intent_settler_address"                                \
+                "$(cast to-uint256 0)"                                        \
+                "$(cast to-uint256 $(( (${#setsolver_calldata} - 2) / 2 )) )" \
+                "$setsolver_calldata"
             )"
         )
-        for setsolver_calldata in "${setsolver_calldatas[@]}" ; do
-            deploy_calldatas+=(
-                "$(
-                    cast concat-hex                                               \
-                    0x00                                                          \
-                    "$next_intent_settler_address"                                \
-                    "$(cast to-uint256 0)"                                        \
-                    "$(cast to-uint256 $(( (${#setsolver_calldata} - 2) / 2 )) )" \
-                    "$setsolver_calldata"
-                )"
-            )
-        done
-        declare multicall_args
-        multicall_args="$(cast concat-hex "${deploy_calldatas[@]}")"
-        multicall_args="${multicall_args:2}"
-
-        declare multicall_args_length="${#multicall_args}"
-
-        declare -i padding_length=$((multicall_args_length % 64))
-        if (( padding_length )) ; then
-            padding_length=$((64 - padding_length))
-            multicall_args="$multicall_args""$(seq 1 $padding_length | xargs printf '0%.0s')"
-        fi
-
-        multicall_args_length=$(( multicall_args_length / 2 ))
-        multicall_args_length="$(cast to-uint256 $multicall_args_length)"
-        multicall_args_length="${multicall_args_length:2}"
-
-        multicall_args="$multisend_selector"'0000000000000000000000000000000000000000000000000000000000000020'"$multicall_args_length""$multicall_args"
-
-        deploy_calldatas=(
-            1 "$multicall_args" "$multicall_address"
-        )
-    fi
+    done
+    deploy_calldatas=(
+        0 "$deploy_taker_calldata" "$deployer_address"
+        0 "$deploy_metatx_calldata" "$deployer_address"
+        0 "$deploy_intent_calldata" "$deployer_address"
+        1 "$(cast calldata "$multisend_sig" "$(cast concat-hex "${deploy_calldatas[@]}")")" "$multicall_address"
+    )
 fi

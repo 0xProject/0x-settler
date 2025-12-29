@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {UniswapV2, IUniV2Pair} from "src/core/UniswapV2.sol";
 import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
+import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
 import {Context} from "src/Context.sol";
 
 import {uint512} from "src/utils/512Math.sol";
@@ -38,6 +39,15 @@ contract UniswapV2Dummy is Permit2PaymentTakerSubmitted, UniswapV2 {
 
     function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        override(Permit2PaymentTakerSubmitted, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }
 
@@ -85,9 +95,11 @@ contract UniswapV2UnitTest is Utils, Test {
         // UniswapV2Pool.getReserves
         _mockExpectCall(POOL, abi.encodeCall(IUniV2Pair.getReserves, ()), abi.encode(uint256(9999), uint256(9999)));
         // UniswapV2Pool.swap
-        _mockExpectCall(
-            POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(9087), 0, RECIPIENT, new bytes(0))), new bytes(0)
-        );
+
+        // slippage is now checked before the swap call
+        // _mockExpectCall(
+        //     POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(9087), 0, RECIPIENT, new bytes(0))), new bytes(0)
+        // );
 
         vm.expectRevert();
         uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minBuyAmount);

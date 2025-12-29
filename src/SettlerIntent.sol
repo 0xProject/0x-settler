@@ -6,7 +6,9 @@ import {SettlerBase} from "./SettlerBase.sol";
 import {SettlerMetaTxn} from "./SettlerMetaTxn.sol";
 
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
-import {Permit2PaymentIntent, Permit2PaymentMetaTxn, Permit2Payment} from "./core/Permit2Payment.sol";
+import {
+    Permit2PaymentIntent, Permit2PaymentMetaTxn, Permit2Payment, Permit2PaymentBase
+} from "./core/Permit2Payment.sol";
 
 import {AbstractContext, Context} from "./Context.sol";
 import {MultiCallContext} from "./multicall/MultiCallContext.sol";
@@ -308,5 +310,15 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         returns (uint256)
     {
         return super._permitToSellAmount(permit);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(Permit2PaymentBase, SettlerMetaTxn)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 }

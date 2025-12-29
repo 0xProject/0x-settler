@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {InkMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
@@ -45,7 +45,7 @@ contract InkSettler is Settler, InkMixin {
     // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
-        pure
+        view
         override(Settler, Permit2PaymentAbstract)
         returns (bool)
     {
