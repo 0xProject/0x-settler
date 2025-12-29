@@ -32,14 +32,14 @@ abstract contract LfjTmTest is AllowanceHolderPairTest {
     }
 
     function setUp() public virtual override {
+        super.setUp();
         vm.makePersistent(address(allowanceHolder));
         vm.makePersistent(address(settler));
         vm.makePersistent(address(fromToken()));
         vm.makePersistent(address(toToken()));
-
-        deal(address(toToken()), FROM, amount());
-
-        return super.setUp();
+        if (address(toToken()).code.length != 0) {
+            deal(address(toToken()), FROM, amount());
+        }
     }
 
     function lfjTmPool() internal view virtual returns (ILfjTmMarket) {
