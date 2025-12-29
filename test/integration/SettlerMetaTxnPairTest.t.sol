@@ -44,6 +44,8 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
 
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);
+        // Preserve the settlerMetaTxn address for the hardcoded signing hash.
+        new NonceBump();
         settlerMetaTxn = _deploySettlerMetaTxn();
         vm.chainId(forkChainId);
 
@@ -305,6 +307,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
     {
         vm.makePersistent(address(settlerMetaTxn));
         vm.createSelectFork(_testChainId(), MainnetDefaultFork._testBlockNumber());
+        vm.setEvmVersion("osaka");
         deal(address(fromToken()), FROM, amount());
         vm.prank(FROM);
         require(fromToken().approve(address(PERMIT2), type(uint256).max));
@@ -356,3 +359,5 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         );
     }
 }
+
+contract NonceBump {}

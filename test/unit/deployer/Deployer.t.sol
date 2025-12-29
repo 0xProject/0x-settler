@@ -25,6 +25,7 @@ contract DeployerTest is Test, MainnetDefaultFork {
 
     function setUp() public {
         vm.createSelectFork(_testChainId(), _testBlockNumber());
+        vm.setEvmVersion("osaka");
 
         deployer = Deployer(DEPLOYER);
         vm.label(address(deployer), "Deployer (proxy)");

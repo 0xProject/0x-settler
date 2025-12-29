@@ -49,6 +49,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
 
     function setUp() public virtual {
         vm.createSelectFork(_testChainId(), _testBlockNumber());
+        vm.setEvmVersion("osaka");
         permit2Domain = keccak256(abi.encode(_PERMIT2_TYPE_HASH, _PERMIT2_NAME_HASH, block.chainid, address(PERMIT2)));
         vm.label(address(this), "FoundryTest");
         vm.label(address(PERMIT2), "Permit2");
