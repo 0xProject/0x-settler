@@ -36,8 +36,10 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
     modifier setMaverickV2Block() {
         uint256 blockNumber = (new Shim()).blockNumber();
         vm.rollFork(maverickV2BlockNumber());
+        vm.setEvmVersion("osaka");
         _;
         vm.rollFork(blockNumber);
+        vm.setEvmVersion("osaka");
     }
 
     function maverickV2Salt() internal view virtual returns (bytes32) {

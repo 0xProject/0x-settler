@@ -1436,21 +1436,22 @@ declare -r txid
 cast receipt --json --rpc-url "$rpc_url" $txid | jq -r '.logs[] | select(.address == $compatibilityTester) | { stage: .data[2:66], success: .data[66:130], gas: .data[130:] }' --arg compatibilityTester "$(cast receipt --json --rpc-url "$rpc_url" $txid | jq -rM .contractAddress)"
 ```
 
-The `stage` fields should be in order (0 through 3). Stage 0 is
+The `stage` fields should be in order (0 through 4). Stage 0 is
 `SELFDESTRUCT`. Stage 1 is `PUSH0`. Stage 2 is `TSTORE`/`TLOAD`. Stage 3 is
-`MCOPY`. If any entry has `success` of zero, that is strong evidence that the
-corresponding opcode is not supported. If `success` is zero, the corresponding
-`gas` value should be approximately 100000 (`0x186a0`). Another value in the
-`gas` field suggests that something bizarre is going on, meriting manual
-investigation. You can also use the `gas` field to see if the opcodes have the
-expected gas cost. In particular, you should verify that the gas cost for
-`SELFDESTRUCT` is approximately 5000 (`0x1388`). If `success` for `SELFDESTRUCT`
-is 1, but `gas` is over 51220 (`0xc814`), you will need to make changes to
-`Create3.sol`.
+`MCOPY`. Stage 4 is `CLZ`. If any entry has `success` of zero, that is strong
+evidence that the corresponding opcode is not supported. If `success` is zero,
+the corresponding `gas` value should be approximately 100000
+(`0x186a0`). Another value in the `gas` field suggests that something bizarre is
+going on, meriting manual investigation. You can also use the `gas` field to see
+if the opcodes have the expected gas cost. In particular, you should verify that
+the gas cost for `SELFDESTRUCT` is approximately 5000 (`0x1388`). If `success`
+for `SELFDESTRUCT` is 1, but `gas` is over 51220 (`0xc814`), you will need to
+make changes to `Create3.sol`.
 
-If `PUSH0` is not supported, then `isShanghai` should be `false` in
+If `PUSH0` is not supported, then `hardfork.shanghai` should be `false` in
 `chain_config.json`. If any of `TSTORE`/`TLOAD`/`MCOPY` are not supported, then
-`isCancun` should be `false` in `chain_config.json`.
+`hardfork.cancun` should be `false` in `chain_config.json`. If `CLZ` is not
+supported, then `hardfork.osaka` should be `false` in `chain_config.json`.
 
 You may be tempted to use a blockchain explorer (e.g. Etherscan or Tenderly) to
 examine the trace of the resulting transaction or to read the logs. You may also

@@ -22,6 +22,7 @@ abstract contract BridgeSettlerIntegrationTest is BridgeSettlerTestBase, Mainnet
         // deploy BridgeSettler
         super.setUp();
         vm.createSelectFork(_testChainId(), _testBlockNumber());
+        vm.setEvmVersion("osaka");
         settler = ISettlerTakerSubmitted(IDeployer(DEPLOYER).ownerOf(2));
         vm.label(address(settler), "Settler");
     }
