@@ -26,7 +26,7 @@ jobs:
         run: forge test --skip 'src/*' --skip 'script/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.25/*' --mp test/0.8.28/EulerSwapBUSL.t.sol
 
       - name: Build contracts
-        run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip BlastDeployer.sol --skip ModeDeployer.sol --skip 'test/*'
+        run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip BlastDeployer.sol --skip ModeDeployer.sol --skip 'test/*' --skip 'script/*'
 
       - name: Build AllowanceHolder and Deployer
         run: forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol src/deployer/BlastDeployer.sol src/deployer/ModeDeployer.sol
