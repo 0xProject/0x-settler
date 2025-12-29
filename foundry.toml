@@ -4,14 +4,16 @@ unchecked_cheatcode_artifacts = true
 # https://github.com/foundry-rs/foundry/issues/6780#issuecomment-1962319449
 bytecode_hash = "none"
 auto_detect_remappings = false
+auto_detect_solc = true
 cbor_metadata = false
 sparse_mode = false
 
-solc_version = "0.8.33"
 optimizer = true
 via_ir = true
 optimizer_runs = 2_000
 evm_version = "osaka"
+gas_limit = 16_777_216
+block_gas_limit = 16_777_216
 no_match_path = "test/integration/*"
 # needed for marktoda/forge-gas-snapshot
 ffi = true
@@ -28,6 +30,11 @@ no_match_path = "test/unit/*"
 match_path = "test/integration/*"
 fail_on_revert = false
 gas_snapshot_emit = false
+evm_version = "osaka"
+gas_limit = 50_000_000
+block_gas_limit = 50_000_000
+code_size_limit = 200_000
+disable_block_gas_limit = true
 
 [fuzz]
 runs = 100_000
