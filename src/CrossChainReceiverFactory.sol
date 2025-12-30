@@ -60,13 +60,13 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     address private constant _ADDRESS_THIS_SENTINEL = 0x0000000000000061646472657373287468697329; // address(uint160(uint104(bytes13("address(this)"))))
 
     address private constant _TOEHOLD = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
-    address private constant _WNATIVE_SETTER = 0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc;
-    bytes32 private constant _WNATIVE_STORAGE_INITHASH = keccak256(
+    address private constant _STORAGE_SETTER = 0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc;
+    bytes32 private constant _STORAGE_INITHASH = keccak256(
         abi.encodePacked(
             hex"326d",
-            uint112(uint160(_WNATIVE_SETTER)),
+            uint112(uint160(_STORAGE_SETTER)),
             hex"1815601657fe5b7f60143603803560601c6d",
-            uint112(uint160(_WNATIVE_SETTER)),
+            uint112(uint160(_STORAGE_SETTER)),
             hex"14336c",
             uint40(uint104(uint160(EIP150_MULTICALL_ADDRESS)) >> 64),
             hex"3d527f",
@@ -74,7 +74,6 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             hex"1416602e57fe5b3d54604b57583d55803d3d373d34f03d8159526d6045573dfd5b5260203df35b30ff60901b5952604e3df3"
         )
     );
-    bytes32 private constant _WNATIVE_STORAGE_SALT = keccak256("Wrapped Native Token Address");
 
     function _getImmutableStorageAddress(bytes32 salt) private view returns (address) {
         return address(
@@ -86,7 +85,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                             address(
                                 uint160(
                                     uint256(
-                                        keccak256(abi.encodePacked(hex"ff", _TOEHOLD, salt, _WNATIVE_STORAGE_INITHASH))
+                                        keccak256(abi.encodePacked(hex"ff", _TOEHOLD, salt, _STORAGE_INITHASH))
                                     )
                                 )
                             ),
@@ -102,6 +101,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         return address(uint160(uint256(bytes32(_getImmutableStorageAddress(salt).code))));
     }
 
+    bytes32 private constant _WNATIVE_STORAGE_SALT = keccak256("Wrapped Native Token Address");
     IWrappedNative private immutable _WNATIVE = IWrappedNative(payable(_getImmutableAddress(_WNATIVE_STORAGE_SALT)));
     bool private immutable _HAS_WNATIVE = true;
     bool private immutable _MISSING_WNATIVE = false;
