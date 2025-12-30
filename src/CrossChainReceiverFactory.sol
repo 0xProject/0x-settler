@@ -776,12 +776,12 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             // of extra garbage included with our call to `MultiCall.multicall` that is ignored when
             // that function decodes it.
             data := mload(0x40)
-            mstore(data, msgData.length)
             let calls := add(0x20, data)
 
             let scratch
             {
                 let argsLength := sub(msgData.length, 0x04)
+                mstore(data, argsLength)
                 calldatacopy(calls, add(0x04, msgData.offset), argsLength)
                 scratch := add(calls, argsLength)
             }
