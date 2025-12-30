@@ -964,13 +964,15 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 .ternary(wrappedBalance, value - address(this).balance);
                 value = toUnwrap + address(this).balance;
 
-                assembly ("memory-safe") {
-                    mstore(callvalue(), 0x2e1a7d4d) // `IWrappedNative.withdraw.selector`
-                    mstore(0x20, toUnwrap)
+                if (toUnwrap != 0) {
+                    assembly ("memory-safe") {
+                        mstore(callvalue(), 0x2e1a7d4d) // `IWrappedNative.withdraw.selector`
+                        mstore(0x20, toUnwrap)
 
-                    if iszero(call(gas(), wnative, callvalue(), 0x1c, 0x24, codesize(), callvalue())) {
-                        // this should never happen
-                        revert(codesize(), callvalue())
+                        if iszero(call(gas(), wnative, callvalue(), 0x1c, 0x24, codesize(), callvalue())) {
+                            // this should never happen
+                            revert(codesize(), callvalue())
+                        }
                     }
                 }
             }
