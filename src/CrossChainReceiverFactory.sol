@@ -129,7 +129,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             _SENTINEL_DOMAIN_SEPARATOR
                 == keccak256(
                     abi.encode(
-                        keccak256("EIP712Domain(string name,address verifyingContract)"), _NAMEHASH, _ADDRESS_THIS_SENTINEL
+                        keccak256("EIP712Domain(string name,address verifyingContract)"),
+                        _NAMEHASH,
+                        _ADDRESS_THIS_SENTINEL
                     )
                 )
         );
@@ -288,16 +290,14 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     proof.length := calldataload(proof.offset)
                     proof.offset := add(0x20, proof.offset)
                 }
-                return _verifyDeploymentRootHash(_getMerkleRoot(proof, _hashLeaf(hash)), originalOwner).ternary(
-                    IERC1271.isValidSignature.selector, bytes4(0xffffffff)
-                );
+                return _verifyDeploymentRootHash(_getMerkleRoot(proof, _hashLeaf(hash)), originalOwner)
+                    .ternary(IERC1271.isValidSignature.selector, bytes4(0xffffffff));
             }
         }
 
         // ERC7739 validation
-        return _verifyERC7739NestedTypedSignature(hash, signature, super.owner()).ternary(
-            IERC1271.isValidSignature.selector, bytes4(0xffffffff)
-        );
+        return _verifyERC7739NestedTypedSignature(hash, signature, super.owner())
+            .ternary(IERC1271.isValidSignature.selector, bytes4(0xffffffff));
     }
 
     function _hashLeaf(bytes32 signingHash) private view returns (bytes32 leafHash) {
@@ -425,7 +425,10 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     /// @inheritdoc ICrossChainReceiverFactory
     function getFromMulticall(IERC20 token, address payable recipient) external override returns (bool) {
         assembly ("memory-safe") {
-            recipient := xor(recipient, mul(iszero(shl(0x60, xor(_ADDRESS_THIS_SENTINEL, recipient))), xor(address(), recipient)))
+            recipient := xor(
+                recipient,
+                mul(iszero(shl(0x60, xor(_ADDRESS_THIS_SENTINEL, recipient))), xor(address(), recipient))
+            )
             for {} true {} {
                 if shl(0x60, xor(_NATIVE_ADDRESS, token)) {
                     mstore(callvalue(), 0x70a08231)
@@ -905,9 +908,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     wrappedBalance := mul(hasWnative, mload(callvalue()))
                 }
 
-                uint256 toUnwrap = (address(this).balance + wrappedBalance < value).ternary(
-                    wrappedBalance, value - address(this).balance
-                );
+                uint256 toUnwrap = (address(this).balance + wrappedBalance < value)
+                .ternary(wrappedBalance, value - address(this).balance);
                 value = toUnwrap + address(this).balance;
 
                 assembly ("memory-safe") {
@@ -1153,8 +1155,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         if ((msg.sender != address(_WNATIVE)).andNot(_MISSING_WNATIVE)) {
             IWrappedNative wnative = _WNATIVE;
             assembly ("memory-safe") {
-                if iszero(call(gas(), wnative, callvalue(), codesize(), returndatasize(), codesize(), returndatasize()))
-                {
+                if iszero(
+                    call(gas(), wnative, callvalue(), codesize(), returndatasize(), codesize(), returndatasize())
+                ) {
                     // this should never happen
                     revert(codesize(), calldatasize())
                 }
