@@ -155,23 +155,23 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             assembly ("memory-safe") {
                 mstore(0x00, 0x5b5860fe3d533df3)
                 invalidTarget := create(0x00, 0x18, 0x08)
-                if iszero(invalidTarget) { revert(codesize(), 0x00) }
             }
+            require(invalidTarget != address(0));
 
             IMultiCall.Call[] memory calls = new IMultiCall.Call[](1);
             calls[0].target = invalidTarget;
             calls[0].revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
-            bytes memory data = abi.encodeCall(IMultiCall.multicall, (calls, 0));
-            (bool success,) = address(_MULTICALL()).call{gas: 100_000}(data);
-            require(!success);
+            try _MULTICALL().multicall{gas: 100_000}(calls, 0) {
+                revert();
+            } catch (bytes memory) { }
 
             // Check that a non-OOG revert is swallowed when `revertPolicy == CONTINUE`
             address revertTarget;
             assembly ("memory-safe") {
                 mstore(0x00, 0x623d3dfd3d526003601df3)
                 revertTarget := create(0x00, 0x15, 0x0b)
-                if iszero(revertTarget) { revert(codesize(), 0x00) }
             }
+            require(revertTarget != address(0));
 
             calls[0].target = revertTarget;
             IMultiCall.Result[] memory results = _MULTICALL().multicall{gas: 100_000}(calls, 1);
