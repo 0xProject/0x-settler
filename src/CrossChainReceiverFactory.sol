@@ -174,7 +174,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             require(revertTarget != address(0));
 
             calls[0].target = revertTarget;
-            IMultiCall.Result[] memory results = _MULTICALL().multicall{gas: 100_000}(calls, 1);
+            IMultiCall.Result[] memory results = _MULTICALL().multicall{gas: 100_000}(calls, 0);
             require(results.length == 1);
             require(!results[0].success);
             require(results[0].data.length == 0);
