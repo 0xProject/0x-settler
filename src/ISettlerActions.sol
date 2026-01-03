@@ -233,6 +233,15 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
+    /// @dev Captures positive slippage (surplus) and sends it to the recipient.
+    /// @param recipient The address to receive the surplus tokens
+    /// @param token The token address (use 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE for ETH)
+    /// @param expectedAmount The expected amount from the swap - surplus is balance minus this
+    /// @param maxBps Maximum basis points of total balance to capture as surplus (10000 = 100%).
+    ///        Setting maxBps to 0 disables surplus capture entirely. This should be used for
+    ///        fee-on-transfer tokens that may have internal mechanics (e.g., automatic fee
+    ///        redistribution or internal swaps) that can deposit extra tokens into the Settler
+    ///        contract during a swap.
     function POSITIVE_SLIPPAGE(address payable recipient, address token, uint256 expectedAmount, uint256 maxBps)
         external;
 

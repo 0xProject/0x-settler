@@ -35,12 +35,11 @@ library CalldataDecoder {
     {
         assembly ("memory-safe") {
             // initially, we set `args.offset` to the pointer to the length. this is 32 bytes before the actual start of data
-            args.offset :=
-                add(
-                    data.offset,
-                    // We allow the indirection/offset to `calls[i]` to be negative
-                    calldataload(i)
-                )
+            args.offset := add(
+                data.offset,
+                // We allow the indirection/offset to `calls[i]` to be negative
+                calldataload(i)
+            )
             // now we load `args.length` and set `args.offset` to the start of data
             args.length := calldataload(args.offset)
             args.offset := add(0x20, args.offset)
@@ -146,6 +145,13 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxBps) =
                 abi.decode(data, (address, IERC20, uint256, uint256));
+            // Skip surplus capture entirely when maxBps is 0. This is used for fee-on-transfer
+            // tokens that may have internal mechanics (e.g., automatic fee redistribution or
+            // internal swaps) that can deposit extra tokens into the Settler contract during
+            // a swap. These tokens should not have surplus captured. See GitHub issue #346.
+            if (maxBps == 0) {
+                return true;
+            }
             bool isETH = (token == ETH_ADDRESS);
             uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
             if (balance > expectedAmount) {

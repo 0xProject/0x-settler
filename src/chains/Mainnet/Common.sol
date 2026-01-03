@@ -113,6 +113,13 @@ abstract contract MainnetMixin is
         else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxBps) =
                 abi.decode(data, (address, IERC20, uint256, uint256));
+            // Skip surplus capture entirely when maxBps is 0. This is used for fee-on-transfer
+            // tokens that may have internal mechanics (e.g., automatic fee redistribution or
+            // internal swaps) that can deposit extra tokens into the Settler contract during
+            // a swap. These tokens should not have surplus captured. See GitHub issue #346.
+            if (maxBps == 0) {
+                return true;
+            }
             bool isETH = (token == ETH_ADDRESS);
             uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
             if (balance > expectedAmount) {
