@@ -10,7 +10,7 @@ passive allowance. Full source code and audits are found at
 If you've found a bug, you may be eligible for a bounty under the 0x [bug bounty
 program](https://0x.org/docs/developer-resources/bounties). Please see that link
 for eligibility requirements as well as the advertised payout tiers. If you have
-any findings, send an email to [mailto:security@0x.org](security@0x.org) with
+any findings, send an email to [security@0x.org](mailto:security@0x.org) with
 the subject line "BUG BOUNTY". Please describe the bug that you've found **in
 detail** and ideally provide a proof-of-concept exploit.
 
