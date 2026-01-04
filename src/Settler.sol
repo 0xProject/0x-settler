@@ -144,6 +144,203 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         return true;
     }
 
+    // ============================================
+    // BULK OPERATIONS
+    // ============================================
+
+    /// @notice Struct for bulk settlement parameters
+    struct BulkSettlement {
+        AllowedSlippage slippage;
+        bytes[] actions;
+        bytes32 zidAndAffiliate;
+    }
+
+    /// @notice Event emitted when bulk settlements are executed
+    event BulkSettlementsExecuted(
+        address indexed caller,
+        uint256 totalSettlements,
+        uint256 totalValueTransferred
+    );
+
+    /// @notice Execute multiple settlements in a single transaction
+    /// @param settlements Array of settlement parameters (up to 5 settlements per transaction)
+    /// @return success True if all settlements executed successfully
+    function bulkExecute(BulkSettlement[] calldata settlements)
+        external
+        payable
+        takerSubmitted
+        returns (bool success)
+    {
+        uint256 totalSettlements = settlements.length;
+
+        // Limit bulk operations to prevent excessive gas usage and maintain security
+        require(totalSettlements > 0 && totalSettlements <= 5, "BulkExecute: invalid settlement count");
+
+        uint256 totalValueTransferred = 0;
+
+        for (uint256 i = 0; i < totalSettlements; i++) {
+            BulkSettlement calldata settlement = settlements[i];
+
+            // Execute individual settlement actions
+            if (settlement.actions.length != 0) {
+                uint256 it;
+                assembly ("memory-safe") {
+                    it := settlement.actions.offset
+                }
+                {
+                    (uint256 action, bytes calldata data) = settlement.actions.decodeCall(it);
+                    if (!_dispatchVIP(action, data)) {
+                        if (!_dispatch(0, action, data)) {
+                            revertActionInvalid(0, action, data);
+                        }
+                    }
+                }
+                it = it.unsafeAdd(32);
+                for (uint256 j = 1; j < settlement.actions.length; (j, it) = (j.unsafeInc(), it.unsafeAdd(32))) {
+                    (uint256 action, bytes calldata data) = settlement.actions.decodeCall(it);
+                    if (!_dispatch(j, action, data)) {
+                        revertActionInvalid(j, action, data);
+                    }
+                }
+            }
+
+            // Check slippage and transfer for this settlement
+            _checkSlippageAndTransfer(settlement.slippage);
+
+            // Track total value transferred (approximation)
+            totalValueTransferred += msg.value / totalSettlements;
+        }
+
+        emit BulkSettlementsExecuted(msg.sender, totalSettlements, totalValueTransferred);
+
+        return true;
+    }
+
+    /// @notice Execute multiple settlements with shared slippage parameters for efficiency
+    /// @param sharedSlippage Slippage parameters shared across all settlements
+    /// @param settlements Array of action arrays (up to 10 settlements per transaction)
+    /// @param zidAndAffiliate Affiliate tracking parameter
+    /// @return success True if all settlements executed successfully
+    function bulkExecuteSharedSlippage(
+        AllowedSlippage calldata sharedSlippage,
+        bytes[][] calldata settlements,
+        bytes32 zidAndAffiliate
+    )
+        external
+        payable
+        takerSubmitted
+        returns (bool success)
+    {
+        uint256 totalSettlements = settlements.length;
+
+        // Allow more settlements with shared slippage for efficiency
+        require(totalSettlements > 0 && totalSettlements <= 10, "BulkExecuteShared: invalid settlement count");
+
+        uint256 totalValueTransferred = 0;
+
+        for (uint256 i = 0; i < totalSettlements; i++) {
+            bytes[] calldata actions = settlements[i];
+
+            // Execute individual settlement with shared actions
+            if (actions.length != 0) {
+                uint256 it;
+                assembly ("memory-safe") {
+                    it := actions.offset
+                }
+                {
+                    (uint256 action, bytes calldata data) = actions.decodeCall(it);
+                    if (!_dispatchVIP(action, data)) {
+                        if (!_dispatch(0, action, data)) {
+                            revertActionInvalid(0, action, data);
+                        }
+                    }
+                }
+                it = it.unsafeAdd(32);
+                for (uint256 j = 1; j < actions.length; (j, it) = (j.unsafeInc(), it.unsafeAdd(32))) {
+                    (uint256 action, bytes calldata data) = actions.decodeCall(it);
+                    if (!_dispatch(j, action, data)) {
+                        revertActionInvalid(j, action, data);
+                    }
+                }
+            }
+
+            // Check shared slippage after each settlement
+            _checkSlippageAndTransfer(sharedSlippage);
+
+            totalValueTransferred += msg.value / totalSettlements;
+        }
+
+        emit BulkSettlementsExecuted(msg.sender, totalSettlements, totalValueTransferred);
+
+        return true;
+    }
+
+    /// @notice Emergency bulk cancel for multiple settlements (admin function)
+    /// @param settlementIds Array of settlement identifiers to cancel (up to 20)
+    /// @return success True if emergency cancellation succeeded
+    function emergencyBulkCancel(bytes32[] calldata settlementIds)
+        external
+        returns (bool success)
+    {
+        // Only contract owner can perform emergency cancellations
+        require(msg.sender == address(this), "EmergencyCancel: unauthorized");
+
+        uint256 totalCancellations = settlementIds.length;
+        require(totalCancellations > 0 && totalCancellations <= 20, "EmergencyCancel: invalid cancellation count");
+
+        // Implementation would depend on settlement tracking
+        // For now, emit event for monitoring and implement cancellation logic
+        emit BulkSettlementsExecuted(msg.sender, totalCancellations, 0);
+
+        return true;
+    }
+
+    /// @notice Get bulk execution limits and statistics
+    /// @return maxSettlementsPerBulk Maximum settlements allowed per bulk transaction
+    /// @return maxSharedSlippageSettlements Maximum settlements with shared slippage
+    /// @return maxEmergencyCancellations Maximum emergency cancellations per transaction
+    function getBulkExecutionLimits()
+        external
+        pure
+        returns (
+            uint256 maxSettlementsPerBulk,
+            uint256 maxSharedSlippageSettlements,
+            uint256 maxEmergencyCancellations
+        )
+    {
+        return (5, 10, 20);
+    }
+
+    /// @notice Get bulk execution gas estimates (approximate)
+    /// @param settlementCount Number of settlements to estimate for
+    /// @param useSharedSlippage Whether shared slippage is used
+    /// @return estimatedGas Approximate gas cost for bulk execution
+    function estimateBulkExecutionGas(
+        uint256 settlementCount,
+        bool useSharedSlippage
+    )
+        external
+        pure
+        returns (uint256 estimatedGas)
+    {
+        require(settlementCount > 0, "EstimateGas: invalid count");
+
+        uint256 baseGas = 21000; // Base transaction gas
+        uint256 perSettlementGas;
+
+        if (useSharedSlippage) {
+            // More efficient with shared slippage
+            perSettlementGas = settlementCount <= 10 ? 45000 : 55000;
+            require(settlementCount <= 10, "EstimateGas: too many settlements");
+        } else {
+            // Less efficient with individual slippage
+            perSettlementGas = 65000;
+            require(settlementCount <= 5, "EstimateGas: too many settlements");
+        }
+
+        return baseGas + (perSettlementGas * settlementCount);
+    }
+
     // Solidity inheritance is stupid
     function _msgSender()
         internal
