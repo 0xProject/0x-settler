@@ -173,6 +173,8 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// ### Square root
 ///
 /// * sqrt(uint512) returns (uint256)
+/// * osqrtUp(uint512,uint512)
+/// * isqrtUp(uint512)
 type uint512 is bytes32;
 
 function alloc() pure returns (uint512 r) {
@@ -1665,13 +1667,7 @@ library Lib512MathArithmetic {
     }
 
     // gas benchmark 2025/09/20: ~1425 gas
-    function sqrt(uint512 x) internal pure returns (uint256 r) {
-        (uint256 x_hi, uint256 x_lo) = x.into();
-
-        if (x_hi == 0) {
-            return x_lo.sqrt();
-        }
-
+    function _sqrt(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r) {
         /// Our general approach here is to compute the inverse of the square root of the argument
         /// using Newton-Raphson iterations. Then we combine (multiply) this inverse square root
         /// approximation with the argument to approximate the square root of the argument. After
@@ -1800,7 +1796,7 @@ library Lib512MathArithmetic {
 
             /// `r0` is only an approximation of √x, so we perform a single Babylonian step to fully
             /// converge on ⌊√x⌋ or ⌈√x⌉.  The Babylonian step is:
-            ///     r1 = ⌊(r0 + ⌊x/r0⌋) / 2⌋
+            ///     r = ⌊(r0 + ⌊x/r0⌋) / 2⌋
             // Rather than use the more-expensive division routine that returns a 512-bit result,
             // because the value the upper word of the quotient can take is highly constrained, we
             // can compute the quotient mod 2²⁵⁶ and recover the high word separately. Although
@@ -1812,17 +1808,50 @@ library Lib512MathArithmetic {
             uint256 q_lo = _div(x_hi, x_lo, r0);
             uint256 q_hi = (r0 <= x_hi).toUint();
             (uint256 s_hi, uint256 s_lo) = _add(q_hi, q_lo, r0);
-            // `oflo` here is either 0 or 1. When `oflo == 1`, `r1 == 0`, and the correct value for
-            // `r1` is `type(uint256).max`.
-            (uint256 oflo, uint256 r1) = _shr256(s_hi, s_lo, 1);
-            r1 -= oflo; // underflow is desired
-
-            /// Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
-            /// check whether we've overstepped by 1 and clamp as appropriate. ref:
-            /// https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
-            (uint256 r2_hi, uint256 r2_lo) = _mul(r1, r1);
-            r = r1.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
+            // `oflo` here is either 0 or 1. When `oflo == 1`, `r == 0`, and the correct value for
+            // `r` is `type(uint256).max`.
+            uint256 oflo;
+            (oflo, r) = _shr256(s_hi, s_lo, 1);
+            r -= oflo; // underflow is desired
         }
+    }
+
+    function sqrt(uint512 x) internal pure returns (uint256) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+
+        if (x_hi == 0) {
+            return x_lo.sqrt();
+        }
+
+        uint256 r = _sqrt(x_hi, x_lo);
+
+        /// Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
+        /// check whether we've overstepped by 1 and clamp as appropriate. ref:
+        /// https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
+        (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
+        return r.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
+    }
+
+    function osqrtUp(uint512 r, uint512 x) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+
+        if (x_hi == 0) {
+            return r.from(0, x_lo.sqrtUp());
+        }
+
+        uint256 r_lo = _sqrt(x_hi, x_lo);
+
+        /// The Babylonian step can give ⌈√x⌉ if x+1 is a perfect square. This
+        /// is fine. If the Babylonian step gave ⌊√x⌋ != √x, we have to round
+        /// up.
+        (uint256 r2_hi, uint256 r2_lo) = _mul(r_lo, r_lo);
+        uint256 r_hi;
+        (r_hi, r_lo) = _add(0, r_lo, _gt(x_hi, x_lo, r2_hi, r2_lo).toUint());
+        return r.from(r_hi, r_lo);
+    }
+
+    function isqrtUp(uint512 r) internal pure returns (uint512) {
+        return osqrtUp(r, r);
     }
 }
 

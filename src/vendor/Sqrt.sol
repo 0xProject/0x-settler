@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 // @author Modified from Solady by Vectorized https://github.com/Vectorized/solady/blob/701406e8126cfed931645727b274df303fbcd94d/src/utils/FixedPointMathLib.sol#L774-L826 under the MIT license.
 library Sqrt {
-    /// @dev Returns the square root of `x`, rounded down.
+    /// @dev Returns the square root of `x`, rounded maybe-up maybe-down. For expert use only.
     function _sqrt(uint256 x) private pure returns (uint256 z) {
         assembly ("memory-safe") {
             // `floor(sqrt(2**15)) = 181`. `sqrt(2**15) - 181 = 2.84`.
@@ -51,6 +51,7 @@ library Sqrt {
         }
     }
 
+    /// @dev Returns the square root of `x`, rounded down.
     function sqrt(uint256 x) internal pure returns (uint256 z) {
         z = _sqrt(x);
         assembly ("memory-safe") {
@@ -61,6 +62,7 @@ library Sqrt {
         }
     }
 
+    /// @dev Returns the square root of `x`, rounded up.
     function sqrtUp(uint256 x) internal pure returns (uint256 z) {
         z = _sqrt(x);
         assembly ("memory-safe") {
