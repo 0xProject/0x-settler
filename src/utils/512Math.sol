@@ -882,7 +882,7 @@ library Lib512MathArithmetic {
         }
         (uint256 n_hi, uint256 n_lo) = n.into();
         if (d_lo == 0) {
-            return n_hi.unsafeDivUp(d_hi);
+            return n_hi.unsafeDiv(d_hi).unsafeInc(0 < (n_lo | n_hi.unsafeMod(d_hi)));
         }
 
         // Round the numerator down to a multiple of the denominator. This makes
@@ -1085,7 +1085,7 @@ library Lib512MathArithmetic {
 
         // To obtain the ceiling, we conditionally add 1 if the remainder was
         // nonzero.
-        (r_hi, r_lo) = _add(r_hi, r_lo, (0 < (r_hi | r_lo)).toUint());
+        (r_hi, r_lo) = _add(r_hi, r_lo, (0 < (rem_hi | rem_lo)).toUint());
 
         return r.from(r_hi, r_lo);
     }
