@@ -7,7 +7,7 @@ import {ISettlerActions} from "../ISettlerActions.sol";
 
 import {FastLogic} from "../utils/FastLogic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {FullMath} from "../vendor/FullMath.sol";
+import {UnsafeMath} from "../vendor/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
@@ -87,7 +87,7 @@ abstract contract Bebop is SettlerAbstract {
     using FastLogic for bool;
     using SafeTransferLib for IERC20;
     using Ternary for bool;
-    using FullMath for uint256;
+    using UnsafeMath for uint256;
     using FastBebop for IBebopSettlement;
 
     IBebopSettlement internal constant _BEBOP = IBebopSettlement(0xbbbbbBB520d69a9775E85b458C58c648259FAD5F);
@@ -119,7 +119,9 @@ abstract contract Bebop is SettlerAbstract {
         {
             uint256 maxTakerAmount = order.taker_amount;
             takerFilledAmount = (takerFilledAmount > maxTakerAmount).ternary(maxTakerAmount, takerFilledAmount);
-            makerFilledAmount = order.maker_amount.unsafeMulDiv(takerFilledAmount, maxTakerAmount);
+            unchecked {
+                makerFilledAmount = (order.maker_amount * takerFilledAmount).unsafeDiv(maxTakerAmount);
+            }
         }
         if (makerFilledAmount < amountOutMin) {
             revertTooMuchSlippage(IERC20(order.maker_token), amountOutMin, makerFilledAmount);

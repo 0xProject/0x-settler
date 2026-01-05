@@ -18,7 +18,7 @@ import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
 import {Sqrt} from "../vendor/Sqrt.sol";
 import {Clz} from "../vendor/Clz.sol";
-import {FullMath} from "../vendor/FullMath.sol";
+import {tmp} from "../utils/512Math.sol";
 
 /// @author Modified from EulerSwap by Euler Labs Ltd. https://github.com/euler-xyz/euler-swap/blob/aa87a6bc1ca01bf6e5a8e14c030bbe0d008cf8bf/src/libraries/CurveLib.sol . See above for copyright and usage terms.
 /// @author Extensively modified by Duncan Townsend for Zero Ex Inc. (modifications released under MIT license)
@@ -31,7 +31,6 @@ library CurveLib {
     using Math for uint256;
     using Sqrt for uint256;
     using Clz for uint256;
-    using FullMath for uint256;
 
     /// @notice Returns true if the specified reserve amounts would be acceptable, false otherwise.
     /// Acceptable points are on, or above and to-the-right of the swapping curve.
