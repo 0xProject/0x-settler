@@ -1763,9 +1763,9 @@ library Lib512MathArithmetic {
                 // Generally speaking, for relatively smaller `e` (lower values of `x`) and for
                 // relatively larger `M`, we can skip the 5th N-R iteration. The constant `95` is
                 // derived by extensive fuzzing. Attempting a higher-order approximation of the
-                // relationship between `M` and `invE` consumes, on average, more gas. The correct
-                // bits that this iteration would obtain are shifted away during the denormalization
-                // step. This branch is net gas-optimizing.
+                // relationship between `M` and `invE` consumes, on average, more gas. When this
+                // branch is not taken, the correct bits that this iteration would obtain are
+                // shifted away during the denormalization step. This branch is net gas-optimizing.
                 uint256 Y2 = Y * Y;                    // scale: 2²⁵⁴
                 uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2²⁵⁴
                 uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 2²⁵⁴
@@ -1825,9 +1825,9 @@ library Lib512MathArithmetic {
 
         uint256 r = _sqrt(x_hi, x_lo);
 
-        /// Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
-        /// check whether we've overstepped by 1 and clamp as appropriate. ref:
-        /// https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
+        // Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
+        // check whether we've overstepped by 1 and clamp as appropriate. ref:
+        // https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
         (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
         return r.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
     }
@@ -1841,9 +1841,8 @@ library Lib512MathArithmetic {
 
         uint256 r_lo = _sqrt(x_hi, x_lo);
 
-        /// The Babylonian step can give ⌈√x⌉ if x+1 is a perfect square. This
-        /// is fine. If the Babylonian step gave ⌊√x⌋ != √x, we have to round
-        /// up.
+        // The Babylonian step can give ⌈√x⌉ if x+1 is a perfect square. This is
+        // fine. If the Babylonian step gave ⌊√x⌋ != √x, we have to round up.
         (uint256 r2_hi, uint256 r2_lo) = _mul(r_lo, r_lo);
         uint256 r_hi;
         (r_hi, r_lo) = _add(0, r_lo, _gt(x_hi, x_lo, r2_hi, r2_lo).toUint());
