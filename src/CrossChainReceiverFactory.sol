@@ -984,7 +984,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             mstore(data, 0x669a7d5e) // `IMultiCall.multicall.selector`
             // we won't bother to restore `data.length` because this block never returns to Solidity
 
-            let success := call(gas(), MULTICALL, value, add(0x1c, data), dataLength, codesize(), callvalue())
+            let success := call(gas(), MULTICALL, value, add(0x1c, data), add(0x04, dataLength), codesize(), callvalue())
 
             // technically, this is not memory safe because there could be a hidden
             // compiler-allocated object at the end of `data` and the returndata from the `CALL`
