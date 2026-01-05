@@ -238,4 +238,187 @@ contract Lib512MathTest is Test {
             assertTrue((r2_hi > x_hi) || (r2_hi == x_hi && r2_lo > x_lo), "sqrt too low");
         }
     }
+
+    function test512Math_divUpAlt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
+        vm.assume(y_hi != 0);
+
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint512 y = alloc().from(y_hi, y_lo);
+
+        uint256 ceil_q = x.divUpAlt(y);
+        uint256 floor_q = x.div(y);
+
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, floor_q, 0);
+        uint512 e = alloc().from(e_hi, e_lo);
+
+        assertTrue(
+            ceil_q == floor_q || (floor_q == type(uint256).max && ceil_q == 0) || (e != x && ceil_q == floor_q + 1)
+        );
+    }
+
+    function test512Math_odivUpAlt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
+        vm.assume(y_hi != 0);
+
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint512 y = alloc().from(y_hi, y_lo);
+
+        uint512 ceil_q = alloc().odivUpAlt(x, y);
+        uint512 floor_q = alloc().odiv(x, y);
+
+        (uint256 floor_q_hi, uint256 floor_q_lo) = floor_q.into();
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, floor_q_lo, floor_q_hi);
+        uint512 e = alloc().from(e_hi, e_lo);
+
+        assertTrue(
+            ceil_q == floor_q
+                || (floor_q == tmp().from(type(uint256).max, type(uint256).max) && ceil_q == tmp().from(0, 0))
+                || (e != x && ceil_q == tmp().oadd(floor_q, 1))
+        );
+    }
+
+    function test512Math_divUpForeign(uint256 x_hi, uint256 x_lo, uint256 y) external pure {
+        vm.assume(y != 0);
+
+        uint512 x = alloc().from(x_hi, x_lo);
+
+        uint256 ceil_q = x.divUp(y);
+        uint256 floor_q = x.div(y);
+
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y, floor_q);
+        uint512 e = alloc().from(e_hi, e_lo);
+
+        assertTrue(
+            ceil_q == floor_q || (floor_q == type(uint256).max && ceil_q == 0) || (e != x && ceil_q == floor_q + 1)
+        );
+    }
+
+    function test512Math_divUpNative(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
+        vm.assume(y_hi != 0);
+
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint512 y = alloc().from(y_hi, y_lo);
+
+        uint256 ceil_q = x.divUp(y);
+        uint256 floor_q = x.div(y);
+
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, floor_q, 0);
+        uint512 e = alloc().from(e_hi, e_lo);
+
+        assertTrue(
+            ceil_q == floor_q || (floor_q == type(uint256).max && ceil_q == 0) || (e != x && ceil_q == floor_q + 1)
+        );
+    }
+
+    function test512Math_odivUpForeign(uint256 x_hi, uint256 x_lo, uint256 y) external pure {
+        vm.assume(y != 0);
+
+        uint512 x = alloc().from(x_hi, x_lo);
+
+        uint512 ceil_q = alloc().odivUp(x, y);
+        uint512 floor_q = alloc().odiv(x, y);
+
+        (uint256 floor_q_hi, uint256 floor_q_lo) = floor_q.into();
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y, 0, floor_q_lo, floor_q_hi);
+        uint512 e = alloc().from(e_hi, e_lo);
+
+        assertTrue(
+            ceil_q == floor_q
+                || (floor_q == tmp().from(type(uint256).max, type(uint256).max) && ceil_q == tmp().from(0, 0))
+                || (e != x && ceil_q == tmp().oadd(floor_q, 1))
+        );
+    }
+
+    function test512Math_idivUpForeign(uint256 x_hi, uint256 x_lo, uint256 y) external pure {
+        vm.assume(y != 0);
+
+        uint512 x = alloc().from(x_hi, x_lo);
+
+        (uint256 ceil_q_hi, uint256 ceil_q_lo) = tmp().from(x).idivUp(y).into();
+        (uint256 floor_q_hi, uint256 floor_q_lo) = tmp().from(x).idiv(y).into();
+
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y, 0, floor_q_lo, floor_q_hi);
+        uint512 e = alloc().from(e_hi, e_lo);
+
+        uint512 ceil_q = alloc().from(ceil_q_hi, ceil_q_lo);
+        uint512 floor_q = alloc().from(floor_q_hi, floor_q_lo);
+
+        assertTrue(
+            ceil_q == floor_q
+                || (floor_q == tmp().from(type(uint256).max, type(uint256).max) && ceil_q == tmp().from(0, 0))
+                || (e != x && ceil_q == tmp().oadd(floor_q, 1))
+        );
+    }
+
+    function test512Math_odivUpNative(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
+        vm.assume(y_hi != 0);
+
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint512 y = alloc().from(y_hi, y_lo);
+
+        uint512 ceil_q = alloc().odivUp(x, y);
+        uint512 floor_q = alloc().odiv(x, y);
+
+        (uint256 floor_q_hi, uint256 floor_q_lo) = floor_q.into();
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, floor_q_lo, floor_q_hi);
+        uint512 e = alloc().from(e_hi, e_lo);
+
+        assertTrue(
+            ceil_q == floor_q
+                || (floor_q == tmp().from(type(uint256).max, type(uint256).max) && ceil_q == tmp().from(0, 0))
+                || (e != x && ceil_q == tmp().oadd(floor_q, 1))
+        );
+    }
+
+    function test512Math_idivUpNative(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
+        vm.assume(y_hi != 0);
+
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint512 y = alloc().from(y_hi, y_lo);
+
+        (uint256 ceil_q_hi, uint256 ceil_q_lo) = tmp().from(x).idivUp(y).into();
+        (uint256 floor_q_hi, uint256 floor_q_lo) = tmp().from(x).idiv(y).into();
+
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, floor_q_lo, floor_q_hi);
+        uint512 e = alloc().from(e_hi, e_lo);
+
+        uint512 ceil_q = alloc().from(ceil_q_hi, ceil_q_lo);
+        uint512 floor_q = alloc().from(floor_q_hi, floor_q_lo);
+
+        assertTrue(
+            ceil_q == floor_q
+                || (floor_q == tmp().from(type(uint256).max, type(uint256).max) && ceil_q == tmp().from(0, 0))
+                || (e != x && ceil_q == tmp().oadd(floor_q, 1))
+        );
+    }
+
+    function test512Math_osqrtUp(uint256 x_hi, uint256 x_lo) external pure {
+        uint512 x = alloc().from(x_hi, x_lo);
+        (uint256 r_hi, uint256 r_lo) = alloc().osqrtUp(x).into();
+
+        if (r_hi == 0 && r_lo == 0) {
+            // sqrtUp(0) = 0
+            assertTrue(x_hi == 0 && x_lo == 0, "sqrtUp of nonzero is zero");
+        } else if (r_hi != 0) {
+            // r >= 2^256, which means r must be exactly 2^256 (since sqrt of 512-bit is at most 2^256)
+            // r^2 = 2^512 exceeds max 512-bit value, so r^2 >= x is trivially true
+            // We only need to verify (r-1)^2 < x, i.e., (type(uint256).max)^2 < x
+            assertTrue(r_hi == 1 && r_lo == 0, "overflow result must be exactly 2^256");
+            (uint256 r_dec2_lo, uint256 r_dec2_hi) = SlowMath.fullMul(type(uint256).max, type(uint256).max);
+            assertTrue((r_dec2_hi < x_hi) || (r_dec2_hi == x_hi && r_dec2_lo < x_lo), "sqrtUp too high");
+        } else {
+            // Normal case: r fits in 256 bits
+            (uint256 r2_lo, uint256 r2_hi) = SlowMath.fullMul(r_lo, r_lo);
+            assertTrue((r2_hi > x_hi) || (r2_hi == x_hi && r2_lo >= x_lo), "sqrtUp too low");
+
+            // Check (r-1)^2 < x
+            if (r_lo == 1) {
+                // (r-1)^2 = 0, which must be less than any nonzero x. Already verified x != 0
+                // since we're in the r != 0 branch.
+            } else {
+                uint256 r_dec_lo = r_lo - 1;
+                (r2_lo, r2_hi) = SlowMath.fullMul(r_dec_lo, r_dec_lo);
+                assertTrue((r2_hi < x_hi) || (r2_hi == x_hi && r2_lo < x_lo), "sqrtUp too high");
+            }
+        }
+    }
 }
