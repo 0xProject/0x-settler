@@ -238,4 +238,35 @@ contract Lib512MathTest is Test {
             assertTrue((r2_hi > x_hi) || (r2_hi == x_hi && r2_lo > x_lo), "sqrt too low");
         }
     }
+
+    function test512Math_divUpAlt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
+        vm.assume(y_hi != 0);
+
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint512 y = alloc().from(y_hi, y_lo);
+
+        uint256 ceil_q = x.divUpAlt(y);
+        uint256 floor_q = x.div(y);
+
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, floor_q, 0);
+        uint512 e = alloc().from(e_hi, e_lo);
+
+        assertTrue(ceil_q == floor_q || floor_q == type(uint256).max || (e != x && ceil_q == floor_q + 1));
+    }
+
+    function test512Math_odivUpAlt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
+        vm.assume(y_hi != 0);
+
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint512 y = alloc().from(y_hi, y_lo);
+
+        uint512 ceil_q = alloc().odivUpAlt(x, y);
+        uint512 floor_q = alloc().odiv(x, y);
+
+        (uint256 floor_q_hi, uint256 floor_q_lo) = floor_q.into();
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, floor_q_lo, floor_q_hi);
+        uint512 e = alloc().from(e_hi, e_lo);
+
+        assertTrue(ceil_q == floor_q || floor_q == tmp().from(type(uint256).max, type(uint256).max) || (e != x && ceil_q == tmp().oadd(floor_q, 1)));
+    }
 }

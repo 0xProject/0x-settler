@@ -165,6 +165,10 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// * odivAlt(uint512,uint512,uint512)
 /// * idivAlt(uint512,uint512)
 /// * irdivAlt(uint512,uint512)
+/// * divUpAlt(uint512,uint512) returns (uint256)
+/// * odivUpAlt(uint512,uint512,uint512)
+/// * idivUpAlt(uint512,uint512)
+/// * irdivUpAlt(uint512,uint512)
 ///
 /// ### Square root
 ///
@@ -1135,7 +1139,11 @@ library Lib512MathArithmetic {
     /// adapted from Donald Knuth, The Art of Computer Programming (TAOCP)
     /// Volume 2, Section 4.3.1, Algorithm D.
 
-    function _algorithmD(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 q) {
+    function _algorithmD(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (uint256 q)
+    {
         // We treat `x` and `y` each as ≤4-limb bigints where each limb is half
         // a machine word (128 bits). This lets us perform 2-limb ÷ 1-limb
         // divisions as a single operation (`div`) as required by Algorithm
@@ -1553,7 +1561,68 @@ library Lib512MathArithmetic {
         // At this point, we know that both `x` and `y` are fully represented by
         // 2 words. There is no simpler representation for the problem. We must
         // use Knuth's Algorithm D.
-        return _algorithmD(x_hi, x_lo, y_hi, y_lo);
+        uint256 q = _algorithmD(x_hi, x_lo, y_hi, y_lo);
+        return q;
+    }
+
+    function divUpAlt(uint512 x, uint512 y) internal pure returns (uint256) {
+        (uint256 y_hi, uint256 y_lo) = y.into();
+        if (y_hi == 0) {
+            return divUp(x, y_lo);
+        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        if (y_lo == 0) {
+            return x_hi.unsafeDiv(y_hi).unsafeInc(0 < (x_lo | x_hi.unsafeMod(y_hi)));
+        }
+        if (_gt(y_hi, y_lo, x_hi, x_lo)) {
+            return (0 < (x_hi | x_lo)).toUint();
+        }
+
+        // At this point, we know that both `x` and `y` are fully represented by
+        // 2 words. There is no simpler representation for the problem. We must
+        // use Knuth's Algorithm D.
+        uint256 q =  _algorithmD(x_hi, x_lo, y_hi, y_lo);
+
+        // If the division was not exact, then we must round up. This is more
+        // efficient than explicitly computing whether the remainder is nonzero
+        // inside `_algorithmD`.
+        (uint256 prod_hi, uint256 prod_lo) = _mul(y_hi, y_lo, q);
+        return q.unsafeInc(0 < (prod_hi ^ x_hi) | (prod_lo ^ x_lo));
+    }
+
+    function odivUpAlt(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
+        (uint256 y_hi, uint256 y_lo) = y.into();
+        if (y_hi == 0) {
+            return odivUp(r, x, y_lo);
+        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        if (y_lo == 0) {
+            (uint256 r_hi_, uint256 r_lo_) = _add(0, x_hi.unsafeDiv(y_hi), (0 < (x_lo | x_hi.unsafeMod(y_hi))).toUint());
+            return r.from(r_hi_, r_lo_);
+        }
+        if (_gt(y_hi, y_lo, x_hi, x_lo)) {
+            return r.from(0, (0 < (x_hi | x_lo)).toUint());
+        }
+
+        // At this point, we know that both `x` and `y` are fully represented by
+        // 2 words. There is no simpler representation for the problem. We must
+        // use Knuth's Algorithm D.
+        uint256 q = _algorithmD(x_hi, x_lo, y_hi, y_lo);
+
+        // If the division was not exact, then we must round up. This is more
+        // efficient than explicitly computing whether the remainder is nonzero
+        // inside `_algorithmD`.
+        (uint256 prod_hi, uint256 prod_lo) = _mul(y_hi, y_lo, q);
+        (uint256 r_hi, uint256 r_lo) = _add(0, q, (0 < (prod_hi ^ x_hi) | (prod_lo ^ x_lo)).toUint());
+        return r.from(r_hi, r_lo);
+    }
+
+    function idivUpAlt(uint512 r, uint512 y) internal pure returns (uint512) {
+        return odivUpAlt(r, r, y);
+    }
+
+    function irdivUpAlt(uint512 r, uint512 y) internal pure returns (uint512) {
+        return odivUpAlt(r, y, r);
     }
 
     function omodAlt(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
