@@ -148,12 +148,19 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// ### Division
 ///
 /// * div(uint512,uint256) returns (uint256)
+/// * divUp(uint512,uint256) returns (uint256)
 /// * div(uint512,uint512) returns (uint256)
+/// * divUp(uint512,uint512) returns (uint256)
 /// * odiv(uint512,uint512,uint256)
 /// * idiv(uint512,uint256)
+/// * odivUp(uint512,uint512,uint256)
+/// * idivUp(uint512,uint256)
 /// * odiv(uint512,uint512,uint512)
 /// * idiv(uint512,uint512)
 /// * irdiv(uint512,uint512)
+/// * odivUp(uint512,uint512,uint512)
+/// * idivUp(uint512,uint512)
+/// * irdivUp(uint512,uint512)
 /// * divAlt(uint512,uint512) returns (uint256) -- divAlt(uint512,uint256) is not provided because div(uint512,uint256) is suitable for chains without MODEXP
 /// * odivAlt(uint512,uint512,uint512)
 /// * idivAlt(uint512,uint512)
@@ -581,11 +588,11 @@ library Lib512MathArithmetic {
     //// adapted from Remco Bloemen's work https://2π.com/21/muldiv/ .
     //// The original code was released under the MIT license.
 
-    function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d) private pure returns (uint256 r_hi, uint256 r_lo) {
+    function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d) private pure returns (uint256 r_hi, uint256 r_lo, uint256 rem) {
         assembly ("memory-safe") {
             // Get the remainder [n_hi n_lo] % d (< 2²⁵⁶ - 1)
             // 2**256 % d = -d % 2**256 % d -- https://2π.com/17/512-bit-division/
-            let rem := mulmod(x_hi, sub(0x00, d), d)
+            rem := mulmod(x_hi, sub(0x00, d), d)
             rem := addmod(x_lo, rem, d)
 
             r_hi := sub(x_hi, gt(rem, x_lo))
@@ -598,7 +605,7 @@ library Lib512MathArithmetic {
     function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d_hi, uint256 d_lo)
         private
         view
-        returns (uint256 r_hi, uint256 r_lo)
+        returns (uint256 r_hi, uint256 r_lo, uint256 rem_hi, uint256 rem_lo)
     {
         uint512 r;
         assembly ("memory-safe") {
@@ -632,7 +639,7 @@ library Lib512MathArithmetic {
             // to check for failure.
             pop(staticcall(gas(), 0x05, r, 0x100, r, 0x40))
         }
-        (uint256 rem_hi, uint256 rem_lo) = r.into();
+        (rem_hi, rem_lo) = r.into();
         // Round down by subtracting the remainder from the numerator
         (r_hi, r_lo) = _sub(x_hi, x_lo, rem_hi, rem_lo);
     }
@@ -754,7 +761,7 @@ library Lib512MathArithmetic {
     function _div(uint256 n_hi, uint256 n_lo, uint256 d) private pure returns (uint256) {
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
-        (n_hi, n_lo) = _roundDown(n_hi, n_lo, d);
+        (n_hi, n_lo, ) = _roundDown(n_hi, n_lo, d);
 
         // Make `d` odd so that it has a multiplicative inverse mod 2²⁵⁶.
         // After this we can discard `n_hi` because our result is only 256 bits
@@ -773,6 +780,33 @@ library Lib512MathArithmetic {
         }
     }
 
+    function _divUp(uint256 n_hi, uint256 n_lo, uint256 d) private pure returns (uint256) {
+        // Round the numerator down to a multiple of the denominator. This makes
+        // the division exact without affecting the result. Store the remainder
+        // for later to determine whether we must increment the result in order
+        // to round up.
+        uint256 rem;
+        (n_hi, n_lo, rem) = _roundDown(n_hi, n_lo, d);
+
+        // Make `d` odd so that it has a multiplicative inverse mod 2²⁵⁶.
+        // After this we can discard `n_hi` because our result is only 256 bits
+        (n_lo, d) = _toOdd256(n_hi, n_lo, d);
+
+        // We perform division by multiplying by the multiplicative inverse of
+        // the denominator mod 2²⁵⁶. Since `d` is odd, this inverse
+        // exists. Compute that inverse
+        d = _invert256(d);
+
+        unchecked {
+            // Because the division is now exact (we rounded `n` down to a
+            // multiple of `d`), we perform it by multiplying with the modular
+            // inverse of the denominator. This is the floor of the division,
+            // mod 2²⁵⁶. To obtain the ceiling, we conditionally add 1 if the
+            // remainder was nonzero.
+            return (n_lo * d).unsafeInc(0 < rem);
+        }
+    }
+
     function div(uint512 n, uint256 d) internal pure returns (uint256) {
         if (d == 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);
@@ -784,6 +818,19 @@ library Lib512MathArithmetic {
         }
 
         return _div(n_hi, n_lo, d);
+    }
+
+    function divUp(uint512 n, uint256 d) internal pure returns (uint256) {
+        if (d == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
+        (uint256 n_hi, uint256 n_lo) = n.into();
+        if (n_hi == 0) {
+            return n_lo.unsafeDivUp(d);
+        }
+
+        return _divUp(n_hi, n_lo, d);
     }
 
     function _gt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
@@ -808,7 +855,7 @@ library Lib512MathArithmetic {
 
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
-        (n_hi, n_lo) = _roundDown(n_hi, n_lo, d_hi, d_lo);
+        (n_hi, n_lo, , ) = _roundDown(n_hi, n_lo, d_hi, d_lo);
 
         // Make `d_lo` odd so that it has a multiplicative inverse mod 2²⁵⁶.
         // After this we can discard `n_hi` and `d_hi` because our result is
@@ -825,6 +872,43 @@ library Lib512MathArithmetic {
             // multiple of `d`), we perform it by multiplying with the modular
             // inverse of the denominator. This is the correct result mod 2²⁵⁶.
             return n_lo * d_lo;
+        }
+    }
+
+    function divUp(uint512 n, uint512 d) internal view returns (uint256) {
+        (uint256 d_hi, uint256 d_lo) = d.into();
+        if (d_hi == 0) {
+            return divUp(n, d_lo);
+        }
+        (uint256 n_hi, uint256 n_lo) = n.into();
+        if (d_lo == 0) {
+            return n_hi.unsafeDivUp(d_hi);
+        }
+
+        // Round the numerator down to a multiple of the denominator. This makes
+        // the division exact without affecting the result. Save the remainder
+        // for later to determine whether we need to increment to round up.
+        uint256 rem_hi;
+        uint256 rem_lo;
+        (n_hi, n_lo, rem_hi, rem_lo) = _roundDown(n_hi, n_lo, d_hi, d_lo);
+
+        // Make `d_lo` odd so that it has a multiplicative inverse mod 2²⁵⁶.
+        // After this we can discard `n_hi` and `d_hi` because our result is
+        // only 256 bits
+        (n_lo, d_lo) = _toOdd256(n_hi, n_lo, d_hi, d_lo);
+
+        // We perform division by multiplying by the multiplicative inverse of
+        // the denominator mod 2²⁵⁶. Since `d_lo` is odd, this inverse
+        // exists. Compute that inverse
+        d_lo = _invert256(d_lo);
+
+        unchecked {
+            // Because the division is now exact (we rounded `n` down to a
+            // multiple of `d`), we perform it by multiplying with the modular
+            // inverse of the denominator. This is the floor of the division,
+            // mod 2²⁵⁶. To obtain the ceiling, we conditionally add 1 if the
+            // remainder was nonzero.
+            return (n_lo * d_lo).unsafeInc(0 < (rem_hi | rem_lo));
         }
     }
 
@@ -847,7 +931,7 @@ library Lib512MathArithmetic {
 
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
-        (x_hi, x_lo) = _roundDown(x_hi, x_lo, y);
+        (x_hi, x_lo, ) = _roundDown(x_hi, x_lo, y);
 
         // Make `y` odd so that it has a multiplicative inverse mod 2²⁵⁶. After
         // this we can discard `x_hi` because we have already obtained the upper
@@ -875,6 +959,58 @@ library Lib512MathArithmetic {
         return odiv(r, r, y);
     }
 
+    function odivUp(uint512 r, uint512 x, uint256 y) internal pure returns (uint512) {
+        if (y == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        if (x_hi == 0) {
+            return r.from(0, x_lo.unsafeDivUp(y));
+        }
+
+        // The upper word of the quotient is straightforward. We can use
+        // "normal" division to obtain it. The remainder after that division
+        // must be carried forward to the later steps, however, because the next
+        // operation we perform is a `mulmod` of `x_hi` with `y`, there's no
+        // need to reduce `x_hi` mod `y` as would be ordinarily expected.
+        uint256 r_hi = x_hi.unsafeDiv(y);
+
+        // Round the numerator down to a multiple of the denominator. This makes
+        // the division exact without affecting the result. Save the remainder
+        // for later to determine whether we need to increment to round up.
+        uint256 rem;
+        (x_hi, x_lo, rem) = _roundDown(x_hi, x_lo, y);
+
+        // Make `y` odd so that it has a multiplicative inverse mod 2²⁵⁶. After
+        // this we can discard `x_hi` because we have already obtained the upper
+        // word.
+        (x_lo, y) = _toOdd256(x_hi, x_lo, y);
+
+        // The lower word of the quotient is obtained from division by
+        // multiplying by the multiplicative inverse of the denominator mod
+        // 2²⁵⁶. Since `y` is odd, this inverse exists. Compute that inverse
+        y = _invert256(y);
+
+        uint256 r_lo;
+        unchecked {
+            // Because the division is now exact (we rounded `x` down to a
+            // multiple of the original `y`), we perform it by multiplying with
+            // the modular inverse of the denominator. This is the floor of the
+            // division, mod 2²⁵⁶.
+            r_lo = x_lo * y;
+        }
+        // To obtain the ceiling, we conditionally add 1 if the remainder was
+        // nonzero.
+        (r_hi, r_lo) = _add(r_hi, r_lo, (0 < rem).toUint());
+
+        return r.from(r_hi, r_lo);
+    }
+
+    function idivUp(uint512 r, uint256 y) internal pure returns (uint512) {
+        return odivUp(r, r, y);
+    }
+
     function odiv(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
         (uint256 y_hi, uint256 y_lo) = y.into();
         if (y_hi == 0) {
@@ -891,7 +1027,7 @@ library Lib512MathArithmetic {
 
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
-        (x_hi, x_lo) = _roundDown(x_hi, x_lo, y_hi, y_lo);
+        (x_hi, x_lo, , ) = _roundDown(x_hi, x_lo, y_hi, y_lo);
 
         // Make `y` odd so that it has a multiplicative inverse mod 2⁵¹²
         (x_hi, x_lo, y_hi, y_lo) = _toOdd512(x_hi, x_lo, y_hi, y_lo);
@@ -914,6 +1050,52 @@ library Lib512MathArithmetic {
 
     function irdiv(uint512 r, uint512 y) internal view returns (uint512) {
         return odiv(r, y, r);
+    }
+
+    function odivUp(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
+        (uint256 y_hi, uint256 y_lo) = y.into();
+        if (y_hi == 0) {
+            return odivUp(r, x, y_lo);
+        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        if (y_lo == 0) {
+            (uint256 r_hi_, uint256 r_lo_) = _add(0, x_hi.unsafeDiv(y_hi), (0 < (x_lo | x_hi.unsafeMod(y_hi))).toUint());
+            return r.from(r_hi_, r_lo_);
+        }
+
+        // Round the numerator down to a multiple of the denominator. This makes
+        // the division exact without affecting the result. Save the remainder
+        // for later to determine whether we need to increment to round up.
+        uint256 rem_hi;
+        uint256 rem_lo;
+        (x_hi, x_lo, rem_hi, rem_lo) = _roundDown(x_hi, x_lo, y_hi, y_lo);
+
+        // Make `y` odd so that it has a multiplicative inverse mod 2⁵¹²
+        (x_hi, x_lo, y_hi, y_lo) = _toOdd512(x_hi, x_lo, y_hi, y_lo);
+
+        // We perform division by multiplying by the multiplicative inverse of
+        // the denominator mod 2⁵¹². Since `y` is odd, this inverse
+        // exists. Compute that inverse
+        (y_hi, y_lo) = _invert512(y_hi, y_lo);
+
+        // Because the division is now exact (we rounded `x` down to a multiple
+        // of `y`), we perform it by multiplying with the modular inverse of the
+        // denominator. This is the floor of the division.
+        (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, y_hi, y_lo);
+
+        // To obtain the ceiling, we conditionally add 1 if the remainder was
+        // nonzero.
+        (r_hi, r_lo) = _add(r_hi, r_lo, (0 < (r_hi | r_lo)).toUint());
+
+        return r.from(r_hi, r_lo);
+    }
+
+    function idivUp(uint512 r, uint512 y) internal view returns (uint512) {
+        return odivUp(r, r, y);
+    }
+
+    function irdivUp(uint512 r, uint512 y) internal view returns (uint512) {
+        return odivUp(r, y, r);
     }
 
     function _gt(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo)
