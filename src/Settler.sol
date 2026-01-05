@@ -118,6 +118,9 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         takerSubmitted
         returns (bool)
     {
+
+ require(actions.length <= REASONABLE_MAX_ACTIONS, "Too many actions");
+
         if (actions.length != 0) {
             uint256 it;
             assembly ("memory-safe") {
