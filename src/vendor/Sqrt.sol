@@ -42,8 +42,11 @@ library Sqrt {
     function sqrtUp(uint256 x) internal pure returns (uint256 z) {
         z = _sqrt(x);
         assembly ("memory-safe") {
-            let zz := mul(z, z)
-            z := add(gt(lt(zz, x), lt(zz, z)), z)
+            // If `x == type(uint256).max`, then according to its contract `_sqrt(x)` could return
+            // `2**128`. This would cause `mul(z, z)` to overflow and `sqrtUp` to return `2**128 +
+            // 1`. However, for this specific input in practice, `_sqrt` returns `2**128 - 1`,
+            // defusing this scenario.
+            z := add(lt(mul(z, z), x), z)
         }
     }
 }
