@@ -18,7 +18,7 @@ import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath, Math} from "../utils/UnsafeMath.sol";
 import {Sqrt} from "../vendor/Sqrt.sol";
 import {Clz} from "../vendor/Clz.sol";
-import {FullMath} from "../vendor/FullMath.sol";
+import {uint512, alloc, tmp} from "../utils/512Math.sol";
 
 /// @author Modified from EulerSwap by Euler Labs Ltd. https://github.com/euler-xyz/euler-swap/blob/aa87a6bc1ca01bf6e5a8e14c030bbe0d008cf8bf/src/libraries/CurveLib.sol . See above for copyright and usage terms.
 /// @author Extensively modified by Duncan Townsend for Zero Ex Inc. (modifications released under MIT license)
@@ -31,7 +31,6 @@ library CurveLib {
     using Math for uint256;
     using Sqrt for uint256;
     using Clz for uint256;
-    using FullMath for uint256;
 
     /// @notice Returns true if the specified reserve amounts would be acceptable, false otherwise.
     /// Acceptable points are on, or above and to-the-right of the swapping curve.
@@ -68,9 +67,9 @@ library CurveLib {
             if (cx == 1e18) {
                 maybe = y - y0 >= ((x0 - x) * px).unsafeDivUp(py);
             } else {
-                (uint256 a_lo, uint256 a_hi) = (y - y0).fullMul(1e18 * x * py);
-                (uint256 b_lo, uint256 b_hi) = (px * (x0 - x)).fullMul(cx * x + (1e18 - cx) * x0);
-                maybe = !FullMath.fullLt(a_lo, a_hi, b_lo, b_hi);
+                uint512 a = alloc().omul(y - y0, 1e18 * x * py);
+                uint512 b = alloc().omul(px * (x0 - x), cx * x + (1e18 - cx) * x0);
+                maybe = a >= b;
             }
         }
 
@@ -124,7 +123,11 @@ library CurveLib {
             uint256 v; // scale: 1; units: token Y
             unchecked {
                 (uint256 a, uint256 b, uint256 d) = _setupF(x, px, py, x0, cx);
-                v = a.mulDivUp(b, d); // Throws on divide by zero and overflow
+                (uint256 v_hi, uint256 v_lo) = tmp().omul(a, b).idivUp(d).into(); // Throws on divide-by-zero
+                if (v_hi != 0) {
+                    Panic.panic(Panic.ARITHMETIC_OVERFLOW);
+                }
+                v = v_lo;
             }
             return y0 + v; // Throws on overflow
         }
@@ -155,7 +158,11 @@ library CurveLib {
                 return y0 + v;
             } else {
                 (uint256 a, uint256 b, uint256 d) = _setupF(x, px, py, x0, cx);
-                uint256 v = a.saturatingMulDivUp(b, d); // scale: 1; units: token Y
+                if (d == 0) {
+                    return ~d;
+                }
+                (uint256 v_hi, uint256 v_lo) = tmp().omul(a, b).idivUp(d).into(); // scale: 1; units: token Y
+                uint256 v = v_lo | 0 - (0 < v_hi).toUint();
                 return y0.saturatingAdd(v);
             }
         }
@@ -221,9 +228,9 @@ library CurveLib {
                 // `fourAC` is actually the value $-4ac$ from the "normal" conversion of the
                 // constant function to its quadratic form. Computing it like this means we can
                 // avoid subtraction (and potential underflow)
-                uint256 fourAC = (cx * (1e18 - cx) << 2).unsafeMulShiftUp(x0 * x0, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                (, uint256 fourAC) = tmp().omul(cx * (1e18 - cx) << 2, x0 * x0).ishrUp(twoShift).into(); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
 
-                uint256 squaredB = absB.unsafeMulShiftUp(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                (, uint256 squaredB) = tmp().omul(absB, absB).ishrUp(twoShift).into(); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
                 uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
                 uint256 sqrt = discriminant.sqrtUp() << shift; // scale: 1e18; units: token X; range: 172 bits
 
@@ -236,15 +243,15 @@ library CurveLib {
                 // `fourAC` is actually the value $-4ac$ from the "normal" conversion of the
                 // constant function to its quadratic form. Therefore, we can avoid negation of
                 // `absB` and both subtractions
-                uint256 fourAC = (cx * (1e18 - cx) << 2).unsafeMulShift(x0 * x0, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                (,uint256 fourAC) = tmp().omul(cx * (1e18 - cx) << 2, x0 * x0).ishr(twoShift).into(); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
 
-                uint256 squaredB = absB.unsafeMulShift(absB, twoShift); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                (,uint256 squaredB) = tmp().omul(absB, absB).ishr(twoShift).into(); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
                 uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 255 bits
                 uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e18; units: token X; range: 255 bits
 
-                // If `cx == 1e18` and `B == 0`, we evaluate `0 / 0`, which is `0` on the EVM. This
-                // just so happens to be the correct answer
-                x = ((1e18 - cx) << 1).unsafeMulDivUpAlt(x0 * x0, absB + sqrt);
+                // If `cx == 1e18` and `B == 0`, `denominator` is 0 and 0 is the correct answer.
+                uint256 denominator = absB + sqrt;
+                x = denominator == 0 ? 0 : tmp().omul((1e18 - cx) << 1, x0 * x0).divUp(denominator);
             }
 
             // Handle any rounding error that could produce a value out of the bounds established by

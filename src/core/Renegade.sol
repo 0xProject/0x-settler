@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {FullMath} from "../vendor/FullMath.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 // selector for `sponsorMalleableAtomicMatchSettleWithRefundOptions(uint256,uint256,address,bytes,bytes,bytes,bytes,address,uint256,bool,uint256,bytes)`
 uint32 constant ARBITRUM_SELECTOR = 0x0f977971;
@@ -13,7 +13,7 @@ uint32 constant BASE_SELECTOR = 0x322ef840;
 
 abstract contract Renegade is SettlerAbstract {
     using SafeTransferLib for IERC20;
-    using FullMath for uint256;
+    using UnsafeMath for uint256;
 
     constructor() {
         uint32 selector = _renegadeSelector();
@@ -44,7 +44,9 @@ abstract contract Renegade is SettlerAbstract {
             originalQuoteAmount := mload(add(0x40, data))
         }
         // scale quoteAmount using newBaseAmount
-        buyAmount = originalQuoteAmount.mulDiv(newBaseAmount, originalBaseAmount);
+        unchecked {
+            buyAmount = (originalQuoteAmount * newBaseAmount).unsafeDiv(originalBaseAmount);
+        }
 
         uint32 selector = _renegadeSelector();
         assembly ("memory-safe") {

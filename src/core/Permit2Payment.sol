@@ -17,9 +17,9 @@ import {
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "./Permit2PaymentAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
-import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
+import {tmp} from "../utils/512Math.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -357,7 +357,6 @@ abstract contract Permit2Payment is Permit2PaymentBase {
 // DANGER: the order of the base contracts here is very significant for the use of `super` below
 // (and in derived contracts). Do not change this order.
 abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit2Payment {
-    using FullMath for uint256;
     using SafeTransferLib for IERC20;
     using FastLogic for bool;
 
@@ -375,7 +374,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         unchecked {
             if (~sellAmount < BASIS) {
                 sellAmount = BASIS - ~sellAmount;
-                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
+                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).div(BASIS);
             }
         }
     }
@@ -390,7 +389,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         unchecked {
             if (~sellAmount < BASIS) {
                 sellAmount = BASIS - ~sellAmount;
-                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
+                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).div(BASIS);
             }
         }
     }
@@ -638,7 +637,6 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 }
 
 abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
-    using FullMath for uint256;
     using SafeTransferLib for IERC20;
 
     constructor() {
@@ -661,7 +659,7 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
             if (~sellAmount < BASIS) {
                 if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
                     sellAmount = BASIS - ~sellAmount;
-                    sellAmount = token.fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
+                    sellAmount = tmp().omul(token.fastBalanceOf(_msgSender()), sellAmount).div(BASIS);
                 }
             }
         }

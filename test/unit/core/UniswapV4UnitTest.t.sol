@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
-import {FullMath} from "src/vendor/FullMath.sol";
+import {tmp} from "src/utils/512Math.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 import {UniswapV4} from "src/core/UniswapV4.sol";
@@ -770,7 +770,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
             uint256 amountInMax = zeroForOne
                 ? SqrtPriceMath.getAmount0Delta(sqrtPriceLimitX96Value, sqrtPriceCurrentX96, _DEFAULT_LIQUIDITY, true)
                 : SqrtPriceMath.getAmount1Delta(sqrtPriceCurrentX96, sqrtPriceLimitX96Value, _DEFAULT_LIQUIDITY, true);
-            uint256 maxSellFromLimit = FullMath.mulDiv(amountInMax, 1_000_000, 1_000_000 - poolKey.fee);
+            uint256 maxSellFromLimit = tmp().omul(amountInMax, 1_000_000).div(1_000_000 - poolKey.fee);
             if (maxSellFromLimit < maxSell) {
                 maxSell = maxSellFromLimit;
             }
@@ -867,12 +867,12 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
     function _sqrtPriceLimitX96(uint160 sqrtPriceCurrentX96, bool zeroForOne) private pure returns (uint160) {
         uint256 limitX96;
         if (zeroForOne) {
-            limitX96 = FullMath.mulDiv(uint256(sqrtPriceCurrentX96), Q96, SQRT_2_Q96);
+            limitX96 = tmp().omul(uint256(sqrtPriceCurrentX96), Q96).div(SQRT_2_Q96);
             if (limitX96 < MIN_SQRT_RATIO) {
                 limitX96 = MIN_SQRT_RATIO;
             }
         } else {
-            limitX96 = FullMath.mulDiv(uint256(sqrtPriceCurrentX96), SQRT_2_Q96, Q96);
+            limitX96 = tmp().omul(uint256(sqrtPriceCurrentX96), SQRT_2_Q96).div(Q96);
             if (limitX96 > MAX_SQRT_RATIO) {
                 limitX96 = MAX_SQRT_RATIO;
             }

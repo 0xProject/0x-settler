@@ -8,7 +8,6 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
-import {FullMath} from "../vendor/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
@@ -132,7 +131,6 @@ library UnsafeEkuboCore {
 
 abstract contract Ekubo is SettlerAbstract {
     using UnsafeMath for uint256;
-    using FullMath for uint256;
     using UnsafeMath for int256;
     using CreditDebt for int256;
     using FastLogic for bool;
