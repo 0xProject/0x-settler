@@ -128,4 +128,38 @@ library SlowMath {
         }
         revert("Not converged");
     }
+
+    function fullShrUp(uint256 x_lo, uint256 x_hi, uint256 s) internal pure returns (uint256 r_lo, uint256 r_hi) {
+        if (s == 0) {
+            return (x_lo, x_hi);
+        } else if (s >= 512) {
+            // ceil(x / 2^512) = 0 if x == 0, else 1
+            return ((x_hi | x_lo) != 0 ? 1 : 0, 0);
+        } else if (s >= 256) {
+            // floor = x_hi >> (s - 256), fits in r_lo
+            uint256 shift = s - 256;
+            r_lo = x_hi >> shift;
+            // Remainder exists if x_lo != 0 OR x_hi has any of bottom 'shift' bits set
+            bool hasRemainder = (x_lo != 0) || (shift != 0 && (x_hi & ((uint256(1) << shift) - 1)) != 0);
+            if (hasRemainder) {
+                unchecked { r_lo += 1; }
+                if (r_lo == 0) {
+                    r_hi = 1;
+                }
+            }
+        } else {
+            // s < 256: use fullDiv with divisor 2^s
+            uint256 d = uint256(1) << s;
+            (r_lo, r_hi) = fullDiv(x_lo, x_hi, d);
+            // Check remainder: multiply back and compare
+            (uint256 prod_lo, uint256 prod_hi) = fullMul(r_lo, r_hi, d, 0);
+            if (prod_lo != x_lo || prod_hi != x_hi) {
+                // Has remainder, add 1
+                unchecked { r_lo += 1; }
+                if (r_lo == 0) {
+                    unchecked { r_hi += 1; }
+                }
+            }
+        }
+    }
 }

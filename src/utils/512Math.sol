@@ -1327,6 +1327,13 @@ library Lib512MathArithmetic {
         }
     }
 
+    function _shl(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+        (, r_hi, r_lo) = _shl256(x_hi, x_lo, s);
+        unchecked {
+            r_hi |= x_lo << s - 256;
+        }
+    }
+
     function _shr256(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_hi := shr(s, x_hi)

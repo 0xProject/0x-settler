@@ -516,4 +516,25 @@ contract Lib512MathTest is Test {
 
         assertTrue(ceil_q == floor_q || floor_q == tmp().from(type(uint256).max, type(uint256).max) || (e != x && ceil_q == tmp().oadd(floor_q, 1)));
     }
+
+    function test512Math_oshrUp(uint256 x_hi, uint256 x_lo, uint256 s) external pure {
+        s = bound(s, 0, 512);
+
+        uint512 x = alloc().from(x_hi, x_lo);
+        (uint256 r_hi, uint256 r_lo) = tmp().oshrUp(x, s).into();
+
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullShrUp(x_lo, x_hi, s);
+        assertEq(r_hi, e_hi);
+        assertEq(r_lo, e_lo);
+    }
+
+    function test512Math_ishrUp(uint256 x_hi, uint256 x_lo, uint256 s) external pure {
+        s = bound(s, 0, 512);
+
+        (uint256 r_hi, uint256 r_lo) = tmp().from(x_hi, x_lo).ishrUp(s).into();
+
+        (uint256 e_lo, uint256 e_hi) = SlowMath.fullShrUp(x_lo, x_hi, s);
+        assertEq(r_hi, e_hi);
+        assertEq(r_lo, e_lo);
+    }
 }
