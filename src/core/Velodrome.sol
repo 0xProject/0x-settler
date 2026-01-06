@@ -80,19 +80,19 @@ abstract contract Velodrome is SettlerAbstract {
 
     function _k(uint256 x, uint256 y, uint256 x_squared, uint256 y_squared) private pure returns (uint256) {
         unchecked {
-            tmp().omul(x * y, x_squared + y_squared).div(_VELODROME_INTERNAL_BASIS);
+            return tmp().omul(x * y, x_squared + y_squared).div(_VELODROME_INTERNAL_BASIS);
         }
     }
 
     function _k_compat(uint256 x, uint256 y) internal pure returns (uint256) {
         unchecked {
-            tmp().omul(x * y, x * x + y * y).div(_VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
+            return tmp().omul(x * y, x * x + y * y).div(_VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
         }
     }
 
     function _k_compat(uint256 x, uint256 y, uint256 x_squared) private pure returns (uint256) {
         unchecked {
-            tmp().omul(x * y, x_squared + y * y).div(_VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
+            return tmp().omul(x * y, x_squared + y * y).div(_VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
         }
     }
 
