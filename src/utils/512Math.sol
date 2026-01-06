@@ -1585,8 +1585,7 @@ library Lib512MathArithmetic {
         // At this point, we know that both `x` and `y` are fully represented by
         // 2 words. There is no simpler representation for the problem. We must
         // use Knuth's Algorithm D.
-        uint256 q = _algorithmD(x_hi, x_lo, y_hi, y_lo);
-        return q;
+        return _algorithmD(x_hi, x_lo, y_hi, y_lo);
     }
 
     function divUpAlt(uint512 x, uint512 y) internal pure returns (uint256) {
