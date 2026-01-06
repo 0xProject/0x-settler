@@ -463,7 +463,10 @@ contract Lib512MathTest is Test {
         (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y, 0, floor_q_lo, floor_q_hi);
         uint512 e = alloc().from(e_hi, e_lo);
 
-        assertTrue(ceil_q == floor_q || floor_q == tmp().from(type(uint256).max, type(uint256).max) || (e != x && ceil_q == tmp().oadd(floor_q, 1)));
+        assertTrue(
+            ceil_q == floor_q || floor_q == tmp().from(type(uint256).max, type(uint256).max)
+                || (e != x && ceil_q == tmp().oadd(floor_q, 1))
+        );
     }
 
     function test512Math_idivUpForeign(uint256 x_hi, uint256 x_lo, uint256 y) external pure {
@@ -480,7 +483,10 @@ contract Lib512MathTest is Test {
         uint512 ceil_q = alloc().from(ceil_q_hi, ceil_q_lo);
         uint512 floor_q = alloc().from(floor_q_hi, floor_q_lo);
 
-        assertTrue(ceil_q == floor_q || floor_q == tmp().from(type(uint256).max, type(uint256).max) || (e != x && ceil_q == tmp().oadd(floor_q, 1)));
+        assertTrue(
+            ceil_q == floor_q || floor_q == tmp().from(type(uint256).max, type(uint256).max)
+                || (e != x && ceil_q == tmp().oadd(floor_q, 1))
+        );
     }
 
     function test512Math_odivUpNative(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
@@ -496,7 +502,10 @@ contract Lib512MathTest is Test {
         (uint256 e_lo, uint256 e_hi) = SlowMath.fullMul(y_lo, y_hi, floor_q_lo, floor_q_hi);
         uint512 e = alloc().from(e_hi, e_lo);
 
-        assertTrue(ceil_q == floor_q || floor_q == tmp().from(type(uint256).max, type(uint256).max) || (e != x && ceil_q == tmp().oadd(floor_q, 1)));
+        assertTrue(
+            ceil_q == floor_q || floor_q == tmp().from(type(uint256).max, type(uint256).max)
+                || (e != x && ceil_q == tmp().oadd(floor_q, 1))
+        );
     }
 
     function test512Math_idivUpNative(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
@@ -514,7 +523,10 @@ contract Lib512MathTest is Test {
         uint512 ceil_q = alloc().from(ceil_q_hi, ceil_q_lo);
         uint512 floor_q = alloc().from(floor_q_hi, floor_q_lo);
 
-        assertTrue(ceil_q == floor_q || floor_q == tmp().from(type(uint256).max, type(uint256).max) || (e != x && ceil_q == tmp().oadd(floor_q, 1)));
+        assertTrue(
+            ceil_q == floor_q || floor_q == tmp().from(type(uint256).max, type(uint256).max)
+                || (e != x && ceil_q == tmp().oadd(floor_q, 1))
+        );
     }
 
     function test512Math_oshrUp(uint256 x_hi, uint256 x_lo, uint256 s) external pure {

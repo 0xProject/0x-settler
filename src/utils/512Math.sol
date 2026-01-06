@@ -603,7 +603,11 @@ library Lib512MathArithmetic {
     //// adapted from Remco Bloemen's work https://2π.com/21/muldiv/ .
     //// The original code was released under the MIT license.
 
-    function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d) private pure returns (uint256 r_hi, uint256 r_lo, uint256 rem) {
+    function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d)
+        private
+        pure
+        returns (uint256 r_hi, uint256 r_lo, uint256 rem)
+    {
         assembly ("memory-safe") {
             // Get the remainder [n_hi n_lo] % d (< 2²⁵⁶ - 1)
             // 2**256 % d = -d % 2**256 % d -- https://2π.com/17/512-bit-division/
@@ -776,7 +780,7 @@ library Lib512MathArithmetic {
     function _div(uint256 n_hi, uint256 n_lo, uint256 d) private pure returns (uint256) {
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
-        (n_hi, n_lo, ) = _roundDown(n_hi, n_lo, d);
+        (n_hi, n_lo,) = _roundDown(n_hi, n_lo, d);
 
         // Make `d` odd so that it has a multiplicative inverse mod 2²⁵⁶.
         // After this we can discard `n_hi` because our result is only 256 bits
@@ -870,7 +874,7 @@ library Lib512MathArithmetic {
 
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
-        (n_hi, n_lo, , ) = _roundDown(n_hi, n_lo, d_hi, d_lo);
+        (n_hi, n_lo,,) = _roundDown(n_hi, n_lo, d_hi, d_lo);
 
         // Make `d_lo` odd so that it has a multiplicative inverse mod 2²⁵⁶.
         // After this we can discard `n_hi` and `d_hi` because our result is
@@ -946,7 +950,7 @@ library Lib512MathArithmetic {
 
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
-        (x_hi, x_lo, ) = _roundDown(x_hi, x_lo, y);
+        (x_hi, x_lo,) = _roundDown(x_hi, x_lo, y);
 
         // Make `y` odd so that it has a multiplicative inverse mod 2²⁵⁶. After
         // this we can discard `x_hi` because we have already obtained the upper
@@ -1042,7 +1046,7 @@ library Lib512MathArithmetic {
 
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
-        (x_hi, x_lo, , ) = _roundDown(x_hi, x_lo, y_hi, y_lo);
+        (x_hi, x_lo,,) = _roundDown(x_hi, x_lo, y_hi, y_lo);
 
         // Make `y` odd so that it has a multiplicative inverse mod 2⁵¹²
         (x_hi, x_lo, y_hi, y_lo) = _toOdd512(x_hi, x_lo, y_hi, y_lo);
@@ -1119,11 +1123,10 @@ library Lib512MathArithmetic {
         returns (bool r)
     {
         assembly ("memory-safe") {
-            r :=
-                or(
-                    or(gt(x_ex, y_ex), and(eq(x_ex, y_ex), gt(x_hi, y_hi))),
-                    and(and(eq(x_ex, y_ex), eq(x_hi, y_hi)), gt(x_lo, y_lo))
-                )
+            r := or(
+                or(gt(x_ex, y_ex), and(eq(x_ex, y_ex), gt(x_hi, y_hi))),
+                and(and(eq(x_ex, y_ex), eq(x_hi, y_hi)), gt(x_lo, y_lo))
+            )
         }
     }
 
@@ -1150,11 +1153,7 @@ library Lib512MathArithmetic {
     /// adapted from Donald Knuth, The Art of Computer Programming (TAOCP)
     /// Volume 2, Section 4.3.1, Algorithm D.
 
-    function _algorithmD(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
-        private
-        pure
-        returns (uint256 q)
-    {
+    function _algorithmD(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (uint256 q) {
         // We treat `x` and `y` each as ≤4-limb bigints where each limb is half
         // a machine word (128 bits). This lets us perform 2-limb ÷ 1-limb
         // divisions as a single operation (`div`) as required by Algorithm
@@ -1606,7 +1605,7 @@ library Lib512MathArithmetic {
         // At this point, we know that both `x` and `y` are fully represented by
         // 2 words. There is no simpler representation for the problem. We must
         // use Knuth's Algorithm D.
-        uint256 q =  _algorithmD(x_hi, x_lo, y_hi, y_lo);
+        uint256 q = _algorithmD(x_hi, x_lo, y_hi, y_lo);
 
         // If the division was not exact, then we must round up. This is more
         // efficient than explicitly computing whether the remainder is nonzero
@@ -1939,10 +1938,10 @@ library Lib512MathUserDefinedHelpers {
         }
     }
 
-    function smuggleToPure(function (uint512, uint512, uint512) internal view returns (uint512) f)
+    function smuggleToPure(function(uint512, uint512, uint512) internal view returns (uint512) f)
         internal
         pure
-        returns (function (uint512, uint512, uint512) internal pure returns (uint512) r)
+        returns (function(uint512, uint512, uint512) internal pure returns (uint512) r)
     {
         assembly ("memory-safe") {
             r := f
@@ -1983,7 +1982,7 @@ function __div(uint512 x, uint512 y) pure returns (uint512 r) {
     Lib512MathUserDefinedHelpers.smuggleToPure(Lib512MathUserDefinedHelpers.odiv)(r, x, y);
 }
 
-using {__add as +, __sub as -, __mul as *, __mod as %, __div as / } for uint512 global;
+using {__add as +, __sub as -, __mul as *, __mod as %, __div as /} for uint512 global;
 
 struct uint512_external {
     uint256 hi;

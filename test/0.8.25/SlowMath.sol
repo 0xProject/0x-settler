@@ -142,7 +142,9 @@ library SlowMath {
             // Remainder exists if x_lo != 0 OR x_hi has any of bottom 'shift' bits set
             bool hasRemainder = (x_lo != 0) || (shift != 0 && (x_hi & ((uint256(1) << shift) - 1)) != 0);
             if (hasRemainder) {
-                unchecked { r_lo += 1; }
+                unchecked {
+                    r_lo += 1;
+                }
                 if (r_lo == 0) {
                     r_hi = 1;
                 }
@@ -155,9 +157,13 @@ library SlowMath {
             (uint256 prod_lo, uint256 prod_hi) = fullMul(r_lo, r_hi, d, 0);
             if (prod_lo != x_lo || prod_hi != x_hi) {
                 // Has remainder, add 1
-                unchecked { r_lo += 1; }
+                unchecked {
+                    r_lo += 1;
+                }
                 if (r_lo == 0) {
-                    unchecked { r_hi += 1; }
+                    unchecked {
+                        r_hi += 1;
+                    }
                 }
             }
         }
