@@ -56,9 +56,8 @@ library CurveLib {
         bool yes = !(newReserve0 < equilibriumReserve0).or(newReserve1 < equilibriumReserve1);
         bool no = !(newReserve0 > equilibriumReserve0).or(newReserve1 > equilibriumReserve1);
 
-        (uint256 x, uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) = (
-            newReserve0 < equilibriumReserve0
-        )
+        (uint256 x, uint256 y, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx) = (newReserve0
+                < equilibriumReserve0)
             ? (newReserve0, newReserve1, priceX, priceY, equilibriumReserve0, equilibriumReserve1, concentrationX)
             : (newReserve1, newReserve0, priceY, priceX, equilibriumReserve1, equilibriumReserve0, concentrationY);
 
@@ -243,9 +242,9 @@ library CurveLib {
                 // `fourAC` is actually the value $-4ac$ from the "normal" conversion of the
                 // constant function to its quadratic form. Therefore, we can avoid negation of
                 // `absB` and both subtractions
-                (,uint256 fourAC) = tmp().omul(cx * (1e18 - cx) << 2, x0 * x0).ishr(twoShift).into(); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                (, uint256 fourAC) = tmp().omul(cx * (1e18 - cx) << 2, x0 * x0).ishr(twoShift).into(); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
 
-                (,uint256 squaredB) = tmp().omul(absB, absB).ishr(twoShift).into(); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
+                (, uint256 squaredB) = tmp().omul(absB, absB).ishr(twoShift).into(); // scale: 1e36 >> twoShift; units: (token X)^2; range: 254 bits
                 uint256 discriminant = squaredB + fourAC; // scale: 1e36 >> twoShift; units: (token X)^2; range: 255 bits
                 uint256 sqrt = discriminant.sqrt() << shift; // scale: 1e18; units: token X; range: 255 bits
 
