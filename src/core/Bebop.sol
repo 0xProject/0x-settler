@@ -7,7 +7,7 @@ import {ISettlerActions} from "../ISettlerActions.sol";
 
 import {FastLogic} from "../utils/FastLogic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {UnsafeMath} from "../vendor/UnsafeMath.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
