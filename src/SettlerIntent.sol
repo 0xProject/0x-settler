@@ -139,6 +139,11 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
             // corrupt the list.
             let fail := iszero(solver)
 
+             // Explicit check: prev cannot be address(0) when adding
+        // When adding, prev must be a valid node in the list
+        // When removing, prev must be the node before solver
+        fail := or(fail, iszero(prev))
+
             // Derive the slot for `solver` and load it.
             mstore(0x00, solver)
             mstore(0x20, _SOLVER_LIST_BASE_SLOT)
