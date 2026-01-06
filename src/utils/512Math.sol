@@ -66,7 +66,9 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// you have domain knowledge about the range of values that you will
 /// encounter. Overflow causes truncation, not a revert. Division or modulo by
 /// zero still causes a panic revert with code 18 (identical behavior to
-/// "normal" unchecked arithmetic).
+/// "normal" unchecked arithmetic). The `unsafe*` functions do not perform
+/// checking for division or modulo by zero; in this case division or modulo by
+/// zero is undefined behavior.
 ///
 /// Three additional arithmetic operations are provided, bare `sub`, `mod`, and
 /// `div`. These are provided for use when it is known that the result of the
@@ -149,6 +151,8 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 ///
 /// * div(uint512,uint256) returns (uint256)
 /// * divUp(uint512,uint256) returns (uint256)
+/// * unsafeDiv(uint512,uint256) returns (uint256)
+/// * unsafeDivUp(uint512,uint256) returns (uint256)
 /// * div(uint512,uint512) returns (uint256)
 /// * divUp(uint512,uint512) returns (uint256)
 /// * odiv(uint512,uint512,uint256)
@@ -826,11 +830,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    function div(uint512 n, uint256 d) internal pure returns (uint256) {
-        if (d == 0) {
-            Panic.panic(Panic.DIVISION_BY_ZERO);
-        }
-
+    function unsafeDiv(uint512 n, uint256 d) internal pure returns (uint256) {
         (uint256 n_hi, uint256 n_lo) = n.into();
         if (n_hi == 0) {
             return n_lo.unsafeDiv(d);
@@ -839,17 +839,29 @@ library Lib512MathArithmetic {
         return _div(n_hi, n_lo, d);
     }
 
-    function divUp(uint512 n, uint256 d) internal pure returns (uint256) {
+    function div(uint512 n, uint256 d) internal pure returns (uint256) {
         if (d == 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);
         }
 
+        return unsafeDiv(n, d);
+    }
+
+    function unsafeDivUp(uint512 n, uint256 d) internal pure returns (uint256) {
         (uint256 n_hi, uint256 n_lo) = n.into();
         if (n_hi == 0) {
             return n_lo.unsafeDivUp(d);
         }
 
         return _divUp(n_hi, n_lo, d);
+    }
+
+    function divUp(uint512 n, uint256 d) internal pure returns (uint256) {
+        if (d == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
+        return unsafeDivUp(n, d);
     }
 
     function _gt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
