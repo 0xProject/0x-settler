@@ -48,7 +48,7 @@ abstract contract Basic is SettlerAbstract {
             if (offset != 0) revert InvalidOffset();
         } else {
             // We treat `bps > BASIS` as a GIGO error
-            uint256 amount = tmp().from(sellToken.fastBalanceOf(address(this))).imul(bps).div(BASIS);
+            uint256 amount = tmp().omul(sellToken.fastBalanceOf(address(this)), bps).div(BASIS);
 
             if ((offset += 32) > data.length) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
