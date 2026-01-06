@@ -175,6 +175,15 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// * sqrt(uint512) returns (uint256)
 /// * osqrtUp(uint512,uint512)
 /// * isqrtUp(uint512)
+///
+/// ### Shifting
+///
+/// * oshr(uint512,uint512,uint256)
+/// * ishr(uint512,uint256)
+/// * oshrUp(uint512,uint512,uint256)
+/// * ishrUp(uint512,uint256)
+/// * oshl(uint512,uint512,uint256)
+/// * ishl(uint512,uint256)
 type uint512 is bytes32;
 
 function alloc() pure returns (uint512 r) {
@@ -1311,6 +1320,13 @@ library Lib512MathArithmetic {
         }
     }
 
+    function _shl(uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+        (r_hi, r_lo) = _shl256(x_lo, s);
+        unchecked {
+            r_hi |= x_lo << s - 256;
+        }
+    }
+
     function _shr256(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             r_hi := shr(s, x_hi)
@@ -1851,6 +1867,56 @@ library Lib512MathArithmetic {
 
     function isqrtUp(uint512 r) internal pure returns (uint512) {
         return osqrtUp(r, r);
+    }
+
+    function oshr(uint512 r, uint512 x, uint256 s) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 r_hi, uint256 r_lo) = _shr(x_hi, x_lo, s);
+        return r.from(r_hi, r_lo);
+    }
+
+    function ishr(uint512 r, uint256 s) internal pure returns (uint512) {
+        return oshr(r, r, s);
+    }
+
+    function _shrUp(uint256 x_hi, uint256 x_lo, uint256 s) internal pure returns (uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            let neg_s := sub(0x100, s)
+            let s_256 := sub(s, 0x100)
+
+            // compute `(x_hi, x_lo) >> s`, retaining intermediate values
+            let x_lo_shr := shr(s, x_lo)
+            let x_hi_shr := shr(s_256, x_hi)
+            r_hi := shr(s, x_hi)
+            r_lo := or(or(shl(neg_s, x_hi), x_lo_shr), x_hi_shr)
+
+            // detect if nonzero bits were truncated
+            let inc := lt(0x00, or(xor(x_lo, shl(s, x_lo_shr)), mul(xor(x_hi, shl(s_256, x_hi_shr)), lt(0x100, neg_s))))
+
+            // conditionally increment the result
+            r_lo := add(inc, r_lo)
+            r_hi := add(lt(r_lo, inc), r_hi)
+        }
+    }
+
+    function oshrUp(uint512 r, uint512 x, uint256 s) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 r_hi, uint256 r_lo) = _shrUp(x_hi, x_lo, s);
+        return r.from(r_hi, r_lo);
+    }
+
+    function ishrUp(uint512 r, uint256 s) internal pure returns (uint512) {
+        return oshrUp(r, r, s);
+    }
+
+    function oshl(uint512 r, uint512 x, uint256 s) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 r_hi, uint256 r_lo) = _shl(x_hi, x_lo, s);
+        return r.from(r_hi, r_lo);
+    }
+
+    function ishl(uint512 r, uint256 s) internal pure returns (uint512) {
+        return oshl(r, r, s);
     }
 }
 
