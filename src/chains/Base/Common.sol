@@ -70,7 +70,7 @@ abstract contract BaseMixin is
     UniswapV4,
     BalancerV3,
     PancakeInfinity,
-    EulerSwap,
+    //EulerSwap,
     Renegade,
     Bebop
 {
@@ -102,11 +102,13 @@ abstract contract BaseMixin is
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        /*
         } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
                 abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
 
             sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
+        */
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
                 address recipient,
@@ -242,9 +244,11 @@ abstract contract BaseMixin is
         return BASE_POOL_MANAGER;
     }
 
+    /*
     function _EVC() internal pure override returns (IEVC) {
         return IEVC(0x5301c7dD20bD945D2013b48ed0DEE3A284ca8989);
     }
+    */
 
     function _chainSpecificFallback(bytes calldata data) internal view virtual returns (bytes memory result) {
         address msgSender = _msgSender();

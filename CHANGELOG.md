@@ -44,6 +44,8 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Remove EulerSwap action `EULERSWAP` from Base as it has no liquidity
+
 ### Non-breaking changes
 
 ## 2025-12-29
