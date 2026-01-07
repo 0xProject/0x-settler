@@ -53,8 +53,6 @@ import {alienBaseV3Factory, alienBaseV3ForkId} from "../../core/univ3forks/Alien
 import {baseXFactory, baseXForkId} from "../../core/univ3forks/BaseX.sol";
 import {swapBasedV3Factory, swapBasedV3ForkId} from "../../core/univ3forks/SwapBasedV3.sol";
 import {dackieSwapV3BaseFactory, dackieSwapV3ForkId} from "../../core/univ3forks/DackieSwapV3.sol";
-import {thickFactory, thickInitHash, thickForkId} from "../../core/univ3forks/Thick.sol";
-import {kinetixV3BaseFactory, kinetixV3ForkId} from "../../core/univ3forks/KinetixV3.sol";
 
 import {BASE_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
@@ -225,11 +223,6 @@ abstract contract BaseMixin is
                     factory = dackieSwapV3BaseFactory;
                     initHash = pancakeSwapV3InitHash;
                     callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-                } else if (forkId == thickForkId) {
-                    factory = thickFactory;
-                    initHash = thickInitHash;
-                } else if (forkId == kinetixV3ForkId) {
-                    factory = kinetixV3BaseFactory;
                 } else if (forkId == aerodromeForkIdV3_1) {
                     factory = aerodromeFactoryV3_1;
                     initHash = aerodromeInitHashV3_1;
