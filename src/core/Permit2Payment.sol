@@ -99,10 +99,11 @@ library TransientStorage {
     {
         assembly ("memory-safe") {
             let slotValue := tload(_OPERATOR_SLOT)
-            let badCallerOrSelector := or(shr(0xe0, xor(calldataload(0x00), slotValue)), shl(0x60, xor(caller(), slotValue)))
-            callback := and(0xffff, shr(0xa0, slotValue))
-            callback := mul(iszero(badCallerOrSelector), callback)
-            tstore(_OPERATOR_SLOT, 0x00)
+            let success := iszero(or(shr(0xe0, xor(calldataload(0x00), slotValue)), shl(0x60, xor(caller(), slotValue))))
+            if success {
+                callback := and(0xffff, shr(0xa0, slotValue))
+                tstore(_OPERATOR_SLOT, 0x00)
+            }
         }
     }
 
@@ -154,7 +155,7 @@ library TransientStorage {
                 revert(0x10, 0x24)
             }
 
-            tstore(_PAYER_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, payer))
+            tstore(_PAYER_SLOT, payer)
         }
     }
 
@@ -374,7 +375,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         unchecked {
             if (~sellAmount < BASIS) {
                 sellAmount = BASIS - ~sellAmount;
-                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).div(BASIS);
+                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(BASIS);
             }
         }
     }
@@ -389,7 +390,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         unchecked {
             if (~sellAmount < BASIS) {
                 sellAmount = BASIS - ~sellAmount;
-                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).div(BASIS);
+                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(BASIS);
             }
         }
     }
@@ -659,7 +660,7 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
             if (~sellAmount < BASIS) {
                 if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
                     sellAmount = BASIS - ~sellAmount;
-                    sellAmount = tmp().omul(token.fastBalanceOf(_msgSender()), sellAmount).div(BASIS);
+                    sellAmount = tmp().omul(token.fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(BASIS);
                 }
             }
         }

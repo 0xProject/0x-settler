@@ -66,7 +66,9 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// you have domain knowledge about the range of values that you will
 /// encounter. Overflow causes truncation, not a revert. Division or modulo by
 /// zero still causes a panic revert with code 18 (identical behavior to
-/// "normal" unchecked arithmetic).
+/// "normal" unchecked arithmetic). The `unsafe*` functions do not perform
+/// checking for division or modulo by zero; in this case division or modulo by
+/// zero is undefined behavior.
 ///
 /// Three additional arithmetic operations are provided, bare `sub`, `mod`, and
 /// `div`. These are provided for use when it is known that the result of the
@@ -149,6 +151,8 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 ///
 /// * div(uint512,uint256) returns (uint256)
 /// * divUp(uint512,uint256) returns (uint256)
+/// * unsafeDiv(uint512,uint256) returns (uint256)
+/// * unsafeDivUp(uint512,uint256) returns (uint256)
 /// * div(uint512,uint512) returns (uint256)
 /// * divUp(uint512,uint512) returns (uint256)
 /// * odiv(uint512,uint512,uint256)
@@ -826,11 +830,7 @@ library Lib512MathArithmetic {
         }
     }
 
-    function div(uint512 n, uint256 d) internal pure returns (uint256) {
-        if (d == 0) {
-            Panic.panic(Panic.DIVISION_BY_ZERO);
-        }
-
+    function unsafeDiv(uint512 n, uint256 d) internal pure returns (uint256) {
         (uint256 n_hi, uint256 n_lo) = n.into();
         if (n_hi == 0) {
             return n_lo.unsafeDiv(d);
@@ -839,17 +839,29 @@ library Lib512MathArithmetic {
         return _div(n_hi, n_lo, d);
     }
 
-    function divUp(uint512 n, uint256 d) internal pure returns (uint256) {
+    function div(uint512 n, uint256 d) internal pure returns (uint256) {
         if (d == 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);
         }
 
+        return unsafeDiv(n, d);
+    }
+
+    function unsafeDivUp(uint512 n, uint256 d) internal pure returns (uint256) {
         (uint256 n_hi, uint256 n_lo) = n.into();
         if (n_hi == 0) {
             return n_lo.unsafeDivUp(d);
         }
 
         return _divUp(n_hi, n_lo, d);
+    }
+
+    function divUp(uint512 n, uint256 d) internal pure returns (uint256) {
+        if (d == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
+        return unsafeDivUp(n, d);
     }
 
     function _gt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
@@ -1163,16 +1175,13 @@ library Lib512MathArithmetic {
             // y is 4 limbs, x is 4 limbs, q is 1 limb
 
             // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently
-            // y_hi >= 2**255). This is step D1 of Algorithm D
-            // The author's copy of TAOCP (3rd edition) states to set `d = (2 **
-            // 128 - 1) // y_hi`, however this is incorrect. Setting `d` in this
-            // fashion may result in overflow in the subsequent `_mul`. Setting
-            // `d` as implemented below still satisfies the postcondition (`y_hi
-            // >> 128 >= 1 << 127`) but never results in overflow.
-            uint256 d = uint256(1 << 128).unsafeDiv((y_hi >> 128).unsafeInc());
+            // y_hi >= 2**255). This is step D1 of Algorithm D. We use `CLZ` to
+            // find the shift amount, then shift both `x` and `y` left. This is
+            // more gas-efficient than multiplication-based normalization.
+            uint256 s = y_hi.clz();
             uint256 x_ex;
-            (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
-            (y_hi, y_lo) = _mul(y_hi, y_lo, d);
+            (x_ex, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
+            (, y_hi, y_lo) = _shl256(y_hi, y_lo, s);
 
             // `n_approx` is the 2 most-significant limbs of x, after
             // normalization
@@ -1206,9 +1215,9 @@ library Lib512MathArithmetic {
             // y is 3 limbs
 
             // Normalize. Ensure the most significant limb of y ≥ 2¹²⁷ (step D1)
-            // See above comment about the error in TAOCP.
-            uint256 d = uint256(1 << 128).unsafeDiv(y_hi.unsafeInc());
-            (y_hi, y_lo) = _mul(y_hi, y_lo, d);
+            // We use `CLZ` to find the shift amount for normalization
+            uint256 s = (y_hi << 128).clz();
+            (, y_hi, y_lo) = _shl256(y_hi, y_lo, s);
             // `y_next` is the second-most-significant, nonzero, normalized limb
             // of y
             uint256 y_next = y_lo >> 128;
@@ -1221,7 +1230,7 @@ library Lib512MathArithmetic {
 
                 // Finish normalizing (step D1)
                 uint256 x_ex;
-                (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
+                (x_ex, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
 
                 uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
                 // As before, `q_hat` is the most significant limb of the
@@ -1276,7 +1285,7 @@ library Lib512MathArithmetic {
                 // x is 3 limbs, q is 1 limb
 
                 // Finish normalizing (step D1)
-                (x_hi, x_lo) = _mul(x_hi, x_lo, d);
+                (, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
 
                 // `q` is the most significant (and only) limb of the quotient
                 // and too high by at most 3 (step D3)

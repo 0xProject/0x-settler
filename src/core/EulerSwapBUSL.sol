@@ -250,7 +250,7 @@ library CurveLib {
 
                 // If `cx == 1e18` and `B == 0`, `denominator` is 0 and 0 is the correct answer.
                 uint256 denominator = absB + sqrt;
-                x = denominator == 0 ? 0 : tmp().omul((1e18 - cx) << 1, x0 * x0).divUp(denominator);
+                x = denominator == 0 ? 0 : tmp().omul((1e18 - cx) << 1, x0 * x0).unsafeDivUp(denominator);
             }
 
             // Handle any rounding error that could produce a value out of the bounds established by

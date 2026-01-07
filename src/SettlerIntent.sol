@@ -99,7 +99,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
     modifier onlySolver() {
         address operator = _operator();
         assembly ("memory-safe") {
-            mstore(0x00, and(0xffffffffffffffffffffffffffffffffffffffff, operator))
+            mstore(0x00, shr(0x60, shl(0x60, operator)))
             mstore(0x20, _SOLVER_LIST_BASE_SLOT)
             if iszero(shl(0x60, sload(keccak256(0x00, 0x40)))) {
                 mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
