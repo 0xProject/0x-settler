@@ -469,7 +469,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
 
     function _fund(address token, bytes memory data) internal {
         // Allows a funding call to be executed on the token
-        // tentatively ERC2612-like but arbitrary nonetheless 
+        // tentatively ERC2612-like but arbitrary nonetheless
         if (_isRestrictedTarget(token)) {
             revertConfusedDeputy();
         }

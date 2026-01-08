@@ -8,15 +8,8 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 
 interface IUSDC {
-    function permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint8 v,
-        bytes32 r,
-        bytes32 s
-    ) external;
+    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
+        external;
     function nonces(address owner) external view returns (uint256);
     function DOMAIN_SEPARATOR() external view returns (bytes32);
 }
@@ -40,23 +33,17 @@ contract ERC2612FundingTest is SettlerBasePairTest {
         return 1000e6;
     }
 
-    function _signERC2612Permit(
-        address owner,
-        address spender,
-        uint256 value,
-        uint256 deadline,
-        uint256 privateKey
-    ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
+    function _signERC2612Permit(address owner, address spender, uint256 value, uint256 deadline, uint256 privateKey)
+        internal
+        view
+        returns (uint8 v, bytes32 r, bytes32 s)
+    {
         uint256 nonce = IUSDC(address(_USDC)).nonces(owner);
         bytes32 domainSeparator = IUSDC(address(_USDC)).DOMAIN_SEPARATOR();
 
-        bytes32 structHash = keccak256(
-            abi.encode(_PERMIT_TYPEHASH, owner, spender, value, nonce, deadline)
-        );
+        bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, value, nonce, deadline));
 
-        bytes32 digest = keccak256(
-            abi.encodePacked("\x19\x01", domainSeparator, structHash)
-        );
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
 
         (v, r, s) = vm.sign(privateKey, digest);
     }
@@ -67,35 +54,15 @@ contract ERC2612FundingTest is SettlerBasePairTest {
         deal(address(_USDC), sender, amount());
 
         uint256 deadline = block.timestamp + 1 hours;
-        (uint8 v, bytes32 r, bytes32 s) = _signERC2612Permit(
-            sender,
-            address(allowanceHolder),
-            amount(),
-            deadline,
-            pk
-        );
+        (uint8 v, bytes32 r, bytes32 s) = _signERC2612Permit(sender, address(allowanceHolder), amount(), deadline, pk);
 
-        bytes memory permit = abi.encodeCall(
-            IUSDC.permit,
-            (
-                sender,
-                address(allowanceHolder),
-                amount(),
-                deadline,
-                v,
-                r,
-                s
-            )
-        );
+        bytes memory permit =
+            abi.encodeCall(IUSDC.permit, (sender, address(allowanceHolder), amount(), deadline, v, r, s));
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.TRANSFER_FROM,
-                (
-                    address(this),
-                    defaultERC20PermitTransfer(address(_USDC), amount(), 0),
-                    permit
-                )
+                (address(this), defaultERC20PermitTransfer(address(_USDC), amount(), 0), permit)
             )
         );
 
@@ -109,9 +76,7 @@ contract ERC2612FundingTest is SettlerBasePairTest {
                 settler.execute,
                 (
                     ISettlerBase.AllowedSlippage({
-                        recipient: payable(address(0)),
-                        buyToken: IERC20(address(0)),
-                        minAmountOut: 0
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
                     bytes32(0)
