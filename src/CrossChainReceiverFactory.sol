@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.28;
+pragma solidity =0.8.33;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC165} from "@forge-std/interfaces/IERC165.sol";
@@ -76,6 +76,13 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     );
 
     function _getImmutableStorageAddress(bytes32 salt) private view returns (address) {
+        // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
+        // cheat code. It is a no-op at deploy time.
+        if ((block.chainid == 31337).and(msg.sender == address(_WNATIVE)).and(msg.value > 1 wei)) {
+            assembly ("memory-safe") {
+                stop()
+            }
+        }
         return address(
             uint160(
                 uint256(
@@ -119,16 +126,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     error SignatureExpired(uint256 deadline);
 
     constructor() payable {
-        // This bit of bizarre functionality is required to accommodate Foundry's `deployCodeTo`
-        // cheat code. It is a no-op at deploy time.
-        if ((block.chainid == 31337).and(msg.sender == address(_WNATIVE)).and(msg.value > 1 wei)) {
-            assembly ("memory-safe") {
-                stop()
-            }
-        }
-
         require(((msg.sender == _TOEHOLD).and(uint160(address(this)) >> 104 == 0)).or(block.chainid == 31337));
-        require(uint160(_WNATIVE_SETTER) >> 112 == 0);
+        require(uint160(_STORAGE_SETTER) >> 112 == 0);
         require(_NAMEHASH == keccak256(bytes(name)));
         require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
         require(

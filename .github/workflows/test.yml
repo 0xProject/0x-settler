@@ -65,6 +65,11 @@ jobs:
 
       - name: Run CrossChainReceiverFactory tests
         run: forge test --skip 'src/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --skip 'test/0.8.25/*' --mp test/unit/CrossChainReceiverFactory.t.sol
+        env:
+          FOUNDRY_GAS_LIMIT: 80000000
+          FOUNDRY_BLOCK_GAS_LIMIT: 80000000
+          FOUNDRY_CODE_SIZE_LIMIT: 300000
+          FOUNDRY_DISABLE_BLOCK_GAS_LIMIT: true
 
       - name: Run all the other tests
         run: FOUNDRY_FUZZ_SEED="0x$(python3 -c 'import secrets, binascii; print(binascii.hexlify((secrets.randbits(256)).to_bytes(32, byteorder="big")).decode("ascii"))')" forge test --skip 'src/*' --skip 'test/0.8.28/*' --skip CrossChainReceiverFactory.t.sol --skip MultiCall.t.sol
