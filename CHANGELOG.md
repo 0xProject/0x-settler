@@ -46,6 +46,10 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Added new VIP `FUND_AND_TRANSFER_FROM` to TakerSubmitted settlers.
+  It is Similar to `TRANSFER_FROM` action but instead of a signature it 
+  receives a funding calldata to be executed before transfering the assets.
+
 ## 2025-12-29
 
 ### Breaking changes
