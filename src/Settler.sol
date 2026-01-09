@@ -12,7 +12,7 @@ import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
-import {revertActionInvalid, SignatureExpired, MsgValueMismatch} from "./core/SettlerErrors.sol";
+import {revertActionInvalid, SignatureExpired, MsgValueMismatch, revertConfusedDeputy} from "./core/SettlerErrors.sol";
 import {Revert} from "./utils/Revert.sol";
 
 // ugh; solidity inheritance
@@ -73,11 +73,15 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, sig);
-        } else if (action == uint32(ISettlerActions.TRANSFER_FROM_WITH_PERMIT.selector)) {
+        } else if (action == uint32(ISettlerActions.FUND_AND_TRANSFER_FROM.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory fundingData) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
+
+            if (_isRestrictedTarget(permit.permitted.token)) {
+                revertConfusedDeputy();
+            }
             (bool success, bytes memory returnData) = permit.permitted.token.call(fundingData);
             success.maybeRevert(returnData);
             _transferFrom(permit, transferDetails, new bytes(0));
