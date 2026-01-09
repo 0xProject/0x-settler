@@ -407,7 +407,10 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
     ) internal override {
         if (isForwarded) {
             if (sig.length != 0) {
-                _fund(permit.permitted.token, sig);
+                assembly ("memory-safe") {
+                    mstore(0x00, 0xc321526c) // selector for `InvalidSignatureLen()`
+                    revert(0x1c, 0x04)
+                }
             }
             if (permit.nonce != 0) Panic.panic(Panic.ARITHMETIC_OVERFLOW);
             if (block.timestamp > permit.deadline) {
@@ -463,21 +466,6 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
                     returndatacopy(ptr_, 0x00, returndatasize())
                     revert(ptr_, returndatasize())
                 }
-            }
-        }
-    }
-
-    function _fund(address token, bytes memory data) internal {
-        // Allows a funding call to be executed on the token
-        // tentatively ERC2612-like but arbitrary nonetheless
-        if (_isRestrictedTarget(token)) {
-            revertConfusedDeputy();
-        }
-        assembly ("memory-safe") {
-            if iszero(call(gas(), token, 0x00, add(0x20, data), mload(data), 0x00, 0x00)) {
-                let ptr_ := mload(0x40)
-                returndatacopy(ptr_, 0x00, returndatasize())
-                revert(ptr_, returndatasize())
             }
         }
     }

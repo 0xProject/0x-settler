@@ -13,6 +13,7 @@ import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {revertActionInvalid, SignatureExpired, MsgValueMismatch} from "./core/SettlerErrors.sol";
+import {Revert} from "./utils/Revert.sol";
 
 // ugh; solidity inheritance
 import {SettlerAbstract} from "./SettlerAbstract.sol";
@@ -20,6 +21,7 @@ import {SettlerAbstract} from "./SettlerAbstract.sol";
 abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitted, SettlerBase {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
+    using Revert for bool;
 
     function _tokenId() internal pure override returns (uint256) {
         return 2;
@@ -71,6 +73,14 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, sig);
+        } else if (action == uint32(ISettlerActions.TRANSFER_FROM_WITH_PERMIT.selector)) {
+            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory fundingData) =
+                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
+            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
+                _permitToTransferDetails(permit, recipient);
+            (bool success, bytes memory returnData) = permit.permitted.token.call(fundingData);
+            success.maybeRevert(returnData);
+            _transferFrom(permit, transferDetails, new bytes(0));
         } /*
         // RFQ_VIP is temporarily removed because Solver has no support for it
         // When support for RFQ_VIP is reenabled, the tests

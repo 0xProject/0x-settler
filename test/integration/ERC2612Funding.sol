@@ -61,7 +61,7 @@ contract ERC2612FundingTest is SettlerBasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.TRANSFER_FROM,
+                ISettlerActions.FUND_AND_TRANSFER_FROM,
                 (address(this), defaultERC20PermitTransfer(address(_USDC), amount(), 0), permit)
             )
         );
