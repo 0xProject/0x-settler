@@ -1175,13 +1175,16 @@ library Lib512MathArithmetic {
             // y is 4 limbs, x is 4 limbs, q is 1 limb
 
             // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently
-            // y_hi >= 2**255). This is step D1 of Algorithm D. We use `CLZ` to
-            // find the shift amount, then shift both `x` and `y` left. This is
-            // more gas-efficient than multiplication-based normalization.
-            uint256 s = y_hi.clz();
+            // y_hi >= 2**255). This is step D1 of Algorithm D
+            // The author's copy of TAOCP (3rd edition) states to set `d = (2 **
+            // 128 - 1) // y_hi`, however this is incorrect. Setting `d` in this
+            // fashion may result in overflow in the subsequent `_mul`. Setting
+            // `d` as implemented below still satisfies the postcondition (`y_hi
+            // >> 128 >= 1 << 127`) but never results in overflow.
+            uint256 d = uint256(1 << 128).unsafeDiv((y_hi >> 128).unsafeInc());
             uint256 x_ex;
-            (x_ex, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
-            (, y_hi, y_lo) = _shl256(y_hi, y_lo, s);
+            (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
+            (y_hi, y_lo) = _mul(y_hi, y_lo, d);
 
             // `n_approx` is the 2 most-significant limbs of x, after
             // normalization
@@ -1215,9 +1218,9 @@ library Lib512MathArithmetic {
             // y is 3 limbs
 
             // Normalize. Ensure the most significant limb of y ≥ 2¹²⁷ (step D1)
-            // We use `CLZ` to find the shift amount for normalization
-            uint256 s = (y_hi << 128).clz();
-            (, y_hi, y_lo) = _shl256(y_hi, y_lo, s);
+            // See above comment about the error in TAOCP.
+            uint256 d = uint256(1 << 128).unsafeDiv(y_hi.unsafeInc());
+            (y_hi, y_lo) = _mul(y_hi, y_lo, d);
             // `y_next` is the second-most-significant, nonzero, normalized limb
             // of y
             uint256 y_next = y_lo >> 128;
@@ -1230,7 +1233,7 @@ library Lib512MathArithmetic {
 
                 // Finish normalizing (step D1)
                 uint256 x_ex;
-                (x_ex, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
+                (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
 
                 uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
                 // As before, `q_hat` is the most significant limb of the
@@ -1285,7 +1288,7 @@ library Lib512MathArithmetic {
                 // x is 3 limbs, q is 1 limb
 
                 // Finish normalizing (step D1)
-                (, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
+                (x_hi, x_lo) = _mul(x_hi, x_lo, d);
 
                 // `q` is the most significant (and only) limb of the quotient
                 // and too high by at most 3 (step D3)
