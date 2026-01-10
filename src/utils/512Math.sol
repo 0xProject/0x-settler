@@ -1861,7 +1861,7 @@ library Lib512MathArithmetic {
         uint256 r_lo = _sqrt(x_hi, x_lo);
 
         // The Babylonian step can give ⌈√x⌉ if x+1 is a perfect square. This is
-        // fine. If the Babylonian step gave ⌊√x⌋ != √x, we have to round up.
+        // fine. If the Babylonian step gave ⌊√x⌋ ≠ √x, we have to round up.
         (uint256 r2_hi, uint256 r2_lo) = _mul(r_lo, r_lo);
         uint256 r_hi;
         (r_hi, r_lo) = _add(0, r_lo, _gt(x_hi, x_lo, r2_hi, r2_lo).toUint());
