@@ -199,14 +199,13 @@ abstract contract UniswapV4 is SettlerAbstract {
         assembly ("memory-safe") {
             let sellTokenShifted := shl(0x60, sellToken)
             let buyTokenShifted := shl(0x60, buyToken)
-            zeroForOne :=
-                or(
-                    eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted),
-                    and(
-                        iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)),
-                        lt(sellTokenShifted, buyTokenShifted)
-                    )
+            zeroForOne := or(
+                eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted),
+                and(
+                    iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)),
+                    lt(sellTokenShifted, buyTokenShifted)
                 )
+            )
         }
         (key.token0, key.token1) = zeroForOne.maybeSwap(buyToken, sellToken);
 

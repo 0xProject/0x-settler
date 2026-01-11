@@ -29,7 +29,7 @@ import {AbstractContext, Context} from "../Context.sol";
 import {AllowanceHolderContext, ALLOWANCE_HOLDER} from "../allowanceholder/AllowanceHolderContext.sol";
 
 library FunctionPointerChecker {
-    function isNull(function (bytes calldata) internal returns (bytes memory) callback) internal pure returns (bool r) {
+    function isNull(function(bytes calldata) internal returns (bytes memory) callback) internal pure returns (bool r) {
         assembly ("memory-safe") {
             r := iszero(callback)
         }
@@ -55,7 +55,7 @@ library TransientStorage {
     function setOperatorAndCallback(
         address operator,
         uint32 selector,
-        function (bytes calldata) internal returns (bytes memory) callback
+        function(bytes calldata) internal returns (bytes memory) callback
     ) internal {
         assembly ("memory-safe") {
             if iszero(shl(0x60, xor(tload(_PAYER_SLOT), operator))) {
@@ -95,11 +95,12 @@ library TransientStorage {
 
     function getAndClearCallback()
         internal
-        returns (function (bytes calldata) internal returns (bytes memory) callback)
+        returns (function(bytes calldata) internal returns (bytes memory) callback)
     {
         assembly ("memory-safe") {
             let slotValue := tload(_OPERATOR_SLOT)
-            let success := iszero(or(shr(0xe0, xor(calldataload(0x00), slotValue)), shl(0x60, xor(caller(), slotValue))))
+            let success :=
+                iszero(or(shr(0xe0, xor(calldataload(0x00), slotValue)), shl(0x60, xor(caller(), slotValue))))
             if success {
                 callback := and(0xffff, shr(0xa0, slotValue))
                 tstore(_OPERATOR_SLOT, 0x00)
@@ -210,7 +211,7 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
         uint256 value,
         bytes memory data,
         uint32 selector,
-        function (bytes calldata) internal returns (bytes memory) callback
+        function(bytes calldata) internal returns (bytes memory) callback
     ) internal returns (bytes memory) {
         TransientStorage.setOperatorAndCallback(target, selector, callback);
         (bool success, bytes memory returndata) = target.call{value: value}(data);
@@ -223,17 +224,17 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
         address target,
         bytes memory data,
         uint32 selector,
-        function (bytes calldata) internal returns (bytes memory) callback
+        function(bytes calldata) internal returns (bytes memory) callback
     ) internal override returns (bytes memory) {
         return _setOperatorAndCall(payable(target), 0, data, selector, callback);
     }
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {
-    using FunctionPointerChecker for function (bytes calldata) internal returns (bytes memory);
+    using FunctionPointerChecker for function(bytes calldata) internal returns (bytes memory);
 
     fallback(bytes calldata) external returns (bytes memory) {
-        function (bytes calldata) internal returns (bytes memory) callback = TransientStorage.getAndClearCallback();
+        function(bytes calldata) internal returns (bytes memory) callback = TransientStorage.getAndClearCallback();
         bytes calldata data = _msgData();
         if (callback.isNull()) {
             (bool success, bytes memory returndata) = _fallback(data);
@@ -373,7 +374,8 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         unchecked {
             if (~sellAmount < BASIS) {
                 sellAmount = BASIS - ~sellAmount;
-                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(BASIS);
+                sellAmount =
+                    tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(BASIS);
             }
         }
     }
@@ -388,7 +390,8 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         unchecked {
             if (~sellAmount < BASIS) {
                 sellAmount = BASIS - ~sellAmount;
-                sellAmount = tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(BASIS);
+                sellAmount =
+                    tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(BASIS);
             }
         }
     }
@@ -535,13 +538,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         return super._msgData();
     }
 
-    function _msgSender()
-        internal
-        view
-        virtual
-        override(AllowanceHolderContext, Permit2PaymentBase)
-        returns (address)
-    {
+    function _msgSender() internal view virtual override(AllowanceHolderContext, Permit2PaymentBase) returns (address) {
         return super._msgSender();
     }
 }
@@ -582,8 +579,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     }
 
     function _witnessTypeSuffix() internal pure virtual returns (string memory) {
-        return
-        "SlippageAndActions slippageAndActions)SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)";
+        return "SlippageAndActions slippageAndActions)SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)";
     }
 
     function _transferFrom(
@@ -646,8 +642,7 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
     }
 
     function _witnessTypeSuffix() internal pure virtual override returns (string memory) {
-        return
-        "Slippage slippage)Slippage(address recipient,address buyToken,uint256 minAmountOut)TokenPermissions(address token,uint256 amount)";
+        return "Slippage slippage)Slippage(address recipient,address buyToken,uint256 minAmountOut)TokenPermissions(address token,uint256 amount)";
     }
 
     bytes32 private constant _BRIDGE_WALLET_CODEHASH =

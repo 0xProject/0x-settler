@@ -243,7 +243,12 @@ abstract contract BaseMixin is
     }
     */
 
-    function _fallback(bytes calldata data) internal virtual override(Permit2PaymentAbstract, UniswapV4) returns (bool success, bytes memory returndata) {
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
         address msgSender = _msgSender();
         uint256 selector;
         assembly ("memory-safe") {

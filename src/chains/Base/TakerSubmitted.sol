@@ -85,12 +85,7 @@ contract BaseSettler is Settler, BaseMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, BaseMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, BaseMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
