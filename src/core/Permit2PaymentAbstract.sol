@@ -12,6 +12,10 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
         return false;
     }
 
+    function _fallback(bytes calldata) internal virtual returns (bool success, bytes memory returndata) {
+        return (success, returndata);
+    }
+
     function _operator() internal view virtual returns (address);
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)

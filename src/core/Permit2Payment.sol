@@ -232,15 +232,13 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
 abstract contract Permit2Payment is Permit2PaymentBase {
     using FunctionPointerChecker for function (bytes calldata) internal returns (bytes memory);
 
-    function _chainSpecificFallback(bytes calldata) internal virtual returns (bytes memory) {
-        revert();
-    }
-
-    fallback(bytes calldata) external virtual returns (bytes memory) {
+    fallback(bytes calldata) external returns (bytes memory) {
         function (bytes calldata) internal returns (bytes memory) callback = TransientStorage.getAndClearCallback();
         bytes calldata data = _msgData();
         if (callback.isNull()) {
-            return _chainSpecificFallback(data);
+            (bool success, bytes memory returndata) = _fallback(data);
+            require(success);
+            return returndata;
         } else {
             assembly ("memory-safe") {
                 data.offset := add(0x04, data.offset)
