@@ -101,8 +101,8 @@ library TransientStorage {
             let slotValue := tload(_OPERATOR_SLOT)
             let success :=
                 iszero(or(shr(0xe0, xor(calldataload(0x00), slotValue)), shl(0x60, xor(caller(), slotValue))))
+            callback := mul(and(0xffff, shr(0xa0, slotValue)), success)
             if success {
-                callback := and(0xffff, shr(0xa0, slotValue))
                 tstore(_OPERATOR_SLOT, 0x00)
             }
         }
