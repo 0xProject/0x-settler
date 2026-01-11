@@ -175,7 +175,6 @@ abstract contract BnbMixin is
         return super._fallback(data);
     }
 
-    // I hate Solidity inheritance
     function _isRestrictedTarget(address target)
         internal
         view

@@ -122,7 +122,6 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV1, DodoV2, Unisw
         return super._fallback(data);
     }
 
-    // I hate Solidity inheritance
     function _isRestrictedTarget(address target)
         internal
         view

@@ -139,7 +139,6 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4, BalancerV
         return super._fallback(data);
     }
 
-    // I hate Solidity inheritance
     function _isRestrictedTarget(address target)
         internal
         view

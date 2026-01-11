@@ -134,7 +134,6 @@ abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2, UniswapV4, 
         return super._fallback(data);
     }
 
-    // I hate Solidity inheritance
     function _isRestrictedTarget(address target)
         internal
         view
