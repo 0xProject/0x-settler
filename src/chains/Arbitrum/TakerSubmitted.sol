@@ -12,6 +12,7 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
 contract ArbitrumSettler is Settler, ArbitrumMixin {
@@ -98,5 +99,14 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
 
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, ArbitrumMixin)
+        returns (bool, bytes memory)
+    {
+        return ArbitrumMixin._fallback(data);
     }
 }

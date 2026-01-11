@@ -71,4 +71,13 @@ contract InkSettlerMetaTxn is SettlerMetaTxn, InkMixin {
     {
         return super._isRestrictedTarget(target);
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, InkMixin)
+        returns (bool, bytes memory)
+    {
+        return InkMixin._fallback(data);
+    }
 }

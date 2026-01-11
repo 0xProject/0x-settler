@@ -71,4 +71,13 @@ contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
     function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {
         return super._msgSender();
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, BlastMixin)
+        returns (bool, bytes memory)
+    {
+        return BlastMixin._fallback(data);
+    }
 }

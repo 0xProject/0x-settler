@@ -63,4 +63,13 @@ contract InkSettler is Settler, InkMixin {
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, InkMixin)
+        returns (bool, bytes memory)
+    {
+        return InkMixin._fallback(data);
+    }
 }

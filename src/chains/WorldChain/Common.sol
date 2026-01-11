@@ -25,6 +25,7 @@ import {WORLDCHAIN_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract WorldChainMixin is FreeMemory, SettlerBase, UniswapV4 {
     constructor() {
@@ -80,5 +81,15 @@ abstract contract WorldChainMixin is FreeMemory, SettlerBase, UniswapV4 {
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return WORLDCHAIN_POOL_MANAGER;
+    }
+
+    // I hate Solidity inheritance
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
     }
 }

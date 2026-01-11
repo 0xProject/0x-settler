@@ -12,6 +12,7 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
 contract BnbSettler is Settler, BnbMixin {
@@ -88,5 +89,14 @@ contract BnbSettler is Settler, BnbMixin {
 
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, BnbMixin)
+        returns (bool, bytes memory)
+    {
+        return BnbMixin._fallback(data);
     }
 }

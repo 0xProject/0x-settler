@@ -71,4 +71,13 @@ contract WorldChainSettlerMetaTxn is SettlerMetaTxn, WorldChainMixin {
     {
         return super._isRestrictedTarget(target);
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, WorldChainMixin)
+        returns (bool, bytes memory)
+    {
+        return WorldChainMixin._fallback(data);
+    }
 }

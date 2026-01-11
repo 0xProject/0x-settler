@@ -85,4 +85,13 @@ contract MonadSettlerMetaTxn is SettlerMetaTxn, MonadMixin {
     {
         return super._isRestrictedTarget(target);
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, MonadMixin)
+        returns (bool, bytes memory)
+    {
+        return MonadMixin._fallback(data);
+    }
 }

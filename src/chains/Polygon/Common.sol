@@ -113,6 +113,16 @@ abstract contract PolygonMixin is FreeMemory, SettlerBase, DodoV1, DodoV2, Unisw
     }
 
     // I hate Solidity inheritance
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
+    }
+
+    // I hate Solidity inheritance
     function _isRestrictedTarget(address target)
         internal
         view

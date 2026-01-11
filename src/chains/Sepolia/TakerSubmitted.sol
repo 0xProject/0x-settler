@@ -75,4 +75,13 @@ contract SepoliaSettler is Settler, SepoliaMixin {
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, SepoliaMixin)
+        returns (bool, bytes memory)
+    {
+        return SepoliaMixin._fallback(data);
+    }
 }

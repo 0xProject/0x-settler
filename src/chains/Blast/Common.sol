@@ -157,4 +157,14 @@ abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return BLAST_POOL_MANAGER;
     }
+
+    // I hate Solidity inheritance
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
+    }
 }
