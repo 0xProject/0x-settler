@@ -91,6 +91,6 @@ contract OptimismSettlerMetaTxn is SettlerMetaTxn, OptimismMixin {
         override(Permit2PaymentAbstract, OptimismMixin)
         returns (bool, bytes memory)
     {
-        return OptimismMixin._fallback(data);
+        return super._fallback(data);
     }
 }

@@ -91,6 +91,6 @@ contract AvalancheSettlerMetaTxn is SettlerMetaTxn, AvalancheMixin {
         override(Permit2PaymentAbstract, AvalancheMixin)
         returns (bool, bytes memory)
     {
-        return AvalancheMixin._fallback(data);
+        return super._fallback(data);
     }
 }

@@ -97,6 +97,6 @@ contract BnbSettler is Settler, BnbMixin {
         override(Permit2PaymentAbstract, BnbMixin)
         returns (bool, bytes memory)
     {
-        return BnbMixin._fallback(data);
+        return super._fallback(data);
     }
 }

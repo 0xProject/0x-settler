@@ -65,6 +65,6 @@ contract BlastSettler is Settler, BlastMixin {
         override(Permit2PaymentAbstract, BlastMixin)
         returns (bool, bytes memory)
     {
-        return BlastMixin._fallback(data);
+        return super._fallback(data);
     }
 }

@@ -89,6 +89,6 @@ contract SepoliaSettlerMetaTxn is SettlerMetaTxn, SepoliaMixin {
         override(Permit2PaymentAbstract, SepoliaMixin)
         returns (bool, bytes memory)
     {
-        return SepoliaMixin._fallback(data);
+        return super._fallback(data);
     }
 }

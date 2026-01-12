@@ -85,6 +85,6 @@ contract MonadSettler is Settler, MonadMixin {
         override(Permit2PaymentAbstract, MonadMixin)
         returns (bool, bytes memory)
     {
-        return MonadMixin._fallback(data);
+        return super._fallback(data);
     }
 }

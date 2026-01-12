@@ -124,6 +124,6 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
         override(Permit2PaymentAbstract, MainnetMixin)
         returns (bool, bytes memory)
     {
-        return MainnetMixin._fallback(data);
+        return super._fallback(data);
     }
 }

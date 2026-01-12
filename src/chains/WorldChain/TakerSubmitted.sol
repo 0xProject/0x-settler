@@ -70,6 +70,6 @@ contract WorldChainSettler is Settler, WorldChainMixin {
         override(Permit2PaymentAbstract, WorldChainMixin)
         returns (bool, bytes memory)
     {
-        return WorldChainMixin._fallback(data);
+        return super._fallback(data);
     }
 }

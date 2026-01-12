@@ -70,6 +70,6 @@ contract InkSettler is Settler, InkMixin {
         override(Permit2PaymentAbstract, InkMixin)
         returns (bool, bytes memory)
     {
-        return InkMixin._fallback(data);
+        return super._fallback(data);
     }
 }

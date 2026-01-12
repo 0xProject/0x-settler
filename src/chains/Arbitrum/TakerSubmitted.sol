@@ -107,6 +107,6 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
         override(Permit2PaymentAbstract, ArbitrumMixin)
         returns (bool, bytes memory)
     {
-        return ArbitrumMixin._fallback(data);
+        return super._fallback(data);
     }
 }

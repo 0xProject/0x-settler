@@ -77,6 +77,6 @@ contract PolygonSettlerMetaTxn is SettlerMetaTxn, PolygonMixin {
         override(Permit2PaymentAbstract, PolygonMixin)
         returns (bool, bytes memory)
     {
-        return PolygonMixin._fallback(data);
+        return super._fallback(data);
     }
 }

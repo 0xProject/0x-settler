@@ -70,6 +70,6 @@ contract UnichainSettler is Settler, UnichainMixin {
         override(Permit2PaymentAbstract, UnichainMixin)
         returns (bool, bytes memory)
     {
-        return UnichainMixin._fallback(data);
+        return super._fallback(data);
     }
 }
