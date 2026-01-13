@@ -37,27 +37,35 @@ interface IHanjiPool {
     ) external payable returns (uint128 executed_shares, uint128 executed_value, uint128 aggressive_fee);
 
     function getConfig()
-    external
-    view
-    returns (
-        uint256 _scaling_factor_token_x,
-        uint256 _scaling_factor_token_y,
-        address _token_x,
-        address _token_y,
-        bool _supports_native_eth,
-        bool _is_token_x_weth,
-        address _ask_trie,
-        address _bid_trie,
-        uint64 _admin_commission_rate,
-        uint64 _total_aggressive_commission_rate,
-        uint64 _total_passive_commission_rate,
-        uint64 _passive_order_payout_rate,
-        bool _should_invoke_on_trade
-    );
+        external
+        view
+        returns (
+            uint256 _scaling_factor_token_x,
+            uint256 _scaling_factor_token_y,
+            address _token_x,
+            address _token_y,
+            bool _supports_native_eth,
+            bool _is_token_x_weth,
+            address _ask_trie,
+            address _bid_trie,
+            uint64 _admin_commission_rate,
+            uint64 _total_aggressive_commission_rate,
+            uint64 _total_passive_commission_rate,
+            uint64 _passive_order_payout_rate,
+            bool _should_invoke_on_trade
+        );
 }
 
 library FastHanjiPool {
-    function placeMarketOrder(IHanjiPool pool, bool sendNative, bool receiveNative, bool isAsk, uint128 quantity, uint72 priceLimit, address recipient) internal returns (uint256 executed) {
+    function placeMarketOrder(
+        IHanjiPool pool,
+        bool sendNative,
+        bool receiveNative,
+        bool isAsk,
+        uint128 quantity,
+        uint72 priceLimit,
+        address recipient
+    ) internal returns (uint256 executed) {
         assembly ("memory-safe") {
             recipient := and(0xffffffffffffffffffffffffffffffffffffffff, recipient)
 
@@ -137,11 +145,7 @@ abstract contract Hanji is SettlerAbstract {
             buyAmount = IHanjiPool(pool).placeMarketOrder(isAsk, uint128(scaledSellAmount)) * buyScalingFactor;
         }
         if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(
-                IHanjiPool(pool).getToken(isAsk),
-                minBuyAmount,
-                buyAmount
-            );
+            revertTooMuchSlippage(IHanjiPool(pool).getToken(isAsk), minBuyAmount, buyAmount);
         }
     }
 }
