@@ -133,8 +133,8 @@ abstract contract HanjiTestBase is AllowanceHolderPairTest {
         IERC20 _fromToken = fromToken();
         IERC20 _toToken = toToken();
 
-        uint256 beforeFrom = _fromToken.balanceOf(FROM);
-        uint256 beforeTo = _toToken.balanceOf(FROM);
+        uint256 beforeFrom = balanceOf(_fromToken, FROM);
+        uint256 beforeTo = balanceOf(_toToken, FROM);
 
         ISettlerBase.AllowedSlippage memory allowedSlippage =
             ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
@@ -271,7 +271,7 @@ contract HanjiWmonToUsdcTest is HanjiTestBase {
 
     /// @notice Test where Settler is the order_owner (to check if proxy auth is needed even for self)
     function testHanji_settlerAsOrderOwner() public skipIf(address(hanjiPool()) == address(0)) {
-        uint256 beforeBalanceTo = toToken().balanceOf(address(settler));
+        uint256 beforeBalanceTo = balanceOf(toToken(), address(settler));
 
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
@@ -335,7 +335,7 @@ contract HanjiUsdcToWmonTest is HanjiTestBase {
 
     /// @notice Test selling USDC and receiving native MON (useNative=true)
     function testHanji_sellUsdcForNative() public skipIf(address(hanjiPool()) == address(0)) {
-        uint256 beforeEth = FROM.balance;
+        uint256 beforeEth = balanceOf(IERC20(ETH_ADDRESS), FROM);
 
         (uint256 spent,) = _executeHanji(_buildTransferAndSwapActions(true), "hanji_sellUsdcForNative");
         assertEq(spent, amount(), "Should have spent USDC");
@@ -346,7 +346,7 @@ contract HanjiUsdcToWmonTest is HanjiTestBase {
 
     /// @notice Test useNative=false when buying WMON - should receive WMON token
     function testHanji_buyWmon_receiveWrapped() public skipIf(address(hanjiPool()) == address(0)) {
-        uint256 beforeEth = FROM.balance;
+        uint256 beforeEth = balanceOf(IERC20(ETH_ADDRESS), FROM);
 
         (uint256 spent, uint256 received) = _executeHanji(_buildTransferAndSwapActions(false), "hanji_buyWmon_receiveWrapped");
         assertEq(spent, amount(), "Should have spent USDC");
@@ -369,5 +369,46 @@ contract HanjiUsdcToWmonTest is HanjiTestBase {
         (uint256 spent, uint256 received) = _executeHanji(actions, "hanji_custody_sellUsdcForWmon");
         assertEq(spent, amount(), "Should have spent USDC");
         assertGt(received, 0, "Should have received WMON");
+    }
+
+    // ========== SLIPPAGE TEST ==========
+
+    /// @notice Test that minBuyAmount causes revert when not met
+    function testHanji_revert_tooMuchSlippage() public skipIf(address(hanjiPool()) == address(0)) {
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, new bytes(0))),
+            _buildHanjiAction(FROM, false, 10_000, false, type(uint128).max)
+        );
+
+        ISettlerBase.AllowedSlippage memory allowedSlippage =
+            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+        bytes memory ahData = abi.encodeCall(settler.execute, (allowedSlippage, actions, bytes32(0)));
+
+        vm.startPrank(FROM, FROM);
+        vm.expectRevert(TooMuchSlippage.selector);
+        allowanceHolder.exec(address(settler), address(fromToken()), amount(), payable(address(settler)), ahData);
+        vm.stopPrank();
+    }
+
+    // ========== SETTLER AS ORDER OWNER TEST ==========
+
+    /// @notice Test where Settler is the order_owner (to check if proxy auth is needed even for self)
+    function testHanji_settlerAsOrderOwner() public skipIf(address(hanjiPool()) == address(0)) {
+        uint256 beforeBalanceTo = balanceOf(toToken(), address(settler));
+
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, new bytes(0))),
+            _buildHanjiAction(address(settler), false, 10_000, false, 0)
+        );
+
+        (uint256 spent,) = _executeHanji(actions, "hanji_settlerAsOrderOwner");
+        assertEq(spent, amount(), "Should have spent USDC");
+        assertGt(toToken().balanceOf(address(settler)), beforeBalanceTo, "Settler should have received WMON");
     }
 }
