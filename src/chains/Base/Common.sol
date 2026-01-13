@@ -285,7 +285,7 @@ abstract contract BaseMixin is
         uint256 msgSenderShifted = uint256(uint160(msgSender)) << 96;
         success = (selector == uint32(IMsgSender.msgSender.selector)).and(msgSenderShifted != 0);
         if (!success) {
-            super._fallback(data);
+            return super._fallback(data);
         }
         assembly ("memory-safe") {
             returndata := mload(0x40)

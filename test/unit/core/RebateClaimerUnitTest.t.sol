@@ -2,100 +2,84 @@
 pragma solidity ^0.8.25;
 
 import {Test} from "@forge-std/Test.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
-/// @dev Interface for the rebateClaimer() external function (from src/core/UniswapV4.sol)
+import {ISettlerActions} from "src/ISettlerActions.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
+import {BaseSettler} from "src/chains/Base/TakerSubmitted.sol";
+import {BaseSettlerMetaTxn} from "src/chains/Base/MetaTxn.sol";
+import {BaseSettlerIntent} from "src/chains/Base/Intent.sol";
+
 interface IRebateClaimer {
     function rebateClaimer() external view returns (address);
 }
 
-/// @title RebateClaimer Unit Tests
-/// @notice Unit tests for the rebateClaimer() function on Base Settler
-/// @dev rebateClaimer() is implemented via UniswapV4._fallback() and always returns a constant address
 contract RebateClaimerUnitTest is Test {
-    /// @dev The _PAYER_SLOT from TransientStorage (Permit2Payment.sol:45)
-    bytes32 private constant _PAYER_SLOT = 0x0000000000000000000000000000000000000000cd1e9517bb0cb8d0d5cde893;
-
-    /// @dev The expected rebateClaimer address (hardcoded in UniswapV4.sol:405)
     address private constant EXPECTED_REBATE_CLAIMER = 0x352650Ac2653508d946c4912B07895B22edd84CD;
 
-    RebateClaimerStub internal settler;
+    BaseSettler internal settler;
+    BaseSettlerMetaTxn internal settlerMetaTxn;
+    BaseSettlerIntent internal settlerIntent;
+    RebateClaimerCallbackHelper internal callbackHelper;
 
     function setUp() public {
-        settler = new RebateClaimerStub();
+        settler = new BaseSettler(bytes20(0));
+        settlerMetaTxn = new BaseSettlerMetaTxn(bytes20(0));
+        settlerIntent = new BaseSettlerIntent(bytes20(0));
+        callbackHelper = new RebateClaimerCallbackHelper();
     }
 
-    /// @notice Test that rebateClaimer() always returns the expected constant address
-    function test_rebateClaimer_ReturnsConstantAddress() public view {
-        address claimer = settler.rebateClaimer();
+    function test_rebateClaimer_TakerSubmitted_ReturnsConstant() public view {
+        address claimer = IRebateClaimer(address(settler)).rebateClaimer();
         assertEq(claimer, EXPECTED_REBATE_CLAIMER, "rebateClaimer should return the constant address");
     }
 
-    /// @notice Test that rebateClaimer() returns the same address regardless of payer state
-    function test_rebateClaimer_ReturnsConstantAddress_WithPayerSet() public {
+    function test_rebateClaimer_MetaTxn_ReturnsConstant() public view {
+        address claimer = IRebateClaimer(address(settlerMetaTxn)).rebateClaimer();
+        assertEq(claimer, EXPECTED_REBATE_CLAIMER, "rebateClaimer should return the constant address");
+    }
+
+    function test_rebateClaimer_Intent_ReturnsConstant() public view {
+        address claimer = IRebateClaimer(address(settlerIntent)).rebateClaimer();
+        assertEq(claimer, EXPECTED_REBATE_CLAIMER, "rebateClaimer should return the constant address");
+    }
+
+    function test_rebateClaimer_ReturnsDuringExecution() public {
         address testPayer = makeAddr("testPayer");
 
-        // Set the payer in transient storage
-        settler.setPayer(testPayer);
-
-        // rebateClaimer should still return the constant address
-        address claimer = settler.rebateClaimer();
-        assertEq(
-            claimer, EXPECTED_REBATE_CLAIMER, "rebateClaimer should return the constant address even with payer set"
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = abi.encodeCall(
+            ISettlerActions.BASIC,
+            (
+                address(0),              // sellToken (no transfer needed)
+                0,                       // bps
+                address(callbackHelper), // pool
+                0,                       // offset
+                abi.encodeCall(RebateClaimerCallbackHelper.checkRebateClaimer, (address(settler)))
+            )
         );
 
-        // Cleanup
-        settler.clearPayer();
-    }
+        vm.prank(testPayer, testPayer);
+        settler.execute(
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+            }),
+            actions,
+            bytes32(0)
+        );
 
-    /// @notice Fuzz test that rebateClaimer() always returns the constant address
-    function testFuzz_rebateClaimer_AlwaysReturnsConstant(address randomPayer) public {
-        vm.assume(randomPayer != address(0));
-
-        settler.setPayer(randomPayer);
-        address claimer = settler.rebateClaimer();
-        assertEq(claimer, EXPECTED_REBATE_CLAIMER, "rebateClaimer should always return the constant address");
-        settler.clearPayer();
-    }
-
-    /// @notice Test that rebateClaimer() works when called multiple times
-    function test_rebateClaimer_ConsistentAcrossMultipleCalls() public view {
-        address first = settler.rebateClaimer();
-        address second = settler.rebateClaimer();
-        address third = settler.rebateClaimer();
-
-        assertEq(first, EXPECTED_REBATE_CLAIMER);
-        assertEq(second, EXPECTED_REBATE_CLAIMER);
-        assertEq(third, EXPECTED_REBATE_CLAIMER);
+        assertEq(
+            callbackHelper.lastRebateClaimer(),
+            EXPECTED_REBATE_CLAIMER,
+            "rebateClaimer should return constant during execution"
+        );
     }
 }
 
-/// @title RebateClaimer Stub Contract
-/// @notice A minimal stub that implements the rebateClaimer() logic from UniswapV4._fallback()
-/// @dev Always returns the constant address 0x352650Ac2653508d946c4912B07895B22edd84CD
-contract RebateClaimerStub is IRebateClaimer {
-    /// @dev The _PAYER_SLOT from TransientStorage (Permit2Payment.sol:45)
-    bytes32 private constant _PAYER_SLOT = 0x0000000000000000000000000000000000000000cd1e9517bb0cb8d0d5cde893;
+contract RebateClaimerCallbackHelper {
+    address public lastRebateClaimer;
 
-    /// @dev The expected rebateClaimer address (hardcoded in UniswapV4.sol:405)
-    address private constant EXPECTED_REBATE_CLAIMER = 0x352650Ac2653508d946c4912B07895B22edd84CD;
-
-    /// @notice Implementation of rebateClaimer() from UniswapV4._fallback()
-    /// @dev Always returns the constant address
-    function rebateClaimer() external pure override returns (address) {
-        return EXPECTED_REBATE_CLAIMER;
-    }
-
-    /// @dev Test helper to set the payer in transient storage
-    function setPayer(address payer) external {
-        assembly ("memory-safe") {
-            tstore(_PAYER_SLOT, payer)
-        }
-    }
-
-    /// @dev Test helper to clear the payer from transient storage
-    function clearPayer() external {
-        assembly ("memory-safe") {
-            tstore(_PAYER_SLOT, 0)
-        }
+    function checkRebateClaimer(address settler) external {
+        lastRebateClaimer = IRebateClaimer(settler).rebateClaimer();
     }
 }
