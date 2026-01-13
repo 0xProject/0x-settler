@@ -70,17 +70,17 @@ library FastHanjiPool {
             recipient := and(0xffffffffffffffffffffffffffffffffffffffff, recipient)
 
             let ptr := mload(0x40)
-            mstore(ptr, xor(0xa3032255, mul(0x45fc45fe, isAsk)))            // selector
+            mstore(ptr, xor(0xa3032255, mul(0x45fc45fe, isAsk)))             // selector
             mstore(add(0x20, ptr), isAsk)
             mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffff, quantity))
             mstore(add(0x60, ptr), and(0xffffffffffffffffff, priceLimit))
-            mstore(add(0x80, ptr), 0xffffffffffffffffffffffffffffffff)      // max_commission
-            mstore(add(0xa0, ptr), 0x01)                                    // market_only/transfer_executed_tokens
-            mstore(add(0xc0, ptr), lt(isAsk, receiveNative))                // post_only/withdraw_as_native_eth
-            mstore(add(0xe0, ptr), or(0x01, mul(recipient, iszero(isAsk)))) // transfer_executed_tokens/order_owner
-            mstore(add(0x100, ptr), or(sub(isAsk, 0x01), receiveNative))    // withdraw_as_native_eth/expires
-            mstore(add(0x120, ptr), recipient)                              // order_owner/ignored
-            mstore(add(0x140, ptr), not(0x00))                              // expires/ignored
+            mstore(add(0x80, ptr), 0xffffffffffffffffffffffffffffffff)       // max_commission
+            mstore(add(0xa0, ptr), 0x01)                                     // market_only/transfer_executed_tokens
+            mstore(add(0xc0, ptr), lt(isAsk, receiveNative))                 // post_only/withdraw_as_native_eth
+            mstore(add(0xe0, ptr), or(isAsk, mul(recipient, iszero(isAsk)))) // transfer_executed_tokens/order_owner
+            mstore(add(0x100, ptr), or(sub(isAsk, 0x01), receiveNative))     // withdraw_as_native_eth/expires
+            mstore(add(0x120, ptr), recipient)                               // order_owner/ignored
+            mstore(add(0x140, ptr), not(0x00))                               // expires/ignored
 
             if iszero(call(gas(), pool, mul(sendNative, quantity), add(0x1c, ptr), 0x144, 0x00, 0x80)) {
                 returndatacopy(ptr, 0x00, returndatasize())
