@@ -4,6 +4,7 @@ pragma solidity ^0.8.33;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -95,7 +96,7 @@ library FastHanjiPool {
         }
     }
 
-    function getToken(IHanjiPool pool, bool tokenY) internal view returns (address result) {
+    function getToken(IHanjiPool pool, bool tokenY) internal view returns (IERC20 result) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
@@ -117,6 +118,7 @@ abstract contract Hanji is SettlerAbstract {
     using FastHanjiPool for IHanjiPool;
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
+    using FastLogic for bool;
 
     function hanjiSellToPool(
         address recipient,
@@ -126,9 +128,13 @@ abstract contract Hanji is SettlerAbstract {
         uint256 sellScalingFactor,
         uint256 buyScalingFactor,
         bool isAsk,
+        bool useNative,
+        uint256 priceLimit,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         bool sendNative = sellToken == ETH_ADDRESS;
+        bool receiveNative = useNative.andNot(sendNative);
+
         uint256 sellAmount;
         unchecked {
             if (sendNative) {
@@ -142,7 +148,7 @@ abstract contract Hanji is SettlerAbstract {
         uint256 scaledSellAmount = sellAmount.unsafeDiv(sellScalingFactor);
 
         unchecked {
-            buyAmount = IHanjiPool(pool).placeMarketOrder(isAsk, uint128(scaledSellAmount)) * buyScalingFactor;
+            buyAmount = IHanjiPool(pool).placeMarketOrder(sendNative, receiveNative, isAsk, uint128(scaledSellAmount), uint72(priceLimit), recipient) * buyScalingFactor;
         }
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(IHanjiPool(pool).getToken(isAsk), minBuyAmount, buyAmount);
