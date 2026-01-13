@@ -13,6 +13,7 @@ import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {MonadSettler} from "src/chains/Monad/TakerSubmitted.sol";
 
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
+import {TooMuchSlippage} from "src/core/SettlerErrors.sol";
 
 interface IWMON {
     function withdraw(uint256 amount) external;
@@ -261,7 +262,7 @@ contract HanjiWmonToUsdcTest is HanjiTestBase {
         bytes memory ahData = abi.encodeCall(settler.execute, (allowedSlippage, actions, bytes32(0)));
 
         vm.startPrank(FROM, FROM);
-        vm.expectRevert();
+        vm.expectRevert(TooMuchSlippage.selector);
         allowanceHolder.exec(address(settler), address(fromToken()), amount(), payable(address(settler)), ahData);
         vm.stopPrank();
     }
