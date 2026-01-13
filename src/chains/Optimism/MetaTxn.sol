@@ -12,7 +12,7 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
-import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
 contract OptimismSettlerMetaTxn is SettlerMetaTxn, OptimismMixin {
@@ -83,5 +83,14 @@ contract OptimismSettlerMetaTxn is SettlerMetaTxn, OptimismMixin {
 
     function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, OptimismMixin)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
     }
 }

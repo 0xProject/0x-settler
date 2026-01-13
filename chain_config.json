@@ -116,7 +116,7 @@
     "hardfork": {
       "shanghai": true,
       "cancun": true,
-      "osaka": true,
+      "osaka": false,
       "eraVm": false
     },
     "extraFlags": "--legacy",
