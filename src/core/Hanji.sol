@@ -9,7 +9,7 @@ import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 interface IHanjiPool {
-    function placeOrder(
+    function placeOrderByProxy(
         bool isAsk,
         uint128 quantity,
         uint72 price,
@@ -17,54 +17,90 @@ interface IHanjiPool {
         bool market_only,
         bool post_only,
         bool transfer_executed_tokens,
+        bool withdraw_as_native_eth,
+        address order_owner,
         uint256 expires
-    ) external payable returns (
-        uint64 order_id,
-        uint128 executed_shares,
-        uint128 executed_value,
-        uint128 aggressive_fee
-    );
+    )
+        external
+        payable
+        returns (uint64 order_id, uint128 executed_shares, uint128 executed_value, uint128 aggressive_fee);
 
-    function placeMarketOrderWithTargetValue(
+    function placeMarketOrderWithTargetValueByProxy(
         bool isAsk,
         uint128 target_token_y_value,
         uint72 price,
         uint128 max_commission,
         bool transfer_executed_tokens,
+        bool withdraw_as_native_eth,
+        address order_owner,
         uint256 expires
-    ) external payable returns (
-        uint128 executed_shares,
-        uint128 executed_value,
-        uint128 aggressive_fee
+    ) external payable returns (uint128 executed_shares, uint128 executed_value, uint128 aggressive_fee);
+
+    function getConfig()
+    external
+    view
+    returns (
+        uint256 _scaling_factor_token_x,
+        uint256 _scaling_factor_token_y,
+        address _token_x,
+        address _token_y,
+        bool _supports_native_eth,
+        bool _is_token_x_weth,
+        address _ask_trie,
+        address _bid_trie,
+        uint64 _admin_commission_rate,
+        uint64 _total_aggressive_commission_rate,
+        uint64 _total_passive_commission_rate,
+        uint64 _passive_order_payout_rate,
+        bool _should_invoke_on_trade
     );
 }
 
 library FastHanjiPool {
-    function placeMarketOrder(IHanjiPool pool, bool isAsk, uint128 quantity) internal returns (uint256 executed_value) {
-        uint256 price; // TODO:
+    function placeMarketOrder(IHanjiPool pool, bool sendNative, bool receiveNative, bool isAsk, uint128 quantity, uint72 priceLimit, address recipient) internal returns (uint256 executed) {
         assembly ("memory-safe") {
+            recipient := and(0xffffffffffffffffffffffffffffffffffffffff, recipient)
+
             let ptr := mload(0x40)
-            mstore(ptr, xor(0xad73d32e, mul(0x58603c62, isAsk)))       // selector
+            mstore(ptr, xor(0xa3032255, mul(0x45fc45fe, isAsk)))            // selector
             mstore(add(0x20, ptr), isAsk)
             mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffff, quantity))
-            mstore(add(0x60, ptr), and(0xffffffffffffffffff, price))
-            mstore(add(0x80, ptr), 0xffffffffffffffffffffffffffffffff) // max_commission
-            mstore(add(0xa0, ptr), 0x01)                               // market_only/transfer_executed_tokens
-            mstore(add(0xc0, ptr), sub(isAsk, 0x01))                   // post_only/expires
-            mstore(add(0xe0, ptr), 0x01)                               // transfer_executed_tokens/ignored
-            mstore(add(0x100, ptr), not(0x00))                         // expires/ignored
+            mstore(add(0x60, ptr), and(0xffffffffffffffffff, priceLimit))
+            mstore(add(0x80, ptr), 0xffffffffffffffffffffffffffffffff)      // max_commission
+            mstore(add(0xa0, ptr), 0x01)                                    // market_only/transfer_executed_tokens
+            mstore(add(0xc0, ptr), lt(isAsk, receiveNative))                // post_only/withdraw_as_native_eth
+            mstore(add(0xe0, ptr), or(0x01, mul(recipient, iszero(isAsk)))) // transfer_executed_tokens/order_owner
+            mstore(add(0x100, ptr), or(sub(isAsk, 0x01), receiveNative))    // withdraw_as_native_eth/expires
+            mstore(add(0x120, ptr), recipient)                              // order_owner/ignored
+            mstore(add(0x140, ptr), not(0x00))                              // expires/ignored
 
-            if iszero(call(gas(), pool, 0x00 /* TODO: handle value */, add(0x1c, ptr), 0x104, 0x00, 0x60)) {
-                let ptr_ := mload(0x40)
-                returndatacopy(ptr_, 0x00, returndatasize())
-                revert(ptr_, returndatasize())
+            if iszero(call(gas(), pool, mul(sendNative, quantity), add(0x1c, ptr), 0x144, 0x00, 0x80)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
             }
 
-            // TODO: this is probably wrong. which of shares/value is which is undocumented
-            // TODO: this is probably wrong. this value may not be inclusive of fees
-            executed_value := mload(add(0x20, shl(0x05, isAsk)))
+            executed := mload(shl(0x06, isAsk))
+            executed := sub(executed, mload(0x60))
 
             mstore(0x40, ptr)
+            mstore(0x60, 0x00)
+        }
+    }
+
+    function getToken(IHanjiPool pool, bool tokenY) internal view returns (address result) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+
+            mstore(0x00, 0xc3f909d4) // IHanjiPool.getConfig.selector
+            if iszero(staticcall(gas(), pool, 0x1c, 0x04, 0x00, 0x80)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+
+            result := mload(add(0x40, shl(0x05, tokenY)))
+
+            mstore(0x40, ptr)
+            mstore(0x60, 0x00)
         }
     }
 }
@@ -75,26 +111,37 @@ abstract contract Hanji is SettlerAbstract {
     using UnsafeMath for uint256;
 
     function hanjiSellToPool(
-        address recipient, // TODO: remove if there's no mechanism for custody optimization
+        address recipient,
         IERC20 sellToken,
         uint256 bps,
         address pool,
-        uint256 scalingFactor,
+        uint256 sellScalingFactor,
+        uint256 buyScalingFactor,
         bool isAsk,
-        uint256 minBuyAmount // TODO: remove if there's no mechanism for custody optimization
+        uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
-        // TODO: handle value
-        uint256 sellAmount = (sellToken.fastBalanceOf(address(this)) * bps) / 10000;
+        bool sendNative = sellToken == ETH_ADDRESS;
+        uint256 sellAmount;
+        unchecked {
+            if (sendNative) {
+                sellAmount = address(this).balance * bps / BASIS;
+            } else {
+                sellAmount = sellToken.fastBalanceOf(address(this)) * bps / BASIS;
+                sellToken.safeApproveIfBelow(pool, sellAmount);
+            }
+        }
 
-        uint256 scaledSellAmount = sellAmount.unsafeDiv(scalingFactor);
-
-        sellToken.safeApproveIfBelow(pool, sellAmount);
+        uint256 scaledSellAmount = sellAmount.unsafeDiv(sellScalingFactor);
 
         unchecked {
-            buyAmount = IHanjiPool(pool).placeMarketOrder(isAsk, uint128(scaledSellAmount)) * scalingFactor;
+            buyAmount = IHanjiPool(pool).placeMarketOrder(isAsk, uint128(scaledSellAmount)) * buyScalingFactor;
         }
         if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(IERC20(address(0)) /* TODO: get the buy token */, minBuyAmount, buyAmount);
+            revertTooMuchSlippage(
+                IHanjiPool(pool).getToken(isAsk),
+                minBuyAmount,
+                buyAmount
+            );
         }
     }
 }
