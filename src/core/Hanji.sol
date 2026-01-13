@@ -148,7 +148,10 @@ abstract contract Hanji is SettlerAbstract {
         uint256 scaledSellAmount = sellAmount.unsafeDiv(sellScalingFactor);
 
         unchecked {
-            buyAmount = IHanjiPool(pool).placeMarketOrder(sendNative, receiveNative, isAsk, uint128(scaledSellAmount), uint72(priceLimit), recipient) * buyScalingFactor;
+            buyAmount = IHanjiPool(pool)
+                .placeMarketOrder(
+                    sendNative, receiveNative, isAsk, uint128(scaledSellAmount), uint72(priceLimit), recipient
+                ) * buyScalingFactor;
         }
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(IHanjiPool(pool).getToken(isAsk), minBuyAmount, buyAmount);

@@ -169,9 +169,31 @@ abstract contract BaseMixin is
 
             sellToRenegade(target, baseToken, renegadeData);
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
-            (address recipient, IERC20 sellToken, uint256 bps, address pool, uint256 sellScalingFactor, uint256 buyScalingFactor, bool isAsk, bool useNative, uint256 priceLimit, uint256 minBuyAmount) = abi.decode(data, (address, IERC20, uint256, address, uint256, uint256, bool, bool, uint256, uint256));
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                address pool,
+                uint256 sellScalingFactor,
+                uint256 buyScalingFactor,
+                bool isAsk,
+                bool useNative,
+                uint256 priceLimit,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (address, IERC20, uint256, address, uint256, uint256, bool, bool, uint256, uint256));
 
-            sellToHanji(recipient, sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, useNative, priceLimit, minBuyAmount);
+            sellToHanji(
+                recipient,
+                sellToken,
+                bps,
+                pool,
+                sellScalingFactor,
+                buyScalingFactor,
+                isAsk,
+                useNative,
+                priceLimit,
+                minBuyAmount
+            );
         } else {
             return false;
         }
