@@ -2,127 +2,88 @@
 pragma solidity ^0.8.25;
 
 import {Test} from "@forge-std/Test.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
-/// @dev Interface for the msgSender() external function (from src/interfaces/IMsgSender.sol)
-interface IMsgSender {
-    function msgSender() external view returns (address);
-}
+import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
+import {PERMIT2} from "src/core/Permit2Payment.sol";
 
-/// @title MsgSender Unit Tests
-/// @notice Unit tests for the msgSender() function on Base Settler
-/// @dev msgSender() is implemented via BaseMixin._fallback() and returns the current payer holding the lock
+import {IMsgSender} from "src/interfaces/IMsgSender.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
+import {BaseSettler} from "src/chains/Base/TakerSubmitted.sol";
+
 contract MsgSenderUnitTest is Test {
-    /// @dev The _PAYER_SLOT from TransientStorage (Permit2Payment.sol:45)
-    bytes32 private constant _PAYER_SLOT = 0x0000000000000000000000000000000000000000cd1e9517bb0cb8d0d5cde893;
-
-    MsgSenderStub internal settler;
+    BaseSettler internal settler;
+    MsgSenderCallbackHelper internal callbackHelper;
 
     function setUp() public {
-        settler = new MsgSenderStub();
+        settler = new BaseSettler(bytes20(0));
+        callbackHelper = new MsgSenderCallbackHelper();
     }
 
-    /// @notice Test that msgSender() reverts when no payer is set (lock not held)
-    function test_msgSender_RevertsWhenNoPayerSet() public {
-        // Ensure payer slot is clear
-        settler.clearPayer();
-
-        // msgSender() should revert when no lock is held
-        vm.expectRevert();
-        settler.msgSender();
+    function test_msgSender_TakerSubmitted_RevertsWhenNoPayerSet() public {
+        vm.expectRevert(new bytes(0));
+        IMsgSender(address(settler)).msgSender();
     }
 
-    /// @notice Test that msgSender() returns the payer when lock is held
-    function test_msgSender_ReturnsPayerWhenSet() public {
+    function test_msgSender_TakerSubmitted_ReturnsPayerDuringExecution() public {
         address testPayer = makeAddr("testPayer");
 
-        // Set the payer in transient storage
-        settler.setPayer(testPayer);
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = abi.encodeCall(
+            ISettlerActions.BASIC,
+            (
+                address(0), // sellToken (no token transfer needed)
+                0, // bps
+                address(callbackHelper), // pool (our callback helper)
+                0, // offset
+                abi.encodeCall(MsgSenderCallbackHelper.checkMsgSender, (address(settler))) // data
+            )
+        );
 
-        // msgSender should return the payer
-        address sender = settler.msgSender();
-        assertEq(sender, testPayer, "msgSender should return the payer address");
+        vm.prank(testPayer, testPayer);
+        settler.execute(
+            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0}),
+            actions,
+            bytes32(0)
+        );
 
-        // Cleanup
-        settler.clearPayer();
+        assertEq(callbackHelper.lastMsgSender(), testPayer, "msgSender should return the payer during execution");
     }
 
-    /// @notice Fuzz test that msgSender() correctly returns the payer address
-    function testFuzz_msgSender_ReturnsCorrectPayer(address payer) public {
+    function testFuzz_msgSender_TakerSubmitted_ReturnsCorrectPayer(address payer) public {
         vm.assume(payer != address(0));
+        vm.assume(payer.code.length == 0);
+        vm.assume(payer != address(ALLOWANCE_HOLDER));
+        vm.assume(payer != address(PERMIT2));
 
-        settler.setPayer(payer);
-        address sender = settler.msgSender();
-        assertEq(sender, payer, "msgSender should return the set payer address");
-        settler.clearPayer();
-    }
+        bytes[] memory actions = new bytes[](1);
+        actions[0] = abi.encodeCall(
+            ISettlerActions.BASIC,
+            (
+                address(0),
+                0,
+                address(callbackHelper),
+                0,
+                abi.encodeCall(MsgSenderCallbackHelper.checkMsgSender, (address(settler)))
+            )
+        );
 
-    /// @notice Test that msgSender() fails with zero payer
-    /// @dev When _msgSender() returns zero, the function should revert
-    function test_msgSender_FailsWithZeroPayer() public {
-        settler.clearPayer();
-        vm.expectRevert();
-        settler.msgSender();
-    }
+        vm.prank(payer, payer);
+        settler.execute(
+            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0}),
+            actions,
+            bytes32(0)
+        );
 
-    /// @notice Test that msgSender() returns different payers correctly
-    function test_msgSender_ReturnsDifferentPayers() public {
-        address payer1 = makeAddr("payer1");
-        address payer2 = makeAddr("payer2");
-
-        // Set first payer
-        settler.setPayer(payer1);
-        assertEq(settler.msgSender(), payer1, "should return payer1");
-
-        // Change to second payer
-        settler.setPayer(payer2);
-        assertEq(settler.msgSender(), payer2, "should return payer2");
-
-        settler.clearPayer();
-    }
-
-    /// @notice Test msgSender with a specific well-known address
-    function test_msgSender_WithSpecificAddress() public {
-        address specificAddr = 0x352650Ac2653508d946c4912B07895B22edd84CD;
-
-        settler.setPayer(specificAddr);
-        assertEq(settler.msgSender(), specificAddr, "msgSender should return the specific address");
-
-        settler.clearPayer();
+        assertEq(callbackHelper.lastMsgSender(), payer, "msgSender should return the fuzzed payer");
     }
 }
 
-/// @title MsgSender Stub Contract
-/// @notice A minimal stub that implements the msgSender() logic from BaseMixin._fallback()
-/// @dev Returns the payer from transient storage only if it's non-zero
-contract MsgSenderStub is IMsgSender {
-    /// @dev The _PAYER_SLOT from TransientStorage (Permit2Payment.sol:45)
-    bytes32 private constant _PAYER_SLOT = 0x0000000000000000000000000000000000000000cd1e9517bb0cb8d0d5cde893;
+contract MsgSenderCallbackHelper {
+    address public lastMsgSender;
 
-    /// @notice Implementation of msgSender() from BaseMixin._fallback()
-    /// @dev Returns _msgSender() only if the lock is held (payer is non-zero)
-    function msgSender() external view override returns (address result) {
-        result = _msgSender();
-        require(result != address(0));
-    }
-
-    /// @dev Reads the payer from transient storage (replicates TransientStorage.getPayer())
-    function _msgSender() internal view returns (address payer) {
-        assembly ("memory-safe") {
-            payer := tload(_PAYER_SLOT)
-        }
-    }
-
-    /// @dev Test helper to set the payer in transient storage
-    function setPayer(address payer) external {
-        assembly ("memory-safe") {
-            tstore(_PAYER_SLOT, payer)
-        }
-    }
-
-    /// @dev Test helper to clear the payer from transient storage
-    function clearPayer() external {
-        assembly ("memory-safe") {
-            tstore(_PAYER_SLOT, 0)
-        }
+    function checkMsgSender(address settler) external {
+        lastMsgSender = IMsgSender(settler).msgSender();
     }
 }
