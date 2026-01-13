@@ -56,13 +56,14 @@ contract ERC2612FundingTest is SettlerBasePairTest {
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signERC2612Permit(sender, address(allowanceHolder), amount(), deadline, pk);
 
-        bytes memory permit =
-            abi.encodeCall(IUSDC.permit, (sender, address(allowanceHolder), amount(), deadline, v, r, s));
+        bytes memory permitData = abi.encodePacked(
+            IUSDC.permit.selector, IUSDC.DOMAIN_SEPARATOR.selector, abi.encode(sender, amount(), deadline, v, r, s)
+        );
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.FUND_AND_TRANSFER_FROM,
-                (address(this), defaultERC20PermitTransfer(address(_USDC), amount(), 0), permit)
+                ISettlerActions.TRANSFER_FROM_WITH_PERMIT,
+                (address(this), defaultERC20PermitTransfer(address(_USDC), amount(), 0), permitData)
             )
         );
 

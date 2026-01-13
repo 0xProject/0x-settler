@@ -46,9 +46,18 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
-* Added new VIP `FUND_AND_TRANSFER_FROM` to TakerSubmitted settlers.
+* Added new VIP `TRANSFER_FROM_WITH_PERMIT` to TakerSubmitted settlers.
   It is Similar to `TRANSFER_FROM` action but instead of a signature it 
-  receives a funding calldata to be executed before transfering the assets.
+  receives a permit calldata to be executed before transfering the assets.
+  Permit calldata is encoded as follow:
+  1. permit selector (4 bytes)
+  2. domain separator selector (4 bytes)
+  3. Encoding of:
+    a. owner, amount, deadline, v, r, s in case of regular ERC2612 permit
+    b. owner, nonce, expiry, allowed, v, r, s in case of regular DAI permit
+    c. owner, amount, v, r, s in case of native meta transaction
+  In all cases spender is allways set to be AllowanceHolder
+  On native meta transactions `approve` function is allways the function called
 
 ## 2025-12-29
 
