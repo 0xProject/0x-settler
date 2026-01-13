@@ -120,7 +120,7 @@ abstract contract Hanji is SettlerAbstract {
     using UnsafeMath for uint256;
     using FastLogic for bool;
 
-    function hanjiSellToPool(
+    function sellToHanji(
         address recipient,
         IERC20 sellToken,
         uint256 bps,
