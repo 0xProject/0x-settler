@@ -5,6 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
+import {Ternary} from "../utils/Ternary.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 import {SettlerAbstract} from "../SettlerAbstract.sol";
@@ -60,7 +61,7 @@ interface IHanjiPool {
 library FastHanjiPool {
     function placeMarketOrder(
         IHanjiPool pool,
-        bool sendNative,
+        uint256 sendNativeScaling,
         bool receiveNative,
         bool isAsk,
         uint128 quantity,
@@ -83,7 +84,7 @@ library FastHanjiPool {
             mstore(add(0x120, ptr), recipient)                               // order_owner/ignored
             mstore(add(0x140, ptr), not(0x00))                               // expires/ignored
 
-            if iszero(call(gas(), pool, mul(sendNative, quantity), add(0x1c, ptr), 0x144, 0x00, 0x80)) {
+            if iszero(call(gas(), pool, mul(sendNativeScaling, quantity), add(0x1c, ptr), 0x144, 0x00, 0x80)) {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
@@ -119,6 +120,7 @@ abstract contract Hanji is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using FastLogic for bool;
+    using Ternary for bool;
 
     function sellToHanji(
         address recipient,
@@ -150,7 +152,7 @@ abstract contract Hanji is SettlerAbstract {
         unchecked {
             buyAmount = IHanjiPool(pool)
                 .placeMarketOrder(
-                    sendNative, receiveNative, isAsk, uint128(scaledSellAmount), uint72(priceLimit), recipient
+                    sendNative.orZero(buyScalingFactor), receiveNative, isAsk, uint128(scaledSellAmount), uint72(priceLimit), recipient
                 ) * buyScalingFactor;
         }
         if (buyAmount < minBuyAmount) {
