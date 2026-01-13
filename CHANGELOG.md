@@ -15,8 +15,6 @@ Master list of UniV3 forks:
   12. ZebraV3
   13. Lynex (Algebra-like)
   14. DackieSwapV3
-  15. Thick
-  16. KinetixV3
   17. MetavaultV3
   18. BlasterV3
   19. MonoSwapV3
@@ -43,6 +41,11 @@ Master list of UniV3 forks:
 ## [Unreleased]
 
 ### Breaking changes
+
+* Remove EulerSwap action `EULERSWAP` from Base as it has no liquidity
+* Remove the following UniV3 forks from Base because they do little-to-no volume
+  * Thick
+  * KinetixV3
 
 ### Non-breaking changes
 

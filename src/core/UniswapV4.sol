@@ -8,17 +8,23 @@ import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
+import {FastLogic} from "../utils/FastLogic.sol";
 
 import {ZeroSellAmount} from "./SettlerErrors.sol";
 
 import {BalanceDelta, IHooks, IPoolManager, UnsafePoolManager, IUnlockCallback} from "./UniswapV4Types.sol";
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
 
+interface IRebateClaimer {
+    function rebateClaimer() external view returns (address);
+}
+
 abstract contract UniswapV4 is SettlerAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using Ternary for bool;
+    using FastLogic for bool;
     using CreditDebt for int256;
     using UnsafePoolManager for IPoolManager;
     using NotesLib for NotesLib.Note[];
@@ -193,14 +199,13 @@ abstract contract UniswapV4 is SettlerAbstract {
         assembly ("memory-safe") {
             let sellTokenShifted := shl(0x60, sellToken)
             let buyTokenShifted := shl(0x60, buyToken)
-            zeroForOne :=
-                or(
-                    eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted),
-                    and(
-                        iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)),
-                        lt(sellTokenShifted, buyTokenShifted)
-                    )
+            zeroForOne := or(
+                eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted),
+                and(
+                    iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)),
+                    lt(sellTokenShifted, buyTokenShifted)
                 )
+            )
         }
         (key.token0, key.token1) = zeroForOne.maybeSwap(buyToken, sellToken);
 
@@ -383,5 +388,21 @@ abstract contract UniswapV4 is SettlerAbstract {
         }
     }
 
-    address public constant rebateClaimer = 0x352650Ac2653508d946c4912B07895B22edd84CD; // an EOA owned by Scott
+    function _fallback(bytes calldata data) internal virtual override returns (bool success, bytes memory returndata) {
+        success = data.length >= 4;
+        uint256 selector;
+        assembly ("memory-safe") {
+            selector := shr(0xe0, calldataload(data.offset))
+        }
+        success = success.and(selector == uint32(IRebateClaimer.rebateClaimer.selector));
+        if (!success) {
+            return super._fallback(data);
+        }
+        assembly ("memory-safe") {
+            returndata := mload(0x40)
+            mstore(0x40, add(0x40, returndata))
+            mstore(returndata, 0x20)
+            mstore(add(0x20, returndata), 0x352650Ac2653508d946c4912B07895B22edd84CD) // an EOA owned by Scott
+        }
+    }
 }

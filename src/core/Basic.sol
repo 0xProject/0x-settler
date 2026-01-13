@@ -6,15 +6,14 @@ import {InvalidOffset, revertConfusedDeputy, InvalidTarget} from "./SettlerError
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {FullMath} from "../vendor/FullMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {Revert} from "../utils/Revert.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
+import {tmp} from "../utils/512Math.sol";
 
 abstract contract Basic is SettlerAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
-    using FullMath for uint256;
     using Revert for bool;
 
     /// @dev Sell to a pool with a generic approval, transferFrom interaction.
@@ -49,7 +48,7 @@ abstract contract Basic is SettlerAbstract {
             if (offset != 0) revert InvalidOffset();
         } else {
             // We treat `bps > BASIS` as a GIGO error
-            uint256 amount = sellToken.fastBalanceOf(address(this)).unsafeMulDiv(bps, BASIS);
+            uint256 amount = tmp().omul(sellToken.fastBalanceOf(address(this)), bps).unsafeDiv(BASIS);
 
             if ((offset += 32) > data.length) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);

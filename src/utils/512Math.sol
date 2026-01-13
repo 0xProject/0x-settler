@@ -66,7 +66,9 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// you have domain knowledge about the range of values that you will
 /// encounter. Overflow causes truncation, not a revert. Division or modulo by
 /// zero still causes a panic revert with code 18 (identical behavior to
-/// "normal" unchecked arithmetic).
+/// "normal" unchecked arithmetic). The `unsafe*` functions do not perform
+/// checking for division or modulo by zero; in this case division or modulo by
+/// zero is undefined behavior.
 ///
 /// Three additional arithmetic operations are provided, bare `sub`, `mod`, and
 /// `div`. These are provided for use when it is known that the result of the
@@ -148,20 +150,44 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// ### Division
 ///
 /// * div(uint512,uint256) returns (uint256)
+/// * divUp(uint512,uint256) returns (uint256)
+/// * unsafeDiv(uint512,uint256) returns (uint256)
+/// * unsafeDivUp(uint512,uint256) returns (uint256)
 /// * div(uint512,uint512) returns (uint256)
+/// * divUp(uint512,uint512) returns (uint256)
 /// * odiv(uint512,uint512,uint256)
 /// * idiv(uint512,uint256)
+/// * odivUp(uint512,uint512,uint256)
+/// * idivUp(uint512,uint256)
 /// * odiv(uint512,uint512,uint512)
 /// * idiv(uint512,uint512)
 /// * irdiv(uint512,uint512)
+/// * odivUp(uint512,uint512,uint512)
+/// * idivUp(uint512,uint512)
+/// * irdivUp(uint512,uint512)
 /// * divAlt(uint512,uint512) returns (uint256) -- divAlt(uint512,uint256) is not provided because div(uint512,uint256) is suitable for chains without MODEXP
 /// * odivAlt(uint512,uint512,uint512)
 /// * idivAlt(uint512,uint512)
 /// * irdivAlt(uint512,uint512)
+/// * divUpAlt(uint512,uint512) returns (uint256)
+/// * odivUpAlt(uint512,uint512,uint512)
+/// * idivUpAlt(uint512,uint512)
+/// * irdivUpAlt(uint512,uint512)
 ///
 /// ### Square root
 ///
 /// * sqrt(uint512) returns (uint256)
+/// * osqrtUp(uint512,uint512)
+/// * isqrtUp(uint512)
+///
+/// ### Shifting
+///
+/// * oshr(uint512,uint512,uint256)
+/// * ishr(uint512,uint256)
+/// * oshrUp(uint512,uint512,uint256)
+/// * ishrUp(uint512,uint256)
+/// * oshl(uint512,uint512,uint256)
+/// * ishl(uint512,uint256)
 type uint512 is bytes32;
 
 function alloc() pure returns (uint512 r) {
@@ -581,11 +607,15 @@ library Lib512MathArithmetic {
     //// adapted from Remco Bloemen's work https://2π.com/21/muldiv/ .
     //// The original code was released under the MIT license.
 
-    function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d) private pure returns (uint256 r_hi, uint256 r_lo) {
+    function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d)
+        private
+        pure
+        returns (uint256 r_hi, uint256 r_lo, uint256 rem)
+    {
         assembly ("memory-safe") {
             // Get the remainder [n_hi n_lo] % d (< 2²⁵⁶ - 1)
             // 2**256 % d = -d % 2**256 % d -- https://2π.com/17/512-bit-division/
-            let rem := mulmod(x_hi, sub(0x00, d), d)
+            rem := mulmod(x_hi, sub(0x00, d), d)
             rem := addmod(x_lo, rem, d)
 
             r_hi := sub(x_hi, gt(rem, x_lo))
@@ -598,7 +628,7 @@ library Lib512MathArithmetic {
     function _roundDown(uint256 x_hi, uint256 x_lo, uint256 d_hi, uint256 d_lo)
         private
         view
-        returns (uint256 r_hi, uint256 r_lo)
+        returns (uint256 r_hi, uint256 r_lo, uint256 rem_hi, uint256 rem_lo)
     {
         uint512 r;
         assembly ("memory-safe") {
@@ -632,7 +662,7 @@ library Lib512MathArithmetic {
             // to check for failure.
             pop(staticcall(gas(), 0x05, r, 0x100, r, 0x40))
         }
-        (uint256 rem_hi, uint256 rem_lo) = r.into();
+        (rem_hi, rem_lo) = r.into();
         // Round down by subtracting the remainder from the numerator
         (r_hi, r_lo) = _sub(x_hi, x_lo, rem_hi, rem_lo);
     }
@@ -754,7 +784,7 @@ library Lib512MathArithmetic {
     function _div(uint256 n_hi, uint256 n_lo, uint256 d) private pure returns (uint256) {
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
-        (n_hi, n_lo) = _roundDown(n_hi, n_lo, d);
+        (n_hi, n_lo,) = _roundDown(n_hi, n_lo, d);
 
         // Make `d` odd so that it has a multiplicative inverse mod 2²⁵⁶.
         // After this we can discard `n_hi` because our result is only 256 bits
@@ -773,17 +803,65 @@ library Lib512MathArithmetic {
         }
     }
 
-    function div(uint512 n, uint256 d) internal pure returns (uint256) {
-        if (d == 0) {
-            Panic.panic(Panic.DIVISION_BY_ZERO);
-        }
+    function _divUp(uint256 n_hi, uint256 n_lo, uint256 d) private pure returns (uint256) {
+        // Round the numerator down to a multiple of the denominator. This makes
+        // the division exact without affecting the result. Store the remainder
+        // for later to determine whether we must increment the result in order
+        // to round up.
+        uint256 rem;
+        (n_hi, n_lo, rem) = _roundDown(n_hi, n_lo, d);
 
+        // Make `d` odd so that it has a multiplicative inverse mod 2²⁵⁶.
+        // After this we can discard `n_hi` because our result is only 256 bits
+        (n_lo, d) = _toOdd256(n_hi, n_lo, d);
+
+        // We perform division by multiplying by the multiplicative inverse of
+        // the denominator mod 2²⁵⁶. Since `d` is odd, this inverse
+        // exists. Compute that inverse
+        d = _invert256(d);
+
+        unchecked {
+            // Because the division is now exact (we rounded `n` down to a
+            // multiple of `d`), we perform it by multiplying with the modular
+            // inverse of the denominator. This is the floor of the division,
+            // mod 2²⁵⁶. To obtain the ceiling, we conditionally add 1 if the
+            // remainder was nonzero.
+            return (n_lo * d).unsafeInc(0 < rem);
+        }
+    }
+
+    function unsafeDiv(uint512 n, uint256 d) internal pure returns (uint256) {
         (uint256 n_hi, uint256 n_lo) = n.into();
         if (n_hi == 0) {
             return n_lo.unsafeDiv(d);
         }
 
         return _div(n_hi, n_lo, d);
+    }
+
+    function div(uint512 n, uint256 d) internal pure returns (uint256) {
+        if (d == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
+        return unsafeDiv(n, d);
+    }
+
+    function unsafeDivUp(uint512 n, uint256 d) internal pure returns (uint256) {
+        (uint256 n_hi, uint256 n_lo) = n.into();
+        if (n_hi == 0) {
+            return n_lo.unsafeDivUp(d);
+        }
+
+        return _divUp(n_hi, n_lo, d);
+    }
+
+    function divUp(uint512 n, uint256 d) internal pure returns (uint256) {
+        if (d == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
+        return unsafeDivUp(n, d);
     }
 
     function _gt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) private pure returns (bool r) {
@@ -808,7 +886,7 @@ library Lib512MathArithmetic {
 
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
-        (n_hi, n_lo) = _roundDown(n_hi, n_lo, d_hi, d_lo);
+        (n_hi, n_lo,,) = _roundDown(n_hi, n_lo, d_hi, d_lo);
 
         // Make `d_lo` odd so that it has a multiplicative inverse mod 2²⁵⁶.
         // After this we can discard `n_hi` and `d_hi` because our result is
@@ -825,6 +903,43 @@ library Lib512MathArithmetic {
             // multiple of `d`), we perform it by multiplying with the modular
             // inverse of the denominator. This is the correct result mod 2²⁵⁶.
             return n_lo * d_lo;
+        }
+    }
+
+    function divUp(uint512 n, uint512 d) internal view returns (uint256) {
+        (uint256 d_hi, uint256 d_lo) = d.into();
+        if (d_hi == 0) {
+            return divUp(n, d_lo);
+        }
+        (uint256 n_hi, uint256 n_lo) = n.into();
+        if (d_lo == 0) {
+            return n_hi.unsafeDiv(d_hi).unsafeInc(0 < (n_lo | n_hi.unsafeMod(d_hi)));
+        }
+
+        // Round the numerator down to a multiple of the denominator. This makes
+        // the division exact without affecting the result. Save the remainder
+        // for later to determine whether we need to increment to round up.
+        uint256 rem_hi;
+        uint256 rem_lo;
+        (n_hi, n_lo, rem_hi, rem_lo) = _roundDown(n_hi, n_lo, d_hi, d_lo);
+
+        // Make `d_lo` odd so that it has a multiplicative inverse mod 2²⁵⁶.
+        // After this we can discard `n_hi` and `d_hi` because our result is
+        // only 256 bits
+        (n_lo, d_lo) = _toOdd256(n_hi, n_lo, d_hi, d_lo);
+
+        // We perform division by multiplying by the multiplicative inverse of
+        // the denominator mod 2²⁵⁶. Since `d_lo` is odd, this inverse
+        // exists. Compute that inverse
+        d_lo = _invert256(d_lo);
+
+        unchecked {
+            // Because the division is now exact (we rounded `n` down to a
+            // multiple of `d`), we perform it by multiplying with the modular
+            // inverse of the denominator. This is the floor of the division,
+            // mod 2²⁵⁶. To obtain the ceiling, we conditionally add 1 if the
+            // remainder was nonzero.
+            return (n_lo * d_lo).unsafeInc(0 < (rem_hi | rem_lo));
         }
     }
 
@@ -847,7 +962,7 @@ library Lib512MathArithmetic {
 
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
-        (x_hi, x_lo) = _roundDown(x_hi, x_lo, y);
+        (x_hi, x_lo,) = _roundDown(x_hi, x_lo, y);
 
         // Make `y` odd so that it has a multiplicative inverse mod 2²⁵⁶. After
         // this we can discard `x_hi` because we have already obtained the upper
@@ -875,6 +990,58 @@ library Lib512MathArithmetic {
         return odiv(r, r, y);
     }
 
+    function odivUp(uint512 r, uint512 x, uint256 y) internal pure returns (uint512) {
+        if (y == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        if (x_hi == 0) {
+            return r.from(0, x_lo.unsafeDivUp(y));
+        }
+
+        // The upper word of the quotient is straightforward. We can use
+        // "normal" division to obtain it. The remainder after that division
+        // must be carried forward to the later steps, however, because the next
+        // operation we perform is a `mulmod` of `x_hi` with `y`, there's no
+        // need to reduce `x_hi` mod `y` as would be ordinarily expected.
+        uint256 r_hi = x_hi.unsafeDiv(y);
+
+        // Round the numerator down to a multiple of the denominator. This makes
+        // the division exact without affecting the result. Save the remainder
+        // for later to determine whether we need to increment to round up.
+        uint256 rem;
+        (x_hi, x_lo, rem) = _roundDown(x_hi, x_lo, y);
+
+        // Make `y` odd so that it has a multiplicative inverse mod 2²⁵⁶. After
+        // this we can discard `x_hi` because we have already obtained the upper
+        // word.
+        (x_lo, y) = _toOdd256(x_hi, x_lo, y);
+
+        // The lower word of the quotient is obtained from division by
+        // multiplying by the multiplicative inverse of the denominator mod
+        // 2²⁵⁶. Since `y` is odd, this inverse exists. Compute that inverse
+        y = _invert256(y);
+
+        uint256 r_lo;
+        unchecked {
+            // Because the division is now exact (we rounded `x` down to a
+            // multiple of the original `y`), we perform it by multiplying with
+            // the modular inverse of the denominator. This is the floor of the
+            // division, mod 2²⁵⁶.
+            r_lo = x_lo * y;
+        }
+        // To obtain the ceiling, we conditionally add 1 if the remainder was
+        // nonzero.
+        (r_hi, r_lo) = _add(r_hi, r_lo, (0 < rem).toUint());
+
+        return r.from(r_hi, r_lo);
+    }
+
+    function idivUp(uint512 r, uint256 y) internal pure returns (uint512) {
+        return odivUp(r, r, y);
+    }
+
     function odiv(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
         (uint256 y_hi, uint256 y_lo) = y.into();
         if (y_hi == 0) {
@@ -891,7 +1058,7 @@ library Lib512MathArithmetic {
 
         // Round the numerator down to a multiple of the denominator. This makes
         // the division exact without affecting the result.
-        (x_hi, x_lo) = _roundDown(x_hi, x_lo, y_hi, y_lo);
+        (x_hi, x_lo,,) = _roundDown(x_hi, x_lo, y_hi, y_lo);
 
         // Make `y` odd so that it has a multiplicative inverse mod 2⁵¹²
         (x_hi, x_lo, y_hi, y_lo) = _toOdd512(x_hi, x_lo, y_hi, y_lo);
@@ -916,17 +1083,62 @@ library Lib512MathArithmetic {
         return odiv(r, y, r);
     }
 
+    function odivUp(uint512 r, uint512 x, uint512 y) internal view returns (uint512) {
+        (uint256 y_hi, uint256 y_lo) = y.into();
+        if (y_hi == 0) {
+            return odivUp(r, x, y_lo);
+        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        if (y_lo == 0) {
+            (uint256 r_hi_, uint256 r_lo_) = _add(0, x_hi.unsafeDiv(y_hi), (0 < (x_lo | x_hi.unsafeMod(y_hi))).toUint());
+            return r.from(r_hi_, r_lo_);
+        }
+
+        // Round the numerator down to a multiple of the denominator. This makes
+        // the division exact without affecting the result. Save the remainder
+        // for later to determine whether we need to increment to round up.
+        uint256 rem_hi;
+        uint256 rem_lo;
+        (x_hi, x_lo, rem_hi, rem_lo) = _roundDown(x_hi, x_lo, y_hi, y_lo);
+
+        // Make `y` odd so that it has a multiplicative inverse mod 2⁵¹²
+        (x_hi, x_lo, y_hi, y_lo) = _toOdd512(x_hi, x_lo, y_hi, y_lo);
+
+        // We perform division by multiplying by the multiplicative inverse of
+        // the denominator mod 2⁵¹². Since `y` is odd, this inverse
+        // exists. Compute that inverse
+        (y_hi, y_lo) = _invert512(y_hi, y_lo);
+
+        // Because the division is now exact (we rounded `x` down to a multiple
+        // of `y`), we perform it by multiplying with the modular inverse of the
+        // denominator. This is the floor of the division.
+        (uint256 r_hi, uint256 r_lo) = _mul(x_hi, x_lo, y_hi, y_lo);
+
+        // To obtain the ceiling, we conditionally add 1 if the remainder was
+        // nonzero.
+        (r_hi, r_lo) = _add(r_hi, r_lo, (0 < (rem_hi | rem_lo)).toUint());
+
+        return r.from(r_hi, r_lo);
+    }
+
+    function idivUp(uint512 r, uint512 y) internal view returns (uint512) {
+        return odivUp(r, r, y);
+    }
+
+    function irdivUp(uint512 r, uint512 y) internal view returns (uint512) {
+        return odivUp(r, y, r);
+    }
+
     function _gt(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_ex, uint256 y_hi, uint256 y_lo)
         private
         pure
         returns (bool r)
     {
         assembly ("memory-safe") {
-            r :=
-                or(
-                    or(gt(x_ex, y_ex), and(eq(x_ex, y_ex), gt(x_hi, y_hi))),
-                    and(and(eq(x_ex, y_ex), eq(x_hi, y_hi)), gt(x_lo, y_lo))
-                )
+            r := or(
+                or(gt(x_ex, y_ex), and(eq(x_ex, y_ex), gt(x_hi, y_hi))),
+                and(and(eq(x_ex, y_ex), eq(x_hi, y_hi)), gt(x_lo, y_lo))
+            )
         }
     }
 
@@ -963,16 +1175,13 @@ library Lib512MathArithmetic {
             // y is 4 limbs, x is 4 limbs, q is 1 limb
 
             // Normalize. Ensure the uppermost limb of y ≥ 2¹²⁷ (equivalently
-            // y_hi >= 2**255). This is step D1 of Algorithm D
-            // The author's copy of TAOCP (3rd edition) states to set `d = (2 **
-            // 128 - 1) // y_hi`, however this is incorrect. Setting `d` in this
-            // fashion may result in overflow in the subsequent `_mul`. Setting
-            // `d` as implemented below still satisfies the postcondition (`y_hi
-            // >> 128 >= 1 << 127`) but never results in overflow.
-            uint256 d = uint256(1 << 128).unsafeDiv((y_hi >> 128).unsafeInc());
+            // y_hi >= 2**255). This is step D1 of Algorithm D. We use `CLZ` to
+            // find the shift amount, then shift both `x` and `y` left. This is
+            // more gas-efficient than multiplication-based normalization.
+            uint256 s = y_hi.clz();
             uint256 x_ex;
-            (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
-            (y_hi, y_lo) = _mul(y_hi, y_lo, d);
+            (x_ex, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
+            (, y_hi, y_lo) = _shl256(y_hi, y_lo, s);
 
             // `n_approx` is the 2 most-significant limbs of x, after
             // normalization
@@ -1006,9 +1215,9 @@ library Lib512MathArithmetic {
             // y is 3 limbs
 
             // Normalize. Ensure the most significant limb of y ≥ 2¹²⁷ (step D1)
-            // See above comment about the error in TAOCP.
-            uint256 d = uint256(1 << 128).unsafeDiv(y_hi.unsafeInc());
-            (y_hi, y_lo) = _mul(y_hi, y_lo, d);
+            // We use `CLZ` to find the shift amount for normalization
+            uint256 s = (y_hi << 128).clz();
+            (, y_hi, y_lo) = _shl256(y_hi, y_lo, s);
             // `y_next` is the second-most-significant, nonzero, normalized limb
             // of y
             uint256 y_next = y_lo >> 128;
@@ -1021,7 +1230,7 @@ library Lib512MathArithmetic {
 
                 // Finish normalizing (step D1)
                 uint256 x_ex;
-                (x_ex, x_hi, x_lo) = _mul768(x_hi, x_lo, d);
+                (x_ex, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
 
                 uint256 n_approx = (x_ex << 128) | (x_hi >> 128);
                 // As before, `q_hat` is the most significant limb of the
@@ -1076,7 +1285,7 @@ library Lib512MathArithmetic {
                 // x is 3 limbs, q is 1 limb
 
                 // Finish normalizing (step D1)
-                (x_hi, x_lo) = _mul(x_hi, x_lo, d);
+                (, x_hi, x_lo) = _shl256(x_hi, x_lo, s);
 
                 // `q` is the most significant (and only) limb of the quotient
                 // and too high by at most 3 (step D3)
@@ -1116,6 +1325,20 @@ library Lib512MathArithmetic {
             r_ex := shr(neg_s, x_hi)
             r_hi := or(shl(s, x_hi), shr(neg_s, x_lo))
             r_lo := shl(s, x_lo)
+        }
+    }
+
+    function _shl(uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+        (r_hi, r_lo) = _shl256(x_lo, s);
+        unchecked {
+            r_hi |= x_lo << s - 256;
+        }
+    }
+
+    function _shl(uint256 x_hi, uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
+        (, r_hi, r_lo) = _shl256(x_hi, x_lo, s);
+        unchecked {
+            r_hi |= x_lo << s - 256;
         }
     }
 
@@ -1374,6 +1597,66 @@ library Lib512MathArithmetic {
         return _algorithmD(x_hi, x_lo, y_hi, y_lo);
     }
 
+    function divUpAlt(uint512 x, uint512 y) internal pure returns (uint256) {
+        (uint256 y_hi, uint256 y_lo) = y.into();
+        if (y_hi == 0) {
+            return divUp(x, y_lo);
+        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        if (y_lo == 0) {
+            return x_hi.unsafeDiv(y_hi).unsafeInc(0 < (x_lo | x_hi.unsafeMod(y_hi)));
+        }
+        if (_gt(y_hi, y_lo, x_hi, x_lo)) {
+            return (0 < (x_hi | x_lo)).toUint();
+        }
+
+        // At this point, we know that both `x` and `y` are fully represented by
+        // 2 words. There is no simpler representation for the problem. We must
+        // use Knuth's Algorithm D.
+        uint256 q = _algorithmD(x_hi, x_lo, y_hi, y_lo);
+
+        // If the division was not exact, then we must round up. This is more
+        // efficient than explicitly computing whether the remainder is nonzero
+        // inside `_algorithmD`.
+        (uint256 prod_hi, uint256 prod_lo) = _mul(y_hi, y_lo, q);
+        return q.unsafeInc(0 < (prod_hi ^ x_hi) | (prod_lo ^ x_lo));
+    }
+
+    function odivUpAlt(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
+        (uint256 y_hi, uint256 y_lo) = y.into();
+        if (y_hi == 0) {
+            return odivUp(r, x, y_lo);
+        }
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        if (y_lo == 0) {
+            (uint256 r_hi_, uint256 r_lo_) = _add(0, x_hi.unsafeDiv(y_hi), (0 < (x_lo | x_hi.unsafeMod(y_hi))).toUint());
+            return r.from(r_hi_, r_lo_);
+        }
+        if (_gt(y_hi, y_lo, x_hi, x_lo)) {
+            return r.from(0, (0 < (x_hi | x_lo)).toUint());
+        }
+
+        // At this point, we know that both `x` and `y` are fully represented by
+        // 2 words. There is no simpler representation for the problem. We must
+        // use Knuth's Algorithm D.
+        uint256 q = _algorithmD(x_hi, x_lo, y_hi, y_lo);
+
+        // If the division was not exact, then we must round up. This is more
+        // efficient than explicitly computing whether the remainder is nonzero
+        // inside `_algorithmD`.
+        (uint256 prod_hi, uint256 prod_lo) = _mul(y_hi, y_lo, q);
+        (uint256 r_hi, uint256 r_lo) = _add(0, q, (0 < (prod_hi ^ x_hi) | (prod_lo ^ x_lo)).toUint());
+        return r.from(r_hi, r_lo);
+    }
+
+    function idivUpAlt(uint512 r, uint512 y) internal pure returns (uint512) {
+        return odivUpAlt(r, r, y);
+    }
+
+    function irdivUpAlt(uint512 r, uint512 y) internal pure returns (uint512) {
+        return odivUpAlt(r, y, r);
+    }
+
     function omodAlt(uint512 r, uint512 x, uint512 y) internal pure returns (uint512) {
         (uint256 y_hi, uint256 y_lo) = y.into();
         if (y_hi == 0) {
@@ -1414,13 +1697,7 @@ library Lib512MathArithmetic {
     }
 
     // gas benchmark 2025/09/20: ~1425 gas
-    function sqrt(uint512 x) internal pure returns (uint256 r) {
-        (uint256 x_hi, uint256 x_lo) = x.into();
-
-        if (x_hi == 0) {
-            return x_lo.sqrt();
-        }
-
+    function _sqrt(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r) {
         /// Our general approach here is to compute the inverse of the square root of the argument
         /// using Newton-Raphson iterations. Then we combine (multiply) this inverse square root
         /// approximation with the argument to approximate the square root of the argument. After
@@ -1516,9 +1793,9 @@ library Lib512MathArithmetic {
                 // Generally speaking, for relatively smaller `e` (lower values of `x`) and for
                 // relatively larger `M`, we can skip the 5th N-R iteration. The constant `95` is
                 // derived by extensive fuzzing. Attempting a higher-order approximation of the
-                // relationship between `M` and `invE` consumes, on average, more gas. The correct
-                // bits that this iteration would obtain are shifted away during the denormalization
-                // step. This branch is net gas-optimizing.
+                // relationship between `M` and `invE` consumes, on average, more gas. When this
+                // branch is not taken, the correct bits that this iteration would obtain are
+                // shifted away during the denormalization step. This branch is net gas-optimizing.
                 uint256 Y2 = Y * Y;                    // scale: 2²⁵⁴
                 uint256 MY2 = _inaccurateMulHi(M, Y2); // scale: 2²⁵⁴
                 uint256 T = 1.5 * 2 ** 254 - MY2;      // scale: 2²⁵⁴
@@ -1549,7 +1826,7 @@ library Lib512MathArithmetic {
 
             /// `r0` is only an approximation of √x, so we perform a single Babylonian step to fully
             /// converge on ⌊√x⌋ or ⌈√x⌉.  The Babylonian step is:
-            ///     r1 = ⌊(r0 + ⌊x/r0⌋) / 2⌋
+            ///     r = ⌊(r0 + ⌊x/r0⌋) / 2⌋
             // Rather than use the more-expensive division routine that returns a 512-bit result,
             // because the value the upper word of the quotient can take is highly constrained, we
             // can compute the quotient mod 2²⁵⁶ and recover the high word separately. Although
@@ -1561,17 +1838,99 @@ library Lib512MathArithmetic {
             uint256 q_lo = _div(x_hi, x_lo, r0);
             uint256 q_hi = (r0 <= x_hi).toUint();
             (uint256 s_hi, uint256 s_lo) = _add(q_hi, q_lo, r0);
-            // `oflo` here is either 0 or 1. When `oflo == 1`, `r1 == 0`, and the correct value for
-            // `r1` is `type(uint256).max`.
-            (uint256 oflo, uint256 r1) = _shr256(s_hi, s_lo, 1);
-            r1 -= oflo; // underflow is desired
-
-            /// Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
-            /// check whether we've overstepped by 1 and clamp as appropriate. ref:
-            /// https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
-            (uint256 r2_hi, uint256 r2_lo) = _mul(r1, r1);
-            r = r1.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
+            // `oflo` here is either 0 or 1. When `oflo == 1`, `r == 0`, and the correct value for
+            // `r` is `type(uint256).max`.
+            uint256 oflo;
+            (oflo, r) = _shr256(s_hi, s_lo, 1);
+            r -= oflo; // underflow is desired
         }
+    }
+
+    function sqrt(uint512 x) internal pure returns (uint256) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+
+        if (x_hi == 0) {
+            return x_lo.sqrt();
+        }
+
+        uint256 r = _sqrt(x_hi, x_lo);
+
+        // Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
+        // check whether we've overstepped by 1 and clamp as appropriate. ref:
+        // https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
+        (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
+        return r.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
+    }
+
+    function osqrtUp(uint512 r, uint512 x) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+
+        if (x_hi == 0) {
+            return r.from(0, x_lo.sqrtUp());
+        }
+
+        uint256 r_lo = _sqrt(x_hi, x_lo);
+
+        // The Babylonian step can give ⌈√x⌉ if x+1 is a perfect square. This is
+        // fine. If the Babylonian step gave ⌊√x⌋ != √x, we have to round up.
+        (uint256 r2_hi, uint256 r2_lo) = _mul(r_lo, r_lo);
+        uint256 r_hi;
+        (r_hi, r_lo) = _add(0, r_lo, _gt(x_hi, x_lo, r2_hi, r2_lo).toUint());
+        return r.from(r_hi, r_lo);
+    }
+
+    function isqrtUp(uint512 r) internal pure returns (uint512) {
+        return osqrtUp(r, r);
+    }
+
+    function oshr(uint512 r, uint512 x, uint256 s) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 r_hi, uint256 r_lo) = _shr(x_hi, x_lo, s);
+        return r.from(r_hi, r_lo);
+    }
+
+    function ishr(uint512 r, uint256 s) internal pure returns (uint512) {
+        return oshr(r, r, s);
+    }
+
+    function _shrUp(uint256 x_hi, uint256 x_lo, uint256 s) internal pure returns (uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            let neg_s := sub(0x100, s)
+            let s_256 := sub(s, 0x100)
+
+            // compute `(x_hi, x_lo) >> s`, retaining intermediate values
+            let x_lo_shr := shr(s, x_lo)
+            let x_hi_shr := shr(s_256, x_hi)
+            r_hi := shr(s, x_hi)
+            r_lo := or(or(shl(neg_s, x_hi), x_lo_shr), x_hi_shr)
+
+            // detect if nonzero bits were truncated
+            let inc := lt(0x00, or(xor(x_lo, shl(s, x_lo_shr)), mul(xor(x_hi, shl(s_256, x_hi_shr)), lt(0x100, neg_s))))
+
+            // conditionally increment the result
+            r_lo := add(inc, r_lo)
+            r_hi := add(lt(r_lo, inc), r_hi)
+        }
+    }
+
+    function oshrUp(uint512 r, uint512 x, uint256 s) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 r_hi, uint256 r_lo) = _shrUp(x_hi, x_lo, s);
+        return r.from(r_hi, r_lo);
+    }
+
+    function ishrUp(uint512 r, uint256 s) internal pure returns (uint512) {
+        return oshrUp(r, r, s);
+    }
+
+    function oshl(uint512 r, uint512 x, uint256 s) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 r_hi, uint256 r_lo) = _shl(x_hi, x_lo, s);
+        return r.from(r_hi, r_lo);
+    }
+
+    function ishl(uint512 r, uint256 s) internal pure returns (uint512) {
+        return oshl(r, r, s);
     }
 }
 
@@ -1587,10 +1946,10 @@ library Lib512MathUserDefinedHelpers {
         }
     }
 
-    function smuggleToPure(function (uint512, uint512, uint512) internal view returns (uint512) f)
+    function smuggleToPure(function(uint512, uint512, uint512) internal view returns (uint512) f)
         internal
         pure
-        returns (function (uint512, uint512, uint512) internal pure returns (uint512) r)
+        returns (function(uint512, uint512, uint512) internal pure returns (uint512) r)
     {
         assembly ("memory-safe") {
             r := f
@@ -1631,7 +1990,7 @@ function __div(uint512 x, uint512 y) pure returns (uint512 r) {
     Lib512MathUserDefinedHelpers.smuggleToPure(Lib512MathUserDefinedHelpers.odiv)(r, x, y);
 }
 
-using {__add as +, __sub as -, __mul as *, __mod as %, __div as / } for uint512 global;
+using {__add as +, __sub as -, __mul as *, __mod as %, __div as /} for uint512 global;
 
 struct uint512_external {
     uint256 hi;

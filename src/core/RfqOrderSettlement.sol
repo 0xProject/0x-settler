@@ -6,13 +6,13 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {FullMath} from "../vendor/FullMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 abstract contract RfqOrderSettlement is SettlerAbstract {
     using Ternary for bool;
     using SafeTransferLib for IERC20;
-    using FullMath for uint256;
+    using UnsafeMath for uint256;
 
     struct Consideration {
         IERC20 token;
@@ -160,7 +160,9 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         // performed in the maker's favor.
         uint256 takerAmount = takerToken.fastBalanceOf(address(this));
         takerAmount = (takerAmount > maxTakerAmount).ternary(maxTakerAmount, takerAmount);
-        transferDetails.requestedAmount = makerAmount = makerAmount.unsafeMulDiv(takerAmount, maxTakerAmount);
+        unchecked {
+            transferDetails.requestedAmount = makerAmount = (makerAmount * takerAmount).unsafeDiv(maxTakerAmount);
+        }
 
         // Now that we have all the relevant information, make the transfers and log the order.
         takerToken.safeTransfer(maker, takerAmount);

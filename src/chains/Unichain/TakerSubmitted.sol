@@ -63,4 +63,13 @@ contract UnichainSettler is Settler, UnichainMixin {
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, UnichainMixin)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
+    }
 }
