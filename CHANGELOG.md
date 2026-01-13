@@ -49,6 +49,8 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Add `HANJI` action for Hanji order book liquidity source on Base and Monad
+
 ## 2025-12-29
 
 ### Breaking changes
