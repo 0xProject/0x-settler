@@ -5,7 +5,6 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 interface IERC20PermitCommon is IERC20 {
     function nonces(address owner) external view returns (uint256);
-
     function DOMAIN_SEPARATOR() external view returns (bytes32);
 }
 

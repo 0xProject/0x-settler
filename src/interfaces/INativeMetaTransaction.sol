@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 pragma solidity ^0.8.19;
 
-import {IERC20PermitCommon} from "./IERC2612.sol";
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 interface INativeMetaTransaction {
     function executeMetaTransaction(
@@ -11,6 +11,8 @@ interface INativeMetaTransaction {
         bytes32 sigS,
         uint8 sigV
     ) external payable returns (bytes memory);
+    function getNonce(address userAddress) external view returns (uint256);
+    function getDomainSeparator() external view returns (bytes32);
 }
 
-interface IERC20MetaTransaction is IERC20PermitCommon, INativeMetaTransaction {}
+interface IERC20MetaTransaction is INativeMetaTransaction, IERC20 {}

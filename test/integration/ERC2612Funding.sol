@@ -6,20 +6,17 @@ import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
+import {IERC2612, IERC20PermitAllowed} from "../../src/interfaces/IERC2612.sol";
 
-interface IUSDC {
-    function permit(address owner, address spender, uint256 value, uint256 deadline, uint8 v, bytes32 r, bytes32 s)
-        external;
-    function nonces(address owner) external view returns (uint256);
-    function DOMAIN_SEPARATOR() external view returns (bytes32);
-}
-
-contract ERC2612FundingTest is SettlerBasePairTest {
-    IERC20 internal constant _USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    IERC20 internal constant _WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+contract PermitTest is SettlerBasePairTest {
+    IERC2612 internal constant USDC = IERC2612(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
+    IERC20PermitAllowed internal constant DAI = IERC20PermitAllowed(0x6B175474E89094C44Da98b954EedeAC495271d0F);
 
     bytes32 private constant _PERMIT_TYPEHASH =
         keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
+
+    bytes32 private constant _PERMIT_ALLOWED_TYPEHASH =
+        keccak256("Permit(address holder,address spender,uint256 nonce,uint256 expiry,bool allowed)");
 
     function _testName() internal pure override returns (string memory) {
         return "ERC2612Funding";
@@ -38,8 +35,8 @@ contract ERC2612FundingTest is SettlerBasePairTest {
         view
         returns (uint8 v, bytes32 r, bytes32 s)
     {
-        uint256 nonce = IUSDC(address(_USDC)).nonces(owner);
-        bytes32 domainSeparator = IUSDC(address(_USDC)).DOMAIN_SEPARATOR();
+        uint256 nonce = USDC.nonces(owner);
+        bytes32 domainSeparator = USDC.DOMAIN_SEPARATOR();
 
         bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, value, nonce, deadline));
 
@@ -48,29 +45,45 @@ contract ERC2612FundingTest is SettlerBasePairTest {
         (v, r, s) = vm.sign(privateKey, digest);
     }
 
-    function testPermitFlow() public {
+    function _signPermitAllowed(
+        address holder,
+        address spender,
+        uint256 nonce,
+        uint256 expiry,
+        bool allowed,
+        uint256 privateKey
+    ) internal view returns (uint8 v, bytes32 r, bytes32 s) {
+        bytes32 domainSeparator = DAI.DOMAIN_SEPARATOR();
+
+        bytes32 structHash = keccak256(abi.encode(_PERMIT_ALLOWED_TYPEHASH, holder, spender, nonce, expiry, allowed));
+
+        bytes32 digest = keccak256(abi.encodePacked("\x19\x01", domainSeparator, structHash));
+
+        (v, r, s) = vm.sign(privateKey, digest);
+    }
+
+    function testPermit() public {
         (address sender, uint256 pk) = makeAddrAndKey("sender");
 
-        deal(address(_USDC), sender, amount());
+        deal(address(USDC), sender, amount());
 
         uint256 deadline = block.timestamp + 1 hours;
         (uint8 v, bytes32 r, bytes32 s) = _signERC2612Permit(sender, address(allowanceHolder), amount(), deadline, pk);
 
-        bytes memory permitData = abi.encodePacked(
-            IUSDC.permit.selector, IUSDC.DOMAIN_SEPARATOR.selector, abi.encode(sender, amount(), deadline, v, r, s)
-        );
+        bytes memory permitData =
+            abi.encodePacked(USDC.permit.selector, abi.encode(sender, amount(), deadline, v, r, s));
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.TRANSFER_FROM_WITH_PERMIT,
-                (address(this), defaultERC20PermitTransfer(address(_USDC), amount(), 0), permitData)
+                (address(this), defaultERC20PermitTransfer(address(USDC), amount(), 0), permitData)
             )
         );
 
         vm.prank(sender);
         allowanceHolder.exec(
             address(settler),
-            address(_USDC),
+            address(USDC),
             amount(),
             payable(address(settler)),
             abi.encodeCall(
@@ -85,7 +98,48 @@ contract ERC2612FundingTest is SettlerBasePairTest {
             )
         );
 
-        assertEq(_USDC.balanceOf(address(this)), amount(), "Transfer failed");
-        assertEq(_USDC.balanceOf(sender), 0, "Sender should have 0 balance");
+        assertEq(USDC.balanceOf(address(this)), amount(), "Transfer failed");
+        assertEq(USDC.balanceOf(sender), 0, "Sender should have 0 balance");
+    }
+
+    function testPermitAllowed() public {
+        (address sender, uint256 pk) = makeAddrAndKey("sender");
+
+        deal(address(DAI), sender, amount());
+
+        uint256 expiry = block.timestamp + 1 hours;
+        uint256 nonce = DAI.nonces(sender);
+        (uint8 v, bytes32 r, bytes32 s) = _signPermitAllowed(sender, address(allowanceHolder), nonce, expiry, true, pk);
+
+        bytes memory permitData =
+            abi.encodePacked(DAI.permit.selector, abi.encode(sender, nonce, expiry, true, v, r, s));
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.TRANSFER_FROM_WITH_PERMIT,
+                (address(this), defaultERC20PermitTransfer(address(DAI), amount(), 0), permitData)
+            )
+        );
+
+        vm.prank(sender);
+        allowanceHolder.exec(
+            address(settler),
+            address(DAI),
+            amount(),
+            payable(address(settler)),
+            abi.encodeCall(
+                settler.execute,
+                (
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+                    }),
+                    actions,
+                    bytes32(0)
+                )
+            )
+        );
+
+        assertEq(DAI.balanceOf(address(this)), amount(), "Transfer failed");
+        assertEq(DAI.balanceOf(sender), 0, "Sender should have 0 balance");
     }
 }
