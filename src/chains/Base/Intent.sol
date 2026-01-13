@@ -15,7 +15,7 @@ import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
 import {AbstractContext, Context} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
-import {Permit2Payment, Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
+import {Permit2PaymentMetaTxn} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
 contract BaseSettlerIntent is SettlerIntent, BaseSettlerMetaTxn {
@@ -52,12 +52,7 @@ contract BaseSettlerIntent is SettlerIntent, BaseSettlerMetaTxn {
         return super._msgSender();
     }
 
-    function _witnessTypeSuffix()
-        internal
-        pure
-        override(SettlerIntent, Permit2PaymentMetaTxn)
-        returns (string memory)
-    {
+    function _witnessTypeSuffix() internal pure override(SettlerIntent, Permit2PaymentMetaTxn) returns (string memory) {
         return super._witnessTypeSuffix();
     }
 
@@ -105,13 +100,12 @@ contract BaseSettlerIntent is SettlerIntent, BaseSettlerMetaTxn {
         return super._isRestrictedTarget(target);
     }
 
-    function _chainSpecificFallback(bytes calldata data)
+    function _fallback(bytes calldata data)
         internal
-        view
         virtual
-        override(Permit2Payment, BaseSettlerMetaTxn)
-        returns (bytes memory)
+        override(Permit2PaymentAbstract, BaseSettlerMetaTxn)
+        returns (bool, bytes memory)
     {
-        return super._chainSpecificFallback(data);
+        return super._fallback(data);
     }
 }

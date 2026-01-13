@@ -12,7 +12,7 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
-import {Permit2Payment} from "../../core/Permit2Payment.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
 contract BaseSettler is Settler, BaseMixin {
@@ -85,12 +85,7 @@ contract BaseSettler is Settler, BaseMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, BaseMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, BaseMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
@@ -106,13 +101,12 @@ contract BaseSettler is Settler, BaseMixin {
         return super._msgSender();
     }
 
-    function _chainSpecificFallback(bytes calldata data)
+    function _fallback(bytes calldata data)
         internal
-        view
         virtual
-        override(Permit2Payment, BaseMixin)
-        returns (bytes memory)
+        override(Permit2PaymentAbstract, BaseMixin)
+        returns (bool, bytes memory)
     {
-        return BaseMixin._chainSpecificFallback(data);
+        return BaseMixin._fallback(data);
     }
 }

@@ -31,6 +31,7 @@ import {MONAD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, LfjTokenMill {
     constructor() {
@@ -104,5 +105,15 @@ abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, 
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return MONAD_POOL_MANAGER;
+    }
+
+    // I hate Solidity inheritance
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
     }
 }

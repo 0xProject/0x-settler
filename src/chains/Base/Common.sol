@@ -243,19 +243,27 @@ abstract contract BaseMixin is
     }
     */
 
-    function _chainSpecificFallback(bytes calldata data) internal view virtual returns (bytes memory result) {
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
         address msgSender = _msgSender();
         uint256 selector;
         assembly ("memory-safe") {
             selector := shr(0xe0, calldataload(data.offset))
         }
         uint256 msgSenderShifted = uint256(uint160(msgSender)) << 96;
-        require((selector == uint32(IMsgSender.msgSender.selector)).and(msgSenderShifted != 0));
+        success = (selector == uint32(IMsgSender.msgSender.selector)).and(msgSenderShifted != 0);
+        if (!success) {
+            return super._fallback(data);
+        }
         assembly ("memory-safe") {
-            result := mload(0x40)
-            mstore(0x40, add(0x40, result))
-            mstore(result, 0x20)
-            mstore(add(0x20, result), shr(0x60, msgSenderShifted))
+            returndata := mload(0x40)
+            mstore(0x40, add(0x40, returndata))
+            mstore(returndata, 0x20)
+            mstore(add(0x20, returndata), shr(0x60, msgSenderShifted))
         }
     }
 

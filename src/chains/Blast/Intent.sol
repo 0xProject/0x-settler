@@ -103,4 +103,13 @@ contract BlastSettlerIntent is SettlerIntent, BlastSettlerMetaTxn {
     {
         return super._permitToSellAmount(permit);
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, BlastSettlerMetaTxn)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
+    }
 }
