@@ -126,12 +126,13 @@ abstract contract HanjiTestBase is AllowanceHolderPairTest {
         uint256 _amount = amount();
         IERC20 _fromToken = fromToken();
         IERC20 _toToken = toToken();
+        if (address(_toToken) == WMON) _toToken = IERC20(ETH_ADDRESS);
 
         uint256 beforeFrom = balanceOf(_fromToken, FROM);
         uint256 beforeTo = balanceOf(_toToken, FROM);
 
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+            recipient: payable(FROM), buyToken: _toToken, minAmountOut: 0
         });
 
         bytes memory ahData = abi.encodeCall(settler.execute, (allowedSlippage, actions, bytes32(0)));
@@ -142,8 +143,8 @@ abstract contract HanjiTestBase is AllowanceHolderPairTest {
         snapEnd();
         vm.stopPrank();
 
-        fromSpent = beforeFrom - _fromToken.balanceOf(FROM);
-        toReceived = _toToken.balanceOf(FROM) - beforeTo;
+        fromSpent = beforeFrom - balanceOf(_fromToken, FROM);
+        toReceived = balanceOf(_toToken, FROM) - beforeTo;
     }
 
     /// @dev Builds standard transfer + hanji actions
@@ -194,7 +195,7 @@ contract HanjiWmonToUsdcTest is HanjiTestBase {
 
     // ========== BASIC SWAP TEST ==========
 
-    /// @notice Test selling WMON for USDC (isAsk=true, useNative=false)
+    /// @notice Test selling WMON for USDC (isAsk=true)
     function testHanji_sellWmonForUsdc() public skipIf(address(hanjiPool()) == address(0)) {
         (uint256 spent, uint256 received) = _executeHanji(_buildTransferAndSwapActions(), "hanji_sellWmonForUsdc");
         assertEq(spent, amount(), "Should have spent WMON");
@@ -203,7 +204,7 @@ contract HanjiWmonToUsdcTest is HanjiTestBase {
 
     // ========== NATIVE ETH SWAP TEST ==========
 
-    /// @notice Test selling native MON for USDC (sendNative=true, isAsk=true)
+    /// @notice Test selling native MON for USDC (isAsk=true)
     /// @dev Unwraps WMON to native using BASIC, then sells via HANJI
     function testHanji_sellNativeForUsdc() public skipIf(address(hanjiPool()) == address(0)) {
         ISignatureTransfer.PermitTransferFrom memory permit =
@@ -302,8 +303,8 @@ contract HanjiUsdcToWmonTest is HanjiTestBase {
 
     // ========== BASIC SWAP TEST ==========
 
-    /// @notice Test selling USDC for WMON (isAsk=false, useNative=false)
-    function testHanji_sellUsdcForWmon() public skipIf(address(hanjiPool()) == address(0)) {
+    /// @notice Test selling USDC for MON (not WMON) (isAsk=false)
+    function testHanji_sellUsdcForNative() public skipIf(address(hanjiPool()) == address(0)) {
         (uint256 spent, uint256 received) = _executeHanji(_buildTransferAndSwapActions(), "hanji_sellUsdcForWmon");
         assertEq(spent, amount(), "Should have spent USDC");
         assertGt(received, 0, "Should have received WMON");
