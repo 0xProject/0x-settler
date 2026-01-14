@@ -102,11 +102,7 @@ abstract contract HanjiTestBase is AllowanceHolderPairTest {
     // ========== HELPER FUNCTIONS ==========
 
     /// @dev Builds a standard HANJI action with common parameters
-    function _buildHanjiAction(bool unwrap, uint256 bps, uint256 minBuyAmount)
-        internal
-        view
-        returns (bytes memory)
-    {
+    function _buildHanjiAction(bool unwrap, uint256 bps, uint256 minBuyAmount) internal view returns (bytes memory) {
         return abi.encodeCall(
             ISettlerActions.HANJI,
             (
@@ -134,8 +130,9 @@ abstract contract HanjiTestBase is AllowanceHolderPairTest {
         uint256 beforeFrom = balanceOf(_fromToken, FROM);
         uint256 beforeTo = balanceOf(_toToken, FROM);
 
-        ISettlerBase.AllowedSlippage memory allowedSlippage =
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+        });
 
         bytes memory ahData = abi.encodeCall(settler.execute, (allowedSlippage, actions, bytes32(0)));
 
@@ -215,7 +212,8 @@ contract HanjiWmonToUsdcTest is HanjiTestBase {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, new bytes(0))),
             abi.encodeCall(
-                ISettlerActions.BASIC, (address(fromToken()), 10_000, address(fromToken()), 4, abi.encodeCall(IWMON.withdraw, (0)))
+                ISettlerActions.BASIC,
+                (address(fromToken()), 10_000, address(fromToken()), 4, abi.encodeCall(IWMON.withdraw, (0)))
             ),
             _buildHanjiAction(true, 10_000, 0)
         );
@@ -255,8 +253,9 @@ contract HanjiWmonToUsdcTest is HanjiTestBase {
             _buildHanjiAction(false, 10_000, type(uint128).max)
         );
 
-        ISettlerBase.AllowedSlippage memory allowedSlippage =
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+        });
         bytes memory ahData = abi.encodeCall(settler.execute, (allowedSlippage, actions, bytes32(0)));
 
         vm.startPrank(FROM, FROM);
@@ -346,7 +345,8 @@ contract HanjiUsdcToWmonTest is HanjiTestBase {
     function testHanji_buyWmon_receiveWrapped() public skipIf(address(hanjiPool()) == address(0)) {
         uint256 beforeEth = balanceOf(IERC20(ETH_ADDRESS), FROM);
 
-        (uint256 spent, uint256 received) = _executeHanji(_buildTransferAndSwapActions(), "hanji_buyWmon_receiveWrapped");
+        (uint256 spent, uint256 received) =
+            _executeHanji(_buildTransferAndSwapActions(), "hanji_buyWmon_receiveWrapped");
         assertEq(spent, amount(), "Should have spent USDC");
         assertGt(received, 0, "Should have received WMON token");
         assertEq(FROM.balance, beforeEth, "Should not have received native MON");
@@ -381,8 +381,9 @@ contract HanjiUsdcToWmonTest is HanjiTestBase {
             _buildHanjiAction(false, 10_000, type(uint128).max)
         );
 
-        ISettlerBase.AllowedSlippage memory allowedSlippage =
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+        });
         bytes memory ahData = abi.encodeCall(settler.execute, (allowedSlippage, actions, bytes32(0)));
 
         vm.startPrank(FROM, FROM);

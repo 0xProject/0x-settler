@@ -180,16 +180,7 @@ abstract contract BaseMixin is
                 uint256 minBuyAmount
             ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
 
-            sellToHanji(
-                sellToken,
-                bps,
-                pool,
-                sellScalingFactor,
-                buyScalingFactor,
-                isAsk,
-                priceLimit,
-                minBuyAmount
-            );
+            sellToHanji(sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
         } else {
             return false;
         }

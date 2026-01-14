@@ -86,16 +86,7 @@ abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, 
                 uint256 minBuyAmount
             ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
 
-            sellToHanji(
-                sellToken,
-                bps,
-                pool,
-                sellScalingFactor,
-                buyScalingFactor,
-                isAsk,
-                priceLimit,
-                minBuyAmount
-            );
+            sellToHanji(sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.LFJTM.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, address pool, bool zeroForOne, uint256 minBuyAmount) =
                 abi.decode(data, (address, IERC20, uint256, address, bool, uint256));
