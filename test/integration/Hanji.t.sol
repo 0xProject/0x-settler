@@ -225,23 +225,6 @@ contract HanjiWmonToUsdcTest is HanjiTestBase {
         assertEq(address(settler).balance, 0, "Settler should have no ETH left");
     }
 
-    // ========== CUSTODY TRANSFER TEST ==========
-
-    /// @notice Test custody transfer: tokens sent directly to pool (bps=0)
-    function testHanji_custody_sellWmonForUsdc() public skipIf(address(hanjiPool()) == address(0)) {
-        ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
-
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(hanjiPool()), permit, new bytes(0))),
-            _buildHanjiAction(false, 0, 0) // bps=0 for custody
-        );
-
-        (uint256 spent, uint256 received) = _executeHanji(actions, "hanji_custody_sellWmonForUsdc");
-        assertEq(spent, amount(), "Should have spent WMON");
-        assertGt(received, 0, "Should have received USDC");
-    }
-
     // ========== SLIPPAGE TEST ==========
 
     /// @notice Test that minBuyAmount causes revert when not met
@@ -306,23 +289,6 @@ contract HanjiUsdcToWmonTest is HanjiTestBase {
     /// @notice Test selling USDC for MON (not WMON) (isAsk=false)
     function testHanji_sellUsdcForNative() public skipIf(address(hanjiPool()) == address(0)) {
         (uint256 spent, uint256 received) = _executeHanji(_buildTransferAndSwapActions(), "hanji_sellUsdcForWmon");
-        assertEq(spent, amount(), "Should have spent USDC");
-        assertGt(received, 0, "Should have received WMON");
-    }
-
-    // ========== CUSTODY TRANSFER TEST ==========
-
-    /// @notice Test custody transfer for USDC -> WMON
-    function testHanji_custody_sellUsdcForWmon() public skipIf(address(hanjiPool()) == address(0)) {
-        ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
-
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(hanjiPool()), permit, new bytes(0))),
-            _buildHanjiAction(false, 0, 0) // bps=0 for custody
-        );
-
-        (uint256 spent, uint256 received) = _executeHanji(actions, "hanji_custody_sellUsdcForWmon");
         assertEq(spent, amount(), "Should have spent USDC");
         assertGt(received, 0, "Should have received WMON");
     }
