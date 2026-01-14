@@ -259,7 +259,7 @@ contract HanjiWmonToUsdcTest is HanjiTestBase {
         bytes memory ahData = abi.encodeCall(settler.execute, (allowedSlippage, actions, bytes32(0)));
 
         vm.startPrank(FROM, FROM);
-        vm.expectRevert(TooMuchSlippage.selector);
+        vm.expectPartialRevert(TooMuchSlippage.selector);
         allowanceHolder.exec(address(settler), address(fromToken()), amount(), payable(address(settler)), ahData);
         vm.stopPrank();
     }
@@ -344,7 +344,7 @@ contract HanjiUsdcToWmonTest is HanjiTestBase {
         bytes memory ahData = abi.encodeCall(settler.execute, (allowedSlippage, actions, bytes32(0)));
 
         vm.startPrank(FROM, FROM);
-        vm.expectRevert(TooMuchSlippage.selector);
+        vm.expectPartialRevert(TooMuchSlippage.selector);
         allowanceHolder.exec(address(settler), address(fromToken()), amount(), payable(address(settler)), ahData);
         vm.stopPrank();
     }
