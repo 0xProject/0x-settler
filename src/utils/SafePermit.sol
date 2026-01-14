@@ -16,7 +16,7 @@ library FastPermit {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) internal returns (bool success, bytes memory returnData) {
+    ) internal returns (bool success) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0xd505accf) // selector for `permit(address,address,uint256,uint256,uint8,bytes32,bytes32)`
@@ -27,14 +27,9 @@ library FastPermit {
             mstore(add(0xa0, ptr), and(0xff, v))
             mstore(add(0xc0, ptr), r)
             mstore(add(0xe0, ptr), s)
-            success := call(gas(), token, 0x00, add(0x1c, ptr), 0xe4, 0x00, 0x00)
 
-            let size := returndatasize()
-            mstore(ptr, size)
-            returndatacopy(add(0x20, ptr), 0x00, size)
-            returnData := ptr
-
-            mstore(0x40, add(0x20, add(size, ptr)))
+            success := call(gas(), token, 0x00, add(0x1c, ptr), 0xe4, 0x00, 0x20)
+            success := and(success, and(iszero(xor(mload(0x00), 0x01)), gt(returndatasize(), 0x1f)))
         }
     }
 
@@ -48,7 +43,7 @@ library FastPermit {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) internal returns (bool success, bytes memory returnData) {
+    ) internal returns (bool success) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, 0x8fcbaf0c) // selector for `permit(address,address,uint256,uint256,bool,uint8,bytes32,bytes32)`
@@ -60,14 +55,9 @@ library FastPermit {
             mstore(add(0xc0, ptr), and(0xff, v))
             mstore(add(0xe0, ptr), r)
             mstore(add(0x100, ptr), s)
-            success := call(gas(), token, 0x00, add(0x1c, ptr), 0x104, 0x00, 0x00)
 
-            let size := returndatasize()
-            mstore(ptr, size)
-            returndatacopy(add(0x20, ptr), 0x00, size)
-            returnData := ptr
-
-            mstore(0x40, add(0x20, add(size, ptr)))
+            success := call(gas(), token, 0x00, add(0x1c, ptr), 0x104, 0x00, 0x20)
+            success := and(success, and(iszero(xor(mload(0x00), 0x01)), gt(returndatasize(), 0x1f)))
         }
     }
 
@@ -79,7 +69,7 @@ library FastPermit {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) internal returns (bool success, bytes memory returnData, bytes32 functionSignatureHash) {
+    ) internal returns (bool success, bytes32 functionSignatureHash) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(add(0xf8, ptr), amount)
@@ -95,55 +85,69 @@ library FastPermit {
 
             functionSignatureHash := keccak256(add(0xd4, ptr), 0x44)
 
-            success := call(gas(), token, 0x00, add(0x10, ptr), 0x108, 0x00, 0x00)
+            success := call(gas(), token, 0x00, add(0x10, ptr), 0x108, 0x00, 0x60)
+            success := and(success, and(iszero(xor(mload(0x40), 0x01)), gt(returndatasize(), 0x5f)))
 
-            let size := returndatasize()
-            mstore(ptr, size)
-            returndatacopy(add(0x20, ptr), 0x00, size)
-            returnData := ptr
-
-            mstore(0x40, add(0x20, add(size, ptr)))
+            mstore(0x40, ptr)
         }
     }
 
     function fastDomainSeparator(IERC20 token, bytes4 domainSeparatorSelector)
         internal
         view
-        returns (bool success, bytes memory domainSeparator)
+        returns (bytes32 domainSeparator)
     {
         assembly ("memory-safe") {
             mstore(0x00, domainSeparatorSelector)
-            success := staticcall(gas(), token, 0x00, 0x04, 0x00, 0x20)
-
-            domainSeparator := mload(0x40)
-            let size := returndatasize()
-            mstore(domainSeparator, size)
-            returndatacopy(add(0x20, domainSeparator), 0x00, size)
-            mstore(0x40, add(0x20, add(size, domainSeparator)))
+            if iszero(staticcall(gas(), token, 0x00, 0x04, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if gt(0x20, returndatasize()) {
+                revert(0x00, 0x00)
+            }
+            domainSeparator := mload(0x00)
         }
     }
 
-    function fastNonce(IERC20 token, address owner, bytes4 nonceSelector)
-        internal
-        view
-        returns (bool success, bytes memory nonce)
-    {
+    function fastNonce(IERC20 token, address owner, bytes4 nonceSelector) internal view returns (uint256 nonce) {
         assembly ("memory-safe") {
             mstore(0x00, nonceSelector)
             mstore(0x04, and(0xffffffffffffffffffffffffffffffffffffffff, owner))
-            success := staticcall(gas(), token, 0x00, 0x24, 0x00, 0x20)
+            if iszero(staticcall(gas(), token, 0x00, 0x24, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            if gt(0x20, returndatasize()) {
+                revert(0x00, 0x00)
+            }
+            nonce := mload(0x00)
+        }
+    }
 
-            nonce := mload(0x40)
-            let size := returndatasize()
-            mstore(nonce, size)
-            returndatacopy(add(0x20, nonce), 0x00, size)
-            mstore(0x40, add(0x20, add(size, nonce)))
+    function fastAllowance(IERC20 token, address owner, address spender) internal view returns (uint256 allowance) {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(0x00, 0xdd62ed3e) // selector for `allowance(address,address)`
+            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, owner))
+            mstore(0x40, and(0xffffffffffffffffffffffffffffffffffffffff, spender))
+            if iszero(staticcall(gas(), token, 0x1c, 0x44, 0x00, 0x20)) {
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
+            }
+            if gt(0x20, returndatasize()) {
+                revert(0x00, 0x00)
+            }
+            allowance := mload(0x00)
+            mstore(0x40, ptr)
         }
     }
 }
 
 library SafePermit {
-    using Revert for bytes;
     using FastPermit for IERC2612;
     using FastPermit for IERC20PermitAllowed;
     using FastPermit for IERC20MetaTransaction;
@@ -158,66 +162,30 @@ library SafePermit {
     bytes32 private constant _META_TRANSACTION_TYPEHASH =
         keccak256("MetaTransaction(uint256 nonce,address from,bytes functionSignature)");
 
-    function _bubbleRevert(bool success, bytes memory returndata, string memory message) internal pure {
-        if (success) {
-            revert(message);
-        }
-        returndata._revert();
-    }
-
-    function _checkEffects(
-        IERC20 token,
-        address owner,
-        address spender,
-        uint256 amount,
-        uint256 nonce,
-        bool success,
-        bytes memory returndata
-    ) internal view {
-        if (nonce == 0) {
-            _bubbleRevert(success, returndata, "SafePermit: zero nonce");
-        }
-        if (token.allowance(owner, spender) != amount) {
-            _bubbleRevert(success, returndata, "SafePermit: failed");
+    function _revert(uint32 err) internal pure {
+        assembly ("memory-safe") {
+            mstore(0x00, err)
+            revert(0x1c, 0x04)
         }
     }
 
-    function _getDomainSeparator(IERC20 token, bytes4 domainSeparatorSelector) internal view returns (bytes32) {
-        (bool success, bytes memory domainSeparator) = token.fastDomainSeparator(domainSeparatorSelector);
-        if (!success || domainSeparator.length != 32) {
-            _bubbleRevert(success, domainSeparator, "SafePermit: domain separator");
+    function _checkEffects(IERC20 token, address owner, address spender, uint256 amount, uint256 nonce) internal view {
+        if (nonce == 0 || token.fastAllowance(owner, spender) != amount) {
+            _revert(0xb78cb0dd); // selector for `PermitFailed()`
         }
-        return abi.decode(domainSeparator, (bytes32));
     }
 
-    function _getNonce(IERC20 token, address owner, bytes4 nonceSelector) internal view returns (uint256) {
-        (bool success, bytes memory nonce) = token.fastNonce(owner, nonceSelector);
-        if (!success || nonce.length != 32) {
-            _bubbleRevert(success, nonce, "SafePermit: nonce");
-        }
-        return abi.decode(nonce, (uint256));
-    }
-
-    function _checkSignature(
-        IERC20 token,
-        bytes4 domainSeparatorSelector,
-        address owner,
-        bytes32 structHash,
-        uint8 v,
-        bytes32 r,
-        bytes32 s,
-        bool success,
-        bytes memory returndata
-    ) internal view {
-        bytes32 signingHash = keccak256(
-            bytes.concat(bytes2("\x19\x01"), _getDomainSeparator(token, domainSeparatorSelector), structHash)
-        );
+    function _checkSignature(bytes32 domainSeparator, address owner, bytes32 structHash, uint8 v, bytes32 r, bytes32 s)
+        internal
+        pure
+    {
+        bytes32 signingHash = keccak256(bytes.concat(bytes2("\x19\x01"), domainSeparator, structHash));
         address recovered = ecrecover(signingHash, v, r, s);
         if (recovered == address(0)) {
-            _bubbleRevert(success, returndata, "SafePermit: bad signature");
+            _revert(0x8baa579f); // selector for `InvalidSignature()`
         }
         if (recovered != owner) {
-            _bubbleRevert(success, returndata, "SafePermit: wrong signer");
+            _revert(0x815e1d64); // selector for `InvalidSigner()`
         }
     }
 
@@ -235,22 +203,19 @@ library SafePermit {
         // function (e.g. WETH). `permit` could fail spuriously if it was
         // replayed/frontrun. Avoid these by manually verifying the effects and
         // signature. Insufficient gas griefing is defused by checking the effects.
-        (bool success, bytes memory returndata) = token.fastPermit(owner, spender, amount, deadline, v, r, s);
-        if (success && returndata.length > 0 && abi.decode(returndata, (bool))) {
-            return;
+        if (!token.fastPermit(owner, spender, amount, deadline, v, r, s)) {
+            // Check effects and signature
+            if (block.timestamp > deadline) {
+                _revert(0x1a15a3cc); // selector for `PermitExpired()`
+            }
+            uint256 nonce = token.fastNonce(owner, token.nonces.selector);
+            _checkEffects(token, owner, spender, amount, nonce);
+            unchecked {
+                nonce--;
+            }
+            bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, amount, nonce, deadline));
+            _checkSignature(token.fastDomainSeparator(token.DOMAIN_SEPARATOR.selector), owner, structHash, v, r, s);
         }
-
-        // Check effects and signature
-        uint256 nonce = _getNonce(token, owner, token.nonces.selector);
-        if (block.timestamp > deadline) {
-            _bubbleRevert(success, returndata, "SafePermit: expired");
-        }
-        _checkEffects(token, owner, spender, amount, nonce, success, returndata);
-        unchecked {
-            nonce--;
-        }
-        bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, amount, nonce, deadline));
-        _checkSignature(token, token.DOMAIN_SEPARATOR.selector, owner, structHash, v, r, s, success, returndata);
     }
 
     function safePermit(
@@ -265,23 +230,20 @@ library SafePermit {
         bytes32 s
     ) internal {
         // See comments above
-        (bool success, bytes memory returndata) =
-            token.fastPermitAllowed(owner, spender, nonce, deadline, allowed, v, r, s);
-        if (success && returndata.length > 0 && abi.decode(returndata, (bool))) {
-            return;
+        if (!token.fastPermitAllowed(owner, spender, nonce, deadline, allowed, v, r, s)) {
+            // Check effects and signature
+            if (block.timestamp > deadline && deadline > 0) {
+                _revert(0x1a15a3cc);
+            }
+            nonce = token.fastNonce(owner, token.nonces.selector);
+            _checkEffects(token, owner, spender, allowed ? type(uint256).max : 0, nonce);
+            unchecked {
+                nonce--;
+            }
+            bytes32 structHash =
+                keccak256(abi.encode(_PERMIT_ALLOWED_TYPEHASH, owner, spender, nonce, deadline, allowed));
+            _checkSignature(token.fastDomainSeparator(token.DOMAIN_SEPARATOR.selector), owner, structHash, v, r, s);
         }
-
-        // Check effects and signature
-        if (block.timestamp > deadline && deadline > 0) {
-            _bubbleRevert(success, returndata, "SafePermit: expired");
-        }
-        nonce = _getNonce(token, owner, token.nonces.selector);
-        _checkEffects(token, owner, spender, allowed ? type(uint256).max : 0, nonce, success, returndata);
-        unchecked {
-            nonce--;
-        }
-        bytes32 structHash = keccak256(abi.encode(_PERMIT_ALLOWED_TYPEHASH, owner, spender, nonce, deadline, allowed));
-        _checkSignature(token, token.DOMAIN_SEPARATOR.selector, owner, structHash, v, r, s, success, returndata);
     }
 
     function safePermit(
@@ -294,19 +256,17 @@ library SafePermit {
         bytes32 s
     ) internal {
         // See comments above
-        (bool success, bytes memory returndata, bytes32 functionSignatureHash) =
+        (bool success, bytes32 functionSignatureHash) =
             token.fastApproveMetaTransaction(owner, spender, amount, v, r, s);
-        if (success && returndata.length > 0 && abi.decode(abi.decode(returndata, (bytes)), (bool))) {
-            return;
+        if (!success) {
+            // Check effects and signature
+            uint256 nonce = token.fastNonce(owner, token.getNonce.selector);
+            _checkEffects(token, owner, spender, amount, nonce);
+            unchecked {
+                nonce--;
+            }
+            bytes32 structHash = keccak256(abi.encode(_META_TRANSACTION_TYPEHASH, nonce, owner, functionSignatureHash));
+            _checkSignature(token.fastDomainSeparator(token.getDomainSeparator.selector), owner, structHash, v, r, s);
         }
-
-        // Check effects and signature
-        uint256 nonce = _getNonce(token, owner, token.getNonce.selector);
-        _checkEffects(token, owner, spender, amount, nonce, success, returndata);
-        unchecked {
-            nonce--;
-        }
-        bytes32 structHash = keccak256(abi.encode(_META_TRANSACTION_TYPEHASH, nonce, owner, functionSignatureHash));
-        _checkSignature(token, token.getDomainSeparator.selector, owner, structHash, v, r, s, success, returndata);
     }
 }
