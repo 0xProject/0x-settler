@@ -324,14 +324,12 @@ interface ISettlerActions {
     ) external;
 
     function HANJI(
-        address recipient,
         address sellToken,
         uint256 bps,
         address pool,
         uint256 sellScalingFactor,
         uint256 buyScalingFactor,
         bool isAsk,
-        bool useNative,
         uint256 priceLimit,
         uint256 minBuyAmount
     ) external;
