@@ -34,7 +34,7 @@ library FastPermit {
             returndatacopy(add(0x20, ptr), 0x00, size)
             returnData := ptr
 
-            mstore(0x40, add(size, ptr))
+            mstore(0x40, add(0x20, add(size, ptr)))
         }
     }
 
@@ -67,7 +67,7 @@ library FastPermit {
             returndatacopy(add(0x20, ptr), 0x00, size)
             returnData := ptr
 
-            mstore(0x40, add(size, ptr))
+            mstore(0x40, add(0x20, add(size, ptr)))
         }
     }
 
@@ -79,7 +79,7 @@ library FastPermit {
         uint8 v,
         bytes32 r,
         bytes32 s
-    ) internal returns (bool success, bytes memory returnData) {
+    ) internal returns (bool success, bytes memory returnData, bytes32 functionSignatureHash) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(add(0xf8, ptr), amount)
@@ -89,9 +89,11 @@ library FastPermit {
             mstore(add(0x94, ptr), and(0xff, v))
             mstore(add(0x74, ptr), s)
             mstore(add(0x54, ptr), r)
-            mstore(add(0x34, ptr), 0xa4) // offset to function signature
+            mstore(add(0x34, ptr), 0xa0) // offset to function signature
             mstore(add(0x14, ptr), owner)
             mstore(ptr, 0x0c53c51c000000000000000000000000) // selector for `executeMetaTransaction(address,bytes,bytes32,bytes32,uint8)` with `owner` padding
+
+            functionSignatureHash := keccak256(add(0xd4, ptr), 0x44)
 
             success := call(gas(), token, 0x00, add(0x10, ptr), 0x108, 0x00, 0x00)
 
@@ -100,7 +102,7 @@ library FastPermit {
             returndatacopy(add(0x20, ptr), 0x00, size)
             returnData := ptr
 
-            mstore(0x40, add(size, ptr))
+            mstore(0x40, add(0x20, add(size, ptr)))
         }
     }
 
@@ -117,7 +119,7 @@ library FastPermit {
             let size := returndatasize()
             mstore(domainSeparator, size)
             returndatacopy(add(0x20, domainSeparator), 0x00, size)
-            mstore(0x40, add(0x20, domainSeparator))
+            mstore(0x40, add(0x20, add(size, domainSeparator)))
         }
     }
 
@@ -135,7 +137,7 @@ library FastPermit {
             let size := returndatasize()
             mstore(nonce, size)
             returndatacopy(add(0x20, nonce), 0x00, size)
-            mstore(0x40, add(0x20, nonce))
+            mstore(0x40, add(0x20, add(size, nonce)))
         }
     }
 }
@@ -292,9 +294,8 @@ library SafePermit {
         bytes32 s
     ) internal {
         // See comments above
-        bytes memory functionSignature = abi.encodeCall(token.approve, (spender, amount));
-        (bool success, bytes memory returndata) =
-            address(token).call(abi.encodeCall(token.executeMetaTransaction, (owner, functionSignature, r, s, v)));
+        (bool success, bytes memory returndata, bytes32 functionSignatureHash) =
+            token.fastApproveMetaTransaction(owner, spender, amount, v, r, s);
         if (success && returndata.length > 0 && abi.decode(abi.decode(returndata, (bytes)), (bool))) {
             return;
         }
@@ -305,8 +306,7 @@ library SafePermit {
         unchecked {
             nonce--;
         }
-        bytes32 structHash =
-            keccak256(abi.encode(_META_TRANSACTION_TYPEHASH, nonce, owner, keccak256(functionSignature)));
+        bytes32 structHash = keccak256(abi.encode(_META_TRANSACTION_TYPEHASH, nonce, owner, functionSignatureHash));
         _checkSignature(token, token.getDomainSeparator.selector, owner, structHash, v, r, s, success, returndata);
     }
 }
