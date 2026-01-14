@@ -46,17 +46,17 @@ library FastPermit {
     ) internal returns (bool success) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(ptr, 0x8fcbaf0c) // selector for `permit(address,address,uint256,uint256,bool,uint8,bytes32,bytes32)`
-            mstore(add(0x20, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, owner))
-            mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, spender))
-            mstore(add(0x60, ptr), nonce)
-            mstore(add(0x80, ptr), expiry)
-            mstore(add(0xa0, ptr), allowed)
-            mstore(add(0xc0, ptr), and(0xff, v))
-            mstore(add(0xe0, ptr), r)
-            mstore(add(0x100, ptr), s)
+            mstore(add(0xf4, ptr), s)
+            mstore(add(0xd4, ptr), r)
+            mstore(add(0xb4, ptr), and(0xff, v))
+            mstore(add(0x94, ptr), allowed)
+            mstore(add(0x74, ptr), expiry)
+            mstore(add(0x54, ptr), nonce)
+            mstore(add(0x34, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, spender))
+            mstore(add(0x14, ptr), owner)
+            mstore(ptr, 0x8fcbaf0c000000000000000000000000) // selector for `permit(address,address,uint256,uint256,bool,uint8,bytes32,bytes32)`
 
-            success := call(gas(), token, 0x00, add(0x1c, ptr), 0x104, 0x00, 0x20)
+            success := call(gas(), token, 0x00, add(0x10, ptr), 0x104, 0x00, 0x20)
             success := and(success, and(iszero(xor(mload(0x00), 0x01)), gt(returndatasize(), 0x1f)))
         }
     }
@@ -175,17 +175,24 @@ library SafePermit {
         }
     }
 
-    function _checkSignature(bytes32 domainSeparator, address owner, bytes32 structHash, uint8 v, bytes32 r, bytes32 s)
-        internal
-        pure
-    {
-        bytes32 signingHash = keccak256(bytes.concat(bytes2("\x19\x01"), domainSeparator, structHash));
-        address recovered = ecrecover(signingHash, v, r, s);
-        if (recovered == address(0)) {
-            _revert(0x8baa579f); // selector for `InvalidSignature()`
-        }
-        if (recovered != owner) {
-            _revert(0x815e1d64); // selector for `InvalidSigner()`
+    function _checkSignature(bytes32 signingHash, address owner, uint8 v, bytes32 r, bytes32 s) internal view {
+        assembly ("memory-safe") {
+            let ptr := mload(0x40)
+            mstore(0x00, signingHash)
+            mstore(0x20, and(0xff, v))
+            mstore(0x40, r)
+            mstore(0x60, s)
+            let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
+            if iszero(recovered) {
+                mstore(0x00, 0x8baa579f) // selector for `InvalidSignature()`
+                revert(0x1c, 0x04)
+            }
+            if lt(returndatasize(), shl(0x60, xor(owner, recovered))) {
+                mstore(0x00, 0x815e1d64) // selector for `InvalidSigner()`
+                revert(0x1c, 0x04)
+            }
+            mstore(0x40, ptr)
+            mstore(0x60, 0x00)
         }
     }
 
@@ -213,8 +220,23 @@ library SafePermit {
             unchecked {
                 nonce--;
             }
-            bytes32 structHash = keccak256(abi.encode(_PERMIT_TYPEHASH, owner, spender, amount, nonce, deadline));
-            _checkSignature(token.fastDomainSeparator(token.DOMAIN_SEPARATOR.selector), owner, structHash, v, r, s);
+            bytes32 domainSeparator = token.fastDomainSeparator(token.DOMAIN_SEPARATOR.selector);
+            bytes32 typeHash = _PERMIT_TYPEHASH;
+            bytes32 signingHash;
+            assembly ("memory-safe") {
+                let ptr := mload(0x40)
+                mstore(ptr, 0x1901)
+                mstore(add(0x20, ptr), domainSeparator)
+                mstore(add(0x40, ptr), typeHash)
+                mstore(add(0x60, ptr), owner)
+                mstore(add(0x80, ptr), spender)
+                mstore(add(0xa0, ptr), amount)
+                mstore(add(0xc0, ptr), nonce)
+                mstore(add(0xe0, ptr), deadline)
+                mstore(add(0x40, ptr), keccak256(add(0x40, ptr), 0xc0))
+                signingHash := keccak256(add(0x1e, ptr), 0x42)
+            }
+            _checkSignature(signingHash, owner, v, r, s);
         }
     }
 
@@ -240,9 +262,23 @@ library SafePermit {
             unchecked {
                 nonce--;
             }
-            bytes32 structHash =
-                keccak256(abi.encode(_PERMIT_ALLOWED_TYPEHASH, owner, spender, nonce, deadline, allowed));
-            _checkSignature(token.fastDomainSeparator(token.DOMAIN_SEPARATOR.selector), owner, structHash, v, r, s);
+            bytes32 domainSeparator = token.fastDomainSeparator(token.DOMAIN_SEPARATOR.selector);
+            bytes32 typeHash = _PERMIT_ALLOWED_TYPEHASH;
+            bytes32 signingHash;
+            assembly ("memory-safe") {
+                let ptr := mload(0x40)
+                mstore(ptr, 0x1901)
+                mstore(add(0x20, ptr), domainSeparator)
+                mstore(add(0x40, ptr), typeHash)
+                mstore(add(0x60, ptr), owner)
+                mstore(add(0x80, ptr), spender)
+                mstore(add(0xa0, ptr), nonce)
+                mstore(add(0xc0, ptr), deadline)
+                mstore(add(0xe0, ptr), allowed)
+                mstore(add(0x40, ptr), keccak256(add(0x40, ptr), 0xc0))
+                signingHash := keccak256(add(0x1e, ptr), 0x42)
+            }
+            _checkSignature(signingHash, owner, v, r, s);
         }
     }
 
@@ -265,8 +301,21 @@ library SafePermit {
             unchecked {
                 nonce--;
             }
-            bytes32 structHash = keccak256(abi.encode(_META_TRANSACTION_TYPEHASH, nonce, owner, functionSignatureHash));
-            _checkSignature(token.fastDomainSeparator(token.getDomainSeparator.selector), owner, structHash, v, r, s);
+            bytes32 domainSeparator = token.fastDomainSeparator(token.getDomainSeparator.selector);
+            bytes32 typeHash = _META_TRANSACTION_TYPEHASH;
+            bytes32 signingHash;
+            assembly ("memory-safe") {
+                let ptr := mload(0x40)
+                mstore(ptr, 0x1901)
+                mstore(add(0x20, ptr), domainSeparator)
+                mstore(add(0x40, ptr), typeHash)
+                mstore(add(0x60, ptr), nonce)
+                mstore(add(0x80, ptr), owner)
+                mstore(add(0xa0, ptr), functionSignatureHash)
+                mstore(add(0x40, ptr), keccak256(add(0x40, ptr), 0x80))
+                signingHash := keccak256(add(0x1e, ptr), 0x42)
+            }
+            _checkSignature(signingHash, owner, v, r, s);
         }
     }
 }
