@@ -12,31 +12,40 @@ contract Permit {
     using SafePermit for IERC20PermitAllowed;
     using SafePermit for IERC20MetaTransaction;
 
-    function callPermit(address token, bytes memory permitData) internal {
-        uint32 permitSelector;
+    enum PermitType {
+        ERC2612,
+        PermitAllowed,
+        NativeMetaTransaction
+    }
+
+    function getPermitType(bytes memory permitData)
+        internal
+        pure
+        returns (PermitType permitType, bytes memory permitParams)
+    {
         assembly ("memory-safe") {
             let length := mload(permitData)
-            let data := mload(add(0x20, permitData))
-            // slice off the first 4 bytes of `permitData` as the permit selector
-            permitSelector := shr(0xe0, data)
-            permitData := add(0x04, permitData)
-            mstore(permitData, sub(length, 0x04))
+            permitType := shr(0xf8, mload(add(0x20, permitData)))
+            permitParams := add(0x01, permitData)
+            mstore(permitParams, sub(length, 0x01))
         }
-        address spender = address(ALLOWANCE_HOLDER);
-        if (permitSelector == uint32(IERC2612.permit.selector)) {
-            (address owner, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) =
-                abi.decode(permitData, (address, uint256, uint256, uint8, bytes32, bytes32));
-            IERC2612(token).safePermit(owner, spender, amount, deadline, v, r, s);
-        } else if (permitSelector == uint32(IERC20PermitAllowed.permit.selector)) {
-            (address owner, uint256 nonce, uint256 expiry, bool allowed, uint8 v, bytes32 r, bytes32 s) =
-                abi.decode(permitData, (address, uint256, uint256, bool, uint8, bytes32, bytes32));
-            IERC20PermitAllowed(token).safePermit(owner, spender, nonce, expiry, allowed, v, r, s);
-        } else if (permitSelector == uint32(INativeMetaTransaction.executeMetaTransaction.selector)) {
-            (address owner, uint256 amount, uint8 v, bytes32 r, bytes32 s) =
-                abi.decode(permitData, (address, uint256, uint8, bytes32, bytes32));
-            IERC20MetaTransaction(token).safePermit(owner, spender, amount, v, r, s);
-        } else {
-            revertConfusedDeputy();
-        }
+    }
+
+    function callPermit(IERC2612 token, bytes memory permitData) internal {
+        (address owner, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) =
+            abi.decode(permitData, (address, uint256, uint256, uint8, bytes32, bytes32));
+        token.safePermit(owner, address(ALLOWANCE_HOLDER), amount, deadline, v, r, s);
+    }
+
+    function callPermitAllowed(IERC20PermitAllowed token, bytes memory permitData) internal {
+        (address owner, uint256 nonce, uint256 expiry, bool allowed, uint8 v, bytes32 r, bytes32 s) =
+            abi.decode(permitData, (address, uint256, uint256, bool, uint8, bytes32, bytes32));
+        IERC20PermitAllowed(token).safePermit(owner, address(ALLOWANCE_HOLDER), nonce, expiry, allowed, v, r, s);
+    }
+
+    function callNativeMetaTransaction(IERC20MetaTransaction token, bytes memory permitData) internal {
+        (address owner, uint256 amount, uint8 v, bytes32 r, bytes32 s) =
+            abi.decode(permitData, (address, uint256, uint8, bytes32, bytes32));
+        token.safePermit(owner, address(ALLOWANCE_HOLDER), amount, v, r, s);
     }
 }

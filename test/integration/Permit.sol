@@ -8,6 +8,7 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {IERC2612, IERC20PermitAllowed} from "src/interfaces/IERC2612.sol";
 import {IERC20MetaTransaction} from "src/interfaces/INativeMetaTransaction.sol";
+import {Permit} from "src/core/Permit.sol";
 
 contract PermitTest is SettlerBasePairTest {
     IERC2612 internal constant USDC = IERC2612(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
@@ -95,7 +96,7 @@ contract PermitTest is SettlerBasePairTest {
         (uint8 v, bytes32 r, bytes32 s) = _signERC2612Permit(sender, address(allowanceHolder), amount(), deadline, pk);
 
         bytes memory permitData =
-            abi.encodePacked(USDC.permit.selector, abi.encode(sender, amount(), deadline, v, r, s));
+            abi.encodePacked(Permit.PermitType.ERC2612, abi.encode(sender, amount(), deadline, v, r, s));
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
@@ -136,7 +137,7 @@ contract PermitTest is SettlerBasePairTest {
         (uint8 v, bytes32 r, bytes32 s) = _signPermitAllowed(sender, address(allowanceHolder), nonce, expiry, true, pk);
 
         bytes memory permitData =
-            abi.encodePacked(DAI.permit.selector, abi.encode(sender, nonce, expiry, true, v, r, s));
+            abi.encodePacked(Permit.PermitType.PermitAllowed, abi.encode(sender, nonce, expiry, true, v, r, s));
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
@@ -175,7 +176,7 @@ contract PermitTest is SettlerBasePairTest {
         (uint8 v, bytes32 r, bytes32 s) = _signNativeMetaTransaction(sender, address(allowanceHolder), amount(), pk);
 
         bytes memory permitData =
-            abi.encodePacked(ZED.executeMetaTransaction.selector, abi.encode(sender, amount(), v, r, s));
+            abi.encodePacked(Permit.PermitType.NativeMetaTransaction, abi.encode(sender, amount(), v, r, s));
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(

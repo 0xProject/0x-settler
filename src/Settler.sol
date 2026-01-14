@@ -6,7 +6,7 @@ import {ISettlerTakerSubmitted} from "./interfaces/ISettlerTakerSubmitted.sol";
 
 import {Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
-import {Permit} from "./core/Permit.sol";
+import {Permit, IERC2612, IERC20PermitAllowed, IERC20MetaTransaction} from "./core/Permit.sol";
 
 import {AbstractContext} from "./Context.sol";
 import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
@@ -80,7 +80,15 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             if (_isRestrictedTarget(permit.permitted.token)) {
                 revertConfusedDeputy();
             }
-            callPermit(permit.permitted.token, permitData);
+            PermitType permitType;
+            (permitType, permitData) = getPermitType(permitData);
+            if (permitType == PermitType.ERC2612) {
+                callPermit(IERC2612(permit.permitted.token), permitData);
+            } else if (permitType == PermitType.PermitAllowed) {
+                callPermitAllowed(IERC20PermitAllowed(permit.permitted.token), permitData);
+            } else {
+                callNativeMetaTransaction(IERC20MetaTransaction(permit.permitted.token), permitData);
+            }
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, new bytes(0));
