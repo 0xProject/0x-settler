@@ -13,6 +13,8 @@ import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
+import {Permit} from "../../core/Permit.sol";
+import {Panic} from "../../utils/Panic.sol";
 
 /// @custom:security-contact security@0x.org
 contract PolygonSettler is Settler, PolygonMixin {
@@ -42,13 +44,20 @@ contract PolygonSettler is Settler, PolygonMixin {
         return true;
     }
 
+    function _handlePermit(address token, Permit.PermitType permitType, bytes memory permitData) internal override {
+        if (permitType == Permit.PermitType.ERC2612) {
+            callPermit(token, permitData);
+        } else if (permitType == Permit.PermitType.DAIPermit) {
+            callDAIPermit(token, permitData);
+        } else if (permitType == Permit.PermitType.NativeMetaTransaction) {
+            callNativeMetaTransaction(token, permitData);
+        } else {
+            Panic.panic(Panic.ENUM_CAST);
+        }
+    }
+
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, PolygonMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, PolygonMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
