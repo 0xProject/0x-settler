@@ -256,19 +256,8 @@ function test_execute() {
 
 ### Types of Tests
 
-#### Unit Tests
-- Test both happy paths and failure cases
-- Include edge cases and boundary conditions
-- Test revert conditions with specific error messages
-- Use descriptive names: `test_FeatureName_SpecificScenario_ExpectedOutcome()`
-
-#### Integration Tests (Fork Tests)
-- Live against forked mainnet state
-- Inherit from `BasePairTest` which provides:
-  - Fork setup with `vm.createSelectFork()`
-  - Permit2 signature helpers (`Permit2Signature`)
-  - Token dealing and approval utilities
-  - Gas snapshot integration (`GasSnapshot`)
+- **Unit tests**: Happy paths, failure cases, edge cases, revert conditions. Name format: `test_FeatureName_Scenario_Outcome()`
+- **Integration tests (fork tests)**: Live against forked mainnet state. Inherit from `BasePairTest`:
 
 ```solidity
 abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDefaultFork {
@@ -278,10 +267,7 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
 }
 ```
 
-#### Fuzz Tests
-- **Fuzz tests are highly encouraged** for all new functionality
-- Foundry is configured for 100,000 fuzz runs
-- Use `bound()` and `vm.assume()` to constrain inputs
+- **Fuzz tests**: Highly encouraged. Foundry is configured for 100,000 fuzz runs. Use `bound()` and `vm.assume()` to constrain inputs.
 
 ```solidity
 function testFuzz_myFeature(uint256 amount, address user) public {
@@ -306,30 +292,11 @@ function testFuzz_myFeature(uint256 amount, address user) public {
 - `BASE_MAINNET_RPC_URL`
 - `MONAD_MAINNET_RPC_URL`
 
-### Testing Best Practices
-
-- **Don't write redundant tests**: If something is already sufficiently tested, don't duplicate
-- **Focus on what changed**: Ensure tests encapsulate your specific changes
-- **Test downstream consequences**: Consider ripple effects of your changes
-- **Update broken tests thoughtfully**: If your change breaks existing tests, understand why
-- **Use test utilities**: Leverage `test/utils/` helpers (Permit2Signature, ActionDataBuilder)
-
-### Testing Checklist Before PR
-
-- [ ] All new functions have unit tests
-- [ ] Critical paths have fuzz tests with random inputs
-- [ ] Edge cases and revert scenarios are tested
-- [ ] Gas benchmarks included for optimizations
-- [ ] All tests pass: `forge test`
-- [ ] Integration tests pass: `FOUNDRY_PROFILE=integration forge test`
-
 ## Development Workflow
 
 ### Prerequisites
 
-- **Foundry**: v1.3.0 (install via `foundryup`)
-- **Node.js**: 18.x (for npm scripts and gas comparison)
-- **Git submodules**: Run `git submodule update --recursive --init`
+Foundry v1.5.1, Node.js 18.x, and git submodules (`git submodule update --recursive --init`).
 
 ### Solc Versions
 
@@ -365,16 +332,6 @@ forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --
 
 # Format code
 forge fmt
-```
-
-### Environment Variables
-
-For fork tests and integration tests, set these RPC URLs:
-
-```bash
-export MAINNET_RPC_URL="https://..."
-export BNB_MAINNET_RPC_URL="https://..."
-export PLASMA_MAINNET_RPC_URL="https://..."
 ```
 
 ### Foundry Configuration
@@ -420,15 +377,7 @@ npm run diff:main
 
 ### CI Workflow
 
-CI runs these checks on every PR:
-1. Build main contracts
-2. Build special contracts (MultiCall, CrossChainReceiverFactory, UniswapV4)
-3. Run EulerSwap math tests (solc 0.8.28)
-4. Run MultiCall tests
-5. Run CrossChainReceiverFactory tests
-6. Run all other unit tests
-7. Run integration tests (fork tests)
-8. Gas comparison
+See `.github/workflows/test.yml` and `.github/workflows/integration.yml` for the full CI pipeline (builds, unit tests, integration tests, gas comparison).
 
 ### Adding a New Chain
 
@@ -482,12 +431,6 @@ The codebase is at the edge of the 24KB contract size limit:
 - ABI encoding is done manually to reduce size
 - `DANGEROUS_freeMemory` modifier allows memory reuse
 - Unused code paths should be removed, not commented out
-
-### Continuous Learning
-
-- Consult official Solidity docs and relevant project references when uncertain
-- Borrow battle-tested patterns from audited codebases
-- Review the README.md for protocol-level understanding
 
 ## Using Cast
 
