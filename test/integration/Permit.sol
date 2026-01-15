@@ -15,7 +15,7 @@ import {PolygonSettler as Settler} from "src/chains/Polygon/TakerSubmitted.sol";
 contract PermitTest is SettlerBasePairTest {
     IERC2612 internal constant USDC = IERC2612(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     IDAIStylePermit internal constant DAI = IDAIStylePermit(0x6B175474E89094C44Da98b954EedeAC495271d0F);
-    IERC20MetaTransaction internal constant ZED = IERC20MetaTransaction(0x5eC03C1f7fA7FF05EC476d19e34A22eDDb48ACdc);
+    IERC20MetaTransaction internal constant ROUTE = IERC20MetaTransaction(0x16ECCfDbb4eE1A85A33f3A9B21175Cd7Ae753dB4);
 
     bytes32 private constant _PERMIT_TYPEHASH =
         keccak256("Permit(address owner,address spender,uint256 value,uint256 nonce,uint256 deadline)");
@@ -79,12 +79,12 @@ contract PermitTest is SettlerBasePairTest {
         view
         returns (uint8 v, bytes32 r, bytes32 s)
     {
-        uint256 nonce = ZED.getNonce(owner);
-        bytes32 domainSeparator = ZED.getDomainSeparator();
+        uint256 nonce = ROUTE.getNonce(owner);
+        bytes32 domainSeparator = ROUTE.getDomainSeperator();
 
         bytes32 structHash = keccak256(
             abi.encode(
-                _META_TRANSACTION_TYPEHASH, nonce, owner, keccak256(abi.encodeCall(ZED.approve, (spender, amount)))
+                _META_TRANSACTION_TYPEHASH, nonce, owner, keccak256(abi.encodeCall(ROUTE.approve, (spender, amount)))
             )
         );
 
@@ -275,7 +275,7 @@ contract PermitTest is SettlerBasePairTest {
     function testNativeMetaTransaction() public {
         (address sender, uint256 pk) = makeAddrAndKey("sender");
 
-        deal(address(ZED), sender, amount());
+        deal(address(ROUTE), sender, amount());
 
         (uint8 v, bytes32 r, bytes32 s) = _signNativeMetaTransaction(sender, address(allowanceHolder), amount(), pk);
 
@@ -285,7 +285,7 @@ contract PermitTest is SettlerBasePairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
                 ISettlerActions.TRANSFER_FROM_WITH_PERMIT,
-                (address(this), defaultERC20PermitTransfer(address(ZED), amount(), 0), permitData)
+                (address(this), defaultERC20PermitTransfer(address(ROUTE), amount(), 0), permitData)
             )
         );
 
@@ -294,7 +294,7 @@ contract PermitTest is SettlerBasePairTest {
         vm.prank(sender);
         allowanceHolder.exec(
             address(settler),
-            address(ZED),
+            address(ROUTE),
             amount(),
             payable(address(settler)),
             abi.encodeCall(
@@ -309,18 +309,20 @@ contract PermitTest is SettlerBasePairTest {
             )
         );
 
-        assertEq(ZED.balanceOf(address(this)), amount(), "Transfer failed");
-        assertEq(ZED.balanceOf(sender), 0, "Sender should have 0 balance");
+        assertEq(ROUTE.balanceOf(address(this)), amount(), "Transfer failed");
+        assertEq(ROUTE.balanceOf(sender), 0, "Sender should have 0 balance");
 
         vm.revertTo(snapshot);
 
         // Front-running the executeMetaTransaction
-        ZED.executeMetaTransaction(sender, abi.encodeCall(ZED.approve, (address(allowanceHolder), amount())), r, s, v);
+        ROUTE.executeMetaTransaction(
+            sender, abi.encodeCall(ROUTE.approve, (address(allowanceHolder), amount())), r, s, v
+        );
 
         vm.prank(sender);
         allowanceHolder.exec(
             address(settler),
-            address(ZED),
+            address(ROUTE),
             amount(),
             payable(address(settler)),
             abi.encodeCall(
@@ -335,15 +337,15 @@ contract PermitTest is SettlerBasePairTest {
             )
         );
 
-        assertEq(ZED.balanceOf(address(this)), amount(), "Transfer failed when executeMetaTransaction was front-run");
-        assertEq(ZED.balanceOf(sender), 0, "Sender should have 0 balance when executeMetaTransaction was front-run");
+        assertEq(ROUTE.balanceOf(address(this)), amount(), "Transfer failed when executeMetaTransaction was front-run");
+        assertEq(ROUTE.balanceOf(sender), 0, "Sender should have 0 balance when executeMetaTransaction was front-run");
 
         // resubmitting should fail because the nonce in the signature is now incorrect
         vm.expectRevert(PermitFailed.selector);
         vm.prank(sender);
         allowanceHolder.exec(
             address(settler),
-            address(ZED),
+            address(ROUTE),
             amount(),
             payable(address(settler)),
             abi.encodeCall(

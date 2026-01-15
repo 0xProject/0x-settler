@@ -12,7 +12,7 @@ interface INativeMetaTransaction {
         uint8 sigV
     ) external payable returns (bytes memory);
     function getNonce(address userAddress) external view returns (uint256);
-    function getDomainSeparator() external view returns (bytes32);
+    function getDomainSeperator() external view returns (bytes32);
 }
 
 interface IERC20MetaTransaction is INativeMetaTransaction, IERC20 {}

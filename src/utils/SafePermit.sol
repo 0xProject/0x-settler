@@ -307,7 +307,7 @@ library SafePermit {
             unchecked {
                 nonce--;
             }
-            bytes32 domainSeparator = token.fastDomainSeparator(uint32(token.getDomainSeparator.selector));
+            bytes32 domainSeparator = token.fastDomainSeparator(uint32(token.getDomainSeperator.selector));
             bytes32 typeHash = _META_TRANSACTION_TYPEHASH;
             bytes32 signingHash;
             assembly ("memory-safe") {
