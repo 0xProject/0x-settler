@@ -14,6 +14,7 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {Permit} from "../../core/Permit.sol";
+import {Panic} from "../../utils/Panic.sol";
 
 /// @custom:security-contact security@0x.org
 contract PolygonSettler is Settler, PolygonMixin {
@@ -51,7 +52,7 @@ contract PolygonSettler is Settler, PolygonMixin {
         } else if (permitType == Permit.PermitType.NativeMetaTransaction) {
             callNativeMetaTransaction(token, permitData);
         } else {
-            unsupportedPermitType(permitType);
+            Panic.panic(Panic.ENUM_CAST);
         }
     }
 

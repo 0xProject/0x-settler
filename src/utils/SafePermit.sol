@@ -26,7 +26,7 @@ library FastPermit {
             mstore(add(0x74, ptr), deadline)
             mstore(add(0x54, ptr), amount)
             mstore(add(0x34, ptr), spender)
-            mstore(add(0x20, ptr), shl(0x60, owner))
+            mstore(add(0x20, ptr), shl(0x60, owner)) // with `spender`'s padding
             mstore(ptr, 0xd505accf000000000000000000000000) // selector for `permit(address,address,uint256,uint256,uint8,bytes32,bytes32)` with `owner`'s padding
 
             success := call(gas(), token, 0x00, add(0x10, ptr), 0xe4, 0x00, 0x20)
@@ -54,7 +54,7 @@ library FastPermit {
             mstore(add(0x74, ptr), expiry)
             mstore(add(0x54, ptr), nonce)
             mstore(add(0x34, ptr), spender)
-            mstore(add(0x20, ptr), shl(0x60, owner))
+            mstore(add(0x20, ptr), shl(0x60, owner)) // with `spender`'s padding
             mstore(ptr, 0x8fcbaf0c000000000000000000000000) // selector for `permit(address,address,uint256,uint256,bool,uint8,bytes32,bytes32)`
 
             success := call(gas(), token, 0x00, add(0x10, ptr), 0x104, 0x00, 0x20)
@@ -115,7 +115,7 @@ library FastPermit {
     function fastNonce(IERC20 token, address owner, uint32 nonceSelector) internal view returns (uint256 nonce) {
         assembly ("memory-safe") {
             mstore(0x14, owner)
-            mstore(0x00, shl(0x60, nonceSelector))
+            mstore(0x00, shl(0x60, nonceSelector)) // with `owner`'s padding
             if iszero(staticcall(gas(), token, 0x10, 0x24, 0x00, 0x20)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
@@ -132,8 +132,8 @@ library FastPermit {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(0x34, spender)
-            mstore(0x20, shl(0x60, owner))
-            mstore(0x00, 0xdd62ed3e000000000000000000000000) // selector for `allowance(address,address)`
+            mstore(0x20, shl(0x60, owner)) // with `spender`'s padding
+            mstore(0x00, 0xdd62ed3e000000000000000000000000) // selector for `allowance(address,address)` with `spender`'s padding
             if iszero(staticcall(gas(), token, 0x10, 0x44, 0x00, 0x20)) {
                 let ptr_ := mload(0x40)
                 returndatacopy(ptr_, 0x00, returndatasize())
@@ -252,6 +252,7 @@ library SafePermit {
         // See comments above
         if (!token.fastDAIPermit(owner, spender, nonce, deadline, allowed, v, r, s)) {
             // Check effects and signature
+            // https://etherscan.io/token/0x6b175474e89094c44da98b954eedeac495271d0f#code#L188
             if ((block.timestamp > deadline).and(deadline > 0)) {
                 _revert(0x1a15a3cc);
             }
