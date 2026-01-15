@@ -31,21 +31,44 @@ contract Permit {
         }
     }
 
-    function callPermit(IERC2612 token, bytes memory permitData) internal {
+    function callPermit(address token, bytes memory permitData) internal {
         (address owner, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) =
             abi.decode(permitData, (address, uint256, uint256, uint8, bytes32, bytes32));
-        token.safePermit(owner, address(ALLOWANCE_HOLDER), amount, deadline, v, r, s);
+        IERC2612(token).safePermit(owner, address(ALLOWANCE_HOLDER), amount, deadline, v, r, s);
     }
 
-    function callDAIPermit(IDAIStylePermit token, bytes memory permitData) internal {
+    function callDAIPermit(address token, bytes memory permitData) internal {
         (address owner, uint256 nonce, uint256 expiry, bool allowed, uint8 v, bytes32 r, bytes32 s) =
             abi.decode(permitData, (address, uint256, uint256, bool, uint8, bytes32, bytes32));
-        token.safePermit(owner, address(ALLOWANCE_HOLDER), nonce, expiry, allowed, v, r, s);
+        IDAIStylePermit(token).safePermit(owner, address(ALLOWANCE_HOLDER), nonce, expiry, allowed, v, r, s);
     }
 
-    function callNativeMetaTransaction(IERC20MetaTransaction token, bytes memory permitData) internal {
+    function callNativeMetaTransaction(address token, bytes memory permitData) internal {
         (address owner, uint256 amount, uint8 v, bytes32 r, bytes32 s) =
             abi.decode(permitData, (address, uint256, uint8, bytes32, bytes32));
-        token.safePermit(owner, address(ALLOWANCE_HOLDER), amount, v, r, s);
+        IERC20MetaTransaction(token).safePermit(owner, address(ALLOWANCE_HOLDER), amount, v, r, s);
+    }
+
+    function _dispatchPermit(address token, bytes memory permitData) internal {
+        PermitType permitType;
+        (permitType, permitData) = getPermitType(permitData);
+        _handlePermit(token, permitType, permitData);
+    }
+
+    function _handlePermit(address token, PermitType permitType, bytes memory permitData) internal virtual {
+        if (permitType == PermitType.ERC2612) {
+            callPermit(token, permitData);
+        } else if (permitType == PermitType.DAIPermit) {
+            callDAIPermit(token, permitData);
+        } else {
+            callNativeMetaTransaction(token, permitData);
+        }
+    }
+
+    function unsupportedPermitType() internal pure {
+        assembly ("memory-safe") {
+            mstore(0x00, 0x01aa0452) // selector for `UnsupportedPermitType()`
+            revert(0x1c, 0x04)
+        }
     }
 }

@@ -130,3 +130,6 @@ error InvalidSignature();
 
 /// @notice Thrown when a permit signature is expired
 error PermitExpired();
+
+/// @notice Thrown when a permit type is unsupported
+error UnsupportedPermitType();
