@@ -104,4 +104,13 @@ contract WorldChainSettlerIntent is SettlerIntent, WorldChainSettlerMetaTxn {
     {
         return super._isRestrictedTarget(target);
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, WorldChainSettlerMetaTxn)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
+    }
 }

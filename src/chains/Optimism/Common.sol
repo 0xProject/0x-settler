@@ -130,6 +130,15 @@ abstract contract OptimismMixin is FreeMemory, SettlerBase, UniswapV4, BalancerV
     }
 
     // I hate Solidity inheritance
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
+    }
+
     function _isRestrictedTarget(address target)
         internal
         view

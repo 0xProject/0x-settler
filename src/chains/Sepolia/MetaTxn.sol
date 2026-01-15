@@ -82,4 +82,13 @@ contract SepoliaSettlerMetaTxn is SettlerMetaTxn, SepoliaMixin {
     {
         return super._isRestrictedTarget(target);
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, SepoliaMixin)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
+    }
 }

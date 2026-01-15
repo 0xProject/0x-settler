@@ -3,11 +3,10 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {FullMath} from "../vendor/FullMath.sol";
+import {tmp} from "../utils/512Math.sol";
 
 contract Across {
     using SafeTransferLib for IERC20;
-    using FullMath for uint256;
 
     function bridgeERC20ToAcross(address spoke, bytes memory depositData) internal {
         IERC20 inputToken;
@@ -33,7 +32,7 @@ contract Across {
             inputAmount := mload(add(0xa0, depositData))
             outputAmount := mload(add(0xc0, depositData))
         }
-        uint256 updatedOutputAmount = outputAmount.mulDiv(updatedInputAmount, inputAmount);
+        uint256 updatedOutputAmount = tmp().omul(outputAmount, updatedInputAmount).div(inputAmount);
 
         assembly ("memory-safe") {
             mstore(add(0xa0, depositData), updatedInputAmount)

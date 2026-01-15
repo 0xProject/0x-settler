@@ -53,8 +53,6 @@ import {alienBaseV3Factory, alienBaseV3ForkId} from "../../core/univ3forks/Alien
 import {baseXFactory, baseXForkId} from "../../core/univ3forks/BaseX.sol";
 import {swapBasedV3Factory, swapBasedV3ForkId} from "../../core/univ3forks/SwapBasedV3.sol";
 import {dackieSwapV3BaseFactory, dackieSwapV3ForkId} from "../../core/univ3forks/DackieSwapV3.sol";
-import {thickFactory, thickInitHash, thickForkId} from "../../core/univ3forks/Thick.sol";
-import {kinetixV3BaseFactory, kinetixV3ForkId} from "../../core/univ3forks/KinetixV3.sol";
 
 import {BASE_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
@@ -70,7 +68,7 @@ abstract contract BaseMixin is
     UniswapV4,
     BalancerV3,
     PancakeInfinity,
-    EulerSwap,
+    //EulerSwap,
     Renegade,
     Bebop
 {
@@ -102,11 +100,13 @@ abstract contract BaseMixin is
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        /*
         } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
                 abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
 
             sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
+        */
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
                 address recipient,
@@ -223,11 +223,6 @@ abstract contract BaseMixin is
                     factory = dackieSwapV3BaseFactory;
                     initHash = pancakeSwapV3InitHash;
                     callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-                } else if (forkId == thickForkId) {
-                    factory = thickFactory;
-                    initHash = thickInitHash;
-                } else if (forkId == kinetixV3ForkId) {
-                    factory = kinetixV3BaseFactory;
                 } else if (forkId == aerodromeForkIdV3_1) {
                     factory = aerodromeFactoryV3_1;
                     initHash = aerodromeInitHashV3_1;
@@ -242,23 +237,33 @@ abstract contract BaseMixin is
         return BASE_POOL_MANAGER;
     }
 
+    /*
     function _EVC() internal pure override returns (IEVC) {
         return IEVC(0x5301c7dD20bD945D2013b48ed0DEE3A284ca8989);
     }
+    */
 
-    function _chainSpecificFallback(bytes calldata data) internal view virtual returns (bytes memory result) {
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
         address msgSender = _msgSender();
         uint256 selector;
         assembly ("memory-safe") {
             selector := shr(0xe0, calldataload(data.offset))
         }
         uint256 msgSenderShifted = uint256(uint160(msgSender)) << 96;
-        require((selector == uint32(IMsgSender.msgSender.selector)).and(msgSenderShifted != 0));
+        success = (selector == uint32(IMsgSender.msgSender.selector)).and(msgSenderShifted != 0);
+        if (!success) {
+            return super._fallback(data);
+        }
         assembly ("memory-safe") {
-            result := mload(0x40)
-            mstore(0x40, add(0x40, result))
-            mstore(result, 0x20)
-            mstore(add(0x20, result), shr(0x60, msgSenderShifted))
+            returndata := mload(0x40)
+            mstore(0x40, add(0x40, returndata))
+            mstore(returndata, 0x20)
+            mstore(add(0x20, returndata), shr(0x60, msgSenderShifted))
         }
     }
 

@@ -16,7 +16,7 @@ import {BnbSettlerMetaTxn} from "src/chains/Bnb/MetaTxn.sol";
 
 import {NotesLib} from "src/core/FlashAccountingCommon.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
-import {FullMath} from "src/vendor/FullMath.sol";
+import {tmp} from "src/utils/512Math.sol";
 
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
@@ -129,12 +129,12 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
 
         uint256 limitX96;
         if (zeroForOne) {
-            limitX96 = FullMath.mulDiv(uint256(current), Q96, SQRT_2_Q96);
+            limitX96 = tmp().omul(uint256(current), Q96).div(SQRT_2_Q96);
             if (limitX96 < MIN_SQRT_RATIO) {
                 limitX96 = MIN_SQRT_RATIO;
             }
         } else {
-            limitX96 = FullMath.mulDiv(uint256(current), SQRT_2_Q96, Q96);
+            limitX96 = tmp().omul(uint256(current), SQRT_2_Q96).div(Q96);
             if (limitX96 > MAX_SQRT_RATIO) {
                 limitX96 = MAX_SQRT_RATIO;
             }

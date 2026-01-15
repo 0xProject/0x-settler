@@ -104,4 +104,13 @@ contract AvalancheSettlerIntent is SettlerIntent, AvalancheSettlerMetaTxn {
     {
         return super._isRestrictedTarget(target);
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, AvalancheSettlerMetaTxn)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
+    }
 }

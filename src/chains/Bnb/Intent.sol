@@ -104,4 +104,13 @@ contract BnbSettlerIntent is SettlerIntent, BnbSettlerMetaTxn {
     {
         return super._isRestrictedTarget(target);
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, BnbSettlerMetaTxn)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
+    }
 }

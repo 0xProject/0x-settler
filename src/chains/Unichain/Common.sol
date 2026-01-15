@@ -24,6 +24,7 @@ import {UNICHAIN_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract UnichainMixin is FreeMemory, SettlerBase, UniswapV4, EulerSwap {
     constructor() {
@@ -84,5 +85,15 @@ abstract contract UnichainMixin is FreeMemory, SettlerBase, UniswapV4, EulerSwap
 
     function _EVC() internal pure override returns (IEVC) {
         return IEVC(0x2A1176964F5D7caE5406B627Bf6166664FE83c60);
+    }
+
+    // I hate Solidity inheritance
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
     }
 }

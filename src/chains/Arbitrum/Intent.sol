@@ -104,4 +104,13 @@ contract ArbitrumSettlerIntent is SettlerIntent, ArbitrumSettlerMetaTxn {
     {
         return super._isRestrictedTarget(target);
     }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, ArbitrumSettlerMetaTxn)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
+    }
 }
