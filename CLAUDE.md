@@ -161,28 +161,23 @@ npm run diff:main       # compares your branch vs. main
 
 ### Error Handling
 
-Always use custom errors with the revert pattern instead of require statements:
+Use custom errors (defined in `src/core/SettlerErrors.sol`) with the if/revert pattern:
 
 ```solidity
-// ❌ Don't use require with string messages
-require(amount > 0, "Amount must be positive");
-require(to != address(0), "Cannot transfer to zero address");
-
-// ✅ Do use custom errors with if/revert pattern
-error AmountMustBePositive();
-error CannotTransferToZeroAddress();
-
 if (amount == 0) revert AmountMustBePositive();
-if (to == address(0)) revert CannotTransferToZeroAddress();
 ```
 
-**Benefits of custom errors:**
-- More gas efficient than require strings
-- Better error identification in tests and debugging
-- Cleaner, more professional code
-- Consistent with modern Solidity best practices
+For code size optimization, implement reverts in assembly. Solidity generates right-padded `bytes4` constants which are expensive; assembly allows left-padded `uint32` constants that consume less contract size:
 
-Custom errors for this project are defined in `src/core/SettlerErrors.sol`.
+```solidity
+// Assembly revert saves contract size
+assembly ("memory-safe") {
+    mstore(0, 0x12345678) // uint32 selector, left-padded
+    revert(0x1c, 0x04)
+}
+```
+
+Errors must always be defined in `SettlerErrors.sol` regardless of whether thrown from Solidity or assembly.
 
 ### Security Checklist
 
@@ -195,38 +190,7 @@ Custom errors for this project are defined in `src/core/SettlerErrors.sol`.
 
 ### Reentrancy Protection
 
-**All external functions MUST be protected against reentrancy attacks.**
-
-#### Checks-Effects-Interactions Pattern
-
-Always follow the Checks-Effects-Interactions (CEI) pattern as your first choice:
-
-```solidity
-// ✅ Correct: CEI pattern
-function withdraw(uint256 amount) external {
-    // 1. Checks
-    if (balances[msg.sender] < amount) revert InsufficientBalance();
-
-    // 2. Effects (state changes BEFORE external calls)
-    balances[msg.sender] -= amount;
-
-    // 3. Interactions (external calls LAST)
-    (bool success,) = msg.sender.call{value: amount}("");
-    if (!success) revert TransferFailed();
-}
-
-// ❌ Wrong: State change after external call
-function withdrawUnsafe(uint256 amount) external {
-    if (balances[msg.sender] < amount) revert InsufficientBalance();
-    (bool success,) = msg.sender.call{value: amount}("");
-    if (!success) revert TransferFailed();
-    balances[msg.sender] -= amount; // VULNERABLE!
-}
-```
-
-#### This Codebase: Transient Storage Guard
-
-This codebase uses transient storage (`_PAYER_SLOT`) as an implicit reentrancy guard instead of traditional storage-based locks:
+Follow the Checks-Effects-Interactions (CEI) pattern: all state changes before external calls. This codebase also uses transient storage (`_PAYER_SLOT`) as an implicit reentrancy guard:
 
 ```solidity
 modifier takerSubmitted() override {
@@ -237,14 +201,6 @@ modifier takerSubmitted() override {
 }
 ```
 
-#### Key Rules for Reentrancy Safety
-
-1. **Default to CEI pattern**: This should be your first choice for all functions
-2. **State changes before calls**: Update all state variables before making external calls
-3. **Review all external calls**: Any `.call()`, `.transfer()`, `.send()`, or calls to other contracts
-4. **Consider read-only reentrancy**: Even view functions called during state changes can be attack vectors
-5. **Test reentrancy scenarios**: Write tests that attempt reentrancy attacks on your functions
-
 ## Testing Guidelines
 
 ### Core Testing Principles
@@ -253,17 +209,15 @@ modifier takerSubmitted() override {
 
 ### CRITICAL: Test the Real Contract, Not Mocks
 
-**DO NOT write mocks that replicate production logic and then test the mocks.** This is a critical anti-pattern that has led to buggy code being shipped to production.
+**DO NOT write mocks that replicate production logic and then test the mocks.** This anti-pattern has directly caused production bugs in this codebase.
 
 ```solidity
-// ❌ WRONG: Creating a mock with equivalent functionality and testing it
+// ❌ WRONG: Testing a mock instead of production code
 contract MockSettler {
-    // Re-implementing the logic you're supposed to test
     function execute(...) { /* your guess at how it should work */ }
 }
-
 function test_execute() {
-    MockSettler mock = new MockSettler();  // Testing your mock, not production code!
+    MockSettler mock = new MockSettler();
     mock.execute(...);
 }
 
@@ -274,27 +228,17 @@ function test_execute() {
 }
 ```
 
-**Why this matters:**
-- Mocks can (and do) contain bugs that don't exist in production code
-- Mocks can (and do) miss bugs that DO exist in production code
-- Testing mocks proves nothing about the correctness of the actual implementation
-- This has directly caused production bugs in this codebase
-
-**Mocks and the difference between Unit vs Integration tests:**
-
-Mocks (`vm.mockCall`, `vm.expectCall`) are **only appropriate in unit tests**, and even then should be used **sparingly**. Unit tests verify isolated logic; integration tests verify real-world behavior.
-
 | Test Type | Mocks Allowed? | What to Test Against |
 |-----------|----------------|---------------------|
 | Unit tests | Sparingly, for external dependencies only | Real contract-under-test; may mock external calls |
 | Integration tests | **NO** | Real contracts on chain forks |
 
-**Integration tests are where most bugs are caught.** They must use real, live contracts via chain fork tests. This is what gives true confidence that integrations work as designed with contracts as-deployed.
+**Integration tests are where most bugs are caught.** They must use real, live contracts via chain fork tests.
 
 **Infrastructure contracts (Permit2, UniswapV4 PoolManager, etc.):**
 - Do NOT mock these, even in unit tests
-- Deploy the real contracts into the test environment by copying them faithfully
-- These contracts are critical to correctness and their behavior must be tested authentically
+- Deploy the real contracts into the test environment
+- These contracts are critical to correctness and must be tested authentically
 
 **When mocks ARE appropriate (unit tests only):**
 - Controlling specific return values from external AMM pools
@@ -302,12 +246,6 @@ Mocks (`vm.mockCall`, `vm.expectCall`) are **only appropriate in unit tests**, a
 - NEVER for the contract-under-test itself
 - NEVER for infrastructure contracts (Permit2, etc.)
 - NEVER in integration tests
-
-**If testing the real contract seems "too hard":**
-1. Ask for help - don't take shortcuts
-2. Use fork tests if you need real on-chain state
-3. Deploy actual dependencies rather than mocking them
-4. The difficulty of testing is not an excuse to test mocks instead
 
 ### When to Write Tests
 
@@ -429,31 +367,6 @@ forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --
 forge fmt
 ```
 
-### Running Tests
-
-```bash
-# Unit tests only (default profile, excludes integration/)
-forge test
-
-# Integration tests (fork tests, requires RPC URLs)
-FOUNDRY_PROFILE=integration forge test
-
-# Specific test
-forge test --match-test testName
-
-# EulerSwap math tests (requires 0.8.28)
-FOUNDRY_SOLC_VERSION=0.8.28 forge test --mp test/0.8.28/EulerSwapBUSL.t.sol
-
-# MultiCall tests
-forge test --mp test/0.8.25/MultiCall.t.sol
-
-# CrossChainReceiverFactory tests
-forge test --mp test/unit/CrossChainReceiverFactory.t.sol
-
-# All unit tests with random fuzz seed (as CI does)
-FOUNDRY_FUZZ_SEED="0x$(python3 -c 'import secrets; print(secrets.token_hex(32))')" forge test
-```
-
 ### Environment Variables
 
 For fork tests and integration tests, set these RPC URLs:
@@ -477,24 +390,12 @@ Key settings in `foundry.toml`:
 
 ### Commit Hygiene
 
-**Stage only the files you intentionally modified.** Do not blindly run `git add .` or `git add -A`. This avoids:
-- Committing untracked files that shouldn't be in the repository
-- Committing build artifacts, temporary files, or debug output
-- Committing unrelated changes that happened to be in the working directory
-
-**Always review the diff before committing.** After staging, run `git diff --staged` to verify:
-- Only intended files are included
-- No debug code, temporary changes, or commented-out code slipped in
-- The changes match what you expect
+**Stage only files you intentionally modified** (no `git add .`). Always run `git diff --staged` before committing.
 
 ```bash
-# ❌ WRONG: Blindly staging everything
-git add .
-git commit -m "Fix bug"
-
-# ✅ CORRECT: Stage specific files and review
+# ✅ Stage specific files and review
 git add src/core/MyFeature.sol test/unit/MyFeatureTest.t.sol
-git diff --staged                    # Review what you're about to commit
+git diff --staged
 git commit -m "Fix bug in MyFeature"
 ```
 
@@ -588,45 +489,7 @@ The codebase is at the edge of the 24KB contract size limit:
 - Borrow battle-tested patterns from audited codebases
 - Review the README.md for protocol-level understanding
 
-## Using Cast and Forge
-
-Cast is Foundry's Swiss Army knife for interacting with Ethereum from the command line. **Use Cast for blockchain utilities and quick operations** rather than writing custom scripts for common tasks.
-
-### When to Use Cast vs Custom Code
-
-**Use Cast for:**
-- Quick keccak256 hashing of function signatures or data
-- Reading contract state, storage slots, balances
-- Sending simple transactions
-- Converting between data formats (hex, decimal, wei, ether)
-- Getting blockchain data (gas price, nonce, block info)
-- Debugging transactions with traces
-- Computing contract addresses before deployment
-
-**Write custom code when:**
-- Building complex multi-step interactions
-- Implementing business logic
-- Creating reusable libraries or contracts
-- Needing programmatic control flow
-
-### Common Cast Utilities
-
-```bash
-# Compute keccak256 hash
-cast keccak "transfer(address,uint256)"
-
-# Generate function selector (4-byte signature)
-cast sig "transfer(address,uint256)"
-
-# Get function name from selector
-cast 4byte 0xa9059cbb
-
-# Compute function selector for Settler
-cast sig "execute(AllowedSlippage,bytes[],bytes32)"
-
-# Decode calldata
-cast calldata-decode "execute((address,address,uint256),bytes[],bytes32)" <calldata>
-```
+## Using Cast
 
 ### Settler-Specific Commands
 
@@ -639,44 +502,11 @@ cast call 0x00000000000004533Fe15556B1E086BB1A72cEae "prev(uint128)(address)" 2
 
 # Get next Settler address
 cast call 0x00000000000004533Fe15556B1E086BB1A72cEae "next(uint128)(address)" 2
-```
 
-### Debugging
-
-```bash
 # Trace a transaction
 cast run <txhash> --rpc-url $RPC_URL
-
-# Decode error selector
-cast 4byte <selector>
 ```
 
-### Integration with Tests and Scripts
+### Forge Standard Library
 
-In Forge tests and scripts, you can leverage Cast-like functionality through `vm` cheatcodes:
-
-```solidity
-// Equivalent to cast keccak
-bytes32 hash = keccak256("transfer(address,uint256)");
-
-// Reading storage - equivalent to cast storage
-bytes32 value = vm.load(address(contract), bytes32(uint256(0)));
-
-// Labels for clarity in traces
-vm.label(address(token), "WETH");
-vm.label(address(settler), "Settler");
-```
-
-### Best Practices
-
-1. **Use Cast for prototyping**: Before writing a complex script, test your calls with Cast
-2. **Verify with Cast**: After deployments, use Cast to verify contract state
-3. **Debug with Cast**: Use `cast run` to debug failed transactions
-4. **Prefer Cast for one-offs**: Don't write scripts for operations Cast can handle
-5. **Chain Cast commands**: Combine with shell scripting for powerful workflows
-
-```bash
-# Example: Get function selector and use it
-SELECTOR=$(cast sig "transfer(address,uint256)")
-cast call $CONTRACT $SELECTOR $RECIPIENT $AMOUNT --rpc-url $RPC_URL
-```
+See `lib/forge-std/src/*.sol` for cheatcodes and utilities that streamline testing (e.g., `Vm.sol`, `Test.sol`, `StdCheats.sol`).
