@@ -13,6 +13,7 @@ import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
+import {Permit} from "../../core/Permit.sol";
 
 /// @custom:security-contact security@0x.org
 contract PolygonSettler is Settler, PolygonMixin {
@@ -40,6 +41,16 @@ contract PolygonSettler is Settler, PolygonMixin {
             return false;
         }
         return true;
+    }
+
+    function _handlePermit(address token, Permit.PermitType permitType, bytes memory permitData) internal override {
+        if (permitType == Permit.PermitType.ERC2612) {
+            callPermit(token, permitData);
+        } else if (permitType == Permit.PermitType.DAIPermit) {
+            callDAIPermit(token, permitData);
+        } else {
+            callNativeMetaTransaction(token, permitData);
+        }
     }
 
     // Solidity inheritance is stupid

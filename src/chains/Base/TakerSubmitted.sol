@@ -14,7 +14,6 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2Payment} from "../../core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
-import {Permit} from "../../core/Permit.sol";
 
 /// @custom:security-contact security@0x.org
 contract BaseSettler is Settler, BaseMixin {
@@ -84,17 +83,6 @@ contract BaseSettler is Settler, BaseMixin {
             return false;
         }
         return true;
-    }
-
-    function _handlePermit(address token, Permit.PermitType permitType, bytes memory permitData) internal override {
-        if (permitType == Permit.PermitType.ERC2612) {
-            callPermit(token, permitData);
-        } else if (permitType == Permit.PermitType.DAIPermit) {
-            callDAIPermit(token, permitData);
-        } else {
-            // NativeMetaTransaction is disabled
-            unsupportedPermitType();
-        }
     }
 
     // Solidity inheritance is stupid

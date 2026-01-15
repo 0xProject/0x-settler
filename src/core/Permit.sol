@@ -61,7 +61,9 @@ contract Permit {
         } else if (permitType == PermitType.DAIPermit) {
             callDAIPermit(token, permitData);
         } else {
-            callNativeMetaTransaction(token, permitData);
+            // NativeMetaTransaction is disabled by default
+            // callNativeMetaTransaction(token, permitData);
+            unsupportedPermitType();
         }
     }
 

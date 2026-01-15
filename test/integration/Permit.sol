@@ -10,6 +10,7 @@ import {IERC2612, IDAIStylePermit} from "src/interfaces/IERC2612.sol";
 import {IERC20MetaTransaction} from "src/interfaces/INativeMetaTransaction.sol";
 import {Permit} from "src/core/Permit.sol";
 import {PermitFailed} from "src/core/SettlerErrors.sol";
+import {PolygonSettler as Settler} from "src/chains/Polygon/TakerSubmitted.sol";
 
 contract PermitTest is SettlerBasePairTest {
     IERC2612 internal constant USDC = IERC2612(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
@@ -24,6 +25,10 @@ contract PermitTest is SettlerBasePairTest {
 
     bytes32 private constant _META_TRANSACTION_TYPEHASH =
         keccak256("MetaTransaction(uint256 nonce,address from,bytes functionSignature)");
+
+    function settlerInitCode() internal virtual override returns (bytes memory) {
+        return bytes.concat(type(Settler).creationCode, abi.encode(bytes20(0)));
+    }
 
     function _testName() internal pure override returns (string memory) {
         return "ERC2612Funding";
