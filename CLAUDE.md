@@ -251,6 +251,64 @@ modifier takerSubmitted() override {
 
 **Every feature or change MUST have comprehensive tests before creating a PR.** This is non-negotiable for maintaining code quality and preventing regressions.
 
+### CRITICAL: Test the Real Contract, Not Mocks
+
+**DO NOT write mocks that replicate production logic and then test the mocks.** This is a critical anti-pattern that has led to buggy code being shipped to production.
+
+```solidity
+// ❌ WRONG: Creating a mock with equivalent functionality and testing it
+contract MockSettler {
+    // Re-implementing the logic you're supposed to test
+    function execute(...) { /* your guess at how it should work */ }
+}
+
+function test_execute() {
+    MockSettler mock = new MockSettler();  // Testing your mock, not production code!
+    mock.execute(...);
+}
+
+// ✅ CORRECT: Test the actual production contract
+function test_execute() {
+    Settler settler = new Settler(...);  // The REAL contract
+    settler.execute(...);
+}
+```
+
+**Why this matters:**
+- Mocks can (and do) contain bugs that don't exist in production code
+- Mocks can (and do) miss bugs that DO exist in production code
+- Testing mocks proves nothing about the correctness of the actual implementation
+- This has directly caused production bugs in this codebase
+
+**Mocks and the difference between Unit vs Integration tests:**
+
+Mocks (`vm.mockCall`, `vm.expectCall`) are **only appropriate in unit tests**, and even then should be used **sparingly**. Unit tests verify isolated logic; integration tests verify real-world behavior.
+
+| Test Type | Mocks Allowed? | What to Test Against |
+|-----------|----------------|---------------------|
+| Unit tests | Sparingly, for external dependencies only | Real contract-under-test; may mock external calls |
+| Integration tests | **NO** | Real contracts on chain forks |
+
+**Integration tests are where most bugs are caught.** They must use real, live contracts via chain fork tests. This is what gives true confidence that integrations work as designed with contracts as-deployed.
+
+**Infrastructure contracts (Permit2, UniswapV4 PoolManager, etc.):**
+- Do NOT mock these, even in unit tests
+- Deploy the real contracts into the test environment by copying them faithfully
+- These contracts are critical to correctness and their behavior must be tested authentically
+
+**When mocks ARE appropriate (unit tests only):**
+- Controlling specific return values from external AMM pools
+- Simulating error conditions that are hard to trigger naturally
+- NEVER for the contract-under-test itself
+- NEVER for infrastructure contracts (Permit2, etc.)
+- NEVER in integration tests
+
+**If testing the real contract seems "too hard":**
+1. Ask for help - don't take shortcuts
+2. Use fork tests if you need real on-chain state
+3. Deploy actual dependencies rather than mocking them
+4. The difficulty of testing is not an excuse to test mocks instead
+
 ### When to Write Tests
 
 - **New Features/Actions**: Write tests demonstrating the complete flow and all edge cases
@@ -297,19 +355,18 @@ function testFuzz_myFeature(uint256 amount, address user) public {
 
 ### Test Commands
 
-```bash
-# Unit tests (default profile)
-forge test
+**IMPORTANT:** The canonical test commands are defined in the CI workflow files. Before running tests, read these files to get the exact commands:
 
-# Integration tests (fork tests, requires RPC URLs)
-FOUNDRY_PROFILE=integration forge test
+- `.github/workflows/test.yml` - Unit tests, build steps, and special contract tests
+- `.github/workflows/integration.yml` - Integration/fork tests
 
-# Specific test
-forge test --match-test testName
-
-# Coverage
-forge coverage
-```
+**RPC URLs Required:** Many tests require RPC URLs for forked network access. If you need to run integration tests or fork tests and don't have the RPC URLs configured, use the `AskUserQuestion` tool to request them from the user. Required environment variables include:
+- `MAINNET_RPC_URL`
+- `BNB_MAINNET_RPC_URL`
+- `PLASMA_MAINNET_RPC_URL`
+- `ARBITRUM_MAINNET_RPC_URL`
+- `BASE_MAINNET_RPC_URL`
+- `MONAD_MAINNET_RPC_URL`
 
 ### Testing Best Practices
 
@@ -417,6 +474,29 @@ Key settings in `foundry.toml`:
 - `fuzz.runs = 100_000`
 - Unit tests exclude `test/integration/*`
 - Integration tests (`FOUNDRY_PROFILE=integration`) only match `test/integration/*`
+
+### Commit Hygiene
+
+**Stage only the files you intentionally modified.** Do not blindly run `git add .` or `git add -A`. This avoids:
+- Committing untracked files that shouldn't be in the repository
+- Committing build artifacts, temporary files, or debug output
+- Committing unrelated changes that happened to be in the working directory
+
+**Always review the diff before committing.** After staging, run `git diff --staged` to verify:
+- Only intended files are included
+- No debug code, temporary changes, or commented-out code slipped in
+- The changes match what you expect
+
+```bash
+# ❌ WRONG: Blindly staging everything
+git add .
+git commit -m "Fix bug"
+
+# ✅ CORRECT: Stage specific files and review
+git add src/core/MyFeature.sol test/unit/MyFeatureTest.t.sol
+git diff --staged                    # Review what you're about to commit
+git commit -m "Fix bug in MyFeature"
+```
 
 ### Before Committing
 
