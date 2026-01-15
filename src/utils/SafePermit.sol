@@ -24,8 +24,8 @@ library FastPermit {
             mstore(add(0x94, ptr), and(0xff, v))
             mstore(add(0x74, ptr), deadline)
             mstore(add(0x54, ptr), amount)
-            mstore(add(0x34, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, spender))
-            mstore(add(0x14, ptr), owner)
+            mstore(add(0x34, ptr), spender)
+            mstore(add(0x20, ptr), shl(0x60, owner))
             mstore(ptr, 0xd505accf000000000000000000000000) // selector for `permit(address,address,uint256,uint256,uint8,bytes32,bytes32)` with `owner`'s padding
 
             success := call(gas(), token, 0x00, add(0x10, ptr), 0xe4, 0x00, 0x20)
@@ -52,8 +52,8 @@ library FastPermit {
             mstore(add(0x94, ptr), allowed)
             mstore(add(0x74, ptr), expiry)
             mstore(add(0x54, ptr), nonce)
-            mstore(add(0x34, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, spender))
-            mstore(add(0x14, ptr), owner)
+            mstore(add(0x34, ptr), spender)
+            mstore(add(0x20, ptr), shl(0x60, owner))
             mstore(ptr, 0x8fcbaf0c000000000000000000000000) // selector for `permit(address,address,uint256,uint256,bool,uint8,bytes32,bytes32)`
 
             success := call(gas(), token, 0x00, add(0x10, ptr), 0x104, 0x00, 0x20)
@@ -130,10 +130,10 @@ library FastPermit {
     function fastAllowance(IERC20 token, address owner, address spender) internal view returns (uint256 allowance) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
-            mstore(0x00, 0xdd62ed3e) // selector for `allowance(address,address)`
-            mstore(0x20, and(0xffffffffffffffffffffffffffffffffffffffff, owner))
-            mstore(0x40, and(0xffffffffffffffffffffffffffffffffffffffff, spender))
-            if iszero(staticcall(gas(), token, 0x1c, 0x44, 0x00, 0x20)) {
+            mstore(0x34, spender)
+            mstore(0x20, shl(0x60, owner))
+            mstore(0x00, 0xdd62ed3e000000000000000000000000) // selector for `allowance(address,address)`
+            if iszero(staticcall(gas(), token, 0x10, 0x44, 0x00, 0x20)) {
                 let ptr_ := mload(0x40)
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
