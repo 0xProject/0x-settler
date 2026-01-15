@@ -13,7 +13,7 @@ interface IERC2612 is IERC20PermitCommon {
         external;
 }
 
-interface IERC20PermitAllowed is IERC20PermitCommon {
+interface IDAIStylePermit is IERC20PermitCommon {
     function permit(
         address holder,
         address spender,

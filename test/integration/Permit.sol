@@ -6,13 +6,13 @@ import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
-import {IERC2612, IERC20PermitAllowed} from "src/interfaces/IERC2612.sol";
+import {IERC2612, IDAIStylePermit} from "src/interfaces/IERC2612.sol";
 import {IERC20MetaTransaction} from "src/interfaces/INativeMetaTransaction.sol";
 import {Permit} from "src/core/Permit.sol";
 
 contract PermitTest is SettlerBasePairTest {
     IERC2612 internal constant USDC = IERC2612(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
-    IERC20PermitAllowed internal constant DAI = IERC20PermitAllowed(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+    IDAIStylePermit internal constant DAI = IDAIStylePermit(0x6B175474E89094C44Da98b954EedeAC495271d0F);
     IERC20MetaTransaction internal constant ZED = IERC20MetaTransaction(0x5eC03C1f7fA7FF05EC476d19e34A22eDDb48ACdc);
 
     bytes32 private constant _PERMIT_TYPEHASH =
@@ -51,7 +51,7 @@ contract PermitTest is SettlerBasePairTest {
         (v, r, s) = vm.sign(privateKey, digest);
     }
 
-    function _signPermitAllowed(
+    function _signDAIPermit(
         address holder,
         address spender,
         uint256 nonce,
@@ -127,17 +127,17 @@ contract PermitTest is SettlerBasePairTest {
         assertEq(USDC.balanceOf(sender), 0, "Sender should have 0 balance");
     }
 
-    function testPermitAllowed() public {
+    function testDAIPermit() public {
         (address sender, uint256 pk) = makeAddrAndKey("sender");
 
         deal(address(DAI), sender, amount());
 
         uint256 expiry = block.timestamp + 1 hours;
         uint256 nonce = DAI.nonces(sender);
-        (uint8 v, bytes32 r, bytes32 s) = _signPermitAllowed(sender, address(allowanceHolder), nonce, expiry, true, pk);
+        (uint8 v, bytes32 r, bytes32 s) = _signDAIPermit(sender, address(allowanceHolder), nonce, expiry, true, pk);
 
         bytes memory permitData =
-            abi.encodePacked(Permit.PermitType.PermitAllowed, abi.encode(sender, nonce, expiry, true, v, r, s));
+            abi.encodePacked(Permit.PermitType.DAIPermit, abi.encode(sender, nonce, expiry, true, v, r, s));
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(

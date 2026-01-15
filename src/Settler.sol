@@ -6,7 +6,7 @@ import {ISettlerTakerSubmitted} from "./interfaces/ISettlerTakerSubmitted.sol";
 
 import {Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
-import {Permit, IERC2612, IERC20PermitAllowed, IERC20MetaTransaction} from "./core/Permit.sol";
+import {Permit, IERC2612, IDAIStylePermit, IERC20MetaTransaction} from "./core/Permit.sol";
 
 import {AbstractContext} from "./Context.sol";
 import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
@@ -84,8 +84,8 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             (permitType, permitData) = getPermitType(permitData);
             if (permitType == PermitType.ERC2612) {
                 callPermit(IERC2612(permit.permitted.token), permitData);
-            } else if (permitType == PermitType.PermitAllowed) {
-                callPermitAllowed(IERC20PermitAllowed(permit.permitted.token), permitData);
+            } else if (permitType == PermitType.DAIPermit) {
+                callDAIPermit(IDAIStylePermit(permit.permitted.token), permitData);
             } else {
                 callNativeMetaTransaction(IERC20MetaTransaction(permit.permitted.token), permitData);
             }

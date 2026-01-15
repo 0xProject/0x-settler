@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {IERC20PermitCommon, IERC2612, IERC20PermitAllowed} from "../interfaces/IERC2612.sol";
+import {IERC20PermitCommon, IERC2612, IDAIStylePermit} from "../interfaces/IERC2612.sol";
 import {IERC20MetaTransaction, INativeMetaTransaction} from "../interfaces/INativeMetaTransaction.sol";
 import {ALLOWANCE_HOLDER} from "../allowanceholder/IAllowanceHolder.sol";
 import {SafePermit} from "../utils/SafePermit.sol";
@@ -9,12 +9,12 @@ import {revertConfusedDeputy} from "./SettlerErrors.sol";
 
 contract Permit {
     using SafePermit for IERC2612;
-    using SafePermit for IERC20PermitAllowed;
+    using SafePermit for IDAIStylePermit;
     using SafePermit for IERC20MetaTransaction;
 
     enum PermitType {
         ERC2612,
-        PermitAllowed,
+        DAIPermit,
         NativeMetaTransaction
     }
 
@@ -37,10 +37,10 @@ contract Permit {
         token.safePermit(owner, address(ALLOWANCE_HOLDER), amount, deadline, v, r, s);
     }
 
-    function callPermitAllowed(IERC20PermitAllowed token, bytes memory permitData) internal {
+    function callDAIPermit(IDAIStylePermit token, bytes memory permitData) internal {
         (address owner, uint256 nonce, uint256 expiry, bool allowed, uint8 v, bytes32 r, bytes32 s) =
             abi.decode(permitData, (address, uint256, uint256, bool, uint8, bytes32, bytes32));
-        IERC20PermitAllowed(token).safePermit(owner, address(ALLOWANCE_HOLDER), nonce, expiry, allowed, v, r, s);
+        token.safePermit(owner, address(ALLOWANCE_HOLDER), nonce, expiry, allowed, v, r, s);
     }
 
     function callNativeMetaTransaction(IERC20MetaTransaction token, bytes memory permitData) internal {

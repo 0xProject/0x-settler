@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {IERC20PermitCommon, IERC2612, IERC20PermitAllowed} from "../interfaces/IERC2612.sol";
+import {IERC20PermitCommon, IERC2612, IDAIStylePermit} from "../interfaces/IERC2612.sol";
 import {IERC20MetaTransaction} from "../interfaces/INativeMetaTransaction.sol";
 import {Revert} from "./Revert.sol";
 
@@ -33,8 +33,8 @@ library FastPermit {
         }
     }
 
-    function fastPermitAllowed(
-        IERC20PermitAllowed token,
+    function fastDAIPermit(
+        IDAIStylePermit token,
         address owner,
         address spender,
         uint256 nonce,
@@ -149,7 +149,7 @@ library FastPermit {
 
 library SafePermit {
     using FastPermit for IERC2612;
-    using FastPermit for IERC20PermitAllowed;
+    using FastPermit for IDAIStylePermit;
     using FastPermit for IERC20MetaTransaction;
     using FastPermit for IERC20;
 
@@ -241,7 +241,7 @@ library SafePermit {
     }
 
     function safePermit(
-        IERC20PermitAllowed token,
+        IDAIStylePermit token,
         address owner,
         address spender,
         uint256 nonce,
@@ -252,7 +252,7 @@ library SafePermit {
         bytes32 s
     ) internal {
         // See comments above
-        if (!token.fastPermitAllowed(owner, spender, nonce, deadline, allowed, v, r, s)) {
+        if (!token.fastDAIPermit(owner, spender, nonce, deadline, allowed, v, r, s)) {
             // Check effects and signature
             if (block.timestamp > deadline && deadline > 0) {
                 _revert(0x1a15a3cc);
