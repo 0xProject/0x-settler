@@ -51,6 +51,10 @@ Master list of UniV3 forks:
 ### Non-breaking changes
 
 * Add `HANJI` action for Hanji order book liquidity source on Base and Monad
+  * Note that while it is possible to sell eith ETH (native) or WETH (wrapped
+    native) to Hanji pools with the wrapped native asset as one of the tokens,
+    attempting to buy WETH (wrapped native) is not possible. You will always get
+    raw ETH (native).
 
 ## 2025-12-29
 
