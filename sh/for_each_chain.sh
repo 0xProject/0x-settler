@@ -168,8 +168,8 @@ for chain_name in "${chains[@]}" ; do
             continue
         fi
 
-        if [[ $(get_config "$chain_name" hardfork.osaka) != [Tt]rue ]] ; then
-            echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is not Osaka' >&2
+        if [[ $(get_config "$chain_name" hardfork.osaka) != [Ff]alse ]] ; then
+            echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is Osaka' >&2
             continue
         fi
     fi
