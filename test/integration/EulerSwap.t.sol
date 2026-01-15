@@ -55,8 +55,10 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
     modifier setEulerSwapBlock() {
         uint256 blockNumber = vm.getBlockNumber();
         vm.rollFork(eulerSwapBlock());
+        vm.setEvmVersion("cancun");
         _;
         vm.rollFork(blockNumber);
+        vm.setEvmVersion("cancun");
     }
 
     function _setEulerSwapLabels() private setEulerSwapBlock {

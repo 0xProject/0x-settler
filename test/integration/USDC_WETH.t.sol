@@ -16,6 +16,7 @@ import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {Permit2TransferTest} from "./Permit2TransferTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
+import {BebopPairTest} from "./BebopPairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
@@ -31,7 +32,8 @@ contract USDCWETHTest is
     DodoV1PairTest,
     MaverickV2PairTest,
     TokenTransferTest,
-    Permit2TransferTest
+    Permit2TransferTest,
+    BebopPairTest
 {
     function setUp()
         public
@@ -44,7 +46,8 @@ contract USDCWETHTest is
             ZeroExPairTest,
             UniswapV3PairTest,
             TokenTransferTest,
-            Permit2TransferTest
+            Permit2TransferTest,
+            BebopPairTest
         )
     {
         super.setUp();

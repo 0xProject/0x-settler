@@ -11,7 +11,6 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
-import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {MainnetSettler as Settler} from "src/chains/Mainnet/TakerSubmitted.sol";
 
@@ -57,7 +56,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
         vm.chainId(31337);
         settler = _deploySettler();
         vm.label(address(settler), "Settler");
-        vm.etch(address(allowanceHolder), address(new AllowanceHolder()).code);
+        vm.etch(address(allowanceHolder), vm.getDeployedCode("AllowanceHolderOl.sol:AllowanceHolder"));
         vm.label(address(allowanceHolder), "AllowanceHolder");
         vm.chainId(forkChainId);
     }

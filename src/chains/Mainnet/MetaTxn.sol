@@ -12,6 +12,7 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
+import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 /// @custom:security-contact security@0x.org
 contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
@@ -67,7 +68,26 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
         return super._dispatch(i, action, data);
     }
 
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(SettlerMetaTxn, MainnetMixin)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
+
     function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, MainnetMixin)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
     }
 }

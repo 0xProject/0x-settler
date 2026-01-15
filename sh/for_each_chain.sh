@@ -158,13 +158,18 @@ contains() {
 declare chain_name
 for chain_name in "${chains[@]}" ; do
     if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
-        if [[ $(get_config "$chain_name" isShanghai) != [Tt]rue ]] ; then
+        if [[ $(get_config "$chain_name" hardfork.shanghai) != [Tt]rue ]] ; then
             echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is not Shanghai' >&2
             continue
         fi
 
-        if [[ $(get_config "$chain_name" isCancun) != [Ff]alse ]] ; then
+        if [[ $(get_config "$chain_name" hardfork.cancun) != [Ff]alse ]] ; then
             echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is Cancun' >&2
+            continue
+        fi
+
+        if [[ $(get_config "$chain_name" hardfork.osaka) != [Ff]alse ]] ; then
+            echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is Osaka' >&2
             continue
         fi
     fi

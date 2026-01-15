@@ -8,7 +8,13 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 abstract contract Permit2PaymentAbstract is AbstractContext {
     string internal constant TOKEN_PERMISSIONS_TYPE = "TokenPermissions(address token,uint256 amount)";
 
-    function _isRestrictedTarget(address) internal view virtual returns (bool);
+    function _isRestrictedTarget(address) internal view virtual returns (bool) {
+        return false;
+    }
+
+    function _fallback(bytes calldata) internal virtual returns (bool success, bytes memory returndata) {
+        return (success, returndata);
+    }
 
     function _operator() internal view virtual returns (address);
 
@@ -66,7 +72,7 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
         address target,
         bytes memory data,
         uint32 selector,
-        function (bytes calldata) internal returns (bytes memory) callback
+        function(bytes calldata) internal returns (bytes memory) callback
     ) internal virtual returns (bytes memory);
 
     modifier metaTx(address msgSender, bytes32 witness) virtual;

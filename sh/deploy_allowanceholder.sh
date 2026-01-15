@@ -127,6 +127,8 @@ decrypt_secrets
 . "$project_root"/sh/common_gas.sh
 
 export FOUNDRY_OPTIMIZER_RUNS=1000000
+export FOUNDRY_SOLC_VERSION=0.8.25
+export FOUNDRY_EVM_HARDFORK=cancun
 
 forge clean
 forge build src/allowanceholder/AllowanceHolderOld.sol

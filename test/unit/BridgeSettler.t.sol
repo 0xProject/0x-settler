@@ -4,7 +4,10 @@ pragma solidity ^0.8.25;
 import {Test} from "@forge-std/Test.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
+<<<<<<< HEAD
 import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
+=======
+>>>>>>> dcmt/cancun
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {BridgeSettler, BridgeSettlerBase} from "src/bridge/BridgeSettler.sol";
 import {ISettlerTakerSubmitted} from "src/interfaces/ISettlerTakerSubmitted.sol";
@@ -54,9 +57,7 @@ contract BridgeSettlerUnitTest is BridgeSettlerTestBase {
     function setUp() public override {
         super.setUp();
 
-        vm.etch(address(ALLOWANCE_HOLDER), address(new AllowanceHolder()).code);
-        vm.makePersistent(address(ALLOWANCE_HOLDER));
-
+        vm.etch(address(ALLOWANCE_HOLDER), vm.getDeployedCode("AllowanceHolderOld.sol:AllowanceHolder"));
         // Mock DAI and USDC for MainnetSettler to be usable
         deployCodeTo("MockERC20", abi.encode("DAI", "DAI", 18), address(DAI));
         deployCodeTo("MockERC20", abi.encode("USDC", "USDC", 6), address(USDC));

@@ -87,8 +87,8 @@ contract MainnetSettler is Settler, MainnetMixin {
     // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
-        pure
-        override(Settler, Permit2PaymentAbstract)
+        view
+        override(Settler, MainnetMixin)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -96,5 +96,14 @@ contract MainnetSettler is Settler, MainnetMixin {
 
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, MainnetMixin)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
     }
 }

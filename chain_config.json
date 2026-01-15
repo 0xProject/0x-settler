@@ -2,9 +2,12 @@
   "sepolia": {
     "chainId": 11155111,
     "displayName": "Sepolia",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": true,
+      "eraVm": false
+    },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 130,
@@ -36,9 +39,12 @@
   "mainnet": {
     "chainId": 1,
     "displayName": "Mainnet",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": true,
+      "eraVm": false
+    },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 130,
@@ -70,9 +76,12 @@
   "polygon": {
     "chainId": 137,
     "displayName": "Polygon",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -104,9 +113,12 @@
   "base": {
     "chainId": 8453,
     "displayName": "Base",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -138,9 +150,12 @@
   "optimism": {
     "chainId": 10,
     "displayName": "Optimism",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -172,9 +187,12 @@
   "arbitrum": {
     "chainId": 42161,
     "displayName": "Arbitrum",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 300,
@@ -206,9 +224,12 @@
   "bsc": {
     "chainId": 56,
     "displayName": "Bnb",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 130,
@@ -240,9 +261,12 @@
   "avalanche": {
     "chainId": 43114,
     "displayName": "Avalanche",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 115,
@@ -274,9 +298,12 @@
   "blast": {
     "chainId": 81457,
     "displayName": "Blast",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -307,9 +334,12 @@
   "linea": {
     "chainId": 59144,
     "displayName": "Linea",
-    "isShanghai": false,
-    "isCancun": false,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -331,7 +361,7 @@
     },
     "deployment": {
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
-      "allowanceHolder": "0x000000000000175a8b9bC6d539B3708EEd92EA6c",
+      "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
     },
@@ -341,9 +371,12 @@
   "scroll": {
     "chainId": 534352,
     "displayName": "Scroll",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 120,
@@ -375,9 +408,12 @@
   "mantle": {
     "chainId": 5000,
     "displayName": "Mantle",
-    "isShanghai": true,
-    "isCancun": false,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": false,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -409,9 +445,12 @@
   "mode": {
     "chainId": 34443,
     "displayName": "Mode",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -443,9 +482,12 @@
   "taiko": {
     "chainId": 167000,
     "displayName": "Taiko",
-    "isShanghai": true,
-    "isCancun": false,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": false,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -476,9 +518,12 @@
   "world": {
     "chainId": 480,
     "displayName": "WorldChain",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -510,9 +555,12 @@
   "xdai": {
     "chainId": 100,
     "displayName": "Gnosis",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 140,
@@ -544,9 +592,12 @@
   "sonic": {
     "chainId": 146,
     "displayName": "Sonic",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 150,
@@ -577,9 +628,12 @@
   "ink": {
     "chainId": 57073,
     "displayName": "Ink",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -610,9 +664,12 @@
   "monad-testnet": {
     "chainId": 10143,
     "displayName": "MonadTestnet",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 110,
@@ -643,9 +700,12 @@
   "unichain": {
     "chainId": 130,
     "displayName": "Unichain",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -677,9 +737,12 @@
   "berachain": {
     "chainId": 80094,
     "displayName": "Berachain",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -711,9 +774,12 @@
     "chainId": 999,
     "displayName": "HyperEvm",
     "wnative": "0x5555555555555555555555555555555555555555",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 300,
@@ -745,9 +811,12 @@
     "chainId": 747474,
     "displayName": "Katana",
     "wnative": "0xEE7D8BCFb72bC1880D0Cf19822eB0A2e6577aB62",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -779,9 +848,12 @@
     "chainId": 9745,
     "displayName": "Plasma",
     "wnative": "0x6100E367285b01F48D07953803A2d8dCA5D19873",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 200,
@@ -812,9 +884,12 @@
     "chainId": 143,
     "displayName": "Monad",
     "wnative": "0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": false,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": false
+    },
     "extraFlags": "",
     "extraScriptFlags": "--isolate",
     "gasMultiplierPercent": 110,
@@ -847,9 +922,12 @@
     "chainId": 11124,
     "displayName": "AbstractSepolia",
     "wnative": "0x9EDCde0257F2386Ce177C3a7FCdd97787F0D841d",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": true,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": true
+    },
     "extraFlags": "",
     "extraScriptFlags": "",
     "gasMultiplierPercent": 500,
@@ -879,9 +957,12 @@
     "chainId": 2741,
     "displayName": "Abstract",
     "wnative": "0x3439153EB7AF838Ad19d56E1571FBD09333C2809",
-    "isShanghai": true,
-    "isCancun": true,
-    "isEraVm": true,
+    "hardfork": {
+      "shanghai": true,
+      "cancun": true,
+      "osaka": false,
+      "eraVm": true
+    },
     "extraFlags": "",
     "extraScriptFlags": "",
     "gasMultiplierPercent": 500,

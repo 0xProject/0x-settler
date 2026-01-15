@@ -17,9 +17,9 @@ import {
 import {SettlerAbstract} from "../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "./Permit2PaymentAbstract.sol";
 import {Panic} from "../utils/Panic.sol";
-import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
+import {tmp} from "../utils/512Math.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -27,6 +27,16 @@ import {Revert} from "../utils/Revert.sol";
 
 import {AbstractContext, Context} from "../Context.sol";
 import {AllowanceHolderContext, ALLOWANCE_HOLDER} from "../allowanceholder/AllowanceHolderContext.sol";
+
+ISignatureTransfer constant PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
+
+library FunctionPointerChecker {
+    function isNull(function(bytes calldata) internal returns (bytes memory) callback) internal pure returns (bool r) {
+        assembly ("memory-safe") {
+            r := iszero(callback)
+        }
+    }
+}
 
 library TransientStorage {
     // bytes32((uint256(keccak256("operator slot")) - 1) & type(uint96).max)
@@ -43,11 +53,11 @@ library TransientStorage {
     // `foundry.toml` enforces the use of the IR pipeline, so the point is moot.
     //
     // `operator` must not be `address(0)`. This is not checked.
-    // `callback` must not be zero. This is checked in `_invokeCallback`.
+    // `callback` must not be zero. This is checked in `fallback`.
     function setOperatorAndCallback(
         address operator,
         uint32 selector,
-        function (bytes calldata) internal returns (bytes memory) callback
+        function(bytes calldata) internal returns (bytes memory) callback
     ) internal {
         assembly ("memory-safe") {
             if iszero(shl(0x60, xor(sload(_PAYER_SLOT), operator))) {
@@ -87,15 +97,16 @@ library TransientStorage {
 
     function getAndClearCallback()
         internal
-        returns (function (bytes calldata) internal returns (bytes memory) callback)
+        returns (function(bytes calldata) internal returns (bytes memory) callback)
     {
         assembly ("memory-safe") {
             let slotValue := sload(_OPERATOR_SLOT)
-            if or(shr(0xe0, xor(calldataload(0), slotValue)), shl(0x60, xor(caller(), slotValue))) {
-                revert(0x00, 0x00)
+            let success :=
+                iszero(or(shr(0xe0, xor(calldataload(0x00), slotValue)), shl(0x60, xor(caller(), slotValue))))
+            callback := mul(and(0xffff, shr(0xa0, slotValue)), success)
+            if success {
+                sstore(_OPERATOR_SLOT, 0x00)
             }
-            callback := and(0xffff, shr(0xa0, slotValue))
-            sstore(_OPERATOR_SLOT, 0x00)
         }
     }
 
@@ -147,7 +158,7 @@ library TransientStorage {
                 revert(0x10, 0x24)
             }
 
-            sstore(_PAYER_SLOT, and(0xffffffffffffffffffffffffffffffffffffffff, payer))
+            sstore(_PAYER_SLOT, payer)
         }
     }
 
@@ -170,13 +181,11 @@ library TransientStorage {
 }
 
 abstract contract Permit2PaymentBase is Context, SettlerAbstract {
+    using FastLogic for bool;
     using Revert for bool;
 
-    /// @dev Permit2 address
-    ISignatureTransfer internal constant _PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
-
-    function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
-        return target == address(_PERMIT2);
+    function _isRestrictedTarget(address target) internal view virtual override returns (bool) {
+        return (target == address(PERMIT2)).or(super._isRestrictedTarget(target));
     }
 
     function _operator() internal view virtual override returns (address) {
@@ -201,7 +210,7 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
         uint256 value,
         bytes memory data,
         uint32 selector,
-        function (bytes calldata) internal returns (bytes memory) callback
+        function(bytes calldata) internal returns (bytes memory) callback
     ) internal returns (bytes memory) {
         TransientStorage.setOperatorAndCallback(target, selector, callback);
         (bool success, bytes memory returndata) = target.call{value: value}(data);
@@ -214,20 +223,29 @@ abstract contract Permit2PaymentBase is Context, SettlerAbstract {
         address target,
         bytes memory data,
         uint32 selector,
-        function (bytes calldata) internal returns (bytes memory) callback
+        function(bytes calldata) internal returns (bytes memory) callback
     ) internal override returns (bytes memory) {
         return _setOperatorAndCall(payable(target), 0, data, selector, callback);
-    }
-
-    function _invokeCallback(bytes calldata data) internal returns (bytes memory) {
-        // Retrieve callback and perform call with untrusted calldata
-        return TransientStorage.getAndClearCallback()(data[4:]);
     }
 }
 
 abstract contract Permit2Payment is Permit2PaymentBase {
-    fallback(bytes calldata) external virtual returns (bytes memory) {
-        return _invokeCallback(_msgData());
+    using FunctionPointerChecker for function(bytes calldata) internal returns (bytes memory);
+
+    fallback(bytes calldata) external returns (bytes memory) {
+        function(bytes calldata) internal returns (bytes memory) callback = TransientStorage.getAndClearCallback();
+        bytes calldata data = _msgData();
+        if (callback.isNull()) {
+            (bool success, bytes memory returndata) = _fallback(data);
+            require(success);
+            return returndata;
+        } else {
+            assembly ("memory-safe") {
+                data.offset := add(0x04, data.offset)
+                data.length := sub(data.length, 0x04)
+            }
+            return callback(data);
+        }
     }
 
     function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
@@ -258,7 +276,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
                 revert(0x1c, 0x04)
             }
         }
-        _PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
+        PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
     // see comment in above overload; don't use this function
@@ -285,7 +303,6 @@ abstract contract Permit2Payment is Permit2PaymentBase {
 // DANGER: the order of the base contracts here is very significant for the use of `super` below
 // (and in derived contracts). Do not change this order.
 abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit2Payment {
-    using FullMath for uint256;
     using SafeTransferLib for IERC20;
     using FastLogic for bool;
 
@@ -303,7 +320,8 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         unchecked {
             if (~sellAmount < BASIS) {
                 sellAmount = BASIS - ~sellAmount;
-                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
+                sellAmount =
+                    tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(BASIS);
             }
         }
     }
@@ -318,12 +336,13 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         unchecked {
             if (~sellAmount < BASIS) {
                 sellAmount = BASIS - ~sellAmount;
-                sellAmount = IERC20(permit.permitted.token).fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
+                sellAmount =
+                    tmp().omul(IERC20(permit.permitted.token).fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(BASIS);
             }
         }
     }
 
-    function _isRestrictedTarget(address target) internal pure virtual override returns (bool) {
+    function _isRestrictedTarget(address target) internal view virtual override returns (bool) {
         return (target == address(ALLOWANCE_HOLDER)).or(super._isRestrictedTarget(target));
     }
 
@@ -353,7 +372,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
                 permit.permitted.token, _msgSender(), transferDetails.to, transferDetails.requestedAmount
             );
         } else {
-            _PERMIT2.permitTransferFrom(permit, transferDetails, _msgSender(), sig);
+            PERMIT2.permitTransferFrom(permit, transferDetails, _msgSender(), sig);
         }
     }
 
@@ -424,13 +443,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
         return super._msgData();
     }
 
-    function _msgSender()
-        internal
-        view
-        virtual
-        override(AllowanceHolderContext, Permit2PaymentBase)
-        returns (address)
-    {
+    function _msgSender() internal view virtual override(AllowanceHolderContext, Permit2PaymentBase) returns (address) {
         return super._msgSender();
     }
 }
@@ -471,8 +484,7 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
     }
 
     function _witnessTypeSuffix() internal pure virtual returns (string memory) {
-        return
-        "SlippageAndActions slippageAndActions)SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)";
+        return "SlippageAndActions slippageAndActions)SlippageAndActions(address recipient,address buyToken,uint256 minAmountOut,bytes[] actions)TokenPermissions(address token,uint256 amount)";
     }
 
     function _transferFrom(
@@ -525,7 +537,6 @@ abstract contract Permit2PaymentMetaTxn is Context, Permit2Payment {
 }
 
 abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
-    using FullMath for uint256;
     using SafeTransferLib for IERC20;
 
     constructor() {
@@ -536,8 +547,7 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
     }
 
     function _witnessTypeSuffix() internal pure virtual override returns (string memory) {
-        return
-        "Slippage slippage)Slippage(address recipient,address buyToken,uint256 minAmountOut)TokenPermissions(address token,uint256 amount)";
+        return "Slippage slippage)Slippage(address recipient,address buyToken,uint256 minAmountOut)TokenPermissions(address token,uint256 amount)";
     }
 
     bytes32 private constant _BRIDGE_WALLET_CODEHASH =
@@ -548,7 +558,7 @@ abstract contract Permit2PaymentIntent is Permit2PaymentMetaTxn {
             if (~sellAmount < BASIS) {
                 if (_msgSender().codehash == _BRIDGE_WALLET_CODEHASH) {
                     sellAmount = BASIS - ~sellAmount;
-                    sellAmount = token.fastBalanceOf(_msgSender()).unsafeMulDiv(sellAmount, BASIS);
+                    sellAmount = tmp().omul(token.fastBalanceOf(_msgSender()), sellAmount).unsafeDiv(BASIS);
                 }
             }
         }

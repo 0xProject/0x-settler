@@ -8,6 +8,14 @@ interface ISettlerActions {
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         external;
 
+    /// @dev Transfer funds from AllowanceHolder with with a pre-transfer funding call.
+    /// @dev permitData encoding data of the permit call to be executed
+    function TRANSFER_FROM_WITH_PERMIT(
+        address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory permitData
+    ) external;
+
     // @dev msgValue is interpreted as an upper bound on the expected msg.value, not as an exact specification
     function NATIVE_CHECK(uint256 deadline, uint256 msgValue) external;
 
@@ -291,5 +299,46 @@ interface ISettlerActions {
         address pool,
         bool zeroForOne,
         uint256 amountOutMin
+    ) external;
+
+    struct BebopMakerSignature {
+        bytes signatureBytes;
+        uint256 flags;
+    }
+
+    struct BebopOrder {
+        uint256 expiry;
+        address maker_address;
+        uint256 maker_nonce;
+        address maker_token;
+        uint256 taker_amount;
+        uint256 maker_amount;
+
+        // the high 5 bits are unused
+        // the next 3 bits are the `takerHasNative`, `makerHasNative`, and
+        //   `takerUsingPermit2` flags (in that order from high to low) from the
+        //   original `packed_commands` field
+        // the next 120 bits are unused
+        // the low 128 bits are the `event_id` from the original `flags` field
+        uint256 event_id_and_flags;
+    }
+
+    function BEBOP(
+        address recipient,
+        address sellToken,
+        BebopOrder memory order,
+        BebopMakerSignature memory makerSignature,
+        uint256 amountOutMin
+    ) external;
+
+    function HANJI(
+        address sellToken,
+        uint256 bps,
+        address pool,
+        uint256 sellScalingFactor,
+        uint256 buyScalingFactor,
+        bool isAsk,
+        uint256 priceLimit,
+        uint256 minBuyAmount
     ) external;
 }

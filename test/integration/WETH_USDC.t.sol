@@ -5,13 +5,14 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 import {UniswapV2PairTest} from "./UniswapV2PairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
+import {BebopPairTest} from "./BebopPairTest.t.sol";
 
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
 
-contract WETHUSDCTest is UniswapV2PairTest, UniswapV3PairTest {
-    function setUp() public override(SettlerPairTest, UniswapV3PairTest) {
+contract WETHUSDCTest is UniswapV2PairTest, UniswapV3PairTest, BebopPairTest {
+    function setUp() public override(SettlerPairTest, UniswapV3PairTest, BebopPairTest) {
         super.setUp();
     }
 

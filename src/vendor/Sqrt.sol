@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-// @author Modified from Solady by Vectorized https://github.com/Vectorized/solady/blob/701406e8126cfed931645727b274df303fbcd94d/src/utils/FixedPointMathLib.sol#L774-L826 under the MIT license.
+// @author Modified from Solady by Vectorized and Akshay Tarpara https://github.com/Vectorized/solady/blob/1198c9f70b30d472a7d0ec021bec080622191b03/src/utils/clz/FixedPointMathLib.sol#L769-L797 under the MIT license.
 library Sqrt {
-    /// @dev Returns the square root of `x`, rounded down.
+    /// @dev Returns the square root of `x`, rounded maybe-up maybe-down. For expert use only.
     function _sqrt(uint256 x) private pure returns (uint256 z) {
         assembly ("memory-safe") {
             // `floor(sqrt(2**15)) = 181`. `sqrt(2**15) - 181 = 2.84`.
@@ -51,6 +51,7 @@ library Sqrt {
         }
     }
 
+    /// @dev Returns the square root of `x`, rounded down.
     function sqrt(uint256 x) internal pure returns (uint256 z) {
         z = _sqrt(x);
         assembly ("memory-safe") {
@@ -61,10 +62,16 @@ library Sqrt {
         }
     }
 
+    /// @dev Returns the square root of `x`, rounded up.
     function sqrtUp(uint256 x) internal pure returns (uint256 z) {
         z = _sqrt(x);
         assembly ("memory-safe") {
-            z := add(lt(mul(z, z), x), z)
+            // `mul(z, z)` can overflow when `x == type(uint256).max`. This is because `_sqrt(x)`
+            // can return `ceil(sqrt(x))` when `x + 1` is square. An overflow in `zz` causes a
+            // spurious round-up (`z` is already rounded up) and causes the result to be `2**128 +
+            // 1`, an off-by-one. To compensate, we detect this overflow and avoid rounding.
+            let zz := mul(z, z)
+            z := add(gt(lt(zz, x), lt(zz, z)), z)
         }
     }
 }

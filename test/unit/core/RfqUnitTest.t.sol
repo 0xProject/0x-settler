@@ -37,6 +37,16 @@ abstract contract RfqOrderSettlementDummyBase is RfqOrderSettlement, Permit2Paym
     function _tokenId() internal pure override returns (uint256) {
         revert("unimplemented");
     }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(Permit2PaymentBase, Permit2PaymentAbstract)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
 }
 
 contract RfqOrderSettlementDummy is Permit2PaymentTakerSubmitted, RfqOrderSettlementDummyBase {
@@ -95,8 +105,8 @@ contract RfqOrderSettlementDummy is Permit2PaymentTakerSubmitted, RfqOrderSettle
 
     function _isRestrictedTarget(address target)
         internal
-        pure
-        override(Permit2PaymentTakerSubmitted, Permit2PaymentBase, Permit2PaymentAbstract)
+        view
+        override(Permit2PaymentTakerSubmitted, RfqOrderSettlementDummyBase)
         returns (bool)
     {
         return super._isRestrictedTarget(target);
@@ -136,6 +146,15 @@ contract RfqOrderSettlementMetaTxnDummy is Permit2PaymentMetaTxn, RfqOrderSettle
         returns (address)
     {
         return super._msgSender();
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        override(Permit2PaymentBase, RfqOrderSettlementDummyBase)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
     }
 
     function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {

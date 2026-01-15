@@ -6,7 +6,7 @@ import {IERC721View, IDeployer} from "src/deployer/IDeployer.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Create3} from "src/utils/Create3.sol";
-import {IERC1967Proxy} from "src/proxy/ERC1967UUPSUpgradeable.sol";
+import {IERC1967Proxy} from "src/interfaces/IERC1967Proxy.sol";
 import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
 
 import {MainnetDefaultFork} from "../../integration/BaseForkTest.t.sol";
@@ -25,6 +25,7 @@ contract DeployerTest is Test, MainnetDefaultFork {
 
     function setUp() public {
         vm.createSelectFork(_testChainId(), _testBlockNumber());
+        vm.setEvmVersion("cancun");
 
         deployer = Deployer(DEPLOYER);
         vm.label(address(deployer), "Deployer (proxy)");

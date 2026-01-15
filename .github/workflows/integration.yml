@@ -22,13 +22,18 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.0
+          version: v1.5.1
 
       - name: Install dependencies
         run: git submodule update --recursive --init
 
       - name: Install node dependencies
         run: npm install
+
+      - name: Build AllowanceHolder and Deployer
+        run: forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol src/deployer/BlastDeployer.sol src/deployer/ModeDeployer.sol
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.25
 
       - name: Run tests
         run: forge test --skip 'src/*' --skip 'test/0.8.28/*' --skip 'test/integration/arbitrum/*'
@@ -41,16 +46,19 @@ jobs:
           BASE_MAINNET_RPC_URL: ${{ secrets.BASE_MAINNET_RPC_URL }}
           MONAD_MAINNET_RPC_URL: ${{ secrets.MONAD_MAINNET_RPC_URL }}
 
-      - name: Install Arbitrum foundry fork
-        run: |
-          wget -O arbos.tar.gz https://github.com/iosiro/arbos-foundry/releases/download/nightly-234b5dc382f52daf9bf7b27e12d05ad1fb827655/arbos-foundry_nightly_linux_amd64.tar.gz
-          tar -xzf arbos.tar.gz
-
-      - name: Run Arbitrum tests
-        run: ./arbos-forge test --skip 'src/*' --skip 'test/0.8.28/*' --mp 'test/integration/arbitrum/*'
-        env:
-          FOUNDRY_PROFILE: integration
-          ARBITRUM_MAINNET_RPC_URL: ${{ secrets.ARBITRUM_MAINNET_RPC_URL }}
+      ## Arbitrum/ArbOS/Stylus integration tests are disabled because we require
+      ## Foundry 1.5.1 cheatcodes for compatibility with the Osaka hardfork and
+      ## ArbOS-Foundry only supports up to 1.4.0
+      #- name: Install Arbitrum foundry fork
+      #  run: |
+      #    wget -O arbos.tar.gz https://github.com/iosiro/arbos-foundry/releases/download/nightly-234b5dc382f52daf9bf7b27e12d05ad1fb827655/arbos-foundry_nightly_linux_amd64.tar.gz
+      #    tar -xzf arbos.tar.gz
+      #
+      #- name: Run Arbitrum tests
+      #  run: ./arbos-forge test --skip 'src/*' --skip 'test/0.8.28/*' --mp 'test/integration/arbitrum/*'
+      #  env:
+      #    FOUNDRY_PROFILE: integration
+      #    ARBITRUM_MAINNET_RPC_URL: ${{ secrets.ARBITRUM_MAINNET_RPC_URL }}
 
       - name: Gas comparison
         run: npm run compare_gas
