@@ -70,9 +70,9 @@ contract Permit {
     function unsupportedPermitType(PermitType permitType) internal pure {
         assembly ("memory-safe") {
             let castError := gt(permitType, 0x02)
-            mstore(0x00, xor(0x01aa0452, mul(0x4fe27f23, castError))) // selector for `UnsupportedPermitType()` or `Panic(uint256)`
+            mstore(0x00, xor(0xf9ade075, mul(0xb7e59b04, castError))) // selector for `UnsupportedPermitType(uint8)` or `Panic(uint256)`
             mstore(0x20, xor(permitType, mul(xor(permitType, 0x21), castError)))
-            revert(0x1c, 0x04)
+            revert(0x1c, 0x24)
         }
     }
 }
