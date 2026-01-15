@@ -63,13 +63,15 @@ contract Permit {
         } else {
             // NativeMetaTransaction is disabled by default
             // callNativeMetaTransaction(token, permitData);
-            unsupportedPermitType();
+            unsupportedPermitType(permitType);
         }
     }
 
-    function unsupportedPermitType() internal pure {
+    function unsupportedPermitType(PermitType permitType) internal pure {
         assembly ("memory-safe") {
-            mstore(0x00, 0x01aa0452) // selector for `UnsupportedPermitType()`
+            let castError := gt(permitType, 0x02)
+            mstore(0x00, xor(0x01aa0452, mul(0x4fe27f23, castError))) // selector for `UnsupportedPermitType()` or `Panic(uint256)`
+            mstore(0x20, xor(permitType, mul(xor(permitType, 0x21), castError)))
             revert(0x1c, 0x04)
         }
     }

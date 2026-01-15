@@ -48,18 +48,15 @@ contract PolygonSettler is Settler, PolygonMixin {
             callPermit(token, permitData);
         } else if (permitType == Permit.PermitType.DAIPermit) {
             callDAIPermit(token, permitData);
-        } else {
+        } else if (permitType == Permit.PermitType.NativeMetaTransaction) {
             callNativeMetaTransaction(token, permitData);
+        } else {
+            unsupportedPermitType(permitType);
         }
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, PolygonMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, PolygonMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 

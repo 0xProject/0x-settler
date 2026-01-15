@@ -358,4 +358,38 @@ contract PermitTest is SettlerBasePairTest {
             )
         );
     }
+
+    function testUnsupportedPermitType() public {
+        (address sender, uint256 pk) = makeAddrAndKey("sender");
+
+        (uint8 v, bytes32 r, bytes32 s) = _signERC2612Permit(sender, address(allowanceHolder), 0, 0, pk);
+
+        bytes memory permitData = abi.encodePacked(uint8(4));
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(
+                ISettlerActions.TRANSFER_FROM_WITH_PERMIT,
+                (address(this), defaultERC20PermitTransfer(address(USDC), amount(), 0), permitData)
+            )
+        );
+
+        vm.prank(sender);
+        vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x21));
+        allowanceHolder.exec(
+            address(settler),
+            address(USDC),
+            amount(),
+            payable(address(settler)),
+            abi.encodeCall(
+                settler.execute,
+                (
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+                    }),
+                    actions,
+                    bytes32(0)
+                )
+            )
+        );
+    }
 }
