@@ -8,6 +8,14 @@ interface ISettlerActions {
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         external;
 
+    /// @dev Transfer funds from AllowanceHolder with with a pre-transfer funding call.
+    /// @dev permitData encoding data of the permit call to be executed
+    function TRANSFER_FROM_WITH_PERMIT(
+        address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory permitData
+    ) external;
+
     // @dev msgValue is interpreted as an upper bound on the expected msg.value, not as an exact specification
     function NATIVE_CHECK(uint256 deadline, uint256 msgValue) external;
 
@@ -321,5 +329,16 @@ interface ISettlerActions {
         BebopOrder memory order,
         BebopMakerSignature memory makerSignature,
         uint256 amountOutMin
+    ) external;
+
+    function HANJI(
+        address sellToken,
+        uint256 bps,
+        address pool,
+        uint256 sellScalingFactor,
+        uint256 buyScalingFactor,
+        bool isAsk,
+        uint256 priceLimit,
+        uint256 minBuyAmount
     ) external;
 }

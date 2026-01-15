@@ -13,6 +13,7 @@ import {BalancerV3} from "../../core/BalancerV3.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 import {Renegade, BASE_SELECTOR} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
+import {Hanji} from "../../core/Hanji.sol";
 
 import {IMsgSender} from "../../interfaces/IMsgSender.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -70,7 +71,8 @@ abstract contract BaseMixin is
     PancakeInfinity,
     //EulerSwap,
     Renegade,
-    Bebop
+    Bebop,
+    Hanji
 {
     using FastLogic for bool;
 
@@ -166,6 +168,19 @@ abstract contract BaseMixin is
             (address target, IERC20 baseToken, bytes memory renegadeData) = abi.decode(data, (address, IERC20, bytes));
 
             sellToRenegade(target, baseToken, renegadeData);
+        } else if (action == uint32(ISettlerActions.HANJI.selector)) {
+            (
+                IERC20 sellToken,
+                uint256 bps,
+                address pool,
+                uint256 sellScalingFactor,
+                uint256 buyScalingFactor,
+                bool isAsk,
+                uint256 priceLimit,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
+
+            sellToHanji(sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
         } else {
             return false;
         }

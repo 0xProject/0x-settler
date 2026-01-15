@@ -23,9 +23,10 @@ contract RebateClaimerUnitTest is Test {
     RebateClaimerCallbackHelper internal callbackHelper;
 
     function setUp() public {
-        settler = new BaseSettler(bytes20(0));
-        settlerMetaTxn = new BaseSettlerMetaTxn(bytes20(0));
-        settlerIntent = new BaseSettlerIntent(bytes20(0));
+        settler = BaseSettler(payable(deployCode("TakerSubmitted.sol:BaseSettler", abi.encode(bytes20(0)))));
+        settlerMetaTxn =
+            BaseSettlerMetaTxn(payable(deployCode("MetaTxn.sol:BaseSettlerMetaTxn", abi.encode(bytes20(0)))));
+        settlerIntent = BaseSettlerIntent(payable(deployCode("Intent.sol:BaseSettlerIntent", abi.encode(bytes20(0)))));
         callbackHelper = new RebateClaimerCallbackHelper();
     }
 

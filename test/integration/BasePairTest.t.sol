@@ -140,7 +140,9 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
     }
 
     function _balanceOf(IERC20 token, address account) external view {
-        uint256 result = token.balanceOf(account);
+        uint256 result = address(token) == 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE
+            ? account.balance
+            : token.balanceOf(account);
         assembly ("memory-safe") {
             mstore(0x00, result)
             revert(0x00, 0x20)
