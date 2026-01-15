@@ -9,6 +9,7 @@ import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {IERC2612, IDAIStylePermit} from "src/interfaces/IERC2612.sol";
 import {IERC20MetaTransaction} from "src/interfaces/INativeMetaTransaction.sol";
 import {Permit} from "src/core/Permit.sol";
+import {PermitFailed} from "src/core/SettlerErrors.sol";
 
 contract PermitTest is SettlerBasePairTest {
     IERC2612 internal constant USDC = IERC2612(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
@@ -153,6 +154,26 @@ contract PermitTest is SettlerBasePairTest {
 
         assertEq(USDC.balanceOf(address(this)), amount(), "Transfer failed when permit was front-run");
         assertEq(USDC.balanceOf(sender), 0, "Sender should have 0 balance when permit was front-run");
+
+        // resubmitting should fail because the nonce in the signature is now incorrect
+        vm.expectRevert(PermitFailed.selector);
+        vm.prank(sender);
+        allowanceHolder.exec(
+            address(settler),
+            address(USDC),
+            amount(),
+            payable(address(settler)),
+            abi.encodeCall(
+                settler.execute,
+                (
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+                    }),
+                    actions,
+                    bytes32(0)
+                )
+            )
+        );
     }
 
     function testDAIPermit() public {
@@ -222,6 +243,28 @@ contract PermitTest is SettlerBasePairTest {
 
         assertEq(DAI.balanceOf(address(this)), amount(), "Transfer failed when permit was front-run");
         assertEq(DAI.balanceOf(sender), 0, "Sender should have 0 balance when permit was front-run");
+
+        // resubmitting should fail because the nonce in the signature is now incorrect
+        // validation succeds anyway because the allowance is there given that in DAI it is type(uint256).max
+        // should fail attempting to do the transfer because there is no enough balance to transfer
+        vm.expectRevert("Dai/insufficient-balance");
+        vm.prank(sender);
+        allowanceHolder.exec(
+            address(settler),
+            address(DAI),
+            amount(),
+            payable(address(settler)),
+            abi.encodeCall(
+                settler.execute,
+                (
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+                    }),
+                    actions,
+                    bytes32(0)
+                )
+            )
+        );
     }
 
     function testNativeMetaTransaction() public {
@@ -289,5 +332,25 @@ contract PermitTest is SettlerBasePairTest {
 
         assertEq(ZED.balanceOf(address(this)), amount(), "Transfer failed when executeMetaTransaction was front-run");
         assertEq(ZED.balanceOf(sender), 0, "Sender should have 0 balance when executeMetaTransaction was front-run");
+
+        // resubmitting should fail because the nonce in the signature is now incorrect
+        vm.expectRevert(PermitFailed.selector);
+        vm.prank(sender);
+        allowanceHolder.exec(
+            address(settler),
+            address(ZED),
+            amount(),
+            payable(address(settler)),
+            abi.encodeCall(
+                settler.execute,
+                (
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+                    }),
+                    actions,
+                    bytes32(0)
+                )
+            )
+        );
     }
 }
