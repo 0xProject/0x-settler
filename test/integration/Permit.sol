@@ -105,6 +105,8 @@ contract PermitTest is SettlerBasePairTest {
             )
         );
 
+        uint256 snapshot = vm.snapshot();
+
         vm.prank(sender);
         allowanceHolder.exec(
             address(settler),
@@ -125,6 +127,32 @@ contract PermitTest is SettlerBasePairTest {
 
         assertEq(USDC.balanceOf(address(this)), amount(), "Transfer failed");
         assertEq(USDC.balanceOf(sender), 0, "Sender should have 0 balance");
+
+        vm.revertTo(snapshot);
+
+        // Front-running the permit
+        USDC.permit(sender, address(allowanceHolder), amount(), deadline, v, r, s);
+
+        vm.prank(sender);
+        allowanceHolder.exec(
+            address(settler),
+            address(USDC),
+            amount(),
+            payable(address(settler)),
+            abi.encodeCall(
+                settler.execute,
+                (
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+                    }),
+                    actions,
+                    bytes32(0)
+                )
+            )
+        );
+
+        assertEq(USDC.balanceOf(address(this)), amount(), "Transfer failed when permit was front-run");
+        assertEq(USDC.balanceOf(sender), 0, "Sender should have 0 balance when permit was front-run");
     }
 
     function testDAIPermit() public {
@@ -146,6 +174,8 @@ contract PermitTest is SettlerBasePairTest {
             )
         );
 
+        uint256 snapshot = vm.snapshot();
+
         vm.prank(sender);
         allowanceHolder.exec(
             address(settler),
@@ -166,6 +196,32 @@ contract PermitTest is SettlerBasePairTest {
 
         assertEq(DAI.balanceOf(address(this)), amount(), "Transfer failed");
         assertEq(DAI.balanceOf(sender), 0, "Sender should have 0 balance");
+
+        vm.revertTo(snapshot);
+
+        // Front-running the permit
+        DAI.permit(sender, address(allowanceHolder), nonce, expiry, true, v, r, s);
+
+        vm.prank(sender);
+        allowanceHolder.exec(
+            address(settler),
+            address(DAI),
+            amount(),
+            payable(address(settler)),
+            abi.encodeCall(
+                settler.execute,
+                (
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+                    }),
+                    actions,
+                    bytes32(0)
+                )
+            )
+        );
+
+        assertEq(DAI.balanceOf(address(this)), amount(), "Transfer failed when permit was front-run");
+        assertEq(DAI.balanceOf(sender), 0, "Sender should have 0 balance when permit was front-run");
     }
 
     function testNativeMetaTransaction() public {
@@ -184,6 +240,8 @@ contract PermitTest is SettlerBasePairTest {
                 (address(this), defaultERC20PermitTransfer(address(ZED), amount(), 0), permitData)
             )
         );
+
+        uint256 snapshot = vm.snapshot();
 
         vm.prank(sender);
         allowanceHolder.exec(
@@ -205,5 +263,31 @@ contract PermitTest is SettlerBasePairTest {
 
         assertEq(ZED.balanceOf(address(this)), amount(), "Transfer failed");
         assertEq(ZED.balanceOf(sender), 0, "Sender should have 0 balance");
+
+        vm.revertTo(snapshot);
+
+        // Front-running the executeMetaTransaction
+        ZED.executeMetaTransaction(sender, abi.encodeCall(ZED.approve, (address(allowanceHolder), amount())), r, s, v);
+
+        vm.prank(sender);
+        allowanceHolder.exec(
+            address(settler),
+            address(ZED),
+            amount(),
+            payable(address(settler)),
+            abi.encodeCall(
+                settler.execute,
+                (
+                    ISettlerBase.AllowedSlippage({
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+                    }),
+                    actions,
+                    bytes32(0)
+                )
+            )
+        );
+
+        assertEq(ZED.balanceOf(address(this)), amount(), "Transfer failed when executeMetaTransaction was front-run");
+        assertEq(ZED.balanceOf(sender), 0, "Sender should have 0 balance when executeMetaTransaction was front-run");
     }
 }
