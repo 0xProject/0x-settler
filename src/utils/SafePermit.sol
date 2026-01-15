@@ -5,6 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC20PermitCommon, IERC2612, IDAIStylePermit} from "../interfaces/IERC2612.sol";
 import {IERC20MetaTransaction} from "../interfaces/INativeMetaTransaction.sol";
 import {Revert} from "./Revert.sol";
+import {FastLogic} from "./FastLogic.sol";
 
 library FastPermit {
     function fastPermit(
@@ -148,6 +149,7 @@ library FastPermit {
 }
 
 library SafePermit {
+    using FastLogic for bool;
     using FastPermit for IERC2612;
     using FastPermit for IDAIStylePermit;
     using FastPermit for IERC20MetaTransaction;
@@ -170,7 +172,7 @@ library SafePermit {
     }
 
     function _checkEffects(IERC20 token, address owner, address spender, uint256 amount, uint256 nonce) internal view {
-        if (nonce == 0 || token.fastAllowance(owner, spender) != amount) {
+        if ((nonce == 0).or(token.fastAllowance(owner, spender) != amount)) {
             _revert(0xb78cb0dd); // selector for `PermitFailed()`
         }
     }
@@ -254,11 +256,15 @@ library SafePermit {
         // See comments above
         if (!token.fastDAIPermit(owner, spender, nonce, deadline, allowed, v, r, s)) {
             // Check effects and signature
-            if (block.timestamp > deadline && deadline > 0) {
+            if ((block.timestamp > deadline).and(deadline > 0)) {
                 _revert(0x1a15a3cc);
             }
             nonce = token.fastNonce(owner, uint32(token.nonces.selector));
-            _checkEffects(token, owner, spender, allowed ? type(uint256).max : 0, nonce);
+            uint256 expectedAllowance;
+            unchecked {
+                expectedAllowance = 0 - allowed.toUint();
+            }
+            _checkEffects(token, owner, spender, expectedAllowance, nonce);
             unchecked {
                 nonce--;
             }
