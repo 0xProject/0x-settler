@@ -185,12 +185,8 @@ library SafePermit {
             mstore(0x40, r)
             mstore(0x60, s)
             let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
-            if iszero(recovered) {
-                mstore(0x00, 0x8baa579f) // selector for `InvalidSignature()`
-                revert(0x1c, 0x04)
-            }
             if lt(returndatasize(), shl(0x60, xor(owner, recovered))) {
-                mstore(0x00, 0x815e1d64) // selector for `InvalidSigner()`
+                mstore(0x00, 0x8baa579f) // selector for `InvalidSignature()`
                 revert(0x1c, 0x04)
             }
             mstore(0x40, ptr)

@@ -122,9 +122,6 @@ error Underpayment(uint256 msgValueMin, uint256 msgValueActual);
 /// @notice Thrown when a permit call fails.
 error PermitFailed();
 
-/// @notice Thrown when a permit signer is incorrect
-error InvalidSigner();
-
 /// @notice Thrown when a permit signature is incorrect
 error InvalidSignature();
 
