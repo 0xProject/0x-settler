@@ -18,11 +18,13 @@ import {Revert} from "./utils/Revert.sol";
 
 // ugh; solidity inheritance
 import {SettlerAbstract} from "./SettlerAbstract.sol";
+import {FastLogic} from "./utils/FastLogic.sol";
 
 abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitted, SettlerBase, Permit {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
     using Revert for bool;
+    using FastLogic for bool;
 
     function _tokenId() internal pure override returns (uint256) {
         return 2;
@@ -77,13 +79,13 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         } else if (action == uint32(ISettlerActions.TRANSFER_FROM_WITH_PERMIT.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory permitData) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
-            if (_isRestrictedTarget(permit.permitted.token)) {
+            if (_isRestrictedTarget(permit.permitted.token).or(!_isForwarded())) {
                 revertConfusedDeputy();
             }
             _dispatchPermit(permit.permitted.token, permitData);
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
-            _transferFrom(permit, transferDetails, new bytes(0));
+            _transferFrom(permit, transferDetails, new bytes(0), true);
         } /*
         // RFQ_VIP is temporarily removed because Solver has no support for it
         // When support for RFQ_VIP is reenabled, the tests
