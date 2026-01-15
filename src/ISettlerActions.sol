@@ -330,4 +330,15 @@ interface ISettlerActions {
         BebopMakerSignature memory makerSignature,
         uint256 amountOutMin
     ) external;
+
+    function HANJI(
+        address sellToken,
+        uint256 bps,
+        address pool,
+        uint256 sellScalingFactor,
+        uint256 buyScalingFactor,
+        bool isAsk,
+        uint256 priceLimit,
+        uint256 minBuyAmount
+    ) external;
 }

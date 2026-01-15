@@ -50,13 +50,17 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Add `HANJI` action for Hanji order book liquidity source on Base and Monad
+  * Note that while it is possible to sell eith ETH (native) or WETH (wrapped
+    native) to Hanji pools with the wrapped native asset as one of the tokens,
+    attempting to buy WETH (wrapped native) is not possible. You will always get
+    raw ETH (native).
 * Added new VIP `TRANSFER_FROM_WITH_PERMIT` to TakerSubmitted settlers.
   It is Similar to `TRANSFER_FROM` action but instead of a signature it 
   receives a permit calldata to be executed before transfering the assets.
   Permit calldata is encoded as follow:
-  1. permit selector (4 bytes)
-  2. domain separator selector (4 bytes)
-  3. Encoding of:
+  1. 0x00 for ERC2612 or 0x01 for DAIPermit or 0x02 for NativeMetaTransaction
+  2. Encoding of:
     a. owner, amount, deadline, v, r, s in case of regular ERC2612 permit
     b. owner, nonce, expiry, allowed, v, r, s in case of regular DAI permit
     c. owner, amount, v, r, s in case of native meta transaction
