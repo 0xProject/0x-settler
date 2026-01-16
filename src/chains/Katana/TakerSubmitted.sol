@@ -8,6 +8,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {FastLogic} from "../../utils/FastLogic.sol";
+import {revertConfusedDeputy} from "../../core/SettlerErrors.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
