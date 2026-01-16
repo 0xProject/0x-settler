@@ -914,7 +914,7 @@
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
     },
-    "sourcifyApi": "https://sourcify-api-monad.blockvision.org",
+    "sourcifyApi": "https://sourcify-api-monad.blockvision.org/",
     "blockscoutApi": "https://api.socialscan.io/monad/v1/explorer/command_api/contract",
     "etherscanApi": "https://api.etherscan.io/v2/api?chainid=143"
   },
