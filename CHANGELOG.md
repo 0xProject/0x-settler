@@ -56,16 +56,16 @@ Master list of UniV3 forks:
     attempting to buy WETH (wrapped native) is not possible. You will always get
     raw ETH (native).
 * Added new VIP `TRANSFER_FROM_WITH_PERMIT` to TakerSubmitted settlers.
-  It is Similar to `TRANSFER_FROM` action but instead of a signature it 
+  * It is Similar to `TRANSFER_FROM` action but instead of a signature it 
   receives a permit calldata to be executed before transfering the assets.
   Permit calldata is encoded as follow:
-  1. 0x00 for ERC2612 or 0x01 for DAIPermit or 0x02 for NativeMetaTransaction
-  2. Encoding of:
-    a. owner, amount, deadline, v, r, s in case of regular ERC2612 permit
-    b. owner, nonce, expiry, allowed, v, r, s in case of regular DAI permit
-    c. owner, amount, v, r, s in case of native meta transaction
-  In all cases spender is allways set to be AllowanceHolder
-  On native meta transactions `approve` function is allways the function called
+    1. 0x00 for ERC2612 or 0x01 for DAIPermit or 0x02 for NativeMetaTransaction
+    2. Encoding of:
+        1. owner, amount, deadline, v, r, s in case of regular ERC2612 permit
+        2. owner, nonce, expiry, allowed, v, r, s in case of regular DAI permit
+        3. owner, amount, v, r, s in case of native meta transaction
+  * In all cases spender is allways set to be AllowanceHolder.
+  * On native meta transactions `approve` function is allways the function called
 
 ## 2025-12-29
 
