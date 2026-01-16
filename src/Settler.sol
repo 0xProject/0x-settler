@@ -70,6 +70,10 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal virtual returns (bool) {
+        //// NOTICE: Portions of this function have been copy/paste'd into
+        //// `src/chains/Katana/TakerSubmitted.sol:KatanaSettler._dispatchVIP`. If you make changes
+        //// here, you need to make sure that corresponding changes are made to that function.
+
         if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
