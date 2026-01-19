@@ -138,6 +138,14 @@ declare -r signer
 declare -r -i feature="$1"
 shift
 
+declare deployment_safe_address
+if [[ ${@: -1} = [Dd][Aa][Oo] ]] ; then
+    deployment_safe_address="$(get_config governance.daoSafe)"
+else
+    deployment_safe_address="$(get_config governance.deploymentSafe)"
+fi
+declare -r deployment_safe_address
+
 declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
 function _compat_date {
@@ -165,7 +173,7 @@ auth_deadline="$(_compat_date "$auth_deadline_datestring" +%s)"
 declare -r -i auth_deadline
 
 declare renew_authority_calldata
-renew_authority_calldata="$(cast calldata "$authorize_sig" $feature "$(get_config governance.deploymentSafe)" $auth_deadline)"
+renew_authority_calldata="$(cast calldata "$authorize_sig" $feature "$deployment_safe_address" $auth_deadline)"
 declare -r renew_authority_calldata
 
 declare packed_signatures
