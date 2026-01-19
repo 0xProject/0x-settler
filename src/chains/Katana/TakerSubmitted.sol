@@ -34,10 +34,13 @@ contract KatanaSettler is Settler, KatanaMixin {
         } else if (action == uint32(ISettlerActions.TRANSFER_FROM_WITH_PERMIT.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory permitData) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
-            if (_isRestrictedTarget(permit.permitted.token).or(!_isForwarded())) {
+            // permit.permitted.token should not be restricted, _isRestrictedTarget(permit.permitted.token) 
+            // is not verified because the selectors of supported permit calls doesn't clash with any
+            // selectors of existing restricted targets, namely, AllowanceHolder and Permit2
+            if (!_isForwarded()) {
                 revertConfusedDeputy();
             }
-            _dispatchPermit(permit.permitted.token, permitData);
+            _dispatchPermit(_msgSender(), permit.permitted.token, permitData);
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, new bytes(0), true);
