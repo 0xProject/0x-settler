@@ -85,7 +85,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
             // permit.permitted.token should not be restricted, _isRestrictedTarget(permit.permitted.token) 
             // is not verified because the selectors of supported permit calls doesn't clash with any
-            // selectors of existing restricted targets, namely, AllowanceHolder and Permit2
+            // selectors of existing restricted targets, namely, AllowanceHolder, Permit2 and Bebop
             if (!_isForwarded()) {
                 revertConfusedDeputy();
             }
