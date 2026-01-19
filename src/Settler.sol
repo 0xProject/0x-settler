@@ -86,7 +86,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             if (_isRestrictedTarget(permit.permitted.token).or(!_isForwarded())) {
                 revertConfusedDeputy();
             }
-            _dispatchPermit(permit.permitted.token, permitData);
+            _dispatchPermit(_msgSender(), permit.permitted.token, permitData);
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, new bytes(0), true);
