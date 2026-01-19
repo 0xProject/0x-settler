@@ -31,7 +31,7 @@ contract PermitTest is SettlerBasePairTest {
     }
 
     function _testName() internal pure override returns (string memory) {
-        return "ERC2612Funding";
+        return "transfer-from-with-permit";
     }
 
     function fromToken() internal pure override returns (IERC20) {}
@@ -118,6 +118,7 @@ contract PermitTest is SettlerBasePairTest {
         uint256 snapshot = vm.snapshot();
 
         vm.prank(sender);
+        snapStartName("ERC2612");
         allowanceHolder.exec(
             address(settler),
             address(USDC),
@@ -134,6 +135,7 @@ contract PermitTest is SettlerBasePairTest {
                 )
             )
         );
+        snapEnd();
 
         assertEq(USDC.balanceOf(address(this)), amount(), "Transfer failed");
         assertEq(USDC.balanceOf(sender), 0, "Sender should have 0 balance");
@@ -207,6 +209,7 @@ contract PermitTest is SettlerBasePairTest {
         uint256 snapshot = vm.snapshot();
 
         vm.prank(sender);
+        snapStartName("DAIPermit");
         allowanceHolder.exec(
             address(settler),
             address(DAI),
@@ -223,7 +226,8 @@ contract PermitTest is SettlerBasePairTest {
                 )
             )
         );
-
+        snapEnd();
+        
         assertEq(DAI.balanceOf(address(this)), amount(), "Transfer failed");
         assertEq(DAI.balanceOf(sender), 0, "Sender should have 0 balance");
 
@@ -296,6 +300,7 @@ contract PermitTest is SettlerBasePairTest {
         uint256 snapshot = vm.snapshot();
 
         vm.prank(sender);
+        snapStartName("NativeMetaTransaction");
         allowanceHolder.exec(
             address(settler),
             address(ROUTE),
@@ -312,6 +317,7 @@ contract PermitTest is SettlerBasePairTest {
                 )
             )
         );
+        snapEnd();
 
         assertEq(ROUTE.balanceOf(address(this)), amount(), "Transfer failed");
         assertEq(ROUTE.balanceOf(sender), 0, "Sender should have 0 balance");
