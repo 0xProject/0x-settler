@@ -42,14 +42,15 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
-* Modify `TRANSFER_FROM_WITH_PERMIT` action calldata encoding to remove `owner`.
-  From now on, the taker is always used as the owner in the permit call, therefore,
-  the permit calldata is encoded as follow:
-    1. 0x00 for ERC2612 or 0x01 for DAIPermit or 0x02 for NativeMetaTransaction
-    2. Encoding of:
-        1. amount, deadline, v, r, s in case of regular ERC2612 permit
-        2. nonce, expiry, allowed, v, r, s in case of regular DAI permit
-        3. amount, v, r, s in case of native meta transaction
+* Modify `TRANSFER_FROM_WITH_PERMIT` action 
+  * Permit signature changed to ERC-2098/compact form 
+  * Removed `owner` from calldata encoding in favor of taker address
+  * From now on the permit calldata is encoded as follow:
+      1. 0x00 for ERC2612 or 0x01 for DAIPermit or 0x02 for NativeMetaTransaction
+      2. Encoding of:
+          1. amount, deadline, vs, r in case of regular ERC2612 permit
+          2. nonce, expiry, allowed, vs, r in case of regular DAI permit
+          3. amount, vs, r in case of native meta transaction
 
 ### Non-breaking changes
 

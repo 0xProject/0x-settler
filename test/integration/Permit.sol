@@ -42,6 +42,10 @@ contract PermitTest is SettlerBasePairTest {
         return 1000e6;
     }
 
+    function _vs(uint256 v, bytes32 s) internal view returns (bytes32 vs) {
+        return bytes32(v - 27) << 255 | s;
+    }
+
     function _signERC2612Permit(address owner, address spender, uint256 value, uint256 deadline, uint256 privateKey)
         internal
         view
@@ -102,7 +106,7 @@ contract PermitTest is SettlerBasePairTest {
         (uint8 v, bytes32 r, bytes32 s) = _signERC2612Permit(sender, address(allowanceHolder), amount(), deadline, pk);
 
         bytes memory permitData =
-            abi.encodePacked(Permit.PermitType.ERC2612, abi.encode(amount(), deadline, v, r, s));
+            abi.encodePacked(Permit.PermitType.ERC2612, abi.encode(amount(), deadline, _vs(v, s), r));
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
@@ -191,7 +195,7 @@ contract PermitTest is SettlerBasePairTest {
         (uint8 v, bytes32 r, bytes32 s) = _signDAIPermit(sender, address(allowanceHolder), nonce, expiry, true, pk);
 
         bytes memory permitData =
-            abi.encodePacked(Permit.PermitType.DAIPermit, abi.encode(nonce, expiry, true, v, r, s));
+            abi.encodePacked(Permit.PermitType.DAIPermit, abi.encode(nonce, expiry, true, _vs(v, s), r));
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
@@ -280,7 +284,7 @@ contract PermitTest is SettlerBasePairTest {
         (uint8 v, bytes32 r, bytes32 s) = _signNativeMetaTransaction(sender, address(allowanceHolder), amount(), pk);
 
         bytes memory permitData =
-            abi.encodePacked(Permit.PermitType.NativeMetaTransaction, abi.encode(amount(), v, r, s));
+            abi.encodePacked(Permit.PermitType.NativeMetaTransaction, abi.encode(amount(), _vs(v, s), r));
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
