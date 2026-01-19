@@ -10,7 +10,7 @@ import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
-import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
+import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, CompactTake} from "./FlashAccountingCommon.sol";
 
 type Config is bytes32;
 
@@ -28,36 +28,26 @@ interface IEkuboCore {
     function lock() external;
 
     // Swap tokens
-    function swap_611415377(
-        PoolKey memory poolKey,
-        int128 amount,
-        bool isToken1,
-        SqrtRatio sqrtRatioLimit,
-        uint256 skipAhead
-    ) external payable returns (int128 delta0, int128 delta1);
+    function swap_6269342730() external payable;
 
     function forward(address to) external;
 
-    // Pay for swapped tokens
-    function pay(address token) external returns (uint128 payment);
+    function startPayments() external;
+
+    function completePayments() external;
 
     // Get swapped tokens
-    function withdraw(address token, address recipient, uint128 amount) external;
+    function withdraw() external;
 }
 
-IEkuboCore constant CORE = IEkuboCore(0xe0e0e08A6A4b9Dc7bD67BCB7aadE5cF48157d444);
+IEkuboCore constant CORE = IEkuboCore(0x00000000000014aA86C5d3c41765bb24e11bd701);
 
 /// @notice Interface for the callback executed when an address locks core
 interface IEkuboCallbacks {
     /// @notice Called by Core on `msg.sender` when a lock is acquired
     /// @param id The id assigned to the action
     /// @return Any data that you want to be returned from the lock call
-    function locked(uint256 id) external returns (bytes memory);
-
-    /// @notice Called by Core on `msg.sender` to collect assets
-    /// @param id The id assigned to the action
-    /// @param token The token to pay on
-    function payCallback(uint256 id, address token) external;
+    function locked_6416899205(uint256 id) external returns (bytes memory);
 }
 
 library UnsafeEkuboCore {
@@ -74,23 +64,29 @@ library UnsafeEkuboCore {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            mstore(ptr, 0x00000000) // selector for `swap_611415377((address,address,bytes32),int128,bool,uint96,uint256)`
-            let poolKeyPtr := add(0x20, ptr)
-            mcopy(poolKeyPtr, poolKey, 0x60)
-            // ABI decoding in Ekubo will check if amount fits in int128
-            mstore(add(0x80, ptr), amount)
-            mstore(add(0xa0, ptr), isToken1)
-            mstore(add(0xc0, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
-            mstore(add(0xe0, ptr), 0x00)
+            // Compact params (sqrtRatioLimit, amount, isToken1, skipAhead)
+            // mstore(add(0x80, ptr), 0x00) // skipAhead harcoded to zero
+            mstore(add(0x80, ptr), shl(0x1f, isToken1)) // sets skipAhead to zero
+            mstore(add(0x7c, ptr), amount)
+            mstore(add(0x6c, ptr), sqrtRatioLimit) 
+            
+            mcopy(add(0x20, ptr), poolKey, 0x60)
+            mstore(ptr, 0x00000000) // selector for `swap_6269342730()`
 
-            if iszero(call(gas(), core, 0x00, add(0x1c, ptr), 0xe4, 0x00, 0x40)) {
+            if iszero(call(gas(), core, 0x00, add(0x1c, ptr), 0x84, 0x00, 0x40)) {
                 let ptr_ := mload(0x40)
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
-            // Ekubo CORE returns data properly no need to mask
-            delta0 := mload(0x00)
-            delta1 := mload(0x20)
+            let poolBalanceUpdate := mload(0x00)
+            delta1 := signextend(0x0f, poolBalanceUpdate)
+            delta0 := signextend(0x0f, shr(0x80, poolBalanceUpdate))
+            // let poolState := mload(0x20) // unused
+
+            if or(
+                or(gt(0x40, returndatasize()), xor(signextend(0x0f, amount), amount)),
+                shr(0x60, sqrtRatioLimit)
+            ) { revert(0x00, 0x00) }
         }
     }
 
@@ -104,27 +100,58 @@ library UnsafeEkuboCore {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
 
-            mstore(ptr, 0x101e8952000000000000000000000000) // selector for `forward(address)` with `to`'s padding
+            // Compact params (sqrtRatioLimit, amount, isToken1, skipAhead)
+            // mstore(add(0x94, ptr), 0x00) // skipAhead harcoded to zero
+            mstore(add(0x94, ptr), shl(0x1f, isToken1)) // sets skipAhead to zero
+            mstore(add(0x90, ptr), amount)
+            mstore(add(0x80, ptr), sqrtRatioLimit)
+            
+            mcopy(add(0x34, ptr), poolKey, 0x60)
             mcopy(add(0x20, ptr), add(0x40, poolKey), 0x14) // copy the `extension` from `poolKey.config` as the `to` argument
-
-            let poolKeyPtr := add(0x34, ptr)
-            mcopy(poolKeyPtr, poolKey, 0x60)
-            mstore(add(0x94, ptr), amount)
-            mstore(add(0xb4, ptr), isToken1)
-            mstore(add(0xd4, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
-            mstore(add(0xf4, ptr), 0x00)
+            mstore(ptr, 0x101e8952000000000000000000000000) // selector for `forward(address)` with `to`'s padding
 
             if iszero(call(gas(), core, 0x00, add(0x10, ptr), 0x104, 0x00, 0x40)) {
                 let ptr_ := mload(0x40)
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
-            delta0 := mload(0x00)
-            delta1 := mload(0x20)
+            // TODO: Double check that this needs to be unpacked same way as in `unsafeSwap`
+            let poolBalanceUpdate := mload(0x00)
+            delta1 := signextend(0x0f, poolBalanceUpdate)
+            delta0 := signextend(0x0f, shr(0x80, poolBalanceUpdate))
             if or(
                 or(gt(0x40, returndatasize()), xor(signextend(0x0f, amount), amount)),
-                or(xor(signextend(0x0f, delta0), delta0), xor(signextend(0x0f, delta1), delta1))
+                shr(0x60, sqrtRatioLimit)
             ) { revert(0x00, 0x00) }
+        }
+    }
+
+    function unsafeStartPayments(IEkuboCore core, IERC20 sellToken) internal {
+        assembly ("memory-safe") {
+            mstore(0x14, sellToken)
+            mstore(0x00, 0xf9b6a796000000000000000000000000) // selector for `startPayments()` with `sellToken`'s padding
+            if iszero(call(gas(), core, 0x00, 0x10, 0x24, 0x00, 0x00)) {
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
+            }
+            if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
+            // Ekubo returns its own balance of the token
+            // but the value is unused
+        }
+    }
+
+    function unsafeCompletePayments(IEkuboCore core, IERC20 sellToken) internal returns (uint256 payment) {
+        assembly ("memory-safe") {
+            mstore(0x14, sellToken)
+            mstore(0x00, 0x12e103f1000000000000000000000000) // selector for `completePayments()` with `sellToken`'s padding
+            if iszero(call(gas(), core, 0x00, 0x10, 0x24, 0x00, 0x20)) {
+                let ptr_ := mload(0x40)
+                returndatacopy(ptr_, 0x00, returndatasize())
+                revert(ptr_, returndatasize())
+            }
+            if gt(0x10, returndatasize()) { revert(0x00, 0x00) }
+            payment := shr(0x80, mload(0x00))
         }
     }
 }
@@ -204,7 +231,7 @@ abstract contract Ekubo is SettlerAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount =
-            _setOperatorAndCall(address(CORE), data, uint32(IEkuboCallbacks.locked.selector), _ekuboLockCallback);
+            _setOperatorAndCall(address(CORE), data, uint32(IEkuboCallbacks.locked_6416899205.selector), _ekuboLockCallback);
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
@@ -237,7 +264,7 @@ abstract contract Ekubo is SettlerAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount =
-            _setOperatorAndCall(address(CORE), data, uint32(IEkuboCallbacks.locked.selector), _ekuboLockCallback);
+            _setOperatorAndCall(address(CORE), data, uint32(IEkuboCallbacks.locked_6416899205.selector), _ekuboLockCallback);
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
@@ -269,41 +296,18 @@ abstract contract Ekubo is SettlerAbstract {
             SafeTransferLib.safeTransferETH(payable(msg.sender), sellAmount);
             return sellAmount;
         } else {
-            // Encode the call plus the extra data that is going to be needed in the callback
-            bytes memory data;
-            assembly ("memory-safe") {
-                data := mload(0x40)
-
-                mstore(add(0x24, data), sellToken)
-                mstore(add(0x10, data), 0x0c11dedd000000000000000000000000) // selector for pay(address) with padding for token
-
-                mstore(add(0x44, data), sellAmount)
-                let size := 0x44
-
-                // if permit is needed add it to data
-                if iszero(eq(payer, address())) {
-                    // let's skip token and sell amount and reuse the values already in data
-                    calldatacopy(add(0x64, data), add(0x40, permit), 0x40)
-                    mstore(add(0xa4, data), isForwarded)
-                    mstore(add(0xc4, data), sig.length)
-                    calldatacopy(add(0xe4, data), sig.offset, sig.length)
-                    size := add(size, add(0x80, sig.length))
-                }
-
-                // update data length
-                mstore(data, size)
-
-                // update free memory pointer
-                mstore(0x40, add(data, add(0x20, size)))
+            // Initiate the payment
+            IEkuboCore(msg.sender).unsafeStartPayments(sellToken);
+            
+            if (payer == address(this)) {
+                sellToken.safeTransfer(msg.sender, sellAmount);
+            } else {
+                ISignatureTransfer.SignatureTransferDetails memory transferDetails =
+                    ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
+                _transferFrom(permit, transferDetails, sig, isForwarded);
             }
-            bytes memory encodedPayedAmount =
-                _setOperatorAndCall(msg.sender, data, uint32(IEkuboCallbacks.payCallback.selector), payCallback);
-            assembly ("memory-safe") {
-                // We can skip all the checks performed by `abi.decode` because we know that this is the
-                // verbatim result from `payCallback` and that `payCallback` encoded the payment
-                // correctly.
-                payment := mload(add(0x60, encodedPayedAmount))
-            }
+
+            payment = IEkuboCore(msg.sender).unsafeCompletePayments(sellToken);
         }
     }
 
@@ -459,13 +463,13 @@ abstract contract Ekubo is SettlerAbstract {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
             uint256 globalBuyAmount =
-                Take.take(state, notes, uint32(IEkuboCore.withdraw.selector), recipient, minBuyAmount);
+                CompactTake.take(state, notes, uint32(IEkuboCore.withdraw.selector), recipient, minBuyAmount);
             if (feeOnTransfer) {
                 // We've already transferred the sell token to the vault and
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
                 // vault. We only need to handle the case of incomplete filling.
                 if (globalSellAmount != 0) {
-                    Take._callSelector(
+                    CompactTake._callSelector(
                         uint32(IEkuboCore.withdraw.selector),
                         globalSellToken,
                         (payer == address(this)) ? address(this) : _msgSender(),
@@ -502,53 +506,6 @@ abstract contract Ekubo is SettlerAbstract {
                 mstore(0x40, add(0x80, returndata))
             }
             return returndata;
-        }
-    }
-
-    function payCallback(bytes calldata data) private returns (bytes memory returndata) {
-        IERC20 sellToken;
-        uint256 sellAmount;
-
-        ISignatureTransfer.PermitTransferFrom calldata permit;
-        bool isForwarded;
-        bytes calldata sig;
-
-        assembly ("memory-safe") {
-            // Initialize permit and sig to appease the compiler
-            permit := calldatasize()
-            sig.offset := calldatasize()
-            sig.length := 0x00
-
-            // first 2 slots in calldata are id and token
-            // id is not being used so can be skipped
-            sellToken := calldataload(add(0x20, data.offset))
-            // then extra data added in _ekuboPay
-            sellAmount := calldataload(add(0x40, data.offset))
-        }
-        if (0x60 < data.length) {
-            assembly ("memory-safe") {
-                // starts at the beginning of sellToken
-                permit := add(0x20, data.offset)
-                isForwarded := calldataload(add(0xa0, data.offset))
-
-                sig.offset := add(0xc0, data.offset)
-                sig.length := calldataload(sig.offset)
-                sig.offset := add(0x20, sig.offset)
-            }
-            ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-                ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
-            _transferFrom(permit, transferDetails, sig, isForwarded);
-        } else {
-            sellToken.safeTransfer(msg.sender, sellAmount);
-        }
-        // return abi.encode(sellAmount);
-        assembly ("memory-safe") {
-            returndata := mload(0x40)
-            mstore(returndata, 0x60)
-            mstore(add(0x20, returndata), 0x20)
-            mstore(add(0x40, returndata), 0x20)
-            mstore(add(0x60, returndata), sellAmount)
-            mstore(0x40, add(0x80, returndata))
         }
     }
 }

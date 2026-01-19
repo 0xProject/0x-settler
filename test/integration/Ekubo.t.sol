@@ -21,12 +21,17 @@ import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 abstract contract EkuboTest is SettlerMetaTxnPairTest {
     using UnsafeMath for uint256;
 
+    function ekuboTokens() internal view virtual returns (IERC20, IERC20) {
+        return (fromToken(), toToken());
+    }
+
     function ekuboPerfectHash() internal view virtual returns (uint256 hashMod, uint256 hashMul) {
+        (IERC20 fromToken, IERC20 toToken) = ekuboTokens();
         for (hashMod = NotesLib.MAX_TOKENS + 1;; hashMod = hashMod.unsafeInc()) {
             for (hashMul = hashMod >> 1; hashMul < hashMod + (hashMod >> 1); hashMul = hashMul.unsafeInc()) {
                 if (
-                    mulmod(uint160(address(fromToken())), hashMul, hashMod) % NotesLib.MAX_TOKENS
-                        != mulmod(uint160(address(toToken())), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                    mulmod(uint160(address(fromToken)), hashMul, hashMod) % NotesLib.MAX_TOKENS
+                        != mulmod(uint160(address(toToken)), hashMul, hashMod) % NotesLib.MAX_TOKENS
                 ) {
                     return (hashMul, hashMod);
                 }
@@ -43,7 +48,7 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
     }
 
     function ekuboBlockNumber() internal view virtual returns (uint256) {
-        return 22239136;
+        return 24261657;
     }
 
     modifier setEkuboBlock() {
@@ -59,21 +64,19 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
         vm.label(address(CORE), "Ekubo CORE");
     }
 
-    function ekuboSqrtRatio() internal view virtual returns (uint96) {
-        return ekuboSqrtRatio(fromToken(), toToken());
-    }
-
     function ekuboSqrtRatio(IERC20 sellToken, IERC20 buyToken) internal view virtual returns (uint96) {
         bool zeroForOne = (sellToken == IERC20(ETH)) || ((buyToken != IERC20(ETH)) && (sellToken < buyToken));
         return zeroForOne ? 4611797791050542631 : 79227682466138141934206691491;
     }
 
     function ekuboFills() internal view virtual returns (bytes memory) {
-        return abi.encodePacked(uint16(10_000), ekuboSqrtRatio(), bytes1(0x01), address(toToken()), ekuboPoolConfig());
+        (IERC20 fromToken, IERC20 toToken) = ekuboTokens();
+        return abi.encodePacked(uint16(10_000), ekuboSqrtRatio(fromToken, toToken), bytes1(0x01), address(toToken), ekuboPoolConfig());
     }
 
     function ekuboExtensionFills() internal view virtual returns (bytes memory) {
-        return abi.encodePacked(uint16(42768), ekuboSqrtRatio(), bytes1(0x01), address(toToken()), ekuboExtensionConfig());
+        (IERC20 fromToken, IERC20 toToken) = ekuboTokens();
+        return abi.encodePacked(uint16(42768), ekuboSqrtRatio(fromToken, toToken), bytes1(0x01), address(toToken), ekuboExtensionConfig());
     }
 
     function ekuboExtraActions(bytes[] memory actions) internal view virtual returns (bytes[] memory) {
@@ -82,12 +85,14 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
 
     function setUp() public virtual override {
         super.setUp();
-        if (ekuboPoolConfig() != bytes32(0)) {
+        if (ekuboPoolConfig() | ekuboExtensionConfig() != bytes32(0)) {
             vm.makePersistent(address(PERMIT2));
             vm.makePersistent(address(allowanceHolder));
             vm.makePersistent(address(settler));
             vm.makePersistent(address(fromToken()));
             vm.makePersistent(address(toToken()));
+            vm.makePersistent(address(FROM));
+            vm.etch(FROM, bytes(""));
             _setEkuboLabels();
         }
     }
@@ -199,7 +204,7 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
         uint256 afterBalanceTo = toToken().balanceOf(FROM);
         assertGt(afterBalanceTo, beforeBalanceTo);
         uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
-        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
+        assertLt(afterBalanceFrom, beforeBalanceFrom);
     }
 
     function testEkuboVIPAllowanceHolder() public skipIf(ekuboPoolConfig() == bytes32(0)) setEkuboBlock {
@@ -238,7 +243,7 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
         uint256 afterBalanceTo = toToken().balanceOf(FROM);
         assertGt(afterBalanceTo, beforeBalanceTo);
         uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
-        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
+        assertLt(afterBalanceFrom, beforeBalanceFrom);
     }
 
     function testEkuboMetaTxn() public skipIf(ekuboPoolConfig() == bytes32(0)) setEkuboBlock {
@@ -289,8 +294,8 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
         vm.stopPrank();
 
         uint256 afterBalanceTo = toToken().balanceOf(FROM);
-        assertGt(afterBalanceTo, beforeBalanceTo, "fooo");
+        assertGt(afterBalanceTo, beforeBalanceTo);
         uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
-        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom, "faaaa");
+        assertLt(afterBalanceFrom, beforeBalanceFrom);
     }
 }

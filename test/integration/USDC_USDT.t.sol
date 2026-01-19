@@ -76,7 +76,7 @@ contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboTest, EulerSwapTe
     }
 
     function ekuboPoolConfig() internal pure override returns (bytes32) {
-        return bytes32(0x00000000000000000000000000000000000000000000a7c5ac471b4700000032);
+        return bytes32(0x00000000000000000000000000000000000000000000a7c5ac471b4880000032);
     }
 
     function getCurveV2PoolData() internal pure override returns (ICurveV2Pool.CurveV2PoolData memory) {}
