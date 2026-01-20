@@ -12,20 +12,20 @@ import {Settler} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
-import {CORE} from "src/core/Ekubo.sol";
+import {CORE} from "src/core/EkuboV3.sol";
 import {NotesLib} from "src/core/FlashAccountingCommon.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
 
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 
-abstract contract EkuboTest is SettlerMetaTxnPairTest {
+abstract contract EkuboV3Test is SettlerMetaTxnPairTest {
     using UnsafeMath for uint256;
 
     function ekuboTokens() internal view virtual returns (IERC20, IERC20) {
         return (fromToken(), toToken());
     }
 
-    function ekuboPerfectHash() internal view virtual returns (uint256 hashMod, uint256 hashMul) {
+    function ekuboPerfectHash() internal view returns (uint256 hashMod, uint256 hashMul) {
         (IERC20 fromToken, IERC20 toToken) = ekuboTokens();
         for (hashMod = NotesLib.MAX_TOKENS + 1;; hashMod = hashMod.unsafeInc()) {
             for (hashMul = hashMod >> 1; hashMul < hashMod + (hashMod >> 1); hashMul = hashMul.unsafeInc()) {
@@ -64,17 +64,17 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
         vm.label(address(CORE), "Ekubo CORE");
     }
 
-    function ekuboSqrtRatio(IERC20 sellToken, IERC20 buyToken) internal view virtual returns (uint96) {
+    function ekuboSqrtRatio(IERC20 sellToken, IERC20 buyToken) internal view returns (uint96) {
         bool zeroForOne = (sellToken == IERC20(ETH)) || ((buyToken != IERC20(ETH)) && (sellToken < buyToken));
         return zeroForOne ? 4611797791050542631 : 79227682466138141934206691491;
     }
 
-    function ekuboFills() internal view virtual returns (bytes memory) {
+    function ekuboFills() internal view returns (bytes memory) {
         (IERC20 fromToken, IERC20 toToken) = ekuboTokens();
         return abi.encodePacked(uint16(10_000), ekuboSqrtRatio(fromToken, toToken), bytes1(0x01), address(toToken), ekuboPoolConfig());
     }
 
-    function ekuboExtensionFills() internal view virtual returns (bytes memory) {
+    function ekuboExtensionFills() internal view returns (bytes memory) {
         (IERC20 fromToken, IERC20 toToken) = ekuboTokens();
         return abi.encodePacked(uint16(42768), ekuboSqrtRatio(fromToken, toToken), bytes1(0x01), address(toToken), ekuboExtensionConfig());
     }
@@ -108,12 +108,12 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
     function testEkubo() public skipIf(ekuboPoolConfig() == bytes32(0)) setEkuboBlock {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
-        (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
+        (uint256 hashMul, uint256 hashMod) = ekuboPerfectHash();
         bytes[] memory actions = ekuboExtraActions(
             ActionDataBuilder.build(
                 abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
                 abi.encodeCall(
-                    ISettlerActions.EKUBO,
+                    ISettlerActions.EKUBOV3,
                     (recipient(), address(fromToken()), 10_000, false, hashMul, hashMod, ekuboFills(), 0)
                 )
             )
@@ -143,12 +143,12 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
     function testEkuboExtension() public skipIf(ekuboExtensionConfig() == bytes32(0)) setEkuboBlock {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
-        (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
+        (uint256 hashMul, uint256 hashMod) = ekuboPerfectHash();
         bytes[] memory actions = ekuboExtraActions(
             ActionDataBuilder.build(
                 abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, sig)),
                 abi.encodeCall(
-                    ISettlerActions.EKUBO,
+                    ISettlerActions.EKUBOV3,
                     (recipient(), address(fromToken()), 10_000, false, hashMul, hashMod, ekuboExtensionFills(), 0)
                 )
             )
@@ -178,11 +178,11 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
     function testEkuboVIP() public skipIf(ekuboPoolConfig() == bytes32(0)) setEkuboBlock {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
 
-        (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
+        (uint256 hashMul, uint256 hashMod) = ekuboPerfectHash();
         bytes[] memory actions = ekuboExtraActions(
             ActionDataBuilder.build(
                 abi.encodeCall(
-                    ISettlerActions.EKUBO_VIP, (recipient(), false, hashMul, hashMod, ekuboFills(), permit, sig, 0)
+                    ISettlerActions.EKUBOV3_VIP, (recipient(), false, hashMul, hashMod, ekuboFills(), permit, sig, 0)
                 )
             )
         );
@@ -212,11 +212,11 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ );
         bytes memory sig = new bytes(0);
 
-        (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
+        (uint256 hashMul, uint256 hashMod) = ekuboPerfectHash();
         bytes[] memory actions = ekuboExtraActions(
             ActionDataBuilder.build(
                 abi.encodeCall(
-                    ISettlerActions.EKUBO_VIP, (recipient(), false, hashMul, hashMod, ekuboFills(), permit, sig, 0)
+                    ISettlerActions.EKUBOV3_VIP, (recipient(), false, hashMul, hashMod, ekuboFills(), permit, sig, 0)
                 )
             )
         );
@@ -250,11 +250,11 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
-        (uint256 hashMul, uint256 hashMod) = EkuboTest.ekuboPerfectHash();
+        (uint256 hashMul, uint256 hashMod) = ekuboPerfectHash();
         bytes[] memory actions = ekuboExtraActions(
             ActionDataBuilder.build(
                 abi.encodeCall(
-                    ISettlerActions.METATXN_EKUBO_VIP,
+                    ISettlerActions.METATXN_EKUBOV3_VIP,
                     (metaTxnRecipient(), false, hashMul, hashMod, ekuboFills(), permit, 0)
                 )
             )

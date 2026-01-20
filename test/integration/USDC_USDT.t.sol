@@ -6,7 +6,7 @@ import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
 import {BalancerV3Test} from "./BalancerV3.t.sol";
-import {EkuboTest} from "./Ekubo.t.sol";
+import {EkuboV3Test} from "./Ekubo.t.sol";
 import {EulerSwapTest} from "./EulerSwap.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
@@ -16,8 +16,8 @@ import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboTest, EulerSwapTest {
-    function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboTest, EulerSwapTest) {
+contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV3Test, EulerSwapTest {
+    function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboV3Test, EulerSwapTest) {
         super.setUp();
     }
 

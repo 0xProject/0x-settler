@@ -17,7 +17,7 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
-import {EkuboTest} from "./Ekubo.t.sol";
+import {EkuboV3Test} from "./Ekubo.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 
 contract USDTWETHTest is
@@ -30,7 +30,7 @@ contract USDTWETHTest is
     UniswapV3PairTest,
     UniswapV4PairTest,
     CurveTricryptoPairTest,
-    EkuboTest,
+    EkuboV3Test,
     ZeroExPairTest
 {
     function setUp()
@@ -44,7 +44,7 @@ contract USDTWETHTest is
             TokenTransferTest,
             UniswapV3PairTest,
             ZeroExPairTest,
-            EkuboTest
+            EkuboV3Test
         )
     {
         super.setUp();
