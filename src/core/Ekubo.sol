@@ -118,6 +118,9 @@ library UnsafeEkuboCore {
             let poolBalanceUpdate := mload(0x00)
             delta1 := signextend(0x0f, poolBalanceUpdate)
             delta0 := sar(0x80, poolBalanceUpdate)
+            // `forward` function returned data depends on the extension implementation
+            // supported extensions are supposed to return same data as `swap_6269342730`
+            // which is (bytes32 balanceUpdate, bytes32 stateAfter), 0x40 bytes long
             if or(or(gt(0x40, returndatasize()), xor(signextend(0x0f, amount), amount)), shr(0x60, sqrtRatioLimit)) {
                 revert(0x00, 0x00)
             }
@@ -133,7 +136,8 @@ library UnsafeEkuboCore {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
-            if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
+            // Ekubo is well behaved no need to check returndatasize
+            // if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
             // Ekubo returns its own balance of the token
             // but the value is unused
         }
