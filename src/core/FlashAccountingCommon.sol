@@ -604,7 +604,7 @@ library Decoder {
             hashMul := and(0xffffffffffffffffffffffffffffffff, packed)
             packed := calldataload(add(0x34, data.offset))
             hashMod := shr(0x80, packed)
-            feeOnTransfer := iszero(iszero(and(0x1000000000000000000000000000000, packed)))
+            feeOnTransfer := lt(0x00, and(0x1000000000000000000000000000000, packed))
 
             data.offset := add(0x45, data.offset)
             data.length := sub(data.length, 0x45)
@@ -822,7 +822,7 @@ library CompactTake {
             mstore(0x38, amount)
             mstore(0x28, to)
             mstore(
-                0x14, mul(iszero(iszero(shl(0x60, xor(0x000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token)))), token)
+                0x14, mul(lt(0x00, shl(0x60, xor(0x000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token))), token)
             )
             mstore(0x00, selector) 
 
