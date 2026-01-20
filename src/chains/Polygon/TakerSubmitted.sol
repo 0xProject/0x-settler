@@ -44,13 +44,13 @@ contract PolygonSettler is Settler, PolygonMixin {
         return true;
     }
 
-    function _handlePermit(address token, Permit.PermitType permitType, bytes memory permitData) internal override {
+    function _handlePermit(address owner, address token, Permit.PermitType permitType, bytes memory permitData) internal override {
         if (permitType == Permit.PermitType.ERC2612) {
-            callPermit(token, permitData);
+            callPermit(owner, token, permitData);
         } else if (permitType == Permit.PermitType.DAIPermit) {
-            callDAIPermit(token, permitData);
+            callDAIPermit(owner, token, permitData);
         } else if (permitType == Permit.PermitType.NativeMetaTransaction) {
-            callNativeMetaTransaction(token, permitData);
+            callNativeMetaTransaction(owner, token, permitData);
         } else {
             Panic.panic(Panic.ENUM_CAST);
         }
