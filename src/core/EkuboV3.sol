@@ -239,7 +239,7 @@ abstract contract EkuboV3 is SettlerAbstract {
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
-            // verbatim result from `locked` and that `locked` encoded the buy amount
+            // verbatim result from `locked_6416899205` and that `locked_6416899205` encoded the buy amount
             // correctly.
             buyAmount := mload(add(0x60, encodedBuyAmount))
         }
@@ -273,7 +273,7 @@ abstract contract EkuboV3 is SettlerAbstract {
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
-            // verbatim result from `locked` and that `locked` encoded the buy amount
+            // verbatim result from `locked_6416899205` and that `locked_6416899205` encoded the buy amount
             // correctly.
             buyAmount := mload(add(0x60, encodedBuyAmount))
         }
@@ -286,7 +286,7 @@ abstract contract EkuboV3 is SettlerAbstract {
             data.length := calldataload(add(0x40, data.offset))
             data.offset := add(0x60, data.offset)
         }
-        return locked(data);
+        return locked_6416899205(data);
     }
 
     function _ekuboPay(
@@ -323,7 +323,7 @@ abstract contract EkuboV3 is SettlerAbstract {
     // 32 - config (20 extension, 8 fee, 4 tickSpacing)
     uint256 private constant _HOP_DATA_LENGTH = 47;
 
-    function locked(bytes calldata data) private returns (bytes memory) {
+    function locked_6416899205(bytes calldata data) private returns (bytes memory) {
         address recipient;
         uint256 minBuyAmount;
         uint256 hashMul;
