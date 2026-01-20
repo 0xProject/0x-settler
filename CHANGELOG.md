@@ -42,6 +42,9 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Updated Ekubo integration to V3. V2 pools are not supported anymore.
+  The action was not modified.
+
 ### Non-breaking changes
 
 ## 2026-01-16
