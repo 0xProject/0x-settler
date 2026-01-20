@@ -42,10 +42,14 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
-* Updated Ekubo integration to V3. V2 pools are not supported anymore.
-  The action was not modified.
+* Ethereum Mainnet upgraded from EkuboV2 to EkuboV3, EkuboV2 is not supported 
 
 ### Non-breaking changes
+
+* Added new Ekubo actions for EkuboV3 support
+  * `EKUBOV3` same signature as `EKUBO`
+  * `EKUBOV3_VIP` same signature as `EKUBO_VIP`
+  * `METATXN_EKUBOV3_VIP` same signature as `METATXN_EKUBO_VIP`
 
 ## 2026-01-16
 
