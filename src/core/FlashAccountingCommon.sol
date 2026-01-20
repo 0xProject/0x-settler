@@ -810,7 +810,6 @@ library CompactTake {
 
     function _callSelector(uint256 selector, IERC20 token, address to, uint256 amount) internal {
         assembly ("memory-safe") {
-            token := shr(0x60, shl(0x60, token))
             if iszero(amount) {
                 mstore(0x14, token)
                 mstore(0x00, 0xcbf0dbf5000000000000000000000000) // selector for `ZeroBuyAmount(address)` with `token`'s padding
@@ -823,7 +822,7 @@ library CompactTake {
             mstore(0x38, amount)
             mstore(0x28, to)
             mstore(
-                0x14, mul(iszero(eq(0x000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token)), token)
+                0x14, mul(iszero(iszero(shl(0x60, xor(0x000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token)))), token)
             )
             mstore(0x00, selector) 
 
