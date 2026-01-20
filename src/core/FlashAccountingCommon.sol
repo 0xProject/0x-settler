@@ -765,6 +765,8 @@ library Take {
         internal
         returns (uint256 buyAmount)
     {
+        // NOTICE: Any changes done in this function most likely need to be applied to `CompactTake.take` 
+        // as well because it is a copy of this one with a different `_callSelector` function
         notes.del(state.buy());
         if (state.sell().amount() == 0) {
             notes.del(state.sell());
@@ -804,6 +806,7 @@ library Take {
 }
 
 library CompactTake {
+    // NOTICE: This library is a copy of `Take` with a different `_callSelector` function
     using UnsafeMath for uint256;
     using NotesLib for NotesLib.Note;
     using NotesLib for NotesLib.Note[];
@@ -845,6 +848,8 @@ library CompactTake {
         internal
         returns (uint256 buyAmount)
     {
+        // NOTICE: Any changes done in this function most likely need to be applied to `Take.take` 
+        // as well because this function is a copy of it with a different `_callSelector` function
         notes.del(state.buy());
         if (state.sell().amount() == 0) {
             notes.del(state.sell());
