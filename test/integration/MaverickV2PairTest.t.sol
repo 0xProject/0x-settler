@@ -124,7 +124,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.MAVERICKV2_VIP, (FROM, maverickV2Salt(), maverickV2TokenAIn(), permit, sig, maverickV2TickLimit(), 0)
+                ISettlerActions.MAVERICKV2_VIP, (FROM, permit, maverickV2Salt(), maverickV2TokenAIn(), sig, maverickV2TickLimit(), 0)
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
@@ -155,7 +155,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.MAVERICKV2_VIP, (FROM, maverickV2Salt(), maverickV2TokenAIn(), permit, sig, maverickV2TickLimit(), 0)
+                ISettlerActions.MAVERICKV2_VIP, (FROM, permit, maverickV2Salt(), maverickV2TokenAIn(), sig, maverickV2TickLimit(), 0)
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
@@ -190,7 +190,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.METATXN_MAVERICKV2_VIP, (FROM, maverickV2Salt(), maverickV2TokenAIn(), permit, maverickV2TickLimit(), 0)
+                ISettlerActions.METATXN_MAVERICKV2_VIP, (FROM, permit, maverickV2Salt(), maverickV2TokenAIn(), maverickV2TickLimit(), 0)
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({

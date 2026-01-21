@@ -87,19 +87,19 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         else if (action == uint32(ISettlerActions.RFQ_VIP.selector)) {
             (
                 address recipient,
+                ISignatureTransfer.PermitTransferFrom memory takerPermit,
                 ISignatureTransfer.PermitTransferFrom memory makerPermit,
                 address maker,
                 bytes memory makerSig,
-                ISignatureTransfer.PermitTransferFrom memory takerPermit,
                 bytes memory takerSig
             ) = abi.decode(
                 data,
                 (
                     address,
                     ISignatureTransfer.PermitTransferFrom,
+                    ISignatureTransfer.PermitTransferFrom,
                     address,
                     bytes,
-                    ISignatureTransfer.PermitTransferFrom,
                     bytes
                 )
             );
@@ -107,11 +107,11 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         } */ else if (action == uint32(ISettlerActions.UNISWAPV3_VIP.selector)) {
             (
                 address recipient,
-                bytes memory path,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory path,
                 bytes memory sig,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes, bytes, uint256));
 
             sellToUniswapV3VIP(recipient, path, permit, sig, amountOutMin);
         } else {
