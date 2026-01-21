@@ -80,7 +80,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, sig);
-        }  /*
+        } /*
         // RFQ_VIP is temporarily removed because Solver has no support for it
         // When support for RFQ_VIP is reenabled, the tests
         // testAllowanceHolder_rfq_VIP and testSettler_rfq should be reenabled
@@ -120,7 +120,11 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         return true;
     }
 
-    function execute(AllowedSlippage calldata slippage, bytes[] calldata actions, bytes32 /* zid & affiliate */ )
+    function execute(
+        AllowedSlippage calldata slippage,
+        bytes[] calldata actions,
+        bytes32 /* zid & affiliate */
+    )
         public
         payable
         override
@@ -130,18 +134,18 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         return _execute(slippage, actions);
     }
 
-    function executeWithPermit(bytes memory permitData, AllowedSlippage calldata slippage, bytes[] calldata actions, bytes32 /* zid & affiliate */ )
-        public
-        payable
-        takerSubmitted
-        returns (bool)
-    {
-        // permit.permitted.token should not be restricted, _isRestrictedTarget(permit.permitted.token) 
-        // is not verified because the selectors of supported permit calls doesn't clash with any
-        // selectors of existing restricted targets, namely, AllowanceHolder, Permit2 and Bebop
+    function executeWithPermit(
+        bytes memory permitData,
+        AllowedSlippage calldata slippage,
+        bytes[] calldata actions,
+        bytes32 /* zid & affiliate */
+    ) public payable takerSubmitted returns (bool) {
         if (!_isForwarded()) {
             revertConfusedDeputy();
         }
+        // `token` should not be restricted, _isRestrictedTarget(token) is not verified because the
+        // selectors of supported permit calls doesn't clash with any selectors of existing restricted
+        // targets, namely, AllowanceHolder, Permit2 and Bebop
         address token;
         assembly ("memory-safe") {
             // initially, we set `args.offset` to the pointer to the length. this is 32 bytes before the actual start of data
@@ -161,10 +165,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         return _execute(slippage, actions);
     }
 
-    function _execute(AllowedSlippage calldata slippage, bytes[] calldata actions)
-        internal
-        returns (bool)
-    {
+    function _execute(AllowedSlippage calldata slippage, bytes[] calldata actions) internal returns (bool) {
         if (actions.length != 0) {
             uint256 it;
             assembly ("memory-safe") {
