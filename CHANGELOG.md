@@ -42,17 +42,30 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
-* Modify `TRANSFER_FROM_WITH_PERMIT` action 
-  * Permit signature changed to ERC-2098/compact form 
-  * Removed `owner` from calldata encoding in favor of taker address
-  * From now on the permit calldata is encoded as follow:
-      1. 0x00 for ERC2612 or 0x01 for DAIPermit or 0x02 for NativeMetaTransaction
-      2. Encoding of:
-          1. amount, deadline, r, vs in case of regular ERC2612 permit
-          2. nonce, expiry, allowed, r, vs in case of regular DAI permit
-          3. amount, vs, r, vs in case of native meta transaction
+* Drop `TRANSFER_FROM_WITH_PERMIT` action in all chains
 
 ### Non-breaking changes
+
+* Taker submitted Settlers have a new entrypoint.
+  ```solidity
+  function executeWithPermit(
+      bytes memory permitData,
+      AllowedSlippage calldata slippage,
+      bytes[] calldata actions,
+      bytes32 /* zid & affiliate */
+  )
+  ```
+  This new entrypoint allows to execute a permit call before processing the actions.
+  * `permitData` contains the data and the type of permit to execute. It is encoded as follow:
+    1. 0x00 for ERC2612 or 0x01 for DAIPermit or 0x02 for NativeMetaTransaction
+    2. Encoding of:
+        1. amount, deadline, r, vs in case of regular ERC2612 permit
+        2. nonce, expiry, allowed, r, vs in case of regular DAI permit
+        3. amount, vs, r, vs in case of native meta transaction 
+  * The `owner` used in the permit is always the taker
+  * In all cases spender is allways set to be AllowanceHolder.
+  * On native meta transactions `approve` function is allways the function called
+  * r, vs is a compact signature as specified in [ERC-2098](https://eips.ethereum.org/EIPS/eip-2098)
 
 ## 2026-01-16
 
