@@ -44,6 +44,8 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Update Settler on Linea to the Osaka hardfork
+
 ## 2026-01-16
 
 ### Breaking changes
