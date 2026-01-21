@@ -130,7 +130,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         return _execute(slippage, actions);
     }
 
-    function executeWithPermit(address token, bytes memory permitData, AllowedSlippage calldata slippage, bytes[] calldata actions, bytes32 /* zid & affiliate */ )
+    function executeWithPermit(bytes memory permitData, AllowedSlippage calldata slippage, bytes[] calldata actions, bytes32 /* zid & affiliate */ )
         public
         payable
         takerSubmitted
@@ -141,6 +141,21 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         // selectors of existing restricted targets, namely, AllowanceHolder, Permit2 and Bebop
         if (!_isForwarded()) {
             revertConfusedDeputy();
+        }
+        address token;
+        assembly ("memory-safe") {
+            // initially, we set `args.offset` to the pointer to the length. this is 32 bytes before the actual start of data
+            let offset :=
+                add(
+                    actions.offset,
+                    // We allow the indirection/offset to `calls[i]` to be negative
+                    calldataload(actions.offset)
+                )
+            // Check that the action has at least the minimum size to be a VIP
+            // It should be at least (4 bytes selector, 20 bytes recipient, 128 bytes permit)
+            if or(iszero(actions.length), gt(0xa0, calldataload(offset))) { revert(0x00, 0x00) }
+            // Take the token from the first 32 bytes of permit
+            token := calldataload(add(0x44, offset))
         }
         _dispatchPermit(_msgSender(), token, permitData);
         return _execute(slippage, actions);

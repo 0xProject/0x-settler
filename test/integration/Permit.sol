@@ -127,7 +127,6 @@ contract PermitTest is SettlerBasePairTest {
             abi.encodeCall(
                 settler.executeWithPermit,
                 (
-                    address(USDC),
                     permitData,
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
@@ -156,7 +155,6 @@ contract PermitTest is SettlerBasePairTest {
             abi.encodeCall(
                 settler.executeWithPermit,
                 (
-                    address(USDC),
                     permitData,
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
@@ -181,7 +179,6 @@ contract PermitTest is SettlerBasePairTest {
             abi.encodeCall(
                 settler.executeWithPermit,
                 (
-                    address(USDC),
                     permitData,
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
@@ -224,7 +221,6 @@ contract PermitTest is SettlerBasePairTest {
             abi.encodeCall(
                 settler.executeWithPermit,
                 (
-                    address(DAI),
                     permitData,
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
@@ -253,7 +249,6 @@ contract PermitTest is SettlerBasePairTest {
             abi.encodeCall(
                 settler.executeWithPermit,
                 (
-                    address(DAI),
                     permitData,
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
@@ -280,7 +275,6 @@ contract PermitTest is SettlerBasePairTest {
             abi.encodeCall(
                 settler.executeWithPermit,
                 (
-                    address(DAI),
                     permitData,
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
@@ -321,7 +315,6 @@ contract PermitTest is SettlerBasePairTest {
             abi.encodeCall(
                 settler.executeWithPermit,
                 (
-                    address(ROUTE),
                     permitData,
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
@@ -352,7 +345,6 @@ contract PermitTest is SettlerBasePairTest {
             abi.encodeCall(
                 settler.executeWithPermit,
                 (
-                    address(ROUTE),
                     permitData,
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
@@ -377,7 +369,6 @@ contract PermitTest is SettlerBasePairTest {
             abi.encodeCall(
                 settler.executeWithPermit,
                 (
-                    address(ROUTE),
                     permitData,
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
@@ -413,7 +404,6 @@ contract PermitTest is SettlerBasePairTest {
             abi.encodeCall(
                 settler.executeWithPermit,
                 (
-                    address(USDC),
                     permitData,
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
