@@ -80,20 +80,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, sig);
-        } else if (action == uint32(ISettlerActions.TRANSFER_FROM_WITH_PERMIT.selector)) {
-            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory permitData) =
-                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
-            // permit.permitted.token should not be restricted, _isRestrictedTarget(permit.permitted.token) 
-            // is not verified because the selectors of supported permit calls doesn't clash with any
-            // selectors of existing restricted targets, namely, AllowanceHolder, Permit2 and Bebop
-            if (!_isForwarded()) {
-                revertConfusedDeputy();
-            }
-            _dispatchPermit(_msgSender(), permit.permitted.token, permitData);
-            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
-                _permitToTransferDetails(permit, recipient);
-            _transferFrom(permit, transferDetails, new bytes(0), true);
-        } /*
+        }  /*
         // RFQ_VIP is temporarily removed because Solver has no support for it
         // When support for RFQ_VIP is reenabled, the tests
         // testAllowanceHolder_rfq_VIP and testSettler_rfq should be reenabled
@@ -138,6 +125,29 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         payable
         override
         takerSubmitted
+        returns (bool)
+    {
+        return _execute(slippage, actions);
+    }
+
+    function executeWithPermit(address token, bytes memory permitData, AllowedSlippage calldata slippage, bytes[] calldata actions, bytes32 /* zid & affiliate */ )
+        public
+        payable
+        takerSubmitted
+        returns (bool)
+    {
+        // permit.permitted.token should not be restricted, _isRestrictedTarget(permit.permitted.token) 
+        // is not verified because the selectors of supported permit calls doesn't clash with any
+        // selectors of existing restricted targets, namely, AllowanceHolder, Permit2 and Bebop
+        if (!_isForwarded()) {
+            revertConfusedDeputy();
+        }
+        _dispatchPermit(_msgSender(), token, permitData);
+        return _execute(slippage, actions);
+    }
+
+    function _execute(AllowedSlippage calldata slippage, bytes[] calldata actions)
+        internal
         returns (bool)
     {
         if (actions.length != 0) {
