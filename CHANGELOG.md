@@ -43,6 +43,17 @@ Master list of UniV3 forks:
 ### Breaking changes
 
 * Drop `TRANSFER_FROM_WITH_PERMIT` action in all chains
+* Some VIP actions parameters were reordered so them all start with
+  `recipient, permit` follow by all the other parameters. This includes
+  * `RFQ_VIP`, `METATXN_RFQ_VIP` for the second argument to be `takerPermit`
+  * `UNISWAPV4_VIP`, `METATXN_UNISWAPV4_VIP` for the second argument to be `permit`
+  * `BALANCERV3_VIP`, `METATXN_BALANCERV3_VIP` for the second argument to be `permit`
+  * `PANCAKE_INFINITY_VIP`, `METATXN_PANCAKE_INFINITY_VIP` for the second argument to be `permit`
+  * `UNISWAPV3_VIP`, `METATXN_UNISWAPV3_VIP` for the second argument to be `permit`
+  * `CURVE_TRICRYPTO_VIP`, `METATXN_CURVE_TRICRYPTO_VIP` for the second argument to be `permit`
+  * `MAVERICKV2_VIP`, `METATXN_MAVERICKV2_VIP` for the second argument to be `permit`
+  * `EKUBO_VIP`, `METATXN_EKUBO_VIP` for the second argument to be `permit`
+
 
 ### Non-breaking changes
 
