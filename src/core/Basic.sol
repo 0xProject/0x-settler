@@ -44,7 +44,7 @@ abstract contract Basic is SettlerAbstract {
                 }
             }
         } else if (address(sellToken) == address(0)) {
-            // TODO: check for zero `bps`
+            // TODO: check for zero `bps`. This is an integrity check to ensure caller isn't passing `bps` when no sell token is involved.
             if (offset != 0) revert InvalidOffset();
         } else {
             // We treat `bps > BASIS` as a GIGO error
