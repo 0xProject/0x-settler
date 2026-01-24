@@ -3,6 +3,8 @@ pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
+/// @title ISettlerActions
+/// @notice Interface defining all settlement actions supported by Settler
 interface ISettlerActions {
     /// @dev Transfer funds from msg.sender Permit2.
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
