@@ -25,7 +25,7 @@ the smart contracts in this codebase.
 Pull requests must be accompanied by a clear, English-language explanation of
 the business case that the functional changes support and why the current
 functionality in this repository does not support that case. Pull requests
-should also include an explanation of alternatives consider, tried, and
+should also include an explanation of alternatives considered, tried, and
 rejected.
 
 # Modifications
