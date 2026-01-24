@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+/// @title AbstractContext
+/// @notice Abstract contract providing context for message sender and data
 abstract contract AbstractContext {
     function _msgSender() internal view virtual returns (address);
 
