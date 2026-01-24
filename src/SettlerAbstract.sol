@@ -5,6 +5,8 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 import {uint512} from "./utils/512Math.sol";
 
+/// @title SettlerAbstract
+/// @notice Abstract contract defining core types and constants for Settler
 abstract contract SettlerAbstract is Permit2PaymentAbstract {
     // Permit2 Witness for meta transactions
     string internal constant SLIPPAGE_AND_ACTIONS_TYPE =
