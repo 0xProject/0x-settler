@@ -3,6 +3,7 @@
 Settlement contracts utilising [Permit2](https://github.com/Uniswap/permit2) to
 perform swaps without any passive allowances to the contract.
 
+
 ## How do I find the most recent deployment?
 
 The 0x Settler deployer/registry contract is deployed to
