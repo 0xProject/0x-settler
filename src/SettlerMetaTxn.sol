@@ -154,6 +154,14 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
         bytes calldata sig
     ) public virtual override metaTx(msgSender, _hashActionsAndSlippage(actions, slippage)) returns (bool) {
         return _executeMetaTxn(slippage, actions, sig);
+         emit MetaTxnExecuted(
+        msgSender,                      // signer
+        msg.sender,                     // relayer
+        actions.length,
+        _hashActionsAndSlippage(actions, slippage)
+    );
+
+    return ok;
     }
 
     // Solidity inheritance is stupid
