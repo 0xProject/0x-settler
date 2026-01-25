@@ -11,4 +11,13 @@ interface ISettlerMetaTxn is ISettlerBase {
         address msgSender,
         bytes calldata sig
     ) external returns (bool);
+ 
+    event MetaTxnExecuted(
+        address indexed signer,
+        address indexed relayer,
+        uint256 actionsLength,
+        bytes32 actionsHash
+    );
+}
+
 }
