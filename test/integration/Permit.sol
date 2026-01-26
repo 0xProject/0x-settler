@@ -110,8 +110,8 @@ contract PermitTest is SettlerBasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.TRANSFER_FROM_WITH_PERMIT,
-                (address(this), defaultERC20PermitTransfer(address(USDC), amount(), 0), permitData)
+                ISettlerActions.TRANSFER_FROM,
+                (address(this), defaultERC20PermitTransfer(address(USDC), amount(), 0), bytes(""))
             )
         );
 
@@ -125,13 +125,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -152,13 +153,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -175,13 +177,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -201,8 +204,8 @@ contract PermitTest is SettlerBasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.TRANSFER_FROM_WITH_PERMIT,
-                (address(this), defaultERC20PermitTransfer(address(DAI), amount(), 0), permitData)
+                ISettlerActions.TRANSFER_FROM,
+                (address(this), defaultERC20PermitTransfer(address(DAI), amount(), 0), bytes(""))
             )
         );
 
@@ -216,13 +219,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -243,13 +247,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -268,13 +273,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -292,8 +298,8 @@ contract PermitTest is SettlerBasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.TRANSFER_FROM_WITH_PERMIT,
-                (address(this), defaultERC20PermitTransfer(address(ROUTE), amount(), 0), permitData)
+                ISettlerActions.TRANSFER_FROM,
+                (address(this), defaultERC20PermitTransfer(address(ROUTE), amount(), 0), bytes(""))
             )
         );
 
@@ -307,13 +313,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -336,13 +343,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -359,13 +367,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -380,8 +389,8 @@ contract PermitTest is SettlerBasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.TRANSFER_FROM_WITH_PERMIT,
-                (address(this), defaultERC20PermitTransfer(address(USDC), amount(), 0), permitData)
+                ISettlerActions.TRANSFER_FROM,
+                (address(this), defaultERC20PermitTransfer(address(USDC), amount(), 0), bytes(""))
             )
         );
 
@@ -393,13 +402,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );

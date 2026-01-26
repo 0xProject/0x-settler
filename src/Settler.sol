@@ -80,19 +80,6 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, sig);
-        } else if (action == uint32(ISettlerActions.TRANSFER_FROM_WITH_PERMIT.selector)) {
-            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory permitData) =
-                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
-            // permit.permitted.token should not be restricted, _isRestrictedTarget(permit.permitted.token) 
-            // is not verified because the selectors of supported permit calls doesn't clash with any
-            // selectors of existing restricted targets, namely, AllowanceHolder, Permit2 and Bebop
-            if (!_isForwarded()) {
-                revertConfusedDeputy();
-            }
-            _dispatchPermit(_msgSender(), permit.permitted.token, permitData);
-            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
-                _permitToTransferDetails(permit, recipient);
-            _transferFrom(permit, transferDetails, new bytes(0), true);
         } /*
         // RFQ_VIP is temporarily removed because Solver has no support for it
         // When support for RFQ_VIP is reenabled, the tests
@@ -100,19 +87,19 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         else if (action == uint32(ISettlerActions.RFQ_VIP.selector)) {
             (
                 address recipient,
+                ISignatureTransfer.PermitTransferFrom memory takerPermit,
                 ISignatureTransfer.PermitTransferFrom memory makerPermit,
                 address maker,
                 bytes memory makerSig,
-                ISignatureTransfer.PermitTransferFrom memory takerPermit,
                 bytes memory takerSig
             ) = abi.decode(
                 data,
                 (
                     address,
                     ISignatureTransfer.PermitTransferFrom,
+                    ISignatureTransfer.PermitTransferFrom,
                     address,
                     bytes,
-                    ISignatureTransfer.PermitTransferFrom,
                     bytes
                 )
             );
@@ -120,11 +107,11 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         } */ else if (action == uint32(ISettlerActions.UNISWAPV3_VIP.selector)) {
             (
                 address recipient,
-                bytes memory path,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory path,
                 bytes memory sig,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes, bytes, uint256));
 
             sellToUniswapV3VIP(recipient, path, permit, sig, amountOutMin);
         } else {
@@ -133,13 +120,53 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         return true;
     }
 
-    function execute(AllowedSlippage calldata slippage, bytes[] calldata actions, bytes32 /* zid & affiliate */ )
+    function execute(
+        AllowedSlippage calldata slippage,
+        bytes[] calldata actions,
+        bytes32 /* zid & affiliate */
+    )
         public
         payable
         override
         takerSubmitted
         returns (bool)
     {
+        return _execute(slippage, actions);
+    }
+
+    function executeWithPermit(
+        AllowedSlippage calldata slippage,
+        bytes[] calldata actions,
+        bytes32 /* zid & affiliate */,
+        bytes memory permitData
+    ) public payable override takerSubmitted returns (bool) {
+        if (!_isForwarded()) {
+            revertConfusedDeputy();
+        }
+        // `token` should not be a restricted target, but `_isRestrictedTarget(token)` is not
+        // verified because the selectors of supported permit calls doesn't clash with any 
+        // selectors of existing restricted targets, namely, AllowanceHolder, Permit2 and Bebop
+        address token;
+        assembly ("memory-safe") {
+            // initially, we set `args.offset` to the pointer to the length. this is 32 bytes 
+            // before the actual start of data
+            let offset :=
+                add(
+                    actions.offset,
+                    // We allow the indirection/offset to `calls[i]` to be negative
+                    calldataload(actions.offset)
+                )
+            // Check that the action has at least the minimum size to be a VIP
+            // It should be at least (4 bytes action selector, 32 bytes recipient, 128 bytes permit)
+            if or(iszero(actions.length), gt(0xa4, calldataload(offset))) { revert(0x00, 0x00) }
+            // Take the token from the first 32 bytes of permit
+            token := calldataload(add(0x44, offset))
+        }
+        _dispatchPermit(_msgSender(), token, permitData);
+        return _execute(slippage, actions);
+    }
+
+    function _execute(AllowedSlippage calldata slippage, bytes[] calldata actions) internal returns (bool) {
         if (actions.length != 0) {
             uint256 it;
             assembly ("memory-safe") {

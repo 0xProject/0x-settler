@@ -177,7 +177,7 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
         bytes[] memory actions = ekuboExtraActions(
             ActionDataBuilder.build(
                 abi.encodeCall(
-                    ISettlerActions.EKUBO_VIP, (recipient(), false, hashMul, hashMod, ekuboFills(), permit, sig, 0)
+                    ISettlerActions.EKUBO_VIP, (recipient(), permit, false, hashMul, hashMod, ekuboFills(), sig, 0)
                 )
             )
         );
@@ -211,7 +211,7 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
         bytes[] memory actions = ekuboExtraActions(
             ActionDataBuilder.build(
                 abi.encodeCall(
-                    ISettlerActions.EKUBO_VIP, (recipient(), false, hashMul, hashMod, ekuboFills(), permit, sig, 0)
+                    ISettlerActions.EKUBO_VIP, (recipient(), permit, false, hashMul, hashMod, ekuboFills(), sig, 0)
                 )
             )
         );
@@ -250,7 +250,7 @@ abstract contract EkuboTest is SettlerMetaTxnPairTest {
             ActionDataBuilder.build(
                 abi.encodeCall(
                     ISettlerActions.METATXN_EKUBO_VIP,
-                    (metaTxnRecipient(), false, hashMul, hashMod, ekuboFills(), permit, 0)
+                    (metaTxnRecipient(), permit, false, hashMul, hashMod, ekuboFills(), 0)
                 )
             )
         );
