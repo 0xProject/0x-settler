@@ -44,7 +44,7 @@ Master list of UniV3 forks:
 
 * Drop `TRANSFER_FROM_WITH_PERMIT` action in all chains
 * Some VIP actions parameters were reordered so them all start with
-  `recipient, permit` follow by all the other parameters. This includes
+  `recipient, permit` followed by all the other parameters. This includes
   * `RFQ_VIP`, `METATXN_RFQ_VIP` for the second argument to be `takerPermit`
   * `UNISWAPV4_VIP`, `METATXN_UNISWAPV4_VIP` for the second argument to be `permit`
   * `BALANCERV3_VIP`, `METATXN_BALANCERV3_VIP` for the second argument to be `permit`
@@ -60,10 +60,10 @@ Master list of UniV3 forks:
 * Taker submitted Settlers have a new entrypoint.
   ```solidity
   function executeWithPermit(
-      bytes memory permitData,
       AllowedSlippage calldata slippage,
       bytes[] calldata actions,
-      bytes32 /* zid & affiliate */
+      bytes32, /* zid & affiliate */
+      bytes memory permitData
   )
   ```
   This new entrypoint allows to execute a permit call before processing the actions.
