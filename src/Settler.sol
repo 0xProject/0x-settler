@@ -156,8 +156,8 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
                     calldataload(actions.offset)
                 )
             // Check that the action has at least the minimum size to be a VIP
-            // It should be at least (4 bytes selector, 20 bytes recipient, 128 bytes permit)
-            if or(iszero(actions.length), gt(0xa0, calldataload(offset))) { revert(0x00, 0x00) }
+            // It should be at least (4 bytes action selector, 32 bytes recipient, 128 bytes permit)
+            if or(iszero(actions.length), gt(0xa4, calldataload(offset))) { revert(0x00, 0x00) }
             // Take the token from the first 32 bytes of permit
             token := calldataload(add(0x44, offset))
         }
