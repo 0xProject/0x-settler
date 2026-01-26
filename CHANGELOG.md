@@ -54,7 +54,6 @@ Master list of UniV3 forks:
   * `MAVERICKV2_VIP`, `METATXN_MAVERICKV2_VIP` for the second argument to be `permit`
   * `EKUBO_VIP`, `METATXN_EKUBO_VIP` for the second argument to be `permit`
 
-
 ### Non-breaking changes
 
 * Taker submitted Settlers have a new entrypoint.
