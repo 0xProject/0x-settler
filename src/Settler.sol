@@ -143,12 +143,13 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         if (!_isForwarded()) {
             revertConfusedDeputy();
         }
-        // `token` should not be restricted, _isRestrictedTarget(token) is not verified because the
-        // selectors of supported permit calls doesn't clash with any selectors of existing restricted
-        // targets, namely, AllowanceHolder, Permit2 and Bebop
+        // `token` should not be a restricted target, but `_isRestrictedTarget(token)` is not
+        // verified because the selectors of supported permit calls doesn't clash with any 
+        // selectors of existing restricted targets, namely, AllowanceHolder, Permit2 and Bebop
         address token;
         assembly ("memory-safe") {
-            // initially, we set `args.offset` to the pointer to the length. this is 32 bytes before the actual start of data
+            // initially, we set `args.offset` to the pointer to the length. this is 32 bytes 
+            // before the actual start of data
             let offset :=
                 add(
                     actions.offset,
