@@ -12,7 +12,8 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "compare_gas": "node js/compare-gas-results.js",
     "generate_table": "node js/generate-table.js",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "check_vips": "node js/vip-signature-checker.js"
   },
   "repository": {
     "type": "git",
