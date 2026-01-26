@@ -1,6 +1,6 @@
 import fs from 'fs';
 
-const artifactPath = './out/ISettlerActions.sol/ISettlerActions.json';
+const artifactPath = 'out/ISettlerActions.sol/ISettlerActions.json';
 const artifact = JSON.parse(fs.readFileSync(artifactPath, 'utf8'));
 const abi = artifact.abi;
 

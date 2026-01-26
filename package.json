@@ -13,7 +13,7 @@
     "compare_gas": "node js/compare-gas-results.js",
     "generate_table": "node js/generate-table.js",
     "prepare": "husky install",
-    "check_vips": "node js/vip-signature-checker.js"
+    "check_vips": "forge build src/ISettlerActions.sol && node js/vip-signature-checker.js"
   },
   "repository": {
     "type": "git",
