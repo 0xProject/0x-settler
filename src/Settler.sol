@@ -139,7 +139,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         bytes[] calldata actions,
         bytes32, /* zid & affiliate */
         bytes memory permitData
-    ) public payable takerSubmitted returns (bool) {
+    ) public payable override takerSubmitted returns (bool) {
         if (!_isForwarded()) {
             revertConfusedDeputy();
         }
