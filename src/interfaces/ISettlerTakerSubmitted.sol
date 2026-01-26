@@ -16,7 +16,7 @@ interface ISettlerTakerSubmitted is ISettlerBase {
     function executeWithPermit(
         AllowedSlippage calldata slippage,
         bytes[] calldata actions,
-        bytes32, /* zid & affiliate */
+        bytes32 /* zid & affiliate */,
         bytes memory permitData
     ) external payable returns (bool);
 }
