@@ -135,10 +135,10 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
     }
 
     function executeWithPermit(
-        bytes memory permitData,
         AllowedSlippage calldata slippage,
         bytes[] calldata actions,
-        bytes32 /* zid & affiliate */
+        bytes32, /* zid & affiliate */
+        bytes memory permitData
     ) public payable takerSubmitted returns (bool) {
         if (!_isForwarded()) {
             revertConfusedDeputy();
