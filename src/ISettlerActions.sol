@@ -4,17 +4,12 @@ pragma solidity ^0.8.25;
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
 interface ISettlerActions {
+    /// VIP actions should always start with `recipient` address and the `permit` from the taker
+    /// followed by all the other parameters to ensure compatibility with `executeWithPermit` entrypoint.
+
     /// @dev Transfer funds from msg.sender Permit2.
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         external;
-
-    /// @dev Transfer funds from AllowanceHolder with with a pre-transfer funding call.
-    /// @dev permitData encoding data of the permit call to be executed
-    function TRANSFER_FROM_WITH_PERMIT(
-        address recipient,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory permitData
-    ) external;
 
     // @dev msgValue is interpreted as an upper bound on the expected msg.value, not as an exact specification
     function NATIVE_CHECK(uint256 deadline, uint256 msgValue) external;
@@ -26,20 +21,20 @@ interface ISettlerActions {
     // Post-req: Payout if recipient != taker
     function RFQ_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory takerPermit,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
         bytes memory makerSig,
-        ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
     ) external;
 
     /// @dev Settle an RfqOrder between maker and taker transfering funds directly between the parties for the entire amount
     function METATXN_RFQ_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory takerPermit,
         ISignatureTransfer.PermitTransferFrom memory makerPermit,
         address maker,
-        bytes memory makerSig,
-        ISignatureTransfer.PermitTransferFrom memory takerPermit
+        bytes memory makerSig
     ) external;
 
     /// @dev Settle an RfqOrder between Maker and Settler. Transfering funds from the Settler contract to maker.
@@ -67,21 +62,21 @@ interface ISettlerActions {
     ) external;
     function UNISWAPV4_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
-        ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         uint256 amountOutMin
     ) external;
     function METATXN_UNISWAPV4_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
-        ISignatureTransfer.PermitTransferFrom memory permit,
         uint256 amountOutMin
     ) external;
 
@@ -97,21 +92,21 @@ interface ISettlerActions {
     ) external;
     function BALANCERV3_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
-        ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         uint256 amountOutMin
     ) external;
     function METATXN_BALANCERV3_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
-        ISignatureTransfer.PermitTransferFrom memory permit,
         uint256 amountOutMin
     ) external;
 
@@ -127,21 +122,21 @@ interface ISettlerActions {
     ) external;
     function PANCAKE_INFINITY_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
-        ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         uint256 amountOutMin
     ) external;
     function METATXN_PANCAKE_INFINITY_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
-        ISignatureTransfer.PermitTransferFrom memory permit,
         uint256 amountOutMin
     ) external;
 
@@ -152,16 +147,16 @@ interface ISettlerActions {
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding
     function UNISWAPV3_VIP(
         address recipient,
-        bytes memory path,
         ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory path,
         bytes memory sig,
         uint256 amountOutMin
     ) external;
     /// @dev Trades against UniswapV3 using user funds via Permit2 for funding. Metatransaction variant. Signature is over all actions.
     function METATXN_UNISWAPV3_VIP(
         address recipient,
-        bytes memory path,
         ISignatureTransfer.PermitTransferFrom memory permit,
+        bytes memory path,
         uint256 amountOutMin
     ) external;
 
@@ -170,15 +165,15 @@ interface ISettlerActions {
 
     function CURVE_TRICRYPTO_VIP(
         address recipient,
-        uint80 poolInfo,
         ISignatureTransfer.PermitTransferFrom memory permit,
+        uint80 poolInfo,
         bytes memory sig,
         uint256 minBuyAmount
     ) external;
     function METATXN_CURVE_TRICRYPTO_VIP(
         address recipient,
-        uint80 poolInfo,
         ISignatureTransfer.PermitTransferFrom memory permit,
+        uint80 poolInfo,
         uint256 minBuyAmount
     ) external;
 
@@ -211,9 +206,9 @@ interface ISettlerActions {
     /// @param salt is formed as `keccak256(abi.encode(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds, address(0)))`
     function MAVERICKV2_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
         bytes32 salt,
         bool tokenAIn,
-        ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         int32 tickLimit,
         uint256 minBuyAmount
@@ -221,9 +216,9 @@ interface ISettlerActions {
     /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback; metatransaction variant
     function METATXN_MAVERICKV2_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
         bytes32 salt,
         bool tokenAIn,
-        ISignatureTransfer.PermitTransferFrom memory permit,
         int32 tickLimit,
         uint256 minBuyAmount
     ) external;
@@ -273,43 +268,43 @@ interface ISettlerActions {
 
     function EKUBO_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
-        ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         uint256 amountOutMin
     ) external;
 
     function EKUBOV3_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
-        ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
         uint256 amountOutMin
     ) external;
 
     function METATXN_EKUBO_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
-        ISignatureTransfer.PermitTransferFrom memory permit,
         uint256 amountOutMin
     ) external;
 
     function METATXN_EKUBOV3_VIP(
         address recipient,
+        ISignatureTransfer.PermitTransferFrom memory permit,
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
         bytes memory fills,
-        ISignatureTransfer.PermitTransferFrom memory permit,
         uint256 amountOutMin
     ) external;
 

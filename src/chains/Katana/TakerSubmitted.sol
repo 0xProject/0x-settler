@@ -31,16 +31,6 @@ contract KatanaSettler is Settler, KatanaMixin {
             (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
                 _permitToTransferDetails(permit, recipient);
             _transferFrom(permit, transferDetails, sig);
-        } else if (action == uint32(ISettlerActions.TRANSFER_FROM_WITH_PERMIT.selector)) {
-            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory permitData) =
-                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
-            if (_isRestrictedTarget(permit.permitted.token).or(!_isForwarded())) {
-                revertConfusedDeputy();
-            }
-            _dispatchPermit(permit.permitted.token, permitData);
-            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
-                _permitToTransferDetails(permit, recipient);
-            _transferFrom(permit, transferDetails, new bytes(0), true);
         } else {
             return false;
         }

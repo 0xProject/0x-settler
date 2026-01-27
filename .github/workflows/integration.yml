@@ -62,3 +62,6 @@ jobs:
 
       - name: Gas comparison
         run: npm run compare_gas
+
+      - name: VIP signature check
+        run: npm run check_vips
