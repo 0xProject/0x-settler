@@ -51,10 +51,9 @@ interface IEkuboCallbacks {
 }
 
 library UnsafeEkuboCore {
-    /// The `amountSpecified` as well as both `delta`'s are `int256` for contract size savings. If
-    /// `amountSpecified` is not a clean, signed, 128-bit value, the call will revert inside the ABI
-    /// decoding in `CORE`. The `delta`'s are guaranteed clean by the returndata encoding of `CORE`,
-    /// but we keep them as `int256` so as not to duplicate any work.
+    /// The `amountSpecified` as well as both `delta`'s are `int256` for contract size savings.
+    /// The `delta`'s are guaranteed clean by the returndata encoding of `CORE`, but we keep them
+    /// as `int256` so as not to duplicate any work.
     ///
     /// The `skipAhead` argument of the underlying `swap` function is hardcoded to zero.
     function unsafeSwap(IEkuboCore core, PoolKey memory poolKey, int256 amount, bool isToken1, SqrtRatio sqrtRatioLimit)
@@ -187,7 +186,7 @@ abstract contract EkuboV3 is SettlerAbstract {
     //// the event that you are encoding a series of fills with more than one output token, ensure
     //// that at least one of the global buy token's fills is positioned appropriately.
     ////
-    //// Take care to note that while Ekube represents the native asset of the chain as
+    //// Take care to note that while Ekubo represents the native asset of the chain as
     //// the address of all zeroes, Settler represents this as the address of all `e`s. You must use
     //// Settler's representation. The conversion is performed by Settler before making calls to Ekubo
     ////
@@ -378,8 +377,7 @@ abstract contract EkuboV3 is SettlerAbstract {
 
             data = Decoder.updateState(state, notes, data);
             // It's not possible for `state.sell.amount` to even *approach* overflowing an `int256`,
-            // given that deltas are `int128`. If it overflows an `int128`, the ABI decoding in
-            // `CORE` will throw.
+            // given that deltas are `int128`.
             int256 amountSpecified;
             unchecked {
                 amountSpecified = int256((state.sell().amount() * (bps & 0x7fff)).unsafeDiv(BASIS));

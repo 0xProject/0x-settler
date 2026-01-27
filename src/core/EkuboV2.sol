@@ -157,7 +157,7 @@ abstract contract EkuboV2 is SettlerAbstract {
     //// the event that you are encoding a series of fills with more than one output token, ensure
     //// that at least one of the global buy token's fills is positioned appropriately.
     ////
-    //// Take care to note that while Ekube represents the native asset of the chain as
+    //// Take care to note that while Ekubo represents the native asset of the chain as
     //// the address of all zeroes, Settler represents this as the address of all `e`s. You must use
     //// Settler's representation. The conversion is performed by Settler before making calls to Ekubo
     ////
