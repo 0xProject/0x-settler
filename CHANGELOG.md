@@ -71,11 +71,12 @@ Master list of UniV3 forks:
     2. Encoding of:
         1. amount, deadline, r, vs in case of regular ERC2612 permit
         2. nonce, expiry, allowed, r, vs in case of regular DAI permit
-        3. amount, r, vs in case of native meta transaction 
+        3. amount, r, vs in case of native meta transaction
   * The `owner` used in the permit is always the taker
   * In all cases spender is allways set to be AllowanceHolder.
   * On native meta transactions `approve` function is allways the function called
   * r, vs is a compact signature as specified in [ERC-2098](https://eips.ethereum.org/EIPS/eip-2098)
+* Update Settler on Linea to the Osaka hardfork
 
 ## 2026-01-16
 
