@@ -604,7 +604,7 @@ library Decoder {
             hashMul := and(0xffffffffffffffffffffffffffffffff, packed)
             packed := calldataload(add(0x34, data.offset))
             hashMod := shr(0x80, packed)
-            feeOnTransfer := iszero(iszero(and(0x1000000000000000000000000000000, packed)))
+            feeOnTransfer := lt(0x00, and(0x1000000000000000000000000000000, packed))
 
             data.offset := add(0x45, data.offset)
             data.length := sub(data.length, 0x45)
@@ -765,6 +765,91 @@ library Take {
         internal
         returns (uint256 buyAmount)
     {
+        // NOTICE: Any changes done in this function most likely need to be applied to `CompactTake.take` 
+        // as well because it is a copy of this one with a different `_callSelector` function
+        notes.del(state.buy());
+        if (state.sell().amount() == 0) {
+            notes.del(state.sell());
+        }
+
+        uint256 length = notes.length;
+        // `length` of zero implies that we fully liquidated the global sell token (there is no
+        // `amount` remaining) and that the only token in which we have credit is the global buy
+        // token. We're about to `take` that token below.
+        if (length != 0) {
+            {
+                NotesLib.Note memory firstNote = notes[0]; // out-of-bounds is impossible
+                if (!firstNote.eq(state.globalSell())) {
+                    // The global sell token being in a position other than the 1st would imply that
+                    // at some point we _bought_ that token. This is illegal and results in a revert
+                    // with reason `BoughtSellToken(address)`.
+                    _callSelector(selector, firstNote.token, address(this), firstNote.amount);
+                }
+            }
+            for (uint256 i = 1; i < length; i = i.unsafeInc()) {
+                (IERC20 token, uint256 amount) = notes.unsafeGet(i);
+                _callSelector(selector, token, address(this), amount);
+            }
+        }
+
+        // The final token to be bought is considered the global buy token. We bypass `notes` and
+        // read it directly from `state`. Check the slippage limit. Transfer to the recipient.
+        {
+            IERC20 buyToken = state.buy().token();
+            buyAmount = state.buy().amount();
+            if (buyAmount < minBuyAmount) {
+                revertTooMuchSlippage(buyToken, minBuyAmount, buyAmount);
+            }
+            _callSelector(selector, buyToken, recipient, buyAmount);
+        }
+    }
+}
+
+library CompactTake {
+    // NOTICE: This library is a copy of `Take` with a different `_callSelector` function
+    using UnsafeMath for uint256;
+    using NotesLib for NotesLib.Note;
+    using NotesLib for NotesLib.Note[];
+
+    function _callSelector(uint256 selector, IERC20 token, address to, uint256 amount) internal {
+        assembly ("memory-safe") {
+            if iszero(amount) {
+                mstore(0x14, token)
+                mstore(0x00, 0xcbf0dbf5000000000000000000000000) // selector for `ZeroBuyAmount(address)` with `token`'s padding
+                revert(0x10, 0x24)
+            }
+
+            // save the free memory pointer because we're about to clobber it
+            let ptr := mload(0x40)
+
+            mstore(0x38, amount)
+            mstore(0x28, to)
+            mstore(
+                0x14, mul(lt(0x00, shl(0x60, xor(0x000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token))), token)
+            )
+            mstore(0x00, selector) 
+
+            if iszero(call(gas(), caller(), 0x00, 0x1c, 0x3c, 0x00, 0x00)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+
+            // restore clobbered slots
+            mstore(0x40, ptr)
+        }
+    }
+
+    /// `take` is responsible for removing the accumulated credit in each token from the vault. The
+    /// current `state.buy` is the global buy token. We return the settled amount of that token
+    /// (`buyAmount`), after checking it against the slippage limit (`minBuyAmount`). Each token
+    /// with credit causes a corresponding call to `msg.sender.<selector>(token, recipient,
+    /// amount)`.
+    function take(State state, NotesLib.Note[] memory notes, uint32 selector, address recipient, uint256 minBuyAmount)
+        internal
+        returns (uint256 buyAmount)
+    {
+        // NOTICE: Any changes done in this function most likely need to be applied to `Take.take` 
+        // as well because this function is a copy of it with a different `_callSelector` function
         notes.del(state.buy());
         if (state.sell().amount() == 0) {
             notes.del(state.sell());

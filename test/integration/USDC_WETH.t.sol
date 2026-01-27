@@ -17,7 +17,7 @@ import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {Permit2TransferTest} from "./Permit2TransferTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
-import {EkuboTest} from "./Ekubo.t.sol";
+import {EkuboV3Test} from "./Ekubo.t.sol";
 import {BebopPairTest} from "./BebopPairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 
@@ -36,7 +36,7 @@ contract USDCWETHTest is
     MaverickV2PairTest,
     TokenTransferTest,
     Permit2TransferTest,
-    EkuboTest,
+    EkuboV3Test,
     BebopPairTest
 {
     function setUp()
@@ -51,7 +51,7 @@ contract USDCWETHTest is
             UniswapV3PairTest,
             TokenTransferTest,
             Permit2TransferTest,
-            EkuboTest,
+            EkuboV3Test,
             BebopPairTest
         )
     {
@@ -152,26 +152,13 @@ contract USDCWETHTest is
         return fromToken() < toToken();
     }
 
-    function ekuboBlockNumber() internal pure override returns (uint256) {
-        return 22682485;
-    }
-
     function ekuboPoolConfig() internal pure override returns (bytes32) {
         // Key for ETH_USDC pool (not WETH)
-        return bytes32(0x00000000000000000000000000000000000000000020c49ba5e353f7000003e8);
+        return bytes32(0x00000000000000000000000000000000000000000020c49ba5e353f7800003e8);
     }
 
-    function ekuboExtensionConfig() internal pure override returns (bytes32) {
-        // Key for ETH_USDC pool (not WETH)
-        return bytes32(0x553a2efc570c9e104942cec6ac1c18118e54c09100068db8bac710cb000000c8);
-    }
-
-    function ekuboFills() internal view virtual override returns (bytes memory) {
-        return abi.encodePacked(uint16(10_000), ekuboSqrtRatio(fromToken(), ETH), bytes1(0x01), ETH, ekuboPoolConfig());
-    }
-
-    function ekuboExtensionFills() internal view override returns (bytes memory) {
-        return abi.encodePacked(uint16(42768), ekuboSqrtRatio(fromToken(), ETH), bytes1(0x01), ETH, ekuboExtensionConfig());
+    function ekuboTokens() internal pure override returns (IERC20, IERC20) {
+        return (fromToken(), ETH);
     }
 
     function recipient() internal view virtual override returns (address) {

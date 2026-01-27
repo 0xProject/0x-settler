@@ -93,7 +93,7 @@ contract MainnetSettler is Settler, MainnetMixin {
             ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes32, bool, bytes, int32, uint256));
 
             sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.EKUBO_VIP.selector)) {
+        } else if (action == uint32(ISettlerActions.EKUBOV3_VIP.selector)) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -107,7 +107,7 @@ contract MainnetSettler is Settler, MainnetMixin {
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
             );
 
-            sellToEkuboVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } /* else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address recipient,

@@ -42,6 +42,7 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
+* Ethereum Mainnet upgraded from EkuboV2 to EkuboV3, EkuboV2 is not supported 
 * Drop `TRANSFER_FROM_WITH_PERMIT` action in all chains
 * Some VIP actions parameters were reordered so them all start with
   `recipient, permit` followed by all the other parameters. This includes
@@ -56,6 +57,10 @@ Master list of UniV3 forks:
 
 ### Non-breaking changes
 
+* Added new Ekubo actions for EkuboV3 support
+  * `EKUBOV3` same signature as `EKUBO`
+  * `EKUBOV3_VIP` same signature as `EKUBO_VIP`
+  * `METATXN_EKUBOV3_VIP` same signature as `METATXN_EKUBO_VIP`
 * Taker submitted Settlers have a new entrypoint.
   ```solidity
   function executeWithPermit(
