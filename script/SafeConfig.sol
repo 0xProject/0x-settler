@@ -138,14 +138,13 @@ library SafeConfig {
 
     // forgefmt: disable-next-line
     function getDeploymentSafeSigners() internal view returns (address[] memory) { // this is non-pure (view) on purpose
-        address[] memory result = new address[](7);
+        address[] memory result = new address[](6);
         result[0] = 0x24420bC8C760787F3eEF3b809e81f44d31a9c5A2; // Jacob
-        result[1] = 0x6879fAb591ed0d62537A3Cac9D7cd41218445a84; // Sav
-        result[2] = 0x052809d05DC83F317b2f578710411e6cbF88AC5a; // Josh
-        result[3] = 0xDCa4ee0070b4aa44b30D8af22F3CBbb2cC859dAf; // Kevin
-        result[4] = 0xD6B66609E5C05210BE0A690aB3b9788BA97aFa60; // Duncan
-        result[5] = 0xEC3E1F7aC9Df42c31570b02068f2e7500915e557; // Andy
-        result[6] = 0x36b7E0738fe11f05d26dA55d10eE679e684e06f4; // Lazaro
+        result[1] = 0x052809d05DC83F317b2f578710411e6cbF88AC5a; // Josh
+        result[2] = 0xDCa4ee0070b4aa44b30D8af22F3CBbb2cC859dAf; // Kevin
+        result[3] = 0xD6B66609E5C05210BE0A690aB3b9788BA97aFa60; // Duncan
+        result[4] = 0xEC3E1F7aC9Df42c31570b02068f2e7500915e557; // Andy
+        result[5] = 0x36b7E0738fe11f05d26dA55d10eE679e684e06f4; // Lazaro
         return result;
     }
 }

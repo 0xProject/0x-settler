@@ -31,7 +31,7 @@ contract PermitTest is SettlerBasePairTest {
     }
 
     function _testName() internal pure override returns (string memory) {
-        return "ERC2612Funding";
+        return "transfer-from-with-permit";
     }
 
     function fromToken() internal pure override returns (IERC20) {}
@@ -40,6 +40,10 @@ contract PermitTest is SettlerBasePairTest {
 
     function amount() internal pure override returns (uint256) {
         return 1000e6;
+    }
+
+    function _vs(uint256 v, bytes32 s) internal view returns (bytes32 vs) {
+        return bytes32(v - 27) << 255 | s;
     }
 
     function _signERC2612Permit(address owner, address spender, uint256 value, uint256 deadline, uint256 privateKey)
@@ -102,34 +106,37 @@ contract PermitTest is SettlerBasePairTest {
         (uint8 v, bytes32 r, bytes32 s) = _signERC2612Permit(sender, address(allowanceHolder), amount(), deadline, pk);
 
         bytes memory permitData =
-            abi.encodePacked(Permit.PermitType.ERC2612, abi.encode(sender, amount(), deadline, v, r, s));
+            abi.encodePacked(Permit.PermitType.ERC2612, abi.encode(amount(), deadline, r, _vs(v, s)));
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.TRANSFER_FROM_WITH_PERMIT,
-                (address(this), defaultERC20PermitTransfer(address(USDC), amount(), 0), permitData)
+                ISettlerActions.TRANSFER_FROM,
+                (address(this), defaultERC20PermitTransfer(address(USDC), amount(), 0), bytes(""))
             )
         );
 
         uint256 snapshot = vm.snapshot();
 
         vm.prank(sender);
+        snapStartName("ERC2612");
         allowanceHolder.exec(
             address(settler),
             address(USDC),
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
+        snapEnd();
 
         assertEq(USDC.balanceOf(address(this)), amount(), "Transfer failed");
         assertEq(USDC.balanceOf(sender), 0, "Sender should have 0 balance");
@@ -146,13 +153,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -169,13 +177,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -191,35 +200,38 @@ contract PermitTest is SettlerBasePairTest {
         (uint8 v, bytes32 r, bytes32 s) = _signDAIPermit(sender, address(allowanceHolder), nonce, expiry, true, pk);
 
         bytes memory permitData =
-            abi.encodePacked(Permit.PermitType.DAIPermit, abi.encode(sender, nonce, expiry, true, v, r, s));
+            abi.encodePacked(Permit.PermitType.DAIPermit, abi.encode(nonce, expiry, true, r, _vs(v, s)));
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.TRANSFER_FROM_WITH_PERMIT,
-                (address(this), defaultERC20PermitTransfer(address(DAI), amount(), 0), permitData)
+                ISettlerActions.TRANSFER_FROM,
+                (address(this), defaultERC20PermitTransfer(address(DAI), amount(), 0), bytes(""))
             )
         );
 
         uint256 snapshot = vm.snapshot();
 
         vm.prank(sender);
+        snapStartName("DAIPermit");
         allowanceHolder.exec(
             address(settler),
             address(DAI),
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
-
+        snapEnd();
+        
         assertEq(DAI.balanceOf(address(this)), amount(), "Transfer failed");
         assertEq(DAI.balanceOf(sender), 0, "Sender should have 0 balance");
 
@@ -235,13 +247,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -260,13 +273,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -280,34 +294,37 @@ contract PermitTest is SettlerBasePairTest {
         (uint8 v, bytes32 r, bytes32 s) = _signNativeMetaTransaction(sender, address(allowanceHolder), amount(), pk);
 
         bytes memory permitData =
-            abi.encodePacked(Permit.PermitType.NativeMetaTransaction, abi.encode(sender, amount(), v, r, s));
+            abi.encodePacked(Permit.PermitType.NativeMetaTransaction, abi.encode(amount(), r, _vs(v, s)));
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.TRANSFER_FROM_WITH_PERMIT,
-                (address(this), defaultERC20PermitTransfer(address(ROUTE), amount(), 0), permitData)
+                ISettlerActions.TRANSFER_FROM,
+                (address(this), defaultERC20PermitTransfer(address(ROUTE), amount(), 0), bytes(""))
             )
         );
 
         uint256 snapshot = vm.snapshot();
 
         vm.prank(sender);
+        snapStartName("NativeMetaTransaction");
         allowanceHolder.exec(
             address(settler),
             address(ROUTE),
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
+        snapEnd();
 
         assertEq(ROUTE.balanceOf(address(this)), amount(), "Transfer failed");
         assertEq(ROUTE.balanceOf(sender), 0, "Sender should have 0 balance");
@@ -326,13 +343,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -349,13 +367,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );
@@ -370,8 +389,8 @@ contract PermitTest is SettlerBasePairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.TRANSFER_FROM_WITH_PERMIT,
-                (address(this), defaultERC20PermitTransfer(address(USDC), amount(), 0), permitData)
+                ISettlerActions.TRANSFER_FROM,
+                (address(this), defaultERC20PermitTransfer(address(USDC), amount(), 0), bytes(""))
             )
         );
 
@@ -383,13 +402,14 @@ contract PermitTest is SettlerBasePairTest {
             amount(),
             payable(address(settler)),
             abi.encodeCall(
-                settler.execute,
+                settler.executeWithPermit,
                 (
                     ISettlerBase.AllowedSlippage({
                         recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                     }),
                     actions,
-                    bytes32(0)
+                    bytes32(0),
+                    permitData
                 )
             )
         );

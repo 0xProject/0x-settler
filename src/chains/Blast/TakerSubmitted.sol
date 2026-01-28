@@ -24,15 +24,15 @@ contract BlastSettler is Settler, BlastMixin {
         } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
             (
                 address recipient,
+                ISignatureTransfer.PermitTransferFrom memory permit,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
-                ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes memory sig,
                 uint256 amountOutMin
             ) = abi.decode(
-                data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256)
+                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
             );
 
             sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);

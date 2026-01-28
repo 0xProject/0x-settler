@@ -86,7 +86,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             getPermitTransferSignature(takerPermit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.RFQ_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig))
+            abi.encodeCall(ISettlerActions.RFQ_VIP, (FROM, takerPermit, makerPermit, MAKER, makerSig, takerSig))
         );
 
         Settler _settler = settler;
@@ -153,7 +153,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_UNISWAPV3_VIP, (FROM, uniswapV3Path(), permit, 0))
+            abi.encodeCall(ISettlerActions.METATXN_UNISWAPV3_VIP, (FROM, permit, uniswapV3Path(), 0))
         );
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);
@@ -208,7 +208,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         );
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_RFQ_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit))
+            abi.encodeCall(ISettlerActions.METATXN_RFQ_VIP, (FROM, takerPermit, makerPermit, MAKER, makerSig))
         );
         bytes32[] memory actionHashes = new bytes32[](actions.length);
         for (uint256 i; i < actionHashes.length; i++) {

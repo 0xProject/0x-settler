@@ -31,38 +31,40 @@ contract Permit {
         }
     }
 
-    function callPermit(address token, bytes memory permitData) internal {
-        (address owner, uint256 amount, uint256 deadline, uint8 v, bytes32 r, bytes32 s) =
-            abi.decode(permitData, (address, uint256, uint256, uint8, bytes32, bytes32));
-        IERC2612(token).safePermit(owner, address(ALLOWANCE_HOLDER), amount, deadline, v, r, s);
+    function callPermit(address owner, address token, bytes memory permitData) internal {
+        (uint256 amount, uint256 deadline, bytes32 r, bytes32 vs) =
+            abi.decode(permitData, (uint256, uint256, bytes32, bytes32));
+        IERC2612(token).safePermit(owner, address(ALLOWANCE_HOLDER), amount, deadline, vs, r);
     }
 
-    function callDAIPermit(address token, bytes memory permitData) internal {
-        (address owner, uint256 nonce, uint256 expiry, bool allowed, uint8 v, bytes32 r, bytes32 s) =
-            abi.decode(permitData, (address, uint256, uint256, bool, uint8, bytes32, bytes32));
-        IDAIStylePermit(token).safePermit(owner, address(ALLOWANCE_HOLDER), nonce, expiry, allowed, v, r, s);
+    function callDAIPermit(address owner, address token, bytes memory permitData) internal {
+        (uint256 nonce, uint256 expiry, bool allowed, bytes32 r, bytes32 vs) =
+            abi.decode(permitData, (uint256, uint256, bool, bytes32, bytes32));
+        IDAIStylePermit(token).safePermit(owner, address(ALLOWANCE_HOLDER), nonce, expiry, allowed, vs, r);
     }
 
-    function callNativeMetaTransaction(address token, bytes memory permitData) internal {
-        (address owner, uint256 amount, uint8 v, bytes32 r, bytes32 s) =
-            abi.decode(permitData, (address, uint256, uint8, bytes32, bytes32));
-        IERC20MetaTransaction(token).safePermit(owner, address(ALLOWANCE_HOLDER), amount, v, r, s);
+    function callNativeMetaTransaction(address owner, address token, bytes memory permitData) internal {
+        (uint256 amount, bytes32 r, bytes32 vs) = abi.decode(permitData, (uint256, bytes32, bytes32));
+        IERC20MetaTransaction(token).safePermit(owner, address(ALLOWANCE_HOLDER), amount, vs, r);
     }
 
-    function _dispatchPermit(address token, bytes memory permitData) internal {
+    function _dispatchPermit(address owner, address token, bytes memory permitData) internal {
         PermitType permitType;
         (permitType, permitData) = getPermitType(permitData);
-        _handlePermit(token, permitType, permitData);
+        _handlePermit(owner, token, permitType, permitData);
     }
 
-    function _handlePermit(address token, PermitType permitType, bytes memory permitData) internal virtual {
+    function _handlePermit(address owner, address token, PermitType permitType, bytes memory permitData)
+        internal
+        virtual
+    {
         if (permitType == PermitType.ERC2612) {
-            callPermit(token, permitData);
+            callPermit(owner, token, permitData);
         } else if (permitType == PermitType.DAIPermit) {
-            callDAIPermit(token, permitData);
+            callDAIPermit(owner, token, permitData);
         } else {
             // NativeMetaTransaction is disabled by default
-            // callNativeMetaTransaction(token, permitData);
+            // callNativeMetaTransaction(owner, token, permitData);
             unsupportedPermitType(permitType);
         }
     }
