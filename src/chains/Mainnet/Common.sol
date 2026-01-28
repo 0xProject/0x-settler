@@ -13,7 +13,7 @@ import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
-import {Ekubo} from "../../core/Ekubo.sol";
+import {EkuboV3} from "../../core/EkuboV3.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {Bebop} from "../../core/Bebop.sol";
 
@@ -61,7 +61,7 @@ abstract contract MainnetMixin is
     DodoV2,
     UniswapV4,
     BalancerV3,
-    Ekubo,
+    EkuboV3,
     EulerSwap,
     Bebop
 {
@@ -176,7 +176,7 @@ abstract contract MainnetMixin is
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
 
             sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
+        } else if (action == uint32(ISettlerActions.EKUBOV3.selector)) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -188,7 +188,7 @@ abstract contract MainnetMixin is
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            sellToEkubo(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            sellToEkuboV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (
                 address recipient,

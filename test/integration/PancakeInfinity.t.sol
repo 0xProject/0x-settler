@@ -238,7 +238,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
             ActionDataBuilder.build(
                 abi.encodeCall(
                     ISettlerActions.PANCAKE_INFINITY_VIP,
-                    (recipient(), false, hashMul, hashMod, pancakeInfinityFills(), permit, sig, 0)
+                    (recipient(), permit, false, hashMul, hashMod, pancakeInfinityFills(), sig, 0)
                 )
             )
         );
@@ -275,7 +275,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
             ActionDataBuilder.build(
                 abi.encodeCall(
                     ISettlerActions.PANCAKE_INFINITY_VIP,
-                    (recipient(), false, hashMul, hashMod, pancakeInfinityFills(), permit, sig, 0)
+                    (recipient(), permit, false, hashMul, hashMod, pancakeInfinityFills(), sig, 0)
                 )
             )
         );
@@ -316,7 +316,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
             ActionDataBuilder.build(
                 abi.encodeCall(
                     ISettlerActions.METATXN_PANCAKE_INFINITY_VIP,
-                    (metaTxnRecipient(), false, hashMul, hashMod, pancakeInfinityFills(), permit, 0)
+                    (metaTxnRecipient(), permit, false, hashMul, hashMod, pancakeInfinityFills(), 0)
                 )
             )
         );

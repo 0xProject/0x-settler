@@ -42,17 +42,46 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
-* Modify `TRANSFER_FROM_WITH_PERMIT` action
-  * Permit signature changed to ERC-2098/compact form
-  * Removed `owner` from calldata encoding in favor of taker address
-  * From now on the permit calldata is encoded as follow:
-      1. 0x00 for ERC2612 or 0x01 for DAIPermit or 0x02 for NativeMetaTransaction
-      2. Encoding of:
-          1. amount, deadline, r, vs in case of regular ERC2612 permit
-          2. nonce, expiry, allowed, r, vs in case of regular DAI permit
-          3. amount, r, vs in case of native meta transaction
+* Ethereum Mainnet upgraded from EkuboV2 to EkuboV3, EkuboV2 is not supported 
+* Drop `TRANSFER_FROM_WITH_PERMIT` action in all chains
+* Some VIP actions parameters were reordered so them all start with
+  `recipient, permit` followed by all the other parameters. This includes
+  * `RFQ_VIP`, `METATXN_RFQ_VIP` for the second argument to be `takerPermit`
+  * `UNISWAPV4_VIP`, `METATXN_UNISWAPV4_VIP` for the second argument to be `permit`
+  * `BALANCERV3_VIP`, `METATXN_BALANCERV3_VIP` for the second argument to be `permit`
+  * `PANCAKE_INFINITY_VIP`, `METATXN_PANCAKE_INFINITY_VIP` for the second argument to be `permit`
+  * `UNISWAPV3_VIP`, `METATXN_UNISWAPV3_VIP` for the second argument to be `permit`
+  * `CURVE_TRICRYPTO_VIP`, `METATXN_CURVE_TRICRYPTO_VIP` for the second argument to be `permit`
+  * `MAVERICKV2_VIP`, `METATXN_MAVERICKV2_VIP` for the second argument to be `permit`
+  * `EKUBO_VIP`, `METATXN_EKUBO_VIP` for the second argument to be `permit`
 
 ### Non-breaking changes
+
+* Added new Ekubo actions for EkuboV3 support
+  * `EKUBOV3` same signature as `EKUBO`
+  * `EKUBOV3_VIP` same signature as `EKUBO_VIP`
+  * `METATXN_EKUBOV3_VIP` same signature as `METATXN_EKUBO_VIP`
+* Taker submitted Settlers have a new entrypoint.
+  ```solidity
+  function executeWithPermit(
+      AllowedSlippage calldata slippage,
+      bytes[] calldata actions,
+      bytes32 /* zid & affiliate */,
+      bytes memory permitData
+  )
+  ```
+  This new entrypoint allows to execute a permit call before processing the actions.
+  * `permitData` contains the data and the type of permit to execute. It is encoded as follow:
+    1. 0x00 for ERC2612 or 0x01 for DAIPermit or 0x02 for NativeMetaTransaction
+    2. Encoding of:
+        1. amount, deadline, r, vs in case of regular ERC2612 permit
+        2. nonce, expiry, allowed, r, vs in case of regular DAI permit
+        3. amount, r, vs in case of native meta transaction
+  * The `owner` used in the permit is always the taker
+  * In all cases spender is allways set to be AllowanceHolder.
+  * On native meta transactions `approve` function is allways the function called
+  * r, vs is a compact signature as specified in [ERC-2098](https://eips.ethereum.org/EIPS/eip-2098)
+* Update Settler on Linea to the Osaka hardfork
 
 ## 2026-01-16
 
