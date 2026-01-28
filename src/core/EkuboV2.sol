@@ -204,7 +204,7 @@ abstract contract EkuboV2 is SettlerAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount =
-            _setOperatorAndCall(address(CORE), data, uint32(IEkuboCallbacks.locked.selector), _ekuboLockCallback);
+            _setOperatorAndCall(address(CORE), data, uint32(IEkuboCallbacks.locked.selector), _ekuboLockCallbackV2);
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
@@ -237,7 +237,7 @@ abstract contract EkuboV2 is SettlerAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount =
-            _setOperatorAndCall(address(CORE), data, uint32(IEkuboCallbacks.locked.selector), _ekuboLockCallback);
+            _setOperatorAndCall(address(CORE), data, uint32(IEkuboCallbacks.locked.selector), _ekuboLockCallbackV2);
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
@@ -247,7 +247,7 @@ abstract contract EkuboV2 is SettlerAbstract {
         }
     }
 
-    function _ekuboLockCallback(bytes calldata data) private returns (bytes memory) {
+    function _ekuboLockCallbackV2(bytes calldata data) private returns (bytes memory) {
         // We know that our calldata is well-formed. Therefore, the first slot is ekubo lock id,
         // second slot is 0x20 and third is the length of the strict ABIEncoded payload
         assembly ("memory-safe") {
@@ -257,7 +257,7 @@ abstract contract EkuboV2 is SettlerAbstract {
         return locked(data);
     }
 
-    function _ekuboPay(
+    function _ekuboPayV2(
         IERC20 sellToken,
         address payer,
         uint256 sellAmount,
@@ -340,7 +340,7 @@ abstract contract EkuboV2 is SettlerAbstract {
             }
             if (feeOnTransfer) {
                 globalSell.setAmount(
-                    _ekuboPay(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig)
+                    _ekuboPayV2(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig)
                 );
             }
             if (globalSell.amount() >> 127 != 0) {
@@ -488,7 +488,7 @@ abstract contract EkuboV2 is SettlerAbstract {
                         revert(0x10, 0x24)
                     }
                 }
-                _ekuboPay(globalSellToken, payer, debt, permit, isForwarded, sig);
+                _ekuboPayV2(globalSellToken, payer, debt, permit, isForwarded, sig);
             }
 
             // return abi.encode(globalBuyAmount);
@@ -522,7 +522,7 @@ abstract contract EkuboV2 is SettlerAbstract {
             // first 2 slots in calldata are id and token
             // id is not being used so can be skipped
             sellToken := calldataload(add(0x20, data.offset))
-            // then extra data added in _ekuboPay
+            // then extra data added in _ekuboPayV2
             sellAmount := calldataload(add(0x40, data.offset))
         }
         if (0x60 < data.length) {

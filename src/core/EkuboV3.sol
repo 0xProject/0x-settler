@@ -233,7 +233,7 @@ abstract contract EkuboV3 is SettlerAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(CORE), data, uint32(IEkuboCallbacks.locked_6416899205.selector), _ekuboLockCallback
+            address(CORE), data, uint32(IEkuboCallbacks.locked_6416899205.selector), _ekuboLockCallbackV3
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -267,7 +267,7 @@ abstract contract EkuboV3 is SettlerAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(CORE), data, uint32(IEkuboCallbacks.locked_6416899205.selector), _ekuboLockCallback
+            address(CORE), data, uint32(IEkuboCallbacks.locked_6416899205.selector), _ekuboLockCallbackV3
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -278,7 +278,7 @@ abstract contract EkuboV3 is SettlerAbstract {
         }
     }
 
-    function _ekuboLockCallback(bytes calldata data) private returns (bytes memory) {
+    function _ekuboLockCallbackV3(bytes calldata data) private returns (bytes memory) {
         // We know that our calldata is well-formed. Therefore, the first slot is ekubo lock id,
         // second slot is 0x20 and third is the length of the strict ABIEncoded payload
         assembly ("memory-safe") {
@@ -288,7 +288,7 @@ abstract contract EkuboV3 is SettlerAbstract {
         return locked_6416899205(data);
     }
 
-    function _ekuboPay(
+    function _ekuboPayV3(
         IERC20 sellToken,
         address payer,
         uint256 sellAmount,
@@ -348,7 +348,7 @@ abstract contract EkuboV3 is SettlerAbstract {
             }
             if (feeOnTransfer) {
                 globalSell.setAmount(
-                    _ekuboPay(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig)
+                    _ekuboPayV3(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig)
                 );
             }
             if (globalSell.amount() >> 127 != 0) {
@@ -494,7 +494,7 @@ abstract contract EkuboV3 is SettlerAbstract {
                         revert(0x10, 0x24)
                     }
                 }
-                _ekuboPay(globalSellToken, payer, debt, permit, isForwarded, sig);
+                _ekuboPayV3(globalSellToken, payer, debt, permit, isForwarded, sig);
             }
 
             // return abi.encode(globalBuyAmount);
