@@ -42,7 +42,8 @@ Master list of UniV3 forks:
 
 ### Breaking changes
 
-* Dropped support for `EKUBO_VIP` and `METATXN_EKUBO_VIP` actions on Ethereum Mainnet
+* Dropped support for `EKUBO_VIP` and `METATXN_EKUBO_VIP` actions on Ethereum Mainnet.
+  `EKUBO` action support remains.
 * Drop `TRANSFER_FROM_WITH_PERMIT` action in all chains
 * Some VIP actions parameters were reordered so them all start with
   `recipient, permit` followed by all the other parameters. This includes
