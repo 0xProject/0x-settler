@@ -987,5 +987,39 @@
       "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30"
     },
     "etherscanApi": "https://api.etherscan.io/v2/api?chainid=2741"
+  },
+  "tempo": {
+    "chainId": 4217,
+    "displayName": "Tempo",
+    "wnative": "0x0000000000000000000000000000000000000000",
+    "hardfork": {
+      "shanghai": null,
+      "cancun": null,
+      "osaka": null,
+      "eraVm": false
+    },
+    "extraFlags": "--legacy",
+    "extraScriptFlags": "--isolate",
+    "gasMultiplierPercent": 130,
+    "minGasPriceGwei": null,
+    "safe": {
+      "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
+      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "apiUrl": "NOT SUPPORTED"
+    },
+    "deployment": {
+      "forwardingMultiCall": null,
+      "crossChainFactory": null,
+      "allowanceHolder": null,
+      "deployer": null
+    },
+    "governance": {
+      "upgradeSafe": null,
+      "deploymentSafe": null,
+      "pause": null
+    },
   }
 }
