@@ -14,8 +14,8 @@ import {EulerSwapTest} from "./EulerSwap.t.sol";
 // Solidity inheritance is stupid
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDCUSDTTest is SettlerPairTest, SettlerMetaTxnPairTest, EulerSwapTest {
-    function setUp() public override(SettlerPairTest, SettlerMetaTxnPairTest, EulerSwapTest) {
+contract USDCUSDTTest is SettlerPairTest, EulerSwapTest {
+    function setUp() public override(SettlerPairTest, EulerSwapTest) {
         super.setUp();
     }
 

@@ -16,6 +16,8 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
+import {EkuboV3Test} from "./Ekubo.t.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
 
 contract USDTWETHTest is
     AllowanceHolderPairTest,
@@ -26,6 +28,7 @@ contract USDTWETHTest is
     UniswapV2PairTest,
     UniswapV3PairTest,
     CurveTricryptoPairTest,
+    EkuboV3Test,
     ZeroExPairTest
 {
     function setUp()
@@ -38,7 +41,8 @@ contract USDTWETHTest is
             SettlerMetaTxnPairTest,
             TokenTransferTest,
             UniswapV3PairTest,
-            ZeroExPairTest
+            ZeroExPairTest,
+            EkuboV3Test
         )
     {
         super.setUp();
@@ -118,5 +122,32 @@ contract USDTWETHTest is
 
     function uniswapV2Pool() internal pure override(SettlerPairTest, AllowanceHolderPairTest) returns (address) {
         return 0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852;
+    }
+
+    function ekuboExtensionConfig() internal pure override returns (bytes32) {
+        // Key for ETH_USDT pool (not WETH)
+        return bytes32(0x5555ff9ff2757500bf4ee020dcfd0210cffa41be000d1b71758e219680000064);
+    }
+
+    function ekuboTokens() internal pure override returns (IERC20, IERC20) {
+        return (fromToken(), ETH);
+    }
+
+    function ekuboExtraActions(bytes[] memory actions) internal view virtual override returns (bytes[] memory) {
+        bytes[] memory data = new bytes[](actions.length + 2);
+        address _weth = address(toToken());
+        for (uint256 i; i < actions.length; i++) {
+            data[i] = actions[i];
+        }
+        data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (address(ETH), 10_000, address(_weth), 0, ""));
+        data[actions.length + 1] = abi.encodeCall(
+            ISettlerActions.BASIC,
+            (_weth, 10_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0))))
+        );
+        return data;
+    }
+
+    function recipient() internal view virtual override returns (address) {
+        return address(settler);
     }
 }

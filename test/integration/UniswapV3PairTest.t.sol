@@ -48,7 +48,7 @@ abstract contract UniswapV3PairTest is SettlerPairTest {
         Settler _settler = settler;
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(_settler), uniswapV3Path(), permit, sig, 0 wei)),
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(_settler), permit, uniswapV3Path(), sig, 0 wei)),
             abi.encodeCall(
                 ISettlerActions.BASIC,
                 (address(WETH), 10_000, address(WETH), 4, abi.encodeWithSignature("withdraw(uint256)", 0 wei))

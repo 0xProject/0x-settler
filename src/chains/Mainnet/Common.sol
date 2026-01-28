@@ -142,6 +142,8 @@ abstract contract MainnetMixin is
             sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
             revert("unimplemented");
+        } else if (action == uint32(ISettlerActions.EKUBOV3.selector)) {
+            revert("unimplemented");
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (
                 address recipient,

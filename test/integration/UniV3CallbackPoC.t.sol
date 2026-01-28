@@ -174,8 +174,8 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
                 ISettlerActions.METATXN_UNISWAPV3_VIP,
                 (
                     address(settler), // recipient
-                    uniswapV3Path, // (token0, fee, token1)
                     permit,
+                    uniswapV3Path, // (token0, fee, token1)
                     100 // amountOutMin
                 )
             )

@@ -7,6 +7,8 @@ import {Settler} from "../../Settler.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
+import {FastLogic} from "../../utils/FastLogic.sol";
+import {revertConfusedDeputy} from "../../core/SettlerErrors.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
@@ -16,6 +18,8 @@ import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
 contract KatanaSettler is Settler, KatanaMixin {
+    using FastLogic for bool;
+
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {

@@ -315,7 +315,7 @@
       "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
       "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
       "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
-      "apiUrl": "https://api.safe.global/tx-service/blastmainnet/api"
+      "apiUrl": "NOT SUPPORTED"
     },
     "governance": {
       "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
@@ -337,7 +337,7 @@
     "hardfork": {
       "shanghai": true,
       "cancun": true,
-      "osaka": false,
+      "osaka": true,
       "eraVm": false
     },
     "extraFlags": "",
@@ -914,7 +914,7 @@
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae"
     },
-    "sourcifyApi": "https://sourcify-api-monad.blockvision.org",
+    "sourcifyApi": "https://sourcify-api-monad.blockvision.org/",
     "blockscoutApi": "https://api.socialscan.io/monad/v1/explorer/command_api/contract",
     "etherscanApi": "https://api.etherscan.io/v2/api?chainid=143"
   },

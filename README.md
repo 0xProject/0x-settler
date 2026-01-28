@@ -432,7 +432,7 @@ token_descriptions = {
     2: "taker submitted",
     3: "metatransaction",
     4: "intents",
-    5: "intents",
+    5: "bridge",
 }
 
 deployer_abi = [
