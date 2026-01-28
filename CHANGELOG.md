@@ -61,6 +61,8 @@ Master list of UniV3 forks:
   * `EKUBOV3` same signature as `EKUBO`
   * `EKUBOV3_VIP` same signature as `EKUBO_VIP`
   * `METATXN_EKUBOV3_VIP` same signature as `METATXN_EKUBO_VIP`
+* Added EkuboV3 actions `EKUBOV3`, `EKUBOV3_VIP` and `METATXN_EKUBOV3_VIP` to Ethereum
+  Mainnet
 * Taker submitted Settlers have a new entrypoint.
   ```solidity
   function executeWithPermit(
