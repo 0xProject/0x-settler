@@ -19,7 +19,15 @@
     "type": "git",
     "url": "git+https://github.com/0xProject/0x-settler.git"
   },
-  "author": "",
+  "author": "0x Protocol",
+  "keywords": [
+    "ethereum",
+    "defi",
+    "swap",
+    "settlement",
+    "permit2",
+    "0x"
+  ],
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/0xProject/0x-settler/issues"
