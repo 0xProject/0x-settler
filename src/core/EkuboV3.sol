@@ -206,8 +206,8 @@ abstract contract EkuboV3 is SettlerAbstract {
     //// Obviously, after encoding the packing key, you encode 0, 1, or 2 tokens (each as 20 bytes),
     //// as appropriate.
     //// The remaining fields of the fill are mandatory.
-    //// Fourth, encode the config of the pool as 32 bytes. It contains pool parameters which are
-    //// 20 bytes extension address, 8 bytes fee, and 4 bytes tickSpacing.
+    //// Fourth, encode the config of the pool as 32 bytes. Should be done as described in Ekubo implementation
+    //// https://github.com/EkuboProtocol/evm-contracts/blob/81c2c2642afe321e7f5d7de70f8b3be18f6f80b3/src/types/poolConfig.sol#L6-#L12
     ////
     //// Repeat the process for each fill and concatenate the results without padding.
 
