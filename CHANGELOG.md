@@ -2,6 +2,8 @@
 
 ### Breaking changes
 
+* DackieSwap and BaseX UniV3 forks removed from Base
+
 ### Non-breaking changes
 
 ## 2026-01-29
