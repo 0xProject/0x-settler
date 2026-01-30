@@ -140,6 +140,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         takerSubmitted
         returns (bool)
     {
+        (bool skipSlippage, uint256 preBalance) = _slippagePreBalance(slippage);
         if (actions.length != 0) {
             uint256 it;
             assembly ("memory-safe") {
@@ -162,7 +163,9 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             }
         }
 
-        _checkSlippageAndTransfer(slippage);
+        if (!skipSlippage) {
+            _checkSlippageAndTransfer(slippage, preBalance);
+        }
         return true;
     }
 

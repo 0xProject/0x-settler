@@ -82,7 +82,21 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         return false;
     }
 
-    function _checkSlippageAndTransfer(AllowedSlippage calldata slippage) internal {
+    function _slippagePreBalance(AllowedSlippage calldata slippage) internal view returns (bool skip, uint256 preBalance) {
+        (, IERC20 buyToken, uint256 minAmountOut) = (slippage.recipient, slippage.buyToken, slippage.minAmountOut);
+        if (minAmountOut == 0 && address(buyToken) == address(0)) {
+            return (true, 0);
+        }
+        bool isETH = (buyToken == ETH_ADDRESS);
+        if (isETH) {
+            preBalance = address(this).balance - msg.value;
+        } else {
+            preBalance = buyToken.fastBalanceOf(address(this));
+        }
+        return (false, preBalance);
+    }
+
+    function _checkSlippageAndTransfer(AllowedSlippage calldata slippage, uint256 preBalance) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because
         // ISettlerActions.BASIC could interact with an intents-based settlement
@@ -97,13 +111,20 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         }
         bool isETH = (buyToken == ETH_ADDRESS);
         uint256 amountOut = isETH ? address(this).balance : buyToken.fastBalanceOf(address(this));
-        if (amountOut < minAmountOut) {
-            revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
+        uint256 delta;
+        if (amountOut > preBalance) {
+            delta = amountOut - preBalance;
+        }
+        if (delta < minAmountOut) {
+            revertTooMuchSlippage(buyToken, minAmountOut, delta);
+        }
+        if (delta == 0) {
+            return;
         }
         if (isETH) {
-            recipient.safeTransferETH(amountOut);
+            recipient.safeTransferETH(delta);
         } else {
-            buyToken.safeTransfer(recipient, amountOut);
+            buyToken.safeTransfer(recipient, delta);
         }
     }
 

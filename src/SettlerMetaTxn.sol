@@ -119,6 +119,7 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
         internal
         returns (bool)
     {
+        (bool skipSlippage, uint256 preBalance) = _slippagePreBalance(slippage);
         require(actions.length != 0);
         uint256 it;
         assembly ("memory-safe") {
@@ -142,7 +143,9 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
             }
         }
 
-        _checkSlippageAndTransfer(slippage);
+        if (!skipSlippage) {
+            _checkSlippageAndTransfer(slippage, preBalance);
+        }
         return true;
     }
 
