@@ -499,7 +499,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
         IBalancerV3Vault.BufferWrapOrUnwrapParams memory wrapParams;
         /*
         wrapParams.kind = IBalancerV3Vault.SwapKind.EXACT_IN;
-        wrapParams.limit = 0; // TODO: price limits for partial filling
+        wrapParams.limit = 0; // TODO: price limits for partial filling to prevent slippage/bad pricing during partial fills
         */
 
         // We position `swapParams` at the end of allocated memory so that when we `calldatacopy`
