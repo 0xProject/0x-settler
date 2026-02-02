@@ -6,6 +6,9 @@
 
 ### Non-breaking changes
 
+* EkuboV2 VIP actions `EKUBO_VIP` and `METATXN_EKUBO_VIP` are not 
+  supported anymore and were removed from `ISettlerActions.sol`.
+
 ## 2026-01-29
 
 ### Breaking changes
