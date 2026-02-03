@@ -28,7 +28,6 @@ yul = true
 [profile.integration]
 no_match_path = "test/unit/*"
 match_path = "test/integration/*"
-fail_on_revert = false
 gas_snapshot_emit = false
 evm_version = "osaka"
 gas_limit = 50_000_000
