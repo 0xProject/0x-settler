@@ -1000,7 +1000,7 @@
     },
     "extraFlags": "--legacy",
     "extraScriptFlags": "--isolate",
-    "gasMultiplierPercent": 130,
+    "gasMultiplierPercent": 150,
     "minGasPriceGwei": 10,
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
@@ -1011,7 +1011,7 @@
       "apiUrl": "NOT SUPPORTED"
     },
     "deployment": {
-      "forwardingMultiCall": null,
+      "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": null,
       "allowanceHolder": null,
       "deployer": null
@@ -1021,6 +1021,6 @@
       "deploymentSafe": null,
       "pause": null
     },
-    "sourcifyUrl": "https://contracts.tempo.xyz/"
+    "sourcifyApi": "https://contracts.tempo.xyz/"
   }
 }
