@@ -993,9 +993,9 @@
     "displayName": "Tempo",
     "wnative": "0x0000000000000000000000000000000000000000",
     "hardfork": {
-      "shanghai": null,
-      "cancun": null,
-      "osaka": null,
+      "shanghai": true,
+      "cancun": true,
+      "osaka": true,
       "eraVm": false
     },
     "extraFlags": "--legacy",

@@ -127,7 +127,7 @@ your integration.
   hardfork (Ethereum mainnet, Ethereum Sepolia testnet, Polygon, Base, Optimism,
   Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
   testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm, Katana, Plasma,
-  Monad mainnet, Abstract, Linea)
+  Monad mainnet, Abstract, Linea, Tempo)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
   hardfork (Mantle, Taiko)
 
