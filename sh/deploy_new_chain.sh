@@ -310,7 +310,7 @@ forge script                                             \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
     --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,string,string,string,string,string,bytes,address[])' \
-    $(get_config extraFlags)                             \
+    "${extra_flags[@]}"                                  \
     $(get_config extraScriptFlags)                       \
     script/DeploySafes.s.sol:DeploySafes                 \
     "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \

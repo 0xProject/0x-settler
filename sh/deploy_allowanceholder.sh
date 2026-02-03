@@ -141,7 +141,7 @@ declare -i gas_limit
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     declare -i gas_estimate
-    gas_estimate="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid $(get_config extraFlags) --create "$allowanceholder_initcode")"
+    gas_estimate="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${extra_flags[@]}" --create "$allowanceholder_initcode")"
     declare -r -i gas_estimate
 
     gas_limit="$(apply_gas_multiplier $gas_estimate)"
@@ -155,7 +155,7 @@ fi
 declare -r -i gas_limit
 declare -r -a maybe_broadcast
 
-cast "${maybe_broadcast[@]}" --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit $(get_config extraFlags) --create "$allowanceholder_initcode"
+cast "${maybe_broadcast[@]}" --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" --create "$allowanceholder_initcode"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     sleep 60

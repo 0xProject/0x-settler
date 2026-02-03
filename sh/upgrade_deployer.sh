@@ -155,7 +155,7 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     initcode="$(cast concat-hex "$initcode" "$constructor_args")"
     declare -r initcode
     declare -i gas_estimate
-    gas_estimate="$(cast estimate --gas-price "$gas_price" --rpc-url "$rpc_url" --chain $chainid --from "$impl_deployer" $(get_config extraFlags) --create "$initcode")"
+    gas_estimate="$(cast estimate --gas-price "$gas_price" --rpc-url "$rpc_url" --chain $chainid --from "$impl_deployer" "${extra_flags[@]}" --create "$initcode")"
     declare -r -i gas_estimate
     declare -i gas_limit
     gas_limit="$(apply_gas_multiplier $gas_estimate)"
@@ -180,7 +180,7 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     fi
     declare -r -a gas_price_args
 
-    cast send --unlocked --from "$impl_deployer" --confirmations 10 "${gas_price_args[@]}" --gas-limit $gas_limit --rpc-url 'http://127.0.0.1:1248/' --chain $chainid $(get_config extraFlags) --create "$initcode"
+    cast send --unlocked --from "$impl_deployer" --confirmations 10 "${gas_price_args[@]}" --gas-limit $gas_limit --rpc-url 'http://127.0.0.1:1248/' --chain $chainid "${extra_flags[@]}" --create "$initcode"
 
     echo 'Waiting for 1 minute for Etherscan to pick up the deployment' >&2
     sleep 60

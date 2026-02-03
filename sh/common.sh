@@ -112,6 +112,10 @@ if (( rpc_chainid != chainid )) ; then
     exit 1
 fi
 
+declare -a extra_flags
+extra_flags=( $(get_config extraFlags) )
+declare -r -a extra_flags
+
 function verify_contract {
     declare -r _verify_constructor_args="$1"
     shift
