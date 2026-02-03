@@ -155,7 +155,7 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     initcode="$(cast concat-hex "$initcode" "$constructor_args")"
     declare -r initcode
     declare -i gas_estimate
-    gas_estimate="$(cast estimate --gas-price "$gas_price" --rpc-url "$rpc_url" --chain $chainid --from "$impl_deployer" --create "$initcode")"
+    gas_estimate="$(cast estimate --gas-price "$gas_price" --rpc-url "$rpc_url" --chain $chainid --from "$impl_deployer" $(get_config extraFlags) --create "$initcode")"
     declare -r -i gas_estimate
     declare -i gas_limit
     gas_limit="$(apply_gas_multiplier $gas_estimate)"

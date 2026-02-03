@@ -152,7 +152,7 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     )
 
     declare -i gas_estimate
-    gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${args[@]}")"
+    gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid $(get_config extraFlags) "${args[@]}")"
     declare -r -i gas_estimate
     declare -i gas_limit
     gas_limit="$(apply_gas_multiplier $gas_estimate)"

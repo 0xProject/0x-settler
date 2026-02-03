@@ -229,7 +229,7 @@ declare -r deploy_calldata
 declare -i gas_limit
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     declare -i gas_estimate
-    gas_estimate="$(cast estimate --from "$signer" --chain $chainid --value 2wei --rpc-url "$rpc_url" --gas-price $gas_price "$forwarding_multicall" "$deploy_calldata")"
+    gas_estimate="$(cast estimate --from "$signer" --chain $chainid --value 2wei --rpc-url "$rpc_url" --gas-price $gas_price $(get_config extraFlags) "$forwarding_multicall" "$deploy_calldata")"
     declare -r -i gas_estimate
 
     gas_limit="$(apply_gas_multiplier $gas_estimate)"
