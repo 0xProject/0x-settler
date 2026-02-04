@@ -22,12 +22,17 @@ abstract contract TempoMixin is FreeMemory, SettlerBase {
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
         virtual
-        override(SettlerAbstract, SettlerBase)
+        override(/* SettlerAbstract, */ SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
-            return true;
+        // This does not make use of `super._dispatch`. This chain's Settler is extremely
+        // stripped-down and has almost no capabilities
+        if (action == uint32(ISettlerActions.BASIC.selector)) {
+            (IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory _data) =
+                abi.decode(data, (IERC20, uint256, address, uint256, bytes));
+
+            basicSellToPool(sellToken, bps, pool, offset, _data);
         } else {
             return false;
         }

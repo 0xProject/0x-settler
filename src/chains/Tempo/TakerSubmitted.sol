@@ -19,8 +19,14 @@ contract TempoSettler is Settler, TempoMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
-        if (super._dispatchVIP(action, data)) {
-            return true;
+        // This does not make use of `super._dispatchVIP`. This chain's Settler is extremely
+        // stripped-down and has almost no capabilities
+        if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {
+            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
+                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
+            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
+                _permitToTransferDetails(permit, recipient);
+            _transferFrom(permit, transferDetails, sig);
         } else {
             return false;
         }
