@@ -176,40 +176,48 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
 
     # again, we have to do this in an awkward fashion to avoid the command-line
     # argument length limit
-    declare gas_estimate
-    gas_estimate="$(
-        jq -Mc \
-        '
-        {
-            "id": 1,
-            "jsonrpc": "2.0",
-            "method": "eth_estimateGas",
-            "params": [
-                {
-                    "from": $from,
-                    "to": $to,
-                    "gasPrice": $gasprice,
-                    "chainId": $chainId,
-                    "value": "0x0",
-                    "data": $data[0]
-                }
-            ]
-        }
-        '                                                   \
-        --arg from "$signer"                                \
-        --arg to "$safe_address"                            \
-        --arg gasprice "0x$(bc <<<'obase=16;'"$gas_price")" \
-        --arg chainId "0x$(bc <<<'obase=16;'"$chainid")"    \
-        --slurpfile data <(jq -R . <<<"$packed_calldata")   \
-        <<<'{}'                                             \
-        |                                                   \
-        curl --fail -s -X POST                              \
-        -H 'Accept: application/json'                       \
-        -H 'Content-Type: application/json'                 \
-        --url "$rpc_url"                                    \
-        --data '@-'                                         \
-    )"
-    gas_estimate="$(jq -rM '.result' <<<"$gas_estimate")"
+    declare -i gas_estimate_retries=0
+    declare gas_estimate=null
+    while [[ $gas_estimate = [Nn][Uu][Ll][Ll] ]] ; do
+        if (( gas_estimate_retries )) ; then
+            echo 'Retrying gas estimate - attempt '"$gas_estimate_retries" >&2
+            sleep 1
+        fi
+        gas_estimate="$(
+            jq -Mc \
+            '
+            {
+                "id": 1,
+                "jsonrpc": "2.0",
+                "method": "eth_estimateGas",
+                "params": [
+                    {
+                        "from": $from,
+                        "to": $to,
+                        "gasPrice": $gasprice,
+                        "chainId": $chainId,
+                        "value": "0x0",
+                        "data": $data[0]
+                    }
+                ]
+            }
+            '                                                   \
+            --arg from "$signer"                                \
+            --arg to "$safe_address"                            \
+            --arg gasprice "0x$(bc <<<'obase=16;'"$gas_price")" \
+            --arg chainId "0x$(bc <<<'obase=16;'"$chainid")"    \
+            --slurpfile data <(jq -R . <<<"$packed_calldata")   \
+            <<<'{}'                                             \
+            |                                                   \
+            curl --fail -s -X POST                              \
+            -H 'Accept: application/json'                       \
+            -H 'Content-Type: application/json'                 \
+            --url "$rpc_url"                                    \
+            --data '@-'                                         \
+        )"
+        gas_estimate="$(jq -rM '.result' <<<"$gas_estimate")"
+        gas_estimate_retries+=1
+    done
     declare -i gas_limit
     gas_limit="$(apply_gas_multiplier $gas_estimate)"
 

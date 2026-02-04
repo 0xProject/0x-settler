@@ -206,8 +206,8 @@ abstract contract EkuboV3 is SettlerAbstract {
     //// Obviously, after encoding the packing key, you encode 0, 1, or 2 tokens (each as 20 bytes),
     //// as appropriate.
     //// The remaining fields of the fill are mandatory.
-    //// Fourth, encode the config of the pool as 32 bytes. It contains pool parameters which are
-    //// 20 bytes extension address, 8 bytes fee, and 4 bytes tickSpacing.
+    //// Fourth, encode the config of the pool as 32 bytes. Should be done as described in Ekubo implementation
+    //// https://github.com/EkuboProtocol/evm-contracts/blob/81c2c2642afe321e7f5d7de70f8b3be18f6f80b3/src/types/poolConfig.sol#L6-#L12
     ////
     //// Repeat the process for each fill and concatenate the results without padding.
 
@@ -233,7 +233,7 @@ abstract contract EkuboV3 is SettlerAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(CORE), data, uint32(IEkuboCallbacks.locked_6416899205.selector), _ekuboLockCallback
+            address(CORE), data, uint32(IEkuboCallbacks.locked_6416899205.selector), _ekuboLockCallbackV3
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -267,7 +267,7 @@ abstract contract EkuboV3 is SettlerAbstract {
             amountOutMin
         );
         bytes memory encodedBuyAmount = _setOperatorAndCall(
-            address(CORE), data, uint32(IEkuboCallbacks.locked_6416899205.selector), _ekuboLockCallback
+            address(CORE), data, uint32(IEkuboCallbacks.locked_6416899205.selector), _ekuboLockCallbackV3
         );
         // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
         assembly ("memory-safe") {
@@ -278,7 +278,7 @@ abstract contract EkuboV3 is SettlerAbstract {
         }
     }
 
-    function _ekuboLockCallback(bytes calldata data) private returns (bytes memory) {
+    function _ekuboLockCallbackV3(bytes calldata data) private returns (bytes memory) {
         // We know that our calldata is well-formed. Therefore, the first slot is ekubo lock id,
         // second slot is 0x20 and third is the length of the strict ABIEncoded payload
         assembly ("memory-safe") {
@@ -288,7 +288,7 @@ abstract contract EkuboV3 is SettlerAbstract {
         return locked_6416899205(data);
     }
 
-    function _ekuboPay(
+    function _ekuboPayV3(
         IERC20 sellToken,
         address payer,
         uint256 sellAmount,
@@ -348,7 +348,7 @@ abstract contract EkuboV3 is SettlerAbstract {
             }
             if (feeOnTransfer) {
                 globalSell.setAmount(
-                    _ekuboPay(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig)
+                    _ekuboPayV3(globalSell.token(), payer, globalSell.amount(), permit, isForwarded, sig)
                 );
             }
             if (globalSell.amount() >> 127 != 0) {
@@ -494,7 +494,7 @@ abstract contract EkuboV3 is SettlerAbstract {
                         revert(0x10, 0x24)
                     }
                 }
-                _ekuboPay(globalSellToken, payer, debt, permit, isForwarded, sig);
+                _ekuboPayV3(globalSellToken, payer, debt, permit, isForwarded, sig);
             }
 
             // return abi.encode(globalBuyAmount);

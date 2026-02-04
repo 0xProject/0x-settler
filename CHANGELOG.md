@@ -1,48 +1,17 @@
-Master list of UniV3 forks:
-
-  0. UniswapV3
-  1. PancakeSwapV3
-  2. SushiSwapV3
-  3. SolidlyV3
-  4. Velodrome/Aerodrome Slipstream
-  5. CamelotV3/QuickSwapV3 (Algebra-like)
-  6. AlienBaseV3
-  7. BaseX
-  8. SwapBasedV3
-  9. Thruster
-  10. BladeSwap (Algebra-like)
-  11. Fenix (Algebra-like)
-  12. ZebraV3
-  13. Lynex (Algebra-like)
-  14. DackieSwapV3
-  17. MetavaultV3
-  18. BlasterV3
-  19. MonoSwapV3
-  20. RogueXV1
-  21. SupSwapV3
-  22. Kim (Algebra-like)
-  23. SwapMode
-  24. Swapsicle (Algebra-like)
-  25. Panko
-  26. Swapr (Algebra-like)
-  27. SpookySwap
-  28. Wagmi
-  29. SwapX (Algebra-like)
-  30. KodiakV3
-  31. Bulla Exchange (Algebra-like)
-  32. KittenSwap (factory is upgradeable; pools are not)
-  33. Hybra
-  34. HyperSwap
-  35. Velodrome/Aerodrome Slipstream V3.1
-  36. AboreanCL
-
----
-
 ## [Unreleased]
 
 ### Breaking changes
 
-* Ethereum Mainnet upgraded from EkuboV2 to EkuboV3, EkuboV2 is not supported 
+* DackieSwap and BaseX UniV3 forks removed from Base
+
+### Non-breaking changes
+
+## 2026-01-29
+
+### Breaking changes
+
+* Dropped support for `EKUBO_VIP` and `METATXN_EKUBO_VIP` actions on Ethereum Mainnet.
+  `EKUBO` action support remains.
 * Drop `TRANSFER_FROM_WITH_PERMIT` action in all chains
 * Some VIP actions parameters were reordered so them all start with
   `recipient, permit` followed by all the other parameters. This includes
@@ -61,6 +30,8 @@ Master list of UniV3 forks:
   * `EKUBOV3` same signature as `EKUBO`
   * `EKUBOV3_VIP` same signature as `EKUBO_VIP`
   * `METATXN_EKUBOV3_VIP` same signature as `METATXN_EKUBO_VIP`
+* Added EkuboV3 actions `EKUBOV3`, `EKUBOV3_VIP` and `METATXN_EKUBOV3_VIP` to Ethereum
+  Mainnet
 * Taker submitted Settlers have a new entrypoint.
   ```solidity
   function executeWithPermit(
