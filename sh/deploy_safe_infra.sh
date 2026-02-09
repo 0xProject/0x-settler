@@ -178,16 +178,16 @@ fi
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     if [[ ${deploy_singleton-no} = [Yy]es ]] ; then
-        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked $(get_config extraFlags) 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$singleton_init"
+        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$singleton_init"
     fi
     if [[ ${deploy_factory-no} = [Yy]es ]] ; then
-        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked $(get_config extraFlags) 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$factory_init"
+        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$factory_init"
     fi
     if [[ ${deploy_fallback-no} = [Yy]es ]] ; then
-        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked $(get_config extraFlags) 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$fallback_init"
+        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$fallback_init"
     fi
     if [[ ${deploy_multicall-no} = [Yy]es ]] ; then
-        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked $(get_config extraFlags) 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$multicall_init"
+        cast send --gas-limit 30000000 --gas-price 10gwei --rpc-url http://127.0.0.1:1248/ --chain $chainid --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7 "$multicall_init"
     fi
 fi
 

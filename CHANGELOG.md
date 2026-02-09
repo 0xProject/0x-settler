@@ -6,6 +6,8 @@
 
 ### Non-breaking changes
 
+* Deploy Settler to Tempo mainnet chain
+
 ## 2026-01-29
 
 ### Breaking changes

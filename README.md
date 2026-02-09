@@ -127,7 +127,7 @@ your integration.
   hardfork (Ethereum mainnet, Ethereum Sepolia testnet, Polygon, Base, Optimism,
   Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
   testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm, Katana, Plasma,
-  Monad mainnet, Abstract, Linea)
+  Monad mainnet, Abstract, Linea, Tempo)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
   hardfork (Mantle, Taiko)
 
@@ -1408,7 +1408,12 @@ Zeroth, verify the configuration for your chain in
 [`chain_config.json`](chain_config.json),
 [`api_secrets.json.template`](api_secrets.json.template), and
 [`script/SafeConfig.sol`](script/SafeConfig.sol). Add the new chain to the list
-of `AllowanceHolder` addresses at the top of this file.
+of `AllowanceHolder` addresses at the top of this file. Pay attention to the
+`extraFlags` and `extraScriptFlags` fields. `extraFlags` should be `--legacy` on
+L2s that bill the DA fee directly in the native asset (e.g. OP stack
+rollups). `extraScriptFlags` should have `--isolate` on chains that aren't
+EraVM. `extraScriptFlags` should have `--skip-simulation` on chains with weird
+gas rules (i.e. Arbitrum, Mantle, Monad, MegaEth).
 
 First, you need somebody to give you a copy of `secrets.json`. If you don't have
 this, give up. Install [`scrypt`](https://github.com/Tarsnap/scrypt) and use it
@@ -1481,16 +1486,7 @@ in the constructor of the Deployer, remembering that this is complicated by the
 fact that the Deployer is a proxy). See the deployments to Blast and to Mode for
 examples.
 
-Fourth, you need have enough native asset in _**each**_ of the deployer
-addresses (there are two: `iceColdCoffee` and `deployer`) listed in
-[`secrets.json.template`](secrets.json.template) to perform the deployment. If
-how much isn't obvious to you, you can run the main deployment script with
-`BROADCAST=no` to simulate. The `"iceColdCoffee"` address needs ~50% more native
-asset than the `"deployer"` address because the final transaction of the
-deployment is extremely gas-intensive. The amount of ETH you need can be a
-little wonky on L2s, so beware and overprovision the amount of native asset.
-
-Fifth, deploy `MultiCall`. Run [`BROADCAST=no ./sh/deploy_multicall.sh
+Fourth, deploy `MultiCall`. Run [`BROADCAST=no ./sh/deploy_multicall.sh
 <CHAIN_NAME>`](sh/deploy_multicall.sh). Then switch to `BROADCAST=yes` to
 actually do the deployment. This one is low-stakes because if you mess it up and
 it reverts, you can just try again. This deploys using the [Arachnid
@@ -1498,7 +1494,7 @@ deterministic deployment
 proxy](https://github.com/Arachnid/deterministic-deployment-proxy). If you mess
 it up, make sure you learn from your mistakes for the next step.
 
-Sixth, deploy `CrossChainReceiverFactory`. Send 2 wei of value to the wnative
+Fifth, deploy `CrossChainReceiverFactory`. Send 2 wei of value to the wnative
 storage setter address (`0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc` unless
 something has gone very wrong). Run the deployment script in simulation mode
 [`DECRYPT_SECRETS=no BROADCAST=no ./sh/deploy_crosschainfactory.sh
@@ -1514,7 +1510,7 @@ yourself some buffer and adjust for the prevailing gas price) and re-run with
 this one up, but it is (probably) recoverable because the vanity comes from the
 Arachnid deployer rather than from the EVM itself.
 
-Seventh, deploy `AllowanceHolder`. Obviously, if you're deploying to a
+Sixth, deploy `AllowanceHolder`. Obviously, if you're deploying to a
 Cancun-supporting chain, you don't need to fund the deployer for the old
 `AllowanceHolder` (and vice versa). Run [`BROADCAST=no
 ./sh/deploy_allowanceholder.sh
@@ -1522,13 +1518,13 @@ Cancun-supporting chain, you don't need to fund the deployer for the old
 actually do the deployment. Don't mess this one up. You will burn the vanity
 address.
 
-Eighth, check that the Safe deployment on the new chain is complete. You can
+Seventh, check that the Safe deployment on the new chain is complete. You can
 check this by running the main deployment script with `BROADCAST=no`. If it
 completes without reverting, you don't need to do anything. If the Safe
 deployment on the new chain is incomplete, run [`./sh/deploy_safe_infra.sh
 <CHAIN_NAME>`](sh/deploy_safe_infra.sh). You will have to modify this script.
 
-Ninth, make _damn_ sure that you've got the correct configuration in
+Eighth, make _damn_ sure that you've got the correct configuration in
 [`chain_config.json`](chain_config.json). If you screw this up, you'll burn the
 vanity address. Run [`BROADCAST=no ./sh/deploy_new_chain.sh
 <CHAIN_NAME>`](sh/deploy_new_chain.sh) a bunch of times. Deploy to a testnet. If
@@ -1536,6 +1532,15 @@ you are deploying to a chain with an alternate VM (i.e. EraVM [i.e. zkSync,
 Abstract]), you _**MUST**_ deploy to a testnet to verify that everything is
 working properly. Simulate each individual transaction in
 [Tenderly](https://dashboard.tenderly.co/).
+
+Ninth, you need have enough native asset in _**each**_ of the deployer addresses
+(there are two: `iceColdCoffee` and `deployer`) listed in
+[`secrets.json.template`](secrets.json.template) to perform the deployment. If
+how much isn't obvious to you, you can run the main deployment script with
+`BROADCAST=no` to simulate. The `"iceColdCoffee"` address needs ~50% more native
+asset than the `"deployer"` address because the final transaction of the
+deployment is extremely gas-intensive. The amount of ETH you need can be a
+little wonky on L2s, so beware and overprovision the amount of native asset.
 
 Finally, run `BROADCAST=yes ./sh/deploy_new_chain.sh <CHAIN_NAME>`. Cross your
 fingers. If something goes wrong (most commonly, the last transaction runs out
