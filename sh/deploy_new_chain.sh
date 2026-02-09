@@ -325,7 +325,7 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
 
     echo 'Verifying pause Safe module' >&2
 
-    verify_contract "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule 0.8.25
+    verify_contract "$(cast abi-encode 'constructor(address)' "$deployment_safe")" "$ice_cold_coffee" src/deployer/SafeModule.sol:ZeroExSettlerDeployerSafeModule
 
     echo 'Verified Safe module -- now verifying Deployer implementation' >&2
 
