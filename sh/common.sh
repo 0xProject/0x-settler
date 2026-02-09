@@ -123,6 +123,12 @@ function verify_contract {
     shift
     declare -r _verify_source_path="$1"
     shift
+    declare -a _verify_extra_flags
+    if (( $# > 0 )) ; then
+        _verify_extra_flags+=(--compiler-version "$1")
+        shift
+    fi
+    declare -r -a _verify_extra_flags
 
     declare _verify_etherscanApi
     _verify_etherscanApi="$(get_api_secret etherscanApi)"
@@ -151,19 +157,19 @@ function verify_contract {
         declare -r _verify_etherscanKey
 
         if [[ ${_verify_etherscanKey:-null} == [nN][uU][lL][lL] ]] ; then
-            forge verify-contract --watch --verifier custom --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+            forge verify-contract --watch --verifier custom --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "${_verify_extra_flags[@]}" "$_verify_deployed_address" "$_verify_source_path"
         elif [[ $_verify_etherscanApi == https://api.etherscan.io/v2/api* ]] ; then
-            forge verify-contract --watch --verifier etherscan --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+            forge verify-contract --watch --verifier etherscan --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "${_verify_extra_flags[@]}" "$_verify_deployed_address" "$_verify_source_path"
         else
-            forge verify-contract --watch --chain "$chainid" --verifier custom --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+            forge verify-contract --watch --chain "$chainid" --verifier custom --verifier-api-key "$_verify_etherscanKey" --verifier-url "$_verify_etherscanApi" --constructor-args "$_verify_constructor_args" "${_verify_extra_flags[@]}" "$_verify_deployed_address" "$_verify_source_path"
         fi
     fi
 
     if [[ ${_verify_blockscoutApi:-null} != [nN][uU][lL][lL] ]] ; then
-        forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$_verify_blockscoutApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+        forge verify-contract --watch --chain $chainid --verifier blockscout --verifier-url "$_verify_blockscoutApi" --constructor-args "$_verify_constructor_args" "${_verify_extra_flags[@]}" "$_verify_deployed_address" "$_verify_source_path"
     fi
 
     if [[ ${_verify_sourcifyApi:-null} != [nN][uU][lL][lL] ]] ; then
-        forge verify-contract --watch --chain $chainid --verifier sourcify --verifier-url "$_verify_sourcifyApi" --constructor-args "$_verify_constructor_args" "$_verify_deployed_address" "$_verify_source_path"
+        forge verify-contract --watch --chain $chainid --verifier sourcify --verifier-url "$_verify_sourcifyApi" --constructor-args "$_verify_constructor_args" "${_verify_extra_flags[@]}" "$_verify_deployed_address" "$_verify_source_path"
     fi
 }
