@@ -474,12 +474,12 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     }
 
     /// @inheritdoc ICrossChainReceiverFactory
-    function getFromMulticall(IERC20 token, address payable recipient) external override returns (bool) {
+    function getFromMulticall(IERC20 token, address payable recipient) external override noDelegateCall returns (bool) {
         IMultiCall MULTICALL = _MULTICALL();
         assembly ("memory-safe") {
             recipient := xor(
                 recipient,
-                mul(iszero(shl(0x60, xor(_ADDRESS_THIS_SENTINEL, recipient))), xor(address(), recipient))
+                mul(iszero(shl(0x60, xor(_ADDRESS_THIS_SENTINEL, recipient))), xor(caller(), recipient))
             )
             for {} true {} {
                 if shl(0x60, xor(_NATIVE_ADDRESS, token)) {
