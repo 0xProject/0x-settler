@@ -128,7 +128,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         }
 
         require(((msg.sender == _TOEHOLD).and(uint160(address(this)) >> 104 == 0)).or(block.chainid == 31337));
-        require(uint160(_WNATIVE_SETTER) >> 112 == 0);
+        require(uint160(_STORAGE_SETTER) >> 112 == 0);
         require(_NAMEHASH == keccak256(bytes(name)));
         require(_DOMAIN_TYPEHASH == keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"));
         require(
