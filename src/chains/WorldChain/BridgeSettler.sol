@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.33;
+pragma solidity =0.8.34;
 
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";

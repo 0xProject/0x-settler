@@ -4,21 +4,21 @@ flat_taker_source="$project_root"/src/flat/"$chain_display_name"TakerSubmittedFl
 declare -r flat_taker_source
 trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_taker_source")" EXIT
 forge flatten -o "$flat_taker_source" src/chains/"$chain_display_name"/TakerSubmitted.sol >/dev/null
-FOUNDRY_SOLC_VERSION=0.8.33 forge build "$flat_taker_source"
+FOUNDRY_SOLC_VERSION=0.8.34 forge build "$flat_taker_source"
 
 declare flat_metatx_source
 flat_metatx_source="$project_root"/src/flat/"$chain_display_name"MetaTxnFlat.sol
 declare -r flat_metatx_source
 trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_taker_source")"' '"$(_escape "$flat_metatx_source")" EXIT
 forge flatten -o "$flat_metatx_source" src/chains/"$chain_display_name"/MetaTxn.sol >/dev/null
-FOUNDRY_SOLC_VERSION=0.8.33 forge build "$flat_metatx_source"
+FOUNDRY_SOLC_VERSION=0.8.34 forge build "$flat_metatx_source"
 
 declare flat_intent_source
 flat_intent_source="$project_root"/src/flat/"$chain_display_name"IntentFlat.sol
 declare -r flat_intent_source
 trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_taker_source")"' '"$(_escape "$flat_metatx_source")"' '"$(_escape "$flat_intent_source")" EXIT
 forge flatten -o "$flat_intent_source" src/chains/"$chain_display_name"/Intent.sol >/dev/null
-FOUNDRY_SOLC_VERSION=0.8.33 forge build "$flat_intent_source"
+FOUNDRY_SOLC_VERSION=0.8.34 forge build "$flat_intent_source"
 
 declare taker_artifact
 taker_artifact="$project_root"/out/"$chain_display_name"TakerSubmittedFlat.sol/"$chain_display_name"Settler.json
