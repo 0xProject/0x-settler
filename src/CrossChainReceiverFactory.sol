@@ -714,7 +714,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs)) // s
 
             let recovered := mload(staticcall(gas(), 0x01, callvalue(), 0x80, 0x01, 0x20))
-            if shl(0x60, xor(owner_, recovered)) {
+            if iszero(gt(returndatasize(), shl(0x60, xor(owner_, recovered)))) {
                 mstore(callvalue(), 0x815e1d64) // `InvalidSigner.selector`
                 revert(0x1c, 0x04)
             }
