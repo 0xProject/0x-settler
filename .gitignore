@@ -30,3 +30,8 @@ node_modules
 
 # user-specific local configuration
 /config/
+
+# IDE files
+.vscode/
+.idea/
+*.log

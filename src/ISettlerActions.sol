@@ -3,6 +3,8 @@ pragma solidity ^0.8.25;
 
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 
+/// @title ISettlerActions
+/// @notice Interface defining all settlement actions supported by Settler
 interface ISettlerActions {
     /// VIP actions should always start with `recipient` address and the `permit` from the taker
     /// followed by all the other parameters to ensure compatibility with `executeWithPermit` entrypoint.

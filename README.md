@@ -1,7 +1,37 @@
 # 0x Settler
 
-Settlement contracts utilising [Permit2](https://github.com/Uniswap/permit2) to
-perform swaps without any passive allowances to the contract.
+0x Settler is a gas-efficient swap settlement protocol that utilizes [Permit2](https://github.com/Uniswap/permit2) to execute trades without requiring passive ERC20 allowances to the exchange contract.
+
+## What is Settler?
+
+Settler is the execution layer for 0x's modern swap aggregation. It is designed to be:
+*   **Secure**: Zero passive allowances to Settler itself.
+*   **Efficient**: Optimized for gas usage by leveraging Permit2's specific transfer capabilities.
+*   **Flexible**: Supports various liquidity sources (Uniswap V3, RFQ, Curve, etc.) and settlement mechanisms (Direct execution, Metatransactions, Intents).
+
+## Why Permit2?
+
+Settler relies exclusively on Uniswap's **Permit2** for token transfers. This architecture offers significant advantages:
+*   **Security**: Users approve the canonical Permit2 contract once, rather than approving every new exchange protocol. Settler pulls funds only when a trade is explicitly signed and executed.
+*   **Expiring Permissions**: Signatures (coupons) have strict deadlines, reducing the risk of indefinite approvals being exploited later.
+*   **Efficiency**: Allows for features like batched transfers and witness data (used for RFQ and Metatransaction validation), reducing gas costs compared to traditional "approve then swap" flows.
+
+## How it Works
+
+1.  **Quote**: An integrator (or the 0x API) requests a quote for a swap.
+2.  **Sign**: The user signs a Permit2 coupon. This off-chain signature authorizes the specific trade terms (token, amount, spender, deadline).
+3.  **Execute**: The integrator submits the transaction to the `Settler` contract (or a `Settler` intent/metatransaction processor).
+4.  **Settle**:
+    *   Settler calls `Permit2` to validate the signature and pull the user's tokens.
+    *   Settler swaps the tokens through the selected liquidity source (e.g., Uniswap V3, Private Maker).
+    *   Output tokens are sent directly to the user (or target recipient).
+
+## Integration Guide
+
+Integrators should interact with Settler by generating the appropriate calldata (typically via 0x API) which includes the necessary Permit2 signature.
+
+**Finding the correct deployment:**
+Do not hardcode Settler addresses, as they may be updated for new features or fixes. Use the on-chain Registry/Deployer to resolve the current active address.
 
 ## How do I find the most recent deployment?
 
@@ -144,7 +174,7 @@ exclusively used by 0x's solvers for the `SettlerIntent` flavor of 0x Settler.
 `CrossChainReceiverFactory` is deployed to
 `0x00000000000000304861c3aDfb80dd5ebeC96325` across all chains. You can hardcode
 this address in your integration. This contract is used to deploy counterfactual
-(submarine) addresses to faciliate swapping and other actions on foreign chains
+(submarine) addresses to facilitate swapping and other actions on foreign chains
 after bridging.
 
 ### Permit2 address
@@ -604,7 +634,7 @@ Gas cost snapshots are stored under `./forge-snapshots`. The scope is minimized
 by using [forge-gas-snapshot](https://github.com/marktoda/forge-gas-snapshot).
 
 There is an initial cost for Permit2 when the token has not been previously
-used. This adds some non-negligble cost as the storage is changed from a 0 for
+used. This adds some non-negligible cost as the storage is changed from a 0 for
 the first time. For this reason we compare warm (where the nonce is non-0) and
 cold.
 

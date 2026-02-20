@@ -53,6 +53,8 @@ library CalldataDecoder {
     }
 }
 
+/// @title SettlerBase
+/// @notice Base contract for Settler settlement logic
 abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
