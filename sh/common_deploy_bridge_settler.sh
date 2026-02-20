@@ -24,7 +24,7 @@ else
 fi
 
 forge flatten -o "$flat_bridge_settler_source" src/chains/"$chain_display_name"/BridgeSettler.sol >/dev/null
-FOUNDRY_SOLC_VERSION=0.8.33 forge build "$flat_bridge_settler_source"
+FOUNDRY_SOLC_VERSION=0.8.34 forge build "$flat_bridge_settler_source"
 
 declare bridge_settler_artifact
 bridge_settler_artifact="$project_root"/out/"$chain_display_name"BridgeSettlerFlat.sol/"$chain_display_name"BridgeSettler.json

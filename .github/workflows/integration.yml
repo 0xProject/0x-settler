@@ -24,6 +24,11 @@ jobs:
         with:
           version: v1.5.1
 
+      - name: Install solc 0.8.34
+        run: forge compiler resolve --root src/chains/
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.34
+
       - name: Install dependencies
         run: git submodule update --recursive --init
 
