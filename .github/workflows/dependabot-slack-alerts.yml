@@ -15,10 +15,17 @@ jobs:
   notify-vulnerabilites:
     runs-on: ubuntu-latest
     steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ secrets.ZEROEX_AUTOMATION_APP_ID }}
+          private-key: ${{ secrets.ZEROEX_AUTOMATION_PRIVATE_KEY }}
+
       # Latest version available at: https://github.com/kunalnagarco/action-cve/releases
       - name: Notify Vulnerabilities
         uses: kunalnagarco/action-cve@v1.14.15
         with:
           severity: high,critical
-          token: "${{ secrets.DEPENDABOT_GITHUB_TOKEN }}"
+          token: "${{ steps.app-token.outputs.token }}"
           slack_webhook: "${{ secrets.DEPENDABOT_SLACK_WEBHOOK }}"
