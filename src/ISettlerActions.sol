@@ -319,15 +319,6 @@ interface ISettlerActions {
 
     function RENEGADE(address target, address baseToken, bytes memory data) external;
 
-    function LFJTM(
-        address recipient,
-        address sellToken,
-        uint256 bps,
-        address pool,
-        bool zeroForOne,
-        uint256 amountOutMin
-    ) external;
-
     struct BebopMakerSignature {
         bytes signatureBytes;
         uint256 flags;
