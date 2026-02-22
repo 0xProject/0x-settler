@@ -1846,46 +1846,49 @@ library Lib512MathArithmetic {
         }
     }
 
-    // Alternative square root implementation using the Karatsuba-style split
-    // from SimonSuckut/Solidity_Uint512 (`Uint512.sqrt512`) adapted to this
-    // library's helpers and conventions.
     function _sqrtAlt(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r) {
         unchecked {
-            // Normalize so the top limb has its MSB in bit 255 or 254.
+            /// Our general approach is to apply Zimmerman's "Karatsuba Square Root" algorithm
+            /// https://inria.hal.science/inria-00072854/document with the helpers from Solady and
+            /// 512Math. This approach is inspired by
+            /// https://github.com/SimonSuckut/Solidity_Uint512/
+
+            // Normalize `x` so the top limb has its MSB in bit 255 or 254.
+            //   x ≥ 2²⁵³
             uint256 shift = x_hi.clz() & 0xfe;
             (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift);
 
-            // Split √x into high/low 128-bit limbs:
-            //   x = [x_hi x_lo], r = (sp << 128) + q.
-            uint256 sp = x_hi.sqrt();
-            uint256 rp = x_hi - sp * sp;
+            // We treat `r` as a ≤2-limb bigint where each limb is half a machine word (128 bits).
+            // Spliting √x in this way lets us apply the ordinary 256-bit `sqrt` to the top
+            // limb. Then we can recover the bottom limb without 512-bit division.
+            uint256 r_hi = x_hi.sqrt();
+            uint256 res = x_hi - r_hi * r_hi;
 
-            uint256 nom;
-            uint256 denom;
-            uint256 u;
-            uint256 q;
+            uint256 r_lo;
             assembly ("memory-safe") {
-                nom := or(shl(0x80, rp), shr(0x80, x_lo))
-                denom := shl(0x01, sp)
-                q := div(nom, denom)
-                u := mod(nom, denom)
+                let n := or(shl(0x80, res), shr(0x80, x_lo))
+                let d := shl(0x01, r_hi)
+                r_lo := div(n, d)
 
-                // `nom` can be 257 bits. Handle the carry bit separately to
-                // avoid using 512/256 division.
-                let carry := shr(0x80, rp)
-                let x := mul(carry, not(0x00))
-                q := add(q, div(x, denom))
-                u := add(u, add(carry, mod(x, denom)))
-                q := add(q, div(u, denom))
-                u := mod(u, denom)
+                // It's possible that `n` was 257 bits and overflowed. Explicitly handling the carry
+                // avoids 512-bit division.
+                let c := shr(0x80, res)
+                let c_ := mul(c, not(0x00))
+                res := mod(n, d)
+                r_lo := add(r_lo, div(c_, d))
+                res := add(res, add(c, mod(c_, d)))
+                r_lo := add(r_lo, div(res, d))
+                res := mod(res, d)
             }
+            r = (r_hi << 128) + r_lo;
 
-            r = (sp << 128) + q;
-
-            uint256 rl = (u << 128) | (x_lo & 0xffffffffffffffffffffffffffffffff);
-            uint256 rr = q * q;
-            r = r.unsafeDec((q >> 128) > (u >> 128) || (((q >> 128) == (u >> 128)) && rl < rr));
-
+            r = r.unsafeDec(
+                ((r_lo >> 128) > (res >> 128))
+                .or(
+                    ((r_lo >> 128) == (res >> 128))
+                    .and((res << 128) | (x_lo & 0xffffffffffffffffffffffffffffffff) < r_lo * r_lo)
+                )
+            );
             return r >> (shift >> 1);
         }
     }
