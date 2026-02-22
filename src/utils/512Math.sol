@@ -1859,8 +1859,8 @@ library Lib512MathArithmetic {
             (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift);
 
             // We treat `r` as a ≤2-limb bigint where each limb is half a machine word (128 bits).
-            // Spliting √x in this way lets us apply the ordinary 256-bit `sqrt` to the top
-            // limb. Then we can recover the bottom limb without 512-bit division.
+            // Spliting √x in this way lets us apply the ordinary 256-bit `sqrt` to the top limb of
+            // `x`. Then we can recover the bottom limb or `r` without 512-bit division.
             uint256 r_hi = x_hi.sqrt();
             uint256 res = x_hi - r_hi * r_hi;
 
