@@ -1859,12 +1859,40 @@ library Lib512MathArithmetic {
             (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift);
 
             // We treat `r` as a ≤2-limb bigint where each limb is half a machine word (128 bits).
-            // Spliting √x in this way lets us apply the ordinary 256-bit `sqrt` to the top limb of
+            // Spliting √x in this way lets us apply "ordinary" 256-bit `sqrt` to the top word of
             // `x`. Then we can recover the bottom limb or `r` without 512-bit division.
-            uint256 r_hi = x_hi.sqrt();
+            //
+            // Implementing this as:
+            //   uint256 r_hi = x_hi.sqrt();
+            // is correct, but duplicates the normalization that we just did above and performs a
+            // more-costly initialization step. solc is not smart enough to optimize this away, so
+            // we inline and do it ourselves.
+            uint256 r_hi;
+            assembly ("memory-safe") {
+                // Initialization requires that the first bit of `r_hi` be in the correct
+                // position. This is correct from the normalization above.
+                r_hi := 0x80000000000000000000000000000000
+
+                // Seven Babylonian steps is sufficient for convergence.
+                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
+                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
+                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
+                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
+                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
+                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
+                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
+
+                // The Babylonian step can oscillate between ⌊√x_hi⌋ and ⌈√x_hi⌉. Clean that up.
+                r_hi := sub(r_hi, lt(div(x_hi, r_hi), r_hi))
+            }
             uint256 res = x_hi - r_hi * r_hi;
 
             uint256 r_lo;
+            // `res` is (almost) a single limb. Create a new machine word `w` with `res` as the
+            // upper limb and shifting in the next limb of `x` (namely `x_lo >> 128`) as the lower
+            // limb. The next step of Zimmerman's algorithm is:
+            //   r_lo = w / (2 · r_hi)
+            //   res = w % (2 · r_hi)
             assembly ("memory-safe") {
                 let n := or(shl(0x80, res), shr(0x80, x_lo))
                 let d := shl(0x01, r_hi)
@@ -1882,7 +1910,7 @@ library Lib512MathArithmetic {
             }
             r = (r_hi << 128) + r_lo;
 
-            // Handle negative residue
+            // Then, if res · 2¹²⁸ + x_lo % 2¹²⁸ < r_lo², decrement `r`
             r = r.unsafeDec(
                 ((r_lo >> 128) > (res >> 128))
                 .or(
