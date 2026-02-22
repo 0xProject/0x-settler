@@ -1846,6 +1846,50 @@ library Lib512MathArithmetic {
         }
     }
 
+    // Alternative square root implementation using the Karatsuba-style split
+    // from SimonSuckut/Solidity_Uint512 (`Uint512.sqrt512`) adapted to this
+    // library's helpers and conventions.
+    function _sqrtAlt(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r) {
+        unchecked {
+            // Normalize so the top limb has its MSB in bit 255 or 254.
+            uint256 shift = x_hi.clz() & 0xfe;
+            (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift);
+
+            // Split √x into high/low 128-bit limbs:
+            //   x = [x_hi x_lo], r = (sp << 128) + q.
+            uint256 sp = x_hi.sqrt();
+            uint256 rp = x_hi - sp * sp;
+
+            uint256 nom;
+            uint256 denom;
+            uint256 u;
+            uint256 q;
+            assembly ("memory-safe") {
+                nom := or(shl(0x80, rp), shr(0x80, x_lo))
+                denom := shl(0x01, sp)
+                q := div(nom, denom)
+                u := mod(nom, denom)
+
+                // `nom` can be 257 bits. Handle the carry bit separately to
+                // avoid using 512/256 division.
+                let carry := shr(0x80, rp)
+                let x := mul(carry, not(0x00))
+                q := add(q, div(x, denom))
+                u := add(u, add(carry, mod(x, denom)))
+                q := add(q, div(u, denom))
+                u := mod(u, denom)
+            }
+
+            r = (sp << 128) + q;
+
+            uint256 rl = (u << 128) | (x_lo & 0xffffffffffffffffffffffffffffffff);
+            uint256 rr = q * q;
+            r = r.unsafeDec((q >> 128) > (u >> 128) || (((q >> 128) == (u >> 128)) && rl < rr));
+
+            return r >> (shift >> 1);
+        }
+    }
+
     function sqrt(uint512 x) internal pure returns (uint256) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
@@ -1858,6 +1902,20 @@ library Lib512MathArithmetic {
         // Because the Babylonian step can give ⌈√x⌉ if x+1 is a perfect square, we have to
         // check whether we've overstepped by 1 and clamp as appropriate. ref:
         // https://en.wikipedia.org/wiki/Integer_square_root#Using_only_integer_division
+        (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
+        return r.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
+    }
+
+    function sqrtAlt(uint512 x) internal pure returns (uint256) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+
+        if (x_hi == 0) {
+            return x_lo.sqrt();
+        }
+
+        uint256 r = _sqrtAlt(x_hi, x_lo);
+
+        // Clamp to floor if the Karatsuba estimate overshot by 1.
         (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
         return r.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
     }
@@ -1879,8 +1937,27 @@ library Lib512MathArithmetic {
         return r.from(r_hi, r_lo);
     }
 
+    function osqrtUpAlt(uint512 r, uint512 x) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+
+        if (x_hi == 0) {
+            return r.from(0, x_lo.sqrtUp());
+        }
+
+        uint256 r_lo = _sqrtAlt(x_hi, x_lo);
+
+        (uint256 r2_hi, uint256 r2_lo) = _mul(r_lo, r_lo);
+        uint256 r_hi;
+        (r_hi, r_lo) = _add(0, r_lo, _gt(x_hi, x_lo, r2_hi, r2_lo).toUint());
+        return r.from(r_hi, r_lo);
+    }
+
     function isqrtUp(uint512 r) internal pure returns (uint512) {
         return osqrtUp(r, r);
+    }
+
+    function isqrtUpAlt(uint512 r) internal pure returns (uint512) {
+        return osqrtUpAlt(r, r);
     }
 
     function oshr(uint512 r, uint512 x, uint256 s) internal pure returns (uint512) {

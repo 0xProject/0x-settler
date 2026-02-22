@@ -239,6 +239,26 @@ contract Lib512MathTest is Test {
         }
     }
 
+    function test512Math_sqrtAlt(uint256 x_hi, uint256 x_lo) external pure {
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint256 r = x.sqrtAlt();
+
+        (uint256 r2_lo, uint256 r2_hi) = SlowMath.fullMul(r, r);
+        assertTrue((r2_hi < x_hi) || (r2_hi == x_hi && r2_lo <= x_lo), "sqrtAlt too high");
+
+        if (r == type(uint256).max) {
+            assertTrue(
+                x_hi > 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe
+                    || (x_hi == 0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe && x_lo != 0),
+                "sqrtAlt too low (overflow)"
+            );
+        } else {
+            r++;
+            (r2_lo, r2_hi) = SlowMath.fullMul(r, r);
+            assertTrue((r2_hi > x_hi) || (r2_hi == x_hi && r2_lo > x_lo), "sqrtAlt too low");
+        }
+    }
+
     function test512Math_divUpAlt(uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo) external view {
         vm.assume(y_hi != 0);
 
@@ -418,6 +438,28 @@ contract Lib512MathTest is Test {
                 uint256 r_dec_lo = r_lo - 1;
                 (r2_lo, r2_hi) = SlowMath.fullMul(r_dec_lo, r_dec_lo);
                 assertTrue((r2_hi < x_hi) || (r2_hi == x_hi && r2_lo < x_lo), "sqrtUp too high");
+            }
+        }
+    }
+
+    function test512Math_osqrtUpAlt(uint256 x_hi, uint256 x_lo) external pure {
+        uint512 x = alloc().from(x_hi, x_lo);
+        (uint256 r_hi, uint256 r_lo) = alloc().osqrtUpAlt(x).into();
+
+        if (r_hi == 0 && r_lo == 0) {
+            assertTrue(x_hi == 0 && x_lo == 0, "sqrtUpAlt of nonzero is zero");
+        } else if (r_hi != 0) {
+            assertTrue(r_hi == 1 && r_lo == 0, "overflow result must be exactly 2^256");
+            (uint256 r_dec2_lo, uint256 r_dec2_hi) = SlowMath.fullMul(type(uint256).max, type(uint256).max);
+            assertTrue((r_dec2_hi < x_hi) || (r_dec2_hi == x_hi && r_dec2_lo < x_lo), "sqrtUpAlt too high");
+        } else {
+            (uint256 r2_lo, uint256 r2_hi) = SlowMath.fullMul(r_lo, r_lo);
+            assertTrue((r2_hi > x_hi) || (r2_hi == x_hi && r2_lo >= x_lo), "sqrtUpAlt too low");
+
+            if (r_lo != 1) {
+                uint256 r_dec_lo = r_lo - 1;
+                (r2_lo, r2_hi) = SlowMath.fullMul(r_dec_lo, r_dec_lo);
+                assertTrue((r2_hi < x_hi) || (r2_hi == x_hi && r2_lo < x_lo), "sqrtUpAlt too high");
             }
         }
     }
