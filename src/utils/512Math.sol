@@ -1916,11 +1916,7 @@ library Lib512MathArithmetic {
             return x_lo.sqrt();
         }
 
-        uint256 r = _sqrtAlt(x_hi, x_lo);
-
-        // Clamp to floor if the Karatsuba estimate overshot by 1.
-        (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
-        return r.unsafeDec(_gt(r2_hi, r2_lo, x_hi, x_lo));
+        return _sqrtAlt(x_hi, x_lo);
     }
 
     function osqrtUp(uint512 r, uint512 x) internal pure returns (uint512) {
