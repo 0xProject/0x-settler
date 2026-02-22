@@ -1873,7 +1873,7 @@ library Lib512MathArithmetic {
                 // It's possible that `n` was 257 bits and overflowed. Explicitly handling the carry
                 // avoids 512-bit division.
                 let c := shr(0x80, res)
-                let c_ := mul(c, not(0x00))
+                let c_ := mul(not(0x00), c)
                 res := mod(n, d)
                 r_lo := add(r_lo, div(c_, d))
                 res := add(res, add(c, mod(c_, d)))
@@ -1882,6 +1882,7 @@ library Lib512MathArithmetic {
             }
             r = (r_hi << 128) + r_lo;
 
+            // Handle negative residue
             r = r.unsafeDec(
                 ((r_lo >> 128) > (res >> 128))
                 .or(
@@ -1889,6 +1890,8 @@ library Lib512MathArithmetic {
                     .and((res << 128) | (x_lo & 0xffffffffffffffffffffffffffffffff) < r_lo * r_lo)
                 )
             );
+
+            // Un-normalize
             return r >> (shift >> 1);
         }
     }
