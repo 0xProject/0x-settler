@@ -1860,7 +1860,7 @@ library Lib512MathArithmetic {
 
             // We treat `r` as a ≤2-limb bigint where each limb is half a machine word (128 bits).
             // Spliting √x in this way lets us apply "ordinary" 256-bit `sqrt` to the top word of
-            // `x`. Then we can recover the bottom limb or `r` without 512-bit division.
+            // `x`. Then we can recover the bottom limb of `r` without 512-bit division.
             //
             // Implementing this as:
             //   uint256 r_hi = x_hi.sqrt();
@@ -1898,8 +1898,8 @@ library Lib512MathArithmetic {
                 let d := shl(0x01, r_hi)
                 r_lo := div(n, d)
 
-                // It's possible that `n` was 257 bits and overflowed. Explicitly handling the carry
-                // avoids 512-bit division.
+                // It's possible that `n` was 257 bits and overflowed (`res` was not just a single
+                // limb). Explicitly handling the carry avoids 512-bit division.
                 let c := shr(0x80, res)
                 let neg_c := sub(0x00, c)
                 res := mod(n, d)
