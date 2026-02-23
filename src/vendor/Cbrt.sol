@@ -9,7 +9,6 @@ library Cbrt {
     /// Formally verified by xuwinnie:
     /// https://github.com/vectorized/solady/blob/main/audits/xuwinnie-solady-cbrt-proof.pdf
     function cbrt(uint256 x) internal pure returns (uint256 z) {
-        /// @solidity memory-safe-assembly
         assembly ("memory-safe") {
             // Initial guess z = 2^ceil((log2(x) + 2) / 3).
             // Since log2(x) = 255 - clz(x), the expression shl((257 - clz(x)) / 3, 1)
