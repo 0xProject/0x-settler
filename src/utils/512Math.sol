@@ -1855,7 +1855,7 @@ library Lib512MathArithmetic {
             // 2^ceil((log2(x3) + 2) / 3) is exactly either 2^84 or 2^85.
             uint256 r_hi;
             assembly ("memory-safe") {
-                r_hi := shl(shr(253, x3), shl(84, 1))
+                r_hi := 0x1000000000000000000000
 
                 r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
                 r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
