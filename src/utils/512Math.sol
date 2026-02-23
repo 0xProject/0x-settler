@@ -1741,15 +1741,18 @@ library Lib512MathArithmetic {
                 let d := shl(0x01, r_hi)
                 r_lo := div(n, d)
 
+                let c := shr(0x80, res)
+                res := mod(n, d)
+
                 // It's possible that `n` was 257 bits and overflowed (`res` was not just a single
                 // limb). Explicitly handling the carry avoids 512-bit division.
-                let c := shr(0x80, res)
-                let neg_c := sub(0x00, c)
-                res := mod(n, d)
-                r_lo := add(r_lo, div(neg_c, d))
-                res := add(res, add(c, mod(neg_c, d)))
-                r_lo := add(r_lo, div(res, d))
-                res := mod(res, d)
+                if c {
+                    let neg_c := not(0x00)
+                    r_lo := add(r_lo, div(neg_c, d))
+                    res := add(res, add(0x01, mod(neg_c, d)))
+                    r_lo := add(r_lo, div(res, d))
+                    res := mod(res, d)
+                }
             }
             r = (r_hi << 128) + r_lo;
 
