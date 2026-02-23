@@ -1696,8 +1696,8 @@ library Lib512MathArithmetic {
             /// 512Math. This approach is inspired by
             /// https://github.com/SimonSuckut/Solidity_Uint512/
 
-            // Normalize `x` so the top limb has its MSB in bit 255 or 254.
-            //   x ≥ 2²⁵³
+            // Normalize `x` so the top word has its MSB in bit 255 or 254.
+            //   x ≥ 2⁵¹⁰
             uint256 shift = x_hi.clz() & 0xfe;
             (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift);
 
