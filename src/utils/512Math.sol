@@ -1851,7 +1851,21 @@ library Lib512MathArithmetic {
             }
 
             // First limb from 256-bit cbrt.
-            uint256 r_hi = x3.cbrt();
+            // Here x3 is always in [2^251, 2^254), so the Solady seed
+            // 2^ceil((log2(x3) + 2) / 3) is exactly either 2^84 or 2^85.
+            uint256 r_hi;
+            assembly ("memory-safe") {
+                r_hi := shl(shr(253, x3), shl(84, 1))
+
+                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
+                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
+                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
+                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
+                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
+                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
+                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
+                r_hi := sub(r_hi, lt(div(x3, mul(r_hi, r_hi)), r_hi))
+            }
             uint256 r_hi_sq = r_hi * r_hi;
             uint256 res = x3 - r_hi_sq * r_hi;
             uint256 d = 3 * r_hi_sq;
