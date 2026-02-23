@@ -1731,11 +1731,11 @@ library Lib512MathArithmetic {
             uint256 res = x_hi - r_hi * r_hi;
 
             uint256 r_lo;
-            // `res` is (almost) a single limb. Create a new machine word `w` with `res` as the
-            // upper limb and shifting in the next limb of `x` (namely `x_lo >> 128`) as the lower
-            // limb. The next step of Zimmerman's algorithm is:
-            //   r_lo = w / (2 · r_hi)
-            //   res = w % (2 · r_hi)
+            // `res` is (almost) a single limb. Create a new (almost) machine word `n` with `res` as
+            // the upper limb and shifting in the next limb of `x` (namely `x_lo >> 128`) as the
+            // lower limb. The next step of Zimmerman's algorithm is:
+            //   r_lo = n / (2 · r_hi)
+            //   res = n % (2 · r_hi)
             assembly ("memory-safe") {
                 let n := or(shl(0x80, res), shr(0x80, x_lo))
                 let d := shl(0x01, r_hi)
