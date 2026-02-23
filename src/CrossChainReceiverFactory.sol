@@ -796,7 +796,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 let offset := mload(calls)
                 let oom := shr(0x40, offset)
                 calls := add(offset, calls)
-                err := or(lt(lastWord, calls), or(oom, err))
+                err := or(lt(lastWord, calls), oom)
             }
 
             let callsLengthBytes
@@ -1029,7 +1029,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                 IWrappedNative wnative = _WNATIVE;
                 assembly ("memory-safe") {
                     if iszero(
-                        call(gas(), wnative, selfbalance(), codesize(), returndatasize(), codesize(), returndatasize())
+                        call(gas(), wnative, selfbalance(), codesize(), callvalue(), codesize(), callvalue())
                     ) {
                         // this should never happen
                         revert(codesize(), callvalue())
