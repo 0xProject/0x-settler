@@ -1753,7 +1753,9 @@ library Lib512MathArithmetic {
             }
             r = (r_hi << 128) + r_lo;
 
-            // Then, if res · 2¹²⁸ + x_lo % 2¹²⁸ < r_lo², decrement `r`
+            // Then, if res · 2¹²⁸ + x_lo % 2¹²⁸ < r_lo², decrement `r`. We have to do this in a
+            // complicated manner because both `res` and `r_lo` can be _slightly_ longer than 1 limb
+            // (128 bits). This is more efficient than performing the full 257-bit comparison.
             r = r.unsafeDec(
                 ((r_lo >> 128) > (res >> 128))
                 .or(
