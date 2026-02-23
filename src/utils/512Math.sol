@@ -1729,7 +1729,14 @@ library Lib512MathArithmetic {
                 // The Babylonian step can oscillate between ⌊√x_hi⌋ and ⌈√x_hi⌉. Clean that up.
                 r_hi := sub(r_hi, lt(div(x_hi, r_hi), r_hi))
             }
-            uint256 res = x_hi - r_hi * r_hi;
+
+            // This is cheaper than
+            //   uint256 res = x_hi - r_hi * r_hi;
+            // for no clear reason
+            uint256 res;
+            assembly ("memory-safe") {
+                res := sub(x_hi, mul(r_hi, r_hi))
+            }
 
             uint256 r_lo;
             // `res` is (almost) a single limb. Create a new (almost) machine word `n` with `res` as
