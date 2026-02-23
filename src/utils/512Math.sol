@@ -1858,9 +1858,23 @@ library Lib512MathArithmetic {
 
             // Recover low 86-bit limb from:
             //   floor((res * B + x2) / (3 * r_hi^2)).
-            uint256 n_hi = res >> 170;
-            uint256 n_lo = (res << 86) | x2;
-            uint256 r_lo = n_hi == 0 ? n_lo.unsafeDiv(d) : _div(n_hi, n_lo, d);
+            // `res * B + x2` is up to 257 bits. Here `c := res >> 170` is a single
+            // carry bit (`res < 2^171` for this normalized range), so we can avoid
+            // 512-bit division by folding that carry manually, exactly as in `_sqrt`.
+            uint256 r_lo;
+            assembly ("memory-safe") {
+                let n := or(shl(86, res), x2)
+                r_lo := div(n, d)
+
+                let c := shr(170, res)
+                if c {
+                    let neg_c := not(0x00)
+                    let rem := mod(n, d)
+                    r_lo := add(r_lo, div(neg_c, d))
+                    rem := add(rem, add(0x01, mod(neg_c, d)))
+                    r_lo := add(r_lo, div(rem, d))
+                }
+            }
 
             // Second-order correction for the omitted quadratic term in the first-limb lift.
             // With B = 2^86, q := r_lo, and a := r_hi:
