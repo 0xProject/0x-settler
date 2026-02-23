@@ -1819,9 +1819,8 @@ library Lib512MathArithmetic {
         unchecked {
             // Normalize `x` by a multiple of 3 so `x_hi >> 2` is a well-conditioned input
             // for the top-limb cube root extraction.
-            uint256 shift = x_hi.clz();
-            (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift - shift % 3);
-            shift /= 3;
+            uint256 shift = x_hi.clz() / 3;
+            (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift * 3);
 
             // Split x into base B = 2^86 "limbs":
             //   x = x3 * B^3 + x2 * B^2 + x1 * B + x0
