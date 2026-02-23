@@ -1696,12 +1696,10 @@ library Lib512MathArithmetic {
     }
 
     function _sqrt(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r) {
+        /// Our general approach is to apply Zimmerman's "Karatsuba Square Root" algorithm
+        /// https://inria.hal.science/inria-00072854/document with the helpers from Solady and
+        /// 512Math. This approach is inspired by https://github.com/SimonSuckut/Solidity_Uint512/
         unchecked {
-            /// Our general approach is to apply Zimmerman's "Karatsuba Square Root" algorithm
-            /// https://inria.hal.science/inria-00072854/document with the helpers from Solady and
-            /// 512Math. This approach is inspired by
-            /// https://github.com/SimonSuckut/Solidity_Uint512/
-
             // Normalize `x` so the top word has its MSB in bit 255 or 254.
             //   x ≥ 2⁵¹⁰
             uint256 shift = x_hi.clz();
@@ -1815,25 +1813,27 @@ library Lib512MathArithmetic {
         return osqrtUp(r, r);
     }
 
-    function _cubeGt(uint256 r, uint256 x_hi, uint256 x_lo) private pure returns (bool isGreater) {
-        (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
+    function _cubeGt(uint256 a, uint256 b_hi, uint256 b_lo) private pure returns (bool r) {
+        (uint256 a2_hi, uint256 a2_lo) = _mul(a, a);
         assembly ("memory-safe") {
-            let mm := mulmod(r2_lo, r, not(0x00))
-            let lo := mul(r2_lo, r)
+            let mm := mulmod(a2_lo, a, not(0x00))
+            let lo := mul(a2_lo, a)
             let hi_lo := sub(sub(mm, lo), lt(mm, lo))
 
-            mm := mulmod(r2_hi, r, not(0x00))
-            let cross_lo := mul(r2_hi, r)
+            mm := mulmod(a2_hi, a, not(0x00))
+            let cross_lo := mul(a2_hi, a)
             let cross_hi := sub(sub(mm, cross_lo), lt(mm, cross_lo))
 
             let hi := add(hi_lo, cross_lo)
             let ext := add(cross_hi, lt(hi, hi_lo))
 
-            isGreater := or(ext, or(gt(hi, x_hi), and(eq(hi, x_hi), gt(lo, x_lo))))
+            r := or(ext, or(gt(hi, b_hi), and(eq(hi, b_hi), gt(lo, b_lo))))
         }
     }
 
     function _cbrt(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r) {
+        /// This is the same general technique as we applied in `_sqrt`, patterned after Zimmerman's
+        /// "Karatsuba Square Root" algorithm, but adapted to compute cube roots instead.
         unchecked {
             // Normalize `x` by a multiple of 3 so `x_hi >> 2` is a well-conditioned input
             // for the top-limb cube root extraction.
@@ -1860,13 +1860,13 @@ library Lib512MathArithmetic {
             //   floor((res * B + x2) / (3 * r_hi^2)).
             uint256 n_hi = res >> 170;
             uint256 n_lo = (res << 86) | x2;
-            uint256 r_lo = n_hi == 0 ? n_lo / d : _div(n_hi, n_lo, d);
+            uint256 r_lo = n_hi == 0 ? n_lo.unsafeDiv(d) : _div(n_hi, n_lo, d);
 
             // Second-order correction for the omitted quadratic term in the first-limb lift.
             // With B = 2^86, q := r_lo, and a := r_hi:
             //   q' = q - floor(q^2 / (a * B)).
             // This removes almost all of the overshoot from the first-order estimate.
-            r_lo -= (r_lo * r_lo) / (r_hi << 86);
+            r_lo -= (r_lo * r_lo).unsafeDiv(r_hi << 86);
             r = (r_hi << 86) + r_lo;
 
             // Exact floor correction.
