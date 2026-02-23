@@ -1757,9 +1757,9 @@ library Lib512MathArithmetic {
             // complicated manner because both `res` and `r_lo` can be _slightly_ longer than 1 limb
             // (128 bits). This is more efficient than performing the full 257-bit comparison.
             r = r.unsafeDec(
-                ((r_lo >> 128) > (res >> 128))
+                ((res >> 128) < (r_lo >> 128))
                 .or(
-                    ((r_lo >> 128) == (res >> 128))
+                    ((res >> 128) == (r_lo >> 128))
                     .and((res << 128) | (x_lo & 0xffffffffffffffffffffffffffffffff) < r_lo * r_lo)
                 )
             );
