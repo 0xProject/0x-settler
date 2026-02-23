@@ -422,6 +422,21 @@ contract Lib512MathTest is Test {
         }
     }
 
+    function test512Math_cbrt(uint256 x_hi, uint256 x_lo) external pure {
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint256 r = x.cbrt();
+        uint512 r3 = alloc().omul(r, r).imul(r);
+
+        assertTrue(r3 <= x, "cbrt too high");
+        if (!(x_hi > 0xffffffffffffffffffffffffffffffffffffffffffec2567f7d10a5e1c63772f
+                    || (x_hi == 0xffffffffffffffffffffffffffffffffffffffffffec2567f7d10a5e1c63772f
+                        && x_lo > 0xd70b34358c5c72dd2dbdc27132d143e3a7f08c1088df427db0884640df2d79ff))) {
+            r++;
+            r3.omul(r, r).imul(r);
+            assertTrue(r3 > x, "cbrt too low");
+        }
+    }
+
     function test512Math_oshrUp(uint256 x_hi, uint256 x_lo, uint256 s) external pure {
         s = bound(s, 0, 512);
 
