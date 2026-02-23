@@ -1813,24 +1813,6 @@ library Lib512MathArithmetic {
         return osqrtUp(r, r);
     }
 
-    function _cubeGt(uint256 a, uint256 b_hi, uint256 b_lo) private pure returns (bool r) {
-        (uint256 a2_hi, uint256 a2_lo) = _mul(a, a);
-        assembly ("memory-safe") {
-            let mm := mulmod(a2_lo, a, not(0x00))
-            let lo := mul(a2_lo, a)
-            let hi_lo := sub(sub(mm, lo), lt(mm, lo))
-
-            mm := mulmod(a2_hi, a, not(0x00))
-            let cross_lo := mul(a2_hi, a)
-            let cross_hi := sub(sub(mm, cross_lo), lt(mm, cross_lo))
-
-            let hi := add(hi_lo, cross_lo)
-            let ext := add(cross_hi, lt(hi, hi_lo))
-
-            r := or(ext, or(gt(hi, b_hi), and(eq(hi, b_hi), gt(lo, b_lo))))
-        }
-    }
-
     function _cbrt(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r) {
         /// This is the same general technique as we applied in `_sqrt`, patterned after Zimmerman's
         /// "Karatsuba Square Root" algorithm, but adapted to compute cube roots instead.
@@ -1898,7 +1880,20 @@ library Lib512MathArithmetic {
             r = (r_hi << 86) + r_lo;
 
             // Exact floor correction.
-            r = r.unsafeDec(_cubeGt(r, x_hi, x_lo));
+            assembly ("memory-safe") {
+                let mm0 := mulmod(r, r, not(0x00))
+                let r2_lo := mul(r, r)
+                let r2_hi := sub(sub(mm0, r2_lo), lt(mm0, r2_lo))
+
+                let mm1 := mulmod(r2_lo, r, not(0x00))
+                let lo := mul(r2_lo, r)
+                let hi_lo := sub(sub(mm1, lo), lt(mm1, lo))
+
+                let cross_lo := mul(r2_hi, r)
+                let hi := add(hi_lo, cross_lo)
+
+                r := sub(r, or(gt(hi, x_hi), and(eq(hi, x_hi), gt(lo, x_lo))))
+            }
 
             return r >> shift;
         }
