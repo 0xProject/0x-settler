@@ -7,6 +7,7 @@ import {Clz} from "../vendor/Clz.sol";
 import {Ternary} from "./Ternary.sol";
 import {FastLogic} from "./FastLogic.sol";
 import {Sqrt} from "../vendor/Sqrt.sol";
+import {Cbrt} from "../vendor/Cbrt.sol";
 
 /*
 
@@ -179,6 +180,10 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// * sqrt(uint512) returns (uint256)
 /// * osqrtUp(uint512,uint512)
 /// * isqrtUp(uint512)
+///
+/// ### Cube root
+///
+/// * cbrt(uint512) returns (uint256)
 ///
 /// ### Shifting
 ///
@@ -358,6 +363,7 @@ library Lib512MathArithmetic {
     using Ternary for bool;
     using FastLogic for bool;
     using Sqrt for uint256;
+    using Cbrt for uint256;
 
     function _add(uint256 x, uint256 y) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
@@ -1807,6 +1813,77 @@ library Lib512MathArithmetic {
 
     function isqrtUp(uint512 r) internal pure returns (uint512) {
         return osqrtUp(r, r);
+    }
+
+    function _cubeGt(uint256 r, uint256 x_hi, uint256 x_lo) private pure returns (bool isGreater) {
+        (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
+        assembly ("memory-safe") {
+            let mm := mulmod(r2_lo, r, not(0x00))
+            let lo := mul(r2_lo, r)
+            let hi_lo := sub(sub(mm, lo), lt(mm, lo))
+
+            mm := mulmod(r2_hi, r, not(0x00))
+            let cross_lo := mul(r2_hi, r)
+            let cross_hi := sub(sub(mm, cross_lo), lt(mm, cross_lo))
+
+            let hi := add(hi_lo, cross_lo)
+            let ext := add(cross_hi, lt(hi, hi_lo))
+
+            isGreater := or(ext, or(gt(hi, x_hi), and(eq(hi, x_hi), gt(lo, x_lo))))
+        }
+    }
+
+    function _cbrt(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r) {
+        unchecked {
+            // Normalize `x` by a multiple of 3 so `x_hi >> 2` is a well-conditioned input
+            // for the top-limb cube root extraction.
+            uint256 shift = x_hi.clz();
+            (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift - shift % 3);
+            shift /= 3;
+
+            // Split x into base B = 2^86 "limbs":
+            //   x = x3 * B^3 + x2 * B^2 + x1 * B + x0
+            // where x3 is 254 bits and x2/x1/x0 are 86-bit limbs.
+            uint256 x3 = x_hi >> 2;
+            uint256 x2;
+            assembly ("memory-safe") {
+                x2 := or(shl(84, and(x_hi, 0x03)), shr(172, x_lo))
+            }
+
+            // First limb from 256-bit cbrt.
+            uint256 r_hi = x3.cbrt();
+            uint256 r_hi_sq = r_hi * r_hi;
+            uint256 res = x3 - r_hi_sq * r_hi;
+            uint256 d = 3 * r_hi_sq;
+
+            // Recover low 86-bit limb from:
+            //   floor((res * B + x2) / (3 * r_hi^2)).
+            uint256 n_hi = res >> 170;
+            uint256 n_lo = (res << 86) | x2;
+            uint256 r_lo = n_hi == 0 ? n_lo / d : _div(n_hi, n_lo, d);
+
+            // Second-order correction for the omitted quadratic term in the first-limb lift.
+            // With B = 2^86, q := r_lo, and a := r_hi:
+            //   q' = q - floor(q^2 / (a * B)).
+            // This removes almost all of the overshoot from the first-order estimate.
+            r_lo -= (r_lo * r_lo) / (r_hi << 86);
+            r = (r_hi << 86) + r_lo;
+
+            // Exact floor correction.
+            r = r.unsafeDec(_cubeGt(r, x_hi, x_lo));
+
+            return r >> shift;
+        }
+    }
+
+    function cbrt(uint512 x) internal pure returns (uint256) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+
+        if (x_hi == 0) {
+            return x_lo.cbrt();
+        }
+
+        return _cbrt(x_hi, x_lo);
     }
 
     function oshr(uint512 r, uint512 x, uint256 s) internal pure returns (uint512) {
