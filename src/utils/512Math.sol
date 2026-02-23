@@ -1698,8 +1698,9 @@ library Lib512MathArithmetic {
 
             // Normalize `x` so the top word has its MSB in bit 255 or 254.
             //   x ≥ 2⁵¹⁰
-            uint256 shift = x_hi.clz() & 0xfe;
-            (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift);
+            uint256 shift = x_hi.clz();
+            (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift & 0xfe);
+            shift >>= 1;
 
             // We treat `r` as a ≤2-limb bigint where each limb is half a machine word (128 bits).
             // Spliting √x in this way lets us apply "ordinary" 256-bit `sqrt` to the top word of
@@ -1768,7 +1769,7 @@ library Lib512MathArithmetic {
             );
 
             // Un-normalize
-            return r >> (shift >> 1);
+            return r >> shift;
         }
     }
 
