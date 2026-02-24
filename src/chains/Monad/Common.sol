@@ -7,7 +7,6 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {Hanji} from "../../core/Hanji.sol";
-import {LfjTokenMill} from "../../core/LfjTokenMill.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -34,7 +33,7 @@ import {MONAD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, Hanji, LfjTokenMill {
+abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, Hanji {
     constructor() {
         assert(block.chainid == 143 || block.chainid == 31337);
     }
@@ -87,11 +86,6 @@ abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, 
             ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
 
             sellToHanji(sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.LFJTM.selector)) {
-            (address recipient, IERC20 sellToken, uint256 bps, address pool, bool zeroForOne, uint256 minBuyAmount) =
-                abi.decode(data, (address, IERC20, uint256, address, bool, uint256));
-
-            sellToLfjTokenMill(recipient, sellToken, bps, pool, zeroForOne, minBuyAmount);
         } else {
             return false;
         }
