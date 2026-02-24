@@ -1872,8 +1872,9 @@ library Lib512MathArithmetic {
 
             // This is the Karatsuba step. The 86-bit lower limb of `r` is (almost):
             //   r_lo = ⌊(res ⋅ 2⁸⁶ + limb_hi) / (3 ⋅ r_hi²)⌋
-            //   res = (res ⋅ 2⁸⁶ + limb_hi) % (3 ⋅ r_hi²)
-            // Where `res` is the (nearly) 2-limb residue from the previous "normal" cube root step.
+            // Where `res` is the (nearly) 2-limb residue from the previous "normal" cube root
+            // step. We discard `res` after this step and perform a quadratic correction instead of
+            // the underflow check from Zimmerman
             uint256 r_lo;
             assembly ("memory-safe") {
                 let n := or(shl(0x56, res), limb_hi)
@@ -1894,6 +1895,11 @@ library Lib512MathArithmetic {
             // Unlike the square-root case, the error from the linear Karatsuba step can still be
             // large because the expansion has more terms. We do a quadratic correction to get close
             // enough that the single subtraction is sufficient for exactness.
+            //
+            // In the square-root version, the only ignored term in (s + q)² is q², which is small
+            // enough for a 1ulp correction. For cube root, the binomial expansion (r_hi·2⁸⁶ +
+            // r_lo)³ contains the cross term 3·(r_hi·2⁸⁶)·r_lo². The linear Karatsuba step
+            // overestimates r_lo by ≈r_lo²/(r_hi·2⁸⁶). After correction, this leaves only r_lo³
             r_lo -= (r_lo * r_lo).unsafeDiv(r_hi << 86);
             r = (r_hi << 86) + r_lo;
             // Our error is now down to 1ulp.
