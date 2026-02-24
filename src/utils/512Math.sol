@@ -184,6 +184,7 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// ### Cube root
 ///
 /// * cbrt(uint512) returns (uint256)
+/// * cbrtUp(uint512) returns (uint256)
 ///
 /// ### Shifting
 ///
@@ -1895,8 +1896,48 @@ library Lib512MathArithmetic {
             // enough that the single subtraction is sufficient for exactness.
             r_lo -= (r_lo * r_lo).unsafeDiv(r_hi << 86);
             r = (r_hi << 86) + r_lo;
+            // Our error is now down to 1ulp.
 
-            // Our error is now down to 1ulp. Check if `r` overshoots and correct.
+            // Un-normalize
+            return r >> shift;
+        }
+    }
+
+    function cbrt(uint512 x) internal pure returns (uint256 r) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+
+        if (x_hi == 0) {
+            return x_lo.cbrt();
+        }
+
+        r = _cbrt(x_hi, x_lo);
+
+        // `_cbrt` gives a result within 1ulp. Check if `r` overshoots and correct.
+        assembly ("memory-safe") {
+            let mm0 := mulmod(r, r, not(0x00))
+            let r2_lo := mul(r, r)
+            let r2_hi := sub(sub(mm0, r2_lo), lt(mm0, r2_lo))
+
+            let mm1 := mulmod(r2_lo, r, not(0x00))
+            let lo := mul(r2_lo, r)
+            let hi := add(sub(sub(mm1, lo), lt(mm1, lo)), mul(r2_hi, r))
+
+            r := sub(r, or(gt(hi, x_hi), and(eq(hi, x_hi), gt(lo, x_lo))))
+        }
+    }
+
+    function cbrtUp(uint512 x) internal pure returns (uint256 r) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+
+        if (x_hi == 0) {
+            r = x_lo.cbrt();
+            unchecked {
+                r = r.unsafeInc(r * r * r < x_lo);
+            }
+        } else {
+            r = _cbrt(x_hi, x_lo);
+
+            // `_cbrt` gives a result within 1ulp. Check if `r` is too low and correct.
             assembly ("memory-safe") {
                 let mm0 := mulmod(r, r, not(0x00))
                 let r2_lo := mul(r, r)
@@ -1906,22 +1947,9 @@ library Lib512MathArithmetic {
                 let lo := mul(r2_lo, r)
                 let hi := add(sub(sub(mm1, lo), lt(mm1, lo)), mul(r2_hi, r))
 
-                r := sub(r, or(gt(hi, x_hi), and(eq(hi, x_hi), gt(lo, x_lo))))
+                r := add(r, or(lt(hi, x_hi), and(eq(hi, x_hi), lt(lo, x_lo))))
             }
-
-            // Un-normalize
-            return r >> shift;
         }
-    }
-
-    function cbrt(uint512 x) internal pure returns (uint256) {
-        (uint256 x_hi, uint256 x_lo) = x.into();
-
-        if (x_hi == 0) {
-            return x_lo.cbrt();
-        }
-
-        return _cbrt(x_hi, x_lo);
     }
 
     function oshr(uint512 r, uint512 x, uint256 s) internal pure returns (uint512) {
