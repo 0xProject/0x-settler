@@ -1916,6 +1916,38 @@ library Lib512MathArithmetic {
 
         r = _cbrt(x_hi, x_lo);
 
+        // Detailed note for the top-of-range regime:
+        // Let
+        //   r_max = 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628
+        // and consider x in [r_max^3 + 1, 2^512 - 1]. In this regime, cubing r_max + 1 would
+        // overflow 512 bits, but `_cbrt` still returns r_max (never r_max + 1):
+        // 1) shift = clz(x_hi) / 3 = 0 for all such x.
+        // 2) w = x_hi >> 2 lies in [0x3f..fb0959fdf442978718ddcb, 2^254 - 1].
+        // 3) In that full interval, floor(cbrt(w)) is constant:
+        //      r_hi = 0x1965fea53d6e3c82b05999
+        //    because r_hi^3 <= w < (r_hi + 1)^3.
+        // 4) Therefore d = 3 * r_hi^2 is constant:
+        //      d = 0x78f3d1d950af414cd731fe48f48fde1309821333853.
+        // 5) In the EVM code, n = shl(86, res) | limb_hi truncates to 256 bits (res is
+        //    171 bits, so res << 86 is 257 bits). The truncated div(n, d) is constant:
+        //      div(n, d) = 0x8f3a38c7f3364c49d3405  for all x in the regime.
+        //    The carry branch (shr(0xaa, res) != 0) fires for the entire regime since
+        //    res_min = 0x50ea... is already 171 bits. After carry adjustment, r_lo_pre
+        //    is constant (see step 6). Both the pre-carry and post-carry quotients stay
+        //    in one bucket because res varies by only ~0.62·2^83 across the regime,
+        //    and limb_hi's full 86-bit range contributes < 2^{-84} to n/d (negligible
+        //    vs d ≈ 2^170.8). Total swing in the continuous quotient is ~0.164.
+        //    At the boundaries, frac(n/d) ≈ 0.118 (at x = r_max^3) and ≈ 0.283 (at
+        //    x = 2^512 - 1), so the floor never crosses an integer boundary.
+        // 6) After the carry adjustment branch, r_lo_pre is constant:
+        //      r_lo_pre = 0x2ad0f7137bc6601d885629.
+        // 7) The quadratic correction subtracts exactly 1:
+        //      floor(r_lo_pre^2 / (r_hi << 86)) = 1
+        //    so r_lo = 0x2ad0f7137bc6601d885628 and
+        //      r = (r_hi << 86) + r_lo = r_max.
+        //
+        // So for this regime, the cube-and-compare code below only cubes r_max (which fits in
+        // 512 bits). `cbrtUp` reaches r_max + 1 only via its final +1 correction.
         // `_cbrt` gives a result within 1ulp. Check if `r` overshoots and correct.
         assembly ("memory-safe") {
             let mm0 := mulmod(r, r, not(0x00))
@@ -1939,6 +1971,8 @@ library Lib512MathArithmetic {
 
         r = _cbrt(x_hi, x_lo);
 
+        // See the detailed overflow-regime note in `cbrt` above. In particular, near 2^512,
+        // `_cbrt` is pinned at r_max and does not return r_max + 1 directly.
         // `_cbrt` gives a result within 1ulp. Check if `r` is too low and correct.
         assembly ("memory-safe") {
             let mm0 := mulmod(r, r, not(0x00))
