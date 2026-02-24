@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 // @author Modified from Solady by Vectorized and Akshay Tarpara https://github.com/Vectorized/solady/blob/ff6256a18851749e765355b3e21dc9bfa417255b/src/utils/clz/FixedPointMathLib.sol#L799-L822 under the MIT license.
 library Cbrt {
-    /// @dev Returns the cube root of `x`, rounded down.
+    /// @dev Returns the cube root of `x`, rounded to within 1ulp.
     /// Credit to bout3fiddy and pcaversaccio under AGPLv3 license:
     /// https://github.com/pcaversaccio/snekmate/blob/main/src/snekmate/utils/math.vy
     /// Formally verified by xuwinnie:
@@ -25,6 +25,7 @@ library Cbrt {
         }
     }
 
+    /// @dev Returns the cube root of `x`, rounded down.
     function cbrt(uint256 x) internal pure returns (uint256 z) {
         z = _cbrt(x);
         assembly ("memory-safe") {
@@ -33,6 +34,7 @@ library Cbrt {
         }
     }
 
+    /// @dev Returns the cube root of `x`, rounded up.
     function cbrtUp(uint256 x) internal pure returns (uint256 z) {
         z = _cbrt(x);
         assembly ("memory-safe") {
