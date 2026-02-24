@@ -1879,10 +1879,9 @@ library Lib512MathArithmetic {
                 let n := or(shl(0x56, res), limb_hi)
                 r_lo := div(n, d)
 
-                let c := shr(0xaa, res)
                 // If `res` was 171 bits (one more than expected), then `n` overflowed to 257
                 // bits. Explicitly handling the carry avoids 512-bit division.
-                if c {
+                if shr(0xaa, res) {
                     let rem := mod(n, d)
                     r_lo := add(r_lo, div(not(0x00), d))
                     rem := add(rem, add(0x01, mod(not(0x00), d)))
