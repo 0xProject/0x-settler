@@ -437,6 +437,12 @@ contract Lib512MathTest is Test {
         }
     }
 
+    function test512Math_cbrt_perfectCube(uint256 r) external pure {
+        r = bound(r, 1, 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628);
+        uint512 x = alloc().omul(r, r).imul(r);
+        assertEq(x.cbrt(), r);
+    }
+
     function test512Math_oshrUp(uint256 x_hi, uint256 x_lo, uint256 s) external pure {
         s = bound(s, 0, 512);
 
