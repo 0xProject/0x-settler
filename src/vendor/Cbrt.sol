@@ -8,7 +8,7 @@ library Cbrt {
     /// https://github.com/pcaversaccio/snekmate/blob/main/src/snekmate/utils/math.vy
     /// Formally verified by xuwinnie:
     /// https://github.com/vectorized/solady/blob/main/audits/xuwinnie-solady-cbrt-proof.pdf
-    function cbrt(uint256 x) internal pure returns (uint256 z) {
+    function _cbrt(uint256 x) private pure returns (uint256 z) {
         assembly ("memory-safe") {
             // Initial guess z = 2^ceil((log2(x) + 2) / 3).
             // Since log2(x) = 255 - clz(x), the expression shl((257 - clz(x)) / 3, 1)
@@ -22,8 +22,22 @@ library Cbrt {
             z := div(add(add(div(x, mul(z, z)), z), z), 3)
             z := div(add(add(div(x, mul(z, z)), z), z), 3)
             z := div(add(add(div(x, mul(z, z)), z), z), 3)
+        }
+    }
+
+    function cbrt(uint256 x) internal pure returns (uint256 z) {
+        z = _cbrt(x);
+        assembly ("memory-safe") {
             // Round down.
             z := sub(z, lt(div(x, mul(z, z)), z))
+        }
+    }
+
+    function cbrtUp(uint256 x) internal pure returns (uint256 z) {
+        z = _cbrt(x);
+        assembly ("memory-safe") {
+            // Round up.
+            z := add(z, lt(mul(z, mul(z, z)), x))
         }
     }
 }

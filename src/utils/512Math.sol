@@ -1930,10 +1930,7 @@ library Lib512MathArithmetic {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
         if (x_hi == 0) {
-            r = x_lo.cbrt();
-            unchecked {
-                r = r.unsafeInc(r * r * r < x_lo);
-            }
+            r = x_lo.cbrtUp();
         } else {
             r = _cbrt(x_hi, x_lo);
 
