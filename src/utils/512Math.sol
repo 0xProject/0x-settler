@@ -1761,9 +1761,8 @@ library Lib512MathArithmetic {
                 // It's possible that `n` was 257 bits and overflowed (`res` was not just a single
                 // limb). Explicitly handling the carry avoids 512-bit division.
                 if c {
-                    let neg_c := not(0x00)
-                    r_lo := add(r_lo, div(neg_c, d))
-                    res := add(res, add(0x01, mod(neg_c, d)))
+                    r_lo := add(r_lo, div(not(0x00), d))
+                    res := add(res, add(0x01, mod(not(0x00), d)))
                     r_lo := add(r_lo, div(res, d))
                     res := mod(res, d)
                 }
@@ -1884,10 +1883,9 @@ library Lib512MathArithmetic {
                 // If `res` was 171 bits (one more than expected), then `n` overflowed to 257
                 // bits. Explicitly handling the carry avoids 512-bit division.
                 if c {
-                    let neg_c := not(0x00)
                     let rem := mod(n, d)
-                    r_lo := add(r_lo, div(neg_c, d))
-                    rem := add(rem, add(0x01, mod(neg_c, d)))
+                    r_lo := add(r_lo, div(not(0x00), d))
+                    rem := add(rem, add(0x01, mod(not(0x00), d)))
                     r_lo := add(r_lo, div(rem, d))
                 }
             }
