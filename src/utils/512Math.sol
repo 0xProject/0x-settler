@@ -1700,7 +1700,8 @@ library Lib512MathArithmetic {
         /// https://inria.hal.science/inria-00072854/document with the helpers from Solady and
         /// 512Math. This approach is inspired by https://github.com/SimonSuckut/Solidity_Uint512/
         unchecked {
-            // Normalize `x` so the top word has its MSB in bit 255 or 254.
+            // Normalize `x` so the top word has its MSB in bit 255 or 254. This makes the "shift
+            // back" step exact.
             //   x ≥ 2⁵¹⁰
             uint256 shift = x_hi.clz();
             (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift & 0xfe);
@@ -1817,67 +1818,69 @@ library Lib512MathArithmetic {
         /// This is the same general technique as we applied in `_sqrt`, patterned after Zimmerman's
         /// "Karatsuba Square Root" algorithm, but adapted to compute cube roots instead.
         unchecked {
-            // Normalize `x` by a multiple of 3 so `x_hi >> 2` is a well-conditioned input
-            // for the top-limb cube root extraction.
+            // Normalize `x` so that its MSB is in bit 255, 254, or 253. This makes the left shift a
+            // multiple of 3 so that the "shift back" un-normalization step is exact.
+            //   x ≥ 2⁵⁰⁹
             uint256 shift = x_hi.clz() / 3;
             (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift * 3);
 
-            // Split x into base B = 2^86 "limbs":
-            //   x = x3 * B^3 + x2 * B^2 + x1 * B + x0
-            // where x3 is 254 bits and x2/x1/x0 are 86-bit limbs.
-            uint256 x3 = x_hi >> 2;
-            uint256 x2;
+            // Zimmerman's "Karatsuba Square Root" algorithm works with limbs of `r` that are half
+            // of a word. For cube root, we use limbs of `r` that are one third of a word. The
+            // initial step to compute the first "limb" of `r` uses the "normal" cube root algorithm
+            // and consumes the first (almost) word of `x`. The second and final limb of `r` is
+            // computed using an analogue of the Karatsuba step from the original algorithm,
+            // followed by a pair of cleanup steps. `limb_hi` is the next 86-bit limb of `x` after
+            // the first whole-ish word.
+            uint256 limb_hi;
             assembly ("memory-safe") {
-                x2 := or(shl(84, and(x_hi, 0x03)), shr(172, x_lo))
+                limb_hi := or(shl(0x54, and(x_hi, 0x03)), shr(0xac, x_lo))
             }
 
-            // First limb from 256-bit cbrt.
-            // Here x3 is always in [2^251, 2^254), so the Solady seed
-            // 2^ceil((log2(x3) + 2) / 3) is exactly either 2^84 or 2^85.
+            // Now we run the "normal" cube root algorithm to obtain the first limb of `r`, which we
+            // store in `r_hi`. `res` is the residue after this first operation and `d` is the
+            // derivative/denominator for the subsequent outer Newton step of the Karatsuba "loop".
             uint256 r_hi;
             uint256 res;
             uint256 d;
             assembly ("memory-safe") {
-                r_hi := 0x1000000000000000000000
+                let w := shr(2, x_hi) // w ≥ 2²⁵¹; w < 2²⁵⁴ from the above normalization
+                r_hi := 0x1000000000000000000000 // Given `w` in its range, this seed is suitable
 
-                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
-                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
-                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
-                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
-                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
-                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
+                r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
+                r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
+                r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
+                r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
+                r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
+                r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
 
                 let r_hi_sq := mul(r_hi, r_hi)
                 let r_hi_cube := mul(r_hi_sq, r_hi)
-                if gt(r_hi_cube, x3) {
-                    // We gate the 7th Newton-Raphson step on whether it has overestimated. The
-                    // second-order correction below is sufficient to correct for small
-                    // underestimation. This branch is net gas-optimizing.
-                    r_hi := div(add(add(div(x3, r_hi_sq), r_hi), r_hi), 3)
+                if gt(r_hi_cube, w) {
+                    // We gate the 7th Newton-Raphson step and ceil/floor cleanup on whether it has
+                    // overestimated. The second-order correction further below is sufficient to
+                    // correct for small underestimation. This branch is net gas-optimizing.
+                    r_hi := div(add(add(div(w, r_hi_sq), r_hi), r_hi), 0x03)
+                    r_hi := sub(r_hi, lt(div(w, mul(r_hi, r_hi)), r_hi))
                     r_hi_sq := mul(r_hi, r_hi)
                     r_hi_cube := mul(r_hi_sq, r_hi)
-                    if gt(r_hi_cube, x3) {
-                        r_hi := sub(r_hi, 0x01)
-                        r_hi_sq := mul(r_hi, r_hi)
-                        r_hi_cube := mul(r_hi_sq, r_hi)
-                    }
                 }
 
-                res := sub(x3, r_hi_cube)
-                d := mul(3, r_hi_sq)
+                res := sub(w, r_hi_cube)
+                d := mul(0x03, r_hi_sq)
             }
 
-            // Recover low 86-bit limb from:
-            //   floor((res * B + x2) / (3 * r_hi^2)).
-            // `res * B + x2` is up to 257 bits. Here `c := res >> 170` is a single
-            // carry bit (`res < 2^171` for this normalized range), so we can avoid
-            // 512-bit division by folding that carry manually, exactly as in `_sqrt`.
+            // This is the Karatsuba step. The 86-bit lower limb of `r` is (almost):
+            //   r_lo = ⌊(res ⋅ 2⁸⁶ + limb_hi) / (3 ⋅ r_hi²)⌋
+            //   res = (res ⋅ 2⁸⁶ + limb_hi) % (3 ⋅ r_hi²)
+            // Where `res` is the (nearly) 2-limb residue from the previous "normal" cube root step.
             uint256 r_lo;
             assembly ("memory-safe") {
-                let n := or(shl(86, res), x2)
+                let n := or(shl(0x56, res), limb_hi)
                 r_lo := div(n, d)
 
-                let c := shr(170, res)
+                let c := shr(0xaa, res)
+                // If `res` was 171 bits (one more than expected), then `n` overflowed to 257
+                // bits. Explicitly handling the carry avoids 512-bit division.
                 if c {
                     let neg_c := not(0x00)
                     let rem := mod(n, d)
@@ -1910,6 +1913,7 @@ library Lib512MathArithmetic {
                 r := sub(r, or(gt(hi, x_hi), and(eq(hi, x_hi), gt(lo, x_lo))))
             }
 
+            // Un-normalize
             return r >> shift;
         }
     }
