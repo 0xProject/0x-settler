@@ -1835,6 +1835,8 @@ library Lib512MathArithmetic {
             // Here x3 is always in [2^251, 2^254), so the Solady seed
             // 2^ceil((log2(x3) + 2) / 3) is exactly either 2^84 or 2^85.
             uint256 r_hi;
+            uint256 res;
+            uint256 d;
             assembly ("memory-safe") {
                 r_hi := 0x1000000000000000000000
 
@@ -1844,12 +1846,26 @@ library Lib512MathArithmetic {
                 r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
                 r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
                 r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
-                r_hi := div(add(add(div(x3, mul(r_hi, r_hi)), r_hi), r_hi), 3)
-                r_hi := sub(r_hi, lt(div(x3, mul(r_hi, r_hi)), r_hi))
+
+                let r_hi_sq := mul(r_hi, r_hi)
+                let r_hi_cube := mul(r_hi_sq, r_hi)
+                if gt(r_hi_cube, x3) {
+                    // We gate the 7th Newton-Raphson step on whether it has overestimated. The
+                    // second-order correction below is sufficient to correct for small
+                    // underestimation. This branch is net gas-optimizing.
+                    r_hi := div(add(add(div(x3, r_hi_sq), r_hi), r_hi), 3)
+                    r_hi_sq := mul(r_hi, r_hi)
+                    r_hi_cube := mul(r_hi_sq, r_hi)
+                    if gt(r_hi_cube, x3) {
+                        r_hi := sub(r_hi, 0x01)
+                        r_hi_sq := mul(r_hi, r_hi)
+                        r_hi_cube := mul(r_hi_sq, r_hi)
+                    }
+                }
+
+                res := sub(x3, r_hi_cube)
+                d := mul(3, r_hi_sq)
             }
-            uint256 r_hi_sq = r_hi * r_hi;
-            uint256 res = x3 - r_hi_sq * r_hi;
-            uint256 d = 3 * r_hi_sq;
 
             // Recover low 86-bit limb from:
             //   floor((res * B + x2) / (3 * r_hi^2)).
