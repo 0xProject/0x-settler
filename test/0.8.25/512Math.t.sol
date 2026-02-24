@@ -422,6 +422,18 @@ contract Lib512MathTest is Test {
         }
     }
 
+    function test512Math_sqrt_perfectSquare(uint256 r) external pure {
+        uint512 x = alloc().omul(r, r);
+        assertEq(x.sqrt(), r);
+    }
+
+    function test512Math_osqrtUp_perfectSquare(uint256 r) external pure {
+        uint512 x = alloc().omul(r, r);
+        (uint256 r_hi, uint256 r_lo) = alloc().osqrtUp(x).into();
+        assertEq(r_hi, 0);
+        assertEq(r_lo, r);
+    }
+
     function test512Math_cbrt(uint256 x_hi, uint256 x_lo) external pure {
         uint512 x = alloc().from(x_hi, x_lo);
         uint256 r = x.cbrt();
