@@ -1826,10 +1826,10 @@ library Lib512MathArithmetic {
             (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift * 3);
 
             // Zimmerman's "Karatsuba Square Root" algorithm works with limbs of `r` that are half
-            // of a word. For cube root, we use limbs of `r` that are one third of a word. The
-            // initial step to compute the first "limb" of `r` uses the "normal" cube root algorithm
-            // and consumes the first (almost) word of `x`. The second and final limb of `r` is
-            // computed using an analogue of the Karatsuba step from the original algorithm,
+            // of a word. For cube root, we use limbs of `r` that are (roughly) one third of a
+            // word. The initial step to compute the first "limb" of `r` uses the "normal" cube root
+            // algorithm and consumes the first (almost) word of `x`. The second and final limb of
+            // `r` is computed using an analogue of the Karatsuba step from the original algorithm,
             // followed by a pair of cleanup steps. `limb_hi` is the next 86-bit limb of `x` after
             // the first whole-ish word.
             uint256 limb_hi;
