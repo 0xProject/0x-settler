@@ -1830,12 +1830,7 @@ library Lib512MathArithmetic {
             // word. The initial step to compute the first "limb" of `r` uses the "normal" cube root
             // algorithm and consumes the first (almost) word of `x`. The second and final limb of
             // `r` is computed using an analogue of the Karatsuba step from the original algorithm,
-            // followed by a pair of cleanup steps. `limb_hi` is the next 86-bit limb of `x` after
-            // the first whole-ish word.
-            uint256 limb_hi;
-            assembly ("memory-safe") {
-                limb_hi := or(shl(0x54, and(x_hi, 0x03)), shr(0xac, x_lo))
-            }
+            // followed by a pair of cleanup steps.
 
             // Now we run the "normal" cube root algorithm to obtain the first limb of `r`, which we
             // store in `r_hi`. `res` is the residue after this first operation and `d` is the
@@ -1870,6 +1865,11 @@ library Lib512MathArithmetic {
                 d := mul(0x03, r_hi_sq)
             }
 
+            // `limb_hi` is the next 86-bit limb of `x` after the first whole-ish word.
+            uint256 limb_hi;
+            assembly ("memory-safe") {
+                limb_hi := or(shl(0x54, and(x_hi, 0x03)), shr(0xac, x_lo))
+            }
             // This is the Karatsuba step. The 86-bit lower limb of `r` is (almost):
             //   r_lo = ⌊(res ⋅ 2⁸⁶ + limb_hi) / (3 ⋅ r_hi²)⌋
             // Where `res` is the (nearly) 2-limb residue from the previous "normal" cube root
