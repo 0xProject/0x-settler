@@ -1838,7 +1838,7 @@ library Lib512MathArithmetic {
 
             // Now we run the "normal" cube root algorithm to obtain the first limb of `r`, which we
             // store in `r_hi`. `res` is the residue after this first operation and `d` is the
-            // derivative/denominator for the subsequent outer Newton step of the Karatsuba "loop".
+            // derivative/denominator for the subsequent Karatsuba step.
             uint256 r_hi;
             uint256 res;
             uint256 d;
@@ -1890,14 +1890,13 @@ library Lib512MathArithmetic {
                 }
             }
 
-            // Second-order correction for the omitted quadratic term in the first-limb lift.
-            // With B = 2^86, q := r_lo, and a := r_hi:
-            //   q' = q - floor(q^2 / (a * B)).
-            // This removes almost all of the overshoot from the first-order estimate.
+            // Unlike the square-root case, the error from the linear Karatsuba step can still be
+            // large because the expansion has more terms. We do a quadratic correction to get close
+            // enough that the single subtraction is sufficient for exactness.
             r_lo -= (r_lo * r_lo).unsafeDiv(r_hi << 86);
             r = (r_hi << 86) + r_lo;
 
-            // Exact floor correction.
+            // Our error is now down to 1ulp. Check if `r` overshoots and correct.
             assembly ("memory-safe") {
                 let mm0 := mulmod(r, r, not(0x00))
                 let r2_lo := mul(r, r)
@@ -1905,10 +1904,7 @@ library Lib512MathArithmetic {
 
                 let mm1 := mulmod(r2_lo, r, not(0x00))
                 let lo := mul(r2_lo, r)
-                let hi_lo := sub(sub(mm1, lo), lt(mm1, lo))
-
-                let cross_lo := mul(r2_hi, r)
-                let hi := add(hi_lo, cross_lo)
+                let hi := add(sub(sub(mm1, lo), lt(mm1, lo)), mul(r2_hi, r))
 
                 r := sub(r, or(gt(hi, x_hi), and(eq(hi, x_hi), gt(lo, x_lo))))
             }
