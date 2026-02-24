@@ -447,6 +447,30 @@ contract Lib512MathTest is Test {
         assertEq(x.cbrt(), r);
     }
 
+    function test512Math_cbrt_overflowCubeRegime(uint256 x_hi, uint256 x_lo) external pure {
+        uint256 r_max = 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628;
+        uint256 r_max_plus_one = 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885629;
+        uint256 r_max_cube_hi = 0xffffffffffffffffffffffffffffffffffffffffffec2567f7d10a5e1c63772f;
+        uint256 r_max_cube_lo = 0xd70b34358c5c72dd2dbdc27132d143e3a7f08c1088df427db0884640df2d7a00;
+
+        // Force x > r_max^3 so cbrtUp(x) must return r_max + 1, whose cube is 513 bits.
+        //
+        // Why this still passes with the current implementation:
+        // `_cbrt` is returning `r_max` (not `r_max + 1`) in this regime. If `_cbrt` returned
+        // `r_max + 1`, then `cbrt` would have to decrement based on an overflowed cube-and-compare
+        // and this assertion would fail for these near-2^512 inputs. Because `cbrt` stays equal to
+        // `r_max`, both cube-and-compare paths only cube `r_max` (which fits in 512 bits), and
+        // `cbrtUp` reaches `r_max + 1` only via its final `+1` correction.
+        x_hi = bound(x_hi, r_max_cube_hi, type(uint256).max);
+        if (x_hi == r_max_cube_hi) {
+            x_lo = bound(x_lo, r_max_cube_lo + 1, type(uint256).max);
+        }
+
+        uint512 x = alloc().from(x_hi, x_lo);
+        assertEq(x.cbrt(), r_max, "cbrt in overflow-cube regime");
+        assertEq(x.cbrtUp(), r_max_plus_one, "cbrtUp in overflow-cube regime");
+    }
+
     function test512Math_cbrtUp(uint256 x_hi, uint256 x_lo) external pure {
         uint512 x = alloc().from(x_hi, x_lo);
         uint256 r = x.cbrtUp();
