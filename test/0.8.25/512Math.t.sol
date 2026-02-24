@@ -443,6 +443,33 @@ contract Lib512MathTest is Test {
         assertEq(x.cbrt(), r);
     }
 
+    function test512Math_cbrtUp(uint256 x_hi, uint256 x_lo) external pure {
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint256 r = x.cbrtUp();
+        uint512 r3 = alloc().omul(r, r).imul(r);
+
+        if (
+            x_hi > 0xffffffffffffffffffffffffffffffffffffffffffec2567f7d10a5e1c63772f
+                || (x_hi == 0xffffffffffffffffffffffffffffffffffffffffffec2567f7d10a5e1c63772f
+                    && x_lo > 0xd70b34358c5c72dd2dbdc27132d143e3a7f08c1088df427db0884640df2d7a00)
+        ) {
+            assertEq(r, 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885629, "cbrtUp overflow");
+        } else {
+            assertTrue(r3 >= x, "cbrtUp too low");
+        }
+        if (x_hi != 0 && x_lo != 0) {
+            r--;
+            r3.omul(r, r).imul(r);
+            assertTrue(r3 < x, "cbrtUp too high");
+        }
+    }
+
+    function test512Math_cbrtUp_perfectCube(uint256 r) external pure {
+        r = bound(r, 1, 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628);
+        uint512 x = alloc().omul(r, r).imul(r);
+        assertEq(x.cbrtUp(), r);
+    }
+
     function test512Math_oshrUp(uint256 x_hi, uint256 x_lo, uint256 s) external pure {
         s = bound(s, 0, 512);
 
