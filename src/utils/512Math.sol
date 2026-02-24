@@ -1936,22 +1936,22 @@ library Lib512MathArithmetic {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
         if (x_hi == 0) {
-            r = x_lo.cbrtUp();
-        } else {
-            r = _cbrt(x_hi, x_lo);
+            return x_lo.cbrtUp();
+        }
 
-            // `_cbrt` gives a result within 1ulp. Check if `r` is too low and correct.
-            assembly ("memory-safe") {
-                let mm0 := mulmod(r, r, not(0x00))
-                let r2_lo := mul(r, r)
-                let r2_hi := sub(sub(mm0, r2_lo), lt(mm0, r2_lo))
+        r = _cbrt(x_hi, x_lo);
 
-                let mm1 := mulmod(r2_lo, r, not(0x00))
-                let lo := mul(r2_lo, r)
-                let hi := add(sub(sub(mm1, lo), lt(mm1, lo)), mul(r2_hi, r))
+        // `_cbrt` gives a result within 1ulp. Check if `r` is too low and correct.
+        assembly ("memory-safe") {
+            let mm0 := mulmod(r, r, not(0x00))
+            let r2_lo := mul(r, r)
+            let r2_hi := sub(sub(mm0, r2_lo), lt(mm0, r2_lo))
 
-                r := add(r, or(lt(hi, x_hi), and(eq(hi, x_hi), lt(lo, x_lo))))
-            }
+            let mm1 := mulmod(r2_lo, r, not(0x00))
+            let lo := mul(r2_lo, r)
+            let hi := add(sub(sub(mm1, lo), lt(mm1, lo)), mul(r2_hi, r))
+
+            r := add(r, or(lt(hi, x_hi), and(eq(hi, x_hi), lt(lo, x_lo))))
         }
     }
 
