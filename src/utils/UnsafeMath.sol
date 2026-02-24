@@ -95,7 +95,7 @@ library UnsafeMath {
     }
 
     /// rounds away from zero
-    function unsafeDivUp(int256 n, int256 d) internal pure returns (int256 r) {
+    function unsafeDivOut(int256 n, int256 d) internal pure returns (int256 r) {
         assembly ("memory-safe") {
             r := add(mul(lt(0x00, smod(n, d)), or(0x01, sar(0xff, xor(n, d)))), sdiv(n, d))
         }
