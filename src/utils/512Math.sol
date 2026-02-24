@@ -1844,7 +1844,7 @@ library Lib512MathArithmetic {
             uint256 res;
             uint256 d;
             assembly ("memory-safe") {
-                let w := shr(2, x_hi) // w ≥ 2²⁵¹; w < 2²⁵⁴ from the above normalization
+                let w := shr(0x02, x_hi) // w ≥ 2²⁵¹; w < 2²⁵⁴ from the above normalization
                 r_hi := 0x1000000000000000000000 // Given `w` in its range, this seed is suitable
 
                 r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
