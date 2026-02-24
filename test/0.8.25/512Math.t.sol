@@ -461,7 +461,7 @@ contract Lib512MathTest is Test {
         } else {
             assertTrue(r3 >= x, "cbrtUp too low");
         }
-        if (x_hi != 0 && x_lo != 0) {
+        if (x_hi != 0 || x_lo != 0) {
             r--;
             r3.omul(r, r).imul(r);
             assertTrue(r3 < x, "cbrtUp too high");
