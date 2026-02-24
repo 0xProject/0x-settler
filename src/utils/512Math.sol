@@ -1920,13 +1920,13 @@ library Lib512MathArithmetic {
         // have an overflow bug in it. Consider that `_cbrt` returns a value within 1ulp of the
         // correct value. Define:
         //   r_max = 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628
-        // this means that for values of x in [r_max³ + 1, 2⁵¹² - 1], `_cbrt` could return r_max +
-        // 1, which would result in overflow when cubing `r`. However, this does not happen. Given
-        // `x` in the specified range, the `_cbrt` follows the steps below:
+        // this means that for values of x in [r_max³, 2⁵¹² - 1], `_cbrt` could return r_max + 1,
+        // which would result in overflow when cubing `r`. However, this does not happen. Given `x`
+        // in the specified range, the `_cbrt` follows the steps below:
         //
-        // 1) shift = clz(x_hi) / 3 = 0
+        // 1) shift = ⌊clz(x_hi) / 3⌋ = 0
         // 2) w = x_hi >> 2 lies in [0x3fff..fffb0959fdf442978718ddcb, 2²⁵⁴ - 1]
-        // 3) In that full interval, ⌊∛w⌋ is constant. For r_hi, we get:
+        // 3) In that full interval, ⌊∛w⌋ is constant. For `r_hi`, we get:
         //      after 6 Newton-Raphson iterations: r_hi = 0x1965fea53d6e3c82b0c310
         //      which forces a 7th iteration
         //      after the branch is taken:         r_hi = 0x1965fea53d6e3c82b05999
@@ -1937,13 +1937,13 @@ library Lib512MathArithmetic {
         //      ⌊n / d⌋ = 0x8f3a38c7f3364c49d3405
         //    The carry branch (res >> 170 != 0) fires. The carry adjustment modifies the truncated
         //    quotient by adding:
-        //       ⌊(2²⁵⁶ - 1) / d⌋ = 0x21dd5386fc92fb58eb2224
+        //      ⌊(2²⁵⁶ - 1) / d⌋ = 0x21dd5386fc92fb58eb2224
         //    and the final carry refinement term is zero, giving:
         //      r_lo = 0x2ad0f7137bc6601d885629
         //    The quotient stays in one "bucket" because `res` varies by only ~0.62·2⁸³, and
         //    `limb_hi`'s full 86-bit range contributes <1/2⁸⁴ to n/d. Total swing in the continuous
-        //    quotient is ~0.164.  At the boundaries, frac(n/d) ≈ 0.118 (at x = r_max³ + 1) and
-        //    ≈0.283 (at x = 2⁵¹² - 1), so the floor never crosses an integer boundary
+        //    quotient is ~0.164.  At the boundaries, frac(n/d) ≈ 0.118 (at x = r_max³) and ≈0.283
+        //    (at x = 2⁵¹² - 1), so the floor never crosses an integer boundary
         // 6) After the carry adjustment branch, `r_lo` is constant:
         //      r_lo = 0x2ad0f7137bc6601d885629
         // 7) The quadratic correction subtracts exactly 1:
