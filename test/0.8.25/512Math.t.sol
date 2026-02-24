@@ -428,9 +428,13 @@ contract Lib512MathTest is Test {
         uint512 r3 = alloc().omul(r, r).imul(r);
 
         assertTrue(r3 <= x, "cbrt too high");
-        if (!(x_hi > 0xffffffffffffffffffffffffffffffffffffffffffec2567f7d10a5e1c63772f
-                    || (x_hi == 0xffffffffffffffffffffffffffffffffffffffffffec2567f7d10a5e1c63772f
-                        && x_lo > 0xd70b34358c5c72dd2dbdc27132d143e3a7f08c1088df427db0884640df2d79ff))) {
+        if (
+            x_hi > 0xffffffffffffffffffffffffffffffffffffffffffec2567f7d10a5e1c63772f
+                || (x_hi == 0xffffffffffffffffffffffffffffffffffffffffffec2567f7d10a5e1c63772f
+                    && x_lo > 0xd70b34358c5c72dd2dbdc27132d143e3a7f08c1088df427db0884640df2d79ff)
+        ) {
+            assertEq(r, 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628, "cbrt overflow");
+        } else {
             r++;
             r3.omul(r, r).imul(r);
             assertTrue(r3 > x, "cbrt too low");
