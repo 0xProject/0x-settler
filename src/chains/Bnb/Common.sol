@@ -32,6 +32,8 @@ import {
     IPancakeSwapV3Callback
 } from "../../core/univ3forks/PancakeSwapV3.sol";
 //import {sushiswapV3BnbFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
+import {thenaFactory, thenaInitHash, thenaForkId} from "../../core/univ3forks/Thena.sol";
+import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
 import {BNB_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
@@ -148,10 +150,14 @@ abstract contract BnbMixin is
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-        //} else if (forkId == sushiswapV3ForkId) {
-        //    factory = sushiswapV3BnbFactory;
-        //    initHash = uniswapV3InitHash;
-        //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+            //} else if (forkId == sushiswapV3ForkId) {
+            //    factory = sushiswapV3BnbFactory;
+            //    initHash = uniswapV3InitHash;
+            //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == thenaForkId) {
+            factory = thenaFactory;
+            initHash = thenaInitHash;
+            callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
