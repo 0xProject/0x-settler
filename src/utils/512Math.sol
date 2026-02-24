@@ -1899,7 +1899,8 @@ library Lib512MathArithmetic {
             // In the square-root version, the only ignored term in (s + q)² is q², which is small
             // enough for a 1ulp correction. For cube root, the binomial expansion (r_hi·2⁸⁶ +
             // r_lo)³ contains the cross term 3·(r_hi·2⁸⁶)·r_lo². The linear Karatsuba step
-            // overestimates r_lo by ≈r_lo²/(r_hi·2⁸⁶). After correction, this leaves only r_lo³
+            // overestimates r_lo by ≈r_lo²/(r_hi·2⁸⁶). After correction, this leaves only the r_lo³
+            // term, on the order of 2²⁵⁸/(3·2³⁴²), much less than 1ulp.
             r_lo -= (r_lo * r_lo).unsafeDiv(r_hi << 86);
             r = (r_hi << 86) + r_lo;
             // Our error is now down to 1ulp.
