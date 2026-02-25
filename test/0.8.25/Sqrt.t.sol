@@ -12,6 +12,32 @@ contract SqrtTest is Test {
     uint256 private constant _SQRT_FLOOR_MAX_UINT256_SQUARED =
         0xfffffffffffffffffffffffffffffffe00000000000000000000000000000001;
 
+    function testSqrt(uint256 x) external pure {
+        uint256 r = x.sqrt();
+        assertLe(r * r, x, "sqrt too high");
+        if (x < _SQRT_FLOOR_MAX_UINT256_SQUARED) {
+            r++;
+            assertGt(r * r, x, "sqrt too low");
+        } else {
+            assertEq(r, _SQRT_FLOOR_MAX_UINT256, "sqrt overflow");
+        }
+    }
+
+    function testSqrtUp(uint256 x) external pure {
+        uint256 r = x.sqrtUp();
+        if (x <= _SQRT_FLOOR_MAX_UINT256_SQUARED) {
+            assertGe(r * r, x, "sqrtUp too low");
+        } else {
+            assertEq(r, _SQRT_CEIL_MAX_UINT256, "sqrtUp overflow");
+        }
+        if (x != 0) {
+            r--;
+            assertLt(r * r, x, "sqrtUp too high");
+        } else {
+            assertEq(r, 0, "sqrtUp underflow");
+        }
+    }
+
     function testSqrtUp_overflowSquareRange(uint256 x) external pure {
         x = bound(x, _SQRT_FLOOR_MAX_UINT256_SQUARED + 1, type(uint256).max);
 
