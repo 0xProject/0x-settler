@@ -37,7 +37,7 @@ contract CbrtTest is Test {
             assertEq(r, 0, "cbrtUp underflow");
         }
     }
-    
+
     function testCbrtUp_overflowCubeRange(uint256 x) external pure {
         x = bound(x, _CBRT_FLOOR_MAX_UINT256_CUBE + 1, type(uint256).max);
 
