@@ -149,11 +149,12 @@ abstract contract BnbMixin is
         } else if (forkId == pancakeSwapV3ForkId) {
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
-            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-            //} else if (forkId == sushiswapV3ForkId) {
-            //    factory = sushiswapV3BnbFactory;
-            //    initHash = uniswapV3InitHash;
-            //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector); // forgefmt: disable-start
+        //} else if (forkId == sushiswapV3ForkId) {
+        //    factory = sushiswapV3BnbFactory;
+        //    initHash = uniswapV3InitHash;
+        //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        // forgefmt: disable-end
         } else if (forkId == thenaForkId) {
             factory = thenaFactory;
             initHash = thenaInitHash;
