@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
-import {IMultiCall, MULTICALL_ADDRESS} from "src/multicall/MultiCallContext.sol";
+import {IMultiCall, EIP150_MULTICALL_ADDRESS as MULTICALL_ADDRESS} from "src/multicall/MultiCallContext.sol";
 
 import {Test} from "@forge-std/Test.sol";
 import {ICrossChainReceiverFactory} from "src/interfaces/ICrossChainReceiverFactory.sol";
