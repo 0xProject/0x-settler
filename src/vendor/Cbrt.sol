@@ -38,8 +38,10 @@ library Cbrt {
     function cbrtUp(uint256 x) internal pure returns (uint256 z) {
         z = _cbrt(x);
         assembly ("memory-safe") {
-            // Round up.
-            z := add(z, lt(mul(z, mul(z, z)), x))
+            // Round up. Avoid cubing `z` to avoid overflow
+            let z2 := mul(z, z)
+            let d := div(x, z2)
+            z := add(z, gt(add(d, lt(mul(d, z2), x)), z))
         }
     }
 }
