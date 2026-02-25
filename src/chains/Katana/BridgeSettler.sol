@@ -21,5 +21,6 @@ contract KatanaBridgeSettler is BridgeSettler {
         } else {
             return false;
         }
+        return true;
     }
 }

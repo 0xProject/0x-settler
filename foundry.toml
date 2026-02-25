@@ -1,5 +1,6 @@
 [profile.default]
 unchecked_cheatcode_artifacts = true
+ignored_error_codes = [2424, 4591]
 
 # https://github.com/foundry-rs/foundry/issues/6780#issuecomment-1962319449
 bytecode_hash = "none"
@@ -29,7 +30,6 @@ yul = true
 [profile.integration]
 no_match_path = "test/unit/*"
 match_path = "test/integration/*"
-fail_on_revert = false
 gas_snapshot_emit = false
 evm_version = "cancun"
 gas_limit = 50_000_000

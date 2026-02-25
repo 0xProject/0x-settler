@@ -141,7 +141,7 @@ forge clean
 forge build src/multicall/MultiCall.sol
 
 declare -i gas_estimate
-gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid 0x4e59b44847b379578588920cA78FbF26c0B4956C "$(cast concat-hex 0x0000000000000000000000000000000000000031a5e6991d522b26211cf840ce "$(forge inspect src/multicall/MultiCall.sol:MultiCall bytecode)")")"
+gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${extra_flags[@]}" 0x4e59b44847b379578588920cA78FbF26c0B4956C "$(cast concat-hex 0x0000000000000000000000000000000000000031a5e6991d522b26211cf840ce "$(forge inspect src/multicall/MultiCall.sol:MultiCall bytecode)")")"
 declare -r -i gas_estimate
 declare -i gas_limit
 gas_limit="$(apply_gas_multiplier $gas_estimate)"
@@ -163,7 +163,7 @@ else
 fi
 declare -r -a maybe_broadcast
 
-cast "${maybe_broadcast[@]}" --from "$signer" --rpc-url "$submit_rpc" --gas-price $gas_price --gas-limit $gas_limit $(get_config extraFlags) 0x4e59b44847b379578588920cA78FbF26c0B4956C "$(cast concat-hex 0x0000000000000000000000000000000000000031a5e6991d522b26211cf840ce "$(forge inspect src/multicall/MultiCall.sol:MultiCall bytecode)")"
+cast "${maybe_broadcast[@]}" --from "$signer" --rpc-url "$submit_rpc" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" 0x4e59b44847b379578588920cA78FbF26c0B4956C "$(cast concat-hex 0x0000000000000000000000000000000000000031a5e6991d522b26211cf840ce "$(forge inspect src/multicall/MultiCall.sol:MultiCall bytecode)")"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     sleep 60
