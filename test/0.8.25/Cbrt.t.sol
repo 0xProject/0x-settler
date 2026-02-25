@@ -12,6 +12,32 @@ contract CbrtTest is Test {
     uint256 private constant _CBRT_FLOOR_MAX_UINT256_CUBE =
         0xffffffffffffffffffffef214b5539a2d22f71387253e480168f34c9da3f5898;
 
+    function testCbrt(uint256 x) external pure {
+        uint256 r = x.cbrt();
+        assertLe(r * r * r, x, "cbrt too high");
+        if (x < _CBRT_FLOOR_MAX_UINT256_CUBE) {
+            r++;
+            assertGt(r * r * r, x, "cbrt too low");
+        } else {
+            assertEq(r, _CBRT_FLOOR_MAX_UINT256, "cbrt overflow");
+        }
+    }
+
+    function testCbrtUp(uint256 x) external pure {
+        uint256 r = x.cbrtUp();
+        if (x <= _CBRT_FLOOR_MAX_UINT256_CUBE) {
+            assertGe(r * r * r, x, "cbrtUp too low");
+        } else {
+            assertEq(r, _CBRT_CEIL_MAX_UINT256, "cbrtUp overflow");
+        }
+        if (x != 0) {
+            r--;
+            assertLt(r * r * r, x, "cbrtUp too high");
+        } else {
+            assertEq(r, 0, "cbrtUp underflow");
+        }
+    }
+    
     function testCbrtUp_overflowCubeRange(uint256 x) external pure {
         x = bound(x, _CBRT_FLOOR_MAX_UINT256_CUBE + 1, type(uint256).max);
 
