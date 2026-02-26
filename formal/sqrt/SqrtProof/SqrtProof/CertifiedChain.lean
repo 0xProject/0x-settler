@@ -42,6 +42,84 @@ theorem step_from_bound
     Nat.add_le_add_right (Nat.le_trans hdiv1 hdiv2) 1
   exact Nat.le_trans hstep' (by simpa [nextD] using hfinal)
 
+theorem run5_error_bounds
+    (i : Fin 256)
+    (x m : Nat)
+    (hm : 0 < m)
+    (hmlo : m * m ≤ x)
+    (hmhi : x < (m + 1) * (m + 1))
+    (hlo : loOf i ≤ m)
+    (hhi : m ≤ hiOf i) :
+    let z1 := bstep x (seedOf i)
+    let z2 := bstep x z1
+    let z3 := bstep x z2
+    let z4 := bstep x z3
+    let z5 := bstep x z4
+    z1 - m ≤ d1 i ∧
+      z2 - m ≤ d2 i ∧
+      z3 - m ≤ d3 i ∧
+      z4 - m ≤ d4 i ∧
+      z5 - m ≤ d5 i := by
+  let z1 := bstep x (seedOf i)
+  let z2 := bstep x z1
+  let z3 := bstep x z2
+  let z4 := bstep x z3
+  let z5 := bstep x z4
+
+  have hs : 0 < seedOf i := by
+    have hpow : 0 < (2 : Nat) ^ ((i.val + 1) / 2) := Nat.pow_pos (by decide : 0 < (2 : Nat))
+    simpa [seedOf, Nat.shiftLeft_eq, Nat.one_mul] using hpow
+
+  have hmz1 : m ≤ z1 := by
+    dsimp [z1]
+    exact babylon_step_floor_bound x (seedOf i) m hs hmlo
+  have hz1Pos : 0 < z1 := Nat.lt_of_lt_of_le hm hmz1
+  have hd1 : z1 - m ≤ d1 i := by
+    have h := SqrtBridge.d1_bound x m (seedOf i) (loOf i) (hiOf i) hs hmlo hmhi hlo hhi
+    simpa [z1, d1, maxAbs] using h
+  have hd1m : d1 i ≤ m := Nat.le_trans (d1_le_lo i) hlo
+
+  have hmz2 : m ≤ z2 := by
+    dsimp [z2]
+    exact babylon_step_floor_bound x z1 m hz1Pos hmlo
+  have hz2Pos : 0 < z2 := Nat.lt_of_lt_of_le hm hmz2
+  have hd2 : z2 - m ≤ d2 i := by
+    have h := step_from_bound x m (loOf i) z1 (d1 i) hm (lo_pos i) hlo hmhi hmz1 hd1 hd1m
+    simpa [z2, d2, nextD] using h
+  have hd2m : d2 i ≤ m := Nat.le_trans (d2_le_lo i) hlo
+
+  have hmz3 : m ≤ z3 := by
+    dsimp [z3]
+    exact babylon_step_floor_bound x z2 m hz2Pos hmlo
+  have hz3Pos : 0 < z3 := Nat.lt_of_lt_of_le hm hmz3
+  have hd3 : z3 - m ≤ d3 i := by
+    have h := step_from_bound x m (loOf i) z2 (d2 i) hm (lo_pos i) hlo hmhi hmz2 hd2 hd2m
+    simpa [z3, d3, nextD] using h
+  have hd3m : d3 i ≤ m := Nat.le_trans (d3_le_lo i) hlo
+
+  have hmz4 : m ≤ z4 := by
+    dsimp [z4]
+    exact babylon_step_floor_bound x z3 m hz3Pos hmlo
+  have hz4Pos : 0 < z4 := Nat.lt_of_lt_of_le hm hmz4
+  have hd4 : z4 - m ≤ d4 i := by
+    have h := step_from_bound x m (loOf i) z3 (d3 i) hm (lo_pos i) hlo hmhi hmz3 hd3 hd3m
+    simpa [z4, d4, nextD] using h
+  have hd4m : d4 i ≤ m := Nat.le_trans (d4_le_lo i) hlo
+
+  have hmz5 : m ≤ z5 := by
+    dsimp [z5]
+    exact babylon_step_floor_bound x z4 m hz4Pos hmlo
+  have hd5 : z5 - m ≤ d5 i := by
+    have h := step_from_bound x m (loOf i) z4 (d4 i) hm (lo_pos i) hlo hmhi hmz4 hd4 hd4m
+    simpa [z5, d5, nextD] using h
+
+  refine ⟨?_, ?_, ?_, ?_, ?_⟩
+  · exact hd1
+  · exact hd2
+  · exact hd3
+  · exact hd4
+  · exact hd5
+
 theorem run6_error_le_cert
     (i : Fin 256)
     (x m : Nat)

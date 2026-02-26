@@ -1,42 +1,48 @@
 # Formal Verification of `Sqrt.sol`
 
-This directory contains a Lean proof that the `Sqrt.sol` square-root flow is correct on the uint256 domain:
+This directory proves that `src/vendor/Sqrt.sol` is correct on `uint256`:
 
 - `_sqrt(x)` lands in `{isqrt(x), isqrt(x) + 1}`
-- `sqrt(x)` (floor correction applied to `_sqrt`) satisfies `r^2 <= x < (r+1)^2`
+- `sqrt(x)` (with the final correction branch) satisfies `r^2 <= x < (r+1)^2`
 
 ## Architecture
 
-The proof is layered from local arithmetic lemmas to end-to-end theorems:
+The proof is layered:
 
 ```
-FloorBound      -> single-step floor bound + absorbing-set lemmas
-StepMono        -> monotonicity of Babylonian updates on overestimates
-BridgeLemmas    -> one-step error recurrence used for certification
-FiniteCert      -> per-octave numeric certificate checked with native_decide
-CertifiedChain  -> lifts certificate to a 6-step runtime bound
-SqrtCorrect     -> EVM-style definitions + octave wiring + final theorems
+FloorBound         -> one-step floor bounds + absorbing-set lemmas
+StepMono           -> monotonicity of Babylonian updates
+BridgeLemmas       -> error recurrence for certified iteration
+FiniteCert         -> finite per-octave certificate
+CertifiedChain     -> six-step bound for all octaves
+SqrtCorrect        -> `_sqrt`/`sqrt` spec and correctness theorems
+GeneratedSqrtModel -> auto-generated Lean model from Solidity assembly
+GeneratedSqrtSpec  -> bridge from generated model to the spec
 ```
 
-`SqrtProof.lean` is the library root that imports the full proof surface.
+`GeneratedSqrtModel.lean` defines two models extracted from the same Solidity source:
 
-## Key ideas
+- `model_sqrt_evm`: opcode-faithful `uint256` semantics
+- `model_sqrt`: normalized Nat semantics
 
-1. Floor bound (`babylon_step_floor_bound`):
-Every truncated Babylonian step stays above any witness `m` with `m^2 <= x`.
+`GeneratedSqrtSpec.lean` then proves:
 
-2. Absorbing set (`babylon_from_floor`, `babylon_from_ceil`):
-Once the iterate reaches `{isqrt(x), isqrt(x)+1}`, later steps cannot leave it.
+- `model_sqrt_evm = model_sqrt` on `x < 2^256`
+- `model_sqrt = innerSqrt`
+- therefore the generated opcode-faithful model satisfies the `_sqrt` bracket theorem.
 
-3. Certified contraction:
-An explicit finite certificate bounds the error across all 256 octaves after six steps.
+## Verify End-to-End
 
-4. Final correction:
-The `if x / z < z then z - 1 else z` branch converts the 1-ULP bracket into exact floor-sqrt semantics.
-
-## Build
+Run from repo root:
 
 ```bash
+python3 formal/sqrt/generate_sqrt_model.py \
+  --solidity src/vendor/Sqrt.sol \
+  --function _sqrt \
+  --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
+
 cd formal/sqrt/SqrtProof
 lake build
 ```
+
+`GeneratedSqrtModel.lean` is intentionally not committed; it is regenerated for checks (including CI).

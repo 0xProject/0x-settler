@@ -6,3 +6,5 @@ import SqrtProof.BridgeLemmas
 import SqrtProof.FiniteCert
 import SqrtProof.CertifiedChain
 import SqrtProof.SqrtCorrect
+import SqrtProof.GeneratedSqrtModel
+import SqrtProof.GeneratedSqrtSpec

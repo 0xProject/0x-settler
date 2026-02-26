@@ -1,2 +1,5 @@
 /.lake
 lake-manifest.json
+
+# Auto-generated from `formal/sqrt/generate_sqrt_model.py`
+/SqrtProof/GeneratedSqrtModel.lean
