@@ -1953,16 +1953,22 @@ library Lib512MathArithmetic {
         //
         // So, the cube-and-compare code below only cubes a value of at most `r_max`, which fits in
         // 512 bits. `cbrtUp` reaches `r_max + 1` only via its final +1 correction
+        //
+        // The following assembly block is identical to
+        //   (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
+        //   (uint256 r3_hi, uint256 r3_lo) = _mul(r2_hi, r2_lo, r);
+        //   r = r.unsafeDec(_gt(r3_hi, r3_lo, x_hi, x_lo));
+        // but is substantially more gas efficient for inexplicable reasons
         assembly ("memory-safe") {
-            let mm0 := mulmod(r, r, not(0x00))
+            let mm := mulmod(r, r, not(0x00))
             let r2_lo := mul(r, r)
-            let r2_hi := sub(sub(mm0, r2_lo), lt(mm0, r2_lo))
+            let r2_hi := sub(sub(mm, r2_lo), lt(mm, r2_lo))
 
-            let mm1 := mulmod(r2_lo, r, not(0x00))
-            let lo := mul(r2_lo, r)
-            let hi := add(sub(sub(mm1, lo), lt(mm1, lo)), mul(r2_hi, r))
+            mm := mulmod(r2_lo, r, not(0x00))
+            let r3_lo := mul(r2_lo, r)
+            let r3_hi := add(sub(sub(mm, r3_lo), lt(mm, r3_lo)), mul(r2_hi, r))
 
-            r := sub(r, or(gt(hi, x_hi), and(eq(hi, x_hi), gt(lo, x_lo))))
+            r := sub(r, or(gt(r3_hi, x_hi), and(eq(r3_hi, x_hi), gt(r3_lo, x_lo))))
         }
     }
 
@@ -1976,18 +1982,24 @@ library Lib512MathArithmetic {
         r = _cbrt(x_hi, x_lo);
 
         // `_cbrt` gives a result within 1ulp. Check if `r` is too low and correct.
+        //
+        // The following assembly block is identical to
+        //   (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
+        //   (uint256 r3_hi, uint256 r3_lo) = _mul(r2_hi, r2_lo, r);
+        //   r = r.unsafeInc(_gt(x_hi, x_lo, r3_hi, r3_lo));
+        // but is substantially more gas efficient for inexplicable reasons
         assembly ("memory-safe") {
-            // See the detailed overflow-regime note in `cbrt` above. In particular, near 2⁵¹²,
+            // See the detailed overflow-regime note in `cbrt` above. In particular, near x = 2⁵¹²,
             // `_cbrt` is pinned at `r_max` and does not return `r_max + 1` directly.
-            let mm0 := mulmod(r, r, not(0x00))
+            let mm := mulmod(r, r, not(0x00))
             let r2_lo := mul(r, r)
-            let r2_hi := sub(sub(mm0, r2_lo), lt(mm0, r2_lo))
+            let r2_hi := sub(sub(mm, r2_lo), lt(mm, r2_lo))
 
-            let mm1 := mulmod(r2_lo, r, not(0x00))
-            let lo := mul(r2_lo, r)
-            let hi := add(sub(sub(mm1, lo), lt(mm1, lo)), mul(r2_hi, r))
+            mm := mulmod(r2_lo, r, not(0x00))
+            let r3_lo := mul(r2_lo, r)
+            let r3_hi := add(sub(sub(mm, r3_lo), lt(mm, r3_lo)), mul(r2_hi, r))
 
-            r := add(r, or(lt(hi, x_hi), and(eq(hi, x_hi), lt(lo, x_lo))))
+            r := add(r, or(lt(r3_hi, x_hi), and(eq(r3_hi, x_hi), lt(r3_lo, x_lo))))
         }
     }
 
