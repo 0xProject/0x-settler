@@ -34,7 +34,6 @@ jobs:
         run: |
           python3 formal/sqrt/generate_sqrt_model.py \
             --solidity src/vendor/Sqrt.sol \
-            --function _sqrt \
             --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
 
       - name: Build Sqrt proof

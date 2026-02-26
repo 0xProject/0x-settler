@@ -4,6 +4,7 @@ This directory proves that `src/vendor/Sqrt.sol` is correct on `uint256`:
 
 - `_sqrt(x)` lands in `{isqrt(x), isqrt(x) + 1}`
 - `sqrt(x)` (with the final correction branch) satisfies `r^2 <= x < (r+1)^2`
+- `sqrtUp(x)` is checked against a rounding-up spec derived from `innerSqrt`
 
 ## Architecture
 
@@ -20,16 +21,18 @@ GeneratedSqrtModel -> auto-generated Lean model from Solidity assembly
 GeneratedSqrtSpec  -> bridge from generated model to the spec
 ```
 
-`GeneratedSqrtModel.lean` defines two models extracted from the same Solidity source:
+`GeneratedSqrtModel.lean` defines generated models for all three Solidity functions:
 
-- `model_sqrt_evm`: opcode-faithful `uint256` semantics
-- `model_sqrt`: normalized Nat semantics
+- `_sqrt`: `model_sqrt_evm`, `model_sqrt`
+- `sqrt`: `model_sqrt_floor_evm`, `model_sqrt_floor`
+- `sqrtUp`: `model_sqrt_up_evm`, `model_sqrt_up`
 
 `GeneratedSqrtSpec.lean` then proves:
 
 - `model_sqrt_evm = model_sqrt` on `x < 2^256`
 - `model_sqrt = innerSqrt`
-- therefore the generated opcode-faithful model satisfies the `_sqrt` bracket theorem.
+- `model_sqrt_floor_evm = floorSqrt` (generated `sqrt` matches the existing spec)
+- `model_sqrt_up = sqrtUpSpec` (generated `sqrtUp` normalized model matches spec)
 
 ## Verify End-to-End
 
@@ -38,7 +41,6 @@ Run from repo root:
 ```bash
 python3 formal/sqrt/generate_sqrt_model.py \
   --solidity src/vendor/Sqrt.sol \
-  --function _sqrt \
   --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
 
 cd formal/sqrt/SqrtProof

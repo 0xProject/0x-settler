@@ -75,6 +75,22 @@ private theorem evmAdd_eq_normAdd_of_no_overflow
   unfold evmAdd normAdd
   simp [u256_eq_of_lt a ha, u256_eq_of_lt b hb, u256_eq_of_lt (a + b) hab]
 
+private theorem evmLt_eq_normLt_of_u256
+    (a b : Nat)
+    (ha : a < WORD_MOD)
+    (hb : b < WORD_MOD) :
+    evmLt a b = normLt a b := by
+  unfold evmLt normLt
+  simp [u256_eq_of_lt a ha, u256_eq_of_lt b hb]
+
+private theorem evmGt_eq_normGt_of_u256
+    (a b : Nat)
+    (ha : a < WORD_MOD)
+    (hb : b < WORD_MOD) :
+    evmGt a b = normGt a b := by
+  unfold evmGt normGt
+  simp [u256_eq_of_lt a ha, u256_eq_of_lt b hb]
+
 private theorem evmShr_eq_normShr_of_u256
     (s v : Nat)
     (hs : s < 256)
@@ -258,6 +274,26 @@ private theorem seed_sum_lt_word
     decide
   exact Nat.lt_of_lt_of_le (Nat.lt_of_lt_of_le hsum_lt hsum_le) (Nat.le_of_lt hconst)
 
+private theorem normLt_div_le (x z : Nat) :
+    normLt (normDiv x z) z ≤ z := by
+  by_cases hz0 : z = 0
+  · simp [normLt, normDiv, hz0]
+  · have hzPos : 0 < z := Nat.pos_of_ne_zero hz0
+    have h1 : 1 ≤ z := Nat.succ_le_of_lt hzPos
+    by_cases hlt : x / z < z
+    · simp [normLt, normDiv, hlt, h1]
+    · simp [normLt, normDiv, hlt]
+
+private theorem floor_correction_norm_eq_if (x z : Nat) :
+    normSub z (normLt (normDiv x z) z) =
+      (if z = 0 then 0 else if x / z < z then z - 1 else z) := by
+  by_cases hz0 : z = 0
+  · subst hz0
+    simp [normSub, normLt, normDiv]
+  · by_cases hlt : x / z < z
+    · simp [normSub, normLt, normDiv, hz0, hlt]
+    · simp [normSub, normLt, normDiv, hz0, hlt]
+
 theorem model_sqrt_evm_eq_model_sqrt
     (x : Nat)
     (hx256 : x < WORD_MOD) :
@@ -394,5 +430,86 @@ theorem model_sqrt_evm_bracket_u256_all
     m ≤ model_sqrt_evm x ∧ model_sqrt_evm x ≤ m + 1 := by
   have hxW : x < WORD_MOD := by simpa [WORD_MOD] using hx256
   simpa [model_sqrt_evm_eq_model_sqrt x hxW] using model_sqrt_bracket_u256_all x hx256
+
+theorem model_sqrt_floor_eq_floorSqrt
+    (x : Nat)
+    (hx256 : x < 2 ^ 256) :
+    model_sqrt_floor x = floorSqrt x := by
+  have hinner : model_sqrt x = innerSqrt x := model_sqrt_eq_innerSqrt x hx256
+  unfold model_sqrt_floor floorSqrt
+  simp [hinner, floor_correction_norm_eq_if]
+
+private theorem floor_step_evm_eq_norm
+    (x z : Nat)
+    (hx : x < WORD_MOD)
+    (hz : z < WORD_MOD) :
+    evmSub z (evmLt (evmDiv x z) z) =
+      normSub z (normLt (normDiv x z) z) := by
+  have hdiv : evmDiv x z = normDiv x z := evmDiv_eq_normDiv_of_u256 x z hx hz
+  have hdivLt : normDiv x z < WORD_MOD := Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hx
+  have hlt : evmLt (evmDiv x z) z = normLt (normDiv x z) z := by
+    simpa [hdiv] using evmLt_eq_normLt_of_u256 (normDiv x z) z hdivLt hz
+  have hbLe : normLt (normDiv x z) z ≤ z := normLt_div_le x z
+  calc
+    evmSub z (evmLt (evmDiv x z) z)
+        = evmSub z (normLt (normDiv x z) z) := by simp [hlt]
+    _ = normSub z (normLt (normDiv x z) z) :=
+          evmSub_eq_normSub_of_le z (normLt (normDiv x z) z) hz hbLe
+
+theorem model_sqrt_floor_evm_eq_model_sqrt_floor
+    (x : Nat)
+    (hxW : x < WORD_MOD) :
+    model_sqrt_floor_evm x = model_sqrt_floor x := by
+  have hx256 : x < 2 ^ 256 := by simpa [WORD_MOD] using hxW
+  have hbr := model_sqrt_evm_bracket_u256_all x hx256
+  have hzLe : model_sqrt_evm x ≤ natSqrt x + 1 := by simpa using hbr.2
+  have hm128 : natSqrt x < 2 ^ 128 :=
+    m_lt_pow128_of_u256 (natSqrt x) x (natSqrt_sq_le x) hxW
+  have hz128 : model_sqrt_evm x ≤ 2 ^ 128 := by omega
+  have hpow128 : 2 ^ 128 < WORD_MOD := two_pow_lt_word 128 (by decide)
+  have hzW : model_sqrt_evm x < WORD_MOD := Nat.lt_of_le_of_lt hz128 hpow128
+  have hroot : model_sqrt_evm x = model_sqrt x := model_sqrt_evm_eq_model_sqrt x hxW
+  have hxmod : u256 x = x := u256_eq_of_lt x hxW
+  unfold model_sqrt_floor_evm model_sqrt_floor
+  simp [hxmod]
+  simpa [hroot] using floor_step_evm_eq_norm x (model_sqrt_evm x) hxW hzW
+
+theorem model_sqrt_floor_evm_eq_floorSqrt
+    (x : Nat)
+    (hx256 : x < 2 ^ 256) :
+    model_sqrt_floor_evm x = floorSqrt x := by
+  have hxW : x < WORD_MOD := by simpa [WORD_MOD] using hx256
+  calc
+    model_sqrt_floor_evm x = model_sqrt_floor x := model_sqrt_floor_evm_eq_model_sqrt_floor x hxW
+    _ = floorSqrt x := model_sqrt_floor_eq_floorSqrt x hx256
+
+/-- Specification-level model for `sqrtUp`: round `innerSqrt` upward if needed. -/
+def sqrtUpSpec (x : Nat) : Nat :=
+  let z := innerSqrt x
+  if z * z < x then z + 1 else z
+
+private theorem model_sqrt_up_norm_eq_sqrtUpSpec
+    (x : Nat)
+    (hx256 : x < 2 ^ 256) :
+    model_sqrt_up x = sqrtUpSpec x := by
+  have hinner : model_sqrt x = innerSqrt x := model_sqrt_eq_innerSqrt x hx256
+  have hsqge : innerSqrt x ≤ innerSqrt x * innerSqrt x := by
+    by_cases hz0 : innerSqrt x = 0
+    · simp [hz0]
+    · have hzPos : 0 < innerSqrt x := Nat.pos_of_ne_zero hz0
+      have h1 : 1 ≤ innerSqrt x := Nat.succ_le_of_lt hzPos
+      calc
+        innerSqrt x = innerSqrt x * 1 := by simp
+        _ ≤ innerSqrt x * innerSqrt x := Nat.mul_le_mul_left _ h1
+  unfold model_sqrt_up sqrtUpSpec
+  by_cases hlt : innerSqrt x * innerSqrt x < x
+  · simp [normAdd, normMul, normLt, normGt, hinner, hlt, hsqge, Nat.add_comm]
+  · simp [normAdd, normMul, normLt, normGt, hinner, hlt]
+
+theorem model_sqrt_up_eq_sqrtUpSpec
+    (x : Nat)
+    (hx256 : x < 2 ^ 256) :
+    model_sqrt_up x = sqrtUpSpec x :=
+  model_sqrt_up_norm_eq_sqrtUpSpec x hx256
 
 end SqrtGeneratedModel
