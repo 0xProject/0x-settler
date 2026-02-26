@@ -75,7 +75,11 @@ No Mathlib or other dependencies.
 ```bash
 cd formal/sqrt/SqrtProof
 lake build
+lake exe sqrtproof
 ```
+
+`lake exe sqrtproof` runs the proof-check CLI entrypoint, which is linked to the core theorem wrappers
+(`innerSqrt_bracket_u256_all`, `floorSqrt_correct_u256`). Proof checking itself is performed by the Lean kernel during `lake build`.
 
 ## Python verification script
 
