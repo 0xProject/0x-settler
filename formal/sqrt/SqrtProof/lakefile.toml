@@ -1,0 +1,10 @@
+name = "SqrtProof"
+version = "0.1.0"
+defaultTargets = ["sqrtproof"]
+
+[[lean_lib]]
+name = "SqrtProof"
+
+[[lean_exe]]
+name = "sqrtproof"
+root = "Main"
