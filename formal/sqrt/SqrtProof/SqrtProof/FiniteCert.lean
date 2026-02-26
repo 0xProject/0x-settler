@@ -554,41 +554,32 @@ def d5 (i : Fin 256) : Nat :=
 def d6 (i : Fin 256) : Nat :=
   nextD (loOf i) (d5 i)
 
-theorem lo_pos (i : Fin 256) : 0 < loOf i := by
-  revert i
-  native_decide
+theorem lo_pos : ∀ i : Fin 256, 0 < loOf i := by
+  decide
 
-theorem d1_le_lo (i : Fin 256) : d1 i ≤ loOf i := by
-  revert i
-  native_decide
+theorem d1_le_lo : ∀ i : Fin 256, d1 i ≤ loOf i := by
+  decide
 
-theorem d2_le_lo (i : Fin 256) : d2 i ≤ loOf i := by
-  revert i
-  native_decide
+theorem d2_le_lo : ∀ i : Fin 256, d2 i ≤ loOf i := by
+  decide
 
-theorem d3_le_lo (i : Fin 256) : d3 i ≤ loOf i := by
-  revert i
-  native_decide
+theorem d3_le_lo : ∀ i : Fin 256, d3 i ≤ loOf i := by
+  decide
 
-theorem d4_le_lo (i : Fin 256) : d4 i ≤ loOf i := by
-  revert i
-  native_decide
+theorem d4_le_lo : ∀ i : Fin 256, d4 i ≤ loOf i := by
+  decide
 
-theorem d5_le_lo (i : Fin 256) : d5 i ≤ loOf i := by
-  revert i
-  native_decide
+theorem d5_le_lo : ∀ i : Fin 256, d5 i ≤ loOf i := by
+  decide
 
-theorem d6_le_one (i : Fin 256) : d6 i ≤ 1 := by
-  revert i
-  native_decide
+theorem d6_le_one : ∀ i : Fin 256, d6 i ≤ 1 := by
+  decide
 
-theorem lo_sq_le_pow2 (i : Fin 256) : loOf i * loOf i ≤ 2 ^ i.val := by
-  revert i
-  native_decide
+theorem lo_sq_le_pow2 : ∀ i : Fin 256, loOf i * loOf i ≤ 2 ^ i.val := by
+  decide
 
-theorem pow2_succ_le_hi_succ_sq (i : Fin 256) :
-    2 ^ (i.val + 1) ≤ (hiOf i + 1) * (hiOf i + 1) := by
-  revert i
-  native_decide
+theorem pow2_succ_le_hi_succ_sq :
+    ∀ i : Fin 256, 2 ^ (i.val + 1) ≤ (hiOf i + 1) * (hiOf i + 1) := by
+  decide
 
 end SqrtCert
