@@ -116,6 +116,22 @@ private theorem two_pow_lt_word (n : Nat) (hn : n < 256) :
   unfold WORD_MOD
   exact Nat.pow_lt_pow_right (by decide : 1 < (2 : Nat)) hn
 
+private theorem zero_lt_word : (0 : Nat) < WORD_MOD := by
+  unfold WORD_MOD
+  decide
+
+private theorem one_lt_word : (1 : Nat) < WORD_MOD := by
+  unfold WORD_MOD
+  decide
+
+private theorem pow128_plus_one_lt_word : 2 ^ 128 + 1 < WORD_MOD := by
+  unfold WORD_MOD
+  decide
+
+private theorem evmLt_le_one (a b : Nat) : evmLt a b ≤ 1 := by
+  unfold evmLt
+  split <;> omega
+
 private theorem seed_evm_eq_norm (x : Nat) (hx : x < WORD_MOD) :
     evmShl (evmShr 1 (evmSub 256 (evmClz x))) 1 =
       normShl (normShr 1 (normSub 256 (normClz x))) 1 := by
@@ -506,10 +522,147 @@ private theorem model_sqrt_up_norm_eq_sqrtUpSpec
   · simp [normAdd, normMul, normLt, normGt, hinner, hlt, hsqge, Nat.add_comm]
   · simp [normAdd, normMul, normLt, normGt, hinner, hlt]
 
+private theorem sqrtUp_step_evm_eq_spec
+    (x z : Nat)
+    (hxW : x < WORD_MOD)
+    (hzLe128 : z ≤ 2 ^ 128) :
+    evmAdd (evmGt (evmLt (evmMul z z) x) (evmLt (evmMul z z) z)) z =
+      (if z * z < x then z + 1 else z) := by
+  have hpow128 : 2 ^ 128 < WORD_MOD := two_pow_lt_word 128 (by decide)
+  have hzW : z < WORD_MOD := Nat.lt_of_le_of_lt hzLe128 hpow128
+  by_cases hzMax : z = 2 ^ 128
+  · have hsqEq : z * z = WORD_MOD := by
+      rw [hzMax]
+      unfold WORD_MOD
+      calc
+        (2 ^ 128) * (2 ^ 128) = 2 ^ (128 + 128) := by rw [← Nat.pow_add]
+        _ = 2 ^ 256 := by decide
+    have hmul0 : evmMul z z = 0 := by
+      unfold evmMul u256
+      simp [hsqEq]
+    have hzPos : 0 < z := by
+      rw [hzMax]
+      exact Nat.two_pow_pos 128
+    have hltZ1 : evmLt (evmMul z z) z = 1 := by
+      rw [hmul0]
+      have hltEq : evmLt 0 z = normLt 0 z := evmLt_eq_normLt_of_u256 0 z zero_lt_word hzW
+      have hnorm1 : normLt 0 z = 1 := by
+        unfold normLt
+        simp [hzPos]
+      exact hltEq.trans hnorm1
+    have hltXLe : evmLt (evmMul z z) x ≤ 1 := evmLt_le_one (evmMul z z) x
+    have hltXW : evmLt (evmMul z z) x < WORD_MOD := Nat.lt_of_le_of_lt hltXLe one_lt_word
+    have hgt0 : evmGt (evmLt (evmMul z z) x) (evmLt (evmMul z z) z) = 0 := by
+      rw [hltZ1]
+      have hgtEq :
+          evmGt (evmLt (evmMul z z) x) 1 = normGt (evmLt (evmMul z z) x) 1 :=
+        evmGt_eq_normGt_of_u256 (evmLt (evmMul z z) x) 1 hltXW one_lt_word
+      have hnorm0 : normGt (evmLt (evmMul z z) x) 1 = 0 := by
+        unfold normGt
+        have hnot : ¬ evmLt (evmMul z z) x > 1 := Nat.not_lt_of_ge hltXLe
+        simp [hnot]
+      exact hgtEq.trans hnorm0
+    have hadd0 : evmAdd 0 z = z := by
+      have h := evmAdd_eq_normAdd_of_no_overflow 0 z zero_lt_word hzW (by simpa using hzW)
+      simpa [normAdd] using h
+    have hsqNotLt : ¬ z * z < x := by
+      rw [hsqEq]
+      exact Nat.not_lt_of_ge (Nat.le_of_lt hxW)
+    calc
+      evmAdd (evmGt (evmLt (evmMul z z) x) (evmLt (evmMul z z) z)) z
+          = evmAdd 0 z := by simp [hgt0]
+      _ = z := hadd0
+      _ = if z * z < x then z + 1 else z := by simp [hsqNotLt]
+  · have hzLt : z < 2 ^ 128 := Nat.lt_of_le_of_ne hzLe128 hzMax
+    have hzzW : z * z < WORD_MOD := by
+      have hmulLe : z * z ≤ z * (2 ^ 128) := Nat.mul_le_mul_left z (Nat.le_of_lt hzLt)
+      have hmulLt : z * (2 ^ 128) < (2 ^ 128) * (2 ^ 128) :=
+        Nat.mul_lt_mul_of_pos_right hzLt (Nat.two_pow_pos 128)
+      have hlt : z * z < (2 ^ 128) * (2 ^ 128) := Nat.lt_of_le_of_lt hmulLe hmulLt
+      have hpowEq : (2 ^ 128) * (2 ^ 128) = WORD_MOD := by
+        unfold WORD_MOD
+        calc
+          (2 ^ 128) * (2 ^ 128) = 2 ^ (128 + 128) := by rw [← Nat.pow_add]
+          _ = 2 ^ 256 := by decide
+      simpa [hpowEq] using hlt
+    have hmulNat : evmMul z z = z * z := by
+      unfold evmMul
+      simp [u256_eq_of_lt z hzW, u256_eq_of_lt (z * z) hzzW]
+    have hsqGe : z ≤ z * z := by
+      by_cases hz0 : z = 0
+      · simp [hz0]
+      · have hzPos : 0 < z := Nat.pos_of_ne_zero hz0
+        have h1 : 1 ≤ z := Nat.succ_le_of_lt hzPos
+        calc
+          z = z * 1 := by simp
+          _ ≤ z * z := Nat.mul_le_mul_left z h1
+    have hltZ0 : evmLt (evmMul z z) z = 0 := by
+      rw [hmulNat]
+      unfold evmLt
+      have hnot : ¬ z * z < z := Nat.not_lt_of_ge hsqGe
+      simp [u256_eq_of_lt (z * z) hzzW, u256_eq_of_lt z hzW, hnot]
+    by_cases hsqx : z * z < x
+    · have hltX1 : evmLt (evmMul z z) x = 1 := by
+        rw [hmulNat]
+        unfold evmLt
+        simp [u256_eq_of_lt (z * z) hzzW, u256_eq_of_lt x hxW, hsqx]
+      have hgt1 : evmGt (evmLt (evmMul z z) x) (evmLt (evmMul z z) z) = 1 := by
+        rw [hltX1, hltZ0]
+        have hgtEq : evmGt 1 0 = normGt 1 0 :=
+          evmGt_eq_normGt_of_u256 1 0 one_lt_word zero_lt_word
+        have hnorm1 : normGt 1 0 = 1 := by
+          unfold normGt
+          decide
+        exact hgtEq.trans hnorm1
+      have hsum1 : 1 + z < WORD_MOD := by
+        have hle : 1 + z ≤ 1 + 2 ^ 128 := by omega
+        exact Nat.lt_of_le_of_lt hle pow128_plus_one_lt_word
+      have hadd1 : evmAdd 1 z = z + 1 := by
+        have h := evmAdd_eq_normAdd_of_no_overflow 1 z one_lt_word hzW hsum1
+        simpa [normAdd, Nat.add_comm] using h
+      calc
+        evmAdd (evmGt (evmLt (evmMul z z) x) (evmLt (evmMul z z) z)) z
+            = evmAdd 1 z := by simp [hgt1]
+        _ = z + 1 := hadd1
+        _ = if z * z < x then z + 1 else z := by simp [hsqx]
+    · have hltX0 : evmLt (evmMul z z) x = 0 := by
+        rw [hmulNat]
+        unfold evmLt
+        simp [u256_eq_of_lt (z * z) hzzW, u256_eq_of_lt x hxW, hsqx]
+      have hgt0 : evmGt (evmLt (evmMul z z) x) (evmLt (evmMul z z) z) = 0 := by
+        rw [hltX0, hltZ0]
+        unfold evmGt
+        simp
+      have hadd0 : evmAdd 0 z = z := by
+        have h := evmAdd_eq_normAdd_of_no_overflow 0 z zero_lt_word hzW (by simpa using hzW)
+        simpa [normAdd] using h
+      calc
+        evmAdd (evmGt (evmLt (evmMul z z) x) (evmLt (evmMul z z) z)) z
+            = evmAdd 0 z := by simp [hgt0]
+        _ = z := hadd0
+        _ = if z * z < x then z + 1 else z := by simp [hsqx]
+
 theorem model_sqrt_up_eq_sqrtUpSpec
     (x : Nat)
     (hx256 : x < 2 ^ 256) :
     model_sqrt_up x = sqrtUpSpec x :=
   model_sqrt_up_norm_eq_sqrtUpSpec x hx256
+
+theorem model_sqrt_up_evm_eq_sqrtUpSpec
+    (x : Nat)
+    (hx256 : x < 2 ^ 256) :
+    model_sqrt_up_evm x = sqrtUpSpec x := by
+  have hxW : x < WORD_MOD := by simpa [WORD_MOD] using hx256
+  have hbr := model_sqrt_evm_bracket_u256_all x hx256
+  have hzLe : model_sqrt_evm x ≤ natSqrt x + 1 := by simpa using hbr.2
+  have hm128 : natSqrt x < 2 ^ 128 :=
+    m_lt_pow128_of_u256 (natSqrt x) x (natSqrt_sq_le x) hxW
+  have hzLe128 : model_sqrt_evm x ≤ 2 ^ 128 := by omega
+  have hroot : model_sqrt_evm x = innerSqrt x := by
+    exact (model_sqrt_evm_eq_model_sqrt x hxW).trans (model_sqrt_eq_innerSqrt x hx256)
+  have hxmod : u256 x = x := u256_eq_of_lt x hxW
+  unfold model_sqrt_up_evm sqrtUpSpec
+  simp [hxmod]
+  simpa [hroot] using sqrtUp_step_evm_eq_spec x (model_sqrt_evm x) hxW hzLe128
 
 end SqrtGeneratedModel
