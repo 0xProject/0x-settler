@@ -665,4 +665,326 @@ theorem model_sqrt_up_evm_eq_sqrtUpSpec
   simp [hxmod]
   simpa [hroot] using sqrtUp_step_evm_eq_spec x (model_sqrt_evm x) hxW hzLe128
 
+private theorem step_error_bound_square
+    (m d : Nat)
+    (hm : 0 < m)
+    (hmd : d ≤ m) :
+    bstep (m * m) (m + d) - m ≤ d * d / (2 * m) := by
+  unfold bstep
+  have hpos : 0 < m + d := by omega
+  have hsq : m * m = (m + d) * (m - d) + d * d := by
+    have h := sq_identity_ge (m + d) m (by omega) (by omega)
+    have hsub : 2 * m - (m + d) = m - d := by omega
+    have hdm' : (m + d) - m = d := by rw [Nat.add_sub_cancel_left]
+    simpa [hsub, hdm'] using h.symm
+  have hdiv : m * m / (m + d) = (m - d) + d * d / (m + d) := by
+    rw [hsq]
+    rw [Nat.mul_add_div hpos]
+  have hrewrite :
+      (m + d + m * m / (m + d)) / 2 - m = (d * d / (m + d)) / 2 := by
+    rw [hdiv]
+    let q := d * d / (m + d)
+    have htmp : (m + d + (m - d + q)) / 2 = m + q / 2 := by
+      have hsum : m + d + (m - d + q) = 2 * m + q := by omega
+      rw [hsum]
+      have htmp2 : (2 * m + q) / 2 = m + q / 2 := by
+        have hswap : 2 * m + q = q + m * 2 := by omega
+        rw [hswap, Nat.add_mul_div_right q m (by decide : 0 < 2)]
+        omega
+      exact htmp2
+    rw [htmp, Nat.add_sub_cancel_left]
+  rw [hrewrite]
+  have hden : m ≤ m + d := by omega
+  have hdivLe : d * d / (m + d) ≤ d * d / m := Nat.div_le_div_left hden hm
+  have hhalf : (d * d / (m + d)) / 2 ≤ (d * d / m) / 2 := Nat.div_le_div_right hdivLe
+  have hmain : (d * d / m) / 2 = d * d / (2 * m) := by
+    rw [Nat.div_div_eq_div_mul, Nat.mul_comm m 2]
+  exact Nat.le_trans hhalf (by simp [hmain])
+
+private theorem step_from_bound_square
+    (m lo z D : Nat)
+    (hm : 0 < m)
+    (hloPos : 0 < lo)
+    (hlo : lo ≤ m)
+    (hmz : m ≤ z)
+    (hzD : z - m ≤ D)
+    (hDlo : D ≤ lo) :
+    bstep (m * m) z - m ≤ D * D / (2 * lo) := by
+  let d := z - m
+  have hdEq : z = m + d := by
+    dsimp [d]
+    omega
+  have hdm : d ≤ m := by
+    dsimp [d]
+    omega
+  have hstep : bstep (m * m) (m + d) - m ≤ d * d / (2 * m) :=
+    step_error_bound_square m d hm hdm
+  have hbase : bstep (m * m) z - m ≤ d * d / (2 * m) := by
+    simpa [hdEq] using hstep
+  have hdD : d ≤ D := by
+    simpa [d] using hzD
+  have hsq : d * d ≤ D * D := Nat.mul_le_mul hdD hdD
+  have hdiv : d * d / (2 * m) ≤ D * D / (2 * m) := Nat.div_le_div_right hsq
+  have hden : 2 * lo ≤ 2 * m := Nat.mul_le_mul_left 2 hlo
+  have hdivDen : D * D / (2 * m) ≤ D * D / (2 * lo) :=
+    Nat.div_le_div_left hden (by omega : 0 < 2 * lo)
+  exact Nat.le_trans hbase (Nat.le_trans hdiv hdivDen)
+
+private def sqNext (lo d : Nat) : Nat := d * d / (2 * lo)
+
+private def sqD2 (i : Fin 256) : Nat := sqNext (loOf i) (d1 i)
+private def sqD3 (i : Fin 256) : Nat := sqNext (loOf i) (sqD2 i)
+private def sqD4 (i : Fin 256) : Nat := sqNext (loOf i) (sqD3 i)
+private def sqD5 (i : Fin 256) : Nat := sqNext (loOf i) (sqD4 i)
+private def sqD6 (i : Fin 256) : Nat := sqNext (loOf i) (sqD5 i)
+
+private theorem sqNext_mono_right (lo a b : Nat) (hab : a ≤ b) :
+    sqNext lo a ≤ sqNext lo b := by
+  unfold sqNext
+  exact Nat.div_le_div_right (Nat.mul_le_mul hab hab)
+
+private theorem sqNext_le_lo
+    (lo d : Nat)
+    (hlo : 0 < lo)
+    (hd : d ≤ lo) :
+    sqNext lo d ≤ lo := by
+  unfold sqNext
+  have hsq : d * d ≤ lo * lo := Nat.mul_le_mul hd hd
+  have hdiv : d * d / (2 * lo) ≤ lo * lo / (2 * lo) := Nat.div_le_div_right hsq
+  have hden : lo ≤ 2 * lo := by omega
+  have hdiv' : lo * lo / (2 * lo) ≤ lo * lo / lo := Nat.div_le_div_left hden hlo
+  have hmul : lo * lo / lo = lo := by simpa [Nat.mul_comm] using Nat.mul_div_right lo hlo
+  exact Nat.le_trans hdiv (by simpa [hmul] using hdiv')
+
+private theorem sqD2_le_lo : ∀ i : Fin 256, sqD2 i ≤ loOf i := by
+  intro i
+  unfold sqD2
+  exact sqNext_le_lo (loOf i) (d1 i) (lo_pos i) (d1_le_lo i)
+
+private theorem sqD3_le_lo : ∀ i : Fin 256, sqD3 i ≤ loOf i := by
+  intro i
+  unfold sqD3
+  exact sqNext_le_lo (loOf i) (sqD2 i) (lo_pos i) (sqD2_le_lo i)
+
+private theorem sqD4_le_lo : ∀ i : Fin 256, sqD4 i ≤ loOf i := by
+  intro i
+  unfold sqD4
+  exact sqNext_le_lo (loOf i) (sqD3 i) (lo_pos i) (sqD3_le_lo i)
+
+private theorem sqD5_le_lo : ∀ i : Fin 256, sqD5 i ≤ loOf i := by
+  intro i
+  unfold sqD5
+  exact sqNext_le_lo (loOf i) (sqD4 i) (lo_pos i) (sqD4_le_lo i)
+
+private theorem sqD2_le_d2 : ∀ i : Fin 256, sqD2 i ≤ d2 i := by
+  intro i
+  simp [sqD2, d2, sqNext, nextD]
+
+private theorem sqD3_le_d3 : ∀ i : Fin 256, sqD3 i ≤ d3 i := by
+  intro i
+  have hmono : sqNext (loOf i) (sqD2 i) ≤ sqNext (loOf i) (d2 i) :=
+    sqNext_mono_right (loOf i) (sqD2 i) (d2 i) (sqD2_le_d2 i)
+  unfold sqD3 d3 nextD
+  exact Nat.le_trans hmono (Nat.le_succ _)
+
+private theorem sqD4_le_d4 : ∀ i : Fin 256, sqD4 i ≤ d4 i := by
+  intro i
+  have hmono : sqNext (loOf i) (sqD3 i) ≤ sqNext (loOf i) (d3 i) :=
+    sqNext_mono_right (loOf i) (sqD3 i) (d3 i) (sqD3_le_d3 i)
+  unfold sqD4 d4 nextD
+  exact Nat.le_trans hmono (Nat.le_succ _)
+
+private theorem sqD5_le_d5 : ∀ i : Fin 256, sqD5 i ≤ d5 i := by
+  intro i
+  have hmono : sqNext (loOf i) (sqD4 i) ≤ sqNext (loOf i) (d4 i) :=
+    sqNext_mono_right (loOf i) (sqD4 i) (d4 i) (sqD4_le_d4 i)
+  unfold sqD5 d5 nextD
+  exact Nat.le_trans hmono (Nat.le_succ _)
+
+private theorem sqD6_eq_zero : ∀ i : Fin 256, sqD6 i = 0 := by
+  intro i
+  have hsqLe : sqD6 i ≤ sqNext (loOf i) (d5 i) := by
+    unfold sqD6
+    exact sqNext_mono_right (loOf i) (sqD5 i) (d5 i) (sqD5_le_d5 i)
+  have hd6le : d6 i ≤ 1 := d6_le_one i
+  have hd6ge : 1 ≤ d6 i := by
+    unfold d6 nextD
+    exact Nat.succ_le_succ (Nat.zero_le _)
+  have hd6eq : d6 i = 1 := Nat.le_antisymm hd6le hd6ge
+  have hsq0 : sqNext (loOf i) (d5 i) = 0 := by
+    have hq : sqNext (loOf i) (d5 i) + 1 = d6 i := by
+      simp [sqNext, d6, nextD]
+    omega
+  have hsqD6le0 : sqD6 i ≤ 0 := Nat.le_trans hsqLe (by simp [hsq0])
+  exact Nat.eq_zero_of_le_zero hsqD6le0
+
+private theorem innerSqrt_eq_natSqrt_of_square
+    (x : Nat)
+    (hx256 : x < 2 ^ 256)
+    (hsq : natSqrt x * natSqrt x = x) :
+    innerSqrt x = natSqrt x := by
+  by_cases hx0 : x = 0
+  · subst hx0
+    simp [innerSqrt, natSqrt]
+  · have hx : 0 < x := Nat.pos_of_ne_zero hx0
+    let m := natSqrt x
+    have hmSq : m * m = x := by simpa [m] using hsq
+    have hmlo : m * m ≤ x := by simp [m, hmSq]
+    have hmhi : x < (m + 1) * (m + 1) := by simpa [m] using natSqrt_lt_succ_sq x
+    have hm : 0 < m := by
+      by_cases hm0 : m = 0
+      · have hx0' : x = 0 := by simpa [m, hm0] using hmSq.symm
+        exact False.elim (hx0 hx0')
+      · exact Nat.pos_of_ne_zero hm0
+    let i : Fin 256 := ⟨Nat.log2 x, (Nat.log2_lt (Nat.ne_of_gt hx)).2 (by simpa [WORD_MOD] using hx256)⟩
+    have hOct : 2 ^ i.val ≤ x ∧ x < 2 ^ (i.val + 1) := by
+      have hlog : 2 ^ Nat.log2 x ≤ x ∧ x < 2 ^ (Nat.log2 x + 1) :=
+        (Nat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
+      simpa [i]
+    have hseed : sqrtSeed x = seedOf i := sqrtSeed_eq_seedOf_of_octave i x hOct
+    let z0 := seedOf i
+    let z1 := bstep x z0
+    let z2 := bstep x z1
+    let z3 := bstep x z2
+    let z4 := bstep x z3
+    let z5 := bstep x z4
+    let z6 := bstep x z5
+    have hsPos : 0 < z0 := by
+      dsimp [z0]
+      have hpow : 0 < (2 : Nat) ^ ((i.val + 1) / 2) := Nat.pow_pos (by decide : 0 < (2 : Nat))
+      simpa [seedOf, Nat.shiftLeft_eq, Nat.one_mul] using hpow
+    have hmz1 : m ≤ z1 := by
+      dsimp [z1, z0]
+      exact babylon_step_floor_bound x (seedOf i) m hsPos hmlo
+    have hz1Pos : 0 < z1 := Nat.lt_of_lt_of_le hm hmz1
+    have hmz2 : m ≤ z2 := by
+      dsimp [z2]
+      exact babylon_step_floor_bound x z1 m hz1Pos hmlo
+    have hz2Pos : 0 < z2 := Nat.lt_of_lt_of_le hm hmz2
+    have hmz3 : m ≤ z3 := by
+      dsimp [z3]
+      exact babylon_step_floor_bound x z2 m hz2Pos hmlo
+    have hz3Pos : 0 < z3 := Nat.lt_of_lt_of_le hm hmz3
+    have hmz4 : m ≤ z4 := by
+      dsimp [z4]
+      exact babylon_step_floor_bound x z3 m hz3Pos hmlo
+    have hz4Pos : 0 < z4 := Nat.lt_of_lt_of_le hm hmz4
+    have hmz5 : m ≤ z5 := by
+      dsimp [z5]
+      exact babylon_step_floor_bound x z4 m hz4Pos hmlo
+    have hz5Pos : 0 < z5 := Nat.lt_of_lt_of_le hm hmz5
+    have hmz6 : m ≤ z6 := by
+      dsimp [z6]
+      exact babylon_step_floor_bound x z5 m hz5Pos hmlo
+    have hinterval : loOf i ≤ m ∧ m ≤ hiOf i := m_within_cert_interval i x m hmlo hmhi hOct
+    have hrun5 := run5_error_bounds i x m hm hmlo hmhi hinterval.1 hinterval.2
+    have hd1 : z1 - m ≤ d1 i := by simpa [z1, z2, z3, z4, z5] using hrun5.1
+    have hd2 : z2 - m ≤ sqD2 i := by
+      have h := step_from_bound_square m (loOf i) z1 (d1 i) hm (lo_pos i) hinterval.1 hmz1 hd1 (d1_le_lo i)
+      simpa [z2, hmSq, sqD2, sqNext] using h
+    have hd3 : z3 - m ≤ sqD3 i := by
+      have h := step_from_bound_square m (loOf i) z2 (sqD2 i) hm (lo_pos i) hinterval.1 hmz2 hd2 (sqD2_le_lo i)
+      simpa [z3, hmSq, sqD3, sqNext] using h
+    have hd4 : z4 - m ≤ sqD4 i := by
+      have h := step_from_bound_square m (loOf i) z3 (sqD3 i) hm (lo_pos i) hinterval.1 hmz3 hd3 (sqD3_le_lo i)
+      simpa [z4, hmSq, sqD4, sqNext] using h
+    have hd5 : z5 - m ≤ sqD5 i := by
+      have h := step_from_bound_square m (loOf i) z4 (sqD4 i) hm (lo_pos i) hinterval.1 hmz4 hd4 (sqD4_le_lo i)
+      simpa [z5, hmSq, sqD5, sqNext] using h
+    have hd6 : z6 - m ≤ sqD6 i := by
+      have h := step_from_bound_square m (loOf i) z5 (sqD5 i) hm (lo_pos i) hinterval.1 hmz5 hd5 (sqD5_le_lo i)
+      simpa [z6, hmSq, sqD6, sqNext] using h
+    have hz6le : z6 ≤ m := by
+      have h0 : z6 - m = 0 := by
+        have h0le : z6 - m ≤ 0 := by simpa [sqD6_eq_zero i] using hd6
+        exact Nat.eq_zero_of_le_zero h0le
+      exact (Nat.sub_eq_zero_iff_le).1 h0
+    have hz6eq : z6 = m := Nat.le_antisymm hz6le hmz6
+    have hrun : innerSqrt x = run6From x (seedOf i) := by
+      calc
+        innerSqrt x = run6From x (sqrtSeed x) := innerSqrt_eq_run6From x hx
+        _ = run6From x (seedOf i) := by simp [hseed]
+    have hrun6 : run6From x (seedOf i) = z6 := by
+      unfold run6From
+      simp [z1, z2, z3, z4, z5, z6, z0, SqrtBridge.bstep, bstep]
+    calc
+      innerSqrt x = run6From x (seedOf i) := hrun
+      _ = z6 := hrun6
+      _ = m := hz6eq
+      _ = natSqrt x := by rfl
+
+private theorem minimal_of_pred_lt
+    (x r : Nat)
+    (hpred : r = 0 ∨ (r - 1) * (r - 1) < x) :
+    ∀ y, x ≤ y * y → r ≤ y := by
+  intro y hy
+  by_cases hry : r ≤ y
+  · exact hry
+  · have hylt : y < r := Nat.lt_of_not_ge hry
+    cases hpred with
+    | inl hr0 =>
+        exact False.elim ((Nat.not_lt_of_ge hylt) (by simp [hr0]))
+    | inr hpredlt =>
+        have hyle : y ≤ r - 1 := by omega
+        have hysq : y * y ≤ (r - 1) * (r - 1) := Nat.mul_le_mul hyle hyle
+        have hcontra : x ≤ (r - 1) * (r - 1) := Nat.le_trans hy hysq
+        exact False.elim ((Nat.not_lt_of_ge hcontra) hpredlt)
+
+theorem model_sqrt_up_evm_ceil_u256
+    (x : Nat)
+    (hx256 : x < 2 ^ 256) :
+    let r := model_sqrt_up_evm x
+    x ≤ r * r ∧ ∀ y, x ≤ y * y → r ≤ y := by
+  have hUp : model_sqrt_up_evm x = sqrtUpSpec x := model_sqrt_up_evm_eq_sqrtUpSpec x hx256
+  rw [hUp]
+  unfold sqrtUpSpec
+  let m := natSqrt x
+  have hmlo : m * m ≤ x := by simpa [m] using natSqrt_sq_le x
+  have hmhi : x < (m + 1) * (m + 1) := by simpa [m] using natSqrt_lt_succ_sq x
+  have hbr : m ≤ innerSqrt x ∧ innerSqrt x ≤ m + 1 := by
+    simpa [m] using innerSqrt_bracket_u256_all x hx256
+  by_cases hlt : innerSqrt x * innerSqrt x < x
+  · have hinter : innerSqrt x = m := by
+      have hneq : innerSqrt x ≠ m + 1 := by
+        intro hce
+        have hbad : (m + 1) * (m + 1) < x := by simpa [hce] using hlt
+        exact False.elim ((Nat.not_lt_of_ge (Nat.le_of_lt hmhi)) hbad)
+      omega
+    simp [hlt]
+    constructor
+    · have hupper : x ≤ (m + 1) * (m + 1) := Nat.le_of_lt hmhi
+      simpa [hinter]
+    · exact minimal_of_pred_lt x (innerSqrt x + 1) (Or.inr (by simpa using hlt))
+  · simp [hlt]
+    constructor
+    · exact Nat.le_of_not_gt hlt
+    · have hpred :
+          innerSqrt x = 0 ∨ (innerSqrt x - 1) * (innerSqrt x - 1) < x := by
+        have hsqCases : m * m < x ∨ m * m = x := Nat.lt_or_eq_of_le hmlo
+        cases hsqCases with
+        | inl hsqLt =>
+            have hle : innerSqrt x - 1 ≤ m := by omega
+            have hsqle : (innerSqrt x - 1) * (innerSqrt x - 1) ≤ m * m := Nat.mul_le_mul hle hle
+            right
+            exact Nat.lt_of_le_of_lt hsqle hsqLt
+        | inr hsqEq =>
+            have hinnerEq : innerSqrt x = m := by
+              have hsqNat : natSqrt x * natSqrt x = x := by simpa [m] using hsqEq
+              simpa [m] using innerSqrt_eq_natSqrt_of_square x hx256 hsqNat
+            by_cases hm0 : m = 0
+            · left
+              simp [hinnerEq, hm0]
+            · right
+              have hmPos : 0 < m := Nat.pos_of_ne_zero hm0
+              have hpredm : (m - 1) * (m - 1) < x := by
+                have hsubLt : m - 1 < m := by
+                  simpa [Nat.pred_eq_sub_one] using Nat.pred_lt (Nat.ne_of_gt hmPos)
+                have hle : (m - 1) * (m - 1) ≤ (m - 1) * m :=
+                  Nat.mul_le_mul_left (m - 1) (Nat.sub_le _ _)
+                have hlt : (m - 1) * m < m * m := Nat.mul_lt_mul_of_pos_right hsubLt hmPos
+                have hltm : (m - 1) * (m - 1) < m * m := Nat.lt_of_le_of_lt hle hlt
+                simpa [hsqEq] using hltm
+              simpa [hinnerEq] using hpredm
+      exact minimal_of_pred_lt x (innerSqrt x) hpred
+
 end SqrtGeneratedModel
