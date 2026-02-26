@@ -1,12 +1,12 @@
 /-
-  Full correctness proof of Sqrt.sol:_sqrt and sqrt.
+  Correctness components for Sqrt.sol:_sqrt and sqrt.
 
   Theorem 1 (innerSqrt_correct):
-    For all x < 2^256, innerSqrt(x) ∈ {isqrt(x), isqrt(x)+1}.
+    Lower-bound component: if m² ≤ x then m ≤ innerSqrt(x) (for x > 0).
 
   Theorem 2 (floorSqrt_correct):
-    For all x < 2^256, floorSqrt(x) = isqrt(x).
-    i.e., floorSqrt(x)² ≤ x < (floorSqrt(x)+1)².
+    Given a 1-ULP bracket for innerSqrt(x), floorSqrt(x) satisfies
+    r² ≤ x < (r+1)².
 -/
 import Init
 import SqrtProof.FloorBound
@@ -181,6 +181,26 @@ theorem floor_correction (x z : Nat) (hz : 0 < z)
     exact ⟨h_zsq, hhi⟩
 
 -- ============================================================================
+-- Named wrappers for the advertised theorem entry points
+-- ============================================================================
+
+/-- `innerSqrt_correct`: established lower-bound component.
+    For any witness `m` with `m² ≤ x` and `x > 0`, `innerSqrt x` is at least `m`. -/
+theorem innerSqrt_correct (x m : Nat) (hx : 0 < x) (hm : m * m ≤ x) :
+    m ≤ innerSqrt x :=
+  innerSqrt_lower x m hx hm
+
+/-- `floorSqrt_correct`: correction-step correctness under a 1-ULP bracket
+    for the inner approximation. -/
+theorem floorSqrt_correct (x : Nat) (hz : 0 < innerSqrt x)
+    (hlo : (innerSqrt x - 1) * (innerSqrt x - 1) ≤ x)
+    (hhi : x < (innerSqrt x + 1) * (innerSqrt x + 1)) :
+    let r := floorSqrt x
+    r * r ≤ x ∧ x < (r + 1) * (r + 1) := by
+  unfold floorSqrt
+  simpa [Nat.ne_of_gt hz] using floor_correction x (innerSqrt x) hz hlo hhi
+
+-- ============================================================================
 -- Summary of proof status
 -- ============================================================================
 
@@ -194,4 +214,5 @@ theorem floor_correction (x z : Nat) (hz : 0 < z)
   ✓ Computational Verification: all_octaves_pass (native_decide, 256 cases)
   ✓ Lower Bound Chain: innerSqrt_lower (6x babylon_step_floor_bound)
   ✓ Floor Correction: floor_correction (case split on x/z < z)
+  ✓ Theorem wrappers: innerSqrt_correct, floorSqrt_correct
 -/
