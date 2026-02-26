@@ -1,0 +1,10 @@
+name = "CbrtProof"
+version = "0.1.0"
+defaultTargets = ["cbrtproof"]
+
+[[lean_lib]]
+name = "CbrtProof"
+
+[[lean_exe]]
+name = "cbrtproof"
+root = "Main"
