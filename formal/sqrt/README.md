@@ -18,7 +18,7 @@ CertifiedChain  -> lifts certificate to a 6-step runtime bound
 SqrtCorrect     -> EVM-style definitions + octave wiring + final theorems
 ```
 
-`Main.lean` links the full theorem surface and exposes executable theorem anchors.
+`SqrtProof.lean` is the library root that imports the full proof surface.
 
 ## Key ideas
 
@@ -39,5 +39,4 @@ The `if x / z < z then z - 1 else z` branch converts the 1-ULP bracket into exac
 ```bash
 cd formal/sqrt/SqrtProof
 lake build
-lake exe sqrtproof
 ```

@@ -1,10 +1,6 @@
 name = "SqrtProof"
 version = "0.1.0"
-defaultTargets = ["sqrtproof"]
+defaultTargets = ["SqrtProof"]
 
 [[lean_lib]]
 name = "SqrtProof"
-
-[[lean_exe]]
-name = "sqrtproof"
-root = "Main"
