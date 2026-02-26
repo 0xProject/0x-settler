@@ -11,9 +11,9 @@ library Cbrt {
             // Initial guess z ≈ ∛(3/4) · 2𐞥 where q = ⌊(257 − clz(x)) / 3⌋. The multiplier 0xe9/256
             // ≈ 0.910 ≈ ∛(3/4) balances the worst-case over/underestimate across each octave
             // triplet (ε_over ≈ 0.445, ε_under ≈ −0.278), giving >85 bits of precision after 6 N-R
-            // iterations. The `lt(0x00, z)` term ensures z ≥ 1 when x > 0 (the `shr` can produce 0
+            // iterations. The `lt(0x00, x)` term ensures z ≥ 1 when x > 0 (the `shr` can produce 0
             // for small `q`)
-            z := add(shr(8, shl(div(sub(257, clz(x)), 3), 0xe9)), lt(0x00, z))
+            z := add(shr(8, shl(div(sub(257, clz(x)), 3), 0xe9)), lt(0x00, x))
             // Newton-Raphson's.
             z := div(add(add(div(x, mul(z, z)), z), z), 3)
             z := div(add(add(div(x, mul(z, z)), z), z), 3)
