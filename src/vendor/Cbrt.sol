@@ -14,7 +14,8 @@ library Cbrt {
             // iterations. The `lt(0x00, x)` term ensures z ≥ 1 when x > 0 (the `shr` can produce 0
             // for small `q`)
             z := add(shr(8, shl(div(sub(257, clz(x)), 3), 0xe9)), lt(0x00, x))
-            // Newton-Raphson's.
+
+            // 6 Newton-Raphson iterations
             z := div(add(add(div(x, mul(z, z)), z), z), 3)
             z := div(add(add(div(x, mul(z, z)), z), z), 3)
             z := div(add(add(div(x, mul(z, z)), z), z), 3)
