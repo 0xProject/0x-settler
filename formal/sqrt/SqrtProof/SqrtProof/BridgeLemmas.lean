@@ -106,7 +106,7 @@ theorem step_error_bound
     rw [hsum2, Nat.add_mul_div_right (d * d) 1 (by omega : 0 < 2 * m)]
   have hbound : (m + d + x / (m + d)) / 2 - m ≤ ((d * d + 2 * m) / m) / 2 :=
     Nat.le_trans hsub hhalf2
-  exact Nat.le_trans hbound (by simpa [hmain])
+  exact Nat.le_trans hbound (by simp [hmain])
 
 /-- Upper bound for the first post-seed error `d₁ = bstep x s - m`, using only
     `m ∈ [lo, hi]` and the interval constraint `m² ≤ x < (m+1)²`. -/
@@ -175,4 +175,3 @@ theorem d1_bound
     exact (Nat.le_div_iff_mul_le hs2).2 (by simpa [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm] using hfin)
 
 end SqrtBridge
-

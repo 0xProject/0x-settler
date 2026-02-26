@@ -54,7 +54,7 @@ theorem sum_nondec_step (x z : Nat) (hz : 0 < z) (hov : x < z * z) :
 -- Step monotonicity
 -- ============================================================================
 
-theorem babylonStep_mono_x {x₁ x₂ z : Nat} (hx : x₁ ≤ x₂) (hz : 0 < z) :
+theorem babylonStep_mono_x {x₁ x₂ z : Nat} (hx : x₁ ≤ x₂) (_hz : 0 < z) :
     babylonStep x₁ z ≤ babylonStep x₂ z := by
   unfold babylonStep
   have : x₁ / z ≤ x₂ / z := Nat.div_le_div_right hx; omega
@@ -76,7 +76,7 @@ theorem babylonStep_mono_z (x z₁ z₂ : Nat) (hz : 0 < z₁)
     · have h_eq : z₁ = n + 1 := by omega
       subst h_eq; omega
 
-theorem babylonStep_lt_of_overestimate (x z : Nat) (hz : 0 < z) (hov : x < z * z) :
+theorem babylonStep_lt_of_overestimate (x z : Nat) (_hz : 0 < z) (hov : x < z * z) :
     babylonStep x z < z := by
   unfold babylonStep
   have : x / z < z := Nat.div_lt_of_lt_mul hov; omega
