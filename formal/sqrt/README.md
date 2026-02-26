@@ -4,11 +4,15 @@ Machine-checked proof that `Sqrt.sol:_sqrt` converges to within 1 ULP of the tru
 
 ## What is proved
 
-For all `x < 2^256`:
+For `x > 0`, octave index `i : Fin 256`, and witness `m` with:
 
-1. **`_sqrt(x)` returns `isqrt(x)` or `isqrt(x) + 1`** (the inner Newton-Raphson loop converges after 6 iterations from the alternating-endpoint seed).
+- `2^i ≤ x < 2^(i+1)`
+- `m^2 ≤ x < (m+1)^2`
 
-2. **`sqrt(x)` returns exactly `isqrt(x)`** (the correction `z := sub(z, lt(div(x, z), z))` is correct).
+the Lean development proves:
+
+1. **`innerSqrt x` is within 1 ULP of `m`** (`m ≤ innerSqrt x ≤ m+1`), via `innerSqrt_bracket_of_octave`.
+2. **`floorSqrt x` satisfies the integer-sqrt spec** (`r^2 ≤ x < (r+1)^2`), via `floorSqrt_correct_of_octave`.
 
 "Proved" means: Lean 4 type-checks the theorems with zero `sorry` and no axioms beyond the Lean kernel.
 
@@ -19,7 +23,13 @@ FloorBound.lean          Lemma 1 (floor bound) + Lemma 2 (absorbing set)
     |
 StepMono.lean            Step monotonicity for overestimates
     |
-SqrtCorrect.lean         Definitions, computational verification, main theorems
+BridgeLemmas.lean        One-step error recurrence bridge
+    |
+FiniteCert.lean          256-case finite certificate (native_decide)
+    |
+CertifiedChain.lean      6-step certified error chain
+    |
+SqrtCorrect.lean         Definitions + octave wiring + end-to-end theorems
 ```
 
 ### Lemma 1 -- Floor Bound (`babylon_step_floor_bound`)
@@ -38,11 +48,19 @@ A single truncated Babylonian step never undershoots `isqrt(x)`. Proved algebrai
 
 This justifies the "max-propagation" upper-bound strategy: computing 6 steps at `x_max = 2^(n+1) - 1` gives a valid upper bound on `_sqrt(x)` for all `x` in the octave.
 
-### Computational Verification (`all_octaves_pass`)
+### Finite Certificate Layer (`FiniteCert`, `CertifiedChain`)
 
-> For each of the 256 octaves (bit-widths 1-256), the max-propagation result satisfies `(z-1)^2 <= x_max`.
+`FiniteCert.lean` contains precomputed `(lo, hi)` octave bounds and the recurrence constants
+`d1..d6`. `native_decide` proves the full 256-case certificate:
 
-Proved by `native_decide`, which compiles the 256-case check to GMP-backed native code. This is the convergence proof: it shows 6 iterations suffice for all uint256 inputs.
+- `d1 ≤ lo`
+- `d2 ≤ lo`
+- `d3 ≤ lo`
+- `d4 ≤ lo`
+- `d5 ≤ lo`
+- `d6 ≤ 1`
+
+`CertifiedChain.lean` then lifts this finite certificate to runtime variables (`x`, `m`) and proves `run6From x seed ≤ m + 1` under the octave assumptions.
 
 ### Floor Correction (`floor_correction`)
 
@@ -77,5 +95,8 @@ python3 verify_sqrt.py
 |------|-------|-------------|
 | `SqrtProof/FloorBound.lean` | 136 | Lemma 1 (floor bound) + Lemma 2 (absorbing set) |
 | `SqrtProof/StepMono.lean` | 82 | Step monotonicity for overestimates |
-| `SqrtProof/SqrtCorrect.lean` | 200 | Definitions, `native_decide` verification, main theorems |
-| `verify_sqrt.py` | 250 | Python prototype of convergence analysis |
+| `SqrtProof/BridgeLemmas.lean` | 178 | Bridge lemmas for one-step error contraction |
+| `SqrtProof/FiniteCert.lean` | 618 | 256-case finite certificate tables + `native_decide` proofs |
+| `SqrtProof/CertifiedChain.lean` | 133 | Multi-step certified chain (`run6_le_m_plus_one`) |
+| `SqrtProof/SqrtCorrect.lean` | 379 | Definitions, octave wiring, theorem wrappers |
+| `verify_sqrt.py` | 396 | Python prototype of convergence analysis |

@@ -11,6 +11,7 @@
 import Init
 import SqrtProof.FloorBound
 import SqrtProof.StepMono
+import SqrtProof.CertifiedChain
 
 -- ============================================================================
 -- Part 1: Definitions matching Sqrt.sol EVM semantics
@@ -43,7 +44,7 @@ def innerSqrt (x : Nat) : Nat :=
     Matches: z := sub(z, lt(div(x, z), z)) -/
 def floorSqrt (x : Nat) : Nat :=
   let z := innerSqrt x
-  if h : z = 0 then 0
+  if z = 0 then 0
   else if x / z < z then z - 1 else z
 
 -- ============================================================================
@@ -127,9 +128,6 @@ theorem bstep_pos (x z : Nat) (hx : 0 < x) (hz : 0 < z) : 0 < bstep x z := by
 -- Part 4: Main theorems
 -- ============================================================================
 
--- For now, state the key results. The full formal connection between
--- maxProp and innerSqrt requires the step monotonicity chain.
-
 /-- innerSqrt gives a lower bound: for any m with m² ≤ x, m ≤ innerSqrt(x).
     This follows from 6 applications of babylon_step_floor_bound. -/
 theorem innerSqrt_lower (x m : Nat) (hx : 0 < x)
@@ -150,6 +148,119 @@ theorem innerSqrt_lower (x m : Nat) (hx : 0 < x)
   have h5 := bstep_pos x _ hx h4
   -- Apply floor bound at the last step (z₅ is positive by h5)
   exact babylon_step_floor_bound x _ m h5 hm
+
+/-- Unfolding identity: `innerSqrt` is six steps starting from `sqrtSeed`. -/
+theorem innerSqrt_eq_run6From (x : Nat) (hx : 0 < x) :
+    innerSqrt x = SqrtCertified.run6From x (sqrtSeed x) := by
+  unfold innerSqrt SqrtCertified.run6From
+  simp [Nat.ne_of_gt hx, bstep, SqrtBridge.bstep]
+
+/-- Finite-certificate upper bound: if `m` is bracketed by the octave certificate,
+    then six steps from the actual seed satisfy `innerSqrt x ≤ m + 1`. -/
+theorem innerSqrt_upper_cert
+    (i : Fin 256) (x m : Nat)
+    (hx : 0 < x)
+    (hm : 0 < m)
+    (hmlo : m * m ≤ x)
+    (hmhi : x < (m + 1) * (m + 1))
+    (hseed : sqrtSeed x = SqrtCert.seedOf i)
+    (hlo : SqrtCert.loOf i ≤ m)
+    (hhi : m ≤ SqrtCert.hiOf i) :
+    innerSqrt x ≤ m + 1 := by
+  have hrun : SqrtCertified.run6From x (SqrtCert.seedOf i) ≤ m + 1 :=
+    SqrtCertified.run6_le_m_plus_one i x m hm hmlo hmhi hlo hhi
+  calc
+    innerSqrt x = SqrtCertified.run6From x (sqrtSeed x) := innerSqrt_eq_run6From x hx
+    _ = SqrtCertified.run6From x (SqrtCert.seedOf i) := by simp [hseed]
+    _ ≤ m + 1 := hrun
+
+/-- Certificate-backed 1-ULP bracket for `innerSqrt`. -/
+theorem innerSqrt_bracket_cert
+    (i : Fin 256) (x m : Nat)
+    (hx : 0 < x)
+    (hm : 0 < m)
+    (hmlo : m * m ≤ x)
+    (hmhi : x < (m + 1) * (m + 1))
+    (hseed : sqrtSeed x = SqrtCert.seedOf i)
+    (hlo : SqrtCert.loOf i ≤ m)
+    (hhi : m ≤ SqrtCert.hiOf i) :
+    m ≤ innerSqrt x ∧ innerSqrt x ≤ m + 1 := by
+  exact ⟨innerSqrt_lower x m hx hmlo, innerSqrt_upper_cert i x m hx hm hmlo hmhi hseed hlo hhi⟩
+
+/-- `sqrtSeed` agrees with the finite-certificate seed on octave `i`. -/
+theorem sqrtSeed_eq_seedOf_of_octave
+    (i : Fin 256) (x : Nat)
+    (hOct : 2 ^ i.val ≤ x ∧ x < 2 ^ (i.val + 1)) :
+    sqrtSeed x = SqrtCert.seedOf i := by
+  have hx : 0 < x := Nat.lt_of_lt_of_le (Nat.two_pow_pos i.val) hOct.1
+  have hx0 : x ≠ 0 := Nat.ne_of_gt hx
+  have hlog : Nat.log2 x = i.val := (Nat.log2_eq_iff hx0).2 hOct
+  unfold sqrtSeed SqrtCert.seedOf
+  simp [Nat.ne_of_gt hx, hlog]
+
+/-- From the certified octave endpoints and `m² ≤ x < (m+1)²`,
+    derive `m ∈ [loOf i, hiOf i]`. -/
+theorem m_within_cert_interval
+    (i : Fin 256) (x m : Nat)
+    (hmlo : m * m ≤ x)
+    (hmhi : x < (m + 1) * (m + 1))
+    (hOct : 2 ^ i.val ≤ x ∧ x < 2 ^ (i.val + 1)) :
+    SqrtCert.loOf i ≤ m ∧ m ≤ SqrtCert.hiOf i := by
+  have hloSq : SqrtCert.loOf i * SqrtCert.loOf i ≤ 2 ^ i.val := SqrtCert.lo_sq_le_pow2 i
+  have hloSqX : SqrtCert.loOf i * SqrtCert.loOf i ≤ x := Nat.le_trans hloSq hOct.1
+  have hlo : SqrtCert.loOf i ≤ m := by
+    by_cases h : SqrtCert.loOf i ≤ m
+    · exact h
+    · have hlt : m < SqrtCert.loOf i := Nat.lt_of_not_ge h
+      have hm1 : m + 1 ≤ SqrtCert.loOf i := Nat.succ_le_of_lt hlt
+      have hm1sq : (m + 1) * (m + 1) ≤ SqrtCert.loOf i * SqrtCert.loOf i :=
+        Nat.mul_le_mul hm1 hm1
+      have hm1x : (m + 1) * (m + 1) ≤ x := Nat.le_trans hm1sq hloSqX
+      exact False.elim ((Nat.not_lt_of_ge hm1x) hmhi)
+  have hhiSq : 2 ^ (i.val + 1) ≤ (SqrtCert.hiOf i + 1) * (SqrtCert.hiOf i + 1) :=
+    SqrtCert.pow2_succ_le_hi_succ_sq i
+  have hXHi : x < (SqrtCert.hiOf i + 1) * (SqrtCert.hiOf i + 1) :=
+    Nat.lt_of_lt_of_le hOct.2 hhiSq
+  have hhi : m ≤ SqrtCert.hiOf i := by
+    by_cases h : m ≤ SqrtCert.hiOf i
+    · exact h
+    · have hlt : SqrtCert.hiOf i < m := Nat.lt_of_not_ge h
+      have hhi1 : SqrtCert.hiOf i + 1 ≤ m := Nat.succ_le_of_lt hlt
+      have hhimsq : (SqrtCert.hiOf i + 1) * (SqrtCert.hiOf i + 1) ≤ m * m :=
+        Nat.mul_le_mul hhi1 hhi1
+      have hXmm : x < m * m := Nat.lt_of_lt_of_le hXHi hhimsq
+      exact False.elim ((Nat.not_lt_of_ge hmlo) hXmm)
+  exact ⟨hlo, hhi⟩
+
+/-- Certificate-backed upper bound under octave membership. -/
+theorem innerSqrt_upper_of_octave
+    (i : Fin 256) (x m : Nat)
+    (hmlo : m * m ≤ x)
+    (hmhi : x < (m + 1) * (m + 1))
+    (hOct : 2 ^ i.val ≤ x ∧ x < 2 ^ (i.val + 1)) :
+    innerSqrt x ≤ m + 1 := by
+  have hx : 0 < x := Nat.lt_of_lt_of_le (Nat.two_pow_pos i.val) hOct.1
+  have hm : 0 < m := by
+    by_cases hm0 : m = 0
+    · subst hm0
+      have hx1 : 1 ≤ x := Nat.succ_le_of_lt hx
+      have hlt1 : x < 1 := by simpa using hmhi
+      exact False.elim ((Nat.not_lt_of_ge hx1) hlt1)
+    · exact Nat.pos_of_ne_zero hm0
+  have hseed : sqrtSeed x = SqrtCert.seedOf i := sqrtSeed_eq_seedOf_of_octave i x hOct
+  have hinterval : SqrtCert.loOf i ≤ m ∧ m ≤ SqrtCert.hiOf i :=
+    m_within_cert_interval i x m hmlo hmhi hOct
+  exact innerSqrt_upper_cert i x m hx hm hmlo hmhi hseed hinterval.1 hinterval.2
+
+/-- Certificate-backed 1-ULP bracket under octave membership. -/
+theorem innerSqrt_bracket_of_octave
+    (i : Fin 256) (x m : Nat)
+    (hmlo : m * m ≤ x)
+    (hmhi : x < (m + 1) * (m + 1))
+    (hOct : 2 ^ i.val ≤ x ∧ x < 2 ^ (i.val + 1)) :
+    m ≤ innerSqrt x ∧ innerSqrt x ≤ m + 1 := by
+  have hx : 0 < x := Nat.lt_of_lt_of_le (Nat.two_pow_pos i.val) hOct.1
+  exact ⟨innerSqrt_lower x m hx hmlo, innerSqrt_upper_of_octave i x m hmlo hmhi hOct⟩
 
 /-- The floor correction is correct.
     Given z > 0, (z-1)² ≤ x < (z+1)², the correction gives isqrt(x). -/
@@ -200,6 +311,54 @@ theorem floorSqrt_correct (x : Nat) (hz : 0 < innerSqrt x)
   unfold floorSqrt
   simpa [Nat.ne_of_gt hz] using floor_correction x (innerSqrt x) hz hlo hhi
 
+/-- End-to-end correction theorem from the finite certificate assumptions. -/
+theorem floorSqrt_correct_cert
+    (i : Fin 256) (x m : Nat)
+    (hx : 0 < x)
+    (hm : 0 < m)
+    (hmlo : m * m ≤ x)
+    (hmhi : x < (m + 1) * (m + 1))
+    (hseed : sqrtSeed x = SqrtCert.seedOf i)
+    (hlo : SqrtCert.loOf i ≤ m)
+    (hhi : m ≤ SqrtCert.hiOf i) :
+    let r := floorSqrt x
+    r * r ≤ x ∧ x < (r + 1) * (r + 1) := by
+  have hlow : m ≤ innerSqrt x := innerSqrt_lower x m hx hmlo
+  have hupp : innerSqrt x ≤ m + 1 := innerSqrt_upper_cert i x m hx hm hmlo hmhi hseed hlo hhi
+  have hz : 0 < innerSqrt x := Nat.lt_of_lt_of_le hm hlow
+  have hlo' : (innerSqrt x - 1) * (innerSqrt x - 1) ≤ x := by
+    have hz1 : innerSqrt x - 1 ≤ m := by omega
+    have hsq : (innerSqrt x - 1) * (innerSqrt x - 1) ≤ m * m := Nat.mul_le_mul hz1 hz1
+    exact Nat.le_trans hsq hmlo
+  have hhi' : x < (innerSqrt x + 1) * (innerSqrt x + 1) := by
+    have hm1 : m + 1 ≤ innerSqrt x + 1 := by omega
+    have hsq : (m + 1) * (m + 1) ≤ (innerSqrt x + 1) * (innerSqrt x + 1) :=
+      Nat.mul_le_mul hm1 hm1
+    exact Nat.lt_of_lt_of_le hmhi hsq
+  exact floorSqrt_correct x hz hlo' hhi'
+
+/-- End-to-end correctness under octave membership plus the witness
+    `m² ≤ x < (m+1)²` (so `m` is the integer square root witness). -/
+theorem floorSqrt_correct_of_octave
+    (i : Fin 256) (x m : Nat)
+    (hmlo : m * m ≤ x)
+    (hmhi : x < (m + 1) * (m + 1))
+    (hOct : 2 ^ i.val ≤ x ∧ x < 2 ^ (i.val + 1)) :
+    let r := floorSqrt x
+    r * r ≤ x ∧ x < (r + 1) * (r + 1) := by
+  have hx : 0 < x := Nat.lt_of_lt_of_le (Nat.two_pow_pos i.val) hOct.1
+  have hm : 0 < m := by
+    by_cases hm0 : m = 0
+    · subst hm0
+      have hx1 : 1 ≤ x := Nat.succ_le_of_lt hx
+      have hlt1 : x < 1 := by simpa using hmhi
+      exact False.elim ((Nat.not_lt_of_ge hx1) hlt1)
+    · exact Nat.pos_of_ne_zero hm0
+  have hseed : sqrtSeed x = SqrtCert.seedOf i := sqrtSeed_eq_seedOf_of_octave i x hOct
+  have hinterval : SqrtCert.loOf i ≤ m ∧ m ≤ SqrtCert.hiOf i :=
+    m_within_cert_interval i x m hmlo hmhi hOct
+  exact floorSqrt_correct_cert i x m hx hm hmlo hmhi hseed hinterval.1 hinterval.2
+
 -- ============================================================================
 -- Summary of proof status
 -- ============================================================================
@@ -213,6 +372,8 @@ theorem floorSqrt_correct (x : Nat) (hz : 0 < innerSqrt x)
   ✓ Overestimate Contraction: babylonStep_lt_of_overestimate
   ✓ Computational Verification: all_octaves_pass (native_decide, 256 cases)
   ✓ Lower Bound Chain: innerSqrt_lower (6x babylon_step_floor_bound)
+  ✓ Finite-Certificate Upper Bound: innerSqrt_upper_cert
   ✓ Floor Correction: floor_correction (case split on x/z < z)
-  ✓ Theorem wrappers: innerSqrt_correct, floorSqrt_correct
+  ✓ Octave Wiring: innerSqrt_upper_of_octave, floorSqrt_correct_of_octave
+  ✓ Theorem wrappers: innerSqrt_correct, floorSqrt_correct, floorSqrt_correct_cert
 -/
