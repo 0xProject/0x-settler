@@ -7,7 +7,7 @@ Machine-checked proofs of correctness for critical math libraries in 0x Settler.
 | Directory | Target | Status |
 |-----------|--------|--------|
 | `sqrt/` | `src/vendor/Sqrt.sol` | Complete -- convergence + correction proved in Lean 4 |
-| `cbrt/` | `src/vendor/Cbrt.sol` | In progress -- floor bound (cubic AM-GM) proved; convergence + correction TODO |
+| `cbrt/` | `src/vendor/Cbrt.sol` | Complete -- convergence + correction proved in Lean 4 |
 
 ## Approach
 
