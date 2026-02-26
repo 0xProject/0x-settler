@@ -124,6 +124,53 @@ theorem bstep_pos (x z : Nat) (hx : 0 < x) (hz : 0 < z) : 0 < bstep x z := by
     have : 0 < x / z := Nat.div_pos (by omega) hz
     omega
 
+/-- Canonical integer-square-root witness built by simple recursion.
+    This avoids additional dependencies while giving `m² ≤ x < (m+1)²`. -/
+def natSqrt : Nat → Nat
+  | 0 => 0
+  | n + 1 =>
+      let m := natSqrt n
+      if (m + 1) * (m + 1) ≤ n + 1 then m + 1 else m
+
+/-- Correctness spec for `natSqrt`. -/
+theorem natSqrt_spec (n : Nat) :
+    natSqrt n * natSqrt n ≤ n ∧ n < (natSqrt n + 1) * (natSqrt n + 1) := by
+  induction n with
+  | zero =>
+      simp [natSqrt]
+  | succ n ih =>
+      rcases ih with ⟨ihle, ihlt⟩
+      let m := natSqrt n
+      have ihle' : m * m ≤ n := by simpa [m] using ihle
+      have ihlt' : n < (m + 1) * (m + 1) := by simpa [m] using ihlt
+      by_cases hstep : (m + 1) * (m + 1) ≤ n + 1
+      · have hn1eq : n + 1 = (m + 1) * (m + 1) := by omega
+        have hm12 : m + 1 < m + 2 := by omega
+        have hleft : (m + 1) * (m + 1) < (m + 1) * (m + 2) :=
+          Nat.mul_lt_mul_of_pos_left hm12 (by omega : 0 < m + 1)
+        have hright : (m + 2) * (m + 1) < (m + 2) * (m + 2) :=
+          Nat.mul_lt_mul_of_pos_left hm12 (by omega : 0 < m + 2)
+        have hsq_lt : (m + 1) * (m + 1) < (m + 2) * (m + 2) := by
+          calc
+            (m + 1) * (m + 1) < (m + 1) * (m + 2) := hleft
+            _ = (m + 2) * (m + 1) := by rw [Nat.mul_comm]
+            _ < (m + 2) * (m + 2) := hright
+        constructor
+        · simp [natSqrt, m, hstep]
+        · have hlt2 : n + 1 < (m + 2) * (m + 2) := by simpa [hn1eq] using hsq_lt
+          simpa [natSqrt, m, hstep, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hlt2
+      · have hn1lt : n + 1 < (m + 1) * (m + 1) := Nat.lt_of_not_ge hstep
+        constructor
+        · have hmle : m * m ≤ n + 1 := Nat.le_trans ihle' (Nat.le_succ n)
+          simpa [natSqrt, m, hstep] using hmle
+        · simpa [natSqrt, m, hstep] using hn1lt
+
+theorem natSqrt_sq_le (n : Nat) : natSqrt n * natSqrt n ≤ n :=
+  (natSqrt_spec n).1
+
+theorem natSqrt_lt_succ_sq (n : Nat) : n < (natSqrt n + 1) * (natSqrt n + 1) :=
+  (natSqrt_spec n).2
+
 -- ============================================================================
 -- Part 4: Main theorems
 -- ============================================================================
@@ -359,6 +406,66 @@ theorem floorSqrt_correct_of_octave
     m_within_cert_interval i x m hmlo hmhi hOct
   exact floorSqrt_correct_cert i x m hx hm hmlo hmhi hseed hinterval.1 hinterval.2
 
+/-- Universal `_sqrt` bracket on uint256 domain:
+    choose `m = natSqrt x` and derive `m ≤ innerSqrt x ≤ m+1`. -/
+theorem innerSqrt_bracket_u256
+    (x : Nat)
+    (hx : 0 < x)
+    (hx256 : x < 2 ^ 256) :
+    let m := natSqrt x
+    m ≤ innerSqrt x ∧ innerSqrt x ≤ m + 1 := by
+  let i : Fin 256 := ⟨Nat.log2 x, (Nat.log2_lt (Nat.ne_of_gt hx)).2 hx256⟩
+  let m := natSqrt x
+  have hmlo : m * m ≤ x := by simpa [m] using natSqrt_sq_le x
+  have hmhi : x < (m + 1) * (m + 1) := by simpa [m] using natSqrt_lt_succ_sq x
+  have hOct : 2 ^ i.val ≤ x ∧ x < 2 ^ (i.val + 1) := by
+    have hlog : 2 ^ Nat.log2 x ≤ x ∧ x < 2 ^ (Nat.log2 x + 1) :=
+      (Nat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
+    simpa [i]
+  exact innerSqrt_bracket_of_octave i x m hmlo hmhi hOct
+
+/-- Universal `_sqrt` bracket on uint256 domain (including `x = 0`). -/
+theorem innerSqrt_bracket_u256_all
+    (x : Nat)
+    (hx256 : x < 2 ^ 256) :
+    let m := natSqrt x
+    m ≤ innerSqrt x ∧ innerSqrt x ≤ m + 1 := by
+  by_cases hx0 : x = 0
+  · subst hx0
+    simp [natSqrt, innerSqrt]
+  · have hx : 0 < x := Nat.pos_of_ne_zero hx0
+    simpa using innerSqrt_bracket_u256 x hx hx256
+
+/-- Universal `sqrt` correctness on uint256 domain (Nat model):
+    for every `x < 2^256`, `floorSqrt x` satisfies the integer-sqrt spec. -/
+theorem floorSqrt_correct_u256
+    (x : Nat)
+    (hx256 : x < 2 ^ 256) :
+    let r := floorSqrt x
+    r * r ≤ x ∧ x < (r + 1) * (r + 1) := by
+  by_cases hx0 : x = 0
+  · subst hx0
+    simp [floorSqrt, innerSqrt]
+  · have hx : 0 < x := Nat.pos_of_ne_zero hx0
+    let i : Fin 256 := ⟨Nat.log2 x, (Nat.log2_lt (Nat.ne_of_gt hx)).2 hx256⟩
+    let m := natSqrt x
+    have hmlo : m * m ≤ x := by simpa [m] using natSqrt_sq_le x
+    have hmhi : x < (m + 1) * (m + 1) := by simpa [m] using natSqrt_lt_succ_sq x
+    have hOct : 2 ^ i.val ≤ x ∧ x < 2 ^ (i.val + 1) := by
+      have hlog : 2 ^ Nat.log2 x ≤ x ∧ x < 2 ^ (Nat.log2 x + 1) :=
+        (Nat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
+      simpa [i]
+    exact floorSqrt_correct_of_octave i x m hmlo hmhi hOct
+
+/-- Canonical witness package for the advertised uint256 statement. -/
+theorem sqrt_witness_correct_u256
+    (x : Nat)
+    (hx256 : x < 2 ^ 256) :
+    ∃ m, m * m ≤ x ∧ x < (m + 1) * (m + 1) ∧
+      m ≤ innerSqrt x ∧ innerSqrt x ≤ m + 1 := by
+  refine ⟨natSqrt x, natSqrt_sq_le x, natSqrt_lt_succ_sq x, ?_⟩
+  simpa using innerSqrt_bracket_u256_all x hx256
+
 -- ============================================================================
 -- Summary of proof status
 -- ============================================================================
@@ -375,5 +482,6 @@ theorem floorSqrt_correct_of_octave
   ✓ Finite-Certificate Upper Bound: innerSqrt_upper_cert
   ✓ Floor Correction: floor_correction (case split on x/z < z)
   ✓ Octave Wiring: innerSqrt_upper_of_octave, floorSqrt_correct_of_octave
+  ✓ Universal uint256 wrappers: innerSqrt_bracket_u256_all, floorSqrt_correct_u256
   ✓ Theorem wrappers: innerSqrt_correct, floorSqrt_correct, floorSqrt_correct_cert
 -/

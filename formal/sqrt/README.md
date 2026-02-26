@@ -4,15 +4,12 @@ Machine-checked proof that `Sqrt.sol:_sqrt` converges to within 1 ULP of the tru
 
 ## What is proved
 
-For `x > 0`, octave index `i : Fin 256`, and witness `m` with:
+For all `x < 2^256`, the Lean development proves:
 
-- `2^i ≤ x < 2^(i+1)`
-- `m^2 ≤ x < (m+1)^2`
-
-the Lean development proves:
-
-1. **`innerSqrt x` is within 1 ULP of `m`** (`m ≤ innerSqrt x ≤ m+1`), via `innerSqrt_bracket_of_octave`.
-2. **`floorSqrt x` satisfies the integer-sqrt spec** (`r^2 ≤ x < (r+1)^2`), via `floorSqrt_correct_of_octave`.
+1. **`innerSqrt x` is within 1 ULP of a canonical integer-sqrt witness**  
+   (`m ≤ innerSqrt x ≤ m+1` with `m := natSqrt x`), via `innerSqrt_bracket_u256_all`.
+2. **`floorSqrt x` satisfies the integer-sqrt spec**  
+   (`r^2 ≤ x < (r+1)^2`), via `floorSqrt_correct_u256`.
 
 "Proved" means: Lean 4 type-checks the theorems with zero `sorry` and no axioms beyond the Lean kernel.
 
