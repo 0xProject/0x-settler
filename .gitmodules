@@ -19,3 +19,9 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts.git
+[submodule "lib/yul2venom"]
+	path = lib/yul2venom
+	url = https://github.com/vyperlang/yul2venom.git
+[submodule "lib/vyper"]
+	path = lib/vyper
+	url = https://github.com/vyperlang/vyper.git
