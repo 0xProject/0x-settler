@@ -1,8 +1,11 @@
 import Init
 
-namespace SqrtCert
+/-!
+Legacy symbolic certificate version (kept for reference).
+This file retains the original recurrence + `native_decide` style proofs.
+-/
 
-set_option maxRecDepth 1000000
+namespace SqrtCert
 
 def loTable : Array Nat := #[
   1,
@@ -521,6 +524,7 @@ def hiTable : Array Nat := #[
   240615969168004511545033772477625056927,
   340282366920938463463374607431768211455
 ]
+
 def seedOf (i : Fin 256) : Nat :=
   1 <<< ((i.val + 1) / 2)
 
@@ -554,11 +558,36 @@ def d5 (i : Fin 256) : Nat :=
 def d6 (i : Fin 256) : Nat :=
   nextD (loOf i) (d5 i)
 
-theorem lo_pos (i : Fin 256) : 0 < loOf i := by
-  revert i
+def loSqHolds (i : Fin 256) : Bool :=
+  loOf i * loOf i ≤ 2 ^ i.val
+
+def hiSuccSqHolds (i : Fin 256) : Bool :=
+  2 ^ (i.val + 1) ≤ (hiOf i + 1) * (hiOf i + 1)
+
+def certHolds (i : Fin 256) : Bool :=
+  let lo := loOf i
+  let d1v := d1 i
+  let d2v := d2 i
+  let d3v := d3 i
+  let d4v := d4 i
+  let d5v := d5 i
+  let d6v := d6 i
+  lo > 0 &&
+  d1v <= lo &&
+  d2v <= lo &&
+  d3v <= lo &&
+  d4v <= lo &&
+  d5v <= lo &&
+  d6v <= 1
+
+theorem all_octave_certs_pass : ∀ i : Fin 256, certHolds i = true := by
   native_decide
 
 theorem d1_le_lo (i : Fin 256) : d1 i ≤ loOf i := by
+  revert i
+  native_decide
+
+theorem lo_pos (i : Fin 256) : 0 < loOf i := by
   revert i
   native_decide
 

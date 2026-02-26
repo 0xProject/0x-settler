@@ -91,14 +91,6 @@ def checkUpperBound (n : Nat) : Bool :=
   -- Also check z > 0 for division safety.
   z > 0
 
-/-- The critical computational check: all 256 octaves pass. -/
-theorem all_octaves_pass : ∀ i : Fin 256, checkUpperBound i.val = true := by
-  native_decide
-
-/-- Seeds are always positive. -/
-theorem all_seeds_pos : ∀ i : Fin 256, checkSeedPos i.val = true := by
-  native_decide
-
 -- ============================================================================
 -- Part 3: Lower bound (composing Lemma 1)
 -- ============================================================================
@@ -477,7 +469,7 @@ theorem sqrt_witness_correct_u256
   ✓ Lemma 2 (Absorbing Set): babylon_from_ceil, babylon_from_floor
   ✓ Step Monotonicity: babylonStep_mono_x, babylonStep_mono_z
   ✓ Overestimate Contraction: babylonStep_lt_of_overestimate
-  ✓ Computational Verification: all_octaves_pass (native_decide, 256 cases)
+  ✓ Finite certificate layer: d1..d6 bounds from offline literals
   ✓ Lower Bound Chain: innerSqrt_lower (6x babylon_step_floor_bound)
   ✓ Finite-Certificate Upper Bound: innerSqrt_upper_cert
   ✓ Floor Correction: floor_correction (case split on x/z < z)

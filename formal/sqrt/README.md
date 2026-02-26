@@ -47,8 +47,8 @@ This justifies the "max-propagation" upper-bound strategy: computing 6 steps at 
 
 ### Finite Certificate Layer (`FiniteCert`, `CertifiedChain`)
 
-`FiniteCert.lean` contains precomputed `(lo, hi)` octave bounds and the recurrence constants
-`d1..d6`. `native_decide` proves the full 256-case certificate:
+`FiniteCert.lean` is the trimmed active certificate file. It keeps only the lemmas consumed by
+`CertifiedChain` / `SqrtCorrect`:
 
 - `d1 ≤ lo`
 - `d2 ≤ lo`
@@ -58,6 +58,8 @@ This justifies the "max-propagation" upper-bound strategy: computing 6 steps at 
 - `d6 ≤ 1`
 
 `CertifiedChain.lean` then lifts this finite certificate to runtime variables (`x`, `m`) and proves `run6From x seed ≤ m + 1` under the octave assumptions.
+
+`FiniteCertSymbolic.lean` preserves the fuller symbolic/reference variant (including broader checks) as a separate file.
 
 ### Floor Correction (`floor_correction`)
 
@@ -97,7 +99,8 @@ python3 verify_sqrt.py
 | `SqrtProof/FloorBound.lean` | 136 | Lemma 1 (floor bound) + Lemma 2 (absorbing set) |
 | `SqrtProof/StepMono.lean` | 82 | Step monotonicity for overestimates |
 | `SqrtProof/BridgeLemmas.lean` | 178 | Bridge lemmas for one-step error contraction |
-| `SqrtProof/FiniteCert.lean` | 618 | 256-case finite certificate tables + `native_decide` proofs |
+| `SqrtProof/FiniteCert.lean` | (trimmed) | Active minimal certificate lemmas used by the proof chain |
+| `SqrtProof/FiniteCertSymbolic.lean` | 621 | Legacy symbolic + `native_decide` certificate reference |
 | `SqrtProof/CertifiedChain.lean` | 133 | Multi-step certified chain (`run6_le_m_plus_one`) |
 | `SqrtProof/SqrtCorrect.lean` | 379 | Definitions, octave wiring, theorem wrappers |
 | `verify_sqrt.py` | 396 | Python prototype of convergence analysis |
