@@ -1,16 +1,23 @@
 # Formal Verification of Cbrt.sol
 
-Machine-checked proof that `Cbrt.sol:_cbrt` converges to within 1 ULP of the true integer cube root for all uint256 inputs, and that the floor-correction step in `cbrt` yields exactly `icbrt(x)`.
+Machine-checked Lean development for core `cbrt` arithmetic lemmas, a reference `icbrt` function, and named correctness theorems for `_cbrt` / `cbrt` under an explicit upper-bound hypothesis.
 
 ## What is proved
 
-For all `x < 2^256`:
+1. **Reference integer cube root is formalized**:
+   - `icbrt(x)^3 <= x < (icbrt(x)+1)^3`
+   - any `r` satisfying those bounds is equal to `icbrt(x)`.
+2. **Lower-bound chain for `_cbrt`**:
+   - for any `m` with `m^3 <= x`, `m <= innerCbrt(x)`.
+3. **Floor-correction lemma is formalized**:
+   - if `z > 0` and `(z-1)^3 <= x < (z+1)^3`, correction returns `r` with
+     `r^3 <= x < (r+1)^3`.
+4. **Named end-to-end statements are present with explicit assumption**:
+   - `innerCbrt_correct_of_upper`
+   - `floorCbrt_correct_of_upper`
+   both assume the remaining link `innerCbrt x <= icbrt x + 1`.
 
-1. **`_cbrt(x)` returns `icbrt(x)` or `icbrt(x) + 1`** (the inner Newton-Raphson loop converges after 6 iterations from the seed).
-
-2. **`cbrt(x)` returns exactly `icbrt(x)`** (the correction `z := sub(z, lt(div(x, mul(z, z)), z))` is correct).
-
-"Proved" means: Lean 4 type-checks the theorems with zero `sorry` and no axioms beyond the Lean kernel.
+"Proved" means: Lean 4 type-checks these theorems with zero `sorry` and no axioms beyond the Lean kernel.
 
 ## Proof structure
 
@@ -70,6 +77,8 @@ Chains `cbrt_step_floor_bound` through 6 NR iterations from the seed.
 ```bash
 cd formal/cbrt/CbrtProof
 lake build
+# Explicitly build the main proof module:
+lake build CbrtProof.CbrtCorrect
 ```
 
 ## Python verification script
@@ -86,5 +95,5 @@ python3 verify_cbrt.py
 | File | Lines | Description |
 |------|-------|-------------|
 | `CbrtProof/FloorBound.lean` | 121 | Cubic AM-GM + floor bound (0 sorry) |
-| `CbrtProof/CbrtCorrect.lean` | 178 | Definitions, `native_decide`, main theorems (0 sorry) |
+| `CbrtProof/CbrtCorrect.lean` | ~375 | Definitions, reference `icbrt`, `native_decide` checks, and correctness theorems (0 sorry) |
 | `verify_cbrt.py` | 200 | Python convergence verification prototype |
