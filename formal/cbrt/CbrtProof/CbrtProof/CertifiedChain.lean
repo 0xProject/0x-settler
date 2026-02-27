@@ -22,15 +22,6 @@ namespace CbrtCertified
 open CbrtCert
 
 -- ============================================================================
--- Monomial normalization helpers
--- ============================================================================
-
-/-- Factor a numeric constant out of a nested product: a * (b * n) = n * (a * b). -/
-private theorem mul_factor_out (a b n : Nat) : a * (b * n) = n * (a * b) := by
-  rw [show a * (b * n) = (a * b) * n from by rw [← Nat.mul_assoc]]
-  rw [Nat.mul_comm]
-
--- ============================================================================
 -- Pure polynomial identities (no subtraction)
 -- ============================================================================
 
@@ -283,23 +274,23 @@ theorem cbrt_d1_bound
 -- Six-step certified chain
 -- ============================================================================
 
-/-- Chain 6 steps through the error recurrence, concluding z₆ ≤ m + 1. -/
-theorem run6_le_m_plus_one
-    (i : Fin 248)
-    (x m : Nat)
+/-- Five-step certified chain: z₅ ≥ m, error ≤ d5, and 2*d5 ≤ m. -/
+theorem run5_certified_bounds
+    (i : Fin 248) (x m : Nat)
     (hm2 : 2 ≤ m)
     (hmlo : m * m * m ≤ x)
     (hmhi : x < (m + 1) * (m + 1) * (m + 1))
     (hlo : loOf i ≤ m)
     (hhi : m ≤ hiOf i) :
-    run6From x (seedOf i) ≤ m + 1 := by
+    m ≤ run5From x (seedOf i) ∧
+    run5From x (seedOf i) - m ≤ d5Of i ∧
+    2 * d5Of i ≤ m := by
   -- Name intermediate values using let
   let z1 := cbrtStep x (seedOf i)
   let z2 := cbrtStep x z1
   let z3 := cbrtStep x z2
   let z4 := cbrtStep x z3
   let z5 := cbrtStep x z4
-  let z6 := cbrtStep x z5
 
   have hloPos : 0 < loOf i := lo_pos i
   have hsPos : 0 < seedOf i := seed_pos i
@@ -318,21 +309,16 @@ theorem run6_le_m_plus_one
   -- Step 1: d1 bound from analytic formula
   have hd1 : z1 - m ≤ d1Of i := by
     have h := cbrt_d1_bound x m (seedOf i) (loOf i) (hiOf i) hsPos hmlo hmhi hlo hhi
-    -- h has type with a let-binding for maxAbs; unfold it with simp only
     simp only at h
-    -- Now h : cbrtStep x (seedOf i) - m ≤ (max ... * max ... * ... + ...) / (3 * ...)
     show cbrtStep x (seedOf i) - m ≤ d1Of i
     have hd1eq := d1_eq i
     have hmaxeq := maxabs_eq i
-    -- Substitute maxabs into d1_eq to match h's RHS
     rw [hmaxeq] at hd1eq
-    -- Now hd1eq : d1Of i = (max ... * max ... * ... + ...) / (3 * ...)
-    -- Rewrite ← hd1eq to replace the big expression in h with d1Of i
     rw [← hd1eq] at h
     exact h
   have h2d1 : 2 * d1Of i ≤ m := Nat.le_trans (two_d1_le_lo i) hlo
 
-  -- Steps 2-6 via step_from_bound
+  -- Steps 2-5 via step_from_bound
   have hd2 : z2 - m ≤ d2Of i := by
     have h := step_from_bound x m (loOf i) z1 (d1Of i) hm2 hloPos hlo hmhi hmz1 hd1 h2d1
     show cbrtStep x z1 - m ≤ d2Of i
@@ -357,17 +343,30 @@ theorem run6_le_m_plus_one
     unfold d5Of; exact h
   have h2d5 : 2 * d5Of i ≤ m := Nat.le_trans (two_d5_le_lo i) hlo
 
-  have hd6 : z6 - m ≤ d6Of i := by
-    have h := step_from_bound x m (loOf i) z5 (d5Of i) hm2 hloPos hlo hmhi hmz5 hd5 h2d5
-    show cbrtStep x z5 - m ≤ d6Of i
-    unfold d6Of; exact h
+  exact ⟨hmz5, hd5, h2d5⟩
 
+/-- Chain 6 steps through the error recurrence, concluding z₆ ≤ m + 1. -/
+theorem run6_le_m_plus_one
+    (i : Fin 248)
+    (x m : Nat)
+    (hm2 : 2 ≤ m)
+    (hmlo : m * m * m ≤ x)
+    (hmhi : x < (m + 1) * (m + 1) * (m + 1))
+    (hlo : loOf i ≤ m)
+    (hhi : m ≤ hiOf i) :
+    run6From x (seedOf i) ≤ m + 1 := by
+  have ⟨hmz5, hd5, h2d5⟩ := run5_certified_bounds i x m hm2 hmlo hmhi hlo hhi
+  -- Step 6 error bound
+  have hloPos : 0 < loOf i := lo_pos i
+  have hd6 : cbrtStep x (run5From x (seedOf i)) - m ≤ d6Of i := by
+    have h := step_from_bound x m (loOf i) (run5From x (seedOf i)) (d5Of i)
+      hm2 hloPos hlo hmhi hmz5 hd5 h2d5
+    unfold d6Of; exact h
   -- Terminal: d6 ≤ 1
-  have hd6le1 : z6 - m ≤ 1 := Nat.le_trans hd6 (d6_le_one i)
-  have hresult : z6 ≤ m + 1 := by omega
-  -- Connect to run6From: unfold and reduce
+  have hd6le1 : cbrtStep x (run5From x (seedOf i)) - m ≤ 1 :=
+    Nat.le_trans hd6 (d6_le_one i)
   show run6From x (seedOf i) ≤ m + 1
-  unfold run6From
-  exact hresult
+  rw [run6_eq_step_run5]
+  omega
 
 end CbrtCertified

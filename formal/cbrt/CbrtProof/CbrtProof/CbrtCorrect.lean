@@ -18,6 +18,15 @@ import CbrtProof.FloorBound
     Matches EVM: div(add(add(div(x, mul(z, z)), z), z), 3) -/
 def cbrtStep (x z : Nat) : Nat := (x / (z * z) + 2 * z) / 3
 
+/-- Run five cbrt Newton steps from an explicit starting point. -/
+def run5From (x z : Nat) : Nat :=
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  z
+
 /-- Run six cbrt Newton steps from an explicit starting point. -/
 def run6From (x z : Nat) : Nat :=
   let z := cbrtStep x z
@@ -27,6 +36,10 @@ def run6From (x z : Nat) : Nat :=
   let z := cbrtStep x z
   let z := cbrtStep x z
   z
+
+/-- run6From = cbrtStep after run5From (definitional). -/
+theorem run6_eq_step_run5 (x z : Nat) :
+    run6From x z = cbrtStep x (run5From x z) := rfl
 
 /-- The cbrt seed. For x > 0:
     z = ⌊233 * 2^q / 256⌋ + 1  where q = ⌊(log2(x) + 2) / 3⌋.
@@ -507,6 +520,11 @@ theorem innerCbrt_eq_run6From_seed (x : Nat) (hx : 0 < x) :
     innerCbrt x = run6From x (cbrtSeed x) := by
   unfold innerCbrt run6From
   simp [Nat.ne_of_gt hx]
+
+/-- For positive `x`, `_cbrt` is `cbrtStep` applied to `run5From` of the seed. -/
+theorem innerCbrt_eq_step_run5_seed (x : Nat) (hx : 0 < x) :
+    innerCbrt x = cbrtStep x (run5From x (cbrtSeed x)) := by
+  rw [innerCbrt_eq_run6From_seed x hx, run6_eq_step_run5]
 
 set_option maxRecDepth 1000000 in
 /-- Direct finite check for small inputs. -/

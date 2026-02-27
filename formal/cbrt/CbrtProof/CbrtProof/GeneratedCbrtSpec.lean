@@ -1084,6 +1084,18 @@ theorem model_cbrt_up_evm_is_ceil
   exact ⟨model_cbrt_up_evm_lower_bound x hx hx256,
          model_cbrt_up_evm_upper_bound x hx hx256⟩
 
+/-- cbrtUp is correct for ALL x < 2^256 (including x = 0). -/
+theorem model_cbrt_up_evm_is_ceil_all
+    (x : Nat) (hx256 : x < 2 ^ 256) :
+    let r := model_cbrt_up_evm x
+    x ≤ r * r * r ∧ (r = 0 ∨ (r - 1) * (r - 1) * (r - 1) < x) := by
+  by_cases hx : 0 < x
+  · have ⟨hlo, hhi⟩ := model_cbrt_up_evm_is_ceil x hx hx256
+    exact ⟨hhi, Or.inr hlo⟩
+  · simp at hx
+    subst hx
+    decide
+
 -- ============================================================================
 -- Summary
 -- ============================================================================
@@ -1102,7 +1114,8 @@ theorem model_cbrt_up_evm_is_ceil
   ✓ cbrtUpSpec_lower_bound: cbrtUpSpec gives tight lower bound (exact ceiling)
   ✓ model_cbrt_up_evm_upper_bound: EVM cbrtUp gives valid upper bound
   ✓ model_cbrt_up_evm_lower_bound: EVM cbrtUp gives tight lower bound
-  ✓ model_cbrt_up_evm_is_ceil: EVM cbrtUp is the exact ceiling cube root
+  ✓ model_cbrt_up_evm_is_ceil: EVM cbrtUp is the exact ceiling cube root (x > 0)
+  ✓ model_cbrt_up_evm_is_ceil_all: EVM cbrtUp is correct for all x < 2^256 (including x = 0)
   ✓ model_cbrt_evm_eq_model_cbrt: EVM model = Nat model
   ✓ model_cbrt_evm_bracket_u256_all: EVM model ∈ [m, m+1]
   ✓ model_cbrt_floor_evm_eq_floorCbrt: EVM floor = floorCbrt
