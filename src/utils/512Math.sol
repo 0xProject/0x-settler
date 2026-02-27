@@ -1720,8 +1720,8 @@ library Lib512MathArithmetic {
             uint256 r_hi;
             assembly ("memory-safe") {
                 // Seed with √(2²⁵⁵), the geometric mean of the normalized √x_hi range [2¹²⁷,
-                // 2¹²⁸). This balances worst-case over/underestimate (ε ≈ ±0.41/0.29), giving >128
-                // bits of precision in 6 Babylonian steps
+                // 2¹²⁸). This balances worst-case over/underestimate (ε ≈ ±0.414/0.293), giving
+                // >128 bits of precision in 6 Babylonian steps
                 r_hi := 0xb504f333f9de6484597d89b3754abe9f
 
                 // 6 Babylonian steps is sufficient for convergence
@@ -1937,7 +1937,7 @@ library Lib512MathArithmetic {
         //      ⌊(2²⁵⁶ - 1) / d⌋ = 0x21dd5386fc92fb58eb2224
         //    and the final carry refinement term is zero, giving:
         //      r_lo = 0x2ad0f7137bc6601d885629
-        //    The quotient stays in one "bucket" because `res` varies by only ~0.62·2⁸³, and
+        //    The quotient stays in one "bucket" because `res` varies by only ~0.620·2⁸³, and
         //    `limb_hi`'s full 86-bit range contributes <1/2⁸⁴ to n/d. Total swing in the continuous
         //    quotient is ~0.164. At the boundaries, frac(n/d) ≈ 0.128 (at x = r_max³) and ≈ 0.292
         //    (at x = 2⁵¹² - 1), so the floor never crosses an integer boundary

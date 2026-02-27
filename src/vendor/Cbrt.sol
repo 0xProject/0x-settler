@@ -9,7 +9,7 @@ library Cbrt {
     function _cbrt(uint256 x) private pure returns (uint256 z) {
         assembly ("memory-safe") {
             // Initial guess z ≈ ∛(3/4) · 2𐞥 where q = ⌊(257 − clz(x)) / 3⌋. The multiplier 233/256
-            // ≈ 0.910 ≈ ∛(3/4) balances the worst-case over/underestimate across each octave
+            // ≈ 0.909 ≈ ∛(3/4) balances the worst-case over/underestimate across each octave
             // triplet (ε_over ≈ 0.445, ε_under ≈ −0.278), giving >85 bits of precision after 6 N-R
             // iterations. The `lt(0, x)` term ensures z ≥ 1 when x > 0 (the `shr` can produce 0 for
             // small `q`)
