@@ -350,7 +350,7 @@ theorem seed_eq : ∀ i : Fin {num},
 /-- Perfect-cube key: d5² < lo for all certificate octaves.
     This ensures that on perfect cubes x = m³, the 6th NR step gives exactly m
     (since the per-step error d²/m < 1 when d² < m and m ≥ lo). -/
-theorem d5_sq_lt_lo : ∀ i : Fin {num}, d5Of i * d5Of i < loOf i := by native_decide
+theorem d5_sq_lt_lo : ∀ i : Fin {num}, d5Of i * d5Of i < loOf i := by decide
 
 end CbrtCert
 """

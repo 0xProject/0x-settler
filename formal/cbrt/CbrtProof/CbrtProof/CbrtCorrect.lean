@@ -1365,26 +1365,36 @@ theorem cbrtStep_eq_on_perfect_cube_of_sq_lt
       have h3m2d : 0 < 3 * m + 2 * d := by omega
       have hstep1 : d * d * (3 * m + 2 * d) < m * (3 * m + 2 * d) :=
         Nat.mul_lt_mul_of_pos_right hdsq h3m2d
-      -- m(3m+2d) ≤ 3(m+d)²: show via the equality
-      -- m(3m+2d) + (4md + 3d²) = 3(m+d)²
-      have hpoly : m * (3 * m + 2 * d) + (4 * m * d + 3 * (d * d)) =
-          3 * ((m + d) * (m + d)) := by grind
+      -- m(3m+2d) ≤ 3(m+d)²: expand both sides to mm + md + dd terms
       have hstep2 : m * (3 * m + 2 * d) ≤ 3 * (z * z) := by
         show m * (3 * m + 2 * d) ≤ 3 * ((m + d) * (m + d))
-        omega
+        -- LHS = 3mm + 2md. RHS = 3mm + 6md + 3dd. Diff = 4md + 3dd ≥ 0.
+        have hLmm : m * (3 * m) = 3 * (m * m) := by
+          rw [← Nat.mul_assoc, Nat.mul_comm m 3, Nat.mul_assoc]
+        have hLmd : m * (2 * d) = 2 * (m * d) := by
+          rw [← Nat.mul_assoc, Nat.mul_comm m 2, Nat.mul_assoc]
+        have hR : (m + d) * (m + d) = m * m + 2 * (m * d) + d * d := by
+          rw [Nat.add_mul, Nat.mul_add, Nat.mul_add, Nat.mul_comm d m]; omega
+        rw [Nat.mul_add m, hLmm, hLmd, hR]; omega
       exact Nat.lt_of_lt_of_le hstep1 hstep2
     -- Step 2: polynomial identity m³ = z²(m-2d) + d²(3m+2d)
     have hident : m * m * m = z * z * (m - 2 * d) + d * d * (3 * m + 2 * d) := by
-      -- Prove over Int (to handle Nat subtraction m - 2d) then cast back.
-      have hNat_sub : ((m - 2 * d : Nat) : Int) = (m : Int) - 2 * (d : Int) := by omega
-      have hInt : (m * m * m : Int) =
-          ((m + d) * (m + d) : Int) * ((m : Int) - 2 * (d : Int)) +
-          (d * d : Int) * (3 * (m : Int) + 2 * (d : Int)) := by grind
-      have hInt' : (m * m * m : Int) =
-          ((m + d : Nat) * (m + d : Nat) : Int) * ((m - 2 * d : Nat) : Int) +
-          ((d * d : Nat) : Int) * ((3 * m + 2 * d : Nat) : Int) := by
-        rw [hNat_sub]; exact_mod_cast hInt
-      exact_mod_cast hInt'
+      -- Addition form: m³ + d²(3m+2d) = (m+d)²(m-2d) + d²(3m+2d).
+      -- Equivalently: m³ + d²(3m+2d) = (m+d)²·m - (m+d)²·2d + d²(3m+2d).
+      -- We instead prove the equivalent addition identity on Nat:
+      --   m*m*m + d*d*(3*m+2*d) = (m+d)*(m+d)*(m+d)
+      -- which is just the binomial cube expansion, and then subtract d²(3m+2d).
+      -- Actually, the identity is: (m+d)³ = m³ + 3m²d + 3md² + d³,
+      -- and (m+d)²(m-2d) = (m+d)³ - 3d(m+d)² = m³ - 3md² - 2d³.
+      -- So (m+d)²(m-2d) + d²(3m+2d) = m³ - 3md² - 2d³ + 3md² + 2d³ = m³.
+      -- In Nat (with 2d ≤ m): prove via Int then cast back.
+      -- Substitute a = m - 2d (safe: 2d ≤ m), so m = a + 2d. Eliminates Nat subtraction.
+      show m * m * m = (m + d) * (m + d) * (m - 2 * d) + d * d * (3 * m + 2 * d)
+      generalize ha : m - 2 * d = a
+      have hm_eq : m = a + 2 * d := by omega
+      subst hm_eq
+      -- Both sides expand to a³+6a²d+12ad²+8d³.
+      grind
     -- Step 3: combine identity + key inequality to get m³ < (m-2d+3)*z²
     have hlt : m * m * m < (m - 2 * d + 3) * (z * z) := by
       calc m * m * m
@@ -1402,10 +1412,11 @@ theorem cbrtStep_eq_on_perfect_cube_of_sq_lt
     -- (3m+2)/3 ≤ m: use Nat.div_le_div_right on the numerator bound
     exact Nat.le_trans (Nat.div_le_div_right hnum_le) (by omega)
 
+set_option maxRecDepth 1000000 in
 /-- Finite check: innerCbrt(m³) = m for all m ≤ 255 (m³ < 2^24). -/
 theorem innerCbrt_on_perfect_cube_small :
     ∀ i : Fin 256, innerCbrt (i.val * i.val * i.val) = i.val := by
-  native_decide
+  decide
 
 -- ============================================================================
 -- Part 5: Floor correction (local lemma)

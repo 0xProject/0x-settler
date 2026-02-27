@@ -9,7 +9,7 @@ import Init
 -- ============================================================================
 
 /-- (d+z)³ = d³ + 3d²z + 3dz² + z³ (left-associated products). -/
-private theorem cube_expand (d z : Nat) :
+theorem cube_expand (d z : Nat) :
     (d + z) * (d + z) * (d + z) =
     d * d * d + 3 * (d * d * z) + 3 * (d * z * z) + z * z * z := by
   -- Mechanical expansion of a binomial cube.
