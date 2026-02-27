@@ -347,6 +347,11 @@ theorem two_d5_le_lo : ∀ i : Fin {num}, 2 * d5Of i ≤ loOf i := by native_dec
 theorem seed_eq : ∀ i : Fin {num},
     seedOf i = ((0xe9 <<< ((i.val + certOffset + 2) / 3)) >>> 8) + 1 := by native_decide
 
+/-- Perfect-cube key: d5² < lo for all certificate octaves.
+    This ensures that on perfect cubes x = m³, the 6th NR step gives exactly m
+    (since the per-step error d²/m < 1 when d² < m and m ≥ lo). -/
+theorem d5_sq_lt_lo : ∀ i : Fin {num}, d5Of i * d5Of i < loOf i := by native_decide
+
 end CbrtCert
 """
 

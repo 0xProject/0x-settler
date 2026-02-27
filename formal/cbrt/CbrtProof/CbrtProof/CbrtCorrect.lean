@@ -1194,6 +1194,118 @@ theorem innerCbrt_lt_succ_cube (x : Nat) (hx : 0 < x) :
     exact False.elim ((Nat.not_succ_le_self (innerCbrt x)) hcontra)
 
 -- ============================================================================
+-- Part 4b: Perfect-cube exactness (innerCbrt(m³) = m)
+-- ============================================================================
+
+/-- On a perfect cube, one NR step strictly decreases when the iterate overshoots.
+    If z > m and x = m³, then cbrtStep(m³, z) < z.
+    Proof: m³ < z³ so m³/z² < z, giving numerator < 3z, so step < z. -/
+theorem cbrtStep_strict_decrease_on_perfect_cube
+    (m z : Nat) (hm : 0 < m) (hz_gt : m < z) :
+    cbrtStep (m * m * m) z < z := by
+  unfold cbrtStep
+  have hz : 0 < z := Nat.lt_trans hm hz_gt
+  have hzz : 0 < z * z := Nat.mul_pos hz hz
+  have hm_succ : m + 1 ≤ z := Nat.succ_le_of_lt hz_gt
+  -- m³ < (m+1)³: since m < m+1, cube_monotone gives (m+1)³ ≥ m³, and strict from m*m*(m+1) > m³
+  have hm1_cube : m * m * m < (m + 1) * (m + 1) * (m + 1) := by
+    have h1 : m * m * m < m * m * (m + 1) := Nat.mul_lt_mul_of_pos_left (by omega) (Nat.mul_pos hm hm)
+    have h2 : m * m ≤ (m + 1) * (m + 1) := Nat.mul_le_mul (Nat.le_succ m) (Nat.le_succ m)
+    have h3 : m * m * (m + 1) ≤ (m + 1) * (m + 1) * (m + 1) := Nat.mul_le_mul_right _ h2
+    exact Nat.lt_of_lt_of_le h1 h3
+  have hcube_lt : m * m * m < z * z * z :=
+    Nat.lt_of_lt_of_le hm1_cube (cube_monotone hm_succ)
+  -- m³/(z*z) < z because m*m*m < z*z*z = z*(z*z)
+  have hdiv_lt : m * m * m / (z * z) < z := by
+    rw [Nat.div_lt_iff_lt_mul hzz]
+    show m * m * m < z * (z * z)
+    rw [← Nat.mul_assoc]; exact hcube_lt
+  -- numerator ≤ 3z-1, so step ≤ z-1 < z
+  omega
+
+/-- cbrtStep is a fixed point at the exact cube root: cbrtStep(m³, m) = m. -/
+theorem cbrtStep_fixed_point_on_perfect_cube
+    (m : Nat) (hm : 0 < m) :
+    cbrtStep (m * m * m) m = m := by
+  unfold cbrtStep
+  have hzz : 0 < m * m := Nat.mul_pos hm hm
+  have hdiv : m * m * m / (m * m) = m := by
+    rw [Nat.mul_assoc]
+    exact Nat.mul_div_cancel m hzz
+  rw [hdiv]
+  omega
+
+/-- On a perfect cube, cbrtStep from m+d with d² < m gives exactly m.
+    Key: m³ < (m-2d+3)(m+d)², so floor(m³/(m+d)²) ≤ m-2d+2,
+    giving numerator ≤ 3m+2, so step = m.
+    The strict inequality follows from 3(m+d)² > d²(3m+2d) when d² < m. -/
+theorem cbrtStep_eq_on_perfect_cube_of_sq_lt
+    (m d : Nat) (hm : 2 ≤ m) (h2d : 2 * d ≤ m) (hdsq : d * d < m) :
+    cbrtStep (m * m * m) (m + d) = m := by
+  by_cases hd0 : d = 0
+  · subst hd0; simp only [Nat.add_zero]
+    exact cbrtStep_fixed_point_on_perfect_cube m (by omega)
+  · have hd : 0 < d := Nat.pos_of_ne_zero hd0
+    -- Lower bound from floor bound
+    have hlo : m ≤ cbrtStep (m * m * m) (m + d) :=
+      cbrt_step_floor_bound (m * m * m) (m + d) m (by omega) (Nat.le_refl _)
+    -- Upper bound: suffices numerator ≤ 3m+2
+    suffices hup : cbrtStep (m * m * m) (m + d) ≤ m by omega
+    unfold cbrtStep
+    let z := m + d
+    have hz : 0 < z := by omega
+    have hzz : 0 < z * z := Nat.mul_pos hz hz
+    -- Goal: (m*m*m / (z*z) + 2*z) / 3 ≤ m, i.e., numerator ≤ 3m+2
+    -- Strategy: show m³ < (m-2d+3)*z², so m³/z² ≤ m-2d+2, so num ≤ 3m+2, so step ≤ m.
+    -- Step 1: d²(3m+2d) < 3z² (the key inequality using d² < m)
+    have hkey : d * d * (3 * m + 2 * d) < 3 * (z * z) := by
+      -- d²(3m+2d) < m(3m+2d) ≤ 3(m+d)²
+      have h3m2d : 0 < 3 * m + 2 * d := by omega
+      have hstep1 : d * d * (3 * m + 2 * d) < m * (3 * m + 2 * d) :=
+        Nat.mul_lt_mul_of_pos_right hdsq h3m2d
+      -- m(3m+2d) ≤ 3(m+d)²: show via the equality
+      -- m(3m+2d) + (4md + 3d²) = 3(m+d)²
+      have hpoly : m * (3 * m + 2 * d) + (4 * m * d + 3 * (d * d)) =
+          3 * ((m + d) * (m + d)) := by grind
+      have hstep2 : m * (3 * m + 2 * d) ≤ 3 * (z * z) := by
+        show m * (3 * m + 2 * d) ≤ 3 * ((m + d) * (m + d))
+        omega
+      exact Nat.lt_of_lt_of_le hstep1 hstep2
+    -- Step 2: polynomial identity m³ = z²(m-2d) + d²(3m+2d)
+    have hident : m * m * m = z * z * (m - 2 * d) + d * d * (3 * m + 2 * d) := by
+      -- Prove over Int (to handle Nat subtraction m - 2d) then cast back.
+      have hNat_sub : ((m - 2 * d : Nat) : Int) = (m : Int) - 2 * (d : Int) := by omega
+      have hInt : (m * m * m : Int) =
+          ((m + d) * (m + d) : Int) * ((m : Int) - 2 * (d : Int)) +
+          (d * d : Int) * (3 * (m : Int) + 2 * (d : Int)) := by grind
+      have hInt' : (m * m * m : Int) =
+          ((m + d : Nat) * (m + d : Nat) : Int) * ((m - 2 * d : Nat) : Int) +
+          ((d * d : Nat) : Int) * ((3 * m + 2 * d : Nat) : Int) := by
+        rw [hNat_sub]; exact_mod_cast hInt
+      exact_mod_cast hInt'
+    -- Step 3: combine identity + key inequality to get m³ < (m-2d+3)*z²
+    have hlt : m * m * m < (m - 2 * d + 3) * (z * z) := by
+      calc m * m * m
+          = z * z * (m - 2 * d) + d * d * (3 * m + 2 * d) := hident
+        _ < z * z * (m - 2 * d) + 3 * (z * z) := Nat.add_lt_add_left hkey _
+        _ = z * z * (m - 2 * d) + z * z * 3 := by rw [Nat.mul_comm 3 _]
+        _ = z * z * (m - 2 * d + 3) := by rw [← Nat.mul_add]
+        _ = (m - 2 * d + 3) * (z * z) := Nat.mul_comm _ _
+    -- Step 4: from m³ < (m-2d+3)*z², derive m³/z² < m-2d+3, so m³/z² ≤ m-2d+2
+    have hdiv_lt : m * m * m / (z * z) < m - 2 * d + 3 :=
+      (Nat.div_lt_iff_lt_mul hzz).2 hlt
+    have hdiv_le : m * m * m / (z * z) ≤ m - 2 * d + 2 := by omega
+    -- numerator = floor(m³/z²) + 2z ≤ (m-2d+2) + 2(m+d) = 3m+2
+    have hnum_le : m * m * m / (z * z) + 2 * z ≤ 3 * m + 2 := by omega
+    -- (3m+2)/3 ≤ m: use Nat.div_le_div_right on the numerator bound
+    exact Nat.le_trans (Nat.div_le_div_right hnum_le) (by omega)
+
+/-- Finite check: innerCbrt(m³) = m for all m ≤ 255 (m³ < 2^24). -/
+theorem innerCbrt_on_perfect_cube_small :
+    ∀ i : Fin 256, innerCbrt (i.val * i.val * i.val) = i.val := by
+  native_decide
+
+-- ============================================================================
 -- Part 5: Floor correction (local lemma)
 -- ============================================================================
 

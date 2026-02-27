@@ -991,6 +991,86 @@ theorem model_cbrt_up_evm_upper_bound
   exact cbrtUpSpec_upper_bound x hx hx256
 
 -- ============================================================================
+-- Level 4c: cbrtUp lower bound (exact ceiling)
+-- ============================================================================
+
+/-- cbrtUpSpec gives a tight lower bound: (r-1)³ < x.
+    Combined with the upper bound (x ≤ r³), this shows r = ⌈∛x⌉. -/
+theorem cbrtUpSpec_lower_bound
+    (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
+    (cbrtUpSpec x - 1) * (cbrtUpSpec x - 1) * (cbrtUpSpec x - 1) < x := by
+  have hmlo : icbrt x * icbrt x * icbrt x ≤ x := icbrt_cube_le x
+  have hupper : innerCbrt x ≤ icbrt x + 1 := innerCbrt_upper_u256 x hx hx256
+  have hlower : icbrt x ≤ innerCbrt x := innerCbrt_lower x (icbrt x) hx hmlo
+  unfold cbrtUpSpec
+  by_cases hlt : innerCbrt x * innerCbrt x * innerCbrt x < x
+  · -- innerCbrt(x)³ < x: cbrtUpSpec = innerCbrt(x) + 1, (innerCbrt(x)+1-1)³ = innerCbrt(x)³ < x
+    simp [hlt]
+  · -- innerCbrt(x)³ ≥ x: cbrtUpSpec = innerCbrt(x)
+    simp [hlt]
+    -- Need: (innerCbrt(x) - 1)³ < x. Case split: innerCbrt(x) = icbrt(x) or icbrt(x)+1.
+    have hcases := innerCbrt_correct_of_upper x hx hupper
+    rcases hcases with heqm | heqm1
+    · -- innerCbrt(x) = icbrt(x) = m. Need (m-1)³ < x.
+      rw [heqm]
+      -- m > 0 since x > 0 implies icbrt(x) > 0
+      have hm_pos : 0 < icbrt x := by
+        by_cases h0 : icbrt x = 0
+        · -- icbrt(x) = 0 means 0³ ≤ x < 1³ = 1, so x = 0, contradicting hx > 0.
+          have := icbrt_lt_succ_cube x; rw [h0] at this; simp at this; omega
+        · exact Nat.pos_of_ne_zero h0
+      -- (m-1)³ < m³ ≤ x
+      have : (icbrt x - 1) * (icbrt x - 1) * (icbrt x - 1) <
+             icbrt x * icbrt x * icbrt x := by
+        have hpred : icbrt x - 1 < icbrt x := Nat.sub_lt hm_pos (by omega)
+        -- (m-1)³ ≤ (m-1)² * m < m² * m = m³
+        calc (icbrt x - 1) * (icbrt x - 1) * (icbrt x - 1)
+            ≤ (icbrt x - 1) * (icbrt x - 1) * icbrt x :=
+              Nat.mul_le_mul_left _ (Nat.le_of_lt hpred)
+          _ ≤ (icbrt x - 1) * icbrt x * icbrt x :=
+              Nat.mul_le_mul_right _ (Nat.mul_le_mul_left _ (Nat.le_of_lt hpred))
+          _ < icbrt x * icbrt x * icbrt x :=
+              Nat.mul_lt_mul_of_pos_right
+                (Nat.mul_lt_mul_of_pos_right hpred hm_pos)
+                hm_pos
+      omega
+    · -- innerCbrt(x) = icbrt(x) + 1. Need (icbrt(x))³ < x.
+      rw [heqm1]; simp
+      -- Since innerCbrt(x) = icbrt(x)+1 and innerCbrt(m³) = m for m = icbrt(x),
+      -- x ≠ icbrt(x)³. Combined with icbrt(x)³ ≤ x: strict inequality.
+      have hm_pos : 0 < icbrt x := by
+        by_cases h0 : icbrt x = 0
+        · have := icbrt_lt_succ_cube x; rw [h0] at this; simp at this; omega
+        · exact Nat.pos_of_ne_zero h0
+      have hx_ne : x ≠ icbrt x * icbrt x * icbrt x := by
+        intro hxeq
+        have hpc := CbrtWiring.innerCbrt_on_perfect_cube (icbrt x)
+          hm_pos (by rw [← hxeq]; exact hx256)
+        -- hpc : innerCbrt (icbrt x * icbrt x * icbrt x) = icbrt x
+        -- heqm1 : innerCbrt x = icbrt x + 1
+        -- From hxeq: x = icbrt x * icbrt x * icbrt x
+        have : innerCbrt (icbrt x * icbrt x * icbrt x) = icbrt x + 1 := by
+          rwa [← hxeq]
+        -- Contradiction: icbrt x = icbrt x + 1
+        omega
+      omega
+
+/-- The EVM cbrtUp model gives a tight lower bound: (r-1)³ < x. -/
+theorem model_cbrt_up_evm_lower_bound
+    (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
+    (model_cbrt_up_evm x - 1) * (model_cbrt_up_evm x - 1) * (model_cbrt_up_evm x - 1) < x := by
+  rw [model_cbrt_up_evm_eq_cbrtUpSpec x hx hx256]
+  exact cbrtUpSpec_lower_bound x hx hx256
+
+/-- Combined: the EVM cbrtUp model gives the exact ceiling cube root. -/
+theorem model_cbrt_up_evm_is_ceil
+    (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
+    let r := model_cbrt_up_evm x
+    (r - 1) * (r - 1) * (r - 1) < x ∧ x ≤ r * r * r := by
+  exact ⟨model_cbrt_up_evm_lower_bound x hx hx256,
+         model_cbrt_up_evm_upper_bound x hx hx256⟩
+
+-- ============================================================================
 -- Summary
 -- ============================================================================
 
@@ -1005,7 +1085,10 @@ theorem model_cbrt_up_evm_upper_bound
   ✓ model_cbrt_up_eq_cbrtUpSpec: Nat cbrtUp model = cbrtUpSpec
   ✓ model_cbrt_up_evm_eq_cbrtUpSpec: EVM cbrtUp model = cbrtUpSpec
   ✓ cbrtUpSpec_upper_bound: cbrtUpSpec gives valid upper bound
+  ✓ cbrtUpSpec_lower_bound: cbrtUpSpec gives tight lower bound (exact ceiling)
   ✓ model_cbrt_up_evm_upper_bound: EVM cbrtUp gives valid upper bound
+  ✓ model_cbrt_up_evm_lower_bound: EVM cbrtUp gives tight lower bound
+  ✓ model_cbrt_up_evm_is_ceil: EVM cbrtUp is the exact ceiling cube root
   ✓ model_cbrt_evm_eq_model_cbrt: EVM model = Nat model
   ✓ model_cbrt_evm_bracket_u256_all: EVM model ∈ [m, m+1]
   ✓ model_cbrt_floor_evm_eq_floorCbrt: EVM floor = floorCbrt

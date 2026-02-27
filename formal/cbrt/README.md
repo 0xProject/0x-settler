@@ -82,8 +82,13 @@ lake build
 6. **EVM model correctness** (`model_cbrt_floor_evm_correct`):
    - the auto-generated EVM model of `cbrt()` from `Cbrt.sol` equals `icbrt(x)`
 
-7. **Ceiling correctness** (`model_cbrt_up_evm_upper_bound`):
-   - the auto-generated EVM model of `cbrtUp()` gives `x <= r^3`
+7. **Ceiling correctness** (`model_cbrt_up_evm_is_ceil`):
+   - the auto-generated EVM model of `cbrtUp()` gives the **exact** ceiling cube root:
+     `(r-1)^3 < x <= r^3` for all `0 < x < 2^256`
+
+8. **Perfect cube exactness** (`innerCbrt_on_perfect_cube`):
+   - for all `m` with `0 < m` and `m^3 < 2^256`: `innerCbrt(m^3) = m`
+   - key building block: on perfect cubes, Newton-Raphson with `d^2 < m` converges exactly
 
 ## Prerequisites
 
