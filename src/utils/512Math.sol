@@ -1861,10 +1861,10 @@ library Lib512MathArithmetic {
                 d := mul(0x03, r_hi_sq)
             }
 
-            // `limb_hi` is the next 86-bit limb of `x` after the first whole-ish word.
+            // `limb_hi` is the next 86-bit limb of `x` after the first whole-ish word `w`.
             uint256 limb_hi;
             assembly ("memory-safe") {
-                limb_hi := or(shl(0x54, and(x_hi, 0x03)), shr(0xac, x_lo))
+                limb_hi := or(shl(0x54, and(0x03, x_hi)), shr(0xac, x_lo))
             }
             // This is the Karatsuba step. The 86-bit lower limb of `r` is (almost):
             //   r_lo = ⌊(res ⋅ 2⁸⁶ + limb_hi) / (3 ⋅ r_hi²)⌋
@@ -1951,7 +1951,7 @@ library Lib512MathArithmetic {
         // So, the cube-and-compare code below only cubes a value of at most `r_max`, which fits in
         // 512 bits. `cbrtUp` reaches `r_max + 1` only via its final +1 correction
         //
-        // The following assembly block is identical to
+        // The following assembly block is identical to:
         //   (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
         //   (uint256 r3_hi, uint256 r3_lo) = _mul(r2_hi, r2_lo, r);
         //   r = r.unsafeDec(_gt(r3_hi, r3_lo, x_hi, x_lo));
@@ -1980,7 +1980,7 @@ library Lib512MathArithmetic {
 
         // `_cbrt` gives a result within 1ulp. Check if `r` is too low and correct.
         //
-        // The following assembly block is identical to
+        // The following assembly block is identical to:
         //   (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
         //   (uint256 r3_hi, uint256 r3_lo) = _mul(r2_hi, r2_lo, r);
         //   r = r.unsafeInc(_gt(x_hi, x_lo, r3_hi, r3_lo));
