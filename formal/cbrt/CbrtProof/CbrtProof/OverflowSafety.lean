@@ -31,32 +31,34 @@ private def hiD4 : Nat := hiD3 * hiD3 / R_MAX + 1
 private def hiD5 : Nat := hiD4 * hiD4 / R_MAX + 1
 
 -- ============================================================================
--- Verified constants (native_decide)
+-- Verified constants (kernel-checked via decide, no native_decide)
 -- ============================================================================
 
-private theorem r_max_cube_lt_word : R_MAX * R_MAX * R_MAX < 2 ^ 256 := by native_decide
+private theorem r_max_cube_lt_word : R_MAX * R_MAX * R_MAX < 2 ^ 256 := by decide
 private theorem r_max_succ_cube_ge_word :
-    2 ^ 256 ≤ (R_MAX + 1) * (R_MAX + 1) * (R_MAX + 1) := by native_decide
-private theorem hiD1_eq : hiD1 = d1Of ⟨247, by omega⟩ := by native_decide
-private theorem hiD5_sq_lt_rmax : hiD5 * hiD5 < R_MAX := by native_decide
-private theorem two_hiD1_le_rmax : 2 * hiD1 ≤ R_MAX := by native_decide
-private theorem two_hiD2_le_rmax : 2 * hiD2 ≤ R_MAX := by native_decide
-private theorem two_hiD3_le_rmax : 2 * hiD3 ≤ R_MAX := by native_decide
-private theorem two_hiD4_le_rmax : 2 * hiD4 ≤ R_MAX := by native_decide
-private theorem two_hiD5_le_rmax : 2 * hiD5 ≤ R_MAX := by native_decide
-private theorem pow255_le_rmax_cube : 2 ^ 255 ≤ R_MAX * R_MAX * R_MAX := by native_decide
+    2 ^ 256 ≤ (R_MAX + 1) * (R_MAX + 1) * (R_MAX + 1) := by decide
+set_option maxRecDepth 1000000 in
+private theorem hiD1_eq : hiD1 = d1Of ⟨247, by omega⟩ := by decide
+private theorem hiD5_sq_lt_rmax : hiD5 * hiD5 < R_MAX := by decide
+private theorem two_hiD1_le_rmax : 2 * hiD1 ≤ R_MAX := by decide
+private theorem two_hiD2_le_rmax : 2 * hiD2 ≤ R_MAX := by decide
+private theorem two_hiD3_le_rmax : 2 * hiD3 ≤ R_MAX := by decide
+private theorem two_hiD4_le_rmax : 2 * hiD4 ≤ R_MAX := by decide
+private theorem two_hiD5_le_rmax : 2 * hiD5 ≤ R_MAX := by decide
+private theorem pow255_le_rmax_cube : 2 ^ 255 ≤ R_MAX * R_MAX * R_MAX := by decide
 private theorem fBound_at_zero :
-    (R_MAX + 3) * (R_MAX * R_MAX) ≥ 2 ^ 256 := by native_decide
+    (R_MAX + 3) * (R_MAX * R_MAX) ≥ 2 ^ 256 := by decide
 private theorem fBound_at_hiD5 :
-    (R_MAX + 3 - 2 * hiD5) * ((R_MAX + hiD5) * (R_MAX + hiD5)) ≥ 2 ^ 256 := by native_decide
+    (R_MAX + 3 - 2 * hiD5) * ((R_MAX + hiD5) * (R_MAX + hiD5)) ≥ 2 ^ 256 := by decide
 
--- d1 bound for octave 247 matches the analytic formula (native_decide)
+-- d1 bound for octave 247 matches the analytic formula (decide)
+set_option maxRecDepth 1000000 in
 private theorem d1_bound_247 :
     (max (seedOf ⟨247, by omega⟩ - loOf ⟨247, by omega⟩) (hiOf ⟨247, by omega⟩ - seedOf ⟨247, by omega⟩) *
       max (seedOf ⟨247, by omega⟩ - loOf ⟨247, by omega⟩) (hiOf ⟨247, by omega⟩ - seedOf ⟨247, by omega⟩) *
       (hiOf ⟨247, by omega⟩ + 2 * seedOf ⟨247, by omega⟩) +
       3 * hiOf ⟨247, by omega⟩ * (hiOf ⟨247, by omega⟩ + 1)) /
-    (3 * (seedOf ⟨247, by omega⟩ * seedOf ⟨247, by omega⟩)) = d1Of ⟨247, by omega⟩ := by native_decide
+    (3 * (seedOf ⟨247, by omega⟩ * seedOf ⟨247, by omega⟩)) = d1Of ⟨247, by omega⟩ := by decide
 
 -- ============================================================================
 -- Nat polynomial identity: (b-2)(2b+1) + 3b + 2 = 2b² for b ≥ 2
