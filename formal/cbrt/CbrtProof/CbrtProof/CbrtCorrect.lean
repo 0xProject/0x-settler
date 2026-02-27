@@ -357,13 +357,65 @@ theorem cbrtStep_pos (x z : Nat) (hx : 0 < x) (hz : 0 < z) : 0 < cbrtStep x z :=
     omega
 
 /-- Integer polynomial identity used to upper-bound one cbrt Newton step. -/
+private theorem pullCoeff (x y c : Int) : x * (y * c) = c * (x * y) := by
+  rw [← Int.mul_assoc x y c]
+  rw [Int.mul_comm (x * y) c]
+
+private theorem pullCoeffNested (x y z c : Int) : x * (y * (z * c)) = c * (x * (y * z)) := by
+  rw [← Int.mul_assoc y z c]
+  rw [pullCoeff x (y * z) c]
+
 private theorem int_poly_identity (m d q r : Int)
     (hd2 : d * d = m * q + r) :
     ((m - 2 * d + 3 * q + 6) * ((m + d) * (m + d)) - (m + 1) * (m + 1) * (m + 1))
       =
     q * (3 * m * q + 6 * m + 3 * r + 4 * d * m)
       + (-2 * d * r + 12 * d * m + 3 * m * m - 3 * m * r - 3 * m + 6 * r - 1) := by
-  grind
+  simp [Int.sub_eq_add_neg, Int.add_mul, Int.mul_add,
+    Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  repeat rw [Int.mul_neg]
+  repeat rw [Int.neg_mul]
+  have hddx (x : Int) : d * (d * x) = (d * d) * x := by
+    rw [← Int.mul_assoc]
+  simp [hddx, hd2, Int.add_mul, Int.mul_add,
+    Int.mul_assoc, Int.mul_left_comm]
+  -- Normalize monomials with numeric coefficients.
+  rw [pullCoeffNested m m d 2]
+  rw [pullCoeffNested m m q 2]
+  rw [pullCoeff m r 2]
+  rw [pullCoeffNested m d q 2]
+  rw [pullCoeff d r 2]
+  rw [pullCoeffNested m m q 3]
+  rw [pullCoeffNested m d q 3]
+  rw [pullCoeff m m 6]
+  rw [pullCoeff m d 6]
+  rw [pullCoeff m q 6]
+  rw [pullCoeff m d 12]
+  rw [pullCoeffNested m d q 4]
+  rw [pullCoeff m r 3]
+  rw [pullCoeff m m 3]
+  -- Collapse the expanded `(m + 1)^3` chunk.
+  have hcube :
+      m * (m * m) + m * m + (m * m + m) + (m * m + m + (m + 1))
+        = m * (m * m) + 3 * (m * m) + 3 * m + 1 := by
+    omega
+  rw [hcube]
+  omega
+
+private theorem neg3_mul_mul (m r : Int) : -3 * m * r = -(3 * m * r) := by
+  calc
+    -3 * m * r = (-3 * m) * r := by rw [Int.mul_assoc]
+    _ = (-(3 * m)) * r := by rw [Int.neg_mul]
+    _ = -(3 * m * r) := by rw [Int.neg_mul, Int.mul_assoc]
+
+private theorem mul_coeff_expand (m d r : Int) :
+    r * (-2 * d - 3 * m + 6) = -2 * d * r - 3 * m * r + 6 * r := by
+  rw [Int.mul_add]
+  have hsum : -2 * d - 3 * m = (-2 * d) + (-3 * m) := by omega
+  rw [hsum, Int.mul_add]
+  rw [Int.mul_comm r (-2 * d), Int.mul_comm r (-3 * m), Int.mul_comm r 6]
+  repeat rw [Int.sub_eq_add_neg]
+  rw [neg3_mul_mul]
 
 /-- Product form of the one-step upper bound (core arithmetic bridge). -/
 private theorem one_step_prod_bound (m d : Nat) (hm2 : 2 ≤ m) :
@@ -438,13 +490,27 @@ private theorem one_step_prod_bound (m d : Nat) (hm2 : 2 ≤ m) :
         - 3 * (m : Int) + 6 * (r : Int) - 1)
       = (12 * (d : Int) * (m : Int) + 3 * (m : Int) * (m : Int) - 3 * (m : Int) - 1)
         + (r : Int) * (-2 * (d : Int) - 3 * (m : Int) + 6) := by
-    grind
+    rw [mul_coeff_expand (m := (m : Int)) (d := (d : Int)) (r := (r : Int))]
+    repeat rw [Int.sub_eq_add_neg]
+    ac_rfl
 
   have h_rewrite0 :
       (12 * (d : Int) * (m : Int) + 3 * (m : Int) * (m : Int) - 3 * (m : Int) - 1)
         + ((m - 1 : Nat) : Int) * (-2 * (d : Int) - 3 * (m : Int) + 6)
       = 10 * (d : Int) * (m : Int) + 2 * (d : Int) + 6 * (m : Int) - 7 := by
-    grind
+    have hm1 : 1 ≤ m := Nat.le_trans (by decide : 1 ≤ 2) hm2
+    have ht : ((m - 1 : Nat) : Int) = (m : Int) - 1 := by omega
+    rw [ht, Int.sub_mul, Int.one_mul]
+    rw [mul_coeff_expand (m := (m : Int)) (d := (d : Int)) (r := (m : Int))]
+    repeat rw [Int.sub_eq_add_neg]
+    have hneg : -(-2 * (d : Int) + -(3 * (m : Int)) + 6) = 2 * (d : Int) + 3 * (m : Int) - 6 := by
+      omega
+    rw [hneg]
+    rw [Int.mul_assoc 12 (d : Int) (m : Int)]
+    rw [Int.mul_assoc (-2) (d : Int) (m : Int)]
+    rw [Int.mul_assoc 10 (d : Int) (m : Int)]
+    rw [Int.mul_assoc 3 (m : Int) (m : Int)]
+    omega
 
   have h10dm_nonneg : 0 ≤ 10 * (d : Int) * (m : Int) := by
     have h10d_nonneg : 0 ≤ 10 * (d : Int) := Int.mul_nonneg h10_nonneg hd_nonneg
@@ -898,7 +964,34 @@ private theorem pow4_mono (a b : Nat) (h : a ≤ b) : pow4 a ≤ pow4 b := by
 private theorem pow4_step_gap (k : Nat) :
     pow4 (k + 1) + 15 ≤ pow4 (k + 2) := by
   unfold pow4
-  grind
+  let b : Nat := (k + 1) * (k + 1)
+  let a : Nat := (k + 2) * (k + 2)
+  have hb1 : 1 ≤ b := by
+    dsimp [b]
+    have hk1 : 1 ≤ k + 1 := by omega
+    exact Nat.mul_le_mul hk1 hk1
+  have hsq : (k + 2) * (k + 2) = (k + 1) * (k + 1) + (2 * (k + 1) + 1) := by
+    have h : k + 2 = (k + 1) + 1 := by omega
+    rw [h, h]
+    rw [Nat.add_mul, Nat.mul_add]
+    omega
+  have ha_ge : b + 3 ≤ a := by
+    dsimp [a, b]
+    rw [hsq]
+    have : 3 ≤ 2 * (k + 1) + 1 := by omega
+    omega
+  have hsq_mono : (b + 3) * (b + 3) ≤ a * a := Nat.mul_le_mul ha_ge ha_ge
+  have hinc : b * b + 15 ≤ (b + 3) * (b + 3) := by
+    have h_expand : (b + 3) * (b + 3) = b * b + (6 * b + 9) := by
+      rw [Nat.add_mul, Nat.mul_add]
+      omega
+    rw [h_expand]
+    have h6b9 : 15 ≤ 6 * b + 9 := by
+      have : 6 ≤ 6 * b := Nat.mul_le_mul_left 6 hb1
+      omega
+    omega
+  have hfinal : b * b + 15 ≤ a * a := Nat.le_trans hinc hsq_mono
+  simpa [a, b] using hfinal
 
 private theorem pow8_succ_le_pow4_mul_sub8 (k : Nat) :
     pow8 (k + 1) ≤ pow4 (k + 2) * (pow4 (k + 2) - 8) := by
@@ -965,9 +1058,12 @@ private theorem div_plus_two_sq_lt_of_i8rt_bucket
     have h49 : 4 * y + 5 ≤ 9 * y := by
       omega
     calc
-      (y + 2) * (y + 2) + 1 = y * y + (4 * y + 5) := by grind
+      (y + 2) * (y + 2) + 1 = y * y + (4 * y + 5) := by
+        rw [Nat.add_mul, Nat.mul_add]
+        omega
       _ ≤ y * y + 9 * y := Nat.add_le_add_left h49 (y * y)
-      _ = y * (y + 9) := by grind
+      _ = y * (y + 9) := by
+        rw [Nat.mul_add, Nat.mul_comm y 9]
       _ ≤ y * B := Nat.mul_le_mul_left y hy9
   have hym : y * B ≤ m := by
     dsimp [y]
