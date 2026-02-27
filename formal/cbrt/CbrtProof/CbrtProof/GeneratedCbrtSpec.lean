@@ -704,6 +704,70 @@ def cbrtUpSpec (x : Nat) : Nat :=
   let z := innerCbrt x
   if z * z * z < x then z + 1 else z
 
+private theorem up_formula_eq_of_pos
+    (x z : Nat) (hz : 0 < z) :
+    z + (if x / (z * z) + (if x / (z * z) * (z * z) < x then 1 else 0) > z then 1 else 0)
+      = (if z * z * z < x then z + 1 else z) := by
+  let z2 := z * z
+  let d := x / z2
+  have hz2Pos : 0 < z2 := by
+    dsimp [z2]
+    exact Nat.mul_pos hz hz
+  have hmul_succ : x < z2 * (d + 1) := by
+    dsimp [d]
+    exact Nat.lt_mul_div_succ x hz2Pos
+  by_cases hrem : d * z2 < x
+  · by_cases hgt : d + 1 > z
+    · have hz_le_d : z ≤ d := Nat.lt_succ_iff.mp hgt
+      have hcube_le : z * z2 ≤ d * z2 := Nat.mul_le_mul_right z2 hz_le_d
+      have hcube_lt_x : z * z2 < x := Nat.lt_of_le_of_lt hcube_le hrem
+      have hz3lt : z * z * z < x := by
+        simpa [z2, Nat.mul_assoc] using hcube_lt_x
+      have hif : (if z * z * z < x then z + 1 else z) = z + 1 := by simp [hz3lt]
+      have hleft : z + (if d + (if d * z2 < x then 1 else 0) > z then 1 else 0) = z + 1 := by
+        simp [hrem, hgt]
+      exact hleft.trans hif.symm
+    · have hd1_le_z : d + 1 ≤ z := Nat.le_of_not_gt hgt
+      have hx_lt_z3 : x < z * z * z := by
+        have hx_lt : x < z2 * (d + 1) := hmul_succ
+        have hle : z2 * (d + 1) ≤ z2 * z := Nat.mul_le_mul_left z2 hd1_le_z
+        have hx_lt2 : x < z2 * z := Nat.lt_of_lt_of_le hx_lt hle
+        simpa [z2, Nat.mul_assoc] using hx_lt2
+      have hright : (if z * z * z < x then z + 1 else z) = z := by
+        simp [Nat.not_lt.mpr (Nat.le_of_lt hx_lt_z3)]
+      have hleft : z + (if d + (if d * z2 < x then 1 else 0) > z then 1 else 0) = z := by
+        simp [hrem, hgt]
+      exact hleft.trans hright.symm
+  · have hdz2_le : d * z2 ≤ x := by
+      dsimp [d]
+      exact Nat.div_mul_le_self x z2
+    have hdz2_eq : d * z2 = x := Nat.le_antisymm hdz2_le (Nat.not_lt.mp hrem)
+    by_cases hgt : d > z
+    · have hz1_le_d : z + 1 ≤ d := Nat.succ_le_of_lt hgt
+      have hz3_lt_dz2 : z * z * z < d * z2 := by
+        have hlt : z * z2 < (z + 1) * z2 := by
+          exact Nat.mul_lt_mul_of_pos_right (Nat.lt_succ_self z) hz2Pos
+        have hle : (z + 1) * z2 ≤ d * z2 := Nat.mul_le_mul_right z2 hz1_le_d
+        have hlt2 : z * z2 < d * z2 := Nat.lt_of_lt_of_le hlt hle
+        simpa [z2, Nat.mul_assoc] using hlt2
+      have hz3_lt_x : z * z * z < x := by
+        simpa [hdz2_eq] using hz3_lt_dz2
+      have hright : (if z * z * z < x then z + 1 else z) = z + 1 := by
+        simp [hz3_lt_x]
+      have hleft : z + (if d + (if d * z2 < x then 1 else 0) > z then 1 else 0) = z + 1 := by
+        simp [hrem, hgt]
+      exact hleft.trans hright.symm
+    · have hd_le_z : d ≤ z := Nat.le_of_not_gt hgt
+      have hx_le_z3 : x ≤ z * z * z := by
+        have hle : d * z2 ≤ z * z2 := Nat.mul_le_mul_right z2 hd_le_z
+        have hxle : x ≤ z * z2 := by simpa [hdz2_eq] using hle
+        simpa [z2, Nat.mul_assoc] using hxle
+      have hright : (if z * z * z < x then z + 1 else z) = z := by
+        simp [Nat.not_lt.mpr hx_le_z3]
+      have hleft : z + (if d + (if d * z2 < x then 1 else 0) > z then 1 else 0) = z := by
+        simp [hrem, hgt]
+      exact hleft.trans hright.symm
+
 -- The Nat-level cbrtUp spec equivalence
 private theorem model_cbrt_up_norm_eq_cbrtUpSpec
     (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
@@ -711,66 +775,8 @@ private theorem model_cbrt_up_norm_eq_cbrtUpSpec
   have hinner : model_cbrt x = innerCbrt x := model_cbrt_eq_innerCbrt x hx256
   have hzPos : 0 < innerCbrt x := innerCbrt_pos x hx
   unfold model_cbrt_up cbrtUpSpec
-  simp only [hinner, normMul, normDiv, normAdd, normGt, normLt]
-  -- After unfolding, goal is:
-  -- innerCbrt x + (if x/(z*z) + (if x/(z*z)*(z*z) < x then 1 else 0) > z then 1 else 0)
-  -- = if z*z*z < x then z+1 else z
-  -- where z = innerCbrt x.
-  -- We do case analysis on the remainder and the comparison with z.
-  by_cases hrem : x / (innerCbrt x * innerCbrt x) * (innerCbrt x * innerCbrt x) < x
-  · -- Remainder case
-    simp [hrem]
-    by_cases hd_ge_z : x / (innerCbrt x * innerCbrt x) + 1 > innerCbrt x
-    · simp [hd_ge_z]
-      -- d ≥ z, so z³ ≤ d * z² < x
-      have : innerCbrt x ≤ x / (innerCbrt x * innerCbrt x) := by omega
-      have : innerCbrt x * (innerCbrt x * innerCbrt x) ≤
-          x / (innerCbrt x * innerCbrt x) * (innerCbrt x * innerCbrt x) :=
-        Nat.mul_le_mul_right _ this
-      show innerCbrt x * innerCbrt x * innerCbrt x < x
-      rw [Nat.mul_assoc]; omega
-    · simp [hd_ge_z]
-      -- d + 1 ≤ z, so x < (d+1)*z² ≤ z*z² = z³
-      have hzz : 0 < innerCbrt x * innerCbrt x := Nat.mul_pos hzPos hzPos
-      have hlt_succ : x < (innerCbrt x * innerCbrt x) * (x / (innerCbrt x * innerCbrt x) + 1) :=
-        Nat.lt_mul_div_succ x hzz
-      have hd1_le : x / (innerCbrt x * innerCbrt x) + 1 ≤ innerCbrt x := by omega
-      have hle : (innerCbrt x * innerCbrt x) * (x / (innerCbrt x * innerCbrt x) + 1) ≤
-          (innerCbrt x * innerCbrt x) * innerCbrt x :=
-        Nat.mul_le_mul_left _ hd1_le
-      have hlt_zcube : x < (innerCbrt x * innerCbrt x) * innerCbrt x :=
-        Nat.lt_of_lt_of_le hlt_succ hle
-      -- (z*z)*z = z*z*z by left-association
-      have hassoc : (innerCbrt x * innerCbrt x) * innerCbrt x = innerCbrt x * innerCbrt x * innerCbrt x := rfl
-      rw [hassoc] at hlt_zcube
-      exact Nat.le_of_lt hlt_zcube
-  · -- No remainder case
-    simp [hrem]
-    have hdz2_le : x / (innerCbrt x * innerCbrt x) * (innerCbrt x * innerCbrt x) ≤ x :=
-      Nat.div_mul_le_self x (innerCbrt x * innerCbrt x)
-    have hdz2_eq : x / (innerCbrt x * innerCbrt x) * (innerCbrt x * innerCbrt x) = x := by omega
-    by_cases hd_gt_z : x / (innerCbrt x * innerCbrt x) > innerCbrt x
-    · simp [hd_gt_z]
-      have : (innerCbrt x + 1) * (innerCbrt x * innerCbrt x) ≤
-          x / (innerCbrt x * innerCbrt x) * (innerCbrt x * innerCbrt x) :=
-        Nat.mul_le_mul_right _ hd_gt_z
-      rw [hdz2_eq] at this
-      show innerCbrt x * innerCbrt x * innerCbrt x < x
-      rw [Nat.mul_assoc]
-      have : innerCbrt x * (innerCbrt x * innerCbrt x) <
-          (innerCbrt x + 1) * (innerCbrt x * innerCbrt x) :=
-        Nat.mul_lt_mul_of_pos_right (by omega) (Nat.mul_pos hzPos hzPos)
-      omega
-    · simp [hd_gt_z]
-      have hdle : x / (innerCbrt x * innerCbrt x) ≤ innerCbrt x := by omega
-      have : x / (innerCbrt x * innerCbrt x) * (innerCbrt x * innerCbrt x) ≤
-          innerCbrt x * (innerCbrt x * innerCbrt x) :=
-        Nat.mul_le_mul_right _ hdle
-      rw [hdz2_eq] at this
-      -- this : x ≤ innerCbrt x * (innerCbrt x * innerCbrt x)
-      -- goal : x ≤ innerCbrt x * innerCbrt x * innerCbrt x
-      -- These are equal by Nat.mul_assoc
-      rwa [← Nat.mul_assoc] at this
+  simpa [hinner, normMul, normDiv, normAdd, normGt, normLt] using
+    up_formula_eq_of_pos x (innerCbrt x) hzPos
 
 theorem model_cbrt_up_eq_cbrtUpSpec
     (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
