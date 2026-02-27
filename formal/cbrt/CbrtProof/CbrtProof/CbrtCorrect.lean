@@ -190,6 +190,9 @@ theorem icbrt_eq_of_bounds (x r : Nat)
 /-- 8th power helper. -/
 def pow8 (n : Nat) : Nat := n * n * n * n * n * n * n * n
 
+/-- 4th power helper. -/
+private def pow4 (n : Nat) : Nat := (n * n) * (n * n)
+
 /-- Search helper: largest `m ≤ n` such that `m^8 ≤ x`. -/
 def i8rtAux (x n : Nat) : Nat :=
   match n with
@@ -203,6 +206,9 @@ private theorem pow8_eq4 (n : Nat) :
     pow8 n = ((n * n) * (n * n)) * ((n * n) * (n * n)) := by
   unfold pow8
   simp [Nat.mul_left_comm, Nat.mul_comm]
+
+private theorem pow8_eq_pow4 (n : Nat) : pow8 n = pow4 n * pow4 n := by
+  simp [pow4, pow8_eq4]
 
 private theorem pow8_monotone {a b : Nat} (h : a ≤ b) : pow8 a ≤ pow8 b := by
   have h2 : a * a ≤ b * b := Nat.mul_le_mul h h
@@ -882,6 +888,172 @@ private theorem stageDelta_h2d2_of_ge_256 (m : Nat) (hm256 : 256 ≤ m) :
     omega
   exact Nat.le_trans (Nat.mul_le_mul_left 2 hbound) hfinal
 
+private theorem pow4_mono (a b : Nat) (h : a ≤ b) : pow4 a ≤ pow4 b := by
+  unfold pow4
+  have h2 : a * a ≤ b * b := Nat.mul_le_mul h h
+  exact Nat.mul_le_mul h2 h2
+
+private theorem pow4_step_gap (k : Nat) :
+    pow4 (k + 1) + 15 ≤ pow4 (k + 2) := by
+  unfold pow4
+  grind
+
+private theorem pow8_succ_le_pow4_mul_sub8 (k : Nat) :
+    pow8 (k + 1) ≤ pow4 (k + 2) * (pow4 (k + 2) - 8) := by
+  have hgap : pow4 (k + 1) + 15 ≤ pow4 (k + 2) := pow4_step_gap k
+  have hle : pow4 (k + 1) ≤ pow4 (k + 2) - 15 := by
+    omega
+  have hsq : pow4 (k + 1) * pow4 (k + 1) ≤
+      (pow4 (k + 2) - 15) * (pow4 (k + 2) - 15) := Nat.mul_le_mul hle hle
+  have hleft : (pow4 (k + 2) - 15) * (pow4 (k + 2) - 15) ≤
+      pow4 (k + 2) * (pow4 (k + 2) - 15) := by
+    exact Nat.mul_le_mul_right (pow4 (k + 2) - 15) (by omega)
+  have hright : pow4 (k + 2) * (pow4 (k + 2) - 15) ≤
+      pow4 (k + 2) * (pow4 (k + 2) - 8) := by
+    exact Nat.mul_le_mul_left (pow4 (k + 2)) (by omega)
+  have hmain : pow4 (k + 1) * pow4 (k + 1) ≤
+      pow4 (k + 2) * (pow4 (k + 2) - 8) := Nat.le_trans hsq (Nat.le_trans hleft hright)
+  simpa [pow8_eq_pow4] using hmain
+
+private theorem pow4_add2_le_pow8 (k : Nat) (hk2 : 2 ≤ k) :
+    pow4 (k + 2) ≤ pow8 k := by
+  have hk : k + 2 ≤ 2 * k := by omega
+  have hmono : pow4 (k + 2) ≤ pow4 (2 * k) := pow4_mono (k + 2) (2 * k) hk
+  have h2k_le_kk : 2 * k ≤ k * k := by
+    simpa [Nat.mul_comm] using (Nat.mul_le_mul_right k hk2)
+  have hsq1 : (2 * k) * (2 * k) ≤ (k * k) * (k * k) := Nat.mul_le_mul h2k_le_kk h2k_le_kk
+  have hsq2 : ((2 * k) * (2 * k)) * ((2 * k) * (2 * k)) ≤
+      ((k * k) * (k * k)) * ((k * k) * (k * k)) := Nat.mul_le_mul hsq1 hsq1
+  have h2kp4 : pow4 (2 * k) ≤ pow8 k := by
+    simpa [pow4, pow8_eq4] using hsq2
+  exact Nat.le_trans hmono h2kp4
+
+private theorem div_plus_two_sq_lt_of_i8rt_bucket
+    (m k : Nat)
+    (hk2 : 2 ≤ k)
+    (hklo : pow8 k ≤ m)
+    (hkhi : m < pow8 (k + 1)) :
+    (m / pow4 (k + 2) + 2) * (m / pow4 (k + 2) + 2) < m := by
+  let B : Nat := pow4 (k + 2)
+  let y : Nat := m / B
+  have hBpos : 0 < B := by
+    dsimp [B, pow4]
+    have hk2pos : 0 < k + 2 := by omega
+    have hsq : 0 < (k + 2) * (k + 2) := Nat.mul_pos hk2pos hk2pos
+    exact Nat.mul_pos hsq hsq
+  have hB_le_m : B ≤ m := Nat.le_trans (pow4_add2_le_pow8 k hk2) hklo
+  have hy1 : 1 ≤ y := by
+    dsimp [y]
+    exact Nat.div_pos hB_le_m hBpos
+  have hbucket : m < B * (B - 8) := by
+    have hpow : pow8 (k + 1) ≤ B * (B - 8) := by
+      simpa [B] using pow8_succ_le_pow4_mul_sub8 k
+    exact Nat.lt_of_lt_of_le hkhi hpow
+  have hylt : y < B - 8 := by
+    dsimp [y]
+    have hbucket' : m < (B - 8) * B := by
+      simpa [Nat.mul_comm] using hbucket
+    exact (Nat.div_lt_iff_lt_mul hBpos).2 hbucket'
+  have hy9 : y + 9 ≤ B := by
+    omega
+  have hyB : (y + 2) * (y + 2) + 1 ≤ y * B := by
+    have h5y : 5 ≤ 5 * y := by
+      have : 1 * 5 ≤ y * 5 := Nat.mul_le_mul_right 5 hy1
+      simpa [Nat.mul_comm] using this
+    have h49 : 4 * y + 5 ≤ 9 * y := by
+      omega
+    calc
+      (y + 2) * (y + 2) + 1 = y * y + (4 * y + 5) := by grind
+      _ ≤ y * y + 9 * y := Nat.add_le_add_left h49 (y * y)
+      _ = y * (y + 9) := by grind
+      _ ≤ y * B := Nat.mul_le_mul_left y hy9
+  have hym : y * B ≤ m := by
+    dsimp [y]
+    simpa [Nat.mul_comm] using (Nat.mul_div_le m B)
+  have hmain : (y + 2) * (y + 2) < m := by
+    calc
+      (y + 2) * (y + 2) < (y + 2) * (y + 2) + 1 := Nat.lt_succ_self _
+      _ ≤ y * B := hyB
+      _ ≤ m := hym
+  simpa [B, y]
+
+private theorem stageDelta_hcontract_of_ge_256 (m : Nat) (hm256 : 256 ≤ m) :
+    nextDelta3 m (stageDelta m) ≤ 1 := by
+  let k : Nat := i8rt m
+  let d2 : Nat := nextDelta m (nextDelta m (stageDelta m))
+  have hm : 0 < m := by omega
+  have hk2 : 2 ≤ k := by
+    simpa [k] using i8rt_ge_two_of_ge_256 m hm256
+  have hklo : pow8 k ≤ m := by
+    simpa [k] using i8rt_pow8_le m
+  have hkhi : m < pow8 (k + 1) := by
+    simpa [k] using i8rt_lt_succ_pow8 m
+  have hd2ub : d2 ≤ m / pow4 (k + 2) + 2 := by
+    dsimp [d2, k]
+    simpa [pow4, Nat.mul_assoc, Nat.mul_left_comm, Nat.mul_comm] using stageDelta_next2_le m hm
+  have hsq_lt : (m / pow4 (k + 2) + 2) * (m / pow4 (k + 2) + 2) < m :=
+    div_plus_two_sq_lt_of_i8rt_bucket m k hk2 hklo hkhi
+  have hd2sq_lt : d2 * d2 < m := Nat.lt_of_le_of_lt (Nat.mul_le_mul hd2ub hd2ub) hsq_lt
+  have hdiv0 : d2 * d2 / m = 0 := Nat.div_eq_of_lt hd2sq_lt
+  have hlast : nextDelta m d2 = 1 := by
+    unfold nextDelta
+    simp [hdiv0]
+  have hfinal : nextDelta m d2 ≤ 1 := by
+    simp [hlast]
+  unfold nextDelta3
+  simpa [d2] using hfinal
+
+private theorem stageDelta_h2d1_fin256 :
+    ∀ i : Fin 256, 2 ≤ i.val → 2 * nextDelta i.val (stageDelta i.val) ≤ i.val := by
+  native_decide
+
+private theorem stageDelta_h2d2_fin256 :
+    ∀ i : Fin 256, 2 ≤ i.val →
+      2 * nextDelta i.val (nextDelta i.val (stageDelta i.val)) ≤ i.val := by
+  native_decide
+
+private theorem stageDelta_hcontract_fin256 :
+    ∀ i : Fin 256, 2 ≤ i.val → nextDelta3 i.val (stageDelta i.val) ≤ 1 := by
+  native_decide
+
+private theorem stageDelta_h2d1_of_ge_two (m : Nat) (hm2 : 2 ≤ m) :
+    2 * nextDelta m (stageDelta m) ≤ m := by
+  by_cases hm256 : 256 ≤ m
+  · exact stageDelta_h2d1_of_ge_256 m hm256
+  · have hm_lt : m < 256 := Nat.lt_of_not_ge hm256
+    exact stageDelta_h2d1_fin256 ⟨m, hm_lt⟩ hm2
+
+private theorem stageDelta_h2d2_of_ge_two (m : Nat) (hm2 : 2 ≤ m) :
+    2 * nextDelta m (nextDelta m (stageDelta m)) ≤ m := by
+  by_cases hm256 : 256 ≤ m
+  · exact stageDelta_h2d2_of_ge_256 m hm256
+  · have hm_lt : m < 256 := Nat.lt_of_not_ge hm256
+    exact stageDelta_h2d2_fin256 ⟨m, hm_lt⟩ hm2
+
+private theorem stageDelta_hcontract_of_ge_two (m : Nat) (hm2 : 2 ≤ m) :
+    nextDelta3 m (stageDelta m) ≤ 1 := by
+  by_cases hm256 : 256 ≤ m
+  · exact stageDelta_hcontract_of_ge_256 m hm256
+  · have hm_lt : m < 256 := Nat.lt_of_not_ge hm256
+    exact stageDelta_hcontract_fin256 ⟨m, hm_lt⟩ hm2
+
+private theorem icbrt_ge_of_cube_le (x m : Nat) (hmx : m * m * m ≤ x) :
+    m ≤ icbrt x := by
+  have hm_le_x : m ≤ x := by
+    by_cases hm0 : m = 0
+    · omega
+    · have hmpos : 0 < m := Nat.pos_of_ne_zero hm0
+      exact Nat.le_trans (le_cube_of_pos hmpos) hmx
+  unfold icbrt
+  exact icbrtAux_greatest x x m hm_le_x hmx
+
+private theorem icbrt_ge_256_of_ge_2pow24 (x : Nat) (hx24 : 16777216 ≤ x) :
+    256 ≤ icbrt x := by
+  have hcube : 256 * 256 * 256 ≤ x := by
+    have hconst : 256 * 256 * 256 = 16777216 := by native_decide
+    omega
+  exact icbrt_ge_of_cube_le x 256 hcube
+
 /-- Bridge wrapper at `m = icbrt x`: this isolates the remaining obligations
     (stage-1 run3 bound + delta side conditions). -/
 private theorem innerCbrt_upper_of_stage_icbrt
@@ -899,6 +1071,44 @@ private theorem innerCbrt_upper_of_stage_icbrt
   exact innerCbrt_upper_of_stage x (icbrt x) (stageDelta (icbrt x))
     hx hm2 hmlo hmhi hstage h2d0 h2d1 h2d2 hcontract
 
+private theorem innerCbrt_upper_of_stage_icbrt_of_ge_256
+    (x : Nat)
+    (hx : 0 < x)
+    (hm256 : 256 ≤ icbrt x)
+    (hstage : run3From x (cbrtSeed x) ≤ icbrt x + stageDelta (icbrt x)) :
+    innerCbrt x ≤ icbrt x + 1 := by
+  have hm2 : 2 ≤ icbrt x := Nat.le_trans (by decide : 2 ≤ 256) hm256
+  have h2d1 : 2 * nextDelta (icbrt x) (stageDelta (icbrt x)) ≤ icbrt x :=
+    stageDelta_h2d1_of_ge_256 (icbrt x) hm256
+  have h2d2 : 2 * nextDelta (icbrt x) (nextDelta (icbrt x) (stageDelta (icbrt x))) ≤ icbrt x :=
+    stageDelta_h2d2_of_ge_256 (icbrt x) hm256
+  have hcontract : nextDelta3 (icbrt x) (stageDelta (icbrt x)) ≤ 1 :=
+    stageDelta_hcontract_of_ge_256 (icbrt x) hm256
+  exact innerCbrt_upper_of_stage_icbrt x hx hm2 hstage h2d1 h2d2 hcontract
+
+private theorem innerCbrt_upper_of_stage_icbrt_of_ge_two
+    (x : Nat)
+    (hx : 0 < x)
+    (hm2 : 2 ≤ icbrt x)
+    (hstage : run3From x (cbrtSeed x) ≤ icbrt x + stageDelta (icbrt x)) :
+    innerCbrt x ≤ icbrt x + 1 := by
+  have h2d1 : 2 * nextDelta (icbrt x) (stageDelta (icbrt x)) ≤ icbrt x :=
+    stageDelta_h2d1_of_ge_two (icbrt x) hm2
+  have h2d2 : 2 * nextDelta (icbrt x) (nextDelta (icbrt x) (stageDelta (icbrt x))) ≤ icbrt x :=
+    stageDelta_h2d2_of_ge_two (icbrt x) hm2
+  have hcontract : nextDelta3 (icbrt x) (stageDelta (icbrt x)) ≤ 1 :=
+    stageDelta_hcontract_of_ge_two (icbrt x) hm2
+  exact innerCbrt_upper_of_stage_icbrt x hx hm2 hstage h2d1 h2d2 hcontract
+
+private theorem innerCbrt_upper_of_stage_icbrt_of_ge_2pow24
+    (x : Nat)
+    (hx : 0 < x)
+    (hx24 : 16777216 ≤ x)
+    (hstage : run3From x (cbrtSeed x) ≤ icbrt x + stageDelta (icbrt x)) :
+    innerCbrt x ≤ icbrt x + 1 := by
+  have hm256 : 256 ≤ icbrt x := icbrt_ge_256_of_ge_2pow24 x hx24
+  exact innerCbrt_upper_of_stage_icbrt_of_ge_256 x hx hm256 hstage
+
 /-- Direct finite check for small inputs. -/
 private theorem innerCbrt_upper_fin256 :
     ∀ i : Fin 256, innerCbrt i.val ≤ icbrt i.val + 1 := by
@@ -908,6 +1118,24 @@ private theorem innerCbrt_upper_fin256 :
 private theorem innerCbrt_upper_of_lt_256 (x : Nat) (hx : x < 256) :
     innerCbrt x ≤ icbrt x + 1 := by
   simpa using innerCbrt_upper_fin256 ⟨x, hx⟩
+
+private theorem innerCbrt_upper_of_stage_icbrt_all
+    (x : Nat)
+    (hx : 0 < x)
+    (hstage : run3From x (cbrtSeed x) ≤ icbrt x + stageDelta (icbrt x)) :
+    innerCbrt x ≤ icbrt x + 1 := by
+  by_cases hm2 : 2 ≤ icbrt x
+  · exact innerCbrt_upper_of_stage_icbrt_of_ge_two x hx hm2 hstage
+  · have hic_lt2 : icbrt x < 2 := Nat.lt_of_not_ge hm2
+    have hx8 : x < 8 := by
+      have hlt : x < (icbrt x + 1) * (icbrt x + 1) * (icbrt x + 1) := icbrt_lt_succ_cube x
+      have hsucc : icbrt x + 1 ≤ 2 := by omega
+      have hmono :
+          (icbrt x + 1) * (icbrt x + 1) * (icbrt x + 1) ≤
+          2 * 2 * 2 := cube_monotone hsucc
+      exact Nat.lt_of_lt_of_le hlt (by simpa using hmono)
+    have hx256 : x < 256 := Nat.lt_of_lt_of_le hx8 (by decide : 8 ≤ 256)
+    exact innerCbrt_upper_of_lt_256 x hx256
 
 /-- innerCbrt gives a lower bound: for any m with m³ ≤ x, m ≤ innerCbrt(x). -/
 theorem innerCbrt_lower (x m : Nat) (hx : 0 < x)
@@ -1047,5 +1275,8 @@ theorem floorCbrt_correct_of_upper (x : Nat) (hx : 0 < x)
       - floorCbrt_correct_of_upper
 
   Remaining external link:
-    proving `innerCbrt x ≤ icbrt x + 1` end-to-end from the octave check for all x.
+    proving the stage-1 bound
+      `run3From x (cbrtSeed x) ≤ icbrt x + stageDelta (icbrt x)`
+    from octave-level computation, after which `innerCbrt x ≤ icbrt x + 1`
+    follows from the arithmetic bridge lemmas in this file.
 -/
