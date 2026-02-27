@@ -26,7 +26,7 @@ private def run3From (x z : Nat) : Nat :=
   z
 
 /-- Run six cbrt Newton steps from an explicit starting point. -/
-private def run6From (x z : Nat) : Nat :=
+def run6From (x z : Nat) : Nat :=
   let z := cbrtStep x z
   let z := cbrtStep x z
   let z := cbrtStep x z
@@ -80,7 +80,7 @@ def icbrtAux (x n : Nat) : Nat :=
 def icbrt (x : Nat) : Nat :=
   icbrtAux x x
 
-private theorem cube_monotone {a b : Nat} (h : a ≤ b) :
+theorem cube_monotone {a b : Nat} (h : a ≤ b) :
     a * a * a ≤ b * b * b := by
   have h1 : a * a * a ≤ b * a * a := by
     have hmul : a * a ≤ b * a := Nat.mul_le_mul_right a h
@@ -559,7 +559,7 @@ private theorem cbrtStep_upper_of_delta
 
 /-- Upper-bound transfer form: if `z` is between `m` and `m+d`, one cbrt step is
     bounded by the same `d^2/m + 1` expression. -/
-private theorem cbrtStep_upper_of_le
+theorem cbrtStep_upper_of_le
     (x m z d : Nat)
     (hm2 : 2 ≤ m)
     (hmz : m ≤ z)
@@ -646,7 +646,7 @@ private theorem div_sq_succ_div_bound (m a : Nat) (hm : 0 < m) (ha3 : 2 < a) :
   exact Nat.le_trans hmain (Nat.add_le_add_right hbase 1)
 
 /-- `cbrtStep` is monotone in `x` for fixed `z`. -/
-private theorem cbrtStep_mono_x (x y z : Nat) (hxy : x ≤ y) :
+theorem cbrtStep_mono_x (x y z : Nat) (hxy : x ≤ y) :
     cbrtStep x z ≤ cbrtStep y z := by
   unfold cbrtStep
   have hdiv : x / (z * z) ≤ y / (z * z) := Nat.div_le_div_right hxy
@@ -747,7 +747,7 @@ private theorem run6From_upper_of_run3_bound
   simpa [run6From] using hmain
 
 /-- For positive `x`, `_cbrt` is exactly `run6From` from the seed. -/
-private theorem innerCbrt_eq_run6From_seed (x : Nat) (hx : 0 < x) :
+theorem innerCbrt_eq_run6From_seed (x : Nat) (hx : 0 < x) :
     innerCbrt x = run6From x (cbrtSeed x) := by
   unfold innerCbrt run6From
   simp [Nat.ne_of_gt hx]
@@ -1115,7 +1115,7 @@ private theorem innerCbrt_upper_fin256 :
   native_decide
 
 /-- Small-range corollary (used for base cases). -/
-private theorem innerCbrt_upper_of_lt_256 (x : Nat) (hx : x < 256) :
+theorem innerCbrt_upper_of_lt_256 (x : Nat) (hx : x < 256) :
     innerCbrt x ≤ icbrt x + 1 := by
   simpa using innerCbrt_upper_fin256 ⟨x, hx⟩
 
