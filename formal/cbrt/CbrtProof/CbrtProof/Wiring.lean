@@ -3,7 +3,7 @@
   upper bound `innerCbrt x ≤ icbrt x + 1` for all x < 2^256.
 
   Strategy:
-    - For x < 256: use native_decide (innerCbrt_upper_of_lt_256)
+    - For x < 256: use decide (innerCbrt_upper_of_lt_256)
     - For x ≥ 256: map x to certificate octave, verify seed/interval match,
       apply CbrtCertified.run6_le_m_plus_one
 -/

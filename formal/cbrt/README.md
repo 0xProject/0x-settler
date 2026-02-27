@@ -97,26 +97,16 @@ lake build
 - Python 3 (for model and certificate generation)
 - No Mathlib or other Lean dependencies
 
-## Python verification script
-
-`verify_cbrt.py` independently verifies convergence for all 256 octaves. Requires `mpmath`.
-
-```bash
-pip install mpmath
-python3 formal/cbrt/verify_cbrt.py
-```
-
 ## File inventory
 
 | File | Description |
 |------|-------------|
 | `CbrtProof/FloorBound.lean` | Cubic AM-GM + floor bound |
 | `CbrtProof/CbrtCorrect.lean` | Definitions, reference `icbrt`, lower bound chain, floor correction, arithmetic bridge |
-| `CbrtProof/FiniteCert.lean` | **Auto-generated.** Per-octave certificate tables with `native_decide` checks |
+| `CbrtProof/FiniteCert.lean` | **Auto-generated.** Per-octave certificate tables with `decide` checks |
 | `CbrtProof/CertifiedChain.lean` | Six-step certified error chain with analytic d1 bound |
 | `CbrtProof/Wiring.lean` | Octave mapping + unconditional `floorCbrt_correct_u256` |
 | `CbrtProof/GeneratedCbrtModel.lean` | **Auto-generated.** EVM + Nat models of `_cbrt`, `cbrt`, `cbrtUp` |
 | `CbrtProof/GeneratedCbrtSpec.lean` | Bridge: generated model ↔ hand-written spec |
 | `generate_cbrt_model.py` | Generates `GeneratedCbrtModel.lean` from `Cbrt.sol` |
 | `generate_cbrt_cert.py` | Generates `FiniteCert.lean` from mathematical spec |
-| `verify_cbrt.py` | Independent Python convergence verification |
