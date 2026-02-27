@@ -1,0 +1,41 @@
+name: Sqrt.sol Formal Check
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - src/vendor/Sqrt.sol
+      - formal/sqrt/**
+      - .github/workflows/sqrt-formal.yml
+  pull_request:
+    paths:
+      - src/vendor/Sqrt.sol
+      - formal/sqrt/**
+      - .github/workflows/sqrt-formal.yml
+
+jobs:
+  sqrt-formal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Lean toolchain
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+
+      - name: Generate Lean model from Sqrt.sol
+        run: |
+          python3 formal/sqrt/generate_sqrt_model.py \
+            --solidity src/vendor/Sqrt.sol \
+            --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
+
+      - name: Build Sqrt proof
+        working-directory: formal/sqrt/SqrtProof
+        run: lake build

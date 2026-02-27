@@ -1,40 +1,41 @@
 # Formal Verification
 
-Machine-checked proofs of correctness for critical math libraries in 0x Settler.
+Machine-checked correctness proofs for root math libraries in 0x Settler.
 
-## Contents
+## Scope
 
-| Directory | Target | Status |
-|-----------|--------|--------|
-| `sqrt/` | `src/vendor/Sqrt.sol` | Complete -- convergence + correction proved in Lean 4 |
-| `cbrt/` | `src/vendor/Cbrt.sol` | Complete -- convergence + correction proved in Lean 4 |
+- `sqrt/`: proofs and model generation for `src/vendor/Sqrt.sol` (`_sqrt`, `sqrt`, `sqrtUp`)
+- `cbrt/`: proofs for `src/vendor/Cbrt.sol` (`_cbrt`, `cbrt`)
 
-## Approach
+## Structure
 
-Proofs combine algebraic reasoning (carried out in Lean 4 without Mathlib) with computational verification (`native_decide` over all 256 bit-width octaves). This hybrid approach keeps the proof small and dependency-free while covering the full uint256 input space.
+- `formal/sqrt/`
+  - Layered Lean proof (`FloorBound`, `StepMono`, `BridgeLemmas`, `FiniteCert`, `CertifiedChain`, `SqrtCorrect`)
+  - Solidity-to-Lean generator: `generate_sqrt_model.py`
+  - Generated Lean model/spec bridge: `GeneratedSqrtModel.lean`, `GeneratedSqrtSpec.lean`
+- `formal/cbrt/`
+  - Lean proof modules for one-step bounds and end-to-end correctness
 
-The core technique for each root function:
+## Method
 
-1. **Floor bound** (algebraic): A single truncated Newton-Raphson step never undershoots `iroot(x)`. Proved via an integer AM-GM inequality with an explicit algebraic witness.
-2. **Step monotonicity** (algebraic): The NR step is non-decreasing in z for overestimates, justifying the max-propagation upper bound.
-3. **Convergence** (computational): `native_decide` verifies all 256 bit-width octaves, confirming 6 iterations suffice for uint256.
-4. **Correction step** (algebraic): The floor-correction logic is correct given the 1-ULP bound from steps 1-3.
+- Algebraic lemmas prove one-step safety and correction logic.
+- Finite domain certificates cover all uint256 octaves.
+- End-to-end theorems lift these pieces to full-function correctness statements.
 
-## Prerequisites
+For `sqrt`, the Solidity source is parsed into generated Lean models, and the generated models are proved equivalent to the trusted Lean specs.
 
-- [elan](https://github.com/leanprover/elan) (Lean version manager)
-- Lean 4.28.0 (installed automatically by elan from `lean-toolchain`)
-- No Mathlib or other Lean dependencies
-- Python 3.8+ with `mpmath` (for the verification scripts only)
-
-## Building
+## Build
 
 ```bash
-# Square root proof
+# From repo root: regenerate Lean model from Solidity, then build sqrt proof
+python3 formal/sqrt/generate_sqrt_model.py \
+  --solidity src/vendor/Sqrt.sol \
+  --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
+
 cd formal/sqrt/SqrtProof && lake build
 
-# Cube root proof
+# Build cbrt proof
 cd formal/cbrt/CbrtProof && lake build
 ```
 
-See each subdirectory's README for details.
+See `formal/sqrt/README.md` and `formal/cbrt/README.md` for module-level details.
