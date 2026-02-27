@@ -92,15 +92,6 @@ lake build
 - Python 3 (for model and certificate generation)
 - No Mathlib or other Lean dependencies
 
-## Python verification script
-
-`verify_cbrt.py` independently verifies convergence for all 256 octaves. Requires `mpmath`.
-
-```bash
-pip install mpmath
-python3 formal/cbrt/verify_cbrt.py
-```
-
 ## File inventory
 
 | File | Description |
@@ -114,4 +105,3 @@ python3 formal/cbrt/verify_cbrt.py
 | `CbrtProof/GeneratedCbrtSpec.lean` | Bridge: generated model ↔ hand-written spec |
 | `generate_cbrt_model.py` | Generates `GeneratedCbrtModel.lean` from `Cbrt.sol` |
 | `generate_cbrt_cert.py` | Generates `FiniteCert.lean` from mathematical spec |
-| `verify_cbrt.py` | Independent Python convergence verification |
