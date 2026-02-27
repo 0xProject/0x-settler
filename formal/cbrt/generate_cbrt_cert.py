@@ -14,7 +14,7 @@ The d1 bound uses the cubic identity:
     <= maxAbs^2*(hi+2s) + 3*hi*(hi+1)
 where maxAbs = max(|s-lo|, |hi-s|).
 
-Octaves 0-7 (x < 256) are handled separately by native_decide in Lean.
+Octaves 0-7 (x < 256) are handled separately by decide in Lean.
 The certificate covers octaves 8-255 (x >= 256, lo >= 6).
 """
 
@@ -308,44 +308,44 @@ theorem seed_pos : ∀ i : Fin {num}, 0 < seedOf i := by decide
 
 /-- lo^3 <= 2^(i + certOffset). -/
 theorem lo_cube_le_pow2 : ∀ i : Fin {num},
-    loOf i * loOf i * loOf i ≤ 2 ^ (i.val + certOffset) := by native_decide
+    loOf i * loOf i * loOf i ≤ 2 ^ (i.val + certOffset) := by decide
 
 /-- 2^(i + certOffset + 1) <= (hi+1)^3. -/
 theorem pow2_succ_le_hi_succ_cube : ∀ i : Fin {num},
-    2 ^ (i.val + certOffset + 1) ≤ (hiOf i + 1) * (hiOf i + 1) * (hiOf i + 1) := by native_decide
+    2 ^ (i.val + certOffset + 1) ≤ (hiOf i + 1) * (hiOf i + 1) * (hiOf i + 1) := by decide
 
 /-- d1 is the correct analytic bound:
     d1Of(i) = (maxAbsOf(i)^2 * (hiOf(i) + 2*seedOf(i)) + 3*hiOf(i)*(hiOf(i)+1)) / (3*seedOf(i)^2) -/
 theorem d1_eq : ∀ i : Fin {num},
     d1Of i = (maxAbsOf i * maxAbsOf i * (hiOf i + 2 * seedOf i) +
-              3 * hiOf i * (hiOf i + 1)) / (3 * (seedOf i * seedOf i)) := by native_decide
+              3 * hiOf i * (hiOf i + 1)) / (3 * (seedOf i * seedOf i)) := by decide
 
 /-- maxAbs captures the correct value. -/
 theorem maxabs_eq : ∀ i : Fin {num},
-    maxAbsOf i = max (seedOf i - loOf i) (hiOf i - seedOf i) := by native_decide
+    maxAbsOf i = max (seedOf i - loOf i) (hiOf i - seedOf i) := by decide
 
 /-- Terminal bound: d6 <= 1 for all certificate octaves. -/
-theorem d6_le_one : ∀ i : Fin {num}, d6Of i ≤ 1 := by native_decide
+theorem d6_le_one : ∀ i : Fin {num}, d6Of i ≤ 1 := by decide
 
 /-- Side condition: 2 * d1 <= lo. -/
-theorem two_d1_le_lo : ∀ i : Fin {num}, 2 * d1Of i ≤ loOf i := by native_decide
+theorem two_d1_le_lo : ∀ i : Fin {num}, 2 * d1Of i ≤ loOf i := by decide
 
 /-- Side condition: 2 * d2 <= lo. -/
-theorem two_d2_le_lo : ∀ i : Fin {num}, 2 * d2Of i ≤ loOf i := by native_decide
+theorem two_d2_le_lo : ∀ i : Fin {num}, 2 * d2Of i ≤ loOf i := by decide
 
 /-- Side condition: 2 * d3 <= lo. -/
-theorem two_d3_le_lo : ∀ i : Fin {num}, 2 * d3Of i ≤ loOf i := by native_decide
+theorem two_d3_le_lo : ∀ i : Fin {num}, 2 * d3Of i ≤ loOf i := by decide
 
 /-- Side condition: 2 * d4 <= lo. -/
-theorem two_d4_le_lo : ∀ i : Fin {num}, 2 * d4Of i ≤ loOf i := by native_decide
+theorem two_d4_le_lo : ∀ i : Fin {num}, 2 * d4Of i ≤ loOf i := by decide
 
 /-- Side condition: 2 * d5 <= lo. -/
-theorem two_d5_le_lo : ∀ i : Fin {num}, 2 * d5Of i ≤ loOf i := by native_decide
+theorem two_d5_le_lo : ∀ i : Fin {num}, 2 * d5Of i ≤ loOf i := by decide
 
 /-- Seed matches the cbrt seed formula:
     seedOf(i) = ((0xe9 <<< ((i + certOffset + 2) / 3)) >>> 8) + 1 -/
 theorem seed_eq : ∀ i : Fin {num},
-    seedOf i = ((0xe9 <<< ((i.val + certOffset + 2) / 3)) >>> 8) + 1 := by native_decide
+    seedOf i = ((0xe9 <<< ((i.val + certOffset + 2) / 3)) >>> 8) + 1 := by decide
 
 end CbrtCert
 """

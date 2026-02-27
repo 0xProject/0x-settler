@@ -378,20 +378,23 @@ private theorem seed_evm_eq_norm (x : Nat) (hx : x < WORD_MOD) :
 -- Level 2: Full EVM = Nat model
 -- ============================================================================
 
+set_option maxRecDepth 1000000 in
 -- Seed squared fits in uint256 for every certificate octave.
 private theorem seed_sq_lt_word : ∀ i : Fin 248,
-    seedOf i * seedOf i < WORD_MOD := by native_decide
+    seedOf i * seedOf i < WORD_MOD := by decide
 
 -- The seed NR step numerator fits in uint256 for every certificate octave.
 -- For octave i (bit-length i+8), x < 2^(i+9), so:
 --   x/(seed²) + 2*seed ≤ (2^(i+9)-1)/(seed²) + 2*seed < WORD_MOD
+set_option maxRecDepth 1000000 in
 private theorem seed_sum_lt_word : ∀ i : Fin 248,
     (2 ^ (i.val + certOffset + 1) - 1) / (seedOf i * seedOf i) + 2 * seedOf i < WORD_MOD := by
-  native_decide
+  decide
 
+set_option maxRecDepth 1000000 in
 -- Small x: model_cbrt_evm = model_cbrt for all x < 256.
 private theorem small_cbrt_evm_eq : ∀ v : Fin 256,
-    model_cbrt_evm v.val = model_cbrt v.val := by native_decide
+    model_cbrt_evm v.val = model_cbrt v.val := by decide
 
 theorem model_cbrt_evm_eq_model_cbrt
     (x : Nat)

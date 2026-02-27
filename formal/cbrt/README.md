@@ -98,7 +98,7 @@ lake build
 |------|-------------|
 | `CbrtProof/FloorBound.lean` | Cubic AM-GM + floor bound |
 | `CbrtProof/CbrtCorrect.lean` | Definitions, reference `icbrt`, lower bound chain, floor correction, arithmetic bridge |
-| `CbrtProof/FiniteCert.lean` | **Auto-generated.** Per-octave certificate tables with `native_decide` checks |
+| `CbrtProof/FiniteCert.lean` | **Auto-generated.** Per-octave certificate tables with `decide` checks |
 | `CbrtProof/CertifiedChain.lean` | Six-step certified error chain with analytic d1 bound |
 | `CbrtProof/Wiring.lean` | Octave mapping + unconditional `floorCbrt_correct_u256` |
 | `CbrtProof/GeneratedCbrtModel.lean` | **Auto-generated.** EVM + Nat models of `_cbrt`, `cbrt`, `cbrtUp` |

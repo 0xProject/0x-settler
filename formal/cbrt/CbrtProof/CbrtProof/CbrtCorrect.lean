@@ -316,13 +316,15 @@ def cbrtCheckOctave (n : Nat) : Bool :=
 def cbrtCheckSeedPos (n : Nat) : Bool :=
   cbrtSeed (2 ^ n) > 0
 
+set_option maxRecDepth 1000000 in
 /-- The critical computational check: all 256 octaves converge. -/
 theorem cbrt_all_octaves_pass : ∀ i : Fin 256, cbrtCheckOctave i.val = true := by
-  native_decide
+  decide
 
+set_option maxRecDepth 1000000 in
 /-- Seeds are always positive. -/
 theorem cbrt_all_seeds_pos : ∀ i : Fin 256, cbrtCheckSeedPos i.val = true := by
-  native_decide
+  decide
 
 -- ============================================================================
 -- Part 3: Lower bound (composing cbrt_step_floor_bound)
@@ -1003,18 +1005,21 @@ private theorem stageDelta_hcontract_of_ge_256 (m : Nat) (hm256 : 256 ≤ m) :
   unfold nextDelta3
   simpa [d2] using hfinal
 
+set_option maxRecDepth 1000000 in
 private theorem stageDelta_h2d1_fin256 :
     ∀ i : Fin 256, 2 ≤ i.val → 2 * nextDelta i.val (stageDelta i.val) ≤ i.val := by
-  native_decide
+  decide
 
+set_option maxRecDepth 1000000 in
 private theorem stageDelta_h2d2_fin256 :
     ∀ i : Fin 256, 2 ≤ i.val →
       2 * nextDelta i.val (nextDelta i.val (stageDelta i.val)) ≤ i.val := by
-  native_decide
+  decide
 
+set_option maxRecDepth 1000000 in
 private theorem stageDelta_hcontract_fin256 :
     ∀ i : Fin 256, 2 ≤ i.val → nextDelta3 i.val (stageDelta i.val) ≤ 1 := by
-  native_decide
+  decide
 
 private theorem stageDelta_h2d1_of_ge_two (m : Nat) (hm2 : 2 ≤ m) :
     2 * nextDelta m (stageDelta m) ≤ m := by
@@ -1050,7 +1055,7 @@ private theorem icbrt_ge_of_cube_le (x m : Nat) (hmx : m * m * m ≤ x) :
 private theorem icbrt_ge_256_of_ge_2pow24 (x : Nat) (hx24 : 16777216 ≤ x) :
     256 ≤ icbrt x := by
   have hcube : 256 * 256 * 256 ≤ x := by
-    have hconst : 256 * 256 * 256 = 16777216 := by native_decide
+    have hconst : 256 * 256 * 256 = 16777216 := by decide
     omega
   exact icbrt_ge_of_cube_le x 256 hcube
 
@@ -1109,10 +1114,11 @@ private theorem innerCbrt_upper_of_stage_icbrt_of_ge_2pow24
   have hm256 : 256 ≤ icbrt x := icbrt_ge_256_of_ge_2pow24 x hx24
   exact innerCbrt_upper_of_stage_icbrt_of_ge_256 x hx hm256 hstage
 
+set_option maxRecDepth 1000000 in
 /-- Direct finite check for small inputs. -/
 private theorem innerCbrt_upper_fin256 :
     ∀ i : Fin 256, innerCbrt i.val ≤ icbrt i.val + 1 := by
-  native_decide
+  decide
 
 /-- Small-range corollary (used for base cases). -/
 theorem innerCbrt_upper_of_lt_256 (x : Nat) (hx : x < 256) :
@@ -1266,8 +1272,8 @@ theorem floorCbrt_correct_of_upper (x : Nat) (hx : 0 < x)
   ✓ Cubic AM-GM: cubic_am_gm
   ✓ Floor Bound: cbrt_step_floor_bound
   ✓ Reference floor root: icbrt, icbrt_spec, icbrt_eq_of_bounds
-  ✓ Computational Verification: cbrt_all_octaves_pass (native_decide, 256 cases)
-  ✓ Seed Positivity: cbrt_all_seeds_pos (native_decide, 256 cases)
+  ✓ Computational Verification: cbrt_all_octaves_pass (decide, 256 cases)
+  ✓ Seed Positivity: cbrt_all_seeds_pos (decide, 256 cases)
   ✓ Lower Bound Chain: innerCbrt_lower (6x cbrt_step_floor_bound)
   ✓ Floor Correction: cbrt_floor_correction (case split on x/(z²) < z)
   ✓ Named correctness statements:
