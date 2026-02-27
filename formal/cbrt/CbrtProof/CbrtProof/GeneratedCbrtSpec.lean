@@ -13,6 +13,7 @@ import CbrtProof.CbrtCorrect
 import CbrtProof.CertifiedChain
 import CbrtProof.FiniteCert
 import CbrtProof.Wiring
+import CbrtProof.OverflowSafety
 
 set_option exponentiation.threshold 300
 
@@ -704,79 +705,17 @@ def cbrtUpSpec (x : Nat) : Nat :=
   let z := innerCbrt x
   if z * z * z < x then z + 1 else z
 
-private theorem up_formula_eq_of_pos
-    (x z : Nat) (hz : 0 < z) :
-    z + (if x / (z * z) + (if x / (z * z) * (z * z) < x then 1 else 0) > z then 1 else 0)
-      = (if z * z * z < x then z + 1 else z) := by
-  let z2 := z * z
-  let d := x / z2
-  have hz2Pos : 0 < z2 := by
-    dsimp [z2]
-    exact Nat.mul_pos hz hz
-  have hmul_succ : x < z2 * (d + 1) := by
-    dsimp [d]
-    exact Nat.lt_mul_div_succ x hz2Pos
-  by_cases hrem : d * z2 < x
-  · by_cases hgt : d + 1 > z
-    · have hz_le_d : z ≤ d := Nat.lt_succ_iff.mp hgt
-      have hcube_le : z * z2 ≤ d * z2 := Nat.mul_le_mul_right z2 hz_le_d
-      have hcube_lt_x : z * z2 < x := Nat.lt_of_le_of_lt hcube_le hrem
-      have hz3lt : z * z * z < x := by
-        simpa [z2, Nat.mul_assoc] using hcube_lt_x
-      have hif : (if z * z * z < x then z + 1 else z) = z + 1 := by simp [hz3lt]
-      have hleft : z + (if d + (if d * z2 < x then 1 else 0) > z then 1 else 0) = z + 1 := by
-        simp [hrem, hgt]
-      exact hleft.trans hif.symm
-    · have hd1_le_z : d + 1 ≤ z := Nat.le_of_not_gt hgt
-      have hx_lt_z3 : x < z * z * z := by
-        have hx_lt : x < z2 * (d + 1) := hmul_succ
-        have hle : z2 * (d + 1) ≤ z2 * z := Nat.mul_le_mul_left z2 hd1_le_z
-        have hx_lt2 : x < z2 * z := Nat.lt_of_lt_of_le hx_lt hle
-        simpa [z2, Nat.mul_assoc] using hx_lt2
-      have hright : (if z * z * z < x then z + 1 else z) = z := by
-        simp [Nat.not_lt.mpr (Nat.le_of_lt hx_lt_z3)]
-      have hleft : z + (if d + (if d * z2 < x then 1 else 0) > z then 1 else 0) = z := by
-        simp [hrem, hgt]
-      exact hleft.trans hright.symm
-  · have hdz2_le : d * z2 ≤ x := by
-      dsimp [d]
-      exact Nat.div_mul_le_self x z2
-    have hdz2_eq : d * z2 = x := Nat.le_antisymm hdz2_le (Nat.not_lt.mp hrem)
-    by_cases hgt : d > z
-    · have hz1_le_d : z + 1 ≤ d := Nat.succ_le_of_lt hgt
-      have hz3_lt_dz2 : z * z * z < d * z2 := by
-        have hlt : z * z2 < (z + 1) * z2 := by
-          exact Nat.mul_lt_mul_of_pos_right (Nat.lt_succ_self z) hz2Pos
-        have hle : (z + 1) * z2 ≤ d * z2 := Nat.mul_le_mul_right z2 hz1_le_d
-        have hlt2 : z * z2 < d * z2 := Nat.lt_of_lt_of_le hlt hle
-        simpa [z2, Nat.mul_assoc] using hlt2
-      have hz3_lt_x : z * z * z < x := by
-        simpa [hdz2_eq] using hz3_lt_dz2
-      have hright : (if z * z * z < x then z + 1 else z) = z + 1 := by
-        simp [hz3_lt_x]
-      have hleft : z + (if d + (if d * z2 < x then 1 else 0) > z then 1 else 0) = z + 1 := by
-        simp [hrem, hgt]
-      exact hleft.trans hright.symm
-    · have hd_le_z : d ≤ z := Nat.le_of_not_gt hgt
-      have hx_le_z3 : x ≤ z * z * z := by
-        have hle : d * z2 ≤ z * z2 := Nat.mul_le_mul_right z2 hd_le_z
-        have hxle : x ≤ z * z2 := by simpa [hdz2_eq] using hle
-        simpa [z2, Nat.mul_assoc] using hxle
-      have hright : (if z * z * z < x then z + 1 else z) = z := by
-        simp [Nat.not_lt.mpr hx_le_z3]
-      have hleft : z + (if d + (if d * z2 < x then 1 else 0) > z then 1 else 0) = z := by
-        simp [hrem, hgt]
-      exact hleft.trans hright.symm
-
--- The Nat-level cbrtUp spec equivalence
+-- The Nat-level cbrtUp spec equivalence.
+-- Trivial with the new model: z * (z * z) = z * z * z by associativity,
+-- so normLt(normMul z (normMul z z), x) = if z*z*z < x then 1 else 0.
 private theorem model_cbrt_up_norm_eq_cbrtUpSpec
-    (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
+    (x : Nat) (_hx : 0 < x) (hx256 : x < 2 ^ 256) :
     model_cbrt_up x = cbrtUpSpec x := by
   have hinner : model_cbrt x = innerCbrt x := model_cbrt_eq_innerCbrt x hx256
-  have hzPos : 0 < innerCbrt x := innerCbrt_pos x hx
   unfold model_cbrt_up cbrtUpSpec
-  simpa [hinner, normMul, normDiv, normAdd, normGt, normLt] using
-    up_formula_eq_of_pos x (innerCbrt x) hzPos
+  simp only [hinner, normAdd, normLt, normMul, Nat.mul_assoc]
+  -- Both sides now have z*(z*z). Just need: z + (if _ then 1 else 0) = if _ then z+1 else z
+  split <;> simp_all
 
 theorem model_cbrt_up_eq_cbrtUpSpec
     (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
@@ -784,25 +723,19 @@ theorem model_cbrt_up_eq_cbrtUpSpec
   model_cbrt_up_norm_eq_cbrtUpSpec x hx hx256
 
 -- EVM cbrtUp = cbrtUpSpec.
--- Key overflow facts:
+-- Key overflow facts for the new model (z + lt(mul(z, mul(z, z)), x)):
 --   z = model_cbrt_evm x ∈ [m, m+1], m < 2^86, so z < 2^87
---   z² < 2^174 < 2^256  (no overflow)
---   d = x/z². d*z² ≤ x < 2^256  (no overflow in mul!)
---   d + lt(mul(d,z2),x) ≤ d + 1 < 2^256  (no overflow in add)
---   gt(...,z) ≤ 1, z + 1 < 2^87 + 1 < 2^256  (no overflow in final add)
+--   z² < 2^174 < 2^256  (no overflow in inner mul)
+--   z³ < 2^256 (proven in OverflowSafety via innerCbrt_cube_lt_word)
+--   lt(...) ≤ 1, z + 1 < 2^87 + 1 < 2^256  (no overflow in final add)
 theorem model_cbrt_up_evm_eq_cbrtUpSpec
     (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
     model_cbrt_up_evm x = cbrtUpSpec x := by
   -- Strategy: show model_cbrt_up_evm x = model_cbrt_up x, then use the Nat proof.
-  -- model_cbrt_up_evm unfolds the EVM ops on u256 x with z = model_cbrt_evm x.
-  -- model_cbrt_up unfolds the norm ops on x with z = model_cbrt x.
-  -- Since model_cbrt_evm x = model_cbrt x (proven) and u256 x = x,
-  -- the only difference is EVM vs norm ops, which agree when no overflow.
   have hxW : x < WORD_MOD := by simpa [WORD_MOD] using hx256
   have hroot : model_cbrt_evm x = model_cbrt x := model_cbrt_evm_eq_model_cbrt x hxW
   have hxmod : u256 x = x := u256_eq_of_lt x hxW
   have hinner : model_cbrt x = innerCbrt x := model_cbrt_eq_innerCbrt x hx256
-  have hzPos : 0 < innerCbrt x := innerCbrt_pos x hx
   have hbr := model_cbrt_evm_bracket_u256_all x hx hx256
   have hm86 : icbrt x < 2 ^ 86 := m_lt_pow86_of_u256 (icbrt x) x (icbrt_cube_le x) hxW
   have hz87 : innerCbrt x < 2 ^ 87 := by
@@ -810,167 +743,51 @@ theorem model_cbrt_up_evm_eq_cbrtUpSpec
   have hzW : innerCbrt x < WORD_MOD :=
     Nat.lt_of_lt_of_le hz87 (Nat.le_of_lt (two_pow_lt_word 87 (by decide)))
   have hzzW : innerCbrt x * innerCbrt x < WORD_MOD := zsq_lt_word_of_lt_87 _ hz87
-
-  -- d = x / (z²). d * z² ≤ x < WORD_MOD (no overflow in mul)
-  have hdz2_le : x / (innerCbrt x * innerCbrt x) * (innerCbrt x * innerCbrt x) ≤ x :=
-    Nat.div_mul_le_self x _
-  have hdz2W : x / (innerCbrt x * innerCbrt x) * (innerCbrt x * innerCbrt x) < WORD_MOD :=
-    Nat.lt_of_le_of_lt hdz2_le hxW
-  have hdW : x / (innerCbrt x * innerCbrt x) < WORD_MOD :=
-    Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hxW
-
-  -- Abbreviation for readability
-  -- We show model_cbrt_up_evm x = model_cbrt_up x first, then apply the Nat theorem.
-  -- model_cbrt_up_evm x =
-  --   let x' := u256 x; let z := model_cbrt_evm x'; let z2 := evmMul z z;
-  --   let d := evmDiv x' z2; evmAdd z (evmGt (evmAdd d (evmLt (evmMul d z2) x')) z)
-  -- model_cbrt_up x =
-  --   let z := model_cbrt x; let z2 := normMul z z;
-  --   let d := normDiv x z2; normAdd z (normGt (normAdd d (normLt (normMul d z2) x)) z)
-
-  -- Since u256 x = x, model_cbrt_evm x = model_cbrt x,
-  -- and all EVM ops = norm ops (no overflow), we get equality.
-  -- Then model_cbrt_up x = cbrtUpSpec x by model_cbrt_up_norm_eq_cbrtUpSpec.
-
-  -- Let's show it in one step: unfold both sides and rewrite EVM to norm.
+  -- z * (z * z) < WORD_MOD (the key new overflow fact)
+  have hcubeW : innerCbrt x * (innerCbrt x * innerCbrt x) < WORD_MOD := by
+    have := CbrtOverflow.innerCbrt_cube_lt_word x hx hx256
+    simpa [WORD_MOD] using this
   have hup_nat : model_cbrt_up x = cbrtUpSpec x :=
     model_cbrt_up_norm_eq_cbrtUpSpec x hx hx256
-
-  -- Now show model_cbrt_up_evm x = model_cbrt_up x.
+  -- Show model_cbrt_up_evm x = model_cbrt_up x.
   suffices h : model_cbrt_up_evm x = model_cbrt_up x by rw [h]; exact hup_nat
   unfold model_cbrt_up_evm model_cbrt_up
-  simp only [hxmod, hroot]
-  -- Goal: evmAdd z (evmGt (evmAdd (evmDiv x (evmMul z z))
-  --   (evmLt (evmMul (evmDiv x (evmMul z z)) (evmMul z z)) x)) z)
-  -- = normAdd z (normGt (normAdd (normDiv x (normMul z z))
-  --   (normLt (normMul (normDiv x (normMul z z)) (normMul z z)) x)) z)
-  -- where z = model_cbrt x = innerCbrt x.
-  rw [hinner]
-  -- Now z = innerCbrt x everywhere.
-  -- Step by step rewrite EVM ops to norm ops.
-  -- 1. evmMul (innerCbrt x) (innerCbrt x) = normMul (innerCbrt x) (innerCbrt x)
+  simp only [hxmod, hroot, hinner]
+  -- Goal: evmAdd z (evmLt (evmMul z (evmMul z z)) x)
+  --     = normAdd z (normLt (normMul z (normMul z z)) x)
+  -- where z = innerCbrt x.
+  -- 1. evmMul z z = normMul z z (z² < WORD_MOD)
   have hmul_zz : evmMul (innerCbrt x) (innerCbrt x) = normMul (innerCbrt x) (innerCbrt x) :=
     evmMul_eq_normMul_of_no_overflow _ _ hzW hzW hzzW
   rw [hmul_zz]
-  -- 2. evmDiv x (normMul z z) = normDiv x (normMul z z)
+  -- 2. evmMul z (normMul z z) = normMul z (normMul z z) (z³ < WORD_MOD)
   have hmulLt : normMul (innerCbrt x) (innerCbrt x) < WORD_MOD := by
     simpa [normMul] using hzzW
-  have hdiv_eq : evmDiv x (normMul (innerCbrt x) (innerCbrt x)) =
-      normDiv x (normMul (innerCbrt x) (innerCbrt x)) :=
-    evmDiv_eq_normDiv_of_u256 x _ hxW hmulLt
-  rw [hdiv_eq]
-  -- 3. evmMul (normDiv x (normMul z z)) (normMul z z) = normMul (normDiv ...) (normMul ...)
-  have hdivVal : normDiv x (normMul (innerCbrt x) (innerCbrt x)) =
-      x / (innerCbrt x * innerCbrt x) := by simp [normDiv, normMul]
-  have hmul_dz2 : evmMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-      (normMul (innerCbrt x) (innerCbrt x)) =
-      normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-        (normMul (innerCbrt x) (innerCbrt x)) := by
-    have hd_lt : normDiv x (normMul (innerCbrt x) (innerCbrt x)) < WORD_MOD := by
-      rw [hdivVal]; exact hdW
-    have hprod_lt : normDiv x (normMul (innerCbrt x) (innerCbrt x)) *
-        normMul (innerCbrt x) (innerCbrt x) < WORD_MOD := by
-      simp [normDiv, normMul]; exact hdz2W
-    exact evmMul_eq_normMul_of_no_overflow _ _ hd_lt hmulLt hprod_lt
-  rw [hmul_dz2]
-  -- 4. evmLt (normMul ...) x = normLt (normMul ...) x
-  have hprodLt : normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-      (normMul (innerCbrt x) (innerCbrt x)) < WORD_MOD := by
-    simp [normDiv, normMul]; exact hdz2W
-  have hlt_eq : evmLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-      (normMul (innerCbrt x) (innerCbrt x))) x =
-      normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-        (normMul (innerCbrt x) (innerCbrt x))) x :=
-    evmLt_eq_normLt_of_u256 _ x hprodLt hxW
+  have hcube_mul : evmMul (innerCbrt x) (normMul (innerCbrt x) (innerCbrt x)) =
+      normMul (innerCbrt x) (normMul (innerCbrt x) (innerCbrt x)) := by
+    have hprod : innerCbrt x * normMul (innerCbrt x) (innerCbrt x) < WORD_MOD := by
+      simp [normMul]; exact hcubeW
+    exact evmMul_eq_normMul_of_no_overflow _ _ hzW hmulLt hprod
+  rw [hcube_mul]
+  -- 3. evmLt (normMul z (normMul z z)) x = normLt (normMul z (normMul z z)) x
+  have hcubeLt : normMul (innerCbrt x) (normMul (innerCbrt x) (innerCbrt x)) < WORD_MOD := by
+    simp [normMul]; exact hcubeW
+  have hlt_eq : evmLt (normMul (innerCbrt x) (normMul (innerCbrt x) (innerCbrt x))) x =
+      normLt (normMul (innerCbrt x) (normMul (innerCbrt x) (innerCbrt x))) x :=
+    evmLt_eq_normLt_of_u256 _ x hcubeLt hxW
   rw [hlt_eq]
-  -- 5. evmAdd (normDiv ...) (normLt ...) = normAdd (normDiv ...) (normLt ...)
-  have hltVal : normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-      (normMul (innerCbrt x) (innerCbrt x))) x ≤ 1 := by
+  -- 4. evmAdd z (normLt ...) = normAdd z (normLt ...)
+  have hltVal : normLt (normMul (innerCbrt x) (normMul (innerCbrt x) (innerCbrt x))) x ≤ 1 := by
     unfold normLt; split <;> omega
-  have hltLt : normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-      (normMul (innerCbrt x) (innerCbrt x))) x < WORD_MOD :=
+  have hltLt : normLt (normMul (innerCbrt x) (normMul (innerCbrt x) (innerCbrt x))) x < WORD_MOD :=
     Nat.lt_of_le_of_lt hltVal one_lt_word
-  have hdivLt : normDiv x (normMul (innerCbrt x) (innerCbrt x)) < WORD_MOD := by
-    rw [hdivVal]; exact hdW
-  have haddLt : normDiv x (normMul (innerCbrt x) (innerCbrt x)) +
-      normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-        (normMul (innerCbrt x) (innerCbrt x))) x < WORD_MOD := by
-    -- d = x/(z²), and d * z² ≤ x. normLt(d*z², x) = if d*z² < x then 1 else 0.
-    -- Case d*z² = x: normLt = 0. Sum = d + 0 = d ≤ x < WORD_MOD.
-    -- Case d*z² < x: normLt = 1. Sum = d + 1. And d < x (since d*z² < x and z² ≥ 1).
-    --   So d + 1 ≤ x < WORD_MOD. Wait, d + 1 ≤ x only if d < x. Is d < x?
-    --   d = x/z², z² ≥ 1. If z² = 1: d = x. But then d*z² = x, so normLt = 0. Contradiction.
-    --   If z² ≥ 2: d ≤ x/2 < x. So d + 1 ≤ x (when x ≥ 2).
-    --   Actually if z² = 1 and d*z² < x: d*1 < x means d < x. So d+1 ≤ x < WORD_MOD. ✓
-    simp only [normMul, normDiv, normLt] at *
-    by_cases hrem2 : x / (innerCbrt x * innerCbrt x) * (innerCbrt x * innerCbrt x) < x
-    · -- normLt = 1, d < x (since d * z² < x and z² ≥ 1)
-      simp [hrem2]
-      have hd_lt_x : x / (innerCbrt x * innerCbrt x) < x := by
-        have hzz_pos : 0 < innerCbrt x * innerCbrt x := Nat.mul_pos hzPos hzPos
-        have hd_mul_le := Nat.div_mul_le_self x (innerCbrt x * innerCbrt x)
-        -- d * z² ≤ x and d * z² < x (from hrem2). So d ≤ x.
-        -- But d = x/z². If z² ≥ 2: d ≤ x/2. If z² = 1: d * 1 < x means d < x.
-        by_cases hzz1 : innerCbrt x * innerCbrt x = 1
-        · rw [hzz1] at hrem2; simp at hrem2
-        · have hzz2 : 2 ≤ innerCbrt x * innerCbrt x := by omega
-          calc x / (innerCbrt x * innerCbrt x)
-              ≤ x / 2 := Nat.div_le_div_left hzz2 (by decide)
-            _ < x := Nat.div_lt_self hx (by decide)
-      omega
-    · -- normLt = 0, sum = d ≤ x < WORD_MOD
-      simp [hrem2]
-      exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hxW
-  have hadd_eq : evmAdd (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-      (normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-        (normMul (innerCbrt x) (innerCbrt x))) x) =
-      normAdd (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-        (normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-          (normMul (innerCbrt x) (innerCbrt x))) x) :=
-    evmAdd_eq_normAdd_of_no_overflow _ _ hdivLt hltLt haddLt
-  rw [hadd_eq]
-  -- 6. evmGt (...) (innerCbrt x) = normGt (...) (innerCbrt x)
-  have hgt_eq : evmGt (normAdd (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-      (normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-        (normMul (innerCbrt x) (innerCbrt x))) x)) (innerCbrt x) =
-      normGt (normAdd (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-        (normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-          (normMul (innerCbrt x) (innerCbrt x))) x)) (innerCbrt x) := by
-    have haddLtW : normAdd (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-        (normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-          (normMul (innerCbrt x) (innerCbrt x))) x) < WORD_MOD := by
-      simpa [normAdd] using haddLt
-    exact evmGt_eq_normGt_of_u256 _ _ haddLtW hzW
-  rw [hgt_eq]
-  -- 7. evmAdd (innerCbrt x) (normGt ...) = normAdd (innerCbrt x) (normGt ...)
-  have hgtVal : normGt (normAdd (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-      (normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-        (normMul (innerCbrt x) (innerCbrt x))) x)) (innerCbrt x) ≤ 1 := by
-    unfold normGt; split <;> omega
-  have hgtLt : normGt (normAdd (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-      (normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-        (normMul (innerCbrt x) (innerCbrt x))) x)) (innerCbrt x) < WORD_MOD :=
-    Nat.lt_of_le_of_lt hgtVal one_lt_word
-  have hfinalLt : innerCbrt x + normGt (normAdd (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-      (normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-        (normMul (innerCbrt x) (innerCbrt x))) x)) (innerCbrt x) < WORD_MOD := by
+  have hfinalLt : innerCbrt x + normLt (normMul (innerCbrt x) (normMul (innerCbrt x) (innerCbrt x))) x < WORD_MOD := by
     have h87W : 2 ^ 87 + 1 < WORD_MOD := by unfold WORD_MOD; decide
-    calc innerCbrt x + normGt (normAdd (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-        (normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-          (normMul (innerCbrt x) (innerCbrt x))) x)) (innerCbrt x)
-        ≤ innerCbrt x + 1 := Nat.add_le_add_left hgtVal _
+    calc innerCbrt x + normLt (normMul (innerCbrt x) (normMul (innerCbrt x) (innerCbrt x))) x
+        ≤ innerCbrt x + 1 := Nat.add_le_add_left hltVal _
       _ ≤ 2 ^ 87 + 1 := Nat.add_le_add_right (Nat.le_of_lt hz87) _
       _ < WORD_MOD := h87W
-  have hfinal_eq : evmAdd (innerCbrt x)
-      (normGt (normAdd (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-        (normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-          (normMul (innerCbrt x) (innerCbrt x))) x)) (innerCbrt x)) =
-      normAdd (innerCbrt x)
-        (normGt (normAdd (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-          (normLt (normMul (normDiv x (normMul (innerCbrt x) (innerCbrt x)))
-            (normMul (innerCbrt x) (innerCbrt x))) x)) (innerCbrt x)) :=
-    evmAdd_eq_normAdd_of_no_overflow _ _ hzW hgtLt hfinalLt
-  rw [hfinal_eq]
+  exact evmAdd_eq_normAdd_of_no_overflow _ _ hzW hltLt hfinalLt
 
 -- ============================================================================
 -- Level 4b: cbrtUp upper-bound correctness
