@@ -18,6 +18,23 @@ import CbrtProof.FloorBound
     Matches EVM: div(add(add(div(x, mul(z, z)), z), z), 3) -/
 def cbrtStep (x z : Nat) : Nat := (x / (z * z) + 2 * z) / 3
 
+/-- Run three cbrt Newton steps from an explicit starting point. -/
+private def run3From (x z : Nat) : Nat :=
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  z
+
+/-- Run six cbrt Newton steps from an explicit starting point. -/
+private def run6From (x z : Nat) : Nat :=
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  z
+
 /-- The cbrt seed. For x > 0:
     z = ⌊233 * 2^q / 256⌋ + 1  where q = ⌊(log2(x) + 2) / 3⌋.
     Matches EVM: add(shr(8, shl(div(sub(257, clz(x)), 3), 0xe9)), lt(0x00, x)) -/
@@ -560,6 +577,337 @@ private theorem cbrtStep_upper_of_le
   have hmono : m + (d' * d' / m) + 1 ≤ m + (d * d / m) + 1 := by
     exact Nat.add_le_add_left (Nat.add_le_add_right hdiv 1) m
   exact Nat.le_trans hstep' hmono
+
+/-- Division helper:
+    `((m/a)^2)/m ≤ m/(a^2)` for positive `a`. -/
+private theorem div_sq_div_bound (m a : Nat) (ha : 0 < a) :
+    ((m / a) * (m / a)) / m ≤ m / (a * a) := by
+  by_cases hq0 : m / a = 0
+  · simp [hq0]
+  · have hqpos : 0 < m / a := Nat.pos_of_ne_zero hq0
+    have hqa : (m / a) * a ≤ m := by
+      simpa [Nat.mul_comm] using (Nat.mul_div_le m a)
+    have hdiv1 : ((m / a) * (m / a)) / m ≤ ((m / a) * (m / a)) / ((m / a) * a) :=
+      Nat.div_le_div_left hqa (Nat.mul_pos hqpos ha)
+    have hcancel : ((m / a) * (m / a)) / ((m / a) * a) = (m / a) / a := by
+      simpa [Nat.mul_assoc] using (Nat.mul_div_mul_left (m / a) a hqpos)
+    have hqq : ((m / a) * (m / a)) / m ≤ (m / a) / a := by
+      exact Nat.le_trans hdiv1 (by simp [hcancel])
+    have hqa2 : (m / a) / a = m / (a * a) := by
+      simpa [Nat.mul_comm] using (Nat.div_div_eq_div_mul m a a)
+    exact Nat.le_trans hqq (by simp [hqa2])
+
+/-- Division helper with +1:
+    `((m/a + 1)^2)/m ≤ m/(a^2) + 1` for `m>0` and `a>2`. -/
+private theorem div_sq_succ_div_bound (m a : Nat) (hm : 0 < m) (ha3 : 2 < a) :
+    ((m / a + 1) * (m / a + 1)) / m ≤ m / (a * a) + 1 := by
+  have h3a : 3 ≤ a := Nat.succ_le_of_lt ha3
+  have hq_le_third : m / a ≤ m / 3 := by
+    simpa using (Nat.div_le_div_left (a := m) h3a (by decide : 0 < (3 : Nat)))
+  have hsmall : 2 * (m / a) + 1 ≤ m := by
+    by_cases hm3 : m < 3
+    · have hq0 : m / a = 0 := by
+        exact Nat.div_eq_zero_iff.mpr (Or.inr (Nat.lt_of_lt_of_le hm3 h3a))
+      rw [hq0]
+      exact Nat.succ_le_of_lt hm
+    · have hm3ge : 3 ≤ m := Nat.le_of_not_lt hm3
+      have hdiv3pos : 0 < m / 3 := Nat.div_pos hm3ge (by decide : 0 < (3 : Nat))
+      have h2third : 2 * (m / 3) + 1 ≤ 3 * (m / 3) := by omega
+      calc
+        2 * (m / a) + 1 ≤ 2 * (m / 3) + 1 := Nat.add_le_add_right (Nat.mul_le_mul_left 2 hq_le_third) 1
+        _ ≤ 3 * (m / 3) := h2third
+        _ ≤ m := by simpa [Nat.mul_comm] using (Nat.mul_div_le m 3)
+  have hpre : (m / a + 1) * (m / a + 1) = (m / a) * (m / a) + (2 * (m / a) + 1) := by
+    calc
+      (m / a + 1) * (m / a + 1)
+          = (m / a) * (m / a + 1) + (1 * (m / a + 1)) := by
+              rw [Nat.add_mul]
+      _ = ((m / a) * (m / a) + (m / a)) + ((m / a) + 1) := by
+              rw [Nat.mul_add, Nat.mul_one, Nat.one_mul]
+      _ = (m / a) * (m / a) + (2 * (m / a) + 1) := by
+              omega
+  have hnum : (m / a + 1) * (m / a + 1) ≤ (m / a) * (m / a) + m := by
+    rw [hpre]
+    omega
+  have hdiv : ((m / a + 1) * (m / a + 1)) / m ≤ (((m / a) * (m / a) + m) / m) :=
+    Nat.div_le_div_right hnum
+  have hsplit : (((m / a) * (m / a) + m) / m) = ((m / a) * (m / a)) / m + 1 := by
+    simpa [Nat.mul_comm] using (Nat.add_mul_div_right ((m / a) * (m / a)) 1 hm)
+  have hmain : ((m / a + 1) * (m / a + 1)) / m ≤ ((m / a) * (m / a)) / m + 1 := by
+    exact Nat.le_trans hdiv (by simp [hsplit])
+  have hbase : ((m / a) * (m / a)) / m ≤ m / (a * a) :=
+    div_sq_div_bound m a (Nat.lt_trans (by decide : 0 < (2 : Nat)) ha3)
+  exact Nat.le_trans hmain (Nat.add_le_add_right hbase 1)
+
+/-- `cbrtStep` is monotone in `x` for fixed `z`. -/
+private theorem cbrtStep_mono_x (x y z : Nat) (hxy : x ≤ y) :
+    cbrtStep x z ≤ cbrtStep y z := by
+  unfold cbrtStep
+  have hdiv : x / (z * z) ≤ y / (z * z) := Nat.div_le_div_right hxy
+  have hnum : x / (z * z) + 2 * z ≤ y / (z * z) + 2 * z := Nat.add_le_add_right hdiv (2 * z)
+  exact Nat.div_le_div_right hnum
+
+/-- Error recurrence used by the arithmetic bridge. -/
+private def nextDelta (m d : Nat) : Nat := d * d / m + 1
+
+/-- Three iterations of `nextDelta`. -/
+private def nextDelta3 (m d : Nat) : Nat :=
+  nextDelta m (nextDelta m (nextDelta m d))
+
+/-- `nextDelta` is monotone in its error input. -/
+private theorem nextDelta_mono_d (m d1 d2 : Nat) (h : d1 ≤ d2) :
+    nextDelta m d1 ≤ nextDelta m d2 := by
+  unfold nextDelta
+  have hsq : d1 * d1 ≤ d2 * d2 := Nat.mul_le_mul h h
+  have hdiv : d1 * d1 / m ≤ d2 * d2 / m := Nat.div_le_div_right hsq
+  exact Nat.add_le_add_right hdiv 1
+
+/-- Bridge chaining theorem:
+    if after 3 steps we have `z₃ ≤ m + d₀`, then under per-step side conditions
+    and `nextDelta3 m d₀ ≤ 1`, three additional steps give `z₆ ≤ m + 1`. -/
+private theorem run3_to_run6_of_delta
+    (x m z3 d0 : Nat)
+    (hm2 : 2 ≤ m)
+    (hmlo : m * m * m ≤ x)
+    (hxhi : x < (m + 1) * (m + 1) * (m + 1))
+    (hmz3 : m ≤ z3)
+    (hz3d : z3 ≤ m + d0)
+    (h2d0 : 2 * d0 ≤ m)
+    (h2d1 : 2 * nextDelta m d0 ≤ m)
+    (h2d2 : 2 * nextDelta m (nextDelta m d0) ≤ m)
+    (hcontract : nextDelta3 m d0 ≤ 1) :
+    cbrtStep x (cbrtStep x (cbrtStep x z3)) ≤ m + 1 := by
+  have hmpos : 0 < m := by omega
+  have hz3pos : 0 < z3 := by omega
+
+  let d1 : Nat := nextDelta m d0
+  let d2 : Nat := nextDelta m d1
+  let d3 : Nat := nextDelta m d2
+
+  have hz4ub : cbrtStep x z3 ≤ m + d1 := by
+    have hz4ub' :
+        cbrtStep x z3 ≤ m + (d0 * d0 / m) + 1 :=
+      cbrtStep_upper_of_le x m z3 d0 hm2 hmz3 hz3d h2d0 hxhi
+    simpa [d1, nextDelta, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hz4ub'
+
+  have hmz4 : m ≤ cbrtStep x z3 := cbrt_step_floor_bound x z3 m hz3pos hmlo
+  have hz4pos : 0 < cbrtStep x z3 := by omega
+
+  have hz5ub : cbrtStep x (cbrtStep x z3) ≤ m + d2 := by
+    have hz5ub' :
+        cbrtStep x (cbrtStep x z3) ≤ m + (d1 * d1 / m) + 1 :=
+      cbrtStep_upper_of_le x m (cbrtStep x z3) d1 hm2 hmz4 (by
+        simpa [d1] using hz4ub) h2d1 hxhi
+    simpa [d2, d1, nextDelta, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hz5ub'
+
+  have hmz5 : m ≤ cbrtStep x (cbrtStep x z3) := cbrt_step_floor_bound x (cbrtStep x z3) m hz4pos hmlo
+
+  have hz6ub : cbrtStep x (cbrtStep x (cbrtStep x z3)) ≤ m + d3 := by
+    have hz6ub' :
+        cbrtStep x (cbrtStep x (cbrtStep x z3)) ≤ m + (d2 * d2 / m) + 1 :=
+      cbrtStep_upper_of_le x m (cbrtStep x (cbrtStep x z3)) d2 hm2 hmz5 (by
+        simpa [d2] using hz5ub) h2d2 hxhi
+    simpa [d3, d2, nextDelta, Nat.add_assoc, Nat.add_left_comm, Nat.add_comm] using hz6ub'
+
+  have hz6final : cbrtStep x (cbrtStep x (cbrtStep x z3)) ≤ m + 1 := by
+    have : m + d3 ≤ m + 1 := Nat.add_le_add_left hcontract m
+    exact Nat.le_trans hz6ub this
+
+  exact hz6final
+
+/-- Convenience wrapper: apply `run3_to_run6_of_delta` starting from a
+    precomputed `run3From`. -/
+private theorem run6From_upper_of_run3_bound
+    (x z0 m d0 : Nat)
+    (hm2 : 2 ≤ m)
+    (hmlo : m * m * m ≤ x)
+    (hxhi : x < (m + 1) * (m + 1) * (m + 1))
+    (h3lo : m ≤ run3From x z0)
+    (h3hi : run3From x z0 ≤ m + d0)
+    (h2d0 : 2 * d0 ≤ m)
+    (h2d1 : 2 * nextDelta m d0 ≤ m)
+    (h2d2 : 2 * nextDelta m (nextDelta m d0) ≤ m)
+    (hcontract : nextDelta3 m d0 ≤ 1) :
+    run6From x z0 ≤ m + 1 := by
+  have h3lo' : m ≤ cbrtStep x (cbrtStep x (cbrtStep x z0)) := by
+    simpa [run3From] using h3lo
+  have h3hi' : cbrtStep x (cbrtStep x (cbrtStep x z0)) ≤ m + d0 := by
+    simpa [run3From] using h3hi
+  have hmain :
+      cbrtStep x (cbrtStep x (cbrtStep x (cbrtStep x (cbrtStep x (cbrtStep x z0))))) ≤ m + 1 := by
+    simpa using
+      (run3_to_run6_of_delta x m (cbrtStep x (cbrtStep x (cbrtStep x z0))) d0
+        hm2 hmlo hxhi h3lo' h3hi' h2d0 h2d1 h2d2 hcontract)
+  simpa [run6From] using hmain
+
+/-- For positive `x`, `_cbrt` is exactly `run6From` from the seed. -/
+private theorem innerCbrt_eq_run6From_seed (x : Nat) (hx : 0 < x) :
+    innerCbrt x = run6From x (cbrtSeed x) := by
+  unfold innerCbrt run6From
+  simp [Nat.ne_of_gt hx]
+
+/-- Three-step lower bound from any positive start. -/
+private theorem run3From_lower
+    (x z m : Nat)
+    (hx : 0 < x)
+    (hz : 0 < z)
+    (hm : m * m * m ≤ x) :
+    m ≤ run3From x z := by
+  unfold run3From
+  have hz1 : 0 < cbrtStep x z := cbrtStep_pos x z hx hz
+  have hz2 : 0 < cbrtStep x (cbrtStep x z) := cbrtStep_pos x _ hx hz1
+  exact cbrt_step_floor_bound x (cbrtStep x (cbrtStep x z)) m hz2 hm
+
+/-- Seeded bridge theorem: from a stage-1 run3 upper bound and arithmetic
+    side conditions, conclude the final `_cbrt` upper bound `≤ m+1`. -/
+private theorem innerCbrt_upper_of_stage
+    (x m d0 : Nat)
+    (hx : 0 < x)
+    (hm2 : 2 ≤ m)
+    (hmlo : m * m * m ≤ x)
+    (hmhi : x < (m + 1) * (m + 1) * (m + 1))
+    (hstage : run3From x (cbrtSeed x) ≤ m + d0)
+    (h2d0 : 2 * d0 ≤ m)
+    (h2d1 : 2 * nextDelta m d0 ≤ m)
+    (h2d2 : 2 * nextDelta m (nextDelta m d0) ≤ m)
+    (hcontract : nextDelta3 m d0 ≤ 1) :
+    innerCbrt x ≤ m + 1 := by
+  have hseed : 0 < cbrtSeed x := cbrtSeed_pos x hx
+  have h3lo : m ≤ run3From x (cbrtSeed x) := run3From_lower x (cbrtSeed x) m hx hseed hmlo
+  have hrun6 : run6From x (cbrtSeed x) ≤ m + 1 :=
+    run6From_upper_of_run3_bound x (cbrtSeed x) m d0
+      hm2 hmlo hmhi h3lo hstage h2d0 h2d1 h2d2 hcontract
+  simpa [innerCbrt_eq_run6From_seed x hx] using hrun6
+
+/-- Canonical stage width for the arithmetic bridge. -/
+private def stageDelta (m : Nat) : Nat := m / (i8rt m + 2)
+
+/-- The stage width is always at most half of `m`. -/
+private theorem stageDelta_two_mul_le (m : Nat) :
+    2 * stageDelta m ≤ m := by
+  have hden : 2 ≤ i8rt m + 2 := by omega
+  have hdiv : stageDelta m ≤ m / 2 := by
+    unfold stageDelta
+    simpa using (Nat.div_le_div_left (a := m) hden (by decide : 0 < (2 : Nat)))
+  calc
+    2 * stageDelta m ≤ 2 * (m / 2) := Nat.mul_le_mul_left 2 hdiv
+    _ ≤ m := by simpa [Nat.mul_comm] using (Nat.mul_div_le m 2)
+
+/-- First recurrence bound from the stage width. -/
+private theorem stageDelta_next1_le (m : Nat) :
+    nextDelta m (stageDelta m) ≤ m / ((i8rt m + 2) * (i8rt m + 2)) + 1 := by
+  unfold stageDelta nextDelta
+  have hbase : ((m / (i8rt m + 2)) * (m / (i8rt m + 2))) / m ≤
+      m / ((i8rt m + 2) * (i8rt m + 2)) := by
+    exact div_sq_div_bound m (i8rt m + 2) (by omega)
+  exact Nat.add_le_add_right hbase 1
+
+/-- Second recurrence bound from the stage width. -/
+private theorem stageDelta_next2_le (m : Nat) (hm : 0 < m) :
+    nextDelta m (nextDelta m (stageDelta m)) ≤
+      m / (((i8rt m + 2) * (i8rt m + 2)) * ((i8rt m + 2) * (i8rt m + 2))) + 2 := by
+  let a : Nat := (i8rt m + 2) * (i8rt m + 2)
+  have h1 : nextDelta m (stageDelta m) ≤ m / a + 1 := by
+    simpa [a, Nat.mul_assoc] using stageDelta_next1_le m
+  have hmono :
+      nextDelta m (nextDelta m (stageDelta m)) ≤ nextDelta m (m / a + 1) := by
+    exact nextDelta_mono_d m _ _ h1
+  have h2 : nextDelta m (m / a + 1) ≤ m / (a * a) + 2 := by
+    unfold nextDelta
+    have ha3 : 2 < a := by
+      dsimp [a]
+      have hk2 : 2 ≤ i8rt m + 2 := by omega
+      have h4 : 4 ≤ (i8rt m + 2) * (i8rt m + 2) := by
+        have hmul : 2 * 2 ≤ (i8rt m + 2) * (i8rt m + 2) := Nat.mul_le_mul hk2 hk2
+        simpa using hmul
+      exact Nat.lt_of_lt_of_le (by decide : 2 < 4) h4
+    have hbase : ((m / a + 1) * (m / a + 1)) / m ≤ m / (a * a) + 1 :=
+      div_sq_succ_div_bound m a hm ha3
+    omega
+  exact Nat.le_trans hmono (by simpa [a] using h2)
+
+/-- For `m ≥ 256`, `i8rt m` is at least 2. -/
+private theorem i8rt_ge_two_of_ge_256 (m : Nat) (hm256 : 256 ≤ m) :
+    2 ≤ i8rt m := by
+  have hpow2 : pow8 2 ≤ m := by
+    -- `pow8 2 = 256`
+    simpa [pow8] using hm256
+  have h2m : 2 ≤ m := Nat.le_trans (by decide : 2 ≤ 256) hm256
+  unfold i8rt
+  exact i8rtAux_greatest m m 2 h2m hpow2
+
+/-- First side-condition for the bridge, derived from `m ≥ 256`. -/
+private theorem stageDelta_h2d1_of_ge_256 (m : Nat) (hm256 : 256 ≤ m) :
+    2 * nextDelta m (stageDelta m) ≤ m := by
+  have hk2 : 2 ≤ i8rt m := i8rt_ge_two_of_ge_256 m hm256
+  have hden16 : 16 ≤ (i8rt m + 2) * (i8rt m + 2) := by
+    have hk4 : 4 ≤ i8rt m + 2 := by omega
+    have hmul : 4 * 4 ≤ (i8rt m + 2) * (i8rt m + 2) := Nat.mul_le_mul hk4 hk4
+    simpa using hmul
+  have h1 : nextDelta m (stageDelta m) ≤ m / ((i8rt m + 2) * (i8rt m + 2)) + 1 :=
+    stageDelta_next1_le m
+  have hdiv : m / ((i8rt m + 2) * (i8rt m + 2)) ≤ m / 16 := by
+    simpa using (Nat.div_le_div_left (a := m) hden16 (by decide : 0 < (16 : Nat)))
+  have hbound : nextDelta m (stageDelta m) ≤ m / 16 + 1 := by
+    exact Nat.le_trans h1 (Nat.add_le_add_right hdiv 1)
+  have hfinal : 2 * (m / 16 + 1) ≤ m := by
+    omega
+  exact Nat.le_trans (Nat.mul_le_mul_left 2 hbound) hfinal
+
+/-- Second side-condition for the bridge, derived from `m ≥ 256`. -/
+private theorem stageDelta_h2d2_of_ge_256 (m : Nat) (hm256 : 256 ≤ m) :
+    2 * nextDelta m (nextDelta m (stageDelta m)) ≤ m := by
+  have hm : 0 < m := by omega
+  have hk2 : 2 ≤ i8rt m := i8rt_ge_two_of_ge_256 m hm256
+  have hden256 :
+      256 ≤ ((i8rt m + 2) * (i8rt m + 2)) * ((i8rt m + 2) * (i8rt m + 2)) := by
+    have hk4 : 4 ≤ i8rt m + 2 := by omega
+    have hden16 : 16 ≤ (i8rt m + 2) * (i8rt m + 2) := by
+      have hmul : 4 * 4 ≤ (i8rt m + 2) * (i8rt m + 2) := Nat.mul_le_mul hk4 hk4
+      simpa using hmul
+    have hmul256 :
+        16 * 16 ≤ ((i8rt m + 2) * (i8rt m + 2)) * ((i8rt m + 2) * (i8rt m + 2)) :=
+      Nat.mul_le_mul hden16 hden16
+    simpa using hmul256
+  have h2 :
+      nextDelta m (nextDelta m (stageDelta m)) ≤
+        m / (((i8rt m + 2) * (i8rt m + 2)) * ((i8rt m + 2) * (i8rt m + 2))) + 2 :=
+    stageDelta_next2_le m hm
+  have hdiv :
+      m / (((i8rt m + 2) * (i8rt m + 2)) * ((i8rt m + 2) * (i8rt m + 2))) ≤ m / 256 := by
+    simpa using (Nat.div_le_div_left (a := m) hden256 (by decide : 0 < (256 : Nat)))
+  have hbound : nextDelta m (nextDelta m (stageDelta m)) ≤ m / 256 + 2 := by
+    exact Nat.le_trans h2 (Nat.add_le_add_right hdiv 2)
+  have hfinal : 2 * (m / 256 + 2) ≤ m := by
+    omega
+  exact Nat.le_trans (Nat.mul_le_mul_left 2 hbound) hfinal
+
+/-- Bridge wrapper at `m = icbrt x`: this isolates the remaining obligations
+    (stage-1 run3 bound + delta side conditions). -/
+private theorem innerCbrt_upper_of_stage_icbrt
+    (x : Nat)
+    (hx : 0 < x)
+    (hm2 : 2 ≤ icbrt x)
+    (hstage : run3From x (cbrtSeed x) ≤ icbrt x + stageDelta (icbrt x))
+    (h2d1 : 2 * nextDelta (icbrt x) (stageDelta (icbrt x)) ≤ icbrt x)
+    (h2d2 : 2 * nextDelta (icbrt x) (nextDelta (icbrt x) (stageDelta (icbrt x))) ≤ icbrt x)
+    (hcontract : nextDelta3 (icbrt x) (stageDelta (icbrt x)) ≤ 1) :
+    innerCbrt x ≤ icbrt x + 1 := by
+  have hmlo : icbrt x * icbrt x * icbrt x ≤ x := icbrt_cube_le x
+  have hmhi : x < (icbrt x + 1) * (icbrt x + 1) * (icbrt x + 1) := icbrt_lt_succ_cube x
+  have h2d0 : 2 * stageDelta (icbrt x) ≤ icbrt x := stageDelta_two_mul_le (icbrt x)
+  exact innerCbrt_upper_of_stage x (icbrt x) (stageDelta (icbrt x))
+    hx hm2 hmlo hmhi hstage h2d0 h2d1 h2d2 hcontract
+
+/-- Direct finite check for small inputs. -/
+private theorem innerCbrt_upper_fin256 :
+    ∀ i : Fin 256, innerCbrt i.val ≤ icbrt i.val + 1 := by
+  native_decide
+
+/-- Small-range corollary (used for base cases). -/
+private theorem innerCbrt_upper_of_lt_256 (x : Nat) (hx : x < 256) :
+    innerCbrt x ≤ icbrt x + 1 := by
+  simpa using innerCbrt_upper_fin256 ⟨x, hx⟩
 
 /-- innerCbrt gives a lower bound: for any m with m³ ≤ x, m ≤ innerCbrt(x). -/
 theorem innerCbrt_lower (x m : Nat) (hx : 0 < x)
