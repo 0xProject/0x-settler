@@ -34,8 +34,18 @@ private theorem normStep_eq_cbrtStep (x z : Nat) :
   simp [normDiv, normAdd, normMul, cbrtStep]
   omega
 
-/-- The normalized seed expression equals cbrtSeed for positive x. -/
+/-- The normalized seed expression (using bitLengthPlus1) equals cbrtSeed for all positive x.
+    No uint256 bound required: normBitLengthPlus1 computes log2(x) + 2 directly. -/
 private theorem normSeed_eq_cbrtSeed_of_pos
+    (x : Nat) (hx : 0 < x) :
+    normAdd (normShr 8 (normShl (normDiv (normBitLengthPlus1 x) 3) 233)) (normLt 0 x) =
+      cbrtSeed x := by
+  unfold normAdd normShr normShl normDiv normBitLengthPlus1 normLt cbrtSeed
+  simp [Nat.ne_of_gt hx, Nat.shiftLeft_eq, Nat.shiftRight_eq_div_pow, hx]
+
+/-- Bridge: the old sub(257, clz(x)) seed expression equals cbrtSeed for x < 2^256.
+    Only used to connect the EVM model (which still uses sub/clz) to the Nat model. -/
+private theorem normSub257Clz_eq_cbrtSeed_of_pos
     (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
     normAdd (normShr 8 (normShl (normDiv (normSub 257 (normClz x)) 3) 233)) (normLt 0 x) =
       cbrtSeed x := by
@@ -48,17 +58,17 @@ private theorem normSeed_eq_cbrtSeed_of_pos
 
 /-- model_cbrt 0 = 0 -/
 private theorem model_cbrt_zero : model_cbrt 0 = 0 := by
-  simp [model_cbrt, normAdd, normShr, normShl, normDiv, normSub, normClz, normLt, normMul]
+  simp [model_cbrt, normAdd, normShr, normShl, normDiv, normBitLengthPlus1, normLt, normMul]
 
-/-- For positive x < 2^256, model_cbrt x = innerCbrt x. -/
-theorem model_cbrt_eq_innerCbrt (x : Nat) (hx256 : x < 2 ^ 256) :
+/-- For all x, model_cbrt x = innerCbrt x.  No uint256 bound required. -/
+theorem model_cbrt_eq_innerCbrt (x : Nat) :
     model_cbrt x = innerCbrt x := by
   by_cases hx0 : x = 0
   · subst hx0
     simp [model_cbrt_zero, innerCbrt]
   · have hx : 0 < x := Nat.pos_of_ne_zero hx0
-    have hseed : normAdd (normShr 8 (normShl (normDiv (normSub 257 (normClz x)) 3) 233)) (normLt 0 x) = cbrtSeed x :=
-      normSeed_eq_cbrtSeed_of_pos x hx hx256
+    have hseed : normAdd (normShr 8 (normShl (normDiv (normBitLengthPlus1 x) 3) 233)) (normLt 0 x) = cbrtSeed x :=
+      normSeed_eq_cbrtSeed_of_pos x hx
     unfold model_cbrt innerCbrt
     simp [Nat.ne_of_gt hx, hseed, normStep_eq_cbrtStep]
 
@@ -70,7 +80,7 @@ theorem model_cbrt_bracket_u256_all
     (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
     let m := icbrt x
     m ≤ model_cbrt x ∧ model_cbrt x ≤ m + 1 := by
-  rw [model_cbrt_eq_innerCbrt x hx256]
+  rw [model_cbrt_eq_innerCbrt x]
   constructor
   · exact innerCbrt_lower x (icbrt x) hx (icbrt_cube_le x)
   · exact innerCbrt_upper_u256 x hx hx256
@@ -590,13 +600,14 @@ theorem model_cbrt_evm_eq_model_cbrt
         simpa [z6, normStep_eq_cbrtStep] using h
       -- Seed: EVM = norm
       have hseedNorm :
-          normAdd (normShr 8 (normShl (normDiv (normSub 257 (normClz x)) 3) 233)) (normLt 0 x) =
+          normAdd (normShr 8 (normShl (normDiv (normBitLengthPlus1 x) 3) 233)) (normLt 0 x) =
             seedOf idx := by
-        exact (normSeed_eq_cbrtSeed_of_pos x hx hx256).trans hseedOf
+        exact (normSeed_eq_cbrtSeed_of_pos x hx).trans hseedOf
       have hseedEvm :
           evmAdd (evmShr 8 (evmShl (evmDiv (evmSub 257 (evmClz x)) 3) 233)) (evmLt 0 x) =
             seedOf idx := by
-        exact (seed_evm_eq_norm x hx256).trans hseedNorm
+        have hOldNorm := (normSub257Clz_eq_cbrtSeed_of_pos x hx hx256).trans hseedOf
+        exact (seed_evm_eq_norm x hx256).trans hOldNorm
       -- Final assembly
       have hxmod : u256 x = x := u256_eq_of_lt x hx256
       unfold model_cbrt_evm model_cbrt
@@ -625,9 +636,9 @@ private theorem floor_correction_norm_eq_if (x z : Nat) :
     · simp [normSub, normLt, normDiv, normMul, hz0, hlt]
 
 theorem model_cbrt_floor_eq_floorCbrt
-    (x : Nat) (hx256 : x < 2 ^ 256) :
+    (x : Nat) :
     model_cbrt_floor x = floorCbrt x := by
-  have hinner : model_cbrt x = innerCbrt x := model_cbrt_eq_innerCbrt x hx256
+  have hinner : model_cbrt x = innerCbrt x := model_cbrt_eq_innerCbrt x
   unfold model_cbrt_floor floorCbrt
   simp [hinner, floor_correction_norm_eq_if]
 
@@ -686,7 +697,7 @@ theorem model_cbrt_floor_evm_eq_floorCbrt
   have hxW : x < WORD_MOD := by simpa [WORD_MOD] using hx256
   calc model_cbrt_floor_evm x
       = model_cbrt_floor x := model_cbrt_floor_evm_eq_model_cbrt_floor x hxW
-    _ = floorCbrt x := model_cbrt_floor_eq_floorCbrt x hx256
+    _ = floorCbrt x := model_cbrt_floor_eq_floorCbrt x
 
 -- Combined with Wiring's floorCbrt_correct_u256:
 theorem model_cbrt_floor_evm_correct
@@ -709,18 +720,18 @@ def cbrtUpSpec (x : Nat) : Nat :=
 -- Trivial with the new model: z * (z * z) = z * z * z by associativity,
 -- so normLt(normMul z (normMul z z), x) = if z*z*z < x then 1 else 0.
 private theorem model_cbrt_up_norm_eq_cbrtUpSpec
-    (x : Nat) (_hx : 0 < x) (hx256 : x < 2 ^ 256) :
+    (x : Nat) :
     model_cbrt_up x = cbrtUpSpec x := by
-  have hinner : model_cbrt x = innerCbrt x := model_cbrt_eq_innerCbrt x hx256
+  have hinner : model_cbrt x = innerCbrt x := model_cbrt_eq_innerCbrt x
   unfold model_cbrt_up cbrtUpSpec
   simp only [hinner, normAdd, normLt, normMul, Nat.mul_assoc]
   -- Both sides now have z*(z*z). Just need: z + (if _ then 1 else 0) = if _ then z+1 else z
   split <;> simp_all
 
 theorem model_cbrt_up_eq_cbrtUpSpec
-    (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
+    (x : Nat) :
     model_cbrt_up x = cbrtUpSpec x :=
-  model_cbrt_up_norm_eq_cbrtUpSpec x hx hx256
+  model_cbrt_up_norm_eq_cbrtUpSpec x
 
 -- EVM cbrtUp = cbrtUpSpec.
 -- Key overflow facts for the new model (z + lt(mul(z, mul(z, z)), x)):
@@ -735,7 +746,7 @@ theorem model_cbrt_up_evm_eq_cbrtUpSpec
   have hxW : x < WORD_MOD := by simpa [WORD_MOD] using hx256
   have hroot : model_cbrt_evm x = model_cbrt x := model_cbrt_evm_eq_model_cbrt x hxW
   have hxmod : u256 x = x := u256_eq_of_lt x hxW
-  have hinner : model_cbrt x = innerCbrt x := model_cbrt_eq_innerCbrt x hx256
+  have hinner : model_cbrt x = innerCbrt x := model_cbrt_eq_innerCbrt x
   have hbr := model_cbrt_evm_bracket_u256_all x hx hx256
   have hm86 : icbrt x < 2 ^ 86 := m_lt_pow86_of_u256 (icbrt x) x (icbrt_cube_le x) hxW
   have hz87 : innerCbrt x < 2 ^ 87 := by
@@ -748,7 +759,7 @@ theorem model_cbrt_up_evm_eq_cbrtUpSpec
     have := CbrtOverflow.innerCbrt_cube_lt_word x hx hx256
     simpa [WORD_MOD] using this
   have hup_nat : model_cbrt_up x = cbrtUpSpec x :=
-    model_cbrt_up_norm_eq_cbrtUpSpec x hx hx256
+    model_cbrt_up_norm_eq_cbrtUpSpec x
   -- Show model_cbrt_up_evm x = model_cbrt_up x.
   suffices h : model_cbrt_up_evm x = model_cbrt_up x by rw [h]; exact hup_nat
   unfold model_cbrt_up_evm model_cbrt_up
@@ -921,11 +932,12 @@ theorem model_cbrt_up_evm_is_ceil_all
   PROOF STATUS:
 
   ✓ normStep_eq_cbrtStep: NR step norm = cbrtStep
-  ✓ normSeed_eq_cbrtSeed_of_pos: norm seed = cbrtSeed
-  ✓ model_cbrt_eq_innerCbrt: Nat model = hand-written innerCbrt
+  ✓ normSeed_eq_cbrtSeed_of_pos: norm seed = cbrtSeed (no uint256 bound)
+  ✓ normSub257Clz_eq_cbrtSeed_of_pos: old sub/clz seed = cbrtSeed (bridge for EVM)
+  ✓ model_cbrt_eq_innerCbrt: Nat model = hand-written innerCbrt (no uint256 bound)
   ✓ model_cbrt_bracket_u256_all: Nat model ∈ [m, m+1]
-  ✓ model_cbrt_floor_eq_floorCbrt: Nat floor model = floorCbrt
-  ✓ model_cbrt_up_eq_cbrtUpSpec: Nat cbrtUp model = cbrtUpSpec
+  ✓ model_cbrt_floor_eq_floorCbrt: Nat floor model = floorCbrt (no uint256 bound)
+  ✓ model_cbrt_up_eq_cbrtUpSpec: Nat cbrtUp model = cbrtUpSpec (no uint256 bound)
   ✓ model_cbrt_up_evm_eq_cbrtUpSpec: EVM cbrtUp model = cbrtUpSpec
   ✓ cbrtUpSpec_upper_bound: cbrtUpSpec gives valid upper bound
   ✓ cbrtUpSpec_lower_bound: cbrtUpSpec gives tight lower bound (exact ceiling)

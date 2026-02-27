@@ -103,6 +103,7 @@ OP_TO_NORM_HELPER = {
     "shl": "normShl",
     "shr": "normShr",
     "clz": "normClz",
+    "bitLengthPlus1": "normBitLengthPlus1",
     "lt": "normLt",
     "gt": "normGt",
 }
@@ -326,6 +327,29 @@ def ordered_unique(items: list[str]) -> list[str]:
     return out
 
 
+def rewrite_norm_ast(expr: Expr) -> Expr:
+    """Rewrite sub(257, clz(arg)) → bitLengthPlus1(arg) for the Nat model.
+
+    In Nat arithmetic, normSub 257 (normClz x) = 257 - (255 - log2 x) underflows
+    for x ≥ 2^256 because 255 - log2 x truncates to 0.  normBitLengthPlus1(x)
+    computes log2(x) + 2 directly, giving the correct value for all Nat.
+    """
+    if isinstance(expr, Call):
+        args = tuple(rewrite_norm_ast(a) for a in expr.args)
+        if (
+            expr.name == "sub"
+            and len(args) == 2
+            and isinstance(args[0], IntLit)
+            and args[0].value == 257
+            and isinstance(args[1], Call)
+            and args[1].name == "clz"
+            and len(args[1].args) == 1
+        ):
+            return Call("bitLengthPlus1", args[1].args)
+        return Call(expr.name, args)
+    return expr
+
+
 def emit_expr(
     expr: Expr,
     *,
@@ -366,7 +390,10 @@ def build_model_body(assignments: tuple[Assignment, ...], *, evm: bool) -> str:
         op_map = OP_TO_NORM_HELPER
 
     for a in assignments:
-        rhs = emit_expr(a.expr, op_helper_map=op_map, call_helper_map=call_map)
+        rhs_expr = a.expr
+        if not evm:
+            rhs_expr = rewrite_norm_ast(rhs_expr)
+        rhs = emit_expr(rhs_expr, op_helper_map=op_map, call_helper_map=call_map)
         lines.append(f"  let {a.target} := {rhs}")
 
     lines.append("  z")
@@ -458,6 +485,8 @@ def build_lean_source(
         "def normShr (shift value : Nat) : Nat := value / 2 ^ shift\n\n"
         "def normClz (value : Nat) : Nat :=\n"
         "  if value = 0 then 256 else 255 - Nat.log2 value\n\n"
+        "def normBitLengthPlus1 (value : Nat) : Nat :=\n"
+        "  if value = 0 then 1 else Nat.log2 value + 2\n\n"
         "def normLt (a b : Nat) : Nat :=\n"
         "  if a < b then 1 else 0\n\n"
         "def normGt (a b : Nat) : Nat :=\n"
