@@ -167,6 +167,104 @@ theorem icbrt_eq_of_bounds (x r : Nat)
   exact Nat.le_antisymm h1 h2
 
 -- ============================================================================
+-- Part 1c: Reference integer 8th root (for stage thresholds)
+-- ============================================================================
+
+/-- 8th power helper. -/
+def pow8 (n : Nat) : Nat := n * n * n * n * n * n * n * n
+
+/-- Search helper: largest `m ≤ n` such that `m^8 ≤ x`. -/
+def i8rtAux (x n : Nat) : Nat :=
+  match n with
+  | 0 => 0
+  | n + 1 => if pow8 (n + 1) ≤ x then n + 1 else i8rtAux x n
+
+/-- Reference integer floor 8th root. -/
+def i8rt (x : Nat) : Nat := i8rtAux x x
+
+private theorem pow8_eq4 (n : Nat) :
+    pow8 n = ((n * n) * (n * n)) * ((n * n) * (n * n)) := by
+  unfold pow8
+  simp [Nat.mul_left_comm, Nat.mul_comm]
+
+private theorem pow8_monotone {a b : Nat} (h : a ≤ b) : pow8 a ≤ pow8 b := by
+  have h2 : a * a ≤ b * b := Nat.mul_le_mul h h
+  have h4 : (a * a) * (a * a) ≤ (b * b) * (b * b) := Nat.mul_le_mul h2 h2
+  have h8 : ((a * a) * (a * a)) * ((a * a) * (a * a)) ≤
+      ((b * b) * (b * b)) * ((b * b) * (b * b)) := Nat.mul_le_mul h4 h4
+  simpa [pow8_eq4] using h8
+
+private theorem le_pow8_of_pos {a : Nat} (ha : 0 < a) : a ≤ pow8 a := by
+  have h1 : 1 ≤ a := Nat.succ_le_of_lt ha
+  have ha2_pos : 0 < a * a := Nat.mul_pos ha ha
+  have h2 : 1 ≤ a * a := Nat.succ_le_of_lt ha2_pos
+  have hsq : a ≤ a * a := by
+    simpa [Nat.mul_one] using (Nat.mul_le_mul_left a h1)
+  have h4 : a * a ≤ (a * a) * (a * a) := by
+    simpa [Nat.mul_one] using (Nat.mul_le_mul_left (a * a) h2)
+  have h8 : (a * a) * (a * a) ≤ ((a * a) * (a * a)) * ((a * a) * (a * a)) := by
+    have h2' : 1 ≤ (a * a) * (a * a) := by
+      exact Nat.succ_le_of_lt (Nat.mul_pos ha2_pos ha2_pos)
+    simpa [Nat.mul_one] using (Nat.mul_le_mul_left ((a * a) * (a * a)) h2')
+  calc
+    a ≤ a * a := hsq
+    _ ≤ (a * a) * (a * a) := h4
+    _ ≤ ((a * a) * (a * a)) * ((a * a) * (a * a)) := h8
+    _ = pow8 a := by simp [pow8_eq4]
+
+private theorem i8rtAux_pow8_le (x n : Nat) :
+    pow8 (i8rtAux x n) ≤ x := by
+  induction n with
+  | zero => simp [i8rtAux, pow8]
+  | succ n ih =>
+      by_cases h : pow8 (n + 1) ≤ x
+      · simp [i8rtAux, h]
+      · simpa [i8rtAux, h] using ih
+
+private theorem i8rtAux_greatest (x : Nat) :
+    ∀ n m, m ≤ n → pow8 m ≤ x → m ≤ i8rtAux x n := by
+  intro n
+  induction n with
+  | zero =>
+      intro m hmn hm
+      have hm0 : m = 0 := by omega
+      subst hm0
+      simp [i8rtAux]
+  | succ n ih =>
+      intro m hmn hm
+      by_cases h : pow8 (n + 1) ≤ x
+      · simp [i8rtAux, h]
+        exact hmn
+      · have hm_le_n : m ≤ n := by
+          by_cases hm_eq : m = n + 1
+          · subst hm_eq
+            exact False.elim (h hm)
+          · omega
+        have hm_le_aux : m ≤ i8rtAux x n := ih m hm_le_n hm
+        simpa [i8rtAux, h] using hm_le_aux
+
+/-- Lower floor-spec half: `pow8 (i8rt x) ≤ x`. -/
+theorem i8rt_pow8_le (x : Nat) :
+    pow8 (i8rt x) ≤ x := by
+  unfold i8rt
+  exact i8rtAux_pow8_le x x
+
+/-- Upper floor-spec half: `x < pow8 (i8rt x + 1)`. -/
+theorem i8rt_lt_succ_pow8 (x : Nat) :
+    x < pow8 (i8rt x + 1) := by
+  by_cases hlt : x < pow8 (i8rt x + 1)
+  · exact hlt
+  · have hle : pow8 (i8rt x + 1) ≤ x := Nat.le_of_not_lt hlt
+    have hpos : 0 < i8rt x + 1 := by omega
+    have hmx : i8rt x + 1 ≤ x := by
+      have hlePow : i8rt x + 1 ≤ pow8 (i8rt x + 1) := le_pow8_of_pos hpos
+      exact Nat.le_trans hlePow hle
+    have hmax : i8rt x + 1 ≤ i8rt x := by
+      unfold i8rt
+      exact i8rtAux_greatest x x (i8rt x + 1) hmx hle
+    exact False.elim ((Nat.not_succ_le_self (i8rt x)) hmax)
+
+-- ============================================================================
 -- Part 2: Computational verification of convergence (upper bound)
 -- ============================================================================
 
@@ -232,6 +330,236 @@ theorem cbrtStep_pos (x z : Nat) (hx : 0 < x) (hz : 0 < z) : 0 < cbrtStep x z :=
       have : x / (z * z) ≥ 0 := Nat.zero_le _
       omega
     omega
+
+/-- Integer polynomial identity used to upper-bound one cbrt Newton step. -/
+private theorem int_poly_identity (m d q r : Int)
+    (hd2 : d * d = m * q + r) :
+    ((m - 2 * d + 3 * q + 6) * ((m + d) * (m + d)) - (m + 1) * (m + 1) * (m + 1))
+      =
+    q * (3 * m * q + 6 * m + 3 * r + 4 * d * m)
+      + (-2 * d * r + 12 * d * m + 3 * m * m - 3 * m * r - 3 * m + 6 * r - 1) := by
+  grind
+
+/-- Product form of the one-step upper bound (core arithmetic bridge). -/
+private theorem one_step_prod_bound (m d : Nat) (hm2 : 2 ≤ m) :
+    (m + 1) * (m + 1) * (m + 1) ≤
+      (m - 2 * d + 3 * (d * d / m) + 6) * ((m + d) * (m + d)) := by
+  let q : Nat := d * d / m
+  let r : Nat := d * d % m
+  have hm : 0 < m := by omega
+  have hr : r < m := by
+    dsimp [r]
+    exact Nat.mod_lt _ hm
+  have hd2 : d * d = m * q + r := by
+    dsimp [q, r]
+    exact (Nat.div_add_mod (d * d) m).symm
+
+  have hd2i : (d : Int) * (d : Int) = (m : Int) * (q : Int) + (r : Int) := by
+    exact_mod_cast hd2
+
+  have hEqInt :
+      (((m : Int) - 2 * (d : Int) + 3 * (q : Int) + 6) *
+          (((m : Int) + (d : Int)) * ((m : Int) + (d : Int)))
+        - ((m : Int) + 1) * ((m : Int) + 1) * ((m : Int) + 1))
+      =
+      (q : Int) * (3 * (m : Int) * (q : Int) + 6 * (m : Int) + 3 * (r : Int) + 4 * (d : Int) * (m : Int))
+        + (-2 * (d : Int) * (r : Int) + 12 * (d : Int) * (m : Int)
+            + 3 * (m : Int) * (m : Int) - 3 * (m : Int) * (r : Int)
+            - 3 * (m : Int) + 6 * (r : Int) - 1) := by
+    exact int_poly_identity (m := (m : Int)) (d := (d : Int)) (q := (q : Int)) (r := (r : Int)) hd2i
+
+  have hm_nonneg : 0 ≤ (m : Int) := Int.natCast_nonneg m
+  have hq_nonneg : 0 ≤ (q : Int) := Int.natCast_nonneg q
+  have hr_nonneg : 0 ≤ (r : Int) := Int.natCast_nonneg r
+  have hd_nonneg : 0 ≤ (d : Int) := Int.natCast_nonneg d
+
+  have h3_nonneg : (0 : Int) ≤ 3 := by decide
+  have h4_nonneg : (0 : Int) ≤ 4 := by decide
+  have h6_nonneg : (0 : Int) ≤ 6 := by decide
+  have h10_nonneg : (0 : Int) ≤ 10 := by decide
+  have h2_nonneg : (0 : Int) ≤ 2 := by decide
+
+  have h3m_nonneg : 0 ≤ 3 * (m : Int) := Int.mul_nonneg h3_nonneg hm_nonneg
+  have h6m_nonneg : 0 ≤ 6 * (m : Int) := Int.mul_nonneg h6_nonneg hm_nonneg
+  have h3r_nonneg : 0 ≤ 3 * (r : Int) := Int.mul_nonneg h3_nonneg hr_nonneg
+  have h4d_nonneg : 0 ≤ 4 * (d : Int) := Int.mul_nonneg h4_nonneg hd_nonneg
+
+  have h1_nonneg : 0 ≤ 3 * (m : Int) * (q : Int) := Int.mul_nonneg h3m_nonneg hq_nonneg
+  have h4_nonneg' : 0 ≤ 4 * (d : Int) * (m : Int) := Int.mul_nonneg h4d_nonneg hm_nonneg
+
+  have hfac_nonneg : 0 ≤ 3 * (m : Int) * (q : Int) + 6 * (m : Int) + 3 * (r : Int) + 4 * (d : Int) * (m : Int) := by
+    omega
+
+  have hQ_nonneg :
+      0 ≤ (q : Int) * (3 * (m : Int) * (q : Int) + 6 * (m : Int) + 3 * (r : Int) + 4 * (d : Int) * (m : Int)) := by
+    exact Int.mul_nonneg hq_nonneg hfac_nonneg
+
+  have hc_nonpos : -2 * (d : Int) - 3 * (m : Int) + 6 ≤ 0 := by
+    have hm_ge_two : (2 : Int) ≤ (m : Int) := by exact_mod_cast hm2
+    omega
+
+  have hr_le : (r : Int) ≤ ((m - 1 : Nat) : Int) := by
+    have : r ≤ m - 1 := by omega
+    exact Int.ofNat_le.mpr this
+
+  have h_mul_lower :
+      ((m - 1 : Nat) : Int) * (-2 * (d : Int) - 3 * (m : Int) + 6)
+        ≤ (r : Int) * (-2 * (d : Int) - 3 * (m : Int) + 6) := by
+    exact Int.mul_le_mul_of_nonpos_right hr_le hc_nonpos
+
+  have h_rewrite :
+      (-2 * (d : Int) * (r : Int) + 12 * (d : Int) * (m : Int)
+        + 3 * (m : Int) * (m : Int) - 3 * (m : Int) * (r : Int)
+        - 3 * (m : Int) + 6 * (r : Int) - 1)
+      = (12 * (d : Int) * (m : Int) + 3 * (m : Int) * (m : Int) - 3 * (m : Int) - 1)
+        + (r : Int) * (-2 * (d : Int) - 3 * (m : Int) + 6) := by
+    grind
+
+  have h_rewrite0 :
+      (12 * (d : Int) * (m : Int) + 3 * (m : Int) * (m : Int) - 3 * (m : Int) - 1)
+        + ((m - 1 : Nat) : Int) * (-2 * (d : Int) - 3 * (m : Int) + 6)
+      = 10 * (d : Int) * (m : Int) + 2 * (d : Int) + 6 * (m : Int) - 7 := by
+    grind
+
+  have h10dm_nonneg : 0 ≤ 10 * (d : Int) * (m : Int) := by
+    have h10d_nonneg : 0 ≤ 10 * (d : Int) := Int.mul_nonneg h10_nonneg hd_nonneg
+    exact Int.mul_nonneg h10d_nonneg hm_nonneg
+  have h2d_nonneg : 0 ≤ 2 * (d : Int) := Int.mul_nonneg h2_nonneg hd_nonneg
+  have h6m_minus7_nonneg : 0 ≤ 6 * (m : Int) - 7 := by
+    have hm_ge_two : (2 : Int) ≤ (m : Int) := by exact_mod_cast hm2
+    omega
+
+  have h0 :
+      0 ≤ (12 * (d : Int) * (m : Int) + 3 * (m : Int) * (m : Int) - 3 * (m : Int) - 1)
+            + ((m - 1 : Nat) : Int) * (-2 * (d : Int) - 3 * (m : Int) + 6) := by
+    rw [h_rewrite0]
+    omega
+
+  have hLin :
+      0 ≤ (-2 * (d : Int) * (r : Int) + 12 * (d : Int) * (m : Int)
+            + 3 * (m : Int) * (m : Int) - 3 * (m : Int) * (r : Int)
+            - 3 * (m : Int) + 6 * (r : Int) - 1) := by
+    rw [h_rewrite]
+    have h_add :
+        (12 * (d : Int) * (m : Int) + 3 * (m : Int) * (m : Int) - 3 * (m : Int) - 1)
+          + ((m - 1 : Nat) : Int) * (-2 * (d : Int) - 3 * (m : Int) + 6)
+        ≤
+        (12 * (d : Int) * (m : Int) + 3 * (m : Int) * (m : Int) - 3 * (m : Int) - 1)
+          + (r : Int) * (-2 * (d : Int) - 3 * (m : Int) + 6) := by
+      exact Int.add_le_add_left h_mul_lower _
+    exact Int.le_trans h0 h_add
+
+  have hdiff_nonneg :
+      0 ≤ (((m : Int) - 2 * (d : Int) + 3 * (q : Int) + 6) *
+              (((m : Int) + (d : Int)) * ((m : Int) + (d : Int)))
+            - ((m : Int) + 1) * ((m : Int) + 1) * ((m : Int) + 1)) := by
+    rw [hEqInt]
+    exact Int.add_nonneg hQ_nonneg hLin
+
+  have hIntMain :
+      ((m : Int) + 1) * ((m : Int) + 1) * ((m : Int) + 1) ≤
+        ((m : Int) - 2 * (d : Int) + 3 * (q : Int) + 6) *
+          (((m : Int) + (d : Int)) * ((m : Int) + (d : Int))) := by
+    omega
+
+  have hCoeffLe :
+      ((m : Int) - 2 * (d : Int) + 3 * (q : Int) + 6)
+        ≤ ((m - 2 * d + 3 * q + 6 : Nat) : Int) := by
+    omega
+
+  have hz_nonneg : 0 ≤ (((m : Int) + (d : Int)) * ((m : Int) + (d : Int))) := by
+    have : 0 ≤ (m : Int) + (d : Int) := Int.add_nonneg hm_nonneg hd_nonneg
+    exact Int.mul_nonneg this this
+
+  have hIntNatCoeff :
+      ((m : Int) + 1) * ((m : Int) + 1) * ((m : Int) + 1)
+        ≤ ((m - 2 * d + 3 * q + 6 : Nat) : Int) *
+            (((m : Int) + (d : Int)) * ((m : Int) + (d : Int))) := by
+    exact Int.le_trans hIntMain (Int.mul_le_mul_of_nonneg_right hCoeffLe hz_nonneg)
+
+  exact_mod_cast hIntNatCoeff
+
+/-- Division form of the one-step upper bound. -/
+private theorem one_step_div_bound (m d : Nat) (hm2 : 2 ≤ m) :
+    (((m + 1) * (m + 1) * (m + 1) - 1) / ((m + d) * (m + d)))
+      ≤ m - 2 * d + 3 * (d * d / m) + 5 := by
+  let A : Nat := m - 2 * d + 3 * (d * d / m) + 5
+  let B : Nat := (m + d) * (m + d)
+  have hBpos : 0 < B := by
+    dsimp [B]
+    exact Nat.mul_pos (by omega) (by omega)
+  have hprod : (m + 1) * (m + 1) * (m + 1) ≤ (A + 1) * B := by
+    dsimp [A, B]
+    simpa [Nat.add_assoc] using one_step_prod_bound m d hm2
+  have hpred : (m + 1) * (m + 1) * (m + 1) - 1 < (m + 1) * (m + 1) * (m + 1) := by
+    have hpos : 0 < (m + 1) * (m + 1) * (m + 1) := by
+      have hm1 : 0 < m + 1 := by omega
+      exact Nat.mul_pos (Nat.mul_pos hm1 hm1) hm1
+    exact Nat.sub_lt hpos (by omega)
+  have hlt : (m + 1) * (m + 1) * (m + 1) - 1 < (A + 1) * B :=
+    Nat.lt_of_lt_of_le hpred hprod
+  have hdivlt : (((m + 1) * (m + 1) * (m + 1) - 1) / B) < A + 1 := by
+    exact (Nat.div_lt_iff_lt_mul hBpos).2 hlt
+  have hdivle : (((m + 1) * (m + 1) * (m + 1) - 1) / B) ≤ A := by
+    exact Nat.lt_succ_iff.mp hdivlt
+  simpa [A, B]
+
+/-- If `x < (m+1)^3` and `z = m+d` with `2d ≤ m`, one cbrt step keeps
+    the overestimate within `d^2/m + 1`. -/
+private theorem cbrtStep_upper_of_delta
+    (x m d : Nat)
+    (hm2 : 2 ≤ m)
+    (h2d : 2 * d ≤ m)
+    (hx : x < (m + 1) * (m + 1) * (m + 1)) :
+    cbrtStep x (m + d) ≤ m + (d * d / m) + 1 := by
+  let q : Nat := d * d / m
+  let z : Nat := m + d
+  have hxle : x ≤ (m + 1) * (m + 1) * (m + 1) - 1 := by omega
+  have hdiv_x : x / (z * z) ≤ ((m + 1) * (m + 1) * (m + 1) - 1) / (z * z) :=
+    Nat.div_le_div_right hxle
+  have hdiv_m :
+      ((m + 1) * (m + 1) * (m + 1) - 1) / (z * z) ≤ m - 2 * d + 3 * q + 5 := by
+    simpa [z, q, Nat.mul_assoc] using one_step_div_bound m d hm2
+  have hdiv : x / (z * z) ≤ m - 2 * d + 3 * q + 5 := Nat.le_trans hdiv_x hdiv_m
+  unfold cbrtStep
+  have hsum : x / (z * z) + 2 * z ≤ (m - 2 * d + 3 * q + 5) + 2 * z := by
+    exact Nat.add_le_add_right hdiv _
+  have hdiv3 :
+      (x / (z * z) + 2 * z) / 3
+        ≤ ((m - 2 * d + 3 * q + 5) + 2 * z) / 3 :=
+    Nat.div_le_div_right hsum
+  have hfinal : ((m - 2 * d + 3 * q + 5) + 2 * z) / 3 ≤ m + q + 1 := by
+    omega
+  have hz : z = m + d := by rfl
+  rw [hz] at hdiv3 hfinal
+  simpa [q] using Nat.le_trans hdiv3 hfinal
+
+/-- Upper-bound transfer form: if `z` is between `m` and `m+d`, one cbrt step is
+    bounded by the same `d^2/m + 1` expression. -/
+private theorem cbrtStep_upper_of_le
+    (x m z d : Nat)
+    (hm2 : 2 ≤ m)
+    (hmz : m ≤ z)
+    (hzd : z ≤ m + d)
+    (h2d : 2 * d ≤ m)
+    (hx : x < (m + 1) * (m + 1) * (m + 1)) :
+    cbrtStep x z ≤ m + (d * d / m) + 1 := by
+  let d' : Nat := z - m
+  have hz_eq : z = m + d' := by
+    dsimp [d']
+    omega
+  have hd'_le : d' ≤ d := by
+    dsimp [d']
+    omega
+  have h2d' : 2 * d' ≤ m := Nat.le_trans (Nat.mul_le_mul_left 2 hd'_le) h2d
+  have hstep' : cbrtStep x z ≤ m + (d' * d' / m) + 1 := by
+    rw [hz_eq]
+    exact cbrtStep_upper_of_delta x m d' hm2 h2d' hx
+  have hsq : d' * d' ≤ d * d := Nat.mul_le_mul hd'_le hd'_le
+  have hdiv : d' * d' / m ≤ d * d / m := Nat.div_le_div_right hsq
+  have hmono : m + (d' * d' / m) + 1 ≤ m + (d * d / m) + 1 := by
+    exact Nat.add_le_add_left (Nat.add_le_add_right hdiv 1) m
+  exact Nat.le_trans hstep' hmono
 
 /-- innerCbrt gives a lower bound: for any m with m³ ≤ x, m ≤ innerCbrt(x). -/
 theorem innerCbrt_lower (x m : Nat) (hx : 0 < x)
