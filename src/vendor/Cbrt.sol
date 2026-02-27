@@ -38,10 +38,11 @@ library Cbrt {
     function cbrtUp(uint256 x) internal pure returns (uint256 z) {
         z = _cbrt(x);
         assembly ("memory-safe") {
-            // Round up. Avoid cubing `z` to avoid overflow
-            let z2 := mul(z, z)
-            let d := div(x, z2)
-            z := add(z, gt(add(d, lt(mul(d, z2), x)), z))
+            // Round up. Let r_max = 0x285145f31ae515c447bb56. If x ≥ r_max³, then according to its
+            // contract `_cbrt(x)` could return r_max + 1. This would cause `mul(z, mul(z, z))` to
+            // overflow and `cbrtUp` to return r_max + 2. However, for these specific inputs in
+            // practice, `_cbrt` returns r_max, defusing this scenario.
+            z := add(z, lt(mul(z, mul(z, z)), x))
         }
     }
 }
