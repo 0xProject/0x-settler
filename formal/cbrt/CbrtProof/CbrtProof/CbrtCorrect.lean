@@ -1378,23 +1378,24 @@ theorem cbrtStep_eq_on_perfect_cube_of_sq_lt
         rw [Nat.mul_add m, hLmm, hLmd, hR]; omega
       exact Nat.lt_of_lt_of_le hstep1 hstep2
     -- Step 2: polynomial identity m³ = z²(m-2d) + d²(3m+2d)
+    -- Substitute a = m - 2d to eliminate Nat subtraction, then expand both sides.
     have hident : m * m * m = z * z * (m - 2 * d) + d * d * (3 * m + 2 * d) := by
-      -- Addition form: m³ + d²(3m+2d) = (m+d)²(m-2d) + d²(3m+2d).
-      -- Equivalently: m³ + d²(3m+2d) = (m+d)²·m - (m+d)²·2d + d²(3m+2d).
-      -- We instead prove the equivalent addition identity on Nat:
-      --   m*m*m + d*d*(3*m+2*d) = (m+d)*(m+d)*(m+d)
-      -- which is just the binomial cube expansion, and then subtract d²(3m+2d).
-      -- Actually, the identity is: (m+d)³ = m³ + 3m²d + 3md² + d³,
-      -- and (m+d)²(m-2d) = (m+d)³ - 3d(m+d)² = m³ - 3md² - 2d³.
-      -- So (m+d)²(m-2d) + d²(3m+2d) = m³ - 3md² - 2d³ + 3md² + 2d³ = m³.
-      -- In Nat (with 2d ≤ m): prove via Int then cast back.
-      -- Substitute a = m - 2d (safe: 2d ≤ m), so m = a + 2d. Eliminates Nat subtraction.
       show m * m * m = (m + d) * (m + d) * (m - 2 * d) + d * d * (3 * m + 2 * d)
       generalize ha : m - 2 * d = a
       have hm_eq : m = a + 2 * d := by omega
       subst hm_eq
-      -- Both sides expand to a³+6a²d+12ad²+8d³.
-      grind
+      -- Both sides expand to a³+6a²d+12ad²+8d³
+      have h3 : (a + 2 * d) + d = a + 3 * d := by omega
+      have h8 : 3 * (a + 2 * d) + 2 * d = 3 * a + 8 * d := by omega
+      rw [h3, h8]
+      rw [show 2 * d = d + d from by omega,
+          show 3 * d = d + (d + d) from by omega,
+          show 3 * a = a + (a + a) from by omega,
+          show 8 * d = d + (d + (d + (d + (d + (d + (d + d)))))) from by omega]
+      simp only [Nat.add_mul, Nat.mul_add]
+      simp only [Nat.mul_assoc]
+      simp only [Nat.mul_comm d a, Nat.mul_left_comm d a]
+      omega
     -- Step 3: combine identity + key inequality to get m³ < (m-2d+3)*z²
     have hlt : m * m * m < (m - 2 * d + 3) * (z * z) := by
       calc m * m * m
