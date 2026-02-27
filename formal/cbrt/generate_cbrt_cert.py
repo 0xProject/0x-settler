@@ -18,6 +18,7 @@ Octaves 0-7 (x < 256) are handled separately by native_decide in Lean.
 The certificate covers octaves 8-255 (x >= 256, lo >= 6).
 """
 
+import argparse
 import sys
 
 
@@ -79,6 +80,16 @@ def compute_d1(lo, hi, s):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Generate finite-certificate tables for cbrt formal proof"
+    )
+    parser.add_argument(
+        "--output",
+        default="CbrtProof/CbrtProof/FiniteCert.lean",
+        help="Output Lean file path (default: CbrtProof/CbrtProof/FiniteCert.lean)",
+    )
+    args = parser.parse_args()
+
     lo_table = []
     hi_table = []
 
@@ -200,14 +211,13 @@ def main():
 
     # Generate Lean output
     if all_ok:
-        generate_lean_file(lo_table, hi_table, d_data, START_OCTAVE)
+        generate_lean_file(lo_table, hi_table, d_data, START_OCTAVE, args.output)
 
     return 0 if all_ok else 1
 
 
-def generate_lean_file(lo_table, hi_table, d_data, start_octave):
+def generate_lean_file(lo_table, hi_table, d_data, start_octave, outpath):
     """Generate the CbrtFiniteCert.lean file."""
-    outpath = "CbrtProof/CbrtProof/FiniteCert.lean"
     print(f"\nGenerating {outpath}...")
 
     num = 256 - start_octave  # 248 entries

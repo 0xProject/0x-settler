@@ -1,2 +1,5 @@
 /.lake
 lake-manifest.json
+
+# Auto-generated from `formal/cbrt/generate_cbrt_cert.py`
+/CbrtProof/FiniteCert.lean
