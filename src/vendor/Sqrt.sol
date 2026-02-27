@@ -6,9 +6,9 @@ library Sqrt {
     /// @dev Returns the square root of `x`, rounded maybe-up maybe-down. For expert use only.
     function _sqrt(uint256 x) private pure returns (uint256 z) {
         assembly ("memory-safe") {
-            // Initial guess z = 2^⌊(n+1)/2⌋ where n = ⌊log₂(x)⌋. The alternating-endpoint seed
-            // gives ε₁ = 0.0607 after one Babylonian step for all inputs. With ε_{n+1} ≈ ε²/2, 6
-            // steps yield 2⁻¹⁶¹ relative error (>128 correct bits).
+            // Initial guess z = 2^⌊(n+1)/2⌋ where n = ⌊log₂(x)⌋. This seed gives ε₁ = 0.0607 after
+            // one Babylonian step for all inputs. With ε_{n+1} ≈ ε²/2, 6 steps yield 2⁻¹⁶⁰ relative
+            // error (>128 correct bits).
             z := shl(shr(1, sub(256, clz(x))), 1)
 
             // 6 Babylonian steps

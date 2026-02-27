@@ -8,12 +8,12 @@ library Cbrt {
     /// https://github.com/pcaversaccio/snekmate/blob/main/src/snekmate/utils/math.vy
     function _cbrt(uint256 x) private pure returns (uint256 z) {
         assembly ("memory-safe") {
-            // Initial guess z ≈ ∛(3/4) · 2𐞥 where q = ⌊(257 − clz(x)) / 3⌋. The multiplier 0xe9/256
-            // ≈ 0.910 ≈ ∛(3/4) balances the worst-case over/underestimate across each octave
+            // Initial guess z ≈ ∛(3/4) · 2𐞥 where q = ⌊(257 − clz(x)) / 3⌋. The multiplier 233/256
+            // ≈ 0.909 ≈ ∛(3/4) balances the worst-case over/underestimate across each octave
             // triplet (ε_over ≈ 0.445, ε_under ≈ −0.278), giving >85 bits of precision after 6 N-R
-            // iterations. The `lt(0x00, x)` term ensures z ≥ 1 when x > 0 (the `shr` can produce 0
-            // for small `q`)
-            z := add(shr(8, shl(div(sub(257, clz(x)), 3), 0xe9)), lt(0x00, x))
+            // iterations. The `lt(0, x)` term ensures z ≥ 1 when x > 0 (the `shr` can produce 0 for
+            // small `q`)
+            z := add(shr(8, shl(div(sub(257, clz(x)), 3), 233)), lt(0, x))
 
             // 6 Newton-Raphson iterations
             z := div(add(add(div(x, mul(z, z)), z), z), 3)
@@ -38,10 +38,11 @@ library Cbrt {
     function cbrtUp(uint256 x) internal pure returns (uint256 z) {
         z = _cbrt(x);
         assembly ("memory-safe") {
-            // Round up. Avoid cubing `z` to avoid overflow
-            let z2 := mul(z, z)
-            let d := div(x, z2)
-            z := add(z, gt(add(d, lt(mul(d, z2), x)), z))
+            // Round up. Let r_max = 0x285145f31ae515c447bb56. If x ≥ r_max³, then according to its
+            // contract `_cbrt(x)` could return r_max + 1. This would cause `mul(z, mul(z, z))` to
+            // overflow and `cbrtUp` to return r_max + 2. However, for these specific inputs in
+            // practice, `_cbrt` returns r_max, defusing this scenario.
+            z := add(z, lt(mul(z, mul(z, z)), x))
         }
     }
 }
