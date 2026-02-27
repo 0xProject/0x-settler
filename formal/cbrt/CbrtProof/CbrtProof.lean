@@ -6,3 +6,5 @@ import CbrtProof.CbrtCorrect
 import CbrtProof.FiniteCert
 import CbrtProof.CertifiedChain
 import CbrtProof.Wiring
+import CbrtProof.GeneratedCbrtModel
+import CbrtProof.GeneratedCbrtSpec

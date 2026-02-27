@@ -3,3 +3,6 @@ lake-manifest.json
 
 # Auto-generated from `formal/cbrt/generate_cbrt_cert.py`
 /CbrtProof/FiniteCert.lean
+
+# Auto-generated from `formal/cbrt/generate_cbrt_model.py`
+/CbrtProof/GeneratedCbrtModel.lean

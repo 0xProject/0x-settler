@@ -1261,7 +1261,7 @@ theorem floorCbrt_correct_of_upper (x : Nat) (hx : 0 < x)
 -- ============================================================================
 
 /-
-  PROOF STATUS (0 sorry):
+  PROOF STATUS:
 
   ✓ Cubic AM-GM: cubic_am_gm
   ✓ Floor Bound: cbrt_step_floor_bound

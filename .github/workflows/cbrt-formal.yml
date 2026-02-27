@@ -30,6 +30,12 @@ jobs:
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
+      - name: Generate Lean model from Cbrt.sol
+        run: |
+          python3 formal/cbrt/generate_cbrt_model.py \
+            --solidity src/vendor/Cbrt.sol \
+            --output formal/cbrt/CbrtProof/CbrtProof/GeneratedCbrtModel.lean
+
       - name: Generate finite certificate from cbrt spec
         run: |
           python3 formal/cbrt/generate_cbrt_cert.py \
