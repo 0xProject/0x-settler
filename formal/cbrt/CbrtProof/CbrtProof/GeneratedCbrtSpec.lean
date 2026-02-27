@@ -158,7 +158,7 @@ private theorem two_pow_lt_word (n : Nat) (hn : n < 256) :
   have hle : 2 ^ n ≤ 2 ^ 255 :=
     Nat.pow_le_pow_right (by decide : 1 ≤ (2 : Nat)) hn_le
   have hlt : 2 ^ 255 < 2 ^ 256 := by
-    simpa using (Nat.pow_lt_pow_succ (a := 2) (n := 255) (by decide : 1 < (2 : Nat)))
+    simp [Nat.pow_lt_pow_succ (a := 2) (n := 255) (by decide : 1 < (2 : Nat))]
   exact Nat.lt_of_le_of_lt hle hlt
 
 private theorem zero_lt_word : (0 : Nat) < WORD_MOD := by
