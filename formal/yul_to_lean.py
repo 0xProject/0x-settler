@@ -173,6 +173,7 @@ class YulFunction:
     params: list[str]
     rets: list[str]
     assignments: list[RawStatement]
+    expr_stmts: list[Expr] | None = None
 
     @property
     def param(self) -> str:
@@ -478,6 +479,7 @@ class YulParser:
             params=params,
             rets=rets,
             assignments=assignments,
+            expr_stmts=self._expr_stmts if self._expr_stmts else None,
         )
 
     def _count_params_at(self, idx: int) -> int:
@@ -677,6 +679,25 @@ def _inline_single_call(
     Each local variable gets a unique gensym name to avoid clashes with
     the caller's scope.
     """
+    if fn.expr_stmts:
+        descriptions = []
+        for e in fn.expr_stmts[:3]:
+            if isinstance(e, Call):
+                descriptions.append(f"{e.name}(...)")
+            else:
+                descriptions.append(repr(e))
+        summary = ", ".join(descriptions)
+        if len(fn.expr_stmts) > 3:
+            summary += ", ..."
+        warnings.warn(
+            f"Inlining function {fn.yul_name!r} which contains "
+            f"{len(fn.expr_stmts)} expression-statement(s) not captured "
+            f"in the model: [{summary}]. If any have side effects "
+            f"(sstore, log, revert, ...) the inlined model may be "
+            f"incomplete.",
+            stacklevel=3,
+        )
+
     subst: dict[str, Expr] = {}
     for param, arg_expr in zip(fn.params, args):
         subst[param] = arg_expr
