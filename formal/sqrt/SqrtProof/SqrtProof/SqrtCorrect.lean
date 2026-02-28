@@ -17,9 +17,6 @@ import SqrtProof.CertifiedChain
 -- Part 1: Definitions matching Sqrt.sol EVM semantics
 -- ============================================================================
 
-/-- One Babylonian step: ⌊(z + ⌊x/z⌋) / 2⌋. Same as StepMono.babylonStep. -/
-def bstep (x z : Nat) : Nat := (z + x / z) / 2
-
 /-- The seed: z₀ = 2^⌊(log2(x)+1)/2⌋. For x=0, returns 0.
     Matches EVM: shl(shr(1, sub(256, clz(x))), 1)
     Since 256 - clz(x) = bitLength(x) = log2(x) + 1 for x > 0. -/
@@ -48,51 +45,7 @@ def floorSqrt (x : Nat) : Nat :=
   else if x / z < z then z - 1 else z
 
 -- ============================================================================
--- Part 2: Computational verification of convergence (upper bound)
--- ============================================================================
-
-/-- Compute the max-propagation upper bound for octave n.
-    Z₀ = seed, Z_{i+1} = bstep(x_max, Z_i), return Z₆. -/
-def maxProp (n : Nat) : Nat :=
-  let x_max := 2 ^ (n + 1) - 1
-  let z := 1 <<< ((n + 1) / 2)
-  let z := bstep x_max z
-  let z := bstep x_max z
-  let z := bstep x_max z
-  let z := bstep x_max z
-  let z := bstep x_max z
-  let z := bstep x_max z
-  z
-
-/-- Check that the max-propagation result Z₆ satisfies:
-    Z₆² ≤ x_max AND (Z₆+1)² > x_max  (Z₆ = isqrt(x_max))
-    OR Z₆² > x_max AND (Z₆-1)² ≤ x_max  (Z₆ = isqrt(x_max) + 1)
-    In either case: Z₆ ≤ isqrt(x_max) + 1. -/
-def checkOctave (n : Nat) : Bool :=
-  let x_max := 2 ^ (n + 1) - 1
-  let z := maxProp n
-  -- Check: (z-1)² ≤ x_max (i.e., z ≤ isqrt(x_max) + 1)
-  -- AND z*z ≤ x_max + z (equivalent to z ≤ isqrt(x_max) + 1 for the correction step)
-  (z - 1) * (z - 1) ≤ x_max
-
-/-- Also check that seed is positive (needed for the lower bound proof). -/
-def checkSeedPos (n : Nat) : Bool :=
-  1 <<< ((n + 1) / 2) > 0
-
-/-- Also check that maxProp gives an overestimate or is in absorbing set.
-    Specifically: maxProp(n)² > x_min OR maxProp(n) = isqrt(x_max) or isqrt(x_max)+1. -/
-def checkUpperBound (n : Nat) : Bool :=
-  let x_max := 2 ^ (n + 1) - 1
-  let z := maxProp n
-  -- (z-1)² ≤ x_max: z is at most isqrt(x_max) + 1
-  (z - 1) * (z - 1) ≤ x_max &&
-  -- z² ≤ x_max + z: ensures z ≤ isqrt(x_max) + 1 (slightly different formulation)
-  -- Actually just check (z-1)*(z-1) ≤ x_max is sufficient.
-  -- Also check z > 0 for division safety.
-  z > 0
-
--- ============================================================================
--- Part 3: Lower bound (composing Lemma 1)
+-- Part 2: Lower bound (composing Lemma 1)
 -- ============================================================================
 
 /-- The seed is positive for x > 0. -/
@@ -178,7 +131,7 @@ theorem innerSqrt_lower (x m : Nat) (hx : 0 < x)
   -- Each bstep preserves positivity (x > 0)
   -- Chain: m ≤ bstep x (bstep x (... (bstep x (sqrtSeed x))))
   -- Each step: if m² ≤ x and z > 0, then m ≤ bstep x z
-  -- bstep = babylonStep from FloorBound
+  -- bstep is defined in FloorBound
   -- babylon_step_floor_bound : m*m ≤ x → 0 < z → m ≤ (z + x/z)/2
   have h1 := bstep_pos x _ hx hs
   have h2 := bstep_pos x _ hx h1
@@ -192,7 +145,7 @@ theorem innerSqrt_lower (x m : Nat) (hx : 0 < x)
 theorem innerSqrt_eq_run6From (x : Nat) (hx : 0 < x) :
     innerSqrt x = SqrtCertified.run6From x (sqrtSeed x) := by
   unfold innerSqrt SqrtCertified.run6From
-  simp [Nat.ne_of_gt hx, bstep, SqrtBridge.bstep]
+  simp [Nat.ne_of_gt hx, bstep]
 
 /-- Finite-certificate upper bound: if `m` is bracketed by the octave certificate,
     then six steps from the actual seed satisfy `innerSqrt x ≤ m + 1`. -/
@@ -467,8 +420,8 @@ theorem sqrt_witness_correct_u256
 
   ✓ Lemma 1 (Floor Bound): babylon_step_floor_bound
   ✓ Lemma 2 (Absorbing Set): babylon_from_ceil, babylon_from_floor
-  ✓ Step Monotonicity: babylonStep_mono_x, babylonStep_mono_z
-  ✓ Overestimate Contraction: babylonStep_lt_of_overestimate
+  ✓ Step Monotonicity: bstep_mono_x, bstep_mono_z
+  ✓ Overestimate Contraction: bstep_lt_of_overestimate
   ✓ Finite certificate layer: d1..d6 bounds from offline literals
   ✓ Lower Bound Chain: innerSqrt_lower (6x babylon_step_floor_bound)
   ✓ Finite-Certificate Upper Bound: innerSqrt_upper_cert

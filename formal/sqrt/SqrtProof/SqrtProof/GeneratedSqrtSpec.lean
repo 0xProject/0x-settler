@@ -906,7 +906,7 @@ private theorem innerSqrt_eq_natSqrt_of_square
         _ = run6From x (seedOf i) := by simp [hseed]
     have hrun6 : run6From x (seedOf i) = z6 := by
       unfold run6From
-      simp [z1, z2, z3, z4, z5, z6, z0, SqrtBridge.bstep, bstep]
+      simp [z1, z2, z3, z4, z5, z6, z0, bstep]
     calc
       innerSqrt x = run6From x (seedOf i) := hrun
       _ = z6 := hrun6
