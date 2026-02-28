@@ -65,13 +65,12 @@ private theorem model_cbrt_zero : model_cbrt 0 = 0 := by
 theorem model_cbrt_eq_innerCbrt (x : Nat) :
     model_cbrt x = innerCbrt x := by
   by_cases hx0 : x = 0
-  · subst hx0
-    simp [model_cbrt_zero, innerCbrt]
+  · subst hx0; decide
   · have hx : 0 < x := Nat.pos_of_ne_zero hx0
     have hseed : normAdd 1 (normShr 8 (normShl (normDiv (normBitLengthPlus1 x) 3) 233)) = cbrtSeed x :=
       normSeed_eq_cbrtSeed_of_pos x hx
     unfold model_cbrt innerCbrt
-    simp [Nat.ne_of_gt hx, hseed, normStep_eq_cbrtStep]
+    simp [hseed, normStep_eq_cbrtStep]
 
 -- ============================================================================
 -- Level 1.5: Bracket result for Nat model
@@ -607,12 +606,12 @@ theorem model_cbrt_evm_bracket_u256_all
 
 private theorem floor_correction_norm_eq_if (x z : Nat) :
     normSub z (normLt (normDiv x (normMul z z)) z) =
-      (if z = 0 then 0 else if x / (z * z) < z then z - 1 else z) := by
+      (if x / (z * z) < z then z - 1 else z) := by
   by_cases hz0 : z = 0
   · subst hz0; simp [normSub, normLt, normDiv, normMul]
   · by_cases hlt : x / (z * z) < z
-    · simp [normSub, normLt, normDiv, normMul, hz0, hlt]
-    · simp [normSub, normLt, normDiv, normMul, hz0, hlt]
+    · simp [normSub, normLt, normDiv, normMul, hlt]
+    · simp [normSub, normLt, normDiv, normMul, hlt]
 
 theorem model_cbrt_floor_eq_floorCbrt
     (x : Nat) :

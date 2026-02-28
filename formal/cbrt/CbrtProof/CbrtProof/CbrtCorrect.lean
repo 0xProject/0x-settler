@@ -41,32 +41,28 @@ def run6From (x z : Nat) : Nat :=
 theorem run6_eq_step_run5 (x z : Nat) :
     run6From x z = cbrtStep x (run5From x z) := rfl
 
-/-- The cbrt seed. For x > 0:
+/-- The cbrt seed:
     z = ⌊233 * 2^q / 256⌋ + 1  where q = ⌊(log2(x) + 2) / 3⌋.
     Matches EVM: add(shr(8, shl(div(sub(257, clz(x)), 3), 0xe9)), lt(0x00, x)) -/
 def cbrtSeed (x : Nat) : Nat :=
-  if x = 0 then 0
-  else (0xe9 <<< ((Nat.log2 x + 2) / 3)) >>> 8 + 1
+  (0xe9 <<< ((Nat.log2 x + 2) / 3)) >>> 8 + 1
 
 /-- _cbrt: seed + 6 Newton-Raphson steps. -/
 def innerCbrt (x : Nat) : Nat :=
-  if x = 0 then 0
-  else
-    let z := cbrtSeed x
-    let z := cbrtStep x z
-    let z := cbrtStep x z
-    let z := cbrtStep x z
-    let z := cbrtStep x z
-    let z := cbrtStep x z
-    let z := cbrtStep x z
-    z
+  let z := cbrtSeed x
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  z
 
 /-- cbrt: _cbrt with floor correction.
     Matches: z := sub(z, lt(div(x, mul(z, z)), z)) -/
 def floorCbrt (x : Nat) : Nat :=
   let z := innerCbrt x
-  if z = 0 then 0
-  else if x / (z * z) < z then z - 1 else z
+  if x / (z * z) < z then z - 1 else z
 
 -- ============================================================================
 -- Part 1b: Reference integer cube root (floor)
@@ -185,10 +181,10 @@ theorem icbrt_eq_of_bounds (x r : Nat)
 -- Part 2: Seed and step positivity
 -- ============================================================================
 
-/-- The cbrt seed is positive for x > 0. -/
-theorem cbrtSeed_pos (x : Nat) (hx : 0 < x) : 0 < cbrtSeed x := by
+/-- The cbrt seed is always positive (due to the +1 term). -/
+theorem cbrtSeed_pos (x : Nat) : 0 < cbrtSeed x := by
   unfold cbrtSeed
-  simp [Nat.ne_of_gt hx]
+  exact Nat.succ_pos _
 
 /-- cbrtStep preserves positivity when x > 0 and z > 0. -/
 theorem cbrtStep_pos (x z : Nat) (hx : 0 < x) (hz : 0 < z) : 0 < cbrtStep x z := by
@@ -515,16 +511,13 @@ theorem cbrtStep_upper_of_le
 -- Part 4: innerCbrt structure
 -- ============================================================================
 
-/-- For positive `x`, `_cbrt` is exactly `run6From` from the seed. -/
-theorem innerCbrt_eq_run6From_seed (x : Nat) (hx : 0 < x) :
-    innerCbrt x = run6From x (cbrtSeed x) := by
-  unfold innerCbrt run6From
-  simp [Nat.ne_of_gt hx]
+/-- `_cbrt` is exactly `run6From` from the seed (definitional). -/
+theorem innerCbrt_eq_run6From_seed (x : Nat) :
+    innerCbrt x = run6From x (cbrtSeed x) := rfl
 
-/-- For positive `x`, `_cbrt` is `cbrtStep` applied to `run5From` of the seed. -/
-theorem innerCbrt_eq_step_run5_seed (x : Nat) (hx : 0 < x) :
-    innerCbrt x = cbrtStep x (run5From x (cbrtSeed x)) := by
-  rw [innerCbrt_eq_run6From_seed x hx, run6_eq_step_run5]
+/-- `_cbrt` is `cbrtStep` applied to `run5From` of the seed (definitional). -/
+theorem innerCbrt_eq_step_run5_seed (x : Nat) :
+    innerCbrt x = cbrtStep x (run5From x (cbrtSeed x)) := rfl
 
 set_option maxRecDepth 1000000 in
 /-- Direct finite check for small inputs. -/
@@ -541,8 +534,7 @@ theorem innerCbrt_upper_of_lt_256 (x : Nat) (hx : x < 256) :
 theorem innerCbrt_lower (x m : Nat) (hx : 0 < x)
     (hm : m * m * m ≤ x) : m ≤ innerCbrt x := by
   unfold innerCbrt
-  simp [Nat.ne_of_gt hx]
-  have hs := cbrtSeed_pos x hx
+  have hs := cbrtSeed_pos x
   have h1 := cbrtStep_pos x _ hx hs
   have h2 := cbrtStep_pos x _ hx h1
   have h3 := cbrtStep_pos x _ hx h2
@@ -742,7 +734,7 @@ private theorem floorCbrt_eq_icbrt_of_bounds (x : Nat)
     simpa [r] using cbrt_floor_correction x (innerCbrt x) hz hlo hhi
   have hr : floorCbrt x = r := by
     unfold floorCbrt
-    simp [Nat.ne_of_gt hz, r]
+    rfl
   exact hr.trans (icbrt_eq_of_bounds x r hcorr.1 hcorr.2)
 
 /-- End-to-end floor correctness, with the remaining upper-bound link explicit. -/
