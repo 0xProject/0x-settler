@@ -1,0 +1,10 @@
+name = "Sqrt512Proof"
+version = "0.1.0"
+defaultTargets = ["Sqrt512Proof"]
+
+[[lean_lib]]
+name = "Sqrt512Proof"
+
+[[require]]
+name = "SqrtProof"
+path = "../SqrtProof"
