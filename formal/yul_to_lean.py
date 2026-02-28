@@ -549,6 +549,10 @@ class YulParser:
         Functions whose bodies contain unsupported constructs (``switch``,
         ``for``, etc.) are silently skipped — they cannot be inlined but
         that is fine for model generation.
+
+        Warnings about expression-statements (``revert``, ``mstore``, etc.)
+        are suppressed because these auxiliary functions are parsed only for
+        inlining, not for direct modelling.
         """
         functions: dict[str, YulFunction] = {}
         while not self._at_end():
@@ -559,7 +563,9 @@ class YulParser:
                 saved_i = self.i
                 saved_stmts = self._expr_stmts
                 try:
-                    fn = self.parse_function()
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore")
+                        fn = self.parse_function()
                     functions[fn.yul_name] = fn
                 except ParseError:
                     # Unsupported body — skip this function.
