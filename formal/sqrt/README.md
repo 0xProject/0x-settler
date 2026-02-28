@@ -39,9 +39,11 @@ GeneratedSqrtSpec  -> bridge from generated model to the spec
 Run from repo root:
 
 ```bash
-python3 formal/sqrt/generate_sqrt_model.py \
-  --solidity src/vendor/Sqrt.sol \
-  --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
+# Generate Lean model from Yul IR (requires forge)
+forge inspect src/wrappers/SqrtWrapper.sol:SqrtWrapper ir | \
+  python3 formal/sqrt/generate_sqrt_model.py \
+    --yul - \
+    --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
 
 cd formal/sqrt/SqrtProof
 lake build

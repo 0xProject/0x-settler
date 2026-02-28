@@ -6,11 +6,13 @@ on:
       - master
     paths:
       - src/vendor/Sqrt.sol
+      - src/wrappers/SqrtWrapper.sol
       - formal/sqrt/**
       - .github/workflows/sqrt-formal.yml
   pull_request:
     paths:
       - src/vendor/Sqrt.sol
+      - src/wrappers/SqrtWrapper.sol
       - formal/sqrt/**
       - .github/workflows/sqrt-formal.yml
 
@@ -19,6 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install Python
         uses: actions/setup-python@v5
@@ -30,11 +37,12 @@ jobs:
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
-      - name: Generate Lean model from Sqrt.sol
+      - name: Generate Lean model from Sqrt.sol via Yul IR
         run: |
-          python3 formal/sqrt/generate_sqrt_model.py \
-            --solidity src/vendor/Sqrt.sol \
-            --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
+          forge inspect src/wrappers/SqrtWrapper.sol:SqrtWrapper ir | \
+            python3 formal/sqrt/generate_sqrt_model.py \
+              --yul - \
+              --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
 
       - name: Build Sqrt proof
         working-directory: formal/sqrt/SqrtProof
