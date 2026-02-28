@@ -16,6 +16,8 @@ import datetime as dt
 import pathlib
 import re
 import sys
+import warnings
+from collections import Counter
 from dataclasses import dataclass
 from typing import Callable
 
@@ -146,13 +148,19 @@ class YulParser:
     """Recursive-descent parser over a pre-tokenized Yul token stream.
 
     Only the subset of Yul needed for our extraction is handled: function
-    definitions, ``let``/bare assignments, blocks, and ``leave``.  Everything
-    else (``if``, ``switch``, ``for``, bare expression-statements) is skipped.
+    definitions, ``let``/bare assignments, blocks, and ``leave``.
+
+    Control flow (``if``, ``switch``, ``for``) is **rejected** — its
+    presence would make the straight-line Lean model incomplete and
+    silently wrong.  Bare expression-statements are tracked and warned
+    about since they may indicate side-effectful operations the model
+    does not capture.
     """
 
     def __init__(self, tokens: list[tuple[str, str]]) -> None:
         self.tokens = tokens
         self.i = 0
+        self._expr_stmts: list[Expr] = []
 
     def _at_end(self) -> bool:
         return self.i >= len(self.tokens)
@@ -242,33 +250,17 @@ class YulParser:
                 self._skip_function_def()
                 continue
 
-            if kind == "ident" and self.tokens[self.i][1] == "if":
-                self._pop()
-                self._parse_expr()
-                self._skip_until_matching_brace()
-                continue
-
-            if kind == "ident" and self.tokens[self.i][1] == "switch":
-                self._pop()
-                self._parse_expr()
-                while (
-                    not self._at_end()
-                    and self._peek_kind() == "ident"
-                    and self.tokens[self.i][1] in ("case", "default")
-                ):
-                    kw = self._pop()[1]
-                    if kw == "case":
-                        self._parse_expr()
-                    self._skip_until_matching_brace()
-                continue
-
-            if kind == "ident" and self.tokens[self.i][1] == "for":
-                self._pop()
-                self._skip_until_matching_brace()
-                self._parse_expr()
-                self._skip_until_matching_brace()
-                self._skip_until_matching_brace()
-                continue
+            if kind == "ident" and self.tokens[self.i][1] in ("if", "switch", "for"):
+                stmt = self.tokens[self.i][1]
+                raise ParseError(
+                    f"Control flow statement '{stmt}' found in function body. "
+                    f"Only straight-line code (let/bare assignments, leave, "
+                    f"nested blocks, inner function definitions) is supported "
+                    f"for Lean model generation. If the Solidity compiler "
+                    f"introduced a branch, the generated model would silently "
+                    f"omit it. Review the Yul IR and, if the control flow is "
+                    f"semantically irrelevant, extend the parser to handle it."
+                )
 
             if kind == "ident" and self.i + 1 < len(self.tokens) and self.tokens[self.i + 1][0] == ":=":
                 target = self._expect_ident()
@@ -278,10 +270,17 @@ class YulParser:
                 continue
 
             if kind == "ident" or kind == "num":
-                self._parse_expr()
+                expr = self._parse_expr()
+                self._expr_stmts.append(expr)
                 continue
 
-            self._pop()
+            tok = self._pop()
+            warnings.warn(
+                f"Unrecognized token {tok!r} in function body was skipped. "
+                f"This may indicate a Yul IR construct the parser does not "
+                f"handle.",
+                stacklevel=2,
+            )
 
         return results
 
@@ -310,8 +309,27 @@ class YulParser:
         self._expect("->")
         ret = self._expect_ident()
         self._expect("{")
+        self._expr_stmts = []
         assignments = self._parse_body_assignments()
         self._expect("}")
+        if self._expr_stmts:
+            descriptions = []
+            for e in self._expr_stmts[:3]:
+                if isinstance(e, Call):
+                    descriptions.append(f"{e.name}(...)")
+                else:
+                    descriptions.append(repr(e))
+            summary = ", ".join(descriptions)
+            if len(self._expr_stmts) > 3:
+                summary += ", ..."
+            warnings.warn(
+                f"Function {yul_name!r} contains "
+                f"{len(self._expr_stmts)} expression-statement(s) "
+                f"not captured in the model: [{summary}]. "
+                f"If any have side effects (sstore, log, revert, ...) "
+                f"the model may be incomplete.",
+                stacklevel=2,
+            )
         return YulFunction(
             yul_name=yul_name,
             param=param,
@@ -403,7 +421,22 @@ def yul_function_to_model(
 
     Performs copy propagation to eliminate compiler temporaries and renames
     variables/calls back to Solidity-level names.
+
+    Validates:
+    - Multi-assigned compiler temporaries are flagged (copy propagation is
+      still correct for sequential code, but the situation is unusual).
+    - The return variable is recognized and assigned in the model.
     """
+    # ------------------------------------------------------------------
+    # Pre-pass: count how many times each variable is assigned.
+    # A compiler temporary assigned more than once is unusual and could
+    # indicate a naming-convention change that made a real variable look
+    # like a temporary.
+    # ------------------------------------------------------------------
+    assign_counts: Counter[str] = Counter()
+    for target, _ in yf.assignments:
+        assign_counts[target] += 1
+
     var_map: dict[str, str] = {}
     subst: dict[str, Expr] = {}
 
@@ -413,12 +446,31 @@ def yul_function_to_model(
             var_map[name] = clean
 
     assignments: list[Assignment] = []
+    warned_multi: set[str] = set()
 
     for target, expr in yf.assignments:
         expr = substitute_expr(expr, subst)
 
         clean = demangle_var(target, yf.param, yf.ret)
         if clean is None:
+            # ----------------------------------------------------------
+            # Compiler temporary — copy-propagate.
+            # Warn if it has multiple assignments: the sequential
+            # substitution is semantically correct, but multi-assignment
+            # temporaries are unusual and may signal a naming-convention
+            # change that misclassified a real variable.
+            # ----------------------------------------------------------
+            if assign_counts[target] > 1 and target not in warned_multi:
+                warned_multi.add(target)
+                warnings.warn(
+                    f"Variable {target!r} in {sol_fn_name!r} is classified "
+                    f"as a compiler temporary (copy-propagated) but is "
+                    f"assigned {assign_counts[target]} times. Sequential "
+                    f"propagation preserves semantics for straight-line "
+                    f"code, but this is unusual — verify the Yul IR to "
+                    f"confirm this is not a misclassified user variable.",
+                    stacklevel=2,
+                )
             if isinstance(expr, Call) and expr.name.startswith("zero_value_for_split_"):
                 subst[target] = IntLit(0)
             else:
@@ -435,6 +487,20 @@ def yul_function_to_model(
 
     if not assignments:
         raise ParseError(f"No assignments parsed for function {sol_fn_name!r}")
+
+    # ------------------------------------------------------------------
+    # Post-build validation: ensure the return variable was recognized.
+    # If demangle_var failed to match the return variable's naming
+    # pattern, the model would silently lose the output.
+    # ------------------------------------------------------------------
+    return_clean = var_map.get(yf.ret)
+    if return_clean is None:
+        raise ParseError(
+            f"Return variable {yf.ret!r} of {sol_fn_name!r} was not "
+            f"recognized as a real variable by demangle_var. The compiler "
+            f"naming convention may have changed. Current patterns: "
+            f"var_<name>_<digits> for param/return, usr$<name> for locals."
+        )
 
     return FunctionModel(fn_name=sol_fn_name, assignments=tuple(assignments))
 
