@@ -40,7 +40,7 @@ jobs:
       - name: Generate Lean model from Sqrt.sol via Yul IR
         run: |
           forge inspect src/wrappers/SqrtWrapper.sol:SqrtWrapper ir | \
-            python3 formal/sqrt/generate_sqrt_model.py \
+            python3 -W error formal/sqrt/generate_sqrt_model.py \
               --yul - \
               --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
 

@@ -40,7 +40,7 @@ jobs:
       - name: Generate Lean model from Cbrt.sol via Yul IR
         run: |
           forge inspect src/wrappers/CbrtWrapper.sol:CbrtWrapper ir | \
-            python3 formal/cbrt/generate_cbrt_model.py \
+            python3 -W error formal/cbrt/generate_cbrt_model.py \
               --yul - \
               --output formal/cbrt/CbrtProof/CbrtProof/GeneratedCbrtModel.lean
 
