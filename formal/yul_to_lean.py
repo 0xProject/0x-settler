@@ -1359,19 +1359,30 @@ def run(config: ModelConfig) -> int:
 
     # Collect all parseable function definitions for inlining.
     fn_table = YulParser(tokens).collect_all_functions()
-    if fn_table:
-        print(f"Collected {len(fn_table)} function definition(s) for inlining")
 
     fn_map: dict[str, str] = {}
     yul_functions: dict[str, YulFunction] = {}
 
+    # First pass: find target functions and record their Yul names.
     for sol_name in selected_functions:
         p = YulParser(tokens)
         np = config.n_params.get(sol_name) if config.n_params else None
         yf = p.find_function(sol_name, n_params=np)
-        # Inline calls to other functions before model conversion.
-        yf = _inline_yul_function(yf, fn_table)
         fn_map[yf.yul_name] = sol_name
+        yul_functions[sol_name] = yf
+
+    # Remove target functions from the inlining table so they remain
+    # as named calls in the model (e.g. sqrt calling _sqrt → model_sqrt).
+    for yul_name in fn_map:
+        fn_table.pop(yul_name, None)
+
+    if fn_table:
+        print(f"Collected {len(fn_table)} function definition(s) for inlining")
+
+    # Second pass: inline non-target function calls.
+    for sol_name in selected_functions:
+        yf = yul_functions[sol_name]
+        yf = _inline_yul_function(yf, fn_table)
         yul_functions[sol_name] = yf
 
     models = [
