@@ -1,29 +1,27 @@
-name: Sqrt.sol Formal Check
+name: 512Math._sqrt Formal Check
 
 on:
   push:
     branches:
       - master
     paths:
-      - src/vendor/Sqrt.sol
-      - src/wrappers/SqrtWrapper.sol
+      - src/utils/512Math.sol
+      - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
       - formal/yul_to_lean.py
-      - test/0.8.25/Sqrt.t.sol
-      - test/0.8.25/formal-model/SqrtModel.t.sol
-      - .github/workflows/sqrt-formal.yml
+      - test/0.8.25/formal-model/Sqrt512Model.t.sol
+      - .github/workflows/sqrt512-formal.yml
   pull_request:
     paths:
-      - src/vendor/Sqrt.sol
-      - src/wrappers/SqrtWrapper.sol
+      - src/utils/512Math.sol
+      - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
       - formal/yul_to_lean.py
-      - test/0.8.25/Sqrt.t.sol
-      - test/0.8.25/formal-model/SqrtModel.t.sol
-      - .github/workflows/sqrt-formal.yml
+      - test/0.8.25/formal-model/Sqrt512Model.t.sol
+      - .github/workflows/sqrt512-formal.yml
 
 jobs:
-  sqrt-formal:
+  sqrt512-formal:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -43,19 +41,20 @@ jobs:
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
-      - name: Generate Lean model from Sqrt.sol via Yul IR
+      - name: Generate Lean model from 512Math._sqrt via Yul IR
         run: |
-          forge inspect src/wrappers/SqrtWrapper.sol:SqrtWrapper ir | \
-            python3 -W error formal/sqrt/generate_sqrt_model.py \
+          FOUNDRY_SOLC_VERSION=0.8.33 \
+            forge inspect src/wrappers/Sqrt512Wrapper.sol:Sqrt512Wrapper ir | \
+            python3 -W error formal/sqrt/generate_sqrt512_model.py \
               --yul - \
-              --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
+              --output formal/sqrt/Sqrt512Proof/Sqrt512Proof/GeneratedSqrt512Model.lean
 
-      - name: Build Sqrt proof and model evaluator
-        working-directory: formal/sqrt/SqrtProof
-        run: lake build && lake build sqrt-model
+      - name: Build Sqrt512 model evaluator
+        working-directory: formal/sqrt/Sqrt512Proof
+        run: lake build sqrt512-model
 
       - name: Fuzz-test Lean model against Solidity
         run: |
           FOUNDRY_PROFILE=formal-model forge test \
             --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' \
-            --match-contract SqrtModelTest
+            --match-contract Sqrt512ModelTest

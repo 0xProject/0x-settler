@@ -8,12 +8,18 @@ on:
       - src/vendor/Cbrt.sol
       - src/wrappers/CbrtWrapper.sol
       - formal/cbrt/**
+      - formal/yul_to_lean.py
+      - test/0.8.25/Cbrt.t.sol
+      - test/0.8.25/formal-model/CbrtModel.t.sol
       - .github/workflows/cbrt-formal.yml
   pull_request:
     paths:
       - src/vendor/Cbrt.sol
       - src/wrappers/CbrtWrapper.sol
       - formal/cbrt/**
+      - formal/yul_to_lean.py
+      - test/0.8.25/Cbrt.t.sol
+      - test/0.8.25/formal-model/CbrtModel.t.sol
       - .github/workflows/cbrt-formal.yml
 
 jobs:
@@ -49,6 +55,12 @@ jobs:
           python3 formal/cbrt/generate_cbrt_cert.py \
             --output formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean
 
-      - name: Build Cbrt proof
+      - name: Build Cbrt proof and model evaluator
         working-directory: formal/cbrt/CbrtProof
-        run: lake build
+        run: lake build && lake build cbrt-model
+
+      - name: Fuzz-test Lean model against Solidity
+        run: |
+          FOUNDRY_PROFILE=formal-model forge test \
+            --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' \
+            --match-contract CbrtModelTest
