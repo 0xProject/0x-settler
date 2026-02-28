@@ -34,7 +34,7 @@ theorem cbrtSeed_eq_certSeed (i : Fin 248) (x : Nat)
   have hx0 : x ≠ 0 := Nat.ne_of_gt hx
   have hlog : Nat.log2 x = i.val + certOffset := (Nat.log2_eq_iff hx0).2 hOct
   unfold cbrtSeed
-  simp [Nat.ne_of_gt hx, hlog]
+  simp [hlog]
   have hseed := seed_eq i
   simp [seedOf] at hseed ⊢
   rw [hseed]
@@ -94,7 +94,7 @@ theorem innerCbrt_upper_of_octave
     run6_le_m_plus_one i x m hm2 hmlo hmhi hinterval.1 hinterval.2
   -- Connect innerCbrt to run6From
   have hinnerEq : innerCbrt x = run6From x (cbrtSeed x) :=
-    innerCbrt_eq_run6From_seed x hx
+    innerCbrt_eq_run6From_seed x
   calc innerCbrt x = run6From x (cbrtSeed x) := hinnerEq
     _ = run6From x (seedOf i) := by rw [hseed]
     _ ≤ m + 1 := hrun
@@ -153,7 +153,7 @@ theorem floorCbrt_correct_u256_all (x : Nat) (hx256 : x < 2 ^ 256) :
     let r := floorCbrt x
     r * r * r ≤ x ∧ x < (r + 1) * (r + 1) * (r + 1) := by
   by_cases hx0 : x = 0
-  · subst hx0; simp [floorCbrt, innerCbrt]
+  · subst hx0; decide
   · have hx : 0 < x := Nat.pos_of_ne_zero hx0
     have heq := floorCbrt_correct_u256 x hx hx256
     rw [heq]
@@ -236,7 +236,7 @@ theorem innerCbrt_on_perfect_cube
       let z5 := run5From x (seedOf idx)
       -- innerCbrt(x) = cbrtStep(x, z5) via run5From expansion
       have hinner_run : innerCbrt x = cbrtStep x z5 := by
-        rw [innerCbrt_eq_step_run5_seed x hx_pos, hseed]
+        rw [innerCbrt_eq_step_run5_seed, hseed]
       -- So cbrtStep(x, z5) = m + 1
       have hz6_eq : cbrtStep x z5 = m + 1 := by rw [← hinner_run]; exact heq1
       -- z₅ = m + e where e ≤ d5, e² < m, 2e ≤ m

@@ -3,8 +3,6 @@ import SqrtProof.FloorBound
 
 namespace SqrtBridge
 
-def bstep (x z : Nat) : Nat := (z + x / z) / 2
-
 private theorem hmul2 (a b : Nat) : a * (2 * b) = 2 * (a * b) := by
   calc
     a * (2 * b) = (a * 2) * b := by rw [Nat.mul_assoc]

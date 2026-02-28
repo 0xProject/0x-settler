@@ -65,13 +65,12 @@ private theorem model_cbrt_zero : model_cbrt 0 = 0 := by
 theorem model_cbrt_eq_innerCbrt (x : Nat) :
     model_cbrt x = innerCbrt x := by
   by_cases hx0 : x = 0
-  · subst hx0
-    simp [model_cbrt_zero, innerCbrt]
+  · subst hx0; decide
   · have hx : 0 < x := Nat.pos_of_ne_zero hx0
     have hseed : normAdd 1 (normShr 8 (normShl (normDiv (normBitLengthPlus1 x) 3) 233)) = cbrtSeed x :=
       normSeed_eq_cbrtSeed_of_pos x hx
     unfold model_cbrt innerCbrt
-    simp [Nat.ne_of_gt hx, hseed, normStep_eq_cbrtStep]
+    simp [hseed, normStep_eq_cbrtStep]
 
 -- ============================================================================
 -- Level 1.5: Bracket result for Nat model
@@ -607,12 +606,12 @@ theorem model_cbrt_evm_bracket_u256_all
 
 private theorem floor_correction_norm_eq_if (x z : Nat) :
     normSub z (normLt (normDiv x (normMul z z)) z) =
-      (if z = 0 then 0 else if x / (z * z) < z then z - 1 else z) := by
+      (if x / (z * z) < z then z - 1 else z) := by
   by_cases hz0 : z = 0
   · subst hz0; simp [normSub, normLt, normDiv, normMul]
   · by_cases hlt : x / (z * z) < z
-    · simp [normSub, normLt, normDiv, normMul, hz0, hlt]
-    · simp [normSub, normLt, normDiv, normMul, hz0, hlt]
+    · simp [normSub, normLt, normDiv, normMul, hlt]
+    · simp [normSub, normLt, normDiv, normMul, hlt]
 
 theorem model_cbrt_floor_eq_floorCbrt
     (x : Nat) :
@@ -904,6 +903,38 @@ theorem model_cbrt_up_evm_is_ceil_all
     decide
 
 -- ============================================================================
+-- Level 4d: cbrtUp minimality (smallest integer with r³ ≥ x)
+-- ============================================================================
+
+/-- If `r = 0` or `(r-1)³ < x`, then `r` is the smallest value whose cube is ≥ x. -/
+private theorem minimal_of_pred_cube_lt
+    (x r : Nat)
+    (hpred : r = 0 ∨ (r - 1) * (r - 1) * (r - 1) < x) :
+    ∀ y, x ≤ y * y * y → r ≤ y := by
+  intro y hy
+  by_cases hry : r ≤ y
+  · exact hry
+  · have hylt : y < r := Nat.lt_of_not_ge hry
+    cases hpred with
+    | inl hr0 =>
+        exact False.elim ((Nat.not_lt_of_ge hylt) (by simp [hr0]))
+    | inr hpredlt =>
+        have hyle : y ≤ r - 1 := by omega
+        have hycube : y * y * y ≤ (r - 1) * (r - 1) * (r - 1) := cube_monotone hyle
+        have hcontra : x ≤ (r - 1) * (r - 1) * (r - 1) := Nat.le_trans hy hycube
+        exact False.elim ((Nat.not_lt_of_ge hcontra) hpredlt)
+
+/-- `cbrtUp` is exactly the smallest integer whose cube is ≥ x.
+    Matches the sqrt analog `model_sqrt_up_evm_ceil_u256`. -/
+theorem model_cbrt_up_evm_ceil_u256
+    (x : Nat)
+    (hx256 : x < 2 ^ 256) :
+    let r := model_cbrt_up_evm x
+    x ≤ r * r * r ∧ ∀ y, x ≤ y * y * y → r ≤ y := by
+  have hceil := model_cbrt_up_evm_is_ceil_all x hx256
+  exact ⟨hceil.1, minimal_of_pred_cube_lt x (model_cbrt_up_evm x) hceil.2⟩
+
+-- ============================================================================
 -- Summary
 -- ============================================================================
 
@@ -924,6 +955,7 @@ theorem model_cbrt_up_evm_is_ceil_all
   ✓ model_cbrt_up_evm_lower_bound: EVM cbrtUp gives tight lower bound
   ✓ model_cbrt_up_evm_is_ceil: EVM cbrtUp is the exact ceiling cube root (x > 0)
   ✓ model_cbrt_up_evm_is_ceil_all: EVM cbrtUp is correct for all x < 2^256 (including x = 0)
+  ✓ model_cbrt_up_evm_ceil_u256: cbrtUp is the smallest integer with r³ ≥ x
   ✓ model_cbrt_evm_eq_model_cbrt: EVM model = Nat model
   ✓ model_cbrt_evm_bracket_u256_all: EVM model ∈ [m, m+1]
   ✓ model_cbrt_floor_evm_eq_floorCbrt: EVM floor = floorCbrt

@@ -299,7 +299,7 @@ theorem innerCbrt_cube_lt_word (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
       have hseed : cbrtSeed x = seedOf ⟨247, by omega⟩ :=
         cbrtSeed_eq_certSeed _ x ⟨Nat.le_trans pow255_le_rmax_cube hmlo, hx256⟩
       have hinner_eq : innerCbrt x = cbrtStep x (run5From x (seedOf ⟨247, by omega⟩)) := by
-        rw [innerCbrt_eq_step_run5_seed x hx, hseed]
+        rw [innerCbrt_eq_step_run5_seed, hseed]
       -- cbrtStep(x, z5) ≤ R_MAX
       have hz6 := cbrtStep_le_rmax x _ hx256 hmz5 hz5
       -- innerCbrt(x) ≤ R_MAX

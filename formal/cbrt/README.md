@@ -45,10 +45,11 @@ Both `GeneratedCbrtModel.lean` and `FiniteCert.lean` are intentionally not commi
 Run from repo root:
 
 ```bash
-# Generate Lean model from Solidity source
-python3 formal/cbrt/generate_cbrt_model.py \
-  --solidity src/vendor/Cbrt.sol \
-  --output formal/cbrt/CbrtProof/CbrtProof/GeneratedCbrtModel.lean
+# Generate Lean model from Yul IR (requires forge)
+forge inspect src/wrappers/CbrtWrapper.sol:CbrtWrapper ir | \
+  python3 formal/cbrt/generate_cbrt_model.py \
+    --yul - \
+    --output formal/cbrt/CbrtProof/CbrtProof/GeneratedCbrtModel.lean
 
 # Generate the finite certificate tables
 python3 formal/cbrt/generate_cbrt_cert.py \
@@ -94,6 +95,7 @@ lake build
 
 - [elan](https://github.com/leanprover/elan) (Lean version manager)
 - Lean 4.28.0 (installed automatically by elan from `lean-toolchain`)
+- Foundry (for `forge inspect` to produce Yul IR)
 - Python 3 (for model and certificate generation)
 - No Mathlib or other Lean dependencies
 
@@ -108,5 +110,5 @@ lake build
 | `CbrtProof/Wiring.lean` | Octave mapping + unconditional `floorCbrt_correct_u256` |
 | `CbrtProof/GeneratedCbrtModel.lean` | **Auto-generated.** EVM + Nat models of `_cbrt`, `cbrt`, `cbrtUp` |
 | `CbrtProof/GeneratedCbrtSpec.lean` | Bridge: generated model ↔ hand-written spec |
-| `generate_cbrt_model.py` | Generates `GeneratedCbrtModel.lean` from `Cbrt.sol` |
+| `generate_cbrt_model.py` | Generates `GeneratedCbrtModel.lean` from Yul IR |
 | `generate_cbrt_cert.py` | Generates `FiniteCert.lean` from mathematical spec |

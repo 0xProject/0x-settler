@@ -4,6 +4,10 @@
 -/
 import Init
 
+/-- One Babylonian step: ⌊(z + ⌊x/z⌋) / 2⌋.
+    Canonical definition used across the entire proof suite. -/
+def bstep (x z : Nat) : Nat := (z + x / z) / 2
+
 -- ============================================================================
 -- Algebraic helpers
 -- ============================================================================

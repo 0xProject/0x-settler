@@ -6,11 +6,13 @@ on:
       - master
     paths:
       - src/vendor/Cbrt.sol
+      - src/wrappers/CbrtWrapper.sol
       - formal/cbrt/**
       - .github/workflows/cbrt-formal.yml
   pull_request:
     paths:
       - src/vendor/Cbrt.sol
+      - src/wrappers/CbrtWrapper.sol
       - formal/cbrt/**
       - .github/workflows/cbrt-formal.yml
 
@@ -19,6 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
 
       - name: Install Python
         uses: actions/setup-python@v5
@@ -30,11 +37,12 @@ jobs:
           curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
 
-      - name: Generate Lean model from Cbrt.sol
+      - name: Generate Lean model from Cbrt.sol via Yul IR
         run: |
-          python3 formal/cbrt/generate_cbrt_model.py \
-            --solidity src/vendor/Cbrt.sol \
-            --output formal/cbrt/CbrtProof/CbrtProof/GeneratedCbrtModel.lean
+          forge inspect src/wrappers/CbrtWrapper.sol:CbrtWrapper ir | \
+            python3 formal/cbrt/generate_cbrt_model.py \
+              --yul - \
+              --output formal/cbrt/CbrtProof/CbrtProof/GeneratedCbrtModel.lean
 
       - name: Generate finite certificate from cbrt spec
         run: |
