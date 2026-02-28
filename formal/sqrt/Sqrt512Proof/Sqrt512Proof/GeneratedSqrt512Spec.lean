@@ -5,7 +5,11 @@
   Part 2: EVM model bridge — model_sqrt512_evm = sqrt512.
   Part 3 (fully proved): Composition — sqrt512 = natSqrt.
 
-  Architecture: model_sqrt512_evm →[evm bridge]→ model_sqrt512 →[norm bridge]→ sqrt512 →[proved]→ natSqrt
+  Architecture: model_sqrt512_evm →[direct EVM bridge]→ sqrt512 →[proved]→ natSqrt
+
+  Note: The auto-generated norm model (model_sqrt512) uses unbounded Nat operations
+  (normShl, normMul) which do NOT match EVM uint256 semantics. Therefore we prove the
+  EVM model correct directly, without factoring through the norm model.
 -/
 import Sqrt512Proof.Sqrt512Correct
 import Sqrt512Proof.GeneratedSqrt512Model
@@ -209,11 +213,11 @@ theorem floorSqrt_fixed_eq_natSqrt (x : Nat) (hlo : 2 ^ 254 ≤ x) (hhi : x < 2 
   exact hcorr
 
 -- ============================================================================
--- Section 5: Norm model helpers
+-- Section 5: EVM operation simplification helpers
 -- ============================================================================
 
 open Sqrt512GeneratedModel in
-/-- normAdd (now unbounded) is just addition. -/
+/-- normAdd (unbounded) is just addition. -/
 private theorem normAdd_eq (a b : Nat) : normAdd a b = a + b := rfl
 
 open Sqrt512GeneratedModel in
@@ -265,22 +269,38 @@ private theorem normFloor_correction (x z : Nat) (hz : 0 < z) :
   split <;> omega
 
 -- ============================================================================
--- Section 6: Norm model → sqrt512 bridge
+-- Section 5b: Constant-folding and bitwise helpers
 -- ============================================================================
 
--- The bridge proves: model_sqrt512 x_hi x_lo = sqrt512 (x_hi * 2^256 + x_lo)
--- for 0 < x_hi < 2^256 and x_lo < 2^256.
---
--- Key correspondence:
---   let x := x_hi * 2^256 + x_lo
---   let k := (255 - Nat.log2 x_hi) / 2          -- half-shift
---   let x' := x * 4^k                            -- normalized 512-bit value
---   model_sqrt512 computes karatsubaFloor(x'/2^256, x'%2^256) / 2^k
---   which equals natSqrt(x) by karatsubaFloor_eq_natSqrt and natSqrt_shift_div.
+/-- For n < 256, n &&& 254 clears bit 0, giving 2*(n/2). -/
+private theorem and_254_eq : ∀ n : Fin 256, (n.val &&& 254) = 2 * (n.val / 2) := by
+  native_decide
+
+private theorem normAnd_shift_254 (n : Nat) (hn : n < 256) :
+    n &&& 254 = 2 * (n / 2) :=
+  and_254_eq ⟨n, hn⟩
+
+private theorem and_1_255 : (1 : Nat) &&& (255 : Nat) = 1 := by native_decide
+private theorem and_128_255 : (128 : Nat) &&& (255 : Nat) = 128 := by native_decide
+
+/-- Bitwise OR equals addition when bits don't overlap.
+    Uses Nat.shiftLeft_add_eq_or_of_lt from Init. -/
+private theorem or_eq_add_shl (a b s : Nat) (hb : b < 2 ^ s) :
+    (a * 2 ^ s) ||| b = a * 2 ^ s + b := by
+  rw [← Nat.shiftLeft_eq]
+  exact (Nat.shiftLeft_add_eq_or_of_lt hb a).symm
+
+-- ============================================================================
+-- Section 6: Inner sqrt convergence (reusable for EVM bridge)
+-- ============================================================================
+
+-- The norm model's Babylonian steps (using unbounded normAdd) are identical to
+-- bstep, and therefore converge to natSqrt on normalized inputs [2^254, 2^256).
+-- For the EVM bridge, we reuse this by showing the EVM Babylonian steps produce
+-- the same values (since the sums don't overflow 2^256).
 
 open Sqrt512GeneratedModel in
-/-- The 6 Babylonian steps in the norm model on x_hi_1 equal run6Fixed x_hi_1.
-    Since normAdd is unbounded, normShr 1 (normAdd z (normDiv x z)) = bstep x z. -/
+/-- The 6 Babylonian steps in the norm model on x_hi_1 equal run6Fixed x_hi_1. -/
 private theorem norm_6steps_eq_run6Fixed (x_hi_1 : Nat) :
     let r_hi_1 := FIXED_SEED
     let r_hi_2 := normShr 1 (normAdd r_hi_1 (normDiv x_hi_1 r_hi_1))
@@ -307,10 +327,6 @@ private theorem norm_inner_sqrt_eq_floorSqrt_fixed (x_hi_1 : Nat) (hx : 0 < x_hi
   simp only
   have h7 := norm_6steps_eq_run6Fixed x_hi_1
   simp only at h7
-  -- r_hi_7 = run6Fixed x_hi_1
-  -- r_hi_8 = normSub r_hi_7 (normLt (normDiv x_hi_1 r_hi_7) r_hi_7)
-  -- We need: r_hi_8 = floorSqrt_fixed x_hi_1
-  -- floorSqrt_fixed x = if run6Fixed x = 0 then 0 else if x / run6Fixed x < run6Fixed x then run6Fixed x - 1 else run6Fixed x
   have hz_pos : 0 < run6Fixed x_hi_1 := by
     have hseed_pos : 0 < FIXED_SEED := fixed_seed_pos
     have hz1_pos := bstep_pos x_hi_1 FIXED_SEED hx hseed_pos
@@ -343,28 +359,9 @@ private theorem norm_inner_sqrt_eq_natSqrt (x_hi_1 : Nat)
   rw [h]
   exact floorSqrt_fixed_eq_natSqrt x_hi_1 hlo hhi
 
-/-- The full Karatsuba computation in the norm model:
-    normalization → inner sqrt → Karatsuba quotient → correction → un-normalization.
-    This bridges the generated norm model to the algebraic sqrt512 definition. -/
-private theorem model_sqrt512_norm_eq_sqrt512 (x_hi x_lo : Nat)
-    (hxhi_pos : 0 < x_hi) (hxhi_lt : x_hi < 2 ^ 256) (hxlo_lt : x_lo < 2 ^ 256) :
-    Sqrt512GeneratedModel.model_sqrt512 x_hi x_lo =
-      sqrt512 (x_hi * 2 ^ 256 + x_lo) := by
-  sorry
-
 -- ============================================================================
--- Section 7: EVM model → norm model bridge
+-- Section 7: EVM operation bridge lemmas
 -- ============================================================================
-
--- The EVM model uses u256-wrapped operations. The norm model uses unbounded
--- Nat addition but truncating SHL. We show the final outputs match.
---
--- Key insight: all intermediate values except potentially the combine step
--- (r_hi_8 * 2^128 + r_lo) stay within [0, 2^256). At the combine step,
--- the value can be exactly 2^256, in which case:
---   EVM: wraps to 0, then evmSub(0, 1) = 2^256 - 1  (correct)
---   Norm: stays at 2^256, then normSub(2^256, 1) = 2^256 - 1  (correct)
--- So the final outputs agree.
 
 section EvmNormBridge
 open Sqrt512GeneratedModel
@@ -373,106 +370,179 @@ private theorem u256_id' (x : Nat) (hx : x < WORD_MOD) : u256 x = x :=
   Nat.mod_eq_of_lt hx
 
 private theorem evmSub_eq_of_le (a b : Nat) (ha : a < WORD_MOD) (hb : b ≤ a) :
-    evmSub a b = normSub a b := by
+    evmSub a b = a - b := by
   have hb' : b < WORD_MOD := Nat.lt_of_le_of_lt hb ha
   have hab' : a - b < WORD_MOD := Nat.lt_of_le_of_lt (Nat.sub_le a b) ha
-  unfold evmSub normSub u256
+  unfold evmSub u256
   simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb']
   have hsplit : a + WORD_MOD - b = WORD_MOD + (a - b) := by omega
   rw [hsplit, Nat.add_mod, Nat.mod_eq_zero_of_dvd (Nat.dvd_refl WORD_MOD), Nat.zero_add,
       Nat.mod_mod_of_dvd, Nat.mod_eq_of_lt hab']
   exact Nat.dvd_refl WORD_MOD
 
-private theorem evmDiv_eq (a b : Nat) (ha : a < WORD_MOD) (hb : 0 < b) (hb' : b < WORD_MOD) :
-    evmDiv a b = normDiv a b := by
-  unfold evmDiv normDiv
+private theorem evmDiv_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : 0 < b) (hb' : b < WORD_MOD) :
+    evmDiv a b = a / b := by
+  unfold evmDiv
   simp only [u256_id' a ha, u256_id' b hb']
   simp [Nat.ne_of_gt hb]
 
-private theorem evmMod_eq (a b : Nat) (ha : a < WORD_MOD) (hb : 0 < b) (hb' : b < WORD_MOD) :
-    evmMod a b = normMod a b := by
-  unfold evmMod normMod
+private theorem evmMod_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : 0 < b) (hb' : b < WORD_MOD) :
+    evmMod a b = a % b := by
+  unfold evmMod
   simp only [u256_id' a ha, u256_id' b hb']
   simp [Nat.ne_of_gt hb]
 
-private theorem evmNot_eq (a : Nat) (ha : a < WORD_MOD) :
-    evmNot a = normNot a := by
-  unfold evmNot normNot; simp [u256_id' a ha]
+private theorem evmOr_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmOr a b = a ||| b := by
+  unfold evmOr; simp [u256_id' a ha, u256_id' b hb]
 
-private theorem evmOr_eq (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
-    evmOr a b = normOr a b := by
-  unfold evmOr normOr; simp [u256_id' a ha, u256_id' b hb]
+private theorem evmAnd_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmAnd a b = a &&& b := by
+  unfold evmAnd; simp [u256_id' a ha, u256_id' b hb]
 
-private theorem evmAnd_eq (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
-    evmAnd a b = normAnd a b := by
-  unfold evmAnd normAnd; simp [u256_id' a ha, u256_id' b hb]
-
-private theorem evmEq_eq (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
-    evmEq a b = normEq a b := by
-  unfold evmEq normEq; simp [u256_id' a ha, u256_id' b hb]
-
-private theorem evmClz_eq (v : Nat) (hv : v < WORD_MOD) :
-    evmClz v = normClz v := by
-  unfold evmClz normClz; simp [u256_id' v hv]
-
-private theorem evmLt_eq (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
-    evmLt a b = normLt a b := by
-  unfold evmLt normLt; simp [u256_id' a ha, u256_id' b hb]
-
-private theorem evmShr_eq_of_small (s v : Nat) (hs : s < 256) (hv : v < WORD_MOD) :
-    evmShr s v = normShr s v := by
+private theorem evmShr_eq' (s v : Nat) (hs : s < 256) (hv : v < WORD_MOD) :
+    evmShr s v = v / 2 ^ s := by
   have hs' : s < WORD_MOD := by unfold WORD_MOD; omega
-  unfold evmShr normShr; simp [u256_id' s hs', u256_id' v hv, hs]
+  unfold evmShr; simp [u256_id' s hs', u256_id' v hv, hs]
 
-private theorem evmShl_eq_normShl (s v : Nat) (hs : s < 256) (hv : v < WORD_MOD)
-    (hvs : v * 2 ^ s < WORD_MOD) :
-    evmShl s v = normShl s v := by
+private theorem evmShl_eq' (s v : Nat) (hs : s < 256) (hv : v < WORD_MOD) :
+    evmShl s v = (v * 2 ^ s) % WORD_MOD := by
   have hs' : s < WORD_MOD := by unfold WORD_MOD; omega
-  unfold evmShl normShl u256
-  simp [Nat.mod_eq_of_lt hs', Nat.mod_eq_of_lt hv, hs, Nat.shiftLeft_eq,
-        Nat.mod_eq_of_lt hvs]
+  unfold evmShl u256
+  simp [Nat.mod_eq_of_lt hs', Nat.mod_eq_of_lt hv, hs, Nat.shiftLeft_eq]
 
-/-- evmAdd on inputs whose sum < WORD_MOD equals normAdd (unbounded). -/
-private theorem evmAdd_eq_of_bounded (a b : Nat)
-    (ha : a < WORD_MOD) (hb : b < WORD_MOD) (hab : a + b < WORD_MOD) :
-    evmAdd a b = normAdd a b := by
-  unfold evmAdd normAdd u256
+private theorem evmAdd_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD)
+    (hab : a + b < WORD_MOD) :
+    evmAdd a b = a + b := by
+  unfold evmAdd u256
   simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb, Nat.mod_eq_of_lt hab]
 
-/-- When a + b < WORD_MOD, evmSub (evmAdd a b) f = normSub (normAdd a b) f. -/
-private theorem evmSub_evmAdd_eq_of_no_overflow (a b f : Nat)
-    (ha : a < WORD_MOD) (hb : b < WORD_MOD)
-    (hab : a + b < WORD_MOD) (hf : f < WORD_MOD) (habf : f ≤ a + b) :
-    evmSub (evmAdd a b) f = normSub (normAdd a b) f := by
-  unfold evmAdd evmSub normAdd normSub u256
-  simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb, Nat.mod_eq_of_lt hab, Nat.mod_eq_of_lt hf]
-  have hlt2 : a + b - f < WORD_MOD := by omega
-  rw [show a + b + WORD_MOD - f = WORD_MOD + (a + b - f) from by omega]
-  rw [Nat.add_mod, Nat.mod_self, Nat.zero_add, Nat.mod_mod, Nat.mod_eq_of_lt hlt2]
+private theorem evmMul_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmMul a b = (a * b) % WORD_MOD := by
+  unfold evmMul u256
+  simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
 
-/-- When a + b = WORD_MOD and f = 1, the EVM overflow+underflow cancels:
-    evmSub (evmAdd a b) 1 = WORD_MOD - 1 = normSub (a + b) 1. -/
+private theorem evmClz_eq' (v : Nat) (hv : v < WORD_MOD) :
+    evmClz v = if v = 0 then 256 else 255 - Nat.log2 v := by
+  unfold evmClz; simp [u256_id' v hv]
+
+private theorem evmLt_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmLt a b = if a < b then 1 else 0 := by
+  unfold evmLt; simp [u256_id' a ha, u256_id' b hb]
+
+private theorem evmEq_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmEq a b = if a = b then 1 else 0 := by
+  unfold evmEq; simp [u256_id' a ha, u256_id' b hb]
+
+private theorem evmNot_eq' (a : Nat) (ha : a < WORD_MOD) :
+    evmNot a = WORD_MOD - 1 - a := by
+  unfold evmNot; simp [u256_id' a ha]
+
+/-- When a + b = WORD_MOD and f ∈ {0,1}, EVM overflow+underflow gives the right answer. -/
 private theorem evmSub_evmAdd_eq_of_overflow (a b : Nat)
     (ha : a < WORD_MOD) (hb : b < WORD_MOD)
     (hab : a + b = WORD_MOD) :
-    evmSub (evmAdd a b) 1 = normSub (normAdd a b) 1 := by
-  unfold evmAdd evmSub normAdd normSub u256
+    evmSub (evmAdd a b) 1 = WORD_MOD - 1 := by
+  unfold evmAdd evmSub u256
   simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb, hab, Nat.mod_self]
   have h1 : (1 : Nat) < WORD_MOD := by unfold WORD_MOD; omega
   simp [Nat.mod_eq_of_lt h1]
 
 end EvmNormBridge
 
-open Sqrt512GeneratedModel in
-private theorem model_sqrt512_evm_eq_norm (x_hi x_lo : Nat)
-    (hxhi_lt : x_hi < 2 ^ 256) (hxlo_lt : x_lo < 2 ^ 256) :
-    Sqrt512GeneratedModel.model_sqrt512_evm x_hi x_lo =
-      Sqrt512GeneratedModel.model_sqrt512 x_hi x_lo := by
+-- ============================================================================
+-- Section 8: Direct EVM model → sqrt512 bridge
+-- ============================================================================
+
+-- We prove model_sqrt512_evm = sqrt512 DIRECTLY, without going through the
+-- norm model (model_sqrt512). The norm model uses unbounded normShl/normMul
+-- which don't match EVM semantics, making it unsuitable as an intermediate.
+--
+-- The EVM model uses u256-wrapped operations that correctly implement the
+-- Solidity algorithm. We show its output equals sqrt512(x_hi * 2^256 + x_lo).
+--
+-- Proof decomposition into sub-lemmas:
+--   A. EVM normalization: x_hi_1 = x*4^k/2^256, x_lo_1 = x*4^k%2^256
+--   B. EVM inner sqrt: r_hi_8 = natSqrt(x_hi_1) (reuses norm proof + bounded sums)
+--   C. EVM Karatsuba quotient: r_lo = karatsubaR quotient (with carry correction)
+--   D. EVM correction flag: correctly evaluates x' < r^2
+--   E. Chain: karatsubaFloor(x_hi_1, x_lo_1) / 2^k = sqrt512(x)
+
+section EvmBridge
+open Sqrt512GeneratedModel
+
+/-- Sub-lemma A: The EVM normalization phase computes the correct normalized words.
+    Given x = x_hi * 2^256 + x_lo and k = (255 - log2 x_hi) / 2:
+    - x_hi_1 = (x * 4^k) / 2^256
+    - x_lo_1 = (x * 4^k) % 2^256
+    - shift_1 = k -/
+private theorem evm_normalization_correct (x_hi x_lo : Nat)
+    (hxhi_pos : 0 < x_hi) (hxhi_lt : x_hi < 2 ^ 256) (hxlo_lt : x_lo < 2 ^ 256) :
+    let x := x_hi * 2 ^ 256 + x_lo
+    let k := (255 - Nat.log2 x_hi) / 2
+    let shift := evmClz (u256 x_hi)
+    let dbl_k := evmAnd shift 254
+    let x_lo_1 := evmShl dbl_k (u256 x_lo)
+    let x_hi_1 := evmOr (evmShl dbl_k (u256 x_hi)) (evmShr (evmSub 256 dbl_k) (u256 x_lo))
+    let shift_1 := evmShr (evmAnd (evmAnd 1 255) 255) shift
+    x_hi_1 = x * 4 ^ k / 2 ^ 256 ∧
+    x_lo_1 = x * 4 ^ k % 2 ^ 256 ∧
+    shift_1 = k ∧
+    2 ^ 254 ≤ x_hi_1 ∧
+    x_hi_1 < 2 ^ 256 ∧
+    x_lo_1 < 2 ^ 256 := by
   sorry
 
--- ============================================================================
--- Section 8: Main theorems
--- ============================================================================
+/-- Sub-lemma B: The EVM Babylonian steps match the norm model's steps
+    (since all intermediate sums z + x/z < 2^256 for normalized inputs).
+    Combined with norm_inner_sqrt_eq_natSqrt, the EVM inner sqrt gives natSqrt. -/
+private theorem evm_inner_sqrt_eq_natSqrt (x_hi_1 : Nat)
+    (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) :
+    let r_hi_1 : Nat := FIXED_SEED
+    let r_hi_2 := evmShr 1 (evmAdd r_hi_1 (evmDiv x_hi_1 r_hi_1))
+    let r_hi_3 := evmShr 1 (evmAdd r_hi_2 (evmDiv x_hi_1 r_hi_2))
+    let r_hi_4 := evmShr 1 (evmAdd r_hi_3 (evmDiv x_hi_1 r_hi_3))
+    let r_hi_5 := evmShr 1 (evmAdd r_hi_4 (evmDiv x_hi_1 r_hi_4))
+    let r_hi_6 := evmShr 1 (evmAdd r_hi_5 (evmDiv x_hi_1 r_hi_5))
+    let r_hi_7 := evmShr 1 (evmAdd r_hi_6 (evmDiv x_hi_1 r_hi_6))
+    let r_hi_8 := evmSub r_hi_7 (evmLt (evmDiv x_hi_1 r_hi_7) r_hi_7)
+    r_hi_8 = natSqrt x_hi_1 := by
+  sorry
+
+/-- Sub-lemma C+D: The EVM Karatsuba step (including carry correction) plus the
+    final correction and un-normalization computes karatsubaFloor / 2^k.
+    This covers: res computation, Karatsuba quotient with carry, combine,
+    257-bit correction comparison, and division by 2^k. -/
+private theorem evm_karatsuba_correction_unnorm
+    (x_hi_1 x_lo_1 : Nat) (r_hi : Nat) (k : Nat)
+    (hxhi_lo : 2 ^ 254 ≤ x_hi_1) (hxhi_hi : x_hi_1 < 2 ^ 256)
+    (hxlo : x_lo_1 < 2 ^ 256) (hr : r_hi = natSqrt x_hi_1)
+    (hk : k ≤ 127) :
+    -- The EVM Karatsuba + correction + un-normalization on (x_hi_1, x_lo_1, r_hi, k)
+    let res_1 := evmSub x_hi_1 (evmMul r_hi r_hi)
+    let n := evmOr (evmShl 128 res_1) (evmShr 128 x_lo_1)
+    let d := evmShl 1 r_hi
+    let r_lo_1 := evmDiv n d
+    let c := evmShr 128 res_1
+    let res_2 := evmMod n d
+    let (r_lo, res) := if c ≠ 0 then
+        let r_lo := evmAdd r_lo_1 (evmDiv (evmNot 0) d)
+        let res := evmAdd res_2 (evmAdd 1 (evmMod (evmNot 0) d))
+        let r_lo := evmAdd r_lo (evmDiv res d)
+        let res := evmMod res d
+        (r_lo, res)
+      else (r_lo_1, res_2)
+    let r_1 := evmAdd (evmShl 128 r_hi) r_lo
+    let r_2 := evmSub r_1
+      (evmOr (evmLt (evmShr 128 res) (evmShr 128 r_lo))
+        (evmAnd (evmEq (evmShr 128 res) (evmShr 128 r_lo))
+          (evmLt (evmOr (evmShl 128 res) (evmAnd x_lo_1 (2 ^ 128 - 1)))
+            (evmMul r_lo r_lo))))
+    let r_3 := evmShr k r_2
+    r_3 = karatsubaFloor x_hi_1 x_lo_1 / 2 ^ k := by
+  sorry
+
+end EvmBridge
 
 /-- The EVM model computes the same as the algebraic sqrt512. -/
 private theorem model_sqrt512_evm_eq_sqrt512 (x_hi x_lo : Nat)
@@ -480,8 +550,7 @@ private theorem model_sqrt512_evm_eq_sqrt512 (x_hi x_lo : Nat)
     (hxlo_lt : x_lo < 2 ^ 256) :
     Sqrt512GeneratedModel.model_sqrt512_evm x_hi x_lo =
       sqrt512 (x_hi * 2 ^ 256 + x_lo) := by
-  rw [model_sqrt512_evm_eq_norm x_hi x_lo hxhi_lt hxlo_lt]
-  exact model_sqrt512_norm_eq_sqrt512 x_hi x_lo hxhi_pos hxhi_lt hxlo_lt
+  sorry
 
 set_option exponentiation.threshold 512 in
 /-- The EVM model of 512-bit sqrt computes natSqrt. -/
