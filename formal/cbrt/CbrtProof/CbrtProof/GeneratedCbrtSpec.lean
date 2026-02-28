@@ -903,6 +903,38 @@ theorem model_cbrt_up_evm_is_ceil_all
     decide
 
 -- ============================================================================
+-- Level 4d: cbrtUp minimality (smallest integer with r³ ≥ x)
+-- ============================================================================
+
+/-- If `r = 0` or `(r-1)³ < x`, then `r` is the smallest value whose cube is ≥ x. -/
+private theorem minimal_of_pred_cube_lt
+    (x r : Nat)
+    (hpred : r = 0 ∨ (r - 1) * (r - 1) * (r - 1) < x) :
+    ∀ y, x ≤ y * y * y → r ≤ y := by
+  intro y hy
+  by_cases hry : r ≤ y
+  · exact hry
+  · have hylt : y < r := Nat.lt_of_not_ge hry
+    cases hpred with
+    | inl hr0 =>
+        exact False.elim ((Nat.not_lt_of_ge hylt) (by simp [hr0]))
+    | inr hpredlt =>
+        have hyle : y ≤ r - 1 := by omega
+        have hycube : y * y * y ≤ (r - 1) * (r - 1) * (r - 1) := cube_monotone hyle
+        have hcontra : x ≤ (r - 1) * (r - 1) * (r - 1) := Nat.le_trans hy hycube
+        exact False.elim ((Nat.not_lt_of_ge hcontra) hpredlt)
+
+/-- `cbrtUp` is exactly the smallest integer whose cube is ≥ x.
+    Matches the sqrt analog `model_sqrt_up_evm_ceil_u256`. -/
+theorem model_cbrt_up_evm_ceil_u256
+    (x : Nat)
+    (hx256 : x < 2 ^ 256) :
+    let r := model_cbrt_up_evm x
+    x ≤ r * r * r ∧ ∀ y, x ≤ y * y * y → r ≤ y := by
+  have hceil := model_cbrt_up_evm_is_ceil_all x hx256
+  exact ⟨hceil.1, minimal_of_pred_cube_lt x (model_cbrt_up_evm x) hceil.2⟩
+
+-- ============================================================================
 -- Summary
 -- ============================================================================
 
@@ -923,6 +955,7 @@ theorem model_cbrt_up_evm_is_ceil_all
   ✓ model_cbrt_up_evm_lower_bound: EVM cbrtUp gives tight lower bound
   ✓ model_cbrt_up_evm_is_ceil: EVM cbrtUp is the exact ceiling cube root (x > 0)
   ✓ model_cbrt_up_evm_is_ceil_all: EVM cbrtUp is correct for all x < 2^256 (including x = 0)
+  ✓ model_cbrt_up_evm_ceil_u256: cbrtUp is the smallest integer with r³ ≥ x
   ✓ model_cbrt_evm_eq_model_cbrt: EVM model = Nat model
   ✓ model_cbrt_evm_bracket_u256_all: EVM model ∈ [m, m+1]
   ✓ model_cbrt_floor_evm_eq_floorCbrt: EVM floor = floorCbrt
