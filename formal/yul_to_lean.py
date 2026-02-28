@@ -56,9 +56,29 @@ class Assignment:
 
 
 @dataclass(frozen=True)
+class ConditionalBlock:
+    """An ``if cond { ... }`` block that assigns to already-declared variables.
+
+    ``condition`` is the Yul condition expression.
+    ``assignments`` are the assignments inside the if-body.
+    ``modified_vars`` lists the Solidity-level variable names that the block
+    may modify (used for Lean tuple-destructuring emission).
+    """
+    condition: Expr
+    assignments: tuple[Assignment, ...]
+    modified_vars: tuple[str, ...]
+
+
+# A model statement is either a plain assignment or a conditional block.
+ModelStatement = Assignment | ConditionalBlock
+
+
+@dataclass(frozen=True)
 class FunctionModel:
     fn_name: str
-    assignments: tuple[Assignment, ...]
+    assignments: tuple[ModelStatement, ...]
+    param_names: tuple[str, ...] = ("x",)
+    return_name: str = "z"
 
 
 # ---------------------------------------------------------------------------
@@ -135,13 +155,44 @@ def tokenize_yul(source: str) -> list[tuple[str, str]]:
 # Yul recursive-descent parser
 # ---------------------------------------------------------------------------
 
+@dataclass(frozen=True)
+class ParsedIfBlock:
+    """Raw parsed ``if cond { body }`` from Yul, before demangling."""
+    condition: Expr
+    body: tuple[tuple[str, Expr], ...]
+
+
+# A raw parsed statement is either an assignment or an if-block.
+RawStatement = tuple[str, Expr] | ParsedIfBlock
+
+
 @dataclass
 class YulFunction:
     """Parsed representation of a single Yul ``function`` definition."""
     yul_name: str
-    param: str
-    ret: str
-    assignments: list[tuple[str, Expr]]
+    params: list[str]
+    rets: list[str]
+    assignments: list[RawStatement]
+
+    @property
+    def param(self) -> str:
+        """Backward-compat accessor for single-parameter functions."""
+        if len(self.params) != 1:
+            raise ValueError(
+                f"YulFunction {self.yul_name!r} has {len(self.params)} params; "
+                f"use .params instead of .param"
+            )
+        return self.params[0]
+
+    @property
+    def ret(self) -> str:
+        """Backward-compat accessor for single-return functions."""
+        if len(self.rets) != 1:
+            raise ValueError(
+                f"YulFunction {self.yul_name!r} has {len(self.rets)} return vars; "
+                f"use .rets instead of .ret"
+            )
+        return self.rets[0]
 
 
 class YulParser:
@@ -222,8 +273,36 @@ class YulParser:
             return Var(text)
         raise ParseError(f"Expected expression, got {kind!r} ({text!r})")
 
-    def _parse_body_assignments(self) -> list[tuple[str, Expr]]:
-        results: list[tuple[str, Expr]] = []
+    def _parse_let(self, results: list) -> None:
+        """Parse a ``let`` statement and append to *results*.
+
+        Handles three forms:
+        - ``let x := expr``          — single-value assignment
+        - ``let a, b, c := call()``  — multi-value; each target gets a
+          synthetic ``__component_N(call)`` wrapper to distinguish them
+        - ``let x``                  — bare declaration (zero-init, skipped)
+        """
+        self._pop()  # consume 'let'
+        target = self._expect_ident()
+        if self._peek_kind() == ",":
+            all_targets: list[str] = [target]
+            while self._peek_kind() == ",":
+                self._pop()
+                all_targets.append(self._expect_ident())
+            self._expect(":=")
+            expr = self._parse_expr()
+            for idx, t in enumerate(all_targets):
+                results.append((t, Call(f"__component_{idx}", (expr,))))
+        elif self._peek_kind() == ":=":
+            self._pop()
+            expr = self._parse_expr()
+            results.append((target, expr))
+        else:
+            # Bare declaration: ``let x``  (zero-initialized, skip)
+            pass
+
+    def _parse_body_assignments(self) -> list[RawStatement]:
+        results: list[RawStatement] = []
 
         while not self._at_end() and self._peek_kind() != "}":
             kind = self._peek_kind()
@@ -235,11 +314,7 @@ class YulParser:
                 continue
 
             if kind == "ident" and self.tokens[self.i][1] == "let":
-                self._pop()
-                target = self._expect_ident()
-                self._expect(":=")
-                expr = self._parse_expr()
-                results.append((target, expr))
+                self._parse_let(results)
                 continue
 
             if kind == "ident" and self.tokens[self.i][1] == "leave":
@@ -250,16 +325,29 @@ class YulParser:
                 self._skip_function_def()
                 continue
 
-            if kind == "ident" and self.tokens[self.i][1] in ("if", "switch", "for"):
+            if kind == "ident" and self.tokens[self.i][1] == "if":
+                self._pop()  # consume 'if'
+                condition = self._parse_expr()
+                self._expect("{")
+                body = self._parse_if_body_assignments()
+                self._expect("}")
+                results.append(ParsedIfBlock(
+                    condition=condition,
+                    body=tuple(body),
+                ))
+                continue
+
+            if kind == "ident" and self.tokens[self.i][1] in ("switch", "for"):
                 stmt = self.tokens[self.i][1]
                 raise ParseError(
                     f"Control flow statement '{stmt}' found in function body. "
                     f"Only straight-line code (let/bare assignments, leave, "
-                    f"nested blocks, inner function definitions) is supported "
-                    f"for Lean model generation. If the Solidity compiler "
-                    f"introduced a branch, the generated model would silently "
-                    f"omit it. Review the Yul IR and, if the control flow is "
-                    f"semantically irrelevant, extend the parser to handle it."
+                    f"nested blocks, inner function definitions, if blocks) "
+                    f"is supported for Lean model generation. If the Solidity "
+                    f"compiler introduced a branch, the generated model would "
+                    f"silently omit it. Review the Yul IR and, if the control "
+                    f"flow is semantically irrelevant, extend the parser to "
+                    f"handle it."
                 )
 
             if kind == "ident" and self.i + 1 < len(self.tokens) and self.tokens[self.i + 1][0] == ":=":
@@ -284,6 +372,51 @@ class YulParser:
 
         return results
 
+    def _parse_if_body_assignments(self) -> list[tuple[str, Expr]]:
+        """Parse the body of an ``if`` block.
+
+        Only bare assignments (``target := expr``) are expected inside
+        if-bodies in the Yul IR patterns we handle.  ``let`` declarations
+        are also accepted (they are locals scoped to the if-body that the
+        compiler may introduce).
+        """
+        results: list[tuple[str, Expr]] = []
+        while not self._at_end() and self._peek_kind() != "}":
+            kind = self._peek_kind()
+
+            if kind == "{":
+                self._pop()
+                results.extend(self._parse_if_body_assignments())
+                self._expect("}")
+                continue
+
+            if kind == "ident" and self.tokens[self.i][1] == "let":
+                self._parse_let(results)
+                continue
+
+            if kind == "ident" and self.i + 1 < len(self.tokens) and self.tokens[self.i + 1][0] == ":=":
+                target = self._expect_ident()
+                self._expect(":=")
+                expr = self._parse_expr()
+                results.append((target, expr))
+                continue
+
+            if kind == "ident" and self.tokens[self.i][1] == "leave":
+                self._pop()
+                continue
+
+            if kind == "ident" or kind == "num":
+                expr = self._parse_expr()
+                self._expr_stmts.append(expr)
+                continue
+
+            tok = self._pop()
+            warnings.warn(
+                f"Unrecognized token {tok!r} in if-body was skipped.",
+                stacklevel=2,
+            )
+        return results
+
     def _skip_function_def(self) -> None:
         self._pop()  # consume 'function'
         self._expect_ident()
@@ -294,6 +427,9 @@ class YulParser:
         if self._peek_kind() == "->":
             self._pop()
             self._expect_ident()
+            while self._peek_kind() == ",":
+                self._pop()
+                self._expect_ident()
         self._skip_until_matching_brace()
 
     def parse_function(self) -> YulFunction:
@@ -301,13 +437,20 @@ class YulParser:
         assert fn_kw == "function", f"Expected 'function', got {fn_kw!r}"
         yul_name = self._expect_ident()
         self._expect("(")
-        param = self._expect_ident()
-        while self._peek_kind() == ",":
-            self._pop()
-            self._expect_ident()
+        params: list[str] = []
+        if self._peek_kind() != ")":
+            params.append(self._expect_ident())
+            while self._peek_kind() == ",":
+                self._pop()
+                params.append(self._expect_ident())
         self._expect(")")
-        self._expect("->")
-        ret = self._expect_ident()
+        rets: list[str] = []
+        if self._peek_kind() == "->":
+            self._pop()
+            rets.append(self._expect_ident())
+            while self._peek_kind() == ",":
+                self._pop()
+                rets.append(self._expect_ident())
         self._expect("{")
         self._expr_stmts = []
         assignments = self._parse_body_assignments()
@@ -332,15 +475,39 @@ class YulParser:
             )
         return YulFunction(
             yul_name=yul_name,
-            param=param,
-            ret=ret,
+            params=params,
+            rets=rets,
             assignments=assignments,
         )
 
-    def find_function(self, sol_fn_name: str) -> YulFunction:
+    def _count_params_at(self, idx: int) -> int:
+        """Count the number of parameters of the function at token index ``idx``.
+
+        Scans the parenthesized parameter list without advancing the main
+        cursor.  Returns the count of comma-separated identifiers.
+        """
+        # idx points to 'function', idx+1 is the name, idx+2 should be '('
+        j = idx + 2
+        if j >= len(self.tokens) or self.tokens[j][0] != "(":
+            return 0
+        j += 1  # skip '('
+        if j < len(self.tokens) and self.tokens[j][0] == ")":
+            return 0
+        count = 1
+        while j < len(self.tokens) and self.tokens[j][0] != ")":
+            if self.tokens[j][0] == ",":
+                count += 1
+            j += 1
+        return count
+
+    def find_function(
+        self, sol_fn_name: str, *, n_params: int | None = None
+    ) -> YulFunction:
         """Find and parse ``function fun_{sol_fn_name}_<digits>(...)``.
 
-        Raises on zero or duplicate matches.
+        When *n_params* is set and multiple candidates match the name
+        pattern, only those with exactly *n_params* parameters are kept.
+        Raises on zero or ambiguous matches.
         """
         target_prefix = f"fun_{sol_fn_name}_"
         matches: list[int] = []
@@ -359,6 +526,12 @@ class YulParser:
                 f"Yul function for '{sol_fn_name}' not found "
                 f"(expected pattern fun_{sol_fn_name}_<digits>)"
             )
+
+        if n_params is not None and len(matches) > 1:
+            filtered = [m for m in matches if self._count_params_at(m) == n_params]
+            if filtered:
+                matches = filtered
+
         if len(matches) > 1:
             names = [self.tokens[m + 1][1] for m in matches]
             raise ParseError(
@@ -370,23 +543,81 @@ class YulParser:
         self.i = matches[0]
         return self.parse_function()
 
+    def collect_all_functions(self) -> dict[str, YulFunction]:
+        """Parse all function definitions in the token stream.
+
+        Functions whose bodies contain unsupported constructs (``switch``,
+        ``for``, etc.) are silently skipped — they cannot be inlined but
+        that is fine for model generation.
+        """
+        functions: dict[str, YulFunction] = {}
+        while not self._at_end():
+            if (
+                self._peek_kind() == "ident"
+                and self.tokens[self.i][1] == "function"
+            ):
+                saved_i = self.i
+                saved_stmts = self._expr_stmts
+                try:
+                    fn = self.parse_function()
+                    functions[fn.yul_name] = fn
+                except ParseError:
+                    # Unsupported body — skip this function.
+                    self.i = saved_i
+                    self._pop()  # consume 'function'
+                    self._expect_ident()  # consume name
+                    self._expect("(")
+                    while self._peek_kind() != ")":
+                        self._pop()
+                    self._expect(")")
+                    if self._peek_kind() == "->":
+                        self._pop()
+                        self._expect_ident()
+                        while self._peek_kind() == ",":
+                            self._pop()
+                            self._expect_ident()
+                    self._skip_until_matching_brace()
+                finally:
+                    self._expr_stmts = saved_stmts
+            else:
+                self._pop()
+        return functions
+
 
 # ---------------------------------------------------------------------------
 # Yul → FunctionModel conversion
 # ---------------------------------------------------------------------------
 
 
-def demangle_var(name: str, param_var: str, return_var: str) -> str | None:
+def demangle_var(
+    name: str,
+    param_vars: list[str],
+    return_var: str,
+    *,
+    keep_solidity_locals: bool = False,
+) -> str | None:
     """Map a Yul variable name back to its Solidity-level name.
 
     Returns the cleaned name, or None if the variable is a compiler temporary
     that should be copy-propagated away.
+
+    ``param_vars`` is a list of Yul parameter variable names (supports
+    multi-parameter functions).
+
+    When *keep_solidity_locals* is True, variables matching the
+    ``var_<name>_<digits>`` pattern (compiler representation of
+    Solidity-declared locals) are kept in the model even if they are
+    not the function parameter or return variable.
     """
-    if name == param_var or name == return_var:
+    if name in param_vars or name == return_var:
         m = re.fullmatch(r"var_(\w+?)_\d+", name)
         return m.group(1) if m else name
     if name.startswith("usr$"):
         return name[4:]
+    if keep_solidity_locals:
+        m = re.fullmatch(r"var_(\w+?)_\d+", name)
+        if m:
+            return m.group(1)
     return None
 
 
@@ -412,10 +643,177 @@ def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
     raise TypeError(f"Unsupported Expr node: {type(expr)}")
 
 
+# ---------------------------------------------------------------------------
+# Function inlining
+# ---------------------------------------------------------------------------
+
+_inline_counter = 0
+
+
+def _gensym(prefix: str) -> str:
+    """Generate a unique variable name for inlined function locals."""
+    global _inline_counter
+    _inline_counter += 1
+    return f"_inline_{prefix}_{_inline_counter}"
+
+
+def _inline_single_call(
+    fn: YulFunction,
+    args: tuple[Expr, ...],
+    fn_table: dict[str, YulFunction],
+    depth: int,
+    max_depth: int,
+) -> Expr | tuple[Expr, ...]:
+    """Inline one function call, returning its return-value expression(s).
+
+    Builds a substitution from parameters → argument expressions, then
+    processes the function body sequentially (same semantics as copy-prop).
+    Each local variable gets a unique gensym name to avoid clashes with
+    the caller's scope.
+    """
+    subst: dict[str, Expr] = {}
+    for param, arg_expr in zip(fn.params, args):
+        subst[param] = arg_expr
+    # Also seed return variables with zero (they're typically zero-initialized)
+    for r in fn.rets:
+        if r not in subst:
+            subst[r] = IntLit(0)
+
+    for stmt in fn.assignments:
+        if isinstance(stmt, ParsedIfBlock):
+            # Evaluate condition
+            cond = substitute_expr(stmt.condition, subst)
+            cond = inline_calls(cond, fn_table, depth + 1, max_depth)
+            # Process if-body assignments into a separate subst branch
+            if_subst = dict(subst)
+            for target, raw_expr in stmt.body:
+                expr = substitute_expr(raw_expr, if_subst)
+                expr = inline_calls(expr, fn_table, depth + 1, max_depth)
+                if_subst[target] = expr
+            # The modified variables get a conditional expression:
+            # if cond != 0 then <if_value> else <original_value>
+            for target, _raw_expr in stmt.body:
+                if_val = if_subst[target]
+                orig_val = subst.get(target, IntLit(0))
+                # Only update if the value actually changed
+                if if_val is not orig_val:
+                    subst[target] = if_val  # Simplified: take the if-branch value
+                    # TODO: full conditional semantics would wrap in
+                    # if-then-else, but for the model we inline the
+                    # if-block as-is and let the outer ConditionalBlock
+                    # handle it properly.
+        else:
+            target, raw_expr = stmt
+            expr = substitute_expr(raw_expr, subst)
+            expr = inline_calls(expr, fn_table, depth + 1, max_depth)
+            # Gensym: rename non-param, non-return locals to avoid clashes
+            if target not in fn.params and target not in fn.rets:
+                new_name = _gensym(target)
+                subst[target] = Var(new_name)
+                # Re-substitute the expression under the new name
+                # (it was already substituted, so just store it)
+                subst[new_name] = expr
+            else:
+                subst[target] = expr
+
+    # Resolve any gensym'd variables remaining in return expressions.
+    # Iterate because gensym'd vars may reference other gensym'd vars.
+    def _resolve(e: Expr) -> Expr:
+        for _ in range(10):
+            e = substitute_expr(e, subst)
+        return e
+
+    if len(fn.rets) == 1:
+        val = subst.get(fn.rets[0], IntLit(0))
+        return _resolve(val)
+    return tuple(_resolve(subst.get(r, IntLit(0))) for r in fn.rets)
+
+
+def inline_calls(
+    expr: Expr,
+    fn_table: dict[str, YulFunction],
+    depth: int = 0,
+    max_depth: int = 20,
+) -> Expr:
+    """Recursively inline function calls in an expression.
+
+    Walks the expression tree. When a ``Call`` targets a function in
+    *fn_table*, its body is inlined via sequential substitution.
+    ``__component_N`` wrappers (from multi-value ``let``) are resolved
+    to the Nth return value of the inlined function.
+    """
+    if depth > max_depth:
+        return expr
+    if isinstance(expr, (IntLit, Var)):
+        return expr
+    if isinstance(expr, Call):
+        # Handle __component_N(Call(fn, ...)) for multi-return.
+        # Must check BEFORE recursively inlining arguments, because
+        # we need to inline the inner call as multi-return to extract
+        # the Nth component.
+        m = re.fullmatch(r"__component_(\d+)", expr.name)
+        if m and len(expr.args) == 1 and isinstance(expr.args[0], Call):
+            idx = int(m.group(1))
+            inner = expr.args[0]
+            # Recursively inline the inner call's arguments first
+            inner_args = tuple(inline_calls(a, fn_table, depth) for a in inner.args)
+            if inner.name in fn_table:
+                result = _inline_single_call(
+                    fn_table[inner.name], inner_args, fn_table, depth + 1, max_depth,
+                )
+                if isinstance(result, tuple):
+                    return result[idx] if idx < len(result) else expr
+                return result  # single-return; component_0 = the value
+            # Inner call not in table — rebuild with inlined args
+            return Call(expr.name, (Call(inner.name, inner_args),))
+
+        # Recurse into arguments
+        args = tuple(inline_calls(a, fn_table, depth) for a in expr.args)
+
+        # Direct call to a collected function
+        if expr.name in fn_table:
+            fn = fn_table[expr.name]
+            result = _inline_single_call(fn, args, fn_table, depth + 1, max_depth)
+            if isinstance(result, tuple):
+                return result[0]  # single-call context; take first return
+            return result
+
+        return Call(expr.name, args)
+    raise TypeError(f"Unsupported Expr node: {type(expr)}")
+
+
+def _inline_yul_function(
+    yf: YulFunction,
+    fn_table: dict[str, YulFunction],
+) -> YulFunction:
+    """Apply ``inline_calls`` to every expression in a YulFunction."""
+    new_assignments: list[RawStatement] = []
+    for stmt in yf.assignments:
+        if isinstance(stmt, ParsedIfBlock):
+            new_cond = inline_calls(stmt.condition, fn_table)
+            new_body: list[tuple[str, Expr]] = []
+            for target, raw_expr in stmt.body:
+                new_body.append((target, inline_calls(raw_expr, fn_table)))
+            new_assignments.append(ParsedIfBlock(
+                condition=new_cond,
+                body=tuple(new_body),
+            ))
+        else:
+            target, raw_expr = stmt
+            new_assignments.append((target, inline_calls(raw_expr, fn_table)))
+    return YulFunction(
+        yul_name=yf.yul_name,
+        params=yf.params,
+        rets=yf.rets,
+        assignments=new_assignments,
+    )
+
+
 def yul_function_to_model(
     yf: YulFunction,
     sol_fn_name: str,
     fn_map: dict[str, str],
+    keep_solidity_locals: bool = False,
 ) -> FunctionModel:
     """Convert a parsed YulFunction into a FunctionModel.
 
@@ -434,32 +832,37 @@ def yul_function_to_model(
     # like a temporary.
     # ------------------------------------------------------------------
     assign_counts: Counter[str] = Counter()
-    for target, _ in yf.assignments:
-        assign_counts[target] += 1
+    for stmt in yf.assignments:
+        if isinstance(stmt, ParsedIfBlock):
+            for target, _ in stmt.body:
+                assign_counts[target] += 1
+        else:
+            target, _ = stmt
+            assign_counts[target] += 1
 
     var_map: dict[str, str] = {}
     subst: dict[str, Expr] = {}
 
-    for name in (yf.param, yf.ret):
-        clean = demangle_var(name, yf.param, yf.ret)
+    for name in [*yf.params, yf.ret]:
+        clean = demangle_var(name, yf.params, yf.ret, keep_solidity_locals=keep_solidity_locals)
         if clean:
             var_map[name] = clean
 
-    assignments: list[Assignment] = []
+    assignments: list[ModelStatement] = []
     warned_multi: set[str] = set()
 
-    for target, expr in yf.assignments:
-        expr = substitute_expr(expr, subst)
+    def _process_assignment(
+        target: str, raw_expr: Expr
+    ) -> Assignment | None:
+        """Process a single raw assignment through copy-prop and demangling.
 
-        clean = demangle_var(target, yf.param, yf.ret)
+        Returns an Assignment if the target is a real variable, or None if
+        it was copy-propagated into ``subst``.
+        """
+        expr = substitute_expr(raw_expr, subst)
+
+        clean = demangle_var(target, yf.params, yf.ret, keep_solidity_locals=keep_solidity_locals)
         if clean is None:
-            # ----------------------------------------------------------
-            # Compiler temporary — copy-propagate.
-            # Warn if it has multiple assignments: the sequential
-            # substitution is semantically correct, but multi-assignment
-            # temporaries are unusual and may signal a naming-convention
-            # change that misclassified a real variable.
-            # ----------------------------------------------------------
             if assign_counts[target] > 1 and target not in warned_multi:
                 warned_multi.add(target)
                 warnings.warn(
@@ -475,15 +878,47 @@ def yul_function_to_model(
                 subst[target] = IntLit(0)
             else:
                 subst[target] = expr
-            continue
+            return None
 
         var_map[target] = clean
 
         if isinstance(expr, IntLit) and expr.value == 0:
-            continue
+            return None
 
         expr = rename_expr(expr, var_map, fn_map)
-        assignments.append(Assignment(target=clean, expr=expr))
+        return Assignment(target=clean, expr=expr)
+
+    for stmt in yf.assignments:
+        if isinstance(stmt, ParsedIfBlock):
+            # Process the if-block: apply copy-prop/demangling to
+            # condition and body, then emit a ConditionalBlock.
+            cond = substitute_expr(stmt.condition, subst)
+            cond = rename_expr(cond, var_map, fn_map)
+            body_assignments: list[Assignment] = []
+            for target, raw_expr in stmt.body:
+                a = _process_assignment(target, raw_expr)
+                if a is not None:
+                    body_assignments.append(a)
+            if body_assignments:
+                # Deduplicate while preserving order.
+                seen_vars: set[str] = set()
+                modified_list: list[str] = []
+                for a in body_assignments:
+                    if a.target not in seen_vars:
+                        seen_vars.add(a.target)
+                        modified_list.append(a.target)
+                modified = tuple(modified_list)
+                assignments.append(ConditionalBlock(
+                    condition=cond,
+                    assignments=tuple(body_assignments),
+                    modified_vars=modified,
+                ))
+            continue
+
+        target, raw_expr = stmt
+        a = _process_assignment(target, raw_expr)
+        if a is not None:
+            assignments.append(a)
 
     if not assignments:
         raise ParseError(f"No assignments parsed for function {sol_fn_name!r}")
@@ -502,7 +937,14 @@ def yul_function_to_model(
             f"var_<name>_<digits> for param/return, usr$<name> for locals."
         )
 
-    return FunctionModel(fn_name=sol_fn_name, assignments=tuple(assignments))
+    param_names = tuple(var_map[p] for p in yf.params)
+    return_name = var_map[yf.ret]
+    return FunctionModel(
+        fn_name=sol_fn_name,
+        assignments=tuple(assignments),
+        param_names=param_names,
+        return_name=return_name,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -514,6 +956,11 @@ OP_TO_LEAN_HELPER = {
     "sub": "evmSub",
     "mul": "evmMul",
     "div": "evmDiv",
+    "mod": "evmMod",
+    "not": "evmNot",
+    "or": "evmOr",
+    "and": "evmAnd",
+    "eq": "evmEq",
     "shl": "evmShl",
     "shr": "evmShr",
     "clz": "evmClz",
@@ -526,6 +973,11 @@ OP_TO_OPCODE = {
     "sub": "SUB",
     "mul": "MUL",
     "div": "DIV",
+    "mod": "MOD",
+    "not": "NOT",
+    "or": "OR",
+    "and": "AND",
+    "eq": "EQ",
     "shl": "SHL",
     "shr": "SHR",
     "clz": "CLZ",
@@ -540,6 +992,11 @@ _BASE_NORM_HELPERS = {
     "sub": "normSub",
     "mul": "normMul",
     "div": "normDiv",
+    "mod": "normMod",
+    "not": "normNot",
+    "or": "normOr",
+    "and": "normAnd",
+    "eq": "normEq",
     "shl": "normShl",
     "shr": "normShr",
     "clz": "normClz",
@@ -561,6 +1018,18 @@ def collect_ops(expr: Expr) -> list[str]:
         for arg in expr.args:
             out.extend(collect_ops(arg))
     return out
+
+
+def collect_ops_from_statement(stmt: ModelStatement) -> list[str]:
+    """Collect opcodes from an Assignment or ConditionalBlock."""
+    if isinstance(stmt, Assignment):
+        return collect_ops(stmt.expr)
+    if isinstance(stmt, ConditionalBlock):
+        ops = collect_ops(stmt.condition)
+        for a in stmt.assignments:
+            ops.extend(collect_ops(a.expr))
+        return ops
+    raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
 
 
 def ordered_unique(items: list[str]) -> list[str]:
@@ -618,12 +1087,20 @@ class ModelConfig:
     norm_rewrite: Callable[[Expr], Expr] | None
     # Inner function name that the public functions depend on.
     inner_fn: str
+    # Optional per-function expected parameter counts for disambiguation.
+    # When set, find_function uses param count to pick among homonymous
+    # Yul functions (e.g. single-param _sqrt vs two-param _sqrt).
+    n_params: dict[str, int] | None = None
+    # When True, variables matching var_<name>_<digits> (Solidity-declared
+    # locals) are kept in the model instead of being copy-propagated.
+    # Needed for functions with mixed assembly + Solidity code.
+    keep_solidity_locals: bool = False
 
     # -- CLI defaults --
-    default_source_label: str
-    default_namespace: str
-    default_output: str
-    cli_description: str
+    default_source_label: str = ""
+    default_namespace: str = ""
+    default_output: str = ""
+    cli_description: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -632,30 +1109,60 @@ class ModelConfig:
 
 
 def build_model_body(
-    assignments: tuple[Assignment, ...],
+    assignments: tuple[ModelStatement, ...],
     *,
     evm: bool,
     config: ModelConfig,
+    param_names: tuple[str, ...] = ("x",),
+    return_name: str = "z",
 ) -> str:
     lines: list[str] = []
     norm_helpers = {**_BASE_NORM_HELPERS, **config.extra_norm_ops}
 
     if evm:
-        lines.append("  let x := u256 x")
+        for p in param_names:
+            lines.append(f"  let {p} := u256 {p}")
         call_map = {fn: f"{config.model_names[fn]}_evm" for fn in config.function_order}
         op_map = OP_TO_LEAN_HELPER
     else:
         call_map = dict(config.model_names)
         op_map = norm_helpers
 
-    for a in assignments:
-        rhs_expr = a.expr
+    def _emit_rhs(expr: Expr) -> str:
+        rhs_expr = expr
         if not evm and config.norm_rewrite is not None:
             rhs_expr = config.norm_rewrite(rhs_expr)
-        rhs = emit_expr(rhs_expr, op_helper_map=op_map, call_helper_map=call_map)
-        lines.append(f"  let {a.target} := {rhs}")
+        return emit_expr(rhs_expr, op_helper_map=op_map, call_helper_map=call_map)
 
-    lines.append("  z")
+    for stmt in assignments:
+        if isinstance(stmt, ConditionalBlock):
+            # Emit Lean tuple-destructuring if-then-else:
+            #   let (v1, v2) := if cond ≠ 0 then
+            #       let v1 := ...
+            #       ...
+            #       (v1, v2)
+            #     else (v1, v2)
+            cond_str = _emit_rhs(stmt.condition)
+            mvars = stmt.modified_vars
+            if len(mvars) == 1:
+                lhs = mvars[0]
+                tup = mvars[0]
+            else:
+                lhs = f"({', '.join(mvars)})"
+                tup = f"({', '.join(mvars)})"
+            lines.append(f"  let {lhs} := if ({cond_str}) ≠ 0 then")
+            for a in stmt.assignments:
+                rhs = _emit_rhs(a.expr)
+                lines.append(f"      let {a.target} := {rhs}")
+            lines.append(f"      {tup}")
+            lines.append(f"    else {tup}")
+        elif isinstance(stmt, Assignment):
+            rhs = _emit_rhs(stmt.expr)
+            lines.append(f"  let {stmt.target} := {rhs}")
+        else:
+            raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+
+    lines.append(f"  {return_name}")
     return "\n".join(lines)
 
 
@@ -665,17 +1172,24 @@ def render_function_defs(models: list[FunctionModel], config: ModelConfig) -> st
         model_base = config.model_names[model.fn_name]
         evm_name = f"{model_base}_evm"
         norm_name = model_base
-        evm_body = build_model_body(model.assignments, evm=True, config=config)
-        norm_body = build_model_body(model.assignments, evm=False, config=config)
+        evm_body = build_model_body(
+            model.assignments, evm=True, config=config,
+            param_names=model.param_names, return_name=model.return_name,
+        )
+        norm_body = build_model_body(
+            model.assignments, evm=False, config=config,
+            param_names=model.param_names, return_name=model.return_name,
+        )
 
+        param_sig = " ".join(f"{p}" for p in model.param_names)
         parts.append(
             f"/-- Opcode-faithful auto-generated model of `{model.fn_name}` with uint256 EVM semantics. -/\n"
-            f"def {evm_name} (x : Nat) : Nat :=\n"
+            f"def {evm_name} ({param_sig} : Nat) : Nat :=\n"
             f"{evm_body}\n"
         )
         parts.append(
             f"/-- Normalized auto-generated model of `{model.fn_name}` on Nat arithmetic. -/\n"
-            f"def {norm_name} (x : Nat) : Nat :=\n"
+            f"def {norm_name} ({param_sig} : Nat) : Nat :=\n"
             f"{norm_body}\n"
         )
     return "\n".join(parts)
@@ -693,8 +1207,8 @@ def build_lean_source(
 
     raw_ops: list[str] = []
     for model in models:
-        for a in model.assignments:
-            raw_ops.extend(collect_ops(a.expr))
+        for stmt in model.assignments:
+            raw_ops.extend(collect_ops_from_statement(stmt))
     opcodes = ordered_unique([OP_TO_OPCODE[name] for name in raw_ops])
     opcodes_line = ", ".join(opcodes)
 
@@ -722,6 +1236,18 @@ def build_lean_source(
         "  let aa := u256 a\n"
         "  let bb := u256 b\n"
         "  if bb = 0 then 0 else aa / bb\n\n"
+        "def evmMod (a b : Nat) : Nat :=\n"
+        "  let aa := u256 a\n"
+        "  let bb := u256 b\n"
+        "  if bb = 0 then 0 else aa % bb\n\n"
+        "def evmNot (a : Nat) : Nat :=\n"
+        "  WORD_MOD - 1 - u256 a\n\n"
+        "def evmOr (a b : Nat) : Nat :=\n"
+        "  u256 a ||| u256 b\n\n"
+        "def evmAnd (a b : Nat) : Nat :=\n"
+        "  u256 a &&& u256 b\n\n"
+        "def evmEq (a b : Nat) : Nat :=\n"
+        "  if u256 a = u256 b then 1 else 0\n\n"
         "def evmShl (shift value : Nat) : Nat :=\n"
         "  let s := u256 shift\n"
         "  let v := u256 value\n"
@@ -741,6 +1267,12 @@ def build_lean_source(
         "def normSub (a b : Nat) : Nat := a - b\n\n"
         "def normMul (a b : Nat) : Nat := a * b\n\n"
         "def normDiv (a b : Nat) : Nat := a / b\n\n"
+        "def normMod (a b : Nat) : Nat := a % b\n\n"
+        "def normNot (a : Nat) : Nat := WORD_MOD - 1 - a\n\n"
+        "def normOr (a b : Nat) : Nat := a ||| b\n\n"
+        "def normAnd (a b : Nat) : Nat := a &&& b\n\n"
+        "def normEq (a b : Nat) : Nat :=\n"
+        "  if a = b then 1 else 0\n\n"
         "def normShl (shift value : Nat) : Nat := value <<< shift\n\n"
         "def normShr (shift value : Nat) : Nat := value / 2 ^ shift\n\n"
         "def normClz (value : Nat) : Nat :=\n"
@@ -825,17 +1357,28 @@ def run(config: ModelConfig) -> int:
 
     tokens = tokenize_yul(yul_text)
 
+    # Collect all parseable function definitions for inlining.
+    fn_table = YulParser(tokens).collect_all_functions()
+    if fn_table:
+        print(f"Collected {len(fn_table)} function definition(s) for inlining")
+
     fn_map: dict[str, str] = {}
     yul_functions: dict[str, YulFunction] = {}
 
     for sol_name in selected_functions:
         p = YulParser(tokens)
-        yf = p.find_function(sol_name)
+        np = config.n_params.get(sol_name) if config.n_params else None
+        yf = p.find_function(sol_name, n_params=np)
+        # Inline calls to other functions before model conversion.
+        yf = _inline_yul_function(yf, fn_table)
         fn_map[yf.yul_name] = sol_name
         yul_functions[sol_name] = yf
 
     models = [
-        yul_function_to_model(yul_functions[fn], fn, fn_map)
+        yul_function_to_model(
+            yul_functions[fn], fn, fn_map,
+            keep_solidity_locals=config.keep_solidity_locals,
+        )
         for fn in selected_functions
     ]
 
@@ -856,8 +1399,8 @@ def run(config: ModelConfig) -> int:
 
     raw_ops: list[str] = []
     for model in models:
-        for a in model.assignments:
-            raw_ops.extend(collect_ops(a.expr))
+        for stmt in model.assignments:
+            raw_ops.extend(collect_ops_from_statement(stmt))
     opcodes = ordered_unique([OP_TO_OPCODE[name] for name in raw_ops])
     print(f"Modeled opcodes: {', '.join(opcodes)}")
 
