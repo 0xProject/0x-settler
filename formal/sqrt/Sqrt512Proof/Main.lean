@@ -1,26 +1,23 @@
-import CbrtProof.GeneratedCbrtModel
+import Sqrt512Proof.GeneratedSqrt512Model
 
 /-!
-# Cbrt model evaluator
+# Sqrt512 model evaluator
 
-Compiled executable for evaluating the generated EVM-faithful Cbrt model
-on concrete inputs. Intended for fuzz testing via Foundry's `vm.ffi`.
+Compiled executable for evaluating the generated EVM-faithful 512-bit
+Sqrt model on concrete inputs. Intended for fuzz testing via Foundry's
+`vm.ffi`.
 
 Usage:
-  cbrt-model <function> <hex_x>
-
-Functions: cbrt, cbrt_floor, cbrt_up
+  sqrt512-model sqrt512 <hex_x_hi> <hex_x_lo>
 
 Output: 0x-prefixed hex uint256 on stdout.
 -/
 
-open CbrtGeneratedModel in
-def evalFunction (name : String) (x : Nat) : Option Nat :=
+open Sqrt512GeneratedModel in
+def evalFunction (name : String) (xHi xLo : Nat) : Option Nat :=
   match name with
-  | "cbrt"       => some (model_cbrt_evm x)
-  | "cbrt_floor" => some (model_cbrt_floor_evm x)
-  | "cbrt_up"    => some (model_cbrt_up_evm x)
-  | _            => none
+  | "sqrt512" => some (model_sqrt512_evm xHi xLo)
+  | _         => none
 
 def natToHex64 (n : Nat) : String :=
   let hex := String.ofList (Nat.toDigits 16 n)
@@ -38,15 +35,17 @@ def parseHex (s : String) : Option Nat :=
 
 def main (args : List String) : IO UInt32 := do
   match args with
-  | [fnName, hexX] =>
-    match parseHex hexX with
-    | none => IO.eprintln s!"Invalid hex input: {hexX}"; return 1
-    | some x =>
-      match evalFunction fnName x with
+  | [fnName, hexHi, hexLo] =>
+    match parseHex hexHi, parseHex hexLo with
+    | some hi, some lo =>
+      match evalFunction fnName hi lo with
       | none => IO.eprintln s!"Unknown function: {fnName}"; return 1
       | some result =>
         IO.println (natToHex64 result)
         return 0
+    | _, _ =>
+      IO.eprintln s!"Invalid hex input"
+      return 1
   | _ =>
-    IO.eprintln "Usage: cbrt-model <cbrt|cbrt_floor|cbrt_up> <hex_x>"
+    IO.eprintln "Usage: sqrt512-model sqrt512 <hex_x_hi> <hex_x_lo>"
     return 1

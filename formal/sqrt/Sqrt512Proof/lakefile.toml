@@ -5,6 +5,10 @@ defaultTargets = ["Sqrt512Proof"]
 [[lean_lib]]
 name = "Sqrt512Proof"
 
+[[lean_exe]]
+name = "sqrt512-model"
+root = "Main"
+
 [[require]]
 name = "SqrtProof"
 path = "../SqrtProof"

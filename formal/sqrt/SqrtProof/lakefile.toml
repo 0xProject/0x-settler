@@ -4,3 +4,7 @@ defaultTargets = ["SqrtProof"]
 
 [[lean_lib]]
 name = "SqrtProof"
+
+[[lean_exe]]
+name = "sqrt-model"
+root = "Main"

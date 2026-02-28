@@ -1,25 +1,25 @@
-import CbrtProof.GeneratedCbrtModel
+import SqrtProof.GeneratedSqrtModel
 
 /-!
-# Cbrt model evaluator
+# Sqrt model evaluator
 
-Compiled executable for evaluating the generated EVM-faithful Cbrt model
+Compiled executable for evaluating the generated EVM-faithful Sqrt model
 on concrete inputs. Intended for fuzz testing via Foundry's `vm.ffi`.
 
 Usage:
-  cbrt-model <function> <hex_x>
+  sqrt-model <function> <hex_x>
 
-Functions: cbrt, cbrt_floor, cbrt_up
+Functions: sqrt, sqrt_floor, sqrt_up
 
 Output: 0x-prefixed hex uint256 on stdout.
 -/
 
-open CbrtGeneratedModel in
+open SqrtGeneratedModel in
 def evalFunction (name : String) (x : Nat) : Option Nat :=
   match name with
-  | "cbrt"       => some (model_cbrt_evm x)
-  | "cbrt_floor" => some (model_cbrt_floor_evm x)
-  | "cbrt_up"    => some (model_cbrt_up_evm x)
+  | "sqrt"       => some (model_sqrt_evm x)
+  | "sqrt_floor" => some (model_sqrt_floor_evm x)
+  | "sqrt_up"    => some (model_sqrt_up_evm x)
   | _            => none
 
 def natToHex64 (n : Nat) : String :=
@@ -48,5 +48,5 @@ def main (args : List String) : IO UInt32 := do
         IO.println (natToHex64 result)
         return 0
   | _ =>
-    IO.eprintln "Usage: cbrt-model <cbrt|cbrt_floor|cbrt_up> <hex_x>"
+    IO.eprintln "Usage: sqrt-model <sqrt|sqrt_floor|sqrt_up> <hex_x>"
     return 1
