@@ -67,6 +67,7 @@ class ConditionalBlock:
     condition: Expr
     assignments: tuple[Assignment, ...]
     modified_vars: tuple[str, ...]
+    else_vars: tuple[str, ...] | None = None
 
 
 # A model statement is either a plain assignment or a conditional block.
@@ -875,11 +876,46 @@ def yul_function_to_model(
         if clean:
             var_map[name] = clean
 
+    # Save param names before SSA processing may rename them.
+    param_names = tuple(var_map[p] for p in yf.params)
+
+    # ------------------------------------------------------------------
+    # SSA state: track assignment count per clean name so that
+    # reassigned variables get distinct Lean names (_1, _2, ...).
+    # Parameters start at count 1 (the function-parameter binding).
+    # ------------------------------------------------------------------
+    ssa_count: dict[str, int] = {}
+    for name in yf.params:
+        clean = var_map.get(name)
+        if clean:
+            ssa_count[clean] = 1
+
     assignments: list[ModelStatement] = []
     warned_multi: set[str] = set()
 
+    def _freeze_refs(expr: Expr) -> Expr:
+        """Replace Var refs to Solidity-level vars with current Lean names.
+
+        Called when a compiler temporary is copy-propagated.  By
+        resolving Solidity-level ``Var`` nodes to their *current* Lean
+        name at copy-propagation time we "freeze" the reference,
+        preventing a later SSA rename of the same variable from
+        changing what the expression points to.
+        """
+        if isinstance(expr, IntLit):
+            return expr
+        if isinstance(expr, Var):
+            lean_name = var_map.get(expr.name)
+            if lean_name is not None:
+                return Var(lean_name)
+            return expr
+        if isinstance(expr, Call):
+            new_args = tuple(_freeze_refs(a) for a in expr.args)
+            return Call(expr.name, new_args)
+        return expr
+
     def _process_assignment(
-        target: str, raw_expr: Expr
+        target: str, raw_expr: Expr, *, inside_conditional: bool = False,
     ) -> Assignment | None:
         """Process a single raw assignment through copy-prop and demangling.
 
@@ -904,16 +940,35 @@ def yul_function_to_model(
             if isinstance(expr, Call) and expr.name.startswith("zero_value_for_split_"):
                 subst[target] = IntLit(0)
             else:
-                subst[target] = expr
+                subst[target] = _freeze_refs(expr)
             return None
 
-        var_map[target] = clean
+        # Rename the RHS expression BEFORE updating var_map so that
+        # self-references (e.g. ``x := f(x)``) resolve to the
+        # *previous* binding, not the one being created.
+        skip_zero = isinstance(expr, IntLit) and expr.value == 0
+        if not skip_zero:
+            expr = rename_expr(expr, var_map, fn_map)
 
-        if isinstance(expr, IntLit) and expr.value == 0:
+        # SSA: compute the Lean target name.  Inside conditional
+        # blocks, Lean's scoped ``let`` handles shadowing, so we
+        # use the base clean name directly.
+        if not inside_conditional:
+            ssa_count[clean] = ssa_count.get(clean, 0) + 1
+            if ssa_count[clean] == 1:
+                ssa_name = clean
+            else:
+                ssa_name = f"{clean}_{ssa_count[clean] - 1}"
+        else:
+            ssa_name = clean
+
+        # Update var_map AFTER rename_expr.
+        var_map[target] = ssa_name
+
+        if skip_zero:
             return None
 
-        expr = rename_expr(expr, var_map, fn_map)
-        return Assignment(target=clean, expr=expr)
+        return Assignment(target=ssa_name, expr=expr)
 
     for stmt in yf.assignments:
         if isinstance(stmt, ParsedIfBlock):
@@ -921,9 +976,22 @@ def yul_function_to_model(
             # condition and body, then emit a ConditionalBlock.
             cond = substitute_expr(stmt.condition, subst)
             cond = rename_expr(cond, var_map, fn_map)
+
+            # Save pre-if Lean names so the else-tuple can reference
+            # the values that were live *before* the if-body ran.
+            pre_if_names: dict[str, str] = {}
+
             body_assignments: list[Assignment] = []
             for target, raw_expr in stmt.body:
-                a = _process_assignment(target, raw_expr)
+                clean = demangle_var(
+                    target, yf.params, yf.ret,
+                    keep_solidity_locals=keep_solidity_locals,
+                )
+                if clean is not None and clean not in pre_if_names:
+                    pre_if_names[clean] = var_map.get(target, clean)
+                a = _process_assignment(
+                    target, raw_expr, inside_conditional=True,
+                )
                 if a is not None:
                     body_assignments.append(a)
             if body_assignments:
@@ -935,11 +1003,36 @@ def yul_function_to_model(
                         seen_vars.add(a.target)
                         modified_list.append(a.target)
                 modified = tuple(modified_list)
+
+                # Build else_vars from pre-if state (may differ from
+                # modified_vars when SSA is active).
+                else_vars_t = tuple(
+                    pre_if_names.get(v, v) for v in modified_list
+                )
+                else_vars = (
+                    else_vars_t if else_vars_t != modified else None
+                )
+
                 assignments.append(ConditionalBlock(
                     condition=cond,
                     assignments=tuple(body_assignments),
                     modified_vars=modified,
+                    else_vars=else_vars,
                 ))
+
+                # After the if-block the Lean tuple-destructuring
+                # creates fresh bindings with the base clean names.
+                # Reset var_map and ssa_count accordingly so that
+                # subsequent references and assignments are correct.
+                modified_set = set(modified_list)
+                for target_name, _ in stmt.body:
+                    c = demangle_var(
+                        target_name, yf.params, yf.ret,
+                        keep_solidity_locals=keep_solidity_locals,
+                    )
+                    if c is not None and c in modified_set:
+                        var_map[target_name] = c
+                        ssa_count[c] = 1
             continue
 
         target, raw_expr = stmt
@@ -964,7 +1057,8 @@ def yul_function_to_model(
             f"var_<name>_<digits> for param/return, usr$<name> for locals."
         )
 
-    param_names = tuple(var_map[p] for p in yf.params)
+    # param_names was saved before SSA processing; return_name uses
+    # the final (possibly SSA-renamed) var_map entry.
     return_name = var_map[yf.ret]
     return FunctionModel(
         fn_name=sol_fn_name,
@@ -1171,18 +1265,23 @@ def build_model_body(
             #     else (v1, v2)
             cond_str = _emit_rhs(stmt.condition)
             mvars = stmt.modified_vars
+            evars = stmt.else_vars if stmt.else_vars is not None else mvars
             if len(mvars) == 1:
                 lhs = mvars[0]
                 tup = mvars[0]
             else:
                 lhs = f"({', '.join(mvars)})"
                 tup = f"({', '.join(mvars)})"
+            if len(evars) == 1:
+                else_tup = evars[0]
+            else:
+                else_tup = f"({', '.join(evars)})"
             lines.append(f"  let {lhs} := if ({cond_str}) ≠ 0 then")
             for a in stmt.assignments:
                 rhs = _emit_rhs(a.expr)
                 lines.append(f"      let {a.target} := {rhs}")
             lines.append(f"      {tup}")
-            lines.append(f"    else {tup}")
+            lines.append(f"    else {else_tup}")
         elif isinstance(stmt, Assignment):
             rhs = _emit_rhs(stmt.expr)
             lines.append(f"  let {stmt.target} := {rhs}")
