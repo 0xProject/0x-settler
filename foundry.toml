@@ -39,7 +39,7 @@ disable_block_gas_limit = true
 [profile.formal-model]
 match_path = "test/0.8.25/formal-model/*"
 no_match_path = "😡 toml has no null value 😡"
-fuzz.runs = 1_000
+fuzz.runs = 20_000
 
 [fuzz]
 runs = 100_000
