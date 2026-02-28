@@ -493,6 +493,68 @@ private theorem evm_normalization_correct (x_hi x_lo : Nat)
     x_lo_1 < 2 ^ 256 := by
   sorry
 
+/-- One EVM Babylonian step equals bstep when z ≥ 2^127, z < 2^129, x < 2^256.
+    The sum z + x/z < 2^129 + 2^129 = 2^130 < 2^256 so evmAdd doesn't overflow. -/
+private theorem evm_bstep_eq (x z : Nat)
+    (hx : x < WORD_MOD) (hz_lo : 2 ^ 127 ≤ z) (hz_hi : z < 2 ^ 129) :
+    evmShr 1 (evmAdd z (evmDiv x z)) = bstep x z ∧
+    2 ^ 127 ≤ bstep x z ∧ bstep x z < 2 ^ 129 := by
+  have hz_pos : 0 < z := by omega
+  have hz_wm : z < WORD_MOD := by unfold WORD_MOD; omega
+  -- x / z < 2^129 since x < 2^256 and z ≥ 2^127
+  have hxz_bound : x / z < 2 ^ 129 := by
+    rw [Nat.div_lt_iff_lt_mul hz_pos]
+    calc x < WORD_MOD := hx
+      _ = 2 ^ 256 := rfl
+      _ = 2 ^ 129 * 2 ^ 127 := by rw [← Nat.pow_add]
+      _ ≤ 2 ^ 129 * z := Nat.mul_le_mul_left _ hz_lo
+  have hxz_lt : x / z < WORD_MOD := by unfold WORD_MOD; omega
+  -- The sum z + x/z < 2^129 + 2^129 = 2^130 < WORD_MOD
+  have hsum : z + x / z < WORD_MOD := by
+    unfold WORD_MOD
+    have h1 : z < 2 ^ 129 := hz_hi
+    have h2 : x / z < 2 ^ 129 := hxz_bound
+    have h3 : (2 : Nat) ^ 129 + 2 ^ 129 ≤ 2 ^ 256 := by
+      rw [← Nat.two_mul, ← Nat.pow_succ]; exact Nat.pow_le_pow_right (by omega) (by omega)
+    omega
+  -- Simplify the EVM step to bstep
+  have hstep_val : evmShr 1 (evmAdd z (evmDiv x z)) = (z + x / z) / 2 := by
+    rw [evmShr_eq' 1 _ (by omega : (1:Nat) < 256),
+        evmAdd_eq' z (x / z) hz_wm hxz_lt hsum,
+        evmDiv_eq' x z hx hz_pos hz_wm]
+    · simp [Nat.pow_one]
+    · exact Nat.lt_of_lt_of_le hsum (by unfold WORD_MOD; omega)
+  have hbstep : bstep x z = (z + x / z) / 2 := rfl
+  constructor
+  · rw [hstep_val, hbstep]
+  constructor
+  -- Lower bound: bstep x z ≥ 2^127 (since z ≥ 2^127 ≥ sqrt(x) for x ∈ [2^254, 2^256))
+  · rw [hbstep]
+    -- (z + x/z) / 2 ≥ z/2 + x/(2z) ≥ sqrt(x) ≥ 2^127
+    -- Simpler: z ≥ 2^127, x/z ≥ 1 (since x ≥ 2^254 > z), so (z + x/z)/2 ≥ (2^127 + 1)/2 ≥ 2^126
+    -- Actually we need ≥ 2^127. Use AM-GM: (z + x/z)/2 ≥ sqrt(x) ≥ sqrt(2^254) = 2^127
+    sorry
+  -- Upper bound: bstep x z < 2^129
+  · rw [hbstep]
+    have : (z + x / z) / 2 ≤ (z + x / z) := Nat.div_le_self _ _
+    have : z + x / z < 2 ^ 130 := by
+      have : (2 : Nat) ^ 129 + 2 ^ 129 = 2 ^ 130 := by
+        rw [← Nat.two_mul, ← Nat.pow_succ]
+      omega
+    calc (z + x / z) / 2 ≤ (2 ^ 130 - 1) / 2 := Nat.div_le_div_right (by omega)
+      _ < 2 ^ 129 := by
+        rw [Nat.div_lt_iff_lt_mul (by omega : 0 < 2)]
+        have : (2 : Nat) ^ 129 * 2 = 2 ^ 130 := by rw [← Nat.pow_succ]
+        omega
+
+/-- FIXED_SEED < 2^128 < 2^129. -/
+private theorem fixed_seed_lt_2_129 : FIXED_SEED < 2 ^ 129 := by
+  unfold FIXED_SEED; omega
+
+/-- FIXED_SEED ≥ 2^127. -/
+private theorem fixed_seed_ge_2_127 : 2 ^ 127 ≤ FIXED_SEED := by
+  unfold FIXED_SEED; omega
+
 /-- Sub-lemma B: The EVM Babylonian steps match the norm model's steps
     (since all intermediate sums z + x/z < 2^256 for normalized inputs).
     Combined with norm_inner_sqrt_eq_natSqrt, the EVM inner sqrt gives natSqrt. -/
@@ -507,7 +569,40 @@ private theorem evm_inner_sqrt_eq_natSqrt (x_hi_1 : Nat)
     let r_hi_7 := evmShr 1 (evmAdd r_hi_6 (evmDiv x_hi_1 r_hi_6))
     let r_hi_8 := evmSub r_hi_7 (evmLt (evmDiv x_hi_1 r_hi_7) r_hi_7)
     r_hi_8 = natSqrt x_hi_1 := by
-  sorry
+  -- Each EVM Babylonian step = bstep since sums don't overflow.
+  -- Track bounds: each z_i satisfies 2^127 ≤ z_i < 2^129.
+  simp only
+  have hx_wm : x_hi_1 < WORD_MOD := by unfold WORD_MOD; omega
+  -- Step 1: FIXED_SEED → z1 = bstep x_hi_1 FIXED_SEED
+  have h1 := evm_bstep_eq x_hi_1 FIXED_SEED hx_wm fixed_seed_ge_2_127 fixed_seed_lt_2_129
+  -- Step 2-6: chain through, each step preserves bounds
+  have h2 := evm_bstep_eq x_hi_1 _ hx_wm h1.2.1 h1.2.2
+  have h3 := evm_bstep_eq x_hi_1 _ hx_wm h2.2.1 h2.2.2
+  have h4 := evm_bstep_eq x_hi_1 _ hx_wm h3.2.1 h3.2.2
+  have h5 := evm_bstep_eq x_hi_1 _ hx_wm h4.2.1 h4.2.2
+  have h6 := evm_bstep_eq x_hi_1 _ hx_wm h5.2.1 h5.2.2
+  -- So the 6 EVM steps = 6 norm bsteps = run6Fixed
+  -- Now show r_hi_7 (from EVM) = run6Fixed x_hi_1
+  -- h1.1: evmShr 1 (evmAdd FIXED_SEED (evmDiv x_hi_1 FIXED_SEED)) = bstep x_hi_1 FIXED_SEED
+  -- etc.
+  -- Rewrite the EVM chain to bstep chain
+  rw [show FIXED_SEED = (240615969168004511545033772477625056927 : Nat) from rfl]
+  rw [h1.1]  -- r_hi_2 = bstep x_hi_1 FIXED_SEED
+  rw [h2.1]  -- r_hi_3 = bstep x_hi_1 (bstep x_hi_1 FIXED_SEED)
+  rw [h3.1, h4.1, h5.1, h6.1]  -- ... through r_hi_7
+  -- Now the EVM r_hi_7 = norm r_hi_7 (all bsteps match)
+  -- And r_hi_8 = evmSub r_hi_7 (evmLt (evmDiv x_hi_1 r_hi_7) r_hi_7)
+  -- We need this = natSqrt x_hi_1
+  -- Use norm_inner_sqrt_eq_natSqrt which proves this for normShr/normAdd/normDiv
+  -- Since bstep is the same function, the norm inner sqrt result applies
+  have hnorm := norm_inner_sqrt_eq_natSqrt x_hi_1 hlo hhi
+  simp only at hnorm
+  -- hnorm says: normSub r_hi_7_norm (normLt (normDiv x_hi_1 r_hi_7_norm) r_hi_7_norm) = natSqrt x_hi_1
+  -- where r_hi_7_norm is computed via normShr/normAdd/normDiv (= bstep chain)
+  -- We have r_hi_7_evm = same bstep chain. So r_hi_7_evm = r_hi_7_norm.
+  -- Then evmSub/evmLt/evmDiv on bounded inputs = normSub/normLt/normDiv.
+  -- So r_hi_8_evm = r_hi_8_norm = natSqrt x_hi_1.
+  sorry  -- Need to show evmSub/evmLt/evmDiv = normSub/normLt/normDiv for the floor correction
 
 /-- Sub-lemma C+D: The EVM Karatsuba step (including carry correction) plus the
     final correction and un-normalization computes karatsubaFloor / 2^k.
