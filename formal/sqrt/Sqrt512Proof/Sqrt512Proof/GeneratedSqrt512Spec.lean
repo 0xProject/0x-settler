@@ -7,7 +7,7 @@
   give a 1-ULP bracket for natSqrt(x) when x ∈ [2^254, 2^256),
   and that floor correction then gives exactly natSqrt(x).
 
-  Part 2 (sorry): Main theorem bridging model_sqrt512_evm to natSqrt.
+  Part 2 (sorry): EVM model bridge to sqrt512.
 -/
 import Sqrt512Proof.Sqrt512Correct
 import Sqrt512Proof.GeneratedSqrt512Model
@@ -290,9 +290,6 @@ theorem floorSqrt_fixed_eq_natSqrt (x : Nat)
     omega
   have hz_pos : 0 < run6Fixed x := Nat.lt_of_lt_of_le hm_pos hbr.1
   have hcorr := correction_correct x (run6Fixed x) hbr.1 hbr.2
-  -- floorSqrt_fixed x reduces to: if x/z < z then z-1 else z (since z ≠ 0)
-  -- correction_correct gives: if x < z*z then z-1 else z = natSqrt x
-  -- These conditions are equivalent by div_lt_iff_sq
   have h1 : floorSqrt_fixed x =
       (if x / run6Fixed x < run6Fixed x then run6Fixed x - 1 else run6Fixed x) := by
     unfold floorSqrt_fixed
@@ -304,17 +301,37 @@ theorem floorSqrt_fixed_eq_natSqrt (x : Nat)
   exact hcorr
 
 -- ============================================================================
--- Section 6: Main theorem (sorry for EVM bridge sub-lemmas)
+-- Section 6: EVM model = sqrt512 bridge + main theorem
 -- ============================================================================
 
-/-- The EVM model of 512-bit sqrt computes natSqrt.
-    Fully proved once EVM bridge sub-lemmas (normalization, Newton iteration,
-    Karatsuba, correction+denormalization) are established. -/
+/-- The EVM model computes the same as the algebraic sqrt512.
+    This is the remaining proof obligation: show that each phase of the
+    EVM computation (normalization, Newton iteration, Karatsuba with carry,
+    correction, denormalization) matches the algebraic spec `sqrt512`.
+    The Newton phase is supported by `floorSqrt_fixed_eq_natSqrt` above;
+    the normalization and Karatsuba phases require additional bit-level
+    arithmetic lemmas (see GeneratedSqrtSpec.lean for the 256-bit pattern). -/
+private theorem model_sqrt512_evm_eq_sqrt512 (x_hi x_lo : Nat)
+    (hxhi_pos : 0 < x_hi) (hxhi_lt : x_hi < 2 ^ 256)
+    (hxlo_lt : x_lo < 2 ^ 256) :
+    Sqrt512GeneratedModel.model_sqrt512_evm x_hi x_lo =
+      sqrt512 (x_hi * 2 ^ 256 + x_lo) := by
+  sorry
+
+set_option exponentiation.threshold 512 in
+/-- The EVM model of 512-bit sqrt computes natSqrt. -/
 theorem model_sqrt512_evm_correct (x_hi x_lo : Nat)
     (hxhi_pos : 0 < x_hi) (hxhi_lt : x_hi < 2 ^ 256)
     (hxlo_lt : x_lo < 2 ^ 256) :
     Sqrt512GeneratedModel.model_sqrt512_evm x_hi x_lo =
       natSqrt (x_hi * 2 ^ 256 + x_lo) := by
-  sorry
+  rw [model_sqrt512_evm_eq_sqrt512 x_hi x_lo hxhi_pos hxhi_lt hxlo_lt]
+  have hx_lt : x_hi * 2 ^ 256 + x_lo < 2 ^ 512 := by
+    calc x_hi * 2 ^ 256 + x_lo
+        < 2 ^ 256 * 2 ^ 256 := by
+          have := Nat.mul_lt_mul_of_pos_right hxhi_lt (Nat.two_pow_pos 256)
+          omega
+      _ = 2 ^ 512 := by rw [← Nat.pow_add]
+  exact sqrt512_correct (x_hi * 2 ^ 256 + x_lo) hx_lt
 
 end Sqrt512Spec
