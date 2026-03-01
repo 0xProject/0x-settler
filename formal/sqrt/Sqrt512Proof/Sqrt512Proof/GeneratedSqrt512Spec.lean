@@ -1467,6 +1467,248 @@ private theorem model_sqrtCorrection_evm_correct
     -- But rem / 2^128 = 1 → rem ≥ 2^128
     exfalso; omega
 
+/-- Composition of the three EVM sub-models equals karatsubaFloor on normalized inputs. -/
+private theorem evm_composition_eq_karatsubaFloor (x_hi_1 x_lo_1 : Nat)
+    (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) (hxlo : x_lo_1 < 2 ^ 256) :
+    model_sqrtCorrection_evm
+      (model_innerSqrt_evm x_hi_1).1
+      (model_karatsubaQuotient_evm (model_innerSqrt_evm x_hi_1).2 x_lo_1
+        (model_innerSqrt_evm x_hi_1).1).1
+      (model_karatsubaQuotient_evm (model_innerSqrt_evm x_hi_1).2 x_lo_1
+        (model_innerSqrt_evm x_hi_1).1).2
+      x_lo_1
+    = karatsubaFloor x_hi_1 x_lo_1 := by
+  -- Step 1: Replace EVM sub-model outputs with their Nat equivalents
+  have hinner := model_innerSqrt_evm_correct x_hi_1 hlo hhi
+  rw [hinner.1, hinner.2]
+  -- Abbreviations used in comments:
+  -- m = natSqrt x_hi_1, res = x_hi_1 - m², H = 2^128
+  -- n = res*H + x_lo_1/H, d = 2*m, q = n/d, rem = n%d, r = m*H + q
+  -- Step 2: Bounds on natSqrt x_hi_1 and residue
+  have hrhi_lo : 2 ^ 127 ≤ natSqrt x_hi_1 := natSqrt_ge_2_127 x_hi_1 hlo
+  have hrhi_hi : natSqrt x_hi_1 < 2 ^ 128 := natSqrt_lt_2_128 x_hi_1 hhi
+  have hres_le : x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1 ≤ 2 * natSqrt x_hi_1 := by
+    have hsq := natSqrt_sq_le x_hi_1
+    have hsucc := natSqrt_lt_succ_sq x_hi_1
+    -- (m+1)*(m+1) = m*m + 2*m + 1, so x - m*m ≤ 2*m
+    have := Nat.add_mul (natSqrt x_hi_1) 1 (natSqrt x_hi_1 + 1)
+    have := Nat.mul_add (natSqrt x_hi_1) (natSqrt x_hi_1) 1
+    omega
+  have hres_lt : x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1 < 2 ^ 256 := by omega
+  -- Step 3: Apply model_karatsubaQuotient_evm_correct
+  have hkq := model_karatsubaQuotient_evm_correct
+    (x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) x_lo_1 (natSqrt x_hi_1)
+    hres_le hxlo hrhi_lo hrhi_hi hres_lt
+  rw [hkq.1, hkq.2]
+  -- Step 4: Strip % 2^256 (both q and rem fit in 256 bits)
+  have hd_pos : 0 < 2 * natSqrt x_hi_1 := by omega
+  have hxlo_hi : x_lo_1 / 2 ^ 128 < 2 ^ 128 :=
+    Nat.div_lt_of_lt_mul (by rw [← Nat.pow_add]; exact hxlo)
+  have hq_le :
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1) ≤ 2 ^ 128 := by
+    rw [Nat.div_le_iff_le_mul_add_pred hd_pos]; omega
+  have hq_lt_256 :
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1) < 2 ^ 256 := by omega
+  have hrem_lt_256 :
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) %
+        (2 * natSqrt x_hi_1) < 2 ^ 256 :=
+    Nat.lt_of_lt_of_le (Nat.mod_lt _ hd_pos) (by omega)
+  rw [Nat.mod_eq_of_lt hq_lt_256, Nat.mod_eq_of_lt hrem_lt_256]
+  -- Step 5: Hedge condition: q = 2^128 → rem < 2^128
+  have hedge :
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1) = 2 ^ 128 →
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) %
+        (2 * natSqrt x_hi_1) < 2 ^ 128 := by
+    intro hq_eq
+    have hid := (Nat.div_add_mod
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128)
+      (2 * natSqrt x_hi_1)).symm
+    rw [hq_eq] at hid -- d * 2^128 + rem = n
+    have hres_eq_d : x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1 = 2 * natSqrt x_hi_1 := by omega
+    rw [hres_eq_d, show 2 * natSqrt x_hi_1 * 2 ^ 128 + x_lo_1 / 2 ^ 128 =
+        x_lo_1 / 2 ^ 128 + 2 ^ 128 * (2 * natSqrt x_hi_1) from by omega,
+      Nat.add_mul_mod_self_right,
+      Nat.mod_eq_of_lt (by omega : x_lo_1 / 2 ^ 128 < 2 * natSqrt x_hi_1)]
+    exact hxlo_hi
+  -- Step 6: Apply model_sqrtCorrection_evm_correct
+  have hcorr := model_sqrtCorrection_evm_correct (natSqrt x_hi_1)
+    (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+      (2 * natSqrt x_hi_1))
+    (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) %
+      (2 * natSqrt x_hi_1))
+    x_lo_1 hrhi_lo hrhi_hi hq_le (Nat.mod_lt _ hd_pos) hxlo hedge
+  rw [hcorr]
+  -- Goal: m*H + q - (if rem*H + x_lo_lo < q*q then 1 else 0) = karatsubaFloor x_hi_1 x_lo_1
+  -- Step 7: Both sides equal natSqrt(x_hi_1*2^256+x_lo_1)
+  rw [karatsubaFloor_eq_natSqrt x_hi_1 x_lo_1 hlo hhi hxlo]
+  -- Goal: m*H + q - correction = natSqrt(x_hi_1*2^256+x_lo_1)
+  -- Step 8: r = karatsubaR x_hi_1 x_lo_1
+  have hr_eq : natSqrt x_hi_1 * 2 ^ 128 +
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1) = karatsubaR x_hi_1 x_lo_1 := by
+    unfold karatsubaR; rfl
+  -- Step 9: x_full = x_hi_1*2^256 + x_lo_1
+  have hx_full : x_hi_1 * (2 ^ 128 * 2 ^ 128) + x_lo_1 / 2 ^ 128 * 2 ^ 128 +
+      x_lo_1 % 2 ^ 128 = x_hi_1 * 2 ^ 256 + x_lo_1 := by
+    have h1 := Nat.div_add_mod x_lo_1 (2 ^ 128)
+    have h2 : (2 : Nat) ^ 128 * 2 ^ 128 = 2 ^ 256 := by rw [← Nat.pow_add]
+    omega
+  -- Step 10: karatsubaR_bracket gives natSqrt(x) ≤ r ≤ natSqrt(x)+1
+  have hbracket := karatsubaR_bracket x_hi_1 x_lo_1 hlo hhi hxlo
+  have hbr1 : natSqrt (x_hi_1 * 2 ^ 256 + x_lo_1) ≤ karatsubaR x_hi_1 x_lo_1 := by
+    have := hbracket.1; rwa [hx_full] at this
+  have hbr2 : karatsubaR x_hi_1 x_lo_1 ≤ natSqrt (x_hi_1 * 2 ^ 256 + x_lo_1) + 1 := by
+    have := hbracket.2; rwa [hx_full] at this
+  -- Step 11: correction_correct gives the answer
+  have hcc := correction_correct (x_hi_1 * 2 ^ 256 + x_lo_1) (karatsubaR x_hi_1 x_lo_1) hbr1 hbr2
+  -- hcc: (if x < r*r then r-1 else r) = natSqrt(x)
+  rw [← hr_eq] at hcc
+  -- Step 12: Karatsuba identity x_full + q² = r² + rem*H + x_lo_lo
+  -- Abbreviate for readability
+  have hident :
+      let n := (x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128
+      let q := n / (2 * natSqrt x_hi_1)
+      let rem := n % (2 * natSqrt x_hi_1)
+      let r := natSqrt x_hi_1 * 2 ^ 128 + q
+      x_hi_1 * (2 ^ 128 * 2 ^ 128) + x_lo_1 / 2 ^ 128 * 2 ^ 128 + x_lo_1 % 2 ^ 128 +
+        q * q = r * r + rem * 2 ^ 128 + x_lo_1 % 2 ^ 128 := by
+    simp only []
+    -- Both sides equal m²*(H*H) + n*H + q² + x_lo%H after expansion.
+    -- Key facts for the algebraic identity:
+    have hsq_le := natSqrt_sq_le x_hi_1
+    have hdivmod := (Nat.div_add_mod
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128)
+      (2 * natSqrt x_hi_1)).symm
+    -- Product decompositions (making the identity linear for omega):
+    -- (m²+res)*(H*H) = m²*(H*H) + res*(H*H)
+    have hp1 := Nat.add_mul (natSqrt x_hi_1 * natSqrt x_hi_1)
+      (x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) (2 ^ 128 * 2 ^ 128 : Nat)
+    -- res*(H*H) = res*H*H
+    have hp2 := Nat.mul_assoc (x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1)
+      (2 ^ 128 : Nat) (2 ^ 128 : Nat)
+    -- (res*H + x_lo_hi)*H = res*H*H + x_lo_hi*H
+    have hp3 := Nat.add_mul ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128)
+      (x_lo_1 / 2 ^ 128) (2 ^ 128 : Nat)
+    -- Square expansion: (m*H+q)*(m*H+q) = m*H*(m*H+q) + q*(m*H+q)
+    have hp4 := Nat.add_mul (natSqrt x_hi_1 * 2 ^ 128)
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+      (natSqrt x_hi_1 * 2 ^ 128 +
+        ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+          (2 * natSqrt x_hi_1))
+    -- m*H*(m*H+q) = m*H*(m*H) + m*H*q
+    have hp5 := Nat.mul_add (natSqrt x_hi_1 * 2 ^ 128)
+      (natSqrt x_hi_1 * 2 ^ 128)
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+    -- q*(m*H+q) = q*(m*H) + q*q
+    have hp6 := Nat.mul_add
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+      (natSqrt x_hi_1 * 2 ^ 128)
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+    -- (a*b)*(a*b) = (a*a)*(b*b) for the m*H*(m*H) term
+    have hp7 : natSqrt x_hi_1 * 2 ^ 128 * (natSqrt x_hi_1 * 2 ^ 128) =
+        natSqrt x_hi_1 * natSqrt x_hi_1 * (2 ^ 128 * 2 ^ 128) := by
+      calc natSqrt x_hi_1 * 2 ^ 128 * (natSqrt x_hi_1 * 2 ^ 128)
+          = natSqrt x_hi_1 * (2 ^ 128 * (natSqrt x_hi_1 * 2 ^ 128)) := Nat.mul_assoc _ _ _
+        _ = natSqrt x_hi_1 * (natSqrt x_hi_1 * (2 ^ 128 * 2 ^ 128)) := by
+            congr 1; rw [← Nat.mul_assoc, Nat.mul_comm (2 ^ 128 : Nat) (natSqrt x_hi_1),
+              Nat.mul_assoc]
+        _ = natSqrt x_hi_1 * natSqrt x_hi_1 * (2 ^ 128 * 2 ^ 128) := (Nat.mul_assoc _ _ _).symm
+    -- m*H*q = m*q*H (re-association for the cross terms)
+    have hp8 : natSqrt x_hi_1 * 2 ^ 128 *
+        (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+          (2 * natSqrt x_hi_1)) =
+        natSqrt x_hi_1 *
+        (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+          (2 * natSqrt x_hi_1)) * 2 ^ 128 := by
+      rw [Nat.mul_assoc, Nat.mul_comm (2 ^ 128 : Nat), ← Nat.mul_assoc]
+    -- m*H*q = q*(m*H) (commutativity)
+    have hp9 := Nat.mul_comm (natSqrt x_hi_1 * 2 ^ 128)
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+    -- (d*q+rem)*H = d*q*H + rem*H
+    have hp10 := Nat.add_mul
+      (2 * natSqrt x_hi_1 *
+        (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+          (2 * natSqrt x_hi_1)))
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) %
+        (2 * natSqrt x_hi_1))
+      (2 ^ 128 : Nat)
+    -- d*q = 2*m*q
+    have hp11 := Nat.mul_assoc (2 : Nat) (natSqrt x_hi_1)
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+    -- 2*m*q*H = 2*(m*q*H)
+    have hp12 := Nat.mul_assoc (2 : Nat)
+      (natSqrt x_hi_1 *
+        (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+          (2 * natSqrt x_hi_1)))
+      (2 ^ 128 : Nat)
+    omega
+  -- Step 13: Apply correction_equiv
+  have hequiv := correction_equiv
+    (x_hi_1 * (2 ^ 128 * 2 ^ 128) + x_lo_1 / 2 ^ 128 * 2 ^ 128 + x_lo_1 % 2 ^ 128)
+    (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+      (2 * natSqrt x_hi_1))
+    (natSqrt x_hi_1 * 2 ^ 128 +
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+    (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) %
+      (2 * natSqrt x_hi_1) * 2 ^ 128)
+    (x_lo_1 % 2 ^ 128)
+    hident
+  -- Step 14: Close by case-splitting on the EVM comparison condition
+  by_cases hlt : ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) %
+      (2 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 % 2 ^ 128 <
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1)) *
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+  · -- EVM comparison true → correction = 1
+    simp only [hlt, ↓reduceIte]
+    -- Derive: x < r*r (via hequiv + hx_full)
+    have hlt_x : x_hi_1 * 2 ^ 256 + x_lo_1 <
+        (natSqrt x_hi_1 * 2 ^ 128 +
+          ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+            (2 * natSqrt x_hi_1)) *
+        (natSqrt x_hi_1 * 2 ^ 128 +
+          ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+            (2 * natSqrt x_hi_1)) := by
+      rw [← hx_full]; exact hequiv.mpr hlt
+    -- Simplify the if in hcc to r-1
+    simp only [hlt_x, ↓reduceIte] at hcc
+    exact hcc
+  · -- EVM comparison false → correction = 0
+    simp only [hlt, ↓reduceIte, Nat.sub_zero]
+    -- Derive: ¬(x < r*r)
+    have hlt_x : ¬(x_hi_1 * 2 ^ 256 + x_lo_1 <
+        (natSqrt x_hi_1 * 2 ^ 128 +
+          ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+            (2 * natSqrt x_hi_1)) *
+        (natSqrt x_hi_1 * 2 ^ 128 +
+          ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+            (2 * natSqrt x_hi_1))) :=
+      fun h => hlt (hequiv.mp (by rwa [hx_full]))
+    simp only [hlt_x, ↓reduceIte] at hcc
+    exact hcc
+
+/-- karatsubaFloor on normalized inputs fits in 256 bits. -/
+private theorem karatsubaFloor_lt_word (x_hi_1 x_lo_1 : Nat)
+    (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) (hxlo : x_lo_1 < 2 ^ 256) :
+    karatsubaFloor x_hi_1 x_lo_1 < WORD_MOD := by
+  rw [karatsubaFloor_eq_natSqrt x_hi_1 x_lo_1 hlo hhi hxlo, show WORD_MOD = 2 ^ 256 from rfl]
+  -- natSqrt(x) < 2^256 when x < 2^512
+  suffices ¬(2 ^ 256 ≤ natSqrt (x_hi_1 * 2 ^ 256 + x_lo_1)) by omega
+  intro h
+  have hsq := natSqrt_sq_le (x_hi_1 * 2 ^ 256 + x_lo_1)
+  have := Nat.le_trans (Nat.mul_le_mul h h) hsq; omega
+
 end EvmBridge
 
 /-- The EVM model computes the same as the algebraic sqrt512.
@@ -1487,12 +1729,23 @@ private theorem model_sqrt512_evm_eq_sqrt512 (x_hi x_lo : Nat)
     rw [Nat.mul_comm, Nat.mul_add_div (Nat.two_pow_pos 256),
         Nat.div_eq_of_lt hxlo_lt, Nat.add_zero]
   rw [hx_div]
-  -- Now both sides use k = (255 - Nat.log2 x_hi) / 2
-  -- LHS = model_sqrt512_evm x_hi x_lo
-  -- RHS = karatsubaFloor (x * 4^k / 2^256) (x * 4^k % 2^256) / 2^k
+  -- Now: LHS = model_sqrt512_evm x_hi x_lo
+  --      RHS = karatsubaFloor (x * 4^k / 2^256) (x * 4^k % 2^256) / 2^k
 
-  -- Unfold model_sqrt512_evm to see its structure
-  sorry
+  -- Step 1: Get normalization results
+  have hnorm := evm_normalization_correct x_hi x_lo hxhi_pos hxhi_lt hxlo_lt
+  -- Rewrite RHS to use EVM expressions
+  rw [← hnorm.1, ← hnorm.2.1, ← hnorm.2.2.1]
+  -- Now RHS uses the same EVM sub-expressions as model_sqrt512_evm
+  -- Step 2: Unfold model_sqrt512_evm to expose sub-model calls
+  unfold model_sqrt512_evm; simp only []
+  -- Step 3: Rewrite the composition of sub-models to karatsubaFloor
+  rw [evm_composition_eq_karatsubaFloor _ _ hnorm.2.2.2.1 hnorm.2.2.2.2.1 hnorm.2.2.2.2.2]
+  -- Step 4: Convert evmShr to division
+  have hshift_lt : evmShr (evmAnd (evmAnd 1 255) 255) (evmClz (u256 x_hi)) < 256 := by
+    rw [hnorm.2.2.1]; exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) (by omega)
+  rw [evmShr_eq' _ _ hshift_lt
+    (karatsubaFloor_lt_word _ _ hnorm.2.2.2.1 hnorm.2.2.2.2.1 hnorm.2.2.2.2.2)]
 
 set_option exponentiation.threshold 512 in
 /-- The EVM model of 512-bit sqrt computes natSqrt. -/
