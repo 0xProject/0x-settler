@@ -1696,57 +1696,62 @@ library Lib512MathArithmetic {
         return omodAlt(r, y, r);
     }
 
-    /// @dev 6 Babylonian steps from fixed seed + floor correction + residue.
-    ///
-    /// We treat `r` as a ≤2-limb bigint where each limb is half a machine word (128 bits).
-    /// Spliting √x in this way lets us apply "ordinary" 256-bit `sqrt` to the top word of
-    /// `x`. Then we can recover the bottom limb of `r` without 512-bit division.
-    ///
-    /// Implementing this as:
-    ///   uint256 r_hi = x_hi.sqrt();
-    /// is correct, but duplicates the normalization that we just did above and performs a
-    /// more-costly initialization step. solc is not smart enough to optimize this away, so
-    /// we inline and do it ourselves.
-    /// @dev One Babylonian step: floor((r + x/r) / 2)
-    function _bstep(uint256 x, uint256 r) private pure returns (uint256 r_out) {
-        assembly ("memory-safe") {
-            r_out := shr(0x01, add(r, div(x, r)))
+    //// The following 512-bit square root implementation is a realization of Zimmerman's "Karatsuba
+    //// Square Root" algorithm https://inria.hal.science/inria-00072854/document . This approach is
+    //// inspired by https://github.com/SimonSuckut/Solidity_Uint512/ . These helper functions are
+    //// broken out separately to ease formal verification.
+
+    /// One square root Babylonian step: r = ⌊(x/r + r) / 2⌋
+    function _sqrt_babylonianStep(uint256 x, uint256 r) private pure returns (uint256 r_out) {
+        unchecked {
+            return x.unsafeDiv(r) + r >> 1;
         }
     }
 
-    function _innerSqrt(uint256 x_hi) private pure returns (uint256 r_hi, uint256 res) {
+    /// 6 Babylonian steps from fixed seed + floor correction + residue for Karatsuba
+    ///
+    /// Implementing this as:
+    ///   uint256 r_hi = x_hi.sqrt();
+    ///   uint256 res = x_hi - r_hi * r_hi;
+    /// is correct, but duplicates the normalization that we do in `_sqrt` and performs a
+    /// more-costly initialization step. solc is not very smart. It can't optimize away the
+    /// initialization step of `Sqrt.sqrt`. It also can't optimize the calculation of `res`, so
+    /// doing it in Yul is meaningfully more gas efficient.
+    function _sqrt_baseCase(uint256 x_hi) private pure returns (uint256 r_hi, uint256 res) {
         // Seed with √(2²⁵⁵), the geometric mean of the normalized √x_hi range [2¹²⁷,
         // 2¹²⁸). This balances worst-case over/underestimate (ε ≈ ±0.414/0.293), giving
         // >128 bits of precision in 6 Babylonian steps
         r_hi = 0xb504f333f9de6484597d89b3754abe9f;
 
         // 6 Babylonian steps is sufficient for convergence
-        r_hi = _bstep(x_hi, r_hi);
-        r_hi = _bstep(x_hi, r_hi);
-        r_hi = _bstep(x_hi, r_hi);
-        r_hi = _bstep(x_hi, r_hi);
-        r_hi = _bstep(x_hi, r_hi);
-        r_hi = _bstep(x_hi, r_hi);
+        r_hi = _sqrt_babylonianStep(x_hi, r_hi);
+        r_hi = _sqrt_babylonianStep(x_hi, r_hi);
+        r_hi = _sqrt_babylonianStep(x_hi, r_hi);
+        r_hi = _sqrt_babylonianStep(x_hi, r_hi);
+        r_hi = _sqrt_babylonianStep(x_hi, r_hi);
+        r_hi = _sqrt_babylonianStep(x_hi, r_hi);
+
+        // The Babylonian step can oscillate between ⌊√x_hi⌋ and ⌈√x_hi⌉. Clean that up.
+        r_hi = r_hi.unsafeDec(x_hi.unsafeDiv(r_hi) < r_hi);
 
         assembly ("memory-safe") {
-            // The Babylonian step can oscillate between ⌊√x_hi⌋ and ⌈√x_hi⌉. Clean that up.
-            r_hi := sub(r_hi, lt(div(x_hi, r_hi), r_hi))
-
             // This is cheaper than
-            //   uint256 res = x_hi - r_hi * r_hi;
+            //   unchecked {
+            //     uint256 res = x_hi - r_hi * r_hi;
+            //   }
             // for no clear reason
             res := sub(x_hi, mul(r_hi, r_hi))
         }
     }
 
-    /// @dev Karatsuba quotient with carry correction.
+    /// Karatsuba quotient with carry correction
     ///
     /// `res` is (almost) a single limb. Create a new (almost) machine word `n` with `res` as
     /// the upper limb and shifting in the next limb of `x` (namely `x_lo >> 128`) as the
     /// lower limb. The next step of Zimmerman's algorithm is:
     ///   r_lo = n / (2 · r_hi)
     ///   res = n % (2 · r_hi)
-    function _karatsubaQuotient(uint256 res, uint256 x_lo, uint256 r_hi)
+    function _sqrt_karatsubaQuotient(uint256 res, uint256 x_lo, uint256 r_hi)
         private
         pure
         returns (uint256 r_lo, uint256 res_out)
@@ -1770,12 +1775,13 @@ library Lib512MathArithmetic {
         }
     }
 
-    /// @dev Combine r_hi/r_lo + 257-bit correction comparison.
+    /// Combine `r_hi` with `r_lo` and perform the 257-bit underflow correction
     ///
-    /// Then, if res · 2¹²⁸ + x_lo % 2¹²⁸ < r_lo², decrement `r`. We have to do this in a
-    /// complicated manner because both `res` and `r_lo` can be _slightly_ longer than 1 limb
-    /// (128 bits). This is more efficient than performing the full 257-bit comparison.
-    function _sqrtCorrection(uint256 r_hi, uint256 r_lo, uint256 res, uint256 x_lo)
+    /// The final step of Zimmerman's algorithm is: if res · 2¹²⁸ + x_lo % 2¹²⁸ < r_lo², decrement
+    /// `r`. We have to do this in a complicated manner because both `res` and `r_lo` can be
+    /// 𝑠𝑙𝑖𝑔ℎ𝑡𝑙𝑦 longer than 1 limb (128 bits). This is more efficient than performing the full
+    /// 257-bit comparison.
+    function _sqrt_correction(uint256 r_hi, uint256 r_lo, uint256 res, uint256 x_lo)
         private
         pure
         returns (uint256 r)
@@ -1793,9 +1799,6 @@ library Lib512MathArithmetic {
     }
 
     function _sqrt(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r) {
-        /// Our general approach is to apply Zimmerman's "Karatsuba Square Root" algorithm
-        /// https://inria.hal.science/inria-00072854/document with the helpers from Solady and
-        /// 512Math. This approach is inspired by https://github.com/SimonSuckut/Solidity_Uint512/
         unchecked {
             // Normalize `x` so the top word has its MSB in bit 255 or 254. This makes the "shift
             // back" step exact.
@@ -1804,10 +1807,18 @@ library Lib512MathArithmetic {
             (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift & 0xfe);
             shift >>= 1;
 
-            (uint256 r_hi, uint256 res) = _innerSqrt(x_hi);
+            // We treat `r` as a ≤2-limb bigint where each limb is half a machine word (128 bits).
+            // Spliting √x in this way lets us apply "ordinary" 256-bit `sqrt` to the top word of
+            // `x`. Then we can recover the bottom limb of `r` without 512-bit division.
+            (uint256 r_hi, uint256 res) = _sqrt_baseCase(x_hi);
+
+            // The next titular Karatsuba step extends the upper limb of `r` to approximate the
+            // lower limb.
             uint256 r_lo;
-            (r_lo, res) = _karatsubaQuotient(res, x_lo, r_hi);
-            r = _sqrtCorrection(r_hi, r_lo, res, x_lo);
+            (r_lo, res) = _sqrt_karatsubaQuotient(res, x_lo, r_hi);
+
+            // The Karatsuba step is an approximation. This refinement makes it exactly ⌊√x⌋
+            r = _sqrt_correction(r_hi, r_lo, res, x_lo);
 
             // Un-normalize
             return r >> shift;
@@ -2146,7 +2157,7 @@ struct uint512_external {
 library Lib512MathExternal {
     function from(uint512 r, uint512_external memory x) internal pure returns (uint512) {
         assembly ("memory-safe") {
-            // This *could* be done with `mcopy`, but that would mean giving up compatibility with
+            // This 𝐜𝐨𝐮𝐥𝐝 be done with `mcopy`, but that would mean giving up compatibility with
             // Shanghai (or less) chains. If you care about gas efficiency, you should be using
             // `into()` instead.
             mstore(r, mload(x))

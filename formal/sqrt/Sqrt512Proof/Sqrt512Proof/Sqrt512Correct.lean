@@ -36,7 +36,7 @@ noncomputable def karatsubaFloor (x_hi x_lo : Nat) : Nat :=
 
 /-- karatsubaR satisfies the Karatsuba bracket for normalized inputs. -/
 theorem karatsubaR_bracket (x_hi x_lo : Nat)
-    (hxhi_lo : 2 ^ 254 ≤ x_hi) (hxhi_hi : x_hi < 2 ^ 256)
+    (hxhi_lo : 2 ^ 254 ≤ x_hi)
     (hxlo : x_lo < 2 ^ 256) :
     let H := 2 ^ 128
     let x_lo_hi := x_lo / H
@@ -47,13 +47,13 @@ theorem karatsubaR_bracket (x_hi x_lo : Nat)
   simp only
   have h128sq : (2 : Nat) ^ 128 * 2 ^ 128 = 2 ^ 256 := by rw [← Nat.pow_add]
   exact karatsuba_bracket_512 x_hi (x_lo / 2 ^ 128) (x_lo % 2 ^ 128)
-    hxhi_lo hxhi_hi
+    hxhi_lo
     (Nat.div_lt_of_lt_mul (by rwa [h128sq]))
     (Nat.mod_lt x_lo (Nat.two_pow_pos 128))
 
 /-- karatsubaFloor = natSqrt for normalized inputs. -/
 theorem karatsubaFloor_eq_natSqrt (x_hi x_lo : Nat)
-    (hxhi_lo : 2 ^ 254 ≤ x_hi) (hxhi_hi : x_hi < 2 ^ 256)
+    (hxhi_lo : 2 ^ 254 ≤ x_hi)
     (hxlo : x_lo < 2 ^ 256) :
     karatsubaFloor x_hi x_lo = natSqrt (x_hi * 2 ^ 256 + x_lo) := by
   have hHsq : (2 : Nat) ^ 128 * ((2 : Nat) ^ 128) = (2 : Nat) ^ 256 := by rw [← Nat.pow_add]
@@ -66,7 +66,7 @@ theorem karatsubaFloor_eq_natSqrt (x_hi x_lo : Nat)
       x_lo / (2 : Nat) ^ 128 * (2 : Nat) ^ 128 + x_lo % (2 : Nat) ^ 128 := by
     rw [← hHsq, hxlo_decomp]; omega
 
-  have hbracket := karatsubaR_bracket x_hi x_lo hxhi_lo hxhi_hi hxlo
+  have hbracket := karatsubaR_bracket x_hi x_lo hxhi_lo hxlo
 
   rw [hx_eq]
   unfold karatsubaFloor
@@ -133,11 +133,12 @@ noncomputable def sqrt512 (x : Nat) : Nat :=
     natSqrt x
   else
     let x_hi := x / 2 ^ 256
-    let x_lo := x % 2 ^ 256
+    let _x_lo := x % 2 ^ 256
     let shift := (255 - Nat.log2 x_hi) / 2
     let x' := x * 4 ^ shift
     karatsubaFloor (x' / 2 ^ 256) (x' % 2 ^ 256) / 2 ^ shift
 
+set_option exponentiation.threshold 1024 in
 /-- sqrt512 is correct for x < 2^512. -/
 theorem sqrt512_correct (x : Nat) (hx : x < 2 ^ 512) :
     sqrt512 x = natSqrt x := by
@@ -170,7 +171,7 @@ theorem sqrt512_correct (x : Nat) (hx : x < 2 ^ 512) :
     have hkf := karatsubaFloor_eq_natSqrt
       (x * 4 ^ ((255 - Nat.log2 (x / 2 ^ 256)) / 2) / 2 ^ 256)
       (x * 4 ^ ((255 - Nat.log2 (x / 2 ^ 256)) / 2) % 2 ^ 256)
-      hxhi'_lo hxhi'_lt hxlo'_bound
+      hxhi'_lo hxlo'_bound
     -- hkf : karatsubaFloor (x'/2^256) (x'%2^256) = natSqrt (x'/2^256 * 2^256 + x'%2^256)
     -- We need: karatsubaFloor (x'/2^256) (x'%2^256) / 2^shift = natSqrt x
     -- Since x'/2^256 * 2^256 + x'%2^256 = x' (Euclidean decomposition)

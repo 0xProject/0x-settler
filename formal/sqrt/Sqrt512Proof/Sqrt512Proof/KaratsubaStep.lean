@@ -28,7 +28,7 @@ private theorem succ_sq (m : Nat) : (m + 1) * (m + 1) = m * m + 2 * m + 1 := by
 
 theorem karatsuba_identity
     (x_hi x_lo_hi x_lo_lo r_hi H : Nat)
-    (hres : r_hi * r_hi ≤ x_hi) (hr_pos : 0 < r_hi) :
+    (hres : r_hi * r_hi ≤ x_hi) :
     x_hi * (H * H) + x_lo_hi * H + x_lo_lo +
       ((x_hi - r_hi * r_hi) * H + x_lo_hi) / (2 * r_hi) *
       (((x_hi - r_hi * r_hi) * H + x_lo_hi) / (2 * r_hi)) =
@@ -106,7 +106,7 @@ set_option maxRecDepth 4096 in
 /-- The Karatsuba bracket for the 512-bit case: natSqrt(x) ≤ r ≤ natSqrt(x) + 1.
     Stated with fully expanded terms to avoid let-binding issues. -/
 theorem karatsuba_bracket_512 (x_hi x_lo_hi x_lo_lo : Nat)
-    (hxhi_lo : 2 ^ 254 ≤ x_hi) (hxhi_hi : x_hi < 2 ^ 256)
+    (hxhi_lo : 2 ^ 254 ≤ x_hi)
     (hxlo_hi : x_lo_hi < 2 ^ 128) (hxlo_lo : x_lo_lo < 2 ^ 128) :
     let H : Nat := 2 ^ 128
     let r_hi := natSqrt x_hi

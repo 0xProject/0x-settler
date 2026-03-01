@@ -233,7 +233,8 @@ private theorem normStep_eq_bstep (x z : Nat) :
 open Sqrt512GeneratedModel in
 /-- The generated model_bstep equals bstep (definitional). -/
 theorem model_bstep_eq_bstep (x z : Nat) : model_bstep x z = bstep x z := by
-  simp [model_bstep, normShr_eq, normAdd_eq, normDiv_eq, bstep]
+  unfold model_bstep bstep
+  simp only [normShr_eq, normAdd_eq, normDiv_eq, Nat.pow_one]
 
 open Sqrt512GeneratedModel in
 /-- Floor correction: sub z (lt (div x z) z) gives the standard correction. -/
@@ -1448,7 +1449,7 @@ private theorem evm_composition_eq_karatsubaFloor (x_hi_1 x_lo_1 : Nat)
   rw [hcorr]
   -- Goal: m*H + q - (if rem*H + x_lo_lo < q*q then 1 else 0) = karatsubaFloor x_hi_1 x_lo_1
   -- Step 7: Both sides equal natSqrt(x_hi_1*2^256+x_lo_1)
-  rw [karatsubaFloor_eq_natSqrt x_hi_1 x_lo_1 hlo hhi hxlo]
+  rw [karatsubaFloor_eq_natSqrt x_hi_1 x_lo_1 hlo hxlo]
   -- Goal: m*H + q - correction = natSqrt(x_hi_1*2^256+x_lo_1)
   -- Step 8: r = karatsubaR x_hi_1 x_lo_1
   have hr_eq : natSqrt x_hi_1 * 2 ^ 128 +
@@ -1462,7 +1463,7 @@ private theorem evm_composition_eq_karatsubaFloor (x_hi_1 x_lo_1 : Nat)
     have h2 : (2 : Nat) ^ 128 * 2 ^ 128 = 2 ^ 256 := by rw [← Nat.pow_add]
     omega
   -- Step 10: karatsubaR_bracket gives natSqrt(x) ≤ r ≤ natSqrt(x)+1
-  have hbracket := karatsubaR_bracket x_hi_1 x_lo_1 hlo hhi hxlo
+  have hbracket := karatsubaR_bracket x_hi_1 x_lo_1 hlo hxlo
   have hbr1 : natSqrt (x_hi_1 * 2 ^ 256 + x_lo_1) ≤ karatsubaR x_hi_1 x_lo_1 := by
     have := hbracket.1; rwa [hx_full] at this
   have hbr2 : karatsubaR x_hi_1 x_lo_1 ≤ natSqrt (x_hi_1 * 2 ^ 256 + x_lo_1) + 1 := by
@@ -1607,7 +1608,7 @@ private theorem evm_composition_eq_karatsubaFloor (x_hi_1 x_lo_1 : Nat)
 private theorem karatsubaFloor_lt_word (x_hi_1 x_lo_1 : Nat)
     (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) (hxlo : x_lo_1 < 2 ^ 256) :
     karatsubaFloor x_hi_1 x_lo_1 < WORD_MOD := by
-  rw [karatsubaFloor_eq_natSqrt x_hi_1 x_lo_1 hlo hhi hxlo, show WORD_MOD = 2 ^ 256 from rfl]
+  rw [karatsubaFloor_eq_natSqrt x_hi_1 x_lo_1 hlo hxlo, show WORD_MOD = 2 ^ 256 from rfl]
   -- natSqrt(x) < 2^256 when x < 2^512
   suffices ¬(2 ^ 256 ≤ natSqrt (x_hi_1 * 2 ^ 256 + x_lo_1)) by omega
   intro h
