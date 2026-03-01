@@ -50,6 +50,11 @@ jobs:
               --yul - \
               --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
 
+      - name: Generate finite certificate from sqrt spec
+        run: |
+          python3 formal/sqrt/generate_sqrt_cert.py \
+            --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
+
       - name: Build Sqrt proof and model evaluator
         working-directory: formal/sqrt/SqrtProof
         run: lake build && lake build sqrt-model

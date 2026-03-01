@@ -49,9 +49,14 @@ jobs:
               --yul - \
               --output formal/sqrt/Sqrt512Proof/Sqrt512Proof/GeneratedSqrt512Model.lean
 
-      - name: Build Sqrt512 model evaluator
+      - name: Generate finite certificate from sqrt spec
+        run: |
+          python3 formal/sqrt/generate_sqrt_cert.py \
+            --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
+
+      - name: Build Sqrt512 proof and model evaluator
         working-directory: formal/sqrt/Sqrt512Proof
-        run: lake build sqrt512-model
+        run: lake build && lake build sqrt512-model
 
       - name: Fuzz-test Lean model against Solidity
         run: |
