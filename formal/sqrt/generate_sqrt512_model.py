@@ -2,13 +2,13 @@
 """
 Generate Lean model of 512Math._sqrt from Yul IR.
 
-This script extracts `_innerSqrt`, `_karatsubaQuotient`, `_sqrtCorrection`,
-and `_sqrt` from the Yul IR produced by `forge inspect` on Sqrt512Wrapper
-and emits Lean definitions for:
+This script extracts `_sqrt_babylonianStep`, `_sqrt_baseCase`,
+`_sqrt_karatsubaQuotient`, `_sqrt_correction`, and `_sqrt` from the Yul IR
+produced by `forge inspect` on Sqrt512Wrapper and emits Lean definitions for:
 - opcode-faithful uint256 EVM semantics, and
 - normalized Nat semantics.
 
-By keeping all four functions in `function_order`, the pipeline emits
+By keeping all five functions in `function_order`, the pipeline emits
 separate models for each sub-function. `model_sqrt512_evm` calls into
 `model_innerSqrt_evm`, `model_karatsubaQuotient_evm`, and
 `model_sqrtCorrection_evm` rather than inlining their bodies, producing
@@ -29,12 +29,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from yul_to_lean import ModelConfig, run
 
 CONFIG = ModelConfig(
-    function_order=("_bstep", "_innerSqrt", "_karatsubaQuotient", "_sqrtCorrection", "_sqrt"),
+    function_order=("_sqrt_babylonianStep", "_sqrt_baseCase", "_sqrt_karatsubaQuotient", "_sqrt_correction", "_sqrt"),
     model_names={
-        "_bstep": "model_bstep",
-        "_innerSqrt": "model_innerSqrt",
-        "_karatsubaQuotient": "model_karatsubaQuotient",
-        "_sqrtCorrection": "model_sqrtCorrection",
+        "_sqrt_babylonianStep": "model_bstep",
+        "_sqrt_baseCase": "model_innerSqrt",
+        "_sqrt_karatsubaQuotient": "model_karatsubaQuotient",
+        "_sqrt_correction": "model_sqrtCorrection",
         "_sqrt": "model_sqrt512",
     },
     header_comment="Auto-generated from Solidity 512Math._sqrt assembly and assignment flow.",
@@ -44,10 +44,10 @@ CONFIG = ModelConfig(
     norm_rewrite=None,
     inner_fn="_sqrt",
     n_params={
-        "_bstep": 2,
-        "_innerSqrt": 1,
-        "_karatsubaQuotient": 3,
-        "_sqrtCorrection": 4,
+        "_sqrt_babylonianStep": 2,
+        "_sqrt_baseCase": 1,
+        "_sqrt_karatsubaQuotient": 3,
+        "_sqrt_correction": 4,
         "_sqrt": 2,
     },
     keep_solidity_locals=True,

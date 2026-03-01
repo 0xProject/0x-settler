@@ -275,7 +275,9 @@ private theorem normStep_eq_bstep (x z : Nat) :
 open Sqrt512GeneratedModel in
 /-- The generated model_bstep equals bstep (definitional). -/
 theorem model_bstep_eq_bstep (x z : Nat) : model_bstep x z = bstep x z := by
-  simp [model_bstep, normShr_eq, normAdd_eq, normDiv_eq, bstep]
+  unfold model_bstep bstep
+  have h : normAnd (normAnd 1 255) 255 = 1 := by native_decide
+  simp only [h, normShr_eq, normAdd_eq, normDiv_eq, Nat.pow_one, Nat.add_comm (x / z) z]
 
 open Sqrt512GeneratedModel in
 /-- Floor correction: sub z (lt (div x z) z) gives the standard correction. -/
@@ -831,6 +833,10 @@ private theorem model_bstep_evm_eq_bstep (x z : Nat)
   have hz_wm : z < WORD_MOD := by unfold WORD_MOD; omega
   unfold model_bstep_evm
   simp only [u256_id' x hx_wm, u256_id' z hz_wm]
+  have h_and : evmAnd (evmAnd 1 255) 255 = 1 := by native_decide
+  have h_add_comm : evmAdd (evmDiv x z) z = evmAdd z (evmDiv x z) := by
+    unfold evmAdd; rw [Nat.add_comm (u256 (evmDiv x z)) (u256 z)]
+  rw [h_and, h_add_comm]
   exact evm_bstep_eq x z hx_lo hx_hi hz_lo hz_hi
 
 /-- FIXED_SEED < 2^128 < 2^129. -/
