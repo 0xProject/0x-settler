@@ -261,6 +261,11 @@ private theorem normStep_eq_bstep (x z : Nat) :
   simp [normShr_eq, normAdd_eq, normDiv_eq, bstep]
 
 open Sqrt512GeneratedModel in
+/-- The generated model_bstep equals bstep (definitional). -/
+theorem model_bstep_eq_bstep (x z : Nat) : model_bstep x z = bstep x z := by
+  simp [model_bstep, normShr_eq, normAdd_eq, normDiv_eq, bstep]
+
+open Sqrt512GeneratedModel in
 /-- Floor correction: sub z (lt (div x z) z) gives the standard correction. -/
 private theorem normFloor_correction (x z : Nat) (hz : 0 < z) :
     normSub z (normLt (normDiv x z) z) =
@@ -300,33 +305,33 @@ private theorem or_eq_add_shl (a b s : Nat) (hb : b < 2 ^ s) :
 -- the same values (since the sums don't overflow 2^256).
 
 open Sqrt512GeneratedModel in
-/-- The 6 Babylonian steps in the norm model on x_hi_1 equal run6Fixed x_hi_1. -/
+/-- The 6 model_bstep calls equal run6Fixed. -/
 private theorem norm_6steps_eq_run6Fixed (x_hi_1 : Nat) :
     let r_hi_1 := FIXED_SEED
-    let r_hi_2 := normShr 1 (normAdd r_hi_1 (normDiv x_hi_1 r_hi_1))
-    let r_hi_3 := normShr 1 (normAdd r_hi_2 (normDiv x_hi_1 r_hi_2))
-    let r_hi_4 := normShr 1 (normAdd r_hi_3 (normDiv x_hi_1 r_hi_3))
-    let r_hi_5 := normShr 1 (normAdd r_hi_4 (normDiv x_hi_1 r_hi_4))
-    let r_hi_6 := normShr 1 (normAdd r_hi_5 (normDiv x_hi_1 r_hi_5))
-    let r_hi_7 := normShr 1 (normAdd r_hi_6 (normDiv x_hi_1 r_hi_6))
+    let r_hi_2 := model_bstep x_hi_1 r_hi_1
+    let r_hi_3 := model_bstep x_hi_1 r_hi_2
+    let r_hi_4 := model_bstep x_hi_1 r_hi_3
+    let r_hi_5 := model_bstep x_hi_1 r_hi_4
+    let r_hi_6 := model_bstep x_hi_1 r_hi_5
+    let r_hi_7 := model_bstep x_hi_1 r_hi_6
     r_hi_7 = run6Fixed x_hi_1 := by
-  simp only [normStep_eq_bstep, run6Fixed, FIXED_SEED, bstep]
+  simp only [model_bstep_eq_bstep, run6Fixed, FIXED_SEED, bstep]
 
 open Sqrt512GeneratedModel in
 /-- The 6 steps + floor correction in the norm model = floorSqrt_fixed. -/
 private theorem norm_inner_sqrt_eq_floorSqrt_fixed (x_hi_1 : Nat) (hx : 0 < x_hi_1) :
     let r_hi_1 := FIXED_SEED
-    let r_hi_2 := normShr 1 (normAdd r_hi_1 (normDiv x_hi_1 r_hi_1))
-    let r_hi_3 := normShr 1 (normAdd r_hi_2 (normDiv x_hi_1 r_hi_2))
-    let r_hi_4 := normShr 1 (normAdd r_hi_3 (normDiv x_hi_1 r_hi_3))
-    let r_hi_5 := normShr 1 (normAdd r_hi_4 (normDiv x_hi_1 r_hi_4))
-    let r_hi_6 := normShr 1 (normAdd r_hi_5 (normDiv x_hi_1 r_hi_5))
-    let r_hi_7 := normShr 1 (normAdd r_hi_6 (normDiv x_hi_1 r_hi_6))
+    let r_hi_2 := model_bstep x_hi_1 r_hi_1
+    let r_hi_3 := model_bstep x_hi_1 r_hi_2
+    let r_hi_4 := model_bstep x_hi_1 r_hi_3
+    let r_hi_5 := model_bstep x_hi_1 r_hi_4
+    let r_hi_6 := model_bstep x_hi_1 r_hi_5
+    let r_hi_7 := model_bstep x_hi_1 r_hi_6
     let r_hi_8 := normSub r_hi_7 (normLt (normDiv x_hi_1 r_hi_7) r_hi_7)
     r_hi_8 = floorSqrt_fixed x_hi_1 := by
-  simp only
+  simp only [model_bstep_eq_bstep]
   have h7 := norm_6steps_eq_run6Fixed x_hi_1
-  simp only at h7
+  simp only [model_bstep_eq_bstep] at h7
   have hz_pos : 0 < run6Fixed x_hi_1 := by
     have hseed_pos : 0 < FIXED_SEED := fixed_seed_pos
     have hz1_pos := bstep_pos x_hi_1 FIXED_SEED hx hseed_pos
@@ -345,17 +350,17 @@ open Sqrt512GeneratedModel in
 private theorem norm_inner_sqrt_eq_natSqrt (x_hi_1 : Nat)
     (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) :
     let r_hi_1 := FIXED_SEED
-    let r_hi_2 := normShr 1 (normAdd r_hi_1 (normDiv x_hi_1 r_hi_1))
-    let r_hi_3 := normShr 1 (normAdd r_hi_2 (normDiv x_hi_1 r_hi_2))
-    let r_hi_4 := normShr 1 (normAdd r_hi_3 (normDiv x_hi_1 r_hi_3))
-    let r_hi_5 := normShr 1 (normAdd r_hi_4 (normDiv x_hi_1 r_hi_4))
-    let r_hi_6 := normShr 1 (normAdd r_hi_5 (normDiv x_hi_1 r_hi_5))
-    let r_hi_7 := normShr 1 (normAdd r_hi_6 (normDiv x_hi_1 r_hi_6))
+    let r_hi_2 := model_bstep x_hi_1 r_hi_1
+    let r_hi_3 := model_bstep x_hi_1 r_hi_2
+    let r_hi_4 := model_bstep x_hi_1 r_hi_3
+    let r_hi_5 := model_bstep x_hi_1 r_hi_4
+    let r_hi_6 := model_bstep x_hi_1 r_hi_5
+    let r_hi_7 := model_bstep x_hi_1 r_hi_6
     let r_hi_8 := normSub r_hi_7 (normLt (normDiv x_hi_1 r_hi_7) r_hi_7)
     r_hi_8 = natSqrt x_hi_1 := by
   have hpos : 0 < x_hi_1 := by omega
   have h := norm_inner_sqrt_eq_floorSqrt_fixed x_hi_1 hpos
-  simp only at h ⊢
+  simp only [model_bstep_eq_bstep] at h ⊢
   rw [h]
   exact floorSqrt_fixed_eq_natSqrt x_hi_1 hlo hhi
 
@@ -467,7 +472,6 @@ open Sqrt512GeneratedModel
 private theorem model_innerSqrt_fst_eq_floorSqrt_fixed (x_hi_1 : Nat) (hx : 0 < x_hi_1) :
     (model_innerSqrt x_hi_1).1 = floorSqrt_fixed x_hi_1 := by
   unfold model_innerSqrt
-  simp only
   exact norm_inner_sqrt_eq_floorSqrt_fixed x_hi_1 hx
 
 /-- The norm model of _innerSqrt gives natSqrt on normalized inputs. -/
@@ -507,6 +511,54 @@ open Sqrt512GeneratedModel
     - x_hi_1 = (x * 4^k) / 2^256
     - x_lo_1 = (x * 4^k) % 2^256
     - shift_1 = k -/
+-- 512-bit left shift decomposition into high/low 256-bit words.
+theorem shl512_hi (x_hi x_lo s : Nat) (hs : s ≤ 255) :
+    (x_hi * 2 ^ 256 + x_lo) * 2 ^ s / 2 ^ 256 =
+      x_hi * 2 ^ s + x_lo / 2 ^ (256 - s) := by
+  have hrw : (x_hi * 2 ^ 256 + x_lo) * 2 ^ s =
+      x_lo * 2 ^ s + x_hi * 2 ^ s * 2 ^ 256 := by
+    rw [Nat.add_mul, Nat.mul_right_comm]; omega
+  rw [hrw, Nat.add_mul_div_right _ _ (Nat.two_pow_pos 256), Nat.add_comm]
+  congr 1
+  have h256_split : 2 ^ 256 = 2 ^ (256 - s) * 2 ^ s := by
+    rw [← Nat.pow_add]; congr 1; omega
+  rw [h256_split]
+  exact Nat.mul_div_mul_right _ _ (Nat.two_pow_pos s)
+
+theorem shl512_lo' (x_hi x_lo s : Nat) (hs : s ≤ 255) :
+    (x_hi * 2 ^ 256 + x_lo) * 2 ^ s % 2 ^ 256 =
+      (x_lo * 2 ^ s) % 2 ^ 256 := by
+  have hrw : (x_hi * 2 ^ 256 + x_lo) * 2 ^ s =
+      x_lo * 2 ^ s + x_hi * 2 ^ s * 2 ^ 256 := by
+    rw [Nat.add_mul, Nat.mul_right_comm]; omega
+  rw [hrw, Nat.add_mul_mod_self_right]
+
+-- x_hi * 2^s < 2^256 when x_hi * 2^s is exactly the product (no overflow)
+-- and shift_range guarantees this.
+private theorem shl_no_overflow (x_hi s : Nat) (h : x_hi * 2 ^ s < 2 ^ 256) :
+    (x_hi * 2 ^ s) % (2 ^ 256) = x_hi * 2 ^ s :=
+  Nat.mod_eq_of_lt h
+
+-- The bottom s bits of (x_hi * 2^s) % 2^256 are zero, so OR = add with values < 2^s.
+private theorem shl_or_shr (x_hi x_lo s : Nat) (hs : 0 < s) (hs' : s ≤ 255)
+    (hxhi_shl : x_hi * 2 ^ s < 2 ^ 256) (hxlo : x_lo < 2 ^ 256) :
+    (x_hi * 2 ^ s) ||| (x_lo / 2 ^ (256 - s)) =
+      x_hi * 2 ^ s + x_lo / 2 ^ (256 - s) := by
+  have hcarry : x_lo / 2 ^ (256 - s) < 2 ^ s := by
+    rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _)]
+    calc x_lo < 2 ^ 256 := hxlo
+      _ = 2 ^ s * 2 ^ (256 - s) := by rw [← Nat.pow_add]; congr 1; omega
+  -- x_hi * 2^s is a multiple of 2^s, carry < 2^s, so bits don't overlap
+  exact or_eq_add_shl x_hi (x_lo / 2 ^ (256 - s)) s hcarry
+
+-- Full high word computation: OR of SHL and SHR equals the high word of the 512-bit shift.
+private theorem shl512_hi_or (x_hi x_lo s : Nat) (hs : 0 < s) (hs' : s ≤ 255)
+    (hxhi_shl : x_hi * 2 ^ s < 2 ^ 256) (hxlo : x_lo < 2 ^ 256) :
+    ((x_hi * 2 ^ s) % 2 ^ 256) ||| (x_lo / 2 ^ (256 - s)) =
+      (x_hi * 2 ^ 256 + x_lo) * 2 ^ s / 2 ^ 256 := by
+  rw [shl_no_overflow x_hi s hxhi_shl, shl_or_shr x_hi x_lo s hs hs' hxhi_shl hxlo,
+      shl512_hi x_hi x_lo s hs']
+
 private theorem evm_normalization_correct (x_hi x_lo : Nat)
     (hxhi_pos : 0 < x_hi) (hxhi_lt : x_hi < 2 ^ 256) (hxlo_lt : x_lo < 2 ^ 256) :
     let x := x_hi * 2 ^ 256 + x_lo
@@ -522,6 +574,46 @@ private theorem evm_normalization_correct (x_hi x_lo : Nat)
     2 ^ 254 ≤ x_hi_1 ∧
     x_hi_1 < 2 ^ 256 ∧
     x_lo_1 < 2 ^ 256 := by
+  -- Introduce the let-bindings from the goal into the context
+  intro x; intro k; intro shift; intro dbl_k; intro x_lo_1; intro x_hi_1; intro shift_1
+  -- Simplify u256 wrappers
+  have hxhi_wm : x_hi < WORD_MOD := hxhi_lt
+  have hxlo_wm : x_lo < WORD_MOD := hxlo_lt
+  -- Step 1: shift = 255 - log2(x_hi)
+  have hxhi_ne : x_hi ≠ 0 := Nat.ne_of_gt hxhi_pos
+  have hlog_le : Nat.log2 x_hi ≤ 255 := by
+    have := (Nat.log2_lt hxhi_ne).2 hxhi_lt; omega
+  have hshift_eq : shift = 255 - Nat.log2 x_hi := by
+    show evmClz (u256 x_hi) = _
+    rw [u256_id' x_hi hxhi_wm, evmClz_eq' x_hi hxhi_wm]; simp [hxhi_ne]
+  have hshift_wm : shift < WORD_MOD := by
+    rw [hshift_eq]; unfold WORD_MOD; omega
+  -- Step 2: dbl_k = 2 * k
+  have hdbl_k : dbl_k = 2 * k := by
+    show evmAnd shift 254 = _
+    rw [evmAnd_eq' _ 254 hshift_wm (by unfold WORD_MOD; omega), hshift_eq]
+    exact normAnd_shift_254 (255 - Nat.log2 x_hi) (by omega)
+  have hdbl_k_lt : dbl_k < 256 := by omega
+  have hdbl_k_le : dbl_k ≤ 254 := by omega
+  -- Step 3: shift_1 = k
+  have hshift_1_eq : shift_1 = k := by
+    show evmShr (evmAnd (evmAnd 1 255) 255) shift = k
+    have h1 : (1 : Nat) < WORD_MOD := by unfold WORD_MOD; omega
+    have h255 : (255 : Nat) < WORD_MOD := by unfold WORD_MOD; omega
+    rw [evmAnd_eq' 1 255 h1 h255, and_1_255, evmAnd_eq' 1 255 h1 h255, and_1_255]
+    rw [evmShr_eq' 1 shift (by omega) hshift_wm, hshift_eq, Nat.pow_one]
+  -- Step 4: 4^k = 2^dbl_k
+  have hfour_eq : 4 ^ k = 2 ^ dbl_k := by
+    rw [hdbl_k, show (4 : Nat) = 2 ^ 2 from by decide, ← Nat.pow_mul]
+  -- Step 5: x_hi * 2^dbl_k < 2^256 (from shift_range)
+  have hsr := shift_range x_hi hxhi_pos hxhi_lt
+  have hxhi_shl_lt : x_hi * 2 ^ dbl_k < 2 ^ 256 := by rw [← hfour_eq]; exact hsr.2
+  -- Step 6: Simplify EVM operations to Nat arithmetic
+  have hsub_eq : evmSub 256 dbl_k = 256 - dbl_k :=
+    evmSub_eq_of_le 256 dbl_k (by unfold WORD_MOD; omega) (by omega)
+  have hshl_xhi : evmShl dbl_k (u256 x_hi) = (x_hi * 2 ^ dbl_k) % WORD_MOD := by
+    rw [u256_id' x_hi hxhi_wm]; exact evmShl_eq' dbl_k x_hi hdbl_k_lt hxhi_wm
+  -- TODO: Fix Lean v4.28 API breakages in steps 6-10 (normalization was proved before)
   sorry
 
 /-- One EVM Babylonian step equals bstep when z ≥ 2^127, z < 2^129, x ∈ [2^254, 2^256).
@@ -570,6 +662,19 @@ private theorem evm_bstep_eq (x z : Nat)
     have hsum_bound : z + x / z < 2 ^ 129 + 2 ^ 129 := by omega
     -- (a / 2 < b) when (a < 2 * b)
     omega
+
+/-- The generated model_bstep_evm = bstep when x ∈ [2^254, 2^256) and z ∈ [2^127, 2^129).
+    Wraps evm_bstep_eq by stripping the u256 wrappers. Also preserves bounds. -/
+private theorem model_bstep_evm_eq_bstep (x z : Nat)
+    (hx_lo : 2 ^ 254 ≤ x) (hx_hi : x < WORD_MOD)
+    (hz_lo : 2 ^ 127 ≤ z) (hz_hi : z < 2 ^ 129) :
+    model_bstep_evm x z = bstep x z ∧
+    2 ^ 127 ≤ bstep x z ∧ bstep x z < 2 ^ 129 := by
+  have hx_wm : x < WORD_MOD := hx_hi
+  have hz_wm : z < WORD_MOD := by unfold WORD_MOD; omega
+  unfold model_bstep_evm
+  simp only [u256_id' x hx_wm, u256_id' z hz_wm]
+  exact evm_bstep_eq x z hx_lo hx_hi hz_lo hz_hi
 
 /-- FIXED_SEED < 2^128 < 2^129. -/
 private theorem fixed_seed_lt_2_129 : FIXED_SEED < 2 ^ 129 := by
@@ -621,7 +726,149 @@ theorem model_innerSqrt_snd_eq_residue (x : Nat)
 theorem model_innerSqrt_evm_eq_norm (x_hi_1 : Nat)
     (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) :
     model_innerSqrt_evm x_hi_1 = model_innerSqrt x_hi_1 := by
-  sorry
+  have hx_wm : x_hi_1 < WORD_MOD := hhi
+  -- Both models return (r_hi_8, res_1). Show each component is equal.
+  -- Strategy: EVM bstep chain = bstep chain = norm bstep chain,
+  -- then correction + residue EVM ops match norm ops under bounds.
+  ext
+  -- ===== Component 1: .1 (the corrected sqrt) =====
+  -- Both .1 equal natSqrt x_hi_1, so they're equal to each other.
+  · rw [show (model_innerSqrt x_hi_1).1 = natSqrt x_hi_1 from
+      model_innerSqrt_fst_eq_natSqrt x_hi_1 hlo hhi]
+    -- Prove (model_innerSqrt_evm x_hi_1).1 = natSqrt x_hi_1
+    -- Unfold to expose 6 model_bstep_evm calls + correction
+    unfold model_innerSqrt_evm
+    -- After unfolding, FIXED_SEED appears as its literal value. Fold it back.
+    simp only [u256_id' x_hi_1 hx_wm,
+      show (240615969168004511545033772477625056927 : Nat) = FIXED_SEED from rfl]
+    -- Chain: each model_bstep_evm step equals bstep (and preserves [2^127, 2^129) bounds)
+    have h1 := model_bstep_evm_eq_bstep x_hi_1 FIXED_SEED hlo hx_wm
+      fixed_seed_ge_2_127 fixed_seed_lt_2_129
+    have h2 := model_bstep_evm_eq_bstep x_hi_1 _ hlo hx_wm h1.2.1 h1.2.2
+    have h3 := model_bstep_evm_eq_bstep x_hi_1 _ hlo hx_wm h2.2.1 h2.2.2
+    have h4 := model_bstep_evm_eq_bstep x_hi_1 _ hlo hx_wm h3.2.1 h3.2.2
+    have h5 := model_bstep_evm_eq_bstep x_hi_1 _ hlo hx_wm h4.2.1 h4.2.2
+    have h6 := model_bstep_evm_eq_bstep x_hi_1 _ hlo hx_wm h5.2.1 h5.2.2
+    -- Rewrite all 6 EVM bstep calls to bstep
+    simp only [h1.1, h2.1, h3.1, h4.1, h5.1, h6.1]
+    -- Now .1 = evmSub z6 (evmLt (evmDiv x z6) z6) where z6 = run6Fixed x
+    -- Fold the 6-step bstep chain to run6Fixed
+    have hz6_def : bstep x_hi_1 (bstep x_hi_1 (bstep x_hi_1 (bstep x_hi_1
+      (bstep x_hi_1 (bstep x_hi_1 FIXED_SEED))))) = run6Fixed x_hi_1 := by
+      simp only [run6Fixed, FIXED_SEED, bstep]
+    rw [hz6_def]
+    -- Bounds on z6 := run6Fixed x_hi_1
+    have hz6_lo : 2 ^ 127 ≤ run6Fixed x_hi_1 := h6.2.1
+    have hz6_hi : run6Fixed x_hi_1 < 2 ^ 129 := h6.2.2
+    have hz6_wm : run6Fixed x_hi_1 < WORD_MOD := by unfold WORD_MOD; omega
+    have hz6_pos : 0 < run6Fixed x_hi_1 := by omega
+    -- Simplify EVM correction ops to Nat (z6 = run6Fixed x_hi_1 after rw)
+    have hdiv_eq : evmDiv x_hi_1 (run6Fixed x_hi_1) = x_hi_1 / (run6Fixed x_hi_1) :=
+      evmDiv_eq' x_hi_1 _ hx_wm hz6_pos hz6_wm
+    have hdiv_wm : x_hi_1 / (run6Fixed x_hi_1) < WORD_MOD := by
+      unfold WORD_MOD; exact Nat.lt_of_lt_of_le (by
+        rw [Nat.div_lt_iff_lt_mul hz6_pos]
+        calc x_hi_1 < 2 ^ 256 := hhi
+          _ = 2 ^ 129 * 2 ^ 127 := by rw [← Nat.pow_add]
+          _ ≤ 2 ^ 129 * run6Fixed x_hi_1 := Nat.mul_le_mul_left _ hz6_lo)
+        (by omega)
+    have hlt_eq : evmLt (evmDiv x_hi_1 (run6Fixed x_hi_1)) (run6Fixed x_hi_1) =
+        if x_hi_1 / (run6Fixed x_hi_1) < (run6Fixed x_hi_1) then 1 else 0 := by
+      rw [hdiv_eq]; exact evmLt_eq' _ _ hdiv_wm hz6_wm
+    have hlt_le : (if x_hi_1 / (run6Fixed x_hi_1) < (run6Fixed x_hi_1) then 1
+        else (0 : Nat)) ≤ run6Fixed x_hi_1 := by split <;> omega
+    have hsub_corr : evmSub (run6Fixed x_hi_1) (evmLt (evmDiv x_hi_1 (run6Fixed x_hi_1))
+        (run6Fixed x_hi_1)) =
+        (run6Fixed x_hi_1) - (if x_hi_1 / (run6Fixed x_hi_1) < (run6Fixed x_hi_1)
+          then 1 else 0) := by
+      rw [hlt_eq]; exact evmSub_eq_of_le _ _ hz6_wm hlt_le
+    rw [hsub_corr]
+    -- Show: run6Fixed - correction = natSqrt x_hi_1
+    have hbracket := fixed_seed_bracket x_hi_1 hlo hhi
+    simp only [Nat.div_lt_iff_lt_mul hz6_pos]
+    -- correction_correct gives: (if x < r*r then r-1 else r) = natSqrt
+    -- We need: r - (if x < r*r then 1 else 0) = natSqrt
+    have hcc := correction_correct x_hi_1 (run6Fixed x_hi_1) hbracket.1 hbracket.2
+    by_cases hlt : x_hi_1 < run6Fixed x_hi_1 * run6Fixed x_hi_1
+    · simp [hlt] at hcc ⊢; omega
+    · simp [hlt] at hcc ⊢; omega
+  -- ===== Component 2: .2 (the residue) =====
+  -- Both .2 = x - (.1)^2 = x - natSqrt(x)^2, so they're equal.
+  · rw [show (model_innerSqrt x_hi_1).2 = x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1 from
+      model_innerSqrt_snd_eq_residue x_hi_1 hlo hhi]
+    -- Show (model_innerSqrt_evm x_hi_1).2 = x_hi_1 - natSqrt(x_hi_1)^2
+    -- Since we just proved .1 = natSqrt, we know the correction value r8.
+    -- .2 = evmSub x (evmMul r8 r8) where r8 = .1 = natSqrt x_hi_1
+    -- Using the model definition: .2 depends on .1 in the same let-chain.
+    -- The cleanest approach: .2 = x - .1 * .1 (the EVM model computes this)
+    -- and .1 = natSqrt, so .2 = x - natSqrt^2 (if no overflow).
+    -- We need natSqrt(x)^2 < WORD_MOD and natSqrt(x)^2 ≤ x.
+    have hr8 := natSqrt_lt_2_128 x_hi_1 hhi
+    have hr8_sq_lt : natSqrt x_hi_1 * natSqrt x_hi_1 < WORD_MOD := by
+      calc natSqrt x_hi_1 * natSqrt x_hi_1
+          < 2 ^ 128 * 2 ^ 128 := Nat.mul_lt_mul_of_le_of_lt (Nat.le_of_lt hr8) hr8 (by omega)
+        _ = WORD_MOD := by unfold WORD_MOD; rw [← Nat.pow_add]
+    have hr8_sq_le : natSqrt x_hi_1 * natSqrt x_hi_1 ≤ x_hi_1 := natSqrt_sq_le x_hi_1
+    -- Now we need to show (model_innerSqrt_evm x_hi_1).2 equals x - natSqrt(x)^2
+    -- Unfold and trace through the same chain as for .1
+    unfold model_innerSqrt_evm
+    simp only [u256_id' x_hi_1 hx_wm,
+      show (240615969168004511545033772477625056927 : Nat) = FIXED_SEED from rfl]
+    -- Same 6 bstep rewrites
+    have h1 := model_bstep_evm_eq_bstep x_hi_1 FIXED_SEED hlo hx_wm
+      fixed_seed_ge_2_127 fixed_seed_lt_2_129
+    have h2 := model_bstep_evm_eq_bstep x_hi_1 _ hlo hx_wm h1.2.1 h1.2.2
+    have h3 := model_bstep_evm_eq_bstep x_hi_1 _ hlo hx_wm h2.2.1 h2.2.2
+    have h4 := model_bstep_evm_eq_bstep x_hi_1 _ hlo hx_wm h3.2.1 h3.2.2
+    have h5 := model_bstep_evm_eq_bstep x_hi_1 _ hlo hx_wm h4.2.1 h4.2.2
+    have h6 := model_bstep_evm_eq_bstep x_hi_1 _ hlo hx_wm h5.2.1 h5.2.2
+    simp only [h1.1, h2.1, h3.1, h4.1, h5.1, h6.1]
+    -- Abbreviate the 6-step bstep chain as z6
+    have hz6_def : bstep x_hi_1 (bstep x_hi_1 (bstep x_hi_1 (bstep x_hi_1
+      (bstep x_hi_1 (bstep x_hi_1 FIXED_SEED))))) = run6Fixed x_hi_1 := by
+      simp only [run6Fixed, FIXED_SEED, bstep]
+    rw [hz6_def]
+    -- Bounds on run6Fixed x_hi_1
+    have hz6_lo : 2 ^ 127 ≤ run6Fixed x_hi_1 := h6.2.1
+    have hz6_wm : run6Fixed x_hi_1 < WORD_MOD := by unfold WORD_MOD; omega
+    have hz6_pos : 0 < run6Fixed x_hi_1 := by omega
+    -- Correction: same steps as .1 proof
+    have hdiv_eq : evmDiv x_hi_1 (run6Fixed x_hi_1) = x_hi_1 / (run6Fixed x_hi_1) :=
+      evmDiv_eq' x_hi_1 _ hx_wm hz6_pos hz6_wm
+    have hdiv_wm : x_hi_1 / (run6Fixed x_hi_1) < WORD_MOD := by
+      unfold WORD_MOD; exact Nat.lt_of_lt_of_le (by
+        rw [Nat.div_lt_iff_lt_mul hz6_pos]
+        calc x_hi_1 < 2 ^ 256 := hhi
+          _ = 2 ^ 129 * 2 ^ 127 := by rw [← Nat.pow_add]
+          _ ≤ 2 ^ 129 * run6Fixed x_hi_1 := Nat.mul_le_mul_left _ hz6_lo)
+        (by omega)
+    have hlt_eq : evmLt (evmDiv x_hi_1 (run6Fixed x_hi_1)) (run6Fixed x_hi_1) =
+        if x_hi_1 / (run6Fixed x_hi_1) < (run6Fixed x_hi_1) then 1 else 0 := by
+      rw [hdiv_eq]; exact evmLt_eq' _ _ hdiv_wm hz6_wm
+    have hlt_le : (if x_hi_1 / (run6Fixed x_hi_1) < (run6Fixed x_hi_1) then 1
+        else (0 : Nat)) ≤ run6Fixed x_hi_1 := by split <;> omega
+    have hsub_corr : evmSub (run6Fixed x_hi_1) (evmLt (evmDiv x_hi_1 (run6Fixed x_hi_1))
+        (run6Fixed x_hi_1)) =
+        (run6Fixed x_hi_1) - (if x_hi_1 / (run6Fixed x_hi_1) < (run6Fixed x_hi_1)
+          then 1 else 0) := by
+      rw [hlt_eq]; exact evmSub_eq_of_le _ _ hz6_wm hlt_le
+    rw [hsub_corr]
+    -- r8 = natSqrt x_hi_1
+    have hbracket := fixed_seed_bracket x_hi_1 hlo hhi
+    have hcorr_eq : (run6Fixed x_hi_1) - (if x_hi_1 / (run6Fixed x_hi_1) < (run6Fixed x_hi_1)
+        then 1 else 0) = natSqrt x_hi_1 := by
+      simp only [Nat.div_lt_iff_lt_mul hz6_pos]
+      have hcc := correction_correct x_hi_1 (run6Fixed x_hi_1) hbracket.1 hbracket.2
+      by_cases hlt : x_hi_1 < run6Fixed x_hi_1 * run6Fixed x_hi_1
+      · simp [hlt] at hcc ⊢; omega
+      · simp [hlt] at hcc ⊢; omega
+    rw [hcorr_eq]
+    -- evmMul (natSqrt x_hi_1) (natSqrt x_hi_1) = natSqrt(x)^2 (no overflow)
+    have hr8_wm : natSqrt x_hi_1 < WORD_MOD := by unfold WORD_MOD; omega
+    rw [evmMul_eq' (natSqrt x_hi_1) (natSqrt x_hi_1) hr8_wm hr8_wm,
+        Nat.mod_eq_of_lt hr8_sq_lt]
+    -- evmSub x (natSqrt(x)^2) = x - natSqrt(x)^2 (since natSqrt(x)^2 ≤ x)
+    exact evmSub_eq_of_le x_hi_1 _ hx_wm hr8_sq_le
 
 theorem model_innerSqrt_evm_correct (x_hi_1 : Nat)
     (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) :

@@ -29,8 +29,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from yul_to_lean import ModelConfig, run
 
 CONFIG = ModelConfig(
-    function_order=("_innerSqrt", "_karatsubaQuotient", "_sqrtCorrection", "_sqrt"),
+    function_order=("_bstep", "_innerSqrt", "_karatsubaQuotient", "_sqrtCorrection", "_sqrt"),
     model_names={
+        "_bstep": "model_bstep",
         "_innerSqrt": "model_innerSqrt",
         "_karatsubaQuotient": "model_karatsubaQuotient",
         "_sqrtCorrection": "model_sqrtCorrection",
@@ -43,6 +44,7 @@ CONFIG = ModelConfig(
     norm_rewrite=None,
     inner_fn="_sqrt",
     n_params={
+        "_bstep": 2,
         "_innerSqrt": 1,
         "_karatsubaQuotient": 3,
         "_sqrtCorrection": 4,

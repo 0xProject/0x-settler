@@ -1707,21 +1707,28 @@ library Lib512MathArithmetic {
     /// is correct, but duplicates the normalization that we just did above and performs a
     /// more-costly initialization step. solc is not smart enough to optimize this away, so
     /// we inline and do it ourselves.
-    function _innerSqrt(uint256 x_hi) private pure returns (uint256 r_hi, uint256 res) {
+    /// @dev One Babylonian step: floor((r + x/r) / 2)
+    function _bstep(uint256 x, uint256 r) private pure returns (uint256 r_out) {
         assembly ("memory-safe") {
-            // Seed with √(2²⁵⁵), the geometric mean of the normalized √x_hi range [2¹²⁷,
-            // 2¹²⁸). This balances worst-case over/underestimate (ε ≈ ±0.414/0.293), giving
-            // >128 bits of precision in 6 Babylonian steps
-            r_hi := 0xb504f333f9de6484597d89b3754abe9f
+            r_out := shr(0x01, add(r, div(x, r)))
+        }
+    }
 
-            // 6 Babylonian steps is sufficient for convergence
-            r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-            r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-            r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-            r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-            r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-            r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
+    function _innerSqrt(uint256 x_hi) private pure returns (uint256 r_hi, uint256 res) {
+        // Seed with √(2²⁵⁵), the geometric mean of the normalized √x_hi range [2¹²⁷,
+        // 2¹²⁸). This balances worst-case over/underestimate (ε ≈ ±0.414/0.293), giving
+        // >128 bits of precision in 6 Babylonian steps
+        r_hi = 0xb504f333f9de6484597d89b3754abe9f;
 
+        // 6 Babylonian steps is sufficient for convergence
+        r_hi = _bstep(x_hi, r_hi);
+        r_hi = _bstep(x_hi, r_hi);
+        r_hi = _bstep(x_hi, r_hi);
+        r_hi = _bstep(x_hi, r_hi);
+        r_hi = _bstep(x_hi, r_hi);
+        r_hi = _bstep(x_hi, r_hi);
+
+        assembly ("memory-safe") {
             // The Babylonian step can oscillate between ⌊√x_hi⌋ and ⌈√x_hi⌉. Clean that up.
             r_hi := sub(r_hi, lt(div(x_hi, r_hi), r_hi))
 
