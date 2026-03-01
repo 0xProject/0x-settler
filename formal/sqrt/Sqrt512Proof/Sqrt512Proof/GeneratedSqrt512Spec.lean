@@ -59,12 +59,18 @@ private def fd4_254 : Nat := nextD lo254 fd3_254
 private def fd5_254 : Nat := nextD lo254 fd4_254
 private def fd6_254 : Nat := nextD lo254 fd5_254
 
-private theorem fd6_254_le_one : fd6_254 ≤ 1 := by native_decide
-private theorem fd1_254_le_lo : fd1_254 ≤ lo254 := by native_decide
-private theorem fd2_254_le_lo : fd2_254 ≤ lo254 := by native_decide
-private theorem fd3_254_le_lo : fd3_254 ≤ lo254 := by native_decide
-private theorem fd4_254_le_lo : fd4_254 ≤ lo254 := by native_decide
-private theorem fd5_254_le_lo : fd5_254 ≤ lo254 := by native_decide
+set_option maxRecDepth 100000 in
+private theorem fd6_254_le_one : fd6_254 ≤ 1 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd1_254_le_lo : fd1_254 ≤ lo254 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd2_254_le_lo : fd2_254 ≤ lo254 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd3_254_le_lo : fd3_254 ≤ lo254 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd4_254_le_lo : fd4_254 ≤ lo254 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd5_254_le_lo : fd5_254 ≤ lo254 := by decide
 private theorem lo254_pos : 0 < lo254 := lo_pos ⟨254, by omega⟩
 
 private theorem run6Fixed_error_254
@@ -116,12 +122,18 @@ private def fd4_255 : Nat := nextD lo255 fd3_255
 private def fd5_255 : Nat := nextD lo255 fd4_255
 private def fd6_255 : Nat := nextD lo255 fd5_255
 
-private theorem fd6_255_le_one : fd6_255 ≤ 1 := by native_decide
-private theorem fd1_255_le_lo : fd1_255 ≤ lo255 := by native_decide
-private theorem fd2_255_le_lo : fd2_255 ≤ lo255 := by native_decide
-private theorem fd3_255_le_lo : fd3_255 ≤ lo255 := by native_decide
-private theorem fd4_255_le_lo : fd4_255 ≤ lo255 := by native_decide
-private theorem fd5_255_le_lo : fd5_255 ≤ lo255 := by native_decide
+set_option maxRecDepth 100000 in
+private theorem fd6_255_le_one : fd6_255 ≤ 1 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd1_255_le_lo : fd1_255 ≤ lo255 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd2_255_le_lo : fd2_255 ≤ lo255 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd3_255_le_lo : fd3_255 ≤ lo255 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd4_255_le_lo : fd4_255 ≤ lo255 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd5_255_le_lo : fd5_255 ≤ lo255 := by decide
 private theorem lo255_pos : 0 < lo255 := lo_pos ⟨255, by omega⟩
 
 private theorem run6Fixed_error_255
@@ -277,16 +289,17 @@ private theorem normFloor_correction (x z : Nat) (hz : 0 < z) :
 -- Section 5b: Constant-folding and bitwise helpers
 -- ============================================================================
 
+set_option maxRecDepth 4096 in
 /-- For n < 256, n &&& 254 clears bit 0, giving 2*(n/2). -/
 private theorem and_254_eq : ∀ n : Fin 256, (n.val &&& 254) = 2 * (n.val / 2) := by
-  native_decide
+  decide
 
 private theorem normAnd_shift_254 (n : Nat) (hn : n < 256) :
     n &&& 254 = 2 * (n / 2) :=
   and_254_eq ⟨n, hn⟩
 
-private theorem and_1_255 : (1 : Nat) &&& (255 : Nat) = 1 := by native_decide
-private theorem and_128_255 : (128 : Nat) &&& (255 : Nat) = 128 := by native_decide
+private theorem and_1_255 : (1 : Nat) &&& (255 : Nat) = 1 := by decide
+private theorem and_128_255 : (128 : Nat) &&& (255 : Nat) = 128 := by decide
 
 /-- Bitwise OR equals addition when bits don't overlap.
     Uses Nat.shiftLeft_add_eq_or_of_lt from Init. -/
@@ -480,7 +493,7 @@ private theorem div_of_mul_add (d q r : Nat) (hd : 0 < d) :
       Nat.add_mul_div_right r q hd, Nat.add_comm]
 
 /-- Euclidean mod after recomposition: (d*q + r) % d = r % d -/
-private theorem mod_of_mul_add (d q r : Nat) (hd : 0 < d) :
+private theorem mod_of_mul_add (d q r : Nat) :
     (d * q + r) % d = r % d := by
   rw [show d * q + r = r + q * d from by rw [Nat.mul_comm, Nat.add_comm]]
   exact Nat.add_mul_mod_self_right r q d
@@ -557,7 +570,7 @@ theorem shl512_hi (x_hi x_lo s : Nat) (hs : s ≤ 255) :
   rw [h256_split]
   exact Nat.mul_div_mul_right _ _ (Nat.two_pow_pos s)
 
-theorem shl512_lo' (x_hi x_lo s : Nat) (hs : s ≤ 255) :
+theorem shl512_lo' (x_hi x_lo s : Nat) :
     (x_hi * 2 ^ 256 + x_lo) * 2 ^ s % 2 ^ 256 =
       (x_lo * 2 ^ s) % 2 ^ 256 := by
   have hrw : (x_hi * 2 ^ 256 + x_lo) * 2 ^ s =
@@ -573,7 +586,7 @@ private theorem shl_no_overflow (x_hi s : Nat) (h : x_hi * 2 ^ s < 2 ^ 256) :
 
 -- The bottom s bits of (x_hi * 2^s) % 2^256 are zero, so OR = add with values < 2^s.
 private theorem shl_or_shr (x_hi x_lo s : Nat) (hs : 0 < s) (hs' : s ≤ 255)
-    (hxhi_shl : x_hi * 2 ^ s < 2 ^ 256) (hxlo : x_lo < 2 ^ 256) :
+    (hxlo : x_lo < 2 ^ 256) :
     (x_hi * 2 ^ s) ||| (x_lo / 2 ^ (256 - s)) =
       x_hi * 2 ^ s + x_lo / 2 ^ (256 - s) := by
   have hcarry : x_lo / 2 ^ (256 - s) < 2 ^ s := by
@@ -588,7 +601,7 @@ private theorem shl512_hi_or (x_hi x_lo s : Nat) (hs : 0 < s) (hs' : s ≤ 255)
     (hxhi_shl : x_hi * 2 ^ s < 2 ^ 256) (hxlo : x_lo < 2 ^ 256) :
     ((x_hi * 2 ^ s) % 2 ^ 256) ||| (x_lo / 2 ^ (256 - s)) =
       (x_hi * 2 ^ 256 + x_lo) * 2 ^ s / 2 ^ 256 := by
-  rw [shl_no_overflow x_hi s hxhi_shl, shl_or_shr x_hi x_lo s hs hs' hxhi_shl hxlo,
+  rw [shl_no_overflow x_hi s hxhi_shl, shl_or_shr x_hi x_lo s hs hs' hxlo,
       shl512_hi x_hi x_lo s hs']
 
 private theorem evm_normalization_correct (x_hi x_lo : Nat)
@@ -722,7 +735,7 @@ private theorem evm_normalization_correct (x_hi x_lo : Nat)
     have hxlo1_eq : evmShl dbl_k (u256 x_lo) = x * 4 ^ k % 2 ^ 256 := by
       rw [hshl_xlo]; unfold WORD_MOD
       rw [show x * 4 ^ k = (x_hi * 2 ^ 256 + x_lo) * 2 ^ dbl_k from by rw [← hfour_eq]]
-      exact (shl512_lo' x_hi x_lo dbl_k (by omega)).symm
+      exact (shl512_lo' x_hi x_lo dbl_k).symm
     have hhi_eq : x * 4 ^ k / 2 ^ 256 = x_hi * 2 ^ dbl_k + x_lo / 2 ^ (256 - dbl_k) := by
       rw [show x * 4 ^ k = (x_hi * 2 ^ 256 + x_lo) * 2 ^ dbl_k from by rw [← hfour_eq]]
       exact shl512_hi x_hi x_lo dbl_k (by omega)
@@ -1071,13 +1084,11 @@ private theorem model_karatsubaQuotient_evm_correct
   dsimp only
   -- Step 2: Remove u256 wrappers and simplify EVM operations
   simp only [u256_id' res hres_wm, u256_id' x_lo hxlo_wm, u256_id' r_hi hrhi_wm,
-             hshl_res, hshr_xlo, hd_eq, hn_eq, hc_eq]
+             hshl_res, hshr_xlo, hd_eq, hc_eq]
   -- The goal is now flat with an if on (res / 2^128 ≠ 0)
   split
   · -- CARRY case: res / 2^128 ≠ 0
     next hc_ne =>
-    -- Simplify Prod projections
-    simp only [Prod.fst, Prod.snd]
     -- Simplify evmOr to n_evm (the EVM-computed n, missing one WORD_MOD from n_full)
     have hn_or : evmOr (res % 2 ^ 128 * 2 ^ 128) (x_lo / 2 ^ 128) =
         (res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128 := by
@@ -1216,7 +1227,7 @@ private theorem model_karatsubaQuotient_evm_correct
       rw [hn_full_decomp]; exact div_of_mul_add d _ _ hd_pos
     have hn_mod : n_full % d =
         (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d + (1 + (WORD_MOD - 1) % d)) % d := by
-      rw [hn_full_decomp]; exact mod_of_mul_add d _ _ hd_pos
+      rw [hn_full_decomp]; exact mod_of_mul_add d _ _
     have hn_full_mod_wm : n_full % d < WORD_MOD :=
       Nat.lt_of_lt_of_le (Nat.mod_lt n_full hd_pos) (by unfold WORD_MOD; omega)
     refine ⟨?_, ?_⟩
@@ -1242,7 +1253,7 @@ private theorem model_karatsubaQuotient_evm_correct
       show res * 2 ^ 128 + x_lo / 2 ^ 128 < WORD_MOD
       rw [← hmod_res]; exact hn_evm_lt
     -- Reduce .fst/.snd, rewrite evmOr, simplify evmDiv/evmMod
-    simp only [Prod.fst, Prod.snd, hn_or]
+    simp only [hn_or]
     rw [evmDiv_eq' n_full d hn_full_wm hd_pos hd_wm,
         evmMod_eq' n_full d hn_full_wm hd_pos hd_wm,
         show (2 : Nat) ^ 256 = WORD_MOD from rfl]
@@ -1269,9 +1280,9 @@ private theorem model_sqrtCorrection_evm_correct
   have hrem_129 : rem < 2 ^ 129 := by omega
   have h_wm_sq : WORD_MOD = 2 ^ 128 * 2 ^ 128 := by unfold WORD_MOD; rw [← Nat.pow_add]
   -- Constant-fold: evmAnd(evmAnd(128, 255), 255) = 128
-  have hcf128 : evmAnd (evmAnd 128 255) 255 = 128 := by native_decide
+  have hcf128 : evmAnd (evmAnd 128 255) 255 = 128 := by decide
   -- 340282366920938463463374607431768211455 = 2^128 - 1
-  have hmask : (340282366920938463463374607431768211455 : Nat) = 2 ^ 128 - 1 := by native_decide
+  have hmask : (340282366920938463463374607431768211455 : Nat) = 2 ^ 128 - 1 := by decide
   -- Unfold and inline let-bindings
   unfold model_sqrtCorrection_evm
   dsimp only
@@ -1370,10 +1381,10 @@ private theorem model_sqrtCorrection_evm_correct
     -- evmAnd 1 (if P then 1 else 0) = if P then 1 else 0
     have hand1 : ∀ (n : Nat), n ≤ 1 →
         evmAnd 1 n = n := by
-      intro n hn; rcases Nat.le_one_iff_eq_zero_or_eq_one.mp hn with rfl | rfl <;> native_decide
+      intro n hn; rcases Nat.le_one_iff_eq_zero_or_eq_one.mp hn with rfl | rfl <;> decide
     -- evmOr 0 n = n for n ≤ 1
     have hor0 : ∀ (n : Nat), n ≤ 1 → evmOr 0 n = n := by
-      intro n hn; rcases Nat.le_one_iff_eq_zero_or_eq_one.mp hn with rfl | rfl <;> native_decide
+      intro n hn; rcases Nat.le_one_iff_eq_zero_or_eq_one.mp hn with rfl | rfl <;> decide
     -- Simplify: rem < 2^128 → rem % 2^128 = rem
     have hrem_lt : rem < 2 ^ 128 := by omega
     have hrem_mod : rem % 2 ^ 128 = rem := Nat.mod_eq_of_lt hrem_lt
@@ -1409,7 +1420,7 @@ private theorem model_sqrtCorrection_evm_correct
       intro x; unfold evmAnd u256; simp
     simp only [hand0]
     -- evmOr 1 0 = 1
-    have : evmOr 1 0 = 1 := by native_decide
+    have : evmOr 1 0 = 1 := by decide
     simp only [this]
     -- RHS comparison is true: rem*2^128 + x_lo%2^128 < 2^128*2^128 = 2^256
     have hrem_lt : rem < 2 ^ 128 := by omega
@@ -1442,7 +1453,7 @@ private theorem model_sqrtCorrection_evm_correct
       intro x; unfold evmAnd u256; simp
     simp only [hand0]
     -- evmOr 0 0 = 0
-    have hor00 : evmOr 0 0 = 0 := by native_decide
+    have hor00 : evmOr 0 0 = 0 := by decide
     simp only [hor00]
     -- RHS comparison: rem ≥ 2^128, r_lo < 2^128 → comparison false
     have hrlo_lt : r_lo < 2 ^ 128 := by omega
