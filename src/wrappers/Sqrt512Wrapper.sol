@@ -8,11 +8,10 @@ import {uint512, alloc} from "src/utils/512Math.sol";
 /// appear in the Yul IR. The driver script disambiguates by parameter count.
 contract Sqrt512Wrapper {
     function wrap_sqrt512(uint256 x_hi, uint256 x_lo) external pure returns (uint256) {
-        uint512 x = alloc();
-        assembly ("memory-safe") {
-            mstore(x, x_hi)
-            mstore(add(0x20, x), x_lo)
-        }
-        return x.sqrt();
+        return alloc().from(x_hi, x_lo).sqrt();
+    }
+
+    function wrap_sqrt512Up(uint256 x_hi, uint256 x_lo) external pure returns (uint256, uint256) {
+        return alloc().from(x_hi, x_lo).isqrtUp().into();
     }
 }
