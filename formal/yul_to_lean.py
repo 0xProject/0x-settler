@@ -79,7 +79,7 @@ class FunctionModel:
     fn_name: str
     assignments: tuple[ModelStatement, ...]
     param_names: tuple[str, ...] = ("x",)
-    return_name: str = "z"
+    return_names: tuple[str, ...] = ("z",)
 
 
 # ---------------------------------------------------------------------------
@@ -601,7 +601,7 @@ class YulParser:
 def demangle_var(
     name: str,
     param_vars: list[str],
-    return_var: str,
+    return_vars: list[str] | str,
     *,
     keep_solidity_locals: bool = False,
 ) -> str | None:
@@ -613,12 +613,17 @@ def demangle_var(
     ``param_vars`` is a list of Yul parameter variable names (supports
     multi-parameter functions).
 
+    ``return_vars`` is a list of Yul return variable names (or a single
+    string for backward compatibility with single-return functions).
+
     When *keep_solidity_locals* is True, variables matching the
     ``var_<name>_<digits>`` pattern (compiler representation of
     Solidity-declared locals) are kept in the model even if they are
     not the function parameter or return variable.
     """
-    if name in param_vars or name == return_var:
+    if isinstance(return_vars, str):
+        return_vars = [return_vars]
+    if name in param_vars or name in return_vars:
         m = re.fullmatch(r"var_(\w+?)_\d+", name)
         return m.group(1) if m else name
     if name.startswith("usr$"):
@@ -871,8 +876,8 @@ def yul_function_to_model(
     var_map: dict[str, str] = {}
     subst: dict[str, Expr] = {}
 
-    for name in [*yf.params, yf.ret]:
-        clean = demangle_var(name, yf.params, yf.ret, keep_solidity_locals=keep_solidity_locals)
+    for name in [*yf.params, *yf.rets]:
+        clean = demangle_var(name, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals)
         if clean:
             var_map[name] = clean
 
@@ -924,7 +929,7 @@ def yul_function_to_model(
         """
         expr = substitute_expr(raw_expr, subst)
 
-        clean = demangle_var(target, yf.params, yf.ret, keep_solidity_locals=keep_solidity_locals)
+        clean = demangle_var(target, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals)
         if clean is None:
             if assign_counts[target] > 1 and target not in warned_multi:
                 warned_multi.add(target)
@@ -984,7 +989,7 @@ def yul_function_to_model(
             body_assignments: list[Assignment] = []
             for target, raw_expr in stmt.body:
                 clean = demangle_var(
-                    target, yf.params, yf.ret,
+                    target, yf.params, yf.rets,
                     keep_solidity_locals=keep_solidity_locals,
                 )
                 if clean is not None and clean not in pre_if_names:
@@ -1027,7 +1032,7 @@ def yul_function_to_model(
                 modified_set = set(modified_list)
                 for target_name, _ in stmt.body:
                     c = demangle_var(
-                        target_name, yf.params, yf.ret,
+                        target_name, yf.params, yf.rets,
                         keep_solidity_locals=keep_solidity_locals,
                     )
                     if c is not None and c in modified_set:
@@ -1044,27 +1049,28 @@ def yul_function_to_model(
         raise ParseError(f"No assignments parsed for function {sol_fn_name!r}")
 
     # ------------------------------------------------------------------
-    # Post-build validation: ensure the return variable was recognized.
-    # If demangle_var failed to match the return variable's naming
+    # Post-build validation: ensure the return variable(s) were recognized.
+    # If demangle_var failed to match a return variable's naming
     # pattern, the model would silently lose the output.
     # ------------------------------------------------------------------
-    return_clean = var_map.get(yf.ret)
-    if return_clean is None:
-        raise ParseError(
-            f"Return variable {yf.ret!r} of {sol_fn_name!r} was not "
-            f"recognized as a real variable by demangle_var. The compiler "
-            f"naming convention may have changed. Current patterns: "
-            f"var_<name>_<digits> for param/return, usr$<name> for locals."
-        )
+    return_names_list: list[str] = []
+    for ret_var in yf.rets:
+        return_clean = var_map.get(ret_var)
+        if return_clean is None:
+            raise ParseError(
+                f"Return variable {ret_var!r} of {sol_fn_name!r} was not "
+                f"recognized as a real variable by demangle_var. The compiler "
+                f"naming convention may have changed. Current patterns: "
+                f"var_<name>_<digits> for param/return, usr$<name> for locals."
+            )
+        # Use the final (possibly SSA-renamed) var_map entry.
+        return_names_list.append(var_map[ret_var])
 
-    # param_names was saved before SSA processing; return_name uses
-    # the final (possibly SSA-renamed) var_map entry.
-    return_name = var_map[yf.ret]
     return FunctionModel(
         fn_name=sol_fn_name,
         assignments=tuple(assignments),
         param_names=param_names,
-        return_name=return_name,
+        return_names=tuple(return_names_list),
     )
 
 
@@ -1175,6 +1181,14 @@ def emit_expr(
     if isinstance(expr, Var):
         return expr.name
     if isinstance(expr, Call):
+        # Handle __component_N(call) for multi-return function calls.
+        # Emits Lean tuple projection: (f args).1 for component 0, etc.
+        m = re.fullmatch(r"__component_(\d+)", expr.name)
+        if m and len(expr.args) == 1:
+            idx = int(m.group(1))
+            inner = emit_expr(expr.args[0], op_helper_map=op_helper_map, call_helper_map=call_helper_map)
+            return f"({inner}).{idx + 1}"
+
         helper = op_helper_map.get(expr.name)
         if helper is None:
             helper = call_helper_map.get(expr.name)
@@ -1235,7 +1249,7 @@ def build_model_body(
     evm: bool,
     config: ModelConfig,
     param_names: tuple[str, ...] = ("x",),
-    return_name: str = "z",
+    return_names: tuple[str, ...] = ("z",),
 ) -> str:
     lines: list[str] = []
     norm_helpers = {**_BASE_NORM_HELPERS, **config.extra_norm_ops}
@@ -1288,7 +1302,10 @@ def build_model_body(
         else:
             raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
 
-    lines.append(f"  {return_name}")
+    if len(return_names) == 1:
+        lines.append(f"  {return_names[0]}")
+    else:
+        lines.append(f"  ({', '.join(return_names)})")
     return "\n".join(lines)
 
 
@@ -1300,22 +1317,26 @@ def render_function_defs(models: list[FunctionModel], config: ModelConfig) -> st
         norm_name = model_base
         evm_body = build_model_body(
             model.assignments, evm=True, config=config,
-            param_names=model.param_names, return_name=model.return_name,
+            param_names=model.param_names, return_names=model.return_names,
         )
         norm_body = build_model_body(
             model.assignments, evm=False, config=config,
-            param_names=model.param_names, return_name=model.return_name,
+            param_names=model.param_names, return_names=model.return_names,
         )
 
         param_sig = " ".join(f"{p}" for p in model.param_names)
+        if len(model.return_names) == 1:
+            ret_type = "Nat"
+        else:
+            ret_type = " × ".join("Nat" for _ in model.return_names)
         parts.append(
             f"/-- Opcode-faithful auto-generated model of `{model.fn_name}` with uint256 EVM semantics. -/\n"
-            f"def {evm_name} ({param_sig} : Nat) : Nat :=\n"
+            f"def {evm_name} ({param_sig} : Nat) : {ret_type} :=\n"
             f"{evm_body}\n"
         )
         parts.append(
             f"/-- Normalized auto-generated model of `{model.fn_name}` on Nat arithmetic. -/\n"
-            f"def {norm_name} ({param_sig} : Nat) : Nat :=\n"
+            f"def {norm_name} ({param_sig} : Nat) : {ret_type} :=\n"
             f"{norm_body}\n"
         )
     return "\n".join(parts)

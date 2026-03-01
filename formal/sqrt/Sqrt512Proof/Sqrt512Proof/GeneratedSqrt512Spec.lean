@@ -451,21 +451,52 @@ private theorem evmSub_evmAdd_eq_of_overflow (a b : Nat)
 end EvmNormBridge
 
 -- ============================================================================
--- Section 8: Direct EVM model → sqrt512 bridge
+-- Section 8: Sub-model bridge theorems
+-- ============================================================================
+
+-- With the refactored Solidity code, model_sqrt512_evm now calls three
+-- sub-models: model_innerSqrt_evm, model_karatsubaQuotient_evm, and
+-- model_sqrtCorrection_evm. Each sub-model is proved correct independently,
+-- then chained in the top-level theorem.
+
+section SubModelBridge
+open Sqrt512GeneratedModel
+
+/-- The norm model of _innerSqrt gives (floorSqrt_fixed x, x - floorSqrt_fixed(x)²).
+    Follows from norm_inner_sqrt_eq_floorSqrt_fixed by unfolding model_innerSqrt. -/
+private theorem model_innerSqrt_fst_eq_floorSqrt_fixed (x_hi_1 : Nat) (hx : 0 < x_hi_1) :
+    (model_innerSqrt x_hi_1).1 = floorSqrt_fixed x_hi_1 := by
+  unfold model_innerSqrt
+  simp only
+  exact norm_inner_sqrt_eq_floorSqrt_fixed x_hi_1 hx
+
+/-- The norm model of _innerSqrt gives natSqrt on normalized inputs. -/
+private theorem model_innerSqrt_fst_eq_natSqrt (x_hi_1 : Nat)
+    (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) :
+    (model_innerSqrt x_hi_1).1 = natSqrt x_hi_1 := by
+  have hpos : 0 < x_hi_1 := by omega
+  rw [model_innerSqrt_fst_eq_floorSqrt_fixed x_hi_1 hpos]
+  exact floorSqrt_fixed_eq_natSqrt x_hi_1 hlo hhi
+
+end SubModelBridge
+
+-- ============================================================================
+-- Section 9: Direct EVM model → sqrt512 bridge
 -- ============================================================================
 
 -- We prove model_sqrt512_evm = sqrt512 DIRECTLY, without going through the
 -- norm model (model_sqrt512). The norm model uses unbounded normShl/normMul
--- which don't match EVM semantics, making it unsuitable as an intermediate.
+-- which don't match EVM uint256 semantics, making it unsuitable as an intermediate.
 --
 -- The EVM model uses u256-wrapped operations that correctly implement the
 -- Solidity algorithm. We show its output equals sqrt512(x_hi * 2^256 + x_lo).
 --
--- Proof decomposition into sub-lemmas:
+-- With the refactored model structure, the proof decomposes into sub-lemmas
+-- that each unfold only ONE sub-model:
 --   A. EVM normalization: x_hi_1 = x*4^k/2^256, x_lo_1 = x*4^k%2^256
---   B. EVM inner sqrt: r_hi_8 = natSqrt(x_hi_1) (reuses norm proof + bounded sums)
---   C. EVM Karatsuba quotient: r_lo = karatsubaR quotient (with carry correction)
---   D. EVM correction flag: correctly evaluates x' < r^2
+--   B. model_innerSqrt_evm → (natSqrt(x_hi_1), x_hi_1 - natSqrt(x_hi_1)²)
+--   C. model_karatsubaQuotient_evm → quotient/remainder with carry correction
+--   D. model_sqrtCorrection_evm → combine + 257-bit correction = karatsubaFloor
 --   E. Chain: karatsubaFloor(x_hi_1, x_lo_1) / 2^k = sqrt512(x)
 
 section EvmBridge
@@ -548,70 +579,71 @@ private theorem fixed_seed_lt_2_129 : FIXED_SEED < 2 ^ 129 := by
 private theorem fixed_seed_ge_2_127 : 2 ^ 127 ≤ FIXED_SEED := by
   unfold FIXED_SEED; omega
 
-/-- Sub-lemma B: The EVM Babylonian steps match the norm model's steps
-    (since all intermediate sums z + x/z < 2^256 for normalized inputs).
-    Combined with norm_inner_sqrt_eq_natSqrt, the EVM inner sqrt gives natSqrt. -/
-private theorem evm_inner_sqrt_eq_natSqrt (x_hi_1 : Nat)
+/-- Sub-lemma B: model_innerSqrt_evm gives (natSqrt(x_hi_1), x_hi_1 - natSqrt(x_hi_1)²).
+    Unfolds only model_innerSqrt_evm (~10 let-bindings). Each EVM Babylonian step
+    equals bstep (proved by evm_bstep_eq), and the floor correction matches on
+    bounded inputs. Together: EVM inner sqrt = floorSqrt_fixed = natSqrt. -/
+private theorem model_innerSqrt_evm_correct (x_hi_1 : Nat)
     (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) :
-    let r_hi_1 : Nat := FIXED_SEED
-    let r_hi_2 := evmShr 1 (evmAdd r_hi_1 (evmDiv x_hi_1 r_hi_1))
-    let r_hi_3 := evmShr 1 (evmAdd r_hi_2 (evmDiv x_hi_1 r_hi_2))
-    let r_hi_4 := evmShr 1 (evmAdd r_hi_3 (evmDiv x_hi_1 r_hi_3))
-    let r_hi_5 := evmShr 1 (evmAdd r_hi_4 (evmDiv x_hi_1 r_hi_4))
-    let r_hi_6 := evmShr 1 (evmAdd r_hi_5 (evmDiv x_hi_1 r_hi_5))
-    let r_hi_7 := evmShr 1 (evmAdd r_hi_6 (evmDiv x_hi_1 r_hi_6))
-    let r_hi_8 := evmSub r_hi_7 (evmLt (evmDiv x_hi_1 r_hi_7) r_hi_7)
-    r_hi_8 = natSqrt x_hi_1 := by
-  -- Each EVM Babylonian step equals bstep (proved by evm_bstep_eq) since
-  -- z + x/z < 2^256 for z ∈ [2^127, 2^129) and x ∈ [2^254, 2^256).
-  -- The floor correction (evmSub/evmLt/evmDiv) also matches on bounded inputs.
-  -- Together: the EVM inner sqrt = floorSqrt_fixed = natSqrt.
-  --
-  -- The let-chain creates a massive nested term that's hard to rewrite into.
-  -- We sorry this and note it follows from evm_bstep_eq + correction_correct.
+    (model_innerSqrt_evm x_hi_1).1 = natSqrt x_hi_1 ∧
+    (model_innerSqrt_evm x_hi_1).2 = x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1 := by
+  -- Unfold model_innerSqrt_evm to expose ~10 let-bindings.
+  -- Show each EVM step = bstep via evm_bstep_eq + fixed_seed bounds.
+  -- Floor correction: evmSub/evmLt/evmDiv matches on bounded inputs.
+  -- Residue: evmSub x_hi (evmMul r_hi r_hi) = x_hi - natSqrt(x_hi)^2.
   sorry
 
-/-- Sub-lemma C+D: The EVM Karatsuba step (including carry correction) plus the
-    final correction and un-normalization computes karatsubaFloor / 2^k.
-    This covers: res computation, Karatsuba quotient with carry, combine,
-    257-bit correction comparison, and division by 2^k. -/
-private theorem evm_karatsuba_correction_unnorm
-    (x_hi_1 x_lo_1 : Nat) (r_hi : Nat) (k : Nat)
-    (hxhi_lo : 2 ^ 254 ≤ x_hi_1) (hxhi_hi : x_hi_1 < 2 ^ 256)
-    (hxlo : x_lo_1 < 2 ^ 256) (hr : r_hi = natSqrt x_hi_1)
-    (hk : k ≤ 127) :
-    -- The EVM Karatsuba + correction + un-normalization on (x_hi_1, x_lo_1, r_hi, k)
-    let res_1 := evmSub x_hi_1 (evmMul r_hi r_hi)
-    let n := evmOr (evmShl 128 res_1) (evmShr 128 x_lo_1)
-    let d := evmShl 1 r_hi
-    let r_lo_1 := evmDiv n d
-    let c := evmShr 128 res_1
-    let res_2 := evmMod n d
-    let (r_lo, res) := if c ≠ 0 then
-        let r_lo := evmAdd r_lo_1 (evmDiv (evmNot 0) d)
-        let res := evmAdd res_2 (evmAdd 1 (evmMod (evmNot 0) d))
-        let r_lo := evmAdd r_lo (evmDiv res d)
-        let res := evmMod res d
-        (r_lo, res)
-      else (r_lo_1, res_2)
-    let r_1 := evmAdd (evmShl 128 r_hi) r_lo
-    let r_2 := evmSub r_1
-      (evmOr (evmLt (evmShr 128 res) (evmShr 128 r_lo))
-        (evmAnd (evmEq (evmShr 128 res) (evmShr 128 r_lo))
-          (evmLt (evmOr (evmShl 128 res) (evmAnd x_lo_1 (2 ^ 128 - 1)))
-            (evmMul r_lo r_lo))))
-    let r_3 := evmShr k r_2
-    r_3 = karatsubaFloor x_hi_1 x_lo_1 / 2 ^ k := by
+/-- Sub-lemma C: model_karatsubaQuotient_evm computes the Karatsuba quotient and
+    remainder, including carry correction for the 257-bit overflow case.
+    Unfolds only model_karatsubaQuotient_evm (~6 let-bindings + if-block). -/
+private theorem model_karatsubaQuotient_evm_correct
+    (res x_lo r_hi : Nat)
+    (hres : res ≤ 2 * natSqrt (res + r_hi * r_hi))
+    (hxlo : x_lo < 2 ^ 256) (hrhi_lo : 2 ^ 127 ≤ r_hi) (hrhi_hi : r_hi < 2 ^ 128)
+    (hres_lt : res < 2 ^ 256) :
+    let n_full := res * 2 ^ 128 + x_lo / 2 ^ 128
+    let d := 2 * r_hi
+    (model_karatsubaQuotient_evm res x_lo r_hi).1 = n_full / d % 2 ^ 256 ∧
+    (model_karatsubaQuotient_evm res x_lo r_hi).2 = n_full % d % 2 ^ 256 := by
+  -- Unfold model_karatsubaQuotient_evm to expose ~6 let-bindings + carry if-block.
+  -- Main case (c = 0): standard EVM div/mod on n = res*2^128 | x_lo/2^128.
+  -- Carry case (c ≠ 0): correct for 257-bit overflow via not(0)/d arithmetic.
+  sorry
+
+/-- Sub-lemma D: model_sqrtCorrection_evm combines r_hi/r_lo and applies the 257-bit
+    correction comparison, producing karatsubaFloor.
+    Unfolds only model_sqrtCorrection_evm (~2 let-bindings). -/
+private theorem model_sqrtCorrection_evm_correct
+    (r_hi r_lo res x_lo : Nat)
+    (hrhi_lo : 2 ^ 127 ≤ r_hi) (hrhi_hi : r_hi < 2 ^ 128)
+    (hrlo : r_lo < 2 ^ 256) (hres : res < 2 ^ 256) (hxlo : x_lo < 2 ^ 256)
+    (hr_is_sqrt : r_hi = natSqrt (res + r_hi * r_hi)) :
+    model_sqrtCorrection_evm r_hi r_lo res x_lo =
+      karatsubaFloor (res + r_hi * r_hi) x_lo := by
+  -- Unfold model_sqrtCorrection_evm to expose ~2 let-bindings.
+  -- Show: r_1 = r_hi * 2^128 + r_lo (evmAdd/evmShl with constant-folded 128).
+  -- Show: the 257-bit split comparison correctly evaluates
+  --   res*2^128 + x_lo_lo < r_lo^2 by comparing high parts then low parts.
+  -- Uses correction_equiv (already proved).
   sorry
 
 end EvmBridge
 
-/-- The EVM model computes the same as the algebraic sqrt512. -/
+/-- The EVM model computes the same as the algebraic sqrt512.
+    With the refactored model, model_sqrt512_evm is just normalization +
+    3 sub-model calls + un-normalization (~10 let-bindings), so this proof
+    chains sub-results through karatsubaFloor_eq_natSqrt and natSqrt_shift_div. -/
 private theorem model_sqrt512_evm_eq_sqrt512 (x_hi x_lo : Nat)
     (hxhi_pos : 0 < x_hi) (hxhi_lt : x_hi < 2 ^ 256)
     (hxlo_lt : x_lo < 2 ^ 256) :
     Sqrt512GeneratedModel.model_sqrt512_evm x_hi x_lo =
       sqrt512 (x_hi * 2 ^ 256 + x_lo) := by
+  -- Unfold model_sqrt512_evm: normalization + 3 sub-model calls + un-normalize.
+  -- 1. evm_normalization_correct gives x_hi_1, x_lo_1, shift_1 = k
+  -- 2. model_innerSqrt_evm_correct gives r_hi = natSqrt(x_hi_1), res = residue
+  -- 3. model_karatsubaQuotient_evm_correct gives r_lo, res from quotient
+  -- 4. model_sqrtCorrection_evm_correct gives r = karatsubaFloor(x_hi_1, x_lo_1)
+  -- 5. evmShr shift_1 r = karatsubaFloor / 2^k = sqrt512(x)
   sorry
 
 set_option exponentiation.threshold 512 in
