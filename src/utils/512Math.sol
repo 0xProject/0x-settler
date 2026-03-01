@@ -1779,7 +1779,7 @@ library Lib512MathArithmetic {
     ///
     /// The final step of Zimmerman's algorithm is: if res · 2¹²⁸ + x_lo % 2¹²⁸ < r_lo², decrement
     /// `r`. We have to do this in a complicated manner because both `res` and `r_lo` can be
-    /// _slightly_ longer than 1 limb (128 bits). This is more efficient than performing the full
+    /// 𝑠𝑙𝑖𝑔ℎ𝑡𝑙𝑦 longer than 1 limb (128 bits). This is more efficient than performing the full
     /// 257-bit comparison.
     function _sqrt_correction(uint256 r_hi, uint256 r_lo, uint256 res, uint256 x_lo)
         private
@@ -2157,7 +2157,7 @@ struct uint512_external {
 library Lib512MathExternal {
     function from(uint512 r, uint512_external memory x) internal pure returns (uint512) {
         assembly ("memory-safe") {
-            // This *could* be done with `mcopy`, but that would mean giving up compatibility with
+            // This 𝐜𝐨𝐮𝐥𝐝 be done with `mcopy`, but that would mean giving up compatibility with
             // Shanghai (or less) chains. If you care about gas efficiency, you should be using
             // `into()` instead.
             mstore(r, mload(x))
