@@ -59,12 +59,18 @@ private def fd4_254 : Nat := nextD lo254 fd3_254
 private def fd5_254 : Nat := nextD lo254 fd4_254
 private def fd6_254 : Nat := nextD lo254 fd5_254
 
-private theorem fd6_254_le_one : fd6_254 ≤ 1 := by native_decide
-private theorem fd1_254_le_lo : fd1_254 ≤ lo254 := by native_decide
-private theorem fd2_254_le_lo : fd2_254 ≤ lo254 := by native_decide
-private theorem fd3_254_le_lo : fd3_254 ≤ lo254 := by native_decide
-private theorem fd4_254_le_lo : fd4_254 ≤ lo254 := by native_decide
-private theorem fd5_254_le_lo : fd5_254 ≤ lo254 := by native_decide
+set_option maxRecDepth 100000 in
+private theorem fd6_254_le_one : fd6_254 ≤ 1 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd1_254_le_lo : fd1_254 ≤ lo254 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd2_254_le_lo : fd2_254 ≤ lo254 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd3_254_le_lo : fd3_254 ≤ lo254 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd4_254_le_lo : fd4_254 ≤ lo254 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd5_254_le_lo : fd5_254 ≤ lo254 := by decide
 private theorem lo254_pos : 0 < lo254 := lo_pos ⟨254, by omega⟩
 
 private theorem run6Fixed_error_254
@@ -116,12 +122,18 @@ private def fd4_255 : Nat := nextD lo255 fd3_255
 private def fd5_255 : Nat := nextD lo255 fd4_255
 private def fd6_255 : Nat := nextD lo255 fd5_255
 
-private theorem fd6_255_le_one : fd6_255 ≤ 1 := by native_decide
-private theorem fd1_255_le_lo : fd1_255 ≤ lo255 := by native_decide
-private theorem fd2_255_le_lo : fd2_255 ≤ lo255 := by native_decide
-private theorem fd3_255_le_lo : fd3_255 ≤ lo255 := by native_decide
-private theorem fd4_255_le_lo : fd4_255 ≤ lo255 := by native_decide
-private theorem fd5_255_le_lo : fd5_255 ≤ lo255 := by native_decide
+set_option maxRecDepth 100000 in
+private theorem fd6_255_le_one : fd6_255 ≤ 1 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd1_255_le_lo : fd1_255 ≤ lo255 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd2_255_le_lo : fd2_255 ≤ lo255 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd3_255_le_lo : fd3_255 ≤ lo255 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd4_255_le_lo : fd4_255 ≤ lo255 := by decide
+set_option maxRecDepth 100000 in
+private theorem fd5_255_le_lo : fd5_255 ≤ lo255 := by decide
 private theorem lo255_pos : 0 < lo255 := lo_pos ⟨255, by omega⟩
 
 private theorem run6Fixed_error_255
@@ -277,16 +289,17 @@ private theorem normFloor_correction (x z : Nat) (hz : 0 < z) :
 -- Section 5b: Constant-folding and bitwise helpers
 -- ============================================================================
 
+set_option maxRecDepth 4096 in
 /-- For n < 256, n &&& 254 clears bit 0, giving 2*(n/2). -/
 private theorem and_254_eq : ∀ n : Fin 256, (n.val &&& 254) = 2 * (n.val / 2) := by
-  native_decide
+  decide
 
 private theorem normAnd_shift_254 (n : Nat) (hn : n < 256) :
     n &&& 254 = 2 * (n / 2) :=
   and_254_eq ⟨n, hn⟩
 
-private theorem and_1_255 : (1 : Nat) &&& (255 : Nat) = 1 := by native_decide
-private theorem and_128_255 : (128 : Nat) &&& (255 : Nat) = 128 := by native_decide
+private theorem and_1_255 : (1 : Nat) &&& (255 : Nat) = 1 := by decide
+private theorem and_128_255 : (128 : Nat) &&& (255 : Nat) = 128 := by decide
 
 /-- Bitwise OR equals addition when bits don't overlap.
     Uses Nat.shiftLeft_add_eq_or_of_lt from Init. -/
@@ -453,6 +466,38 @@ private theorem evmSub_evmAdd_eq_of_overflow (a b : Nat)
   have h1 : (1 : Nat) < WORD_MOD := by unfold WORD_MOD; omega
   simp [Nat.mod_eq_of_lt h1]
 
+/-- Generic: (a * n) % (n * n) = (a % n) * n -/
+private theorem mul_mod_sq (a n : Nat) (hn : 0 < n) :
+    (a * n) % (n * n) = (a % n) * n := by
+  -- a = n * (a/n) + a%n, so a*n = n*n*(a/n) + (a%n)*n
+  have h := Nat.div_add_mod a n  -- n * (a / n) + a % n = a
+  have ha : a * n = n * n * (a / n) + a % n * n := by
+    have h2 : a * n = (n * (a / n) + a % n) * n := by rw [h]
+    rw [h2, Nat.add_mul]
+    show n * (a / n) * n + a % n * n = n * n * (a / n) + a % n * n
+    congr 1
+    rw [Nat.mul_assoc, Nat.mul_comm (a / n) n, ← Nat.mul_assoc]
+  rw [ha, Nat.mul_add_mod]
+  exact Nat.mod_eq_of_lt (Nat.mul_lt_mul_of_pos_right (Nat.mod_lt a hn) hn)
+
+/-- Key: (a * 2^128) % 2^256 = (a % 2^128) * 2^128 -/
+private theorem mul_pow128_mod_word (a : Nat) :
+    (a * 2 ^ 128) % WORD_MOD = (a % 2 ^ 128) * 2 ^ 128 := by
+  have : WORD_MOD = 2 ^ 128 * 2 ^ 128 := by unfold WORD_MOD; rw [← Nat.pow_add]
+  rw [this]; exact mul_mod_sq a (2 ^ 128) (Nat.two_pow_pos 128)
+
+/-- Euclidean division after recomposition: (d*q + r)/d = q + r/d -/
+private theorem div_of_mul_add (d q r : Nat) (hd : 0 < d) :
+    (d * q + r) / d = q + r / d := by
+  rw [show d * q + r = r + q * d from by rw [Nat.mul_comm, Nat.add_comm],
+      Nat.add_mul_div_right r q hd, Nat.add_comm]
+
+/-- Euclidean mod after recomposition: (d*q + r) % d = r % d -/
+private theorem mod_of_mul_add (d q r : Nat) :
+    (d * q + r) % d = r % d := by
+  rw [show d * q + r = r + q * d from by rw [Nat.mul_comm, Nat.add_comm]]
+  exact Nat.add_mul_mod_self_right r q d
+
 end EvmNormBridge
 
 -- ============================================================================
@@ -525,7 +570,7 @@ theorem shl512_hi (x_hi x_lo s : Nat) (hs : s ≤ 255) :
   rw [h256_split]
   exact Nat.mul_div_mul_right _ _ (Nat.two_pow_pos s)
 
-theorem shl512_lo' (x_hi x_lo s : Nat) (hs : s ≤ 255) :
+theorem shl512_lo' (x_hi x_lo s : Nat) :
     (x_hi * 2 ^ 256 + x_lo) * 2 ^ s % 2 ^ 256 =
       (x_lo * 2 ^ s) % 2 ^ 256 := by
   have hrw : (x_hi * 2 ^ 256 + x_lo) * 2 ^ s =
@@ -541,7 +586,7 @@ private theorem shl_no_overflow (x_hi s : Nat) (h : x_hi * 2 ^ s < 2 ^ 256) :
 
 -- The bottom s bits of (x_hi * 2^s) % 2^256 are zero, so OR = add with values < 2^s.
 private theorem shl_or_shr (x_hi x_lo s : Nat) (hs : 0 < s) (hs' : s ≤ 255)
-    (hxhi_shl : x_hi * 2 ^ s < 2 ^ 256) (hxlo : x_lo < 2 ^ 256) :
+    (hxlo : x_lo < 2 ^ 256) :
     (x_hi * 2 ^ s) ||| (x_lo / 2 ^ (256 - s)) =
       x_hi * 2 ^ s + x_lo / 2 ^ (256 - s) := by
   have hcarry : x_lo / 2 ^ (256 - s) < 2 ^ s := by
@@ -556,7 +601,7 @@ private theorem shl512_hi_or (x_hi x_lo s : Nat) (hs : 0 < s) (hs' : s ≤ 255)
     (hxhi_shl : x_hi * 2 ^ s < 2 ^ 256) (hxlo : x_lo < 2 ^ 256) :
     ((x_hi * 2 ^ s) % 2 ^ 256) ||| (x_lo / 2 ^ (256 - s)) =
       (x_hi * 2 ^ 256 + x_lo) * 2 ^ s / 2 ^ 256 := by
-  rw [shl_no_overflow x_hi s hxhi_shl, shl_or_shr x_hi x_lo s hs hs' hxhi_shl hxlo,
+  rw [shl_no_overflow x_hi s hxhi_shl, shl_or_shr x_hi x_lo s hs hs' hxlo,
       shl512_hi x_hi x_lo s hs']
 
 private theorem evm_normalization_correct (x_hi x_lo : Nat)
@@ -690,7 +735,7 @@ private theorem evm_normalization_correct (x_hi x_lo : Nat)
     have hxlo1_eq : evmShl dbl_k (u256 x_lo) = x * 4 ^ k % 2 ^ 256 := by
       rw [hshl_xlo]; unfold WORD_MOD
       rw [show x * 4 ^ k = (x_hi * 2 ^ 256 + x_lo) * 2 ^ dbl_k from by rw [← hfour_eq]]
-      exact (shl512_lo' x_hi x_lo dbl_k (by omega)).symm
+      exact (shl512_lo' x_hi x_lo dbl_k).symm
     have hhi_eq : x * 4 ^ k / 2 ^ 256 = x_hi * 2 ^ dbl_k + x_lo / 2 ^ (256 - dbl_k) := by
       rw [show x * 4 ^ k = (x_hi * 2 ^ 256 + x_lo) * 2 ^ dbl_k from by rw [← hfour_eq]]
       exact shl512_hi x_hi x_lo dbl_k (by omega)
@@ -995,34 +1040,685 @@ theorem model_innerSqrt_evm_correct (x_hi_1 : Nat)
     Unfolds only model_karatsubaQuotient_evm (~6 let-bindings + if-block). -/
 private theorem model_karatsubaQuotient_evm_correct
     (res x_lo r_hi : Nat)
-    (hres : res ≤ 2 * natSqrt (res + r_hi * r_hi))
+    (hres : res ≤ 2 * r_hi)
     (hxlo : x_lo < 2 ^ 256) (hrhi_lo : 2 ^ 127 ≤ r_hi) (hrhi_hi : r_hi < 2 ^ 128)
     (hres_lt : res < 2 ^ 256) :
     let n_full := res * 2 ^ 128 + x_lo / 2 ^ 128
     let d := 2 * r_hi
     (model_karatsubaQuotient_evm res x_lo r_hi).1 = n_full / d % 2 ^ 256 ∧
     (model_karatsubaQuotient_evm res x_lo r_hi).2 = n_full % d % 2 ^ 256 := by
-  -- Unfold model_karatsubaQuotient_evm to expose ~6 let-bindings + carry if-block.
-  -- Main case (c = 0): standard EVM div/mod on n = res*2^128 | x_lo/2^128.
-  -- Carry case (c ≠ 0): correct for 257-bit overflow via not(0)/d arithmetic.
-  sorry
+  intro n_full d
+  -- === Key bounds ===
+  have hres_wm : res < WORD_MOD := hres_lt
+  have hxlo_wm : x_lo < WORD_MOD := hxlo
+  have hrhi_wm : r_hi < WORD_MOD := by unfold WORD_MOD; omega
+  have hd_pos : (0 : Nat) < d := by show 0 < 2 * r_hi; omega
+  have hd_ge : (2 : Nat) ^ 128 ≤ d := by show 2 ^ 128 ≤ 2 * r_hi; omega
+  have hd_wm : d < WORD_MOD := by unfold WORD_MOD; omega
+  have h_wm_sq : WORD_MOD = 2 ^ 128 * 2 ^ 128 := by unfold WORD_MOD; rw [← Nat.pow_add]
+  have hxlo_hi : x_lo / 2 ^ 128 < 2 ^ 128 :=
+    Nat.div_lt_of_lt_mul (by rw [← Nat.pow_add]; exact hxlo)
+  have hn_evm_lt : (res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128 < WORD_MOD := by
+    have := Nat.mod_lt res (Nat.two_pow_pos 128); rw [h_wm_sq]; omega
+  -- === EVM simplification lemmas ===
+  have hd_eq : evmShl 1 r_hi = d := by
+    rw [evmShl_eq' 1 r_hi (by omega) hrhi_wm, Nat.pow_one, Nat.mul_comm]
+    exact Nat.mod_eq_of_lt (by unfold WORD_MOD; omega)
+  have hshl_res : evmShl 128 res = (res % 2 ^ 128) * 2 ^ 128 := by
+    rw [evmShl_eq' 128 res (by omega) hres_wm]; exact mul_pow128_mod_word res
+  have hshr_xlo : evmShr 128 x_lo = x_lo / 2 ^ 128 :=
+    evmShr_eq' 128 x_lo (by omega) hxlo_wm
+  have hshl_wm : (res % 2 ^ 128) * 2 ^ 128 < WORD_MOD := by
+    have := Nat.mod_lt res (Nat.two_pow_pos 128); rw [h_wm_sq]
+    exact Nat.mul_lt_mul_of_pos_right this (Nat.two_pow_pos 128)
+  have hshr_wm : x_lo / 2 ^ 128 < WORD_MOD := by unfold WORD_MOD; omega
+  have hn_eq : evmOr (evmShl 128 res) (evmShr 128 x_lo) =
+      (res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128 := by
+    rw [hshl_res, hshr_xlo, evmOr_eq' _ _ hshl_wm hshr_wm]
+    exact or_eq_add_shl (res % 2 ^ 128) (x_lo / 2 ^ 128) 128 hxlo_hi
+  have hc_eq : evmShr 128 res = res / 2 ^ 128 :=
+    evmShr_eq' 128 res (by omega) hres_wm
+  -- === Unfold model, inline let-bindings, then simplify EVM ops ===
+  unfold model_karatsubaQuotient_evm
+  -- Step 1: Inline all let-bindings to make the goal flat
+  dsimp only
+  -- Step 2: Remove u256 wrappers and simplify EVM operations
+  simp only [u256_id' res hres_wm, u256_id' x_lo hxlo_wm, u256_id' r_hi hrhi_wm,
+             hshl_res, hshr_xlo, hd_eq, hc_eq]
+  -- The goal is now flat with an if on (res / 2^128 ≠ 0)
+  split
+  · -- CARRY case: res / 2^128 ≠ 0
+    next hc_ne =>
+    -- Simplify evmOr to n_evm (the EVM-computed n, missing one WORD_MOD from n_full)
+    have hn_or : evmOr (res % 2 ^ 128 * 2 ^ 128) (x_lo / 2 ^ 128) =
+        (res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128 := by
+      rw [evmOr_eq' _ _ hshl_wm hshr_wm,
+          or_eq_add_shl (res % 2 ^ 128) (x_lo / 2 ^ 128) 128 hxlo_hi]
+    simp only [hn_or]
+    -- Abbreviate n_evm for clarity
+    -- n_evm := (res % 2^128) * 2^128 + x_lo / 2^128
+    -- Simplify evmDiv/evmMod on n_evm
+    have hn_div : evmDiv ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) d =
+        ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) / d :=
+      evmDiv_eq' _ d hn_evm_lt hd_pos hd_wm
+    have hn_mod : evmMod ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) d =
+        ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d :=
+      evmMod_eq' _ d hn_evm_lt hd_pos hd_wm
+    -- Simplify evmNot 0 = WORD_MOD - 1
+    have hnot_eq : evmNot 0 = WORD_MOD - 1 :=
+      evmNot_eq' 0 (by unfold WORD_MOD; omega)
+    have hnot_wm : WORD_MOD - 1 < WORD_MOD := by omega
+    have hwm_div : evmDiv (WORD_MOD - 1) d = (WORD_MOD - 1) / d :=
+      evmDiv_eq' _ d hnot_wm hd_pos hd_wm
+    have hwm_mod : evmMod (WORD_MOD - 1) d = (WORD_MOD - 1) % d :=
+      evmMod_eq' _ d hnot_wm hd_pos hd_wm
+    simp only [hn_div, hn_mod, hnot_eq, hwm_div, hwm_mod]
+    -- Now: evmAdd 1 ((WORD_MOD-1) % d) = 1 + (WORD_MOD-1) % d
+    have hrw_lt : (WORD_MOD - 1) % d < d := Nat.mod_lt _ hd_pos
+    have hrw_wm : (WORD_MOD - 1) % d < WORD_MOD :=
+      Nat.lt_of_lt_of_le hrw_lt (by unfold WORD_MOD; omega)
+    have h1_wm : (1 : Nat) < WORD_MOD := by unfold WORD_MOD; omega
+    have h1rw_sum : 1 + (WORD_MOD - 1) % d < WORD_MOD :=
+      Nat.lt_of_le_of_lt (by omega : 1 + (WORD_MOD - 1) % d ≤ d) (by unfold WORD_MOD; omega)
+    have hadd_1_rw : evmAdd 1 ((WORD_MOD - 1) % d) = 1 + (WORD_MOD - 1) % d :=
+      evmAdd_eq' 1 _ h1_wm hrw_wm h1rw_sum
+    simp only [hadd_1_rw]
+    -- evmAdd (n_evm%d) (1 + (WORD_MOD-1)%d) = R where R = n_evm%d + 1 + (WORD_MOD-1)%d
+    have hr0_lt : ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d < d :=
+      Nat.mod_lt _ hd_pos
+    have hr0_wm : ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d < WORD_MOD :=
+      Nat.lt_of_lt_of_le hr0_lt (by unfold WORD_MOD; omega)
+    have hR_sum : ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
+        (1 + (WORD_MOD - 1) % d) < WORD_MOD :=
+      -- r0 < d and 1 + rw < d + 1, so R < 2*d < 2^130 < WORD_MOD
+      Nat.lt_of_lt_of_le (by omega : _ < 2 * d) (by unfold WORD_MOD; omega)
+    have hstep2 : evmAdd (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d)
+        (1 + (WORD_MOD - 1) % d) =
+        ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d + (1 + (WORD_MOD - 1) % d) :=
+      evmAdd_eq' _ _ hr0_wm h1rw_sum hR_sum
+    simp only [hstep2]
+    -- Abbreviate R = n_evm%d + 1 + (WORD_MOD-1)%d
+    -- evmDiv R d = R / d, evmMod R d = R % d
+    have hR_lt2d : ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
+        (1 + (WORD_MOD - 1) % d) < 2 * d := by omega
+    have hR_wm : ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
+        (1 + (WORD_MOD - 1) % d) < WORD_MOD := hR_sum
+    have hdiv_R : evmDiv (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
+        (1 + (WORD_MOD - 1) % d)) d =
+        (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
+        (1 + (WORD_MOD - 1) % d)) / d :=
+      evmDiv_eq' _ d hR_wm hd_pos hd_wm
+    have hmod_R : evmMod (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
+        (1 + (WORD_MOD - 1) % d)) d =
+        (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
+        (1 + (WORD_MOD - 1) % d)) % d :=
+      evmMod_eq' _ d hR_wm hd_pos hd_wm
+    simp only [hdiv_R, hmod_R]
+    -- evmAdd (n_evm/d) ((WORD_MOD-1)/d) = n_evm/d + (WORD_MOD-1)/d
+    have hq0_wm : ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) / d < WORD_MOD := by
+      unfold WORD_MOD; exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hn_evm_lt
+    have hqw_wm : (WORD_MOD - 1) / d < WORD_MOD := by
+      unfold WORD_MOD; exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hnot_wm
+    -- Tighter bounds: q0 < 2^128 and qw < 2^128 (from n < 2^256 and d ≥ 2^128)
+    have hq0_128 : ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) / d < 2 ^ 128 :=
+      (Nat.div_lt_iff_lt_mul hd_pos).mpr (Nat.lt_of_lt_of_le hn_evm_lt
+        (by rw [h_wm_sq]; exact Nat.mul_le_mul_left _ hd_ge))
+    have hqw_128 : (WORD_MOD - 1) / d < 2 ^ 128 :=
+      (Nat.div_lt_iff_lt_mul hd_pos).mpr (Nat.lt_of_lt_of_le hnot_wm
+        (by rw [h_wm_sq]; exact Nat.mul_le_mul_left _ hd_ge))
+    have h129_le_wm : (2 : Nat) ^ 129 ≤ WORD_MOD := by
+      unfold WORD_MOD; exact Nat.pow_le_pow_right (by omega) (by omega)
+    have hq0qw_sum : ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) / d +
+        (WORD_MOD - 1) / d < WORD_MOD :=
+      Nat.lt_of_lt_of_le (by omega : _ < 2 ^ 129) h129_le_wm
+    have hstep1 : evmAdd (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) / d)
+        ((WORD_MOD - 1) / d) =
+        ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) / d + (WORD_MOD - 1) / d :=
+      evmAdd_eq' _ _ hq0_wm hqw_wm hq0qw_sum
+    simp only [hstep1]
+    -- evmAdd (q0+qw) (R/d) = q0+qw+R/d
+    have hR_div_le1 : (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
+        (1 + (WORD_MOD - 1) % d)) / d ≤ 1 :=
+      Nat.lt_succ_iff.mp ((Nat.div_lt_iff_lt_mul hd_pos).mpr hR_lt2d)
+    have hR_div_wm : (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
+        (1 + (WORD_MOD - 1) % d)) / d < WORD_MOD :=
+      Nat.lt_of_le_of_lt hR_div_le1 (by unfold WORD_MOD; omega)
+    have hfinal_sum : ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) / d +
+        (WORD_MOD - 1) / d + (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
+        (1 + (WORD_MOD - 1) % d)) / d < WORD_MOD :=
+      Nat.lt_of_lt_of_le (by omega : _ < 2 ^ 129 + 1) (by omega : 2 ^ 129 + 1 ≤ WORD_MOD)
+    have hstep3 : evmAdd (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) / d +
+        (WORD_MOD - 1) / d)
+        ((((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
+        (1 + (WORD_MOD - 1) % d)) / d) =
+        ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) / d + (WORD_MOD - 1) / d +
+        (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
+        (1 + (WORD_MOD - 1) % d)) / d :=
+      evmAdd_eq' _ _ hq0qw_sum hR_div_wm hfinal_sum
+    simp only [hstep3]
+    -- === Now the goal is pure Nat ===
+    -- Show these equal n_full/d and n_full%d via the carry correction identity
+    -- n_full = n_evm + WORD_MOD where n_evm = (res%2^128)*2^128 + x_lo/2^128
+    have hc_one : res / 2 ^ 128 = 1 := by
+      have hc_pos : 0 < res / 2 ^ 128 := Nat.pos_of_ne_zero hc_ne
+      have hc_le : res / 2 ^ 128 ≤ 1 := by
+        have : res / 2 ^ 128 < 2 := (Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 128)).mpr (by omega)
+        omega
+      omega
+    have hn_full_eq : n_full =
+        (res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128 + WORD_MOD := by
+      show res * 2 ^ 128 + x_lo / 2 ^ 128 =
+        (res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128 + WORD_MOD
+      have h := Nat.div_add_mod res (2 ^ 128); rw [hc_one] at h; rw [h_wm_sq]; omega
+    -- n_full = d * (q0 + qw) + R
+    -- where q0 = n_evm/d, qw = (WORD_MOD-1)/d, R = n_evm%d + 1 + (WORD_MOD-1)%d
+    have hn_full_decomp : n_full =
+        d * (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) / d + (WORD_MOD - 1) / d) +
+        (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d + (1 + (WORD_MOD - 1) % d)) := by
+      rw [hn_full_eq]
+      have h1 := (Nat.div_add_mod ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) d).symm
+      have h2 := (Nat.div_add_mod (WORD_MOD - 1) d).symm
+      rw [Nat.mul_add]; omega
+    -- Apply div_of_mul_add and mod_of_mul_add
+    rw [show (2 : Nat) ^ 256 = WORD_MOD from rfl]
+    have hn_div : n_full / d =
+        ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) / d + (WORD_MOD - 1) / d +
+        (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d + (1 + (WORD_MOD - 1) % d)) / d := by
+      rw [hn_full_decomp]; exact div_of_mul_add d _ _ hd_pos
+    have hn_mod : n_full % d =
+        (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d + (1 + (WORD_MOD - 1) % d)) % d := by
+      rw [hn_full_decomp]; exact mod_of_mul_add d _ _
+    have hn_full_mod_wm : n_full % d < WORD_MOD :=
+      Nat.lt_of_lt_of_le (Nat.mod_lt n_full hd_pos) (by unfold WORD_MOD; omega)
+    refine ⟨?_, ?_⟩
+    · rw [hn_div]; exact (Nat.mod_eq_of_lt hfinal_sum).symm
+    · rw [hn_mod]
+      have : (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
+          (1 + (WORD_MOD - 1) % d)) % d < WORD_MOD :=
+        Nat.lt_of_lt_of_le (Nat.mod_lt _ hd_pos) (by unfold WORD_MOD; omega)
+      exact (Nat.mod_eq_of_lt this).symm
+  · -- NO CARRY case
+    next hc_not =>
+    have hc_zero : res / 2 ^ 128 = 0 := Decidable.byContradiction hc_not
+    have hres_128 : res < 2 ^ 128 := by
+      suffices ¬(2 ^ 128 ≤ res) by omega
+      intro h; exact absurd hc_zero (Nat.ne_of_gt (Nat.div_pos h (Nat.two_pow_pos 128)))
+    have hmod_res : res % 2 ^ 128 = res := Nat.mod_eq_of_lt hres_128
+    -- Simplify evmOr to Nat addition = n_full
+    have hn_or : evmOr (res % 2 ^ 128 * 2 ^ 128) (x_lo / 2 ^ 128) = n_full := by
+      rw [evmOr_eq' _ _ hshl_wm hshr_wm,
+          or_eq_add_shl (res % 2 ^ 128) (x_lo / 2 ^ 128) 128 hxlo_hi, hmod_res]
+    -- n_full < WORD_MOD (n_full = res*2^128 + x_lo/2^128, and res%2^128 = res)
+    have hn_full_wm : n_full < WORD_MOD := by
+      show res * 2 ^ 128 + x_lo / 2 ^ 128 < WORD_MOD
+      rw [← hmod_res]; exact hn_evm_lt
+    -- Reduce .fst/.snd, rewrite evmOr, simplify evmDiv/evmMod
+    simp only [hn_or]
+    rw [evmDiv_eq' n_full d hn_full_wm hd_pos hd_wm,
+        evmMod_eq' n_full d hn_full_wm hd_pos hd_wm,
+        show (2 : Nat) ^ 256 = WORD_MOD from rfl]
+    exact ⟨(Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hn_full_wm)).symm,
+           (Nat.mod_eq_of_lt (Nat.lt_of_lt_of_le (Nat.mod_lt n_full hd_pos) (by unfold WORD_MOD; omega))).symm⟩
 
-/-- Sub-lemma D: model_sqrtCorrection_evm combines r_hi/r_lo and applies the 257-bit
-    correction comparison, producing karatsubaFloor.
-    Unfolds only model_sqrtCorrection_evm (~2 let-bindings). -/
+/-- Sub-lemma D: model_sqrtCorrection_evm computes the raw correction step.
+    Given r_hi (high sqrt), r_lo (Karatsuba quotient), rem (Karatsuba remainder), x_lo:
+    result = r_hi * 2^128 + r_lo - (if rem * 2^128 + x_lo % 2^128 < r_lo * r_lo then 1 else 0)
+    The 257-bit split comparison correctly evaluates rem*2^128 + x_lo_lo < r_lo^2. -/
 private theorem model_sqrtCorrection_evm_correct
-    (r_hi r_lo res x_lo : Nat)
+    (r_hi r_lo rem x_lo : Nat)
     (hrhi_lo : 2 ^ 127 ≤ r_hi) (hrhi_hi : r_hi < 2 ^ 128)
-    (hrlo : r_lo < 2 ^ 256) (hres : res < 2 ^ 256) (hxlo : x_lo < 2 ^ 256)
-    (hr_is_sqrt : r_hi = natSqrt (res + r_hi * r_hi)) :
-    model_sqrtCorrection_evm r_hi r_lo res x_lo =
-      karatsubaFloor (res + r_hi * r_hi) x_lo := by
-  -- Unfold model_sqrtCorrection_evm to expose ~2 let-bindings.
-  -- Show: r_1 = r_hi * 2^128 + r_lo (evmAdd/evmShl with constant-folded 128).
-  -- Show: the 257-bit split comparison correctly evaluates
-  --   res*2^128 + x_lo_lo < r_lo^2 by comparing high parts then low parts.
-  -- Uses correction_equiv (already proved).
-  sorry
+    (hrlo_le : r_lo ≤ 2 ^ 128) (hrem : rem < 2 * r_hi)
+    (hxlo : x_lo < 2 ^ 256)
+    (hedge : r_lo = 2 ^ 128 → rem < 2 ^ 128) :
+    model_sqrtCorrection_evm r_hi r_lo rem x_lo =
+      r_hi * 2 ^ 128 + r_lo -
+        (if rem * 2 ^ 128 + x_lo % 2 ^ 128 < r_lo * r_lo then 1 else 0) := by
+  have hrhi_wm : r_hi < WORD_MOD := by unfold WORD_MOD; omega
+  have hrlo_wm : r_lo < WORD_MOD := by unfold WORD_MOD; omega
+  have hrem_wm : rem < WORD_MOD := by unfold WORD_MOD; omega
+  have hxlo_wm : x_lo < WORD_MOD := hxlo
+  have hrem_129 : rem < 2 ^ 129 := by omega
+  have h_wm_sq : WORD_MOD = 2 ^ 128 * 2 ^ 128 := by unfold WORD_MOD; rw [← Nat.pow_add]
+  -- Constant-fold: evmAnd(evmAnd(128, 255), 255) = 128
+  have hcf128 : evmAnd (evmAnd 128 255) 255 = 128 := by decide
+  -- 340282366920938463463374607431768211455 = 2^128 - 1
+  have hmask : (340282366920938463463374607431768211455 : Nat) = 2 ^ 128 - 1 := by decide
+  -- Unfold and inline let-bindings
+  unfold model_sqrtCorrection_evm
+  dsimp only
+  simp only [u256_id' r_hi hrhi_wm, u256_id' r_lo hrlo_wm, u256_id' rem hrem_wm,
+             u256_id' x_lo hxlo_wm, hcf128, hmask]
+  -- === Simplify each EVM operation ===
+  -- evmShl 128 r_hi, evmShr 128 rem, evmShr 128 r_lo
+  have hshl_rhi : evmShl 128 r_hi = r_hi * 2 ^ 128 := by
+    rw [evmShl_eq' 128 r_hi (by omega) hrhi_wm]
+    exact Nat.mod_eq_of_lt (by rw [h_wm_sq]; exact Nat.mul_lt_mul_of_pos_right hrhi_hi (Nat.two_pow_pos 128))
+  have hshr_rem : evmShr 128 rem = rem / 2 ^ 128 := evmShr_eq' 128 rem (by omega) hrem_wm
+  have hshr_rlo : evmShr 128 r_lo = r_lo / 2 ^ 128 := evmShr_eq' 128 r_lo (by omega) hrlo_wm
+  -- evmShl 128 rem = (rem % 2^128) * 2^128
+  have hshl_rem : evmShl 128 rem = (rem % 2 ^ 128) * 2 ^ 128 := by
+    rw [evmShl_eq' 128 rem (by omega) hrem_wm]; exact mul_pow128_mod_word rem
+  -- evmAnd x_lo (2^128-1) = x_lo % 2^128
+  have hand_mask : evmAnd x_lo (2 ^ 128 - 1) = x_lo % (2 ^ 128) := by
+    rw [evmAnd_eq' x_lo (2 ^ 128 - 1) hxlo_wm (by unfold WORD_MOD; omega)]
+    exact Nat.and_two_pow_sub_one_eq_mod x_lo 128
+  -- evmOr for res_lo_concat: (rem%2^128)*2^128 + x_lo%2^128
+  have hshl_rem_wm : (rem % 2 ^ 128) * 2 ^ 128 < WORD_MOD := by
+    rw [h_wm_sq]; exact Nat.mul_lt_mul_of_pos_right (Nat.mod_lt rem (Nat.two_pow_pos 128)) (Nat.two_pow_pos 128)
+  have hxlo_mod_lt : x_lo % 2 ^ 128 < 2 ^ 128 := Nat.mod_lt x_lo (Nat.two_pow_pos 128)
+  have hxlo_mod_wm : x_lo % 2 ^ 128 < WORD_MOD := by unfold WORD_MOD; omega
+  have hor_concat : evmOr (evmShl 128 rem) (evmAnd x_lo (2 ^ 128 - 1)) =
+      (rem % 2 ^ 128) * 2 ^ 128 + x_lo % 2 ^ 128 := by
+    rw [hshl_rem, hand_mask, evmOr_eq' _ _ hshl_rem_wm hxlo_mod_wm,
+        or_eq_add_shl (rem % 2 ^ 128) (x_lo % 2 ^ 128) 128 hxlo_mod_lt]
+  -- evmMul r_lo r_lo = (r_lo * r_lo) % WORD_MOD
+  have hmul_rlo : evmMul r_lo r_lo = (r_lo * r_lo) % WORD_MOD :=
+    evmMul_eq' r_lo r_lo hrlo_wm hrlo_wm
+  -- evmLt, evmEq simplifications
+  have hrem_hi_wm : rem / 2 ^ 128 < WORD_MOD := by unfold WORD_MOD; omega
+  have hrlo_hi_wm : r_lo / 2 ^ 128 < WORD_MOD := by unfold WORD_MOD; omega
+  have hconcat_wm : (rem % 2 ^ 128) * 2 ^ 128 + x_lo % 2 ^ 128 < WORD_MOD := by
+    rw [h_wm_sq]; omega
+  have hmul_wm : (r_lo * r_lo) % WORD_MOD < WORD_MOD := Nat.mod_lt _ (by unfold WORD_MOD; omega)
+  have hlt_hi : evmLt (evmShr 128 rem) (evmShr 128 r_lo) =
+      if rem / 2 ^ 128 < r_lo / 2 ^ 128 then 1 else 0 := by
+    rw [hshr_rem, hshr_rlo]; exact evmLt_eq' _ _ hrem_hi_wm hrlo_hi_wm
+  have heq_hi : evmEq (evmShr 128 rem) (evmShr 128 r_lo) =
+      if rem / 2 ^ 128 = r_lo / 2 ^ 128 then 1 else 0 := by
+    rw [hshr_rem, hshr_rlo]; exact evmEq_eq' _ _ hrem_hi_wm hrlo_hi_wm
+  have hlt_lo : evmLt (evmOr (evmShl 128 rem) (evmAnd x_lo (2 ^ 128 - 1))) (evmMul r_lo r_lo) =
+      if (rem % 2 ^ 128) * 2 ^ 128 + x_lo % 2 ^ 128 < (r_lo * r_lo) % WORD_MOD then 1 else 0 := by
+    rw [hor_concat, hmul_rlo]; exact evmLt_eq' _ _ hconcat_wm hmul_wm
+  -- Combine the comparison: cmp = evmOr(lt_hi, evmAnd(eq_hi, lt_lo))
+  simp only [hlt_hi, heq_hi, hlt_lo, hshl_rhi]
+  -- Now simplify evmAnd/evmOr on {0,1} comparison results, and evmAdd/evmSub
+  -- The goal has the form:
+  -- evmSub (evmAdd (r_hi*2^128) r_lo)
+  --   (evmOr (if rem_hi < rlo_hi then 1 else 0)
+  --     (evmAnd (if rem_hi = rlo_hi then 1 else 0)
+  --       (if res_lo_concat < rlo_sq_mod then 1 else 0)))
+  -- = r_hi*2^128 + r_lo - (if rem*2^128 + x_lo%2^128 < r_lo*r_lo then 1 else 0)
+  --
+  -- Key: the 257-bit comparison via (hi_lt || (hi_eq && lo_lt)) correctly evaluates
+  -- rem * 2^128 + x_lo % 2^128 < r_lo * r_lo
+  -- where:
+  --   rem_hi = rem / 2^128, rlo_hi = r_lo / 2^128
+  --   LHS_lo = (rem % 2^128) * 2^128 + x_lo % 2^128
+  --   RHS_lo = (r_lo * r_lo) % WORD_MOD
+  -- LHS = rem_hi * WORD_MOD + LHS_lo, RHS = rlo_hi * WORD_MOD + RHS_lo (conceptually)
+  -- Since rem < 2*r_hi < 2^129, rem_hi ∈ {0,1}
+  -- Since r_lo ≤ 2^128, rlo_hi ∈ {0,1}
+  -- rem / 2^128 ≤ 1
+  have hrem_hi_le : rem / 2 ^ 128 ≤ 1 :=
+    Nat.lt_succ_iff.mp ((Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 128)).mpr (by omega))
+  -- r_lo / 2^128 ≤ 1
+  have hrlo_hi_le : r_lo / 2 ^ 128 ≤ 1 := by
+    have : r_lo / 2 ^ 128 < 2 := (Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 128)).mpr (by omega)
+    omega
+  -- === Simplify evmAnd/evmOr on {0,1} values ===
+  -- evmAnd (if a then 1 else 0) (if b then 1 else 0) =
+  --   if a ∧ b then 1 else 0
+  -- evmOr (if a then 1 else 0) (if b then 1 else 0) =
+  --   if a ∨ b then 1 else 0
+  -- These follow because the values are 0 or 1, which are < WORD_MOD
+  -- After expanding: the cmp value is (if (rem_hi < rlo_hi) ∨ (rem_hi = rlo_hi ∧ lo_lt) then 1 else 0)
+  -- where lo_lt = ((rem%2^128)*2^128 + x_lo%2^128 < (r_lo*r_lo)%WORD_MOD)
+  --
+  -- Need: this equals (if rem*2^128 + x_lo%2^128 < r_lo*r_lo then 1 else 0)
+  -- This is the 257-bit comparison correctness.
+  --
+  -- And then: evmSub(evmAdd(r_hi*2^128, r_lo), cmp) = r_hi*2^128 + r_lo - cmp
+  -- Case split on rem / 2^128 and r_lo / 2^128
+  have hrem_hi_cases : rem / 2 ^ 128 = 0 ∨ rem / 2 ^ 128 = 1 := by omega
+  have hrlo_hi_cases : r_lo / 2 ^ 128 = 0 ∨ r_lo / 2 ^ 128 = 1 := by omega
+  rcases hrem_hi_cases with hremh | hremh <;> rcases hrlo_hi_cases with hrloh | hrloh <;>
+    simp only [hremh, hrloh]
+  · -- Case (0,0): rem < 2^128, r_lo < 2^128
+    -- Reduce: if 0 < 0 → 0, if True → 1
+    have h00 : (if (0 : Nat) < 0 then 1 else 0) = 0 := by decide
+    simp only [h00, ite_true]
+    -- evmOr 0 (evmAnd 1 x) where x = if P then 1 else 0
+    -- evmAnd 1 (if P then 1 else 0) = if P then 1 else 0
+    have hand1 : ∀ (n : Nat), n ≤ 1 →
+        evmAnd 1 n = n := by
+      intro n hn; rcases Nat.le_one_iff_eq_zero_or_eq_one.mp hn with rfl | rfl <;> decide
+    -- evmOr 0 n = n for n ≤ 1
+    have hor0 : ∀ (n : Nat), n ≤ 1 → evmOr 0 n = n := by
+      intro n hn; rcases Nat.le_one_iff_eq_zero_or_eq_one.mp hn with rfl | rfl <;> decide
+    -- Simplify: rem < 2^128 → rem % 2^128 = rem
+    have hrem_lt : rem < 2 ^ 128 := by omega
+    have hrem_mod : rem % 2 ^ 128 = rem := Nat.mod_eq_of_lt hrem_lt
+    -- r_lo < 2^128 → r_lo * r_lo < WORD_MOD → r_lo*r_lo % WORD_MOD = r_lo*r_lo
+    have hrlo_lt : r_lo < 2 ^ 128 := by omega
+    have hrlo_sq_lt : r_lo * r_lo < WORD_MOD := by
+      have := Nat.mul_le_mul_left r_lo (show r_lo ≤ 2 ^ 128 from by omega)
+      have := Nat.mul_lt_mul_of_pos_right hrlo_lt (Nat.two_pow_pos 128)
+      rw [h_wm_sq]; omega
+    have hmod_sq : r_lo * r_lo % WORD_MOD = r_lo * r_lo := Nat.mod_eq_of_lt hrlo_sq_lt
+    rw [hrem_mod, hmod_sq]
+    -- Now both comparisons match, simplify evmAnd/evmOr
+    have hcmp_le : (if rem * 2 ^ 128 + x_lo % 2 ^ 128 < r_lo * r_lo then 1 else (0 : Nat)) ≤ 1 := by
+      split <;> omega
+    rw [hand1 _ hcmp_le, hor0 _ hcmp_le]
+    -- Simplify evmAdd/evmSub
+    have hrhi_mul_lt : r_hi * 2 ^ 128 < WORD_MOD := by
+      rw [h_wm_sq]; exact Nat.mul_lt_mul_of_pos_right hrhi_hi (Nat.two_pow_pos 128)
+    have hadd_lt : r_hi * 2 ^ 128 + r_lo < WORD_MOD := by omega
+    have hcmp_le_sum : (if rem * 2 ^ 128 + x_lo % 2 ^ 128 < r_lo * r_lo then 1 else 0) ≤
+        r_hi * 2 ^ 128 + r_lo := by
+      split <;> omega
+    rw [evmAdd_eq' _ _ hrhi_mul_lt hrlo_wm hadd_lt,
+        evmSub_eq_of_le _ _ hadd_lt hcmp_le_sum]
+  · -- Case (0,1): rem < 2^128, r_lo / 2^128 = 1 → r_lo = 2^128
+    have hrlo_eq : r_lo = 2 ^ 128 := by omega
+    -- Reduce ifs
+    have h01a : (if (0 : Nat) < 1 then 1 else 0) = 1 := by decide
+    have h01b : (if (0 : Nat) = 1 then 1 else 0) = 0 := by decide
+    simp only [h01a, h01b]
+    -- evmAnd 0 _ = 0
+    have hand0 : ∀ x, evmAnd 0 x = 0 := by
+      intro x; unfold evmAnd u256; simp
+    simp only [hand0]
+    -- evmOr 1 0 = 1
+    have : evmOr 1 0 = 1 := by decide
+    simp only [this]
+    -- RHS comparison is true: rem*2^128 + x_lo%2^128 < 2^128*2^128 = 2^256
+    have hrem_lt : rem < 2 ^ 128 := by omega
+    have hcmp_true : rem * 2 ^ 128 + x_lo % 2 ^ 128 < r_lo * r_lo := by
+      rw [hrlo_eq, show (2 : Nat) ^ 128 * 2 ^ 128 = 2 ^ 256 from by rw [← Nat.pow_add]]
+      have := Nat.mod_lt x_lo (Nat.two_pow_pos 128); omega
+    simp only [hcmp_true, ↓reduceIte]
+    rw [hrlo_eq]
+    -- Now: evmSub (evmAdd (r_hi * 2^128) (2^128)) 1 = r_hi * 2^128 + 2^128 - 1
+    -- Two subcases: overflow or not
+    by_cases hoverflow : r_hi * 2 ^ 128 + 2 ^ 128 < WORD_MOD
+    · -- No overflow
+      rw [evmAdd_eq' _ _ (by omega) (by unfold WORD_MOD; omega) hoverflow,
+          evmSub_eq_of_le _ 1 hoverflow (by omega)]
+    · -- Overflow: r_hi * 2^128 + 2^128 = WORD_MOD
+      have hsum_eq : r_hi * 2 ^ 128 + 2 ^ 128 = WORD_MOD := by
+        have : r_hi * 2 ^ 128 + 2 ^ 128 ≤ WORD_MOD := by
+          rw [h_wm_sq, ← Nat.succ_mul]
+          exact Nat.mul_le_mul_right _ hrhi_hi
+        omega
+      rw [evmSub_evmAdd_eq_of_overflow _ _ (by omega) (by unfold WORD_MOD; omega) hsum_eq]
+      omega
+  · -- Case (1,0): rem / 2^128 = 1, r_lo < 2^128
+    -- Reduce if 1 < 0 → 0, if 1 = 0 → 0
+    have h10a : (if (1 : Nat) < 0 then 1 else 0) = 0 := by decide
+    have h10b : (if (1 : Nat) = 0 then 1 else 0) = 0 := by decide
+    simp only [h10a, h10b]
+    -- evmAnd 0 _ = 0
+    have hand0 : ∀ x, evmAnd 0 x = 0 := by
+      intro x; unfold evmAnd u256; simp
+    simp only [hand0]
+    -- evmOr 0 0 = 0
+    have hor00 : evmOr 0 0 = 0 := by decide
+    simp only [hor00]
+    -- RHS comparison: rem ≥ 2^128, r_lo < 2^128 → comparison false
+    have hrlo_lt : r_lo < 2 ^ 128 := by omega
+    have hrlo_sq_lt : r_lo * r_lo < WORD_MOD := by
+      have h1 := Nat.mul_le_mul_left r_lo (show r_lo ≤ 2 ^ 128 from by omega)
+      have h2 := Nat.mul_lt_mul_of_pos_right (show r_lo < 2 ^ 128 from by omega) (Nat.two_pow_pos 128)
+      rw [h_wm_sq]; omega
+    have hcmp_false : ¬(rem * 2 ^ 128 + x_lo % 2 ^ 128 < r_lo * r_lo) := by omega
+    simp only [hcmp_false, ↓reduceIte, Nat.sub_zero]
+    -- Simplify evmSub (evmAdd ...) 0
+    have hrhi_mul_lt : r_hi * 2 ^ 128 < WORD_MOD := by
+      rw [h_wm_sq]; exact Nat.mul_lt_mul_of_pos_right hrhi_hi (Nat.two_pow_pos 128)
+    have hadd_lt : r_hi * 2 ^ 128 + r_lo < WORD_MOD := by omega
+    rw [evmAdd_eq' _ _ hrhi_mul_lt hrlo_wm hadd_lt,
+        evmSub_eq_of_le _ 0 hadd_lt (Nat.zero_le _)]
+    omega
+  · -- Case (1,1): contradiction (hedge + rem ≥ 2^128 + r_lo = 2^128)
+    -- r_lo / 2^128 = 1, r_lo ≤ 2^128 → r_lo = 2^128
+    have hrlo_eq : r_lo = 2 ^ 128 := by omega
+    -- hedge: r_lo = 2^128 → rem < 2^128
+    have hrem_lt : rem < 2 ^ 128 := hedge hrlo_eq
+    -- But rem / 2^128 = 1 → rem ≥ 2^128
+    exfalso; omega
+
+/-- Composition of the three EVM sub-models equals karatsubaFloor on normalized inputs. -/
+private theorem evm_composition_eq_karatsubaFloor (x_hi_1 x_lo_1 : Nat)
+    (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) (hxlo : x_lo_1 < 2 ^ 256) :
+    model_sqrtCorrection_evm
+      (model_innerSqrt_evm x_hi_1).1
+      (model_karatsubaQuotient_evm (model_innerSqrt_evm x_hi_1).2 x_lo_1
+        (model_innerSqrt_evm x_hi_1).1).1
+      (model_karatsubaQuotient_evm (model_innerSqrt_evm x_hi_1).2 x_lo_1
+        (model_innerSqrt_evm x_hi_1).1).2
+      x_lo_1
+    = karatsubaFloor x_hi_1 x_lo_1 := by
+  -- Step 1: Replace EVM sub-model outputs with their Nat equivalents
+  have hinner := model_innerSqrt_evm_correct x_hi_1 hlo hhi
+  rw [hinner.1, hinner.2]
+  -- Abbreviations used in comments:
+  -- m = natSqrt x_hi_1, res = x_hi_1 - m², H = 2^128
+  -- n = res*H + x_lo_1/H, d = 2*m, q = n/d, rem = n%d, r = m*H + q
+  -- Step 2: Bounds on natSqrt x_hi_1 and residue
+  have hrhi_lo : 2 ^ 127 ≤ natSqrt x_hi_1 := natSqrt_ge_2_127 x_hi_1 hlo
+  have hrhi_hi : natSqrt x_hi_1 < 2 ^ 128 := natSqrt_lt_2_128 x_hi_1 hhi
+  have hres_le : x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1 ≤ 2 * natSqrt x_hi_1 := by
+    have hsq := natSqrt_sq_le x_hi_1
+    have hsucc := natSqrt_lt_succ_sq x_hi_1
+    -- (m+1)*(m+1) = m*m + 2*m + 1, so x - m*m ≤ 2*m
+    have := Nat.add_mul (natSqrt x_hi_1) 1 (natSqrt x_hi_1 + 1)
+    have := Nat.mul_add (natSqrt x_hi_1) (natSqrt x_hi_1) 1
+    omega
+  have hres_lt : x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1 < 2 ^ 256 := by omega
+  -- Step 3: Apply model_karatsubaQuotient_evm_correct
+  have hkq := model_karatsubaQuotient_evm_correct
+    (x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) x_lo_1 (natSqrt x_hi_1)
+    hres_le hxlo hrhi_lo hrhi_hi hres_lt
+  rw [hkq.1, hkq.2]
+  -- Step 4: Strip % 2^256 (both q and rem fit in 256 bits)
+  have hd_pos : 0 < 2 * natSqrt x_hi_1 := by omega
+  have hxlo_hi : x_lo_1 / 2 ^ 128 < 2 ^ 128 :=
+    Nat.div_lt_of_lt_mul (by rw [← Nat.pow_add]; exact hxlo)
+  have hq_le :
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1) ≤ 2 ^ 128 := by
+    rw [Nat.div_le_iff_le_mul_add_pred hd_pos]; omega
+  have hq_lt_256 :
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1) < 2 ^ 256 := by omega
+  have hrem_lt_256 :
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) %
+        (2 * natSqrt x_hi_1) < 2 ^ 256 :=
+    Nat.lt_of_lt_of_le (Nat.mod_lt _ hd_pos) (by omega)
+  rw [Nat.mod_eq_of_lt hq_lt_256, Nat.mod_eq_of_lt hrem_lt_256]
+  -- Step 5: Hedge condition: q = 2^128 → rem < 2^128
+  have hedge :
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1) = 2 ^ 128 →
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) %
+        (2 * natSqrt x_hi_1) < 2 ^ 128 := by
+    intro hq_eq
+    have hid := (Nat.div_add_mod
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128)
+      (2 * natSqrt x_hi_1)).symm
+    rw [hq_eq] at hid -- d * 2^128 + rem = n
+    have hres_eq_d : x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1 = 2 * natSqrt x_hi_1 := by omega
+    rw [hres_eq_d, show 2 * natSqrt x_hi_1 * 2 ^ 128 + x_lo_1 / 2 ^ 128 =
+        x_lo_1 / 2 ^ 128 + 2 ^ 128 * (2 * natSqrt x_hi_1) from by omega,
+      Nat.add_mul_mod_self_right,
+      Nat.mod_eq_of_lt (by omega : x_lo_1 / 2 ^ 128 < 2 * natSqrt x_hi_1)]
+    exact hxlo_hi
+  -- Step 6: Apply model_sqrtCorrection_evm_correct
+  have hcorr := model_sqrtCorrection_evm_correct (natSqrt x_hi_1)
+    (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+      (2 * natSqrt x_hi_1))
+    (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) %
+      (2 * natSqrt x_hi_1))
+    x_lo_1 hrhi_lo hrhi_hi hq_le (Nat.mod_lt _ hd_pos) hxlo hedge
+  rw [hcorr]
+  -- Goal: m*H + q - (if rem*H + x_lo_lo < q*q then 1 else 0) = karatsubaFloor x_hi_1 x_lo_1
+  -- Step 7: Both sides equal natSqrt(x_hi_1*2^256+x_lo_1)
+  rw [karatsubaFloor_eq_natSqrt x_hi_1 x_lo_1 hlo hhi hxlo]
+  -- Goal: m*H + q - correction = natSqrt(x_hi_1*2^256+x_lo_1)
+  -- Step 8: r = karatsubaR x_hi_1 x_lo_1
+  have hr_eq : natSqrt x_hi_1 * 2 ^ 128 +
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1) = karatsubaR x_hi_1 x_lo_1 := by
+    unfold karatsubaR; rfl
+  -- Step 9: x_full = x_hi_1*2^256 + x_lo_1
+  have hx_full : x_hi_1 * (2 ^ 128 * 2 ^ 128) + x_lo_1 / 2 ^ 128 * 2 ^ 128 +
+      x_lo_1 % 2 ^ 128 = x_hi_1 * 2 ^ 256 + x_lo_1 := by
+    have h1 := Nat.div_add_mod x_lo_1 (2 ^ 128)
+    have h2 : (2 : Nat) ^ 128 * 2 ^ 128 = 2 ^ 256 := by rw [← Nat.pow_add]
+    omega
+  -- Step 10: karatsubaR_bracket gives natSqrt(x) ≤ r ≤ natSqrt(x)+1
+  have hbracket := karatsubaR_bracket x_hi_1 x_lo_1 hlo hhi hxlo
+  have hbr1 : natSqrt (x_hi_1 * 2 ^ 256 + x_lo_1) ≤ karatsubaR x_hi_1 x_lo_1 := by
+    have := hbracket.1; rwa [hx_full] at this
+  have hbr2 : karatsubaR x_hi_1 x_lo_1 ≤ natSqrt (x_hi_1 * 2 ^ 256 + x_lo_1) + 1 := by
+    have := hbracket.2; rwa [hx_full] at this
+  -- Step 11: correction_correct gives the answer
+  have hcc := correction_correct (x_hi_1 * 2 ^ 256 + x_lo_1) (karatsubaR x_hi_1 x_lo_1) hbr1 hbr2
+  -- hcc: (if x < r*r then r-1 else r) = natSqrt(x)
+  rw [← hr_eq] at hcc
+  -- Step 12: Karatsuba identity x_full + q² = r² + rem*H + x_lo_lo
+  -- Abbreviate for readability
+  have hident :
+      let n := (x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128
+      let q := n / (2 * natSqrt x_hi_1)
+      let rem := n % (2 * natSqrt x_hi_1)
+      let r := natSqrt x_hi_1 * 2 ^ 128 + q
+      x_hi_1 * (2 ^ 128 * 2 ^ 128) + x_lo_1 / 2 ^ 128 * 2 ^ 128 + x_lo_1 % 2 ^ 128 +
+        q * q = r * r + rem * 2 ^ 128 + x_lo_1 % 2 ^ 128 := by
+    simp only []
+    -- Both sides equal m²*(H*H) + n*H + q² + x_lo%H after expansion.
+    -- Key facts for the algebraic identity:
+    have hsq_le := natSqrt_sq_le x_hi_1
+    have hdivmod := (Nat.div_add_mod
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128)
+      (2 * natSqrt x_hi_1)).symm
+    -- Product decompositions (making the identity linear for omega):
+    -- (m²+res)*(H*H) = m²*(H*H) + res*(H*H)
+    have hp1 := Nat.add_mul (natSqrt x_hi_1 * natSqrt x_hi_1)
+      (x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) (2 ^ 128 * 2 ^ 128 : Nat)
+    -- res*(H*H) = res*H*H
+    have hp2 := Nat.mul_assoc (x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1)
+      (2 ^ 128 : Nat) (2 ^ 128 : Nat)
+    -- (res*H + x_lo_hi)*H = res*H*H + x_lo_hi*H
+    have hp3 := Nat.add_mul ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128)
+      (x_lo_1 / 2 ^ 128) (2 ^ 128 : Nat)
+    -- Square expansion: (m*H+q)*(m*H+q) = m*H*(m*H+q) + q*(m*H+q)
+    have hp4 := Nat.add_mul (natSqrt x_hi_1 * 2 ^ 128)
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+      (natSqrt x_hi_1 * 2 ^ 128 +
+        ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+          (2 * natSqrt x_hi_1))
+    -- m*H*(m*H+q) = m*H*(m*H) + m*H*q
+    have hp5 := Nat.mul_add (natSqrt x_hi_1 * 2 ^ 128)
+      (natSqrt x_hi_1 * 2 ^ 128)
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+    -- q*(m*H+q) = q*(m*H) + q*q
+    have hp6 := Nat.mul_add
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+      (natSqrt x_hi_1 * 2 ^ 128)
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+    -- (a*b)*(a*b) = (a*a)*(b*b) for the m*H*(m*H) term
+    have hp7 : natSqrt x_hi_1 * 2 ^ 128 * (natSqrt x_hi_1 * 2 ^ 128) =
+        natSqrt x_hi_1 * natSqrt x_hi_1 * (2 ^ 128 * 2 ^ 128) := by
+      calc natSqrt x_hi_1 * 2 ^ 128 * (natSqrt x_hi_1 * 2 ^ 128)
+          = natSqrt x_hi_1 * (2 ^ 128 * (natSqrt x_hi_1 * 2 ^ 128)) := Nat.mul_assoc _ _ _
+        _ = natSqrt x_hi_1 * (natSqrt x_hi_1 * (2 ^ 128 * 2 ^ 128)) := by
+            congr 1; rw [← Nat.mul_assoc, Nat.mul_comm (2 ^ 128 : Nat) (natSqrt x_hi_1),
+              Nat.mul_assoc]
+        _ = natSqrt x_hi_1 * natSqrt x_hi_1 * (2 ^ 128 * 2 ^ 128) := (Nat.mul_assoc _ _ _).symm
+    -- m*H*q = m*q*H (re-association for the cross terms)
+    have hp8 : natSqrt x_hi_1 * 2 ^ 128 *
+        (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+          (2 * natSqrt x_hi_1)) =
+        natSqrt x_hi_1 *
+        (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+          (2 * natSqrt x_hi_1)) * 2 ^ 128 := by
+      rw [Nat.mul_assoc, Nat.mul_comm (2 ^ 128 : Nat), ← Nat.mul_assoc]
+    -- m*H*q = q*(m*H) (commutativity)
+    have hp9 := Nat.mul_comm (natSqrt x_hi_1 * 2 ^ 128)
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+    -- (d*q+rem)*H = d*q*H + rem*H
+    have hp10 := Nat.add_mul
+      (2 * natSqrt x_hi_1 *
+        (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+          (2 * natSqrt x_hi_1)))
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) %
+        (2 * natSqrt x_hi_1))
+      (2 ^ 128 : Nat)
+    -- d*q = 2*m*q
+    have hp11 := Nat.mul_assoc (2 : Nat) (natSqrt x_hi_1)
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+    -- 2*m*q*H = 2*(m*q*H)
+    have hp12 := Nat.mul_assoc (2 : Nat)
+      (natSqrt x_hi_1 *
+        (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+          (2 * natSqrt x_hi_1)))
+      (2 ^ 128 : Nat)
+    omega
+  -- Step 13: Apply correction_equiv
+  have hequiv := correction_equiv
+    (x_hi_1 * (2 ^ 128 * 2 ^ 128) + x_lo_1 / 2 ^ 128 * 2 ^ 128 + x_lo_1 % 2 ^ 128)
+    (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+      (2 * natSqrt x_hi_1))
+    (natSqrt x_hi_1 * 2 ^ 128 +
+      ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+    (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) %
+      (2 * natSqrt x_hi_1) * 2 ^ 128)
+    (x_lo_1 % 2 ^ 128)
+    hident
+  -- Step 14: Close by case-splitting on the EVM comparison condition
+  by_cases hlt : ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) %
+      (2 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 % 2 ^ 128 <
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1)) *
+      (((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+        (2 * natSqrt x_hi_1))
+  · -- EVM comparison true → correction = 1
+    simp only [hlt, ↓reduceIte]
+    -- Derive: x < r*r (via hequiv + hx_full)
+    have hlt_x : x_hi_1 * 2 ^ 256 + x_lo_1 <
+        (natSqrt x_hi_1 * 2 ^ 128 +
+          ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+            (2 * natSqrt x_hi_1)) *
+        (natSqrt x_hi_1 * 2 ^ 128 +
+          ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+            (2 * natSqrt x_hi_1)) := by
+      rw [← hx_full]; exact hequiv.mpr hlt
+    -- Simplify the if in hcc to r-1
+    simp only [hlt_x, ↓reduceIte] at hcc
+    exact hcc
+  · -- EVM comparison false → correction = 0
+    simp only [hlt, ↓reduceIte, Nat.sub_zero]
+    -- Derive: ¬(x < r*r)
+    have hlt_x : ¬(x_hi_1 * 2 ^ 256 + x_lo_1 <
+        (natSqrt x_hi_1 * 2 ^ 128 +
+          ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+            (2 * natSqrt x_hi_1)) *
+        (natSqrt x_hi_1 * 2 ^ 128 +
+          ((x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1) * 2 ^ 128 + x_lo_1 / 2 ^ 128) /
+            (2 * natSqrt x_hi_1))) :=
+      fun h => hlt (hequiv.mp (by rwa [hx_full]))
+    simp only [hlt_x, ↓reduceIte] at hcc
+    exact hcc
+
+/-- karatsubaFloor on normalized inputs fits in 256 bits. -/
+private theorem karatsubaFloor_lt_word (x_hi_1 x_lo_1 : Nat)
+    (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) (hxlo : x_lo_1 < 2 ^ 256) :
+    karatsubaFloor x_hi_1 x_lo_1 < WORD_MOD := by
+  rw [karatsubaFloor_eq_natSqrt x_hi_1 x_lo_1 hlo hhi hxlo, show WORD_MOD = 2 ^ 256 from rfl]
+  -- natSqrt(x) < 2^256 when x < 2^512
+  suffices ¬(2 ^ 256 ≤ natSqrt (x_hi_1 * 2 ^ 256 + x_lo_1)) by omega
+  intro h
+  have hsq := natSqrt_sq_le (x_hi_1 * 2 ^ 256 + x_lo_1)
+  have := Nat.le_trans (Nat.mul_le_mul h h) hsq; omega
 
 end EvmBridge
 
@@ -1035,13 +1731,32 @@ private theorem model_sqrt512_evm_eq_sqrt512 (x_hi x_lo : Nat)
     (hxlo_lt : x_lo < 2 ^ 256) :
     Sqrt512GeneratedModel.model_sqrt512_evm x_hi x_lo =
       sqrt512 (x_hi * 2 ^ 256 + x_lo) := by
-  -- Unfold model_sqrt512_evm: normalization + 3 sub-model calls + un-normalize.
-  -- 1. evm_normalization_correct gives x_hi_1, x_lo_1, shift_1 = k
-  -- 2. model_innerSqrt_evm_correct gives r_hi = natSqrt(x_hi_1), res = residue
-  -- 3. model_karatsubaQuotient_evm_correct gives r_lo, res from quotient
-  -- 4. model_sqrtCorrection_evm_correct gives r = karatsubaFloor(x_hi_1, x_lo_1)
-  -- 5. evmShr shift_1 r = karatsubaFloor / 2^k = sqrt512(x)
-  sorry
+  open Sqrt512GeneratedModel in
+  -- Step 0: sqrt512 takes else branch since x_hi > 0 → x ≥ 2^256
+  have hx_ge : ¬(x_hi * 2 ^ 256 + x_lo < 2 ^ 256) := by omega
+  unfold sqrt512; simp only [hx_ge, ↓reduceIte]
+  -- Simplify: (x_hi*2^256+x_lo)/2^256 = x_hi
+  have hx_div : (x_hi * 2 ^ 256 + x_lo) / 2 ^ 256 = x_hi := by
+    rw [Nat.mul_comm, Nat.mul_add_div (Nat.two_pow_pos 256),
+        Nat.div_eq_of_lt hxlo_lt, Nat.add_zero]
+  rw [hx_div]
+  -- Now: LHS = model_sqrt512_evm x_hi x_lo
+  --      RHS = karatsubaFloor (x * 4^k / 2^256) (x * 4^k % 2^256) / 2^k
+
+  -- Step 1: Get normalization results
+  have hnorm := evm_normalization_correct x_hi x_lo hxhi_pos hxhi_lt hxlo_lt
+  -- Rewrite RHS to use EVM expressions
+  rw [← hnorm.1, ← hnorm.2.1, ← hnorm.2.2.1]
+  -- Now RHS uses the same EVM sub-expressions as model_sqrt512_evm
+  -- Step 2: Unfold model_sqrt512_evm to expose sub-model calls
+  unfold model_sqrt512_evm; simp only []
+  -- Step 3: Rewrite the composition of sub-models to karatsubaFloor
+  rw [evm_composition_eq_karatsubaFloor _ _ hnorm.2.2.2.1 hnorm.2.2.2.2.1 hnorm.2.2.2.2.2]
+  -- Step 4: Convert evmShr to division
+  have hshift_lt : evmShr (evmAnd (evmAnd 1 255) 255) (evmClz (u256 x_hi)) < 256 := by
+    rw [hnorm.2.2.1]; exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) (by omega)
+  rw [evmShr_eq' _ _ hshift_lt
+    (karatsubaFloor_lt_word _ _ hnorm.2.2.2.1 hnorm.2.2.2.2.1 hnorm.2.2.2.2.2)]
 
 set_option exponentiation.threshold 512 in
 /-- The EVM model of 512-bit sqrt computes natSqrt. -/
