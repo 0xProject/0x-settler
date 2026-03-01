@@ -1696,6 +1696,102 @@ library Lib512MathArithmetic {
         return omodAlt(r, y, r);
     }
 
+    /// @dev 6 Babylonian steps from fixed seed + floor correction + residue.
+    ///
+    /// We treat `r` as a ≤2-limb bigint where each limb is half a machine word (128 bits).
+    /// Spliting √x in this way lets us apply "ordinary" 256-bit `sqrt` to the top word of
+    /// `x`. Then we can recover the bottom limb of `r` without 512-bit division.
+    ///
+    /// Implementing this as:
+    ///   uint256 r_hi = x_hi.sqrt();
+    /// is correct, but duplicates the normalization that we just did above and performs a
+    /// more-costly initialization step. solc is not smart enough to optimize this away, so
+    /// we inline and do it ourselves.
+    /// @dev One Babylonian step: floor((r + x/r) / 2)
+    function _bstep(uint256 x, uint256 r) private pure returns (uint256 r_out) {
+        assembly ("memory-safe") {
+            r_out := shr(0x01, add(r, div(x, r)))
+        }
+    }
+
+    function _innerSqrt(uint256 x_hi) private pure returns (uint256 r_hi, uint256 res) {
+        // Seed with √(2²⁵⁵), the geometric mean of the normalized √x_hi range [2¹²⁷,
+        // 2¹²⁸). This balances worst-case over/underestimate (ε ≈ ±0.414/0.293), giving
+        // >128 bits of precision in 6 Babylonian steps
+        r_hi = 0xb504f333f9de6484597d89b3754abe9f;
+
+        // 6 Babylonian steps is sufficient for convergence
+        r_hi = _bstep(x_hi, r_hi);
+        r_hi = _bstep(x_hi, r_hi);
+        r_hi = _bstep(x_hi, r_hi);
+        r_hi = _bstep(x_hi, r_hi);
+        r_hi = _bstep(x_hi, r_hi);
+        r_hi = _bstep(x_hi, r_hi);
+
+        assembly ("memory-safe") {
+            // The Babylonian step can oscillate between ⌊√x_hi⌋ and ⌈√x_hi⌉. Clean that up.
+            r_hi := sub(r_hi, lt(div(x_hi, r_hi), r_hi))
+
+            // This is cheaper than
+            //   uint256 res = x_hi - r_hi * r_hi;
+            // for no clear reason
+            res := sub(x_hi, mul(r_hi, r_hi))
+        }
+    }
+
+    /// @dev Karatsuba quotient with carry correction.
+    ///
+    /// `res` is (almost) a single limb. Create a new (almost) machine word `n` with `res` as
+    /// the upper limb and shifting in the next limb of `x` (namely `x_lo >> 128`) as the
+    /// lower limb. The next step of Zimmerman's algorithm is:
+    ///   r_lo = n / (2 · r_hi)
+    ///   res = n % (2 · r_hi)
+    function _karatsubaQuotient(uint256 res, uint256 x_lo, uint256 r_hi)
+        private
+        pure
+        returns (uint256 r_lo, uint256 res_out)
+    {
+        assembly ("memory-safe") {
+            let n := or(shl(0x80, res), shr(0x80, x_lo))
+            let d := shl(0x01, r_hi)
+            r_lo := div(n, d)
+
+            let c := shr(0x80, res)
+            res_out := mod(n, d)
+
+            // It's possible that `n` was 257 bits and overflowed (`res` was not just a single
+            // limb). Explicitly handling the carry avoids 512-bit division.
+            if c {
+                r_lo := add(r_lo, div(not(0x00), d))
+                res_out := add(res_out, add(0x01, mod(not(0x00), d)))
+                r_lo := add(r_lo, div(res_out, d))
+                res_out := mod(res_out, d)
+            }
+        }
+    }
+
+    /// @dev Combine r_hi/r_lo + 257-bit correction comparison.
+    ///
+    /// Then, if res · 2¹²⁸ + x_lo % 2¹²⁸ < r_lo², decrement `r`. We have to do this in a
+    /// complicated manner because both `res` and `r_lo` can be _slightly_ longer than 1 limb
+    /// (128 bits). This is more efficient than performing the full 257-bit comparison.
+    function _sqrtCorrection(uint256 r_hi, uint256 r_lo, uint256 res, uint256 x_lo)
+        private
+        pure
+        returns (uint256 r)
+    {
+        unchecked {
+            r = (r_hi << 128) + r_lo;
+            r = r.unsafeDec(
+                ((res >> 128) < (r_lo >> 128))
+                .or(
+                    ((res >> 128) == (r_lo >> 128))
+                    .and((res << 128) | (x_lo & 0xffffffffffffffffffffffffffffffff) < r_lo * r_lo)
+                )
+            );
+        }
+    }
+
     function _sqrt(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r) {
         /// Our general approach is to apply Zimmerman's "Karatsuba Square Root" algorithm
         /// https://inria.hal.science/inria-00072854/document with the helpers from Solady and
@@ -1708,77 +1804,10 @@ library Lib512MathArithmetic {
             (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift & 0xfe);
             shift >>= 1;
 
-            // We treat `r` as a ≤2-limb bigint where each limb is half a machine word (128 bits).
-            // Spliting √x in this way lets us apply "ordinary" 256-bit `sqrt` to the top word of
-            // `x`. Then we can recover the bottom limb of `r` without 512-bit division.
-            //
-            // Implementing this as:
-            //   uint256 r_hi = x_hi.sqrt();
-            // is correct, but duplicates the normalization that we just did above and performs a
-            // more-costly initialization step. solc is not smart enough to optimize this away, so
-            // we inline and do it ourselves.
-            uint256 r_hi;
-            assembly ("memory-safe") {
-                // Seed with √(2²⁵⁵), the geometric mean of the normalized √x_hi range [2¹²⁷,
-                // 2¹²⁸). This balances worst-case over/underestimate (ε ≈ ±0.414/0.293), giving
-                // >128 bits of precision in 6 Babylonian steps
-                r_hi := 0xb504f333f9de6484597d89b3754abe9f
-
-                // 6 Babylonian steps is sufficient for convergence
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-
-                // The Babylonian step can oscillate between ⌊√x_hi⌋ and ⌈√x_hi⌉. Clean that up.
-                r_hi := sub(r_hi, lt(div(x_hi, r_hi), r_hi))
-            }
-
-            // This is cheaper than
-            //   uint256 res = x_hi - r_hi * r_hi;
-            // for no clear reason
-            uint256 res;
-            assembly ("memory-safe") {
-                res := sub(x_hi, mul(r_hi, r_hi))
-            }
-
+            (uint256 r_hi, uint256 res) = _innerSqrt(x_hi);
             uint256 r_lo;
-            // `res` is (almost) a single limb. Create a new (almost) machine word `n` with `res` as
-            // the upper limb and shifting in the next limb of `x` (namely `x_lo >> 128`) as the
-            // lower limb. The next step of Zimmerman's algorithm is:
-            //   r_lo = n / (2 · r_hi)
-            //   res = n % (2 · r_hi)
-            assembly ("memory-safe") {
-                let n := or(shl(0x80, res), shr(0x80, x_lo))
-                let d := shl(0x01, r_hi)
-                r_lo := div(n, d)
-
-                let c := shr(0x80, res)
-                res := mod(n, d)
-
-                // It's possible that `n` was 257 bits and overflowed (`res` was not just a single
-                // limb). Explicitly handling the carry avoids 512-bit division.
-                if c {
-                    r_lo := add(r_lo, div(not(0x00), d))
-                    res := add(res, add(0x01, mod(not(0x00), d)))
-                    r_lo := add(r_lo, div(res, d))
-                    res := mod(res, d)
-                }
-            }
-            r = (r_hi << 128) + r_lo;
-
-            // Then, if res · 2¹²⁸ + x_lo % 2¹²⁸ < r_lo², decrement `r`. We have to do this in a
-            // complicated manner because both `res` and `r_lo` can be _slightly_ longer than 1 limb
-            // (128 bits). This is more efficient than performing the full 257-bit comparison.
-            r = r.unsafeDec(
-                ((res >> 128) < (r_lo >> 128))
-                .or(
-                    ((res >> 128) == (r_lo >> 128))
-                    .and((res << 128) | (x_lo & 0xffffffffffffffffffffffffffffffff) < r_lo * r_lo)
-                )
-            );
+            (r_lo, res) = _karatsubaQuotient(res, x_lo, r_hi);
+            r = _sqrtCorrection(r_hi, r_lo, res, x_lo);
 
             // Un-normalize
             return r >> shift;
