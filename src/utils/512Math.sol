@@ -1736,7 +1736,9 @@ library Lib512MathArithmetic {
 
         assembly ("memory-safe") {
             // This is cheaper than
-            //   uint256 res = x_hi - r_hi * r_hi;
+            //   unchecked {
+            //     uint256 res = x_hi - r_hi * r_hi;
+            //   }
             // for no clear reason
             res := sub(x_hi, mul(r_hi, r_hi))
         }
