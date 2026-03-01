@@ -583,15 +583,53 @@ private theorem fixed_seed_ge_2_127 : 2 ^ 127 ≤ FIXED_SEED := by
     Unfolds only model_innerSqrt_evm (~10 let-bindings). Each EVM Babylonian step
     equals bstep (proved by evm_bstep_eq), and the floor correction matches on
     bounded inputs. Together: EVM inner sqrt = floorSqrt_fixed = natSqrt. -/
-private theorem model_innerSqrt_evm_correct (x_hi_1 : Nat)
+private theorem natSqrt_lt_2_128 (x : Nat) (hx : x < 2 ^ 256) :
+    natSqrt x < 2 ^ 128 := by
+  suffices h : ¬(2 ^ 128 ≤ natSqrt x) by omega
+  intro h
+  have hsq := natSqrt_sq_le x
+  have hpow : (2 : Nat) ^ 128 * 2 ^ 128 = 2 ^ 256 := by rw [← Nat.pow_add]
+  have := Nat.mul_le_mul h h
+  omega
+
+private theorem natSqrt_ge_2_127 (x : Nat) (hx : 2 ^ 254 ≤ x) :
+    2 ^ 127 ≤ natSqrt x := by
+  suffices h : ¬(natSqrt x < 2 ^ 127) by omega
+  intro h
+  have h1 : natSqrt x + 1 ≤ 2 ^ 127 := h
+  have h2 := Nat.mul_le_mul h1 h1
+  have h3 := natSqrt_lt_succ_sq x
+  have h4 : (2 : Nat) ^ 127 * 2 ^ 127 = 2 ^ 254 := by rw [← Nat.pow_add]
+  omega
+
+/-- The norm model's second component is x - fst^2 (definitional). -/
+theorem model_innerSqrt_snd_def (x : Nat) :
+    (model_innerSqrt x).2 = x - (model_innerSqrt x).1 * (model_innerSqrt x).1 := by
+  rfl
+
+/-- The norm model's second component gives the residue x - natSqrt(x)^2. -/
+theorem model_innerSqrt_snd_eq_residue (x : Nat)
+    (hlo : 2 ^ 254 ≤ x) (hhi : x < 2 ^ 256) :
+    (model_innerSqrt x).2 = x - natSqrt x * natSqrt x := by
+  rw [model_innerSqrt_snd_def, model_innerSqrt_fst_eq_natSqrt x hlo hhi]
+
+/-- EVM inner sqrt equals norm inner sqrt on in-range inputs.
+    Since all intermediate sums z + x/z < 2^130 < 2^256, the EVM
+    operations (evmAdd, evmDiv, evmShr, etc.) match their norm
+    counterparts exactly. Each step stays in [2^127, 2^129).
+    Proof: chain evm_bstep_eq 6 times + show correction/residue match. -/
+theorem model_innerSqrt_evm_eq_norm (x_hi_1 : Nat)
+    (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) :
+    model_innerSqrt_evm x_hi_1 = model_innerSqrt x_hi_1 := by
+  sorry
+
+theorem model_innerSqrt_evm_correct (x_hi_1 : Nat)
     (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) :
     (model_innerSqrt_evm x_hi_1).1 = natSqrt x_hi_1 ∧
     (model_innerSqrt_evm x_hi_1).2 = x_hi_1 - natSqrt x_hi_1 * natSqrt x_hi_1 := by
-  -- Unfold model_innerSqrt_evm to expose ~10 let-bindings.
-  -- Show each EVM step = bstep via evm_bstep_eq + fixed_seed bounds.
-  -- Floor correction: evmSub/evmLt/evmDiv matches on bounded inputs.
-  -- Residue: evmSub x_hi (evmMul r_hi r_hi) = x_hi - natSqrt(x_hi)^2.
-  sorry
+  rw [model_innerSqrt_evm_eq_norm x_hi_1 hlo hhi]
+  exact ⟨model_innerSqrt_fst_eq_natSqrt x_hi_1 hlo hhi,
+         model_innerSqrt_snd_eq_residue x_hi_1 hlo hhi⟩
 
 /-- Sub-lemma C: model_karatsubaQuotient_evm computes the Karatsuba quotient and
     remainder, including carry correction for the 257-bit overflow case.
