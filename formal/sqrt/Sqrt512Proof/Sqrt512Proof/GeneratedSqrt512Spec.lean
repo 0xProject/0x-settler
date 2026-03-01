@@ -574,47 +574,159 @@ private theorem evm_normalization_correct (x_hi x_lo : Nat)
     2 ^ 254 ≤ x_hi_1 ∧
     x_hi_1 < 2 ^ 256 ∧
     x_lo_1 < 2 ^ 256 := by
-  -- Introduce the let-bindings from the goal into the context
-  intro x; intro k; intro shift; intro dbl_k; intro x_lo_1; intro x_hi_1; intro shift_1
-  -- Simplify u256 wrappers
+  -- Inline all let-bindings upfront so rw/simp work on concrete expressions.
+  -- dbl_k = evmAnd (evmClz (u256 x_hi)) 254
+  -- shift = evmClz (u256 x_hi)
+  -- x = x_hi * 2^256 + x_lo, k = (255 - log2 x_hi) / 2
+  show let x := x_hi * 2 ^ 256 + x_lo; let k := (255 - Nat.log2 x_hi) / 2;
+    let dbl_k := evmAnd (evmClz (u256 x_hi)) 254;
+    evmOr (evmShl dbl_k (u256 x_hi)) (evmShr (evmSub 256 dbl_k) (u256 x_lo)) =
+        x * 4 ^ k / 2 ^ 256 ∧
+    evmShl dbl_k (u256 x_lo) = x * 4 ^ k % 2 ^ 256 ∧
+    evmShr (evmAnd (evmAnd 1 255) 255) (evmClz (u256 x_hi)) = k ∧
+    2 ^ 254 ≤ evmOr (evmShl dbl_k (u256 x_hi)) (evmShr (evmSub 256 dbl_k) (u256 x_lo)) ∧
+    evmOr (evmShl dbl_k (u256 x_hi)) (evmShr (evmSub 256 dbl_k) (u256 x_lo)) < 2 ^ 256 ∧
+    evmShl dbl_k (u256 x_lo) < 2 ^ 256
+  intro x; intro k; intro dbl_k
   have hxhi_wm : x_hi < WORD_MOD := hxhi_lt
   have hxlo_wm : x_lo < WORD_MOD := hxlo_lt
-  -- Step 1: shift = 255 - log2(x_hi)
   have hxhi_ne : x_hi ≠ 0 := Nat.ne_of_gt hxhi_pos
   have hlog_le : Nat.log2 x_hi ≤ 255 := by
     have := (Nat.log2_lt hxhi_ne).2 hxhi_lt; omega
-  have hshift_eq : shift = 255 - Nat.log2 x_hi := by
-    show evmClz (u256 x_hi) = _
+  -- Step 1: evmClz (u256 x_hi) = 255 - log2(x_hi)
+  have hshift_eq : evmClz (u256 x_hi) = 255 - Nat.log2 x_hi := by
     rw [u256_id' x_hi hxhi_wm, evmClz_eq' x_hi hxhi_wm]; simp [hxhi_ne]
-  have hshift_wm : shift < WORD_MOD := by
-    rw [hshift_eq]; unfold WORD_MOD; omega
+  have hshift_wm : evmClz (u256 x_hi) < WORD_MOD := by rw [hshift_eq]; unfold WORD_MOD; omega
   -- Step 2: dbl_k = 2 * k
   have hdbl_k : dbl_k = 2 * k := by
-    show evmAnd shift 254 = _
+    show evmAnd (evmClz (u256 x_hi)) 254 = _
     rw [evmAnd_eq' _ 254 hshift_wm (by unfold WORD_MOD; omega), hshift_eq]
     exact normAnd_shift_254 (255 - Nat.log2 x_hi) (by omega)
   have hdbl_k_lt : dbl_k < 256 := by omega
   have hdbl_k_le : dbl_k ≤ 254 := by omega
   -- Step 3: shift_1 = k
-  have hshift_1_eq : shift_1 = k := by
-    show evmShr (evmAnd (evmAnd 1 255) 255) shift = k
+  have hshift_1_eq : evmShr (evmAnd (evmAnd 1 255) 255) (evmClz (u256 x_hi)) = k := by
     have h1 : (1 : Nat) < WORD_MOD := by unfold WORD_MOD; omega
     have h255 : (255 : Nat) < WORD_MOD := by unfold WORD_MOD; omega
     rw [evmAnd_eq' 1 255 h1 h255, and_1_255, evmAnd_eq' 1 255 h1 h255, and_1_255]
-    rw [evmShr_eq' 1 shift (by omega) hshift_wm, hshift_eq, Nat.pow_one]
+    rw [evmShr_eq' 1 _ (by omega) hshift_wm, hshift_eq, Nat.pow_one]
   -- Step 4: 4^k = 2^dbl_k
   have hfour_eq : 4 ^ k = 2 ^ dbl_k := by
     rw [hdbl_k, show (4 : Nat) = 2 ^ 2 from by decide, ← Nat.pow_mul]
-  -- Step 5: x_hi * 2^dbl_k < 2^256 (from shift_range)
+  -- Step 5: x_hi * 2^dbl_k < 2^256
   have hsr := shift_range x_hi hxhi_pos hxhi_lt
   have hxhi_shl_lt : x_hi * 2 ^ dbl_k < 2 ^ 256 := by rw [← hfour_eq]; exact hsr.2
-  -- Step 6: Simplify EVM operations to Nat arithmetic
+  -- Step 6: Simplify EVM operations
   have hsub_eq : evmSub 256 dbl_k = 256 - dbl_k :=
     evmSub_eq_of_le 256 dbl_k (by unfold WORD_MOD; omega) (by omega)
   have hshl_xhi : evmShl dbl_k (u256 x_hi) = (x_hi * 2 ^ dbl_k) % WORD_MOD := by
     rw [u256_id' x_hi hxhi_wm]; exact evmShl_eq' dbl_k x_hi hdbl_k_lt hxhi_wm
-  -- TODO: Fix Lean v4.28 API breakages in steps 6-10 (normalization was proved before)
-  sorry
+  -- Steps 6-10 use complex EVM-to-Nat rewrites. We case-split on dbl_k = 0
+  -- (which is the only case where 256 - dbl_k = 256 makes evmShr behave differently).
+  by_cases hdbl_k_zero : dbl_k = 0
+  · -- CASE: dbl_k = 0, so k = 0, x already normalized
+    have hk_zero : k = 0 := by omega
+    -- With dbl_k = 0 and k = 0: 4^k = 1, x * 1 = x, x/2^256 = x_hi, x%2^256 = x_lo
+    -- Since dbl_k is a let-binding, we can't rw it directly. Use simp + show.
+    have hk_zero : k = 0 := by omega
+    -- Simplify all EVM ops with dbl_k = 0
+    have hu256_xhi : u256 x_hi = x_hi := u256_id' x_hi hxhi_wm
+    have hu256_xlo : u256 x_lo = x_lo := u256_id' x_lo hxlo_wm
+    have hxhi1_eq : evmOr (evmShl dbl_k (u256 x_hi)) (evmShr (evmSub 256 dbl_k) (u256 x_lo)) = x_hi := by
+      rw [hdbl_k_zero, hu256_xhi, hu256_xlo]
+      rw [evmShl_eq' 0 x_hi (by omega) hxhi_wm, Nat.pow_zero, Nat.mul_one]
+      unfold WORD_MOD
+      rw [Nat.mod_eq_of_lt hxhi_lt]
+      -- evmShr (256 - 0) x_lo = evmShr 256 x_lo = 0 (since 256 is not < 256)
+      rw [evmSub_eq_of_le 256 0 (by unfold WORD_MOD; omega) (by omega)]
+      -- Goal: evmOr x_hi (evmShr 256 x_lo) = x_hi
+      -- evmShr 256 x_lo: shift 256 ≥ 256 so result is 0
+      have : evmShr 256 x_lo = 0 := by
+        unfold evmShr u256 WORD_MOD; simp
+      rw [this]
+      rw [evmOr_eq' x_hi 0 hxhi_wm (by unfold WORD_MOD; omega)]
+      simp
+    have hxlo1_eq : evmShl dbl_k (u256 x_lo) = x_lo := by
+      rw [hdbl_k_zero, hu256_xlo,
+          evmShl_eq' 0 x_lo (by omega) hxlo_wm, Nat.pow_zero, Nat.mul_one]
+      unfold WORD_MOD; exact Nat.mod_eq_of_lt hxlo_lt
+    have hxdiv : x / 2 ^ 256 = x_hi := by
+      show (x_hi * 2 ^ 256 + x_lo) / 2 ^ 256 = x_hi
+      rw [Nat.mul_comm, Nat.mul_add_div (Nat.two_pow_pos 256), Nat.div_eq_of_lt hxlo_lt,
+          Nat.add_zero]
+    have hxmod : x % 2 ^ 256 = x_lo := by
+      show (x_hi * 2 ^ 256 + x_lo) % 2 ^ 256 = x_lo
+      rw [Nat.mul_comm, Nat.mul_add_mod]; exact Nat.mod_eq_of_lt hxlo_lt
+    -- 4^k = 4^0 = 1 when k = 0
+    have h4k_one : 4 ^ k = 1 := by simp [hk_zero]
+    refine ⟨?_, ?_, hshift_1_eq, ?_, ?_, ?_⟩
+    · rw [hxhi1_eq, h4k_one, Nat.mul_one, hxdiv]
+    · rw [hxlo1_eq, h4k_one, Nat.mul_one, hxmod]
+    · rw [hxhi1_eq]; have := hsr.1; rw [h4k_one, Nat.mul_one] at this; exact this
+    · rw [hxhi1_eq]; exact hxhi_lt
+    · rw [hxlo1_eq]; exact hxlo_lt
+  · -- CASE: dbl_k > 0, so 256 - dbl_k < 256 and evmShr works normally
+    have hdbl_k_pos : 0 < dbl_k := by omega
+    have hshr_xlo : evmShr (evmSub 256 dbl_k) (u256 x_lo) = x_lo / 2 ^ (256 - dbl_k) := by
+      rw [u256_id' x_lo hxlo_wm, hsub_eq]
+      exact evmShr_eq' (256 - dbl_k) x_lo (by omega) hxlo_wm
+    have hshl_xlo : evmShl dbl_k (u256 x_lo) = (x_lo * 2 ^ dbl_k) % WORD_MOD := by
+      rw [u256_id' x_lo hxlo_wm]; exact evmShl_eq' dbl_k x_lo hdbl_k_lt hxlo_wm
+    have hshl_xhi_wm : evmShl dbl_k (u256 x_hi) < WORD_MOD := by
+      rw [hshl_xhi]; exact Nat.mod_lt _ (by unfold WORD_MOD; omega)
+    have hshr_xlo_wm : evmShr (evmSub 256 dbl_k) (u256 x_lo) < WORD_MOD := by
+      rw [hshr_xlo]; unfold WORD_MOD
+      have : x_lo / 2 ^ (256 - dbl_k) < 2 ^ dbl_k := by
+        rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _)]
+        calc x_lo < 2 ^ 256 := hxlo_lt
+          _ = 2 ^ dbl_k * 2 ^ (256 - dbl_k) := by rw [← Nat.pow_add]; congr 1; omega
+      exact Nat.lt_of_lt_of_le this (Nat.pow_le_pow_right (by omega) (by omega))
+    have hxhi1_eq : evmOr (evmShl dbl_k (u256 x_hi)) (evmShr (evmSub 256 dbl_k) (u256 x_lo)) =
+        x * 4 ^ k / 2 ^ 256 := by
+      rw [evmOr_eq' _ _ hshl_xhi_wm hshr_xlo_wm, hshl_xhi, hshr_xlo]
+      unfold WORD_MOD
+      rw [shl512_hi_or x_hi x_lo dbl_k hdbl_k_pos (by omega) hxhi_shl_lt hxlo_lt]
+      congr 1; rw [← hfour_eq]
+    have hxlo1_eq : evmShl dbl_k (u256 x_lo) = x * 4 ^ k % 2 ^ 256 := by
+      rw [hshl_xlo]; unfold WORD_MOD
+      rw [show x * 4 ^ k = (x_hi * 2 ^ 256 + x_lo) * 2 ^ dbl_k from by rw [← hfour_eq]]
+      exact (shl512_lo' x_hi x_lo dbl_k (by omega)).symm
+    have hhi_eq : x * 4 ^ k / 2 ^ 256 = x_hi * 2 ^ dbl_k + x_lo / 2 ^ (256 - dbl_k) := by
+      rw [show x * 4 ^ k = (x_hi * 2 ^ 256 + x_lo) * 2 ^ dbl_k from by rw [← hfour_eq]]
+      exact shl512_hi x_hi x_lo dbl_k (by omega)
+    have hhi_lo_bound : 2 ^ 254 ≤ x * 4 ^ k / 2 ^ 256 := by
+      rw [hhi_eq]; have := hsr.1; rw [hfour_eq] at this; omega
+    have hshr_xlo_val : x_lo / 2 ^ (256 - dbl_k) < 2 ^ dbl_k := by
+      rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _)]
+      calc x_lo < 2 ^ 256 := hxlo_lt
+        _ = 2 ^ dbl_k * 2 ^ (256 - dbl_k) := by rw [← Nat.pow_add]; congr 1; omega
+    have hhi_hi_bound : x * 4 ^ k / 2 ^ 256 < 2 ^ 256 := by
+      rw [hhi_eq]
+      have h2 : (x_hi + 1) * 2 ^ dbl_k ≤ 2 ^ 256 := by
+        rw [Nat.succ_mul]
+        have h256 : 2 ^ 256 = 2 ^ dbl_k * 2 ^ (256 - dbl_k) := by
+          rw [← Nat.pow_add]; congr 1; omega
+        -- hxhi_shl_lt : x_hi * 2^dbl_k < 2^256
+        -- Goal: x_hi * 2^dbl_k + 2^dbl_k ≤ 2^256
+        -- From x_hi * 2^dbl_k < 2^256 = 2^dbl_k * 2^(256-dbl_k)
+        -- we get x_hi < 2^(256-dbl_k), so (x_hi+1) * 2^dbl_k ≤ 2^(256-dbl_k) * 2^dbl_k = 2^256
+        rw [h256] at hxhi_shl_lt ⊢
+        have hxhi_lt_pow : x_hi < 2 ^ (256 - dbl_k) := by
+          rw [Nat.mul_comm] at hxhi_shl_lt
+          exact Nat.lt_of_mul_lt_mul_left hxhi_shl_lt
+        calc x_hi * 2 ^ dbl_k + 2 ^ dbl_k
+            = (x_hi + 1) * 2 ^ dbl_k := by rw [Nat.succ_mul]
+          _ ≤ 2 ^ (256 - dbl_k) * 2 ^ dbl_k :=
+              Nat.mul_le_mul_right _ hxhi_lt_pow
+          _ = 2 ^ dbl_k * 2 ^ (256 - dbl_k) := Nat.mul_comm _ _
+      calc x_hi * 2 ^ dbl_k + x_lo / 2 ^ (256 - dbl_k)
+          < x_hi * 2 ^ dbl_k + 2 ^ dbl_k := by omega
+        _ = (x_hi + 1) * 2 ^ dbl_k := by rw [Nat.succ_mul]
+        _ ≤ 2 ^ 256 := h2
+    have hlo1_bound : evmShl dbl_k (u256 x_lo) < 2 ^ 256 := by
+      rw [hxlo1_eq]; exact Nat.mod_lt _ (by omega)
+    exact ⟨hxhi1_eq, hxlo1_eq, hshift_1_eq,
+           hxhi1_eq ▸ hhi_lo_bound, hxhi1_eq ▸ hhi_hi_bound, hlo1_bound⟩
 
 /-- One EVM Babylonian step equals bstep when z ≥ 2^127, z < 2^129, x ∈ [2^254, 2^256).
     The sum z + x/z < 2^129 + 2^129 = 2^130 < 2^256 so evmAdd doesn't overflow.
