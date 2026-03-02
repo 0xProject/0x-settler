@@ -354,13 +354,15 @@ class YulParser:
             if kind == "ident" and self.tokens[self.i][1] == "switch":
                 self._pop()  # consume 'switch'
                 condition = self._parse_expr()
-                # Parse case/default branches.  We support the pattern
-                # ``switch e case 0 { else_body } default { if_body }``
-                # which the compiler emits for if/else without leave.
+                # We support exactly one form of switch:
+                #   switch e case 0 { else_body } default { if_body }
+                # (branches may appear in either order).  Anything else
+                # is rejected loudly.
                 case0_body: list[tuple[str, Expr]] | None = None
                 case0_leave = False
                 default_body: list[tuple[str, Expr]] | None = None
                 default_leave = False
+                n_branches = 0
                 while (not self._at_end()
                        and self._peek_kind() == "ident"
                        and self.tokens[self.i][1] in ("case", "default")):
@@ -375,15 +377,44 @@ class YulParser:
                                 f"Only 'switch e case 0 {{ ... }} default "
                                 f"{{ ... }}' is supported."
                             )
+                        if case0_body is not None:
+                            raise ParseError(
+                                "Duplicate 'case 0' in switch statement."
+                            )
                         self._expect("{")
                         case0_body, case0_leave = self._parse_if_body_assignments()
                         self._expect("}")
                     else:  # default
+                        if default_body is not None:
+                            raise ParseError(
+                                "Duplicate 'default' in switch statement."
+                            )
                         self._expect("{")
                         default_body, default_leave = self._parse_if_body_assignments()
                         self._expect("}")
-                if default_body is None and case0_body is None:
+                        # default must be the last branch.
+                        n_branches += 1
+                        break
+                    n_branches += 1
+                # Reject trailing case branches after default.
+                if (default_body is not None
+                        and not self._at_end()
+                        and self._peek_kind() == "ident"
+                        and self.tokens[self.i][1] in ("case", "default")):
+                    raise ParseError(
+                        "'default' must be the last branch in a switch."
+                    )
+                if n_branches == 0:
                     raise ParseError("switch with no case/default branches")
+                if n_branches != 2 or case0_body is None or default_body is None:
+                    raise ParseError(
+                        f"switch must have exactly 'case 0' + 'default' "
+                        f"(got {n_branches} branch(es), case0="
+                        f"{'present' if case0_body is not None else 'missing'}"
+                        f", default="
+                        f"{'present' if default_body is not None else 'missing'}"
+                        f")."
+                    )
                 # Map to ParsedIfBlock: condition != 0 → default (if-body),
                 # condition == 0 → case 0 (else-body).
                 if_body = tuple(default_body) if default_body else ()
