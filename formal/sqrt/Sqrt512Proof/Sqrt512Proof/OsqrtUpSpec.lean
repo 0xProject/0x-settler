@@ -310,12 +310,9 @@ theorem model_osqrtUp_evm_correct (x_hi x_lo : Nat)
     exact sqrtUp512_unique x_lo (SqrtGeneratedModel.model_sqrt_up_evm x_lo) hx512
       hspec.1 hspec.2
   · -- x_hi > 0: floor sqrt + carry
-    -- The model computes: r = floor_sqrt(x), needsUp = (x > r²), result = r + needsUp.
-    -- Helper lemmas mul512_high_word, gt512_correct, add_with_carry are proved above.
-    -- Connecting these to the auto-generated model_osqrtUp_evm requires
-    -- unfolding the model and matching its subexpressions to the helper lemma patterns.
-    -- model_sqrt512_evm is NOT further inlined in the x_hi>0 branch, so after
-    -- unfold + u256 + evmEq simplification, the structure is recognizable.
+    -- Proof strategy: unfold model, simplify u256/evmEq, generalize model_sqrt512_evm to r,
+    -- rewrite mul512_high_word/mul512_low_word, generalize gt512 expression to needsUp,
+    -- apply add_with_carry, connect to sqrtUp512 via hr_eq and case split on r*r < x.
     sorry
 
 end Sqrt512Spec
