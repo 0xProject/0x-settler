@@ -225,16 +225,20 @@ open Sqrt512GeneratedModel in
 private theorem normLt_eq (a b : Nat) : normLt a b = if a < b then 1 else 0 := rfl
 
 open Sqrt512GeneratedModel in
+open Sqrt512GeneratedModel in
+/-- Norm bitwise: and(and(1, 255), 255) = 1. -/
+private theorem normAnd_1_255_255 : normAnd (normAnd 1 255) 255 = 1 := by decide
+
+open Sqrt512GeneratedModel in
 /-- One Babylonian step in the norm model equals bstep. -/
 private theorem normStep_eq_bstep (x z : Nat) :
-    normShr 1 (normAdd z (normDiv x z)) = bstep x z := by
-  simp [normShr_eq, normAdd_eq, normDiv_eq, bstep]
+    normShr (normAnd (normAnd 1 255) 255) (normAdd (normDiv x z) z) = bstep x z := by
+  simp [normAnd_1_255_255, normShr_eq, normAdd_eq, normDiv_eq, bstep, Nat.add_comm]
 
 open Sqrt512GeneratedModel in
 /-- The generated model_bstep equals bstep (definitional). -/
-theorem model_bstep_eq_bstep (x z : Nat) : model_bstep x z = bstep x z := by
-  unfold model_bstep bstep
-  simp only [normShr_eq, normAdd_eq, normDiv_eq, Nat.pow_one]
+theorem model_bstep_eq_bstep (x z : Nat) : model_bstep x z = bstep x z :=
+  normStep_eq_bstep x z
 
 open Sqrt512GeneratedModel in
 /-- Floor correction: sub z (lt (div x z) z) gives the standard correction. -/
@@ -343,10 +347,10 @@ private theorem norm_inner_sqrt_eq_natSqrt (x_hi_1 : Nat)
 section EvmNormBridge
 open Sqrt512GeneratedModel
 
-private theorem u256_id' (x : Nat) (hx : x < WORD_MOD) : u256 x = x :=
+theorem u256_id' (x : Nat) (hx : x < WORD_MOD) : u256 x = x :=
   Nat.mod_eq_of_lt hx
 
-private theorem evmSub_eq_of_le (a b : Nat) (ha : a < WORD_MOD) (hb : b ≤ a) :
+theorem evmSub_eq_of_le (a b : Nat) (ha : a < WORD_MOD) (hb : b ≤ a) :
     evmSub a b = a - b := by
   have hb' : b < WORD_MOD := Nat.lt_of_le_of_lt hb ha
   have hab' : a - b < WORD_MOD := Nat.lt_of_le_of_lt (Nat.sub_le a b) ha
@@ -357,66 +361,66 @@ private theorem evmSub_eq_of_le (a b : Nat) (ha : a < WORD_MOD) (hb : b ≤ a) :
       Nat.mod_mod_of_dvd, Nat.mod_eq_of_lt hab']
   exact Nat.dvd_refl WORD_MOD
 
-private theorem evmDiv_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : 0 < b) (hb' : b < WORD_MOD) :
+theorem evmDiv_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : 0 < b) (hb' : b < WORD_MOD) :
     evmDiv a b = a / b := by
   unfold evmDiv
   simp only [u256_id' a ha, u256_id' b hb']
   simp [Nat.ne_of_gt hb]
 
-private theorem evmMod_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : 0 < b) (hb' : b < WORD_MOD) :
+theorem evmMod_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : 0 < b) (hb' : b < WORD_MOD) :
     evmMod a b = a % b := by
   unfold evmMod
   simp only [u256_id' a ha, u256_id' b hb']
   simp [Nat.ne_of_gt hb]
 
-private theorem evmOr_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+theorem evmOr_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
     evmOr a b = a ||| b := by
   unfold evmOr; simp [u256_id' a ha, u256_id' b hb]
 
-private theorem evmAnd_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+theorem evmAnd_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
     evmAnd a b = a &&& b := by
   unfold evmAnd; simp [u256_id' a ha, u256_id' b hb]
 
-private theorem evmShr_eq' (s v : Nat) (hs : s < 256) (hv : v < WORD_MOD) :
+theorem evmShr_eq' (s v : Nat) (hs : s < 256) (hv : v < WORD_MOD) :
     evmShr s v = v / 2 ^ s := by
   have hs' : s < WORD_MOD := by unfold WORD_MOD; omega
   unfold evmShr; simp [u256_id' s hs', u256_id' v hv, hs]
 
-private theorem evmShl_eq' (s v : Nat) (hs : s < 256) (hv : v < WORD_MOD) :
+theorem evmShl_eq' (s v : Nat) (hs : s < 256) (hv : v < WORD_MOD) :
     evmShl s v = (v * 2 ^ s) % WORD_MOD := by
   have hs' : s < WORD_MOD := by unfold WORD_MOD; omega
   unfold evmShl u256
   simp [Nat.mod_eq_of_lt hs', Nat.mod_eq_of_lt hv, hs]
 
-private theorem evmAdd_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD)
+theorem evmAdd_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD)
     (hab : a + b < WORD_MOD) :
     evmAdd a b = a + b := by
   unfold evmAdd u256
   simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb, Nat.mod_eq_of_lt hab]
 
-private theorem evmMul_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+theorem evmMul_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
     evmMul a b = (a * b) % WORD_MOD := by
   unfold evmMul u256
   simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
 
-private theorem evmClz_eq' (v : Nat) (hv : v < WORD_MOD) :
+theorem evmClz_eq' (v : Nat) (hv : v < WORD_MOD) :
     evmClz v = if v = 0 then 256 else 255 - Nat.log2 v := by
   unfold evmClz; simp [u256_id' v hv]
 
-private theorem evmLt_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+theorem evmLt_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
     evmLt a b = if a < b then 1 else 0 := by
   unfold evmLt; simp [u256_id' a ha, u256_id' b hb]
 
-private theorem evmEq_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+theorem evmEq_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
     evmEq a b = if a = b then 1 else 0 := by
   unfold evmEq; simp [u256_id' a ha, u256_id' b hb]
 
-private theorem evmNot_eq' (a : Nat) (ha : a < WORD_MOD) :
+theorem evmNot_eq' (a : Nat) (ha : a < WORD_MOD) :
     evmNot a = WORD_MOD - 1 - a := by
   unfold evmNot; simp [u256_id' a ha]
 
 /-- When a + b = WORD_MOD and f ∈ {0,1}, EVM overflow+underflow gives the right answer. -/
-private theorem evmSub_evmAdd_eq_of_overflow (a b : Nat)
+theorem evmSub_evmAdd_eq_of_overflow (a b : Nat)
     (ha : a < WORD_MOD) (hb : b < WORD_MOD)
     (hab : a + b = WORD_MOD) :
     evmSub (evmAdd a b) 1 = WORD_MOD - 1 := by
@@ -779,6 +783,13 @@ private theorem evm_bstep_eq (x z : Nat)
     -- (a / 2 < b) when (a < 2 * b)
     omega
 
+/-- EVM bitwise: and(and(1, 255), 255) = 1. -/
+private theorem evmAnd_1_255_255 : evmAnd (evmAnd 1 255) 255 = 1 := by decide
+
+/-- EVM addition is commutative. -/
+private theorem evmAdd_comm (a b : Nat) : evmAdd a b = evmAdd b a := by
+  unfold evmAdd u256; rw [Nat.add_comm (a % WORD_MOD) (b % WORD_MOD)]
+
 /-- The generated model_bstep_evm = bstep when x ∈ [2^254, 2^256) and z ∈ [2^127, 2^129).
     Wraps evm_bstep_eq by stripping the u256 wrappers. Also preserves bounds. -/
 private theorem model_bstep_evm_eq_bstep (x z : Nat)
@@ -790,6 +801,7 @@ private theorem model_bstep_evm_eq_bstep (x z : Nat)
   have hz_wm : z < WORD_MOD := by unfold WORD_MOD; omega
   unfold model_bstep_evm
   simp only [u256_id' x hx_wm, u256_id' z hz_wm]
+  rw [evmAnd_1_255_255, evmAdd_comm (evmDiv x z) z]
   exact evm_bstep_eq x z hx_lo hx_hi hz_lo hz_hi
 
 /-- FIXED_SEED < 2^128 < 2^129. -/
@@ -1605,7 +1617,7 @@ private theorem evm_composition_eq_karatsubaFloor (x_hi_1 x_lo_1 : Nat)
     exact hcc
 
 /-- karatsubaFloor on normalized inputs fits in 256 bits. -/
-private theorem karatsubaFloor_lt_word (x_hi_1 x_lo_1 : Nat)
+theorem karatsubaFloor_lt_word (x_hi_1 x_lo_1 : Nat)
     (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) (hxlo : x_lo_1 < 2 ^ 256) :
     karatsubaFloor x_hi_1 x_lo_1 < WORD_MOD := by
   rw [karatsubaFloor_eq_natSqrt x_hi_1 x_lo_1 hlo hxlo, show WORD_MOD = 2 ^ 256 from rfl]
@@ -1621,7 +1633,7 @@ end EvmBridge
     With the refactored model, model_sqrt512_evm is just normalization +
     3 sub-model calls + un-normalization (~10 let-bindings), so this proof
     chains sub-results through karatsubaFloor_eq_natSqrt and natSqrt_shift_div. -/
-private theorem model_sqrt512_evm_eq_sqrt512 (x_hi x_lo : Nat)
+theorem model_sqrt512_evm_eq_sqrt512 (x_hi x_lo : Nat)
     (hxhi_pos : 0 < x_hi) (hxhi_lt : x_hi < 2 ^ 256)
     (hxlo_lt : x_lo < 2 ^ 256) :
     Sqrt512GeneratedModel.model_sqrt512_evm x_hi x_lo =
