@@ -112,13 +112,13 @@ theorem su256_idem (x : Nat) :
 theorem su256_zero : SqrtGeneratedModel.u256 0 = 0 := by
   unfold SqrtGeneratedModel.u256 SqrtGeneratedModel.WORD_MOD; simp
 
-/-- When x_hi = 0, model_sqrt512_wrapper_evm inlines the 256-bit floor sqrt
-    algorithm, which is identical (modulo namespace) to model_sqrt_floor_evm. -/
+/-- When x_hi = 0, model_sqrt512_wrapper_evm calls model_sqrt256_floor_evm,
+    which is identical (modulo namespace) to model_sqrt_floor_evm from SqrtProof. -/
 theorem wrapper_zero_eq_sqrt_floor_evm (x_lo : Nat) :
     model_sqrt512_wrapper_evm 0 x_lo = SqrtGeneratedModel.model_sqrt_floor_evm x_lo := by
   -- Unfold all model definitions to expose the full EVM expression
-  simp only [model_sqrt512_wrapper_evm, SqrtGeneratedModel.model_sqrt_floor_evm,
-    SqrtGeneratedModel.model_sqrt_evm]
+  simp only [model_sqrt512_wrapper_evm, model_sqrt256_floor_evm,
+    SqrtGeneratedModel.model_sqrt_floor_evm, SqrtGeneratedModel.model_sqrt_evm]
   -- Convert Sqrt512 namespace ops to SqrtGeneratedModel ops
   simp only [evmEq_compat, evmShr_compat, evmAdd_compat, evmDiv_compat,
     evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat, u256_compat]

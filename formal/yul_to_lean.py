@@ -597,6 +597,7 @@ class YulParser:
     def find_function(
         self, sol_fn_name: str, *, n_params: int | None = None,
         known_yul_names: set[str] | None = None,
+        exclude_known: bool = False,
     ) -> YulFunction:
         """Find and parse ``function fun_{sol_fn_name}_<digits>(...)``.
 
@@ -607,6 +608,11 @@ class YulParser:
         candidates whose body references at least one of the given Yul
         function names.  This disambiguates e.g. ``sqrt(uint512)`` (which
         calls ``_sqrt``) from ``Sqrt.sqrt(uint256)`` (which does not).
+
+        When *exclude_known* is True, the filter is inverted: prefer
+        candidates whose body does NOT reference any known Yul name.
+        This selects leaf functions (e.g. 256-bit ``Sqrt.sqrt``) over
+        higher-level wrappers that call into already-targeted functions.
 
         Raises on zero or ambiguous matches.
         """
@@ -634,8 +640,12 @@ class YulParser:
                 matches = filtered
 
         if known_yul_names and len(matches) > 1:
-            filtered = [m for m in matches
-                        if self._body_references_any(m, known_yul_names)]
+            if exclude_known:
+                filtered = [m for m in matches
+                            if not self._body_references_any(m, known_yul_names)]
+            else:
+                filtered = [m for m in matches
+                            if self._body_references_any(m, known_yul_names)]
             if filtered:
                 matches = filtered
 
@@ -1712,6 +1722,11 @@ class ModelConfig:
     # locals) are kept in the model instead of being copy-propagated.
     # Needed for functions with mixed assembly + Solidity code.
     keep_solidity_locals: bool = False
+    # Function names whose find_function should use exclude_known=True,
+    # i.e. prefer candidates that do NOT reference already-targeted
+    # functions. Used to select leaf functions (e.g. 256-bit Sqrt.sqrt)
+    # over higher-level wrappers with the same name.
+    exclude_known: frozenset[str] = frozenset()
 
     # -- CLI defaults --
     default_source_label: str = ""
@@ -2026,7 +2041,8 @@ def run(config: ModelConfig) -> int:
         p = YulParser(tokens)
         np = config.n_params.get(sol_name) if config.n_params else None
         yf = p.find_function(sol_name, n_params=np,
-                             known_yul_names=known_yul_names or None)
+                             known_yul_names=known_yul_names or None,
+                             exclude_known=sol_name in config.exclude_known)
         fn_map[yf.yul_name] = sol_name
         yul_functions[sol_name] = yf
         known_yul_names.add(yf.yul_name)

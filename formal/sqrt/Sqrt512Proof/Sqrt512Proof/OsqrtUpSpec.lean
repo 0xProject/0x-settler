@@ -34,8 +34,8 @@ private theorem osqrtUp_zero_fst (x_lo : Nat) :
 /-- When x_hi = 0, the second component (r_lo) equals model_sqrt_up_evm x_lo. -/
 private theorem osqrtUp_zero_snd (x_lo : Nat) :
     (model_osqrtUp_evm 0 x_lo).2 = SqrtGeneratedModel.model_sqrt_up_evm x_lo := by
-  simp only [model_osqrtUp_evm, SqrtGeneratedModel.model_sqrt_up_evm,
-    SqrtGeneratedModel.model_sqrt_evm]
+  simp only [model_osqrtUp_evm, model_sqrt256_up_evm,
+    SqrtGeneratedModel.model_sqrt_up_evm, SqrtGeneratedModel.model_sqrt_evm]
   simp only [evmEq_compat, evmShr_compat, evmAdd_compat, evmDiv_compat,
     evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat,
     evmMul_compat, evmGt_compat, u256_compat]

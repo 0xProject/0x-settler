@@ -34,7 +34,12 @@ CONFIG = ModelConfig(
     function_order=(
         "_sqrt_babylonianStep", "_sqrt_baseCase",
         "_sqrt_karatsubaQuotient", "_sqrt_correction",
-        "_sqrt", "flat_sqrt512", "flat_osqrtUp",
+        "_sqrt",
+        # 256-bit sqrt/sqrtUp from Sqrt.sol — kept as named sub-models so the
+        # public wrappers don't inline the full Babylonian chain, which would
+        # cause (kernel) deep recursion in the Lean proofs.
+        "sqrt", "sqrtUp",
+        "flat_sqrt512", "flat_osqrtUp",
     ),
     model_names={
         "_sqrt_babylonianStep": "model_bstep",
@@ -42,6 +47,8 @@ CONFIG = ModelConfig(
         "_sqrt_karatsubaQuotient": "model_karatsubaQuotient",
         "_sqrt_correction": "model_sqrtCorrection",
         "_sqrt": "model_sqrt512",
+        "sqrt": "model_sqrt256_floor",
+        "sqrtUp": "model_sqrt256_up",
         "flat_sqrt512": "model_sqrt512_wrapper",
         "flat_osqrtUp": "model_osqrtUp",
     },
@@ -57,10 +64,16 @@ CONFIG = ModelConfig(
         "_sqrt_karatsubaQuotient": 3,
         "_sqrt_correction": 4,
         "_sqrt": 2,
+        "sqrt": 1,
+        "sqrtUp": 1,
         "flat_sqrt512": 2,
         "flat_osqrtUp": 2,
     },
     keep_solidity_locals=True,
+    # 256-bit sqrt/sqrtUp share names with 512-bit wrappers; use
+    # exclude_known to select the leaf (256-bit) versions that do NOT
+    # call the already-targeted _sqrt (512-bit).
+    exclude_known=frozenset({"sqrt", "sqrtUp"}),
     default_source_label="src/utils/512Math.sol",
     default_namespace="Sqrt512GeneratedModel",
     default_output="formal/sqrt/Sqrt512Proof/Sqrt512Proof/GeneratedSqrt512Model.lean",
