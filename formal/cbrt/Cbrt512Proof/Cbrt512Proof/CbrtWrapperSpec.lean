@@ -252,13 +252,131 @@ theorem mul512_low_word (r : Nat) (hr : r < WORD_MOD) :
   unfold evmMul u256; simp [Nat.mod_eq_of_lt hr]
 
 -- ============================================================================
+-- Section 5b: Generalized mul512 for non-square inputs
+-- ============================================================================
+
+/-- Generalized high word: mulmod(a,b,2^256-1) combined with mul(a,b) and sub/lt
+    recovers (a*b)/2^256. Same trick as mul512_high_word but for a ≠ b. -/
+theorem mul512_high_word_general (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    let mm := evmMulmod a b (evmNot 0)
+    let m := evmMul a b
+    evmSub (evmSub mm m) (evmLt mm m) = a * b / WORD_MOD := by
+  simp only
+  have hNot0 : evmNot 0 = WORD_MOD - 1 := by
+    unfold evmNot u256 WORD_MOD; simp
+  have hWM1_pos : (0 : Nat) < WORD_MOD - 1 := by unfold WORD_MOD; omega
+  have hWM1_lt : WORD_MOD - 1 < WORD_MOD := by unfold WORD_MOD; omega
+  have hmm : evmMulmod a b (evmNot 0) = (a * b) % (WORD_MOD - 1) := by
+    unfold evmMulmod
+    simp only [u256_id' a ha, hNot0, u256_id' (WORD_MOD - 1) hWM1_lt, u256_id' b hb]
+    simp [Nat.ne_of_gt hWM1_pos]
+  have hm : evmMul a b = (a * b) % WORD_MOD := by
+    unfold evmMul u256; simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
+  rw [hmm, hm]
+  have hq_bound : a * b / WORD_MOD < WORD_MOD := by
+    have : a * b < WORD_MOD * WORD_MOD :=
+      Nat.mul_lt_mul_of_le_of_lt (Nat.le_of_lt ha) hb (by unfold WORD_MOD; omega)
+    exact Nat.div_lt_of_lt_mul this
+  have hlo_bound : a * b % WORD_MOD < WORD_MOD := Nat.mod_lt _ (by unfold WORD_MOD; omega)
+  have hdecomp : a * b = a * b / WORD_MOD * WORD_MOD + a * b % WORD_MOD := by
+    have := Nat.div_add_mod (a * b) WORD_MOD
+    rw [Nat.mul_comm] at this; omega
+  have hhi_eq : (a * b) % (WORD_MOD - 1) = (a * b / WORD_MOD + a * b % WORD_MOD) % (WORD_MOD - 1) := by
+    have hqW : a * b / WORD_MOD * WORD_MOD =
+        (WORD_MOD - 1) * (a * b / WORD_MOD) + a * b / WORD_MOD := by
+      have hsc := Nat.sub_add_cancel (Nat.one_le_of_lt (show 1 < WORD_MOD from by unfold WORD_MOD; omega))
+      have h := Nat.mul_add (a * b / WORD_MOD) (WORD_MOD - 1) 1
+      rw [hsc, Nat.mul_one] at h
+      rw [h, Nat.mul_comm (a * b / WORD_MOD) (WORD_MOD - 1)]
+    have hab_eq : a * b = (WORD_MOD - 1) * (a * b / WORD_MOD) + (a * b / WORD_MOD + a * b % WORD_MOD) := by
+      omega
+    have step := Nat.mul_add_mod (WORD_MOD - 1) (a * b / WORD_MOD) (a * b / WORD_MOD + a * b % WORD_MOD)
+    rw [← hab_eq] at step; exact step
+  have hhi_bound : (a * b) % (WORD_MOD - 1) < WORD_MOD - 1 := Nat.mod_lt _ hWM1_pos
+  by_cases hcase : a * b / WORD_MOD + a * b % WORD_MOD < WORD_MOD - 1
+  · have hhi_val : (a * b) % (WORD_MOD - 1) = a * b / WORD_MOD + a * b % WORD_MOD := by
+      rw [hhi_eq, Nat.mod_eq_of_lt hcase]
+    have hhi_wm : (a * b) % (WORD_MOD - 1) < WORD_MOD := by omega
+    have hge : a * b % WORD_MOD ≤ (a * b) % (WORD_MOD - 1) := by
+      rw [hhi_val]; exact Nat.le_add_left _ _
+    have hlt_eq : evmLt ((a * b) % (WORD_MOD - 1)) (a * b % WORD_MOD) = 0 := by
+      unfold evmLt u256
+      simp only [Nat.mod_eq_of_lt hhi_wm, Nat.mod_eq_of_lt hlo_bound]
+      exact if_neg (Nat.not_lt.mpr hge)
+    rw [hlt_eq]
+    have hsub1 : evmSub ((a * b) % (WORD_MOD - 1)) (a * b % WORD_MOD) =
+        (a * b) % (WORD_MOD - 1) - a * b % WORD_MOD :=
+      evmSub_eq_of_le _ _ hhi_wm hge
+    rw [hsub1]
+    have hq_eq : (a * b) % (WORD_MOD - 1) - a * b % WORD_MOD = a * b / WORD_MOD := by
+      omega
+    rw [hq_eq]
+    exact evmSub_eq_of_le _ 0 hq_bound (Nat.zero_le _)
+  · have hcase' : WORD_MOD - 1 ≤ a * b / WORD_MOD + a * b % WORD_MOD := Nat.not_lt.mp hcase
+    have hq_le : a * b / WORD_MOD ≤ WORD_MOD - 2 := by
+      have ha' : a ≤ WORD_MOD - 1 := by omega
+      have hb' : b ≤ WORD_MOD - 1 := by omega
+      have hab : a * b ≤ (WORD_MOD - 1) * (WORD_MOD - 1) := Nat.mul_le_mul ha' hb'
+      have h1 : a * b / WORD_MOD ≤ (WORD_MOD - 1) * (WORD_MOD - 1) / WORD_MOD :=
+        @Nat.div_le_div_right _ _ WORD_MOD hab
+      suffices h : (WORD_MOD - 1) * (WORD_MOD - 1) / WORD_MOD = WORD_MOD - 2 by omega
+      unfold WORD_MOD; omega
+    have hql_lt : a * b / WORD_MOD + a * b % WORD_MOD < 2 * (WORD_MOD - 1) := by omega
+    have hhi_val : (a * b) % (WORD_MOD - 1) =
+        a * b / WORD_MOD + a * b % WORD_MOD - (WORD_MOD - 1) := by
+      rw [hhi_eq,
+          Nat.mod_eq_sub_mod hcase',
+          Nat.mod_eq_of_lt (by omega)]
+    have hlt_lo : (a * b) % (WORD_MOD - 1) < a * b % WORD_MOD := by
+      rw [hhi_val]; omega
+    have hhi_wm : (a * b) % (WORD_MOD - 1) < WORD_MOD := by omega
+    have hlt_eq : evmLt ((a * b) % (WORD_MOD - 1)) (a * b % WORD_MOD) = 1 := by
+      unfold evmLt u256
+      simp [Nat.mod_eq_of_lt hhi_wm, Nat.mod_eq_of_lt hlo_bound]
+      exact hlt_lo
+    rw [hlt_eq]
+    have hsub1 : evmSub ((a * b) % (WORD_MOD - 1)) (a * b % WORD_MOD) =
+        (a * b) % (WORD_MOD - 1) + WORD_MOD - a * b % WORD_MOD := by
+      unfold evmSub u256
+      simp [Nat.mod_eq_of_lt hhi_wm, Nat.mod_eq_of_lt hlo_bound]
+      exact Nat.mod_eq_of_lt (show (a * b) % (WORD_MOD - 1) + WORD_MOD - a * b % WORD_MOD < WORD_MOD
+        by rw [hhi_val]; omega)
+    rw [hsub1]
+    have hval : (a * b) % (WORD_MOD - 1) + WORD_MOD - a * b % WORD_MOD < WORD_MOD := by
+      rw [hhi_val]; omega
+    have hsub2 : evmSub ((a * b) % (WORD_MOD - 1) + WORD_MOD - a * b % WORD_MOD) 1 =
+        (a * b) % (WORD_MOD - 1) + WORD_MOD - a * b % WORD_MOD - 1 :=
+      evmSub_eq_of_le _ 1 hval (by rw [hhi_val]; omega)
+    rw [hsub2]
+    rw [hhi_val]; omega
+
+/-- mul(a, b) gives the low word of a*b. -/
+theorem mul512_low_word_general (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmMul a b = (a * b) % WORD_MOD := by
+  unfold evmMul u256; simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
+
+-- ============================================================================
 -- Section 6: 512×256 multiplication for cubing
 -- ============================================================================
 
-/-- Cubing via mulmod: given r < 2^256, compute (r²_hi, r²_lo) then multiply by r
-    to get (r³_hi, r³_lo) where r³_hi * 2^256 + r³_lo = r³.
-    This mirrors the assembly in 512Math.sol's cbrt function (lines 2000-2009). -/
-theorem cube512_correct (r : Nat) (hr : r < WORD_MOD) :
+/-- Helper: (a/k)*b ≤ (a*b)/k for natural numbers. -/
+private theorem div_mul_le_mul_div (a b k : Nat) (hk : 0 < k) : a / k * b ≤ a * b / k := by
+  -- Strategy: a/k*b*k ≤ a*b, then divide both sides by k
+  have h1 : a / k * b * k ≤ a * b := by
+    calc a / k * b * k
+        = a / k * k * b := by rw [Nat.mul_assoc, Nat.mul_comm b k, ← Nat.mul_assoc]
+      _ ≤ a * b := Nat.mul_le_mul_right b (Nat.div_mul_le_self a k)
+  have h2 : a / k * b * k / k = a / k * b :=
+    Nat.mul_div_cancel (a / k * b) hk
+  calc a / k * b
+      = a / k * b * k / k := h2.symm
+    _ ≤ a * b / k := Nat.div_le_div_right h1
+
+/-- Cubing via mulmod: given r < 2^256 with r³ < 2^512, compute (r²_hi, r²_lo)
+    then multiply by r to get (r³_hi, r³_lo) where r³_hi * 2^256 + r³_lo = r³.
+    This mirrors the assembly in 512Math.sol's cbrt function (lines 2017-2027).
+    The hypothesis hcube ensures the evmAdd does not overflow. -/
+theorem cube512_correct (r : Nat) (hr : r < WORD_MOD) (hcube : r * r * r < WORD_MOD * WORD_MOD) :
     let mm1 := evmMulmod r r (evmNot 0)
     let r2_lo := evmMul r r
     let r2_hi := evmSub (evmSub mm1 r2_lo) (evmLt mm1 r2_lo)
@@ -266,7 +384,94 @@ theorem cube512_correct (r : Nat) (hr : r < WORD_MOD) :
     let r3_lo := evmMul r2_lo r
     let r3_hi := evmAdd (evmSub (evmSub mm2 r3_lo) (evmLt mm2 r3_lo)) (evmMul r2_hi r)
     r3_hi * WORD_MOD + r3_lo = r * r * r := by
-  sorry
+  simp only
+  have hWpos : (0 : Nat) < WORD_MOD := by unfold WORD_MOD; omega
+  -- Abbreviations: P = r²%W, Q = r²/W
+  -- Euclidean decomposition of r²: Q*W + P = r² (i.e., r*r = Q*W + P)
+  -- Then r³ = r²*r = (Q*W + P)*r = Q*r*W + P*r
+  -- And P*r = (P*r/W)*W + P*r%W
+  -- So r³ = (P*r/W + Q*r)*W + P*r%W
+
+  -- Step 1: Squaring — establish r2_hi = Q, r2_lo = P
+  have h_r2_hi : evmSub (evmSub (evmMulmod r r (evmNot 0)) (evmMul r r))
+      (evmLt (evmMulmod r r (evmNot 0)) (evmMul r r)) = r * r / WORD_MOD :=
+    mul512_high_word r hr
+  have h_r2_lo : evmMul r r = (r * r) % WORD_MOD :=
+    mul512_low_word r hr
+  -- Rewrite: first r2_hi (compound, contains evmMul r r), then standalone evmMul r r
+  rw [h_r2_hi, h_r2_lo]
+
+  -- Step 2: Cubing step — high and low words of P*r
+  have hP_lt : (r * r) % WORD_MOD < WORD_MOD := Nat.mod_lt _ hWpos
+  have h_cube_hi :
+      evmSub (evmSub (evmMulmod ((r * r) % WORD_MOD) r (evmNot 0)) (evmMul ((r * r) % WORD_MOD) r))
+        (evmLt (evmMulmod ((r * r) % WORD_MOD) r (evmNot 0)) (evmMul ((r * r) % WORD_MOD) r))
+      = (r * r) % WORD_MOD * r / WORD_MOD :=
+    mul512_high_word_general ((r * r) % WORD_MOD) r hP_lt hr
+  have h_r3_lo : evmMul ((r * r) % WORD_MOD) r = ((r * r) % WORD_MOD * r) % WORD_MOD :=
+    mul512_low_word_general ((r * r) % WORD_MOD) r hP_lt hr
+  rw [h_cube_hi, h_r3_lo]
+
+  -- Step 3: Bounds for cross term Q*r
+  have hQ_lt : r * r / WORD_MOD < WORD_MOD :=
+    Nat.div_lt_of_lt_mul (Nat.mul_lt_mul_of_le_of_lt (Nat.le_of_lt hr) hr
+      (by unfold WORD_MOD; omega))
+  have hQr_lt : r * r / WORD_MOD * r < WORD_MOD := by
+    calc r * r / WORD_MOD * r
+        ≤ r * r * r / WORD_MOD := div_mul_le_mul_div (r * r) r WORD_MOD hWpos
+      _ < WORD_MOD := Nat.div_lt_of_lt_mul hcube
+
+  -- Step 4: evmMul Q r = Q*r (no overflow)
+  have hevmMul_hi : evmMul (r * r / WORD_MOD) r = r * r / WORD_MOD * r := by
+    unfold evmMul u256
+    simp [Nat.mod_eq_of_lt hQ_lt, Nat.mod_eq_of_lt hr, Nat.mod_eq_of_lt hQr_lt]
+  rw [hevmMul_hi]
+
+  -- Step 5: evmAdd doesn't overflow — the sum P*r/W + Q*r = r³/W < W
+  -- Key decomposition: r³ = Q*r*W + P*r (multiply Euclidean decomp of r² by r)
+  have h_r3_decomp : r * r * r = r * r / WORD_MOD * r * WORD_MOD + (r * r) % WORD_MOD * r := by
+    have h_eucl := Nat.div_add_mod (r * r) WORD_MOD
+    -- h_eucl: WORD_MOD * (r*r/W) + r*r%W = r*r
+    -- Multiply by r using congruence: (Q*W + P)*r = Q*W*r + P*r = Q*r*W + P*r
+    calc r * r * r
+        = (WORD_MOD * (r * r / WORD_MOD) + (r * r) % WORD_MOD) * r :=
+          congrArg (· * r) h_eucl.symm
+      _ = WORD_MOD * (r * r / WORD_MOD) * r + (r * r) % WORD_MOD * r := Nat.add_mul _ _ r
+      _ = r * r / WORD_MOD * WORD_MOD * r + (r * r) % WORD_MOD * r := by
+          rw [Nat.mul_comm WORD_MOD (r * r / WORD_MOD)]
+      _ = r * r / WORD_MOD * r * WORD_MOD + (r * r) % WORD_MOD * r := by
+          rw [Nat.mul_assoc, Nat.mul_comm WORD_MOD r, ← Nat.mul_assoc]
+  -- From r³ = Q*r*W + P*r, we get r³/W = Q*r + P*r/W
+  have h_sum_eq : (r * r) % WORD_MOD * r / WORD_MOD + r * r / WORD_MOD * r
+      = r * r * r / WORD_MOD := by
+    rw [h_r3_decomp]
+    rw [show r * r / WORD_MOD * r * WORD_MOD + (r * r) % WORD_MOD * r
+        = (r * r) % WORD_MOD * r + r * r / WORD_MOD * r * WORD_MOD from by omega]
+    exact (Nat.add_mul_div_right ((r * r) % WORD_MOD * r) (r * r / WORD_MOD * r) hWpos).symm
+  have h_sum_lt : (r * r) % WORD_MOD * r / WORD_MOD + r * r / WORD_MOD * r < WORD_MOD := by
+    rw [h_sum_eq]; exact Nat.div_lt_of_lt_mul hcube
+
+  have hevmAdd : evmAdd ((r * r) % WORD_MOD * r / WORD_MOD) (r * r / WORD_MOD * r)
+      = (r * r) % WORD_MOD * r / WORD_MOD + r * r / WORD_MOD * r := by
+    exact evmAdd_eq' _ _ (by omega) hQr_lt h_sum_lt
+  rw [hevmAdd]
+
+  -- Step 6: Final algebra
+  -- Goal: ((r*r)%W*r/W + r*r/W*r) * W + ((r*r)%W*r)%W = r*r*r
+  -- We prove it equals r³ by reversing the decomposition chain.
+  have h_Pr_eucl := Nat.div_add_mod ((r * r) % WORD_MOD * r) WORD_MOD
+  -- h_Pr_eucl: W * (P*r/W) + P*r%W = P*r
+  symm
+  calc r * r * r
+      = r * r / WORD_MOD * r * WORD_MOD + (r * r) % WORD_MOD * r := h_r3_decomp
+    _ = r * r / WORD_MOD * r * WORD_MOD
+        + (WORD_MOD * ((r * r) % WORD_MOD * r / WORD_MOD) + (r * r) % WORD_MOD * r % WORD_MOD) := by
+        rw [h_Pr_eucl]
+    _ = (r * r) % WORD_MOD * r / WORD_MOD * WORD_MOD + r * r / WORD_MOD * r * WORD_MOD
+        + (r * r) % WORD_MOD * r % WORD_MOD := by
+        rw [Nat.mul_comm WORD_MOD ((r * r) % WORD_MOD * r / WORD_MOD)]; omega
+    _ = ((r * r) % WORD_MOD * r / WORD_MOD + r * r / WORD_MOD * r) * WORD_MOD
+        + (r * r) % WORD_MOD * r % WORD_MOD := by rw [← Nat.add_mul]
 
 -- ============================================================================
 -- Section 7: 512-bit lexicographic comparison for cube-and-compare

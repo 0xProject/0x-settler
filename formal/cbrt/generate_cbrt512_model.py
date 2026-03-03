@@ -2,16 +2,20 @@
 """
 Generate Lean model of 512Math cbrt functions from Yul IR.
 
-This script extracts `_cbrt` (512-bit, 2 params), `cbrt`/`cbrtUp` (256-bit,
-1 param each), `wrap_cbrt512`, and `wrap_cbrtUp512` from the Yul IR produced
-by `forge inspect` on Cbrt512Wrapper and emits opcode-faithful uint256
-EVM Lean definitions (norm model suppressed via skip_norm since the proofs
-bridge the EVM model directly).
+This script extracts the cbrt sub-functions and wrappers from the Yul IR
+produced by `forge inspect` on Cbrt512Wrapper and emits opcode-faithful
+uint256 EVM Lean definitions.
 
-The 512-bit `_cbrt` is monolithic (no sub-functions like _sqrt_babylonianStep)
-so it appears as a single model. The 256-bit `cbrt`/`cbrtUp` from Cbrt.sol are
-selected via `exclude_known` (leaf versions that don't call the already-targeted
-512-bit `_cbrt`). The public wrappers inline all helpers as raw opcodes.
+Sub-functions (listed before `_cbrt` so they're emitted as named sub-models):
+  _cbrt_newtonRaphsonStep  — one Newton-Raphson step (2 params)
+  _cbrt_baseCase           — seed + 6 NR + floor correction (1 param → 3 returns)
+  _cbrt_karatsubaQuotient  — Karatsuba division step (3 params)
+  _cbrt_quadraticCorrection — quadratic correction + recombine (2 params)
+  _cbrt                    — normalize + sub-function calls + un-normalize (2 params)
+
+The 256-bit `cbrt`/`cbrtUp` from Cbrt.sol are selected via `exclude_known`
+(leaf versions that don't call the already-targeted 512-bit `_cbrt`).
+The public wrappers inline all helpers as raw opcodes.
 
 All compiler-generated helper functions (type conversions, wrapping arithmetic,
 library calls) are inlined to raw opcodes automatically.
@@ -29,6 +33,12 @@ from yul_to_lean import ModelConfig, run
 
 CONFIG = ModelConfig(
     function_order=(
+        # Sub-functions listed first so they appear as named sub-models.
+        # _cbrt calls these; they are NOT inlined into model_cbrt512.
+        "_cbrt_newtonRaphsonStep",
+        "_cbrt_baseCase",
+        "_cbrt_karatsubaQuotient",
+        "_cbrt_quadraticCorrection",
         "_cbrt",
         # 256-bit cbrt/cbrtUp from Cbrt.sol — kept as named sub-models so the
         # public wrappers don't inline the full Newton-Raphson chain, which would
@@ -37,6 +47,10 @@ CONFIG = ModelConfig(
         "wrap_cbrt512", "wrap_cbrtUp512",
     ),
     model_names={
+        "_cbrt_newtonRaphsonStep": "model_cbrtNRStep",
+        "_cbrt_baseCase": "model_cbrtBaseCase",
+        "_cbrt_karatsubaQuotient": "model_cbrtKaratsubaQuotient",
+        "_cbrt_quadraticCorrection": "model_cbrtQuadraticCorrection",
         "_cbrt": "model_cbrt512",
         "cbrt": "model_cbrt256_floor",
         "cbrtUp": "model_cbrt256_up",
@@ -50,6 +64,10 @@ CONFIG = ModelConfig(
     norm_rewrite=None,
     inner_fn="_cbrt",
     n_params={
+        "_cbrt_newtonRaphsonStep": 2,
+        "_cbrt_baseCase": 1,
+        "_cbrt_karatsubaQuotient": 3,
+        "_cbrt_quadraticCorrection": 2,
         "_cbrt": 2,
         "cbrt": 1,
         "cbrtUp": 1,

@@ -292,7 +292,7 @@ class YulParser:
         Handles three forms:
         - ``let x := expr``          — single-value assignment
         - ``let a, b, c := call()``  — multi-value; each target gets a
-          synthetic ``__component_N(call)`` wrapper to distinguish them
+          synthetic ``__component_N_M(call)`` wrapper (index N of M total)
         - ``let x``                  — bare declaration (zero-init, skipped)
         """
         self._pop()  # consume 'let'
@@ -305,7 +305,7 @@ class YulParser:
             self._expect(":=")
             expr = self._parse_expr()
             for idx, t in enumerate(all_targets):
-                results.append((t, Call(f"__component_{idx}", (expr,))))
+                results.append((t, Call(f"__component_{idx}_{len(all_targets)}", (expr,))))
         elif self._peek_kind() == ":=":
             self._pop()
             expr = self._parse_expr()
@@ -1049,11 +1049,11 @@ def inline_calls(
     if isinstance(expr, (IntLit, Var)):
         return expr
     if isinstance(expr, Call):
-        # Handle __component_N(Call(fn, ...)) for multi-return.
+        # Handle __component_N_M(Call(fn, ...)) for multi-return.
         # Must check BEFORE recursively inlining arguments, because
         # we need to inline the inner call as multi-return to extract
         # the Nth component.
-        m = re.fullmatch(r"__component_(\d+)", expr.name)
+        m = re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
         if m and len(expr.args) == 1 and isinstance(expr.args[0], Call):
             idx = int(m.group(1))
             inner = expr.args[0]
@@ -1678,13 +1678,23 @@ def emit_expr(
     if isinstance(expr, Var):
         return expr.name
     if isinstance(expr, Call):
-        # Handle __component_N(call) for multi-return function calls.
-        # Emits Lean tuple projection: (f args).1 for component 0, etc.
-        m = re.fullmatch(r"__component_(\d+)", expr.name)
+        # Handle __component_N_M(call) for multi-return function calls.
+        # Emits Lean nested-pair projection for element N of M total:
+        #   N=0       → .1
+        #   0<N<M-1   → .2.2...2.1  (N-1 extra .2 prefixes)
+        #   N=M-1     → .2.2...2    (N-1 extra .2 suffixes)
+        # This handles Lean's right-nested Prod: A × B × C = A × (B × C).
+        m = re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
         if m and len(expr.args) == 1:
             idx = int(m.group(1))
+            total = int(m.group(2))
             inner = emit_expr(expr.args[0], op_helper_map=op_helper_map, call_helper_map=call_helper_map)
-            return f"({inner}).{idx + 1}"
+            if total <= 2 or idx == 0:
+                return f"({inner}).{idx + 1}"
+            elif idx == total - 1:
+                return f"({inner})" + ".2" * idx
+            else:
+                return f"({inner})" + ".2" * idx + ".1"
 
         # Handle __ite(cond, if_val, else_val) from leave-handling.
         # Emits: if (cond) ≠ 0 then if_val else else_val

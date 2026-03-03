@@ -1,19 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {SlowMath} from "../SlowMath.sol";
+import {uint512, alloc} from "src/utils/512Math.sol";
 import {Test} from "@forge-std/Test.sol";
 
-/// @dev Fuzz-tests the generated Lean models of 512Math.cbrt and
-/// 512Math.cbrtUp against correctness properties: r³ ≤ x < (r+1)³ for floor,
-/// (r-1)³ < x ≤ r³ for ceiling.
+/// @dev Fuzz-tests the generated Lean models of 512Math._cbrt, cbrt, and cbrtUp
+/// against correctness properties. Uses uint512 arithmetic for cubing and
+/// special-cases the overflow regime where (r_max+1)³ exceeds 512 bits,
+/// matching 512Math.t.sol.
 ///
 /// Requires the `cbrt512-model` binary to be pre-built:
 ///   cd formal/cbrt/Cbrt512Proof && lake build cbrt512-model
 contract Cbrt512ModelTest is Test {
     string private constant _BIN = "formal/cbrt/Cbrt512Proof/.lake/build/bin/cbrt512-model";
 
-    // -- helpers ----------------------------------------------------------
+    // r_max is the largest value whose cube fits in 512 bits. _cbrt is pinned
+    // at r_max for x >= r_max³ (see 512Math.sol lines 1974-2010).
+    uint256 private constant R_MAX = 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628;
+    uint256 private constant R_MAX_CUBE_HI = 0xffffffffffffffffffffffffffffffffffffffffffec2567f7d10a5e1c63772f;
+    uint256 private constant R_MAX_CUBE_LO = 0xd70b34358c5c72dd2dbdc27132d143e3a7f08c1088df427db0884640df2d7a00;
 
     function _ffi1(string memory fn, uint256 x_hi, uint256 x_lo) internal returns (uint256) {
         string[] memory args = new string[](4);
@@ -25,89 +30,78 @@ contract Cbrt512ModelTest is Test {
         return abi.decode(result, (uint256));
     }
 
-    /// @dev 512-bit comparison: (a_hi, a_lo) > (b_hi, b_lo)
-    function _gt512(uint256 aH, uint256 aL, uint256 bH, uint256 bL) internal pure returns (bool) {
-        return aH > bH || (aH == bH && aL > bL);
-    }
-
-    /// @dev 512-bit comparison: (a_hi, a_lo) >= (b_hi, b_lo)
-    function _ge512(uint256 aH, uint256 aL, uint256 bH, uint256 bL) internal pure returns (bool) {
-        return aH > bH || (aH == bH && aL >= bL);
-    }
-
-    /// @dev Multiply a 512-bit value (a_hi, a_lo) by a 256-bit value b, returning
-    ///      a 512-bit result (truncated to 512 bits, sufficient for cube root checks).
-    ///      r³ fits in 512 bits when r < 2^171.
-    function _mul512x256(uint256 aH, uint256 aL, uint256 b) internal pure returns (uint256 rH, uint256 rL) {
-        // Low part: aL * b (512-bit product)
-        (rL, rH) = SlowMath.fullMul(aL, b);
-        // High part: aH * b (only low 256 bits contribute since we truncate to 512 bits)
-        unchecked {
-            rH += aH * b;
-        }
-    }
-
-    // -- floor cbrt: model_cbrt512_evm (x_hi > 0) --------------------------
+    // -- _cbrt model: within 1ulp (not exact floor) --------------------------
+    // _cbrt returns icbrt(x) or icbrt(x)+1. We check (r-1)³ ≤ x < (r+1)³.
+    // When r ≥ R_MAX, (r+1)³ overflows, so we skip the upper bound check.
 
     function testCbrt512Model(uint256 x_hi, uint256 x_lo) external {
-        // _cbrt assumes x_hi != 0 (the public cbrt dispatches to 256-bit cbrt otherwise)
         vm.assume(x_hi != 0);
 
         uint256 r = _ffi1("cbrt512", x_hi, x_lo);
+        uint512 x = alloc().from(x_hi, x_lo);
 
-        // r³ ≤ x: compute r² then r³
-        (uint256 r2_lo, uint256 r2_hi) = SlowMath.fullMul(r, r);
-        (uint256 r3_hi, uint256 r3_lo) = _mul512x256(r2_hi, r2_lo, r);
-        assertTrue(!_gt512(r3_hi, r3_lo, x_hi, x_lo), "cbrt too high: r^3 > x");
+        // Lower bound: (r-1)³ ≤ x
+        if (r > 0) {
+            uint256 rm = r - 1;
+            uint512 r3m = alloc().omul(rm, rm).imul(rm);
+            assertTrue(r3m <= x, "cbrt model: (r-1)^3 > x");
+        }
 
-        // (r+1)³ > x
-        if (r < type(uint256).max) {
+        // Upper bound: (r+1)³ > x — only when r < R_MAX (avoids 513-bit overflow)
+        if (r < R_MAX) {
             uint256 r1 = r + 1;
-            (r2_lo, r2_hi) = SlowMath.fullMul(r1, r1);
-            (r3_hi, r3_lo) = _mul512x256(r2_hi, r2_lo, r1);
-            assertTrue(_gt512(r3_hi, r3_lo, x_hi, x_lo), "cbrt too low: (r+1)^3 <= x");
+            uint512 r3p = alloc().omul(r1, r1).imul(r1);
+            assertTrue(r3p > x, "cbrt model: (r+1)^3 <= x");
         }
     }
 
-    // -- floor cbrt: model_cbrt512_wrapper_evm (full range) -----------------
+    // -- cbrt wrapper: exact floor --------------------------------------------
+    // Matches 512Math.t.sol::test512Math_cbrt: for x >= r_max³, assert r == r_max.
 
     function testCbrt512WrapperModel(uint256 x_hi, uint256 x_lo) external {
         uint256 r = _ffi1("cbrt512_wrapper", x_hi, x_lo);
+        uint512 x = alloc().from(x_hi, x_lo);
 
         // r³ ≤ x
-        (uint256 r2_lo, uint256 r2_hi) = SlowMath.fullMul(r, r);
-        (uint256 r3_hi, uint256 r3_lo) = _mul512x256(r2_hi, r2_lo, r);
-        assertTrue(!_gt512(r3_hi, r3_lo, x_hi, x_lo), "wrapper cbrt too high: r^3 > x");
+        uint512 r3 = alloc().omul(r, r).imul(r);
+        assertTrue(r3 <= x, "wrapper cbrt too high: r^3 > x");
 
-        // (r+1)³ > x
-        if (r < type(uint256).max) {
-            uint256 r1 = r + 1;
-            (r2_lo, r2_hi) = SlowMath.fullMul(r1, r1);
-            (r3_hi, r3_lo) = _mul512x256(r2_hi, r2_lo, r1);
-            assertTrue(_gt512(r3_hi, r3_lo, x_hi, x_lo), "wrapper cbrt too low: (r+1)^3 <= x");
+        // (r+1)³ > x — in the overflow regime (x >= r_max³), check r == r_max instead
+        if (
+            x_hi > R_MAX_CUBE_HI
+                || (x_hi == R_MAX_CUBE_HI && x_lo > R_MAX_CUBE_LO - 1)
+        ) {
+            assertEq(r, R_MAX, "wrapper cbrt overflow");
+        } else {
+            r++;
+            r3.omul(r, r).imul(r);
+            assertTrue(r3 > x, "wrapper cbrt too low: (r+1)^3 <= x");
         }
     }
 
-    // -- ceiling cbrt: model_cbrtUp512_wrapper_evm --------------------------
+    // -- cbrtUp wrapper: exact ceiling ----------------------------------------
+    // Matches 512Math.t.sol::test512Math_cbrtUp: for x > r_max³, assert r == r_max+1.
 
     function testCbrtUp512Model(uint256 x_hi, uint256 x_lo) external {
         uint256 r = _ffi1("cbrtUp512_wrapper", x_hi, x_lo);
+        uint512 x = alloc().from(x_hi, x_lo);
+        uint512 r3 = alloc().omul(r, r).imul(r);
 
-        // x ≤ r³
-        (uint256 r2_lo, uint256 r2_hi) = SlowMath.fullMul(r, r);
-        (uint256 r3_hi, uint256 r3_lo) = _mul512x256(r2_hi, r2_lo, r);
-        assertTrue(_ge512(r3_hi, r3_lo, x_hi, x_lo), "cbrtUp too low: r^3 < x");
-
-        // (r-1)³ < x (r is minimal)
-        if (r > 0) {
-            uint256 rm = r - 1;
-            (r2_lo, r2_hi) = SlowMath.fullMul(rm, rm);
-            (r3_hi, r3_lo) = _mul512x256(r2_hi, r2_lo, rm);
-            assertTrue(!_ge512(r3_hi, r3_lo, x_hi, x_lo), "cbrtUp too high: (r-1)^3 >= x");
+        // r³ ≥ x — in the overflow regime (x > r_max³), check r == r_max+1 instead
+        if (
+            x_hi > R_MAX_CUBE_HI
+                || (x_hi == R_MAX_CUBE_HI && x_lo > R_MAX_CUBE_LO)
+        ) {
+            assertEq(r, R_MAX + 1, "cbrtUp overflow");
         } else {
-            // r = 0, x must be 0
-            assertEq(x_hi, 0, "cbrtUp r=0 but x_hi!=0");
-            assertEq(x_lo, 0, "cbrtUp r=0 but x_lo!=0");
+            assertTrue(r3 >= x, "cbrtUp too low: r^3 < x");
+        }
+
+        // (r-1)³ < x (minimality)
+        if (x_hi != 0 || x_lo != 0) {
+            uint256 rm = r - 1;
+            r3.omul(rm, rm).imul(rm);
+            assertTrue(r3 < x, "cbrtUp too high: (r-1)^3 >= x");
         }
     }
 }
