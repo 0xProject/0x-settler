@@ -1838,15 +1838,16 @@ library Lib512MathArithmetic {
     function osqrtUp(uint512 r, uint512 x) internal pure returns (uint512) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
+        uint256 r_hi;
+        uint256 r_lo;
         if (x_hi == 0) {
-            return r.from(0, x_lo.sqrtUp());
+            r_lo = x_lo.sqrtUp();
+        } else {
+            r_lo = _sqrt(x_hi, x_lo);
+            (uint256 r2_hi, uint256 r2_lo) = _mul(r_lo, r_lo);
+            (r_hi, r_lo) = _add(0, r_lo, _gt(x_hi, x_lo, r2_hi, r2_lo).toUint());
         }
 
-        uint256 r_lo = _sqrt(x_hi, x_lo);
-
-        (uint256 r2_hi, uint256 r2_lo) = _mul(r_lo, r_lo);
-        uint256 r_hi;
-        (r_hi, r_lo) = _add(0, r_lo, _gt(x_hi, x_lo, r2_hi, r2_lo).toUint());
         return r.from(r_hi, r_lo);
     }
 
