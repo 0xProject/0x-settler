@@ -39,7 +39,7 @@ CONFIG = ModelConfig(
         # public wrappers don't inline the full Babylonian chain, which would
         # cause (kernel) deep recursion in the Lean proofs.
         "sqrt", "sqrtUp",
-        "flat_sqrt512", "flat_osqrtUp",
+        "wrap_sqrt512", "wrap_osqrtUp",
     ),
     model_names={
         "_sqrt_babylonianStep": "model_bstep",
@@ -49,8 +49,8 @@ CONFIG = ModelConfig(
         "_sqrt": "model_sqrt512",
         "sqrt": "model_sqrt256_floor",
         "sqrtUp": "model_sqrt256_up",
-        "flat_sqrt512": "model_sqrt512_wrapper",
-        "flat_osqrtUp": "model_osqrtUp",
+        "wrap_sqrt512": "model_sqrt512_wrapper",
+        "wrap_osqrtUp": "model_osqrtUp",
     },
     header_comment="Auto-generated from Solidity 512Math._sqrt assembly and assignment flow.",
     generator_label="formal/sqrt/generate_sqrt512_model.py",
@@ -66,8 +66,8 @@ CONFIG = ModelConfig(
         "_sqrt": 2,
         "sqrt": 1,
         "sqrtUp": 1,
-        "flat_sqrt512": 2,
-        "flat_osqrtUp": 2,
+        "wrap_sqrt512": 2,
+        "wrap_osqrtUp": 2,
     },
     keep_solidity_locals=True,
     # 256-bit sqrt/sqrtUp share names with 512-bit wrappers; use
