@@ -178,4 +178,4 @@ declare signature
 signature="$(sign_call "$struct_json")"
 declare -r signature
 
-save_signature renew_authority "$renew_authority_calldata" "$signature" 1
+save_signature renew_authority "$renew_authority_calldata" "$signature"
