@@ -1289,6 +1289,8 @@ def yul_function_to_model(
             # Save pre-if Lean names so the else-tuple can reference
             # the values that were live *before* the if-body ran.
             pre_if_names: dict[str, str] = {}
+            # Snapshot of all Lean names in scope before the if-body.
+            pre_if_scope: set[str] = set(var_map.values())
 
             body_assignments: list[Assignment] = []
             for target, raw_expr in stmt.body:
@@ -1314,9 +1316,14 @@ def yul_function_to_model(
                 modified = tuple(modified_list)
 
                 # Build else_vars from pre-if state (may differ from
-                # modified_vars when SSA is active).
+                # modified_vars when SSA is active).  Variables that
+                # didn't exist before the if-block (newly declared
+                # inside) default to 0 in Yul, so emit "0" for them.
                 else_vars_t = tuple(
-                    pre_if_names.get(v, v) for v in modified_list
+                    pre_if_names[v]
+                    if v in pre_if_names and pre_if_names[v] in pre_if_scope
+                    else "0"
+                    for v in modified_list
                 )
                 else_vars = (
                     else_vars_t if else_vars_t != modified else None

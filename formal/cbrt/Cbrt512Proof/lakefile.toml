@@ -1,0 +1,14 @@
+name = "Cbrt512Proof"
+version = "0.1.0"
+defaultTargets = ["Cbrt512Proof"]
+
+[[lean_lib]]
+name = "Cbrt512Proof"
+
+[[lean_exe]]
+name = "cbrt512-model"
+root = "Main"
+
+[[require]]
+name = "CbrtProof"
+path = "../CbrtProof"

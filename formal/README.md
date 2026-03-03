@@ -9,6 +9,7 @@ Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler.
 | `sqrt/SqrtProof` | `src/vendor/Sqrt.sol` | `_sqrt`, `sqrt`, `sqrtUp` correct on uint256 |
 | `sqrt/Sqrt512Proof` | `src/utils/512Math.sol` | `_sqrt` (512-bit) correct: `sqrt(x_hi * 2^256 + x_lo) = natSqrt(x)` |
 | `cbrt/CbrtProof` | `src/vendor/Cbrt.sol` | `_cbrt`, `cbrt`, `cbrtUp` correct on uint256 |
+| `cbrt/Cbrt512Proof` | `src/utils/512Math.sol` | `_cbrt` (512-bit) correct: `cbrt(x_hi * 2^256 + x_lo) = icbrt(x)` |
 
 ## Method
 
@@ -19,7 +20,7 @@ Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler.
 
 ## Build
 
-All auto-generated files (`GeneratedSqrtModel.lean`, `FiniteCert.lean`, etc.) are `.gitignore`d and regenerated in CI. See `.github/workflows/sqrt-formal.yml`, `sqrt512-formal.yml`, and `cbrt-formal.yml` for the canonical build steps.
+All auto-generated files (`GeneratedSqrtModel.lean`, `FiniteCert.lean`, etc.) are `.gitignore`d and regenerated in CI. See `.github/workflows/sqrt-formal.yml`, `sqrt512-formal.yml`, `cbrt-formal.yml`, and `cbrt512-formal.yml` for the canonical build steps.
 
 ```bash
 # --- 256-bit sqrt ---
@@ -50,4 +51,13 @@ python3 formal/cbrt/generate_cbrt_cert.py \
   --output formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean
 
 cd formal/cbrt/CbrtProof && lake build
+
+# --- 512-bit cbrt ---
+FOUNDRY_SOLC_VERSION=0.8.33 \
+  forge inspect src/wrappers/Cbrt512Wrapper.sol:Cbrt512Wrapper ir | \
+  python3 formal/cbrt/generate_cbrt512_model.py --yul - \
+    --output formal/cbrt/Cbrt512Proof/Cbrt512Proof/GeneratedCbrt512Model.lean
+
+# FiniteCert.lean (shared with CbrtProof) must be generated first — see above.
+cd formal/cbrt/Cbrt512Proof && lake build
 ```

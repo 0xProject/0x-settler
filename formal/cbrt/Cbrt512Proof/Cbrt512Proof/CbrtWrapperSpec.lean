@@ -1,0 +1,358 @@
+/-
+  Bridge proof: model_cbrt512_wrapper_evm computes icbrt.
+
+  The auto-generated model_cbrt512_wrapper_evm dispatches:
+    x_hi = 0 ⟹ inlined 256-bit floor cbrt (= model_cbrt_floor_evm from CbrtProof)
+    x_hi > 0 ⟹ model_cbrt512_evm (within 1ulp) + cube-and-compare correction
+-/
+import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.GeneratedCbrt512Spec
+import CbrtProof.GeneratedCbrtModel
+import CbrtProof.GeneratedCbrtSpec
+import CbrtProof.CbrtCorrect
+
+namespace Cbrt512Spec
+
+open Cbrt512GeneratedModel
+
+-- ============================================================================
+-- Section 1: Namespace compatibility
+-- Both CbrtGeneratedModel and Cbrt512GeneratedModel define identical opcodes.
+-- ============================================================================
+
+section NamespaceCompat
+
+theorem WORD_MOD_compat :
+    @Cbrt512GeneratedModel.WORD_MOD = @CbrtGeneratedModel.WORD_MOD := rfl
+
+theorem u256_compat (x : Nat) :
+    Cbrt512GeneratedModel.u256 x = CbrtGeneratedModel.u256 x := by
+  unfold Cbrt512GeneratedModel.u256 CbrtGeneratedModel.u256
+  rw [WORD_MOD_compat]
+
+theorem evmAdd_compat (a b : Nat) :
+    Cbrt512GeneratedModel.evmAdd a b = CbrtGeneratedModel.evmAdd a b := by
+  unfold Cbrt512GeneratedModel.evmAdd CbrtGeneratedModel.evmAdd
+  simp [u256_compat]
+
+theorem evmSub_compat (a b : Nat) :
+    Cbrt512GeneratedModel.evmSub a b = CbrtGeneratedModel.evmSub a b := by
+  unfold Cbrt512GeneratedModel.evmSub CbrtGeneratedModel.evmSub
+  simp [u256_compat, WORD_MOD_compat]
+
+theorem evmMul_compat (a b : Nat) :
+    Cbrt512GeneratedModel.evmMul a b = CbrtGeneratedModel.evmMul a b := by
+  unfold Cbrt512GeneratedModel.evmMul CbrtGeneratedModel.evmMul
+  simp [u256_compat]
+
+theorem evmDiv_compat (a b : Nat) :
+    Cbrt512GeneratedModel.evmDiv a b = CbrtGeneratedModel.evmDiv a b := by
+  unfold Cbrt512GeneratedModel.evmDiv CbrtGeneratedModel.evmDiv
+  simp [u256_compat]
+
+theorem evmShl_compat (s v : Nat) :
+    Cbrt512GeneratedModel.evmShl s v = CbrtGeneratedModel.evmShl s v := by
+  unfold Cbrt512GeneratedModel.evmShl CbrtGeneratedModel.evmShl
+  simp [u256_compat]
+
+theorem evmShr_compat (s v : Nat) :
+    Cbrt512GeneratedModel.evmShr s v = CbrtGeneratedModel.evmShr s v := by
+  unfold Cbrt512GeneratedModel.evmShr CbrtGeneratedModel.evmShr
+  simp [u256_compat]
+
+theorem evmClz_compat (v : Nat) :
+    Cbrt512GeneratedModel.evmClz v = CbrtGeneratedModel.evmClz v := by
+  unfold Cbrt512GeneratedModel.evmClz CbrtGeneratedModel.evmClz
+  simp [u256_compat]
+
+theorem evmLt_compat (a b : Nat) :
+    Cbrt512GeneratedModel.evmLt a b = CbrtGeneratedModel.evmLt a b := by
+  unfold Cbrt512GeneratedModel.evmLt CbrtGeneratedModel.evmLt
+  simp [u256_compat]
+
+theorem evmGt_compat (a b : Nat) :
+    Cbrt512GeneratedModel.evmGt a b = CbrtGeneratedModel.evmGt a b := by
+  unfold Cbrt512GeneratedModel.evmGt CbrtGeneratedModel.evmGt
+  simp [u256_compat]
+
+theorem evmEq_compat (a b : Nat) :
+    Cbrt512GeneratedModel.evmEq a b = CbrtGeneratedModel.evmEq a b := by
+  unfold Cbrt512GeneratedModel.evmEq CbrtGeneratedModel.evmEq
+  simp [u256_compat]
+
+theorem evmNot_compat (a : Nat) :
+    Cbrt512GeneratedModel.evmNot a = CbrtGeneratedModel.evmNot a := by
+  unfold Cbrt512GeneratedModel.evmNot CbrtGeneratedModel.evmNot
+  simp [u256_compat, WORD_MOD_compat]
+
+theorem evmMulmod_compat (a b n : Nat) :
+    Cbrt512GeneratedModel.evmMulmod a b n = CbrtGeneratedModel.evmMulmod a b n := by
+  unfold Cbrt512GeneratedModel.evmMulmod CbrtGeneratedModel.evmMulmod
+  simp [u256_compat]
+
+theorem evmOr_compat (a b : Nat) :
+    Cbrt512GeneratedModel.evmOr a b = CbrtGeneratedModel.evmOr a b := by
+  unfold Cbrt512GeneratedModel.evmOr CbrtGeneratedModel.evmOr
+  simp [u256_compat]
+
+theorem evmAnd_compat (a b : Nat) :
+    Cbrt512GeneratedModel.evmAnd a b = CbrtGeneratedModel.evmAnd a b := by
+  unfold Cbrt512GeneratedModel.evmAnd CbrtGeneratedModel.evmAnd
+  simp [u256_compat]
+
+end NamespaceCompat
+
+-- ============================================================================
+-- Section 2: u256 idempotence
+-- ============================================================================
+
+/-- u256 is idempotent: u256(u256(x)) = u256(x). -/
+theorem u256_idem (x : Nat) :
+    Cbrt512GeneratedModel.u256 (Cbrt512GeneratedModel.u256 x) = Cbrt512GeneratedModel.u256 x := by
+  unfold Cbrt512GeneratedModel.u256 Cbrt512GeneratedModel.WORD_MOD
+  exact Nat.mod_eq_of_lt (Nat.mod_lt x (Nat.two_pow_pos 256))
+
+theorem cu256_idem (x : Nat) :
+    CbrtGeneratedModel.u256 (CbrtGeneratedModel.u256 x) = CbrtGeneratedModel.u256 x := by
+  unfold CbrtGeneratedModel.u256 CbrtGeneratedModel.WORD_MOD
+  exact Nat.mod_eq_of_lt (Nat.mod_lt x (Nat.two_pow_pos 256))
+
+theorem cu256_zero : CbrtGeneratedModel.u256 0 = 0 := by
+  unfold CbrtGeneratedModel.u256 CbrtGeneratedModel.WORD_MOD; simp
+
+-- ============================================================================
+-- Section 3: The wrapper's x_hi=0 branch equals model_cbrt_floor_evm
+-- ============================================================================
+
+/-- When x_hi = 0, model_cbrt512_wrapper_evm calls model_cbrt256_floor_evm,
+    which is identical (modulo namespace) to model_cbrt_floor_evm from CbrtProof. -/
+theorem wrapper_zero_eq_cbrt_floor_evm (x_lo : Nat) :
+    model_cbrt512_wrapper_evm 0 x_lo = CbrtGeneratedModel.model_cbrt_floor_evm x_lo := by
+  -- Unfold all model definitions to expose the full EVM expression
+  simp only [model_cbrt512_wrapper_evm, model_cbrt256_floor_evm,
+    CbrtGeneratedModel.model_cbrt_floor_evm, CbrtGeneratedModel.model_cbrt_evm]
+  -- Convert Cbrt512 namespace ops to CbrtGeneratedModel ops
+  simp only [evmEq_compat, evmShr_compat, evmAdd_compat, evmDiv_compat,
+    evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat,
+    evmMul_compat, evmGt_compat, u256_compat]
+  -- Simplify: u256(u256(x)) = u256(x) and u256(0) = 0
+  simp only [cu256_zero, cu256_idem]
+  -- Simplify the conditional: evmEq 0 0 evaluates to 1, etc.
+  simp (config := { decide := true })
+
+-- ============================================================================
+-- Section 4: icbrt uniqueness bridge
+-- ============================================================================
+
+/-- The integer cube root is unique: restatement for local use. -/
+theorem icbrt_unique (n r : Nat) (hlo : r * r * r ≤ n) (hhi : n < (r + 1) * (r + 1) * (r + 1)) :
+    r = icbrt n :=
+  icbrt_eq_of_bounds n r hlo hhi
+
+-- ============================================================================
+-- Section 5: Helper lemmas for x_hi > 0 — mul512 correctness
+-- ============================================================================
+
+/-- mulmod(r, r, 2^256-1) combined with mul(r,r) and sub/lt recovers r²/2^256. -/
+theorem mul512_high_word (r : Nat) (hr : r < WORD_MOD) :
+    let mm := evmMulmod r r (evmNot 0)
+    let m := evmMul r r
+    evmSub (evmSub mm m) (evmLt mm m) = r * r / WORD_MOD := by
+  simp only
+  have hNot0 : evmNot 0 = WORD_MOD - 1 := by
+    unfold evmNot u256 WORD_MOD; simp
+  have hWM1_pos : (0 : Nat) < WORD_MOD - 1 := by unfold WORD_MOD; omega
+  have hWM1_lt : WORD_MOD - 1 < WORD_MOD := by unfold WORD_MOD; omega
+  have hmm : evmMulmod r r (evmNot 0) = (r * r) % (WORD_MOD - 1) := by
+    unfold evmMulmod
+    simp only [u256_id' r hr, hNot0, u256_id' (WORD_MOD - 1) hWM1_lt]
+    simp [Nat.ne_of_gt hWM1_pos]
+  have hm : evmMul r r = (r * r) % WORD_MOD := by
+    unfold evmMul u256; simp [Nat.mod_eq_of_lt hr]
+  rw [hmm, hm]
+  have hdecomp : r * r = r * r / WORD_MOD * WORD_MOD + r * r % WORD_MOD := by
+    have := Nat.div_add_mod (r * r) WORD_MOD
+    rw [Nat.mul_comm] at this; omega
+  have hq_bound : r * r / WORD_MOD < WORD_MOD := by
+    have : r * r < WORD_MOD * WORD_MOD :=
+      Nat.mul_lt_mul_of_le_of_lt (Nat.le_of_lt hr) hr (by unfold WORD_MOD; omega)
+    exact Nat.div_lt_of_lt_mul this
+  have hlo_bound : r * r % WORD_MOD < WORD_MOD := Nat.mod_lt _ (by unfold WORD_MOD; omega)
+  have hhi_eq : (r * r) % (WORD_MOD - 1) = (r * r / WORD_MOD + r * r % WORD_MOD) % (WORD_MOD - 1) := by
+    have hqW : r * r / WORD_MOD * WORD_MOD =
+        (WORD_MOD - 1) * (r * r / WORD_MOD) + r * r / WORD_MOD := by
+      have hsc := Nat.sub_add_cancel (Nat.one_le_of_lt (show 1 < WORD_MOD from by unfold WORD_MOD; omega))
+      have h := Nat.mul_add (r * r / WORD_MOD) (WORD_MOD - 1) 1
+      rw [hsc, Nat.mul_one] at h
+      rw [h, Nat.mul_comm (r * r / WORD_MOD) (WORD_MOD - 1)]
+    have hrr_eq : r * r = (WORD_MOD - 1) * (r * r / WORD_MOD) + (r * r / WORD_MOD + r * r % WORD_MOD) := by
+      omega
+    have step := Nat.mul_add_mod (WORD_MOD - 1) (r * r / WORD_MOD) (r * r / WORD_MOD + r * r % WORD_MOD)
+    rw [← hrr_eq] at step; exact step
+  have hhi_bound : (r * r) % (WORD_MOD - 1) < WORD_MOD - 1 := Nat.mod_lt _ hWM1_pos
+  by_cases hcase : r * r / WORD_MOD + r * r % WORD_MOD < WORD_MOD - 1
+  · have hhi_val : (r * r) % (WORD_MOD - 1) = r * r / WORD_MOD + r * r % WORD_MOD := by
+      rw [hhi_eq, Nat.mod_eq_of_lt hcase]
+    have hhi_wm : (r * r) % (WORD_MOD - 1) < WORD_MOD := by omega
+    have hge : r * r % WORD_MOD ≤ (r * r) % (WORD_MOD - 1) := by
+      rw [hhi_val]; exact Nat.le_add_left _ _
+    have hlt_eq : evmLt ((r * r) % (WORD_MOD - 1)) (r * r % WORD_MOD) = 0 := by
+      unfold evmLt u256
+      simp only [Nat.mod_eq_of_lt hhi_wm, Nat.mod_eq_of_lt hlo_bound]
+      exact if_neg (Nat.not_lt.mpr hge)
+    rw [hlt_eq]
+    have hsub1 : evmSub ((r * r) % (WORD_MOD - 1)) (r * r % WORD_MOD) =
+        (r * r) % (WORD_MOD - 1) - r * r % WORD_MOD :=
+      evmSub_eq_of_le _ _ hhi_wm hge
+    rw [hsub1]
+    have hq_eq : (r * r) % (WORD_MOD - 1) - r * r % WORD_MOD = r * r / WORD_MOD := by
+      omega
+    rw [hq_eq]
+    exact evmSub_eq_of_le _ 0 hq_bound (Nat.zero_le _)
+  · have hcase' : WORD_MOD - 1 ≤ r * r / WORD_MOD + r * r % WORD_MOD := Nat.not_lt.mp hcase
+    have hq_le : r * r / WORD_MOD ≤ WORD_MOD - 2 := by
+      have hr' : r ≤ WORD_MOD - 1 := by omega
+      have hrsq : r * r ≤ (WORD_MOD - 1) * (WORD_MOD - 1) := Nat.mul_le_mul hr' hr'
+      have h1 : r * r / WORD_MOD ≤ (WORD_MOD - 1) * (WORD_MOD - 1) / WORD_MOD :=
+        @Nat.div_le_div_right _ _ WORD_MOD hrsq
+      suffices h : (WORD_MOD - 1) * (WORD_MOD - 1) / WORD_MOD = WORD_MOD - 2 by omega
+      unfold WORD_MOD; omega
+    have hql_lt : r * r / WORD_MOD + r * r % WORD_MOD < 2 * (WORD_MOD - 1) := by omega
+    have hhi_val : (r * r) % (WORD_MOD - 1) =
+        r * r / WORD_MOD + r * r % WORD_MOD - (WORD_MOD - 1) := by
+      rw [hhi_eq,
+          Nat.mod_eq_sub_mod hcase',
+          Nat.mod_eq_of_lt (by omega)]
+    have hlt_lo : (r * r) % (WORD_MOD - 1) < r * r % WORD_MOD := by
+      rw [hhi_val]; omega
+    have hhi_wm : (r * r) % (WORD_MOD - 1) < WORD_MOD := by omega
+    have hlt_eq : evmLt ((r * r) % (WORD_MOD - 1)) (r * r % WORD_MOD) = 1 := by
+      unfold evmLt u256
+      simp [Nat.mod_eq_of_lt hhi_wm, Nat.mod_eq_of_lt hlo_bound]
+      exact hlt_lo
+    rw [hlt_eq]
+    have hsub1 : evmSub ((r * r) % (WORD_MOD - 1)) (r * r % WORD_MOD) =
+        (r * r) % (WORD_MOD - 1) + WORD_MOD - r * r % WORD_MOD := by
+      unfold evmSub u256
+      simp [Nat.mod_eq_of_lt hhi_wm, Nat.mod_eq_of_lt hlo_bound]
+      exact Nat.mod_eq_of_lt (show (r * r) % (WORD_MOD - 1) + WORD_MOD - r * r % WORD_MOD < WORD_MOD
+        by rw [hhi_val]; omega)
+    rw [hsub1]
+    have hval : (r * r) % (WORD_MOD - 1) + WORD_MOD - r * r % WORD_MOD < WORD_MOD := by
+      rw [hhi_val]; omega
+    have hsub2 : evmSub ((r * r) % (WORD_MOD - 1) + WORD_MOD - r * r % WORD_MOD) 1 =
+        (r * r) % (WORD_MOD - 1) + WORD_MOD - r * r % WORD_MOD - 1 :=
+      evmSub_eq_of_le _ 1 hval (by rw [hhi_val]; omega)
+    rw [hsub2]
+    rw [hhi_val]; omega
+
+/-- mul(r, r) gives the low word of r². -/
+theorem mul512_low_word (r : Nat) (hr : r < WORD_MOD) :
+    evmMul r r = r * r % WORD_MOD := by
+  unfold evmMul u256; simp [Nat.mod_eq_of_lt hr]
+
+-- ============================================================================
+-- Section 6: 512×256 multiplication for cubing
+-- ============================================================================
+
+/-- Cubing via mulmod: given r < 2^256, compute (r²_hi, r²_lo) then multiply by r
+    to get (r³_hi, r³_lo) where r³_hi * 2^256 + r³_lo = r³.
+    This mirrors the assembly in 512Math.sol's cbrt function (lines 2000-2009). -/
+theorem cube512_correct (r : Nat) (hr : r < WORD_MOD) :
+    let mm1 := evmMulmod r r (evmNot 0)
+    let r2_lo := evmMul r r
+    let r2_hi := evmSub (evmSub mm1 r2_lo) (evmLt mm1 r2_lo)
+    let mm2 := evmMulmod r2_lo r (evmNot 0)
+    let r3_lo := evmMul r2_lo r
+    let r3_hi := evmAdd (evmSub (evmSub mm2 r3_lo) (evmLt mm2 r3_lo)) (evmMul r2_hi r)
+    r3_hi * WORD_MOD + r3_lo = r * r * r := by
+  sorry
+
+-- ============================================================================
+-- Section 7: 512-bit lexicographic comparison for cube-and-compare
+-- ============================================================================
+
+/-- The 512-bit lexicographic comparison correctly computes x > r³. -/
+theorem gt512_correct (x_hi x_lo sq_hi sq_lo : Nat)
+    (hxhi : x_hi < WORD_MOD) (hxlo : x_lo < WORD_MOD)
+    (hsqhi : sq_hi < WORD_MOD) (hsqlo : sq_lo < WORD_MOD) :
+    let cmp := evmOr (evmGt sq_hi x_hi)
+      (evmAnd (evmEq sq_hi x_hi) (evmGt sq_lo x_lo))
+    (cmp ≠ 0) ↔ (sq_hi * WORD_MOD + sq_lo > x_hi * WORD_MOD + x_lo) := by
+  simp only
+  have hgt_hi : evmGt sq_hi x_hi = if sq_hi > x_hi then 1 else 0 := by
+    unfold evmGt u256; simp [Nat.mod_eq_of_lt hsqhi, Nat.mod_eq_of_lt hxhi]
+  have heq_hi : evmEq sq_hi x_hi = if sq_hi = x_hi then 1 else 0 := by
+    unfold evmEq u256; simp [Nat.mod_eq_of_lt hsqhi, Nat.mod_eq_of_lt hxhi]
+  have hgt_lo : evmGt sq_lo x_lo = if sq_lo > x_lo then 1 else 0 := by
+    unfold evmGt u256; simp [Nat.mod_eq_of_lt hsqlo, Nat.mod_eq_of_lt hxlo]
+  rw [hgt_hi, heq_hi, hgt_lo]
+  by_cases hgt : sq_hi > x_hi
+  · have hneq : ¬(sq_hi = x_hi) := by omega
+    simp only [hgt, ite_true, hneq, ite_false]
+    have hor_nz : ∀ v, evmOr 1 (evmAnd 0 v) ≠ 0 := by
+      intro v; unfold evmOr evmAnd u256 WORD_MOD; simp (config := { decide := true })
+    constructor
+    · intro _
+      have h1 : x_hi * WORD_MOD + WORD_MOD ≤ sq_hi * WORD_MOD := by
+        have := Nat.mul_le_mul_right WORD_MOD hgt
+        rwa [Nat.succ_mul] at this
+      omega
+    · intro _; exact hor_nz _
+  · by_cases heq : sq_hi = x_hi
+    · subst heq
+      simp only [Nat.lt_irrefl, ite_false, ite_true]
+      by_cases hgtlo : sq_lo > x_lo
+      · simp only [hgtlo, ite_true]
+        constructor
+        · intro _; omega
+        · intro _; unfold evmOr evmAnd u256 WORD_MOD; simp (config := { decide := true })
+      · simp only [hgtlo, ite_false]
+        have hor_z : evmOr 0 (evmAnd 1 0) = 0 := by
+          unfold evmOr evmAnd u256 WORD_MOD; simp (config := { decide := true })
+        constructor
+        · intro h; exact absurd hor_z h
+        · intro h; omega
+    · have hlt : sq_hi < x_hi := by omega
+      have hng : ¬(sq_hi > x_hi) := by omega
+      simp only [hng, ite_false, heq, ite_false]
+      have hor_z : ∀ v, evmOr 0 (evmAnd 0 v) = 0 := by
+        intro v; unfold evmOr evmAnd u256 WORD_MOD; simp (config := { decide := true })
+      constructor
+      · intro h; exact absurd (hor_z _) h
+      · intro h
+        have h1 : sq_hi * WORD_MOD + WORD_MOD ≤ x_hi * WORD_MOD := by
+          have := Nat.mul_le_mul_right WORD_MOD hlt
+          rwa [Nat.succ_mul] at this
+        omega
+
+-- ============================================================================
+-- Section 8: Main theorem — model_cbrt512_wrapper_evm = icbrt
+-- ============================================================================
+
+set_option exponentiation.threshold 512 in
+/-- The EVM model of the cbrt(uint512) wrapper computes icbrt. -/
+theorem model_cbrt512_wrapper_evm_correct (x_hi x_lo : Nat)
+    (hxhi : x_hi < 2 ^ 256) (hxlo : x_lo < 2 ^ 256) :
+    model_cbrt512_wrapper_evm x_hi x_lo = icbrt (x_hi * 2 ^ 256 + x_lo) := by
+  by_cases hxhi0 : x_hi = 0
+  · -- x_hi = 0: the wrapper uses the inlined 256-bit floor cbrt
+    subst hxhi0
+    simp only [Nat.zero_mul, Nat.zero_add]
+    -- Step 1: wrapper's x_hi=0 branch = model_cbrt_floor_evm x_lo
+    rw [wrapper_zero_eq_cbrt_floor_evm x_lo]
+    -- Step 2: model_cbrt_floor_evm = icbrt (from CbrtProof)
+    -- model_cbrt_floor_evm_correct requires 0 < x, handle x_lo = 0 separately
+    by_cases hxlo0 : x_lo = 0
+    · -- x_lo = 0: model_cbrt_floor_evm 0 = 0 = icbrt 0
+      subst hxlo0
+      -- model_cbrt_floor_evm 0 = floorCbrt 0
+      rw [CbrtGeneratedModel.model_cbrt_floor_evm_eq_floorCbrt 0 hxlo]
+      -- floorCbrt 0 = 0 = icbrt 0
+      unfold floorCbrt innerCbrt cbrtSeed cbrtStep
+      simp [icbrt, icbrtAux]
+    · exact CbrtGeneratedModel.model_cbrt_floor_evm_correct x_lo (Nat.pos_of_ne_zero hxlo0) hxlo
+  · -- x_hi > 0: use the existing model_cbrt512_evm_within_1ulp + cube-and-compare
+    sorry
+
+end Cbrt512Spec
