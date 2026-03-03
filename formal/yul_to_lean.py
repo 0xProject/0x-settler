@@ -1306,24 +1306,30 @@ def yul_function_to_model(
                 if a is not None:
                     body_assignments.append(a)
             if body_assignments:
-                # Deduplicate while preserving order.
+                # Deduplicate while preserving order, excluding
+                # block-scoped variables (declared with `let` inside
+                # the if-body, never existed in the outer scope).
+                # A variable is block-scoped if its pre-if Lean name
+                # is not in the set of names that were live before
+                # the if-block.
                 seen_vars: set[str] = set()
                 modified_list: list[str] = []
                 for a in body_assignments:
                     if a.target not in seen_vars:
                         seen_vars.add(a.target)
-                        modified_list.append(a.target)
+                        # Only include variables that existed before
+                        # the if-block.  Block-local `let` declarations
+                        # (like Yul's `let usr$rem := ...`) are scoped
+                        # to the if-body and must not escape.
+                        pre_name = pre_if_names.get(a.target)
+                        if pre_name is not None and pre_name in pre_if_scope:
+                            modified_list.append(a.target)
                 modified = tuple(modified_list)
 
                 # Build else_vars from pre-if state (may differ from
-                # modified_vars when SSA is active).  Variables that
-                # didn't exist before the if-block (newly declared
-                # inside) default to 0 in Yul, so emit "0" for them.
+                # modified_vars when SSA is active).
                 else_vars_t = tuple(
-                    pre_if_names[v]
-                    if v in pre_if_names and pre_if_names[v] in pre_if_scope
-                    else "0"
-                    for v in modified_list
+                    pre_if_names[v] for v in modified_list
                 )
                 else_vars = (
                     else_vars_t if else_vars_t != modified else None
