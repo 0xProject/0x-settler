@@ -310,15 +310,127 @@ theorem model_osqrtUp_evm_correct (x_hi x_lo : Nat)
     exact sqrtUp512_unique x_lo (SqrtGeneratedModel.model_sqrt_up_evm x_lo) hx512
       hspec.1 hspec.2
   · -- x_hi > 0: floor sqrt + carry
-    -- BLOCKED: (kernel) deep recursion when unfolding model_osqrtUp_evm.
-    -- The auto-generated model inlines the 256-bit sqrtUp into the x_hi=0 branch,
-    -- making the term too deep for the kernel even when only the else-branch is needed.
-    -- Fix: refactor the generator to emit branches as separate named definitions.
-    --
-    -- Once unblocked, the proof chains:
-    --   generalize model_sqrt512_evm → r, rw [mul512_high_word, mul512_low_word],
-    --   generalize gt512 expr → needsUp, rw [add_with_carry],
-    --   unfold sqrtUp512, rw [sqrt512_correct], case split on r*r < x.
-    sorry
+    have hxhi_pos : 0 < x_hi := Nat.pos_of_ne_zero hxhi0
+    -- Convert 2^256 to WORD_MOD for local use
+    have hWM : WORD_MOD = 2 ^ 256 := rfl
+    have hr_wm : x_hi < WORD_MOD := by rwa [hWM]
+    have hlo_wm : x_lo < WORD_MOD := by rwa [hWM]
+    -- Unfold model and simplify u256 on valid inputs
+    unfold model_osqrtUp_evm
+    have hxhi_u : u256 x_hi = x_hi := u256_id' x_hi hr_wm
+    have hxlo_u : u256 x_lo = x_lo := u256_id' x_lo hlo_wm
+    simp only [hxhi_u, hxlo_u]
+    -- Evaluate evmEq x_hi 0 = 0 (since x_hi > 0)
+    have hneq : evmEq x_hi 0 = 0 := by
+      unfold evmEq; simp [u256_id' x_hi hr_wm]; exact Nat.ne_of_gt hxhi_pos
+    -- Simplify: evmEq x_hi 0 = 0, then (0 ≠ 0) is decidably False, take else branches
+    have h0eq0 : ¬((0 : Nat) ≠ 0) := by omega
+    simp only [hneq, if_neg h0eq0]
+    -- Abbreviate r = model_sqrt512_evm x_hi x_lo
+    -- First establish r = natSqrt(x) and r < WORD_MOD
+    have hr_eq : model_sqrt512_evm x_hi x_lo = natSqrt (x_hi * 2 ^ 256 + x_lo) :=
+      model_sqrt512_evm_correct x_hi x_lo hxhi_pos hxhi hxlo
+    -- natSqrt(x) < 2^256 because x < 2^512 so natSqrt(x) < 2^256
+    have hx_lt : x_hi * 2 ^ 256 + x_lo < 2 ^ 512 := by
+      calc x_hi * 2 ^ 256 + x_lo
+          < 2 ^ 256 * 2 ^ 256 := by
+            have := Nat.mul_lt_mul_of_pos_right hxhi (Nat.two_pow_pos 256)
+            omega
+        _ = 2 ^ 512 := by rw [← Nat.pow_add]
+    have hnatSqrt_bound : natSqrt (x_hi * 2 ^ 256 + x_lo) < 2 ^ 256 := by
+      suffices h : ¬(2 ^ 256 ≤ natSqrt (x_hi * 2 ^ 256 + x_lo)) by omega
+      intro h
+      have h2 := Nat.mul_le_mul h h
+      have h3 := natSqrt_sq_le (x_hi * 2 ^ 256 + x_lo)
+      have : 2 ^ 256 * 2 ^ 256 = 2 ^ 512 := by rw [← Nat.pow_add]
+      omega
+    have hr_wm' : model_sqrt512_evm x_hi x_lo < WORD_MOD := by
+      rw [hr_eq, hWM]; exact hnatSqrt_bound
+    -- Generalize model_sqrt512_evm x_hi x_lo = r
+    generalize hgen : model_sqrt512_evm x_hi x_lo = r at *
+    -- Rewrite sq_hi and sq_lo using mul512_high_word and mul512_low_word
+    rw [mul512_high_word r hr_wm', mul512_low_word r hr_wm']
+    -- Establish bounds for sq_hi and sq_lo
+    have hsqhi_bound : r * r / WORD_MOD < WORD_MOD := by
+      have : r * r < WORD_MOD * WORD_MOD :=
+        Nat.mul_lt_mul_of_le_of_lt (Nat.le_of_lt hr_wm') hr_wm' (by unfold WORD_MOD; omega)
+      exact Nat.div_lt_of_lt_mul this
+    have hsqlo_bound : r * r % WORD_MOD < WORD_MOD := Nat.mod_lt _ (by unfold WORD_MOD; omega)
+    -- Generalize the needsUp expression
+    generalize hnu_def : evmOr (evmGt x_hi (r * r / WORD_MOD))
+      (evmAnd (evmEq x_hi (r * r / WORD_MOD)) (evmGt x_lo (r * r % WORD_MOD))) = needsUp
+    -- needsUp ∈ {0, 1}
+    have hnu_01 : needsUp = 0 ∨ needsUp = 1 := by
+      rw [← hnu_def]
+      have hgt_01 : ∀ a b : Nat, a < WORD_MOD → b < WORD_MOD →
+          evmGt a b = 0 ∨ evmGt a b = 1 := by
+        intro a b ha hb; unfold evmGt
+        simp only [u256_id' a ha, u256_id' b hb]; by_cases h : a > b <;> simp [h]
+      have heq_01 : ∀ a b : Nat, a < WORD_MOD → b < WORD_MOD →
+          evmEq a b = 0 ∨ evmEq a b = 1 := by
+        intro a b ha hb; unfold evmEq
+        simp only [u256_id' a ha, u256_id' b hb]; by_cases h : a = b <;> simp [h]
+      have hand_01 : ∀ a b : Nat, (a = 0 ∨ a = 1) → (b = 0 ∨ b = 1) →
+          evmAnd a b = 0 ∨ evmAnd a b = 1 := by
+        intro a b ha hb
+        rcases ha with rfl | rfl <;> rcases hb with rfl | rfl <;>
+          (unfold evmAnd u256 WORD_MOD; simp (config := { decide := true }))
+      have hor_01 : ∀ a b : Nat, (a = 0 ∨ a = 1) → (b = 0 ∨ b = 1) →
+          evmOr a b = 0 ∨ evmOr a b = 1 := by
+        intro a b ha hb
+        rcases ha with rfl | rfl <;> rcases hb with rfl | rfl <;>
+          (unfold evmOr u256 WORD_MOD; simp (config := { decide := true }))
+      exact hor_01 _ _
+        (hgt_01 x_hi (r * r / WORD_MOD) hr_wm hsqhi_bound)
+        (hand_01 _ _
+          (heq_01 x_hi (r * r / WORD_MOD) hr_wm hsqhi_bound)
+          (hgt_01 x_lo (r * r % WORD_MOD) hlo_wm hsqlo_bound))
+    -- Key semantic fact: needsUp ≠ 0 ↔ x_hi * W + x_lo > r * r
+    have hnu_iff : (needsUp ≠ 0) ↔ (x_hi * WORD_MOD + x_lo > r * r) := by
+      rw [← hnu_def]
+      have h := gt512_correct x_hi x_lo (r * r / WORD_MOD) (r * r % WORD_MOD)
+        hr_wm hlo_wm hsqhi_bound hsqlo_bound
+      simp only at h
+      -- h: (...) ↔ x_hi * WORD_MOD + x_lo > r*r/WORD_MOD * WORD_MOD + r*r % WORD_MOD
+      -- Nat.div_add_mod gives WORD_MOD * (r*r / WORD_MOD) + ..., need to commute
+      have hdm : r * r / WORD_MOD * WORD_MOD + r * r % WORD_MOD = r * r := by
+        rw [Nat.mul_comm]; exact Nat.div_add_mod ..
+      rw [hdm] at h; exact h
+    -- Use add_with_carry
+    have hcarry := add_with_carry r needsUp hr_wm' hnu_01
+    simp only at hcarry
+    -- evmAdd 0 x = x when x ∈ {0, 1}
+    have hfst_simp : evmAdd 0 (evmLt (evmAdd r needsUp) r) =
+        evmLt (evmAdd r needsUp) r := by
+      have hlt_01 : evmLt (evmAdd r needsUp) r = 0 ∨ evmLt (evmAdd r needsUp) r = 1 := by
+        unfold evmLt; by_cases h : u256 (evmAdd r needsUp) < u256 r <;> simp [h]
+      rcases hlt_01 with h | h <;>
+        (rw [h]; unfold evmAdd u256 WORD_MOD; simp (config := { decide := true }))
+    rw [hfst_simp, ← hWM, hcarry]
+    -- Goal: r + needsUp = sqrtUp512 (x_hi * WORD_MOD + x_lo)
+    -- Rewrite hr_eq to use WORD_MOD
+    have hr_eq_wm : r = natSqrt (x_hi * WORD_MOD + x_lo) := by rw [hr_eq, hWM]
+    have hx_lt_wm : x_hi * WORD_MOD + x_lo < 2 ^ 512 := by rw [hWM]; exact hx_lt
+    have hsqrt512_eq : sqrt512 (x_hi * WORD_MOD + x_lo) =
+        natSqrt (x_hi * WORD_MOD + x_lo) :=
+      sqrt512_correct (x_hi * WORD_MOD + x_lo) hx_lt_wm
+    unfold sqrtUp512
+    simp only
+    rw [hsqrt512_eq, ← hr_eq_wm]
+    -- Goal: r + needsUp = if r * r < x_hi * WORD_MOD + x_lo then r + 1 else r
+    by_cases hlt : r * r < x_hi * WORD_MOD + x_lo
+    · -- r*r < x: needsUp = 1
+      simp only [hlt, ite_true]
+      have hnu_nz : needsUp ≠ 0 := hnu_iff.mpr hlt
+      rcases hnu_01 with h | h
+      · exact absurd h hnu_nz
+      · rw [h]
+    · -- r*r ≥ x: needsUp = 0
+      simp only [hlt, ite_false]
+      have hnu_z : needsUp = 0 := by
+        rcases hnu_01 with h | h
+        · exact h
+        · exfalso; have := hnu_iff.mp (by rw [h]; omega); omega
+      rw [hnu_z]; omega
 
 end Sqrt512Spec
