@@ -3,11 +3,11 @@
 Generate Lean model of 512Math sqrt functions from Yul IR.
 
 This script extracts `_sqrt_babylonianStep`, `_sqrt_baseCase`,
-`_sqrt_karatsubaQuotient`, `_sqrt_correction`, `_sqrt`, `sqrt`, and
-`osqrtUp` from the Yul IR produced by `forge inspect` on Sqrt512Wrapper
-and emits Lean definitions for:
-- opcode-faithful uint256 EVM semantics, and
-- normalized Nat semantics.
+`_sqrt_karatsubaQuotient`, `_sqrt_correction`, `_sqrt`, `sqrt`,
+`sqrtUp`, `wrap_sqrt512`, and `wrap_osqrtUp` from the Yul IR produced
+by `forge inspect` on Sqrt512Wrapper and emits opcode-faithful uint256
+EVM Lean definitions (norm model suppressed via evm_only=True since the
+proofs bridge the EVM model directly).
 
 By keeping the sub-functions in `function_order`, the pipeline emits
 separate models for each. `model_sqrt512_evm` calls into sub-models
@@ -74,6 +74,9 @@ CONFIG = ModelConfig(
     # exclude_known to select the leaf (256-bit) versions that do NOT
     # call the already-targeted _sqrt (512-bit).
     exclude_known=frozenset({"sqrt", "sqrtUp"}),
+    # Suppress norm models for functions whose proofs bridge the EVM model
+    # directly (the norm model uses unbounded Nat which doesn't match EVM).
+    skip_norm=frozenset({"sqrt", "sqrtUp", "wrap_sqrt512", "wrap_osqrtUp"}),
     default_source_label="src/utils/512Math.sol",
     default_namespace="Sqrt512GeneratedModel",
     default_output="formal/sqrt/Sqrt512Proof/Sqrt512Proof/GeneratedSqrt512Model.lean",

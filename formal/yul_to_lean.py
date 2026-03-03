@@ -1727,6 +1727,11 @@ class ModelConfig:
     # functions. Used to select leaf functions (e.g. 256-bit Sqrt.sqrt)
     # over higher-level wrappers with the same name.
     exclude_known: frozenset[str] = frozenset()
+    # Function names for which the normalized (unbounded Nat) model
+    # variation should be suppressed.  The norm model uses normShl/normMul
+    # etc. which do NOT match EVM uint256 semantics.  For wrapper functions
+    # whose proofs bridge the EVM model directly, the norm model is unused.
+    skip_norm: frozenset[str] = frozenset()
 
     # -- CLI defaults --
     default_source_label: str = ""
@@ -1834,13 +1839,8 @@ def render_function_defs(models: list[FunctionModel], config: ModelConfig) -> st
     for model in models:
         model_base = config.model_names[model.fn_name]
         evm_name = f"{model_base}_evm"
-        norm_name = model_base
         evm_body = build_model_body(
             model.assignments, evm=True, config=config,
-            param_names=model.param_names, return_names=model.return_names,
-        )
-        norm_body = build_model_body(
-            model.assignments, evm=False, config=config,
             param_names=model.param_names, return_names=model.return_names,
         )
 
@@ -1854,11 +1854,17 @@ def render_function_defs(models: list[FunctionModel], config: ModelConfig) -> st
             f"def {evm_name} ({param_sig} : Nat) : {ret_type} :=\n"
             f"{evm_body}\n"
         )
-        parts.append(
-            f"/-- Normalized auto-generated model of `{model.fn_name}` on Nat arithmetic. -/\n"
-            f"def {norm_name} ({param_sig} : Nat) : {ret_type} :=\n"
-            f"{norm_body}\n"
-        )
+        if model.fn_name not in config.skip_norm:
+            norm_name = model_base
+            norm_body = build_model_body(
+                model.assignments, evm=False, config=config,
+                param_names=model.param_names, return_names=model.return_names,
+            )
+            parts.append(
+                f"/-- Normalized auto-generated model of `{model.fn_name}` on Nat arithmetic. -/\n"
+                f"def {norm_name} ({param_sig} : Nat) : {ret_type} :=\n"
+                f"{norm_body}\n"
+            )
     return "\n".join(parts)
 
 
@@ -1881,7 +1887,7 @@ def build_lean_source(
 
     function_defs = render_function_defs(models, config)
 
-    return (
+    src = (
         "import Init\n\n"
         f"namespace {namespace}\n\n"
         f"/-- {config.header_comment} -/\n"
@@ -1957,6 +1963,7 @@ def build_lean_source(
         f"{function_defs}\n"
         f"end {namespace}\n"
     )
+    return src
 
 
 def parse_function_selection(
