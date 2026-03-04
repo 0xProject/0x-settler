@@ -31,6 +31,11 @@ theorem evmDiv_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : 0 < b) (hb' : b < WORD_
   simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb', Nat.ne_of_gt hb,
         Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.div_le_self a b) ha)]
 
+theorem evmMod_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : 0 < b) (hb' : b < WORD_MOD) :
+    evmMod a b = a % b := by
+  unfold evmMod u256
+  simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb', Nat.ne_of_gt hb]
+
 theorem evmMul_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
     evmMul a b = (a * b) % WORD_MOD := by
   unfold evmMul u256; simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
