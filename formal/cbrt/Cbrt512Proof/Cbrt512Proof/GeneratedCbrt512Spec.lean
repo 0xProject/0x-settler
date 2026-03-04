@@ -13,6 +13,11 @@
 -/
 import Cbrt512Proof.Cbrt512Correct
 import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.CbrtDenormalization
+import Cbrt512Proof.CbrtNormalization
+import Cbrt512Proof.CbrtBaseCase
+import Cbrt512Proof.CbrtKaratsubaQuotient
+import Cbrt512Proof.CbrtComposition
 
 namespace Cbrt512Spec
 
@@ -116,6 +121,12 @@ theorem model_cbrt512_evm_within_1ulp (x_hi x_lo : Nat)
     icbrt x ≤ r ∧ r ≤ icbrt x + 1 ∧ r < WORD_MOD ∧ r * r * r < WORD_MOD * WORD_MOD
     ∧ r + 1 < WORD_MOD
     ∧ (r * r * r > x → icbrt x * icbrt x * icbrt x < x) := by
+  /- Proof strategy:
+     1. Compute shift = clz(x_hi)/3, normalize x → x_norm = x * 2^(3*shift)
+     2. Use composition_within_1ulp on x_norm to get r_norm within 1ulp of icbrt(x_norm)
+     3. Denormalize: r = r_norm >> shift gives icbrt(x) ≤ r ≤ icbrt(x) + 1
+     4. Derive remaining bounds (r < W, r³ < W², r+1 < W, overshoot property)
+  -/
   sorry
 
 end Cbrt512Spec
