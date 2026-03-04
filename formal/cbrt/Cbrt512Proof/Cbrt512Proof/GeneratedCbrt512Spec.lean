@@ -105,12 +105,17 @@ open Cbrt512GeneratedModel
 
 /-- The 512-bit _cbrt EVM model returns a value within 1ulp of icbrt.
     For x_hi > 0 and both x_hi, x_lo < 2^256:
-      icbrt(x_hi * 2^256 + x_lo) ≤ model_cbrt512_evm x_hi x_lo ≤ icbrt(x_hi * 2^256 + x_lo) + 1 -/
+      icbrt(x_hi * 2^256 + x_lo) ≤ r ≤ icbrt(x_hi * 2^256 + x_lo) + 1
+    and r < WORD_MOD, r³ < WORD_MOD² (so cube512_correct applies).
+    Additionally, when r overshoots (r³ > x), x is not a perfect cube.
+    This ensures the cbrtUp wrapper's cube-and-compare correction is sound. -/
 theorem model_cbrt512_evm_within_1ulp (x_hi x_lo : Nat)
     (hxhi_pos : 0 < x_hi) (hxhi : x_hi < 2 ^ 256) (hxlo : x_lo < 2 ^ 256) :
     let x := x_hi * 2 ^ 256 + x_lo
-    icbrt x ≤ model_cbrt512_evm x_hi x_lo ∧
-    model_cbrt512_evm x_hi x_lo ≤ icbrt x + 1 := by
+    let r := model_cbrt512_evm x_hi x_lo
+    icbrt x ≤ r ∧ r ≤ icbrt x + 1 ∧ r < WORD_MOD ∧ r * r * r < WORD_MOD * WORD_MOD
+    ∧ r + 1 < WORD_MOD
+    ∧ (r * r * r > x → icbrt x * icbrt x * icbrt x < x) := by
   sorry
 
 end Cbrt512Spec

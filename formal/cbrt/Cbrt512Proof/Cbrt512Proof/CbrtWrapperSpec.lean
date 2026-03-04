@@ -532,6 +532,89 @@ theorem gt512_correct (x_hi x_lo sq_hi sq_lo : Nat)
         omega
 
 -- ============================================================================
+-- Section 7b: Helper lemmas for cube-and-compare correction
+-- ============================================================================
+
+/-- Any evmMul result is < WORD_MOD (it's a mod operation). -/
+private theorem evmMul_lt_WORD_MOD (a b : Nat) : evmMul a b < WORD_MOD := by
+  unfold evmMul u256 WORD_MOD; exact Nat.mod_lt _ (Nat.two_pow_pos 256)
+
+/-- Any evmAdd result is < WORD_MOD (it's a mod operation). -/
+private theorem evmAdd_lt_WORD_MOD (a b : Nat) : evmAdd a b < WORD_MOD := by
+  unfold evmAdd u256 WORD_MOD; exact Nat.mod_lt _ (Nat.two_pow_pos 256)
+
+/-- evmGt returns 0 or 1. -/
+theorem evmGt_01 (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmGt a b = 0 ∨ evmGt a b = 1 := by
+  rw [evmGt_eq' a b ha hb]; split <;> simp
+
+/-- evmEq returns 0 or 1. -/
+theorem evmEq_01 (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmEq a b = 0 ∨ evmEq a b = 1 := by
+  rw [evmEq_eq' a b ha hb]; split <;> simp
+
+/-- evmLt returns 0 or 1. -/
+theorem evmLt_01 (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmLt a b = 0 ∨ evmLt a b = 1 := by
+  rw [evmLt_eq' a b ha hb]; split <;> simp
+
+/-- evmAnd of 0/1 values returns 0 or 1. -/
+theorem evmAnd_01 (a b : Nat) (ha : a = 0 ∨ a = 1) (hb : b = 0 ∨ b = 1) :
+    evmAnd a b = 0 ∨ evmAnd a b = 1 := by
+  have haw : a < WORD_MOD := by rcases ha with rfl | rfl <;> (unfold WORD_MOD; omega)
+  have hbw : b < WORD_MOD := by rcases hb with rfl | rfl <;> (unfold WORD_MOD; omega)
+  rw [evmAnd_eq' a b haw hbw]
+  rcases ha with rfl | rfl <;> rcases hb with rfl | rfl <;> simp
+
+/-- evmOr of 0/1 values returns 0 or 1. -/
+theorem evmOr_01 (a b : Nat) (ha : a = 0 ∨ a = 1) (hb : b = 0 ∨ b = 1) :
+    evmOr a b = 0 ∨ evmOr a b = 1 := by
+  have haw : a < WORD_MOD := by rcases ha with rfl | rfl <;> (unfold WORD_MOD; omega)
+  have hbw : b < WORD_MOD := by rcases hb with rfl | rfl <;> (unfold WORD_MOD; omega)
+  rw [evmOr_eq' a b haw hbw]
+  rcases ha with rfl | rfl <;> rcases hb with rfl | rfl <;> simp
+
+/-- The 512-bit gt comparison produces 0 or 1. -/
+private theorem gt512_01 (x_hi x_lo sq_hi sq_lo : Nat)
+    (hxhi : x_hi < WORD_MOD) (hxlo : x_lo < WORD_MOD)
+    (hsqhi : sq_hi < WORD_MOD) (hsqlo : sq_lo < WORD_MOD) :
+    let cmp := evmOr (evmGt sq_hi x_hi) (evmAnd (evmEq sq_hi x_hi) (evmGt sq_lo x_lo))
+    cmp = 0 ∨ cmp = 1 :=
+  evmOr_01 _ _ (evmGt_01 _ _ hsqhi hxhi) (evmAnd_01 _ _ (evmEq_01 _ _ hsqhi hxhi) (evmGt_01 _ _ hsqlo hxlo))
+
+/-- The 512-bit lt comparison correctly computes sq < x. -/
+theorem lt512_correct (x_hi x_lo sq_hi sq_lo : Nat)
+    (hxhi : x_hi < WORD_MOD) (hxlo : x_lo < WORD_MOD)
+    (hsqhi : sq_hi < WORD_MOD) (hsqlo : sq_lo < WORD_MOD) :
+    let cmp := evmOr (evmLt sq_hi x_hi)
+      (evmAnd (evmEq sq_hi x_hi) (evmLt sq_lo x_lo))
+    (cmp ≠ 0) ↔ (sq_hi * WORD_MOD + sq_lo < x_hi * WORD_MOD + x_lo) := by
+  simp only
+  -- evmLt a b = evmGt b a, evmEq a b = evmEq b a
+  have hlt_hi : evmLt sq_hi x_hi = evmGt x_hi sq_hi := by
+    rw [evmLt_eq' sq_hi x_hi hsqhi hxhi, evmGt_eq' x_hi sq_hi hxhi hsqhi]
+  have heq_comm : evmEq sq_hi x_hi = evmEq x_hi sq_hi := by
+    rw [evmEq_eq' sq_hi x_hi hsqhi hxhi, evmEq_eq' x_hi sq_hi hxhi hsqhi]
+    by_cases h : sq_hi = x_hi
+    · simp [h]
+    · simp [h, show x_hi ≠ sq_hi from Ne.symm h]
+  have hlt_lo : evmLt sq_lo x_lo = evmGt x_lo sq_lo := by
+    rw [evmLt_eq' sq_lo x_lo hsqlo hxlo, evmGt_eq' x_lo sq_lo hxlo hsqlo]
+  rw [hlt_hi, heq_comm, hlt_lo]
+  -- Now matches gt512_correct with swapped roles
+  have hgt := gt512_correct sq_hi sq_lo x_hi x_lo hsqhi hsqlo hxhi hxlo
+  simp only at hgt
+  exact hgt
+
+/-- The 512-bit lt comparison produces 0 or 1. -/
+private theorem lt512_01 (x_hi x_lo sq_hi sq_lo : Nat)
+    (hxhi : x_hi < WORD_MOD) (hxlo : x_lo < WORD_MOD)
+    (hsqhi : sq_hi < WORD_MOD) (hsqlo : sq_lo < WORD_MOD) :
+    let cmp := evmOr (evmLt sq_hi x_hi) (evmAnd (evmEq sq_hi x_hi) (evmLt sq_lo x_lo))
+    cmp = 0 ∨ cmp = 1 :=
+  evmOr_01 _ _ (evmLt_01 _ _ hsqhi hxhi) (evmAnd_01 _ _ (evmEq_01 _ _ hsqhi hxhi) (evmLt_01 _ _ hsqlo hxlo))
+
+-- ============================================================================
 -- Section 8: Main theorem — model_cbrt512_wrapper_evm = icbrt
 -- ============================================================================
 
@@ -557,7 +640,74 @@ theorem model_cbrt512_wrapper_evm_correct (x_hi x_lo : Nat)
       unfold floorCbrt innerCbrt cbrtSeed cbrtStep
       simp [icbrt, icbrtAux]
     · exact CbrtGeneratedModel.model_cbrt_floor_evm_correct x_lo (Nat.pos_of_ne_zero hxlo0) hxlo
-  · -- x_hi > 0: use the existing model_cbrt512_evm_within_1ulp + cube-and-compare
-    sorry
+  · -- x_hi > 0: model_cbrt512_evm within 1ulp + cube-and-compare correction
+    have hxhi_pos : 0 < x_hi := Nat.pos_of_ne_zero hxhi0
+    have hxhi_wm : x_hi < WORD_MOD := by unfold WORD_MOD; exact hxhi
+    have hxlo_wm : x_lo < WORD_MOD := by unfold WORD_MOD; exact hxlo
+    -- Unfold wrapper and simplify u256
+    unfold model_cbrt512_wrapper_evm
+    simp only [u256_id' x_hi hxhi_wm, u256_id' x_lo hxlo_wm]
+    -- Eliminate conditional: evmEq x_hi 0 = 0 since x_hi > 0
+    have hneq : evmEq x_hi 0 = 0 := by
+      rw [evmEq_eq' x_hi 0 hxhi_wm (by unfold WORD_MOD; omega)]
+      exact if_neg (Nat.ne_of_gt hxhi_pos)
+    have hcond_neg : ¬((evmEq x_hi 0) ≠ 0) := by rw [hneq]; omega
+    rw [if_neg hcond_neg]
+    -- Generalize the approximation: replace model_cbrt512_evm x_hi x_lo with r
+    generalize hr_def : model_cbrt512_evm x_hi x_lo = r
+    -- Name cube sub-expressions via let (matching cube512_correct's structure)
+    let r2lo := evmMul r r
+    let mm1 := evmMulmod r r (evmNot 0)
+    let r2hi := evmSub (evmSub mm1 r2lo) (evmLt mm1 r2lo)
+    let mm2 := evmMulmod r2lo r (evmNot 0)
+    let r3lo := evmMul r2lo r
+    let r3hi := evmAdd (evmSub (evmSub mm2 r3lo) (evmLt mm2 r3lo)) (evmMul r2hi r)
+    let cmp := evmOr (evmGt r3hi x_hi) (evmAnd (evmEq r3hi x_hi) (evmGt r3lo x_lo))
+    -- Restate goal using named variables (definitional equality)
+    show evmSub r cmp = icbrt (x_hi * 2 ^ 256 + x_lo)
+    -- Get bounds from strengthened within_1ulp theorem
+    have hbounds := model_cbrt512_evm_within_1ulp x_hi x_lo hxhi_pos
+      (show x_hi < 2 ^ 256 from hxhi) (show x_lo < 2 ^ 256 from hxlo)
+    simp only at hbounds
+    rw [hr_def] at hbounds
+    obtain ⟨h_lo, h_hi, hr_lt, hcube_lt, _⟩ := hbounds
+    -- Cube decomposition: r3hi * WORD_MOD + r3lo = r³
+    have hcube_eq : r3hi * WORD_MOD + r3lo = r * r * r := cube512_correct r hr_lt hcube_lt
+    -- Bounds on r3hi and r3lo
+    have hr3lo_lt : r3lo < WORD_MOD := evmMul_lt_WORD_MOD _ _
+    have hr3hi_lt : r3hi < WORD_MOD := evmAdd_lt_WORD_MOD _ _
+    -- Comparison produces 0 or 1
+    have hcmp_01 : cmp = 0 ∨ cmp = 1 :=
+      gt512_01 x_hi x_lo r3hi r3lo hxhi_wm hxlo_wm hr3hi_lt hr3lo_lt
+    -- Comparison iff: cmp ≠ 0 ↔ r³ > x
+    have hcmp_iff : (cmp ≠ 0) ↔ (r * r * r > x_hi * WORD_MOD + x_lo) := by
+      have hgt := gt512_correct x_hi x_lo r3hi r3lo hxhi_wm hxlo_wm hr3hi_lt hr3lo_lt
+      simp only at hgt
+      rw [hcube_eq] at hgt
+      exact hgt
+    -- r is icbrt x or icbrt x + 1
+    have hrm : r = icbrt (x_hi * 2 ^ 256 + x_lo) ∨
+               r = icbrt (x_hi * 2 ^ 256 + x_lo) + 1 := by omega
+    rcases hrm with hr_eq | hr_eq
+    · -- Case r = icbrt x: r³ ≤ x, so cmp = 0
+      have h_cube_le := icbrt_cube_le (x_hi * 2 ^ 256 + x_lo)
+      have h_not_gt : ¬(r * r * r > x_hi * WORD_MOD + x_lo) := by
+        rw [hr_eq]; show ¬(_ > _); unfold WORD_MOD; omega
+      have hcmp_zero : cmp = 0 := by
+        rcases hcmp_01 with h | h
+        · exact h
+        · exfalso; exact h_not_gt (hcmp_iff.mp (by omega))
+      rw [hcmp_zero, evmSub_eq_of_le _ 0 hr_lt (Nat.zero_le _)]
+      exact hr_eq
+    · -- Case r = icbrt x + 1: r³ > x, so cmp = 1
+      have h_cube_gt := icbrt_lt_succ_cube (x_hi * 2 ^ 256 + x_lo)
+      have h_gt : r * r * r > x_hi * WORD_MOD + x_lo := by
+        rw [hr_eq]; show _ > _; unfold WORD_MOD; omega
+      have hcmp_one : cmp = 1 := by
+        rcases hcmp_01 with h | h
+        · exfalso; have := hcmp_iff.mpr h_gt; omega
+        · exact h
+      rw [hcmp_one, evmSub_eq_of_le _ 1 hr_lt (by rw [hr_eq]; omega)]
+      rw [hr_eq]; omega
 
 end Cbrt512Spec
