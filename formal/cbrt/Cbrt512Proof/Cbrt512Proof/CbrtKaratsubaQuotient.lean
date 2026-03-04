@@ -27,7 +27,58 @@ theorem limb_hi_correct (x_hi_1 x_lo_1 : Nat)
     limb_hi = (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 ∧
     limb_hi < 2 ^ 86 ∧
     limb_hi < WORD_MOD := by
-  sorry
+  simp only
+  -- Step 1: evmAnd 3 x_hi_1 = x_hi_1 % 4
+  have h3_wm : (3 : Nat) < WORD_MOD := by unfold WORD_MOD; omega
+  have hand : evmAnd 3 x_hi_1 = x_hi_1 % 4 := by
+    unfold evmAnd u256
+    simp [Nat.mod_eq_of_lt h3_wm, Nat.mod_eq_of_lt hxhi]
+    rw [Nat.and_comm]
+    exact Nat.and_two_pow_sub_one_eq_mod x_hi_1 2
+  have hmod4 : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
+  have hmod4_wm : x_hi_1 % 4 < WORD_MOD := by unfold WORD_MOD; omega
+  -- Step 2: evmShl 84 (evmAnd 3 x_hi_1) = (x_hi_1 % 4) * 2^84
+  have hprod_lt : (x_hi_1 % 4) * 2 ^ 84 < 2 ^ 86 :=
+    calc (x_hi_1 % 4) * 2 ^ 84
+        < 4 * 2 ^ 84 := Nat.mul_lt_mul_of_pos_right hmod4 (Nat.two_pow_pos 84)
+      _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+  have hprod_wm : (x_hi_1 % 4) * 2 ^ 84 < WORD_MOD :=
+    Nat.lt_of_lt_of_le hprod_lt
+      (by unfold WORD_MOD; exact Nat.pow_le_pow_right (by omega) (by omega))
+  have hshl : evmShl 84 (evmAnd 3 x_hi_1) = (x_hi_1 % 4) * 2 ^ 84 := by
+    rw [hand]; unfold evmShl u256
+    simp [Nat.mod_eq_of_lt (show (84 : Nat) < WORD_MOD from by unfold WORD_MOD; omega),
+          Nat.mod_eq_of_lt hmod4_wm, show (84 : Nat) < 256 from by omega]
+    exact Nat.mod_eq_of_lt hprod_wm
+  -- Step 3: evmShr 172 x_lo_1 = x_lo_1 / 2^172
+  have hshr : evmShr 172 x_lo_1 = x_lo_1 / 2 ^ 172 := by
+    unfold evmShr u256
+    simp [Nat.mod_eq_of_lt (show (172 : Nat) < WORD_MOD from by unfold WORD_MOD; omega),
+          Nat.mod_eq_of_lt hxlo, show (172 : Nat) < 256 from by omega]
+  have hdiv_lt : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by
+    rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 172)]
+    calc x_lo_1 < WORD_MOD := hxlo
+      _ = 2 ^ 84 * 2 ^ 172 := by unfold WORD_MOD; rw [← Nat.pow_add]
+  have hdiv_wm : x_lo_1 / 2 ^ 172 < WORD_MOD :=
+    Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hxlo
+  -- Step 4: evmOr with disjoint bits = addition
+  have hor : evmOr (evmShl 84 (evmAnd 3 x_hi_1)) (evmShr 172 x_lo_1) =
+      (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 := by
+    rw [hshl, hshr]; unfold evmOr u256
+    simp [Nat.mod_eq_of_lt hprod_wm, Nat.mod_eq_of_lt hdiv_wm]
+    rw [show (x_hi_1 % 4) * 2 ^ 84 = (x_hi_1 % 4) <<< 84 from (Nat.shiftLeft_eq _ _).symm]
+    exact (Nat.shiftLeft_add_eq_or_of_lt hdiv_lt (x_hi_1 % 4)).symm
+  -- Step 5: bounds
+  have hsum_lt : (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86 :=
+    calc (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172
+        < (x_hi_1 % 4) * 2 ^ 84 + 2 ^ 84 := Nat.add_lt_add_left hdiv_lt _
+      _ = ((x_hi_1 % 4) + 1) * 2 ^ 84 := (Nat.succ_mul _ _).symm
+      _ ≤ 4 * 2 ^ 84 := Nat.mul_le_mul_right _ (by omega)
+      _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+  have hsum_wm : (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < WORD_MOD :=
+    Nat.lt_of_lt_of_le hsum_lt
+      (by unfold WORD_MOD; exact Nat.pow_le_pow_right (by omega) (by omega))
+  rw [hor]; exact ⟨rfl, hsum_lt, hsum_wm⟩
 
 -- ============================================================================
 -- Karatsuba quotient correctness
