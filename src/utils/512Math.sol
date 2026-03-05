@@ -1696,7 +1696,7 @@ library Lib512MathArithmetic {
         return omodAlt(r, y, r);
     }
 
-    //// The following 512-bit square root implementation is a realization of Zimmerman's "Karatsuba
+    //// The following 512-bit square root implementation is a realization of Zimmermann's "Karatsuba
     //// Square Root" algorithm https://inria.hal.science/inria-00072854/document . This approach is
     //// inspired by https://github.com/SimonSuckut/Solidity_Uint512/ . These helper functions are
     //// broken out separately to ease formal verification.
@@ -1748,7 +1748,7 @@ library Lib512MathArithmetic {
     ///
     /// `res` is (almost) a single limb. Create a new (almost) machine word `n` with `res` as
     /// the upper limb and shifting in the next limb of `x` (namely `x_lo >> 128`) as the
-    /// lower limb. The next step of Zimmerman's algorithm is:
+    /// lower limb. The next step of Zimmermann's algorithm is:
     ///   rₗₒ = n / (2 · rₕᵢ)
     ///   res = n % (2 · rₕᵢ)
     function _sqrt_karatsubaQuotient(uint256 res, uint256 x_lo, uint256 r_hi)
@@ -1777,7 +1777,7 @@ library Lib512MathArithmetic {
 
     /// Combine `r_hi` with `r_lo` and perform the 257-bit underflow correction
     ///
-    /// The final step of Zimmerman's algorithm is: if res · 2¹²⁸ + xₗₒ % 2¹²⁸ < rₗₒ², decrement
+    /// The final step of Zimmermann's algorithm is: if res · 2¹²⁸ + xₗₒ % 2¹²⁸ < rₗₒ², decrement
     /// `r`. We have to do this in a complicated manner because both `res` and `r_lo` can be
     /// 𝑠𝑙𝑖𝑔ℎ𝑡𝑙𝑦 longer than 1 limb (128 bits). This is more efficient than performing the full
     /// 257-bit comparison.
@@ -1855,15 +1855,37 @@ library Lib512MathArithmetic {
         return osqrtUp(r, r);
     }
 
+    //// Similar to the 512-bit square root implementation, the 512-bit cube root is also a
+    //// realization of Zimmermann's Karatsuba, but this implements the generalized-root variation
+    //// that is obliquely referenced just before the "Acknowledgements" and more explicitly
+    //// detailed in §1.5.2 of Brent and Zimmermann's "Modern Computer Arithmetic"
+    //// https://members.loria.fr/PZimmermann/mca/mca-0.2.1.pdf . The key difference here is that in
+    //// the expansion of the 𝑐𝑢𝑏𝑒 of the limbs of the result (the Karatsuba step), there are 3
+    //// limbs that meaningfully contribute to the result. This requires an additional, more
+    //// elaborate, quadratic correction step.
+    ////
+    //// The square root algorithm works with limbs of the result that are half of a word. For cube
+    //// root, we use limbs of `r` that are (roughly) one third of a word.
+
+    /// One cube root Newton-Raphson step: r = ⌊(⌊x/r²⌋ + 2·r) / 3⌋
     function _cbrt_newtonRaphsonStep(uint256 x, uint256 r) private pure returns (uint256) {
         unchecked {
             return (x.unsafeDiv(r * r) + r + r) / 3;
         }
     }
 
-    // Now we run the "normal" cube root algorithm to obtain the first limb of `r`, which we
-    // store in `r_hi`. `res` is the residue after this first operation and `d` is the
-    // derivative/denominator for the subsequent Karatsuba step.
+    /// 6 Newton-Raphson steps from the fixed seed, including a rounding fixup step and returning
+    /// the residue for Karatsuba
+    ///
+    /// Like the square root case, implementing this as:
+    ///   uint256 r_hi = x_hi.cbrt();
+    ///   uint256 res = x_hi - r_hi * r_hi * r_hi;
+    ///   uint256 d = r_hi * r_hi * 3;
+    /// is correct, but we can shave some gas by avoiding the normalization step from
+    /// `Cbrt.cbrt`. 𝑈𝑛𝑙𝑖𝑘𝑒 the square root step and unlike the example code above, we do not obtain
+    /// exactly the value ⌊∛xₕᵢ⌋. We sometimes get ⌊∛xₕᵢ⌋ - 1. Because the "normal" Karatsuba step
+    /// is followed by the quadratic cross-term correction, we can tolerate this error. `d` is the
+    /// derivative/denominator for the subsequent Karatsuba step.
     function _cbrt_baseCase(uint256 x_hi) private pure returns (uint256 r_hi, uint256 res, uint256 d) {
         unchecked {
             x_hi >>= 2; // xₕᵢ ≥ 2²⁵¹; xₕᵢ < 2²⁵⁴ from the normalization
@@ -1890,11 +1912,11 @@ library Lib512MathArithmetic {
         }
     }
 
-    // This is the Karatsuba step. The 86-bit lower limb of `r` is (almost):
-    //   rₗₒ = ⌊(res ⋅ 2⁸⁶ + xₗₒ) / (3 ⋅ rₕᵢ²)⌋
-    // Where `res` is the (nearly) 2-limb residue from the previous "normal" cube root step. We
-    // discard `res` after this step and perform a quadratic correction instead of the underflow
-    // check from Zimmerman
+    /// This is the Karatsuba step. The 86-bit lower limb of `r` is (almost):
+    ///   rₗₒ = ⌊(res ⋅ 2⁸⁶ + xₗₒ) / (3 ⋅ rₕᵢ²)⌋
+    /// Where `res` is the (nearly) 2-limb residue from the previous "normal" cube root step. We
+    /// discard `res` after this step and perform a quadratic correction instead of the underflow
+    /// check from Zimmermann
     function _cbrt_karatsubaQuotient(uint256 res, uint256 x_lo, uint256 d) private pure returns (uint256 r_lo) {
         assembly ("memory-safe") {
             let n := or(shl(0x56, res), x_lo)
@@ -1911,15 +1933,15 @@ library Lib512MathArithmetic {
         }
     }
 
-    // Unlike the square-root case, the error from the linear Karatsuba step can still be large
-    // because the expansion has more terms. We do a quadratic correction to get close enough that
-    // the single subtraction is sufficient for exactness.
-    //
-    // In the square-root version, the only ignored term in (s + q)² is q², which is small enough
-    // for a 1ulp correction. For cube root, the binomial expansion (rₕᵢ·2⁸⁶ + rₗₒ)³ contains the
-    // cross term 3·(rₕᵢ·2⁸⁶)·rₗₒ². The linear Karatsuba step overestimates rₗₒ by ≈rₗₒ²/(rₕᵢ·2⁸⁶).
-    // After correction, this leaves only the rₗₒ³ term, on the order of 2²⁵⁸/(3·2³⁴²), much less
-    // than 1ulp.
+    /// Unlike the square-root case, the error from the linear Karatsuba step can still be large
+    /// because the expansion has more terms. We do a quadratic correction to get close enough that
+    /// the single subtraction is sufficient for exactness.
+    ///
+    /// In the square-root version, the only ignored term in (s + q)² is q², which is small enough
+    /// for a 1ulp correction. For cube root, the binomial expansion (rₕᵢ·2⁸⁶ + rₗₒ)³ contains the
+    /// cross term 3·(rₕᵢ·2⁸⁶)·rₗₒ². The linear Karatsuba step overestimates rₗₒ by ≈rₗₒ²/(rₕᵢ·2⁸⁶).
+    /// After correction, this leaves only the rₗₒ³ term, on the order of 2²⁵⁸/(3·2³⁴²), much less
+    /// than 1ulp.
     function _cbrt_quadraticCorrection(uint256 r_hi, uint256 r_lo) private pure returns (uint256 r) {
         unchecked {
             r_lo -= (r_lo * r_lo).unsafeDiv(r_hi << 86);
@@ -1928,7 +1950,7 @@ library Lib512MathArithmetic {
     }
 
     function _cbrt(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r) {
-        /// This is the same general technique as we applied in `_sqrt`, patterned after Zimmerman's
+        /// This is the same general technique as we applied in `_sqrt`, patterned after Zimmermann's
         /// "Karatsuba Square Root" algorithm, but adapted to compute cube roots instead.
         unchecked {
             // Normalize `x` so that its MSB is in bit 255, 254, or 253. This makes the left shift a
@@ -1937,13 +1959,8 @@ library Lib512MathArithmetic {
             uint256 shift = x_hi.clz() / 3;
             (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift * 3);
 
-            // Zimmerman's "Karatsuba Square Root" algorithm works with limbs of `r` that are half
-            // of a word. For cube root, we use limbs of `r` that are (roughly) one third of a
-            // word. The initial step to compute the first "limb" of `r` uses the "normal" cube root
-            // algorithm and consumes the first (almost) word of `x`. The second and final limb of
-            // `r` is computed using an analogue of the Karatsuba step from the original algorithm,
-            // followed by a pair of cleanup steps.
-
+            // The initial step to compute the first "limb" of `r` uses the "normal" cube root
+            // algorithm and consumes the first (almost) word of `x`.
             (uint256 r_hi, uint256 res, uint256 d) = _cbrt_baseCase(x_hi);
 
             // `limb_hi` is the next 86-bit limb of `x` after the first whole-ish word `w`.
@@ -1952,6 +1969,8 @@ library Lib512MathArithmetic {
                 limb_hi := or(shl(0x54, and(0x03, x_hi)), shr(0xac, x_lo))
             }
 
+            // The second and final limb of `r` is computed using an analogue of the Karatsuba step
+            // from the original algorithm, followed by a pair of cleanup steps.
             uint256 r_lo = _cbrt_karatsubaQuotient(res, limb_hi, d);
 
             r = _cbrt_quadraticCorrection(r_hi, r_lo);
