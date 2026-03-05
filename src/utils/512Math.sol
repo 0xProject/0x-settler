@@ -1892,38 +1892,70 @@ library Lib512MathArithmetic {
 
     // This is the Karatsuba step. The 86-bit lower limb of `r` is (almost):
     //   rₗₒ = ⌊(res ⋅ 2⁸⁶ + xₗₒ) / (3 ⋅ rₕᵢ²)⌋
-    // Where `res` is the (nearly) 2-limb residue from the previous "normal" cube root step. We
-    // discard `res` after this step and perform a quadratic correction instead of the underflow
-    // check from Zimmerman
-    function _cbrt_karatsubaQuotient(uint256 res, uint256 x_lo, uint256 d) private pure returns (uint256 r_lo) {
+    //   rem = (res ⋅ 2⁸⁶ + xₗₒ) mod (3 ⋅ rₕᵢ²)
+    // Where `res` is the (nearly) 2-limb residue from the previous "normal" cube root step. The
+    // remainder `rem` is propagated to the correction step (analogous to `_sqrt_karatsubaQuotient`
+    // propagating `res_out`).
+    function _cbrt_karatsubaQuotient(uint256 res, uint256 x_lo, uint256 d)
+        private
+        pure
+        returns (uint256 r_lo, uint256 rem)
+    {
         assembly ("memory-safe") {
             let n := or(shl(0x56, res), x_lo)
             r_lo := div(n, d)
+            rem := mod(n, d)
 
             // If `res` was 171 bits (one more than expected), then `n` overflowed to 257
             // bits. Explicitly handling the carry avoids 512-bit division.
             if shr(0xaa, res) {
-                let rem := mod(n, d)
                 r_lo := add(r_lo, div(not(0x00), d))
                 rem := add(rem, add(0x01, mod(not(0x00), d)))
                 r_lo := add(r_lo, div(rem, d))
+                rem := mod(rem, d)
             }
         }
     }
 
-    // Unlike the square-root case, the error from the linear Karatsuba step can still be large
-    // because the expansion has more terms. We do a quadratic correction to get close enough that
-    // the single subtraction is sufficient for exactness.
-    //
-    // In the square-root version, the only ignored term in (s + q)² is q², which is small enough
-    // for a 1ulp correction. For cube root, the binomial expansion (rₕᵢ·2⁸⁶ + rₗₒ)³ contains the
-    // cross term 3·(rₕᵢ·2⁸⁶)·rₗₒ². The linear Karatsuba step overestimates rₗₒ by ≈rₗₒ²/(rₕᵢ·2⁸⁶).
-    // After correction, this leaves only the rₗₒ³ term, on the order of 2²⁵⁸/(3·2³⁴²), much less
-    // than 1ulp.
-    function _cbrt_quadraticCorrection(uint256 r_hi, uint256 r_lo) private pure returns (uint256 r) {
+    /// Combine `r_hi` with `r_lo`, perform the quadratic correction, and prevent undershoot
+    ///
+    /// Analogous to `_sqrt_correction`. The quadratic correction subtracts c = ⌊rₗₒ²/R⌋ where
+    /// R = rₕᵢ·2⁸⁶. This can over-correct by 1 because the Karatsuba division drops the low
+    /// 172 bits of x (captured by `rem`). Undershoot occurs when ε/R < rem/d (where ε = rₗₒ² mod R,
+    /// d = 3·rₕᵢ²), equivalently ε·3·rₕᵢ < rem·2⁸⁶.
+    ///
+    /// Following the split-limb pattern of `_sqrt_correction`, we compare ε·3 against rem to
+    /// get a high-part comparison, then only check ε·3·rₕᵢ vs rem·2⁸⁶ as a tiebreaker. No
+    /// intermediate product exceeds 256 bits.
+    ///
+    /// For c ≤ 1 (only near the rₘₐₓ boundary), undershoot never occurs, so we skip the check.
+    function _cbrt_quadraticCorrection(uint256 r_hi, uint256 r_lo, uint256 rem)
+        private
+        pure
+        returns (uint256 r)
+    {
         unchecked {
-            r_lo -= (r_lo * r_lo).unsafeDiv(r_hi << 86);
-            r = (r_hi << 86) + r_lo;
+            uint256 R = r_hi << 86;
+            uint256 r_lo_sq = r_lo * r_lo; // fits: r_lo < 2⁸⁷ → r_lo² < 2¹⁷⁴
+            uint256 c = r_lo_sq.unsafeDiv(R);
+            uint256 eps3 = (r_lo_sq - c * R) * 3; // ε·3, fits in 2¹⁷⁴
+
+            // Undershoot check: ε·3·rₕᵢ < rem·2⁸⁶, split-limb style.
+            // High part: (ε·3) >> 86 vs rem >> 86
+            // Low part (tiebreaker): ((ε·3) & mask86) · rₕᵢ vs (rem & mask86) · 2⁸⁶
+            // Both low products are < 2⁸⁶ · 2⁸⁶ = 2¹⁷² — no overflow.
+            r_lo -= c;
+            if (c > 1) {
+                r_lo = r_lo.unsafeInc(
+                    ((eps3 >> 86) < (rem >> 86)).or(
+                        ((eps3 >> 86) == (rem >> 86)).and(
+                            (eps3 & 0x3ffffffffffffffffffffff) * r_hi
+                                < (rem & 0x3ffffffffffffffffffffff) << 86
+                        )
+                    )
+                );
+            }
+            r = R + r_lo;
         }
     }
 
@@ -1952,10 +1984,10 @@ library Lib512MathArithmetic {
                 limb_hi := or(shl(0x54, and(0x03, x_hi)), shr(0xac, x_lo))
             }
 
-            uint256 r_lo = _cbrt_karatsubaQuotient(res, limb_hi, d);
+            (uint256 r_lo, uint256 rem) = _cbrt_karatsubaQuotient(res, limb_hi, d);
 
-            r = _cbrt_quadraticCorrection(r_hi, r_lo);
-            // Our error is now down to 1ulp.
+            r = _cbrt_quadraticCorrection(r_hi, r_lo, rem);
+            // Our error is now down to 1ulp (never undershoots).
 
             // Un-normalize
             r >>= shift;
