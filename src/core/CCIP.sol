@@ -57,6 +57,13 @@ contract CCIP {
             let dataStart := add(ccipSendData, 0x20) // skip bytes length
             let msgOffset := mload(add(dataStart, 0x20)) // offset to EVM2AnyMessage
             let msgPtr := add(dataStart, msgOffset) // pointer to message struct
+
+            // Verify feeToken is address(0) - only native token fees are supported
+            // feeToken is at msgPtr + 0x60
+            if mload(add(msgPtr, 0x60)) {
+                revert(0x00, 0x00)
+            }
+
             let tokensOffset := mload(add(msgPtr, 0x40)) // offset to tokenAmounts array
             let tokensPtr := add(msgPtr, tokensOffset) // pointer to tokenAmounts array
             // tokensPtr + 0x00 = array length
