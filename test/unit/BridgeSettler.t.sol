@@ -29,6 +29,55 @@ contract BridgeDummy {
     receive() external payable {}
 }
 
+/// @dev Mock CCIP Router for testing
+contract MockCCIPRouter {
+    uint256 public lastDestinationChainSelector;
+    address public lastTokenReceived;
+    uint256 public lastTokenAmount;
+    uint256 public lastNativeFeeReceived;
+    bytes public lastReceiver;
+    bytes public lastData;
+    address public lastFeeToken;
+
+    /// @dev ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))
+    /// selector: 0x96f4e9f9
+    function ccipSend(uint64 destinationChainSelector, EVM2AnyMessage calldata message)
+        external
+        payable
+        returns (bytes32)
+    {
+        lastDestinationChainSelector = destinationChainSelector;
+        lastReceiver = message.receiver;
+        lastData = message.data;
+        lastFeeToken = message.feeToken;
+        lastNativeFeeReceived = msg.value;
+
+        if (message.tokenAmounts.length > 0) {
+            lastTokenReceived = message.tokenAmounts[0].token;
+            lastTokenAmount = message.tokenAmounts[0].amount;
+            // Transfer tokens from sender
+            IERC20(message.tokenAmounts[0].token).transferFrom(
+                msg.sender, address(this), message.tokenAmounts[0].amount
+            );
+        }
+
+        return keccak256(abi.encode(destinationChainSelector, message));
+    }
+
+    struct EVMTokenAmount {
+        address token;
+        uint256 amount;
+    }
+
+    struct EVM2AnyMessage {
+        bytes receiver;
+        bytes data;
+        EVMTokenAmount[] tokenAmounts;
+        address feeToken;
+        bytes extraArgs;
+    }
+}
+
 contract BridgeSettlerTestBase is Test {
     BridgeSettler bridgeSettler;
     ISettlerTakerSubmitted settler;
@@ -185,5 +234,95 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
         bridgeSettler.execute{value: amount}(bridgeActions, bytes32(0));
 
         assertEq(address(bridgeDummy).balance, amount, "Bridge did not receive the assets");
+    }
+
+    function testBridgeToCCIP() public {
+        address user = makeAddr("user");
+        uint256 tokenAmount = 1000e18;
+        uint256 nativeFee = 0.1 ether;
+        uint64 destinationChainSelector = 5009297550715157269; // Example: Arbitrum chain selector
+
+        MockCCIPRouter ccipRouter = new MockCCIPRouter();
+
+        // Build the EVM2AnyMessage struct
+        MockCCIPRouter.EVMTokenAmount[] memory tokenAmounts = new MockCCIPRouter.EVMTokenAmount[](1);
+        tokenAmounts[0] = MockCCIPRouter.EVMTokenAmount({
+            token: address(token),
+            amount: 0 // Will be overwritten by the action
+        });
+
+        MockCCIPRouter.EVM2AnyMessage memory message = MockCCIPRouter.EVM2AnyMessage({
+            receiver: abi.encode(user), // Destination receiver
+            data: bytes(""), // No data payload
+            tokenAmounts: tokenAmounts,
+            feeToken: address(0), // Native token for fees
+            extraArgs: bytes("") // Default extra args
+        });
+
+        // Encode ccipSend arguments (without selector)
+        bytes memory ccipSendData = abi.encode(destinationChainSelector, message);
+
+        bytes[] memory bridgeActions = new bytes[](1);
+        bridgeActions[0] = abi.encodeCall(
+            IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(token), address(ccipRouter), ccipSendData)
+        );
+
+        // Fund the BridgeSettler with tokens and native
+        deal(address(token), address(bridgeSettler), tokenAmount);
+        deal(address(bridgeSettler), nativeFee);
+
+        // Execute the bridge action
+        vm.prank(user);
+        bridgeSettler.execute(bridgeActions, bytes32(0));
+
+        // Verify the CCIP router received the correct values
+        assertEq(ccipRouter.lastDestinationChainSelector(), destinationChainSelector, "Wrong destination chain");
+        assertEq(ccipRouter.lastTokenReceived(), address(token), "Wrong token");
+        assertEq(ccipRouter.lastTokenAmount(), tokenAmount, "Wrong token amount");
+        assertEq(ccipRouter.lastNativeFeeReceived(), nativeFee, "Wrong native fee");
+        assertEq(ccipRouter.lastFeeToken(), address(0), "Fee token should be address(0)");
+        assertEq(token.balanceOf(address(ccipRouter)), tokenAmount, "Router did not receive tokens");
+    }
+
+    function testBridgeToCCIPWithData() public {
+        address user = makeAddr("user");
+        uint256 tokenAmount = 500e18;
+        uint256 nativeFee = 0.05 ether;
+        uint64 destinationChainSelector = 4949039107694359620; // Example: Base chain selector
+        bytes memory crossChainData = abi.encode("Hello CCIP!");
+
+        MockCCIPRouter ccipRouter = new MockCCIPRouter();
+
+        // Build the EVM2AnyMessage struct with data payload
+        MockCCIPRouter.EVMTokenAmount[] memory tokenAmounts = new MockCCIPRouter.EVMTokenAmount[](1);
+        tokenAmounts[0] = MockCCIPRouter.EVMTokenAmount({
+            token: address(token),
+            amount: 0 // Will be overwritten
+        });
+
+        MockCCIPRouter.EVM2AnyMessage memory message = MockCCIPRouter.EVM2AnyMessage({
+            receiver: abi.encode(makeAddr("receiver")),
+            data: crossChainData,
+            tokenAmounts: tokenAmounts,
+            feeToken: address(0),
+            extraArgs: abi.encode(uint256(200000)) // Gas limit
+        });
+
+        bytes memory ccipSendData = abi.encode(destinationChainSelector, message);
+
+        bytes[] memory bridgeActions = new bytes[](1);
+        bridgeActions[0] = abi.encodeCall(
+            IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(token), address(ccipRouter), ccipSendData)
+        );
+
+        deal(address(token), address(bridgeSettler), tokenAmount);
+        deal(address(bridgeSettler), nativeFee);
+
+        vm.prank(user);
+        bridgeSettler.execute(bridgeActions, bytes32(0));
+
+        assertEq(ccipRouter.lastTokenAmount(), tokenAmount, "Wrong token amount");
+        assertEq(ccipRouter.lastNativeFeeReceived(), nativeFee, "Wrong native fee");
+        assertEq(keccak256(ccipRouter.lastData()), keccak256(crossChainData), "Wrong data payload");
     }
 }
