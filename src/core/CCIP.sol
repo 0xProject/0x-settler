@@ -54,22 +54,22 @@ contract CCIP {
         // +0x40: tokenAmounts[0].amount <-- we update this
         assembly ("memory-safe") {
             // Calculate the position of the amount field in tokenAmounts[0]
-            let dataStart := add(ccipSendData, 0x20) // skip bytes length
-            let msgOffset := mload(add(dataStart, 0x20)) // offset to EVM2AnyMessage
+            let dataStart := add(0x20, ccipSendData) // skip bytes length
+            let msgOffset := mload(add(0x20, dataStart)) // offset to EVM2AnyMessage
             let msgPtr := add(dataStart, msgOffset) // pointer to message struct
 
             // Verify feeToken is address(0) - only native token fees are supported
             // feeToken is at msgPtr + 0x60
-            if mload(add(msgPtr, 0x60)) {
+            if mload(add(0x60, msgPtr)) {
                 revert(0x00, 0x00)
             }
 
-            let tokensOffset := mload(add(msgPtr, 0x40)) // offset to tokenAmounts array
+            let tokensOffset := mload(add(0x40, msgPtr)) // offset to tokenAmounts array
             let tokensPtr := add(msgPtr, tokensOffset) // pointer to tokenAmounts array
             // tokensPtr + 0x00 = array length
             // tokensPtr + 0x20 = tokenAmounts[0].token
             // tokensPtr + 0x40 = tokenAmounts[0].amount
-            let amountPtr := add(tokensPtr, 0x40)
+            let amountPtr := add(0x40, tokensPtr)
 
             // Update the amount
             mstore(amountPtr, amount)
