@@ -39,8 +39,8 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
     // CCIP Router on Ethereum Mainnet
     address constant CCIP_ROUTER = 0x80226fc0Ee2b096224EeAc085Bb9a8cba1146f7D;
 
-    // LINK token on Ethereum Mainnet
-    IERC20 constant LINK = IERC20(0x514910771AF9Ca656af840dff83E8264EcF986CA);
+    // WETH on Ethereum Mainnet
+    IERC20 constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
     // Chain selectors
     uint64 constant ARBITRUM_SELECTOR = 4949039107694359620;
@@ -51,7 +51,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
     function setUp() public override {
         super.setUp();
         vm.label(CCIP_ROUTER, "CCIPRouter");
-        vm.label(address(LINK), "LINK");
+        vm.label(address(WETH), "WETH");
     }
 
     function _prepareMessage(address tokenAddress, uint256 amount, address recipient)
@@ -71,31 +71,33 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         });
     }
 
-    function testBridgeLinkToArbitrum() public {
-        uint256 amount = 10 ether; // 10 LINK
+    function testBridgeWethToArbitrum() public {
+        uint256 amount = 1 ether;
         address recipient = makeAddr("recipient");
 
         // Prepare the CCIP message
-        IRouterClient.EVM2AnyMessage memory message = _prepareMessage(address(LINK), amount, recipient);
+        IRouterClient.EVM2AnyMessage memory message = _prepareMessage(address(WETH), amount, recipient);
 
         // Get the fee for the transfer
         uint256 fee = IRouterClient(CCIP_ROUTER).getFee(ARBITRUM_SELECTOR, message);
 
-        // Fund the test contract
-        deal(address(LINK), address(this), amount);
+        // Fund the test contract with WETH
+        deal(address(this), amount);
+        (bool success,) = address(WETH).call{value: amount}(abi.encodeWithSignature("deposit()"));
+        assertTrue(success, "WETH deposit failed");
         deal(address(this), fee);
-        LINK.approve(address(ALLOWANCE_HOLDER), amount);
+        WETH.approve(address(ALLOWANCE_HOLDER), amount);
 
         // Build bridge actions
         bytes[] memory bridgeActions = new bytes[](2);
 
-        // Action 1: Transfer LINK to BridgeSettler
+        // Action 1: Transfer WETH to BridgeSettler
         bridgeActions[0] = abi.encodeCall(
             IBridgeSettlerActions.TRANSFER_FROM,
             (
                 address(bridgeSettler),
                 ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({token: address(LINK), amount: amount}),
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(WETH), amount: amount}),
                     nonce: 0,
                     deadline: block.timestamp
                 }),
@@ -108,53 +110,52 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         message.tokenAmounts[0].amount = 0;
         bytes memory ccipSendData = abi.encode(ARBITRUM_SELECTOR, message);
         bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(LINK), CCIP_ROUTER, ccipSendData));
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(WETH), CCIP_ROUTER, ccipSendData));
 
         // Restore amount for expectCall
         message.tokenAmounts[0].amount = amount;
 
         // Execute and verify
-        uint256 routerBalanceBefore = LINK.balanceOf(CCIP_ROUTER);
         vm.expectCall(CCIP_ROUTER, fee, abi.encodeCall(IRouterClient.ccipSend, (ARBITRUM_SELECTOR, message)));
         ALLOWANCE_HOLDER.exec{value: fee}(
             address(bridgeSettler),
-            address(LINK),
+            address(WETH),
             amount,
             payable(address(bridgeSettler)),
             abi.encodeCall(bridgeSettler.execute, (bridgeActions, bytes32(0)))
         );
-        uint256 routerBalanceAfter = LINK.balanceOf(CCIP_ROUTER);
 
-        // Note: CCIP may transfer tokens to a pool rather than keep them in router
-        // So we just verify the call succeeded and our balance is gone
-        assertEq(LINK.balanceOf(address(this)), 0, "LINK should have been transferred");
+        // Verify our balance is gone
+        assertEq(WETH.balanceOf(address(this)), 0, "WETH should have been transferred");
     }
 
-    function testBridgeLinkToBase() public {
-        uint256 amount = 5 ether; // 5 LINK
+    function testBridgeWethToBase() public {
+        uint256 amount = 0.5 ether;
         address recipient = makeAddr("recipient");
 
         // Prepare the CCIP message
-        IRouterClient.EVM2AnyMessage memory message = _prepareMessage(address(LINK), amount, recipient);
+        IRouterClient.EVM2AnyMessage memory message = _prepareMessage(address(WETH), amount, recipient);
 
         // Get the fee for the transfer
         uint256 fee = IRouterClient(CCIP_ROUTER).getFee(BASE_SELECTOR, message);
 
-        // Fund the test contract
-        deal(address(LINK), address(this), amount);
+        // Fund the test contract with WETH
+        deal(address(this), amount);
+        (bool success,) = address(WETH).call{value: amount}(abi.encodeWithSignature("deposit()"));
+        assertTrue(success, "WETH deposit failed");
         deal(address(this), fee);
-        LINK.approve(address(ALLOWANCE_HOLDER), amount);
+        WETH.approve(address(ALLOWANCE_HOLDER), amount);
 
         // Build bridge actions
         bytes[] memory bridgeActions = new bytes[](2);
 
-        // Action 1: Transfer LINK to BridgeSettler
+        // Action 1: Transfer WETH to BridgeSettler
         bridgeActions[0] = abi.encodeCall(
             IBridgeSettlerActions.TRANSFER_FROM,
             (
                 address(bridgeSettler),
                 ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({token: address(LINK), amount: amount}),
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(WETH), amount: amount}),
                     nonce: 0,
                     deadline: block.timestamp
                 }),
@@ -166,7 +167,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         message.tokenAmounts[0].amount = 0;
         bytes memory ccipSendData = abi.encode(BASE_SELECTOR, message);
         bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(LINK), CCIP_ROUTER, ccipSendData));
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(WETH), CCIP_ROUTER, ccipSendData));
 
         // Restore amount for expectCall
         message.tokenAmounts[0].amount = amount;
@@ -175,23 +176,23 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         vm.expectCall(CCIP_ROUTER, fee, abi.encodeCall(IRouterClient.ccipSend, (BASE_SELECTOR, message)));
         ALLOWANCE_HOLDER.exec{value: fee}(
             address(bridgeSettler),
-            address(LINK),
+            address(WETH),
             amount,
             payable(address(bridgeSettler)),
             abi.encodeCall(bridgeSettler.execute, (bridgeActions, bytes32(0)))
         );
 
-        assertEq(LINK.balanceOf(address(this)), 0, "LINK should have been transferred");
+        assertEq(WETH.balanceOf(address(this)), 0, "WETH should have been transferred");
     }
 
     function testBridgeWithData() public {
-        uint256 amount = 1 ether; // 1 LINK
+        uint256 amount = 0.1 ether;
         address recipient = makeAddr("recipient");
         bytes memory crossChainData = abi.encode("Hello CCIP!");
 
         // Prepare the CCIP message with data payload
         IRouterClient.EVMTokenAmount[] memory tokenAmounts = new IRouterClient.EVMTokenAmount[](1);
-        tokenAmounts[0] = IRouterClient.EVMTokenAmount({token: address(LINK), amount: amount});
+        tokenAmounts[0] = IRouterClient.EVMTokenAmount({token: address(WETH), amount: amount});
 
         IRouterClient.EVM2AnyMessage memory message = IRouterClient.EVM2AnyMessage({
             receiver: abi.encode(recipient),
@@ -204,10 +205,12 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         // Get the fee
         uint256 fee = IRouterClient(CCIP_ROUTER).getFee(ARBITRUM_SELECTOR, message);
 
-        // Fund
-        deal(address(LINK), address(this), amount);
+        // Fund with WETH
+        deal(address(this), amount);
+        (bool success,) = address(WETH).call{value: amount}(abi.encodeWithSignature("deposit()"));
+        assertTrue(success, "WETH deposit failed");
         deal(address(this), fee);
-        LINK.approve(address(ALLOWANCE_HOLDER), amount);
+        WETH.approve(address(ALLOWANCE_HOLDER), amount);
 
         // Build actions
         bytes[] memory bridgeActions = new bytes[](2);
@@ -216,7 +219,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
             (
                 address(bridgeSettler),
                 ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({token: address(LINK), amount: amount}),
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(WETH), amount: amount}),
                     nonce: 0,
                     deadline: block.timestamp
                 }),
@@ -227,7 +230,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         message.tokenAmounts[0].amount = 0;
         bytes memory ccipSendData = abi.encode(ARBITRUM_SELECTOR, message);
         bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(LINK), CCIP_ROUTER, ccipSendData));
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(WETH), CCIP_ROUTER, ccipSendData));
 
         message.tokenAmounts[0].amount = amount;
 
@@ -235,12 +238,12 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         vm.expectCall(CCIP_ROUTER, fee, abi.encodeCall(IRouterClient.ccipSend, (ARBITRUM_SELECTOR, message)));
         ALLOWANCE_HOLDER.exec{value: fee}(
             address(bridgeSettler),
-            address(LINK),
+            address(WETH),
             amount,
             payable(address(bridgeSettler)),
             abi.encodeCall(bridgeSettler.execute, (bridgeActions, bytes32(0)))
         );
 
-        assertEq(LINK.balanceOf(address(this)), 0, "LINK should have been transferred");
+        assertEq(WETH.balanceOf(address(this)), 0, "WETH should have been transferred");
     }
 }
