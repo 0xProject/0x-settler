@@ -453,6 +453,21 @@ contract Lib512MathTest is Test {
         }
     }
 
+    // Regression: specific input where _cbrt pipeline may undershoot by 1
+    function test512Math_cbrt_regression_undershoot() external pure {
+        uint256 x_hi = 0x20000000000000000000171adb6acc109c47adc01ed990721e0ea2b18f3ada7e;
+        uint256 x_lo = 0x811623e6d07c4e11f2a9ffffffffffffffffffffffffffffffffffffffffffff;
+        uint512 x = alloc().from(x_hi, x_lo);
+
+        uint256 r = x.cbrt();
+        uint512 r3 = alloc().omul(r, r).imul(r);
+        assertTrue(r3 <= x, "cbrt too high");
+
+        r++;
+        r3.omul(r, r).imul(r);
+        assertTrue(r3 > x, "cbrt too low");
+    }
+
     function test512Math_cbrt_perfectCube(uint256 r) external pure {
         r = bound(r, 1, 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628);
         uint512 x = alloc().omul(r, r).imul(r);
