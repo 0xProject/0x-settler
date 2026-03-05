@@ -209,13 +209,6 @@ theorem baseCase_NR_within_1ulp (w : Nat)
         (Nat.le_trans (by native_decide : 2 * 3738299367780524623633435 ≤ lo) hlo)
         (by native_decide) (by native_decide) (by native_decide) (by native_decide) (by native_decide)
 
-/-- On a perfect cube w = m³ with m ≥ 2^83, the 6 NR steps give exactly m. -/
-theorem baseCase_NR_exact_on_perfect_cube (m : Nat)
-    (hm_lo : 2 ^ 83 ≤ m) (hm_hi : m < 2 ^ 85)
-    (hw_range : m * m * m < 2 ^ 254) :
-    run6From (m * m * m) 22141993662453218394297550 = m := by
-  sorry
-
 -- ============================================================================
 -- Base case EVM bridge
 -- ============================================================================

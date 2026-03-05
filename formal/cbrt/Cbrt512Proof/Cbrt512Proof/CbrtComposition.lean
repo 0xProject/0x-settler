@@ -102,19 +102,16 @@ theorem model_cbrtQuadraticCorrection_evm_correct
   · exact hresult_wm
 
 -- ============================================================================
--- Helper: the algorithm gives exactly icbrt (sorry'd — hard numerical bound)
+-- Sub-lemma A: Lower bound — (r_qc + 1)³ > x_norm
 -- ============================================================================
 
-/-- The quadratic-corrected result equals icbrt(x_norm).
-    This combines two properties:
-    1. No-overshoot: r_qc ≤ icbrt(x_norm), because floor divisions in r_lo and
-       correction ensure r_qc³ ≤ x_norm. See the "cube-and-compare" comment in
-       512Math.sol's `cbrt` function for the detailed numerical argument.
-    2. No-undershoot: icbrt(x_norm) ≤ r_qc, because (r_qc+1)³ > x_norm.
-       This follows from the Karatsuba remainder being bounded by d, so the
-       gap x_norm - R³ - 3R²·r_lo < d·2^172 ≤ 3R², which is absorbed by the
-       +1 margin in (r_qc+1)³. -/
-private theorem r_qc_eq_icbrt (x_hi_1 x_lo_1 : Nat)
+/-- The cube of (r_qc + 1) exceeds x_norm.
+    Combined with icbrt_cube_le, this gives icbrt(x_norm) ≤ r_qc.
+    Proof sketch: x_norm = R³ + 3R²·r_lo + rem·2^172 + c_tail.
+    (r_qc+1)³ = R³ + 3R²(q+1) + 3R(q+1)² + (q+1)³ where q = r_lo - c.
+    The key: (3m²-rem)·2^172 ≥ 2^172 > c_tail, combined with
+    3R(q+1)² + (q+1)³ > 3R²c (since 3R²(c+1) > 3R·r_lo² ≥ 3R·q²). -/
+private theorem r_qc_succ_cube_gt (x_hi_1 x_lo_1 : Nat)
     (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
     (hxlo : x_lo_1 < WORD_MOD) :
     let w := x_hi_1 / 4
@@ -126,8 +123,156 @@ private theorem r_qc_eq_icbrt (x_hi_1 x_lo_1 : Nat)
     let R := m * 2 ^ 86
     let correction := r_lo * r_lo / R
     let r_qc := R + r_lo - correction
-    r_qc = icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) := by
+    let x_norm := x_hi_1 * 2 ^ 256 + x_lo_1
+    x_norm < (r_qc + 1) * (r_qc + 1) * (r_qc + 1) := by
   sorry
+
+-- ============================================================================
+-- Sub-lemma B: Upper bound — (r_qc - 1)³ ≤ x_norm
+-- ============================================================================
+
+/-- The cube of (r_qc - 1) does not exceed x_norm.
+    Combined with icbrt_lt_succ_cube, this gives r_qc ≤ icbrt(x_norm) + 1.
+    Note: r_qc ≥ 1 since r_qc ≥ R = m·2^86 ≥ 2^169.
+    Proof sketch: x_norm - (r_qc-1)³ = 3R²(c+1) + S - 3R(q-1)² - (q-1)³
+    where S = rem·2^172 + c_tail ≥ 0. Since 3R²(c+1) > 3R·r_lo² ≥ 3R(q-1)²
+    and the surplus 3R[R(c+1) - (q-1)²] grows quadratically in r_lo while
+    (q-1)³ grows cubically but with r_lo/R ≪ 1, the surplus dominates. -/
+private theorem r_qc_pred_cube_le (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD) :
+    let w := x_hi_1 / 4
+    let m := icbrt w
+    let res := w - m * m * m
+    let d := 3 * (m * m)
+    let limb_hi := (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172
+    let r_lo := (res * 2 ^ 86 + limb_hi) / d
+    let R := m * 2 ^ 86
+    let correction := r_lo * r_lo / R
+    let r_qc := R + r_lo - correction
+    let x_norm := x_hi_1 * 2 ^ 256 + x_lo_1
+    (r_qc - 1) * (r_qc - 1) * (r_qc - 1) ≤ x_norm := by
+  sorry
+
+-- ============================================================================
+-- Sub-lemma E1: r_qc ≤ R_MAX (cube bound via concrete threshold)
+-- ============================================================================
+
+/-- The maximum value the composition pipeline can return.
+    From 512Math.sol cbrt(): for x_norm ∈ [R_MAX³, 2^512), the algorithm returns
+    exactly R_MAX. Combined with sub-lemma B (r_qc ≤ icbrt + 1), this gives
+    r_qc ≤ R_MAX for ALL normalized inputs, hence r_qc³ < 2^512 = WORD_MOD². -/
+private def R_MAX : Nat := 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628
+
+set_option exponentiation.threshold 1024 in
+/-- R_MAX³ < 2^512 = WORD_MOD². -/
+private theorem r_max_cube_lt_wm2 : R_MAX * R_MAX * R_MAX < WORD_MOD * WORD_MOD := by
+  unfold R_MAX WORD_MOD; native_decide
+
+set_option exponentiation.threshold 1024 in
+/-- R_MAX = icbrt(2^512 - 1): the largest integer whose cube < 2^512. -/
+private theorem r_max_is_icbrt_wm2 :
+    R_MAX * R_MAX * R_MAX ≤ WORD_MOD * WORD_MOD - 1 ∧
+    WORD_MOD * WORD_MOD - 1 < (R_MAX + 1) * (R_MAX + 1) * (R_MAX + 1) := by
+  unfold R_MAX WORD_MOD; constructor <;> native_decide
+
+/-- The composition pipeline output never exceeds R_MAX.
+    Proof has two cases:
+    1. x_norm < R_MAX³: icbrt(x_norm) < R_MAX (cube_monotone), so from sub-lemma B
+       r_qc ≤ icbrt + 1 ≤ R_MAX.
+    2. x_norm ≥ R_MAX³: x_hi_1 / 4 ≥ a threshold where ⌊∛(x_hi_1/4)⌋ is constant
+       (= 0x1965fea53d6e3c82b05999). The Karatsuba quotient r_lo is constant
+       (fractional part of n/d stays in [0.128, 0.292] across the range, never
+       crossing an integer boundary — see 512Math.sol cbrt() lines 1974–2010).
+       The quadratic correction subtracts exactly 1, yielding r_qc = R_MAX. -/
+private theorem r_qc_le_r_max (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD) :
+    let w := x_hi_1 / 4
+    let m := icbrt w
+    let res := w - m * m * m
+    let d := 3 * (m * m)
+    let limb_hi := (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172
+    let r_lo := (res * 2 ^ 86 + limb_hi) / d
+    let R := m * 2 ^ 86
+    let correction := r_lo * r_lo / R
+    let r_qc := R + r_lo - correction
+    r_qc ≤ R_MAX := by
+  sorry
+
+-- ============================================================================
+-- Sub-lemma E2: Overshoot implies not a perfect cube
+-- ============================================================================
+
+/-- When the algorithm overshoots (r_qc³ > x_norm), x_norm is not a perfect cube.
+    From sub-lemmas A and B, r_qc = icbrt(x_norm) + 1 when r_qc³ > x_norm.
+    If x_norm were a perfect cube s³, the Karatsuba quotient r_lo captures the
+    exact linear correction and the quadratic correction c = ⌊r_lo²/R⌋ exactly
+    compensates, yielding r_qc = s (no overshoot). -/
+private theorem r_qc_no_overshoot_on_cubes (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD) :
+    let w := x_hi_1 / 4
+    let m := icbrt w
+    let res := w - m * m * m
+    let d := 3 * (m * m)
+    let limb_hi := (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172
+    let r_lo := (res * 2 ^ 86 + limb_hi) / d
+    let R := m * 2 ^ 86
+    let correction := r_lo * r_lo / R
+    let r_qc := R + r_lo - correction
+    let x_norm := x_hi_1 * 2 ^ 256 + x_lo_1
+    r_qc * r_qc * r_qc > x_norm →
+      icbrt x_norm * icbrt x_norm * icbrt x_norm < x_norm := by
+  sorry
+
+-- ============================================================================
+-- Combined: r_qc_properties from sub-lemmas A, B, E
+-- ============================================================================
+
+/-- The quadratic-corrected result satisfies within-1-ulp, cube bound, and
+    overshoot properties. Composed from sub-lemmas A, B, E1 (r_qc ≤ R_MAX),
+    and E2 (overshoot → not perfect cube). -/
+private theorem r_qc_properties (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD) :
+    let w := x_hi_1 / 4
+    let m := icbrt w
+    let res := w - m * m * m
+    let d := 3 * (m * m)
+    let limb_hi := (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172
+    let r_lo := (res * 2 ^ 86 + limb_hi) / d
+    let R := m * 2 ^ 86
+    let correction := r_lo * r_lo / R
+    let r_qc := R + r_lo - correction
+    let x_norm := x_hi_1 * 2 ^ 256 + x_lo_1
+    icbrt x_norm ≤ r_qc ∧ r_qc ≤ icbrt x_norm + 1 ∧
+    r_qc * r_qc * r_qc < WORD_MOD * WORD_MOD ∧
+    (r_qc * r_qc * r_qc > x_norm →
+      icbrt x_norm * icbrt x_norm * icbrt x_norm < x_norm) := by
+  simp only
+  -- Sub-lemmas (simp only inlines the let-bindings, matching the goal)
+  have hA := r_qc_succ_cube_gt x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+  have hB := r_qc_pred_cube_le x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+  have hE1 := r_qc_le_r_max x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+  have hE2 := r_qc_no_overshoot_on_cubes x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+  simp only at hA hB hE1 hE2
+  have hcube_le := icbrt_cube_le (x_hi_1 * 2 ^ 256 + x_lo_1)
+  have hsucc_gt := icbrt_lt_succ_cube (x_hi_1 * 2 ^ 256 + x_lo_1)
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · -- [1] icbrt(x_norm) ≤ r_qc: if r_qc < icbrt then (r_qc+1)³ ≤ icbrt³ ≤ x_norm,
+    --     contradicting hA: x_norm < (r_qc+1)³.
+    exact Nat.not_lt.mp fun h =>
+      absurd hA (Nat.not_lt.mpr (Nat.le_trans (cube_monotone h) hcube_le))
+  · -- [2] r_qc ≤ icbrt(x_norm) + 1: if icbrt+1 < r_qc then (icbrt+1)³ ≤ (r_qc-1)³ ≤ x_norm,
+    --     contradicting hsucc_gt: x_norm < (icbrt+1)³.
+    exact Nat.not_lt.mp fun h =>
+      absurd hsucc_gt
+        (Nat.not_lt.mpr (Nat.le_trans (cube_monotone (Nat.le_sub_one_of_lt h)) hB))
+  · -- [3] r_qc³ < WORD_MOD²: r_qc ≤ R_MAX (E1), so r_qc³ ≤ R_MAX³ < WORD_MOD² (native_decide).
+    exact Nat.lt_of_le_of_lt (cube_monotone hE1) r_max_cube_lt_wm2
+  · -- [4] r_qc³ > x_norm → icbrt³ < x_norm: from E2.
+    exact hE2
 
 -- ============================================================================
 -- Range bounds helper
@@ -233,38 +378,16 @@ theorem composition_within_1ulp (x_hi_1 x_lo_1 : Nat)
     r_qc + 1 < WORD_MOD ∧
     (r_qc * r_qc * r_qc > x_norm →
       icbrt x_norm * icbrt x_norm * icbrt x_norm < x_norm) := by
-  -- Key facts (let-bindings match the goal's)
-  have h_eq := r_qc_eq_icbrt x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+  -- Core properties from r_qc_properties (within 1 ulp + cube bound + overshoot)
+  have h_props := r_qc_properties x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+  -- Range bound from r_qc_lt_pow172 (r_qc < 2^172)
   have h_bound := r_qc_lt_pow172 x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
-  have hcube_le := icbrt_cube_le (x_hi_1 * 2 ^ 256 + x_lo_1)
-  have hx_bound : x_hi_1 * 2 ^ 256 + x_lo_1 < WORD_MOD * WORD_MOD := by
-    have hxhi' : x_hi_1 < 2 ^ 256 := by unfold WORD_MOD at hxhi_hi; exact hxhi_hi
-    have hxlo' : x_lo_1 < 2 ^ 256 := by unfold WORD_MOD at hxlo; exact hxlo
-    unfold WORD_MOD
-    rw [show 2 ^ 256 * 2 ^ 256 = 2 ^ 512 from by rw [← Nat.pow_add]]
-    calc x_hi_1 * 2 ^ 256 + x_lo_1
-        < x_hi_1 * 2 ^ 256 + 2 ^ 256 := by omega
-      _ = (x_hi_1 + 1) * 2 ^ 256 := (Nat.succ_mul _ _).symm
-      _ ≤ 2 ^ 256 * 2 ^ 256 := Nat.mul_le_mul_right _ (by omega)
-      _ = 2 ^ 512 := by rw [← Nat.pow_add]
-  -- Unfold let-bindings so omega/rw can see through them
-  simp only at h_eq h_bound hcube_le hx_bound ⊢
-  refine ⟨?_, ?_, ?_, ?_, ?_, ?_⟩
-  · -- [1] icbrt x_norm ≤ r_qc: from h_eq (a = b → b ≤ a)
-    omega
-  · -- [2] r_qc ≤ icbrt x_norm + 1: from h_eq (a = b → a ≤ b + 1)
-    omega
+  -- Unfold let-bindings so omega can see through them
+  simp only at h_props h_bound ⊢
+  refine ⟨h_props.1, h_props.2.1, ?_, h_props.2.2.1, ?_, h_props.2.2.2⟩
   · -- [3] r_qc < WORD_MOD: from h_bound (r_qc < 2^172 < WORD_MOD)
     unfold WORD_MOD; omega
-  · -- [4] r_qc³ < WORD_MOD²: r_qc = icbrt so r_qc³ ≤ x_norm < WORD_MOD²
-    -- Chain: r_qc³ = icbrt³ ≤ x_norm < WORD_MOD * WORD_MOD
-    calc _ = icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) * icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) *
-              icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) := by rw [h_eq]
-      _ ≤ x_hi_1 * 2 ^ 256 + x_lo_1 := hcube_le
-      _ < WORD_MOD * WORD_MOD := hx_bound
   · -- [5] r_qc + 1 < WORD_MOD: from h_bound
     unfold WORD_MOD; omega
-  · -- [6] overshoot → not perfect cube: vacuous since r_qc = icbrt
-    intro h_overshoot; rw [h_eq] at h_overshoot; omega
 
 end Cbrt512Spec
