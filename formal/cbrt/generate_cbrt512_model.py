@@ -67,7 +67,7 @@ CONFIG = ModelConfig(
         "_cbrt_newtonRaphsonStep": 2,
         "_cbrt_baseCase": 1,
         "_cbrt_karatsubaQuotient": 3,
-        "_cbrt_quadraticCorrection": 2,
+        "_cbrt_quadraticCorrection": 3,
         "_cbrt": 2,
         "cbrt": 1,
         "cbrtUp": 1,

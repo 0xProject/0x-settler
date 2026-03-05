@@ -107,8 +107,8 @@ private theorem evm_pipeline_within_1ulp (x_hi_1 x_lo_1 : Nat)
     let x_norm := x_hi_1 * 2 ^ 256 + x_lo_1
     let bc := model_cbrtBaseCase_evm x_hi_1
     let limb_hi := evmOr (evmShl 84 (evmAnd 3 x_hi_1)) (evmShr 172 x_lo_1)
-    let r_lo_evm := model_cbrtKaratsubaQuotient_evm bc.2.1 limb_hi bc.2.2
-    let r_1 := model_cbrtQuadraticCorrection_evm bc.1 r_lo_evm
+    let kq := model_cbrtKaratsubaQuotient_evm bc.2.1 limb_hi bc.2.2
+    let r_1 := model_cbrtQuadraticCorrection_evm bc.1 kq.1 kq.2
     icbrt x_norm ≤ r_1 ∧ r_1 ≤ icbrt x_norm + 1 ∧
     r_1 < WORD_MOD ∧ r_1 * r_1 * r_1 < WORD_MOD * WORD_MOD ∧
     r_1 + 1 < WORD_MOD ∧
@@ -168,20 +168,28 @@ private theorem evm_pipeline_within_1ulp (x_hi_1 x_lo_1 : Nat)
   have h3m_lt := three_msq_plus_3m_lt m hm_cube_lt
   have hres_171 : w - m * m * m < 2 ^ 171 := by omega
   -- ======== Step 4: Apply Karatsuba bridge ========
-  have hkq : model_cbrtKaratsubaQuotient_evm
-      (model_cbrtBaseCase_evm x_hi_1).2.1
-      (evmOr (evmShl 84 (evmAnd 3 x_hi_1)) (evmShr 172 x_lo_1))
-      (model_cbrtBaseCase_evm x_hi_1).2.2 =
-      ((w - m * m * m) * 2 ^ 86 + ((x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172)) /
-        (3 * (m * m)) := by
-    rw [hbc_res, hlimb_eq, hbc_d]
-    exact model_cbrtKaratsubaQuotient_evm_correct
+  have hkq_both := model_cbrtKaratsubaQuotient_evm_correct
       (w - m * m * m) ((x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172) (3 * (m * m))
       hres_wm hlimb_wm hd_ge hd_hi hres_171 hlimb_86
+  have hkq_fst : (model_cbrtKaratsubaQuotient_evm
+      (model_cbrtBaseCase_evm x_hi_1).2.1
+      (evmOr (evmShl 84 (evmAnd 3 x_hi_1)) (evmShr 172 x_lo_1))
+      (model_cbrtBaseCase_evm x_hi_1).2.2).1 =
+      ((w - m * m * m) * 2 ^ 86 + ((x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172)) /
+        (3 * (m * m)) := by
+    rw [hbc_res, hlimb_eq, hbc_d]; exact hkq_both.1
+  have hkq_snd : (model_cbrtKaratsubaQuotient_evm
+      (model_cbrtBaseCase_evm x_hi_1).2.1
+      (evmOr (evmShl 84 (evmAnd 3 x_hi_1)) (evmShr 172 x_lo_1))
+      (model_cbrtBaseCase_evm x_hi_1).2.2).2 =
+      ((w - m * m * m) * 2 ^ 86 + ((x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172)) %
+        (3 * (m * m)) := by
+    rw [hbc_res, hlimb_eq, hbc_d]; exact hkq_both.2
   -- ======== Step 5: r_lo bound (< 2^87) ========
-  -- From r_qc_lt_pow172 proof: res ≤ 2*(3m²) - 1, so (res*2^86+limb)/d < 2^87
   let nat_r_lo := ((w - m * m * m) * 2 ^ 86 +
       ((x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m))
+  let nat_rem := ((w - m * m * m) * 2 ^ 86 +
+      ((x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172)) % (3 * (m * m))
   have hr_lo_bound : nat_r_lo < 2 ^ 87 := by
     show ((w - m * m * m) * 2 ^ 86 +
         ((x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)) < 2 ^ 87
@@ -198,24 +206,35 @@ private theorem evm_pipeline_within_1ulp (x_hi_1 x_lo_1 : Nat)
           rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
             rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]; omega
   have hr_lo_wm : nat_r_lo < WORD_MOD := by unfold WORD_MOD; omega
+  have hrem_wm : nat_rem < WORD_MOD := by
+    unfold WORD_MOD; exact Nat.lt_of_lt_of_le (Nat.mod_lt _ hd_pos) (by omega)
   -- ======== Step 6: QC bridge ========
-  have hqc := model_cbrtQuadraticCorrection_evm_correct m nat_r_lo
-      hm_wm hr_lo_wm (by omega : 2 ≤ m) hm_hi hr_lo_bound
-  have hqc_eq : model_cbrtQuadraticCorrection_evm
+  -- The QC bridge gives bounds: r_qc ≤ result ≤ r_qc + 1
+  have hqc := model_cbrtQuadraticCorrection_evm_correct m nat_r_lo nat_rem
+      hm_wm hr_lo_wm hrem_wm (by omega : 2 ≤ m) hm_hi hr_lo_bound
+  -- Rewrite EVM projections to Nat values
+  have hqc_rw : model_cbrtQuadraticCorrection_evm
       (model_cbrtBaseCase_evm x_hi_1).1
       (model_cbrtKaratsubaQuotient_evm
         (model_cbrtBaseCase_evm x_hi_1).2.1
         (evmOr (evmShl 84 (evmAnd 3 x_hi_1)) (evmShr 172 x_lo_1))
-        (model_cbrtBaseCase_evm x_hi_1).2.2) =
-      m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) := by
-    rw [hbc_m, hkq]; exact hqc.1
-  -- ======== Step 7: Composition ========
+        (model_cbrtBaseCase_evm x_hi_1).2.2).1
+      (model_cbrtKaratsubaQuotient_evm
+        (model_cbrtBaseCase_evm x_hi_1).2.1
+        (evmOr (evmShl 84 (evmAnd 3 x_hi_1)) (evmShr 172 x_lo_1))
+        (model_cbrtBaseCase_evm x_hi_1).2.2).2 =
+      model_cbrtQuadraticCorrection_evm m nat_r_lo nat_rem := by
+    rw [hbc_m, hkq_fst, hkq_snd]
+  -- ======== Step 7: Composition + QC bounds → within 1 ulp ========
+  -- The composition theorem gives properties of the old r_qc = R + r_lo - correction.
+  -- The QC bridge says the EVM result is in [r_qc, r_qc + 1].
+  -- Combined: the EVM result is within 1 ulp of icbrt.
   have hcomp := composition_within_1ulp x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
-  simp only at hcomp
-  -- After simp only, hcomp talks about the same Nat expression
-  -- Rewrite EVM pipeline to Nat in goal
-  rw [hqc_eq]
-  exact hcomp
+  simp only at hcomp hqc
+  rw [hqc_rw]
+  -- Need: icbrt ≤ r_qc ≤ r_qc_new ≤ r_qc + 1 ≤ icbrt + 2, but must show ≤ icbrt + 1
+  -- This requires knowing the undershoot is correct; sorry for now.
+  sorry
 
 /-- The 512-bit _cbrt EVM model returns a value within 1ulp of icbrt.
     For x_hi > 0 and both x_hi, x_lo < 2^256:
@@ -264,7 +283,11 @@ theorem model_cbrt512_evm_within_1ulp (x_hi x_lo : Nat)
       (model_cbrtKaratsubaQuotient_evm
         (model_cbrtBaseCase_evm x_hi_1).2.1
         (evmOr (evmShl 84 (evmAnd 3 x_hi_1)) (evmShr 172 x_lo_1))
-        (model_cbrtBaseCase_evm x_hi_1).2.2)
+        (model_cbrtBaseCase_evm x_hi_1).2.2).1
+      (model_cbrtKaratsubaQuotient_evm
+        (model_cbrtBaseCase_evm x_hi_1).2.1
+        (evmOr (evmShl 84 (evmAnd 3 x_hi_1)) (evmShr 172 x_lo_1))
+        (model_cbrtBaseCase_evm x_hi_1).2.2).2
   -- ======== Connect model to pipeline ========
   -- model_cbrt512_evm x_hi x_lo = evmShr shift r_1 (by definitional unfolding)
   have h_model_eq : model_cbrt512_evm x_hi x_lo = evmShr shift r_1 := by

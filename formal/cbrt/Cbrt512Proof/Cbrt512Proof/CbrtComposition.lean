@@ -30,76 +30,27 @@ open Cbrt512GeneratedModel
 -- Quadratic correction EVM bridge
 -- ============================================================================
 
-/-- The quadratic correction: r = r_hi * 2^86 + r_lo - r_lo²/(r_hi * 2^86).
-    Requires r_hi ≥ 2 (which holds since r_hi = icbrt(w) with w ≥ 2^251,
-    giving r_hi ≥ 2^83). With r_hi ≥ 2: R = r_hi * 2^86 ≥ 2^87 > r_lo,
-    so the correction r_lo²/R < r_lo ≤ R + r_lo and no EVM operation wraps. -/
+/-- The quadratic correction with undershoot prevention.
+    r = r_hi * 2^86 + r_lo - c + undershoot
+    where c = r_lo²/(r_hi * 2^86) and undershoot ∈ {0, 1}.
+    The undershoot check adds 1 when the Karatsuba remainder `rem` indicates
+    the correction over-subtracted.
+
+    For the Nat-level composition, the result ≥ R + r_lo - c (the old formula),
+    ensuring the algorithm never returns less than icbrt(x_norm). -/
 theorem model_cbrtQuadraticCorrection_evm_correct
-    (r_hi r_lo : Nat)
-    (hr_hi : r_hi < WORD_MOD) (hr_lo : r_lo < WORD_MOD)
+    (r_hi r_lo rem : Nat)
+    (hr_hi : r_hi < WORD_MOD) (hr_lo : r_lo < WORD_MOD) (hrem : rem < WORD_MOD)
     (hr_hi_pos : 2 ≤ r_hi)
     (hr_hi_bound : r_hi < 2 ^ 85)
     (hr_lo_bound : r_lo < 2 ^ 87) :
     let R := r_hi * 2 ^ 86
     let correction := r_lo * r_lo / R
-    model_cbrtQuadraticCorrection_evm r_hi r_lo = R + r_lo - correction ∧
-    R + r_lo - correction < WORD_MOD := by
+    R + r_lo - correction ≤ model_cbrtQuadraticCorrection_evm r_hi r_lo rem ∧
+    model_cbrtQuadraticCorrection_evm r_hi r_lo rem ≤ R + r_lo - correction + 1 ∧
+    model_cbrtQuadraticCorrection_evm r_hi r_lo rem < WORD_MOD := by
   simp only
-  -- ========== Key bounds ==========
-  have hR_pos : 0 < r_hi * 2 ^ 86 := Nat.mul_pos (by omega) (Nat.two_pow_pos 86)
-  have hR_lt : r_hi * 2 ^ 86 < 2 ^ 171 :=
-    calc r_hi * 2 ^ 86
-        < 2 ^ 85 * 2 ^ 86 := Nat.mul_lt_mul_of_pos_right hr_hi_bound (Nat.two_pow_pos 86)
-      _ = 2 ^ 171 := by rw [← Nat.pow_add]
-  have hR_wm : r_hi * 2 ^ 86 < WORD_MOD := by unfold WORD_MOD; omega
-  have hR_ge : 2 ^ 87 ≤ r_hi * 2 ^ 86 :=
-    calc 2 ^ 87 = 2 ^ 1 * 2 ^ 86 := by rw [← Nat.pow_add]
-      _ ≤ r_hi * 2 ^ 86 := Nat.mul_le_mul_right _ hr_hi_pos
-  have hR_gt_rlo : r_lo < r_hi * 2 ^ 86 := by omega
-  have hlo_sq_lt : r_lo * r_lo < 2 ^ 174 := by
-    by_cases h : r_lo = 0
-    · subst h; exact Nat.two_pow_pos 174
-    · calc r_lo * r_lo
-          < r_lo * 2 ^ 87 := Nat.mul_lt_mul_of_pos_left hr_lo_bound (by omega)
-        _ ≤ 2 ^ 87 * 2 ^ 87 := Nat.mul_le_mul_right _ (by omega)
-        _ = 2 ^ 174 := by rw [← Nat.pow_add]
-  have hlo_sq_wm : r_lo * r_lo < WORD_MOD := by unfold WORD_MOD; omega
-  have hcorr_le_rlo : r_lo * r_lo / (r_hi * 2 ^ 86) ≤ r_lo := by
-    by_cases h : r_lo = 0
-    · simp [h]
-    · have hlt : r_lo * r_lo < r_lo * (r_hi * 2 ^ 86) :=
-        Nat.mul_lt_mul_of_pos_left hR_gt_rlo (by omega)
-      have := (Nat.div_lt_iff_lt_mul hR_pos).mpr hlt
-      omega
-  have hsum_wm : r_hi * 2 ^ 86 + r_lo < WORD_MOD := by unfold WORD_MOD; omega
-  have hresult_wm : r_hi * 2 ^ 86 + r_lo - r_lo * r_lo / (r_hi * 2 ^ 86) < WORD_MOD :=
-    Nat.lt_of_le_of_lt (Nat.sub_le _ _) hsum_wm
-  have hrlo1_wm : r_lo - r_lo * r_lo / (r_hi * 2 ^ 86) < WORD_MOD :=
-    Nat.lt_of_le_of_lt (Nat.sub_le _ _) hr_lo
-  have hr_hi_u : u256 r_hi = r_hi := u256_id' r_hi hr_hi
-  have hr_lo_u : u256 r_lo = r_lo := u256_id' r_lo hr_lo
-  have h86_wm : (86 : Nat) < WORD_MOD := by unfold WORD_MOD; omega
-  have h255_wm : (255 : Nat) < WORD_MOD := by unfold WORD_MOD; omega
-  have hand_inner : evmAnd 86 255 = 86 := by
-    rw [evmAnd_eq' 86 255 h86_wm h255_wm]
-    exact Nat.and_two_pow_sub_one_eq_mod 86 8
-  have hand_outer : evmAnd (evmAnd 86 255) 255 = 86 := by
-    rw [hand_inner, evmAnd_eq' 86 255 h86_wm h255_wm]
-    exact Nat.and_two_pow_sub_one_eq_mod 86 8
-  constructor
-  · show evmAdd (evmShl (evmAnd (evmAnd 86 255) 255) (u256 r_hi))
-               (evmSub (u256 r_lo) (evmDiv (evmMul (u256 r_lo) (u256 r_lo))
-                 (evmShl (evmAnd (evmAnd 86 255) 255) (u256 r_hi)))) =
-         r_hi * 2 ^ 86 + r_lo - r_lo * r_lo / (r_hi * 2 ^ 86)
-    rw [hr_hi_u, hr_lo_u, hand_outer]
-    rw [show evmShl 86 r_hi = r_hi * 2 ^ 86 from by
-      rw [evmShl_eq' 86 r_hi (by omega) hr_hi]; exact Nat.mod_eq_of_lt hR_wm]
-    rw [evmMul_eq' r_lo r_lo hr_lo hr_lo, Nat.mod_eq_of_lt hlo_sq_wm]
-    rw [evmDiv_eq' (r_lo * r_lo) (r_hi * 2 ^ 86) hlo_sq_wm hR_pos hR_wm]
-    rw [evmSub_eq_of_le r_lo _ hr_lo hcorr_le_rlo]
-    rw [evmAdd_eq' _ _ hR_wm hrlo1_wm (by omega)]
-    omega
-  · exact hresult_wm
+  sorry
 
 -- ============================================================================
 -- Sub-lemma A: Lower bound — (r_qc + 1)³ > x_norm
