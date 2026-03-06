@@ -39,82 +39,82 @@ set_option exponentiation.threshold 1024 in
 theorem baseCaseSeed_bounds :
     2 ^ 83 ≤ baseCaseSeed ∧ baseCaseSeed < 2 ^ 88 := by
   unfold baseCaseSeed
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem pow83_cube_le_pow251 :
     (2 ^ 83) * (2 ^ 83) * (2 ^ 83) ≤ 2 ^ 251 := by
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem pow254_le_succ_pow85_sub_one_cube :
     2 ^ 254 ≤ ((2 ^ 85 - 1) + 1) * ((2 ^ 85 - 1) + 1) * ((2 ^ 85 - 1) + 1) := by
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem pow85_sub_one_sq_lt_word :
     (2 ^ 85 - 1) * (2 ^ 85 - 1) < WORD_MOD := by
   unfold WORD_MOD
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem pow85_sub_one_cube_lt_word :
     (2 ^ 85 - 1) * (2 ^ 85 - 1) * (2 ^ 85 - 1) < WORD_MOD := by
   unfold WORD_MOD
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave251_bounds :
     octave251Lo * octave251Lo * octave251Lo ≤ 2 ^ 251 ∧
     2 ^ 252 ≤ (octave251Hi + 1) * (octave251Hi + 1) * (octave251Hi + 1) := by
   unfold octave251Lo octave251Hi
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave251_lo_two_le : 2 ≤ octave251Lo := by
   unfold octave251Lo
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave252_bounds :
     octave252Lo * octave252Lo * octave252Lo ≤ 2 ^ 252 ∧
     2 ^ 253 ≤ (octave252Hi + 1) * (octave252Hi + 1) * (octave252Hi + 1) := by
   unfold octave252Lo octave252Hi
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave252_lo_two_le : 2 ≤ octave252Lo := by
   unfold octave252Lo
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave253_lo_cube_le_pow253 :
     octave253Lo * octave253Lo * octave253Lo ≤ 2 ^ 253 := by
   unfold octave253Lo
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave253_lo_two_le : 2 ≤ octave253Lo := by
   unfold octave253Lo
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave251_gap_eq :
     max (baseCaseSeed - octave251Lo) (octave251Hi - baseCaseSeed) = octave251Gap := by
   unfold baseCaseSeed octave251Lo octave251Hi octave251Gap
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave252_gap_eq :
     max (baseCaseSeed - octave252Lo) (octave252Hi - baseCaseSeed) = octave252Gap := by
   unfold baseCaseSeed octave252Lo octave252Hi octave252Gap
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave253_gap_eq :
     max (baseCaseSeed - octave253Lo) (M_TOP - baseCaseSeed) = octave253Gap := by
   unfold baseCaseSeed octave253Lo M_TOP octave253Gap
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave251_d1_formula_eq :
@@ -122,7 +122,7 @@ theorem octave251_d1_formula_eq :
       3 * octave251Hi * (octave251Hi + 1)) / (3 * (baseCaseSeed * baseCaseSeed)) =
       octave251D1 := by
   unfold octave251Gap octave251Hi baseCaseSeed octave251D1
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave252_d1_formula_eq :
@@ -130,7 +130,7 @@ theorem octave252_d1_formula_eq :
       3 * octave252Hi * (octave252Hi + 1)) / (3 * (baseCaseSeed * baseCaseSeed)) =
       octave252D1 := by
   unfold octave252Gap octave252Hi baseCaseSeed octave252D1
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave253_d1_formula_eq :
@@ -138,7 +138,7 @@ theorem octave253_d1_formula_eq :
       3 * M_TOP * (M_TOP + 1)) / (3 * (baseCaseSeed * baseCaseSeed)) =
       octave253D1 := by
   unfold octave253Gap M_TOP baseCaseSeed octave253D1
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave251_chain_bounds :
@@ -153,7 +153,7 @@ theorem octave251_chain_bounds :
         (nextD octave251Lo
           (nextD octave251Lo (nextD octave251Lo octave251D1)))) ≤ 1 := by
   unfold octave251D1 octave251Lo nextD
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave252_chain_bounds :
@@ -168,7 +168,7 @@ theorem octave252_chain_bounds :
         (nextD octave252Lo
           (nextD octave252Lo (nextD octave252Lo octave252D1)))) ≤ 1 := by
   unfold octave252D1 octave252Lo nextD
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem octave253_chain_bounds :
@@ -183,12 +183,12 @@ theorem octave253_chain_bounds :
         (nextD octave253Lo
           (nextD octave253Lo (nextD octave253Lo octave253D1)))) ≤ 1 := by
   unfold octave253D1 octave253Lo nextD
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem baseCaseShiftMask_eq_two : evmAnd (evmAnd 2 255) 255 = 2 := by
   unfold evmAnd u256 WORD_MOD
-  native_decide
+  decide
 
 -- ============================================================================
 -- QC certificates
@@ -197,11 +197,11 @@ theorem baseCaseShiftMask_eq_two : evmAnd (evmAnd 2 255) 255 = 2 := by
 set_option exponentiation.threshold 1024 in
 theorem qc_const_86 : evmAnd (evmAnd 86 255) 255 = 86 := by
   unfold evmAnd u256 WORD_MOD
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem mask_86_eq : 77371252455336267181195263 = 2 ^ 86 - 1 := by
-  native_decide
+  decide
 
 -- ============================================================================
 -- Range certificates
@@ -210,26 +210,26 @@ theorem mask_86_eq : 77371252455336267181195263 = 2 ^ 86 - 1 := by
 set_option exponentiation.threshold 1024 in
 theorem r_max_cube_lt_wm2 : R_MAX * R_MAX * R_MAX < WORD_MOD * WORD_MOD := by
   unfold R_MAX WORD_MOD
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem r_max_is_icbrt_wm2 :
     R_MAX * R_MAX * R_MAX ≤ WORD_MOD * WORD_MOD - 1 ∧
     WORD_MOD * WORD_MOD - 1 < (R_MAX + 1) * (R_MAX + 1) * (R_MAX + 1) := by
   unfold R_MAX WORD_MOD
-  constructor <;> native_decide
+  constructor <;> decide
 
 set_option exponentiation.threshold 1024 in
 theorem m_top_cube_bounds :
     M_TOP * M_TOP * M_TOP ≤ 2 ^ 254 - 1 ∧
     2 ^ 254 ≤ (M_TOP + 1) * (M_TOP + 1) * (M_TOP + 1) := by
   unfold M_TOP
-  constructor <;> native_decide
+  constructor <;> decide
 
 set_option exponentiation.threshold 1024 in
 theorem r_max_ge_r_top : M_TOP * 2 ^ 86 ≤ R_MAX := by
   unfold M_TOP R_MAX
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem r_lo_max_at_m_top :
@@ -241,12 +241,12 @@ theorem r_lo_max_at_m_top :
     (delta + 1) * (delta + 1) / R ≥ 1 ∧
     9 ≤ delta := by
   unfold M_TOP R_MAX
-  native_decide
+  decide
 
 set_option exponentiation.threshold 1024 in
 theorem m_top_three_msq_plus_3m_lt_pow171 :
     3 * (M_TOP * M_TOP) + 3 * M_TOP < 2 ^ 171 := by
   unfold M_TOP
-  native_decide
+  decide
 
 end Cbrt512Spec
