@@ -36,7 +36,7 @@ theorem model_cbrtNRStep_evm_eq_cbrtStep (x r : Nat)
     rw [Nat.mod_eq_of_lt hx, Nat.mod_eq_of_lt hrr]
     by_cases hrr0 : r * r = 0
     · simp [hrr0]
-    · simp [hrr0, Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.div_le_self x _) hx)]
+    · simp [hrr0]
   have hdiv_lt : x / (r * r) < WORD_MOD :=
     Nat.lt_of_le_of_lt (Nat.div_le_self x _) hx
   have hadd1_lt : x / (r * r) + r < WORD_MOD := by omega

@@ -25,7 +25,7 @@ theorem cube_sum_expand (a b : Nat) :
       ↑(a * a * a + 3 * (a * a) * b + 3 * a * (b * b) + b * b * b) by exact_mod_cast h
   push_cast
   simp only [show (3 : Int) = 1 + 1 + 1 from rfl,
-             Int.add_mul, Int.mul_add, Int.one_mul, Int.mul_one]
+             Int.add_mul, Int.mul_add, Int.one_mul]
   simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
   omega
 
@@ -88,8 +88,8 @@ theorem sq_sum_expand (a b : Nat) :
       ↑(a * a + 2 * a * b + b * b) by exact_mod_cast h
   push_cast
   simp only [show (2 : Int) = 1 + 1 from rfl,
-             Int.add_mul, Int.mul_add, Int.one_mul, Int.mul_one]
-  simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+             Int.add_mul, Int.mul_add, Int.one_mul]
+  simp only [Int.mul_comm]
   omega
 
 end Cbrt512Spec

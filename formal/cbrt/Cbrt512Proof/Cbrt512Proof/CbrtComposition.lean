@@ -460,9 +460,9 @@ private theorem r_qc_succ2_cube_gt (x_hi_1 x_lo_1 : Nat)
       have hsub : (↑(r_lo - c) : Int) = ↑r_lo - ↑c := by omega
       rw [hsub]
       simp only [show (2 : Int) = 1 + 1 from rfl,
-                 Int.add_mul, Int.mul_add, Int.one_mul, Int.mul_one,
+                 Int.add_mul, Int.one_mul,
                  Int.sub_mul, Int.mul_sub]
-      simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]; omega
+      simp only [Int.mul_comm]; omega
     -- R(c-1) + R = Rc ≤ r_lo²
     have hRc1_R : R * (c - 1) + R ≤ r_lo * r_lo := by
       -- c ≥ 2, so c - 1 + 1 = c. Then R*(c-1) + R = R*((c-1)+1) = R*c ≤ r_lo²
@@ -495,7 +495,7 @@ private theorem r_qc_succ2_cube_gt (x_hi_1 x_lo_1 : Nat)
         simp only [show (4 : Int) = 2 * 2 from rfl, show (2 : Int) = 1 + 1 from rfl,
                    Int.add_mul, Int.mul_add, Int.one_mul, Int.mul_one,
                    Int.sub_mul, Int.mul_sub]
-        simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]; omega
+        simp only [Int.mul_comm]; omega
       omega
     -- s'² ≥ R(c-1) + 5
     have hs'sq_bound : R * (c - 1) + 5 ≤ (r_lo - c + 2) * (r_lo - c + 2) := by omega
@@ -515,7 +515,7 @@ private theorem r_qc_succ2_cube_gt (x_hi_1 x_lo_1 : Nat)
     rw [hrlo1_split]
     -- Rewrite 3R²(c-1) = 3R·(R·(c-1))
     have hRR_assoc : 3 * (R * R) * (c - 1) = 3 * R * (R * (c - 1)) := by
-      simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      simp only [Nat.mul_assoc, Nat.mul_left_comm]
     rw [hRR_assoc]
     -- Goal: 3R²s' + 3R(R(c-1)) + 2^172 ≤ 3R²s' + 3Rs'² + s'³
     -- Need: 3R(R(c-1)) + 2^172 ≤ 3Rs'² + s'³
@@ -897,7 +897,7 @@ private theorem tight_numerator_bound (m : Nat) (hm : 2 ^ 83 ≤ m) :
     -- 3m · 9m = 27 · (m·m)
     suffices h : (↑(27 * (m * m)) : Int) = ↑(3 * m * (9 * m)) by exact_mod_cast h
     push_cast
-    simp only [show (9 : Int) = 9 from rfl, show (27 : Int) = 3 * 9 from rfl,
+    simp only [show (27 : Int) = 3 * 9 from rfl,
                Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
   -- (3m+1)·2^86 = 3m·2^86 + 2^86
   have h_lhs : (3 * m + 1) * 2 ^ 86 = 3 * m * 2 ^ 86 + 2 ^ 86 := by

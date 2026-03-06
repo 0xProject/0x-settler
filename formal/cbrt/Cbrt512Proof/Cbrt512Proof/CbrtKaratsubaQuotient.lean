@@ -92,7 +92,7 @@ private theorem div_of_mul_add (d q r : Nat) (hd : 0 < d) :
       Nat.add_mul_div_right r q hd, Nat.add_comm]
 
 /-- Euclidean mod after recomposition: (d*q + r) % d = r % d -/
-private theorem mod_of_mul_add (d q r : Nat) (hd : 0 < d) :
+private theorem mod_of_mul_add (d q r : Nat) (_hd : 0 < d) :
     (d * q + r) % d = r % d := by
   rw [show d * q + r = r + q * d from by rw [Nat.mul_comm, Nat.add_comm],
       Nat.add_mul_mod_self_right]
@@ -365,7 +365,7 @@ private theorem kq_snd_correct
       evmDiv_eq' _ d hn_evm_lt hd_pos hd_wm
     have hwm_div : evmDiv (WORD_MOD - 1) d = (WORD_MOD - 1) / d :=
       evmDiv_eq' _ d hnot_wm hd_pos hd_wm
-    simp only [hn_div, hn_mod, hnot_eq, hwm_div, hwm_mod]
+    simp only [hn_mod, hnot_eq, hwm_mod]
     -- Simplify evmAdd chains
     have hrw_lt : (WORD_MOD - 1) % d < d := Nat.mod_lt _ hd_pos
     have hrw_wm : (WORD_MOD - 1) % d < WORD_MOD := Nat.lt_of_lt_of_le hrw_lt (by omega)
@@ -423,7 +423,7 @@ private theorem kq_snd_correct
         ((res % 2 ^ 170) * 2 ^ 86 + limb_hi) / d + (WORD_MOD - 1) / d +
         (((res % 2 ^ 170) * 2 ^ 86 + limb_hi) % d + (1 + (WORD_MOD - 1) % d)) / d :=
       evmAdd_eq' _ _ hq0qw_sum hR_div_wm hfinal_sum
-    simp only [hdiv_R, hmod_R, hstep1, hstep3]
+    simp only [hmod_R]
     -- Now the goal is pure Nat: remainder_sum % d = n_full % d
     have hn_full_decomp : res * 2 ^ 86 + limb_hi =
         d * (((res % 2 ^ 170) * 2 ^ 86 + limb_hi) / d + (WORD_MOD - 1) / d) +
