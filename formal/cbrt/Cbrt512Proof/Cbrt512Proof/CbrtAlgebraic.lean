@@ -78,4 +78,18 @@ theorem x_norm_decomp (x_hi_1 x_lo_1 m3 : Nat)
   rw [← h258, ← h256]
   omega
 
+-- ============================================================================
+-- Square expansion: (a + b)² = a² + 2ab + b²
+-- ============================================================================
+
+theorem sq_sum_expand (a b : Nat) :
+    (a + b) * (a + b) = a * a + 2 * a * b + b * b := by
+  suffices h : (↑((a + b) * (a + b)) : Int) =
+      ↑(a * a + 2 * a * b + b * b) by exact_mod_cast h
+  push_cast
+  simp only [show (2 : Int) = 1 + 1 from rfl,
+             Int.add_mul, Int.mul_add, Int.one_mul, Int.mul_one]
+  simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  omega
+
 end Cbrt512Spec
