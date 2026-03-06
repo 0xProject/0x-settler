@@ -299,6 +299,191 @@ theorem model_cbrtQuadraticCorrection_evm_exact_when_c_le1
 -- qc_undershoot_cube_lt is defined after sub-lemmas A, B, E1, E2 below.
 
 -- ============================================================================
+-- P2 helper (c ≤ 1): (r_qc + 1)³ > x_norm, hence icbrt ≤ r_qc
+-- ============================================================================
+
+set_option exponentiation.threshold 1024 in
+/-- When c ≤ 1, the cube of (r_qc + 1) exceeds x_norm.
+    Key: x_norm < R³ + 3R²·(r_lo+1) (tight upper bound from rem < 3m², c_tail < 2^172).
+    And (r_qc+1)³ = (R+s)³ where s = r_lo-c+1, with 3Rs² + s³ ≥ 3R²c when c ≤ 1.
+    For c=0: trivial (3Rs² ≥ 0 ≥ 0). For c=1: r_lo² ≥ R, so 3Rr_lo² ≥ 3R². -/
+theorem r_qc_succ1_cube_gt_when_c_le1 (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD)
+    (hc_le1 : let m := icbrt (x_hi_1 / 4)
+              let d := 3 * (m * m)
+              let res := x_hi_1 / 4 - m * m * m
+              let limb_hi := (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172
+              let r_lo := (res * 2 ^ 86 + limb_hi) / d
+              r_lo * r_lo / (m * 2 ^ 86) ≤ 1) :
+    let w := x_hi_1 / 4
+    let m := icbrt w
+    let res := w - m * m * m
+    let d := 3 * (m * m)
+    let limb_hi := (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172
+    let r_lo := (res * 2 ^ 86 + limb_hi) / d
+    let R := m * 2 ^ 86
+    let correction := r_lo * r_lo / R
+    let r_qc := R + r_lo - correction
+    let x_norm := x_hi_1 * 2 ^ 256 + x_lo_1
+    x_norm < (r_qc + 1) * (r_qc + 1) * (r_qc + 1) := by
+  simp only
+  -- ======== Step 1: Base case properties ========
+  have hbc := model_cbrtBaseCase_evm_correct x_hi_1 hxhi_lo hxhi_hi
+  have hm_lo : 2 ^ 83 ≤ icbrt (x_hi_1 / 4) := hbc.2.2.2.1
+  have hm_hi : icbrt (x_hi_1 / 4) < 2 ^ 85 := hbc.2.2.2.2.1
+  have hcube_le_w : icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
+      ≤ x_hi_1 / 4 := hbc.2.2.2.2.2.1
+  have hres_bound : x_hi_1 / 4 - icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
+      ≤ 3 * (icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)) + 3 * icbrt (x_hi_1 / 4) :=
+    hbc.2.2.2.2.2.2.1
+  have hd_pos : 3 * (icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)) > 0 :=
+    hbc.2.2.2.2.2.2.2.2.2.2
+  -- Abbreviate
+  let m := icbrt (x_hi_1 / 4)
+  let w := x_hi_1 / 4
+  let res := w - m * m * m
+  let d := 3 * (m * m)
+  let limb_hi := (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172
+  let r_lo := (res * 2 ^ 86 + limb_hi) / d
+  let R := m * 2 ^ 86
+  let c := r_lo * r_lo / R
+  let rem_kq := (res * 2 ^ 86 + limb_hi) % d
+  let c_tail := x_lo_1 % 2 ^ 172
+  -- ======== Step 2: Key bounds ========
+  have hR_lo : 2 ^ 169 ≤ R :=
+    calc 2 ^ 169 = 2 ^ 83 * 2 ^ 86 := by rw [← Nat.pow_add]
+      _ ≤ m * 2 ^ 86 := Nat.mul_le_mul_right _ hm_lo
+  have hR_pos : 0 < R := by omega
+  have hlimb_bound : limb_hi < 2 ^ 86 := by
+    show (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86
+    have hmod4 : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
+    have hdiv : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by
+      rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 172)]
+      calc x_lo_1 < WORD_MOD := hxlo
+        _ = 2 ^ 84 * 2 ^ 172 := by unfold WORD_MOD; rw [← Nat.pow_add]
+    have : (x_hi_1 % 4) * 2 ^ 84 < 2 ^ 86 :=
+      calc (x_hi_1 % 4) * 2 ^ 84 < 4 * 2 ^ 84 :=
+              Nat.mul_lt_mul_of_pos_right hmod4 (Nat.two_pow_pos 84)
+        _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+    omega
+  have hr_lo_bound : r_lo < 2 ^ 87 := by
+    show (res * 2 ^ 86 + limb_hi) / d < 2 ^ 87
+    rw [Nat.div_lt_iff_lt_mul hd_pos]
+    have h2m : 2 * m ≤ m * m := Nat.mul_le_mul_right m (by omega)
+    calc res * 2 ^ 86 + limb_hi
+        < (res + 1) * 2 ^ 86 := by omega
+      _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by
+          apply Nat.mul_le_mul_right; exact Nat.succ_le_succ hres_bound
+      _ ≤ (2 * (3 * (m * m))) * 2 ^ 86 := Nat.mul_le_mul_right _ (by omega)
+      _ = 2 ^ 87 * (3 * (m * m)) := by
+          rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
+            rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]; omega
+  -- c ≤ r_lo
+  have hc_le : c ≤ r_lo := by
+    show r_lo * r_lo / R ≤ r_lo
+    cases Nat.eq_or_lt_of_le (Nat.zero_le r_lo) with
+    | inl h => rw [← h]; simp
+    | inr h =>
+      exact Nat.le_of_lt ((Nat.div_lt_iff_lt_mul hR_pos).mpr
+        (Nat.mul_lt_mul_of_pos_left (by omega : r_lo < R) h))
+  -- rem_kq < d
+  have hrem_lt : rem_kq < d := Nat.mod_lt _ hd_pos
+  -- c_tail < 2^172
+  have hctail_lt : c_tail < 2 ^ 172 := Nat.mod_lt _ (Nat.two_pow_pos 172)
+  -- ======== Step 3: Tight x_norm upper bound ========
+  -- x_norm = m³·2^258 + (d·r_lo + rem)·2^172 + c_tail
+  -- Since rem < d and c_tail < 2^172:
+  --   (d·r_lo + rem)·2^172 + c_tail < (d·r_lo + d)·2^172 = d·(r_lo+1)·2^172
+  -- So x_norm < m³·2^258 + d·(r_lo+1)·2^172 = R³ + 3R²·(r_lo+1)
+  have hx_decomp := x_norm_decomp x_hi_1 x_lo_1 (m * m * m) hcube_le_w
+  have hn_full := Nat.div_add_mod (res * 2 ^ 86 + limb_hi) d
+  have hx_ub_tight : x_hi_1 * 2 ^ 256 + x_lo_1 <
+      m * m * m * 2 ^ 258 + d * (r_lo + 1) * 2 ^ 172 := by
+    rw [hx_decomp]
+    have : (res * 2 ^ 86 + limb_hi) = d * r_lo + rem_kq := hn_full.symm
+    rw [show ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) = d * r_lo + rem_kq from this]
+    have : (d * r_lo + rem_kq) * 2 ^ 172 = d * r_lo * 2 ^ 172 + rem_kq * 2 ^ 172 :=
+      Nat.add_mul _ _ _
+    have : d * (r_lo + 1) * 2 ^ 172 = d * r_lo * 2 ^ 172 + d * 2 ^ 172 := by
+      rw [show d * (r_lo + 1) = d * r_lo + d * 1 from Nat.mul_add d r_lo 1, Nat.mul_one,
+          Nat.add_mul]
+    -- rem < d and c_tail < 2^172, so rem·2^172 + c_tail < d·2^172
+    have : rem_kq * 2 ^ 172 + c_tail < d * 2 ^ 172 := by
+      have := Nat.mul_lt_mul_of_pos_right hrem_lt (Nat.two_pow_pos 172)
+      omega
+    omega
+  -- Rewrite d·(r_lo+1)·2^172 = 3R²·(r_lo+1)
+  have hd_eq_3R2 := d_pow172_eq_3R_sq m
+  have hR3 := R_cube_factor m
+  have hx_ub_R : x_hi_1 * 2 ^ 256 + x_lo_1 <
+      R * R * R + 3 * (R * R) * (r_lo + 1) := by
+    have hd_rlo1 : d * (r_lo + 1) * 2 ^ 172 = 3 * (R * R) * (r_lo + 1) := by
+      show 3 * (m * m) * (r_lo + 1) * 2 ^ 172 = 3 * (m * 2 ^ 86 * (m * 2 ^ 86)) * (r_lo + 1)
+      rw [← hd_eq_3R2]
+      simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+    calc x_hi_1 * 2 ^ 256 + x_lo_1
+        < m * m * m * 2 ^ 258 + d * (r_lo + 1) * 2 ^ 172 := hx_ub_tight
+      _ = R * R * R + 3 * (R * R) * (r_lo + 1) := by rw [hR3, hd_rlo1]
+  -- ======== Step 4: (r_qc + 1)³ ≥ R³ + 3R²·(r_lo+1) when c ≤ 1 ========
+  -- r_qc + 1 = R + r_lo - c + 1 = R + s where s = r_lo - c + 1
+  have hrqc1_eq : m * 2 ^ 86 + r_lo - r_lo * r_lo / (m * 2 ^ 86) + 1 = R + (r_lo - c + 1) := by
+    show R + r_lo - c + 1 = R + (r_lo - c + 1)
+    omega
+  rw [hrqc1_eq, cube_sum_expand R (r_lo - c + 1)]
+  -- Goal: x_norm < R³ + 3R²·s + 3R·s² + s³ where s = r_lo - c + 1
+  -- From hx_ub_R: x_norm < R³ + 3R²·(r_lo + 1)
+  -- Suffices: R³ + 3R²·(r_lo+1) ≤ R³ + 3R²·s + 3R·s² + s³
+  -- i.e., 3R²·(r_lo+1) ≤ 3R²·s + 3R·s² + s³
+  -- s = r_lo - c + 1, so r_lo + 1 = s + c. Thus 3R²(r_lo+1) = 3R²(s+c) = 3R²s + 3R²c.
+  -- Need: 3R²c ≤ 3R·s² + s³
+  suffices h_suff : R * R * R + 3 * (R * R) * (r_lo + 1) ≤
+      R * R * R + 3 * (R * R) * (r_lo - c + 1) +
+      3 * R * ((r_lo - c + 1) * (r_lo - c + 1)) +
+      (r_lo - c + 1) * (r_lo - c + 1) * (r_lo - c + 1) from
+    Nat.lt_of_lt_of_le hx_ub_R h_suff
+  -- Split: 3R²(r_lo+1) = 3R²·s + 3R²·c
+  have hsc : r_lo - c + 1 + c = r_lo + 1 := by omega
+  have h_split : 3 * (R * R) * (r_lo + 1) =
+      3 * (R * R) * (r_lo - c + 1) + 3 * (R * R) * c := by
+    rw [← Nat.mul_add]; congr 1; exact hsc.symm
+  rw [h_split]
+  -- Need: 3R²c ≤ 3Rs² + s³
+  -- Case split on c
+  by_cases hc0 : c = 0
+  · -- c = 0: LHS has 3R²·0 = 0 extra, RHS has 3Rs² + s³ ≥ 0 extra. Trivially holds.
+    rw [hc0, Nat.mul_zero]; omega
+  · -- c = 1 (since c ≤ 1 and c ≠ 0)
+    have hc1 : c = 1 := Nat.le_antisymm hc_le1 (Nat.one_le_iff_ne_zero.mpr hc0)
+    -- s = r_lo - c + 1 = r_lo (since c = 1)
+    have hs_eq : r_lo - c + 1 = r_lo := by omega
+    -- Need: 3R²c ≤ 3Rs² + s³, i.e., 3R² ≤ 3R·r_lo² + r_lo³
+    -- From c = 1: r_lo² / R ≥ 1, so r_lo² ≥ R.
+    have hrlo_sq_ge_R : R ≤ r_lo * r_lo := by
+      show m * 2 ^ 86 ≤ r_lo * r_lo
+      have hc_ge1 : 1 ≤ r_lo * r_lo / (m * 2 ^ 86) := by
+        show 1 ≤ c; omega
+      -- 1 ≤ r_lo²/R means R * 1 ≤ r_lo² (from div_mul_le + 1 ≤ quotient)
+      calc m * 2 ^ 86
+          = (m * 2 ^ 86) * 1 := (Nat.mul_one _).symm
+        _ ≤ (m * 2 ^ 86) * (r_lo * r_lo / (m * 2 ^ 86)) := Nat.mul_le_mul_left _ hc_ge1
+        _ = r_lo * r_lo / (m * 2 ^ 86) * (m * 2 ^ 86) := Nat.mul_comm _ _
+        _ ≤ r_lo * r_lo := Nat.div_mul_le_self _ _
+    -- 3R·r_lo² ≥ 3R·R = 3R², so 3R·s² + s³ ≥ 3R² = 3R²·c
+    -- Rewrite s = r_lo first (before c = 1 substitution)
+    rw [hs_eq]
+    rw [hc1, Nat.mul_one]
+    -- Goal: R³ + (3R²·r_lo + 3R²) ≤ R³ + 3R²·r_lo + 3R·(r_lo²) + r_lo³
+    -- Suffices: 3R² ≤ 3R·(r_lo²) + r_lo³
+    -- From 3R·(r_lo²) ≥ 3R·R = 3R²
+    have h3RR : 3 * (R * R) = 3 * R * R := by
+      simp only [Nat.mul_assoc]
+    rw [h3RR]
+    have : 3 * R * R ≤ 3 * R * (r_lo * r_lo) := Nat.mul_le_mul_left _ hrlo_sq_ge_R
+    omega
+
+-- ============================================================================
 -- Sub-lemma A: Lower bound — (r_qc + 1)³ > x_norm
 -- ============================================================================
 
