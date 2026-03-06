@@ -61,7 +61,8 @@ contract CCIP {
             // Verify feeToken is address(0) - only native token fees are supported
             // feeToken is at msgPtr + 0x60
             if mload(add(0x60, msgPtr)) {
-                revert(0x00, 0x00)
+                mstore(0x00, 0x6cb99623) // selector for `InvalidFeeToken()`
+                revert(0x1c, 0x04)
             }
 
             let tokensOffset := mload(add(0x40, msgPtr)) // offset to tokenAmounts array
@@ -80,10 +81,10 @@ contract CCIP {
             // keccak256("ccipSend(uint64,(bytes,bytes,(address,uint256)[],address,bytes))") = 0x96f4e9f9...
             mstore(ccipSendData, 0x96f4e9f9)
 
-            // Call the router with the full native balance as value (for fee payment)
+            // Call the router with the full msg.value (for fee payment)
             // The router is user-provided but we're calling a specific function (ccipSend)
             // which doesn't clash with restricted targets (AllowanceHolder & Permit2)
-            if iszero(call(gas(), router, selfbalance(), add(0x1c, ccipSendData), add(0x04, len), 0x00, 0x00)) {
+            if iszero(call(gas(), router, callvalue(), add(0x1c, ccipSendData), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())

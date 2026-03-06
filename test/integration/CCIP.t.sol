@@ -6,6 +6,8 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
+import {InvalidFeeToken} from "src/core/SettlerErrors.sol";
+
 
 /// @dev Interface for CCIP Router
 interface IRouterClient {
@@ -42,9 +44,14 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
     // USDC on Ethereum Mainnet - widely supported on CCIP lanes
     IERC20 constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 
-    // Chain selectors
+    // WETH on Ethereum Mainnet - CCIP router wraps native fee payments to WETH
+    IERC20 constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+
+    // Chain selectors (https://docs.chain.link/cre/reference/sdk/evm-client-ts#chain-selector-reference)
     uint64 constant ARBITRUM_SELECTOR = 4949039107694359620;
     uint64 constant BASE_SELECTOR = 15971525489660198786;
+        
+    address recipient;
 
     receive() external payable {}
 
@@ -52,6 +59,14 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         super.setUp();
         vm.label(CCIP_ROUTER, "CCIPRouter");
         vm.label(address(USDC), "USDC");
+        recipient = makeAddr("recipient");
+    }
+
+    function getOnRamp(uint64 destinationChainSelector) internal view returns (address onRamp) {
+        // fetch the onRamp address for the destination chain
+        // mapping(uint256 destChainSelector => address onRamp) private s_onRamps;
+        // mapping is at slot 3
+        onRamp = address(uint160(uint256(vm.load(CCIP_ROUTER, keccak256(abi.encode(destinationChainSelector, 0x3))))));
     }
 
     function _prepareMessage(address tokenAddress, uint256 amount, address recipient)
@@ -73,13 +88,17 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
 
     function testBridgeUsdcToArbitrum() public {
         uint256 amount = 1000e6; // 1000 USDC (6 decimals)
-        address recipient = makeAddr("recipient");
 
         // Prepare the CCIP message
         IRouterClient.EVM2AnyMessage memory message = _prepareMessage(address(USDC), amount, recipient);
 
         // Get the fee for the transfer
         uint256 fee = IRouterClient(CCIP_ROUTER).getFee(ARBITRUM_SELECTOR, message);
+
+        // Snapshot onRamp WETH balance and USDC total supply before execution
+        address onRamp = getOnRamp(ARBITRUM_SELECTOR);
+        uint256 onRampWethBefore = WETH.balanceOf(onRamp);
+        uint256 usdcSupplyBefore = USDC.totalSupply();
 
         // Fund the test contract
         deal(address(USDC), address(this), amount);
@@ -125,17 +144,25 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
 
         // Verify our balance is gone
         assertEq(USDC.balanceOf(address(this)), 0, "USDC should have been transferred");
+        // Verify the onRamp received the fee in WETH
+        assertEq(WETH.balanceOf(onRamp), onRampWethBefore + fee, "onRamp should have received the fee in WETH");
+        // Verify USDC was burned (supply decreased)
+        assertEq(USDC.totalSupply(), usdcSupplyBefore - amount, "USDC supply should have decreased by bridged amount");
     }
 
     function testBridgeUsdcToBase() public {
         uint256 amount = 500e6; // 500 USDC (6 decimals)
-        address recipient = makeAddr("recipient");
 
         // Prepare the CCIP message
         IRouterClient.EVM2AnyMessage memory message = _prepareMessage(address(USDC), amount, recipient);
 
         // Get the fee for the transfer
         uint256 fee = IRouterClient(CCIP_ROUTER).getFee(BASE_SELECTOR, message);
+
+        // Snapshot onRamp WETH balance and USDC total supply before execution
+        address onRamp = getOnRamp(BASE_SELECTOR);
+        uint256 onRampWethBefore = WETH.balanceOf(onRamp);
+        uint256 usdcSupplyBefore = USDC.totalSupply();
 
         // Fund the test contract
         deal(address(USDC), address(this), amount);
@@ -179,11 +206,14 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         );
 
         assertEq(USDC.balanceOf(address(this)), 0, "USDC should have been transferred");
+        // Verify the onRamp received the fee in WETH
+        assertEq(WETH.balanceOf(onRamp), onRampWethBefore + fee, "onRamp should have received the fee in WETH");
+        // Verify USDC was burned (supply decreased)
+        assertEq(USDC.totalSupply(), usdcSupplyBefore - amount, "USDC supply should have decreased by bridged amount");
     }
 
     function testBridgeWithData() public {
         uint256 amount = 100e6; // 100 USDC (6 decimals)
-        address recipient = makeAddr("recipient");
         bytes memory crossChainData = abi.encode("Hello CCIP!");
 
         // Prepare the CCIP message with data payload
@@ -200,6 +230,11 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
 
         // Get the fee
         uint256 fee = IRouterClient(CCIP_ROUTER).getFee(ARBITRUM_SELECTOR, message);
+
+        // Snapshot onRamp WETH balance and USDC total supply before execution
+        address onRamp = getOnRamp(ARBITRUM_SELECTOR);
+        uint256 onRampWethBefore = WETH.balanceOf(onRamp);
+        uint256 usdcSupplyBefore = USDC.totalSupply();
 
         // Fund
         deal(address(USDC), address(this), amount);
@@ -239,5 +274,60 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         );
 
         assertEq(USDC.balanceOf(address(this)), 0, "USDC should have been transferred");
+        // Verify the onRamp received the fee in WETH
+        assertEq(WETH.balanceOf(onRamp), onRampWethBefore + fee, "onRamp should have received the fee in WETH");
+        // Verify USDC was burned (supply decreased)
+        assertEq(USDC.totalSupply(), usdcSupplyBefore - amount, "USDC supply should have decreased by bridged amount");
+    }
+
+    function testRevertIfFeeTokenNotZero() public {
+        uint256 amount = 1000e6;
+
+        // Prepare a CCIP message with non-zero feeToken (USDC as fee token)
+        IRouterClient.EVMTokenAmount[] memory tokenAmounts = new IRouterClient.EVMTokenAmount[](1);
+        tokenAmounts[0] = IRouterClient.EVMTokenAmount({token: address(USDC), amount: amount});
+
+        IRouterClient.EVM2AnyMessage memory message = IRouterClient.EVM2AnyMessage({
+            receiver: abi.encode(recipient),
+            data: bytes(""),
+            tokenAmounts: tokenAmounts,
+            feeToken: address(USDC), // Non-zero feeToken should cause revert
+            extraArgs: bytes("")
+        });
+
+        // Fund the test contract
+        deal(address(USDC), address(this), amount);
+        USDC.approve(address(ALLOWANCE_HOLDER), amount);
+
+        // Build bridge actions
+        bytes[] memory bridgeActions = new bytes[](2);
+
+        bridgeActions[0] = abi.encodeCall(
+            IBridgeSettlerActions.TRANSFER_FROM,
+            (
+                address(bridgeSettler),
+                ISignatureTransfer.PermitTransferFrom({
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(USDC), amount: amount}),
+                    nonce: 0,
+                    deadline: block.timestamp
+                }),
+                bytes("")
+            )
+        );
+
+        message.tokenAmounts[0].amount = 0;
+        bytes memory ccipSendData = abi.encode(ARBITRUM_SELECTOR, message);
+        bridgeActions[1] =
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(USDC), CCIP_ROUTER, ccipSendData));
+
+        // Should revert because feeToken is not address(0)
+        vm.expectRevert(InvalidFeeToken.selector);
+        ALLOWANCE_HOLDER.exec(
+            address(bridgeSettler),
+            address(USDC),
+            amount,
+            payable(address(bridgeSettler)),
+            abi.encodeCall(bridgeSettler.execute, (bridgeActions, bytes32(0)))
+        );
     }
 }
