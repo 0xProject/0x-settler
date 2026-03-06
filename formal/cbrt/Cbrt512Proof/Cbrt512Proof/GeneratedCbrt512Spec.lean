@@ -232,9 +232,52 @@ private theorem evm_pipeline_within_1ulp (x_hi_1 x_lo_1 : Nat)
   have hcomp := composition_within_1ulp x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
   simp only at hcomp hqc
   rw [hqc_rw]
-  -- Need: icbrt ≤ r_qc ≤ r_qc_new ≤ r_qc + 1 ≤ icbrt + 2, but must show ≤ icbrt + 1
-  -- This requires knowing the undershoot is correct; sorry for now.
-  sorry
+  -- Extract hcomp conjuncts (6 conjuncts from composition_within_1ulp)
+  obtain ⟨hcomp_lo, hcomp_hi, hcomp_rqc_wm, hcomp_cube, hcomp_succ_wm, hcomp_overshoot⟩ := hcomp
+  -- Extract hqc conjuncts
+  obtain ⟨hqc_lo, hqc_hi, hqc_wm⟩ := hqc
+  -- r_1 = r_qc or r_1 = r_qc + 1 (from Nat bounds)
+  have hr1_cases : model_cbrtQuadraticCorrection_evm m nat_r_lo nat_rem =
+      m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) ∨
+      model_cbrtQuadraticCorrection_evm m nat_r_lo nat_rem =
+      m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1 := by omega
+  rcases hr1_cases with hr1_eq | hr1_eq <;> rw [hr1_eq]
+  · -- Case r_1 = r_qc (no undershoot)
+    refine ⟨?_, hcomp_hi, hcomp_rqc_wm, hcomp_cube, hcomp_succ_wm, hcomp_overshoot⟩
+    -- [1] icbrt ≤ r_qc: THIS IS P2 — the hard part
+    sorry
+  · -- Case r_1 = r_qc + 1 (undershoot fired)
+    refine ⟨hcomp_lo, ?_, hcomp_succ_wm, ?_, ?_, ?_⟩
+    · -- [2] r_qc + 1 ≤ icbrt + 1: THIS IS P1 (r_qc ≤ icbrt)
+      sorry
+    · -- [4] (r_qc + 1)³ < WORD_MOD²: needs P1 to bound r_qc
+      sorry
+    · -- [5] r_qc + 2 < WORD_MOD: from cube bound r_qc³ < WORD_MOD²
+      -- r_qc³ < 2^512, so r_qc < 2^171 (since 2^513 > 2^512), hence r_qc + 2 < 2^256
+      rcases Nat.lt_or_ge
+          (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) (2 ^ 171) with h | h
+      · unfold WORD_MOD; omega
+      · exfalso
+        have h1 : 2 ^ 171 * 2 ^ 171 ≤
+            (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) *
+            (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) :=
+          Nat.mul_le_mul h h
+        have h2 : 2 ^ 171 * 2 ^ 171 * 2 ^ 171 ≤
+            (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) *
+            (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) *
+            (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) :=
+          Nat.mul_le_mul h1 h
+        exact absurd (Nat.lt_of_le_of_lt h2 hcomp_cube)
+          (Nat.not_lt.mpr (by
+            unfold WORD_MOD
+            rw [show (2 : Nat) ^ 256 * 2 ^ 256 = 2 ^ 512 from by
+              rw [show (512 : Nat) = 256 + 256 from rfl, Nat.pow_add]]
+            rw [show (2 : Nat) ^ 171 * 2 ^ 171 * 2 ^ 171 = 2 ^ 513 from by
+              rw [show (513 : Nat) = 171 + (171 + 171) from rfl, Nat.pow_add, Nat.pow_add,
+                  Nat.mul_assoc]]
+            exact Nat.le_of_lt (Nat.pow_lt_pow_right (by omega) (by omega))))
+    · -- [6] overshoot: (r_qc+1)³ > x_norm → icbrt³ < x_norm
+      sorry
 
 /-- The 512-bit _cbrt EVM model returns a value within 1ulp of icbrt.
     For x_hi > 0 and both x_hi, x_lo < 2^256:
