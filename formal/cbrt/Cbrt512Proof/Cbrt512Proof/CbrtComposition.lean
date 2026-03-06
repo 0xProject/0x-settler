@@ -987,7 +987,7 @@ theorem r_qc_succ1_cube_gt_when_c_gt1 (x_hi_1 x_lo_1 : Nat)
           ≤ c * (2 * nat_r_lo - c + 1) := Nat.mul_le_mul_right _ (by omega)
         _ < c * (2 * nat_r_lo) := Nat.mul_lt_mul_of_pos_left h_inner hc_pos
         _ = 2 * c * nat_r_lo := by
-            simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+            simp only [Nat.mul_assoc, Nat.mul_comm]
     -- Use: 2cr_lo < 2^93 (from h2cr and earlier bounds)
     have h2cr_93 : 2 * c * nat_r_lo < 2 ^ 93 := by
       calc 2 * c * nat_r_lo
@@ -1002,7 +1002,16 @@ theorem r_qc_succ1_cube_gt_when_c_gt1 (x_hi_1 x_lo_1 : Nat)
   -- This is the heart of the EVM → algebra bridge for P2
   have hrem_bound : nat_rem * 2 ^ 172 ≤ 3 * R * (ε + R - m * m) := by
     sorry  -- EVM extraction (Phase 2)
-  -- ======== Algebraic core: gap ≥ 3R(m² - B) + s³ - c_tail > 0 ========
+  -- ======== Algebraic core: compare x_norm = R³ + 3R²·r_lo + rem·2^172 + c_tail
+  -- with (R + s)³, where s = r_lo - c + 1 and
+  --   s² + B = r_lo²,  B = (c - 1)(2r_lo - c + 1) < m².
+  --
+  -- The intended reduction is:
+  --   3R²·r_lo + rem·2^172 + c_tail
+  --     ≤ 3R²·r_lo + 3R(ε + R - m²) + c_tail
+  --     < 3R²·s + 3R·s² + s³,
+  -- using hrem_bound plus the exact square-gap identity for s² + B = r_lo².
+  -- The remaining arithmetic then closes from B ≪ m² and c_tail < 2^172.
   sorry  -- Algebraic proof (Phase 3)
 
 end Cbrt512Spec
