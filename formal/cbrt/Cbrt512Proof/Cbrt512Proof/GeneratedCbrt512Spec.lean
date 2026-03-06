@@ -137,7 +137,94 @@ private theorem qc_undershoot_correct (x_hi_1 x_lo_1 : Nat)
     (r_qc + 1) * (r_qc + 1) * (r_qc + 1) < WORD_MOD * WORD_MOD ∧
     ((r_qc + 1) * (r_qc + 1) * (r_qc + 1) > x_norm →
       icbrt x_norm * icbrt x_norm * icbrt x_norm < x_norm) := by
-  sorry
+  simp only
+  -- ======== Step 1: Get composition bounds on r_qc ========
+  have hcomp := composition_within_1ulp x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+  simp only at hcomp
+  -- Rewrite composition to use m instead of icbrt(x_hi_1/4)
+  conv at hcomp => rw [show icbrt (x_hi_1 / 4) = m from hm_eq.symm]
+  -- Rewrite to use nat_r_lo and nat_rem
+  rw [show ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+      (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)) = nat_r_lo
+    from hr_lo_eq.symm] at hcomp
+  obtain ⟨hcomp_lo, hcomp_hi, _, hcomp_cube, _, hcomp_overshoot⟩ := hcomp
+  -- ======== Step 2: Get base case bounds ========
+  have hbc := model_cbrtBaseCase_evm_correct x_hi_1 hxhi_lo hxhi_hi
+  simp only at hbc
+  have hm_lo : 2 ^ 83 ≤ m := by rw [hm_eq]; exact hbc.2.2.2.1
+  have hm_hi : m < 2 ^ 85 := by rw [hm_eq]; exact hbc.2.2.2.2.1
+  -- ======== Step 3: From hr1_eq, extract c > 1 ========
+  -- The QC model returns r_qc when c ≤ 1, so r_qc + 1 ≠ r_qc, hence c > 1
+  have hR_pos : 0 < m * 2 ^ 86 := by omega
+  have hc_gt1 : nat_r_lo * nat_r_lo / (m * 2 ^ 86) > 1 := by
+    -- If c ≤ 1, the QC model returns R + (r_lo - c) = r_qc, not r_qc + 1
+    -- We derive c > 1 from hr1_eq by contradiction
+    by_cases hcgt : nat_r_lo * nat_r_lo / (m * 2 ^ 86) > 1
+    · exact hcgt
+    · exfalso
+      -- When c ≤ 1, the QC model's if-branch is not taken
+      -- The model returns R + (r_lo - c) which is exactly r_qc
+      -- But hr1_eq says it returns r_qc + 1, contradiction
+      -- Need to unfold the QC model to show this
+      sorry
+  -- ======== Step 4: The algebraic core — r_qc³ < x_norm (strict) ========
+  -- From c > 1 and the undershoot check firing (implicit in hr1_eq):
+  -- x_norm - r_qc³ > 3Rc(2r_lo - c) - t³ ≥ 3Rc·r_lo - t³ > 0
+  have hrqc_cube_lt_strict :
+      (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) *
+      (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) *
+      (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) <
+      x_hi_1 * 2 ^ 256 + x_lo_1 := by
+    sorry
+  -- ======== Step 5: Derive r_qc ≤ icbrt from r_qc³ < x_norm ========
+  have hrqc_le_icbrt : m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) ≤
+      icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) := by
+    -- r_qc³ < x_norm ≤ (icbrt+1)³ would give r_qc < icbrt + 1, i.e. r_qc ≤ icbrt
+    -- But we need: r_qc³ < x_norm → r_qc ≤ icbrt
+    -- Proof: if r_qc > icbrt, then r_qc ≥ icbrt + 1, so r_qc³ ≥ (icbrt+1)³ > x_norm,
+    -- contradicting r_qc³ < x_norm.
+    rcases Nat.lt_or_ge
+        (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86))
+        (icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) + 1) with h | h
+    · omega
+    · exfalso
+      have hsucc := icbrt_lt_succ_cube (x_hi_1 * 2 ^ 256 + x_lo_1)
+      have hmono := cube_monotone h
+      omega
+  -- ======== Step 6: Derive all three conjuncts ========
+  refine ⟨hrqc_le_icbrt, ?_, ?_⟩
+  · -- (r_qc+1)³ < WORD_MOD²: from r_qc³ < x_norm < WORD_MOD² and cube monotonicity
+    -- r_qc ≤ icbrt(x_norm). icbrt³ ≤ x_norm < WORD_MOD². So icbrt ≤ R_MAX.
+    -- r_qc ≤ icbrt ≤ R_MAX. If r_qc = R_MAX: r_qc³ < x_norm ≤ WORD_MOD² - 1.
+    -- But (R_MAX+1)³ ≥ WORD_MOD². Need r_qc < R_MAX.
+    -- Use: r_qc³ < WORD_MOD² (from hcomp_cube). And (r_qc+1)³ need < WORD_MOD².
+    -- Equivalent to r_qc + 1 ≤ R_MAX, i.e., r_qc ≤ R_MAX - 1, i.e., r_qc < R_MAX.
+    -- From hrqc_cube_lt_strict: r_qc³ < x_norm, so r_qc ≤ icbrt.
+    -- c > 1 implies r_qc < R_MAX (at R_MAX boundary, c = 1).
+    sorry
+  · -- Overshoot: (r_qc+1)³ > x_norm → icbrt³ < x_norm
+    intro h_overshoot
+    -- From hrqc_cube_lt_strict: r_qc³ < x_norm
+    -- From h_overshoot: (r_qc+1)³ > x_norm
+    -- So r_qc³ < x_norm < (r_qc+1)³, meaning icbrt = r_qc
+    -- Therefore icbrt³ = r_qc³ < x_norm ✓
+    have hcube_le := icbrt_cube_le (x_hi_1 * 2 ^ 256 + x_lo_1)
+    have hsucc := icbrt_lt_succ_cube (x_hi_1 * 2 ^ 256 + x_lo_1)
+    -- icbrt = r_qc (from r_qc ≤ icbrt ≤ r_qc)
+    have hicbrt_eq : icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) =
+        m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) := by
+      -- icbrt ≤ r_qc + 1 (from hcomp_lo) and r_qc ≤ icbrt (from hrqc_le_icbrt)
+      -- If icbrt = r_qc + 1: icbrt³ = (r_qc+1)³ ≤ x_norm, but (r_qc+1)³ > x_norm. Contradiction.
+      -- So icbrt = r_qc.
+      have hne : icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) ≠
+          m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1 := by
+        intro heq; rw [heq] at hcube_le; omega
+      -- hcomp_lo: icbrt ≤ r_qc + 1, hrqc_le_icbrt: r_qc ≤ icbrt, hne: icbrt ≠ r_qc + 1
+      -- Therefore icbrt = r_qc
+      have hle := hcomp_lo  -- icbrt ≤ r_qc + 1
+      omega
+    rw [hicbrt_eq]
+    exact hrqc_cube_lt_strict
 
 -- ============================================================================
 -- Helper 4: EVM pipeline on normalized inputs = Nat r_qc
