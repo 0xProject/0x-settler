@@ -28,8 +28,7 @@ theorem evmSub_eq_of_le (a b : Nat) (ha : a < WORD_MOD) (hb : b ≤ a) :
 theorem evmDiv_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : 0 < b) (hb' : b < WORD_MOD) :
     evmDiv a b = a / b := by
   unfold evmDiv u256
-  simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb', Nat.ne_of_gt hb,
-        Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.div_le_self a b) ha)]
+  simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb', Nat.ne_of_gt hb]
 
 theorem evmMod_eq' (a b : Nat) (ha : a < WORD_MOD) (hb : 0 < b) (hb' : b < WORD_MOD) :
     evmMod a b = a % b := by

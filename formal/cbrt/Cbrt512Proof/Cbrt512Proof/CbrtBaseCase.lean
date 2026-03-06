@@ -36,7 +36,7 @@ theorem model_cbrtNRStep_evm_eq_cbrtStep (x r : Nat)
     rw [Nat.mod_eq_of_lt hx, Nat.mod_eq_of_lt hrr]
     by_cases hrr0 : r * r = 0
     · simp [hrr0]
-    · simp [hrr0, Nat.mod_eq_of_lt (Nat.lt_of_le_of_lt (Nat.div_le_self x _) hx)]
+    · simp [hrr0]
   have hdiv_lt : x / (r * r) < WORD_MOD :=
     Nat.lt_of_le_of_lt (Nat.div_le_self x _) hx
   have hadd1_lt : x / (r * r) + r < WORD_MOD := by omega
@@ -208,13 +208,6 @@ theorem baseCase_NR_within_1ulp (w : Nat)
         hm2 (by omega : 0 < lo) hlo hsPos hmlo hmhi hd1
         (Nat.le_trans (by native_decide : 2 * 3738299367780524623633435 ≤ lo) hlo)
         (by native_decide) (by native_decide) (by native_decide) (by native_decide) (by native_decide)
-
-/-- On a perfect cube w = m³ with m ≥ 2^83, the 6 NR steps give exactly m. -/
-theorem baseCase_NR_exact_on_perfect_cube (m : Nat)
-    (hm_lo : 2 ^ 83 ≤ m) (hm_hi : m < 2 ^ 85)
-    (hw_range : m * m * m < 2 ^ 254) :
-    run6From (m * m * m) 22141993662453218394297550 = m := by
-  sorry
 
 -- ============================================================================
 -- Base case EVM bridge

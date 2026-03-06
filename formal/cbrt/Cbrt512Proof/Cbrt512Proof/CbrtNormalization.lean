@@ -105,7 +105,7 @@ theorem normalized_x_hi_ge_253 (x_hi x_lo : Nat)
 
 /-- After normalization, x_hi_1 < 2^256. -/
 theorem normalized_x_hi_lt (x_hi x_lo : Nat)
-    (hxhi_pos : 0 < x_hi) (hxhi : x_hi < 2 ^ 256) (hxlo : x_lo < 2 ^ 256) :
+    (_hxhi_pos : 0 < x_hi) (_hxhi : x_hi < 2 ^ 256) (_hxlo : x_lo < 2 ^ 256) :
     let shift := evmClz x_hi / 3
     let s3 := 3 * shift
     let x_hi_1 := (x_hi * 2 ^ s3 + x_lo * 2 ^ s3 / 2 ^ 256) % 2 ^ 256
@@ -164,8 +164,8 @@ set_option exponentiation.threshold 1024 in
 /-- The EVM normalization computes the same values as Nat arithmetic. -/
 theorem evm_normalization_correct (x_hi x_lo : Nat)
     (hxhi_pos : 0 < x_hi) (hxhi : x_hi < 2 ^ 256) (hxlo : x_lo < 2 ^ 256) :
-    let hxhi_wm : x_hi < WORD_MOD := by unfold WORD_MOD; exact hxhi
-    let hxlo_wm : x_lo < WORD_MOD := by unfold WORD_MOD; exact hxlo
+    let _hxhi_wm : x_hi < WORD_MOD := by unfold WORD_MOD; exact hxhi
+    let _hxlo_wm : x_lo < WORD_MOD := by unfold WORD_MOD; exact hxlo
     let shift := evmDiv (evmClz x_hi) 3
     let s3 := evmMul shift 3
     let x_lo_1 := evmShl s3 x_lo
