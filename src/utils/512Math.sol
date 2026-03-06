@@ -1957,9 +1957,9 @@ library Lib512MathArithmetic {
     function _cbrt_quadraticCorrection(uint256 r_hi, uint256 r_lo, uint256 res) private pure returns (uint256 r) {
         unchecked {
             uint256 R = r_hi << 86;
-            uint256 r_lo_sq = r_lo * r_lo;
-            uint256 c = r_lo_sq.unsafeDiv(R);
-            uint256 eps3 = (r_lo_sq - c * R) * 3;
+            uint256 r_lo2 = r_lo * r_lo;
+            uint256 c = r_lo2.unsafeDiv(R);
+            uint256 eps3 = (r_lo2 - c * R) * 3;
 
             r_lo -= c;
             // For c ≤ 1 (~68.5% of the time), undershoot never occurs, so we can skip the check
