@@ -219,6 +219,12 @@ theorem baseCase_NR_within_1ulp (w : Nat)
         (Nat.le_trans h2d1 hlo) h2d2 h2d3 h2d4 h2d5 hd6_le1
       simpa [s, baseCaseSeed] using hup
 
+/-- 2 ≤ m follows from 2^83 ≤ m (omega can't handle this power directly). -/
+theorem two_le_of_pow83_le (m : Nat) (h : 2 ^ 83 ≤ m) : 2 ≤ m :=
+  Nat.le_trans (show 2 ≤ 2 ^ 83 from by
+    rw [show (2 : Nat) ^ 83 = 2 * 2 ^ 82 from by
+      rw [show (83 : Nat) = 1 + 82 from rfl, Nat.pow_add]]; omega) h
+
 -- ============================================================================
 -- Base case EVM bridge
 -- ============================================================================
@@ -443,9 +449,7 @@ theorem baseCase_bounds (x_hi_1 x_lo_1 : Nat)
   let m := icbrt (x_hi_1 / 4)
   have hm_lo : 2 ^ 83 ≤ m := hbc.2.2.2.1
   have hm_hi : m < 2 ^ 85 := hbc.2.2.2.2.1
-  have hm_pos : 2 ≤ m := Nat.le_trans (show 2 ≤ 2 ^ 83 from by
-    rw [show (2 : Nat) ^ 83 = 2 * 2 ^ 82 from by
-      rw [show (83 : Nat) = 1 + 82 from rfl, Nat.pow_add]]; omega) hm_lo
+  have hm_pos : 2 ≤ m := two_le_of_pow83_le m hm_lo
   have hm_wm : m < WORD_MOD := hbc.2.2.2.2.2.2.2.1
   have hcube_le : m * m * m ≤ x_hi_1 / 4 := hbc.2.2.2.2.2.1
   have hres_bound := hbc.2.2.2.2.2.2.1
