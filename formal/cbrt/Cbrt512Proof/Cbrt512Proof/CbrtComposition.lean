@@ -155,17 +155,6 @@ theorem r_qc_lt_pow172 (x_hi_1 x_lo_1 : Nat)
 -- Undershoot check helper lemmas
 -- ============================================================================
 
-/-- The mask constant 77371252455336267181195263 equals 2^86 - 1. -/
-theorem mask_86_eq : 77371252455336267181195263 = 2 ^ 86 - 1 := by native_decide
-
-/-- evmAnd with the 86-bit mask extracts the low 86 bits (mod 2^86). -/
-theorem evmAnd_mask86_eq_mod (x : Nat) (hx : x < WORD_MOD) :
-    evmAnd x 77371252455336267181195263 = x % 2 ^ 86 := by
-  have hmask_wm : (77371252455336267181195263 : Nat) < WORD_MOD := by
-    unfold WORD_MOD; omega
-  rw [evmAnd_eq' x _ hx hmask_wm, mask_86_eq]
-  exact Nat.and_two_pow_sub_one_eq_mod x 86
-
 /-- If a ||| (b &&& c) = 1 with all values ≤ 1, then a = 1 ∨ (b = 1 ∧ c = 1). -/
 theorem or_and_eq_one_cases (a b c : Nat) (ha : a ≤ 1) (hb : b ≤ 1) (hc : c ≤ 1)
     (h : a ||| (b &&& c) = 1) : a = 1 ∨ (b = 1 ∧ c = 1) := by
@@ -189,21 +178,6 @@ theorem eps3_lt_rem_implies_prod_le (eps3 rem R : Nat)
   Nat.le_trans
     (Nat.mul_le_mul_right _ (Nat.le_of_lt h_lt))
     (Nat.mul_le_mul_left _ hR_le)
-
-/-- If a/2^86 < b/2^86 then a < b. -/
-theorem div_lt_implies_lt (a b : Nat)
-    (h : a / 2 ^ 86 < b / 2 ^ 86) : a < b := by
-  have h1 : (a / 2 ^ 86 + 1) * 2 ^ 86 ≤ b := by
-    calc (a / 2 ^ 86 + 1) * 2 ^ 86
-        ≤ (b / 2 ^ 86) * 2 ^ 86 := Nat.mul_le_mul_right _ (by omega)
-      _ ≤ b := by
-          have := Nat.div_mul_le_self b (2 ^ 86)
-          omega
-  have h2 : a < (a / 2 ^ 86 + 1) * 2 ^ 86 := by
-    have := Nat.div_add_mod a (2 ^ 86)
-    have := Nat.mod_lt a (Nat.two_pow_pos 86)
-    omega
-  omega
 
 /-- Exact split-limb comparison implies the product inequality.
     When a/2^86 = b/2^86 and (a%2^86)*m < (b%2^86)*2^86 and m ≤ 2^86,
@@ -847,14 +821,13 @@ theorem composition_within_1ulp (x_hi_1 x_lo_1 : Nat)
 
 set_option exponentiation.threshold 1024 in
 /-- When c > 1 and the QC model returns r_qc (no undershoot correction),
-    then (r_qc + 1)³ > x_norm. Combined with icbrt_cube_le and icbrt_lt_succ_cube,
-    this gives icbrt ≤ r_qc.
+    then (r_qc + 1)³ > x_norm, assuming the standalone QC bridge has already
+    produced the scaled remainder bound.
 
-    Proof outline:
-    1. Extract from check = 0: rem·2^172 ≤ 3R(ε + R - m²) via split-limb analysis.
-    2. gap = (R+s)³ - x_norm ≥ 3R(m² - B) + s³ - c_tail where B = (c-1)(2r_lo-c+1) < 2^93.
-    3. m² ≥ 2^166 ≫ B, so 3R(m²-B) ≫ c_tail, proving gap > 0. -/
-theorem r_qc_succ1_cube_gt_when_c_gt1 (x_hi_1 x_lo_1 : Nat)
+    This isolates the remaining work to the algebraic phase:
+    compare x_norm with (R + s)³ once rem·2^172 has been reduced to
+    3R(ε + R - m²). -/
+theorem r_qc_succ1_cube_gt_when_c_gt1_of_rem_bound (x_hi_1 x_lo_1 : Nat)
     (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
     (hxlo : x_lo_1 < WORD_MOD)
     (m : Nat) (hm_eq : m = icbrt (x_hi_1 / 4))
@@ -865,7 +838,10 @@ theorem r_qc_succ1_cube_gt_when_c_gt1 (x_hi_1 x_lo_1 : Nat)
         (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) % (3 * (m * m)))
     (hc_gt1 : nat_r_lo * nat_r_lo / (m * 2 ^ 86) > 1)
     (hr1_eq : model_cbrtQuadraticCorrection_evm m nat_r_lo nat_rem =
-        m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) :
+        m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86))
+    (hrem_bound_bridge :
+        nat_rem * 2 ^ 172 ≤
+          3 * (m * 2 ^ 86) * (nat_r_lo * nat_r_lo % (m * 2 ^ 86) + m * 2 ^ 86 - m * m)) :
     x_hi_1 * 2 ^ 256 + x_lo_1 <
       (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) *
       (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) *
@@ -998,10 +974,8 @@ theorem r_qc_succ1_cube_gt_when_c_gt1 (x_hi_1 x_lo_1 : Nat)
       _ < 2 ^ 93 := h2cr_93
       _ ≤ 2 ^ 166 := Nat.pow_le_pow_right (by omega) (by omega)
       _ ≤ m * m := hmm_lo
-  -- ======== EVM extraction: rem·2^172 ≤ 3R(ε + R - m²) ========
-  -- This is the heart of the EVM → algebra bridge for P2
   have hrem_bound : nat_rem * 2 ^ 172 ≤ 3 * R * (ε + R - m * m) := by
-    sorry  -- EVM extraction (Phase 2)
+    simpa [R, ε] using hrem_bound_bridge
   -- ======== Algebraic core: compare x_norm = R³ + 3R²·r_lo + rem·2^172 + c_tail
   -- with (R + s)³, where s = r_lo - c + 1 and
   --   s² + B = r_lo²,  B = (c - 1)(2r_lo - c + 1) < m².
@@ -1013,5 +987,83 @@ theorem r_qc_succ1_cube_gt_when_c_gt1 (x_hi_1 x_lo_1 : Nat)
   -- using hrem_bound plus the exact square-gap identity for s² + B = r_lo².
   -- The remaining arithmetic then closes from B ≪ m² and c_tail < 2^172.
   sorry  -- Algebraic proof (Phase 3)
+
+set_option exponentiation.threshold 1024 in
+/-- When c > 1 and the QC model returns exactly r_qc, the standalone QC bridge
+    supplies the remainder bound and the algebraic helper closes
+    `(r_qc + 1)^3 > x_norm`. -/
+theorem r_qc_succ1_cube_gt_when_c_gt1 (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD)
+    (m : Nat) (hm_eq : m = icbrt (x_hi_1 / 4))
+    (nat_r_lo nat_rem : Nat)
+    (hr_lo_eq : nat_r_lo = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)))
+    (hrem_eq : nat_rem = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) % (3 * (m * m)))
+    (hc_gt1 : nat_r_lo * nat_r_lo / (m * 2 ^ 86) > 1)
+    (hr1_eq : model_cbrtQuadraticCorrection_evm m nat_r_lo nat_rem =
+        m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) :
+    x_hi_1 * 2 ^ 256 + x_lo_1 <
+      (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) *
+      (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) *
+      (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) := by
+  have hbc := model_cbrtBaseCase_evm_correct x_hi_1 hxhi_lo hxhi_hi
+  simp only at hbc
+  rw [show icbrt (x_hi_1 / 4) = m from hm_eq.symm] at hbc
+  have hm_lo : 2 ^ 83 ≤ m := hbc.2.2.2.1
+  have hm_hi : m < 2 ^ 85 := hbc.2.2.2.2.1
+  have hm_wm : m < WORD_MOD := hbc.2.2.2.2.2.2.2.1
+  have hm_pos : 2 ≤ m := Nat.le_trans (show 2 ≤ 2 ^ 83 from by
+    rw [show (2 : Nat) ^ 83 = 2 * 2 ^ 82 from by
+      rw [show (83 : Nat) = 1 + 82 from rfl, Nat.pow_add]]
+    omega) hm_lo
+  have hd_pos : 0 < 3 * (m * m) :=
+    Nat.mul_pos (by omega) (Nat.mul_pos (by omega) (by omega))
+  have hres_bound : x_hi_1 / 4 - m * m * m ≤ 3 * (m * m) + 3 * m := hbc.2.2.2.2.2.2.1
+  have hlimb_86 : (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86 := by
+    have : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
+    have : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by
+      unfold WORD_MOD at hxlo
+      omega
+    omega
+  have hr_lo_bound : nat_r_lo < 2 ^ 87 := by
+    rw [hr_lo_eq, Nat.div_lt_iff_lt_mul hd_pos]
+    have h2m : 2 * m ≤ m * m := Nat.mul_le_mul_right m (by omega)
+    calc ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+            (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172))
+        < ((x_hi_1 / 4 - m * m * m) + 1) * 2 ^ 86 := by omega
+      _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by
+          apply Nat.mul_le_mul_right
+          omega
+      _ ≤ (2 * (3 * (m * m))) * 2 ^ 86 := by
+          apply Nat.mul_le_mul_right
+          omega
+      _ = 2 ^ 87 * (3 * (m * m)) := by
+          rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
+            rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]
+          omega
+  have hr_lo_wm : nat_r_lo < WORD_MOD := by
+    unfold WORD_MOD
+    omega
+  have hmm_hi : m * m < 2 ^ 170 :=
+    calc m * m < m * 2 ^ 85 := Nat.mul_lt_mul_of_pos_left hm_hi (by omega)
+      _ ≤ 2 ^ 85 * 2 ^ 85 := Nat.mul_le_mul_right _ (Nat.le_of_lt hm_hi)
+      _ = 2 ^ 170 := by rw [← Nat.pow_add]
+  have hd_wm : 3 * (m * m) < WORD_MOD := by
+    have : 3 * (m * m) < 3 * 2 ^ 170 := Nat.mul_lt_mul_of_pos_left hmm_hi (by omega)
+    unfold WORD_MOD
+    omega
+  have hrem_small : nat_rem < 3 * (m * m) := by
+    rw [hrem_eq]
+    exact Nat.mod_lt _ hd_pos
+  have hrem_wm : nat_rem < WORD_MOD := Nat.lt_of_lt_of_le hrem_small (Nat.le_of_lt hd_wm)
+  have hrem_bound_bridge :=
+    model_cbrtQuadraticCorrection_evm_rem_bound_when_c_gt1_exact
+      m nat_r_lo nat_rem hm_wm hr_lo_wm hrem_wm hm_pos hm_hi hr_lo_bound
+      hrem_small hc_gt1 hr1_eq
+  exact r_qc_succ1_cube_gt_when_c_gt1_of_rem_bound
+    x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+    m hm_eq nat_r_lo nat_rem hr_lo_eq hrem_eq hc_gt1 hr1_eq hrem_bound_bridge
 
 end Cbrt512Spec
