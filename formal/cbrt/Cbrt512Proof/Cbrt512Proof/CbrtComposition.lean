@@ -1165,6 +1165,132 @@ private theorem r_qc_le_r_max (x_hi_1 x_lo_1 : Nat)
         _ = R_MAX := by unfold delta; omega
 
 -- ============================================================================
+-- Helper: R + r_lo ≤ R_MAX + 1 (for strict cube bound when c ≥ 2)
+-- ============================================================================
+
+/-- The sum R + r_lo is at most R_MAX + 1. Combined with c ≥ 2, this gives
+    r_qc = R + r_lo - c ≤ R_MAX - 1, so (r_qc + 1)³ ≤ R_MAX³ < WORD_MOD². -/
+private theorem r_plus_rlo_le_rmax_succ (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD) :
+    let w := x_hi_1 / 4
+    let m := icbrt w
+    let res := w - m * m * m
+    let d := 3 * (m * m)
+    let limb_hi := (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172
+    let r_lo := (res * 2 ^ 86 + limb_hi) / d
+    let R := m * 2 ^ 86
+    R + r_lo ≤ R_MAX + 1 := by
+  simp only
+  have hbc := model_cbrtBaseCase_evm_correct x_hi_1 hxhi_lo hxhi_hi
+  have hm_lo : 2 ^ 83 ≤ icbrt (x_hi_1 / 4) := hbc.2.2.2.1
+  have hm_hi : icbrt (x_hi_1 / 4) < 2 ^ 85 := hbc.2.2.2.2.1
+  have hcube_le_w : icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
+      ≤ x_hi_1 / 4 := hbc.2.2.2.2.2.1
+  have hres_bound : x_hi_1 / 4 - icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
+      ≤ 3 * (icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)) + 3 * icbrt (x_hi_1 / 4) :=
+    hbc.2.2.2.2.2.2.1
+  have hd_pos : 3 * (icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)) > 0 :=
+    hbc.2.2.2.2.2.2.2.2.2.2
+  let m := icbrt (x_hi_1 / 4)
+  let w := x_hi_1 / 4
+  let res := w - m * m * m
+  let d := 3 * (m * m)
+  let limb_hi := (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172
+  let r_lo := (res * 2 ^ 86 + limb_hi) / d
+  let R := m * 2 ^ 86
+  -- Case A: m < M_TOP → R + r_lo ≤ M_TOP*2^86 + 8 ≤ R_MAX ≤ R_MAX + 1
+  -- Case B: m = M_TOP → R + r_lo ≤ M_TOP*2^86 + delta + 1 = R_MAX + 1
+  by_cases hm_lt_top : m < M_TOP
+  · -- Case A: reuse tight r_lo bound
+    have hlimb_bound : limb_hi < 2 ^ 86 := by
+      show (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86
+      have : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
+      have : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by
+        rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 172)]
+        calc x_lo_1 < WORD_MOD := hxlo
+          _ = 2 ^ 84 * 2 ^ 172 := by unfold WORD_MOD; rw [← Nat.pow_add]
+      have : (x_hi_1 % 4) * 2 ^ 84 < 2 ^ 86 :=
+        calc (x_hi_1 % 4) * 2 ^ 84 < 4 * 2 ^ 84 :=
+                Nat.mul_lt_mul_of_pos_right (by omega) (Nat.two_pow_pos 84)
+          _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+      omega
+    have hr_lo_tight : r_lo ≤ 2 ^ 86 + 8 := by
+      show (res * 2 ^ 86 + limb_hi) / d ≤ 2 ^ 86 + 8
+      suffices h : res * 2 ^ 86 + limb_hi < (2 ^ 86 + 9) * d by
+        exact Nat.lt_succ_iff.mp ((Nat.div_lt_iff_lt_mul hd_pos).mpr h)
+      have h_num : res * 2 ^ 86 + limb_hi < (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by
+        calc res * 2 ^ 86 + limb_hi
+            < res * 2 ^ 86 + 2 ^ 86 := by omega
+          _ = (res + 1) * 2 ^ 86 := by rw [Nat.add_mul, Nat.one_mul]
+          _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 :=
+              Nat.mul_le_mul_right _ (Nat.succ_le_succ hres_bound)
+      have h27 := tight_numerator_bound m hm_lo
+      have h_rhs : 3 * (m * m) * 2 ^ 86 + 27 * (m * m) = (2 ^ 86 + 9) * d := by
+        show 3 * (m * m) * 2 ^ 86 + 27 * (m * m) = (2 ^ 86 + 9) * (3 * (m * m)); omega
+      calc res * 2 ^ 86 + limb_hi
+          < (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := h_num
+        _ = 3 * (m * m) * 2 ^ 86 + (3 * m + 1) * 2 ^ 86 := by
+            have : (3 * (m * m) + (3 * m + 1)) * 2 ^ 86 =
+                3 * (m * m) * 2 ^ 86 + (3 * m + 1) * 2 ^ 86 := Nat.add_mul _ _ _
+            omega
+        _ ≤ 3 * (m * m) * 2 ^ 86 + 27 * (m * m) := Nat.add_le_add_left h27 _
+        _ = (2 ^ 86 + 9) * d := h_rhs
+    have hR_le : R ≤ (M_TOP - 1) * 2 ^ 86 :=
+      Nat.mul_le_mul_right _ (by omega : m ≤ M_TOP - 1)
+    have h_delta : 9 ≤ R_MAX - M_TOP * 2 ^ 86 := (r_lo_max_at_m_top).2.2
+    calc R + r_lo
+        ≤ (M_TOP - 1) * 2 ^ 86 + (2 ^ 86 + 8) := Nat.add_le_add hR_le hr_lo_tight
+      _ = M_TOP * 2 ^ 86 + 8 := by omega
+      _ ≤ R_MAX := by omega
+      _ ≤ R_MAX + 1 := Nat.le_succ _
+  · -- Case B: m = M_TOP
+    have hm_ge : M_TOP ≤ m := by omega
+    have hw_hi : w < 2 ^ 254 := by show x_hi_1 / 4 < 2 ^ 254; unfold WORD_MOD at hxhi_hi; omega
+    have hm_le : m ≤ M_TOP := by
+      by_cases hm_eq : m ≤ M_TOP
+      · exact hm_eq
+      · exfalso
+        have : M_TOP + 1 ≤ m := by omega
+        have : (M_TOP + 1) * (M_TOP + 1) * (M_TOP + 1) ≤ m * m * m := cube_monotone this
+        have : m * m * m ≤ w := hcube_le_w
+        have := m_top_cube_bounds.2; omega
+    have hm_eq : m = M_TOP := Nat.le_antisymm hm_le hm_ge
+    have h_rtop := r_lo_max_at_m_top
+    let delta := R_MAX - M_TOP * 2 ^ 86
+    have hlimb_bound : limb_hi < 2 ^ 86 := by
+      show (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86
+      have : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
+      have : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by
+        rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 172)]
+        calc x_lo_1 < WORD_MOD := hxlo
+          _ = 2 ^ 84 * 2 ^ 172 := by unfold WORD_MOD; rw [← Nat.pow_add]
+      have : (x_hi_1 % 4) * 2 ^ 84 < 2 ^ 86 :=
+        calc (x_hi_1 % 4) * 2 ^ 84 < 4 * 2 ^ 84 :=
+                Nat.mul_lt_mul_of_pos_right (by omega) (Nat.two_pow_pos 84)
+          _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+      omega
+    have hres_le : res ≤ 2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP := by
+      show w - m * m * m ≤ 2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP; rw [hm_eq]; omega
+    have hd_eq : d = 3 * (M_TOP * M_TOP) := by
+      show 3 * (m * m) = 3 * (M_TOP * M_TOP); rw [hm_eq]
+    have hr_lo_le : r_lo ≤ delta + 1 := by
+      show (res * 2 ^ 86 + limb_hi) / d ≤ delta + 1
+      have h_num : res * 2 ^ 86 + limb_hi ≤
+          (2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP) * 2 ^ 86 + 2 ^ 86 - 1 := by
+        have : limb_hi ≤ 2 ^ 86 - 1 := by omega
+        calc res * 2 ^ 86 + limb_hi
+            ≤ (2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP) * 2 ^ 86 + (2 ^ 86 - 1) :=
+              Nat.add_le_add (Nat.mul_le_mul_right _ hres_le) this
+          _ = (2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP) * 2 ^ 86 + 2 ^ 86 - 1 := by omega
+      rw [hd_eq]; exact Nat.le_trans (Nat.div_le_div_right h_num) h_rtop.1
+    have hR_eq : R = M_TOP * 2 ^ 86 := by show m * 2 ^ 86 = M_TOP * 2 ^ 86; rw [hm_eq]
+    calc R + r_lo
+        = M_TOP * 2 ^ 86 + r_lo := by rw [hR_eq]
+      _ ≤ M_TOP * 2 ^ 86 + (delta + 1) := Nat.add_le_add_left hr_lo_le _
+      _ = R_MAX + 1 := by unfold delta; omega
+
+-- ============================================================================
 -- Sub-lemma E2: Overshoot implies not a perfect cube
 -- ============================================================================
 
@@ -1654,6 +1780,54 @@ private theorem r_qc_lt_pow172 (x_hi_1 x_lo_1 : Nat)
   omega
 
 -- ============================================================================
+-- Undershoot check algebraic consequence
+-- ============================================================================
+
+/-- When the QC model returns r_qc + 1 (undershoot correction), the split-limb
+    comparison implies nat_rem * 2^172 > 3 * R * ε where R = m * 2^86 and
+    ε = r_lo² mod R.  This is the key inequality making the x_norm decomposition
+    positive: x_norm - r_qc³ = 3Rc(2r_lo-c) + (rem*2^172 - 3Rε) + c_tail - t³,
+    and with this inequality, the (rem*2^172 - 3Rε) term is non-negative. -/
+private theorem undershoot_implies_rem_gt_3Reps
+    (m nat_r_lo nat_rem : Nat)
+    (hm_wm : m < WORD_MOD) (hr_lo_wm : nat_r_lo < WORD_MOD) (hrem_wm : nat_rem < WORD_MOD)
+    (hm_pos : 2 ≤ m) (hm_hi : m < 2 ^ 85)
+    (hr_lo_bound : nat_r_lo < 2 ^ 87)
+    (hc_gt1 : nat_r_lo * nat_r_lo / (m * 2 ^ 86) > 1)
+    (hr1_eq : model_cbrtQuadraticCorrection_evm m nat_r_lo nat_rem =
+        m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) :
+    nat_r_lo * nat_r_lo % (m * 2 ^ 86) * 3 * (m * 2 ^ 86) ≤
+        nat_rem * 2 ^ 172 := by
+  sorry
+
+-- ============================================================================
+-- r_qc³ < x_norm: the algebraic core
+-- ============================================================================
+
+/-- When the undershoot check fires (hr1_eq), r_qc³ < x_norm.
+    Proof: decompose x_norm = R³ + 3R²·r_lo + rem·2^172 + c_tail,
+    expand r_qc³ = (R+t)³ = R³ + 3R²t + 3Rt² + t³ where t = r_lo - c.
+    x_norm - r_qc³ = 3R²c + rem·2^172 + c_tail - 3Rt² - t³.
+    From undershoot: rem·2^172 ≥ 3Rε ⟹ 3R²c + rem·2^172 ≥ 3R·r_lo².
+    From sq_sum_expand: 3R·r_lo² = 3Rt² + 6Rtc + 3Rc², so t³ < 6Rtc + 3Rc². -/
+private theorem r_qc_cube_lt_x_norm (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD)
+    (m : Nat) (hm_eq : m = icbrt (x_hi_1 / 4))
+    (nat_r_lo nat_rem : Nat)
+    (hr_lo_eq : nat_r_lo = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)))
+    (hrem_eq : nat_rem = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) % (3 * (m * m)))
+    (hr1_eq : model_cbrtQuadraticCorrection_evm m nat_r_lo nat_rem =
+        m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) :
+    (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) *
+    (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) *
+    (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) <
+    x_hi_1 * 2 ^ 256 + x_lo_1 := by
+  sorry
+
+-- ============================================================================
 -- ============================================================================
 -- Undershoot algebraic core: r_qc³ < x_norm when undershoot fires
 -- ============================================================================
@@ -1731,12 +1905,26 @@ theorem qc_undershoot_cube_lt (x_hi_1 x_lo_1 : Nat)
       from hr_lo_eq.symm] at hE1
   constructor
   · -- Conjunct 1: r_qc³ < x_norm
-    sorry
+    -- Delegated to r_qc_cube_lt_x_norm helper lemma
+    exact r_qc_cube_lt_x_norm x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+        m hm_eq nat_r_lo nat_rem hr_lo_eq hrem_eq hr1_eq
   · -- Conjunct 2: (r_qc+1)³ < WORD_MOD²
-    -- r_qc ≤ R_MAX. Need r_qc < R_MAX (strict) for (r_qc+1)³ ≤ R_MAX³ < WORD_MOD².
-    -- From c > 1: r_qc = R + r_lo - c with c ≥ 2.
-    -- At R_MAX boundary, c = 1 (Solidity comment). So c > 1 → r_qc ≠ R_MAX.
-    sorry
+    -- From r_plus_rlo_le_rmax_succ: R + r_lo ≤ R_MAX + 1.
+    -- From c ≥ 2: r_qc + 1 = R + r_lo - c + 1 ≤ R_MAX + 1 - 2 + 1 = R_MAX.
+    -- Then (r_qc+1)³ ≤ R_MAX³ < WORD_MOD².
+    have hRrlo := r_plus_rlo_le_rmax_succ x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+    simp only at hRrlo
+    rw [show icbrt (x_hi_1 / 4) = m from hm_eq.symm,
+        show ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+          (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)) = nat_r_lo
+        from hr_lo_eq.symm] at hRrlo
+    -- hRrlo : m * 2^86 + nat_r_lo ≤ R_MAX + 1
+    -- hc_gt1 : c > 1, i.e., c ≥ 2
+    -- Goal: (R + r_lo - c + 1)³ < WORD_MOD²
+    -- First show r_qc + 1 ≤ R_MAX via omega (c ≥ 2 and R + r_lo ≤ R_MAX + 1)
+    have hrqc_succ_le : m * 2 ^ 86 + nat_r_lo -
+        nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1 ≤ R_MAX := by omega
+    exact Nat.lt_of_le_of_lt (cube_monotone hrqc_succ_le) r_max_cube_lt_wm2
 
 -- ============================================================================
 -- Full composition within 1 ulp
