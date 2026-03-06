@@ -67,7 +67,7 @@ theorem r_qc_properties (x_hi_1 x_lo_1 : Nat)
     exact Nat.not_lt.mp fun h =>
       absurd hsucc_gt
         (Nat.not_lt.mpr (Nat.le_trans (cube_monotone (Nat.le_sub_one_of_lt h)) hB))
-  · -- [3] r_qc³ < WORD_MOD²: r_qc ≤ R_MAX (E1), so r_qc³ ≤ R_MAX³ < WORD_MOD² (native_decide).
+  · -- [3] r_qc³ < WORD_MOD²: r_qc ≤ R_MAX (E1), so r_qc³ ≤ R_MAX³ < WORD_MOD² by certificate.
     exact Nat.lt_of_le_of_lt (cube_monotone hE1) r_max_cube_lt_wm2
   · -- [4] r_qc³ > x_norm → icbrt³ < x_norm: from E2.
     exact hE2
