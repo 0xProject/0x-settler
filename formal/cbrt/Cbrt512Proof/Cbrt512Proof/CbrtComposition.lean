@@ -2654,4 +2654,35 @@ theorem composition_within_1ulp (x_hi_1 x_lo_1 : Nat)
   · -- [5] r_qc + 1 < WORD_MOD: from h_bound
     unfold WORD_MOD; omega
 
+-- ============================================================================
+-- P2 helper (c > 1, check = 0): (r_qc + 1)³ > x_norm
+-- ============================================================================
+
+set_option exponentiation.threshold 1024 in
+/-- When c > 1 and the QC model returns r_qc (no undershoot correction),
+    then (r_qc + 1)³ > x_norm. Combined with icbrt_cube_le and icbrt_lt_succ_cube,
+    this gives icbrt ≤ r_qc.
+
+    Proof outline:
+    1. Extract from check = 0: rem·2^172 ≤ 3R(ε + R - m²) via split-limb analysis.
+    2. gap = (R+s)³ - x_norm ≥ 3R(m² - B) + s³ - c_tail where B = (c-1)(2r_lo-c+1) < 2^93.
+    3. m² ≥ 2^166 ≫ B, so 3R(m²-B) ≫ c_tail, proving gap > 0. -/
+theorem r_qc_succ1_cube_gt_when_c_gt1 (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD)
+    (m : Nat) (hm_eq : m = icbrt (x_hi_1 / 4))
+    (nat_r_lo nat_rem : Nat)
+    (hr_lo_eq : nat_r_lo = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)))
+    (hrem_eq : nat_rem = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) % (3 * (m * m)))
+    (hc_gt1 : nat_r_lo * nat_r_lo / (m * 2 ^ 86) > 1)
+    (hr1_eq : model_cbrtQuadraticCorrection_evm m nat_r_lo nat_rem =
+        m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) :
+    x_hi_1 * 2 ^ 256 + x_lo_1 <
+      (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) *
+      (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) *
+      (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) := by
+  sorry
+
 end Cbrt512Spec

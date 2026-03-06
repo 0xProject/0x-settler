@@ -145,9 +145,22 @@ private theorem qc_no_undershoot (x_hi_1 x_lo_1 : Nat)
           icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) from by omega)
       omega
     · exact h
-  · -- Case c > 1: the QC model returns r_qc (no +1), but c > 1 means the
-    -- undershoot check must have evaluated to 0.
-    sorry
+  · -- Case c > 1: use r_qc_succ1_cube_gt_when_c_gt1
+    have hc_gt1 : nat_r_lo * nat_r_lo / (icbrt (x_hi_1 / 4) * 2 ^ 86) > 1 := by omega
+    have hsucc_gt := r_qc_succ1_cube_gt_when_c_gt1 x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+        (icbrt (x_hi_1 / 4)) rfl nat_r_lo nat_rem hr_lo_eq hrem_eq hc_gt1 hr1_eq
+    -- hsucc_gt : x_norm < (r_qc + 1)³
+    rcases Nat.lt_or_ge
+        (icbrt (x_hi_1 / 4) * 2 ^ 86 + nat_r_lo -
+          nat_r_lo * nat_r_lo / (icbrt (x_hi_1 / 4) * 2 ^ 86))
+        (icbrt (x_hi_1 * 2 ^ 256 + x_lo_1)) with h | h
+    · exfalso
+      have hcube_le := icbrt_cube_le (x_hi_1 * 2 ^ 256 + x_lo_1)
+      have hmono := cube_monotone (show icbrt (x_hi_1 / 4) * 2 ^ 86 + nat_r_lo -
+          nat_r_lo * nat_r_lo / (icbrt (x_hi_1 / 4) * 2 ^ 86) + 1 ≤
+          icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) from by omega)
+      omega
+    · exact h
 
 /-- P1: When the QC undershoot fires (returns r_qc + 1), then r_qc ≤ icbrt.
     Moreover, r_qc³ < x_norm (strict), the cube (r_qc+1)³ < WORD_MOD², and
