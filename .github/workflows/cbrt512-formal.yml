@@ -7,6 +7,7 @@ on:
     paths:
       - src/utils/512Math.sol
       - src/vendor/Cbrt.sol
+      - src/wrappers/CbrtWrapper.sol
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
       - formal/yul_to_lean.py
@@ -16,6 +17,7 @@ on:
     paths:
       - src/utils/512Math.sol
       - src/vendor/Cbrt.sol
+      - src/wrappers/CbrtWrapper.sol
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
       - formal/yul_to_lean.py
@@ -59,7 +61,7 @@ jobs:
         run: |
           FOUNDRY_SOLC_VERSION=0.8.33 \
             forge inspect src/wrappers/Cbrt512Wrapper.sol:Cbrt512Wrapper ir | \
-            python3 -W error -W 'ignore::UserWarning' \
+            python3 -W error \
               formal/cbrt/generate_cbrt512_model.py \
               --yul - \
               --output formal/cbrt/Cbrt512Proof/Cbrt512Proof/GeneratedCbrt512Model.lean

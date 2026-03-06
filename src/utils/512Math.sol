@@ -1857,7 +1857,7 @@ library Lib512MathArithmetic {
 
     function _cbrt_newtonRaphsonStep(uint256 x, uint256 r) private pure returns (uint256) {
         unchecked {
-            return (x.unsafeDiv(r * r) + r + r) / 3;
+            return (x.unsafeDiv(r * r) + r + r).unsafeDiv(3);
         }
     }
 
@@ -1966,7 +1966,7 @@ library Lib512MathArithmetic {
             // Normalize `x` so that its MSB is in bit 255, 254, or 253. This makes the left shift a
             // multiple of 3 so that the "shift back" un-normalization step is exact.
             //   x ≥ 2⁵⁰⁹
-            uint256 shift = x_hi.clz() / 3;
+            uint256 shift = x_hi.clz().unsafeDiv(3);
             (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift * 3);
 
             // Zimmerman's "Karatsuba Square Root" algorithm works with limbs of `r` that are half
