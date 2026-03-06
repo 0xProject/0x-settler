@@ -55,6 +55,9 @@ contract CCIP {
         assembly ("memory-safe") {
             // Calculate the position of the amount field in tokenAmounts[0]
             let dataStart := add(0x20, ccipSendData) // skip bytes length
+            // Malformed offsets are treated as GIGO errors. If they don't result in an OOG/OOM
+            // error, they might affect token detection and amount override, which will result in
+            // a malformed call to CCIP and most likely a revert.
             let msgOffset := mload(add(0x20, dataStart)) // offset to EVM2AnyMessage
             let msgPtr := add(dataStart, msgOffset) // pointer to message struct
 
@@ -65,6 +68,7 @@ contract CCIP {
                 revert(0x1c, 0x04)
             }
 
+            // See above comment about malformed offsets.
             let tokensOffset := mload(add(0x40, msgPtr)) // offset to tokenAmounts array
             let tokensPtr := add(msgPtr, tokensOffset) // pointer to tokenAmounts array
 
