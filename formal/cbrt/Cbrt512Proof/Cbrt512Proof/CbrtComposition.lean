@@ -590,13 +590,6 @@ private theorem r_qc_pred_cube_le (x_hi_1 x_lo_1 : Nat)
   let rem_kq := (res * 2 ^ 86 + limb_hi) % d
   let c_tail := x_lo_1 % 2 ^ 172
   -- ======== Step 2: Key bounds ========
-  have hR_lo : 2 ^ 169 ≤ R :=
-    calc 2 ^ 169 = 2 ^ 83 * 2 ^ 86 := by rw [← Nat.pow_add]
-      _ ≤ m * 2 ^ 86 := Nat.mul_le_mul_right _ hm_lo
-  have hR_lt : R < 2 ^ 171 :=
-    calc m * 2 ^ 86
-        < 2 ^ 85 * 2 ^ 86 := Nat.mul_lt_mul_of_pos_right hm_hi (Nat.two_pow_pos 86)
-      _ = 2 ^ 171 := by rw [← Nat.pow_add]
   have hR_pos : 0 < R := by omega
   have hlimb_bound : limb_hi < 2 ^ 86 := by
     show (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86
@@ -622,17 +615,7 @@ private theorem r_qc_pred_cube_le (x_hi_1 x_lo_1 : Nat)
       _ = 2 ^ 87 * (3 * (m * m)) := by
           rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
             rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]; omega
-  have hc_le : c ≤ r_lo := by
-    show r_lo * r_lo / R ≤ r_lo
-    cases Nat.eq_or_lt_of_le (Nat.zero_le r_lo) with
-    | inl h => rw [← h]; simp
-    | inr h =>
-      exact Nat.le_of_lt ((Nat.div_lt_iff_lt_mul hR_pos).mpr
-        (Nat.mul_lt_mul_of_pos_left (by omega : r_lo < R) h))
-  have hrem_lt : rem_kq < d := Nat.mod_lt _ hd_pos
-  have hctail_lt : c_tail < 2 ^ 172 := Nat.mod_lt _ (Nat.two_pow_pos 172)
-  -- Floor division bound: c*R ≤ r_lo² < (c+1)*R
-  have hcR_le : c * R ≤ r_lo * r_lo := Nat.div_mul_le_self _ _
+  -- Floor division bound: r_lo² < (c+1)R
   have hcR_lt : r_lo * r_lo < (c + 1) * R := by
     show r_lo * r_lo < (r_lo * r_lo / R + 1) * R
     have hdm := Nat.div_add_mod (r_lo * r_lo) R
@@ -649,14 +632,15 @@ private theorem r_qc_pred_cube_le (x_hi_1 x_lo_1 : Nat)
   -- x_norm ≥ R³ + d·r_lo·2^172 = R³ + 3R²·r_lo
   have hx_decomp := x_norm_decomp x_hi_1 x_lo_1 (m * m * m) hcube_le_w
   have hn_full := Nat.div_add_mod (res * 2 ^ 86 + limb_hi) d
+  have h_num_eq : (res * 2 ^ 86 + limb_hi) = d * r_lo + rem_kq := hn_full.symm
+  have h_num_mul : (d * r_lo + rem_kq) * 2 ^ 172 = d * r_lo * 2 ^ 172 + rem_kq * 2 ^ 172 :=
+    Nat.add_mul _ _ _
   have hx_lb : m * m * m * 2 ^ 258 + d * r_lo * 2 ^ 172 ≤
       x_hi_1 * 2 ^ 256 + x_lo_1 := by
     rw [hx_decomp]
-    have : (res * 2 ^ 86 + limb_hi) = d * r_lo + rem_kq := hn_full.symm
     rw [show ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
-        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) = d * r_lo + rem_kq from this]
-    have : (d * r_lo + rem_kq) * 2 ^ 172 = d * r_lo * 2 ^ 172 + rem_kq * 2 ^ 172 :=
-      Nat.add_mul _ _ _
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) = d * r_lo + rem_kq from h_num_eq]
+    rw [h_num_mul]
     omega
   -- Rewrite using R³ = m³·2^258 and 3R² = d·2^172
   have hR3 := R_cube_factor m
@@ -686,7 +670,6 @@ private theorem r_qc_pred_cube_le (x_hi_1 x_lo_1 : Nat)
       _ ≤ R * R * R + 3 * (R * R) * r_lo := Nat.le_add_right _ _
       _ ≤ x_hi_1 * 2 ^ 256 + x_lo_1 := hx_lb2
   · -- Main case: r_lo ≥ c + 1
-    have hrloc_ge : c + 1 ≤ r_lo := by omega
     -- Let t = r_lo - c - 1 (≥ 0). Then r_qc - 1 = R + t.
     -- Need: (R + t)³ ≤ x_norm where t = r_lo - c - 1.
     -- Expand: (R + t)³ = R³ + 3R²t + 3Rt² + t³
@@ -708,7 +691,6 @@ private theorem r_qc_pred_cube_le (x_hi_1 x_lo_1 : Nat)
     -- Reduce: 3R²·t + 3Rt² + t³ ≤ 3R²·r_lo
     -- ↔ 3Rt² + t³ ≤ 3R²(r_lo - t) = 3R²(c + 1)
     -- Since r_lo - t = r_lo - (r_lo - c - 1) = c + 1
-    have ht_rlo : r_lo - c - 1 + (c + 1) = r_lo := by omega
     -- Rewrite 3R²·r_lo = 3R²·t + 3R²·(c+1)
     have hrlo_split : 3 * (R * R) * r_lo =
         3 * (R * R) * (r_lo - c - 1) + 3 * (R * R) * (c + 1) := by
@@ -723,12 +705,6 @@ private theorem r_qc_pred_cube_le (x_hi_1 x_lo_1 : Nat)
     have ht_le_rlo : r_lo - c - 1 ≤ r_lo := Nat.le_trans (Nat.sub_le _ _) (Nat.sub_le _ _)
     have ht_sq_lt_cR : (r_lo - c - 1) * (r_lo - c - 1) < (c + 1) * R :=
       Nat.lt_of_le_of_lt (Nat.mul_le_mul ht_le_rlo ht_le_rlo) hcR_lt
-    -- 3R·t² < 3R·(c+1)·R = 3R²(c+1)
-    have h_3Rt2 : 3 * R * ((r_lo - c - 1) * (r_lo - c - 1)) < 3 * (R * R) * (c + 1) := by
-      calc 3 * R * ((r_lo - c - 1) * (r_lo - c - 1))
-          < 3 * R * ((c + 1) * R) := Nat.mul_lt_mul_of_pos_left ht_sq_lt_cR (by omega)
-        _ = 3 * (R * R) * (c + 1) := by
-            simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
     -- Use sq_sum_expand: r_lo = t + (c+1), so r_lo² = t² + 2t(c+1) + (c+1)².
     -- From (c+1)R > r_lo²: (c+1)R - t² > 2t(c+1).
     -- Then: 3R((c+1)R - t²) > 6Rt(c+1) ≥ t(c+1)R > t·t² = t³.
@@ -755,9 +731,6 @@ private theorem r_qc_pred_cube_le (x_hi_1 x_lo_1 : Nat)
       have ht_cube_bound : (r_lo - c - 1) * ((r_lo - c - 1) * (r_lo - c - 1)) <
           (r_lo - c - 1) * ((c + 1) * R) :=
         Nat.mul_lt_mul_of_pos_left ht_sq_lt_cR ht_pos
-      -- From h_gap: (c+1)R - t² > 2t(c+1) ≥ 2t(1) = 2t ≥ 2
-      -- So (c+1)R - t² ≥ 1, meaning the surplus is positive.
-      have h_surplus_pos : 0 < (c + 1) * R - (r_lo - c - 1) * (r_lo - c - 1) := by omega
       -- Key: t·(c+1)·R ≤ 2t(c+1)·R  (trivially: a ≤ 2a)
       -- Then: 2t(c+1)·R < ((c+1)R - t²)·R  (from h_gap, mul by R)
       -- Then: ((c+1)R-t²)·R ≤ R·((c+1)R-t²) = 1·R·((c+1)R-t²) ≤ 3R·((c+1)R-t²)
