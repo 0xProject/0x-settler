@@ -154,19 +154,56 @@ private theorem qc_undershoot_correct (x_hi_1 x_lo_1 : Nat)
   have hm_lo : 2 ^ 83 ≤ m := by rw [hm_eq]; exact hbc.2.2.2.1
   have hm_hi : m < 2 ^ 85 := by rw [hm_eq]; exact hbc.2.2.2.2.1
   -- ======== Step 3: From hr1_eq, extract c > 1 ========
+  -- Additional bounds needed for the QC exactness theorem
+  have hm_wm : m < WORD_MOD := by rw [hm_eq]; exact hbc.2.2.2.2.2.2.2.1
+  have hm_pos : 2 ≤ m := Nat.le_trans (show 2 ≤ 2 ^ 83 from by
+    rw [show (2 : Nat) ^ 83 = 2 * 2 ^ 82 from by rw [show (83 : Nat) = 1 + 82 from rfl, Nat.pow_add]]; omega) hm_lo
+  -- r_lo < 2^87 (from KQ quotient bound, same pattern as pipeline proof)
+  have hd_pos : 3 * (m * m) > 0 := Nat.mul_pos (by omega) (Nat.mul_pos (by omega) (by omega))
+  have hw_lt : x_hi_1 / 4 < 2 ^ 254 := by unfold WORD_MOD at hxhi_hi; omega
+  have hcube_le_w : m * m * m ≤ x_hi_1 / 4 := by rw [hm_eq]; exact hbc.2.2.2.2.2.1
+  have hres_bound : x_hi_1 / 4 - m * m * m ≤ 3 * (m * m) + 3 * m := by
+    rw [hm_eq]; exact hbc.2.2.2.2.2.2.1
+  have hmm_lo : 2 ^ 166 ≤ m * m := by
+    calc 2 ^ 166 = 2 ^ 83 * 2 ^ 83 := by rw [← Nat.pow_add]
+      _ ≤ m * m := Nat.mul_le_mul hm_lo hm_lo
+  have hlimb_86 : (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86 := by
+    have hmod4 : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
+    have hdiv : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by unfold WORD_MOD at hxlo; omega
+    omega
+  have hr_lo_bound : nat_r_lo < 2 ^ 87 := by
+    rw [hr_lo_eq, Nat.div_lt_iff_lt_mul hd_pos]
+    have h2m : 2 * m ≤ m * m := Nat.mul_le_mul_right m (by omega)
+    calc ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+            (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172))
+        < ((x_hi_1 / 4 - m * m * m) + 1) * 2 ^ 86 := by omega
+      _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by
+          apply Nat.mul_le_mul_right; omega
+      _ ≤ (2 * (3 * (m * m))) * 2 ^ 86 := by
+          apply Nat.mul_le_mul_right; omega
+      _ = 2 ^ 87 * (3 * (m * m)) := by
+          rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
+            rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]; omega
+  have hr_lo_wm : nat_r_lo < WORD_MOD := by unfold WORD_MOD; omega
+  have hd_wm : 3 * (m * m) < WORD_MOD := by
+    have hmm_hi : m * m < 2 ^ 170 :=
+      calc m * m < m * 2 ^ 85 := Nat.mul_lt_mul_of_pos_left hm_hi (by omega)
+        _ ≤ 2 ^ 85 * 2 ^ 85 := Nat.mul_le_mul_right _ (Nat.le_of_lt hm_hi)
+        _ = 2 ^ 170 := by rw [← Nat.pow_add]
+    unfold WORD_MOD; omega
+  have hrem_wm : nat_rem < WORD_MOD := by
+    rw [hrem_eq]; exact Nat.lt_of_lt_of_le (Nat.mod_lt _ hd_pos) (Nat.le_of_lt hd_wm)
   -- The QC model returns r_qc when c ≤ 1, so r_qc + 1 ≠ r_qc, hence c > 1
   have hR_pos : 0 < m * 2 ^ 86 := by omega
   have hc_gt1 : nat_r_lo * nat_r_lo / (m * 2 ^ 86) > 1 := by
-    -- If c ≤ 1, the QC model returns R + (r_lo - c) = r_qc, not r_qc + 1
-    -- We derive c > 1 from hr1_eq by contradiction
     by_cases hcgt : nat_r_lo * nat_r_lo / (m * 2 ^ 86) > 1
     · exact hcgt
     · exfalso
-      -- When c ≤ 1, the QC model's if-branch is not taken
-      -- The model returns R + (r_lo - c) which is exactly r_qc
-      -- But hr1_eq says it returns r_qc + 1, contradiction
-      -- Need to unfold the QC model to show this
-      sorry
+      have hc_le1 : nat_r_lo * nat_r_lo / (m * 2 ^ 86) ≤ 1 := by omega
+      have hexact := model_cbrtQuadraticCorrection_evm_exact_when_c_le1
+          m nat_r_lo nat_rem hm_wm hr_lo_wm hrem_wm hm_pos hm_hi hr_lo_bound hc_le1
+      -- hexact: result = r_qc. But hr1_eq: result = r_qc + 1. Contradiction.
+      omega
   -- ======== Step 4: The algebraic core — r_qc³ < x_norm (strict) ========
   -- From c > 1 and the undershoot check firing (implicit in hr1_eq):
   -- x_norm - r_qc³ > 3Rc(2r_lo - c) - t³ ≥ 3Rc·r_lo - t³ > 0
