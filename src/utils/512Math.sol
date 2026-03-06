@@ -1719,12 +1719,12 @@ library Lib512MathArithmetic {
             // we inline and do it ourselves.
             uint256 r_hi;
             assembly ("memory-safe") {
-                // Initialization requires that the first bit of `r_hi` be in the correct
-                // position. This is correct from the normalization above.
-                r_hi := 0x80000000000000000000000000000000
+                // Seed with √(2²⁵⁵), the geometric mean of the normalized √x_hi range [2¹²⁷,
+                // 2¹²⁸). This balances worst-case over/underestimate (ε ≈ ±0.414/0.293), giving
+                // >128 bits of precision in 6 Babylonian steps
+                r_hi := 0xb504f333f9de6484597d89b3754abe9f
 
-                // Seven Babylonian steps is sufficient for convergence.
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
+                // 6 Babylonian steps is sufficient for convergence
                 r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
                 r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
                 r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
@@ -1839,7 +1839,7 @@ library Lib512MathArithmetic {
             uint256 d;
             assembly ("memory-safe") {
                 let w := shr(0x02, x_hi) // w ≥ 2²⁵¹; w < 2²⁵⁴ from the above normalization
-                r_hi := 0x1000000000000000000000 // Given `w` in its range, this seed is suitable
+                r_hi := 0x1250bfe1b082f4f9b8d4ce // ∛(3·2²⁵¹) suitable given `w` in its range
 
                 r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
                 r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
@@ -1848,26 +1848,23 @@ library Lib512MathArithmetic {
                 r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
                 r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
 
+                // 6 iterations yield >85 bits of precision (absolute error < 2⁻¹⁶), so `r_hi` is at
+                // most ⌊∛w⌋ + 1. A branchless floor correction suffices. The Karatsuba step below
+                // handles the rare case where integer truncation leaves r_hi = ⌊∛w⌋ - 1
                 let r_hi_sq := mul(r_hi, r_hi)
                 let r_hi_cube := mul(r_hi_sq, r_hi)
-                if gt(r_hi_cube, w) {
-                    // We gate the 7th Newton-Raphson step and ceil/floor cleanup on whether it has
-                    // overestimated. The second-order correction further below is sufficient to
-                    // correct for small underestimation. This branch is net gas-optimizing.
-                    r_hi := div(add(add(div(w, r_hi_sq), r_hi), r_hi), 0x03)
-                    r_hi := sub(r_hi, lt(div(w, mul(r_hi, r_hi)), r_hi))
-                    r_hi_sq := mul(r_hi, r_hi)
-                    r_hi_cube := mul(r_hi_sq, r_hi)
-                }
+                r_hi := sub(r_hi, gt(r_hi_cube, w))
+                r_hi_sq := mul(r_hi, r_hi)
+                r_hi_cube := mul(r_hi_sq, r_hi)
 
                 res := sub(w, r_hi_cube)
                 d := mul(0x03, r_hi_sq)
             }
 
-            // `limb_hi` is the next 86-bit limb of `x` after the first whole-ish word.
+            // `limb_hi` is the next 86-bit limb of `x` after the first whole-ish word `w`.
             uint256 limb_hi;
             assembly ("memory-safe") {
-                limb_hi := or(shl(0x54, and(x_hi, 0x03)), shr(0xac, x_lo))
+                limb_hi := or(shl(0x54, and(0x03, x_hi)), shr(0xac, x_lo))
             }
             // This is the Karatsuba step. The 86-bit lower limb of `r` is (almost):
             //   r_lo = ⌊(res ⋅ 2⁸⁶ + limb_hi) / (3 ⋅ r_hi²)⌋
@@ -1922,14 +1919,14 @@ library Lib512MathArithmetic {
         //   r_max = 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628
         // this means that for values of x in [r_max³, 2⁵¹² - 1], `_cbrt` could return r_max + 1,
         // which would result in overflow when cubing `r`. However, this does not happen. Given `x`
-        // in the specified range, the `_cbrt` follows the steps below:
+        // in the specified range, `_cbrt` follows the steps below:
         //
         // 1) shift = ⌊clz(x_hi) / 3⌋ = 0
         // 2) w = x_hi >> 2 lies in [0x3fff..fffb0959fdf442978718ddcb, 2²⁵⁴ - 1]
-        // 3) In that full interval, ⌊∛w⌋ is constant. For `r_hi`, we get:
-        //      after 6 Newton-Raphson iterations: r_hi = 0x1965fea53d6e3c82b0c310
-        //      which forces a 7th iteration
-        //      after the branch is taken:         r_hi = 0x1965fea53d6e3c82b05999
+        // 3) In that full interval, ⌊∛w⌋ is constant. With the ∛(3·2²⁵¹) seed, the 6
+        //    Newton-Raphson iterations converge directly to the correct value:
+        //      r_hi = 0x1965fea53d6e3c82b05999
+        //    The branchless floor correction is a no-op (r_hi³ ≤ w for all w in the interval)
         // 4) Therefore d = 3 ⋅ r_hi² is constant:
         //      d = 0x78f3d1d950af414cd731fe48f48fde1309821333853
         // 5) n = (res << 86) | limb_hi overflows and is truncated to 256 bits. The truncated ⌊n / d⌋
@@ -1940,9 +1937,9 @@ library Lib512MathArithmetic {
         //      ⌊(2²⁵⁶ - 1) / d⌋ = 0x21dd5386fc92fb58eb2224
         //    and the final carry refinement term is zero, giving:
         //      r_lo = 0x2ad0f7137bc6601d885629
-        //    The quotient stays in one "bucket" because `res` varies by only ~0.62·2⁸³, and
+        //    The quotient stays in one "bucket" because `res` varies by only ~0.620·2⁸³, and
         //    `limb_hi`'s full 86-bit range contributes <1/2⁸⁴ to n/d. Total swing in the continuous
-        //    quotient is ~0.164.  At the boundaries, frac(n/d) ≈ 0.118 (at x = r_max³) and ≈0.283
+        //    quotient is ~0.164. At the boundaries, frac(n/d) ≈ 0.128 (at x = r_max³) and ≈ 0.292
         //    (at x = 2⁵¹² - 1), so the floor never crosses an integer boundary
         // 6) After the carry adjustment branch, `r_lo` is constant:
         //      r_lo = 0x2ad0f7137bc6601d885629
@@ -1954,7 +1951,7 @@ library Lib512MathArithmetic {
         // So, the cube-and-compare code below only cubes a value of at most `r_max`, which fits in
         // 512 bits. `cbrtUp` reaches `r_max + 1` only via its final +1 correction
         //
-        // The following assembly block is identical to
+        // The following assembly block is identical to:
         //   (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
         //   (uint256 r3_hi, uint256 r3_lo) = _mul(r2_hi, r2_lo, r);
         //   r = r.unsafeDec(_gt(r3_hi, r3_lo, x_hi, x_lo));
@@ -1983,7 +1980,7 @@ library Lib512MathArithmetic {
 
         // `_cbrt` gives a result within 1ulp. Check if `r` is too low and correct.
         //
-        // The following assembly block is identical to
+        // The following assembly block is identical to:
         //   (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
         //   (uint256 r3_hi, uint256 r3_lo) = _mul(r2_hi, r2_lo, r);
         //   r = r.unsafeInc(_gt(x_hi, x_lo, r3_hi, r3_lo));
