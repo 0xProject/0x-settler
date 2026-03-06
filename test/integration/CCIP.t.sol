@@ -60,6 +60,10 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         vm.label(CCIP_ROUTER, "CCIPRouter");
         vm.label(address(USDC), "USDC");
         recipient = makeAddr("recipient");
+
+        deal(address(USDC), address(this), 2000e6);
+        deal(address(this), 10 ether);
+        USDC.approve(address(ALLOWANCE_HOLDER), 2000e6);
     }
 
     function getOnRamp(uint64 destinationChainSelector) internal view returns (address onRamp) {
@@ -95,15 +99,11 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         // Get the fee for the transfer
         uint256 fee = IRouterClient(CCIP_ROUTER).getFee(ARBITRUM_SELECTOR, message);
 
-        // Snapshot onRamp WETH balance and USDC total supply before execution
+        // Snapshot balances before execution
         address onRamp = getOnRamp(ARBITRUM_SELECTOR);
         uint256 onRampWethBefore = WETH.balanceOf(onRamp);
         uint256 usdcSupplyBefore = USDC.totalSupply();
-
-        // Fund the test contract
-        deal(address(USDC), address(this), amount);
-        deal(address(this), fee);
-        USDC.approve(address(ALLOWANCE_HOLDER), amount);
+        uint256 usdcBalanceBefore = USDC.balanceOf(address(this));
 
         // Build bridge actions
         bytes[] memory bridgeActions = new bytes[](2);
@@ -142,8 +142,8 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
             abi.encodeCall(bridgeSettler.execute, (bridgeActions, bytes32(0)))
         );
 
-        // Verify our balance is gone
-        assertEq(USDC.balanceOf(address(this)), 0, "USDC should have been transferred");
+        // Verify USDC was transferred from us
+        assertEq(USDC.balanceOf(address(this)), usdcBalanceBefore - amount, "USDC balance should have decreased");
         // Verify the onRamp received the fee in WETH
         assertEq(WETH.balanceOf(onRamp), onRampWethBefore + fee, "onRamp should have received the fee in WETH");
         // Verify USDC was burned (supply decreased)
@@ -159,15 +159,11 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         // Get the fee for the transfer
         uint256 fee = IRouterClient(CCIP_ROUTER).getFee(BASE_SELECTOR, message);
 
-        // Snapshot onRamp WETH balance and USDC total supply before execution
+        // Snapshot balances before execution
         address onRamp = getOnRamp(BASE_SELECTOR);
         uint256 onRampWethBefore = WETH.balanceOf(onRamp);
         uint256 usdcSupplyBefore = USDC.totalSupply();
-
-        // Fund the test contract
-        deal(address(USDC), address(this), amount);
-        deal(address(this), fee);
-        USDC.approve(address(ALLOWANCE_HOLDER), amount);
+        uint256 usdcBalanceBefore = USDC.balanceOf(address(this));
 
         // Build bridge actions
         bytes[] memory bridgeActions = new bytes[](2);
@@ -205,7 +201,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
             abi.encodeCall(bridgeSettler.execute, (bridgeActions, bytes32(0)))
         );
 
-        assertEq(USDC.balanceOf(address(this)), 0, "USDC should have been transferred");
+        assertEq(USDC.balanceOf(address(this)), usdcBalanceBefore - amount, "USDC balance should have decreased");
         // Verify the onRamp received the fee in WETH
         assertEq(WETH.balanceOf(onRamp), onRampWethBefore + fee, "onRamp should have received the fee in WETH");
         // Verify USDC was burned (supply decreased)
@@ -231,15 +227,11 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         // Get the fee
         uint256 fee = IRouterClient(CCIP_ROUTER).getFee(ARBITRUM_SELECTOR, message);
 
-        // Snapshot onRamp WETH balance and USDC total supply before execution
+        // Snapshot balances before execution
         address onRamp = getOnRamp(ARBITRUM_SELECTOR);
         uint256 onRampWethBefore = WETH.balanceOf(onRamp);
         uint256 usdcSupplyBefore = USDC.totalSupply();
-
-        // Fund
-        deal(address(USDC), address(this), amount);
-        deal(address(this), fee);
-        USDC.approve(address(ALLOWANCE_HOLDER), amount);
+        uint256 usdcBalanceBefore = USDC.balanceOf(address(this));
 
         // Build actions
         bytes[] memory bridgeActions = new bytes[](2);
@@ -273,7 +265,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
             abi.encodeCall(bridgeSettler.execute, (bridgeActions, bytes32(0)))
         );
 
-        assertEq(USDC.balanceOf(address(this)), 0, "USDC should have been transferred");
+        assertEq(USDC.balanceOf(address(this)), usdcBalanceBefore - amount, "USDC balance should have decreased");
         // Verify the onRamp received the fee in WETH
         assertEq(WETH.balanceOf(onRamp), onRampWethBefore + fee, "onRamp should have received the fee in WETH");
         // Verify USDC was burned (supply decreased)
@@ -294,10 +286,6 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
             feeToken: address(USDC), // Non-zero feeToken should cause revert
             extraArgs: bytes("")
         });
-
-        // Fund the test contract
-        deal(address(USDC), address(this), amount);
-        USDC.approve(address(ALLOWANCE_HOLDER), amount);
 
         // Build bridge actions
         bytes[] memory bridgeActions = new bytes[](2);
