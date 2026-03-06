@@ -1962,8 +1962,8 @@ library Lib512MathArithmetic {
             uint256 eps3 = (r_lo_sq - c * R) * 3;
 
             r_lo -= c;
-            // For c ≤ 1 (only near the rₘₐₓ boundary), undershoot never occurs, so we skip the check.
-            if (c > 1) { // TODO: remove branch
+            // For c ≤ 1 (~68.5% of the time), undershoot never occurs, so we can skip the check
+            if (c > 1) {
                 // This awkward boolean expression is more gas efficient because it avoids 512-bit
                 // multiplication
                 r_lo = r_lo.unsafeInc(
