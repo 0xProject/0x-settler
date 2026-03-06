@@ -205,14 +205,11 @@ private theorem qc_undershoot_correct (x_hi_1 x_lo_1 : Nat)
       -- hexact: result = r_qc. But hr1_eq: result = r_qc + 1. Contradiction.
       omega
   -- ======== Step 4: The algebraic core — r_qc³ < x_norm (strict) ========
-  -- From c > 1 and the undershoot check firing (implicit in hr1_eq):
-  -- x_norm - r_qc³ > 3Rc(2r_lo - c) - t³ ≥ 3Rc·r_lo - t³ > 0
-  have hrqc_cube_lt_strict :
-      (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) *
-      (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) *
-      (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) <
-      x_hi_1 * 2 ^ 256 + x_lo_1 := by
-    sorry
+  -- Delegated to qc_undershoot_cube_lt in CbrtComposition
+  have hcube_both := qc_undershoot_cube_lt x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+      m hm_eq nat_r_lo nat_rem hr_lo_eq hrem_eq hr1_eq
+  simp only at hcube_both
+  have hrqc_cube_lt_strict := hcube_both.1
   -- ======== Step 5: Derive r_qc ≤ icbrt from r_qc³ < x_norm ========
   have hrqc_le_icbrt : m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) ≤
       icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) := by
@@ -234,11 +231,7 @@ private theorem qc_undershoot_correct (x_hi_1 x_lo_1 : Nat)
     -- r_qc ≤ icbrt(x_norm). icbrt³ ≤ x_norm < WORD_MOD². So icbrt ≤ R_MAX.
     -- r_qc ≤ icbrt ≤ R_MAX. If r_qc = R_MAX: r_qc³ < x_norm ≤ WORD_MOD² - 1.
     -- But (R_MAX+1)³ ≥ WORD_MOD². Need r_qc < R_MAX.
-    -- Use: r_qc³ < WORD_MOD² (from hcomp_cube). And (r_qc+1)³ need < WORD_MOD².
-    -- Equivalent to r_qc + 1 ≤ R_MAX, i.e., r_qc ≤ R_MAX - 1, i.e., r_qc < R_MAX.
-    -- From hrqc_cube_lt_strict: r_qc³ < x_norm, so r_qc ≤ icbrt.
-    -- c > 1 implies r_qc < R_MAX (at R_MAX boundary, c = 1).
-    sorry
+    exact hcube_both.2
   · -- Overshoot: (r_qc+1)³ > x_norm → icbrt³ < x_norm
     intro h_overshoot
     -- From hrqc_cube_lt_strict: r_qc³ < x_norm

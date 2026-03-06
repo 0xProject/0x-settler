@@ -296,6 +296,26 @@ theorem model_cbrtQuadraticCorrection_evm_exact_when_c_le1
   -- In Nat: a + (b - c) = a + b - c when c ≤ b
   omega
 
+/-- When the QC model returns r_qc + 1 (undershoot correction applied),
+    then r_qc³ < x_norm and (r_qc+1)³ < WORD_MOD². This captures the algebraic
+    correctness of the undershoot mechanism: the split-limb check fires only when
+    r_qc genuinely undershoots (r_qc < icbrt), and never at the R_MAX boundary. -/
+theorem qc_undershoot_cube_lt (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD)
+    (m : Nat) (hm_eq : m = icbrt (x_hi_1 / 4))
+    (nat_r_lo nat_rem : Nat)
+    (hr_lo_eq : nat_r_lo = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)))
+    (hrem_eq : nat_rem = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) % (3 * (m * m)))
+    (hr1_eq : model_cbrtQuadraticCorrection_evm m nat_r_lo nat_rem =
+        m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) :
+    let r_qc := m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)
+    r_qc * r_qc * r_qc < x_hi_1 * 2 ^ 256 + x_lo_1 ∧
+    (r_qc + 1) * (r_qc + 1) * (r_qc + 1) < WORD_MOD * WORD_MOD := by
+  sorry
+
 -- ============================================================================
 -- Sub-lemma A: Lower bound — (r_qc + 1)³ > x_norm
 -- ============================================================================
