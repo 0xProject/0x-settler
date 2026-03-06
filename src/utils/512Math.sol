@@ -1781,11 +1781,7 @@ library Lib512MathArithmetic {
     /// `r`. We have to do this in a complicated manner because both `res` and `r_lo` can be
     /// 𝑠𝑙𝑖𝑔ℎ𝑡𝑙𝑦 longer than 1 limb (128 bits). This is more efficient than performing the full
     /// 257-bit comparison.
-    function _sqrt_correction(uint256 r_hi, uint256 r_lo, uint256 res, uint256 x_lo)
-        private
-        pure
-        returns (uint256 r)
-    {
+    function _sqrt_correction(uint256 r_hi, uint256 r_lo, uint256 res, uint256 x_lo) private pure returns (uint256 r) {
         unchecked {
             r = (r_hi << 128) + r_lo;
             r = r.unsafeDec(
@@ -1918,7 +1914,11 @@ library Lib512MathArithmetic {
     /// Where `res` is the (nearly) 2-limb residue from the previous "normal" cube root step. The
     /// new residue, `res_out`, is propagated to the quadratic correction step instead of the
     /// underflow check from Zimmermann
-    function _cbrt_karatsubaQuotient(uint256 res, uint256 x_lo, uint256 d) private pure returns (uint256 r_lo, uint256 res_out) {
+    function _cbrt_karatsubaQuotient(uint256 res, uint256 x_lo, uint256 d)
+        private
+        pure
+        returns (uint256 r_lo, uint256 res_out)
+    {
         assembly ("memory-safe") {
             let n := or(shl(0x56, res), x_lo)
             r_lo := div(n, d)
@@ -1964,11 +1964,10 @@ library Lib512MathArithmetic {
                 // This awkward boolean expression is more gas efficient because it avoids 512-bit
                 // multiplication
                 r_lo = r_lo.unsafeInc(
-                    ((eps3 >> 86) < (rem >> 86)).or(
-                        ((eps3 >> 86) == (rem >> 86)).and(
-                            (eps3 & 0x3fffffffffffffffffffff) * r_hi
-                                < (rem & 0x3fffffffffffffffffffff) << 86
-                        )
+                    ((eps3 >> 86) < (rem >> 86))
+                    .or(
+                        ((eps3 >> 86) == (rem >> 86))
+                        .and((eps3 & 0x3fffffffffffffffffffff) * r_hi < (rem & 0x3fffffffffffffffffffff) << 86)
                     )
                 );
             }
