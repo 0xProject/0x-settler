@@ -3,6 +3,7 @@
   returns R + r_lo - c + undershoot where undershoot ∈ {0, 1}.
 -/
 import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.CbrtNumericCerts
 import Cbrt512Proof.EvmBridge
 
 namespace Cbrt512Spec
@@ -12,10 +13,6 @@ open Cbrt512GeneratedModel
 -- ============================================================================
 -- QC helper lemmas
 -- ============================================================================
-
-/-- The constant expression evmAnd(evmAnd(86,255),255) evaluates to 86. -/
-theorem qc_const_86 : evmAnd (evmAnd 86 255) 255 = 86 := by
-  unfold evmAnd u256 WORD_MOD; native_decide
 
 /-- Bitwise OR of two values ≤ 1 is ≤ 1. -/
 theorem or_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) : a ||| b ≤ 1 := by
@@ -71,9 +68,6 @@ theorem qc_undershoot_le_one (eps3 rem r_hi : Nat) :
     (evmAnd_le_one _ _
       (evmEq_le_one _ _)
       (evmLt_le_one _ _))
-
-/-- The 86-bit mask constant used by the QC check. -/
-theorem mask_86_eq : 77371252455336267181195263 = 2 ^ 86 - 1 := by native_decide
 
 /-- Masking by `2^86 - 1` extracts the low 86 bits. -/
 theorem evmAnd_mask86_eq_mod (x : Nat) (hx : x < WORD_MOD) :

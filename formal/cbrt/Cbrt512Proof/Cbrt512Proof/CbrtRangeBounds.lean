@@ -3,6 +3,7 @@
   Sub-lemma E1: the cube bound r_qc³ < WORD_MOD².
 -/
 import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.CbrtNumericCerts
 import Cbrt512Proof.CbrtBaseCase
 import Cbrt512Proof.CbrtAlgebraic
 import Cbrt512Proof.EvmBridge
@@ -11,59 +12,6 @@ import CbrtProof.CbrtCorrect
 namespace Cbrt512Spec
 
 open Cbrt512GeneratedModel
-
--- ============================================================================
--- Sub-lemma E1: r_qc ≤ R_MAX (cube bound via concrete threshold)
--- ============================================================================
-
-/-- The maximum value the composition pipeline can return.
-    From 512Math.sol cbrt(): for x_norm ∈ [R_MAX³, 2^512), the algorithm returns
-    exactly R_MAX. Combined with sub-lemma B (r_qc ≤ icbrt + 1), this gives
-    r_qc ≤ R_MAX for ALL normalized inputs, hence r_qc³ < 2^512 = WORD_MOD². -/
-def R_MAX : Nat := 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628
-
-set_option exponentiation.threshold 1024 in
-/-- R_MAX³ < 2^512 = WORD_MOD². -/
-theorem r_max_cube_lt_wm2 : R_MAX * R_MAX * R_MAX < WORD_MOD * WORD_MOD := by
-  unfold R_MAX WORD_MOD; native_decide
-
-set_option exponentiation.threshold 1024 in
-/-- R_MAX = icbrt(2^512 - 1): the largest integer whose cube < 2^512. -/
-private theorem r_max_is_icbrt_wm2 :
-    R_MAX * R_MAX * R_MAX ≤ WORD_MOD * WORD_MOD - 1 ∧
-    WORD_MOD * WORD_MOD - 1 < (R_MAX + 1) * (R_MAX + 1) * (R_MAX + 1) := by
-  unfold R_MAX WORD_MOD; constructor <;> native_decide
-
-/-- M_TOP = icbrt((2^256-1)/4) = icbrt(2^254 - 1), the max possible m value. -/
-private def M_TOP : Nat := 0x1965fea53d6e3c82b05999
-
-set_option exponentiation.threshold 1024 in
-/-- M_TOP³ ≤ 2^254 - 1 and 2^254 ≤ (M_TOP+1)³, so M_TOP = icbrt(2^254 - 1). -/
-private theorem m_top_cube_bounds :
-    M_TOP * M_TOP * M_TOP ≤ 2 ^ 254 - 1 ∧
-    2 ^ 254 ≤ (M_TOP + 1) * (M_TOP + 1) * (M_TOP + 1) := by
-  unfold M_TOP; constructor <;> native_decide
-
-set_option exponentiation.threshold 1024 in
-/-- R_MAX ≥ M_TOP * 2^86 (i.e. DELTA ≥ 0 in Nat subtraction). -/
-private theorem r_max_ge_r_top : M_TOP * 2 ^ 86 ≤ R_MAX := by
-  unfold M_TOP R_MAX; native_decide
-
-set_option exponentiation.threshold 1024 in
-/-- Key numerical facts for Case B (m = M_TOP):
-    1. The max r_lo value is DELTA + 1
-    2. At r_lo = DELTA + 1, correction ≥ 1
-    3. DELTA ≥ 9 (for Case A bound) -/
-private theorem r_lo_max_at_m_top :
-    let R := M_TOP * 2 ^ 86
-    let delta := R_MAX - R
-    let res_max := 2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP
-    let d := 3 * (M_TOP * M_TOP)
-    -- r_lo_upper = (res_max * 2^86 + 2^86 - 1) / d
-    (res_max * 2 ^ 86 + 2 ^ 86 - 1) / d ≤ delta + 1 ∧
-    (delta + 1) * (delta + 1) / R ≥ 1 ∧
-    9 ≤ delta := by
-  unfold M_TOP R_MAX; native_decide
 
 set_option exponentiation.threshold 1024 in
 /-- For m ≥ 2^83, (3m+1) · 2^86 ≤ 27 · m · m.

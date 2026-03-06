@@ -13,6 +13,7 @@
 -/
 import Cbrt512Proof.Cbrt512Correct
 import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.CbrtNumericCerts
 import Cbrt512Proof.CbrtDenormalization
 import Cbrt512Proof.CbrtNormalization
 import Cbrt512Proof.CbrtBaseCase
@@ -69,30 +70,25 @@ set_option exponentiation.threshold 1024 in
 private theorem three_msq_plus_3m_lt (m : Nat)
     (hm_cube : m * m * m < 2 ^ 254) :
     3 * (m * m) + 3 * m < 2 ^ 171 := by
-  -- Certificate: K³ ≥ 2^254, so m < K by cube_monotone
-  have hK : 2 ^ 254 ≤ 30704801884924481767496090 * 30704801884924481767496090 *
-      30704801884924481767496090 := by native_decide
-  have hm_lt : m < 30704801884924481767496090 := by
-    cases Nat.lt_or_ge m 30704801884924481767496090 with
+  -- Certificate: (M_TOP + 1)³ ≥ 2^254, so m < M_TOP + 1 by cube_monotone
+  have hm_lt : m < M_TOP + 1 := by
+    cases Nat.lt_or_ge m (M_TOP + 1) with
     | inl h => exact h
     | inr hge =>
       exfalso
       exact Nat.lt_irrefl _
-        (Nat.lt_of_lt_of_le hm_cube (Nat.le_trans hK (cube_monotone hge)))
-  -- Certificate: 3*(K-1)²+3*(K-1) < 2^171
-  have hm_le : m ≤ 30704801884924481767496089 := by omega
-  have hcert : 3 * (30704801884924481767496089 * 30704801884924481767496089) +
-      3 * 30704801884924481767496089 < 2 ^ 171 := by native_decide
+        (Nat.lt_of_lt_of_le hm_cube (Nat.le_trans m_top_cube_bounds.2 (cube_monotone hge)))
+  -- Certificate: 3*M_TOP² + 3*M_TOP < 2^171
+  have hm_le : m ≤ M_TOP := by omega
   -- Monotonicity of 3x²+3x
-  have h_mm : m * m ≤ 30704801884924481767496089 * 30704801884924481767496089 :=
+  have h_mm : m * m ≤ M_TOP * M_TOP :=
     Nat.mul_le_mul hm_le hm_le
   calc 3 * (m * m) + 3 * m
-      ≤ 3 * (30704801884924481767496089 * 30704801884924481767496089) +
-        3 * 30704801884924481767496089 := by
+      ≤ 3 * (M_TOP * M_TOP) + 3 * M_TOP := by
         have := Nat.mul_le_mul_left 3 h_mm
         have := Nat.mul_le_mul_left 3 hm_le
         omega
-    _ < 2 ^ 171 := hcert
+    _ < 2 ^ 171 := m_top_three_msq_plus_3m_lt_pow171
 
 -- ============================================================================
 -- Helper 3: Undershoot properties (P1 and P2)
