@@ -1964,10 +1964,10 @@ library Lib512MathArithmetic {
                 // This awkward boolean expression is more gas efficient because it avoids 512-bit
                 // multiplication
                 r_lo = r_lo.unsafeInc(
-                    ((eps3 >> 86) < (rem >> 86))
+                    ((eps3 >> 86) < (res >> 86))
                     .or(
-                        ((eps3 >> 86) == (rem >> 86))
-                        .and((eps3 & 0x3fffffffffffffffffffff) * r_hi < (rem & 0x3fffffffffffffffffffff) << 86)
+                        ((eps3 >> 86) == (res >> 86))
+                        .and((eps3 & 0x3fffffffffffffffffffff) * r_hi < (res & 0x3fffffffffffffffffffff) << 86)
                     )
                 );
             }
