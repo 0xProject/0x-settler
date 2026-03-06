@@ -104,7 +104,7 @@ theorem normalized_x_hi_ge_253 (x_hi x_lo : Nat)
   exact Nat.le_trans hprod_lo (Nat.le_add_right _ _)
 
 /-- After normalization, x_hi_1 < 2^256. -/
-theorem normalized_x_hi_lt (x_hi x_lo : Nat)
+private theorem normalized_x_hi_lt (x_hi x_lo : Nat)
     (_hxhi_pos : 0 < x_hi) (_hxhi : x_hi < 2 ^ 256) (_hxlo : x_lo < 2 ^ 256) :
     let shift := evmClz x_hi / 3
     let s3 := 3 * shift

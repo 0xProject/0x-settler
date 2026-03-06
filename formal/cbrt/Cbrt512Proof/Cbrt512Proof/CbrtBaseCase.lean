@@ -411,4 +411,85 @@ theorem model_cbrtBaseCase_evm_correct (x_hi_1 : Nat)
       rw [evmSub_eq_of_le z6 0 hz6_wm (by omega), Nat.sub_zero, hz6_eq]
     rw [hcorr, hmm, hm2m, hsubwm3, hm23]
 
+-- ============================================================================
+-- Bundled base case bounds (eliminates repeated extraction boilerplate)
+-- ============================================================================
+
+/-- All commonly needed bounds from the base case, bundled for easy destructuring.
+    Callers can `obtain ⟨hm_lo, hm_hi, ...⟩ := baseCase_bounds ...` instead of
+    extracting 10+ fields from model_cbrtBaseCase_evm_correct one by one. -/
+theorem baseCase_bounds (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD) :
+    let m := icbrt (x_hi_1 / 4)
+    let R := m * 2 ^ 86
+    let d := 3 * (m * m)
+    let limb_hi := (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172
+    let r_lo := ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 + limb_hi) / d
+    -- m bounds
+    2 ^ 83 ≤ m ∧ m < 2 ^ 85 ∧ 2 ≤ m ∧ m < WORD_MOD ∧
+    -- cube / residue
+    m * m * m ≤ x_hi_1 / 4 ∧
+    x_hi_1 / 4 - m * m * m ≤ 3 * (m * m) + 3 * m ∧
+    -- d bounds
+    0 < d ∧ d < WORD_MOD ∧
+    -- R bounds
+    2 ^ 169 ≤ R ∧ R < 2 ^ 171 ∧ 0 < R ∧
+    -- limb / r_lo bounds
+    limb_hi < 2 ^ 86 ∧ r_lo < 2 ^ 87 := by
+  simp only
+  have hbc := model_cbrtBaseCase_evm_correct x_hi_1 hxhi_lo hxhi_hi
+  simp only at hbc
+  let m := icbrt (x_hi_1 / 4)
+  have hm_lo : 2 ^ 83 ≤ m := hbc.2.2.2.1
+  have hm_hi : m < 2 ^ 85 := hbc.2.2.2.2.1
+  have hm_pos : 2 ≤ m := Nat.le_trans (show 2 ≤ 2 ^ 83 from by
+    rw [show (2 : Nat) ^ 83 = 2 * 2 ^ 82 from by
+      rw [show (83 : Nat) = 1 + 82 from rfl, Nat.pow_add]]; omega) hm_lo
+  have hm_wm : m < WORD_MOD := hbc.2.2.2.2.2.2.2.1
+  have hcube_le : m * m * m ≤ x_hi_1 / 4 := hbc.2.2.2.2.2.1
+  have hres_bound := hbc.2.2.2.2.2.2.1
+  have hd_pos : 0 < 3 * (m * m) := hbc.2.2.2.2.2.2.2.2.2.2
+  have hd_wm : 3 * (m * m) < WORD_MOD := hbc.2.2.2.2.2.2.2.2.2.1
+  -- R bounds
+  have hR_lo : 2 ^ 169 ≤ m * 2 ^ 86 :=
+    calc 2 ^ 169 = 2 ^ 83 * 2 ^ 86 := by rw [← Nat.pow_add]
+      _ ≤ m * 2 ^ 86 := Nat.mul_le_mul_right _ hm_lo
+  have hR_hi : m * 2 ^ 86 < 2 ^ 171 :=
+    calc m * 2 ^ 86
+        < 2 ^ 85 * 2 ^ 86 := Nat.mul_lt_mul_of_pos_right hm_hi (Nat.two_pow_pos 86)
+      _ = 2 ^ 171 := by rw [← Nat.pow_add]
+  -- limb_hi < 2^86
+  have hlimb : (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86 := by
+    have hmod4 : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
+    have hdiv : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by
+      rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 172)]
+      calc x_lo_1 < WORD_MOD := hxlo
+        _ = 2 ^ 84 * 2 ^ 172 := by unfold WORD_MOD; rw [← Nat.pow_add]
+    have : (x_hi_1 % 4) * 2 ^ 84 < 2 ^ 86 :=
+      calc (x_hi_1 % 4) * 2 ^ 84 < 4 * 2 ^ 84 :=
+              Nat.mul_lt_mul_of_pos_right hmod4 (Nat.two_pow_pos 84)
+        _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+    omega
+  -- r_lo < 2^87
+  have hr_lo_bound : ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+      ((x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)) < 2 ^ 87 := by
+    rw [Nat.div_lt_iff_lt_mul hd_pos]
+    have h2m : 2 * m ≤ m * m := Nat.mul_le_mul_right m (by omega)
+    calc ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+            ((x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172))
+        < ((x_hi_1 / 4 - m * m * m) + 1) * 2 ^ 86 := by omega
+      _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by
+          apply Nat.mul_le_mul_right; exact Nat.succ_le_succ hres_bound
+      _ ≤ (2 * (3 * (m * m))) * 2 ^ 86 := by
+          apply Nat.mul_le_mul_right
+          have h2m : 2 * m ≤ m * m := Nat.mul_le_mul_right m (by omega)
+          omega
+      _ = 2 ^ 87 * (3 * (m * m)) := by
+          rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
+            rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]; omega
+  exact ⟨hm_lo, hm_hi, hm_pos, hm_wm, hcube_le, hres_bound,
+         hd_pos, hd_wm, hR_lo, hR_hi, Nat.lt_of_lt_of_le (by omega : 0 < 2 ^ 169) hR_lo,
+         hlimb, hr_lo_bound⟩
+
 end Cbrt512Spec

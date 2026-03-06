@@ -37,17 +37,10 @@ theorem r_qc_pred_cube_le (x_hi_1 x_lo_1 : Nat)
     let x_norm := x_hi_1 * 2 ^ 256 + x_lo_1
     (r_qc - 1) * (r_qc - 1) * (r_qc - 1) ≤ x_norm := by
   simp only
-  -- ======== Step 1: Extract base case properties ========
-  have hbc := model_cbrtBaseCase_evm_correct x_hi_1 hxhi_lo hxhi_hi
-  have hm_lo : 2 ^ 83 ≤ icbrt (x_hi_1 / 4) := hbc.2.2.2.1
-  have hm_hi : icbrt (x_hi_1 / 4) < 2 ^ 85 := hbc.2.2.2.2.1
-  have hcube_le_w : icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
-      ≤ x_hi_1 / 4 := hbc.2.2.2.2.2.1
-  have hres_bound : x_hi_1 / 4 - icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
-      ≤ 3 * (icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)) + 3 * icbrt (x_hi_1 / 4) :=
-    hbc.2.2.2.2.2.2.1
-  have hd_pos : 3 * (icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)) > 0 :=
-    hbc.2.2.2.2.2.2.2.2.2.2
+  -- ======== Step 1: Base case bounds (bundled) ========
+  obtain ⟨_, _, _, _, hcube_le_w, _,
+          _, _, hR_lo, _, _, _, _⟩ :=
+    baseCase_bounds x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
   -- Abbreviate
   let m := icbrt (x_hi_1 / 4)
   let w := x_hi_1 / 4
@@ -61,30 +54,6 @@ theorem r_qc_pred_cube_le (x_hi_1 x_lo_1 : Nat)
   let c_tail := x_lo_1 % 2 ^ 172
   -- ======== Step 2: Key bounds ========
   have hR_pos : 0 < R := by omega
-  have hlimb_bound : limb_hi < 2 ^ 86 := by
-    show (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86
-    have hmod4 : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
-    have hdiv : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by
-      rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 172)]
-      calc x_lo_1 < WORD_MOD := hxlo
-        _ = 2 ^ 84 * 2 ^ 172 := by unfold WORD_MOD; rw [← Nat.pow_add]
-    have : (x_hi_1 % 4) * 2 ^ 84 < 2 ^ 86 :=
-      calc (x_hi_1 % 4) * 2 ^ 84 < 4 * 2 ^ 84 :=
-              Nat.mul_lt_mul_of_pos_right hmod4 (Nat.two_pow_pos 84)
-        _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
-    omega
-  have hr_lo_bound : r_lo < 2 ^ 87 := by
-    show (res * 2 ^ 86 + limb_hi) / d < 2 ^ 87
-    rw [Nat.div_lt_iff_lt_mul hd_pos]
-    have h2m : 2 * m ≤ m * m := Nat.mul_le_mul_right m (by omega)
-    calc res * 2 ^ 86 + limb_hi
-        < (res + 1) * 2 ^ 86 := by omega
-      _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by
-          apply Nat.mul_le_mul_right; exact Nat.succ_le_succ hres_bound
-      _ ≤ (2 * (3 * (m * m))) * 2 ^ 86 := Nat.mul_le_mul_right _ (by omega)
-      _ = 2 ^ 87 * (3 * (m * m)) := by
-          rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
-            rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]; omega
   -- Floor division bound: r_lo² < (c+1)R
   have hcR_lt : r_lo * r_lo < (c + 1) * R := by
     show r_lo * r_lo < (r_lo * r_lo / R + 1) * R

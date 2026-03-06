@@ -21,11 +21,11 @@ theorem or_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) : a ||| b ≤ 1 := b
   rcases ‹a = 0 ∨ a = 1› with rfl | rfl <;> rcases ‹b = 0 ∨ b = 1› with rfl | rfl <;> decide
 
 /-- evmLt returns a value ≤ 1. -/
-theorem evmLt_le_one (a b : Nat) : evmLt a b ≤ 1 := by
+private theorem evmLt_le_one (a b : Nat) : evmLt a b ≤ 1 := by
   unfold evmLt; split <;> omega
 
 /-- evmEq returns a value ≤ 1. -/
-theorem evmEq_le_one (a b : Nat) : evmEq a b ≤ 1 := by
+private theorem evmEq_le_one (a b : Nat) : evmEq a b ≤ 1 := by
   unfold evmEq; split <;> omega
 
 /-- Bitwise AND of two values ≤ 1 is ≤ 1. -/
@@ -35,7 +35,7 @@ theorem and_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) : a &&& b ≤ 1 := 
   rcases ‹a = 0 ∨ a = 1› with rfl | rfl <;> rcases ‹b = 0 ∨ b = 1› with rfl | rfl <;> decide
 
 /-- evmAnd of values ≤ 1 is ≤ 1. -/
-theorem evmAnd_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) :
+private theorem evmAnd_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) :
     evmAnd a b ≤ 1 := by
   unfold evmAnd u256 WORD_MOD
   have ha' : a % 2 ^ 256 = a := Nat.mod_eq_of_lt (by omega)
@@ -44,7 +44,7 @@ theorem evmAnd_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) :
   exact and_le_one a b ha hb
 
 /-- evmOr of values ≤ 1 is ≤ 1. -/
-theorem evmOr_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) :
+private theorem evmOr_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) :
     evmOr a b ≤ 1 := by
   unfold evmOr u256 WORD_MOD
   have ha' : a % 2 ^ 256 = a := Nat.mod_eq_of_lt (by omega)
@@ -53,7 +53,7 @@ theorem evmOr_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) :
   exact or_le_one a b ha hb
 
 /-- The undershoot check in the QC produces a value ≤ 1. -/
-theorem qc_undershoot_le_one (eps3 rem r_hi : Nat) :
+private theorem qc_undershoot_le_one (eps3 rem r_hi : Nat) :
     evmOr
       (evmLt (evmShr (evmAnd (evmAnd 86 255) 255) eps3)
              (evmShr (evmAnd (evmAnd 86 255) 255) rem))
@@ -80,7 +80,7 @@ theorem evmAnd_mask86_eq_mod (x : Nat) (hx : x < WORD_MOD) :
 
 /-- If the QC check bit is zero, then either the high limb of `rem` is smaller,
     or the high limbs tie and the low-limb comparison fails. -/
-theorem qc_check_zero_cases (eps3 rem r_hi : Nat)
+private theorem qc_check_zero_cases (eps3 rem r_hi : Nat)
     (hcheck0 :
       ((if eps3 / 2 ^ 86 < rem / 2 ^ 86 then 1 else 0) |||
         ((if eps3 / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0) &&&
@@ -124,7 +124,7 @@ theorem div_lt_implies_lt (a b : Nat)
   omega
 
 /-- A split-limb comparison with equal high limbs implies the full-number bound. -/
-theorem split_limb_le_implies_le (a b m : Nat)
+private theorem split_limb_le_implies_le (a b m : Nat)
     (hm_le : m ≤ 2 ^ 86)
     (h_eq : a / 2 ^ 86 = b / 2 ^ 86)
     (h_lo : (a % 2 ^ 86) * 2 ^ 86 ≤ (b % 2 ^ 86) * m) :
