@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {Vm} from "@forge-std/Vm.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
@@ -35,6 +36,25 @@ interface IRouterClient {
         returns (uint256);
 
     function isChainSupported(uint64 chainSelector) external view returns (bool);
+}
+
+interface IOnRamp {
+    /// @dev Matches Internal.EVM2EVMMessage from the CCIP onRamp for event decoding
+    struct EVM2EVMMessage {
+        uint64 sourceChainSelector;
+        address sender;
+        address receiver;
+        uint64 sequenceNumber;
+        uint256 gasLimit;
+        bool strict;
+        uint64 nonce;
+        address feeToken;
+        uint256 feeTokenAmount;
+        bytes data;
+        IRouterClient.EVMTokenAmount[] tokenAmounts;
+        bytes[] sourceTokenData;
+        bytes32 messageId;
+    }
 }
 
 contract CCIPTest is BridgeSettlerIntegrationTest {
@@ -257,6 +277,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
 
         // Execute
         vm.expectCall(CCIP_ROUTER, fee, abi.encodeCall(IRouterClient.ccipSend, (ARBITRUM_SELECTOR, message)));
+        vm.recordLogs();
         ALLOWANCE_HOLDER.exec{value: fee}(
             address(bridgeSettler),
             address(USDC),
@@ -266,10 +287,22 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         );
 
         assertEq(USDC.balanceOf(address(this)), usdcBalanceBefore - amount, "USDC balance should have decreased");
-        // Verify the onRamp received the fee in WETH
         assertEq(WETH.balanceOf(onRamp), onRampWethBefore + fee, "onRamp should have received the fee in WETH");
-        // Verify USDC was burned (supply decreased)
         assertEq(USDC.totalSupply(), usdcSupplyBefore - amount, "USDC supply should have decreased by bridged amount");
+
+        // Verify CCIPSendRequested was emitted from onRamp and contains our crossChainData
+        // event CCIPSendRequested(IOnRamp.EVM2EVMMessage message)
+        bytes32 ccipTopic = 0xd0c3c799bf9e2639de44391e7f524d229b2b55f5b1ea94b2bf7da42f7243dddd;
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 ccipSendRequestedCount = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == ccipTopic && logs[i].emitter == onRamp) {
+                IOnRamp.EVM2EVMMessage memory ccipMsg = abi.decode(logs[i].data, (IOnRamp.EVM2EVMMessage));
+                assertEq(ccipMsg.data, crossChainData, "CCIPSendRequested data should match crossChainData");
+                ccipSendRequestedCount++;
+            }
+        }
+        assertEq(ccipSendRequestedCount, 1, "CCIPSendRequested event not emitted");
     }
 
     function testRevertIfFeeTokenNotZero() public {
