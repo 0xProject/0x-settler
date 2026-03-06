@@ -1825,7 +1825,231 @@ private theorem r_qc_cube_lt_x_norm (x_hi_1 x_lo_1 : Nat)
     (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) *
     (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) <
     x_hi_1 * 2 ^ 256 + x_lo_1 := by
-  sorry
+  -- ======== Base case bounds ========
+  have hbc := model_cbrtBaseCase_evm_correct x_hi_1 hxhi_lo hxhi_hi
+  simp only at hbc
+  rw [show icbrt (x_hi_1 / 4) = m from hm_eq.symm] at hbc
+  have hm_lo : 2 ^ 83 ≤ m := hbc.2.2.2.1
+  have hm_hi : m < 2 ^ 85 := hbc.2.2.2.2.1
+  have hcube_le_w : m * m * m ≤ x_hi_1 / 4 := hbc.2.2.2.2.2.1
+  have hm_wm : m < WORD_MOD := hbc.2.2.2.2.2.2.2.1
+  have hm_pos : 2 ≤ m := Nat.le_trans (show 2 ≤ 2 ^ 83 from by
+    rw [show (2 : Nat) ^ 83 = 2 * 2 ^ 82 from by
+      rw [show (83 : Nat) = 1 + 82 from rfl, Nat.pow_add]]; omega) hm_lo
+  have hR_pos : 0 < m * 2 ^ 86 := by omega
+  have hd_pos : 0 < 3 * (m * m) :=
+    Nat.mul_pos (by omega) (Nat.mul_pos (by omega) (by omega))
+  have hres_bound : x_hi_1 / 4 - m * m * m ≤ 3 * (m * m) + 3 * m := hbc.2.2.2.2.2.2.1
+  have hlimb_86 : (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86 := by
+    have : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
+    have : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by unfold WORD_MOD at hxlo; omega
+    omega
+  have hr_lo_bound : nat_r_lo < 2 ^ 87 := by
+    rw [hr_lo_eq, Nat.div_lt_iff_lt_mul hd_pos]
+    have h2m : 2 * m ≤ m * m := Nat.mul_le_mul_right m (by omega)
+    calc ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+            (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172))
+        < ((x_hi_1 / 4 - m * m * m) + 1) * 2 ^ 86 := by omega
+      _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by apply Nat.mul_le_mul_right; omega
+      _ ≤ (2 * (3 * (m * m))) * 2 ^ 86 := by apply Nat.mul_le_mul_right; omega
+      _ = 2 ^ 87 * (3 * (m * m)) := by
+          rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
+            rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]; omega
+  have hr_lo_wm : nat_r_lo < WORD_MOD := by unfold WORD_MOD; omega
+  have hmm_hi : m * m < 2 ^ 170 :=
+    calc m * m < m * 2 ^ 85 := Nat.mul_lt_mul_of_pos_left hm_hi (by omega)
+      _ ≤ 2 ^ 85 * 2 ^ 85 := Nat.mul_le_mul_right _ (Nat.le_of_lt hm_hi)
+      _ = 2 ^ 170 := by rw [← Nat.pow_add]
+  have hd_wm : 3 * (m * m) < WORD_MOD := by unfold WORD_MOD; omega
+  have hrem_wm : nat_rem < WORD_MOD := by
+    rw [hrem_eq]; exact Nat.lt_of_lt_of_le (Nat.mod_lt _ hd_pos) (Nat.le_of_lt hd_wm)
+  have hc_gt1 : nat_r_lo * nat_r_lo / (m * 2 ^ 86) > 1 := by
+    by_cases hcgt : nat_r_lo * nat_r_lo / (m * 2 ^ 86) > 1
+    · exact hcgt
+    · exfalso
+      have hexact := model_cbrtQuadraticCorrection_evm_exact_when_c_le1
+          m nat_r_lo nat_rem hm_wm hr_lo_wm hrem_wm hm_pos hm_hi hr_lo_bound (by omega)
+      omega
+  -- ======== Abbreviate ========
+  let R := m * 2 ^ 86
+  let c := nat_r_lo * nat_r_lo / R
+  let ε := nat_r_lo * nat_r_lo % R
+  let t := nat_r_lo - c
+  -- ======== c ≤ nat_r_lo ========
+  have hc_le : c ≤ nat_r_lo := by
+    show nat_r_lo * nat_r_lo / (m * 2 ^ 86) ≤ nat_r_lo
+    have hR_gt : nat_r_lo < m * 2 ^ 86 := by omega
+    cases Nat.eq_or_lt_of_le (Nat.zero_le nat_r_lo) with
+    | inl h => rw [← h]; simp
+    | inr h =>
+      exact Nat.le_of_lt ((Nat.div_lt_iff_lt_mul hR_pos).mpr
+        (Nat.mul_lt_mul_of_pos_left hR_gt h))
+  -- ======== Undershoot: ε * 3 * R ≤ nat_rem * 2^172 ========
+  have hundershoot := undershoot_implies_rem_gt_3Reps m nat_r_lo nat_rem
+      hm_wm hr_lo_wm hrem_wm hm_pos hm_hi hr_lo_bound hc_gt1 hr1_eq
+  -- ======== x_norm decomposition ========
+  have hx_decomp := x_norm_decomp x_hi_1 x_lo_1 (m * m * m) hcube_le_w
+  have hn_full := Nat.div_add_mod
+      ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) (3 * (m * m))
+  have h_num_eq : (x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+      (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172) =
+      3 * (m * m) * nat_r_lo + nat_rem := by
+    rw [hr_lo_eq, hrem_eq]; exact hn_full.symm
+  have hR3 := R_cube_factor m
+  have hd_eq_3R2 := d_pow172_eq_3R_sq m
+  -- x_norm lower bound: x_norm ≥ R³ + 3R²·r_lo (same as sub-lemma B)
+  have hx_lb : m * m * m * 2 ^ 258 + 3 * (m * m) * nat_r_lo * 2 ^ 172 ≤
+      x_hi_1 * 2 ^ 256 + x_lo_1 := by
+    rw [hx_decomp, h_num_eq, Nat.add_mul, Nat.mul_assoc]; omega
+  have hx_lb2 : R * R * R + 3 * (R * R) * nat_r_lo ≤ x_hi_1 * 2 ^ 256 + x_lo_1 := by
+    calc R * R * R + 3 * (R * R) * nat_r_lo
+        = m * m * m * 2 ^ 258 + 3 * (m * m) * nat_r_lo * 2 ^ 172 := by
+          rw [← hR3]
+          show R * R * R + 3 * (R * R) * nat_r_lo =
+            R * R * R + 3 * (m * m) * nat_r_lo * 2 ^ 172
+          rw [← hd_eq_3R2]
+          simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      _ ≤ x_hi_1 * 2 ^ 256 + x_lo_1 := hx_lb
+  -- ======== Division/mod identity ========
+  have hdm := Nat.div_add_mod (nat_r_lo * nat_r_lo) R
+  -- ======== Floor division bound: r_lo² < (c+1)R ========
+  have hcR_lt : nat_r_lo * nat_r_lo < (c + 1) * R := by
+    show nat_r_lo * nat_r_lo < (nat_r_lo * nat_r_lo / R + 1) * R
+    have hmod_lt := Nat.mod_lt (nat_r_lo * nat_r_lo) hR_pos
+    calc nat_r_lo * nat_r_lo
+        = R * (nat_r_lo * nat_r_lo / R) + nat_r_lo * nat_r_lo % R := hdm.symm
+      _ < R * (nat_r_lo * nat_r_lo / R) + R := Nat.add_lt_add_left hmod_lt _
+      _ = R * (nat_r_lo * nat_r_lo / R + 1) := by rw [Nat.mul_add, Nat.mul_one]
+      _ = (nat_r_lo * nat_r_lo / R + 1) * R := Nat.mul_comm _ _
+  -- t ≤ r_lo, t² ≤ r_lo² < (c+1)R
+  have ht_le : t ≤ nat_r_lo := Nat.sub_le _ _
+  have ht_sq_lt : t * t < (c + 1) * R :=
+    Nat.lt_of_le_of_lt (Nat.mul_le_mul ht_le ht_le) hcR_lt
+  -- ======== t³ < 6Rtc + 3Rc² ========
+  have h_t_cube_lt : t * t * t < 6 * R * t * c + 3 * R * (c * c) := by
+    cases Nat.eq_or_lt_of_le (Nat.zero_le t) with
+    | inl ht0 =>
+      rw [← ht0]; simp
+      have hc_pos : 0 < c := Nat.lt_trans (by omega : 0 < 1) hc_gt1
+      exact Nat.mul_pos (Nat.mul_pos (by omega : 0 < 3) hR_pos)
+        (Nat.mul_pos hc_pos hc_pos)
+    | inr ht_pos =>
+      have h1 : t * (t * t) < t * ((c + 1) * R) :=
+        Nat.mul_lt_mul_of_pos_left ht_sq_lt ht_pos
+      rw [show t * t * t = t * (t * t) from Nat.mul_assoc _ _ _]
+      calc t * (t * t)
+          < t * ((c + 1) * R) := h1
+        _ ≤ t * (6 * c * R) := by
+            apply Nat.mul_le_mul_left
+            -- (c + 1) * R ≤ (6 * c) * R
+            exact Nat.mul_le_mul_right R (show c + 1 ≤ 6 * c from by
+              have : c > 1 := hc_gt1; omega)
+        _ = 6 * R * t * c := by
+            suffices h : (↑(t * (6 * c * R)) : Int) = ↑(6 * R * t * c) by exact_mod_cast h
+            push_cast; simp [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+        _ ≤ 6 * R * t * c + 3 * R * (c * c) := Nat.le_add_right _ _
+  -- ======== 3Rt² + 6Rtc + 3Rc² = 3R·r_lo² (from sq_sum_expand) ========
+  have htc_rlo : t + c = nat_r_lo := by show nat_r_lo - c + c = nat_r_lo; omega
+  have hrlo_sq := sq_sum_expand t c
+  have h3R_expand : 3 * R * (t * t) + (6 * R * t * c + 3 * R * (c * c)) =
+      3 * R * (nat_r_lo * nat_r_lo) := by
+    rw [← htc_rlo, hrlo_sq]
+    suffices h : (↑(3 * R * (t * t) + (6 * R * t * c + 3 * R * (c * c))) : Int) =
+        ↑(3 * R * (t * t + 2 * t * c + c * c)) by
+      have h2 : (↑(3 * R * (t * t + 2 * t * c + c * c)) : Int) =
+          ↑(3 * R * (t * t) + (6 * R * t * c + 3 * R * (c * c))) := h.symm
+      exact_mod_cast h2.symm
+    push_cast
+    simp [Int.mul_add, Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    omega
+  -- ======== 3R²c + rem·2^172 ≥ 3R·r_lo² (from undershoot + div_add_mod) ========
+  have h3R_rlo2 : 3 * (R * R) * c + ε * 3 * R = 3 * R * (nat_r_lo * nat_r_lo) := by
+    -- 3R²c + 3Rε = 3R(Rc + ε) = 3R·r_lo²
+    have h_factor : 3 * (R * R) * c + ε * 3 * R = 3 * R * (R * c + ε) := by
+      suffices h : (↑(3 * (R * R) * c + ε * 3 * R) : Int) = ↑(3 * R * (R * c + ε)) by
+        exact_mod_cast h
+      push_cast
+      simp only [Int.mul_add, Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    rw [h_factor, show R * c + ε = nat_r_lo * nat_r_lo from hdm]
+  have h_dom : 3 * R * (nat_r_lo * nat_r_lo) ≤
+      3 * (R * R) * c + nat_rem * 2 ^ 172 := by
+    calc 3 * R * (nat_r_lo * nat_r_lo)
+        = 3 * (R * R) * c + ε * 3 * R := h3R_rlo2.symm
+      _ ≤ 3 * (R * R) * c + nat_rem * 2 ^ 172 := Nat.add_le_add_left hundershoot _
+  -- ======== Final chain: (R+t)³ < x_norm ========
+  -- Goal: (m*2^86 + nat_r_lo - c)³ < x_norm.
+  -- Since R, c, t are let-bound, goal is (R + nat_r_lo - c)³ < x_norm,
+  -- which is definitionally (R + t + c - c)... we use Nat.add_sub_cancel:
+  -- R + nat_r_lo - c = R + (nat_r_lo - c) = R + t (via hc_le and omega)
+  -- Suffices: (R + t)³ < x_norm
+  -- (R + t)³ = R³ + 3R²t + 3Rt² + t³  [cube_sum_expand]
+  -- From algebraic chain + undershoot:
+  --   3Rt² + t³ < 3R·r_lo² ≤ 3R²c + rem·2^172 ≤ 3R²r_lo  (NOT what I need)
+  -- Actually: 3Rt² + t³ < 3R·r_lo² ≤ 3R²c + rem·2^172 (from h_dom)
+  -- So: (R + t)³ = R³ + 3R²t + 3Rt² + t³ < R³ + 3R²t + 3R²c + rem·2^172
+  --             = R³ + 3R²(t + c) + rem·2^172 = R³ + 3R²·r_lo + rem·2^172
+  --             ≤ x_norm (from hx_lb2, which drops rem·2^172 and c_tail)
+  -- WAIT: hx_lb2 only gives R³ + 3R²·r_lo ≤ x_norm. I need a bound with rem·2^172.
+  -- BUT: 3Rt² + t³ < 3R²c + rem·2^172, and I also need ≤ 3R²·r_lo.
+  --   3R²c ≤ 3R²·r_lo (since c ≤ r_lo). So 3Rt² + t³ < 3R²·r_lo + rem·2^172.
+  --   Then: (R+t)³ < R³ + 3R²t + 3R²·r_lo + rem·2^172 ≤ R³ + 3R²·(t + r_lo) + rem...
+  --   Hmm, this gives 3R²(t + r_lo), not 3R²·r_lo. Let me reconsider.
+  --
+  -- Correct chain: (R+t)³ = R³ + 3R²t + 3Rt² + t³
+  -- Need to show < x_norm.
+  -- x_norm ≥ R³ + 3R²·r_lo (from hx_lb2).
+  -- Suffices: 3R²t + 3Rt² + t³ < 3R²·r_lo, i.e., 3Rt² + t³ < 3R²(r_lo - t) = 3R²c.
+  -- But 3Rt² + t³ < 3R²c is NOT always true (as analyzed).
+  -- The correct approach: use x_norm ≥ R³ + 3R²·r_lo + rem·2^172 (with rem term).
+  -- But hx_lb2 drops the rem term.
+  -- Need a TIGHTER lower bound: hx_lb (line above) gives m³·2^258 + 3m²·r_lo·2^172 ≤ x_norm.
+  -- Which is R³ + 3R²·r_lo ≤ x_norm. No rem term.
+  -- For the full bound, need: x_norm = R³ + 3R²r_lo + rem·2^172 + c_tail.
+  -- But proving this exact equality through R-based terms was the problem.
+  --
+  -- Alternative: prove the FULL lower bound including rem*2^172:
+  -- x_norm ≥ R³ + 3R²r_lo + rem*2^172
+  -- From hx_decomp + h_num_eq: x_norm = m³·2^258 + (3m²·r_lo + rem)·2^172 + c_tail
+  --   ≥ m³·2^258 + (3m²·r_lo + rem)·2^172
+  --   = m³·2^258 + 3m²·r_lo·2^172 + rem·2^172
+  --   = R³ + 3R²·r_lo + rem·2^172 (converting via hR3, hd_eq_3R2)
+  have hx_lb3 : R * R * R + 3 * (R * R) * nat_r_lo + nat_rem * 2 ^ 172 ≤
+      x_hi_1 * 2 ^ 256 + x_lo_1 := by
+    have hx_lb_m : m * m * m * 2 ^ 258 + 3 * (m * m) * nat_r_lo * 2 ^ 172 +
+        nat_rem * 2 ^ 172 ≤ x_hi_1 * 2 ^ 256 + x_lo_1 := by
+      rw [hx_decomp, h_num_eq, Nat.add_mul, Nat.mul_assoc]; omega
+    have h3R2rlo : 3 * (R * R) * nat_r_lo = 3 * (m * m) * nat_r_lo * 2 ^ 172 := by
+      show 3 * (m * 2 ^ 86 * (m * 2 ^ 86)) * nat_r_lo =
+        3 * (m * m) * nat_r_lo * 2 ^ 172
+      rw [← hd_eq_3R2]; simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+    calc R * R * R + 3 * (R * R) * nat_r_lo + nat_rem * 2 ^ 172
+        = m * m * m * 2 ^ 258 + 3 * (m * m) * nat_r_lo * 2 ^ 172 +
+            nat_rem * 2 ^ 172 := by rw [hR3, h3R2rlo]
+      _ ≤ x_hi_1 * 2 ^ 256 + x_lo_1 := hx_lb_m
+  -- Now the final chain works:
+  -- (R + t)³ = R³ + 3R²t + 3Rt² + t³
+  -- 3Rt² + t³ < 3R·r_lo² ≤ 3R²c + rem·2^172
+  -- So (R+t)³ < R³ + 3R²t + 3R²c + rem·2^172 = R³ + 3R²·r_lo + rem·2^172 ≤ x_norm
+  -- Use: R + nat_r_lo - c = R + t (definitionally, omega handles Nat sub)
+  show (R + nat_r_lo - c) * (R + nat_r_lo - c) * (R + nat_r_lo - c) <
+      x_hi_1 * 2 ^ 256 + x_lo_1
+  have hrqc_eq : R + nat_r_lo - c = R + t := by omega
+  rw [hrqc_eq, cube_sum_expand R t]
+  calc R * R * R + 3 * (R * R) * t + 3 * R * (t * t) + t * t * t
+      = R * R * R + 3 * (R * R) * t + (3 * R * (t * t) + t * t * t) := by omega
+    _ < R * R * R + 3 * (R * R) * t + (3 * (R * R) * c + nat_rem * 2 ^ 172) := by
+        -- Need: 3Rt² + t³ < 3R²c + rem·2^172
+        -- Chain: 3Rt² + t³ < 3R·r_lo² ≤ 3R²c + rem·2^172
+        have : 3 * R * (t * t) + t * t * t < 3 * R * (nat_r_lo * nat_r_lo) := by
+          calc 3 * R * (t * t) + t * t * t
+              < 3 * R * (t * t) + (6 * R * t * c + 3 * R * (c * c)) := by omega
+            _ = 3 * R * (nat_r_lo * nat_r_lo) := h3R_expand
+        omega
+    _ = R * R * R + (3 * (R * R) * t + 3 * (R * R) * c) + nat_rem * 2 ^ 172 := by omega
+    _ = R * R * R + 3 * (R * R) * (t + c) + nat_rem * 2 ^ 172 := by rw [← Nat.mul_add]
+    _ = R * R * R + 3 * (R * R) * nat_r_lo + nat_rem * 2 ^ 172 := by rw [htc_rlo]
+    _ ≤ x_hi_1 * 2 ^ 256 + x_lo_1 := hx_lb3
 
 -- ============================================================================
 -- ============================================================================
