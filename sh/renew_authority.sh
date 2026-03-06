@@ -138,6 +138,19 @@ declare -r signer
 declare -r -i feature="$1"
 shift
 
+declare deployment_safe_address
+if [[ ${@: -1} = [Dd][Aa][Oo] ]] ; then
+    deployment_safe_address="$(get_config governance.daoSafe)"
+    if [[ $deployment_safe_address = [Nn][Uu][Ll][Ll] ]] ; then
+        echo 'DAO Safe{Wallet} not configured for '"$chain_display_name" >&2
+        echo 'Exiting...' >&2
+        exit 0
+    fi
+else
+    deployment_safe_address="$(get_config governance.deploymentSafe)"
+fi
+declare -r deployment_safe_address
+
 declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
 function _compat_date {
@@ -165,7 +178,7 @@ auth_deadline="$(_compat_date "$auth_deadline_datestring" +%s)"
 declare -r -i auth_deadline
 
 declare renew_authority_calldata
-renew_authority_calldata="$(cast calldata "$authorize_sig" $feature "$(get_config governance.deploymentSafe)" $auth_deadline)"
+renew_authority_calldata="$(cast calldata "$authorize_sig" $feature "$deployment_safe_address" $auth_deadline)"
 declare -r renew_authority_calldata
 
 declare packed_signatures
@@ -190,4 +203,3 @@ if [[ $wallet_type = 'frame' ]] ; then
 else
     cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "${args[@]}"
 fi
-
