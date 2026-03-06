@@ -95,7 +95,52 @@ private theorem three_msq_plus_3m_lt (m : Nat)
     _ < 2 ^ 171 := hcert
 
 -- ============================================================================
--- Helper 3: EVM pipeline on normalized inputs = Nat r_qc
+-- Helper 3: Undershoot properties (P1 and P2)
+-- ============================================================================
+
+/-- P2: The QC result is always ≥ icbrt (the QC never undershoots below icbrt).
+    When model_cbrtQuadraticCorrection_evm returns r_qc (no undershoot correction),
+    it is already ≥ icbrt(x_norm). This encapsulates the undershoot analysis for both
+    the c ≤ 1 case (near R_MAX boundary) and the c > 1 / check-fails case. -/
+private theorem qc_no_undershoot (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD)
+    (m : Nat) (hm_eq : m = icbrt (x_hi_1 / 4))
+    (nat_r_lo nat_rem : Nat)
+    (hr_lo_eq : nat_r_lo = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)))
+    (hrem_eq : nat_rem = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) % (3 * (m * m)))
+    (hr1_eq : model_cbrtQuadraticCorrection_evm m nat_r_lo nat_rem =
+        m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) :
+    icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) ≤
+      m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) := by
+  sorry
+
+/-- P1: When the QC undershoot fires (returns r_qc + 1), then r_qc ≤ icbrt.
+    Moreover, r_qc³ < x_norm (strict), the cube (r_qc+1)³ < WORD_MOD², and
+    if (r_qc+1)³ > x_norm then x_norm is not a perfect cube. -/
+private theorem qc_undershoot_correct (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD)
+    (m : Nat) (hm_eq : m = icbrt (x_hi_1 / 4))
+    (nat_r_lo nat_rem : Nat)
+    (hr_lo_eq : nat_r_lo = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)))
+    (hrem_eq : nat_rem = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) % (3 * (m * m)))
+    (hr1_eq : model_cbrtQuadraticCorrection_evm m nat_r_lo nat_rem =
+        m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) :
+    let r_qc := m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)
+    let x_norm := x_hi_1 * 2 ^ 256 + x_lo_1
+    r_qc ≤ icbrt x_norm ∧
+    (r_qc + 1) * (r_qc + 1) * (r_qc + 1) < WORD_MOD * WORD_MOD ∧
+    ((r_qc + 1) * (r_qc + 1) * (r_qc + 1) > x_norm →
+      icbrt x_norm * icbrt x_norm * icbrt x_norm < x_norm) := by
+  sorry
+
+-- ============================================================================
+-- Helper 4: EVM pipeline on normalized inputs = Nat r_qc
 -- ============================================================================
 
 set_option exponentiation.threshold 1024 in
@@ -241,17 +286,27 @@ private theorem evm_pipeline_within_1ulp (x_hi_1 x_lo_1 : Nat)
       m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) ∨
       model_cbrtQuadraticCorrection_evm m nat_r_lo nat_rem =
       m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1 := by omega
+  -- Equalities needed for the helper lemmas
+  have hm_eq : m = icbrt (x_hi_1 / 4) := rfl
+  have hr_lo_eq : nat_r_lo = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+      (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)) := rfl
+  have hrem_eq : nat_rem = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+      (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) % (3 * (m * m)) := rfl
   rcases hr1_cases with hr1_eq | hr1_eq <;> rw [hr1_eq]
   · -- Case r_1 = r_qc (no undershoot)
     refine ⟨?_, hcomp_hi, hcomp_rqc_wm, hcomp_cube, hcomp_succ_wm, hcomp_overshoot⟩
-    -- [1] icbrt ≤ r_qc: THIS IS P2 — the hard part
-    sorry
+    -- [1] icbrt ≤ r_qc: use P2 helper
+    exact qc_no_undershoot x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo m hm_eq
+        nat_r_lo nat_rem hr_lo_eq hrem_eq hr1_eq
   · -- Case r_1 = r_qc + 1 (undershoot fired)
-    refine ⟨hcomp_lo, ?_, hcomp_succ_wm, ?_, ?_, ?_⟩
-    · -- [2] r_qc + 1 ≤ icbrt + 1: THIS IS P1 (r_qc ≤ icbrt)
-      sorry
-    · -- [4] (r_qc + 1)³ < WORD_MOD²: needs P1 to bound r_qc
-      sorry
+    -- Use P1 helper for the undershoot case
+    have hp1 := qc_undershoot_correct x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo m hm_eq
+        nat_r_lo nat_rem hr_lo_eq hrem_eq hr1_eq
+    simp only at hp1
+    obtain ⟨hp1_lo, hp1_cube, hp1_overshoot⟩ := hp1
+    refine ⟨hcomp_lo, ?_, hcomp_succ_wm, hp1_cube, ?_, hp1_overshoot⟩
+    · -- [2] r_qc + 1 ≤ icbrt + 1: from P1 (r_qc ≤ icbrt)
+      omega
     · -- [5] r_qc + 2 < WORD_MOD: from cube bound r_qc³ < WORD_MOD²
       -- r_qc³ < 2^512, so r_qc < 2^171 (since 2^513 > 2^512), hence r_qc + 2 < 2^256
       rcases Nat.lt_or_ge
@@ -276,8 +331,6 @@ private theorem evm_pipeline_within_1ulp (x_hi_1 x_lo_1 : Nat)
               rw [show (513 : Nat) = 171 + (171 + 171) from rfl, Nat.pow_add, Nat.pow_add,
                   Nat.mul_assoc]]
             exact Nat.le_of_lt (Nat.pow_lt_pow_right (by omega) (by omega))))
-    · -- [6] overshoot: (r_qc+1)³ > x_norm → icbrt³ < x_norm
-      sorry
 
 /-- The 512-bit _cbrt EVM model returns a value within 1ulp of icbrt.
     For x_hi > 0 and both x_hi, x_lo < 2^256:
