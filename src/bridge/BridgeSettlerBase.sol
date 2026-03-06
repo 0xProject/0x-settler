@@ -14,9 +14,10 @@ import {FastDeployer} from "../deployer/FastDeployer.sol";
 import {Basic} from "../core/Basic.sol";
 import {Relay} from "../core/Relay.sol";
 import {LayerZeroOFT} from "../core/LayerZeroOFT.sol";
+import {CCIP} from "../core/CCIP.sol";
 import {Underpayment} from "../core/SettlerErrors.sol";
 
-abstract contract BridgeSettlerBase is Basic, Relay, LayerZeroOFT {
+abstract contract BridgeSettlerBase is Basic, Relay, LayerZeroOFT, CCIP {
     using SafeTransferLib for IERC20;
     using Revert for bool;
     using FastDeployer for IDeployer;
@@ -100,6 +101,9 @@ abstract contract BridgeSettlerBase is Basic, Relay, LayerZeroOFT {
                     revert(0x1c, 0x44)
                 }
             }
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_CCIP.selector)) {
+            (IERC20 token, address router, bytes memory ccipSendData) = abi.decode(data, (IERC20, address, bytes));
+            bridgeToCCIP(token, router, ccipSendData);
         } else {
             return false;
         }
