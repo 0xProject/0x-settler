@@ -461,9 +461,7 @@ private theorem r_qc_cube_lt_x_norm (x_hi_1 x_lo_1 : Nat)
   have hm_hi : m < 2 ^ 85 := hbc.2.2.2.2.1
   have hcube_le_w : m * m * m ≤ x_hi_1 / 4 := hbc.2.2.2.2.2.1
   have hm_wm : m < WORD_MOD := hbc.2.2.2.2.2.2.2.1
-  have hm_pos : 2 ≤ m := Nat.le_trans (show 2 ≤ 2 ^ 83 from by
-    rw [show (2 : Nat) ^ 83 = 2 * 2 ^ 82 from by
-      rw [show (83 : Nat) = 1 + 82 from rfl, Nat.pow_add]]; omega) hm_lo
+  have hm_pos : 2 ≤ m := two_le_of_pow83_le m hm_lo
   have hR_pos : 0 < m * 2 ^ 86 := by omega
   have hd_pos : 0 < 3 * (m * m) :=
     Nat.mul_pos (by omega) (Nat.mul_pos (by omega) (by omega))
@@ -709,9 +707,7 @@ theorem qc_undershoot_cube_lt (x_hi_1 x_lo_1 : Nat)
   have hm_hi : m < 2 ^ 85 := hbc.2.2.2.2.1
   have hcube_le_w : m * m * m ≤ x_hi_1 / 4 := hbc.2.2.2.2.2.1
   have hm_wm : m < WORD_MOD := hbc.2.2.2.2.2.2.2.1
-  have hm_pos : 2 ≤ m := Nat.le_trans (show 2 ≤ 2 ^ 83 from by
-    rw [show (2 : Nat) ^ 83 = 2 * 2 ^ 82 from by
-      rw [show (83 : Nat) = 1 + 82 from rfl, Nat.pow_add]]; omega) hm_lo
+  have hm_pos : 2 ≤ m := two_le_of_pow83_le m hm_lo
   have hR_pos : 0 < m * 2 ^ 86 := by omega
   have hd_pos : 0 < 3 * (m * m) :=
     Nat.mul_pos (by omega) (Nat.mul_pos (by omega) (by omega))
@@ -852,9 +848,7 @@ private theorem r_qc_succ1_cube_gt_when_c_gt1_of_rem_bound (x_hi_1 x_lo_1 : Nat)
   have hm_hi : m < 2 ^ 85 := hbc.2.2.2.2.1
   have hcube_le_w : m * m * m ≤ x_hi_1 / 4 := hbc.2.2.2.2.2.1
   have hm_wm : m < WORD_MOD := hbc.2.2.2.2.2.2.2.1
-  have hm_pos : 2 ≤ m := Nat.le_trans (show 2 ≤ 2 ^ 83 from by
-    rw [show (2 : Nat) ^ 83 = 2 * 2 ^ 82 from by
-      rw [show (83 : Nat) = 1 + 82 from rfl, Nat.pow_add]]; omega) hm_lo
+  have hm_pos : 2 ≤ m := two_le_of_pow83_le m hm_lo
   have hR_pos : 0 < m * 2 ^ 86 := by omega
   have hd_pos : 0 < 3 * (m * m) :=
     Nat.mul_pos (by omega) (Nat.mul_pos (by omega) (by omega))
@@ -1124,10 +1118,7 @@ theorem r_qc_succ1_cube_gt_when_c_gt1 (x_hi_1 x_lo_1 : Nat)
   have hm_lo : 2 ^ 83 ≤ m := hbc.2.2.2.1
   have hm_hi : m < 2 ^ 85 := hbc.2.2.2.2.1
   have hm_wm : m < WORD_MOD := hbc.2.2.2.2.2.2.2.1
-  have hm_pos : 2 ≤ m := Nat.le_trans (show 2 ≤ 2 ^ 83 from by
-    rw [show (2 : Nat) ^ 83 = 2 * 2 ^ 82 from by
-      rw [show (83 : Nat) = 1 + 82 from rfl, Nat.pow_add]]
-    omega) hm_lo
+  have hm_pos : 2 ≤ m := two_le_of_pow83_le m hm_lo
   have hd_pos : 0 < 3 * (m * m) :=
     Nat.mul_pos (by omega) (Nat.mul_pos (by omega) (by omega))
   have hres_bound : x_hi_1 / 4 - m * m * m ≤ 3 * (m * m) + 3 * m := hbc.2.2.2.2.2.2.1

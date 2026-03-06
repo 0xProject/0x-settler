@@ -197,8 +197,7 @@ private theorem qc_undershoot_correct (x_hi_1 x_lo_1 : Nat)
   -- ======== Step 3: From hr1_eq, extract c > 1 ========
   -- Additional bounds needed for the QC exactness theorem
   have hm_wm : m < WORD_MOD := by rw [hm_eq]; exact hbc.2.2.2.2.2.2.2.1
-  have hm_pos : 2 ≤ m := Nat.le_trans (show 2 ≤ 2 ^ 83 from by
-    rw [show (2 : Nat) ^ 83 = 2 * 2 ^ 82 from by rw [show (83 : Nat) = 1 + 82 from rfl, Nat.pow_add]]; omega) hm_lo
+  have hm_pos : 2 ≤ m := two_le_of_pow83_le m hm_lo
   -- r_lo < 2^87 (from KQ quotient bound, same pattern as pipeline proof)
   have hd_pos : 3 * (m * m) > 0 := Nat.mul_pos (by omega) (Nat.mul_pos (by omega) (by omega))
   have hw_lt : x_hi_1 / 4 < 2 ^ 254 := by unfold WORD_MOD at hxhi_hi; omega
