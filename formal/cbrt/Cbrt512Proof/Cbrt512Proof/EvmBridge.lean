@@ -81,10 +81,4 @@ theorem evmNot_eq' (a : Nat) (ha : a < WORD_MOD) :
   unfold evmNot
   simp only [u256_id' a ha]
 
-theorem evmMulmod_eq' (a b n : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD)
-    (hn_pos : 0 < n) (hn : n < WORD_MOD) :
-    evmMulmod a b n = (a * b) % n := by
-  unfold evmMulmod u256
-  simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb, Nat.mod_eq_of_lt hn, Nat.ne_of_gt hn_pos]
-
 end Cbrt512Spec

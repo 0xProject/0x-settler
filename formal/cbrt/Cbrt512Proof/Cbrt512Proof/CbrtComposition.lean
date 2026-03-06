@@ -31,7 +31,7 @@ open Cbrt512GeneratedModel
 /-- The quadratic-corrected result satisfies within-1-ulp, cube bound, and
     overshoot properties. Composed from sub-lemmas A, B, E1 (r_qc ≤ R_MAX),
     and E2 (overshoot → not perfect cube). -/
-theorem r_qc_properties (x_hi_1 x_lo_1 : Nat)
+private theorem r_qc_properties (x_hi_1 x_lo_1 : Nat)
     (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
     (hxlo : x_lo_1 < WORD_MOD) :
     let w := x_hi_1 / 4
@@ -77,7 +77,7 @@ theorem r_qc_properties (x_hi_1 x_lo_1 : Nat)
 -- ============================================================================
 
 /-- r_qc < 2^172 (and hence < WORD_MOD). -/
-theorem r_qc_lt_pow172 (x_hi_1 x_lo_1 : Nat)
+private theorem r_qc_lt_pow172 (x_hi_1 x_lo_1 : Nat)
     (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
     (hxlo : x_lo_1 < WORD_MOD) :
     let w := x_hi_1 / 4
@@ -156,7 +156,7 @@ theorem r_qc_lt_pow172 (x_hi_1 x_lo_1 : Nat)
 -- ============================================================================
 
 /-- If a ||| (b &&& c) = 1 with all values ≤ 1, then a = 1 ∨ (b = 1 ∧ c = 1). -/
-theorem or_and_eq_one_cases (a b c : Nat) (ha : a ≤ 1) (hb : b ≤ 1) (hc : c ≤ 1)
+private theorem or_and_eq_one_cases (a b c : Nat) (ha : a ≤ 1) (hb : b ≤ 1) (hc : c ≤ 1)
     (h : a ||| (b &&& c) = 1) : a = 1 ∨ (b = 1 ∧ c = 1) := by
   have : a = 0 ∨ a = 1 := by omega
   have : b = 0 ∨ b = 1 := by omega
@@ -171,7 +171,7 @@ theorem or_and_eq_one_cases (a b c : Nat) (ha : a ≤ 1) (hb : b ≤ 1) (hc : c 
 -- ============================================================================
 
 /-- If eps3 < rem and R ≤ 2^172, then eps3 * R ≤ rem * 2^172. -/
-theorem eps3_lt_rem_implies_prod_le (eps3 rem R : Nat)
+private theorem eps3_lt_rem_implies_prod_le (eps3 rem R : Nat)
     (hR_le : R ≤ 2 ^ 172)
     (h_lt : eps3 < rem) :
     eps3 * R ≤ rem * 2 ^ 172 :=
@@ -184,7 +184,7 @@ theorem eps3_lt_rem_implies_prod_le (eps3 rem R : Nat)
     then a*(m*2^86) ≤ b*2^172.
     Proof: decompose a = 2^86*h + a_lo, b = 2^86*h + b_lo (same h).
     First terms bounded by m ≤ 2^86, second terms by the comparison. -/
-theorem split_limb_implies_prod_le (a b m : Nat)
+private theorem split_limb_implies_prod_le (a b m : Nat)
     (hm_le : m ≤ 2 ^ 86)
     (h_eq : a / 2 ^ 86 = b / 2 ^ 86)
     (h_lo : (a % 2 ^ 86) * m < (b % 2 ^ 86) * 2 ^ 86) :
@@ -215,7 +215,7 @@ theorem split_limb_implies_prod_le (a b m : Nat)
     ε = r_lo² mod R.  This is the key inequality making the x_norm decomposition
     positive: x_norm - r_qc³ = 3Rc(2r_lo-c) + (rem*2^172 - 3Rε) + c_tail - t³,
     and with this inequality, the (rem*2^172 - 3Rε) term is non-negative. -/
-theorem undershoot_implies_rem_gt_3Reps
+private theorem undershoot_implies_rem_gt_3Reps
     (m nat_r_lo nat_rem : Nat)
     (hm_wm : m < WORD_MOD) (hr_lo_wm : nat_r_lo < WORD_MOD) (hrem_wm : nat_rem < WORD_MOD)
     (hm_pos : 2 ≤ m) (hm_hi : m < 2 ^ 85)
@@ -438,7 +438,7 @@ theorem undershoot_implies_rem_gt_3Reps
     x_norm - r_qc³ = 3R²c + rem·2^172 + c_tail - 3Rt² - t³.
     From undershoot: rem·2^172 ≥ 3Rε ⟹ 3R²c + rem·2^172 ≥ 3R·r_lo².
     From sq_sum_expand: 3R·r_lo² = 3Rt² + 6Rtc + 3Rc², so t³ < 6Rtc + 3Rc². -/
-theorem r_qc_cube_lt_x_norm (x_hi_1 x_lo_1 : Nat)
+private theorem r_qc_cube_lt_x_norm (x_hi_1 x_lo_1 : Nat)
     (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
     (hxlo : x_lo_1 < WORD_MOD)
     (m : Nat) (hm_eq : m = icbrt (x_hi_1 / 4))
@@ -827,7 +827,7 @@ set_option exponentiation.threshold 1024 in
     This isolates the remaining work to the algebraic phase:
     compare x_norm with (R + s)³ once rem·2^172 has been reduced to
     3R(ε + R - m²). -/
-theorem r_qc_succ1_cube_gt_when_c_gt1_of_rem_bound (x_hi_1 x_lo_1 : Nat)
+private theorem r_qc_succ1_cube_gt_when_c_gt1_of_rem_bound (x_hi_1 x_lo_1 : Nat)
     (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
     (hxlo : x_lo_1 < WORD_MOD)
     (m : Nat) (hm_eq : m = icbrt (x_hi_1 / 4))
