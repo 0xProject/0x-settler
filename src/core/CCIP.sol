@@ -95,7 +95,7 @@ contract CCIP {
             // Call the router with the full msg.value (for fee payment)
             // The router is user-provided but we're calling a specific function (ccipSend)
             // which doesn't clash with restricted targets (AllowanceHolder & Permit2)
-            if iszero(call(gas(), router, callvalue(), add(0x1c, ccipSendData), add(0x04, len), 0x00, 0x00)) {
+            if iszero(call(gas(), router, selfbalance(), add(0x1c, ccipSendData), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
