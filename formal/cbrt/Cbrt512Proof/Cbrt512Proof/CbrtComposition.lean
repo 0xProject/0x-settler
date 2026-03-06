@@ -81,9 +81,9 @@ private theorem qc_undershoot_le_one (eps3 rem r_hi : Nat) :
       (evmAnd
         (evmEq (evmShr (evmAnd (evmAnd 86 255) 255) eps3)
                (evmShr (evmAnd (evmAnd 86 255) 255) rem))
-        (evmLt (evmMul (evmAnd eps3 1237940039285380274899124223) r_hi)
+        (evmLt (evmMul (evmAnd eps3 77371252455336267181195263) r_hi)
                (evmShl (evmAnd (evmAnd 86 255) 255)
-                       (evmAnd rem 1237940039285380274899124223)))) ≤ 1 :=
+                       (evmAnd rem 77371252455336267181195263)))) ≤ 1 :=
   evmOr_le_one _ _
     (evmLt_le_one _ _)
     (evmAnd_le_one _ _
@@ -1780,6 +1780,87 @@ private theorem r_qc_lt_pow172 (x_hi_1 x_lo_1 : Nat)
   omega
 
 -- ============================================================================
+-- Undershoot check helper lemmas
+-- ============================================================================
+
+/-- The mask constant 77371252455336267181195263 equals 2^86 - 1. -/
+private theorem mask_86_eq : 77371252455336267181195263 = 2 ^ 86 - 1 := by native_decide
+
+/-- evmAnd with the 86-bit mask extracts the low 86 bits (mod 2^86). -/
+private theorem evmAnd_mask86_eq_mod (x : Nat) (hx : x < WORD_MOD) :
+    evmAnd x 77371252455336267181195263 = x % 2 ^ 86 := by
+  have hmask_wm : (77371252455336267181195263 : Nat) < WORD_MOD := by
+    unfold WORD_MOD; omega
+  rw [evmAnd_eq' x _ hx hmask_wm, mask_86_eq]
+  exact Nat.and_two_pow_sub_one_eq_mod x 86
+
+/-- If a ||| (b &&& c) = 1 with all values ≤ 1, then a = 1 ∨ (b = 1 ∧ c = 1). -/
+private theorem or_and_eq_one_cases (a b c : Nat) (ha : a ≤ 1) (hb : b ≤ 1) (hc : c ≤ 1)
+    (h : a ||| (b &&& c) = 1) : a = 1 ∨ (b = 1 ∧ c = 1) := by
+  have : a = 0 ∨ a = 1 := by omega
+  have : b = 0 ∨ b = 1 := by omega
+  have : c = 0 ∨ c = 1 := by omega
+  rcases ‹a = 0 ∨ a = 1› with rfl | rfl
+  · rcases ‹b = 0 ∨ b = 1› with rfl | rfl <;>
+    rcases ‹c = 0 ∨ c = 1› with rfl | rfl <;> simp_all
+  · left; rfl
+
+-- ============================================================================
+-- Undershoot algebraic sub-lemmas
+-- ============================================================================
+
+/-- If eps3 < rem and R ≤ 2^172, then eps3 * R ≤ rem * 2^172. -/
+private theorem eps3_lt_rem_implies_prod_le (eps3 rem R : Nat)
+    (hR_le : R ≤ 2 ^ 172)
+    (h_lt : eps3 < rem) :
+    eps3 * R ≤ rem * 2 ^ 172 :=
+  Nat.le_trans
+    (Nat.mul_le_mul_right _ (Nat.le_of_lt h_lt))
+    (Nat.mul_le_mul_left _ hR_le)
+
+/-- If a/2^86 < b/2^86 then a < b. -/
+private theorem div_lt_implies_lt (a b : Nat)
+    (h : a / 2 ^ 86 < b / 2 ^ 86) : a < b := by
+  have h1 : (a / 2 ^ 86 + 1) * 2 ^ 86 ≤ b := by
+    calc (a / 2 ^ 86 + 1) * 2 ^ 86
+        ≤ (b / 2 ^ 86) * 2 ^ 86 := Nat.mul_le_mul_right _ (by omega)
+      _ ≤ b := by
+          have := Nat.div_mul_le_self b (2 ^ 86)
+          omega
+  have h2 : a < (a / 2 ^ 86 + 1) * 2 ^ 86 := by
+    have := Nat.div_add_mod a (2 ^ 86)
+    have := Nat.mod_lt a (Nat.two_pow_pos 86)
+    omega
+  omega
+
+/-- Exact split-limb comparison implies the product inequality.
+    When a/2^86 = b/2^86 and (a%2^86)*m < (b%2^86)*2^86 and m ≤ 2^86,
+    then a*(m*2^86) ≤ b*2^172.
+    Proof: decompose a = 2^86*h + a_lo, b = 2^86*h + b_lo (same h).
+    First terms bounded by m ≤ 2^86, second terms by the comparison. -/
+private theorem split_limb_implies_prod_le (a b m : Nat)
+    (hm_le : m ≤ 2 ^ 86)
+    (h_eq : a / 2 ^ 86 = b / 2 ^ 86)
+    (h_lo : (a % 2 ^ 86) * m < (b % 2 ^ 86) * 2 ^ 86) :
+    a * (m * 2 ^ 86) ≤ b * 2 ^ 172 := by
+  have hda := Nat.div_add_mod a (2 ^ 86)  -- 2^86 * (a/2^86) + a%2^86 = a
+  have hdb := Nat.div_add_mod b (2 ^ 86)  -- 2^86 * (b/2^86) + b%2^86 = b
+  have h2172 : (2 : Nat) ^ 172 = 2 ^ 86 * 2 ^ 86 := by
+    rw [show (172 : Nat) = 86 + 86 from rfl, Nat.pow_add]
+  rw [← hda, ← hdb, h_eq, h2172]
+  rw [Nat.add_mul, Nat.add_mul]
+  apply Nat.add_le_add
+  · -- 2^86*h*(m*2^86) ≤ 2^86*h*(2^86*2^86) since m ≤ 2^86
+    exact Nat.mul_le_mul_left _ (Nat.mul_le_mul_right _ hm_le)
+  · -- a%2^86*(m*2^86) ≤ b%2^86*(2^86*2^86)
+    apply Nat.le_of_lt
+    rw [show a % 2 ^ 86 * (m * 2 ^ 86) = (a % 2 ^ 86 * m) * 2 ^ 86 from by
+          simp [Nat.mul_assoc, Nat.mul_comm m, Nat.mul_left_comm]]
+    rw [show b % 2 ^ 86 * (2 ^ 86 * 2 ^ 86) = (b % 2 ^ 86 * 2 ^ 86) * 2 ^ 86 from by
+          simp [Nat.mul_assoc]]
+    exact Nat.mul_lt_mul_of_pos_right h_lo (Nat.two_pow_pos 86)
+
+-- ============================================================================
 -- Undershoot check algebraic consequence
 -- ============================================================================
 
@@ -1798,7 +1879,208 @@ private theorem undershoot_implies_rem_gt_3Reps
         m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) :
     nat_r_lo * nat_r_lo % (m * 2 ^ 86) * 3 * (m * 2 ^ 86) ≤
         nat_rem * 2 ^ 172 := by
-  sorry
+  -- ======== Bounds setup (same as QC bridge proof) ========
+  have hR_ge : 2 ^ 87 ≤ m * 2 ^ 86 :=
+    calc 2 ^ 87 = 2 * 2 ^ 86 := by
+          rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]
+      _ ≤ m * 2 ^ 86 := Nat.mul_le_mul_right _ hm_pos
+  have hR_lt : m * 2 ^ 86 < 2 ^ 171 :=
+    calc m * 2 ^ 86
+        < 2 ^ 85 * 2 ^ 86 := Nat.mul_lt_mul_of_pos_right hm_hi (Nat.two_pow_pos 86)
+      _ = 2 ^ 171 := by rw [← Nat.pow_add]
+  have hR_wm : m * 2 ^ 86 < WORD_MOD := by unfold WORD_MOD; omega
+  have hR_pos : 0 < m * 2 ^ 86 := by omega
+  have hr_lo_sq : nat_r_lo * nat_r_lo < 2 ^ 174 := by
+    cases Nat.eq_or_lt_of_le (Nat.zero_le nat_r_lo) with
+    | inl h => rw [← h]; simp
+    | inr h =>
+      calc nat_r_lo * nat_r_lo
+          < nat_r_lo * 2 ^ 87 := Nat.mul_lt_mul_of_pos_left hr_lo_bound h
+        _ ≤ 2 ^ 87 * 2 ^ 87 := Nat.mul_le_mul_right _ (Nat.le_of_lt hr_lo_bound)
+        _ = 2 ^ 174 := by rw [← Nat.pow_add]
+  have hr_lo_sq_wm : nat_r_lo * nat_r_lo < WORD_MOD := by unfold WORD_MOD; omega
+  have hR_gt_rlo : nat_r_lo < m * 2 ^ 86 := by omega
+  have hc_le : nat_r_lo * nat_r_lo / (m * 2 ^ 86) ≤ nat_r_lo := by
+    cases Nat.eq_or_lt_of_le (Nat.zero_le nat_r_lo) with
+    | inl h => rw [← h]; simp
+    | inr h =>
+      exact Nat.le_of_lt ((Nat.div_lt_iff_lt_mul hR_pos).mpr
+        (Nat.mul_lt_mul_of_pos_left hR_gt_rlo h))
+  have hcR_le : (nat_r_lo * nat_r_lo / (m * 2 ^ 86)) * (m * 2 ^ 86) ≤ nat_r_lo * nat_r_lo :=
+    Nat.div_mul_le_self _ _
+  let c := nat_r_lo * nat_r_lo / (m * 2 ^ 86)
+  have hc_wm : c < WORD_MOD := Nat.lt_of_le_of_lt hc_le hr_lo_wm
+  have hcR_wm : c * (m * 2 ^ 86) < WORD_MOD :=
+    Nat.lt_of_le_of_lt hcR_le hr_lo_sq_wm
+  -- ======== EVM-to-Nat reduction lemmas ========
+  have hR_eq : evmShl (evmAnd (evmAnd 86 255) 255) m = m * 2 ^ 86 := by
+    rw [qc_const_86, evmShl_eq' 86 m (by omega) hm_wm]
+    exact Nat.mod_eq_of_lt hR_wm
+  have hSq_eq : evmMul nat_r_lo nat_r_lo = nat_r_lo * nat_r_lo := by
+    rw [evmMul_eq' nat_r_lo nat_r_lo hr_lo_wm hr_lo_wm]; exact Nat.mod_eq_of_lt hr_lo_sq_wm
+  have hC_eq : evmDiv (nat_r_lo * nat_r_lo) (m * 2 ^ 86) = c :=
+    evmDiv_eq' _ _ hr_lo_sq_wm hR_pos hR_wm
+  have hCR_eq : evmMul c (m * 2 ^ 86) = c * (m * 2 ^ 86) := by
+    rw [evmMul_eq' c _ hc_wm hR_wm]; exact Nat.mod_eq_of_lt hcR_wm
+  have hResid_eq : evmSub (nat_r_lo * nat_r_lo) (c * (m * 2 ^ 86)) =
+      nat_r_lo * nat_r_lo % (m * 2 ^ 86) := by
+    rw [evmSub_eq_of_le _ _ hr_lo_sq_wm hcR_le,
+        show c * (m * 2 ^ 86) = (m * 2 ^ 86) * c from Nat.mul_comm _ _]
+    have hdm := Nat.div_add_mod (nat_r_lo * nat_r_lo) (m * 2 ^ 86)
+    rw [Nat.add_comm] at hdm
+    exact Nat.sub_eq_of_eq_add hdm.symm
+  have hmod_lt : nat_r_lo * nat_r_lo % (m * 2 ^ 86) < WORD_MOD :=
+    Nat.lt_of_lt_of_le (Nat.mod_lt _ hR_pos) (by unfold WORD_MOD; omega)
+  have heps3_wm : (nat_r_lo * nat_r_lo % (m * 2 ^ 86)) * 3 < WORD_MOD := by
+    calc (nat_r_lo * nat_r_lo % (m * 2 ^ 86)) * 3
+        < (m * 2 ^ 86) * 3 := Nat.mul_lt_mul_of_pos_right (Nat.mod_lt _ hR_pos) (by omega)
+      _ < 2 ^ 171 * 3 := Nat.mul_lt_mul_of_pos_right hR_lt (by omega)
+      _ < WORD_MOD := by unfold WORD_MOD; omega
+  have hEps3_eq : evmMul (nat_r_lo * nat_r_lo % (m * 2 ^ 86)) 3 =
+      (nat_r_lo * nat_r_lo % (m * 2 ^ 86)) * 3 := by
+    rw [evmMul_eq' _ 3 hmod_lt (by unfold WORD_MOD; omega)]
+    exact Nat.mod_eq_of_lt heps3_wm
+  have hSub_eq : evmSub nat_r_lo c = nat_r_lo - c :=
+    evmSub_eq_of_le _ _ hr_lo_wm hc_le
+  have hGt_eq : evmGt c 1 = if c > 1 then 1 else 0 :=
+    evmGt_eq' c 1 hc_wm (by unfold WORD_MOD; omega)
+  -- ======== Abbreviations for eps3 ========
+  let eps3 := (nat_r_lo * nat_r_lo % (m * 2 ^ 86)) * 3
+  -- eps3 < WORD_MOD (carry through for omega)
+  have heps3_wm' : eps3 < WORD_MOD := heps3_wm
+  -- ======== Unfold model in hr1_eq and simplify ========
+  unfold model_cbrtQuadraticCorrection_evm at hr1_eq
+  simp only [u256_id' m hm_wm, u256_id' nat_r_lo hr_lo_wm, u256_id' nat_rem hrem_wm,
+             hR_eq, hSq_eq, hC_eq, hCR_eq, hResid_eq, hEps3_eq, hSub_eq, hGt_eq] at hr1_eq
+  -- Now hr1_eq is about the if-then-else on c > 1
+  rw [if_pos hc_gt1] at hr1_eq
+  -- The if branch: evmAdd (nat_r_lo - c) (check) where check is the undershoot OR expression
+  -- Since c > 1, the inner if is also taken
+  rw [if_pos (show (1 : Nat) ≠ 0 from by omega)] at hr1_eq
+  -- ======== Reduce the check sub-expressions ========
+  -- eps3 / 2^86 and rem / 2^86 (the high parts)
+  have hShr_eps3 : evmShr (evmAnd (evmAnd 86 255) 255) eps3 = eps3 / 2 ^ 86 := by
+    rw [qc_const_86, evmShr_eq' 86 eps3 (by omega) heps3_wm']
+  have hShr_rem : evmShr (evmAnd (evmAnd 86 255) 255) nat_rem = nat_rem / 2 ^ 86 := by
+    rw [qc_const_86, evmShr_eq' 86 nat_rem (by omega) hrem_wm]
+  have heps3_hi_wm : eps3 / 2 ^ 86 < WORD_MOD :=
+    Nat.lt_of_le_of_lt (Nat.div_le_self _ _) heps3_wm'
+  have hrem_hi_wm : nat_rem / 2 ^ 86 < WORD_MOD := by
+    unfold WORD_MOD; exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hrem_wm
+  -- evmLt on high parts
+  have hLt_hi : evmLt (eps3 / 2 ^ 86) (nat_rem / 2 ^ 86) =
+      if eps3 / 2 ^ 86 < nat_rem / 2 ^ 86 then 1 else 0 :=
+    evmLt_eq' _ _ heps3_hi_wm hrem_hi_wm
+  -- evmEq on high parts
+  have hEq_hi : evmEq (eps3 / 2 ^ 86) (nat_rem / 2 ^ 86) =
+      if eps3 / 2 ^ 86 = nat_rem / 2 ^ 86 then 1 else 0 :=
+    evmEq_eq' _ _ heps3_hi_wm hrem_hi_wm
+  -- Low parts: evmAnd with mask86 = mod 2^86
+  have hAnd_eps3 : evmAnd eps3 77371252455336267181195263 = eps3 % 2 ^ 86 :=
+    evmAnd_mask86_eq_mod eps3 heps3_wm'
+  have hAnd_rem : evmAnd nat_rem 77371252455336267181195263 = nat_rem % 2 ^ 86 :=
+    evmAnd_mask86_eq_mod nat_rem hrem_wm
+  -- Low part products
+  have heps3_lo_wm : eps3 % 2 ^ 86 < WORD_MOD := by
+    unfold WORD_MOD; exact Nat.lt_of_lt_of_le (Nat.mod_lt _ (Nat.two_pow_pos 86)) (by omega)
+  have hrem_lo_wm : nat_rem % 2 ^ 86 < WORD_MOD := by
+    unfold WORD_MOD; exact Nat.lt_of_lt_of_le (Nat.mod_lt _ (Nat.two_pow_pos 86)) (by omega)
+  have hMul_lo : evmMul (eps3 % 2 ^ 86) m = ((eps3 % 2 ^ 86) * m) % WORD_MOD :=
+    evmMul_eq' _ _ heps3_lo_wm hm_wm
+  -- (eps3 % 2^86) * m < 2^86 * 2^85 = 2^171 < WORD_MOD
+  have hprod_eps3_bound : (eps3 % 2 ^ 86) * m < 2 ^ 171 :=
+    calc (eps3 % 2 ^ 86) * m
+        < 2 ^ 86 * m := Nat.mul_lt_mul_of_pos_right (Nat.mod_lt _ (Nat.two_pow_pos 86)) (by omega)
+      _ < 2 ^ 86 * 2 ^ 85 := Nat.mul_lt_mul_of_pos_left hm_hi (Nat.two_pow_pos 86)
+      _ = 2 ^ 171 := by rw [← Nat.pow_add]
+  have hprod_eps3_wm : (eps3 % 2 ^ 86) * m < WORD_MOD := by unfold WORD_MOD; omega
+  rw [Nat.mod_eq_of_lt hprod_eps3_wm] at hMul_lo
+  -- evmShl 86 (rem % 2^86) = (rem % 2^86) * 2^86
+  have hShl_rem : evmShl (evmAnd (evmAnd 86 255) 255) (nat_rem % 2 ^ 86) =
+      (nat_rem % 2 ^ 86) * 2 ^ 86 := by
+    rw [qc_const_86, evmShl_eq' 86 (nat_rem % 2 ^ 86) (by omega) hrem_lo_wm]
+    -- (rem % 2^86) * 2^86 < 2^86 * 2^86 = 2^172 < WORD_MOD
+    have : (nat_rem % 2 ^ 86) * 2 ^ 86 < 2 ^ 172 :=
+      calc (nat_rem % 2 ^ 86) * 2 ^ 86
+          < 2 ^ 86 * 2 ^ 86 := Nat.mul_lt_mul_of_pos_right
+            (Nat.mod_lt _ (Nat.two_pow_pos 86)) (Nat.two_pow_pos 86)
+        _ = 2 ^ 172 := by rw [← Nat.pow_add]
+    exact Nat.mod_eq_of_lt (by unfold WORD_MOD; omega)
+  -- evmLt on low products
+  have hprod_rem_bound : (nat_rem % 2 ^ 86) * 2 ^ 86 < WORD_MOD := by
+    calc (nat_rem % 2 ^ 86) * 2 ^ 86
+        < 2 ^ 86 * 2 ^ 86 := Nat.mul_lt_mul_of_pos_right
+          (Nat.mod_lt _ (Nat.two_pow_pos 86)) (Nat.two_pow_pos 86)
+      _ = 2 ^ 172 := by rw [← Nat.pow_add]
+    unfold WORD_MOD; omega
+  have hLt_lo : evmLt ((eps3 % 2 ^ 86) * m) ((nat_rem % 2 ^ 86) * 2 ^ 86) =
+      if (eps3 % 2 ^ 86) * m < (nat_rem % 2 ^ 86) * 2 ^ 86 then 1 else 0 :=
+    evmLt_eq' _ _ hprod_eps3_wm hprod_rem_bound
+  -- ======== Simplify the check in hr1_eq using rw ========
+  rw [hShr_eps3, hShr_rem, hLt_hi, hAnd_eps3, hAnd_rem, hMul_lo, hShl_rem, hLt_lo,
+      hEq_hi] at hr1_eq
+  -- Reduce evmAnd/evmOr on boolean results to &&&/|||
+  rw [evmAnd_eq'
+      (if eps3 / 2 ^ 86 = nat_rem / 2 ^ 86 then 1 else 0)
+      (if (eps3 % 2 ^ 86) * m < (nat_rem % 2 ^ 86) * 2 ^ 86 then 1 else 0)
+      (by split <;> unfold WORD_MOD <;> omega)
+      (by split <;> unfold WORD_MOD <;> omega)] at hr1_eq
+  rw [evmOr_eq'
+      (if eps3 / 2 ^ 86 < nat_rem / 2 ^ 86 then 1 else 0)
+      ((if eps3 / 2 ^ 86 = nat_rem / 2 ^ 86 then 1 else 0) &&&
+       (if (eps3 % 2 ^ 86) * m < (nat_rem % 2 ^ 86) * 2 ^ 86 then 1 else 0))
+      (by split <;> unfold WORD_MOD <;> omega)
+      (by have := and_le_one _ _
+            (by split <;> omega : (if eps3 / 2 ^ 86 = nat_rem / 2 ^ 86 then 1 else 0) ≤ 1)
+            (by split <;> omega : (if (eps3 % 2 ^ 86) * m < (nat_rem % 2 ^ 86) * 2 ^ 86 then 1 else 0) ≤ 1)
+          unfold WORD_MOD; omega)] at hr1_eq
+  -- ======== evmAdd simplifications ========
+  -- Abbreviate the check value
+  generalize hcheck : (if eps3 / 2 ^ 86 < nat_rem / 2 ^ 86 then 1 else 0) |||
+      ((if eps3 / 2 ^ 86 = nat_rem / 2 ^ 86 then 1 else 0) &&&
+       (if (eps3 % 2 ^ 86) * m < (nat_rem % 2 ^ 86) * 2 ^ 86 then 1 else 0)) = check at hr1_eq
+  have hcheck_le : check ≤ 1 := by
+    rw [← hcheck]
+    exact or_le_one _ _
+      (by split <;> omega)
+      (and_le_one _ _
+        (by split <;> omega) (by split <;> omega))
+  -- Simplify the two evmAdd calls
+  have h_rloc_wm : nat_r_lo - c < WORD_MOD := Nat.lt_of_le_of_lt (Nat.sub_le _ _) hr_lo_wm
+  have h_check_wm : check < WORD_MOD := by unfold WORD_MOD; omega
+  have h_inner : nat_r_lo - c + check < WORD_MOD := by unfold WORD_MOD; omega
+  rw [evmAdd_eq' _ _ h_rloc_wm h_check_wm h_inner,
+      evmAdd_eq' _ _ hR_wm h_inner (by unfold WORD_MOD; omega)] at hr1_eq
+  -- Now hr1_eq : m * 2^86 + (nat_r_lo - c + check) = m * 2^86 + nat_r_lo - c + 1
+  -- Extract check = 1
+  have hcheck_eq_1 : check = 1 := by omega
+  -- ======== Case split using or_and_eq_one_cases ========
+  rw [← hcheck] at hcheck_eq_1
+  have h_cases := or_and_eq_one_cases _ _ _
+    (by split <;> omega) (by split <;> omega) (by split <;> omega)
+    hcheck_eq_1
+  rcases h_cases with h_hi_lt | ⟨h_hi_eq, h_lo_lt⟩
+  · -- Case 1: eps3 / 2^86 < nat_rem / 2^86
+    have : eps3 / 2 ^ 86 < nat_rem / 2 ^ 86 := by
+      by_cases h : eps3 / 2 ^ 86 < nat_rem / 2 ^ 86
+      · exact h
+      · simp [h] at h_hi_lt
+    have hlt := div_lt_implies_lt eps3 nat_rem this
+    -- eps3 * R ≤ rem * 2^172 from eps3 < rem and R ≤ 2^172
+    exact eps3_lt_rem_implies_prod_le eps3 nat_rem (m * 2 ^ 86)
+      (by omega : m * 2 ^ 86 ≤ 2 ^ 172) hlt
+  · -- Case 2: eps3 / 2^86 = nat_rem / 2^86 ∧ (eps3 % 2^86) * m < (nat_rem % 2^86) * 2^86
+    have h_eq86 : eps3 / 2 ^ 86 = nat_rem / 2 ^ 86 := by
+      by_cases h : eps3 / 2 ^ 86 = nat_rem / 2 ^ 86
+      · exact h
+      · simp [h] at h_hi_eq
+    have h_lo86 : (eps3 % 2 ^ 86) * m < (nat_rem % 2 ^ 86) * 2 ^ 86 := by
+      by_cases h : (eps3 % 2 ^ 86) * m < (nat_rem % 2 ^ 86) * 2 ^ 86
+      · exact h
+      · simp [h] at h_lo_lt
+    -- eps3 * (m * 2^86) ≤ rem * 2^172 from the split-limb comparison
+    exact split_limb_implies_prod_le eps3 nat_rem m
+      (by omega : m ≤ 2 ^ 86) h_eq86 h_lo86
 
 -- ============================================================================
 -- r_qc³ < x_norm: the algebraic core

@@ -1949,8 +1949,8 @@ library Lib512MathArithmetic {
                 r_lo = r_lo.unsafeInc(
                     ((eps3 >> 86) < (rem >> 86)).or(
                         ((eps3 >> 86) == (rem >> 86)).and(
-                            (eps3 & 0x3ffffffffffffffffffffff) * r_hi
-                                < (rem & 0x3ffffffffffffffffffffff) << 86
+                            (eps3 & 0x3fffffffffffffffffffff) * r_hi
+                                < (rem & 0x3fffffffffffffffffffff) << 86
                         )
                     )
                 );
