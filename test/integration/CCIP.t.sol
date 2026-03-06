@@ -6,7 +6,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
-import {InvalidFeeToken} from "src/core/SettlerErrors.sol";
+import {InvalidFeeToken, InvalidTokenAmountsLength} from "src/core/SettlerErrors.sol";
 
 
 /// @dev Interface for CCIP Router
@@ -310,6 +310,53 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
 
         // Should revert because feeToken is not address(0)
         vm.expectRevert(InvalidFeeToken.selector);
+        ALLOWANCE_HOLDER.exec(
+            address(bridgeSettler),
+            address(USDC),
+            amount,
+            payable(address(bridgeSettler)),
+            abi.encodeCall(bridgeSettler.execute, (bridgeActions, bytes32(0)))
+        );
+    }
+
+    function testRevertIfTokenAmountsLengthNotOne() public {
+        uint256 amount = 1000e6;
+
+        // Prepare a CCIP message with 2 tokenAmounts elements
+        IRouterClient.EVMTokenAmount[] memory tokenAmounts = new IRouterClient.EVMTokenAmount[](2);
+        tokenAmounts[0] = IRouterClient.EVMTokenAmount({token: address(USDC), amount: amount});
+        tokenAmounts[1] = IRouterClient.EVMTokenAmount({token: address(USDC), amount: amount});
+
+        IRouterClient.EVM2AnyMessage memory message = IRouterClient.EVM2AnyMessage({
+            receiver: abi.encode(recipient),
+            data: bytes(""),
+            tokenAmounts: tokenAmounts,
+            feeToken: address(0),
+            extraArgs: bytes("")
+        });
+
+        // Build bridge actions
+        bytes[] memory bridgeActions = new bytes[](2);
+
+        bridgeActions[0] = abi.encodeCall(
+            IBridgeSettlerActions.TRANSFER_FROM,
+            (
+                address(bridgeSettler),
+                ISignatureTransfer.PermitTransferFrom({
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(USDC), amount: amount}),
+                    nonce: 0,
+                    deadline: block.timestamp
+                }),
+                bytes("")
+            )
+        );
+
+        bytes memory ccipSendData = abi.encode(ARBITRUM_SELECTOR, message);
+        bridgeActions[1] =
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(USDC), CCIP_ROUTER, ccipSendData));
+
+        // Should revert because tokenAmounts length is not 1
+        vm.expectRevert(InvalidTokenAmountsLength.selector);
         ALLOWANCE_HOLDER.exec(
             address(bridgeSettler),
             address(USDC),

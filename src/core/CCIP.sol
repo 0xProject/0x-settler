@@ -67,6 +67,13 @@ contract CCIP {
 
             let tokensOffset := mload(add(0x40, msgPtr)) // offset to tokenAmounts array
             let tokensPtr := add(msgPtr, tokensOffset) // pointer to tokenAmounts array
+
+            // Verify tokenAmounts array has exactly 1 element
+            if xor(0x01, mload(tokensPtr)) {
+                mstore(0x00, 0x2c419a85) // selector for `InvalidTokenAmountsLength()`
+                revert(0x1c, 0x04)
+            }
+
             // tokensPtr + 0x00 = array length
             // tokensPtr + 0x20 = tokenAmounts[0].token
             // tokensPtr + 0x40 = tokenAmounts[0].amount
