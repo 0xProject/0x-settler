@@ -92,4 +92,42 @@ theorem sq_sum_expand (a b : Nat) :
   simp only [Int.mul_comm]
   omega
 
+/-- The gap `m² - B` is already at least `8` once `m²` is in the normalized
+    range and `B < 2^93`. This is the numeric separation used to dominate the
+    low 172-bit tail in the `c > 1` algebra. -/
+theorem mm_sub_B_ge_eight (m B : Nat)
+    (hmm_lo : 2 ^ 166 ≤ m * m)
+    (hB_lt : B < 2 ^ 93) :
+    8 ≤ m * m - B := by
+  omega
+
+/-- If `R ≥ 2^169` and `m² - B ≥ 8`, then the tail term `c_tail < 2^172` is
+    dominated by `3R(m² - B)`, hence `3RB + c_tail < 3Rm²`. -/
+theorem tail_dom_by_mm_gap (R mm B c_tail : Nat)
+    (hR_ge : 2 ^ 169 ≤ R)
+    (hgap : 8 ≤ mm - B)
+    (hctail_lt : c_tail < 2 ^ 172) :
+    3 * R * B + c_tail < 3 * R * mm := by
+  have hB_le_mm : B ≤ mm := by omega
+  have hctail_dom : c_tail < 3 * R * (mm - B) := by
+    calc c_tail < 2 ^ 172 := hctail_lt
+      _ = 8 * 2 ^ 169 := by
+          rw [show (172 : Nat) = 3 + 169 from rfl, Nat.pow_add]
+      _ ≤ 8 * R := Nat.mul_le_mul_left _ hR_ge
+      _ ≤ (3 * (mm - B)) * R := by
+          apply Nat.mul_le_mul_right
+          omega
+      _ = 3 * R * (mm - B) := by
+          simp only [Nat.mul_comm, Nat.mul_left_comm]
+  calc 3 * R * B + c_tail < 3 * R * B + 3 * R * (mm - B) := Nat.add_lt_add_left hctail_dom _
+    _ = 3 * R * (B + (mm - B)) := by
+        calc 3 * R * B + 3 * R * (mm - B)
+            = R * (B * 3 + (mm - B) * 3) := by
+                simp [Nat.mul_add, Nat.mul_comm, Nat.mul_left_comm]
+          _ = R * ((B + (mm - B)) * 3) := by rw [← Nat.add_mul]
+          _ = 3 * R * (B + (mm - B)) := by
+                simp [Nat.mul_comm, Nat.mul_left_comm]
+    _ = 3 * R * mm := by
+        rw [Nat.add_sub_of_le hB_le_mm]
+
 end Cbrt512Spec

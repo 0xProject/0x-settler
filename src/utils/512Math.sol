@@ -1866,7 +1866,10 @@ library Lib512MathArithmetic {
     /// One cube root Newton-Raphson step: r = ⌊(⌊x/r²⌋ + 2·r) / 3⌋
     function _cbrt_newtonRaphsonStep(uint256 x, uint256 r) private pure returns (uint256) {
         unchecked {
-            return (x.unsafeDiv(r * r) + r + r) / 3;
+            // Using `unsafeDiv` here with the constant 3 is redundant, but the formal verification
+            // operates on the unoptimized Yul that still contains the divide-by-zero check if we
+            // use `/`
+            return (x.unsafeDiv(r * r) + r + r).unsafeDiv(3);
         }
     }
 
@@ -1982,7 +1985,7 @@ library Lib512MathArithmetic {
             // Normalize `x` so that its MSB is in bit 255, 254, or 253. This makes the left shift a
             // multiple of 3 so that the "shift back" un-normalization step is exact.
             //   x ≥ 2⁵⁰⁹
-            uint256 shift = x_hi.clz() / 3;
+            uint256 shift = x_hi.clz().unsafeDiv(3);
             (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift * 3);
 
             // The initial step to compute the first "limb" of `r` uses the "normal" cube root

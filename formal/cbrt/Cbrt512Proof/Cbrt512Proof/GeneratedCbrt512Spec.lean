@@ -115,7 +115,52 @@ private theorem qc_no_undershoot (x_hi_1 x_lo_1 : Nat)
         m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86)) :
     icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) ≤
       m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) := by
-  sorry
+  subst hm_eq
+  -- Now m is replaced by icbrt(x_hi_1/4) everywhere.
+  -- hr_lo_eq and hrem_eq become definitional equalities.
+  -- Case split on c = r_lo²/R ≤ 1
+  by_cases hc_le1 :
+      nat_r_lo * nat_r_lo / (icbrt (x_hi_1 / 4) * 2 ^ 86) ≤ 1
+  · -- Case c ≤ 1: (r_qc + 1)³ > x_norm, hence icbrt < r_qc + 1, hence icbrt ≤ r_qc
+    have hc_le1' : (let m := icbrt (x_hi_1 / 4)
+      let d := 3 * (m * m)
+      let res := x_hi_1 / 4 - m * m * m
+      let limb_hi := x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172
+      let r_lo := (res * 2 ^ 86 + limb_hi) / d
+      r_lo * r_lo / (m * 2 ^ 86) ≤ 1) := by
+      simp only; rw [hr_lo_eq] at hc_le1; exact hc_le1
+    have hsucc_gt := r_qc_succ1_cube_gt_when_c_le1 x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+      hc_le1'
+    simp only at hsucc_gt
+    rw [hr_lo_eq.symm] at hsucc_gt
+    -- hsucc_gt : x_norm < (r_qc + 1)³
+    rcases Nat.lt_or_ge
+        (icbrt (x_hi_1 / 4) * 2 ^ 86 + nat_r_lo -
+          nat_r_lo * nat_r_lo / (icbrt (x_hi_1 / 4) * 2 ^ 86))
+        (icbrt (x_hi_1 * 2 ^ 256 + x_lo_1)) with h | h
+    · exfalso
+      have hcube_le := icbrt_cube_le (x_hi_1 * 2 ^ 256 + x_lo_1)
+      have hmono := cube_monotone (show icbrt (x_hi_1 / 4) * 2 ^ 86 + nat_r_lo -
+          nat_r_lo * nat_r_lo / (icbrt (x_hi_1 / 4) * 2 ^ 86) + 1 ≤
+          icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) from by omega)
+      omega
+    · exact h
+  · -- Case c > 1: use r_qc_succ1_cube_gt_when_c_gt1
+    have hc_gt1 : nat_r_lo * nat_r_lo / (icbrt (x_hi_1 / 4) * 2 ^ 86) > 1 := by omega
+    have hsucc_gt := r_qc_succ1_cube_gt_when_c_gt1 x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+        (icbrt (x_hi_1 / 4)) rfl nat_r_lo nat_rem hr_lo_eq hrem_eq hc_gt1 hr1_eq
+    -- hsucc_gt : x_norm < (r_qc + 1)³
+    rcases Nat.lt_or_ge
+        (icbrt (x_hi_1 / 4) * 2 ^ 86 + nat_r_lo -
+          nat_r_lo * nat_r_lo / (icbrt (x_hi_1 / 4) * 2 ^ 86))
+        (icbrt (x_hi_1 * 2 ^ 256 + x_lo_1)) with h | h
+    · exfalso
+      have hcube_le := icbrt_cube_le (x_hi_1 * 2 ^ 256 + x_lo_1)
+      have hmono := cube_monotone (show icbrt (x_hi_1 / 4) * 2 ^ 86 + nat_r_lo -
+          nat_r_lo * nat_r_lo / (icbrt (x_hi_1 / 4) * 2 ^ 86) + 1 ≤
+          icbrt (x_hi_1 * 2 ^ 256 + x_lo_1) from by omega)
+      omega
+    · exact h
 
 /-- P1: When the QC undershoot fires (returns r_qc + 1), then r_qc ≤ icbrt.
     Moreover, r_qc³ < x_norm (strict), the cube (r_qc+1)³ < WORD_MOD², and
