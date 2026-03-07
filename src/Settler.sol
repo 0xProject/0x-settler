@@ -120,6 +120,10 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         return true;
     }
 
+    /// @notice Execute a series of settlement actions
+    /// @param slippage The slippage parameters for the trade
+    /// @param actions The actions to execute
+    /// @return True if execution was successful
     function execute(
         AllowedSlippage calldata slippage,
         bytes[] calldata actions,
