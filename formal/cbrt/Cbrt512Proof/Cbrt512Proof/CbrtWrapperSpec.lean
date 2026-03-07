@@ -374,7 +374,8 @@ private theorem div_mul_le_mul_div (a b k : Nat) (hk : 0 < k) : a / k * b ≤ a 
 
 /-- Cubing via mulmod: given r < 2^256 with r³ < 2^512, compute (r²_hi, r²_lo)
     then multiply by r to get (r³_hi, r³_lo) where r³_hi * 2^256 + r³_lo = r³.
-    This mirrors the assembly in 512Math.sol's cbrt function (lines 2017-2027).
+    This mirrors the cube-and-compare assembly in 512Math.sol's `cbrt` / `cbrtUp`
+    wrappers.
     The hypothesis hcube ensures the evmAdd does not overflow. -/
 theorem cube512_correct (r : Nat) (hr : r < WORD_MOD) (hcube : r * r * r < WORD_MOD * WORD_MOD) :
     let mm1 := evmMulmod r r (evmNot 0)

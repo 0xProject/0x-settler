@@ -1,6 +1,6 @@
 /-
   Ceiling cube root for 512-bit values.
-  Models 512Math.cbrtUp (lines 2013-2042).
+  Models 512Math.cbrtUp.
 
   No separate `cbrt512` definition is needed because `icbrt` from CbrtCorrect.lean
   is already defined for all Nat (including values >= 2^256).

@@ -12,12 +12,13 @@ Sub-functions (listed before `_cbrt` so they're emitted as named sub-models):
   _cbrt_newtonRaphsonStep  — one Newton-Raphson step (2 params)
   _cbrt_baseCase           — seed + 6 NR + floor correction (1 param → 3 returns)
   _cbrt_karatsubaQuotient  — Karatsuba division step (3 params)
-  _cbrt_quadraticCorrection — quadratic correction + recombine (2 params)
+  _cbrt_quadraticCorrection — quadratic correction + recombine (3 params)
   _cbrt                    — normalize + sub-function calls + un-normalize (2 params)
 
 The 256-bit `cbrt`/`cbrtUp` from Cbrt.sol are selected via `exclude_known`
 (leaf versions that don't call the already-targeted 512-bit `_cbrt`).
-The public wrappers inline all helpers as raw opcodes.
+The public wrappers call the named `_cbrt` / 256-bit sub-models and inline the
+remaining compiler-generated helpers to raw opcodes.
 
 All compiler-generated helper functions (type conversions, wrapping arithmetic,
 library calls) are inlined to raw opcodes automatically.
@@ -88,6 +89,7 @@ CONFIG = ModelConfig(
         "_cbrt_karatsubaQuotient", "_cbrt_quadraticCorrection",
         "_cbrt", "cbrt", "cbrtUp", "wrap_cbrt512", "wrap_cbrtUp512",
     }),
+    hoist_repeated_calls=frozenset({"wrap_cbrt512", "wrap_cbrtUp512"}),
     default_source_label="src/utils/512Math.sol",
     default_namespace="Cbrt512GeneratedModel",
     default_output="formal/cbrt/Cbrt512Proof/Cbrt512Proof/GeneratedCbrt512Model.lean",

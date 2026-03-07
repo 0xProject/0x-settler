@@ -3,6 +3,8 @@ pragma solidity ^0.8.25;
 
 import {SlowMath} from "../SlowMath.sol";
 import {Test} from "@forge-std/Test.sol";
+import {FormalModelFFI} from "./FormalModelFFI.t.sol";
+import {Sqrt512Wrapper} from "src/wrappers/Sqrt512Wrapper.sol";
 
 /// @dev Fuzz-tests the generated Lean models of 512Math.sqrt and
 /// 512Math.osqrtUp against the same correctness properties used in
@@ -10,30 +12,15 @@ import {Test} from "@forge-std/Test.sol";
 ///
 /// Requires the `sqrt512-model` binary to be pre-built:
 ///   cd formal/sqrt/Sqrt512Proof && lake build sqrt512-model
-contract Sqrt512ModelTest is Test {
+contract Sqrt512ModelTest is Test, FormalModelFFI {
     string private constant _BIN = "formal/sqrt/Sqrt512Proof/.lake/build/bin/sqrt512-model";
+    Sqrt512Wrapper private _wrapper;
+
+    function setUp() external {
+        _wrapper = new Sqrt512Wrapper();
+    }
 
     // -- helpers ----------------------------------------------------------
-
-    function _ffi1(string memory fn, uint256 x_hi, uint256 x_lo) internal returns (uint256) {
-        string[] memory args = new string[](4);
-        args[0] = _BIN;
-        args[1] = fn;
-        args[2] = vm.toString(bytes32(x_hi));
-        args[3] = vm.toString(bytes32(x_lo));
-        bytes memory result = vm.ffi(args);
-        return abi.decode(result, (uint256));
-    }
-
-    function _ffi2(string memory fn, uint256 x_hi, uint256 x_lo) internal returns (uint256, uint256) {
-        string[] memory args = new string[](4);
-        args[0] = _BIN;
-        args[1] = fn;
-        args[2] = vm.toString(bytes32(x_hi));
-        args[3] = vm.toString(bytes32(x_lo));
-        bytes memory result = vm.ffi(args);
-        return abi.decode(result, (uint256, uint256));
-    }
 
     /// @dev 512-bit comparison: (a_hi, a_lo) > (b_hi, b_lo)
     function _gt512(uint256 aH, uint256 aL, uint256 bH, uint256 bL) internal pure returns (bool) {
@@ -51,7 +38,7 @@ contract Sqrt512ModelTest is Test {
         // _sqrt assumes x_hi != 0 (the public sqrt dispatches to 256-bit sqrt otherwise)
         vm.assume(x_hi != 0);
 
-        uint256 r = _ffi1("sqrt512", x_hi, x_lo);
+        uint256 r = _ffiWord512(_BIN, "sqrt512", x_hi, x_lo);
 
         // r^2 <= x
         (uint256 r2_lo, uint256 r2_hi) = SlowMath.fullMul(r, r);
@@ -74,7 +61,7 @@ contract Sqrt512ModelTest is Test {
     // -- floor sqrt: model_sqrt512_wrapper_evm (full range) ---------------
 
     function testSqrt512WrapperModel(uint256 x_hi, uint256 x_lo) external {
-        uint256 r = _ffi1("sqrt512_wrapper", x_hi, x_lo);
+        uint256 r = _ffiWord512(_BIN, "sqrt512_wrapper", x_hi, x_lo);
 
         // r^2 <= x
         (uint256 r2_lo, uint256 r2_hi) = SlowMath.fullMul(r, r);
@@ -97,7 +84,7 @@ contract Sqrt512ModelTest is Test {
     // -- ceiling sqrt: model_osqrtUp_evm ----------------------------------
 
     function testOsqrtUpModel(uint256 x_hi, uint256 x_lo) external {
-        (uint256 r_hi, uint256 r_lo) = _ffi2("osqrtUp", x_hi, x_lo);
+        (uint256 r_hi, uint256 r_lo) = _ffiPair512(_BIN, "osqrtUp", x_hi, x_lo);
 
         // Compute r^2 = (r_hi * 2^256 + r_lo)^2
         // For the ceiling sqrt, r_hi is 0 or 1 (result fits in 257 bits max).
@@ -129,5 +116,16 @@ contract Sqrt512ModelTest is Test {
             (uint256 rm2_lo, uint256 rm2_hi) = SlowMath.fullMul(rM, rM);
             assertTrue(_gt512(x_hi, x_lo, rm2_hi, rm2_lo), "osqrtUp too high (r=2^256)");
         }
+    }
+
+    function testDiffSqrt512Wrapper(uint256 x_hi, uint256 x_lo) external {
+        assertEq(_wrapper.wrap_sqrt512(x_hi, x_lo), _ffiWord512(_BIN, "sqrt512_wrapper", x_hi, x_lo));
+    }
+
+    function testDiffOsqrtUp(uint256 x_hi, uint256 x_lo) external {
+        (uint256 model_hi, uint256 model_lo) = _ffiPair512(_BIN, "osqrtUp", x_hi, x_lo);
+        (uint256 wrapper_hi, uint256 wrapper_lo) = _wrapper.wrap_osqrtUp(x_hi, x_lo);
+        assertEq(wrapper_hi, model_hi);
+        assertEq(wrapper_lo, model_lo);
     }
 }
