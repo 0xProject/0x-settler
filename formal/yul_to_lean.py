@@ -5,6 +5,7 @@ Provides:
 - Yul tokenizer and recursive-descent parser
 - AST types (IntLit, Var, Call, Assignment, FunctionModel)
 - Yul → FunctionModel conversion (copy propagation + demangling)
+- Explicit translation pipelines: raw translation + optional transforms
 - Lean expression emission
 - Common Lean source scaffolding
 """
@@ -84,6 +85,36 @@ class FunctionModel:
     assignments: tuple[ModelStatement, ...]
     param_names: tuple[str, ...] = ("x",)
     return_names: tuple[str, ...] = ("z",)
+
+
+@dataclass(frozen=True)
+class TranslationPipeline:
+    """Controls which non-literal passes run after raw model construction."""
+
+    name: str
+    elide_zero_assignments: bool
+    hoist_repeated_calls: bool
+    prune_dead_assignments: bool
+
+
+RAW_TRANSLATION_PIPELINE = TranslationPipeline(
+    name="raw",
+    elide_zero_assignments=False,
+    hoist_repeated_calls=False,
+    prune_dead_assignments=False,
+)
+
+OPTIMIZED_TRANSLATION_PIPELINE = TranslationPipeline(
+    name="optimized",
+    elide_zero_assignments=True,
+    hoist_repeated_calls=True,
+    prune_dead_assignments=True,
+)
+
+TRANSLATION_PIPELINES = {
+    RAW_TRANSLATION_PIPELINE.name: RAW_TRANSLATION_PIPELINE,
+    OPTIMIZED_TRANSLATION_PIPELINE.name: OPTIMIZED_TRANSLATION_PIPELINE,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -1190,6 +1221,8 @@ def yul_function_to_model(
     sol_fn_name: str,
     fn_map: dict[str, str],
     keep_solidity_locals: bool = False,
+    *,
+    elide_zero_assignments: bool = True,
 ) -> FunctionModel:
     """Convert a parsed YulFunction into a FunctionModel.
 
@@ -1199,6 +1232,8 @@ def yul_function_to_model(
     Validates:
     - Multi-assigned compiler temporaries are rejected.
     - The return variable is recognized and assigned in the model.
+    - ``elide_zero_assignments`` controls whether literal zero-initializations
+      are dropped during model construction.
     """
     if yf.expr_stmts:
         descriptions = []
@@ -1312,7 +1347,11 @@ def yul_function_to_model(
         # Rename the RHS expression BEFORE updating var_map so that
         # self-references (e.g. ``x := f(x)``) resolve to the
         # *previous* binding, not the one being created.
-        skip_zero = isinstance(expr, IntLit) and expr.value == 0
+        skip_zero = (
+            elide_zero_assignments
+            and isinstance(expr, IntLit)
+            and expr.value == 0
+        )
         if not skip_zero:
             expr = rename_expr(expr, var_map, fn_map)
 
@@ -1849,6 +1888,98 @@ def _expr_vars(expr: Expr) -> set[str]:
     raise TypeError(f"Unsupported Expr node: {type(expr)}")
 
 
+def validate_function_model(model: FunctionModel) -> None:
+    """Reject malformed restricted-IR models before Lean emission."""
+
+    def _validate_assignment_block(
+        assignments: tuple[Assignment, ...],
+        *,
+        available: set[str],
+        block_name: str,
+    ) -> set[str]:
+        scope = set(available)
+        for stmt in assignments:
+            missing = _expr_vars(stmt.expr) - scope
+            if missing:
+                raise ParseError(
+                    f"Model {model.fn_name!r} has an out-of-scope variable use in "
+                    f"{block_name}: {stmt.target!r} depends on {sorted(missing)}"
+                )
+            scope.add(stmt.target)
+        return scope
+
+    scope = set(model.param_names)
+    for stmt in model.assignments:
+        if isinstance(stmt, Assignment):
+            missing = _expr_vars(stmt.expr) - scope
+            if missing:
+                raise ParseError(
+                    f"Model {model.fn_name!r} has an out-of-scope variable use: "
+                    f"{stmt.target!r} depends on {sorted(missing)}"
+                )
+            scope.add(stmt.target)
+            continue
+
+        if not isinstance(stmt, ConditionalBlock):
+            raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+
+        missing = _expr_vars(stmt.condition) - scope
+        if missing:
+            raise ParseError(
+                f"Model {model.fn_name!r} has an out-of-scope conditional: "
+                f"{sorted(missing)}"
+            )
+
+        then_scope = _validate_assignment_block(
+            stmt.assignments,
+            available=scope,
+            block_name="then-branch",
+        )
+
+        for var in stmt.modified_vars:
+            if var not in then_scope:
+                raise ParseError(
+                    f"Model {model.fn_name!r} marks {var!r} as modified, but the "
+                    f"then-branch does not define it"
+                )
+
+        if stmt.else_vars is not None and len(stmt.else_vars) != len(stmt.modified_vars):
+            raise ParseError(
+                f"Model {model.fn_name!r} has mismatched else_vars/modified_vars "
+                f"lengths: {len(stmt.else_vars)} vs {len(stmt.modified_vars)}"
+            )
+
+        if stmt.else_assignments is None:
+            passthrough_vars = stmt.else_vars if stmt.else_vars is not None else stmt.modified_vars
+            missing_passthrough = set(passthrough_vars) - scope
+            if missing_passthrough:
+                raise ParseError(
+                    f"Model {model.fn_name!r} has an else passthrough that refers "
+                    f"to undefined vars: {sorted(missing_passthrough)}"
+                )
+        else:
+            else_scope = _validate_assignment_block(
+                stmt.else_assignments,
+                available=scope,
+                block_name="else-branch",
+            )
+            else_sources = stmt.else_vars if stmt.else_vars is not None else stmt.modified_vars
+            for output_var, else_source in zip(stmt.modified_vars, else_sources, strict=True):
+                if else_source not in else_scope and else_source not in scope:
+                    raise ParseError(
+                        f"Model {model.fn_name!r} cannot produce {output_var!r} from "
+                        f"else-branch source {else_source!r}; it is undefined"
+                    )
+
+        scope.update(stmt.modified_vars)
+
+    missing_returns = set(model.return_names) - scope
+    if missing_returns:
+        raise ParseError(
+            f"Model {model.fn_name!r} returns undefined vars: {sorted(missing_returns)}"
+        )
+
+
 def _collect_repeated_model_calls(expr: Expr, model_call_names: frozenset[str]) -> list[Call]:
     counts: Counter[Expr] = Counter()
     _walk_model_calls(expr, model_call_names, counts)
@@ -2048,6 +2179,149 @@ def hoist_repeated_model_calls(
     )
 
 
+def prepare_translation(
+    yul_text: str,
+    config: ModelConfig,
+    *,
+    selected_functions: tuple[str, ...] | None = None,
+) -> PreparedTranslation:
+    """Parse Yul, select targets, and inline non-target helpers."""
+
+    tokens = tokenize_yul(yul_text)
+    selected = selected_functions if selected_functions is not None else config.function_order
+
+    function_collection = YulParser(tokens).collect_all_functions()
+    helper_table = dict(function_collection.functions)
+    rejected_helpers = dict(function_collection.rejected)
+
+    fn_map: dict[str, str] = {}
+    yul_functions: dict[str, YulFunction] = {}
+
+    known_yul_names: set[str] = set()
+    for sol_name in selected:
+        parser = YulParser(tokens)
+        n_params = config.n_params.get(sol_name) if config.n_params else None
+        yf = parser.find_function(
+            sol_name,
+            n_params=n_params,
+            known_yul_names=known_yul_names or None,
+            exclude_known=sol_name in config.exclude_known,
+        )
+        fn_map[yf.yul_name] = sol_name
+        yul_functions[sol_name] = yf
+        known_yul_names.add(yf.yul_name)
+
+    for yul_name in fn_map:
+        helper_table.pop(yul_name, None)
+
+    inlined_targets: dict[str, YulFunction] = {}
+    for sol_name in selected:
+        inlined_targets[sol_name] = _inline_yul_function(
+            yul_functions[sol_name],
+            helper_table,
+            unsupported_function_errors=rejected_helpers,
+        )
+
+    return PreparedTranslation(
+        selected_functions=tuple(selected),
+        fn_map=fn_map,
+        yul_functions=inlined_targets,
+        collected_helpers=helper_table,
+        rejected_helpers=rejected_helpers,
+    )
+
+
+def build_restricted_ir_models(
+    preparation: PreparedTranslation,
+    config: ModelConfig,
+    *,
+    pipeline: TranslationPipeline,
+) -> list[FunctionModel]:
+    """Convert selected Yul functions into validated restricted-IR models."""
+
+    models = [
+        yul_function_to_model(
+            preparation.yul_functions[fn],
+            fn,
+            preparation.fn_map,
+            keep_solidity_locals=config.keep_solidity_locals,
+            elide_zero_assignments=pipeline.elide_zero_assignments,
+        )
+        for fn in preparation.selected_functions
+    ]
+    for model in models:
+        validate_function_model(model)
+    return models
+
+
+def apply_optional_model_transforms(
+    models: list[FunctionModel],
+    config: ModelConfig,
+    *,
+    pipeline: TranslationPipeline,
+) -> list[FunctionModel]:
+    """Apply non-literal model rewrites that are outside the raw path."""
+
+    transformed = list(models)
+
+    if pipeline.hoist_repeated_calls and config.hoist_repeated_calls:
+        model_call_names = frozenset(config.function_order)
+        transformed = [
+            hoist_repeated_model_calls(
+                model,
+                model_call_names=model_call_names,
+            )
+            if model.fn_name in config.hoist_repeated_calls
+            else model
+            for model in transformed
+        ]
+        for model in transformed:
+            validate_function_model(model)
+
+    if pipeline.prune_dead_assignments:
+        transformed = [
+            _prune_dead_assignments(model)
+            if model.fn_name not in config.skip_prune
+            else model
+            for model in transformed
+        ]
+        for model in transformed:
+            validate_function_model(model)
+
+    return transformed
+
+
+def translate_yul_to_models(
+    yul_text: str,
+    config: ModelConfig,
+    *,
+    selected_functions: tuple[str, ...] | None = None,
+    pipeline: TranslationPipeline = OPTIMIZED_TRANSLATION_PIPELINE,
+) -> TranslationResult:
+    """Run the selected translation pipeline and return the final models."""
+
+    preparation = prepare_translation(
+        yul_text,
+        config,
+        selected_functions=selected_functions,
+    )
+    models = build_restricted_ir_models(
+        preparation,
+        config,
+        pipeline=pipeline,
+    )
+    models = apply_optional_model_transforms(
+        models,
+        config,
+        pipeline=pipeline,
+    )
+    return TranslationResult(
+        preparation=preparation,
+        models=models,
+        pipeline=pipeline,
+    )
+
+
 def emit_expr(
     expr: Expr,
     *,
@@ -2148,6 +2422,38 @@ class ModelConfig:
     default_namespace: str = ""
     default_output: str = ""
     cli_description: str = ""
+
+
+@dataclass(frozen=True)
+class PreparedTranslation:
+    """Selected Yul functions after parsing, discovery, and helper inlining."""
+
+    selected_functions: tuple[str, ...]
+    fn_map: dict[str, str]
+    yul_functions: dict[str, YulFunction]
+    collected_helpers: dict[str, YulFunction]
+    rejected_helpers: dict[str, str]
+
+
+@dataclass(frozen=True)
+class TranslationResult:
+    """End-to-end translation result before Lean source emission."""
+
+    preparation: PreparedTranslation
+    models: list[FunctionModel]
+    pipeline: TranslationPipeline
+
+
+def get_translation_pipeline(name: str) -> TranslationPipeline:
+    """Resolve a named translation pipeline."""
+
+    try:
+        return TRANSLATION_PIPELINES[name]
+    except KeyError as err:
+        choices = ", ".join(sorted(TRANSLATION_PIPELINES))
+        raise ParseError(
+            f"Unknown translation pipeline {name!r}. Expected one of: {choices}"
+        ) from err
 
 
 # ---------------------------------------------------------------------------
@@ -2448,79 +2754,31 @@ def run(config: ModelConfig) -> int:
         "--output", default=config.default_output,
         help="Output Lean file path",
     )
+    ap.add_argument(
+        "--pipeline",
+        default=OPTIMIZED_TRANSLATION_PIPELINE.name,
+        choices=sorted(TRANSLATION_PIPELINES),
+        help="Translation pipeline to run (default: optimized)",
+    )
     args = ap.parse_args()
 
     validate_ident(args.namespace, what="Lean namespace")
 
     selected_functions = parse_function_selection(args, config)
+    pipeline = get_translation_pipeline(args.pipeline)
 
     if args.yul == "-":
         yul_text = sys.stdin.read()
     else:
         yul_text = pathlib.Path(args.yul).read_text()
 
-    tokens = tokenize_yul(yul_text)
-
-    # Collect all helper definitions for inlining, and remember helpers
-    # whose bodies were rejected so references to them can fail loudly.
-    function_collection = YulParser(tokens).collect_all_functions()
-    fn_table = dict(function_collection.functions)
-    rejected_functions = function_collection.rejected
-
-    fn_map: dict[str, str] = {}
-    yul_functions: dict[str, YulFunction] = {}
-
-    # First pass: find target functions and record their Yul names.
-    known_yul_names: set[str] = set()
-    for sol_name in selected_functions:
-        p = YulParser(tokens)
-        np = config.n_params.get(sol_name) if config.n_params else None
-        yf = p.find_function(sol_name, n_params=np,
-                             known_yul_names=known_yul_names or None,
-                             exclude_known=sol_name in config.exclude_known)
-        fn_map[yf.yul_name] = sol_name
-        yul_functions[sol_name] = yf
-        known_yul_names.add(yf.yul_name)
-
-    # Remove target functions from the inlining table so they remain
-    # as named calls in the model (e.g. sqrt calling _sqrt → model_sqrt).
-    for yul_name in fn_map:
-        fn_table.pop(yul_name, None)
-
-    if fn_table:
-        print(f"Collected {len(fn_table)} function definition(s) for inlining")
-
-    # Second pass: inline non-target function calls.
-    for sol_name in selected_functions:
-        yf = yul_functions[sol_name]
-        yf = _inline_yul_function(
-            yf,
-            fn_table,
-            unsupported_function_errors=rejected_functions,
-        )
-        yul_functions[sol_name] = yf
-
-    models = [
-        yul_function_to_model(
-            yul_functions[fn], fn, fn_map,
-            keep_solidity_locals=config.keep_solidity_locals,
-        )
-        for fn in selected_functions
-    ]
-
-    if config.hoist_repeated_calls:
-        model_call_names = frozenset(config.function_order)
-        models = [
-            hoist_repeated_model_calls(model, model_call_names=model_call_names)
-            if model.fn_name in config.hoist_repeated_calls else model
-            for model in models
-        ]
-
-    models = [
-        _prune_dead_assignments(model)
-        if model.fn_name not in config.skip_prune else model
-        for model in models
-    ]
+    result = translate_yul_to_models(
+        yul_text,
+        config,
+        selected_functions=selected_functions,
+        pipeline=pipeline,
+    )
+    models = result.models
 
     lean_src = build_lean_source(
         models=models,
@@ -2533,7 +2791,15 @@ def run(config: ModelConfig) -> int:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(lean_src)
 
+    if result.preparation.collected_helpers:
+        print(
+            "Collected "
+            f"{len(result.preparation.collected_helpers)} function definition(s) "
+            "for inlining"
+        )
+
     print(f"Generated {out_path}")
+    print(f"Pipeline: {pipeline.name}")
     for model in models:
         print(f"Parsed {len(model.assignments)} assignments for {model.fn_name}")
 

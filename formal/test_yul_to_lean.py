@@ -288,5 +288,124 @@ class FailClosedTranslatorTest(unittest.TestCase):
             ytl.yul_function_to_model(yf, "f", {})
 
 
+def make_model_config(
+    function_order: tuple[str, ...],
+    *,
+    hoist_repeated_calls: frozenset[str] = frozenset(),
+    skip_prune: frozenset[str] = frozenset(),
+    keep_solidity_locals: bool = False,
+) -> ytl.ModelConfig:
+    return ytl.ModelConfig(
+        function_order=function_order,
+        model_names={fn: f"model_{fn}" for fn in function_order},
+        header_comment="test",
+        generator_label="formal/test_yul_to_lean.py",
+        extra_norm_ops={},
+        extra_lean_defs="",
+        norm_rewrite=None,
+        inner_fn=function_order[0],
+        keep_solidity_locals=keep_solidity_locals,
+        hoist_repeated_calls=hoist_repeated_calls,
+        skip_prune=skip_prune,
+        default_source_label="test",
+        default_namespace="Test",
+        default_output="",
+        cli_description="test",
+    )
+
+
+class TranslationPipelineTest(unittest.TestCase):
+    SIMPLE_CONFIG = make_model_config(("f",))
+    SIMPLE_YUL = """
+        function fun_f_1(var_x_1) -> var_z_2 {
+            let usr$tmp := 0
+            let usr$dead := 7
+            var_z_2 := 0
+            var_z_2 := add(var_x_1, 1)
+        }
+    """
+
+    def test_validate_function_model_rejects_out_of_scope_var(self) -> None:
+        bad_model = ytl.FunctionModel(
+            fn_name="bad",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Call("add", (ytl.Var("x"), ytl.Var("missing"))),
+                ),
+            ),
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "out-of-scope"):
+            ytl.validate_function_model(bad_model)
+
+    def test_translate_yul_to_models_raw_preserves_zero_and_dead_assignments(self) -> None:
+        result = ytl.translate_yul_to_models(
+            self.SIMPLE_YUL,
+            self.SIMPLE_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(result.pipeline, ytl.RAW_TRANSLATION_PIPELINE)
+        self.assertEqual(
+            [stmt.target for stmt in model.assignments if isinstance(stmt, ytl.Assignment)],
+            ["tmp", "dead", "z", "z_1"],
+        )
+        self.assertEqual(model.return_names, ("z_1",))
+
+    def test_translate_yul_to_models_defaults_to_optimized_pipeline(self) -> None:
+        default_result = ytl.translate_yul_to_models(
+            self.SIMPLE_YUL,
+            self.SIMPLE_CONFIG,
+        )
+        explicit_result = ytl.translate_yul_to_models(
+            self.SIMPLE_YUL,
+            self.SIMPLE_CONFIG,
+            pipeline=ytl.OPTIMIZED_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(default_result.pipeline, ytl.OPTIMIZED_TRANSLATION_PIPELINE)
+        self.assertEqual(default_result.models, explicit_result.models)
+        model = default_result.models[0]
+        self.assertEqual(model.assignments, (
+            ytl.Assignment("z_1", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),
+        ))
+
+    def test_apply_optional_model_transforms_skips_hoisting_in_raw_pipeline(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="outer",
+            param_names=("p",),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment("a", ytl.Call("inner", (ytl.Var("p"),))),
+                ytl.Assignment("b", ytl.Call("inner", (ytl.Var("p"),))),
+                ytl.Assignment("out", ytl.Call("sub", (ytl.Var("a"), ytl.Var("b")))),
+            ),
+        )
+        config = make_model_config(
+            ("inner", "outer"),
+            hoist_repeated_calls=frozenset({"outer"}),
+        )
+
+        raw_models = ytl.apply_optional_model_transforms(
+            [model],
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        optimized_models = ytl.apply_optional_model_transforms(
+            [model],
+            config,
+            pipeline=ytl.OPTIMIZED_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(raw_models, [model])
+        self.assertNotEqual(optimized_models, [model])
+        self.assertIsInstance(optimized_models[0].assignments[0], ytl.Assignment)
+        self.assertRegex(optimized_models[0].assignments[0].target, r"^_cse_\d+$")
+
+
 if __name__ == "__main__":
     unittest.main()
