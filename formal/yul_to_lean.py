@@ -1560,6 +1560,100 @@ def _resolve_mloads(
     )
 
 
+def _prune_dead_assignments(
+    model: "FunctionModel",
+) -> "FunctionModel":
+    """Drop dead pure assignments from a model to avoid unused Lean lets."""
+
+    def _prune_assignment_block(
+        assignments: tuple[Assignment, ...],
+        live_out: set[str],
+    ) -> tuple[tuple[Assignment, ...], set[str]]:
+        live = set(live_out)
+        kept_rev: list[Assignment] = []
+        for stmt in reversed(assignments):
+            if stmt.target not in live:
+                continue
+            live.remove(stmt.target)
+            live.update(_expr_vars(stmt.expr))
+            kept_rev.append(stmt)
+        kept_rev.reverse()
+        return tuple(kept_rev), live
+
+    live = set(model.return_names)
+    kept_rev: list[ModelStatement] = []
+
+    for stmt in reversed(model.assignments):
+        if isinstance(stmt, Assignment):
+            if stmt.target not in live:
+                continue
+            live.remove(stmt.target)
+            live.update(_expr_vars(stmt.expr))
+            kept_rev.append(stmt)
+            continue
+
+        if not isinstance(stmt, ConditionalBlock):
+            raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+
+        needed_outputs = tuple(v for v in stmt.modified_vars if v in live)
+        if not needed_outputs:
+            continue
+
+        needed_output_set = set(needed_outputs)
+        filtered_else_vars = None
+        if stmt.else_vars is not None:
+            filtered_else_vars = tuple(
+                stmt.else_vars[i]
+                for i, v in enumerate(stmt.modified_vars)
+                if v in needed_output_set
+            )
+
+        then_assignments, then_live = _prune_assignment_block(
+            stmt.assignments, set(needed_outputs)
+        )
+
+        else_assignments = None
+        else_live: set[str] = set()
+        if stmt.else_assignments is not None:
+            needed_else_targets = {
+                assignment.target
+                for assignment in stmt.else_assignments
+                if assignment.target in needed_output_set
+            }
+            else_assignments, else_live = _prune_assignment_block(
+                stmt.else_assignments, needed_else_targets
+            )
+            if filtered_else_vars is not None:
+                for output_name, passthrough_name in zip(needed_outputs, filtered_else_vars):
+                    if output_name not in needed_else_targets:
+                        else_live.add(passthrough_name)
+        elif filtered_else_vars is not None:
+            else_live.update(filtered_else_vars)
+
+        live.difference_update(needed_output_set)
+        live.update(_expr_vars(stmt.condition))
+        live.update(then_live)
+        live.update(else_live)
+
+        kept_rev.append(
+            ConditionalBlock(
+                condition=stmt.condition,
+                assignments=then_assignments,
+                modified_vars=needed_outputs,
+                else_vars=filtered_else_vars,
+                else_assignments=else_assignments,
+            )
+        )
+
+    kept_rev.reverse()
+    return FunctionModel(
+        fn_name=model.fn_name,
+        assignments=tuple(kept_rev),
+        param_names=model.param_names,
+        return_names=model.return_names,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Lean emission helpers
 # ---------------------------------------------------------------------------
@@ -2346,6 +2440,8 @@ def run(config: ModelConfig) -> int:
             if model.fn_name in config.hoist_repeated_calls else model
             for model in models
         ]
+
+    models = [_prune_dead_assignments(model) for model in models]
 
     lean_src = build_lean_source(
         models=models,
