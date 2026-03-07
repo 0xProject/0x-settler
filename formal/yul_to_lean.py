@@ -311,11 +311,8 @@ class YulParser:
             expr = self._parse_expr()
             results.append((target, expr))
         else:
-            # Bare declaration: ``let x``  (zero-initialized per Yul spec).
-            # Not recorded in results: if later code reads x before
-            # assigning it, the unresolved Yul name survives to the
-            # emitter and causes a hard error — no silent corruption.
-            pass
+            # Bare declaration: ``let x``  (zero-initialized per Yul spec)
+            results.append((target, IntLit(0)))
 
     def _parse_assignment_loop(
         self,
