@@ -548,24 +548,6 @@ class YulParser:
         self._expr_stmts = []
         assignments = self._parse_body_assignments()
         self._expect("}")
-        if self._expr_stmts:
-            descriptions = []
-            for e in self._expr_stmts[:3]:
-                if isinstance(e, Call):
-                    descriptions.append(f"{e.name}(...)")
-                else:
-                    descriptions.append(repr(e))
-            summary = ", ".join(descriptions)
-            if len(self._expr_stmts) > 3:
-                summary += ", ..."
-            warnings.warn(
-                f"Function {yul_name!r} contains "
-                f"{len(self._expr_stmts)} expression-statement(s) "
-                f"not captured in the model: [{summary}]. "
-                f"If any have side effects (sstore, log, revert, ...) "
-                f"the model may be incomplete.",
-                stacklevel=2,
-            )
         return YulFunction(
             yul_name=yul_name,
             params=params,
@@ -680,13 +662,10 @@ class YulParser:
     def collect_all_functions(self) -> dict[str, YulFunction]:
         """Parse all function definitions in the token stream.
 
-        Functions whose bodies contain unsupported constructs (``switch``,
-        ``for``, etc.) are silently skipped — they cannot be inlined but
-        that is fine for model generation.
-
-        Warnings about expression-statements (``revert``, ``mstore``, etc.)
-        are suppressed because these auxiliary functions are parsed only for
-        inlining, not for direct modelling.
+        Functions whose bodies fail to parse are omitted from the inlining
+        table. If a selected target later references such a function, the
+        unresolved call survives and generation fails in the emitter rather
+        than silently modeling incomplete semantics.
         """
         functions: dict[str, YulFunction] = {}
         while not self._at_end():
@@ -697,9 +676,7 @@ class YulParser:
                 saved_i = self.i
                 saved_stmts = self._expr_stmts
                 try:
-                    with warnings.catch_warnings():
-                        warnings.simplefilter("ignore")
-                        fn = self.parse_function()
+                    fn = self.parse_function()
                     functions[fn.yul_name] = fn
                 except ParseError:
                     # Unsupported body — skip this function.
@@ -874,12 +851,10 @@ def _inline_single_call(
             summary = ", ".join(descriptions)
             if len(unhandled) > 3:
                 summary += ", ..."
-            warnings.warn(
-                f"Inlining function {fn.yul_name!r} which contains "
+            raise ParseError(
+                f"Inlining function {fn.yul_name!r} encountered "
                 f"{len(unhandled)} unhandled expression-statement(s): "
-                f"[{summary}]. If any have side effects (sstore, log, "
-                f"revert, ...) the inlined model may be incomplete.",
-                stacklevel=3,
+                f"[{summary}]. Refuse to inline incomplete semantics."
             )
 
     subst: dict[str, Expr] = {}
@@ -1156,6 +1131,23 @@ def yul_function_to_model(
       still correct for sequential code, but the situation is unusual).
     - The return variable is recognized and assigned in the model.
     """
+    if yf.expr_stmts:
+        descriptions = []
+        for e in yf.expr_stmts[:3]:
+            if isinstance(e, Call):
+                descriptions.append(f"{e.name}(...)")
+            else:
+                descriptions.append(repr(e))
+        summary = ", ".join(descriptions)
+        if len(yf.expr_stmts) > 3:
+            summary += ", ..."
+        raise ParseError(
+            f"Function {sol_fn_name!r} contains "
+            f"{len(yf.expr_stmts)} expression-statement(s) not captured "
+            f"in the direct model: [{summary}]. Refuse to generate an "
+            f"incomplete model."
+        )
+
     # ------------------------------------------------------------------
     # Pre-pass: count how many times each variable is assigned.
     # A compiler temporary assigned more than once is unusual and could
@@ -1667,6 +1659,78 @@ def ordered_unique(items: list[str]) -> list[str]:
     return out
 
 
+def _expr_size(expr: Expr) -> int:
+    if isinstance(expr, (IntLit, Var)):
+        return 1
+    if isinstance(expr, Call):
+        return 1 + sum(_expr_size(arg) for arg in expr.args)
+    raise TypeError(f"Unsupported Expr node: {type(expr)}")
+
+
+def _replace_expr(expr: Expr, replacements: dict[Expr, str]) -> Expr:
+    if expr in replacements:
+        return Var(replacements[expr])
+    if isinstance(expr, (IntLit, Var)):
+        return expr
+    if isinstance(expr, Call):
+        return Call(expr.name, tuple(_replace_expr(arg, replacements) for arg in expr.args))
+    raise TypeError(f"Unsupported Expr node: {type(expr)}")
+
+
+def _collect_repeated_model_calls(expr: Expr, model_call_names: frozenset[str]) -> list[Expr]:
+    counts: Counter[Expr] = Counter()
+
+    def _walk(node: Expr) -> None:
+        if isinstance(node, Call):
+            if node.name in model_call_names:
+                counts[node] += 1
+            for arg in node.args:
+                _walk(arg)
+
+    _walk(expr)
+    repeated = [node for node, count in counts.items() if count > 1]
+    repeated.sort(key=_expr_size)
+    return repeated
+
+
+def hoist_repeated_model_calls(
+    model: FunctionModel,
+    *,
+    model_call_names: frozenset[str],
+) -> FunctionModel:
+    counter = 0
+    new_assignments: list[ModelStatement] = []
+
+    for stmt in model.assignments:
+        if not isinstance(stmt, Assignment):
+            new_assignments.append(stmt)
+            continue
+
+        repeated_calls = _collect_repeated_model_calls(stmt.expr, model_call_names)
+        if not repeated_calls:
+            new_assignments.append(stmt)
+            continue
+
+        replacements: dict[Expr, str] = {}
+        for call in repeated_calls:
+            counter += 1
+            hoisted_name = f"_cse_{counter}"
+            hoisted_expr = _replace_expr(call, replacements)
+            new_assignments.append(Assignment(target=hoisted_name, expr=hoisted_expr))
+            replacements[call] = hoisted_name
+
+        new_assignments.append(
+            Assignment(target=stmt.target, expr=_replace_expr(stmt.expr, replacements))
+        )
+
+    return FunctionModel(
+        fn_name=model.fn_name,
+        assignments=tuple(new_assignments),
+        param_names=model.param_names,
+        return_names=model.return_names,
+    )
+
+
 def emit_expr(
     expr: Expr,
     *,
@@ -1755,6 +1819,10 @@ class ModelConfig:
     # etc. which do NOT match EVM uint256 semantics.  For wrapper functions
     # whose proofs bridge the EVM model directly, the norm model is unused.
     skip_norm: frozenset[str] = frozenset()
+    # Function names whose repeated generated-model calls should be hoisted
+    # into let-bound temporaries before emission. Useful for wrappers whose
+    # IR duplicates the same pure helper call many times.
+    hoist_repeated_calls: frozenset[str] = frozenset()
 
     # -- CLI defaults --
     default_source_label: str = ""
@@ -2098,6 +2166,14 @@ def run(config: ModelConfig) -> int:
         )
         for fn in selected_functions
     ]
+
+    if config.hoist_repeated_calls:
+        model_call_names = frozenset(config.function_order)
+        models = [
+            hoist_repeated_model_calls(model, model_call_names=model_call_names)
+            if model.fn_name in config.hoist_repeated_calls else model
+            for model in models
+        ]
 
     lean_src = build_lean_source(
         models=models,

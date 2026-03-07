@@ -40,10 +40,14 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Lean toolchain
+      - name: Install pinned Lean toolchain
         run: |
-          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y
+          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          LEAN_TOOLCHAIN="$(cat formal/cbrt/Cbrt512Proof/lean-toolchain)"
+          test "$LEAN_TOOLCHAIN" = "$(cat formal/cbrt/CbrtProof/lean-toolchain)"
+          "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
+          "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
 
       - name: Generate 256-bit Lean model (CbrtProof dependency)
         run: |
