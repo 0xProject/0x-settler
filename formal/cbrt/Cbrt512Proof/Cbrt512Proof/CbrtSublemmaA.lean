@@ -62,13 +62,7 @@ theorem r_qc_succ1_cube_gt_when_c_le1 (x_hi_1 x_lo_1 : Nat)
   -- c ≤ r_lo
   have hR_gt_rlo : r_lo < R :=
     Nat.lt_of_lt_of_le hr_lo_bound (Nat.le_trans (Nat.pow_le_pow_right (by omega) (by omega : 87 ≤ 169)) hR_lo)
-  have hc_le : c ≤ r_lo := by
-    show r_lo * r_lo / R ≤ r_lo
-    cases Nat.eq_or_lt_of_le (Nat.zero_le r_lo) with
-    | inl h => rw [← h]; simp
-    | inr h =>
-      exact Nat.le_of_lt ((Nat.div_lt_iff_lt_mul hR_pos).mpr
-        (Nat.mul_lt_mul_of_pos_left hR_gt_rlo h))
+  have hc_le : c ≤ r_lo := correction_le_rlo r_lo R hR_pos hR_gt_rlo
   -- rem_kq < d
   have hrem_lt : rem_kq < d := Nat.mod_lt _ hd_pos
   -- c_tail < 2^172
@@ -214,13 +208,7 @@ theorem r_qc_succ2_cube_gt (x_hi_1 x_lo_1 : Nat)
   -- c ≤ r_lo (since r_lo < R)
   have hR_gt_rlo : r_lo < R :=
     Nat.lt_of_lt_of_le hr_lo_bound (Nat.le_trans (Nat.pow_le_pow_right (by omega) (by omega : 87 ≤ 169)) hR_lo)
-  have hc_le : c ≤ r_lo := by
-    show r_lo * r_lo / R ≤ r_lo
-    cases Nat.eq_or_lt_of_le (Nat.zero_le r_lo) with
-    | inl h => rw [← h]; simp
-    | inr h =>
-      exact Nat.le_of_lt ((Nat.div_lt_iff_lt_mul hR_pos).mpr
-        (Nat.mul_lt_mul_of_pos_left hR_gt_rlo h))
+  have hc_le : c ≤ r_lo := correction_le_rlo r_lo R hR_pos hR_gt_rlo
   -- rem_kq < d
   have hrem_lt : rem_kq < d := Nat.mod_lt _ hd_pos
   -- c_tail < 2^172

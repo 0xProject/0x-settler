@@ -130,4 +130,18 @@ theorem tail_dom_by_mm_gap (R mm B c_tail : Nat)
     _ = 3 * R * mm := by
         rw [Nat.add_sub_of_le hB_le_mm]
 
+-- ============================================================================
+-- Quadratic correction bound: r_lo²/R ≤ r_lo when r_lo < R
+-- ============================================================================
+
+/-- The quadratic correction `r_lo * r_lo / R` never exceeds `r_lo`
+    (since `r_lo < R` implies `r_lo² < r_lo · R`). -/
+theorem correction_le_rlo (r_lo R : Nat) (hR_pos : 0 < R) (hR_gt : r_lo < R) :
+    r_lo * r_lo / R ≤ r_lo := by
+  cases Nat.eq_or_lt_of_le (Nat.zero_le r_lo) with
+  | inl h => rw [← h]; simp
+  | inr h =>
+    exact Nat.le_of_lt ((Nat.div_lt_iff_lt_mul hR_pos).mpr
+      (Nat.mul_lt_mul_of_pos_left hR_gt h))
+
 end Cbrt512Spec

@@ -496,4 +496,52 @@ theorem baseCase_bounds (x_hi_1 x_lo_1 : Nat)
          hd_pos, hd_wm, hR_lo, hR_hi, Nat.lt_of_lt_of_le (by omega : 0 < 2 ^ 169) hR_lo,
          hlimb, hr_lo_bound⟩
 
+-- ============================================================================
+-- Extended bounds: parametrized over abstract m, nat_r_lo, nat_rem
+-- ============================================================================
+
+/-- Extended bounds for CbrtComposition callers that parametrize over
+    `(m : Nat) (hm_eq : m = icbrt (x_hi_1 / 4))` and separate quotient/remainder.
+    Bundles all facts from `baseCase_bounds` plus `hr_lo_wm`, `hmm_hi`, `hrem_wm`. -/
+theorem extended_bounds (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD)
+    (m : Nat) (hm_eq : m = icbrt (x_hi_1 / 4))
+    (nat_r_lo : Nat) (hr_lo_eq : nat_r_lo = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)))
+    (nat_rem : Nat) (hrem_eq : nat_rem = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) % (3 * (m * m))) :
+    -- m bounds
+    2 ^ 83 ≤ m ∧ m < 2 ^ 85 ∧ 2 ≤ m ∧ m < WORD_MOD ∧
+    -- cube / residue
+    m * m * m ≤ x_hi_1 / 4 ∧
+    x_hi_1 / 4 - m * m * m ≤ 3 * (m * m) + 3 * m ∧
+    -- d bounds
+    0 < 3 * (m * m) ∧ 3 * (m * m) < WORD_MOD ∧
+    -- R bounds
+    2 ^ 169 ≤ m * 2 ^ 86 ∧ m * 2 ^ 86 < 2 ^ 171 ∧ 0 < m * 2 ^ 86 ∧
+    -- limb / r_lo / r_lo_wm
+    (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86 ∧
+    nat_r_lo < 2 ^ 87 ∧ nat_r_lo < WORD_MOD ∧
+    -- mm / rem
+    m * m < 2 ^ 170 ∧ nat_rem < WORD_MOD := by
+  subst hm_eq
+  have hb := baseCase_bounds x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+  simp only at hb ⊢
+  obtain ⟨hm_lo, hm_hi, hm_pos, hm_wm, hcube_le, hres_bound,
+          hd_pos, hd_wm, hR_lo, hR_hi, hR_pos, hlimb, hr_lo_bound⟩ := hb
+  have hr_lo_bound' : nat_r_lo < 2 ^ 87 := by rw [hr_lo_eq]; exact hr_lo_bound
+  have hr_lo_wm : nat_r_lo < WORD_MOD := by unfold WORD_MOD; omega
+  have hmm_hi : icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) < 2 ^ 170 :=
+    calc icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
+        < icbrt (x_hi_1 / 4) * 2 ^ 85 :=
+          Nat.mul_lt_mul_of_pos_left hm_hi (by omega)
+      _ ≤ 2 ^ 85 * 2 ^ 85 := Nat.mul_le_mul_right _ (Nat.le_of_lt hm_hi)
+      _ = 2 ^ 170 := by rw [← Nat.pow_add]
+  have hrem_wm : nat_rem < WORD_MOD := by
+    rw [hrem_eq]; exact Nat.lt_of_lt_of_le (Nat.mod_lt _ hd_pos) (Nat.le_of_lt hd_wm)
+  exact ⟨hm_lo, hm_hi, hm_pos, hm_wm, hcube_le, hres_bound,
+         hd_pos, hd_wm, hR_lo, hR_hi, hR_pos, hlimb, hr_lo_bound', hr_lo_wm,
+         hmm_hi, hrem_wm⟩
+
 end Cbrt512Spec
