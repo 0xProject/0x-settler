@@ -207,8 +207,17 @@ class ParsedIfBlock:
     else_body: tuple[tuple[str, Expr], ...] | None = None
 
 
-# A raw parsed statement is either an assignment or an if-block.
-RawStatement = tuple[str, Expr] | ParsedIfBlock
+@dataclass(frozen=True)
+class MemoryWrite:
+    """A supported straight-line ``mstore(addr, value)`` statement."""
+
+    address: Expr
+    value: Expr
+
+
+# A raw parsed statement is either an assignment, a supported memory write,
+# or an if/switch block.
+RawStatement = tuple[str, Expr] | MemoryWrite | ParsedIfBlock
 
 
 @dataclass
@@ -218,6 +227,8 @@ class YulFunction:
     params: list[str]
     rets: list[str]
     assignments: list[RawStatement]
+    # Bare expression-statements that are not part of the supported memory
+    # subset. The translator rejects any function that still contains them.
     expr_stmts: list[Expr] | None = None
 
     @property
@@ -257,7 +268,8 @@ class YulParser:
     """Recursive-descent parser over a pre-tokenized Yul token stream.
 
     Only the subset of Yul needed for our extraction is handled: function
-    definitions, ``let``/bare assignments, blocks, and ``leave``.
+    definitions, ``let``/bare assignments, supported straight-line
+    ``mstore`` statements, blocks, and ``leave``.
 
     Control flow (``if``, ``switch``, ``for``) is **rejected** unless it is
     part of the explicitly supported subset. Bare expression-statements are
@@ -371,7 +383,9 @@ class YulParser:
         are parsed and emitted as ``ParsedIfBlock`` entries.  When False,
         ``if``, ``switch``, and ``for`` keywords are rejected with a
         ``ParseError``, preventing silent model incompleteness inside
-        if-bodies.  ``for`` is always rejected.
+        if-bodies. Straight-line ``mstore`` statements are supported only
+        when *allow_control_flow* is True; conditional memory writes are
+        rejected. ``for`` is always rejected.
         """
         results: list[RawStatement] = []
         has_leave = False
@@ -514,6 +528,19 @@ class YulParser:
 
             if kind == "ident" or kind == "num":
                 expr = self._parse_expr()
+                if (
+                    isinstance(expr, Call)
+                    and expr.name == "mstore"
+                    and len(expr.args) == 2
+                ):
+                    if not allow_control_flow:
+                        raise ParseError(
+                            "Conditional memory write detected in an if/switch "
+                            "branch. The supported memory model only allows "
+                            "straight-line mstore statements outside control flow."
+                        )
+                    results.append(MemoryWrite(expr.args[0], expr.args[1]))
+                    continue
                 self._expr_stmts.append(expr)
                 continue
 
@@ -545,7 +572,7 @@ class YulParser:
         # When allow_control_flow=False, all statements are plain assignments.
         plain: list[tuple[str, Expr]] = []
         for stmt in raw:
-            if isinstance(stmt, ParsedIfBlock):
+            if isinstance(stmt, (ParsedIfBlock, MemoryWrite)):
                 raise ParseError(
                     "Unexpected control-flow block inside if-body results"
                 )
@@ -855,7 +882,7 @@ def _inline_single_call(
     fn_table: dict[str, YulFunction],
     depth: int,
     max_depth: int,
-    mstore_sink: list[tuple[str, Expr]] | None = None,
+    mstore_sink: list[MemoryWrite] | None = None,
     unsupported_function_errors: dict[str, str] | None = None,
 ) -> Expr | tuple[Expr, ...]:
     """Inline one function call, returning its return-value expression(s).
@@ -865,37 +892,27 @@ def _inline_single_call(
     Each local variable gets a unique gensym name to avoid clashes with
     the caller's scope.
 
-    When *mstore_sink* is not None, ``mstore(addr, val)`` expression-
-    statements from inlined functions are collected as synthetic
-    assignments ``(gensym_name, Call("__mstore", [addr, val]))``.  The
-    caller is responsible for injecting these into the outer function's
-    assignment list so that ``yul_function_to_model`` can resolve
-    ``mload`` calls lazily during copy propagation.
+    When *mstore_sink* is not None, supported straight-line ``mstore``
+    statements from inlined functions are collected as explicit
+    ``MemoryWrite`` entries. The caller is responsible for injecting these
+    into the outer function's statement list at the call site so the later
+    model-construction pass can interpret memory sequentially.
     """
     if fn.expr_stmts:
-        # Filter out mstore calls when we have a sink to capture them.
-        unhandled = [
-            e for e in fn.expr_stmts
-            if not (mstore_sink is not None
-                    and isinstance(e, Call)
-                    and e.name == "mstore"
-                    and len(e.args) == 2)
-        ]
-        if unhandled:
-            descriptions = []
-            for e in unhandled[:3]:
-                if isinstance(e, Call):
-                    descriptions.append(f"{e.name}(...)")
-                else:
-                    descriptions.append(repr(e))
-            summary = ", ".join(descriptions)
-            if len(unhandled) > 3:
-                summary += ", ..."
-            raise ParseError(
-                f"Inlining function {fn.yul_name!r} encountered "
-                f"{len(unhandled)} unhandled expression-statement(s): "
-                f"[{summary}]. Refuse to inline incomplete semantics."
-            )
+        descriptions = []
+        for e in fn.expr_stmts[:3]:
+            if isinstance(e, Call):
+                descriptions.append(f"{e.name}(...)")
+            else:
+                descriptions.append(repr(e))
+        summary = ", ".join(descriptions)
+        if len(fn.expr_stmts) > 3:
+            summary += ", ..."
+        raise ParseError(
+            f"Inlining function {fn.yul_name!r} encountered "
+            f"{len(fn.expr_stmts)} unhandled expression-statement(s): "
+            f"[{summary}]. Refuse to inline incomplete semantics."
+        )
 
     subst: dict[str, Expr] = {}
     for param, arg_expr in zip(fn.params, args):
@@ -907,6 +924,19 @@ def _inline_single_call(
 
     leave_cond: Expr | None = None  # set when an if-block with leave is encountered
     leave_subst: dict[str, Expr] | None = None
+
+    def _resolve(e: Expr, s: dict[str, Expr]) -> Expr:
+        for _ in range(50):
+            prev = e
+            e = substitute_expr(e, s)
+            if e == prev:
+                break
+        else:
+            raise ParseError(
+                f"Substitution resolution did not converge after 50 "
+                f"iterations for expression: {e!r}"
+            )
+        return e
 
     for stmt in fn.assignments:
         if isinstance(stmt, ParsedIfBlock):
@@ -985,6 +1015,36 @@ def _inline_single_call(
                     orig_val = subst.get(target, IntLit(0))
                     if if_val != orig_val:
                         subst[target] = if_val
+        elif isinstance(stmt, MemoryWrite):
+            if mstore_sink is None:
+                raise ParseError(
+                    f"Function {fn.yul_name!r} contains supported memory writes, "
+                    f"but no memory sink was provided during inlining."
+                )
+            addr_expr = substitute_expr(stmt.address, subst)
+            addr_expr = inline_calls(
+                addr_expr,
+                fn_table,
+                depth + 1,
+                max_depth,
+                mstore_sink=mstore_sink,
+                unsupported_function_errors=unsupported_function_errors,
+            )
+            val_expr = substitute_expr(stmt.value, subst)
+            val_expr = inline_calls(
+                val_expr,
+                fn_table,
+                depth + 1,
+                max_depth,
+                mstore_sink=mstore_sink,
+                unsupported_function_errors=unsupported_function_errors,
+            )
+            mstore_sink.append(
+                MemoryWrite(
+                    address=_resolve(addr_expr, subst),
+                    value=_resolve(val_expr, subst),
+                )
+            )
         else:
             target, raw_expr = stmt
             expr = substitute_expr(raw_expr, subst)
@@ -1000,43 +1060,6 @@ def _inline_single_call(
                 subst[new_name] = expr
             else:
                 subst[target] = expr
-
-    # Resolve any gensym'd variables remaining in return expressions.
-    # Iterate because gensym'd vars may reference other gensym'd vars.
-    def _resolve(e: Expr, s: dict[str, Expr]) -> Expr:
-        for _ in range(50):
-            prev = e
-            e = substitute_expr(e, s)
-            if e == prev:
-                break
-        else:
-            raise ParseError(
-                f"Substitution resolution did not converge after 50 "
-                f"iterations for expression: {e!r}"
-            )
-        return e
-
-    # Emit mstore effects AFTER the full subst chain is built.
-    # 1. Collect effects from this function's own expr_stmts.
-    # 2. Resolve all sink entries through subst to eliminate gensyms.
-    if mstore_sink is not None:
-        # Step 1: emit this function's own mstore effects.
-        for e in (fn.expr_stmts or []):
-            if isinstance(e, Call) and e.name == "mstore" and len(e.args) == 2:
-                addr_expr = _resolve(substitute_expr(e.args[0], subst), subst)
-                val_expr = _resolve(substitute_expr(e.args[1], subst), subst)
-                syn_name = _gensym("inline___mstore")
-                mstore_sink.append(
-                    (syn_name, Call("__mstore", (addr_expr, val_expr)))
-                )
-
-        # Step 2: resolve all sink entries through this level's subst.
-        for i in range(len(mstore_sink)):
-            name, val = mstore_sink[i]
-            if isinstance(val, Call) and val.name == "__mstore":
-                new_args = tuple(_resolve(a, subst) for a in val.args)
-                if any(na is not oa for na, oa in zip(new_args, val.args)):
-                    mstore_sink[i] = (name, Call("__mstore", new_args))
 
     def _get_ret(r: str) -> Expr:
         else_val = _resolve(subst.get(r, IntLit(0)), subst)
@@ -1056,7 +1079,7 @@ def inline_calls(
     fn_table: dict[str, YulFunction],
     depth: int = 0,
     max_depth: int = 20,
-    mstore_sink: list[tuple[str, Expr]] | None = None,
+    mstore_sink: list[MemoryWrite] | None = None,
     unsupported_function_errors: dict[str, str] | None = None,
 ) -> Expr:
     """Recursively inline function calls in an expression.
@@ -1066,8 +1089,8 @@ def inline_calls(
     ``__component_N`` wrappers (from multi-value ``let``) are resolved
     to the Nth return value of the inlined function.
 
-    When *mstore_sink* is not None, ``mstore`` side effects from inlined
-    functions are collected (see ``_inline_single_call``).
+    When *mstore_sink* is not None, explicit ``MemoryWrite`` side effects
+    from inlined functions are collected (see ``_inline_single_call``).
     """
     if depth > max_depth:
         raise ParseError(
@@ -1168,16 +1191,14 @@ def _inline_yul_function(
 ) -> YulFunction:
     """Apply ``inline_calls`` to every expression in a YulFunction.
 
-    When inlined functions contain ``mstore`` expression-statements, they
-    are collected and injected as synthetic ``__mstore`` assignments into
-    the outer function's assignment list.  This enables lazy ``mload``
-    resolution during ``yul_function_to_model``'s copy propagation.
+    When inlined functions contain supported straight-line ``mstore``
+    statements, they are collected and injected as explicit ``MemoryWrite``
+    statements at the call site. Conditional memory writes are rejected.
     """
-    # Shared sink for mstore effects from all inlined functions.
-    # Effects are injected into the assignment list at the point they
-    # are collected (not prepended) so that variables they reference
-    # are already defined during copy propagation.
-    mstore_sink: list[tuple[str, Expr]] = []
+    # Shared sink for memory writes from inlined helpers. Effects are
+    # injected into the statement list at the point they are collected so
+    # later translation can interpret memory sequentially.
+    mstore_sink: list[MemoryWrite] = []
 
     new_assignments: list[RawStatement] = []
     for stmt in yf.assignments:
@@ -1191,13 +1212,53 @@ def _inline_yul_function(
                 new_body.append((target, inline_calls(raw_expr, fn_table,
                                                       mstore_sink=mstore_sink,
                                                       unsupported_function_errors=unsupported_function_errors)))
-            # Inject any mstore effects collected during this statement.
-            new_assignments.extend(mstore_sink[pre_len:])
+            new_else_body: list[tuple[str, Expr]] | None = None
+            if stmt.else_body is not None:
+                new_else_body = []
+                for target, raw_expr in stmt.else_body:
+                    new_else_body.append((target, inline_calls(
+                        raw_expr,
+                        fn_table,
+                        mstore_sink=mstore_sink,
+                        unsupported_function_errors=unsupported_function_errors,
+                    )))
+            if len(mstore_sink) > pre_len:
+                raise ParseError(
+                    f"Conditional memory write detected in {yf.yul_name!r} while "
+                    f"inlining a control-flow block. The supported memory model "
+                    f"only allows straight-line writes outside conditionals."
+                )
             new_assignments.append(ParsedIfBlock(
                 condition=new_cond,
                 body=tuple(new_body),
                 has_leave=stmt.has_leave,
+                else_body=(
+                    tuple(new_else_body)
+                    if new_else_body is not None
+                    else None
+                ),
             ))
+        elif isinstance(stmt, MemoryWrite):
+            pre_len = len(mstore_sink)
+            new_addr = inline_calls(
+                stmt.address,
+                fn_table,
+                mstore_sink=mstore_sink,
+                unsupported_function_errors=unsupported_function_errors,
+            )
+            new_value = inline_calls(
+                stmt.value,
+                fn_table,
+                mstore_sink=mstore_sink,
+                unsupported_function_errors=unsupported_function_errors,
+            )
+            if len(mstore_sink) > pre_len:
+                raise ParseError(
+                    f"Nested memory write detected while evaluating an mstore in "
+                    f"{yf.yul_name!r}. The supported memory model requires "
+                    f"direct straight-line writes."
+                )
+            new_assignments.append(MemoryWrite(new_addr, new_value))
         else:
             target, raw_expr = stmt
             pre_len = len(mstore_sink)
@@ -1234,6 +1295,9 @@ def yul_function_to_model(
     - The return variable is recognized and assigned in the model.
     - ``elide_zero_assignments`` controls whether literal zero-initializations
       are dropped during model construction.
+    - Memory use must stay within the explicit supported subset:
+      straight-line constant-address, 32-byte-aligned ``mstore``/``mload``
+      with no aliasing.
     """
     if yf.expr_stmts:
         descriptions = []
@@ -1263,12 +1327,19 @@ def yul_function_to_model(
         if isinstance(stmt, ParsedIfBlock):
             for target, _ in stmt.body:
                 assign_counts[target] += 1
+            if stmt.else_body is not None:
+                for target, _ in stmt.else_body:
+                    assign_counts[target] += 1
+        elif isinstance(stmt, MemoryWrite):
+            continue
         else:
             target, _ = stmt
             assign_counts[target] += 1
 
     var_map: dict[str, str] = {}
     subst: dict[str, Expr] = {}
+    const_locals: dict[str, int] = {}
+    memory_state: dict[int, Expr] = {}
 
     for name in [*yf.params, *yf.rets]:
         clean = demangle_var(name, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals)
@@ -1291,32 +1362,55 @@ def yul_function_to_model(
 
     assignments: list[ModelStatement] = []
 
-    def _freeze_refs(expr: Expr) -> Expr:
-        """Replace Var refs to Solidity-level vars with current Lean names,
-        and rename function calls through ``fn_map``.
-
-        Called when a compiler temporary is copy-propagated.  By
-        resolving Solidity-level ``Var`` nodes to their *current* Lean
-        name at copy-propagation time we "freeze" the reference,
-        preventing a later SSA rename of the same variable from
-        changing what the expression points to.
-
-        Also renames function calls (e.g. ``fun__sqrt_4544`` → ``model_sqrt512``)
-        so they are correct if the expression is later substituted into a
-        real variable's assignment without going through ``rename_expr``.
-        """
+    def _resolve_const_locals(expr: Expr) -> Expr:
+        """Resolve constant local Lean bindings inside an address expression."""
         if isinstance(expr, IntLit):
             return expr
         if isinstance(expr, Var):
-            lean_name = var_map.get(expr.name)
-            if lean_name is not None:
-                return Var(lean_name)
+            if expr.name in const_locals:
+                return IntLit(const_locals[expr.name])
             return expr
         if isinstance(expr, Call):
-            new_args = tuple(_freeze_refs(a) for a in expr.args)
-            new_name = fn_map.get(expr.name, expr.name)
-            return Call(new_name, new_args)
-        return expr
+            return Call(
+                expr.name,
+                tuple(_resolve_const_locals(arg) for arg in expr.args),
+            )
+        raise TypeError(f"Unsupported Expr node: {type(expr)}")
+
+    def _resolve_memory_address(expr: Expr, *, op_name: str) -> int:
+        addr = _try_const_eval(_resolve_const_locals(expr))
+        if addr is None:
+            raise ParseError(
+                f"{op_name} with non-constant address {expr!r} in "
+                f"{sol_fn_name!r}. The supported memory model only allows "
+                f"constant 32-byte-aligned scratch slots."
+            )
+        if addr % 32 != 0:
+            raise ParseError(
+                f"{op_name} with unaligned address {addr} in {sol_fn_name!r}. "
+                f"The supported memory model only allows 32-byte-aligned "
+                f"scratch slots."
+            )
+        return addr
+
+    def _resolve_memory_expr(expr: Expr) -> Expr:
+        if isinstance(expr, (IntLit, Var)):
+            return expr
+        if isinstance(expr, Call):
+            if expr.name == "mload" and len(expr.args) == 1:
+                addr = _resolve_memory_address(expr.args[0], op_name="mload")
+                if addr not in memory_state:
+                    raise ParseError(
+                        f"mload at address {addr} in {sol_fn_name!r} has no "
+                        f"matching prior mstore. Available addresses: "
+                        f"{sorted(memory_state.keys())}"
+                    )
+                return memory_state[addr]
+            return Call(
+                expr.name,
+                tuple(_resolve_memory_expr(arg) for arg in expr.args),
+            )
+        raise TypeError(f"Unsupported Expr node: {type(expr)}")
 
     def _process_assignment(
         target: str, raw_expr: Expr, *, inside_conditional: bool = False,
@@ -1327,6 +1421,8 @@ def yul_function_to_model(
         it was copy-propagated into ``subst``.
         """
         expr = substitute_expr(raw_expr, subst)
+        expr = rename_expr(expr, var_map, fn_map)
+        expr = _resolve_memory_expr(expr)
 
         clean = demangle_var(target, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals)
         if clean is None:
@@ -1341,7 +1437,7 @@ def yul_function_to_model(
             if isinstance(expr, Call) and expr.name.startswith("zero_value_for_split_"):
                 subst[target] = IntLit(0)
             else:
-                subst[target] = _freeze_refs(expr)
+                subst[target] = expr
             return None
 
         # Rename the RHS expression BEFORE updating var_map so that
@@ -1352,8 +1448,6 @@ def yul_function_to_model(
             and isinstance(expr, IntLit)
             and expr.value == 0
         )
-        if not skip_zero:
-            expr = rename_expr(expr, var_map, fn_map)
 
         # SSA: compute the Lean target name.  Inside conditional
         # blocks, Lean's scoped ``let`` handles shadowing, so we
@@ -1370,6 +1464,12 @@ def yul_function_to_model(
         # Update var_map AFTER rename_expr.
         var_map[target] = ssa_name
 
+        if not inside_conditional:
+            if isinstance(expr, IntLit):
+                const_locals[ssa_name] = expr.value
+            else:
+                const_locals.pop(ssa_name, None)
+
         if skip_zero:
             return None
 
@@ -1381,6 +1481,7 @@ def yul_function_to_model(
             # condition and body, then emit a ConditionalBlock.
             cond = substitute_expr(stmt.condition, subst)
             cond = rename_expr(cond, var_map, fn_map)
+            cond = _resolve_memory_expr(cond)
 
             # Save pre-if Lean names so the else-tuple can reference
             # the values that were live *before* the if-body ran.
@@ -1479,6 +1580,23 @@ def yul_function_to_model(
                     if c is not None and c in modified_set:
                         var_map[target_name] = c
                         ssa_count[c] = 1
+                        const_locals.pop(c, None)
+            continue
+
+        if isinstance(stmt, MemoryWrite):
+            addr_expr = substitute_expr(stmt.address, subst)
+            addr_expr = rename_expr(addr_expr, var_map, fn_map)
+            value_expr = substitute_expr(stmt.value, subst)
+            value_expr = rename_expr(value_expr, var_map, fn_map)
+            value_expr = _resolve_memory_expr(value_expr)
+            addr = _resolve_memory_address(addr_expr, op_name="mstore")
+            if addr in memory_state:
+                raise ParseError(
+                    f"Multiple mstore writes to address {addr} in {sol_fn_name!r}. "
+                    f"The supported memory model forbids aliasing or overwrite "
+                    f"of scratch slots."
+                )
+            memory_state[addr] = value_expr
             continue
 
         target, raw_expr = stmt
@@ -1514,154 +1632,7 @@ def yul_function_to_model(
         return_names=tuple(return_names_list),
     )
 
-    # ------------------------------------------------------------------
-    # Lazy memory folding: resolve mload(addr) against __mstore(addr, val)
-    # synthetic assignments that were injected during inlining.
-    # ------------------------------------------------------------------
-    # Build a lookup of Lean variable names → constant IntLit values
-    # from the model's assignments.  This lets us resolve addresses
-    # like Var('x_1') that refer to Solidity locals (which live in
-    # `assignments`, not `subst`).
-    _const_locals: dict[str, int] = {}
-    for a in assignments:
-        if isinstance(a, Assignment) and isinstance(a.expr, IntLit):
-            _const_locals[a.target] = a.expr.value
-
-    def _resolve_addr(expr: Expr) -> Expr:
-        """Resolve Var references through _const_locals before const-eval."""
-        if isinstance(expr, Var) and expr.name in _const_locals:
-            return IntLit(_const_locals[expr.name])
-        if isinstance(expr, Call):
-            new_args = tuple(_resolve_addr(a) for a in expr.args)
-            return Call(expr.name, new_args)
-        return expr
-
-    # Collect __mstore entries from the copy-propagation subst dict.
-    # These have the form: subst[_inline___mstore_N] = Call("__mstore", [addr, val])
-    # After copy propagation, addr and val are fully resolved.
-    # Collect __mstore entries, resolving addresses to integer constants.
-    mem_map: dict[int, Expr] = {}
-    for key, val in subst.items():
-        if (
-            isinstance(val, Call)
-            and val.name == "__mstore"
-            and len(val.args) == 2
-        ):
-            addr = _try_const_eval(_resolve_addr(val.args[0]))
-            if addr is None:
-                raise ParseError(
-                    f"__mstore synthetic assignment {key!r} has non-constant "
-                    f"address {val.args[0]!r} after copy propagation. "
-                    f"All mstore addresses must evaluate to constants "
-                    f"(use tmp() in wrappers)."
-                )
-            mem_map[addr] = val.args[1]
-
-    if mem_map:
-        # Resolve mload calls within mem_map values against the same
-        # mem_map.  This handles cases where e.g. the value at addr 0
-        # contains mload(0x1080) which maps to x_hi from mem_map[4224].
-        # Iterate until stable (acyclic references converge in one pass).
-        def _fold_mem_val(expr: Expr) -> Expr:
-            if isinstance(expr, (IntLit, Var)):
-                return expr
-            if isinstance(expr, Call):
-                if expr.name == "mload" and len(expr.args) == 1:
-                    addr = _try_const_eval(_resolve_addr(expr.args[0]))
-                    if addr is not None and addr in mem_map:
-                        return mem_map[addr]
-                new_args = tuple(_fold_mem_val(a) for a in expr.args)
-                return Call(expr.name, new_args)
-            return expr
-
-        changed = True
-        for _pass in range(5):
-            if not changed:
-                break
-            changed = False
-            for addr in list(mem_map.keys()):
-                new_val = _fold_mem_val(mem_map[addr])
-                if new_val is not mem_map[addr]:
-                    mem_map[addr] = new_val
-                    changed = True
-
-        model = _resolve_mloads(model, mem_map, _const_locals, sol_fn_name)
-
     return model
-
-
-def _resolve_mloads(
-    model: "FunctionModel",
-    mem_map: dict[int, Expr],
-    const_locals: dict[str, int],
-    fn_name: str,
-) -> "FunctionModel":
-    """Replace ``mload(const_addr)`` calls in a FunctionModel with values
-    from the memory map.
-
-    Raises ``ParseError`` if any ``mload`` has a non-constant address or
-    an address not found in the memory map.
-    """
-    def _resolve_addr(expr: Expr) -> Expr:
-        """Resolve Var references through const_locals before const-eval."""
-        if isinstance(expr, Var) and expr.name in const_locals:
-            return IntLit(const_locals[expr.name])
-        if isinstance(expr, Call):
-            new_args = tuple(_resolve_addr(a) for a in expr.args)
-            return Call(expr.name, new_args)
-        return expr
-
-    def _fold(expr: Expr) -> Expr:
-        if isinstance(expr, (IntLit, Var)):
-            return expr
-        if isinstance(expr, Call):
-            if expr.name == "mload" and len(expr.args) == 1:
-                addr = _try_const_eval(_resolve_addr(expr.args[0]))
-                if addr is None:
-                    raise ParseError(
-                        f"mload with non-constant address {expr.args[0]!r} "
-                        f"in {fn_name!r} after copy propagation. "
-                        f"All mload addresses must evaluate to constants."
-                    )
-                if addr not in mem_map:
-                    raise ParseError(
-                        f"mload at address {addr} in {fn_name!r} has no "
-                        f"matching mstore. Available addresses: "
-                        f"{sorted(mem_map.keys())}"
-                    )
-                return mem_map[addr]
-            new_args = tuple(_fold(a) for a in expr.args)
-            return Call(expr.name, new_args)
-        return expr
-
-    def _fold_stmt(stmt: ModelStatement) -> ModelStatement:
-        if isinstance(stmt, Assignment):
-            return Assignment(target=stmt.target, expr=_fold(stmt.expr))
-        if isinstance(stmt, ConditionalBlock):
-            ea = None
-            if stmt.else_assignments is not None:
-                ea = tuple(
-                    Assignment(target=a.target, expr=_fold(a.expr))
-                    for a in stmt.else_assignments
-                )
-            return ConditionalBlock(
-                condition=_fold(stmt.condition),
-                assignments=tuple(
-                    Assignment(target=a.target, expr=_fold(a.expr))
-                    for a in stmt.assignments
-                ),
-                modified_vars=stmt.modified_vars,
-                else_vars=stmt.else_vars,
-                else_assignments=ea,
-            )
-        raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
-
-    return FunctionModel(
-        fn_name=model.fn_name,
-        assignments=tuple(_fold_stmt(s) for s in model.assignments),
-        param_names=model.param_names,
-        return_names=model.return_names,
-    )
 
 
 def _prune_dead_assignments(

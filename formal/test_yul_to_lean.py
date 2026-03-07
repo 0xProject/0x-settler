@@ -209,6 +209,21 @@ class FailClosedTranslatorTest(unittest.TestCase):
         with self.assertRaisesRegex(ytl.ParseError, "Unsupported statement start"):
             ytl.YulParser(tokens).parse_function()
 
+    def test_parse_function_rejects_conditional_memory_write(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function fun_bad_1(x) -> z {
+                if x {
+                    mstore(0, x)
+                }
+                z := x
+            }
+            """
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "Conditional memory write"):
+            ytl.YulParser(tokens).parse_function()
+
     def test_collect_all_functions_records_rejected_helper_and_inlining_fails(self) -> None:
         tokens = ytl.tokenize_yul(
             """
@@ -286,6 +301,64 @@ class FailClosedTranslatorTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ytl.ParseError, "classified as a compiler temporary"):
             ytl.yul_function_to_model(yf, "f", {})
+
+    def test_inline_yul_function_rejects_helper_memory_write_inside_conditional(self) -> None:
+        helper = ytl.YulFunction(
+            yul_name="store_helper",
+            params=["arg"],
+            rets=["ret"],
+            assignments=[
+                ytl.MemoryWrite(ytl.IntLit(0), ytl.Var("arg")),
+                ("ret", ytl.Var("arg")),
+            ],
+        )
+        target = ytl.YulFunction(
+            yul_name="target",
+            params=["flag", "x"],
+            rets=["ret"],
+            assignments=[
+                ytl.ParsedIfBlock(
+                    condition=ytl.Var("flag"),
+                    body=(("ret", ytl.Call("store_helper", (ytl.Var("x"),))),),
+                ),
+            ],
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "Conditional memory write"):
+            ytl._inline_yul_function(target, {"store_helper": helper})
+
+    def test_inline_yul_function_preserves_else_body(self) -> None:
+        helper = ytl.YulFunction(
+            yul_name="inc",
+            params=["arg"],
+            rets=["ret"],
+            assignments=[("ret", ytl.Call("add", (ytl.Var("arg"), ytl.IntLit(1))))],
+        )
+        target = ytl.YulFunction(
+            yul_name="target",
+            params=["flag", "x"],
+            rets=["ret"],
+            assignments=[
+                ytl.ParsedIfBlock(
+                    condition=ytl.Var("flag"),
+                    body=(("ret", ytl.Call("inc", (ytl.Var("x"),))),),
+                    else_body=(("ret", ytl.Var("x")),),
+                ),
+            ],
+        )
+
+        inlined = ytl._inline_yul_function(target, {"inc": helper})
+
+        self.assertEqual(
+            inlined.assignments,
+            [
+                ytl.ParsedIfBlock(
+                    condition=ytl.Var("flag"),
+                    body=(("ret", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),),
+                    else_body=(("ret", ytl.Var("x")),),
+                ),
+            ],
+        )
 
 
 def make_model_config(
@@ -405,6 +478,114 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertNotEqual(optimized_models, [model])
         self.assertIsInstance(optimized_models[0].assignments[0], ytl.Assignment)
         self.assertRegex(optimized_models[0].assignments[0].target, r"^_cse_\d+$")
+
+
+class ExplicitMemoryModelTest(unittest.TestCase):
+    def test_yul_function_to_model_resolves_sequential_memory_slots(self) -> None:
+        yf = ytl.YulFunction(
+            yul_name="f",
+            params=["var_x_1"],
+            rets=["var_z_2"],
+            assignments=[
+                ("usr$base", ytl.IntLit(0)),
+                ("usr$offset", ytl.IntLit(32)),
+                ytl.MemoryWrite(ytl.Var("usr$base"), ytl.Var("var_x_1")),
+                ytl.MemoryWrite(
+                    ytl.Call("add", (ytl.Var("usr$base"), ytl.Var("usr$offset"))),
+                    ytl.Call("mload", (ytl.Var("usr$base"),)),
+                ),
+                (
+                    "var_z_2",
+                    ytl.Call(
+                        "mload",
+                        (ytl.Call("add", (ytl.Var("usr$base"), ytl.Var("usr$offset"))),),
+                    ),
+                ),
+            ],
+        )
+
+        model = ytl.yul_function_to_model(yf, "f", {})
+
+        self.assertEqual(
+            model.assignments,
+            (
+                ytl.Assignment("offset", ytl.IntLit(32)),
+                ytl.Assignment("z", ytl.Var("x")),
+            ),
+        )
+        self.assertEqual(model.return_names, ("z",))
+
+    def test_yul_function_to_model_rejects_duplicate_memory_address(self) -> None:
+        yf = ytl.YulFunction(
+            yul_name="f",
+            params=["var_x_1"],
+            rets=["var_z_2"],
+            assignments=[
+                ("usr$base", ytl.IntLit(0)),
+                ytl.MemoryWrite(ytl.Var("usr$base"), ytl.Var("var_x_1")),
+                ytl.MemoryWrite(ytl.Var("usr$base"), ytl.Var("var_x_1")),
+                ("var_z_2", ytl.Var("var_x_1")),
+            ],
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "Multiple mstore writes"):
+            ytl.yul_function_to_model(yf, "f", {})
+
+    def test_yul_function_to_model_rejects_missing_memory_store(self) -> None:
+        yf = ytl.YulFunction(
+            yul_name="f",
+            params=["var_x_1"],
+            rets=["var_z_2"],
+            assignments=[
+                ("usr$base", ytl.IntLit(0)),
+                ("var_z_2", ytl.Call("mload", (ytl.Var("usr$base"),))),
+            ],
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "matching prior mstore"):
+            ytl.yul_function_to_model(yf, "f", {})
+
+    def test_yul_function_to_model_rejects_non_constant_memory_address(self) -> None:
+        yf = ytl.YulFunction(
+            yul_name="f",
+            params=["var_x_1"],
+            rets=["var_z_2"],
+            assignments=[
+                ytl.MemoryWrite(ytl.Var("var_x_1"), ytl.IntLit(7)),
+                ("var_z_2", ytl.IntLit(0)),
+            ],
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "non-constant address"):
+            ytl.yul_function_to_model(yf, "f", {})
+
+    def test_yul_function_to_model_rejects_unaligned_memory_store(self) -> None:
+        yf = ytl.YulFunction(
+            yul_name="f",
+            params=["var_x_1"],
+            rets=["var_z_2"],
+            assignments=[
+                ytl.MemoryWrite(ytl.IntLit(1), ytl.Var("var_x_1")),
+                ("var_z_2", ytl.IntLit(0)),
+            ],
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "unaligned address 1"):
+            ytl.yul_function_to_model(yf, "f", {})
+
+    def test_yul_function_to_model_rejects_unaligned_memory_load(self) -> None:
+        yf = ytl.YulFunction(
+            yul_name="f",
+            params=["var_x_1"],
+            rets=["var_z_2"],
+            assignments=[
+                ytl.MemoryWrite(ytl.IntLit(0), ytl.Var("var_x_1")),
+                ("var_z_2", ytl.Call("mload", (ytl.IntLit(1),))),
+            ],
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "unaligned address 1"):
+            ytl.yul_function_to_model(yf, "f", {})
 
 
 if __name__ == "__main__":
