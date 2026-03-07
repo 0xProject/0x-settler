@@ -108,9 +108,8 @@ theorem model_cbrtUp512_wrapper_evm_correct (x_hi x_lo : Nat)
       show evmAdd _ _ < WORD_MOD
       unfold evmAdd u256 WORD_MOD; exact Nat.mod_lt _ (Nat.two_pow_pos 256)
     -- Comparison produces 0 or 1
-    have hcmp_01 : cmp = 0 ∨ cmp = 1 := by
-      show evmOr (evmLt r3hi x_hi) (evmAnd (evmEq r3hi x_hi) (evmLt r3lo x_lo)) = 0 ∨ _ = 1
-      exact evmOr_01 _ _ (evmLt_01 _ _ hr3hi_lt hxhi_wm)
+    have hcmp_01 : cmp = 0 ∨ cmp = 1 :=
+      evmOr_01 _ _ (evmLt_01 _ _ hr3hi_lt hxhi_wm)
         (evmAnd_01 _ _ (evmEq_01 _ _ hr3hi_lt hxhi_wm) (evmLt_01 _ _ hr3lo_lt hxlo_wm))
     -- Comparison iff: cmp ≠ 0 ↔ r³ < x
     have hcmp_iff : (cmp ≠ 0) ↔ (r * r * r < x_hi * WORD_MOD + x_lo) := by
