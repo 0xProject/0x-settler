@@ -1912,11 +1912,11 @@ def hoist_repeated_model_calls(
 
     Collects repeated calls across *all* statements (assignments and
     conditional blocks), but only hoists them globally when every argument
-    depends solely on function parameters.  Calls that depend on local
-    variables are only deduplicated within a single statement/expression
-    (per-statement local CSE).  Cross-statement hoisting of local-dependent
-    calls would require full dominance/scope analysis and is not attempted.
-    Model calls are assumed pure.
+    depends solely on function parameters. Calls that mention local or
+    branch-assigned variables are hoisted only immediately before the
+    statement that uses them (or inside the relevant conditional branch).
+    This keeps hoisting within scopes where the referenced bindings are
+    definitely available. Model calls are assumed pure.
     """
     # Reset CSE counter so each function's hoisted names start at _cse_1.
     _gensym_counters.pop("cse", None)
@@ -1956,7 +1956,7 @@ def hoist_repeated_model_calls(
         for stmt in model.assignments
     ]
 
-    # -- Pass 4: locally hoist remaining repeated calls (intra-expression) -
+    # -- Pass 4: locally hoist remaining repeated calls in safe scopes -----
     new_assignments: list[ModelStatement] = list(hoisted_global)
     for stmt in rewritten_statements:
         new_assignments.extend(_localize_statement_cse(
