@@ -93,8 +93,8 @@ class FunctionModel:
 
 YUL_TOKEN_RE = re.compile(
     r"""
-    (?P<linecomment>///[^\n]*)
-  | (?P<blockcomment>//[^\n]*)
+    (?P<doccomment>///[^\n]*)
+  | (?P<linecomment>//[^\n]*)
   | (?P<ws>\s+)
   | (?P<string>"(?:[^"\\]|\\.)*")
   | (?P<hex>0x[0-9a-fA-F]+)
@@ -113,8 +113,8 @@ YUL_TOKEN_RE = re.compile(
 )
 
 _TOKEN_KIND_MAP = {
+    "doccomment": None,
     "linecomment": None,
-    "blockcomment": None,
     "ws": None,
     "string": "string",
     "hex": "num",
@@ -311,18 +311,37 @@ class YulParser:
             expr = self._parse_expr()
             results.append((target, expr))
         else:
-            # Bare declaration: ``let x``  (zero-initialized, skip)
-            pass
+            # Bare declaration: ``let x``  (zero-initialized per Yul spec)
+            results.append((target, IntLit(0)))
 
-    def _parse_body_assignments(self) -> list[RawStatement]:
+    def _parse_assignment_loop(
+        self,
+        *,
+        allow_control_flow: bool,
+    ) -> tuple[list[RawStatement], bool]:
+        """Parse statements until ``}`` or end of stream.
+
+        Returns ``(statements, has_leave)``.
+
+        When *allow_control_flow* is True, ``if`` and ``switch`` blocks
+        are parsed and emitted as ``ParsedIfBlock`` entries.  When False,
+        ``if``, ``switch``, and ``for`` keywords are rejected with a
+        ``ParseError``, preventing silent model incompleteness inside
+        if-bodies.  ``for`` is always rejected.
+        """
         results: list[RawStatement] = []
+        has_leave = False
 
         while not self._at_end() and self._peek_kind() != "}":
             kind = self._peek_kind()
 
             if kind == "{":
                 self._pop()
-                results.extend(self._parse_body_assignments())
+                inner, inner_leave = self._parse_assignment_loop(
+                    allow_control_flow=allow_control_flow,
+                )
+                results.extend(inner)
+                has_leave = has_leave or inner_leave
                 self._expect("}")
                 continue
 
@@ -332,107 +351,115 @@ class YulParser:
 
             if kind == "ident" and self.tokens[self.i][1] == "leave":
                 self._pop()
+                has_leave = True
                 continue
 
             if kind == "ident" and self.tokens[self.i][1] == "function":
                 self._skip_function_def()
                 continue
 
-            if kind == "ident" and self.tokens[self.i][1] == "if":
-                self._pop()  # consume 'if'
-                condition = self._parse_expr()
-                self._expect("{")
-                body, has_leave = self._parse_if_body_assignments()
-                self._expect("}")
-                results.append(ParsedIfBlock(
-                    condition=condition,
-                    body=tuple(body),
-                    has_leave=has_leave,
-                ))
-                continue
-
-            if kind == "ident" and self.tokens[self.i][1] == "switch":
-                self._pop()  # consume 'switch'
-                condition = self._parse_expr()
-                # We support exactly one form of switch:
-                #   switch e case 0 { else_body } default { if_body }
-                # (branches may appear in either order).  Anything else
-                # is rejected loudly.
-                case0_body: list[tuple[str, Expr]] | None = None
-                case0_leave = False
-                default_body: list[tuple[str, Expr]] | None = None
-                default_leave = False
-                n_branches = 0
-                while (not self._at_end()
-                       and self._peek_kind() == "ident"
-                       and self.tokens[self.i][1] in ("case", "default")):
-                    branch = self.tokens[self.i][1]
-                    self._pop()  # consume 'case' or 'default'
-                    if branch == "case":
-                        case_val = self._parse_expr()
-                        cv = _try_const_eval(case_val)
-                        if cv != 0:
-                            raise ParseError(
-                                f"switch case value {case_val!r} is not 0. "
-                                f"Only 'switch e case 0 {{ ... }} default "
-                                f"{{ ... }}' is supported."
+            if kind == "ident" and self.tokens[self.i][1] in ("if", "switch", "for"):
+                keyword = self.tokens[self.i][1]
+                if keyword == "for" or not allow_control_flow:
+                    raise ParseError(
+                        f"Control flow statement '{keyword}' found in "
+                        f"{'if-body' if not allow_control_flow else 'function body'}. "
+                        f"Only straight-line code"
+                        f"{' and if/switch blocks' if keyword == 'for' else ''} "
+                        f"is supported for Lean model generation."
+                    )
+                if keyword == "if":
+                    self._pop()  # consume 'if'
+                    condition = self._parse_expr()
+                    self._expect("{")
+                    body, body_leave = self._parse_assignment_loop(
+                        allow_control_flow=False,
+                    )
+                    self._expect("}")
+                    results.append(ParsedIfBlock(
+                        condition=condition,
+                        body=tuple(body),
+                        has_leave=body_leave,
+                    ))
+                else:  # switch
+                    self._pop()  # consume 'switch'
+                    condition = self._parse_expr()
+                    # We support exactly one form of switch:
+                    #   switch e case 0 { else_body } default { if_body }
+                    # (branches may appear in either order).  Anything else
+                    # is rejected loudly.
+                    case0_body: list[RawStatement] | None = None
+                    case0_leave = False
+                    default_body: list[RawStatement] | None = None
+                    default_leave = False
+                    n_branches = 0
+                    while (not self._at_end()
+                           and self._peek_kind() == "ident"
+                           and self.tokens[self.i][1] in ("case", "default")):
+                        branch = self.tokens[self.i][1]
+                        self._pop()  # consume 'case' or 'default'
+                        if branch == "case":
+                            case_val = self._parse_expr()
+                            cv = _try_const_eval(case_val)
+                            if cv != 0:
+                                raise ParseError(
+                                    f"switch case value {case_val!r} is not 0. "
+                                    f"Only 'switch e case 0 {{ ... }} default "
+                                    f"{{ ... }}' is supported."
+                                )
+                            if case0_body is not None:
+                                raise ParseError(
+                                    "Duplicate 'case 0' in switch statement."
+                                )
+                            self._expect("{")
+                            case0_body, case0_leave = self._parse_assignment_loop(
+                                allow_control_flow=False,
                             )
-                        if case0_body is not None:
-                            raise ParseError(
-                                "Duplicate 'case 0' in switch statement."
+                            self._expect("}")
+                        else:  # default
+                            if default_body is not None:
+                                raise ParseError(
+                                    "Duplicate 'default' in switch statement."
+                                )
+                            self._expect("{")
+                            default_body, default_leave = self._parse_assignment_loop(
+                                allow_control_flow=False,
                             )
-                        self._expect("{")
-                        case0_body, case0_leave = self._parse_if_body_assignments()
-                        self._expect("}")
-                    else:  # default
-                        if default_body is not None:
-                            raise ParseError(
-                                "Duplicate 'default' in switch statement."
-                            )
-                        self._expect("{")
-                        default_body, default_leave = self._parse_if_body_assignments()
-                        self._expect("}")
-                        # default must be the last branch.
+                            self._expect("}")
+                            # default must be the last branch.
+                            n_branches += 1
+                            break
                         n_branches += 1
-                        break
-                    n_branches += 1
-                # Reject trailing case branches after default.
-                if (default_body is not None
-                        and not self._at_end()
-                        and self._peek_kind() == "ident"
-                        and self.tokens[self.i][1] in ("case", "default")):
-                    raise ParseError(
-                        "'default' must be the last branch in a switch."
-                    )
-                if n_branches == 0:
-                    raise ParseError("switch with no case/default branches")
-                if n_branches != 2 or case0_body is None or default_body is None:
-                    raise ParseError(
-                        f"switch must have exactly 'case 0' + 'default' "
-                        f"(got {n_branches} branch(es), case0="
-                        f"{'present' if case0_body is not None else 'missing'}"
-                        f", default="
-                        f"{'present' if default_body is not None else 'missing'}"
-                        f")."
-                    )
-                # Map to ParsedIfBlock: condition != 0 → default (if-body),
-                # condition == 0 → case 0 (else-body).
-                if_body = tuple(default_body) if default_body else ()
-                else_body = tuple(case0_body) if case0_body else None
-                results.append(ParsedIfBlock(
-                    condition=condition,
-                    body=if_body,
-                    has_leave=default_leave or case0_leave,
-                    else_body=else_body,
-                ))
+                    # Reject trailing case branches after default.
+                    if (default_body is not None
+                            and not self._at_end()
+                            and self._peek_kind() == "ident"
+                            and self.tokens[self.i][1] in ("case", "default")):
+                        raise ParseError(
+                            "'default' must be the last branch in a switch."
+                        )
+                    if n_branches == 0:
+                        raise ParseError("switch with no case/default branches")
+                    if n_branches != 2 or case0_body is None or default_body is None:
+                        raise ParseError(
+                            f"switch must have exactly 'case 0' + 'default' "
+                            f"(got {n_branches} branch(es), case0="
+                            f"{'present' if case0_body is not None else 'missing'}"
+                            f", default="
+                            f"{'present' if default_body is not None else 'missing'}"
+                            f")."
+                        )
+                    # Map to ParsedIfBlock: condition != 0 → default (if-body),
+                    # condition == 0 → case 0 (else-body).
+                    if_body = tuple(default_body) if default_body else ()
+                    else_body = tuple(case0_body) if case0_body else None
+                    results.append(ParsedIfBlock(
+                        condition=condition,
+                        body=if_body,
+                        has_leave=default_leave or case0_leave,
+                        else_body=else_body,
+                    ))
                 continue
-
-            if kind == "ident" and self.tokens[self.i][1] == "for":
-                raise ParseError(
-                    f"Control flow statement 'for' found in function body. "
-                    f"Only straight-line code and if/switch blocks are "
-                    f"supported for Lean model generation."
-                )
 
             if kind == "ident" and self.i + 1 < len(self.tokens) and self.tokens[self.i + 1][0] == ":=":
                 target = self._expect_ident()
@@ -454,6 +481,12 @@ class YulParser:
                 stacklevel=2,
             )
 
+        return results, has_leave
+
+    def _parse_body_assignments(self) -> list[RawStatement]:
+        results, _has_leave = self._parse_assignment_loop(
+            allow_control_flow=True,
+        )
         return results
 
     def _parse_if_body_assignments(
@@ -461,54 +494,20 @@ class YulParser:
     ) -> tuple[list[tuple[str, Expr]], bool]:
         """Parse the body of an ``if`` block.
 
-        Only bare assignments (``target := expr``) are expected inside
-        if-bodies in the Yul IR patterns we handle.  ``let`` declarations
-        are also accepted (they are locals scoped to the if-body that the
-        compiler may introduce).
-
         Returns ``(assignments, has_leave)`` where *has_leave* indicates
         that a ``leave`` statement (early return) was encountered.
         """
-        results: list[tuple[str, Expr]] = []
-        has_leave = False
-        while not self._at_end() and self._peek_kind() != "}":
-            kind = self._peek_kind()
-
-            if kind == "{":
-                self._pop()
-                inner_results, inner_leave = self._parse_if_body_assignments()
-                results.extend(inner_results)
-                has_leave = has_leave or inner_leave
-                self._expect("}")
-                continue
-
-            if kind == "ident" and self.tokens[self.i][1] == "let":
-                self._parse_let(results)
-                continue
-
-            if kind == "ident" and self.i + 1 < len(self.tokens) and self.tokens[self.i + 1][0] == ":=":
-                target = self._expect_ident()
-                self._expect(":=")
-                expr = self._parse_expr()
-                results.append((target, expr))
-                continue
-
-            if kind == "ident" and self.tokens[self.i][1] == "leave":
-                self._pop()
-                has_leave = True
-                continue
-
-            if kind == "ident" or kind == "num":
-                expr = self._parse_expr()
-                self._expr_stmts.append(expr)
-                continue
-
-            tok = self._pop()
-            warnings.warn(
-                f"Unrecognized token {tok!r} in if-body was skipped.",
-                stacklevel=2,
+        raw, has_leave = self._parse_assignment_loop(
+            allow_control_flow=False,
+        )
+        # When allow_control_flow=False, all statements are plain assignments.
+        plain: list[tuple[str, Expr]] = []
+        for stmt in raw:
+            assert not isinstance(stmt, ParsedIfBlock), (
+                "Unexpected ParsedIfBlock in if-body results"
             )
-        return results, has_leave
+            plain.append(stmt)
+        return plain, has_leave
 
     def _skip_function_def(self) -> None:
         self._pop()  # consume 'function'
@@ -681,19 +680,7 @@ class YulParser:
                 except ParseError:
                     # Unsupported body — skip this function.
                     self.i = saved_i
-                    self._pop()  # consume 'function'
-                    self._expect_ident()  # consume name
-                    self._expect("(")
-                    while self._peek_kind() != ")":
-                        self._pop()
-                    self._expect(")")
-                    if self._peek_kind() == "->":
-                        self._pop()
-                        self._expect_ident()
-                        while self._peek_kind() == ",":
-                            self._pop()
-                            self._expect_ident()
-                    self._skip_until_matching_brace()
+                    self._skip_function_def()
                 finally:
                     self._expr_stmts = saved_stmts
             else:
@@ -769,14 +756,13 @@ def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
 # Function inlining
 # ---------------------------------------------------------------------------
 
-_inline_counter = 0
+_gensym_counters: dict[str, int] = {}
 
 
 def _gensym(prefix: str) -> str:
-    """Generate a unique variable name for inlined function locals."""
-    global _inline_counter
-    _inline_counter += 1
-    return f"_inline_{prefix}_{_inline_counter}"
+    """Generate a unique variable name for generated locals."""
+    _gensym_counters[prefix] = _gensym_counters.get(prefix, 0) + 1
+    return f"_{prefix}_{_gensym_counters[prefix]}"
 
 
 def _try_const_eval(expr: Expr) -> int | None:
@@ -931,16 +917,16 @@ def _inline_single_call(
                     pre_val = subst.get(target, IntLit(0))
                     if_val = if_subst.get(target, pre_val)
                     else_val = else_subst.get(target, pre_val)
-                    if if_val is not else_val:
+                    if if_val != else_val:
                         subst[target] = Call("__ite", (cond, if_val, else_val))
-                    elif if_val is not pre_val:
+                    elif if_val != pre_val:
                         subst[target] = if_val
             else:
                 # Normal if-block (no leave, no else): take the if-branch value.
                 for target, _raw_expr in stmt.body:
                     if_val = if_subst[target]
                     orig_val = subst.get(target, IntLit(0))
-                    if if_val is not orig_val:
+                    if if_val != orig_val:
                         subst[target] = if_val
         else:
             target, raw_expr = stmt
@@ -949,7 +935,7 @@ def _inline_single_call(
                                 mstore_sink=mstore_sink)
             # Gensym: rename non-param, non-return locals to avoid clashes
             if target not in fn.params and target not in fn.rets:
-                new_name = _gensym(target)
+                new_name = _gensym(f"inline_{target}")
                 subst[target] = Var(new_name)
                 # Re-substitute the expression under the new name
                 # (it was already substituted, so just store it)
@@ -960,11 +946,16 @@ def _inline_single_call(
     # Resolve any gensym'd variables remaining in return expressions.
     # Iterate because gensym'd vars may reference other gensym'd vars.
     def _resolve(e: Expr, s: dict[str, Expr]) -> Expr:
-        for _ in range(20):
+        for _ in range(50):
             prev = e
             e = substitute_expr(e, s)
-            if e is prev:
+            if e == prev:
                 break
+        else:
+            raise ParseError(
+                f"Substitution resolution did not converge after 50 "
+                f"iterations for expression: {e!r}"
+            )
         return e
 
     # Emit mstore effects AFTER the full subst chain is built.
@@ -976,7 +967,7 @@ def _inline_single_call(
             if isinstance(e, Call) and e.name == "mstore" and len(e.args) == 2:
                 addr_expr = _resolve(substitute_expr(e.args[0], subst), subst)
                 val_expr = _resolve(substitute_expr(e.args[1], subst), subst)
-                syn_name = _gensym("__mstore")
+                syn_name = _gensym("inline___mstore")
                 mstore_sink.append(
                     (syn_name, Call("__mstore", (addr_expr, val_expr)))
                 )
@@ -1560,6 +1551,100 @@ def _resolve_mloads(
     )
 
 
+def _prune_dead_assignments(
+    model: "FunctionModel",
+) -> "FunctionModel":
+    """Drop dead pure assignments from a model to avoid unused Lean lets."""
+
+    def _prune_assignment_block(
+        assignments: tuple[Assignment, ...],
+        live_out: set[str],
+    ) -> tuple[tuple[Assignment, ...], set[str]]:
+        live = set(live_out)
+        kept_rev: list[Assignment] = []
+        for stmt in reversed(assignments):
+            if stmt.target not in live:
+                continue
+            live.remove(stmt.target)
+            live.update(_expr_vars(stmt.expr))
+            kept_rev.append(stmt)
+        kept_rev.reverse()
+        return tuple(kept_rev), live
+
+    live = set(model.return_names)
+    kept_rev: list[ModelStatement] = []
+
+    for stmt in reversed(model.assignments):
+        if isinstance(stmt, Assignment):
+            if stmt.target not in live:
+                continue
+            live.remove(stmt.target)
+            live.update(_expr_vars(stmt.expr))
+            kept_rev.append(stmt)
+            continue
+
+        if not isinstance(stmt, ConditionalBlock):
+            raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+
+        needed_outputs = tuple(v for v in stmt.modified_vars if v in live)
+        if not needed_outputs:
+            continue
+
+        needed_output_set = set(needed_outputs)
+        filtered_else_vars = None
+        if stmt.else_vars is not None:
+            filtered_else_vars = tuple(
+                stmt.else_vars[i]
+                for i, v in enumerate(stmt.modified_vars)
+                if v in needed_output_set
+            )
+
+        then_assignments, then_live = _prune_assignment_block(
+            stmt.assignments, set(needed_outputs)
+        )
+
+        else_assignments = None
+        else_live: set[str] = set()
+        if stmt.else_assignments is not None:
+            needed_else_targets = {
+                assignment.target
+                for assignment in stmt.else_assignments
+                if assignment.target in needed_output_set
+            }
+            else_assignments, else_live = _prune_assignment_block(
+                stmt.else_assignments, needed_else_targets
+            )
+            if filtered_else_vars is not None:
+                for output_name, passthrough_name in zip(needed_outputs, filtered_else_vars):
+                    if output_name not in needed_else_targets:
+                        else_live.add(passthrough_name)
+        elif filtered_else_vars is not None:
+            else_live.update(filtered_else_vars)
+
+        live.difference_update(needed_output_set)
+        live.update(_expr_vars(stmt.condition))
+        live.update(then_live)
+        live.update(else_live)
+
+        kept_rev.append(
+            ConditionalBlock(
+                condition=stmt.condition,
+                assignments=then_assignments,
+                modified_vars=needed_outputs,
+                else_vars=filtered_else_vars,
+                else_assignments=else_assignments,
+            )
+        )
+
+    kept_rev.reverse()
+    return FunctionModel(
+        fn_name=model.fn_name,
+        assignments=tuple(kept_rev),
+        param_names=model.param_names,
+        return_names=model.return_names,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Lean emission helpers
 # ---------------------------------------------------------------------------
@@ -1755,11 +1840,10 @@ def _hoist_repeated_calls_in_expr(
     expr: Expr,
     *,
     model_call_names: frozenset[str],
-    counter: int,
-) -> tuple[list[Assignment], Expr, int]:
+) -> tuple[list[Assignment], Expr]:
     repeated_calls = _collect_repeated_model_calls(expr, model_call_names)
     if not repeated_calls:
-        return [], expr, counter
+        return [], expr
 
     replacements: dict[Expr, str] = {}
     hoisted: list[Assignment] = []
@@ -1767,46 +1851,42 @@ def _hoist_repeated_calls_in_expr(
         assert call.name in model_call_names, (
             f"CSE: refusing to hoist non-model call {call!r}"
         )
-        counter += 1
-        hoisted_name = f"_cse_{counter}"
+        hoisted_name = _gensym("cse")
         hoisted_expr = _replace_expr(call, replacements)
         hoisted.append(Assignment(target=hoisted_name, expr=hoisted_expr))
         replacements[call] = hoisted_name
-    return hoisted, _replace_expr(expr, replacements), counter
+    return hoisted, _replace_expr(expr, replacements)
 
 
 def _localize_statement_cse(
     stmt: ModelStatement,
     *,
     model_call_names: frozenset[str],
-    counter: int,
-) -> tuple[list[ModelStatement], int]:
+) -> list[ModelStatement]:
     if isinstance(stmt, Assignment):
-        hoisted, expr, counter = _hoist_repeated_calls_in_expr(
-            stmt.expr, model_call_names=model_call_names, counter=counter
+        hoisted, expr = _hoist_repeated_calls_in_expr(
+            stmt.expr, model_call_names=model_call_names,
         )
-        return [*hoisted, Assignment(target=stmt.target, expr=expr)], counter
+        return [*hoisted, Assignment(target=stmt.target, expr=expr)]
 
     if isinstance(stmt, ConditionalBlock):
-        prefix, condition, counter = _hoist_repeated_calls_in_expr(
-            stmt.condition, model_call_names=model_call_names, counter=counter
+        prefix, condition = _hoist_repeated_calls_in_expr(
+            stmt.condition, model_call_names=model_call_names,
         )
 
         then_assignments: list[Assignment] = []
         for assignment in stmt.assignments:
-            localized, counter = _localize_statement_cse(
-                assignment, model_call_names=model_call_names, counter=counter
-            )
-            then_assignments.extend(localized)
+            then_assignments.extend(_localize_statement_cse(
+                assignment, model_call_names=model_call_names,
+            ))
 
         else_assignments: tuple[Assignment, ...] | None = None
         if stmt.else_assignments is not None:
             localized_else: list[Assignment] = []
             for assignment in stmt.else_assignments:
-                localized, counter = _localize_statement_cse(
-                    assignment, model_call_names=model_call_names, counter=counter
-                )
-                localized_else.extend(localized)
+                localized_else.extend(_localize_statement_cse(
+                    assignment, model_call_names=model_call_names,
+                ))
             else_assignments = tuple(localized_else)
 
         return [
@@ -1818,7 +1898,7 @@ def _localize_statement_cse(
                 else_vars=stmt.else_vars,
                 else_assignments=else_assignments,
             ),
-        ], counter
+        ]
 
     raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
 
@@ -1838,6 +1918,9 @@ def hoist_repeated_model_calls(
     This keeps hoisting within scopes where the referenced bindings are
     definitely available. Model calls are assumed pure.
     """
+    # Reset CSE counter so each function's hoisted names start at _cse_1.
+    _gensym_counters.pop("cse", None)
+
     # -- Pass 1: count occurrences across the entire model -----------------
     counts: Counter[Expr] = Counter()
     for stmt in model.assignments:
@@ -1861,10 +1944,8 @@ def hoist_repeated_model_calls(
     # -- Pass 2: build global replacements and hoisted let-bindings --------
     global_replacements: dict[Expr, str] = {}
     hoisted_global: list[Assignment] = []
-    counter = 0
     for call in repeated_global:
-        counter += 1
-        hoisted_name = f"_cse_{counter}"
+        hoisted_name = _gensym("cse")
         hoisted_expr = _replace_expr(call, global_replacements)
         hoisted_global.append(Assignment(target=hoisted_name, expr=hoisted_expr))
         global_replacements[call] = hoisted_name
@@ -1878,10 +1959,9 @@ def hoist_repeated_model_calls(
     # -- Pass 4: locally hoist remaining repeated calls in safe scopes -----
     new_assignments: list[ModelStatement] = list(hoisted_global)
     for stmt in rewritten_statements:
-        localized, counter = _localize_statement_cse(
-            stmt, model_call_names=model_call_names, counter=counter
-        )
-        new_assignments.extend(localized)
+        new_assignments.extend(_localize_statement_cse(
+            stmt, model_call_names=model_call_names,
+        ))
 
     return FunctionModel(
         fn_name=model.fn_name,
@@ -1983,6 +2063,8 @@ class ModelConfig:
     # into let-bound temporaries before emission. Useful for wrappers whose
     # IR duplicates the same pure helper call many times.
     hoist_repeated_calls: frozenset[str] = frozenset()
+    # Function names for which dead-assignment pruning should be skipped.
+    skip_prune: frozenset[str] = frozenset()
 
     # -- CLI defaults --
     default_source_label: str = ""
@@ -2261,6 +2343,9 @@ def parse_function_selection(
 
 def run(config: ModelConfig) -> int:
     """Main entry point shared by both generators."""
+    global _gensym_counters
+    _gensym_counters = {}
+
     ap = argparse.ArgumentParser(description=config.cli_description)
     ap.add_argument(
         "--yul", required=True,
@@ -2346,6 +2431,12 @@ def run(config: ModelConfig) -> int:
             if model.fn_name in config.hoist_repeated_calls else model
             for model in models
         ]
+
+    models = [
+        _prune_dead_assignments(model)
+        if model.fn_name not in config.skip_prune else model
+        for model in models
+    ]
 
     lean_src = build_lean_source(
         models=models,

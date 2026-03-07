@@ -1,0 +1,29 @@
+name: YulToLean Unit Tests
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - formal/yul_to_lean.py
+      - formal/test_yul_to_lean.py
+      - .github/workflows/yul-to-lean-unit.yml
+  pull_request:
+    paths:
+      - formal/yul_to_lean.py
+      - formal/test_yul_to_lean.py
+      - .github/workflows/yul-to-lean-unit.yml
+
+jobs:
+  yul-to-lean-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run translator unit tests
+        run: python3 -m unittest discover -s formal -p 'test_yul_to_lean.py' -v
