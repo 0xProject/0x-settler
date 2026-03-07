@@ -210,41 +210,12 @@ private theorem qc_undershoot_correct (x_hi_1 x_lo_1 : Nat)
       (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)) = nat_r_lo
     from hr_lo_eq.symm] at hcomp
   obtain ⟨hcomp_lo, hcomp_hi, _, hcomp_cube, _, hcomp_overshoot⟩ := hcomp
-  -- ======== Step 2: Get base case bounds ========
-  have hbc := model_cbrtBaseCase_evm_correct x_hi_1 hxhi_lo hxhi_hi
-  simp only at hbc
-  have hm_lo : 2 ^ 83 ≤ m := by rw [hm_eq]; exact hbc.2.2.2.1
-  have hm_hi : m < 2 ^ 85 := by rw [hm_eq]; exact hbc.2.2.2.2.1
+  -- ======== Step 2: Get base case bounds (bundled) ========
+  obtain ⟨_, hm_hi, hm_pos, hm_wm, _, _,
+          _, _, _, _, hR_pos, _, hr_lo_bound, hr_lo_wm,
+          _, hrem_wm⟩ :=
+    extended_bounds x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo m hm_eq nat_r_lo hr_lo_eq nat_rem hrem_eq
   -- ======== Step 3: From hr1_eq, extract c > 1 ========
-  -- Additional bounds needed for the QC exactness theorem
-  have hm_wm : m < WORD_MOD := by rw [hm_eq]; exact hbc.2.2.2.2.2.2.2.1
-  have hm_pos : 2 ≤ m := two_le_of_pow83_le m hm_lo
-  -- r_lo < 2^87 (from KQ quotient bound, same pattern as pipeline proof)
-  have hd_pos : 3 * (m * m) > 0 := Nat.mul_pos (by omega) (Nat.mul_pos (by omega) (by omega))
-  have hw_lt : x_hi_1 / 4 < 2 ^ 254 := by unfold WORD_MOD at hxhi_hi; omega
-  have hcube_le_w : m * m * m ≤ x_hi_1 / 4 := by rw [hm_eq]; exact hbc.2.2.2.2.2.1
-  have hres_bound : x_hi_1 / 4 - m * m * m ≤ 3 * (m * m) + 3 * m := by
-    rw [hm_eq]; exact hbc.2.2.2.2.2.2.1
-  have hmm_lo : 2 ^ 166 ≤ m * m := by
-    calc 2 ^ 166 = 2 ^ 83 * 2 ^ 83 := by rw [← Nat.pow_add]
-      _ ≤ m * m := Nat.mul_le_mul hm_lo hm_lo
-  have hlimb_86 : (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86 := by
-    have hmod4 : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
-    have hdiv : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by unfold WORD_MOD at hxlo; omega
-    omega
-  have hr_lo_bound : nat_r_lo < 2 ^ 87 := by
-    rw [hr_lo_eq]; exact r_lo_lt_pow87 m hm_lo _ _ hres_bound hlimb_86 hd_pos
-  have hr_lo_wm : nat_r_lo < WORD_MOD := by unfold WORD_MOD; omega
-  have hd_wm : 3 * (m * m) < WORD_MOD := by
-    have hmm_hi : m * m < 2 ^ 170 :=
-      calc m * m < m * 2 ^ 85 := Nat.mul_lt_mul_of_pos_left hm_hi (by omega)
-        _ ≤ 2 ^ 85 * 2 ^ 85 := Nat.mul_le_mul_right _ (Nat.le_of_lt hm_hi)
-        _ = 2 ^ 170 := by rw [← Nat.pow_add]
-    unfold WORD_MOD; omega
-  have hrem_wm : nat_rem < WORD_MOD := by
-    rw [hrem_eq]; exact Nat.lt_of_lt_of_le (Nat.mod_lt _ hd_pos) (Nat.le_of_lt hd_wm)
-  -- The QC model returns r_qc when c ≤ 1, so r_qc + 1 ≠ r_qc, hence c > 1
-  have hR_pos : 0 < m * 2 ^ 86 := by omega
   have hc_gt1 : nat_r_lo * nat_r_lo / (m * 2 ^ 86) > 1 := by
     by_cases hcgt : nat_r_lo * nat_r_lo / (m * 2 ^ 86) > 1
     · exact hcgt
