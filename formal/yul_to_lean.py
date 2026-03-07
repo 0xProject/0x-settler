@@ -756,14 +756,13 @@ def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
 # Function inlining
 # ---------------------------------------------------------------------------
 
-_inline_counter = 0
+_gensym_counters: dict[str, int] = {}
 
 
 def _gensym(prefix: str) -> str:
-    """Generate a unique variable name for inlined function locals."""
-    global _inline_counter
-    _inline_counter += 1
-    return f"_inline_{prefix}_{_inline_counter}"
+    """Generate a unique variable name for generated locals."""
+    _gensym_counters[prefix] = _gensym_counters.get(prefix, 0) + 1
+    return f"_{prefix}_{_gensym_counters[prefix]}"
 
 
 def _try_const_eval(expr: Expr) -> int | None:
@@ -936,7 +935,7 @@ def _inline_single_call(
                                 mstore_sink=mstore_sink)
             # Gensym: rename non-param, non-return locals to avoid clashes
             if target not in fn.params and target not in fn.rets:
-                new_name = _gensym(target)
+                new_name = _gensym(f"inline_{target}")
                 subst[target] = Var(new_name)
                 # Re-substitute the expression under the new name
                 # (it was already substituted, so just store it)
@@ -968,7 +967,7 @@ def _inline_single_call(
             if isinstance(e, Call) and e.name == "mstore" and len(e.args) == 2:
                 addr_expr = _resolve(substitute_expr(e.args[0], subst), subst)
                 val_expr = _resolve(substitute_expr(e.args[1], subst), subst)
-                syn_name = _gensym("__mstore")
+                syn_name = _gensym("inline___mstore")
                 mstore_sink.append(
                     (syn_name, Call("__mstore", (addr_expr, val_expr)))
                 )
@@ -1841,11 +1840,10 @@ def _hoist_repeated_calls_in_expr(
     expr: Expr,
     *,
     model_call_names: frozenset[str],
-    counter: int,
-) -> tuple[list[Assignment], Expr, int]:
+) -> tuple[list[Assignment], Expr]:
     repeated_calls = _collect_repeated_model_calls(expr, model_call_names)
     if not repeated_calls:
-        return [], expr, counter
+        return [], expr
 
     replacements: dict[Expr, str] = {}
     hoisted: list[Assignment] = []
@@ -1853,46 +1851,42 @@ def _hoist_repeated_calls_in_expr(
         assert call.name in model_call_names, (
             f"CSE: refusing to hoist non-model call {call!r}"
         )
-        counter += 1
-        hoisted_name = f"_cse_{counter}"
+        hoisted_name = _gensym("cse")
         hoisted_expr = _replace_expr(call, replacements)
         hoisted.append(Assignment(target=hoisted_name, expr=hoisted_expr))
         replacements[call] = hoisted_name
-    return hoisted, _replace_expr(expr, replacements), counter
+    return hoisted, _replace_expr(expr, replacements)
 
 
 def _localize_statement_cse(
     stmt: ModelStatement,
     *,
     model_call_names: frozenset[str],
-    counter: int,
-) -> tuple[list[ModelStatement], int]:
+) -> list[ModelStatement]:
     if isinstance(stmt, Assignment):
-        hoisted, expr, counter = _hoist_repeated_calls_in_expr(
-            stmt.expr, model_call_names=model_call_names, counter=counter
+        hoisted, expr = _hoist_repeated_calls_in_expr(
+            stmt.expr, model_call_names=model_call_names,
         )
-        return [*hoisted, Assignment(target=stmt.target, expr=expr)], counter
+        return [*hoisted, Assignment(target=stmt.target, expr=expr)]
 
     if isinstance(stmt, ConditionalBlock):
-        prefix, condition, counter = _hoist_repeated_calls_in_expr(
-            stmt.condition, model_call_names=model_call_names, counter=counter
+        prefix, condition = _hoist_repeated_calls_in_expr(
+            stmt.condition, model_call_names=model_call_names,
         )
 
         then_assignments: list[Assignment] = []
         for assignment in stmt.assignments:
-            localized, counter = _localize_statement_cse(
-                assignment, model_call_names=model_call_names, counter=counter
-            )
-            then_assignments.extend(localized)
+            then_assignments.extend(_localize_statement_cse(
+                assignment, model_call_names=model_call_names,
+            ))
 
         else_assignments: tuple[Assignment, ...] | None = None
         if stmt.else_assignments is not None:
             localized_else: list[Assignment] = []
             for assignment in stmt.else_assignments:
-                localized, counter = _localize_statement_cse(
-                    assignment, model_call_names=model_call_names, counter=counter
-                )
-                localized_else.extend(localized)
+                localized_else.extend(_localize_statement_cse(
+                    assignment, model_call_names=model_call_names,
+                ))
             else_assignments = tuple(localized_else)
 
         return [
@@ -1904,7 +1898,7 @@ def _localize_statement_cse(
                 else_vars=stmt.else_vars,
                 else_assignments=else_assignments,
             ),
-        ], counter
+        ]
 
     raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
 
@@ -1918,12 +1912,15 @@ def hoist_repeated_model_calls(
 
     Collects repeated calls across *all* statements (assignments and
     conditional blocks), but only hoists them globally when every argument
-    depends solely on function parameters. Calls that mention local or
-    branch-assigned variables are hoisted only immediately before the
-    statement that uses them (or inside the relevant conditional branch).
-    This keeps hoisting within scopes where the referenced bindings are
-    definitely available. Model calls are assumed pure.
+    depends solely on function parameters. Calls that mention local variables
+    but repeat across *different* statements are hoisted at the earliest
+    point where all their variable dependencies are in scope.  Calls
+    repeated only within a single expression are hoisted immediately before
+    that expression.  Model calls are assumed pure.
     """
+    # Reset CSE counter so each function's hoisted names start at _cse_1.
+    _gensym_counters.pop("cse", None)
+
     # -- Pass 1: count occurrences across the entire model -----------------
     counts: Counter[Expr] = Counter()
     for stmt in model.assignments:
@@ -1947,10 +1944,8 @@ def hoist_repeated_model_calls(
     # -- Pass 2: build global replacements and hoisted let-bindings --------
     global_replacements: dict[Expr, str] = {}
     hoisted_global: list[Assignment] = []
-    counter = 0
     for call in repeated_global:
-        counter += 1
-        hoisted_name = f"_cse_{counter}"
+        hoisted_name = _gensym("cse")
         hoisted_expr = _replace_expr(call, global_replacements)
         hoisted_global.append(Assignment(target=hoisted_name, expr=hoisted_expr))
         global_replacements[call] = hoisted_name
@@ -1961,13 +1956,70 @@ def hoist_repeated_model_calls(
         for stmt in model.assignments
     ]
 
-    # -- Pass 4: locally hoist remaining repeated calls in safe scopes -----
+    # -- Pass 4: cross-statement deduplication for local-dependent calls ---
+    # Count remaining repeated calls across all rewritten statements.
+    remaining_counts: Counter[Expr] = Counter()
+    for stmt in rewritten_statements:
+        _walk_statement(stmt, model_call_names, remaining_counts)
+
+    cross_stmt_repeated = [
+        node
+        for node, count in remaining_counts.items()
+        if count > 1 and isinstance(node, Call)
+    ]
+
+    if cross_stmt_repeated:
+        cross_stmt_repeated.sort(key=_expr_size)
+
+        # Build a map: variable name → index of the statement that defines it.
+        # Parameters are available before statement 0 (index -1).
+        var_defined_at: dict[str, int] = {p: -1 for p in model.param_names}
+        for idx, stmt in enumerate(rewritten_statements):
+            if isinstance(stmt, Assignment):
+                var_defined_at[stmt.target] = idx
+            elif isinstance(stmt, ConditionalBlock):
+                for v in stmt.modified_vars:
+                    var_defined_at[v] = idx
+
+        # For each repeated call, find the earliest insertion point where
+        # all its variable dependencies are in scope.
+        cross_replacements: dict[Expr, str] = {}
+        # insertion_point → list of hoisted assignments to insert there
+        insertions: dict[int, list[Assignment]] = {}
+        for call in cross_stmt_repeated:
+            assert call.name in model_call_names, \
+                f"CSE: refusing to hoist non-model call {call!r}"
+            deps = _expr_vars(call)
+            if not deps:
+                insert_at = 0
+            else:
+                max_dep = max(var_defined_at.get(v, -1) for v in deps)
+                insert_at = max_dep + 1
+            hoisted_name = _gensym("cse")
+            hoisted_expr = _replace_expr(call, cross_replacements)
+            cross_replacements[call] = hoisted_name
+            insertions.setdefault(insert_at, []).append(
+                Assignment(target=hoisted_name, expr=hoisted_expr)
+            )
+
+        # Rebuild statement list with insertions and replacements.
+        rewritten_with_cross: list[ModelStatement] = []
+        for idx, stmt in enumerate(rewritten_statements):
+            if idx in insertions:
+                rewritten_with_cross.extend(insertions[idx])
+            rewritten_with_cross.append(_replace_statement(stmt, cross_replacements))
+        # Insertions after all statements (for deps defined in last stmt).
+        after_idx = len(rewritten_statements)
+        if after_idx in insertions:
+            rewritten_with_cross.extend(insertions[after_idx])
+        rewritten_statements = rewritten_with_cross
+
+    # -- Pass 5: locally hoist remaining repeated calls (intra-expression) -
     new_assignments: list[ModelStatement] = list(hoisted_global)
     for stmt in rewritten_statements:
-        localized, counter = _localize_statement_cse(
-            stmt, model_call_names=model_call_names, counter=counter
-        )
-        new_assignments.extend(localized)
+        new_assignments.extend(_localize_statement_cse(
+            stmt, model_call_names=model_call_names,
+        ))
 
     return FunctionModel(
         fn_name=model.fn_name,
@@ -2069,6 +2121,8 @@ class ModelConfig:
     # into let-bound temporaries before emission. Useful for wrappers whose
     # IR duplicates the same pure helper call many times.
     hoist_repeated_calls: frozenset[str] = frozenset()
+    # Function names for which dead-assignment pruning should be skipped.
+    skip_prune: frozenset[str] = frozenset()
 
     # -- CLI defaults --
     default_source_label: str = ""
@@ -2347,8 +2401,8 @@ def parse_function_selection(
 
 def run(config: ModelConfig) -> int:
     """Main entry point shared by both generators."""
-    global _inline_counter
-    _inline_counter = 0
+    global _gensym_counters
+    _gensym_counters = {}
 
     ap = argparse.ArgumentParser(description=config.cli_description)
     ap.add_argument(
@@ -2436,7 +2490,11 @@ def run(config: ModelConfig) -> int:
             for model in models
         ]
 
-    models = [_prune_dead_assignments(model) for model in models]
+    models = [
+        _prune_dead_assignments(model)
+        if model.fn_name not in config.skip_prune else model
+        for model in models
+    ]
 
     lean_src = build_lean_source(
         models=models,
