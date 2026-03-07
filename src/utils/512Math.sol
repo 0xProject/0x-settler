@@ -1881,10 +1881,7 @@ library Lib512MathArithmetic {
     ///   uint256 res = x_hi - r_hi * r_hi * r_hi;
     ///   uint256 d = r_hi * r_hi * 3;
     /// is correct, but we can shave some gas by avoiding the normalization step from
-    /// `Cbrt.cbrt`. 𝑈𝑛𝑙𝑖𝑘𝑒 the square root step and unlike the example code above, we do not obtain
-    /// exactly the value ⌊∛xₕᵢ⌋. We sometimes get ⌊∛xₕᵢ⌋ - 1. Because the "normal" Karatsuba step
-    /// is followed by the quadratic cross-term correction, we can tolerate this error. `d` is the
-    /// derivative/denominator for the subsequent Karatsuba step.
+    /// `Cbrt.cbrt`. `d` is the derivative/denominator for the subsequent Karatsuba step.
     function _cbrt_baseCase(uint256 x_hi) private pure returns (uint256 r_hi, uint256 res, uint256 d) {
         unchecked {
             x_hi >>= 2; // xₕᵢ ≥ 2²⁵¹; xₕᵢ < 2²⁵⁴ from the normalization
@@ -1898,8 +1895,7 @@ library Lib512MathArithmetic {
             r_hi = _cbrt_newtonRaphsonStep(x_hi, r_hi);
 
             // 6 iterations yield >85 bits of precision (absolute error < 2⁻¹⁶), so `r_hi` is at
-            // most ⌊∛xₕᵢ⌋ + 1. A branchless floor correction suffices. The Karatsuba step below
-            // handles the rare case where integer truncation leaves rₕᵢ = ⌊∛xₕᵢ⌋ - 1
+            // most ⌊∛xₕᵢ⌋ + 1. A branchless floor correction suffices.
             uint256 r_hi2 = r_hi * r_hi;
             uint256 r_hi3 = r_hi2 * r_hi;
             r_hi = r_hi.unsafeDec(r_hi3 > x_hi);
