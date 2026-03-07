@@ -11,6 +11,7 @@ on:
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
       - formal/yul_to_lean.py
+      - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/Cbrt512Model.t.sol
       - .github/workflows/cbrt512-formal.yml
   pull_request:
@@ -21,6 +22,7 @@ on:
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
       - formal/yul_to_lean.py
+      - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/Cbrt512Model.t.sol
       - .github/workflows/cbrt512-formal.yml
 
@@ -42,7 +44,7 @@ jobs:
 
       - name: Install pinned Lean toolchain
         run: |
-          curl https://raw.githubusercontent.com/leanprover/elan/master/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+          curl https://raw.githubusercontent.com/leanprover/elan/917c18d0ad52f649c2603dc8b973f5b9fa5f8f43/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
           echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
           LEAN_TOOLCHAIN="$(cat formal/cbrt/Cbrt512Proof/lean-toolchain)"
           test "$LEAN_TOOLCHAIN" = "$(cat formal/cbrt/CbrtProof/lean-toolchain)"

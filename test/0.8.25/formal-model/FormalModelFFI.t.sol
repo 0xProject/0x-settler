@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 import {Vm} from "@forge-std/Vm.sol";
 
 abstract contract FormalModelFFI {
-    Vm internal constant _vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
+    Vm private constant _vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
 
     function _ffiScalar(string memory bin, string memory fn, uint256 x) internal returns (uint256) {
         string[] memory args = new string[](3);
