@@ -22,83 +22,55 @@ open Cbrt512GeneratedModel
 
 section NamespaceCompat
 
-theorem WORD_MOD_compat :
-    @Cbrt512GeneratedModel.WORD_MOD = @CbrtGeneratedModel.WORD_MOD := rfl
+theorem WORD_MOD_compat : @Cbrt512GeneratedModel.WORD_MOD = @CbrtGeneratedModel.WORD_MOD := rfl
 
 theorem u256_compat (x : Nat) :
     Cbrt512GeneratedModel.u256 x = CbrtGeneratedModel.u256 x := by
-  unfold Cbrt512GeneratedModel.u256 CbrtGeneratedModel.u256
-  rw [WORD_MOD_compat]
+  simp only [Cbrt512GeneratedModel.u256, CbrtGeneratedModel.u256, WORD_MOD_compat]
 
+-- All EVM ops unfold to the same expression modulo u256/WORD_MOD namespace.
 theorem evmAdd_compat (a b : Nat) :
     Cbrt512GeneratedModel.evmAdd a b = CbrtGeneratedModel.evmAdd a b := by
-  unfold Cbrt512GeneratedModel.evmAdd CbrtGeneratedModel.evmAdd
-  simp [u256_compat]
-
+  simp only [Cbrt512GeneratedModel.evmAdd, CbrtGeneratedModel.evmAdd, u256_compat]
 theorem evmSub_compat (a b : Nat) :
     Cbrt512GeneratedModel.evmSub a b = CbrtGeneratedModel.evmSub a b := by
-  unfold Cbrt512GeneratedModel.evmSub CbrtGeneratedModel.evmSub
-  simp [u256_compat, WORD_MOD_compat]
-
+  simp only [Cbrt512GeneratedModel.evmSub, CbrtGeneratedModel.evmSub, u256_compat, WORD_MOD_compat]
 theorem evmMul_compat (a b : Nat) :
     Cbrt512GeneratedModel.evmMul a b = CbrtGeneratedModel.evmMul a b := by
-  unfold Cbrt512GeneratedModel.evmMul CbrtGeneratedModel.evmMul
-  simp [u256_compat]
-
+  simp only [Cbrt512GeneratedModel.evmMul, CbrtGeneratedModel.evmMul, u256_compat]
 theorem evmDiv_compat (a b : Nat) :
     Cbrt512GeneratedModel.evmDiv a b = CbrtGeneratedModel.evmDiv a b := by
-  unfold Cbrt512GeneratedModel.evmDiv CbrtGeneratedModel.evmDiv
-  simp [u256_compat]
-
+  simp only [Cbrt512GeneratedModel.evmDiv, CbrtGeneratedModel.evmDiv, u256_compat]
 theorem evmShl_compat (s v : Nat) :
     Cbrt512GeneratedModel.evmShl s v = CbrtGeneratedModel.evmShl s v := by
-  unfold Cbrt512GeneratedModel.evmShl CbrtGeneratedModel.evmShl
-  simp [u256_compat]
-
+  simp only [Cbrt512GeneratedModel.evmShl, CbrtGeneratedModel.evmShl, u256_compat]
 theorem evmShr_compat (s v : Nat) :
     Cbrt512GeneratedModel.evmShr s v = CbrtGeneratedModel.evmShr s v := by
-  unfold Cbrt512GeneratedModel.evmShr CbrtGeneratedModel.evmShr
-  simp [u256_compat]
-
+  simp only [Cbrt512GeneratedModel.evmShr, CbrtGeneratedModel.evmShr, u256_compat]
 theorem evmClz_compat (v : Nat) :
     Cbrt512GeneratedModel.evmClz v = CbrtGeneratedModel.evmClz v := by
-  unfold Cbrt512GeneratedModel.evmClz CbrtGeneratedModel.evmClz
-  simp [u256_compat]
-
+  simp only [Cbrt512GeneratedModel.evmClz, CbrtGeneratedModel.evmClz, u256_compat]
 theorem evmLt_compat (a b : Nat) :
     Cbrt512GeneratedModel.evmLt a b = CbrtGeneratedModel.evmLt a b := by
-  unfold Cbrt512GeneratedModel.evmLt CbrtGeneratedModel.evmLt
-  simp [u256_compat]
-
+  simp only [Cbrt512GeneratedModel.evmLt, CbrtGeneratedModel.evmLt, u256_compat]
 theorem evmGt_compat (a b : Nat) :
     Cbrt512GeneratedModel.evmGt a b = CbrtGeneratedModel.evmGt a b := by
-  unfold Cbrt512GeneratedModel.evmGt CbrtGeneratedModel.evmGt
-  simp [u256_compat]
-
+  simp only [Cbrt512GeneratedModel.evmGt, CbrtGeneratedModel.evmGt, u256_compat]
 theorem evmEq_compat (a b : Nat) :
     Cbrt512GeneratedModel.evmEq a b = CbrtGeneratedModel.evmEq a b := by
-  unfold Cbrt512GeneratedModel.evmEq CbrtGeneratedModel.evmEq
-  simp [u256_compat]
-
+  simp only [Cbrt512GeneratedModel.evmEq, CbrtGeneratedModel.evmEq, u256_compat]
 theorem evmNot_compat (a : Nat) :
     Cbrt512GeneratedModel.evmNot a = CbrtGeneratedModel.evmNot a := by
-  unfold Cbrt512GeneratedModel.evmNot CbrtGeneratedModel.evmNot
-  simp [u256_compat, WORD_MOD_compat]
-
+  simp only [Cbrt512GeneratedModel.evmNot, CbrtGeneratedModel.evmNot, u256_compat, WORD_MOD_compat]
 theorem evmMulmod_compat (a b n : Nat) :
     Cbrt512GeneratedModel.evmMulmod a b n = CbrtGeneratedModel.evmMulmod a b n := by
-  unfold Cbrt512GeneratedModel.evmMulmod CbrtGeneratedModel.evmMulmod
-  simp [u256_compat]
-
+  simp only [Cbrt512GeneratedModel.evmMulmod, CbrtGeneratedModel.evmMulmod, u256_compat]
 theorem evmOr_compat (a b : Nat) :
     Cbrt512GeneratedModel.evmOr a b = CbrtGeneratedModel.evmOr a b := by
-  unfold Cbrt512GeneratedModel.evmOr CbrtGeneratedModel.evmOr
-  simp [u256_compat]
-
+  simp only [Cbrt512GeneratedModel.evmOr, CbrtGeneratedModel.evmOr, u256_compat]
 theorem evmAnd_compat (a b : Nat) :
     Cbrt512GeneratedModel.evmAnd a b = CbrtGeneratedModel.evmAnd a b := by
-  unfold Cbrt512GeneratedModel.evmAnd CbrtGeneratedModel.evmAnd
-  simp [u256_compat]
+  simp only [Cbrt512GeneratedModel.evmAnd, CbrtGeneratedModel.evmAnd, u256_compat]
 
 end NamespaceCompat
 
