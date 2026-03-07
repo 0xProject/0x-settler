@@ -94,6 +94,31 @@ private theorem chain_6steps_upper (w m lo : Nat) (s d1 : Nat)
   omega
 
 -- ============================================================================
+-- Per-octave NR convergence helper
+-- ============================================================================
+
+/-- Parameterized octave convergence: combines d1 bound from cbrt_d1_bound
+    with chain_6steps_upper to show run6From w s ≤ m + 1 for a given octave. -/
+private theorem octave_upper (w m s lo hi gap d1 : Nat)
+    (hsPos : 0 < s)
+    (hmlo : m * m * m ≤ w) (hmhi : w < (m + 1) * (m + 1) * (m + 1))
+    (hlo : lo ≤ m) (hhi : m ≤ hi) (hm2 : 2 ≤ m) (hloPos : 0 < lo)
+    (hgap_eq : max (s - lo) (hi - s) = gap)
+    (hd1_formula : (gap * gap * (hi + 2 * s) + 3 * hi * (hi + 1)) / (3 * (s * s)) = d1)
+    (h2d1_lo : 2 * d1 ≤ lo)
+    (h2d2 : 2 * nextD lo d1 ≤ lo)
+    (h2d3 : 2 * nextD lo (nextD lo d1) ≤ lo)
+    (h2d4 : 2 * nextD lo (nextD lo (nextD lo d1)) ≤ lo)
+    (h2d5 : 2 * nextD lo (nextD lo (nextD lo (nextD lo d1))) ≤ lo)
+    (hd6_le1 : nextD lo (nextD lo (nextD lo (nextD lo (nextD lo d1)))) ≤ 1) :
+    run6From w s ≤ m + 1 := by
+  have hd1 : cbrtStep w s - m ≤ d1 := by
+    have h := cbrt_d1_bound w m s lo hi hsPos hmlo hmhi hlo hhi
+    rw [hgap_eq] at h; simpa [hd1_formula] using h
+  exact chain_6steps_upper w m lo s d1 hm2 hloPos hlo hsPos hmlo hmhi hd1
+    (Nat.le_trans h2d1_lo hlo) h2d2 h2d3 h2d4 h2d5 hd6_le1
+
+-- ============================================================================
 -- Per-octave NR convergence
 -- ============================================================================
 
@@ -152,72 +177,36 @@ theorem baseCase_NR_within_1ulp (w : Nat)
   -- Case split on octave
   by_cases h252 : w < 2 ^ 252
   · -- Octave 251: w ∈ [2^251, 2^252)
-    have hlo : octave251Lo ≤ m :=
-      lo_le_icbrt_of_cube_le_pow w octave251Lo 251 octave251_bounds.1 hw_lo
-    have hhi : m ≤ octave251Hi :=
-      icbrt_le_hi_of_pow_lt_cube w octave251Hi 251 octave251_bounds.2 h252
-    have hm2 : 2 ≤ m := Nat.le_trans octave251_lo_two_le hlo
-    have hd1 : cbrtStep w s - m ≤ octave251D1 := by
-      have h := cbrt_d1_bound w m s octave251Lo octave251Hi hsPos hmlo hmhi hlo hhi
-      rw [show max (s - octave251Lo) (octave251Hi - s) = octave251Gap by
-        simpa [s, baseCaseSeed] using octave251_gap_eq] at h
-      have hformula :
-          (octave251Gap * octave251Gap * (octave251Hi + 2 * s) +
-            3 * octave251Hi * (octave251Hi + 1)) / (3 * (s * s)) = octave251D1 := by
-        simpa [s, baseCaseSeed] using octave251_d1_formula_eq
-      simpa [hformula] using h
+    have hlo := lo_le_icbrt_of_cube_le_pow w octave251Lo 251 octave251_bounds.1 hw_lo
+    have hhi := icbrt_le_hi_of_pow_lt_cube w octave251Hi 251 octave251_bounds.2 h252
     obtain ⟨h2d1, h2d2, h2d3, h2d4, h2d5, hd6_le1⟩ := octave251_chain_bounds
-    have hloPos : 0 < octave251Lo := Nat.lt_of_lt_of_le (by omega : 0 < 2) octave251_lo_two_le
-    have hup : run6From w s ≤ m + 1 :=
-      chain_6steps_upper w m octave251Lo s octave251D1
-      hm2 hloPos hlo hsPos hmlo hmhi hd1
-      (Nat.le_trans h2d1 hlo) h2d2 h2d3 h2d4 h2d5 hd6_le1
-    simpa [s, baseCaseSeed] using hup
+    simpa [s, baseCaseSeed] using octave_upper w m s octave251Lo octave251Hi octave251Gap octave251D1
+      hsPos hmlo hmhi hlo hhi (Nat.le_trans octave251_lo_two_le hlo)
+      (Nat.lt_of_lt_of_le (by omega : 0 < 2) octave251_lo_two_le)
+      (by simpa [s, baseCaseSeed] using octave251_gap_eq)
+      (by simpa [s, baseCaseSeed] using octave251_d1_formula_eq)
+      h2d1 h2d2 h2d3 h2d4 h2d5 hd6_le1
   · by_cases h253 : w < 2 ^ 253
     · -- Octave 252: w ∈ [2^252, 2^253)
-      have hlo : octave252Lo ≤ m :=
-        lo_le_icbrt_of_cube_le_pow w octave252Lo 252 octave252_bounds.1 (by omega)
-      have hhi : m ≤ octave252Hi :=
-        icbrt_le_hi_of_pow_lt_cube w octave252Hi 252 octave252_bounds.2 h253
-      have hm2 : 2 ≤ m := Nat.le_trans octave252_lo_two_le hlo
-      have hd1 : cbrtStep w s - m ≤ octave252D1 := by
-        have h := cbrt_d1_bound w m s octave252Lo octave252Hi hsPos hmlo hmhi hlo hhi
-        rw [show max (s - octave252Lo) (octave252Hi - s) = octave252Gap by
-          simpa [s, baseCaseSeed] using octave252_gap_eq] at h
-        have hformula :
-            (octave252Gap * octave252Gap * (octave252Hi + 2 * s) +
-              3 * octave252Hi * (octave252Hi + 1)) / (3 * (s * s)) = octave252D1 := by
-          simpa [s, baseCaseSeed] using octave252_d1_formula_eq
-        simpa [hformula] using h
+      have hlo := lo_le_icbrt_of_cube_le_pow w octave252Lo 252 octave252_bounds.1 (by omega)
+      have hhi := icbrt_le_hi_of_pow_lt_cube w octave252Hi 252 octave252_bounds.2 h253
       obtain ⟨h2d1, h2d2, h2d3, h2d4, h2d5, hd6_le1⟩ := octave252_chain_bounds
-      have hloPos : 0 < octave252Lo := Nat.lt_of_lt_of_le (by omega : 0 < 2) octave252_lo_two_le
-      have hup : run6From w s ≤ m + 1 :=
-        chain_6steps_upper w m octave252Lo s octave252D1
-        hm2 hloPos hlo hsPos hmlo hmhi hd1
-        (Nat.le_trans h2d1 hlo) h2d2 h2d3 h2d4 h2d5 hd6_le1
-      simpa [s, baseCaseSeed] using hup
+      simpa [s, baseCaseSeed] using octave_upper w m s octave252Lo octave252Hi octave252Gap octave252D1
+        hsPos hmlo hmhi hlo hhi (Nat.le_trans octave252_lo_two_le hlo)
+        (Nat.lt_of_lt_of_le (by omega : 0 < 2) octave252_lo_two_le)
+        (by simpa [s, baseCaseSeed] using octave252_gap_eq)
+        (by simpa [s, baseCaseSeed] using octave252_d1_formula_eq)
+        h2d1 h2d2 h2d3 h2d4 h2d5 hd6_le1
     · -- Octave 253: w ∈ [2^253, 2^254)
-      have hlo : octave253Lo ≤ m :=
-        lo_le_icbrt_of_cube_le_pow w octave253Lo 253 octave253_lo_cube_le_pow253 (by omega)
-      have hhi : m ≤ M_TOP :=
-        icbrt_le_hi_of_pow_lt_cube w M_TOP 253 m_top_cube_bounds.2 hw_hi
-      have hm2 : 2 ≤ m := Nat.le_trans octave253_lo_two_le hlo
-      have hd1 : cbrtStep w s - m ≤ octave253D1 := by
-        have h := cbrt_d1_bound w m s octave253Lo M_TOP hsPos hmlo hmhi hlo hhi
-        rw [show max (s - octave253Lo) (M_TOP - s) = octave253Gap by
-          simpa [s, baseCaseSeed] using octave253_gap_eq] at h
-        have hformula :
-            (octave253Gap * octave253Gap * (M_TOP + 2 * s) +
-              3 * M_TOP * (M_TOP + 1)) / (3 * (s * s)) = octave253D1 := by
-          simpa [s, baseCaseSeed] using octave253_d1_formula_eq
-        simpa [hformula] using h
+      have hlo := lo_le_icbrt_of_cube_le_pow w octave253Lo 253 octave253_lo_cube_le_pow253 (by omega)
+      have hhi := icbrt_le_hi_of_pow_lt_cube w M_TOP 253 m_top_cube_bounds.2 hw_hi
       obtain ⟨h2d1, h2d2, h2d3, h2d4, h2d5, hd6_le1⟩ := octave253_chain_bounds
-      have hloPos : 0 < octave253Lo := Nat.lt_of_lt_of_le (by omega : 0 < 2) octave253_lo_two_le
-      have hup : run6From w s ≤ m + 1 :=
-        chain_6steps_upper w m octave253Lo s octave253D1
-        hm2 hloPos hlo hsPos hmlo hmhi hd1
-        (Nat.le_trans h2d1 hlo) h2d2 h2d3 h2d4 h2d5 hd6_le1
-      simpa [s, baseCaseSeed] using hup
+      simpa [s, baseCaseSeed] using octave_upper w m s octave253Lo M_TOP octave253Gap octave253D1
+        hsPos hmlo hmhi hlo hhi (Nat.le_trans octave253_lo_two_le hlo)
+        (Nat.lt_of_lt_of_le (by omega : 0 < 2) octave253_lo_two_le)
+        (by simpa [s, baseCaseSeed] using octave253_gap_eq)
+        (by simpa [s, baseCaseSeed] using octave253_d1_formula_eq)
+        h2d1 h2d2 h2d3 h2d4 h2d5 hd6_le1
 
 /-- 2 ≤ m follows from 2^83 ≤ m (omega can't handle this power directly). -/
 theorem two_le_of_pow83_le (m : Nat) (h : 2 ^ 83 ≤ m) : 2 ≤ m :=
@@ -495,5 +484,53 @@ theorem baseCase_bounds (x_hi_1 x_lo_1 : Nat)
   exact ⟨hm_lo, hm_hi, hm_pos, hm_wm, hcube_le, hres_bound,
          hd_pos, hd_wm, hR_lo, hR_hi, Nat.lt_of_lt_of_le (by omega : 0 < 2 ^ 169) hR_lo,
          hlimb, hr_lo_bound⟩
+
+-- ============================================================================
+-- Extended bounds: parametrized over abstract m, nat_r_lo, nat_rem
+-- ============================================================================
+
+/-- Extended bounds for CbrtComposition callers that parametrize over
+    `(m : Nat) (hm_eq : m = icbrt (x_hi_1 / 4))` and separate quotient/remainder.
+    Bundles all facts from `baseCase_bounds` plus `hr_lo_wm`, `hmm_hi`, `hrem_wm`. -/
+theorem extended_bounds (x_hi_1 x_lo_1 : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ x_hi_1) (hxhi_hi : x_hi_1 < WORD_MOD)
+    (hxlo : x_lo_1 < WORD_MOD)
+    (m : Nat) (hm_eq : m = icbrt (x_hi_1 / 4))
+    (nat_r_lo : Nat) (hr_lo_eq : nat_r_lo = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)))
+    (nat_rem : Nat) (hrem_eq : nat_rem = ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
+        (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172)) % (3 * (m * m))) :
+    -- m bounds
+    2 ^ 83 ≤ m ∧ m < 2 ^ 85 ∧ 2 ≤ m ∧ m < WORD_MOD ∧
+    -- cube / residue
+    m * m * m ≤ x_hi_1 / 4 ∧
+    x_hi_1 / 4 - m * m * m ≤ 3 * (m * m) + 3 * m ∧
+    -- d bounds
+    0 < 3 * (m * m) ∧ 3 * (m * m) < WORD_MOD ∧
+    -- R bounds
+    2 ^ 169 ≤ m * 2 ^ 86 ∧ m * 2 ^ 86 < 2 ^ 171 ∧ 0 < m * 2 ^ 86 ∧
+    -- limb / r_lo / r_lo_wm
+    (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86 ∧
+    nat_r_lo < 2 ^ 87 ∧ nat_r_lo < WORD_MOD ∧
+    -- mm / rem
+    m * m < 2 ^ 170 ∧ nat_rem < WORD_MOD := by
+  subst hm_eq
+  have hb := baseCase_bounds x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
+  simp only at hb ⊢
+  obtain ⟨hm_lo, hm_hi, hm_pos, hm_wm, hcube_le, hres_bound,
+          hd_pos, hd_wm, hR_lo, hR_hi, hR_pos, hlimb, hr_lo_bound⟩ := hb
+  have hr_lo_bound' : nat_r_lo < 2 ^ 87 := by rw [hr_lo_eq]; exact hr_lo_bound
+  have hr_lo_wm : nat_r_lo < WORD_MOD := by unfold WORD_MOD; omega
+  have hmm_hi : icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) < 2 ^ 170 :=
+    calc icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
+        < icbrt (x_hi_1 / 4) * 2 ^ 85 :=
+          Nat.mul_lt_mul_of_pos_left hm_hi (by omega)
+      _ ≤ 2 ^ 85 * 2 ^ 85 := Nat.mul_le_mul_right _ (Nat.le_of_lt hm_hi)
+      _ = 2 ^ 170 := by rw [← Nat.pow_add]
+  have hrem_wm : nat_rem < WORD_MOD := by
+    rw [hrem_eq]; exact Nat.lt_of_lt_of_le (Nat.mod_lt _ hd_pos) (Nat.le_of_lt hd_wm)
+  exact ⟨hm_lo, hm_hi, hm_pos, hm_wm, hcube_le, hres_bound,
+         hd_pos, hd_wm, hR_lo, hR_hi, hR_pos, hlimb, hr_lo_bound', hr_lo_wm,
+         hmm_hi, hrem_wm⟩
 
 end Cbrt512Spec

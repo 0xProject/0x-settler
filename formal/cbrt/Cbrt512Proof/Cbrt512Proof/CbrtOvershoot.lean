@@ -216,16 +216,10 @@ theorem r_qc_no_overshoot_on_cubes (x_hi_1 x_lo_1 : Nat)
     r_qc * r_qc * r_qc > x_norm →
       icbrt x_norm * icbrt x_norm * icbrt x_norm < x_norm := by
   simp only
-  -- ======== Step 1: Extract base case properties ========
-  have hbc := model_cbrtBaseCase_evm_correct x_hi_1 hxhi_lo hxhi_hi
-  have hm_lo : 2 ^ 83 ≤ icbrt (x_hi_1 / 4) := hbc.2.2.2.1
-  have hcube_le_w : icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
-      ≤ x_hi_1 / 4 := hbc.2.2.2.2.2.1
-  have hres_bound : x_hi_1 / 4 - icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
-      ≤ 3 * (icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)) + 3 * icbrt (x_hi_1 / 4) :=
-    hbc.2.2.2.2.2.2.1
-  have hd_pos : 3 * (icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)) > 0 :=
-    hbc.2.2.2.2.2.2.2.2.2.2
+  -- ======== Step 1: Extract base case properties via baseCase_bounds ========
+  obtain ⟨hm_lo, _, _, _, hcube_le_w, hres_bound,
+          hd_pos, _, hR_lo, _, hR_pos, hlimb_bound, hr_lo_bound⟩ :=
+    baseCase_bounds x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
   -- Abbreviate
   let m := icbrt (x_hi_1 / 4)
   let w := x_hi_1 / 4
@@ -237,35 +231,6 @@ theorem r_qc_no_overshoot_on_cubes (x_hi_1 x_lo_1 : Nat)
   let c := r_lo * r_lo / R
   let rem_kq := (res * 2 ^ 86 + limb_hi) % d
   let c_tail := x_lo_1 % 2 ^ 172
-  -- ======== Step 2: Key bounds (same as sub-lemma B) ========
-  have hR_lo : 2 ^ 169 ≤ R :=
-    calc 2 ^ 169 = 2 ^ 83 * 2 ^ 86 := by rw [← Nat.pow_add]
-      _ ≤ m * 2 ^ 86 := Nat.mul_le_mul_right _ hm_lo
-  have hR_pos : 0 < R := by omega
-  have hlimb_bound : limb_hi < 2 ^ 86 := by
-    show (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86
-    have hmod4 : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
-    have hdiv : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by
-      rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 172)]
-      calc x_lo_1 < WORD_MOD := hxlo
-        _ = 2 ^ 84 * 2 ^ 172 := by unfold WORD_MOD; rw [← Nat.pow_add]
-    have : (x_hi_1 % 4) * 2 ^ 84 < 2 ^ 86 :=
-      calc (x_hi_1 % 4) * 2 ^ 84 < 4 * 2 ^ 84 :=
-              Nat.mul_lt_mul_of_pos_right hmod4 (Nat.two_pow_pos 84)
-        _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
-    omega
-  have hr_lo_bound : r_lo < 2 ^ 87 := by
-    show (res * 2 ^ 86 + limb_hi) / d < 2 ^ 87
-    rw [Nat.div_lt_iff_lt_mul hd_pos]
-    have h2m : 2 * m ≤ m * m := Nat.mul_le_mul_right m (by omega)
-    calc res * 2 ^ 86 + limb_hi
-        < (res + 1) * 2 ^ 86 := by omega
-      _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by
-          apply Nat.mul_le_mul_right; exact Nat.succ_le_succ hres_bound
-      _ ≤ (2 * (3 * (m * m))) * 2 ^ 86 := Nat.mul_le_mul_right _ (by omega)
-      _ = 2 ^ 87 * (3 * (m * m)) := by
-          rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
-            rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]; omega
   have hrem_lt : rem_kq < d := Nat.mod_lt _ hd_pos
   have hctail_lt : c_tail < 2 ^ 172 := Nat.mod_lt _ (Nat.two_pow_pos 172)
   -- ======== Step 3: x_norm decomposition ========
@@ -368,9 +333,11 @@ theorem r_qc_no_overshoot_on_cubes (x_hi_1 x_lo_1 : Nat)
         have : x_hi_1 * 2 ^ 256 + x_lo_1 < (s + 1) * (s + 1) * (s + 1) := hsucc_gt
         rw [‹s + 1 = R›] at this
         omega
+    have hR_gt_rlo : r_lo < R :=
+      Nat.lt_of_lt_of_le hr_lo_bound (Nat.le_trans (Nat.pow_le_pow_right (by omega) (by omega : 87 ≤ 169)) hR_lo)
     have hc_strict : c < r_lo :=
       (Nat.div_lt_iff_lt_mul hR_pos).mpr
-        (Nat.mul_lt_mul_of_pos_left (by omega : r_lo < R) hr_lo_pos)
+        (Nat.mul_lt_mul_of_pos_left hR_gt_rlo hr_lo_pos)
     have hs_ge_R : R ≤ s := by omega
     exact perfect_cube_no_overshoot s R r_lo c hR_lo hR_pos rfl hc_strict
       hrqc_eq hs_ge_R (h_perf ▸ hx_lb2) (h_perf ▸ hx_ub)

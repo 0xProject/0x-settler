@@ -77,17 +77,10 @@ theorem r_qc_le_r_max (x_hi_1 x_lo_1 : Nat)
     let r_qc := R + r_lo - correction
     r_qc ≤ R_MAX := by
   simp only
-  -- ======== Step 1: Extract base case properties ========
-  have hbc := model_cbrtBaseCase_evm_correct x_hi_1 hxhi_lo hxhi_hi
-  have hm_lo : 2 ^ 83 ≤ icbrt (x_hi_1 / 4) := hbc.2.2.2.1
-  have hm_hi : icbrt (x_hi_1 / 4) < 2 ^ 85 := hbc.2.2.2.2.1
-  have hcube_le_w : icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
-      ≤ x_hi_1 / 4 := hbc.2.2.2.2.2.1
-  have hres_bound : x_hi_1 / 4 - icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
-      ≤ 3 * (icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)) + 3 * icbrt (x_hi_1 / 4) :=
-    hbc.2.2.2.2.2.2.1
-  have hd_pos : 3 * (icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)) > 0 :=
-    hbc.2.2.2.2.2.2.2.2.2.2
+  -- ======== Step 1: Extract base case properties via baseCase_bounds ========
+  obtain ⟨hm_lo, hm_hi, _, _, hcube_le_w, hres_bound,
+          hd_pos, _, _, _, _, hlimb_bound, _⟩ :=
+    baseCase_bounds x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
   -- Abbreviate
   let m := icbrt (x_hi_1 / 4)
   let w := x_hi_1 / 4
@@ -97,23 +90,6 @@ theorem r_qc_le_r_max (x_hi_1 x_lo_1 : Nat)
   let r_lo := (res * 2 ^ 86 + limb_hi) / d
   let R := m * 2 ^ 86
   let c := r_lo * r_lo / R
-  -- ======== Step 2: Key bounds ========
-  have hR_lo : 2 ^ 169 ≤ R :=
-    calc 2 ^ 169 = 2 ^ 83 * 2 ^ 86 := by rw [← Nat.pow_add]
-      _ ≤ m * 2 ^ 86 := Nat.mul_le_mul_right _ hm_lo
-  have hR_pos : 0 < R := by omega
-  have hlimb_bound : limb_hi < 2 ^ 86 := by
-    show (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86
-    have hmod4 : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
-    have hdiv : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by
-      rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 172)]
-      calc x_lo_1 < WORD_MOD := hxlo
-        _ = 2 ^ 84 * 2 ^ 172 := by unfold WORD_MOD; rw [← Nat.pow_add]
-    have : (x_hi_1 % 4) * 2 ^ 84 < 2 ^ 86 :=
-      calc (x_hi_1 % 4) * 2 ^ 84 < 4 * 2 ^ 84 :=
-              Nat.mul_lt_mul_of_pos_right hmod4 (Nat.two_pow_pos 84)
-        _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
-    omega
   -- r_qc ≤ R + r_lo (correction ≥ 0)
   have h_rqc_le : R + r_lo - c ≤ R + r_lo := Nat.sub_le _ _
   -- ======== Step 3: Case split on m < M_TOP vs m ≥ M_TOP ========
@@ -248,16 +224,9 @@ theorem r_plus_rlo_le_rmax_succ (x_hi_1 x_lo_1 : Nat)
     let R := m * 2 ^ 86
     R + r_lo ≤ R_MAX + 1 := by
   simp only
-  have hbc := model_cbrtBaseCase_evm_correct x_hi_1 hxhi_lo hxhi_hi
-  have hm_lo : 2 ^ 83 ≤ icbrt (x_hi_1 / 4) := hbc.2.2.2.1
-  have hm_hi : icbrt (x_hi_1 / 4) < 2 ^ 85 := hbc.2.2.2.2.1
-  have hcube_le_w : icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
-      ≤ x_hi_1 / 4 := hbc.2.2.2.2.2.1
-  have hres_bound : x_hi_1 / 4 - icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)
-      ≤ 3 * (icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)) + 3 * icbrt (x_hi_1 / 4) :=
-    hbc.2.2.2.2.2.2.1
-  have hd_pos : 3 * (icbrt (x_hi_1 / 4) * icbrt (x_hi_1 / 4)) > 0 :=
-    hbc.2.2.2.2.2.2.2.2.2.2
+  obtain ⟨hm_lo, hm_hi, _, _, hcube_le_w, hres_bound,
+          hd_pos, _, _, _, _, hlimb_bound, _⟩ :=
+    baseCase_bounds x_hi_1 x_lo_1 hxhi_lo hxhi_hi hxlo
   let m := icbrt (x_hi_1 / 4)
   let w := x_hi_1 / 4
   let res := w - m * m * m
@@ -269,18 +238,6 @@ theorem r_plus_rlo_le_rmax_succ (x_hi_1 x_lo_1 : Nat)
   -- Case B: m = M_TOP → R + r_lo ≤ M_TOP*2^86 + delta + 1 = R_MAX + 1
   by_cases hm_lt_top : m < M_TOP
   · -- Case A: reuse tight r_lo bound
-    have hlimb_bound : limb_hi < 2 ^ 86 := by
-      show (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86
-      have : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
-      have : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by
-        rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 172)]
-        calc x_lo_1 < WORD_MOD := hxlo
-          _ = 2 ^ 84 * 2 ^ 172 := by unfold WORD_MOD; rw [← Nat.pow_add]
-      have : (x_hi_1 % 4) * 2 ^ 84 < 2 ^ 86 :=
-        calc (x_hi_1 % 4) * 2 ^ 84 < 4 * 2 ^ 84 :=
-                Nat.mul_lt_mul_of_pos_right (by omega) (Nat.two_pow_pos 84)
-          _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
-      omega
     have hr_lo_tight : r_lo ≤ 2 ^ 86 + 8 := by
       show (res * 2 ^ 86 + limb_hi) / d ≤ 2 ^ 86 + 8
       suffices h : res * 2 ^ 86 + limb_hi < (2 ^ 86 + 9) * d by
@@ -324,18 +281,6 @@ theorem r_plus_rlo_le_rmax_succ (x_hi_1 x_lo_1 : Nat)
     have hm_eq : m = M_TOP := Nat.le_antisymm hm_le hm_ge
     have h_rtop := r_lo_max_at_m_top
     let delta := R_MAX - M_TOP * 2 ^ 86
-    have hlimb_bound : limb_hi < 2 ^ 86 := by
-      show (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86
-      have : x_hi_1 % 4 < 4 := Nat.mod_lt _ (by omega)
-      have : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by
-        rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 172)]
-        calc x_lo_1 < WORD_MOD := hxlo
-          _ = 2 ^ 84 * 2 ^ 172 := by unfold WORD_MOD; rw [← Nat.pow_add]
-      have : (x_hi_1 % 4) * 2 ^ 84 < 2 ^ 86 :=
-        calc (x_hi_1 % 4) * 2 ^ 84 < 4 * 2 ^ 84 :=
-                Nat.mul_lt_mul_of_pos_right (by omega) (Nat.two_pow_pos 84)
-          _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
-      omega
     have hres_le : res ≤ 2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP := by
       show w - m * m * m ≤ 2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP; rw [hm_eq]; omega
     have hd_eq : d = 3 * (M_TOP * M_TOP) := by
