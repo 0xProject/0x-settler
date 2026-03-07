@@ -16,7 +16,6 @@ import datetime as dt
 import pathlib
 import re
 import sys
-import warnings
 from collections import Counter
 from dataclasses import dataclass
 from typing import Callable
@@ -148,7 +147,10 @@ def tokenize_yul(source: str) -> list[tuple[str, str]]:
             raise ParseError(f"Yul tokenizer stuck at position {pos}: {snippet!r}")
         pos = m.end()
         raw_kind = m.lastgroup
-        assert raw_kind is not None
+        if raw_kind is None:
+            raise ParseError(
+                f"Yul tokenizer produced a match with no token kind at position {pos}"
+            )
         kind = _TOKEN_KIND_MAP[raw_kind]
         if kind is None:
             continue
@@ -208,17 +210,28 @@ class YulFunction:
         return self.rets[0]
 
 
+@dataclass(frozen=True)
+class CollectedFunctions:
+    """All helper functions discovered during a collection pass.
+
+    ``functions`` contains successfully parsed helpers.
+    ``rejected`` records helper names whose bodies were rejected, along with
+    the parse error that explains why.
+    """
+    functions: dict[str, YulFunction]
+    rejected: dict[str, str]
+
+
 class YulParser:
     """Recursive-descent parser over a pre-tokenized Yul token stream.
 
     Only the subset of Yul needed for our extraction is handled: function
     definitions, ``let``/bare assignments, blocks, and ``leave``.
 
-    Control flow (``if``, ``switch``, ``for``) is **rejected** — its
-    presence would make the straight-line Lean model incomplete and
-    silently wrong.  Bare expression-statements are tracked and warned
-    about since they may indicate side-effectful operations the model
-    does not capture.
+    Control flow (``if``, ``switch``, ``for``) is **rejected** unless it is
+    part of the explicitly supported subset. Bare expression-statements are
+    tracked so later passes can either handle them explicitly or reject
+    them as incomplete semantics.
     """
 
     def __init__(self, tokens: list[tuple[str, str]]) -> None:
@@ -473,12 +486,10 @@ class YulParser:
                 self._expr_stmts.append(expr)
                 continue
 
-            tok = self._pop()
-            warnings.warn(
-                f"Unrecognized token {tok!r} in function body was skipped. "
-                f"This may indicate a Yul IR construct the parser does not "
-                f"handle.",
-                stacklevel=2,
+            tok = self._peek()
+            raise ParseError(
+                f"Unsupported statement start {tok!r} in function body. "
+                f"Refuse to skip unrecognized Yul syntax."
             )
 
         return results, has_leave
@@ -503,9 +514,10 @@ class YulParser:
         # When allow_control_flow=False, all statements are plain assignments.
         plain: list[tuple[str, Expr]] = []
         for stmt in raw:
-            assert not isinstance(stmt, ParsedIfBlock), (
-                "Unexpected ParsedIfBlock in if-body results"
-            )
+            if isinstance(stmt, ParsedIfBlock):
+                raise ParseError(
+                    "Unexpected control-flow block inside if-body results"
+                )
             plain.append(stmt)
         return plain, has_leave
 
@@ -526,7 +538,8 @@ class YulParser:
 
     def parse_function(self) -> YulFunction:
         fn_kw = self._expect_ident()
-        assert fn_kw == "function", f"Expected 'function', got {fn_kw!r}"
+        if fn_kw != "function":
+            raise ParseError(f"Expected 'function', got {fn_kw!r}")
         yul_name = self._expect_ident()
         self._expect("(")
         params: list[str] = []
@@ -658,15 +671,23 @@ class YulParser:
                 return True
         return False
 
-    def collect_all_functions(self) -> dict[str, YulFunction]:
+    def _function_name_at(self, idx: int) -> str | None:
+        if idx + 1 >= len(self.tokens):
+            return None
+        kind, text = self.tokens[idx + 1]
+        if kind != "ident":
+            return None
+        return text
+
+    def collect_all_functions(self) -> CollectedFunctions:
         """Parse all function definitions in the token stream.
 
-        Functions whose bodies fail to parse are omitted from the inlining
-        table. If a selected target later references such a function, the
-        unresolved call survives and generation fails in the emitter rather
-        than silently modeling incomplete semantics.
+        Successfully parsed helpers go into ``functions``. Helpers whose
+        bodies fail to parse are recorded in ``rejected`` so later inlining
+        can fail loudly if a selected target depends on them.
         """
         functions: dict[str, YulFunction] = {}
+        rejected: dict[str, str] = {}
         while not self._at_end():
             if (
                 self._peek_kind() == "ident"
@@ -677,15 +698,16 @@ class YulParser:
                 try:
                     fn = self.parse_function()
                     functions[fn.yul_name] = fn
-                except ParseError:
-                    # Unsupported body — skip this function.
+                except ParseError as err:
+                    fn_name = self._function_name_at(saved_i) or f"<unknown@{saved_i}>"
+                    rejected[fn_name] = str(err)
                     self.i = saved_i
                     self._skip_function_def()
                 finally:
                     self._expr_stmts = saved_stmts
             else:
                 self._pop()
-        return functions
+        return CollectedFunctions(functions=functions, rejected=rejected)
 
 
 # ---------------------------------------------------------------------------
@@ -803,6 +825,7 @@ def _inline_single_call(
     depth: int,
     max_depth: int,
     mstore_sink: list[tuple[str, Expr]] | None = None,
+    unsupported_function_errors: dict[str, str] | None = None,
 ) -> Expr | tuple[Expr, ...]:
     """Inline one function call, returning its return-value expression(s).
 
@@ -859,7 +882,8 @@ def _inline_single_call(
             # Evaluate condition
             cond = substitute_expr(stmt.condition, subst)
             cond = inline_calls(cond, fn_table, depth + 1, max_depth,
-                                mstore_sink=mstore_sink)
+                                mstore_sink=mstore_sink,
+                                unsupported_function_errors=unsupported_function_errors)
             # Process if-body assignments into a separate subst branch.
             if_subst = dict(subst)
             # Track mstore count to detect conditional memory writes.
@@ -867,7 +891,8 @@ def _inline_single_call(
             for target, raw_expr in stmt.body:
                 expr = substitute_expr(raw_expr, if_subst)
                 expr = inline_calls(expr, fn_table, depth + 1, max_depth,
-                                    mstore_sink=mstore_sink)
+                                    mstore_sink=mstore_sink,
+                                    unsupported_function_errors=unsupported_function_errors)
                 if_subst[target] = expr
 
             # Reject conditional memory writes — they can't be modeled
@@ -887,7 +912,8 @@ def _inline_single_call(
                 for target, raw_expr in stmt.else_body:
                     expr = substitute_expr(raw_expr, else_subst)
                     expr = inline_calls(expr, fn_table, depth + 1, max_depth,
-                                        mstore_sink=mstore_sink)
+                                        mstore_sink=mstore_sink,
+                                        unsupported_function_errors=unsupported_function_errors)
                     else_subst[target] = expr
                 if mstore_sink is not None and len(mstore_sink) > pre_else_sink_len:
                     raise ParseError(
@@ -932,7 +958,8 @@ def _inline_single_call(
             target, raw_expr = stmt
             expr = substitute_expr(raw_expr, subst)
             expr = inline_calls(expr, fn_table, depth + 1, max_depth,
-                                mstore_sink=mstore_sink)
+                                mstore_sink=mstore_sink,
+                                unsupported_function_errors=unsupported_function_errors)
             # Gensym: rename non-param, non-return locals to avoid clashes
             if target not in fn.params and target not in fn.rets:
                 new_name = _gensym(f"inline_{target}")
@@ -999,6 +1026,7 @@ def inline_calls(
     depth: int = 0,
     max_depth: int = 20,
     mstore_sink: list[tuple[str, Expr]] | None = None,
+    unsupported_function_errors: dict[str, str] | None = None,
 ) -> Expr:
     """Recursively inline function calls in an expression.
 
@@ -1011,7 +1039,10 @@ def inline_calls(
     functions are collected (see ``_inline_single_call``).
     """
     if depth > max_depth:
-        return expr
+        raise ParseError(
+            f"Inlining depth {depth} exceeded max_depth={max_depth} while "
+            f"processing {expr!r}. Refuse to leave the expression partially inlined."
+        )
     if isinstance(expr, (IntLit, Var)):
         return expr
     if isinstance(expr, Call):
@@ -1022,34 +1053,78 @@ def inline_calls(
         m = re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
         if m and len(expr.args) == 1 and isinstance(expr.args[0], Call):
             idx = int(m.group(1))
+            total = int(m.group(2))
             inner = expr.args[0]
             # Recursively inline the inner call's arguments first
             inner_args = tuple(inline_calls(a, fn_table, depth,
-                                            mstore_sink=mstore_sink)
+                                            max_depth=max_depth,
+                                            mstore_sink=mstore_sink,
+                                            unsupported_function_errors=unsupported_function_errors)
                                for a in inner.args)
             if inner.name in fn_table:
                 result = _inline_single_call(
                     fn_table[inner.name], inner_args, fn_table, depth + 1,
                     max_depth, mstore_sink=mstore_sink,
+                    unsupported_function_errors=unsupported_function_errors,
                 )
                 if isinstance(result, tuple):
-                    return result[idx] if idx < len(result) else expr
-                return result  # single-return; component_0 = the value
+                    if len(result) != total:
+                        raise ParseError(
+                            f"Component wrapper {expr.name!r} expected {total} "
+                            f"return values from {inner.name!r}, got {len(result)}"
+                        )
+                    if idx >= len(result):
+                        raise ParseError(
+                            f"Component wrapper {expr.name!r} requested index {idx}, "
+                            f"but {inner.name!r} only returned {len(result)} value(s)"
+                        )
+                    return result[idx]
+                if total != 1 or idx != 0:
+                    raise ParseError(
+                        f"Component wrapper {expr.name!r} expects {total} return "
+                        f"values, but {inner.name!r} returned a single value"
+                    )
+                return result
+            if (
+                unsupported_function_errors is not None
+                and inner.name in unsupported_function_errors
+            ):
+                raise ParseError(
+                    f"Cannot inline helper {inner.name!r}: its Yul body was "
+                    f"rejected during collection: "
+                    f"{unsupported_function_errors[inner.name]}"
+                )
             # Inner call not in table — rebuild with inlined args
             return Call(expr.name, (Call(inner.name, inner_args),))
 
         # Recurse into arguments
         args = tuple(inline_calls(a, fn_table, depth,
-                                  mstore_sink=mstore_sink) for a in expr.args)
+                                  max_depth=max_depth,
+                                  mstore_sink=mstore_sink,
+                                  unsupported_function_errors=unsupported_function_errors)
+                     for a in expr.args)
 
         # Direct call to a collected function
         if expr.name in fn_table:
             fn = fn_table[expr.name]
             result = _inline_single_call(fn, args, fn_table, depth + 1,
-                                         max_depth, mstore_sink=mstore_sink)
+                                         max_depth, mstore_sink=mstore_sink,
+                                         unsupported_function_errors=unsupported_function_errors)
             if isinstance(result, tuple):
-                return result[0]  # single-call context; take first return
+                raise ParseError(
+                    f"Cannot inline multi-return function {expr.name!r} into a "
+                    f"single-value context. Use tuple destructuring or an "
+                    f"explicit __component_N_M wrapper."
+                )
             return result
+        if (
+            unsupported_function_errors is not None
+            and expr.name in unsupported_function_errors
+        ):
+            raise ParseError(
+                f"Cannot inline helper {expr.name!r}: its Yul body was "
+                f"rejected during collection: {unsupported_function_errors[expr.name]}"
+            )
 
         return Call(expr.name, args)
     raise TypeError(f"Unsupported Expr node: {type(expr)}")
@@ -1058,6 +1133,7 @@ def inline_calls(
 def _inline_yul_function(
     yf: YulFunction,
     fn_table: dict[str, YulFunction],
+    unsupported_function_errors: dict[str, str] | None = None,
 ) -> YulFunction:
     """Apply ``inline_calls`` to every expression in a YulFunction.
 
@@ -1077,11 +1153,13 @@ def _inline_yul_function(
         if isinstance(stmt, ParsedIfBlock):
             pre_len = len(mstore_sink)
             new_cond = inline_calls(stmt.condition, fn_table,
-                                    mstore_sink=mstore_sink)
+                                    mstore_sink=mstore_sink,
+                                    unsupported_function_errors=unsupported_function_errors)
             new_body: list[tuple[str, Expr]] = []
             for target, raw_expr in stmt.body:
                 new_body.append((target, inline_calls(raw_expr, fn_table,
-                                                      mstore_sink=mstore_sink)))
+                                                      mstore_sink=mstore_sink,
+                                                      unsupported_function_errors=unsupported_function_errors)))
             # Inject any mstore effects collected during this statement.
             new_assignments.extend(mstore_sink[pre_len:])
             new_assignments.append(ParsedIfBlock(
@@ -1093,7 +1171,8 @@ def _inline_yul_function(
             target, raw_expr = stmt
             pre_len = len(mstore_sink)
             inlined = inline_calls(raw_expr, fn_table,
-                                   mstore_sink=mstore_sink)
+                                   mstore_sink=mstore_sink,
+                                   unsupported_function_errors=unsupported_function_errors)
             # Inject any mstore effects collected during this inlining.
             new_assignments.extend(mstore_sink[pre_len:])
             new_assignments.append((target, inlined))
@@ -1118,8 +1197,7 @@ def yul_function_to_model(
     variables/calls back to Solidity-level names.
 
     Validates:
-    - Multi-assigned compiler temporaries are flagged (copy propagation is
-      still correct for sequential code, but the situation is unusual).
+    - Multi-assigned compiler temporaries are rejected.
     - The return variable is recognized and assigned in the model.
     """
     if yf.expr_stmts:
@@ -1177,7 +1255,6 @@ def yul_function_to_model(
             ssa_count[clean] = 1
 
     assignments: list[ModelStatement] = []
-    warned_multi: set[str] = set()
 
     def _freeze_refs(expr: Expr) -> Expr:
         """Replace Var refs to Solidity-level vars with current Lean names,
@@ -1218,16 +1295,13 @@ def yul_function_to_model(
 
         clean = demangle_var(target, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals)
         if clean is None:
-            if assign_counts[target] > 1 and target not in warned_multi:
-                warned_multi.add(target)
-                warnings.warn(
+            if assign_counts[target] > 1:
+                raise ParseError(
                     f"Variable {target!r} in {sol_fn_name!r} is classified "
-                    f"as a compiler temporary (copy-propagated) but is "
-                    f"assigned {assign_counts[target]} times. Sequential "
-                    f"propagation preserves semantics for straight-line "
-                    f"code, but this is unusual — verify the Yul IR to "
-                    f"confirm this is not a misclassified user variable.",
-                    stacklevel=2,
+                    f"as a compiler temporary but is assigned "
+                    f"{assign_counts[target]} times. Refuse to copy-propagate "
+                    f"a multi-assigned temporary; demangle_var may be "
+                    f"misclassifying a real variable."
                 )
             if isinstance(expr, Call) and expr.name.startswith("zero_value_for_split_"):
                 subst[target] = IntLit(0)
@@ -1848,9 +1922,10 @@ def _hoist_repeated_calls_in_expr(
     replacements: dict[Expr, str] = {}
     hoisted: list[Assignment] = []
     for call in repeated_calls:
-        assert call.name in model_call_names, (
-            f"CSE: refusing to hoist non-model call {call!r}"
-        )
+        if call.name not in model_call_names:
+            raise ParseError(
+                f"CSE: refusing to hoist non-model call {call!r}"
+            )
         hoisted_name = _gensym("cse")
         hoisted_expr = _replace_expr(call, replacements)
         hoisted.append(Assignment(target=hoisted_name, expr=hoisted_expr))
@@ -1938,8 +2013,10 @@ def hoist_repeated_model_calls(
 
     # Sanity: every hoisted call must be a known-pure model call.
     for call in repeated_global:
-        assert call.name in model_call_names, \
-            f"CSE: refusing to hoist non-model call {call!r}"
+        if call.name not in model_call_names:
+            raise ParseError(
+                f"CSE: refusing to hoist non-model call {call!r}"
+            )
 
     # -- Pass 2: build global replacements and hoisted let-bindings --------
     global_replacements: dict[Expr, str] = {}
@@ -2384,8 +2461,11 @@ def run(config: ModelConfig) -> int:
 
     tokens = tokenize_yul(yul_text)
 
-    # Collect all parseable function definitions for inlining.
-    fn_table = YulParser(tokens).collect_all_functions()
+    # Collect all helper definitions for inlining, and remember helpers
+    # whose bodies were rejected so references to them can fail loudly.
+    function_collection = YulParser(tokens).collect_all_functions()
+    fn_table = dict(function_collection.functions)
+    rejected_functions = function_collection.rejected
 
     fn_map: dict[str, str] = {}
     yul_functions: dict[str, YulFunction] = {}
@@ -2413,7 +2493,11 @@ def run(config: ModelConfig) -> int:
     # Second pass: inline non-target function calls.
     for sol_name in selected_functions:
         yf = yul_functions[sol_name]
-        yf = _inline_yul_function(yf, fn_table)
+        yf = _inline_yul_function(
+            yf,
+            fn_table,
+            unsupported_function_errors=rejected_functions,
+        )
         yul_functions[sol_name] = yf
 
     models = [

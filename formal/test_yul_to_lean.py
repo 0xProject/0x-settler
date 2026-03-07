@@ -189,5 +189,104 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
         raise ValueError(f"Unsupported call in test evaluator: {expr.name}")
 
 
+class FailClosedTranslatorTest(unittest.TestCase):
+    def test_parse_function_rejects_non_function_keyword(self) -> None:
+        parser = ytl.YulParser([("ident", "not_function")])
+
+        with self.assertRaisesRegex(ytl.ParseError, "Expected 'function'"):
+            parser.parse_function()
+
+    def test_parse_function_rejects_unrecognized_statement_start(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function fun_bad_1() -> z {
+                "oops"
+                z := 1
+            }
+            """
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "Unsupported statement start"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_collect_all_functions_records_rejected_helper_and_inlining_fails(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function fun_target_1(x) -> z {
+                z := bad_helper(x)
+            }
+
+            function bad_helper(a) -> b {
+                for { } 1 { } { }
+            }
+            """
+        )
+        collection = ytl.YulParser(tokens).collect_all_functions()
+        target = collection.functions["fun_target_1"]
+
+        self.assertIn("bad_helper", collection.rejected)
+        with self.assertRaisesRegex(ytl.ParseError, "Cannot inline helper 'bad_helper'"):
+            ytl._inline_yul_function(
+                target,
+                collection.functions,
+                unsupported_function_errors=collection.rejected,
+            )
+
+    def test_inline_calls_rejects_depth_overflow(self) -> None:
+        fn_table = {
+            "f": ytl.YulFunction(
+                yul_name="f",
+                params=["x"],
+                rets=["r"],
+                assignments=[("r", ytl.Call("g", (ytl.Var("x"),)))],
+            ),
+        }
+
+        with self.assertRaisesRegex(ytl.ParseError, "max_depth=0"):
+            ytl.inline_calls(ytl.Call("f", (ytl.IntLit(1),)), fn_table, max_depth=0)
+
+    def test_inline_calls_rejects_multi_return_in_scalar_context(self) -> None:
+        fn_table = {
+            "pair": ytl.YulFunction(
+                yul_name="pair",
+                params=[],
+                rets=["a", "b"],
+                assignments=[],
+            ),
+        }
+
+        with self.assertRaisesRegex(ytl.ParseError, "single-value context"):
+            ytl.inline_calls(ytl.Call("pair", ()), fn_table)
+
+    def test_inline_calls_rejects_invalid_component_projection(self) -> None:
+        fn_table = {
+            "single": ytl.YulFunction(
+                yul_name="single",
+                params=[],
+                rets=["a"],
+                assignments=[],
+            ),
+        }
+        expr = ytl.Call("__component_1_2", (ytl.Call("single", ()),))
+
+        with self.assertRaisesRegex(ytl.ParseError, "expects 2 return values"):
+            ytl.inline_calls(expr, fn_table)
+
+    def test_yul_function_to_model_rejects_multi_assigned_temporary(self) -> None:
+        yf = ytl.YulFunction(
+            yul_name="f",
+            params=["arg"],
+            rets=["ret"],
+            assignments=[
+                ("tmp", ytl.IntLit(1)),
+                ("tmp", ytl.IntLit(2)),
+                ("ret", ytl.Var("tmp")),
+            ],
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "classified as a compiler temporary"):
+            ytl.yul_function_to_model(yf, "f", {})
+
+
 if __name__ == "__main__":
     unittest.main()
