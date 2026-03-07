@@ -1912,11 +1912,11 @@ def hoist_repeated_model_calls(
 
     Collects repeated calls across *all* statements (assignments and
     conditional blocks), but only hoists them globally when every argument
-    depends solely on function parameters. Calls that mention local variables
-    but repeat across *different* statements are hoisted at the earliest
-    point where all their variable dependencies are in scope.  Calls
-    repeated only within a single expression are hoisted immediately before
-    that expression.  Model calls are assumed pure.
+    depends solely on function parameters. Calls that mention local or
+    branch-assigned variables are hoisted only immediately before the
+    statement that uses them (or inside the relevant conditional branch).
+    This keeps hoisting within scopes where the referenced bindings are
+    definitely available. Model calls are assumed pure.
     """
     # Reset CSE counter so each function's hoisted names start at _cse_1.
     _gensym_counters.pop("cse", None)
@@ -1956,65 +1956,7 @@ def hoist_repeated_model_calls(
         for stmt in model.assignments
     ]
 
-    # -- Pass 4: cross-statement deduplication for local-dependent calls ---
-    # Count remaining repeated calls across all rewritten statements.
-    remaining_counts: Counter[Expr] = Counter()
-    for stmt in rewritten_statements:
-        _walk_statement(stmt, model_call_names, remaining_counts)
-
-    cross_stmt_repeated = [
-        node
-        for node, count in remaining_counts.items()
-        if count > 1 and isinstance(node, Call)
-    ]
-
-    if cross_stmt_repeated:
-        cross_stmt_repeated.sort(key=_expr_size)
-
-        # Build a map: variable name → index of the statement that defines it.
-        # Parameters are available before statement 0 (index -1).
-        var_defined_at: dict[str, int] = {p: -1 for p in model.param_names}
-        for idx, stmt in enumerate(rewritten_statements):
-            if isinstance(stmt, Assignment):
-                var_defined_at[stmt.target] = idx
-            elif isinstance(stmt, ConditionalBlock):
-                for v in stmt.modified_vars:
-                    var_defined_at[v] = idx
-
-        # For each repeated call, find the earliest insertion point where
-        # all its variable dependencies are in scope.
-        cross_replacements: dict[Expr, str] = {}
-        # insertion_point → list of hoisted assignments to insert there
-        insertions: dict[int, list[Assignment]] = {}
-        for call in cross_stmt_repeated:
-            assert call.name in model_call_names, \
-                f"CSE: refusing to hoist non-model call {call!r}"
-            deps = _expr_vars(call)
-            if not deps:
-                insert_at = 0
-            else:
-                max_dep = max(var_defined_at.get(v, -1) for v in deps)
-                insert_at = max_dep + 1
-            hoisted_name = _gensym("cse")
-            hoisted_expr = _replace_expr(call, cross_replacements)
-            cross_replacements[call] = hoisted_name
-            insertions.setdefault(insert_at, []).append(
-                Assignment(target=hoisted_name, expr=hoisted_expr)
-            )
-
-        # Rebuild statement list with insertions and replacements.
-        rewritten_with_cross: list[ModelStatement] = []
-        for idx, stmt in enumerate(rewritten_statements):
-            if idx in insertions:
-                rewritten_with_cross.extend(insertions[idx])
-            rewritten_with_cross.append(_replace_statement(stmt, cross_replacements))
-        # Insertions after all statements (for deps defined in last stmt).
-        after_idx = len(rewritten_statements)
-        if after_idx in insertions:
-            rewritten_with_cross.extend(insertions[after_idx])
-        rewritten_statements = rewritten_with_cross
-
-    # -- Pass 5: locally hoist remaining repeated calls (intra-expression) -
+    # -- Pass 4: locally hoist remaining repeated calls in safe scopes -----
     new_assignments: list[ModelStatement] = list(hoisted_global)
     for stmt in rewritten_statements:
         new_assignments.extend(_localize_statement_cse(
