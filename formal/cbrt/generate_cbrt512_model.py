@@ -4,7 +4,9 @@ Generate Lean model of 512Math cbrt functions from Yul IR.
 
 This script extracts the cbrt sub-functions and wrappers from the Yul IR
 produced by `forge inspect` on Cbrt512Wrapper and emits opcode-faithful
-uint256 EVM Lean definitions.
+uint256 EVM Lean definitions.  Only the EVM-faithful (`_evm`) models are
+generated; the unbounded-Nat norm models are suppressed because the 512-bit
+proofs bridge the EVM model directly.
 
 Sub-functions (listed before `_cbrt` so they're emitted as named sub-models):
   _cbrt_newtonRaphsonStep  — one Newton-Raphson step (2 params)
@@ -79,9 +81,13 @@ CONFIG = ModelConfig(
     # exclude_known to select the leaf (256-bit) versions that do NOT
     # call the already-targeted _cbrt (512-bit).
     exclude_known=frozenset({"cbrt", "cbrtUp"}),
-    # Suppress norm models for functions whose proofs bridge the EVM model
+    # Suppress all norm models: the 512-bit proofs bridge the EVM model
     # directly (the norm model uses unbounded Nat which doesn't match EVM).
-    skip_norm=frozenset({"cbrt", "cbrtUp", "wrap_cbrt512", "wrap_cbrtUp512"}),
+    skip_norm=frozenset({
+        "_cbrt_newtonRaphsonStep", "_cbrt_baseCase",
+        "_cbrt_karatsubaQuotient", "_cbrt_quadraticCorrection",
+        "_cbrt", "cbrt", "cbrtUp", "wrap_cbrt512", "wrap_cbrtUp512",
+    }),
     default_source_label="src/utils/512Math.sol",
     default_namespace="Cbrt512GeneratedModel",
     default_output="formal/cbrt/Cbrt512Proof/Cbrt512Proof/GeneratedCbrt512Model.lean",

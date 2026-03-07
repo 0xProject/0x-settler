@@ -1891,6 +1891,11 @@ def render_function_defs(models: list[FunctionModel], config: ModelConfig) -> st
     return "\n".join(parts)
 
 
+def any_norm_models(models: list[FunctionModel], config: ModelConfig) -> bool:
+    """Return True if at least one function will emit a norm model."""
+    return any(m.fn_name not in config.skip_norm for m in models)
+
+
 def build_lean_source(
     *,
     models: list[FunctionModel],
@@ -1909,6 +1914,33 @@ def build_lean_source(
     opcodes_line = ", ".join(opcodes)
 
     function_defs = render_function_defs(models, config)
+    emit_norm = any_norm_models(models, config)
+
+    norm_defs = ""
+    if emit_norm:
+        norm_defs = (
+            "def normAdd (a b : Nat) : Nat := a + b\n\n"
+            "def normSub (a b : Nat) : Nat := a - b\n\n"
+            "def normMul (a b : Nat) : Nat := a * b\n\n"
+            "def normDiv (a b : Nat) : Nat := a / b\n\n"
+            "def normMod (a b : Nat) : Nat := a % b\n\n"
+            "def normNot (a : Nat) : Nat := WORD_MOD - 1 - a\n\n"
+            "def normOr (a b : Nat) : Nat := a ||| b\n\n"
+            "def normAnd (a b : Nat) : Nat := a &&& b\n\n"
+            "def normEq (a b : Nat) : Nat :=\n"
+            "  if a = b then 1 else 0\n\n"
+            "def normShl (shift value : Nat) : Nat := value <<< shift\n\n"
+            "def normShr (shift value : Nat) : Nat := value / 2 ^ shift\n\n"
+            "def normClz (value : Nat) : Nat :=\n"
+            "  if value = 0 then 256 else 255 - Nat.log2 value\n\n"
+            f"{config.extra_lean_defs}"
+            "def normLt (a b : Nat) : Nat :=\n"
+            "  if a < b then 1 else 0\n\n"
+            "def normGt (a b : Nat) : Nat :=\n"
+            "  if a > b then 1 else 0\n\n"
+            "def normMulmod (a b n : Nat) : Nat :=\n"
+            "  if n = 0 then 0 else (a * b) % n\n\n"
+        )
 
     src = (
         "import Init\n\n"
@@ -1962,27 +1994,7 @@ def build_lean_source(
         "def evmMulmod (a b n : Nat) : Nat :=\n"
         "  let aa := u256 a; let bb := u256 b; let nn := u256 n\n"
         "  if nn = 0 then 0 else (aa * bb) % nn\n\n"
-        "def normAdd (a b : Nat) : Nat := a + b\n\n"
-        "def normSub (a b : Nat) : Nat := a - b\n\n"
-        "def normMul (a b : Nat) : Nat := a * b\n\n"
-        "def normDiv (a b : Nat) : Nat := a / b\n\n"
-        "def normMod (a b : Nat) : Nat := a % b\n\n"
-        "def normNot (a : Nat) : Nat := WORD_MOD - 1 - a\n\n"
-        "def normOr (a b : Nat) : Nat := a ||| b\n\n"
-        "def normAnd (a b : Nat) : Nat := a &&& b\n\n"
-        "def normEq (a b : Nat) : Nat :=\n"
-        "  if a = b then 1 else 0\n\n"
-        "def normShl (shift value : Nat) : Nat := value <<< shift\n\n"
-        "def normShr (shift value : Nat) : Nat := value / 2 ^ shift\n\n"
-        "def normClz (value : Nat) : Nat :=\n"
-        "  if value = 0 then 256 else 255 - Nat.log2 value\n\n"
-        f"{config.extra_lean_defs}"
-        "def normLt (a b : Nat) : Nat :=\n"
-        "  if a < b then 1 else 0\n\n"
-        "def normGt (a b : Nat) : Nat :=\n"
-        "  if a > b then 1 else 0\n\n"
-        "def normMulmod (a b n : Nat) : Nat :=\n"
-        "  if n = 0 then 0 else (a * b) % n\n\n"
+        f"{norm_defs}"
         f"{function_defs}\n"
         f"end {namespace}\n"
     )

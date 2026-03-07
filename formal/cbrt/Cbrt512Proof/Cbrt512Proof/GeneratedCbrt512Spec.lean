@@ -6,10 +6,6 @@
   Part 3: Composition with icbrt.
 
   Architecture: model_cbrt512_evm →[direct EVM bridge]→ icbrt ± 1
-
-  Note: The auto-generated norm model (model_cbrt512) uses unbounded Nat operations
-  which do NOT match EVM uint256 semantics. Therefore we prove the EVM model correct
-  directly, without factoring through the norm model.
 -/
 import Cbrt512Proof.Cbrt512Correct
 import Cbrt512Proof.GeneratedCbrt512Model
@@ -91,7 +87,32 @@ private theorem three_msq_plus_3m_lt (m : Nat)
     _ < 2 ^ 171 := m_top_three_msq_plus_3m_lt_pow171
 
 -- ============================================================================
--- Helper 3: Undershoot properties (P1 and P2)
+-- Helper 3: r_lo < 2^87 (shared by undershoot and pipeline proofs)
+-- ============================================================================
+
+set_option exponentiation.threshold 1024 in
+/-- The Karatsuba quotient r_lo is at most 87 bits. -/
+private theorem r_lo_lt_pow87 (m : Nat)
+    (hm_lo : 2 ^ 83 ≤ m)
+    (res limb_hi : Nat)
+    (hres_bound : res ≤ 3 * (m * m) + 3 * m)
+    (hlimb_86 : limb_hi < 2 ^ 86)
+    (hd_pos : 3 * (m * m) > 0) :
+    (res * 2 ^ 86 + limb_hi) / (3 * (m * m)) < 2 ^ 87 := by
+  rw [Nat.div_lt_iff_lt_mul hd_pos]
+  have h2m : 2 * m ≤ m * m := Nat.mul_le_mul_right m (by omega)
+  calc (res * 2 ^ 86 + limb_hi)
+      < (res + 1) * 2 ^ 86 := by omega
+    _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by
+        apply Nat.mul_le_mul_right; omega
+    _ ≤ (2 * (3 * (m * m))) * 2 ^ 86 := by
+        apply Nat.mul_le_mul_right; omega
+    _ = 2 ^ 87 * (3 * (m * m)) := by
+        rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
+          rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]; omega
+
+-- ============================================================================
+-- Helper 4: Undershoot properties (P1 and P2)
 -- ============================================================================
 
 /-- P2: The QC result is always ≥ icbrt (the QC never undershoots below icbrt).
@@ -212,18 +233,7 @@ private theorem qc_undershoot_correct (x_hi_1 x_lo_1 : Nat)
     have hdiv : x_lo_1 / 2 ^ 172 < 2 ^ 84 := by unfold WORD_MOD at hxlo; omega
     omega
   have hr_lo_bound : nat_r_lo < 2 ^ 87 := by
-    rw [hr_lo_eq, Nat.div_lt_iff_lt_mul hd_pos]
-    have h2m : 2 * m ≤ m * m := Nat.mul_le_mul_right m (by omega)
-    calc ((x_hi_1 / 4 - m * m * m) * 2 ^ 86 +
-            (x_hi_1 % 4 * 2 ^ 84 + x_lo_1 / 2 ^ 172))
-        < ((x_hi_1 / 4 - m * m * m) + 1) * 2 ^ 86 := by omega
-      _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by
-          apply Nat.mul_le_mul_right; omega
-      _ ≤ (2 * (3 * (m * m))) * 2 ^ 86 := by
-          apply Nat.mul_le_mul_right; omega
-      _ = 2 ^ 87 * (3 * (m * m)) := by
-          rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
-            rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]; omega
+    rw [hr_lo_eq]; exact r_lo_lt_pow87 m hm_lo _ _ hres_bound hlimb_86 hd_pos
   have hr_lo_wm : nat_r_lo < WORD_MOD := by unfold WORD_MOD; omega
   have hd_wm : 3 * (m * m) < WORD_MOD := by
     have hmm_hi : m * m < 2 ^ 170 :=
@@ -392,21 +402,8 @@ private theorem evm_pipeline_within_1ulp (x_hi_1 x_lo_1 : Nat)
       ((x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m))
   let nat_rem := ((w - m * m * m) * 2 ^ 86 +
       ((x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172)) % (3 * (m * m))
-  have hr_lo_bound : nat_r_lo < 2 ^ 87 := by
-    show ((w - m * m * m) * 2 ^ 86 +
-        ((x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172)) / (3 * (m * m)) < 2 ^ 87
-    rw [Nat.div_lt_iff_lt_mul hd_pos]
-    have h2m : 2 * m ≤ m * m := Nat.mul_le_mul_right m (by omega)
-    calc (w - m * m * m) * 2 ^ 86 +
-            ((x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172)
-        < ((w - m * m * m) + 1) * 2 ^ 86 := by omega
-      _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by
-          apply Nat.mul_le_mul_right; omega
-      _ ≤ (2 * (3 * (m * m))) * 2 ^ 86 := by
-          apply Nat.mul_le_mul_right; omega
-      _ = 2 ^ 87 * (3 * (m * m)) := by
-          rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
-            rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]; omega
+  have hr_lo_bound : nat_r_lo < 2 ^ 87 :=
+    r_lo_lt_pow87 m hm_lo _ _ hres_bound hlimb_86 hd_pos
   have hr_lo_wm : nat_r_lo < WORD_MOD := by unfold WORD_MOD; omega
   have hrem_wm : nat_rem < WORD_MOD := by
     unfold WORD_MOD; exact Nat.lt_of_lt_of_le (Nat.mod_lt _ hd_pos) (by omega)
