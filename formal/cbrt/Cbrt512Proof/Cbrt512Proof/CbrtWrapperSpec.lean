@@ -153,110 +153,8 @@ theorem icbrt_unique (n r : Nat) (hlo : r * r * r ≤ n) (hhi : n < (r + 1) * (r
 -- Section 5: Helper lemmas for x_hi > 0 — mul512 correctness
 -- ============================================================================
 
-/-- mulmod(r, r, 2^256-1) combined with mul(r,r) and sub/lt recovers r²/2^256. -/
-theorem mul512_high_word (r : Nat) (hr : r < WORD_MOD) :
-    let mm := evmMulmod r r (evmNot 0)
-    let m := evmMul r r
-    evmSub (evmSub mm m) (evmLt mm m) = r * r / WORD_MOD := by
-  simp only
-  have hNot0 : evmNot 0 = WORD_MOD - 1 := by
-    unfold evmNot u256 WORD_MOD; simp
-  have hWM1_pos : (0 : Nat) < WORD_MOD - 1 := by unfold WORD_MOD; omega
-  have hWM1_lt : WORD_MOD - 1 < WORD_MOD := by unfold WORD_MOD; omega
-  have hmm : evmMulmod r r (evmNot 0) = (r * r) % (WORD_MOD - 1) := by
-    unfold evmMulmod
-    simp only [u256_id' r hr, hNot0, u256_id' (WORD_MOD - 1) hWM1_lt]
-    simp [Nat.ne_of_gt hWM1_pos]
-  have hm : evmMul r r = (r * r) % WORD_MOD := by
-    unfold evmMul u256; simp [Nat.mod_eq_of_lt hr]
-  rw [hmm, hm]
-  have hdecomp : r * r = r * r / WORD_MOD * WORD_MOD + r * r % WORD_MOD := by
-    have := Nat.div_add_mod (r * r) WORD_MOD
-    rw [Nat.mul_comm] at this; omega
-  have hq_bound : r * r / WORD_MOD < WORD_MOD := by
-    have : r * r < WORD_MOD * WORD_MOD :=
-      Nat.mul_lt_mul_of_le_of_lt (Nat.le_of_lt hr) hr (by unfold WORD_MOD; omega)
-    exact Nat.div_lt_of_lt_mul this
-  have hlo_bound : r * r % WORD_MOD < WORD_MOD := Nat.mod_lt _ (by unfold WORD_MOD; omega)
-  have hhi_eq : (r * r) % (WORD_MOD - 1) = (r * r / WORD_MOD + r * r % WORD_MOD) % (WORD_MOD - 1) := by
-    have hqW : r * r / WORD_MOD * WORD_MOD =
-        (WORD_MOD - 1) * (r * r / WORD_MOD) + r * r / WORD_MOD := by
-      have hsc := Nat.sub_add_cancel (Nat.one_le_of_lt (show 1 < WORD_MOD from by unfold WORD_MOD; omega))
-      have h := Nat.mul_add (r * r / WORD_MOD) (WORD_MOD - 1) 1
-      rw [hsc, Nat.mul_one] at h
-      rw [h, Nat.mul_comm (r * r / WORD_MOD) (WORD_MOD - 1)]
-    have hrr_eq : r * r = (WORD_MOD - 1) * (r * r / WORD_MOD) + (r * r / WORD_MOD + r * r % WORD_MOD) := by
-      omega
-    have step := Nat.mul_add_mod (WORD_MOD - 1) (r * r / WORD_MOD) (r * r / WORD_MOD + r * r % WORD_MOD)
-    rw [← hrr_eq] at step; exact step
-  have hhi_bound : (r * r) % (WORD_MOD - 1) < WORD_MOD - 1 := Nat.mod_lt _ hWM1_pos
-  by_cases hcase : r * r / WORD_MOD + r * r % WORD_MOD < WORD_MOD - 1
-  · have hhi_val : (r * r) % (WORD_MOD - 1) = r * r / WORD_MOD + r * r % WORD_MOD := by
-      rw [hhi_eq, Nat.mod_eq_of_lt hcase]
-    have hhi_wm : (r * r) % (WORD_MOD - 1) < WORD_MOD := by omega
-    have hge : r * r % WORD_MOD ≤ (r * r) % (WORD_MOD - 1) := by
-      rw [hhi_val]; exact Nat.le_add_left _ _
-    have hlt_eq : evmLt ((r * r) % (WORD_MOD - 1)) (r * r % WORD_MOD) = 0 := by
-      unfold evmLt u256
-      simp only [Nat.mod_eq_of_lt hhi_wm, Nat.mod_eq_of_lt hlo_bound]
-      exact if_neg (Nat.not_lt.mpr hge)
-    rw [hlt_eq]
-    have hsub1 : evmSub ((r * r) % (WORD_MOD - 1)) (r * r % WORD_MOD) =
-        (r * r) % (WORD_MOD - 1) - r * r % WORD_MOD :=
-      evmSub_eq_of_le _ _ hhi_wm hge
-    rw [hsub1]
-    have hq_eq : (r * r) % (WORD_MOD - 1) - r * r % WORD_MOD = r * r / WORD_MOD := by
-      omega
-    rw [hq_eq]
-    exact evmSub_eq_of_le _ 0 hq_bound (Nat.zero_le _)
-  · have hcase' : WORD_MOD - 1 ≤ r * r / WORD_MOD + r * r % WORD_MOD := Nat.not_lt.mp hcase
-    have hq_le : r * r / WORD_MOD ≤ WORD_MOD - 2 := by
-      have hr' : r ≤ WORD_MOD - 1 := by omega
-      have hrsq : r * r ≤ (WORD_MOD - 1) * (WORD_MOD - 1) := Nat.mul_le_mul hr' hr'
-      have h1 : r * r / WORD_MOD ≤ (WORD_MOD - 1) * (WORD_MOD - 1) / WORD_MOD :=
-        @Nat.div_le_div_right _ _ WORD_MOD hrsq
-      suffices h : (WORD_MOD - 1) * (WORD_MOD - 1) / WORD_MOD = WORD_MOD - 2 by omega
-      unfold WORD_MOD; omega
-    have hql_lt : r * r / WORD_MOD + r * r % WORD_MOD < 2 * (WORD_MOD - 1) := by omega
-    have hhi_val : (r * r) % (WORD_MOD - 1) =
-        r * r / WORD_MOD + r * r % WORD_MOD - (WORD_MOD - 1) := by
-      rw [hhi_eq,
-          Nat.mod_eq_sub_mod hcase',
-          Nat.mod_eq_of_lt (by omega)]
-    have hlt_lo : (r * r) % (WORD_MOD - 1) < r * r % WORD_MOD := by
-      rw [hhi_val]; omega
-    have hhi_wm : (r * r) % (WORD_MOD - 1) < WORD_MOD := by omega
-    have hlt_eq : evmLt ((r * r) % (WORD_MOD - 1)) (r * r % WORD_MOD) = 1 := by
-      unfold evmLt u256
-      simp [Nat.mod_eq_of_lt hhi_wm, Nat.mod_eq_of_lt hlo_bound]
-      exact hlt_lo
-    rw [hlt_eq]
-    have hsub1 : evmSub ((r * r) % (WORD_MOD - 1)) (r * r % WORD_MOD) =
-        (r * r) % (WORD_MOD - 1) + WORD_MOD - r * r % WORD_MOD := by
-      unfold evmSub u256
-      simp [Nat.mod_eq_of_lt hhi_wm, Nat.mod_eq_of_lt hlo_bound]
-      exact Nat.mod_eq_of_lt (show (r * r) % (WORD_MOD - 1) + WORD_MOD - r * r % WORD_MOD < WORD_MOD
-        by rw [hhi_val]; omega)
-    rw [hsub1]
-    have hval : (r * r) % (WORD_MOD - 1) + WORD_MOD - r * r % WORD_MOD < WORD_MOD := by
-      rw [hhi_val]; omega
-    have hsub2 : evmSub ((r * r) % (WORD_MOD - 1) + WORD_MOD - r * r % WORD_MOD) 1 =
-        (r * r) % (WORD_MOD - 1) + WORD_MOD - r * r % WORD_MOD - 1 :=
-      evmSub_eq_of_le _ 1 hval (by rw [hhi_val]; omega)
-    rw [hsub2]
-    rw [hhi_val]; omega
-
-/-- mul(r, r) gives the low word of r². -/
-theorem mul512_low_word (r : Nat) (hr : r < WORD_MOD) :
-    evmMul r r = r * r % WORD_MOD := by
-  unfold evmMul u256; simp [Nat.mod_eq_of_lt hr]
-
--- ============================================================================
--- Section 5b: Generalized mul512 for non-square inputs
--- ============================================================================
-
 /-- Generalized high word: mulmod(a,b,2^256-1) combined with mul(a,b) and sub/lt
-    recovers (a*b)/2^256. Same trick as mul512_high_word but for a ≠ b. -/
+    recovers (a*b)/2^256. -/
 theorem mul512_high_word_general (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
     let mm := evmMulmod a b (evmNot 0)
     let m := evmMul a b
@@ -354,6 +252,19 @@ theorem mul512_high_word_general (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_
 theorem mul512_low_word_general (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
     evmMul a b = (a * b) % WORD_MOD := by
   unfold evmMul u256; simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
+
+/-- mulmod(r, r, 2^256-1) combined with mul(r,r) and sub/lt recovers r²/2^256.
+    Special case of mul512_high_word_general with a = b = r. -/
+theorem mul512_high_word (r : Nat) (hr : r < WORD_MOD) :
+    let mm := evmMulmod r r (evmNot 0)
+    let m := evmMul r r
+    evmSub (evmSub mm m) (evmLt mm m) = r * r / WORD_MOD :=
+  mul512_high_word_general r r hr hr
+
+/-- mul(r, r) gives the low word of r². -/
+theorem mul512_low_word (r : Nat) (hr : r < WORD_MOD) :
+    evmMul r r = r * r % WORD_MOD :=
+  mul512_low_word_general r r hr hr
 
 -- ============================================================================
 -- Section 6: 512×256 multiplication for cubing

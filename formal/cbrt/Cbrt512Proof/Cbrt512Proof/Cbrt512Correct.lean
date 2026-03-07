@@ -54,17 +54,3 @@ theorem cbrtUp512_correct (x : Nat) (_hx : x < 2 ^ 512) :
       rw [h4] at h3
       omega⟩
 
-/-- cbrtUp512 satisfies the ceiling cbrt spec. -/
-theorem cbrtUp512_spec (x : Nat) (hx : x < 2 ^ 512) :
-    let r := cbrtUp512 x
-    x ≤ r * r * r ∧ (r = 0 ∨ (r - 1) * (r - 1) * (r - 1) < x) := by
-  have ⟨h1, h2⟩ := cbrtUp512_correct x hx
-  simp only at h1 h2 ⊢
-  refine ⟨h1, ?_⟩
-  by_cases hr0 : cbrtUp512 x = 0
-  · left; exact hr0
-  · right
-    suffices h : ¬((cbrtUp512 x - 1) * (cbrtUp512 x - 1) * (cbrtUp512 x - 1) ≥ x) by omega
-    intro hc
-    have := h2 (cbrtUp512 x - 1) hc
-    omega
