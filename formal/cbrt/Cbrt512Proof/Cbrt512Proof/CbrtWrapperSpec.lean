@@ -369,51 +369,35 @@ theorem gt512_correct (x_hi x_lo sq_hi sq_lo : Nat)
       (evmAnd (evmEq sq_hi x_hi) (evmGt sq_lo x_lo))
     (cmp ≠ 0) ↔ (sq_hi * WORD_MOD + sq_lo > x_hi * WORD_MOD + x_lo) := by
   simp only
-  have hgt_hi : evmGt sq_hi x_hi = if sq_hi > x_hi then 1 else 0 := by
-    unfold evmGt u256; simp [Nat.mod_eq_of_lt hsqhi, Nat.mod_eq_of_lt hxhi]
-  have heq_hi : evmEq sq_hi x_hi = if sq_hi = x_hi then 1 else 0 := by
-    unfold evmEq u256; simp [Nat.mod_eq_of_lt hsqhi, Nat.mod_eq_of_lt hxhi]
-  have hgt_lo : evmGt sq_lo x_lo = if sq_lo > x_lo then 1 else 0 := by
-    unfold evmGt u256; simp [Nat.mod_eq_of_lt hsqlo, Nat.mod_eq_of_lt hxlo]
-  rw [hgt_hi, heq_hi, hgt_lo]
-  by_cases hgt : sq_hi > x_hi
-  · have hneq : ¬(sq_hi = x_hi) := by omega
-    simp only [hgt, ite_true, hneq, ite_false]
-    have hor_nz : ∀ v, evmOr 1 (evmAnd 0 v) ≠ 0 := by
-      intro v; unfold evmOr evmAnd u256 WORD_MOD; simp (config := { decide := true })
+  -- Pre-compute EVM comparisons to 0/1 ifs
+  rw [show evmGt sq_hi x_hi = if sq_hi > x_hi then 1 else 0 from by
+        unfold evmGt u256; simp [Nat.mod_eq_of_lt hsqhi, Nat.mod_eq_of_lt hxhi],
+      show evmEq sq_hi x_hi = if sq_hi = x_hi then 1 else 0 from by
+        unfold evmEq u256; simp [Nat.mod_eq_of_lt hsqhi, Nat.mod_eq_of_lt hxhi],
+      show evmGt sq_lo x_lo = if sq_lo > x_lo then 1 else 0 from by
+        unfold evmGt u256; simp [Nat.mod_eq_of_lt hsqlo, Nat.mod_eq_of_lt hxlo]]
+  -- Three-way case split on high words
+  rcases Nat.lt_trichotomy sq_hi x_hi with hlt | heq | hgt
+  · -- sq_hi < x_hi: cmp = evmOr 0 (evmAnd 0 _) = 0
+    simp only [show ¬(sq_hi > x_hi) from by omega, show ¬(sq_hi = x_hi) from by omega, ite_false]
     constructor
-    · intro _
-      have h1 : x_hi * WORD_MOD + WORD_MOD ≤ sq_hi * WORD_MOD := by
-        have := Nat.mul_le_mul_right WORD_MOD hgt
-        rwa [Nat.succ_mul] at this
-      omega
-    · intro _; exact hor_nz _
-  · by_cases heq : sq_hi = x_hi
-    · subst heq
-      simp only [Nat.lt_irrefl, ite_false, ite_true]
-      by_cases hgtlo : sq_lo > x_lo
-      · simp only [hgtlo, ite_true]
-        constructor
-        · intro _; omega
-        · intro _; unfold evmOr evmAnd u256 WORD_MOD; simp (config := { decide := true })
-      · simp only [hgtlo, ite_false]
-        have hor_z : evmOr 0 (evmAnd 1 0) = 0 := by
-          unfold evmOr evmAnd u256 WORD_MOD; simp (config := { decide := true })
-        constructor
-        · intro h; exact absurd hor_z h
-        · intro h; omega
-    · have hlt : sq_hi < x_hi := by omega
-      have hng : ¬(sq_hi > x_hi) := by omega
-      simp only [hng, ite_false, heq, ite_false]
-      have hor_z : ∀ v, evmOr 0 (evmAnd 0 v) = 0 := by
-        intro v; unfold evmOr evmAnd u256 WORD_MOD; simp (config := { decide := true })
-      constructor
-      · intro h; exact absurd (hor_z _) h
-      · intro h
-        have h1 : sq_hi * WORD_MOD + WORD_MOD ≤ x_hi * WORD_MOD := by
-          have := Nat.mul_le_mul_right WORD_MOD hlt
-          rwa [Nat.succ_mul] at this
-        omega
+    · intro h; exact absurd (show evmOr 0 (evmAnd 0 _) = 0 from by
+        unfold evmOr evmAnd u256 WORD_MOD; simp (config := { decide := true })) h
+    · intro h; have h1 := Nat.mul_le_mul_right WORD_MOD hlt; rw [Nat.succ_mul] at h1; omega
+  · -- sq_hi = x_hi: cmp reduces to evmOr 0 (evmAnd 1 (if ...))
+    subst heq; simp only [Nat.lt_irrefl, ite_false, ite_true]
+    by_cases hgtlo : sq_lo > x_lo <;> simp only [hgtlo, ite_true, ite_false]
+    · constructor; · intro _; omega
+      · intro _; unfold evmOr evmAnd u256 WORD_MOD; simp (config := { decide := true })
+    · constructor
+      · intro h; exact absurd (show evmOr 0 (evmAnd 1 0) = 0 from by
+          unfold evmOr evmAnd u256 WORD_MOD; simp (config := { decide := true })) h
+      · intro h; omega
+  · -- sq_hi > x_hi: cmp = evmOr 1 _ ≠ 0
+    simp only [hgt, ite_true, show ¬(sq_hi = x_hi) from by omega, ite_false]
+    constructor
+    · intro _; have h1 := Nat.mul_le_mul_right WORD_MOD hgt; rw [Nat.succ_mul] at h1; omega
+    · intro _; unfold evmOr evmAnd u256 WORD_MOD; simp (config := { decide := true })
 
 -- ============================================================================
 -- Section 7b: Helper lemmas for cube-and-compare correction
