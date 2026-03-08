@@ -368,6 +368,27 @@ class YulParser:
             elif k == "}":
                 depth -= 1
 
+    def _skip_to_end_of_current_block(self) -> None:
+        """Discard tokens until the ``}`` that closes the current block.
+
+        Leaves the closing brace unconsumed so the caller can handle it.
+        """
+        depth = 0
+        while not self._at_end():
+            kind, _text = self._peek() or ("", "")
+            if kind == "{":
+                depth += 1
+                self._pop()
+                continue
+            if kind == "}":
+                if depth == 0:
+                    return
+                depth -= 1
+                self._pop()
+                continue
+            self._pop()
+        raise ParseError("Unterminated block while discarding unreachable code")
+
     def _parse_expr(self) -> Expr:
         kind, text = self._pop()
         if kind == "num":
@@ -459,15 +480,10 @@ class YulParser:
             kind = self._peek_kind()
 
             if kind == "{":
-                self._pop()
-                inner, inner_leave = self._parse_assignment_loop(
-                    allow_control_flow=allow_control_flow,
-                    context=context,
+                raise ParseError(
+                    f"Nested block statement found in {context}. "
+                    "Bare '{ ... }' blocks are not supported for Lean model generation."
                 )
-                results.extend(inner)
-                has_leave = has_leave or inner_leave
-                self._expect("}")
-                continue
 
             if kind == "ident" and self.tokens[self.i][1] == "let":
                 self._parse_let(results)
@@ -476,7 +492,8 @@ class YulParser:
             if kind == "ident" and self.tokens[self.i][1] == "leave":
                 self._pop()
                 has_leave = True
-                continue
+                self._skip_to_end_of_current_block()
+                break
 
             if kind == "ident" and self.tokens[self.i][1] == "function":
                 self._skip_function_def()
@@ -647,12 +664,11 @@ class YulParser:
 
         return results, has_leave
 
-    def _parse_body_assignments(self) -> list[RawStatement]:
-        results, _has_leave = self._parse_assignment_loop(
+    def _parse_body_assignments(self) -> tuple[list[RawStatement], bool]:
+        return self._parse_assignment_loop(
             allow_control_flow=True,
             context="function body",
         )
-        return results
 
     def _skip_function_def(self) -> None:
         self._pop()  # consume 'function'
@@ -691,8 +707,13 @@ class YulParser:
                 rets.append(self._expect_ident())
         self._expect("{")
         self._expr_stmts = []
-        assignments = self._parse_body_assignments()
+        assignments, has_top_level_leave = self._parse_body_assignments()
         self._expect("}")
+        if has_top_level_leave:
+            raise ParseError(
+                f"Function {yul_name!r} contains a top-level 'leave'. "
+                "Only a single 'if cond { ... leave }' helper pattern is supported."
+            )
         return YulFunction(
             yul_name=yul_name,
             params=params,
@@ -3247,14 +3268,17 @@ def render_function_defs(models: list[FunctionModel], config: ModelConfig) -> st
             return_names=model.return_names,
         )
 
-        param_sig = " ".join(model.param_names)
+        if model.param_names:
+            param_sig = f" ({' '.join(model.param_names)} : Nat)"
+        else:
+            param_sig = ""
         if len(model.return_names) == 1:
             ret_type = "Nat"
         else:
             ret_type = " × ".join("Nat" for _ in model.return_names)
         parts.append(
             f"/-- Opcode-faithful auto-generated model of `{model.fn_name}` with uint256 EVM semantics. -/\n"
-            f"def {evm_name} ({param_sig} : Nat) : {ret_type} :=\n"
+            f"def {evm_name}{param_sig} : {ret_type} :=\n"
             f"{evm_body}\n"
         )
         if model.fn_name not in config.skip_norm:
@@ -3268,7 +3292,7 @@ def render_function_defs(models: list[FunctionModel], config: ModelConfig) -> st
             )
             parts.append(
                 f"/-- Normalized auto-generated model of `{model.fn_name}` on Nat arithmetic. -/\n"
-                f"def {norm_name} ({param_sig} : Nat) : {ret_type} :=\n"
+                f"def {norm_name}{param_sig} : {ret_type} :=\n"
                 f"{norm_body}\n"
             )
     return "\n".join(parts)

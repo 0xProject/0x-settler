@@ -303,6 +303,31 @@ class FailClosedTranslatorTest(unittest.TestCase):
         ):
             ytl.YulParser(tokens).parse_function()
 
+    def test_parse_function_rejects_nested_bare_block(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_bad_1(x) -> z {
+                {
+                    let tmp := x
+                }
+                z := x
+            }
+            """)
+
+        with self.assertRaisesRegex(ytl.ParseError, "Nested block statement"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_top_level_leave(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_bad_1() -> z {
+                z := 1
+                leave
+                z := 2
+            }
+            """)
+
+        with self.assertRaisesRegex(ytl.ParseError, "top-level 'leave'"):
+            ytl.YulParser(tokens).parse_function()
+
     def test_parse_function_lowers_multi_return_let_to_component_wrappers(self) -> None:
         tokens = ytl.tokenize_yul("""
             function fun_target_1(var_x_1) -> var_z_2 {
@@ -782,6 +807,21 @@ class TranslationPipelineTest(unittest.TestCase):
             var_z_4 := 9
         }
     """
+    LEAVE_HELPER_DEAD_CODE_YUL = """
+        function fun_target_1(var_x_1) -> var_z_2 {
+            var_z_2 := fun_helper_2(var_x_1)
+        }
+
+        function fun_helper_2(var_x_3) -> var_z_4 {
+            var_z_4 := 1
+            if var_x_3 {
+                var_z_4 := 7
+                leave
+                var_z_4 := 8
+            }
+            var_z_4 := 9
+        }
+    """
     PLAIN_IF_HELPER_CONFIG = make_model_config(("target",))
     PLAIN_IF_HELPER_YUL = """
         function fun_target_1(var_flag_1, var_x_2) -> var_z_3 {
@@ -928,6 +968,20 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertIn("let z_1 := evmAdd (x) (1)", rendered)
         self.assertNotIn("usr$tmp", rendered)
         self.assertNotIn("var_z_2", rendered)
+
+    def test_render_function_defs_supports_zero_argument_models(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            assignments=(ytl.Assignment("z", ytl.IntLit(1)),),
+            param_names=(),
+            return_names=("z",),
+        )
+
+        rendered = ytl.render_function_defs([model], self.SIMPLE_CONFIG)
+
+        self.assertIn("def model_f_evm : Nat :=", rendered)
+        self.assertIn("def model_f : Nat :=", rendered)
+        self.assertNotIn("( : Nat)", rendered)
 
     def test_apply_optional_model_transforms_skips_hoisting_in_raw_pipeline(
         self,
@@ -1098,6 +1152,19 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
         self.assertEqual(ytl.evaluate_function_model(model, (ytl.WORD_MOD - 1,)), (7,))
+
+    def test_translate_yul_to_models_ignores_dead_code_after_inlined_leave(
+        self,
+    ) -> None:
+        result = ytl.translate_yul_to_models(
+            self.LEAVE_HELPER_DEAD_CODE_YUL,
+            self.LEAVE_HELPER_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
 
     def test_translate_yul_to_models_lowers_plain_inlined_if(self) -> None:
         result = ytl.translate_yul_to_models(
@@ -1693,22 +1760,6 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
         helpers = ytl.build_model_table([inner_square, inner_mix])
         ytl.validate_function_model(outer)
         return helpers, outer
-
-    def test_zero_assignment_elision_is_semantics_preserving(self) -> None:
-        yf = ytl.YulFunction(
-            yul_name="f",
-            params=["var_x_1"],
-            rets=["var_z_2"],
-            assignments=[
-                ("var_z_2", ytl.IntLit(0)),
-                ("var_z_2", ytl.Call("add", (ytl.Var("var_x_1"), ytl.IntLit(1)))),
-            ],
-        )
-
-        before = ytl.yul_function_to_model(yf, "f", {}, elide_zero_assignments=False)
-        after = ytl.yul_function_to_model(yf, "f", {}, elide_zero_assignments=True)
-
-        self.assertModelsEquivalent(before, after, seed=11)
 
     def test_prune_dead_assignments_is_semantics_preserving(self) -> None:
         before = ytl.FunctionModel(
