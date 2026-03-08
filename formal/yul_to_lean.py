@@ -421,7 +421,11 @@ class YulParser:
             plain.append(stmt)
         return plain
 
-    def _parse_let(self, results: list[RawStatement]) -> None:
+    def _parse_let(
+        self,
+        results: list[RawStatement],
+        let_vars: set[str] | None = None,
+    ) -> None:
         """Parse a ``let`` statement and append to *results*.
 
         Handles three forms:
@@ -429,14 +433,23 @@ class YulParser:
         - ``let a, b, c := call()``  — multi-value; each target gets a
           synthetic ``__component_N_M(call)`` wrapper (index N of M total)
         - ``let x``                  — bare declaration (zero-init, skipped)
+
+        When *let_vars* is provided, all declared variable names are added to
+        the set so callers can distinguish ``let`` declarations from
+        reassignments.
         """
         self._pop()  # consume 'let'
         target = self._expect_ident()
+        if let_vars is not None:
+            let_vars.add(target)
         if self._peek_kind() == ",":
             all_targets: list[str] = [target]
             while self._peek_kind() == ",":
                 self._pop()
-                all_targets.append(self._expect_ident())
+                t = self._expect_ident()
+                if let_vars is not None:
+                    let_vars.add(t)
+                all_targets.append(t)
             self._expect(":=")
             expr = self._parse_expr()
             for idx, t in enumerate(all_targets):
@@ -456,6 +469,7 @@ class YulParser:
         *,
         allow_control_flow: bool,
         context: str,
+        _let_vars: set[str] | None = None,
     ) -> tuple[list[RawStatement], bool]:
         """Parse statements until ``}`` or end of stream.
 
@@ -477,13 +491,61 @@ class YulParser:
             kind = self._peek_kind()
 
             if kind == "{":
-                raise ParseError(
-                    f"Nested block statement found in {context}. "
-                    "Bare '{ ... }' blocks are not supported for Lean model generation."
+                # Bare scope block (e.g. inline assembly wrapper).  Parse
+                # inner statements, inline block-local ``let`` bindings, and
+                # emit only reassignments to outer-scope variables.
+                self._pop()  # consume '{'
+                block_let_vars: set[str] = set()
+                inner, inner_leave = self._parse_assignment_loop(
+                    allow_control_flow=allow_control_flow,
+                    context=context,
+                    _let_vars=block_let_vars,
                 )
+                self._expect("}")
+                block_subst: dict[str, Expr] = {}
+                for stmt in inner:
+                    if isinstance(stmt, MemoryWrite):
+                        results.append(
+                            MemoryWrite(
+                                substitute_expr(stmt.address, block_subst),
+                                substitute_expr(stmt.value, block_subst),
+                            )
+                        )
+                    elif isinstance(stmt, ParsedIfBlock):
+                        new_cond = substitute_expr(stmt.condition, block_subst)
+                        new_body = tuple(
+                            (t, substitute_expr(e, block_subst)) for t, e in stmt.body
+                        )
+                        new_else = (
+                            tuple(
+                                (t, substitute_expr(e, block_subst))
+                                for t, e in stmt.else_body
+                            )
+                            if stmt.else_body is not None
+                            else None
+                        )
+                        results.append(
+                            ParsedIfBlock(
+                                condition=new_cond,
+                                body=new_body,
+                                has_leave=stmt.has_leave,
+                                else_body=new_else,
+                            )
+                        )
+                    else:
+                        target, expr = stmt
+                        expr = substitute_expr(expr, block_subst)
+                        if target in block_let_vars:
+                            block_subst[target] = expr
+                        else:
+                            results.append((target, expr))
+                if inner_leave:
+                    has_leave = True
+                    break
+                continue
 
             if kind == "ident" and self.tokens[self.i][1] == "let":
-                self._parse_let(results)
+                self._parse_let(results, let_vars=_let_vars)
                 continue
 
             if kind == "ident" and self.tokens[self.i][1] == "leave":
@@ -706,11 +768,9 @@ class YulParser:
         self._expr_stmts = []
         assignments, has_top_level_leave = self._parse_body_assignments()
         self._expect("}")
-        if has_top_level_leave:
-            raise ParseError(
-                f"Function {yul_name!r} contains a top-level 'leave'. "
-                "Only a single 'if cond { ... leave }' helper pattern is supported."
-            )
+        # Top-level ``leave`` is a no-op: it just means "return now" after all
+        # assignments have been captured.  Dead code after it is already
+        # skipped by ``_skip_to_end_of_current_block``.
         return YulFunction(
             yul_name=yul_name,
             params=params,

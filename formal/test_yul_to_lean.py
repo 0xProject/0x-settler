@@ -303,30 +303,158 @@ class FailClosedTranslatorTest(unittest.TestCase):
         ):
             ytl.YulParser(tokens).parse_function()
 
-    def test_parse_function_rejects_nested_bare_block(self) -> None:
+    def test_parse_function_inlines_bare_block_let_vars(self) -> None:
         tokens = ytl.tokenize_yul("""
-            function fun_bad_1(x) -> z {
+            function fun_ok_1(var_x_1) -> var_z_2 {
                 {
-                    let tmp := x
+                    let tmp := var_x_1
+                    var_z_2 := add(tmp, tmp)
                 }
-                z := x
             }
             """)
 
-        with self.assertRaisesRegex(ytl.ParseError, "Nested block statement"):
-            ytl.YulParser(tokens).parse_function()
+        yf = ytl.YulParser(tokens).parse_function()
+        # ``let tmp`` is block-scoped and inlined into the reassignment.
+        expected: list[ytl.RawStatement] = [
+            (
+                "var_z_2",
+                ytl.Call("add", (ytl.Var("var_x_1"), ytl.Var("var_x_1"))),
+            ),
+        ]
+        self.assertEqual(yf.assignments, expected)
 
-    def test_parse_function_rejects_top_level_leave(self) -> None:
+    def test_parse_function_inlines_nested_bare_blocks(self) -> None:
         tokens = ytl.tokenize_yul("""
-            function fun_bad_1() -> z {
-                z := 1
-                leave
-                z := 2
+            function fun_ok_1(var_x_1) -> var_z_2 {
+                {
+                    let a := var_x_1
+                    {
+                        let b := add(a, a)
+                        var_z_2 := mul(b, a)
+                    }
+                }
             }
             """)
 
-        with self.assertRaisesRegex(ytl.ParseError, "top-level 'leave'"):
-            ytl.YulParser(tokens).parse_function()
+        yf = ytl.YulParser(tokens).parse_function()
+        # Both ``a`` and ``b`` are block-scoped.  The inner block inlines
+        # ``b`` first, then the outer block inlines ``a`` into the result.
+        expected: list[ytl.RawStatement] = [
+            (
+                "var_z_2",
+                ytl.Call(
+                    "mul",
+                    (
+                        ytl.Call("add", (ytl.Var("var_x_1"), ytl.Var("var_x_1"))),
+                        ytl.Var("var_x_1"),
+                    ),
+                ),
+            ),
+        ]
+        self.assertEqual(yf.assignments, expected)
+
+    def test_bare_block_inner_scope_shadows_outer(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_f_1(var_x_1) -> var_z_2 {
+                {
+                    let tmp := var_x_1
+                    {
+                        let tmp := add(tmp, tmp)
+                        var_z_2 := mul(tmp, var_x_1)
+                    }
+                }
+            }
+            """)
+
+        yf = ytl.YulParser(tokens).parse_function()
+        # Inner ``let tmp`` shadows the outer one.  The inner RHS
+        # ``add(tmp, tmp)`` references the outer ``tmp`` (not yet
+        # substituted at that level), so after both levels inline:
+        #   inner: z = mul(add(tmp, tmp), x)
+        #   outer: z = mul(add(x, x), x)
+        expected: list[ytl.RawStatement] = [
+            (
+                "var_z_2",
+                ytl.Call(
+                    "mul",
+                    (
+                        ytl.Call(
+                            "add",
+                            (ytl.Var("var_x_1"), ytl.Var("var_x_1")),
+                        ),
+                        ytl.Var("var_x_1"),
+                    ),
+                ),
+            ),
+        ]
+        self.assertEqual(yf.assignments, expected)
+
+    def test_bare_block_sibling_scopes_same_name(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_f_1(var_x_1) -> var_z_2 {
+                {
+                    let tmp := add(var_x_1, 1)
+                    var_z_2 := tmp
+                }
+                {
+                    let tmp := mul(var_z_2, 2)
+                    var_z_2 := tmp
+                }
+            }
+            """)
+
+        yf = ytl.YulParser(tokens).parse_function()
+        # Each sibling block has its own ``tmp`` that is independently
+        # inlined.  The second block's ``var_z_2`` on the RHS refers to
+        # the outer-scope variable, not the first block's ``tmp``.
+        expected: list[ytl.RawStatement] = [
+            ("var_z_2", ytl.Call("add", (ytl.Var("var_x_1"), ytl.IntLit(1)))),
+            (
+                "var_z_2",
+                ytl.Call("mul", (ytl.Var("var_z_2"), ytl.IntLit(2))),
+            ),
+        ]
+        self.assertEqual(yf.assignments, expected)
+
+    def test_bare_block_outer_defines_after_inner_closes(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_f_1(var_x_1) -> var_z_2 {
+                {
+                    {
+                        let tmp := add(var_x_1, 1)
+                        var_z_2 := tmp
+                    }
+                    let tmp := mul(var_z_2, 3)
+                    var_z_2 := tmp
+                }
+            }
+            """)
+
+        yf = ytl.YulParser(tokens).parse_function()
+        # The inner block's ``tmp`` is fully inlined and gone before the
+        # outer block declares its own ``tmp`` with the same name.
+        expected: list[ytl.RawStatement] = [
+            ("var_z_2", ytl.Call("add", (ytl.Var("var_x_1"), ytl.IntLit(1)))),
+            (
+                "var_z_2",
+                ytl.Call("mul", (ytl.Var("var_z_2"), ytl.IntLit(3))),
+            ),
+        ]
+        self.assertEqual(yf.assignments, expected)
+
+    def test_parse_function_allows_top_level_leave(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_f_1() -> var_z_2 {
+                var_z_2 := 1
+                leave
+                var_z_2 := 2
+            }
+            """)
+
+        yf = ytl.YulParser(tokens).parse_function()
+        # Dead code after ``leave`` is skipped.
+        expected: list[ytl.RawStatement] = [("var_z_2", ytl.IntLit(1))]
+        self.assertEqual(yf.assignments, expected)
 
     def test_parse_function_lowers_multi_return_let_to_component_wrappers(self) -> None:
         tokens = ytl.tokenize_yul("""
@@ -1287,6 +1415,7 @@ class ExplicitMemoryModelTest(unittest.TestCase):
         self.assertEqual(
             model.assignments,
             (
+                ytl.Assignment("base", ytl.IntLit(0)),
                 ytl.Assignment("offset", ytl.IntLit(32)),
                 ytl.Assignment("z", ytl.Var("x")),
             ),
