@@ -393,16 +393,25 @@ class ModelEquivalenceTestCase(unittest.TestCase):
         0,
         1,
         2,
+        3,
         7,
+        8,
+        9,
+        10,
+        11,
         31,
         32,
+        33,
         255,
         256,
+        257,
+        511,
         (1 << 255) - 1,
         1 << 255,
         ytl.WORD_MOD - 1,
         ytl.WORD_MOD,
         ytl.WORD_MOD + 1,
+        ytl.WORD_MOD + 255,
     )
 
     def assertModelsEquivalent(
@@ -762,6 +771,272 @@ class RestrictedIRInterpreterTest(ModelEquivalenceTestCase):
 
 
 class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
+    UNARY_OPS = ("not", "clz")
+    BINARY_OPS = ("add", "sub", "mul", "div", "mod", "and", "or", "eq", "lt", "gt", "shl", "shr")
+    TERNARY_OPS = ("mulmod",)
+
+    def _random_scalar(self, rng: random.Random) -> int:
+        if rng.random() < 0.7:
+            return rng.choice(self.INTERESTING_VALUES)
+        return rng.getrandbits(320)
+
+    def _random_expr(
+        self,
+        rng: random.Random,
+        available: tuple[str, ...],
+        *,
+        depth: int,
+    ) -> ytl.Expr:
+        if depth <= 0 or rng.random() < 0.3:
+            if available and rng.random() < 0.6:
+                return ytl.Var(rng.choice(available))
+            return ytl.IntLit(self._random_scalar(rng))
+
+        kind = rng.random()
+        if kind < 0.2 and available:
+            return ytl.Var(rng.choice(available))
+        if kind < 0.35:
+            return ytl.IntLit(self._random_scalar(rng))
+        if kind < 0.55:
+            op = rng.choice(self.UNARY_OPS)
+            return ytl.Call(
+                op,
+                (self._random_expr(rng, available, depth=depth - 1),),
+            )
+        if kind < 0.9:
+            op = rng.choice(self.BINARY_OPS)
+            return ytl.Call(
+                op,
+                (
+                    self._random_expr(rng, available, depth=depth - 1),
+                    self._random_expr(rng, available, depth=depth - 1),
+                ),
+            )
+        op = rng.choice(self.TERNARY_OPS)
+        return ytl.Call(
+            op,
+            (
+                self._random_expr(rng, available, depth=depth - 1),
+                self._random_expr(rng, available, depth=depth - 1),
+                self._random_expr(rng, available, depth=depth - 1),
+            ),
+        )
+
+    def _build_random_dce_model(self, seed: int) -> ytl.FunctionModel:
+        rng = random.Random(seed)
+        params = ("p0", "p1", "p2")
+        assignments: list[ytl.ModelStatement] = []
+        outer_scope = list(params)
+        mutable_scope: list[str] = []
+        next_idx = 0
+
+        def new_name(prefix: str) -> str:
+            nonlocal next_idx
+            next_idx += 1
+            return f"{prefix}_{seed}_{next_idx}"
+
+        for _ in range(2):
+            name = new_name("v")
+            assignments.append(
+                ytl.Assignment(name, self._random_expr(rng, tuple(outer_scope), depth=2))
+            )
+            outer_scope.append(name)
+            mutable_scope.append(name)
+
+        for _ in range(rng.randint(5, 8)):
+            if mutable_scope and rng.random() < 0.45:
+                modified = tuple(
+                    rng.sample(mutable_scope, k=rng.randint(1, min(2, len(mutable_scope))))
+                )
+                then_assignments: list[ytl.Assignment] = []
+                else_assignments: list[ytl.Assignment] | None = (
+                    [] if rng.random() < 0.65 else None
+                )
+
+                if rng.random() < 0.35:
+                    then_assignments.append(
+                        ytl.Assignment(
+                            new_name("then_dead"),
+                            self._random_expr(rng, tuple(outer_scope), depth=2),
+                        )
+                    )
+
+                for target in modified:
+                    then_assignments.append(
+                        ytl.Assignment(
+                            target,
+                            self._random_expr(rng, tuple(outer_scope), depth=3),
+                        )
+                    )
+
+                if else_assignments is not None:
+                    if rng.random() < 0.35:
+                        else_assignments.append(
+                            ytl.Assignment(
+                                new_name("else_dead"),
+                                self._random_expr(rng, tuple(outer_scope), depth=2),
+                            )
+                        )
+                    assigned_else = False
+                    for target in modified:
+                        if rng.random() < 0.65:
+                            else_assignments.append(
+                                ytl.Assignment(
+                                    target,
+                                    self._random_expr(rng, tuple(outer_scope), depth=3),
+                                )
+                            )
+                            assigned_else = True
+                    if not assigned_else and rng.random() < 0.5:
+                        else_assignments = None
+
+                assignments.append(
+                    ytl.ConditionalBlock(
+                        condition=self._random_expr(rng, tuple(outer_scope), depth=2),
+                        assignments=tuple(then_assignments),
+                        modified_vars=modified,
+                        else_assignments=(
+                            tuple(else_assignments)
+                            if else_assignments is not None
+                            else None
+                        ),
+                    )
+                )
+                continue
+
+            if rng.random() < 0.35 and mutable_scope:
+                target = rng.choice(mutable_scope)
+            else:
+                target = new_name("v")
+            assignments.append(
+                ytl.Assignment(
+                    target,
+                    self._random_expr(rng, tuple(outer_scope), depth=3),
+                )
+            )
+            if target not in outer_scope:
+                outer_scope.append(target)
+                mutable_scope.append(target)
+
+            if rng.random() < 0.25:
+                dead_name = new_name("dead")
+                assignments.append(
+                    ytl.Assignment(
+                        dead_name,
+                        self._random_expr(rng, tuple(outer_scope), depth=2),
+                    )
+                )
+                outer_scope.append(dead_name)
+                mutable_scope.append(dead_name)
+
+        return_count = 2 if rng.random() < 0.35 else 1
+        return_names = tuple(
+            rng.sample(tuple(outer_scope), k=return_count)
+        )
+        model = ytl.FunctionModel(
+            fn_name=f"random_dce_{seed}",
+            param_names=params,
+            return_names=return_names,
+            assignments=tuple(assignments),
+        )
+        ytl.validate_function_model(model)
+        return model
+
+    def _build_random_cse_suite(
+        self,
+        seed: int,
+    ) -> tuple[dict[str, ytl.FunctionModel], ytl.FunctionModel]:
+        rng = random.Random(seed)
+        c1 = self._random_scalar(rng)
+        c2 = self._random_scalar(rng)
+        threshold = self._random_scalar(rng)
+
+        inner_square = ytl.FunctionModel(
+            fn_name="inner_square",
+            param_names=("x",),
+            return_names=("ret",),
+            assignments=(
+                ytl.Assignment(
+                    "ret",
+                    ytl.Call(
+                        "add",
+                        (
+                            ytl.Call("mul", (ytl.Var("x"), ytl.Var("x"))),
+                            ytl.IntLit(c1),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        inner_mix = ytl.FunctionModel(
+            fn_name="inner_mix",
+            param_names=("x", "y"),
+            return_names=("ret",),
+            assignments=(
+                ytl.Assignment(
+                    "ret",
+                    ytl.Call(
+                        "add",
+                        (
+                            ytl.Call("or", (ytl.Var("x"), ytl.Var("y"))),
+                            ytl.Call("and", (ytl.Var("x"), ytl.IntLit(c2))),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        cond_threshold = ytl.IntLit(threshold)
+        global_call = ytl.Call("inner_square", (ytl.Var("p"),))
+        global_pair_call = ytl.Call("inner_mix", (ytl.Var("p"), ytl.Var("q")))
+        local_call = ytl.Call("inner_mix", (ytl.Var("base"), ytl.Var("q")))
+        outer = ytl.FunctionModel(
+            fn_name=f"outer_{seed}",
+            param_names=("p", "q"),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment("base", self._random_expr(rng, ("p", "q"), depth=2)),
+                ytl.Assignment(
+                    "acc",
+                    ytl.Call(
+                        "add",
+                        (
+                            global_call,
+                            global_call,
+                        ),
+                    ),
+                ),
+                ytl.ConditionalBlock(
+                    condition=ytl.Call("gt", (ytl.Var("p"), cond_threshold)),
+                    assignments=(
+                        ytl.Assignment(
+                            "tmp",
+                            ytl.Call("sub", (local_call, local_call)),
+                        ),
+                        ytl.Assignment(
+                            "acc",
+                            ytl.Call("add", (ytl.Var("acc"), global_pair_call)),
+                        ),
+                    ),
+                    modified_vars=("tmp", "acc"),
+                    else_assignments=(
+                        ytl.Assignment(
+                            "tmp",
+                            ytl.Call("add", (global_call, global_pair_call)),
+                        ),
+                    ),
+                ),
+                ytl.Assignment(
+                    "out",
+                    ytl.Call("add", (ytl.Var("acc"), ytl.Var("tmp"))),
+                ),
+            ),
+        )
+
+        helpers = ytl.build_model_table([inner_square, inner_mix])
+        ytl.validate_function_model(outer)
+        return helpers, outer
+
     def test_zero_assignment_elision_is_semantics_preserving(self) -> None:
         yf = ytl.YulFunction(
             yul_name="f",
@@ -850,6 +1125,37 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
             seed=23,
         )
 
+    def test_randomized_dead_assignment_pruning_family(self) -> None:
+        for seed in range(16):
+            before = self._build_random_dce_model(seed)
+            after = ytl._prune_dead_assignments(before)
+
+            ytl.validate_function_model(after)
+            self.assertModelsEquivalent(
+                before,
+                after,
+                seed=1000 + seed,
+                random_cases=96,
+            )
+
+    def test_randomized_hoist_repeated_model_calls_family(self) -> None:
+        for seed in range(16):
+            helper_table, before = self._build_random_cse_suite(seed)
+            transformed = ytl.hoist_repeated_model_calls(
+                before,
+                model_call_names=frozenset(helper_table),
+            )
+
+            ytl.validate_function_model(transformed)
+            self.assertModelsEquivalent(
+                before,
+                transformed,
+                before_table={**helper_table, before.fn_name: before},
+                after_table={**helper_table, before.fn_name: transformed},
+                seed=2000 + seed,
+                random_cases=96,
+            )
+
     def test_raw_and_optimized_pipelines_are_semantics_equivalent(self) -> None:
         yul = """
             function fun_inner_1(var_x_1) -> var_z_2 {
@@ -899,6 +1205,70 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
             after_table=optimized_table,
             seed=31,
         )
+
+    def test_randomized_translated_pipeline_equivalence_family(self) -> None:
+        config = make_model_config(
+            ("inner", "outer"),
+            hoist_repeated_calls=frozenset({"outer"}),
+        )
+
+        for seed in range(12):
+            bias = self.INTERESTING_VALUES[seed % len(self.INTERESTING_VALUES)]
+            threshold = self.INTERESTING_VALUES[(seed + 4) % len(self.INTERESTING_VALUES)]
+            tweak = self.INTERESTING_VALUES[(seed + 9) % len(self.INTERESTING_VALUES)]
+            yul = f"""
+                function fun_inner_1(var_x_1) -> var_z_2 {{
+                    var_z_2 := add(mul(var_x_1, var_x_1), {bias})
+                }}
+
+                function fun_outer_2(var_x_1) -> var_z_2 {{
+                    let usr$tmp := 0
+                    let usr$dead := add(var_x_1, {tweak})
+                    let usr$lhs := fun_inner_1(var_x_1)
+                    let usr$rhs := fun_inner_1(var_x_1)
+                    if gt(var_x_1, {threshold}) {{
+                        usr$tmp := add(usr$lhs, usr$rhs)
+                    }}
+                    switch and(var_x_1, 1)
+                    case 0 {{
+                        usr$lhs := sub(usr$tmp, {bias})
+                    }}
+                    default {{
+                        usr$lhs := add(usr$tmp, {tweak})
+                    }}
+                    var_z_2 := add(usr$lhs, 1)
+                }}
+            """
+
+            raw_result = ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+            optimized_result = ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.OPTIMIZED_TRANSLATION_PIPELINE,
+            )
+
+            raw_table = ytl.build_model_table(raw_result.models)
+            optimized_table = ytl.build_model_table(optimized_result.models)
+            self.assertModelsEquivalent(
+                raw_table["inner"],
+                optimized_table["inner"],
+                before_table=raw_table,
+                after_table=optimized_table,
+                seed=3000 + seed,
+                random_cases=96,
+            )
+            self.assertModelsEquivalent(
+                raw_table["outer"],
+                optimized_table["outer"],
+                before_table=raw_table,
+                after_table=optimized_table,
+                seed=4000 + seed,
+                random_cases=96,
+            )
 
 
 if __name__ == "__main__":
