@@ -46,8 +46,10 @@ CONFIG = ModelConfig(
         # 256-bit cbrt/cbrtUp from Cbrt.sol — kept as named sub-models so the
         # public wrappers don't inline the full Newton-Raphson chain, which would
         # cause (kernel) deep recursion in the Lean proofs.
-        "cbrt", "cbrtUp",
-        "wrap_cbrt512", "wrap_cbrtUp512",
+        "cbrt",
+        "cbrtUp",
+        "wrap_cbrt512",
+        "wrap_cbrtUp512",
     ),
     model_names={
         "_cbrt_newtonRaphsonStep": "model_cbrtNRStep",
@@ -84,11 +86,19 @@ CONFIG = ModelConfig(
     exclude_known=frozenset({"cbrt", "cbrtUp"}),
     # Suppress all norm models: the 512-bit proofs bridge the EVM model
     # directly (the norm model uses unbounded Nat which doesn't match EVM).
-    skip_norm=frozenset({
-        "_cbrt_newtonRaphsonStep", "_cbrt_baseCase",
-        "_cbrt_karatsubaQuotient", "_cbrt_quadraticCorrection",
-        "_cbrt", "cbrt", "cbrtUp", "wrap_cbrt512", "wrap_cbrtUp512",
-    }),
+    skip_norm=frozenset(
+        {
+            "_cbrt_newtonRaphsonStep",
+            "_cbrt_baseCase",
+            "_cbrt_karatsubaQuotient",
+            "_cbrt_quadraticCorrection",
+            "_cbrt",
+            "cbrt",
+            "cbrtUp",
+            "wrap_cbrt512",
+            "wrap_cbrtUp512",
+        }
+    ),
     hoist_repeated_calls=frozenset({"wrap_cbrt512", "wrap_cbrtUp512"}),
     default_source_label="src/utils/512Math.sol",
     default_namespace="Cbrt512GeneratedModel",
