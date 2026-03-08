@@ -707,6 +707,51 @@ class TranslationPipelineTest(unittest.TestCase):
             var_z_4 := 9
         }
     """
+    TOP_LEVEL_LEAVE_CONFIG = make_model_config(("target",))
+    TOP_LEVEL_LEAVE_YUL = """
+        function fun_target_1(var_x_1) -> var_z_2 {
+            var_z_2 := 1
+            if var_x_1 {
+                var_z_2 := 7
+                leave
+            }
+            var_z_2 := 9
+        }
+    """
+    MULTI_LEAVE_HELPER_CONFIG = make_model_config(("target",))
+    MULTI_LEAVE_HELPER_YUL = """
+        function fun_target_1(var_a_1, var_b_2) -> var_z_3 {
+            var_z_3 := fun_helper_2(var_a_1, var_b_2)
+        }
+
+        function fun_helper_2(var_a_4, var_b_5) -> var_z_6 {
+            var_z_6 := 1
+            if var_a_4 {
+                var_z_6 := 7
+                leave
+            }
+            if var_b_5 {
+                var_z_6 := 8
+                leave
+            }
+            var_z_6 := 9
+        }
+    """
+    CONDITIONAL_BRANCH_ISOLATION_CONFIG = make_model_config(("f",))
+    CONDITIONAL_BRANCH_ISOLATION_YUL = """
+        function fun_f_1(var_x_1, var_c_2) -> var_z_3 {
+            var_z_3 := 0
+            var_x_1 := add(var_x_1, 1)
+            switch var_c_2
+            case 0 {
+                var_z_3 := add(var_x_1, 2)
+            }
+            default {
+                var_x_1 := 7
+            }
+            var_z_3 := add(var_z_3, var_x_1)
+        }
+    """
     SEQUENTIAL_CONTROL_FLOW_CONFIG = make_model_config(("f",))
     SEQUENTIAL_CONTROL_FLOW_YUL = """
         function fun_f_1(var_x_1, var_y_2) -> var_z_3 {
@@ -932,6 +977,66 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
         self.assertEqual(ytl.evaluate_function_model(model, (ytl.WORD_MOD - 1,)), (7,))
+
+    def test_translate_yul_to_models_preserves_top_level_leave_semantics(
+        self,
+    ) -> None:
+        result = ytl.translate_yul_to_models(
+            self.TOP_LEVEL_LEAVE_YUL,
+            self.TOP_LEVEL_LEAVE_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+        self.assertEqual(ytl.evaluate_function_model(model, (ytl.WORD_MOD - 1,)), (7,))
+
+    def test_translate_yul_to_models_preserves_multiple_inlined_leave_sites(
+        self,
+    ) -> None:
+        result = ytl.translate_yul_to_models(
+            self.MULTI_LEAVE_HELPER_YUL,
+            self.MULTI_LEAVE_HELPER_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        cases = {
+            (0, 0): (9,),
+            (1, 0): (7,),
+            (0, 1): (8,),
+            (1, 1): (7,),
+        }
+        for args, expected in cases.items():
+            with self.subTest(args=args):
+                self.assertEqual(
+                    ytl.evaluate_function_model(model, args),
+                    expected,
+                )
+
+    def test_translate_yul_to_models_isolates_conditional_branch_state(
+        self,
+    ) -> None:
+        result = ytl.translate_yul_to_models(
+            self.CONDITIONAL_BRANCH_ISOLATION_YUL,
+            self.CONDITIONAL_BRANCH_ISOLATION_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        cases = {
+            (0, 0): (4,),
+            (5, 0): (14,),
+            (0, 1): (7,),
+            (5, 1): (7,),
+        }
+        for args, expected in cases.items():
+            with self.subTest(args=args):
+                self.assertEqual(
+                    ytl.evaluate_function_model(model, args),
+                    expected,
+                )
 
     def test_translate_yul_to_models_handles_sequential_if_and_switch_scoping(
         self,
