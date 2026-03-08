@@ -612,7 +612,7 @@ class YulParser:
                 results.append((target, expr))
                 continue
 
-            if kind == "ident" or kind == "num":
+            if kind in ("ident", "num"):
                 expr = self._parse_expr()
                 if (
                     isinstance(expr, Call)
@@ -644,21 +644,6 @@ class YulParser:
             context="function body",
         )
         return results
-
-    def _parse_if_body_assignments(
-        self,
-    ) -> tuple[list[PlainAssignment], bool]:
-        """Parse the body of an ``if`` block.
-
-        Returns ``(assignments, has_leave)`` where *has_leave* indicates
-        that a ``leave`` statement (early return) was encountered.
-        """
-        raw, has_leave = self._parse_assignment_loop(
-            allow_control_flow=False,
-            context="if-body",
-        )
-        # When allow_control_flow=False, all statements are plain assignments.
-        return self._expect_plain_assignments(raw, context="if-body"), has_leave
 
     def _skip_function_def(self) -> None:
         self._pop()  # consume 'function'
@@ -975,10 +960,15 @@ def _try_const_eval(expr: Expr) -> int | None:
         # evaluate to the same constant, the result is that constant
         # regardless of the condition.
         if expr.name == "__ite" and len(expr.args) == 3:
+            cond_val = _try_const_eval(expr.args[0])
             if_val = _try_const_eval(expr.args[1])
             else_val = _try_const_eval(expr.args[2])
             if if_val is not None and else_val is not None and if_val == else_val:
                 return if_val
+            if cond_val is not None and cond_val != 0 and if_val is not None:
+                return if_val
+            if cond_val is not None and cond_val == 0 and else_val is not None:
+                return else_val
             return None
         # Delegate all other ops to _eval_builtin.
         arg_vals = tuple(_try_const_eval(arg) for arg in expr.args)
@@ -1964,8 +1954,8 @@ def yul_function_to_model(
 
 
 def _prune_dead_assignments(
-    model: "FunctionModel",
-) -> "FunctionModel":
+    model: FunctionModel,
+) -> FunctionModel:
     """Drop dead pure assignments from a model to avoid unused Lean lets."""
 
     def _prune_assignment_block(
@@ -2115,6 +2105,13 @@ _BASE_NORM_HELPERS = {
     "gt": "normGt",
     "mulmod": "normMulmod",
 }
+
+# Also catch drift between OP_TO_LEAN_HELPER and _BASE_NORM_HELPERS.
+if set(OP_TO_LEAN_HELPER) != set(_BASE_NORM_HELPERS):
+    raise RuntimeError(
+        f"OP_TO_LEAN_HELPER keys {set(OP_TO_LEAN_HELPER)} != "
+        f"_BASE_NORM_HELPERS keys {set(_BASE_NORM_HELPERS)}"
+    )
 
 
 def validate_ident(name: str, *, what: str) -> None:
@@ -2720,13 +2717,11 @@ def _localize_assignment_cse(
     *,
     model_call_names: frozenset[str],
 ) -> list[Assignment]:
-    if isinstance(stmt, Assignment):
-        hoisted, expr = _hoist_repeated_calls_in_expr(
-            stmt.expr,
-            model_call_names=model_call_names,
-        )
-        return [*hoisted, Assignment(target=stmt.target, expr=expr)]
-    raise TypeError(f"Unsupported Assignment node: {type(stmt)}")
+    hoisted, expr = _hoist_repeated_calls_in_expr(
+        stmt.expr,
+        model_call_names=model_call_names,
+    )
+    return [*hoisted, Assignment(target=stmt.target, expr=expr)]
 
 
 def hoist_repeated_model_calls(
@@ -3216,7 +3211,7 @@ def render_function_defs(models: list[FunctionModel], config: ModelConfig) -> st
             return_names=model.return_names,
         )
 
-        param_sig = " ".join(f"{p}" for p in model.param_names)
+        param_sig = " ".join(model.param_names)
         if len(model.return_names) == 1:
             ret_type = "Nat"
         else:

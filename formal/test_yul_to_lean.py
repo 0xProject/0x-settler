@@ -1981,12 +1981,47 @@ class TryConstEvalTest(unittest.TestCase):
             ytl._try_const_eval(ytl.Call("mul", (ytl.IntLit(2), ytl.Var("y"))))
         )
 
+    def test_ite_constant_condition_folds(self) -> None:
+        # __ite(1, 5, 3) → 5 (true branch)
+        self.assertEqual(
+            ytl._try_const_eval(
+                ytl.Call("__ite", (ytl.IntLit(1), ytl.IntLit(5), ytl.IntLit(3)))
+            ),
+            5,
+        )
+        # __ite(0, 5, 3) → 3 (false branch)
+        self.assertEqual(
+            ytl._try_const_eval(
+                ytl.Call("__ite", (ytl.IntLit(0), ytl.IntLit(5), ytl.IntLit(3)))
+            ),
+            3,
+        )
+
+    def test_ite_constant_condition_nonconstant_branch(self) -> None:
+        # __ite(1, Var("x"), 3) → None (selected branch is non-constant)
+        self.assertIsNone(
+            ytl._try_const_eval(
+                ytl.Call("__ite", (ytl.IntLit(1), ytl.Var("x"), ytl.IntLit(3)))
+            )
+        )
+        # __ite(0, 5, Var("x")) → None (selected branch is non-constant)
+        self.assertIsNone(
+            ytl._try_const_eval(
+                ytl.Call("__ite", (ytl.IntLit(0), ytl.IntLit(5), ytl.Var("x")))
+            )
+        )
+
     def test_op_to_lean_helper_keys_match_op_to_opcode(self) -> None:
         lean_helpers: dict[str, str] = ytl.OP_TO_LEAN_HELPER
         opcodes: dict[str, str] = ytl.OP_TO_OPCODE
         lean_helper_keys: list[str] = sorted(lean_helpers)
         opcode_keys: list[str] = sorted(opcodes)
         self.assertEqual(lean_helper_keys, opcode_keys)
+
+    def test_op_to_lean_helper_keys_match_base_norm_helpers(self) -> None:
+        lean_helper_keys: list[str] = sorted(ytl.OP_TO_LEAN_HELPER)
+        norm_helper_keys: list[str] = sorted(ytl._BASE_NORM_HELPERS)
+        self.assertEqual(lean_helper_keys, norm_helper_keys)
 
 
 # ---------------------------------------------------------------------------
