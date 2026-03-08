@@ -26,6 +26,10 @@ class ParseError(RuntimeError):
     pass
 
 
+class EvaluationError(RuntimeError):
+    pass
+
+
 # ---------------------------------------------------------------------------
 # AST nodes (shared by Yul parser and Lean emitter)
 # ---------------------------------------------------------------------------
@@ -56,23 +60,29 @@ class Assignment:
 
 
 @dataclass(frozen=True)
-class ConditionalBlock:
-    """An ``if cond { ... }`` or ``if/else`` block assigning to declared vars.
+class ConditionalBranch:
+    """A single branch of a restricted-IR conditional.
 
-    ``condition`` is the Yul condition expression.
-    ``assignments`` are the assignments inside the if-body.
-    ``modified_vars`` lists the Solidity-level variable names that the block
-    may modify (used for Lean tuple-destructuring emission).
-    ``else_vars`` are the variable names for pass-through values when
-    there is no else-body (the pre-if values).
-    ``else_assignments`` are assignments for the else-body when present
-    (from ``switch`` or if/else constructs).
+    ``assignments`` are the branch-local let-bindings.
+    ``outputs`` lists the variables whose values become the outer
+    ``ConditionalBlock.output_vars`` when this branch is taken.
+    """
+    assignments: tuple[Assignment, ...]
+    outputs: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class ConditionalBlock:
+    """A restricted-IR conditional with explicit outputs for both branches.
+
+    ``output_vars`` are the outer variables bound by the conditional.
+    ``then_branch`` and ``else_branch`` each carry both their local
+    assignments and the exact variables that feed the outer outputs.
     """
     condition: Expr
-    assignments: tuple[Assignment, ...]
-    modified_vars: tuple[str, ...]
-    else_vars: tuple[str, ...] | None = None
-    else_assignments: tuple[Assignment, ...] | None = None
+    output_vars: tuple[str, ...]
+    then_branch: ConditionalBranch
+    else_branch: ConditionalBranch
 
 
 # A model statement is either a plain assignment or a conditional block.
@@ -85,6 +95,9 @@ class FunctionModel:
     assignments: tuple[ModelStatement, ...]
     param_names: tuple[str, ...] = ("x",)
     return_names: tuple[str, ...] = ("z",)
+
+
+ModelValue = int | tuple[int, ...]
 
 
 @dataclass(frozen=True)
@@ -106,7 +119,9 @@ RAW_TRANSLATION_PIPELINE = TranslationPipeline(
 
 OPTIMIZED_TRANSLATION_PIPELINE = TranslationPipeline(
     name="optimized",
-    elide_zero_assignments=True,
+    # Zero-assignment elision is not semantics-preserving in general. Keep the
+    # optimized default limited to passes with direct equivalence tests.
+    elide_zero_assignments=False,
     hoist_repeated_calls=True,
     prune_dead_assignments=True,
 )
@@ -1051,15 +1066,10 @@ def _inline_single_call(
             expr = inline_calls(expr, fn_table, depth + 1, max_depth,
                                 mstore_sink=mstore_sink,
                                 unsupported_function_errors=unsupported_function_errors)
-            # Gensym: rename non-param, non-return locals to avoid clashes
-            if target not in fn.params and target not in fn.rets:
-                new_name = _gensym(f"inline_{target}")
-                subst[target] = Var(new_name)
-                # Re-substitute the expression under the new name
-                # (it was already substituted, so just store it)
-                subst[new_name] = expr
-            else:
-                subst[target] = expr
+            # Keep helper locals as pure substitutions. Introducing fresh
+            # `_inline_*` aliases here can leak undefined names into sunk
+            # MemoryWrite addresses/values after nested inlining.
+            subst[target] = expr
 
     def _get_ret(r: str) -> Expr:
         else_val = _resolve(subst.get(r, IntLit(0)), subst)
@@ -1340,11 +1350,31 @@ def yul_function_to_model(
     subst: dict[str, Expr] = {}
     const_locals: dict[str, int] = {}
     memory_state: dict[int, Expr] = {}
+    all_clean_names: set[str] = set()
 
     for name in [*yf.params, *yf.rets]:
         clean = demangle_var(name, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals)
         if clean:
             var_map[name] = clean
+            all_clean_names.add(clean)
+
+    for stmt in yf.assignments:
+        if isinstance(stmt, ParsedIfBlock):
+            targets = [target for target, _ in stmt.body]
+            if stmt.else_body is not None:
+                targets.extend(target for target, _ in stmt.else_body)
+        elif isinstance(stmt, MemoryWrite):
+            targets = []
+        else:
+            target, _ = stmt
+            targets = [target]
+        for target in targets:
+            clean = demangle_var(
+                target, yf.params, yf.rets,
+                keep_solidity_locals=keep_solidity_locals,
+            )
+            if clean is not None:
+                all_clean_names.add(clean)
 
     # Save param names before SSA processing may rename them.
     param_names = tuple(var_map[p] for p in yf.params)
@@ -1354,7 +1384,7 @@ def yul_function_to_model(
     # reassigned variables get distinct Lean names (_1, _2, ...).
     # Parameters start at count 1 (the function-parameter binding).
     # ------------------------------------------------------------------
-    ssa_count: dict[str, int] = {}
+    ssa_count: Counter[str] = Counter()
     for name in yf.params:
         clean = var_map.get(name)
         if clean:
@@ -1453,11 +1483,17 @@ def yul_function_to_model(
         # blocks, Lean's scoped ``let`` handles shadowing, so we
         # use the base clean name directly.
         if not inside_conditional:
-            ssa_count[clean] = ssa_count.get(clean, 0) + 1
+            ssa_count[clean] += 1
             if ssa_count[clean] == 1:
                 ssa_name = clean
             else:
                 ssa_name = f"{clean}_{ssa_count[clean] - 1}"
+                if ssa_name in all_clean_names:
+                    raise ParseError(
+                        f"SSA-generated name {ssa_name!r} in {sol_fn_name!r} "
+                        f"collides with the demangled name of another variable. "
+                        f"Refuse to generate ambiguous Lean binders."
+                    )
         else:
             ssa_name = clean
 
@@ -1465,8 +1501,9 @@ def yul_function_to_model(
         var_map[target] = ssa_name
 
         if not inside_conditional:
-            if isinstance(expr, IntLit):
-                const_locals[ssa_name] = expr.value
+            const_value = _try_const_eval(_resolve_const_locals(expr))
+            if const_value is not None:
+                const_locals[ssa_name] = const_value
             else:
                 const_locals.pop(ssa_name, None)
 
@@ -1483,91 +1520,84 @@ def yul_function_to_model(
             cond = rename_expr(cond, var_map, fn_map)
             cond = _resolve_memory_expr(cond)
 
-            # Save pre-if Lean names so the else-tuple can reference
-            # the values that were live *before* the if-body ran.
+            # Save pre-if Lean names so each branch can explicitly return
+            # the values that were live before the conditional ran.
             pre_if_names: dict[str, str] = {}
             # Snapshot of all Lean names in scope before the if-body.
             pre_if_scope: set[str] = set(var_map.values())
 
-            body_assignments: list[Assignment] = []
-            for target, raw_expr in stmt.body:
+            def _record_pre_if_name(target: str) -> str | None:
                 clean = demangle_var(
                     target, yf.params, yf.rets,
                     keep_solidity_locals=keep_solidity_locals,
                 )
                 if clean is not None and clean not in pre_if_names:
                     pre_if_names[clean] = var_map.get(target, clean)
+                return clean
+
+            body_assignments: list[Assignment] = []
+            for target, raw_expr in stmt.body:
+                _record_pre_if_name(target)
                 a = _process_assignment(
                     target, raw_expr, inside_conditional=True,
                 )
                 if a is not None:
                     body_assignments.append(a)
-            if body_assignments:
-                # Deduplicate while preserving order, excluding
-                # block-scoped variables (declared with `let` inside
-                # the if-body, never existed in the outer scope).
-                # A variable is block-scoped if its pre-if Lean name
-                # is not in the set of names that were live before
-                # the if-block.
-                seen_vars: set[str] = set()
-                modified_list: list[str] = []
-                for a in body_assignments:
-                    if a.target not in seen_vars:
-                        seen_vars.add(a.target)
-                        # Only include variables that existed before
-                        # the if-block.  Block-local `let` declarations
-                        # (like Yul's `let usr$rem := ...`) are scoped
-                        # to the if-body and must not escape.
-                        pre_name = pre_if_names.get(a.target)
-                        if pre_name is not None and pre_name in pre_if_scope:
-                            modified_list.append(a.target)
+
+            else_assignments_list: list[Assignment] = []
+            if stmt.else_body is not None:
+                for target, raw_expr in stmt.else_body:
+                    _record_pre_if_name(target)
+                    a = _process_assignment(
+                        target, raw_expr, inside_conditional=True,
+                    )
+                    if a is not None:
+                        else_assignments_list.append(a)
+
+            # Deduplicate while preserving order, excluding block-scoped
+            # variables that did not exist before the conditional.
+            seen_vars: set[str] = set()
+            modified_list: list[str] = []
+            for branch_assignment in (*body_assignments, *else_assignments_list):
+                if branch_assignment.target in seen_vars:
+                    continue
+                seen_vars.add(branch_assignment.target)
+                pre_name = pre_if_names.get(branch_assignment.target)
+                if pre_name is not None and pre_name in pre_if_scope:
+                    modified_list.append(branch_assignment.target)
+
+            if modified_list:
                 modified = tuple(modified_list)
-
-                # Build else_vars from pre-if state (may differ from
-                # modified_vars when SSA is active).
-                else_vars_t = tuple(
-                    pre_if_names[v] for v in modified_list
+                then_assigned = {a.target for a in body_assignments}
+                else_assigned = {a.target for a in else_assignments_list}
+                then_outputs = tuple(
+                    target if target in then_assigned else pre_if_names[target]
+                    for target in modified_list
                 )
-                else_vars = (
-                    else_vars_t if else_vars_t != modified else None
-                )
-
-                # Process else_body if present (from switch).
-                else_assgn: tuple[Assignment, ...] | None = None
-                if stmt.else_body is not None:
-                    else_assignments_list: list[Assignment] = []
-                    for target, raw_expr in stmt.else_body:
-                        a = _process_assignment(
-                            target, raw_expr, inside_conditional=True,
-                        )
-                        if a is not None:
-                            else_assignments_list.append(a)
-                    if else_assignments_list:
-                        else_assgn = tuple(else_assignments_list)
-                        # Ensure modified_vars covers vars from both
-                        # branches.
-                        for a in else_assignments_list:
-                            if a.target not in seen_vars:
-                                seen_vars.add(a.target)
-                                modified_list.append(a.target)
-                        modified = tuple(modified_list)
-                        # When else_assignments are present, else_vars
-                        # are not used (the else branch has its own
-                        # computed values).
-                        else_vars = None
+                if stmt.else_body is None:
+                    else_outputs = tuple(pre_if_names[target] for target in modified_list)
+                else:
+                    else_outputs = tuple(
+                        target if target in else_assigned else pre_if_names[target]
+                        for target in modified_list
+                    )
 
                 assignments.append(ConditionalBlock(
                     condition=cond,
-                    assignments=tuple(body_assignments),
-                    modified_vars=modified,
-                    else_vars=else_vars,
-                    else_assignments=else_assgn,
+                    output_vars=modified,
+                    then_branch=ConditionalBranch(
+                        assignments=tuple(body_assignments),
+                        outputs=then_outputs,
+                    ),
+                    else_branch=ConditionalBranch(
+                        assignments=tuple(else_assignments_list),
+                        outputs=else_outputs,
+                    ),
                 ))
 
-                # After the if-block the Lean tuple-destructuring
-                # creates fresh bindings with the base clean names.
-                # Reset var_map and ssa_count accordingly so that
-                # subsequent references and assignments are correct.
+                # After the conditional the Lean tuple-destructuring creates
+                # fresh bindings with the base clean names. Reset var_map and
+                # ssa_count accordingly so later references are correct.
                 modified_set = set(modified_list)
                 all_body_targets = list(stmt.body)
                 if stmt.else_body is not None:
@@ -1670,42 +1700,23 @@ def _prune_dead_assignments(
         if not isinstance(stmt, ConditionalBlock):
             raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
 
-        needed_outputs = tuple(v for v in stmt.modified_vars if v in live)
+        needed_indices = tuple(
+            idx for idx, output in enumerate(stmt.output_vars) if output in live
+        )
+        needed_outputs = tuple(stmt.output_vars[idx] for idx in needed_indices)
         if not needed_outputs:
             continue
 
-        needed_output_set = set(needed_outputs)
-        filtered_else_vars = None
-        if stmt.else_vars is not None:
-            filtered_else_vars = tuple(
-                stmt.else_vars[i]
-                for i, v in enumerate(stmt.modified_vars)
-                if v in needed_output_set
-            )
-
         then_assignments, then_live = _prune_assignment_block(
-            stmt.assignments, set(needed_outputs)
+            stmt.then_branch.assignments,
+            {stmt.then_branch.outputs[idx] for idx in needed_indices},
+        )
+        else_assignments, else_live = _prune_assignment_block(
+            stmt.else_branch.assignments,
+            {stmt.else_branch.outputs[idx] for idx in needed_indices},
         )
 
-        else_assignments = None
-        else_live: set[str] = set()
-        if stmt.else_assignments is not None:
-            needed_else_targets = {
-                assignment.target
-                for assignment in stmt.else_assignments
-                if assignment.target in needed_output_set
-            }
-            else_assignments, else_live = _prune_assignment_block(
-                stmt.else_assignments, needed_else_targets
-            )
-            if filtered_else_vars is not None:
-                for output_name, passthrough_name in zip(needed_outputs, filtered_else_vars):
-                    if output_name not in needed_else_targets:
-                        else_live.add(passthrough_name)
-        elif filtered_else_vars is not None:
-            else_live.update(filtered_else_vars)
-
-        live.difference_update(needed_output_set)
+        live.difference_update(needed_outputs)
         live.update(_expr_vars(stmt.condition))
         live.update(then_live)
         live.update(else_live)
@@ -1713,10 +1724,15 @@ def _prune_dead_assignments(
         kept_rev.append(
             ConditionalBlock(
                 condition=stmt.condition,
-                assignments=then_assignments,
-                modified_vars=needed_outputs,
-                else_vars=filtered_else_vars,
-                else_assignments=else_assignments,
+                output_vars=needed_outputs,
+                then_branch=ConditionalBranch(
+                    assignments=then_assignments,
+                    outputs=tuple(stmt.then_branch.outputs[idx] for idx in needed_indices),
+                ),
+                else_branch=ConditionalBranch(
+                    assignments=else_assignments,
+                    outputs=tuple(stmt.else_branch.outputs[idx] for idx in needed_indices),
+                ),
             )
         )
 
@@ -1811,7 +1827,9 @@ def collect_ops_from_statement(stmt: ModelStatement) -> list[str]:
         return collect_ops(stmt.expr)
     if isinstance(stmt, ConditionalBlock):
         ops = collect_ops(stmt.condition)
-        for a in stmt.assignments:
+        for a in stmt.then_branch.assignments:
+            ops.extend(collect_ops(a.expr))
+        for a in stmt.else_branch.assignments:
             ops.extend(collect_ops(a.expr))
         return ops
     raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
@@ -1879,6 +1897,30 @@ def validate_function_model(model: FunctionModel) -> None:
             scope.add(stmt.target)
         return scope
 
+    def _validate_conditional_branch(
+        branch: ConditionalBranch,
+        *,
+        available: set[str],
+        block_name: str,
+        output_vars: tuple[str, ...],
+    ) -> None:
+        branch_scope = _validate_assignment_block(
+            branch.assignments,
+            available=available,
+            block_name=block_name,
+        )
+        if len(branch.outputs) != len(output_vars):
+            raise ParseError(
+                f"Model {model.fn_name!r} has mismatched {block_name} output arity: "
+                f"{len(branch.outputs)} vs {len(output_vars)}"
+            )
+        missing_outputs = set(branch.outputs) - branch_scope
+        if missing_outputs:
+            raise ParseError(
+                f"Model {model.fn_name!r} has undefined {block_name} outputs: "
+                f"{sorted(missing_outputs)}"
+            )
+
     scope = set(model.param_names)
     for stmt in model.assignments:
         if isinstance(stmt, Assignment):
@@ -1901,54 +1943,274 @@ def validate_function_model(model: FunctionModel) -> None:
                 f"{sorted(missing)}"
             )
 
-        then_scope = _validate_assignment_block(
-            stmt.assignments,
+        _validate_conditional_branch(
+            stmt.then_branch,
             available=scope,
             block_name="then-branch",
+            output_vars=stmt.output_vars,
+        )
+        _validate_conditional_branch(
+            stmt.else_branch,
+            available=scope,
+            block_name="else-branch",
+            output_vars=stmt.output_vars,
         )
 
-        for var in stmt.modified_vars:
-            if var not in then_scope:
-                raise ParseError(
-                    f"Model {model.fn_name!r} marks {var!r} as modified, but the "
-                    f"then-branch does not define it"
-                )
-
-        if stmt.else_vars is not None and len(stmt.else_vars) != len(stmt.modified_vars):
-            raise ParseError(
-                f"Model {model.fn_name!r} has mismatched else_vars/modified_vars "
-                f"lengths: {len(stmt.else_vars)} vs {len(stmt.modified_vars)}"
-            )
-
-        if stmt.else_assignments is None:
-            passthrough_vars = stmt.else_vars if stmt.else_vars is not None else stmt.modified_vars
-            missing_passthrough = set(passthrough_vars) - scope
-            if missing_passthrough:
-                raise ParseError(
-                    f"Model {model.fn_name!r} has an else passthrough that refers "
-                    f"to undefined vars: {sorted(missing_passthrough)}"
-                )
-        else:
-            else_scope = _validate_assignment_block(
-                stmt.else_assignments,
-                available=scope,
-                block_name="else-branch",
-            )
-            else_sources = stmt.else_vars if stmt.else_vars is not None else stmt.modified_vars
-            for output_var, else_source in zip(stmt.modified_vars, else_sources, strict=True):
-                if else_source not in else_scope and else_source not in scope:
-                    raise ParseError(
-                        f"Model {model.fn_name!r} cannot produce {output_var!r} from "
-                        f"else-branch source {else_source!r}; it is undefined"
-                    )
-
-        scope.update(stmt.modified_vars)
+        scope.update(stmt.output_vars)
 
     missing_returns = set(model.return_names) - scope
     if missing_returns:
         raise ParseError(
             f"Model {model.fn_name!r} returns undefined vars: {sorted(missing_returns)}"
         )
+
+
+WORD_MOD = 2 ** 256
+
+
+def u256(value: int) -> int:
+    return value % WORD_MOD
+
+
+def _expect_scalar(value: ModelValue, *, context: str) -> int:
+    if isinstance(value, tuple):
+        raise EvaluationError(f"{context} expected a scalar value, got tuple {value!r}")
+    return value
+
+
+def _expect_tuple(value: ModelValue, *, size: int, context: str) -> tuple[int, ...]:
+    if not isinstance(value, tuple):
+        raise EvaluationError(f"{context} expected a {size}-tuple, got scalar {value!r}")
+    if len(value) != size:
+        raise EvaluationError(
+            f"{context} expected a {size}-tuple, got {len(value)} values: {value!r}"
+        )
+    return value
+
+
+def _eval_builtin(name: str, args: tuple[int, ...]) -> int:
+    if name == "add" and len(args) == 2:
+        return u256(u256(args[0]) + u256(args[1]))
+    if name == "sub" and len(args) == 2:
+        return u256(u256(args[0]) + WORD_MOD - u256(args[1]))
+    if name == "mul" and len(args) == 2:
+        return u256(u256(args[0]) * u256(args[1]))
+    if name == "div" and len(args) == 2:
+        aa = u256(args[0])
+        bb = u256(args[1])
+        return 0 if bb == 0 else aa // bb
+    if name == "mod" and len(args) == 2:
+        aa = u256(args[0])
+        bb = u256(args[1])
+        return 0 if bb == 0 else aa % bb
+    if name == "not" and len(args) == 1:
+        return WORD_MOD - 1 - u256(args[0])
+    if name == "or" and len(args) == 2:
+        return u256(args[0]) | u256(args[1])
+    if name == "and" and len(args) == 2:
+        return u256(args[0]) & u256(args[1])
+    if name == "eq" and len(args) == 2:
+        return 1 if u256(args[0]) == u256(args[1]) else 0
+    if name == "shl" and len(args) == 2:
+        shift = u256(args[0])
+        value = u256(args[1])
+        return u256(value * (2 ** shift)) if shift < 256 else 0
+    if name == "shr" and len(args) == 2:
+        shift = u256(args[0])
+        value = u256(args[1])
+        return value // (2 ** shift) if shift < 256 else 0
+    if name == "clz" and len(args) == 1:
+        value = u256(args[0])
+        return 256 if value == 0 else 255 - (value.bit_length() - 1)
+    if name == "lt" and len(args) == 2:
+        return 1 if u256(args[0]) < u256(args[1]) else 0
+    if name == "gt" and len(args) == 2:
+        return 1 if u256(args[0]) > u256(args[1]) else 0
+    if name == "mulmod" and len(args) == 3:
+        aa = u256(args[0])
+        bb = u256(args[1])
+        nn = u256(args[2])
+        return 0 if nn == 0 else (aa * bb) % nn
+    raise EvaluationError(f"Unsupported builtin call {name!r} with {len(args)} arg(s)")
+
+
+def build_model_table(models: list[FunctionModel] | tuple[FunctionModel, ...]) -> dict[str, FunctionModel]:
+    table: dict[str, FunctionModel] = {}
+    for model in models:
+        if model.fn_name in table:
+            raise EvaluationError(f"Duplicate FunctionModel name {model.fn_name!r}")
+        table[model.fn_name] = model
+    return table
+
+
+def evaluate_model_expr(
+    expr: Expr,
+    env: dict[str, int],
+    *,
+    model_table: dict[str, FunctionModel] | None = None,
+    call_stack: tuple[str, ...] = (),
+) -> ModelValue:
+    if isinstance(expr, IntLit):
+        return expr.value
+    if isinstance(expr, Var):
+        try:
+            return env[expr.name]
+        except KeyError as err:
+            raise EvaluationError(f"Undefined model variable {expr.name!r}") from err
+    if not isinstance(expr, Call):
+        raise TypeError(f"Unsupported Expr node: {type(expr)}")
+
+    component_match = re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
+    if component_match and len(expr.args) == 1:
+        idx = int(component_match.group(1))
+        total = int(component_match.group(2))
+        values = _expect_tuple(
+            evaluate_model_expr(
+                expr.args[0],
+                env,
+                model_table=model_table,
+                call_stack=call_stack,
+            ),
+            size=total,
+            context=f"{expr.name} projection",
+        )
+        try:
+            return values[idx]
+        except IndexError as err:
+            raise EvaluationError(
+                f"{expr.name} requested index {idx}, but only {len(values)} value(s) exist"
+            ) from err
+
+    if expr.name == "__ite" and len(expr.args) == 3:
+        cond = _expect_scalar(
+            evaluate_model_expr(
+                expr.args[0],
+                env,
+                model_table=model_table,
+                call_stack=call_stack,
+            ),
+            context="__ite condition",
+        )
+        branch = expr.args[1] if cond != 0 else expr.args[2]
+        return evaluate_model_expr(
+            branch,
+            env,
+            model_table=model_table,
+            call_stack=call_stack,
+        )
+
+    arg_values = tuple(
+        evaluate_model_expr(arg, env, model_table=model_table, call_stack=call_stack)
+        for arg in expr.args
+    )
+
+    if expr.name in OP_TO_LEAN_HELPER:
+        return _eval_builtin(
+            expr.name,
+            tuple(
+                _expect_scalar(value, context=f"builtin {expr.name}")
+                for value in arg_values
+            ),
+        )
+
+    if model_table is None or expr.name not in model_table:
+        raise EvaluationError(f"Unsupported model call {expr.name!r}")
+
+    model = model_table[expr.name]
+    if expr.name in call_stack:
+        cycle = " -> ".join((*call_stack, expr.name))
+        raise EvaluationError(f"Recursive model call cycle detected: {cycle}")
+    result = evaluate_function_model(
+        model,
+        tuple(
+            _expect_scalar(value, context=f"model call {expr.name}")
+            for value in arg_values
+        ),
+        model_table=model_table,
+        call_stack=(*call_stack, expr.name),
+    )
+    if len(result) == 1:
+        return result[0]
+    return result
+
+
+def _evaluate_statement_block(
+    statements: tuple[ModelStatement, ...],
+    env: dict[str, int],
+    *,
+    model_table: dict[str, FunctionModel] | None = None,
+    call_stack: tuple[str, ...] = (),
+) -> dict[str, int]:
+    scope = dict(env)
+
+    for stmt in statements:
+        if isinstance(stmt, Assignment):
+            scope[stmt.target] = _expect_scalar(
+                evaluate_model_expr(
+                    stmt.expr,
+                    scope,
+                    model_table=model_table,
+                    call_stack=call_stack,
+                ),
+                context=f"assignment to {stmt.target!r}",
+            )
+            continue
+
+        if not isinstance(stmt, ConditionalBlock):
+            raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+
+        condition = _expect_scalar(
+            evaluate_model_expr(
+                stmt.condition,
+                scope,
+                model_table=model_table,
+                call_stack=call_stack,
+            ),
+            context="conditional",
+        )
+
+        branch = stmt.then_branch if condition != 0 else stmt.else_branch
+        branch_scope = _evaluate_statement_block(
+            branch.assignments,
+            scope,
+            model_table=model_table,
+            call_stack=call_stack,
+        )
+        for target, source in zip(stmt.output_vars, branch.outputs, strict=True):
+            scope[target] = branch_scope[source]
+
+    return scope
+
+
+def evaluate_function_model(
+    model: FunctionModel,
+    args: tuple[int, ...],
+    *,
+    model_table: dict[str, FunctionModel] | None = None,
+    call_stack: tuple[str, ...] = (),
+) -> tuple[int, ...]:
+    if len(args) != len(model.param_names):
+        raise EvaluationError(
+            f"Model {model.fn_name!r} expects {len(model.param_names)} argument(s), "
+            f"got {len(args)}"
+        )
+
+    env = {
+        param_name: u256(value)
+        for param_name, value in zip(model.param_names, args, strict=True)
+    }
+    final_env = _evaluate_statement_block(
+        model.assignments,
+        env,
+        model_table=model_table,
+        call_stack=call_stack,
+    )
+    try:
+        return tuple(final_env[name] for name in model.return_names)
+    except KeyError as err:
+        raise EvaluationError(
+            f"Model {model.fn_name!r} did not produce return variable {err.args[0]!r}"
+        ) from err
 
 
 def _collect_repeated_model_calls(expr: Expr, model_call_names: frozenset[str]) -> list[Call]:
@@ -1976,11 +2238,10 @@ def _walk_statement(stmt: ModelStatement, model_call_names: frozenset[str],
         _walk_model_calls(stmt.expr, model_call_names, counts)
     elif isinstance(stmt, ConditionalBlock):
         _walk_model_calls(stmt.condition, model_call_names, counts)
-        for a in stmt.assignments:
+        for a in stmt.then_branch.assignments:
             _walk_model_calls(a.expr, model_call_names, counts)
-        if stmt.else_assignments:
-            for a in stmt.else_assignments:
-                _walk_model_calls(a.expr, model_call_names, counts)
+        for a in stmt.else_branch.assignments:
+            _walk_model_calls(a.expr, model_call_names, counts)
 
 
 def _replace_statement(stmt: ModelStatement,
@@ -1994,19 +2255,26 @@ def _replace_statement(stmt: ModelStatement,
     if isinstance(stmt, ConditionalBlock):
         return ConditionalBlock(
             condition=_replace_expr(stmt.condition, replacements),
-            assignments=tuple(
-                Assignment(target=a.target,
-                           expr=_replace_expr(a.expr, replacements))
-                for a in stmt.assignments
+            output_vars=stmt.output_vars,
+            then_branch=ConditionalBranch(
+                assignments=tuple(
+                    Assignment(
+                        target=a.target,
+                        expr=_replace_expr(a.expr, replacements),
+                    )
+                    for a in stmt.then_branch.assignments
+                ),
+                outputs=stmt.then_branch.outputs,
             ),
-            modified_vars=stmt.modified_vars,
-            else_vars=stmt.else_vars,
-            else_assignments=(
-                tuple(
-                    Assignment(target=a.target,
-                               expr=_replace_expr(a.expr, replacements))
-                    for a in stmt.else_assignments
-                ) if stmt.else_assignments else None
+            else_branch=ConditionalBranch(
+                assignments=tuple(
+                    Assignment(
+                        target=a.target,
+                        expr=_replace_expr(a.expr, replacements),
+                    )
+                    for a in stmt.else_branch.assignments
+                ),
+                outputs=stmt.else_branch.outputs,
             ),
         )
     raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
@@ -2052,28 +2320,30 @@ def _localize_statement_cse(
         )
 
         then_assignments: list[Assignment] = []
-        for assignment in stmt.assignments:
+        for assignment in stmt.then_branch.assignments:
             then_assignments.extend(_localize_statement_cse(
                 assignment, model_call_names=model_call_names,
             ))
 
-        else_assignments: tuple[Assignment, ...] | None = None
-        if stmt.else_assignments is not None:
-            localized_else: list[Assignment] = []
-            for assignment in stmt.else_assignments:
-                localized_else.extend(_localize_statement_cse(
-                    assignment, model_call_names=model_call_names,
-                ))
-            else_assignments = tuple(localized_else)
+        localized_else: list[Assignment] = []
+        for assignment in stmt.else_branch.assignments:
+            localized_else.extend(_localize_statement_cse(
+                assignment, model_call_names=model_call_names,
+            ))
 
         return [
             *prefix,
             ConditionalBlock(
                 condition=condition,
-                assignments=tuple(then_assignments),
-                modified_vars=stmt.modified_vars,
-                else_vars=stmt.else_vars,
-                else_assignments=else_assignments,
+                output_vars=stmt.output_vars,
+                then_branch=ConditionalBranch(
+                    assignments=tuple(then_assignments),
+                    outputs=stmt.then_branch.outputs,
+                ),
+                else_branch=ConditionalBranch(
+                    assignments=tuple(localized_else),
+                    outputs=stmt.else_branch.outputs,
+                ),
             ),
         ]
 
@@ -2314,7 +2584,11 @@ def emit_expr(
         if m and len(expr.args) == 1:
             idx = int(m.group(1))
             total = int(m.group(2))
-            inner = emit_expr(expr.args[0], op_helper_map=op_helper_map, call_helper_map=call_helper_map)
+            inner = emit_expr(
+                expr.args[0],
+                op_helper_map=op_helper_map,
+                call_helper_map=call_helper_map,
+            )
             if total <= 2 or idx == 0:
                 return f"({inner}).{idx + 1}"
             elif idx == total - 1:
@@ -2325,9 +2599,21 @@ def emit_expr(
         # Handle __ite(cond, if_val, else_val) from leave-handling.
         # Emits: if (cond) ≠ 0 then if_val else else_val
         if expr.name == "__ite" and len(expr.args) == 3:
-            cond = emit_expr(expr.args[0], op_helper_map=op_helper_map, call_helper_map=call_helper_map)
-            if_val = emit_expr(expr.args[1], op_helper_map=op_helper_map, call_helper_map=call_helper_map)
-            else_val = emit_expr(expr.args[2], op_helper_map=op_helper_map, call_helper_map=call_helper_map)
+            cond = emit_expr(
+                expr.args[0],
+                op_helper_map=op_helper_map,
+                call_helper_map=call_helper_map,
+            )
+            if_val = emit_expr(
+                expr.args[1],
+                op_helper_map=op_helper_map,
+                call_helper_map=call_helper_map,
+            )
+            else_val = emit_expr(
+                expr.args[2],
+                op_helper_map=op_helper_map,
+                call_helper_map=call_helper_map,
+            )
             return f"if ({cond}) ≠ 0 then {if_val} else {else_val}"
 
         helper = op_helper_map.get(expr.name)
@@ -2456,7 +2742,16 @@ def build_model_body(
         rhs_expr = expr
         if not evm and config.norm_rewrite is not None:
             rhs_expr = config.norm_rewrite(rhs_expr)
-        return emit_expr(rhs_expr, op_helper_map=op_map, call_helper_map=call_map)
+        return emit_expr(
+            rhs_expr,
+            op_helper_map=op_map,
+            call_helper_map=call_map,
+        )
+
+    def _emit_tuple(vars_: tuple[str, ...]) -> str:
+        if len(vars_) == 1:
+            return vars_[0]
+        return f"({', '.join(vars_)})"
 
     for stmt in assignments:
         if isinstance(stmt, ConditionalBlock):
@@ -2467,47 +2762,17 @@ def build_model_body(
             #       (v1, v2)
             #     else (v1, v2)
             cond_str = _emit_rhs(stmt.condition)
-            mvars = stmt.modified_vars
-            evars = stmt.else_vars if stmt.else_vars is not None else mvars
-            if len(mvars) == 1:
-                lhs = mvars[0]
-                tup = mvars[0]
-            else:
-                lhs = f"({', '.join(mvars)})"
-                tup = f"({', '.join(mvars)})"
-            if len(evars) == 1:
-                else_tup = evars[0]
-            else:
-                else_tup = f"({', '.join(evars)})"
+            lhs = _emit_tuple(stmt.output_vars)
             lines.append(f"  let {lhs} := if ({cond_str}) ≠ 0 then")
-            for a in stmt.assignments:
+            for a in stmt.then_branch.assignments:
                 rhs = _emit_rhs(a.expr)
                 lines.append(f"      let {a.target} := {rhs}")
-            lines.append(f"      {tup}")
-            if stmt.else_assignments is not None:
-                lines.append(f"    else")
-                for a in stmt.else_assignments:
-                    rhs = _emit_rhs(a.expr)
-                    lines.append(f"      let {a.target} := {rhs}")
-                # Build the else tuple from the else-body's modified vars.
-                # Variables in modified_vars but not assigned in else_body
-                # keep their pre-if name.
-                else_assigned = {a.target for a in stmt.else_assignments}
-                else_tuple_parts = []
-                for v in mvars:
-                    if v in else_assigned:
-                        else_tuple_parts.append(v)
-                    elif evars is not None:
-                        idx = list(mvars).index(v)
-                        else_tuple_parts.append(evars[idx] if idx < len(evars) else v)
-                    else:
-                        else_tuple_parts.append(v)
-                if len(else_tuple_parts) == 1:
-                    lines.append(f"      {else_tuple_parts[0]}")
-                else:
-                    lines.append(f"      ({', '.join(else_tuple_parts)})")
-            else:
-                lines.append(f"    else {else_tup}")
+            lines.append(f"      {_emit_tuple(stmt.then_branch.outputs)}")
+            lines.append("    else")
+            for a in stmt.else_branch.assignments:
+                rhs = _emit_rhs(a.expr)
+                lines.append(f"      let {a.target} := {rhs}")
+            lines.append(f"      {_emit_tuple(stmt.else_branch.outputs)}")
         elif isinstance(stmt, Assignment):
             rhs = _emit_rhs(stmt.expr)
             lines.append(f"  let {stmt.target} := {rhs}")
