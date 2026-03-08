@@ -1,0 +1,71 @@
+name: Sqrt.sol Formal Check
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - src/vendor/Sqrt.sol
+      - src/wrappers/SqrtWrapper.sol
+      - formal/sqrt/**
+      - formal/yul_to_lean.py
+      - test/0.8.25/Sqrt.t.sol
+      - test/0.8.25/formal-model/FormalModelFFI.t.sol
+      - test/0.8.25/formal-model/SqrtModel.t.sol
+      - .github/workflows/sqrt-formal.yml
+  pull_request:
+    paths:
+      - src/vendor/Sqrt.sol
+      - src/wrappers/SqrtWrapper.sol
+      - formal/sqrt/**
+      - formal/yul_to_lean.py
+      - test/0.8.25/Sqrt.t.sol
+      - test/0.8.25/formal-model/FormalModelFFI.t.sol
+      - test/0.8.25/formal-model/SqrtModel.t.sol
+      - .github/workflows/sqrt-formal.yml
+
+jobs:
+  sqrt-formal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pinned Lean toolchain
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/917c18d0ad52f649c2603dc8b973f5b9fa5f8f43/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          LEAN_TOOLCHAIN="$(cat formal/sqrt/SqrtProof/lean-toolchain)"
+          "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
+          "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
+
+      - name: Generate Lean model from Sqrt.sol via Yul IR
+        run: |
+          forge inspect src/wrappers/SqrtWrapper.sol:SqrtWrapper ir | \
+            python3 -W error formal/sqrt/generate_sqrt_model.py \
+              --yul - \
+              --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
+
+      - name: Generate finite certificate from sqrt spec
+        run: |
+          python3 formal/sqrt/generate_sqrt_cert.py \
+            --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
+
+      - name: Build Sqrt proof and model evaluator
+        working-directory: formal/sqrt/SqrtProof
+        run: lake build && lake build sqrt-model
+
+      - name: Fuzz-test Lean model against Solidity
+        run: |
+          FOUNDRY_PROFILE=formal-model forge test \
+            --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' \
+            --match-contract SqrtModelTest

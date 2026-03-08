@@ -1,0 +1,80 @@
+name: 512Math sqrt Formal Check
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - src/utils/512Math.sol
+      - src/vendor/Sqrt.sol
+      - src/wrappers/Sqrt512Wrapper.sol
+      - formal/sqrt/**
+      - formal/yul_to_lean.py
+      - test/0.8.25/formal-model/FormalModelFFI.t.sol
+      - test/0.8.25/formal-model/Sqrt512Model.t.sol
+      - .github/workflows/sqrt512-formal.yml
+  pull_request:
+    paths:
+      - src/utils/512Math.sol
+      - src/vendor/Sqrt.sol
+      - src/wrappers/Sqrt512Wrapper.sol
+      - formal/sqrt/**
+      - formal/yul_to_lean.py
+      - test/0.8.25/formal-model/FormalModelFFI.t.sol
+      - test/0.8.25/formal-model/Sqrt512Model.t.sol
+      - .github/workflows/sqrt512-formal.yml
+
+jobs:
+  sqrt512-formal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pinned Lean toolchain
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/917c18d0ad52f649c2603dc8b973f5b9fa5f8f43/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          LEAN_TOOLCHAIN="$(cat formal/sqrt/Sqrt512Proof/lean-toolchain)"
+          test "$LEAN_TOOLCHAIN" = "$(cat formal/sqrt/SqrtProof/lean-toolchain)"
+          "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
+          "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
+
+      - name: Generate 256-bit Lean model (SqrtProof dependency)
+        run: |
+          forge inspect src/wrappers/SqrtWrapper.sol:SqrtWrapper ir | \
+            python3 -W error formal/sqrt/generate_sqrt_model.py \
+              --yul - \
+              --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
+
+      - name: Generate finite certificate from sqrt spec
+        run: |
+          python3 formal/sqrt/generate_sqrt_cert.py \
+            --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
+
+      - name: Generate 512-bit Lean model from Sqrt512Wrapper via Yul IR
+        run: |
+          FOUNDRY_SOLC_VERSION=0.8.33 \
+            forge inspect src/wrappers/Sqrt512Wrapper.sol:Sqrt512Wrapper ir | \
+            python3 -W error formal/sqrt/generate_sqrt512_model.py \
+              --yul - \
+              --output formal/sqrt/Sqrt512Proof/Sqrt512Proof/GeneratedSqrt512Model.lean
+
+      - name: Build Sqrt512 proof and model evaluator
+        working-directory: formal/sqrt/Sqrt512Proof
+        run: lake build && lake build sqrt512-model
+
+      - name: Fuzz-test Lean model against Solidity
+        run: |
+          FOUNDRY_PROFILE=formal-model forge test \
+            --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' \
+            --match-contract Sqrt512ModelTest

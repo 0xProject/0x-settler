@@ -30,3 +30,6 @@ node_modules
 
 # user-specific local configuration
 /config/
+
+# Python bytecode cache directories
+__pycache__/
