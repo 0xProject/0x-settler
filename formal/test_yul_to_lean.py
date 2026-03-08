@@ -519,11 +519,28 @@ class TranslationPipelineTest(unittest.TestCase):
         }
     """
     NESTED_MEMORY_ALIAS_CONFIG = make_model_config(("target",))
-    NESTED_MEMORY_ALIAS_YUL = """
+    NESTED_MEMORY_ALIAS_LOCAL_YUL = """
         function fun_target_0(var_x_1) -> var_z_2 {
             let usr$base := 0
             let usr$tmp := fun_outer_1(usr$base, var_x_1)
             var_z_2 := mload(usr$tmp)
+        }
+
+        function fun_outer_1(var_r_3, var_x_4) -> var_out_5 {
+            let expr_self := var_r_3
+            var_out_5 := fun_inner_2(expr_self, var_x_4)
+        }
+
+        function fun_inner_2(var_r_6, var_x_7) -> var_out_8 {
+            mstore(var_r_6, var_x_7)
+            var_out_8 := var_r_6
+        }
+    """
+    NESTED_MEMORY_ALIAS_TEMP_YUL = """
+        function fun_target_0(var_x_1) -> var_z_2 {
+            let usr$base := 0
+            let expr_1 := fun_outer_1(usr$base, var_x_1)
+            var_z_2 := mload(expr_1)
         }
 
         function fun_outer_1(var_r_3, var_x_4) -> var_out_5 {
@@ -683,9 +700,24 @@ class TranslationPipelineTest(unittest.TestCase):
         with self.assertRaisesRegex(ytl.ParseError, "collides with the demangled name"):
             ytl.yul_function_to_model(yf, "f", {})
 
-    def test_translate_yul_to_models_resolves_nested_helper_memory_aliases(self) -> None:
+    def test_translate_yul_to_models_resolves_nested_helper_memory_aliases_through_local(self) -> None:
         result = ytl.translate_yul_to_models(
-            self.NESTED_MEMORY_ALIAS_YUL,
+            self.NESTED_MEMORY_ALIAS_LOCAL_YUL,
+            self.NESTED_MEMORY_ALIAS_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        for x in (0, 1, 7, 32, ytl.WORD_MOD - 1):
+            with self.subTest(x=x):
+                self.assertEqual(
+                    ytl.evaluate_function_model(model, (x,)),
+                    (x,),
+                )
+
+    def test_translate_yul_to_models_resolves_nested_helper_memory_aliases_through_temp(self) -> None:
+        result = ytl.translate_yul_to_models(
+            self.NESTED_MEMORY_ALIAS_TEMP_YUL,
             self.NESTED_MEMORY_ALIAS_CONFIG,
             pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )

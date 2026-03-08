@@ -1066,15 +1066,10 @@ def _inline_single_call(
             expr = inline_calls(expr, fn_table, depth + 1, max_depth,
                                 mstore_sink=mstore_sink,
                                 unsupported_function_errors=unsupported_function_errors)
-            # Gensym: rename non-param, non-return locals to avoid clashes
-            if target not in fn.params and target not in fn.rets:
-                new_name = _gensym(f"inline_{target}")
-                subst[target] = Var(new_name)
-                # Re-substitute the expression under the new name
-                # (it was already substituted, so just store it)
-                subst[new_name] = expr
-            else:
-                subst[target] = expr
+            # Keep helper locals as pure substitutions. Introducing fresh
+            # `_inline_*` aliases here can leak undefined names into sunk
+            # MemoryWrite addresses/values after nested inlining.
+            subst[target] = expr
 
     def _get_ret(r: str) -> Expr:
         else_val = _resolve(subst.get(r, IntLit(0)), subst)
@@ -1506,8 +1501,9 @@ def yul_function_to_model(
         var_map[target] = ssa_name
 
         if not inside_conditional:
-            if isinstance(expr, IntLit):
-                const_locals[ssa_name] = expr.value
+            const_value = _try_const_eval(_resolve_const_locals(expr))
+            if const_value is not None:
+                const_locals[ssa_name] = const_value
             else:
                 const_locals.pop(ssa_name, None)
 
