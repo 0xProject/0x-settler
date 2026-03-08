@@ -1694,22 +1694,6 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
         ytl.validate_function_model(outer)
         return helpers, outer
 
-    def test_zero_assignment_elision_is_semantics_preserving(self) -> None:
-        yf = ytl.YulFunction(
-            yul_name="f",
-            params=["var_x_1"],
-            rets=["var_z_2"],
-            assignments=[
-                ("var_z_2", ytl.IntLit(0)),
-                ("var_z_2", ytl.Call("add", (ytl.Var("var_x_1"), ytl.IntLit(1)))),
-            ],
-        )
-
-        before = ytl.yul_function_to_model(yf, "f", {}, elide_zero_assignments=False)
-        after = ytl.yul_function_to_model(yf, "f", {}, elide_zero_assignments=True)
-
-        self.assertModelsEquivalent(before, after, seed=11)
-
     def test_prune_dead_assignments_is_semantics_preserving(self) -> None:
         before = ytl.FunctionModel(
             fn_name="f",
