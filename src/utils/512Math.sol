@@ -1857,7 +1857,7 @@ library Lib512MathArithmetic {
     //// detailed in §1.5.2 of Brent and Zimmermann's "Modern Computer Arithmetic"
     //// https://members.loria.fr/PZimmermann/mca/mca-0.2.1.pdf . The key difference here is that in
     //// the expansion of the 𝑐𝑢𝑏𝑒 of the limbs of the result (the Karatsuba step), there are 3
-    //// limbs that meaningfully contribute to the result. This requires an additional, more
+    //// terms that meaningfully contribute to the result. This requires an additional, more
     //// elaborate, quadratic correction step.
     ////
     //// The square root algorithm works with limbs of the result that are half of a word. For cube
