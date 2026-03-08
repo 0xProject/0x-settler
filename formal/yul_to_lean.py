@@ -234,6 +234,21 @@ class MemoryWrite:
     value: Expr
 
 
+@dataclass(frozen=True)
+class FromWriteEffect:
+    """Deferred lowering for the exact emitted ``uint512.from(x_hi, x_lo)`` helper."""
+
+    ptr: Expr
+    hi: Expr
+    lo: Expr
+
+    def lower(self) -> tuple[MemoryWrite, MemoryWrite]:
+        return (
+            MemoryWrite(self.ptr, self.hi),
+            MemoryWrite(Call("add", (IntLit(32), self.ptr)), self.lo),
+        )
+
+
 PlainAssignment = tuple[str, Expr]
 
 
@@ -1051,7 +1066,7 @@ def _inline_single_call(
     fn_table: dict[str, YulFunction],
     depth: int,
     max_depth: int,
-    mstore_sink: list[MemoryWrite] | None = None,
+    mstore_sink: list[FromWriteEffect] | None = None,
     unsupported_function_errors: dict[str, str] | None = None,
 ) -> Expr | tuple[Expr, ...]:
     """Inline one function call, returning its return-value expression(s).
@@ -1069,8 +1084,7 @@ def _inline_single_call(
                 "requires a memory sink."
             )
         ptr_expr, hi_expr, lo_expr = args
-        mstore_sink.append(MemoryWrite(ptr_expr, hi_expr))
-        mstore_sink.append(MemoryWrite(Call("add", (IntLit(32), ptr_expr)), lo_expr))
+        mstore_sink.append(FromWriteEffect(ptr_expr, hi_expr, lo_expr))
         return ptr_expr
 
     if fn.expr_stmts:
@@ -1154,8 +1168,8 @@ def _inline_single_call(
             if mstore_sink is not None and len(mstore_sink) > pre_if_sink_len:
                 raise ParseError(
                     f"Conditional memory write detected in {fn.yul_name!r}: "
-                    f"{len(mstore_sink) - pre_if_sink_len} accessor write(s) emitted "
-                    "inside an if-block body. Keep uint512.from(...) outside "
+                    f"{len(mstore_sink) - pre_if_sink_len} uint512.from accessor "
+                    "effect(s) emitted inside an if-block body. Keep uint512.from(...) outside "
                     "conditional helper control flow."
                 )
 
@@ -1177,7 +1191,7 @@ def _inline_single_call(
                 if mstore_sink is not None and len(mstore_sink) > pre_else_sink_len:
                     raise ParseError(
                         f"Conditional memory write detected in {fn.yul_name!r}: "
-                        "accessor write(s) emitted inside an else-body. Keep "
+                        "uint512.from accessor effect(s) emitted inside an else-body. Keep "
                         "uint512.from(...) outside conditional helper control flow."
                     )
 
@@ -1206,12 +1220,13 @@ def _inline_single_call(
                     elif if_val != pre_val:
                         subst[target] = if_val
             else:
-                # Normal if-block (no leave, no else): take the if-branch value.
+                # Normal if-block (no leave, no else): preserve the pre-if value
+                # on the false path and merge with __ite.
                 for target, _raw_expr in stmt.body:
                     if_val = if_subst[target]
                     orig_val = subst.get(target, IntLit(0))
                     if if_val != orig_val:
-                        subst[target] = if_val
+                        subst[target] = Call("__ite", (cond, if_val, orig_val))
         elif isinstance(stmt, MemoryWrite):
             raise ParseError(
                 f"Cannot inline helper {fn.yul_name!r}: helper memory writes are "
@@ -1258,7 +1273,7 @@ def inline_calls(
     fn_table: dict[str, YulFunction],
     depth: int = 0,
     max_depth: int = 20,
-    mstore_sink: list[MemoryWrite] | None = None,
+    mstore_sink: list[FromWriteEffect] | None = None,
     unsupported_function_errors: dict[str, str] | None = None,
 ) -> Expr:
     """Recursively inline function calls in an expression.
@@ -1389,7 +1404,7 @@ def _inline_yul_function(
 ) -> YulFunction:
     """Apply ``inline_calls`` to every expression in a YulFunction."""
 
-    mstore_sink: list[MemoryWrite] = []
+    mstore_sink: list[FromWriteEffect] = []
     new_assignments: list[RawStatement] = []
     for stmt in yf.assignments:
         if isinstance(stmt, ParsedIfBlock):
@@ -1474,7 +1489,8 @@ def _inline_yul_function(
                 mstore_sink=mstore_sink,
                 unsupported_function_errors=unsupported_function_errors,
             )
-            new_assignments.extend(mstore_sink[pre_len:])
+            for effect in mstore_sink[pre_len:]:
+                new_assignments.extend(effect.lower())
             new_assignments.append((target, inlined))
 
     return YulFunction(

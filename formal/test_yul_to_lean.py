@@ -736,6 +736,19 @@ class TranslationPipelineTest(unittest.TestCase):
             var_z_4 := 9
         }
     """
+    PLAIN_IF_HELPER_CONFIG = make_model_config(("target",))
+    PLAIN_IF_HELPER_YUL = """
+        function fun_target_1(var_flag_1, var_x_2) -> var_z_3 {
+            var_z_3 := fun_helper_2(var_flag_1, var_x_2)
+        }
+
+        function fun_helper_2(var_flag_4, var_x_5) -> var_z_6 {
+            var_z_6 := var_x_5
+            if var_flag_4 {
+                var_z_6 := add(var_x_5, 1)
+            }
+        }
+    """
     TOP_LEVEL_LEAVE_CONFIG = make_model_config(("target",))
     TOP_LEVEL_LEAVE_YUL = """
         function fun_target_1(var_x_1) -> var_z_2 {
@@ -1039,6 +1052,21 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
         self.assertEqual(ytl.evaluate_function_model(model, (ytl.WORD_MOD - 1,)), (7,))
+
+    def test_translate_yul_to_models_lowers_plain_inlined_if(self) -> None:
+        result = ytl.translate_yul_to_models(
+            self.PLAIN_IF_HELPER_YUL,
+            self.PLAIN_IF_HELPER_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0, 5)), (5,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1, 5)), (6,))
+        self.assertEqual(
+            ytl.evaluate_function_model(model, (ytl.WORD_MOD - 1, 5)),
+            (6,),
+        )
 
     def test_translate_yul_to_models_rejects_top_level_leave(
         self,
