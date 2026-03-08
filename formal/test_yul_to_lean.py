@@ -1,4 +1,5 @@
 import pathlib
+import random
 import sys
 import unittest
 
@@ -387,6 +388,108 @@ def make_model_config(
     )
 
 
+class ModelEquivalenceTestCase(unittest.TestCase):
+    INTERESTING_VALUES = (
+        0,
+        1,
+        2,
+        7,
+        31,
+        32,
+        255,
+        256,
+        (1 << 255) - 1,
+        1 << 255,
+        ytl.WORD_MOD - 1,
+        ytl.WORD_MOD,
+        ytl.WORD_MOD + 1,
+    )
+
+    def assertModelsEquivalent(
+        self,
+        before: ytl.FunctionModel,
+        after: ytl.FunctionModel,
+        *,
+        before_table: dict[str, ytl.FunctionModel] | None = None,
+        after_table: dict[str, ytl.FunctionModel] | None = None,
+        random_cases: int = 64,
+        seed: int = 0,
+    ) -> None:
+        self.assertEqual(
+            len(before.param_names),
+            len(after.param_names),
+            "equivalence fuzzer requires matching arity",
+        )
+
+        if before_table is None:
+            before_table = ytl.build_model_table([before])
+        if after_table is None:
+            after_table = ytl.build_model_table([after])
+
+        ytl.validate_function_model(before)
+        ytl.validate_function_model(after)
+
+        for args in self._equivalence_cases(len(before.param_names), seed=seed, random_cases=random_cases):
+            before_result = ytl.evaluate_function_model(
+                before,
+                args,
+                model_table=before_table,
+            )
+            after_result = ytl.evaluate_function_model(
+                after,
+                args,
+                model_table=after_table,
+            )
+            self.assertEqual(
+                before_result,
+                after_result,
+                f"model mismatch for args={args}",
+            )
+
+    def _equivalence_cases(
+        self,
+        arity: int,
+        *,
+        seed: int,
+        random_cases: int,
+    ) -> list[tuple[int, ...]]:
+        cases: list[tuple[int, ...]] = []
+        values = self.INTERESTING_VALUES
+
+        if arity == 0:
+            cases.append(())
+        elif arity == 1:
+            cases.extend((value,) for value in values)
+        elif arity == 2:
+            pair_values = values[:8] + values[-3:]
+            cases.extend((left, right) for left in pair_values for right in pair_values)
+        else:
+            for offset in range(len(values)):
+                cases.append(
+                    tuple(values[(offset + i) % len(values)] for i in range(arity))
+                )
+            for hot_index in range(arity):
+                cases.append(
+                    tuple(
+                        values[-1] if i == hot_index else 0
+                        for i in range(arity)
+                    )
+                )
+
+        rng = random.Random(seed)
+        for _ in range(random_cases):
+            cases.append(tuple(rng.getrandbits(300) for _ in range(arity)))
+
+        deduped: list[tuple[int, ...]] = []
+        seen: set[tuple[int, ...]] = set()
+        for args in cases:
+            if args in seen:
+                continue
+            seen.add(args)
+            deduped.append(args)
+        return deduped
+
+
 class TranslationPipelineTest(unittest.TestCase):
     SIMPLE_CONFIG = make_model_config(("f",))
     SIMPLE_YUL = """
@@ -586,6 +689,216 @@ class ExplicitMemoryModelTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ytl.ParseError, "unaligned address 1"):
             ytl.yul_function_to_model(yf, "f", {})
+
+
+class RestrictedIRInterpreterTest(ModelEquivalenceTestCase):
+    def test_evaluate_function_model_preserves_passthrough_when_if_is_false(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment("out", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(5)))),
+                ytl.ConditionalBlock(
+                    condition=ytl.IntLit(0),
+                    assignments=(ytl.Assignment("out", ytl.IntLit(99)),),
+                    modified_vars=("out",),
+                ),
+            ),
+        )
+
+        result = ytl.evaluate_function_model(model, (7,))
+
+        self.assertEqual(result, (12,))
+
+    def test_evaluate_function_model_supports_multi_return_projection(self) -> None:
+        pair = ytl.FunctionModel(
+            fn_name="pair",
+            param_names=("x", "y"),
+            return_names=("a", "b"),
+            assignments=(
+                ytl.Assignment("a", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),
+                ytl.Assignment("b", ytl.Call("mul", (ytl.Var("y"), ytl.IntLit(2)))),
+            ),
+        )
+        outer = ytl.FunctionModel(
+            fn_name="outer",
+            param_names=("x", "y"),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment(
+                    "lhs",
+                    ytl.Call("__component_0_2", (ytl.Call("pair", (ytl.Var("x"), ytl.Var("y"))),)),
+                ),
+                ytl.Assignment(
+                    "rhs",
+                    ytl.Call("__component_1_2", (ytl.Call("pair", (ytl.Var("x"), ytl.Var("y"))),)),
+                ),
+                ytl.Assignment("out", ytl.Call("add", (ytl.Var("lhs"), ytl.Var("rhs")))),
+            ),
+        )
+        table = ytl.build_model_table([pair, outer])
+
+        result = ytl.evaluate_function_model(outer, (3, 5), model_table=table)
+
+        self.assertEqual(result, (14,))
+
+    def test_evaluate_function_model_rejects_recursive_model_call_cycle(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="loop",
+            param_names=("x",),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment("out", ytl.Call("loop", (ytl.Var("x"),))),
+            ),
+        )
+
+        with self.assertRaisesRegex(ytl.EvaluationError, "Recursive model call cycle"):
+            ytl.evaluate_function_model(
+                model,
+                (1,),
+                model_table=ytl.build_model_table([model]),
+            )
+
+
+class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
+    def test_zero_assignment_elision_is_semantics_preserving(self) -> None:
+        yf = ytl.YulFunction(
+            yul_name="f",
+            params=["var_x_1"],
+            rets=["var_z_2"],
+            assignments=[
+                ("var_z_2", ytl.IntLit(0)),
+                ("var_z_2", ytl.Call("add", (ytl.Var("var_x_1"), ytl.IntLit(1)))),
+            ],
+        )
+
+        before = ytl.yul_function_to_model(yf, "f", {}, elide_zero_assignments=False)
+        after = ytl.yul_function_to_model(yf, "f", {}, elide_zero_assignments=True)
+
+        self.assertModelsEquivalent(before, after, seed=11)
+
+    def test_prune_dead_assignments_is_semantics_preserving(self) -> None:
+        before = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment("dead", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(9)))),
+                ytl.Assignment("live", ytl.Call("mul", (ytl.Var("x"), ytl.IntLit(3)))),
+                ytl.Assignment("out", ytl.Call("sub", (ytl.Var("live"), ytl.IntLit(1)))),
+            ),
+        )
+
+        after = ytl._prune_dead_assignments(before)
+
+        self.assertModelsEquivalent(before, after, seed=19)
+
+    def test_prune_dead_assignments_preserves_if_passthrough_inputs(self) -> None:
+        before = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment("tmp", ytl.IntLit(0)),
+                ytl.ConditionalBlock(
+                    condition=ytl.Call("gt", (ytl.Var("x"), ytl.IntLit(10))),
+                    assignments=(
+                        ytl.Assignment("tmp", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),
+                    ),
+                    modified_vars=("tmp",),
+                ),
+                ytl.Assignment("out", ytl.Call("add", (ytl.Var("tmp"), ytl.IntLit(1)))),
+            ),
+        )
+
+        after = ytl._prune_dead_assignments(before)
+
+        ytl.validate_function_model(after)
+        self.assertModelsEquivalent(before, after, seed=21)
+
+    def test_hoist_repeated_model_calls_is_semantics_preserving(self) -> None:
+        inner = ytl.FunctionModel(
+            fn_name="inner",
+            param_names=("p",),
+            return_names=("ret",),
+            assignments=(
+                ytl.Assignment("ret", ytl.Call("add", (ytl.Call("mul", (ytl.Var("p"), ytl.Var("p"))), ytl.IntLit(1)))),
+            ),
+        )
+        outer = ytl.FunctionModel(
+            fn_name="outer",
+            param_names=("p",),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment("a", ytl.Call("inner", (ytl.Var("p"),))),
+                ytl.Assignment("b", ytl.Call("inner", (ytl.Var("p"),))),
+                ytl.Assignment("out", ytl.Call("sub", (ytl.Var("b"), ytl.Var("a")))),
+            ),
+        )
+
+        transformed = ytl.hoist_repeated_model_calls(
+            outer,
+            model_call_names=frozenset({"inner"}),
+        )
+
+        self.assertModelsEquivalent(
+            outer,
+            transformed,
+            before_table=ytl.build_model_table([inner, outer]),
+            after_table=ytl.build_model_table([inner, transformed]),
+            seed=23,
+        )
+
+    def test_raw_and_optimized_pipelines_are_semantics_equivalent(self) -> None:
+        yul = """
+            function fun_inner_1(var_x_1) -> var_z_2 {
+                var_z_2 := add(var_x_1, 9)
+            }
+
+            function fun_outer_2(var_x_1) -> var_z_2 {
+                let usr$tmp := 0
+                let usr$dead := add(var_x_1, 99)
+                let usr$a := fun_inner_1(var_x_1)
+                let usr$b := fun_inner_1(var_x_1)
+                if gt(var_x_1, 10) {
+                    usr$tmp := add(usr$a, usr$b)
+                }
+                var_z_2 := add(usr$tmp, 1)
+            }
+        """
+        config = make_model_config(
+            ("inner", "outer"),
+            hoist_repeated_calls=frozenset({"outer"}),
+        )
+
+        raw_result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        optimized_result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.OPTIMIZED_TRANSLATION_PIPELINE,
+        )
+
+        raw_table = ytl.build_model_table(raw_result.models)
+        optimized_table = ytl.build_model_table(optimized_result.models)
+        self.assertModelsEquivalent(
+            raw_table["inner"],
+            optimized_table["inner"],
+            before_table=raw_table,
+            after_table=optimized_table,
+            seed=29,
+        )
+        self.assertModelsEquivalent(
+            raw_table["outer"],
+            optimized_table["outer"],
+            before_table=raw_table,
+            after_table=optimized_table,
+            seed=31,
+        )
 
 
 if __name__ == "__main__":

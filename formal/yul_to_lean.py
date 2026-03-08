@@ -26,6 +26,10 @@ class ParseError(RuntimeError):
     pass
 
 
+class EvaluationError(RuntimeError):
+    pass
+
+
 # ---------------------------------------------------------------------------
 # AST nodes (shared by Yul parser and Lean emitter)
 # ---------------------------------------------------------------------------
@@ -87,6 +91,9 @@ class FunctionModel:
     return_names: tuple[str, ...] = ("z",)
 
 
+ModelValue = int | tuple[int, ...]
+
+
 @dataclass(frozen=True)
 class TranslationPipeline:
     """Controls which non-literal passes run after raw model construction."""
@@ -106,7 +113,9 @@ RAW_TRANSLATION_PIPELINE = TranslationPipeline(
 
 OPTIMIZED_TRANSLATION_PIPELINE = TranslationPipeline(
     name="optimized",
-    elide_zero_assignments=True,
+    # Zero-assignment elision is not semantics-preserving in general. Keep the
+    # optimized default limited to passes with direct equivalence tests.
+    elide_zero_assignments=False,
     hoist_repeated_calls=True,
     prune_dead_assignments=True,
 )
@@ -1698,12 +1707,17 @@ def _prune_dead_assignments(
             else_assignments, else_live = _prune_assignment_block(
                 stmt.else_assignments, needed_else_targets
             )
-            if filtered_else_vars is not None:
-                for output_name, passthrough_name in zip(needed_outputs, filtered_else_vars):
-                    if output_name not in needed_else_targets:
-                        else_live.add(passthrough_name)
-        elif filtered_else_vars is not None:
-            else_live.update(filtered_else_vars)
+            else_sources = (
+                filtered_else_vars if filtered_else_vars is not None else needed_outputs
+            )
+            for output_name, passthrough_name in zip(needed_outputs, else_sources, strict=True):
+                if output_name not in needed_else_targets:
+                    else_live.add(passthrough_name)
+        else:
+            else_sources = (
+                filtered_else_vars if filtered_else_vars is not None else needed_outputs
+            )
+            else_live.update(else_sources)
 
         live.difference_update(needed_output_set)
         live.update(_expr_vars(stmt.condition))
@@ -1949,6 +1963,273 @@ def validate_function_model(model: FunctionModel) -> None:
         raise ParseError(
             f"Model {model.fn_name!r} returns undefined vars: {sorted(missing_returns)}"
         )
+
+
+WORD_MOD = 2 ** 256
+
+
+def u256(value: int) -> int:
+    return value % WORD_MOD
+
+
+def _expect_scalar(value: ModelValue, *, context: str) -> int:
+    if isinstance(value, tuple):
+        raise EvaluationError(f"{context} expected a scalar value, got tuple {value!r}")
+    return value
+
+
+def _expect_tuple(value: ModelValue, *, size: int, context: str) -> tuple[int, ...]:
+    if not isinstance(value, tuple):
+        raise EvaluationError(f"{context} expected a {size}-tuple, got scalar {value!r}")
+    if len(value) != size:
+        raise EvaluationError(
+            f"{context} expected a {size}-tuple, got {len(value)} values: {value!r}"
+        )
+    return value
+
+
+def _eval_builtin(name: str, args: tuple[int, ...]) -> int:
+    if name == "add" and len(args) == 2:
+        return u256(u256(args[0]) + u256(args[1]))
+    if name == "sub" and len(args) == 2:
+        return u256(u256(args[0]) + WORD_MOD - u256(args[1]))
+    if name == "mul" and len(args) == 2:
+        return u256(u256(args[0]) * u256(args[1]))
+    if name == "div" and len(args) == 2:
+        aa = u256(args[0])
+        bb = u256(args[1])
+        return 0 if bb == 0 else aa // bb
+    if name == "mod" and len(args) == 2:
+        aa = u256(args[0])
+        bb = u256(args[1])
+        return 0 if bb == 0 else aa % bb
+    if name == "not" and len(args) == 1:
+        return WORD_MOD - 1 - u256(args[0])
+    if name == "or" and len(args) == 2:
+        return u256(args[0]) | u256(args[1])
+    if name == "and" and len(args) == 2:
+        return u256(args[0]) & u256(args[1])
+    if name == "eq" and len(args) == 2:
+        return 1 if u256(args[0]) == u256(args[1]) else 0
+    if name == "shl" and len(args) == 2:
+        shift = u256(args[0])
+        value = u256(args[1])
+        return u256(value * (2 ** shift)) if shift < 256 else 0
+    if name == "shr" and len(args) == 2:
+        shift = u256(args[0])
+        value = u256(args[1])
+        return value // (2 ** shift) if shift < 256 else 0
+    if name == "clz" and len(args) == 1:
+        value = u256(args[0])
+        return 256 if value == 0 else 255 - (value.bit_length() - 1)
+    if name == "lt" and len(args) == 2:
+        return 1 if u256(args[0]) < u256(args[1]) else 0
+    if name == "gt" and len(args) == 2:
+        return 1 if u256(args[0]) > u256(args[1]) else 0
+    if name == "mulmod" and len(args) == 3:
+        aa = u256(args[0])
+        bb = u256(args[1])
+        nn = u256(args[2])
+        return 0 if nn == 0 else (aa * bb) % nn
+    raise EvaluationError(f"Unsupported builtin call {name!r} with {len(args)} arg(s)")
+
+
+def build_model_table(models: list[FunctionModel] | tuple[FunctionModel, ...]) -> dict[str, FunctionModel]:
+    table: dict[str, FunctionModel] = {}
+    for model in models:
+        if model.fn_name in table:
+            raise EvaluationError(f"Duplicate FunctionModel name {model.fn_name!r}")
+        table[model.fn_name] = model
+    return table
+
+
+def evaluate_model_expr(
+    expr: Expr,
+    env: dict[str, int],
+    *,
+    model_table: dict[str, FunctionModel] | None = None,
+    call_stack: tuple[str, ...] = (),
+) -> ModelValue:
+    if isinstance(expr, IntLit):
+        return expr.value
+    if isinstance(expr, Var):
+        try:
+            return env[expr.name]
+        except KeyError as err:
+            raise EvaluationError(f"Undefined model variable {expr.name!r}") from err
+    if not isinstance(expr, Call):
+        raise TypeError(f"Unsupported Expr node: {type(expr)}")
+
+    component_match = re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
+    if component_match and len(expr.args) == 1:
+        idx = int(component_match.group(1))
+        total = int(component_match.group(2))
+        values = _expect_tuple(
+            evaluate_model_expr(
+                expr.args[0],
+                env,
+                model_table=model_table,
+                call_stack=call_stack,
+            ),
+            size=total,
+            context=f"{expr.name} projection",
+        )
+        try:
+            return values[idx]
+        except IndexError as err:
+            raise EvaluationError(
+                f"{expr.name} requested index {idx}, but only {len(values)} value(s) exist"
+            ) from err
+
+    if expr.name == "__ite" and len(expr.args) == 3:
+        cond = _expect_scalar(
+            evaluate_model_expr(
+                expr.args[0],
+                env,
+                model_table=model_table,
+                call_stack=call_stack,
+            ),
+            context="__ite condition",
+        )
+        branch = expr.args[1] if cond != 0 else expr.args[2]
+        return evaluate_model_expr(
+            branch,
+            env,
+            model_table=model_table,
+            call_stack=call_stack,
+        )
+
+    arg_values = tuple(
+        evaluate_model_expr(arg, env, model_table=model_table, call_stack=call_stack)
+        for arg in expr.args
+    )
+
+    if expr.name in OP_TO_LEAN_HELPER:
+        return _eval_builtin(
+            expr.name,
+            tuple(
+                _expect_scalar(value, context=f"builtin {expr.name}")
+                for value in arg_values
+            ),
+        )
+
+    if model_table is None or expr.name not in model_table:
+        raise EvaluationError(f"Unsupported model call {expr.name!r}")
+
+    model = model_table[expr.name]
+    if expr.name in call_stack:
+        cycle = " -> ".join((*call_stack, expr.name))
+        raise EvaluationError(f"Recursive model call cycle detected: {cycle}")
+    result = evaluate_function_model(
+        model,
+        tuple(
+            _expect_scalar(value, context=f"model call {expr.name}")
+            for value in arg_values
+        ),
+        model_table=model_table,
+        call_stack=(*call_stack, expr.name),
+    )
+    if len(result) == 1:
+        return result[0]
+    return result
+
+
+def _evaluate_statement_block(
+    statements: tuple[ModelStatement, ...],
+    env: dict[str, int],
+    *,
+    model_table: dict[str, FunctionModel] | None = None,
+    call_stack: tuple[str, ...] = (),
+) -> dict[str, int]:
+    scope = dict(env)
+
+    for stmt in statements:
+        if isinstance(stmt, Assignment):
+            scope[stmt.target] = _expect_scalar(
+                evaluate_model_expr(
+                    stmt.expr,
+                    scope,
+                    model_table=model_table,
+                    call_stack=call_stack,
+                ),
+                context=f"assignment to {stmt.target!r}",
+            )
+            continue
+
+        if not isinstance(stmt, ConditionalBlock):
+            raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+
+        condition = _expect_scalar(
+            evaluate_model_expr(
+                stmt.condition,
+                scope,
+                model_table=model_table,
+                call_stack=call_stack,
+            ),
+            context="conditional",
+        )
+
+        if condition != 0:
+            then_scope = _evaluate_statement_block(
+                stmt.assignments,
+                scope,
+                model_table=model_table,
+                call_stack=call_stack,
+            )
+            for target in stmt.modified_vars:
+                scope[target] = then_scope[target]
+            continue
+
+        if stmt.else_assignments is not None:
+            else_scope = _evaluate_statement_block(
+                stmt.else_assignments,
+                scope,
+                model_table=model_table,
+                call_stack=call_stack,
+            )
+            else_sources = (
+                stmt.else_vars if stmt.else_vars is not None else stmt.modified_vars
+            )
+            for target, source in zip(stmt.modified_vars, else_sources, strict=True):
+                scope[target] = else_scope[source]
+            continue
+
+        else_sources = stmt.else_vars if stmt.else_vars is not None else stmt.modified_vars
+        for target, source in zip(stmt.modified_vars, else_sources, strict=True):
+            scope[target] = scope[source]
+
+    return scope
+
+
+def evaluate_function_model(
+    model: FunctionModel,
+    args: tuple[int, ...],
+    *,
+    model_table: dict[str, FunctionModel] | None = None,
+    call_stack: tuple[str, ...] = (),
+) -> tuple[int, ...]:
+    if len(args) != len(model.param_names):
+        raise EvaluationError(
+            f"Model {model.fn_name!r} expects {len(model.param_names)} argument(s), "
+            f"got {len(args)}"
+        )
+
+    env = {
+        param_name: u256(value)
+        for param_name, value in zip(model.param_names, args, strict=True)
+    }
+    final_env = _evaluate_statement_block(
+        model.assignments,
+        env,
+        model_table=model_table,
+        call_stack=call_stack,
+    )
+    try:
+        return tuple(final_env[name] for name in model.return_names)
+    except KeyError as err:
+        raise EvaluationError(
+            f"Model {model.fn_name!r} did not produce return variable {err.args[0]!r}"
+        ) from err
 
 
 def _collect_repeated_model_calls(expr: Expr, model_call_names: frozenset[str]) -> list[Call]:
