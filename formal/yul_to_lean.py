@@ -115,14 +115,12 @@ class TranslationPipeline:
     """Controls which non-literal passes run after raw model construction."""
 
     name: str
-    elide_zero_assignments: bool
     hoist_repeated_calls: bool
     prune_dead_assignments: bool
 
 
 RAW_TRANSLATION_PIPELINE = TranslationPipeline(
     name="raw",
-    elide_zero_assignments=False,
     hoist_repeated_calls=False,
     prune_dead_assignments=False,
 )
@@ -131,7 +129,6 @@ OPTIMIZED_TRANSLATION_PIPELINE = TranslationPipeline(
     name="optimized",
     # Zero-assignment elision is not semantics-preserving in general. Keep the
     # optimized default limited to passes with direct equivalence tests.
-    elide_zero_assignments=False,
     hoist_repeated_calls=True,
     prune_dead_assignments=True,
 )
@@ -1509,8 +1506,6 @@ def yul_function_to_model(
     sol_fn_name: str,
     fn_map: dict[str, str],
     keep_solidity_locals: bool = False,
-    *,
-    elide_zero_assignments: bool = True,
 ) -> FunctionModel:
     """Convert a parsed YulFunction into a FunctionModel.
 
@@ -1521,8 +1516,6 @@ def yul_function_to_model(
     - Multi-assigned compiler temporaries are rejected.
     - The return variable is recognized and assigned in the model.
     - Distinct Yul signature binders must demangle to distinct IR names.
-    - ``elide_zero_assignments`` controls whether literal zero-initializations
-      are dropped during model construction.
     - Memory use must stay within the explicit supported subset:
       straight-line constant-address, 32-byte-aligned ``mstore``/``mload``
       with no aliasing.
@@ -1722,13 +1715,6 @@ def yul_function_to_model(
                 subst_state[target] = expr
             return None
 
-        # Rename the RHS expression BEFORE updating var_map so that
-        # self-references (e.g. ``x := f(x)``) resolve to the
-        # *previous* binding, not the one being created.
-        skip_zero = (
-            elide_zero_assignments and isinstance(expr, IntLit) and expr.value == 0
-        )
-
         # SSA: compute the Lean target name.  Inside conditional
         # blocks, Lean's scoped ``let`` handles shadowing, so we
         # use the base clean name directly.
@@ -1761,9 +1747,6 @@ def yul_function_to_model(
                 const_locals_state[ssa_name] = const_value
             else:
                 const_locals_state.pop(ssa_name, None)
-
-        if skip_zero:
-            return None
 
         return Assignment(target=ssa_name, expr=expr)
 
@@ -2883,7 +2866,6 @@ def build_restricted_ir_models(
             fn,
             preparation.fn_map,
             keep_solidity_locals=config.keep_solidity_locals,
-            elide_zero_assignments=pipeline.elide_zero_assignments,
         )
         for fn in preparation.selected_functions
     ]
