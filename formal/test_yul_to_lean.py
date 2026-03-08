@@ -1903,7 +1903,11 @@ class TryConstEvalTest(unittest.TestCase):
         )
 
     def test_op_to_lean_helper_keys_match_op_to_opcode(self) -> None:
-        self.assertEqual(set(ytl.OP_TO_LEAN_HELPER), set(ytl.OP_TO_OPCODE))
+        lean_helpers: dict[str, str] = ytl.OP_TO_LEAN_HELPER
+        opcodes: dict[str, str] = ytl.OP_TO_OPCODE
+        lean_helper_keys: list[str] = sorted(lean_helpers)
+        opcode_keys: list[str] = sorted(opcodes)
+        self.assertEqual(lean_helper_keys, opcode_keys)
 
 
 # ---------------------------------------------------------------------------

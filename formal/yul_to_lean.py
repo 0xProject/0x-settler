@@ -1934,7 +1934,7 @@ def _prune_dead_assignments(
 # Lean emission helpers
 # ---------------------------------------------------------------------------
 
-OP_TO_LEAN_HELPER = {
+OP_TO_LEAN_HELPER: dict[str, str] = {
     "add": "evmAdd",
     "sub": "evmSub",
     "mul": "evmMul",
@@ -1952,7 +1952,7 @@ OP_TO_LEAN_HELPER = {
     "mulmod": "evmMulmod",
 }
 
-OP_TO_OPCODE = {
+OP_TO_OPCODE: dict[str, str] = {
     "add": "ADD",
     "sub": "SUB",
     "mul": "MUL",
