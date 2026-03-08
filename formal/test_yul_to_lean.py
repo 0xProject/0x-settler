@@ -433,7 +433,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
         ):
             ytl.yul_function_to_model(yf, "f", {})
 
-    def test_inline_yul_function_rejects_helper_memory_write_inside_conditional(
+    def test_inline_yul_function_rejects_helper_memory_write(
         self,
     ) -> None:
         helper = ytl.YulFunction(
@@ -457,7 +457,10 @@ class FailClosedTranslatorTest(unittest.TestCase):
             ],
         )
 
-        with self.assertRaisesRegex(ytl.ParseError, "Conditional memory write"):
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "helper memory writes are unsupported",
+        ):
             ytl._inline_yul_function(target, {"store_helper": helper})
 
     def test_inline_yul_function_preserves_else_body(self) -> None:
@@ -690,6 +693,32 @@ class TranslationPipelineTest(unittest.TestCase):
         function fun_inner_2(var_r_6, var_x_7) -> var_out_8 {
             mstore(var_r_6, var_x_7)
             var_out_8 := var_r_6
+        }
+    """
+    TOP_LEVEL_MEMORY_READ_HELPER_CONFIG = make_model_config(("target",))
+    TOP_LEVEL_MEMORY_READ_HELPER_YUL = """
+        function fun_target_0(var_x_1) -> var_z_2 {
+            let usr$base := 0
+            mstore(usr$base, var_x_1)
+            var_z_2 := fun_read_1(usr$base)
+        }
+
+        function fun_read_1(var_ptr_2) -> var_out_3 {
+            var_out_3 := mload(var_ptr_2)
+        }
+    """
+    FROM_HELPER_CONFIG = make_model_config(("target",))
+    FROM_HELPER_YUL = """
+        function fun_target_0(var_x_hi_1, var_x_lo_2) -> var_z_3 {
+            let usr$ptr := fun_from_1(0, var_x_hi_1, var_x_lo_2)
+            var_z_3 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+        }
+
+        function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
+            var_r_out_7 := 0
+            mstore(var_r_4, var_x_hi_5)
+            mstore(add(0x20, var_r_4), var_x_lo_6)
+            var_r_out_7 := var_r_4
         }
     """
     LEAVE_HELPER_CONFIG = make_model_config(("target",))
@@ -932,12 +961,38 @@ class TranslationPipelineTest(unittest.TestCase):
         with self.assertRaisesRegex(ytl.ParseError, "collides with the demangled name"):
             ytl.yul_function_to_model(yf, "f", {})
 
-    def test_translate_yul_to_models_resolves_nested_helper_memory_aliases_through_local(
+    def test_translate_yul_to_models_rejects_nested_helper_memory_write_through_local(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "helper memory writes are unsupported",
+        ):
+            ytl.translate_yul_to_models(
+                self.NESTED_MEMORY_ALIAS_LOCAL_YUL,
+                self.NESTED_MEMORY_ALIAS_CONFIG,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_translate_yul_to_models_rejects_nested_helper_memory_write_through_temp(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "helper memory writes are unsupported",
+        ):
+            ytl.translate_yul_to_models(
+                self.NESTED_MEMORY_ALIAS_TEMP_YUL,
+                self.NESTED_MEMORY_ALIAS_CONFIG,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_translate_yul_to_models_allows_top_level_memory_write_with_helper_mload(
         self,
     ) -> None:
         result = ytl.translate_yul_to_models(
-            self.NESTED_MEMORY_ALIAS_LOCAL_YUL,
-            self.NESTED_MEMORY_ALIAS_CONFIG,
+            self.TOP_LEVEL_MEMORY_READ_HELPER_YUL,
+            self.TOP_LEVEL_MEMORY_READ_HELPER_CONFIG,
             pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
         model = result.models[0]
@@ -949,21 +1004,28 @@ class TranslationPipelineTest(unittest.TestCase):
                     (x,),
                 )
 
-    def test_translate_yul_to_models_resolves_nested_helper_memory_aliases_through_temp(
+    def test_translate_yul_to_models_allows_exact_from_helper(
         self,
     ) -> None:
         result = ytl.translate_yul_to_models(
-            self.NESTED_MEMORY_ALIAS_TEMP_YUL,
-            self.NESTED_MEMORY_ALIAS_CONFIG,
+            self.FROM_HELPER_YUL,
+            self.FROM_HELPER_CONFIG,
             pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
         model = result.models[0]
 
-        for x in (0, 1, 7, 32, ytl.WORD_MOD - 1):
-            with self.subTest(x=x):
+        cases = {
+            (0, 0): (0,),
+            (1, 0): (1,),
+            (0, 7): (7,),
+            (5, 11): (16,),
+            (ytl.WORD_MOD - 1, 3): (2,),
+        }
+        for args, expected in cases.items():
+            with self.subTest(args=args):
                 self.assertEqual(
-                    ytl.evaluate_function_model(model, (x,)),
-                    (x,),
+                    ytl.evaluate_function_model(model, args),
+                    expected,
                 )
 
     def test_translate_yul_to_models_lowers_inlined_leave(self) -> None:
@@ -978,42 +1040,31 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
         self.assertEqual(ytl.evaluate_function_model(model, (ytl.WORD_MOD - 1,)), (7,))
 
-    def test_translate_yul_to_models_preserves_top_level_leave_semantics(
+    def test_translate_yul_to_models_rejects_top_level_leave(
         self,
     ) -> None:
-        result = ytl.translate_yul_to_models(
-            self.TOP_LEVEL_LEAVE_YUL,
-            self.TOP_LEVEL_LEAVE_CONFIG,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "contains 'leave' in direct model generation",
+        ):
+            ytl.translate_yul_to_models(
+                self.TOP_LEVEL_LEAVE_YUL,
+                self.TOP_LEVEL_LEAVE_CONFIG,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
-        self.assertEqual(ytl.evaluate_function_model(model, (ytl.WORD_MOD - 1,)), (7,))
-
-    def test_translate_yul_to_models_preserves_multiple_inlined_leave_sites(
+    def test_translate_yul_to_models_rejects_multiple_inlined_leave_sites(
         self,
     ) -> None:
-        result = ytl.translate_yul_to_models(
-            self.MULTI_LEAVE_HELPER_YUL,
-            self.MULTI_LEAVE_HELPER_CONFIG,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
-
-        cases = {
-            (0, 0): (9,),
-            (1, 0): (7,),
-            (0, 1): (8,),
-            (1, 1): (7,),
-        }
-        for args, expected in cases.items():
-            with self.subTest(args=args):
-                self.assertEqual(
-                    ytl.evaluate_function_model(model, args),
-                    expected,
-                )
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "contains multiple leave sites",
+        ):
+            ytl.translate_yul_to_models(
+                self.MULTI_LEAVE_HELPER_YUL,
+                self.MULTI_LEAVE_HELPER_CONFIG,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_isolates_conditional_branch_state(
         self,
