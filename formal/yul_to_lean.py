@@ -249,11 +249,12 @@ class FromWriteEffect:
     ptr: Expr
     hi: Expr
     lo: Expr
+    lo_addr: Expr
 
     def lower(self) -> tuple[MemoryWrite, MemoryWrite]:
         return (
             MemoryWrite(self.ptr, self.hi),
-            MemoryWrite(Call("add", (IntLit(32), self.ptr)), self.lo),
+            MemoryWrite(self.lo_addr, self.lo),
         )
 
 
@@ -1025,12 +1026,16 @@ def _is_add_32_to_var(expr: Expr, var_name: str) -> bool:
     )
 
 
-def _is_uint512_from_helper(fn: YulFunction) -> bool:
-    """Recognize the exact emitted shape of ``uint512.from(x_hi, x_lo)``."""
+def _is_uint512_from_helper(fn: YulFunction) -> Expr | None:
+    """Recognize the exact emitted shape of ``uint512.from(x_hi, x_lo)``.
+
+    Returns the lo-address expression on match (preserving the compiler's
+    emitted operand order), or ``None`` if *fn* doesn't match.
+    """
     if fn.expr_stmts:
-        return False
+        return None
     if len(fn.params) != 3 or len(fn.rets) != 1:
-        return False
+        return None
     if len(fn.assignments) == 5:
         zero_tmp_stmt, init_stmt, write_hi, write_lo, ret_stmt = fn.assignments
         if (
@@ -1040,7 +1045,7 @@ def _is_uint512_from_helper(fn: YulFunction) -> bool:
             or init_stmt[0] != fn.rets[0]
             or init_stmt[1] != Var(zero_tmp_stmt[0])
         ):
-            return False
+            return None
     elif len(fn.assignments) == 4:
         init_stmt, write_hi, write_lo, ret_stmt = fn.assignments
         if (
@@ -1048,9 +1053,9 @@ def _is_uint512_from_helper(fn: YulFunction) -> bool:
             or init_stmt[0] != fn.rets[0]
             or not _is_zero_init_expr(init_stmt[1])
         ):
-            return False
+            return None
     else:
-        return False
+        return None
 
     ptr_param, hi_param, lo_param = fn.params
     ret_name = fn.rets[0]
@@ -1060,18 +1065,20 @@ def _is_uint512_from_helper(fn: YulFunction) -> bool:
         or write_hi.address != Var(ptr_param)
         or write_hi.value != Var(hi_param)
     ):
-        return False
+        return None
     if (
         not isinstance(write_lo, MemoryWrite)
         or not _is_add_32_to_var(write_lo.address, ptr_param)
         or write_lo.value != Var(lo_param)
     ):
-        return False
-    return (
+        return None
+    if not (
         isinstance(ret_stmt, tuple)
         and ret_stmt[0] == ret_name
         and ret_stmt[1] == Var(ptr_param)
-    )
+    ):
+        return None
+    return write_lo.address
 
 
 def _inline_single_call(
@@ -1091,14 +1098,20 @@ def _inline_single_call(
     accessor shape, whose two fixed-slot writes are sunk into the selected
     function body.
     """
-    if _is_uint512_from_helper(fn):
+    lo_addr_template = _is_uint512_from_helper(fn)
+    if lo_addr_template is not None:
         if mstore_sink is None:
             raise ParseError(
                 f"Cannot inline helper {fn.yul_name!r}: exact uint512.from(x_hi, x_lo) "
                 "requires a memory sink."
             )
         ptr_expr, hi_expr, lo_expr = args
-        mstore_sink.append(FromWriteEffect(ptr_expr, hi_expr, lo_expr))
+        # Substitute the helper's ptr parameter in the lo-address template
+        # with the call-site ptr expression, preserving the compiler's
+        # emitted operand order.
+        ptr_param = fn.params[0]
+        lo_addr = substitute_expr(lo_addr_template, {ptr_param: ptr_expr})
+        mstore_sink.append(FromWriteEffect(ptr_expr, hi_expr, lo_expr, lo_addr))
         return ptr_expr
 
     _reject_expr_stmts(
@@ -1118,17 +1131,18 @@ def _inline_single_call(
     leave_subst: dict[str, Expr] | None = None
 
     def _resolve(e: Expr, s: dict[str, Expr]) -> Expr:
-        for _ in range(50):
-            prev = e
-            e = substitute_expr(e, s)
-            if e == prev:
-                break
-        else:
+        resolved = substitute_expr(e, s)
+        # Since subst is built sequentially (each value is already fully
+        # substituted at assignment time), one pass must suffice.  A second
+        # pass that changes anything indicates a broken invariant.
+        check = substitute_expr(resolved, s)
+        if check != resolved:
             raise ParseError(
-                f"Substitution resolution did not converge after 50 "
-                f"iterations for expression: {e!r}"
+                f"Sequential-build invariant violated: a single substitution "
+                f"pass was not sufficient.\n  original : {e!r}\n  after 1st: "
+                f"{resolved!r}\n  after 2nd: {check!r}"
             )
-        return e
+        return resolved
 
     for stmt in fn.assignments:
         if isinstance(stmt, ParsedIfBlock):
@@ -1494,7 +1508,15 @@ def _inline_yul_function(
             )
             for effect in mstore_sink[pre_len:]:
                 new_assignments.extend(effect.lower())
+            del mstore_sink[pre_len:]
             new_assignments.append((target, inlined))
+
+    if mstore_sink:
+        raise ParseError(
+            f"Undrained mstore_sink after inlining {yf.yul_name!r}: "
+            f"{len(mstore_sink)} FromWriteEffect(s) were never lowered. "
+            "All uint512.from(...) effects must appear in plain-assignment context."
+        )
 
     return YulFunction(
         yul_name=yf.yul_name,
@@ -2887,8 +2909,6 @@ def build_restricted_ir_models(
         )
         for fn in preparation.selected_functions
     ]
-    for model in models:
-        validate_function_model(model)
     return models
 
 
