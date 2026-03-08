@@ -1098,6 +1098,14 @@ def _inline_single_call(
     accessor shape, whose two fixed-slot writes are sunk into the selected
     function body.
     """
+    expected_arity = len(fn.params)
+    actual_arity = len(args)
+    if actual_arity != expected_arity:
+        raise ParseError(
+            f"Cannot inline helper {fn.yul_name!r}: expected {expected_arity} "
+            f"argument(s), got {actual_arity}"
+        )
+
     lo_addr_template = _is_uint512_from_helper(fn)
     if lo_addr_template is not None:
         if mstore_sink is None:
