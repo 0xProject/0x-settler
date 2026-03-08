@@ -402,6 +402,52 @@ class FailClosedTranslatorTest(unittest.TestCase):
         with self.assertRaisesRegex(ytl.ParseError, "single-value context"):
             ytl.inline_calls(ytl.Call("pair", ()), fn_table)
 
+    def test_inline_calls_rejects_helper_call_with_wrong_arity(self) -> None:
+        fn_table = {
+            "id": ytl.YulFunction(
+                yul_name="id",
+                params=["x"],
+                rets=["r"],
+                assignments=[("r", ytl.Var("x"))],
+            ),
+        }
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            r"Cannot inline helper 'id': expected 1 argument\(s\), got 2",
+        ):
+            ytl.inline_calls(ytl.Call("id", (ytl.IntLit(1), ytl.IntLit(2))), fn_table)
+
+    def test_inline_calls_rejects_wrong_arity_for_exact_from_helper(self) -> None:
+        fn_table = {
+            "from512": ytl.YulFunction(
+                yul_name="from512",
+                params=["ptr", "hi", "lo"],
+                rets=["out"],
+                assignments=[
+                    ("out", ytl.IntLit(0)),
+                    ytl.MemoryWrite(ytl.Var("ptr"), ytl.Var("hi")),
+                    ytl.MemoryWrite(
+                        ytl.Call("add", (ytl.Var("ptr"), ytl.IntLit(32))),
+                        ytl.Var("lo"),
+                    ),
+                    ("out", ytl.Var("ptr")),
+                ],
+            ),
+        }
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            r"Cannot inline helper 'from512': expected 3 argument\(s\), got 4",
+        ):
+            ytl.inline_calls(
+                ytl.Call(
+                    "from512",
+                    (ytl.IntLit(0), ytl.IntLit(1), ytl.IntLit(2), ytl.IntLit(3)),
+                ),
+                fn_table,
+            )
+
     def test_inline_calls_rejects_invalid_component_projection(self) -> None:
         fn_table = {
             "single": ytl.YulFunction(
