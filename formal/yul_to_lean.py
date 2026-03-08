@@ -18,7 +18,7 @@ import re
 import sys
 from collections import Counter
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, NoReturn
 
 
 class ParseError(RuntimeError):
@@ -89,6 +89,14 @@ class ConditionalBlock:
 
 # A model statement is either a plain assignment or a conditional block.
 ModelStatement = Assignment | ConditionalBlock
+
+
+def _unreachable_expr(expr: Expr) -> NoReturn:
+    raise TypeError(f"Unsupported Expr node: {type(expr)}")
+
+
+def _unreachable_stmt(stmt: ModelStatement) -> NoReturn:
+    raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
 
 
 @dataclass(frozen=True)
@@ -919,7 +927,7 @@ def rename_expr(expr: Expr, var_map: dict[str, str], fn_map: dict[str, str]) -> 
         new_name = fn_map.get(expr.name, expr.name)
         new_args = tuple(rename_expr(a, var_map, fn_map) for a in expr.args)
         return Call(new_name, new_args)
-    raise TypeError(f"Unsupported Expr node: {type(expr)}")
+    _unreachable_expr(expr)
 
 
 def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
@@ -929,7 +937,26 @@ def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
         return subst.get(expr.name, expr)
     if isinstance(expr, Call):
         return Call(expr.name, tuple(substitute_expr(a, subst) for a in expr.args))
-    raise TypeError(f"Unsupported Expr node: {type(expr)}")
+    _unreachable_expr(expr)
+
+
+def _reject_expr_stmts(expr_stmts: list[Expr] | None, *, context: str) -> None:
+    """Raise ``ParseError`` if *expr_stmts* is non-empty."""
+    if not expr_stmts:
+        return
+    descriptions: list[str] = []
+    for e in expr_stmts[:3]:
+        if isinstance(e, Call):
+            descriptions.append(f"{e.name}(...)")
+        else:
+            descriptions.append(repr(e))
+    summary = ", ".join(descriptions)
+    if len(expr_stmts) > 3:
+        summary += ", ..."
+    raise ParseError(
+        f"{context} {len(expr_stmts)} unhandled expression-statement(s): "
+        f"[{summary}]. Refuse to proceed with incomplete semantics."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1074,21 +1101,10 @@ def _inline_single_call(
         mstore_sink.append(FromWriteEffect(ptr_expr, hi_expr, lo_expr))
         return ptr_expr
 
-    if fn.expr_stmts:
-        descriptions = []
-        for e in fn.expr_stmts[:3]:
-            if isinstance(e, Call):
-                descriptions.append(f"{e.name}(...)")
-            else:
-                descriptions.append(repr(e))
-        summary = ", ".join(descriptions)
-        if len(fn.expr_stmts) > 3:
-            summary += ", ..."
-        raise ParseError(
-            f"Inlining function {fn.yul_name!r} encountered "
-            f"{len(fn.expr_stmts)} unhandled expression-statement(s): "
-            f"[{summary}]. Refuse to inline incomplete semantics."
-        )
+    _reject_expr_stmts(
+        fn.expr_stmts,
+        context=f"Inlining function {fn.yul_name!r} encountered",
+    )
 
     subst: dict[str, Expr] = {}
     for param, arg_expr in zip(fn.params, args):
@@ -1381,7 +1397,7 @@ def inline_calls(
             )
 
         return Call(expr.name, args)
-    raise TypeError(f"Unsupported Expr node: {type(expr)}")
+    _unreachable_expr(expr)
 
 
 def _inline_yul_function(
@@ -1511,22 +1527,10 @@ def yul_function_to_model(
       straight-line constant-address, 32-byte-aligned ``mstore``/``mload``
       with no aliasing.
     """
-    if yf.expr_stmts:
-        descriptions = []
-        for e in yf.expr_stmts[:3]:
-            if isinstance(e, Call):
-                descriptions.append(f"{e.name}(...)")
-            else:
-                descriptions.append(repr(e))
-        summary = ", ".join(descriptions)
-        if len(yf.expr_stmts) > 3:
-            summary += ", ..."
-        raise ParseError(
-            f"Function {sol_fn_name!r} contains "
-            f"{len(yf.expr_stmts)} expression-statement(s) not captured "
-            f"in the direct model: [{summary}]. Refuse to generate an "
-            f"incomplete model."
-        )
+    _reject_expr_stmts(
+        yf.expr_stmts,
+        context=f"Function {sol_fn_name!r} contains",
+    )
 
     # ------------------------------------------------------------------
     # Pre-pass: count how many times each variable is assigned.
@@ -1627,7 +1631,7 @@ def yul_function_to_model(
                     for arg in expr.args
                 ),
             )
-        raise TypeError(f"Unsupported Expr node: {type(expr)}")
+        _unreachable_expr(expr)
 
     def _resolve_memory_address(
         expr: Expr,
@@ -1680,7 +1684,7 @@ def yul_function_to_model(
                     for arg in expr.args
                 ),
             )
-        raise TypeError(f"Unsupported Expr node: {type(expr)}")
+        _unreachable_expr(expr)
 
     def _process_assignment_into(
         target: str,
@@ -1986,7 +1990,7 @@ def _prune_dead_assignments(
             continue
 
         if not isinstance(stmt, ConditionalBlock):
-            raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+            _unreachable_stmt(stmt)
 
         needed_indices = tuple(
             idx for idx, output in enumerate(stmt.output_vars) if output in live
@@ -2140,18 +2144,12 @@ def collect_ops_from_statement(stmt: ModelStatement) -> list[str]:
         for a in stmt.else_branch.assignments:
             ops.extend(collect_ops(a.expr))
         return ops
-    raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+    _unreachable_stmt(stmt)
 
 
 def ordered_unique(items: list[str]) -> list[str]:
-    seen: set[str] = set()
-    out: list[str] = []
-    for item in items:
-        if item in seen:
-            continue
-        seen.add(item)
-        out.append(item)
-    return out
+    d: dict[str, None] = dict.fromkeys(items)
+    return list(d)
 
 
 def _expr_size(expr: Expr) -> int:
@@ -2159,7 +2157,7 @@ def _expr_size(expr: Expr) -> int:
         return 1
     if isinstance(expr, Call):
         return 1 + sum(_expr_size(arg) for arg in expr.args)
-    raise TypeError(f"Unsupported Expr node: {type(expr)}")
+    _unreachable_expr(expr)
 
 
 def _replace_expr(expr: Expr, replacements: dict[Expr, str]) -> Expr:
@@ -2171,7 +2169,7 @@ def _replace_expr(expr: Expr, replacements: dict[Expr, str]) -> Expr:
         return Call(
             expr.name, tuple(_replace_expr(arg, replacements) for arg in expr.args)
         )
-    raise TypeError(f"Unsupported Expr node: {type(expr)}")
+    _unreachable_expr(expr)
 
 
 def _expr_vars(expr: Expr) -> set[str]:
@@ -2184,7 +2182,7 @@ def _expr_vars(expr: Expr) -> set[str]:
         for arg in expr.args:
             out.update(_expr_vars(arg))
         return out
-    raise TypeError(f"Unsupported Expr node: {type(expr)}")
+    _unreachable_expr(expr)
 
 
 def validate_function_model(model: FunctionModel) -> None:
@@ -2279,7 +2277,7 @@ def validate_function_model(model: FunctionModel) -> None:
             continue
 
         if not isinstance(stmt, ConditionalBlock):
-            raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+            _unreachable_stmt(stmt)
 
         missing = _expr_vars(stmt.condition) - scope
         if missing:
@@ -2335,49 +2333,59 @@ def _expect_tuple(value: ModelValue, *, size: int, context: str) -> tuple[int, .
     return value
 
 
+def _div(a: tuple[int, ...]) -> int:
+    aa, bb = u256(a[0]), u256(a[1])
+    return 0 if bb == 0 else aa // bb
+
+
+def _mod(a: tuple[int, ...]) -> int:
+    aa, bb = u256(a[0]), u256(a[1])
+    return 0 if bb == 0 else aa % bb
+
+
+def _shl(a: tuple[int, ...]) -> int:
+    shift, value = u256(a[0]), u256(a[1])
+    return u256(value << shift) if shift < 256 else 0
+
+
+def _shr(a: tuple[int, ...]) -> int:
+    shift, value = u256(a[0]), u256(a[1])
+    return value >> shift if shift < 256 else 0
+
+
+def _clz(a: tuple[int, ...]) -> int:
+    value = u256(a[0])
+    return 256 if value == 0 else 255 - (value.bit_length() - 1)
+
+
+def _mulmod(a: tuple[int, ...]) -> int:
+    aa, bb, nn = u256(a[0]), u256(a[1]), u256(a[2])
+    return 0 if nn == 0 else (aa * bb) % nn
+
+
+_BUILTIN_DISPATCH: dict[tuple[str, int], Callable[[tuple[int, ...]], int]] = {
+    ("add", 2): lambda a: u256(u256(a[0]) + u256(a[1])),
+    ("sub", 2): lambda a: u256(u256(a[0]) + WORD_MOD - u256(a[1])),
+    ("mul", 2): lambda a: u256(u256(a[0]) * u256(a[1])),
+    ("div", 2): _div,
+    ("mod", 2): _mod,
+    ("not", 1): lambda a: WORD_MOD - 1 - u256(a[0]),
+    ("or", 2): lambda a: u256(a[0]) | u256(a[1]),
+    ("and", 2): lambda a: u256(a[0]) & u256(a[1]),
+    ("eq", 2): lambda a: 1 if u256(a[0]) == u256(a[1]) else 0,
+    ("shl", 2): _shl,
+    ("shr", 2): _shr,
+    ("clz", 1): _clz,
+    ("lt", 2): lambda a: 1 if u256(a[0]) < u256(a[1]) else 0,
+    ("gt", 2): lambda a: 1 if u256(a[0]) > u256(a[1]) else 0,
+    ("mulmod", 3): _mulmod,
+}
+
+
 def _eval_builtin(name: str, args: tuple[int, ...]) -> int:
-    if name == "add" and len(args) == 2:
-        return u256(u256(args[0]) + u256(args[1]))
-    if name == "sub" and len(args) == 2:
-        return u256(u256(args[0]) + WORD_MOD - u256(args[1]))
-    if name == "mul" and len(args) == 2:
-        return u256(u256(args[0]) * u256(args[1]))
-    if name == "div" and len(args) == 2:
-        aa = u256(args[0])
-        bb = u256(args[1])
-        return 0 if bb == 0 else aa // bb
-    if name == "mod" and len(args) == 2:
-        aa = u256(args[0])
-        bb = u256(args[1])
-        return 0 if bb == 0 else aa % bb
-    if name == "not" and len(args) == 1:
-        return WORD_MOD - 1 - u256(args[0])
-    if name == "or" and len(args) == 2:
-        return u256(args[0]) | u256(args[1])
-    if name == "and" and len(args) == 2:
-        return u256(args[0]) & u256(args[1])
-    if name == "eq" and len(args) == 2:
-        return 1 if u256(args[0]) == u256(args[1]) else 0
-    if name == "shl" and len(args) == 2:
-        shift = u256(args[0])
-        value = u256(args[1])
-        return u256(value << shift) if shift < 256 else 0
-    if name == "shr" and len(args) == 2:
-        shift = u256(args[0])
-        value = u256(args[1])
-        return value >> shift if shift < 256 else 0
-    if name == "clz" and len(args) == 1:
-        value = u256(args[0])
-        return 256 if value == 0 else 255 - (value.bit_length() - 1)
-    if name == "lt" and len(args) == 2:
-        return 1 if u256(args[0]) < u256(args[1]) else 0
-    if name == "gt" and len(args) == 2:
-        return 1 if u256(args[0]) > u256(args[1]) else 0
-    if name == "mulmod" and len(args) == 3:
-        aa = u256(args[0])
-        bb = u256(args[1])
-        nn = u256(args[2])
-        return 0 if nn == 0 else (aa * bb) % nn
+    fn = _BUILTIN_DISPATCH.get((name, len(args)))
+    if fn is not None:
+        return fn(args)
     raise EvaluationError(f"Unsupported builtin call {name!r} with {len(args)} arg(s)")
 
 
@@ -2407,7 +2415,7 @@ def evaluate_model_expr(
         except KeyError as err:
             raise EvaluationError(f"Undefined model variable {expr.name!r}") from err
     if not isinstance(expr, Call):
-        raise TypeError(f"Unsupported Expr node: {type(expr)}")
+        _unreachable_expr(expr)
 
     component_match = re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
     if component_match and len(expr.args) == 1:
@@ -2506,7 +2514,7 @@ def _evaluate_statement_block(
             continue
 
         if not isinstance(stmt, ConditionalBlock):
-            raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+            _unreachable_stmt(stmt)
 
         condition = _expect_scalar(
             evaluate_model_expr(
@@ -2632,7 +2640,7 @@ def _replace_statement(
                 outputs=stmt.else_branch.outputs,
             ),
         )
-    raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+    _unreachable_stmt(stmt)
 
 
 def _hoist_repeated_calls_in_expr(
@@ -2709,7 +2717,7 @@ def _localize_statement_cse(
             ),
         ]
 
-    raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+    _unreachable_stmt(stmt)
 
 
 def _localize_assignment_cse(
@@ -3019,7 +3027,7 @@ def emit_expr(
             for a in expr.args
         )
         return f"{helper} {args}".rstrip()
-    raise TypeError(f"Unsupported Expr node: {type(expr)}")
+    _unreachable_expr(expr)
 
 
 # ---------------------------------------------------------------------------
@@ -3189,7 +3197,7 @@ def build_model_body(
             rhs = _emit_rhs(stmt.expr)
             lines.append(f"  let {stmt.target} := {rhs}")
         else:
-            raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+            _unreachable_stmt(stmt)
 
     if len(return_names) == 1:
         lines.append(f"  {return_names[0]}")

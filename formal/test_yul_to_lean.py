@@ -2011,6 +2011,29 @@ class TryConstEvalTest(unittest.TestCase):
             )
         )
 
+    def test_ite_nonconstant_dead_branch_still_folds(self) -> None:
+        # __ite(1, 5, Var("x")) → 5 (dead else-branch is non-constant)
+        self.assertEqual(
+            ytl._try_const_eval(
+                ytl.Call("__ite", (ytl.IntLit(1), ytl.IntLit(5), ytl.Var("x")))
+            ),
+            5,
+        )
+        # __ite(0, Var("x"), 3) → 3 (dead then-branch is non-constant)
+        self.assertEqual(
+            ytl._try_const_eval(
+                ytl.Call("__ite", (ytl.IntLit(0), ytl.Var("x"), ytl.IntLit(3)))
+            ),
+            3,
+        )
+        # __ite(42, 10, Var("y")) → 10 (non-zero condition, dead branch has variable)
+        self.assertEqual(
+            ytl._try_const_eval(
+                ytl.Call("__ite", (ytl.IntLit(42), ytl.IntLit(10), ytl.Var("y")))
+            ),
+            10,
+        )
+
     def test_op_to_lean_helper_keys_match_op_to_opcode(self) -> None:
         lean_helpers: dict[str, str] = ytl.OP_TO_LEAN_HELPER
         opcodes: dict[str, str] = ytl.OP_TO_OPCODE
