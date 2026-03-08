@@ -9,6 +9,16 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import yul_to_lean as ytl
 
 
+def branch(
+    assignments: tuple[ytl.Assignment, ...] | list[ytl.Assignment],
+    outputs: tuple[str, ...] | list[str],
+) -> ytl.ConditionalBranch:
+    return ytl.ConditionalBranch(
+        assignments=tuple(assignments),
+        outputs=tuple(outputs),
+    )
+
+
 class HoistRepeatedModelCallsTest(unittest.TestCase):
     MODEL_CALLS = frozenset({"inner"})
 
@@ -45,15 +55,20 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
             assignments=(
                 ytl.ConditionalBlock(
                     condition=ytl.Var("p"),
-                    modified_vars=("y", "a"),
-                    assignments=(
-                        ytl.Assignment("y", ytl.Call("add", (ytl.Var("p"), ytl.Var("p")))),
-                        ytl.Assignment("a", ytl.Call("inner", (ytl.Var("y"),))),
+                    output_vars=("y", "a"),
+                    then_branch=branch(
+                        (
+                            ytl.Assignment("y", ytl.Call("add", (ytl.Var("p"), ytl.Var("p")))),
+                            ytl.Assignment("a", ytl.Call("inner", (ytl.Var("y"),))),
+                        ),
+                        ("y", "a"),
                     ),
-                    else_vars=("y", "a"),
-                    else_assignments=(
-                        ytl.Assignment("y", ytl.Call("add", (ytl.Var("p"), ytl.Var("p")))),
-                        ytl.Assignment("a", ytl.Call("inner", (ytl.Var("y"),))),
+                    else_branch=branch(
+                        (
+                            ytl.Assignment("y", ytl.Call("add", (ytl.Var("p"), ytl.Var("p")))),
+                            ytl.Assignment("a", ytl.Call("inner", (ytl.Var("y"),))),
+                        ),
+                        ("y", "a"),
                     ),
                 ),
                 ytl.Assignment("out", ytl.Var("a")),
@@ -105,28 +120,20 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
             )
 
             then_scope = self._assert_block_well_scoped(
-                stmt.assignments,
+                stmt.then_branch.assignments,
                 available=scope,
             )
-            for var in stmt.modified_vars:
-                self.assertIn(var, then_scope, f"then-branch does not define {var}")
+            for var in stmt.then_branch.outputs:
+                self.assertIn(var, then_scope, f"then-branch output {var} missing")
 
-            if stmt.else_assignments is None:
-                if stmt.else_vars is not None:
-                    for var in stmt.else_vars:
-                        self.assertIn(var, scope, f"else passthrough var {var} missing")
-            else:
-                else_scope = self._assert_block_well_scoped(
-                    stmt.else_assignments,
-                    available=scope,
-                )
-                mapped_else_vars = (
-                    stmt.else_vars if stmt.else_vars is not None else stmt.modified_vars
-                )
-                for var in mapped_else_vars:
-                    self.assertIn(var, else_scope, f"else-branch does not define {var}")
+            else_scope = self._assert_block_well_scoped(
+                stmt.else_branch.assignments,
+                available=scope,
+            )
+            for var in stmt.else_branch.outputs:
+                self.assertIn(var, else_scope, f"else-branch output {var} missing")
 
-            scope.update(stmt.modified_vars)
+            scope.update(stmt.output_vars)
 
         return scope
 
@@ -151,24 +158,12 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
                 raise TypeError(f"Unsupported statement: {type(stmt)}")
 
             branch_env = dict(env)
-            if self._eval_expr(stmt.condition, env) != 0:
-                branch_env = self._eval_block(stmt.assignments, branch_env)
-                for var in stmt.modified_vars:
-                    env[var] = branch_env[var]
-                continue
-
-            if stmt.else_assignments is not None:
-                branch_env = self._eval_block(stmt.else_assignments, branch_env)
-                else_vars = (
-                    stmt.else_vars if stmt.else_vars is not None else stmt.modified_vars
-                )
-                for target, source in zip(stmt.modified_vars, else_vars, strict=True):
-                    env[target] = branch_env[source]
-                continue
-
-            if stmt.else_vars is not None:
-                for target, source in zip(stmt.modified_vars, stmt.else_vars, strict=True):
-                    env[target] = env[source]
+            selected_branch = stmt.then_branch
+            if self._eval_expr(stmt.condition, env) == 0:
+                selected_branch = stmt.else_branch
+            branch_env = self._eval_block(selected_branch.assignments, branch_env)
+            for target, source in zip(stmt.output_vars, selected_branch.outputs, strict=True):
+                env[target] = branch_env[source]
 
         return env
 
@@ -710,8 +705,12 @@ class RestrictedIRInterpreterTest(ModelEquivalenceTestCase):
                 ytl.Assignment("out", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(5)))),
                 ytl.ConditionalBlock(
                     condition=ytl.IntLit(0),
-                    assignments=(ytl.Assignment("out", ytl.IntLit(99)),),
-                    modified_vars=("out",),
+                    output_vars=("out",),
+                    then_branch=branch(
+                        (ytl.Assignment("out", ytl.IntLit(99)),),
+                        ("out",),
+                    ),
+                    else_branch=branch((), ("out",)),
                 ),
             ),
         )
@@ -719,6 +718,25 @@ class RestrictedIRInterpreterTest(ModelEquivalenceTestCase):
         result = ytl.evaluate_function_model(model, (7,))
 
         self.assertEqual(result, (12,))
+
+    def test_validate_function_model_rejects_undefined_conditional_branch_output(self) -> None:
+        bad_model = ytl.FunctionModel(
+            fn_name="bad_cond",
+            param_names=("x",),
+            return_names=("out",),
+            assignments=(
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("x"),
+                    output_vars=("tmp",),
+                    then_branch=branch((), ("missing",)),
+                    else_branch=branch((), ("x",)),
+                ),
+                ytl.Assignment("out", ytl.Var("tmp")),
+            ),
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "undefined then-branch outputs"):
+            ytl.validate_function_model(bad_model)
 
     def test_evaluate_function_model_supports_multi_return_projection(self) -> None:
         pair = ytl.FunctionModel(
@@ -893,12 +911,13 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
                 assignments.append(
                     ytl.ConditionalBlock(
                         condition=self._random_expr(rng, tuple(outer_scope), depth=2),
-                        assignments=tuple(then_assignments),
-                        modified_vars=modified,
-                        else_assignments=(
+                        output_vars=modified,
+                        then_branch=branch(tuple(then_assignments), modified),
+                        else_branch=branch(
                             tuple(else_assignments)
                             if else_assignments is not None
-                            else None
+                            else (),
+                            modified,
                         ),
                     )
                 )
@@ -1008,22 +1027,28 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
                 ),
                 ytl.ConditionalBlock(
                     condition=ytl.Call("gt", (ytl.Var("p"), cond_threshold)),
-                    assignments=(
-                        ytl.Assignment(
-                            "tmp",
-                            ytl.Call("sub", (local_call, local_call)),
+                    output_vars=("tmp", "acc"),
+                    then_branch=branch(
+                        (
+                            ytl.Assignment(
+                                "tmp",
+                                ytl.Call("sub", (local_call, local_call)),
+                            ),
+                            ytl.Assignment(
+                                "acc",
+                                ytl.Call("add", (ytl.Var("acc"), global_pair_call)),
+                            ),
                         ),
-                        ytl.Assignment(
-                            "acc",
-                            ytl.Call("add", (ytl.Var("acc"), global_pair_call)),
-                        ),
+                        ("tmp", "acc"),
                     ),
-                    modified_vars=("tmp", "acc"),
-                    else_assignments=(
-                        ytl.Assignment(
-                            "tmp",
-                            ytl.Call("add", (global_call, global_pair_call)),
+                    else_branch=branch(
+                        (
+                            ytl.Assignment(
+                                "tmp",
+                                ytl.Call("add", (global_call, global_pair_call)),
+                            ),
                         ),
+                        ("tmp", "acc"),
                     ),
                 ),
                 ytl.Assignment(
@@ -1078,10 +1103,14 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
                 ytl.Assignment("tmp", ytl.IntLit(0)),
                 ytl.ConditionalBlock(
                     condition=ytl.Call("gt", (ytl.Var("x"), ytl.IntLit(10))),
-                    assignments=(
-                        ytl.Assignment("tmp", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),
+                    output_vars=("tmp",),
+                    then_branch=branch(
+                        (
+                            ytl.Assignment("tmp", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),
+                        ),
+                        ("tmp",),
                     ),
-                    modified_vars=("tmp",),
+                    else_branch=branch((), ("tmp",)),
                 ),
                 ytl.Assignment("out", ytl.Call("add", (ytl.Var("tmp"), ytl.IntLit(1)))),
             ),
