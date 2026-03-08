@@ -22,6 +22,19 @@ def branch(
 class HoistRepeatedModelCallsTest(unittest.TestCase):
     MODEL_CALLS = frozenset({"inner"})
 
+    # Define ``inner`` as a proper FunctionModel: inner(x) = x*x + 1
+    INNER_MODEL = ytl.FunctionModel(
+        fn_name="inner",
+        param_names=("x",),
+        return_names=("ret",),
+        assignments=(
+            ytl.Assignment(
+                "ret",
+                ytl.Call("add", (ytl.Call("mul", (ytl.Var("x"), ytl.Var("x"))), ytl.IntLit(1))),
+            ),
+        ),
+    )
+
     def test_redefinition_blocks_cross_statement_hoist(self) -> None:
         model = ytl.FunctionModel(
             fn_name="f",
@@ -138,51 +151,11 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
         return scope
 
     def _eval_model(self, model: ytl.FunctionModel, *, p: int) -> int:
-        env = self._eval_block(model.assignments, {"p": p})
-        if len(model.return_names) != 1:
+        table = ytl.build_model_table([self.INNER_MODEL, model])
+        result = ytl.evaluate_function_model(model, (p,), model_table=table)
+        if len(result) != 1:
             raise AssertionError("test helper expects single-return models")
-        return env[model.return_names[0]]
-
-    def _eval_block(
-        self,
-        statements: tuple[ytl.ModelStatement, ...],
-        env: dict[str, int],
-    ) -> dict[str, int]:
-        env = dict(env)
-        for stmt in statements:
-            if isinstance(stmt, ytl.Assignment):
-                env[stmt.target] = self._eval_expr(stmt.expr, env)
-                continue
-
-            if not isinstance(stmt, ytl.ConditionalBlock):
-                raise TypeError(f"Unsupported statement: {type(stmt)}")
-
-            branch_env = dict(env)
-            selected_branch = stmt.then_branch
-            if self._eval_expr(stmt.condition, env) == 0:
-                selected_branch = stmt.else_branch
-            branch_env = self._eval_block(selected_branch.assignments, branch_env)
-            for target, source in zip(stmt.output_vars, selected_branch.outputs, strict=True):
-                env[target] = branch_env[source]
-
-        return env
-
-    def _eval_expr(self, expr: ytl.Expr, env: dict[str, int]) -> int:
-        if isinstance(expr, ytl.IntLit):
-            return expr.value
-        if isinstance(expr, ytl.Var):
-            return env[expr.name]
-        if not isinstance(expr, ytl.Call):
-            raise TypeError(f"Unsupported expr: {type(expr)}")
-
-        args = tuple(self._eval_expr(arg, env) for arg in expr.args)
-        if expr.name == "add":
-            return args[0] + args[1]
-        if expr.name == "sub":
-            return args[0] - args[1]
-        if expr.name == "inner":
-            return args[0] * args[0] + 1
-        raise ValueError(f"Unsupported call in test evaluator: {expr.name}")
+        return result[0]
 
 
 class FailClosedTranslatorTest(unittest.TestCase):
@@ -1092,9 +1065,10 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
                 outer_scope.append(dead_name)
                 mutable_scope.append(dead_name)
 
-        return_count = 2 if rng.random() < 0.35 else 1
+        non_param_scope = [v for v in outer_scope if v not in params]
+        return_count = min(2 if rng.random() < 0.35 else 1, len(non_param_scope))
         return_names = tuple(
-            rng.sample(tuple(outer_scope), k=return_count)
+            rng.sample(non_param_scope, k=return_count)
         )
         model = ytl.FunctionModel(
             fn_name=f"random_dce_{seed}",
@@ -1441,6 +1415,442 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
                 after_table=optimized_table,
                 seed=4000 + seed,
                 random_cases=96,
+            )
+
+
+# ---------------------------------------------------------------------------
+# Step 1 tests: _try_const_eval delegation to _eval_builtin
+# ---------------------------------------------------------------------------
+
+class TryConstEvalTest(unittest.TestCase):
+    def test_try_const_eval_folds_all_builtin_ops(self) -> None:
+        # mul
+        self.assertEqual(
+            ytl._try_const_eval(ytl.Call("mul", (ytl.IntLit(3), ytl.IntLit(7)))),
+            21,
+        )
+        # div
+        self.assertEqual(
+            ytl._try_const_eval(ytl.Call("div", (ytl.IntLit(20), ytl.IntLit(3)))),
+            6,
+        )
+        # mod
+        self.assertEqual(
+            ytl._try_const_eval(ytl.Call("mod", (ytl.IntLit(10), ytl.IntLit(3)))),
+            1,
+        )
+        # not
+        self.assertEqual(
+            ytl._try_const_eval(ytl.Call("not", (ytl.IntLit(0),))),
+            ytl.WORD_MOD - 1,
+        )
+        # shl
+        self.assertEqual(
+            ytl._try_const_eval(ytl.Call("shl", (ytl.IntLit(8), ytl.IntLit(1)))),
+            256,
+        )
+        # shr
+        self.assertEqual(
+            ytl._try_const_eval(ytl.Call("shr", (ytl.IntLit(4), ytl.IntLit(256)))),
+            16,
+        )
+        # eq
+        self.assertEqual(
+            ytl._try_const_eval(ytl.Call("eq", (ytl.IntLit(5), ytl.IntLit(5)))),
+            1,
+        )
+        # lt
+        self.assertEqual(
+            ytl._try_const_eval(ytl.Call("lt", (ytl.IntLit(3), ytl.IntLit(7)))),
+            1,
+        )
+        # gt
+        self.assertEqual(
+            ytl._try_const_eval(ytl.Call("gt", (ytl.IntLit(7), ytl.IntLit(3)))),
+            1,
+        )
+        # and / or
+        self.assertEqual(
+            ytl._try_const_eval(ytl.Call("and", (ytl.IntLit(0xFF), ytl.IntLit(0x0F)))),
+            0x0F,
+        )
+        self.assertEqual(
+            ytl._try_const_eval(ytl.Call("or", (ytl.IntLit(0xF0), ytl.IntLit(0x0F)))),
+            0xFF,
+        )
+        # clz
+        self.assertEqual(
+            ytl._try_const_eval(ytl.Call("clz", (ytl.IntLit(1),))),
+            255,
+        )
+        # mulmod
+        self.assertEqual(
+            ytl._try_const_eval(ytl.Call("mulmod", (ytl.IntLit(3), ytl.IntLit(5), ytl.IntLit(7)))),
+            1,
+        )
+
+    def test_try_const_eval_returns_none_for_variables(self) -> None:
+        self.assertIsNone(ytl._try_const_eval(ytl.Var("x")))
+        self.assertIsNone(
+            ytl._try_const_eval(ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1))))
+        )
+        self.assertIsNone(
+            ytl._try_const_eval(ytl.Call("mul", (ytl.IntLit(2), ytl.Var("y"))))
+        )
+
+    def test_op_to_lean_helper_keys_match_op_to_opcode(self) -> None:
+        self.assertEqual(set(ytl.OP_TO_LEAN_HELPER), set(ytl.OP_TO_OPCODE))
+
+
+# ---------------------------------------------------------------------------
+# Step 2 tests: standalone _eval_builtin EVM correctness
+# ---------------------------------------------------------------------------
+
+class EvalBuiltinCorrectnessTest(unittest.TestCase):
+    def test_add_wraps(self) -> None:
+        self.assertEqual(ytl._eval_builtin("add", (ytl.WORD_MOD - 1, 1)), 0)
+
+    def test_sub_wraps(self) -> None:
+        self.assertEqual(ytl._eval_builtin("sub", (0, 1)), ytl.WORD_MOD - 1)
+
+    def test_mul_wraps(self) -> None:
+        self.assertEqual(ytl._eval_builtin("mul", (ytl.WORD_MOD - 1, ytl.WORD_MOD - 1)), 1)
+
+    def test_div_by_zero(self) -> None:
+        self.assertEqual(ytl._eval_builtin("div", (7, 0)), 0)
+
+    def test_mod_by_zero(self) -> None:
+        self.assertEqual(ytl._eval_builtin("mod", (7, 0)), 0)
+
+    def test_not_complement(self) -> None:
+        self.assertEqual(ytl._eval_builtin("not", (0,)), ytl.WORD_MOD - 1)
+
+    def test_shl_boundary(self) -> None:
+        self.assertEqual(ytl._eval_builtin("shl", (255, 1)), 1 << 255)
+        self.assertEqual(ytl._eval_builtin("shl", (256, 1)), 0)
+
+    def test_shr_boundary(self) -> None:
+        self.assertEqual(ytl._eval_builtin("shr", (255, 1 << 255)), 1)
+        self.assertEqual(ytl._eval_builtin("shr", (256, 1 << 255)), 0)
+
+    def test_clz_edges(self) -> None:
+        self.assertEqual(ytl._eval_builtin("clz", (0,)), 256)
+        self.assertEqual(ytl._eval_builtin("clz", (1,)), 255)
+        self.assertEqual(ytl._eval_builtin("clz", (1 << 255,)), 0)
+
+    def test_lt_gt_boolean(self) -> None:
+        self.assertIn(ytl._eval_builtin("lt", (3, 7)), (0, 1))
+        self.assertEqual(ytl._eval_builtin("lt", (3, 7)), 1)
+        self.assertEqual(ytl._eval_builtin("lt", (7, 3)), 0)
+        self.assertEqual(ytl._eval_builtin("gt", (7, 3)), 1)
+        self.assertEqual(ytl._eval_builtin("gt", (3, 7)), 0)
+
+    def test_mulmod_by_zero(self) -> None:
+        self.assertEqual(ytl._eval_builtin("mulmod", (3, 5, 0)), 0)
+        # (WORD_MOD-1)^2 mod (WORD_MOD-1) = 0
+        self.assertEqual(
+            ytl._eval_builtin("mulmod", (ytl.WORD_MOD - 1, ytl.WORD_MOD - 1, ytl.WORD_MOD - 1)),
+            0,
+        )
+        # Standard case: 3*5 mod 7 = 1
+        self.assertEqual(ytl._eval_builtin("mulmod", (3, 5, 7)), 1)
+
+    def test_unsupported_op_raises(self) -> None:
+        with self.assertRaises(ytl.EvaluationError):
+            ytl._eval_builtin("fake_op", (1, 2))
+
+    def test_wrong_arity_raises(self) -> None:
+        with self.assertRaises(ytl.EvaluationError):
+            ytl._eval_builtin("add", (1,))
+
+
+# ---------------------------------------------------------------------------
+# Step 3 tests: validate_function_model structural invariants
+# ---------------------------------------------------------------------------
+
+class ValidateFunctionModelTest(unittest.TestCase):
+    def test_validate_rejects_duplicate_param_names(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="bad",
+            param_names=("x", "x"),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+        with self.assertRaisesRegex(ytl.ParseError, "duplicate param"):
+            ytl.validate_function_model(model)
+
+    def test_validate_rejects_duplicate_return_names(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="bad",
+            param_names=("x",),
+            return_names=("z", "z"),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+        with self.assertRaisesRegex(ytl.ParseError, "duplicate return"):
+            ytl.validate_function_model(model)
+
+    def test_validate_rejects_param_return_overlap(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="bad",
+            param_names=("x",),
+            return_names=("x",),
+            assignments=(ytl.Assignment("x", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),),
+        )
+        with self.assertRaisesRegex(ytl.ParseError, "param/return name overlap"):
+            ytl.validate_function_model(model)
+
+    def test_validate_rejects_duplicate_conditional_output_vars(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="bad",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("x"),
+                    output_vars=("a", "a"),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(ytl.Assignment("a", ytl.IntLit(1)),),
+                        outputs=("a", "a"),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(ytl.Assignment("a", ytl.IntLit(2)),),
+                        outputs=("a", "a"),
+                    ),
+                ),
+                ytl.Assignment("z", ytl.Var("a")),
+            ),
+        )
+        with self.assertRaisesRegex(ytl.ParseError, "duplicate conditional output_vars"):
+            ytl.validate_function_model(model)
+
+    def test_validate_rejects_invalid_ident_in_param(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="bad",
+            param_names=("123bad",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.IntLit(0)),),
+        )
+        with self.assertRaisesRegex(ytl.ParseError, "Invalid.*param"):
+            ytl.validate_function_model(model)
+
+
+# ---------------------------------------------------------------------------
+# Step 6a tests: collect_ops_from_statement
+# ---------------------------------------------------------------------------
+
+class CollectOpsTest(unittest.TestCase):
+    def test_collects_ops_from_else_branch(self) -> None:
+        stmt = ytl.ConditionalBlock(
+            condition=ytl.IntLit(1),
+            output_vars=("out",),
+            then_branch=branch(
+                (ytl.Assignment("out", ytl.IntLit(0)),),
+                ("out",),
+            ),
+            else_branch=branch(
+                (ytl.Assignment("out", ytl.Call("mul", (ytl.IntLit(3), ytl.IntLit(7)))),),
+                ("out",),
+            ),
+        )
+        ops = ytl.collect_ops_from_statement(stmt)
+        self.assertIn("mul", ops)
+
+    def test_collects_ops_from_condition(self) -> None:
+        stmt = ytl.ConditionalBlock(
+            condition=ytl.Call("gt", (ytl.IntLit(5), ytl.IntLit(3))),
+            output_vars=("out",),
+            then_branch=branch(
+                (ytl.Assignment("out", ytl.IntLit(1)),),
+                ("out",),
+            ),
+            else_branch=branch(
+                (ytl.Assignment("out", ytl.IntLit(0)),),
+                ("out",),
+            ),
+        )
+        ops = ytl.collect_ops_from_statement(stmt)
+        self.assertIn("gt", ops)
+
+
+# ---------------------------------------------------------------------------
+# Step 6b tests: emit_expr
+# ---------------------------------------------------------------------------
+
+class EmitExprTest(unittest.TestCase):
+    OP_MAP = ytl.OP_TO_LEAN_HELPER
+    CALL_MAP: dict[str, str] = {}
+
+    def _emit(self, expr: ytl.Expr) -> str:
+        return ytl.emit_expr(expr, op_helper_map=self.OP_MAP, call_helper_map=self.CALL_MAP)
+
+    def test_emit_intlit(self) -> None:
+        self.assertEqual(self._emit(ytl.IntLit(42)), "42")
+
+    def test_emit_var(self) -> None:
+        self.assertEqual(self._emit(ytl.Var("x")), "x")
+
+    def test_emit_builtin_call(self) -> None:
+        result = self._emit(ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1))))
+        self.assertEqual(result, "evmAdd (x) (1)")
+
+    def test_emit_ite(self) -> None:
+        result = self._emit(
+            ytl.Call("__ite", (ytl.Var("c"), ytl.IntLit(1), ytl.IntLit(0)))
+        )
+        self.assertIn("if", result)
+        self.assertIn("then", result)
+        self.assertIn("else", result)
+
+    def test_emit_component_projection(self) -> None:
+        inner = ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))
+        result = self._emit(ytl.Call("__component_0_2", (inner,)))
+        self.assertIn(".1", result)
+
+    def test_emit_unknown_call_raises(self) -> None:
+        with self.assertRaises(ytl.ParseError):
+            self._emit(ytl.Call("totally_unknown_func", (ytl.IntLit(1),)))
+
+
+# ---------------------------------------------------------------------------
+# Step 6c: __ite generation in fuzzer + Step 6d: multi-return projection
+# ---------------------------------------------------------------------------
+
+class ExtendedFuzzerTest(ModelEquivalenceTestCase):
+    UNARY_OPS = ("not", "clz")
+    BINARY_OPS = ("add", "sub", "mul", "div", "mod", "and", "or", "eq", "lt", "gt", "shl", "shr")
+    TERNARY_OPS = ("mulmod",)
+
+    def _random_scalar(self, rng: random.Random) -> int:
+        if rng.random() < 0.7:
+            return rng.choice(self.INTERESTING_VALUES)
+        return rng.getrandbits(320)
+
+    def _random_expr(
+        self,
+        rng: random.Random,
+        available: tuple[str, ...],
+        *,
+        depth: int,
+    ) -> ytl.Expr:
+        if depth <= 0 or rng.random() < 0.3:
+            if available and rng.random() < 0.6:
+                return ytl.Var(rng.choice(available))
+            return ytl.IntLit(self._random_scalar(rng))
+
+        kind = rng.random()
+        if kind < 0.15 and available:
+            return ytl.Var(rng.choice(available))
+        if kind < 0.30:
+            return ytl.IntLit(self._random_scalar(rng))
+        # __ite generation (5% probability at depth > 0)
+        if kind < 0.35:
+            cond = self._random_expr(rng, available, depth=depth - 1)
+            a = self._random_expr(rng, available, depth=depth - 1)
+            b = self._random_expr(rng, available, depth=depth - 1)
+            return ytl.Call("__ite", (cond, a, b))
+        if kind < 0.50:
+            op = rng.choice(self.UNARY_OPS)
+            return ytl.Call(op, (self._random_expr(rng, available, depth=depth - 1),))
+        if kind < 0.90:
+            op = rng.choice(self.BINARY_OPS)
+            return ytl.Call(
+                op,
+                (
+                    self._random_expr(rng, available, depth=depth - 1),
+                    self._random_expr(rng, available, depth=depth - 1),
+                ),
+            )
+        op = rng.choice(self.TERNARY_OPS)
+        return ytl.Call(
+            op,
+            (
+                self._random_expr(rng, available, depth=depth - 1),
+                self._random_expr(rng, available, depth=depth - 1),
+                self._random_expr(rng, available, depth=depth - 1),
+            ),
+        )
+
+    def test_randomized_ite_dce_equivalence(self) -> None:
+        """DCE on models containing __ite expressions preserves semantics."""
+        for seed in range(12):
+            rng = random.Random(seed + 7000)
+            params = ("p0", "p1")
+            assignments: list[ytl.ModelStatement] = []
+            scope = list(params)
+            for i in range(6):
+                name = f"v_{seed}_{i}"
+                assignments.append(
+                    ytl.Assignment(name, self._random_expr(rng, tuple(scope), depth=3))
+                )
+                scope.append(name)
+
+            before = ytl.FunctionModel(
+                fn_name=f"ite_dce_{seed}",
+                param_names=params,
+                return_names=(scope[-1],),
+                assignments=tuple(assignments),
+            )
+            ytl.validate_function_model(before)
+            after = ytl._prune_dead_assignments(before)
+            self.assertModelsEquivalent(before, after, seed=7000 + seed, random_cases=64)
+
+    def test_randomized_multi_return_projection_equivalence(self) -> None:
+        """Build a 2-return helper + outer using __component projections, verify DCE."""
+        for seed in range(8):
+            rng = random.Random(seed + 8000)
+
+            helper = ytl.FunctionModel(
+                fn_name="helper",
+                param_names=("a", "b"),
+                return_names=("r0", "r1"),
+                assignments=(
+                    ytl.Assignment(
+                        "r0",
+                        self._random_expr(rng, ("a", "b"), depth=2),
+                    ),
+                    ytl.Assignment(
+                        "r1",
+                        self._random_expr(rng, ("a", "b"), depth=2),
+                    ),
+                ),
+            )
+
+            outer = ytl.FunctionModel(
+                fn_name="outer",
+                param_names=("x", "y"),
+                return_names=("out",),
+                assignments=(
+                    ytl.Assignment(
+                        "lhs",
+                        ytl.Call("__component_0_2", (ytl.Call("helper", (ytl.Var("x"), ytl.Var("y"))),)),
+                    ),
+                    ytl.Assignment(
+                        "rhs",
+                        ytl.Call("__component_1_2", (ytl.Call("helper", (ytl.Var("x"), ytl.Var("y"))),)),
+                    ),
+                    ytl.Assignment(
+                        "dead",
+                        self._random_expr(rng, ("x", "y"), depth=2),
+                    ),
+                    ytl.Assignment(
+                        "out",
+                        ytl.Call("add", (ytl.Var("lhs"), ytl.Var("rhs"))),
+                    ),
+                ),
+            )
+
+            table = ytl.build_model_table([helper, outer])
+            ytl.validate_function_model(outer)
+            after = ytl._prune_dead_assignments(outer)
+            ytl.validate_function_model(after)
+
+            self.assertModelsEquivalent(
+                outer,
+                after,
+                before_table=table,
+                after_table={**table, "outer": after},
+                seed=8000 + seed,
+                random_cases=64,
             )
 
 

@@ -864,22 +864,13 @@ def _try_const_eval(expr: Expr) -> int | None:
     """Try to evaluate an expression to a constant integer.
 
     Returns ``None`` if the expression contains variables or unsupported
-    operations.  Used for resolving constant memory addresses in
-    mstore/mload folding.
+    operations.  Delegates to ``_eval_builtin`` for all supported EVM
+    opcodes so that constant-folding semantics stay in sync with the
+    model evaluator.
     """
     if isinstance(expr, IntLit):
         return expr.value
     if isinstance(expr, Call):
-        if expr.name == "add" and len(expr.args) == 2:
-            a = _try_const_eval(expr.args[0])
-            b = _try_const_eval(expr.args[1])
-            if a is not None and b is not None:
-                return (a + b) % (2 ** 256)
-        if expr.name == "sub" and len(expr.args) == 2:
-            a = _try_const_eval(expr.args[0])
-            b = _try_const_eval(expr.args[1])
-            if a is not None and b is not None:
-                return (a + 2 ** 256 - b) % (2 ** 256)
         # Handle __ite(cond, if_val, else_val): if both branches
         # evaluate to the same constant, the result is that constant
         # regardless of the condition.
@@ -888,6 +879,15 @@ def _try_const_eval(expr: Expr) -> int | None:
             else_val = _try_const_eval(expr.args[2])
             if if_val is not None and else_val is not None and if_val == else_val:
                 return if_val
+            return None
+        # Delegate all other ops to _eval_builtin.
+        arg_vals = tuple(_try_const_eval(arg) for arg in expr.args)
+        if any(v is None for v in arg_vals):
+            return None
+        try:
+            return _eval_builtin(expr.name, arg_vals)  # type: ignore[arg-type]
+        except EvaluationError:
+            return None
     return None
 
 
@@ -1662,6 +1662,7 @@ def yul_function_to_model(
         return_names=tuple(return_names_list),
     )
 
+    validate_function_model(model)
     return model
 
 
@@ -1737,12 +1738,14 @@ def _prune_dead_assignments(
         )
 
     kept_rev.reverse()
-    return FunctionModel(
+    result = FunctionModel(
         fn_name=model.fn_name,
         assignments=tuple(kept_rev),
         param_names=model.param_names,
         return_names=model.return_names,
     )
+    validate_function_model(result)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -1784,6 +1787,12 @@ OP_TO_OPCODE = {
     "gt": "GT",
     "mulmod": "MULMOD",
 }
+
+# Catch key-set drift between Lean helper names and opcode names at import time.
+assert set(OP_TO_LEAN_HELPER) == set(OP_TO_OPCODE), (
+    f"OP_TO_LEAN_HELPER keys {set(OP_TO_LEAN_HELPER)} != "
+    f"OP_TO_OPCODE keys {set(OP_TO_OPCODE)}"
+)
 
 # Base norm helpers shared by all generators.  Per-generator extras (like
 # bitLengthPlus1 for cbrt) are merged in via ModelConfig.extra_norm_ops.
@@ -1879,6 +1888,43 @@ def _expr_vars(expr: Expr) -> set[str]:
 
 def validate_function_model(model: FunctionModel) -> None:
     """Reject malformed restricted-IR models before Lean emission."""
+
+    # -- Structural invariants on names --
+    if len(set(model.param_names)) != len(model.param_names):
+        raise ParseError(
+            f"Model {model.fn_name!r} has duplicate param names: {model.param_names!r}"
+        )
+    if len(set(model.return_names)) != len(model.return_names):
+        raise ParseError(
+            f"Model {model.fn_name!r} has duplicate return names: {model.return_names!r}"
+        )
+    overlap = set(model.param_names) & set(model.return_names)
+    if overlap:
+        raise ParseError(
+            f"Model {model.fn_name!r} has param/return name overlap: {sorted(overlap)}"
+        )
+
+    # Validate all identifiers used as binders.
+    for name in model.param_names:
+        validate_ident(name, what=f"param name in {model.fn_name!r}")
+    for name in model.return_names:
+        validate_ident(name, what=f"return name in {model.fn_name!r}")
+
+    for stmt in model.assignments:
+        if isinstance(stmt, Assignment):
+            validate_ident(stmt.target, what=f"assignment target in {model.fn_name!r}")
+        elif isinstance(stmt, ConditionalBlock):
+            for var in stmt.output_vars:
+                validate_ident(var, what=f"conditional output var in {model.fn_name!r}")
+            if len(set(stmt.output_vars)) != len(stmt.output_vars):
+                raise ParseError(
+                    f"Model {model.fn_name!r} has duplicate conditional output_vars: "
+                    f"{stmt.output_vars!r}"
+                )
+            for a in stmt.then_branch.assignments:
+                validate_ident(a.target, what=f"then-branch target in {model.fn_name!r}")
+            for a in stmt.else_branch.assignments:
+                validate_ident(a.target, what=f"else-branch target in {model.fn_name!r}")
 
     def _validate_assignment_block(
         assignments: tuple[Assignment, ...],
@@ -2412,12 +2458,14 @@ def hoist_repeated_model_calls(
             stmt, model_call_names=model_call_names,
         ))
 
-    return FunctionModel(
+    result = FunctionModel(
         fn_name=model.fn_name,
         assignments=tuple(new_assignments),
         param_names=model.param_names,
         return_names=model.return_names,
     )
+    validate_function_model(result)
+    return result
 
 
 def prepare_translation(
