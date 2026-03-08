@@ -1030,6 +1030,16 @@ def _try_const_eval(expr: Expr) -> int | None:
     return None
 
 
+def _simplify_ite(cond: Expr, if_val: Expr, else_val: Expr) -> Expr:
+    """Build an ``__ite`` node, simplifying when the condition or branches are trivial."""
+    if if_val == else_val:
+        return if_val
+    cond_val = _try_const_eval(cond)
+    if cond_val is not None:
+        return if_val if cond_val != 0 else else_val
+    return Call("__ite", (cond, if_val, else_val))
+
+
 def _is_zero_init_expr(expr: Expr) -> bool:
     return (isinstance(expr, IntLit) and expr.value == 0) or (
         isinstance(expr, Call)
@@ -1261,18 +1271,18 @@ def _inline_single_call(
                     pre_val = subst.get(target, IntLit(0))
                     if_val = if_subst.get(target, pre_val)
                     else_val = else_subst.get(target, pre_val)
-                    if if_val != else_val:
-                        subst[target] = Call("__ite", (cond, if_val, else_val))
-                    elif if_val != pre_val:
-                        subst[target] = if_val
+                    merged = _simplify_ite(cond, if_val, else_val)
+                    if merged != pre_val:
+                        subst[target] = merged
             else:
                 # Normal if-block (no leave, no else): preserve the pre-if value
                 # on the false path and merge with __ite.
                 for target, _raw_expr in stmt.body:
                     if_val = if_subst[target]
                     orig_val = subst.get(target, IntLit(0))
-                    if if_val != orig_val:
-                        subst[target] = Call("__ite", (cond, if_val, orig_val))
+                    merged = _simplify_ite(cond, if_val, orig_val)
+                    if merged != orig_val:
+                        subst[target] = merged
         elif isinstance(stmt, MemoryWrite):
             raise ParseError(
                 f"Cannot inline helper {fn.yul_name!r}: helper memory writes are "
@@ -1306,7 +1316,7 @@ def _inline_single_call(
         if leave_cond is not None and leave_subst is not None:
             if_val = _resolve(leave_subst.get(r, IntLit(0)), leave_subst)
             resolved_cond = _resolve(leave_cond, leave_subst)
-            return Call("__ite", (resolved_cond, if_val, else_val))
+            return _simplify_ite(resolved_cond, if_val, else_val)
         return else_val
 
     if len(fn.rets) == 1:
