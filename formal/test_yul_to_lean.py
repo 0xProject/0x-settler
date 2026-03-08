@@ -29,7 +29,10 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
         assignments=(
             ytl.Assignment(
                 "ret",
-                ytl.Call("add", (ytl.Call("mul", (ytl.Var("x"), ytl.Var("x"))), ytl.IntLit(1))),
+                ytl.Call(
+                    "add",
+                    (ytl.Call("mul", (ytl.Var("x"), ytl.Var("x"))), ytl.IntLit(1)),
+                ),
             ),
         ),
     )
@@ -357,6 +360,21 @@ class FailClosedTranslatorTest(unittest.TestCase):
                 collection.functions,
                 unsupported_function_errors=collection.rejected,
             )
+
+    def test_yul_function_to_model_rejects_demangled_signature_collision(
+        self,
+    ) -> None:
+        yf = ytl.YulFunction(
+            yul_name="f",
+            params=["var_x_1"],
+            rets=["var_x_2"],
+            assignments=[
+                ("var_x_2", ytl.IntLit(1)),
+            ],
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "both demangle to 'x'"):
+            ytl.yul_function_to_model(yf, "f", {})
 
     def test_inline_calls_rejects_depth_overflow(self) -> None:
         fn_table = {
@@ -1333,9 +1351,9 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
                 outer_scope.append(dead_name)
                 mutable_scope.append(dead_name)
 
-        non_param_scope = [v for v in outer_scope if v not in params]
-        return_count = min(2 if rng.random() < 0.35 else 1, len(non_param_scope))
-        return_names = tuple(rng.sample(non_param_scope, k=return_count))
+        return_pool = tuple(outer_scope)
+        return_count = min(2 if rng.random() < 0.35 else 1, len(return_pool))
+        return_names = tuple(rng.sample(return_pool, k=return_count))
         model = ytl.FunctionModel(
             fn_name=f"random_dce_{seed}",
             param_names=params,
@@ -1700,6 +1718,7 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
 # Step 1 tests: _try_const_eval delegation to _eval_builtin
 # ---------------------------------------------------------------------------
 
+
 class TryConstEvalTest(unittest.TestCase):
     def test_try_const_eval_folds_all_builtin_ops(self) -> None:
         # mul
@@ -1763,7 +1782,9 @@ class TryConstEvalTest(unittest.TestCase):
         )
         # mulmod
         self.assertEqual(
-            ytl._try_const_eval(ytl.Call("mulmod", (ytl.IntLit(3), ytl.IntLit(5), ytl.IntLit(7)))),
+            ytl._try_const_eval(
+                ytl.Call("mulmod", (ytl.IntLit(3), ytl.IntLit(5), ytl.IntLit(7)))
+            ),
             1,
         )
 
@@ -1784,6 +1805,7 @@ class TryConstEvalTest(unittest.TestCase):
 # Step 2 tests: standalone _eval_builtin EVM correctness
 # ---------------------------------------------------------------------------
 
+
 class EvalBuiltinCorrectnessTest(unittest.TestCase):
     def test_add_wraps(self) -> None:
         self.assertEqual(ytl._eval_builtin("add", (ytl.WORD_MOD - 1, 1)), 0)
@@ -1792,7 +1814,9 @@ class EvalBuiltinCorrectnessTest(unittest.TestCase):
         self.assertEqual(ytl._eval_builtin("sub", (0, 1)), ytl.WORD_MOD - 1)
 
     def test_mul_wraps(self) -> None:
-        self.assertEqual(ytl._eval_builtin("mul", (ytl.WORD_MOD - 1, ytl.WORD_MOD - 1)), 1)
+        self.assertEqual(
+            ytl._eval_builtin("mul", (ytl.WORD_MOD - 1, ytl.WORD_MOD - 1)), 1
+        )
 
     def test_div_by_zero(self) -> None:
         self.assertEqual(ytl._eval_builtin("div", (7, 0)), 0)
@@ -1827,7 +1851,9 @@ class EvalBuiltinCorrectnessTest(unittest.TestCase):
         self.assertEqual(ytl._eval_builtin("mulmod", (3, 5, 0)), 0)
         # (WORD_MOD-1)^2 mod (WORD_MOD-1) = 0
         self.assertEqual(
-            ytl._eval_builtin("mulmod", (ytl.WORD_MOD - 1, ytl.WORD_MOD - 1, ytl.WORD_MOD - 1)),
+            ytl._eval_builtin(
+                "mulmod", (ytl.WORD_MOD - 1, ytl.WORD_MOD - 1, ytl.WORD_MOD - 1)
+            ),
             0,
         )
         # Standard case: 3*5 mod 7 = 1
@@ -1845,6 +1871,7 @@ class EvalBuiltinCorrectnessTest(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # Step 3 tests: validate_function_model structural invariants
 # ---------------------------------------------------------------------------
+
 
 class ValidateFunctionModelTest(unittest.TestCase):
     def test_validate_rejects_duplicate_param_names(self) -> None:
@@ -1867,15 +1894,15 @@ class ValidateFunctionModelTest(unittest.TestCase):
         with self.assertRaisesRegex(ytl.ParseError, "duplicate return"):
             ytl.validate_function_model(model)
 
-    def test_validate_rejects_param_return_overlap(self) -> None:
+    def test_validate_allows_param_return_overlap_in_restricted_ir(self) -> None:
         model = ytl.FunctionModel(
-            fn_name="bad",
+            fn_name="identity",
             param_names=("x",),
             return_names=("x",),
-            assignments=(ytl.Assignment("x", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),),
+            assignments=(),
         )
-        with self.assertRaisesRegex(ytl.ParseError, "param/return name overlap"):
-            ytl.validate_function_model(model)
+        ytl.validate_function_model(model)
+        self.assertEqual(ytl.evaluate_function_model(model, (7,)), (7,))
 
     def test_validate_rejects_duplicate_conditional_output_vars(self) -> None:
         model = ytl.FunctionModel(
@@ -1898,7 +1925,9 @@ class ValidateFunctionModelTest(unittest.TestCase):
                 ytl.Assignment("z", ytl.Var("a")),
             ),
         )
-        with self.assertRaisesRegex(ytl.ParseError, "duplicate conditional output_vars"):
+        with self.assertRaisesRegex(
+            ytl.ParseError, "duplicate conditional output_vars"
+        ):
             ytl.validate_function_model(model)
 
     def test_validate_rejects_invalid_ident_in_param(self) -> None:
@@ -1916,6 +1945,7 @@ class ValidateFunctionModelTest(unittest.TestCase):
 # Step 6a tests: collect_ops_from_statement
 # ---------------------------------------------------------------------------
 
+
 class CollectOpsTest(unittest.TestCase):
     def test_collects_ops_from_else_branch(self) -> None:
         stmt = ytl.ConditionalBlock(
@@ -1926,7 +1956,11 @@ class CollectOpsTest(unittest.TestCase):
                 ("out",),
             ),
             else_branch=branch(
-                (ytl.Assignment("out", ytl.Call("mul", (ytl.IntLit(3), ytl.IntLit(7)))),),
+                (
+                    ytl.Assignment(
+                        "out", ytl.Call("mul", (ytl.IntLit(3), ytl.IntLit(7)))
+                    ),
+                ),
                 ("out",),
             ),
         )
@@ -1954,12 +1988,15 @@ class CollectOpsTest(unittest.TestCase):
 # Step 6b tests: emit_expr
 # ---------------------------------------------------------------------------
 
+
 class EmitExprTest(unittest.TestCase):
     OP_MAP = ytl.OP_TO_LEAN_HELPER
     CALL_MAP: dict[str, str] = {}
 
     def _emit(self, expr: ytl.Expr) -> str:
-        return ytl.emit_expr(expr, op_helper_map=self.OP_MAP, call_helper_map=self.CALL_MAP)
+        return ytl.emit_expr(
+            expr, op_helper_map=self.OP_MAP, call_helper_map=self.CALL_MAP
+        )
 
     def test_emit_intlit(self) -> None:
         self.assertEqual(self._emit(ytl.IntLit(42)), "42")
@@ -1993,9 +2030,23 @@ class EmitExprTest(unittest.TestCase):
 # Step 6c: __ite generation in fuzzer + Step 6d: multi-return projection
 # ---------------------------------------------------------------------------
 
+
 class ExtendedFuzzerTest(ModelEquivalenceTestCase):
     UNARY_OPS = ("not", "clz")
-    BINARY_OPS = ("add", "sub", "mul", "div", "mod", "and", "or", "eq", "lt", "gt", "shl", "shr")
+    BINARY_OPS = (
+        "add",
+        "sub",
+        "mul",
+        "div",
+        "mod",
+        "and",
+        "or",
+        "eq",
+        "lt",
+        "gt",
+        "shl",
+        "shr",
+    )
     TERNARY_OPS = ("mulmod",)
 
     def _random_scalar(self, rng: random.Random) -> int:
@@ -2070,7 +2121,9 @@ class ExtendedFuzzerTest(ModelEquivalenceTestCase):
             )
             ytl.validate_function_model(before)
             after = ytl._prune_dead_assignments(before)
-            self.assertModelsEquivalent(before, after, seed=7000 + seed, random_cases=64)
+            self.assertModelsEquivalent(
+                before, after, seed=7000 + seed, random_cases=64
+            )
 
     def test_randomized_multi_return_projection_equivalence(self) -> None:
         """Build a 2-return helper + outer using __component projections, verify DCE."""
@@ -2100,11 +2153,17 @@ class ExtendedFuzzerTest(ModelEquivalenceTestCase):
                 assignments=(
                     ytl.Assignment(
                         "lhs",
-                        ytl.Call("__component_0_2", (ytl.Call("helper", (ytl.Var("x"), ytl.Var("y"))),)),
+                        ytl.Call(
+                            "__component_0_2",
+                            (ytl.Call("helper", (ytl.Var("x"), ytl.Var("y"))),),
+                        ),
                     ),
                     ytl.Assignment(
                         "rhs",
-                        ytl.Call("__component_1_2", (ytl.Call("helper", (ytl.Var("x"), ytl.Var("y"))),)),
+                        ytl.Call(
+                            "__component_1_2",
+                            (ytl.Call("helper", (ytl.Var("x"), ytl.Var("y"))),),
+                        ),
                     ),
                     ytl.Assignment(
                         "dead",

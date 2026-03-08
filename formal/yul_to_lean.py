@@ -1452,6 +1452,7 @@ def yul_function_to_model(
     Validates:
     - Multi-assigned compiler temporaries are rejected.
     - The return variable is recognized and assigned in the model.
+    - Distinct Yul signature binders must demangle to distinct IR names.
     - ``elide_zero_assignments`` controls whether literal zero-initializations
       are dropped during model construction.
     - Memory use must stay within the explicit supported subset:
@@ -1501,11 +1502,20 @@ def yul_function_to_model(
     memory_state: dict[int, Expr] = {}
     all_clean_names: set[str] = set()
 
+    signature_name_sources: dict[str, str] = {}
     for name in [*yf.params, *yf.rets]:
         clean = demangle_var(
             name, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals
         )
         if clean:
+            prior = signature_name_sources.get(clean)
+            if prior is not None and prior != name:
+                raise ParseError(
+                    f"Distinct Yul signature binders {prior!r} and {name!r} in "
+                    f"{sol_fn_name!r} both demangle to {clean!r}. Refuse to "
+                    f"collapse separate parameter/return slots into one IR name."
+                )
+            signature_name_sources[clean] = name
             var_map[name] = clean
             all_clean_names.add(clean)
 
@@ -1961,10 +1971,11 @@ OP_TO_OPCODE = {
 }
 
 # Catch key-set drift between Lean helper names and opcode names at import time.
-assert set(OP_TO_LEAN_HELPER) == set(OP_TO_OPCODE), (
-    f"OP_TO_LEAN_HELPER keys {set(OP_TO_LEAN_HELPER)} != "
-    f"OP_TO_OPCODE keys {set(OP_TO_OPCODE)}"
-)
+if set(OP_TO_LEAN_HELPER) != set(OP_TO_OPCODE):
+    raise RuntimeError(
+        f"OP_TO_LEAN_HELPER keys {set(OP_TO_LEAN_HELPER)} != "
+        f"OP_TO_OPCODE keys {set(OP_TO_OPCODE)}"
+    )
 
 # Base norm helpers shared by all generators.  Per-generator extras (like
 # bitLengthPlus1 for cbrt) are merged in via ModelConfig.extra_norm_ops.
@@ -2072,12 +2083,6 @@ def validate_function_model(model: FunctionModel) -> None:
         raise ParseError(
             f"Model {model.fn_name!r} has duplicate return names: {model.return_names!r}"
         )
-    overlap = set(model.param_names) & set(model.return_names)
-    if overlap:
-        raise ParseError(
-            f"Model {model.fn_name!r} has param/return name overlap: {sorted(overlap)}"
-        )
-
     # Validate all identifiers used as binders.
     for name in model.param_names:
         validate_ident(name, what=f"param name in {model.fn_name!r}")
@@ -2096,9 +2101,13 @@ def validate_function_model(model: FunctionModel) -> None:
                     f"{stmt.output_vars!r}"
                 )
             for a in stmt.then_branch.assignments:
-                validate_ident(a.target, what=f"then-branch target in {model.fn_name!r}")
+                validate_ident(
+                    a.target, what=f"then-branch target in {model.fn_name!r}"
+                )
             for a in stmt.else_branch.assignments:
-                validate_ident(a.target, what=f"else-branch target in {model.fn_name!r}")
+                validate_ident(
+                    a.target, what=f"else-branch target in {model.fn_name!r}"
+                )
 
     def _validate_assignment_block(
         assignments: tuple[Assignment, ...],
