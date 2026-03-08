@@ -21,9 +21,17 @@ octaves 254/255, used by the 512-bit sqrt proof.
 
 import argparse
 import sys
+from collections.abc import Sequence
+
+DRecord = tuple[int, int, int, int, int, int]
+DTable = dict[int, DRecord]
 
 
-def isqrt(x):
+class MainArguments(argparse.Namespace):
+    output: str
+
+
+def isqrt(x: int) -> int:
     """Integer square root (floor)."""
     if x <= 0:
         return 0
@@ -43,31 +51,31 @@ def isqrt(x):
     return z
 
 
-def sqrt_step(x, z):
+def sqrt_step(x: int, z: int) -> int:
     """One Babylonian step: floor((z + floor(x/z)) / 2)"""
     if z == 0:
         return 0
     return (z + x // z) // 2
 
 
-def sqrt_seed(n):
+def sqrt_seed(n: int) -> int:
     """Seed for octave n: 1 << ((n+1)/2)."""
     return 1 << ((n + 1) // 2)
 
 
-def next_d(lo, d):
+def next_d(lo: int, d: int) -> int:
     """Error recurrence: d^2/(2*lo) + 1."""
     if lo == 0:
         return d * d + 1
     return d * d // (2 * lo) + 1
 
 
-def compute_maxabs(lo, hi, s):
+def compute_maxabs(lo: int, hi: int, s: int) -> int:
     """max(|s - lo|, |hi - s|)"""
     return max(abs(s - lo), abs(hi - s))
 
 
-def compute_d1(lo, hi, s):
+def compute_d1(lo: int, hi: int, s: int) -> int:
     """Analytic d1 bound:
     d1 = floor((maxAbs^2 + 2*hi) / (2*s))
     """
@@ -79,7 +87,7 @@ def compute_d1(lo, hi, s):
     return numerator // denominator
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="Generate finite-certificate tables for sqrt formal proof"
     )
@@ -88,10 +96,10 @@ def main():
         default="SqrtProof/SqrtProof/FiniteCert.lean",
         help="Output Lean file path (default: SqrtProof/SqrtProof/FiniteCert.lean)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(namespace=MainArguments())
 
-    lo_table = []
-    hi_table = []
+    lo_table: list[int] = []
+    hi_table: list[int] = []
 
     for n in range(256):
         lo = isqrt(1 << n)
@@ -109,7 +117,7 @@ def main():
 
     # Compute certificate for all 256 octaves
     all_ok = True
-    d_data = {}  # n -> (d1, ..., d6)
+    d_data: DTable = {}
 
     for n in range(256):
         lo = lo_table[n]
@@ -125,8 +133,10 @@ def main():
         d_data[n] = (d1, d2, d3, d4, d5, d6)
 
         if d6 > 1:
-            print(f"FAIL d6: n={n}, d1={d1}, d2={d2}, d3={d3}, "
-                  f"d4={d4}, d5={d5}, d6={d6}, lo={lo}")
+            print(
+                f"FAIL d6: n={n}, d1={d1}, d2={d2}, d3={d3}, "
+                f"d4={d4}, d5={d5}, d6={d6}, lo={lo}"
+            )
             all_ok = False
 
         # Check side conditions: dk <= lo for k=1..5
@@ -156,12 +166,15 @@ def main():
             z1 = sqrt_step(x_hi_m, seed)  # max z1 by mono in x
             actual_d1 = max(0, z1 - m)
             if actual_d1 > d1_cert:
-                print(f"  D1 FAIL: n={n}, m={m}, z1={z1}, actual_d1={actual_d1}, cert={d1_cert}")
+                print(
+                    f"  D1 FAIL: n={n}, m={m}, z1={z1}, actual_d1={actual_d1}, cert={d1_cert}"
+                )
                 all_ok = False
     print("  d1 exhaustive check done.")
 
     # Spot-check d1 for large octaves
     import random
+
     random.seed(42)
     print("\nSpot-checking d1 for large octaves...")
     for n in range(100, 256, 10):
@@ -172,13 +185,15 @@ def main():
 
         for m in [lo, hi, lo + (hi - lo) // 3, lo + 2 * (hi - lo) // 3]:
             x_max = min((m + 1) ** 2 - 1, (1 << (n + 1)) - 1)
-            x_min = max(m ** 2, 1 << n)
+            x_min = max(m**2, 1 << n)
             if x_min > x_max:
                 continue
             z1 = sqrt_step(x_max, seed)
             actual_d1 = max(0, z1 - m)
             if actual_d1 > d1_cert:
-                print(f"  SPOT FAIL: n={n}, m={m}, z1={z1}, actual_d1={actual_d1}, cert={d1_cert}")
+                print(
+                    f"  SPOT FAIL: n={n}, m={m}, z1={z1}, actual_d1={actual_d1}, cert={d1_cert}"
+                )
                 all_ok = False
     print("  Spot check done.")
 
@@ -229,12 +244,18 @@ def main():
     return 0 if all_ok else 1
 
 
-def generate_lean_file(lo_table, hi_table, d_data, fixed_seed, outpath):
+def generate_lean_file(
+    lo_table: Sequence[int],
+    hi_table: Sequence[int],
+    d_data: DTable,
+    fixed_seed: int,
+    outpath: str,
+) -> None:
     """Generate the FiniteCert.lean file with SqrtCert and Sqrt512Cert namespaces."""
     print(f"\nGenerating {outpath}...")
 
-    def fmt_array(name, values, comment=""):
-        lines = []
+    def fmt_array(name: str, values: Sequence[int], comment: str = "") -> str:
+        lines: list[str] = []
         if comment:
             lines.append(f"/-- {comment} -/")
         lines.append(f"def {name} : Array Nat := #[")

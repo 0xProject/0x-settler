@@ -32,14 +32,18 @@ from yul_to_lean import ModelConfig, run
 
 CONFIG = ModelConfig(
     function_order=(
-        "_sqrt_babylonianStep", "_sqrt_baseCase",
-        "_sqrt_karatsubaQuotient", "_sqrt_correction",
+        "_sqrt_babylonianStep",
+        "_sqrt_baseCase",
+        "_sqrt_karatsubaQuotient",
+        "_sqrt_correction",
         "_sqrt",
         # 256-bit sqrt/sqrtUp from Sqrt.sol — kept as named sub-models so the
         # public wrappers don't inline the full Babylonian chain, which would
         # cause (kernel) deep recursion in the Lean proofs.
-        "sqrt", "sqrtUp",
-        "wrap_sqrt512", "wrap_osqrtUp",
+        "sqrt",
+        "sqrtUp",
+        "wrap_sqrt512",
+        "wrap_osqrtUp",
     ),
     model_names={
         "_sqrt_babylonianStep": "model_bstep",

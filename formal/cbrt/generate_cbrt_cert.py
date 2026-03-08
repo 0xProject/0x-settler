@@ -20,9 +20,17 @@ The certificate covers octaves 8-255 (x >= 256, lo >= 6).
 
 import argparse
 import sys
+from collections.abc import Sequence
+
+DRecord = tuple[int, int, int, int, int, int]
+DTable = dict[int, DRecord]
 
 
-def icbrt(x):
+class MainArguments(argparse.Namespace):
+    output: str
+
+
+def icbrt(x: int) -> int:
     """Integer cube root (floor)."""
     if x <= 0:
         return 0
@@ -42,32 +50,32 @@ def icbrt(x):
     return z
 
 
-def cbrt_step(x, z):
+def cbrt_step(x: int, z: int) -> int:
     """One NR step: floor((floor(x/(z*z)) + 2*z) / 3)"""
     if z == 0:
         return 0
     return (x // (z * z) + 2 * z) // 3
 
 
-def cbrt_seed(n):
+def cbrt_seed(n: int) -> int:
     """Seed for octave n."""
     q = (n + 2) // 3
-    return ((0xe9 << q) >> 8) + 1
+    return ((0xE9 << q) >> 8) + 1
 
 
-def next_d(lo, d):
+def next_d(lo: int, d: int) -> int:
     """Error recurrence: d^2/lo + 1."""
     if lo == 0:
         return d * d + 1
     return d * d // lo + 1
 
 
-def compute_maxabs(lo, hi, s):
+def compute_maxabs(lo: int, hi: int, s: int) -> int:
     """max(|s - lo|, |hi - s|)"""
     return max(abs(s - lo), abs(hi - s))
 
 
-def compute_d1(lo, hi, s):
+def compute_d1(lo: int, hi: int, s: int) -> int:
     """Analytic d1 bound:
     d1 = floor((maxAbs^2*(hi+2s) + 3*hi*(hi+1)) / (3*s^2))
     """
@@ -79,7 +87,7 @@ def compute_d1(lo, hi, s):
     return numerator // denominator
 
 
-def main():
+def main() -> int:
     parser = argparse.ArgumentParser(
         description="Generate finite-certificate tables for cbrt formal proof"
     )
@@ -88,10 +96,10 @@ def main():
         default="CbrtProof/CbrtProof/FiniteCert.lean",
         help="Output Lean file path (default: CbrtProof/CbrtProof/FiniteCert.lean)",
     )
-    args = parser.parse_args()
+    args = parser.parse_args(namespace=MainArguments())
 
-    lo_table = []
-    hi_table = []
+    lo_table: list[int] = []
+    hi_table: list[int] = []
 
     for n in range(256):
         lo = icbrt(1 << n)
@@ -110,7 +118,7 @@ def main():
     # Compute certificate for octaves 8-255
     START_OCTAVE = 8
     all_ok = True
-    d_data = {}  # n -> (d1, ..., d6)
+    d_data: DTable = {}
 
     for n in range(START_OCTAVE, 256):
         lo = lo_table[n]
@@ -126,8 +134,10 @@ def main():
         d_data[n] = (d1, d2, d3, d4, d5, d6)
 
         if d6 > 1:
-            print(f"FAIL d6: n={n}, d1={d1}, d2={d2}, d3={d3}, "
-                  f"d4={d4}, d5={d5}, d6={d6}, lo={lo}")
+            print(
+                f"FAIL d6: n={n}, d1={d1}, d2={d2}, d3={d3}, "
+                f"d4={d4}, d5={d5}, d6={d6}, lo={lo}"
+            )
             all_ok = False
 
         # Check side conditions: 2*dk <= lo for k=1..5
@@ -157,12 +167,15 @@ def main():
             z1 = cbrt_step(x_hi_m, seed)  # max z1 by mono in x
             actual_d1 = max(0, z1 - m)
             if actual_d1 > d1_cert:
-                print(f"  D1 FAIL: n={n}, m={m}, z1={z1}, actual_d1={actual_d1}, cert={d1_cert}")
+                print(
+                    f"  D1 FAIL: n={n}, m={m}, z1={z1}, actual_d1={actual_d1}, cert={d1_cert}"
+                )
                 all_ok = False
     print("  d1 exhaustive check done.")
 
     # Spot-check d1 for large octaves (random m values)
     import random
+
     random.seed(42)
     print("\nSpot-checking d1 for large octaves...")
     for n in range(100, 256, 10):
@@ -174,24 +187,28 @@ def main():
         # Test at lo, hi, and random m values
         for m in [lo, hi, lo + (hi - lo) // 3, lo + 2 * (hi - lo) // 3]:
             x_max = min((m + 1) ** 3 - 1, (1 << (n + 1)) - 1)
-            x_min = max(m ** 3, 1 << n)
+            x_min = max(m**3, 1 << n)
             if x_min > x_max:
                 continue
             z1 = cbrt_step(x_max, seed)
             actual_d1 = max(0, z1 - m)
             if actual_d1 > d1_cert:
-                print(f"  SPOT FAIL: n={n}, m={m}, z1={z1}, actual_d1={actual_d1}, cert={d1_cert}")
+                print(
+                    f"  SPOT FAIL: n={n}, m={m}, z1={z1}, actual_d1={actual_d1}, cert={d1_cert}"
+                )
                 all_ok = False
     print("  Spot check done.")
 
     # Also check lo_pos: lo >= 6 for octaves >= 8
-    assert all(lo_table[n] >= 6 for n in range(START_OCTAVE, 256)), \
-        "lo < 6 for some octave >= 8!"
+    assert all(
+        lo_table[n] >= 6 for n in range(START_OCTAVE, 256)
+    ), "lo < 6 for some octave >= 8!"
     print(f"\nAll lo >= 6 for octaves >= {START_OCTAVE}. ✓")
 
     # Also check 2 <= lo (needed for cbrtStep_upper_of_le)
-    assert all(lo_table[n] >= 2 for n in range(START_OCTAVE, 256)), \
-        "lo < 2 for some octave >= 8!"
+    assert all(
+        lo_table[n] >= 2 for n in range(START_OCTAVE, 256)
+    ), "lo < 2 for some octave >= 8!"
 
     # Summary
     print(f"\n--- Summary (octaves {START_OCTAVE}-255) ---")
@@ -216,14 +233,20 @@ def main():
     return 0 if all_ok else 1
 
 
-def generate_lean_file(lo_table, hi_table, d_data, start_octave, outpath):
+def generate_lean_file(
+    lo_table: Sequence[int],
+    hi_table: Sequence[int],
+    d_data: DTable,
+    start_octave: int,
+    outpath: str,
+) -> None:
     """Generate the CbrtFiniteCert.lean file."""
     print(f"\nGenerating {outpath}...")
 
     num = 256 - start_octave  # 248 entries
 
-    def fmt_array(name, values, comment=""):
-        lines = []
+    def fmt_array(name: str, values: Sequence[int], comment: str = "") -> str:
+        lines: list[str] = []
         if comment:
             lines.append(f"/-- {comment} -/")
         lines.append(f"def {name} : Array Nat := #[")
@@ -239,8 +262,10 @@ def generate_lean_file(lo_table, hi_table, d_data, start_octave, outpath):
     d1_vals = [d_data[n][0] for n in range(start_octave, 256)]
 
     # Compute maxAbs values for the d1 bound proof
-    maxabs_vals = [compute_maxabs(lo_table[n], hi_table[n], cbrt_seed(n))
-                   for n in range(start_octave, 256)]
+    maxabs_vals = [
+        compute_maxabs(lo_table[n], hi_table[n], cbrt_seed(n))
+        for n in range(start_octave, 256)
+    ]
 
     content = f"""import Init
 

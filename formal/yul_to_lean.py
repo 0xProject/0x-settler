@@ -33,6 +33,7 @@ class EvaluationError(RuntimeError):
 # AST nodes (shared by Yul parser and Lean emitter)
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class IntLit:
     value: int
@@ -66,6 +67,7 @@ class ConditionalBranch:
     ``outputs`` lists the variables whose values become the outer
     ``ConditionalBlock.output_vars`` when this branch is taken.
     """
+
     assignments: tuple[Assignment, ...]
     outputs: tuple[str, ...]
 
@@ -78,6 +80,7 @@ class ConditionalBlock:
     ``then_branch`` and ``else_branch`` each carry both their local
     assignments and the exact variables that feed the outer outputs.
     """
+
     condition: Expr
     output_vars: tuple[str, ...]
     then_branch: ConditionalBranch
@@ -208,6 +211,7 @@ def tokenize_yul(source: str) -> list[tuple[str, str]]:
 # Yul recursive-descent parser
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class ParsedIfBlock:
     """Raw parsed ``if cond { body }`` or ``switch`` from Yul, before demangling.
@@ -215,10 +219,11 @@ class ParsedIfBlock:
     When ``else_body`` is present, this represents an if/else or a
     ``switch expr case 0 { else_body } default { body }`` construct.
     """
+
     condition: Expr
-    body: tuple[tuple[str, Expr], ...]
+    body: tuple["PlainAssignment", ...]
     has_leave: bool = False
-    else_body: tuple[tuple[str, Expr], ...] | None = None
+    else_body: tuple["PlainAssignment", ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -229,14 +234,18 @@ class MemoryWrite:
     value: Expr
 
 
+PlainAssignment = tuple[str, Expr]
+
+
 # A raw parsed statement is either an assignment, a supported memory write,
 # or an if/switch block.
-RawStatement = tuple[str, Expr] | MemoryWrite | ParsedIfBlock
+RawStatement = PlainAssignment | MemoryWrite | ParsedIfBlock
 
 
 @dataclass
 class YulFunction:
     """Parsed representation of a single Yul ``function`` definition."""
+
     yul_name: str
     params: list[str]
     rets: list[str]
@@ -274,6 +283,7 @@ class CollectedFunctions:
     ``rejected`` records helper names whose bodies were rejected, along with
     the parse error that explains why.
     """
+
     functions: dict[str, YulFunction]
     rejected: dict[str, str]
 
@@ -356,7 +366,20 @@ class YulParser:
             return Var(text)
         raise ParseError(f"Expected expression, got {kind!r} ({text!r})")
 
-    def _parse_let(self, results: list) -> None:
+    def _expect_plain_assignments(
+        self,
+        statements: list[RawStatement],
+        *,
+        context: str,
+    ) -> list[PlainAssignment]:
+        plain: list[PlainAssignment] = []
+        for stmt in statements:
+            if isinstance(stmt, (ParsedIfBlock, MemoryWrite)):
+                raise ParseError(f"Unexpected non-assignment statement in {context}")
+            plain.append(stmt)
+        return plain
+
+    def _parse_let(self, results: list[RawStatement]) -> None:
         """Parse a ``let`` statement and append to *results*.
 
         Handles three forms:
@@ -375,7 +398,9 @@ class YulParser:
             self._expect(":=")
             expr = self._parse_expr()
             for idx, t in enumerate(all_targets):
-                results.append((t, Call(f"__component_{idx}_{len(all_targets)}", (expr,))))
+                results.append(
+                    (t, Call(f"__component_{idx}_{len(all_targets)}", (expr,)))
+                )
         elif self._peek_kind() == ":=":
             self._pop()
             expr = self._parse_expr()
@@ -452,11 +477,17 @@ class YulParser:
                         context="if-body",
                     )
                     self._expect("}")
-                    results.append(ParsedIfBlock(
-                        condition=condition,
-                        body=tuple(body),
-                        has_leave=body_leave,
-                    ))
+                    plain_body = self._expect_plain_assignments(
+                        body,
+                        context="if-body",
+                    )
+                    results.append(
+                        ParsedIfBlock(
+                            condition=condition,
+                            body=tuple(plain_body),
+                            has_leave=body_leave,
+                        )
+                    )
                 else:  # switch
                     self._pop()  # consume 'switch'
                     condition = self._parse_expr()
@@ -464,14 +495,16 @@ class YulParser:
                     #   switch e case 0 { else_body } default { if_body }
                     # (branches may appear in either order).  Anything else
                     # is rejected loudly.
-                    case0_body: list[RawStatement] | None = None
+                    case0_body: list[PlainAssignment] | None = None
                     case0_leave = False
-                    default_body: list[RawStatement] | None = None
+                    default_body: list[PlainAssignment] | None = None
                     default_leave = False
                     n_branches = 0
-                    while (not self._at_end()
-                           and self._peek_kind() == "ident"
-                           and self.tokens[self.i][1] in ("case", "default")):
+                    while (
+                        not self._at_end()
+                        and self._peek_kind() == "ident"
+                        and self.tokens[self.i][1] in ("case", "default")
+                    ):
                         branch = self.tokens[self.i][1]
                         self._pop()  # consume 'case' or 'default'
                         if branch == "case":
@@ -488,31 +521,43 @@ class YulParser:
                                     "Duplicate 'case 0' in switch statement."
                                 )
                             self._expect("{")
-                            case0_body, case0_leave = self._parse_assignment_loop(
+                            raw_case0_body, case0_leave = self._parse_assignment_loop(
                                 allow_control_flow=False,
                                 context="switch branch",
                             )
                             self._expect("}")
+                            case0_body = self._expect_plain_assignments(
+                                raw_case0_body,
+                                context="switch branch",
+                            )
                         else:  # default
                             if default_body is not None:
                                 raise ParseError(
                                     "Duplicate 'default' in switch statement."
                                 )
                             self._expect("{")
-                            default_body, default_leave = self._parse_assignment_loop(
-                                allow_control_flow=False,
-                                context="switch branch",
+                            raw_default_body, default_leave = (
+                                self._parse_assignment_loop(
+                                    allow_control_flow=False,
+                                    context="switch branch",
+                                )
                             )
                             self._expect("}")
+                            default_body = self._expect_plain_assignments(
+                                raw_default_body,
+                                context="switch branch",
+                            )
                             # default must be the last branch.
                             n_branches += 1
                             break
                         n_branches += 1
                     # Reject trailing case branches after default.
-                    if (default_body is not None
-                            and not self._at_end()
-                            and self._peek_kind() == "ident"
-                            and self.tokens[self.i][1] in ("case", "default")):
+                    if (
+                        default_body is not None
+                        and not self._at_end()
+                        and self._peek_kind() == "ident"
+                        and self.tokens[self.i][1] in ("case", "default")
+                    ):
                         raise ParseError(
                             "'default' must be the last branch in a switch."
                         )
@@ -531,15 +576,21 @@ class YulParser:
                     # condition == 0 → case 0 (else-body).
                     if_body = tuple(default_body) if default_body else ()
                     else_body = tuple(case0_body) if case0_body else None
-                    results.append(ParsedIfBlock(
-                        condition=condition,
-                        body=if_body,
-                        has_leave=default_leave or case0_leave,
-                        else_body=else_body,
-                    ))
+                    results.append(
+                        ParsedIfBlock(
+                            condition=condition,
+                            body=if_body,
+                            has_leave=default_leave or case0_leave,
+                            else_body=else_body,
+                        )
+                    )
                 continue
 
-            if kind == "ident" and self.i + 1 < len(self.tokens) and self.tokens[self.i + 1][0] == ":=":
+            if (
+                kind == "ident"
+                and self.i + 1 < len(self.tokens)
+                and self.tokens[self.i + 1][0] == ":="
+            ):
                 target = self._expect_ident()
                 self._expect(":=")
                 expr = self._parse_expr()
@@ -581,7 +632,7 @@ class YulParser:
 
     def _parse_if_body_assignments(
         self,
-    ) -> tuple[list[tuple[str, Expr]], bool]:
+    ) -> tuple[list[PlainAssignment], bool]:
         """Parse the body of an ``if`` block.
 
         Returns ``(assignments, has_leave)`` where *has_leave* indicates
@@ -592,14 +643,7 @@ class YulParser:
             context="if-body",
         )
         # When allow_control_flow=False, all statements are plain assignments.
-        plain: list[tuple[str, Expr]] = []
-        for stmt in raw:
-            if isinstance(stmt, (ParsedIfBlock, MemoryWrite)):
-                raise ParseError(
-                    "Unexpected control-flow block inside if-body results"
-                )
-            plain.append(stmt)
-        return plain, has_leave
+        return self._expect_plain_assignments(raw, context="if-body"), has_leave
 
     def _skip_function_def(self) -> None:
         self._pop()  # consume 'function'
@@ -669,7 +713,10 @@ class YulParser:
         return count
 
     def find_function(
-        self, sol_fn_name: str, *, n_params: int | None = None,
+        self,
+        sol_fn_name: str,
+        *,
+        n_params: int | None = None,
         known_yul_names: set[str] | None = None,
         exclude_known: bool = False,
     ) -> YulFunction:
@@ -698,7 +745,7 @@ class YulParser:
                 self.tokens[idx] == ("ident", "function")
                 and self.tokens[idx + 1][0] == "ident"
                 and self.tokens[idx + 1][1].startswith(target_prefix)
-                and self.tokens[idx + 1][1][len(target_prefix):].isdigit()
+                and self.tokens[idx + 1][1][len(target_prefix) :].isdigit()
             ):
                 matches.append(idx)
 
@@ -715,11 +762,15 @@ class YulParser:
 
         if known_yul_names and len(matches) > 1:
             if exclude_known:
-                filtered = [m for m in matches
-                            if not self._body_references_any(m, known_yul_names)]
+                filtered = [
+                    m
+                    for m in matches
+                    if not self._body_references_any(m, known_yul_names)
+                ]
             else:
-                filtered = [m for m in matches
-                            if self._body_references_any(m, known_yul_names)]
+                filtered = [
+                    m for m in matches if self._body_references_any(m, known_yul_names)
+                ]
             if filtered:
                 matches = filtered
 
@@ -744,9 +795,9 @@ class YulParser:
         matches: list[int] = []
 
         for idx in range(len(self.tokens) - 1):
-            if (
-                self.tokens[idx] == ("ident", "function")
-                and self.tokens[idx + 1] == ("ident", yul_name)
+            if self.tokens[idx] == ("ident", "function") and self.tokens[idx + 1] == (
+                "ident",
+                yul_name,
             ):
                 if n_params is not None and self._count_params_at(idx) != n_params:
                     continue
@@ -802,10 +853,7 @@ class YulParser:
         functions: dict[str, YulFunction] = {}
         rejected: dict[str, str] = {}
         while not self._at_end():
-            if (
-                self._peek_kind() == "ident"
-                and self.tokens[self.i][1] == "function"
-            ):
+            if self._peek_kind() == "ident" and self.tokens[self.i][1] == "function":
                 saved_i = self.i
                 saved_stmts = self._expr_stmts
                 try:
@@ -914,12 +962,12 @@ def _try_const_eval(expr: Expr) -> int | None:
             a = _try_const_eval(expr.args[0])
             b = _try_const_eval(expr.args[1])
             if a is not None and b is not None:
-                return (a + b) % (2 ** 256)
+                return (a + b) % (2**256)
         if expr.name == "sub" and len(expr.args) == 2:
             a = _try_const_eval(expr.args[0])
             b = _try_const_eval(expr.args[1])
             if a is not None and b is not None:
-                return (a + 2 ** 256 - b) % (2 ** 256)
+                return (a + 2**256 - b) % (2**256)
         # Handle __ite(cond, if_val, else_val): if both branches
         # evaluate to the same constant, the result is that constant
         # regardless of the condition.
@@ -997,18 +1045,28 @@ def _inline_single_call(
         if isinstance(stmt, ParsedIfBlock):
             # Evaluate condition
             cond = substitute_expr(stmt.condition, subst)
-            cond = inline_calls(cond, fn_table, depth + 1, max_depth,
-                                mstore_sink=mstore_sink,
-                                unsupported_function_errors=unsupported_function_errors)
+            cond = inline_calls(
+                cond,
+                fn_table,
+                depth + 1,
+                max_depth,
+                mstore_sink=mstore_sink,
+                unsupported_function_errors=unsupported_function_errors,
+            )
             # Process if-body assignments into a separate subst branch.
             if_subst = dict(subst)
             # Track mstore count to detect conditional memory writes.
             pre_if_sink_len = len(mstore_sink) if mstore_sink is not None else 0
             for target, raw_expr in stmt.body:
                 expr = substitute_expr(raw_expr, if_subst)
-                expr = inline_calls(expr, fn_table, depth + 1, max_depth,
-                                    mstore_sink=mstore_sink,
-                                    unsupported_function_errors=unsupported_function_errors)
+                expr = inline_calls(
+                    expr,
+                    fn_table,
+                    depth + 1,
+                    max_depth,
+                    mstore_sink=mstore_sink,
+                    unsupported_function_errors=unsupported_function_errors,
+                )
                 if_subst[target] = expr
 
             # Reject conditional memory writes — they can't be modeled
@@ -1027,9 +1085,14 @@ def _inline_single_call(
                 pre_else_sink_len = len(mstore_sink) if mstore_sink is not None else 0
                 for target, raw_expr in stmt.else_body:
                     expr = substitute_expr(raw_expr, else_subst)
-                    expr = inline_calls(expr, fn_table, depth + 1, max_depth,
-                                        mstore_sink=mstore_sink,
-                                        unsupported_function_errors=unsupported_function_errors)
+                    expr = inline_calls(
+                        expr,
+                        fn_table,
+                        depth + 1,
+                        max_depth,
+                        mstore_sink=mstore_sink,
+                        unsupported_function_errors=unsupported_function_errors,
+                    )
                     else_subst[target] = expr
                 if mstore_sink is not None and len(mstore_sink) > pre_else_sink_len:
                     raise ParseError(
@@ -1103,9 +1166,14 @@ def _inline_single_call(
         else:
             target, raw_expr = stmt
             expr = substitute_expr(raw_expr, subst)
-            expr = inline_calls(expr, fn_table, depth + 1, max_depth,
-                                mstore_sink=mstore_sink,
-                                unsupported_function_errors=unsupported_function_errors)
+            expr = inline_calls(
+                expr,
+                fn_table,
+                depth + 1,
+                max_depth,
+                mstore_sink=mstore_sink,
+                unsupported_function_errors=unsupported_function_errors,
+            )
             # Keep helper locals as pure substitutions. Introducing fresh
             # `_inline_*` aliases here can leak undefined names into sunk
             # MemoryWrite addresses/values after nested inlining.
@@ -1160,15 +1228,25 @@ def inline_calls(
             total = int(m.group(2))
             inner = expr.args[0]
             # Recursively inline the inner call's arguments first
-            inner_args = tuple(inline_calls(a, fn_table, depth,
-                                            max_depth=max_depth,
-                                            mstore_sink=mstore_sink,
-                                            unsupported_function_errors=unsupported_function_errors)
-                               for a in inner.args)
+            inner_args = tuple(
+                inline_calls(
+                    a,
+                    fn_table,
+                    depth,
+                    max_depth=max_depth,
+                    mstore_sink=mstore_sink,
+                    unsupported_function_errors=unsupported_function_errors,
+                )
+                for a in inner.args
+            )
             if inner.name in fn_table:
                 result = _inline_single_call(
-                    fn_table[inner.name], inner_args, fn_table, depth + 1,
-                    max_depth, mstore_sink=mstore_sink,
+                    fn_table[inner.name],
+                    inner_args,
+                    fn_table,
+                    depth + 1,
+                    max_depth,
+                    mstore_sink=mstore_sink,
                     unsupported_function_errors=unsupported_function_errors,
                 )
                 if isinstance(result, tuple):
@@ -1202,18 +1280,30 @@ def inline_calls(
             return Call(expr.name, (Call(inner.name, inner_args),))
 
         # Recurse into arguments
-        args = tuple(inline_calls(a, fn_table, depth,
-                                  max_depth=max_depth,
-                                  mstore_sink=mstore_sink,
-                                  unsupported_function_errors=unsupported_function_errors)
-                     for a in expr.args)
+        args = tuple(
+            inline_calls(
+                a,
+                fn_table,
+                depth,
+                max_depth=max_depth,
+                mstore_sink=mstore_sink,
+                unsupported_function_errors=unsupported_function_errors,
+            )
+            for a in expr.args
+        )
 
         # Direct call to a collected function
         if expr.name in fn_table:
             fn = fn_table[expr.name]
-            result = _inline_single_call(fn, args, fn_table, depth + 1,
-                                         max_depth, mstore_sink=mstore_sink,
-                                         unsupported_function_errors=unsupported_function_errors)
+            result = _inline_single_call(
+                fn,
+                args,
+                fn_table,
+                depth + 1,
+                max_depth,
+                mstore_sink=mstore_sink,
+                unsupported_function_errors=unsupported_function_errors,
+            )
             if isinstance(result, tuple):
                 raise ParseError(
                     f"Cannot inline multi-return function {expr.name!r} into a "
@@ -1254,40 +1344,56 @@ def _inline_yul_function(
     for stmt in yf.assignments:
         if isinstance(stmt, ParsedIfBlock):
             pre_len = len(mstore_sink)
-            new_cond = inline_calls(stmt.condition, fn_table,
-                                    mstore_sink=mstore_sink,
-                                    unsupported_function_errors=unsupported_function_errors)
+            new_cond = inline_calls(
+                stmt.condition,
+                fn_table,
+                mstore_sink=mstore_sink,
+                unsupported_function_errors=unsupported_function_errors,
+            )
             new_body: list[tuple[str, Expr]] = []
             for target, raw_expr in stmt.body:
-                new_body.append((target, inline_calls(raw_expr, fn_table,
-                                                      mstore_sink=mstore_sink,
-                                                      unsupported_function_errors=unsupported_function_errors)))
+                new_body.append(
+                    (
+                        target,
+                        inline_calls(
+                            raw_expr,
+                            fn_table,
+                            mstore_sink=mstore_sink,
+                            unsupported_function_errors=unsupported_function_errors,
+                        ),
+                    )
+                )
             new_else_body: list[tuple[str, Expr]] | None = None
             if stmt.else_body is not None:
                 new_else_body = []
                 for target, raw_expr in stmt.else_body:
-                    new_else_body.append((target, inline_calls(
-                        raw_expr,
-                        fn_table,
-                        mstore_sink=mstore_sink,
-                        unsupported_function_errors=unsupported_function_errors,
-                    )))
+                    new_else_body.append(
+                        (
+                            target,
+                            inline_calls(
+                                raw_expr,
+                                fn_table,
+                                mstore_sink=mstore_sink,
+                                unsupported_function_errors=unsupported_function_errors,
+                            ),
+                        )
+                    )
             if len(mstore_sink) > pre_len:
                 raise ParseError(
                     f"Conditional memory write detected in {yf.yul_name!r} while "
                     f"inlining a control-flow block. The supported memory model "
                     f"only allows straight-line writes outside conditionals."
                 )
-            new_assignments.append(ParsedIfBlock(
-                condition=new_cond,
-                body=tuple(new_body),
-                has_leave=stmt.has_leave,
-                else_body=(
-                    tuple(new_else_body)
-                    if new_else_body is not None
-                    else None
-                ),
-            ))
+            new_assignments.append(
+                ParsedIfBlock(
+                    condition=new_cond,
+                    body=tuple(new_body),
+                    has_leave=stmt.has_leave,
+                    else_body=(
+                        tuple(new_else_body) if new_else_body is not None else None
+                    ),
+                )
+            )
         elif isinstance(stmt, MemoryWrite):
             pre_len = len(mstore_sink)
             new_addr = inline_calls(
@@ -1312,9 +1418,12 @@ def _inline_yul_function(
         else:
             target, raw_expr = stmt
             pre_len = len(mstore_sink)
-            inlined = inline_calls(raw_expr, fn_table,
-                                   mstore_sink=mstore_sink,
-                                   unsupported_function_errors=unsupported_function_errors)
+            inlined = inline_calls(
+                raw_expr,
+                fn_table,
+                mstore_sink=mstore_sink,
+                unsupported_function_errors=unsupported_function_errors,
+            )
             # Inject any mstore effects collected during this inlining.
             new_assignments.extend(mstore_sink[pre_len:])
             new_assignments.append((target, inlined))
@@ -1393,7 +1502,9 @@ def yul_function_to_model(
     all_clean_names: set[str] = set()
 
     for name in [*yf.params, *yf.rets]:
-        clean = demangle_var(name, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals)
+        clean = demangle_var(
+            name, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals
+        )
         if clean:
             var_map[name] = clean
             all_clean_names.add(clean)
@@ -1410,7 +1521,9 @@ def yul_function_to_model(
             targets = [target]
         for target in targets:
             clean = demangle_var(
-                target, yf.params, yf.rets,
+                target,
+                yf.params,
+                yf.rets,
                 keep_solidity_locals=keep_solidity_locals,
             )
             if clean is not None:
@@ -1483,7 +1596,10 @@ def yul_function_to_model(
         raise TypeError(f"Unsupported Expr node: {type(expr)}")
 
     def _process_assignment(
-        target: str, raw_expr: Expr, *, inside_conditional: bool = False,
+        target: str,
+        raw_expr: Expr,
+        *,
+        inside_conditional: bool = False,
     ) -> Assignment | None:
         """Process a single raw assignment through copy-prop and demangling.
 
@@ -1494,7 +1610,9 @@ def yul_function_to_model(
         expr = rename_expr(expr, var_map, fn_map)
         expr = _resolve_memory_expr(expr)
 
-        clean = demangle_var(target, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals)
+        clean = demangle_var(
+            target, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals
+        )
         if clean is None:
             if assign_counts[target] > 1:
                 raise ParseError(
@@ -1514,9 +1632,7 @@ def yul_function_to_model(
         # self-references (e.g. ``x := f(x)``) resolve to the
         # *previous* binding, not the one being created.
         skip_zero = (
-            elide_zero_assignments
-            and isinstance(expr, IntLit)
-            and expr.value == 0
+            elide_zero_assignments and isinstance(expr, IntLit) and expr.value == 0
         )
 
         # SSA: compute the Lean target name.  Inside conditional
@@ -1568,7 +1684,9 @@ def yul_function_to_model(
 
             def _record_pre_if_name(target: str) -> str | None:
                 clean = demangle_var(
-                    target, yf.params, yf.rets,
+                    target,
+                    yf.params,
+                    yf.rets,
                     keep_solidity_locals=keep_solidity_locals,
                 )
                 if clean is not None and clean not in pre_if_names:
@@ -1579,7 +1697,9 @@ def yul_function_to_model(
             for target, raw_expr in stmt.body:
                 _record_pre_if_name(target)
                 a = _process_assignment(
-                    target, raw_expr, inside_conditional=True,
+                    target,
+                    raw_expr,
+                    inside_conditional=True,
                 )
                 if a is not None:
                     body_assignments.append(a)
@@ -1589,7 +1709,9 @@ def yul_function_to_model(
                 for target, raw_expr in stmt.else_body:
                     _record_pre_if_name(target)
                     a = _process_assignment(
-                        target, raw_expr, inside_conditional=True,
+                        target,
+                        raw_expr,
+                        inside_conditional=True,
                     )
                     if a is not None:
                         else_assignments_list.append(a)
@@ -1615,25 +1737,29 @@ def yul_function_to_model(
                     for target in modified_list
                 )
                 if stmt.else_body is None:
-                    else_outputs = tuple(pre_if_names[target] for target in modified_list)
+                    else_outputs = tuple(
+                        pre_if_names[target] for target in modified_list
+                    )
                 else:
                     else_outputs = tuple(
                         target if target in else_assigned else pre_if_names[target]
                         for target in modified_list
                     )
 
-                assignments.append(ConditionalBlock(
-                    condition=cond,
-                    output_vars=modified,
-                    then_branch=ConditionalBranch(
-                        assignments=tuple(body_assignments),
-                        outputs=then_outputs,
-                    ),
-                    else_branch=ConditionalBranch(
-                        assignments=tuple(else_assignments_list),
-                        outputs=else_outputs,
-                    ),
-                ))
+                assignments.append(
+                    ConditionalBlock(
+                        condition=cond,
+                        output_vars=modified,
+                        then_branch=ConditionalBranch(
+                            assignments=tuple(body_assignments),
+                            outputs=then_outputs,
+                        ),
+                        else_branch=ConditionalBranch(
+                            assignments=tuple(else_assignments_list),
+                            outputs=else_outputs,
+                        ),
+                    )
+                )
 
                 # After the conditional the Lean tuple-destructuring creates
                 # fresh bindings with the base clean names. Reset var_map and
@@ -1644,7 +1770,9 @@ def yul_function_to_model(
                     all_body_targets.extend(stmt.else_body)
                 for target_name, _ in all_body_targets:
                     c = demangle_var(
-                        target_name, yf.params, yf.rets,
+                        target_name,
+                        yf.params,
+                        yf.rets,
                         keep_solidity_locals=keep_solidity_locals,
                     )
                     if c is not None and c in modified_set:
@@ -1767,11 +1895,15 @@ def _prune_dead_assignments(
                 output_vars=needed_outputs,
                 then_branch=ConditionalBranch(
                     assignments=then_assignments,
-                    outputs=tuple(stmt.then_branch.outputs[idx] for idx in needed_indices),
+                    outputs=tuple(
+                        stmt.then_branch.outputs[idx] for idx in needed_indices
+                    ),
                 ),
                 else_branch=ConditionalBranch(
                     assignments=else_assignments,
-                    outputs=tuple(stmt.else_branch.outputs[idx] for idx in needed_indices),
+                    outputs=tuple(
+                        stmt.else_branch.outputs[idx] for idx in needed_indices
+                    ),
                 ),
             )
         )
@@ -1900,7 +2032,9 @@ def _replace_expr(expr: Expr, replacements: dict[Expr, str]) -> Expr:
     if isinstance(expr, (IntLit, Var)):
         return expr
     if isinstance(expr, Call):
-        return Call(expr.name, tuple(_replace_expr(arg, replacements) for arg in expr.args))
+        return Call(
+            expr.name, tuple(_replace_expr(arg, replacements) for arg in expr.args)
+        )
     raise TypeError(f"Unsupported Expr node: {type(expr)}")
 
 
@@ -2005,7 +2139,7 @@ def validate_function_model(model: FunctionModel) -> None:
         )
 
 
-WORD_MOD = 2 ** 256
+WORD_MOD = 2**256
 
 
 def u256(value: int) -> int:
@@ -2020,7 +2154,9 @@ def _expect_scalar(value: ModelValue, *, context: str) -> int:
 
 def _expect_tuple(value: ModelValue, *, size: int, context: str) -> tuple[int, ...]:
     if not isinstance(value, tuple):
-        raise EvaluationError(f"{context} expected a {size}-tuple, got scalar {value!r}")
+        raise EvaluationError(
+            f"{context} expected a {size}-tuple, got scalar {value!r}"
+        )
     if len(value) != size:
         raise EvaluationError(
             f"{context} expected a {size}-tuple, got {len(value)} values: {value!r}"
@@ -2054,11 +2190,11 @@ def _eval_builtin(name: str, args: tuple[int, ...]) -> int:
     if name == "shl" and len(args) == 2:
         shift = u256(args[0])
         value = u256(args[1])
-        return u256(value * (2 ** shift)) if shift < 256 else 0
+        return u256(value << shift) if shift < 256 else 0
     if name == "shr" and len(args) == 2:
         shift = u256(args[0])
         value = u256(args[1])
-        return value // (2 ** shift) if shift < 256 else 0
+        return value >> shift if shift < 256 else 0
     if name == "clz" and len(args) == 1:
         value = u256(args[0])
         return 256 if value == 0 else 255 - (value.bit_length() - 1)
@@ -2074,7 +2210,9 @@ def _eval_builtin(name: str, args: tuple[int, ...]) -> int:
     raise EvaluationError(f"Unsupported builtin call {name!r} with {len(args)} arg(s)")
 
 
-def build_model_table(models: list[FunctionModel] | tuple[FunctionModel, ...]) -> dict[str, FunctionModel]:
+def build_model_table(
+    models: list[FunctionModel] | tuple[FunctionModel, ...],
+) -> dict[str, FunctionModel]:
     table: dict[str, FunctionModel] = {}
     for model in models:
         if model.fn_name in table:
@@ -2249,11 +2387,14 @@ def evaluate_function_model(
         return tuple(final_env[name] for name in model.return_names)
     except KeyError as err:
         raise EvaluationError(
-            f"Model {model.fn_name!r} did not produce return variable {err.args[0]!r}"
+            f"Model {model.fn_name!r} did not produce one of the declared return variables "
+            f"{model.return_names!r}"
         ) from err
 
 
-def _collect_repeated_model_calls(expr: Expr, model_call_names: frozenset[str]) -> list[Call]:
+def _collect_repeated_model_calls(
+    expr: Expr, model_call_names: frozenset[str]
+) -> list[Call]:
     counts: Counter[Expr] = Counter()
     _walk_model_calls(expr, model_call_names, counts)
     repeated = [node for node, count in counts.items() if count > 1]
@@ -2261,8 +2402,9 @@ def _collect_repeated_model_calls(expr: Expr, model_call_names: frozenset[str]) 
     return [node for node in repeated if isinstance(node, Call)]
 
 
-def _walk_model_calls(node: Expr, model_call_names: frozenset[str],
-                       counts: Counter[Expr]) -> None:
+def _walk_model_calls(
+    node: Expr, model_call_names: frozenset[str], counts: Counter[Expr]
+) -> None:
     """Recursively count model-call occurrences in *node*."""
     if isinstance(node, Call):
         if node.name in model_call_names:
@@ -2271,8 +2413,9 @@ def _walk_model_calls(node: Expr, model_call_names: frozenset[str],
             _walk_model_calls(arg, model_call_names, counts)
 
 
-def _walk_statement(stmt: ModelStatement, model_call_names: frozenset[str],
-                    counts: Counter[Expr]) -> None:
+def _walk_statement(
+    stmt: ModelStatement, model_call_names: frozenset[str], counts: Counter[Expr]
+) -> None:
     """Count model-call occurrences across all expressions in *stmt*."""
     if isinstance(stmt, Assignment):
         _walk_model_calls(stmt.expr, model_call_names, counts)
@@ -2284,8 +2427,9 @@ def _walk_statement(stmt: ModelStatement, model_call_names: frozenset[str],
             _walk_model_calls(a.expr, model_call_names, counts)
 
 
-def _replace_statement(stmt: ModelStatement,
-                       replacements: dict[Expr, str]) -> ModelStatement:
+def _replace_statement(
+    stmt: ModelStatement, replacements: dict[Expr, str]
+) -> ModelStatement:
     """Apply *replacements* inside a single statement."""
     if isinstance(stmt, Assignment):
         return Assignment(
@@ -2333,9 +2477,7 @@ def _hoist_repeated_calls_in_expr(
     hoisted: list[Assignment] = []
     for call in repeated_calls:
         if call.name not in model_call_names:
-            raise ParseError(
-                f"CSE: refusing to hoist non-model call {call!r}"
-            )
+            raise ParseError(f"CSE: refusing to hoist non-model call {call!r}")
         hoisted_name = _gensym("cse")
         hoisted_expr = _replace_expr(call, replacements)
         hoisted.append(Assignment(target=hoisted_name, expr=hoisted_expr))
@@ -2349,27 +2491,36 @@ def _localize_statement_cse(
     model_call_names: frozenset[str],
 ) -> list[ModelStatement]:
     if isinstance(stmt, Assignment):
-        hoisted, expr = _hoist_repeated_calls_in_expr(
-            stmt.expr, model_call_names=model_call_names,
-        )
-        return [*hoisted, Assignment(target=stmt.target, expr=expr)]
+        return [
+            *_localize_assignment_cse(
+                stmt,
+                model_call_names=model_call_names,
+            )
+        ]
 
     if isinstance(stmt, ConditionalBlock):
         prefix, condition = _hoist_repeated_calls_in_expr(
-            stmt.condition, model_call_names=model_call_names,
+            stmt.condition,
+            model_call_names=model_call_names,
         )
 
         then_assignments: list[Assignment] = []
         for assignment in stmt.then_branch.assignments:
-            then_assignments.extend(_localize_statement_cse(
-                assignment, model_call_names=model_call_names,
-            ))
+            then_assignments.extend(
+                _localize_assignment_cse(
+                    assignment,
+                    model_call_names=model_call_names,
+                )
+            )
 
         localized_else: list[Assignment] = []
         for assignment in stmt.else_branch.assignments:
-            localized_else.extend(_localize_statement_cse(
-                assignment, model_call_names=model_call_names,
-            ))
+            localized_else.extend(
+                _localize_assignment_cse(
+                    assignment,
+                    model_call_names=model_call_names,
+                )
+            )
 
         return [
             *prefix,
@@ -2388,6 +2539,20 @@ def _localize_statement_cse(
         ]
 
     raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
+
+
+def _localize_assignment_cse(
+    stmt: Assignment,
+    *,
+    model_call_names: frozenset[str],
+) -> list[Assignment]:
+    if isinstance(stmt, Assignment):
+        hoisted, expr = _hoist_repeated_calls_in_expr(
+            stmt.expr,
+            model_call_names=model_call_names,
+        )
+        return [*hoisted, Assignment(target=stmt.target, expr=expr)]
+    raise TypeError(f"Unsupported Assignment node: {type(stmt)}")
 
 
 def hoist_repeated_model_calls(
@@ -2426,9 +2591,7 @@ def hoist_repeated_model_calls(
     # Sanity: every hoisted call must be a known-pure model call.
     for call in repeated_global:
         if call.name not in model_call_names:
-            raise ParseError(
-                f"CSE: refusing to hoist non-model call {call!r}"
-            )
+            raise ParseError(f"CSE: refusing to hoist non-model call {call!r}")
 
     # -- Pass 2: build global replacements and hoisted let-bindings --------
     global_replacements: dict[Expr, str] = {}
@@ -2441,16 +2604,18 @@ def hoist_repeated_model_calls(
 
     # -- Pass 3: rewrite all statements with global replacements -----------
     rewritten_statements = [
-        _replace_statement(stmt, global_replacements)
-        for stmt in model.assignments
+        _replace_statement(stmt, global_replacements) for stmt in model.assignments
     ]
 
     # -- Pass 4: locally hoist remaining repeated calls in safe scopes -----
     new_assignments: list[ModelStatement] = list(hoisted_global)
     for stmt in rewritten_statements:
-        new_assignments.extend(_localize_statement_cse(
-            stmt, model_call_names=model_call_names,
-        ))
+        new_assignments.extend(
+            _localize_statement_cse(
+                stmt,
+                model_call_names=model_call_names,
+            )
+        )
 
     return FunctionModel(
         fn_name=model.fn_name,
@@ -2469,7 +2634,9 @@ def prepare_translation(
     """Parse Yul, select targets, and inline non-target helpers."""
 
     tokens = tokenize_yul(yul_text)
-    selected = selected_functions if selected_functions is not None else config.function_order
+    selected = (
+        selected_functions if selected_functions is not None else config.function_order
+    )
 
     function_collection = YulParser(tokens).collect_all_functions()
     helper_table = dict(function_collection.functions)
@@ -2559,12 +2726,14 @@ def apply_optional_model_transforms(
     if pipeline.hoist_repeated_calls and config.hoist_repeated_calls:
         model_call_names = frozenset(config.function_order)
         transformed = [
-            hoist_repeated_model_calls(
-                model,
-                model_call_names=model_call_names,
+            (
+                hoist_repeated_model_calls(
+                    model,
+                    model_call_names=model_call_names,
+                )
+                if model.fn_name in config.hoist_repeated_calls
+                else model
             )
-            if model.fn_name in config.hoist_repeated_calls
-            else model
             for model in transformed
         ]
         for model in transformed:
@@ -2572,9 +2741,11 @@ def apply_optional_model_transforms(
 
     if pipeline.prune_dead_assignments:
         transformed = [
-            _prune_dead_assignments(model)
-            if model.fn_name not in config.skip_prune
-            else model
+            (
+                _prune_dead_assignments(model)
+                if model.fn_name not in config.skip_prune
+                else model
+            )
             for model in transformed
         ]
         for model in transformed:
@@ -2672,7 +2843,10 @@ def emit_expr(
             helper = call_helper_map.get(expr.name)
         if helper is None:
             raise ParseError(f"Unsupported call in Lean emitter: {expr.name!r}")
-        args = " ".join(f"({emit_expr(a, op_helper_map=op_helper_map, call_helper_map=call_helper_map)})" for a in expr.args)
+        args = " ".join(
+            f"({emit_expr(a, op_helper_map=op_helper_map, call_helper_map=call_helper_map)})"
+            for a in expr.args
+        )
         return f"{helper} {args}".rstrip()
     raise TypeError(f"Unsupported Expr node: {type(expr)}")
 
@@ -2681,9 +2855,11 @@ def emit_expr(
 # Per-generator configuration
 # ---------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class ModelConfig:
     """All the per-library knobs that differ between cbrt and sqrt generators."""
+
     # Ordered Solidity function names to model.
     function_order: tuple[str, ...]
     # sol_fn_name → Lean model base name  (e.g. "_cbrt" → "model_cbrt")
@@ -2754,6 +2930,16 @@ class TranslationResult:
     preparation: PreparedTranslation
     models: list[FunctionModel]
     pipeline: TranslationPipeline
+
+
+class RunArguments(argparse.Namespace):
+    yul: str
+    source_label: str
+    functions: str
+    function: list[str] | None
+    namespace: str
+    output: str
+    pipeline: str
 
 
 def get_translation_pipeline(name: str) -> TranslationPipeline:
@@ -2847,8 +3033,11 @@ def render_function_defs(models: list[FunctionModel], config: ModelConfig) -> st
         model_base = config.model_names[model.fn_name]
         evm_name = f"{model_base}_evm"
         evm_body = build_model_body(
-            model.assignments, evm=True, config=config,
-            param_names=model.param_names, return_names=model.return_names,
+            model.assignments,
+            evm=True,
+            config=config,
+            param_names=model.param_names,
+            return_names=model.return_names,
         )
 
         param_sig = " ".join(f"{p}" for p in model.param_names)
@@ -2864,8 +3053,11 @@ def render_function_defs(models: list[FunctionModel], config: ModelConfig) -> st
         if model.fn_name not in config.skip_norm:
             norm_name = model_base
             norm_body = build_model_body(
-                model.assignments, evm=False, config=config,
-                param_names=model.param_names, return_names=model.return_names,
+                model.assignments,
+                evm=False,
+                config=config,
+                param_names=model.param_names,
+                return_names=model.return_names,
             )
             parts.append(
                 f"/-- Normalized auto-generated model of `{model.fn_name}` on Nat arithmetic. -/\n"
@@ -2984,7 +3176,7 @@ def build_lean_source(
 
 
 def parse_function_selection(
-    args: argparse.Namespace,
+    args: RunArguments,
     config: ModelConfig,
 ) -> tuple[str, ...]:
     selected: list[str] = []
@@ -3006,7 +3198,10 @@ def parse_function_selection(
         raise ParseError(f"Unsupported function(s): {', '.join(bad)}")
 
     # Public functions depend on the inner function.
-    if any(fn != config.inner_fn for fn in selected) and config.inner_fn not in selected:
+    if (
+        any(fn != config.inner_fn for fn in selected)
+        and config.inner_fn not in selected
+    ):
         selected.append(config.inner_fn)
 
     selected_set = set(selected)
@@ -3020,27 +3215,33 @@ def run(config: ModelConfig) -> int:
 
     ap = argparse.ArgumentParser(description=config.cli_description)
     ap.add_argument(
-        "--yul", required=True,
+        "--yul",
+        required=True,
         help="Path to Yul IR file, or '-' for stdin (from `forge inspect ... ir`)",
     )
     ap.add_argument(
-        "--source-label", default=config.default_source_label,
+        "--source-label",
+        default=config.default_source_label,
         help="Source label for the Lean header comment",
     )
     ap.add_argument(
-        "--functions", default="",
+        "--functions",
+        default="",
         help=f"Comma-separated function names (default: {','.join(config.function_order)})",
     )
     ap.add_argument(
-        "--function", action="append",
+        "--function",
+        action="append",
         help="Optional repeatable function selector",
     )
     ap.add_argument(
-        "--namespace", default=config.default_namespace,
+        "--namespace",
+        default=config.default_namespace,
         help="Lean namespace for generated definitions",
     )
     ap.add_argument(
-        "--output", default=config.default_output,
+        "--output",
+        default=config.default_output,
         help="Output Lean file path",
     )
     ap.add_argument(
@@ -3049,15 +3250,19 @@ def run(config: ModelConfig) -> int:
         choices=sorted(TRANSLATION_PIPELINES),
         help="Translation pipeline to run (default: optimized)",
     )
-    args = ap.parse_args()
+    args = ap.parse_args(namespace=RunArguments())
 
     validate_ident(args.namespace, what="Lean namespace")
 
     selected_functions = parse_function_selection(args, config)
     pipeline = get_translation_pipeline(args.pipeline)
 
+    yul_text: str
     if args.yul == "-":
-        yul_text = sys.stdin.read()
+        stdin = sys.stdin
+        if stdin is None:
+            raise ParseError("stdin is unavailable while reading Yul input")
+        yul_text = stdin.read()
     else:
         yul_text = pathlib.Path(args.yul).read_text()
 
