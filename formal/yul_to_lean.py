@@ -589,7 +589,7 @@ class YulParser:
                         )
                     # Map to ParsedIfBlock: condition != 0 → default (if-body),
                     # condition == 0 → case 0 (else-body).
-                    if_body = tuple(default_body) if default_body else ()
+                    if_body = tuple(default_body)
                     else_body = tuple(case0_body) if case0_body else None
                     results.append(
                         ParsedIfBlock(
@@ -894,7 +894,7 @@ class YulParser:
 def demangle_var(
     name: str,
     param_vars: list[str],
-    return_vars: list[str] | str,
+    return_vars: list[str],
     *,
     keep_solidity_locals: bool = False,
 ) -> str | None:
@@ -906,16 +906,13 @@ def demangle_var(
     ``param_vars`` is a list of Yul parameter variable names (supports
     multi-parameter functions).
 
-    ``return_vars`` is a list of Yul return variable names (or a single
-    string for backward compatibility with single-return functions).
+    ``return_vars`` is a list of Yul return variable names.
 
     When *keep_solidity_locals* is True, variables matching the
     ``var_<name>_<digits>`` pattern (compiler representation of
     Solidity-declared locals) are kept in the model even if they are
     not the function parameter or return variable.
     """
-    if isinstance(return_vars, str):
-        return_vars = [return_vars]
     if name in param_vars or name in return_vars:
         m = re.fullmatch(r"var_(\w+?)_\d+", name)
         return m.group(1) if m else name
