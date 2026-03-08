@@ -303,6 +303,31 @@ class FailClosedTranslatorTest(unittest.TestCase):
         ):
             ytl.YulParser(tokens).parse_function()
 
+    def test_parse_function_rejects_nested_bare_block(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_bad_1(x) -> z {
+                {
+                    let tmp := x
+                }
+                z := x
+            }
+            """)
+
+        with self.assertRaisesRegex(ytl.ParseError, "Nested block statement"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_top_level_leave(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_bad_1() -> z {
+                z := 1
+                leave
+                z := 2
+            }
+            """)
+
+        with self.assertRaisesRegex(ytl.ParseError, "top-level 'leave'"):
+            ytl.YulParser(tokens).parse_function()
+
     def test_parse_function_lowers_multi_return_let_to_component_wrappers(self) -> None:
         tokens = ytl.tokenize_yul("""
             function fun_target_1(var_x_1) -> var_z_2 {
@@ -782,6 +807,21 @@ class TranslationPipelineTest(unittest.TestCase):
             var_z_4 := 9
         }
     """
+    LEAVE_HELPER_DEAD_CODE_YUL = """
+        function fun_target_1(var_x_1) -> var_z_2 {
+            var_z_2 := fun_helper_2(var_x_1)
+        }
+
+        function fun_helper_2(var_x_3) -> var_z_4 {
+            var_z_4 := 1
+            if var_x_3 {
+                var_z_4 := 7
+                leave
+                var_z_4 := 8
+            }
+            var_z_4 := 9
+        }
+    """
     PLAIN_IF_HELPER_CONFIG = make_model_config(("target",))
     PLAIN_IF_HELPER_YUL = """
         function fun_target_1(var_flag_1, var_x_2) -> var_z_3 {
@@ -928,6 +968,20 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertIn("let z_1 := evmAdd (x) (1)", rendered)
         self.assertNotIn("usr$tmp", rendered)
         self.assertNotIn("var_z_2", rendered)
+
+    def test_render_function_defs_supports_zero_argument_models(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            assignments=(ytl.Assignment("z", ytl.IntLit(1)),),
+            param_names=(),
+            return_names=("z",),
+        )
+
+        rendered = ytl.render_function_defs([model], self.SIMPLE_CONFIG)
+
+        self.assertIn("def model_f_evm : Nat :=", rendered)
+        self.assertIn("def model_f : Nat :=", rendered)
+        self.assertNotIn("( : Nat)", rendered)
 
     def test_apply_optional_model_transforms_skips_hoisting_in_raw_pipeline(
         self,
@@ -1098,6 +1152,19 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
         self.assertEqual(ytl.evaluate_function_model(model, (ytl.WORD_MOD - 1,)), (7,))
+
+    def test_translate_yul_to_models_ignores_dead_code_after_inlined_leave(
+        self,
+    ) -> None:
+        result = ytl.translate_yul_to_models(
+            self.LEAVE_HELPER_DEAD_CODE_YUL,
+            self.LEAVE_HELPER_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
 
     def test_translate_yul_to_models_lowers_plain_inlined_if(self) -> None:
         result = ytl.translate_yul_to_models(
@@ -2075,6 +2142,258 @@ class TryConstEvalTest(unittest.TestCase):
         lean_helper_keys: list[str] = sorted(ytl.OP_TO_LEAN_HELPER)
         norm_helper_keys: list[str] = sorted(ytl._BASE_NORM_HELPERS)
         self.assertEqual(lean_helper_keys, norm_helper_keys)
+
+
+# ---------------------------------------------------------------------------
+# Step 1b tests: _simplify_ite constant-condition elimination
+# ---------------------------------------------------------------------------
+
+
+def _expr_contains_ite(expr: ytl.Expr) -> bool:
+    """Return True if *expr* contains any ``__ite`` Call node."""
+    if isinstance(expr, ytl.Call):
+        if expr.name == "__ite":
+            return True
+        return any(_expr_contains_ite(arg) for arg in expr.args)
+    return False
+
+
+def _model_contains_ite(model: ytl.FunctionModel) -> bool:
+    """Return True if any expression in *model* contains an ``__ite`` node."""
+    for stmt in model.assignments:
+        if isinstance(stmt, ytl.Assignment):
+            if _expr_contains_ite(stmt.expr):
+                return True
+        elif isinstance(stmt, ytl.ConditionalBlock):
+            if _expr_contains_ite(stmt.condition):
+                return True
+            for a in stmt.then_branch.assignments:
+                if _expr_contains_ite(a.expr):
+                    return True
+            for a in stmt.else_branch.assignments:
+                if _expr_contains_ite(a.expr):
+                    return True
+    return False
+
+
+class SimplifyIteTest(unittest.TestCase):
+    """Tests for _simplify_ite and its effect on inlining."""
+
+    # -- Unit tests for _simplify_ite directly --
+
+    def test_constant_true_returns_if_val(self) -> None:
+        result = ytl._simplify_ite(ytl.IntLit(1), ytl.Var("a"), ytl.Var("b"))
+        self.assertEqual(result, ytl.Var("a"))
+
+    def test_constant_nonzero_returns_if_val(self) -> None:
+        result = ytl._simplify_ite(ytl.IntLit(42), ytl.Var("a"), ytl.Var("b"))
+        self.assertEqual(result, ytl.Var("a"))
+
+    def test_constant_false_returns_else_val(self) -> None:
+        result = ytl._simplify_ite(ytl.IntLit(0), ytl.Var("a"), ytl.Var("b"))
+        self.assertEqual(result, ytl.Var("b"))
+
+    def test_equal_branches_returns_value(self) -> None:
+        result = ytl._simplify_ite(ytl.Var("c"), ytl.IntLit(5), ytl.IntLit(5))
+        self.assertEqual(result, ytl.IntLit(5))
+
+    def test_equal_branches_with_variable_condition(self) -> None:
+        expr = ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))
+        result = ytl._simplify_ite(ytl.Var("c"), expr, expr)
+        self.assertEqual(result, expr)
+
+    def test_variable_condition_emits_ite(self) -> None:
+        result = ytl._simplify_ite(ytl.Var("c"), ytl.Var("a"), ytl.Var("b"))
+        self.assertEqual(
+            result, ytl.Call("__ite", (ytl.Var("c"), ytl.Var("a"), ytl.Var("b")))
+        )
+
+    def test_computed_constant_condition_folds(self) -> None:
+        # eq(5, 5) evaluates to 1, so the true branch is selected.
+        cond = ytl.Call("eq", (ytl.IntLit(5), ytl.IntLit(5)))
+        result = ytl._simplify_ite(cond, ytl.Var("a"), ytl.Var("b"))
+        self.assertEqual(result, ytl.Var("a"))
+
+    def test_computed_zero_condition_folds(self) -> None:
+        # eq(3, 5) evaluates to 0, so the else branch is selected.
+        cond = ytl.Call("eq", (ytl.IntLit(3), ytl.IntLit(5)))
+        result = ytl._simplify_ite(cond, ytl.Var("a"), ytl.Var("b"))
+        self.assertEqual(result, ytl.Var("b"))
+
+    # -- Integration: inlining a helper with constant-condition if-block --
+
+    CONST_IF_HELPER_CONFIG = make_model_config(("target",))
+    CONST_IF_HELPER_YUL = """
+        function fun_target_1(var_x_1) -> var_z_2 {
+            var_z_2 := fun_helper_2(var_x_1)
+        }
+
+        function fun_helper_2(var_x_3) -> var_z_4 {
+            var_z_4 := var_x_3
+            if 1 {
+                var_z_4 := add(var_x_3, 10)
+            }
+        }
+    """
+
+    def test_inline_constant_true_if_eliminates_ite(self) -> None:
+        result = ytl.translate_yul_to_models(
+            self.CONST_IF_HELPER_YUL,
+            self.CONST_IF_HELPER_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertFalse(
+            _model_contains_ite(model),
+            "Expected no __ite nodes when if-condition is constant 1",
+        )
+        # Semantics: always takes the if-body (add x 10)
+        self.assertEqual(ytl.evaluate_function_model(model, (5,)), (15,))
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (10,))
+
+    CONST_FALSE_IF_HELPER_YUL = """
+        function fun_target_1(var_x_1) -> var_z_2 {
+            var_z_2 := fun_helper_2(var_x_1)
+        }
+
+        function fun_helper_2(var_x_3) -> var_z_4 {
+            var_z_4 := var_x_3
+            if 0 {
+                var_z_4 := add(var_x_3, 10)
+            }
+        }
+    """
+
+    def test_inline_constant_false_if_eliminates_ite(self) -> None:
+        result = ytl.translate_yul_to_models(
+            self.CONST_FALSE_IF_HELPER_YUL,
+            self.CONST_IF_HELPER_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertFalse(
+            _model_contains_ite(model),
+            "Expected no __ite nodes when if-condition is constant 0",
+        )
+        # Semantics: never takes the if-body, z = x
+        self.assertEqual(ytl.evaluate_function_model(model, (5,)), (5,))
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
+
+    # -- Integration: inlining a helper with constant-condition leave --
+
+    CONST_LEAVE_HELPER_CONFIG = make_model_config(("target",))
+    CONST_LEAVE_HELPER_YUL = """
+        function fun_target_1(var_x_1) -> var_z_2 {
+            var_z_2 := fun_helper_2(var_x_1)
+        }
+
+        function fun_helper_2(var_x_3) -> var_z_4 {
+            var_z_4 := 1
+            if 1 {
+                var_z_4 := 7
+                leave
+            }
+            var_z_4 := 9
+        }
+    """
+
+    def test_inline_constant_true_leave_eliminates_ite(self) -> None:
+        result = ytl.translate_yul_to_models(
+            self.CONST_LEAVE_HELPER_YUL,
+            self.CONST_LEAVE_HELPER_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertFalse(
+            _model_contains_ite(model),
+            "Expected no __ite nodes when leave condition is constant 1",
+        )
+        # Always takes the leave path: z = 7
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (7,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+
+    CONST_FALSE_LEAVE_HELPER_YUL = """
+        function fun_target_1(var_x_1) -> var_z_2 {
+            var_z_2 := fun_helper_2(var_x_1)
+        }
+
+        function fun_helper_2(var_x_3) -> var_z_4 {
+            var_z_4 := 1
+            if 0 {
+                var_z_4 := 7
+                leave
+            }
+            var_z_4 := 9
+        }
+    """
+
+    def test_inline_constant_false_leave_eliminates_ite(self) -> None:
+        result = ytl.translate_yul_to_models(
+            self.CONST_FALSE_LEAVE_HELPER_YUL,
+            self.CONST_LEAVE_HELPER_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertFalse(
+            _model_contains_ite(model),
+            "Expected no __ite nodes when leave condition is constant 0",
+        )
+        # Never takes the leave path: z = 9
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (9,))
+
+    # -- Integration: inlining a helper with constant-condition switch --
+
+    CONST_SWITCH_HELPER_CONFIG = make_model_config(("target",))
+    CONST_SWITCH_HELPER_YUL = """
+        function fun_target_1(var_x_1) -> var_z_2 {
+            var_z_2 := fun_helper_2(var_x_1)
+        }
+
+        function fun_helper_2(var_x_3) -> var_z_4 {
+            var_z_4 := var_x_3
+            switch 1
+            case 0 {
+                var_z_4 := add(var_x_3, 10)
+            }
+            default {
+                var_z_4 := add(var_x_3, 20)
+            }
+        }
+    """
+
+    def test_inline_constant_switch_eliminates_ite(self) -> None:
+        result = ytl.translate_yul_to_models(
+            self.CONST_SWITCH_HELPER_YUL,
+            self.CONST_SWITCH_HELPER_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertFalse(
+            _model_contains_ite(model),
+            "Expected no __ite nodes when switch condition is constant 1",
+        )
+        # switch 1 → default branch: z = x + 20
+        self.assertEqual(ytl.evaluate_function_model(model, (5,)), (25,))
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (20,))
+
+    # -- Variable condition still produces __ite --
+
+    def test_variable_condition_preserves_ite(self) -> None:
+        """Sanity check: non-constant conditions still produce __ite."""
+        result = ytl.translate_yul_to_models(
+            TranslationPipelineTest.LEAVE_HELPER_YUL,
+            TranslationPipelineTest.LEAVE_HELPER_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertTrue(
+            _model_contains_ite(model),
+            "Expected __ite nodes when condition depends on input",
+        )
+        # Semantics still correct
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
 
 
 # ---------------------------------------------------------------------------
