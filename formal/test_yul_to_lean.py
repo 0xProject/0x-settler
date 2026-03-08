@@ -504,6 +504,20 @@ class TranslationPipelineTest(unittest.TestCase):
             var_z_2 := add(var_x_1, 1)
         }
     """
+    MULTI_RETURN_REBIND_CONFIG = make_model_config(("outer",))
+    MULTI_RETURN_REBIND_YUL = """
+        function fun_outer_1(var_x_hi_1, var_x_lo_2) -> var_r_3 {
+            let expr_1_component_1, expr_1_component_2, expr_1_component_3 := fun_pair_2(var_x_hi_1, var_x_lo_2)
+            var_x_lo_2 := expr_1_component_3
+            var_x_hi_1 := expr_1_component_2
+            var_r_3 := sub(var_x_hi_1, var_x_lo_2)
+        }
+
+        function fun_pair_2(var_a_4, var_b_5) -> var_drop_6, var_hi_7, var_lo_8 {
+            var_lo_8 := add(var_b_5, 1)
+            var_hi_7 := add(var_a_4, var_b_5)
+        }
+    """
 
     def test_validate_function_model_rejects_out_of_scope_var(self) -> None:
         bad_model = ytl.FunctionModel(
@@ -554,6 +568,23 @@ class TranslationPipelineTest(unittest.TestCase):
             ytl.Assignment("z_1", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),
         ))
 
+    def test_render_function_defs_uses_demangled_ssa_names(self) -> None:
+        result = ytl.translate_yul_to_models(
+            self.SIMPLE_YUL,
+            self.SIMPLE_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        rendered = ytl.render_function_defs([model], self.SIMPLE_CONFIG)
+
+        self.assertIn("def model_f_evm (x : Nat) : Nat :=", rendered)
+        self.assertIn("let x := u256 x", rendered)
+        self.assertIn("let dead := 7", rendered)
+        self.assertIn("let z := 0", rendered)
+        self.assertIn("let z_1 := evmAdd (x) (1)", rendered)
+        self.assertNotIn("usr$tmp", rendered)
+        self.assertNotIn("var_z_2", rendered)
+
     def test_apply_optional_model_transforms_skips_hoisting_in_raw_pipeline(self) -> None:
         model = ytl.FunctionModel(
             fn_name="outer",
@@ -585,6 +616,54 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertNotEqual(optimized_models, [model])
         self.assertIsInstance(optimized_models[0].assignments[0], ytl.Assignment)
         self.assertRegex(optimized_models[0].assignments[0].target, r"^_cse_\d+$")
+
+    def test_multi_return_rebinding_keeps_old_argument_binding_for_later_components(self) -> None:
+        result = ytl.translate_yul_to_models(
+            self.MULTI_RETURN_REBIND_YUL,
+            self.MULTI_RETURN_REBIND_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        assignments = [stmt for stmt in model.assignments if isinstance(stmt, ytl.Assignment)]
+        self.assertEqual(len(assignments), 3)
+        x_lo_update, x_hi_update, _ = assignments
+
+        self.assertNotIn(
+            x_lo_update.target,
+            ytl._expr_vars(x_hi_update.expr),
+            "later rebound component unexpectedly captured the already-updated "
+            "argument value instead of the pre-call binding",
+        )
+
+    def test_multi_return_rebinding_matches_simultaneous_assignment_semantics(self) -> None:
+        result = ytl.translate_yul_to_models(
+            self.MULTI_RETURN_REBIND_YUL,
+            self.MULTI_RETURN_REBIND_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        for x_hi, x_lo in ((7, 11), (0, 3), (123, 0), (ytl.WORD_MOD - 1, 9)):
+            with self.subTest(x_hi=x_hi, x_lo=x_lo):
+                actual = ytl.evaluate_function_model(model, (x_hi, x_lo))
+                expected = ((x_hi - 1) % ytl.WORD_MOD,)
+                self.assertEqual(actual, expected)
+
+    def test_ssa_renaming_rejects_collision_with_other_demangled_name(self) -> None:
+        yf = ytl.YulFunction(
+            yul_name="f",
+            params=["var_x_1"],
+            rets=["var_z_2"],
+            assignments=[
+                ("var_x_1", ytl.Call("add", (ytl.Var("var_x_1"), ytl.IntLit(1)))),
+                ("usr$x_1", ytl.IntLit(7)),
+                ("var_z_2", ytl.Var("usr$x_1")),
+            ],
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "collides with the demangled name"):
+            ytl.yul_function_to_model(yf, "f", {})
 
 
 class ExplicitMemoryModelTest(unittest.TestCase):

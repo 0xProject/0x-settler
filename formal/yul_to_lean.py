@@ -1355,11 +1355,31 @@ def yul_function_to_model(
     subst: dict[str, Expr] = {}
     const_locals: dict[str, int] = {}
     memory_state: dict[int, Expr] = {}
+    all_clean_names: set[str] = set()
 
     for name in [*yf.params, *yf.rets]:
         clean = demangle_var(name, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals)
         if clean:
             var_map[name] = clean
+            all_clean_names.add(clean)
+
+    for stmt in yf.assignments:
+        if isinstance(stmt, ParsedIfBlock):
+            targets = [target for target, _ in stmt.body]
+            if stmt.else_body is not None:
+                targets.extend(target for target, _ in stmt.else_body)
+        elif isinstance(stmt, MemoryWrite):
+            targets = []
+        else:
+            target, _ = stmt
+            targets = [target]
+        for target in targets:
+            clean = demangle_var(
+                target, yf.params, yf.rets,
+                keep_solidity_locals=keep_solidity_locals,
+            )
+            if clean is not None:
+                all_clean_names.add(clean)
 
     # Save param names before SSA processing may rename them.
     param_names = tuple(var_map[p] for p in yf.params)
@@ -1369,7 +1389,7 @@ def yul_function_to_model(
     # reassigned variables get distinct Lean names (_1, _2, ...).
     # Parameters start at count 1 (the function-parameter binding).
     # ------------------------------------------------------------------
-    ssa_count: dict[str, int] = {}
+    ssa_count: Counter[str] = Counter()
     for name in yf.params:
         clean = var_map.get(name)
         if clean:
@@ -1468,11 +1488,17 @@ def yul_function_to_model(
         # blocks, Lean's scoped ``let`` handles shadowing, so we
         # use the base clean name directly.
         if not inside_conditional:
-            ssa_count[clean] = ssa_count.get(clean, 0) + 1
+            ssa_count[clean] += 1
             if ssa_count[clean] == 1:
                 ssa_name = clean
             else:
                 ssa_name = f"{clean}_{ssa_count[clean] - 1}"
+                if ssa_name in all_clean_names:
+                    raise ParseError(
+                        f"SSA-generated name {ssa_name!r} in {sol_fn_name!r} "
+                        f"collides with the demangled name of another variable. "
+                        f"Refuse to generate ambiguous Lean binders."
+                    )
         else:
             ssa_name = clean
 
@@ -2562,7 +2588,11 @@ def emit_expr(
         if m and len(expr.args) == 1:
             idx = int(m.group(1))
             total = int(m.group(2))
-            inner = emit_expr(expr.args[0], op_helper_map=op_helper_map, call_helper_map=call_helper_map)
+            inner = emit_expr(
+                expr.args[0],
+                op_helper_map=op_helper_map,
+                call_helper_map=call_helper_map,
+            )
             if total <= 2 or idx == 0:
                 return f"({inner}).{idx + 1}"
             elif idx == total - 1:
@@ -2573,9 +2603,21 @@ def emit_expr(
         # Handle __ite(cond, if_val, else_val) from leave-handling.
         # Emits: if (cond) ≠ 0 then if_val else else_val
         if expr.name == "__ite" and len(expr.args) == 3:
-            cond = emit_expr(expr.args[0], op_helper_map=op_helper_map, call_helper_map=call_helper_map)
-            if_val = emit_expr(expr.args[1], op_helper_map=op_helper_map, call_helper_map=call_helper_map)
-            else_val = emit_expr(expr.args[2], op_helper_map=op_helper_map, call_helper_map=call_helper_map)
+            cond = emit_expr(
+                expr.args[0],
+                op_helper_map=op_helper_map,
+                call_helper_map=call_helper_map,
+            )
+            if_val = emit_expr(
+                expr.args[1],
+                op_helper_map=op_helper_map,
+                call_helper_map=call_helper_map,
+            )
+            else_val = emit_expr(
+                expr.args[2],
+                op_helper_map=op_helper_map,
+                call_helper_map=call_helper_map,
+            )
             return f"if ({cond}) ≠ 0 then {if_val} else {else_val}"
 
         helper = op_helper_map.get(expr.name)
@@ -2704,7 +2746,11 @@ def build_model_body(
         rhs_expr = expr
         if not evm and config.norm_rewrite is not None:
             rhs_expr = config.norm_rewrite(rhs_expr)
-        return emit_expr(rhs_expr, op_helper_map=op_map, call_helper_map=call_map)
+        return emit_expr(
+            rhs_expr,
+            op_helper_map=op_map,
+            call_helper_map=call_map,
+        )
 
     def _emit_tuple(vars_: tuple[str, ...]) -> str:
         if len(vars_) == 1:
