@@ -186,6 +186,10 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
 
 
 class FailClosedTranslatorTest(unittest.TestCase):
+    def test_tokenize_yul_rejects_malformed_input(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "tokenizer stuck"):
+            ytl.tokenize_yul("function fun_bad_1() { let x := 1 @ }")
+
     def test_parse_function_rejects_non_function_keyword(self) -> None:
         parser = ytl.YulParser([("ident", "not_function")])
 
@@ -219,6 +223,148 @@ class FailClosedTranslatorTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ytl.ParseError, "Conditional memory write"):
             ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_for_loop(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function fun_bad_1(x) -> z {
+                for { } 1 { } {
+                    z := x
+                }
+            }
+            """
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "Control flow statement 'for'"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_switch_without_default(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function fun_bad_1(x) -> z {
+                switch x
+                case 0 {
+                    z := 1
+                }
+            }
+            """
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "switch must have exactly 'case 0' \\+ 'default'"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_switch_with_nonzero_case(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function fun_bad_1(x) -> z {
+                switch x
+                case 1 {
+                    z := 1
+                }
+                default {
+                    z := 2
+                }
+            }
+            """
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "switch case value .* is not 0"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_switch_with_default_before_case(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function fun_bad_1(x) -> z {
+                switch x
+                default {
+                    z := 2
+                }
+                case 0 {
+                    z := 1
+                }
+            }
+            """
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "'default' must be the last branch"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_nested_switch_inside_if_body(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function fun_bad_1(x) -> z {
+                if x {
+                    switch and(x, 1)
+                    case 0 {
+                        z := 1
+                    }
+                    default {
+                        z := 2
+                    }
+                }
+                z := 3
+            }
+            """
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "Control flow statement 'switch' found in if-body"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_nested_if_inside_switch_branch(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function fun_bad_1(x) -> z {
+                switch x
+                case 0 {
+                    if x {
+                        z := 1
+                    }
+                }
+                default {
+                    z := 2
+                }
+            }
+            """
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "Control flow statement 'if' found in switch branch"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_lowers_multi_return_let_to_component_wrappers(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                let usr$lhs, usr$rhs := fun_pair_2(var_x_1)
+                var_z_2 := add(usr$lhs, usr$rhs)
+            }
+            """
+        )
+
+        parsed = ytl.YulParser(tokens).parse_function()
+
+        self.assertEqual(
+            parsed.assignments,
+            [
+                (
+                    "usr$lhs",
+                    ytl.Call(
+                        "__component_0_2",
+                        (ytl.Call("fun_pair_2", (ytl.Var("var_x_1"),)),),
+                    ),
+                ),
+                (
+                    "usr$rhs",
+                    ytl.Call(
+                        "__component_1_2",
+                        (ytl.Call("fun_pair_2", (ytl.Var("var_x_1"),)),),
+                    ),
+                ),
+                (
+                    "var_z_2",
+                    ytl.Call("add", (ytl.Var("usr$lhs"), ytl.Var("usr$rhs"))),
+                ),
+            ],
+        )
 
     def test_collect_all_functions_records_rejected_helper_and_inlining_fails(self) -> None:
         tokens = ytl.tokenize_yul(
@@ -363,6 +509,8 @@ def make_model_config(
     hoist_repeated_calls: frozenset[str] = frozenset(),
     skip_prune: frozenset[str] = frozenset(),
     keep_solidity_locals: bool = False,
+    exact_yul_names: dict[str, str] | None = None,
+    n_params: dict[str, int] | None = None,
 ) -> ytl.ModelConfig:
     return ytl.ModelConfig(
         function_order=function_order,
@@ -373,6 +521,8 @@ def make_model_config(
         extra_lean_defs="",
         norm_rewrite=None,
         inner_fn=function_order[0],
+        n_params=n_params,
+        exact_yul_names=exact_yul_names,
         keep_solidity_locals=keep_solidity_locals,
         hoist_repeated_calls=hoist_repeated_calls,
         skip_prune=skip_prune,
@@ -553,6 +703,37 @@ class TranslationPipelineTest(unittest.TestCase):
             var_out_8 := var_r_6
         }
     """
+    LEAVE_HELPER_CONFIG = make_model_config(("target",))
+    LEAVE_HELPER_YUL = """
+        function fun_target_1(var_x_1) -> var_z_2 {
+            var_z_2 := fun_helper_2(var_x_1)
+        }
+
+        function fun_helper_2(var_x_3) -> var_z_4 {
+            var_z_4 := 1
+            if var_x_3 {
+                var_z_4 := 7
+                leave
+            }
+            var_z_4 := 9
+        }
+    """
+    SEQUENTIAL_CONTROL_FLOW_CONFIG = make_model_config(("f",))
+    SEQUENTIAL_CONTROL_FLOW_YUL = """
+        function fun_f_1(var_x_1, var_y_2) -> var_z_3 {
+            var_z_3 := 1
+            if var_x_1 {
+                var_z_3 := 5
+            }
+            switch var_y_2
+            case 0 {
+                var_z_3 := add(var_z_3, 10)
+            }
+            default {
+                var_z_3 := add(var_z_3, 20)
+            }
+        }
+    """
 
     def test_validate_function_model_rejects_out_of_scope_var(self) -> None:
         bad_model = ytl.FunctionModel(
@@ -728,6 +909,39 @@ class TranslationPipelineTest(unittest.TestCase):
                 self.assertEqual(
                     ytl.evaluate_function_model(model, (x,)),
                     (x,),
+                )
+
+    def test_translate_yul_to_models_lowers_inlined_leave(self) -> None:
+        result = ytl.translate_yul_to_models(
+            self.LEAVE_HELPER_YUL,
+            self.LEAVE_HELPER_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+        self.assertEqual(ytl.evaluate_function_model(model, (ytl.WORD_MOD - 1,)), (7,))
+
+    def test_translate_yul_to_models_handles_sequential_if_and_switch_scoping(self) -> None:
+        result = ytl.translate_yul_to_models(
+            self.SEQUENTIAL_CONTROL_FLOW_YUL,
+            self.SEQUENTIAL_CONTROL_FLOW_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        cases = {
+            (0, 0): (11,),
+            (1, 0): (15,),
+            (0, 1): (21,),
+            (1, 1): (25,),
+        }
+        for args, expected in cases.items():
+            with self.subTest(args=args):
+                self.assertEqual(
+                    ytl.evaluate_function_model(model, args),
+                    expected,
                 )
 
 
@@ -1442,6 +1656,182 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
                 seed=4000 + seed,
                 random_cases=96,
             )
+
+
+class FunctionSelectionTest(unittest.TestCase):
+    EXACT_SELECTION_YUL = """
+        function helper(var_x_1) -> var_z_2 {
+            var_z_2 := add(var_x_1, 100)
+        }
+
+        function fun_pick_1(var_x_3) -> var_z_4 {
+            var_z_4 := helper(var_x_3)
+        }
+
+        function fun_pick_2(var_x_5) -> var_z_6 {
+            var_z_6 := sub(var_x_5, 1)
+        }
+    """
+
+    def test_find_function_rejects_ambiguous_homonyms_without_disambiguator(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function fun_dup_1(var_x_1) -> var_z_2 {
+                var_z_2 := add(var_x_1, 1)
+            }
+
+            function fun_dup_2(var_x_3) -> var_z_4 {
+                var_z_4 := sub(var_x_3, 1)
+            }
+            """
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "Multiple Yul functions match 'dup'"):
+            ytl.YulParser(tokens).find_function("dup")
+
+    def test_find_function_uses_param_count_to_disambiguate(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function fun_dup_1(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_dup_2(var_x_3, var_y_4) -> var_z_5 {
+                var_z_5 := add(var_x_3, var_y_4)
+            }
+            """
+        )
+
+        found = ytl.YulParser(tokens).find_function("dup", n_params=2)
+
+        self.assertEqual(found.yul_name, "fun_dup_2")
+
+    def test_find_function_prefers_candidate_referencing_known_yul_name(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                var_z_4 := helper(var_x_3)
+            }
+
+            function fun_pick_2(var_x_5) -> var_z_6 {
+                var_z_6 := add(var_x_5, 1)
+            }
+            """
+        )
+
+        found = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+
+        self.assertEqual(found.yul_name, "fun_pick_1")
+
+    def test_find_function_exclude_known_selects_leaf_candidate(self) -> None:
+        tokens = ytl.tokenize_yul(
+            """
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                var_z_4 := helper(var_x_3)
+            }
+
+            function fun_pick_2(var_x_5) -> var_z_6 {
+                var_z_6 := add(var_x_5, 1)
+            }
+            """
+        )
+
+        found = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+            exclude_known=True,
+        )
+
+        self.assertEqual(found.yul_name, "fun_pick_2")
+
+    def test_find_exact_function_returns_named_definition(self) -> None:
+        tokens = ytl.tokenize_yul(self.EXACT_SELECTION_YUL)
+
+        found = ytl.YulParser(tokens).find_exact_function("fun_pick_2")
+
+        self.assertEqual(found.yul_name, "fun_pick_2")
+
+    def test_find_exact_function_rejects_missing_name(self) -> None:
+        tokens = ytl.tokenize_yul(self.EXACT_SELECTION_YUL)
+
+        with self.assertRaisesRegex(ytl.ParseError, "Exact Yul function 'fun_missing_9' not found"):
+            ytl.YulParser(tokens).find_exact_function("fun_missing_9")
+
+    def test_prepare_translation_uses_exact_yul_name_selection(self) -> None:
+        config = make_model_config(
+            ("pick",),
+            exact_yul_names={"pick": "fun_pick_2"},
+        )
+
+        result = ytl.translate_yul_to_models(
+            self.EXACT_SELECTION_YUL,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(result.preparation.fn_map, {"fun_pick_2": "pick"})
+        model = result.models[0]
+        self.assertEqual(model.fn_name, "pick")
+        self.assertEqual(ytl.evaluate_function_model(model, (7,)), (6,))
+
+    def test_prepare_translation_exact_yul_name_rejects_param_mismatch(self) -> None:
+        config = make_model_config(
+            ("pick",),
+            exact_yul_names={"pick": "fun_pick_2"},
+            n_params={"pick": 1},
+        )
+        yul = """
+            function fun_pick_2(var_x_1, var_y_2) -> var_z_3 {
+                var_z_3 := add(var_x_1, var_y_2)
+            }
+            """
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "Exact Yul function 'fun_pick_2' with 1 parameter\\(s\\) not found",
+        ):
+            ytl.prepare_translation(yul, config)
+
+
+class LeanSourceDeterminismTest(unittest.TestCase):
+    CONFIG = make_model_config(("f",))
+
+    def test_build_lean_source_is_deterministic(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment("z", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),
+            ),
+        )
+
+        src1 = ytl.build_lean_source(
+            models=[model],
+            source_path="test-source",
+            namespace="Test",
+            config=self.CONFIG,
+        )
+        src2 = ytl.build_lean_source(
+            models=[model],
+            source_path="test-source",
+            namespace="Test",
+            config=self.CONFIG,
+        )
+
+        self.assertEqual(src1, src2)
+        self.assertNotIn("Generated at (UTC)", src1)
 
 
 if __name__ == "__main__":

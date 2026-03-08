@@ -13,7 +13,6 @@ Provides:
 from __future__ import annotations
 
 import argparse
-import datetime as dt
 import pathlib
 import re
 import sys
@@ -389,6 +388,7 @@ class YulParser:
         self,
         *,
         allow_control_flow: bool,
+        context: str,
     ) -> tuple[list[RawStatement], bool]:
         """Parse statements until ``}`` or end of stream.
 
@@ -397,10 +397,11 @@ class YulParser:
         When *allow_control_flow* is True, ``if`` and ``switch`` blocks
         are parsed and emitted as ``ParsedIfBlock`` entries.  When False,
         ``if``, ``switch``, and ``for`` keywords are rejected with a
-        ``ParseError``, preventing silent model incompleteness inside
-        if-bodies. Straight-line ``mstore`` statements are supported only
-        when *allow_control_flow* is True; conditional memory writes are
-        rejected. ``for`` is always rejected.
+        ``ParseError`` tied to *context*, preventing silent model
+        incompleteness inside nested control-flow regions. Straight-line
+        ``mstore`` statements are supported only when *allow_control_flow*
+        is True; conditional memory writes are rejected. ``for`` is always
+        rejected.
         """
         results: list[RawStatement] = []
         has_leave = False
@@ -412,6 +413,7 @@ class YulParser:
                 self._pop()
                 inner, inner_leave = self._parse_assignment_loop(
                     allow_control_flow=allow_control_flow,
+                    context=context,
                 )
                 results.extend(inner)
                 has_leave = has_leave or inner_leave
@@ -436,7 +438,7 @@ class YulParser:
                 if keyword == "for" or not allow_control_flow:
                     raise ParseError(
                         f"Control flow statement '{keyword}' found in "
-                        f"{'if-body' if not allow_control_flow else 'function body'}. "
+                        f"{context}. "
                         f"Only straight-line code"
                         f"{' and if/switch blocks' if keyword == 'for' else ''} "
                         f"is supported for Lean model generation."
@@ -447,6 +449,7 @@ class YulParser:
                     self._expect("{")
                     body, body_leave = self._parse_assignment_loop(
                         allow_control_flow=False,
+                        context="if-body",
                     )
                     self._expect("}")
                     results.append(ParsedIfBlock(
@@ -487,6 +490,7 @@ class YulParser:
                             self._expect("{")
                             case0_body, case0_leave = self._parse_assignment_loop(
                                 allow_control_flow=False,
+                                context="switch branch",
                             )
                             self._expect("}")
                         else:  # default
@@ -497,6 +501,7 @@ class YulParser:
                             self._expect("{")
                             default_body, default_leave = self._parse_assignment_loop(
                                 allow_control_flow=False,
+                                context="switch branch",
                             )
                             self._expect("}")
                             # default must be the last branch.
@@ -570,6 +575,7 @@ class YulParser:
     def _parse_body_assignments(self) -> list[RawStatement]:
         results, _has_leave = self._parse_assignment_loop(
             allow_control_flow=True,
+            context="function body",
         )
         return results
 
@@ -583,6 +589,7 @@ class YulParser:
         """
         raw, has_leave = self._parse_assignment_loop(
             allow_control_flow=False,
+            context="if-body",
         )
         # When allow_control_flow=False, all statements are plain assignments.
         plain: list[tuple[str, Expr]] = []
@@ -722,6 +729,39 @@ class YulParser:
                 f"Multiple Yul functions match '{sol_fn_name}': {names}. "
                 f"Rename wrapper functions to avoid collisions "
                 f"(e.g. prefix with 'wrap_')."
+            )
+
+        self.i = matches[0]
+        return self.parse_function()
+
+    def find_exact_function(
+        self,
+        yul_name: str,
+        *,
+        n_params: int | None = None,
+    ) -> YulFunction:
+        """Find and parse the function whose Yul symbol exactly matches ``yul_name``."""
+        matches: list[int] = []
+
+        for idx in range(len(self.tokens) - 1):
+            if (
+                self.tokens[idx] == ("ident", "function")
+                and self.tokens[idx + 1] == ("ident", yul_name)
+            ):
+                if n_params is not None and self._count_params_at(idx) != n_params:
+                    continue
+                matches.append(idx)
+
+        if not matches:
+            if n_params is None:
+                raise ParseError(f"Exact Yul function {yul_name!r} not found")
+            raise ParseError(
+                f"Exact Yul function {yul_name!r} with {n_params} parameter(s) not found"
+            )
+
+        if len(matches) > 1:
+            raise ParseError(
+                f"Multiple exact Yul functions matched {yul_name!r}. Refuse to guess."
             )
 
         self.i = matches[0]
@@ -2442,12 +2482,23 @@ def prepare_translation(
     for sol_name in selected:
         parser = YulParser(tokens)
         n_params = config.n_params.get(sol_name) if config.n_params else None
-        yf = parser.find_function(
-            sol_name,
-            n_params=n_params,
-            known_yul_names=known_yul_names or None,
-            exclude_known=sol_name in config.exclude_known,
+        exact_yul_name = (
+            config.exact_yul_names.get(sol_name)
+            if config.exact_yul_names is not None
+            else None
         )
+        if exact_yul_name is not None:
+            yf = parser.find_exact_function(
+                exact_yul_name,
+                n_params=n_params,
+            )
+        else:
+            yf = parser.find_function(
+                sol_name,
+                n_params=n_params,
+                known_yul_names=known_yul_names or None,
+                exclude_known=sol_name in config.exclude_known,
+            )
         fn_map[yf.yul_name] = sol_name
         yul_functions[sol_name] = yf
         known_yul_names.add(yf.yul_name)
@@ -2653,6 +2704,10 @@ class ModelConfig:
     # When set, find_function uses param count to pick among homonymous
     # Yul functions (e.g. single-param _sqrt vs two-param _sqrt).
     n_params: dict[str, int] | None = None
+    # Optional per-function exact Yul symbol overrides. When set, the
+    # translator selects the named Yul function directly instead of using
+    # heuristic fun_<name>_<digits> discovery.
+    exact_yul_names: dict[str, str] | None = None
     # When True, variables matching var_<name>_<digits> (Solidity-declared
     # locals) are kept in the model instead of being copy-propagated.
     # Needed for functions with mixed assembly + Solidity code.
@@ -2832,7 +2887,6 @@ def build_lean_source(
     namespace: str,
     config: ModelConfig,
 ) -> str:
-    generated_at = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     modeled_functions = ", ".join(model.fn_name for model in models)
 
     raw_ops: list[str] = []
@@ -2878,7 +2932,6 @@ def build_lean_source(
         f"-- Source: {source_path}\n"
         f"-- Modeled functions: {modeled_functions}\n"
         f"-- Generated by: {config.generator_label}\n"
-        f"-- Generated at (UTC): {generated_at}\n"
         f"-- Modeled opcodes/Yul builtins: {opcodes_line}\n\n"
         "def WORD_MOD : Nat := 2 ^ 256\n\n"
         "def u256 (x : Nat) : Nat :=\n"
