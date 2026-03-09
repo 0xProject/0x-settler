@@ -305,8 +305,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         );
     }
 
-    constructor(ISafeMinimal safe_, bytes32 singletonInithash, bytes32 fallbackInithash, bytes32 multisendInithash) {
-        safe = safe_;
+    constructor(ISafeMinimal _safe, bytes32 singletonInithash, bytes32 fallbackInithash, bytes32 multisendInithash) {
+        safe = _safe;
         _SINGLETON = _predictCreate2(singletonInithash);
         _FALLBACK = _predictCreate2(fallbackInithash);
         _MULTISEND = _predictCreate2(multisendInithash);
@@ -575,7 +575,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         if (!_reentrancyGuard) {
             revert Reentrancy();
         }
-        _checkAfterExecution(safe);
+        ISafeMinimal _safe = safe;
+        _checkAfterExecution(_safe);
         if (_safe.getGuard() != address(this)) {
             revert GuardRemoved();
         }
@@ -840,9 +841,9 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSaf
     bytes32 private constant _SAFE_MULTISEND_1_3_INITHASH =
         0x35e699c3e43ec3e03a101730ab916c5e540893eaaf806451e929d138c3ff53b7;
 
-    constructor(ISafeMinimal safe_)
+    constructor(ISafeMinimal _safe)
         ZeroExSettlerDeployerSafeGuardBase(
-            safe_, _SAFE_SINGLETON_1_3_INITHASH, _SAFE_FALLBACK_1_3_INITHASH, _SAFE_MULTISEND_1_3_INITHASH
+            _safe, _SAFE_SINGLETON_1_3_INITHASH, _SAFE_FALLBACK_1_3_INITHASH, _SAFE_MULTISEND_1_3_INITHASH
         )
     {
         // These checks ensure that the Guard is safely installed in the Safe at the time it is
@@ -853,8 +854,8 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSaf
         // installed in a Safe where these checks fail, the Guard silently disables itself in order
         // to avoid a bricked Safe. Once the Guard is successfully deployed, the behavior ought to
         // be sane, even in bizarre and outrageous circumstances.
-        if (_constructorChecks() && _checkAfterExecutionReturnBool(safe_)) {
-            _maybeSetGuardRemoved(safe_);
+        if (_constructorChecks() && _checkAfterExecutionReturnBool(_safe)) {
+            _maybeSetGuardRemoved(_safe);
         } else {
             _removeSelf();
         }
@@ -869,9 +870,9 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSe
     bytes32 private constant _SAFE_MULTISEND_1_4_INITHASH =
         0xa7934433f19155c708af2674b14c6c8b591fedbed7b01ce8cf64014f307468a0;
 
-    constructor(ISafeMinimal safe_)
+    constructor(ISafeMinimal _safe)
         ZeroExSettlerDeployerSafeGuardBase(
-            safe_, _SAFE_SINGLETON_1_4_INITHASH, _SAFE_FALLBACK_1_4_INITHASH, _SAFE_MULTISEND_1_4_INITHASH
+            _safe, _SAFE_SINGLETON_1_4_INITHASH, _SAFE_FALLBACK_1_4_INITHASH, _SAFE_MULTISEND_1_4_INITHASH
         )
     {
         // In contrast to the 1.3.0 Guard, the 1.4.1 Guard must be deployed *before* being enabled
@@ -895,9 +896,9 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSe
             // delegate'd MultiCall). However, presuming the Safe owners don't do that, at the
             // conclusion of the installation of the Guard, the behavior ought to remain sane, even
             // in bizarre and outrageous circumstances.
-            ISafeMinimal safe_ = safe;
-            return msg.sender == address(safe_) && uint32(interfaceID) == uint32(type(IGuard).interfaceId)
-                && _checkAfterExecutionReturnBool(safe_);
+            ISafeMinimal _safe = safe;
+            return msg.sender == address(_safe) && uint32(interfaceID) == uint32(type(IGuard).interfaceId)
+                && _checkAfterExecutionReturnBool(_safe);
         }
     }
 }
