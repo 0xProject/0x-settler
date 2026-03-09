@@ -159,7 +159,6 @@ YUL_TOKEN_RE = re.compile(
   | (?P<lparen>\()
   | (?P<rparen>\))
   | (?P<comma>,)
-  | (?P<colon>:)
 """,
     re.VERBOSE,
 )
@@ -179,7 +178,6 @@ _TOKEN_KIND_MAP = {
     "lparen": "(",
     "rparen": ")",
     "comma": ",",
-    "colon": ":",
 }
 
 
