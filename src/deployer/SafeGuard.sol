@@ -379,8 +379,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
     /// See comment in `checkTransaction`
     function _checkDelegateCall(address to, bytes calldata data) private view returns (bool requireUnanimity) {
-        if (to == _MULTISEND && uint256(uint32(bytes4(data))) == uint256(uint32(ISafeMultiSend.multiSend.selector)))
-        {
+        if (to == _MULTISEND && uint256(uint32(bytes4(data))) == uint256(uint32(ISafeMultiSend.multiSend.selector))) {
             // Slice off the selector.
             bytes calldata multicalls = data[4:];
             // Follow the dynamic-type ABIencoding indirection to the `transactions` argument.
@@ -504,8 +503,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             require(value == 0);
             requireUnanimity = _checkDelegateCall(to, data);
         } else {
-            requireUnanimity = (to == address(this)
-                    && data.length >= 4
+            requireUnanimity =
+            (to == address(this) && data.length >= 4
                     && uint256(uint32(bytes4(data))) == uint256(uint32(this.unlock.selector)));
         }
 
