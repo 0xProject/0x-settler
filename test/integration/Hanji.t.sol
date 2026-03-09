@@ -1,0 +1,318 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.25;
+
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
+import {IHanjiPool} from "src/core/Hanji.sol";
+
+import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
+import {Settler} from "src/Settler.sol";
+import {ISettlerActions} from "src/ISettlerActions.sol";
+import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {MonadSettler} from "src/chains/Monad/TakerSubmitted.sol";
+
+import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
+import {TooMuchSlippage} from "src/core/SettlerErrors.sol";
+
+interface IWMON {
+    function withdraw(uint256 amount) external;
+}
+
+/// @title Hanji Integration Tests - Base
+/// @notice Base contract for Hanji DEX integration tests on Monad
+/// @dev Pool: 0xE27d2334Ab6402956c2E6E517d16fa206B3053ae (WMON/USDC)
+///      - tokenX (WMON): 0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A (18 decimals)
+///      - tokenY (USDC): 0x754704Bc059F8C67012fEd69BC8A327a5aafb603 (6 decimals)
+///      - supports_native_eth: true
+///      - is_token_x_weth: true
+abstract contract HanjiTestBase is AllowanceHolderPairTest {
+    // Pool configuration from getConfig()
+    // scaling_factor_token_x = 1e18, scaling_factor_token_y = 1
+    uint256 internal constant WMON_SCALING_FACTOR = 1e18;
+    uint256 internal constant USDC_SCALING_FACTOR = 1;
+
+    // Price limit for trades - use extreme values to execute as market orders
+    // Price is encoded as uint72 with constraint: 0 < price <= 999999000000000000000
+    // For isAsk=true (sell tokenX for tokenY): use 1 (minimum price, executes at best bid)
+    // For isAsk=false (buy tokenX with tokenY): use max valid price (executes at best ask)
+    uint256 internal constant PRICE_LIMIT_ASK = 1;
+    uint256 internal constant PRICE_LIMIT_BID = 999999000000000000000;
+
+    address internal constant WMON = 0x3bd359C1119dA7Da1D913D1C4D2B7c461115433A;
+    address internal constant USDC = 0x754704Bc059F8C67012fEd69BC8A327a5aafb603;
+    address internal constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    function _testBlockNumber() internal pure virtual override returns (uint256) {
+        return 48654333;
+    }
+
+    function _testChainId() internal pure virtual override returns (string memory) {
+        return "monad";
+    }
+
+    function settlerInitCode() internal virtual override returns (bytes memory) {
+        return bytes.concat(type(MonadSettler).creationCode, abi.encode(bytes20(0)));
+    }
+
+    function setUp() public virtual override {
+        super.setUp();
+        vm.makePersistent(address(allowanceHolder));
+        vm.makePersistent(address(settler));
+        vm.makePersistent(address(fromToken()));
+        vm.makePersistent(address(toToken()));
+        _setHanjiLabels();
+    }
+
+    function _setHanjiLabels() private {
+        vm.label(address(hanjiPool()), "HanjiPool_WMON_USDC");
+        vm.label(WMON, "WMON");
+        vm.label(USDC, "USDC");
+    }
+
+    // Required for receiving native ETH
+    receive() external payable {}
+
+    function hanjiPool() internal pure virtual returns (IHanjiPool) {
+        return IHanjiPool(0xE27d2334Ab6402956c2E6E517d16fa206B3053ae);
+    }
+
+    function uniswapV3Path() internal virtual override returns (bytes memory) {
+        return new bytes(0); // Not used for Hanji tests
+    }
+
+    function uniswapV2Pool() internal virtual override returns (address) {
+        return address(0); // Not used for Hanji tests
+    }
+
+    /// @dev Returns scaling factor for sell token based on trade direction
+    function sellScalingFactor() internal view virtual returns (uint256);
+
+    /// @dev Returns scaling factor for buy token based on trade direction
+    function buyScalingFactor() internal view virtual returns (uint256);
+
+    /// @dev Returns whether this is an ask order (selling tokenX/WMON)
+    function isAsk() internal pure virtual returns (bool);
+
+    /// @dev Returns the appropriate price limit for the trade direction
+    function priceLimit() internal pure virtual returns (uint256) {
+        return isAsk() ? PRICE_LIMIT_ASK : PRICE_LIMIT_BID;
+    }
+
+    // ========== HELPER FUNCTIONS ==========
+
+    /// @dev Builds a standard HANJI action with common parameters
+    function _buildHanjiAction(bool unwrap, uint256 bps, uint256 minBuyAmount) internal view returns (bytes memory) {
+        return abi.encodeCall(
+            ISettlerActions.HANJI,
+            (
+                unwrap ? ETH_ADDRESS : address(fromToken()),
+                bps,
+                address(hanjiPool()),
+                sellScalingFactor(),
+                buyScalingFactor(),
+                isAsk(),
+                priceLimit(),
+                minBuyAmount
+            )
+        );
+    }
+
+    /// @dev Executes a Hanji swap via AllowanceHolder and returns (fromSpent, toReceived)
+    function _executeHanji(bytes[] memory actions, string memory snapName)
+        internal
+        returns (uint256 fromSpent, uint256 toReceived)
+    {
+        uint256 _amount = amount();
+        IERC20 _fromToken = fromToken();
+        IERC20 _toToken = toToken();
+        if (address(_toToken) == WMON) _toToken = IERC20(ETH_ADDRESS);
+
+        uint256 beforeFrom = balanceOf(_fromToken, FROM);
+        uint256 beforeTo = balanceOf(_toToken, FROM);
+
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(FROM), buyToken: _toToken, minAmountOut: 0
+        });
+
+        bytes memory ahData = abi.encodeCall(settler.execute, (allowedSlippage, actions, bytes32(0)));
+
+        vm.startPrank(FROM, FROM);
+        snapStartName(snapName);
+        allowanceHolder.exec(address(settler), address(_fromToken), _amount, payable(address(settler)), ahData);
+        snapEnd();
+        vm.stopPrank();
+
+        fromSpent = beforeFrom - balanceOf(_fromToken, FROM);
+        toReceived = balanceOf(_toToken, FROM) - beforeTo;
+    }
+
+    /// @dev Builds standard transfer + hanji actions
+    function _buildTransferAndSwapActions() internal view returns (bytes[] memory) {
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
+        return ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, new bytes(0))),
+            _buildHanjiAction(false, 10_000, 0)
+        );
+    }
+}
+
+// ============================================================================
+// WMON -> USDC Tests (isAsk = true)
+// ============================================================================
+
+/// @title Hanji WMON to USDC Tests
+/// @notice Tests selling WMON for USDC (isAsk=true)
+contract HanjiWmonToUsdcTest is HanjiTestBase {
+    function _testName() internal pure override returns (string memory) {
+        return "hanji_wmon_to_usdc";
+    }
+
+    function fromToken() internal pure override returns (IERC20) {
+        return IERC20(WMON);
+    }
+
+    function toToken() internal pure override returns (IERC20) {
+        return IERC20(USDC);
+    }
+
+    function amount() internal pure override returns (uint256) {
+        return 1 ether;
+    }
+
+    function sellScalingFactor() internal pure override returns (uint256) {
+        return WMON_SCALING_FACTOR;
+    }
+
+    function buyScalingFactor() internal pure override returns (uint256) {
+        return USDC_SCALING_FACTOR;
+    }
+
+    function isAsk() internal pure override returns (bool) {
+        return true;
+    }
+
+    // ========== BASIC SWAP TEST ==========
+
+    /// @notice Test selling WMON for USDC (isAsk=true)
+    function testHanji_sellWmonForUsdc() public skipIf(address(hanjiPool()) == address(0)) {
+        (uint256 spent, uint256 received) = _executeHanji(_buildTransferAndSwapActions(), "hanji_sellWmonForUsdc");
+        assertEq(spent, amount(), "Should have spent WMON");
+        assertGt(received, 0, "Should have received USDC");
+    }
+
+    // ========== NATIVE ETH SWAP TEST ==========
+
+    /// @notice Test selling native MON for USDC (isAsk=true)
+    /// @dev Unwraps WMON to native using BASIC, then sells via HANJI
+    function testHanji_sellNativeForUsdc() public skipIf(address(hanjiPool()) == address(0)) {
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, new bytes(0))),
+            abi.encodeCall(
+                ISettlerActions.BASIC,
+                (address(fromToken()), 10_000, address(fromToken()), 4, abi.encodeCall(IWMON.withdraw, (0)))
+            ),
+            _buildHanjiAction(true, 10_000, 0)
+        );
+
+        (uint256 spent, uint256 received) = _executeHanji(actions, "hanji_sellNativeForUsdc");
+        assertEq(spent, amount(), "Should have spent WMON");
+        assertGt(received, 0, "Should have received USDC");
+        assertEq(address(settler).balance, 0, "Settler should have no ETH left");
+    }
+
+    // ========== SLIPPAGE TEST ==========
+
+    /// @notice Test that minBuyAmount causes revert when not met
+    function testHanji_revert_tooMuchSlippage() public skipIf(address(hanjiPool()) == address(0)) {
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, new bytes(0))),
+            _buildHanjiAction(false, 10_000, type(uint128).max)
+        );
+
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+        });
+        bytes memory ahData = abi.encodeCall(settler.execute, (allowedSlippage, actions, bytes32(0)));
+
+        vm.startPrank(FROM, FROM);
+        vm.expectPartialRevert(TooMuchSlippage.selector);
+        allowanceHolder.exec(address(settler), address(fromToken()), amount(), payable(address(settler)), ahData);
+        vm.stopPrank();
+    }
+}
+
+// ============================================================================
+// USDC -> WMON Tests (isAsk = false)
+// ============================================================================
+
+/// @title Hanji USDC to WMON Tests
+/// @notice Tests selling USDC for WMON (isAsk=false)
+contract HanjiUsdcToWmonTest is HanjiTestBase {
+    function _testName() internal pure override returns (string memory) {
+        return "hanji_usdc_to_wmon";
+    }
+
+    function fromToken() internal pure override returns (IERC20) {
+        return IERC20(USDC);
+    }
+
+    function toToken() internal pure override returns (IERC20) {
+        return IERC20(WMON);
+    }
+
+    function amount() internal pure override returns (uint256) {
+        return 100e6; // 10 USDC
+    }
+
+    function sellScalingFactor() internal pure override returns (uint256) {
+        return USDC_SCALING_FACTOR;
+    }
+
+    function buyScalingFactor() internal pure override returns (uint256) {
+        return WMON_SCALING_FACTOR;
+    }
+
+    function isAsk() internal pure override returns (bool) {
+        return false;
+    }
+
+    // ========== BASIC SWAP TEST ==========
+
+    /// @notice Test selling USDC for MON (not WMON) (isAsk=false)
+    function testHanji_sellUsdcForNative() public skipIf(address(hanjiPool()) == address(0)) {
+        (uint256 spent, uint256 received) = _executeHanji(_buildTransferAndSwapActions(), "hanji_sellUsdcForWmon");
+        assertEq(spent, amount(), "Should have spent USDC");
+        assertGt(received, 0, "Should have received WMON");
+    }
+
+    // ========== SLIPPAGE TEST ==========
+
+    /// @notice Test that minBuyAmount causes revert when not met
+    function testHanji_revert_tooMuchSlippage() public skipIf(address(hanjiPool()) == address(0)) {
+        ISignatureTransfer.PermitTransferFrom memory permit =
+            defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
+
+        bytes[] memory actions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.TRANSFER_FROM, (address(settler), permit, new bytes(0))),
+            _buildHanjiAction(false, 10_000, type(uint128).max)
+        );
+
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+        });
+        bytes memory ahData = abi.encodeCall(settler.execute, (allowedSlippage, actions, bytes32(0)));
+
+        vm.startPrank(FROM, FROM);
+        vm.expectPartialRevert(TooMuchSlippage.selector);
+        allowanceHolder.exec(address(settler), address(fromToken()), amount(), payable(address(settler)), ahData);
+        vm.stopPrank();
+    }
+}

@@ -4,7 +4,8 @@ pragma solidity ^0.8.25;
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerMetaTxn} from "./interfaces/ISettlerMetaTxn.sol";
 
-import {Permit2PaymentMetaTxn} from "./core/Permit2Payment.sol";
+import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
+import {Permit2PaymentBase, Permit2PaymentMetaTxn} from "./core/Permit2Payment.sol";
 
 import {Context, AbstractContext} from "./Context.sol";
 import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
@@ -90,22 +91,22 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
             // validate `sig` against `actions` here
             (
                 address recipient,
+                ISignatureTransfer.PermitTransferFrom memory takerPermit
                 ISignatureTransfer.PermitTransferFrom memory makerPermit,
                 address maker,
                 bytes memory makerSig,
-                ISignatureTransfer.PermitTransferFrom memory takerPermit
             ) = abi.decode(
                 data,
-                (address, ISignatureTransfer.PermitTransferFrom, address, bytes, ISignatureTransfer.PermitTransferFrom)
+                (address, ISignatureTransfer.PermitTransferFrom, ISignatureTransfer.PermitTransferFrom, address, bytes)
             );
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, sig);
         } */ else if (action == uint32(ISettlerActions.METATXN_UNISWAPV3_VIP.selector)) {
             (
                 address recipient,
-                bytes memory path,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory path,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, bytes, ISignatureTransfer.PermitTransferFrom, uint256));
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
             sellToUniswapV3VIP(recipient, path, permit, sig, amountOutMin);
         } else {
@@ -156,6 +157,16 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
     }
 
     // Solidity inheritance is stupid
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(Permit2PaymentAbstract, Permit2PaymentBase)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
+
     function _msgSender() internal view virtual override(Permit2PaymentMetaTxn, AbstractContext) returns (address) {
         return super._msgSender();
     }

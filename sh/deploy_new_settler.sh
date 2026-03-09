@@ -140,22 +140,7 @@ fi
 
 . "$project_root"/sh/common_safe_deployer.sh
 . "$project_root"/sh/common_deploy_settler.sh
-
-# set minimum gas price to (mostly for Arbitrum and BNB)
-declare -i min_gas_price
-min_gas_price="$(get_config minGasPriceGwei)"
-min_gas_price=$((min_gas_price * 1000000000))
-declare -r -i min_gas_price
-declare -i gas_price
-gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-if (( gas_price < min_gas_price )) ; then
-    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
-    gas_price=$min_gas_price
-fi
-declare -r -i gas_price
-declare -i gas_estimate_multiplier
-gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
-declare -r -i gas_estimate_multiplier
+. "$project_root"/sh/common_gas.sh
 
 while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     declare -i operation="${deploy_calldatas[0]}"
@@ -189,44 +174,52 @@ while (( ${#deploy_calldatas[@]} >= 3 )) ; do
     declare packed_calldata
     packed_calldata="$(cast concat-hex "$execTransaction_selector" "$(cast to-uint256 "$target")" "$(cast to-uint256 0)" "$(cast to-uint256 320)" "$(cast to-uint256 $operation)" "$(cast to-uint256 0)" "$(cast to-uint256 0)" "$(cast to-uint256 0)" "$(cast to-uint256 "$(cast address-zero)")" "$(cast to-uint256 "$(cast address-zero)")" "$(cast to-uint256 $((320 + 32 + ${#deploy_calldata} / 2)))")""$deploy_calldata_length""$deploy_calldata""$packed_signatures_length""$packed_signatures"
 
-    ## set gas limit and add multiplier/headroom (again mostly for Arbitrum)
-    declare gas_limit
     # again, we have to do this in an awkward fashion to avoid the command-line
     # argument length limit
-    gas_limit="$(
-        jq -Mc \
-        '
-        {
-            "id": 1,
-            "jsonrpc": "2.0",
-            "method": "eth_estimateGas",
-            "params": [
-                {
-                    "from": $from,
-                    "to": $to,
-                    "gasPrice": $gasprice,
-                    "chainId": $chainId,
-                    "value": "0x0",
-                    "data": $data[0]
-                }
-            ]
-        }
-        '                                                   \
-        --arg from "$signer"                                \
-        --arg to "$safe_address"                            \
-        --arg gasprice "0x$(bc <<<'obase=16;'"$gas_price")" \
-        --arg chainId "0x$(bc <<<'obase=16;'"$chainid")"    \
-        --slurpfile data <(jq -R . <<<"$packed_calldata")   \
-        <<<'{}'                                             \
-        |                                                   \
-        curl --fail -s -X POST                              \
-        -H 'Accept: application/json'                       \
-        -H 'Content-Type: application/json'                 \
-        --url "$rpc_url"                                    \
-        --data '@-'                                         \
-    )"
-    gas_limit="$(jq -rM '.result' <<<"$gas_limit")"
-    gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
+    declare -i gas_estimate_retries=0
+    declare gas_estimate=null
+    while [[ $gas_estimate = [Nn][Uu][Ll][Ll] ]] ; do
+        if (( gas_estimate_retries )) ; then
+            echo 'Retrying gas estimate - attempt '"$gas_estimate_retries" >&2
+            sleep 1
+        fi
+        gas_estimate="$(
+            jq -Mc \
+            '
+            {
+                "id": 1,
+                "jsonrpc": "2.0",
+                "method": "eth_estimateGas",
+                "params": [
+                    {
+                        "from": $from,
+                        "to": $to,
+                        "gasPrice": $gasprice,
+                        "chainId": $chainId,
+                        "value": "0x0",
+                        "data": $data[0]
+                    }
+                ]
+            }
+            '                                                   \
+            --arg from "$signer"                                \
+            --arg to "$safe_address"                            \
+            --arg gasprice "0x$(bc <<<'obase=16;'"$gas_price")" \
+            --arg chainId "0x$(bc <<<'obase=16;'"$chainid")"    \
+            --slurpfile data <(jq -R . <<<"$packed_calldata")   \
+            <<<'{}'                                             \
+            |                                                   \
+            curl --fail -s -X POST                              \
+            -H 'Accept: application/json'                       \
+            -H 'Content-Type: application/json'                 \
+            --url "$rpc_url"                                    \
+            --data '@-'                                         \
+        )"
+        gas_estimate="$(jq -rM '.result' <<<"$gas_estimate")"
+        gas_estimate_retries+=1
+    done
+    declare -i gas_limit
+    gas_limit="$(apply_gas_multiplier $gas_estimate)"
 
     # switch the wallet to the correct chain
     jq -Mc \

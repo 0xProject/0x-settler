@@ -155,16 +155,31 @@ contains() {
     return 1
 }
 
+declare found_skip_chain=no
 declare chain_name
 for chain_name in "${chains[@]}" ; do
+    if [[ ${SKIP_TO_CHAIN:-unset} != 'unset' ]] ; then
+        if [[ $chain_name = "$SKIP_TO_CHAIN" ]] ; then
+            found_skip_chain=yes
+            declare -r found_skip_chain
+        elif [[ $found_skip_chain != [Yy]es ]] ; then
+            continue
+        fi
+    fi
+
     if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
-        if [[ $(get_config "$chain_name" isShanghai) != [Tt]rue ]] ; then
+        if [[ $(get_config "$chain_name" hardfork.shanghai) != [Tt]rue ]] ; then
             echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is not Shanghai' >&2
             continue
         fi
 
-        if [[ $(get_config "$chain_name" isCancun) != [Tt]rue ]] ; then
+        if [[ $(get_config "$chain_name" hardfork.cancun) != [Tt]rue ]] ; then
             echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is not Cancun' >&2
+            continue
+        fi
+
+        if [[ $(get_config "$chain_name" hardfork.osaka) != [Tt]rue ]] ; then
+            echo 'Skipping chain "'"$(get_config "$chain_name" displayName)"'" because it is not Osaka' >&2
             continue
         fi
     fi

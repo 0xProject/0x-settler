@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {BaseSettlerMetaTxn} from "./MetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
@@ -52,12 +52,7 @@ contract BaseSettlerIntent is SettlerIntent, BaseSettlerMetaTxn {
         return super._msgSender();
     }
 
-    function _witnessTypeSuffix()
-        internal
-        pure
-        override(SettlerIntent, Permit2PaymentMetaTxn)
-        returns (string memory)
-    {
+    function _witnessTypeSuffix() internal pure override(SettlerIntent, Permit2PaymentMetaTxn) returns (string memory) {
         return super._witnessTypeSuffix();
     }
 
@@ -93,5 +88,24 @@ contract BaseSettlerIntent is SettlerIntent, BaseSettlerMetaTxn {
         returns (uint256)
     {
         return super._permitToSellAmount(permit);
+    }
+
+    function _isRestrictedTarget(address target)
+        internal
+        view
+        virtual
+        override(BaseSettlerMetaTxn, SettlerIntent)
+        returns (bool)
+    {
+        return super._isRestrictedTarget(target);
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, BaseSettlerMetaTxn)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
     }
 }

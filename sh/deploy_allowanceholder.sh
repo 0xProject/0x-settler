@@ -124,20 +124,11 @@ cd "$project_root"
 
 decrypt_secrets
 
-# set minimum gas price to (mostly for Arbitrum and BNB)
-declare -i min_gas_price
-min_gas_price="$(get_config minGasPriceGwei)"
-min_gas_price=$((min_gas_price * 1000000000))
-declare -r -i min_gas_price
-declare -i gas_price
-gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-if (( gas_price < min_gas_price )) ; then
-    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
-    gas_price=$min_gas_price
-fi
-declare -r -i gas_price
+. "$project_root"/sh/common_gas.sh
 
 export FOUNDRY_OPTIMIZER_RUNS=1000000
+export FOUNDRY_SOLC_VERSION=0.8.25
+export FOUNDRY_EVM_HARDFORK=cancun
 
 forge clean
 forge build src/allowanceholder/AllowanceHolder.sol
@@ -146,24 +137,25 @@ declare allowanceholder_initcode
 allowanceholder_initcode="$(jq -rM '.bytecode.object' < out/AllowanceHolder.sol/AllowanceHolder.json)"
 declare -r allowanceholder_initcode
 
-declare -i gas_estimate_multiplier
-gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
-declare -r -i gas_estimate_multiplier
-
 declare -i gas_limit
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    gas_limit="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid --create "$allowanceholder_initcode")"
-    gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
-    maybe_broadcast+=(--broadcast)
-else
-    maybe_broadcast+=(-vvvv)
-    gas_limit=16777215
-fi
-declare -r -a maybe_broadcast
-declare -r -i gas_limit
+    declare -i gas_estimate
+    gas_estimate="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${extra_flags[@]}" --create "$allowanceholder_initcode")"
+    declare -r -i gas_estimate
 
-forge create "${maybe_broadcast[@]}" --from "$(get_secret allowanceHolder deployer)" --private-key "$(get_secret allowanceHolder key)" --chain $chainid --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit $(get_config extraFlags) src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+    gas_limit="$(apply_gas_multiplier $gas_estimate)"
+
+    maybe_broadcast+=(send --chain $chainid --private-key)
+    maybe_broadcast+=("$(get_secret allowanceHolder key)")
+else
+    gas_limit=$eip7825_gas_limit
+    maybe_broadcast+=(call --trace -vvvv)
+fi
+declare -r -i gas_limit
+declare -r -a maybe_broadcast
+
+cast "${maybe_broadcast[@]}" --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" --create "$allowanceholder_initcode"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     sleep 60

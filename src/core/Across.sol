@@ -3,11 +3,10 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {FullMath} from "../vendor/FullMath.sol";
+import {tmp} from "../utils/512Math.sol";
 
 contract Across {
     using SafeTransferLib for IERC20;
-    using FullMath for uint256;
 
     function bridgeERC20ToAcross(address spoke, bytes memory depositData) internal {
         IERC20 inputToken;
@@ -33,7 +32,7 @@ contract Across {
             inputAmount := mload(add(0xa0, depositData))
             outputAmount := mload(add(0xc0, depositData))
         }
-        uint256 updatedOutputAmount = outputAmount.mulDiv(updatedInputAmount, inputAmount);
+        uint256 updatedOutputAmount = tmp().omul(outputAmount, updatedInputAmount).div(inputAmount);
 
         assembly ("memory-safe") {
             mstore(add(0xa0, depositData), updatedInputAmount)
@@ -41,8 +40,8 @@ contract Across {
 
             let len := mload(depositData)
             // temporarily clobber `depositData` size memory area
-            mstore(depositData, 0x7b939232) // selector for `depositV3(address,address,address,address,uint256,uint256,uint256,address,uint32,uint32,uint32,bytes)`
-            // `depositV3` doesn't clash with any relevant function of restricted targets so we can skip checking spoke
+            mstore(depositData, 0xad5425c6) // selector for `deposit(bytes32,bytes32,bytes32,bytes32,uint256,uint256,uint256,bytes32,uint32,uint32,uint32,bytes)`
+            // `deposit` doesn't clash with any relevant function of restricted targets so we can skip checking spoke
             if iszero(call(gas(), spoke, value, add(0x1c, depositData), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())

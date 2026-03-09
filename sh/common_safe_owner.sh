@@ -139,7 +139,7 @@ function save_signature {
         )"
 
         # call the API
-        curl --fail "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data '@-' <<<"$safe_multisig_transaction"
+        curl --fail --retry 5 "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data '@-' <<<"$safe_multisig_transaction"
 
         echo 'Signature submitted' >&2
     fi

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {KatanaMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
@@ -7,6 +7,8 @@ import {Settler} from "../../Settler.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
+import {FastLogic} from "../../utils/FastLogic.sol";
+import {revertConfusedDeputy} from "../../core/SettlerErrors.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
@@ -36,7 +38,7 @@ contract KatanaSettler is Settler, KatanaMixin {
     // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
-        pure
+        view
         override(Settler, Permit2PaymentAbstract)
         returns (bool)
     {

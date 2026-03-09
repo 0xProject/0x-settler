@@ -139,7 +139,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function testSettler_uniswapV3VIP() public skipIf(uniswapV3Path().length == 0) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, uniswapV3Path(), permit, sig, 0))
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, permit, uniswapV3Path(), sig, 0))
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
             recipient: payable(address(0)),
@@ -227,7 +227,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function testSettler_uniswapV3_buyToken_fee_single_custody() public skipIf(uniswapV3Path().length == 0) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(settler), uniswapV3Path(), permit, sig, 0)),
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(settler), permit, uniswapV3Path(), sig, 0)),
             abi.encodeCall(
                 ISettlerActions.BASIC,
                 (

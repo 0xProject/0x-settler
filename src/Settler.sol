@@ -6,20 +6,25 @@ import {ISettlerTakerSubmitted} from "./interfaces/ISettlerTakerSubmitted.sol";
 
 import {Permit2PaymentTakerSubmitted} from "./core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
+import {Permit} from "./core/Permit.sol";
 
 import {AbstractContext} from "./Context.sol";
 import {CalldataDecoder, SettlerBase} from "./SettlerBase.sol";
 import {UnsafeMath} from "./utils/UnsafeMath.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
-import {revertActionInvalid, SignatureExpired, MsgValueMismatch} from "./core/SettlerErrors.sol";
+import {revertActionInvalid, SignatureExpired, MsgValueMismatch, revertConfusedDeputy} from "./core/SettlerErrors.sol";
+import {Revert} from "./utils/Revert.sol";
 
 // ugh; solidity inheritance
 import {SettlerAbstract} from "./SettlerAbstract.sol";
+import {FastLogic} from "./utils/FastLogic.sol";
 
-abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitted, SettlerBase {
+abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitted, SettlerBase, Permit {
     using UnsafeMath for uint256;
     using CalldataDecoder for bytes[];
+    using Revert for bool;
+    using FastLogic for bool;
 
     function _tokenId() internal pure override returns (uint256) {
         return 2;
@@ -35,6 +40,10 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         override(SettlerAbstract, SettlerBase)
         returns (bool)
     {
+        //// NOTICE: Portions of this function have been copy/paste'd into
+        //// `src/chains/Mainnet/TakerSubmitted.sol:MainnetSettler._dispatch`. If you make changes
+        //// here, you need to make sure that corresponding changes are made to that function.
+
         if (super._dispatch(i, action, data)) {
             return true;
         } else if (action == uint32(ISettlerActions.NATIVE_CHECK.selector)) {
@@ -61,6 +70,10 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data) internal virtual returns (bool) {
+        //// NOTICE: Portions of this function have been copy/paste'd into
+        //// `src/chains/Katana/TakerSubmitted.sol:KatanaSettler._dispatchVIP`. If you make changes
+        //// here, you need to make sure that corresponding changes are made to that function.
+
         if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes));
@@ -74,19 +87,19 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         else if (action == uint32(ISettlerActions.RFQ_VIP.selector)) {
             (
                 address recipient,
+                ISignatureTransfer.PermitTransferFrom memory takerPermit,
                 ISignatureTransfer.PermitTransferFrom memory makerPermit,
                 address maker,
                 bytes memory makerSig,
-                ISignatureTransfer.PermitTransferFrom memory takerPermit,
                 bytes memory takerSig
             ) = abi.decode(
                 data,
                 (
                     address,
                     ISignatureTransfer.PermitTransferFrom,
+                    ISignatureTransfer.PermitTransferFrom,
                     address,
                     bytes,
-                    ISignatureTransfer.PermitTransferFrom,
                     bytes
                 )
             );
@@ -94,11 +107,11 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         } */ else if (action == uint32(ISettlerActions.UNISWAPV3_VIP.selector)) {
             (
                 address recipient,
-                bytes memory path,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory path,
                 bytes memory sig,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes, bytes, uint256));
 
             sellToUniswapV3VIP(recipient, path, permit, sig, amountOutMin);
         } else {
@@ -107,13 +120,53 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         return true;
     }
 
-    function execute(AllowedSlippage calldata slippage, bytes[] calldata actions, bytes32 /* zid & affiliate */ )
+    function execute(
+        AllowedSlippage calldata slippage,
+        bytes[] calldata actions,
+        bytes32 /* zid & affiliate */
+    )
         public
         payable
         override
         takerSubmitted
         returns (bool)
     {
+        return _execute(slippage, actions);
+    }
+
+    function executeWithPermit(
+        AllowedSlippage calldata slippage,
+        bytes[] calldata actions,
+        bytes32 /* zid & affiliate */,
+        bytes memory permitData
+    ) public payable override takerSubmitted returns (bool) {
+        if (!_isForwarded()) {
+            revertConfusedDeputy();
+        }
+        // `token` should not be a restricted target, but `_isRestrictedTarget(token)` is not
+        // verified because the selectors of supported permit calls doesn't clash with any 
+        // selectors of existing restricted targets, namely, AllowanceHolder, Permit2 and Bebop
+        address token;
+        assembly ("memory-safe") {
+            // initially, we set `args.offset` to the pointer to the length. this is 32 bytes 
+            // before the actual start of data
+            let offset :=
+                add(
+                    actions.offset,
+                    // We allow the indirection/offset to `calls[i]` to be negative
+                    calldataload(actions.offset)
+                )
+            // Check that the action has at least the minimum size to be a VIP
+            // It should be at least (4 bytes action selector, 32 bytes recipient, 128 bytes permit)
+            if or(iszero(actions.length), gt(0xa4, calldataload(offset))) { revert(0x00, 0x00) }
+            // Take the token from the first 32 bytes of permit
+            token := calldataload(add(0x44, offset))
+        }
+        _dispatchPermit(_msgSender(), token, permitData);
+        return _execute(slippage, actions);
+    }
+
+    function _execute(AllowedSlippage calldata slippage, bytes[] calldata actions) internal returns (bool) {
         if (actions.length != 0) {
             uint256 it;
             assembly ("memory-safe") {
@@ -153,7 +206,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
 
     function _isRestrictedTarget(address target)
         internal
-        pure
+        view
         virtual
         override(Permit2PaymentTakerSubmitted, Permit2PaymentAbstract)
         returns (bool)

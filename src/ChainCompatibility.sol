@@ -54,6 +54,12 @@ contract ChainCompatibility {
             shim := createShim(0x14, zero)
             runTest(shim, 0x03, zero, testGas)
 
+            // test for CLZ
+            // 3d 3d 6001 1e 60ff 14 600c 57 fd 5b f3 => RETURNDATASIZE RETURNDATASIZE 0x01 CLZ 0xff EQ 0x0c JUMPI REVERT JUMPDEST RETURN
+            mstore(zero, 0x6d3d3d60011e60ff14600c57fd5bf33652600e6012f3)
+            shim := createShim(0x16, zero)
+            runTest(shim, 0x04, zero, testGas)
+
             mstore(0x40, memptr)
             mstore8(zero, zero)
             return(zero, 0x01)

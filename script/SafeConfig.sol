@@ -7,6 +7,7 @@ library SafeConfig {
     function _isTestnet() internal view returns (bool) {
         if (
             block.chainid == 10143 // monad testnet
+                || block.chainid == 11124 // abstract sepolia
                 || block.chainid == 11155111 // sepolia
         ) {
             return true;
@@ -18,11 +19,15 @@ library SafeConfig {
                 || block.chainid == 100 // gnosis
                 || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
+                || block.chainid == 143 // monad
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
                 || block.chainid == 999 // hyperevm
+                || block.chainid == 2741 // abstract
+                || block.chainid == 4217 // tempo
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
+                || block.chainid == 9745 // plasma
                 || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
@@ -49,11 +54,55 @@ library SafeConfig {
                 || block.chainid == 100 // gnosis
                 || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
+                || block.chainid == 143 // monad
                 || block.chainid == 146 // sonic
                 || block.chainid == 480 // worldchain
                 || block.chainid == 999 // hyperevm
+                || block.chainid == 2741 // abstract
+                || block.chainid == 4217 // tempo
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
+                || block.chainid == 9745 // plasma
+                || block.chainid == 10143 // monad testnet
+                || block.chainid == 11124 // abstract sepolia
+                || block.chainid == 34443 // mode
+                || block.chainid == 42161 // arbitrum
+                || block.chainid == 43114 // avalanche
+                || block.chainid == 57073 // ink
+                || block.chainid == 59144 // linea
+                || block.chainid == 80094 // berachain
+                || block.chainid == 81457 // blast
+                || block.chainid == 167000 // taiko
+                || block.chainid == 534352 // scroll
+                || block.chainid == 747474 // katana
+                || block.chainid == 11155111 // sepolia
+        ) {
+            return false;
+        }
+        revert(string.concat("Unrecognized chainid ", ItoA.itoa(block.chainid)));
+    }
+
+    function isEraVm() internal view returns (bool) {
+        if (
+            block.chainid == 2741 // abstract
+                || block.chainid == 11124 // abstract sepolia
+        ) {
+            return true;
+        }
+        if (
+            block.chainid == 1 // ethereum
+                || block.chainid == 10 // optimism
+                || block.chainid == 56 // bnb
+                || block.chainid == 100 // gnosis
+                || block.chainid == 130 // unichain
+                || block.chainid == 137 // polygon
+                || block.chainid == 146 // sonic
+                || block.chainid == 480 // worldchain
+                || block.chainid == 999 // hyperevm
+                || block.chainid == 4217 // tempo
+                || block.chainid == 5000 // mantle
+                || block.chainid == 8453 // base
+                || block.chainid == 9745 // plasma
                 || block.chainid == 10143 // monad testnet
                 || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
@@ -92,14 +141,13 @@ library SafeConfig {
 
     // forgefmt: disable-next-line
     function getDeploymentSafeSigners() internal view returns (address[] memory) { // this is non-pure (view) on purpose
-        address[] memory result = new address[](7);
+        address[] memory result = new address[](6);
         result[0] = 0x24420bC8C760787F3eEF3b809e81f44d31a9c5A2; // Jacob
-        result[1] = 0x6879fAb591ed0d62537A3Cac9D7cd41218445a84; // Sav
-        result[2] = 0x052809d05DC83F317b2f578710411e6cbF88AC5a; // Josh
-        result[3] = 0xDCa4ee0070b4aa44b30D8af22F3CBbb2cC859dAf; // Kevin
-        result[4] = 0xD6B66609E5C05210BE0A690aB3b9788BA97aFa60; // Duncan
-        result[5] = 0xEC3E1F7aC9Df42c31570b02068f2e7500915e557; // Andy
-        result[6] = 0x36b7E0738fe11f05d26dA55d10eE679e684e06f4; // Lazaro
+        result[1] = 0x052809d05DC83F317b2f578710411e6cbF88AC5a; // Josh
+        result[2] = 0xDCa4ee0070b4aa44b30D8af22F3CBbb2cC859dAf; // Kevin
+        result[3] = 0xD6B66609E5C05210BE0A690aB3b9788BA97aFa60; // Duncan
+        result[4] = 0xEC3E1F7aC9Df42c31570b02068f2e7500915e557; // Andy
+        result[5] = 0x36b7E0738fe11f05d26dA55d10eE679e684e06f4; // Lazaro
         return result;
     }
 }

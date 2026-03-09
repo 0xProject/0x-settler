@@ -27,6 +27,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         super.setUp();
         // Trusted Forwarder / Allowance Holder
         safeApproveIfBelow(fromToken(), FROM, address(allowanceHolder), amount());
+        safeApproveIfBelow(toToken(), FROM, address(allowanceHolder), amount());
+        safeApproveIfBelow(toToken(), MAKER, address(PERMIT2), amount());
     }
 
     function uniswapV3Path() internal virtual returns (bytes memory);
@@ -85,8 +87,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 ISettlerActions.UNISWAPV3_VIP,
                 (
                     FROM,
-                    uniswapV3Path(),
                     defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
+                    uniswapV3Path(),
                     new bytes(0), // sig (empty)
                     0
                 )
@@ -131,8 +133,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 ISettlerActions.UNISWAPV3_VIP,
                 (
                     FROM,
-                    uniswapV3Path(),
                     defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
+                    uniswapV3Path(),
                     new bytes(0), // sig (empty)
                     0
                 )
@@ -191,7 +193,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes memory takerSig = new bytes(0);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.RFQ_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig))
+            abi.encodeCall(ISettlerActions.RFQ_VIP, (FROM, takerPermit, makerPermit, MAKER, makerSig, takerSig))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;

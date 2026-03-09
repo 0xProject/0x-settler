@@ -15,6 +15,8 @@ import {Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountin
 
 import {FreeMemory} from "../utils/FreeMemory.sol";
 
+import {Ternary} from "../utils/Ternary.sol";
+
 interface IBalancerV3Vault {
     /**
      * @notice Creates a context for a sequence of operations (i.e., "unlocks" the Vault).
@@ -136,8 +138,8 @@ interface IBalancerV3Vault {
 library UnsafeVault {
     function unsafeSettle(IBalancerV3Vault vault, IERC20 token, uint256 amount) internal returns (uint256 credit) {
         assembly ("memory-safe") {
-            mstore(0x14, token)
             mstore(0x34, amount) // clobbers the upper (always zero) bits of the free memory pointer
+            mstore(0x14, token)
             mstore(0x00, 0x15afd409000000000000000000000000) // selector for `settle(address,uint256)` with `token`'s padding
 
             if iszero(call(gas(), vault, 0x00, 0x10, 0x44, 0x00, 0x20)) {
@@ -245,6 +247,7 @@ abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using NotesLib for NotesLib.Note[];
+    using Ternary for bool;
 
     using UnsafeVault for IBalancerV3Vault;
 

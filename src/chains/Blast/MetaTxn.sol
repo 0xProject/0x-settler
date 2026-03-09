@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {BlastMixin} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
@@ -31,14 +31,14 @@ contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
         } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
             (
                 address recipient,
+                ISignatureTransfer.PermitTransferFrom memory permit,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
-                ISignatureTransfer.PermitTransferFrom memory permit,
                 uint256 amountOutMin
             ) = abi.decode(
-                data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, uint256)
+                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
             );
 
             sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
@@ -50,12 +50,12 @@ contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
 
     function _isRestrictedTarget(address target)
         internal
-        pure
+        view
         virtual
-        override(Permit2PaymentBase, BlastMixin, Permit2PaymentAbstract)
+        override(SettlerMetaTxn, BlastMixin)
         returns (bool)
     {
-        return BlastMixin._isRestrictedTarget(target) || Permit2PaymentBase._isRestrictedTarget(target);
+        return super._isRestrictedTarget(target);
     }
 
     // Solidity inheritance is stupid
@@ -70,5 +70,14 @@ contract BlastSettlerMetaTxn is SettlerMetaTxn, BlastMixin {
 
     function _msgSender() internal view virtual override(SettlerMetaTxn, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, BlastMixin)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
     }
 }
