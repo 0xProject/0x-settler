@@ -715,7 +715,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // See comment in `checkTransaction`
         if (operation != Operation.Call) {
             require(value == 0);
-            _checkDelegateCall(false, to, data);
+            _checkDelegateCall(true, to, data);
+        } else {
+            _forbidSafePrivilegedCalls(true, to, data, 0);
         }
 
         bytes memory txHashData = safe.encodeTransactionData(
