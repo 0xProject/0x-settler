@@ -63,12 +63,6 @@ interface ISafeMultiSend {
     function multiSend(bytes memory transactions) external payable;
 }
 
-// This interface is excerpted from the contract at 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA
-// (1.3.0) or 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762 (1.4.1)
-interface ISafeForbidden {
-    function enableModule(address) external;
-}
-
 // This library is a reimplementation of the functionality of the functions by the same name in
 // 0xfb1bffC9d739B8D520DaF37dF666da4C687191EA (1.3.0) or 0x29fcB43b46531BcA003ddC8FCB67FFE91900C762
 // (1.4.1)
@@ -247,6 +241,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     error PermissionDenied();
     error NoDelegateCall();
     error GuardNotInstalled();
+    error GuardRemoved();
     error GuardIsOwner();
     error TimelockNotElapsed(bytes32 txHash, uint256 timelockEnd);
     error TimelockElapsed(bytes32 txHash, uint256 timelockEnd);
@@ -258,6 +253,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     error Reentrancy();
     error ModuleInstalled(address module);
     error IncorrectFallbackHandler(address handler);
+    error GuardCheckNotEnforced(uint256 callIndex, address target, bytes data);
+    error EvenNumberOfMultiCalls(uint256 callsCount);
     error NotEnoughOwners(uint256 ownerCount);
     error ThresholdTooLow(uint256 threshold);
     error NotUnanimous(bytes32 txHash);
@@ -430,8 +427,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // single atomic transaction that will pass the postconditions.
         //
         // Therefore, we forbid all `DELEGATECALL`s to contracts except `MultiSendCallOnly`, and for
-        // calls to `MultiSendCallOnly`, we do deep inspection of the payload to ensure that it's
-        // not calling `enableModule`
+        // calls to `MultiSendCallOnly`, we do deep inspection of the payload to ensure that
+        // user-defined calls are interleaved with calls to `this.check()`.
+        bool requireUnanimity;
         if (operation != Operation.Call) {
             if (to == _MULTISEND && uint256(uint32(bytes4(data))) == uint256(uint32(ISafeMultiSend.multiSend.selector)))
             {
@@ -445,6 +443,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                 // The encoding of the multicalls here is derived from the `MultiSendCallOnly`
                 // contract deployed to 0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B (1.3.0) or
                 // 0x9641d764fc13c8B624c04430C7356C1C7C8102e2 (1.4.1)
+                uint256 callsCount;
                 while (multicalls.length != 0) {
                     // We use calldata array slicing syntax here, which is stricter than the
                     // assembly found in `MultiSendCallOnly`. `MultiSendCallOnly` will happily
@@ -456,28 +455,44 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                     multicalls = multicalls[1:];
                     address multicallTo = address(uint160(bytes20(multicalls)));
                     multicalls = multicalls[20:];
-                    // We ignore the next 32 bytes because they are the `value`. The function we
-                    // wish to forbid is `nonpayable`, so the value is always zero or irrelevant.
+                    // We ignore the next 32 bytes because they are the `value`. The functions we
+                    // wish to special-case are `view` and `nonpayable`, so the value is zero or
+                    // irrelevant.
                     multicalls = multicalls[32:];
                     // The 32 bytes after that are the length of the payload/data, followed by the
                     // payload/data itself.
                     bytes calldata multicallData = multicalls[32:32 + uint256(bytes32(multicalls))];
                     multicalls = multicalls[32 + multicallData.length:];
 
-                    // Forbid calls to `ISafeForbidden(address(_safe)).enableModule(...)`.
-                    if (
-                        multicallTo == address(_safe) && multicallData.length >= 36
-                            && uint32(bytes4(multiCallData)) == uint32(ISafeForbidden.enableModule.selector)
-                    ) {
-                        uint256 potentialModule = uint256(bytes32(multicallData[4:]));
-                        if (potentialModule >> 160 == 0) {
-                            revert ModuleInstalled(address(uint160(potentialModule)));
+                    if (callsCount & 1 != 0) {
+                        // Every second call must be to `this.check()` so that we can enforce our
+                        // invariants in between each call.
+                        if (
+                            multicallTo != address(this) || multicallData.length < 4
+                                || uint256(uint32(bytes4(multicallData))) != uint256(uint32(this.check))
+                        ) {
+                            revert GuardCheckNotEnforced(callsCount, multicallTo, multicallData);
                         }
+                    } else {
+                        requireUnanimity = requireUnanimity
+                            || (multiCallTo == address(this)
+                                && multicallData.length >= 4
+                                && uint256(uint32(bytes4(multicallData))) == uint256(uint32(this.unlock.selector)));
                     }
+
+                    callsCount++;
+                }
+                if (callsCount & 1 == 0) {
+                    revert EvenNumberOfMultiCalls(callsCount);
                 }
             } else {
                 revert NoDelegateCall();
             }
+        } else {
+            requireUnanimity = requireUnanimity
+                || (to == address(this)
+                    && data.length >= 4
+                    && uint256(uint32(bytes4(data))) == uint256(uint32(this.unlock.selector)));
         }
 
         // The nonce has already been incremented past the value used in the
@@ -503,7 +518,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         } catch {
             // The signatures are not unanimous; proceed to the timelock. If the call is to
             // `unlock()`, we bail out because it *MUST* be unanimous.
-            if (to == address(this) && uint256(uint32(bytes4(data))) == uint256(uint32(this.unlock.selector))) {
+            if (requireUnanimity) {
                 revert NotUnanimous(txHash);
             }
         }
@@ -545,6 +560,16 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
         _checkAfterExecution(_safe);
         _maybeSetGuardRemoved(_safe);
+    }
+
+    function check() external view {
+        if (!_reentrancyGuard) {
+            revert Reentrancy();
+        }
+        _checkAfterExecution(safe);
+        if (_safe.getGuard() != address(this)) {
+            revert GuardRemoved();
+        }
     }
 
     // This function has exactly the same checks as `_checkAfterExecution`, but is returns `false`
