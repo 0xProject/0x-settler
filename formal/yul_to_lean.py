@@ -529,11 +529,15 @@ class YulParser:
 
                         # Split into outer-scope (emit) and block-local (absorb).
                         outer_body, local_body = _split_branch_assignments(
-                            stmt.body, block_subst, block_local_targets,
+                            stmt.body,
+                            block_subst,
+                            block_local_targets,
                         )
                         if stmt.else_body is not None:
                             outer_else, local_else = _split_branch_assignments(
-                                stmt.else_body, block_subst, block_local_targets,
+                                stmt.else_body,
+                                block_subst,
+                                block_local_targets,
                             )
                         else:
                             outer_else = None
@@ -1676,6 +1680,18 @@ def _inline_yul_function(
     )
 
 
+def _stmt_targets(stmt: RawStatement) -> list[str]:
+    """Extract assignment targets from a raw statement."""
+    if isinstance(stmt, ParsedIfBlock):
+        targets = [s.target for s in stmt.body]
+        if stmt.else_body is not None:
+            targets.extend(s.target for s in stmt.else_body)
+        return targets
+    if isinstance(stmt, MemoryWrite):
+        return []
+    return [stmt.target]
+
+
 def yul_function_to_model(
     yf: YulFunction,
     sol_fn_name: str,
@@ -1701,29 +1717,31 @@ def yul_function_to_model(
     )
 
     # ------------------------------------------------------------------
-    # Pre-pass: count how many times each variable is assigned.
+    # Pre-pass: count how many times each variable is assigned and
+    # collect clean (demangled) names for collision detection.
     # A compiler temporary assigned more than once is unusual and could
     # indicate a naming-convention change that made a real variable look
     # like a temporary.
     # ------------------------------------------------------------------
     assign_counts: Counter[str] = Counter()
+    all_clean_names: set[str] = set()
     for stmt in yf.assignments:
-        if isinstance(stmt, ParsedIfBlock):
-            for s in stmt.body:
-                assign_counts[s.target] += 1
-            if stmt.else_body is not None:
-                for s in stmt.else_body:
-                    assign_counts[s.target] += 1
-        elif isinstance(stmt, MemoryWrite):
-            continue
-        else:
-            assign_counts[stmt.target] += 1
+        targets = _stmt_targets(stmt)
+        for target in targets:
+            assign_counts[target] += 1
+            clean = demangle_var(
+                target,
+                yf.params,
+                yf.rets,
+                keep_solidity_locals=keep_solidity_locals,
+            )
+            if clean is not None:
+                all_clean_names.add(clean)
 
     var_map: dict[str, str] = {}
     subst: dict[str, Expr] = {}
-    const_locals: dict[str, int] = {}
+    const_locals: dict[str, Expr] = {}
     memory_state: dict[int, Expr] = {}
-    all_clean_names: set[str] = set()
 
     signature_name_sources: dict[str, str] = {}
     for name in [*yf.params, *yf.rets]:
@@ -1741,25 +1759,6 @@ def yul_function_to_model(
             signature_name_sources[clean] = name
             var_map[name] = clean
             all_clean_names.add(clean)
-
-    for stmt in yf.assignments:
-        if isinstance(stmt, ParsedIfBlock):
-            targets = [s.target for s in stmt.body]
-            if stmt.else_body is not None:
-                targets.extend(s.target for s in stmt.else_body)
-        elif isinstance(stmt, MemoryWrite):
-            targets = []
-        else:
-            targets = [stmt.target]
-        for target in targets:
-            clean = demangle_var(
-                target,
-                yf.params,
-                yf.rets,
-                keep_solidity_locals=keep_solidity_locals,
-            )
-            if clean is not None:
-                all_clean_names.add(clean)
 
     # Save param names before SSA processing may rename them.
     param_names = tuple(var_map[p] for p in yf.params)
@@ -1779,37 +1778,13 @@ def yul_function_to_model(
 
     assignments: list[ModelStatement] = []
 
-    def _resolve_const_locals(
-        expr: Expr,
-        *,
-        const_locals_state: dict[str, int],
-    ) -> Expr:
-        """Resolve constant local Lean bindings inside an address expression."""
-        if isinstance(expr, IntLit):
-            return expr
-        if isinstance(expr, Var):
-            if expr.name in const_locals_state:
-                return IntLit(const_locals_state[expr.name])
-            return expr
-        if isinstance(expr, Call):
-            return Call(
-                expr.name,
-                tuple(
-                    _resolve_const_locals(arg, const_locals_state=const_locals_state)
-                    for arg in expr.args
-                ),
-            )
-        _unreachable_expr(expr)
-
     def _resolve_memory_address(
         expr: Expr,
         *,
         op_name: str,
-        const_locals_state: dict[str, int],
+        const_locals_state: dict[str, Expr],
     ) -> int:
-        addr = _try_const_eval(
-            _resolve_const_locals(expr, const_locals_state=const_locals_state)
-        )
+        addr = _try_const_eval(substitute_expr(expr, const_locals_state))
         if addr is None:
             raise ParseError(
                 f"{op_name} with non-constant address {expr!r} in "
@@ -1827,7 +1802,7 @@ def yul_function_to_model(
     def _resolve_memory_expr(
         expr: Expr,
         *,
-        const_locals_state: dict[str, int],
+        const_locals_state: dict[str, Expr],
     ) -> Expr:
         if isinstance(expr, (IntLit, Var)):
             return expr
@@ -1860,7 +1835,7 @@ def yul_function_to_model(
         *,
         var_map_state: dict[str, str],
         subst_state: dict[str, Expr],
-        const_locals_state: dict[str, int],
+        const_locals_state: dict[str, Expr],
         inside_conditional: bool = False,
     ) -> Assignment | None:
         """Process a single raw assignment through copy-prop and demangling.
@@ -1916,14 +1891,9 @@ def yul_function_to_model(
         var_map_state[target] = ssa_name
 
         if not inside_conditional:
-            const_value = _try_const_eval(
-                _resolve_const_locals(
-                    expr,
-                    const_locals_state=const_locals_state,
-                )
-            )
+            const_value = _try_const_eval(substitute_expr(expr, const_locals_state))
             if const_value is not None:
-                const_locals_state[ssa_name] = const_value
+                const_locals_state[ssa_name] = IntLit(const_value)
             else:
                 const_locals_state.pop(ssa_name, None)
 
@@ -2208,75 +2178,34 @@ def _prune_dead_assignments(
 # Lean emission helpers
 # ---------------------------------------------------------------------------
 
+_SUPPORTED_OPS = (
+    "add",
+    "sub",
+    "mul",
+    "div",
+    "mod",
+    "not",
+    "or",
+    "and",
+    "eq",
+    "shl",
+    "shr",
+    "clz",
+    "lt",
+    "gt",
+    "mulmod",
+)
+
 OP_TO_LEAN_HELPER: dict[str, str] = {
-    "add": "evmAdd",
-    "sub": "evmSub",
-    "mul": "evmMul",
-    "div": "evmDiv",
-    "mod": "evmMod",
-    "not": "evmNot",
-    "or": "evmOr",
-    "and": "evmAnd",
-    "eq": "evmEq",
-    "shl": "evmShl",
-    "shr": "evmShr",
-    "clz": "evmClz",
-    "lt": "evmLt",
-    "gt": "evmGt",
-    "mulmod": "evmMulmod",
+    op: f"evm{op.capitalize()}" for op in _SUPPORTED_OPS
 }
-
-OP_TO_OPCODE: dict[str, str] = {
-    "add": "ADD",
-    "sub": "SUB",
-    "mul": "MUL",
-    "div": "DIV",
-    "mod": "MOD",
-    "not": "NOT",
-    "or": "OR",
-    "and": "AND",
-    "eq": "EQ",
-    "shl": "SHL",
-    "shr": "SHR",
-    "clz": "CLZ",
-    "lt": "LT",
-    "gt": "GT",
-    "mulmod": "MULMOD",
-}
-
-# Catch key-set drift between Lean helper names and opcode names at import time.
-if set(OP_TO_LEAN_HELPER) != set(OP_TO_OPCODE):
-    raise RuntimeError(
-        f"OP_TO_LEAN_HELPER keys {set(OP_TO_LEAN_HELPER)} != "
-        f"OP_TO_OPCODE keys {set(OP_TO_OPCODE)}"
-    )
+OP_TO_OPCODE: dict[str, str] = {op: op.upper() for op in _SUPPORTED_OPS}
 
 # Base norm helpers shared by all generators.  Per-generator extras (like
 # bitLengthPlus1 for cbrt) are merged in via ModelConfig.extra_norm_ops.
-_BASE_NORM_HELPERS = {
-    "add": "normAdd",
-    "sub": "normSub",
-    "mul": "normMul",
-    "div": "normDiv",
-    "mod": "normMod",
-    "not": "normNot",
-    "or": "normOr",
-    "and": "normAnd",
-    "eq": "normEq",
-    "shl": "normShl",
-    "shr": "normShr",
-    "clz": "normClz",
-    "lt": "normLt",
-    "gt": "normGt",
-    "mulmod": "normMulmod",
+_BASE_NORM_HELPERS: dict[str, str] = {
+    op: f"norm{op.capitalize()}" for op in _SUPPORTED_OPS
 }
-
-# Also catch drift between OP_TO_LEAN_HELPER and _BASE_NORM_HELPERS.
-if set(OP_TO_LEAN_HELPER) != set(_BASE_NORM_HELPERS):
-    raise RuntimeError(
-        f"OP_TO_LEAN_HELPER keys {set(OP_TO_LEAN_HELPER)} != "
-        f"_BASE_NORM_HELPERS keys {set(_BASE_NORM_HELPERS)}"
-    )
 
 
 def validate_ident(name: str, *, what: str) -> None:
@@ -2311,6 +2240,15 @@ def collect_ops_from_statement(stmt: ModelStatement) -> list[str]:
 def ordered_unique(items: list[str]) -> list[str]:
     d: dict[str, None] = dict.fromkeys(items)
     return list(d)
+
+
+def collect_model_opcodes(models: list[FunctionModel]) -> list[str]:
+    """Collect ordered unique opcodes used across all models."""
+    raw_ops: list[str] = []
+    for model in models:
+        for stmt in model.assignments:
+            raw_ops.extend(collect_ops_from_statement(stmt))
+    return ordered_unique([OP_TO_OPCODE[name] for name in raw_ops])
 
 
 def _expr_size(expr: Expr) -> int:
@@ -3071,8 +3009,6 @@ def apply_optional_model_transforms(
             )
             for model in transformed
         ]
-        for model in transformed:
-            validate_function_model(model)
 
     if pipeline.prune_dead_assignments:
         transformed = [
@@ -3083,8 +3019,6 @@ def apply_optional_model_transforms(
             )
             for model in transformed
         ]
-        for model in transformed:
-            validate_function_model(model)
 
     return transformed
 
@@ -3122,8 +3056,7 @@ def translate_yul_to_models(
 def emit_expr(
     expr: Expr,
     *,
-    op_helper_map: dict[str, str],
-    call_helper_map: dict[str, str],
+    helper_map: dict[str, str],
 ) -> str:
     if isinstance(expr, IntLit):
         return str(expr.value)
@@ -3140,11 +3073,7 @@ def emit_expr(
         if m and len(expr.args) == 1:
             idx = int(m.group(1))
             total = int(m.group(2))
-            inner = emit_expr(
-                expr.args[0],
-                op_helper_map=op_helper_map,
-                call_helper_map=call_helper_map,
-            )
+            inner = emit_expr(expr.args[0], helper_map=helper_map)
             if total <= 2 or idx == 0:
                 return f"({inner}).{idx + 1}"
             elif idx == total - 1:
@@ -3155,32 +3084,15 @@ def emit_expr(
         # Handle __ite(cond, if_val, else_val) from leave-handling.
         # Emits: if (cond) ≠ 0 then if_val else else_val
         if expr.name == "__ite" and len(expr.args) == 3:
-            cond = emit_expr(
-                expr.args[0],
-                op_helper_map=op_helper_map,
-                call_helper_map=call_helper_map,
-            )
-            if_val = emit_expr(
-                expr.args[1],
-                op_helper_map=op_helper_map,
-                call_helper_map=call_helper_map,
-            )
-            else_val = emit_expr(
-                expr.args[2],
-                op_helper_map=op_helper_map,
-                call_helper_map=call_helper_map,
-            )
+            cond = emit_expr(expr.args[0], helper_map=helper_map)
+            if_val = emit_expr(expr.args[1], helper_map=helper_map)
+            else_val = emit_expr(expr.args[2], helper_map=helper_map)
             return f"if ({cond}) ≠ 0 then {if_val} else {else_val}"
 
-        helper = op_helper_map.get(expr.name)
-        if helper is None:
-            helper = call_helper_map.get(expr.name)
+        helper = helper_map.get(expr.name)
         if helper is None:
             raise ParseError(f"Unsupported call in Lean emitter: {expr.name!r}")
-        args = " ".join(
-            f"({emit_expr(a, op_helper_map=op_helper_map, call_helper_map=call_helper_map)})"
-            for a in expr.args
-        )
+        args = " ".join(f"({emit_expr(a, helper_map=helper_map)})" for a in expr.args)
         return f"{helper} {args}".rstrip()
     _unreachable_expr(expr)
 
@@ -3313,15 +3225,13 @@ def build_model_body(
         call_map = dict(config.model_names)
         op_map = norm_helpers
 
+    merged_map = {**op_map, **call_map}
+
     def _emit_rhs(expr: Expr) -> str:
         rhs_expr = expr
         if not evm and config.norm_rewrite is not None:
             rhs_expr = config.norm_rewrite(rhs_expr)
-        return emit_expr(
-            rhs_expr,
-            op_helper_map=op_map,
-            call_helper_map=call_map,
-        )
+        return emit_expr(rhs_expr, helper_map=merged_map)
 
     def _emit_tuple(vars_: tuple[str, ...]) -> str:
         if len(vars_) == 1:
@@ -3418,11 +3328,7 @@ def build_lean_source(
 ) -> str:
     modeled_functions = ", ".join(model.fn_name for model in models)
 
-    raw_ops: list[str] = []
-    for model in models:
-        for stmt in model.assignments:
-            raw_ops.extend(collect_ops_from_statement(stmt))
-    opcodes = ordered_unique([OP_TO_OPCODE[name] for name in raw_ops])
+    opcodes = collect_model_opcodes(models)
     opcodes_line = ", ".join(opcodes)
 
     function_defs = render_function_defs(models, config)
@@ -3639,11 +3545,7 @@ def run(config: ModelConfig) -> int:
     for model in models:
         print(f"Parsed {len(model.assignments)} assignments for {model.fn_name}")
 
-    raw_ops: list[str] = []
-    for model in models:
-        for stmt in model.assignments:
-            raw_ops.extend(collect_ops_from_statement(stmt))
-    opcodes = ordered_unique([OP_TO_OPCODE[name] for name in raw_ops])
+    opcodes = collect_model_opcodes(models)
     print(f"Modeled opcodes: {', '.join(opcodes)}")
 
     return 0

@@ -2840,9 +2840,7 @@ class EmitExprTest(unittest.TestCase):
     CALL_MAP: dict[str, str] = {}
 
     def _emit(self, expr: ytl.Expr) -> str:
-        return ytl.emit_expr(
-            expr, op_helper_map=self.OP_MAP, call_helper_map=self.CALL_MAP
-        )
+        return ytl.emit_expr(expr, helper_map={**self.OP_MAP, **self.CALL_MAP})
 
     def test_emit_intlit(self) -> None:
         self.assertEqual(self._emit(ytl.IntLit(42)), "42")
