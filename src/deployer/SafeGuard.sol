@@ -363,10 +363,10 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         _;
     }
 
-    function _requirePreApproved(bytes32 txHash) private view {
+    function _requirePreApproved(ISafeMinimal _safe, bytes32 txHash) private view {
         // By requiring that the Safe owner has preapproved the `txHash`, we prevent a single rogue
         // signer from bricking the Safe.
-        if (!safe.approvedHashes(msg.sender, txHash)) {
+        if (!_safe.approvedHashes(msg.sender, txHash)) {
             revert TxHashNotApproved(txHash);
         }
     }
@@ -724,9 +724,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         );
     }
 
-    function unlockTxHash() public view returns (bytes32) {
-        uint256 nonce = safe.nonce();
-        return safe.getTransactionHash(
+    function _unlockTxHash(ISafeMinimal _safe) private view returns (bytes32) {
+        uint256 nonce = _safe.nonce();
+        return _safe.getTransactionHash(
             address(this),
             0 ether,
             abi.encodeCall(this.unlock, ()),
@@ -740,15 +740,26 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         );
     }
 
-    function _removeOwnerTxHash(address prevOwner, address oldOwner, uint256 threshold, uint256 nonce)
+    function unlockTxHash() public view returns (bytes32) {
+        return _unlockTxHash(safe);
+    }
+
+    function _getThresholdAfterResign(ISafeMinimal _safe) private view returns (uint256 threshold) {
+        threshold = _safe.getThreshold();
+        if (threshold == _safe.ownerCount()) {
+            threshold--;
+        }
+    }
+
+    function _removeOwnerTxHash(ISafeMinimal _safe, address prevOwner, address oldOwner, uint256 threshold, uint256 nonce)
         private
         view
         returns (bytes32)
     {
-        return safe.getTransactionHash(
-            address(safe),
+        return _safe.getTransactionHash(
+            address(_safe),
             0 ether,
-            abi.encodeCall(safe.removeOwner, (prevOwner, oldOwner, threshold)),
+            abi.encodeCall(_safe.removeOwner, (prevOwner, oldOwner, threshold)),
             Operation.Call,
             0,
             0,
@@ -760,25 +771,27 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     }
 
     function resignTxHash(address owner) external view returns (bytes32 txHash) {
-        address prevOwner = safe.getPrevOwner(owner);
-        uint256 threshold = safe.getThreshold();
-        uint256 nonce = safe.nonce();
+        ISafeMinimal _safe = safe;
+        address prevOwner = _safe.getPrevOwner(owner);
+        uint256 threshold = _getThresholdAfterResign(_safe);
+        uint256 nonce = _safe.nonce();
         if (
             lockedDownBy != address(0)
-                || safe.approvedHashes(owner, txHash = _removeOwnerTxHash(prevOwner, owner, threshold, nonce))
+            || _safe.approvedHashes(owner, txHash = _removeOwnerTxHash(_safe, prevOwner, owner, threshold, nonce))
         ) {
             nonce++;
-            txHash = _removeOwnerTxHash(prevOwner, owner, threshold, nonce);
+            txHash = _removeOwnerTxHash(_safe, prevOwner, owner, threshold, nonce);
         }
     }
 
     function cancel(bytes32 txHash) external onlyOwner {
-        uint256 nonce = safe.nonce();
+        ISafeMinimal _safe = safe;
+        uint256 nonce = _safe.nonce();
         if (lockedDownBy != address(0)) {
             nonce++;
         }
-        bytes32 resignHash = _removeOwnerTxHash(safe.getPrevOwner(msg.sender), msg.sender, safe.getThreshold(), nonce);
-        _requirePreApproved(resignHash);
+        bytes32 resignHash = _removeOwnerTxHash(_safe, _safe.getPrevOwner(msg.sender), msg.sender, _getThresholdAfterResign(_safe), nonce);
+        _requirePreApproved(_safe, resignHash);
 
         uint256 _timelockEnd = timelockEnd[txHash];
         if (_timelockEnd == 0) {
@@ -793,16 +806,18 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     }
 
     function lockDown() external normalOperation onlyOwner {
-        bytes32 txHash = unlockTxHash();
-        _requirePreApproved(txHash);
+        ISafeMinimal _safe = safe;
 
-        address prevOwner = safe.getPrevOwner(msg.sender);
-        uint256 threshold = safe.getThreshold();
-        uint256 nonce = safe.nonce();
-        if (safe.approvedHashes(msg.sender, _removeOwnerTxHash(prevOwner, msg.sender, threshold, nonce))) {
+        bytes32 txHash = _unlockTxHash(_safe);
+        _requirePreApproved(_safe, txHash);
+
+        address prevOwner = _safe.getPrevOwner(msg.sender);
+        uint256 threshold = _getThresholdAfterResign(_safe);
+        uint256 nonce = _safe.nonce();
+        if (_safe.approvedHashes(msg.sender, _removeOwnerTxHash(_safe, prevOwner, msg.sender, threshold, nonce))) {
             nonce++;
-            bytes32 resignHash = _removeOwnerTxHash(prevOwner, msg.sender, threshold, nonce);
-            _requirePreApproved(resignHash);
+            bytes32 resignHash = _removeOwnerTxHash(_safe, prevOwner, msg.sender, threshold, nonce);
+            _requirePreApproved(_safe, resignHash);
             emit ResignTxHash(resignHash);
         }
 
