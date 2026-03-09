@@ -925,7 +925,7 @@ class YulParser:
                 depth -= 1
                 if started and depth == 0:
                     return False
-            elif k == "ident" and text in yul_names:
+            elif started and k == "ident" and text in yul_names:
                 return True
         return False
 
@@ -1378,7 +1378,7 @@ def _inline_single_call(
         else_val = _resolve(subst.get(r, IntLit(0)), subst)
         if leave_cond is not None and leave_subst is not None:
             if_val = _resolve(leave_subst.get(r, IntLit(0)), leave_subst)
-            resolved_cond = _resolve(leave_cond, leave_subst)
+            resolved_cond = _resolve(leave_cond, subst)
             return _simplify_ite(resolved_cond, if_val, else_val)
         return else_val
 
@@ -3488,6 +3488,11 @@ def parse_function_selection(
         any(fn != config.inner_fn for fn in selected)
         and config.inner_fn not in selected
     ):
+        if config.inner_fn not in allowed:
+            raise ParseError(
+                f"Inner function {config.inner_fn!r} is not in function_order. "
+                f"Available: {', '.join(config.function_order)}"
+            )
         selected.append(config.inner_fn)
 
     selected_set = set(selected)
