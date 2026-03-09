@@ -377,6 +377,74 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         delay = newDelay;
     }
 
+    /// See comment in `checkTransaction`
+    function _checkDelegateCall(address to, bytes calldata data) private view returns (bool requireUnanimity) {
+        if (to == _MULTISEND && uint256(uint32(bytes4(data))) == uint256(uint32(ISafeMultiSend.multiSend.selector)))
+        {
+            // Slice off the selector.
+            bytes calldata multicalls = data[4:];
+            // Follow the dynamic-type ABIencoding indirection to the `transactions` argument.
+            multicalls = multicalls[uint256(bytes32(multicalls)):];
+            // Decode `transactions` length.
+            multicalls = multicalls[32:32 + uint256(bytes32(multicalls))];
+
+            // The encoding of the multicalls here is derived from the `MultiSendCallOnly` contract
+            // deployed to 0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B (1.3.0) or
+            // 0x9641d764fc13c8B624c04430C7356C1C7C8102e2 (1.4.1)
+            uint256 callsCount;
+            while (multicalls.length != 0) {
+                // We use calldata array slicing syntax here, which is stricter than the assembly
+                // found in `MultiSendCallOnly`. `MultiSendCallOnly` will happily decode data that
+                // is past the (nominal) end of the `transactions` array, while this implementation
+                // will revert when encountering that.
+
+                // We ignore the first byte, which is always zero to indicate `Operation.Call`.  The
+                // next 20 bytes are the target of the `CALL`.
+                multicalls = multicalls[1:];
+                address multicallTo = address(uint160(bytes20(multicalls)));
+                multicalls = multicalls[20:];
+                // We ignore the next 32 bytes because they are the `value`. The functions we wish
+                // to special-case are `view` and `nonpayable`, so the value is zero or irrelevant.
+                multicalls = multicalls[32:];
+                // The 32 bytes after that are the length of the payload/data, followed by the
+                // payload/data itself.
+                bytes calldata multicallData = multicalls[32:32 + uint256(bytes32(multicalls))];
+                multicalls = multicalls[32 + multicallData.length:];
+
+                if (callsCount & 1 != 0) {
+                    // Every second call must be to `this.check()` so that we can enforce our
+                    // invariants in between each call.
+                    if (
+                        multicallTo != address(this) || multicallData.length < 4
+                            || uint256(uint32(bytes4(multicallData))) != uint256(uint32(this.check.selector))
+                    ) {
+                        revert GuardCheckNotEnforced(callsCount, multicallTo, multicallData);
+                    }
+                } else {
+                    // Forbid calls to `this.checkAfterExecution`.
+                    if (
+                        multicallTo == address(this) && multicallData.length >= 68
+                            && uint256(uint32(bytes4(multicallData)))
+                                == uint256(uint32(this.checkAfterExecution.selector))
+                    ) {
+                        revert ForbiddenCall(callsCount, multicallTo, multicallData);
+                    }
+                    requireUnanimity = requireUnanimity
+                        || (multicallTo == address(this)
+                            && multicallData.length >= 4
+                            && uint256(uint32(bytes4(multicallData))) == uint256(uint32(this.unlock.selector)));
+                }
+
+                callsCount++;
+            }
+            if (callsCount & 1 == 0) {
+                revert EvenNumberOfMultiCalls(callsCount);
+            }
+        } else {
+            revert NoDelegateCall();
+        }
+    }
+
     function checkTransaction(
         address to,
         uint256 value,
@@ -433,74 +501,10 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // user-defined calls are interleaved with calls to `this.check()`.
         bool requireUnanimity;
         if (operation != Operation.Call) {
-            if (to == _MULTISEND && uint256(uint32(bytes4(data))) == uint256(uint32(ISafeMultiSend.multiSend.selector)))
-            {
-                // Slice off the selector.
-                bytes calldata multicalls = data[4:];
-                // Follow the dynamic-type ABIencoding indirection to the `transactions` argument.
-                multicalls = multicalls[uint256(bytes32(multicalls)):];
-                // Decode `transactions` length.
-                multicalls = multicalls[32:32 + uint256(bytes32(multicalls))];
-
-                // The encoding of the multicalls here is derived from the `MultiSendCallOnly`
-                // contract deployed to 0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B (1.3.0) or
-                // 0x9641d764fc13c8B624c04430C7356C1C7C8102e2 (1.4.1)
-                uint256 callsCount;
-                while (multicalls.length != 0) {
-                    // We use calldata array slicing syntax here, which is stricter than the
-                    // assembly found in `MultiSendCallOnly`. `MultiSendCallOnly` will happily
-                    // decode data that is past the (nominal) end of the `transactions` array, while
-                    // this implementation will revert when encountering that.
-
-                    // We ignore the first byte, which is always zero to indicate `Operation.Call`.
-                    // The next 20 bytes are the target of the `CALL`.
-                    multicalls = multicalls[1:];
-                    address multicallTo = address(uint160(bytes20(multicalls)));
-                    multicalls = multicalls[20:];
-                    // We ignore the next 32 bytes because they are the `value`. The functions we
-                    // wish to special-case are `view` and `nonpayable`, so the value is zero or
-                    // irrelevant.
-                    multicalls = multicalls[32:];
-                    // The 32 bytes after that are the length of the payload/data, followed by the
-                    // payload/data itself.
-                    bytes calldata multicallData = multicalls[32:32 + uint256(bytes32(multicalls))];
-                    multicalls = multicalls[32 + multicallData.length:];
-
-                    if (callsCount & 1 != 0) {
-                        // Every second call must be to `this.check()` so that we can enforce our
-                        // invariants in between each call.
-                        if (
-                            multicallTo != address(this) || multicallData.length < 4
-                                || uint256(uint32(bytes4(multicallData))) != uint256(uint32(this.check.selector))
-                        ) {
-                            revert GuardCheckNotEnforced(callsCount, multicallTo, multicallData);
-                        }
-                    } else {
-                        // Forbid calls to `this.checkAfterExecution`.
-                        if (
-                            multicallTo == address(this) && multicallData.length >= 68
-                                && uint256(uint32(bytes4(multicallData)))
-                                    == uint256(uint32(this.checkAfterExecution.selector))
-                        ) {
-                            revert ForbiddenCall(callsCount, multicallTo, multicallData);
-                        }
-                        requireUnanimity = requireUnanimity
-                            || (multicallTo == address(this)
-                                && multicallData.length >= 4
-                                && uint256(uint32(bytes4(multicallData))) == uint256(uint32(this.unlock.selector)));
-                    }
-
-                    callsCount++;
-                }
-                if (callsCount & 1 == 0) {
-                    revert EvenNumberOfMultiCalls(callsCount);
-                }
-            } else {
-                revert NoDelegateCall();
-            }
+            require(value == 0);
+            requireUnanimity = _checkDelegateCall(to, data);
         } else {
-            requireUnanimity = requireUnanimity
-                || (to == address(this)
+            requireUnanimity = (to == address(this)
                     && data.length >= 4
                     && uint256(uint32(bytes4(data))) == uint256(uint32(this.unlock.selector)));
         }
@@ -695,7 +699,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     ) external normalOperation {
         // See comment in `checkTransaction`
         if (operation != Operation.Call) {
-            revert NoDelegateCall();
+            require(value == 0);
+            _checkDelegateCall(to, data);
         }
 
         bytes memory txHashData = safe.encodeTransactionData(
