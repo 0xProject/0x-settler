@@ -276,8 +276,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     address private immutable _SINGLETON;
     address private immutable _FALLBACK;
     address private immutable _MULTISEND;
-    address private constant _CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
+    address private constant _NONEIP155_CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
+    address private constant _ERC7955_CREATE2_FACTORY = 0xC0DEb853af168215879d284cc8B4d0A645fA9b0E;
 
     bytes32 private constant _SAFE_PROXY_1_1_CODEHASH =
         0xaea7d4252f6245f301e540cfbee27d3a88de543af8e49c5c62405d5499fab7e5;
@@ -297,7 +298,10 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             && (safeCodeHash == _SAFE_PROXY_1_1_CODEHASH
                 || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
                 || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH);
-        result = result && (msg.sender == _CREATE2_FACTORY || msg.sender == _SAFE_SINGLETON_FACTORY);
+        result = result
+            && (msg.sender == _NONEIP155_CREATE2_FACTORY
+                || msg.sender == _SAFE_SINGLETON_FACTORY
+                || msg.sender == _ERC7955_CREATE2_FACTORY);
     }
 
     function _predictCreate2(bytes32 inithash) private view returns (address) {
