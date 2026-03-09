@@ -470,7 +470,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                         // invariants in between each call.
                         if (
                             multicallTo != address(this) || multicallData.length < 4
-                                || uint256(uint32(bytes4(multicallData))) != uint256(uint32(this.check))
+                                || uint256(uint32(bytes4(multicallData))) != uint256(uint32(this.check.selector))
                         ) {
                             revert GuardCheckNotEnforced(callsCount, multicallTo, multicallData);
                         }
@@ -752,11 +752,13 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         }
     }
 
-    function _removeOwnerTxHash(ISafeMinimal _safe, address prevOwner, address oldOwner, uint256 threshold, uint256 nonce)
-        private
-        view
-        returns (bytes32)
-    {
+    function _removeOwnerTxHash(
+        ISafeMinimal _safe,
+        address prevOwner,
+        address oldOwner,
+        uint256 threshold,
+        uint256 nonce
+    ) private view returns (bytes32) {
         return _safe.getTransactionHash(
             address(_safe),
             0 ether,
@@ -778,7 +780,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         uint256 nonce = _safe.nonce();
         if (
             lockedDownBy != address(0)
-            || _safe.approvedHashes(owner, txHash = _removeOwnerTxHash(_safe, prevOwner, owner, threshold, nonce))
+                || _safe.approvedHashes(owner, txHash = _removeOwnerTxHash(_safe, prevOwner, owner, threshold, nonce))
         ) {
             nonce++;
             txHash = _removeOwnerTxHash(_safe, prevOwner, owner, threshold, nonce);
@@ -791,7 +793,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         if (lockedDownBy != address(0)) {
             nonce++;
         }
-        bytes32 resignHash = _removeOwnerTxHash(_safe, _safe.getPrevOwner(msg.sender), msg.sender, _getThresholdAfterResign(_safe), nonce);
+        bytes32 resignHash = _removeOwnerTxHash(
+            _safe, _safe.getPrevOwner(msg.sender), msg.sender, _getThresholdAfterResign(_safe), nonce
+        );
         _requirePreApproved(_safe, resignHash);
 
         uint256 _timelockEnd = timelockEnd[txHash];
