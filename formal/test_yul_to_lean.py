@@ -446,6 +446,62 @@ class FailClosedTranslatorTest(unittest.TestCase):
         ]
         self.assertEqual(yf.assignments, expected)
 
+    def test_bare_block_if_merges_block_local_into_ite(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_f_1(var_x_1, var_c_2) -> var_z_3 {
+                {
+                    let tmp := var_x_1
+                    if var_c_2 {
+                        tmp := add(tmp, 1)
+                    }
+                    var_z_3 := tmp
+                }
+            }
+            """)
+
+        yf = ytl.YulParser(tokens).parse_function()
+        # ``tmp`` is block-local.  The if-block modifies it, so after
+        # flattening ``tmp`` should be an ``__ite`` conditional expression,
+        # and the final assignment should inline it.
+        self.assertEqual(len(yf.assignments), 1)
+        stmt = yf.assignments[0]
+        self.assertIsInstance(stmt, ytl.PlainAssignment)
+        assert isinstance(stmt, ytl.PlainAssignment)
+        self.assertEqual(stmt.target, "var_z_3")
+        # The expression should be __ite(c, add(x, 1), x)
+        self.assertIsInstance(stmt.expr, ytl.Call)
+        assert isinstance(stmt.expr, ytl.Call)
+        self.assertEqual(stmt.expr.name, "__ite")
+
+    def test_bare_block_switch_merges_block_local_into_ite(self) -> None:
+        yul = """
+            function fun_f_1(var_x_1, var_c_2) -> var_z_3 {
+                {
+                    let tmp := var_x_1
+                    switch var_c_2
+                    case 0 {
+                        tmp := add(tmp, 1)
+                    }
+                    default {
+                        tmp := add(tmp, 2)
+                    }
+                    var_z_3 := tmp
+                }
+            }
+        """
+        config = make_model_config(("f",))
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        # f(10, 0) -> z = 10 + 1 = 11
+        self.assertEqual(ytl.evaluate_function_model(model, (10, 0)), (11,))
+        # f(10, 1) -> z = 10 + 2 = 12
+        self.assertEqual(ytl.evaluate_function_model(model, (10, 1)), (12,))
+
     def test_parse_function_allows_top_level_leave(self) -> None:
         tokens = ytl.tokenize_yul("""
             function fun_f_1() -> var_z_2 {
@@ -1223,6 +1279,48 @@ class TranslationPipelineTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ytl.ParseError, "collides with the demangled name"):
             ytl.yul_function_to_model(yf, "f", {})
+
+    def test_ssa_renaming_avoids_reuse_after_conditional_reset(self) -> None:
+        yul = """
+            function fun_f_1(var_x_1, var_c_2) -> var_z_3 {
+                var_z_3 := add(var_x_1, 1)
+                var_z_3 := add(var_z_3, var_x_1)
+                switch var_c_2
+                case 0 {
+                    var_z_3 := mul(var_z_3, 2)
+                }
+                default {
+                    var_z_3 := mul(var_z_3, 3)
+                    var_x_1 := add(var_x_1, 2)
+                }
+                var_z_3 := add(var_z_3, var_x_1)
+            }
+        """
+        config = make_model_config(("f",))
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        # Check no duplicate targets in straight-line assignments.
+        targets: list[str] = []
+        for stmt in model.assignments:
+            if isinstance(stmt, ytl.Assignment):
+                targets.append(stmt.target)
+        self.assertEqual(
+            len(targets), len(set(targets)), f"duplicate targets: {targets}"
+        )
+
+        # f(10, 0): z = add(10,1) = 11; z = add(11,10) = 21;
+        #   case 0: z = mul(21,2) = 42; z = add(42,10) = 52 => but x unchanged
+        #   continuation: z = add(42, 10) = 52  ...wait let me compute carefully
+        # Actually, after switch, var_z_3 and var_x_1 are modified by
+        # the conditional block.  For c=0: z=21*2=42, x=10; z=42+10=52
+        # For c=1: z=21*3=63, x=10+2=12; z=63+12=75
+        self.assertEqual(ytl.evaluate_function_model(model, (10, 0)), (52,))
+        self.assertEqual(ytl.evaluate_function_model(model, (10, 1)), (75,))
 
     def test_translate_yul_to_models_rejects_nested_helper_memory_write_through_local(
         self,

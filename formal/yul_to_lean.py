@@ -516,30 +516,104 @@ class YulParser:
                         )
                     elif isinstance(stmt, ParsedIfBlock):
                         new_cond = substitute_expr(stmt.condition, block_subst)
-                        new_body = tuple(
-                            PlainAssignment(
-                                s.target, substitute_expr(s.expr, block_subst)
-                            )
-                            for s in stmt.body
-                        )
-                        new_else = (
-                            tuple(
+
+                        # Identify which body/else_body targets are block-local.
+                        block_local_targets: set[str] = set()
+                        for s in stmt.body:
+                            if s.target in block_let_vars:
+                                block_local_targets.add(s.target)
+                        if stmt.else_body is not None:
+                            for s in stmt.else_body:
+                                if s.target in block_let_vars:
+                                    block_local_targets.add(s.target)
+
+                        if not block_local_targets:
+                            # No block-local modifications — emit unchanged.
+                            new_body = tuple(
                                 PlainAssignment(
-                                    s.target, substitute_expr(s.expr, block_subst)
+                                    s.target,
+                                    substitute_expr(s.expr, block_subst),
                                 )
-                                for s in stmt.else_body
+                                for s in stmt.body
                             )
-                            if stmt.else_body is not None
-                            else None
-                        )
-                        results.append(
-                            ParsedIfBlock(
-                                condition=new_cond,
-                                body=new_body,
-                                has_leave=stmt.has_leave,
-                                else_body=new_else,
+                            new_else = (
+                                tuple(
+                                    PlainAssignment(
+                                        s.target,
+                                        substitute_expr(s.expr, block_subst),
+                                    )
+                                    for s in stmt.else_body
+                                )
+                                if stmt.else_body is not None
+                                else None
                             )
-                        )
+                            results.append(
+                                ParsedIfBlock(
+                                    condition=new_cond,
+                                    body=new_body,
+                                    has_leave=stmt.has_leave,
+                                    else_body=new_else,
+                                )
+                            )
+                        else:
+                            # Split body into block-local (merge into block_subst)
+                            # and outer-scope (emit as ParsedIfBlock).
+                            outer_body: list[PlainAssignment] = []
+                            local_body: dict[str, Expr] = {}
+                            for s in stmt.body:
+                                sub_expr = substitute_expr(s.expr, block_subst)
+                                if s.target in block_local_targets:
+                                    local_body[s.target] = sub_expr
+                                else:
+                                    outer_body.append(
+                                        PlainAssignment(s.target, sub_expr)
+                                    )
+
+                            outer_else: list[PlainAssignment] | None = None
+                            local_else: dict[str, Expr] = {}
+                            if stmt.else_body is not None:
+                                outer_else = []
+                                for s in stmt.else_body:
+                                    sub_expr = substitute_expr(s.expr, block_subst)
+                                    if s.target in block_local_targets:
+                                        local_else[s.target] = sub_expr
+                                    else:
+                                        outer_else.append(
+                                            PlainAssignment(s.target, sub_expr)
+                                        )
+
+                            # Merge block-local modifications into block_subst.
+                            # When has_leave is True, the then-branch exits the
+                            # function, so block-local modifications are dead on
+                            # the continuation path — block_subst keeps its
+                            # pre-if value.
+                            if not stmt.has_leave:
+                                for target in block_local_targets:
+                                    pre_val = block_subst.get(target, IntLit(0))
+                                    then_val = local_body.get(target, pre_val)
+                                    else_val = local_else.get(target, pre_val)
+                                    block_subst[target] = _simplify_ite(
+                                        new_cond, then_val, else_val
+                                    )
+
+                            # Emit ParsedIfBlock for outer-scope targets if any
+                            # remain.
+                            has_outer = bool(outer_body) or (
+                                outer_else is not None and bool(outer_else)
+                            )
+                            if has_outer or stmt.has_leave:
+                                results.append(
+                                    ParsedIfBlock(
+                                        condition=new_cond,
+                                        body=tuple(outer_body),
+                                        has_leave=stmt.has_leave,
+                                        else_body=(
+                                            tuple(outer_else)
+                                            if outer_else is not None
+                                            else None
+                                        ),
+                                    )
+                                )
                     else:
                         expr = substitute_expr(stmt.expr, block_subst)
                         if stmt.target in block_let_vars:
@@ -572,8 +646,8 @@ class YulParser:
                         f"Control flow statement '{keyword}' found in "
                         f"{context}. "
                         f"Only straight-line code"
-                        f"{' and if/switch blocks' if keyword == 'for' else ''} "
-                        f"is supported for Lean model generation."
+                        f"{' and if/switch blocks' if keyword == 'for' else ''}"
+                        f" is supported for Lean model generation."
                     )
                 if keyword == "if":
                     self._pop()  # consume 'if'
@@ -1722,10 +1796,12 @@ def yul_function_to_model(
     # Parameters start at count 1 (the function-parameter binding).
     # ------------------------------------------------------------------
     ssa_count: Counter[str] = Counter()
+    emitted_ssa_names: set[str] = set()
     for name in yf.params:
         clean = var_map.get(name)
         if clean:
             ssa_count[clean] = 1
+            emitted_ssa_names.add(clean)
 
     assignments: list[ModelStatement] = []
 
@@ -1849,12 +1925,16 @@ def yul_function_to_model(
                 ssa_name = clean
             else:
                 ssa_name = f"{clean}_{ssa_count[clean] - 1}"
+                while ssa_name in emitted_ssa_names:
+                    ssa_count[clean] += 1
+                    ssa_name = f"{clean}_{ssa_count[clean] - 1}"
                 if ssa_name in all_clean_names:
                     raise ParseError(
                         f"SSA-generated name {ssa_name!r} in {sol_fn_name!r} "
                         f"collides with the demangled name of another variable. "
                         f"Refuse to generate ambiguous Lean binders."
                     )
+            emitted_ssa_names.add(ssa_name)
         else:
             ssa_name = clean
 
@@ -2979,8 +3059,6 @@ def prepare_translation(
 def build_restricted_ir_models(
     preparation: PreparedTranslation,
     config: ModelConfig,
-    *,
-    pipeline: TranslationPipeline,
 ) -> list[FunctionModel]:
     """Convert selected Yul functions into validated restricted-IR models."""
 
@@ -3054,7 +3132,6 @@ def translate_yul_to_models(
     models = build_restricted_ir_models(
         preparation,
         config,
-        pipeline=pipeline,
     )
     models = apply_optional_model_transforms(
         models,
