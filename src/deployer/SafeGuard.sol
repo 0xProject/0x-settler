@@ -420,21 +420,23 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                         revert GuardCheckNotEnforced(callsCount, multicallTo, multicallData);
                     }
                 } else {
-                    // Forbid calls to `this.checkTransaction` and `this.checkAfterExecution`.
-                    if (
-                        multicallTo == address(this) && multicallData.length >= 68
-                            && ((multicallData.length >= 356
-                                    && uint256(uint32(bytes4(multicallData)))
-                                        == uint256(uint32(this.checkTransaction.selector)))
-                                || uint256(uint32(bytes4(multicallData)))
-                                    == uint256(uint32(this.checkAfterExecution.selector)))
-                    ) {
-                        revert ForbiddenCall(callsCount, multicallTo, multicallData);
+                    if (multicallTo == address(this)) {
+                        // Forbid calls to `this.checkTransaction` and `this.checkAfterExecution`.
+                        if (
+                            multicallData.length >= 68
+                                && ((multicallData.length >= 356
+                                        && uint256(uint32(bytes4(multicallData)))
+                                            == uint256(uint32(this.checkTransaction.selector)))
+                                    || uint256(uint32(bytes4(multicallData)))
+                                        == uint256(uint32(this.checkAfterExecution.selector)))
+                        ) {
+                            revert ForbiddenCall(callsCount, multicallTo, multicallData);
+                        }
+                        // Transactions containing calls to `this.unlock()` must be unanimous
+                        requireUnanimity = requireUnanimity
+                            || (multicallData.length >= 4
+                                && uint256(uint32(bytes4(multicallData))) == uint256(uint32(this.unlock.selector)));
                     }
-                    requireUnanimity = requireUnanimity
-                        || (multicallTo == address(this)
-                            && multicallData.length >= 4
-                            && uint256(uint32(bytes4(multicallData))) == uint256(uint32(this.unlock.selector)));
                 }
 
                 unchecked {
