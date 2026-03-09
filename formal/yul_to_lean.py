@@ -1268,7 +1268,7 @@ def _inline_single_call(
             cond = inline_calls(
                 cond,
                 fn_table,
-                depth + 1,
+                depth,
                 max_depth,
                 unsupported_function_errors=unsupported_function_errors,
             )
@@ -1280,7 +1280,7 @@ def _inline_single_call(
                 expr = inline_calls(
                     expr,
                     fn_table,
-                    depth + 1,
+                    depth,
                     max_depth,
                     mstore_sink=mstore_sink,
                     unsupported_function_errors=unsupported_function_errors,
@@ -1304,7 +1304,7 @@ def _inline_single_call(
                     expr = inline_calls(
                         expr,
                         fn_table,
-                        depth + 1,
+                        depth,
                         max_depth,
                         mstore_sink=mstore_sink,
                         unsupported_function_errors=unsupported_function_errors,
@@ -1362,7 +1362,7 @@ def _inline_single_call(
             expr = inline_calls(
                 expr,
                 fn_table,
-                depth + 1,
+                depth,
                 max_depth,
                 mstore_sink=mstore_sink,
                 unsupported_function_errors=unsupported_function_errors,
@@ -1393,7 +1393,7 @@ def inline_calls(
     expr: Expr,
     fn_table: dict[str, YulFunction],
     depth: int = 0,
-    max_depth: int = 20,
+    max_depth: int = 40,
     mstore_sink: list[FromWriteEffect] | None = None,
     unsupported_function_errors: dict[str, str] | None = None,
 ) -> Expr:
@@ -1404,6 +1404,7 @@ def inline_calls(
     ``__component_N`` wrappers (from multi-value ``let``) are resolved
     to the Nth return value of the inlined function.
     """
+    depth += 1
     if depth > max_depth:
         raise ParseError(
             f"Inlining depth {depth} exceeded max_depth={max_depth} while "
@@ -1426,7 +1427,7 @@ def inline_calls(
                 inline_calls(
                     a,
                     fn_table,
-                    depth + 1,
+                    depth,
                     max_depth=max_depth,
                     mstore_sink=mstore_sink,
                     unsupported_function_errors=unsupported_function_errors,
@@ -1438,7 +1439,7 @@ def inline_calls(
                     fn_table[inner.name],
                     inner_args,
                     fn_table,
-                    depth + 1,
+                    depth,
                     max_depth,
                     mstore_sink=mstore_sink,
                     unsupported_function_errors=unsupported_function_errors,
@@ -1478,7 +1479,7 @@ def inline_calls(
             inline_calls(
                 a,
                 fn_table,
-                depth + 1,
+                depth,
                 max_depth=max_depth,
                 mstore_sink=mstore_sink,
                 unsupported_function_errors=unsupported_function_errors,
@@ -1493,7 +1494,7 @@ def inline_calls(
                 fn,
                 args,
                 fn_table,
-                depth + 1,
+                depth,
                 max_depth,
                 mstore_sink=mstore_sink,
                 unsupported_function_errors=unsupported_function_errors,
