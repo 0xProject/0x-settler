@@ -255,7 +255,10 @@ class FromWriteEffect:
         )
 
 
-PlainAssignment = tuple[str, Expr]
+@dataclass(frozen=True)
+class PlainAssignment:
+    target: str
+    expr: Expr
 
 
 # A raw parsed statement is either an assignment, a supported memory write,
@@ -454,15 +457,17 @@ class YulParser:
             expr = self._parse_expr()
             for idx, t in enumerate(all_targets):
                 results.append(
-                    (t, Call(f"__component_{idx}_{len(all_targets)}", (expr,)))
+                    PlainAssignment(
+                        t, Call(f"__component_{idx}_{len(all_targets)}", (expr,))
+                    )
                 )
         elif self._peek_kind() == ":=":
             self._pop()
             expr = self._parse_expr()
-            results.append((target, expr))
+            results.append(PlainAssignment(target, expr))
         else:
             # Bare declaration: ``let x``  (zero-initialized per Yul spec)
-            results.append((target, IntLit(0)))
+            results.append(PlainAssignment(target, IntLit(0)))
 
     def _parse_assignment_loop(
         self,
@@ -514,12 +519,17 @@ class YulParser:
                     elif isinstance(stmt, ParsedIfBlock):
                         new_cond = substitute_expr(stmt.condition, block_subst)
                         new_body = tuple(
-                            (t, substitute_expr(e, block_subst)) for t, e in stmt.body
+                            PlainAssignment(
+                                s.target, substitute_expr(s.expr, block_subst)
+                            )
+                            for s in stmt.body
                         )
                         new_else = (
                             tuple(
-                                (t, substitute_expr(e, block_subst))
-                                for t, e in stmt.else_body
+                                PlainAssignment(
+                                    s.target, substitute_expr(s.expr, block_subst)
+                                )
+                                for s in stmt.else_body
                             )
                             if stmt.else_body is not None
                             else None
@@ -533,12 +543,11 @@ class YulParser:
                             )
                         )
                     else:
-                        target, expr = stmt
-                        expr = substitute_expr(expr, block_subst)
-                        if target in block_let_vars:
-                            block_subst[target] = expr
+                        expr = substitute_expr(stmt.expr, block_subst)
+                        if stmt.target in block_let_vars:
+                            block_subst[stmt.target] = expr
                         else:
-                            results.append((target, expr))
+                            results.append(PlainAssignment(stmt.target, expr))
                 if inner_leave:
                     has_leave = True
                     break
@@ -694,7 +703,7 @@ class YulParser:
                 target = self._expect_ident()
                 self._expect(":=")
                 expr = self._parse_expr()
-                results.append((target, expr))
+                results.append(PlainAssignment(target, expr))
                 continue
 
             if kind in ("ident", "num"):
@@ -1127,19 +1136,19 @@ def _is_uint512_from_helper(fn: YulFunction) -> Expr | None:
     if len(fn.assignments) == 5:
         zero_tmp_stmt, init_stmt, write_hi, write_lo, ret_stmt = fn.assignments
         if (
-            not isinstance(zero_tmp_stmt, tuple)
-            or not _is_zero_init_expr(zero_tmp_stmt[1])
-            or not isinstance(init_stmt, tuple)
-            or init_stmt[0] != fn.rets[0]
-            or init_stmt[1] != Var(zero_tmp_stmt[0])
+            not isinstance(zero_tmp_stmt, PlainAssignment)
+            or not _is_zero_init_expr(zero_tmp_stmt.expr)
+            or not isinstance(init_stmt, PlainAssignment)
+            or init_stmt.target != fn.rets[0]
+            or init_stmt.expr != Var(zero_tmp_stmt.target)
         ):
             return None
     elif len(fn.assignments) == 4:
         init_stmt, write_hi, write_lo, ret_stmt = fn.assignments
         if (
-            not isinstance(init_stmt, tuple)
-            or init_stmt[0] != fn.rets[0]
-            or not _is_zero_init_expr(init_stmt[1])
+            not isinstance(init_stmt, PlainAssignment)
+            or init_stmt.target != fn.rets[0]
+            or not _is_zero_init_expr(init_stmt.expr)
         ):
             return None
     else:
@@ -1161,9 +1170,9 @@ def _is_uint512_from_helper(fn: YulFunction) -> Expr | None:
     ):
         return None
     if not (
-        isinstance(ret_stmt, tuple)
-        and ret_stmt[0] == ret_name
-        and ret_stmt[1] == Var(ptr_param)
+        isinstance(ret_stmt, PlainAssignment)
+        and ret_stmt.target == ret_name
+        and ret_stmt.expr == Var(ptr_param)
     ):
         return None
     return write_lo.address
@@ -1266,8 +1275,8 @@ def _inline_single_call(
             # Process if-body assignments into a separate subst branch.
             if_subst = dict(subst)
             pre_if_sink_len = len(mstore_sink) if mstore_sink is not None else 0
-            for target, raw_expr in stmt.body:
-                expr = substitute_expr(raw_expr, if_subst)
+            for s in stmt.body:
+                expr = substitute_expr(s.expr, if_subst)
                 expr = inline_calls(
                     expr,
                     fn_table,
@@ -1276,7 +1285,7 @@ def _inline_single_call(
                     mstore_sink=mstore_sink,
                     unsupported_function_errors=unsupported_function_errors,
                 )
-                if_subst[target] = expr
+                if_subst[s.target] = expr
 
             if mstore_sink is not None and len(mstore_sink) > pre_if_sink_len:
                 raise ParseError(
@@ -1290,8 +1299,8 @@ def _inline_single_call(
             if stmt.else_body is not None:
                 else_subst = dict(subst)
                 pre_else_sink_len = len(mstore_sink) if mstore_sink is not None else 0
-                for target, raw_expr in stmt.else_body:
-                    expr = substitute_expr(raw_expr, else_subst)
+                for s in stmt.else_body:
+                    expr = substitute_expr(s.expr, else_subst)
                     expr = inline_calls(
                         expr,
                         fn_table,
@@ -1300,7 +1309,7 @@ def _inline_single_call(
                         mstore_sink=mstore_sink,
                         unsupported_function_errors=unsupported_function_errors,
                     )
-                    else_subst[target] = expr
+                    else_subst[s.target] = expr
                 if mstore_sink is not None and len(mstore_sink) > pre_else_sink_len:
                     raise ParseError(
                         f"Conditional memory write detected in {fn.yul_name!r}: "
@@ -1320,10 +1329,10 @@ def _inline_single_call(
                 # If/else or switch: merge both branches with __ite.
                 all_targets: list[str] = []
                 seen: set[str] = set()
-                for target, _ in (*stmt.body, *stmt.else_body):
-                    if target not in seen:
-                        seen.add(target)
-                        all_targets.append(target)
+                for s in (*stmt.body, *stmt.else_body):
+                    if s.target not in seen:
+                        seen.add(s.target)
+                        all_targets.append(s.target)
                 for target in all_targets:
                     pre_val = subst.get(target, IntLit(0))
                     if_val = if_subst.get(target, pre_val)
@@ -1334,12 +1343,12 @@ def _inline_single_call(
             else:
                 # Normal if-block (no leave, no else): preserve the pre-if value
                 # on the false path and merge with __ite.
-                for target, _raw_expr in stmt.body:
-                    if_val = if_subst[target]
-                    orig_val = subst.get(target, IntLit(0))
+                for s in stmt.body:
+                    if_val = if_subst[s.target]
+                    orig_val = subst.get(s.target, IntLit(0))
                     merged = _simplify_ite(cond, if_val, orig_val)
                     if merged != orig_val:
-                        subst[target] = merged
+                        subst[s.target] = merged
         elif isinstance(stmt, MemoryWrite):
             raise ParseError(
                 f"Cannot inline helper {fn.yul_name!r}: helper memory writes are "
@@ -1348,9 +1357,8 @@ def _inline_single_call(
                 "selected function body."
             )
         else:
-            target, raw_expr = stmt
             pre_stmt_sink_len = len(mstore_sink) if mstore_sink is not None else 0
-            expr = substitute_expr(raw_expr, subst)
+            expr = substitute_expr(stmt.expr, subst)
             expr = inline_calls(
                 expr,
                 fn_table,
@@ -1366,7 +1374,7 @@ def _inline_single_call(
                         "after a leave site. The helper inliner only supports "
                         "pure else-path code after 'if cond { ... leave }'."
                     )
-            subst[target] = expr
+            subst[stmt.target] = expr
 
     def _get_ret(r: str) -> Expr:
         else_val = _resolve(subst.get(r, IntLit(0)), subst)
@@ -1528,28 +1536,28 @@ def _inline_yul_function(
                 mstore_sink=mstore_sink,
                 unsupported_function_errors=unsupported_function_errors,
             )
-            new_body: list[tuple[str, Expr]] = []
-            for target, raw_expr in stmt.body:
+            new_body: list[PlainAssignment] = []
+            for s in stmt.body:
                 new_body.append(
-                    (
-                        target,
+                    PlainAssignment(
+                        s.target,
                         inline_calls(
-                            raw_expr,
+                            s.expr,
                             fn_table,
                             mstore_sink=mstore_sink,
                             unsupported_function_errors=unsupported_function_errors,
                         ),
                     )
                 )
-            new_else_body: list[tuple[str, Expr]] | None = None
+            new_else_body: list[PlainAssignment] | None = None
             if stmt.else_body is not None:
                 new_else_body = []
-                for target, raw_expr in stmt.else_body:
+                for s in stmt.else_body:
                     new_else_body.append(
-                        (
-                            target,
+                        PlainAssignment(
+                            s.target,
                             inline_calls(
-                                raw_expr,
+                                s.expr,
                                 fn_table,
                                 mstore_sink=mstore_sink,
                                 unsupported_function_errors=unsupported_function_errors,
@@ -1594,10 +1602,9 @@ def _inline_yul_function(
                 )
             new_assignments.append(MemoryWrite(new_addr, new_value))
         else:
-            target, raw_expr = stmt
             pre_len = len(mstore_sink)
             inlined = inline_calls(
-                raw_expr,
+                stmt.expr,
                 fn_table,
                 mstore_sink=mstore_sink,
                 unsupported_function_errors=unsupported_function_errors,
@@ -1605,7 +1612,7 @@ def _inline_yul_function(
             for effect in mstore_sink[pre_len:]:
                 new_assignments.extend(effect.lower())
             del mstore_sink[pre_len:]
-            new_assignments.append((target, inlined))
+            new_assignments.append(PlainAssignment(stmt.target, inlined))
 
     if mstore_sink:
         raise ParseError(
@@ -1655,16 +1662,15 @@ def yul_function_to_model(
     assign_counts: Counter[str] = Counter()
     for stmt in yf.assignments:
         if isinstance(stmt, ParsedIfBlock):
-            for target, _ in stmt.body:
-                assign_counts[target] += 1
+            for s in stmt.body:
+                assign_counts[s.target] += 1
             if stmt.else_body is not None:
-                for target, _ in stmt.else_body:
-                    assign_counts[target] += 1
+                for s in stmt.else_body:
+                    assign_counts[s.target] += 1
         elif isinstance(stmt, MemoryWrite):
             continue
         else:
-            target, _ = stmt
-            assign_counts[target] += 1
+            assign_counts[stmt.target] += 1
 
     var_map: dict[str, str] = {}
     subst: dict[str, Expr] = {}
@@ -1691,14 +1697,13 @@ def yul_function_to_model(
 
     for stmt in yf.assignments:
         if isinstance(stmt, ParsedIfBlock):
-            targets = [target for target, _ in stmt.body]
+            targets = [s.target for s in stmt.body]
             if stmt.else_body is not None:
-                targets.extend(target for target, _ in stmt.else_body)
+                targets.extend(s.target for s in stmt.else_body)
         elif isinstance(stmt, MemoryWrite):
             targets = []
         else:
-            target, _ = stmt
-            targets = [target]
+            targets = [stmt.target]
         for target in targets:
             clean = demangle_var(
                 target,
@@ -1909,11 +1914,11 @@ def yul_function_to_model(
                 branch_subst = dict(subst)
                 branch_const_locals = dict(const_locals)
                 branch_assignments: list[Assignment] = []
-                for target, raw_expr in raw_assignments:
-                    _record_pre_if_name(target)
+                for s in raw_assignments:
+                    _record_pre_if_name(s.target)
                     assignment = _process_assignment_into(
-                        target,
-                        raw_expr,
+                        s.target,
+                        s.expr,
                         var_map_state=branch_var_map,
                         subst_state=branch_subst,
                         const_locals_state=branch_const_locals,
@@ -1982,15 +1987,15 @@ def yul_function_to_model(
                 all_body_targets = list(stmt.body)
                 if stmt.else_body is not None:
                     all_body_targets.extend(stmt.else_body)
-                for target_name, _ in all_body_targets:
+                for s in all_body_targets:
                     c = demangle_var(
-                        target_name,
+                        s.target,
                         yf.params,
                         yf.rets,
                         keep_solidity_locals=keep_solidity_locals,
                     )
                     if c is not None and c in modified_set:
-                        var_map[target_name] = c
+                        var_map[s.target] = c
                         ssa_count[c] = 1
                         const_locals.pop(c, None)
             continue
@@ -2018,10 +2023,9 @@ def yul_function_to_model(
             memory_state[addr] = value_expr
             continue
 
-        target, raw_expr = stmt
         a = _process_assignment_into(
-            target,
-            raw_expr,
+            stmt.target,
+            stmt.expr,
             var_map_state=var_map,
             subst_state=subst,
             const_locals_state=const_locals,

@@ -316,7 +316,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
         yf = ytl.YulParser(tokens).parse_function()
         # ``let tmp`` is block-scoped and inlined into the reassignment.
         expected: list[ytl.RawStatement] = [
-            (
+            ytl.PlainAssignment(
                 "var_z_2",
                 ytl.Call("add", (ytl.Var("var_x_1"), ytl.Var("var_x_1"))),
             ),
@@ -340,7 +340,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
         # Both ``a`` and ``b`` are block-scoped.  The inner block inlines
         # ``b`` first, then the outer block inlines ``a`` into the result.
         expected: list[ytl.RawStatement] = [
-            (
+            ytl.PlainAssignment(
                 "var_z_2",
                 ytl.Call(
                     "mul",
@@ -373,7 +373,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
         #   inner: z = mul(add(tmp, tmp), x)
         #   outer: z = mul(add(x, x), x)
         expected: list[ytl.RawStatement] = [
-            (
+            ytl.PlainAssignment(
                 "var_z_2",
                 ytl.Call(
                     "mul",
@@ -408,8 +408,10 @@ class FailClosedTranslatorTest(unittest.TestCase):
         # inlined.  The second block's ``var_z_2`` on the RHS refers to
         # the outer-scope variable, not the first block's ``tmp``.
         expected: list[ytl.RawStatement] = [
-            ("var_z_2", ytl.Call("add", (ytl.Var("var_x_1"), ytl.IntLit(1)))),
-            (
+            ytl.PlainAssignment(
+                "var_z_2", ytl.Call("add", (ytl.Var("var_x_1"), ytl.IntLit(1)))
+            ),
+            ytl.PlainAssignment(
                 "var_z_2",
                 ytl.Call("mul", (ytl.Var("var_z_2"), ytl.IntLit(2))),
             ),
@@ -434,8 +436,10 @@ class FailClosedTranslatorTest(unittest.TestCase):
         # The inner block's ``tmp`` is fully inlined and gone before the
         # outer block declares its own ``tmp`` with the same name.
         expected: list[ytl.RawStatement] = [
-            ("var_z_2", ytl.Call("add", (ytl.Var("var_x_1"), ytl.IntLit(1)))),
-            (
+            ytl.PlainAssignment(
+                "var_z_2", ytl.Call("add", (ytl.Var("var_x_1"), ytl.IntLit(1)))
+            ),
+            ytl.PlainAssignment(
                 "var_z_2",
                 ytl.Call("mul", (ytl.Var("var_z_2"), ytl.IntLit(3))),
             ),
@@ -453,7 +457,9 @@ class FailClosedTranslatorTest(unittest.TestCase):
 
         yf = ytl.YulParser(tokens).parse_function()
         # Dead code after ``leave`` is skipped.
-        expected: list[ytl.RawStatement] = [("var_z_2", ytl.IntLit(1))]
+        expected: list[ytl.RawStatement] = [
+            ytl.PlainAssignment("var_z_2", ytl.IntLit(1))
+        ]
         self.assertEqual(yf.assignments, expected)
 
     def test_parse_function_lowers_multi_return_let_to_component_wrappers(self) -> None:
@@ -467,21 +473,21 @@ class FailClosedTranslatorTest(unittest.TestCase):
         parsed = ytl.YulParser(tokens).parse_function()
 
         expected_assignments: list[ytl.RawStatement] = [
-            (
+            ytl.PlainAssignment(
                 "usr$lhs",
                 ytl.Call(
                     "__component_0_2",
                     (ytl.Call("fun_pair_2", (ytl.Var("var_x_1"),)),),
                 ),
             ),
-            (
+            ytl.PlainAssignment(
                 "usr$rhs",
                 ytl.Call(
                     "__component_1_2",
                     (ytl.Call("fun_pair_2", (ytl.Var("var_x_1"),)),),
                 ),
             ),
-            (
+            ytl.PlainAssignment(
                 "var_z_2",
                 ytl.Call("add", (ytl.Var("usr$lhs"), ytl.Var("usr$rhs"))),
             ),
@@ -522,7 +528,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
             params=["var_x_1"],
             rets=["var_x_2"],
             assignments=[
-                ("var_x_2", ytl.IntLit(1)),
+                ytl.PlainAssignment("var_x_2", ytl.IntLit(1)),
             ],
         )
 
@@ -535,7 +541,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
                 yul_name="f",
                 params=["x"],
                 rets=["r"],
-                assignments=[("r", ytl.Call("g", (ytl.Var("x"),)))],
+                assignments=[ytl.PlainAssignment("r", ytl.Call("g", (ytl.Var("x"),)))],
             ),
         }
 
@@ -561,7 +567,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
                 yul_name="id",
                 params=["x"],
                 rets=["r"],
-                assignments=[("r", ytl.Var("x"))],
+                assignments=[ytl.PlainAssignment("r", ytl.Var("x"))],
             ),
         }
 
@@ -578,13 +584,13 @@ class FailClosedTranslatorTest(unittest.TestCase):
                 params=["ptr", "hi", "lo"],
                 rets=["out"],
                 assignments=[
-                    ("out", ytl.IntLit(0)),
+                    ytl.PlainAssignment("out", ytl.IntLit(0)),
                     ytl.MemoryWrite(ytl.Var("ptr"), ytl.Var("hi")),
                     ytl.MemoryWrite(
                         ytl.Call("add", (ytl.Var("ptr"), ytl.IntLit(32))),
                         ytl.Var("lo"),
                     ),
-                    ("out", ytl.Var("ptr")),
+                    ytl.PlainAssignment("out", ytl.Var("ptr")),
                 ],
             ),
         }
@@ -621,9 +627,9 @@ class FailClosedTranslatorTest(unittest.TestCase):
             params=["arg"],
             rets=["ret"],
             assignments=[
-                ("tmp", ytl.IntLit(1)),
-                ("tmp", ytl.IntLit(2)),
-                ("ret", ytl.Var("tmp")),
+                ytl.PlainAssignment("tmp", ytl.IntLit(1)),
+                ytl.PlainAssignment("tmp", ytl.IntLit(2)),
+                ytl.PlainAssignment("ret", ytl.Var("tmp")),
             ],
         )
 
@@ -641,7 +647,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
             rets=["ret"],
             assignments=[
                 ytl.MemoryWrite(ytl.IntLit(0), ytl.Var("arg")),
-                ("ret", ytl.Var("arg")),
+                ytl.PlainAssignment("ret", ytl.Var("arg")),
             ],
         )
         target = ytl.YulFunction(
@@ -651,7 +657,11 @@ class FailClosedTranslatorTest(unittest.TestCase):
             assignments=[
                 ytl.ParsedIfBlock(
                     condition=ytl.Var("flag"),
-                    body=(("ret", ytl.Call("store_helper", (ytl.Var("x"),))),),
+                    body=(
+                        ytl.PlainAssignment(
+                            "ret", ytl.Call("store_helper", (ytl.Var("x"),))
+                        ),
+                    ),
                 ),
             ],
         )
@@ -667,7 +677,11 @@ class FailClosedTranslatorTest(unittest.TestCase):
             yul_name="inc",
             params=["arg"],
             rets=["ret"],
-            assignments=[("ret", ytl.Call("add", (ytl.Var("arg"), ytl.IntLit(1))))],
+            assignments=[
+                ytl.PlainAssignment(
+                    "ret", ytl.Call("add", (ytl.Var("arg"), ytl.IntLit(1)))
+                )
+            ],
         )
         target = ytl.YulFunction(
             yul_name="target",
@@ -676,8 +690,10 @@ class FailClosedTranslatorTest(unittest.TestCase):
             assignments=[
                 ytl.ParsedIfBlock(
                     condition=ytl.Var("flag"),
-                    body=(("ret", ytl.Call("inc", (ytl.Var("x"),))),),
-                    else_body=(("ret", ytl.Var("x")),),
+                    body=(
+                        ytl.PlainAssignment("ret", ytl.Call("inc", (ytl.Var("x"),))),
+                    ),
+                    else_body=(ytl.PlainAssignment("ret", ytl.Var("x")),),
                 ),
             ],
         )
@@ -687,8 +703,12 @@ class FailClosedTranslatorTest(unittest.TestCase):
         expected_assignments: list[ytl.RawStatement] = [
             ytl.ParsedIfBlock(
                 condition=ytl.Var("flag"),
-                body=(("ret", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),),
-                else_body=(("ret", ytl.Var("x")),),
+                body=(
+                    ytl.PlainAssignment(
+                        "ret", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))
+                    ),
+                ),
+                else_body=(ytl.PlainAssignment("ret", ytl.Var("x")),),
             ),
         ]
 
@@ -1193,9 +1213,11 @@ class TranslationPipelineTest(unittest.TestCase):
             params=["var_x_1"],
             rets=["var_z_2"],
             assignments=[
-                ("var_x_1", ytl.Call("add", (ytl.Var("var_x_1"), ytl.IntLit(1)))),
-                ("usr$x_1", ytl.IntLit(7)),
-                ("var_z_2", ytl.Var("usr$x_1")),
+                ytl.PlainAssignment(
+                    "var_x_1", ytl.Call("add", (ytl.Var("var_x_1"), ytl.IntLit(1)))
+                ),
+                ytl.PlainAssignment("usr$x_1", ytl.IntLit(7)),
+                ytl.PlainAssignment("var_z_2", ytl.Var("usr$x_1")),
             ],
         )
 
@@ -1389,14 +1411,14 @@ class ExplicitMemoryModelTest(unittest.TestCase):
             params=["var_x_1"],
             rets=["var_z_2"],
             assignments=[
-                ("usr$base", ytl.IntLit(0)),
-                ("usr$offset", ytl.IntLit(32)),
+                ytl.PlainAssignment("usr$base", ytl.IntLit(0)),
+                ytl.PlainAssignment("usr$offset", ytl.IntLit(32)),
                 ytl.MemoryWrite(ytl.Var("usr$base"), ytl.Var("var_x_1")),
                 ytl.MemoryWrite(
                     ytl.Call("add", (ytl.Var("usr$base"), ytl.Var("usr$offset"))),
                     ytl.Call("mload", (ytl.Var("usr$base"),)),
                 ),
-                (
+                ytl.PlainAssignment(
                     "var_z_2",
                     ytl.Call(
                         "mload",
@@ -1428,10 +1450,10 @@ class ExplicitMemoryModelTest(unittest.TestCase):
             params=["var_x_1"],
             rets=["var_z_2"],
             assignments=[
-                ("usr$base", ytl.IntLit(0)),
+                ytl.PlainAssignment("usr$base", ytl.IntLit(0)),
                 ytl.MemoryWrite(ytl.Var("usr$base"), ytl.Var("var_x_1")),
                 ytl.MemoryWrite(ytl.Var("usr$base"), ytl.Var("var_x_1")),
-                ("var_z_2", ytl.Var("var_x_1")),
+                ytl.PlainAssignment("var_z_2", ytl.Var("var_x_1")),
             ],
         )
 
@@ -1444,8 +1466,10 @@ class ExplicitMemoryModelTest(unittest.TestCase):
             params=["var_x_1"],
             rets=["var_z_2"],
             assignments=[
-                ("usr$base", ytl.IntLit(0)),
-                ("var_z_2", ytl.Call("mload", (ytl.Var("usr$base"),))),
+                ytl.PlainAssignment("usr$base", ytl.IntLit(0)),
+                ytl.PlainAssignment(
+                    "var_z_2", ytl.Call("mload", (ytl.Var("usr$base"),))
+                ),
             ],
         )
 
@@ -1459,7 +1483,7 @@ class ExplicitMemoryModelTest(unittest.TestCase):
             rets=["var_z_2"],
             assignments=[
                 ytl.MemoryWrite(ytl.Var("var_x_1"), ytl.IntLit(7)),
-                ("var_z_2", ytl.IntLit(0)),
+                ytl.PlainAssignment("var_z_2", ytl.IntLit(0)),
             ],
         )
 
@@ -1473,7 +1497,7 @@ class ExplicitMemoryModelTest(unittest.TestCase):
             rets=["var_z_2"],
             assignments=[
                 ytl.MemoryWrite(ytl.IntLit(1), ytl.Var("var_x_1")),
-                ("var_z_2", ytl.IntLit(0)),
+                ytl.PlainAssignment("var_z_2", ytl.IntLit(0)),
             ],
         )
 
@@ -1487,7 +1511,7 @@ class ExplicitMemoryModelTest(unittest.TestCase):
             rets=["var_z_2"],
             assignments=[
                 ytl.MemoryWrite(ytl.IntLit(0), ytl.Var("var_x_1")),
-                ("var_z_2", ytl.Call("mload", (ytl.IntLit(1),))),
+                ytl.PlainAssignment("var_z_2", ytl.Call("mload", (ytl.IntLit(1),))),
             ],
         )
 
