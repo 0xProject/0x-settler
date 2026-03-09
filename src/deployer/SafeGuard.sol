@@ -377,7 +377,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         delay = newDelay;
     }
 
-    function _forbidSafePrivilegedCalls(bool requireUnanimity, address to, bytes calldata data)
+    function _forbidSafePrivilegedCalls(bool requireUnanimity, address to, bytes calldata data, uint256 callsCount)
         private
         view
         returns (bool)
@@ -442,7 +442,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                         revert GuardCheckNotEnforced(callsCount, multicallTo, multicallData);
                     }
                 } else {
-                    requireUnanimity = _forbidSafePrivilegedCalls(requireUnanimity, multicallTo, multicallData);
+                    requireUnanimity =
+                        _forbidSafePrivilegedCalls(requireUnanimity, multicallTo, multicallData, callsCount);
                 }
 
                 unchecked {
@@ -517,7 +518,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             require(value == 0);
             requireUnanimity = _checkDelegateCall(requireUnanimity, to, data);
         } else {
-            requireUnanimity = _forbidSafePrivilegedCalls(requireUnanimity, multicallTo, multicallData);
+            requireUnanimity = _forbidSafePrivilegedCalls(requireUnanimity, to, data, 0);
         }
 
         // The nonce has already been incremented past the value used in the
@@ -714,7 +715,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // See comment in `checkTransaction`
         if (operation != Operation.Call) {
             require(value == 0);
-            _checkDelegateCall(to, data);
+            _checkDelegateCall(false, to, data);
         }
 
         bytes memory txHashData = safe.encodeTransactionData(
