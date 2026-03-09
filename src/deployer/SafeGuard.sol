@@ -420,7 +420,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                         revert GuardCheckNotEnforced(callsCount, multicallTo, multicallData);
                     }
                 } else {
-                    // Forbid calls to `this.checkAfterExecution`.
+                    // Forbid calls to `this.checkTransaction` and `this.checkAfterExecution`.
                     if (
                         multicallTo == address(this) && multicallData.length >= 68
                             && ((multicallData.length >= 356
