@@ -478,13 +478,13 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                         // Forbid calls to `this.checkAfterExecution`.
                         if (
                             multicallTo == address(this) && multicallData.length >= 68
-                                && uint256(uint32(bytes4(multiCallData)))
+                                && uint256(uint32(bytes4(multicallData)))
                                     == uint256(uint32(this.checkAfterExecution.selector))
                         ) {
                             revert ForbiddenCall(callsCount, multicallTo, multicallData);
                         }
                         requireUnanimity = requireUnanimity
-                            || (multiCallTo == address(this)
+                            || (multicallTo == address(this)
                                 && multicallData.length >= 4
                                 && uint256(uint32(bytes4(multicallData))) == uint256(uint32(this.unlock.selector)));
                     }
