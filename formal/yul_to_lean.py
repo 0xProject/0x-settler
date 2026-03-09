@@ -1426,7 +1426,7 @@ def inline_calls(
                 inline_calls(
                     a,
                     fn_table,
-                    depth,
+                    depth + 1,
                     max_depth=max_depth,
                     mstore_sink=mstore_sink,
                     unsupported_function_errors=unsupported_function_errors,
@@ -1478,7 +1478,7 @@ def inline_calls(
             inline_calls(
                 a,
                 fn_table,
-                depth,
+                depth + 1,
                 max_depth=max_depth,
                 mstore_sink=mstore_sink,
                 unsupported_function_errors=unsupported_function_errors,
