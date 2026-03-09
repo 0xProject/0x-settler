@@ -527,93 +527,50 @@ class YulParser:
                                 if s.target in block_let_vars:
                                     block_local_targets.add(s.target)
 
-                        if not block_local_targets:
-                            # No block-local modifications — emit unchanged.
-                            new_body = tuple(
-                                PlainAssignment(
-                                    s.target,
-                                    substitute_expr(s.expr, block_subst),
-                                )
-                                for s in stmt.body
+                        # Split into outer-scope (emit) and block-local (absorb).
+                        outer_body, local_body = _split_branch_assignments(
+                            stmt.body, block_subst, block_local_targets,
+                        )
+                        if stmt.else_body is not None:
+                            outer_else, local_else = _split_branch_assignments(
+                                stmt.else_body, block_subst, block_local_targets,
                             )
-                            new_else = (
-                                tuple(
-                                    PlainAssignment(
-                                        s.target,
-                                        substitute_expr(s.expr, block_subst),
-                                    )
-                                    for s in stmt.else_body
+                        else:
+                            outer_else = None
+                            local_else = {}
+
+                        # Merge block-local modifications into block_subst.
+                        # When has_leave is True, the then-branch exits the
+                        # function, so block-local modifications are dead on
+                        # the continuation path — block_subst keeps its
+                        # pre-if value.
+                        if not stmt.has_leave:
+                            for target in block_local_targets:
+                                pre_val = block_subst.get(target, IntLit(0))
+                                then_val = local_body.get(target, pre_val)
+                                else_val = local_else.get(target, pre_val)
+                                block_subst[target] = _simplify_ite(
+                                    new_cond, then_val, else_val
                                 )
-                                if stmt.else_body is not None
-                                else None
-                            )
+
+                        # Emit ParsedIfBlock for outer-scope targets if any
+                        # remain.
+                        has_outer = bool(outer_body) or (
+                            outer_else is not None and bool(outer_else)
+                        )
+                        if has_outer or stmt.has_leave:
                             results.append(
                                 ParsedIfBlock(
                                     condition=new_cond,
-                                    body=new_body,
+                                    body=tuple(outer_body),
                                     has_leave=stmt.has_leave,
-                                    else_body=new_else,
+                                    else_body=(
+                                        tuple(outer_else)
+                                        if outer_else is not None
+                                        else None
+                                    ),
                                 )
                             )
-                        else:
-                            # Split body into block-local (merge into block_subst)
-                            # and outer-scope (emit as ParsedIfBlock).
-                            outer_body: list[PlainAssignment] = []
-                            local_body: dict[str, Expr] = {}
-                            for s in stmt.body:
-                                sub_expr = substitute_expr(s.expr, block_subst)
-                                if s.target in block_local_targets:
-                                    local_body[s.target] = sub_expr
-                                else:
-                                    outer_body.append(
-                                        PlainAssignment(s.target, sub_expr)
-                                    )
-
-                            outer_else: list[PlainAssignment] | None = None
-                            local_else: dict[str, Expr] = {}
-                            if stmt.else_body is not None:
-                                outer_else = []
-                                for s in stmt.else_body:
-                                    sub_expr = substitute_expr(s.expr, block_subst)
-                                    if s.target in block_local_targets:
-                                        local_else[s.target] = sub_expr
-                                    else:
-                                        outer_else.append(
-                                            PlainAssignment(s.target, sub_expr)
-                                        )
-
-                            # Merge block-local modifications into block_subst.
-                            # When has_leave is True, the then-branch exits the
-                            # function, so block-local modifications are dead on
-                            # the continuation path — block_subst keeps its
-                            # pre-if value.
-                            if not stmt.has_leave:
-                                for target in block_local_targets:
-                                    pre_val = block_subst.get(target, IntLit(0))
-                                    then_val = local_body.get(target, pre_val)
-                                    else_val = local_else.get(target, pre_val)
-                                    block_subst[target] = _simplify_ite(
-                                        new_cond, then_val, else_val
-                                    )
-
-                            # Emit ParsedIfBlock for outer-scope targets if any
-                            # remain.
-                            has_outer = bool(outer_body) or (
-                                outer_else is not None and bool(outer_else)
-                            )
-                            if has_outer or stmt.has_leave:
-                                results.append(
-                                    ParsedIfBlock(
-                                        condition=new_cond,
-                                        body=tuple(outer_body),
-                                        has_leave=stmt.has_leave,
-                                        else_body=(
-                                            tuple(outer_else)
-                                            if outer_else is not None
-                                            else None
-                                        ),
-                                    )
-                                )
                     else:
                         expr = substitute_expr(stmt.expr, block_subst)
                         if stmt.target in block_let_vars:
@@ -1098,6 +1055,23 @@ def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
     if isinstance(expr, Call):
         return Call(expr.name, tuple(substitute_expr(a, subst) for a in expr.args))
     _unreachable_expr(expr)
+
+
+def _split_branch_assignments(
+    assignments: tuple[PlainAssignment, ...],
+    block_subst: dict[str, Expr],
+    block_local_targets: set[str],
+) -> tuple[list[PlainAssignment], dict[str, Expr]]:
+    """Split and substitute branch assignments into outer-scope and block-local."""
+    outer: list[PlainAssignment] = []
+    local: dict[str, Expr] = {}
+    for s in assignments:
+        sub_expr = substitute_expr(s.expr, block_subst)
+        if s.target in block_local_targets:
+            local[s.target] = sub_expr
+        else:
+            outer.append(PlainAssignment(s.target, sub_expr))
+    return outer, local
 
 
 def _reject_expr_stmts(expr_stmts: list[Expr] | None, *, context: str) -> None:
