@@ -434,7 +434,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                             && uint256(uint32(bytes4(multicallData))) == uint256(uint32(this.unlock.selector)));
                 }
 
-                callsCount++;
+                unchecked {
+                    callsCount++;
+                }
             }
             if (callsCount & 1 == 0) {
                 revert EvenNumberOfMultiCalls(callsCount);
