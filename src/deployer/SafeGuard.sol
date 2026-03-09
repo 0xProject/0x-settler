@@ -517,7 +517,10 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // The nonce has already been incremented past the value used in the
         // currently-executing transaction. We decrement it to get the value that was hashed
         // to get the `txHash`.
-        uint256 nonce = _safe.nonce() - 1;
+        uint256 nonce = _safe.nonce();
+        unchecked {
+            nonce--;
+        }
 
         // `txHashData` is used here for an outdated, nonstandard variant of nested ERC1271
         // signatures that passes the signing hash as `bytes` instead of as `bytes32`. This only
