@@ -45,12 +45,15 @@ import {BLAST_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 import {DEPLOYER} from "../../deployer/DeployerAddress.sol";
 import {IOwnable} from "../../interfaces/IOwnable.sol";
 import {BLAST, BLAST_USDB, BLAST_WETH, BlastYieldMode, BlastGasMode} from "./IBlast.sol";
+import {FastLogic} from "../../utils/FastLogic.sol";
 
 // Solidity inheritance is stupid
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
 
 abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
+    using FastLogic for bool;
+
     constructor() {
         if (block.chainid != 31337) {
             assert(block.chainid == 81457);
@@ -62,12 +65,12 @@ abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
 
     function _isRestrictedTarget(address target)
         internal
-        pure
+        view
         virtual
         override(Permit2PaymentAbstract)
         returns (bool)
     {
-        return target == address(BLAST);
+        return (target == address(BLAST)).or(super._isRestrictedTarget(target));
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
@@ -153,5 +156,14 @@ abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return BLAST_POOL_MANAGER;
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
     }
 }

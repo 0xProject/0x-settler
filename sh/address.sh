@@ -162,7 +162,8 @@ function create3 {
     declare -r salt
 
     # this is the "create3" shim inithash
-    if [[ $(get_config isShanghai) != [Tt]rue ]] ; then
+    if (( chainid == 59144 )) ; then
+        # Linea uses the London derivation for historical reasons
         declare -r inithash='0x1774bbdc4a308eaf5967722c7a4708ea7a3097859cb8768a10611448c29981c3'
     else
         declare -r inithash='0x3bf3f97f0be1e2c00023033eefeb4fc062ac552ff36778b17060d90b6764902f'

@@ -17,6 +17,7 @@ import {UniswapV2} from "./core/UniswapV2.sol";
 import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
+import {Ternary} from "./utils/Ternary.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {revertTooMuchSlippage} from "./core/SettlerErrors.sol";
@@ -55,6 +56,7 @@ library CalldataDecoder {
 abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
+    using Ternary for bool;
 
     receive() external payable {}
 
@@ -142,14 +144,17 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
 
             sellToVelodrome(recipient, bps, pool, swapInfo, minAmountOut);
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
-            (address payable recipient, IERC20 token, uint256 expectedAmount) =
-                abi.decode(data, (address, IERC20, uint256));
+            (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxBps) =
+                abi.decode(data, (address, IERC20, uint256, uint256));
             bool isETH = (token == ETH_ADDRESS);
             uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
             if (balance > expectedAmount) {
+                uint256 cap;
                 unchecked {
+                    cap = balance * maxBps / BASIS;
                     balance -= expectedAmount;
                 }
+                balance = (balance > cap).ternary(cap, balance);
                 if (isETH) {
                     recipient.safeTransferETH(balance);
                 } else {

@@ -14,7 +14,6 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
-import {AllowanceHolder} from "src/allowanceholder/AllowanceHolder.sol";
 import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet/MetaTxn.sol";
 import {Settler} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
@@ -45,6 +44,8 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
 
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);
+        // Preserve the settlerMetaTxn address for the hardcoded signing hash.
+        new NonceBump();
         settlerMetaTxn = _deploySettlerMetaTxn();
         vm.chainId(forkChainId);
 
@@ -85,7 +86,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             getPermitTransferSignature(takerPermit, address(settler), FROM_PRIVATE_KEY, permit2Domain);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.RFQ_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig))
+            abi.encodeCall(ISettlerActions.RFQ_VIP, (FROM, takerPermit, makerPermit, MAKER, makerSig, takerSig))
         );
 
         Settler _settler = settler;
@@ -152,7 +153,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_UNISWAPV3_VIP, (FROM, uniswapV3Path(), permit, 0))
+            abi.encodeCall(ISettlerActions.METATXN_UNISWAPV3_VIP, (FROM, permit, uniswapV3Path(), 0))
         );
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);
@@ -207,7 +208,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         );
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_RFQ_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit))
+            abi.encodeCall(ISettlerActions.METATXN_RFQ_VIP, (FROM, takerPermit, makerPermit, MAKER, makerSig))
         );
         bytes32[] memory actionHashes = new bytes32[](actions.length);
         for (uint256 i; i < actionHashes.length; i++) {
@@ -306,6 +307,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
     {
         vm.makePersistent(address(settlerMetaTxn));
         vm.createSelectFork(_testChainId(), MainnetDefaultFork._testBlockNumber());
+        vm.setEvmVersion("osaka");
         deal(address(fromToken()), FROM, amount());
         vm.prank(FROM);
         require(fromToken().approve(address(PERMIT2), type(uint256).max));
@@ -357,3 +359,5 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         );
     }
 }
+
+contract NonceBump {}

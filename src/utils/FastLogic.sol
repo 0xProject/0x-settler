@@ -19,4 +19,10 @@ library FastLogic {
             r := gt(a, b)
         }
     }
+
+    function toUint(bool b) internal pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            r := b
+        }
+    }
 }

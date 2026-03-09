@@ -17,7 +17,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: v1.3.0
+          version: v1.5.1
 
       - name: Install dependencies
         run: git submodule update --recursive --init
@@ -36,8 +36,22 @@ jobs:
 
       - name: Run EulerSwap math tests
         run: forge test --skip 'src/*' --skip 'script/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.25/*' --mp test/0.8.28/EulerSwapBUSL.t.sol
+
+      - name: Build contracts
+        run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip SafeGuard.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip BlastDeployer.sol --skip ModeDeployer.sol --skip 'test/*' --skip 'script/*'
+
+      - name: Build AllowanceHolder and Deployer
+        run: forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol src/deployer/BlastDeployer.sol src/deployer/ModeDeployer.sol
         env:
-          FOUNDRY_SOLC_VERSION: 0.8.28
+          FOUNDRY_SOLC_VERSION: 0.8.25
+
+      - name: Build UniswapV4 tests
+        run: forge build -- test/unit/core/UniswapV4UnitTest.t.sol
+
+      - name: Build UniswapV4
+        run: forge build -- lib/v4-core/src/PoolManager.sol
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.26
 
       - name: Build MultiCall
         run: forge build -- src/multicall/MultiCall.sol
@@ -58,9 +72,14 @@ jobs:
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
+          PLASMA_MAINNET_RPC_URL: ${{ secrets.PLASMA_MAINNET_RPC_URL }}
+          MONAD_MAINNET_RPC_URL: ${{ secrets.MONAD_MAINNET_RPC_URL }}
 
       - name: Run CrossChainReceiverFactory tests
-        run: forge test --skip 'src/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --skip 'test/unit/deployer/*' --mp test/unit/CrossChainReceiverFactory.t.sol
+        run: forge test --skip 'src/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --skip 'test/0.8.25/*' --mp test/unit/CrossChainReceiverFactory.t.sol
+
+      - name: Build Base Settlers
+        run: forge build src/chains/Base/
 
       - name: Build contracts
         run: forge build --skip UniswapV4UnitTest.t.sol --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip SafeGuard.sol --skip 'test/*'
@@ -78,3 +97,5 @@ jobs:
         env:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
+          PLASMA_MAINNET_RPC_URL: ${{ secrets.PLASMA_MAINNET_RPC_URL }}
+          MONAD_MAINNET_RPC_URL: ${{ secrets.MONAD_MAINNET_RPC_URL }}

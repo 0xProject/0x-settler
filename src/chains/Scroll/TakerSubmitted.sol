@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {ScrollMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
@@ -25,14 +25,15 @@ contract ScrollSettler is Settler, ScrollMixin {
         } else if (action == uint32(ISettlerActions.MAVERICKV2_VIP.selector)) {
             (
                 address recipient,
+                ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes32 salt,
                 bool tokenAIn,
-                ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes memory sig,
+                int32 tickLimit,
                 uint256 minBuyAmount
-            ) = abi.decode(data, (address, bytes32, bool, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes32, bool, bytes, int32, uint256));
 
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, minBuyAmount);
+            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit, minBuyAmount);
         } else {
             return false;
         }
@@ -42,7 +43,7 @@ contract ScrollSettler is Settler, ScrollMixin {
     // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
-        pure
+        view
         override(Settler, Permit2PaymentAbstract)
         returns (bool)
     {

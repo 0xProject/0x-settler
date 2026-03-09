@@ -148,30 +148,17 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     declare -r impl_deployer
     shift
 
-    # set minimum gas price to (mostly for Arbitrum and BNB)
-    declare -i min_gas_price
-    min_gas_price="$(get_config minGasPriceGwei)"
-    min_gas_price=$((min_gas_price * 1000000000))
-    declare -r -i min_gas_price
-    declare -i gas_price
-    gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-    if (( gas_price < min_gas_price )) ; then
-        echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
-        gas_price=$min_gas_price
-    fi
-    declare -r -i gas_price
+    . "$project_root"/sh/common_gas.sh
 
-    # set gas limit and add multiplier/headroom (again mostly for Arbitrum)
-    declare -i gas_estimate_multiplier
-    gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
-    declare -r -i gas_estimate_multiplier
     declare initcode
     initcode="$(jq -Mr .bytecode.object < out/Deployer.sol/Deployer.json)"
     initcode="$(cast concat-hex "$initcode" "$constructor_args")"
     declare -r initcode
+    declare -i gas_estimate
+    gas_estimate="$(cast estimate --gas-price "$gas_price" --rpc-url "$rpc_url" --chain $chainid --from "$impl_deployer" "${extra_flags[@]}" --create "$initcode")"
+    declare -r -i gas_estimate
     declare -i gas_limit
-    gas_limit="$(cast estimate --gas-price "$gas_price" --rpc-url "$rpc_url" --chain $chainid --from "$impl_deployer" --create "$initcode")"
-    gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
+    gas_limit="$(apply_gas_multiplier $gas_estimate)"
     declare -r -i gas_limit
 
     declare deployed_address
@@ -193,7 +180,7 @@ if [[ ${1:-unset} = 'deploy' ]] ; then
     fi
     declare -r -a gas_price_args
 
-    cast send --unlocked --from "$impl_deployer" --confirmations 10 "${gas_price_args[@]}" --gas-limit $gas_limit --rpc-url 'http://127.0.0.1:1248/' --chain $chainid $(get_config extraFlags) --create "$initcode"
+    cast send --unlocked --from "$impl_deployer" --confirmations 10 "${gas_price_args[@]}" --gas-limit $gas_limit --rpc-url 'http://127.0.0.1:1248/' --chain $chainid "${extra_flags[@]}" --create "$initcode"
 
     echo 'Waiting for 1 minute for Etherscan to pick up the deployment' >&2
     sleep 60

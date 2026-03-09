@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
-import {FullMath} from "../vendor/FullMath.sol";
+import {tmp} from "../utils/512Math.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {revertTooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
 //import {Panic} from "../utils/Panic.sol";
@@ -31,7 +31,6 @@ abstract contract Velodrome is SettlerAbstract {
     using Math for uint256;
     using UnsafeMath for uint256;
     using FastLogic for bool;
-    using FullMath for uint256;
     using SafeTransferLib for IERC20;
 
     // This is the basis used for token balances. The original token may have fewer decimals, in
@@ -81,19 +80,19 @@ abstract contract Velodrome is SettlerAbstract {
 
     function _k(uint256 x, uint256 y, uint256 x_squared, uint256 y_squared) private pure returns (uint256) {
         unchecked {
-            return (x * y).unsafeMulDivAlt(x_squared + y_squared, _VELODROME_INTERNAL_BASIS);
+            return tmp().omul(x * y, x_squared + y_squared).unsafeDiv(_VELODROME_INTERNAL_BASIS);
         }
     }
 
     function _k_compat(uint256 x, uint256 y) internal pure returns (uint256) {
         unchecked {
-            return (x * y).unsafeMulDivAlt(x * x + y * y, _VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
+            return tmp().omul(x * y, x * x + y * y).unsafeDiv(_VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
         }
     }
 
     function _k_compat(uint256 x, uint256 y, uint256 x_squared) private pure returns (uint256) {
         unchecked {
-            return (x * y).unsafeMulDivAlt(x_squared + y * y, _VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
+            return tmp().omul(x * y, x_squared + y * y).unsafeDiv(_VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
         }
     }
 

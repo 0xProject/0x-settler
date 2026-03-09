@@ -134,32 +134,36 @@ declare -i num_production_addresses
 num_production_addresses="$(get_secret intentWorkers limit.production)"
 declare -r -i num_production_addresses
 
-declare production_mnemonic
-production_mnemonic="$(get_secret intentWorkers mnemonic.production)"
-declare -r production_mnemonic
-
 declare -i num_staging_addresses
 num_staging_addresses="$(get_secret intentWorkers limit.staging)"
 declare -r -i num_staging_addresses
 
-declare staging_mnemonic
-staging_mnemonic="$(get_secret intentWorkers mnemonic.staging)"
-declare -r staging_mnemonic
+declare -i num_mnemonics
+num_mnemonics="$(get_secret intentWorkers 'mnemonic | length')"
+declare -r -i num_mnemonics
 
 declare -a solvers=()
 declare privkey
 declare solver
 
-for (( i = 0 ; i < $num_production_addresses ; i++ )) ; do
-    privkey="$(cast wallet private-key "$production_mnemonic" "m/44'/60'/0'/0/$i")"
-    solver="$(cast wallet address "$privkey")"
-    solvers+=("$solver")
-done
+for (( i = 0 ; i < num_mnemonics ; i++ )) ; do
+    declare production_mnemonic
+    production_mnemonic="$(get_secret intentWorkers 'mnemonic['$i'].production')"
 
-for (( i = 0 ; i < $num_staging_addresses ; i++ )) ; do
-    privkey="$(cast wallet private-key "$staging_mnemonic" "m/44'/60'/0'/0/$i")"
-    solver="$(cast wallet address "$privkey")"
-    solvers+=("$solver")
+    declare staging_mnemonic
+    staging_mnemonic="$(get_secret intentWorkers 'mnemonic['$i'].staging')"
+
+    for (( j = 0 ; j < num_production_addresses ; j++ )) ; do
+        privkey="$(cast wallet private-key "$production_mnemonic" "m/44'/60'/0'/0/$j")"
+        solver="$(cast wallet address "$privkey")"
+        solvers+=("$solver")
+    done
+
+    for (( j = 0 ; j < num_staging_addresses ; j++ )) ; do
+        privkey="$(cast wallet private-key "$staging_mnemonic" "m/44'/60'/0'/0/$j")"
+        solver="$(cast wallet address "$privkey")"
+        solvers+=("$solver")
+    done
 done
 
 printf '%s\n' "${solvers[@]}"

@@ -55,8 +55,10 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
     modifier setEulerSwapBlock() {
         uint256 blockNumber = vm.getBlockNumber();
         vm.rollFork(eulerSwapBlock());
+        vm.setEvmVersion("osaka");
         _;
         vm.rollFork(blockNumber);
+        vm.setEvmVersion("osaka");
     }
 
     function _setEulerSwapLabels() private setEulerSwapBlock {
@@ -184,7 +186,15 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
         (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
         uint256 amountOut = EulerSwapLib.findCurvePoint(eulerSwapAmount(), true, params, reserve0, reserve1);
         assertTrue(
-            EulerSwapLib.checkSolvency(EVC, params, true, eulerSwapAmount(), amountOut),
+            EulerSwapLib.checkSolvency(
+                EVC,
+                address(params.eulerAccount()),
+                address(params.vault0()),
+                address(params.vault1()),
+                true,
+                eulerSwapAmount(),
+                amountOut
+            ),
             "Account is insolvent after swap"
         );
     }
@@ -196,7 +206,15 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
         (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
         uint256 amountOut = EulerSwapLib.findCurvePoint(eulerSwapAmount(), false, params, reserve0, reserve1);
         assertTrue(
-            EulerSwapLib.checkSolvency(EVC, params, false, eulerSwapAmount(), amountOut),
+            EulerSwapLib.checkSolvency(
+                EVC,
+                address(params.eulerAccount()),
+                address(params.vault0()),
+                address(params.vault1()),
+                false,
+                eulerSwapAmount(),
+                amountOut
+            ),
             "Account is insolvent after swap"
         );
     }
@@ -208,7 +226,15 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
         (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
         (uint256 amountIn, uint256 amountOut) = EulerSwapLib.calcLimits(EVC, pool, true, params, reserve0, reserve1);
         assertTrue(
-            EulerSwapLib.checkSolvency(EVC, params, true, amountIn, amountOut),
+            EulerSwapLib.checkSolvency(
+                EVC,
+                address(params.eulerAccount()),
+                address(params.vault0()),
+                address(params.vault1()),
+                true,
+                amountIn,
+                amountOut
+            ),
             "Account is insolvent after swapping at pool limit"
         );
     }
@@ -220,7 +246,15 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
         (uint256 reserve0, uint256 reserve1) = pool.fastGetReserves();
         (uint256 amountIn, uint256 amountOut) = EulerSwapLib.calcLimits(EVC, pool, false, params, reserve0, reserve1);
         assertTrue(
-            EulerSwapLib.checkSolvency(EVC, params, false, amountIn, amountOut),
+            EulerSwapLib.checkSolvency(
+                EVC,
+                address(params.eulerAccount()),
+                address(params.vault0()),
+                address(params.vault1()),
+                false,
+                amountIn,
+                amountOut
+            ),
             "Account is insolvent after swapping at pool limit"
         );
     }
@@ -257,6 +291,17 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
             oracle.fastGetQuotes(debtVault.fastDebtOf(eulerAccount), debtVault.fastAsset(), unitOfAccount);
         uint256 amountOut = (collateral - debt * 1e4) / 1e4;
 
-        assertFalse(EulerSwapLib.checkSolvency(EVC, params, true, 0, amountOut + 1), "Account should be insolvent");
+        assertFalse(
+            EulerSwapLib.checkSolvency(
+                EVC,
+                address(params.eulerAccount()),
+                address(params.vault0()),
+                address(params.vault1()),
+                true,
+                0,
+                amountOut + 1
+            ),
+            "Account should be insolvent"
+        );
     }
 }

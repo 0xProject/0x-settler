@@ -132,6 +132,7 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         (uint256 hashMul, uint256 hashMod) = uniswapV4PerfectHash(fromTokenCompat, toTokenCompat);
         bytes memory fills = abi.encodePacked(
             uint16(10_000),
+            uint160(1461446703485210103287273052203988822378723970341),
             bytes1(0x01),
             toTokenCompat,
             uniswapV4FeeTier(),
@@ -142,7 +143,7 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         );
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.UNISWAPV4_VIP, (FROM, false, hashMul, hashMod, fills, permit, sig, slippageLimit())
+                ISettlerActions.UNISWAPV4_VIP, (FROM, permit, false, hashMul, hashMod, fills, sig, slippageLimit())
             )
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
@@ -168,6 +169,7 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
         (uint256 hashMul, uint256 hashMod) = uniswapV4PerfectHash(fromTokenCompat, toTokenCompat);
         bytes memory fills = abi.encodePacked(
             uint16(10_000),
+            uint160(4295128740),
             bytes1(0x01),
             toTokenCompat,
             uniswapV4FeeTier(),

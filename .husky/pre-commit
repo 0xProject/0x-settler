@@ -1,6 +1,0 @@
-#!/usr/bin/env sh
-. "$(dirname -- "$0")/_/husky.sh"
-
-forge fmt
-npm run compare_gas
-npm run generate_table

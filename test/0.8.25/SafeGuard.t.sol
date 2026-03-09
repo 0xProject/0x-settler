@@ -937,7 +937,6 @@ contract TestSafeGuard is Test {
             bytes memory signatures
         ) = _encodeMulticallPoke();
 
-        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.NoDelegateCall.selector));
         guard.enqueue(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce, signatures
         );
@@ -954,12 +953,15 @@ contract TestSafeGuard is Test {
             uint256 gasPrice,
             address gasToken,
             address payable refundReceiver,
-            ,
+            uint256 nonce,
             ,
             bytes memory signatures
         ) = _encodeMulticallPoke();
 
-        vm.expectRevert(abi.encodeWithSelector(IZeroExSettlerDeployerSafeGuard.NoDelegateCall.selector));
+        guard.enqueue(
+            to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce, signatures
+        );
+        vm.warp(vm.getBlockTimestamp() + guard.delay() + 1 seconds);
         safe.execTransaction(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
         );

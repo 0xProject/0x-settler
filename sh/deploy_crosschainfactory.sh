@@ -135,18 +135,7 @@ declare signer
 signer="$(get_secret wrappedNativeStorage deployer)"
 declare -r signer
 
-# set minimum gas price to (mostly for Arbitrum and BNB)
-declare -i min_gas_price
-min_gas_price="$(get_config minGasPriceGwei)"
-min_gas_price=$((min_gas_price * 1000000000))
-declare -r -i min_gas_price
-declare -i gas_price
-gas_price="$(cast gas-price --rpc-url "$rpc_url")"
-if (( gas_price < min_gas_price )) ; then
-    echo 'Setting gas price to minimum of '$((min_gas_price / 1000000000))' gwei' >&2
-    gas_price=$min_gas_price
-fi
-declare -r -i gas_price
+. "$project_root"/sh/common_gas.sh
 
 export FOUNDRY_OPTIMIZER_RUNS=1000000
 export FOUNDRY_EVM_VERSION=london
@@ -237,21 +226,15 @@ done
 deploy_calldata="$(cast calldata "$forwarding_multicall_sig" "$deploy_calldata"']' 0)"
 declare -r deploy_calldata
 
-declare -i gas_estimate_multiplier
-gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
-declare -r -i gas_estimate_multiplier
 declare -i gas_limit
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    gas_limit="$(cast estimate --from "$signer" --chain $chainid --value 2wei --rpc-url "$rpc_url" --gas-price $gas_price "$forwarding_multicall" "$deploy_calldata")"
+    declare -i gas_estimate
+    gas_estimate="$(cast estimate --from "$signer" --chain $chainid --value 2wei --rpc-url "$rpc_url" --gas-price $gas_price "${extra_flags[@]}" "$forwarding_multicall" "$deploy_calldata")"
+    declare -r -i gas_estimate
+
+    gas_limit="$(apply_gas_multiplier $gas_estimate)"
 else
-    gas_limit=16777215
-fi
-gas_limit=$((gas_limit * gas_estimate_multiplier / 100))
-# Mantle has some real funky gas rules
-if (( chainid != 5000 )) ; then
-    if (( gas_limit > 16777215 )) ; then
-        gas_limit=16777215
-    fi
+    gas_limit=$eip7825_gas_limit
 fi
 declare -r -i gas_limit
 
@@ -264,7 +247,7 @@ else
 fi
 declare -r -a maybe_broadcast
 
-cast "${maybe_broadcast[@]}" --from "$signer" --value 2wei --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit $(get_config extraFlags) "$forwarding_multicall" "$deploy_calldata"
+cast "${maybe_broadcast[@]}" --from "$signer" --value 2wei --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" "$forwarding_multicall" "$deploy_calldata"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     sleep 60

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.33;
 
 import {InkMixin} from "./Common.sol";
 import {Settler} from "../../Settler.sol";
@@ -24,15 +24,15 @@ contract InkSettler is Settler, InkMixin {
         } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
             (
                 address recipient,
+                ISignatureTransfer.PermitTransferFrom memory permit,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
-                ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes memory sig,
                 uint256 amountOutMin
             ) = abi.decode(
-                data, (address, bool, uint256, uint256, bytes, ISignatureTransfer.PermitTransferFrom, bytes, uint256)
+                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
             );
 
             sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
@@ -45,7 +45,7 @@ contract InkSettler is Settler, InkMixin {
     // Solidity inheritance is stupid
     function _isRestrictedTarget(address target)
         internal
-        pure
+        view
         override(Settler, Permit2PaymentAbstract)
         returns (bool)
     {
@@ -62,5 +62,14 @@ contract InkSettler is Settler, InkMixin {
 
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {
         return super._msgSender();
+    }
+
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, InkMixin)
+        returns (bool, bytes memory)
+    {
+        return super._fallback(data);
     }
 }
