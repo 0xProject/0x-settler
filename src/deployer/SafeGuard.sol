@@ -130,8 +130,9 @@ library SafeLib {
     function getPrevOwner(ISafeMinimal safe, address owner) internal view returns (address) {
         address cursor = address(1);
         while (true) {
-            address nextOwner =
-                abi.decode(safe.getStorageAt(uint256(keccak256(abi.encode(cursor, OWNERS_SLOT(safe)))), 1), (address));
+            address nextOwner = abi.decode(
+                safe.getStorageAt(uint256(keccak256(abi.encode(cursor, OWNERS_SLOT(safe)))), 1), (address)
+            );
             if (nextOwner == owner) {
                 return cursor;
             }
@@ -291,10 +292,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         result = keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337;
         bytes32 safeCodeHash = address(safe).codehash;
         result = result
-            && (
-                safeCodeHash == _SAFE_PROXY_1_1_CODEHASH || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
-                    || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH
-            );
+            && (safeCodeHash == _SAFE_PROXY_1_1_CODEHASH
+                || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
+                || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH);
         result = result && (msg.sender == _CREATE2_FACTORY || msg.sender == _SAFE_SINGLETON_FACTORY);
     }
 
@@ -818,10 +818,7 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSaf
 
     constructor(ISafeMinimal safe_)
         ZeroExSettlerDeployerSafeGuardBase(
-            safe_,
-            _SAFE_SINGLETON_1_3_INITHASH,
-            _SAFE_FALLBACK_1_3_INITHASH,
-            _SAFE_MULTISEND_1_3_INITHASH
+            safe_, _SAFE_SINGLETON_1_3_INITHASH, _SAFE_FALLBACK_1_3_INITHASH, _SAFE_MULTISEND_1_3_INITHASH
         )
     {
         // These checks ensure that the Guard is safely installed in the Safe at the time it is
@@ -850,10 +847,7 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSe
 
     constructor(ISafeMinimal safe_)
         ZeroExSettlerDeployerSafeGuardBase(
-            safe_,
-            _SAFE_SINGLETON_1_4_INITHASH,
-            _SAFE_FALLBACK_1_4_INITHASH,
-            _SAFE_MULTISEND_1_4_INITHASH
+            safe_, _SAFE_SINGLETON_1_4_INITHASH, _SAFE_FALLBACK_1_4_INITHASH, _SAFE_MULTISEND_1_4_INITHASH
         )
     {
         // In contrast to the 1.3.0 Guard, the 1.4.1 Guard must be deployed *before* being enabled
