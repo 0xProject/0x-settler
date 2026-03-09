@@ -377,8 +377,30 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         delay = newDelay;
     }
 
+    function _forbidSafePrivilegedCalls(bool requireUnanimity, address to, bytes calldata data)
+        private
+        view
+        returns (bool)
+    {
+        if (to == address(this)) {
+            // Forbid calls to `this.checkTransaction` and `this.checkAfterExecution`.
+            if (
+                data.length >= 68
+                    && ((data.length >= 356
+                            && uint256(uint32(bytes4(data))) == uint256(uint32(this.checkTransaction.selector)))
+                        || uint256(uint32(bytes4(data))) == uint256(uint32(this.checkAfterExecution.selector)))
+            ) {
+                revert ForbiddenCall(callsCount, to, data);
+            }
+            // Transactions containing calls to `this.unlock()` must be unanimous
+            requireUnanimity = requireUnanimity
+                || (data.length >= 4 && uint256(uint32(bytes4(data))) == uint256(uint32(this.unlock.selector)));
+        }
+        return requireUnanimity;
+    }
+
     /// See comment in `checkTransaction`
-    function _checkDelegateCall(address to, bytes calldata data) private view returns (bool requireUnanimity) {
+    function _checkDelegateCall(bool requireUnanimity, address to, bytes calldata data) private view returns (bool) {
         if (to == _MULTISEND && uint256(uint32(bytes4(data))) == uint256(uint32(ISafeMultiSend.multiSend.selector))) {
             // Slice off the selector.
             bytes calldata multicalls = data[4:];
@@ -420,23 +442,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                         revert GuardCheckNotEnforced(callsCount, multicallTo, multicallData);
                     }
                 } else {
-                    if (multicallTo == address(this)) {
-                        // Forbid calls to `this.checkTransaction` and `this.checkAfterExecution`.
-                        if (
-                            multicallData.length >= 68
-                                && ((multicallData.length >= 356
-                                        && uint256(uint32(bytes4(multicallData)))
-                                            == uint256(uint32(this.checkTransaction.selector)))
-                                    || uint256(uint32(bytes4(multicallData)))
-                                        == uint256(uint32(this.checkAfterExecution.selector)))
-                        ) {
-                            revert ForbiddenCall(callsCount, multicallTo, multicallData);
-                        }
-                        // Transactions containing calls to `this.unlock()` must be unanimous
-                        requireUnanimity = requireUnanimity
-                            || (multicallData.length >= 4
-                                && uint256(uint32(bytes4(multicallData))) == uint256(uint32(this.unlock.selector)));
-                    }
+                    requireUnanimity = _forbidSafePrivilegedCalls(requireUnanimity, multicallTo, multicallData);
                 }
 
                 unchecked {
@@ -449,6 +455,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         } else {
             revert NoDelegateCall();
         }
+        return requireUnanimity;
     }
 
     function checkTransaction(
@@ -508,11 +515,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         bool requireUnanimity;
         if (operation != Operation.Call) {
             require(value == 0);
-            requireUnanimity = _checkDelegateCall(to, data);
+            requireUnanimity = _checkDelegateCall(requireUnanimity, to, data);
         } else {
-            requireUnanimity =
-            (to == address(this) && data.length >= 4
-                    && uint256(uint32(bytes4(data))) == uint256(uint32(this.unlock.selector)));
+            requireUnanimity = _forbidSafePrivilegedCalls(requireUnanimity, multicallTo, multicallData);
         }
 
         // The nonce has already been incremented past the value used in the
