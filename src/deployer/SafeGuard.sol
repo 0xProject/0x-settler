@@ -238,6 +238,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     event ResignTxHash(bytes32 indexed txHash);
     event LockDown(address indexed lockedDownBy, bytes32 indexed unlockTxHash);
     event Unlocked();
+    event Uninstalled();
 
     error PermissionDenied();
     error NoDelegateCall();
@@ -664,6 +665,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     }
 
     function _removeSelf() internal {
+        emit Uninstalled();
         _guardRemoved = true;
     }
 
