@@ -3515,6 +3515,201 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
     # These are known-bad translator behaviors found during review.
     # They should fail loudly until the implementation is fixed.
 
+    def test_translate_yul_to_models_alpha_renames_callee_locals_during_inlining(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("outer",),
+            exact_yul_names={"outer": "fun_outer_1"},
+        )
+        yul = """
+            object "o" {
+                code {
+                    function helper(var_p_1) -> var_r_1 {
+                        let usr$tmp := 0
+                        var_r_1 := add(var_p_1, 1)
+                    }
+
+                    function fun_outer_1(var_x_1) -> var_z_1 {
+                        let usr$tmp := var_x_1
+                        var_z_1 := helper(usr$tmp)
+                    }
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[0], (0,)),
+            (1,),
+        )
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[0], (5,)),
+            (6,),
+        )
+
+    def test_parse_function_accepts_multi_var_declaration_without_initializer(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_pair_decl_1() -> var_z_1 {
+                let usr$a, usr$b
+                var_z_1 := add(usr$a, usr$b)
+            }
+            """)
+
+        fn = ytl.YulParser(tokens).parse_function()
+
+        self.assertEqual(
+            fn.assignments,
+            [
+                ytl.PlainAssignment("usr$a", ytl.IntLit(0)),
+                ytl.PlainAssignment("usr$b", ytl.IntLit(0)),
+                ytl.PlainAssignment(
+                    "var_z_1",
+                    ytl.Call("add", (ytl.Var("usr$a"), ytl.Var("usr$b"))),
+                ),
+            ],
+        )
+
+    def test_parse_function_rejects_multi_var_initializer_from_scalar_expr(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_bad_1() -> var_z_1 {
+                let usr$a, usr$b := 1
+                var_z_1 := usr$a
+            }
+            """)
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_accepts_multi_target_assignment_without_let(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_pair_assign_1() -> var_z_1 {
+                let usr$a
+                let usr$b
+                usr$a, usr$b := pair()
+                var_z_1 := usr$a
+            }
+            """)
+
+        fn = ytl.YulParser(tokens).parse_function()
+
+        self.assertEqual(
+            fn.assignments,
+            [
+                ytl.PlainAssignment("usr$a", ytl.IntLit(0)),
+                ytl.PlainAssignment("usr$b", ytl.IntLit(0)),
+                ytl.PlainAssignment(
+                    "usr$a",
+                    ytl.Call(
+                        "__component_0_2",
+                        (ytl.Call("pair", ()),),
+                    ),
+                ),
+                ytl.PlainAssignment(
+                    "usr$b",
+                    ytl.Call(
+                        "__component_1_2",
+                        (ytl.Call("pair", ()),),
+                    ),
+                ),
+                ytl.PlainAssignment("var_z_1", ytl.Var("usr$a")),
+            ],
+        )
+
+    def test_translate_yul_to_models_collects_nested_local_helpers_for_inlining(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("outer",),
+            exact_yul_names={"outer": "fun_outer_1"},
+        )
+        yul = """
+            object "o" {
+                code {
+                    function fun_outer_1() -> var_z_1 {
+                        function helper() -> var_r_1 {
+                            var_r_1 := 1
+                        }
+                        var_z_1 := helper()
+                    }
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(
+            ytl.evaluate_function_model(
+                result.models[0],
+                (),
+                model_table=ytl.build_model_table(result.models),
+            ),
+            (1,),
+        )
+
+    def test_build_lean_source_rejects_binder_collision_with_generated_model_name(
+        self,
+    ) -> None:
+        config = make_model_config(("inner", "outer"))
+        inner = ytl.FunctionModel(
+            fn_name="inner",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1))),
+                ),
+            ),
+        )
+        outer = ytl.FunctionModel(
+            fn_name="outer",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment("model_inner", ytl.Var("x")),
+                ytl.Assignment(
+                    "z",
+                    ytl.Call("inner", (ytl.Var("model_inner"),)),
+                ),
+            ),
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[inner, outer],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
+    def test_find_function_rejects_nonmatching_param_count_even_when_unique(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_dup_1(var_x_1, var_y_2) -> var_z_3 {
+                var_z_3 := add(var_x_1, var_y_2)
+            }
+            """)
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.YulParser(tokens).find_function("dup", n_params=1)
+
     def test_find_function_ignores_dead_nested_helper_inside_deeper_block(
         self,
     ) -> None:
