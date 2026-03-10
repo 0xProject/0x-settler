@@ -3180,10 +3180,7 @@ class FunctionSelectionTest(unittest.TestCase):
             ytl.prepare_translation(yul, config)
 
 
-class KnownTranslatorBugRegressionTest(unittest.TestCase):
-    # These are known-bad translator behaviors found during review.
-    # They should fail loudly until the implementation is fixed.
-
+class ResolvedTranslatorRegressionTest(unittest.TestCase):
     def test_translate_yul_to_models_rejects_target_expression_statements(
         self,
     ) -> None:
@@ -3287,30 +3284,97 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (1,))
 
-    def test_find_function_known_yul_names_ignores_non_call_identifiers(
-        self,
-    ) -> None:
+    def test_find_function_treats_nested_definition_as_reference(self) -> None:
         tokens = ytl.tokenize_yul("""
             function helper(var_x_1) -> var_z_2 {
                 var_z_2 := var_x_1
             }
 
             function fun_pick_1(var_x_3) -> var_z_4 {
-                let helper := 0
-                var_z_4 := helper
+                function helper(var_y_5) -> var_w_6 {
+                    var_w_6 := var_y_5
+                }
+                var_z_4 := var_x_3
             }
 
-            function fun_pick_2(var_x_5) -> var_z_6 {
-                var_z_6 := helper(var_x_5)
+            function fun_pick_2(var_x_7) -> var_z_8 {
+                var_z_8 := helper(var_x_7)
             }
             """)
 
-        found = ytl.YulParser(tokens).find_function(
-            "pick",
-            known_yul_names={"helper"},
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "Multiple Yul functions match 'pick'",
+        ):
+            ytl.YulParser(tokens).find_function(
+                "pick",
+                known_yul_names={"helper"},
+            )
+
+
+class KnownTranslatorBugRegressionTest(unittest.TestCase):
+    # These are known-bad translator behaviors found during review.
+    # They should fail loudly until the implementation is fixed.
+
+    def test_translate_yul_to_models_scopes_helpers_per_selected_target_object(
+        self,
+    ) -> None:
+        config = make_model_config(("f", "g"))
+        yul = """
+            object "A" {
+                function fun_f_1() -> var_z_1 {
+                    var_z_1 := helperA()
+                }
+
+                function helperA() -> var_r_2 {
+                    var_r_2 := 11
+                }
+            }
+
+            object "B" {
+                function fun_g_1() -> var_z_3 {
+                    var_z_3 := helperB()
+                }
+
+                function helperB() -> var_r_4 {
+                    var_r_4 := 22
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        models = {model.fn_name: model for model in result.models}
+
+        self.assertEqual(ytl.evaluate_function_model(models["f"], ()), (11,))
+        self.assertEqual(ytl.evaluate_function_model(models["g"], ()), (22,))
+
+    def test_translate_yul_to_models_zero_initializes_return_before_later_reassignment(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_1 {
+                if 1 {
+                    var_z_1 := 7
+                }
+                var_z_1 := add(var_z_1, 1)
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
 
-        self.assertEqual(found.yul_name, "fun_pick_2")
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[0], ()),
+            (8,),
+        )
 
 
 class LeanSourceDeterminismTest(unittest.TestCase):
