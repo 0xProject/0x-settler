@@ -3515,6 +3515,38 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
     # These are known-bad translator behaviors found during review.
     # They should fail loudly until the implementation is fixed.
 
+    def test_find_function_ignores_dead_nested_helper_inside_deeper_block(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_c_1, var_x_3) -> var_z_4 {
+                if var_c_1 {
+                    function nested(var_y_5) -> var_w_6 {
+                        var_w_6 := helper(var_y_5)
+                    }
+                    var_z_4 := 111
+                }
+                var_z_4 := 222
+            }
+
+            function fun_pick_2(var_c_7, var_x_8) -> var_z_9 {
+                var_z_9 := 333
+            }
+            """)
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "Multiple Yul functions match 'pick'",
+        ):
+            ytl.YulParser(tokens).find_function(
+                "pick",
+                known_yul_names={"helper"},
+            )
+
     def test_find_function_ignores_dead_deeper_nested_helper_dependencies(
         self,
     ) -> None:
@@ -3705,6 +3737,50 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 namespace="Test",
                 config=config,
             )
+
+    def test_build_lean_source_allows_extra_norm_helper_name_when_norm_is_skipped(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("normBitLengthPlus1",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment("z", ytl.Var("normBitLengthPlus1")),
+            ),
+        )
+        config = ytl.ModelConfig(
+            function_order=("f",),
+            model_names={"f": "model_f"},
+            header_comment="test",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
+            extra_lean_defs=(
+                "def normBitLengthPlus1 (x : Nat) : Nat := x + 1"
+            ),
+            norm_rewrite=lambda expr: ytl.Call("bitLengthPlus1", (expr,)),
+            inner_fn="f",
+            n_params=None,
+            exact_yul_names=None,
+            keep_solidity_locals=False,
+            skip_norm=frozenset({"f"}),
+            hoist_repeated_calls=frozenset(),
+            skip_prune=frozenset(),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+
+        source = ytl.build_lean_source(
+            models=[model],
+            source_path="test-source",
+            namespace="Test",
+            config=config,
+        )
+
+        self.assertIn("def model_f_evm", source)
+        self.assertNotIn("def model_f (", source)
 
     def test_build_lean_source_rejects_extra_norm_helper_collisions_in_conditional_branch_targets(
         self,
