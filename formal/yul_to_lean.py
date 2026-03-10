@@ -999,6 +999,7 @@ class YulParser:
             elif depth >= 1 and k == "ident" and text == "function":
                 # Found a nested function definition inside this scope.
                 nested_name = self._function_name_at(i)
+                fn_depth = depth
                 # Find the nested function's opening brace.
                 nb = i + 1
                 while nb < len(self.tokens) and self.tokens[nb][0] != "{":
@@ -1018,9 +1019,13 @@ class YulParser:
                             break
                     ne += 1
                 nested_spans.append((i, ne))
-                # Recurse into the nested function to check references.
-                if self._scope_references_any(nb, yul_names) and nested_name is not None:
-                    nested_referencing.add(nested_name)
+                # Only depth-1 functions are callable from the outer body.
+                # Deeper ones (inside if/switch blocks) are block-scoped and
+                # cannot be called from the outer scope, so we skip their
+                # spans but do not promote their names.
+                if fn_depth == 1:
+                    if self._scope_references_any(nb, yul_names) and nested_name is not None:
+                        nested_referencing.add(nested_name)
                 i = ne + 1
                 continue
             i += 1
