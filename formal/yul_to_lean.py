@@ -765,12 +765,6 @@ class YulParser:
 
         return results, has_leave
 
-    def _parse_body_assignments(self) -> tuple[list[RawStatement], bool]:
-        return self._parse_assignment_loop(
-            allow_control_flow=True,
-            context="function body",
-        )
-
     def _skip_function_def(self) -> None:
         self._pop()  # consume 'function'
         self._expect_ident()
@@ -808,7 +802,9 @@ class YulParser:
                 rets.append(self._expect_ident())
         self._expect("{")
         self._expr_stmts = []
-        assignments, has_top_level_leave = self._parse_body_assignments()
+        assignments, has_top_level_leave = self._parse_assignment_loop(
+            allow_control_flow=True, context="function body",
+        )
         self._expect("}")
         # Top-level ``leave`` is a no-op: it just means "return now" after all
         # assignments have been captured.  Dead code after it is already
@@ -2691,20 +2687,6 @@ def _walk_model_calls(
             _walk_model_calls(arg, model_call_names, counts)
 
 
-def _walk_statement(
-    stmt: ModelStatement, model_call_names: frozenset[str], counts: Counter[Expr]
-) -> None:
-    """Count model-call occurrences across all expressions in *stmt*."""
-    if isinstance(stmt, Assignment):
-        _walk_model_calls(stmt.expr, model_call_names, counts)
-    elif isinstance(stmt, ConditionalBlock):
-        _walk_model_calls(stmt.condition, model_call_names, counts)
-        for a in stmt.then_branch.assignments:
-            _walk_model_calls(a.expr, model_call_names, counts)
-        for a in stmt.else_branch.assignments:
-            _walk_model_calls(a.expr, model_call_names, counts)
-
-
 def _replace_statement(
     stmt: ModelStatement, replacements: dict[Expr, str]
 ) -> ModelStatement:
@@ -2769,12 +2751,10 @@ def _localize_statement_cse(
     model_call_names: frozenset[str],
 ) -> list[ModelStatement]:
     if isinstance(stmt, Assignment):
-        return [
-            *_localize_assignment_cse(
-                stmt,
-                model_call_names=model_call_names,
-            )
-        ]
+        hoisted, expr = _hoist_repeated_calls_in_expr(
+            stmt.expr, model_call_names=model_call_names,
+        )
+        return [*hoisted, Assignment(target=stmt.target, expr=expr)]
 
     if isinstance(stmt, ConditionalBlock):
         prefix, condition = _hoist_repeated_calls_in_expr(
@@ -2784,21 +2764,19 @@ def _localize_statement_cse(
 
         then_assignments: list[Assignment] = []
         for assignment in stmt.then_branch.assignments:
-            then_assignments.extend(
-                _localize_assignment_cse(
-                    assignment,
-                    model_call_names=model_call_names,
-                )
+            hoisted, expr = _hoist_repeated_calls_in_expr(
+                assignment.expr, model_call_names=model_call_names,
             )
+            then_assignments.extend(hoisted)
+            then_assignments.append(Assignment(target=assignment.target, expr=expr))
 
         localized_else: list[Assignment] = []
         for assignment in stmt.else_branch.assignments:
-            localized_else.extend(
-                _localize_assignment_cse(
-                    assignment,
-                    model_call_names=model_call_names,
-                )
+            hoisted, expr = _hoist_repeated_calls_in_expr(
+                assignment.expr, model_call_names=model_call_names,
             )
+            localized_else.extend(hoisted)
+            localized_else.append(Assignment(target=assignment.target, expr=expr))
 
         return [
             *prefix,
@@ -2817,18 +2795,6 @@ def _localize_statement_cse(
         ]
 
     _unreachable_stmt(stmt)
-
-
-def _localize_assignment_cse(
-    stmt: Assignment,
-    *,
-    model_call_names: frozenset[str],
-) -> list[Assignment]:
-    hoisted, expr = _hoist_repeated_calls_in_expr(
-        stmt.expr,
-        model_call_names=model_call_names,
-    )
-    return [*hoisted, Assignment(target=stmt.target, expr=expr)]
 
 
 def hoist_repeated_model_calls(
@@ -2852,7 +2818,14 @@ def hoist_repeated_model_calls(
     # -- Pass 1: count occurrences across the entire model -----------------
     counts: Counter[Expr] = Counter()
     for stmt in model.assignments:
-        _walk_statement(stmt, model_call_names, counts)
+        if isinstance(stmt, Assignment):
+            _walk_model_calls(stmt.expr, model_call_names, counts)
+        elif isinstance(stmt, ConditionalBlock):
+            _walk_model_calls(stmt.condition, model_call_names, counts)
+            for a in stmt.then_branch.assignments:
+                _walk_model_calls(a.expr, model_call_names, counts)
+            for a in stmt.else_branch.assignments:
+                _walk_model_calls(a.expr, model_call_names, counts)
 
     param_names = set(model.param_names)
     repeated_global = [
