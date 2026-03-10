@@ -963,27 +963,33 @@ class YulParser:
             return False
         return self._scope_references_any(body_start, yul_names)
 
+    def _find_matching_brace(self, open_idx: int) -> int:
+        """Return the index of the ``}`` matching the ``{`` at *open_idx*."""
+        depth = 0
+        for j in range(open_idx, len(self.tokens)):
+            k, _ = self.tokens[j]
+            if k == "{":
+                depth += 1
+            elif k == "}":
+                depth -= 1
+                if depth == 0:
+                    return j
+        return len(self.tokens) - 1
+
     def _scope_references_any(self, brace_start: int, yul_names: set[str]) -> bool:
-        """Check if the ``{``-delimited scope starting at *brace_start* references *yul_names*.
+        """Check if the ``{``-delimited block at *brace_start* references *yul_names*.
 
-        This is the recursive workhorse for ``_body_references_any``.  It uses
-        a two-pass strategy:
+        Processes the block recursively with proper block scoping:
 
-        1. Identify all immediate nested function definitions, find their body
-           spans, and recursively determine which ones reference *yul_names*.
-           Build an augmented name set that includes those nested function
-           names.
-        2. Scan the outer body tokens (skipping nested function spans) for
-           calls to any name in the augmented set.
-
-        The two-pass design handles forward references (calls that appear
-        before the nested function definition in the token stream) and the
-        recursion correctly ignores dead nested-within-nested code paths.
+        1. Walk depth 1 to collect function defs, sub-blocks, and loose calls
+        2. Recurse into function def bodies to find which reference yul_names
+        3. Build augmented name set (with shadowing)
+        4. Check loose calls at depth 1
+        5. Recurse into sub-blocks with augmented names
         """
-        # -- Pass 1: collect nested function spans and determine which
-        #    transitively reference yul_names. ----------------------------
-        nested_spans: list[tuple[int, int]] = []          # (start, end) inclusive
-        nested_referencing: set[str] = set()               # names to augment
+        local_fns: dict[str, int] = {}        # name → body brace index
+        sub_block_braces: list[int] = []       # opening { indices of sub-blocks
+        loose_call_names: list[str] = []       # ident names of function calls at depth 1
 
         depth = 0
         i = brace_start
@@ -991,67 +997,55 @@ class YulParser:
             k, text = self.tokens[i]
             if k == "{":
                 depth += 1
+                if depth == 2:
+                    # Sub-block (if/switch/bare body).  Function bodies are
+                    # skipped below so they never reach this branch.
+                    ne = self._find_matching_brace(i)
+                    sub_block_braces.append(i)
+                    i = ne + 1
+                    depth = 1
+                    continue
             elif k == "}":
                 depth -= 1
                 if depth == 0:
-                    # End of the scope we're analyzing.
                     break
-            elif depth >= 1 and k == "ident" and text == "function":
-                # Found a nested function definition inside this scope.
-                nested_name = self._function_name_at(i)
-                fn_depth = depth
-                # Find the nested function's opening brace.
+            elif depth == 1 and k == "ident" and text == "function":
+                name = self._function_name_at(i)
+                # Find body opening brace.
                 nb = i + 1
                 while nb < len(self.tokens) and self.tokens[nb][0] != "{":
                     nb += 1
                 if nb >= len(self.tokens):
                     break
-                # Find the matching closing brace.
-                inner_depth = 0
-                ne = nb
-                while ne < len(self.tokens):
-                    ik, _ = self.tokens[ne]
-                    if ik == "{":
-                        inner_depth += 1
-                    elif ik == "}":
-                        inner_depth -= 1
-                        if inner_depth == 0:
-                            break
-                    ne += 1
-                nested_spans.append((i, ne))
-                # Only depth-1 functions are callable from the outer body.
-                # Deeper ones (inside if/switch blocks) are block-scoped and
-                # cannot be called from the outer scope, so we skip their
-                # spans but do not promote their names.
-                if fn_depth == 1:
-                    if self._scope_references_any(nb, yul_names) and nested_name is not None:
-                        nested_referencing.add(nested_name)
-                i = ne + 1
+                ne = self._find_matching_brace(nb)
+                if name is not None:
+                    local_fns[name] = nb
+                i = ne + 1       # skip past function def; depth stays at 1
                 continue
+            elif depth == 1 and k == "ident":
+                if i + 1 < len(self.tokens) and self.tokens[i + 1][0] == "(":
+                    loose_call_names.append(text)
             i += 1
 
-        # -- Pass 2: scan outer body (excluding nested spans) for calls to
-        #    augmented name set. ------------------------------------------
-        augmented = yul_names | nested_referencing
-        span_set = set()
-        for s, e in nested_spans:
-            for idx in range(s, e + 1):
-                span_set.add(idx)
+        # Determine which local functions transitively reference yul_names.
+        referencing: set[str] = set()
+        for name, body_brace in local_fns.items():
+            if self._scope_references_any(body_brace, yul_names):
+                referencing.add(name)
 
-        depth = 0
-        for j in range(brace_start, len(self.tokens)):
-            k, text = self.tokens[j]
-            if k == "{":
-                depth += 1
-            elif k == "}":
-                depth -= 1
-                if depth == 0:
-                    return False
-            elif j in span_set:
-                continue
-            elif k == "ident" and text in augmented:
-                if j + 1 < len(self.tokens) and self.tokens[j + 1][0] == "(":
-                    return True
+        # Local function names shadow external names of the same spelling.
+        augmented = (yul_names - set(local_fns)) | referencing
+
+        # Check loose calls at depth 1.
+        for call_name in loose_call_names:
+            if call_name in augmented:
+                return True
+
+        # Recurse into sub-blocks with augmented names.
+        for sb_brace in sub_block_braces:
+            if self._scope_references_any(sb_brace, augmented):
+                return True
+
         return False
 
     def _function_name_at(self, idx: int) -> str | None:
