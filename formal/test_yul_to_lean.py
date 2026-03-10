@@ -3633,6 +3633,48 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
+    def test_translate_yul_to_models_rejects_unresolved_call_target(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                var_z_2 := helper()
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_translate_yul_to_models_accepts_conditionally_constant_memory_address(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                let usr$ptr := 64
+                if var_c_1 {
+                    usr$ptr := 64
+                }
+                mstore(usr$ptr, 7)
+                var_z_2 := mload(64)
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (7,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+
     def test_translate_yul_to_models_alpha_renames_callee_locals_during_inlining(
         self,
     ) -> None:
@@ -3779,6 +3821,34 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             ),
             (1,),
         )
+
+    def test_translate_yul_to_models_rejects_duplicate_helper_names_in_same_scope(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("outer",),
+            exact_yul_names={"outer": "fun_outer_1"},
+        )
+        yul = """
+            function fun_outer_1() -> var_z_1 {
+                var_z_1 := helper()
+            }
+
+            function helper() -> var_r_1 {
+                var_r_1 := 1
+            }
+
+            function helper() -> var_r_2 {
+                var_r_2 := 2
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_build_lean_source_rejects_binder_collision_with_generated_model_name(
         self,
