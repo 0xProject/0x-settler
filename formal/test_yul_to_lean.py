@@ -3627,6 +3627,42 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         )
         self.assertEqual(leaf.yul_name, "fun_pick_2")
 
+    def test_find_function_tracks_transitive_sibling_local_helper_dependencies(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                function nested1(var_y_5) -> var_w_6 {
+                    var_w_6 := helper(var_y_5)
+                }
+                function nested2(var_q_7) -> var_r_8 {
+                    var_r_8 := nested1(var_q_7)
+                }
+                var_z_4 := nested2(var_x_3)
+            }
+
+            function fun_pick_2(var_x_9) -> var_z_10 {
+                var_z_10 := 7
+            }
+            """)
+
+        func = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+        self.assertEqual(func.yul_name, "fun_pick_1")
+
+        leaf = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+            exclude_known=True,
+        )
+        self.assertEqual(leaf.yul_name, "fun_pick_2")
+
     def test_find_function_ignores_dead_deeper_nested_helper_dependencies(
         self,
     ) -> None:
