@@ -1813,16 +1813,33 @@ def yul_function_to_model(
 
     assignments: list[ModelStatement] = []
 
-    # Emit explicit zero-initialization for return variables (Yul semantics)
-    # only when the variable has no unconditional top-level assignment.
-    unconditional_targets = {
-        s.target for s in yf.assignments if isinstance(s, PlainAssignment)
-    }
+    # Emit explicit zero-initialization for return variables (Yul semantics).
+    # Skip zero-init only when the variable has an unconditional top-level
+    # assignment that appears *before* any conditional use (ParsedIfBlock
+    # targeting the same variable).  A conditional use before the first
+    # unconditional assignment means the else-branch needs the zero value.
+    needs_zero_init: set[str] = set()
+    for ret in yf.rets:
+        has_unconditional_first = False
+        for s in yf.assignments:
+            if isinstance(s, PlainAssignment) and s.target == ret:
+                has_unconditional_first = True
+                break
+            if isinstance(s, ParsedIfBlock):
+                if_targets = {b.target for b in s.body}
+                if s.else_body is not None:
+                    if_targets |= {b.target for b in s.else_body}
+                if ret in if_targets:
+                    # Conditional use comes before any unconditional assignment
+                    needs_zero_init.add(ret)
+                    break
+        if not has_unconditional_first and ret not in needs_zero_init:
+            needs_zero_init.add(ret)
     for ret in yf.rets:
         clean = var_map.get(ret)
         if (clean is not None
                 and clean not in emitted_ssa_names
-                and ret not in unconditional_targets):
+                and ret in needs_zero_init):
             emitted_ssa_names.add(clean)
             assignments.append(Assignment(target=clean, expr=IntLit(0)))
             const_locals[clean] = IntLit(0)
@@ -2970,41 +2987,51 @@ def prepare_translation(
         yul_functions[sol_name] = yf
         known_yul_names.add(yf.yul_name)
 
-    # Scope helper collection to the enclosing object of the first target
-    # so that identically-named helpers from other objects don't interfere.
-    first_yul_name = next(iter(fn_map))
-    fn_token_idx = None
-    for idx in range(len(tokens) - 1):
-        if (tokens[idx] == ("ident", "function")
-                and tokens[idx + 1] == ("ident", first_yul_name)):
-            fn_token_idx = idx
-            break
-    if fn_token_idx is not None:
-        obj_start, obj_end = _find_enclosing_block_range(tokens, fn_token_idx)
-        scoped_tokens = tokens[obj_start:obj_end]
-    else:
-        scoped_tokens = tokens
-    function_collection = YulParser(scoped_tokens).collect_all_functions()
-    helper_table = dict(function_collection.functions)
-    rejected_helpers = dict(function_collection.rejected)
-
-    for yul_name in fn_map:
-        helper_table.pop(yul_name, None)
+    # Scope helper collection per-target so that each target is inlined with
+    # helpers from its own enclosing Yul object.
+    all_helpers: dict[str, YulFunction] = {}
+    all_rejected: dict[str, str] = {}
 
     inlined_targets: dict[str, YulFunction] = {}
     for sol_name in selected:
+        yf = yul_functions[sol_name]
+        yul_name = yf.yul_name
+
+        fn_token_idx = None
+        for idx in range(len(tokens) - 1):
+            if (tokens[idx] == ("ident", "function")
+                    and tokens[idx + 1] == ("ident", yul_name)):
+                fn_token_idx = idx
+                break
+        if fn_token_idx is not None:
+            obj_start, obj_end = _find_enclosing_block_range(
+                tokens, fn_token_idx
+            )
+            scoped_tokens = tokens[obj_start:obj_end]
+        else:
+            scoped_tokens = tokens
+        function_collection = YulParser(scoped_tokens).collect_all_functions()
+        helper_table = dict(function_collection.functions)
+        rejected_helpers = dict(function_collection.rejected)
+
+        for yn in fn_map:
+            helper_table.pop(yn, None)
+
         inlined_targets[sol_name] = _inline_yul_function(
             yul_functions[sol_name],
             helper_table,
             unsupported_function_errors=rejected_helpers,
         )
 
+        all_helpers.update(helper_table)
+        all_rejected.update(rejected_helpers)
+
     return PreparedTranslation(
         selected_functions=tuple(selected),
         fn_map=fn_map,
         yul_functions=inlined_targets,
-        collected_helpers=helper_table,
-        rejected_helpers=rejected_helpers,
+        collected_helpers=all_helpers,
+        rejected_helpers=all_rejected,
     )
 
 
