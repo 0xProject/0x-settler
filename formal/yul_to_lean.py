@@ -1825,18 +1825,32 @@ def yul_function_to_model(
     for ret in yf.rets:
         has_unconditional_first = False
         for s in yf.assignments:
+            # Collect all variables read by this statement.
+            read_vars: set[str] = set()
+            if isinstance(s, PlainAssignment):
+                read_vars = _expr_vars(s.expr)
+            elif isinstance(s, MemoryWrite):
+                read_vars = _expr_vars(s.address) | _expr_vars(s.value)
+            elif isinstance(s, ParsedIfBlock):
+                read_vars = _expr_vars(s.condition)
+                for b in s.body:
+                    read_vars |= _expr_vars(b.expr)
+                if s.else_body is not None:
+                    for b in s.else_body:
+                        read_vars |= _expr_vars(b.expr)
+
+            if ret in read_vars:
+                needs_zero_init.add(ret)
+                break
+
             if isinstance(s, PlainAssignment) and s.target == ret:
-                if ret in _expr_vars(s.expr):
-                    needs_zero_init.add(ret)
-                else:
-                    has_unconditional_first = True
+                has_unconditional_first = True
                 break
             if isinstance(s, ParsedIfBlock):
                 if_targets = {b.target for b in s.body}
                 if s.else_body is not None:
                     if_targets |= {b.target for b in s.else_body}
                 if ret in if_targets:
-                    # Conditional use comes before any unconditional assignment
                     needs_zero_init.add(ret)
                     break
         if not has_unconditional_first and ret not in needs_zero_init:
