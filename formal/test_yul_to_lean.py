@@ -3616,6 +3616,59 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
 
+    def test_translate_yul_to_models_preserves_outer_if_assignment_before_later_shadowing_top_level_let(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                let usr$x := 5
+                if var_c_1 {
+                    usr$x := 7
+                    let usr$x := 9
+                }
+                var_z_2 := usr$x
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+
+    def test_translate_yul_to_models_preserves_outer_switch_branch_assignment_before_later_shadowing_let(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                let usr$x := 5
+                switch var_c_1
+                case 0 {
+                    usr$x := 7
+                    let usr$x := 9
+                }
+                default {
+                }
+                var_z_2 := usr$x
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (7,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
+
     def test_translate_yul_to_models_allows_conditional_return_write_that_is_later_overwritten(
         self,
     ) -> None:
@@ -4078,6 +4131,42 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                     var_z_4 := helper(var_x_3)
                 }
                 var_z_4 := 111
+            }
+
+            function fun_pick_2(var_x_5) -> var_z_6 {
+                var_z_6 := helper(var_x_5)
+            }
+            """)
+
+        func = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+        self.assertEqual(func.yul_name, "fun_pick_2")
+
+        leaf = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+            exclude_known=True,
+        )
+        self.assertEqual(leaf.yul_name, "fun_pick_1")
+
+    def test_find_function_ignores_constant_switch_helper_references(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                switch 1
+                case 0 {
+                    var_z_4 := helper(var_x_3)
+                }
+                default {
+                    var_z_4 := 111
+                }
             }
 
             function fun_pick_2(var_x_5) -> var_z_6 {
@@ -4660,6 +4749,39 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         )
         self.assertEqual(leaf.yul_name, "fun_pick_1")
 
+    def test_find_function_ignores_dead_helper_reference_after_constant_true_if_leave(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                if 1 {
+                    leave
+                }
+                var_z_4 := helper(var_x_3)
+            }
+
+            function fun_pick_2(var_x_5) -> var_z_6 {
+                var_z_6 := 7
+            }
+            """)
+
+        found = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+        self.assertEqual(found.yul_name, "fun_pick_2")
+
+        leaf = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+            exclude_known=True,
+        )
+        self.assertEqual(leaf.yul_name, "fun_pick_1")
+
     def test_inline_calls_does_not_consume_depth_budget_on_builtin_ast_nesting(
         self,
     ) -> None:
@@ -4844,6 +4966,52 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             function fun_g_2(var_a_3) -> var_r_4, var_s_5 {
                 var_r_4 := var_a_3
                 var_s_5 := add(var_a_3, 1)
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_translate_yul_to_models_rejects_selected_projection_when_callee_returns_too_few_values(
+        self,
+    ) -> None:
+        config = make_model_config(("f", "g"))
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                let usr$a, usr$b := fun_g_2(var_x_1)
+                var_z_2 := add(usr$a, usr$b)
+            }
+
+            function fun_g_2(var_a_3) -> var_r_4 {
+                var_r_4 := add(var_a_3, 1)
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_translate_yul_to_models_rejects_selected_projection_when_callee_returns_too_many_values(
+        self,
+    ) -> None:
+        config = make_model_config(("f", "g"))
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                let usr$a, usr$b := fun_g_2(var_x_1)
+                var_z_2 := usr$a
+            }
+
+            function fun_g_2(var_a_3) -> var_r_4, var_s_5, var_t_6 {
+                var_r_4 := var_a_3
+                var_s_5 := add(var_a_3, 1)
+                var_t_6 := add(var_a_3, 2)
             }
             """
 
