@@ -947,10 +947,19 @@ class YulParser:
         return self.parse_function()
 
     def _body_references_any(self, fn_start: int, yul_names: set[str]) -> bool:
-        """Check if the function at *fn_start* references any identifier in *yul_names*."""
+        """Check if the function at *fn_start* references any identifier in *yul_names*.
+
+        Nested function definitions are not counted as direct references, but
+        if a nested function references a known name *and* the outer body calls
+        that nested function, the outer function is considered to transitively
+        depend on the known name.
+        """
+        augmented = set(yul_names)
         depth = 0
         started = False
         skip_until_depth = -1
+        nested_fn_name: str | None = None
+        nested_refs_known = False
         for j in range(fn_start, len(self.tokens)):
             k, text = self.tokens[j]
             if k == "{":
@@ -959,15 +968,27 @@ class YulParser:
             elif k == "}":
                 depth -= 1
                 if skip_until_depth >= 0 and depth <= skip_until_depth:
+                    # Exiting a nested function — promote its name if it
+                    # references any known identifier.
+                    if nested_refs_known and nested_fn_name is not None:
+                        augmented.add(nested_fn_name)
                     skip_until_depth = -1
+                    nested_fn_name = None
+                    nested_refs_known = False
                     continue
                 if started and depth == 0:
                     return False
             elif skip_until_depth >= 0:
+                # Inside a nested function body — check for transitive refs.
+                if k == "ident" and text in augmented:
+                    if j + 1 < len(self.tokens) and self.tokens[j + 1][0] == "(":
+                        nested_refs_known = True
                 continue
             elif started and k == "ident" and text == "function" and depth >= 1:
                 skip_until_depth = depth
-            elif started and k == "ident" and text in yul_names:
+                nested_fn_name = self._function_name_at(j)
+                nested_refs_known = False
+            elif started and k == "ident" and text in augmented:
                 if j + 1 < len(self.tokens) and self.tokens[j + 1][0] == "(":
                     return True
         return False
@@ -3011,8 +3032,13 @@ def hoist_repeated_model_calls(
     This keeps hoisting within scopes where the referenced bindings are
     definitely available. Model calls are assumed pure.
     """
-    # Initialize CSE counter past any existing _cse_N assignment targets.
+    # Initialize CSE counter past any existing _cse_N names (params, returns,
+    # and assignment targets) to avoid collisions.
     max_cse = 0
+    for name in (*model.param_names, *model.return_names):
+        m = re.fullmatch(r"_cse_(\d+)", name)
+        if m:
+            max_cse = max(max_cse, int(m.group(1)))
     for stmt in model.assignments:
         if isinstance(stmt, Assignment):
             m = re.fullmatch(r"_cse_(\d+)", stmt.target)
@@ -3532,6 +3558,24 @@ def build_lean_source(
     namespace: str,
     config: ModelConfig,
 ) -> str:
+    # Check binder names against config-specific reserved names that
+    # validate_ident cannot see (it has no access to config).
+    if config.extra_norm_ops:
+        extra_reserved = frozenset(config.extra_norm_ops.values())
+        for model in models:
+            for name in (*model.param_names, *model.return_names):
+                if name in extra_reserved:
+                    raise ParseError(
+                        f"Reserved Lean helper name used as binder in "
+                        f"{model.fn_name!r}: {name!r}"
+                    )
+            for stmt in model.assignments:
+                if isinstance(stmt, Assignment) and stmt.target in extra_reserved:
+                    raise ParseError(
+                        f"Reserved Lean helper name used as assignment target in "
+                        f"{model.fn_name!r}: {stmt.target!r}"
+                    )
+
     modeled_functions = ", ".join(model.fn_name for model in models)
 
     opcodes = collect_model_opcodes(models)
