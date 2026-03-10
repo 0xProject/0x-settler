@@ -4890,6 +4890,171 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (2, 3)), (9,))
         self.assertEqual(ytl.evaluate_function_model(model, (7, 11)), (9,))
 
+    def test_find_function_ignores_dead_helper_reference_in_constant_switch_branch(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                switch 0
+                case 0 {
+                    var_z_4 := 111
+                }
+                default {
+                    var_z_4 := helper(var_x_3)
+                }
+            }
+
+            function fun_pick_2(var_x_5) -> var_z_6 {
+                var_z_6 := helper(var_x_5)
+            }
+            """)
+
+        func = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+        self.assertEqual(func.yul_name, "fun_pick_2")
+
+        leaf = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+            exclude_known=True,
+        )
+        self.assertEqual(leaf.yul_name, "fun_pick_1")
+
+    def test_find_function_ignores_helper_reference_after_constant_true_leave(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                if 1 {
+                    var_z_4 := 7
+                    leave
+                }
+                var_z_4 := helper(var_x_3)
+            }
+
+            function fun_pick_2(var_x_5) -> var_z_6 {
+                var_z_6 := helper(var_x_5)
+            }
+            """)
+
+        func = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+        self.assertEqual(func.yul_name, "fun_pick_2")
+
+        leaf = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+            exclude_known=True,
+        )
+        self.assertEqual(leaf.yul_name, "fun_pick_1")
+
+    def test_translate_yul_to_models_collects_outer_helpers_for_exact_nested_target(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("target",),
+            exact_yul_names={"target": "helper2"},
+        )
+        yul = """
+            function helper() -> var_r_1 {
+                var_r_1 := 7
+            }
+
+            function fun_outer_1() -> var_z_1 {
+                function helper2() -> var_r_2 {
+                    var_r_2 := helper()
+                }
+                var_z_1 := helper2()
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(
+            ytl.evaluate_function_model(
+                result.models[0],
+                (),
+                model_table=ytl.build_model_table(result.models),
+            ),
+            (7,),
+        )
+
+    def test_build_lean_source_rejects_binder_collision_with_generated_evm_model_name(
+        self,
+    ) -> None:
+        config = make_model_config(("inner", "outer"))
+        inner = ytl.FunctionModel(
+            fn_name="inner",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1))),
+                ),
+            ),
+        )
+        outer = ytl.FunctionModel(
+            fn_name="outer",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment("model_inner_evm", ytl.Var("x")),
+                ytl.Assignment(
+                    "z",
+                    ytl.Call("inner", (ytl.Var("model_inner_evm"),)),
+                ),
+            ),
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[inner, outer],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
+    def test_translate_yul_to_models_allows_constant_false_top_level_memory_write_branch(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                if 0 {
+                    mstore(0, 7)
+                }
+                var_z_2 := 9
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[0], ()),
+            (9,),
+        )
+
 
 class KnownOptimizerBugRegressionTest(ModelEquivalenceTestCase):
     # These are known-bad optimizer behaviors found during review.
