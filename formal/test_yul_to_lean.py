@@ -3547,6 +3547,51 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 known_yul_names={"helper"},
             )
 
+    def test_find_function_respects_shadowing_between_nested_block_locals(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_c_1, var_x_3) -> var_z_4 {
+                function nested(var_y_5) -> var_w_6 {
+                    var_w_6 := 9
+                }
+                if var_c_1 {
+                    function nested(var_q_7) -> var_r_8 {
+                        var_r_8 := helper(var_q_7)
+                    }
+                    var_z_4 := 0
+                }
+                var_z_4 := nested(var_x_3)
+            }
+
+            function fun_pick_2(var_c_9, var_x_10) -> var_z_11 {
+                var_z_11 := 7
+            }
+            """)
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "Multiple Yul functions match 'pick'",
+        ):
+            ytl.YulParser(tokens).find_function(
+                "pick",
+                known_yul_names={"helper"},
+            )
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "Multiple Yul functions match 'pick'",
+        ):
+            ytl.YulParser(tokens).find_function(
+                "pick",
+                known_yul_names={"helper"},
+                exclude_known=True,
+            )
+
     def test_find_function_ignores_dead_deeper_nested_helper_dependencies(
         self,
     ) -> None:
