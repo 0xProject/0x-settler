@@ -957,7 +957,8 @@ class YulParser:
                 if started and depth == 0:
                     return False
             elif started and k == "ident" and text in yul_names:
-                return True
+                if j + 1 < len(self.tokens) and self.tokens[j + 1][0] == "(":
+                    return True
         return False
 
     def _function_name_at(self, idx: int) -> str | None:
@@ -1057,6 +1058,37 @@ def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
     _unreachable_expr(expr)
 
 
+def _find_enclosing_block_range(
+    tokens: list[tuple[str, str]], inner_idx: int
+) -> tuple[int, int]:
+    """Return (start, end) of the innermost brace-block containing *inner_idx*."""
+    depth = 0
+    start = 0
+    found_start = False
+    for j in range(inner_idx - 1, -1, -1):
+        if tokens[j][0] == "}":
+            depth += 1
+        elif tokens[j][0] == "{":
+            if depth == 0:
+                start = j + 1
+                found_start = True
+                break
+            depth -= 1
+    if not found_start:
+        return 0, len(tokens)
+    depth = 0
+    end = len(tokens)
+    for j in range(start - 1, len(tokens)):
+        if tokens[j][0] == "{":
+            depth += 1
+        elif tokens[j][0] == "}":
+            depth -= 1
+            if depth == 0:
+                end = j
+                break
+    return start, end
+
+
 def _split_branch_assignments(
     assignments: tuple[PlainAssignment, ...],
     block_subst: dict[str, Expr],
@@ -1065,10 +1097,12 @@ def _split_branch_assignments(
     """Split and substitute branch assignments into outer-scope and block-local."""
     outer: list[PlainAssignment] = []
     local: dict[str, Expr] = {}
+    working_subst = dict(block_subst)
     for s in assignments:
-        sub_expr = substitute_expr(s.expr, block_subst)
+        sub_expr = substitute_expr(s.expr, working_subst)
         if s.target in block_local_targets:
             local[s.target] = sub_expr
+            working_subst[s.target] = sub_expr
         else:
             outer.append(PlainAssignment(s.target, sub_expr))
     return outer, local
@@ -1572,6 +1606,11 @@ def _inline_yul_function(
 ) -> YulFunction:
     """Apply ``inline_calls`` to every expression in a YulFunction."""
 
+    _reject_expr_stmts(
+        yf.expr_stmts,
+        context=f"Function {yf.yul_name!r} contains",
+    )
+
     mstore_sink: list[FromWriteEffect] = []
     new_assignments: list[RawStatement] = []
     for stmt in yf.assignments:
@@ -1773,6 +1812,20 @@ def yul_function_to_model(
             emitted_ssa_names.add(clean)
 
     assignments: list[ModelStatement] = []
+
+    # Emit explicit zero-initialization for return variables (Yul semantics)
+    # only when the variable has no unconditional top-level assignment.
+    unconditional_targets = {
+        s.target for s in yf.assignments if isinstance(s, PlainAssignment)
+    }
+    for ret in yf.rets:
+        clean = var_map.get(ret)
+        if (clean is not None
+                and clean not in emitted_ssa_names
+                and ret not in unconditional_targets):
+            emitted_ssa_names.add(clean)
+            assignments.append(Assignment(target=clean, expr=IntLit(0)))
+            const_locals[clean] = IntLit(0)
 
     def _resolve_memory_address(
         expr: Expr,
@@ -2889,10 +2942,6 @@ def prepare_translation(
         selected_functions if selected_functions is not None else config.function_order
     )
 
-    function_collection = YulParser(tokens).collect_all_functions()
-    helper_table = dict(function_collection.functions)
-    rejected_helpers = dict(function_collection.rejected)
-
     fn_map: dict[str, str] = {}
     yul_functions: dict[str, YulFunction] = {}
 
@@ -2920,6 +2969,24 @@ def prepare_translation(
         fn_map[yf.yul_name] = sol_name
         yul_functions[sol_name] = yf
         known_yul_names.add(yf.yul_name)
+
+    # Scope helper collection to the enclosing object of the first target
+    # so that identically-named helpers from other objects don't interfere.
+    first_yul_name = next(iter(fn_map))
+    fn_token_idx = None
+    for idx in range(len(tokens) - 1):
+        if (tokens[idx] == ("ident", "function")
+                and tokens[idx + 1] == ("ident", first_yul_name)):
+            fn_token_idx = idx
+            break
+    if fn_token_idx is not None:
+        obj_start, obj_end = _find_enclosing_block_range(tokens, fn_token_idx)
+        scoped_tokens = tokens[obj_start:obj_end]
+    else:
+        scoped_tokens = tokens
+    function_collection = YulParser(scoped_tokens).collect_all_functions()
+    helper_table = dict(function_collection.functions)
+    rejected_helpers = dict(function_collection.rejected)
 
     for yul_name in fn_map:
         helper_table.pop(yul_name, None)
