@@ -3371,11 +3371,6 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
             (8,),
         )
 
-
-class KnownTranslatorBugRegressionTest(unittest.TestCase):
-    # These are known-bad translator behaviors found during review.
-    # They should fail loudly until the implementation is fixed.
-
     def test_translate_yul_to_models_zero_initializes_return_before_self_read(
         self,
     ) -> None:
@@ -3439,6 +3434,33 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(
             ytl.evaluate_function_model(models["outer"], (), model_table=table),
             (22,),
+        )
+
+
+class KnownTranslatorBugRegressionTest(unittest.TestCase):
+    # These are known-bad translator behaviors found during review.
+    # They should fail loudly until the implementation is fixed.
+
+    def test_translate_yul_to_models_zero_initializes_return_before_localized_read(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_1 {
+                let var_y_2 := add(var_z_1, 1)
+                var_z_1 := var_y_2
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[0], ()),
+            (1,),
         )
 
 
