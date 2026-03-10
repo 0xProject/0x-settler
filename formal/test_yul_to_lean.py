@@ -4547,6 +4547,145 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
+    def test_find_function_ignores_dead_helper_reference_after_top_level_leave(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                leave
+                var_z_4 := helper(var_x_3)
+            }
+
+            function fun_pick_2(var_x_5) -> var_z_6 {
+                var_z_6 := 7
+            }
+            """)
+
+        found = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+        self.assertEqual(found.yul_name, "fun_pick_2")
+
+        leaf = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+            exclude_known=True,
+        )
+        self.assertEqual(leaf.yul_name, "fun_pick_1")
+
+    def test_inline_calls_does_not_consume_depth_budget_on_builtin_ast_nesting(
+        self,
+    ) -> None:
+        expr: ytl.Expr = ytl.IntLit(0)
+        for _ in range(41):
+            expr = ytl.Call("add", (expr, ytl.IntLit(1)))
+
+        self.assertEqual(ytl.inline_calls(expr, {}, max_depth=40), expr)
+
+    def test_translate_yul_to_models_allows_exact_from_after_constant_false_inlined_leave(
+        self,
+    ) -> None:
+        config = make_model_config(("target",))
+        yul = """
+            function fun_target_1(var_hi_1, var_lo_2) -> var_z_3 {
+                var_z_3 := fun_helper_2(var_hi_1, var_lo_2)
+            }
+
+            function fun_helper_2(var_hi_4, var_lo_5) -> var_z_6 {
+                if 0 {
+                    leave
+                }
+                let usr$ptr := fun_from_3(0, var_hi_4, var_lo_5)
+                var_z_6 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+            }
+
+            function fun_from_3(var_r_7, var_hi_8, var_lo_9) -> var_r_out_10 {
+                var_r_out_10 := 0
+                mstore(var_r_7, var_hi_8)
+                mstore(add(0x20, var_r_7), var_lo_9)
+                var_r_out_10 := var_r_7
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (2, 3)), (5,))
+        self.assertEqual(ytl.evaluate_function_model(model, (7, 11)), (18,))
+
+    def test_translate_yul_to_models_allows_exact_from_in_constant_false_inlined_if_body(
+        self,
+    ) -> None:
+        config = make_model_config(("target",))
+        yul = """
+            function fun_target_1(var_hi_1, var_lo_2) -> var_z_3 {
+                var_z_3 := fun_helper_2(var_hi_1, var_lo_2)
+            }
+
+            function fun_helper_2(var_hi_4, var_lo_5) -> var_z_6 {
+                var_z_6 := 9
+                if 0 {
+                    let usr$ptr := fun_from_3(0, var_hi_4, var_lo_5)
+                    var_z_6 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+                }
+            }
+
+            function fun_from_3(var_r_7, var_hi_8, var_lo_9) -> var_r_out_10 {
+                var_r_out_10 := 0
+                mstore(var_r_7, var_hi_8)
+                mstore(add(0x20, var_r_7), var_lo_9)
+                var_r_out_10 := var_r_7
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (2, 3)), (9,))
+        self.assertEqual(ytl.evaluate_function_model(model, (7, 11)), (9,))
+
+    def test_translate_yul_to_models_allows_constant_switch_with_dead_leave_branch(
+        self,
+    ) -> None:
+        config = make_model_config(("target",))
+        yul = """
+            function fun_target_1() -> var_z_2 {
+                var_z_2 := fun_helper_2()
+            }
+
+            function fun_helper_2() -> var_z_3 {
+                switch 1
+                case 0 {
+                    var_z_3 := 7
+                    leave
+                }
+                default {
+                    var_z_3 := 9
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (9,))
+
 
 class KnownOptimizerBugRegressionTest(ModelEquivalenceTestCase):
     # These are known-bad optimizer behaviors found during review.
