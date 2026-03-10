@@ -3515,6 +3515,36 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
     # These are known-bad translator behaviors found during review.
     # They should fail loudly until the implementation is fixed.
 
+    def test_find_function_ignores_dead_deeper_nested_helper_dependencies(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                function mid(var_y_5) -> var_w_6 {
+                    function inner(var_q_7) -> var_r_8 {
+                        var_r_8 := helper(var_q_7)
+                    }
+                    var_w_6 := 111
+                }
+                var_z_4 := mid(var_x_3)
+            }
+
+            function fun_pick_2(var_x_9) -> var_z_10 {
+                var_z_10 := helper(var_x_9)
+            }
+            """)
+
+        func = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+
+        self.assertEqual(func.yul_name, "fun_pick_2")
+
     def test_find_function_tracks_transitive_nested_local_helper_dependencies(
         self,
     ) -> None:
@@ -3532,6 +3562,33 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
             function fun_pick_2(var_x_7) -> var_z_8 {
                 var_z_8 := var_x_7
+            }
+            """)
+
+        func = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+
+        self.assertEqual(func.yul_name, "fun_pick_1")
+
+    def test_find_function_tracks_transitive_nested_helper_called_before_definition(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                var_z_4 := nested(var_x_3)
+                function nested(var_y_5) -> var_w_6 {
+                    var_w_6 := helper(var_y_5)
+                }
+            }
+
+            function fun_pick_2(var_x_7) -> var_z_8 {
+                var_z_8 := 222
             }
             """)
 
@@ -3649,6 +3706,124 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 config=config,
             )
 
+    def test_build_lean_source_rejects_extra_norm_helper_collisions_in_conditional_branch_targets(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("p",),
+            return_names=("z",),
+            assignments=(
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("p"),
+                    output_vars=("tmp",),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(
+                            ytl.Assignment(
+                                "normBitLengthPlus1",
+                                ytl.IntLit(1),
+                            ),
+                            ytl.Assignment("tmp", ytl.Var("p")),
+                        ),
+                        outputs=("tmp",),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(
+                            ytl.Assignment(
+                                "normBitLengthPlus1",
+                                ytl.IntLit(2),
+                            ),
+                            ytl.Assignment("tmp", ytl.Var("p")),
+                        ),
+                        outputs=("tmp",),
+                    ),
+                ),
+                ytl.Assignment("z", ytl.Var("tmp")),
+            ),
+        )
+        config = ytl.ModelConfig(
+            function_order=("f",),
+            model_names={"f": "model_f"},
+            header_comment="test",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
+            extra_lean_defs=(
+                "def normBitLengthPlus1 (x : Nat) : Nat := x + 1"
+            ),
+            norm_rewrite=lambda expr: ytl.Call("bitLengthPlus1", (expr,)),
+            inner_fn="f",
+            n_params=None,
+            exact_yul_names=None,
+            keep_solidity_locals=False,
+            hoist_repeated_calls=frozenset(),
+            skip_prune=frozenset(),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[model],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
+    def test_build_lean_source_rejects_extra_norm_helper_collisions_in_conditional_output_vars(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("p",),
+            return_names=("z",),
+            assignments=(
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("p"),
+                    output_vars=("normBitLengthPlus1",),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=("p",),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=("p",),
+                    ),
+                ),
+                ytl.Assignment("z", ytl.Var("normBitLengthPlus1")),
+            ),
+        )
+        config = ytl.ModelConfig(
+            function_order=("f",),
+            model_names={"f": "model_f"},
+            header_comment="test",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
+            extra_lean_defs=(
+                "def normBitLengthPlus1 (x : Nat) : Nat := x + 1"
+            ),
+            norm_rewrite=lambda expr: ytl.Call("bitLengthPlus1", (expr,)),
+            inner_fn="f",
+            n_params=None,
+            exact_yul_names=None,
+            keep_solidity_locals=False,
+            hoist_repeated_calls=frozenset(),
+            skip_prune=frozenset(),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[model],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
     def test_translate_yul_to_models_rejects_zero_return_functions(self) -> None:
         config = make_model_config(("f",))
         yul = """
@@ -3668,6 +3843,64 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 class KnownOptimizerBugRegressionTest(ModelEquivalenceTestCase):
     # These are known-bad optimizer behaviors found during review.
     # They should fail loudly until the implementation is fixed.
+
+    def test_hoist_repeated_model_calls_avoids_conditional_output_name_collisions(
+        self,
+    ) -> None:
+        inner = ytl.FunctionModel(
+            fn_name="inner",
+            param_names=("x",),
+            return_names=("ret",),
+            assignments=(
+                ytl.Assignment(
+                    "ret",
+                    ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1))),
+                ),
+            ),
+        )
+        before = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("p",),
+            return_names=("out",),
+            assignments=(
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("p"),
+                    output_vars=("_cse_1",),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=("p",),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=("p",),
+                    ),
+                ),
+                ytl.Assignment("a", ytl.Call("inner", (ytl.Var("p"),))),
+                ytl.Assignment(
+                    "b",
+                    ytl.Call(
+                        "add",
+                        (
+                            ytl.Var("_cse_1"),
+                            ytl.Call("inner", (ytl.Var("p"),)),
+                        ),
+                    ),
+                ),
+                ytl.Assignment("out", ytl.Var("b")),
+            ),
+        )
+
+        after = ytl.hoist_repeated_model_calls(
+            before,
+            model_call_names=frozenset({"inner"}),
+        )
+
+        self.assertModelsEquivalent(
+            before,
+            after,
+            before_table=ytl.build_model_table([inner, before]),
+            after_table=ytl.build_model_table([inner, after]),
+        )
 
     def test_hoist_repeated_model_calls_avoids_parameter_name_collisions(
         self,
