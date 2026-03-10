@@ -1730,6 +1730,89 @@ def _stmt_targets(stmt: RawStatement) -> list[str]:
     return [stmt.target]
 
 
+def _branch_reads_var_before_write(
+    assignments: tuple[PlainAssignment, ...],
+    *,
+    var: str,
+    initialized: bool,
+) -> bool:
+    """Whether a straight-line branch reads *var* before assigning it."""
+    branch_initialized = initialized
+    for stmt in assignments:
+        if not branch_initialized and var in _expr_vars(stmt.expr):
+            return True
+        if stmt.target == var:
+            branch_initialized = True
+    return False
+
+
+def _branch_definitely_initializes_var(
+    assignments: tuple[PlainAssignment, ...],
+    *,
+    var: str,
+    initialized: bool,
+) -> bool:
+    """Whether *var* is definitely initialized after a straight-line branch."""
+    branch_initialized = initialized
+    for stmt in assignments:
+        if stmt.target == var:
+            branch_initialized = True
+    return branch_initialized
+
+
+def _stmt_reads_var_before_write(
+    stmt: RawStatement,
+    *,
+    var: str,
+    initialized: bool,
+) -> bool:
+    """Whether *stmt* can read *var* before it is initialized on that path."""
+    if isinstance(stmt, PlainAssignment):
+        return not initialized and var in _expr_vars(stmt.expr)
+    if isinstance(stmt, MemoryWrite):
+        return not initialized and var in (
+            _expr_vars(stmt.address) | _expr_vars(stmt.value)
+        )
+
+    if not initialized and var in _expr_vars(stmt.condition):
+        return True
+
+    if _branch_reads_var_before_write(stmt.body, var=var, initialized=initialized):
+        return True
+    if stmt.else_body is not None:
+        return _branch_reads_var_before_write(
+            stmt.else_body,
+            var=var,
+            initialized=initialized,
+        )
+    return False
+
+
+def _stmt_definitely_initializes_var(
+    stmt: RawStatement,
+    *,
+    var: str,
+    initialized: bool,
+) -> bool:
+    """Whether *var* is definitely initialized after executing *stmt*."""
+    if isinstance(stmt, PlainAssignment):
+        return initialized or stmt.target == var
+    if isinstance(stmt, MemoryWrite):
+        return initialized
+
+    then_initialized = _branch_definitely_initializes_var(
+        stmt.body,
+        var=var,
+        initialized=initialized,
+    )
+    else_initialized = _branch_definitely_initializes_var(
+        stmt.else_body or (),
+        var=var,
+        initialized=initialized,
+    )
+    return then_initialized and else_initialized
+
+
 def yul_function_to_model(
     yf: YulFunction,
     sol_fn_name: str,
@@ -1817,43 +1900,22 @@ def yul_function_to_model(
     assignments: list[ModelStatement] = []
 
     # Emit explicit zero-initialization for return variables (Yul semantics).
-    # Skip zero-init only when the variable has an unconditional top-level
-    # assignment that appears *before* any conditional use (ParsedIfBlock
-    # targeting the same variable).  A conditional use before the first
-    # unconditional assignment means the else-branch needs the zero value.
+    # We only need an explicit binder when a path can read the return slot
+    # before any assignment on that path, or when the slot can remain
+    # uninitialized until function exit.
     needs_zero_init: set[str] = set()
     for ret in yf.rets:
-        has_unconditional_first = False
+        initialized = False
         for s in yf.assignments:
-            # Collect all variables read by this statement.
-            read_vars: set[str] = set()
-            if isinstance(s, PlainAssignment):
-                read_vars = _expr_vars(s.expr)
-            elif isinstance(s, MemoryWrite):
-                read_vars = _expr_vars(s.address) | _expr_vars(s.value)
-            elif isinstance(s, ParsedIfBlock):
-                read_vars = _expr_vars(s.condition)
-                for b in s.body:
-                    read_vars |= _expr_vars(b.expr)
-                if s.else_body is not None:
-                    for b in s.else_body:
-                        read_vars |= _expr_vars(b.expr)
-
-            if ret in read_vars:
+            if _stmt_reads_var_before_write(s, var=ret, initialized=initialized):
                 needs_zero_init.add(ret)
                 break
-
-            if isinstance(s, PlainAssignment) and s.target == ret:
-                has_unconditional_first = True
-                break
-            if isinstance(s, ParsedIfBlock):
-                if_targets = {b.target for b in s.body}
-                if s.else_body is not None:
-                    if_targets |= {b.target for b in s.else_body}
-                if ret in if_targets:
-                    needs_zero_init.add(ret)
-                    break
-        if not has_unconditional_first and ret not in needs_zero_init:
+            initialized = _stmt_definitely_initializes_var(
+                s,
+                var=ret,
+                initialized=initialized,
+            )
+        if not initialized and ret not in needs_zero_init:
             needs_zero_init.add(ret)
     for ret in yf.rets:
         clean = var_map.get(ret)

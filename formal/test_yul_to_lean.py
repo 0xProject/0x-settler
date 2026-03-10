@@ -3392,6 +3392,79 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
             (1,),
         )
 
+    def test_translate_yul_to_models_zero_initializes_return_before_localized_read(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_1 {
+                let var_y_2 := add(var_z_1, 1)
+                var_z_1 := var_y_2
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[0], ()),
+            (1,),
+        )
+
+    def test_translate_yul_to_models_skips_unneeded_zero_init_after_branch_write(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_1 {
+                switch var_c_1
+                case 0 {
+                    var_z_1 := 8
+                }
+                default {
+                    var_z_1 := 7
+                    let var_y_2 := add(var_z_1, 1)
+                    var_z_1 := var_y_2
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(
+            result.models[0].assignments,
+            (
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("c"),
+                    output_vars=("z",),
+                    then_branch=branch(
+                        (
+                            ytl.Assignment("z", ytl.IntLit(7)),
+                            ytl.Assignment(
+                                "z",
+                                ytl.Call(
+                                    "add",
+                                    (ytl.Var("z"), ytl.IntLit(1)),
+                                ),
+                            ),
+                        ),
+                        ("z",),
+                    ),
+                    else_branch=branch(
+                        (ytl.Assignment("z", ytl.IntLit(8)),),
+                        ("z",),
+                    ),
+                ),
+            ),
+        )
+
     def test_translate_yul_to_models_scopes_helpers_for_selected_later_duplicate_symbol(
         self,
     ) -> None:
@@ -3440,28 +3513,6 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
 class KnownTranslatorBugRegressionTest(unittest.TestCase):
     # These are known-bad translator behaviors found during review.
     # They should fail loudly until the implementation is fixed.
-
-    def test_translate_yul_to_models_zero_initializes_return_before_localized_read(
-        self,
-    ) -> None:
-        config = make_model_config(("f",))
-        yul = """
-            function fun_f_1() -> var_z_1 {
-                let var_y_2 := add(var_z_1, 1)
-                var_z_1 := var_y_2
-            }
-            """
-
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-
-        self.assertEqual(
-            ytl.evaluate_function_model(result.models[0], ()),
-            (1,),
-        )
 
     def test_translate_yul_to_models_dispatches_modeled_function_named_like_builtin(
         self,
