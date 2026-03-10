@@ -950,6 +950,7 @@ class YulParser:
         """Check if the function at *fn_start* references any identifier in *yul_names*."""
         depth = 0
         started = False
+        skip_until_depth = -1
         for j in range(fn_start, len(self.tokens)):
             k, text = self.tokens[j]
             if k == "{":
@@ -957,8 +958,15 @@ class YulParser:
                 started = True
             elif k == "}":
                 depth -= 1
+                if skip_until_depth >= 0 and depth <= skip_until_depth:
+                    skip_until_depth = -1
+                    continue
                 if started and depth == 0:
                     return False
+            elif skip_until_depth >= 0:
+                continue
+            elif started and k == "ident" and text == "function" and depth >= 1:
+                skip_until_depth = depth
             elif started and k == "ident" and text in yul_names:
                 if j + 1 < len(self.tokens) and self.tokens[j + 1][0] == "(":
                     return True
@@ -2356,9 +2364,20 @@ _BASE_NORM_HELPERS: dict[str, str] = {
 }
 
 
+_RESERVED_LEAN_NAMES: frozenset[str] = frozenset(
+    {"u256", "WORD_MOD"}
+    | set(OP_TO_LEAN_HELPER.values())
+    | set(_BASE_NORM_HELPERS.values())
+)
+
+
 def validate_ident(name: str, *, what: str) -> None:
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
         raise ParseError(f"Invalid {what}: {name!r}")
+    if name in _RESERVED_LEAN_NAMES:
+        raise ParseError(
+            f"Reserved Lean helper name used as {what}: {name!r}"
+        )
 
 
 def collect_ops(expr: Expr) -> list[str]:
@@ -2443,6 +2462,15 @@ def validate_function_model(model: FunctionModel) -> None:
     if len(set(model.return_names)) != len(model.return_names):
         raise ParseError(
             f"Model {model.fn_name!r} has duplicate return names: {model.return_names!r}"
+        )
+    if model.fn_name in OP_TO_LEAN_HELPER:
+        raise ParseError(
+            f"Model name {model.fn_name!r} collides with builtin opcode"
+        )
+    if not model.return_names:
+        raise ParseError(
+            f"Model {model.fn_name!r} has no return variables; "
+            f"restricted-IR functions must return at least one value"
         )
     # Validate all identifiers used as binders.
     for name in model.param_names:
@@ -2828,6 +2856,17 @@ def _collect_repeated_model_calls(
     return [node for node in repeated if isinstance(node, Call)]
 
 
+def _is_component_wrapped_model_call(
+    node: Call, model_call_names: frozenset[str]
+) -> bool:
+    return (
+        re.fullmatch(r"__component_\d+_\d+", node.name) is not None
+        and len(node.args) == 1
+        and isinstance(node.args[0], Call)
+        and node.args[0].name in model_call_names
+    )
+
+
 def _walk_model_calls(
     node: Expr, model_call_names: frozenset[str], counts: Counter[Expr]
 ) -> None:
@@ -2835,6 +2874,14 @@ def _walk_model_calls(
     if isinstance(node, Call):
         if node.name in model_call_names:
             counts[node] += 1
+        elif _is_component_wrapped_model_call(node, model_call_names):
+            # Count the component-wrapped call as a unit and skip recursing
+            # into the inner model call to avoid hoisting bare tuple-returning
+            # calls that only appear inside component projections.
+            counts[node] += 1
+            for arg in node.args[0].args:
+                _walk_model_calls(arg, model_call_names, counts)
+            return
         for arg in node.args:
             _walk_model_calls(arg, model_call_names, counts)
 
@@ -2888,7 +2935,7 @@ def _hoist_repeated_calls_in_expr(
     replacements: dict[Expr, str] = {}
     hoisted: list[Assignment] = []
     for call in repeated_calls:
-        if call.name not in model_call_names:
+        if call.name not in model_call_names and not _is_component_wrapped_model_call(call, model_call_names):
             raise ParseError(f"CSE: refusing to hoist non-model call {call!r}")
         hoisted_name = _gensym("cse")
         hoisted_expr = _replace_expr(call, replacements)
@@ -2964,8 +3011,23 @@ def hoist_repeated_model_calls(
     This keeps hoisting within scopes where the referenced bindings are
     definitely available. Model calls are assumed pure.
     """
-    # Reset CSE counter so each function's hoisted names start at _cse_1.
-    _gensym_counters.pop("cse", None)
+    # Initialize CSE counter past any existing _cse_N assignment targets.
+    max_cse = 0
+    for stmt in model.assignments:
+        if isinstance(stmt, Assignment):
+            m = re.fullmatch(r"_cse_(\d+)", stmt.target)
+            if m:
+                max_cse = max(max_cse, int(m.group(1)))
+        elif isinstance(stmt, ConditionalBlock):
+            for a in stmt.then_branch.assignments:
+                m = re.fullmatch(r"_cse_(\d+)", a.target)
+                if m:
+                    max_cse = max(max_cse, int(m.group(1)))
+            for a in stmt.else_branch.assignments:
+                m = re.fullmatch(r"_cse_(\d+)", a.target)
+                if m:
+                    max_cse = max(max_cse, int(m.group(1)))
+    _gensym_counters["cse"] = max_cse
 
     # -- Pass 1: count occurrences across the entire model -----------------
     counts: Counter[Expr] = Counter()
@@ -2991,7 +3053,7 @@ def hoist_repeated_model_calls(
 
     # Sanity: every hoisted call must be a known-pure model call.
     for call in repeated_global:
-        if call.name not in model_call_names:
+        if call.name not in model_call_names and not _is_component_wrapped_model_call(call, model_call_names):
             raise ParseError(f"CSE: refusing to hoist non-model call {call!r}")
 
     # -- Pass 2: build global replacements and hoisted let-bindings --------

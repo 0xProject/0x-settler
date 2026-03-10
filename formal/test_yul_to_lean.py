@@ -3285,6 +3285,10 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (1,))
 
     def test_find_function_treats_nested_definition_as_reference(self) -> None:
+        # A nested function *definition* named ``helper`` inside fun_pick_1
+        # should NOT count as a reference to the outer ``helper``.  Only
+        # fun_pick_2 actually calls ``helper``, so it should be selected
+        # unambiguously.
         tokens = ytl.tokenize_yul("""
             function helper(var_x_1) -> var_z_2 {
                 var_z_2 := var_x_1
@@ -3302,14 +3306,11 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
             }
             """)
 
-        with self.assertRaisesRegex(
-            ytl.ParseError,
-            "Multiple Yul functions match 'pick'",
-        ):
-            ytl.YulParser(tokens).find_function(
-                "pick",
-                known_yul_names={"helper"},
-            )
+        func = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+        self.assertEqual(func.yul_name, "fun_pick_2")
 
     def test_translate_yul_to_models_scopes_helpers_per_selected_target_object(
         self,
@@ -3528,18 +3529,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        models = {model.fn_name: model for model in result.models}
-        table = ytl.build_model_table(result.models)
-
-        self.assertEqual(
-            ytl.evaluate_function_model(models["f"], (1, 2), model_table=table),
-            (42,),
-        )
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_find_function_ignores_nested_local_function_references(self) -> None:
         tokens = ytl.tokenize_yul("""
