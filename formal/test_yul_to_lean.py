@@ -4768,6 +4768,128 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (9,))
 
+    def test_build_lean_source_separates_extra_lean_defs_from_following_norm_helpers(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+        config = ytl.ModelConfig(
+            function_order=("f",),
+            model_names={"f": "model_f"},
+            header_comment="test",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
+            extra_lean_defs=(
+                "def normBitLengthPlus1 (x : Nat) : Nat := x + 1"
+            ),
+            norm_rewrite=lambda expr: ytl.Call("bitLengthPlus1", (expr,)),
+            inner_fn="f",
+            n_params=None,
+            exact_yul_names=None,
+            keep_solidity_locals=False,
+            hoist_repeated_calls=frozenset(),
+            skip_prune=frozenset(),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+
+        source = ytl.build_lean_source(
+            models=[model],
+            source_path="test-source",
+            namespace="Test",
+            config=config,
+        )
+
+        self.assertIn(
+            "def normBitLengthPlus1 (x : Nat) : Nat := x + 1\n\ndef normLt",
+            source,
+        )
+
+    def test_translate_yul_to_models_rejects_selected_model_call_with_wrong_arity(
+        self,
+    ) -> None:
+        config = make_model_config(("f", "g"))
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                var_z_2 := fun_g_2(var_x_1)
+            }
+
+            function fun_g_2(var_a_3, var_b_4) -> var_r_5 {
+                var_r_5 := add(var_a_3, var_b_4)
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_translate_yul_to_models_rejects_selected_multi_return_call_in_scalar_context(
+        self,
+    ) -> None:
+        config = make_model_config(("f", "g"))
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                var_z_2 := fun_g_2(var_x_1)
+            }
+
+            function fun_g_2(var_a_3) -> var_r_4, var_s_5 {
+                var_r_4 := var_a_3
+                var_s_5 := add(var_a_3, 1)
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_translate_yul_to_models_allows_exact_from_after_constant_true_inlined_leave(
+        self,
+    ) -> None:
+        config = make_model_config(("target",))
+        yul = """
+            function fun_target_1(var_hi_1, var_lo_2) -> var_z_3 {
+                var_z_3 := fun_helper_2(var_hi_1, var_lo_2)
+            }
+
+            function fun_helper_2(var_hi_4, var_lo_5) -> var_z_6 {
+                if 1 {
+                    var_z_6 := 9
+                    leave
+                }
+                let usr$ptr := fun_from_3(0, var_hi_4, var_lo_5)
+                var_z_6 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+            }
+
+            function fun_from_3(var_r_7, var_hi_8, var_lo_9) -> var_r_out_10 {
+                var_r_out_10 := 0
+                mstore(var_r_7, var_hi_8)
+                mstore(add(0x20, var_r_7), var_lo_9)
+                var_r_out_10 := var_r_7
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (2, 3)), (9,))
+        self.assertEqual(ytl.evaluate_function_model(model, (7, 11)), (9,))
+
 
 class KnownOptimizerBugRegressionTest(ModelEquivalenceTestCase):
     # These are known-bad optimizer behaviors found during review.
