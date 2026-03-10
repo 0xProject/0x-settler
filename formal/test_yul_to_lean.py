@@ -3515,6 +3515,124 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
     # These are known-bad translator behaviors found during review.
     # They should fail loudly until the implementation is fixed.
 
+    def test_translate_yul_to_models_preserves_shadowed_conditional_local_binding(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                let usr$tmp := 5
+                if var_c_1 {
+                    let usr$tmp := 7
+                }
+                var_z_2 := usr$tmp
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
+
+    def test_translate_yul_to_models_preserves_shadowed_bare_block_local_inside_if(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                {
+                    let usr$tmp := 5
+                    if var_c_1 {
+                        let usr$tmp := 7
+                    }
+                    var_z_2 := usr$tmp
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
+
+    def test_translate_yul_to_models_allows_conditional_return_write_that_is_later_overwritten(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                if var_c_1 {
+                    var_z_2 := 1
+                }
+                var_z_2 := 2
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (2,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (2,))
+
+    def test_translate_yul_to_models_allows_temporary_reuse_in_disjoint_switch_branches(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                switch var_c_1
+                case 0 {
+                    let expr_1 := 1
+                    var_z_2 := expr_1
+                }
+                default {
+                    let expr_1 := 2
+                    var_z_2 := expr_1
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (1,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (2,))
+
+    def test_translate_yul_to_models_rejects_wrong_builtin_arity(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                var_z_2 := add(1)
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
     def test_translate_yul_to_models_alpha_renames_callee_locals_during_inlining(
         self,
     ) -> None:
