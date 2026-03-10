@@ -3463,6 +3463,196 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             (1,),
         )
 
+    def test_translate_yul_to_models_dispatches_modeled_function_named_like_builtin(
+        self,
+    ) -> None:
+        config = make_model_config(("f", "add"))
+        yul = """
+            function fun_f_1(var_x_1, var_y_2) -> var_z_3 {
+                var_z_3 := fun_add_2(var_x_1, var_y_2)
+            }
+
+            function fun_add_2(var_a_4, var_b_5) -> var_r_6 {
+                var_r_6 := 42
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        models = {model.fn_name: model for model in result.models}
+        table = ytl.build_model_table(result.models)
+
+        self.assertEqual(
+            ytl.evaluate_function_model(models["f"], (1, 2), model_table=table),
+            (42,),
+        )
+
+    def test_find_function_ignores_nested_local_function_references(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                function nested(var_y_5) -> var_w_6 {
+                    var_w_6 := helper(var_y_5)
+                }
+                var_z_4 := 111
+            }
+
+            function fun_pick_2(var_x_7) -> var_z_8 {
+                var_z_8 := 222
+            }
+            """)
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "Multiple Yul functions match 'pick'",
+        ):
+            ytl.YulParser(tokens).find_function(
+                "pick",
+                known_yul_names={"helper"},
+            )
+
+    def test_validate_function_model_rejects_reserved_lean_helper_binder_names(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("u256",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Call("add", (ytl.Var("u256"), ytl.IntLit(1))),
+                ),
+            ),
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.validate_function_model(model)
+
+    def test_translate_yul_to_models_rejects_zero_return_functions(self) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_x_1) {
+                let usr$tmp := add(var_x_1, 1)
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+
+class KnownOptimizerBugRegressionTest(ModelEquivalenceTestCase):
+    # These are known-bad optimizer behaviors found during review.
+    # They should fail loudly until the implementation is fixed.
+
+    def test_hoist_repeated_model_calls_preserves_multi_return_component_projections(
+        self,
+    ) -> None:
+        pair = ytl.FunctionModel(
+            fn_name="pair",
+            param_names=("x",),
+            return_names=("lhs", "rhs"),
+            assignments=(
+                ytl.Assignment("lhs", ytl.Var("x")),
+                ytl.Assignment(
+                    "rhs",
+                    ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1))),
+                ),
+            ),
+        )
+        before = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("p",),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment(
+                    "out",
+                    ytl.Call(
+                        "add",
+                        (
+                            ytl.Call(
+                                "__component_0_2",
+                                (ytl.Call("pair", (ytl.Var("p"),)),),
+                            ),
+                            ytl.Call(
+                                "__component_0_2",
+                                (ytl.Call("pair", (ytl.Var("p"),)),),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        after = ytl.hoist_repeated_model_calls(
+            before,
+            model_call_names=frozenset({"pair"}),
+        )
+
+        self.assertModelsEquivalent(
+            before,
+            after,
+            before_table=ytl.build_model_table([pair, before]),
+            after_table=ytl.build_model_table([pair, after]),
+        )
+
+    def test_hoist_repeated_model_calls_avoids_generated_name_collisions(
+        self,
+    ) -> None:
+        inner = ytl.FunctionModel(
+            fn_name="inner",
+            param_names=("x",),
+            return_names=("ret",),
+            assignments=(
+                ytl.Assignment(
+                    "ret",
+                    ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1))),
+                ),
+            ),
+        )
+        before = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("p",),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment("_cse_1", ytl.IntLit(99)),
+                ytl.Assignment("a", ytl.Call("inner", (ytl.Var("p"),))),
+                ytl.Assignment(
+                    "b",
+                    ytl.Call(
+                        "add",
+                        (
+                            ytl.Var("_cse_1"),
+                            ytl.Call("inner", (ytl.Var("p"),)),
+                        ),
+                    ),
+                ),
+                ytl.Assignment("out", ytl.Var("b")),
+            ),
+        )
+
+        after = ytl.hoist_repeated_model_calls(
+            before,
+            model_call_names=frozenset({"inner"}),
+        )
+
+        self.assertModelsEquivalent(
+            before,
+            after,
+            before_table=ytl.build_model_table([inner, before]),
+            after_table=ytl.build_model_table([inner, after]),
+        )
+
 
 class LeanSourceDeterminismTest(unittest.TestCase):
     CONFIG = make_model_config(("f",))
