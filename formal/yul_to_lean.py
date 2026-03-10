@@ -950,45 +950,101 @@ class YulParser:
         """Check if the function at *fn_start* references any identifier in *yul_names*.
 
         Nested function definitions are not counted as direct references, but
-        if a nested function references a known name *and* the outer body calls
-        that nested function, the outer function is considered to transitively
-        depend on the known name.
+        if a nested function transitively references a known name *and* the
+        outer body calls that nested function, the outer function is considered
+        to depend on the known name.  This is applied recursively so that
+        deeply nested but dead code paths are not falsely counted.
         """
-        augmented = set(yul_names)
+        # Find the opening brace of the function body.
+        body_start = fn_start
+        while body_start < len(self.tokens) and self.tokens[body_start][0] != "{":
+            body_start += 1
+        if body_start >= len(self.tokens):
+            return False
+        return self._scope_references_any(body_start, yul_names)
+
+    def _scope_references_any(self, brace_start: int, yul_names: set[str]) -> bool:
+        """Check if the ``{``-delimited scope starting at *brace_start* references *yul_names*.
+
+        This is the recursive workhorse for ``_body_references_any``.  It uses
+        a two-pass strategy:
+
+        1. Identify all immediate nested function definitions, find their body
+           spans, and recursively determine which ones reference *yul_names*.
+           Build an augmented name set that includes those nested function
+           names.
+        2. Scan the outer body tokens (skipping nested function spans) for
+           calls to any name in the augmented set.
+
+        The two-pass design handles forward references (calls that appear
+        before the nested function definition in the token stream) and the
+        recursion correctly ignores dead nested-within-nested code paths.
+        """
+        # -- Pass 1: collect nested function spans and determine which
+        #    transitively reference yul_names. ----------------------------
+        nested_spans: list[tuple[int, int]] = []          # (start, end) inclusive
+        nested_referencing: set[str] = set()               # names to augment
+
         depth = 0
-        started = False
-        skip_until_depth = -1
-        nested_fn_name: str | None = None
-        nested_refs_known = False
-        for j in range(fn_start, len(self.tokens)):
+        i = brace_start
+        while i < len(self.tokens):
+            k, text = self.tokens[i]
+            if k == "{":
+                depth += 1
+            elif k == "}":
+                depth -= 1
+                if depth == 0:
+                    # End of the scope we're analyzing.
+                    break
+            elif depth == 1 and k == "ident" and text == "function":
+                # Found a nested function at the immediate scope level.
+                nested_name = self._function_name_at(i)
+                # Find the nested function's opening brace.
+                nb = i + 1
+                while nb < len(self.tokens) and self.tokens[nb][0] != "{":
+                    nb += 1
+                if nb >= len(self.tokens):
+                    break
+                # Find the matching closing brace.
+                inner_depth = 0
+                ne = nb
+                while ne < len(self.tokens):
+                    ik, _ = self.tokens[ne]
+                    if ik == "{":
+                        inner_depth += 1
+                    elif ik == "}":
+                        inner_depth -= 1
+                        if inner_depth == 0:
+                            break
+                    ne += 1
+                nested_spans.append((i, ne))
+                # Recurse into the nested function to check references.
+                if self._scope_references_any(nb, yul_names) and nested_name is not None:
+                    nested_referencing.add(nested_name)
+                i = ne + 1
+                continue
+            i += 1
+
+        # -- Pass 2: scan outer body (excluding nested spans) for calls to
+        #    augmented name set. ------------------------------------------
+        augmented = yul_names | nested_referencing
+        span_set = set()
+        for s, e in nested_spans:
+            for idx in range(s, e + 1):
+                span_set.add(idx)
+
+        depth = 0
+        for j in range(brace_start, len(self.tokens)):
             k, text = self.tokens[j]
             if k == "{":
                 depth += 1
-                started = True
             elif k == "}":
                 depth -= 1
-                if skip_until_depth >= 0 and depth <= skip_until_depth:
-                    # Exiting a nested function — promote its name if it
-                    # references any known identifier.
-                    if nested_refs_known and nested_fn_name is not None:
-                        augmented.add(nested_fn_name)
-                    skip_until_depth = -1
-                    nested_fn_name = None
-                    nested_refs_known = False
-                    continue
-                if started and depth == 0:
+                if depth == 0:
                     return False
-            elif skip_until_depth >= 0:
-                # Inside a nested function body — check for transitive refs.
-                if k == "ident" and text in augmented:
-                    if j + 1 < len(self.tokens) and self.tokens[j + 1][0] == "(":
-                        nested_refs_known = True
+            elif j in span_set:
                 continue
-            elif started and k == "ident" and text == "function" and depth >= 1:
-                skip_until_depth = depth
-                nested_fn_name = self._function_name_at(j)
-                nested_refs_known = False
-            elif started and k == "ident" and text in augmented:
+            elif k == "ident" and text in augmented:
                 if j + 1 < len(self.tokens) and self.tokens[j + 1][0] == "(":
                     return True
         return False
@@ -3045,6 +3101,10 @@ def hoist_repeated_model_calls(
             if m:
                 max_cse = max(max_cse, int(m.group(1)))
         elif isinstance(stmt, ConditionalBlock):
+            for var in stmt.output_vars:
+                m = re.fullmatch(r"_cse_(\d+)", var)
+                if m:
+                    max_cse = max(max_cse, int(m.group(1)))
             for a in stmt.then_branch.assignments:
                 m = re.fullmatch(r"_cse_(\d+)", a.target)
                 if m:
@@ -3570,11 +3630,21 @@ def build_lean_source(
                         f"{model.fn_name!r}: {name!r}"
                     )
             for stmt in model.assignments:
-                if isinstance(stmt, Assignment) and stmt.target in extra_reserved:
-                    raise ParseError(
-                        f"Reserved Lean helper name used as assignment target in "
-                        f"{model.fn_name!r}: {stmt.target!r}"
-                    )
+                targets: list[str] = []
+                if isinstance(stmt, Assignment):
+                    targets.append(stmt.target)
+                elif isinstance(stmt, ConditionalBlock):
+                    targets.extend(stmt.output_vars)
+                    for a in stmt.then_branch.assignments:
+                        targets.append(a.target)
+                    for a in stmt.else_branch.assignments:
+                        targets.append(a.target)
+                for t in targets:
+                    if t in extra_reserved:
+                        raise ParseError(
+                            f"Reserved Lean helper name used as binder in "
+                            f"{model.fn_name!r}: {t!r}"
+                        )
 
     modeled_functions = ", ".join(model.fn_name for model in models)
 
