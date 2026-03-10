@@ -3311,11 +3311,6 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
                 known_yul_names={"helper"},
             )
 
-
-class KnownTranslatorBugRegressionTest(unittest.TestCase):
-    # These are known-bad translator behaviors found during review.
-    # They should fail loudly until the implementation is fixed.
-
     def test_translate_yul_to_models_scopes_helpers_per_selected_target_object(
         self,
     ) -> None:
@@ -3374,6 +3369,76 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(
             ytl.evaluate_function_model(result.models[0], ()),
             (8,),
+        )
+
+
+class KnownTranslatorBugRegressionTest(unittest.TestCase):
+    # These are known-bad translator behaviors found during review.
+    # They should fail loudly until the implementation is fixed.
+
+    def test_translate_yul_to_models_zero_initializes_return_before_self_read(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_1 {
+                var_z_1 := add(var_z_1, 1)
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[0], ()),
+            (1,),
+        )
+
+    def test_translate_yul_to_models_scopes_helpers_for_selected_later_duplicate_symbol(
+        self,
+    ) -> None:
+        config = make_model_config(("inner", "outer"))
+        yul = """
+            object "A" {
+                function fun_outer_1() -> var_z_1 {
+                    var_z_1 := 5
+                }
+            }
+
+            object "B" {
+                function fun_inner_2() -> var_i_1 {
+                    var_i_1 := 7
+                }
+
+                function fun_outer_1() -> var_z_2 {
+                    let usr$tmp := fun_inner_2()
+                    var_z_2 := helperB()
+                }
+
+                function helperB() -> var_r_3 {
+                    var_r_3 := 22
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        models = {model.fn_name: model for model in result.models}
+        table = ytl.build_model_table(result.models)
+
+        self.assertEqual(
+            ytl.evaluate_function_model(models["inner"], (), model_table=table),
+            (7,),
+        )
+        self.assertEqual(
+            ytl.evaluate_function_model(models["outer"], (), model_table=table),
+            (22,),
         )
 
 
