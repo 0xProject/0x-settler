@@ -275,6 +275,7 @@ class YulFunction:
     # Bare expression-statements that are not part of the supported memory
     # subset. The translator rejects any function that still contains them.
     expr_stmts: list[Expr] | None = None
+    token_idx: int | None = None
 
     @property
     def param(self) -> str:
@@ -781,6 +782,7 @@ class YulParser:
         self._skip_until_matching_brace()
 
     def parse_function(self) -> YulFunction:
+        token_idx = self.i
         fn_kw = self._expect_ident()
         if fn_kw != "function":
             raise ParseError(f"Expected 'function', got {fn_kw!r}")
@@ -815,6 +817,7 @@ class YulParser:
             rets=rets,
             assignments=assignments,
             expr_stmts=self._expr_stmts if self._expr_stmts else None,
+            token_idx=token_idx,
         )
 
     def _count_params_at(self, idx: int) -> int:
@@ -1823,7 +1826,10 @@ def yul_function_to_model(
         has_unconditional_first = False
         for s in yf.assignments:
             if isinstance(s, PlainAssignment) and s.target == ret:
-                has_unconditional_first = True
+                if ret in _expr_vars(s.expr):
+                    needs_zero_init.add(ret)
+                else:
+                    has_unconditional_first = True
                 break
             if isinstance(s, ParsedIfBlock):
                 if_targets = {b.target for b in s.body}
@@ -2997,12 +3003,7 @@ def prepare_translation(
         yf = yul_functions[sol_name]
         yul_name = yf.yul_name
 
-        fn_token_idx = None
-        for idx in range(len(tokens) - 1):
-            if (tokens[idx] == ("ident", "function")
-                    and tokens[idx + 1] == ("ident", yul_name)):
-                fn_token_idx = idx
-                break
+        fn_token_idx = yf.token_idx
         if fn_token_idx is not None:
             obj_start, obj_end = _find_enclosing_block_range(
                 tokens, fn_token_idx
