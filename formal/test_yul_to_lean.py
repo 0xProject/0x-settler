@@ -3592,6 +3592,41 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 exclude_known=True,
             )
 
+    def test_find_function_tracks_nested_helper_called_within_same_block(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_c_1, var_x_3) -> var_z_4 {
+                if var_c_1 {
+                    function nested(var_y_5) -> var_w_6 {
+                        var_w_6 := helper(var_y_5)
+                    }
+                    var_z_4 := nested(var_x_3)
+                }
+            }
+
+            function fun_pick_2(var_c_7, var_x_8) -> var_z_9 {
+                var_z_9 := 7
+            }
+            """)
+
+        func = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+        self.assertEqual(func.yul_name, "fun_pick_1")
+
+        leaf = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+            exclude_known=True,
+        )
+        self.assertEqual(leaf.yul_name, "fun_pick_2")
+
     def test_find_function_ignores_dead_deeper_nested_helper_dependencies(
         self,
     ) -> None:
