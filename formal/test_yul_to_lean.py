@@ -3898,6 +3898,41 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             (1,),
         )
 
+    def test_translate_yul_to_models_prefers_nested_local_helper_over_shadowed_sibling(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("outer",),
+            exact_yul_names={"outer": "fun_outer_1"},
+        )
+        yul = """
+            object "o" {
+                code {
+                    function helper() -> var_r_0 {
+                        var_r_0 := 100
+                    }
+
+                    function fun_outer_1() -> var_z_1 {
+                        function helper() -> var_r_2 {
+                            var_r_2 := 7
+                        }
+                        var_z_1 := helper()
+                    }
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[0], ()),
+            (7,),
+        )
+
     def test_translate_yul_to_models_rejects_duplicate_helper_names_in_same_scope(
         self,
     ) -> None:
@@ -4310,6 +4345,53 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 "pick",
                 known_yul_names={"helper"},
             )
+
+    def test_find_function_ignores_nested_public_name_candidates(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper() -> var_h_1 {
+                var_h_1 := 99
+            }
+
+            function fun_pick_1() -> var_z_1 {
+                function fun_pick_2() -> var_r_2 {
+                    var_r_2 := helper()
+                }
+                var_z_1 := 7
+            }
+
+            function fun_pick_3() -> var_z_3 {
+                var_z_3 := helper()
+            }
+            """)
+
+        found = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+
+        self.assertEqual(found.yul_name, "fun_pick_3")
+
+    def test_find_exact_function_ignores_nested_local_name_collisions(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_pick_1() -> var_z_1 {
+                var_z_1 := 11
+            }
+
+            function fun_outer_2() -> var_r_2 {
+                function fun_pick_1() -> var_s_3 {
+                    var_s_3 := 99
+                }
+                var_r_2 := fun_pick_1()
+            }
+            """)
+
+        found = ytl.YulParser(tokens).find_exact_function("fun_pick_1")
+
+        self.assertEqual(found.rets, ["var_z_1"])
+        self.assertEqual(
+            found.assignments,
+            [ytl.PlainAssignment("var_z_1", ytl.IntLit(11))],
+        )
 
     def test_validate_function_model_rejects_reserved_lean_helper_binder_names(
         self,
