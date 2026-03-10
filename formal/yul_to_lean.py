@@ -996,8 +996,8 @@ class YulParser:
                 if depth == 0:
                     # End of the scope we're analyzing.
                     break
-            elif depth == 1 and k == "ident" and text == "function":
-                # Found a nested function at the immediate scope level.
+            elif depth >= 1 and k == "ident" and text == "function":
+                # Found a nested function definition inside this scope.
                 nested_name = self._function_name_at(i)
                 # Find the nested function's opening brace.
                 nb = i + 1
@@ -3623,6 +3623,8 @@ def build_lean_source(
     if config.extra_norm_ops:
         extra_reserved = frozenset(config.extra_norm_ops.values())
         for model in models:
+            if model.fn_name in config.skip_norm:
+                continue
             for name in (*model.param_names, *model.return_names):
                 if name in extra_reserved:
                     raise ParseError(
