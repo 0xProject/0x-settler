@@ -1028,10 +1028,20 @@ class YulParser:
             i += 1
 
         # Determine which local functions transitively reference yul_names.
+        # Fixed-point iteration: sibling local functions are visible to each
+        # other, so if nested2 calls nested1 and nested1 calls helper, nested2
+        # transitively references helper.  Each round checks remaining
+        # functions against yul_names augmented with already-promoted siblings.
         referencing: set[str] = set()
-        for name, body_brace in local_fns.items():
-            if self._scope_references_any(body_brace, yul_names):
-                referencing.add(name)
+        changed = True
+        while changed:
+            changed = False
+            for name, body_brace in local_fns.items():
+                if name in referencing:
+                    continue
+                if self._scope_references_any(body_brace, yul_names | referencing):
+                    referencing.add(name)
+                    changed = True
 
         # Local function names shadow external names of the same spelling.
         augmented = (yul_names - set(local_fns)) | referencing
