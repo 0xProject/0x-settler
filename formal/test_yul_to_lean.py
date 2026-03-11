@@ -5763,6 +5763,82 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 config=config,
             )
 
+    def test_build_lean_source_rejects_generator_label_newline_injection(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+        config = ytl.ModelConfig(
+            function_order=("f",),
+            model_names={"f": "model_f"},
+            header_comment="test",
+            generator_label=(
+                "formal/test_yul_to_lean.py\nopen scoped BigOperators"
+            ),
+            extra_norm_ops={},
+            extra_lean_defs="",
+            norm_rewrite=None,
+            inner_fn="f",
+            n_params=None,
+            exact_yul_names=None,
+            keep_solidity_locals=False,
+            hoist_repeated_calls=frozenset(),
+            skip_prune=frozenset(),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[model],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
+    def test_build_lean_source_rejects_header_comment_terminator_injection(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+        config = ytl.ModelConfig(
+            function_order=("f",),
+            model_names={"f": "model_f"},
+            header_comment="test -/\nopen scoped BigOperators\n/--",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={},
+            extra_lean_defs="",
+            norm_rewrite=None,
+            inner_fn="f",
+            n_params=None,
+            exact_yul_names=None,
+            keep_solidity_locals=False,
+            hoist_repeated_calls=frozenset(),
+            skip_prune=frozenset(),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[model],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
     def test_translate_yul_to_models_rejects_mutually_recursive_selected_model_calls(
         self,
     ) -> None:
@@ -5819,6 +5895,43 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 config=config,
             )
 
+    def test_build_lean_source_rejects_lean_keyword_generated_model_name(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+        config = ytl.ModelConfig(
+            function_order=("f",),
+            model_names={"f": "if"},
+            header_comment="test",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={},
+            extra_lean_defs="",
+            norm_rewrite=None,
+            inner_fn="f",
+            n_params=None,
+            exact_yul_names=None,
+            keep_solidity_locals=False,
+            hoist_repeated_calls=frozenset(),
+            skip_prune=frozenset(),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[model],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
     def test_build_lean_source_rejects_generated_model_name_collision_with_builtin_helper(
         self,
     ) -> None:
@@ -5847,6 +5960,23 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             default_output="",
             cli_description="test",
         )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[model],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
+    def test_build_lean_source_rejects_missing_model_name_mapping(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="g",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+        config = make_model_config(("f",))
 
         with self.assertRaises(ytl.ParseError):
             ytl.build_lean_source(
