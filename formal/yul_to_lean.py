@@ -630,6 +630,34 @@ class YulParser:
                 if keyword == "if":
                     self._pop()  # consume 'if'
                     condition = self._parse_expr()
+                    const_cond = _try_const_eval(condition)
+                    if const_cond is not None and const_cond == 0:
+                        # Constant-false: skip the entire body (parse
+                        # but discard).  Use allow_control_flow=True to
+                        # tolerate memory writes in dead code.
+                        self._expect("{")
+                        _dead_body, _dead_leave = self._parse_assignment_loop(
+                            allow_control_flow=True,
+                            context="if-body (dead, constant-false)",
+                        )
+                        self._expect("}")
+                        continue
+                    if const_cond is not None and const_cond != 0:
+                        # Constant-true: flatten the body into the outer
+                        # scope.  The body is treated as straight-line
+                        # code (allow_control_flow matches the outer).
+                        self._expect("{")
+                        live_body, live_leave = self._parse_assignment_loop(
+                            allow_control_flow=allow_control_flow,
+                            context="if-body (live, constant-true)",
+                        )
+                        self._expect("}")
+                        results.extend(live_body)
+                        if live_leave:
+                            has_leave = True
+                            self._skip_to_end_of_current_block()
+                            break
+                        continue
                     self._expect("{")
                     body, body_leave = self._parse_assignment_loop(
                         allow_control_flow=False,
@@ -650,6 +678,44 @@ class YulParser:
                 else:  # switch
                     self._pop()  # consume 'switch'
                     condition = self._parse_expr()
+                    const_disc = _try_const_eval(condition)
+                    if const_disc is not None:
+                        # Constant discriminant: parse all branches but
+                        # only keep the matching one (flattened).
+                        live_branch_stmts: list[RawStatement] = []
+                        live_leave = False
+                        found_live = False
+                        while (
+                            not self._at_end()
+                            and self._peek_kind() == "ident"
+                            and self.tokens[self.i][1] in ("case", "default")
+                        ):
+                            br = self.tokens[self.i][1]
+                            self._pop()
+                            if br == "case":
+                                case_val = self._parse_expr()
+                                cv = _try_const_eval(case_val)
+                                is_live = (cv == const_disc) and not found_live
+                            else:
+                                is_live = not found_live
+                            self._expect("{")
+                            br_body, br_leave = self._parse_assignment_loop(
+                                allow_control_flow=allow_control_flow if is_live else True,
+                                context=f"switch branch ({'live' if is_live else 'dead'})",
+                            )
+                            self._expect("}")
+                            if is_live:
+                                live_branch_stmts = br_body
+                                live_leave = br_leave
+                                found_live = True
+                            if br == "default":
+                                break
+                        results.extend(live_branch_stmts)
+                        if live_leave:
+                            has_leave = True
+                            self._skip_to_end_of_current_block()
+                            break
+                        continue
                     # We support exactly one form of switch:
                     #   switch e case 0 { else_body } default { if_body }
                     # (branches may appear in either order).  Anything else
