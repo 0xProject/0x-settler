@@ -1528,12 +1528,36 @@ def _inline_single_call(
 
     for stmt in fn.assignments:
         if isinstance(stmt, ParsedIfBlock):
+            # Constant-fold leave-bearing switch/if-else before rejecting.
+            # If the leave branch is dead, rewrite to a non-leave block.
             if stmt.has_leave and stmt.else_body is not None:
-                raise ParseError(
-                    f"Function {fn.yul_name!r} contains a leave-bearing switch/if-else. "
-                    "Only a single top-level 'if cond { ... leave }' is supported "
-                    "during helper inlining."
-                )
+                pre_cond = substitute_expr(stmt.condition, subst)
+                pre_const = _try_const_eval(pre_cond)
+                if pre_const is not None and pre_const != 0:
+                    # Condition is constant-true: the then-body (with leave)
+                    # is live, the else-body is dead.  Keep as leave block
+                    # without else_body.
+                    stmt = ParsedIfBlock(
+                        condition=stmt.condition,
+                        body=stmt.body,
+                        has_leave=True,
+                        else_body=None,
+                    )
+                elif pre_const is not None and pre_const == 0:
+                    # Condition is constant-false: the then-body (with leave)
+                    # is dead.  Replace with the else-body as a non-leave block.
+                    stmt = ParsedIfBlock(
+                        condition=stmt.condition,
+                        body=stmt.else_body,
+                        has_leave=False,
+                        else_body=None,
+                    )
+                else:
+                    raise ParseError(
+                        f"Function {fn.yul_name!r} contains a leave-bearing switch/if-else. "
+                        "Only a single top-level 'if cond { ... leave }' is supported "
+                        "during helper inlining."
+                    )
             if stmt.has_leave and leave_cond is not None:
                 raise ParseError(
                     f"Function {fn.yul_name!r} contains multiple leave sites. "
@@ -4007,15 +4031,16 @@ def build_lean_source(
 
     # Build effective reserved set for model names — only include norm
     # helpers when norm models will actually be emitted.
-    _model_name_reserved: set[str] = (
+    _base_reserved: set[str] = (
         {"u256", "WORD_MOD"}
         | set(OP_TO_LEAN_HELPER.values())
         | _LEAN_KEYWORDS
     )
+    _norm_reserved: set[str] = set()
     if emit_norm:
-        _model_name_reserved |= set(_BASE_NORM_HELPERS.values())
+        _norm_reserved |= set(_BASE_NORM_HELPERS.values())
         if config.extra_norm_ops:
-            _model_name_reserved |= set(config.extra_norm_ops.values())
+            _norm_reserved |= set(config.extra_norm_ops.values())
 
     # Build the set of all Lean def names that will be emitted.
     generated_def_names: set[str] = set()
@@ -4029,7 +4054,12 @@ def build_lean_source(
             raise ParseError(
                 f"Invalid generated model name for {model.fn_name!r}: {base!r}"
             )
-        if base in _model_name_reserved:
+        # Models in skip_norm don't emit a norm def, so their base name
+        # doesn't collide with norm helpers — only check base reserved.
+        effective_reserved = _base_reserved
+        if model.fn_name not in config.skip_norm:
+            effective_reserved = _base_reserved | _norm_reserved
+        if base in effective_reserved:
             raise ParseError(
                 f"Reserved name used as model name for {model.fn_name!r}: {base!r}"
             )
