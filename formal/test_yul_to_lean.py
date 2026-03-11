@@ -3734,6 +3734,52 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (2,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (2,))
 
+    def test_translate_yul_to_models_preserves_temporary_snapshot_across_conditional_parameter_rebind(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                let expr_1 := add(var_x_1, 1)
+                if 1 {
+                    var_x_1 := 2
+                }
+                var_z_2 := expr_1
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (1,))
+        self.assertEqual(ytl.evaluate_function_model(model, (5,)), (6,))
+
+    def test_translate_yul_to_models_preserves_temporary_snapshot_across_zero_init_return_rebind(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                let expr_1 := add(var_x_1, var_z_2)
+                var_z_2 := 5
+                var_z_2 := expr_1
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
+        self.assertEqual(ytl.evaluate_function_model(model, (5,)), (5,))
+
     def test_translate_yul_to_models_allows_temporary_reuse_in_disjoint_switch_branches(
         self,
     ) -> None:
