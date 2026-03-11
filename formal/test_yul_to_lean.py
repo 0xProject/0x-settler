@@ -5162,6 +5162,37 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (9,))
 
+    def test_translate_yul_to_models_allows_constant_true_switch_with_dead_leave_branch_in_helper(
+        self,
+    ) -> None:
+        config = make_model_config(("target",))
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := fun_helper_2(var_x_1)
+            }
+
+            function fun_helper_2(var_a_3) -> var_r_4 {
+                switch 1
+                case 0 {
+                    var_r_4 := 7
+                    leave
+                }
+                default {
+                    var_r_4 := add(var_a_3, 1)
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (1,))
+        self.assertEqual(ytl.evaluate_function_model(model, (9,)), (10,))
+
     def test_build_lean_source_separates_extra_lean_defs_from_following_norm_helpers(
         self,
     ) -> None:
@@ -5555,6 +5586,56 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         self.assertIn("def normBitLengthPlus1_evm", source)
         self.assertNotIn("\ndef normBitLengthPlus1 ", source)
+
+    def test_build_lean_source_allows_skipped_norm_model_name_when_other_models_emit_norm_defs(
+        self,
+    ) -> None:
+        config = ytl.ModelConfig(
+            function_order=("f", "g"),
+            model_names={"f": "normAdd", "g": "model_g"},
+            header_comment="test",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={},
+            extra_lean_defs="",
+            norm_rewrite=None,
+            inner_fn="f",
+            skip_norm=frozenset({"f"}),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+        models = [
+            ytl.FunctionModel(
+                fn_name="f",
+                param_names=("x",),
+                return_names=("z",),
+                assignments=(ytl.Assignment("z", ytl.Var("x")),),
+            ),
+            ytl.FunctionModel(
+                fn_name="g",
+                param_names=("y",),
+                return_names=("w",),
+                assignments=(ytl.Assignment("w", ytl.Var("y")),),
+            ),
+        ]
+
+        source = ytl.build_lean_source(
+            models=models,
+            source_path="test-source",
+            namespace="Test",
+            config=config,
+        )
+
+        self.assertIn("def normAdd_evm (x : Nat) : Nat :=", source)
+        self.assertNotIn(
+            "/-- Normalized auto-generated model of `f` on Nat arithmetic. -/",
+            source,
+        )
+        self.assertIn(
+            "/-- Normalized auto-generated model of `g` on Nat arithmetic. -/",
+            source,
+        )
 
     def test_translate_yul_to_models_allows_constant_false_top_level_memory_write_branch(
         self,
