@@ -303,7 +303,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     error ThresholdTooLow(uint256 threshold);
     error NotUnanimous(bytes32 txHash);
     error TxHashNotApproved(bytes32 txHash);
-    error ForbiddenCall(uint256 callIndex, address target, bytes data);
+    error ConfusedDeputy(uint256 callIndex, address target, bytes data);
 
     mapping(bytes32 => uint256) public timelockEnd;
     address public lockedDownBy;
@@ -435,7 +435,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                     && ((data.length >= 356 && uint32(bytes4(data)) == uint32(this.checkTransaction.selector))
                         || uint32(bytes4(data)) == uint32(this.checkAfterExecution.selector))
             ) {
-                revert ForbiddenCall(callsCount, to, data);
+                revert ConfusedDeputy(callsCount, to, data);
             }
             // Transactions containing calls to `this.unlock()` must be unanimous
             requireUnanimity =
