@@ -12,33 +12,9 @@
   In `formal/yul_to_lean.py`, `xor(1, 2)` and `helper()` both flow through the same unknown-call path; there is no builtin-specific translator branch before emission.
   Remaining coverage: `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_rejects_unresolved_call_target` still covers the same missing unknown-call rejection.
 
-- Deleted `KnownTranslatorBugRegressionTest.test_find_function_rejects_when_requested_arity_matches_no_candidate`.
-  It exercises the same missing `find_function(..., n_params=...)` enforcement as the simpler single-candidate mismatch case, just with an extra `known_yul_names` disambiguation layer.
-  Remaining coverage: `KnownTranslatorBugRegressionTest.test_find_function_rejects_nonmatching_param_count_even_when_unique` still covers the same missing requested-arity rejection in `YulParser.find_function`.
-
-- Deleted `KnownTranslatorBugRegressionTest.test_find_function_ignores_constant_switch_helper_references`.
-  In `YulParser._scope_references_any`, both `if 0 { helper() }` and `switch 1 case 0 { helper() } default { ... }` fail for the same reason: the scanner recursively visits every sub-block without switch-specific handling or constant-condition pruning.
-  Remaining coverage: `KnownTranslatorBugRegressionTest.test_find_function_ignores_constant_false_helper_references` still covers the same missing dead-branch reference pruning in `YulParser.find_function`.
-
-- Deleted `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_rejects_selected_projection_when_callee_returns_too_many_values`.
-  It exercises the same missing exact return-arity validation for selected-model `__component_N_M(...)` projections as the simpler two-targets-vs-one-return mismatch case; `translate_yul_to_models` never checks that the selected callee's arity matches the wrapper total before handing the malformed projection downstream.
-  Remaining coverage: `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_rejects_selected_projection_when_callee_returns_too_few_values` still covers the same missing selected-model projection arity check.
-
-- Deleted `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_preserves_shadowed_conditional_local_binding`.
-  It exercises the same top-level conditional shadowing defect as the stronger variant where an outer write happens before the later shadowing `let`; both flow through the same `ParsedIfBlock` to `yul_function_to_model` conditional-branch path, but the remaining test also proves the earlier outer assignment is preserved.
-  Remaining coverage: `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_preserves_outer_if_assignment_before_later_shadowing_top_level_let` still covers the same missing top-level branch-shadowing handling in `yul_function_to_model`.
-
 - Deleted `KnownTranslatorBugRegressionTest.test_find_function_tracks_transitive_nested_helper_called_before_definition`.
   In `YulParser._scope_references_any`, local function discovery and loose-call collection are order-insensitive within a block, so calling `nested(...)` before its definition exercises the same transitive dependency scan as the simpler after-definition case.
   Remaining coverage: `KnownTranslatorBugRegressionTest.test_find_function_tracks_transitive_sibling_local_helper_dependencies` still covers the same missing transitive nested-helper reference handling in `YulParser.find_function`, with an extra local-helper hop.
-
-- Deleted `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_preserves_outer_switch_branch_assignment_before_later_shadowing_let`.
-  The defect is the missing treatment of a later branch-local `let` as a shadowing declaration instead of a reassignment to the outer variable. In `formal/yul_to_lean.py`, both the `if` and `switch` forms parse the branch body through the same branch-local statement parser before `switch` is lowered to `ParsedIfBlock`.
-  Remaining coverage: `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_preserves_outer_if_assignment_before_later_shadowing_top_level_let` still covers the same missing branch-local shadowing handling in `yul_function_to_model`.
-
-- Deleted `KnownTranslatorBugRegressionTest.test_find_function_ignores_dead_helper_reference_after_top_level_leave`.
-  A top-level `leave` is the simpler subset of the same dead-code-after-termination bug already exercised by the constant-true `if { leave }` variant. Both regressions fail because `YulParser._scope_references_any` keeps scanning loose calls after control flow that must terminate the function.
-  Remaining coverage: `KnownTranslatorBugRegressionTest.test_find_function_ignores_dead_helper_reference_after_constant_true_if_leave` still covers the same missing dead-code pruning after guaranteed `leave` in `YulParser.find_function`.
 
 - Deleted `KnownTranslatorBugRegressionTest.test_find_function_ignores_dead_nested_helper_inside_deeper_block`.
   In `YulParser._scope_references_any`, the deeper `if { ... }` wrapper only adds one recursive sub-block hop before reaching the same "local function body references helper but no loose call to that local function exists" logic as the simpler top-level case.
@@ -47,7 +23,3 @@
 - Deleted `KnownTranslatorBugRegressionTest.test_find_function_tracks_transitive_nested_local_helper_dependencies`.
   It exercises the same local-function reference promotion in `YulParser._scope_references_any` as the stronger sibling-chain variant, just with one fewer hop. If the fixed-point promotion handles `nested2 -> nested1 -> helper`, it necessarily handles the simpler `nested -> helper` case too.
   Remaining coverage: `KnownTranslatorBugRegressionTest.test_find_function_tracks_transitive_sibling_local_helper_dependencies` still covers the same missing transitive nested-helper promotion in `YulParser.find_function`.
-
-- Deleted `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_allows_constant_switch_case_memory_write_branch`.
-  Both the `switch 0 { mstore(...) }` and `if 0 { mstore(...) }` regressions fail in the same parser gate: `_parse_assignment_loop(..., allow_control_flow=False)` rejects conditional `mstore` before any constant-condition simplification happens.
-  Remaining coverage: `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_allows_constant_false_top_level_memory_write_branch` still covers the same missing constant-dead conditional-memory-write pruning in `translate_yul_to_models`.

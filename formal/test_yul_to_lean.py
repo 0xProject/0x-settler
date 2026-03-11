@@ -3583,6 +3583,30 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
 
+    def test_translate_yul_to_models_preserves_shadowed_conditional_local_binding(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                let usr$tmp := 5
+                if var_c_1 {
+                    let usr$tmp := 7
+                }
+                var_z_2 := usr$tmp
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
+
     def test_translate_yul_to_models_preserves_outer_assignment_before_later_shadowing_block_let(
         self,
     ) -> None:
@@ -3658,6 +3682,34 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+
+    def test_translate_yul_to_models_preserves_outer_switch_branch_assignment_before_later_shadowing_let(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                let usr$x := 5
+                switch var_c_1
+                case 0 {
+                    usr$x := 7
+                    let usr$x := 9
+                }
+                default {
+                }
+                var_z_2 := usr$x
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (7,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
 
     def test_translate_yul_to_models_allows_conditional_return_write_that_is_later_overwritten(
         self,
@@ -4131,6 +4183,30 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         with self.assertRaises(ytl.ParseError):
             ytl.YulParser(tokens).find_function("dup", n_params=1)
 
+    def test_find_function_rejects_when_requested_arity_matches_no_candidate(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_a_3, var_b_4) -> var_z_5 {
+                var_z_5 := helper(var_a_3)
+            }
+
+            function fun_pick_2(var_a_6, var_b_7, var_c_8) -> var_z_9 {
+                var_z_9 := 7
+            }
+            """)
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.YulParser(tokens).find_function(
+                "pick",
+                n_params=1,
+                known_yul_names={"helper"},
+            )
+
     def test_find_function_ignores_constant_false_helper_references(
         self,
     ) -> None:
@@ -4144,6 +4220,42 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                     var_z_4 := helper(var_x_3)
                 }
                 var_z_4 := 111
+            }
+
+            function fun_pick_2(var_x_5) -> var_z_6 {
+                var_z_6 := helper(var_x_5)
+            }
+            """)
+
+        func = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+        self.assertEqual(func.yul_name, "fun_pick_2")
+
+        leaf = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+            exclude_known=True,
+        )
+        self.assertEqual(leaf.yul_name, "fun_pick_1")
+
+    def test_find_function_ignores_constant_switch_helper_references(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                switch 1
+                case 0 {
+                    var_z_4 := helper(var_x_3)
+                }
+                default {
+                    var_z_4 := 111
+                }
             }
 
             function fun_pick_2(var_x_5) -> var_z_6 {
@@ -4813,6 +4925,37 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
+    def test_find_function_ignores_dead_helper_reference_after_top_level_leave(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                leave
+                var_z_4 := helper(var_x_3)
+            }
+
+            function fun_pick_2(var_x_5) -> var_z_6 {
+                var_z_6 := 7
+            }
+            """)
+
+        found = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+        self.assertEqual(found.yul_name, "fun_pick_2")
+
+        leaf = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+            exclude_known=True,
+        )
+        self.assertEqual(leaf.yul_name, "fun_pick_1")
+
     def test_find_function_ignores_dead_helper_reference_after_constant_true_if_leave(
         self,
     ) -> None:
@@ -5080,6 +5223,30 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
+    def test_translate_yul_to_models_rejects_selected_projection_when_callee_returns_too_many_values(
+        self,
+    ) -> None:
+        config = make_model_config(("f", "g"))
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                let usr$a, usr$b := fun_g_2(var_x_1)
+                var_z_2 := usr$a
+            }
+
+            function fun_g_2(var_a_3) -> var_r_4, var_s_5, var_t_6 {
+                var_r_4 := var_a_3
+                var_s_5 := add(var_a_3, 1)
+                var_t_6 := add(var_a_3, 2)
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
     def test_translate_yul_to_models_allows_exact_from_after_constant_true_inlined_leave(
         self,
     ) -> None:
@@ -5209,6 +5376,33 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(
             ytl.evaluate_function_model(result.models[0], ()),
             (9,),
+        )
+
+    def test_translate_yul_to_models_allows_constant_switch_case_memory_write_branch(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                switch 0
+                case 0 {
+                    mstore(0, 7)
+                }
+                default {
+                }
+                var_z_2 := mload(0)
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[0], ()),
+            (7,),
         )
 
     def test_translate_yul_to_models_rejects_recursive_selected_model_call(
