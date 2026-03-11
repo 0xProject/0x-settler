@@ -1765,36 +1765,62 @@ def _inline_single_call(
 
     for stmt in fn.assignments:
         if isinstance(stmt, ParsedIfBlock):
-            # Constant-fold leave-bearing switch/if-else before rejecting.
+            # Constant-fold leave-bearing if/switch before rejecting.
             # If the leave branch is dead, rewrite to a non-leave block.
-            if stmt.has_leave and stmt.else_body is not None:
+            if stmt.has_leave:
                 pre_cond = substitute_expr(stmt.condition, subst)
                 pre_const = _try_const_eval(pre_cond)
-                if pre_const is not None and pre_const != 0:
-                    # Condition is constant-true: the then-body (with leave)
-                    # is live, the else-body is dead.  Keep as leave block
-                    # without else_body.
-                    stmt = ParsedIfBlock(
-                        condition=stmt.condition,
-                        body=stmt.body,
-                        has_leave=True,
-                        else_body=None,
-                    )
-                elif pre_const is not None and pre_const == 0:
-                    # Condition is constant-false: the then-body (with leave)
-                    # is dead.  Replace with the else-body as a non-leave block.
-                    stmt = ParsedIfBlock(
-                        condition=stmt.condition,
-                        body=stmt.else_body,
-                        has_leave=False,
-                        else_body=None,
-                    )
-                else:
-                    raise ParseError(
-                        f"Function {fn.yul_name!r} contains a leave-bearing switch/if-else. "
-                        "Only a single top-level 'if cond { ... leave }' is supported "
-                        "during helper inlining."
-                    )
+                if stmt.else_body is not None:
+                    if pre_const is not None and pre_const != 0:
+                        # Condition is constant-true: the then-body (with leave)
+                        # is live, the else-body is dead.  Keep as leave block
+                        # without else_body.
+                        stmt = ParsedIfBlock(
+                            condition=stmt.condition,
+                            body=stmt.body,
+                            has_leave=True,
+                            else_body=None,
+                        )
+                    elif pre_const is not None and pre_const == 0:
+                        # Condition is constant-false: the then-body (with leave)
+                        # is dead.  Replace with the else-body as a non-leave block.
+                        stmt = ParsedIfBlock(
+                            condition=stmt.condition,
+                            body=stmt.else_body,
+                            has_leave=False,
+                            else_body=None,
+                        )
+                    else:
+                        raise ParseError(
+                            f"Function {fn.yul_name!r} contains a leave-bearing switch/if-else. "
+                            "Only a single top-level 'if cond { ... leave }' is supported "
+                            "during helper inlining."
+                        )
+                elif pre_const is not None:
+                    if pre_const == 0:
+                        # Constant-false: leave is dead, entire block is dead.
+                        # Skip this statement entirely.
+                        continue
+                    else:
+                        # Condition is constant-true AND has leave: the
+                        # function unconditionally takes the leave path.
+                        # Process the then-body as straight-line code and
+                        # return immediately (all subsequent statements
+                        # are dead).
+                        for s in stmt.body:
+                            expr = substitute_expr(s.expr, subst)
+                            expr = inline_calls(
+                                expr,
+                                fn_table,
+                                depth,
+                                max_depth,
+                                mstore_sink=mstore_sink,
+                                unsupported_function_errors=unsupported_function_errors,
+                            )
+                            subst[s.target] = expr
+                        if len(fn.rets) == 1:
+                            return subst.get(fn.rets[0], IntLit(0))
+                        return tuple(subst.get(r, IntLit(0)) for r in fn.rets)
             if stmt.has_leave and leave_cond is not None:
                 raise ParseError(
                     f"Function {fn.yul_name!r} contains multiple leave sites. "
@@ -1810,6 +1836,43 @@ def _inline_single_call(
                 max_depth,
                 unsupported_function_errors=unsupported_function_errors,
             )
+
+            # Constant-fold non-leave if/switch: eliminate dead branches
+            # BEFORE processing bodies.  This prevents spurious
+            # "conditional memory write" errors on dead code.
+            if not stmt.has_leave:
+                const_cond = _try_const_eval(cond)
+                if const_cond is not None:
+                    if const_cond != 0:
+                        # Constant-true: process then-body as straight-line.
+                        for s in stmt.body:
+                            expr = substitute_expr(s.expr, subst)
+                            expr = inline_calls(
+                                expr,
+                                fn_table,
+                                depth,
+                                max_depth,
+                                mstore_sink=mstore_sink,
+                                unsupported_function_errors=unsupported_function_errors,
+                            )
+                            subst[s.target] = expr
+                    elif stmt.else_body is not None:
+                        # Constant-false with else: process else-body as
+                        # straight-line.
+                        for s in stmt.else_body:
+                            expr = substitute_expr(s.expr, subst)
+                            expr = inline_calls(
+                                expr,
+                                fn_table,
+                                depth,
+                                max_depth,
+                                mstore_sink=mstore_sink,
+                                unsupported_function_errors=unsupported_function_errors,
+                            )
+                            subst[s.target] = expr
+                    # else: constant-false with no else — entire block is dead.
+                    continue
+
             # Process if-body assignments into a separate subst branch.
             if_subst = dict(subst)
             pre_if_sink_len = len(mstore_sink) if mstore_sink is not None else 0
@@ -2372,6 +2435,7 @@ def yul_function_to_model(
                 and clean not in emitted_ssa_names
                 and ret in needs_zero_init):
             emitted_ssa_names.add(clean)
+            ssa_count[clean] = 1
             assignments.append(Assignment(target=clean, expr=IntLit(0)))
             const_locals[clean] = IntLit(0)
 
