@@ -301,6 +301,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     error EvenNumberOfMultiCalls(uint256 callsCount);
     error NotEnoughOwners(uint256 ownerCount);
     error ThresholdTooLow(uint256 threshold);
+    error ThresholdTooHigh(uint256 threshold);
     error NotUnanimous(bytes32 txHash);
     error TxHashNotApproved(bytes32 txHash);
     error ConfusedDeputy(uint256 callIndex, address target, bytes data);
@@ -312,7 +313,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     bool private _guardRemoved;
 
     ISafeMinimal public immutable safe;
-    uint256 internal constant _MINIMUM_OWNERS = 3;
+    uint256 internal constant _MINIMUM_OWNERS = 4;
     uint256 internal constant _MINIMUM_THRESHOLD = 2;
 
     address private immutable _SINGLETON;
@@ -633,6 +634,32 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         ISafeMinimal _safe = ISafeMinimal(msg.sender);
 
         _checkAfterExecution(_safe);
+
+        // Some basic safety checks. If violated, the game theory of the `lockDown`/`unlock` game
+        // becomes degenerate. These are not included in `_checkAfterExecution` because we want to
+        // allow the Safe to be in an intermediate invalid state during a multicall as long as the
+        // end state (when the reentrancy lock is lifted) is valid.
+        {
+            uint256 ownerCount = _safe.ownerCount();
+            if (ownerCount < _MINIMUM_OWNERS) {
+                revert NotEnoughOwners(ownerCount);
+            }
+        }
+        {
+            uint256 threshold = _safe.getThreshold();
+            if (threshold < _MINIMUM_THRESHOLD) {
+                revert ThresholdTooLow(threshold);
+            }
+            unchecked {
+                if (ownerCount - threshold < _MINIMUM_THRESHOLD) {
+                    revert ThresholdTooHigh(threshold);
+                }
+            }
+        }
+
+        // Likewise, this is not included in `_checkAfterExecution`. If the Guard is removed, that
+        // must be the final action of the multicall. `check()` below implements a stricter check
+        // that rejects Guard removal entirely during a multicall.
         _maybeSetGuardRemoved(_safe);
     }
 
@@ -660,8 +687,13 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         }
         result = result && _safe.getFallback() == _FALLBACK;
         result = result && !_safe.isOwner(address(this));
-        result = result && _safe.ownerCount() >= _MINIMUM_OWNERS;
-        result = result && _safe.getThreshold() >= _MINIMUM_THRESHOLD;
+        uint256 ownerCount;
+        result = result && (ownerCount = _safe.ownerCount()) >= _MINIMUM_OWNERS;
+        uint256 threshold;
+        result = result && (threshold =_safe.getThreshold()) >= _MINIMUM_THRESHOLD;
+        unchecked {
+            result = result && (ownerCount - threshold >= _MINIMUM_THRESHOLD);
+        }
     }
 
     function _checkAfterExecution(ISafeMinimal _safe) private view {
@@ -710,21 +742,6 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // owner. This would make our introspection checks wrong. Let's just prohibit that entirely.
         if (_safe.isOwner(address(this))) {
             revert GuardIsOwner();
-        }
-
-        // Some basic safety checks. If violated, the game theory of the `lockDown`/`unlock` game
-        // becomes degenerate.
-        {
-            uint256 ownerCount = _safe.ownerCount();
-            if (ownerCount < _MINIMUM_OWNERS) {
-                revert NotEnoughOwners(ownerCount);
-            }
-        }
-        {
-            uint256 threshold = _safe.getThreshold();
-            if (threshold < _MINIMUM_THRESHOLD) {
-                revert ThresholdTooLow(threshold);
-            }
         }
     }
 
