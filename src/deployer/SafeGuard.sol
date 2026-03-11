@@ -218,16 +218,16 @@ contract EvmVersionDummy {
 /// This Safe Guard exists to defend against the following scenarios:
 ///
 ///   * Key compromise by a quorum of, but less than all of, the Safe owners is recoverable. Those
-///     owners can rotate their keys and restore the Safe to normal operation. Rigorously, if a
-///     those compromised signers will make malicious signatures _AND_ beneficial signatures, then
-///     it is still possible to remove owners by unanimous cooperation of the sub-quorum of
+///     owners can rotate their keys and restore the Safe to normal operation. Rigorously, if those
+///     compromised signers will make malicious signatures _AND_ beneficial signatures, then it is
+///     still possible to remove owners by unanimous cooperation of the sub-quorum of
 ///     non-compromised owners.
 ///   * A single malicious/unfaithful owner cannot prevent the Safe from making progress, assuming
 ///     the remaining owners retain a quorum. Rigorously, if a single signer will make _ONLY_
 ///     malicious signatures and not beneficial signatures, then it is possible to remove that owner
 ///     by unanimous cooperation of the remaining non-malicious owners. NOTE: this is a worse
 ///     liveness guarantee than an un-Guard'd Safe.
-///   * A quorum of of malicious/unfaithful owners cannot cause the Safe to make malicious calls to
+///   * A quorum of malicious/unfaithful owners cannot cause the Safe to make malicious calls to
 ///     other contracts. Rigorously, if a quorum of signers will make only malicious signatures,
 ///     then the Safe will enter lockdown and never recover. The Safe will be permanently bricked,
 ///     transforming an integrity failure into a liveness failure.
@@ -238,9 +238,9 @@ contract EvmVersionDummy {
 ///     the Safe. The Safe will enter lockdown and never recover.
 ///   * Key compromise by one or more owners requires unanimous cooperation of the remaining owners
 ///     to recover.
-///   * The recovery flows become degenerate (in many cases, impossible) if the Safe is configured a
-///     n-of-n (unanimous) because un-compromised keys are unable to reach quorum. This scenario is
-///     ignored in the following table.
+///   * The recovery flows become degenerate (in many cases, impossible) if the Safe is configured
+///     as a n-of-n (unanimous) because un-compromised keys are unable to reach quorum. This
+///     scenario is ignored in the following table.
 ///
 /// Observe the following table of failure states:
 ///
@@ -249,7 +249,7 @@ contract EvmVersionDummy {
 /// | key compromise  | 1                  | recoverable | unanimous          |
 /// | key compromise  | less than quorum   | recoverable | unanimous          |
 /// | key compromise  | quorum             | recoverable | unanimous          |
-/// | key compromise  | all                | bricked     | race               |
+/// | key compromise  | all                | recoverable | unanimous (race)   |
 /// | malicious owner | 1                  | recoverable | unanimous          |
 /// | malicious owner | less than quorum   | bricked     | 2 owners           |
 /// | malicious owner | quorum             | bricked     | 2 owners           |
