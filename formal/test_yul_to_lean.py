@@ -5486,6 +5486,76 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertIn("def model_f_evm", source)
         self.assertNotIn("\ndef model_f ", source)
 
+    def test_build_lean_source_allows_reserved_base_name_for_skipped_norm_model(
+        self,
+    ) -> None:
+        config = ytl.ModelConfig(
+            function_order=("f",),
+            model_names={"f": "normAdd"},
+            header_comment="test",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={},
+            extra_lean_defs="",
+            norm_rewrite=None,
+            inner_fn="f",
+            skip_norm=frozenset({"f"}),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+
+        source = ytl.build_lean_source(
+            models=[model],
+            source_path="test-source",
+            namespace="Test",
+            config=config,
+        )
+
+        self.assertIn("def normAdd_evm", source)
+        self.assertNotIn("\ndef normAdd ", source)
+
+    def test_build_lean_source_allows_extra_norm_helper_name_for_skipped_norm_model(
+        self,
+    ) -> None:
+        config = ytl.ModelConfig(
+            function_order=("f",),
+            model_names={"f": "normBitLengthPlus1"},
+            header_comment="test",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
+            extra_lean_defs="def normBitLengthPlus1 (x : Nat) : Nat := x + 1",
+            norm_rewrite=None,
+            inner_fn="f",
+            skip_norm=frozenset({"f"}),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+
+        source = ytl.build_lean_source(
+            models=[model],
+            source_path="test-source",
+            namespace="Test",
+            config=config,
+        )
+
+        self.assertIn("def normBitLengthPlus1_evm", source)
+        self.assertNotIn("\ndef normBitLengthPlus1 ", source)
+
     def test_translate_yul_to_models_allows_constant_false_top_level_memory_write_branch(
         self,
     ) -> None:
@@ -5594,6 +5664,32 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             ),
             (0,),
         )
+
+    def test_translate_yul_to_models_ignores_dead_constant_false_selected_projection_mismatch(
+        self,
+    ) -> None:
+        config = make_model_config(("f", "g"))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                var_z_2 := 0
+                if 0 {
+                    let usr$a, usr$b := fun_g_2()
+                    var_z_2 := usr$a
+                }
+            }
+
+            function fun_g_2() -> var_r_3 {
+                var_r_3 := 1
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (0,))
 
     def test_translate_yul_to_models_allows_constant_false_direct_leave_branch(
         self,
