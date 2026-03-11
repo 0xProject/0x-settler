@@ -222,11 +222,11 @@ contract EvmVersionDummy {
 ///     those compromised signers will make malicious signatures _AND_ beneficial signatures, then
 ///     it is still possible to remove owners by unanimous cooperation of the sub-quorum of
 ///     non-compromised owners.
-///   * A single malicious/unfaithful owner cannot prevent the Safe from making
-///     progress. Rigorously, if a single signer will make _ONLY_ malicious signatures and not
-///     beneficial signatures, then it is possible to remove that owner by unanimous cooperation of
-///     the remaining non-malicious owners. NOTE: this is a worse liveness guarantee than an
-///     un-Guard'd Safe.
+///   * A single malicious/unfaithful owner cannot prevent the Safe from making progress, assuming
+///     the remaining owners retain a quorum. Rigorously, if a single signer will make _ONLY_
+///     malicious signatures and not beneficial signatures, then it is possible to remove that owner
+///     by unanimous cooperation of the remaining non-malicious owners. NOTE: this is a worse
+///     liveness guarantee than an un-Guard'd Safe.
 ///   * A quorum of of malicious/unfaithful owners cannot cause the Safe to make malicious calls to
 ///     other contracts. Rigorously, if a quorum of signers will make only malicious signatures,
 ///     then the Safe will enter lockdown and never recover. The Safe will be permanently bricked,
@@ -238,19 +238,22 @@ contract EvmVersionDummy {
 ///     the Safe. The Safe will enter lockdown and never recover.
 ///   * Key compromise by one or more owners requires unanimous cooperation of the remaining owners
 ///     to recover.
+///   * The recovery flows become degenerate (in many cases, impossible) if the Safe is configured a
+///     n-of-n (unanimous) because un-compromised keys are unable to reach quorum. This scenario is
+///     ignored in the following table.
 ///
 /// Observe the following table of failure states:
 ///
-/// | Failure type    | Number of failures | Outcome     | Cooperation needed     |
-/// | :-------------- | :----------------- | :---------- | :--------------------- |
-/// | key compromise  | 1                  | recoverable | unanimous              |
-/// | key compromise  | less than quorum   | recoverable | unanimous              |
-/// | key compromise  | quorum             | recoverable | unanimous              |
-/// | key compromise  | all                | bricked     | unanimous (continuous) |
-/// | malicious owner | 1                  | recoverable | unanimous              |
-/// | malicious owner | less than quorum   | bricked     | 2 owners               |
-/// | malicious owner | quorum             | bricked     | 2 owners               |
-/// | malicious owner | all                | compromised | n/a                    |
+/// | Failure type    | Number of failures | Outcome     | Cooperation needed |
+/// | :-------------- | :----------------- | :---------- | :----------------- |
+/// | key compromise  | 1                  | recoverable | unanimous          |
+/// | key compromise  | less than quorum   | recoverable | unanimous          |
+/// | key compromise  | quorum             | recoverable | unanimous          |
+/// | key compromise  | all                | bricked     | race               |
+/// | malicious owner | 1                  | recoverable | unanimous          |
+/// | malicious owner | less than quorum   | bricked     | 2 owners           |
+/// | malicious owner | quorum             | bricked     | 2 owners           |
+/// | malicious owner | all                | compromised | n/a                |
 abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     using SafeLib for ISafeMinimal;
 
