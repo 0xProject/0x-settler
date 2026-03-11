@@ -599,6 +599,7 @@ class YulParser:
                             results.append(PlainAssignment(stmt.target, expr))
                 if inner_leave:
                     has_leave = True
+                    self._skip_to_end_of_current_block()
                     break
                 continue
 
