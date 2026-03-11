@@ -38,6 +38,8 @@ Why first:
 
 ## Priority 2: Replace token rescans with scope-aware helper analysis
 
+Status: Executed in this change
+
 Problem:
 - `_scope_references_any()` is effectively a second parser over raw tokens.
 - It has bespoke logic for constant `if`/`switch`, nested scopes, and helper
