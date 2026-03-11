@@ -32,5 +32,13 @@
   In `YulParser._scope_references_any`, local function discovery and loose-call collection are order-insensitive within a block, so calling `nested(...)` before its definition exercises the same transitive dependency scan as the simpler after-definition case.
   Remaining coverage: `KnownTranslatorBugRegressionTest.test_find_function_tracks_transitive_nested_local_helper_dependencies` still covers the same missing transitive nested-helper reference handling in `YulParser.find_function`.
 
+- Deleted `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_preserves_outer_switch_branch_assignment_before_later_shadowing_let`.
+  The defect is the missing treatment of a later branch-local `let` as a shadowing declaration instead of a reassignment to the outer variable. In `formal/yul_to_lean.py`, both the `if` and `switch` forms parse the branch body through the same branch-local statement parser before `switch` is lowered to `ParsedIfBlock`.
+  Remaining coverage: `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_preserves_outer_if_assignment_before_later_shadowing_top_level_let` still covers the same missing branch-local shadowing handling in `yul_function_to_model`.
+
+- Deleted `KnownTranslatorBugRegressionTest.test_find_function_ignores_dead_helper_reference_after_top_level_leave`.
+  A top-level `leave` is the simpler subset of the same dead-code-after-termination bug already exercised by the constant-true `if { leave }` variant. Both regressions fail because `YulParser._scope_references_any` keeps scanning loose calls after control flow that must terminate the function.
+  Remaining coverage: `KnownTranslatorBugRegressionTest.test_find_function_ignores_dead_helper_reference_after_constant_true_if_leave` still covers the same missing dead-code pruning after guaranteed `leave` in `YulParser.find_function`.
+
 - Beyond the deletions listed above, no other new tests in `569ef1ffa4f66fdaf205877d99997295429b5ac9..HEAD` were removed.
   Similar-looking regressions were kept because they exercise different parser, scope, control-flow, validation, or Lean-emission paths in `formal/yul_to_lean.py`.

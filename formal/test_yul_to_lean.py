@@ -3659,34 +3659,6 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
 
-    def test_translate_yul_to_models_preserves_outer_switch_branch_assignment_before_later_shadowing_let(
-        self,
-    ) -> None:
-        config = make_model_config(("f",))
-        yul = """
-            function fun_f_1(var_c_1) -> var_z_2 {
-                let usr$x := 5
-                switch var_c_1
-                case 0 {
-                    usr$x := 7
-                    let usr$x := 9
-                }
-                default {
-                }
-                var_z_2 := usr$x
-            }
-            """
-
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
-
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (7,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
-
     def test_translate_yul_to_models_allows_conditional_return_write_that_is_later_overwritten(
         self,
     ) -> None:
@@ -4899,37 +4871,6 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 config,
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
-
-    def test_find_function_ignores_dead_helper_reference_after_top_level_leave(
-        self,
-    ) -> None:
-        tokens = ytl.tokenize_yul("""
-            function helper(var_x_1) -> var_z_2 {
-                var_z_2 := var_x_1
-            }
-
-            function fun_pick_1(var_x_3) -> var_z_4 {
-                leave
-                var_z_4 := helper(var_x_3)
-            }
-
-            function fun_pick_2(var_x_5) -> var_z_6 {
-                var_z_6 := 7
-            }
-            """)
-
-        found = ytl.YulParser(tokens).find_function(
-            "pick",
-            known_yul_names={"helper"},
-        )
-        self.assertEqual(found.yul_name, "fun_pick_2")
-
-        leaf = ytl.YulParser(tokens).find_function(
-            "pick",
-            known_yul_names={"helper"},
-            exclude_known=True,
-        )
-        self.assertEqual(leaf.yul_name, "fun_pick_1")
 
     def test_find_function_ignores_dead_helper_reference_after_constant_true_if_leave(
         self,
