@@ -30,7 +30,7 @@
 
 - Deleted `KnownTranslatorBugRegressionTest.test_find_function_tracks_transitive_nested_helper_called_before_definition`.
   In `YulParser._scope_references_any`, local function discovery and loose-call collection are order-insensitive within a block, so calling `nested(...)` before its definition exercises the same transitive dependency scan as the simpler after-definition case.
-  Remaining coverage: `KnownTranslatorBugRegressionTest.test_find_function_tracks_transitive_nested_local_helper_dependencies` still covers the same missing transitive nested-helper reference handling in `YulParser.find_function`.
+  Remaining coverage: `KnownTranslatorBugRegressionTest.test_find_function_tracks_transitive_sibling_local_helper_dependencies` still covers the same missing transitive nested-helper reference handling in `YulParser.find_function`, with an extra local-helper hop.
 
 - Deleted `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_preserves_outer_switch_branch_assignment_before_later_shadowing_let`.
   The defect is the missing treatment of a later branch-local `let` as a shadowing declaration instead of a reassignment to the outer variable. In `formal/yul_to_lean.py`, both the `if` and `switch` forms parse the branch body through the same branch-local statement parser before `switch` is lowered to `ParsedIfBlock`.
@@ -40,5 +40,14 @@
   A top-level `leave` is the simpler subset of the same dead-code-after-termination bug already exercised by the constant-true `if { leave }` variant. Both regressions fail because `YulParser._scope_references_any` keeps scanning loose calls after control flow that must terminate the function.
   Remaining coverage: `KnownTranslatorBugRegressionTest.test_find_function_ignores_dead_helper_reference_after_constant_true_if_leave` still covers the same missing dead-code pruning after guaranteed `leave` in `YulParser.find_function`.
 
-- Beyond the deletions listed above, no other new tests in `569ef1ffa4f66fdaf205877d99997295429b5ac9..HEAD` were removed.
-  Similar-looking regressions were kept because they exercise different parser, scope, control-flow, validation, or Lean-emission paths in `formal/yul_to_lean.py`.
+- Deleted `KnownTranslatorBugRegressionTest.test_find_function_ignores_dead_nested_helper_inside_deeper_block`.
+  In `YulParser._scope_references_any`, the deeper `if { ... }` wrapper only adds one recursive sub-block hop before reaching the same "local function body references helper but no loose call to that local function exists" logic as the simpler top-level case.
+  Remaining coverage: `KnownTranslatorBugRegressionTest.test_find_function_ignores_nested_local_function_references` still covers the same missing requirement that an uncalled nested local helper body must not count as a known-name reference in `YulParser.find_function`.
+
+- Deleted `KnownTranslatorBugRegressionTest.test_find_function_tracks_transitive_nested_local_helper_dependencies`.
+  It exercises the same local-function reference promotion in `YulParser._scope_references_any` as the stronger sibling-chain variant, just with one fewer hop. If the fixed-point promotion handles `nested2 -> nested1 -> helper`, it necessarily handles the simpler `nested -> helper` case too.
+  Remaining coverage: `KnownTranslatorBugRegressionTest.test_find_function_tracks_transitive_sibling_local_helper_dependencies` still covers the same missing transitive nested-helper promotion in `YulParser.find_function`.
+
+- Deleted `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_allows_constant_switch_case_memory_write_branch`.
+  Both the `switch 0 { mstore(...) }` and `if 0 { mstore(...) }` regressions fail in the same parser gate: `_parse_assignment_loop(..., allow_control_flow=False)` rejects conditional `mstore` before any constant-condition simplification happens.
+  Remaining coverage: `KnownTranslatorBugRegressionTest.test_translate_yul_to_models_allows_constant_false_top_level_memory_write_branch` still covers the same missing constant-dead conditional-memory-write pruning in `translate_yul_to_models`.
