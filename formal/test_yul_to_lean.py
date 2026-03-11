@@ -6027,6 +6027,114 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 config=config,
             )
 
+    def test_parse_function_skips_dead_code_after_leave_inside_bare_block(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_f_1() -> var_z_2 {
+                {
+                    var_z_2 := 1
+                    leave
+                }
+                var_z_2 := 2
+            }
+            """)
+
+        parsed = ytl.YulParser(tokens).parse_function()
+
+        self.assertEqual(
+            parsed.assignments,
+            [ytl.PlainAssignment("var_z_2", ytl.IntLit(1))],
+        )
+
+    def test_translate_yul_to_models_preserves_bare_block_temporary_snapshot_across_outer_rebind(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                {
+                    let usr$tmp := var_x_1
+                    var_x_1 := 5
+                    var_z_2 := usr$tmp
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
+        self.assertEqual(ytl.evaluate_function_model(model, (7,)), (7,))
+
+    def test_translate_yul_to_models_wraps_large_integer_literals_to_u256(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = f"""
+            function fun_f_1() -> var_z_2 {{
+                var_z_2 := {ytl.WORD_MOD + 1}
+            }}
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (1,))
+
+    def test_translate_yul_to_models_wraps_large_memory_addresses_to_u256(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = f"""
+            function fun_f_1() -> var_z_2 {{
+                mstore({ytl.WORD_MOD}, 7)
+                var_z_2 := mload(0)
+            }}
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (7,))
+
+    def test_build_lean_source_ignores_dead_constant_false_branch_with_unresolved_helper(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                var_z_2 := 0
+                if 0 {
+                    var_z_2 := helper()
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (0,))
+        ytl.build_lean_source(
+            models=result.models,
+            source_path="test-source",
+            namespace="Test",
+            config=config,
+        )
+
 
 class KnownOptimizerBugRegressionTest(ModelEquivalenceTestCase):
     # These are known-bad optimizer behaviors found during review.
