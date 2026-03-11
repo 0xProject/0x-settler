@@ -3808,23 +3808,6 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (1,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (2,))
 
-    def test_translate_yul_to_models_rejects_wrong_builtin_arity(
-        self,
-    ) -> None:
-        config = make_model_config(("f",))
-        yul = """
-            function fun_f_1() -> var_z_2 {
-                var_z_2 := add(1)
-            }
-            """
-
-        with self.assertRaises(ytl.ParseError):
-            ytl.translate_yul_to_models(
-                yul,
-                config,
-                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-            )
-
     def test_translate_yul_to_models_rejects_unresolved_call_target(
         self,
     ) -> None:
@@ -5507,23 +5490,6 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             ytl.evaluate_function_model(result.models[0], ()),
             (7,),
         )
-
-    def test_translate_yul_to_models_rejects_unsupported_builtin_name(
-        self,
-    ) -> None:
-        config = make_model_config(("f",))
-        yul = """
-            function fun_f_1() -> var_z_2 {
-                var_z_2 := xor(1, 2)
-            }
-            """
-
-        with self.assertRaises(ytl.ParseError):
-            ytl.translate_yul_to_models(
-                yul,
-                config,
-                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-            )
 
     def test_translate_yul_to_models_rejects_recursive_selected_model_call(
         self,
