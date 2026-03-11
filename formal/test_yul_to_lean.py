@@ -3711,6 +3711,33 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (7,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
 
+    def test_translate_yul_to_models_preserves_live_switch_case_shadowing_after_dead_default_leave(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                let usr$x := 1
+                switch 0
+                case 0 {
+                    let usr$x := 2
+                }
+                default {
+                    leave
+                }
+                var_z_2 := usr$x
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, ()), (1,))
+
     def test_translate_yul_to_models_allows_conditional_return_write_that_is_later_overwritten(
         self,
     ) -> None:
@@ -4036,6 +4063,44 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 ytl.PlainAssignment("var_z_1", ytl.Var("usr$a")),
             ],
         )
+
+    def test_translate_yul_to_models_rejects_multi_var_builtin_call_as_multi_return(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_1 {
+                let usr$a, usr$b := add(1, 2)
+                var_z_1 := usr$a
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_translate_yul_to_models_rejects_multi_target_unresolved_call_as_multi_return(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_1 {
+                let usr$a
+                let usr$b
+                usr$a, usr$b := pair()
+                var_z_1 := usr$a
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_collects_nested_local_helpers_for_inlining(
         self,
@@ -5160,6 +5225,31 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 config,
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
+
+    def test_translate_yul_to_models_ignores_dead_constant_false_selected_call_with_wrong_arity(
+        self,
+    ) -> None:
+        config = make_model_config(("f", "g"))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                var_z_2 := 0
+                if 0 {
+                    var_z_2 := fun_g_2(1, 2)
+                }
+            }
+
+            function fun_g_2(var_x_3) -> var_r_4 {
+                var_r_4 := var_x_3
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (0,))
 
     def test_translate_yul_to_models_rejects_duplicate_selected_functions(
         self,
