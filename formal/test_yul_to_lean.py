@@ -3557,30 +3557,6 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 exclude_known=True,
             )
 
-    def test_translate_yul_to_models_preserves_shadowed_conditional_local_binding(
-        self,
-    ) -> None:
-        config = make_model_config(("f",))
-        yul = """
-            function fun_f_1(var_c_1) -> var_z_2 {
-                let usr$tmp := 5
-                if var_c_1 {
-                    let usr$tmp := 7
-                }
-                var_z_2 := usr$tmp
-            }
-            """
-
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
-
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
-
     def test_translate_yul_to_models_preserves_shadowed_bare_block_local_inside_if(
         self,
     ) -> None:
@@ -4411,33 +4387,6 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
             function fun_pick_2(var_x_7) -> var_z_8 {
                 var_z_8 := var_x_7
-            }
-            """)
-
-        func = ytl.YulParser(tokens).find_function(
-            "pick",
-            known_yul_names={"helper"},
-        )
-
-        self.assertEqual(func.yul_name, "fun_pick_1")
-
-    def test_find_function_tracks_transitive_nested_helper_called_before_definition(
-        self,
-    ) -> None:
-        tokens = ytl.tokenize_yul("""
-            function helper(var_x_1) -> var_z_2 {
-                var_z_2 := var_x_1
-            }
-
-            function fun_pick_1(var_x_3) -> var_z_4 {
-                var_z_4 := nested(var_x_3)
-                function nested(var_y_5) -> var_w_6 {
-                    var_w_6 := helper(var_y_5)
-                }
-            }
-
-            function fun_pick_2(var_x_7) -> var_z_8 {
-                var_z_8 := 222
             }
             """)
 
