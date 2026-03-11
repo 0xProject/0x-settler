@@ -464,6 +464,11 @@ class YulParser:
                     f"Multi-variable let expects a function call as "
                     f"initializer, got {type(expr).__name__}"
                 )
+            if expr.name in _SUPPORTED_OPS:
+                raise ParseError(
+                    f"Multi-variable let has builtin {expr.name!r} as initializer, "
+                    f"but builtins return a single value"
+                )
             for idx, t in enumerate(all_targets):
                 results.append(
                     PlainAssignment(
@@ -755,6 +760,11 @@ class YulParser:
                     raise ParseError(
                         f"Multi-target assignment expects a function call "
                         f"as initializer, got {type(rhs).__name__}"
+                    )
+                if rhs.name in _SUPPORTED_OPS:
+                    raise ParseError(
+                        f"Multi-target assignment has builtin {rhs.name!r} as initializer, "
+                        f"but builtins return a single value"
                     )
                 for idx, t in enumerate(all_targets):
                     results.append(
@@ -2267,6 +2277,22 @@ def yul_function_to_model(
                     "generation. Early return is only supported when inlining a "
                     "helper with a single top-level 'if cond { ... leave }'."
                 )
+            # Non-leave constant-false: skip entire block.
+            cond_sub = substitute_expr(stmt.condition, subst)
+            const_cond = _try_const_eval(cond_sub)
+            if const_cond is not None and const_cond == 0:
+                if stmt.else_body:
+                    for s in stmt.else_body:
+                        a = _process_assignment_into(
+                            s.target,
+                            s.expr,
+                            var_map_state=var_map,
+                            subst_state=subst,
+                            const_locals_state=const_locals,
+                        )
+                        if a is not None:
+                            assignments.append(a)
+                continue
             # Process the if-block: apply copy-prop/demangling to
             # condition and body, then emit a ConditionalBlock.
             cond = substitute_expr(stmt.condition, subst)
@@ -3552,6 +3578,16 @@ def validate_selected_models(models: list[FunctionModel]) -> None:
                         f"Model {model_fn_name!r}: call to {inner.name!r} "
                         f"passes {len(inner.args)} arg(s), expected {callee_params}"
                     )
+            else:
+                # Not a selected model — must be a known builtin
+                if (
+                    inner.name not in OP_TO_LEAN_HELPER
+                    and inner.name != "__ite"
+                ):
+                    raise ParseError(
+                        f"Model {model_fn_name!r}: unresolved call target "
+                        f"{inner.name!r} inside projection {expr.name!r}"
+                    )
             for a in inner.args:
                 callees.update(_check_calls(a, model_fn_name))
             return callees
@@ -3967,6 +4003,20 @@ def build_lean_source(
         )
 
     # -- Model name validation --
+    emit_norm = any_norm_models(models, config)
+
+    # Build effective reserved set for model names — only include norm
+    # helpers when norm models will actually be emitted.
+    _model_name_reserved: set[str] = (
+        {"u256", "WORD_MOD"}
+        | set(OP_TO_LEAN_HELPER.values())
+        | _LEAN_KEYWORDS
+    )
+    if emit_norm:
+        _model_name_reserved |= set(_BASE_NORM_HELPERS.values())
+        if config.extra_norm_ops:
+            _model_name_reserved |= set(config.extra_norm_ops.values())
+
     # Build the set of all Lean def names that will be emitted.
     generated_def_names: set[str] = set()
     for model in models:
@@ -3975,7 +4025,14 @@ def build_lean_source(
                 f"Model {model.fn_name!r} has no entry in config.model_names"
             )
         base = config.model_names[model.fn_name]
-        validate_ident(base, what=f"generated model name for {model.fn_name!r}")
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", base):
+            raise ParseError(
+                f"Invalid generated model name for {model.fn_name!r}: {base!r}"
+            )
+        if base in _model_name_reserved:
+            raise ParseError(
+                f"Reserved name used as model name for {model.fn_name!r}: {base!r}"
+            )
         evm_name = f"{base}_evm"
         # Check evm_name validity too
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", evm_name):
@@ -3990,17 +4047,18 @@ def build_lean_source(
             raise ParseError(
                 f"Duplicate generated EVM model name {evm_name!r}"
             )
-        generated_def_names.add(base)
+        # Only add base to generated_def_names when the norm model will be
+        # emitted — skipped norm models don't produce a base def.
+        if model.fn_name not in config.skip_norm:
+            generated_def_names.add(base)
         generated_def_names.add(evm_name)
 
     # Cross-collision: model names vs builtin helpers and reserved names
-    builtin_names = (
-        {"u256", "WORD_MOD"}
-        | set(OP_TO_LEAN_HELPER.values())
-        | set(_BASE_NORM_HELPERS.values())
-    )
-    if config.extra_norm_ops:
-        builtin_names |= set(config.extra_norm_ops.values())
+    builtin_names = {"u256", "WORD_MOD"} | set(OP_TO_LEAN_HELPER.values())
+    if emit_norm:
+        builtin_names |= set(_BASE_NORM_HELPERS.values())
+        if config.extra_norm_ops:
+            builtin_names |= set(config.extra_norm_ops.values())
     for name in generated_def_names:
         if name in builtin_names:
             raise ParseError(
@@ -4067,7 +4125,6 @@ def build_lean_source(
     opcodes_line = ", ".join(opcodes)
 
     function_defs = render_function_defs(models, config)
-    emit_norm = any_norm_models(models, config)
 
     # Normalize extra_lean_defs: ensure it ends with \n\n if non-empty.
     _extra_lean_defs = ""

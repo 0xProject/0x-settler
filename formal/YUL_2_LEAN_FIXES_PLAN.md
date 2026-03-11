@@ -637,11 +637,11 @@ Those can be addressed later, but this plan should leave the code structured so 
 - **Need WS-J** (4): `allows_branch_local_constant_mload_address` (×2), `accepts_conditionally_constant_memory_address` (×2) — branch-local const tracking needs declaration-aware scoping.
 - **Need WS-J + build_lean_source** (1): `ignores_dead_constant_false_branch_with_unresolved_helper` — requires constant folding to eliminate dead branch before Lean emission encounters the unresolved helper call.
 
-#### WS-J: Declaration semantics + shadowing (11 tests)
+#### WS-J: Declaration semantics + shadowing (12 tests)
 
-All `preserves_shadowed_*`, `preserves_outer_*`, `preserves_temporary_snapshot_*`, `allows_conditional_return_write_*`, `allows_temporary_reuse_*`.
+All `preserves_shadowed_*`, `preserves_outer_*`, `preserves_temporary_snapshot_*`, `allows_conditional_return_write_*`, `allows_temporary_reuse_*`, `preserves_live_switch_case_shadowing_after_dead_default_leave`.
 
-Requires `RawBinding(is_declaration=True/False)` to distinguish `let` from `:=`. The temporary snapshot tests additionally require `subst` map snapshotting across conditional boundaries. The conditional overwrite test requires dead-write dominance analysis. The temporary reuse test requires scope-aware multi-assignment detection. These are deeply intertwined with `yul_function_to_model` core data flow.
+Requires `RawBinding(is_declaration=True/False)` to distinguish `let` from `:=`. The temporary snapshot tests additionally require `subst` map snapshotting across conditional boundaries. The conditional overwrite test requires dead-write dominance analysis. The temporary reuse test requires scope-aware multi-assignment detection. The `preserves_live_switch_case_shadowing_after_dead_default_leave` test has a constant-false leave branch whose else-body contains `let usr$x := 2` — a local shadow, not a reassignment of the outer `usr$x`. After dead-branch folding processes the live else-body, `_process_assignment_into` treats this as a mutation of the outer variable because it cannot distinguish `let` from `:=`. These are deeply intertwined with `yul_function_to_model` core data flow.
 
 #### WS-K: Helper scope frames (5 tests)
 
