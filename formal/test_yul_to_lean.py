@@ -4500,6 +4500,56 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         with self.assertRaises(ytl.ParseError):
             ytl.validate_function_model(model)
 
+    def test_validate_function_model_rejects_malformed_builtin_arity(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Call("add", (ytl.Var("x"),)),
+                ),
+            ),
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.validate_function_model(model)
+
+    def test_validate_function_model_rejects_malformed_component_projection_shape(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Call("__component_0_2", (ytl.Var("x"),)),
+                ),
+            ),
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.validate_function_model(model)
+
+    def test_validate_function_model_rejects_malformed_ite_arity(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Call("__ite", (ytl.Var("x"), ytl.IntLit(1))),
+                ),
+            ),
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.validate_function_model(model)
+
     def test_build_lean_source_rejects_extra_norm_helper_binder_collisions(
         self,
     ) -> None:
@@ -4536,6 +4586,90 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         with self.assertRaises(ytl.ParseError):
             ytl.build_lean_source(
                 models=[model],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
+    def test_build_lean_source_rejects_generated_model_name_collision_with_extra_norm_helper(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment("z", ytl.Var("x")),
+            ),
+        )
+        config = ytl.ModelConfig(
+            function_order=("f",),
+            model_names={"f": "normBitLengthPlus1"},
+            header_comment="test",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
+            extra_lean_defs=(
+                "def normBitLengthPlus1 (x : Nat) : Nat := x + 1"
+            ),
+            norm_rewrite=lambda expr: ytl.Call("bitLengthPlus1", (expr,)),
+            inner_fn="f",
+            n_params=None,
+            exact_yul_names=None,
+            keep_solidity_locals=False,
+            hoist_repeated_calls=frozenset(),
+            skip_prune=frozenset(),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[model],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
+    def test_build_lean_source_rejects_cross_collision_between_generated_evm_and_norm_names(
+        self,
+    ) -> None:
+        first = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+        second = ytl.FunctionModel(
+            fn_name="g",
+            param_names=("y",),
+            return_names=("r",),
+            assignments=(ytl.Assignment("r", ytl.Var("y")),),
+        )
+        config = ytl.ModelConfig(
+            function_order=("f", "g"),
+            model_names={"f": "foo", "g": "foo_evm"},
+            header_comment="test",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={},
+            extra_lean_defs="",
+            norm_rewrite=None,
+            inner_fn="f",
+            n_params=None,
+            exact_yul_names=None,
+            keep_solidity_locals=False,
+            hoist_repeated_calls=frozenset(),
+            skip_prune=frozenset(),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[first, second],
                 source_path="test-source",
                 namespace="Test",
                 config=config,
@@ -4951,6 +5085,24 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             ytl.translate_yul_to_models(
                 yul,
                 config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_translate_yul_to_models_rejects_duplicate_selected_functions(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                var_z_2 := add(var_x_1, 1)
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                selected_functions=("f", "f"),
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
