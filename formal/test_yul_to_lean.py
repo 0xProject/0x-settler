@@ -3515,6 +3515,48 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
     # These are known-bad translator behaviors found during review.
     # They should fail loudly until the implementation is fixed.
 
+    def test_find_function_ignores_transitive_calls_to_shadowing_local_helper(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                function helper(var_y_5) -> var_w_6 {
+                    var_w_6 := 111
+                }
+                function caller(var_q_7) -> var_r_8 {
+                    var_r_8 := helper(var_q_7)
+                }
+                var_z_4 := caller(var_x_3)
+            }
+
+            function fun_pick_2(var_x_9) -> var_z_10 {
+                var_z_10 := 222
+            }
+            """)
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "Multiple Yul functions match 'pick'",
+        ):
+            ytl.YulParser(tokens).find_function(
+                "pick",
+                known_yul_names={"helper"},
+            )
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "Multiple Yul functions match 'pick'",
+        ):
+            ytl.YulParser(tokens).find_function(
+                "pick",
+                known_yul_names={"helper"},
+                exclude_known=True,
+            )
+
     def test_translate_yul_to_models_preserves_shadowed_conditional_local_binding(
         self,
     ) -> None:
@@ -3802,6 +3844,56 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         model = result.models[0]
 
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (1,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+
+    def test_translate_yul_to_models_allows_branch_local_constant_mload_address_for_kept_solidity_local(
+        self,
+    ) -> None:
+        config = make_model_config(("f",), keep_solidity_locals=True)
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                mstore(64, 7)
+                var_z_2 := 1
+                if var_c_1 {
+                    let var_ptr_3 := 64
+                    var_z_2 := mload(var_ptr_3)
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (1,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+
+    def test_translate_yul_to_models_accepts_conditionally_constant_memory_address_for_kept_solidity_local(
+        self,
+    ) -> None:
+        config = make_model_config(("f",), keep_solidity_locals=True)
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                let var_ptr_3 := 64
+                if var_c_1 {
+                    var_ptr_3 := 64
+                }
+                mstore(var_ptr_3, 7)
+                var_z_2 := mload(64)
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (7,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
 
     def test_translate_yul_to_models_alpha_renames_callee_locals_during_inlining(
@@ -4534,6 +4626,27 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         with self.assertRaises(ytl.ParseError):
             ytl.validate_function_model(model)
 
+    def test_validate_function_model_rejects_out_of_range_component_projection_index(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x", "y"),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Call(
+                        "__component_2_2",
+                        (ytl.Call("pair", (ytl.Var("x"), ytl.Var("y"))),),
+                    ),
+                ),
+            ),
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.validate_function_model(model)
+
     def test_validate_function_model_rejects_malformed_ite_arity(self) -> None:
         model = ytl.FunctionModel(
             fn_name="f",
@@ -4612,6 +4725,43 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 "def normBitLengthPlus1 (x : Nat) : Nat := x + 1"
             ),
             norm_rewrite=lambda expr: ytl.Call("bitLengthPlus1", (expr,)),
+            inner_fn="f",
+            n_params=None,
+            exact_yul_names=None,
+            keep_solidity_locals=False,
+            hoist_repeated_calls=frozenset(),
+            skip_prune=frozenset(),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[model],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
+    def test_build_lean_source_rejects_generated_model_name_collision_with_builtin_helper(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+        config = ytl.ModelConfig(
+            function_order=("f",),
+            model_names={"f": "evmAdd"},
+            header_comment="test",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={},
+            extra_lean_defs="",
+            norm_rewrite=None,
             inner_fn="f",
             n_params=None,
             exact_yul_names=None,
