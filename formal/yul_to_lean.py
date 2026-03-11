@@ -1340,13 +1340,18 @@ class YulParser:
                     fn = self.parse_function()
                 except ParseError as err:
                     fn_name = self._function_name_at(saved_i) or f"<unknown@{saved_i}>"
+                    if fn_name in functions or fn_name in rejected:
+                        raise ParseError(
+                            f"Duplicate helper function {fn_name!r} in the "
+                            f"same scope. Refuse to collect ambiguous helpers."
+                        )
                     rejected[fn_name] = str(err)
                     self.i = saved_i
                     self._skip_function_def()
                     continue
                 finally:
                     self._expr_stmts = saved_stmts
-                if fn.yul_name in functions:
+                if fn.yul_name in functions or fn.yul_name in rejected:
                     raise ParseError(
                         f"Duplicate helper function {fn.yul_name!r} in the "
                         f"same scope. Refuse to collect ambiguous helpers."
@@ -1848,14 +1853,21 @@ def _inline_single_call(
                             else_body=None,
                         )
                     elif pre_const is not None and pre_const == 0:
-                        # Condition is constant-false: the then-body (with leave)
-                        # is dead.  Replace with the else-body as a non-leave block.
-                        stmt = ParsedIfBlock(
-                            condition=stmt.condition,
-                            body=stmt.else_body,
-                            has_leave=False,
-                            else_body=None,
-                        )
+                        # Condition is constant-false: the then-body is dead,
+                        # the else-body (case-0 branch) is live.  Process it
+                        # as straight-line code.
+                        for s in stmt.else_body:
+                            expr = substitute_expr(s.expr, subst)
+                            expr = inline_calls(
+                                expr,
+                                fn_table,
+                                depth,
+                                max_depth,
+                                mstore_sink=mstore_sink,
+                                unsupported_function_errors=unsupported_function_errors,
+                            )
+                            subst[s.target] = expr
+                        continue
                     else:
                         raise ParseError(
                             f"Function {fn.yul_name!r} contains a leave-bearing switch/if-else. "
@@ -3811,11 +3823,19 @@ def prepare_translation(
             else None
         )
         if exact_yul_name is not None:
-            yf = parser.find_exact_function(
-                exact_yul_name,
-                n_params=n_params,
-                search_nested=True,
-            )
+            try:
+                yf = parser.find_exact_function(
+                    exact_yul_name,
+                    n_params=n_params,
+                )
+            except ParseError:
+                # Top-level search failed — retry searching inside
+                # function bodies for nested helper targets.
+                yf = parser.find_exact_function(
+                    exact_yul_name,
+                    n_params=n_params,
+                    search_nested=True,
+                )
         else:
             yf = parser.find_function(
                 sol_name,
@@ -3879,6 +3899,11 @@ def prepare_translation(
                 nested_coll = YulParser(body_tokens).collect_all_functions()
                 # Nested helpers override outer-scope siblings.
                 helper_table.update(nested_coll.functions)
+                # Rejected inner functions shadow valid outer ones:
+                # if a nested helper fails to parse, calling it should
+                # error, not silently fall back to an outer definition.
+                for rname in nested_coll.rejected:
+                    helper_table.pop(rname, None)
                 rejected_helpers.update(nested_coll.rejected)
         else:
             function_collection = YulParser(tokens).collect_all_functions()
