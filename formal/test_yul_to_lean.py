@@ -4200,6 +4200,63 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
+    def test_translate_yul_to_models_rejects_duplicate_helper_names_when_first_duplicate_is_rejected(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("outer",),
+            exact_yul_names={"outer": "fun_outer_1"},
+        )
+        yul = """
+            function fun_outer_1() -> var_z_1 {
+                var_z_1 := helper()
+            }
+
+            function helper() -> var_r_1 {
+                for { } 0 { } {
+                    var_r_1 := 1
+                }
+            }
+
+            function helper() -> var_r_2 {
+                var_r_2 := 7
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_translate_yul_to_models_rejects_when_rejected_inner_helper_shadows_valid_outer_helper(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_1 {
+                function helper() -> var_r_2 {
+                    for { } 0 { } {
+                        var_r_2 := 1
+                    }
+                }
+
+                var_z_1 := helper()
+            }
+
+            function helper() -> var_r_3 {
+                var_r_3 := 7
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
     def test_build_lean_source_rejects_binder_collision_with_generated_model_name(
         self,
     ) -> None:
@@ -5193,6 +5250,35 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (1,))
         self.assertEqual(ytl.evaluate_function_model(model, (9,)), (10,))
 
+    def test_translate_yul_to_models_preserves_constant_zero_switch_leave_path_in_inlined_helper(
+        self,
+    ) -> None:
+        config = make_model_config(("target",))
+        yul = """
+            function fun_target_1() -> var_z_2 {
+                var_z_2 := fun_helper_2(0)
+            }
+
+            function fun_helper_2(var_flag_3) -> var_r_4 {
+                switch var_flag_3
+                case 0 {
+                    var_r_4 := 1
+                    leave
+                }
+                default {
+                    var_r_4 := 2
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (1,))
+
     def test_build_lean_source_separates_extra_lean_defs_from_following_norm_helpers(
         self,
     ) -> None:
@@ -5438,6 +5524,34 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             ),
             (7,),
         )
+
+    def test_translate_yul_to_models_exact_target_ignores_unrelated_nested_homonym(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("target",),
+            exact_yul_names={"target": "top"},
+        )
+        yul = """
+            function top() -> var_r_1 {
+                var_r_1 := 1
+            }
+
+            function outer() -> var_z_2 {
+                function top() -> var_r_3 {
+                    var_r_3 := 2
+                }
+                var_z_2 := top()
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (1,))
 
     def test_build_lean_source_rejects_binder_collision_with_generated_evm_model_name(
         self,
