@@ -305,6 +305,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     error NotUnanimous(bytes32 txHash);
     error TxHashNotApproved(bytes32 txHash);
     error ConfusedDeputy(uint256 callIndex, address target, bytes data);
+    error CannotCancelOwnResignation(bytes32 txHash);
 
     mapping(bytes32 => uint256) public timelockEnd;
     address public lockedDownBy;
@@ -882,6 +883,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         bytes32 resignHash = _removeOwnerTxHash(
             _safe, _safe.getPrevOwner(msg.sender), msg.sender, _getThresholdAfterResign(_safe), nonce
         );
+        if (resignHash == txHash) {
+            revert CannotCancelOwnResignation(txHash);
+        }
         _requirePreApproved(_safe, resignHash);
 
         uint256 _timelockEnd = timelockEnd[txHash];
