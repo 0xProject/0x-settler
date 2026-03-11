@@ -1066,6 +1066,21 @@ class YulParser:
                     return j
         return len(self.tokens) - 1
 
+    def _block_has_leave_at_depth1(self, brace_idx: int) -> bool:
+        """Check if the ``{``-delimited block has a ``leave`` at depth 1."""
+        depth = 0
+        for j in range(brace_idx, len(self.tokens)):
+            k, text = self.tokens[j]
+            if k == "{":
+                depth += 1
+            elif k == "}":
+                depth -= 1
+                if depth == 0:
+                    return False
+            elif depth == 1 and k == "ident" and text == "leave":
+                return True
+        return False
+
     def _scope_references_any(self, brace_start: int, yul_names: set[str]) -> bool:
         """Check if the ``{``-delimited block at *brace_start* references *yul_names*.
 
@@ -1076,6 +1091,10 @@ class YulParser:
         3. Build augmented name set (with shadowing)
         4. Check loose calls at depth 1
         5. Recurse into sub-blocks with augmented names
+
+        Dead-code awareness:
+        - ``if 0 { ... }`` bodies are skipped (constant-false)
+        - ``switch N case M { ... }`` skips non-matching case branches
         """
         local_fns: dict[str, int] = {}        # name → body brace index
         sub_block_braces: list[int] = []       # opening { indices of sub-blocks
@@ -1099,6 +1118,71 @@ class YulParser:
                 depth -= 1
                 if depth == 0:
                     break
+            elif depth == 1 and k == "ident" and text == "if":
+                # Check for constant-condition if blocks.
+                cond_idx = i + 1
+                if cond_idx < len(self.tokens) and self.tokens[cond_idx][0] == "num":
+                    cond_val = int(self.tokens[cond_idx][1], 0)
+                    # Find the if-body brace
+                    brace_idx = cond_idx + 1
+                    if brace_idx < len(self.tokens) and self.tokens[brace_idx][0] == "{":
+                        ne = self._find_matching_brace(brace_idx)
+                        if cond_val == 0:
+                            # Constant-false: skip the entire body
+                            i = ne + 1
+                            depth = 1
+                            continue
+                        else:
+                            # Constant-true: record the body as live
+                            sub_block_braces.append(brace_idx)
+                            i = ne + 1
+                            depth = 1
+                            continue
+                # Non-constant if: fall through to normal processing
+                i += 1
+                continue
+            elif depth == 1 and k == "ident" and text == "switch":
+                # Check for constant-discriminant switch blocks.
+                disc_idx = i + 1
+                if disc_idx < len(self.tokens) and self.tokens[disc_idx][0] == "num":
+                    disc_val = int(self.tokens[disc_idx][1], 0)
+                    # Walk through case/default branches, only recording
+                    # the matching branch's sub-block.
+                    j = disc_idx + 1
+                    matched_any_case = False
+                    while j < len(self.tokens):
+                        cj_k, cj_text = self.tokens[j]
+                        if cj_k == "ident" and cj_text == "case":
+                            j += 1  # skip 'case'
+                            if j < len(self.tokens) and self.tokens[j][0] == "num":
+                                case_val = int(self.tokens[j][1], 0)
+                                j += 1  # skip case value
+                                if j < len(self.tokens) and self.tokens[j][0] == "{":
+                                    ne = self._find_matching_brace(j)
+                                    if case_val == disc_val:
+                                        sub_block_braces.append(j)
+                                        matched_any_case = True
+                                    j = ne + 1
+                                    continue
+                            # Malformed case; bail out to normal processing
+                            break
+                        elif cj_k == "ident" and cj_text == "default":
+                            j += 1  # skip 'default'
+                            if j < len(self.tokens) and self.tokens[j][0] == "{":
+                                ne = self._find_matching_brace(j)
+                                if not matched_any_case:
+                                    sub_block_braces.append(j)
+                                j = ne + 1
+                                continue
+                            break
+                        else:
+                            # Not a case/default: end of switch
+                            break
+                    i = j
+                    continue
+                # Non-constant switch: fall through to normal processing
+                i += 1
+                continue
             elif depth == 1 and k == "ident" and text == "function":
                 name = self._function_name_at(i)
                 # Find body opening brace.
@@ -1129,7 +1213,12 @@ class YulParser:
             for name, body_brace in local_fns.items():
                 if name in referencing:
                     continue
-                if self._scope_references_any(body_brace, yul_names | referencing):
+                # When checking sibling function bodies, exclude local
+                # function names from yul_names so that calls to a
+                # locally-shadowed name are not counted as external.
+                if self._scope_references_any(
+                    body_brace, (yul_names - set(local_fns)) | referencing
+                ):
                     referencing.add(name)
                     changed = True
 
