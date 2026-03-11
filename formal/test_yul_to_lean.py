@@ -5153,6 +5153,190 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             (9,),
         )
 
+    def test_translate_yul_to_models_rejects_unsupported_builtin_name(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                var_z_2 := xor(1, 2)
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_translate_yul_to_models_rejects_recursive_selected_model_call(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                var_z_2 := fun_f_1()
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_translate_yul_to_models_allows_constant_false_direct_leave_branch(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                if 0 {
+                    leave
+                }
+                var_z_2 := 9
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[0], ()),
+            (9,),
+        )
+
+    def test_build_lean_source_rejects_generated_model_name_collision_in_conditional_output_vars(
+        self,
+    ) -> None:
+        config = make_model_config(("inner", "outer"))
+        inner = ytl.FunctionModel(
+            fn_name="inner",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1))),
+                ),
+            ),
+        )
+        outer = ytl.FunctionModel(
+            fn_name="outer",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("x"),
+                    output_vars=("model_inner",),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=("x",),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=("x",),
+                    ),
+                ),
+                ytl.Assignment(
+                    "z",
+                    ytl.Call("inner", (ytl.Var("model_inner"),)),
+                ),
+            ),
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[inner, outer],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
+    def test_build_lean_source_rejects_generated_evm_model_name_collision_in_conditional_branch_targets(
+        self,
+    ) -> None:
+        config = make_model_config(("inner", "outer"))
+        inner = ytl.FunctionModel(
+            fn_name="inner",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1))),
+                ),
+            ),
+        )
+        outer = ytl.FunctionModel(
+            fn_name="outer",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("x"),
+                    output_vars=("tmp",),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(
+                            ytl.Assignment("model_inner_evm", ytl.Var("x")),
+                            ytl.Assignment(
+                                "tmp",
+                                ytl.Call(
+                                    "inner",
+                                    (ytl.Var("model_inner_evm"),),
+                                ),
+                            ),
+                        ),
+                        outputs=("tmp",),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(
+                            ytl.Assignment("model_inner_evm", ytl.IntLit(0)),
+                            ytl.Assignment(
+                                "tmp",
+                                ytl.Call(
+                                    "inner",
+                                    (ytl.Var("model_inner_evm"),),
+                                ),
+                            ),
+                        ),
+                        outputs=("tmp",),
+                    ),
+                ),
+                ytl.Assignment("z", ytl.Var("tmp")),
+            ),
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[inner, outer],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
+    def test_build_lean_source_rejects_invalid_namespace_name(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+        config = make_model_config(("f",))
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[model],
+                source_path="test-source",
+                namespace="invalid-name",
+                config=config,
+            )
+
 
 class KnownOptimizerBugRegressionTest(ModelEquivalenceTestCase):
     # These are known-bad optimizer behaviors found during review.
