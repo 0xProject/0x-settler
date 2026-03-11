@@ -5444,6 +5444,48 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 config=config,
             )
 
+    def test_build_lean_source_allows_binder_named_like_skipped_norm_model(
+        self,
+    ) -> None:
+        base = make_model_config(("f",))
+        config = ytl.ModelConfig(
+            function_order=base.function_order,
+            model_names=base.model_names,
+            header_comment=base.header_comment,
+            generator_label=base.generator_label,
+            extra_norm_ops=base.extra_norm_ops,
+            extra_lean_defs=base.extra_lean_defs,
+            norm_rewrite=base.norm_rewrite,
+            inner_fn=base.inner_fn,
+            n_params=base.n_params,
+            exact_yul_names=base.exact_yul_names,
+            keep_solidity_locals=base.keep_solidity_locals,
+            exclude_known=base.exclude_known,
+            skip_norm=frozenset({"f"}),
+            hoist_repeated_calls=base.hoist_repeated_calls,
+            skip_prune=base.skip_prune,
+            default_source_label=base.default_source_label,
+            default_namespace=base.default_namespace,
+            default_output=base.default_output,
+            cli_description=base.cli_description,
+        )
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("model_f",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("model_f")),),
+        )
+
+        source = ytl.build_lean_source(
+            models=[model],
+            source_path="test-source",
+            namespace="Test",
+            config=config,
+        )
+
+        self.assertIn("def model_f_evm", source)
+        self.assertNotIn("\ndef model_f ", source)
+
     def test_translate_yul_to_models_allows_constant_false_top_level_memory_write_branch(
         self,
     ) -> None:
@@ -5511,6 +5553,47 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 config,
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
+
+    def test_translate_yul_to_models_ignores_dead_selected_cycle_edge_from_constant_false_branch(
+        self,
+    ) -> None:
+        config = make_model_config(("f", "g"))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                var_z_2 := 0
+                if 0 {
+                    var_z_2 := fun_g_2()
+                }
+            }
+
+            function fun_g_2() -> var_r_3 {
+                var_r_3 := fun_f_1()
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model_table = ytl.build_model_table(result.models)
+
+        self.assertEqual(
+            ytl.evaluate_function_model(
+                model_table["f"],
+                (),
+                model_table=model_table,
+            ),
+            (0,),
+        )
+        self.assertEqual(
+            ytl.evaluate_function_model(
+                model_table["g"],
+                (),
+                model_table=model_table,
+            ),
+            (0,),
+        )
 
     def test_translate_yul_to_models_allows_constant_false_direct_leave_branch(
         self,
