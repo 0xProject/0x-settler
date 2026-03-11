@@ -4493,11 +4493,143 @@ def build_model_body(
     return "\n".join(lines)
 
 
-def render_function_defs(models: list[FunctionModel], config: ModelConfig) -> str:
-    parts: list[str] = []
+@dataclass(frozen=True)
+class EmittedModelDef:
+    fn_name: str
+    base_name: str
+    evm_name: str
+    emit_norm: bool
+
+
+@dataclass(frozen=True)
+class LeanEmissionPlan:
+    emit_any_norm: bool
+    model_defs: tuple[EmittedModelDef, ...]
+    generated_def_names: frozenset[str]
+    extra_norm_binder_names: frozenset[str]
+
+
+def _collect_model_binders(model: FunctionModel) -> list[str]:
+    binders = [*model.param_names, *model.return_names]
+    for stmt in model.assignments:
+        if isinstance(stmt, Assignment):
+            binders.append(stmt.target)
+        elif isinstance(stmt, ConditionalBlock):
+            binders.extend(stmt.output_vars)
+            binders.extend(a.target for a in stmt.then_branch.assignments)
+            binders.extend(a.target for a in stmt.else_branch.assignments)
+        else:
+            _unreachable_stmt(stmt)
+    return binders
+
+
+def _build_lean_emission_plan(
+    models: list[FunctionModel],
+    config: ModelConfig,
+) -> LeanEmissionPlan:
+    emit_any_norm = any_norm_models(models, config)
+    base_reserved = frozenset(
+        {"u256", "WORD_MOD"}
+        | set(OP_TO_LEAN_HELPER.values())
+        | _LEAN_KEYWORDS
+    )
+    norm_reserved = frozenset(
+        (
+            set(_BASE_NORM_HELPERS.values())
+            | set(config.extra_norm_ops.values())
+        )
+        if emit_any_norm
+        else set()
+    )
+    builtin_helper_names = frozenset(
+        {"u256", "WORD_MOD"}
+        | set(OP_TO_LEAN_HELPER.values())
+        | set(norm_reserved)
+    )
+
+    model_defs: list[EmittedModelDef] = []
+    generated_def_names: set[str] = set()
     for model in models:
-        model_base = config.model_names[model.fn_name]
-        evm_name = f"{model_base}_evm"
+        if model.fn_name not in config.model_names:
+            raise ParseError(
+                f"Model {model.fn_name!r} has no entry in config.model_names"
+            )
+        base_name = config.model_names[model.fn_name]
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", base_name):
+            raise ParseError(
+                f"Invalid generated model name for {model.fn_name!r}: {base_name!r}"
+            )
+
+        emit_norm = model.fn_name not in config.skip_norm
+        reserved_names = base_reserved | (norm_reserved if emit_norm else frozenset())
+        if base_name in reserved_names:
+            raise ParseError(
+                f"Reserved name used as model name for {model.fn_name!r}: "
+                f"{base_name!r}"
+            )
+
+        evm_name = f"{base_name}_evm"
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", evm_name):
+            raise ParseError(
+                f"Invalid generated EVM model name: {evm_name!r}"
+            )
+        if emit_norm and base_name in generated_def_names:
+            raise ParseError(
+                f"Duplicate generated model name {base_name!r}"
+            )
+        if evm_name in generated_def_names:
+            raise ParseError(
+                f"Duplicate generated EVM model name {evm_name!r}"
+            )
+
+        if emit_norm:
+            generated_def_names.add(base_name)
+        generated_def_names.add(evm_name)
+        model_defs.append(
+            EmittedModelDef(
+                fn_name=model.fn_name,
+                base_name=base_name,
+                evm_name=evm_name,
+                emit_norm=emit_norm,
+            )
+        )
+
+    for name in generated_def_names:
+        if name in builtin_helper_names:
+            raise ParseError(
+                f"Generated model name {name!r} collides with a builtin "
+                f"helper or reserved name"
+            )
+
+    return LeanEmissionPlan(
+        emit_any_norm=emit_any_norm,
+        model_defs=tuple(model_defs),
+        generated_def_names=frozenset(generated_def_names),
+        extra_norm_binder_names=frozenset(config.extra_norm_ops.values()),
+    )
+
+
+def render_function_defs(
+    models: list[FunctionModel],
+    config: ModelConfig,
+    *,
+    emission_plan: LeanEmissionPlan | None = None,
+) -> str:
+    if emission_plan is None:
+        emission_plan = _build_lean_emission_plan(models, config)
+    if len(emission_plan.model_defs) != len(models):
+        raise ParseError(
+            "Lean emission plan/model count mismatch. Refuse to render "
+            "with inconsistent emitted names."
+        )
+
+    parts: list[str] = []
+    for model, planned in zip(models, emission_plan.model_defs):
+        if planned.fn_name != model.fn_name:
+            raise ParseError(
+                "Lean emission plan/model order mismatch. Refuse to render "
+                "with inconsistent emitted names."
+            )
         evm_body = build_model_body(
             model.assignments,
             evm=True,
@@ -4516,11 +4648,10 @@ def render_function_defs(models: list[FunctionModel], config: ModelConfig) -> st
             ret_type = " × ".join("Nat" for _ in model.return_names)
         parts.append(
             f"/-- Opcode-faithful auto-generated model of `{model.fn_name}` with uint256 EVM semantics. -/\n"
-            f"def {evm_name}{param_sig} : {ret_type} :=\n"
+            f"def {planned.evm_name}{param_sig} : {ret_type} :=\n"
             f"{evm_body}\n"
         )
-        if model.fn_name not in config.skip_norm:
-            norm_name = model_base
+        if planned.emit_norm:
             norm_body = build_model_body(
                 model.assignments,
                 evm=False,
@@ -4530,7 +4661,7 @@ def render_function_defs(models: list[FunctionModel], config: ModelConfig) -> st
             )
             parts.append(
                 f"/-- Normalized auto-generated model of `{model.fn_name}` on Nat arithmetic. -/\n"
-                f"def {norm_name}{param_sig} : {ret_type} :=\n"
+                f"def {planned.base_name}{param_sig} : {ret_type} :=\n"
                 f"{norm_body}\n"
             )
     return "\n".join(parts)
@@ -4567,135 +4698,44 @@ def build_lean_source(
             f"{config.header_comment!r}"
         )
 
-    # -- Model name validation --
-    emit_norm = any_norm_models(models, config)
-
-    # Build effective reserved set for model names — only include norm
-    # helpers when norm models will actually be emitted.
-    _base_reserved: set[str] = (
-        {"u256", "WORD_MOD"}
-        | set(OP_TO_LEAN_HELPER.values())
-        | _LEAN_KEYWORDS
-    )
-    _norm_reserved: set[str] = set()
-    if emit_norm:
-        _norm_reserved |= set(_BASE_NORM_HELPERS.values())
-        if config.extra_norm_ops:
-            _norm_reserved |= set(config.extra_norm_ops.values())
-
-    # Build the set of all Lean def names that will be emitted.
-    generated_def_names: set[str] = set()
-    for model in models:
-        if model.fn_name not in config.model_names:
-            raise ParseError(
-                f"Model {model.fn_name!r} has no entry in config.model_names"
-            )
-        base = config.model_names[model.fn_name]
-        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", base):
-            raise ParseError(
-                f"Invalid generated model name for {model.fn_name!r}: {base!r}"
-            )
-        # Models in skip_norm don't emit a norm def, so their base name
-        # doesn't collide with norm helpers — only check base reserved.
-        effective_reserved = _base_reserved
-        if model.fn_name not in config.skip_norm:
-            effective_reserved = _base_reserved | _norm_reserved
-        if base in effective_reserved:
-            raise ParseError(
-                f"Reserved name used as model name for {model.fn_name!r}: {base!r}"
-            )
-        evm_name = f"{base}_evm"
-        # Check evm_name validity too
-        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", evm_name):
-            raise ParseError(
-                f"Invalid generated EVM model name: {evm_name!r}"
-            )
-        if base in generated_def_names:
-            raise ParseError(
-                f"Duplicate generated model name {base!r}"
-            )
-        if evm_name in generated_def_names:
-            raise ParseError(
-                f"Duplicate generated EVM model name {evm_name!r}"
-            )
-        # Only add base to generated_def_names when the norm model will be
-        # emitted — skipped norm models don't produce a base def.
-        if model.fn_name not in config.skip_norm:
-            generated_def_names.add(base)
-        generated_def_names.add(evm_name)
-
-    # Cross-collision: model names vs builtin helpers and reserved names
-    builtin_names = {"u256", "WORD_MOD"} | set(OP_TO_LEAN_HELPER.values())
-    if emit_norm:
-        builtin_names |= set(_BASE_NORM_HELPERS.values())
-        if config.extra_norm_ops:
-            builtin_names |= set(config.extra_norm_ops.values())
-    for name in generated_def_names:
-        if name in builtin_names:
-            raise ParseError(
-                f"Generated model name {name!r} collides with a builtin "
-                f"helper or reserved name"
-            )
+    emission_plan = _build_lean_emission_plan(models, config)
 
     # Binder collision: check all binder names in all models against
     # generated def names.
     def _check_binder_collision(binder: str, model_fn_name: str) -> None:
-        if binder in generated_def_names:
+        if binder in emission_plan.generated_def_names:
             raise ParseError(
                 f"Binder {binder!r} in model {model_fn_name!r} collides "
                 f"with a generated model def name"
             )
 
     for model in models:
-        for name in (*model.param_names, *model.return_names):
-            _check_binder_collision(name, model.fn_name)
-        for stmt in model.assignments:
-            if isinstance(stmt, Assignment):
-                _check_binder_collision(stmt.target, model.fn_name)
-            elif isinstance(stmt, ConditionalBlock):
-                for var in stmt.output_vars:
-                    _check_binder_collision(var, model.fn_name)
-                for a in stmt.then_branch.assignments:
-                    _check_binder_collision(a.target, model.fn_name)
-                for a in stmt.else_branch.assignments:
-                    _check_binder_collision(a.target, model.fn_name)
+        for binder in _collect_model_binders(model):
+            _check_binder_collision(binder, model.fn_name)
 
     # Check binder names against config-specific reserved names that
     # validate_ident cannot see (it has no access to config).
-    if config.extra_norm_ops:
-        extra_reserved = frozenset(config.extra_norm_ops.values())
-        for model in models:
-            if model.fn_name in config.skip_norm:
+    if emission_plan.extra_norm_binder_names:
+        for model, planned in zip(models, emission_plan.model_defs):
+            if not planned.emit_norm:
                 continue
-            for name in (*model.param_names, *model.return_names):
-                if name in extra_reserved:
+            for binder in _collect_model_binders(model):
+                if binder in emission_plan.extra_norm_binder_names:
                     raise ParseError(
                         f"Reserved Lean helper name used as binder in "
-                        f"{model.fn_name!r}: {name!r}"
+                        f"{model.fn_name!r}: {binder!r}"
                     )
-            for stmt in model.assignments:
-                targets: list[str] = []
-                if isinstance(stmt, Assignment):
-                    targets.append(stmt.target)
-                elif isinstance(stmt, ConditionalBlock):
-                    targets.extend(stmt.output_vars)
-                    for a in stmt.then_branch.assignments:
-                        targets.append(a.target)
-                    for a in stmt.else_branch.assignments:
-                        targets.append(a.target)
-                for t in targets:
-                    if t in extra_reserved:
-                        raise ParseError(
-                            f"Reserved Lean helper name used as binder in "
-                            f"{model.fn_name!r}: {t!r}"
-                        )
 
     modeled_functions = ", ".join(model.fn_name for model in models)
 
     opcodes = collect_model_opcodes(models)
     opcodes_line = ", ".join(opcodes)
 
-    function_defs = render_function_defs(models, config)
+    function_defs = render_function_defs(
+        models,
+        config,
+        emission_plan=emission_plan,
+    )
 
     # Normalize extra_lean_defs: ensure it ends with \n\n if non-empty.
     _extra_lean_defs = ""
@@ -4703,7 +4743,7 @@ def build_lean_source(
         _extra_lean_defs = config.extra_lean_defs.rstrip() + "\n\n"
 
     norm_defs = ""
-    if emit_norm:
+    if emission_plan.emit_any_norm:
         norm_defs = (
             "def normAdd (a b : Nat) : Nat := a + b\n\n"
             "def normSub (a b : Nat) : Nat := a - b\n\n"
