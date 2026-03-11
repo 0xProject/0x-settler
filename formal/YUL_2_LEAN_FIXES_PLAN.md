@@ -591,3 +591,64 @@ The restored tests should pass, but verification should go beyond them:
 - Broadening the supported control-flow subset beyond what can be expressed faithfully in the current restricted IR
 
 Those can be addressed later, but this plan should leave the code structured so that future extensions do not require another parser redesign.
+
+## Implementation status
+
+### Implemented (41 tests fixed)
+
+| Workstream | Tests fixed | Summary |
+|-----------|------------|---------|
+| WS-A: n_params hardening | 2 | `find_function` now treats n_params as a hard filter |
+| WS-B: find_function nesting | 2 | `find_function` and `find_exact_function` track function-body depth, ignoring nested local definitions |
+| WS-C: inline_calls depth | 1 | Depth budget is consumed only in `_inline_single_call`, not on builtin AST recursion |
+| WS-D: expression shape | 4 | `_validate_expr_shape` checks builtin arity, `__ite` arity, `__component` shape and index bounds |
+| WS-E: u256 wrapping | 2 | `_try_const_eval` wraps IntLit values mod 2^256; `_wrap_u256_literals` normalizes model expressions |
+| WS-F: build_lean_source | 17 | Namespace, model name, injection, collision, and separator validation added |
+| WS-G: call graph | 8 | `validate_selected_models` checks arity, projections, unresolved calls, and cycles |
+| WS-H: Lean keywords | 1 | `_LEAN_KEYWORDS` added to `_RESERVED_LEAN_NAMES` |
+| WS-I: constant control flow | 1 | Constant-false `if` with `leave` is folded away in `yul_function_to_model` |
+| WS-L: parser expansion | 3 | Multi-var `let` without initializer, scalar initializer rejection, multi-target assignment |
+
+### Deferred tests with rationale (33 tests)
+
+#### WS2: Reference analysis dead-code awareness (5 tests)
+
+`_scope_references_any()` is token-based and has three known weaknesses:
+
+1. **Dead-code unawareness**: The walker does not recognize constant-false `if 0 { ... }` or constant-selected switch branches. Calls inside dead branches are counted as live references.
+
+2. **Leave unawareness**: Code after `leave` is unreachable but still scanned.
+
+3. **Shadowing in transitive calls**: When a local function `helper` shadows an external `helper`, transitive calls through the local function are incorrectly counted. The fixed-point sibling iteration passes `yul_names | referencing` which includes the external `helper` name — a call to the local `helper` from a sibling matches even though it resolves to the local (non-referencing) definition.
+
+**Proposed incremental fixes**:
+- Skip `if <literal> { ... }` blocks when literal is 0
+- Stop scanning after `leave`
+- For shadowing: the augmented set already handles this for loose calls, but the sibling fixed-point check passes the wrong set into function body recursion
+
+**Alternative**: Full AST-based analysis (as proposed in Workstream 2) would solve all three but requires WS-J (`RawBinding`) to be in place first.
+
+**Affected tests**: `ignores_constant_false_helper_references`, `ignores_constant_switch_helper_references`, `ignores_dead_helper_reference_after_top_level_leave`, `ignores_dead_helper_reference_after_constant_true_if_leave`, `ignores_transitive_calls_to_shadowing_local_helper`.
+
+#### WS-I: Constant control flow (11 tests)
+
+- **Parse-time failures** (2): `allows_constant_false_top_level_memory_write_branch`, `allows_constant_switch_case_memory_write_branch` — requires changing `ParsedIfBlock.body` type to accept `MemoryWrite`. Ripples through bare-block handling, conditional processing, branch splitting. Should be done with WS-J.
+- **Helper inlining failures** (4): `allows_constant_switch_with_dead_leave_branch`, `allows_exact_from_after_constant_false_inlined_leave`, `allows_exact_from_after_constant_true_inlined_leave`, `allows_exact_from_in_constant_false_inlined_if_body` — requires constant folding inside `_inline_single_call`, which has complex leave/mstore interaction.
+- **Need WS-J** (4): `allows_branch_local_constant_mload_address` (×2), `accepts_conditionally_constant_memory_address` (×2) — branch-local const tracking needs declaration-aware scoping.
+- **Need WS-J + build_lean_source** (1): `ignores_dead_constant_false_branch_with_unresolved_helper` — requires constant folding to eliminate dead branch before Lean emission encounters the unresolved helper call.
+
+#### WS-J: Declaration semantics + shadowing (11 tests)
+
+All `preserves_shadowed_*`, `preserves_outer_*`, `preserves_temporary_snapshot_*`, `allows_conditional_return_write_*`, `allows_temporary_reuse_*`.
+
+Requires `RawBinding(is_declaration=True/False)` to distinguish `let` from `:=`. The temporary snapshot tests additionally require `subst` map snapshotting across conditional boundaries. The conditional overwrite test requires dead-write dominance analysis. The temporary reuse test requires scope-aware multi-assignment detection. These are deeply intertwined with `yul_function_to_model` core data flow.
+
+#### WS-K: Helper scope frames (5 tests)
+
+`collects_nested_local_helpers_for_inlining`, `collects_outer_helpers_for_exact_nested_target`, `prefers_nested_local_helper_over_shadowed_sibling`, `rejects_duplicate_helper_names_in_same_scope`, `alpha_renames_callee_locals_during_inlining`.
+
+Requires replacing `collect_all_functions()` flat dict with `ScopeFrame` chain. Alpha-renaming during inlining requires fresh name generation. Both are significant refactors to core infrastructure.
+
+#### WS-L: Leave in bare block (1 test)
+
+`skips_dead_code_after_leave_inside_bare_block` — when a bare block contains `leave`, the outer `_parse_assignment_loop` breaks but doesn't skip remaining tokens in the enclosing function body. Fixing this requires careful interaction with parser state.

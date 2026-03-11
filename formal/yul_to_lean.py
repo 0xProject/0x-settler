@@ -452,8 +452,18 @@ class YulParser:
                 if let_vars is not None:
                     let_vars.add(t)
                 all_targets.append(t)
+            if self._peek_kind() != ":=":
+                # Multi-var declaration without initializer — zero-init all
+                for t in all_targets:
+                    results.append(PlainAssignment(t, IntLit(0)))
+                return
             self._expect(":=")
             expr = self._parse_expr()
+            if not isinstance(expr, Call):
+                raise ParseError(
+                    f"Multi-variable let expects a function call as "
+                    f"initializer, got {type(expr).__name__}"
+                )
             for idx, t in enumerate(all_targets):
                 results.append(
                     PlainAssignment(
@@ -729,6 +739,35 @@ class YulParser:
                     )
                 continue
 
+            # Multi-target assignment: ``a, b := call()``
+            if (
+                kind == "ident"
+                and self.i + 1 < len(self.tokens)
+                and self.tokens[self.i + 1][0] == ","
+            ):
+                all_targets: list[str] = [self._expect_ident()]
+                while self._peek_kind() == ",":
+                    self._pop()
+                    all_targets.append(self._expect_ident())
+                self._expect(":=")
+                rhs = self._parse_expr()
+                if not isinstance(rhs, Call):
+                    raise ParseError(
+                        f"Multi-target assignment expects a function call "
+                        f"as initializer, got {type(rhs).__name__}"
+                    )
+                for idx, t in enumerate(all_targets):
+                    results.append(
+                        PlainAssignment(
+                            t,
+                            Call(
+                                f"__component_{idx}_{len(all_targets)}",
+                                (rhs,),
+                            ),
+                        )
+                    )
+                continue
+
             if (
                 kind == "ident"
                 and self.i + 1 < len(self.tokens)
@@ -867,15 +906,36 @@ class YulParser:
         """
         target_prefix = f"fun_{sol_fn_name}_"
         matches: list[int] = []
+        # Track function-body nesting so that functions defined inside
+        # other function bodies are ignored.  We use a stack of brace
+        # depths: when we enter a function body, we push the current
+        # brace depth, and when we return to that depth, the function
+        # body is closed.
+        fn_body_stack: list[int] = []  # brace depths at fn body open
+        depth = 0
+        expect_fn_body = False
 
         for idx in range(len(self.tokens) - 1):
-            if (
-                self.tokens[idx] == ("ident", "function")
-                and self.tokens[idx + 1][0] == "ident"
-                and self.tokens[idx + 1][1].startswith(target_prefix)
-                and self.tokens[idx + 1][1][len(target_prefix) :].isdigit()
-            ):
-                matches.append(idx)
+            k, text = self.tokens[idx]
+            if k == "{":
+                depth += 1
+                if expect_fn_body:
+                    fn_body_stack.append(depth)
+                    expect_fn_body = False
+            elif k == "}":
+                if fn_body_stack and fn_body_stack[-1] == depth:
+                    fn_body_stack.pop()
+                depth -= 1
+            elif k == "ident" and text == "function":
+                if (
+                    not fn_body_stack
+                    and self.tokens[idx + 1][0] == "ident"
+                    and self.tokens[idx + 1][1].startswith(target_prefix)
+                    and self.tokens[idx + 1][1][len(target_prefix) :].isdigit()
+                ):
+                    matches.append(idx)
+                # The next `{` opens a function body.
+                expect_fn_body = True
 
         if not matches:
             raise ParseError(
@@ -883,10 +943,13 @@ class YulParser:
                 f"(expected pattern fun_{sol_fn_name}_<digits>)"
             )
 
-        if n_params is not None and len(matches) > 1:
-            filtered = [m for m in matches if self._count_params_at(m) == n_params]
-            if filtered:
-                matches = filtered
+        if n_params is not None:
+            matches = [m for m in matches if self._count_params_at(m) == n_params]
+            if not matches:
+                raise ParseError(
+                    f"No Yul function for {sol_fn_name!r} matches "
+                    f"{n_params} parameter(s)"
+                )
 
         if known_yul_names and len(matches) > 1:
             if exclude_known:
@@ -921,15 +984,31 @@ class YulParser:
     ) -> YulFunction:
         """Find and parse the function whose Yul symbol exactly matches ``yul_name``."""
         matches: list[int] = []
+        fn_body_stack: list[int] = []
+        depth = 0
+        expect_fn_body = False
 
         for idx in range(len(self.tokens) - 1):
-            if self.tokens[idx] == ("ident", "function") and self.tokens[idx + 1] == (
-                "ident",
-                yul_name,
-            ):
-                if n_params is not None and self._count_params_at(idx) != n_params:
-                    continue
-                matches.append(idx)
+            k, text = self.tokens[idx]
+            if k == "{":
+                depth += 1
+                if expect_fn_body:
+                    fn_body_stack.append(depth)
+                    expect_fn_body = False
+            elif k == "}":
+                if fn_body_stack and fn_body_stack[-1] == depth:
+                    fn_body_stack.pop()
+                depth -= 1
+            elif k == "ident" and text == "function":
+                if (
+                    not fn_body_stack
+                    and self.tokens[idx + 1] == ("ident", yul_name)
+                ):
+                    if n_params is not None and self._count_params_at(idx) != n_params:
+                        pass  # skip, but still mark expect_fn_body
+                    else:
+                        matches.append(idx)
+                expect_fn_body = True
 
         if not matches:
             if n_params is None:
@@ -1246,7 +1325,7 @@ def _try_const_eval(expr: Expr) -> int | None:
     model evaluator.
     """
     if isinstance(expr, IntLit):
-        return expr.value
+        return expr.value % WORD_MOD
     if isinstance(expr, Call):
         # Handle __ite(cond, if_val, else_val): if both branches
         # evaluate to the same constant, the result is that constant
@@ -1256,13 +1335,13 @@ def _try_const_eval(expr: Expr) -> int | None:
             if_val = _try_const_eval(expr.args[1])
             else_val = _try_const_eval(expr.args[2])
             if if_val is not None and else_val is not None and if_val == else_val:
-                return if_val
+                return if_val  # already wrapped by recursive call
             if cond_val is not None and cond_val != 0 and if_val is not None:
                 return if_val
             if cond_val is not None and cond_val == 0 and else_val is not None:
                 return else_val
             return None
-        # Delegate all other ops to _eval_builtin.
+        # Delegate all other ops to _eval_builtin (which wraps via u256).
         arg_vals = tuple(_try_const_eval(arg) for arg in expr.args)
         if any(v is None for v in arg_vals):
             return None
@@ -1366,12 +1445,23 @@ def _inline_single_call(
 ) -> Expr | tuple[Expr, ...]:
     """Inline one function call, returning its return-value expression(s).
 
+    Depth is incremented at the top of this function so that only actual
+    user-function inlining (not AST recursion over builtins) consumes
+    the depth budget.
+
     Builds a substitution from parameters → argument expressions, then
     processes the helper body sequentially. Helpers must remain pure at the
     statement level, except for the exact emitted ``uint512.from(x_hi, x_lo)``
     accessor shape, whose two fixed-slot writes are sunk into the selected
     function body.
     """
+    depth += 1
+    if depth > max_depth:
+        raise ParseError(
+            f"Inlining depth {depth} exceeded max_depth={max_depth} while "
+            f"inlining {fn.yul_name!r}. Refuse to leave the expression "
+            f"partially inlined."
+        )
     expected_arity = len(fn.params)
     actual_arity = len(args)
     if actual_arity != expected_arity:
@@ -1581,12 +1671,6 @@ def inline_calls(
     ``__component_N`` wrappers (from multi-value ``let``) are resolved
     to the Nth return value of the inlined function.
     """
-    depth += 1
-    if depth > max_depth:
-        raise ParseError(
-            f"Inlining depth {depth} exceeded max_depth={max_depth} while "
-            f"processing {expr!r}. Refuse to leave the expression partially inlined."
-        )
     if isinstance(expr, (IntLit, Var)):
         return expr
     if isinstance(expr, Call):
@@ -2071,6 +2155,20 @@ def yul_function_to_model(
             )
         _unreachable_expr(expr)
 
+    def _wrap_u256_literals(expr: Expr) -> Expr:
+        """Normalize IntLit values to [0, 2^256) per EVM u256 semantics."""
+        if isinstance(expr, IntLit):
+            wrapped = expr.value % WORD_MOD
+            return IntLit(wrapped) if wrapped != expr.value else expr
+        if isinstance(expr, Var):
+            return expr
+        if isinstance(expr, Call):
+            new_args = tuple(_wrap_u256_literals(a) for a in expr.args)
+            if new_args == expr.args:
+                return expr
+            return Call(expr.name, new_args)
+        return expr
+
     def _process_assignment_into(
         target: str,
         raw_expr: Expr,
@@ -2088,6 +2186,7 @@ def yul_function_to_model(
         expr = substitute_expr(raw_expr, subst_state)
         expr = rename_expr(expr, var_map_state, fn_map)
         expr = _resolve_memory_expr(expr, const_locals_state=const_locals_state)
+        expr = _wrap_u256_literals(expr)
 
         clean = demangle_var(
             target, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals
@@ -2143,7 +2242,26 @@ def yul_function_to_model(
 
     for stmt in yf.assignments:
         if isinstance(stmt, ParsedIfBlock):
+            # Constant-fold the condition before rejecting leave.
             if stmt.has_leave:
+                cond_sub = substitute_expr(stmt.condition, subst)
+                const_cond = _try_const_eval(cond_sub)
+                if const_cond is not None and const_cond == 0:
+                    # Dead branch: condition is constant-false, skip entirely.
+                    # Process only the else-body (if any) since the then-body
+                    # with leave is unreachable.
+                    if stmt.else_body:
+                        for s in stmt.else_body:
+                            a = _process_assignment_into(
+                                s.target,
+                                s.expr,
+                                var_map_state=var_map,
+                                subst_state=subst,
+                                const_locals_state=const_locals,
+                            )
+                            if a is not None:
+                                assignments.append(a)
+                    continue
                 raise ParseError(
                     f"Function {sol_fn_name!r} contains 'leave' in direct model "
                     "generation. Early return is only supported when inlining a "
@@ -2450,10 +2568,23 @@ _BASE_NORM_HELPERS: dict[str, str] = {
 }
 
 
+_LEAN_KEYWORDS: frozenset[str] = frozenset({
+    "if", "then", "else", "let", "in", "do", "where", "match",
+    "with", "fun", "return", "import", "open", "namespace", "end",
+    "def", "theorem", "lemma", "example", "structure", "class",
+    "instance", "section", "variable", "universe", "axiom",
+    "inductive", "coinductive", "mutual", "partial", "unsafe",
+    "private", "protected", "noncomputable", "macro", "syntax",
+    "notation", "prefix", "infix", "infixl", "infixr", "postfix",
+    "attribute", "deriving", "extends", "abbrev", "opaque",
+    "set_option", "for", "true", "false", "Type", "Prop", "Sort",
+})
+
 _RESERVED_LEAN_NAMES: frozenset[str] = frozenset(
     {"u256", "WORD_MOD"}
     | set(OP_TO_LEAN_HELPER.values())
     | set(_BASE_NORM_HELPERS.values())
+    | _LEAN_KEYWORDS
 )
 
 
@@ -2625,9 +2756,55 @@ def validate_function_model(model: FunctionModel) -> None:
                 f"{sorted(missing_outputs)}"
             )
 
+    def _validate_expr_shape(expr: Expr) -> None:
+        """Reject structurally malformed expressions."""
+        if isinstance(expr, (IntLit, Var)):
+            return
+        if not isinstance(expr, Call):
+            return
+        # Builtin arity check
+        if expr.name in OP_TO_LEAN_HELPER:
+            expected = (
+                1 if expr.name in ("not", "clz")
+                else (3 if expr.name == "mulmod" else 2)
+            )
+            if len(expr.args) != expected:
+                raise ParseError(
+                    f"Model {model.fn_name!r}: builtin {expr.name!r} expects "
+                    f"{expected} arg(s), got {len(expr.args)}"
+                )
+        elif expr.name == "__ite":
+            if len(expr.args) != 3:
+                raise ParseError(
+                    f"Model {model.fn_name!r}: __ite expects 3 args, "
+                    f"got {len(expr.args)}"
+                )
+        else:
+            m = re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
+            if m:
+                idx, total = int(m.group(1)), int(m.group(2))
+                if len(expr.args) != 1:
+                    raise ParseError(
+                        f"Model {model.fn_name!r}: {expr.name!r} expects "
+                        f"1 arg, got {len(expr.args)}"
+                    )
+                if not isinstance(expr.args[0], Call):
+                    raise ParseError(
+                        f"Model {model.fn_name!r}: {expr.name!r} inner arg "
+                        f"must be a Call, got {type(expr.args[0]).__name__}"
+                    )
+                if idx >= total:
+                    raise ParseError(
+                        f"Model {model.fn_name!r}: {expr.name!r} index "
+                        f"{idx} out of range [0, {total})"
+                    )
+        for arg in expr.args:
+            _validate_expr_shape(arg)
+
     scope = set(model.param_names)
     for stmt in model.assignments:
         if isinstance(stmt, Assignment):
+            _validate_expr_shape(stmt.expr)
             missing = _expr_vars(stmt.expr) - scope
             if missing:
                 raise ParseError(
@@ -2639,6 +2816,12 @@ def validate_function_model(model: FunctionModel) -> None:
 
         if not isinstance(stmt, ConditionalBlock):
             _unreachable_stmt(stmt)
+
+        _validate_expr_shape(stmt.condition)
+        for a in stmt.then_branch.assignments:
+            _validate_expr_shape(a.expr)
+        for a in stmt.else_branch.assignments:
+            _validate_expr_shape(a.expr)
 
         missing = _expr_vars(stmt.condition) - scope
         if missing:
@@ -3324,6 +3507,131 @@ def apply_optional_model_transforms(
     return transformed
 
 
+def validate_selected_models(models: list[FunctionModel]) -> None:
+    """Cross-validate selected models for call-graph consistency."""
+
+    # Build signature table: fn_name → (n_params, n_rets)
+    sig_table: dict[str, tuple[int, int]] = {}
+    for model in models:
+        sig_table[model.fn_name] = (len(model.param_names), len(model.return_names))
+
+    # Duplicate check
+    seen_names: set[str] = set()
+    for model in models:
+        if model.fn_name in seen_names:
+            raise ParseError(
+                f"Duplicate selected function {model.fn_name!r}"
+            )
+        seen_names.add(model.fn_name)
+
+    # Collect and validate all inter-model calls
+    def _check_calls(expr: Expr, model_fn_name: str) -> set[str]:
+        """Walk expr, validate calls to other selected models, return callees."""
+        callees: set[str] = set()
+        if isinstance(expr, (IntLit, Var)):
+            return callees
+        if not isinstance(expr, Call):
+            return callees
+        m = re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
+        if m and len(expr.args) == 1 and isinstance(expr.args[0], Call):
+            idx = int(m.group(1))
+            total = int(m.group(2))
+            inner = expr.args[0]
+            if inner.name in sig_table:
+                callees.add(inner.name)
+                _, callee_rets = sig_table[inner.name]
+                if callee_rets != total:
+                    raise ParseError(
+                        f"Model {model_fn_name!r}: projection {expr.name!r} "
+                        f"expects {total} return values from {inner.name!r}, "
+                        f"but it returns {callee_rets}"
+                    )
+                callee_params, _ = sig_table[inner.name]
+                if len(inner.args) != callee_params:
+                    raise ParseError(
+                        f"Model {model_fn_name!r}: call to {inner.name!r} "
+                        f"passes {len(inner.args)} arg(s), expected {callee_params}"
+                    )
+            for a in inner.args:
+                callees.update(_check_calls(a, model_fn_name))
+            return callees
+
+        if expr.name in sig_table:
+            callees.add(expr.name)
+            callee_params, callee_rets = sig_table[expr.name]
+            if len(expr.args) != callee_params:
+                raise ParseError(
+                    f"Model {model_fn_name!r}: call to {expr.name!r} passes "
+                    f"{len(expr.args)} arg(s), expected {callee_params}"
+                )
+            if callee_rets > 1:
+                raise ParseError(
+                    f"Model {model_fn_name!r}: multi-return function "
+                    f"{expr.name!r} ({callee_rets} returns) used in scalar "
+                    f"context without __component projection"
+                )
+        elif (
+            expr.name not in OP_TO_LEAN_HELPER
+            and expr.name != "__ite"
+            and not re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
+        ):
+            raise ParseError(
+                f"Model {model_fn_name!r}: unresolved call target "
+                f"{expr.name!r}"
+            )
+
+        for a in expr.args:
+            callees.update(_check_calls(a, model_fn_name))
+        return callees
+
+    # Build call graph and check all expressions
+    call_graph: dict[str, set[str]] = {m.fn_name: set() for m in models}
+    for model in models:
+        for stmt in model.assignments:
+            if isinstance(stmt, Assignment):
+                call_graph[model.fn_name].update(
+                    _check_calls(stmt.expr, model.fn_name)
+                )
+            elif isinstance(stmt, ConditionalBlock):
+                call_graph[model.fn_name].update(
+                    _check_calls(stmt.condition, model.fn_name)
+                )
+                for a in stmt.then_branch.assignments:
+                    call_graph[model.fn_name].update(
+                        _check_calls(a.expr, model.fn_name)
+                    )
+                for a in stmt.else_branch.assignments:
+                    call_graph[model.fn_name].update(
+                        _check_calls(a.expr, model.fn_name)
+                    )
+
+    # Cycle detection via DFS
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color: dict[str, int] = {name: WHITE for name in call_graph}
+
+    def _dfs(node: str, path: list[str]) -> None:
+        color[node] = GRAY
+        path.append(node)
+        for callee in call_graph[node]:
+            if callee not in color:
+                continue
+            if color[callee] == GRAY:
+                cycle_start = path.index(callee)
+                cycle = path[cycle_start:]
+                raise ParseError(
+                    f"Cycle detected among selected models: "
+                    f"{' → '.join(cycle)} → {callee}"
+                )
+            if color[callee] == WHITE:
+                _dfs(callee, path)
+        path.pop()
+        color[node] = BLACK
+
+    for name in call_graph:
+        if color[name] == WHITE:
+            _dfs(name, [])
+
+
 def translate_yul_to_models(
     yul_text: str,
     config: ModelConfig,
@@ -3332,6 +3640,17 @@ def translate_yul_to_models(
     pipeline: TranslationPipeline = OPTIMIZED_TRANSLATION_PIPELINE,
 ) -> TranslationResult:
     """Run the selected translation pipeline and return the final models."""
+
+    # Duplicate selected function check (early, before parsing)
+    if selected_functions is not None:
+        if len(set(selected_functions)) != len(selected_functions):
+            dupes = [
+                f for f in selected_functions
+                if selected_functions.count(f) > 1
+            ]
+            raise ParseError(
+                f"Duplicate selected functions: {sorted(set(dupes))}"
+            )
 
     preparation = prepare_translation(
         yul_text,
@@ -3342,6 +3661,7 @@ def translate_yul_to_models(
         preparation,
         config,
     )
+    validate_selected_models(models)
     models = apply_optional_model_transforms(
         models,
         config,
@@ -3627,6 +3947,90 @@ def build_lean_source(
     namespace: str,
     config: ModelConfig,
 ) -> str:
+    # -- Namespace validation --
+    validate_ident(namespace, what="Lean namespace")
+
+    # -- Injection prevention --
+    if "\n" in source_path:
+        raise ParseError(
+            f"Source path contains newline (potential injection): {source_path!r}"
+        )
+    if "\n" in config.generator_label:
+        raise ParseError(
+            f"Generator label contains newline (potential injection): "
+            f"{config.generator_label!r}"
+        )
+    if "-/" in config.header_comment:
+        raise ParseError(
+            f"Header comment contains Lean doc-comment terminator '-/': "
+            f"{config.header_comment!r}"
+        )
+
+    # -- Model name validation --
+    # Build the set of all Lean def names that will be emitted.
+    generated_def_names: set[str] = set()
+    for model in models:
+        if model.fn_name not in config.model_names:
+            raise ParseError(
+                f"Model {model.fn_name!r} has no entry in config.model_names"
+            )
+        base = config.model_names[model.fn_name]
+        validate_ident(base, what=f"generated model name for {model.fn_name!r}")
+        evm_name = f"{base}_evm"
+        # Check evm_name validity too
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", evm_name):
+            raise ParseError(
+                f"Invalid generated EVM model name: {evm_name!r}"
+            )
+        if base in generated_def_names:
+            raise ParseError(
+                f"Duplicate generated model name {base!r}"
+            )
+        if evm_name in generated_def_names:
+            raise ParseError(
+                f"Duplicate generated EVM model name {evm_name!r}"
+            )
+        generated_def_names.add(base)
+        generated_def_names.add(evm_name)
+
+    # Cross-collision: model names vs builtin helpers and reserved names
+    builtin_names = (
+        {"u256", "WORD_MOD"}
+        | set(OP_TO_LEAN_HELPER.values())
+        | set(_BASE_NORM_HELPERS.values())
+    )
+    if config.extra_norm_ops:
+        builtin_names |= set(config.extra_norm_ops.values())
+    for name in generated_def_names:
+        if name in builtin_names:
+            raise ParseError(
+                f"Generated model name {name!r} collides with a builtin "
+                f"helper or reserved name"
+            )
+
+    # Binder collision: check all binder names in all models against
+    # generated def names.
+    def _check_binder_collision(binder: str, model_fn_name: str) -> None:
+        if binder in generated_def_names:
+            raise ParseError(
+                f"Binder {binder!r} in model {model_fn_name!r} collides "
+                f"with a generated model def name"
+            )
+
+    for model in models:
+        for name in (*model.param_names, *model.return_names):
+            _check_binder_collision(name, model.fn_name)
+        for stmt in model.assignments:
+            if isinstance(stmt, Assignment):
+                _check_binder_collision(stmt.target, model.fn_name)
+            elif isinstance(stmt, ConditionalBlock):
+                for var in stmt.output_vars:
+                    _check_binder_collision(var, model.fn_name)
+                for a in stmt.then_branch.assignments:
+                    _check_binder_collision(a.target, model.fn_name)
+                for a in stmt.else_branch.assignments:
+                    _check_binder_collision(a.target, model.fn_name)
+
     # Check binder names against config-specific reserved names that
     # validate_ident cannot see (it has no access to config).
     if config.extra_norm_ops:
@@ -3665,6 +4069,11 @@ def build_lean_source(
     function_defs = render_function_defs(models, config)
     emit_norm = any_norm_models(models, config)
 
+    # Normalize extra_lean_defs: ensure it ends with \n\n if non-empty.
+    _extra_lean_defs = ""
+    if config.extra_lean_defs and config.extra_lean_defs.strip():
+        _extra_lean_defs = config.extra_lean_defs.rstrip() + "\n\n"
+
     norm_defs = ""
     if emit_norm:
         norm_defs = (
@@ -3682,7 +4091,7 @@ def build_lean_source(
             "def normShr (shift value : Nat) : Nat := value / 2 ^ shift\n\n"
             "def normClz (value : Nat) : Nat :=\n"
             "  if value = 0 then 256 else 255 - Nat.log2 value\n\n"
-            f"{config.extra_lean_defs}"
+            f"{_extra_lean_defs}"
             "def normLt (a b : Nat) : Nat :=\n"
             "  if a < b then 1 else 0\n\n"
             "def normGt (a b : Nat) : Nat :=\n"
