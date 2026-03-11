@@ -992,8 +992,14 @@ class YulParser:
         yul_name: str,
         *,
         n_params: int | None = None,
+        search_nested: bool = False,
     ) -> YulFunction:
-        """Find and parse the function whose Yul symbol exactly matches ``yul_name``."""
+        """Find and parse the function whose Yul symbol exactly matches ``yul_name``.
+
+        By default, functions nested inside other function bodies are
+        skipped.  Pass *search_nested=True* to also search inside
+        function bodies (for selecting nested helpers).
+        """
         matches: list[int] = []
         fn_body_stack: list[int] = []
         depth = 0
@@ -1012,7 +1018,7 @@ class YulParser:
                 depth -= 1
             elif k == "ident" and text == "function":
                 if (
-                    not fn_body_stack
+                    (search_nested or not fn_body_stack)
                     and self.tokens[idx + 1] == ("ident", yul_name)
                 ):
                     if n_params is not None and self._count_params_at(idx) != n_params:
@@ -1248,6 +1254,12 @@ class YulParser:
     def collect_all_functions(self) -> CollectedFunctions:
         """Parse all function definitions in the token stream.
 
+        Only collects functions at the top level of the token stream.
+        Brace-delimited blocks that are not function bodies (e.g.
+        ``object`` blocks) are skipped, so functions in different
+        ``object`` blocks never collide.  Duplicate function names
+        at the same scope level raise ``ParseError``.
+
         Successfully parsed helpers go into ``functions``. Helpers whose
         bodies fail to parse are recorded in ``rejected`` so later inlining
         can fail loudly if a selected target depends on them.
@@ -1260,14 +1272,27 @@ class YulParser:
                 saved_stmts = self._expr_stmts
                 try:
                     fn = self.parse_function()
-                    functions[fn.yul_name] = fn
                 except ParseError as err:
                     fn_name = self._function_name_at(saved_i) or f"<unknown@{saved_i}>"
                     rejected[fn_name] = str(err)
                     self.i = saved_i
                     self._skip_function_def()
+                    continue
                 finally:
                     self._expr_stmts = saved_stmts
+                if fn.yul_name in functions:
+                    raise ParseError(
+                        f"Duplicate helper function {fn.yul_name!r} in the "
+                        f"same scope. Refuse to collect ambiguous helpers."
+                    )
+                functions[fn.yul_name] = fn
+            elif self._peek_kind() == "{":
+                # Non-function brace block (object/code wrapper).
+                # Skip to matching } to avoid collecting functions
+                # from a different scope.
+                brace_idx = self.i
+                end_idx = self._find_matching_brace(brace_idx)
+                self.i = end_idx + 1
             else:
                 self._pop()
         return CollectedFunctions(functions=functions, rejected=rejected)
@@ -1332,6 +1357,33 @@ def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
     if isinstance(expr, Call):
         return Call(expr.name, tuple(substitute_expr(a, subst) for a in expr.args))
     _unreachable_expr(expr)
+
+
+def _find_function_body_range(
+    tokens: list[tuple[str, str]], fn_start_idx: int
+) -> tuple[int, int] | None:
+    """Return the (start, end) token range of a function's body contents.
+
+    *fn_start_idx* points to the ``function`` keyword. Returns the range
+    of tokens INSIDE the body braces (exclusive of ``{`` and ``}``), or
+    None if no body brace is found.
+    """
+    # Skip past the function keyword and signature to find the opening {.
+    j = fn_start_idx + 1
+    while j < len(tokens) and tokens[j][0] != "{":
+        j += 1
+    if j >= len(tokens):
+        return None
+    open_brace = j
+    depth = 0
+    for m in range(open_brace, len(tokens)):
+        if tokens[m][0] == "{":
+            depth += 1
+        elif tokens[m][0] == "}":
+            depth -= 1
+            if depth == 0:
+                return (open_brace + 1, m)
+    return None
 
 
 def _find_enclosing_block_range(
@@ -1534,6 +1586,65 @@ def _is_uint512_from_helper(fn: YulFunction) -> Expr | None:
     return write_lo.address
 
 
+def _collect_vars_in_expr(expr: Expr, out: set[str]) -> None:
+    """Collect all variable names referenced in *expr*."""
+    if isinstance(expr, Var):
+        out.add(expr.name)
+    elif isinstance(expr, Call):
+        for a in expr.args:
+            _collect_vars_in_expr(a, out)
+
+
+def _alpha_rename_yul_function(
+    fn: YulFunction, rename_map: dict[str, str]
+) -> YulFunction:
+    """Return a copy of *fn* with selected local variables renamed."""
+    rename_subst = {old: Var(new) for old, new in rename_map.items()}
+
+    def _rename_stmt(s: PlainAssignment) -> PlainAssignment:
+        target = rename_map.get(s.target, s.target)
+        expr = substitute_expr(s.expr, rename_subst)
+        return PlainAssignment(target, expr)
+
+    new_assignments: list[RawStatement] = []
+    for stmt in fn.assignments:
+        if isinstance(stmt, PlainAssignment):
+            new_assignments.append(_rename_stmt(stmt))
+        elif isinstance(stmt, MemoryWrite):
+            new_assignments.append(
+                MemoryWrite(
+                    substitute_expr(stmt.address, rename_subst),
+                    substitute_expr(stmt.value, rename_subst),
+                )
+            )
+        elif isinstance(stmt, ParsedIfBlock):
+            new_cond = substitute_expr(stmt.condition, rename_subst)
+            new_body = tuple(_rename_stmt(s) for s in stmt.body)
+            new_else = (
+                tuple(_rename_stmt(s) for s in stmt.else_body)
+                if stmt.else_body is not None
+                else None
+            )
+            new_assignments.append(
+                ParsedIfBlock(
+                    condition=new_cond,
+                    body=new_body,
+                    has_leave=stmt.has_leave,
+                    else_body=new_else,
+                )
+            )
+        else:
+            new_assignments.append(stmt)
+    return YulFunction(
+        yul_name=fn.yul_name,
+        params=fn.params,
+        rets=fn.rets,
+        assignments=new_assignments,
+        expr_stmts=fn.expr_stmts,
+        token_idx=fn.token_idx,
+    )
+
+
 def _inline_single_call(
     fn: YulFunction,
     args: tuple[Expr, ...],
@@ -1590,6 +1701,42 @@ def _inline_single_call(
         fn.expr_stmts,
         context=f"Inlining function {fn.yul_name!r} encountered",
     )
+
+    # Alpha-rename callee-local variables that collide with names
+    # appearing in argument expressions.  Without this, a callee
+    # ``let usr$tmp := 0`` would clobber a caller-side ``usr$tmp``
+    # passed as an argument.
+    arg_var_names: set[str] = set()
+    for a in args:
+        _collect_vars_in_expr(a, arg_var_names)
+    param_and_ret = set(fn.params) | set(fn.rets)
+    callee_locals: set[str] = set()
+    for stmt in fn.assignments:
+        if isinstance(stmt, PlainAssignment) and stmt.target not in param_and_ret:
+            callee_locals.add(stmt.target)
+        elif isinstance(stmt, ParsedIfBlock):
+            for s in stmt.body:
+                if s.target not in param_and_ret:
+                    callee_locals.add(s.target)
+            if stmt.else_body is not None:
+                for s in stmt.else_body:
+                    if s.target not in param_and_ret:
+                        callee_locals.add(s.target)
+    collisions = callee_locals & arg_var_names
+    if collisions:
+        used_names = arg_var_names | param_and_ret | callee_locals
+        rename_map: dict[str, str] = {}
+        for old_name in sorted(collisions):
+            counter = 0
+            while True:
+                candidate = f"_inl_{old_name}_{counter}"
+                if candidate not in used_names:
+                    rename_map[old_name] = candidate
+                    used_names.add(candidate)
+                    break
+                counter += 1
+        # Apply rename to all callee assignments.
+        fn = _alpha_rename_yul_function(fn, rename_map)
 
     subst: dict[str, Expr] = {}
     for param, arg_expr in zip(fn.params, args):
@@ -3537,6 +3684,7 @@ def prepare_translation(
             yf = parser.find_exact_function(
                 exact_yul_name,
                 n_params=n_params,
+                search_nested=True,
             )
         else:
             yf = parser.find_function(
@@ -3560,16 +3708,52 @@ def prepare_translation(
         yul_name = yf.yul_name
 
         fn_token_idx = yf.token_idx
+
+        # Collect helpers from the scope chain, from outermost to
+        # innermost.  Inner scopes override outer ones (Yul lexical
+        # scoping).
+        helper_table: dict[str, YulFunction] = {}
+        rejected_helpers: dict[str, str] = {}
+
         if fn_token_idx is not None:
-            obj_start, obj_end = _find_enclosing_block_range(
-                tokens, fn_token_idx
-            )
-            scoped_tokens = tokens[obj_start:obj_end]
+            # Walk up through enclosing block scopes from outermost to
+            # innermost.  Each deeper scope overrides outer names.
+            scope_chain: list[tuple[int, int]] = []
+            cur_idx = fn_token_idx
+            while True:
+                obj_start, obj_end = _find_enclosing_block_range(
+                    tokens, cur_idx
+                )
+                scope_chain.append((obj_start, obj_end))
+                if obj_start == 0 and obj_end == len(tokens):
+                    break
+                # Move to the enclosing block's opening brace to find
+                # the next outer scope.
+                if obj_start > 0:
+                    cur_idx = obj_start - 1
+                else:
+                    break
+            # Process from outermost to innermost (inner overrides outer).
+            # Process from outermost to innermost (inner overrides outer).
+            for s_start, s_end in reversed(scope_chain):
+                scoped_tokens = tokens[s_start:s_end]
+                scope_coll = YulParser(scoped_tokens).collect_all_functions()
+                helper_table.update(scope_coll.functions)
+                rejected_helpers.update(scope_coll.rejected)
+
+            # Also collect nested helpers from inside the target's body.
+            body_range = _find_function_body_range(tokens, fn_token_idx)
+            if body_range is not None:
+                body_start, body_end = body_range
+                body_tokens = tokens[body_start:body_end]
+                nested_coll = YulParser(body_tokens).collect_all_functions()
+                # Nested helpers override outer-scope siblings.
+                helper_table.update(nested_coll.functions)
+                rejected_helpers.update(nested_coll.rejected)
         else:
-            scoped_tokens = tokens
-        function_collection = YulParser(scoped_tokens).collect_all_functions()
-        helper_table = dict(function_collection.functions)
-        rejected_helpers = dict(function_collection.rejected)
+            function_collection = YulParser(tokens).collect_all_functions()
+            helper_table.update(function_collection.functions)
+            rejected_helpers.update(function_collection.rejected)
 
         for yn in fn_map:
             helper_table.pop(yn, None)
