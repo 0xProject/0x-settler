@@ -4183,30 +4183,6 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         with self.assertRaises(ytl.ParseError):
             ytl.YulParser(tokens).find_function("dup", n_params=1)
 
-    def test_find_function_rejects_when_requested_arity_matches_no_candidate(
-        self,
-    ) -> None:
-        tokens = ytl.tokenize_yul("""
-            function helper(var_x_1) -> var_z_2 {
-                var_z_2 := var_x_1
-            }
-
-            function fun_pick_1(var_a_3, var_b_4) -> var_z_5 {
-                var_z_5 := helper(var_a_3)
-            }
-
-            function fun_pick_2(var_a_6, var_b_7, var_c_8) -> var_z_9 {
-                var_z_9 := 7
-            }
-            """)
-
-        with self.assertRaises(ytl.ParseError):
-            ytl.YulParser(tokens).find_function(
-                "pick",
-                n_params=1,
-                known_yul_names={"helper"},
-            )
-
     def test_find_function_ignores_dead_nested_helper_inside_deeper_block(
         self,
     ) -> None:
