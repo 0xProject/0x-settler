@@ -221,6 +221,11 @@ class ParsedIfBlock:
 
     When ``else_body`` is present, this represents an if/else or a
     ``switch expr case 0 { else_body } default { body }`` construct.
+
+    ``has_leave`` always refers to the ``body`` branch. For ``switch``
+    statements we normalize the parsed shape so that, when exactly one branch
+    contains ``leave``, that branch is placed in ``body`` and ``condition`` is
+    inverted with ``iszero(...)`` when necessary.
     """
 
     condition: Expr
@@ -797,15 +802,26 @@ class YulParser:
                             f"{'present' if default_body is not None else 'missing'}"
                             f")."
                         )
-                    # Map to ParsedIfBlock: condition != 0 → default (if-body),
-                    # condition == 0 → case 0 (else-body).
-                    if_body = tuple(default_body)
-                    else_body = tuple(case0_body) if case0_body else None
+                    # Normalize to ParsedIfBlock. When exactly one switch branch
+                    # contains `leave`, make that the `body` branch so downstream
+                    # passes can keep interpreting `has_leave` as "then branch
+                    # exits". If the leaving branch is `case 0`, invert the
+                    # condition with `iszero(...)`.
+                    if case0_leave and not default_leave:
+                        if_body = tuple(case0_body)
+                        else_body = tuple(default_body)
+                        parsed_condition = Call("iszero", (condition,))
+                        parsed_has_leave = True
+                    else:
+                        if_body = tuple(default_body)
+                        else_body = tuple(case0_body) if case0_body else None
+                        parsed_condition = condition
+                        parsed_has_leave = default_leave
                     results.append(
                         ParsedIfBlock(
-                            condition=condition,
+                            condition=parsed_condition,
                             body=if_body,
-                            has_leave=default_leave or case0_leave,
+                            has_leave=parsed_has_leave,
                             else_body=else_body,
                         )
                     )
@@ -1066,32 +1082,11 @@ class YulParser:
         skipped.  Pass *search_nested=True* to also search inside
         function bodies (for selecting nested helpers).
         """
-        matches: list[int] = []
-        fn_body_stack: list[int] = []
-        depth = 0
-        expect_fn_body = False
-
-        for idx in range(len(self.tokens) - 1):
-            k, text = self.tokens[idx]
-            if k == "{":
-                depth += 1
-                if expect_fn_body:
-                    fn_body_stack.append(depth)
-                    expect_fn_body = False
-            elif k == "}":
-                if fn_body_stack and fn_body_stack[-1] == depth:
-                    fn_body_stack.pop()
-                depth -= 1
-            elif k == "ident" and text == "function":
-                if (
-                    (search_nested or not fn_body_stack)
-                    and self.tokens[idx + 1] == ("ident", yul_name)
-                ):
-                    if n_params is not None and self._count_params_at(idx) != n_params:
-                        pass  # skip, but still mark expect_fn_body
-                    else:
-                        matches.append(idx)
-                expect_fn_body = True
+        matches = self._find_exact_function_matches(
+            yul_name,
+            n_params=n_params,
+            search_nested=search_nested,
+        )
 
         if not matches:
             if n_params is None:
@@ -1101,12 +1096,94 @@ class YulParser:
             )
 
         if len(matches) > 1:
+            qualified = ["::".join(path) for _, path in matches]
             raise ParseError(
-                f"Multiple exact Yul functions matched {yul_name!r}. Refuse to guess."
+                f"Multiple exact Yul functions matched {yul_name!r}: {qualified}. "
+                "Use a scope-qualified exact_yul_names entry such as '::name' "
+                "for a top-level function or 'outer::inner' for a nested one."
             )
 
-        self.i = matches[0]
+        self.i = matches[0][0]
         return self.parse_function()
+
+    def find_exact_function_path(
+        self,
+        yul_path: tuple[str, ...],
+        *,
+        n_params: int | None = None,
+    ) -> YulFunction:
+        """Find a function by its exact lexical path.
+
+        ``("top",)`` selects a top-level function, while
+        ``("outer", "helper")`` selects ``helper`` nested inside ``outer``.
+        """
+        if not yul_path:
+            raise ParseError("Exact Yul function path cannot be empty")
+        yul_name = yul_path[-1]
+        matches = [
+            (idx, path)
+            for idx, path in self._find_exact_function_matches(
+                yul_name,
+                n_params=n_params,
+                search_nested=True,
+            )
+            if path == yul_path
+        ]
+        if not matches:
+            rendered = "::".join(yul_path)
+            if n_params is None:
+                raise ParseError(f"Exact Yul function path {rendered!r} not found")
+            raise ParseError(
+                f"Exact Yul function path {rendered!r} with {n_params} "
+                f"parameter(s) not found"
+            )
+        if len(matches) > 1:
+            rendered = "::".join(yul_path)
+            raise ParseError(
+                f"Multiple exact Yul functions matched path {rendered!r}. "
+                "Refuse to guess."
+            )
+        self.i = matches[0][0]
+        return self.parse_function()
+
+    def _find_exact_function_matches(
+        self,
+        yul_name: str,
+        *,
+        n_params: int | None = None,
+        search_nested: bool,
+    ) -> list[tuple[int, tuple[str, ...]]]:
+        """Return ``(token_idx, lexical_path)`` matches for ``yul_name``."""
+        matches: list[tuple[int, tuple[str, ...]]] = []
+        fn_body_stack: list[tuple[int, str]] = []
+        depth = 0
+        expect_fn_body: str | None = None
+
+        for idx in range(len(self.tokens) - 1):
+            k, text = self.tokens[idx]
+            if k == "{":
+                depth += 1
+                if expect_fn_body is not None:
+                    fn_body_stack.append((depth, expect_fn_body))
+                    expect_fn_body = None
+            elif k == "}":
+                if fn_body_stack and fn_body_stack[-1][0] == depth:
+                    fn_body_stack.pop()
+                depth -= 1
+            elif k == "ident" and text == "function":
+                fn_name = self._function_name_at(idx)
+                if fn_name is None:
+                    expect_fn_body = None
+                    continue
+                if (
+                    fn_name == yul_name
+                    and (search_nested or not fn_body_stack)
+                    and (n_params is None or self._count_params_at(idx) == n_params)
+                ):
+                    path = tuple(name for _, name in fn_body_stack) + (fn_name,)
+                    matches.append((idx, path))
+                expect_fn_body = fn_name
+        return matches
 
     def _body_references_any(self, fn_start: int, yul_names: set[str]) -> bool:
         """Check if the function at *fn_start* references any identifier in *yul_names*.
@@ -1505,6 +1582,36 @@ def _split_branch_assignments(
         else:
             outer.append(PlainAssignment(s.target, sub_expr))
     return outer, local
+
+
+def _merge_helper_collection(
+    helper_table: dict[str, YulFunction],
+    rejected_helpers: dict[str, str],
+    collection: CollectedFunctions,
+) -> None:
+    """Merge one lexical scope's helpers, with inner names overriding outer."""
+    for name, fn in collection.functions.items():
+        rejected_helpers.pop(name, None)
+        helper_table[name] = fn
+    for name, err in collection.rejected.items():
+        helper_table.pop(name, None)
+        rejected_helpers[name] = err
+
+
+def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
+    """Parse a scope-qualified exact Yul selector.
+
+    ``None`` means the selector is an unqualified function name.
+    ``::top`` selects a top-level function. ``outer::helper`` selects a
+    function nested inside ``outer``.
+    """
+    if "::" not in selector:
+        return None
+    raw = selector[2:] if selector.startswith("::") else selector
+    parts = tuple(part for part in raw.split("::") if part)
+    if not parts:
+        raise ParseError(f"Invalid exact Yul selector {selector!r}")
+    return parts
 
 
 def _reject_expr_stmts(expr_stmts: list[Expr] | None, *, context: str) -> None:
@@ -2977,6 +3084,7 @@ _SUPPORTED_OPS = (
     "or",
     "and",
     "eq",
+    "iszero",
     "shl",
     "shr",
     "clz",
@@ -3194,7 +3302,7 @@ def validate_function_model(model: FunctionModel) -> None:
         # Builtin arity check
         if expr.name in OP_TO_LEAN_HELPER:
             expected = (
-                1 if expr.name in ("not", "clz")
+                1 if expr.name in ("not", "clz", "iszero")
                 else (3 if expr.name == "mulmod" else 2)
             )
             if len(expr.args) != expected:
@@ -3346,6 +3454,7 @@ _BUILTIN_DISPATCH: dict[tuple[str, int], Callable[[tuple[int, ...]], int]] = {
     ("or", 2): lambda a: u256(a[0]) | u256(a[1]),
     ("and", 2): lambda a: u256(a[0]) & u256(a[1]),
     ("eq", 2): lambda a: 1 if u256(a[0]) == u256(a[1]) else 0,
+    ("iszero", 1): lambda a: 1 if u256(a[0]) == 0 else 0,
     ("shl", 2): _shl,
     ("shr", 2): _shr,
     ("clz", 1): _clz,
@@ -3823,18 +3932,17 @@ def prepare_translation(
             else None
         )
         if exact_yul_name is not None:
-            try:
-                yf = parser.find_exact_function(
-                    exact_yul_name,
-                    n_params=n_params,
-                )
-            except ParseError:
-                # Top-level search failed — retry searching inside
-                # function bodies for nested helper targets.
+            exact_selector = _parse_exact_yul_selector(exact_yul_name)
+            if exact_selector is None:
                 yf = parser.find_exact_function(
                     exact_yul_name,
                     n_params=n_params,
                     search_nested=True,
+                )
+            else:
+                yf = parser.find_exact_function_path(
+                    exact_selector,
+                    n_params=n_params,
                 )
         else:
             yf = parser.find_function(
@@ -3888,8 +3996,11 @@ def prepare_translation(
             for s_start, s_end in reversed(scope_chain):
                 scoped_tokens = tokens[s_start:s_end]
                 scope_coll = YulParser(scoped_tokens).collect_all_functions()
-                helper_table.update(scope_coll.functions)
-                rejected_helpers.update(scope_coll.rejected)
+                _merge_helper_collection(
+                    helper_table,
+                    rejected_helpers,
+                    scope_coll,
+                )
 
             # Also collect nested helpers from inside the target's body.
             body_range = _find_function_body_range(tokens, fn_token_idx)
@@ -3897,18 +4008,18 @@ def prepare_translation(
                 body_start, body_end = body_range
                 body_tokens = tokens[body_start:body_end]
                 nested_coll = YulParser(body_tokens).collect_all_functions()
-                # Nested helpers override outer-scope siblings.
-                helper_table.update(nested_coll.functions)
-                # Rejected inner functions shadow valid outer ones:
-                # if a nested helper fails to parse, calling it should
-                # error, not silently fall back to an outer definition.
-                for rname in nested_coll.rejected:
-                    helper_table.pop(rname, None)
-                rejected_helpers.update(nested_coll.rejected)
+                _merge_helper_collection(
+                    helper_table,
+                    rejected_helpers,
+                    nested_coll,
+                )
         else:
             function_collection = YulParser(tokens).collect_all_functions()
-            helper_table.update(function_collection.functions)
-            rejected_helpers.update(function_collection.rejected)
+            _merge_helper_collection(
+                helper_table,
+                rejected_helpers,
+                function_collection,
+            )
 
         for yn in fn_map:
             helper_table.pop(yn, None)
@@ -4238,7 +4349,8 @@ class ModelConfig:
     n_params: dict[str, int] | None = None
     # Optional per-function exact Yul symbol overrides. When set, the
     # translator selects the named Yul function directly instead of using
-    # heuristic fun_<name>_<digits> discovery.
+    # heuristic fun_<name>_<digits> discovery. Entries may be unqualified
+    # (`helper`) or scope-qualified (`::top_level`, `outer::helper`).
     exact_yul_names: dict[str, str] | None = None
     # When True, variables matching var_<name>_<digits> (Solidity-declared
     # locals) are kept in the model instead of being copy-propagated.
@@ -4603,6 +4715,8 @@ def build_lean_source(
             "def normAnd (a b : Nat) : Nat := a &&& b\n\n"
             "def normEq (a b : Nat) : Nat :=\n"
             "  if a = b then 1 else 0\n\n"
+            "def normIszero (a : Nat) : Nat :=\n"
+            "  if a = 0 then 1 else 0\n\n"
             "def normShl (shift value : Nat) : Nat := value <<< shift\n\n"
             "def normShr (shift value : Nat) : Nat := value / 2 ^ shift\n\n"
             "def normClz (value : Nat) : Nat :=\n"
@@ -4649,6 +4763,8 @@ def build_lean_source(
         "  u256 a &&& u256 b\n\n"
         "def evmEq (a b : Nat) : Nat :=\n"
         "  if u256 a = u256 b then 1 else 0\n\n"
+        "def evmIszero (a : Nat) : Nat :=\n"
+        "  if u256 a = 0 then 1 else 0\n\n"
         "def evmShl (shift value : Nat) : Nat :=\n"
         "  let s := u256 shift\n"
         "  let v := u256 value\n"

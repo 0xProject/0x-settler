@@ -5279,6 +5279,36 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (1,))
 
+    def test_translate_yul_to_models_preserves_constant_zero_switch_leave_path_with_trailing_dead_code(
+        self,
+    ) -> None:
+        config = make_model_config(("target",))
+        yul = """
+            function fun_target_1() -> var_z_2 {
+                var_z_2 := fun_helper_2(0)
+            }
+
+            function fun_helper_2(var_flag_3) -> var_r_4 {
+                switch var_flag_3
+                case 0 {
+                    var_r_4 := 1
+                    leave
+                }
+                default {
+                    var_r_4 := 2
+                }
+                var_r_4 := 9
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (1,))
+
     def test_build_lean_source_separates_extra_lean_defs_from_following_norm_helpers(
         self,
     ) -> None:
@@ -5525,12 +5555,67 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             (7,),
         )
 
-    def test_translate_yul_to_models_exact_target_ignores_unrelated_nested_homonym(
+    def test_translate_yul_to_models_exact_target_can_select_qualified_nested_homonym(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("target",),
+            exact_yul_names={"target": "fun_outer_1::helper2"},
+        )
+        yul = """
+            function helper2() -> var_r_1 {
+                var_r_1 := 1
+            }
+
+            function fun_outer_1() -> var_z_2 {
+                function helper2() -> var_r_3 {
+                    var_r_3 := 7
+                }
+                var_z_2 := helper2()
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (7,))
+
+    def test_translate_yul_to_models_rejects_ambiguous_unqualified_exact_target_across_scopes(
         self,
     ) -> None:
         config = make_model_config(
             ("target",),
             exact_yul_names={"target": "top"},
+        )
+        yul = """
+            function top() -> var_r_1 {
+                var_r_1 := 1
+            }
+
+            function outer() -> var_z_2 {
+                function top() -> var_r_3 {
+                    var_r_3 := 2
+                }
+                var_z_2 := top()
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_translate_yul_to_models_exact_top_level_target_ignores_unrelated_nested_homonym_when_qualified(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("target",),
+            exact_yul_names={"target": "::top"},
         )
         yul = """
             function top() -> var_r_1 {
@@ -5552,6 +5637,40 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         )
 
         self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (1,))
+
+    def test_translate_yul_to_models_exact_nested_target_rejects_rejected_sibling_helper_shadowing_outer_helper(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("target",),
+            exact_yul_names={"target": "fun_outer_1::target"},
+        )
+        yul = """
+            function helper() -> var_r_1 {
+                var_r_1 := 7
+            }
+
+            function fun_outer_1() -> var_z_2 {
+                function helper() -> var_r_3 {
+                    for { } 0 { } {
+                        var_r_3 := 1
+                    }
+                }
+
+                function target() -> var_r_4 {
+                    var_r_4 := helper()
+                }
+
+                var_z_2 := target()
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_build_lean_source_rejects_binder_collision_with_generated_evm_model_name(
         self,
