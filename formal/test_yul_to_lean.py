@@ -4638,6 +4638,23 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         with self.assertRaises(ytl.ParseError):
             ytl.validate_function_model(model)
 
+    def test_translate_yul_to_models_rejects_lean_keyword_parameter_name(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_if_1) -> var_z_2 {
+                var_z_2 := var_if_1
+            }
+            """
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
     def test_validate_function_model_rejects_malformed_builtin_arity(self) -> None:
         model = ytl.FunctionModel(
             fn_name="f",
@@ -5501,6 +5518,33 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             (9,),
         )
 
+    def test_translate_yul_to_models_allows_constant_switch_case_memory_write_branch(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                switch 0
+                case 0 {
+                    mstore(0, 7)
+                }
+                default {
+                }
+                var_z_2 := mload(0)
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[0], ()),
+            (7,),
+        )
+
     def test_translate_yul_to_models_rejects_unsupported_builtin_name(
         self,
     ) -> None:
@@ -5682,6 +5726,40 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="invalid-name",
+                config=config,
+            )
+
+    def test_build_lean_source_rejects_lean_keyword_namespace(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+        config = make_model_config(("f",))
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[model],
+                source_path="test-source",
+                namespace="if",
+                config=config,
+            )
+
+    def test_build_lean_source_rejects_source_path_newline_injection(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+        config = make_model_config(("f",))
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[model],
+                source_path="test-source\nopen scoped BigOperators",
+                namespace="Test",
                 config=config,
             )
 
