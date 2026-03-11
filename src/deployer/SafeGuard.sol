@@ -241,6 +241,9 @@ contract EvmVersionDummy {
 ///   * The recovery flows become degenerate (in many cases, impossible) if the Safe is configured
 ///     as a n-of-n (unanimous) because un-compromised keys are unable to reach quorum. This
 ///     scenario is ignored in the following table.
+///   * Key compromise by _ALL_ of the owners results in a race between the attacker and the
+///     legitimate owners to push through (land on-chain) a unanimous transaction to completely
+///     reconfigure the Safe either in favor of the attacker or in favor of the legitimate owners
 ///
 /// Observe the following table of failure states:
 ///
@@ -251,7 +254,7 @@ contract EvmVersionDummy {
 /// | key compromise  | quorum             | recoverable | unanimous          |
 /// | key compromise  | all                | recoverable | unanimous (race)   |
 /// | malicious owner | 1                  | recoverable | unanimous          |
-/// | malicious owner | less than quorum   | bricked     | 2 owners           |
+/// | malicious owner | less than quorum   | bricked     | n/a                |
 /// | malicious owner | quorum             | bricked     | 2 owners           |
 /// | malicious owner | all                | compromised | n/a                |
 abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
@@ -392,7 +395,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     }
 
     function _requireNotRemoved() private view {
-        // If the guard has been removed, it's possible that the Safe may have been subsequently
+        // If the Guard has been removed, it's possible that the Safe may have been subsequently
         // `SELFDESTRUCT`'d through a `DELEGATECALL` or any number of other, unsafe state
         // modifications (including installation of Module). Consequently, we can perform no other
         // checks or make other assumptions about the state of the Safe.
@@ -732,7 +735,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
     function _maybeSetGuardRemoved(ISafeMinimal _safe) internal {
         // We do not revert if `_safe.getGuard()` returns a value other than `address(this)`. This
-        // allows uninstallation of the guard (through the timelock, obviously) to later permit
+        // allows uninstallation of the Guard (through the timelock, obviously) to later permit
         // upgrades to other singleton implementation contracts. However, we do set the
         // `_guardRemoved` flag, which disables all Guard functionality (failing open). It is not
         // possible to un-set `_guardRemoved` once set.
