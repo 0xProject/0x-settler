@@ -3207,6 +3207,20 @@ def yul_function_to_model(
         expr = _resolve_memory_expr(expr, const_locals_state=const_locals_state)
         expr = _wrap_u256_literals(expr)
 
+        # Detect out-of-scope variable references.  After substitution
+        # and renaming, every Var should reference a previously emitted
+        # SSA name.  A Var that survived both passes unchanged points to
+        # a variable that was only defined inside a block that has since
+        # closed (e.g. a constant-true if-block whose locals went out of
+        # scope).
+        if not inside_conditional:
+            for v in _expr_vars(expr):
+                if v not in emitted_ssa_names:
+                    raise ParseError(
+                        f"out-of-scope variable use: {v!r} referenced by "
+                        f"assignment to {target!r} in {sol_fn_name!r}"
+                    )
+
         clean = demangle_var(
             target, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals
         )
@@ -3295,16 +3309,41 @@ def yul_function_to_model(
                 has_else=stmt.else_body is not None,
             )
             if fold == _IfFoldDecision.THEN_LIVE:
+                # Scope-preserving constant-true lowering: process the
+                # body in a branch scope, then emit only assignments to
+                # variables that existed in the outer scope.  Block-local
+                # variables stay contained in the branch.
+                pre_scope_ct: set[str] = set(var_map.values())
+                branch_vm = dict(var_map)
+                branch_sub = dict(subst)
+                branch_cl = dict(const_locals)
+                body_asgns: list[Assignment] = []
                 for s in stmt.body:
                     a = _process_assignment_into(
                         s.target,
                         s.expr,
-                        var_map_state=var_map,
-                        subst_state=subst,
-                        const_locals_state=const_locals,
+                        var_map_state=branch_vm,
+                        subst_state=branch_sub,
+                        const_locals_state=branch_cl,
+                        inside_conditional=True,
                     )
                     if a is not None:
+                        body_asgns.append(a)
+                modified_ct: set[str] = set()
+                for a in body_asgns:
+                    if a.target in pre_scope_ct:
                         assignments.append(a)
+                        modified_ct.add(a.target)
+                if modified_ct:
+                    for s in stmt.body:
+                        c = demangle_var(
+                            s.target, yf.params, yf.rets,
+                            keep_solidity_locals=keep_solidity_locals,
+                        )
+                        if c is not None and c in modified_ct:
+                            var_map[s.target] = c
+                            ssa_count[c] = 1
+                            const_locals.pop(c, None)
                 continue
             if fold == _IfFoldDecision.ELSE_LIVE:
                 for s in stmt.else_body:
