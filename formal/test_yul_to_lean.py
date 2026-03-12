@@ -3806,6 +3806,55 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
+    def test_translate_yul_to_models_preserves_constant_true_conditional_write_to_reassigned_outer_local(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                let usr$x := 5
+                usr$x := 6
+                let expr_1 := 1
+                if expr_1 {
+                    usr$x := 7
+                }
+                var_z_2 := usr$x
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, ()), (7,))
+
+    def test_translate_yul_to_models_preserves_constant_true_conditional_write_to_reassigned_parameter(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                var_x_1 := add(var_x_1, 1)
+                let expr_1 := 1
+                if expr_1 {
+                    var_x_1 := add(var_x_1, 1)
+                }
+                var_z_2 := var_x_1
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (3,)), (5,))
+
     def test_translate_yul_to_models_preserves_temporary_snapshot_across_zero_init_return_rebind(
         self,
     ) -> None:
@@ -3922,6 +3971,31 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 config,
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
+
+    def test_translate_yul_to_models_preserves_constant_true_conditional_constant_memory_address_fact(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                let expr_1 := 1
+                let usr$ptr := 32
+                if expr_1 {
+                    usr$ptr := 64
+                }
+                mstore(usr$ptr, 7)
+                var_z_2 := mload(64)
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, ()), (7,))
 
     def test_translate_yul_to_models_allows_branch_local_constant_mload_address(
         self,
