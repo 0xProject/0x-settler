@@ -2063,16 +2063,23 @@ def _flatten_scoped_block(
 ) -> None:
     """Emit *stmts* into *results* with block scoping applied.
 
-    Declarations (``is_declaration=True``) are block-local: their
-    processed expressions are substituted into later references but
-    never emitted.  Reassignments and memory writes pass through to
-    *results*.
+    Maintains a block-local environment of names introduced by ``let``
+    in this block.  A declaration adds its target to the local set and
+    parks the value in ``block_sub``.  A later reassignment to a name
+    in the local set updates that local binding (never escapes to outer
+    scope).  Only assignments to names *not* local to this block are
+    emitted to *results*.
     """
     block_sub: dict[str, Expr] = {}
+    block_locals: set[str] = set()
     for stmt in stmts:
         if isinstance(stmt, PlainAssignment):
             expr = substitute_expr(stmt.expr, block_sub)
             if stmt.is_declaration:
+                block_locals.add(stmt.target)
+                block_sub[stmt.target] = expr
+            elif stmt.target in block_locals:
+                # Reassignment of a block-local name — update local.
                 block_sub[stmt.target] = expr
             else:
                 results.append(PlainAssignment(stmt.target, expr))
@@ -3336,40 +3343,45 @@ def yul_function_to_model(
     ) -> None:
         """Lower a constant-folded live branch as straight-line in a lexical scope.
 
-        Driven by ``PlainAssignment.is_declaration``:
+        Maintains a block-local environment of names introduced by
+        ``let`` in this block:
 
-        - **Declaration** (``is_declaration=True``): always creates a
-          block-local binding, even if an outer binding with the same
-          Yul name exists.  The processed expression is parked in
-          ``subst`` so later statements in the same block can resolve
-          references.  At block exit the entry is removed (or the
-          shadowed outer value is restored).
-        - **Reassignment** (``is_declaration=False``): writes the
-          existing outer binding via the normal SSA machinery.
+        - A **declaration** adds its target to the local set and parks
+          the processed value in ``subst``.
+        - A later **reassignment** to a name in the local set updates
+          that local binding in ``subst`` (never hits outer SSA).
+        - Only assignments to names *not* local to this block go
+          through the normal outer SSA machinery.
 
-        Block-local bindings are never emitted to ``assignments``.
-        Only true outer writes survive into outer state, with their
-        constant facts merged into ``const_locals``.
+        At block exit, all local ``subst`` entries are removed (or
+        shadowed outer values are restored).
         """
         # Track block-local subst entries for cleanup at block exit.
         # Each entry saves the previous subst value (or None) so that
         # shadowed outer copy-propagation entries are restored.
         local_subst_saves: list[tuple[str, Expr | None]] = []
+        block_locals: set[str] = set()
+
+        def _park_local(target: str, raw_expr: Expr) -> None:
+            """Process *raw_expr* and park the result in subst for *target*."""
+            expr = substitute_expr(raw_expr, subst)
+            expr = rename_expr(expr, var_map, fn_map)
+            expr = _resolve_memory_expr(
+                expr, const_locals_state=const_locals,
+            )
+            expr = _wrap_u256_literals(expr)
+            subst[target] = expr
 
         for s in body:
             if s.is_declaration:
-                # Block-local declaration: process expression with the
-                # current merged state, then park in subst.
-                expr = substitute_expr(s.expr, subst)
-                expr = rename_expr(expr, var_map, fn_map)
-                expr = _resolve_memory_expr(
-                    expr, const_locals_state=const_locals,
-                )
-                expr = _wrap_u256_literals(expr)
-
+                # Block-local declaration: add to local set, park in subst.
+                block_locals.add(s.target)
                 saved = subst.get(s.target)
-                subst[s.target] = expr
+                _park_local(s.target, s.expr)
                 local_subst_saves.append((s.target, saved))
+            elif s.target in block_locals:
+                # Reassignment of a block-local name — update local subst.
+                _park_local(s.target, s.expr)
             else:
                 # Outer reassignment: full SSA, emit to assignments,
                 # const_locals updated.
