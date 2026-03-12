@@ -129,7 +129,32 @@ library SafeTransferLib {
     }
 
     function safeApproveIfBelow(IERC20 token, address spender, uint256 amount) internal {
-        uint256 allowance = token.allowance(address(this), spender);
+        uint256 allowance;
+        assembly ("memory-safe") {
+            // Save the free memory pointer for restoration after we clobber it
+            let ptr := mload(0x40)
+
+            mstore(0x40, spender)
+            mstore(0x2c, shl(0x60, address())) // Clears `spender`'s padding
+            mstore(0x00, 0xdd62ed3e) // Selector for `allowance(address,address)`
+
+            // Calldata starts at offset 28 and is 68 bytes long
+            if iszero(staticcall(gas(), token, 0x1c, 0x44, 0x00, 0x20)) {
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+
+            // Revert on short returndata
+            if gt(0x20, returndatasize()) {
+                revert(0x00, 0x00)
+            }
+
+            allowance := mload(0x00)
+
+            // Restore the free memory pointer
+            mstore(0x40, ptr)
+        }
+
         if (allowance < amount) {
             if (allowance != 0) {
                 safeApprove(token, spender, 0);
