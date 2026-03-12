@@ -3209,13 +3209,12 @@ def yul_function_to_model(
 
         # Detect out-of-scope variable references.  After substitution
         # and renaming, every Var should reference a previously emitted
-        # SSA name.  A Var that survived both passes unchanged points to
-        # a variable that was only defined inside a block that has since
-        # closed (e.g. a constant-true if-block whose locals went out of
-        # scope).
+        # SSA name or a name currently in var_map (which covers block-
+        # local real variables added during _lower_live_branch).
         if not inside_conditional:
+            known_names = emitted_ssa_names | set(var_map_state.values())
             for v in _expr_vars(expr):
-                if v not in emitted_ssa_names:
+                if v not in known_names:
                     raise ParseError(
                         f"out-of-scope variable use: {v!r} referenced by "
                         f"assignment to {target!r} in {sol_fn_name!r}"
@@ -3273,6 +3272,92 @@ def yul_function_to_model(
 
         return Assignment(target=ssa_name, expr=expr)
 
+    def _lower_live_branch(
+        body: tuple[PlainAssignment, ...],
+    ) -> None:
+        """Lower a constant-folded live branch as straight-line in a lexical scope.
+
+        Models two scopes:
+        - **Outer mutable state** (var_map, ssa_count, emitted_ssa_names,
+          const_locals, memory_state): writes to targets that already exist
+          in the outer scope go through the normal outer SSA machinery.
+        - **Block-local overlay**: targets introduced by ``let`` inside the
+          branch are tracked temporarily in var_map/subst for visibility to
+          later statements in the same block, then cleaned up at block exit.
+
+        Scope survival is determined by source-level binding identity:
+        a target that already exists in ``var_map`` or ``subst`` is an outer
+        write; a previously-unknown target is a block-local declaration.
+        """
+        outer_known = set(var_map.keys()) | set(subst.keys())
+        # Track block-local entries for cleanup at block exit.
+        local_subst_keys: list[str] = []
+        local_var_map_saves: list[tuple[str, str | None]] = []
+        local_const_saves: list[tuple[str, Expr | None]] = []
+
+        for s in body:
+            is_outer = s.target in outer_known
+            if is_outer:
+                # Outer write: full SSA, emitted to outer assignments,
+                # const_locals updated.
+                a = _process_assignment_into(
+                    s.target,
+                    s.expr,
+                    var_map_state=var_map,
+                    subst_state=subst,
+                    const_locals_state=const_locals,
+                )
+                if a is not None:
+                    assignments.append(a)
+            else:
+                # Block-local declaration: process the expression with
+                # the current merged state (outer + accumulated locals),
+                # then park the result in var_map or subst for visibility
+                # to later statements in this block.
+                expr = substitute_expr(s.expr, subst)
+                expr = rename_expr(expr, var_map, fn_map)
+                expr = _resolve_memory_expr(
+                    expr, const_locals_state=const_locals,
+                )
+                expr = _wrap_u256_literals(expr)
+
+                clean = demangle_var(
+                    s.target, yf.params, yf.rets,
+                    keep_solidity_locals=keep_solidity_locals,
+                )
+                if clean is None:
+                    # Block-local compiler temp.
+                    subst[s.target] = expr
+                    local_subst_keys.append(s.target)
+                else:
+                    # Block-local real variable — make visible for
+                    # rename_expr in later statements.
+                    saved_vm = var_map.get(s.target)
+                    var_map[s.target] = clean
+                    local_var_map_saves.append((s.target, saved_vm))
+                    # Track const fact for memory-address resolution.
+                    const_val = _try_const_eval(
+                        substitute_expr(expr, const_locals),
+                    )
+                    saved_cl = const_locals.get(clean)
+                    if const_val is not None:
+                        const_locals[clean] = IntLit(const_val)
+                    local_const_saves.append((clean, saved_cl))
+
+        # Clean up block-local entries.
+        for k in local_subst_keys:
+            subst.pop(k, None)
+        for k, saved in local_var_map_saves:
+            if saved is None:
+                var_map.pop(k, None)
+            else:
+                var_map[k] = saved
+        for k, saved in local_const_saves:
+            if saved is None:
+                const_locals.pop(k, None)
+            else:
+                const_locals[k] = saved
+
     for stmt in yf.assignments:
         if isinstance(stmt, ParsedIfBlock):
             # Constant-fold the condition before rejecting leave.
@@ -3283,16 +3368,7 @@ def yul_function_to_model(
                     has_else=stmt.else_body is not None,
                 )
                 if fold == _IfFoldDecision.ELSE_LIVE:
-                    for s in stmt.else_body:
-                        a = _process_assignment_into(
-                            s.target,
-                            s.expr,
-                            var_map_state=var_map,
-                            subst_state=subst,
-                            const_locals_state=const_locals,
-                        )
-                        if a is not None:
-                            assignments.append(a)
+                    _lower_live_branch(stmt.else_body)
                     continue
                 if fold == _IfFoldDecision.DEAD:
                     continue
@@ -3309,53 +3385,10 @@ def yul_function_to_model(
                 has_else=stmt.else_body is not None,
             )
             if fold == _IfFoldDecision.THEN_LIVE:
-                # Scope-preserving constant-true lowering: process the
-                # body in a branch scope, then emit only assignments to
-                # variables that existed in the outer scope.  Block-local
-                # variables stay contained in the branch.
-                pre_scope_ct: set[str] = set(var_map.values())
-                branch_vm = dict(var_map)
-                branch_sub = dict(subst)
-                branch_cl = dict(const_locals)
-                body_asgns: list[Assignment] = []
-                for s in stmt.body:
-                    a = _process_assignment_into(
-                        s.target,
-                        s.expr,
-                        var_map_state=branch_vm,
-                        subst_state=branch_sub,
-                        const_locals_state=branch_cl,
-                        inside_conditional=True,
-                    )
-                    if a is not None:
-                        body_asgns.append(a)
-                modified_ct: set[str] = set()
-                for a in body_asgns:
-                    if a.target in pre_scope_ct:
-                        assignments.append(a)
-                        modified_ct.add(a.target)
-                if modified_ct:
-                    for s in stmt.body:
-                        c = demangle_var(
-                            s.target, yf.params, yf.rets,
-                            keep_solidity_locals=keep_solidity_locals,
-                        )
-                        if c is not None and c in modified_ct:
-                            var_map[s.target] = c
-                            ssa_count[c] = 1
-                            const_locals.pop(c, None)
+                _lower_live_branch(stmt.body)
                 continue
             if fold == _IfFoldDecision.ELSE_LIVE:
-                for s in stmt.else_body:
-                    a = _process_assignment_into(
-                        s.target,
-                        s.expr,
-                        var_map_state=var_map,
-                        subst_state=subst,
-                        const_locals_state=const_locals,
-                    )
-                    if a is not None:
-                        assignments.append(a)
+                _lower_live_branch(stmt.else_body)
                 continue
             if fold == _IfFoldDecision.DEAD:
                 continue
