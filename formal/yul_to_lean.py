@@ -946,6 +946,15 @@ class YulParser(_TokenReader):
         super().__init__(tokens)
         self._expr_stmts: list[Expr] = []
         self._reference_scope_cache: dict[int, ReferenceScope] = {}
+        self._source_names: set[str] | None = None
+
+    def _all_source_names(self) -> set[str]:
+        """Lazily collect all identifier names from the token stream."""
+        if self._source_names is None:
+            self._source_names = {
+                text for kind, text in self.tokens if kind == "ident"
+            }
+        return self._source_names
 
     def _skip_until_matching_brace(self) -> None:
         self._expect("{")
@@ -1153,7 +1162,7 @@ class YulParser(_TokenReader):
                                 # temporary.  This preserves point-in-time
                                 # values even when outer variables with the
                                 # same name are reassigned later.
-                                fresh = _gensym("blk")
+                                fresh = _gensym("blk", avoid=self._all_source_names())
                                 results.append(PlainAssignment(
                                     fresh, expr, is_declaration=True,
                                 ))
@@ -2211,9 +2220,17 @@ def _reject_expr_stmts(expr_stmts: list[Expr] | None, *, context: str) -> None:
 _gensym_counters: dict[str, int] = {}
 
 
-def _gensym(prefix: str) -> str:
-    """Generate a unique variable name for generated locals."""
+def _gensym(prefix: str, avoid: set[str] | None = None) -> str:
+    """Generate a unique variable name for generated locals.
+
+    When *avoid* is provided, the counter is advanced past any
+    candidate that appears in the set, so generated names never
+    collide with user-visible identifiers.
+    """
     _gensym_counters[prefix] = _gensym_counters.get(prefix, 0) + 1
+    if avoid is not None:
+        while f"_{prefix}_{_gensym_counters[prefix]}" in avoid:
+            _gensym_counters[prefix] += 1
     return f"_{prefix}_{_gensym_counters[prefix]}"
 
 
