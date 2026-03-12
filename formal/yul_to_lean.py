@@ -388,13 +388,12 @@ class ReferenceAnalysisResult:
     definitely_terminates: bool
 
 
-class _ReferenceScopeParser:
-    """Parse a lexical Yul scope for helper-reference analysis.
+class _TokenReader:
+    """Shared token-stream primitives for Yul parsers.
 
-    This parser is intentionally broader than the main model-generation parser:
-    it keeps local function definitions and lexical blocks so dependency
-    analysis can follow real scope rules, while still reusing the same basic
-    expression grammar.
+    Holds a flat token list and a cursor, plus low-level consumption
+    helpers and the common expression parser.  Subclasses add
+    domain-specific parsing logic.
     """
 
     def __init__(self, tokens: list[tuple[str, str]]) -> None:
@@ -450,6 +449,16 @@ class _ReferenceScopeParser:
         if kind == "string":
             return Var(text)
         raise ParseError(f"Expected expression, got {kind!r} ({text!r})")
+
+
+class _ReferenceScopeParser(_TokenReader):
+    """Parse a lexical Yul scope for helper-reference analysis.
+
+    This parser is intentionally broader than the main model-generation parser:
+    it keeps local function definitions and lexical blocks so dependency
+    analysis can follow real scope rules, while still reusing the same basic
+    expression grammar.
+    """
 
     def _parse_block(self) -> ReferenceScope:
         self._expect("{")
@@ -918,7 +927,7 @@ def _statement_reference_summary(
     raise TypeError(f"Unsupported ReferenceStatement: {type(stmt)}")
 
 
-class YulParser:
+class YulParser(_TokenReader):
     """Recursive-descent parser over a pre-tokenized Yul token stream.
 
     Only the subset of Yul needed for our extraction is handled: function
@@ -932,38 +941,9 @@ class YulParser:
     """
 
     def __init__(self, tokens: list[tuple[str, str]]) -> None:
-        self.tokens = tokens
-        self.i = 0
+        super().__init__(tokens)
         self._expr_stmts: list[Expr] = []
         self._reference_scope_cache: dict[int, ReferenceScope] = {}
-
-    def _at_end(self) -> bool:
-        return self.i >= len(self.tokens)
-
-    def _peek(self) -> tuple[str, str] | None:
-        if self._at_end():
-            return None
-        return self.tokens[self.i]
-
-    def _peek_kind(self) -> str | None:
-        tok = self._peek()
-        return tok[0] if tok else None
-
-    def _pop(self) -> tuple[str, str]:
-        tok = self._peek()
-        if tok is None:
-            raise ParseError("Unexpected end of Yul token stream")
-        self.i += 1
-        return tok
-
-    def _expect(self, kind: str) -> str:
-        k, text = self._pop()
-        if k != kind:
-            raise ParseError(f"Expected {kind!r}, got {k!r} ({text!r})")
-        return text
-
-    def _expect_ident(self) -> str:
-        return self._expect("ident")
 
     def _skip_until_matching_brace(self) -> None:
         self._expect("{")
@@ -995,28 +975,6 @@ class YulParser:
                 continue
             self._pop()
         raise ParseError("Unterminated block while discarding unreachable code")
-
-    def _parse_expr(self) -> Expr:
-        kind, text = self._pop()
-        if kind == "num":
-            return IntLit(int(text, 0))
-        if kind == "ident":
-            if self._peek_kind() == "(":
-                self._pop()
-                args: list[Expr] = []
-                if self._peek_kind() != ")":
-                    while True:
-                        args.append(self._parse_expr())
-                        if self._peek_kind() == ",":
-                            self._pop()
-                            continue
-                        break
-                self._expect(")")
-                return Call(text, tuple(args))
-            return Var(text)
-        if kind == "string":
-            return Var(text)
-        raise ParseError(f"Expected expression, got {kind!r} ({text!r})")
 
     def _expect_plain_assignments(
         self,
@@ -1575,6 +1533,101 @@ class YulParser:
             j += 1
         return count
 
+    def _disambiguate_by_references(
+        self,
+        matches: list[int],
+        known_yul_names: set[str],
+        exclude_known: bool,
+    ) -> list[int]:
+        """Narrow *matches* using helper-reference analysis.
+
+        Each candidate's body is analyzed for references to
+        *known_yul_names*.  References are classified as **live**
+        (reachable at runtime) or **dead** (behind constant-false
+        guards or after ``leave``).
+
+        **exclude_known=True** — selecting a *leaf* function that does
+        NOT call known helpers:
+
+        1. Prefer candidates with no live references.
+        2. Among those, prefer candidates that DO have dead references
+           (a dead reference proves the compiler originally considered
+           this variant related to the helper — it is the right leaf
+           rather than an unrelated function that happens to match).
+        3. If no candidate has dead references, accept all
+           live-independent candidates.
+
+        **exclude_known=False** — selecting a *wrapper* that calls
+        known helpers:
+
+        1. Prefer candidates with live references.
+        2. If none have live references, prefer candidates with no
+           dead references (a dead reference suggests the optimizer
+           stripped a real call — probably not the right match).
+
+        **Partial-parse fallback** — when some candidate bodies fail
+        to parse (summary is None), use only the live-reference signal.
+
+        Returns the narrowed list, or *matches* unchanged when no
+        filtering applies.
+        """
+        summaries = {
+            m: self._body_reference_summary(m, known_yul_names) for m in matches
+        }
+
+        if all(summary is not None for summary in summaries.values()):
+            # All bodies parsed — use full disambiguation.
+            if exclude_known:
+                # Leaf selection: discard candidates that call known helpers.
+                live_independent = [
+                    m
+                    for m in matches
+                    if summaries[m] is not None
+                    and not summaries[m].live_references
+                ]
+                if live_independent:
+                    # Tiebreak: prefer candidates whose dead code DOES
+                    # reference known helpers (proves compiler affinity).
+                    dead_tiebreak = [
+                        m
+                        for m in live_independent
+                        if summaries[m] is not None
+                        and summaries[m].dead_references
+                    ]
+                    return dead_tiebreak if dead_tiebreak else live_independent
+            else:
+                # Wrapper selection: prefer candidates that call known helpers.
+                live_dependent = [
+                    m
+                    for m in matches
+                    if summaries[m] is not None
+                    and summaries[m].live_references
+                ]
+                if live_dependent:
+                    return live_dependent
+                # No live references anywhere.  Prefer candidates with
+                # no dead references — a dead ref suggests the optimizer
+                # stripped a real call, making that candidate the wrong match.
+                clean_candidates = [
+                    m
+                    for m in matches
+                    if summaries[m] is not None
+                    and not summaries[m].dead_references
+                ]
+                if clean_candidates:
+                    return clean_candidates
+        else:
+            # Some bodies failed to parse — simple fallback.
+            live_dependent = [
+                m
+                for m in matches
+                if summaries[m] is not None and summaries[m].live_references
+            ]
+            if live_dependent:
+                return live_dependent
+
+        return matches
+
     def find_function(
         self,
         sol_fn_name: str,
@@ -1648,51 +1701,9 @@ class YulParser:
                 )
 
         if known_yul_names and len(matches) > 1:
-            summaries = {
-                m: self._body_reference_summary(m, known_yul_names) for m in matches
-            }
-            if all(summary is not None for summary in summaries.values()):
-                if exclude_known:
-                    live_independent = [
-                        m
-                        for m in matches
-                        if summaries[m] is not None
-                        and not summaries[m].live_references
-                    ]
-                    if live_independent:
-                        dead_tiebreak = [
-                            m
-                            for m in live_independent
-                            if summaries[m] is not None
-                            and summaries[m].dead_references
-                        ]
-                        matches = dead_tiebreak if dead_tiebreak else live_independent
-                else:
-                    live_dependent = [
-                        m
-                        for m in matches
-                        if summaries[m] is not None
-                        and summaries[m].live_references
-                    ]
-                    if live_dependent:
-                        matches = live_dependent
-                    else:
-                        clean_candidates = [
-                            m
-                            for m in matches
-                            if summaries[m] is not None
-                            and not summaries[m].dead_references
-                        ]
-                        if clean_candidates:
-                            matches = clean_candidates
-            else:
-                live_dependent = [
-                    m
-                    for m in matches
-                    if summaries[m] is not None and summaries[m].live_references
-                ]
-                if live_dependent:
-                    matches = live_dependent
+            matches = self._disambiguate_by_references(
+                matches, known_yul_names, exclude_known
+            )
 
         if len(matches) > 1:
             names = [self.tokens[m + 1][1] for m in matches]
