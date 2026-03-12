@@ -3685,6 +3685,31 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
 
+    def test_translate_yul_to_models_preserves_nonconstant_if_branch_local_reassignment_shadowing_outer_binding(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                let usr$x := 5
+                if var_c_1 {
+                    let usr$x := 1
+                    usr$x := 2
+                }
+                var_z_2 := usr$x
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
+
     def test_translate_yul_to_models_preserves_outer_switch_branch_assignment_before_later_shadowing_let(
         self,
     ) -> None:
@@ -3712,6 +3737,63 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (7,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
+
+    def test_translate_yul_to_models_preserves_outer_binding_after_nested_if_branch_local_ends_in_bare_block(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                let usr$x := 5
+                {
+                    if var_c_1 {
+                        let usr$x := 1
+                    }
+                    usr$x := add(usr$x, 1)
+                }
+                var_z_2 := usr$x
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (6,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (6,))
+
+    def test_translate_yul_to_models_preserves_outer_binding_after_nested_switch_branch_local_ends_in_bare_block(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                let usr$x := 5
+                {
+                    switch var_c_1
+                    case 0 {
+                        let usr$x := 1
+                    }
+                    default {
+                    }
+                    usr$x := add(usr$x, 1)
+                }
+                var_z_2 := usr$x
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (6,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (6,))
 
     def test_translate_yul_to_models_preserves_live_switch_case_shadowing_after_dead_default_leave(
         self,
