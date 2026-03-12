@@ -135,7 +135,8 @@ library SafeTransferLib {
             let ptr := mload(0x40)
 
             mstore(0x40, spender)
-            mstore(0x2c, shl(0x60, address())) // Clears `spender`'s padding
+            mstore(0x2c, 0x00) // Clear `spender`'s padding
+            mstore(0x20, address())
             mstore(0x00, 0xdd62ed3e) // Selector for `allowance(address,address)`
 
             // Calldata starts at offset 28 and is 68 bytes long
