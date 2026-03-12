@@ -263,6 +263,7 @@ class FromWriteEffect:
 class PlainAssignment:
     target: str
     expr: Expr
+    is_declaration: bool = False
 
 
 # A raw parsed statement is either an assignment, a supported memory write,
@@ -1022,7 +1023,7 @@ class YulParser(_TokenReader):
             if self._peek_kind() != ":=":
                 # Multi-var declaration without initializer — zero-init all
                 for t in all_targets:
-                    results.append(PlainAssignment(t, IntLit(0)))
+                    results.append(PlainAssignment(t, IntLit(0), is_declaration=True))
                 return
             self._expect(":=")
             expr = self._parse_expr()
@@ -1039,16 +1040,17 @@ class YulParser(_TokenReader):
             for idx, t in enumerate(all_targets):
                 results.append(
                     PlainAssignment(
-                        t, Call(f"__component_{idx}_{len(all_targets)}", (expr,))
+                        t, Call(f"__component_{idx}_{len(all_targets)}", (expr,)),
+                        is_declaration=True,
                     )
                 )
         elif self._peek_kind() == ":=":
             self._pop()
             expr = self._parse_expr()
-            results.append(PlainAssignment(target, expr))
+            results.append(PlainAssignment(target, expr, is_declaration=True))
         else:
             # Bare declaration: ``let x``  (zero-initialized per Yul spec)
-            results.append(PlainAssignment(target, IntLit(0)))
+            results.append(PlainAssignment(target, IntLit(0), is_declaration=True))
 
     def _parse_assignment_loop(
         self,
@@ -1163,7 +1165,10 @@ class YulParser(_TokenReader):
                         if stmt.target in block_let_vars:
                             block_subst[stmt.target] = expr
                         else:
-                            results.append(PlainAssignment(stmt.target, expr))
+                            results.append(PlainAssignment(
+                                stmt.target, expr,
+                                is_declaration=stmt.is_declaration,
+                            ))
                 if inner_leave:
                     has_leave = True
                     self._skip_to_end_of_current_block()
@@ -1213,15 +1218,15 @@ class YulParser(_TokenReader):
                         continue
                     if const_cond is not None and const_cond != 0:
                         # Constant-true: flatten the body into the outer
-                        # scope.  The body is treated as straight-line
-                        # code (allow_control_flow matches the outer).
+                        # scope with block scoping — declarations stay
+                        # block-local, only reassignments are emitted.
                         self._expect("{")
                         live_body, live_leave = self._parse_assignment_loop(
                             allow_control_flow=allow_control_flow,
                             context="if-body (live, constant-true)",
                         )
                         self._expect("}")
-                        results.extend(live_body)
+                        _flatten_scoped_block(live_body, results)
                         if live_leave:
                             has_leave = True
                             self._skip_to_end_of_current_block()
@@ -1279,7 +1284,7 @@ class YulParser(_TokenReader):
                                 found_live = True
                             if br == "default":
                                 break
-                        results.extend(live_branch_stmts)
+                        _flatten_scoped_block(live_branch_stmts, results)
                         if live_leave:
                             has_leave = True
                             self._skip_to_end_of_current_block()
@@ -2052,6 +2057,58 @@ def _find_enclosing_block_range(
     return start, end
 
 
+def _flatten_scoped_block(
+    stmts: list[RawStatement],
+    results: list[RawStatement],
+) -> None:
+    """Emit *stmts* into *results* with block scoping applied.
+
+    Declarations (``is_declaration=True``) are block-local: their
+    processed expressions are substituted into later references but
+    never emitted.  Reassignments and memory writes pass through to
+    *results*.
+    """
+    block_sub: dict[str, Expr] = {}
+    for stmt in stmts:
+        if isinstance(stmt, PlainAssignment):
+            expr = substitute_expr(stmt.expr, block_sub)
+            if stmt.is_declaration:
+                block_sub[stmt.target] = expr
+            else:
+                results.append(PlainAssignment(stmt.target, expr))
+        elif isinstance(stmt, MemoryWrite):
+            results.append(MemoryWrite(
+                substitute_expr(stmt.address, block_sub),
+                substitute_expr(stmt.value, block_sub),
+            ))
+        elif isinstance(stmt, ParsedIfBlock):
+            new_cond = substitute_expr(stmt.condition, block_sub)
+            new_body = tuple(
+                PlainAssignment(
+                    s.target,
+                    substitute_expr(s.expr, block_sub),
+                    is_declaration=s.is_declaration,
+                )
+                for s in stmt.body
+            )
+            new_else = None
+            if stmt.else_body is not None:
+                new_else = tuple(
+                    PlainAssignment(
+                        s.target,
+                        substitute_expr(s.expr, block_sub),
+                        is_declaration=s.is_declaration,
+                    )
+                    for s in stmt.else_body
+                )
+            results.append(ParsedIfBlock(
+                condition=new_cond,
+                body=new_body,
+                has_leave=stmt.has_leave,
+                else_body=new_else,
+            ))
+
+
 def _split_branch_assignments(
     assignments: tuple[PlainAssignment, ...],
     block_subst: dict[str, Expr],
@@ -2067,7 +2124,7 @@ def _split_branch_assignments(
             local[s.target] = sub_expr
             working_subst[s.target] = sub_expr
         else:
-            outer.append(PlainAssignment(s.target, sub_expr))
+            outer.append(PlainAssignment(s.target, sub_expr, is_declaration=s.is_declaration))
     return outer, local
 
 
@@ -2296,7 +2353,7 @@ def _alpha_rename_yul_function(
     def _rename_stmt(s: PlainAssignment) -> PlainAssignment:
         target = rename_map.get(s.target, s.target)
         expr = substitute_expr(s.expr, rename_subst)
-        return PlainAssignment(target, expr)
+        return PlainAssignment(target, expr, is_declaration=s.is_declaration)
 
     new_assignments: list[RawStatement] = []
     for stmt in fn.assignments:
@@ -2832,6 +2889,7 @@ def _inline_yul_function(
                             mstore_sink=mstore_sink,
                             unsupported_function_errors=unsupported_function_errors,
                         ),
+                        is_declaration=s.is_declaration,
                     )
                 )
             new_else_body: list[PlainAssignment] | None = None
@@ -2847,6 +2905,7 @@ def _inline_yul_function(
                                 mstore_sink=mstore_sink,
                                 unsupported_function_errors=unsupported_function_errors,
                             ),
+                            is_declaration=s.is_declaration,
                         )
                     )
             if len(mstore_sink) > pre_len:
@@ -2897,7 +2956,7 @@ def _inline_yul_function(
             for effect in mstore_sink[pre_len:]:
                 new_assignments.extend(effect.lower())
             del mstore_sink[pre_len:]
-            new_assignments.append(PlainAssignment(stmt.target, inlined))
+            new_assignments.append(PlainAssignment(stmt.target, inlined, is_declaration=stmt.is_declaration))
 
     if mstore_sink:
         raise ParseError(
@@ -3277,28 +3336,42 @@ def yul_function_to_model(
     ) -> None:
         """Lower a constant-folded live branch as straight-line in a lexical scope.
 
-        Models two scopes:
-        - **Outer mutable state** (var_map, ssa_count, emitted_ssa_names,
-          const_locals, memory_state): writes to targets that already exist
-          in the outer scope go through the normal outer SSA machinery.
-        - **Block-local overlay**: targets introduced by ``let`` inside the
-          branch are tracked temporarily in var_map/subst for visibility to
-          later statements in the same block, then cleaned up at block exit.
+        Driven by ``PlainAssignment.is_declaration``:
 
-        Scope survival is determined by source-level binding identity:
-        a target that already exists in ``var_map`` or ``subst`` is an outer
-        write; a previously-unknown target is a block-local declaration.
+        - **Declaration** (``is_declaration=True``): always creates a
+          block-local binding, even if an outer binding with the same
+          Yul name exists.  The processed expression is parked in
+          ``subst`` so later statements in the same block can resolve
+          references.  At block exit the entry is removed (or the
+          shadowed outer value is restored).
+        - **Reassignment** (``is_declaration=False``): writes the
+          existing outer binding via the normal SSA machinery.
+
+        Block-local bindings are never emitted to ``assignments``.
+        Only true outer writes survive into outer state, with their
+        constant facts merged into ``const_locals``.
         """
-        outer_known = set(var_map.keys()) | set(subst.keys())
-        # Track block-local entries for cleanup at block exit.
-        local_subst_keys: list[str] = []
-        local_var_map_saves: list[tuple[str, str | None]] = []
-        local_const_saves: list[tuple[str, Expr | None]] = []
+        # Track block-local subst entries for cleanup at block exit.
+        # Each entry saves the previous subst value (or None) so that
+        # shadowed outer copy-propagation entries are restored.
+        local_subst_saves: list[tuple[str, Expr | None]] = []
 
         for s in body:
-            is_outer = s.target in outer_known
-            if is_outer:
-                # Outer write: full SSA, emitted to outer assignments,
+            if s.is_declaration:
+                # Block-local declaration: process expression with the
+                # current merged state, then park in subst.
+                expr = substitute_expr(s.expr, subst)
+                expr = rename_expr(expr, var_map, fn_map)
+                expr = _resolve_memory_expr(
+                    expr, const_locals_state=const_locals,
+                )
+                expr = _wrap_u256_literals(expr)
+
+                saved = subst.get(s.target)
+                subst[s.target] = expr
+                local_subst_saves.append((s.target, saved))
+            else:
+                # Outer reassignment: full SSA, emit to assignments,
                 # const_locals updated.
                 a = _process_assignment_into(
                     s.target,
@@ -3309,54 +3382,13 @@ def yul_function_to_model(
                 )
                 if a is not None:
                     assignments.append(a)
-            else:
-                # Block-local declaration: process the expression with
-                # the current merged state (outer + accumulated locals),
-                # then park the result in var_map or subst for visibility
-                # to later statements in this block.
-                expr = substitute_expr(s.expr, subst)
-                expr = rename_expr(expr, var_map, fn_map)
-                expr = _resolve_memory_expr(
-                    expr, const_locals_state=const_locals,
-                )
-                expr = _wrap_u256_literals(expr)
 
-                clean = demangle_var(
-                    s.target, yf.params, yf.rets,
-                    keep_solidity_locals=keep_solidity_locals,
-                )
-                if clean is None:
-                    # Block-local compiler temp.
-                    subst[s.target] = expr
-                    local_subst_keys.append(s.target)
-                else:
-                    # Block-local real variable — make visible for
-                    # rename_expr in later statements.
-                    saved_vm = var_map.get(s.target)
-                    var_map[s.target] = clean
-                    local_var_map_saves.append((s.target, saved_vm))
-                    # Track const fact for memory-address resolution.
-                    const_val = _try_const_eval(
-                        substitute_expr(expr, const_locals),
-                    )
-                    saved_cl = const_locals.get(clean)
-                    if const_val is not None:
-                        const_locals[clean] = IntLit(const_val)
-                    local_const_saves.append((clean, saved_cl))
-
-        # Clean up block-local entries.
-        for k in local_subst_keys:
-            subst.pop(k, None)
-        for k, saved in local_var_map_saves:
+        # Clean up block-local subst entries.
+        for k, saved in local_subst_saves:
             if saved is None:
-                var_map.pop(k, None)
+                subst.pop(k, None)
             else:
-                var_map[k] = saved
-        for k, saved in local_const_saves:
-            if saved is None:
-                const_locals.pop(k, None)
-            else:
-                const_locals[k] = saved
+                subst[k] = saved
 
     for stmt in yf.assignments:
         if isinstance(stmt, ParsedIfBlock):

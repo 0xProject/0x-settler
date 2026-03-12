@@ -535,6 +535,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
                     "__component_0_2",
                     (ytl.Call("fun_pair_2", (ytl.Var("var_x_1"),)),),
                 ),
+                is_declaration=True,
             ),
             ytl.PlainAssignment(
                 "usr$rhs",
@@ -542,6 +543,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
                     "__component_1_2",
                     (ytl.Call("fun_pair_2", (ytl.Var("var_x_1"),)),),
                 ),
+                is_declaration=True,
             ),
             ytl.PlainAssignment(
                 "var_z_2",
@@ -4198,8 +4200,8 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(
             fn.assignments,
             [
-                ytl.PlainAssignment("usr$a", ytl.IntLit(0)),
-                ytl.PlainAssignment("usr$b", ytl.IntLit(0)),
+                ytl.PlainAssignment("usr$a", ytl.IntLit(0), is_declaration=True),
+                ytl.PlainAssignment("usr$b", ytl.IntLit(0), is_declaration=True),
                 ytl.PlainAssignment(
                     "var_z_1",
                     ytl.Call("add", (ytl.Var("usr$a"), ytl.Var("usr$b"))),
@@ -4237,8 +4239,8 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(
             fn.assignments,
             [
-                ytl.PlainAssignment("usr$a", ytl.IntLit(0)),
-                ytl.PlainAssignment("usr$b", ytl.IntLit(0)),
+                ytl.PlainAssignment("usr$a", ytl.IntLit(0), is_declaration=True),
+                ytl.PlainAssignment("usr$b", ytl.IntLit(0), is_declaration=True),
                 ytl.PlainAssignment(
                     "usr$a",
                     ytl.Call(
