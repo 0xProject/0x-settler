@@ -3,7 +3,7 @@ Shared infrastructure for generating Lean models from Yul IR.
 
 Provides:
 - Yul tokenizer and recursive-descent parser
-- AST types (IntLit, Var, Call, Assignment, FunctionModel)
+- AST types (IntLit, Var, Call, Ite, Project, Assignment, FunctionModel)
 - Yul → FunctionModel conversion (copy propagation + demangling)
 - Explicit translation pipelines: raw translation + optional transforms
 - Lean expression emission
@@ -51,7 +51,23 @@ class Call:
     args: tuple["Expr", ...]
 
 
-Expr = IntLit | Var | Call
+@dataclass(frozen=True)
+class Ite:
+    """Conditional value: ``if cond ≠ 0 then if_true else if_false``."""
+    cond: "Expr"
+    if_true: "Expr"
+    if_false: "Expr"
+
+
+@dataclass(frozen=True)
+class Project:
+    """Projection of the Nth return value from a multi-return call."""
+    index: int
+    total: int
+    inner: "Expr"
+
+
+Expr = IntLit | Var | Call | Ite | Project
 
 
 @dataclass(frozen=True)
@@ -618,6 +634,16 @@ def _expr_reference_summary(
 ) -> ReferenceAnalysisResult:
     if isinstance(expr, (IntLit, Var)):
         return ReferenceAnalysisResult(False, False, False)
+    if isinstance(expr, Ite):
+        live = False
+        dead = False
+        for sub in (expr.cond, expr.if_true, expr.if_false):
+            child = _expr_reference_summary(sub, live_names, dead_names)
+            live = live or child.live_references
+            dead = dead or child.dead_references
+        return ReferenceAnalysisResult(live, dead, False)
+    if isinstance(expr, Project):
+        return _expr_reference_summary(expr.inner, live_names, dead_names)
     if isinstance(expr, Call):
         live = expr.name in live_names
         dead = expr.name in dead_names
@@ -1010,7 +1036,7 @@ class YulParser(_TokenReader):
         Handles three forms:
         - ``let x := expr``          — single-value assignment
         - ``let a, b, c := call()``  — multi-value; each target gets a
-          synthetic ``__component_N_M(call)`` wrapper (index N of M total)
+          synthetic ``Project(N, M, call)`` wrapper (index N of M total)
         - ``let x``                  — bare declaration (zero-init, skipped)
 
         When *let_vars* is provided, all declared variable names are added to
@@ -1049,7 +1075,7 @@ class YulParser(_TokenReader):
             for idx, t in enumerate(all_targets):
                 results.append(
                     PlainAssignment(
-                        t, Call(f"__component_{idx}_{len(all_targets)}", (expr,)),
+                        t, Project(idx, len(all_targets), expr),
                         is_declaration=True,
                     )
                 )
@@ -1432,10 +1458,7 @@ class YulParser(_TokenReader):
                     results.append(
                         PlainAssignment(
                             t,
-                            Call(
-                                f"__component_{idx}_{len(all_targets)}",
-                                (rhs,),
-                            ),
+                            Project(idx, len(all_targets), rhs),
                         )
                     )
                 continue
@@ -1992,6 +2015,14 @@ def rename_expr(expr: Expr, var_map: dict[str, str], fn_map: dict[str, str]) -> 
         return expr
     if isinstance(expr, Var):
         return Var(var_map.get(expr.name, expr.name))
+    if isinstance(expr, Ite):
+        return Ite(
+            rename_expr(expr.cond, var_map, fn_map),
+            rename_expr(expr.if_true, var_map, fn_map),
+            rename_expr(expr.if_false, var_map, fn_map),
+        )
+    if isinstance(expr, Project):
+        return Project(expr.index, expr.total, rename_expr(expr.inner, var_map, fn_map))
     if isinstance(expr, Call):
         new_name = fn_map.get(expr.name, expr.name)
         new_args = tuple(rename_expr(a, var_map, fn_map) for a in expr.args)
@@ -2004,6 +2035,14 @@ def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
         return expr
     if isinstance(expr, Var):
         return subst.get(expr.name, expr)
+    if isinstance(expr, Ite):
+        return Ite(
+            substitute_expr(expr.cond, subst),
+            substitute_expr(expr.if_true, subst),
+            substitute_expr(expr.if_false, subst),
+        )
+    if isinstance(expr, Project):
+        return Project(expr.index, expr.total, substitute_expr(expr.inner, subst))
     if isinstance(expr, Call):
         return Call(expr.name, tuple(substitute_expr(a, subst) for a in expr.args))
     _unreachable_expr(expr)
@@ -2244,22 +2283,21 @@ def _try_const_eval(expr: Expr) -> int | None:
     """
     if isinstance(expr, IntLit):
         return expr.value % WORD_MOD
+    if isinstance(expr, Ite):
+        cond_val = _try_const_eval(expr.cond)
+        if_val = _try_const_eval(expr.if_true)
+        else_val = _try_const_eval(expr.if_false)
+        if if_val is not None and else_val is not None and if_val == else_val:
+            return if_val  # already wrapped by recursive call
+        if cond_val is not None and cond_val != 0 and if_val is not None:
+            return if_val
+        if cond_val is not None and cond_val == 0 and else_val is not None:
+            return else_val
+        return None
+    if isinstance(expr, Project):
+        return None
     if isinstance(expr, Call):
-        # Handle __ite(cond, if_val, else_val): if both branches
-        # evaluate to the same constant, the result is that constant
-        # regardless of the condition.
-        if expr.name == "__ite" and len(expr.args) == 3:
-            cond_val = _try_const_eval(expr.args[0])
-            if_val = _try_const_eval(expr.args[1])
-            else_val = _try_const_eval(expr.args[2])
-            if if_val is not None and else_val is not None and if_val == else_val:
-                return if_val  # already wrapped by recursive call
-            if cond_val is not None and cond_val != 0 and if_val is not None:
-                return if_val
-            if cond_val is not None and cond_val == 0 and else_val is not None:
-                return else_val
-            return None
-        # Delegate all other ops to _eval_builtin (which wraps via u256).
+        # Delegate all ops to _eval_builtin (which wraps via u256).
         arg_vals = tuple(_try_const_eval(arg) for arg in expr.args)
         if any(v is None for v in arg_vals):
             return None
@@ -2298,13 +2336,13 @@ def _classify_if_fold(
 
 
 def _simplify_ite(cond: Expr, if_val: Expr, else_val: Expr) -> Expr:
-    """Build an ``__ite`` node, simplifying when the condition or branches are trivial."""
+    """Build an ``Ite`` node, simplifying when the condition or branches are trivial."""
     if if_val == else_val:
         return if_val
     cond_val = _try_const_eval(cond)
     if cond_val is not None:
         return if_val if cond_val != 0 else else_val
-    return Call("__ite", (cond, if_val, else_val))
+    return Ite(cond, if_val, else_val)
 
 
 def _is_zero_init_expr(expr: Expr) -> bool:
@@ -2383,6 +2421,12 @@ def _collect_vars_in_expr(expr: Expr, out: set[str]) -> None:
     """Collect all variable names referenced in *expr*."""
     if isinstance(expr, Var):
         out.add(expr.name)
+    elif isinstance(expr, Ite):
+        _collect_vars_in_expr(expr.cond, out)
+        _collect_vars_in_expr(expr.if_true, out)
+        _collect_vars_in_expr(expr.if_false, out)
+    elif isinstance(expr, Project):
+        _collect_vars_in_expr(expr.inner, out)
     elif isinstance(expr, Call):
         for a in expr.args:
             _collect_vars_in_expr(a, out)
@@ -2712,7 +2756,7 @@ def _inline_single_call(
                 # Don't update subst — remaining assignments use the
                 # pre-if state (the "else" path where the condition is false).
             elif stmt.else_body is not None:
-                # If/else or switch: merge both branches with __ite.
+                # If/else or switch: merge both branches with Ite.
                 all_targets: list[str] = []
                 seen: set[str] = set()
                 for s in (*stmt.body, *stmt.else_body):
@@ -2728,7 +2772,7 @@ def _inline_single_call(
                         subst[target] = merged
             else:
                 # Normal if-block (no leave, no else): preserve the pre-if value
-                # on the false path and merge with __ite.
+                # on the false path and merge with Ite.
                 for s in stmt.body:
                     if_val = if_subst[s.target]
                     orig_val = subst.get(s.target, IntLit(0))
@@ -2787,21 +2831,32 @@ def inline_calls(
 
     Walks the expression tree. When a ``Call`` targets a function in
     *fn_table*, its body is inlined via sequential substitution.
-    ``__component_N`` wrappers (from multi-value ``let``) are resolved
+    ``Project`` wrappers (from multi-value ``let``) are resolved
     to the Nth return value of the inlined function.
     """
     if isinstance(expr, (IntLit, Var)):
         return expr
-    if isinstance(expr, Call):
-        # Handle __component_N_M(Call(fn, ...)) for multi-return.
+    if isinstance(expr, Ite):
+        return Ite(
+            inline_calls(expr.cond, fn_table, depth, max_depth=max_depth,
+                         mstore_sink=mstore_sink,
+                         unsupported_function_errors=unsupported_function_errors),
+            inline_calls(expr.if_true, fn_table, depth, max_depth=max_depth,
+                         mstore_sink=mstore_sink,
+                         unsupported_function_errors=unsupported_function_errors),
+            inline_calls(expr.if_false, fn_table, depth, max_depth=max_depth,
+                         mstore_sink=mstore_sink,
+                         unsupported_function_errors=unsupported_function_errors),
+        )
+    if isinstance(expr, Project):
+        # Handle Project(N, M, Call(fn, ...)) for multi-return.
         # Must check BEFORE recursively inlining arguments, because
         # we need to inline the inner call as multi-return to extract
         # the Nth component.
-        m = re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
-        if m and len(expr.args) == 1 and isinstance(expr.args[0], Call):
-            idx = int(m.group(1))
-            total = int(m.group(2))
-            inner = expr.args[0]
+        idx = expr.index
+        total = expr.total
+        inner = expr.inner
+        if isinstance(inner, Call):
             # Recursively inline the inner call's arguments first
             inner_args = tuple(
                 inline_calls(
@@ -2827,18 +2882,18 @@ def inline_calls(
                 if isinstance(result, tuple):
                     if len(result) != total:
                         raise ParseError(
-                            f"Component wrapper {expr.name!r} expected {total} "
+                            f"Project({idx}, {total}) expected {total} "
                             f"return values from {inner.name!r}, got {len(result)}"
                         )
                     if idx >= len(result):
                         raise ParseError(
-                            f"Component wrapper {expr.name!r} requested index {idx}, "
+                            f"Project({idx}, {total}) requested index {idx}, "
                             f"but {inner.name!r} only returned {len(result)} value(s)"
                         )
                     return result[idx]
                 if total != 1 or idx != 0:
                     raise ParseError(
-                        f"Component wrapper {expr.name!r} expects {total} return "
+                        f"Project({idx}, {total}) expects {total} return "
                         f"values, but {inner.name!r} returned a single value"
                     )
                 return result
@@ -2852,8 +2907,15 @@ def inline_calls(
                     f"{unsupported_function_errors[inner.name]}"
                 )
             # Inner call not in table — rebuild with inlined args
-            return Call(expr.name, (Call(inner.name, inner_args),))
-
+            return Project(idx, total, Call(inner.name, inner_args))
+        # Non-Call inner — just recurse
+        return Project(
+            idx, total,
+            inline_calls(inner, fn_table, depth, max_depth=max_depth,
+                         mstore_sink=mstore_sink,
+                         unsupported_function_errors=unsupported_function_errors),
+        )
+    if isinstance(expr, Call):
         # Recurse into arguments
         args = tuple(
             inline_calls(
@@ -2883,7 +2945,7 @@ def inline_calls(
                 raise ParseError(
                     f"Cannot inline multi-return function {expr.name!r} into a "
                     f"single-value context. Use tuple destructuring or an "
-                    f"explicit __component_N_M wrapper."
+                    f"explicit Project wrapper."
                 )
             return result
         if (
@@ -3282,6 +3344,17 @@ def yul_function_to_model(
     ) -> Expr:
         if isinstance(expr, (IntLit, Var)):
             return expr
+        if isinstance(expr, Ite):
+            return Ite(
+                _resolve_memory_expr(expr.cond, const_locals_state=const_locals_state),
+                _resolve_memory_expr(expr.if_true, const_locals_state=const_locals_state),
+                _resolve_memory_expr(expr.if_false, const_locals_state=const_locals_state),
+            )
+        if isinstance(expr, Project):
+            return Project(
+                expr.index, expr.total,
+                _resolve_memory_expr(expr.inner, const_locals_state=const_locals_state),
+            )
         if isinstance(expr, Call):
             if expr.name == "mload" and len(expr.args) == 1:
                 addr = _resolve_memory_address(
@@ -3312,6 +3385,18 @@ def yul_function_to_model(
             return IntLit(wrapped) if wrapped != expr.value else expr
         if isinstance(expr, Var):
             return expr
+        if isinstance(expr, Ite):
+            new_cond = _wrap_u256_literals(expr.cond)
+            new_if = _wrap_u256_literals(expr.if_true)
+            new_else = _wrap_u256_literals(expr.if_false)
+            if new_cond is expr.cond and new_if is expr.if_true and new_else is expr.if_false:
+                return expr
+            return Ite(new_cond, new_if, new_else)
+        if isinstance(expr, Project):
+            new_inner = _wrap_u256_literals(expr.inner)
+            if new_inner is expr.inner:
+                return expr
+            return Project(expr.index, expr.total, new_inner)
         if isinstance(expr, Call):
             new_args = tuple(_wrap_u256_literals(a) for a in expr.args)
             if new_args == expr.args:
@@ -3892,7 +3977,13 @@ def validate_ident(name: str, *, what: str) -> None:
 
 def collect_ops(expr: Expr) -> list[str]:
     out: list[str] = []
-    if isinstance(expr, Call):
+    if isinstance(expr, Ite):
+        out.extend(collect_ops(expr.cond))
+        out.extend(collect_ops(expr.if_true))
+        out.extend(collect_ops(expr.if_false))
+    elif isinstance(expr, Project):
+        out.extend(collect_ops(expr.inner))
+    elif isinstance(expr, Call):
         if expr.name in OP_TO_OPCODE:
             out.append(expr.name)
         for arg in expr.args:
@@ -3931,6 +4022,10 @@ def collect_model_opcodes(models: list[FunctionModel]) -> list[str]:
 def _expr_size(expr: Expr) -> int:
     if isinstance(expr, (IntLit, Var)):
         return 1
+    if isinstance(expr, Ite):
+        return 1 + _expr_size(expr.cond) + _expr_size(expr.if_true) + _expr_size(expr.if_false)
+    if isinstance(expr, Project):
+        return 1 + _expr_size(expr.inner)
     if isinstance(expr, Call):
         return 1 + sum(_expr_size(arg) for arg in expr.args)
     _unreachable_expr(expr)
@@ -3941,6 +4036,16 @@ def _replace_expr(expr: Expr, replacements: dict[Expr, str]) -> Expr:
         return Var(replacements[expr])
     if isinstance(expr, (IntLit, Var)):
         return expr
+    if isinstance(expr, Ite):
+        return Ite(
+            _replace_expr(expr.cond, replacements),
+            _replace_expr(expr.if_true, replacements),
+            _replace_expr(expr.if_false, replacements),
+        )
+    if isinstance(expr, Project):
+        return Project(
+            expr.index, expr.total, _replace_expr(expr.inner, replacements)
+        )
     if isinstance(expr, Call):
         return Call(
             expr.name, tuple(_replace_expr(arg, replacements) for arg in expr.args)
@@ -3953,6 +4058,10 @@ def _expr_vars(expr: Expr) -> set[str]:
         return set()
     if isinstance(expr, Var):
         return {expr.name}
+    if isinstance(expr, Ite):
+        return _expr_vars(expr.cond) | _expr_vars(expr.if_true) | _expr_vars(expr.if_false)
+    if isinstance(expr, Project):
+        return _expr_vars(expr.inner)
     if isinstance(expr, Call):
         out: set[str] = set()
         for arg in expr.args:
@@ -4053,6 +4162,24 @@ def validate_function_model(model: FunctionModel) -> None:
         """Reject structurally malformed expressions."""
         if isinstance(expr, (IntLit, Var)):
             return
+        if isinstance(expr, Ite):
+            _validate_expr_shape(expr.cond)
+            _validate_expr_shape(expr.if_true)
+            _validate_expr_shape(expr.if_false)
+            return
+        if isinstance(expr, Project):
+            if not isinstance(expr.inner, Call):
+                raise ParseError(
+                    f"Model {model.fn_name!r}: Project({expr.index}, {expr.total}) inner "
+                    f"must be a Call, got {type(expr.inner).__name__}"
+                )
+            if expr.index >= expr.total:
+                raise ParseError(
+                    f"Model {model.fn_name!r}: Project({expr.index}, {expr.total}) index "
+                    f"{expr.index} out of range [0, {expr.total})"
+                )
+            _validate_expr_shape(expr.inner)
+            return
         if not isinstance(expr, Call):
             return
         # Builtin arity check
@@ -4066,31 +4193,6 @@ def validate_function_model(model: FunctionModel) -> None:
                     f"Model {model.fn_name!r}: builtin {expr.name!r} expects "
                     f"{expected} arg(s), got {len(expr.args)}"
                 )
-        elif expr.name == "__ite":
-            if len(expr.args) != 3:
-                raise ParseError(
-                    f"Model {model.fn_name!r}: __ite expects 3 args, "
-                    f"got {len(expr.args)}"
-                )
-        else:
-            m = re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
-            if m:
-                idx, total = int(m.group(1)), int(m.group(2))
-                if len(expr.args) != 1:
-                    raise ParseError(
-                        f"Model {model.fn_name!r}: {expr.name!r} expects "
-                        f"1 arg, got {len(expr.args)}"
-                    )
-                if not isinstance(expr.args[0], Call):
-                    raise ParseError(
-                        f"Model {model.fn_name!r}: {expr.name!r} inner arg "
-                        f"must be a Call, got {type(expr.args[0]).__name__}"
-                    )
-                if idx >= total:
-                    raise ParseError(
-                        f"Model {model.fn_name!r}: {expr.name!r} index "
-                        f"{idx} out of range [0, {total})"
-                    )
         for arg in expr.args:
             _validate_expr_shape(arg)
 
@@ -4252,47 +4354,43 @@ def evaluate_model_expr(
             return env[expr.name]
         except KeyError as err:
             raise EvaluationError(f"Undefined model variable {expr.name!r}") from err
-    if not isinstance(expr, Call):
-        _unreachable_expr(expr)
-
-    component_match = re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
-    if component_match and len(expr.args) == 1:
-        idx = int(component_match.group(1))
-        total = int(component_match.group(2))
+    if isinstance(expr, Project):
         values = _expect_tuple(
             evaluate_model_expr(
-                expr.args[0],
+                expr.inner,
                 env,
                 model_table=model_table,
                 call_stack=call_stack,
             ),
-            size=total,
-            context=f"{expr.name} projection",
+            size=expr.total,
+            context=f"Project({expr.index}, {expr.total}) projection",
         )
         try:
-            return values[idx]
+            return values[expr.index]
         except IndexError as err:
             raise EvaluationError(
-                f"{expr.name} requested index {idx}, but only {len(values)} value(s) exist"
+                f"Project({expr.index}, {expr.total}) requested index {expr.index}, "
+                f"but only {len(values)} value(s) exist"
             ) from err
-
-    if expr.name == "__ite" and len(expr.args) == 3:
+    if isinstance(expr, Ite):
         cond = _expect_scalar(
             evaluate_model_expr(
-                expr.args[0],
+                expr.cond,
                 env,
                 model_table=model_table,
                 call_stack=call_stack,
             ),
-            context="__ite condition",
+            context="Ite condition",
         )
-        branch = expr.args[1] if cond != 0 else expr.args[2]
+        branch = expr.if_true if cond != 0 else expr.if_false
         return evaluate_model_expr(
             branch,
             env,
             model_table=model_table,
             call_stack=call_stack,
         )
+    if not isinstance(expr, Call):
+        _unreachable_expr(expr)
 
     arg_values = tuple(
         evaluate_model_expr(arg, env, model_table=model_table, call_stack=call_stack)
@@ -4411,22 +4509,21 @@ def evaluate_function_model(
 
 def _collect_repeated_model_calls(
     expr: Expr, model_call_names: frozenset[str]
-) -> list[Call]:
+) -> list[Expr]:
     counts: Counter[Expr] = Counter()
     _walk_model_calls(expr, model_call_names, counts)
     repeated = [node for node, count in counts.items() if count > 1]
     repeated.sort(key=_expr_size)
-    return [node for node in repeated if isinstance(node, Call)]
+    return [node for node in repeated if isinstance(node, (Call, Project))]
 
 
 def _is_component_wrapped_model_call(
-    node: Call, model_call_names: frozenset[str]
+    node: Expr, model_call_names: frozenset[str]
 ) -> bool:
     return (
-        re.fullmatch(r"__component_\d+_\d+", node.name) is not None
-        and len(node.args) == 1
-        and isinstance(node.args[0], Call)
-        and node.args[0].name in model_call_names
+        isinstance(node, Project)
+        and isinstance(node.inner, Call)
+        and node.inner.name in model_call_names
     )
 
 
@@ -4434,17 +4531,24 @@ def _walk_model_calls(
     node: Expr, model_call_names: frozenset[str], counts: Counter[Expr]
 ) -> None:
     """Recursively count model-call occurrences in *node*."""
-    if isinstance(node, Call):
-        if node.name in model_call_names:
-            counts[node] += 1
-        elif _is_component_wrapped_model_call(node, model_call_names):
+    if isinstance(node, Project):
+        if _is_component_wrapped_model_call(node, model_call_names):
             # Count the component-wrapped call as a unit and skip recursing
             # into the inner model call to avoid hoisting bare tuple-returning
             # calls that only appear inside component projections.
             counts[node] += 1
-            for arg in node.args[0].args:
+            assert isinstance(node.inner, Call)
+            for arg in node.inner.args:
                 _walk_model_calls(arg, model_call_names, counts)
             return
+        _walk_model_calls(node.inner, model_call_names, counts)
+    elif isinstance(node, Ite):
+        _walk_model_calls(node.cond, model_call_names, counts)
+        _walk_model_calls(node.if_true, model_call_names, counts)
+        _walk_model_calls(node.if_false, model_call_names, counts)
+    elif isinstance(node, Call):
+        if node.name in model_call_names:
+            counts[node] += 1
         for arg in node.args:
             _walk_model_calls(arg, model_call_names, counts)
 
@@ -4498,8 +4602,14 @@ def _hoist_repeated_calls_in_expr(
     replacements: dict[Expr, str] = {}
     hoisted: list[Assignment] = []
     for call in repeated_calls:
-        if call.name not in model_call_names and not _is_component_wrapped_model_call(call, model_call_names):
-            raise ParseError(f"CSE: refusing to hoist non-model call {call!r}")
+        if isinstance(call, Project):
+            if not _is_component_wrapped_model_call(call, model_call_names):
+                raise ParseError(f"CSE: refusing to hoist non-model projection {call!r}")
+        elif isinstance(call, Call):
+            if call.name not in model_call_names:
+                raise ParseError(f"CSE: refusing to hoist non-model call {call!r}")
+        else:
+            raise ParseError(f"CSE: refusing to hoist unexpected node {call!r}")
         hoisted_name = _gensym("cse")
         hoisted_expr = _replace_expr(call, replacements)
         hoisted.append(Assignment(target=hoisted_name, expr=hoisted_expr))
@@ -4876,20 +4986,20 @@ def validate_selected_models(models: list[FunctionModel]) -> None:
         callees: set[str] = set()
         if isinstance(expr, (IntLit, Var)):
             return callees
-        if not isinstance(expr, Call):
+        if isinstance(expr, Ite):
+            callees.update(_check_calls(expr.cond, model_fn_name))
+            callees.update(_check_calls(expr.if_true, model_fn_name))
+            callees.update(_check_calls(expr.if_false, model_fn_name))
             return callees
-        m = re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
-        if m and len(expr.args) == 1 and isinstance(expr.args[0], Call):
-            idx = int(m.group(1))
-            total = int(m.group(2))
-            inner = expr.args[0]
-            if inner.name in sig_table:
+        if isinstance(expr, Project):
+            inner = expr.inner
+            if isinstance(inner, Call) and inner.name in sig_table:
                 callees.add(inner.name)
                 _, callee_rets = sig_table[inner.name]
-                if callee_rets != total:
+                if callee_rets != expr.total:
                     raise ParseError(
-                        f"Model {model_fn_name!r}: projection {expr.name!r} "
-                        f"expects {total} return values from {inner.name!r}, "
+                        f"Model {model_fn_name!r}: Project({expr.index}, {expr.total}) "
+                        f"expects {expr.total} return values from {inner.name!r}, "
                         f"but it returns {callee_rets}"
                     )
                 callee_params, _ = sig_table[inner.name]
@@ -4898,18 +5008,12 @@ def validate_selected_models(models: list[FunctionModel]) -> None:
                         f"Model {model_fn_name!r}: call to {inner.name!r} "
                         f"passes {len(inner.args)} arg(s), expected {callee_params}"
                     )
+                for a in inner.args:
+                    callees.update(_check_calls(a, model_fn_name))
             else:
-                # Not a selected model — must be a known builtin
-                if (
-                    inner.name not in OP_TO_LEAN_HELPER
-                    and inner.name != "__ite"
-                ):
-                    raise ParseError(
-                        f"Model {model_fn_name!r}: unresolved call target "
-                        f"{inner.name!r} inside projection {expr.name!r}"
-                    )
-            for a in inner.args:
-                callees.update(_check_calls(a, model_fn_name))
+                callees.update(_check_calls(inner, model_fn_name))
+            return callees
+        if not isinstance(expr, Call):
             return callees
 
         if expr.name in sig_table:
@@ -4924,13 +5028,9 @@ def validate_selected_models(models: list[FunctionModel]) -> None:
                 raise ParseError(
                     f"Model {model_fn_name!r}: multi-return function "
                     f"{expr.name!r} ({callee_rets} returns) used in scalar "
-                    f"context without __component projection"
+                    f"context without Project projection"
                 )
-        elif (
-            expr.name not in OP_TO_LEAN_HELPER
-            and expr.name != "__ite"
-            and not re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
-        ):
+        elif expr.name not in OP_TO_LEAN_HELPER:
             raise ParseError(
                 f"Model {model_fn_name!r}: unresolved call target "
                 f"{expr.name!r}"
@@ -5039,33 +5139,28 @@ def emit_expr(
         return str(expr.value)
     if isinstance(expr, Var):
         return expr.name
-    if isinstance(expr, Call):
-        # Handle __component_N_M(call) for multi-return function calls.
-        # Emits Lean nested-pair projection for element N of M total:
+    if isinstance(expr, Project):
+        # Emit Lean nested-pair projection for element N of M total:
         #   N=0       → .1
         #   0<N<M-1   → .2.2...2.1  (N-1 extra .2 prefixes)
         #   N=M-1     → .2.2...2    (N-1 extra .2 suffixes)
         # This handles Lean's right-nested Prod: A × B × C = A × (B × C).
-        m = re.fullmatch(r"__component_(\d+)_(\d+)", expr.name)
-        if m and len(expr.args) == 1:
-            idx = int(m.group(1))
-            total = int(m.group(2))
-            inner = emit_expr(expr.args[0], helper_map=helper_map)
-            if total <= 2 or idx == 0:
-                return f"({inner}).{idx + 1}"
-            elif idx == total - 1:
-                return f"({inner})" + ".2" * idx
-            else:
-                return f"({inner})" + ".2" * idx + ".1"
-
-        # Handle __ite(cond, if_val, else_val) from leave-handling.
+        idx = expr.index
+        total = expr.total
+        inner = emit_expr(expr.inner, helper_map=helper_map)
+        if total <= 2 or idx == 0:
+            return f"({inner}).{idx + 1}"
+        elif idx == total - 1:
+            return f"({inner})" + ".2" * idx
+        else:
+            return f"({inner})" + ".2" * idx + ".1"
+    if isinstance(expr, Ite):
         # Emits: if (cond) ≠ 0 then if_val else else_val
-        if expr.name == "__ite" and len(expr.args) == 3:
-            cond = emit_expr(expr.args[0], helper_map=helper_map)
-            if_val = emit_expr(expr.args[1], helper_map=helper_map)
-            else_val = emit_expr(expr.args[2], helper_map=helper_map)
-            return f"if ({cond}) ≠ 0 then {if_val} else {else_val}"
-
+        cond = emit_expr(expr.cond, helper_map=helper_map)
+        if_val = emit_expr(expr.if_true, helper_map=helper_map)
+        else_val = emit_expr(expr.if_false, helper_map=helper_map)
+        return f"if ({cond}) ≠ 0 then {if_val} else {else_val}"
+    if isinstance(expr, Call):
         helper = helper_map.get(expr.name)
         if helper is None:
             raise ParseError(f"Unsupported call in Lean emitter: {expr.name!r}")

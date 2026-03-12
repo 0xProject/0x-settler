@@ -461,17 +461,15 @@ class FailClosedTranslatorTest(unittest.TestCase):
 
         yf = ytl.YulParser(tokens).parse_function()
         # ``tmp`` is block-local.  The if-block modifies it, so after
-        # flattening ``tmp`` should be an ``__ite`` conditional expression,
+        # flattening ``tmp`` should be an ``Ite`` conditional expression,
         # and the final assignment should inline it.
         self.assertEqual(len(yf.assignments), 1)
         stmt = yf.assignments[0]
         self.assertIsInstance(stmt, ytl.PlainAssignment)
         assert isinstance(stmt, ytl.PlainAssignment)
         self.assertEqual(stmt.target, "var_z_3")
-        # The expression should be __ite(c, add(x, 1), x)
-        self.assertIsInstance(stmt.expr, ytl.Call)
-        assert isinstance(stmt.expr, ytl.Call)
-        self.assertEqual(stmt.expr.name, "__ite")
+        # The expression should be Ite(c, add(x, 1), x)
+        self.assertIsInstance(stmt.expr, ytl.Ite)
 
     def test_bare_block_switch_merges_block_local_into_ite(self) -> None:
         yul = """
@@ -531,17 +529,17 @@ class FailClosedTranslatorTest(unittest.TestCase):
         expected_assignments: list[ytl.RawStatement] = [
             ytl.PlainAssignment(
                 "usr$lhs",
-                ytl.Call(
-                    "__component_0_2",
-                    (ytl.Call("fun_pair_2", (ytl.Var("var_x_1"),)),),
+                ytl.Project(
+                    0, 2,
+                    ytl.Call("fun_pair_2", (ytl.Var("var_x_1"),)),
                 ),
                 is_declaration=True,
             ),
             ytl.PlainAssignment(
                 "usr$rhs",
-                ytl.Call(
-                    "__component_1_2",
-                    (ytl.Call("fun_pair_2", (ytl.Var("var_x_1"),)),),
+                ytl.Project(
+                    1, 2,
+                    ytl.Call("fun_pair_2", (ytl.Var("var_x_1"),)),
                 ),
                 is_declaration=True,
             ),
@@ -674,7 +672,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
                 assignments=[],
             ),
         }
-        expr = ytl.Call("__component_1_2", (ytl.Call("single", ()),))
+        expr = ytl.Project(1, 2, ytl.Call("single", ()))
 
         with self.assertRaisesRegex(ytl.ParseError, "expects 2 return values"):
             ytl.inline_calls(expr, fn_table)
@@ -1683,16 +1681,16 @@ class RestrictedIRInterpreterTest(ModelEquivalenceTestCase):
             assignments=(
                 ytl.Assignment(
                     "lhs",
-                    ytl.Call(
-                        "__component_0_2",
-                        (ytl.Call("pair", (ytl.Var("x"), ytl.Var("y"))),),
+                    ytl.Project(
+                        0, 2,
+                        ytl.Call("pair", (ytl.Var("x"), ytl.Var("y"))),
                     ),
                 ),
                 ytl.Assignment(
                     "rhs",
-                    ytl.Call(
-                        "__component_1_2",
-                        (ytl.Call("pair", (ytl.Var("x"), ytl.Var("y"))),),
+                    ytl.Project(
+                        1, 2,
+                        ytl.Call("pair", (ytl.Var("x"), ytl.Var("y"))),
                     ),
                 ),
                 ytl.Assignment(
@@ -2332,54 +2330,54 @@ class TryConstEvalTest(unittest.TestCase):
         )
 
     def test_ite_constant_condition_folds(self) -> None:
-        # __ite(1, 5, 3) → 5 (true branch)
+        # Ite(1, 5, 3) → 5 (true branch)
         self.assertEqual(
             ytl._try_const_eval(
-                ytl.Call("__ite", (ytl.IntLit(1), ytl.IntLit(5), ytl.IntLit(3)))
+                ytl.Ite(ytl.IntLit(1), ytl.IntLit(5), ytl.IntLit(3))
             ),
             5,
         )
-        # __ite(0, 5, 3) → 3 (false branch)
+        # Ite(0, 5, 3) → 3 (false branch)
         self.assertEqual(
             ytl._try_const_eval(
-                ytl.Call("__ite", (ytl.IntLit(0), ytl.IntLit(5), ytl.IntLit(3)))
+                ytl.Ite(ytl.IntLit(0), ytl.IntLit(5), ytl.IntLit(3))
             ),
             3,
         )
 
     def test_ite_constant_condition_nonconstant_branch(self) -> None:
-        # __ite(1, Var("x"), 3) → None (selected branch is non-constant)
+        # Ite(1, Var("x"), 3) → None (selected branch is non-constant)
         self.assertIsNone(
             ytl._try_const_eval(
-                ytl.Call("__ite", (ytl.IntLit(1), ytl.Var("x"), ytl.IntLit(3)))
+                ytl.Ite(ytl.IntLit(1), ytl.Var("x"), ytl.IntLit(3))
             )
         )
-        # __ite(0, 5, Var("x")) → None (selected branch is non-constant)
+        # Ite(0, 5, Var("x")) → None (selected branch is non-constant)
         self.assertIsNone(
             ytl._try_const_eval(
-                ytl.Call("__ite", (ytl.IntLit(0), ytl.IntLit(5), ytl.Var("x")))
+                ytl.Ite(ytl.IntLit(0), ytl.IntLit(5), ytl.Var("x"))
             )
         )
 
     def test_ite_nonconstant_dead_branch_still_folds(self) -> None:
-        # __ite(1, 5, Var("x")) → 5 (dead else-branch is non-constant)
+        # Ite(1, 5, Var("x")) → 5 (dead else-branch is non-constant)
         self.assertEqual(
             ytl._try_const_eval(
-                ytl.Call("__ite", (ytl.IntLit(1), ytl.IntLit(5), ytl.Var("x")))
+                ytl.Ite(ytl.IntLit(1), ytl.IntLit(5), ytl.Var("x"))
             ),
             5,
         )
-        # __ite(0, Var("x"), 3) → 3 (dead then-branch is non-constant)
+        # Ite(0, Var("x"), 3) → 3 (dead then-branch is non-constant)
         self.assertEqual(
             ytl._try_const_eval(
-                ytl.Call("__ite", (ytl.IntLit(0), ytl.Var("x"), ytl.IntLit(3)))
+                ytl.Ite(ytl.IntLit(0), ytl.Var("x"), ytl.IntLit(3))
             ),
             3,
         )
-        # __ite(42, 10, Var("y")) → 10 (non-zero condition, dead branch has variable)
+        # Ite(42, 10, Var("y")) → 10 (non-zero condition, dead branch has variable)
         self.assertEqual(
             ytl._try_const_eval(
-                ytl.Call("__ite", (ytl.IntLit(42), ytl.IntLit(10), ytl.Var("y")))
+                ytl.Ite(ytl.IntLit(42), ytl.IntLit(10), ytl.Var("y"))
             ),
             10,
         )
@@ -2403,16 +2401,18 @@ class TryConstEvalTest(unittest.TestCase):
 
 
 def _expr_contains_ite(expr: ytl.Expr) -> bool:
-    """Return True if *expr* contains any ``__ite`` Call node."""
+    """Return True if *expr* contains any ``Ite`` node."""
+    if isinstance(expr, ytl.Ite):
+        return True
+    if isinstance(expr, ytl.Project):
+        return _expr_contains_ite(expr.inner)
     if isinstance(expr, ytl.Call):
-        if expr.name == "__ite":
-            return True
         return any(_expr_contains_ite(arg) for arg in expr.args)
     return False
 
 
 def _model_contains_ite(model: ytl.FunctionModel) -> bool:
-    """Return True if any expression in *model* contains an ``__ite`` node."""
+    """Return True if any expression in *model* contains an ``Ite`` node."""
     for stmt in model.assignments:
         if isinstance(stmt, ytl.Assignment):
             if _expr_contains_ite(stmt.expr):
@@ -2458,7 +2458,7 @@ class SimplifyIteTest(unittest.TestCase):
     def test_variable_condition_emits_ite(self) -> None:
         result = ytl._simplify_ite(ytl.Var("c"), ytl.Var("a"), ytl.Var("b"))
         self.assertEqual(
-            result, ytl.Call("__ite", (ytl.Var("c"), ytl.Var("a"), ytl.Var("b")))
+            result, ytl.Ite(ytl.Var("c"), ytl.Var("a"), ytl.Var("b"))
         )
 
     def test_computed_constant_condition_folds(self) -> None:
@@ -2498,7 +2498,7 @@ class SimplifyIteTest(unittest.TestCase):
         model = result.models[0]
         self.assertFalse(
             _model_contains_ite(model),
-            "Expected no __ite nodes when if-condition is constant 1",
+            "Expected no Ite nodes when if-condition is constant 1",
         )
         # Semantics: always takes the if-body (add x 10)
         self.assertEqual(ytl.evaluate_function_model(model, (5,)), (15,))
@@ -2526,7 +2526,7 @@ class SimplifyIteTest(unittest.TestCase):
         model = result.models[0]
         self.assertFalse(
             _model_contains_ite(model),
-            "Expected no __ite nodes when if-condition is constant 0",
+            "Expected no Ite nodes when if-condition is constant 0",
         )
         # Semantics: never takes the if-body, z = x
         self.assertEqual(ytl.evaluate_function_model(model, (5,)), (5,))
@@ -2559,7 +2559,7 @@ class SimplifyIteTest(unittest.TestCase):
         model = result.models[0]
         self.assertFalse(
             _model_contains_ite(model),
-            "Expected no __ite nodes when leave condition is constant 1",
+            "Expected no Ite nodes when leave condition is constant 1",
         )
         # Always takes the leave path: z = 7
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (7,))
@@ -2589,7 +2589,7 @@ class SimplifyIteTest(unittest.TestCase):
         model = result.models[0]
         self.assertFalse(
             _model_contains_ite(model),
-            "Expected no __ite nodes when leave condition is constant 0",
+            "Expected no Ite nodes when leave condition is constant 0",
         )
         # Never takes the leave path: z = 9
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
@@ -2624,16 +2624,16 @@ class SimplifyIteTest(unittest.TestCase):
         model = result.models[0]
         self.assertFalse(
             _model_contains_ite(model),
-            "Expected no __ite nodes when switch condition is constant 1",
+            "Expected no Ite nodes when switch condition is constant 1",
         )
         # switch 1 → default branch: z = x + 20
         self.assertEqual(ytl.evaluate_function_model(model, (5,)), (25,))
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (20,))
 
-    # -- Variable condition still produces __ite --
+    # -- Variable condition still produces Ite --
 
     def test_variable_condition_preserves_ite(self) -> None:
-        """Sanity check: non-constant conditions still produce __ite."""
+        """Sanity check: non-constant conditions still produce Ite."""
         result = ytl.translate_yul_to_models(
             TranslationPipelineTest.LEAVE_HELPER_YUL,
             TranslationPipelineTest.LEAVE_HELPER_CONFIG,
@@ -2642,7 +2642,7 @@ class SimplifyIteTest(unittest.TestCase):
         model = result.models[0]
         self.assertTrue(
             _model_contains_ite(model),
-            "Expected __ite nodes when condition depends on input",
+            "Expected Ite nodes when condition depends on input",
         )
         # Semantics still correct
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
@@ -2856,7 +2856,7 @@ class EmitExprTest(unittest.TestCase):
 
     def test_emit_ite(self) -> None:
         result = self._emit(
-            ytl.Call("__ite", (ytl.Var("c"), ytl.IntLit(1), ytl.IntLit(0)))
+            ytl.Ite(ytl.Var("c"), ytl.IntLit(1), ytl.IntLit(0))
         )
         self.assertIn("if", result)
         self.assertIn("then", result)
@@ -2864,7 +2864,7 @@ class EmitExprTest(unittest.TestCase):
 
     def test_emit_component_projection(self) -> None:
         inner = ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))
-        result = self._emit(ytl.Call("__component_0_2", (inner,)))
+        result = self._emit(ytl.Project(0, 2, inner))
         self.assertIn(".1", result)
 
     def test_emit_unknown_call_raises(self) -> None:
@@ -2873,7 +2873,7 @@ class EmitExprTest(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# Step 6c: __ite generation in fuzzer + Step 6d: multi-return projection
+# Step 6c: Ite generation in fuzzer + Step 6d: multi-return projection
 # ---------------------------------------------------------------------------
 
 
@@ -2917,12 +2917,12 @@ class ExtendedFuzzerTest(ModelEquivalenceTestCase):
             return ytl.Var(rng.choice(available))
         if kind < 0.30:
             return ytl.IntLit(self._random_scalar(rng))
-        # __ite generation (5% probability at depth > 0)
+        # Ite generation (5% probability at depth > 0)
         if kind < 0.35:
             cond = self._random_expr(rng, available, depth=depth - 1)
             a = self._random_expr(rng, available, depth=depth - 1)
             b = self._random_expr(rng, available, depth=depth - 1)
-            return ytl.Call("__ite", (cond, a, b))
+            return ytl.Ite(cond, a, b)
         if kind < 0.50:
             op = rng.choice(self.UNARY_OPS)
             return ytl.Call(op, (self._random_expr(rng, available, depth=depth - 1),))
@@ -2946,7 +2946,7 @@ class ExtendedFuzzerTest(ModelEquivalenceTestCase):
         )
 
     def test_randomized_ite_dce_equivalence(self) -> None:
-        """DCE on models containing __ite expressions preserves semantics."""
+        """DCE on models containing Ite expressions preserves semantics."""
         for seed in range(12):
             rng = random.Random(seed + 7000)
             params = ("p0", "p1")
@@ -2972,7 +2972,7 @@ class ExtendedFuzzerTest(ModelEquivalenceTestCase):
             )
 
     def test_randomized_multi_return_projection_equivalence(self) -> None:
-        """Build a 2-return helper + outer using __component projections, verify DCE."""
+        """Build a 2-return helper + outer using Project projections, verify DCE."""
         for seed in range(8):
             rng = random.Random(seed + 8000)
 
@@ -2999,16 +2999,16 @@ class ExtendedFuzzerTest(ModelEquivalenceTestCase):
                 assignments=(
                     ytl.Assignment(
                         "lhs",
-                        ytl.Call(
-                            "__component_0_2",
-                            (ytl.Call("helper", (ytl.Var("x"), ytl.Var("y"))),),
+                        ytl.Project(
+                            0, 2,
+                            ytl.Call("helper", (ytl.Var("x"), ytl.Var("y"))),
                         ),
                     ),
                     ytl.Assignment(
                         "rhs",
-                        ytl.Call(
-                            "__component_1_2",
-                            (ytl.Call("helper", (ytl.Var("x"), ytl.Var("y"))),),
+                        ytl.Project(
+                            1, 2,
+                            ytl.Call("helper", (ytl.Var("x"), ytl.Var("y"))),
                         ),
                     ),
                     ytl.Assignment(
@@ -4396,17 +4396,11 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 ytl.PlainAssignment("usr$b", ytl.IntLit(0), is_declaration=True),
                 ytl.PlainAssignment(
                     "usr$a",
-                    ytl.Call(
-                        "__component_0_2",
-                        (ytl.Call("pair", ()),),
-                    ),
+                    ytl.Project(0, 2, ytl.Call("pair", ())),
                 ),
                 ytl.PlainAssignment(
                     "usr$b",
-                    ytl.Call(
-                        "__component_1_2",
-                        (ytl.Call("pair", ()),),
-                    ),
+                    ytl.Project(1, 2, ytl.Call("pair", ())),
                 ),
                 ytl.PlainAssignment("var_z_1", ytl.Var("usr$a")),
             ],
@@ -5087,7 +5081,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             assignments=(
                 ytl.Assignment(
                     "z",
-                    ytl.Call("__component_0_2", (ytl.Var("x"),)),
+                    ytl.Project(0, 2, ytl.Var("x")),
                 ),
             ),
         )
@@ -5105,9 +5099,9 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             assignments=(
                 ytl.Assignment(
                     "z",
-                    ytl.Call(
-                        "__component_2_2",
-                        (ytl.Call("pair", (ytl.Var("x"), ytl.Var("y"))),),
+                    ytl.Project(
+                        2, 2,
+                        ytl.Call("pair", (ytl.Var("x"), ytl.Var("y"))),
                     ),
                 ),
             ),
@@ -5116,7 +5110,8 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         with self.assertRaises(ytl.ParseError):
             ytl.validate_function_model(model)
 
-    def test_validate_function_model_rejects_malformed_ite_arity(self) -> None:
+    def test_validate_function_model_rejects_project_with_non_call_inner(self) -> None:
+        """Project inner must be a Call — Var is rejected."""
         model = ytl.FunctionModel(
             fn_name="f",
             param_names=("x",),
@@ -5124,7 +5119,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             assignments=(
                 ytl.Assignment(
                     "z",
-                    ytl.Call("__ite", (ytl.Var("x"), ytl.IntLit(1))),
+                    ytl.Project(0, 2, ytl.Var("x")),
                 ),
             ),
         )
@@ -7110,13 +7105,13 @@ class KnownOptimizerBugRegressionTest(ModelEquivalenceTestCase):
                     ytl.Call(
                         "add",
                         (
-                            ytl.Call(
-                                "__component_0_2",
-                                (ytl.Call("pair", (ytl.Var("p"),)),),
+                            ytl.Project(
+                                0, 2,
+                                ytl.Call("pair", (ytl.Var("p"),)),
                             ),
-                            ytl.Call(
-                                "__component_0_2",
-                                (ytl.Call("pair", (ytl.Var("p"),)),),
+                            ytl.Project(
+                                0, 2,
+                                ytl.Call("pair", (ytl.Var("p"),)),
                             ),
                         ),
                     ),
