@@ -13,6 +13,7 @@ Provides:
 from __future__ import annotations
 
 import argparse
+import enum
 import pathlib
 import re
 import sys
@@ -1196,6 +1197,8 @@ class YulParser(_TokenReader):
                 if keyword == "if":
                     self._pop()  # consume 'if'
                     condition = self._parse_expr()
+                    # Same decision logic as _classify_if_fold, but at
+                    # token level before ParsedIfBlock exists.
                     const_cond = _try_const_eval(condition)
                     if const_cond is not None and const_cond == 0:
                         # Constant-false: skip the entire body (parse
@@ -2166,6 +2169,33 @@ def _try_const_eval(expr: Expr) -> int | None:
     return None
 
 
+class _IfFoldDecision(enum.Enum):
+    """Result of evaluating a ParsedIfBlock condition for constant-folding."""
+    NOT_CONSTANT = "not_constant"  # condition is not compile-time constant
+    DEAD = "dead"                  # constant-false, no else → entire block is dead
+    THEN_LIVE = "then_live"        # constant-true → then-body is live
+    ELSE_LIVE = "else_live"        # constant-false with else → else-body is live
+
+
+def _classify_if_fold(
+    condition_value: int | None,
+    has_else: bool,
+) -> _IfFoldDecision:
+    """Classify a conditional block for constant-folding.
+
+    Pure decision function — takes the evaluated condition (or None if
+    non-constant) and whether an else-body exists.  Callers act on the
+    result according to their pipeline stage.
+    """
+    if condition_value is None:
+        return _IfFoldDecision.NOT_CONSTANT
+    if condition_value != 0:
+        return _IfFoldDecision.THEN_LIVE
+    if has_else:
+        return _IfFoldDecision.ELSE_LIVE
+    return _IfFoldDecision.DEAD
+
+
 def _simplify_ite(cond: Expr, if_val: Expr, else_val: Expr) -> Expr:
     """Build an ``__ite`` node, simplifying when the condition or branches are trivial."""
     if if_val == else_val:
@@ -2431,51 +2461,21 @@ def _inline_single_call(
             # If the leave branch is dead, rewrite to a non-leave block.
             if stmt.has_leave:
                 pre_cond = substitute_expr(stmt.condition, subst)
-                pre_const = _try_const_eval(pre_cond)
-                if stmt.else_body is not None:
-                    if pre_const is not None and pre_const != 0:
-                        # Condition is constant-true: the then-body (with leave)
-                        # is live, the else-body is dead.  Keep as leave block
-                        # without else_body.
+                fold = _classify_if_fold(
+                    _try_const_eval(pre_cond),
+                    has_else=stmt.else_body is not None,
+                )
+                if fold == _IfFoldDecision.THEN_LIVE:
+                    if stmt.else_body is not None:
+                        # Strip dead else-body, keep as leave block.
                         stmt = ParsedIfBlock(
                             condition=stmt.condition,
                             body=stmt.body,
                             has_leave=True,
                             else_body=None,
                         )
-                    elif pre_const is not None and pre_const == 0:
-                        # Condition is constant-false: the then-body is dead,
-                        # the else-body (case-0 branch) is live.  Process it
-                        # as straight-line code.
-                        for s in stmt.else_body:
-                            expr = substitute_expr(s.expr, subst)
-                            expr = inline_calls(
-                                expr,
-                                fn_table,
-                                depth,
-                                max_depth,
-                                mstore_sink=mstore_sink,
-                                unsupported_function_errors=unsupported_function_errors,
-                            )
-                            subst[s.target] = expr
-                        continue
                     else:
-                        raise ParseError(
-                            f"Function {fn.yul_name!r} contains a leave-bearing switch/if-else. "
-                            "Only a single top-level 'if cond { ... leave }' is supported "
-                            "during helper inlining."
-                        )
-                elif pre_const is not None:
-                    if pre_const == 0:
-                        # Constant-false: leave is dead, entire block is dead.
-                        # Skip this statement entirely.
-                        continue
-                    else:
-                        # Condition is constant-true AND has leave: the
-                        # function unconditionally takes the leave path.
-                        # Process the then-body as straight-line code and
-                        # return immediately (all subsequent statements
-                        # are dead).
+                        # Unconditional leave: process body, return immediately.
                         for s in stmt.body:
                             expr = substitute_expr(s.expr, subst)
                             expr = inline_calls(
@@ -2490,6 +2490,29 @@ def _inline_single_call(
                         if len(fn.rets) == 1:
                             return subst.get(fn.rets[0], IntLit(0))
                         return tuple(subst.get(r, IntLit(0)) for r in fn.rets)
+                elif fold == _IfFoldDecision.ELSE_LIVE:
+                    # Process else-body as straight-line, skip then-body.
+                    for s in stmt.else_body:
+                        expr = substitute_expr(s.expr, subst)
+                        expr = inline_calls(
+                            expr,
+                            fn_table,
+                            depth,
+                            max_depth,
+                            mstore_sink=mstore_sink,
+                            unsupported_function_errors=unsupported_function_errors,
+                        )
+                        subst[s.target] = expr
+                    continue
+                elif fold == _IfFoldDecision.DEAD:
+                    continue
+                else:  # NOT_CONSTANT
+                    if stmt.else_body is not None:
+                        raise ParseError(
+                            f"Function {fn.yul_name!r} contains a leave-bearing switch/if-else. "
+                            "Only a single top-level 'if cond { ... leave }' is supported "
+                            "during helper inlining."
+                        )
             if stmt.has_leave and leave_cond is not None:
                 raise ParseError(
                     f"Function {fn.yul_name!r} contains multiple leave sites. "
@@ -2510,36 +2533,28 @@ def _inline_single_call(
             # BEFORE processing bodies.  This prevents spurious
             # "conditional memory write" errors on dead code.
             if not stmt.has_leave:
-                const_cond = _try_const_eval(cond)
-                if const_cond is not None:
-                    if const_cond != 0:
-                        # Constant-true: process then-body as straight-line.
-                        for s in stmt.body:
-                            expr = substitute_expr(s.expr, subst)
-                            expr = inline_calls(
-                                expr,
-                                fn_table,
-                                depth,
-                                max_depth,
-                                mstore_sink=mstore_sink,
-                                unsupported_function_errors=unsupported_function_errors,
-                            )
-                            subst[s.target] = expr
-                    elif stmt.else_body is not None:
-                        # Constant-false with else: process else-body as
-                        # straight-line.
-                        for s in stmt.else_body:
-                            expr = substitute_expr(s.expr, subst)
-                            expr = inline_calls(
-                                expr,
-                                fn_table,
-                                depth,
-                                max_depth,
-                                mstore_sink=mstore_sink,
-                                unsupported_function_errors=unsupported_function_errors,
-                            )
-                            subst[s.target] = expr
-                    # else: constant-false with no else — entire block is dead.
+                fold = _classify_if_fold(
+                    _try_const_eval(cond),
+                    has_else=stmt.else_body is not None,
+                )
+                if fold != _IfFoldDecision.NOT_CONSTANT:
+                    if fold == _IfFoldDecision.THEN_LIVE:
+                        live_body = stmt.body
+                    elif fold == _IfFoldDecision.ELSE_LIVE:
+                        live_body = stmt.else_body
+                    else:  # DEAD
+                        continue
+                    for s in live_body:
+                        expr = substitute_expr(s.expr, subst)
+                        expr = inline_calls(
+                            expr,
+                            fn_table,
+                            depth,
+                            max_depth,
+                            mstore_sink=mstore_sink,
+                            unsupported_function_errors=unsupported_function_errors,
+                        )
+                        subst[s.target] = expr
                     continue
 
             # Process if-body assignments into a separate subst branch.
@@ -3249,33 +3264,11 @@ def yul_function_to_model(
             # Constant-fold the condition before rejecting leave.
             if stmt.has_leave:
                 cond_sub = substitute_expr(stmt.condition, subst)
-                const_cond = _try_const_eval(cond_sub)
-                if const_cond is not None and const_cond == 0:
-                    # Dead branch: condition is constant-false, skip entirely.
-                    # Process only the else-body (if any) since the then-body
-                    # with leave is unreachable.
-                    if stmt.else_body:
-                        for s in stmt.else_body:
-                            a = _process_assignment_into(
-                                s.target,
-                                s.expr,
-                                var_map_state=var_map,
-                                subst_state=subst,
-                                const_locals_state=const_locals,
-                            )
-                            if a is not None:
-                                assignments.append(a)
-                    continue
-                raise ParseError(
-                    f"Function {sol_fn_name!r} contains 'leave' in direct model "
-                    "generation. Early return is only supported when inlining a "
-                    "helper with a single top-level 'if cond { ... leave }'."
+                fold = _classify_if_fold(
+                    _try_const_eval(cond_sub),
+                    has_else=stmt.else_body is not None,
                 )
-            # Non-leave constant-false: skip entire block.
-            cond_sub = substitute_expr(stmt.condition, subst)
-            const_cond = _try_const_eval(cond_sub)
-            if const_cond is not None and const_cond == 0:
-                if stmt.else_body:
+                if fold == _IfFoldDecision.ELSE_LIVE:
                     for s in stmt.else_body:
                         a = _process_assignment_into(
                             s.target,
@@ -3286,7 +3279,48 @@ def yul_function_to_model(
                         )
                         if a is not None:
                             assignments.append(a)
+                    continue
+                if fold == _IfFoldDecision.DEAD:
+                    continue
+                # THEN_LIVE or NOT_CONSTANT with leave → error
+                raise ParseError(
+                    f"Function {sol_fn_name!r} contains 'leave' in direct model "
+                    "generation. Early return is only supported when inlining a "
+                    "helper with a single top-level 'if cond { ... leave }'."
+                )
+            # Non-leave: constant-fold all cases via _classify_if_fold.
+            cond_sub = substitute_expr(stmt.condition, subst)
+            fold = _classify_if_fold(
+                _try_const_eval(cond_sub),
+                has_else=stmt.else_body is not None,
+            )
+            if fold == _IfFoldDecision.THEN_LIVE:
+                for s in stmt.body:
+                    a = _process_assignment_into(
+                        s.target,
+                        s.expr,
+                        var_map_state=var_map,
+                        subst_state=subst,
+                        const_locals_state=const_locals,
+                    )
+                    if a is not None:
+                        assignments.append(a)
                 continue
+            if fold == _IfFoldDecision.ELSE_LIVE:
+                for s in stmt.else_body:
+                    a = _process_assignment_into(
+                        s.target,
+                        s.expr,
+                        var_map_state=var_map,
+                        subst_state=subst,
+                        const_locals_state=const_locals,
+                    )
+                    if a is not None:
+                        assignments.append(a)
+                continue
+            if fold == _IfFoldDecision.DEAD:
+                continue
+            # NOT_CONSTANT: fall through to ConditionalBlock emission.
             # Process the if-block: apply copy-prop/demangling to
             # condition and body, then emit a ConditionalBlock.
             cond = substitute_expr(stmt.condition, subst)
