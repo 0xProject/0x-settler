@@ -1079,18 +1079,18 @@ class YulParser(_TokenReader):
             kind = self._peek_kind()
 
             if kind == "{":
-                # Bare scope block (e.g. inline assembly wrapper).  Parse
-                # inner statements, inline block-local ``let`` bindings, and
-                # emit only reassignments to outer-scope variables.
+                # Bare scope block.  Parse inner statements, then
+                # process sequentially with lexical scope tracking:
+                # declarations create block-local bindings, only
+                # reassignments to outer-scope names are emitted.
                 self._pop()  # consume '{'
-                block_let_vars: set[str] = set()
                 inner, inner_leave = self._parse_assignment_loop(
                     allow_control_flow=allow_control_flow,
                     context=context,
-                    _let_vars=block_let_vars,
                 )
                 self._expect("}")
                 block_subst: dict[str, Expr] = {}
+                block_locals: set[str] = set()
                 for stmt in inner:
                     if isinstance(stmt, MemoryWrite):
                         results.append(
@@ -1102,48 +1102,30 @@ class YulParser(_TokenReader):
                     elif isinstance(stmt, ParsedIfBlock):
                         new_cond = substitute_expr(stmt.condition, block_subst)
 
-                        # Identify which body/else_body targets are block-local.
-                        block_local_targets: set[str] = set()
-                        for s in stmt.body:
-                            if s.target in block_let_vars:
-                                block_local_targets.add(s.target)
-                        if stmt.else_body is not None:
-                            for s in stmt.else_body:
-                                if s.target in block_let_vars:
-                                    block_local_targets.add(s.target)
-
-                        # Split into outer-scope (emit) and block-local (absorb).
-                        outer_body, local_body = _split_branch_assignments(
-                            stmt.body,
-                            block_subst,
-                            block_local_targets,
+                        # Split each branch with scope awareness.
+                        outer_body, enc_body = _split_branch_scoped(
+                            stmt.body, block_subst, block_locals,
                         )
                         if stmt.else_body is not None:
-                            outer_else, local_else = _split_branch_assignments(
-                                stmt.else_body,
-                                block_subst,
-                                block_local_targets,
+                            outer_else, enc_else = _split_branch_scoped(
+                                stmt.else_body, block_subst, block_locals,
                             )
                         else:
                             outer_else = None
-                            local_else = {}
+                            enc_else = {}
 
-                        # Merge block-local modifications into block_subst.
-                        # When has_leave is True, the then-branch exits the
-                        # function, so block-local modifications are dead on
-                        # the continuation path — block_subst keeps its
-                        # pre-if value.
+                        # Merge enclosing-local modifications via ITE.
                         if not stmt.has_leave:
-                            for target in block_local_targets:
+                            all_enc = set(enc_body.keys()) | set(enc_else.keys())
+                            for target in all_enc:
                                 pre_val = block_subst.get(target, IntLit(0))
-                                then_val = local_body.get(target, pre_val)
-                                else_val = local_else.get(target, pre_val)
+                                then_val = enc_body.get(target, pre_val)
+                                else_val = enc_else.get(target, pre_val)
                                 block_subst[target] = _simplify_ite(
                                     new_cond, then_val, else_val
                                 )
 
-                        # Emit ParsedIfBlock for outer-scope targets if any
-                        # remain.
+                        # Emit ParsedIfBlock for outer-scope targets.
                         has_outer = bool(outer_body) or (
                             outer_else is not None and bool(outer_else)
                         )
@@ -1162,9 +1144,28 @@ class YulParser(_TokenReader):
                             )
                     else:
                         expr = substitute_expr(stmt.expr, block_subst)
-                        if stmt.target in block_let_vars:
+                        if stmt.is_declaration:
+                            block_locals.add(stmt.target)
+                            if stmt.target.startswith("usr$"):
+                                # Real variable declaration: alpha-rename
+                                # to a fresh internal name so the model
+                                # lowerer treats it as a copy-propagated
+                                # temporary.  This preserves point-in-time
+                                # values even when outer variables with the
+                                # same name are reassigned later.
+                                fresh = _gensym("blk")
+                                results.append(PlainAssignment(
+                                    fresh, expr, is_declaration=True,
+                                ))
+                                block_subst[stmt.target] = Var(fresh)
+                            else:
+                                # Compiler temporary: substitute away.
+                                block_subst[stmt.target] = expr
+                        elif stmt.target in block_locals:
+                            # Reassignment of a block-local name.
                             block_subst[stmt.target] = expr
                         else:
+                            # Outer-scope write.
                             results.append(PlainAssignment(
                                 stmt.target, expr,
                                 is_declaration=stmt.is_declaration,
@@ -2116,23 +2117,42 @@ def _flatten_scoped_block(
             ))
 
 
-def _split_branch_assignments(
+def _split_branch_scoped(
     assignments: tuple[PlainAssignment, ...],
-    block_subst: dict[str, Expr],
-    block_local_targets: set[str],
+    parent_subst: dict[str, Expr],
+    enclosing_locals: set[str],
 ) -> tuple[list[PlainAssignment], dict[str, Expr]]:
-    """Split and substitute branch assignments into outer-scope and block-local."""
+    """Split a branch body into outer writes and enclosing-local modifications.
+
+    Uses ``is_declaration`` to track a per-branch lexical scope:
+
+    - **Declaration** (``is_declaration=True``): creates a branch-local
+      binding.  Later writes to the same name stay branch-local.
+      Neither the declaration nor its reassignments are returned.
+    - **Reassignment of a branch-local name**: absorbed into the branch
+      scope (not returned).
+    - **Reassignment of an enclosing-local name** (in *enclosing_locals*):
+      returned in the *enclosing_mods* dict for ITE merging by the caller.
+    - **Outer-scope write**: returned in the *outer* list.
+    """
     outer: list[PlainAssignment] = []
-    local: dict[str, Expr] = {}
-    working_subst = dict(block_subst)
+    enclosing_mods: dict[str, Expr] = {}
+    working_subst = dict(parent_subst)
+    branch_locals: set[str] = set()
+
     for s in assignments:
         sub_expr = substitute_expr(s.expr, working_subst)
-        if s.target in block_local_targets:
-            local[s.target] = sub_expr
+        if s.is_declaration:
+            branch_locals.add(s.target)
+            working_subst[s.target] = sub_expr
+        elif s.target in branch_locals:
+            working_subst[s.target] = sub_expr
+        elif s.target in enclosing_locals:
+            enclosing_mods[s.target] = sub_expr
             working_subst[s.target] = sub_expr
         else:
             outer.append(PlainAssignment(s.target, sub_expr, is_declaration=s.is_declaration))
-    return outer, local
+    return outer, enclosing_mods
 
 
 def _merge_helper_collection(
@@ -2981,11 +3001,22 @@ def _inline_yul_function(
 
 
 def _stmt_targets(stmt: RawStatement) -> list[str]:
-    """Extract assignment targets from a raw statement."""
+    """Extract assignment targets from a raw statement.
+
+    For ``ParsedIfBlock``, only returns targets that are outer-scope
+    writes.  Branch-local declarations and their subsequent
+    reassignments are excluded because they are separate bindings
+    scoped to each branch.
+    """
     if isinstance(stmt, ParsedIfBlock):
-        targets = [s.target for s in stmt.body]
-        if stmt.else_body is not None:
-            targets.extend(s.target for s in stmt.else_body)
+        targets: list[str] = []
+        for branch in (stmt.body, stmt.else_body or ()):
+            branch_locals: set[str] = set()
+            for s in branch:
+                if s.is_declaration:
+                    branch_locals.add(s.target)
+                elif s.target not in branch_locals:
+                    targets.append(s.target)
         return targets
     if isinstance(stmt, MemoryWrite):
         return []
@@ -3170,6 +3201,23 @@ def yul_function_to_model(
         initialized = False
         for s in yf.assignments:
             if _stmt_reads_var_before_write(s, var=ret, initialized=initialized):
+                needs_zero_init.add(ret)
+                break
+            # A conditional write while not yet initialized means the
+            # ConditionalBlock's else-output needs the zero-init value —
+            # but only if the statement doesn't definitely initialize
+            # the variable (e.g. switch with all branches writing it).
+            if (
+                not initialized
+                and isinstance(s, ParsedIfBlock)
+                and any(
+                    a.target == ret and not a.is_declaration
+                    for a in s.body
+                )
+                and not _stmt_definitely_initializes_var(
+                    s, var=ret, initialized=False,
+                )
+            ):
                 needs_zero_init.add(ret)
                 break
             initialized = _stmt_definitely_initializes_var(
@@ -3467,18 +3515,53 @@ def yul_function_to_model(
                 branch_subst = dict(subst)
                 branch_const_locals = dict(const_locals)
                 branch_assignments: list[Assignment] = []
+                branch_locals: set[str] = set()
                 for s in raw_assignments:
-                    _record_pre_if_name(s.target)
-                    assignment = _process_assignment_into(
-                        s.target,
-                        s.expr,
-                        var_map_state=branch_var_map,
-                        subst_state=branch_subst,
-                        const_locals_state=branch_const_locals,
-                        inside_conditional=True,
-                    )
-                    if assignment is not None:
-                        branch_assignments.append(assignment)
+                    if s.is_declaration:
+                        # Branch-local declaration: park in branch_subst
+                        # so later statements can resolve it.  Do not
+                        # emit — this binding dies at branch exit.
+                        branch_locals.add(s.target)
+                        expr = substitute_expr(s.expr, branch_subst)
+                        expr = rename_expr(expr, branch_var_map, fn_map)
+                        expr = _resolve_memory_expr(
+                            expr, const_locals_state=branch_const_locals,
+                        )
+                        expr = _wrap_u256_literals(expr)
+                        branch_subst[s.target] = expr
+                        # Track const fact for mload address resolution.
+                        clean = demangle_var(
+                            s.target, yf.params, yf.rets,
+                            keep_solidity_locals=keep_solidity_locals,
+                        )
+                        if clean is not None:
+                            cv = _try_const_eval(
+                                substitute_expr(expr, branch_const_locals),
+                            )
+                            if cv is not None:
+                                branch_const_locals[clean] = IntLit(cv)
+                    elif s.target in branch_locals:
+                        # Reassignment of branch-local — update subst.
+                        expr = substitute_expr(s.expr, branch_subst)
+                        expr = rename_expr(expr, branch_var_map, fn_map)
+                        expr = _resolve_memory_expr(
+                            expr, const_locals_state=branch_const_locals,
+                        )
+                        expr = _wrap_u256_literals(expr)
+                        branch_subst[s.target] = expr
+                    else:
+                        # Outer-scope modification.
+                        _record_pre_if_name(s.target)
+                        assignment = _process_assignment_into(
+                            s.target,
+                            s.expr,
+                            var_map_state=branch_var_map,
+                            subst_state=branch_subst,
+                            const_locals_state=branch_const_locals,
+                            inside_conditional=True,
+                        )
+                        if assignment is not None:
+                            branch_assignments.append(assignment)
                 return branch_assignments
 
             body_assignments = _process_conditional_branch(stmt.body)
@@ -3537,6 +3620,15 @@ def yul_function_to_model(
                 # fresh bindings with the base clean names. Reset var_map and
                 # ssa_count accordingly so later references are correct.
                 modified_set = set(modified_list)
+
+                # Build lookup of last expression per target in each branch.
+                then_last: dict[str, Expr] = {}
+                for a in body_assignments:
+                    then_last[a.target] = a.expr
+                else_last: dict[str, Expr] = {}
+                for a in else_assignments_list:
+                    else_last[a.target] = a.expr
+
                 all_body_targets = list(stmt.body)
                 if stmt.else_body is not None:
                     all_body_targets.extend(stmt.else_body)
@@ -3550,7 +3642,20 @@ def yul_function_to_model(
                     if c is not None and c in modified_set:
                         var_map[s.target] = c
                         ssa_count[c] = 1
-                        const_locals.pop(c, None)
+                        # Preserve const fact if both branches agree.
+                        pre_cv = const_locals.get(c)
+                        t_expr = then_last.get(c)
+                        e_expr = else_last.get(c)
+                        t_cv = _try_const_eval(t_expr) if t_expr is not None else (
+                            pre_cv.value if isinstance(pre_cv, IntLit) else None
+                        )
+                        e_cv = _try_const_eval(e_expr) if e_expr is not None else (
+                            pre_cv.value if isinstance(pre_cv, IntLit) else None
+                        )
+                        if t_cv is not None and t_cv == e_cv:
+                            const_locals[c] = IntLit(t_cv)
+                        else:
+                            const_locals.pop(c, None)
             continue
 
         if isinstance(stmt, MemoryWrite):
