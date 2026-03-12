@@ -3832,6 +3832,53 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         self.assertEqual(ytl.evaluate_function_model(model, ()), (5,))
 
+    def test_translate_yul_to_models_preserves_parser_folded_local_reassignment_in_constant_true_if(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                if 1 {
+                    let usr$x := 1
+                    usr$x := 2
+                    var_z_2 := usr$x
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, ()), (2,))
+
+    def test_translate_yul_to_models_preserves_parser_folded_shadowing_local_reassignment_in_constant_true_if(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                let usr$x := 5
+                if 1 {
+                    let usr$x := 1
+                    usr$x := 2
+                }
+                var_z_2 := usr$x
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, ()), (5,))
+
     def test_translate_yul_to_models_preserves_constant_true_switch_shadowing_local_binding(
         self,
     ) -> None:
@@ -3880,6 +3927,30 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         model = result.models[0]
 
         self.assertEqual(ytl.evaluate_function_model(model, (3,)), (5,))
+
+    def test_translate_yul_to_models_preserves_lowered_local_reassignment_in_substituted_constant_true_if(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                let expr_1 := 1
+                if expr_1 {
+                    let usr$x := 1
+                    usr$x := 2
+                    var_z_2 := usr$x
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, ()), (2,))
 
     def test_translate_yul_to_models_preserves_constant_true_conditional_write_to_reassigned_outer_local(
         self,
