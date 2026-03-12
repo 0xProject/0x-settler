@@ -3785,6 +3785,27 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (1,))
         self.assertEqual(ytl.evaluate_function_model(model, (5,)), (6,))
 
+    def test_translate_yul_to_models_rejects_constant_true_conditional_local_used_out_of_scope(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                let expr_1 := 1
+                if expr_1 {
+                    let usr$tmp := 7
+                }
+                var_z_2 := usr$tmp
+            }
+            """
+
+        with self.assertRaisesRegex(ytl.ParseError, "out-of-scope variable use"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
     def test_translate_yul_to_models_preserves_temporary_snapshot_across_zero_init_return_rebind(
         self,
     ) -> None:
@@ -3876,6 +3897,31 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (7,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+
+    def test_translate_yul_to_models_rejects_constant_true_conditional_local_pointer_used_by_memory_write(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                let expr_1 := 1
+                if expr_1 {
+                    let usr$ptr := 64
+                }
+                mstore(usr$ptr, 7)
+                var_z_2 := mload(64)
+            }
+            """
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "mstore with non-constant address",
+        ):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_allows_branch_local_constant_mload_address(
         self,
@@ -4292,6 +4338,45 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 namespace="Test",
                 config=config,
             )
+
+    def test_build_lean_source_ignores_constant_true_branch_local_binder_named_like_generated_model(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                let expr_1 := 1
+                if expr_1 {
+                    let usr$model_f := 1
+                }
+                var_z_2 := 0
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertNotIn(
+            "model_f",
+            {
+                stmt.target
+                for stmt in model.assignments
+                if isinstance(stmt, ytl.Assignment)
+            },
+        )
+
+        source = ytl.build_lean_source(
+            models=result.models,
+            source_path="test-source",
+            namespace="Test",
+            config=config,
+        )
+
+        self.assertIn("def model_f_evm", source)
 
     def test_find_function_rejects_nonmatching_param_count_even_when_unique(
         self,
