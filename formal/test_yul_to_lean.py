@@ -6884,6 +6884,34 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
         self.assertEqual(ytl.evaluate_function_model(model, (7,)), (7,))
 
+    def test_translate_yul_to_models_bare_block_alpha_rename_does_not_collide_with_user_identifiers(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        # The bare-block alpha-renaming must not produce names that
+        # collide with user-visible Yul identifiers.  Here ``_blk_1``
+        # is a legitimate user variable; the internal renaming of
+        # ``usr$t`` must choose a name that cannot clash.
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                let _blk_1 := 9
+                {
+                    let usr$t := 1
+                    var_z_2 := usr$t
+                }
+                var_z_2 := _blk_1
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, ()), (9,))
+
     def test_translate_yul_to_models_wraps_large_integer_literals_to_u256(
         self,
     ) -> None:
