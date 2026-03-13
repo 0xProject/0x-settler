@@ -1,0 +1,45 @@
+name: YulToLean Unit Tests
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - formal/**/*.py
+      - pyproject.toml
+      - .github/workflows/yul-to-lean-unit.yml
+  pull_request:
+    paths:
+      - formal/**/*.py
+      - pyproject.toml
+      - .github/workflows/yul-to-lean-unit.yml
+
+jobs:
+  yul-to-lean-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python tooling
+        run: |
+          python3 -m pip install \
+            black==26.3.0 \
+            isort==7.0.0 \
+            mypy==1.19.1
+
+      - name: Check formatting with black
+        run: python3 -m black --check formal
+
+      - name: Check import ordering with isort
+        run: python3 -m isort --check-only --filter-files formal
+
+      - name: Type-check formal Python
+        run: python3 -m mypy formal
+
+      - name: Run translator unit tests
+        run: python3 -m unittest discover -s formal -p 'test_yul_to_lean.py' -v
