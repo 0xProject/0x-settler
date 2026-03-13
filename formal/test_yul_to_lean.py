@@ -7559,6 +7559,63 @@ class BranchExprStmtTest(unittest.TestCase):
                 yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
+    def test_bare_block_nested_live_expr_stmt_still_rejected(self) -> None:
+        """Bare-block flattening must not erase a live nested branch expr_stmt."""
+        yul = """
+            function fun_target_1(var_c_1) -> var_z_2 {
+                {
+                    let usr$x := 0
+                    if var_c_1 {
+                        side_effect()
+                        usr$x := 1
+                    }
+                    var_z_2 := usr$x
+                }
+            }
+        """
+        config = make_model_config(("target",))
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_constant_true_flatten_preserves_nested_live_expr_stmt(self) -> None:
+        """Constant-true flattening must preserve live nested branch expr_stmts."""
+        yul = """
+            function fun_target_1(var_c_1) -> var_z_2 {
+                if 1 {
+                    if var_c_1 { side_effect() }
+                }
+                var_z_2 := 1
+            }
+        """
+        config = make_model_config(("target",))
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_constant_switch_dead_branch_expr_stmt_discarded_in_target(self) -> None:
+        """Dead expr_stmts in constant switch branches should be discarded."""
+        yul = """
+            function fun_target_1() -> var_z_2 {
+                switch 1
+                case 0 {
+                    side_effect()
+                    var_z_2 := 0
+                }
+                default {
+                    var_z_2 := 7
+                }
+            }
+        """
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(ytl.evaluate_function_model(model, ()), (7,))
+
 
 if __name__ == "__main__":
     unittest.main()
