@@ -3099,6 +3099,7 @@ def _inline_yul_function(
 
     mstore_sink: list[FromWriteEffect] = []
     new_assignments: list[RawStatement] = []
+    const_subst: dict[str, Expr] = {}
     for stmt in yf.assignments:
         if isinstance(stmt, ParsedIfBlock):
             _reject_branch_expr_stmts(
@@ -3107,7 +3108,7 @@ def _inline_yul_function(
             )
             pre_len = len(mstore_sink)
             new_cond = inline_calls(
-                stmt.condition,
+                substitute_expr(stmt.condition, const_subst),
                 fn_table,
                 mstore_sink=mstore_sink,
                 unsupported_function_errors=unsupported_function_errors,
@@ -3118,7 +3119,7 @@ def _inline_yul_function(
                     PlainAssignment(
                         s.target,
                         inline_calls(
-                            s.expr,
+                            substitute_expr(s.expr, const_subst),
                             fn_table,
                             mstore_sink=mstore_sink,
                             unsupported_function_errors=unsupported_function_errors,
@@ -3134,7 +3135,7 @@ def _inline_yul_function(
                         PlainAssignment(
                             s.target,
                             inline_calls(
-                                s.expr,
+                                substitute_expr(s.expr, const_subst),
                                 fn_table,
                                 mstore_sink=mstore_sink,
                                 unsupported_function_errors=unsupported_function_errors,
@@ -3148,28 +3149,28 @@ def _inline_yul_function(
                     "inlining a control-flow block. Exact uint512.from(...) "
                     "accessor writes must stay on the straight-line path."
                 )
-            new_assignments.append(
-                ParsedIfBlock(
-                    condition=new_cond,
-                    body=tuple(new_body),
-                    has_leave=stmt.has_leave,
-                    else_body=(
-                        tuple(new_else_body) if new_else_body is not None else None
-                    ),
-                    body_expr_stmts=stmt.body_expr_stmts,
-                    else_body_expr_stmts=stmt.else_body_expr_stmts,
-                )
+            new_if = ParsedIfBlock(
+                condition=new_cond,
+                body=tuple(new_body),
+                has_leave=stmt.has_leave,
+                else_body=(tuple(new_else_body) if new_else_body is not None else None),
+                body_expr_stmts=stmt.body_expr_stmts,
+                else_body_expr_stmts=stmt.else_body_expr_stmts,
             )
+            # Invalidate any variables conditionally assigned
+            for t in _stmt_targets(new_if):
+                const_subst.pop(t, None)
+            new_assignments.append(new_if)
         elif isinstance(stmt, MemoryWrite):
             pre_len = len(mstore_sink)
             new_addr = inline_calls(
-                stmt.address,
+                substitute_expr(stmt.address, const_subst),
                 fn_table,
                 mstore_sink=mstore_sink,
                 unsupported_function_errors=unsupported_function_errors,
             )
             new_value = inline_calls(
-                stmt.value,
+                substitute_expr(stmt.value, const_subst),
                 fn_table,
                 mstore_sink=mstore_sink,
                 unsupported_function_errors=unsupported_function_errors,
@@ -3184,11 +3185,15 @@ def _inline_yul_function(
         else:
             pre_len = len(mstore_sink)
             inlined = inline_calls(
-                stmt.expr,
+                substitute_expr(stmt.expr, const_subst),
                 fn_table,
                 mstore_sink=mstore_sink,
                 unsupported_function_errors=unsupported_function_errors,
             )
+            if _try_const_eval(inlined) is not None:
+                const_subst[stmt.target] = inlined
+            else:
+                const_subst.pop(stmt.target, None)
             for effect in mstore_sink[pre_len:]:
                 new_assignments.extend(effect.lower())
             del mstore_sink[pre_len:]

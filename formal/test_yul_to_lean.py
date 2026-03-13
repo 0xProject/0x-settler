@@ -7620,6 +7620,168 @@ class BranchExprStmtTest(unittest.TestCase):
         model = result.models[0]
         self.assertEqual(ytl.evaluate_function_model(model, ()), (7,))
 
+    # -- Constant propagation across statements in _inline_yul_function --
+
+    def test_wrapping_div_pattern_intermediate_var(self) -> None:
+        """Constant divisor via intermediate variable is resolved during inlining."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                let expr_1 := cleanup(3)
+                var_z_2 := wrapping_div(var_x_1, expr_1)
+            }
+            function wrapping_div(x, y) -> r {
+                if iszero(y) { panic_error_0x12() }
+                r := div(x, y)
+            }
+            function cleanup(value) -> cleaned {
+                cleaned := value
+            }
+        """
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(ytl.evaluate_function_model(model, (9,)), (3,))
+
+    def test_wrapping_div_pattern_non_constant_var_rejected(self) -> None:
+        """Non-constant variable arg: branch with expr_stmt is correctly rejected."""
+        yul = """
+            function fun_target_1(var_x_1, var_y_2) -> var_z_3 {
+                let expr_1 := cleanup(var_y_2)
+                var_z_3 := wrapping_div(var_x_1, expr_1)
+            }
+            function wrapping_div(x, y) -> r {
+                if iszero(y) { panic_error_0x12() }
+                r := div(x, y)
+            }
+            function cleanup(value) -> cleaned {
+                cleaned := value
+            }
+        """
+        config = make_model_config(("target",))
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_wrapping_div_pattern_dead_branch_after_cleanup_inline(self) -> None:
+        """Real wrapping_div_t_uint256 pattern: cleanup identity inlined before fold."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := wrapping_div_t_uint256(var_x_1, 3)
+            }
+            function wrapping_div_t_uint256(x, y) -> r {
+                x := cleanup_t_uint256(x)
+                y := cleanup_t_uint256(y)
+                if iszero(y) { panic_error_0x12() }
+                r := div(x, y)
+            }
+            function cleanup_t_uint256(value) -> cleaned {
+                cleaned := value
+            }
+        """
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(ytl.evaluate_function_model(model, (9,)), (3,))
+
+    # -- const_subst invalidation edge cases --
+
+    def test_const_subst_invalidated_after_non_constant_reassignment(self) -> None:
+        """Variable reassigned to non-constant must be removed from const_subst.
+
+        Without invalidation, ``usr$x`` would stay as ``IntLit(3)`` and the
+        call would see ``wrapping_div(3, 3)`` instead of
+        ``wrapping_div(add(3, y), 3)``.
+        """
+        yul = """
+            function fun_target_1(var_y_1) -> var_z_2 {
+                let usr$x := 3
+                usr$x := add(usr$x, var_y_1)
+                var_z_2 := wrapping_div(usr$x, 3)
+            }
+            function wrapping_div(x, y) -> r {
+                if iszero(y) { panic_error_0x12() }
+                r := div(x, y)
+            }
+        """
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        # (3 + 6) / 3 == 3
+        self.assertEqual(ytl.evaluate_function_model(model, (6,)), (3,))
+        # (3 + 0) / 3 == 1
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (1,))
+
+    def test_const_subst_from_constant_true_if_body(self) -> None:
+        """Variable assigned inside ``if 1 { x := 3 }`` should be usable as constant.
+
+        The condition is statically true, so ``x := 3`` always executes.
+        The constant should propagate to subsequent statements.
+        """
+        yul = """
+            function fun_target_1(var_a_1) -> var_z_2 {
+                let usr$x := 0
+                if 1 {
+                    usr$x := 3
+                }
+                var_z_2 := wrapping_div(var_a_1, usr$x)
+            }
+            function wrapping_div(x, y) -> r {
+                if iszero(y) { panic_error_0x12() }
+                r := div(x, y)
+            }
+        """
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(ytl.evaluate_function_model(model, (9,)), (3,))
+
+    def test_const_subst_not_poisoned_by_block_scoped_shadow(self) -> None:
+        """Block-scoped ``let x := 5`` inside ``if 1`` must not overwrite outer ``x``.
+
+        After ``if 1 { let x := 5 }`` the outer ``x`` is still ``3``.
+        """
+        yul = """
+            function fun_target_1(var_a_1) -> var_z_2 {
+                let usr$x := 3
+                if 1 {
+                    let usr$x := 5
+                }
+                var_z_2 := wrapping_div(var_a_1, usr$x)
+            }
+            function wrapping_div(x, y) -> r {
+                if iszero(y) { panic_error_0x12() }
+                r := div(x, y)
+            }
+        """
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        # outer x is 3, so 9 / 3 == 3 (not 9 / 5)
+        self.assertEqual(ytl.evaluate_function_model(model, (9,)), (3,))
+
 
 if __name__ == "__main__":
     unittest.main()
