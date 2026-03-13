@@ -1089,6 +1089,30 @@ class YulParser(_TokenReader):
             # Bare declaration: ``let x``  (zero-initialized per Yul spec)
             results.append(PlainAssignment(target, IntLit(0), is_declaration=True))
 
+    def _parse_scoped_body(
+        self,
+        *,
+        allow_control_flow: bool,
+        context: str,
+    ) -> tuple[list[RawStatement], bool, tuple[Expr, ...]]:
+        """Parse ``{ ... }`` isolating expression-statements from the caller.
+
+        Returns ``(body, has_leave, expr_stmts)`` where *expr_stmts*
+        contains the bare expression-statements found directly in this
+        scope (not captured deeper on a ``ParsedIfBlock``).
+        """
+        self._expect("{")
+        saved = self._expr_stmts
+        self._expr_stmts = []
+        body, has_leave = self._parse_assignment_loop(
+            allow_control_flow=allow_control_flow,
+            context=context,
+        )
+        captured = tuple(self._expr_stmts)
+        self._expr_stmts = saved
+        self._expect("}")
+        return body, has_leave, captured
+
     def _parse_assignment_loop(
         self,
         *,
@@ -1121,10 +1145,17 @@ class YulParser(_TokenReader):
                 # declarations create block-local bindings, only
                 # reassignments to outer-scope names are emitted.
                 self._pop()  # consume '{'
+                saved_stmts = self._expr_stmts
+                self._expr_stmts = []
                 inner, inner_leave = self._parse_assignment_loop(
                     allow_control_flow=allow_control_flow,
                     context=context,
                 )
+                inner_es = self._expr_stmts
+                self._expr_stmts = saved_stmts
+                # Propagate: bare block is unconditional, so its
+                # expr_stmts belong to the enclosing scope.
+                self._expr_stmts.extend(inner_es)
                 self._expect("}")
                 block_subst: dict[str, Expr] = {}
                 block_locals: set[str] = set()
@@ -1162,11 +1193,16 @@ class YulParser(_TokenReader):
                                     new_cond, then_val, else_val
                                 )
 
-                        # Emit ParsedIfBlock for outer-scope targets.
+                        # Emit ParsedIfBlock for outer-scope targets
+                        # or branch-level expression-statements.
                         has_outer = bool(outer_body) or (
                             outer_else is not None and bool(outer_else)
                         )
-                        if has_outer or stmt.has_leave:
+                        has_branch_es = (
+                            bool(stmt.body_expr_stmts)
+                            or bool(stmt.else_body_expr_stmts)
+                        )
+                        if has_outer or stmt.has_leave or has_branch_es:
                             results.append(
                                 ParsedIfBlock(
                                     condition=new_cond,
@@ -1249,42 +1285,37 @@ class YulParser(_TokenReader):
                         # Constant-false: skip the entire body (parse
                         # but discard).  Use allow_control_flow=True to
                         # tolerate memory writes in dead code.
-                        self._expect("{")
-                        saved_stmts = self._expr_stmts
-                        self._expr_stmts = []
-                        _dead_body, _dead_leave = self._parse_assignment_loop(
-                            allow_control_flow=True,
-                            context="if-body (dead, constant-false)",
+                        _dead_body, _dead_leave, _dead_es = (
+                            self._parse_scoped_body(
+                                allow_control_flow=True,
+                                context="if-body (dead, constant-false)",
+                            )
                         )
-                        self._expr_stmts = saved_stmts
-                        self._expect("}")
                         continue
                     if const_cond is not None and const_cond != 0:
                         # Constant-true: flatten the body into the outer
                         # scope with block scoping — declarations stay
                         # block-local, only reassignments are emitted.
-                        self._expect("{")
-                        live_body, live_leave = self._parse_assignment_loop(
-                            allow_control_flow=allow_control_flow,
-                            context="if-body (live, constant-true)",
+                        live_body, live_leave, live_es = (
+                            self._parse_scoped_body(
+                                allow_control_flow=allow_control_flow,
+                                context="if-body (live, constant-true)",
+                            )
                         )
-                        self._expect("}")
                         _flatten_scoped_block(live_body, results)
+                        # Propagate live branch expr_stmts to outer scope.
+                        self._expr_stmts.extend(live_es)
                         if live_leave:
                             has_leave = True
                             self._skip_to_end_of_current_block()
                             break
                         continue
-                    self._expect("{")
-                    saved_stmts = self._expr_stmts
-                    self._expr_stmts = []
-                    body, body_leave = self._parse_assignment_loop(
-                        allow_control_flow=False,
-                        context="if-body",
+                    body, body_leave, body_expr_stmts = (
+                        self._parse_scoped_body(
+                            allow_control_flow=False,
+                            context="if-body",
+                        )
                     )
-                    body_expr_stmts = tuple(self._expr_stmts)
-                    self._expr_stmts = saved_stmts
-                    self._expect("}")
                     plain_body = self._expect_plain_assignments(
                         body,
                         context="if-body",
@@ -1320,15 +1351,17 @@ class YulParser(_TokenReader):
                                 is_live = (cv == const_disc) and not found_live
                             else:
                                 is_live = not found_live
-                            self._expect("{")
-                            br_body, br_leave = self._parse_assignment_loop(
-                                allow_control_flow=allow_control_flow if is_live else True,
-                                context=f"switch branch ({'live' if is_live else 'dead'})",
+                            br_body, br_leave, br_es = (
+                                self._parse_scoped_body(
+                                    allow_control_flow=allow_control_flow if is_live else True,
+                                    context=f"switch branch ({'live' if is_live else 'dead'})",
+                                )
                             )
-                            self._expect("}")
                             if is_live:
                                 live_branch_stmts = br_body
                                 live_leave = br_leave
+                                # Propagate live branch expr_stmts.
+                                self._expr_stmts.extend(br_es)
                                 found_live = True
                             if br == "default":
                                 break
@@ -1369,16 +1402,12 @@ class YulParser(_TokenReader):
                                 raise ParseError(
                                     "Duplicate 'case 0' in switch statement."
                                 )
-                            self._expect("{")
-                            saved_stmts = self._expr_stmts
-                            self._expr_stmts = []
-                            raw_case0_body, case0_leave = self._parse_assignment_loop(
-                                allow_control_flow=False,
-                                context="switch branch",
+                            raw_case0_body, case0_leave, case0_expr_stmts = (
+                                self._parse_scoped_body(
+                                    allow_control_flow=False,
+                                    context="switch branch",
+                                )
                             )
-                            case0_expr_stmts = tuple(self._expr_stmts)
-                            self._expr_stmts = saved_stmts
-                            self._expect("}")
                             case0_body = self._expect_plain_assignments(
                                 raw_case0_body,
                                 context="switch branch",
@@ -1388,18 +1417,12 @@ class YulParser(_TokenReader):
                                 raise ParseError(
                                     "Duplicate 'default' in switch statement."
                                 )
-                            self._expect("{")
-                            saved_stmts = self._expr_stmts
-                            self._expr_stmts = []
-                            raw_default_body, default_leave = (
-                                self._parse_assignment_loop(
+                            raw_default_body, default_leave, default_expr_stmts = (
+                                self._parse_scoped_body(
                                     allow_control_flow=False,
                                     context="switch branch",
                                 )
                             )
-                            default_expr_stmts = tuple(self._expr_stmts)
-                            self._expr_stmts = saved_stmts
-                            self._expect("}")
                             default_body = self._expect_plain_assignments(
                                 raw_default_body,
                                 context="switch branch",
@@ -2190,6 +2213,8 @@ def _flatten_scoped_block(
                 body=new_body,
                 has_leave=stmt.has_leave,
                 else_body=new_else,
+                body_expr_stmts=stmt.body_expr_stmts,
+                else_body_expr_stmts=stmt.else_body_expr_stmts,
             ))
 
 
