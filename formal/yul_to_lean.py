@@ -19,7 +19,7 @@ import re
 import sys
 from collections import Counter
 from dataclasses import dataclass
-from typing import Callable, NoReturn, assert_never
+from typing import Callable, assert_never
 
 
 class ParseError(RuntimeError):
@@ -108,14 +108,6 @@ class ConditionalBlock:
 
 # A model statement is either a plain assignment or a conditional block.
 ModelStatement = Assignment | ConditionalBlock
-
-
-def _unreachable_expr(expr: Expr) -> NoReturn:
-    raise TypeError(f"Unsupported Expr node: {type(expr)}")
-
-
-def _unreachable_stmt(stmt: ModelStatement) -> NoReturn:
-    raise TypeError(f"Unsupported ModelStatement: {type(stmt)}")
 
 
 @dataclass(frozen=True)
@@ -656,7 +648,7 @@ def _expr_reference_summary(
             live = live or child.live_references
             dead = dead or child.dead_references
         return ReferenceAnalysisResult(live, dead, False)
-    _unreachable_expr(expr)
+    assert_never(expr)
 
 
 def _scope_reference_summary(
@@ -2072,7 +2064,7 @@ def rename_expr(expr: Expr, var_map: dict[str, str], fn_map: dict[str, str]) -> 
         new_name = fn_map.get(expr.name, expr.name)
         new_args = tuple(rename_expr(a, var_map, fn_map) for a in expr.args)
         return Call(new_name, new_args)
-    _unreachable_expr(expr)
+    assert_never(expr)
 
 
 def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
@@ -2090,7 +2082,7 @@ def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
         return Project(expr.index, expr.total, substitute_expr(expr.inner, subst))
     if isinstance(expr, Call):
         return Call(expr.name, tuple(substitute_expr(a, subst) for a in expr.args))
-    _unreachable_expr(expr)
+    assert_never(expr)
 
 
 def _find_function_body_range(
@@ -2348,6 +2340,8 @@ def _try_const_eval(expr: Expr) -> int | None:
     """
     if isinstance(expr, IntLit):
         return expr.value % WORD_MOD
+    if isinstance(expr, Var):
+        return None
     if isinstance(expr, Ite):
         cond_val = _try_const_eval(expr.cond)
         if_val = _try_const_eval(expr.if_true)
@@ -2363,14 +2357,17 @@ def _try_const_eval(expr: Expr) -> int | None:
         return None
     if isinstance(expr, Call):
         # Delegate all ops to _eval_builtin (which wraps via u256).
-        arg_vals = tuple(_try_const_eval(arg) for arg in expr.args)
-        if any(v is None for v in arg_vals):
-            return None
+        resolved: list[int] = []
+        for arg in expr.args:
+            v = _try_const_eval(arg)
+            if v is None:
+                return None
+            resolved.append(v)
         try:
-            return _eval_builtin(expr.name, arg_vals)  # type: ignore[arg-type]
+            return _eval_builtin(expr.name, tuple(resolved))
         except EvaluationError:
             return None
-    return None
+    assert_never(expr)
 
 
 class _IfFoldDecision(enum.Enum):
@@ -3085,7 +3082,7 @@ def inline_calls(
             )
 
         return Call(expr.name, args)
-    _unreachable_expr(expr)
+    assert_never(expr)
 
 
 def _inline_yul_function(
@@ -3519,7 +3516,7 @@ def yul_function_to_model(
                     for arg in expr.args
                 ),
             )
-        _unreachable_expr(expr)
+        assert_never(expr)
 
     def _wrap_u256_literals(expr: Expr) -> Expr:
         """Normalize IntLit values to [0, 2^256) per EVM u256 semantics."""
@@ -4040,7 +4037,7 @@ def _prune_dead_assignments(
             continue
 
         if not isinstance(stmt, ConditionalBlock):
-            _unreachable_stmt(stmt)
+            assert_never(stmt)
 
         needed_indices = tuple(
             idx for idx, output in enumerate(stmt.output_vars) if output in live
@@ -4229,7 +4226,7 @@ def collect_ops_from_statement(stmt: ModelStatement) -> list[str]:
         for a in stmt.else_branch.assignments:
             ops.extend(collect_ops(a.expr))
         return ops
-    _unreachable_stmt(stmt)
+    assert_never(stmt)
 
 
 def ordered_unique(items: list[str]) -> list[str]:
@@ -4260,7 +4257,7 @@ def _expr_size(expr: Expr) -> int:
         return 1 + _expr_size(expr.inner)
     if isinstance(expr, Call):
         return 1 + sum(_expr_size(arg) for arg in expr.args)
-    _unreachable_expr(expr)
+    assert_never(expr)
 
 
 def _replace_expr(expr: Expr, replacements: dict[Expr, str]) -> Expr:
@@ -4280,7 +4277,7 @@ def _replace_expr(expr: Expr, replacements: dict[Expr, str]) -> Expr:
         return Call(
             expr.name, tuple(_replace_expr(arg, replacements) for arg in expr.args)
         )
-    _unreachable_expr(expr)
+    assert_never(expr)
 
 
 def _expr_vars(expr: Expr) -> set[str]:
@@ -4299,7 +4296,7 @@ def _expr_vars(expr: Expr) -> set[str]:
         for arg in expr.args:
             out.update(_expr_vars(arg))
         return out
-    _unreachable_expr(expr)
+    assert_never(expr)
 
 
 def validate_function_model(model: FunctionModel) -> None:
@@ -4441,7 +4438,7 @@ def validate_function_model(model: FunctionModel) -> None:
             continue
 
         if not isinstance(stmt, ConditionalBlock):
-            _unreachable_stmt(stmt)
+            assert_never(stmt)
 
         _validate_expr_shape(stmt.condition)
         for a in stmt.then_branch.assignments:
@@ -4621,7 +4618,7 @@ def evaluate_model_expr(
             call_stack=call_stack,
         )
     if not isinstance(expr, Call):
-        _unreachable_expr(expr)
+        assert_never(expr)
 
     arg_values = tuple(
         evaluate_model_expr(arg, env, model_table=model_table, call_stack=call_stack)
@@ -4681,7 +4678,7 @@ def _evaluate_statement_block(
             continue
 
         if not isinstance(stmt, ConditionalBlock):
-            _unreachable_stmt(stmt)
+            assert_never(stmt)
 
         condition = _expect_scalar(
             evaluate_model_expr(
@@ -4818,7 +4815,7 @@ def _replace_statement(
                 outputs=stmt.else_branch.outputs,
             ),
         )
-    _unreachable_stmt(stmt)
+    assert_never(stmt)
 
 
 def _hoist_repeated_calls_in_expr(
@@ -4902,7 +4899,7 @@ def _localize_statement_cse(
             ),
         ]
 
-    _unreachable_stmt(stmt)
+    assert_never(stmt)
 
 
 def hoist_repeated_model_calls(
@@ -5392,7 +5389,7 @@ def emit_expr(
             raise ParseError(f"Unsupported call in Lean emitter: {expr.name!r}")
         args = " ".join(f"({emit_expr(a, helper_map=helper_map)})" for a in expr.args)
         return f"{helper} {args}".rstrip()
-    _unreachable_expr(expr)
+    assert_never(expr)
 
 
 # ---------------------------------------------------------------------------
@@ -5561,7 +5558,7 @@ def build_model_body(
             rhs = _emit_rhs(stmt.expr)
             lines.append(f"  let {stmt.target} := {rhs}")
         else:
-            _unreachable_stmt(stmt)
+            assert_never(stmt)
 
     if len(return_names) == 1:
         lines.append(f"  {return_names[0]}")
@@ -5596,7 +5593,7 @@ def _collect_model_binders(model: FunctionModel) -> list[str]:
             binders.extend(a.target for a in stmt.then_branch.assignments)
             binders.extend(a.target for a in stmt.else_branch.assignments)
         else:
-            _unreachable_stmt(stmt)
+            assert_never(stmt)
     return binders
 
 
