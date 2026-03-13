@@ -530,7 +530,8 @@ class FailClosedTranslatorTest(unittest.TestCase):
             ytl.PlainAssignment(
                 "usr$lhs",
                 ytl.Project(
-                    0, 2,
+                    0,
+                    2,
                     ytl.Call("fun_pair_2", (ytl.Var("var_x_1"),)),
                 ),
                 is_declaration=True,
@@ -538,7 +539,8 @@ class FailClosedTranslatorTest(unittest.TestCase):
             ytl.PlainAssignment(
                 "usr$rhs",
                 ytl.Project(
-                    1, 2,
+                    1,
+                    2,
                     ytl.Call("fun_pair_2", (ytl.Var("var_x_1"),)),
                 ),
                 is_declaration=True,
@@ -1682,14 +1684,16 @@ class RestrictedIRInterpreterTest(ModelEquivalenceTestCase):
                 ytl.Assignment(
                     "lhs",
                     ytl.Project(
-                        0, 2,
+                        0,
+                        2,
                         ytl.Call("pair", (ytl.Var("x"), ytl.Var("y"))),
                     ),
                 ),
                 ytl.Assignment(
                     "rhs",
                     ytl.Project(
-                        1, 2,
+                        1,
+                        2,
                         ytl.Call("pair", (ytl.Var("x"), ytl.Var("y"))),
                     ),
                 ),
@@ -2332,53 +2336,39 @@ class TryConstEvalTest(unittest.TestCase):
     def test_ite_constant_condition_folds(self) -> None:
         # Ite(1, 5, 3) → 5 (true branch)
         self.assertEqual(
-            ytl._try_const_eval(
-                ytl.Ite(ytl.IntLit(1), ytl.IntLit(5), ytl.IntLit(3))
-            ),
+            ytl._try_const_eval(ytl.Ite(ytl.IntLit(1), ytl.IntLit(5), ytl.IntLit(3))),
             5,
         )
         # Ite(0, 5, 3) → 3 (false branch)
         self.assertEqual(
-            ytl._try_const_eval(
-                ytl.Ite(ytl.IntLit(0), ytl.IntLit(5), ytl.IntLit(3))
-            ),
+            ytl._try_const_eval(ytl.Ite(ytl.IntLit(0), ytl.IntLit(5), ytl.IntLit(3))),
             3,
         )
 
     def test_ite_constant_condition_nonconstant_branch(self) -> None:
         # Ite(1, Var("x"), 3) → None (selected branch is non-constant)
         self.assertIsNone(
-            ytl._try_const_eval(
-                ytl.Ite(ytl.IntLit(1), ytl.Var("x"), ytl.IntLit(3))
-            )
+            ytl._try_const_eval(ytl.Ite(ytl.IntLit(1), ytl.Var("x"), ytl.IntLit(3)))
         )
         # Ite(0, 5, Var("x")) → None (selected branch is non-constant)
         self.assertIsNone(
-            ytl._try_const_eval(
-                ytl.Ite(ytl.IntLit(0), ytl.IntLit(5), ytl.Var("x"))
-            )
+            ytl._try_const_eval(ytl.Ite(ytl.IntLit(0), ytl.IntLit(5), ytl.Var("x")))
         )
 
     def test_ite_nonconstant_dead_branch_still_folds(self) -> None:
         # Ite(1, 5, Var("x")) → 5 (dead else-branch is non-constant)
         self.assertEqual(
-            ytl._try_const_eval(
-                ytl.Ite(ytl.IntLit(1), ytl.IntLit(5), ytl.Var("x"))
-            ),
+            ytl._try_const_eval(ytl.Ite(ytl.IntLit(1), ytl.IntLit(5), ytl.Var("x"))),
             5,
         )
         # Ite(0, Var("x"), 3) → 3 (dead then-branch is non-constant)
         self.assertEqual(
-            ytl._try_const_eval(
-                ytl.Ite(ytl.IntLit(0), ytl.Var("x"), ytl.IntLit(3))
-            ),
+            ytl._try_const_eval(ytl.Ite(ytl.IntLit(0), ytl.Var("x"), ytl.IntLit(3))),
             3,
         )
         # Ite(42, 10, Var("y")) → 10 (non-zero condition, dead branch has variable)
         self.assertEqual(
-            ytl._try_const_eval(
-                ytl.Ite(ytl.IntLit(42), ytl.IntLit(10), ytl.Var("y"))
-            ),
+            ytl._try_const_eval(ytl.Ite(ytl.IntLit(42), ytl.IntLit(10), ytl.Var("y"))),
             10,
         )
 
@@ -2457,9 +2447,7 @@ class SimplifyIteTest(unittest.TestCase):
 
     def test_variable_condition_emits_ite(self) -> None:
         result = ytl._simplify_ite(ytl.Var("c"), ytl.Var("a"), ytl.Var("b"))
-        self.assertEqual(
-            result, ytl.Ite(ytl.Var("c"), ytl.Var("a"), ytl.Var("b"))
-        )
+        self.assertEqual(result, ytl.Ite(ytl.Var("c"), ytl.Var("a"), ytl.Var("b")))
 
     def test_computed_constant_condition_folds(self) -> None:
         # eq(5, 5) evaluates to 1, so the true branch is selected.
@@ -2855,9 +2843,7 @@ class EmitExprTest(unittest.TestCase):
         self.assertEqual(result, "evmAdd (x) (1)")
 
     def test_emit_ite(self) -> None:
-        result = self._emit(
-            ytl.Ite(ytl.Var("c"), ytl.IntLit(1), ytl.IntLit(0))
-        )
+        result = self._emit(ytl.Ite(ytl.Var("c"), ytl.IntLit(1), ytl.IntLit(0)))
         self.assertIn("if", result)
         self.assertIn("then", result)
         self.assertIn("else", result)
@@ -3000,14 +2986,16 @@ class ExtendedFuzzerTest(ModelEquivalenceTestCase):
                     ytl.Assignment(
                         "lhs",
                         ytl.Project(
-                            0, 2,
+                            0,
+                            2,
                             ytl.Call("helper", (ytl.Var("x"), ytl.Var("y"))),
                         ),
                     ),
                     ytl.Assignment(
                         "rhs",
                         ytl.Project(
-                            1, 2,
+                            1,
+                            2,
                             ytl.Call("helper", (ytl.Var("x"), ytl.Var("y"))),
                         ),
                     ),
@@ -5100,7 +5088,8 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 ytl.Assignment(
                     "z",
                     ytl.Project(
-                        2, 2,
+                        2,
+                        2,
                         ytl.Call("pair", (ytl.Var("x"), ytl.Var("y"))),
                     ),
                 ),
@@ -5134,9 +5123,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             fn_name="f",
             param_names=("normBitLengthPlus1",),
             return_names=("z",),
-            assignments=(
-                ytl.Assignment("z", ytl.Var("normBitLengthPlus1")),
-            ),
+            assignments=(ytl.Assignment("z", ytl.Var("normBitLengthPlus1")),),
         )
         config = ytl.ModelConfig(
             function_order=("f",),
@@ -5144,9 +5131,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             header_comment="test",
             generator_label="formal/test_yul_to_lean.py",
             extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-            extra_lean_defs=(
-                "def normBitLengthPlus1 (x : Nat) : Nat := x + 1"
-            ),
+            extra_lean_defs=("def normBitLengthPlus1 (x : Nat) : Nat := x + 1"),
             norm_rewrite=lambda expr: ytl.Call("bitLengthPlus1", (expr,)),
             inner_fn="f",
             n_params=None,
@@ -5175,9 +5160,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             fn_name="f",
             param_names=("x",),
             return_names=("z",),
-            assignments=(
-                ytl.Assignment("z", ytl.Var("x")),
-            ),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
         )
         config = ytl.ModelConfig(
             function_order=("f",),
@@ -5185,9 +5168,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             header_comment="test",
             generator_label="formal/test_yul_to_lean.py",
             extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-            extra_lean_defs=(
-                "def normBitLengthPlus1 (x : Nat) : Nat := x + 1"
-            ),
+            extra_lean_defs=("def normBitLengthPlus1 (x : Nat) : Nat := x + 1"),
             norm_rewrite=lambda expr: ytl.Call("bitLengthPlus1", (expr,)),
             inner_fn="f",
             n_params=None,
@@ -5259,9 +5240,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             fn_name="f",
             param_names=("normBitLengthPlus1",),
             return_names=("z",),
-            assignments=(
-                ytl.Assignment("z", ytl.Var("normBitLengthPlus1")),
-            ),
+            assignments=(ytl.Assignment("z", ytl.Var("normBitLengthPlus1")),),
         )
         config = ytl.ModelConfig(
             function_order=("f",),
@@ -5269,9 +5248,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             header_comment="test",
             generator_label="formal/test_yul_to_lean.py",
             extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-            extra_lean_defs=(
-                "def normBitLengthPlus1 (x : Nat) : Nat := x + 1"
-            ),
+            extra_lean_defs=("def normBitLengthPlus1 (x : Nat) : Nat := x + 1"),
             norm_rewrite=lambda expr: ytl.Call("bitLengthPlus1", (expr,)),
             inner_fn="f",
             n_params=None,
@@ -5337,9 +5314,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             header_comment="test",
             generator_label="formal/test_yul_to_lean.py",
             extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-            extra_lean_defs=(
-                "def normBitLengthPlus1 (x : Nat) : Nat := x + 1"
-            ),
+            extra_lean_defs=("def normBitLengthPlus1 (x : Nat) : Nat := x + 1"),
             norm_rewrite=lambda expr: ytl.Call("bitLengthPlus1", (expr,)),
             inner_fn="f",
             n_params=None,
@@ -5390,9 +5365,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             header_comment="test",
             generator_label="formal/test_yul_to_lean.py",
             extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-            extra_lean_defs=(
-                "def normBitLengthPlus1 (x : Nat) : Nat := x + 1"
-            ),
+            extra_lean_defs=("def normBitLengthPlus1 (x : Nat) : Nat := x + 1"),
             norm_rewrite=lambda expr: ytl.Call("bitLengthPlus1", (expr,)),
             inner_fn="f",
             n_params=None,
@@ -5706,9 +5679,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             header_comment="test",
             generator_label="formal/test_yul_to_lean.py",
             extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-            extra_lean_defs=(
-                "def normBitLengthPlus1 (x : Nat) : Nat := x + 1"
-            ),
+            extra_lean_defs=("def normBitLengthPlus1 (x : Nat) : Nat := x + 1"),
             norm_rewrite=lambda expr: ytl.Call("bitLengthPlus1", (expr,)),
             inner_fn="f",
             n_params=None,
@@ -6584,9 +6555,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             function_order=("f",),
             model_names={"f": "model_f"},
             header_comment="test",
-            generator_label=(
-                "formal/test_yul_to_lean.py\nopen scoped BigOperators"
-            ),
+            generator_label=("formal/test_yul_to_lean.py\nopen scoped BigOperators"),
             extra_norm_ops={},
             extra_lean_defs="",
             norm_rewrite=None,
@@ -7106,11 +7075,13 @@ class KnownOptimizerBugRegressionTest(ModelEquivalenceTestCase):
                         "add",
                         (
                             ytl.Project(
-                                0, 2,
+                                0,
+                                2,
                                 ytl.Call("pair", (ytl.Var("p"),)),
                             ),
                             ytl.Project(
-                                0, 2,
+                                0,
+                                2,
                                 ytl.Call("pair", (ytl.Var("p"),)),
                             ),
                         ),
@@ -7225,7 +7196,9 @@ class BranchExprStmtTest(unittest.TestCase):
         """
         config = make_model_config(("target",))
         result = ytl.translate_yul_to_models(
-            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
         model = result.models[0]
         self.assertEqual(ytl.evaluate_function_model(model, (9,)), (3,))
@@ -7244,7 +7217,9 @@ class BranchExprStmtTest(unittest.TestCase):
         config = make_model_config(("target",))
         with self.assertRaises(ytl.ParseError):
             ytl.translate_yul_to_models(
-                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
     def test_inline_non_constant_branch_expr_stmt_rejected(self) -> None:
@@ -7261,7 +7236,9 @@ class BranchExprStmtTest(unittest.TestCase):
         config = make_model_config(("target",))
         with self.assertRaises(ytl.ParseError):
             ytl.translate_yul_to_models(
-                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
     # -- Switch-based expr_stmts --
@@ -7286,7 +7263,9 @@ class BranchExprStmtTest(unittest.TestCase):
         config = make_model_config(("target",))
         # iszero(5) == 0 → case 0 is live, default (with side_effect) is dead
         result = ytl.translate_yul_to_models(
-            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
         model = result.models[0]
         self.assertEqual(ytl.evaluate_function_model(model, (15,)), (3,))
@@ -7312,7 +7291,9 @@ class BranchExprStmtTest(unittest.TestCase):
         # iszero(0) == 1 → default is live, and it has side_effect()
         with self.assertRaises(ytl.ParseError):
             ytl.translate_yul_to_models(
-                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
     # -- Leave-bearing branches with expr_stmts --
@@ -7336,7 +7317,9 @@ class BranchExprStmtTest(unittest.TestCase):
         config = make_model_config(("target",))
         # iszero(3) == 0 → DEAD, leave branch discarded along with side_effect
         result = ytl.translate_yul_to_models(
-            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
         model = result.models[0]
         self.assertEqual(ytl.evaluate_function_model(model, (9,)), (3,))
@@ -7361,7 +7344,9 @@ class BranchExprStmtTest(unittest.TestCase):
         # iszero(0) == 1 → THEN_LIVE, leave branch has side_effect()
         with self.assertRaises(ytl.ParseError):
             ytl.translate_yul_to_models(
-                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
     def test_leave_switch_dead_else_expr_stmt_discarded(self) -> None:
@@ -7386,7 +7371,9 @@ class BranchExprStmtTest(unittest.TestCase):
         config = make_model_config(("target",))
         # iszero(3) == 0 → case 0 is live; default (with leave+side_effect) dead
         result = ytl.translate_yul_to_models(
-            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
         model = result.models[0]
         self.assertEqual(ytl.evaluate_function_model(model, (12,)), (4,))
@@ -7420,7 +7407,9 @@ class BranchExprStmtTest(unittest.TestCase):
         # That means the else-branch (case 0 with side_effect) is dead.
         # So this should succeed.
         result = ytl.translate_yul_to_models(
-            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
         model = result.models[0]
         # Leave branch: r = 0
@@ -7438,7 +7427,9 @@ class BranchExprStmtTest(unittest.TestCase):
         """
         config = make_model_config(("target",))
         result = ytl.translate_yul_to_models(
-            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
         model = result.models[0]
         self.assertEqual(ytl.evaluate_function_model(model, (5,)), (6,))
@@ -7454,7 +7445,9 @@ class BranchExprStmtTest(unittest.TestCase):
         config = make_model_config(("target",))
         with self.assertRaises(ytl.ParseError):
             ytl.translate_yul_to_models(
-                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
     def test_direct_target_non_constant_branch_expr_stmt_rejected(self) -> None:
@@ -7468,7 +7461,9 @@ class BranchExprStmtTest(unittest.TestCase):
         config = make_model_config(("target",))
         with self.assertRaises(ytl.ParseError):
             ytl.translate_yul_to_models(
-                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
     # -- Multiple expr_stmts in one branch --
@@ -7489,7 +7484,9 @@ class BranchExprStmtTest(unittest.TestCase):
         """
         config = make_model_config(("target",))
         result = ytl.translate_yul_to_models(
-            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
         model = result.models[0]
         self.assertEqual(ytl.evaluate_function_model(model, (12,)), (4,))
@@ -7514,7 +7511,9 @@ class BranchExprStmtTest(unittest.TestCase):
             r"2 unhandled expression-statement",
         ):
             ytl.translate_yul_to_models(
-                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
     # -- Chained inlining: expr_stmt from a deeper helper --
@@ -7535,7 +7534,9 @@ class BranchExprStmtTest(unittest.TestCase):
         """
         config = make_model_config(("target",))
         result = ytl.translate_yul_to_models(
-            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
         model = result.models[0]
         self.assertEqual(ytl.evaluate_function_model(model, (21,)), (3,))
@@ -7556,7 +7557,9 @@ class BranchExprStmtTest(unittest.TestCase):
         config = make_model_config(("target",))
         with self.assertRaises(ytl.ParseError):
             ytl.translate_yul_to_models(
-                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
     def test_bare_block_nested_live_expr_stmt_still_rejected(self) -> None:
@@ -7576,7 +7579,9 @@ class BranchExprStmtTest(unittest.TestCase):
         config = make_model_config(("target",))
         with self.assertRaises(ytl.ParseError):
             ytl.translate_yul_to_models(
-                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
     def test_constant_true_flatten_preserves_nested_live_expr_stmt(self) -> None:
@@ -7592,7 +7597,9 @@ class BranchExprStmtTest(unittest.TestCase):
         config = make_model_config(("target",))
         with self.assertRaises(ytl.ParseError):
             ytl.translate_yul_to_models(
-                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
     def test_constant_switch_dead_branch_expr_stmt_discarded_in_target(self) -> None:
@@ -7611,7 +7618,9 @@ class BranchExprStmtTest(unittest.TestCase):
         """
         config = make_model_config(("target",))
         result = ytl.translate_yul_to_models(
-            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
         model = result.models[0]
         self.assertEqual(ytl.evaluate_function_model(model, ()), (7,))
