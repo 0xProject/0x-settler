@@ -4338,17 +4338,15 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         fn = ytl.YulParser(tokens).parse_function()
 
-        self.assertEqual(
-            fn.assignments,
-            [
-                ytl.PlainAssignment("usr$a", ytl.IntLit(0), is_declaration=True),
-                ytl.PlainAssignment("usr$b", ytl.IntLit(0), is_declaration=True),
-                ytl.PlainAssignment(
-                    "var_z_1",
-                    ytl.Call("add", (ytl.Var("usr$a"), ytl.Var("usr$b"))),
-                ),
-            ],
-        )
+        expected: list[ytl.RawStatement] = [
+            ytl.PlainAssignment("usr$a", ytl.IntLit(0), is_declaration=True),
+            ytl.PlainAssignment("usr$b", ytl.IntLit(0), is_declaration=True),
+            ytl.PlainAssignment(
+                "var_z_1",
+                ytl.Call("add", (ytl.Var("usr$a"), ytl.Var("usr$b"))),
+            ),
+        ]
+        self.assertEqual(fn.assignments, expected)
 
     def test_parse_function_rejects_multi_var_initializer_from_scalar_expr(
         self,
@@ -4377,22 +4375,20 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         fn = ytl.YulParser(tokens).parse_function()
 
-        self.assertEqual(
-            fn.assignments,
-            [
-                ytl.PlainAssignment("usr$a", ytl.IntLit(0), is_declaration=True),
-                ytl.PlainAssignment("usr$b", ytl.IntLit(0), is_declaration=True),
-                ytl.PlainAssignment(
-                    "usr$a",
-                    ytl.Project(0, 2, ytl.Call("pair", ())),
-                ),
-                ytl.PlainAssignment(
-                    "usr$b",
-                    ytl.Project(1, 2, ytl.Call("pair", ())),
-                ),
-                ytl.PlainAssignment("var_z_1", ytl.Var("usr$a")),
-            ],
-        )
+        expected: list[ytl.RawStatement] = [
+            ytl.PlainAssignment("usr$a", ytl.IntLit(0), is_declaration=True),
+            ytl.PlainAssignment("usr$b", ytl.IntLit(0), is_declaration=True),
+            ytl.PlainAssignment(
+                "usr$a",
+                ytl.Project(0, 2, ytl.Call("pair", ())),
+            ),
+            ytl.PlainAssignment(
+                "usr$b",
+                ytl.Project(1, 2, ytl.Call("pair", ())),
+            ),
+            ytl.PlainAssignment("var_z_1", ytl.Var("usr$a")),
+        ]
+        self.assertEqual(fn.assignments, expected)
 
     def test_translate_yul_to_models_rejects_multi_var_builtin_call_as_multi_return(
         self,
@@ -4644,14 +4640,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         )
         model = result.models[0]
 
-        self.assertNotIn(
-            "model_f",
-            {
-                stmt.target
-                for stmt in model.assignments
-                if isinstance(stmt, ytl.Assignment)
-            },
-        )
+        targets: set[str] = {
+            stmt.target
+            for stmt in model.assignments
+            if isinstance(stmt, ytl.Assignment)
+        }
+        self.assertNotIn("model_f", targets)
 
         source = ytl.build_lean_source(
             models=result.models,
@@ -5002,11 +4996,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         found = ytl.YulParser(tokens).find_exact_function("fun_pick_1")
 
-        self.assertEqual(found.rets, ["var_z_1"])
-        self.assertEqual(
-            found.assignments,
-            [ytl.PlainAssignment("var_z_1", ytl.IntLit(11))],
-        )
+        expected_rets: list[str] = ["var_z_1"]
+        self.assertEqual(found.rets, expected_rets)
+        expected_assignments: list[ytl.RawStatement] = [
+            ytl.PlainAssignment("var_z_1", ytl.IntLit(11)),
+        ]
+        self.assertEqual(found.assignments, expected_assignments)
 
     def test_validate_function_model_rejects_reserved_lean_helper_binder_names(
         self,
@@ -6819,10 +6814,10 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         parsed = ytl.YulParser(tokens).parse_function()
 
-        self.assertEqual(
-            parsed.assignments,
-            [ytl.PlainAssignment("var_z_2", ytl.IntLit(1))],
-        )
+        expected: list[ytl.RawStatement] = [
+            ytl.PlainAssignment("var_z_2", ytl.IntLit(1)),
+        ]
+        self.assertEqual(parsed.assignments, expected)
 
     def test_translate_yul_to_models_preserves_bare_block_temporary_snapshot_across_outer_rebind(
         self,

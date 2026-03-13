@@ -19,7 +19,7 @@ import re
 import sys
 from collections import Counter
 from dataclasses import dataclass
-from typing import Callable, NoReturn
+from typing import Callable, NoReturn, assert_never
 
 
 class ParseError(RuntimeError):
@@ -855,10 +855,11 @@ def _statement_reference_summary(
                 if stmt.default is not None
                 else None
             )
+            switch_chosen: ReferenceAnalysisResult | None
             if chosen_scope is None:
-                chosen_summary = default_summary
+                switch_chosen = default_summary
             else:
-                chosen_summary = _scope_reference_summary(
+                switch_chosen = _scope_reference_summary(
                     chosen_scope,
                     live_names,
                     dead_names,
@@ -869,16 +870,16 @@ def _statement_reference_summary(
                         or default_summary.live_references
                         or default_summary.dead_references
                     )
-            if chosen_summary is None:
+            if switch_chosen is None:
                 return ReferenceAnalysisResult(
                     discrim_summary.live_references,
                     dead,
                     False,
                 )
             return ReferenceAnalysisResult(
-                discrim_summary.live_references or chosen_summary.live_references,
-                dead or chosen_summary.dead_references,
-                chosen_summary.definitely_terminates,
+                discrim_summary.live_references or switch_chosen.live_references,
+                dead or switch_chosen.dead_references,
+                switch_chosen.definitely_terminates,
             )
 
         branch_summaries = [
@@ -1462,6 +1463,9 @@ class YulParser(_TokenReader):
                     # passes can keep interpreting `has_leave` as "then branch
                     # exits". If the leaving branch is `case 0`, invert the
                     # condition with `iszero(...)`.
+                    if_body: tuple[PlainAssignment, ...]
+                    else_body: tuple[PlainAssignment, ...] | None
+                    parsed_condition: Expr
                     if case0_leave and not default_leave:
                         if_body = tuple(case0_body)
                         else_body = tuple(default_body)
@@ -1673,50 +1677,38 @@ class YulParser(_TokenReader):
             m: self._body_reference_summary(m, known_yul_names) for m in matches
         }
 
+        def _has_live(m: int) -> bool:
+            s = summaries[m]
+            return s is not None and s.live_references
+
+        def _has_dead(m: int) -> bool:
+            s = summaries[m]
+            return s is not None and s.dead_references
+
         if all(summary is not None for summary in summaries.values()):
             # All bodies parsed — use full disambiguation.
             if exclude_known:
                 # Leaf selection: discard candidates that call known helpers.
-                live_independent = [
-                    m
-                    for m in matches
-                    if summaries[m] is not None and not summaries[m].live_references
-                ]
+                live_independent = [m for m in matches if not _has_live(m)]
                 if live_independent:
                     # Tiebreak: prefer candidates whose dead code DOES
                     # reference known helpers (proves compiler affinity).
-                    dead_tiebreak = [
-                        m
-                        for m in live_independent
-                        if summaries[m] is not None and summaries[m].dead_references
-                    ]
+                    dead_tiebreak = [m for m in live_independent if _has_dead(m)]
                     return dead_tiebreak if dead_tiebreak else live_independent
             else:
                 # Wrapper selection: prefer candidates that call known helpers.
-                live_dependent = [
-                    m
-                    for m in matches
-                    if summaries[m] is not None and summaries[m].live_references
-                ]
+                live_dependent = [m for m in matches if _has_live(m)]
                 if live_dependent:
                     return live_dependent
                 # No live references anywhere.  Prefer candidates with
                 # no dead references — a dead ref suggests the optimizer
                 # stripped a real call, making that candidate the wrong match.
-                clean_candidates = [
-                    m
-                    for m in matches
-                    if summaries[m] is not None and not summaries[m].dead_references
-                ]
+                clean_candidates = [m for m in matches if not _has_dead(m)]
                 if clean_candidates:
                     return clean_candidates
         else:
             # Some bodies failed to parse — simple fallback.
-            live_dependent = [
-                m
-                for m in matches
-                if summaries[m] is not None and summaries[m].live_references
-            ]
+            live_dependent = [m for m in matches if _has_live(m)]
             if live_dependent:
                 return live_dependent
 
@@ -2510,7 +2502,7 @@ def _alpha_rename_yul_function(
     fn: YulFunction, rename_map: dict[str, str]
 ) -> YulFunction:
     """Return a copy of *fn* with selected local variables renamed."""
-    rename_subst = {old: Var(new) for old, new in rename_map.items()}
+    rename_subst: dict[str, Expr] = {old: Var(new) for old, new in rename_map.items()}
 
     def _rename_stmt(s: PlainAssignment) -> PlainAssignment:
         target = rename_map.get(s.target, s.target)
@@ -2547,7 +2539,7 @@ def _alpha_rename_yul_function(
                 )
             )
         else:
-            new_assignments.append(stmt)
+            assert_never(stmt)
     return YulFunction(
         yul_name=fn.yul_name,
         params=fn.params,
@@ -2726,6 +2718,7 @@ def _inline_single_call(
                         context=f"Inlining {fn.yul_name!r} else-branch has",
                     )
                     # Process else-body as straight-line, skip then-body.
+                    assert stmt.else_body is not None  # ELSE_LIVE requires else
                     for s in stmt.else_body:
                         expr = substitute_expr(s.expr, subst)
                         expr = inline_calls(
@@ -2791,6 +2784,7 @@ def _inline_single_call(
                             ),
                             context=f"Inlining {fn.yul_name!r} else-branch has",
                         )
+                        assert stmt.else_body is not None  # ELSE_LIVE requires else
                         live_body = stmt.else_body
                     else:  # DEAD
                         continue
@@ -3555,7 +3549,7 @@ def yul_function_to_model(
             if new_args == expr.args:
                 return expr
             return Call(expr.name, new_args)
-        return expr
+        assert_never(expr)
 
     def _process_assignment_into(
         target: str,
@@ -3724,6 +3718,7 @@ def yul_function_to_model(
                         ),
                         context=f"Function {sol_fn_name!r} else-branch has",
                     )
+                    assert stmt.else_body is not None  # ELSE_LIVE requires else
                     _lower_live_branch(stmt.else_body)
                     continue
                 if fold == _IfFoldDecision.DEAD:
@@ -3756,6 +3751,7 @@ def yul_function_to_model(
                     ),
                     context=f"Function {sol_fn_name!r} else-branch has",
                 )
+                assert stmt.else_body is not None  # ELSE_LIVE requires else
                 _lower_live_branch(stmt.else_body)
                 continue
             if fold == _IfFoldDecision.DEAD:
@@ -3969,15 +3965,15 @@ def yul_function_to_model(
             memory_state[addr] = value_expr
             continue
 
-        a = _process_assignment_into(
+        maybe_a = _process_assignment_into(
             stmt.target,
             stmt.expr,
             var_map_state=var_map,
             subst_state=subst,
             const_locals_state=const_locals,
         )
-        if a is not None:
-            assignments.append(a)
+        if maybe_a is not None:
+            assignments.append(maybe_a)
 
     if not assignments:
         raise ParseError(f"No assignments parsed for function {sol_fn_name!r}")
@@ -4415,7 +4411,7 @@ def validate_function_model(model: FunctionModel) -> None:
             _validate_expr_shape(expr.inner)
             return
         if not isinstance(expr, Call):
-            return
+            assert_never(expr)
         # Builtin arity check
         if expr.name in OP_TO_LEAN_HELPER:
             expected = (
@@ -5252,7 +5248,7 @@ def validate_selected_models(models: list[FunctionModel]) -> None:
                 callees.update(_check_calls(inner, model_fn_name))
             return callees
         if not isinstance(expr, Call):
-            return callees
+            assert_never(expr)
 
         if expr.name in sig_table:
             callees.add(expr.name)
