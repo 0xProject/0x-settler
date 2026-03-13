@@ -7209,5 +7209,356 @@ class LeanSourceDeterminismTest(unittest.TestCase):
         self.assertNotIn("Generated at (UTC)", src1)
 
 
+class BranchExprStmtTest(unittest.TestCase):
+    """Tests for scope-aware expression-statement tracking in branches."""
+
+    def test_inline_dead_branch_expr_stmt_discarded(self) -> None:
+        """Bare expression in dead if-branch is discarded during inlining."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1, 3)
+            }
+            function helper(var_x_3, var_y_4) -> var_r_5 {
+                if iszero(var_y_4) { side_effect() }
+                var_r_5 := div(var_x_3, var_y_4)
+            }
+        """
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(ytl.evaluate_function_model(model, (9,)), (3,))
+
+    def test_inline_live_branch_expr_stmt_rejected(self) -> None:
+        """Bare expression in live if-branch is still rejected."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1, 0)
+            }
+            function helper(var_x_3, var_y_4) -> var_r_5 {
+                if iszero(var_y_4) { side_effect() }
+                var_r_5 := div(var_x_3, var_y_4)
+            }
+        """
+        config = make_model_config(("target",))
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_inline_non_constant_branch_expr_stmt_rejected(self) -> None:
+        """Bare expression in non-constant branch is rejected."""
+        yul = """
+            function fun_target_1(var_x_1, var_y_2) -> var_z_3 {
+                var_z_3 := helper(var_x_1, var_y_2)
+            }
+            function helper(var_x_4, var_y_5) -> var_r_6 {
+                if iszero(var_y_5) { side_effect() }
+                var_r_6 := div(var_x_4, var_y_5)
+            }
+        """
+        config = make_model_config(("target",))
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    # -- Switch-based expr_stmts --
+
+    def test_switch_dead_case0_expr_stmt_discarded(self) -> None:
+        """Expr_stmt in dead case-0 branch of a switch is discarded."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1, 5)
+            }
+            function helper(var_x_3, var_y_4) -> var_r_5 {
+                switch iszero(var_y_4)
+                case 0 {
+                    var_r_5 := div(var_x_3, var_y_4)
+                }
+                default {
+                    side_effect()
+                    var_r_5 := 0
+                }
+            }
+        """
+        config = make_model_config(("target",))
+        # iszero(5) == 0 → case 0 is live, default (with side_effect) is dead
+        result = ytl.translate_yul_to_models(
+            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(ytl.evaluate_function_model(model, (15,)), (3,))
+
+    def test_switch_live_default_expr_stmt_rejected(self) -> None:
+        """Expr_stmt in live default branch of a switch is rejected."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1, 0)
+            }
+            function helper(var_x_3, var_y_4) -> var_r_5 {
+                switch iszero(var_y_4)
+                case 0 {
+                    var_r_5 := div(var_x_3, var_y_4)
+                }
+                default {
+                    side_effect()
+                    var_r_5 := 0
+                }
+            }
+        """
+        config = make_model_config(("target",))
+        # iszero(0) == 1 → default is live, and it has side_effect()
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    # -- Leave-bearing branches with expr_stmts --
+
+    def test_leave_dead_branch_expr_stmt_discarded(self) -> None:
+        """Expr_stmt in dead leave-bearing branch is discarded."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1, 3)
+            }
+            function helper(var_x_3, var_y_4) -> var_r_5 {
+                var_r_5 := 99
+                if iszero(var_y_4) {
+                    side_effect()
+                    var_r_5 := 0
+                    leave
+                }
+                var_r_5 := div(var_x_3, var_y_4)
+            }
+        """
+        config = make_model_config(("target",))
+        # iszero(3) == 0 → DEAD, leave branch discarded along with side_effect
+        result = ytl.translate_yul_to_models(
+            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(ytl.evaluate_function_model(model, (9,)), (3,))
+
+    def test_leave_live_branch_expr_stmt_rejected(self) -> None:
+        """Expr_stmt in live leave-bearing branch is rejected."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1, 0)
+            }
+            function helper(var_x_3, var_y_4) -> var_r_5 {
+                var_r_5 := 99
+                if iszero(var_y_4) {
+                    side_effect()
+                    var_r_5 := 0
+                    leave
+                }
+                var_r_5 := div(var_x_3, var_y_4)
+            }
+        """
+        config = make_model_config(("target",))
+        # iszero(0) == 1 → THEN_LIVE, leave branch has side_effect()
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_leave_switch_dead_else_expr_stmt_discarded(self) -> None:
+        """Expr_stmt in dead else-branch of leave-bearing switch is discarded."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1, 3)
+            }
+            function helper(var_x_3, var_y_4) -> var_r_5 {
+                var_r_5 := 99
+                switch iszero(var_y_4)
+                case 0 {
+                    var_r_5 := div(var_x_3, var_y_4)
+                }
+                default {
+                    side_effect()
+                    var_r_5 := 0
+                    leave
+                }
+            }
+        """
+        config = make_model_config(("target",))
+        # iszero(3) == 0 → case 0 is live; default (with leave+side_effect) dead
+        result = ytl.translate_yul_to_models(
+            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(ytl.evaluate_function_model(model, (12,)), (4,))
+
+    def test_leave_switch_live_else_expr_stmt_rejected(self) -> None:
+        """Expr_stmt in live else-branch of leave-bearing switch is rejected."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1, 0)
+            }
+            function helper(var_x_3, var_y_4) -> var_r_5 {
+                var_r_5 := 99
+                switch iszero(var_y_4)
+                case 0 {
+                    side_effect()
+                    var_r_5 := div(var_x_3, var_y_4)
+                }
+                default {
+                    var_r_5 := 0
+                    leave
+                }
+            }
+        """
+        config = make_model_config(("target",))
+        # iszero(0) == 1 → default (leave) is THEN_LIVE; case 0 is ELSE_LIVE.
+        # After switch normalization, the leave-bearing default becomes body.
+        # The case-0 branch (with side_effect) becomes else_body.
+        # Since leave is taken, else_body is unused — but if the fold picks
+        # ELSE_LIVE, the side_effect must be rejected.
+        # Actually iszero(0)==1 makes condition truthy → THEN_LIVE (leave taken).
+        # That means the else-branch (case 0 with side_effect) is dead.
+        # So this should succeed.
+        result = ytl.translate_yul_to_models(
+            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        # Leave branch: r = 0
+        self.assertEqual(ytl.evaluate_function_model(model, (42,)), (0,))
+
+    # -- Direct target function (yul_function_to_model path) --
+
+    def test_direct_target_dead_branch_expr_stmt_discarded(self) -> None:
+        """Branch expr_stmt in target function is discarded when branch is dead."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                if iszero(1) { side_effect() }
+                var_z_2 := add(var_x_1, 1)
+            }
+        """
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(ytl.evaluate_function_model(model, (5,)), (6,))
+
+    def test_direct_target_live_branch_expr_stmt_rejected(self) -> None:
+        """Branch expr_stmt in target function is rejected when branch is live."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                if iszero(0) { side_effect() }
+                var_z_2 := add(var_x_1, 1)
+            }
+        """
+        config = make_model_config(("target",))
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_direct_target_non_constant_branch_expr_stmt_rejected(self) -> None:
+        """Branch expr_stmt in target function is rejected when condition is variable."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                if var_x_1 { side_effect() }
+                var_z_2 := add(var_x_1, 1)
+            }
+        """
+        config = make_model_config(("target",))
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    # -- Multiple expr_stmts in one branch --
+
+    def test_multiple_expr_stmts_in_dead_branch_discarded(self) -> None:
+        """Multiple bare expressions in a dead branch are all discarded."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1, 3)
+            }
+            function helper(var_x_3, var_y_4) -> var_r_5 {
+                if iszero(var_y_4) {
+                    side_effect_a()
+                    side_effect_b()
+                }
+                var_r_5 := div(var_x_3, var_y_4)
+            }
+        """
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(ytl.evaluate_function_model(model, (12,)), (4,))
+
+    def test_multiple_expr_stmts_in_live_branch_rejected(self) -> None:
+        """Multiple bare expressions in a live branch are all rejected."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1, 0)
+            }
+            function helper(var_x_3, var_y_4) -> var_r_5 {
+                if iszero(var_y_4) {
+                    side_effect_a()
+                    side_effect_b()
+                }
+                var_r_5 := div(var_x_3, var_y_4)
+            }
+        """
+        config = make_model_config(("target",))
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            r"2 unhandled expression-statement",
+        ):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    # -- Chained inlining: expr_stmt from a deeper helper --
+
+    def test_chained_inline_dead_branch_expr_stmt_discarded(self) -> None:
+        """Expr_stmt in dead branch survives through a chain of helpers."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := wrapper(var_x_1)
+            }
+            function wrapper(var_a_3) -> var_b_4 {
+                var_b_4 := divider(var_a_3, 7)
+            }
+            function divider(var_x_5, var_y_6) -> var_r_7 {
+                if iszero(var_y_6) { panic() }
+                var_r_7 := div(var_x_5, var_y_6)
+            }
+        """
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(ytl.evaluate_function_model(model, (21,)), (3,))
+
+    # -- Top-level function expr_stmts still rejected (regression) --
+
+    def test_top_level_expr_stmt_still_rejected(self) -> None:
+        """Bare expression at function top level (not in any branch) is still rejected."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1, 3)
+            }
+            function helper(var_x_3, var_y_4) -> var_r_5 {
+                side_effect()
+                var_r_5 := div(var_x_3, var_y_4)
+            }
+        """
+        config = make_model_config(("target",))
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -249,6 +249,8 @@ class ParsedIfBlock:
     body: tuple["PlainAssignment", ...]
     has_leave: bool = False
     else_body: tuple["PlainAssignment", ...] | None = None
+    body_expr_stmts: tuple[Expr, ...] = ()
+    else_body_expr_stmts: tuple[Expr, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -1175,6 +1177,8 @@ class YulParser(_TokenReader):
                                         if outer_else is not None
                                         else None
                                     ),
+                                    body_expr_stmts=stmt.body_expr_stmts,
+                                    else_body_expr_stmts=stmt.else_body_expr_stmts,
                                 )
                             )
                     else:
@@ -1246,10 +1250,13 @@ class YulParser(_TokenReader):
                         # but discard).  Use allow_control_flow=True to
                         # tolerate memory writes in dead code.
                         self._expect("{")
+                        saved_stmts = self._expr_stmts
+                        self._expr_stmts = []
                         _dead_body, _dead_leave = self._parse_assignment_loop(
                             allow_control_flow=True,
                             context="if-body (dead, constant-false)",
                         )
+                        self._expr_stmts = saved_stmts
                         self._expect("}")
                         continue
                     if const_cond is not None and const_cond != 0:
@@ -1269,10 +1276,14 @@ class YulParser(_TokenReader):
                             break
                         continue
                     self._expect("{")
+                    saved_stmts = self._expr_stmts
+                    self._expr_stmts = []
                     body, body_leave = self._parse_assignment_loop(
                         allow_control_flow=False,
                         context="if-body",
                     )
+                    body_expr_stmts = tuple(self._expr_stmts)
+                    self._expr_stmts = saved_stmts
                     self._expect("}")
                     plain_body = self._expect_plain_assignments(
                         body,
@@ -1283,6 +1294,7 @@ class YulParser(_TokenReader):
                             condition=condition,
                             body=tuple(plain_body),
                             has_leave=body_leave,
+                            body_expr_stmts=body_expr_stmts,
                         )
                     )
                 else:  # switch
@@ -1332,8 +1344,10 @@ class YulParser(_TokenReader):
                     # is rejected loudly.
                     case0_body: list[PlainAssignment] | None = None
                     case0_leave = False
+                    case0_expr_stmts: tuple[Expr, ...] = ()
                     default_body: list[PlainAssignment] | None = None
                     default_leave = False
+                    default_expr_stmts: tuple[Expr, ...] = ()
                     n_branches = 0
                     while (
                         not self._at_end()
@@ -1356,10 +1370,14 @@ class YulParser(_TokenReader):
                                     "Duplicate 'case 0' in switch statement."
                                 )
                             self._expect("{")
+                            saved_stmts = self._expr_stmts
+                            self._expr_stmts = []
                             raw_case0_body, case0_leave = self._parse_assignment_loop(
                                 allow_control_flow=False,
                                 context="switch branch",
                             )
+                            case0_expr_stmts = tuple(self._expr_stmts)
+                            self._expr_stmts = saved_stmts
                             self._expect("}")
                             case0_body = self._expect_plain_assignments(
                                 raw_case0_body,
@@ -1371,12 +1389,16 @@ class YulParser(_TokenReader):
                                     "Duplicate 'default' in switch statement."
                                 )
                             self._expect("{")
+                            saved_stmts = self._expr_stmts
+                            self._expr_stmts = []
                             raw_default_body, default_leave = (
                                 self._parse_assignment_loop(
                                     allow_control_flow=False,
                                     context="switch branch",
                                 )
                             )
+                            default_expr_stmts = tuple(self._expr_stmts)
+                            self._expr_stmts = saved_stmts
                             self._expect("}")
                             default_body = self._expect_plain_assignments(
                                 raw_default_body,
@@ -1417,17 +1439,23 @@ class YulParser(_TokenReader):
                         else_body = tuple(default_body)
                         parsed_condition = Call("iszero", (condition,))
                         parsed_has_leave = True
+                        body_es = case0_expr_stmts
+                        else_body_es = default_expr_stmts
                     else:
                         if_body = tuple(default_body)
                         else_body = tuple(case0_body) if case0_body else None
                         parsed_condition = condition
                         parsed_has_leave = default_leave
+                        body_es = default_expr_stmts
+                        else_body_es = case0_expr_stmts
                     results.append(
                         ParsedIfBlock(
                             condition=parsed_condition,
                             body=if_body,
                             has_leave=parsed_has_leave,
                             else_body=else_body,
+                            body_expr_stmts=body_es,
+                            else_body_expr_stmts=else_body_es,
                         )
                     )
                 continue
@@ -2252,6 +2280,20 @@ def _reject_expr_stmts(expr_stmts: list[Expr] | None, *, context: str) -> None:
     )
 
 
+def _reject_branch_expr_stmts(
+    stmt: ParsedIfBlock, *, context: str
+) -> None:
+    """Raise ``ParseError`` if either branch carries expression-statements."""
+    _reject_expr_stmts(
+        list(stmt.body_expr_stmts) if stmt.body_expr_stmts else None,
+        context=f"{context} then-branch",
+    )
+    _reject_expr_stmts(
+        list(stmt.else_body_expr_stmts) if stmt.else_body_expr_stmts else None,
+        context=f"{context} else-branch",
+    )
+
+
 # ---------------------------------------------------------------------------
 # Function inlining
 # ---------------------------------------------------------------------------
@@ -2468,6 +2510,8 @@ def _alpha_rename_yul_function(
                     body=new_body,
                     has_leave=stmt.has_leave,
                     else_body=new_else,
+                    body_expr_stmts=stmt.body_expr_stmts,
+                    else_body_expr_stmts=stmt.else_body_expr_stmts,
                 )
             )
         else:
@@ -2611,6 +2655,10 @@ def _inline_single_call(
                     has_else=stmt.else_body is not None,
                 )
                 if fold == _IfFoldDecision.THEN_LIVE:
+                    _reject_expr_stmts(
+                        list(stmt.body_expr_stmts) if stmt.body_expr_stmts else None,
+                        context=f"Inlining {fn.yul_name!r} then-branch has",
+                    )
                     if stmt.else_body is not None:
                         # Strip dead else-body, keep as leave block.
                         stmt = ParsedIfBlock(
@@ -2618,6 +2666,7 @@ def _inline_single_call(
                             body=stmt.body,
                             has_leave=True,
                             else_body=None,
+                            body_expr_stmts=stmt.body_expr_stmts,
                         )
                     else:
                         # Unconditional leave: process body, return immediately.
@@ -2636,6 +2685,10 @@ def _inline_single_call(
                             return subst.get(fn.rets[0], IntLit(0))
                         return tuple(subst.get(r, IntLit(0)) for r in fn.rets)
                 elif fold == _IfFoldDecision.ELSE_LIVE:
+                    _reject_expr_stmts(
+                        list(stmt.else_body_expr_stmts) if stmt.else_body_expr_stmts else None,
+                        context=f"Inlining {fn.yul_name!r} else-branch has",
+                    )
                     # Process else-body as straight-line, skip then-body.
                     for s in stmt.else_body:
                         expr = substitute_expr(s.expr, subst)
@@ -2684,8 +2737,16 @@ def _inline_single_call(
                 )
                 if fold != _IfFoldDecision.NOT_CONSTANT:
                     if fold == _IfFoldDecision.THEN_LIVE:
+                        _reject_expr_stmts(
+                            list(stmt.body_expr_stmts) if stmt.body_expr_stmts else None,
+                            context=f"Inlining {fn.yul_name!r} then-branch has",
+                        )
                         live_body = stmt.body
                     elif fold == _IfFoldDecision.ELSE_LIVE:
+                        _reject_expr_stmts(
+                            list(stmt.else_body_expr_stmts) if stmt.else_body_expr_stmts else None,
+                            context=f"Inlining {fn.yul_name!r} else-branch has",
+                        )
                         live_body = stmt.else_body
                     else:  # DEAD
                         continue
@@ -2701,6 +2762,13 @@ def _inline_single_call(
                         )
                         subst[s.target] = expr
                     continue
+
+            # Non-constant condition: both branches are live,
+            # reject if either carries expression-statements.
+            _reject_branch_expr_stmts(
+                stmt,
+                context=f"Inlining {fn.yul_name!r}",
+            )
 
             # Process if-body assignments into a separate subst branch.
             if_subst = dict(subst)
@@ -2977,6 +3045,10 @@ def _inline_yul_function(
     new_assignments: list[RawStatement] = []
     for stmt in yf.assignments:
         if isinstance(stmt, ParsedIfBlock):
+            _reject_branch_expr_stmts(
+                stmt,
+                context=f"Function {yf.yul_name!r}",
+            )
             pre_len = len(mstore_sink)
             new_cond = inline_calls(
                 stmt.condition,
@@ -3028,6 +3100,8 @@ def _inline_yul_function(
                     else_body=(
                         tuple(new_else_body) if new_else_body is not None else None
                     ),
+                    body_expr_stmts=stmt.body_expr_stmts,
+                    else_body_expr_stmts=stmt.else_body_expr_stmts,
                 )
             )
         elif isinstance(stmt, MemoryWrite):
@@ -3562,6 +3636,10 @@ def yul_function_to_model(
                     has_else=stmt.else_body is not None,
                 )
                 if fold == _IfFoldDecision.ELSE_LIVE:
+                    _reject_expr_stmts(
+                        list(stmt.else_body_expr_stmts) if stmt.else_body_expr_stmts else None,
+                        context=f"Function {sol_fn_name!r} else-branch has",
+                    )
                     _lower_live_branch(stmt.else_body)
                     continue
                 if fold == _IfFoldDecision.DEAD:
@@ -3579,14 +3657,26 @@ def yul_function_to_model(
                 has_else=stmt.else_body is not None,
             )
             if fold == _IfFoldDecision.THEN_LIVE:
+                _reject_expr_stmts(
+                    list(stmt.body_expr_stmts) if stmt.body_expr_stmts else None,
+                    context=f"Function {sol_fn_name!r} then-branch has",
+                )
                 _lower_live_branch(stmt.body)
                 continue
             if fold == _IfFoldDecision.ELSE_LIVE:
+                _reject_expr_stmts(
+                    list(stmt.else_body_expr_stmts) if stmt.else_body_expr_stmts else None,
+                    context=f"Function {sol_fn_name!r} else-branch has",
+                )
                 _lower_live_branch(stmt.else_body)
                 continue
             if fold == _IfFoldDecision.DEAD:
                 continue
             # NOT_CONSTANT: fall through to ConditionalBlock emission.
+            _reject_branch_expr_stmts(
+                stmt,
+                context=f"Function {sol_fn_name!r}",
+            )
             # Process the if-block: apply copy-prop/demangling to
             # condition and body, then emit a ConditionalBlock.
             cond = substitute_expr(stmt.condition, subst)
