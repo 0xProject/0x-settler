@@ -5,7 +5,8 @@ import {SettlerBase} from "../../SettlerBase.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
-import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
+import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
+import {Ternary} from "../../utils/Ternary.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -16,7 +17,9 @@ import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract TempoMixin is FreeMemory, SettlerBase {
+    using Ternary for bool;
     using SafeTransferLib for IERC20;
+    using SafeTransferLib for address payable;
 
     constructor() {
         assert(block.chainid == 4217 || block.chainid == 31337);
