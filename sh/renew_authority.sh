@@ -187,8 +187,6 @@ declare -i auth_deadline
 auth_deadline="$(_compat_date "$auth_deadline_datestring" +%s)"
 declare -r -i auth_deadline
 
-set -x
-
 declare multisend_data=''
 declare -i tokenid
 for tokenid in "${feature[@]}" ; do
