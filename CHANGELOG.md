@@ -3,10 +3,17 @@
 ### Breaking changes
 
 * DackieSwap and BaseX UniV3 forks removed from Base
+* Remove `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad mainnet chain
+* Deprecate MonadTestnet chain
+* Deprecate Abstract Sepolia testnet
 
 ### Non-breaking changes
 
+* Add `BRIDGE_TO_CCIP` action to `BridgeSettlerBase` for Chainlink CCIP cross-chain token transfers
 * Deploy Settler to Tempo mainnet chain
+* Add Thena UniV3 Algebra style fork to Bnb with fork ID 37
+* EkuboV2 VIP actions `EKUBO_VIP` and `METATXN_EKUBO_VIP` are not
+  supported anymore and were removed from `ISettlerActions.sol`.
 
 ## 2026-01-29
 
