@@ -67,3 +67,5 @@
    35. Velodrome/Aerodrome Slipstream V3.1
    <!-- -->
    36. AboreanCL
+   <!-- -->
+   37. Thena (Algebra-like)
