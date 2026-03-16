@@ -195,6 +195,7 @@ for tokenid in "${feature[@]}" ; do
     declare renew_authority_calldata
     declare packed_signatures
     declare -a exec_args
+    declare exec_call
 
     renew_authority_calldata="$(cast calldata "$authorize_sig" $tokenid "$deployment_safe_address" $auth_deadline)"
     packed_signatures="$(retrieve_signatures renew_authority "$renew_authority_calldata")"
