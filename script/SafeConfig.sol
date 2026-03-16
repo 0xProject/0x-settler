@@ -16,7 +16,6 @@ library SafeConfig {
             block.chainid == 1 // mainnet
                 || block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
-                || block.chainid == 100 // gnosis
                 || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 143 // monad
@@ -34,8 +33,6 @@ library SafeConfig {
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
                 || block.chainid == 80094 // berachain
-                || block.chainid == 81457 // blast
-                || block.chainid == 167000 // taiko
                 || block.chainid == 534352 // scroll
                 || block.chainid == 747474 // katana
         ) {
@@ -51,7 +48,6 @@ library SafeConfig {
         if (
             block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
-                || block.chainid == 100 // gnosis
                 || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 143 // monad
@@ -71,8 +67,6 @@ library SafeConfig {
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
                 || block.chainid == 80094 // berachain
-                || block.chainid == 81457 // blast
-                || block.chainid == 167000 // taiko
                 || block.chainid == 534352 // scroll
                 || block.chainid == 747474 // katana
                 || block.chainid == 11155111 // sepolia
@@ -93,7 +87,6 @@ library SafeConfig {
             block.chainid == 1 // ethereum
                 || block.chainid == 10 // optimism
                 || block.chainid == 56 // bnb
-                || block.chainid == 100 // gnosis
                 || block.chainid == 130 // unichain
                 || block.chainid == 137 // polygon
                 || block.chainid == 146 // sonic
@@ -110,8 +103,6 @@ library SafeConfig {
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
                 || block.chainid == 80094 // berachain
-                || block.chainid == 81457 // blast
-                || block.chainid == 167000 // taiko
                 || block.chainid == 534352 // scroll
                 || block.chainid == 747474 // katana
                 || block.chainid == 11155111 // sepolia

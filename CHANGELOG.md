@@ -4,6 +4,10 @@
 
 * DackieSwap and BaseX UniV3 forks removed from Base
 * Remove `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad mainnet chain
+* Abandon the following chains:
+  * Blast
+  * Taiko
+  * Gnosis (XDAI)
 
 ### Non-breaking changes
 
