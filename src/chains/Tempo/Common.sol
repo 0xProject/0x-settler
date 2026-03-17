@@ -5,6 +5,8 @@ import {SettlerBase} from "../../SettlerBase.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
+import {Ternary} from "../../utils/Ternary.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
@@ -15,6 +17,10 @@ import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract TempoMixin is FreeMemory, SettlerBase {
+    using Ternary for bool;
+    using SafeTransferLib for IERC20;
+    using SafeTransferLib for address payable;
+
     constructor() {
         assert(block.chainid == 4217 || block.chainid == 31337);
     }
@@ -33,6 +39,24 @@ abstract contract TempoMixin is FreeMemory, SettlerBase {
                 abi.decode(data, (IERC20, uint256, address, uint256, bytes));
 
             basicSellToPool(sellToken, bps, pool, offset, _data);
+        } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
+            (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxBps) =
+                abi.decode(data, (address, IERC20, uint256, uint256));
+            bool isETH = (token == ETH_ADDRESS);
+            uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
+            if (balance > expectedAmount) {
+                uint256 cap;
+                unchecked {
+                    cap = balance * maxBps / BASIS;
+                    balance -= expectedAmount;
+                }
+                balance = (balance > cap).ternary(cap, balance);
+                if (isETH) {
+                    recipient.safeTransferETH(balance);
+                } else {
+                    token.safeTransfer(recipient, balance);
+                }
+            }
         } else {
             return false;
         }
