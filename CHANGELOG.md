@@ -4,8 +4,8 @@
 
 * DackieSwap and BaseX UniV3 forks removed from Base
 * Remove `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad mainnet chain
-* Deprecate Abstract Sepolia testnet
 * Deprecate MonadTestnet chain
+* Deprecate Abstract Sepolia testnet
 
 ### Non-breaking changes
 
