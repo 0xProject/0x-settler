@@ -14,20 +14,21 @@ import {
     BASE_TXN_BLOCK,
     BASE_USDC,
     BASE_WETH,
-    BASE_AMOUNT
+    BASE_AMOUNT,
+    BASE_SELL_BASE_CALLDATA,
+    BASE_SELL_BASE_BLOCK,
+    BASE_SELL_BASE_AMOUNT
 } from "./RenegadeTxn.t.sol";
 
 abstract contract RenegadeTest is SettlerBasePairTest {
     uint32 selector;
     address target;
     bytes txnCalldata;
+    bool isSellingBase;
 
     function setUp() public virtual override {
         super.setUp();
-
         vm.label(target, "GasSponsor");
-        vm.label(address(fromToken()), "USDC");
-        vm.label(address(toToken()), "WETH");
     }
 
     function testRerunTxn() public {
@@ -58,11 +59,11 @@ abstract contract RenegadeTest is SettlerBasePairTest {
                             ISettlerActions.TRANSFER_FROM,
                             (
                                 address(settler),
-                                defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
-                                new bytes(0) /* sig (empty) */
+                                defaultERC20PermitTransfer(address(fromToken()), amount(), 0),
+                                new bytes(0)
                             )
                         ),
-                        abi.encodeCall(ISettlerActions.RENEGADE, (target, address(fromToken()), false, _calldata))
+                        abi.encodeCall(ISettlerActions.RENEGADE, (target, address(fromToken()), isSellingBase, _calldata))
                     ),
                     bytes32(0)
                 )
@@ -71,11 +72,13 @@ abstract contract RenegadeTest is SettlerBasePairTest {
     }
 }
 
+// Sell-quote: USDC -> WETH (replays real on-chain tx 0xbfcb0bcd)
 contract RenegadeBaseIntegrationTest is RenegadeTest {
     function setUp() public virtual override {
         target = BASE_GAS_SPONSOR;
         txnCalldata = BASE_TXN_CALLDATA;
         selector = BASE_SELECTOR;
+        isSellingBase = false;
 
         super.setUp();
     }
@@ -106,5 +109,45 @@ contract RenegadeBaseIntegrationTest is RenegadeTest {
 
     function amount() internal pure virtual override returns (uint256) {
         return BASE_AMOUNT;
+    }
+}
+
+// Sell-base: WETH -> USDC (uses real GasSponsor with API-generated ZK proof calldata)
+contract RenegadeBaseSellBaseIntegrationTest is RenegadeTest {
+    function setUp() public virtual override {
+        target = BASE_GAS_SPONSOR;
+        txnCalldata = BASE_SELL_BASE_CALLDATA;
+        selector = BASE_SELECTOR;
+        isSellingBase = true;
+
+        super.setUp();
+    }
+
+    function settlerInitCode() internal virtual override returns (bytes memory) {
+        return bytes.concat(type(BaseSettler).creationCode, abi.encode(bytes20(0)));
+    }
+
+    function _testChainId() internal pure virtual override returns (string memory) {
+        return "base";
+    }
+
+    function _testBlockNumber() internal pure virtual override returns (uint256) {
+        return BASE_SELL_BASE_BLOCK - 1;
+    }
+
+    function fromToken() internal pure virtual override returns (IERC20) {
+        return BASE_WETH;
+    }
+
+    function toToken() internal pure virtual override returns (IERC20) {
+        return BASE_USDC;
+    }
+
+    function _testName() internal pure virtual override returns (string memory) {
+        return "BASE-USDC-SELL-BASE";
+    }
+
+    function amount() internal pure virtual override returns (uint256) {
+        return BASE_SELL_BASE_AMOUNT;
     }
 }
