@@ -296,7 +296,7 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function RENEGADE(address target, address baseToken, bytes memory data) external;
+    function RENEGADE(address target, address sellToken, bool isSellingBase, bytes memory data) external;
 
     struct BebopMakerSignature {
         bytes signatureBytes;

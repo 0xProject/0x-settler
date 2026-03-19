@@ -62,7 +62,7 @@ abstract contract RenegadeTest is SettlerBasePairTest {
                                 new bytes(0) /* sig (empty) */
                             )
                         ),
-                        abi.encodeCall(ISettlerActions.RENEGADE, (target, address(fromToken()), _calldata))
+                        abi.encodeCall(ISettlerActions.RENEGADE, (target, address(fromToken()), false, _calldata))
                     ),
                     bytes32(0)
                 )

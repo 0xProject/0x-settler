@@ -163,9 +163,10 @@ abstract contract BaseMixin is
 
             sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
-            (address target, IERC20 baseToken, bytes memory renegadeData) = abi.decode(data, (address, IERC20, bytes));
+            (address target, IERC20 sellToken, bool isSellingBase, bytes memory renegadeData) =
+                abi.decode(data, (address, IERC20, bool, bytes));
 
-            sellToRenegade(target, baseToken, renegadeData);
+            sellToRenegade(target, sellToken, isSellingBase, renegadeData);
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
             (
                 IERC20 sellToken,

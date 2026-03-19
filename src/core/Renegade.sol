@@ -25,34 +25,50 @@ abstract contract Renegade is SettlerAbstract {
 
     function _renegadeSelector() internal pure virtual returns (uint32);
 
-    function sellToRenegade(address target, IERC20 baseToken, bytes memory data) internal returns (uint256 buyAmount) {
-        uint256 newBaseAmount;
+    // @param isSellingBase True if selling the market base asset (e.g. WETH).
+    function sellToRenegade(address target, IERC20 sellToken, bool isSellingBase, bytes memory data)
+        internal
+        returns (uint256 buyAmount)
+    {
+        uint256 newSellAmount;
         uint256 value;
-        if (baseToken == ETH_ADDRESS) {
+        if (sellToken == ETH_ADDRESS) {
             value = address(this).balance;
-            newBaseAmount = value;
+            newSellAmount = value;
         } else {
-            newBaseAmount = baseToken.fastBalanceOf(address(this));
-            baseToken.safeApproveIfBelow(address(target), newBaseAmount);
+            newSellAmount = sellToken.fastBalanceOf(address(this));
+            sellToken.safeApproveIfBelow(address(target), newSellAmount);
         }
 
-        uint256 originalBaseAmount;
+        // layout: word 0 = quoteAmount, word 1 = baseAmount
         uint256 originalQuoteAmount;
+        uint256 originalBaseAmount;
         assembly ("memory-safe") {
-            // baseAmount and quoteAmount are the first and second parameters in ARBITRUM_SELECTOR and BASE_SELECTOR
-            originalBaseAmount := mload(add(0x20, data))
-            originalQuoteAmount := mload(add(0x40, data))
+            originalQuoteAmount := mload(add(0x20, data))
+            originalBaseAmount := mload(add(0x40, data))
         }
-        // scale quoteAmount using newBaseAmount
-        unchecked {
-            buyAmount = (originalQuoteAmount * newBaseAmount).unsafeDiv(originalBaseAmount);
+
+        uint256 newQuoteAmount;
+        uint256 newBaseAmount;
+        if (isSellingBase) {
+            newBaseAmount = newSellAmount;
+            unchecked {
+                newQuoteAmount = (originalQuoteAmount * newBaseAmount).unsafeDiv(originalBaseAmount);
+            }
+            buyAmount = newQuoteAmount;
+        } else {
+            newQuoteAmount = newSellAmount;
+            unchecked {
+                newBaseAmount = (originalBaseAmount * newQuoteAmount).unsafeDiv(originalQuoteAmount);
+            }
+            buyAmount = newBaseAmount;
         }
 
         uint32 selector = _renegadeSelector();
         assembly ("memory-safe") {
-            // override baseAmount and quoteAmount
-            mstore(add(0x20, data), newBaseAmount)
-            mstore(add(0x40, data), buyAmount)
+            // override quoteAmount and baseAmount
+            mstore(add(0x20, data), newQuoteAmount)
+            mstore(add(0x40, data), newBaseAmount)
 
             let len := mload(data)
             // temporarily clobber `data` size memory area

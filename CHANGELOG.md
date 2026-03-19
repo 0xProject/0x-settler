@@ -4,6 +4,7 @@
 
 * DackieSwap and BaseX UniV3 forks removed from Base
 * Remove `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad mainnet chain
+* Update `RENEGADE` signature to support selling base asset
 
 ### Non-breaking changes
 
