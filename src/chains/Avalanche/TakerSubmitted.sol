@@ -58,12 +58,7 @@ contract AvalancheSettler is Settler, AvalancheMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, AvalancheMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, AvalancheMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 

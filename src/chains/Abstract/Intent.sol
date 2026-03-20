@@ -41,7 +41,12 @@ contract AbstractSettlerIntent is SettlerIntent, AbstractSettlerMetaTxn {
         return super._dispatch(i, action, data, slippage);
     }
 
-    function _isEraVmUniV3Fork(uint8 forkId) internal pure override(AbstractSettlerMetaTxn, UniswapV3Fork) returns (bool) {
+    function _isEraVmUniV3Fork(uint8 forkId)
+        internal
+        pure
+        override(AbstractSettlerMetaTxn, UniswapV3Fork)
+        returns (bool)
+    {
         return super._isEraVmUniV3Fork(forkId);
     }
 
@@ -57,12 +62,7 @@ contract AbstractSettlerIntent is SettlerIntent, AbstractSettlerMetaTxn {
         return super._msgSender();
     }
 
-    function _witnessTypeSuffix()
-        internal
-        pure
-        override(SettlerIntent, Permit2PaymentMetaTxn)
-        returns (string memory)
-    {
+    function _witnessTypeSuffix() internal pure override(SettlerIntent, Permit2PaymentMetaTxn) returns (string memory) {
         return super._witnessTypeSuffix();
     }
 

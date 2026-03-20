@@ -17,11 +17,7 @@ import {
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
-import {
-    aboreanCLSwapFactory,
-    aboreanCLSwapInitHash,
-    aboreanCLSwapForkId
-} from "../../core/univ3forks/AboreanCL.sol";
+import {aboreanCLSwapFactory, aboreanCLSwapInitHash, aboreanCLSwapForkId} from "../../core/univ3forks/AboreanCL.sol";
 
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";

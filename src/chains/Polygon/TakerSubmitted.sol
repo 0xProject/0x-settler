@@ -44,7 +44,10 @@ contract PolygonSettler is Settler, PolygonMixin {
         return true;
     }
 
-    function _handlePermit(address owner, address token, Permit.PermitType permitType, bytes memory permitData) internal override {
+    function _handlePermit(address owner, address token, Permit.PermitType permitType, bytes memory permitData)
+        internal
+        override
+    {
         if (permitType == Permit.PermitType.ERC2612) {
             callPermit(owner, token, permitData);
         } else if (permitType == Permit.PermitType.DAIPermit) {

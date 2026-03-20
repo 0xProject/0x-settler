@@ -58,7 +58,13 @@ contract AbstractSettlerMetaTxn is SettlerMetaTxn, AbstractMixin {
         return super._msgSender();
     }
 
-    function _isEraVmUniV3Fork(uint8 forkId) internal pure virtual override(AbstractMixin, UniswapV3Fork) returns (bool) {
+    function _isEraVmUniV3Fork(uint8 forkId)
+        internal
+        pure
+        virtual
+        override(AbstractMixin, UniswapV3Fork)
+        returns (bool)
+    {
         return super._isEraVmUniV3Fork(forkId);
     }
 }
