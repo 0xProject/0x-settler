@@ -205,10 +205,13 @@ abstract contract MaverickV2 is SettlerAbstract {
     ) private returns (uint256 buyAmount) {
         bytes memory data = pool.fastEncodeSwap(recipient, amount, tokenAIn, tickLimit, new bytes(0));
 
-        {
-            (bool success, bytes memory returndata) = pool.call(data);
-            success.maybeRevert(returndata);
-            (, buyAmount) = abi.decode(returndata, (uint256, uint256));
+        assembly ("memory-safe") {
+            if iszero(call(gas(), pool, 0x00, add(0x20, data), mload(data), 0x00, 0x40)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            buyAmount := mload(0x20)
         }
 
         if (buyAmount < minBuyAmount) {
