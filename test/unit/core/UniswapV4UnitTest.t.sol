@@ -147,13 +147,13 @@ contract UniswapV4Stub is UniswapV4 {
     // bytes32(uint256(keccak256("operator slot")) - 1)
     bytes32 private constant _OPERATOR_SLOT = 0x009355806b743562f351db2e3726091207f49fa1cdccd5c65a7d4860ce3abbe9;
 
-    function _setCallback(function (bytes calldata) internal returns (bytes memory) callback) private {
+    function _setCallback(function(bytes calldata) internal returns (bytes memory) callback) private {
         assembly ("memory-safe") {
             tstore(_OPERATOR_SLOT, and(0xffff, callback))
         }
     }
 
-    function _getCallback() private returns (function (bytes calldata) internal returns (bytes memory) callback) {
+    function _getCallback() private returns (function(bytes calldata) internal returns (bytes memory) callback) {
         assembly ("memory-safe") {
             callback := and(0xffff, tload(_OPERATOR_SLOT))
             tstore(_OPERATOR_SLOT, 0x00)
@@ -277,9 +277,8 @@ contract UniswapV4Stub is UniswapV4 {
             revert SignatureExpired(permit.deadline);
         }
         assert(permit.nonce == uint256(keccak256(sig)));
-        IERC20(permit.permitted.token).safeTransferFrom(
-            _msgSender(), transferDetails.to, transferDetails.requestedAmount
-        );
+        IERC20(permit.permitted.token)
+            .safeTransferFrom(_msgSender(), transferDetails.to, transferDetails.requestedAmount);
     }
 
     function _transferFrom(
@@ -294,7 +293,7 @@ contract UniswapV4Stub is UniswapV4 {
         address target,
         bytes memory data,
         uint32 selector,
-        function (bytes calldata) internal returns (bytes memory) callback
+        function(bytes calldata) internal returns (bytes memory) callback
     ) internal override returns (bytes memory) {
         require(target == address(POOL_MANAGER));
         require(selector == uint32(IUnlockCallback.unlockCallback.selector));
@@ -620,7 +619,7 @@ contract UniswapV4BoundedInvariantTest is BaseUniswapV4UnitTest, IUnlockCallback
         public
     {
         (tokenAIndex, tokenBIndex) =
-            (bound(tokenAIndex, 0, tokens.length - 1), bound(tokenBIndex, 0, tokens.length - 1));
+        (bound(tokenAIndex, 0, tokens.length - 1), bound(tokenBIndex, 0, tokens.length - 1));
         invariantAssume(tokenAIndex != tokenBIndex);
         fee = uint24(bound(fee, 0, 500_000));
         tickSpacing = int24(bound(tickSpacing, TickMath.MIN_TICK_SPACING, TickMath.MAX_TICK_SPACING));

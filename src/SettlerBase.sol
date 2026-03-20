@@ -36,12 +36,11 @@ library CalldataDecoder {
     {
         assembly ("memory-safe") {
             // initially, we set `args.offset` to the pointer to the length. this is 32 bytes before the actual start of data
-            args.offset :=
-                add(
-                    data.offset,
-                    // We allow the indirection/offset to `calls[i]` to be negative
-                    calldataload(i)
-                )
+            args.offset := add(
+                data.offset,
+                // We allow the indirection/offset to `calls[i]` to be negative
+                calldataload(i)
+            )
             // now we load `args.length` and set `args.offset` to the start of data
             args.length := calldataload(args.offset)
             args.offset := add(0x20, args.offset)
@@ -115,7 +114,12 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         }
     }
 
-    function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory slippage) internal virtual override returns (bool) {
+    function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override
+        returns (bool)
+    {
         //// NOTICE: This function has been largely copy/paste'd into
         //// `src/chains/Mainnet/Common.sol:MainnetMixin._dispatch`. If you make changes here, you
         //// need to make sure that corresponding changes are made to that function.

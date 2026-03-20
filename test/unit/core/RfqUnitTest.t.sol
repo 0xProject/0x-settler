@@ -194,14 +194,10 @@ contract RfqUnitTest is Utils, Test {
         // 🎉
         uint256 amount = 9999;
         ISignatureTransfer.PermitTransferFrom memory makerPermit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({token: TOKEN1, amount: amount}),
-            nonce: 0,
-            deadline: 0
+            permitted: ISignatureTransfer.TokenPermissions({token: TOKEN1, amount: amount}), nonce: 0, deadline: 0
         });
         ISignatureTransfer.PermitTransferFrom memory takerPermit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({token: TOKEN0, amount: amount}),
-            nonce: 0,
-            deadline: 0
+            permitted: ISignatureTransfer.TokenPermissions({token: TOKEN0, amount: amount}), nonce: 0, deadline: 0
         });
 
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
@@ -354,23 +350,23 @@ contract RfqUnitTest is Utils, Test {
         // );
 
         vm.prank(ALLOWANCE_HOLDER);
-        (bool success,) = address(rfq).call(
-            abi.encodePacked(
-                abi.encodeCall(
-                    rfq.fillRfqOrderDirectCounterparties, (RECIPIENT, makerPermit, MAKER, hex"dead", takerPermit, hex"")
-                ),
-                address(this)
-            ) // Forward on true msg.sender
-        );
+        (bool success,) = address(rfq)
+            .call(
+                abi.encodePacked(
+                    abi.encodeCall(
+                        rfq.fillRfqOrderDirectCounterparties,
+                        (RECIPIENT, makerPermit, MAKER, hex"dead", takerPermit, hex"")
+                    ),
+                    address(this) // Forward on true msg.sender
+                )
+            );
         require(success);
     }
 
     function testRfqSelfFunded() public {
         uint256 amount = 9999;
         ISignatureTransfer.PermitTransferFrom memory makerPermit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({token: TOKEN1, amount: amount}),
-            nonce: 0,
-            deadline: 0
+            permitted: ISignatureTransfer.TokenPermissions({token: TOKEN1, amount: amount}), nonce: 0, deadline: 0
         });
 
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
@@ -446,14 +442,10 @@ contract RfqUnitTest is Utils, Test {
 
         uint256 amount = 9999;
         ISignatureTransfer.PermitTransferFrom memory makerPermit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({token: TOKEN1, amount: amount}),
-            nonce: 0,
-            deadline: 0
+            permitted: ISignatureTransfer.TokenPermissions({token: TOKEN1, amount: amount}), nonce: 0, deadline: 0
         });
         ISignatureTransfer.PermitTransferFrom memory takerPermit = ISignatureTransfer.PermitTransferFrom({
-            permitted: ISignatureTransfer.TokenPermissions({token: TOKEN0, amount: amount}),
-            nonce: 0,
-            deadline: 0
+            permitted: ISignatureTransfer.TokenPermissions({token: TOKEN0, amount: amount}), nonce: 0, deadline: 0
         });
 
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
