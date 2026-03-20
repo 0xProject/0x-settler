@@ -108,7 +108,7 @@ contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
     }
 
     // Sell-base: WETH -> USDC
-    // Calldata retrieved from the Renegade API (not from an on-chain transaction)
+    // Replays https://basescan.org/tx/0xcfe9507e3e591f9340a185a8114cc762c44ba973c22925880f36516f1001e2b2
     function testSellBase() public {
         // Roll to a different block for sell-base calldata; redeploy settler + AllowanceHolder
         vm.rollFork(BASE_SELL_BASE_BLOCK - 1);

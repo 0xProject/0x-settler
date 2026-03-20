@@ -7,18 +7,20 @@ import {ArbitrumSettler} from "src/chains/Arbitrum/TakerSubmitted.sol";
 import {ActionDataBuilder} from "../../utils/ActionDataBuilder.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
-import {SettlerBasePairTest} from "../SettlerBasePairTest.t.sol";
+import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {SettlerBasePairTest, Shim} from "../SettlerBasePairTest.t.sol";
 import {
     ARBITRUM_GAS_SPONSOR,
     ARBITRUM_TXN_CALLDATA,
     ARBITRUM_TXN_BLOCK,
     ABRITRUM_USDC,
     ABRITRUM_WETH,
-    ARBITRUM_AMOUNT
+    ARBITRUM_AMOUNT,
+    ARBITRUM_SELL_BASE_CALLDATA,
+    ARBITRUM_SELL_BASE_BLOCK,
+    ARBITRUM_SELL_BASE_AMOUNT
 } from "../RenegadeTxn.t.sol";
 
-// Sell-quote: USDC -> WETH
-// Replays https://arbiscan.io/tx/0x937b0111b64ce852f1202c324753f6e1066d1137e5aee5d2a076997b3c873dec
 contract RenegadeArbitrumIntegrationTest is SettlerBasePairTest {
     function setUp() public virtual override {
         super.setUp();
@@ -53,43 +55,75 @@ contract RenegadeArbitrumIntegrationTest is SettlerBasePairTest {
         return ARBITRUM_AMOUNT;
     }
 
-    function testSellQuote() public {
-        bytes memory _calldata = ARBITRUM_TXN_CALLDATA;
+    function _rerunTxn(
+        bytes memory txnCalldata,
+        bool baseForQuote,
+        IERC20 sellToken,
+        IERC20 buyToken,
+        uint256 sellAmount
+    ) internal {
+        bytes memory _calldata = txnCalldata;
         assembly ("memory-safe") {
             let len := mload(_calldata)
             _calldata := add(0x04, _calldata)
             mstore(_calldata, sub(len, 4))
         }
 
-        deal(address(fromToken()), address(this), amount());
-        fromToken().approve(address(allowanceHolder), amount());
+        deal(address(sellToken), address(this), sellAmount);
+        sellToken.approve(address(allowanceHolder), sellAmount);
         allowanceHolder.exec(
             address(settler),
-            address(fromToken()),
-            amount(),
+            address(sellToken),
+            sellAmount,
             payable(address(settler)),
             abi.encodeCall(
                 settler.execute,
                 (
                     ISettlerBase.AllowedSlippage({
-                        recipient: payable(address(this)), buyToken: toToken(), minAmountOut: 0
+                        recipient: payable(address(this)), buyToken: buyToken, minAmountOut: 0
                     }),
                     ActionDataBuilder.build(
                         abi.encodeCall(
                             ISettlerActions.TRANSFER_FROM,
                             (
                                 address(settler),
-                                defaultERC20PermitTransfer(address(fromToken()), amount(), 0),
+                                defaultERC20PermitTransfer(address(sellToken), sellAmount, 0),
                                 new bytes(0)
                             )
                         ),
                         abi.encodeCall(
-                            ISettlerActions.RENEGADE, (ARBITRUM_GAS_SPONSOR, address(fromToken()), false, _calldata, 0)
+                            ISettlerActions.RENEGADE,
+                            (ARBITRUM_GAS_SPONSOR, address(sellToken), baseForQuote, _calldata, 0)
                         )
                     ),
                     bytes32(0)
                 )
             )
         );
+    }
+
+    // Sell-quote: USDC -> WETH
+    // Replays https://arbiscan.io/tx/0x937b0111b64ce852f1202c324753f6e1066d1137e5aee5d2a076997b3c873dec
+    function testSellQuote() public {
+        _rerunTxn(ARBITRUM_TXN_CALLDATA, false, ABRITRUM_USDC, ABRITRUM_WETH, ARBITRUM_AMOUNT);
+    }
+
+    // Sell-base: WETH -> USDC
+    // Replays https://arbiscan.io/tx/0x101b4aca8371f8a98ba112510a4d8c6622f4245c127628396f30b12cdc37faec
+    function testSellBase() public {
+        vm.rollFork(ARBITRUM_SELL_BASE_BLOCK - 1);
+        vm.setEvmVersion("osaka");
+        uint256 forkChainId = (new Shim()).chainId();
+        vm.chainId(31337);
+        bytes memory initCode = settlerInitCode();
+        assembly ("memory-safe") {
+            let s := create(0x00, add(0x20, initCode), mload(initCode))
+            if iszero(s) { revert(0x00, 0x00) }
+            sstore(settler.slot, s)
+        }
+        vm.etch(address(allowanceHolder), vm.getDeployedCode("AllowanceHolder.sol:AllowanceHolder"));
+        vm.chainId(forkChainId);
+
+        _rerunTxn(ARBITRUM_SELL_BASE_CALLDATA, true, ABRITRUM_WETH, ABRITRUM_USDC, ARBITRUM_SELL_BASE_AMOUNT);
     }
 }
