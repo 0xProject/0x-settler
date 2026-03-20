@@ -100,13 +100,13 @@ abstract contract BaseMixin is
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            /*
-            } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-                (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
-                    abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+        /*
+        } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
+            (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
+                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
 
-                sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
-            */
+            sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
+        */
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
                 address recipient,
