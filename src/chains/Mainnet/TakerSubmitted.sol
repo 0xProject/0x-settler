@@ -9,7 +9,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
@@ -18,12 +18,12 @@ import {AbstractContext} from "../../Context.sol";
 contract MainnetSettler is Settler, MainnetMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         override(Settler, MainnetMixin)
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
+        if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.NATIVE_CHECK.selector)) {
             (uint256 deadline, uint256 msgValue) = abi.decode(data, (uint256, uint256));

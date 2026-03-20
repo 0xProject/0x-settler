@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
@@ -129,7 +129,7 @@ library UnsafeEkuboCore {
     }
 }
 
-abstract contract EkuboV2 is SettlerAbstract {
+abstract contract EkuboV2 is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using CreditDebt for int256;

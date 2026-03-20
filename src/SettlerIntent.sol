@@ -234,21 +234,17 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         return true;
     }
 
-    function _hashSlippage(AllowedSlippage calldata slippage) internal pure returns (bytes32 result) {
-        // This function does not check for or clean any dirty bits that might
-        // exist in `slippage`. We assume that `slippage` will be used elsewhere
-        // in this context and that if there are dirty bits it will result in a
-        // revert later.
+    function _hashSlippage(AllowedSlippage memory slippage) internal pure returns (bytes32 result) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, SLIPPAGE_TYPEHASH)
-            calldatacopy(add(0x20, ptr), slippage, 0x60)
+            mcopy(add(0x20, ptr), slippage, 0x60)
             result := keccak256(ptr, 0x80)
         }
     }
 
     function executeMetaTxn(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32 /* zid & affiliate */,
         address msgSender,

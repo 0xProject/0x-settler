@@ -8,7 +8,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
 
 import {FastLogic} from "../utils/FastLogic.sol";
@@ -861,7 +861,7 @@ library EulerSwapLib {
     }
 }
 
-abstract contract EulerSwap is SettlerAbstract {
+abstract contract EulerSwap is SettlerSwapAbstract {
     using Ternary for bool;
     using SafeTransferLib for IERC20;
     using ParamsLib for ParamsLib.Params;

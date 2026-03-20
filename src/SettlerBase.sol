@@ -82,7 +82,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         return false;
     }
 
-    function _checkSlippageAndTransfer(AllowedSlippage calldata slippage) internal {
+    function _checkSlippageAndTransfer(AllowedSlippage memory slippage) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because
         // ISettlerActions.BASIC could interact with an intents-based settlement
@@ -107,7 +107,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         }
     }
 
-    function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
+    function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory slippage) internal virtual override returns (bool) {
         //// NOTICE: This function has been largely copy/paste'd into
         //// `src/chains/Mainnet/Common.sol:MainnetMixin._dispatch`. If you make changes here, you
         //// need to make sure that corresponding changes are made to that function.

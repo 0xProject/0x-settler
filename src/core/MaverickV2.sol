@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
@@ -188,7 +188,7 @@ interface IMaverickV2SwapCallback {
         external;
 }
 
-abstract contract MaverickV2 is SettlerAbstract {
+abstract contract MaverickV2 is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using FastMaverickV2Pool for IMaverickV2Pool;

@@ -12,7 +12,7 @@ import {Ternary} from "../utils/Ternary.sol";
 
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 interface IBebopSettlement {
     event BebopOrder(uint128 indexed eventId);
@@ -83,7 +83,7 @@ library FastBebop {
     }
 }
 
-abstract contract Bebop is SettlerAbstract {
+abstract contract Bebop is SettlerSwapAbstract {
     using FastLogic for bool;
     using SafeTransferLib for IERC20;
     using Ternary for bool;

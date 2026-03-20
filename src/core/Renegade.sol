@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
@@ -11,7 +11,7 @@ uint32 constant ARBITRUM_SELECTOR = 0x0f977971;
 // selector for `sponsorMalleableAtomicMatchSettle(uint256,uint256,address,(((uint256,uint256,uint256)),(uint256,uint256,uint256)),((address,address,(uint256),uint256,uint256,uint8),((uint256),(uint256)),((uint256),(uint256)),uint256[],address),(((uint256,uint256)[5],(uint256,uint256),(uint256,uint256)[5],(uint256,uint256),(uint256,uint256),uint256[5],uint256[4],uint256),((uint256,uint256)[5],(uint256,uint256),(uint256,uint256)[5],(uint256,uint256),(uint256,uint256),uint256[5],uint256[4],uint256),((uint256,uint256)[5],(uint256,uint256),(uint256,uint256)[5],(uint256,uint256),(uint256,uint256),uint256[5],uint256[4],uint256)),(((uint256,uint256),(uint256,uint256)),((uint256,uint256),(uint256,uint256))),address,bool,uint256,uint256,bytes)`
 uint32 constant BASE_SELECTOR = 0x322ef840;
 
-abstract contract Renegade is SettlerAbstract {
+abstract contract Renegade is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
 

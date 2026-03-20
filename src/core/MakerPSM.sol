@@ -8,7 +8,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 interface IPSM {
     /// @dev Get the fee for selling DAI to USDC in PSM
@@ -94,7 +94,7 @@ IERC20 constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 IPSM constant LitePSM = IPSM(0xf6e72Db5454dd049d0788e411b06CfAF16853042);
 IPSM constant SkyPSM = IPSM(0xA188EEC8F81263234dA3622A406892F3D630f98c);
 
-abstract contract MakerPSM is SettlerAbstract {
+abstract contract MakerPSM is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using FastPSM for IPSM;
