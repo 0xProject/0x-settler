@@ -244,17 +244,6 @@ interface ISettlerActions {
     // Post-req: Payout
     function BASIC(address sellToken, uint256 bps, address pool, uint256 offset, bytes calldata data) external;
 
-    function EKUBO(
-        address recipient,
-        address sellToken,
-        uint256 bps,
-        bool feeOnTransfer,
-        uint256 hashMul,
-        uint256 hashMod,
-        bytes memory fills,
-        uint256 amountOutMin
-    ) external;
-
     function EKUBOV3(
         address recipient,
         address sellToken,
