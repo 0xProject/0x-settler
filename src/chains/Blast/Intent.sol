@@ -23,7 +23,7 @@ contract BlastSettlerIntent is SettlerIntent, BlastSettlerMetaTxn {
 
     // Solidity inheritance is stupid
     function executeMetaTxn(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32, /* zid & affiliate */
         address msgSender,
@@ -41,12 +41,12 @@ contract BlastSettlerIntent is SettlerIntent, BlastSettlerMetaTxn {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(BlastSettlerMetaTxn, SettlerBase, SettlerAbstract)
+        override(BlastSettlerMetaTxn, SettlerBase)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _isForwarded() internal view override(AbstractContext, Context, SettlerIntent) returns (bool) {

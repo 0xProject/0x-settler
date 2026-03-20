@@ -23,7 +23,7 @@ contract PolygonSettlerIntent is SettlerIntent, PolygonSettlerMetaTxn {
 
     // Solidity inheritance is stupid
     function executeMetaTxn(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32, /* zid & affiliate */
         address msgSender,
@@ -32,12 +32,12 @@ contract PolygonSettlerIntent is SettlerIntent, PolygonSettlerMetaTxn {
         return super.executeMetaTxn(slippage, actions, bytes32(0), msgSender, sig);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(PolygonSettlerMetaTxn, SettlerBase, SettlerAbstract)
+        override(PolygonSettlerMetaTxn, SettlerBase)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _isForwarded() internal view override(AbstractContext, Context, SettlerIntent) returns (bool) {

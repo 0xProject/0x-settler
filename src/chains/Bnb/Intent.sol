@@ -23,7 +23,7 @@ contract BnbSettlerIntent is SettlerIntent, BnbSettlerMetaTxn {
 
     // Solidity inheritance is stupid
     function executeMetaTxn(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32, /* zid & affiliate */
         address msgSender,
@@ -32,12 +32,12 @@ contract BnbSettlerIntent is SettlerIntent, BnbSettlerMetaTxn {
         return super.executeMetaTxn(slippage, actions, bytes32(0), msgSender, sig);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(BnbSettlerMetaTxn, SettlerBase, SettlerAbstract)
+        override(BnbSettlerMetaTxn, SettlerBase)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _isForwarded() internal view override(AbstractContext, Context, SettlerIntent) returns (bool) {

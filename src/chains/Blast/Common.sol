@@ -49,7 +49,7 @@ import {FastLogic} from "../../utils/FastLogic.sol";
 
 // Solidity inheritance is stupid
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 
 abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
     using FastLogic for bool;
@@ -73,14 +73,14 @@ abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
         return (target == address(BLAST)).or(super._isRestrictedTarget(target));
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerAbstract, SettlerBase)
+        override(SettlerSwapAbstract, SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
+        if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             (

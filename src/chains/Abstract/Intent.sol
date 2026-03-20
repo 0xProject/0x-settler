@@ -24,7 +24,7 @@ contract AbstractSettlerIntent is SettlerIntent, AbstractSettlerMetaTxn {
 
     // Solidity inheritance is stupid
     function executeMetaTxn(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32, /* zid & affiliate */
         address msgSender,
@@ -33,12 +33,12 @@ contract AbstractSettlerIntent is SettlerIntent, AbstractSettlerMetaTxn {
         return super.executeMetaTxn(slippage, actions, bytes32(0), msgSender, sig);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(AbstractSettlerMetaTxn, SettlerBase, SettlerAbstract)
+        override(AbstractSettlerMetaTxn, SettlerBase)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _isEraVmUniV3Fork(uint8 forkId) internal pure override(AbstractSettlerMetaTxn, UniswapV3Fork) returns (bool) {
