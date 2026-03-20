@@ -22,18 +22,6 @@ contract ScrollSettler is Settler, ScrollMixin {
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
-        } else if (action == uint32(ISettlerActions.MAVERICKV2_VIP.selector)) {
-            (
-                address recipient,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes32 salt,
-                bool tokenAIn,
-                bytes memory sig,
-                int32 tickLimit,
-                uint256 minBuyAmount
-            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes32, bool, bytes, int32, uint256));
-
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit, minBuyAmount);
         } else {
             return false;
         }

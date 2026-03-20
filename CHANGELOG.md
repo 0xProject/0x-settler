@@ -4,6 +4,8 @@
 
 * DackieSwap and BaseX UniV3 forks removed from Base
 * Remove `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad mainnet chain
+* Remove `MAVERICKV2_VIP` and `METATXN_MAVERICKV2_VIP` actions from Arbitrum,
+  Base, Bnb, Mainnet, Scroll, and Sepolia. The `MAVERICKV2` action remains.
 
 ### Non-breaking changes
 
