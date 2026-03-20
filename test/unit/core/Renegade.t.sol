@@ -11,8 +11,11 @@ import {Renegade, ARBITRUM_SELECTOR, BASE_SELECTOR} from "src/core/Renegade.sol"
 import {Utils} from "../Utils.sol";
 
 abstract contract RenegadeDummy is Permit2PaymentTakerSubmitted, Renegade {
-    function sell(address target, IERC20 sellToken, bool isSellingBase, bytes memory data) public payable {
-        sellToRenegade(target, sellToken, isSellingBase, data);
+    function sell(address target, IERC20 sellToken, bool baseForQuote, uint256 minBuyAmount, bytes memory data)
+        public
+        payable
+    {
+        sellToRenegade(target, sellToken, baseForQuote, minBuyAmount, data);
     }
 
     function _tokenId() internal pure override returns (uint256) {
@@ -94,7 +97,7 @@ abstract contract RenegadeTest is Utils, Test {
 
         _mockExpectCall(target, amount, abi.encodeWithSelector(bytes4(selector), amount, amount), new bytes(0));
         renegade.sell{value: amount}(
-            target, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), false, abi.encode(amount * 2, amount * 2)
+            target, IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), false, 0, abi.encode(amount * 2, amount * 2)
         );
     }
 
@@ -105,13 +108,13 @@ abstract contract RenegadeTest is Utils, Test {
         _mockExpectCall(token, abi.encodeCall(IERC20.balanceOf, (address(renegade))), abi.encode(amount));
         _mockExpectCall(token, abi.encodeCall(IERC20.allowance, (address(renegade), target)), abi.encode(0));
         _mockExpectCall(token, abi.encodeCall(IERC20.approve, (target, type(uint256).max)), new bytes(0));
-        renegade.sell(target, IERC20(token), false, abi.encode(amount * 3, amount * 2));
+        renegade.sell(target, IERC20(token), false, 0, abi.encode(amount * 3, amount * 2));
     }
 
     function testSellBase() public {
         // Test selling the base asset (word 1). Data = (quoteAmount=6000, baseAmount=9000).
         // newSellAmount (base balance) = 3000.
-        // isSellingBase = true:
+        // baseForQuote = true:
         //   newBaseAmount = 3000
         //   newQuoteAmount = 6000 * 3000 / 9000 = 2000
         //   buyAmount = newQuoteAmount = 2000
@@ -122,7 +125,7 @@ abstract contract RenegadeTest is Utils, Test {
         _mockExpectCall(token, abi.encodeCall(IERC20.balanceOf, (address(renegade))), abi.encode(amount));
         _mockExpectCall(token, abi.encodeCall(IERC20.allowance, (address(renegade), target)), abi.encode(0));
         _mockExpectCall(token, abi.encodeCall(IERC20.approve, (target, type(uint256).max)), new bytes(0));
-        renegade.sell(target, IERC20(token), true, abi.encode(amount * 2, amount * 3));
+        renegade.sell(target, IERC20(token), true, 0, abi.encode(amount * 2, amount * 3));
     }
 }
 

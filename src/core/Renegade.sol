@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
@@ -25,11 +26,14 @@ abstract contract Renegade is SettlerAbstract {
 
     function _renegadeSelector() internal pure virtual returns (uint32);
 
-    // @param isSellingBase True if selling the market base asset (e.g. WETH).
-    function sellToRenegade(address target, IERC20 sellToken, bool isSellingBase, bytes memory data)
-        internal
-        returns (uint256 buyAmount)
-    {
+    // @param baseForQuote True if selling the market base asset (e.g. WETH) for the quote asset (e.g. USDC).
+    function sellToRenegade(
+        address target,
+        IERC20 sellToken,
+        bool baseForQuote,
+        uint256 minBuyAmount,
+        bytes memory data
+    ) internal returns (uint256 buyAmount) {
         uint256 newSellAmount;
         uint256 value;
         if (sellToken == ETH_ADDRESS) {
@@ -50,7 +54,7 @@ abstract contract Renegade is SettlerAbstract {
 
         uint256 newQuoteAmount;
         uint256 newBaseAmount;
-        if (isSellingBase) {
+        if (baseForQuote) {
             newBaseAmount = newSellAmount;
             unchecked {
                 newQuoteAmount = (originalQuoteAmount * newBaseAmount).unsafeDiv(originalBaseAmount);
@@ -62,6 +66,10 @@ abstract contract Renegade is SettlerAbstract {
                 newBaseAmount = (originalBaseAmount * newQuoteAmount).unsafeDiv(originalQuoteAmount);
             }
             buyAmount = newBaseAmount;
+        }
+
+        if (buyAmount < minBuyAmount) {
+            revertTooMuchSlippage(sellToken, minBuyAmount, buyAmount);
         }
 
         uint32 selector = _renegadeSelector();
