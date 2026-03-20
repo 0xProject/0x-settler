@@ -53,12 +53,7 @@ contract ScrollSettlerIntent is SettlerIntent, ScrollSettlerMetaTxn {
         return super._msgSender();
     }
 
-    function _witnessTypeSuffix()
-        internal
-        pure
-        override(SettlerIntent, Permit2PaymentMetaTxn)
-        returns (string memory)
-    {
+    function _witnessTypeSuffix() internal pure override(SettlerIntent, Permit2PaymentMetaTxn) returns (string memory) {
         return super._witnessTypeSuffix();
     }
 

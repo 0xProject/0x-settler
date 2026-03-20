@@ -27,12 +27,7 @@ contract HyperEvmSettler is Settler, HyperEvmMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, HyperEvmMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, HyperEvmMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 

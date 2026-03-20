@@ -91,8 +91,9 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         bytes memory sig,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData =
-            new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
+        bytes memory swapCallbackData = new bytes(
+            SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length
+        );
         _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded());
 
         buyAmount = _uniV3ForkSwap(

@@ -128,7 +128,7 @@ contract MakerPSMDummy is MakerPSM {
         address,
         bytes memory,
         uint32,
-        function (bytes calldata) internal returns (bytes memory)
+        function(bytes calldata) internal returns (bytes memory)
     ) internal pure override returns (bytes memory) {
         revert("unimplemented");
     }

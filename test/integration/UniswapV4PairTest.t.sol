@@ -147,9 +147,7 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
             )
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0 ether
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
         });
 
         (bool success,) = FROM.call(""); // touch FROM to warm it; in normal operation this would already be warmed
@@ -185,9 +183,7 @@ abstract contract UniswapV4PairTest is SettlerBasePairTest {
             )
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0 ether
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
         });
 
         vm.deal(FROM, amount());

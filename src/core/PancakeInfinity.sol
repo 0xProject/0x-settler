@@ -428,16 +428,15 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
                 assembly ("memory-safe") {
                     let sellTokenShifted := shl(0x60, sellToken)
                     let buyTokenShifted := shl(0x60, buyToken)
-                    zeroForOne :=
-                        or(
-                            eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted),
-                            and(
-                                iszero(
-                                    eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)
-                                ),
-                                lt(sellTokenShifted, buyTokenShifted)
-                            )
+                    zeroForOne := or(
+                        eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted),
+                        and(
+                            iszero(
+                                eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)
+                            ),
+                            lt(sellTokenShifted, buyTokenShifted)
                         )
+                    )
                 }
                 (poolKey.currency0, poolKey.currency1) = zeroForOne.maybeSwap(buyToken, sellToken);
                 assembly ("memory-safe") {
@@ -499,21 +498,15 @@ abstract contract PancakeInfinity is SettlerSwapAbstract {
                 if (uint256(poolManagerId) == 0) {
                     poolKey.poolManager = CL_MANAGER;
 
-                    delta = IPancakeInfinityCLPoolManager(address(poolKey.poolManager)).unsafeSwap(
-                        poolKey,
-                        zeroForOne,
-                        amountSpecified,
-                        sqrtPriceLimitX96,
-                        hookData
-                    );
+                    delta = IPancakeInfinityCLPoolManager(address(poolKey.poolManager))
+                        .unsafeSwap(poolKey, zeroForOne, amountSpecified, sqrtPriceLimitX96, hookData);
                 } else if (uint256(poolManagerId) == 1) {
                     poolKey.poolManager = BIN_MANAGER;
                     if (amountSpecified >> 127 != amountSpecified >> 128) {
                         Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                     }
-                    delta = IPancakeInfinityBinPoolManager(address(poolKey.poolManager)).unsafeSwap(
-                        poolKey, zeroForOne, int128(amountSpecified), hookData
-                    );
+                    delta = IPancakeInfinityBinPoolManager(address(poolKey.poolManager))
+                        .unsafeSwap(poolKey, zeroForOne, int128(amountSpecified), hookData);
                 } else {
                     assembly ("memory-safe") {
                         mstore(0x00, 0x0a9a7da6) // selector for `UnknownPoolManagerId(uint8)`

@@ -80,12 +80,7 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, ArbitrumMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, ArbitrumMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 

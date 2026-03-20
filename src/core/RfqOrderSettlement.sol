@@ -149,10 +149,7 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
         );
         bytes32 makerWitness = _hashConsideration(
             Consideration({
-                token: takerToken,
-                amount: maxTakerAmount,
-                counterparty: _msgSender(),
-                partialFillAllowed: true
+                token: takerToken, amount: maxTakerAmount, counterparty: _msgSender(), partialFillAllowed: true
             })
         );
 

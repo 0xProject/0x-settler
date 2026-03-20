@@ -248,7 +248,7 @@ abstract contract Velodrome is SettlerSwapAbstract {
         assert(stable);
         if (!zeroForOne) {
             (sellBasis, buyBasis, sellReserve, buyReserve, sellToken, buyToken) =
-                (buyBasis, sellBasis, buyReserve, sellReserve, buyToken, sellToken);
+            (buyBasis, sellBasis, buyReserve, sellReserve, buyToken, sellToken);
         }
 
         uint256 buyAmount;

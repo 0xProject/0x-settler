@@ -28,12 +28,11 @@ library AddressDerivation {
         // +/-7 are neither square nor cube mod p, so we only have to check one
         // coordinate against 0. if it is 0, then the other is too (the point at
         // infinity) or the point is invalid
-        if (
-            (x == 0).or(
+        if ((x == 0)
+            .or(
                 y.unsafeMulMod(y, _SECP256K1_P)
                     != x.unsafeMulMod(x, _SECP256K1_P).unsafeMulMod(x, _SECP256K1_P).unsafeAddMod(7, _SECP256K1_P)
-            )
-        ) {
+            )) {
             revert InvalidCurve(x, y);
         }
 

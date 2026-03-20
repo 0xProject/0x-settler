@@ -57,9 +57,7 @@ abstract contract ZeroExPairTest is BasePairTest {
         // MetaTransactionV2
         IZeroEx.BatchSellSubcall[] memory calls = new IZeroEx.BatchSellSubcall[](1);
         calls[0] = IZeroEx.BatchSellSubcall({
-            id: IZeroEx.MultiplexSubcall.UniswapV3,
-            sellAmount: amount(),
-            data: uniswapV3PathCompat()
+            id: IZeroEx.MultiplexSubcall.UniswapV3, sellAmount: amount(), data: uniswapV3PathCompat()
         });
 
         bytes memory mtxCallData = abi.encodeWithSelector(
@@ -104,9 +102,7 @@ abstract contract ZeroExPairTest is BasePairTest {
     function testZeroEx_uniswapV3VIP_multiplex1() public {
         IZeroEx.BatchSellSubcall[] memory calls = new IZeroEx.BatchSellSubcall[](1);
         calls[0] = IZeroEx.BatchSellSubcall({
-            id: IZeroEx.MultiplexSubcall.UniswapV3,
-            sellAmount: amount(),
-            data: uniswapV3PathCompat()
+            id: IZeroEx.MultiplexSubcall.UniswapV3, sellAmount: amount(), data: uniswapV3PathCompat()
         });
 
         IERC20 _fromToken = fromToken();
@@ -122,14 +118,10 @@ abstract contract ZeroExPairTest is BasePairTest {
     function testZeroEx_uniswapV3VIP_multiplex2() public {
         IZeroEx.BatchSellSubcall[] memory calls = new IZeroEx.BatchSellSubcall[](2);
         calls[0] = IZeroEx.BatchSellSubcall({
-            id: IZeroEx.MultiplexSubcall.UniswapV3,
-            sellAmount: amount() / 2,
-            data: uniswapV3PathCompat()
+            id: IZeroEx.MultiplexSubcall.UniswapV3, sellAmount: amount() / 2, data: uniswapV3PathCompat()
         });
         calls[1] = IZeroEx.BatchSellSubcall({
-            id: IZeroEx.MultiplexSubcall.UniswapV3,
-            sellAmount: amount() / 2,
-            data: uniswapV3PathCompat()
+            id: IZeroEx.MultiplexSubcall.UniswapV3, sellAmount: amount() / 2, data: uniswapV3PathCompat()
         });
 
         IERC20 _fromToken = fromToken();
@@ -206,9 +198,7 @@ abstract contract ZeroExPairTest is BasePairTest {
     function testZeroEx_metaTxn_uniswapV3() public {
         IZeroEx.BatchSellSubcall[] memory calls = new IZeroEx.BatchSellSubcall[](1);
         calls[0] = IZeroEx.BatchSellSubcall({
-            id: IZeroEx.MultiplexSubcall.UniswapV3,
-            sellAmount: amount(),
-            data: uniswapV3PathCompat()
+            id: IZeroEx.MultiplexSubcall.UniswapV3, sellAmount: amount(), data: uniswapV3PathCompat()
         });
 
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(FROM_PRIVATE_KEY, mtxHash);

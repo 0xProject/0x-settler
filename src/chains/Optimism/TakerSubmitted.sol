@@ -58,12 +58,7 @@ contract OptimismSettler is Settler, OptimismMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, OptimismMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, OptimismMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 

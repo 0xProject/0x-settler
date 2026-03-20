@@ -69,9 +69,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
@@ -95,13 +93,12 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (maverickV2Pool(), permit, sig)),
             abi.encodeCall(
-                ISettlerActions.MAVERICKV2, (FROM, address(fromToken()), 0, maverickV2Pool(), maverickV2TokenAIn(), maverickV2TickLimit(), 0)
+                ISettlerActions.MAVERICKV2,
+                (FROM, address(fromToken()), 0, maverickV2Pool(), maverickV2TokenAIn(), maverickV2TickLimit(), 0)
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
@@ -124,13 +121,12 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.MAVERICKV2_VIP, (FROM, permit, maverickV2Salt(), maverickV2TokenAIn(), sig, maverickV2TickLimit(), 0)
+                ISettlerActions.MAVERICKV2_VIP,
+                (FROM, permit, maverickV2Salt(), maverickV2TokenAIn(), sig, maverickV2TickLimit(), 0)
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
@@ -149,19 +145,21 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
     }
 
     function testMaverickV2VIPAllowanceHolder() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
-        ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ );
+        ISignatureTransfer.PermitTransferFrom memory permit = defaultERC20PermitTransfer(
+            address(fromToken()),
+            amount(),
+            0 /* nonce */
+        );
         bytes memory sig = new bytes(0);
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.MAVERICKV2_VIP, (FROM, permit, maverickV2Salt(), maverickV2TokenAIn(), sig, maverickV2TickLimit(), 0)
+                ISettlerActions.MAVERICKV2_VIP,
+                (FROM, permit, maverickV2Salt(), maverickV2TokenAIn(), sig, maverickV2TickLimit(), 0)
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
@@ -190,13 +188,12 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(
-                ISettlerActions.METATXN_MAVERICKV2_VIP, (FROM, permit, maverickV2Salt(), maverickV2TokenAIn(), maverickV2TickLimit(), 0)
+                ISettlerActions.METATXN_MAVERICKV2_VIP,
+                (FROM, permit, maverickV2Salt(), maverickV2TokenAIn(), maverickV2TickLimit(), 0)
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0 ether
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
         });
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);

@@ -184,8 +184,7 @@ library FastMaverickV2Pool {
 }
 
 interface IMaverickV2SwapCallback {
-    function maverickV2SwapCallback(IERC20 tokenIn, uint256 amountIn, uint256 amountOut, bytes calldata data)
-        external;
+    function maverickV2SwapCallback(IERC20 tokenIn, uint256 amountIn, uint256 amountOut, bytes calldata data) external;
 }
 
 abstract contract MaverickV2 is SettlerSwapAbstract {

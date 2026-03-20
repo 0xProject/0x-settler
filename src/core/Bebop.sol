@@ -36,9 +36,11 @@ interface IBebopSettlement {
     /// @param order Single order struct
     /// @param makerSignature Maker's signature for SingleOrder
     /// @param filledTakerAmount Partially filled taker amount, 0 for full fill
-    function swapSingle(Single calldata order, ISettlerActions.BebopMakerSignature calldata makerSignature, uint256 filledTakerAmount)
-        external
-        payable;
+    function swapSingle(
+        Single calldata order,
+        ISettlerActions.BebopMakerSignature calldata makerSignature,
+        uint256 filledTakerAmount
+    ) external payable;
 }
 
 library FastBebop {

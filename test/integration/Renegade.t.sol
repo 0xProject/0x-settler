@@ -49,16 +49,18 @@ abstract contract RenegadeTest is SettlerBasePairTest {
                 settler.execute,
                 (
                     ISettlerBase.AllowedSlippage({
-                        recipient: payable(address(this)),
-                        buyToken: toToken(),
-                        minAmountOut: 0
+                        recipient: payable(address(this)), buyToken: toToken(), minAmountOut: 0
                     }),
                     ActionDataBuilder.build(
                         abi.encodeCall(
                             ISettlerActions.TRANSFER_FROM,
                             (
                                 address(settler),
-                                defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
+                                defaultERC20PermitTransfer(
+                                    address(fromToken()),
+                                    amount(),
+                                    0 /* nonce */
+                                ),
                                 new bytes(0) /* sig (empty) */
                             )
                         ),

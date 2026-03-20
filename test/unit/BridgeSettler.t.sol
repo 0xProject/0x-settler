@@ -109,9 +109,7 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
                     ISettlerTakerSubmitted.execute,
                     (
                         ISettlerBase.AllowedSlippage({
-                            recipient: payable(address(0)),
-                            buyToken: IERC20(address(0)),
-                            minAmountOut: 0
+                            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                         }),
                         settlerActions,
                         bytes32(0)
@@ -164,9 +162,7 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
                     ISettlerTakerSubmitted.execute,
                     (
                         ISettlerBase.AllowedSlippage({
-                            recipient: payable(address(0)),
-                            buyToken: IERC20(address(0)),
-                            minAmountOut: 0
+                            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                         }),
                         settlerActions,
                         bytes32(0)

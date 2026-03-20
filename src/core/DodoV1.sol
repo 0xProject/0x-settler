@@ -327,9 +327,10 @@ abstract contract DodoSellHelper {
                 boughtAmount = _SellQuoteToken(amount, i, baseTarget, Q1, K);
             }
             // Calculate fees
-            return DecimalMath.divFloor(
-                boughtAmount, DecimalMath.ONE + dodo.fast_MT_FEE_RATE_() + dodo.fast_LP_FEE_RATE_()
-            );
+            return
+                DecimalMath.divFloor(
+                    boughtAmount, DecimalMath.ONE + dodo.fast_MT_FEE_RATE_() + dodo.fast_LP_FEE_RATE_()
+                );
         }
     }
 

@@ -37,7 +37,10 @@ import {
 } from "../../core/univ3forks/BlasterV3.sol";
 import {monoSwapV3Factory, monoSwapV3InitHash, monoSwapV3ForkId} from "../../core/univ3forks/MonoSwapV3.sol";
 import {
-    rogueXV1Factory, rogueXV1InitHash, rogueXV1ForkId, IRoxSpotSwapCallback
+    rogueXV1Factory,
+    rogueXV1InitHash,
+    rogueXV1ForkId,
+    IRoxSpotSwapCallback
 } from "../../core/univ3forks/RogueXV1.sol";
 
 import {BLAST_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
@@ -63,13 +66,7 @@ abstract contract BlastMixin is FreeMemory, SettlerBase, UniswapV4 {
         }
     }
 
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        virtual
-        override(Permit2PaymentAbstract)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view virtual override(Permit2PaymentAbstract) returns (bool) {
         return (target == address(BLAST)).or(super._isRestrictedTarget(target));
     }
 

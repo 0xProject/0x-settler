@@ -32,7 +32,10 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
 }
 
 abstract contract SettlerSwapAbstract is ISettlerBase, SettlerAbstract {
-    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage) internal virtual returns (bool);
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        returns (bool);
 }
 
 abstract contract SettlerBridgeAbstract is SettlerAbstract {
