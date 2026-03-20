@@ -339,5 +339,5 @@ interface ISettlerActions {
         uint256 minBuyAmount
     ) external;
 
-    function CHECK_SLIPPAGE(bool maxNotMin) external;
+    function CHECK_SLIPPAGE(bool exact) external;
 }
