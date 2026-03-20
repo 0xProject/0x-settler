@@ -26,13 +26,13 @@ abstract contract Renegade is SettlerAbstract {
 
     function _renegadeSelector() internal pure virtual returns (uint32);
 
-    // @param baseForQuote True if selling the market base asset (e.g. WETH) for the quote asset (e.g. USDC).
+    // @param baseForQuote True if selling base asset (e.g. WETH) for quote asset.
     function sellToRenegade(
         address target,
         IERC20 sellToken,
         bool baseForQuote,
-        uint256 minBuyAmount,
-        bytes memory data
+        bytes memory data,
+        uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
         uint256 newSellAmount;
         uint256 value;

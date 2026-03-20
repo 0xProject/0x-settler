@@ -84,7 +84,7 @@ contract RenegadeArbitrumIntegrationTest is SettlerBasePairTest {
                             )
                         ),
                         abi.encodeCall(
-                            ISettlerActions.RENEGADE, (ARBITRUM_GAS_SPONSOR, address(fromToken()), false, 0, _calldata)
+                            ISettlerActions.RENEGADE, (ARBITRUM_GAS_SPONSOR, address(fromToken()), false, _calldata, 0)
                         )
                     ),
                     bytes32(0)

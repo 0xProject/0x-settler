@@ -92,7 +92,7 @@ contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
                             )
                         ),
                         abi.encodeCall(
-                            ISettlerActions.RENEGADE, (BASE_GAS_SPONSOR, address(sellToken), baseForQuote, 0, _calldata)
+                            ISettlerActions.RENEGADE, (BASE_GAS_SPONSOR, address(sellToken), baseForQuote, _calldata, 0)
                         )
                     ),
                     bytes32(0)

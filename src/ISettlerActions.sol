@@ -6,6 +6,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 interface ISettlerActions {
     /// VIP actions should always start with `recipient` address and the `permit` from the taker
     /// followed by all the other parameters to ensure compatibility with `executeWithPermit` entrypoint.
+    /// Convention: `minBuyAmount` (or `amountOutMin`) should be the last parameter of any action.
     /// @dev Transfer funds from msg.sender Permit2.
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
         external;
@@ -295,7 +296,7 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function RENEGADE(address target, address sellToken, bool baseForQuote, uint256 minBuyAmount, bytes memory data)
+    function RENEGADE(address target, address sellToken, bool baseForQuote, bytes memory data, uint256 minBuyAmount)
         external;
 
     struct BebopMakerSignature {
