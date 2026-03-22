@@ -17,7 +17,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig, AllowedSlippage memory slippage)
         internal
         virtual
         override
@@ -36,7 +36,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
                 bytes memory fills,
                 uint256 minAmountOut
             ) = abi.decode(
-                data, (address payable, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
+                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
             );
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
@@ -52,7 +52,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
                 bytes memory fills,
                 uint256 minAmountOut
             ) = abi.decode(
-                data, (address payable, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
+                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
             );
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
@@ -81,7 +81,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
                 bytes memory fills,
                 uint256 minAmountOut
             ) = abi.decode(
-                data, (address payable, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
+                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
             );
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
@@ -93,7 +93,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 uint80 poolInfo,
                 uint256 minAmountOut
-            ) = abi.decode(data, (address payable, ISignatureTransfer.PermitTransferFrom, uint80, uint256));
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, uint80, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
             (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig);

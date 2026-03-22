@@ -3,7 +3,6 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Panic} from "../utils/Panic.sol";
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
@@ -91,9 +90,8 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
         address sellToken,
         uint256 bps,
         address pool,
-        uint24 swapInfo,
-        uint256 minBuyAmount
-    ) internal {
+        uint24 swapInfo
+    ) internal returns (IERC20 buyToken, uint256 buyAmount) {
         // Preventing calls to Permit2 or AH is not explicitly required as neither of these contracts implement the `swap` nor `transfer` selector
 
         // |7|6|5|4|3|2|1|0| - bit positions in swapInfo (uint8)
@@ -103,7 +101,6 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
         uint256 feeBps = swapInfo >> 8;
 
         uint256 sellAmount;
-        uint256 buyAmount;
         // If bps is zero we assume there are no funds within this contract, skip the updating sellAmount.
         // This case occurs if the pool is being chained, in which the funds have been sent directly to the pool
         if (bps != 0) {
@@ -128,9 +125,9 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
             uint256 sellAmountWithFee = sellAmount * (10000 - feeBps);
             buyAmount = (sellAmountWithFee * buyReserve) / (sellAmountWithFee + sellReserve * 10000);
         }
-        if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(pool.fastToken0or1(zeroForOne), minBuyAmount, buyAmount);
-        }
+        // TODO: figure out a way to elide this call to `fastToken0or1` in the hot path
+        buyToken = pool.fastToken0or1(zeroForOne);
+
         pool.fastSwap(zeroForOne, buyAmount, recipient);
     }
 }

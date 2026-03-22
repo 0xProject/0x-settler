@@ -6,7 +6,7 @@ import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {tmp} from "../utils/512Math.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {revertTooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
+import {NotConverged} from "./SettlerErrors.sol";
 //import {Panic} from "../utils/Panic.sol";
 
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
@@ -225,8 +225,9 @@ abstract contract Velodrome is SettlerSwapAbstract {
         }
     }
 
-    function sellToVelodrome(address recipient, uint256 bps, IVelodromePair pair, uint24 swapInfo, uint256 minAmountOut)
+    function sellToVelodrome(address recipient, uint256 bps, IVelodromePair pair, uint24 swapInfo)
         internal
+        returns (IERC20, uint256)
     {
         // Preventing calls to Permit2 or AH is not explicitly required as neither of these contracts implement the `swap` nor `transfer` selector
 
@@ -302,15 +303,12 @@ abstract contract Velodrome is SettlerSwapAbstract {
         buyAmount--;
         buyAmount.dec((sellReserve < sellBasis).or(buyReserve < buyBasis));
 
-        // Check slippage
-        if (buyAmount < minAmountOut) {
-            revertTooMuchSlippage(sellToken, minAmountOut, buyAmount);
-        }
-
         // Perform the swap
         {
             (uint256 buyAmount0, uint256 buyAmount1) = zeroForOne ? (uint256(0), buyAmount) : (buyAmount, uint256(0));
             pair.swap(buyAmount0, buyAmount1, recipient, new bytes(0));
         }
+
+        return (buyToken, buyAmount);
     }
 }

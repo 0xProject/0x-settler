@@ -4,14 +4,11 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {Ternary} from "../utils/Ternary.sol";
-import {AddressEquals} from "../utils/AddressEquals.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
-
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
@@ -39,8 +36,6 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using SafeTransferLib for IERC20;
-    using AddressEquals for address;
-    using AddressEquals for IERC20;
 
     /// @dev Minimum size of an encoded swap path:
     ///      sizeof(address(inputToken) | uint8(forkId) | uint24(poolId) | uint160(sqrtPriceLimitX96) | address(outputToken))
@@ -60,10 +55,9 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
     /// @dev Sell a token for another token directly against uniswap v3.
     /// @param encodedPath Uniswap-encoded path.
     /// @param bps proportion of current balance of the first token in the path to sell.
-    /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
     /// @return buyAmount Amount of the last token in the path bought.
-    function sellToUniswapV3(address recipient, uint256 bps, bytes memory encodedPath, IERC20 buyToken, uint256 minBuyAmount)
+    function sellToUniswapV3(address recipient, uint256 bps, bytes memory encodedPath)
         internal
         returns (IERC20, uint256)
     {
@@ -74,8 +68,6 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             // limited to 128 bits. Any token balance that would overflow here
             // would also break UniV3.
             (IERC20(address(bytes20(encodedPath))).fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS),
-            buyToken,
-            minBuyAmount,
             address(this), // payer
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE)
         );
@@ -83,7 +75,6 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
 
     /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature (or AllowanceHolder).
     /// @param encodedPath Uniswap-encoded path.
-    /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
     /// @param permit The PermitTransferFrom allowing this contract to spend the taker's tokens
     /// @param sig The taker's signature for Permit2
@@ -92,9 +83,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         address recipient,
         bytes memory encodedPath,
         ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig,
-        IERC20 buyToken,
-        uint256 minBuyAmount
+        bytes memory sig
     ) internal returns (IERC20, uint256) {
         bytes memory swapCallbackData =
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
@@ -104,8 +93,6 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             recipient,
             encodedPath,
             _permitToSellAmount(permit),
-            buyToken,
-            minBuyAmount,
             address(0), // payer
             swapCallbackData
         );
@@ -116,8 +103,6 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         address recipient,
         bytes memory encodedPath,
         uint256 sellAmount,
-        IERC20 buyToken,
-        uint256 minBuyAmount,
         address payer,
         bytes memory swapCallbackData
     ) internal returns (IERC20 outputToken, uint256 buyAmount) {

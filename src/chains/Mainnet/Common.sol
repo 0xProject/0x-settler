@@ -101,14 +101,14 @@ abstract contract MainnetMixin is
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.UNISWAPV3.selector)) {
             (address payable recipient, uint256 bps, bytes memory path, uint256 minAmountOut) =
-                abi.decode(data, (address payable, uint256, bytes, uint256));
+                abi.decode(data, (address, uint256, bytes, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
             (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV3(recipient, bps, path);
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.UNISWAPV2.selector)) {
             (address payable recipient, address sellToken, uint256 bps, address pool, uint24 swapInfo, uint256 minAmountOut) =
-                abi.decode(data, (address payable, address, uint256, address, uint24, uint256));
+                abi.decode(data, (address, address, uint256, address, uint24, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
             (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo);
@@ -147,21 +147,21 @@ abstract contract MainnetMixin is
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 minAmountOut
-            ) = abi.decode(data, (address payable, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
             (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills);
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
             (address payable recipient, uint256 bps, bool buyGem, uint256 minAmountOut, IPSM psm, IERC20 dai) =
-                abi.decode(data, (address payable, uint256, bool, uint256, IPSM, IERC20));
+                abi.decode(data, (address, uint256, bool, uint256, IPSM, IERC20));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
             (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToMakerPsm(recipient, bps, buyGem, psm, dai);
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
             (address payable recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 minAmountOut) =
-                abi.decode(data, (address payable, IERC20, uint256, IEulerSwap, bool, uint256));
+                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
             (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne);
@@ -176,7 +176,7 @@ abstract contract MainnetMixin is
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 minAmountOut
-            ) = abi.decode(data, (address payable, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
             (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills);
@@ -190,7 +190,7 @@ abstract contract MainnetMixin is
                 bool tokenAIn,
                 int32 tickLimit,
                 uint256 minAmountOut
-            ) = abi.decode(data, (address payable, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
             (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit);
@@ -205,7 +205,7 @@ abstract contract MainnetMixin is
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 minAmountOut
-            ) = abi.decode(data, (address payable, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
             (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToEkuboV2(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills);
@@ -220,10 +220,10 @@ abstract contract MainnetMixin is
                 uint256 hashMod,
                 bytes memory fills,
                 uint256 minAmountOut
-            ) = abi.decode(data, (address payable, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToEkuboV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, buyAmount);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToEkuboV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills);
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (
@@ -233,7 +233,7 @@ abstract contract MainnetMixin is
                 ISettlerActions.BebopMakerSignature memory makerSignature,
                 uint256 minAmountOut
             ) = abi.decode(
-                data, (address payable, IERC20, ISettlerActions.BebopOrder, ISettlerActions.BebopMakerSignature, uint256)
+                data, (address, IERC20, ISettlerActions.BebopOrder, ISettlerActions.BebopMakerSignature, uint256)
             );
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
@@ -241,7 +241,7 @@ abstract contract MainnetMixin is
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
             (address payable recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minAmountOut) =
-                abi.decode(data, (address payable, IERC20, uint256, IDodoV2, bool, uint256));
+                abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
             (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase);

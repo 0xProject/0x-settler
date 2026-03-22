@@ -48,7 +48,7 @@ contract MainnetSettler is Settler, MainnetMixin {
         return true;
     }
 
-    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
@@ -62,7 +62,7 @@ contract MainnetSettler is Settler, MainnetMixin {
                 bytes memory sig,
                 uint256 minAmountOut
             ) = abi.decode(
-                data, (address payable, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
+                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
             );
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
@@ -110,7 +110,7 @@ contract MainnetSettler is Settler, MainnetMixin {
                 bytes memory sig,
                 uint256 minAmountOut
             ) = abi.decode(
-                data, (address payable, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
+                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
             );
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
@@ -123,7 +123,7 @@ contract MainnetSettler is Settler, MainnetMixin {
                 uint80 poolInfo,
                 bytes memory sig,
                 uint256 minAmountOut
-            ) = abi.decode(data, (address payable, ISignatureTransfer.PermitTransferFrom, uint80, bytes, uint256));
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, uint80, bytes, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
             (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig);

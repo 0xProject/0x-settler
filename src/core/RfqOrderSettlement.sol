@@ -117,7 +117,7 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
             uint128(makerAmount)
         );
 
-        return (makerPermit.permitted.token, makerAmount);
+        return (IERC20(makerPermit.permitted.token), makerAmount);
     }
 
     /// @dev Settle an RfqOrder between maker and Settler retaining funds in this contract.
@@ -174,6 +174,6 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
 
         _logRfqOrder(makerWitness, takerWitness, uint128(makerAmount));
 
-        return (permit.permitted.token, makerAmount);
+        return (IERC20(permit.permitted.token), makerAmount);
     }
 }
