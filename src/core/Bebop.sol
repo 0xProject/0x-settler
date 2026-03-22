@@ -10,8 +10,6 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
-
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 interface IBebopSettlement {

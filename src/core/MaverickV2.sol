@@ -11,8 +11,6 @@ import {Ternary} from "../utils/Ternary.sol";
 import {Revert} from "../utils/Revert.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
-
 // Maverick AMM V2 is not open-source. The source code was disclosed to the
 // developers of 0x Settler confidentially and recompiled privately. The
 // deployed bytecode inithash matches the privately recompiled inithash.

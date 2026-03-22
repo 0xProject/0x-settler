@@ -3,7 +3,6 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";

@@ -6,8 +6,6 @@ import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
-
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
 

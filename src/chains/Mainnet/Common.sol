@@ -87,7 +87,7 @@ abstract contract MainnetMixin is
 
         if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 address maker,
                 bytes memory makerSig,

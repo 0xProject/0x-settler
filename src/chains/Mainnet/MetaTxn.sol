@@ -24,7 +24,7 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatchVIP(action, data, sig)) {
+        if (super._dispatchVIP(action, data, sig, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
             (

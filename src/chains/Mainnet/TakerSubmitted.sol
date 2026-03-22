@@ -49,7 +49,7 @@ contract MainnetSettler is Settler, MainnetMixin {
     }
 
     function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage) internal override DANGEROUS_freeMemory returns (bool) {
-        if (super._dispatchVIP(action, data)) {
+        if (super._dispatchVIP(action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
             (

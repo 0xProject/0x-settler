@@ -9,7 +9,7 @@ import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
-import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
+import {ZeroSellAmount} from "./SettlerErrors.sol";
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, CompactTake} from "./FlashAccountingCommon.sol";
 
 type Config is bytes32;
