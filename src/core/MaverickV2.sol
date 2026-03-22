@@ -231,19 +231,18 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
         bool tokenAIn,
         uint256 amount,
         int32 tickLimit,
-        uint256 minBuyAmount,
         bytes memory swapCallbackData,
         bool withCallback
-    ) private returns (uint256 buyAmount) {
+    ) private returns (IERC20 buyToken, uint256 buyAmount) {
         bytes memory data = pool.fastEncodeSwap(recipient, amount, tokenAIn, tickLimit, swapCallbackData);
 
         (, buyAmount) = abi.decode(
             withCallback ? _callMaverickWithCallback(address(pool), data) : _callMaverick(address(pool), data),
             (uint256, uint256)
         );
-        if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(pool.fastTokenAOrB(tokenAIn), minBuyAmount, buyAmount);
-        }
+
+        // TODO: figure out a way to elide this call to `fastTokenAOrB` in the hot path
+        buyToken = pool.fastTokenAOrB(tokenAIn);
     }
 
     function sellToMaverickV2VIP(
@@ -252,16 +251,14 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
         bool tokenAIn,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
-        int32 tickLimit,
-        uint256 minBuyAmount
-    ) internal returns (uint256 buyAmount) {
+        int32 tickLimit
+    ) internal returns (IERC20, uint256) {
         return _sellToMaverickV2(
             IMaverickV2Pool(AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash)),
             recipient,
             tokenAIn,
             _permitToSellAmount(permit),
             tickLimit,
-            minBuyAmount,
             _encodeSwapCallback(permit, sig),
             true
         );
@@ -273,9 +270,8 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
         uint256 bps,
         IMaverickV2Pool pool,
         bool tokenAIn,
-        int32 tickLimit,
-        uint256 minBuyAmount
-    ) internal returns (uint256 buyAmount) {
+        int32 tickLimit
+    ) internal returns (IERC20, uint256) {
         uint256 sellAmount;
         if (bps != 0) {
             unchecked {
@@ -291,7 +287,7 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
                 sellAmount -= pool.fastGetReserveAOrB(tokenAIn);
             }
         }
-        return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, tickLimit, minBuyAmount, new bytes(0), false);
+        return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, tickLimit, new bytes(0), false);
     }
 
     function _maverickV2Callback(bytes calldata data) private returns (bytes memory) {
