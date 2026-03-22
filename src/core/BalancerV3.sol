@@ -267,9 +267,9 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
     //// the previous token in the topological sort. Then sort the fills belonging to each sell
     //// token by their buy token. This technique isn't *quite* optimal, but it's pretty close. The
     //// buy token of the final fill is special-cased. It is the token that will be transferred to
-    //// `recipient` and have its slippage checked against `amountOutMin`. In the event that you are
-    //// encoding a series of fills with more than one output token, ensure that at least one of the
-    //// global buy token's fills is positioned appropriately.
+    //// `recipient` and have its amount returned. In the event that you are encoding a series of
+    //// fills with more than one output token, ensure that at least one of the global buy token's
+    //// fills is positioned appropriately.
     ////
     //// Now that you have a list of fills, encode each fill as follows.
     //// First, decide if the fill is a swap or an ERC4626 wrap/unwrap.
@@ -305,9 +305,8 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
-        bytes memory fills,
-        uint256 amountOutMin
-    ) internal returns (uint256 buyAmount) {
+        bytes memory fills
+    ) internal returns (IERC20 buyToken, uint256 buyAmount) {
         bytes memory data = Encoder.encode(
             uint32(IBalancerV3Vault.unlock.selector),
             recipient,
@@ -316,25 +315,27 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
             feeOnTransfer,
             hashMul,
             hashMod,
-            fills,
-            amountOutMin
+            fills
         );
-        // If, for some insane reason, the first 4 bytes of `recipient` alias the selector for the
-        // only mutative function of Settler (`execute` or `executeMetaTxn`, as appropriate), then
-        // this call will revert. We will encounter a revert in the nested call to
-        // `execute`/`executeMetaTxn` because Settler is reentrancy-locked (this revert is
-        // bubbled). If, instead, it aliases a non-mutative function of Settler, we would encounter
-        // a revert inside `TransientStorage.checkSpentOperatorAndCallback` because the transient
-        // storage slot was not zeroed. This would happen by accident with negligible probability,
-        // and is merely annoying if it does happen.
-        bytes memory encodedBuyAmount =
+        // If, for some insane reason, the first 4 bytes of `recipient` alias the selector for one
+        // of the mutative functions of Settler (`execute`, `executeWithPermit`, or
+        // `executeMetaTxn`), then this call will revert. We will encounter a revert in the nested
+        // call to `execute`/`executeWithPermit`/`executeMetaTxn` because Settler is
+        // reentrancy-locked (this revert is bubbled). If, instead, it aliases a non-mutative
+        // function of Settler, we would encounter a revert inside
+        // `TransientStorage.checkSpentOperatorAndCallback` because the transient storage slot was
+        // not zeroed. This would happen by accident with negligible probability, and is merely
+        // annoying if it does happen.
+        bytes memory encodedResult =
             _setOperatorAndCall(address(VAULT), data, uint32(uint256(uint160(recipient)) >> 128), _balV3Callback);
-        // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
+
+        // (buyToken, buyAmount) = abi.decode(abi.decode(encodedResult, (bytes)), (IERC20, uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
             // verbatim result from `balV3UnlockCallback` and that `balV3UnlockCallback` encoded the
             // buy amount correctly.
-            buyAmount := mload(add(0x60, encodedBuyAmount))
+            buyToken := mload(add(0x60, encodedResult))
+            buyAmount := mload(add(0x80, encodedResult))
         }
     }
 
@@ -345,9 +346,8 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         uint256 hashMod,
         bytes memory fills,
         ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig,
-        uint256 amountOutMin
-    ) internal returns (uint256 buyAmount) {
+        bytes memory sig
+    ) internal returns (IERC20 buyToken, uint256 buyAmount) {
         bytes memory data = Encoder.encodeVIP(
             uint32(IBalancerV3Vault.unlock.selector),
             recipient,
@@ -357,19 +357,20 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
             fills,
             permit,
             sig,
-            _isForwarded(),
-            amountOutMin
+            _isForwarded()
         );
         // See comment in `sellToBalancerV3` about why `recipient` aliasing a valid selector is
         // ultimately harmless.
-        bytes memory encodedBuyAmount =
+        bytes memory encodedResult =
             _setOperatorAndCall(address(VAULT), data, uint32(uint256(uint160(recipient)) >> 128), _balV3Callback);
-        // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
+
+        // (buyToken, buyAmount) = abi.decode(abi.decode(encodedResult, (bytes)), (IERC20, uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
             // verbatim result from `balV3UnlockCallback` and that `balV3UnlockCallback` encoded the
             // buy amount correctly.
-            buyAmount := mload(add(0x60, encodedBuyAmount))
+            buyToken := mload(add(0x60, encodedResult))
+            buyAmount := mload(add(0x80, encodedResult))
         }
     }
 
@@ -464,12 +465,11 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
 
     function balV3UnlockCallback(bytes calldata data) private returns (bytes memory) {
         address recipient;
-        uint256 minBuyAmount;
         uint256 hashMul;
         uint256 hashMod;
         bool feeOnTransfer;
         address payer;
-        (data, recipient, minBuyAmount, hashMul, hashMod, feeOnTransfer, payer) = Decoder.decodeHeader(data);
+        (data, recipient, , hashMul, hashMod, feeOnTransfer, payer) = Decoder.decodeHeader(data);
 
         // Set up `state` and `notes`. The other values are ancillary and might be used when we need
         // to settle global sell token debt at the end of swapping.
@@ -553,8 +553,8 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
-            uint256 globalBuyAmount =
-                Take.take(state, notes, uint32(IBalancerV3Vault.sendTo.selector), recipient, minBuyAmount);
+            (IERC20 globalBuyToken, uint256 globalBuyAmount) =
+                Take.take(state, notes, uint32(IBalancerV3Vault.sendTo.selector), recipient);
             if (feeOnTransfer) {
                 // We've already transferred the sell token to the vault and
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
@@ -589,9 +589,10 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
             bytes memory returndata;
             assembly ("memory-safe") {
                 returndata := mload(0x40)
-                mstore(returndata, 0x20)
-                mstore(add(0x20, returndata), globalBuyAmount)
-                mstore(0x40, add(0x40, returndata))
+                mstore(returndata, 0x40)
+                mstore(add(0x20, returndata), and(0xffffffffffffffffffffffffffffffffffffffff, globalBuyToken))
+                mstore(add(0x40, returndata), globalBuyAmount)
+                mstore(0x40, add(0x60, returndata))
             }
             return returndata;
         }

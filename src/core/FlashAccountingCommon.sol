@@ -9,7 +9,7 @@ import {Panic} from "../utils/Panic.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 
-import {revertTooMuchSlippage, BoughtSellToken, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
+import {BoughtSellToken, DeltaNotPositive, DeltaNotNegative} from "./SettlerErrors.sol";
 
 library CreditDebt {
     using UnsafeMath for int256;
@@ -386,12 +386,11 @@ library Encoder {
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
-        bytes memory fills,
-        uint256 amountOutMin
+        bytes memory fills
     ) internal view returns (bytes memory data) {
         hashMul *= 96;
         hashMod *= 96;
-        if ((bps > BASIS).or(amountOutMin >> 128 != 0).or(hashMul >> 128 != 0).or(hashMod >> 128 != 0)) {
+        if ((bps > BASIS).or((hashMul | hashMod) >> 128 != 0)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         assembly ("memory-safe") {
@@ -407,7 +406,7 @@ library Encoder {
 
             mstore(add(0x88, data), hashMod)
             mstore(add(0x78, data), hashMul)
-            mstore(add(0x68, data), amountOutMin)
+            mstore(add(0x68, data), 0x00)  // TODO: remove
             mstore(add(0x58, data), recipient)
             mstore(add(0x44, data), add(0x6f, pathLen))
             mstore(add(0x24, data), 0x20)
@@ -428,12 +427,11 @@ library Encoder {
         bytes memory fills,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
-        bool isForwarded,
-        uint256 amountOutMin
+        bool isForwarded
     ) internal pure returns (bytes memory data) {
         hashMul *= 96;
         hashMod *= 96;
-        if ((amountOutMin >> 128 != 0).or(hashMul >> 128 != 0).or(hashMod >> 128 != 0)) {
+        if ((hashMul | hashMod) >> 128 != 0) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
         assembly ("memory-safe") {
@@ -467,7 +465,7 @@ library Encoder {
 
             mstore(add(0x88, data), hashMod)
             mstore(add(0x78, data), hashMul)
-            mstore(add(0x68, data), amountOutMin)
+            mstore(add(0x68, data), 0x00) // TODO: remove
             mstore(add(0x58, data), recipient)
             mstore(add(0x44, data), add(0xd1, add(pathLen, sigLen)))
             mstore(add(0x24, data), 0x20)
@@ -588,7 +586,7 @@ library Decoder {
             bytes calldata newData,
             // These values are user-supplied
             address recipient,
-            uint256 minBuyAmount,
+            uint256 minBuyAmount, // TODO: remove
             uint256 hashMul,
             uint256 hashMod,
             bool feeOnTransfer,
@@ -600,7 +598,7 @@ library Decoder {
         assembly ("memory-safe") {
             recipient := shr(0x60, calldataload(data.offset))
             let packed := calldataload(add(0x14, data.offset))
-            minBuyAmount := shr(0x80, packed)
+            minBuyAmount := shr(0x80, packed) // TODO: remove
             hashMul := and(0xffffffffffffffffffffffffffffffff, packed)
             packed := calldataload(add(0x34, data.offset))
             hashMod := shr(0x80, packed)
@@ -757,13 +755,12 @@ library Take {
     }
 
     /// `take` is responsible for removing the accumulated credit in each token from the vault. The
-    /// current `state.buy` is the global buy token. We return the settled amount of that token
-    /// (`buyAmount`), after checking it against the slippage limit (`minBuyAmount`). Each token
-    /// with credit causes a corresponding call to `msg.sender.<selector>(token, recipient,
-    /// amount)`.
-    function take(State state, NotesLib.Note[] memory notes, uint32 selector, address recipient, uint256 minBuyAmount)
+    /// current `state.buy` is the global buy token (`buyToken`). We return the settled amount of
+    /// that token (`buyAmount`). Each token with credit causes a corresponding call to
+    /// `msg.sender.<selector>(token, recipient, amount)`.
+    function take(State state, NotesLib.Note[] memory notes, uint32 selector, address recipient)
         internal
-        returns (uint256 buyAmount)
+        returns (IERC20 buyToken, uint256 buyAmount)
     {
         // NOTICE: Any changes done in this function most likely need to be applied to `CompactTake.take` 
         // as well because it is a copy of this one with a different `_callSelector` function
@@ -793,15 +790,10 @@ library Take {
         }
 
         // The final token to be bought is considered the global buy token. We bypass `notes` and
-        // read it directly from `state`. Check the slippage limit. Transfer to the recipient.
-        {
-            IERC20 buyToken = state.buy().token();
-            buyAmount = state.buy().amount();
-            if (buyAmount < minBuyAmount) {
-                revertTooMuchSlippage(buyToken, minBuyAmount, buyAmount);
-            }
-            _callSelector(selector, buyToken, recipient, buyAmount);
-        }
+        // read it directly from `state`. Transfer to the recipient.
+        buyToken = state.buy().token();
+        buyAmount = state.buy().amount();
+        _callSelector(selector, buyToken, recipient, buyAmount);
     }
 }
 
@@ -840,13 +832,12 @@ library CompactTake {
     }
 
     /// `take` is responsible for removing the accumulated credit in each token from the vault. The
-    /// current `state.buy` is the global buy token. We return the settled amount of that token
-    /// (`buyAmount`), after checking it against the slippage limit (`minBuyAmount`). Each token
-    /// with credit causes a corresponding call to `msg.sender.<selector>(token, recipient,
-    /// amount)`.
-    function take(State state, NotesLib.Note[] memory notes, uint32 selector, address recipient, uint256 minBuyAmount)
+    /// current `state.buy` is the global buy token (`buyToken`). We return the settled amount of
+    /// that token (`buyAmount`). Each token with credit causes a corresponding call to
+    /// `msg.sender.<selector>(token, recipient, amount)`.
+    function take(State state, NotesLib.Note[] memory notes, uint32 selector, address recipient)
         internal
-        returns (uint256 buyAmount)
+        returns (IERC20 buyToken, uint256 buyAmount)
     {
         // NOTICE: Any changes done in this function most likely need to be applied to `Take.take` 
         // as well because this function is a copy of it with a different `_callSelector` function
@@ -876,14 +867,9 @@ library CompactTake {
         }
 
         // The final token to be bought is considered the global buy token. We bypass `notes` and
-        // read it directly from `state`. Check the slippage limit. Transfer to the recipient.
-        {
-            IERC20 buyToken = state.buy().token();
-            buyAmount = state.buy().amount();
-            if (buyAmount < minBuyAmount) {
-                revertTooMuchSlippage(buyToken, minBuyAmount, buyAmount);
-            }
-            _callSelector(selector, buyToken, recipient, buyAmount);
-        }
+        // read it directly from `state`. Transfer to the recipient.
+        buyToken = state.buy().token();
+        buyAmount = state.buy().amount();
+        _callSelector(selector, buyToken, recipient, buyAmount);
     }
 }
