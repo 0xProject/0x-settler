@@ -22,6 +22,8 @@ interface ICurveTricrypto {
         address receiver,
         bytes32 callbackSelector
     ) external returns (uint256 buyAmount);
+
+    function coins(uint256 i) external view returns (address);
 }
 
 interface ICurveTricryptoCallback {
@@ -65,6 +67,22 @@ library FastCurveTricrypto {
             mstore(0x40, add(0x124, data))
         }
     }
+
+    function fastCoins(ICurveTricrypto pool, uint256 i) internal view returns (IERC20 coin) {
+        assembly ("memory-safe") {
+            mstore(0x00, 0xc6610657) // Selector for `coins(uint256)`
+            mstore(0x20, i)
+            if iszero(staticcall(gas(), pool, 0x1c, 0x24, 0x00, 0x20)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            coin := mload(0x00)
+            if or(gt(0x20, returndatasize()), shr(0xa0, coins)) {
+                revert(0x00, 0x00)
+            }
+        }
+    }
 }
 
 abstract contract CurveTricrypto is SettlerSwapAbstract {
@@ -80,9 +98,8 @@ abstract contract CurveTricrypto is SettlerSwapAbstract {
         address recipient,
         uint80 poolInfo,
         ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig,
-        uint256 minBuyAmount
-    ) internal {
+        bytes memory sig
+    ) internal returns (IERC20 buyToken, uint256 buyAmount) {
         uint256 sellAmount = _permitToSellAmount(permit);
         uint64 factoryNonce = uint64(poolInfo >> 16);
         uint8 sellIndex = uint8(poolInfo >> 8);
@@ -119,12 +136,18 @@ abstract contract CurveTricrypto is SettlerSwapAbstract {
                 dst := add(0x01, dst)
             } { tstore(dst, mload(src)) }
         }
-        _setOperatorAndCall(
+        bytes memory encodedBuyAmount = _setOperatorAndCall(
             pool,
-            FastCurveTricrypto.fastEncodeExchangeExtended(sellIndex, buyIndex, sellAmount, minBuyAmount, recipient),
+            FastCurveTricrypto.fastEncodeExchangeExtended(sellIndex, buyIndex, sellAmount, 0, recipient),
             uint32(ICurveTricryptoCallback.curveTricryptoSwapCallback.selector),
             _curveTricryptoSwapCallback
         );
+
+        assembly ("memory-safe") {
+            buyAmount := mload(add(0x20, encodedBuyAmount))
+        }
+        // TODO: figure out a way to elide this call to `fastCoins` in the hot path
+        buyToken = pool.fastCoins(buyIndex);
     }
 
     function _curveTricryptoSwapCallback(bytes calldata data) private returns (bytes memory) {
