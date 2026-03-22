@@ -397,24 +397,23 @@ library Encoder {
             data := mload(0x40)
 
             let pathLen := mload(fills)
-            mcopy(add(0xd3, data), add(0x20, fills), pathLen)
+            mcopy(add(0xc3, data), add(0x20, fills), pathLen)
 
-            mstore(add(0xb3, data), bps)
-            mstore(add(0xb1, data), sellToken)
-            mstore(add(0x9d, data), address()) // payer
+            mstore(add(0xa3, data), bps)
+            mstore(add(0xa1, data), sellToken)
+            mstore(add(0x8d, data), address()) // payer
             // feeOnTransfer (1 byte)
 
-            mstore(add(0x88, data), hashMod)
-            mstore(add(0x78, data), hashMul)
-            mstore(add(0x68, data), 0x00)  // TODO: remove
+            mstore(add(0x78, data), hashMod)
+            mstore(add(0x68, data), hashMul)
             mstore(add(0x58, data), recipient)
-            mstore(add(0x44, data), add(0x6f, pathLen))
+            mstore(add(0x44, data), add(0x5f, pathLen))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), unlockSelector)
-            mstore(data, add(0xb3, pathLen))
-            mstore8(add(0xa8, data), feeOnTransfer)
+            mstore(data, add(0xa3, pathLen))
+            mstore8(add(0x98, data), feeOnTransfer)
 
-            mstore(0x40, add(data, add(0xd3, pathLen)))
+            mstore(0x40, add(data, add(0xc3, pathLen)))
         }
     }
 
@@ -441,7 +440,7 @@ library Encoder {
             let sigLen := mload(sig)
 
             {
-                let ptr := add(0x132, data)
+                let ptr := add(0x122, data)
 
                 // sig length as 3 bytes goes at the end of the callback
                 mstore(sub(add(sigLen, add(pathLen, ptr)), 0x1d), sigLen)
@@ -457,22 +456,21 @@ library Encoder {
                 mstore(0x40, add(0x03, ptr))
             }
 
-            mstore8(add(0x131, data), isForwarded)
-            mcopy(add(0xf1, data), add(0x20, permit), 0x40)
-            mcopy(add(0xb1, data), mload(permit), 0x40) // aliases `payer` on purpose
-            mstore(add(0x9d, data), 0x00) // payer
+            mstore8(add(0x121, data), isForwarded)
+            mcopy(add(0xe1, data), add(0x20, permit), 0x40)
+            mcopy(add(0xa1, data), mload(permit), 0x40) // aliases `payer` on purpose
+            mstore(add(0x8d, data), 0x00) // payer
             // feeOnTransfer (1 byte)
 
-            mstore(add(0x88, data), hashMod)
-            mstore(add(0x78, data), hashMul)
-            mstore(add(0x68, data), 0x00) // TODO: remove
+            mstore(add(0x78, data), hashMod)
+            mstore(add(0x68, data), hashMul)
             mstore(add(0x58, data), recipient)
-            mstore(add(0x44, data), add(0xd1, add(pathLen, sigLen)))
+            mstore(add(0x44, data), add(0xc1, add(pathLen, sigLen)))
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), unlockSelector)
-            mstore(data, add(0x115, add(pathLen, sigLen)))
+            mstore(data, add(0x105, add(pathLen, sigLen)))
 
-            mstore8(add(0xa8, data), feeOnTransfer)
+            mstore8(add(0x98, data), feeOnTransfer)
         }
     }
 }
@@ -586,7 +584,6 @@ library Decoder {
             bytes calldata newData,
             // These values are user-supplied
             address recipient,
-            uint256 minBuyAmount, // TODO: remove
             uint256 hashMul,
             uint256 hashMod,
             bool feeOnTransfer,
@@ -598,14 +595,13 @@ library Decoder {
         assembly ("memory-safe") {
             recipient := shr(0x60, calldataload(data.offset))
             let packed := calldataload(add(0x14, data.offset))
-            minBuyAmount := shr(0x80, packed) // TODO: remove
-            hashMul := and(0xffffffffffffffffffffffffffffffff, packed)
-            packed := calldataload(add(0x34, data.offset))
-            hashMod := shr(0x80, packed)
+            hashMul := shr(0x80, packed)
+            hashMod := and(0xffffffffffffffffffffffffffffffff, packed)
+            packed := calldataload(add(0x24, data.offset))
             feeOnTransfer := lt(0x00, and(0x1000000000000000000000000000000, packed))
 
-            data.offset := add(0x45, data.offset)
-            data.length := sub(data.length, 0x45)
+            data.offset := add(0x35, data.offset)
+            data.length := sub(data.length, 0x35)
             // we don't check for array out-of-bounds here; we will check it later in `initialize`
         }
 

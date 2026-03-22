@@ -249,7 +249,7 @@ abstract contract UniswapV4 is SettlerSwapAbstract {
         uint256 hashMod;
         bool feeOnTransfer;
         address payer;
-        (data, recipient, , hashMul, hashMod, feeOnTransfer, payer) = Decoder.decodeHeader(data);
+        (data, recipient, hashMul, hashMod, feeOnTransfer, payer) = Decoder.decodeHeader(data);
 
         // Set up `state` and `notes`. The other values are ancillary and might be used when we need
         // to settle global sell token debt at the end of swapping.
