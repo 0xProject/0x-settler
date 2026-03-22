@@ -269,8 +269,8 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
         // (buyToken, buyAmount) = abi.decode(abi.decode(encodedResult, (bytes)), (IERC20, uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
-            // verbatim result from `locked_6416899205` and that `locked_6416899205` encoded the buy amount
-            // correctly.
+            // verbatim result from `locked_6416899205` and that `locked_6416899205` encoded the buy
+            // token and buy amount correctly.
             buyToken := mload(add(0x60, encodedResult))
             buyAmount := mload(add(0x80, encodedResult))
         }
