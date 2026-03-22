@@ -77,7 +77,7 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
         bytes memory makerSig,
         ISignatureTransfer.PermitTransferFrom memory takerPermit,
         bytes memory takerSig
-    ) internal returns (uint256) {
+    ) internal returns (IERC20, uint256) {
         if (!_hasMetaTxn()) {
             assert(makerPermit.permitted.amount <= type(uint256).max - BASIS);
         }
@@ -117,7 +117,7 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
             uint128(makerAmount)
         );
 
-        return makerAmount;
+        return (makerPermit.permitted.token, makerAmount);
     }
 
     /// @dev Settle an RfqOrder between maker and Settler retaining funds in this contract.
@@ -131,7 +131,7 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
         bytes memory makerSig,
         IERC20 takerToken,
         uint256 maxTakerAmount
-    ) internal returns (uint256) {
+    ) internal returns (IERC20, uint256) {
         if (!_hasMetaTxn()) {
             assert(permit.permitted.amount <= type(uint256).max - BASIS);
         }
@@ -174,6 +174,6 @@ abstract contract RfqOrderSettlement is SettlerSwapAbstract {
 
         _logRfqOrder(makerWitness, takerWitness, uint128(makerAmount));
 
-        return makerAmount;
+        return (permit.permitted.token, makerAmount);
     }
 }

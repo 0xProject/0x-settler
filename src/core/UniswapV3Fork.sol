@@ -65,9 +65,9 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
     /// @return buyAmount Amount of the last token in the path bought.
     function sellToUniswapV3(address recipient, uint256 bps, bytes memory encodedPath, IERC20 buyToken, uint256 minBuyAmount)
         internal
-        returns (uint256 buyAmount)
+        returns (IERC20, uint256)
     {
-        buyAmount = _uniV3ForkSwap(
+        _uniV3ForkSwap(
             recipient,
             encodedPath,
             // We don't care about phantom overflow here because reserves are
@@ -95,12 +95,12 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         bytes memory sig,
         IERC20 buyToken,
         uint256 minBuyAmount
-    ) internal returns (uint256 buyAmount) {
+    ) internal returns (IERC20, uint256) {
         bytes memory swapCallbackData =
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded());
 
-        buyAmount = _uniV3ForkSwap(
+        return _uniV3ForkSwap(
             recipient,
             encodedPath,
             _permitToSellAmount(permit),
@@ -120,12 +120,11 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         uint256 minBuyAmount,
         address payer,
         bytes memory swapCallbackData
-    ) internal returns (uint256 buyAmount) {
+    ) internal returns (IERC20 outputToken, uint256 buyAmount) {
         if (sellAmount > uint256(type(int256).max)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
 
-        IERC20 outputToken;
         while (true) {
             bool isPathMultiHop = _isPathMultiHop(encodedPath);
             bool zeroForOne;
@@ -203,12 +202,6 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             assembly ("memory-safe") {
                 mstore(swapCallbackData, SWAP_CALLBACK_PREFIX_DATA_SIZE)
             }
-        }
-        if (!buyToken.eq(outputToken).or(buyToken.eq(IERC20(address(0))))) {
-            revertBuyTokenMismatch(buyToken, outputToken);
-        }
-        if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(outputToken, minBuyAmount, buyAmount);
         }
     }
 

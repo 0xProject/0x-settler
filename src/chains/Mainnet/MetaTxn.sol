@@ -40,8 +40,8 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             );
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-
-            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, buyToken, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.METATXN_BALANCERV3_VIP.selector)) {
             (
                 address payable recipient,
@@ -56,8 +56,8 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             );
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-
-            sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, buyToken, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.METATXN_MAVERICKV2_VIP.selector)) {
             (
                 address payable recipient,
@@ -69,8 +69,8 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes32, bool, int32, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit, buyToken, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.METATXN_EKUBOV3_VIP.selector)) {
             (
                 address payable recipient,
@@ -85,8 +85,8 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             );
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-
-            sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, buyToken, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } /* else if (action == uint32(ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address payable recipient,
@@ -96,8 +96,8 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             ) = abi.decode(data, (address payable, ISignatureTransfer.PermitTransferFrom, uint80, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-
-            sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig, buyToken, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } */ else {
             return false;
         }

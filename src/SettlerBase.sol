@@ -117,6 +117,15 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         }
     }
 
+    function _checkSlippage(IERC20 expectedBuyToken, uint256 minAmountOut, IERC20 actualBuyToken, uint256 actualAmountOut) internal pure {
+        if (!expectedBuyToken.eq(actualBuyToken).or(expectedBuyToken.eq(IERC20(address(0))))) {
+            revertBuyTokenMismatch(expectedBuyToken, actualBuyToken);
+        }
+        if (actualAmountOut < minBuyAmount) {
+            revertTooMuchSlippage(actualBuyToken, minBuyAmount, actualAmountOut);
+        }
+    }
+
     function _maybeSetSlippage(AllowedSlippage memory slippage, address payable recipient, uint256 minAmountOut) internal view returns (address payable, IERC20, uint256) {
         IERC20 buyToken;
         if (recipient.eq(TAKER_ADDRESS).and(minAmountOut == 0)) {
@@ -151,28 +160,22 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
             IERC20 buyToken;
             uint256 minAmountOut;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            if (!address(buyToken).eq(permit.permitted.token).or(buyToken.eq(IERC20(address(0))))) {
-                revertBuyTokenMismatch(buyToken, IERC20(permit.permitted.token));
-            }
-
-            uint256 amountOut = fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount);
-            if (amountOut < minAmountOut) {
-                revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
-            }
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.UNISWAPV3.selector)) {
             (address payable recipient, uint256 bps, bytes memory path, uint256 minAmountOut) =
                 abi.decode(data, (address payable, uint256, bytes, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-
-            sellToUniswapV3(recipient, bps, path, buyToken, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV3(recipient, bps, path);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.UNISWAPV2.selector)) {
             (address payable recipient, address sellToken, uint256 bps, address pool, uint24 swapInfo, uint256 minAmountOut) =
                 abi.decode(data, (address payable, address, uint256, address, uint24, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-
-            sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo, buyToken, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.BASIC.selector)) {
             (IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory _data) =
                 abi.decode(data, (IERC20, uint256, address, uint256, bytes));
@@ -183,8 +186,8 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
                 abi.decode(data, (address payable, uint256, IVelodromePair, uint24, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-
-            sellToVelodrome(recipient, bps, pool, swapInfo, buyToken, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToVelodrome(recipient, bps, pool, swapInfo);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxBps) =
                 abi.decode(data, (address, IERC20, uint256, uint256));

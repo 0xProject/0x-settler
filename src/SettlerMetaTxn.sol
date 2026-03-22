@@ -105,8 +105,8 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
             ) = abi.decode(data, (address payable, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-
-            sellToUniswapV3VIP(recipient, path, permit, sig, buyToken, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV3VIP(recipient, path, permit, sig);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;
         }
