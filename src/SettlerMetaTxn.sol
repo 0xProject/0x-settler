@@ -98,13 +98,15 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, sig);
         } */ else if (action == uint32(ISettlerActions.METATXN_UNISWAPV3_VIP.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes memory path,
-                uint256 amountOutMin
-            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+                uint256 minAmountOut
+            ) = abi.decode(data, (address payable, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
 
-            sellToUniswapV3VIP(recipient, path, permit, sig, amountOutMin);
+            sellToUniswapV3VIP(recipient, path, permit, sig, buyToken, minAmountOut);
         } else {
             return false;
         }
