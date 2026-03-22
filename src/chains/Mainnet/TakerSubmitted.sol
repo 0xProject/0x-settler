@@ -23,115 +23,16 @@ contract MainnetSettler is Settler, MainnetMixin {
         override(Settler, MainnetMixin)
         returns (bool)
     {
-        if (super._dispatch(i, action, data, slippage)) {
-            return true;
-        } else if (action == uint32(ISettlerActions.NATIVE_CHECK.selector)) {
-            (uint256 deadline, uint256 msgValue) = abi.decode(data, (uint256, uint256));
-            if (block.timestamp > deadline) {
-                assembly ("memory-safe") {
-                    mstore(0x00, 0xcd21db4f) // selector for `SignatureExpired(uint256)`
-                    mstore(0x20, deadline)
-                    revert(0x1c, 0x24)
-                }
-            }
-            if (msg.value > msgValue) {
-                assembly ("memory-safe") {
-                    mstore(0x00, 0x4a094431) // selector for `MsgValueMismatch(uint256,uint256)`
-                    mstore(0x20, msgValue)
-                    mstore(0x40, callvalue())
-                    revert(0x1c, 0x44)
-                }
-            }
-        } else {
-            return false;
-        }
-        return true;
+        return super._dispatch(i, action, data, slippage);
     }
 
-    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage) internal override DANGEROUS_freeMemory returns (bool) {
-        if (super._dispatchVIP(action, data, slippage)) {
-            return true;
-        } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
-            (
-                address payable recipient,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                bytes memory sig,
-                uint256 minAmountOut
-            ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
-            );
-            IERC20 buyToken;
-            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
-            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
-        } else if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector)) {
-            (
-                address payable recipient,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                bytes memory sig,
-                uint256 minAmountOut
-            ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
-            );
-            IERC20 buyToken;
-            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
-            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
-        } else if (action == uint32(ISettlerActions.MAVERICKV2_VIP.selector)) {
-            (
-                address payable recipient,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes32 salt,
-                bool tokenAIn,
-                bytes memory sig,
-                int32 tickLimit,
-                uint256 minAmountOut
-            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes32, bool, bytes, int32, uint256));
-            IERC20 buyToken;
-            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit);
-            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
-        } else if (action == uint32(ISettlerActions.EKUBOV3_VIP.selector)) {
-            (
-                address payable recipient,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                bytes memory sig,
-                uint256 minAmountOut
-            ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
-            );
-            IERC20 buyToken;
-            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
-            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
-        } /* else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
-            (
-                address payable recipient,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                uint80 poolInfo,
-                bytes memory sig,
-                uint256 minAmountOut
-            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, uint80, bytes, uint256));
-            IERC20 buyToken;
-            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToCurveTricryptoVIP(recipient, poolInfo, permit, sig);
-            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
-        } */ else {
-            return false;
-        }
-        return true;
+    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        override(Settler, MainnetMixin)
+        DANGEROUS_freeMemory
+        returns (bool)
+    {
+        return super._dispatchVIP(action, data, slippage);
     }
 
     // Solidity inheritance is stupid
