@@ -333,7 +333,7 @@ abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
             // verbatim result from `balV3UnlockCallback` and that `balV3UnlockCallback` encoded the
-            // buy amount correctly.
+            // buy amount and buy token correctly.
             buyToken := mload(add(0x60, encodedResult))
             buyAmount := mload(add(0x80, encodedResult))
         }

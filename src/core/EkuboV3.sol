@@ -233,11 +233,11 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
         bytes memory encodedResult = _setOperatorAndCall(
             address(CORE), data, uint32(IEkuboCallbacks.locked_6416899205.selector), _ekuboLockCallbackV3
         );
-        // (buyToken, buyAmount) = abi.decode(abi.decode(encodedResult, (bytes)), (IEREC20, uint256));
+        // (buyToken, buyAmount) = abi.decode(abi.decode(encodedResult, (bytes)), (IERC20, uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
-            // verbatim result from `locked_6416899205` and that `locked_6416899205` encoded the buy amount
-            // correctly.
+            // verbatim result from `locked_6416899205` and that `locked_6416899205` encoded the buy
+            // amount and buy token correctly.
             buyToken := mload(add(0x60, encodedResult))
             buyAmount := mload(add(0x80, encodedResult))
         }
@@ -494,7 +494,7 @@ abstract contract EkuboV3 is SettlerSwapAbstract {
                 _ekuboPayV3(globalSellToken, payer, debt, permit, isForwarded, sig);
             }
 
-            // return abi.encode(globalBuyAmount);
+            // return abi.encode(globalBuyToken, globalBuyAmount);
             bytes memory returndata;
             assembly ("memory-safe") {
                 returndata := mload(0x40)

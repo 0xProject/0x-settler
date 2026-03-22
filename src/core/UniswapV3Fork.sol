@@ -56,6 +56,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
     /// @param encodedPath Uniswap-encoded path.
     /// @param bps proportion of current balance of the first token in the path to sell.
     /// @param recipient The recipient of the bought tokens.
+    /// @return buyToken The last token in the path bought.
     /// @return buyAmount Amount of the last token in the path bought.
     function sellToUniswapV3(address recipient, uint256 bps, bytes memory encodedPath)
         internal
@@ -78,6 +79,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
     /// @param recipient The recipient of the bought tokens.
     /// @param permit The PermitTransferFrom allowing this contract to spend the taker's tokens
     /// @param sig The taker's signature for Permit2
+    /// @return buyToken The last token in the path bought.
     /// @return buyAmount Amount of the last token in the path bought.
     function sellToUniswapV3VIP(
         address recipient,
