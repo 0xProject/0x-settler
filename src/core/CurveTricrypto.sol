@@ -78,7 +78,7 @@ library FastCurveTricrypto {
                 revert(ptr, returndatasize())
             }
             coin := mload(0x00)
-            if or(gt(0x20, returndatasize()), shr(0xa0, coins)) {
+            if or(gt(0x20, returndatasize()), shr(0xa0, coin)) {
                 revert(0x00, 0x00)
             }
         }
@@ -89,6 +89,7 @@ abstract contract CurveTricrypto is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using AddressDerivation for address;
+    using FastCurveTricrypto for ICurveTricrypto;
 
     function _curveFactory() internal virtual returns (address);
     // uint256 private constant codePrefixLen = 0x539d;
@@ -147,7 +148,7 @@ abstract contract CurveTricrypto is SettlerSwapAbstract {
             buyAmount := mload(add(0x20, encodedBuyAmount))
         }
         // TODO: figure out a way to elide this call to `fastCoins` in the hot path
-        buyToken = pool.fastCoins(buyIndex);
+        buyToken = ICurveTricrypto(pool).fastCoins(buyIndex);
     }
 
     function _curveTricryptoSwapCallback(bytes calldata data) private returns (bytes memory) {
