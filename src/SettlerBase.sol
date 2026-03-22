@@ -127,7 +127,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         }
     }
 
-    function _maybeSetSlippage(AllowedSlippage memory slippage, address payable recipient, uint256 minAmountOut) internal view returns (address payable, IERC20, uint256) {
+    function _maybeSetSlippage(AllowedSlippage memory slippage, address payable recipient, uint256 minAmountOut) internal pure returns (address payable, IERC20, uint256) {
         IERC20 buyToken;
         if (recipient.eq(TAKER_ADDRESS).and(minAmountOut == 0)) {
             (recipient, buyToken, minAmountOut) = (slippage.recipient, slippage.buyToken, slippage.minAmountOut);

@@ -61,7 +61,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         internal
         returns (IERC20, uint256)
     {
-        _uniV3ForkSwap(
+        return _uniV3ForkSwap(
             recipient,
             encodedPath,
             // We don't care about phantom overflow here because reserves are
