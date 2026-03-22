@@ -908,7 +908,7 @@ abstract contract EulerSwap is SettlerSwapAbstract {
         buyToken = IEVault(zeroForOne.ternary(address(p.vault1()), address(p.vault0()))).fastAsset();
 
         // Because the reference implementation of `verify` for the EulerSwap trading function is
-        // non-monotonic, it may be possible to have an `buyAmount` of one, even if `sellAmount` is
+        // non-monotonic, it may be possible to have a `buyAmount` of one, even if `sellAmount` is
         // zero. Because this is likely triggered by a failure of the `isAccountOperatorAuthorized`
         // check, we skip calling `swap` because it's probably going to revert. If you set the
         // slippage limit to one and this catches you off guard, I'm sorry, but that was dumb.
