@@ -222,7 +222,7 @@ abstract contract Velodrome is SettlerSwapAbstract {
             }
 
             // Apply the fee in native units
-            sellAmount -= sellAmount * feeBps / 10_000; // can't overflow
+            sellAmount -= sellAmount * feeBps / BASIS; // can't overflow
 
             // Clamp the precision in which we work to 1e18. This makes sure that we're quantizing
             // (rounding down) the same as the AMM and it ensures that we don't encounter overflow

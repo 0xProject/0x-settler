@@ -288,7 +288,7 @@ abstract contract Velodrome is SettlerSwapAbstract {
             */
 
             // Apply the fee in native units
-            sellAmount -= sellAmount * feeBps / 10_000; // can't overflow
+            sellAmount -= sellAmount * feeBps / BASIS; // can't overflow
             // Convert sell amount from native units to `_VELODROME_TOKEN_BASIS`
             sellAmount = (sellAmount * _VELODROME_TOKEN_BASIS).unsafeDiv(sellBasis);
 

@@ -122,8 +122,8 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
             sellAmount = bal - sellReserve;
         }
         unchecked {
-            uint256 sellAmountWithFee = sellAmount * (10000 - feeBps);
-            buyAmount = (sellAmountWithFee * buyReserve) / (sellAmountWithFee + sellReserve * 10000);
+            uint256 sellAmountWithFee = sellAmount * (BASIS - feeBps);
+            buyAmount = (sellAmountWithFee * buyReserve) / (sellAmountWithFee + sellReserve * BASIS);
         }
         // TODO: figure out a way to elide this call to `fastToken0or1` in the hot path
         buyToken = pool.fastToken0or1(zeroForOne);
