@@ -49,30 +49,34 @@ abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, 
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 IERC20 sellToken,
                 uint256 bps,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
-                uint256 amountOutMin
+                uint256 minAmountOut
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
-
-            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 IERC20 sellToken,
                 uint256 bps,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
-                uint256 amountOutMin
+                uint256 minAmountOut
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
-
-            sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
             (
                 IERC20 sellToken,
@@ -82,10 +86,11 @@ abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, 
                 uint256 buyScalingFactor,
                 bool isAsk,
                 uint256 priceLimit,
-                uint256 minBuyAmount
+                uint256 minAmountOut
             ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
-
-            sellToHanji(sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToHanji(sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit);
+            _checkSlippage(IERC20(address(0)), minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;
         }

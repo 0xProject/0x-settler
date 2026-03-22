@@ -41,16 +41,18 @@ abstract contract HyperEvmMixin is FreeMemory, SettlerBase, Bebop {
             return true;
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 IERC20 sellToken,
                 ISettlerActions.BebopOrder memory order,
                 ISettlerActions.BebopMakerSignature memory makerSignature,
-                uint256 amountOutMin
+                uint256 minAmountOut
             ) = abi.decode(
                 data, (address, IERC20, ISettlerActions.BebopOrder, ISettlerActions.BebopMakerSignature, uint256)
             );
-
-            sellToBebop(payable(recipient), sellToken, order, makerSignature, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToBebop(recipient, sellToken, order, makerSignature);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;
         }

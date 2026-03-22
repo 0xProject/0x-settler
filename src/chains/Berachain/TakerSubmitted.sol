@@ -18,8 +18,8 @@ import {AbstractContext} from "../../Context.sol";
 contract BerachainSettler is Settler, BerachainMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
-        if (super._dispatchVIP(action, data)) {
+    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage) internal override DANGEROUS_freeMemory returns (bool) {
+        if (super._dispatchVIP(action, data, slippage)) {
             return true;
         } else {
             return false;

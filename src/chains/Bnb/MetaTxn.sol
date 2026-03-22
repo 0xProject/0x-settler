@@ -17,54 +17,60 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig, AllowedSlippage memory slippage)
         internal
         virtual
         override
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatchVIP(action, data, sig)) {
+        if (super._dispatchVIP(action, data, sig, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
-                uint256 amountOutMin
+                uint256 minAmountOut
             ) = abi.decode(
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
             );
-
-            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.METATXN_MAVERICKV2_VIP.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes32 salt,
                 bool tokenAIn,
                 int32 tickLimit,
-                uint256 minBuyAmount
+                uint256 minAmountOut
             ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes32, bool, int32, uint256));
-
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit, minBuyAmount);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.METATXN_PANCAKE_INFINITY_VIP.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
-                uint256 amountOutMin
+                uint256 minAmountOut
             ) = abi.decode(
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
             );
-
-            sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;
         }

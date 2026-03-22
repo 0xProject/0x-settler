@@ -17,14 +17,14 @@ import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 contract HyperEvmSettlerMetaTxn is SettlerMetaTxn, HyperEvmMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig, AllowedSlippage memory slippage)
         internal
         virtual
         override
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatchVIP(action, data, sig)) {
+        if (super._dispatchVIP(action, data, sig, slippage)) {
             return true;
         } else {
             return false;

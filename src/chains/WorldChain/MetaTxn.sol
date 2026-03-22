@@ -18,29 +18,31 @@ import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 contract WorldChainSettlerMetaTxn is SettlerMetaTxn, WorldChainMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig, AllowedSlippage memory slippage)
         internal
         virtual
         override
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatchVIP(action, data, sig)) {
+        if (super._dispatchVIP(action, data, sig, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
-                uint256 amountOutMin
+                uint256 minAmountOut
             ) = abi.decode(
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
             );
-
-            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;
         }

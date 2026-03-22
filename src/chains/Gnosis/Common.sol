@@ -40,17 +40,19 @@ abstract contract GnosisMixin is FreeMemory, SettlerBase, BalancerV3 {
             return true;
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 IERC20 sellToken,
                 uint256 bps,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
-                uint256 amountOutMin
+                uint256 minAmountOut
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
-
-            sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;
         }

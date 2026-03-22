@@ -18,7 +18,7 @@ import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 contract KatanaSettlerMetaTxn is SettlerMetaTxn, KatanaMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig, AllowedSlippage memory slippage)
         internal
         virtual
         override

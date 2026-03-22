@@ -64,12 +64,12 @@ contract ModeSettlerIntent is SettlerIntent, ModeSettlerMetaTxn {
         return super._tokenId();
     }
 
-    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig, AllowedSlippage memory slippage)
         internal
         override(ModeSettlerMetaTxn, SettlerMetaTxn)
         returns (bool)
     {
-        return super._dispatchVIP(action, data, sig);
+        return super._dispatchVIP(action, data, sig, slippage);
     }
 
     function _isRestrictedTarget(address target)

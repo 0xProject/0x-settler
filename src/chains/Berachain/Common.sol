@@ -34,10 +34,12 @@ abstract contract BerachainMixin is FreeMemory, SettlerBase, EulerSwap {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-            (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
+            (address payable recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 minAmountOut) =
                 abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
-
-            sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;
         }

@@ -73,12 +73,12 @@ contract BlastSettlerIntent is SettlerIntent, BlastSettlerMetaTxn {
         return super._tokenId();
     }
 
-    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig, AllowedSlippage memory slippage)
         internal
         override(BlastSettlerMetaTxn, SettlerMetaTxn)
         returns (bool)
     {
-        return super._dispatchVIP(action, data, sig);
+        return super._dispatchVIP(action, data, sig, slippage);
     }
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
