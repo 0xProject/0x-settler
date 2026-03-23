@@ -304,7 +304,7 @@ abstract contract Velodrome is SettlerAbstract {
 
         // Check slippage
         if (buyAmount < minAmountOut) {
-            revertTooMuchSlippage(sellToken, minAmountOut, buyAmount);
+            revertTooMuchSlippage(buyToken, minAmountOut, buyAmount);
         }
 
         // Perform the swap
