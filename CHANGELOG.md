@@ -4,6 +4,12 @@
 
 * DackieSwap and BaseX UniV3 forks removed from Base
 * Remove `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad mainnet chain
+* Abandon the following chains:
+  * Blast
+  * Taiko
+  * Gnosis (XDAI)
+* Remove `MAVERICKV2_VIP` and `METATXN_MAVERICKV2_VIP` actions from Arbitrum,
+  Base, Bnb, Mainnet, Scroll, and Sepolia. The `MAVERICKV2` action remains.
 * Update `RENEGADE` signature: add `baseForQuote` direction flag and `minBuyAmount` slippage protection
 
 ### Non-breaking changes
@@ -11,6 +17,7 @@
 * Add Thena UniV3 Algebra style fork to Bnb with fork ID 37
 * EkuboV2 VIP actions `EKUBO_VIP` and `METATXN_EKUBO_VIP` are not
   supported anymore and were removed from `ISettlerActions.sol`.
+* Update Arbitrum to the Osaka EVM hardfork
 
 ## 2026-03-17
 
