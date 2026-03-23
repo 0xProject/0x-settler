@@ -74,7 +74,7 @@ interface IZeroEx {
     function sellTokenForTokenToUniswapV3(
         bytes memory encodedPath,
         uint256 sellAmount,
-        uint256 minBuyAmount,
+        uint256 minAmountOut,
         address recipient
     ) external returns (uint256 buyAmount);
 
@@ -109,7 +109,7 @@ interface IZeroEx {
         IERC20 outputToken,
         BatchSellSubcall[] calldata calls,
         uint256 sellAmount,
-        uint256 minBuyAmount
+        uint256 minAmountOut
     ) external returns (uint256 boughtAmount);
 
     function sellToLiquidityProvider(
@@ -118,7 +118,7 @@ interface IZeroEx {
         address provider,
         address recipient,
         uint256 sellAmount,
-        uint256 minBuyAmount,
+        uint256 minAmountOut,
         bytes calldata auxiliaryData
     ) external payable returns (uint256 boughtAmount);
 

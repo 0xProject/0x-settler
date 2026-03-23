@@ -168,26 +168,26 @@ interface ISettlerActions {
         ISignatureTransfer.PermitTransferFrom memory permit,
         uint80 poolInfo,
         bytes memory sig,
-        uint256 minBuyAmount
+        uint256 minAmountOut
     ) external;
     function METATXN_CURVE_TRICRYPTO_VIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
         uint80 poolInfo,
-        uint256 minBuyAmount
+        uint256 minAmountOut
     ) external;
 
-    function DODOV1(address sellToken, uint256 bps, address pool, bool quoteForBase, uint256 minBuyAmount) external;
+    function DODOV1(address sellToken, uint256 bps, address pool, bool quoteForBase, uint256 minAmountOut) external;
     function DODOV2(
         address recipient,
         address sellToken,
         uint256 bps,
         address pool,
         bool quoteForBase,
-        uint256 minBuyAmount
+        uint256 minAmountOut
     ) external;
 
-    function VELODROME(address recipient, uint256 bps, address pool, uint24 swapInfo, uint256 minBuyAmount) external;
+    function VELODROME(address recipient, uint256 bps, address pool, uint24 swapInfo, uint256 minAmountOut) external;
 
     /// @dev Trades against MaverickV2 using the contracts balance for funding
     /// This action does not use the MaverickV2 callback, so it takes an arbitrary pool address to make calls against.
@@ -199,7 +199,7 @@ interface ISettlerActions {
         address pool,
         bool tokenAIn,
         int32 tickLimit,
-        uint256 minBuyAmount
+        uint256 minAmountOut
     ) external;
     /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback
     /// This action requires the use of the MaverickV2 callback, so we take the MaverickV2 CREATE2 salt as an argument to derive the pool address from the trusted factory and inithash.
@@ -211,7 +211,7 @@ interface ISettlerActions {
         bool tokenAIn,
         bytes memory sig,
         int32 tickLimit,
-        uint256 minBuyAmount
+        uint256 minAmountOut
     ) external;
     /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback; metatransaction variant
     function METATXN_MAVERICKV2_VIP(
@@ -220,7 +220,7 @@ interface ISettlerActions {
         bytes32 salt,
         bool tokenAIn,
         int32 tickLimit,
-        uint256 minBuyAmount
+        uint256 minAmountOut
     ) external;
 
     /// @dev Trades against UniswapV2 using the contracts balance for funding
@@ -336,7 +336,7 @@ interface ISettlerActions {
         uint256 buyScalingFactor,
         bool isAsk,
         uint256 priceLimit,
-        uint256 minBuyAmount
+        uint256 minAmountOut
     ) external;
 
     function CHECK_SLIPPAGE(bool exact) external;

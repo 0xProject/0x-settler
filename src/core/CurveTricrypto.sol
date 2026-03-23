@@ -16,7 +16,7 @@ interface ICurveTricrypto {
         uint256 sellIndex,
         uint256 buyIndex,
         uint256 sellAmount,
-        uint256 minBuyAmount,
+        uint256 minAmountOut,
         bool useEth,
         address payer,
         address receiver,
@@ -42,7 +42,7 @@ library FastCurveTricrypto {
         uint256 sellIndex,
         uint256 buyIndex,
         uint256 sellAmount,
-        uint256 minBuyAmount,
+        uint256 minAmountOut,
         address receiver
     ) internal pure returns (bytes memory data) {
         assembly ("memory-safe") {
@@ -57,7 +57,7 @@ library FastCurveTricrypto {
             mstore(add(0xe8, data), 0x6370a85c) // selector for `curveTricryptoSwapCallback(address,address,address,uint256,uint256)`
             mstore(add(0xe4, data), receiver)
             codecopy(add(0xa4, data), codesize(), 0x4c) // useEth and payer (both zeroed); clear dirty bits in `receiver`
-            mstore(add(0x84, data), minBuyAmount)
+            mstore(add(0x84, data), minAmountOut)
             mstore(add(0x64, data), sellAmount)
             mstore(add(0x44, data), buyIndex)
             mstore(add(0x24, data), sellIndex)

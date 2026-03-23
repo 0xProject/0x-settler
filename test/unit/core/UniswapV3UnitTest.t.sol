@@ -29,12 +29,12 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
         revert("unimplemented");
     }
 
-    function sellSelf(address recipient, uint256 bps, bytes memory encodedPath, uint256 minBuyAmount)
+    function sellSelf(address recipient, uint256 bps, bytes memory encodedPath, uint256 minAmountOut)
         external
         takerSubmitted
         returns (uint256)
     {
-        return super.sellToUniswapV3(recipient, bps, encodedPath, minBuyAmount);
+        return super.sellToUniswapV3(recipient, bps, encodedPath, minAmountOut);
     }
 
     function sell(
@@ -42,9 +42,9 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
         bytes memory encodedPath,
         ISignatureTransfer.PermitTransferFrom memory permit,
         bytes memory sig,
-        uint256 minBuyAmount
+        uint256 minAmountOut
     ) external takerSubmitted returns (uint256) {
-        return super.sellToUniswapV3VIP(recipient, encodedPath, permit, sig, minBuyAmount);
+        return super.sellToUniswapV3VIP(recipient, encodedPath, permit, sig, minAmountOut);
     }
 
     function _hasMetaTxn() internal pure override returns (bool) {
@@ -141,7 +141,7 @@ contract UniswapV3UnitTest is Utils, Test {
     function testUniswapV3SellSelfFunded() public {
         uint256 bps = 10_000;
         uint256 amount = 99999;
-        uint256 minBuyAmount = amount;
+        uint256 minAmountOut = amount;
 
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
         bool zeroForOne = TOKEN0 < TOKEN1;
@@ -168,13 +168,13 @@ contract UniswapV3UnitTest is Utils, Test {
         vm.expectCall(POOL, data);
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
 
-        uni.sellSelf(RECIPIENT, bps, encodedPath, minBuyAmount);
+        uni.sellSelf(RECIPIENT, bps, encodedPath, minAmountOut);
     }
 
     function testUniswapV3SellSlippage() public {
         uint256 bps = 10_000;
         uint256 amount = 99999;
-        uint256 minBuyAmount = amount + 1;
+        uint256 minAmountOut = amount + 1;
 
         _mockExpectCall(TOKEN0, abi.encodeWithSelector(IERC20.balanceOf.selector, address(uni)), abi.encode(amount));
         bool zeroForOne = TOKEN0 < TOKEN1;
@@ -203,14 +203,14 @@ contract UniswapV3UnitTest is Utils, Test {
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.transfer, (POOL, 1)), abi.encode(true));
 
         vm.expectRevert(
-            abi.encodeWithSignature("TooMuchSlippage(address,uint256,uint256)", TOKEN1, minBuyAmount, amount)
+            abi.encodeWithSignature("TooMuchSlippage(address,uint256,uint256)", TOKEN1, minAmountOut, amount)
         );
-        uni.sellSelf(RECIPIENT, bps, encodedPath, minBuyAmount);
+        uni.sellSelf(RECIPIENT, bps, encodedPath, minAmountOut);
     }
 
     function testUniswapV3SellPermit2() public {
         uint256 amount = 99999;
-        uint256 minBuyAmount = amount;
+        uint256 minAmountOut = amount;
 
         // Override the UniswapV3 pool code to callback our contract
         // There's probably a smarter way to do this tbh
@@ -240,12 +240,12 @@ contract UniswapV3UnitTest is Utils, Test {
             new bytes(0)
         );
 
-        uni.sell(RECIPIENT, encodedPath, permitTransfer, hex"deadbeef", minBuyAmount);
+        uni.sell(RECIPIENT, encodedPath, permitTransfer, hex"deadbeef", minAmountOut);
     }
 
     function testUniswapV3SellAllowanceHolder() public {
         uint256 amount = 99999;
-        uint256 minBuyAmount = amount;
+        uint256 minAmountOut = amount;
 
         // Override the UniswapV3 pool code to callback our contract
         // There's probably a smarter way to do this tbh
@@ -271,10 +271,10 @@ contract UniswapV3UnitTest is Utils, Test {
         address(uni)
             .call(
                 abi.encodePacked(
-                    abi.encodeCall(uni.sell, (RECIPIENT, encodedPath, permitTransfer, hex"", minBuyAmount)),
+                    abi.encodeCall(uni.sell, (RECIPIENT, encodedPath, permitTransfer, hex"", minAmountOut)),
                     address(this) // Forward on true msg.sender
                 )
             );
-        // uni.sell(RECIPIENT, encodedPath, minBuyAmount, permitTransfer, hex"");
+        // uni.sell(RECIPIENT, encodedPath, minAmountOut, permitTransfer, hex"");
     }
 }

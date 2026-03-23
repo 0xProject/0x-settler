@@ -102,7 +102,7 @@ abstract contract HanjiTestBase is AllowanceHolderPairTest {
     // ========== HELPER FUNCTIONS ==========
 
     /// @dev Builds a standard HANJI action with common parameters
-    function _buildHanjiAction(bool unwrap, uint256 bps, uint256 minBuyAmount) internal view returns (bytes memory) {
+    function _buildHanjiAction(bool unwrap, uint256 bps, uint256 minAmountOut) internal view returns (bytes memory) {
         return abi.encodeCall(
             ISettlerActions.HANJI,
             (
@@ -113,7 +113,7 @@ abstract contract HanjiTestBase is AllowanceHolderPairTest {
                 buyScalingFactor(),
                 isAsk(),
                 priceLimit(),
-                minBuyAmount
+                minAmountOut
             )
         );
     }
@@ -227,7 +227,7 @@ contract HanjiWmonToUsdcTest is HanjiTestBase {
 
     // ========== SLIPPAGE TEST ==========
 
-    /// @notice Test that minBuyAmount causes revert when not met
+    /// @notice Test that minAmountOut causes revert when not met
     function testHanji_revert_tooMuchSlippage() public skipIf(address(hanjiPool()) == address(0)) {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
@@ -295,7 +295,7 @@ contract HanjiUsdcToWmonTest is HanjiTestBase {
 
     // ========== SLIPPAGE TEST ==========
 
-    /// @notice Test that minBuyAmount causes revert when not met
+    /// @notice Test that minAmountOut causes revert when not met
     function testHanji_revert_tooMuchSlippage() public skipIf(address(hanjiPool()) == address(0)) {
         ISignatureTransfer.PermitTransferFrom memory permit =
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0);

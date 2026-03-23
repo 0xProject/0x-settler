@@ -349,7 +349,7 @@ abstract contract DodoV1 is SettlerSwapAbstract, DodoSellHelper {
     using SafeTransferLib for IERC20;
     using FastDodoV1 for IDodoV1;
 
-    function sellToDodoV1(IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount)
+    function sellToDodoV1(IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minAmountOut)
         internal
     {
         uint256 sellAmount;
@@ -359,12 +359,12 @@ abstract contract DodoV1 is SettlerSwapAbstract, DodoSellHelper {
         sellToken.safeApproveIfBelow(address(dodo), sellAmount);
         if (quoteForBase) {
             uint256 buyAmount = dodoQuerySellQuoteToken(dodo, sellAmount);
-            if (buyAmount < minBuyAmount) {
-                revertTooMuchSlippage(dodo.fast_BASE_TOKEN_(), minBuyAmount, buyAmount);
+            if (buyAmount < minAmountOut) {
+                revertTooMuchSlippage(dodo.fast_BASE_TOKEN_(), minAmountOut, buyAmount);
             }
             dodo.fastBuyBaseToken(buyAmount, sellAmount);
         } else {
-            dodo.fastSellBaseToken(sellAmount, minBuyAmount);
+            dodo.fastSellBaseToken(sellAmount, minAmountOut);
         }
     }
 }
