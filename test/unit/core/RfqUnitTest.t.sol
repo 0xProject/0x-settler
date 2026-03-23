@@ -112,7 +112,7 @@ contract RfqOrderSettlementDummy is Permit2PaymentTakerSubmitted, RfqOrderSettle
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+    function _dispatch(uint256, uint256, bytes calldata, AllowedSlippage memory) internal pure override returns (bool) {
         revert("unimplemented");
     }
 
@@ -157,7 +157,7 @@ contract RfqOrderSettlementMetaTxnDummy is Permit2PaymentMetaTxn, RfqOrderSettle
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+    function _dispatch(uint256, uint256, bytes calldata, AllowedSlippage memory) internal pure override returns (bool) {
         revert("unimplemented");
     }
 
@@ -357,8 +357,8 @@ contract RfqUnitTest is Utils, Test {
                         rfq.fillRfqOrderDirectCounterparties,
                         (RECIPIENT, makerPermit, MAKER, hex"dead", takerPermit, hex"")
                     ),
-                    address(this)
-                ) // Forward on true msg.sender
+                    address(this) // Forward on true msg.sender
+                )
             );
         require(success);
     }

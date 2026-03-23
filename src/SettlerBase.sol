@@ -17,6 +17,7 @@ import {UniswapV2} from "./core/UniswapV2.sol";
 import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
+import {FastLogic} from "./utils/FastLogic.sol";
 import {Ternary} from "./utils/Ternary.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
@@ -55,6 +56,7 @@ library CalldataDecoder {
 abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
+    using FastLogic for bool;
     using Ternary for bool;
 
     receive() external payable {}
@@ -81,7 +83,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         return false;
     }
 
-    function _checkSlippageAndTransfer(AllowedSlippage memory slippage) internal {
+    function _checkSlippageAndTransfer(AllowedSlippage memory slippage, bool exact) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because
         // ISettlerActions.BASIC could interact with an intents-based settlement
@@ -91,7 +93,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
             (slippage.recipient, slippage.buyToken, slippage.minAmountOut);
         if (_mandatorySlippageCheck()) {
             require(minAmountOut != 0);
-        } else if (minAmountOut == 0 && address(buyToken) == address(0)) {
+        } else if ((minAmountOut == 0).and(address(buyToken) == address(0))) {
             return;
         }
         bool isETH = (buyToken == ETH_ADDRESS);
@@ -99,10 +101,16 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         if (amountOut < minAmountOut) {
             revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
         }
+        amountOut = exact.ternary(minAmountOut, amountOut);
         if (isETH) {
             recipient.safeTransferETH(amountOut);
         } else {
             buyToken.safeTransfer(recipient, amountOut);
+        }
+
+        // zeroize `slippage`
+        assembly ("memory-safe") {
+            codecopy(slippage, codesize(), 0x60)
         }
     }
 
@@ -165,6 +173,8 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
                     token.safeTransfer(recipient, balance);
                 }
             }
+        } else if (action == uint32(ISettlerActions.CHECK_SLIPPAGE.selector)) {
+            _checkSlippageAndTransfer(slippage, abi.decode(data, (bool)));
         } else {
             return false;
         }

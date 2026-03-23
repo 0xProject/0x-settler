@@ -186,7 +186,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             }
         }
 
-        _checkSlippageAndTransfer(slippage);
+        _checkSlippageAndTransfer(slippage, false);
         return true;
     }
 

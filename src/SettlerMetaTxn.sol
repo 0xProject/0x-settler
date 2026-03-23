@@ -138,7 +138,7 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
             }
         }
 
-        _checkSlippageAndTransfer(slippage);
+        _checkSlippageAndTransfer(slippage, false);
         return true;
     }
 
