@@ -16,12 +16,6 @@
    <!-- -->
    8. SwapBasedV3
    <!-- -->
-   9. Thruster
-   <!-- -->
-   10. BladeSwap (Algebra-like)
-   <!-- -->
-   11. Fenix (Algebra-like)
-   <!-- -->
    12. ZebraV3
    <!-- -->
    13. Lynex (Algebra-like)
@@ -30,23 +24,11 @@
    <!-- -->
    17. MetavaultV3
    <!-- -->
-   18. BlasterV3
-   <!-- -->
-   19. MonoSwapV3
-   <!-- -->
-   20. RogueXV1
-   <!-- -->
    21. SupSwapV3
    <!-- -->
    22. Kim (Algebra-like)
    <!-- -->
    23. SwapMode
-   <!-- -->
-   24. Swapsicle (Algebra-like)
-   <!-- -->
-   25. Panko
-   <!-- -->
-   26. Swapr (Algebra-like)
    <!-- -->
    27. SpookySwap
    <!-- -->

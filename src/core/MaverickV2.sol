@@ -195,76 +195,28 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
     using Ternary for bool;
     using Revert for bool;
 
-    function _encodeSwapCallback(ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
-        internal
-        view
-        returns (bytes memory result)
-    {
-        bool isForwarded = _isForwarded();
-        assembly ("memory-safe") {
-            result := mload(0x40)
-            mcopy(add(0x20, result), mload(permit), 0x40)
-            mcopy(add(0x60, result), add(0x20, permit), 0x40)
-            mstore8(add(0xa0, result), isForwarded)
-            let sigLength := mload(sig)
-            mcopy(add(0xa1, result), add(0x20, sig), sigLength)
-            mstore(result, add(0x81, sigLength))
-            mstore(0x40, add(sigLength, add(0xa1, result)))
-        }
-    }
-
-    function _callMaverickWithCallback(address pool, bytes memory data) private returns (bytes memory) {
-        return _setOperatorAndCall(
-            pool, data, uint32(IMaverickV2SwapCallback.maverickV2SwapCallback.selector), _maverickV2Callback
-        );
-    }
-
-    function _callMaverick(address pool, bytes memory data) private returns (bytes memory) {
-        (bool success, bytes memory returndata) = pool.call(data);
-        success.maybeRevert(returndata);
-        return returndata;
-    }
-
     function _sellToMaverickV2(
         IMaverickV2Pool pool,
         address recipient,
         bool tokenAIn,
         uint256 amount,
         int32 tickLimit,
-        uint256 minBuyAmount,
-        bytes memory swapCallbackData,
-        bool withCallback
+        uint256 minBuyAmount
     ) private returns (uint256 buyAmount) {
-        bytes memory data = pool.fastEncodeSwap(recipient, amount, tokenAIn, tickLimit, swapCallbackData);
+        bytes memory data = pool.fastEncodeSwap(recipient, amount, tokenAIn, tickLimit, new bytes(0));
 
-        (, buyAmount) = abi.decode(
-            withCallback ? _callMaverickWithCallback(address(pool), data) : _callMaverick(address(pool), data),
-            (uint256, uint256)
-        );
+        assembly ("memory-safe") {
+            if iszero(call(gas(), pool, 0x00, add(0x20, data), mload(data), 0x00, 0x40)) {
+                let ptr := mload(0x40)
+                returndatacopy(ptr, 0x00, returndatasize())
+                revert(ptr, returndatasize())
+            }
+            buyAmount := mload(0x20)
+        }
+
         if (buyAmount < minBuyAmount) {
             revertTooMuchSlippage(pool.fastTokenAOrB(tokenAIn), minBuyAmount, buyAmount);
         }
-    }
-
-    function sellToMaverickV2VIP(
-        address recipient,
-        bytes32 salt,
-        bool tokenAIn,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig,
-        int32 tickLimit,
-        uint256 minBuyAmount
-    ) internal returns (uint256 buyAmount) {
-        return _sellToMaverickV2(
-            IMaverickV2Pool(AddressDerivation.deriveDeterministicContract(maverickV2Factory, salt, maverickV2InitHash)),
-            recipient,
-            tokenAIn,
-            _permitToSellAmount(permit),
-            tickLimit,
-            minBuyAmount,
-            _encodeSwapCallback(permit, sig),
-            true
-        );
     }
 
     function sellToMaverickV2(
@@ -291,50 +243,6 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
                 sellAmount -= pool.fastGetReserveAOrB(tokenAIn);
             }
         }
-        return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, tickLimit, minBuyAmount, new bytes(0), false);
-    }
-
-    function _maverickV2Callback(bytes calldata data) private returns (bytes memory) {
-        require(data.length >= 0xa0);
-        IERC20 tokenIn;
-        uint256 amountIn;
-        assembly ("memory-safe") {
-            // we don't bother checking for dirty bits because we trust the
-            // initcode (by its hash) to produce well-behaved bytecode that
-            // produces strict ABI-encoded calldata
-            tokenIn := calldataload(data.offset)
-            amountIn := calldataload(add(0x20, data.offset))
-            // likewise, we don't bother to perform the indirection to find the
-            // nested data. we just index directly to it because we know that
-            // the pool follows strict ABI encoding
-            data.length := calldataload(add(0x80, data.offset))
-            data.offset := add(0xa0, data.offset)
-        }
-        maverickV2SwapCallback(
-            tokenIn,
-            amountIn,
-            // forgefmt: disable-next-line
-            0 /* we didn't bother loading `amountOut` because we don't use it */,
-            data
-        );
-        return new bytes(0);
-    }
-
-    // forgefmt: disable-next-line
-    function maverickV2SwapCallback(IERC20 tokenIn, uint256 amountIn, uint256 /* amountOut */, bytes calldata data)
-        private
-    {
-        ISignatureTransfer.PermitTransferFrom calldata permit;
-        bool isForwarded;
-        assembly ("memory-safe") {
-            permit := data.offset
-            isForwarded := and(0x01, calldataload(add(0x61, data.offset)))
-            data.offset := add(0x81, data.offset)
-            data.length := sub(data.length, 0x81)
-        }
-        assert(tokenIn == IERC20(permit.permitted.token));
-        ISignatureTransfer.SignatureTransferDetails memory transferDetails =
-            ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: amountIn});
-        _transferFrom(permit, transferDetails, data, isForwarded);
+        return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, tickLimit, minBuyAmount);
     }
 }
