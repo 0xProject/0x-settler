@@ -19,7 +19,12 @@ import {UniswapV3Fork} from "../../core/UniswapV3Fork.sol";
 contract AbstractSettler is Settler, AbstractMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        override
+        DANGEROUS_freeMemory
+        returns (bool)
+    {
         if (super._dispatchVIP(action, data, slippage)) {
             return true;
         } else {

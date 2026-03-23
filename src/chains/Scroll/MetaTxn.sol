@@ -40,7 +40,8 @@ contract ScrollSettlerMetaTxn is SettlerMetaTxn, ScrollMixin {
             ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes32, bool, int32, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit);
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;

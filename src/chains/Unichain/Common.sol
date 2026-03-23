@@ -53,14 +53,22 @@ abstract contract UnichainMixin is FreeMemory, SettlerBase, UniswapV4, EulerSwap
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills);
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-            (address payable recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 minAmountOut) =
-                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+            (
+                address payable recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                IEulerSwap pool,
+                bool zeroForOne,
+                uint256 minAmountOut
+            ) = abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne);
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;

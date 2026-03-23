@@ -20,7 +20,12 @@ import {AbstractContext} from "../../Context.sol";
 contract KatanaSettler is Settler, KatanaMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        override
+        DANGEROUS_freeMemory
+        returns (bool)
+    {
         // This does not make use of `super._dispatchVIP`. This chain's Settler is extremely
         // stripped-down and has almost no capabilities
         if (action == uint32(ISettlerActions.TRANSFER_FROM.selector)) {

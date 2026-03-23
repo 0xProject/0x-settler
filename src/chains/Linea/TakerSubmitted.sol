@@ -18,7 +18,12 @@ import {AbstractContext} from "../../Context.sol";
 contract LineaSettler is Settler, LineaMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        override
+        DANGEROUS_freeMemory
+        returns (bool)
+    {
         return super._dispatchVIP(action, data, slippage);
     }
 

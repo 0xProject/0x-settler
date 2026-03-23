@@ -40,7 +40,8 @@ contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
             );
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.METATXN_MAVERICKV2_VIP.selector)) {
             (
@@ -53,7 +54,8 @@ contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
             ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes32, bool, int32, uint256));
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit);
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.METATXN_PANCAKE_INFINITY_VIP.selector)) {
             (
@@ -69,7 +71,8 @@ contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
             );
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToPancakeInfinityVIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;

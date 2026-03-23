@@ -41,7 +41,8 @@ contract SonicSettlerMetaTxn is SettlerMetaTxn, SonicMixin {
             );
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;

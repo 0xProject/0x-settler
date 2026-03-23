@@ -18,7 +18,12 @@ import {AbstractContext} from "../../Context.sol";
 contract GnosisSettler is Settler, GnosisMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage) internal override DANGEROUS_freeMemory returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        override
+        DANGEROUS_freeMemory
+        returns (bool)
+    {
         if (super._dispatchVIP(action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector)) {
@@ -36,7 +41,8 @@ contract GnosisSettler is Settler, GnosisMixin {
             );
             IERC20 buyToken;
             (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
-            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
             _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;
