@@ -8,7 +8,7 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-import {SettlerBasePairTest, Shim} from "./SettlerBasePairTest.t.sol";
+import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {
     BASE_GAS_SPONSOR,
     BASE_TXN_CALLDATA,
@@ -112,7 +112,7 @@ contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
     function testSellBase() public {
         // Roll to a different block for sell-base calldata; redeploy settler + AllowanceHolder
         vm.rollFork(BASE_SELL_BASE_BLOCK - 1);
-        uint256 forkChainId = (new Shim()).chainId();
+        uint256 forkChainId = vm.getChainId();
         vm.chainId(31337);
         bytes memory initCode = settlerInitCode();
         assembly ("memory-safe") {

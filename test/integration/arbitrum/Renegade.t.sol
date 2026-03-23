@@ -8,7 +8,7 @@ import {ActionDataBuilder} from "../../utils/ActionDataBuilder.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-import {SettlerBasePairTest, Shim} from "../SettlerBasePairTest.t.sol";
+import {SettlerBasePairTest} from "../SettlerBasePairTest.t.sol";
 import {
     ARBITRUM_GAS_SPONSOR,
     ARBITRUM_TXN_CALLDATA,
@@ -113,7 +113,7 @@ contract RenegadeArbitrumIntegrationTest is SettlerBasePairTest {
     function testSellBase() public {
         vm.rollFork(ARBITRUM_SELL_BASE_BLOCK - 1);
         vm.setEvmVersion("osaka");
-        uint256 forkChainId = (new Shim()).chainId();
+        uint256 forkChainId = vm.getChainId();
         vm.chainId(31337);
         bytes memory initCode = settlerInitCode();
         assembly ("memory-safe") {
