@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerMetaTxn} from "./interfaces/ISettlerMetaTxn.sol";
 
@@ -66,7 +67,7 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
         }
     }
 
-    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig) internal virtual returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig, AllowedSlippage memory slippage) internal virtual returns (bool) {
         if (action == uint32(ISettlerActions.METATXN_TRANSFER_FROM.selector)) {
             (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
                 abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
@@ -98,13 +99,15 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, sig);
         } */ else if (action == uint32(ISettlerActions.METATXN_UNISWAPV3_VIP.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes memory path,
-                uint256 amountOutMin
+                uint256 minAmountOut
             ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
-
-            sellToUniswapV3VIP(recipient, path, permit, sig, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV3VIP(recipient, path, permit, sig);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;
         }
@@ -126,7 +129,7 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
             // By forcing the first action to be one of the witness-aware
             // actions, we ensure that the entire sequence of actions is
             // authorized. `msgSender` is the signer of the metatransaction.
-            if (!_dispatchVIP(action, data, sig)) {
+            if (!_dispatchVIP(action, data, sig, slippage)) {
                 revertActionInvalid(0, action, data);
             }
         }

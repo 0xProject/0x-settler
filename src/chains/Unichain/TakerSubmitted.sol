@@ -18,24 +18,32 @@ import {AbstractContext} from "../../Context.sol";
 contract UnichainSettler is Settler, UnichainMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
-        if (super._dispatchVIP(action, data)) {
+    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        override
+        DANGEROUS_freeMemory
+        returns (bool)
+    {
+        if (super._dispatchVIP(action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
                 bytes memory sig,
-                uint256 amountOutMin
+                uint256 minAmountOut
             ) = abi.decode(
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
             );
-
-            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;
         }

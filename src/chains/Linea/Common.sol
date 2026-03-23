@@ -46,10 +46,10 @@ abstract contract LineaMixin is FreeMemory, SettlerBase, DodoV1 {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.DODOV1.selector)) {
-            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
+            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minAmountOut) =
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
-            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
+            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minAmountOut);
         } else {
             return false;
         }

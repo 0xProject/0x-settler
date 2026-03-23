@@ -44,26 +44,38 @@ abstract contract ScrollMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, Do
             return true;
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 IERC20 sellToken,
                 uint256 bps,
                 IMaverickV2Pool pool,
                 bool tokenAIn,
                 int32 tickLimit,
-                uint256 minBuyAmount
+                uint256 minAmountOut
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
-
-            sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit, minBuyAmount);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.DODOV2.selector)) {
-            (address recipient, IERC20 sellToken, uint256 bps, IDodoV2 dodo, bool quoteForBase, uint256 minBuyAmount) =
-                abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
-
-            sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
+            (
+                address payable recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                IDodoV2 dodo,
+                bool quoteForBase,
+                uint256 minAmountOut
+            ) = abi.decode(data, (address, IERC20, uint256, IDodoV2, bool, uint256));
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.DODOV1.selector)) {
-            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minBuyAmount) =
+            (IERC20 sellToken, uint256 bps, IDodoV1 dodo, bool quoteForBase, uint256 minAmountOut) =
                 abi.decode(data, (IERC20, uint256, IDodoV1, bool, uint256));
 
-            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
+            sellToDodoV1(sellToken, bps, dodo, quoteForBase, minAmountOut);
         } else {
             return false;
         }

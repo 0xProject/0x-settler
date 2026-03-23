@@ -41,6 +41,17 @@ function revertTooMuchSlippage(IERC20 buyToken, uint256 expectedBuyAmount, uint2
     }
 }
 
+error BuyTokenMismatch(IERC20 expected, IERC20 actual);
+
+function revertBuyTokenMismatch(IERC20 expected, IERC20 actual) pure {
+    assembly ("memory-safe") {
+        mstore(0x40, actual)
+        mstore(0x2c, shl(0x60, expected)) // Clears `actual`'s padding
+        mstore(0x0c, 0xa04f3ec7000000000000000000000000) // Selector for `BuyTokenMismatch(address,address)` with `expected`'s padding
+        revert(0x1c, 0x44)
+    }
+}
+
 /// @notice Thrown when a byte array that is supposed to encode a function from ISettlerActions is
 ///         not recognized in context.
 error ActionInvalid(uint256 i, bytes4 action, bytes data);

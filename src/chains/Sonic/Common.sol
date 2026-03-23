@@ -47,23 +47,35 @@ abstract contract SonicMixin is FreeMemory, SettlerBase, EulerSwap, BalancerV3 {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-            (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
-                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
-
-            sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
+            (
+                address payable recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                IEulerSwap pool,
+                bool zeroForOne,
+                uint256 minAmountOut
+            ) = abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 IERC20 sellToken,
                 uint256 bps,
                 bool feeOnTransfer,
                 uint256 hashMul,
                 uint256 hashMod,
                 bytes memory fills,
-                uint256 amountOutMin
+                uint256 minAmountOut
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
-
-            sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) =
+                sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;
         }

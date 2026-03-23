@@ -20,9 +20,9 @@ contract UniswapV2Dummy is Permit2PaymentTakerSubmitted, UniswapV2 {
         uint256 bps,
         address pool,
         uint24 swapInfo,
-        uint256 minBuyAmount
+        uint256 minAmountOut
     ) public {
-        super.sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo, minBuyAmount);
+        super.sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo, minAmountOut);
     }
 
     function _hasMetaTxn() internal pure override returns (bool) {
@@ -67,7 +67,7 @@ contract UniswapV2UnitTest is Utils, Test {
     function testUniswapV2Sell() public {
         uint256 bps = 10_000;
         uint256 amount = 99999;
-        uint256 minBuyAmount = 9087;
+        uint256 minAmountOut = 9087;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
 
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount));
@@ -80,13 +80,13 @@ contract UniswapV2UnitTest is Utils, Test {
             POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(9087), 0, RECIPIENT, new bytes(0))), new bytes(0)
         );
 
-        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minAmountOut);
     }
 
     function testUniswapV2SellSlippageCheck() public {
         uint256 bps = 10_000;
         uint256 amount = 99999;
-        uint256 minBuyAmount = 1e18;
+        uint256 minAmountOut = 1e18;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
 
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount));
@@ -102,13 +102,13 @@ contract UniswapV2UnitTest is Utils, Test {
         // );
 
         vm.expectRevert();
-        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minAmountOut);
     }
 
     function testUniswapV2LowerAmount() public {
         uint256 bps = 10_000;
         uint256 amount = 99999;
-        uint256 minBuyAmount = 1;
+        uint256 minAmountOut = 1;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
 
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount / 2));
@@ -121,13 +121,13 @@ contract UniswapV2UnitTest is Utils, Test {
             POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(8328), 0, RECIPIENT, new bytes(0))), new bytes(0)
         );
 
-        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minAmountOut);
     }
 
     function testUniswapV2GreaterAmount() public {
         uint256 bps = 10_000;
         uint256 amount = 99999;
-        uint256 minBuyAmount = 9521;
+        uint256 minAmountOut = 9521;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
 
         _mockExpectCall(TOKEN0, abi.encodeCall(IERC20.balanceOf, (address(uni))), abi.encode(amount * 2));
@@ -140,13 +140,13 @@ contract UniswapV2UnitTest is Utils, Test {
             POOL, abi.encodeCall(IUniV2Pair.swap, (uint256(9521), 0, RECIPIENT, new bytes(0))), new bytes(0)
         );
 
-        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minAmountOut);
     }
 
     function testUniswapV2SellTokenFee() public {
         uint256 bps = 10_000;
         uint256 amount = 99999;
-        uint256 minBuyAmount = 1;
+        uint256 minAmountOut = 1;
         uint24 swapInfo = (TOKEN0 < TOKEN1 ? 3 : 2) | (30 << 8);
 
         // We emulate a token which has a 50% fee when transferring to the Uniswap pool
@@ -163,13 +163,13 @@ contract UniswapV2UnitTest is Utils, Test {
         );
         // the pool is responsible for transferring to receipient, since the pool is a dummy, this transfer is not mocked
 
-        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN0, bps, POOL, swapInfo, minAmountOut);
     }
 
     function testUniswapV2Multihop() public {
         uint256 bps = 10_000;
         uint256 amount = 99999;
-        uint256 minBuyAmount = 9521;
+        uint256 minAmountOut = 9521;
         uint24 swapInfo0 = (TOKEN0 < TOKEN1 ? 1 : 0) | (30 << 8);
         uint24 swapInfo1 = (TOKEN1 < TOKEN2 ? 1 : 0) | (30 << 8);
 
@@ -190,6 +190,6 @@ contract UniswapV2UnitTest is Utils, Test {
         );
 
         uni.sell(POOL2, TOKEN0, bps, POOL, swapInfo0, 0);
-        uni.sell(RECIPIENT, TOKEN1, 0, POOL2, swapInfo1, minBuyAmount);
+        uni.sell(RECIPIENT, TOKEN1, 0, POOL2, swapInfo1, minAmountOut);
     }
 }

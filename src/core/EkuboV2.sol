@@ -9,7 +9,7 @@ import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
-import {TooMuchSlippage, ZeroSellAmount} from "./SettlerErrors.sol";
+import {ZeroSellAmount} from "./SettlerErrors.sol";
 import {CreditDebt, Encoder, NotePtr, NotesLib, State, Decoder, Take} from "./FlashAccountingCommon.sol";
 
 type Config is bytes32;
@@ -153,9 +153,9 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
     //// with sell token equal to the previous token in the topological sort. Then sort the fills
     //// belonging to each sell token by their buy token. This technique isn't *quite* optimal, but
     //// it's pretty close. The buy token of the final fill is special-cased. It is the token that
-    //// will be transferred to `recipient` and have its slippage checked against `amountOutMin`. In
-    //// the event that you are encoding a series of fills with more than one output token, ensure
-    //// that at least one of the global buy token's fills is positioned appropriately.
+    //// will be transferred to `recipient` and have its amount returned. In the event that you are
+    //// encoding a series of fills with more than one output token, ensure that at least one of the
+    //// global buy token's fills is positioned appropriately.
     ////
     //// Take care to note that while Ekubo represents the native asset of the chain as
     //// the address of all zeroes, Settler represents this as the address of all `e`s. You must use
@@ -189,9 +189,8 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
         bool feeOnTransfer,
         uint256 hashMul,
         uint256 hashMod,
-        bytes memory fills,
-        uint256 amountOutMin
-    ) internal returns (uint256 buyAmount) {
+        bytes memory fills
+    ) internal returns (IERC20 buyToken, uint256 buyAmount) {
         bytes memory data = Encoder.encode(
             uint32(IEkuboCore.lock.selector),
             recipient,
@@ -200,17 +199,18 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             feeOnTransfer,
             hashMul,
             hashMod,
-            fills,
-            amountOutMin
+            fills
         );
-        bytes memory encodedBuyAmount =
+        bytes memory encodedResult =
             _setOperatorAndCall(address(CORE), data, uint32(IEkuboCallbacks.locked.selector), _ekuboLockCallbackV2);
-        // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
+
+        // (buyToken, buyAmount) = abi.decode(abi.decode(encodedResult, (bytes)), (IERC20, uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
-            // verbatim result from `locked` and that `locked` encoded the buy amount
+            // verbatim result from `locked` and that `locked` encoded the buy token and buy amount
             // correctly.
-            buyAmount := mload(add(0x60, encodedBuyAmount))
+            buyToken := mload(add(0x60, encodedResult))
+            buyAmount := mload(add(0x80, encodedResult))
         }
     }
 
@@ -221,9 +221,8 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
         uint256 hashMod,
         bytes memory fills,
         ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig,
-        uint256 amountOutMin
-    ) internal returns (uint256 buyAmount) {
+        bytes memory sig
+    ) internal returns (IERC20 buyToken, uint256 buyAmount) {
         bytes memory data = Encoder.encodeVIP(
             uint32(IEkuboCore.lock.selector),
             recipient,
@@ -233,17 +232,18 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             fills,
             permit,
             sig,
-            _isForwarded(),
-            amountOutMin
+            _isForwarded()
         );
-        bytes memory encodedBuyAmount =
+        bytes memory encodedResult =
             _setOperatorAndCall(address(CORE), data, uint32(IEkuboCallbacks.locked.selector), _ekuboLockCallbackV2);
-        // buyAmount = abi.decode(abi.decode(encodedBuyAmount, (bytes)), (uint256));
+
+        // (buyToken, buyAmount) = abi.decode(abi.decode(encodedResult, (bytes)), (IERC20, uint256));
         assembly ("memory-safe") {
             // We can skip all the checks performed by `abi.decode` because we know that this is the
-            // verbatim result from `locked` and that `locked` encoded the buy amount
+            // verbatim result from `locked` and that `locked` encoded the buy token and buy amount
             // correctly.
-            buyAmount := mload(add(0x60, encodedBuyAmount))
+            buyToken := mload(add(0x60, encodedResult))
+            buyAmount := mload(add(0x80, encodedResult))
         }
     }
 
@@ -316,12 +316,11 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
 
     function locked(bytes calldata data) private returns (bytes memory) {
         address recipient;
-        uint256 minBuyAmount;
         uint256 hashMul;
         uint256 hashMod;
         bool feeOnTransfer;
         address payer;
-        (data, recipient, minBuyAmount, hashMul, hashMod, feeOnTransfer, payer) = Decoder.decodeHeader(data);
+        (data, recipient, hashMul, hashMod, feeOnTransfer, payer) = Decoder.decodeHeader(data);
 
         // Set up `state` and `notes`. The other values are ancillary and might be used when we need
         // to settle global sell token debt at the end of swapping.
@@ -458,8 +457,8 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
         {
             NotePtr globalSell = state.globalSell();
             (IERC20 globalSellToken, uint256 globalSellAmount) = (globalSell.token(), globalSell.amount());
-            uint256 globalBuyAmount =
-                Take.take(state, notes, uint32(IEkuboCore.withdraw.selector), recipient, minBuyAmount);
+            (IERC20 globalBuyToken, uint256 globalBuyAmount) =
+                Take.take(state, notes, uint32(IEkuboCore.withdraw.selector), recipient);
             if (feeOnTransfer) {
                 // We've already transferred the sell token to the vault and
                 // `settle`'d. `globalSellAmount` is the verbatim credit in that token stored by the
@@ -491,15 +490,16 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
                 _ekuboPayV2(globalSellToken, payer, debt, permit, isForwarded, sig);
             }
 
-            // return abi.encode(globalBuyAmount);
+            // return abi.encode(globalBuyToken, globalBuyAmount);
             bytes memory returndata;
             assembly ("memory-safe") {
                 returndata := mload(0x40)
-                mstore(returndata, 0x60)
+                mstore(returndata, 0x80)
                 mstore(add(0x20, returndata), 0x20)
-                mstore(add(0x40, returndata), 0x20)
-                mstore(add(0x60, returndata), globalBuyAmount)
-                mstore(0x40, add(0x80, returndata))
+                mstore(add(0x40, returndata), 0x40)
+                mstore(add(0x60, returndata), and(0xffffffffffffffffffffffffffffffffffffffff, globalBuyToken))
+                mstore(add(0x80, returndata), globalBuyAmount)
+                mstore(0x40, add(0xa0, returndata))
             }
             return returndata;
         }

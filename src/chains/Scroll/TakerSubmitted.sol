@@ -19,8 +19,13 @@ import {uint512} from "../../utils/512Math.sol";
 contract ScrollSettler is Settler, ScrollMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
-        if (super._dispatchVIP(action, data)) {
+    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        override
+        DANGEROUS_freeMemory
+        returns (bool)
+    {
+        if (super._dispatchVIP(action, data, slippage)) {
             return true;
         } else {
             return false;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
+import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerTakerSubmitted} from "./interfaces/ISettlerTakerSubmitted.sol";
 
@@ -66,7 +67,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         return true;
     }
 
-    function _dispatchVIP(uint256 action, bytes calldata data) internal virtual returns (bool) {
+    function _dispatchVIP(uint256 action, bytes calldata data, AllowedSlippage memory slippage) internal virtual returns (bool) {
         //// NOTICE: Portions of this function have been copy/paste'd into
         //// `src/chains/Katana/TakerSubmitted.sol:KatanaSettler._dispatchVIP`. If you make changes
         //// here, you need to make sure that corresponding changes are made to that function.
@@ -103,14 +104,16 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, takerSig);
         } */ else if (action == uint32(ISettlerActions.UNISWAPV3_VIP.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 bytes memory path,
                 bytes memory sig,
-                uint256 amountOutMin
+                uint256 minAmountOut
             ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes, bytes, uint256));
-
-            sellToUniswapV3VIP(recipient, path, permit, sig, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV3VIP(recipient, path, permit, sig);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else {
             return false;
         }
@@ -171,7 +174,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             }
             {
                 (uint256 action, bytes calldata data) = actions.decodeCall(it);
-                if (!_dispatchVIP(action, data)) {
+                if (!_dispatchVIP(action, data, slippage)) {
                     if (!_dispatch(0, action, data, slippage)) {
                         revertActionInvalid(0, action, data);
                     }

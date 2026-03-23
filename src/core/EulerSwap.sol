@@ -6,8 +6,6 @@ import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
-
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
 
@@ -871,27 +869,13 @@ abstract contract EulerSwap is SettlerSwapAbstract {
 
     function _EVC() internal view virtual returns (IEVC);
 
-    function _revertTooMuchSlippage(
-        bool zeroForOne,
-        ParamsLib.Params p,
-        uint256 expectedBuyAmount,
-        uint256 actualBuyAmount
-    ) private view {
-        revertTooMuchSlippage(
-            IEVault(zeroForOne.ternary(address(p.vault1()), address(p.vault0()))).fastAsset(),
-            expectedBuyAmount,
-            actualBuyAmount
-        );
-    }
-
     function sellToEulerSwap(
         address recipient,
         IERC20 sellToken,
         uint256 bps,
         IEulerSwap pool,
-        bool zeroForOne,
-        uint256 amountOutMin
-    ) internal {
+        bool zeroForOne
+    ) internal returns (IERC20 buyToken, uint256 buyAmount) {
         // Doing this first violates the general rule that we ought to interact with the token
         // before checking the state of the pool. However, this is safe because Euler doesn't admit
         // badly-behaved tokens, and a token must be available on Euler before it can be added to
@@ -919,20 +903,17 @@ abstract contract EulerSwap is SettlerSwapAbstract {
         }
 
         // solve the constant function
-        uint256 amountOut = EulerSwapLib.findCurvePoint(sellAmount, zeroForOne, p, reserve0, reserve1);
-
-        // check slippage before swapping to save some sad-path gas
-        if (amountOut < amountOutMin) {
-            _revertTooMuchSlippage(zeroForOne, p, amountOutMin, amountOut);
-        }
+        buyAmount = EulerSwapLib.findCurvePoint(sellAmount, zeroForOne, p, reserve0, reserve1);
+        // TODO: figure out a way to elide this call to `fastAsset` in the hot path
+        buyToken = IEVault(zeroForOne.ternary(address(p.vault1()), address(p.vault0()))).fastAsset();
 
         // Because the reference implementation of `verify` for the EulerSwap trading function is
-        // non-monotonic, it may be possible to have an `amountOut` of one, even if `sellAmount` is
+        // non-monotonic, it may be possible to have a `buyAmount` of one, even if `sellAmount` is
         // zero. Because this is likely triggered by a failure of the `isAccountOperatorAuthorized`
-        // check, we skip calling `swap` because it's probably going to revert. If you set
-        // `amountOutMin` to one and this catches you off guard, I'm sorry, but that was dumb.
-        if (amountOut > 1) {
-            pool.fastSwap(zeroForOne, amountOut, recipient);
+        // check, we skip calling `swap` because it's probably going to revert. If you set the
+        // slippage limit to one and this catches you off guard, I'm sorry, but that was dumb.
+        if (buyAmount > 1) {
+            pool.fastSwap(zeroForOne, buyAmount, recipient);
         }
     }
 }

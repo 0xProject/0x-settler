@@ -3,7 +3,6 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
@@ -72,9 +71,8 @@ abstract contract DodoV2 is SettlerSwapAbstract {
         IERC20 sellToken,
         uint256 bps,
         IDodoV2 dodo,
-        bool quoteForBase,
-        uint256 minBuyAmount
-    ) internal returns (uint256 buyAmount) {
+        bool quoteForBase
+    ) internal returns (IERC20 buyToken, uint256 buyAmount) {
         if (bps != 0) {
             uint256 sellAmount;
             unchecked {
@@ -83,8 +81,7 @@ abstract contract DodoV2 is SettlerSwapAbstract {
             sellToken.safeTransfer(address(dodo), sellAmount);
         }
         buyAmount = dodo.fastSell(!quoteForBase, recipient);
-        if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(dodo.fastToken(quoteForBase), minBuyAmount, buyAmount);
-        }
+        // TODO: figure out a way to elide this call to `fastToken` in the hot path
+        buyToken = dodo.fastToken(quoteForBase);
     }
 }

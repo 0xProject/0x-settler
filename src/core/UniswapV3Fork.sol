@@ -10,8 +10,6 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
-
 interface IUniswapV3Pool {
     /// @notice Swap token0 for token1, or token1 for token0
     /// @dev The caller of this method receives a callback in the form of IUniswapV3SwapCallback#uniswapV3SwapCallback
@@ -57,21 +55,20 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
     /// @dev Sell a token for another token directly against uniswap v3.
     /// @param encodedPath Uniswap-encoded path.
     /// @param bps proportion of current balance of the first token in the path to sell.
-    /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
+    /// @return buyToken The last token in the path bought.
     /// @return buyAmount Amount of the last token in the path bought.
-    function sellToUniswapV3(address recipient, uint256 bps, bytes memory encodedPath, uint256 minBuyAmount)
+    function sellToUniswapV3(address recipient, uint256 bps, bytes memory encodedPath)
         internal
-        returns (uint256 buyAmount)
+        returns (IERC20, uint256)
     {
-        buyAmount = _uniV3ForkSwap(
+        return _uniV3ForkSwap(
             recipient,
             encodedPath,
             // We don't care about phantom overflow here because reserves are
             // limited to 128 bits. Any token balance that would overflow here
             // would also break UniV3.
             (IERC20(address(bytes20(encodedPath))).fastBalanceOf(address(this)) * bps).unsafeDiv(BASIS),
-            minBuyAmount,
             address(this), // payer
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE)
         );
@@ -79,27 +76,25 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
 
     /// @dev Sell a token for another token directly against uniswap v3. Payment is using a Permit2 signature (or AllowanceHolder).
     /// @param encodedPath Uniswap-encoded path.
-    /// @param minBuyAmount Minimum amount of the last token in the path to buy.
     /// @param recipient The recipient of the bought tokens.
     /// @param permit The PermitTransferFrom allowing this contract to spend the taker's tokens
     /// @param sig The taker's signature for Permit2
+    /// @return buyToken The last token in the path bought.
     /// @return buyAmount Amount of the last token in the path bought.
     function sellToUniswapV3VIP(
         address recipient,
         bytes memory encodedPath,
         ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes memory sig,
-        uint256 minBuyAmount
-    ) internal returns (uint256 buyAmount) {
+        bytes memory sig
+    ) internal returns (IERC20, uint256) {
         bytes memory swapCallbackData =
             new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
         _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded());
 
-        buyAmount = _uniV3ForkSwap(
+        return _uniV3ForkSwap(
             recipient,
             encodedPath,
             _permitToSellAmount(permit),
-            minBuyAmount,
             address(0), // payer
             swapCallbackData
         );
@@ -110,15 +105,13 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         address recipient,
         bytes memory encodedPath,
         uint256 sellAmount,
-        uint256 minBuyAmount,
         address payer,
         bytes memory swapCallbackData
-    ) internal returns (uint256 buyAmount) {
+    ) internal returns (IERC20 outputToken, uint256 buyAmount) {
         if (sellAmount > uint256(type(int256).max)) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
         }
 
-        IERC20 outputToken;
         while (true) {
             bool isPathMultiHop = _isPathMultiHop(encodedPath);
             bool zeroForOne;
@@ -196,9 +189,6 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
             assembly ("memory-safe") {
                 mstore(swapCallbackData, SWAP_CALLBACK_PREFIX_DATA_SIZE)
             }
-        }
-        if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(outputToken, minBuyAmount, buyAmount);
         }
     }
 

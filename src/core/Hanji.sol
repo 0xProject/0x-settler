@@ -6,7 +6,6 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
@@ -119,9 +118,8 @@ abstract contract Hanji is SettlerSwapAbstract {
         uint256 sellScalingFactor,
         uint256 buyScalingFactor,
         bool isAsk,
-        uint256 priceLimit,
-        uint256 minBuyAmount
-    ) internal returns (uint256 buyAmount) {
+        uint256 priceLimit
+    ) internal returns (IERC20 buyToken, uint256 buyAmount) {
         bool sendNative = sellToken == ETH_ADDRESS;
         uint256 sellAmount;
         unchecked {
@@ -141,8 +139,7 @@ abstract contract Hanji is SettlerSwapAbstract {
                     sendNative.orZero(sellScalingFactor), isAsk, uint128(scaledSellAmount), uint72(priceLimit)
                 ) * buyScalingFactor;
         }
-        if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(IHanjiPool(pool).getToken(isAsk), minBuyAmount, buyAmount);
-        }
+        // TODO: figure out a way to elide this call to `getToken` in the hot path
+        buyToken = IHanjiPool(pool).getToken(isAsk);
     }
 }

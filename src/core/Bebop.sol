@@ -10,8 +10,6 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
-
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 interface IBebopSettlement {
@@ -112,9 +110,8 @@ abstract contract Bebop is SettlerSwapAbstract {
         address payable recipient,
         IERC20 sellToken,
         ISettlerActions.BebopOrder memory order,
-        ISettlerActions.BebopMakerSignature memory makerSignature,
-        uint256 amountOutMin
-    ) internal returns (uint256 makerFilledAmount) {
+        ISettlerActions.BebopMakerSignature memory makerSignature
+    ) internal returns (IERC20 makerToken, uint256 makerFilledAmount) {
         uint256 takerFilledAmount = sellToken.fastBalanceOf(address(this));
         {
             uint256 maxTakerAmount = order.taker_amount;
@@ -123,9 +120,7 @@ abstract contract Bebop is SettlerSwapAbstract {
                 makerFilledAmount = (order.maker_amount * takerFilledAmount).unsafeDiv(maxTakerAmount);
             }
         }
-        if (makerFilledAmount < amountOutMin) {
-            revertTooMuchSlippage(IERC20(order.maker_token), amountOutMin, makerFilledAmount);
-        }
+        makerToken = IERC20(order.maker_token);
 
         sellToken.safeApproveIfBelow(address(_BEBOP), takerFilledAmount);
         _BEBOP.fastSwapSingle(recipient, _msgSender(), sellToken, order, makerSignature, takerFilledAmount);

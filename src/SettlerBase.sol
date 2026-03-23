@@ -19,9 +19,10 @@ import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
 import {FastLogic} from "./utils/FastLogic.sol";
 import {Ternary} from "./utils/Ternary.sol";
+import {AddressEquals} from "./utils/AddressEquals.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
-import {revertTooMuchSlippage} from "./core/SettlerErrors.sol";
+import {revertTooMuchSlippage, revertBuyTokenMismatch} from "./core/SettlerErrors.sol";
 
 /// @dev This library's ABIDecoding is more lax than the Solidity ABIDecoder. This library omits index bounds/overflow
 /// checking when accessing calldata arrays for gas efficiency. It also omits checks against `calldatasize()`. This
@@ -58,6 +59,9 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
     using SafeTransferLib for address payable;
     using FastLogic for bool;
     using Ternary for bool;
+    using AddressEquals for address;
+    using AddressEquals for address payable;
+    using AddressEquals for IERC20;
 
     receive() external payable {}
 
@@ -96,7 +100,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         } else if ((minAmountOut == 0).and(address(buyToken) == address(0))) {
             return;
         }
-        bool isETH = (buyToken == ETH_ADDRESS);
+        bool isETH = buyToken.eq(ETH_ADDRESS);
         uint256 amountOut = isETH ? address(this).balance : buyToken.fastBalanceOf(address(this));
         if (amountOut < minAmountOut) {
             revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
@@ -114,6 +118,27 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         }
     }
 
+    function _checkSlippage(IERC20 expectedBuyToken, uint256 minAmountOut, IERC20 actualBuyToken, uint256 actualAmountOut) internal pure {
+        if (!expectedBuyToken.eq(actualBuyToken).or(expectedBuyToken.eq(IERC20(address(0))))) {
+            revertBuyTokenMismatch(expectedBuyToken, actualBuyToken);
+        }
+        if (actualAmountOut < minAmountOut) {
+            revertTooMuchSlippage(actualBuyToken, minAmountOut, actualAmountOut);
+        }
+    }
+
+    function _maybeSetSlippage(AllowedSlippage memory slippage, address payable recipient, uint256 minAmountOut) internal pure returns (address payable, IERC20, uint256) {
+        IERC20 buyToken;
+        if (recipient.eq(TAKER_ADDRESS).and(minAmountOut == 0)) {
+            (recipient, buyToken, minAmountOut) = (slippage.recipient, slippage.buyToken, slippage.minAmountOut);
+            // zeroize `slippage`
+            assembly ("memory-safe") {
+                codecopy(slippage, codesize(), 0x60)
+            }
+        }
+        return (recipient, buyToken, minAmountOut);
+    }
+
     function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
@@ -126,35 +151,44 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
 
         if (action == uint32(ISettlerActions.RFQ.selector)) {
             (
-                address recipient,
+                address payable recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
                 address maker,
                 bytes memory makerSig,
                 IERC20 takerToken,
                 uint256 maxTakerAmount
             ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, address, bytes, IERC20, uint256));
-
-            fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount);
+            IERC20 buyToken;
+            uint256 minAmountOut;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = fillRfqOrderSelfFunded(recipient, permit, maker, makerSig, takerToken, maxTakerAmount);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.UNISWAPV3.selector)) {
-            (address recipient, uint256 bps, bytes memory path, uint256 amountOutMin) =
+            (address payable recipient, uint256 bps, bytes memory path, uint256 minAmountOut) =
                 abi.decode(data, (address, uint256, bytes, uint256));
-
-            sellToUniswapV3(recipient, bps, path, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV3(recipient, bps, path);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.UNISWAPV2.selector)) {
-            (address recipient, address sellToken, uint256 bps, address pool, uint24 swapInfo, uint256 amountOutMin) =
+            (address payable recipient, address sellToken, uint256 bps, address pool, uint24 swapInfo, uint256 minAmountOut) =
                 abi.decode(data, (address, address, uint256, address, uint24, uint256));
-
-            sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo, amountOutMin);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToUniswapV2(recipient, sellToken, bps, pool, swapInfo);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.BASIC.selector)) {
             (IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory _data) =
                 abi.decode(data, (IERC20, uint256, address, uint256, bytes));
 
             basicSellToPool(sellToken, bps, pool, offset, _data);
         } else if (action == uint32(ISettlerActions.VELODROME.selector)) {
-            (address recipient, uint256 bps, IVelodromePair pool, uint24 swapInfo, uint256 minAmountOut) =
+            (address payable recipient, uint256 bps, IVelodromePair pool, uint24 swapInfo, uint256 minAmountOut) =
                 abi.decode(data, (address, uint256, IVelodromePair, uint24, uint256));
-
-            sellToVelodrome(recipient, bps, pool, swapInfo, minAmountOut);
+            IERC20 buyToken;
+            (recipient, buyToken, minAmountOut) = _maybeSetSlippage(slippage, recipient, minAmountOut);
+            (IERC20 actualBuyToken, uint256 actualAmountOut) = sellToVelodrome(recipient, bps, pool, swapInfo);
+            _checkSlippage(buyToken, minAmountOut, actualBuyToken, actualAmountOut);
         } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
             (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxBps) =
                 abi.decode(data, (address, IERC20, uint256, uint256));

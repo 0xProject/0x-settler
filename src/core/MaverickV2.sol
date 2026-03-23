@@ -11,8 +11,6 @@ import {Ternary} from "../utils/Ternary.sol";
 import {Revert} from "../utils/Revert.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
 
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
-
 // Maverick AMM V2 is not open-source. The source code was disclosed to the
 // developers of 0x Settler confidentially and recompiled privately. The
 // deployed bytecode inithash matches the privately recompiled inithash.
@@ -200,9 +198,8 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
         address recipient,
         bool tokenAIn,
         uint256 amount,
-        int32 tickLimit,
-        uint256 minBuyAmount
-    ) private returns (uint256 buyAmount) {
+        int32 tickLimit
+    ) private returns (IERC20 buyToken, uint256 buyAmount) {
         bytes memory data = pool.fastEncodeSwap(recipient, amount, tokenAIn, tickLimit, new bytes(0));
 
         assembly ("memory-safe") {
@@ -214,9 +211,8 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
             buyAmount := mload(0x20)
         }
 
-        if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(pool.fastTokenAOrB(tokenAIn), minBuyAmount, buyAmount);
-        }
+        // TODO: figure out a way to elide this call to `fastTokenAOrB` in the hot path
+        buyToken = pool.fastTokenAOrB(tokenAIn);
     }
 
     function sellToMaverickV2(
@@ -225,9 +221,8 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
         uint256 bps,
         IMaverickV2Pool pool,
         bool tokenAIn,
-        int32 tickLimit,
-        uint256 minBuyAmount
-    ) internal returns (uint256 buyAmount) {
+        int32 tickLimit
+    ) internal returns (IERC20, uint256) {
         uint256 sellAmount;
         if (bps != 0) {
             unchecked {
@@ -243,6 +238,6 @@ abstract contract MaverickV2 is SettlerSwapAbstract {
                 sellAmount -= pool.fastGetReserveAOrB(tokenAIn);
             }
         }
-        return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, tickLimit, minBuyAmount);
+        return _sellToMaverickV2(pool, recipient, tokenAIn, sellAmount, tickLimit);
     }
 }

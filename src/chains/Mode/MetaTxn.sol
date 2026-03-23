@@ -18,14 +18,14 @@ import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 contract ModeSettlerMetaTxn is SettlerMetaTxn, ModeMixin {
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
+    function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig, AllowedSlippage memory slippage)
         internal
         virtual
         override
         DANGEROUS_freeMemory
         returns (bool)
     {
-        return super._dispatchVIP(action, data, sig);
+        return super._dispatchVIP(action, data, sig, slippage);
     }
 
     function _isRestrictedTarget(address target)

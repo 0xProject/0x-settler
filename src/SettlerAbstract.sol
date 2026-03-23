@@ -18,6 +18,7 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
 
     uint256 internal constant BASIS = 10_000;
     IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+    address payable internal constant TAKER_ADDRESS = payable(0x00000000000000000000000000000074616b6572); // address(uint160(uint40(bytes5("taker"))))
 
     constructor() {
         assert(SLIPPAGE_AND_ACTIONS_TYPEHASH == keccak256(bytes(SLIPPAGE_AND_ACTIONS_TYPE)));
