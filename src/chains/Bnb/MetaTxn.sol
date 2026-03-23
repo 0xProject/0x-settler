@@ -41,17 +41,6 @@ contract BnbSettlerMetaTxn is SettlerMetaTxn, BnbMixin {
             );
 
             sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-        } else if (action == uint32(ISettlerActions.METATXN_MAVERICKV2_VIP.selector)) {
-            (
-                address recipient,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes32 salt,
-                bool tokenAIn,
-                int32 tickLimit,
-                uint256 minBuyAmount
-            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes32, bool, int32, uint256));
-
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit, minBuyAmount);
         } else if (action == uint32(ISettlerActions.METATXN_PANCAKE_INFINITY_VIP.selector)) {
             (
                 address recipient,
