@@ -201,27 +201,6 @@ interface ISettlerActions {
         int32 tickLimit,
         uint256 minAmountOut
     ) external;
-    /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback
-    /// This action requires the use of the MaverickV2 callback, so we take the MaverickV2 CREATE2 salt as an argument to derive the pool address from the trusted factory and inithash.
-    /// @param salt is formed as `keccak256(abi.encode(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds, address(0)))`
-    function MAVERICKV2_VIP(
-        address recipient,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes32 salt,
-        bool tokenAIn,
-        bytes memory sig,
-        int32 tickLimit,
-        uint256 minAmountOut
-    ) external;
-    /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback; metatransaction variant
-    function METATXN_MAVERICKV2_VIP(
-        address recipient,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes32 salt,
-        bool tokenAIn,
-        int32 tickLimit,
-        uint256 minAmountOut
-    ) external;
 
     /// @dev Trades against UniswapV2 using the contracts balance for funding
     /// @param swapInfo is encoded as the upper 16 bits as the fee of the pool in bps, the second
