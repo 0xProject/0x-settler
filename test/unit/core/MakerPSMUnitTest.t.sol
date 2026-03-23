@@ -154,6 +154,11 @@ contract MakerPSMDummy is MakerPSM {
     function buyFromPool(address recipient, uint256 bps) public {
         super.sellToMakerPsm(recipient, bps, true, 0, psm, dai);
     }
+
+    function sellToPool(address recipient, uint256 bps, uint256 amountOutMin) public {
+        super.sellToMakerPsm(recipient, bps, false, amountOutMin, psm, dai);
+    }
+
 }
 
 contract MakerPSMUnitTest is Utils, Test {
@@ -165,10 +170,16 @@ contract MakerPSMUnitTest is Utils, Test {
     address DAI = _etchNamedRejectionDummy("DAI", 0x6B175474E89094C44Da98b954EedeAC495271d0F);
     address USDC = _etchNamedRejectionDummy("USDC", 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     address USDS = _etchNamedRejectionDummy("USDS", 0xdC035D45d973E3EC169d2276DDab16f1e407384F);
+    address USDT = _etchNamedRejectionDummy("USDT", 0xdAC17F958D2ee523a2206206994597C13D831ec7);
+    address USDD = _etchNamedRejectionDummy("USDD", 0x4f8e5DE400DE08B164E7421B3EE387f461beCD1A);
+    address USDD_PSM = _etchNamedRejectionDummy("UsddPSM", 0xcE355440c00014A229bbEc030A2B8f8EB45a2897);
+    address USDD_GEM_JOIN = _etchNamedRejectionDummy("UsddGemJoin", 0x217e42CEB2eAE9ECB788fDF0e31c806c531760A3);
     address PSM = LITE_PSM;
     address PSM_DAI = DAI;
+    address PSM_GEM = USDC;
 
     function setUp() public virtual {
+        // LitePSM approvals
         _mockExpectCall(
             address(DAI), abi.encodeWithSelector(IERC20.approve.selector, LITE_PSM, type(uint256).max), abi.encode(true)
         );
@@ -177,13 +188,27 @@ contract MakerPSMUnitTest is Utils, Test {
             abi.encodeWithSelector(IERC20.approve.selector, LITE_PSM, type(uint256).max),
             abi.encode(true)
         );
+        // SkyPSM approvals
         _mockExpectCall(
             address(USDS), abi.encodeWithSelector(IERC20.approve.selector, SKY_PSM, type(uint256).max), abi.encode(true)
         );
         _mockExpectCall(
             address(USDC), abi.encodeWithSelector(IERC20.approve.selector, SKY_PSM, type(uint256).max), abi.encode(true)
         );
+        // USDD PSM approvals
+        _mockExpectCall(
+            address(USDD),
+            abi.encodeWithSelector(IERC20.approve.selector, USDD_PSM, type(uint256).max),
+            abi.encode(true)
+        );
+        _mockExpectCall(
+            address(USDT),
+            abi.encodeWithSelector(IERC20.approve.selector, USDD_GEM_JOIN, type(uint256).max),
+            abi.encode(true)
+        );
+        // decimals assertions
         _mockExpectCall(address(USDC), abi.encodeWithSelector(IERC20.decimals.selector), abi.encode(6));
+        _mockExpectCall(address(USDT), abi.encodeWithSelector(IERC20.decimals.selector), abi.encode(6));
         psm = new MakerPSMDummy(IPSM(PSM), IERC20(PSM_DAI));
     }
 
@@ -206,10 +231,13 @@ contract MakerPSMUnitTest is Utils, Test {
         uint256 bps = 10_000;
         uint256 amount = 99999;
 
-        _mockExpectCall(USDC, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
-        //_mockExpectCall(USDC, abi.encodeWithSelector(IERC20.allowance.selector, address(psm), PSM), abi.encode(amount));
-        //_mockExpectCall(PSM, abi.encodeWithSelector(IPSM.gemJoin.selector), abi.encode(PSM));
-        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), abi.encode(99998));
+        _mockExpectCall(PSM_GEM, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
+        if (PSM == USDD_PSM) {
+            _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tin.selector), abi.encode(0));
+            _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), new bytes(0));
+        } else {
+            _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), abi.encode(99998));
+        }
 
         psm.sellToPool(RECIPIENT, bps);
     }
@@ -220,5 +248,39 @@ contract MakerSkyPSMUnitTest is MakerPSMUnitTest {
         PSM = SKY_PSM;
         PSM_DAI = USDS;
         super.setUp();
+    }
+}
+
+contract MakerUsddPSMUnitTest is MakerPSMUnitTest {
+    function setUp() public override {
+        PSM = USDD_PSM;
+        PSM_DAI = USDD;
+        PSM_GEM = USDT;
+        super.setUp();
+    }
+
+    function testSell_DssPsm_ReconstructsOutput() public {
+        uint256 amount = 99999;
+        uint256 amountOutMin = amount * 1 ether / 1e6;
+
+        _mockExpectCall(USDT, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
+        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tin.selector), abi.encode(0));
+        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), new bytes(0));
+
+        psm.sellToPool(RECIPIENT, 10_000, amountOutMin);
+    }
+
+    function testSell_DssPsm_CalculatesFee() public {
+        uint256 amount = 1_000_000; // 1 USDT
+        uint256 tin = 0.001 ether; // 0.1% fee in wad
+        // Expected: wad = 1_000_000 * 1e12 = 1e18, fee = 1e18 * 0.001e18 / 1e18 = 1e15
+        // buyAmount = 1e18 - 1e15 = 999_000_000_000_000_000
+        uint256 expectedOut = 999_000_000_000_000_000;
+
+        _mockExpectCall(USDT, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
+        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tin.selector), abi.encode(tin));
+        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), new bytes(0));
+
+        psm.sellToPool(RECIPIENT, 10_000, expectedOut);
     }
 }
