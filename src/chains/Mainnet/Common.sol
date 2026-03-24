@@ -132,7 +132,10 @@ abstract contract MainnetMixin is
                     token.safeTransfer(recipient, balance);
                 }
             }
-        } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector)).or(action == uint32(ISettlerActions.BALANCERV3.selector)).or(action == uint32(ISettlerActions.EKUBO.selector)).or(action == uint32(ISettlerActions.EKUBOV3.selector))) {
+        } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
+                .or(action == uint32(ISettlerActions.BALANCERV3.selector))
+                .or(action == uint32(ISettlerActions.EKUBO.selector))
+                .or(action == uint32(ISettlerActions.EKUBOV3.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,

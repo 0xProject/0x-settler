@@ -55,7 +55,9 @@ contract MainnetSettler is Settler, MainnetMixin {
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
-        } else if ((action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)).or(action == uint32(ISettlerActions.BALANCERV3_VIP.selector)).or(action == uint32(ISettlerActions.EKUBOV3_VIP.selector))) {
+        } else if ((action == uint32(ISettlerActions.UNISWAPV4_VIP.selector))
+                .or(action == uint32(ISettlerActions.BALANCERV3_VIP.selector))
+                .or(action == uint32(ISettlerActions.EKUBOV3_VIP.selector))) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -92,12 +94,7 @@ contract MainnetSettler is Settler, MainnetMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, MainnetMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, MainnetMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
