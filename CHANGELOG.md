@@ -18,6 +18,7 @@
   supported anymore and were removed from `ISettlerActions.sol`.
 * Update Arbitrum to the Osaka EVM hardfork
 * Update Polygon to the Osaka EVM hardfork
+* Update Monad to the Osaka EVM hardfork
 
 ## 2026-03-17
 
