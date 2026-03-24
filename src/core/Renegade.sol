@@ -26,7 +26,31 @@ abstract contract Renegade is SettlerAbstract {
 
     function _renegadeSelector() internal pure virtual returns (uint32);
 
-    // @param baseForQuote True if selling base asset (e.g. WETH) for quote asset.
+    /// @dev Extracts buyToken (quoteMint or baseMint) from GasSponsor calldata.
+    /// Base: standard ABI encoding; quoteMint @ data+0x1080, baseMint @ data+0x10a0.
+    /// Arbitrum: packed 20-byte addresses in statement blob; offset pointer @ data+0xa0.
+    /// baseForQuote=true -> buyToken=quoteMint, else baseMint.
+    function _extractBuyToken(bytes memory data, bool baseForQuote) internal pure returns (IERC20 buyToken) {
+        uint32 selector = _renegadeSelector();
+        assembly ("memory-safe") {
+            switch selector
+            case 0x322ef840 {
+                // Base: quoteMint @ 0x1080, baseMint @ 0x10a0
+                switch baseForQuote
+                case 1 { buyToken := mload(add(data, 0x1080)) }
+                default { buyToken := mload(add(data, 0x10a0)) }
+            }
+            case 0x0f977971 {
+                // Arbitrum: packed 20B addrs in statement blob (offset @ 0xa0)
+                let stmtOffset := mload(add(data, 0xa0))
+                switch baseForQuote
+                case 1 { buyToken := shr(96, mload(add(data, add(0x40, stmtOffset)))) }
+                default { buyToken := shr(96, mload(add(data, add(0x54, stmtOffset)))) }
+            }
+        }
+    }
+
+    /// @param baseForQuote True if selling base for quote.
     function sellToRenegade(
         address target,
         IERC20 sellToken,
@@ -44,7 +68,7 @@ abstract contract Renegade is SettlerAbstract {
             sellToken.safeApproveIfBelow(address(target), newSellAmount);
         }
 
-        // layout: word 0 = quoteAmount, word 1 = baseAmount
+        // word 0: quoteAmount, word 1: baseAmount
         uint256 originalQuoteAmount;
         uint256 originalBaseAmount;
         assembly ("memory-safe") {
@@ -69,7 +93,7 @@ abstract contract Renegade is SettlerAbstract {
         }
 
         if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(sellToken, minBuyAmount, buyAmount);
+            revertTooMuchSlippage(_extractBuyToken(data, baseForQuote), minBuyAmount, buyAmount);
         }
 
         uint32 selector = _renegadeSelector();
