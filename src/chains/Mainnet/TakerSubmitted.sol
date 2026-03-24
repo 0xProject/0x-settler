@@ -46,6 +46,8 @@ contract MainnetSettler is Settler, MainnetMixin {
                     revert(0x1c, 0x44)
                 }
             }
+        } else if (action == uint32(ISettlerActions.CHECK_SLIPPAGE.selector)) {
+            _checkSlippageAndTransfer(slippage, abi.decode(data, (bool)));
         } else {
             return false;
         }
