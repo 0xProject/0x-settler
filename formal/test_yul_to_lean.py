@@ -7942,23 +7942,14 @@ class NewReviewRegressionTest(unittest.TestCase):
     def test_parse_function_rejects_unsupported_constant_switch_shapes(
         self,
     ) -> None:
+        # For constant-folded switches the only structural constraint
+        # is that ``default`` must be the last branch — the parser loop
+        # breaks on ``default``, so trailing branches would be silently
+        # dropped.  Branch counts, missing defaults, and nonzero case
+        # values are all valid; see the companion tests
+        # test_translate_yul_to_models_accepts_constant_switch_without_default
+        # and test_translate_yul_to_models_accepts_constant_switch_with_multiple_cases.
         cases = {
-            "missing_default": (
-                """
-                function fun_bad_1() -> z {
-                    switch 1
-                    case 1 {
-                        z := 7
-                    }
-                }
-                """,
-                "switch must have exactly 'case 0' \\+ 'default'",
-            ),
-            # Note: nonzero case values ARE valid for constant-folded
-            # switches — the constraint that only 'case 0' is allowed
-            # applies to non-constant switches where the model must map
-            # to if/else.  See the existing test:
-            # test_translate_yul_to_models_preserves_constant_true_switch_shadowing_local_binding
             "default_before_case": (
                 """
                 function fun_bad_1() -> z {

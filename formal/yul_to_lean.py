@@ -1333,14 +1333,15 @@ class YulParser(_TokenReader):
                     if const_disc is not None:
                         # Constant discriminant: parse all branches but
                         # only keep the matching one (flattened).
-                        # Structural shape validation (default required,
-                        # default must be last) is still enforced.  Case
-                        # values are NOT restricted to 0 here — the
-                        # constant-fold path handles any discriminant.
+                        # No shape restriction (case-value or branch-count)
+                        # is enforced here — the constant-fold path handles
+                        # any valid Yul switch.  The only check is that
+                        # ``default`` is the last branch (the parser loop
+                        # breaks on ``default``, so trailing branches would
+                        # be silently dropped).
                         live_branch_stmts: list[RawStatement] = []
                         live_leave = False
                         found_live = False
-                        n_const_branches = 0
                         has_default = False
                         while (
                             not self._at_end()
@@ -1356,7 +1357,6 @@ class YulParser(_TokenReader):
                             else:
                                 has_default = True
                                 is_live = not found_live
-                            n_const_branches += 1
                             br_body, br_leave, br_es = self._parse_scoped_body(
                                 allow_control_flow=(
                                     allow_control_flow if is_live else True
@@ -1380,13 +1380,6 @@ class YulParser(_TokenReader):
                         ):
                             raise ParseError(
                                 "'default' must be the last branch in a switch."
-                            )
-                        if n_const_branches != 2 or not has_default:
-                            raise ParseError(
-                                f"switch must have exactly 'case 0' + 'default' "
-                                f"(got {n_const_branches} branch(es), default="
-                                f"{'present' if has_default else 'missing'}"
-                                f")."
                             )
                         _flatten_scoped_block(live_branch_stmts, results)
                         if live_leave:
