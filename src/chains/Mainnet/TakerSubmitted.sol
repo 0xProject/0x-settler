@@ -11,7 +11,6 @@ import {ISettlerActions} from "../../ISettlerActions.sol";
 import {FastLogic} from "../../utils/FastLogic.sol";
 
 // Solidity inheritance is stupid
-import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
