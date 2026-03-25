@@ -3263,10 +3263,18 @@ def _branch_definitely_initializes_var(
     var: str,
     initialized: bool,
 ) -> bool:
-    """Whether *var* is definitely initialized after a straight-line branch."""
+    """Whether *var* is definitely initialized after a straight-line branch.
+
+    Branch-local declarations (``let``) and their subsequent reassignments
+    are scoped to the branch and do not initialize *var* in the enclosing
+    scope.  This mirrors the scoping logic in ``_stmt_targets``.
+    """
     branch_initialized = initialized
+    branch_locals: set[str] = set()
     for stmt in assignments:
-        if stmt.target == var and not stmt.is_declaration:
+        if stmt.is_declaration:
+            branch_locals.add(stmt.target)
+        elif stmt.target == var and var not in branch_locals:
             branch_initialized = True
     return branch_initialized
 
