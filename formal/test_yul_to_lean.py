@@ -8024,6 +8024,25 @@ class NewReviewRegressionTest(unittest.TestCase):
         with self.assertRaises(ytl.ParseError):
             ytl.YulParser(tokens).parse_function()
 
+    def test_parse_function_rejects_nonliteral_constant_expression_case_value(
+        self,
+    ) -> None:
+        yul = """
+            function fun_bad_1() -> z {
+                switch 1
+                case add(0, 1) {
+                    z := 7
+                }
+                default {
+                    z := 9
+                }
+            }
+        """
+
+        tokens = ytl.tokenize_yul(yul)
+        with self.assertRaises(ytl.ParseError):
+            ytl.YulParser(tokens).parse_function()
+
     def test_translate_yul_to_models_accepts_constant_switch_without_default(
         self,
     ) -> None:
