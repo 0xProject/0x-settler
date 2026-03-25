@@ -35,17 +35,13 @@ abstract contract Renegade is SettlerAbstract {
         assembly ("memory-safe") {
             switch selector
             case 0x322ef840 {
-                // Base: quoteMint @ 0x1080, baseMint @ 0x10a0
-                switch baseForQuote
-                case 1 { buyToken := mload(add(data, 0x1080)) }
-                default { buyToken := mload(add(data, 0x10a0)) }
+                // Base: quoteMint @ data+0x1080, baseMint @ data+0x10a0
+                buyToken := mload(add(data, sub(0x10a0, shl(0x05, baseForQuote))))
             }
             case 0x0f977971 {
-                // Arbitrum: packed 20B addrs in statement blob (offset @ 0xa0)
+                // Arbitrum: packed 20B addrs in statement blob (offset ptr @ data+0xa0)
                 let stmtOffset := mload(add(data, 0xa0))
-                switch baseForQuote
-                case 1 { buyToken := shr(96, mload(add(data, add(0x40, stmtOffset)))) }
-                default { buyToken := shr(96, mload(add(data, add(0x54, stmtOffset)))) }
+                buyToken := shr(0x60, mload(add(data, add(sub(0x54, mul(0x14, baseForQuote)), stmtOffset))))
             }
         }
     }
