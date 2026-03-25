@@ -3724,6 +3724,34 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (0,))
 
+    def test_translate_yul_to_models_zero_initializes_return_despite_branch_local_shadow_reassignment_in_all_switch_branches(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                switch var_c_1
+                case 0 {
+                    let var_z_2 := 1
+                    var_z_2 := 3
+                }
+                default {
+                    let var_z_2 := 2
+                    var_z_2 := 4
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (0,))
+
     def test_translate_yul_to_models_preserves_outer_assignment_before_later_shadowing_block_let(
         self,
     ) -> None:
