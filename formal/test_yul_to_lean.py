@@ -7981,6 +7981,55 @@ class NewReviewRegressionTest(unittest.TestCase):
                 with self.assertRaisesRegex(ytl.ParseError, message):
                     ytl.YulParser(tokens).parse_function()
 
+    def test_translate_yul_to_models_accepts_constant_switch_without_default(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                var_z_2 := 9
+                switch 1
+                case 1 {
+                    var_z_2 := 7
+                }
+            }
+        """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (7,))
+
+    def test_translate_yul_to_models_accepts_constant_switch_with_multiple_cases(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                switch 1
+                case 0 {
+                    var_z_2 := 0
+                }
+                case 1 {
+                    var_z_2 := 1
+                }
+                default {
+                    var_z_2 := 2
+                }
+            }
+        """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (1,))
+
     def test_translate_yul_to_models_preserves_branch_local_shadow_reassignment_in_nonconstant_conditional(
         self,
     ) -> None:
