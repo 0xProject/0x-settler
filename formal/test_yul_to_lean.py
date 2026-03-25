@@ -7938,5 +7938,135 @@ class BranchExprStmtTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (9,)), (3,))
 
 
+class NewReviewRegressionTest(unittest.TestCase):
+    def test_parse_function_rejects_unsupported_constant_switch_shapes(
+        self,
+    ) -> None:
+        cases = {
+            "missing_default": (
+                """
+                function fun_bad_1() -> z {
+                    switch 1
+                    case 1 {
+                        z := 7
+                    }
+                }
+                """,
+                "switch must have exactly 'case 0' \\+ 'default'",
+            ),
+            "nonzero_case": (
+                """
+                function fun_bad_1() -> z {
+                    switch 1
+                    case 1 {
+                        z := 7
+                    }
+                    default {
+                        z := 9
+                    }
+                }
+                """,
+                "switch case value .* is not 0",
+            ),
+            "default_before_case": (
+                """
+                function fun_bad_1() -> z {
+                    switch 1
+                    default {
+                        z := 9
+                    }
+                    case 0 {
+                        z := 7
+                    }
+                }
+                """,
+                "'default' must be the last branch",
+            ),
+        }
+
+        for name, (yul, message) in cases.items():
+            with self.subTest(name=name):
+                tokens = ytl.tokenize_yul(yul)
+                with self.assertRaisesRegex(ytl.ParseError, message):
+                    ytl.YulParser(tokens).parse_function()
+
+    def test_translate_yul_to_models_preserves_branch_local_shadow_reassignment_in_nonconstant_conditional(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        cases = {
+            "if": """
+                function fun_f_1(var_c_1) -> var_z_2 {
+                    let usr$a := 1
+                    if var_c_1 {
+                        let usr$a := 1
+                        usr$a := 2
+                        var_z_2 := usr$a
+                    }
+                }
+            """,
+            "switch": """
+                function fun_f_1(var_c_1) -> var_z_2 {
+                    let usr$a := 1
+                    switch var_c_1
+                    case 0 {
+                    }
+                    default {
+                        let usr$a := 1
+                        usr$a := 2
+                        var_z_2 := usr$a
+                    }
+                }
+            """,
+        }
+
+        for name, yul in cases.items():
+            with self.subTest(name=name):
+                result = ytl.translate_yul_to_models(
+                    yul,
+                    config,
+                    pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                )
+                model = result.models[0]
+                self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
+                self.assertEqual(ytl.evaluate_function_model(model, (1,)), (2,))
+
+    def test_evaluate_function_model_wraps_raw_large_integer_literals_to_u256(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            assignments=(
+                ytl.Assignment("z", ytl.IntLit(ytl.WORD_MOD + 1)),
+            ),
+            param_names=(),
+            return_names=("z",),
+        )
+
+        self.assertEqual(ytl.evaluate_function_model(model, ()), (1,))
+
+    def test_build_model_body_wraps_raw_large_integer_literals_to_u256(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            assignments=(
+                ytl.Assignment("z", ytl.IntLit(ytl.WORD_MOD + 1)),
+            ),
+            param_names=(),
+            return_names=("z",),
+        )
+
+        body = ytl.build_model_body(
+            model.assignments,
+            evm=True,
+            config=make_model_config(("f",)),
+            param_names=model.param_names,
+            return_names=model.return_names,
+        )
+
+        self.assertEqual(body.splitlines()[0], "  let z := 1")
+
+
 if __name__ == "__main__":
     unittest.main()
