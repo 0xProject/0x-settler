@@ -3266,7 +3266,7 @@ def _branch_definitely_initializes_var(
     """Whether *var* is definitely initialized after a straight-line branch."""
     branch_initialized = initialized
     for stmt in assignments:
-        if stmt.target == var:
+        if stmt.target == var and not stmt.is_declaration:
             branch_initialized = True
     return branch_initialized
 
@@ -3307,7 +3307,7 @@ def _stmt_definitely_initializes_var(
 ) -> bool:
     """Whether *var* is definitely initialized after executing *stmt*."""
     if isinstance(stmt, PlainAssignment):
-        return initialized or stmt.target == var
+        return initialized or (stmt.target == var and not stmt.is_declaration)
     if isinstance(stmt, MemoryWrite):
         return initialized
 
@@ -4392,7 +4392,14 @@ def validate_function_model(model: FunctionModel) -> None:
 
     def _validate_expr_shape(expr: Expr) -> None:
         """Reject structurally malformed expressions."""
-        if isinstance(expr, (IntLit, Var)):
+        if isinstance(expr, Var):
+            return
+        if isinstance(expr, IntLit):
+            if expr.value < 0:
+                raise ParseError(
+                    f"Model {model.fn_name!r}: IntLit({expr.value}) is negative "
+                    f"(Yul integers are unsigned)"
+                )
             return
         if isinstance(expr, Ite):
             _validate_expr_shape(expr.cond)
@@ -4405,10 +4412,20 @@ def validate_function_model(model: FunctionModel) -> None:
                     f"Model {model.fn_name!r}: Project({expr.index}, {expr.total}) inner "
                     f"must be a Call, got {type(expr.inner).__name__}"
                 )
-            if expr.index >= expr.total:
+            if expr.index < 0 or expr.index >= expr.total:
                 raise ParseError(
                     f"Model {model.fn_name!r}: Project({expr.index}, {expr.total}) index "
                     f"{expr.index} out of range [0, {expr.total})"
+                )
+            if expr.total < 2:
+                raise ParseError(
+                    f"Model {model.fn_name!r}: Project({expr.index}, {expr.total}) "
+                    f"requires total >= 2 (scalar values cannot be projected)"
+                )
+            if expr.inner.name in OP_TO_LEAN_HELPER:
+                raise ParseError(
+                    f"Model {model.fn_name!r}: cannot project builtin "
+                    f"{expr.inner.name!r} (returns scalar, not tuple)"
                 )
             _validate_expr_shape(expr.inner)
             return
@@ -5107,17 +5124,23 @@ def prepare_translation(
                 )
 
             # Also collect nested helpers from inside the target's body.
+            # Track their names so the pop loop below preserves them —
+            # a nested helper that shadows a selected target's Yul name
+            # is a distinct function and must remain in the helper table.
+            nested_helper_names: set[str] = set()
             body_range = _find_function_body_range(tokens, fn_token_idx)
             if body_range is not None:
                 body_start, body_end = body_range
                 body_tokens = tokens[body_start:body_end]
                 nested_coll = YulParser(body_tokens).collect_all_functions()
+                nested_helper_names = set(nested_coll.functions)
                 _merge_helper_collection(
                     helper_table,
                     rejected_helpers,
                     nested_coll,
                 )
         else:
+            nested_helper_names: set[str] = set()
             function_collection = YulParser(tokens).collect_all_functions()
             _merge_helper_collection(
                 helper_table,
@@ -5126,7 +5149,8 @@ def prepare_translation(
             )
 
         for yn in fn_map:
-            helper_table.pop(yn, None)
+            if yn not in nested_helper_names:
+                helper_table.pop(yn, None)
 
         inlined_targets[sol_name] = _inline_yul_function(
             yul_functions[sol_name],
@@ -5237,6 +5261,12 @@ def validate_selected_models(models: list[FunctionModel]) -> None:
                         f"Model {model_fn_name!r}: Project({expr.index}, {expr.total}) "
                         f"expects {expr.total} return values from {inner.name!r}, "
                         f"but it returns {callee_rets}"
+                    )
+                if callee_rets < 2:
+                    raise ParseError(
+                        f"Model {model_fn_name!r}: cannot project "
+                        f"{inner.name!r} which returns {callee_rets} value(s) "
+                        f"(need >= 2 for projection)"
                     )
                 callee_params, _ = sig_table[inner.name]
                 if len(inner.args) != callee_params:
