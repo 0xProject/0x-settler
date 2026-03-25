@@ -7063,6 +7063,52 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (7,))
 
+    def test_translate_yul_to_models_wraps_large_switch_case_literals_to_u256(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        cases = {
+            "constant_switch": (
+                f"""
+                function fun_f_1() -> var_z_2 {{
+                    switch 0
+                    case {ytl.WORD_MOD} {{
+                        var_z_2 := 7
+                    }}
+                    default {{
+                        var_z_2 := 9
+                    }}
+                }}
+                """,
+                [((), (7,))],
+            ),
+            "nonconstant_switch": (
+                f"""
+                function fun_f_1(var_x_1) -> var_z_2 {{
+                    switch var_x_1
+                    case {ytl.WORD_MOD} {{
+                        var_z_2 := 7
+                    }}
+                    default {{
+                        var_z_2 := 9
+                    }}
+                }}
+                """,
+                [((0,), (7,)), ((1,), (9,))],
+            ),
+        }
+
+        for name, (yul, expectations) in cases.items():
+            with self.subTest(name=name):
+                result = ytl.translate_yul_to_models(
+                    yul,
+                    config,
+                    pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                )
+                model = result.models[0]
+                for args, expected in expectations:
+                    self.assertEqual(ytl.evaluate_function_model(model, args), expected)
+
     def test_build_lean_source_ignores_dead_constant_false_branch_with_unresolved_helper(
         self,
     ) -> None:
