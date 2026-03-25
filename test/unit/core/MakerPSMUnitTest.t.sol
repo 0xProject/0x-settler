@@ -232,12 +232,8 @@ contract MakerPSMUnitTest is Utils, Test {
         uint256 amount = 99999;
 
         _mockExpectCall(PSM_GEM, abi.encodeWithSelector(IERC20.balanceOf.selector, address(psm)), abi.encode(amount));
-        if (PSM == USDD_PSM) {
-            _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tin.selector), abi.encode(0));
-            _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), new bytes(0));
-        } else {
-            _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), abi.encode(99998));
-        }
+        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.tin.selector), abi.encode(0));
+        _mockExpectCall(PSM, abi.encodeWithSelector(IPSM.sellGem.selector, RECIPIENT, amount), abi.encode(0));
 
         psm.sellToPool(RECIPIENT, bps);
     }

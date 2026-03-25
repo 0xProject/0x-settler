@@ -37,7 +37,7 @@ interface IPSM {
 }
 
 library FastPSM {
-    function fastSellGem(IPSM psm, address usr, uint256 gemAmt) internal returns (uint256 daiOutWad) {
+    function fastSellGem(IPSM psm, address usr, uint256 gemAmt) internal {
         assembly ("memory-safe") {
             mstore(0x34, gemAmt)
             mstore(0x14, usr)
@@ -48,10 +48,6 @@ library FastPSM {
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
-            // Classic DssPsm (e.g. UsddPSM) returns no data; daiOutWad stays 0.
-            // LitePSM/SkyPSM return the amount; decode it.
-            if gt(returndatasize(), 0x1f) { daiOutWad := mload(0x00) }
-
             mstore(0x34, 0x00)
         }
     }
@@ -145,7 +141,7 @@ abstract contract MakerPSM is SettlerAbstract {
         returns (uint256 buyAmount)
     {
         // Configured approval pairs: LitePSM/DAI/USDC, SkyPSM/USDS/USDC, UsddPSM/USDD/USDT.
-        IERC20 gem = psm == UsddPSM ? USDT : USDC;
+        IERC20 gem = IERC20((psm == UsddPSM).ternary(address(USDT), address(USDC)));
         (IERC20 sellToken, IERC20 buyToken) = buyGem.maybeSwap(gem, dai);
         uint256 sellAmount;
         unchecked {
@@ -166,13 +162,10 @@ abstract contract MakerPSM is SettlerAbstract {
                 psm.fastBuyGem(recipient, buyAmount);
             }
         } else {
-            buyAmount = psm.fastSellGem(recipient, sellAmount);
-            if (buyAmount == 0) {
-                // Classic DssPsm returns no data; reconstruct output from tin().
-                unchecked {
-                    buyAmount = sellAmount * WAD / GEM_basis;
-                    buyAmount -= (buyAmount * psm.fastTin()).unsafeDiv(WAD);
-                }
+            psm.fastSellGem(recipient, sellAmount);
+            unchecked {
+                buyAmount = sellAmount * WAD / GEM_basis;
+                buyAmount -= (buyAmount * psm.fastTin()).unsafeDiv(WAD);
             }
             if (buyAmount < amountOutMin) {
                 revertTooMuchSlippage(buyToken, amountOutMin, buyAmount);
