@@ -3247,12 +3247,25 @@ def _branch_reads_var_before_write(
     var: str,
     initialized: bool,
 ) -> bool:
-    """Whether a straight-line branch reads *var* before assigning it."""
+    """Whether a straight-line branch reads *var* before assigning it.
+
+    Branch-local declarations (``let``) shadow the enclosing ``var`` only
+    after their RHS is evaluated. Once shadowed, later reads in the same
+    branch refer to the branch-local binding and do not count as reads of
+    the enclosing variable.
+    """
     branch_initialized = initialized
+    branch_locals: set[str] = set()
     for stmt in assignments:
-        if not branch_initialized and var in _expr_vars(stmt.expr):
+        if (
+            not branch_initialized
+            and var not in branch_locals
+            and var in _expr_vars(stmt.expr)
+        ):
             return True
-        if stmt.target == var:
+        if stmt.is_declaration:
+            branch_locals.add(stmt.target)
+        elif stmt.target == var and var not in branch_locals:
             branch_initialized = True
     return False
 
