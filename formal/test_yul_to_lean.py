@@ -7972,6 +7972,58 @@ class NewReviewRegressionTest(unittest.TestCase):
                 with self.assertRaisesRegex(ytl.ParseError, message):
                     ytl.YulParser(tokens).parse_function()
 
+    def test_parse_function_rejects_empty_constant_switch(self) -> None:
+        yul = """
+            function fun_bad_1() -> z {
+                switch 1
+            }
+        """
+
+        tokens = ytl.tokenize_yul(yul)
+        with self.assertRaises(ytl.ParseError):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_duplicate_constant_switch_case_values(
+        self,
+    ) -> None:
+        yul = """
+            function fun_bad_1() -> z {
+                switch 1
+                case 1 {
+                    z := 7
+                }
+                case 1 {
+                    z := 8
+                }
+                default {
+                    z := 9
+                }
+            }
+        """
+
+        tokens = ytl.tokenize_yul(yul)
+        with self.assertRaises(ytl.ParseError):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_nonconstant_case_value_in_constant_switch(
+        self,
+    ) -> None:
+        yul = """
+            function fun_bad_1(var_x_1) -> z {
+                switch 1
+                case var_x_1 {
+                    z := 7
+                }
+                default {
+                    z := 9
+                }
+            }
+        """
+
+        tokens = ytl.tokenize_yul(yul)
+        with self.assertRaises(ytl.ParseError):
+            ytl.YulParser(tokens).parse_function()
+
     def test_translate_yul_to_models_accepts_constant_switch_without_default(
         self,
     ) -> None:
