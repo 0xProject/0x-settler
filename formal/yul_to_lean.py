@@ -1333,16 +1333,18 @@ class YulParser(_TokenReader):
                     if const_disc is not None:
                         # Constant discriminant: parse all branches but
                         # only keep the matching one (flattened).
-                        # No shape restriction (case-value or branch-count)
-                        # is enforced here — the constant-fold path handles
-                        # any valid Yul switch.  The only check is that
-                        # ``default`` is the last branch (the parser loop
-                        # breaks on ``default``, so trailing branches would
-                        # be silently dropped).
+                        # Case values may be any constant (not restricted
+                        # to 0), default is optional, and any number of
+                        # branches is allowed.  We reject: empty switches,
+                        # non-constant case values, duplicate case values,
+                        # and default-before-case (trailing branches after
+                        # default would be silently dropped by the loop).
                         live_branch_stmts: list[RawStatement] = []
                         live_leave = False
                         found_live = False
                         has_default = False
+                        n_const_branches = 0
+                        seen_case_values: set[int] = set()
                         while (
                             not self._at_end()
                             and self._peek_kind() == "ident"
@@ -1353,10 +1355,22 @@ class YulParser(_TokenReader):
                             if br == "case":
                                 case_val = self._parse_expr()
                                 cv = _try_const_eval(case_val)
+                                if cv is None:
+                                    raise ParseError(
+                                        f"Non-constant case value {case_val!r} "
+                                        f"in constant switch."
+                                    )
+                                if cv in seen_case_values:
+                                    raise ParseError(
+                                        f"Duplicate case value {cv} in switch "
+                                        f"statement."
+                                    )
+                                seen_case_values.add(cv)
                                 is_live = (cv == const_disc) and not found_live
                             else:
                                 has_default = True
                                 is_live = not found_live
+                            n_const_branches += 1
                             br_body, br_leave, br_es = self._parse_scoped_body(
                                 allow_control_flow=(
                                     allow_control_flow if is_live else True
@@ -1371,6 +1385,10 @@ class YulParser(_TokenReader):
                                 found_live = True
                             if br == "default":
                                 break
+                        if n_const_branches == 0:
+                            raise ParseError(
+                                "switch with no case/default branches"
+                            )
                         # Reject trailing branches after default.
                         if (
                             has_default
