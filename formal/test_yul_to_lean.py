@@ -8216,5 +8216,111 @@ class NewReviewRegressionTest(unittest.TestCase):
         self.assertEqual(body.splitlines()[0], "  let z := 1")
 
 
+class CriticalReviewRegressionTest(unittest.TestCase):
+    def test_translate_yul_to_models_rejects_nonconstant_conditional_local_used_out_of_scope_after_name_leak(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        cases = {
+            "if": """
+                function fun_f_1(var_x_1, var_c_2) -> var_z_3 {
+                    if var_c_2 {
+                        let usr$x := 7
+                        var_x_1 := usr$x
+                    }
+                    var_z_3 := usr$x
+                }
+                """,
+            "switch": """
+                function fun_f_1(var_x_1, var_c_2) -> var_z_3 {
+                    switch var_c_2
+                    case 0 {
+                        let usr$x := 7
+                        var_x_1 := usr$x
+                    }
+                    default {
+                        var_x_1 := 8
+                    }
+                    var_z_3 := usr$x
+                }
+                """,
+        }
+
+        for label, yul in cases.items():
+            with self.subTest(control_flow=label):
+                with self.assertRaisesRegex(
+                    ytl.ParseError,
+                    "out-of-scope variable use",
+                ):
+                    ytl.translate_yul_to_models(
+                        yul,
+                        config,
+                        pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                    )
+
+    def test_translate_yul_to_models_collects_nested_local_helpers_inside_nested_blocks(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("outer",),
+            exact_yul_names={"outer": "fun_outer_1"},
+        )
+        cases = {
+            "bare_block": """
+                object "o" {
+                    code {
+                        function fun_outer_1() -> var_z_1 {
+                            {
+                                function helper() -> var_r_1 {
+                                    var_r_1 := 1
+                                }
+                                var_z_1 := helper()
+                            }
+                        }
+                    }
+                }
+                """,
+            "constant_true_if": """
+                object "o" {
+                    code {
+                        function fun_outer_1() -> var_z_1 {
+                            if 1 {
+                                function helper() -> var_r_1 {
+                                    var_r_1 := 1
+                                }
+                                var_z_1 := helper()
+                            }
+                        }
+                    }
+                }
+                """,
+        }
+
+        for label, yul in cases.items():
+            with self.subTest(scope=label):
+                result = ytl.translate_yul_to_models(
+                    yul,
+                    config,
+                    pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                )
+                self.assertEqual(
+                    ytl.evaluate_function_model(
+                        result.models[0],
+                        (),
+                        model_table=ytl.build_model_table(result.models),
+                    ),
+                    (1,),
+                )
+
+    def test_parse_exact_yul_selector_rejects_empty_path_segments(self) -> None:
+        for selector in ("outer::", "::top::", "a::::b"):
+            with self.subTest(selector=selector):
+                with self.assertRaisesRegex(
+                    ytl.ParseError,
+                    "Invalid exact Yul selector",
+                ):
+                    ytl._parse_exact_yul_selector(selector)
+
+
 if __name__ == "__main__":
     unittest.main()
