@@ -2776,6 +2776,77 @@ class ValidateFunctionModelTest(unittest.TestCase):
         with self.assertRaisesRegex(ytl.ParseError, "Invalid.*param"):
             ytl.validate_function_model(model)
 
+    def test_validate_rejects_negative_project_index(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="bad",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Project(-1, 2, ytl.Call("pair", (ytl.Var("x"),))),
+                ),
+            ),
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.validate_function_model(model)
+
+    def test_validate_rejects_projection_of_builtin_call(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="bad",
+            param_names=(),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Project(
+                        0,
+                        1,
+                        ytl.Call("add", (ytl.IntLit(1), ytl.IntLit(2))),
+                    ),
+                ),
+            ),
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.validate_function_model(model)
+
+    def test_validate_rejects_negative_nat_literal(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="bad",
+            param_names=(),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.IntLit(-1)),),
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.validate_function_model(model)
+
+    def test_validate_selected_models_rejects_projection_of_single_return_model(
+        self,
+    ) -> None:
+        inner = ytl.FunctionModel(
+            fn_name="inner",
+            param_names=("x",),
+            return_names=("ret",),
+            assignments=(ytl.Assignment("ret", ytl.Var("x")),),
+        )
+        outer = ytl.FunctionModel(
+            fn_name="outer",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Project(0, 1, ytl.Call("inner", (ytl.Var("x"),))),
+                ),
+            ),
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.validate_selected_models([inner, outer])
+
 
 # ---------------------------------------------------------------------------
 # Step 6a tests: collect_ops_from_statement
@@ -3596,6 +3667,62 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
+
+    def test_translate_yul_to_models_keeps_nested_helper_shadowing_selected_name(
+        self,
+    ) -> None:
+        config = make_model_config(("g", "f"))
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                function fun_g_2(var_y_3) -> var_r_4 {
+                    var_r_4 := add(var_y_3, 1)
+                }
+                var_z_2 := fun_g_2(var_x_1)
+            }
+
+            function fun_g_2(var_x_5) -> var_z_6 {
+                var_z_6 := add(var_x_5, 10)
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        table = ytl.build_model_table(result.models)
+        f_model = next(model for model in result.models if model.fn_name == "f")
+
+        self.assertEqual(
+            ytl.evaluate_function_model(f_model, (5,), model_table=table),
+            (6,),
+        )
+
+    def test_translate_yul_to_models_zero_initializes_return_despite_branch_local_shadow_in_all_switch_branches(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                switch var_c_1
+                case 0 {
+                    let var_z_2 := 1
+                }
+                default {
+                    let var_z_2 := 2
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (0,))
 
     def test_translate_yul_to_models_preserves_outer_assignment_before_later_shadowing_block_let(
         self,
