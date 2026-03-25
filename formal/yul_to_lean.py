@@ -442,6 +442,16 @@ class _TokenReader:
     def _expect_ident(self) -> str:
         return self._expect("ident")
 
+    def _parse_case_literal(self) -> int:
+        """Parse a Yul switch case label, which must be a numeric literal."""
+        kind, text = self._pop()
+        if kind != "num":
+            raise ParseError(
+                f"switch case value must be a literal, got {kind} "
+                f"({text!r})"
+            )
+        return int(text, 0)
+
     def _parse_expr(self) -> Expr:
         kind, text = self._pop()
         if kind == "num":
@@ -1353,13 +1363,7 @@ class YulParser(_TokenReader):
                             br = self.tokens[self.i][1]
                             self._pop()
                             if br == "case":
-                                case_val = self._parse_expr()
-                                cv = _try_const_eval(case_val)
-                                if cv is None:
-                                    raise ParseError(
-                                        f"Non-constant case value {case_val!r} "
-                                        f"in constant switch."
-                                    )
+                                cv = self._parse_case_literal()
                                 if cv in seen_case_values:
                                     raise ParseError(
                                         f"Duplicate case value {cv} in switch "
@@ -1424,11 +1428,10 @@ class YulParser(_TokenReader):
                         branch = self.tokens[self.i][1]
                         self._pop()  # consume 'case' or 'default'
                         if branch == "case":
-                            case_val = self._parse_expr()
-                            cv = _try_const_eval(case_val)
+                            cv = self._parse_case_literal()
                             if cv != 0:
                                 raise ParseError(
-                                    f"switch case value {case_val!r} is not 0. "
+                                    f"switch case value {cv} is not 0. "
                                     f"Only 'switch e case 0 {{ ... }} default "
                                     f"{{ ... }}' is supported."
                                 )
