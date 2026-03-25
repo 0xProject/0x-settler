@@ -450,7 +450,7 @@ class _TokenReader:
                 f"switch case value must be a literal, got {kind} "
                 f"({text!r})"
             )
-        return int(text, 0)
+        return int(text, 0) % WORD_MOD
 
     def _parse_expr(self) -> Expr:
         kind, text = self._pop()
