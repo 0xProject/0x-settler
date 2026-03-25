@@ -1333,9 +1333,15 @@ class YulParser(_TokenReader):
                     if const_disc is not None:
                         # Constant discriminant: parse all branches but
                         # only keep the matching one (flattened).
+                        # Structural shape validation (default required,
+                        # default must be last) is still enforced.  Case
+                        # values are NOT restricted to 0 here — the
+                        # constant-fold path handles any discriminant.
                         live_branch_stmts: list[RawStatement] = []
                         live_leave = False
                         found_live = False
+                        n_const_branches = 0
+                        has_default = False
                         while (
                             not self._at_end()
                             and self._peek_kind() == "ident"
@@ -1348,7 +1354,9 @@ class YulParser(_TokenReader):
                                 cv = _try_const_eval(case_val)
                                 is_live = (cv == const_disc) and not found_live
                             else:
+                                has_default = True
                                 is_live = not found_live
+                            n_const_branches += 1
                             br_body, br_leave, br_es = self._parse_scoped_body(
                                 allow_control_flow=(
                                     allow_control_flow if is_live else True
@@ -1363,6 +1371,23 @@ class YulParser(_TokenReader):
                                 found_live = True
                             if br == "default":
                                 break
+                        # Reject trailing branches after default.
+                        if (
+                            has_default
+                            and not self._at_end()
+                            and self._peek_kind() == "ident"
+                            and self.tokens[self.i][1] in ("case", "default")
+                        ):
+                            raise ParseError(
+                                "'default' must be the last branch in a switch."
+                            )
+                        if n_const_branches != 2 or not has_default:
+                            raise ParseError(
+                                f"switch must have exactly 'case 0' + 'default' "
+                                f"(got {n_const_branches} branch(es), default="
+                                f"{'present' if has_default else 'missing'}"
+                                f")."
+                            )
                         _flatten_scoped_block(live_branch_stmts, results)
                         if live_leave:
                             has_leave = True
@@ -3114,34 +3139,48 @@ def _inline_yul_function(
                 unsupported_function_errors=unsupported_function_errors,
             )
             new_body: list[PlainAssignment] = []
+            body_subst = dict(const_subst)
+            body_locals: set[str] = set()
             for s in stmt.body:
+                if s.is_declaration:
+                    body_locals.add(s.target)
+                inlined = inline_calls(
+                    substitute_expr(s.expr, body_subst),
+                    fn_table,
+                    mstore_sink=mstore_sink,
+                    unsupported_function_errors=unsupported_function_errors,
+                )
+                if s.target in body_locals:
+                    cv = _try_const_eval(inlined)
+                    if cv is not None:
+                        body_subst[s.target] = inlined
+                    else:
+                        body_subst.pop(s.target, None)
                 new_body.append(
-                    PlainAssignment(
-                        s.target,
-                        inline_calls(
-                            substitute_expr(s.expr, const_subst),
-                            fn_table,
-                            mstore_sink=mstore_sink,
-                            unsupported_function_errors=unsupported_function_errors,
-                        ),
-                        is_declaration=s.is_declaration,
-                    )
+                    PlainAssignment(s.target, inlined, is_declaration=s.is_declaration)
                 )
             new_else_body: list[PlainAssignment] | None = None
             if stmt.else_body is not None:
                 new_else_body = []
+                else_subst = dict(const_subst)
+                else_locals: set[str] = set()
                 for s in stmt.else_body:
+                    if s.is_declaration:
+                        else_locals.add(s.target)
+                    inlined = inline_calls(
+                        substitute_expr(s.expr, else_subst),
+                        fn_table,
+                        mstore_sink=mstore_sink,
+                        unsupported_function_errors=unsupported_function_errors,
+                    )
+                    if s.target in else_locals:
+                        cv = _try_const_eval(inlined)
+                        if cv is not None:
+                            else_subst[s.target] = inlined
+                        else:
+                            else_subst.pop(s.target, None)
                     new_else_body.append(
-                        PlainAssignment(
-                            s.target,
-                            inline_calls(
-                                substitute_expr(s.expr, const_subst),
-                                fn_table,
-                                mstore_sink=mstore_sink,
-                                unsupported_function_errors=unsupported_function_errors,
-                            ),
-                            is_declaration=s.is_declaration,
-                        )
+                        PlainAssignment(s.target, inlined, is_declaration=s.is_declaration)
                     )
             if len(mstore_sink) > pre_len:
                 raise ParseError(
@@ -4619,7 +4658,7 @@ def evaluate_model_expr(
     call_stack: tuple[str, ...] = (),
 ) -> ModelValue:
     if isinstance(expr, IntLit):
-        return expr.value
+        return expr.value % WORD_MOD
     if isinstance(expr, Var):
         try:
             return env[expr.name]
@@ -5415,7 +5454,7 @@ def emit_expr(
     helper_map: dict[str, str],
 ) -> str:
     if isinstance(expr, IntLit):
-        return str(expr.value)
+        return str(expr.value % WORD_MOD)
     if isinstance(expr, Var):
         return expr.name
     if isinstance(expr, Project):

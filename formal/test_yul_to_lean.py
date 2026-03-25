@@ -7954,20 +7954,11 @@ class NewReviewRegressionTest(unittest.TestCase):
                 """,
                 "switch must have exactly 'case 0' \\+ 'default'",
             ),
-            "nonzero_case": (
-                """
-                function fun_bad_1() -> z {
-                    switch 1
-                    case 1 {
-                        z := 7
-                    }
-                    default {
-                        z := 9
-                    }
-                }
-                """,
-                "switch case value .* is not 0",
-            ),
+            # Note: nonzero case values ARE valid for constant-folded
+            # switches — the constraint that only 'case 0' is allowed
+            # applies to non-constant switches where the model must map
+            # to if/else.  See the existing test:
+            # test_translate_yul_to_models_preserves_constant_true_switch_shadowing_local_binding
             "default_before_case": (
                 """
                 function fun_bad_1() -> z {
