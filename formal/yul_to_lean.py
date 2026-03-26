@@ -1328,13 +1328,15 @@ class YulParser(_TokenReader):
                 # If the helper's body depends on deferred helpers,
                 # it cannot be safely expression-substituted at parse
                 # time (the deferred call binding would be duplicated).
-                # Skip scope-local inlining; collect_all_functions()
-                # will find it for the sink-aware _inline_yul_function.
+                # Treat it as deferred: add to scope_deferred so it
+                # gets alpha-renamed and propagated as a first-class
+                # binding — not silently dropped for later rediscovery.
                 body_calls: set[str] = set()
                 for s in fn.assignments:
                     if isinstance(s, PlainAssignment):
                         _collect_call_names_in_expr(s.expr, body_calls)
                 if body_calls & set(self._deferred_helpers.keys()):
+                    scope_deferred[fn.yul_name] = fn
                     continue
                 scope_helpers[fn.yul_name] = fn
                 continue
