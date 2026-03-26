@@ -8468,6 +8468,103 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
             (1,),
         )
 
+    def test_translate_yul_to_models_rejects_duplicate_local_helpers_in_same_nested_scope(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        cases = {
+            "valid_then_valid": """
+                function fun_f_1() -> var_z_1 {
+                    {
+                        function helper() -> var_r_1 {
+                            var_r_1 := 1
+                        }
+                        function helper() -> var_r_2 {
+                            var_r_2 := 2
+                        }
+                        var_z_1 := helper()
+                    }
+                }
+                """,
+            "rejected_then_valid": """
+                function fun_f_1() -> var_z_1 {
+                    {
+                        function helper() -> var_r_1 {
+                            for { } 0 { } {
+                                var_r_1 := 1
+                            }
+                        }
+                        function helper() -> var_r_2 {
+                            var_r_2 := 2
+                        }
+                        var_z_1 := helper()
+                    }
+                }
+                """,
+            "valid_then_rejected": """
+                function fun_f_1() -> var_z_1 {
+                    {
+                        function helper() -> var_r_1 {
+                            var_r_1 := 1
+                        }
+                        function helper() -> var_r_2 {
+                            for { } 0 { } {
+                                var_r_2 := 2
+                            }
+                        }
+                        var_z_1 := helper()
+                    }
+                }
+                """,
+        }
+
+        for label, yul in cases.items():
+            with self.subTest(ordering=label):
+                with self.assertRaises(ytl.ParseError):
+                    ytl.translate_yul_to_models(
+                        yul,
+                        config,
+                        pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                    )
+
+    def test_translate_yul_to_models_allows_exact_from_local_helper(self) -> None:
+        config = make_model_config(
+            ("target",),
+            exact_yul_names={"target": "fun_target_0"},
+        )
+        yul = """
+            object "o" {
+                code {
+                    function fun_target_0(var_x_hi_1, var_x_lo_2) -> var_z_3 {
+                        function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
+                            var_r_out_7 := 0
+                            mstore(var_r_4, var_x_hi_5)
+                            mstore(add(0x20, var_r_4), var_x_lo_6)
+                            var_r_out_7 := var_r_4
+                        }
+                        let usr$ptr := fun_from_1(0, var_x_hi_1, var_x_lo_2)
+                        var_z_3 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+                    }
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(
+            ytl.evaluate_function_model(
+                model,
+                (5, 7),
+                model_table=ytl.build_model_table(result.models),
+            ),
+            (12,),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
