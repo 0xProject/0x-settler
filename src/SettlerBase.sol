@@ -17,6 +17,7 @@ import {UniswapV2} from "./core/UniswapV2.sol";
 import {Velodrome, IVelodromePair} from "./core/Velodrome.sol";
 
 import {SafeTransferLib} from "./vendor/SafeTransferLib.sol";
+import {FastLogic} from "./utils/FastLogic.sol";
 import {Ternary} from "./utils/Ternary.sol";
 
 import {ISettlerActions} from "./ISettlerActions.sol";
@@ -35,12 +36,11 @@ library CalldataDecoder {
     {
         assembly ("memory-safe") {
             // initially, we set `args.offset` to the pointer to the length. this is 32 bytes before the actual start of data
-            args.offset :=
-                add(
-                    data.offset,
-                    // We allow the indirection/offset to `calls[i]` to be negative
-                    calldataload(i)
-                )
+            args.offset := add(
+                data.offset,
+                // We allow the indirection/offset to `calls[i]` to be negative
+                calldataload(i)
+            )
             // now we load `args.length` and set `args.offset` to the start of data
             args.length := calldataload(args.offset)
             args.offset := add(0x20, args.offset)
@@ -56,6 +56,7 @@ library CalldataDecoder {
 abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, UniswapV3Fork, UniswapV2, Velodrome {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
+    using FastLogic for bool;
     using Ternary for bool;
 
     receive() external payable {}
@@ -82,7 +83,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         return false;
     }
 
-    function _checkSlippageAndTransfer(AllowedSlippage calldata slippage) internal {
+    function _checkSlippageAndTransfer(AllowedSlippage memory slippage, bool transferExactLimit) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because
         // ISettlerActions.BASIC could interact with an intents-based settlement
@@ -92,7 +93,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
             (slippage.recipient, slippage.buyToken, slippage.minAmountOut);
         if (_mandatorySlippageCheck()) {
             require(minAmountOut != 0);
-        } else if (minAmountOut == 0 && address(buyToken) == address(0)) {
+        } else if ((minAmountOut == 0).and(address(buyToken) == address(0))) {
             return;
         }
         bool isETH = (buyToken == ETH_ADDRESS);
@@ -100,14 +101,25 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         if (amountOut < minAmountOut) {
             revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
         }
+        amountOut = transferExactLimit.ternary(minAmountOut, amountOut);
         if (isETH) {
             recipient.safeTransferETH(amountOut);
         } else {
             buyToken.safeTransfer(recipient, amountOut);
         }
+
+        // zeroize `slippage`
+        assembly ("memory-safe") {
+            codecopy(slippage, codesize(), 0x60)
+        }
     }
 
-    function _dispatch(uint256, uint256 action, bytes calldata data) internal virtual override returns (bool) {
+    function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+        internal
+        virtual
+        override
+        returns (bool)
+    {
         //// NOTICE: This function has been largely copy/paste'd into
         //// `src/chains/Mainnet/Common.sol:MainnetMixin._dispatch`. If you make changes here, you
         //// need to make sure that corresponding changes are made to that function.

@@ -23,7 +23,7 @@ contract AvalancheSettlerIntent is SettlerIntent, AvalancheSettlerMetaTxn {
 
     // Solidity inheritance is stupid
     function executeMetaTxn(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32, /* zid & affiliate */
         address msgSender,
@@ -32,12 +32,12 @@ contract AvalancheSettlerIntent is SettlerIntent, AvalancheSettlerMetaTxn {
         return super.executeMetaTxn(slippage, actions, bytes32(0), msgSender, sig);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(AvalancheSettlerMetaTxn, SettlerBase, SettlerAbstract)
+        override(AvalancheSettlerMetaTxn, SettlerBase)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _isForwarded() internal view override(AbstractContext, Context, SettlerIntent) returns (bool) {
@@ -52,12 +52,7 @@ contract AvalancheSettlerIntent is SettlerIntent, AvalancheSettlerMetaTxn {
         return super._msgSender();
     }
 
-    function _witnessTypeSuffix()
-        internal
-        pure
-        override(SettlerIntent, Permit2PaymentMetaTxn)
-        returns (string memory)
-    {
+    function _witnessTypeSuffix() internal pure override(SettlerIntent, Permit2PaymentMetaTxn) returns (string memory) {
         return super._witnessTypeSuffix();
     }
 

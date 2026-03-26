@@ -8,7 +8,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {Ternary} from "../utils/Ternary.sol";
 
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 interface IPSM {
     /// @dev Fee for selling gem (USDC/USDT) into the PSM
@@ -112,7 +112,7 @@ IPSM constant SkyPSM = IPSM(0xA188EEC8F81263234dA3622A406892F3D630f98c);
 IPSM constant UsddPSM = IPSM(0xcE355440c00014A229bbEc030A2B8f8EB45a2897);
 address constant UsddGemJoin = 0x217e42CEB2eAE9ECB788fDF0e31c806c531760A3;
 
-abstract contract MakerPSM is SettlerAbstract {
+abstract contract MakerPSM is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using FastPSM for IPSM;

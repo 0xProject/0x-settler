@@ -17,7 +17,9 @@ import {LayerZeroOFT} from "../core/LayerZeroOFT.sol";
 import {CCIP} from "../core/CCIP.sol";
 import {Underpayment} from "../core/SettlerErrors.sol";
 
-abstract contract BridgeSettlerBase is Basic, Relay, LayerZeroOFT, CCIP {
+import {SettlerBridgeAbstract} from "../SettlerAbstract.sol";
+
+abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, Relay, LayerZeroOFT, CCIP {
     using SafeTransferLib for IERC20;
     using Revert for bool;
     using FastDeployer for IDeployer;

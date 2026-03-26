@@ -9,7 +9,6 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
@@ -68,21 +67,16 @@ contract ArbitrumSettler is Settler, ArbitrumMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, ArbitrumMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, ArbitrumMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         override(Settler, ArbitrumMixin)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {

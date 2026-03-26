@@ -319,4 +319,6 @@ interface ISettlerActions {
         uint256 priceLimit,
         uint256 minBuyAmount
     ) external;
+
+    function CHECK_SLIPPAGE(bool transferExactLimit) external;
 }

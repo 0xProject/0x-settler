@@ -9,7 +9,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {revertTooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
 //import {Panic} from "../utils/Panic.sol";
 
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 interface IVelodromePair {
     function metadata()
@@ -27,7 +27,7 @@ interface IVelodromePair {
     function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
 }
 
-abstract contract Velodrome is SettlerAbstract {
+abstract contract Velodrome is SettlerSwapAbstract {
     using Math for uint256;
     using UnsafeMath for uint256;
     using FastLogic for bool;

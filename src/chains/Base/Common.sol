@@ -56,7 +56,7 @@ import {swapBasedV3Factory, swapBasedV3ForkId} from "../../core/univ3forks/SwapB
 import {BASE_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract BaseMixin is
@@ -78,14 +78,14 @@ abstract contract BaseMixin is
         assert(block.chainid == 8453 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, SettlerAbstract)
+        override(SettlerBase, SettlerSwapAbstract)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
+        if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             (

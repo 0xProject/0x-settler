@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
@@ -197,7 +197,7 @@ library UnsafePancakeInfinityBinPoolManager {
 IPancakeInfinityBinPoolManager constant BIN_MANAGER =
     IPancakeInfinityBinPoolManager(0xC697d2898e0D09264376196696c51D7aBbbAA4a9);
 
-abstract contract PancakeInfinity is SettlerAbstract {
+abstract contract PancakeInfinity is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using Ternary for bool;

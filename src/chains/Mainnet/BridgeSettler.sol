@@ -17,7 +17,7 @@ contract MainnetBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBri
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(BridgeSettlerBase, SettlerAbstract)
+        override
         returns (bool)
     {
         if (super._dispatch(i, action, data)) {

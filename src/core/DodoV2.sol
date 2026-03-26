@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
@@ -62,7 +62,7 @@ library FastDodoV2 {
     }
 }
 
-abstract contract DodoV2 is SettlerAbstract {
+abstract contract DodoV2 is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using FastDodoV2 for IDodoV2;

@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ISettlerBase} from "./interfaces/ISettlerBase.sol";
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 import {uint512} from "./utils/512Math.sol";
 
@@ -27,7 +28,13 @@ abstract contract SettlerAbstract is Permit2PaymentAbstract {
 
     function _tokenId() internal pure virtual returns (uint256);
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data) internal virtual returns (bool);
-
     function _div512to256(uint512 n, uint512 d) internal view virtual returns (uint256);
+}
+
+abstract contract SettlerSwapAbstract is ISettlerBase, SettlerAbstract {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage) internal virtual returns (bool);
+}
+
+abstract contract SettlerBridgeAbstract is SettlerAbstract {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data) internal virtual returns (bool);
 }

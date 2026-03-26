@@ -20,7 +20,7 @@ Key addresses:
 ### Three-Flavor Settlement Pattern
 
 ```
-SettlerAbstract (virtual dispatch interface)
+SettlerSwapAbstract (virtual dispatch interface)
     |
     +-- SettlerBase (RFQ + UniV3 + UniV2 + Velodrome + Basic)
     |       |

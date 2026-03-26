@@ -26,7 +26,7 @@ abstract contract RenegadeDummy is Permit2PaymentTakerSubmitted, Renegade {
         return false;
     }
 
-    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+    function _dispatch(uint256, uint256, bytes calldata, AllowedSlippage memory) internal pure override returns (bool) {
         revert("unimplemented");
     }
 

@@ -8,22 +8,25 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 
+import {FastLogic} from "../../utils/FastLogic.sol";
+
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 import {AbstractContext} from "../../Context.sol";
 
 /// @custom:security-contact security@0x.org
 contract MainnetSettler is Settler, MainnetMixin {
+    using FastLogic for bool;
+
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         override(Settler, MainnetMixin)
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
+        if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.NATIVE_CHECK.selector)) {
             (uint256 deadline, uint256 msgValue) = abi.decode(data, (uint256, uint256));
@@ -42,6 +45,8 @@ contract MainnetSettler is Settler, MainnetMixin {
                     revert(0x1c, 0x44)
                 }
             }
+        } else if (action == uint32(ISettlerActions.CHECK_SLIPPAGE.selector)) {
+            _checkSlippageAndTransfer(slippage, abi.decode(data, (bool)));
         } else {
             return false;
         }
@@ -51,7 +56,9 @@ contract MainnetSettler is Settler, MainnetMixin {
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
-        } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
+        } else if ((action == uint32(ISettlerActions.UNISWAPV4_VIP.selector))
+                .or(action == uint32(ISettlerActions.BALANCERV3_VIP.selector))
+                .or(action == uint32(ISettlerActions.EKUBOV3_VIP.selector))) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -65,37 +72,13 @@ contract MainnetSettler is Settler, MainnetMixin {
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
             );
 
-            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-        } else if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector)) {
-            (
-                address recipient,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                bytes memory sig,
-                uint256 amountOutMin
-            ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
-            );
-
-            sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-        } else if (action == uint32(ISettlerActions.EKUBOV3_VIP.selector)) {
-            (
-                address recipient,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                bytes memory sig,
-                uint256 amountOutMin
-            ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
-            );
-
-            sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
+                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            } else if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector)) {
+                sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.EKUBOV3_VIP.selector))
+                sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            }
         } /* else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address recipient,
@@ -112,12 +95,7 @@ contract MainnetSettler is Settler, MainnetMixin {
     }
 
     // Solidity inheritance is stupid
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        override(Settler, MainnetMixin)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view override(Settler, MainnetMixin) returns (bool) {
         return super._isRestrictedTarget(target);
     }
 
