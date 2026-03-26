@@ -259,7 +259,7 @@ abstract contract Velodrome is SettlerSwapAbstract {
         }
 
         if (buyAmount < minAmountOut) {
-            revertTooMuchSlippage(sellToken, minAmountOut, buyAmount);
+            revertTooMuchSlippage(buyToken, minAmountOut, buyAmount);
         }
 
         {

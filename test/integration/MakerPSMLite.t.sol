@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
-import {IPSM, WAD, DAI, USDS} from "src/core/MakerPSM.sol";
+import {IPSM, WAD, DAI, USDS, USDD, USDT, UsddPSM} from "src/core/MakerPSM.sol";
 
 import {Shim} from "./SettlerBasePairTest.t.sol";
 import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet/MetaTxn.sol";
@@ -28,33 +28,6 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
 
         if (address(makerPsm()) != address(0)) {
             persistPsm();
-
-            // DAI must be approved to the PSM
-            // USDC must be approved to the gemJoin
-            // This is pedantry because for the lite PSM, it is its own gemJoin
-            if (makerPsmBuyGem()) {
-                // `fromToken()` is DAI; `toToken()` is USDC
-                vm.startPrank(address(settler));
-                fromToken().approve(address(makerPsm()), type(uint256).max);
-                toToken().approve(makerPsm().gemJoin(), type(uint256).max);
-                vm.stopPrank();
-
-                vm.startPrank(address(settlerMetaTxn));
-                fromToken().approve(address(makerPsm()), type(uint256).max);
-                toToken().approve(makerPsm().gemJoin(), type(uint256).max);
-                vm.stopPrank();
-            } else {
-                // `fromToken()` is USDC; `toToken()` is DAI
-                vm.startPrank(address(settler));
-                fromToken().approve(makerPsm().gemJoin(), type(uint256).max);
-                toToken().approve(address(makerPsm()), type(uint256).max);
-                vm.stopPrank();
-
-                vm.startPrank(address(settlerMetaTxn));
-                fromToken().approve(makerPsm().gemJoin(), type(uint256).max);
-                toToken().approve(address(makerPsm()), type(uint256).max);
-                vm.stopPrank();
-            }
 
             if (makerPsmBuyGem()) {
                 _amountOut = (amount() * 10 ** toToken().decimals()) / WAD;
@@ -255,6 +228,59 @@ contract MakerSkyPSMTest is MakerPsmLiteTest {
 contract MakerSkyPsmLiteTestBuyGem is MakerSkyPSMTest {
     function _testName() internal pure virtual override returns (string memory) {
         return "USDS-USDC";
+    }
+
+    function fromToken() internal pure override returns (IERC20) {
+        return super.toToken();
+    }
+
+    function toToken() internal pure override returns (IERC20) {
+        return super.fromToken();
+    }
+
+    function amount() internal pure override returns (uint256) {
+        return 1000 * WAD;
+    }
+}
+
+contract UsddPsmSellGemTest is MakerPsmLiteTest {
+    function makerPsm() internal pure virtual override returns (IPSM) {
+        return UsddPSM;
+    }
+
+    function dai() internal pure virtual override returns (IERC20) {
+        return USDD;
+    }
+
+    function fromToken() internal pure virtual override returns (IERC20) {
+        return USDT;
+    }
+
+    function _testName() internal pure virtual override returns (string memory) {
+        return "USDT-USDD";
+    }
+
+    function makerPsmLiteBlockNumber() internal pure virtual override returns (uint256) {
+        return 24700000;
+    }
+
+    function _testBlockNumber() internal pure virtual override returns (uint256) {
+        return 24700000;
+    }
+
+    function setUp() public virtual override {
+        super.setUp();
+
+        // FROM has code at recent blocks; clear it so Permit2 uses ecrecover.
+        // makePersistent keeps it clear across fork rolls.
+        vm.etch(FROM, "");
+        vm.makePersistent(FROM);
+    }
+}
+
+contract UsddPsmBuyGemTest is UsddPsmSellGemTest {
+    function _testName() internal pure override returns (string memory) {
+        return "USDD-USDT";
     }
 
     function fromToken() internal pure override returns (IERC20) {
