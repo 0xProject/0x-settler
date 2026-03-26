@@ -1290,12 +1290,29 @@ class YulParser(_TokenReader):
                         self._function_name_at(saved_i)
                         or f"<unknown@{saved_i}>"
                     )
+                    if fn_name in scope_helpers or fn_name in scope_rejected:
+                        raise ParseError(
+                            f"Duplicate helper function {fn_name!r} in the "
+                            f"same lexical scope."
+                        ) from err
                     scope_rejected[fn_name] = str(err)
                     self.i = saved_i
                     self._skip_function_def()
                     continue
                 finally:
                     self._expr_stmts = saved_fn_stmts
+                # Helpers requiring mstore_sink (uint512.from shape)
+                # cannot be inlined at parse time — defer to the
+                # sink-aware _inline_yul_function.  The global
+                # collect_all_functions() will find them in the raw
+                # body tokens.
+                if _is_uint512_from_helper(fn) is not None:
+                    continue
+                if fn.yul_name in scope_helpers or fn.yul_name in scope_rejected:
+                    raise ParseError(
+                        f"Duplicate helper function {fn.yul_name!r} in the "
+                        f"same lexical scope."
+                    )
                 scope_helpers[fn.yul_name] = fn
                 continue
 
