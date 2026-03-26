@@ -8322,5 +8322,152 @@ class CriticalReviewRegressionTest(unittest.TestCase):
                     ytl._parse_exact_yul_selector(selector)
 
 
+class CriticalReviewFixRegressionTest(unittest.TestCase):
+    def test_translate_yul_to_models_rejects_nonconstant_conditional_local_reassignment_used_out_of_scope(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        cases = {
+            "if": """
+                function fun_f_1(var_x_1, var_c_2) -> var_z_3 {
+                    if var_c_2 {
+                        let usr$x := 7
+                        usr$x := 9
+                        var_x_1 := usr$x
+                    }
+                    var_z_3 := usr$x
+                }
+                """,
+            "switch": """
+                function fun_f_1(var_x_1, var_c_2) -> var_z_3 {
+                    switch var_c_2
+                    case 0 {
+                        let usr$x := 7
+                        usr$x := 9
+                        var_x_1 := usr$x
+                    }
+                    default {
+                        var_x_1 := 8
+                    }
+                    var_z_3 := usr$x
+                }
+                """,
+        }
+
+        for label, yul in cases.items():
+            with self.subTest(control_flow=label):
+                with self.assertRaisesRegex(
+                    ytl.ParseError,
+                    "out-of-scope variable use",
+                ):
+                    ytl.translate_yul_to_models(
+                        yul,
+                        config,
+                        pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                    )
+
+    def test_translate_yul_to_models_rejects_nested_helper_used_after_its_scope_ends(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("outer",),
+            exact_yul_names={"outer": "fun_outer_1"},
+        )
+        cases = {
+            "bare_block": """
+                object "o" {
+                    code {
+                        function fun_outer_1() -> var_z_1 {
+                            {
+                                function helper() -> var_r_1 {
+                                    var_r_1 := 1
+                                }
+                            }
+                            var_z_1 := helper()
+                        }
+                    }
+                }
+                """,
+            "constant_true_if": """
+                object "o" {
+                    code {
+                        function fun_outer_1() -> var_z_1 {
+                            if 1 {
+                                function helper() -> var_r_1 {
+                                    var_r_1 := 1
+                                }
+                            }
+                            var_z_1 := helper()
+                        }
+                    }
+                }
+                """,
+        }
+
+        for label, yul in cases.items():
+            with self.subTest(scope=label):
+                with self.assertRaisesRegex(
+                    ytl.ParseError,
+                    "unresolved call target 'helper'",
+                ):
+                    ytl.translate_yul_to_models(
+                        yul,
+                        config,
+                        pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                    )
+
+    def test_translate_yul_to_models_allows_same_helper_name_in_disjoint_nested_scopes(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("outer",),
+            exact_yul_names={"outer": "fun_outer_1"},
+        )
+        yul = """
+            object "o" {
+                code {
+                    function fun_outer_1(var_c_1) -> var_z_1 {
+                        if var_c_1 {
+                            function helper() -> var_r_1 {
+                                var_r_1 := 1
+                            }
+                            var_z_1 := helper()
+                        }
+                        if iszero(var_c_1) {
+                            function helper() -> var_r_2 {
+                                var_r_2 := 2
+                            }
+                            var_z_1 := helper()
+                        }
+                    }
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(
+            ytl.evaluate_function_model(
+                model,
+                (0,),
+                model_table=ytl.build_model_table(result.models),
+            ),
+            (2,),
+        )
+        self.assertEqual(
+            ytl.evaluate_function_model(
+                model,
+                (1,),
+                model_table=ytl.build_model_table(result.models),
+            ),
+            (1,),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
