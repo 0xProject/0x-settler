@@ -1143,9 +1143,7 @@ class YulParser(_TokenReader):
         """
         results: list[RawStatement] = []
         has_leave = False
-        scope_helpers: dict[str, YulFunction] = {}
-        scope_rejected: dict[str, str] = {}
-        scope_deferred: dict[str, YulFunction] = {}
+        scope_fns: dict[str, YulFunction | str] = {}
 
         while not self._at_end() and self._peek_kind() != "}":
             kind = self._peek_kind()
@@ -1283,9 +1281,10 @@ class YulParser(_TokenReader):
                 break
 
             if kind == "ident" and self.tokens[self.i][1] == "function":
-                # Collect scope-local helper: parse the function
-                # definition so its calls can be inlined within this
-                # scope before the scope is flattened away.
+                # Collect scope-local helper.  Classification (pure vs
+                # non-pure) is deferred until ALL helpers in this scope
+                # have been discovered, so that forward references and
+                # same-scope dependencies are handled correctly.
                 saved_i = self.i
                 saved_fn_stmts = self._expr_stmts
                 try:
@@ -1295,50 +1294,23 @@ class YulParser(_TokenReader):
                         self._function_name_at(saved_i)
                         or f"<unknown@{saved_i}>"
                     )
-                    if fn_name in scope_helpers or fn_name in scope_rejected or fn_name in scope_deferred:
+                    if fn_name in scope_fns:
                         raise ParseError(
                             f"Duplicate helper function {fn_name!r} in the "
                             f"same lexical scope."
                         ) from err
-                    scope_rejected[fn_name] = str(err)
+                    scope_fns[fn_name] = str(err)
                     self.i = saved_i
                     self._skip_function_def()
                     continue
                 finally:
                     self._expr_stmts = saved_fn_stmts
-                # Helpers requiring mstore_sink (uint512.from shape)
-                # cannot be inlined at parse time.  Track in
-                # scope_deferred so they participate in duplicate
-                # detection and scope-local visibility.  Only
-                # propagated to _deferred_helpers at scope end if
-                # the scope's output contains unresolved calls.
-                if _is_uint512_from_helper(fn) is not None:
-                    if fn.yul_name in scope_helpers or fn.yul_name in scope_rejected or fn.yul_name in scope_deferred:
-                        raise ParseError(
-                            f"Duplicate helper function {fn.yul_name!r} in the "
-                            f"same lexical scope."
-                        )
-                    scope_deferred[fn.yul_name] = fn
-                    continue
-                if fn.yul_name in scope_helpers or fn.yul_name in scope_rejected or fn.yul_name in scope_deferred:
+                if fn.yul_name in scope_fns:
                     raise ParseError(
                         f"Duplicate helper function {fn.yul_name!r} in the "
                         f"same lexical scope."
                     )
-                # If the helper's body depends on deferred helpers,
-                # it cannot be safely expression-substituted at parse
-                # time (the deferred call binding would be duplicated).
-                # Treat it as deferred: add to scope_deferred so it
-                # gets alpha-renamed and propagated as a first-class
-                # binding — not silently dropped for later rediscovery.
-                body_calls: set[str] = set()
-                for s in fn.assignments:
-                    if isinstance(s, PlainAssignment):
-                        _collect_call_names_in_expr(s.expr, body_calls)
-                if body_calls & set(self._deferred_helpers.keys()):
-                    scope_deferred[fn.yul_name] = fn
-                    continue
-                scope_helpers[fn.yul_name] = fn
+                scope_fns[fn.yul_name] = fn
                 continue
 
             if kind == "ident" and self.tokens[self.i][1] in ("if", "switch", "for"):
@@ -1659,31 +1631,47 @@ class YulParser(_TokenReader):
                 f"Refuse to skip unrecognized Yul syntax."
             )
 
-        # Inline scope-local helper calls before returning.  This
-        # resolves calls within the current scope BEFORE the scope is
-        # flattened (bare blocks) or captured (if/switch bodies).
-        # Unresolved calls to non-scope-local helpers pass through for
-        # later resolution by _inline_yul_function.
-        if scope_helpers:
-            results = _inline_in_raw_statements(
-                results, scope_helpers, rejected=scope_rejected
+        # Two-phase helper processing: with all scope-level helpers
+        # now collected, classify which are pure (safe to expression-
+        # substitute at parse time) vs non-pure (need sink-aware
+        # lowering later).  This is order-independent: a helper
+        # defined before a deferred one in the same scope is correctly
+        # classified as non-pure even though it was parsed first.
+        if scope_fns:
+            non_pure = _classify_non_pure_helpers(
+                scope_fns, self._deferred_helpers
             )
+            pure_fns: dict[str, YulFunction] = {}
+            rejected_fns: dict[str, str] = {}
+            deferred_fns: dict[str, YulFunction] = {}
+            for name, fn_or_err in scope_fns.items():
+                if isinstance(fn_or_err, str):
+                    rejected_fns[name] = fn_or_err
+                elif name in non_pure:
+                    deferred_fns[name] = fn_or_err
+                else:
+                    pure_fns[name] = fn_or_err
 
-        # Propagate deferred helpers (mstore_sink-requiring) only if
-        # the scope's output contains unresolved calls to them.
-        # Alpha-rename each resolved call to a unique binding name so
-        # the flat helper table can hold it without colliding with
-        # outer helpers of the same name, and so that calls outside
-        # this scope still reference the original (outer) name.
-        if scope_deferred:
-            called = _collect_call_names_in_stmts(results)
-            for name, fn in scope_deferred.items():
-                if name in called:
-                    mangled = _gensym(
-                        f"dfr_{name}", avoid=self._all_source_names()
-                    )
-                    results = _rename_calls_in_stmts(results, name, mangled)
-                    self._deferred_helpers[mangled] = fn
+            # Phase A: inline pure helpers.
+            if pure_fns:
+                results = _inline_in_raw_statements(
+                    results, pure_fns, rejected=rejected_fns
+                )
+
+            # Phase B: alpha-rename non-pure helpers that have
+            # unresolved calls in the scope's output, giving each a
+            # unique binding identity for the flat helper table.
+            if deferred_fns:
+                called = _collect_call_names_in_stmts(results)
+                for name, fn in deferred_fns.items():
+                    if name in called:
+                        mangled = _gensym(
+                            f"dfr_{name}", avoid=self._all_source_names()
+                        )
+                        results = _rename_calls_in_stmts(
+                            results, name, mangled
+                        )
+                        self._deferred_helpers[mangled] = fn
 
         return results, has_leave
 
@@ -3119,6 +3107,45 @@ def _collect_call_names_in_stmts(stmts: list[RawStatement]) -> set[str]:
             _collect_call_names_in_expr(stmt.address, names)
             _collect_call_names_in_expr(stmt.value, names)
     return names
+
+
+def _classify_non_pure_helpers(
+    scope_fns: dict[str, "YulFunction | str"],
+    deferred_from_inner: dict[str, "YulFunction"],
+) -> set[str]:
+    """Classify which helpers in a scope are non-pure.
+
+    A helper is non-pure if it IS a uint512.from shape, or if it
+    transitively references any non-pure helper (in the same scope or
+    in ``deferred_from_inner`` from child scopes).  Non-pure helpers
+    need sink-aware lowering and cannot be expression-substituted.
+    """
+    non_pure: set[str] = set()
+    inner_keys = set(deferred_from_inner.keys())
+
+    # Seed: direct exact-from helpers
+    for name, fn_or_err in scope_fns.items():
+        if isinstance(fn_or_err, str):
+            continue
+        if _is_uint512_from_helper(fn_or_err) is not None:
+            non_pure.add(name)
+
+    # Fixed-point: propagate through helper-to-helper references
+    changed = True
+    while changed:
+        changed = False
+        for name, fn_or_err in scope_fns.items():
+            if name in non_pure or isinstance(fn_or_err, str):
+                continue
+            body_calls: set[str] = set()
+            for s in fn_or_err.assignments:
+                if isinstance(s, PlainAssignment):
+                    _collect_call_names_in_expr(s.expr, body_calls)
+            if body_calls & (non_pure | inner_keys):
+                non_pure.add(name)
+                changed = True
+
+    return non_pure
 
 
 def _rename_call_in_expr(expr: Expr, old: str, new: str) -> Expr:
