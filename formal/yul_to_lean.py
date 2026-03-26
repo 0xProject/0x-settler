@@ -1142,6 +1142,7 @@ class YulParser(_TokenReader):
         has_leave = False
         scope_helpers: dict[str, YulFunction] = {}
         scope_rejected: dict[str, str] = {}
+        scope_deferred: dict[str, YulFunction] = {}
 
         while not self._at_end() and self._peek_kind() != "}":
             kind = self._peek_kind()
@@ -1291,7 +1292,7 @@ class YulParser(_TokenReader):
                         self._function_name_at(saved_i)
                         or f"<unknown@{saved_i}>"
                     )
-                    if fn_name in scope_helpers or fn_name in scope_rejected:
+                    if fn_name in scope_helpers or fn_name in scope_rejected or fn_name in scope_deferred:
                         raise ParseError(
                             f"Duplicate helper function {fn_name!r} in the "
                             f"same lexical scope."
@@ -1303,14 +1304,20 @@ class YulParser(_TokenReader):
                 finally:
                     self._expr_stmts = saved_fn_stmts
                 # Helpers requiring mstore_sink (uint512.from shape)
-                # cannot be inlined at parse time — defer to the
-                # sink-aware _inline_yul_function.  Store on parser
-                # state so prepare_translation can merge them into the
-                # helper table (collect_all_functions skips blocks).
+                # cannot be inlined at parse time.  Track in
+                # scope_deferred so they participate in duplicate
+                # detection and scope-local visibility.  Only
+                # propagated to _deferred_helpers at scope end if
+                # the scope's output contains unresolved calls.
                 if _is_uint512_from_helper(fn) is not None:
-                    self._deferred_helpers[fn.yul_name] = fn
+                    if fn.yul_name in scope_helpers or fn.yul_name in scope_rejected or fn.yul_name in scope_deferred:
+                        raise ParseError(
+                            f"Duplicate helper function {fn.yul_name!r} in the "
+                            f"same lexical scope."
+                        )
+                    scope_deferred[fn.yul_name] = fn
                     continue
-                if fn.yul_name in scope_helpers or fn.yul_name in scope_rejected:
+                if fn.yul_name in scope_helpers or fn.yul_name in scope_rejected or fn.yul_name in scope_deferred:
                     raise ParseError(
                         f"Duplicate helper function {fn.yul_name!r} in the "
                         f"same lexical scope."
@@ -1645,6 +1652,16 @@ class YulParser(_TokenReader):
             results = _inline_in_raw_statements(
                 results, scope_helpers, rejected=scope_rejected
             )
+
+        # Propagate deferred helpers (mstore_sink-requiring) only if
+        # the scope's output contains unresolved calls to them.  This
+        # preserves lexical visibility: a deferred helper defined
+        # inside a block is only available to calls within that block.
+        if scope_deferred:
+            called = _collect_call_names_in_stmts(results)
+            for name, fn in scope_deferred.items():
+                if name in called:
+                    self._deferred_helpers[name] = fn
 
         return results, has_leave
 
@@ -3031,6 +3048,45 @@ def _inline_single_call(
     if len(fn.rets) == 1:
         return _get_ret(fn.rets[0])
     return tuple(_get_ret(r) for r in fn.rets)
+
+
+def _collect_call_names_in_expr(expr: Expr, out: set[str]) -> None:
+    """Collect all function-call names referenced in *expr*."""
+    if isinstance(expr, (IntLit, Var)):
+        return
+    if isinstance(expr, Call):
+        out.add(expr.name)
+        for a in expr.args:
+            _collect_call_names_in_expr(a, out)
+        return
+    if isinstance(expr, Ite):
+        _collect_call_names_in_expr(expr.cond, out)
+        _collect_call_names_in_expr(expr.if_true, out)
+        _collect_call_names_in_expr(expr.if_false, out)
+        return
+    if isinstance(expr, Project):
+        _collect_call_names_in_expr(expr.inner, out)
+        return
+    assert_never(expr)
+
+
+def _collect_call_names_in_stmts(stmts: list[RawStatement]) -> set[str]:
+    """Collect all function-call names in a list of raw statements."""
+    names: set[str] = set()
+    for stmt in stmts:
+        if isinstance(stmt, PlainAssignment):
+            _collect_call_names_in_expr(stmt.expr, names)
+        elif isinstance(stmt, ParsedIfBlock):
+            _collect_call_names_in_expr(stmt.condition, names)
+            for s in stmt.body:
+                _collect_call_names_in_expr(s.expr, names)
+            if stmt.else_body is not None:
+                for s in stmt.else_body:
+                    _collect_call_names_in_expr(s.expr, names)
+        elif isinstance(stmt, MemoryWrite):
+            _collect_call_names_in_expr(stmt.address, names)
+            _collect_call_names_in_expr(stmt.value, names)
+    return names
 
 
 def _inline_in_raw_statements(
