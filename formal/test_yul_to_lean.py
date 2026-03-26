@@ -8629,6 +8629,150 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
                     (12,),
                 )
 
+    def test_translate_yul_to_models_rejects_exact_from_helper_outside_nested_scope(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("target",),
+            exact_yul_names={"target": "fun_target_0"},
+        )
+        cases = {
+            "bare_block": """
+                object "o" {
+                    code {
+                        function fun_target_0(var_x_hi_1, var_x_lo_2) -> var_z_3 {
+                            {
+                                function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
+                                    var_r_out_7 := 0
+                                    mstore(var_r_4, var_x_hi_5)
+                                    mstore(add(0x20, var_r_4), var_x_lo_6)
+                                    var_r_out_7 := var_r_4
+                                }
+                            }
+                            let usr$ptr := fun_from_1(0, var_x_hi_1, var_x_lo_2)
+                            var_z_3 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+                        }
+                    }
+                }
+                """,
+            "constant_true_if": """
+                object "o" {
+                    code {
+                        function fun_target_0(var_x_hi_1, var_x_lo_2) -> var_z_3 {
+                            if 1 {
+                                function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
+                                    var_r_out_7 := 0
+                                    mstore(var_r_4, var_x_hi_5)
+                                    mstore(add(0x20, var_r_4), var_x_lo_6)
+                                    var_r_out_7 := var_r_4
+                                }
+                            }
+                            let usr$ptr := fun_from_1(0, var_x_hi_1, var_x_lo_2)
+                            var_z_3 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+                        }
+                    }
+                }
+                """,
+        }
+
+        for label, yul in cases.items():
+            with self.subTest(scope=label):
+                with self.assertRaises(ytl.ParseError):
+                    ytl.translate_yul_to_models(
+                        yul,
+                        config,
+                        pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                    )
+
+    def test_translate_yul_to_models_rejects_duplicate_deferred_exact_from_helpers_in_same_nested_scope(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("target",),
+            exact_yul_names={"target": "fun_target_0"},
+        )
+        cases = {
+            "valid_then_valid": """
+                object "o" {
+                    code {
+                        function fun_target_0(var_x_hi_1, var_x_lo_2) -> var_z_3 {
+                            {
+                                function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
+                                    var_r_out_7 := 0
+                                    mstore(var_r_4, var_x_hi_5)
+                                    mstore(add(0x20, var_r_4), var_x_lo_6)
+                                    var_r_out_7 := var_r_4
+                                }
+                                function fun_from_1(var_r_8, var_x_hi_9, var_x_lo_10) -> var_r_out_11 {
+                                    var_r_out_11 := 0
+                                    mstore(var_r_8, var_x_hi_9)
+                                    mstore(add(0x20, var_r_8), var_x_lo_10)
+                                    var_r_out_11 := var_r_8
+                                }
+                                let usr$ptr := fun_from_1(0, var_x_hi_1, var_x_lo_2)
+                                var_z_3 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+                            }
+                        }
+                    }
+                }
+                """,
+            "rejected_then_valid": """
+                object "o" {
+                    code {
+                        function fun_target_0(var_x_hi_1, var_x_lo_2) -> var_z_3 {
+                            {
+                                function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
+                                    for { } 0 { } {
+                                        var_r_out_7 := 1
+                                    }
+                                }
+                                function fun_from_1(var_r_8, var_x_hi_9, var_x_lo_10) -> var_r_out_11 {
+                                    var_r_out_11 := 0
+                                    mstore(var_r_8, var_x_hi_9)
+                                    mstore(add(0x20, var_r_8), var_x_lo_10)
+                                    var_r_out_11 := var_r_8
+                                }
+                                let usr$ptr := fun_from_1(0, var_x_hi_1, var_x_lo_2)
+                                var_z_3 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+                            }
+                        }
+                    }
+                }
+                """,
+            "valid_then_rejected": """
+                object "o" {
+                    code {
+                        function fun_target_0(var_x_hi_1, var_x_lo_2) -> var_z_3 {
+                            {
+                                function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
+                                    var_r_out_7 := 0
+                                    mstore(var_r_4, var_x_hi_5)
+                                    mstore(add(0x20, var_r_4), var_x_lo_6)
+                                    var_r_out_7 := var_r_4
+                                }
+                                function fun_from_1(var_r_8, var_x_hi_9, var_x_lo_10) -> var_r_out_11 {
+                                    for { } 0 { } {
+                                        var_r_out_11 := 1
+                                    }
+                                }
+                                let usr$ptr := fun_from_1(0, var_x_hi_1, var_x_lo_2)
+                                var_z_3 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+                            }
+                        }
+                    }
+                }
+                """,
+        }
+
+        for label, yul in cases.items():
+            with self.subTest(ordering=label):
+                with self.assertRaises(ytl.ParseError):
+                    ytl.translate_yul_to_models(
+                        yul,
+                        config,
+                        pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()
