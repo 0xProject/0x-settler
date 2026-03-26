@@ -10,7 +10,7 @@ import {ISettlerTakerSubmitted} from "src/interfaces/ISettlerTakerSubmitted.sol"
 import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
-import {DAI, USDC} from "src/core/MakerPSM.sol";
+import {DAI, USDC, USDT, USDD} from "src/core/MakerPSM.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {Utils} from "./Utils.sol";
 import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
@@ -52,9 +52,11 @@ contract BridgeSettlerUnitTest is BridgeSettlerTestBase {
         super.setUp();
 
         vm.etch(address(ALLOWANCE_HOLDER), vm.getDeployedCode("AllowanceHolder.sol:AllowanceHolder"));
-        // Mock DAI and USDC for MainnetSettler to be usable
+        // Mock DAI, USDC, USDT, and USDD for MainnetSettler to be usable
         deployCodeTo("MockERC20", abi.encode("DAI", "DAI", 18), address(DAI));
         deployCodeTo("MockERC20", abi.encode("USDC", "USDC", 6), address(USDC));
+        deployCodeTo("MockERC20", abi.encode("USDT", "USDT", 6), address(USDT));
+        deployCodeTo("MockERC20", abi.encode("USDD", "USDD", 18), address(USDD));
         settler = new MainnetSettler(bytes20(0));
     }
 }
