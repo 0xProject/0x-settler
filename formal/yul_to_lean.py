@@ -5419,11 +5419,13 @@ def prepare_translation(
                 # Merge deferred helpers (mstore_sink-requiring) that
                 # were collected during parsing but couldn't be inlined
                 # at parse time.  collect_all_functions() skips nested
-                # blocks, so these would otherwise be lost.
+                # blocks, so these would otherwise be lost.  Deferred
+                # helpers come from inner scopes so they shadow outer
+                # definitions — same semantics as _merge_helper_collection.
                 for dname, dfn in parse_deferred.get(sol_name, {}).items():
-                    if dname not in helper_table and dname not in rejected_helpers:
-                        helper_table[dname] = dfn
-                        nested_helper_names.add(dname)
+                    rejected_helpers.pop(dname, None)
+                    helper_table[dname] = dfn
+                    nested_helper_names.add(dname)
         else:
             nested_helper_names: set[str] = set()
             function_collection = YulParser(tokens).collect_all_functions()
