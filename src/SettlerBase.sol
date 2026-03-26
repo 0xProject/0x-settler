@@ -83,7 +83,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         return false;
     }
 
-    function _checkSlippageAndTransfer(AllowedSlippage memory slippage, bool exact) internal {
+    function _checkSlippageAndTransfer(AllowedSlippage memory slippage, bool transferExactLimit) internal {
         // This final slippage check effectively prohibits custody optimization on the
         // final hop of every swap. This is gas-inefficient. This is on purpose. Because
         // ISettlerActions.BASIC could interact with an intents-based settlement
@@ -101,7 +101,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         if (amountOut < minAmountOut) {
             revertTooMuchSlippage(buyToken, minAmountOut, amountOut);
         }
-        amountOut = exact.ternary(minAmountOut, amountOut);
+        amountOut = transferExactLimit.ternary(minAmountOut, amountOut);
         if (isETH) {
             recipient.safeTransferETH(amountOut);
         } else {
