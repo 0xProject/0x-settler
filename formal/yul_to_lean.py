@@ -1654,14 +1654,20 @@ class YulParser(_TokenReader):
             )
 
         # Propagate deferred helpers (mstore_sink-requiring) only if
-        # the scope's output contains unresolved calls to them.  This
-        # preserves lexical visibility: a deferred helper defined
-        # inside a block is only available to calls within that block.
+        # the scope's output contains unresolved calls to them.
+        # Alpha-rename each resolved call to a unique binding name so
+        # the flat helper table can hold it without colliding with
+        # outer helpers of the same name, and so that calls outside
+        # this scope still reference the original (outer) name.
         if scope_deferred:
             called = _collect_call_names_in_stmts(results)
             for name, fn in scope_deferred.items():
                 if name in called:
-                    self._deferred_helpers[name] = fn
+                    mangled = _gensym(
+                        f"dfr_{name}", avoid=self._all_source_names()
+                    )
+                    results = _rename_calls_in_stmts(results, name, mangled)
+                    self._deferred_helpers[mangled] = fn
 
         return results, has_leave
 
@@ -3087,6 +3093,73 @@ def _collect_call_names_in_stmts(stmts: list[RawStatement]) -> set[str]:
             _collect_call_names_in_expr(stmt.address, names)
             _collect_call_names_in_expr(stmt.value, names)
     return names
+
+
+def _rename_call_in_expr(expr: Expr, old: str, new: str) -> Expr:
+    """Rename Call nodes from *old* to *new* throughout *expr*."""
+    if isinstance(expr, IntLit):
+        return expr
+    if isinstance(expr, Var):
+        return expr
+    if isinstance(expr, Call):
+        renamed_args = tuple(_rename_call_in_expr(a, old, new) for a in expr.args)
+        name = new if expr.name == old else expr.name
+        if name is expr.name and renamed_args == expr.args:
+            return expr
+        return Call(name, renamed_args)
+    if isinstance(expr, Ite):
+        c = _rename_call_in_expr(expr.cond, old, new)
+        t = _rename_call_in_expr(expr.if_true, old, new)
+        e = _rename_call_in_expr(expr.if_false, old, new)
+        if c is expr.cond and t is expr.if_true and e is expr.if_false:
+            return expr
+        return Ite(c, t, e)
+    if isinstance(expr, Project):
+        inner = _rename_call_in_expr(expr.inner, old, new)
+        if inner is expr.inner:
+            return expr
+        return Project(expr.index, expr.total, inner)
+    assert_never(expr)
+
+
+def _rename_calls_in_stmts(
+    stmts: list[RawStatement], old: str, new: str
+) -> list[RawStatement]:
+    """Rename Call nodes from *old* to *new* in a list of raw statements."""
+    result: list[RawStatement] = []
+    for stmt in stmts:
+        if isinstance(stmt, PlainAssignment):
+            new_expr = _rename_call_in_expr(stmt.expr, old, new)
+            result.append(
+                PlainAssignment(stmt.target, new_expr, is_declaration=stmt.is_declaration)
+                if new_expr is not stmt.expr else stmt
+            )
+        elif isinstance(stmt, ParsedIfBlock):
+            new_cond = _rename_call_in_expr(stmt.condition, old, new)
+            new_body = tuple(
+                PlainAssignment(s.target, _rename_call_in_expr(s.expr, old, new), is_declaration=s.is_declaration)
+                for s in stmt.body
+            )
+            new_else = None
+            if stmt.else_body is not None:
+                new_else = tuple(
+                    PlainAssignment(s.target, _rename_call_in_expr(s.expr, old, new), is_declaration=s.is_declaration)
+                    for s in stmt.else_body
+                )
+            result.append(ParsedIfBlock(
+                condition=new_cond, body=new_body, has_leave=stmt.has_leave,
+                else_body=new_else,
+                body_expr_stmts=stmt.body_expr_stmts,
+                else_body_expr_stmts=stmt.else_body_expr_stmts,
+            ))
+        elif isinstance(stmt, MemoryWrite):
+            result.append(MemoryWrite(
+                _rename_call_in_expr(stmt.address, old, new),
+                _rename_call_in_expr(stmt.value, old, new),
+            ))
+        else:
+            result.append(stmt)
+    return result
 
 
 def _inline_in_raw_statements(
@@ -5418,12 +5491,10 @@ def prepare_translation(
                 )
                 # Merge deferred helpers (mstore_sink-requiring) that
                 # were collected during parsing but couldn't be inlined
-                # at parse time.  collect_all_functions() skips nested
-                # blocks, so these would otherwise be lost.  Deferred
-                # helpers come from inner scopes so they shadow outer
-                # definitions — same semantics as _merge_helper_collection.
+                # at parse time.  Their calls were alpha-renamed to
+                # unique binding names at parse time, so no collision
+                # with outer helpers is possible.
                 for dname, dfn in parse_deferred.get(sol_name, {}).items():
-                    rejected_helpers.pop(dname, None)
                     helper_table[dname] = dfn
                     nested_helper_names.add(dname)
         else:
