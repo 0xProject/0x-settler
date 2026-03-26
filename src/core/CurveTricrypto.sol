@@ -144,9 +144,7 @@ abstract contract CurveTricrypto is SettlerSwapAbstract {
         return new bytes(0);
     }
 
-    function curveTricryptoSwapCallback(address payer, address, IERC20 sellToken, uint256 sellAmount, uint256)
-        private
-    {
+    function curveTricryptoSwapCallback(address payer, address, IERC20 sellToken, uint256 sellAmount, uint256) private {
         assert(payer == address(0));
         bool isForwarded;
         uint256 permittedAmount;

@@ -91,7 +91,8 @@ abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, Relay, Laye
             (address to, bytes32 requestId) = abi.decode(data, (address, bytes32));
             bridgeNativeToRelay(to, requestId);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_LAYER_ZERO_OFT.selector)) {
-            (IERC20 token, uint256 nativeFee, address oft, bytes memory sendData) = abi.decode(data, (IERC20, uint256, address, bytes));
+            (IERC20 token, uint256 nativeFee, address oft, bytes memory sendData) =
+                abi.decode(data, (IERC20, uint256, address, bytes));
             bridgeLayerZeroOFT(token, nativeFee, oft, sendData);
         } else if (action == uint32(IBridgeSettlerActions.UNDERPAYMENT_CHECK.selector)) {
             (uint256 msgValueMin) = abi.decode(data, (uint256));

@@ -7,7 +7,10 @@ import {SettlerMetaTxn} from "./SettlerMetaTxn.sol";
 
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 import {
-    Permit2PaymentIntent, Permit2PaymentMetaTxn, Permit2Payment, Permit2PaymentBase
+    Permit2PaymentIntent,
+    Permit2PaymentMetaTxn,
+    Permit2Payment,
+    Permit2PaymentBase
 } from "./core/Permit2Payment.sol";
 
 import {AbstractContext, Context} from "./Context.sol";
@@ -23,7 +26,8 @@ import {IOwnable} from "./interfaces/IOwnable.sol";
 // DANGER: do not reorder the inheritance list here. You will get shocking and incorrect results
 // inside `MultiCallContext` if `super._msgSender` is `Permit2PaymentMetaTxn._msgSender`.
 abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, SettlerMetaTxn {
-    bytes32 private constant _SOLVER_LIST_BASE_SLOT = 0x000000000000000000000000000000000000000008054751d605e5c08a2210bf; // uint96(uint256(keccak256("SettlerIntentSolverList")) - 1)
+    bytes32 private constant _SOLVER_LIST_BASE_SLOT =
+        0x000000000000000000000000000000000000000008054751d605e5c08a2210bf; // uint96(uint256(keccak256("SettlerIntentSolverList")) - 1)
 
     /// This mapping forms a circular singly-linked list that traverses all the authorized callers
     /// of `executeMetaTxn`. The head and tail of the list is `address(1)`, which is the constant

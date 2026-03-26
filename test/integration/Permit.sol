@@ -231,7 +231,7 @@ contract PermitTest is SettlerBasePairTest {
             )
         );
         snapEnd();
-        
+
         assertEq(DAI.balanceOf(address(this)), amount(), "Transfer failed");
         assertEq(DAI.balanceOf(sender), 0, "Sender should have 0 balance");
 

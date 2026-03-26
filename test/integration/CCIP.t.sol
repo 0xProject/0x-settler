@@ -9,7 +9,6 @@ import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {InvalidFeeToken, InvalidTokenAmountsLength} from "src/core/SettlerErrors.sol";
 
-
 /// @dev Interface for CCIP Router
 interface IRouterClient {
     struct EVMTokenAmount {
@@ -30,10 +29,7 @@ interface IRouterClient {
         payable
         returns (bytes32);
 
-    function getFee(uint64 destinationChainSelector, EVM2AnyMessage calldata message)
-        external
-        view
-        returns (uint256);
+    function getFee(uint64 destinationChainSelector, EVM2AnyMessage calldata message) external view returns (uint256);
 
     function isChainSupported(uint64 chainSelector) external view returns (bool);
 }
@@ -70,7 +66,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
     // Chain selectors (https://docs.chain.link/cre/reference/sdk/evm-client-ts#chain-selector-reference)
     uint64 constant ARBITRUM_SELECTOR = 4949039107694359620;
     uint64 constant BASE_SELECTOR = 15971525489660198786;
-        
+
     address recipient;
 
     receive() external payable {}

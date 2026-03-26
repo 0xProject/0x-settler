@@ -49,8 +49,9 @@ library FastDodoV2 {
     }
 
     function fastToken(IDodoV2 dodo, bool isBase) internal view returns (IERC20) {
-        uint256 result =
-            uint256(_get(dodo, isBase.ternary(uint32(dodo._BASE_TOKEN_.selector), uint32(dodo._QUOTE_TOKEN_.selector))));
+        uint256 result = uint256(
+            _get(dodo, isBase.ternary(uint32(dodo._BASE_TOKEN_.selector), uint32(dodo._QUOTE_TOKEN_.selector)))
+        );
         require(result >> 160 == 0);
         return IERC20(address(uint160(result)));
     }
