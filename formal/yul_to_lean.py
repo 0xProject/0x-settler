@@ -2046,6 +2046,54 @@ class YulParser(_TokenReader):
                 self._pop()
         return CollectedFunctions(functions=functions, rejected=rejected)
 
+    def collect_body_helpers(self) -> CollectedFunctions:
+        """Collect all function definitions from within a function body.
+
+        Unlike :meth:`collect_all_functions`, this treats brace-delimited
+        blocks as transparent lexical scopes and descends into them.
+        Inside a function body there are no ``object``/``code`` wrappers,
+        so every ``{ }`` is a scope that may contain local helpers.
+        """
+        functions: dict[str, YulFunction] = {}
+        rejected: dict[str, str] = {}
+        while not self._at_end():
+            if (
+                self._peek_kind() == "ident"
+                and self.tokens[self.i][1] == "function"
+            ):
+                saved_i = self.i
+                saved_stmts = self._expr_stmts
+                try:
+                    fn = self.parse_function()
+                except ParseError as err:
+                    fn_name = (
+                        self._function_name_at(saved_i)
+                        or f"<unknown@{saved_i}>"
+                    )
+                    if fn_name in functions or fn_name in rejected:
+                        raise ParseError(
+                            f"Duplicate helper function {fn_name!r} in the "
+                            f"same scope. Refuse to collect ambiguous helpers."
+                        )
+                    rejected[fn_name] = str(err)
+                    self.i = saved_i
+                    self._skip_function_def()
+                    continue
+                finally:
+                    self._expr_stmts = saved_stmts
+                if fn.yul_name in functions or fn.yul_name in rejected:
+                    raise ParseError(
+                        f"Duplicate helper function {fn.yul_name!r} in the "
+                        f"same scope. Refuse to collect ambiguous helpers."
+                    )
+                functions[fn.yul_name] = fn
+            else:
+                # Skip all non-function tokens, including { and }.
+                # Bare blocks inside a function body are just lexical
+                # scopes — not object/code boundaries.
+                self._pop()
+        return CollectedFunctions(functions=functions, rejected=rejected)
+
 
 # ---------------------------------------------------------------------------
 # Yul → FunctionModel conversion
@@ -2311,8 +2359,8 @@ def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
     if "::" not in selector:
         return None
     raw = selector[2:] if selector.startswith("::") else selector
-    parts = tuple(part for part in raw.split("::") if part)
-    if not parts:
+    parts = tuple(raw.split("::"))
+    if any(not part for part in parts):
         raise ParseError(f"Invalid exact Yul selector {selector!r}")
     return parts
 
@@ -3989,6 +4037,11 @@ def yul_function_to_model(
                 if stmt.else_body is not None:
                     all_body_targets.extend(stmt.else_body)
                 for s in all_body_targets:
+                    # Branch-local let declarations must not leak into
+                    # the outer scope.  Only reassignments (is_declaration
+                    # is False) can refer to outer-scope variables.
+                    if s.is_declaration:
+                        continue
                     c = demangle_var(
                         s.target,
                         yf.params,
@@ -5206,7 +5259,7 @@ def prepare_translation(
             if body_range is not None:
                 body_start, body_end = body_range
                 body_tokens = tokens[body_start:body_end]
-                nested_coll = YulParser(body_tokens).collect_all_functions()
+                nested_coll = YulParser(body_tokens).collect_body_helpers()
                 nested_helper_names = set(nested_coll.functions)
                 _merge_helper_collection(
                     helper_table,
