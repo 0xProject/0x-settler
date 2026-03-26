@@ -1325,6 +1325,17 @@ class YulParser(_TokenReader):
                         f"Duplicate helper function {fn.yul_name!r} in the "
                         f"same lexical scope."
                     )
+                # If the helper's body depends on deferred helpers,
+                # it cannot be safely expression-substituted at parse
+                # time (the deferred call binding would be duplicated).
+                # Skip scope-local inlining; collect_all_functions()
+                # will find it for the sink-aware _inline_yul_function.
+                body_calls: set[str] = set()
+                for s in fn.assignments:
+                    if isinstance(s, PlainAssignment):
+                        _collect_call_names_in_expr(s.expr, body_calls)
+                if body_calls & set(self._deferred_helpers.keys()):
+                    continue
                 scope_helpers[fn.yul_name] = fn
                 continue
 
