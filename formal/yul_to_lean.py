@@ -1139,6 +1139,8 @@ class YulParser(_TokenReader):
         """
         results: list[RawStatement] = []
         has_leave = False
+        scope_helpers: dict[str, YulFunction] = {}
+        scope_rejected: dict[str, str] = {}
 
         while not self._at_end() and self._peek_kind() != "}":
             kind = self._peek_kind()
@@ -1276,7 +1278,25 @@ class YulParser(_TokenReader):
                 break
 
             if kind == "ident" and self.tokens[self.i][1] == "function":
-                self._skip_function_def()
+                # Collect scope-local helper: parse the function
+                # definition so its calls can be inlined within this
+                # scope before the scope is flattened away.
+                saved_i = self.i
+                saved_fn_stmts = self._expr_stmts
+                try:
+                    fn = self.parse_function()
+                except ParseError as err:
+                    fn_name = (
+                        self._function_name_at(saved_i)
+                        or f"<unknown@{saved_i}>"
+                    )
+                    scope_rejected[fn_name] = str(err)
+                    self.i = saved_i
+                    self._skip_function_def()
+                    continue
+                finally:
+                    self._expr_stmts = saved_fn_stmts
+                scope_helpers[fn.yul_name] = fn
                 continue
 
             if kind == "ident" and self.tokens[self.i][1] in ("if", "switch", "for"):
@@ -1587,6 +1607,16 @@ class YulParser(_TokenReader):
             raise ParseError(
                 f"Unsupported statement start {tok!r} in function body. "
                 f"Refuse to skip unrecognized Yul syntax."
+            )
+
+        # Inline scope-local helper calls before returning.  This
+        # resolves calls within the current scope BEFORE the scope is
+        # flattened (bare blocks) or captured (if/switch bodies).
+        # Unresolved calls to non-scope-local helpers pass through for
+        # later resolution by _inline_yul_function.
+        if scope_helpers:
+            results = _inline_in_raw_statements(
+                results, scope_helpers, rejected=scope_rejected
             )
 
         return results, has_leave
@@ -2043,54 +2073,6 @@ class YulParser(_TokenReader):
                 end_idx = self._find_matching_brace(brace_idx)
                 self.i = end_idx + 1
             else:
-                self._pop()
-        return CollectedFunctions(functions=functions, rejected=rejected)
-
-    def collect_body_helpers(self) -> CollectedFunctions:
-        """Collect all function definitions from within a function body.
-
-        Unlike :meth:`collect_all_functions`, this treats brace-delimited
-        blocks as transparent lexical scopes and descends into them.
-        Inside a function body there are no ``object``/``code`` wrappers,
-        so every ``{ }`` is a scope that may contain local helpers.
-        """
-        functions: dict[str, YulFunction] = {}
-        rejected: dict[str, str] = {}
-        while not self._at_end():
-            if (
-                self._peek_kind() == "ident"
-                and self.tokens[self.i][1] == "function"
-            ):
-                saved_i = self.i
-                saved_stmts = self._expr_stmts
-                try:
-                    fn = self.parse_function()
-                except ParseError as err:
-                    fn_name = (
-                        self._function_name_at(saved_i)
-                        or f"<unknown@{saved_i}>"
-                    )
-                    if fn_name in functions or fn_name in rejected:
-                        raise ParseError(
-                            f"Duplicate helper function {fn_name!r} in the "
-                            f"same scope. Refuse to collect ambiguous helpers."
-                        )
-                    rejected[fn_name] = str(err)
-                    self.i = saved_i
-                    self._skip_function_def()
-                    continue
-                finally:
-                    self._expr_stmts = saved_stmts
-                if fn.yul_name in functions or fn.yul_name in rejected:
-                    raise ParseError(
-                        f"Duplicate helper function {fn.yul_name!r} in the "
-                        f"same scope. Refuse to collect ambiguous helpers."
-                    )
-                functions[fn.yul_name] = fn
-            else:
-                # Skip all non-function tokens, including { and }.
-                # Bare blocks inside a function body are just lexical
-                # scopes — not object/code boundaries.
                 self._pop()
         return CollectedFunctions(functions=functions, rejected=rejected)
 
@@ -3007,6 +2989,74 @@ def _inline_single_call(
     if len(fn.rets) == 1:
         return _get_ret(fn.rets[0])
     return tuple(_get_ret(r) for r in fn.rets)
+
+
+def _inline_in_raw_statements(
+    stmts: list[RawStatement],
+    fn_table: dict[str, YulFunction],
+    rejected: dict[str, str] | None = None,
+) -> list[RawStatement]:
+    """Apply ``inline_calls`` to every expression in a list of raw statements.
+
+    Walks PlainAssignment, ParsedIfBlock, and MemoryWrite nodes,
+    inlining calls in all their expressions.  Unresolved calls (not in
+    *fn_table*) pass through unchanged.
+    """
+    result: list[RawStatement] = []
+    for stmt in stmts:
+        if isinstance(stmt, PlainAssignment):
+            new_expr = inline_calls(
+                stmt.expr,
+                fn_table,
+                unsupported_function_errors=rejected,
+            )
+            result.append(
+                PlainAssignment(stmt.target, new_expr, is_declaration=stmt.is_declaration)
+            )
+        elif isinstance(stmt, ParsedIfBlock):
+            new_cond = inline_calls(
+                stmt.condition,
+                fn_table,
+                unsupported_function_errors=rejected,
+            )
+            new_body = tuple(
+                PlainAssignment(
+                    s.target,
+                    inline_calls(s.expr, fn_table, unsupported_function_errors=rejected),
+                    is_declaration=s.is_declaration,
+                )
+                for s in stmt.body
+            )
+            new_else = None
+            if stmt.else_body is not None:
+                new_else = tuple(
+                    PlainAssignment(
+                        s.target,
+                        inline_calls(s.expr, fn_table, unsupported_function_errors=rejected),
+                        is_declaration=s.is_declaration,
+                    )
+                    for s in stmt.else_body
+                )
+            result.append(
+                ParsedIfBlock(
+                    condition=new_cond,
+                    body=new_body,
+                    has_leave=stmt.has_leave,
+                    else_body=new_else,
+                    body_expr_stmts=stmt.body_expr_stmts,
+                    else_body_expr_stmts=stmt.else_body_expr_stmts,
+                )
+            )
+        elif isinstance(stmt, MemoryWrite):
+            result.append(
+                MemoryWrite(
+                    inline_calls(stmt.address, fn_table, unsupported_function_errors=rejected),
+                    inline_calls(stmt.value, fn_table, unsupported_function_errors=rejected),
+                )
+            )
+        else:
+            result.append(stmt)
+    return result
 
 
 def inline_calls(
@@ -4033,23 +4083,20 @@ def yul_function_to_model(
                 for a in else_assignments_list:
                     else_last[a.target] = a.expr
 
-                all_body_targets = list(stmt.body)
-                if stmt.else_body is not None:
-                    all_body_targets.extend(stmt.else_body)
-                for s in all_body_targets:
-                    # Branch-local let declarations must not leak into
-                    # the outer scope.  Only reassignments (is_declaration
-                    # is False) can refer to outer-scope variables.
-                    if s.is_declaration:
-                        continue
+                # Rebuild outer bindings from var_map (the pre-conditional
+                # outer scope), not from raw branch targets.  var_map is
+                # unmodified here — branches used branch_var_map copies.
+                # This structurally prevents branch-local names from
+                # leaking, since they were never in var_map.
+                for raw_name in list(var_map.keys()):
                     c = demangle_var(
-                        s.target,
+                        raw_name,
                         yf.params,
                         yf.rets,
                         keep_solidity_locals=keep_solidity_locals,
                     )
                     if c is not None and c in modified_set:
-                        var_map[s.target] = c
+                        var_map[raw_name] = c
                         ssa_count[c] = 1
                         # Preserve const fact if both branches agree.
                         pre_cv = const_locals.get(c)
@@ -5259,7 +5306,7 @@ def prepare_translation(
             if body_range is not None:
                 body_start, body_end = body_range
                 body_tokens = tokens[body_start:body_end]
-                nested_coll = YulParser(body_tokens).collect_body_helpers()
+                nested_coll = YulParser(body_tokens).collect_all_functions()
                 nested_helper_names = set(nested_coll.functions)
                 _merge_helper_collection(
                     helper_table,
