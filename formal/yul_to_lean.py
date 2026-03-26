@@ -18,7 +18,7 @@ import pathlib
 import re
 import sys
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable, assert_never
 
 
@@ -324,10 +324,13 @@ class CollectedFunctions:
     ``functions`` contains successfully parsed helpers.
     ``rejected`` records helper names whose bodies were rejected, along with
     the parse error that explains why.
+    ``deferred`` contains helpers (alpha-renamed to unique binding names)
+    that were resolved at parse time but require later sink-aware lowering.
     """
 
     functions: dict[str, YulFunction]
     rejected: dict[str, str]
+    deferred: dict[str, YulFunction] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -2090,10 +2093,12 @@ class YulParser(_TokenReader):
         """
         functions: dict[str, YulFunction] = {}
         rejected: dict[str, str] = {}
+        deferred: dict[str, YulFunction] = {}
         while not self._at_end():
             if self._peek_kind() == "ident" and self.tokens[self.i][1] == "function":
                 saved_i = self.i
                 saved_stmts = self._expr_stmts
+                self._deferred_helpers = {}
                 try:
                     fn = self.parse_function()
                 except ParseError as err:
@@ -2115,6 +2120,9 @@ class YulParser(_TokenReader):
                         f"same scope. Refuse to collect ambiguous helpers."
                     )
                 functions[fn.yul_name] = fn
+                # Drain deferred helpers (alpha-renamed unique bindings)
+                # accumulated while parsing this function's body.
+                deferred.update(self._deferred_helpers)
             elif self._peek_kind() == "{":
                 # Non-function brace block (object/code wrapper).
                 # Skip to matching } to avoid collecting functions
@@ -2124,7 +2132,9 @@ class YulParser(_TokenReader):
                 self.i = end_idx + 1
             else:
                 self._pop()
-        return CollectedFunctions(functions=functions, rejected=rejected)
+        return CollectedFunctions(
+            functions=functions, rejected=rejected, deferred=deferred
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -2394,6 +2404,9 @@ def _merge_helper_collection(
     for name, err in collection.rejected.items():
         helper_table.pop(name, None)
         rejected_helpers[name] = err
+    # Deferred helpers have alpha-renamed unique names — just add them.
+    for name, fn in collection.deferred.items():
+        helper_table[name] = fn
 
 
 def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
