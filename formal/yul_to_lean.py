@@ -980,6 +980,7 @@ class YulParser(_TokenReader):
         self._expr_stmts: list[Expr] = []
         self._reference_scope_cache: dict[int, ReferenceScope] = {}
         self._source_names: set[str] | None = None
+        self._deferred_helpers: dict[str, YulFunction] = {}
 
     def _all_source_names(self) -> set[str]:
         """Lazily collect all identifier names from the token stream."""
@@ -1303,10 +1304,11 @@ class YulParser(_TokenReader):
                     self._expr_stmts = saved_fn_stmts
                 # Helpers requiring mstore_sink (uint512.from shape)
                 # cannot be inlined at parse time — defer to the
-                # sink-aware _inline_yul_function.  The global
-                # collect_all_functions() will find them in the raw
-                # body tokens.
+                # sink-aware _inline_yul_function.  Store on parser
+                # state so prepare_translation can merge them into the
+                # helper table (collect_all_functions skips blocks).
                 if _is_uint512_from_helper(fn) is not None:
+                    self._deferred_helpers[fn.yul_name] = fn
                     continue
                 if fn.yul_name in scope_helpers or fn.yul_name in scope_rejected:
                     raise ParseError(
@@ -1349,7 +1351,11 @@ class YulParser(_TokenReader):
                             allow_control_flow=allow_control_flow,
                             context="if-body (live, constant-true)",
                         )
-                        _flatten_scoped_block(live_body, results)
+                        _flatten_scoped_block(
+                            live_body,
+                            results,
+                            avoid_names=self._all_source_names(),
+                        )
                         # Propagate live branch expr_stmts to outer scope.
                         self._expr_stmts.extend(live_es)
                         if live_leave:
@@ -1440,7 +1446,11 @@ class YulParser(_TokenReader):
                             raise ParseError(
                                 "'default' must be the last branch in a switch."
                             )
-                        _flatten_scoped_block(live_branch_stmts, results)
+                        _flatten_scoped_block(
+                            live_branch_stmts,
+                            results,
+                            avoid_names=self._all_source_names(),
+                        )
                         if live_leave:
                             has_leave = True
                             self._skip_to_end_of_current_block()
@@ -2232,6 +2242,8 @@ def _find_enclosing_block_range(
 def _flatten_scoped_block(
     stmts: list[RawStatement],
     results: list[RawStatement],
+    *,
+    avoid_names: set[str] | None = None,
 ) -> None:
     """Emit *stmts* into *results* with block scoping applied.
 
@@ -2241,6 +2253,12 @@ def _flatten_scoped_block(
     in the local set updates that local binding (never escapes to outer
     scope).  Only assignments to names *not* local to this block are
     emitted to *results*.
+
+    When *avoid_names* is provided, ``usr$`` declarations are
+    alpha-renamed to fresh internal names and emitted as real
+    assignments (matching the bare-block path) instead of being
+    substituted away.  This prevents duplication of call expressions
+    that may have side effects (e.g. uint512.from helpers).
     """
     block_sub: dict[str, Expr] = {}
     block_locals: set[str] = set()
@@ -2249,7 +2267,14 @@ def _flatten_scoped_block(
             expr = substitute_expr(stmt.expr, block_sub)
             if stmt.is_declaration:
                 block_locals.add(stmt.target)
-                block_sub[stmt.target] = expr
+                if avoid_names is not None and stmt.target.startswith("usr$"):
+                    fresh = _gensym("blk", avoid=avoid_names)
+                    results.append(
+                        PlainAssignment(fresh, expr, is_declaration=True)
+                    )
+                    block_sub[stmt.target] = Var(fresh)
+                else:
+                    block_sub[stmt.target] = expr
             elif stmt.target in block_locals:
                 # Reassignment of a block-local name — update local.
                 block_sub[stmt.target] = expr
@@ -5235,6 +5260,10 @@ def prepare_translation(
 
     fn_map: dict[str, str] = {}
     yul_functions: dict[str, YulFunction] = {}
+    # Helpers that require mstore_sink (uint512.from shape) are deferred
+    # during parser-stage scope-local inlining.  Capture them per-target
+    # so the later inlining phase can use them.
+    parse_deferred: dict[str, dict[str, YulFunction]] = {}
 
     known_yul_names: set[str] = set()
     for sol_name in selected:
@@ -5267,6 +5296,7 @@ def prepare_translation(
             )
         fn_map[yf.yul_name] = sol_name
         yul_functions[sol_name] = yf
+        parse_deferred[sol_name] = dict(parser._deferred_helpers)
         known_yul_names.add(yf.yul_name)
 
     # Scope helper collection per-target so that each target is inlined with
@@ -5330,6 +5360,14 @@ def prepare_translation(
                     rejected_helpers,
                     nested_coll,
                 )
+                # Merge deferred helpers (mstore_sink-requiring) that
+                # were collected during parsing but couldn't be inlined
+                # at parse time.  collect_all_functions() skips nested
+                # blocks, so these would otherwise be lost.
+                for dname, dfn in parse_deferred.get(sol_name, {}).items():
+                    if dname not in helper_table and dname not in rejected_helpers:
+                        helper_table[dname] = dfn
+                        nested_helper_names.add(dname)
         else:
             nested_helper_names: set[str] = set()
             function_collection = YulParser(tokens).collect_all_functions()
