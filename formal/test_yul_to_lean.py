@@ -9150,6 +9150,46 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
                     (12,),
                 )
 
+    def test_translate_yul_to_models_rejects_exact_from_inside_helper_if_body(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("target",),
+            exact_yul_names={"target": "fun_target_0"},
+            n_params={"target": 3},
+        )
+        yul = """
+            object "o" {
+                code {
+                    function fun_target_0(var_c_0, var_x_hi_1, var_x_lo_2) -> var_z_3 {
+                        function helper_1(var_c_4, var_x_hi_8, var_x_lo_9) -> var_r_10 {
+                            if var_c_4 {
+                                let usr$ptr := fun_from_1(0, var_x_hi_8, var_x_lo_9)
+                                var_r_10 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+                            }
+                        }
+                        function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
+                            var_r_out_7 := 0
+                            mstore(var_r_4, var_x_hi_5)
+                            mstore(add(0x20, var_r_4), var_x_lo_6)
+                            var_r_out_7 := var_r_4
+                        }
+                        var_z_3 := helper_1(var_c_0, var_x_hi_1, var_x_lo_2)
+                    }
+                }
+            }
+            """
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "Conditional memory write detected",
+        ):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
