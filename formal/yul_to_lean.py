@@ -3130,17 +3130,17 @@ def _classify_non_pure_helpers(
         if _is_uint512_from_helper(fn_or_err) is not None:
             non_pure.add(name)
 
-    # Fixed-point: propagate through helper-to-helper references
+    # Fixed-point: propagate through helper-to-helper references.
+    # Uses _collect_call_names_in_stmts to scan the full statement
+    # tree (PlainAssignment, ParsedIfBlock, MemoryWrite), matching
+    # the same IR that the inliner operates on.
     changed = True
     while changed:
         changed = False
         for name, fn_or_err in scope_fns.items():
             if name in non_pure or isinstance(fn_or_err, str):
                 continue
-            body_calls: set[str] = set()
-            for s in fn_or_err.assignments:
-                if isinstance(s, PlainAssignment):
-                    _collect_call_names_in_expr(s.expr, body_calls)
+            body_calls = _collect_call_names_in_stmts(fn_or_err.assignments)
             if body_calls & (non_pure | inner_keys):
                 non_pure.add(name)
                 changed = True
