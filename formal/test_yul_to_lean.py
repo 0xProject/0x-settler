@@ -8991,6 +8991,51 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
             (12,),
         )
 
+    def test_translate_yul_to_models_allows_exact_from_inside_inlined_local_helper(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("target",),
+            exact_yul_names={"target": "fun_target_0"},
+        )
+        yul = """
+            object "o" {
+                code {
+                    function fun_target_0(var_x_hi_1, var_x_lo_2) -> var_z_3 {
+                        function helper_1(var_x_hi_8, var_x_lo_9) -> var_r_10 {
+                            {
+                                function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
+                                    var_r_out_7 := 0
+                                    mstore(var_r_4, var_x_hi_5)
+                                    mstore(add(0x20, var_r_4), var_x_lo_6)
+                                    var_r_out_7 := var_r_4
+                                }
+                                let usr$ptr := fun_from_1(0, var_x_hi_8, var_x_lo_9)
+                                var_r_10 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+                            }
+                        }
+                        var_z_3 := helper_1(var_x_hi_1, var_x_lo_2)
+                    }
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(
+            ytl.evaluate_function_model(
+                model,
+                (5, 7),
+                model_table=ytl.build_model_table(result.models),
+            ),
+            (12,),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
