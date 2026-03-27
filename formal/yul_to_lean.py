@@ -997,8 +997,14 @@ class YulParser(_TokenReader):
     them as incomplete semantics.
     """
 
-    def __init__(self, tokens: list[tuple[str, str]]) -> None:
+    def __init__(
+        self,
+        tokens: list[tuple[str, str]],
+        *,
+        token_offset: int = 0,
+    ) -> None:
         super().__init__(tokens)
+        self._token_offset = token_offset
         self._expr_stmts: list[Expr] = []
         self._reference_scope_cache: dict[int, ReferenceScope] = {}
         self._source_names: set[str] | None = None
@@ -1759,7 +1765,7 @@ class YulParser(_TokenReader):
         self._skip_until_matching_brace()
 
     def parse_function(self) -> YulFunction:
-        token_idx = self.i
+        token_idx = self.i + self._token_offset
         fn_kw = self._expect_ident()
         if fn_kw != "function":
             raise ParseError(f"Expected 'function', got {fn_kw!r}")
@@ -5639,7 +5645,9 @@ def prepare_translation(
             # Process from outermost to innermost (inner overrides outer).
             for s_start, s_end in reversed(scope_chain):
                 scoped_tokens = tokens[s_start:s_end]
-                scope_coll = YulParser(scoped_tokens).collect_all_functions()
+                scope_coll = YulParser(
+                    scoped_tokens, token_offset=s_start
+                ).collect_all_functions()
                 _merge_helper_collection(
                     helper_table,
                     rejected_helpers,
@@ -5654,7 +5662,9 @@ def prepare_translation(
             if body_range is not None:
                 body_start, body_end = body_range
                 body_tokens = tokens[body_start:body_end]
-                nested_coll = YulParser(body_tokens).collect_all_functions()
+                nested_coll = YulParser(
+                    body_tokens, token_offset=body_start
+                ).collect_all_functions()
                 nested_helper_names = set(nested_coll.functions)
                 _merge_helper_collection(
                     helper_table,
@@ -5670,12 +5680,11 @@ def prepare_translation(
                     rejected_helpers[dname] = derr
 
                 # Deduplicate: scope chain and body rescan may have
-                # independently produced deferred entries for the same
-                # lexical helper under different mangled names.
-                # parse_deferred versions are authoritative.  Use
-                # token_idx (lexical identity) for matching — yul_name
-                # alone is insufficient because Yul allows same-named
-                # helpers in different lexical scopes.
+                # independently produced entries for the same lexical
+                # helper (raw or _dfr_*).  parse_deferred versions are
+                # authoritative.  Match by token_idx (absolute lexical
+                # identity) to avoid collapsing same-named helpers in
+                # different lexical scopes.
                 auth_keys = set(parse_deferred.get(sol_name, {}))
                 auth_token_idxs = {
                     dfn.token_idx
@@ -5683,8 +5692,6 @@ def prepare_translation(
                 }
                 for key in list(helper_table.keys()):
                     if key in auth_keys:
-                        continue
-                    if not key.startswith("_dfr_"):
                         continue
                     fn = helper_table[key]
                     if fn.token_idx in auth_token_idxs:
