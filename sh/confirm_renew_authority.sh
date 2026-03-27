@@ -132,6 +132,19 @@ declare -r safe_address
 declare -r -i feature="$1"
 shift
 
+declare deployment_safe_address
+if [[ ${@: -1} = [Dd][Aa][Oo] ]] ; then
+    deployment_safe_address="$(get_config governance.daoSafe)"
+    if [[ $deployment_safe_address = [Nn][Uu][Ll][Ll] ]] ; then
+        echo 'DAO Safe{Wallet} not configured for '"$chain_display_name" >&2
+        echo 'Exiting...' >&2
+        exit 0
+    fi
+else
+    deployment_safe_address="$(get_config governance.deploymentSafe)"
+fi
+declare -r deployment_safe_address
+
 declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
 function _compat_date {
@@ -159,7 +172,7 @@ auth_deadline="$(_compat_date "$auth_deadline_datestring" +%s)"
 declare -r -i auth_deadline
 
 declare renew_authority_calldata
-renew_authority_calldata="$(cast calldata "$authorize_sig" $feature "$(get_config governance.deploymentSafe)" $auth_deadline)"
+renew_authority_calldata="$(cast calldata "$authorize_sig" $feature "$deployment_safe_address" $auth_deadline)"
 declare -r renew_authority_calldata
 
 declare struct_json
@@ -170,4 +183,4 @@ declare signature
 signature="$(sign_call "$struct_json")"
 declare -r signature
 
-save_signature renew_authority "$renew_authority_calldata" "$signature" 1
+save_signature renew_authority "$renew_authority_calldata" "$signature"

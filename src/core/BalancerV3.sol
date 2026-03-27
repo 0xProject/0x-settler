@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
@@ -243,7 +243,7 @@ library UnsafeVault {
 
 IBalancerV3Vault constant VAULT = IBalancerV3Vault(0xbA1333333333a1BA1108E8412f11850A5C319bA9);
 
-abstract contract BalancerV3 is SettlerAbstract, FreeMemory {
+abstract contract BalancerV3 is SettlerSwapAbstract, FreeMemory {
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
     using NotesLib for NotesLib.Note[];

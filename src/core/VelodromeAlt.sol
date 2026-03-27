@@ -8,7 +8,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {revertTooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
 import {uint512, tmp, alloc} from "../utils/512Math.sol";
 
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 interface IVelodromePair {
     function metadata()
@@ -26,7 +26,7 @@ interface IVelodromePair {
     function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
 }
 
-abstract contract Velodrome is SettlerAbstract {
+abstract contract Velodrome is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using FastLogic for bool;
     using SafeTransferLib for IERC20;
@@ -200,7 +200,7 @@ abstract contract Velodrome is SettlerAbstract {
         assert(stable);
         if (!zeroForOne) {
             (sellBasis, buyBasis, sellReserve, buyReserve, sellToken, buyToken) =
-                (buyBasis, sellBasis, buyReserve, sellReserve, buyToken, sellToken);
+            (buyBasis, sellBasis, buyReserve, sellReserve, buyToken, sellToken);
         }
 
         uint256 buyAmount;
@@ -259,7 +259,7 @@ abstract contract Velodrome is SettlerAbstract {
         }
 
         if (buyAmount < minAmountOut) {
-            revertTooMuchSlippage(sellToken, minAmountOut, buyAmount);
+            revertTooMuchSlippage(buyToken, minAmountOut, buyAmount);
         }
 
         {

@@ -5,7 +5,9 @@ import {IERC165} from "@forge-std/interfaces/IERC165.sol";
 import {IOwnable} from "../interfaces/IOwnable.sol";
 import {AbstractOwnable} from "../utils/TwoStepOwnable.sol";
 import {
-    ERC1967UUPSUpgradeable, ERC1967TwoStepOwnable, AbstractUUPSUpgradeable
+    ERC1967UUPSUpgradeable,
+    ERC1967TwoStepOwnable,
+    AbstractUUPSUpgradeable
 } from "../proxy/ERC1967UUPSUpgradeable.sol";
 import {Context} from "../Context.sol";
 import {Panic} from "../utils/Panic.sol";

@@ -5,7 +5,7 @@ import {ISettlerBase} from "./ISettlerBase.sol";
 
 interface ISettlerTakerSubmitted is ISettlerBase {
     function execute(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32 /* zid & affiliate */
     )
@@ -14,7 +14,7 @@ interface ISettlerTakerSubmitted is ISettlerBase {
         returns (bool);
 
     function executeWithPermit(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32 /* zid & affiliate */,
         bytes memory permitData

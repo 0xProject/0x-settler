@@ -20,7 +20,7 @@ Key addresses:
 ### Three-Flavor Settlement Pattern
 
 ```
-SettlerAbstract (virtual dispatch interface)
+SettlerSwapAbstract (virtual dispatch interface)
     |
     +-- SettlerBase (RFQ + UniV3 + UniV2 + Velodrome + Basic)
     |       |
@@ -138,6 +138,7 @@ Chain-specific functionality is composed via mixins. When adding a new DEX:
 | Assembly is mandatory for low-level external calls | Full control over call parameters & return data, saves gas |
 | Precede every assembly block with: brief justification + equivalent Solidity pseudocode | Documents intent for reviewers |
 | Mark assembly blocks `memory-safe` when criteria are met | Enables compiler optimizations |
+| Use hex for all numeric constants in assembly (e.g. `0x60` not `96`, `0x20` not `32`) | Codebase convention; keeps assembly style uniform |
 
 ### Gas Optimization
 
@@ -300,21 +301,26 @@ Foundry v1.5.1, Node.js 18.x, and git submodules (`git submodule update --recurs
 
 ### Solc Versions
 
-The codebase uses multiple Solidity compiler versions for different contracts:
+The codebase uses `auto_detect_solc = true` — the compiler version is determined by each file's pragma. Multiple Solidity compiler versions are in use:
 
 | Component | Solc Version | EVM Version | Optimizer Runs |
 |-----------|--------------|-------------|----------------|
-| Main contracts (`src/`) | 0.8.25 | cancun | 2,000 |
-| UniswapV4 (`lib/v4-core/`) | 0.8.26 | cancun | 2,000 |
+| Core libraries (`src/core/`, `src/*.sol`) | `^0.8.25` (auto-detected) | osaka | 2,000 |
+| Chain contracts (`src/chains/*/`) | `=0.8.33` | osaka | 2,000 |
+| AllowanceHolder + Deployer | `=0.8.25` (CI-pinned) | osaka | 2,000 |
+| UniswapV4 (`lib/v4-core/`) | 0.8.26 (CI-pinned) | osaka | 2,000 |
 | MultiCall | 0.8.28 | london | 1,000,000 |
 | CrossChainReceiverFactory | 0.8.28 | london | 1,000,000 |
-| EulerSwapBUSL tests | 0.8.28 | cancun | 2,000 |
+| EulerSwapBUSL tests | `^0.8.24` (auto-detected) | osaka | 2,000 |
 
 ### Building
 
 ```bash
 # Standard build (skips special contracts)
-forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip 'test/*'
+forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip BlastDeployer.sol --skip ModeDeployer.sol --skip 'test/*' --skip 'script/*'
+
+# Build AllowanceHolder and Deployer (pinned to 0.8.25)
+FOUNDRY_SOLC_VERSION=0.8.25 forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol src/deployer/BlastDeployer.sol src/deployer/ModeDeployer.sol
 
 # Build MultiCall (requires london EVM)
 FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=1000000 FOUNDRY_SOLC_VERSION=0.8.28 \
@@ -337,10 +343,10 @@ forge fmt
 ### Foundry Configuration
 
 Key settings in `foundry.toml`:
-- `solc_version = "0.8.25"` (default)
+- `auto_detect_solc = true` (compiler version determined by pragma)
 - `via_ir = true` (required for contract size)
 - `optimizer_runs = 2_000`
-- `evm_version = "cancun"`
+- `evm_version = "osaka"`
 - `fuzz.runs = 100_000`
 - Unit tests exclude `test/integration/*`
 - Integration tests (`FOUNDRY_PROFILE=integration`) only match `test/integration/*`
