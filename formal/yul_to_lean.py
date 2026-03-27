@@ -1695,13 +1695,20 @@ class YulParser(_TokenReader):
                             needed.add(ref)
                             worklist.append(ref)
 
-                # Step 2: generate mangled names for same-scope helpers
+                # Step 2: generate mangled names for same-scope
+                # helpers AND rejected dependencies.  Rejected refs
+                # must also be renamed so they don't collide with
+                # outer valid helpers of the same name.
                 rename_map: dict[str, str] = {}
                 for n in needed:
                     if n in deferred_fns:
                         rename_map[n] = _gensym(
                             f"dfr_{n}", avoid=self._all_source_names()
                         )
+                for n in needed_rejected:
+                    rename_map[n] = _gensym(
+                        f"dfr_{n}", avoid=self._all_source_names()
+                    )
 
                 # Step 3: rename calls in scope output
                 for old, new in rename_map.items():
@@ -1726,7 +1733,14 @@ class YulParser(_TokenReader):
                                 token_idx=fn.token_idx,
                             )
                         )
-                self._deferred_rejected.update(needed_rejected)
+                # Export rejected deps with mangled names.
+                # Preserve the original helper name in the rejection
+                # message so later error reporting is user-facing.
+                for n, err in needed_rejected.items():
+                    self._deferred_rejected[rename_map[n]] = (
+                        f"Cannot inline helper {n!r}: its Yul body was "
+                        f"rejected during collection: {err}"
+                    )
 
         return results, has_leave
 
