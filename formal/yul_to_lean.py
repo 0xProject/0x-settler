@@ -318,23 +318,38 @@ class YulFunction:
 
 
 @dataclass(frozen=True)
+class RejectedHelperInfo:
+    """Structured rejection metadata for a helper binding.
+
+    ``helper_name`` is the user-facing Yul helper name that should appear in
+    diagnostics. The dictionary key that points to this object may be a
+    synthetic binding name such as ``_dfr_*``.
+    """
+
+    helper_name: str
+    reason: str
+
+
+RejectedHelperMap = dict[str, RejectedHelperInfo]
+
+
+@dataclass(frozen=True)
 class CollectedFunctions:
     """All helper functions discovered during a collection pass.
 
     ``functions`` contains successfully parsed helpers.
-    ``rejected`` records helper names whose bodies were rejected, along with
-    the parse error that explains why.
+    ``rejected`` records helper bindings whose bodies were rejected.
     ``deferred`` contains helpers (alpha-renamed to unique binding names)
     that were resolved at parse time but require later sink-aware lowering.
     ``deferred_rejected`` records rejected helpers that are transitively
-    referenced by deferred helper bodies — keyed by mangled binding
-    name, values are ``(original_name, raw_reason)`` tuples.
+    referenced by deferred helper bodies. Keys may be mangled binding names;
+    ``RejectedHelperInfo.helper_name`` preserves the original source name.
     """
 
     functions: dict[str, YulFunction]
-    rejected: dict[str, str]
+    rejected: RejectedHelperMap
     deferred: dict[str, YulFunction] = field(default_factory=dict)
-    deferred_rejected: dict[str, tuple[str, str]] = field(default_factory=dict)
+    deferred_rejected: RejectedHelperMap = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -988,7 +1003,7 @@ class YulParser(_TokenReader):
         self._reference_scope_cache: dict[int, ReferenceScope] = {}
         self._source_names: set[str] | None = None
         self._deferred_helpers: dict[str, YulFunction] = {}
-        self._deferred_rejected: dict[str, str] = {}
+        self._deferred_rejected: RejectedHelperMap = {}
 
     def _all_source_names(self) -> set[str]:
         """Lazily collect all identifier names from the token stream."""
@@ -1148,7 +1163,7 @@ class YulParser(_TokenReader):
         """
         results: list[RawStatement] = []
         has_leave = False
-        scope_fns: dict[str, YulFunction | str] = {}
+        scope_fns: dict[str, YulFunction | RejectedHelperInfo] = {}
 
         while not self._at_end() and self._peek_kind() != "}":
             kind = self._peek_kind()
@@ -1304,7 +1319,7 @@ class YulParser(_TokenReader):
                             f"Duplicate helper function {fn_name!r} in the "
                             f"same lexical scope."
                         ) from err
-                    scope_fns[fn_name] = str(err)
+                    scope_fns[fn_name] = RejectedHelperInfo(fn_name, str(err))
                     self.i = saved_i
                     self._skip_function_def()
                     continue
@@ -1647,10 +1662,10 @@ class YulParser(_TokenReader):
                 scope_fns, self._deferred_helpers
             )
             pure_fns: dict[str, YulFunction] = {}
-            rejected_fns: dict[str, str] = {}
+            rejected_fns: RejectedHelperMap = {}
             deferred_fns: dict[str, YulFunction] = {}
             for name, fn_or_err in scope_fns.items():
-                if isinstance(fn_or_err, str):
+                if isinstance(fn_or_err, RejectedHelperInfo):
                     rejected_fns[name] = fn_or_err
                 elif name in non_pure:
                     deferred_fns[name] = fn_or_err
@@ -1677,7 +1692,7 @@ class YulParser(_TokenReader):
                 needed: set[str] = {
                     n for n in deferred_fns if n in called
                 }
-                needed_rejected: dict[str, str] = {}
+                needed_rejected: RejectedHelperMap = {}
                 worklist = list(needed)
                 while worklist:
                     dep = worklist.pop()
@@ -1739,7 +1754,10 @@ class YulParser(_TokenReader):
                 # can report the user-facing name, not the synthetic
                 # _dfr_* binding key.
                 for n, err in needed_rejected.items():
-                    self._deferred_rejected[rename_map[n]] = (n, err)
+                    self._deferred_rejected[rename_map[n]] = RejectedHelperInfo(
+                        err.helper_name,
+                        err.reason,
+                    )
 
         return results, has_leave
 
@@ -2161,9 +2179,9 @@ class YulParser(_TokenReader):
         can fail loudly if a selected target depends on them.
         """
         functions: dict[str, YulFunction] = {}
-        rejected: dict[str, str] = {}
+        rejected: RejectedHelperMap = {}
         deferred: dict[str, YulFunction] = {}
-        deferred_rejected: dict[str, tuple[str, str]] = {}
+        deferred_rejected: RejectedHelperMap = {}
         while not self._at_end():
             if self._peek_kind() == "ident" and self.tokens[self.i][1] == "function":
                 saved_i = self.i
@@ -2178,7 +2196,7 @@ class YulParser(_TokenReader):
                             f"Duplicate helper function {fn_name!r} in the "
                             f"same scope. Refuse to collect ambiguous helpers."
                         )
-                    rejected[fn_name] = str(err)
+                    rejected[fn_name] = RejectedHelperInfo(fn_name, str(err))
                     self.i = saved_i
                     self._skip_function_def()
                     continue
@@ -2468,7 +2486,7 @@ def _split_branch_scoped(
 
 def _merge_helper_collection(
     helper_table: dict[str, YulFunction],
-    rejected_helpers: dict[str, str],
+    rejected_helpers: RejectedHelperMap,
     collection: CollectedFunctions,
 ) -> None:
     """Merge one lexical scope's helpers, with inner names overriding outer."""
@@ -2482,10 +2500,9 @@ def _merge_helper_collection(
     for name, fn in collection.deferred.items():
         helper_table[name] = fn
     # Deferred rejected: helpers transitively referenced by deferred
-    # bodies that failed to parse.  Store (original_name, reason)
-    # so the error site can use the user-facing name.
-    for name, (orig, reason) in collection.deferred_rejected.items():
-        rejected_helpers[name] = (orig, reason)
+    # bodies that failed to parse.
+    for name, info in collection.deferred_rejected.items():
+        rejected_helpers[name] = info
 
 
 def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
@@ -2780,7 +2797,7 @@ def _inline_single_call(
     depth: int,
     max_depth: int,
     mstore_sink: list[FromWriteEffect] | None = None,
-    unsupported_function_errors: dict[str, str] | None = None,
+    unsupported_function_errors: RejectedHelperMap | None = None,
 ) -> Expr | tuple[Expr, ...]:
     """Inline one function call, returning its return-value expression(s).
 
@@ -3198,7 +3215,7 @@ def _collect_call_names_in_stmts(stmts: list[RawStatement]) -> set[str]:
 
 
 def _classify_non_pure_helpers(
-    scope_fns: dict[str, "YulFunction | str"],
+    scope_fns: dict[str, "YulFunction | RejectedHelperInfo"],
     deferred_from_inner: dict[str, "YulFunction"],
 ) -> set[str]:
     """Classify which helpers in a scope are non-pure.
@@ -3213,7 +3230,7 @@ def _classify_non_pure_helpers(
 
     # Seed: direct exact-from helpers
     for name, fn_or_err in scope_fns.items():
-        if isinstance(fn_or_err, str):
+        if isinstance(fn_or_err, RejectedHelperInfo):
             continue
         if _is_uint512_from_helper(fn_or_err) is not None:
             non_pure.add(name)
@@ -3226,7 +3243,7 @@ def _classify_non_pure_helpers(
     while changed:
         changed = False
         for name, fn_or_err in scope_fns.items():
-            if name in non_pure or isinstance(fn_or_err, str):
+            if name in non_pure or isinstance(fn_or_err, RejectedHelperInfo):
                 continue
             body_calls = _collect_call_names_in_stmts(fn_or_err.assignments)
             if body_calls & (non_pure | inner_keys):
@@ -3306,7 +3323,7 @@ def _rename_calls_in_stmts(
 def _inline_in_raw_statements(
     stmts: list[RawStatement],
     fn_table: dict[str, YulFunction],
-    rejected: dict[str, str] | None = None,
+    rejected: RejectedHelperMap | None = None,
 ) -> list[RawStatement]:
     """Apply ``inline_calls`` to every expression in a list of raw statements.
 
@@ -3371,13 +3388,20 @@ def _inline_in_raw_statements(
     return result
 
 
+def _format_rejected_helper_error(info: RejectedHelperInfo) -> str:
+    return (
+        f"Cannot inline helper {info.helper_name!r}: its Yul body was "
+        f"rejected during collection: {info.reason}"
+    )
+
+
 def inline_calls(
     expr: Expr,
     fn_table: dict[str, YulFunction],
     depth: int = 0,
     max_depth: int = 40,
     mstore_sink: list[FromWriteEffect] | None = None,
-    unsupported_function_errors: dict[str, str] | None = None,
+    unsupported_function_errors: RejectedHelperMap | None = None,
 ) -> Expr:
     """Recursively inline function calls in an expression.
 
@@ -3468,14 +3492,10 @@ def inline_calls(
                 unsupported_function_errors is not None
                 and inner.name in unsupported_function_errors
             ):
-                entry = unsupported_function_errors[inner.name]
-                if isinstance(entry, tuple):
-                    display_name, reason = entry
-                else:
-                    display_name, reason = inner.name, entry
                 raise ParseError(
-                    f"Cannot inline helper {display_name!r}: its Yul body was "
-                    f"rejected during collection: {reason}"
+                    _format_rejected_helper_error(
+                        unsupported_function_errors[inner.name]
+                    )
                 )
             # Inner call not in table — rebuild with inlined args
             return Project(idx, total, Call(inner.name, inner_args))
@@ -3529,14 +3549,10 @@ def inline_calls(
             unsupported_function_errors is not None
             and expr.name in unsupported_function_errors
         ):
-            entry = unsupported_function_errors[expr.name]
-            if isinstance(entry, tuple):
-                display_name, reason = entry
-            else:
-                display_name, reason = expr.name, entry
             raise ParseError(
-                f"Cannot inline helper {display_name!r}: its Yul body was "
-                f"rejected during collection: {reason}"
+                _format_rejected_helper_error(
+                    unsupported_function_errors[expr.name]
+                )
             )
 
         return Call(expr.name, args)
@@ -3546,7 +3562,7 @@ def inline_calls(
 def _inline_yul_function(
     yf: YulFunction,
     fn_table: dict[str, YulFunction],
-    unsupported_function_errors: dict[str, str] | None = None,
+    unsupported_function_errors: RejectedHelperMap | None = None,
 ) -> YulFunction:
     """Apply ``inline_calls`` to every expression in a YulFunction."""
 
@@ -5543,7 +5559,7 @@ def prepare_translation(
     # during parser-stage scope-local inlining.  Capture them per-target
     # so the later inlining phase can use them.
     parse_deferred: dict[str, dict[str, YulFunction]] = {}
-    parse_deferred_rejected: dict[str, dict[str, str]] = {}
+    parse_deferred_rejected: dict[str, RejectedHelperMap] = {}
 
     known_yul_names: set[str] = set()
     for sol_name in selected:
@@ -5583,7 +5599,7 @@ def prepare_translation(
     # Scope helper collection per-target so that each target is inlined with
     # helpers from its own enclosing Yul object.
     all_helpers: dict[str, YulFunction] = {}
-    all_rejected: dict[str, str] = {}
+    all_rejected: RejectedHelperMap = {}
 
     inlined_targets: dict[str, YulFunction] = {}
     for sol_name in selected:
@@ -5596,7 +5612,7 @@ def prepare_translation(
         # innermost.  Inner scopes override outer ones (Yul lexical
         # scoping).
         helper_table: dict[str, YulFunction] = {}
-        rejected_helpers: dict[str, str] = {}
+        rejected_helpers: RejectedHelperMap = {}
 
         if fn_token_idx is not None:
             # Walk up through enclosing block scopes from outermost to
@@ -6009,7 +6025,7 @@ class PreparedTranslation:
     fn_map: dict[str, str]
     yul_functions: dict[str, YulFunction]
     collected_helpers: dict[str, YulFunction]
-    rejected_helpers: dict[str, str]
+    rejected_helpers: RejectedHelperMap
 
 
 @dataclass(frozen=True)
