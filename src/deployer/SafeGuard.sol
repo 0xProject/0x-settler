@@ -645,8 +645,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             if (ownerCount < _MINIMUM_OWNERS) {
                 revert NotEnoughOwners(ownerCount);
             }
-        }
-        {
+
             uint256 threshold = _safe.getThreshold();
             if (threshold < _MINIMUM_THRESHOLD) {
                 revert ThresholdTooLow(threshold);
