@@ -1,5 +1,7 @@
+import os
 import pathlib
 import random
+import subprocess
 import sys
 import unittest
 
@@ -4087,6 +4089,32 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (7, 0)), (7,))
         self.assertEqual(ytl.evaluate_function_model(model, (7, 1)), (0,))
 
+    def test_translate_yul_to_models_keeps_post_conditional_local_binding_distinct_from_parameter_binding(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1, var_x_2) -> var_z_3 {
+                let usr$c := 3
+                if iszero(var_x_2) {
+                    usr$c := var_x_2
+                }
+                var_z_3 := eq(var_c_1, usr$c)
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0, 0)), (1,))
+        self.assertEqual(ytl.evaluate_function_model(model, (0, 1)), (0,))
+        self.assertEqual(ytl.evaluate_function_model(model, (2, 1)), (0,))
+        self.assertEqual(ytl.evaluate_function_model(model, (3, 1)), (1,))
+
     def test_translate_yul_to_models_rejects_constant_true_conditional_local_used_out_of_scope(
         self,
     ) -> None:
@@ -7452,6 +7480,75 @@ class LeanSourceDeterminismTest(unittest.TestCase):
 
         self.assertEqual(src1, src2)
         self.assertNotIn("Generated at (UTC)", src1)
+
+    def test_translate_yul_to_models_conditional_output_order_is_hash_seed_deterministic(
+        self,
+    ) -> None:
+        formal_dir = pathlib.Path(__file__).resolve().parent
+        code = f"""
+import pathlib
+import sys
+
+sys.path.insert(0, {str(formal_dir)!r})
+
+import yul_to_lean as ytl
+
+config = ytl.ModelConfig(
+    function_order=("f",),
+    model_names={{"f": "model_f"}},
+    header_comment="test",
+    generator_label="formal/test_yul_to_lean.py",
+    extra_norm_ops={{}},
+    extra_lean_defs="",
+    norm_rewrite=None,
+    inner_fn="f",
+    n_params=None,
+    exact_yul_names=None,
+    keep_solidity_locals=False,
+    hoist_repeated_calls=frozenset(),
+    skip_prune=frozenset(),
+    default_source_label="test",
+    default_namespace="Test",
+    default_output="",
+    cli_description="test",
+)
+yul = \"\"\"
+function fun_f_1(var_c_1, var_x_2) -> var_z_3 {{
+    let usr$a := 1
+    if var_x_2 {{
+        usr$a := 2
+        var_c_1 := 3
+    }}
+    var_z_3 := add(var_c_1, usr$a)
+}}
+\"\"\"
+result = ytl.translate_yul_to_models(
+    yul,
+    config,
+    pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+)
+stmt = next(
+    assignment
+    for assignment in result.models[0].assignments
+    if isinstance(assignment, ytl.ConditionalBlock)
+)
+print(repr((stmt.output_vars, stmt.then_branch.outputs, stmt.else_branch.outputs)))
+"""
+
+        outputs: list[str] = []
+        for seed in ("1", "2"):
+            env = dict(os.environ)
+            env["PYTHONHASHSEED"] = seed
+            completed = subprocess.run(
+                [sys.executable, "-c", code],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env,
+            )
+            outputs.append(completed.stdout.strip())
+
+        self.assertEqual(outputs[0], outputs[1])
 
 
 class BranchExprStmtTest(unittest.TestCase):
