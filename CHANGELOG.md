@@ -23,6 +23,12 @@
   * Polygon
   * Monad
   * Scroll
+* Add the following liquidity on Tempo
+  * RFQ
+  * UniswapV2
+  * VelodromeV2
+  * UniswapV3
+  * UniswapV4
 
 ## 2026-03-17
 
