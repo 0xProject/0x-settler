@@ -2308,6 +2308,8 @@ library Lib512MathArithmetic {
 
         uint256 z_hi_h;
         uint256 z_lo;
+        uint256 z_floor_h;
+        uint256 z_floor_lo;
         {
             uint256 a_ex;
             uint256 a_hi;
@@ -2336,6 +2338,8 @@ library Lib512MathArithmetic {
                     rem := addmod(mulmod(rem, sub(0, zd_lo), zd_lo), a_lo, zd_lo)
                 }
                 z_lo = _div(rem, 0, zd_lo);
+                z_floor_h = z_hi_h;
+                z_floor_lo = z_lo;
                 // Round to nearest
                 assembly ("memory-safe") {
                     let final_rem := addmod(mulmod(rem, sub(0, zd_lo), zd_lo), 0, zd_lo)
@@ -2373,6 +2377,8 @@ library Lib512MathArithmetic {
                     }
                 }
                 z_lo = _algorithmD(a_hi, a_lo, 0, zd_hi, zd_lo);
+                z_floor_h = z_hi_h;
+                z_floor_lo = z_lo;
             }
         }
 
@@ -2567,7 +2573,7 @@ library Lib512MathArithmetic {
         }
 
         // ── Stage 2: Fallback ──
-        return _lnFallback(u_hi, u_lo, u_neg, zd_hi, zd_lo, e, j, q_hi, q_lo, hi_hi, hi_lo);
+        return _lnFallback(z_floor_h, z_floor_lo, u_neg, e, j, hi_hi, hi_lo);
     }
 
     /// Multiply two Q280 values (a_h, a_lo) * (b_h, b_lo) and shift right by 280.
@@ -2796,253 +2802,307 @@ library Lib512MathArithmetic {
         }
     }
 
-    /// Stage 2 fallback: resolve the ambiguous fast-path case using one-profile
-    /// micro reduction and an adaptive odd atanh series.
-    function _lnFallback(
-        uint256 u_hi,
-        uint256 u_lo,
-        bool u_neg,
-        uint256 zd_hi,
-        uint256 zd_lo,
-        uint256 e,
-        uint256 j,
-        uint256 q_fast_hi,
-        uint256 q_fast_lo,
-        uint256 q_hi_hi,
-        uint256 q_hi_lo
-    ) private pure returns (uint256 r_hi, uint256 r_lo) {
-        // Compute z at Q256: z = |u_num| * 2^256 / z_den
-        uint256 z_q256 = _algorithmD(u_hi, u_lo, zd_hi, zd_lo);
-
-        // One-profile micro reduction:
-        // boundary = 1/128 at Q256 = 2^249
-        // lower bucket (k=0): c = 0, t = z
-        // upper bucket (k=1): c = 1/64 = 2^250 at Q256, t = (|z| - c) / (1 - |z|*c / 2^256)
-
-        uint256 a = z_q256; // |z| in Q256
-        bool upper;
+    /// Multiply two Q280 values and round the shifted result upward when any
+    /// truncated bit is nonzero.
+    function _lnMulShr280Up(uint256 a_h, uint256 a_lo, uint256 b_h, uint256 b_lo)
+        private
+        pure
+        returns (uint256 r_hi, uint256 r_lo)
+    {
         assembly ("memory-safe") {
-            upper := gt(a, sub(shl(249, 1), 1)) // a >= 2^249 = 1/128
-        }
+            let mm := mulmod(a_lo, b_lo, not(0x00))
+            let sq_lo := mul(a_lo, b_lo)
+            let sq_hi := sub(sub(mm, sq_lo), lt(mm, sq_lo))
 
-        uint256 t_q256;
-        if (!upper) {
-            // c = 0 → t = z
-            t_q256 = a;
-        } else {
-            // c = 2^250 (1/64 in Q256)
-            uint256 c = 1 << 250;
-            // t = (a - c) / (1 - a*c / 2^256)
-            uint256 t_num;
-            uint256 t_den;
-            assembly ("memory-safe") {
-                t_num := sub(a, c)
-                // a * c / 2^256: since a < 2^251 and c = 2^250, product < 2^501
-                // Use mulmod to get (a * c) mod 2^256, but we need the high part
-                let ac_lo := mul(a, c)
-                let ac_hi := shr(6, a) // a * 2^250 >> 256 = a >> 6
-                // Actually: a * c = a * 2^250. Split: a * 2^250 = (a >> 6) * 2^256 + (a & 0x3F) * 2^250
-                // ac_hi = a >> 6, ac_lo = shl(250, and(a, 0x3F))
-                ac_hi := shr(6, a)
-                ac_lo := shl(250, and(a, 0x3F))
-                // 1 - ac/2^256 in Q256 = 2^256 - ac_hi (approximately)
-                // But we need: (1 - a*c/2^256) * 2^256 = 2^256 - a*c/2^256 * 2^256
-                // Hmm this is getting circular. Let's use:
-                // denominator at Q256 = 2^256 - (a * c >> 256) = 2^256 - ac_hi
-                // But also need the fractional part for precision.
-                // For simplicity: t_den = -ac_hi (as 2^256 - ac_hi wraps)
-                t_den := sub(0, ac_hi) // 2^256 - ac_hi (mod 2^256)
-                // This loses precision from ac_lo, but ac_lo / 2^256 is tiny
-            }
-            // t = t_num * 2^256 / t_den = t_num * 2^256 / (2^256 - a*c/2^256)
-            // Since t_num < 2^249 and t_den ≈ 2^256, quotient is small
-            // Use: t_q256 = t_num * 2^256 / t_den
-            // This is a 505-bit / 256-bit division
-            (uint256 tn_hi, uint256 tn_lo) = _mul(t_num, t_den); // wait, we want t_num / t_den
-            // Actually we need: t_q256 = round(t_num * 2^256 / t_den)
-            // t_num fits in 249 bits. t_num << 256 = (t_num, 0) which is 505 bits.
-            // _div(t_num, 0, t_den) gives floor(t_num * 2^256 / t_den)
-            t_q256 = _div(t_num, 0, t_den);
-        }
+            let p_mm := mulmod(a_h, b_lo, not(0x00))
+            let p_lo := mul(a_h, b_lo)
+            let p_hi := sub(sub(p_mm, p_lo), lt(p_mm, p_lo))
+            let q_mm := mulmod(a_lo, b_h, not(0x00))
+            let q_lo := mul(a_lo, b_h)
+            let q_hi := sub(sub(q_mm, q_lo), lt(q_mm, q_lo))
 
-        // Compute the prefix correction delta
-        // delta = (q_fast >> 24) - q_hi + (exact_prefix - fast_prefix) + micro_additive - local_fast
-        //
-        // For the EVM implementation, we compute delta as a signed 2-word value:
-        // base = q_fast >> 24 (2-word)
-        // delta_base = base - q_hi (signed, small since fast was nearly correct)
-        uint256 base_hi;
-        uint256 base_lo;
-        (base_hi, base_lo) = _shr(q_fast_hi, q_fast_lo, 24);
+            let cross_lo := add(p_lo, q_lo)
+            let carry_cross := lt(cross_lo, p_lo)
+            let cross_hi := add(add(p_hi, q_hi), carry_cross)
 
-        // delta_base = base - q_hi (could be negative if base < q_hi)
-        // Since we know the true answer is q_hi or q_hi-1, delta is close to 0.
-        // We'll track sign separately.
-        bool delta_neg;
-        uint256 delta_hi;
-        uint256 delta_lo;
-        if (_gt(q_hi_hi, q_hi_lo, base_hi, base_lo)) {
-            delta_neg = true;
-            (delta_hi, delta_lo) = _sub(q_hi_hi, q_hi_lo, base_hi, base_lo);
-        } else {
-            delta_neg = false;
-            (delta_hi, delta_lo) = _sub(base_hi, base_lo, q_hi_hi, q_hi_lo);
-        }
+            let prod_mid := add(sq_hi, cross_lo)
+            let prod_ex := add(add(mul(a_h, b_h), cross_hi), lt(prod_mid, sq_hi))
 
-        // For now, use a simplified fallback: compute ln(x) at higher precision
-        // using the exact Q256 constants and the adaptive series.
-        //
-        // exact_prefix = e * LN2_EXACT + C0_EXACT[j]
-        uint256 exact_prefix;
-        {
-            uint256 ln2_exact = 80260960185991308862233904206310070533990667611589946606122867505419956976172;
-            (uint256 ep_hi, uint256 ep_lo) = _mul(e, ln2_exact);
-            uint256 c0_exact = _lnC0ExactQ256(j);
-            (ep_hi, ep_lo) = _add(ep_hi, ep_lo, c0_exact);
-            // exact_prefix is in Q256, up to ~265 bits (2-word)
-            // fast_prefix = (e * LN2_FAST + C0_FAST[j]) >> 24
-            // Both are the same mathematical value to within the fast-path rounding.
-            // The delta between them is tiny. For the adaptive series, we just need
-            // to determine whether the true ln(x)*2^256 is >= q_hi or < q_hi.
-            //
-            // true_value = exact_prefix + 2*atanh(z) (in Q256)
-            // where 2*atanh(z) = 2*atanh(c) + 2*atanh(t) for the micro reduction.
-            //
-            // We need: is exact_prefix + 2*atanh(c) + 2*atanh(t) >= q_hi ?
+            r_lo := or(shr(24, prod_mid), shl(232, prod_ex))
+            r_hi := shr(24, prod_ex)
 
-            // micro additive constant: 2*atanh(c)
-            // If lower (c=0): 0
-            // If upper (c=1/64): A64_Q256 = 3618797306320365907038389356091966445740960606432524368886479476623023988535
-            if (upper) {
-                if (u_neg) {
-                    (ep_hi, ep_lo) = _sub(ep_hi, ep_lo, 3618797306320365907038389356091966445740960606432524368886479476623023988535);
-                } else {
-                    (ep_hi, ep_lo) = _add(ep_hi, ep_lo, 3618797306320365907038389356091966445740960606432524368886479476623023988535);
-                }
-            }
-
-            // Now we need: is ep + 2*atanh(t) >= q_hi ?
-            // Equivalently: is ep - q_hi + 2*atanh(t) >= 0 ?
-            // Let D = ep - q_hi (signed)
-            bool D_neg;
-            uint256 D_hi;
-            uint256 D_lo;
-            if (_gt(q_hi_hi, q_hi_lo, ep_hi, ep_lo)) {
-                D_neg = true;
-                (D_hi, D_lo) = _sub(q_hi_hi, q_hi_lo, ep_hi, ep_lo);
-            } else {
-                D_neg = false;
-                (D_hi, D_lo) = _sub(ep_hi, ep_lo, q_hi_hi, q_hi_lo);
-            }
-
-            // t_q256 is |t| in Q256. The sign of t matches sign of z (if c > 0)
-            // or is always positive (if c = 0 and z > 0) or negative (c=0 and z < 0).
-            // For simplicity: t has the same sign as z.
-            // 2*atanh(t) = 2*t + 2*t^3/3 + 2*t^5/5 + ...
-            // We need to add this to D and check sign.
-
-            // The sign of 2*atanh(t) is the same as sign of z (since t is derived from z)
-            // If u_neg (z < 0): 2*atanh(t) is negative → 2*atanh(|t|) with negative sign
-            // If !u_neg (z > 0): 2*atanh(t) is positive
-
-            // Adaptive series to determine sign of D + sign_z * 2*atanh(|t|)
-            uint256 a_val = t_q256;
-            uint256 a2;
-            (uint256 a2_hi,) = _mul(a_val, a_val);
-            a2 = a2_hi; // a^2 in Q256 (just the high word of the 512-bit product)
-
-            uint256 pow_a = a_val;
-            uint256 partialSum = 0;
-
-            // q_lo = q_hi - 1 (the other candidate)
-            uint256 q_lo_hi_val;
-            uint256 q_lo_lo_val;
-            (q_lo_hi_val, q_lo_lo_val) = _sub(q_hi_hi, q_hi_lo, 1);
-
-            for (uint256 m = 0; m < 80; m++) {
-                unchecked {
-                    uint256 odd = 2 * m + 1;
-                    // Add current term: 2 * pow_a / odd
-                    uint256 term = (2 * pow_a) / odd;
-                    partialSum += term;
-
-                    // Compute remainder bound: 2 * pow_a * a2 / ((odd+2) * (2^256 - a2))
-                    // Simplified: since a2 << 2^256, the denominator ≈ (odd+2) * 2^256
-                    // So rem ≈ 2 * pow_a * a2 / ((odd+2) * 2^256) = 2 * (pow_a * a2 >> 256) / (odd+2)
-                    (uint256 pa_hi,) = _mul(pow_a, a2);
-                    uint256 rem = (2 * pa_hi) / (odd + 2) + 1; // +1 for conservative bound
-
-                    // Check: is D + sign_z * (partialSum + rem) all same sign?
-                    // If D_neg == u_neg: they cancel partialSumly
-                    // If D_neg != u_neg: they reinforce
-
-                    // lower bound of (D + tail): use partialSum (without rem) if tail positive,
-                    //   or partialSum + rem if tail negative
-                    // upper bound of (D + tail): use partialSum + rem if tail positive,
-                    //   or partialSum (without rem) if tail negative
-
-                    uint256 tail_lo = partialSum;
-                    uint256 tail_hi_val = partialSum + rem;
-
-                    bool result_neg;
-                    bool result_pos;
-
-                    if (!u_neg) {
-                        // tail is positive
-                        if (!D_neg) {
-                            // D >= 0, tail >= 0 → always positive → return q_hi
-                            return (q_hi_hi, q_hi_lo);
-                        } else {
-                            // D < 0, tail > 0. Check if tail_lo > |D|
-                            result_pos = (D_hi == 0 && tail_lo >= D_lo);
-                            result_neg = (D_hi > 0 || (D_hi == 0 && tail_hi_val < D_lo));
-                        }
-                    } else {
-                        // tail is negative
-                        if (D_neg) {
-                            // D < 0, tail < 0 → always negative → return q_lo
-                            return (q_lo_hi_val, q_lo_lo_val);
-                        } else {
-                            // D >= 0, tail < 0. Check if |tail| > D
-                            result_neg = (D_hi == 0 && tail_lo > D_lo);
-                            result_pos = (D_hi > 0 || (D_hi == 0 && tail_hi_val <= D_lo));
-                        }
-                    }
-
-                    if (result_neg) return (q_lo_hi_val, q_lo_lo_val);
-                    if (result_pos) return (q_hi_hi, q_hi_lo);
-
-                    // Next power: pow_a = pow_a * a2 >> 256
-                    pow_a = pa_hi;
-                }
-            }
-
-            // Should not reach here given our convergence bounds
-            // Return q_hi as fallback
-            return (q_hi_hi, q_hi_lo);
+            let inc := or(iszero(iszero(sq_lo)), iszero(iszero(and(prod_mid, 0xFFFFFF))))
+            r_lo := add(r_lo, inc)
+            r_hi := add(r_hi, lt(r_lo, inc))
         }
     }
 
-    /// Look up C0_EXACT Q256 constant by bucket index j (0..15).
-    function _lnC0ExactQ256(uint256 j) private pure returns (uint256 r) {
+    /// Divide `(num_hi, num_lo) << (256 + s)` by `(den_hi, den_lo)` and return
+    /// the 2-word quotient at Q280/Q320 scale. When `roundUp` is true, any
+    /// nonzero remainder rounds the quotient upward.
+    function _lnDivShiftAbove256(
+        uint256 num_hi,
+        uint256 num_lo,
+        uint256 s,
+        uint256 den_hi,
+        uint256 den_lo,
+        bool roundUp
+    ) private pure returns (uint256 q_hi, uint256 q_lo) {
+        uint256 a_ex;
+        uint256 a_hi;
+        uint256 a_lo;
+        (a_ex, a_hi, a_lo) = _shl256(num_hi, num_lo, s);
+
+        uint256 rem_hi;
+        uint256 rem_lo;
+        if (den_hi == 0) {
+            q_hi = _algorithmD(a_ex, a_hi, a_lo, den_lo, 0);
+            {
+                (uint256 p_hi, uint256 p_lo) = _mul(q_hi, den_lo);
+                assembly ("memory-safe") {
+                    let b := lt(a_lo, p_lo)
+                    rem_lo := sub(a_lo, p_lo)
+                    let mid := sub(a_hi, b)
+                    b := or(lt(a_hi, b), lt(mid, p_hi))
+                    rem_hi := sub(mid, p_hi)
+                }
+            }
+            q_lo = _div(rem_hi, rem_lo, den_lo);
+            if (roundUp) {
+                (uint256 p_hi, uint256 p_lo) = _mul(q_lo, den_lo);
+                if (p_hi != rem_hi || p_lo != rem_lo) {
+                    (q_hi, q_lo) = _add(q_hi, q_lo, 1);
+                }
+            }
+        } else {
+            q_hi = _algorithmD(a_ex, a_hi, a_lo, den_hi, den_lo);
+            {
+                (uint256 p_ex, uint256 p_hi, uint256 p_lo) = _mul768(den_hi, den_lo, q_hi);
+                assembly ("memory-safe") {
+                    let b := lt(a_lo, p_lo)
+                    rem_lo := sub(a_lo, p_lo)
+                    let mid := sub(a_hi, b)
+                    b := or(lt(a_hi, b), lt(mid, p_hi))
+                    rem_hi := sub(mid, p_hi)
+                    let top := sub(a_ex, add(p_ex, b))
+                    if top { revert(0, 0) }
+                }
+            }
+
+            q_lo = _algorithmD(rem_hi, rem_lo, 0, den_hi, den_lo);
+            if (roundUp) {
+                (uint256 p_ex, uint256 p_hi, uint256 p_lo) = _mul768(den_hi, den_lo, q_lo);
+                if (p_ex != rem_hi || p_hi != rem_lo || p_lo != 0) {
+                    (q_hi, q_lo) = _add(q_hi, q_lo, 1);
+                }
+            }
+        }
+    }
+
+    /// Evaluate `2 * pow / odd` at Q320, optionally rounding upward.
+    function _lnTermQ320(uint256 pow_hi, uint256 pow_lo, uint256 odd, bool roundUp)
+        private
+        pure
+        returns (uint256 r_hi, uint256 r_lo)
+    {
+        uint256 num_hi;
+        uint256 num_lo;
+        assembly ("memory-safe") {
+            num_hi := or(shl(41, pow_hi), shr(215, pow_lo))
+            num_lo := shl(41, pow_lo)
+        }
+
+        unchecked {
+            r_hi = num_hi / odd;
+            uint256 rem = num_hi % odd;
+            r_lo = _div(rem, num_lo, odd);
+
+            if (roundUp) {
+                (uint256 p_hi, uint256 p_lo) = _mul(r_lo, odd);
+                if (p_hi != rem || p_lo != num_lo) {
+                    (r_hi, r_lo) = _add(r_hi, r_lo, 1);
+                }
+            }
+        }
+    }
+
+    /// Stage 2 fallback: resolve the ambiguous fast-path case using one-profile
+    /// micro reduction and a certified odd atanh series at Q320.
+    function _lnFallback(
+        uint256 z_floor_hi,
+        uint256 z_floor_lo,
+        bool u_neg,
+        uint256 e,
+        uint256 j,
+        uint256 q_hi_hi,
+        uint256 q_hi_lo
+    ) private pure returns (uint256 r_hi, uint256 r_lo) {
+        uint256 prefix_lo_hi;
+        uint256 prefix_lo_lo;
+        uint256 prefix_hi_hi;
+        uint256 prefix_hi_lo;
+        {
+            uint256 ln2_hi = 12786308645202655659;
+            uint256 ln2_lo = 91317196359865092531236635605243892307878067935356706245347802392422075051160;
+            (prefix_lo_hi, prefix_lo_lo) = _mul(ln2_hi, ln2_lo, e);
+
+            (uint256 c0_hi, uint256 c0_lo) = _lnC0ExactQ320(j);
+            (prefix_lo_hi, prefix_lo_lo) = _add(prefix_lo_hi, prefix_lo_lo, c0_hi, c0_lo);
+            (prefix_hi_hi, prefix_hi_lo) = _add(prefix_lo_hi, prefix_lo_lo, e + 1);
+        }
+
+        bool t_neg = u_neg;
+        uint256 t_lo_hi = z_floor_hi;
+        uint256 t_lo_lo = z_floor_lo;
+        uint256 t_hi_hi;
+        uint256 t_hi_lo;
+        (t_hi_hi, t_hi_lo) = _add(z_floor_hi, z_floor_lo, 1);
+
+        bool upper = z_floor_hi >= (1 << 17); // 1/128 in Q280
+        if (upper) {
+            uint256 a64_hi = 576507671672688204;
+            uint256 a64_lo = 50846012130876597723182713672101092682519933163196140189536923977285702678716;
+
+            if (u_neg) {
+                (prefix_lo_hi, prefix_lo_lo) = _sub(prefix_lo_hi, prefix_lo_lo, a64_hi, a64_lo);
+                (prefix_lo_hi, prefix_lo_lo) = _sub(prefix_lo_hi, prefix_lo_lo, 1);
+                (prefix_hi_hi, prefix_hi_lo) = _sub(prefix_hi_hi, prefix_hi_lo, a64_hi, a64_lo);
+            } else {
+                (prefix_lo_hi, prefix_lo_lo) = _add(prefix_lo_hi, prefix_lo_lo, a64_hi, a64_lo);
+                (prefix_hi_hi, prefix_hi_lo) = _add(prefix_hi_hi, prefix_hi_lo, a64_hi, a64_lo);
+                (prefix_hi_hi, prefix_hi_lo) = _add(prefix_hi_hi, prefix_hi_lo, 1);
+            }
+
+            uint256 c_hi = 1 << 18; // 1/64 in Q280
+            uint256 scale_hi = 1 << 24; // 1 in Q280
+
+            if (z_floor_hi < c_hi) {
+                t_neg = !u_neg;
+
+                uint256 z_plus_hi;
+                uint256 z_plus_lo;
+                (z_plus_hi, z_plus_lo) = _add(z_floor_hi, z_floor_lo, 1);
+
+                {
+                    (uint256 num_hi, uint256 num_lo) = _sub(c_hi, 0, z_plus_hi, z_plus_lo);
+                    (uint256 div_hi, uint256 div_lo) = _shr(z_plus_hi, z_plus_lo, 6);
+                    (uint256 den_hi, uint256 den_lo) = _sub(scale_hi, 0, div_hi, div_lo);
+                    (t_lo_hi, t_lo_lo) = _lnDivShiftAbove256(num_hi, num_lo, 24, den_hi, den_lo, false);
+                }
+                {
+                    (uint256 num_hi, uint256 num_lo) = _sub(c_hi, 0, z_floor_hi, z_floor_lo);
+                    (uint256 z_ceil_hi, uint256 z_ceil_lo) = _add(z_floor_hi, z_floor_lo, 63);
+                    (uint256 div_hi, uint256 div_lo) = _shr(z_ceil_hi, z_ceil_lo, 6);
+                    (uint256 den_hi, uint256 den_lo) = _sub(scale_hi, 0, div_hi, div_lo);
+                    (t_hi_hi, t_hi_lo) = _lnDivShiftAbove256(num_hi, num_lo, 24, den_hi, den_lo, true);
+                }
+            } else {
+                {
+                    uint256 z_plus_hi;
+                    uint256 z_plus_lo;
+                    (z_plus_hi, z_plus_lo) = _add(z_floor_hi, z_floor_lo, 1);
+
+                    (uint256 div_hi, uint256 div_lo) = _shr(z_floor_hi, z_floor_lo, 6);
+                    (uint256 den_hi, uint256 den_lo) = _sub(scale_hi, 0, div_hi, div_lo);
+                    (uint256 num_hi, uint256 num_lo) = _sub(z_floor_hi, z_floor_lo, c_hi, 0);
+                    (t_lo_hi, t_lo_lo) = _lnDivShiftAbove256(num_hi, num_lo, 24, den_hi, den_lo, false);
+
+                    (uint256 z_ceil_hi, uint256 z_ceil_lo) = _add(z_plus_hi, z_plus_lo, 63);
+                    (div_hi, div_lo) = _shr(z_ceil_hi, z_ceil_lo, 6);
+                    (den_hi, den_lo) = _sub(scale_hi, 0, div_hi, div_lo);
+                    (num_hi, num_lo) = _sub(z_plus_hi, z_plus_lo, c_hi, 0);
+                    (t_hi_hi, t_hi_lo) = _lnDivShiftAbove256(num_hi, num_lo, 24, den_hi, den_lo, true);
+                }
+            }
+        }
+
+        uint256 target_hi;
+        uint256 target_lo;
+        assembly ("memory-safe") {
+            target_hi := or(shl(64, q_hi_hi), shr(192, q_hi_lo))
+            target_lo := shl(64, q_hi_lo)
+        }
+        (uint256 q_lo_hi, uint256 q_lo_lo) = _sub(q_hi_hi, q_hi_lo, 1);
+
+        (uint256 a2_lo_hi, uint256 a2_lo_lo) = _lnMulShr280(t_lo_hi, t_lo_lo, t_lo_hi, t_lo_lo);
+        (uint256 a2_hi_hi, uint256 a2_hi_lo) = _lnMulShr280Up(t_hi_hi, t_hi_lo, t_hi_hi, t_hi_lo);
+        uint256 pow_lo_hi = t_lo_hi;
+        uint256 pow_lo_lo = t_lo_lo;
+        uint256 pow_hi_hi = t_hi_hi;
+        uint256 pow_hi_lo = t_hi_lo;
+        uint256 partial_lo_hi;
+        uint256 partial_lo_lo;
+        uint256 partial_hi_hi;
+        uint256 partial_hi_lo;
+
+        for (uint256 m = 0; m < 80; m++) {
+            unchecked {
+                uint256 odd = 2 * m + 1;
+                (uint256 term_lo_hi, uint256 term_lo_lo) = _lnTermQ320(pow_lo_hi, pow_lo_lo, odd, false);
+                (partial_lo_hi, partial_lo_lo) = _add(partial_lo_hi, partial_lo_lo, term_lo_hi, term_lo_lo);
+
+                (uint256 term_hi_hi, uint256 term_hi_lo) = _lnTermQ320(pow_hi_hi, pow_hi_lo, odd, true);
+                (partial_hi_hi, partial_hi_lo) = _add(partial_hi_hi, partial_hi_lo, term_hi_hi, term_hi_lo);
+
+                (uint256 next_pow_lo_hi, uint256 next_pow_lo_lo) =
+                    _lnMulShr280(pow_lo_hi, pow_lo_lo, a2_lo_hi, a2_lo_lo);
+                (uint256 next_pow_hi_hi, uint256 next_pow_hi_lo) =
+                    _lnMulShr280Up(pow_hi_hi, pow_hi_lo, a2_hi_hi, a2_hi_lo);
+
+                (uint256 den_base_hi, uint256 den_base_lo) = _sub(1 << 24, 0, a2_hi_hi, a2_hi_lo);
+                (uint256 den_hi, uint256 den_lo) = _mul(den_base_hi, den_base_lo, odd + 2);
+                (uint256 rem_hi_hi, uint256 rem_hi_lo) =
+                    _lnDivShiftAbove256(next_pow_hi_hi, next_pow_hi_lo, 65, den_hi, den_lo, true);
+
+                uint256 tail_hi_hi;
+                uint256 tail_hi_lo;
+                (tail_hi_hi, tail_hi_lo) = _add(partial_hi_hi, partial_hi_lo, rem_hi_hi, rem_hi_lo);
+
+                uint256 lo_hi;
+                uint256 lo_lo;
+                uint256 hi_hi;
+                uint256 hi_lo;
+                if (!t_neg) {
+                    (lo_hi, lo_lo) = _add(prefix_lo_hi, prefix_lo_lo, partial_lo_hi, partial_lo_lo);
+                    (hi_hi, hi_lo) = _add(prefix_hi_hi, prefix_hi_lo, tail_hi_hi, tail_hi_lo);
+                } else {
+                    (lo_hi, lo_lo) = _sub(prefix_lo_hi, prefix_lo_lo, tail_hi_hi, tail_hi_lo);
+                    (hi_hi, hi_lo) = _sub(prefix_hi_hi, prefix_hi_lo, partial_lo_hi, partial_lo_lo);
+                }
+
+                if (_gt(target_hi, target_lo, hi_hi, hi_lo)) return (q_lo_hi, q_lo_lo);
+                if (!_gt(target_hi, target_lo, lo_hi, lo_lo)) return (q_hi_hi, q_hi_lo);
+
+                pow_lo_hi = next_pow_lo_hi;
+                pow_lo_lo = next_pow_lo_lo;
+                pow_hi_hi = next_pow_hi_hi;
+                pow_hi_lo = next_pow_hi_lo;
+            }
+        }
+
+        return (q_hi_hi, q_hi_lo);
+    }
+
+    /// Look up C0_EXACT Q320 constants by bucket index j (0..15).
+    function _lnC0ExactQ320(uint256 j) private pure returns (uint256 r_hi, uint256 r_lo) {
         assembly ("memory-safe") {
             switch j
-            case 0  { r := 3676248108410512522884654055069347598461433908038198409365577366166115323608 }
-            case 1  { r := 11398581695720039721329937428610221209796015481254489863285451918405973902822 }
-            case 2  { r := 15461878930761829229137676699525226505276924779444969780503827915434241961033 }
-            case 3  { r := 24042995855582136664155807340809396252638427204525638120407873210386888890307 }
-            case 4  { r := 28584444172978065591130410613805318878106222400090682170856585690648758938527 }
-            case 5  { r := 33311308205312680284369338703716915449575454018676753548640125684805014437579 }
-            case 6  { r := 38239374875999667522032947591743520695232775968320786985104801804537284692778 }
-            case 7  { r := 43386537334357651191261462168781086211962300144685414986294608961431443799443 }
-            case 8  { r := 48773187136074509513507015403242141954852378798121723329143953600239256398613 }
-            case 9  { r := 54422702179484687226682157410057694706048445005840314388489726598034357957349 }
-            case 10 { r := 60362059900483868559960435468053842960499603275763905875550966723903832117518 }
-            case 11 { r := 60362059900483868559960435468053842960499603275763905875550966723903832117518 }
-            case 12 { r := 66622616410625360568738677407433830899150908037353507097280251369610028875158 }
-            case 13 { r := 73241108566644139308970233205920051172483346696661603115364893905619174842851 }
-            case 14 { r := 73241108566644139308970233205920051172483346696661603115364893905619174842851 }
-            case 15 { r := 80260960185991308862233904206310070533990667611589946606122867505419956976172 }
+            case 0  { r_hi := 585660112482476600 r_lo := 5255009791968376890236157415062556738065893811478140166590940597211018530805 }
+            case 1  { r_hi := 1815898829783402670 r_lo := 13284287601810088213123856027225410313212219748776054667237684471325614320893 }
+            case 2  { r_hi := 2463219425550596028 r_lo := 46628004878534036430217502744980175254467730416010248836657505932381915371144 }
+            case 3  { r_hi := 3830270221691897566 r_lo := 39727440959026400431616575470929732199854441420123114539661218392085890035358 }
+            case 4  { r_hi := 4553764679618851579 r_lo := 22847484491059155300510672128179947365258279026686273533603690318560551318851 }
+            case 5  { r_hi := 5306797565112371680 r_lo := 108409938937073640532013212636725238658872401156985529910736983400197060083936 }
+            case 6  { r_hi := 6091883880171659064 r_lo := 29263209015836803063492749813116655911587969038363606131401744478246969626477 }
+            case 7  { r_hi := 6911874167941132215 r_lo := 70544604553347678088147587916764867193687642081462981369572094478744507600154 }
+            case 8  { r_hi := 7770016990662967709 r_lo := 39245854578291481538659730373017506060070146907355214707936905324665845815144 }
+            case 9  { r_hi := 8670036662410753619 r_lo := 57082340425462123915873653866711919836568173481021489889475746355491313185006 }
+            case 10 { r_hi := 9616230936675340826 r_lo := 102278577130403991205757066325864286511004667737836038445120415053120506731166 }
+            case 11 { r_hi := 9616230936675340826 r_lo := 102278577130403991205757066325864286511004667737836038445120415053120506731166 }
+            case 12 { r_hi := 10613595130224743361 r_lo := 101027788636831085640455440264762569464474817648330495782016382792480990527936 }
+            case 13 { r_hi := 11667981761989453435 r_lo := 5199795555183918288638708888259562632781237079777671483271797717824052763793 }
+            case 14 { r_hi := 11667981761989453435 r_lo := 5199795555183918288638708888259562632781237079777671483271797717824052763793 }
+            case 15 { r_hi := 12786308645202655659 r_lo := 91317196359865092531236635605243892307878067935356706245347802392422075051160 }
         }
     }
 

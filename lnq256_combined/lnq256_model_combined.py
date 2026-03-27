@@ -136,6 +136,7 @@ CENTER1_NUM = 64
 BOUND_NUM = 32
 
 A64_Q256 = 3618797306320365907038389356091966445740960606432524368886479476623023988535
+FALLBACK_EXTRA_BITS = 40
 
 MAX_SERIES_TERMS = 80
 
@@ -143,7 +144,10 @@ MAX_SERIES_TERMS = 80
 MP_DPS = 420
 mp.mp.dps = MP_DPS
 MP_TWO_POW_256 = mp.mpf(2) ** 256
+MP_TWO_POW_320 = mp.mpf(2) ** 320
 LN2_Q256 = mp.log(2) * MP_TWO_POW_256
+LN2_Q256_FLOOR = int(mp.floor(LN2_Q256))
+LN2_Q320_FLOOR = int(mp.floor(mp.log(2) * MP_TWO_POW_320))
 
 CENTER0 = mp.mpf(CENTER0_NUM) / STAGE2_DEN
 CENTER1 = mp.mpf(CENTER1_NUM) / STAGE2_DEN
@@ -155,6 +159,9 @@ A_MICRO_STAGE2 = [
 
 # Exact Q256-scale coarse constants for the fallback correction path.
 C0_EXACT_Q256 = [-mp.log(mp.mpf(n) / 32) * MP_TWO_POW_256 for n in N0]
+C0_EXACT_Q256_FLOOR = [int(mp.floor(v)) for v in C0_EXACT_Q256]
+C0_EXACT_Q320_FLOOR = [int(mp.floor(v * (1 << 64))) for v in C0_EXACT_Q256]
+A64_Q320_FLOOR = int(mp.floor(A_MICRO_STAGE2[1] * (1 << 64)))
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -169,6 +176,12 @@ def _round_div(num: int, den: int) -> int:
     return -(((-num) + den // 2) // den)
 
 
+def _ceil_div(num: int, den: int) -> int:
+    if den <= 0:
+        raise ValueError("den must be positive")
+    return -(-num // den)
+
+
 def _floor_div_pow2_signed(x: int, shift: int) -> int:
     if x >= 0:
         return x >> shift
@@ -180,6 +193,13 @@ def _mulshr_round(a: int, b: int, shift: int) -> int:
     if prod >= 0:
         return (prod + (1 << (shift - 1))) >> shift
     return -(((-prod) + (1 << (shift - 1))) >> shift)
+
+
+def _mulshr_floor(a: int, b: int, shift: int) -> int:
+    prod = a * b
+    if prod >= 0:
+        return prod >> shift
+    return -(((-prod) + (1 << shift) - 1) >> shift)
 
 
 def _qmul_coeff(a_qc: int, b_q256: int) -> int:
@@ -230,33 +250,38 @@ def extract_state(x: int) -> CoarseState:
 
 
 def fast_eval_state(state: CoarseState) -> int:
-    """Evaluate the fast-path approximation at Q(256 + G_FAST)."""
-    z_hi = _round_div(state.u_num * SCALE_FAST, state.z_den)
-    w_hi = _mulg_fast(z_hi, z_hi)
-    w_q256 = _round_div(w_hi, 1 << G_FAST)
+    """Evaluate the fast path using Solidity-style truncation points.
+
+    The EVM implementation keeps the Horner chain rounded, but its Q280 power
+    chain and residual accumulation truncate on right shifts. It also rounds
+    the initial z division only when the denominator fits in one word.
+    """
+    z_num = abs(state.u_num) * SCALE_FAST
+    if state.z_den < SCALE:
+        z_hi = _round_div(z_num, state.z_den)
+    else:
+        z_hi = z_num // state.z_den
+
+    w_hi = _mulshr_floor(z_hi, z_hi, 256 + G_FAST)
+    w_q256 = w_hi >> G_FAST
 
     r_qc = _eval_fast_rational(w_q256)
 
-    z3_hi = _mulg_fast(z_hi, w_hi)
-    z5_hi = _mulg_fast(z3_hi, w_hi)
-    z7_hi = _mulg_fast(z5_hi, w_hi)
-    z9_hi = _mulg_fast(z7_hi, w_hi)
+    z3_hi = _mulshr_floor(z_hi, w_hi, 256 + G_FAST)
+    z5_hi = _mulshr_floor(z3_hi, w_hi, 256 + G_FAST)
+    z7_hi = _mulshr_floor(z5_hi, w_hi, 256 + G_FAST)
+    z9_hi = _mulshr_floor(z7_hi, w_hi, 256 + G_FAST)
 
     term3_hi = _round_div(z3_hi * 2, 3)
     term5_hi = _round_div(z5_hi * 2, 5)
     term7_hi = _round_div(z7_hi * 2, 7)
-    resid_hi = _mulshr_round(z9_hi, r_qc, COEFF_BITS)
+    resid_hi = _mulshr_floor(z9_hi, r_qc, COEFF_BITS)
 
-    return (
-        state.exponent * LN2_FAST
-        + C0_FAST[state.bucket]
-        + (z_hi << 1)
-        + term3_hi
-        + term5_hi
-        + term7_hi
-        + resid_hi
-        + FAST_BIAS_Q[state.bucket]
-    )
+    local_hi = (z_hi << 1) + term3_hi + term5_hi + term7_hi + resid_hi
+    prefix_hi = state.exponent * LN2_FAST + C0_FAST[state.bucket]
+
+    q_fast = prefix_hi - local_hi if state.u_num < 0 else prefix_hi + local_hi
+    return q_fast + FAST_BIAS_Q[state.bucket]
 
 
 def _fast_interval_floor(q_fast: int, bucket: int) -> Tuple[int, int]:
@@ -276,18 +301,13 @@ class ResidualInfo:
     micro_bucket: int
     sign_z: int
     sign_t: int
-    z: mp.mpf
-    t: mp.mpf
+    z_q256: int
+    t_q256: int
     terms_used: int
 
 
 def _micro_reduce_from_state(state: CoarseState) -> Tuple[mp.mpf, int, int, mp.mpf, mp.mpf]:
-    """One shared 2-bucket micro reduction in |z|.
-
-    Lower bucket (k=0): c = 0
-    Upper bucket (k=1): c = sign(z) * 1/64
-    Boundary: |z| < 1/128
-    """
+    """One shared 2-bucket micro reduction in exact arithmetic."""
     z = mp.mpf(state.u_num) / mp.mpf(state.z_den)
     sign_z = -1 if z < 0 else 1
     a = -z if z < 0 else z
@@ -298,51 +318,66 @@ def _micro_reduce_from_state(state: CoarseState) -> Tuple[mp.mpf, int, int, mp.m
     return z, k, sign_z, c, t
 
 
-def _resolve_tail_by_adaptive_series(
-    delta_q256: mp.mpf,
-    t: mp.mpf,
-    q_lo: int,
-    q_hi: int,
-    *,
-    max_terms: int = MAX_SERIES_TERMS,
-) -> Tuple[int, int]:
-    """Certify the boundary decision using an adaptive odd atanh series.
+def _micro_reduce_q256_from_state(state: CoarseState) -> Tuple[int, int, int, int, int]:
+    """One shared 2-bucket micro reduction using Q256 integer arithmetic.
 
-    Decides the sign of delta_q256 + 2*atanh(t)*2^256 by adding one odd
-    series term at a time and bounding the remaining tail.
-
-    Returns (result, terms_used).
+    Returns (z_q256, micro_bucket, sign_z, sign_t, t_q256_abs).
     """
-    if t == 0:
-        return (q_hi if delta_q256 >= 0 else q_lo), 0
+    z_q256 = abs(state.u_num) * SCALE // state.z_den
+    sign_z = -1 if state.u_num < 0 else 1
+    if z_q256 < (1 << 249):
+        return z_q256, 0, sign_z, sign_z, z_q256
 
-    sign_t = -1 if t < 0 else 1
-    a = -t if t < 0 else t
-    a2 = a * a
-    pow_a = a
-    partial = mp.mpf(0)
+    c_q256 = 1 << 250
+    # 1 - z*c in Q256 is 2^256 - ceil(z / 64) because c = 1/64 exactly.
+    t_den_q256 = SCALE - ((z_q256 + 63) >> 6)
+    diff = z_q256 - c_q256
+    if diff >= 0:
+        sign_t = sign_z
+        t_q256_abs = (diff << 256) // t_den_q256
+    else:
+        sign_t = -sign_z
+        t_q256_abs = ((-diff) << 256) // t_den_q256
+    return z_q256, 1, sign_z, sign_t, t_q256_abs
 
-    for m in range(max_terms):
-        odd = 2 * m + 1
-        partial += 2 * pow_a * MP_TWO_POW_256 / odd
 
-        rem = 2 * pow_a * a2 * MP_TWO_POW_256 / ((odd + 2) * (1 - a2))
+def _micro_reduce_q280_bounds_from_state(
+    state: CoarseState,
+) -> Tuple[int, int, int, int, int, int]:
+    """Return a Q280 interval for the reduced |t| and its sign.
 
-        if sign_t > 0:
-            lo = delta_q256 + partial
-            hi = delta_q256 + partial + rem
-        else:
-            lo = delta_q256 - (partial + rem)
-            hi = delta_q256 - partial
+    Returns:
+        (micro_bucket, sign_z, sign_t, z_lo_q280, t_lo_q280, t_hi_q280)
+    """
+    z_lo_q280 = abs(state.u_num) * SCALE_FAST // state.z_den
+    sign_z = -1 if state.u_num < 0 else 1
 
-        if hi < 0:
-            return q_lo, m + 1
-        if lo >= 0:
-            return q_hi, m + 1
+    if z_lo_q280 < (1 << (249 + G_FAST)):
+        return 0, sign_z, sign_z, z_lo_q280, z_lo_q280, z_lo_q280 + 1
 
-        pow_a *= a2
+    z_hi_q280 = z_lo_q280 + 1
+    c_q280 = 1 << (250 + G_FAST)
 
-    raise RuntimeError("adaptive series exhausted max_terms before certifying")
+    if z_lo_q280 < c_q280:
+        sign_t = -sign_z
+        num_lo = c_q280 - z_hi_q280
+        den_lo = SCALE_FAST - (z_hi_q280 >> 6)
+        t_lo_q280 = 0 if num_lo == 0 else (num_lo * SCALE_FAST) // den_lo
+
+        num_hi = c_q280 - z_lo_q280
+        den_hi = SCALE_FAST - ((z_lo_q280 + 63) >> 6)
+        t_hi_q280 = 0 if num_hi == 0 else _ceil_div(num_hi * SCALE_FAST, den_hi)
+    else:
+        sign_t = sign_z
+        num_lo = z_lo_q280 - c_q280
+        den_lo = SCALE_FAST - (z_lo_q280 >> 6)
+        t_lo_q280 = 0 if num_lo == 0 else (num_lo * SCALE_FAST) // den_lo
+
+        num_hi = z_hi_q280 - c_q280
+        den_hi = SCALE_FAST - ((z_hi_q280 + 63) >> 6)
+        t_hi_q280 = 0 if num_hi == 0 else _ceil_div(num_hi * SCALE_FAST, den_hi)
+
+    return 1, sign_z, sign_t, z_lo_q280, t_lo_q280, t_hi_q280
 
 
 def accurate_resolve_state(
@@ -353,39 +388,77 @@ def accurate_resolve_state(
     *,
     max_terms: int = MAX_SERIES_TERMS,
 ) -> Tuple[int, ResidualInfo]:
-    """Resolve an ambiguous fast-path case.
+    """Resolve an ambiguous fast-path case with a direct Q320 certification.
 
-    Reuses the fast midpoint and computes only a local correction after
-    one-profile micro reduction, then certifies the boundary sign with
-    the adaptive odd atanh series.
+    The fallback reconstructs the exact coarse prefix at Q320 and certifies the
+    remaining local 2*atanh(t) term using Q280 bounds for |t| together with a
+    Q320 odd-series accumulation. The extra 40 bits prevent the per-term
+    round-up slack from growing enough to flip the final floor decision.
     """
-    base_q256 = mp.mpf(q_fast) / (1 << G_FAST)
-    delta_base = base_q256 - mp.mpf(q_hi)
+    z_q256, _, _, _, t_q256_abs = _micro_reduce_q256_from_state(state)
+    k, sign_z, sign_t, _, t_lo_q280, t_hi_q280 = _micro_reduce_q280_bounds_from_state(state)
 
-    prefix_fast_q256 = (
-        mp.mpf(state.exponent * LN2_FAST + C0_FAST[state.bucket]) / (1 << G_FAST)
-    )
-    local_fast_q256 = base_q256 - prefix_fast_q256
+    prefix_lo_q320 = state.exponent * LN2_Q320_FLOOR + C0_EXACT_Q320_FLOOR[state.bucket]
+    prefix_hi_q320 = prefix_lo_q320 + state.exponent + 1
 
-    prefix_exact_q256 = mp.mpf(state.exponent) * LN2_Q256 + C0_EXACT_Q256[state.bucket]
-    z, k, sign_z, c, t = _micro_reduce_from_state(state)
-    micro_base_q256 = A_MICRO_STAGE2[k] * sign_z
+    micro_lo_q320 = 0
+    micro_hi_q320 = 0
+    if k != 0:
+        if sign_z > 0:
+            micro_lo_q320 = A64_Q320_FLOOR
+            micro_hi_q320 = A64_Q320_FLOOR + 1
+        else:
+            micro_lo_q320 = -(A64_Q320_FLOOR + 1)
+            micro_hi_q320 = -A64_Q320_FLOOR
 
-    delta_q256 = (
-        delta_base
-        + (prefix_exact_q256 - prefix_fast_q256)
-        + (micro_base_q256 - local_fast_q256)
-    )
+    target_q320 = q_hi << (G_FAST + FALLBACK_EXTRA_BITS)
+    a2_lo_q280 = (t_lo_q280 * t_lo_q280) >> (256 + G_FAST)
+    a2_hi_q280 = _ceil_div(t_hi_q280 * t_hi_q280, SCALE_FAST)
+    pow_lo_q280 = t_lo_q280
+    pow_hi_q280 = t_hi_q280
+    partial_lo_q320 = 0
+    partial_hi_q320 = 0
 
-    result, terms_used = _resolve_tail_by_adaptive_series(
-        delta_q256, t, q_lo, q_hi, max_terms=max_terms
-    )
+    for m in range(max_terms):
+        odd = 2 * m + 1
+        partial_lo_q320 += ((2 * pow_lo_q280) << FALLBACK_EXTRA_BITS) // odd
+        partial_hi_q320 += _ceil_div((2 * pow_hi_q280) << FALLBACK_EXTRA_BITS, odd)
+
+        next_pow_lo_q280 = (pow_lo_q280 * a2_lo_q280) >> (256 + G_FAST)
+        next_pow_hi_q280 = _ceil_div(pow_hi_q280 * a2_hi_q280, SCALE_FAST)
+        den_q560 = (SCALE_FAST - a2_hi_q280) * (odd + 2)
+        rem_hi_q320 = _ceil_div(next_pow_hi_q280 << (G_FAST + FALLBACK_EXTRA_BITS + 257), den_q560)
+
+        tail_lo_q320 = partial_lo_q320
+        tail_hi_q320 = partial_hi_q320 + rem_hi_q320
+
+        if sign_t > 0:
+            lo_q320 = prefix_lo_q320 + micro_lo_q320 + tail_lo_q320
+            hi_q320 = prefix_hi_q320 + micro_hi_q320 + tail_hi_q320
+        else:
+            lo_q320 = prefix_lo_q320 + micro_lo_q320 - tail_hi_q320
+            hi_q320 = prefix_hi_q320 + micro_hi_q320 - tail_lo_q320
+
+        if hi_q320 < target_q320:
+            result = q_lo
+            terms_used = m + 1
+            break
+        if lo_q320 >= target_q320:
+            result = q_hi
+            terms_used = m + 1
+            break
+
+        pow_lo_q280 = next_pow_lo_q280
+        pow_hi_q280 = next_pow_hi_q280
+    else:
+        raise RuntimeError("anchored interval fallback exhausted max_terms before certifying")
+
     info = ResidualInfo(
         micro_bucket=k,
         sign_z=sign_z,
-        sign_t=(-1 if t < 0 else 1) if t != 0 else 0,
-        z=z,
-        t=t,
+        sign_t=sign_t,
+        z_q256=z_q256,
+        t_q256=t_q256_abs,
         terms_used=terms_used,
     )
     return result, info
