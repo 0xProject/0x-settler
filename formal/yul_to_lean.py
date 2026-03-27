@@ -4075,30 +4075,34 @@ def yul_function_to_model(
         var_map_state: dict[str, str],
         subst_state: dict[str, Expr],
         const_locals_state: dict[str, Expr],
-        inside_conditional: bool = False,
+        ssa_count_state: Counter[str] | None = None,
+        emitted_ssa_names_state: set[str] | None = None,
     ) -> Assignment | None:
         """Process a single raw assignment through copy-prop and demangling.
 
         Returns an Assignment if the target is a real variable, or None if
         it was copy-propagated into ``subst``.
+
+        When *ssa_count_state* / *emitted_ssa_names_state* are provided,
+        SSA naming uses those (branch-local) counters instead of the
+        outer-scope ones.
         """
+        ssa_c = ssa_count_state if ssa_count_state is not None else ssa_count
+        ssa_e = emitted_ssa_names_state if emitted_ssa_names_state is not None else emitted_ssa_names
+
         expr = substitute_expr(raw_expr, subst_state)
         expr = rename_expr(expr, var_map_state, fn_map)
         expr = _resolve_memory_expr(expr, const_locals_state=const_locals_state)
         expr = _wrap_u256_literals(expr)
 
-        # Detect out-of-scope variable references.  After substitution
-        # and renaming, every Var should reference a previously emitted
-        # SSA name or a name currently in var_map (which covers block-
-        # local real variables added during _lower_live_branch).
-        if not inside_conditional:
-            known_names = emitted_ssa_names | set(var_map_state.values())
-            for v in _expr_vars(expr):
-                if v not in known_names:
-                    raise ParseError(
-                        f"out-of-scope variable use: {v!r} referenced by "
-                        f"assignment to {target!r} in {sol_fn_name!r}"
-                    )
+        # Detect out-of-scope variable references.
+        known_names = ssa_e | set(var_map_state.values())
+        for v in _expr_vars(expr):
+            if v not in known_names:
+                raise ParseError(
+                    f"out-of-scope variable use: {v!r} referenced by "
+                    f"assignment to {target!r} in {sol_fn_name!r}"
+                )
 
         clean = demangle_var(
             target, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals
@@ -4118,37 +4122,31 @@ def yul_function_to_model(
                 subst_state[target] = expr
             return None
 
-        # SSA: compute the Lean target name.  Inside conditional
-        # blocks, Lean's scoped ``let`` handles shadowing, so we
-        # use the base clean name directly.
-        if not inside_conditional:
-            ssa_count[clean] += 1
-            if ssa_count[clean] == 1:
-                ssa_name = clean
-            else:
-                ssa_name = f"{clean}_{ssa_count[clean] - 1}"
-                while ssa_name in emitted_ssa_names:
-                    ssa_count[clean] += 1
-                    ssa_name = f"{clean}_{ssa_count[clean] - 1}"
-                if ssa_name in all_clean_names:
-                    raise ParseError(
-                        f"SSA-generated name {ssa_name!r} in {sol_fn_name!r} "
-                        f"collides with the demangled name of another variable. "
-                        f"Refuse to generate ambiguous Lean binders."
-                    )
-            emitted_ssa_names.add(ssa_name)
-        else:
+        # SSA: compute the Lean target name.
+        ssa_c[clean] += 1
+        if ssa_c[clean] == 1:
             ssa_name = clean
+        else:
+            ssa_name = f"{clean}_{ssa_c[clean] - 1}"
+            while ssa_name in ssa_e:
+                ssa_c[clean] += 1
+                ssa_name = f"{clean}_{ssa_c[clean] - 1}"
+            if ssa_name in all_clean_names:
+                raise ParseError(
+                    f"SSA-generated name {ssa_name!r} in {sol_fn_name!r} "
+                    f"collides with the demangled name of another variable. "
+                    f"Refuse to generate ambiguous Lean binders."
+                )
+        ssa_e.add(ssa_name)
 
         # Update var_map AFTER rename_expr.
         var_map_state[target] = ssa_name
 
-        if not inside_conditional:
-            const_value = _try_const_eval(substitute_expr(expr, const_locals_state))
-            if const_value is not None:
-                const_locals_state[ssa_name] = IntLit(const_value)
-            else:
-                const_locals_state.pop(ssa_name, None)
+        const_value = _try_const_eval(substitute_expr(expr, const_locals_state))
+        if const_value is not None:
+            const_locals_state[ssa_name] = IntLit(const_value)
+        else:
+            const_locals_state.pop(ssa_name, None)
 
         return Assignment(target=ssa_name, expr=expr)
 
@@ -4303,17 +4301,25 @@ def yul_function_to_model(
 
             def _process_conditional_branch(
                 raw_assignments: tuple[PlainAssignment, ...],
-            ) -> list[Assignment]:
+            ) -> tuple[list[Assignment], dict[str, str], dict[str, Expr]]:
+                """Process one conditional branch.
+
+                Returns ``(assignments, clean_to_last_ssa, clean_to_last_expr)``
+                where *clean_to_last_ssa* maps each modified clean name to its
+                last SSA target in this branch, and *clean_to_last_expr* maps
+                each modified clean name to its last expression.
+                """
                 branch_var_map = dict(var_map)
                 branch_subst = dict(subst)
                 branch_const_locals = dict(const_locals)
+                branch_ssa_count: Counter[str] = Counter(ssa_count)
+                branch_emitted = set(emitted_ssa_names)
                 branch_assignments: list[Assignment] = []
                 branch_locals: set[str] = set()
+                clean_to_last_ssa: dict[str, str] = {}
+                clean_to_last_expr: dict[str, Expr] = {}
                 for s in raw_assignments:
                     if s.is_declaration:
-                        # Branch-local declaration: park in branch_subst
-                        # so later statements can resolve it.  Do not
-                        # emit — this binding dies at branch exit.
                         branch_locals.add(s.target)
                         expr = substitute_expr(s.expr, branch_subst)
                         expr = rename_expr(expr, branch_var_map, fn_map)
@@ -4323,7 +4329,6 @@ def yul_function_to_model(
                         )
                         expr = _wrap_u256_literals(expr)
                         branch_subst[s.target] = expr
-                        # Track const fact for mload address resolution.
                         clean = demangle_var(
                             s.target,
                             yf.params,
@@ -4337,7 +4342,6 @@ def yul_function_to_model(
                             if cv is not None:
                                 branch_const_locals[clean] = IntLit(cv)
                     elif s.target in branch_locals:
-                        # Reassignment of branch-local — update subst.
                         expr = substitute_expr(s.expr, branch_subst)
                         expr = rename_expr(expr, branch_var_map, fn_map)
                         expr = _resolve_memory_expr(
@@ -4347,7 +4351,6 @@ def yul_function_to_model(
                         expr = _wrap_u256_literals(expr)
                         branch_subst[s.target] = expr
                     else:
-                        # Outer-scope modification.
                         _record_pre_if_name(s.target)
                         assignment = _process_assignment_into(
                             s.target,
@@ -4355,47 +4358,57 @@ def yul_function_to_model(
                             var_map_state=branch_var_map,
                             subst_state=branch_subst,
                             const_locals_state=branch_const_locals,
-                            inside_conditional=True,
+                            ssa_count_state=branch_ssa_count,
+                            emitted_ssa_names_state=branch_emitted,
                         )
                         if assignment is not None:
                             branch_assignments.append(assignment)
-                return branch_assignments
+                            c = demangle_var(
+                                s.target,
+                                yf.params,
+                                yf.rets,
+                                keep_solidity_locals=keep_solidity_locals,
+                            )
+                            if c is not None:
+                                clean_to_last_ssa[c] = assignment.target
+                                clean_to_last_expr[c] = assignment.expr
+                return branch_assignments, clean_to_last_ssa, clean_to_last_expr
 
-            body_assignments = _process_conditional_branch(stmt.body)
-            else_assignments_list = (
-                _process_conditional_branch(stmt.else_body)
-                if stmt.else_body is not None
-                else []
+            body_assignments, then_clean_map, then_last = (
+                _process_conditional_branch(stmt.body)
             )
+            if stmt.else_body is not None:
+                else_assignments_list, else_clean_map, else_last = (
+                    _process_conditional_branch(stmt.else_body)
+                )
+            else:
+                else_assignments_list = []
+                else_clean_map: dict[str, str] = {}
+                else_last: dict[str, Expr] = {}
 
-            # Deduplicate while preserving order, excluding block-scoped
-            # variables that did not exist before the conditional.
-            seen_vars: set[str] = set()
-            modified_list: list[str] = []
-            for branch_assignment in (*body_assignments, *else_assignments_list):
-                if branch_assignment.target in seen_vars:
-                    continue
-                seen_vars.add(branch_assignment.target)
-                pre_name = pre_if_names.get(branch_assignment.target)
-                if pre_name is not None and pre_name in pre_if_scope:
-                    modified_list.append(branch_assignment.target)
+            # Build modified_list from the clean names that were
+            # actually modified in at least one branch AND existed
+            # before the conditional.
+            all_modified_clean = set(then_clean_map) | set(else_clean_map)
+            modified_list: list[str] = [
+                c for c in all_modified_clean
+                if c in pre_if_names and pre_if_names[c] in pre_if_scope
+            ]
 
             if modified_list:
                 modified = tuple(modified_list)
-                then_assigned = {a.target for a in body_assignments}
-                else_assigned = {a.target for a in else_assignments_list}
                 then_outputs = tuple(
-                    target if target in then_assigned else pre_if_names[target]
-                    for target in modified_list
+                    then_clean_map.get(c, pre_if_names[c])
+                    for c in modified_list
                 )
                 if stmt.else_body is None:
                     else_outputs = tuple(
-                        pre_if_names[target] for target in modified_list
+                        pre_if_names[c] for c in modified_list
                     )
                 else:
                     else_outputs = tuple(
-                        target if target in else_assigned else pre_if_names[target]
-                        for target in modified_list
+                        else_clean_map.get(c, pre_if_names[c])
+                        for c in modified_list
                     )
 
                 assignments.append(
@@ -4413,24 +4426,8 @@ def yul_function_to_model(
                     )
                 )
 
-                # After the conditional the Lean tuple-destructuring creates
-                # fresh bindings with the base clean names. Reset var_map and
-                # ssa_count accordingly so later references are correct.
                 modified_set = set(modified_list)
 
-                # Build lookup of last expression per target in each branch.
-                then_last: dict[str, Expr] = {}
-                for a in body_assignments:
-                    then_last[a.target] = a.expr
-                else_last: dict[str, Expr] = {}
-                for a in else_assignments_list:
-                    else_last[a.target] = a.expr
-
-                # Rebuild outer bindings from var_map (the pre-conditional
-                # outer scope), not from raw branch targets.  var_map is
-                # unmodified here — branches used branch_var_map copies.
-                # This structurally prevents branch-local names from
-                # leaking, since they were never in var_map.
                 for raw_name in list(var_map.keys()):
                     c = demangle_var(
                         raw_name,
@@ -4441,7 +4438,6 @@ def yul_function_to_model(
                     if c is not None and c in modified_set:
                         var_map[raw_name] = c
                         ssa_count[c] = 1
-                        # Preserve const fact if both branches agree.
                         pre_cv = const_locals.get(c)
                         t_expr = then_last.get(c)
                         e_expr = else_last.get(c)

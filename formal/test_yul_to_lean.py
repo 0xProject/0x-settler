@@ -3510,14 +3510,14 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
                         (
                             ytl.Assignment("z", ytl.IntLit(7)),
                             ytl.Assignment(
-                                "z",
+                                "z_1",
                                 ytl.Call(
                                     "add",
                                     (ytl.Var("z"), ytl.IntLit(1)),
                                 ),
                             ),
                         ),
-                        ("z",),
+                        ("z_1",),
                     ),
                     else_branch=branch(
                         (ytl.Assignment("z", ytl.IntLit(8)),),
