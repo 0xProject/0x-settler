@@ -69,9 +69,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
@@ -95,13 +93,12 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         bytes[] memory actions = ActionDataBuilder.build(
             abi.encodeCall(ISettlerActions.TRANSFER_FROM, (maverickV2Pool(), permit, sig)),
             abi.encodeCall(
-                ISettlerActions.MAVERICKV2, (FROM, address(fromToken()), 0, maverickV2Pool(), maverickV2TokenAIn(), maverickV2TickLimit(), 0)
+                ISettlerActions.MAVERICKV2,
+                (FROM, address(fromToken()), 0, maverickV2Pool(), maverickV2TokenAIn(), maverickV2TickLimit(), 0)
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
@@ -110,120 +107,6 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("settler_maverickV2_custody");
         _settler.execute(allowedSlippage, actions, bytes32(0));
-        snapEnd();
-        vm.stopPrank();
-
-        uint256 afterBalanceTo = toToken().balanceOf(FROM);
-        assertGt(afterBalanceTo, beforeBalanceTo);
-        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
-        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
-    }
-
-    function testMaverickV2VIP() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
-        (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
-
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.MAVERICKV2_VIP, (FROM, maverickV2Salt(), maverickV2TokenAIn(), permit, sig, maverickV2TickLimit(), 0)
-            )
-        );
-        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
-        });
-        Settler _settler = settler;
-        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
-        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
-
-        vm.startPrank(FROM, FROM);
-        snapStartName("settler_maverickV2_VIP");
-        _settler.execute(allowedSlippage, actions, bytes32(0));
-        snapEnd();
-        vm.stopPrank();
-
-        uint256 afterBalanceTo = toToken().balanceOf(FROM);
-        assertGt(afterBalanceTo, beforeBalanceTo);
-        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
-        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
-    }
-
-    function testMaverickV2VIPAllowanceHolder() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
-        ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ );
-        bytes memory sig = new bytes(0);
-
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.MAVERICKV2_VIP, (FROM, maverickV2Salt(), maverickV2TokenAIn(), permit, sig, maverickV2TickLimit(), 0)
-            )
-        );
-        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
-        });
-        IAllowanceHolder _allowanceHolder = allowanceHolder;
-        Settler _settler = settler;
-        IERC20 _fromToken = fromToken();
-        uint256 _amount = amount();
-        bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
-
-        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
-        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
-
-        vm.startPrank(FROM, FROM);
-        snapStartName("allowanceHolder_maverickV2_VIP");
-        _allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
-        snapEnd();
-        vm.stopPrank();
-
-        uint256 afterBalanceTo = toToken().balanceOf(FROM);
-        assertGt(afterBalanceTo, beforeBalanceTo);
-        uint256 afterBalanceFrom = fromToken().balanceOf(FROM);
-        assertEq(afterBalanceFrom + amount(), beforeBalanceFrom);
-    }
-
-    function testMaverickV2MetaTxn() public skipIf(maverickV2Salt() == bytes32(0)) setMaverickV2Block {
-        ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
-
-        bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(
-                ISettlerActions.METATXN_MAVERICKV2_VIP, (FROM, maverickV2Salt(), maverickV2TokenAIn(), permit, maverickV2TickLimit(), 0)
-            )
-        );
-        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0 ether
-        });
-
-        bytes32[] memory actionHashes = new bytes32[](actions.length);
-        for (uint256 i; i < actionHashes.length; i++) {
-            actionHashes[i] = keccak256(actions[i]);
-        }
-        bytes32 actionsHash = keccak256(abi.encodePacked(actionHashes));
-        bytes32 witness = keccak256(
-            abi.encode(
-                SLIPPAGE_AND_ACTIONS_TYPEHASH,
-                allowedSlippage.recipient,
-                allowedSlippage.buyToken,
-                allowedSlippage.minAmountOut,
-                actionsHash
-            )
-        );
-        bytes memory sig = getPermitWitnessTransferSignature(
-            permit, address(settlerMetaTxn), FROM_PRIVATE_KEY, FULL_PERMIT2_WITNESS_TYPEHASH, witness, permit2Domain
-        );
-
-        SettlerMetaTxn _settlerMetaTxn = settlerMetaTxn;
-        uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
-        uint256 beforeBalanceTo = balanceOf(toToken(), FROM);
-
-        vm.startPrank(address(this), address(this));
-        snapStartName("settler_metaTxn_maverickV2");
-        _settlerMetaTxn.executeMetaTxn(allowedSlippage, actions, bytes32(0), FROM, sig);
         snapEnd();
         vm.stopPrank();
 

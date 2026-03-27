@@ -16,7 +16,7 @@ import {BnbSettlerMetaTxn} from "src/chains/Bnb/MetaTxn.sol";
 
 import {NotesLib} from "src/core/FlashAccountingCommon.sol";
 import {UnsafeMath} from "src/utils/UnsafeMath.sol";
-import {FullMath} from "src/vendor/FullMath.sol";
+import {tmp} from "src/utils/512Math.sol";
 
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
@@ -97,8 +97,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
 
     function _readSlot0Cold(bytes32 poolId_) private view returns (uint160 sqrtPriceX96) {
         // Revert with the return value so the access list stays cold for gas snapshots.
-        (bool ok, bytes memory data) =
-            address(this).staticcall(abi.encodeCall(this._readSlot0AndRevert, (poolId_)));
+        (bool ok, bytes memory data) = address(this).staticcall(abi.encodeCall(this._readSlot0AndRevert, (poolId_)));
         if (ok || data.length != 32) {
             revert();
         }
@@ -113,13 +112,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         }
     }
 
-    function sqrtPriceLimitX96(IERC20 sellToken, IERC20 buyToken)
-        internal
-        view
-        virtual
-        override
-        returns (uint160)
-    {
+    function sqrtPriceLimitX96(IERC20 sellToken, IERC20 buyToken) internal view virtual override returns (uint160) {
         if (poolManagerId() != 0 || poolId() == bytes32(0)) {
             return super.sqrtPriceLimitX96(sellToken, buyToken);
         }
@@ -129,12 +122,12 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
 
         uint256 limitX96;
         if (zeroForOne) {
-            limitX96 = FullMath.mulDiv(uint256(current), Q96, SQRT_2_Q96);
+            limitX96 = tmp().omul(uint256(current), Q96).div(SQRT_2_Q96);
             if (limitX96 < MIN_SQRT_RATIO) {
                 limitX96 = MIN_SQRT_RATIO;
             }
         } else {
-            limitX96 = FullMath.mulDiv(uint256(current), SQRT_2_Q96, Q96);
+            limitX96 = tmp().omul(uint256(current), SQRT_2_Q96).div(Q96);
             if (limitX96 > MAX_SQRT_RATIO) {
                 limitX96 = MAX_SQRT_RATIO;
             }
@@ -145,9 +138,10 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
     function pancakeInfinityFills(IERC20 fromToken, IERC20 toToken) internal view virtual returns (bytes memory) {
         bytes32 poolId_ = poolId();
         uint8 managerId = poolManagerId();
-        PoolKey memory poolKey = (
-            managerId == 0 ? IPancakeInfinityPoolManager(CL_MANAGER) : IPancakeInfinityPoolManager(BIN_MANAGER)
-        ).poolIdToPoolKey(PoolId.wrap(poolId_));
+        PoolKey memory poolKey = (managerId == 0
+                ? IPancakeInfinityPoolManager(CL_MANAGER)
+                : IPancakeInfinityPoolManager(BIN_MANAGER))
+        .poolIdToPoolKey(PoolId.wrap(poolId_));
 
         return abi.encodePacked(
             uint16(10_000),
@@ -210,9 +204,7 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
         );
 
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
@@ -238,14 +230,12 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
             ActionDataBuilder.build(
                 abi.encodeCall(
                     ISettlerActions.PANCAKE_INFINITY_VIP,
-                    (recipient(), false, hashMul, hashMod, pancakeInfinityFills(), permit, sig, 0)
+                    (recipient(), permit, false, hashMul, hashMod, pancakeInfinityFills(), sig, 0)
                 )
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
@@ -266,8 +256,11 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
     }
 
     function testPancakeInfinityVIPAllowanceHolder() public skipIf(poolId() == bytes32(0x0)) {
-        ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ );
+        ISignatureTransfer.PermitTransferFrom memory permit = defaultERC20PermitTransfer(
+            address(fromToken()),
+            amount(),
+            0 /* nonce */
+        );
         bytes memory sig = new bytes(0);
 
         (uint256 hashMul, uint256 hashMod) = pancakeInfinityPerfectHash();
@@ -275,14 +268,12 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
             ActionDataBuilder.build(
                 abi.encodeCall(
                     ISettlerActions.PANCAKE_INFINITY_VIP,
-                    (recipient(), false, hashMul, hashMod, pancakeInfinityFills(), permit, sig, 0)
+                    (recipient(), permit, false, hashMul, hashMod, pancakeInfinityFills(), sig, 0)
                 )
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
@@ -316,14 +307,12 @@ abstract contract PancakeInfinityTest is AllowanceHolderPairTest, SettlerMetaTxn
             ActionDataBuilder.build(
                 abi.encodeCall(
                     ISettlerActions.METATXN_PANCAKE_INFINITY_VIP,
-                    (metaTxnRecipient(), false, hashMul, hashMod, pancakeInfinityFills(), permit, 0)
+                    (metaTxnRecipient(), permit, false, hashMul, hashMod, pancakeInfinityFills(), 0)
                 )
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0 ether
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
         });
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);

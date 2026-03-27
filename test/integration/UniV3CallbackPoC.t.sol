@@ -38,9 +38,8 @@ contract UniswapV3PoolDummy {
 
     fallback(bytes calldata) external returns (bytes memory) {
         (address recipient,,,, bytes memory data) = abi.decode(msg.data[4:], (address, bool, int256, uint160, bytes));
-        (bool ok,) = msg.sender.call(
-            abi.encodeWithSignature("uniswapV3SwapCallback(int256,int256,bytes)", amount0, amount1, data)
-        );
+        (bool ok,) = msg.sender
+            .call(abi.encodeWithSignature("uniswapV3SwapCallback(int256,int256,bytes)", amount0, amount1, data));
         require(ok, "UniV3Callback failure");
         if (amount0 > 0) token0.transfer(recipient, uint256(amount0));
         if (amount1 > 0) token1.transfer(recipient, uint256(amount1));
@@ -166,7 +165,8 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
 
         // Set UniswapV3 swap path.
         uint24 fee = 500;
-        bytes memory uniswapV3Path = abi.encodePacked(dai, uint8(0), fee, sqrtPriceLimitX96(IERC20(dai), IERC20(token)), token);
+        bytes memory uniswapV3Path =
+            abi.encodePacked(dai, uint8(0), fee, sqrtPriceLimitX96(IERC20(dai), IERC20(token)), token);
 
         // Set up actions.
         bytes[] memory actions = ActionDataBuilder.build(
@@ -174,8 +174,8 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
                 ISettlerActions.METATXN_UNISWAPV3_VIP,
                 (
                     address(settler), // recipient
-                    uniswapV3Path, // (token0, fee, token1)
                     permit,
+                    uniswapV3Path, // (token0, fee, token1)
                     100 // amountOutMin
                 )
             )
@@ -200,12 +200,13 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
         );
 
         // Set UniswapV3Pair dummy swap and return data.
-        UniswapV3PoolDummy(pool).setSwapData(
-            MockERC20(dai),
-            MockERC20(token),
-            int256(0), // amount0
-            int256(poolAmountOut) // amount1 out of pool
-        );
+        UniswapV3PoolDummy(pool)
+            .setSwapData(
+                MockERC20(dai),
+                MockERC20(token),
+                int256(0), // amount0
+                int256(poolAmountOut) // amount1 out of pool
+            );
 
         // This would be Alice's normal flow.
         // This execution is front-run.

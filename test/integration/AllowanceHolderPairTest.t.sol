@@ -41,7 +41,11 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 ISettlerActions.TRANSFER_FROM,
                 (
                     address(settler),
-                    defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
+                    defaultERC20PermitTransfer(
+                        address(fromToken()),
+                        amount(),
+                        0 /* nonce */
+                    ),
                     new bytes(0) /* sig (empty) */
                 )
             ),
@@ -68,9 +72,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 _settler.execute,
                 (
                     ISettlerBase.AllowedSlippage({
-                        recipient: payable(address(0)),
-                        buyToken: IERC20(address(0)),
-                        minAmountOut: 0 ether
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
                     }),
                     actions,
                     bytes32(0)
@@ -87,8 +89,12 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 ISettlerActions.UNISWAPV3_VIP,
                 (
                     FROM,
+                    defaultERC20PermitTransfer(
+                        address(fromToken()),
+                        amount(),
+                        0 /* nonce */
+                    ),
                     uniswapV3Path(),
-                    defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
                     new bytes(0), // sig (empty)
                     0
                 )
@@ -114,9 +120,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 _settler.execute,
                 (
                     ISettlerBase.AllowedSlippage({
-                        recipient: payable(address(0)),
-                        buyToken: IERC20(address(0)),
-                        minAmountOut: 0 ether
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
                     }),
                     actions,
                     bytes32(0)
@@ -133,8 +137,12 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 ISettlerActions.UNISWAPV3_VIP,
                 (
                     FROM,
+                    defaultERC20PermitTransfer(
+                        address(fromToken()),
+                        amount(),
+                        0 /* nonce */
+                    ),
                     uniswapV3Path(),
-                    defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
                     new bytes(0), // sig (empty)
                     0
                 )
@@ -160,9 +168,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 _settler.execute,
                 (
                     ISettlerBase.AllowedSlippage({
-                        recipient: payable(address(0)),
-                        buyToken: IERC20(address(0)),
-                        minAmountOut: 0 ether
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
                     }),
                     actions,
                     bytes32(0)
@@ -179,10 +185,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
 
         RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
-            token: fromToken(),
-            amount: amount(),
-            counterparty: FROM,
-            partialFillAllowed: false
+            token: fromToken(), amount: amount(), counterparty: FROM, partialFillAllowed: false
         });
 
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
@@ -193,7 +196,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         bytes memory takerSig = new bytes(0);
 
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.RFQ_VIP, (FROM, makerPermit, MAKER, makerSig, takerPermit, takerSig))
+            abi.encodeCall(ISettlerActions.RFQ_VIP, (FROM, takerPermit, makerPermit, MAKER, makerSig, takerSig))
         );
 
         IAllowanceHolder _allowanceHolder = allowanceHolder;
@@ -215,9 +218,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 _settler.execute,
                 (
                     ISettlerBase.AllowedSlippage({
-                        recipient: payable(address(0)),
-                        buyToken: IERC20(address(0)),
-                        minAmountOut: 0 ether
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
                     }),
                     actions,
                     bytes32(0)
@@ -234,10 +235,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), 0);
 
         RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
-            token: fromToken(),
-            amount: amount(),
-            counterparty: FROM,
-            partialFillAllowed: true
+            token: fromToken(), amount: amount(), counterparty: FROM, partialFillAllowed: true
         });
 
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
@@ -281,9 +279,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 _settler.execute,
                 (
                     ISettlerBase.AllowedSlippage({
-                        recipient: payable(address(0)),
-                        buyToken: IERC20(address(0)),
-                        minAmountOut: 0 ether
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
                     }),
                     actions,
                     bytes32(0)
@@ -304,7 +300,11 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 ISettlerActions.TRANSFER_FROM,
                 (
                     uniswapV2Pool(),
-                    defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ ),
+                    defaultERC20PermitTransfer(
+                        address(fromToken()),
+                        amount(),
+                        0 /* nonce */
+                    ),
                     new bytes(0) /* sig (empty) */
                 )
             ),
@@ -330,9 +330,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
                 _settler.execute,
                 (
                     ISettlerBase.AllowedSlippage({
-                        recipient: payable(address(0)),
-                        buyToken: IERC20(address(0)),
-                        minAmountOut: 0 ether
+                        recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
                     }),
                     actions,
                     bytes32(0)
@@ -348,9 +346,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             settler.execute,
             (
                 ISettlerBase.AllowedSlippage({
-                    recipient: payable(address(0)),
-                    buyToken: IERC20(address(0)),
-                    minAmountOut: 0 ether
+                    recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
                 }),
                 actions,
                 bytes32(0)

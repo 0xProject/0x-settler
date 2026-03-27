@@ -79,14 +79,13 @@ abstract contract MultiCallContext is Context {
         assembly ("memory-safe") {
             // ERC-2771. The trusted forwarder (`_MULTICALL`) has appended the appropriate
             // msg.sender to the msg data
-            sender :=
-                xor(
-                    sender,
-                    mul(
-                        xor(shr(0x60, calldataload(add(data.offset, sub(data.length, 0x14)))), sender),
-                        and(lt(0x03, data.length), iszero(shl(0x60, xor(multicall, sender))))
-                    )
+            sender := xor(
+                sender,
+                mul(
+                    xor(shr(0x60, calldataload(add(data.offset, sub(data.length, 0x14)))), sender),
+                    and(lt(0x03, data.length), iszero(shl(0x60, xor(multicall, sender))))
                 )
+            )
         }
     }
 

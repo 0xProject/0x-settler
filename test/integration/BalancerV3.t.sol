@@ -143,9 +143,7 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
@@ -168,12 +166,10 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
 
         (uint256 hashMul, uint256 hashMod) = balancerPerfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.BALANCERV3_VIP, (FROM, false, hashMul, hashMod, fills(), permit, sig, 0))
+            abi.encodeCall(ISettlerActions.BALANCERV3_VIP, (FROM, permit, false, hashMul, hashMod, fills(), sig, 0))
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
@@ -192,18 +188,19 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
     }
 
     function testBalancerV3VIPAllowanceHolder() public skipIf(balancerV3Pool() == address(0)) setBalancerV3Block {
-        ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ );
+        ISignatureTransfer.PermitTransferFrom memory permit = defaultERC20PermitTransfer(
+            address(fromToken()),
+            amount(),
+            0 /* nonce */
+        );
         bytes memory sig = new bytes(0);
 
         (uint256 hashMul, uint256 hashMod) = balancerPerfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.BALANCERV3_VIP, (FROM, false, hashMul, hashMod, fills(), permit, sig, 0))
+            abi.encodeCall(ISettlerActions.BALANCERV3_VIP, (FROM, permit, false, hashMul, hashMod, fills(), sig, 0))
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
@@ -232,12 +229,10 @@ abstract contract BalancerV3Test is SettlerMetaTxnPairTest, AllowanceHolderPairT
 
         (uint256 hashMul, uint256 hashMod) = balancerPerfectHash();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.METATXN_BALANCERV3_VIP, (FROM, false, hashMul, hashMod, fills(), permit, 0))
+            abi.encodeCall(ISettlerActions.METATXN_BALANCERV3_VIP, (FROM, permit, false, hashMul, hashMod, fills(), 0))
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0 ether
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
         });
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);

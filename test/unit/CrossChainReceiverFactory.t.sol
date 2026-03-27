@@ -34,7 +34,8 @@ contract CrossChainReceiverFactoryTest is Test {
         // that it go through a shim that strips the forwarded sender. That's a pain, so it's not
         // done in this test setup.
         vm.prank(0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc, 0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc);
-        (success, returndata) = 0x4e59b44847b379578588920cA78FbF26c0B4956C.call(
+        (success, returndata) = 0x4e59b44847b379578588920cA78FbF26c0B4956C
+        .call(
             hex"40d0824c8df4e3642c10f547614c683762a4702daa5ec86bd42ec64291679b44326df01b1d1c8eef6c6cf71a0b658fbc1815601657fe5b7f60143603803560601c6df01b1d1c8eef6c6cf71a0b658fbc14336ccf9e3c5a263d527f621af382fa17f24f1416602e57fe5b3d54604b57583d55803d3d373d34f03d8159526d6045573dfd5b5260203df35b30ff60901b5952604e3df3"
         );
         require(success);

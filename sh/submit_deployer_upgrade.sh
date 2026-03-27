@@ -151,5 +151,5 @@ declare packed_signatures
 packed_signatures="$(retrieve_signatures deployer_upgrade "$upgrade_calldata")"
 declare -r packed_signatures
 
-cast send --rpc-url 'http://127.0.0.1:1248' --chain $chainid --confirmations 10 --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked $(get_config extraFlags) "$safe_address" \
+cast send --rpc-url 'http://127.0.0.1:1248' --chain $chainid --confirmations 10 --from 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 --unlocked "${extra_flags[@]}" "$safe_address" \
      "$execTransaction_sig" "$deployer_address" 0 "$upgrade_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"

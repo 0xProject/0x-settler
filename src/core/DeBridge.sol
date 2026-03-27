@@ -76,9 +76,7 @@ contract DeBridge {
         }
     }
 
-    function _bridgeToDeBridge(IDlnSource source, uint256 value, uint256 amount, bytes memory createOrderData)
-        private
-    {
+    function _bridgeToDeBridge(IDlnSource source, uint256 value, uint256 amount, bytes memory createOrderData) private {
         assembly ("memory-safe") {
             // override giveAmount
             mstore(add(0x100, createOrderData), amount)

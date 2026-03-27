@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
@@ -197,7 +197,7 @@ library UnsafePancakeInfinityBinPoolManager {
 IPancakeInfinityBinPoolManager constant BIN_MANAGER =
     IPancakeInfinityBinPoolManager(0xC697d2898e0D09264376196696c51D7aBbbAA4a9);
 
-abstract contract PancakeInfinity is SettlerAbstract {
+abstract contract PancakeInfinity is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
     using Ternary for bool;
@@ -428,16 +428,15 @@ abstract contract PancakeInfinity is SettlerAbstract {
                 assembly ("memory-safe") {
                     let sellTokenShifted := shl(0x60, sellToken)
                     let buyTokenShifted := shl(0x60, buyToken)
-                    zeroForOne :=
-                        or(
-                            eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted),
-                            and(
-                                iszero(
-                                    eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)
-                                ),
-                                lt(sellTokenShifted, buyTokenShifted)
-                            )
+                    zeroForOne := or(
+                        eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted),
+                        and(
+                            iszero(
+                                eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted)
+                            ),
+                            lt(sellTokenShifted, buyTokenShifted)
                         )
+                    )
                 }
                 (poolKey.currency0, poolKey.currency1) = zeroForOne.maybeSwap(buyToken, sellToken);
                 assembly ("memory-safe") {
@@ -499,21 +498,15 @@ abstract contract PancakeInfinity is SettlerAbstract {
                 if (uint256(poolManagerId) == 0) {
                     poolKey.poolManager = CL_MANAGER;
 
-                    delta = IPancakeInfinityCLPoolManager(address(poolKey.poolManager)).unsafeSwap(
-                        poolKey,
-                        zeroForOne,
-                        amountSpecified,
-                        sqrtPriceLimitX96,
-                        hookData
-                    );
+                    delta = IPancakeInfinityCLPoolManager(address(poolKey.poolManager))
+                        .unsafeSwap(poolKey, zeroForOne, amountSpecified, sqrtPriceLimitX96, hookData);
                 } else if (uint256(poolManagerId) == 1) {
                     poolKey.poolManager = BIN_MANAGER;
                     if (amountSpecified >> 127 != amountSpecified >> 128) {
                         Panic.panic(Panic.ARITHMETIC_OVERFLOW);
                     }
-                    delta = IPancakeInfinityBinPoolManager(address(poolKey.poolManager)).unsafeSwap(
-                        poolKey, zeroForOne, int128(amountSpecified), hookData
-                    );
+                    delta = IPancakeInfinityBinPoolManager(address(poolKey.poolManager))
+                        .unsafeSwap(poolKey, zeroForOne, int128(amountSpecified), hookData);
                 } else {
                     assembly ("memory-safe") {
                         mstore(0x00, 0x0a9a7da6) // selector for `UnknownPoolManagerId(uint8)`

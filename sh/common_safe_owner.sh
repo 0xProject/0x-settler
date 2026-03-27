@@ -105,6 +105,12 @@ function save_signature {
     fi
     declare -r _save_signature_to
 
+    declare signing_hash
+    signing_hash="$(eip712_hash "$_save_signature_call" $_save_signature_operation "$_save_signature_to")"
+    declare -r signing_hash
+
+    cast wallet verify --no-hash --address "$signer" "$signing_hash" "$_save_signature_signature" >&2
+
     if [[ $safe_url = 'NOT SUPPORTED' ]] || [[ ${FORCE_IGNORE_STS-No} = [Yy]es ]] ; then
         declare signature_file
         signature_file="$project_root"/"$_save_signature_prefix"_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_"$(tr '[:upper:]' '[:lower:]' <<<"$signer")"_$(nonce).txt
@@ -112,9 +118,6 @@ function save_signature {
 
         echo "Signature saved to '$signature_file'" >&2
     else
-        declare signing_hash
-        signing_hash="$(eip712_hash "$_save_signature_call" $_save_signature_operation "$_save_signature_to")"
-        declare -r signing_hash
 
         # encode the Safe Transaction Service API call
         declare safe_multisig_transaction
@@ -139,7 +142,7 @@ function save_signature {
         )"
 
         # call the API
-        curl --fail --retry 5 "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data '@-' <<<"$safe_multisig_transaction"
+        curl --show-error --fail-with-body --retry 5 "$safe_url"'/v1/safes/'"$safe_address"'/multisig-transactions/' -X POST -H 'Content-Type: application/json' --data '@-' <<<"$safe_multisig_transaction"
 
         echo 'Signature submitted' >&2
     fi

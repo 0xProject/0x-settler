@@ -84,9 +84,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                             hex"d694",
                             address(
                                 uint160(
-                                    uint256(
-                                        keccak256(abi.encodePacked(hex"ff", _TOEHOLD, salt, _STORAGE_INITHASH))
-                                    )
+                                    uint256(keccak256(abi.encodePacked(hex"ff", _TOEHOLD, salt, _STORAGE_INITHASH)))
                                 )
                             ),
                             hex"01"
@@ -107,7 +105,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
     bool private immutable _MISSING_WNATIVE = false;
 
     bytes32 private constant _MULTICALL_STORAGE_SALT = keccak256("ERC2771-forwarding MultiCall Address");
-    IMultiCall private immutable _CHAIN_SPECIFIC_MULTICALL = IMultiCall(payable(_getImmutableAddress(_MULTICALL_STORAGE_SALT)));
+    IMultiCall private immutable _CHAIN_SPECIFIC_MULTICALL =
+        IMultiCall(payable(_getImmutableAddress(_MULTICALL_STORAGE_SALT)));
 
     address private constant _PERMIT2_ADDRESS = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
     ISignatureTransfer private constant _PERMIT2 = ISignatureTransfer(_PERMIT2_ADDRESS);
@@ -163,7 +162,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             calls[0].revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
             try _MULTICALL().multicall{gas: 100_000}(calls, 0) {
                 revert();
-            } catch (bytes memory) { }
+            } catch (bytes memory) {}
 
             // Check that a non-OOG revert is swallowed when `revertPolicy == CONTINUE`
             address revertTarget;
@@ -187,11 +186,16 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             results = _MULTICALL().multicall(calls, 1);
             require(results.length == 1);
             require(results[0].success);
-            require(keccak256(results[0].data) == keccak256(bytes.concat("Hello, World!", bytes20(uint160(address(this))))));
+            require(
+                keccak256(results[0].data) == keccak256(bytes.concat("Hello, World!", bytes20(uint160(address(this)))))
+            );
         }
 
         if (address(_WNATIVE) == address(0)) {
-            require(_getImmutableStorageAddress(_WNATIVE_STORAGE_SALT).codehash == 0xa4675c945174b9ec4e7010035cbc327beed918e1ea949cf630df20b201167a0c);
+            require(
+                _getImmutableStorageAddress(_WNATIVE_STORAGE_SALT).codehash
+                    == 0xa4675c945174b9ec4e7010035cbc327beed918e1ea949cf630df20b201167a0c
+            );
             // `_WNATIVE` is deliberately unset
             _HAS_WNATIVE = false;
             _MISSING_WNATIVE = true;
@@ -513,9 +517,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
                     mstore(add(0x120, ptr), 0x44)                                                  // calls[0].data.length
 
-                    if iszero(
-                        call(gas(), MULTICALL, callvalue(), add(0x1c, ptr), 0x168, codesize(), callvalue())
-                    ) {
+                    if iszero(call(gas(), MULTICALL, callvalue(), add(0x1c, ptr), 0x168, codesize(), callvalue())) {
                         let ptr_ := mload(0x40)
                         returndatacopy(ptr_, callvalue(), returndatasize())
                         revert(ptr_, returndatasize())
@@ -541,9 +543,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     mstore(add(0x100, ptr), 0x80)                                                      // calls[0].data.offset
                     mstore(add(0x120, ptr), callvalue())                                               // calls[0].data.length
 
-                    if iszero(
-                        call(gas(), MULTICALL, callvalue(), add(0x1c, ptr), 0x124, codesize(), callvalue())
-                    ) {
+                    if iszero(call(gas(), MULTICALL, callvalue(), add(0x1c, ptr), 0x124, codesize(), callvalue())) {
                         let ptr_ := mload(0x40)
                         returndatacopy(ptr_, callvalue(), returndatasize())
                         revert(ptr_, returndatasize())
@@ -984,7 +984,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             mstore(data, 0x669a7d5e) // `IMultiCall.multicall.selector`
             // we won't bother to restore `data.length` because this block never returns to Solidity
 
-            let success := call(gas(), MULTICALL, value, add(0x1c, data), add(0x04, dataLength), codesize(), callvalue())
+            let success :=
+                call(gas(), MULTICALL, value, add(0x1c, data), add(0x04, dataLength), codesize(), callvalue())
 
             // technically, this is not memory safe because there could be a hidden
             // compiler-allocated object at the end of `data` and the returndata from the `CALL`
@@ -1028,9 +1029,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             if (address(this).balance != 0) {
                 IWrappedNative wnative = _WNATIVE;
                 assembly ("memory-safe") {
-                    if iszero(
-                        call(gas(), wnative, selfbalance(), codesize(), callvalue(), codesize(), callvalue())
-                    ) {
+                    if iszero(call(gas(), wnative, selfbalance(), codesize(), callvalue(), codesize(), callvalue())) {
                         // this should never happen
                         revert(codesize(), callvalue())
                     }

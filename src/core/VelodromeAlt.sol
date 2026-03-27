@@ -4,12 +4,11 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
-import {FullMath} from "../vendor/FullMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {revertTooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
 import {uint512, tmp, alloc} from "../utils/512Math.sol";
 
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 interface IVelodromePair {
     function metadata()
@@ -27,10 +26,9 @@ interface IVelodromePair {
     function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
 }
 
-abstract contract Velodrome is SettlerAbstract {
+abstract contract Velodrome is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using FastLogic for bool;
-    using FullMath for uint256;
     using SafeTransferLib for IERC20;
 
     // This is the basis used for token balances.
@@ -202,7 +200,7 @@ abstract contract Velodrome is SettlerAbstract {
         assert(stable);
         if (!zeroForOne) {
             (sellBasis, buyBasis, sellReserve, buyReserve, sellToken, buyToken) =
-                (buyBasis, sellBasis, buyReserve, sellReserve, buyToken, sellToken);
+            (buyBasis, sellBasis, buyReserve, sellReserve, buyToken, sellToken);
         }
 
         uint256 buyAmount;
@@ -261,7 +259,7 @@ abstract contract Velodrome is SettlerAbstract {
         }
 
         if (buyAmount < minAmountOut) {
-            revertTooMuchSlippage(sellToken, minAmountOut, buyAmount);
+            revertTooMuchSlippage(buyToken, minAmountOut, buyAmount);
         }
 
         {
