@@ -114,7 +114,7 @@ abstract contract SettlerBase is ISettlerBase, Basic, RfqOrderSettlement, Uniswa
         }
     }
 
-    function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
+    function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory)
         internal
         virtual
         override
