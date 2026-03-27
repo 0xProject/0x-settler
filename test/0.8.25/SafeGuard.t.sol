@@ -746,11 +746,10 @@ contract TestSafeGuard is Test {
                 _signSafeEncoded(owners[0], unlockTxHash),
                 _signSafeEncoded(owners[1], unlockTxHash),
                 _signSafeEncoded(owners[2], unlockTxHash),
-                _signSafeEncoded(owners[3], unlockTxHash),
-                _signSafeEncoded(owners[4], unlockTxHash),
                 uint256(uint160(owners[3].addr)),
                 bytes32(0),
-                uint8(1)
+                uint8(1),
+                _signSafeEncoded(owners[4], unlockTxHash)
             );
 
             vm.expectEmit(true, true, true, true, address(safe));
