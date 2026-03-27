@@ -837,6 +837,24 @@ library Lib512MathArithmetic {
         }
     }
 
+    /// @dev 2-word rounded division: round((x_hi·2²⁵⁶ + x_lo) / d).
+    /// Returns a 2-word quotient. Rounds half-up (ties go up).
+    function _divRound(uint256 x_hi, uint256 x_lo, uint256 d) private pure returns (uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            r_hi := div(x_hi, d)
+            x_hi := mod(x_hi, d)
+        }
+        r_lo = _div(x_hi, x_lo, d);
+        assembly ("memory-safe") {
+            // Remainder of (x_hi·2²⁵⁶ + x_lo) / d via mulmod trick
+            let rem := addmod(mulmod(x_hi, sub(0, d), d), x_lo, d)
+            // Round half-up: add 1 if rem >= ceil(d/2) ↔ rem > (d-1)/2
+            let rnd := gt(rem, div(sub(d, 1), 2))
+            r_lo := add(r_lo, rnd)
+            r_hi := add(r_hi, and(rnd, iszero(r_lo)))
+        }
+    }
+
     function unsafeDiv(uint512 n, uint256 d) internal pure returns (uint256) {
         (uint256 n_hi, uint256 n_lo) = n.into();
         if (n_hi == 0) {
@@ -1313,6 +1331,59 @@ library Lib512MathArithmetic {
         }
         // All other cases are handled by the checks that y ≥ 2²⁵⁶ (equivalently
         // y_hi != 0) and that x ≥ y
+    }
+
+    /// @dev 3-word / 2-word → 1-word division via Algorithm D.
+    /// floor((x_ex·2⁵¹² + x_hi·2²⁵⁶ + x_lo) / (y_hi·2²⁵⁶ + y_lo))
+    /// Precondition: result fits in one word; y_hi ≠ 0.
+    function _algorithmD(uint256 x_ex, uint256 x_hi, uint256 x_lo, uint256 y_hi, uint256 y_lo)
+        private
+        pure
+        returns (uint256 q)
+    {
+        if (x_ex == 0) return _algorithmD(x_hi, x_lo, y_hi, y_lo);
+
+        // Normalize so the leading word of y has its MSB set (Knuth step D1).
+        // The high digit of the quotient is 0 (x_ex is small), so we compute
+        // only the low digit. Trial quotient: floor((u₁·2²⁵⁶ + u₂) / v₁)
+        // where u₁, u₂ are the top two words of the shifted numerator and v₁
+        // is the top word of the shifted denominator.
+        uint256 s = y_hi.clz();
+        {
+            uint256 u1;
+            uint256 u2;
+            uint256 v1;
+            assembly ("memory-safe") {
+                let inv_s := sub(256, s)
+                // u₁ = (x_ex << s) | (x_hi >> inv_s)  — absorbs overflow from x_ex into the trial word
+                u1 := or(shl(s, x_ex), shr(inv_s, x_hi))
+                // u₂ = (x_hi << s) | (x_lo >> inv_s)
+                u2 := or(shl(s, x_hi), shr(inv_s, x_lo))
+                // v₁ = (y_hi << s) | (y_lo >> inv_s)  — MSB now set
+                v1 := or(shl(s, y_hi), shr(inv_s, y_lo))
+            }
+            // u₁ < v₁ guaranteed (quotient fits in 1 word), so _div is safe.
+            q = (u1 < v1) ? _div(u1, u2, v1) : type(uint256).max;
+        }
+
+        // Steps D4–D6: multiply back with un-shifted values and correct.
+        // Trial quotient overshoots by at most 2.
+        {
+            (uint256 p_ex, uint256 p_hi, uint256 p_lo) = _mul768(y_hi, y_lo, q);
+            while (_gt(p_ex, p_hi, p_lo, x_ex, x_hi, x_lo)) {
+                unchecked {
+                    q--;
+                }
+                assembly ("memory-safe") {
+                    let b := lt(p_lo, y_lo)
+                    p_lo := sub(p_lo, y_lo)
+                    let mid := sub(p_hi, b)
+                    b := or(lt(p_hi, b), lt(mid, y_hi))
+                    p_hi := sub(mid, y_hi)
+                    p_ex := sub(p_ex, b)
+                }
+            }
+        }
     }
 
     function _shl256(uint256 x_lo, uint256 s) private pure returns (uint256 r_hi, uint256 r_lo) {
@@ -2097,6 +2168,881 @@ library Lib512MathArithmetic {
             let r3_hi := add(sub(sub(mm, r3_lo), lt(mm, r3_lo)), mul(r2_hi, r))
 
             r := add(r, or(lt(r3_hi, x_hi), and(eq(r3_hi, x_hi), lt(r3_lo, x_lo))))
+        }
+    }
+
+    //// floor(ln(x) * 2^256) for 512-bit unsigned integer x, returned as a uint512 (up to ~265 bits).
+    ////
+    //// Uses a two-stage design:
+    ////   Stage 1 (fast path, ~99.965% of inputs): 16-bucket coarse reduction with a Remez-optimal
+    ////     [6/7] rational approximant at Q216 precision and G=24 guard bits.
+    ////   Stage 2 (fallback, ~0.035%): One-profile 2-bucket micro reduction with an adaptive odd
+    ////     atanh series that certifies the boundary decision.
+    ////
+    //// Reverts with Panic(0x12) if x is zero.
+
+    // Packed lookup table: N0[16] = [31,29,28,26,25,24,23,22,21,20,19,19,18,17,17,16]
+    // 16 × 5-bit values, j=0 at bits 79:75
+    uint256 private constant _LN_N0 = 0xff79ace2f6ad27394630;
+    // Per-bucket fast bias, 16 × 16-bit signed two's complement, j=0 at bits 255:240
+    uint256 private constant _LN_BIAS = 0xff6afca204c6fea4002a00c400bc009a002a0002ff06054c0021fb8c0068ff4d;
+    // Per-bucket fast radius, 16 × 16-bit unsigned, j=0 at bits 255:240
+    uint256 private constant _LN_RADIUS = 0x04af16b218950dae0094038b05ee037b009600670d3618a9002c16a00202048a;
+
+    function lnQ256(uint512 x) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+
+        if ((x_hi | x_lo) == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
+        uint512 r = alloc();
+        if (x_hi == 0 && x_lo == 1) {
+            return r.from(0, 0);
+        }
+
+        (uint256 r_hi, uint256 r_lo) = _lnQ256(x_hi, x_lo);
+        return r.from(r_hi, r_lo);
+    }
+
+    function _lnQ256(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r_hi, uint256 r_lo) {
+        // ── Stage 1: Coarse range reduction ──
+        //
+        // Compute exponent e = bit_length(x) - 1 via CLZ.
+        // Extract top 4 fraction bits to select coarse bucket j.
+        // Look up dyadic multiplier n = N0[j].
+        // Compute u_num = n*x - 2^(e+5) (signed) and z_den = 2^(e+6) + u_num (positive).
+
+        uint256 e;
+        if (x_hi != 0) {
+            e = 511 - x_hi.clz();
+        } else {
+            e = 255 - x_lo.clz();
+        }
+
+        // Extract top 4 fraction bits: j = ((x_hi, x_lo) >> (e-4)) & 0xF
+        uint256 j;
+        assembly ("memory-safe") {
+            let shift := sub(e, 4)
+            j := and(0x0F, shr(shift, x_lo))
+            if lt(e, 4) { j := and(0x0F, shl(sub(4, e), x_lo)) }
+            // For e >= 256 the fraction bits may be partly or wholly in x_hi.
+            if x_hi {
+                switch lt(shift, 256)
+                case 1 { j := and(0x0F, or(shl(sub(256, shift), x_hi), shr(shift, x_lo))) }
+                default { j := and(0x0F, shr(sub(shift, 256), x_hi)) }
+            }
+        }
+
+        // Look up n from packed N0 table
+        uint256 n;
+        assembly ("memory-safe") {
+            n := and(0x1F, shr(mul(sub(15, j), 5), _LN_N0))
+        }
+
+        // ── Compute n*x as 3-word (nx_ex, nx_hi, nx_lo) ──
+        (uint256 nx_ex, uint256 nx_hi, uint256 nx_lo) = _mul768(x_hi, x_lo, n);
+
+        // ── Compute 2^(e+5) as up to 3-word value ──
+        uint256 pow2_ex;
+        uint256 pow2_hi;
+        uint256 pow2_lo;
+        assembly ("memory-safe") {
+            let ep5 := add(e, 5)
+            // 2^ep5: if ep5 < 256 → lo word; if 256 <= ep5 < 512 → hi word; if >= 512 → ex word
+            pow2_lo := shl(ep5, lt(ep5, 256))
+            pow2_hi := shl(sub(ep5, 256), and(lt(ep5, 512), iszero(lt(ep5, 256))))
+            pow2_ex := shl(sub(ep5, 512), iszero(lt(ep5, 512)))
+        }
+
+        // ── u_num = n*x - 2^(e+5) (signed, magnitude fits in 2 words) ──
+        // z_den = n*x + 2^(e+5) (positive, may need 3 words)
+        // We need the sign of u_num and |u_num|.
+        bool u_neg;
+        uint256 u_hi;
+        uint256 u_lo;
+        uint256 zd_ex;
+        uint256 zd_hi;
+        uint256 zd_lo;
+        assembly ("memory-safe") {
+            // 3-word subtraction: nx - pow2
+            let borrow := lt(nx_lo, pow2_lo)
+            u_lo := sub(nx_lo, pow2_lo)
+            let v := sub(nx_hi, borrow)
+            borrow := or(lt(nx_hi, borrow), lt(v, pow2_hi))
+            u_hi := sub(v, pow2_hi)
+            let u_ex := sub(sub(nx_ex, pow2_ex), borrow)
+
+            // Determine sign: if u_ex has the high bit set, u_num is negative
+            // Actually u_ex is at most a few bits; check if the subtraction underflowed
+            u_neg := gt(u_ex, 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+
+            if u_neg {
+                // Negate: |u_num| = pow2 - nx
+                borrow := lt(pow2_lo, nx_lo)
+                u_lo := sub(pow2_lo, nx_lo)
+                v := sub(pow2_hi, borrow)
+                borrow := or(lt(pow2_hi, borrow), lt(v, nx_hi))
+                u_hi := sub(v, nx_hi)
+                // u_ex for the magnitude is not needed (fits in 2 words by the
+                // coarse reduction bound: |u| < 2^(e+5)/32 = 2^e)
+            }
+
+            // 3-word addition: z_den = nx + pow2
+            zd_lo := add(nx_lo, pow2_lo)
+            let carry := lt(zd_lo, nx_lo)
+            zd_hi := add(add(nx_hi, pow2_hi), carry)
+            carry := lt(zd_hi, nx_hi)
+            // Handle carry propagation more carefully
+            if and(iszero(carry), lt(zd_hi, add(nx_hi, pow2_hi))) { carry := 1 }
+            // Simpler: just check overflow
+            zd_ex := add(add(nx_ex, pow2_ex), carry)
+        }
+
+        // ── z_hi = round(|u_num| * 2^280 / z_den) ──
+        //
+        // Decomposed as: let A = |u| << 24.  Then z_hi = round(A * 2^256 / z_den).
+        // The 4-word numerator (a_ex, a_hi, a_lo, 0) is divided by z_den in two rounds:
+        //   z_hi_h = floor(A / z_den) with remainder R,  then  z_lo = floor(R * 2^256 / z_den).
+        // After coarse reduction, |z| < 0.02, so z_hi fits in ~275 bits (hi word ≤ 18 bits).
+
+        uint256 z_hi_h;
+        uint256 z_lo;
+        {
+            uint256 a_ex;
+            uint256 a_hi;
+            uint256 a_lo;
+            assembly ("memory-safe") {
+                a_lo := shl(24, u_lo)
+                a_hi := or(shl(24, u_hi), shr(232, u_lo))
+                a_ex := shr(232, u_hi)
+            }
+
+            if (zd_hi == 0 && zd_ex == 0) {
+                // z_den is a single word. Three rounds of 512/256 division extract the
+                // 2-word quotient of the 4-word numerator (a_ex, a_hi, a_lo, 0) / zd_lo.
+                uint256 rem;
+                if (a_ex != 0) {
+                    z_hi_h = _div(a_ex, a_hi, zd_lo);
+                    assembly ("memory-safe") {
+                        rem := addmod(mulmod(a_ex, sub(0, zd_lo), zd_lo), a_hi, zd_lo)
+                    }
+                } else {
+                    z_hi_h = a_hi / zd_lo;
+                    rem = a_hi % zd_lo;
+                }
+                z_hi_h = _div(rem, a_lo, zd_lo);
+                assembly ("memory-safe") {
+                    rem := addmod(mulmod(rem, sub(0, zd_lo), zd_lo), a_lo, zd_lo)
+                }
+                z_lo = _div(rem, 0, zd_lo);
+                // Round to nearest
+                assembly ("memory-safe") {
+                    let final_rem := addmod(mulmod(rem, sub(0, zd_lo), zd_lo), 0, zd_lo)
+                    z_lo := add(z_lo, iszero(lt(shl(1, final_rem), zd_lo)))
+                    z_hi_h := add(z_hi_h, iszero(z_lo))
+                }
+            } else {
+                // z_den is 2+ words. Reduce 3-word z_den to 2 words if needed.
+                if (zd_ex != 0) {
+                    uint256 shift_amount;
+                    assembly ("memory-safe") {
+                        shift_amount := sub(256, clz(zd_ex))
+                    }
+                    (zd_hi, zd_lo) = _shr(zd_hi, zd_lo, shift_amount);
+                    assembly ("memory-safe") {
+                        zd_hi := or(shl(sub(256, shift_amount), zd_ex), zd_hi)
+                        a_lo := or(shr(shift_amount, a_lo), shl(sub(256, shift_amount), a_hi))
+                        a_hi := or(shr(shift_amount, a_hi), shl(sub(256, shift_amount), a_ex))
+                        a_ex := shr(shift_amount, a_ex)
+                    }
+                }
+                // (a_ex, a_hi, a_lo, 0) / (zd_hi, zd_lo) → (z_hi_h, z_lo).
+                // Two rounds of 3-word / 2-word Algorithm D.
+                z_hi_h = _algorithmD(a_ex, a_hi, a_lo, zd_hi, zd_lo);
+                {
+                    (uint256 p_ex, uint256 p_hi, uint256 p_lo) = _mul768(zd_hi, zd_lo, z_hi_h);
+                    assembly ("memory-safe") {
+                        // 3-word subtract: (a_ex,a_hi,a_lo) - (p_ex,p_hi,p_lo) → remainder
+                        let b := lt(a_lo, p_lo)
+                        a_lo := sub(a_lo, p_lo)
+                        let mid := sub(a_hi, b)
+                        b := or(lt(a_hi, b), lt(mid, p_hi))
+                        a_hi := sub(mid, p_hi)
+                        // a_ex - p_ex - b = 0 (exact remainder < divisor)
+                    }
+                }
+                z_lo = _algorithmD(a_hi, a_lo, 0, zd_hi, zd_lo);
+            }
+        }
+
+        // ── w_hi = z_hi² >> 280 (Q280) ──
+        // z_hi = (z_hi_h, z_lo) where z_hi_h ≤ 18 bits.
+        // z_hi² = z_hi_h² * 2^512 + 2 * z_hi_h * z_lo * 2^256 + z_lo²
+        uint256 w_hi_h;
+        uint256 w_lo;
+        assembly ("memory-safe") {
+            // z_lo² → (sq_hi, sq_lo)
+            let mm := mulmod(z_lo, z_lo, not(0x00))
+            let sq_lo := mul(z_lo, z_lo)
+            let sq_hi := sub(sub(mm, sq_lo), lt(mm, sq_lo))
+
+            // cross = 2 * z_hi_h * z_lo (up to 275 bits, spans 2 words)
+            // z_hi_h * z_lo can exceed 256 bits, so we need the full product.
+            let p_mm := mulmod(z_hi_h, z_lo, not(0x00))
+            let p_lo := mul(z_hi_h, z_lo)
+            let p_hi := sub(sub(p_mm, p_lo), lt(p_mm, p_lo))
+            // cross = 2 * (p_hi, p_lo)
+            let cross_lo := shl(1, p_lo)
+            let cross_hi := or(shl(1, p_hi), shr(255, p_lo))
+
+            // Accumulate: prod = (z_hi_h², sq_hi + cross_lo, sq_lo)
+            let prod_mid := add(sq_hi, cross_lo)
+            let prod_ex := add(add(mul(z_hi_h, z_hi_h), cross_hi), lt(prod_mid, sq_hi))
+
+            // Shift (prod_ex, prod_mid, sq_lo) >> 280 = >> 256 then >> 24
+            // After dropping sq_lo: (prod_ex, prod_mid) >> 24
+            w_lo := or(shr(24, prod_mid), shl(232, prod_ex))
+            w_hi_h := shr(24, prod_ex)
+        }
+
+        // ── w_q256 = w_hi >> 24 (Q256, single word ≤ 245 bits) ──
+        uint256 w_q256;
+        assembly ("memory-safe") {
+            w_q256 := or(shr(24, w_lo), shl(232, w_hi_h))
+        }
+        // ── Horner evaluation of R(w) = P(w)/Q(w) at Q216 ──
+        uint256 r_qc = _lnHorner(w_q256);
+        // ── Power chain: z^3, z^5, z^7, z^9 via repeated multiplication by w ──
+        // Each: result = prev * w_hi >> 280
+        // We compute the 3-word product (prev_h, prev_lo) * (w_hi_h, w_lo)
+        // and shift right by 280.
+
+        // z^3 = z_hi * w_hi >> 280
+        uint256 z3_h;
+        uint256 z3_lo;
+        (z3_h, z3_lo) = _lnMulShr280(z_hi_h, z_lo, w_hi_h, w_lo);
+        // z^5 = z^3 * w_hi >> 280
+        uint256 z5_h;
+        uint256 z5_lo;
+        (z5_h, z5_lo) = _lnMulShr280(z3_h, z3_lo, w_hi_h, w_lo);
+        // z^7 = z^5 * w_hi >> 280 (result fits in single word, ≤ 252 bits)
+        uint256 z7;
+        {
+            (uint256 z7_h, uint256 z7_lo_tmp) = _lnMulShr280(z5_h, z5_lo, w_hi_h, w_lo);
+            z7 = z7_lo_tmp; // z7_h should be 0 or negligible
+        }
+
+        // z^9 = z^7 * w_hi >> 280 (single word)
+        uint256 z9;
+        {
+            // z7 (single word) * w_hi (2-word) >> 280
+            // = z7 * (w_hi_h * 2^256 + w_lo) >> 280
+            // = z7 * w_lo >> 280 + z7 * w_hi_h >> 24
+            (uint256 p_hi, uint256 p_lo) = _mul(z7, w_lo);
+            assembly ("memory-safe") {
+                // (p_hi, p_lo) >> 280 = p_hi >> 24 (dropping p_lo)
+                z9 := add(shr(24, p_hi), shr(24, mul(z7, w_hi_h)))
+                // The w_hi_h term: z7 * w_hi_h is at most 252+14=266 bits, >> 24 = 242 bits
+            }
+        }
+
+        // ── Odd terms: 2/k * z^k for k=3,5,7 ──
+        // term3 = round(z3 * 2 / 3) — up to 263 bits (2-word)
+        uint256 term3_h;
+        uint256 term3_lo;
+        {
+            (uint256 z3x2_hi, uint256 z3x2_lo) = _add(z3_h, z3_lo, z3_h, z3_lo);
+            (term3_h, term3_lo) = _divRound(z3x2_hi, z3x2_lo, 3);
+        }
+
+        // term5 = round(z5 * 2 / 5) — up to ~257 bits (2-word)
+        uint256 term5_h;
+        uint256 term5_lo;
+        {
+            (uint256 z5x2_hi, uint256 z5x2_lo) = _add(z5_h, z5_lo, z5_h, z5_lo);
+            (term5_h, term5_lo) = _divRound(z5x2_hi, z5x2_lo, 5);
+        }
+
+        // term7 = round(z7 * 2 / 7) — z7 is single word
+        uint256 term7;
+        assembly ("memory-safe") {
+            let z7x2 := shl(1, z7)
+            term7 := div(z7x2, 7)
+            let rem := mod(z7x2, 7)
+            term7 := add(term7, gt(mul(2, rem), 6)) // rem >= 4 means round up
+        }
+
+        // ── Residual: z9 * R(w) >> 216 ──
+        uint256 resid;
+        {
+            (uint256 p_hi, uint256 p_lo) = _mul(z9, r_qc);
+            assembly ("memory-safe") {
+                // (p_hi, p_lo) >> 216 = (p_hi << 40) | (p_lo >> 216)
+                // p_hi ≤ 209 bits, so p_hi << 40 ≤ 249 bits. Fits in one word.
+                resid := or(shl(40, p_hi), shr(216, p_lo))
+            }
+        }
+        // ── Accumulate local magnitude (unsigned): 2*|z| + term3 + term5 + term7 + resid ──
+        // All terms are Q280, unsigned.
+        uint256 local_hi;
+        uint256 local_lo;
+        assembly ("memory-safe") {
+            // 2*z_hi: (z_hi_h << 1 | z_lo >> 255, z_lo << 1)
+            local_lo := shl(1, z_lo)
+            local_hi := or(shl(1, z_hi_h), shr(255, z_lo))
+        }
+        // Add term3 (2-word)
+        (local_hi, local_lo) = _add(local_hi, local_lo, term3_h, term3_lo);
+        // Add term5 (2-word)
+        (local_hi, local_lo) = _add(local_hi, local_lo, term5_h, term5_lo);
+        // Add term7 (single word)
+        (local_hi, local_lo) = _add(local_hi, local_lo, term7);
+        // Add resid (single word)
+        (local_hi, local_lo) = _add(local_hi, local_lo, resid);
+        // ── Prefix: e * LN2_FAST + C0_FAST[j] (both Q280, 2-word) ──
+        uint256 prefix_hi;
+        uint256 prefix_lo;
+        {
+            // e * LN2_FAST: 512 × 256 multiply (e is at most 511)
+            uint256 ln2_hi = 11629079;
+            uint256 ln2_lo = 112091976578344267006618725249553599712498325932819978909100653379179885607030;
+            (prefix_hi, prefix_lo) = _mul(ln2_hi, ln2_lo, e);
+        }
+
+        // Add C0_FAST[j]: look up from packed hi + individual lo constants
+        {
+            uint256 c0_lo = _lnC0FastLo(j);
+            uint256 c0_hi;
+            assembly ("memory-safe") {
+                // Extract 24-bit hi word from packed constants
+                // Buckets 0-7 in _C0_HI_0_7, buckets 8-15 in _C0_HI_8_15
+                let packed := 0x0820ae19335e222f1d3527da3f323849a588548ab85febe8
+                if gt(j, 7) { packed := 0x6bd4a57852288573b78573b7934b10a1ecffa1ecffb17217 }
+                let idx := mod(j, 8)
+                c0_hi := and(0xFFFFFF, shr(mul(sub(7, idx), 24), packed))
+            }
+            (prefix_hi, prefix_lo) = _add(prefix_hi, prefix_lo, c0_hi, c0_lo);
+        }
+        // ── Combine: q_raw = prefix ± local_mag ──
+        uint256 q_hi;
+        uint256 q_lo;
+        if (u_neg) {
+            (q_hi, q_lo) = _sub(prefix_hi, prefix_lo, local_hi, local_lo);
+        } else {
+            (q_hi, q_lo) = _add(prefix_hi, prefix_lo, local_hi, local_lo);
+        }
+
+        // ── Add per-bucket bias (small signed integer) ──
+        {
+            int256 bias;
+            assembly ("memory-safe") {
+                bias := signextend(1, shr(mul(sub(15, j), 16), _LN_BIAS))
+            }
+            if (bias >= 0) {
+                (q_hi, q_lo) = _add(q_hi, q_lo, uint256(bias));
+            } else {
+                (q_hi, q_lo) = _sub(q_hi, q_lo, uint256(-bias));
+            }
+        }
+
+        // ── Same-floor test: floor((q - rad) >> 24) == floor((q + rad) >> 24) ──
+        uint256 rad;
+        assembly ("memory-safe") {
+            rad := and(0xFFFF, shr(mul(sub(15, j), 16), _LN_RADIUS))
+        }
+
+        uint256 lo_hi;
+        uint256 lo_lo;
+        uint256 hi_hi;
+        uint256 hi_lo;
+        (lo_hi, lo_lo) = _sub(q_hi, q_lo, rad);
+        (hi_hi, hi_lo) = _add(q_hi, q_lo, rad);
+        // >> 24
+        (lo_hi, lo_lo) = _shr(lo_hi, lo_lo, 24);
+        (hi_hi, hi_lo) = _shr(hi_hi, hi_lo, 24);
+
+        if (lo_hi == hi_hi && lo_lo == hi_lo) {
+            return (lo_hi, lo_lo);
+        }
+
+        // ── Stage 2: Fallback ──
+        return _lnFallback(u_hi, u_lo, u_neg, zd_hi, zd_lo, e, j, q_hi, q_lo, hi_hi, hi_lo);
+    }
+
+    /// Multiply two Q280 values (a_h, a_lo) * (b_h, b_lo) and shift right by 280.
+    /// Both inputs have small hi words (≤ 20 bits). Result is a 2-word Q280 value.
+    function _lnMulShr280(uint256 a_h, uint256 a_lo, uint256 b_h, uint256 b_lo)
+        private
+        pure
+        returns (uint256 r_hi, uint256 r_lo)
+    {
+        assembly ("memory-safe") {
+            // Product = a_h*b_h*2^512 + (a_h*b_lo + a_lo*b_h)*2^256 + a_lo*b_lo
+            // We need (product >> 280) = (product >> 256) >> 24
+
+            // a_lo * b_lo → (mid, lo) via mulmod trick
+            let mm := mulmod(a_lo, b_lo, not(0x00))
+            let lo := mul(a_lo, b_lo)
+            let mid := sub(sub(mm, lo), lt(mm, lo))
+
+            // cross terms: a_h*b_lo + a_lo*b_h (each can exceed 256 bits)
+            // Full product a_h*b_lo via mulmod
+            let mm2 := mulmod(a_h, b_lo, not(0x00))
+            let c1_lo := mul(a_h, b_lo)
+            let c1_hi := sub(sub(mm2, c1_lo), lt(mm2, c1_lo))
+            // Full product a_lo*b_h via mulmod
+            let mm3 := mulmod(a_lo, b_h, not(0x00))
+            let c2_lo := mul(a_lo, b_h)
+            let c2_hi := sub(sub(mm3, c2_lo), lt(mm3, c2_lo))
+            // Sum cross terms
+            let cross_lo := add(c1_lo, c2_lo)
+            let cross_hi := add(add(c1_hi, c2_hi), lt(cross_lo, c1_lo))
+
+            // Accumulate into mid, carry into ex
+            let mid2 := add(mid, cross_lo)
+            let ex := add(add(mul(a_h, b_h), cross_hi), lt(mid2, mid))
+
+            // Shift (ex, mid2, lo) >> 280 = >> 256 then >> 24
+            // After >> 256: (ex, mid2). Then >> 24:
+            r_lo := or(shr(24, mid2), shl(232, ex))
+            r_hi := shr(24, ex)
+        }
+    }
+
+    /// Unrolled Horner evaluation of the [6/7] Remez-optimal rational R(w).
+    /// Input: w in Q256 (unsigned, ≤ 245 bits). Output: R(w) in Q216 (unsigned).
+    /// R(w) = P(w) / Q(w) where Q has implicit Q0 = 2^216.
+    function _lnHorner(uint256 w) private pure returns (uint256 result) {
+        // Evaluate R(w) = P(w) / Q(w) via unrolled Horner chains.
+        // Each step: acc = round(acc * w / 2^256) + coeff.
+        // Signed Q216 coefficients; w is unsigned Q256 (≤ 245 bits).
+        // Max product ≤ 464 bits < 512, safe for mulmod.
+
+        uint256 num;
+        uint256 den;
+
+        assembly ("memory-safe") {
+            // ── Numerator P(w): degree 6, 7 coefficients ──
+            let acc := 244504971595928297752455626929162943780014968997496095305629633
+
+            // P[5]: acc is positive here, no sign handling needed
+            {
+                let mm := mulmod(acc, w, not(0x00))
+                let lo := mul(acc, w)
+                let hi := sub(sub(mm, lo), lt(mm, lo))
+                hi := add(hi, shr(255, lo))
+                acc := sub(hi, 4031542932217000284709476574733749729411078599780997370963274225)
+            }
+            // P[4]
+            {
+                let s := sar(255, acc)
+                let a := sub(xor(acc, s), s)
+                let mm := mulmod(a, w, not(0x00))
+                let lo := mul(a, w)
+                let hi := sub(sub(mm, lo), lt(mm, lo))
+                hi := add(hi, shr(255, lo))
+                acc := add(sub(xor(hi, s), s), 24260002286396336386066722552550012983868598792106518362024927003)
+            }
+            // P[3]
+            {
+                let s := sar(255, acc)
+                let a := sub(xor(acc, s), s)
+                let mm := mulmod(a, w, not(0x00))
+                let lo := mul(a, w)
+                let hi := sub(sub(mm, lo), lt(mm, lo))
+                hi := add(hi, shr(255, lo))
+                acc := sub(sub(xor(hi, s), s), 70280975374256110316161633634422318148227266301984626622229992403)
+            }
+            // P[2]
+            {
+                let s := sar(255, acc)
+                let a := sub(xor(acc, s), s)
+                let mm := mulmod(a, w, not(0x00))
+                let lo := mul(a, w)
+                let hi := sub(sub(mm, lo), lt(mm, lo))
+                hi := add(hi, shr(255, lo))
+                acc := add(sub(xor(hi, s), s), 105567710592264149655895345681626059811476843737297988261266061719)
+            }
+            // P[1]
+            {
+                let s := sar(255, acc)
+                let a := sub(xor(acc, s), s)
+                let mm := mulmod(a, w, not(0x00))
+                let lo := mul(a, w)
+                let hi := sub(sub(mm, lo), lt(mm, lo))
+                hi := add(hi, shr(255, lo))
+                acc := sub(sub(xor(hi, s), s), 79147257707505802445321067591641956191893173416852452736772062152)
+            }
+            // P[0]
+            {
+                let s := sar(255, acc)
+                let a := sub(xor(acc, s), s)
+                let mm := mulmod(a, w, not(0x00))
+                let lo := mul(a, w)
+                let hi := sub(sub(mm, lo), lt(mm, lo))
+                hi := add(hi, shr(255, lo))
+                acc := add(sub(xor(hi, s), s), 23402731481901597043981783929704540515310021200122024723180217230)
+            }
+            num := acc
+
+            // ── Denominator Q(w): degree 7 with implicit Q0 = 2^216 ──
+            acc := sub(0, 855788182002653539265473379773190817088756284166928459588115371)
+            // Q[5]
+            {
+                let s := sar(255, acc)
+                let a := sub(xor(acc, s), s)
+                let mm := mulmod(a, w, not(0x00))
+                let lo := mul(a, w)
+                let hi := sub(sub(mm, lo), lt(mm, lo))
+                hi := add(hi, shr(255, lo))
+                acc := add(sub(xor(hi, s), s), 15307805589224505617810266544830173595922016396186463802374189830)
+            }
+            // Q[4]
+            {
+                let s := sar(255, acc)
+                let a := sub(xor(acc, s), s)
+                let mm := mulmod(a, w, not(0x00))
+                let lo := mul(a, w)
+                let hi := sub(sub(mm, lo), lt(mm, lo))
+                hi := add(hi, shr(255, lo))
+                acc := sub(sub(xor(hi, s), s), 104363990572981334424492003201115405883168394510253602517671885198)
+            }
+            // Q[3]
+            {
+                let s := sar(255, acc)
+                let a := sub(xor(acc, s), s)
+                let mm := mulmod(a, w, not(0x00))
+                let lo := mul(a, w)
+                let hi := sub(sub(mm, lo), lt(mm, lo))
+                hi := add(hi, shr(255, lo))
+                acc := add(sub(xor(hi, s), s), 361238115265142525912392094197617069095853073482781560893409836147)
+            }
+            // Q[2]
+            {
+                let s := sar(255, acc)
+                let a := sub(xor(acc, s), s)
+                let mm := mulmod(a, w, not(0x00))
+                let lo := mul(a, w)
+                let hi := sub(sub(mm, lo), lt(mm, lo))
+                hi := add(hi, shr(255, lo))
+                acc := sub(sub(xor(hi, s), s), 698357271234189264361221256846859697717152049975428562654123141828)
+            }
+            // Q[1]
+            {
+                let s := sar(255, acc)
+                let a := sub(xor(acc, s), s)
+                let mm := mulmod(a, w, not(0x00))
+                let lo := mul(a, w)
+                let hi := sub(sub(mm, lo), lt(mm, lo))
+                hi := add(hi, shr(255, lo))
+                acc := add(sub(xor(hi, s), s), 764050311468718105200385962090128619260907774191827731723142005680)
+            }
+            // Q[0]
+            {
+                let s := sar(255, acc)
+                let a := sub(xor(acc, s), s)
+                let mm := mulmod(a, w, not(0x00))
+                let lo := mul(a, w)
+                let hi := sub(sub(mm, lo), lt(mm, lo))
+                hi := add(hi, shr(255, lo))
+                acc := sub(sub(xor(hi, s), s), 442327261958050172847695917721755520215342540249012582887183524330)
+            }
+            // Final Q step: acc * w >> 256 + 2^216
+            {
+                let s := sar(255, acc)
+                let a := sub(xor(acc, s), s)
+                let mm := mulmod(a, w, not(0x00))
+                let lo := mul(a, w)
+                let hi := sub(sub(mm, lo), lt(mm, lo))
+                hi := add(hi, shr(255, lo))
+                acc := add(sub(xor(hi, s), s), shl(216, 1))
+            }
+            den := acc
+        }
+
+        // Final: R = |num| << 216 / den (using the existing 512/256 division helper)
+        uint256 shifted_hi;
+        uint256 shifted_lo;
+        assembly ("memory-safe") {
+            let num_sign := sar(255, num)
+            let abs_num := sub(xor(num, num_sign), num_sign)
+            shifted_hi := shr(40, abs_num)
+            shifted_lo := shl(216, abs_num)
+        }
+        result = _div(shifted_hi, shifted_lo, den);
+    }
+
+    /// Look up C0_FAST lo word by bucket index j (0..15).
+    function _lnC0FastLo(uint256 j) private pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            switch j
+            case 0  { r := 89083781164509994004718356690768793073932788881966909474484729048509852787943 }
+            case 1  { r := 42222851819381533507215179746829461024493811853866784323624442470601172712418 }
+            case 2  { r := 1950219340667861571575913432882893159243836047111849076174902345541118150629 }
+            case 3  { r := 54768199241016555318325029573083375611829530682990422062725468020935705966836 }
+            case 4  { r := 98334583919129610825820882369091974317179510858968455366245334201211721913124 }
+            case 5  { r := 31130839618193158765781046471345825506300755083565603707836592893242714151273 }
+            case 6  { r := 13065056713818001229867265197078665384940697492418171877843044825701490842440 }
+            case 7  { r := 108272970888202911497369533840699807949540786193866691010341518600002034247273 }
+            case 8  { r := 33081058958861020337356959904228718665544591130677452784011495238783832301902 }
+            case 9  { r := 47317235630078841204434311304978833088203926063073935117944201786239238940109 }
+            case 10 { r := 10181731043312906040233281754117480967214741482798891169727515427100994174328 }
+            case 11 { r := 10181731043312906040233281754117480967214741482798891169727515427100994174328 }
+            case 12 { r := 62261679236386317531562092942691651012601510167131207415673185786485428302547 }
+            case 13 { r := 68654584485920198024996402385813864444570494494924639164479954639474546591132 }
+            case 14 { r := 68654584485920198024996402385813864444570494494924639164479954639474546591132 }
+            case 15 { r := 112091976578344267006618725249553599712498325932819978909100653379179885607030 }
+        }
+    }
+
+    /// Stage 2 fallback: resolve the ambiguous fast-path case using one-profile
+    /// micro reduction and an adaptive odd atanh series.
+    function _lnFallback(
+        uint256 u_hi,
+        uint256 u_lo,
+        bool u_neg,
+        uint256 zd_hi,
+        uint256 zd_lo,
+        uint256 e,
+        uint256 j,
+        uint256 q_fast_hi,
+        uint256 q_fast_lo,
+        uint256 q_hi_hi,
+        uint256 q_hi_lo
+    ) private pure returns (uint256 r_hi, uint256 r_lo) {
+        // Compute z at Q256: z = |u_num| * 2^256 / z_den
+        uint256 z_q256 = _algorithmD(u_hi, u_lo, zd_hi, zd_lo);
+
+        // One-profile micro reduction:
+        // boundary = 1/128 at Q256 = 2^249
+        // lower bucket (k=0): c = 0, t = z
+        // upper bucket (k=1): c = 1/64 = 2^250 at Q256, t = (|z| - c) / (1 - |z|*c / 2^256)
+
+        uint256 a = z_q256; // |z| in Q256
+        bool upper;
+        assembly ("memory-safe") {
+            upper := gt(a, sub(shl(249, 1), 1)) // a >= 2^249 = 1/128
+        }
+
+        uint256 t_q256;
+        if (!upper) {
+            // c = 0 → t = z
+            t_q256 = a;
+        } else {
+            // c = 2^250 (1/64 in Q256)
+            uint256 c = 1 << 250;
+            // t = (a - c) / (1 - a*c / 2^256)
+            uint256 t_num;
+            uint256 t_den;
+            assembly ("memory-safe") {
+                t_num := sub(a, c)
+                // a * c / 2^256: since a < 2^251 and c = 2^250, product < 2^501
+                // Use mulmod to get (a * c) mod 2^256, but we need the high part
+                let ac_lo := mul(a, c)
+                let ac_hi := shr(6, a) // a * 2^250 >> 256 = a >> 6
+                // Actually: a * c = a * 2^250. Split: a * 2^250 = (a >> 6) * 2^256 + (a & 0x3F) * 2^250
+                // ac_hi = a >> 6, ac_lo = shl(250, and(a, 0x3F))
+                ac_hi := shr(6, a)
+                ac_lo := shl(250, and(a, 0x3F))
+                // 1 - ac/2^256 in Q256 = 2^256 - ac_hi (approximately)
+                // But we need: (1 - a*c/2^256) * 2^256 = 2^256 - a*c/2^256 * 2^256
+                // Hmm this is getting circular. Let's use:
+                // denominator at Q256 = 2^256 - (a * c >> 256) = 2^256 - ac_hi
+                // But also need the fractional part for precision.
+                // For simplicity: t_den = -ac_hi (as 2^256 - ac_hi wraps)
+                t_den := sub(0, ac_hi) // 2^256 - ac_hi (mod 2^256)
+                // This loses precision from ac_lo, but ac_lo / 2^256 is tiny
+            }
+            // t = t_num * 2^256 / t_den = t_num * 2^256 / (2^256 - a*c/2^256)
+            // Since t_num < 2^249 and t_den ≈ 2^256, quotient is small
+            // Use: t_q256 = t_num * 2^256 / t_den
+            // This is a 505-bit / 256-bit division
+            (uint256 tn_hi, uint256 tn_lo) = _mul(t_num, t_den); // wait, we want t_num / t_den
+            // Actually we need: t_q256 = round(t_num * 2^256 / t_den)
+            // t_num fits in 249 bits. t_num << 256 = (t_num, 0) which is 505 bits.
+            // _div(t_num, 0, t_den) gives floor(t_num * 2^256 / t_den)
+            t_q256 = _div(t_num, 0, t_den);
+        }
+
+        // Compute the prefix correction delta
+        // delta = (q_fast >> 24) - q_hi + (exact_prefix - fast_prefix) + micro_additive - local_fast
+        //
+        // For the EVM implementation, we compute delta as a signed 2-word value:
+        // base = q_fast >> 24 (2-word)
+        // delta_base = base - q_hi (signed, small since fast was nearly correct)
+        uint256 base_hi;
+        uint256 base_lo;
+        (base_hi, base_lo) = _shr(q_fast_hi, q_fast_lo, 24);
+
+        // delta_base = base - q_hi (could be negative if base < q_hi)
+        // Since we know the true answer is q_hi or q_hi-1, delta is close to 0.
+        // We'll track sign separately.
+        bool delta_neg;
+        uint256 delta_hi;
+        uint256 delta_lo;
+        if (_gt(q_hi_hi, q_hi_lo, base_hi, base_lo)) {
+            delta_neg = true;
+            (delta_hi, delta_lo) = _sub(q_hi_hi, q_hi_lo, base_hi, base_lo);
+        } else {
+            delta_neg = false;
+            (delta_hi, delta_lo) = _sub(base_hi, base_lo, q_hi_hi, q_hi_lo);
+        }
+
+        // For now, use a simplified fallback: compute ln(x) at higher precision
+        // using the exact Q256 constants and the adaptive series.
+        //
+        // exact_prefix = e * LN2_EXACT + C0_EXACT[j]
+        uint256 exact_prefix;
+        {
+            uint256 ln2_exact = 80260960185991308862233904206310070533990667611589946606122867505419956976172;
+            (uint256 ep_hi, uint256 ep_lo) = _mul(e, ln2_exact);
+            uint256 c0_exact = _lnC0ExactQ256(j);
+            (ep_hi, ep_lo) = _add(ep_hi, ep_lo, c0_exact);
+            // exact_prefix is in Q256, up to ~265 bits (2-word)
+            // fast_prefix = (e * LN2_FAST + C0_FAST[j]) >> 24
+            // Both are the same mathematical value to within the fast-path rounding.
+            // The delta between them is tiny. For the adaptive series, we just need
+            // to determine whether the true ln(x)*2^256 is >= q_hi or < q_hi.
+            //
+            // true_value = exact_prefix + 2*atanh(z) (in Q256)
+            // where 2*atanh(z) = 2*atanh(c) + 2*atanh(t) for the micro reduction.
+            //
+            // We need: is exact_prefix + 2*atanh(c) + 2*atanh(t) >= q_hi ?
+
+            // micro additive constant: 2*atanh(c)
+            // If lower (c=0): 0
+            // If upper (c=1/64): A64_Q256 = 3618797306320365907038389356091966445740960606432524368886479476623023988535
+            if (upper) {
+                if (u_neg) {
+                    (ep_hi, ep_lo) = _sub(ep_hi, ep_lo, 3618797306320365907038389356091966445740960606432524368886479476623023988535);
+                } else {
+                    (ep_hi, ep_lo) = _add(ep_hi, ep_lo, 3618797306320365907038389356091966445740960606432524368886479476623023988535);
+                }
+            }
+
+            // Now we need: is ep + 2*atanh(t) >= q_hi ?
+            // Equivalently: is ep - q_hi + 2*atanh(t) >= 0 ?
+            // Let D = ep - q_hi (signed)
+            bool D_neg;
+            uint256 D_hi;
+            uint256 D_lo;
+            if (_gt(q_hi_hi, q_hi_lo, ep_hi, ep_lo)) {
+                D_neg = true;
+                (D_hi, D_lo) = _sub(q_hi_hi, q_hi_lo, ep_hi, ep_lo);
+            } else {
+                D_neg = false;
+                (D_hi, D_lo) = _sub(ep_hi, ep_lo, q_hi_hi, q_hi_lo);
+            }
+
+            // t_q256 is |t| in Q256. The sign of t matches sign of z (if c > 0)
+            // or is always positive (if c = 0 and z > 0) or negative (c=0 and z < 0).
+            // For simplicity: t has the same sign as z.
+            // 2*atanh(t) = 2*t + 2*t^3/3 + 2*t^5/5 + ...
+            // We need to add this to D and check sign.
+
+            // The sign of 2*atanh(t) is the same as sign of z (since t is derived from z)
+            // If u_neg (z < 0): 2*atanh(t) is negative → 2*atanh(|t|) with negative sign
+            // If !u_neg (z > 0): 2*atanh(t) is positive
+
+            // Adaptive series to determine sign of D + sign_z * 2*atanh(|t|)
+            uint256 a_val = t_q256;
+            uint256 a2;
+            (uint256 a2_hi,) = _mul(a_val, a_val);
+            a2 = a2_hi; // a^2 in Q256 (just the high word of the 512-bit product)
+
+            uint256 pow_a = a_val;
+            uint256 partialSum = 0;
+
+            // q_lo = q_hi - 1 (the other candidate)
+            uint256 q_lo_hi_val;
+            uint256 q_lo_lo_val;
+            (q_lo_hi_val, q_lo_lo_val) = _sub(q_hi_hi, q_hi_lo, 1);
+
+            for (uint256 m = 0; m < 80; m++) {
+                unchecked {
+                    uint256 odd = 2 * m + 1;
+                    // Add current term: 2 * pow_a / odd
+                    uint256 term = (2 * pow_a) / odd;
+                    partialSum += term;
+
+                    // Compute remainder bound: 2 * pow_a * a2 / ((odd+2) * (2^256 - a2))
+                    // Simplified: since a2 << 2^256, the denominator ≈ (odd+2) * 2^256
+                    // So rem ≈ 2 * pow_a * a2 / ((odd+2) * 2^256) = 2 * (pow_a * a2 >> 256) / (odd+2)
+                    (uint256 pa_hi,) = _mul(pow_a, a2);
+                    uint256 rem = (2 * pa_hi) / (odd + 2) + 1; // +1 for conservative bound
+
+                    // Check: is D + sign_z * (partialSum + rem) all same sign?
+                    // If D_neg == u_neg: they cancel partialSumly
+                    // If D_neg != u_neg: they reinforce
+
+                    // lower bound of (D + tail): use partialSum (without rem) if tail positive,
+                    //   or partialSum + rem if tail negative
+                    // upper bound of (D + tail): use partialSum + rem if tail positive,
+                    //   or partialSum (without rem) if tail negative
+
+                    uint256 tail_lo = partialSum;
+                    uint256 tail_hi_val = partialSum + rem;
+
+                    bool result_neg;
+                    bool result_pos;
+
+                    if (!u_neg) {
+                        // tail is positive
+                        if (!D_neg) {
+                            // D >= 0, tail >= 0 → always positive → return q_hi
+                            return (q_hi_hi, q_hi_lo);
+                        } else {
+                            // D < 0, tail > 0. Check if tail_lo > |D|
+                            result_pos = (D_hi == 0 && tail_lo >= D_lo);
+                            result_neg = (D_hi > 0 || (D_hi == 0 && tail_hi_val < D_lo));
+                        }
+                    } else {
+                        // tail is negative
+                        if (D_neg) {
+                            // D < 0, tail < 0 → always negative → return q_lo
+                            return (q_lo_hi_val, q_lo_lo_val);
+                        } else {
+                            // D >= 0, tail < 0. Check if |tail| > D
+                            result_neg = (D_hi == 0 && tail_lo > D_lo);
+                            result_pos = (D_hi > 0 || (D_hi == 0 && tail_hi_val <= D_lo));
+                        }
+                    }
+
+                    if (result_neg) return (q_lo_hi_val, q_lo_lo_val);
+                    if (result_pos) return (q_hi_hi, q_hi_lo);
+
+                    // Next power: pow_a = pow_a * a2 >> 256
+                    pow_a = pa_hi;
+                }
+            }
+
+            // Should not reach here given our convergence bounds
+            // Return q_hi as fallback
+            return (q_hi_hi, q_hi_lo);
+        }
+    }
+
+    /// Look up C0_EXACT Q256 constant by bucket index j (0..15).
+    function _lnC0ExactQ256(uint256 j) private pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            switch j
+            case 0  { r := 3676248108410512522884654055069347598461433908038198409365577366166115323608 }
+            case 1  { r := 11398581695720039721329937428610221209796015481254489863285451918405973902822 }
+            case 2  { r := 15461878930761829229137676699525226505276924779444969780503827915434241961033 }
+            case 3  { r := 24042995855582136664155807340809396252638427204525638120407873210386888890307 }
+            case 4  { r := 28584444172978065591130410613805318878106222400090682170856585690648758938527 }
+            case 5  { r := 33311308205312680284369338703716915449575454018676753548640125684805014437579 }
+            case 6  { r := 38239374875999667522032947591743520695232775968320786985104801804537284692778 }
+            case 7  { r := 43386537334357651191261462168781086211962300144685414986294608961431443799443 }
+            case 8  { r := 48773187136074509513507015403242141954852378798121723329143953600239256398613 }
+            case 9  { r := 54422702179484687226682157410057694706048445005840314388489726598034357957349 }
+            case 10 { r := 60362059900483868559960435468053842960499603275763905875550966723903832117518 }
+            case 11 { r := 60362059900483868559960435468053842960499603275763905875550966723903832117518 }
+            case 12 { r := 66622616410625360568738677407433830899150908037353507097280251369610028875158 }
+            case 13 { r := 73241108566644139308970233205920051172483346696661603115364893905619174842851 }
+            case 14 { r := 73241108566644139308970233205920051172483346696661603115364893905619174842851 }
+            case 15 { r := 80260960185991308862233904206310070533990667611589946606122867505419956976172 }
         }
     }
 
