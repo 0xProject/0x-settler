@@ -4012,6 +4012,81 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (1,))
         self.assertEqual(ytl.evaluate_function_model(model, (5,)), (6,))
 
+    def test_translate_yul_to_models_preserves_top_level_temporary_snapshot_inside_nonconstant_conditional(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1, var_x_2) -> var_z_3 {
+                let expr_1 := var_c_1
+                if var_x_2 {
+                    var_c_1 := 0
+                    var_z_3 := expr_1
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (7, 0)), (0,))
+        self.assertEqual(ytl.evaluate_function_model(model, (7, 1)), (7,))
+        self.assertEqual(ytl.evaluate_function_model(model, (9, 2)), (9,))
+
+    def test_translate_yul_to_models_preserves_branch_local_temporary_snapshot_inside_nonconstant_conditional(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1, var_x_2) -> var_z_3 {
+                if var_c_1 {
+                    let expr_1 := var_x_2
+                    var_x_2 := 0
+                    var_z_3 := expr_1
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0, 5)), (0,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1, 5)), (5,))
+        self.assertEqual(ytl.evaluate_function_model(model, (2, 9)), (9,))
+
+    def test_translate_yul_to_models_keeps_conditional_local_assignment_distinct_from_parameter_binding(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1, var_x_2) -> var_z_3 {
+                let usr$c := 2
+                if iszero(var_x_2) {
+                    usr$c := usr$c
+                    var_z_3 := var_c_1
+                }
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0, 0)), (0,))
+        self.assertEqual(ytl.evaluate_function_model(model, (7, 0)), (7,))
+        self.assertEqual(ytl.evaluate_function_model(model, (7, 1)), (0,))
+
     def test_translate_yul_to_models_rejects_constant_true_conditional_local_used_out_of_scope(
         self,
     ) -> None:
