@@ -1658,20 +1658,65 @@ class YulParser(_TokenReader):
                     results, pure_fns, rejected=rejected_fns
                 )
 
-            # Phase B: alpha-rename non-pure helpers that have
-            # unresolved calls in the scope's output, giving each a
-            # unique binding identity for the flat helper table.
+            # Phase B: export non-pure helpers as alpha-renamed
+            # bindings.  Compute the transitive closure: if helper A
+            # is called in the scope output and A's body calls helper
+            # B (same scope or inner deferred), B must also be
+            # exported and A's body rewritten to B's mangled name.
             if deferred_fns:
                 called = _collect_call_names_in_stmts(results)
-                for name, fn in deferred_fns.items():
-                    if name in called:
-                        mangled = _gensym(
-                            f"dfr_{name}", avoid=self._all_source_names()
+
+                # Step 1: transitive closure of needed helpers
+                needed: set[str] = {
+                    n for n in deferred_fns if n in called
+                }
+                worklist = list(needed)
+                while worklist:
+                    dep = worklist.pop()
+                    fn = deferred_fns.get(dep)
+                    if fn is None:
+                        continue
+                    for ref in _collect_call_names_in_stmts(
+                        fn.assignments
+                    ):
+                        if ref not in needed and (
+                            ref in deferred_fns
+                            or ref in self._deferred_helpers
+                        ):
+                            needed.add(ref)
+                            worklist.append(ref)
+
+                # Step 2: generate mangled names for same-scope helpers
+                rename_map: dict[str, str] = {}
+                for n in needed:
+                    if n in deferred_fns:
+                        rename_map[n] = _gensym(
+                            f"dfr_{n}", avoid=self._all_source_names()
                         )
-                        results = _rename_calls_in_stmts(
-                            results, name, mangled
+
+                # Step 3: rename calls in scope output
+                for old, new in rename_map.items():
+                    results = _rename_calls_in_stmts(
+                        results, old, new
+                    )
+
+                # Step 4: export helpers with renamed bodies
+                for n in needed:
+                    if n in deferred_fns:
+                        fn = deferred_fns[n]
+                        body = list(fn.assignments)
+                        for old, new in rename_map.items():
+                            body = _rename_calls_in_stmts(body, old, new)
+                        self._deferred_helpers[rename_map[n]] = (
+                            YulFunction(
+                                yul_name=fn.yul_name,
+                                params=fn.params,
+                                rets=fn.rets,
+                                assignments=body,
+                                expr_stmts=fn.expr_stmts,
+                                token_idx=fn.token_idx,
+                            )
                         )
-                        self._deferred_helpers[mangled] = fn
 
         return results, has_leave
 
