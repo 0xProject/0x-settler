@@ -9693,5 +9693,90 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
                 )
 
 
+class FinalCriticalReviewRegressionTest(unittest.TestCase):
+    def test_find_function_ignores_dead_helper_reference_after_infinite_for_loop(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                for { } 1 { } {
+                }
+                var_z_4 := helper(var_x_3)
+            }
+
+            function fun_pick_2(var_x_5) -> var_z_6 {
+                var_z_6 := 7
+            }
+            """)
+
+        found = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+
+        self.assertEqual(found.yul_name, "fun_pick_2")
+
+    def test_find_function_ignores_dead_helper_reference_after_for_post_leave(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function helper(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+
+            function fun_pick_1(var_x_3) -> var_z_4 {
+                for { } 1 { leave } {
+                }
+                var_z_4 := helper(var_x_3)
+            }
+
+            function fun_pick_2(var_x_5) -> var_z_6 {
+                var_z_6 := 7
+            }
+            """)
+
+        found = ytl.YulParser(tokens).find_function(
+            "pick",
+            known_yul_names={"helper"},
+        )
+
+        self.assertEqual(found.yul_name, "fun_pick_2")
+
+    def test_prepare_translation_does_not_duplicate_single_deferred_helper_export(
+        self,
+    ) -> None:
+        config = make_model_config(("target",))
+        yul = """
+            function fun_target_0(var_x_hi_1, var_x_lo_2) -> var_z_3 {
+                {
+                    function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
+                        var_r_out_7 := 0
+                        mstore(var_r_4, var_x_hi_5)
+                        mstore(add(0x20, var_r_4), var_x_lo_6)
+                        var_r_out_7 := var_r_4
+                    }
+                    let usr$ptr := fun_from_1(0, var_x_hi_1, var_x_lo_2)
+                    var_z_3 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+                }
+            }
+        """
+
+        old_counters = dict(ytl._gensym_counters)
+        try:
+            ytl._gensym_counters = {}
+            preparation = ytl.prepare_translation(yul, config)
+        finally:
+            ytl._gensym_counters = old_counters
+
+        self.assertEqual(
+            sorted(fn.yul_name for fn in preparation.collected_helpers.values()),
+            ["fun_from_1"],
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
