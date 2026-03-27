@@ -966,6 +966,9 @@ def _statement_reference_summary(
                 False,
             )
 
+        # A for-loop with a constant nonzero condition is an
+        # infinite loop — it never falls through, so later
+        # statements are dead regardless of body/post content.
         return ReferenceAnalysisResult(
             init_summary.live_references
             or cond_summary.live_references
@@ -975,9 +978,7 @@ def _statement_reference_summary(
             or cond_summary.dead_references
             or body_summary.dead_references
             or post_summary.dead_references,
-            const_cond is not None
-            and const_cond != 0
-            and body_summary.definitely_terminates,
+            const_cond is not None and const_cond != 0,
         )
 
     raise TypeError(f"Unsupported ReferenceStatement: {type(stmt)}")
@@ -5660,16 +5661,34 @@ def prepare_translation(
                     rejected_helpers,
                     nested_coll,
                 )
-                # Merge deferred helpers (mstore_sink-requiring) that
-                # were collected during parsing but couldn't be inlined
-                # at parse time.  Their calls were alpha-renamed to
-                # unique binding names at parse time, so no collision
-                # with outer helpers is possible.
+                # Merge parse_deferred as the authoritative source for
+                # deferred helpers tied to the selected target's parse.
                 for dname, dfn in parse_deferred.get(sol_name, {}).items():
                     helper_table[dname] = dfn
                     nested_helper_names.add(dname)
                 for dname, derr in parse_deferred_rejected.get(sol_name, {}).items():
                     rejected_helpers[dname] = derr
+
+                # Deduplicate: scope chain and body rescan may have
+                # independently produced deferred entries for the same
+                # original helper under different mangled names.
+                # parse_deferred versions are authoritative.  Only
+                # remove synthetic _dfr_* entries (not regular helpers
+                # which may be legitimate outer-scope definitions).
+                auth_keys = set(parse_deferred.get(sol_name, {}))
+                auth_originals = {
+                    dfn.yul_name
+                    for dfn in parse_deferred.get(sol_name, {}).values()
+                }
+                for key in list(helper_table.keys()):
+                    if key in auth_keys:
+                        continue
+                    if not key.startswith("_dfr_"):
+                        continue
+                    fn = helper_table[key]
+                    if fn.yul_name in auth_originals:
+                        del helper_table[key]
+                        nested_helper_names.discard(key)
         else:
             nested_helper_names = set()
             function_collection = YulParser(tokens).collect_all_functions()
