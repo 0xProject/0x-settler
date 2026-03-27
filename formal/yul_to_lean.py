@@ -2891,15 +2891,25 @@ def _inline_single_call(
                     "Only a single top-level 'if cond { ... leave }' is supported "
                     "during helper inlining."
                 )
-            # Evaluate condition
+            # Evaluate condition — pass mstore_sink so that exact-from
+            # calls are detected and rejected rather than silently
+            # failing with a missing-sink error.
+            pre_cond_sink_len = len(mstore_sink) if mstore_sink is not None else 0
             cond = substitute_expr(stmt.condition, subst)
             cond = inline_calls(
                 cond,
                 fn_table,
                 depth,
                 max_depth,
+                mstore_sink=mstore_sink,
                 unsupported_function_errors=unsupported_function_errors,
             )
+            if mstore_sink is not None and len(mstore_sink) > pre_cond_sink_len:
+                raise ParseError(
+                    f"Conditional memory write detected in {fn.yul_name!r}: "
+                    "uint512.from accessor effect(s) emitted inside an if/switch "
+                    "condition. Keep uint512.from(...) outside conditional expressions."
+                )
 
             # Constant-fold non-leave if/switch: eliminate dead branches
             # BEFORE processing bodies.  This prevents spurious
