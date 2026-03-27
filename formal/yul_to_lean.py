@@ -5671,13 +5671,14 @@ def prepare_translation(
 
                 # Deduplicate: scope chain and body rescan may have
                 # independently produced deferred entries for the same
-                # original helper under different mangled names.
-                # parse_deferred versions are authoritative.  Only
-                # remove synthetic _dfr_* entries (not regular helpers
-                # which may be legitimate outer-scope definitions).
+                # lexical helper under different mangled names.
+                # parse_deferred versions are authoritative.  Use
+                # token_idx (lexical identity) for matching — yul_name
+                # alone is insufficient because Yul allows same-named
+                # helpers in different lexical scopes.
                 auth_keys = set(parse_deferred.get(sol_name, {}))
-                auth_originals = {
-                    dfn.yul_name
+                auth_token_idxs = {
+                    dfn.token_idx
                     for dfn in parse_deferred.get(sol_name, {}).values()
                 }
                 for key in list(helper_table.keys()):
@@ -5686,7 +5687,7 @@ def prepare_translation(
                     if not key.startswith("_dfr_"):
                         continue
                     fn = helper_table[key]
-                    if fn.yul_name in auth_originals:
+                    if fn.token_idx in auth_token_idxs:
                         del helper_table[key]
                         nested_helper_names.discard(key)
         else:
