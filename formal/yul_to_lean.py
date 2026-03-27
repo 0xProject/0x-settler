@@ -4284,30 +4284,27 @@ def yul_function_to_model(
 
             # Save pre-if Lean names so each branch can explicitly return
             # the values that were live before the conditional ran.
+            # pre_if_names: raw Yul target → pre-if Lean name.
+            # Keyed by raw slot so distinct binders that share a
+            # demangled clean name (e.g. var_c_1 / usr$c → c) each
+            # get their own merge entry.
             pre_if_names: dict[str, str] = {}
-            # Snapshot of all Lean names in scope before the if-body.
             pre_if_scope: set[str] = set(var_map.values())
 
-            def _record_pre_if_name(target: str) -> str | None:
-                clean = demangle_var(
-                    target,
-                    yf.params,
-                    yf.rets,
-                    keep_solidity_locals=keep_solidity_locals,
-                )
-                if clean is not None and clean not in pre_if_names:
-                    pre_if_names[clean] = var_map.get(target, clean)
-                return clean
+            def _record_pre_if_name(target: str) -> None:
+                if target not in pre_if_names:
+                    pre_if_names[target] = var_map.get(target, target)
 
             def _process_conditional_branch(
                 raw_assignments: tuple[PlainAssignment, ...],
             ) -> tuple[list[Assignment], dict[str, str], dict[str, Expr]]:
                 """Process one conditional branch.
 
-                Returns ``(assignments, clean_to_last_ssa, clean_to_last_expr)``
-                where *clean_to_last_ssa* maps each modified clean name to its
-                last SSA target in this branch, and *clean_to_last_expr* maps
-                each modified clean name to its last expression.
+                Returns ``(assignments, raw_to_last_ssa, raw_to_last_expr)``
+                where *raw_to_last_ssa* maps each modified **raw Yul target**
+                to its last SSA target in this branch, and *raw_to_last_expr*
+                maps it to the last expression.  Keying by raw slot keeps
+                distinct binders that share a demangled name separate.
                 """
                 branch_var_map = dict(var_map)
                 branch_subst = dict(subst)
@@ -4316,8 +4313,8 @@ def yul_function_to_model(
                 branch_emitted = set(emitted_ssa_names)
                 branch_assignments: list[Assignment] = []
                 branch_locals: set[str] = set()
-                clean_to_last_ssa: dict[str, str] = {}
-                clean_to_last_expr: dict[str, Expr] = {}
+                raw_to_last_ssa: dict[str, str] = {}
+                raw_to_last_expr: dict[str, Expr] = {}
                 for s in raw_assignments:
                     if s.is_declaration:
                         branch_locals.add(s.target)
@@ -4363,58 +4360,72 @@ def yul_function_to_model(
                         )
                         if assignment is not None:
                             branch_assignments.append(assignment)
-                            c = demangle_var(
-                                s.target,
-                                yf.params,
-                                yf.rets,
-                                keep_solidity_locals=keep_solidity_locals,
-                            )
-                            if c is not None:
-                                clean_to_last_ssa[c] = assignment.target
-                                clean_to_last_expr[c] = assignment.expr
-                return branch_assignments, clean_to_last_ssa, clean_to_last_expr
+                            raw_to_last_ssa[s.target] = assignment.target
+                            raw_to_last_expr[s.target] = assignment.expr
+                return branch_assignments, raw_to_last_ssa, raw_to_last_expr
 
-            body_assignments, then_clean_map, then_last = (
+            body_assignments, then_raw_map, then_raw_last = (
                 _process_conditional_branch(stmt.body)
             )
             if stmt.else_body is not None:
-                else_assignments_list, else_clean_map, else_last = (
+                else_assignments_list, else_raw_map, else_raw_last = (
                     _process_conditional_branch(stmt.else_body)
                 )
             else:
                 else_assignments_list = []
-                else_clean_map: dict[str, str] = {}
-                else_last: dict[str, Expr] = {}
+                else_raw_map: dict[str, str] = {}
+                else_raw_last: dict[str, Expr] = {}
 
-            # Build modified_list from the clean names that were
-            # actually modified in at least one branch AND existed
-            # before the conditional.
-            all_modified_clean = set(then_clean_map) | set(else_clean_map)
-            modified_list: list[str] = [
-                c for c in all_modified_clean
-                if c in pre_if_names and pre_if_names[c] in pre_if_scope
-            ]
+            # Build modified list from raw Yul slots, ordered by
+            # first appearance (then-branch first, then else-branch).
+            # Keying by raw slot keeps distinct binders that share a
+            # demangled name (e.g. var_c_1 / usr$c → c) separate.
+            modified_raws: list[str] = list(dict.fromkeys(
+                raw for raw in (*then_raw_map, *else_raw_map)
+                if raw in pre_if_names and pre_if_names[raw] in pre_if_scope
+            ))
 
-            if modified_list:
-                modified = tuple(modified_list)
+            if modified_raws:
+                # Generate output SSA names — one per raw slot.
+                output_vars: list[str] = []
+                for raw in modified_raws:
+                    c = demangle_var(
+                        raw,
+                        yf.params,
+                        yf.rets,
+                        keep_solidity_locals=keep_solidity_locals,
+                    )
+                    assert c is not None  # non-None since demangle_var passed earlier
+                    ssa_count[c] += 1
+                    if ssa_count[c] == 1:
+                        out = c
+                    else:
+                        out = f"{c}_{ssa_count[c] - 1}"
+                        while out in emitted_ssa_names:
+                            ssa_count[c] += 1
+                            out = f"{c}_{ssa_count[c] - 1}"
+                    emitted_ssa_names.add(out)
+                    output_vars.append(out)
+                    var_map[raw] = out
+
                 then_outputs = tuple(
-                    then_clean_map.get(c, pre_if_names[c])
-                    for c in modified_list
+                    then_raw_map.get(r, pre_if_names[r])
+                    for r in modified_raws
                 )
                 if stmt.else_body is None:
                     else_outputs = tuple(
-                        pre_if_names[c] for c in modified_list
+                        pre_if_names[r] for r in modified_raws
                     )
                 else:
                     else_outputs = tuple(
-                        else_clean_map.get(c, pre_if_names[c])
-                        for c in modified_list
+                        else_raw_map.get(r, pre_if_names[r])
+                        for r in modified_raws
                     )
 
                 assignments.append(
                     ConditionalBlock(
                         condition=cond,
-                        output_vars=modified,
+                        output_vars=tuple(output_vars),
                         then_branch=ConditionalBranch(
                             assignments=tuple(body_assignments),
                             outputs=then_outputs,
@@ -4426,35 +4437,25 @@ def yul_function_to_model(
                     )
                 )
 
-                modified_set = set(modified_list)
-
-                for raw_name in list(var_map.keys()):
-                    c = demangle_var(
-                        raw_name,
-                        yf.params,
-                        yf.rets,
-                        keep_solidity_locals=keep_solidity_locals,
+                # Const fact merging per raw slot.
+                for raw, out in zip(modified_raws, output_vars):
+                    pre_cv = const_locals.get(pre_if_names[raw])
+                    t_expr = then_raw_last.get(raw)
+                    e_expr = else_raw_last.get(raw)
+                    t_cv = (
+                        _try_const_eval(t_expr)
+                        if t_expr is not None
+                        else (pre_cv.value if isinstance(pre_cv, IntLit) else None)
                     )
-                    if c is not None and c in modified_set:
-                        var_map[raw_name] = c
-                        ssa_count[c] = 1
-                        pre_cv = const_locals.get(c)
-                        t_expr = then_last.get(c)
-                        e_expr = else_last.get(c)
-                        t_cv = (
-                            _try_const_eval(t_expr)
-                            if t_expr is not None
-                            else (pre_cv.value if isinstance(pre_cv, IntLit) else None)
-                        )
-                        e_cv = (
-                            _try_const_eval(e_expr)
-                            if e_expr is not None
-                            else (pre_cv.value if isinstance(pre_cv, IntLit) else None)
-                        )
-                        if t_cv is not None and t_cv == e_cv:
-                            const_locals[c] = IntLit(t_cv)
-                        else:
-                            const_locals.pop(c, None)
+                    e_cv = (
+                        _try_const_eval(e_expr)
+                        if e_expr is not None
+                        else (pre_cv.value if isinstance(pre_cv, IntLit) else None)
+                    )
+                    if t_cv is not None and t_cv == e_cv:
+                        const_locals[out] = IntLit(t_cv)
+                    else:
+                        const_locals.pop(out, None)
             continue
 
         if isinstance(stmt, MemoryWrite):
