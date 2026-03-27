@@ -327,13 +327,14 @@ class CollectedFunctions:
     ``deferred`` contains helpers (alpha-renamed to unique binding names)
     that were resolved at parse time but require later sink-aware lowering.
     ``deferred_rejected`` records rejected helpers that are transitively
-    referenced by deferred helper bodies.
+    referenced by deferred helper bodies — keyed by mangled binding
+    name, values are ``(original_name, raw_reason)`` tuples.
     """
 
     functions: dict[str, YulFunction]
     rejected: dict[str, str]
     deferred: dict[str, YulFunction] = field(default_factory=dict)
-    deferred_rejected: dict[str, str] = field(default_factory=dict)
+    deferred_rejected: dict[str, tuple[str, str]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -1734,13 +1735,11 @@ class YulParser(_TokenReader):
                             )
                         )
                 # Export rejected deps with mangled names.
-                # Preserve the original helper name in the rejection
-                # message so later error reporting is user-facing.
+                # Store (original_name, raw_reason) so the error site
+                # can report the user-facing name, not the synthetic
+                # _dfr_* binding key.
                 for n, err in needed_rejected.items():
-                    self._deferred_rejected[rename_map[n]] = (
-                        f"Cannot inline helper {n!r}: its Yul body was "
-                        f"rejected during collection: {err}"
-                    )
+                    self._deferred_rejected[rename_map[n]] = (n, err)
 
         return results, has_leave
 
@@ -2164,7 +2163,7 @@ class YulParser(_TokenReader):
         functions: dict[str, YulFunction] = {}
         rejected: dict[str, str] = {}
         deferred: dict[str, YulFunction] = {}
-        deferred_rejected: dict[str, str] = {}
+        deferred_rejected: dict[str, tuple[str, str]] = {}
         while not self._at_end():
             if self._peek_kind() == "ident" and self.tokens[self.i][1] == "function":
                 saved_i = self.i
@@ -2483,9 +2482,10 @@ def _merge_helper_collection(
     for name, fn in collection.deferred.items():
         helper_table[name] = fn
     # Deferred rejected: helpers transitively referenced by deferred
-    # bodies that failed to parse.
-    for name, err in collection.deferred_rejected.items():
-        rejected_helpers[name] = err
+    # bodies that failed to parse.  Store (original_name, reason)
+    # so the error site can use the user-facing name.
+    for name, (orig, reason) in collection.deferred_rejected.items():
+        rejected_helpers[name] = (orig, reason)
 
 
 def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
@@ -3468,10 +3468,14 @@ def inline_calls(
                 unsupported_function_errors is not None
                 and inner.name in unsupported_function_errors
             ):
+                entry = unsupported_function_errors[inner.name]
+                if isinstance(entry, tuple):
+                    display_name, reason = entry
+                else:
+                    display_name, reason = inner.name, entry
                 raise ParseError(
-                    f"Cannot inline helper {inner.name!r}: its Yul body was "
-                    f"rejected during collection: "
-                    f"{unsupported_function_errors[inner.name]}"
+                    f"Cannot inline helper {display_name!r}: its Yul body was "
+                    f"rejected during collection: {reason}"
                 )
             # Inner call not in table — rebuild with inlined args
             return Project(idx, total, Call(inner.name, inner_args))
@@ -3525,9 +3529,14 @@ def inline_calls(
             unsupported_function_errors is not None
             and expr.name in unsupported_function_errors
         ):
+            entry = unsupported_function_errors[expr.name]
+            if isinstance(entry, tuple):
+                display_name, reason = entry
+            else:
+                display_name, reason = expr.name, entry
             raise ParseError(
-                f"Cannot inline helper {expr.name!r}: its Yul body was "
-                f"rejected during collection: {unsupported_function_errors[expr.name]}"
+                f"Cannot inline helper {display_name!r}: its Yul body was "
+                f"rejected during collection: {reason}"
             )
 
         return Call(expr.name, args)
