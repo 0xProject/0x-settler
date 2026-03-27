@@ -32,31 +32,21 @@ abstract contract TempoMixin is FreeMemory, SettlerBase {
         DANGEROUS_freeMemory
         returns (bool)
     {
-        // This does not make use of `super._dispatch`. This chain's Settler is extremely
-        // stripped-down and has almost no capabilities
-        if (action == uint32(ISettlerActions.BASIC.selector)) {
-            (IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory _data) =
-                abi.decode(data, (IERC20, uint256, address, uint256, bytes));
+        if (super._dispatch(i, action, data, slippage)) {
+            return true;
+        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+            (
+                address recipient,
+                IERC20 sellToken,
+                uint256 bps,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                uint256 amountOutMin
+            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            basicSellToPool(sellToken, bps, pool, offset, _data);
-        } else if (action == uint32(ISettlerActions.POSITIVE_SLIPPAGE.selector)) {
-            (address payable recipient, IERC20 token, uint256 expectedAmount, uint256 maxBps) =
-                abi.decode(data, (address, IERC20, uint256, uint256));
-            bool isETH = (token == ETH_ADDRESS);
-            uint256 balance = isETH ? address(this).balance : token.fastBalanceOf(address(this));
-            if (balance > expectedAmount) {
-                uint256 cap;
-                unchecked {
-                    cap = balance * maxBps / BASIS;
-                    balance -= expectedAmount;
-                }
-                balance = (balance > cap).ternary(cap, balance);
-                if (isETH) {
-                    recipient.safeTransferETH(balance);
-                } else {
-                    token.safeTransfer(recipient, balance);
-                }
-            }
+            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else {
             return false;
         }
@@ -69,14 +59,24 @@ abstract contract TempoMixin is FreeMemory, SettlerBase {
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        revertUnknownForkId(forkId);
+        if (forkId == uniswapV3ForkId) {
+            factory = uniswapV3TempoFactory;
+            initHash = uniswapV3InitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else {
+            revertUnknownForkId(forkId);
+        }
+    }
+
+    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
+        return TEMPO_POOL_MANAGER;
     }
 
     // I hate Solidity inheritance
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract)
+        override(Permit2PaymentAbstract, UniswapV4)
         returns (bool success, bytes memory returndata)
     {
         return super._fallback(data);
