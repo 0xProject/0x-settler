@@ -9777,6 +9777,46 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
             ["fun_from_1"],
         )
 
+    def test_prepare_translation_does_not_duplicate_deferred_helper_for_exact_nested_target(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("target",),
+            exact_yul_names={"target": "fun_outer_1::target"},
+        )
+        yul = """
+            function fun_outer_1() -> var_z_1 {
+                function target(var_x_hi_1, var_x_lo_2) -> var_z_3 {
+                    function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
+                        var_r_out_7 := 0
+                        mstore(var_r_4, var_x_hi_5)
+                        mstore(add(0x20, var_r_4), var_x_lo_6)
+                        var_r_out_7 := var_r_4
+                    }
+                    let usr$ptr := fun_from_1(0, var_x_hi_1, var_x_lo_2)
+                    var_z_3 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+                }
+
+                var_z_1 := target(1, 4)
+            }
+        """
+
+        old_counters = dict(ytl._gensym_counters)
+        try:
+            ytl._gensym_counters = {}
+            preparation = ytl.prepare_translation(yul, config)
+        finally:
+            ytl._gensym_counters = old_counters
+
+        self.assertEqual(
+            sum(
+                1
+                for fn in preparation.collected_helpers.values()
+                if fn.yul_name == "fun_from_1"
+            ),
+            1,
+        )
+
     def test_translate_yul_to_models_allows_distinct_deferred_helpers_with_same_name_across_scopes(
         self,
     ) -> None:
