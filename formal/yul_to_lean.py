@@ -469,8 +469,7 @@ class _TokenReader:
         kind, text = self._pop()
         if kind != "num":
             raise ParseError(
-                f"switch case value must be a literal, got {kind} "
-                f"({text!r})"
+                f"switch case value must be a literal, got {kind} " f"({text!r})"
             )
         return int(text, 0) % WORD_MOD
 
@@ -1310,10 +1309,7 @@ class YulParser(_TokenReader):
                 try:
                     fn = self.parse_function()
                 except ParseError as err:
-                    fn_name = (
-                        self._function_name_at(saved_i)
-                        or f"<unknown@{saved_i}>"
-                    )
+                    fn_name = self._function_name_at(saved_i) or f"<unknown@{saved_i}>"
                     if fn_name in scope_fns:
                         raise ParseError(
                             f"Duplicate helper function {fn_name!r} in the "
@@ -1448,9 +1444,7 @@ class YulParser(_TokenReader):
                             if br == "default":
                                 break
                         if n_const_branches == 0:
-                            raise ParseError(
-                                "switch with no case/default branches"
-                            )
+                            raise ParseError("switch with no case/default branches")
                         # Reject trailing branches after default.
                         if (
                             has_default
@@ -1658,9 +1652,7 @@ class YulParser(_TokenReader):
         # defined before a deferred one in the same scope is correctly
         # classified as non-pure even though it was parsed first.
         if scope_fns:
-            non_pure = _classify_non_pure_helpers(
-                scope_fns, self._deferred_helpers
-            )
+            non_pure = _classify_non_pure_helpers(scope_fns, self._deferred_helpers)
             pure_fns: dict[str, YulFunction] = {}
             rejected_fns: RejectedHelperMap = {}
             deferred_fns: dict[str, YulFunction] = {}
@@ -1689,24 +1681,19 @@ class YulParser(_TokenReader):
                 # Step 1: transitive closure of needed helpers.
                 # Also track rejected helpers referenced by exported
                 # bodies so their rejection info flows to later phases.
-                needed: set[str] = {
-                    n for n in deferred_fns if n in called
-                }
+                needed: set[str] = {n for n in deferred_fns if n in called}
                 needed_rejected: RejectedHelperMap = {}
                 worklist = list(needed)
                 while worklist:
                     dep = worklist.pop()
-                    fn = deferred_fns.get(dep)
-                    if fn is None:
+                    if dep not in deferred_fns:
                         continue
-                    for ref in _collect_call_names_in_stmts(
-                        fn.assignments
-                    ):
+                    fn = deferred_fns[dep]
+                    for ref in _collect_call_names_in_stmts(fn.assignments):
                         if ref in rejected_fns and ref not in needed_rejected:
                             needed_rejected[ref] = rejected_fns[ref]
                         if ref not in needed and (
-                            ref in deferred_fns
-                            or ref in self._deferred_helpers
+                            ref in deferred_fns or ref in self._deferred_helpers
                         ):
                             needed.add(ref)
                             worklist.append(ref)
@@ -1722,15 +1709,11 @@ class YulParser(_TokenReader):
                             f"dfr_{n}", avoid=self._all_source_names()
                         )
                 for n in needed_rejected:
-                    rename_map[n] = _gensym(
-                        f"dfr_{n}", avoid=self._all_source_names()
-                    )
+                    rename_map[n] = _gensym(f"dfr_{n}", avoid=self._all_source_names())
 
                 # Step 3: rename calls in scope output
                 for old, new in rename_map.items():
-                    results = _rename_calls_in_stmts(
-                        results, old, new
-                    )
+                    results = _rename_calls_in_stmts(results, old, new)
 
                 # Step 4: export helpers with renamed bodies
                 for n in needed:
@@ -1739,24 +1722,22 @@ class YulParser(_TokenReader):
                         body = list(fn.assignments)
                         for old, new in rename_map.items():
                             body = _rename_calls_in_stmts(body, old, new)
-                        self._deferred_helpers[rename_map[n]] = (
-                            YulFunction(
-                                yul_name=fn.yul_name,
-                                params=fn.params,
-                                rets=fn.rets,
-                                assignments=body,
-                                expr_stmts=fn.expr_stmts,
-                                token_idx=fn.token_idx,
-                            )
+                        self._deferred_helpers[rename_map[n]] = YulFunction(
+                            yul_name=fn.yul_name,
+                            params=fn.params,
+                            rets=fn.rets,
+                            assignments=body,
+                            expr_stmts=fn.expr_stmts,
+                            token_idx=fn.token_idx,
                         )
                 # Export rejected deps with mangled names.
                 # Store (original_name, raw_reason) so the error site
                 # can report the user-facing name, not the synthetic
                 # _dfr_* binding key.
-                for n, err in needed_rejected.items():
+                for n, info in needed_rejected.items():
                     self._deferred_rejected[rename_map[n]] = RejectedHelperInfo(
-                        err.helper_name,
-                        err.reason,
+                        info.helper_name,
+                        info.reason,
                     )
 
         return results, has_leave
@@ -2394,9 +2375,7 @@ def _flatten_scoped_block(
                 block_locals.add(stmt.target)
                 if avoid_names is not None and stmt.target.startswith("usr$"):
                     fresh = _gensym("blk", avoid=avoid_names)
-                    results.append(
-                        PlainAssignment(fresh, expr, is_declaration=True)
-                    )
+                    results.append(PlainAssignment(fresh, expr, is_declaration=True))
                     block_sub[stmt.target] = Var(fresh)
                 else:
                     block_sub[stmt.target] = expr
@@ -3289,34 +3268,51 @@ def _rename_calls_in_stmts(
         if isinstance(stmt, PlainAssignment):
             new_expr = _rename_call_in_expr(stmt.expr, old, new)
             result.append(
-                PlainAssignment(stmt.target, new_expr, is_declaration=stmt.is_declaration)
-                if new_expr is not stmt.expr else stmt
+                PlainAssignment(
+                    stmt.target, new_expr, is_declaration=stmt.is_declaration
+                )
+                if new_expr is not stmt.expr
+                else stmt
             )
         elif isinstance(stmt, ParsedIfBlock):
             new_cond = _rename_call_in_expr(stmt.condition, old, new)
             new_body = tuple(
-                PlainAssignment(s.target, _rename_call_in_expr(s.expr, old, new), is_declaration=s.is_declaration)
+                PlainAssignment(
+                    s.target,
+                    _rename_call_in_expr(s.expr, old, new),
+                    is_declaration=s.is_declaration,
+                )
                 for s in stmt.body
             )
             new_else = None
             if stmt.else_body is not None:
                 new_else = tuple(
-                    PlainAssignment(s.target, _rename_call_in_expr(s.expr, old, new), is_declaration=s.is_declaration)
+                    PlainAssignment(
+                        s.target,
+                        _rename_call_in_expr(s.expr, old, new),
+                        is_declaration=s.is_declaration,
+                    )
                     for s in stmt.else_body
                 )
-            result.append(ParsedIfBlock(
-                condition=new_cond, body=new_body, has_leave=stmt.has_leave,
-                else_body=new_else,
-                body_expr_stmts=stmt.body_expr_stmts,
-                else_body_expr_stmts=stmt.else_body_expr_stmts,
-            ))
+            result.append(
+                ParsedIfBlock(
+                    condition=new_cond,
+                    body=new_body,
+                    has_leave=stmt.has_leave,
+                    else_body=new_else,
+                    body_expr_stmts=stmt.body_expr_stmts,
+                    else_body_expr_stmts=stmt.else_body_expr_stmts,
+                )
+            )
         elif isinstance(stmt, MemoryWrite):
-            result.append(MemoryWrite(
-                _rename_call_in_expr(stmt.address, old, new),
-                _rename_call_in_expr(stmt.value, old, new),
-            ))
+            result.append(
+                MemoryWrite(
+                    _rename_call_in_expr(stmt.address, old, new),
+                    _rename_call_in_expr(stmt.value, old, new),
+                )
+            )
         else:
-            result.append(stmt)
+            assert_never(stmt)
     return result
 
 
@@ -3340,7 +3336,9 @@ def _inline_in_raw_statements(
                 unsupported_function_errors=rejected,
             )
             result.append(
-                PlainAssignment(stmt.target, new_expr, is_declaration=stmt.is_declaration)
+                PlainAssignment(
+                    stmt.target, new_expr, is_declaration=stmt.is_declaration
+                )
             )
         elif isinstance(stmt, ParsedIfBlock):
             new_cond = inline_calls(
@@ -3351,7 +3349,9 @@ def _inline_in_raw_statements(
             new_body = tuple(
                 PlainAssignment(
                     s.target,
-                    inline_calls(s.expr, fn_table, unsupported_function_errors=rejected),
+                    inline_calls(
+                        s.expr, fn_table, unsupported_function_errors=rejected
+                    ),
                     is_declaration=s.is_declaration,
                 )
                 for s in stmt.body
@@ -3361,7 +3361,9 @@ def _inline_in_raw_statements(
                 new_else = tuple(
                     PlainAssignment(
                         s.target,
-                        inline_calls(s.expr, fn_table, unsupported_function_errors=rejected),
+                        inline_calls(
+                            s.expr, fn_table, unsupported_function_errors=rejected
+                        ),
                         is_declaration=s.is_declaration,
                     )
                     for s in stmt.else_body
@@ -3379,12 +3381,16 @@ def _inline_in_raw_statements(
         elif isinstance(stmt, MemoryWrite):
             result.append(
                 MemoryWrite(
-                    inline_calls(stmt.address, fn_table, unsupported_function_errors=rejected),
-                    inline_calls(stmt.value, fn_table, unsupported_function_errors=rejected),
+                    inline_calls(
+                        stmt.address, fn_table, unsupported_function_errors=rejected
+                    ),
+                    inline_calls(
+                        stmt.value, fn_table, unsupported_function_errors=rejected
+                    ),
                 )
             )
         else:
-            result.append(stmt)
+            assert_never(stmt)
     return result
 
 
@@ -3550,9 +3556,7 @@ def inline_calls(
             and expr.name in unsupported_function_errors
         ):
             raise ParseError(
-                _format_rejected_helper_error(
-                    unsupported_function_errors[expr.name]
-                )
+                _format_rejected_helper_error(unsupported_function_errors[expr.name])
             )
 
         return Call(expr.name, args)
@@ -3629,7 +3633,9 @@ def _inline_yul_function(
                         else:
                             else_subst.pop(s.target, None)
                     new_else_body.append(
-                        PlainAssignment(s.target, inlined, is_declaration=s.is_declaration)
+                        PlainAssignment(
+                            s.target, inlined, is_declaration=s.is_declaration
+                        )
                     )
             if len(mstore_sink) > pre_len:
                 raise ParseError(
@@ -5614,6 +5620,7 @@ def prepare_translation(
         helper_table: dict[str, YulFunction] = {}
         rejected_helpers: RejectedHelperMap = {}
 
+        nested_helper_names: set[str] = set()
         if fn_token_idx is not None:
             # Walk up through enclosing block scopes from outermost to
             # innermost.  Each deeper scope overrides outer names.
@@ -5645,7 +5652,6 @@ def prepare_translation(
             # Track their names so the pop loop below preserves them —
             # a nested helper that shadows a selected target's Yul name
             # is a distinct function and must remain in the helper table.
-            nested_helper_names: set[str] = set()
             body_range = _find_function_body_range(tokens, fn_token_idx)
             if body_range is not None:
                 body_start, body_end = body_range
@@ -5668,7 +5674,7 @@ def prepare_translation(
                 for dname, derr in parse_deferred_rejected.get(sol_name, {}).items():
                     rejected_helpers[dname] = derr
         else:
-            nested_helper_names: set[str] = set()
+            nested_helper_names = set()
             function_collection = YulParser(tokens).collect_all_functions()
             _merge_helper_collection(
                 helper_table,

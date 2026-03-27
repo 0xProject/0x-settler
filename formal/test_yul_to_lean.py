@@ -7067,7 +7067,10 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         self,
     ) -> None:
         config = make_model_config(("f",))
-        cases = {
+        cases: dict[
+            str,
+            tuple[str, list[tuple[tuple[int, ...], tuple[int, ...]]]],
+        ] = {
             "constant_switch": (
                 f"""
                 function fun_f_1() -> var_z_2 {{
@@ -8184,9 +8187,7 @@ class NewReviewRegressionTest(unittest.TestCase):
     ) -> None:
         model = ytl.FunctionModel(
             fn_name="f",
-            assignments=(
-                ytl.Assignment("z", ytl.IntLit(ytl.WORD_MOD + 1)),
-            ),
+            assignments=(ytl.Assignment("z", ytl.IntLit(ytl.WORD_MOD + 1)),),
             param_names=(),
             return_names=("z",),
         )
@@ -8198,9 +8199,7 @@ class NewReviewRegressionTest(unittest.TestCase):
     ) -> None:
         model = ytl.FunctionModel(
             fn_name="f",
-            assignments=(
-                ytl.Assignment("z", ytl.IntLit(ytl.WORD_MOD + 1)),
-            ),
+            assignments=(ytl.Assignment("z", ytl.IntLit(ytl.WORD_MOD + 1)),),
             param_names=(),
             return_names=("z",),
         )
