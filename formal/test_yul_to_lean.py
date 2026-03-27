@@ -9777,6 +9777,58 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
             ["fun_from_1"],
         )
 
+    def test_translate_yul_to_models_allows_distinct_deferred_helpers_with_same_name_across_scopes(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("target",),
+            exact_yul_names={"target": "fun_outer_1::target"},
+        )
+        yul = """
+            function fun_outer_1() -> var_z_1 {
+                function outer_wrap(var_hi_2, var_lo_3) -> var_out_4 {
+                    function fun_from_1(var_r_5, var_hi_6, var_lo_7) -> var_r_out_8 {
+                        var_r_out_8 := 0
+                        mstore(var_r_5, var_hi_6)
+                        mstore(add(0x20, var_r_5), var_lo_7)
+                        var_r_out_8 := var_r_5
+                    }
+                    let usr$ptr := fun_from_1(0, var_hi_2, var_lo_3)
+                    var_out_4 := mload(usr$ptr)
+                }
+
+                function target(var_x_hi_9, var_x_lo_10) -> var_t_11 {
+                    function fun_from_1(var_r_12, var_hi_13, var_lo_14) -> var_r_out_15 {
+                        var_r_out_15 := 0
+                        mstore(var_r_12, var_hi_13)
+                        mstore(add(0x20, var_r_12), var_lo_14)
+                        var_r_out_15 := var_r_12
+                    }
+                    let usr$p1 := outer_wrap(var_x_hi_9, var_x_lo_10)
+                    let usr$p2 := fun_from_1(64, var_x_hi_9, var_x_lo_10)
+                    var_t_11 := add(usr$p1, mload(usr$p2))
+                }
+
+                var_z_1 := target(1, 4)
+            }
+        """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(
+            ytl.evaluate_function_model(
+                model,
+                (5, 7),
+                model_table=ytl.build_model_table(result.models),
+            ),
+            (10,),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
