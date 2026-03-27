@@ -326,11 +326,14 @@ class CollectedFunctions:
     the parse error that explains why.
     ``deferred`` contains helpers (alpha-renamed to unique binding names)
     that were resolved at parse time but require later sink-aware lowering.
+    ``deferred_rejected`` records rejected helpers that are transitively
+    referenced by deferred helper bodies.
     """
 
     functions: dict[str, YulFunction]
     rejected: dict[str, str]
     deferred: dict[str, YulFunction] = field(default_factory=dict)
+    deferred_rejected: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -984,6 +987,7 @@ class YulParser(_TokenReader):
         self._reference_scope_cache: dict[int, ReferenceScope] = {}
         self._source_names: set[str] | None = None
         self._deferred_helpers: dict[str, YulFunction] = {}
+        self._deferred_rejected: dict[str, str] = {}
 
     def _all_source_names(self) -> set[str]:
         """Lazily collect all identifier names from the token stream."""
@@ -1666,10 +1670,13 @@ class YulParser(_TokenReader):
             if deferred_fns:
                 called = _collect_call_names_in_stmts(results)
 
-                # Step 1: transitive closure of needed helpers
+                # Step 1: transitive closure of needed helpers.
+                # Also track rejected helpers referenced by exported
+                # bodies so their rejection info flows to later phases.
                 needed: set[str] = {
                     n for n in deferred_fns if n in called
                 }
+                needed_rejected: dict[str, str] = {}
                 worklist = list(needed)
                 while worklist:
                     dep = worklist.pop()
@@ -1679,6 +1686,8 @@ class YulParser(_TokenReader):
                     for ref in _collect_call_names_in_stmts(
                         fn.assignments
                     ):
+                        if ref in rejected_fns and ref not in needed_rejected:
+                            needed_rejected[ref] = rejected_fns[ref]
                         if ref not in needed and (
                             ref in deferred_fns
                             or ref in self._deferred_helpers
@@ -1717,6 +1726,7 @@ class YulParser(_TokenReader):
                                 token_idx=fn.token_idx,
                             )
                         )
+                self._deferred_rejected.update(needed_rejected)
 
         return results, has_leave
 
@@ -2140,6 +2150,7 @@ class YulParser(_TokenReader):
         functions: dict[str, YulFunction] = {}
         rejected: dict[str, str] = {}
         deferred: dict[str, YulFunction] = {}
+        deferred_rejected: dict[str, str] = {}
         while not self._at_end():
             if self._peek_kind() == "ident" and self.tokens[self.i][1] == "function":
                 saved_i = self.i
@@ -2166,9 +2177,10 @@ class YulParser(_TokenReader):
                         f"same scope. Refuse to collect ambiguous helpers."
                     )
                 functions[fn.yul_name] = fn
-                # Drain deferred helpers (alpha-renamed unique bindings)
+                # Drain deferred helpers and their rejected dependencies
                 # accumulated while parsing this function's body.
                 deferred.update(self._deferred_helpers)
+                deferred_rejected.update(self._deferred_rejected)
             elif self._peek_kind() == "{":
                 # Non-function brace block (object/code wrapper).
                 # Skip to matching } to avoid collecting functions
@@ -2179,7 +2191,10 @@ class YulParser(_TokenReader):
             else:
                 self._pop()
         return CollectedFunctions(
-            functions=functions, rejected=rejected, deferred=deferred
+            functions=functions,
+            rejected=rejected,
+            deferred=deferred,
+            deferred_rejected=deferred_rejected,
         )
 
 
@@ -2453,6 +2468,10 @@ def _merge_helper_collection(
     # Deferred helpers have alpha-renamed unique names — just add them.
     for name, fn in collection.deferred.items():
         helper_table[name] = fn
+    # Deferred rejected: helpers transitively referenced by deferred
+    # bodies that failed to parse.
+    for name, err in collection.deferred_rejected.items():
+        rejected_helpers[name] = err
 
 
 def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
@@ -5501,6 +5520,7 @@ def prepare_translation(
     # during parser-stage scope-local inlining.  Capture them per-target
     # so the later inlining phase can use them.
     parse_deferred: dict[str, dict[str, YulFunction]] = {}
+    parse_deferred_rejected: dict[str, dict[str, str]] = {}
 
     known_yul_names: set[str] = set()
     for sol_name in selected:
@@ -5534,6 +5554,7 @@ def prepare_translation(
         fn_map[yf.yul_name] = sol_name
         yul_functions[sol_name] = yf
         parse_deferred[sol_name] = dict(parser._deferred_helpers)
+        parse_deferred_rejected[sol_name] = dict(parser._deferred_rejected)
         known_yul_names.add(yf.yul_name)
 
     # Scope helper collection per-target so that each target is inlined with
@@ -5605,6 +5626,8 @@ def prepare_translation(
                 for dname, dfn in parse_deferred.get(sol_name, {}).items():
                     helper_table[dname] = dfn
                     nested_helper_names.add(dname)
+                for dname, derr in parse_deferred_rejected.get(sol_name, {}).items():
+                    rejected_helpers[dname] = derr
         else:
             nested_helper_names: set[str] = set()
             function_collection = YulParser(tokens).collect_all_functions()
