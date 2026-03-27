@@ -9271,6 +9271,87 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
+    def test_translate_yul_to_models_rejects_nested_rejected_helper_in_non_pure_helper(
+        self,
+    ) -> None:
+        config_by_case = {
+            "selected_target": make_model_config(
+                ("target",),
+                exact_yul_names={"target": "fun_target_0"},
+            ),
+            "collected_helper": make_model_config(
+                ("target",),
+                exact_yul_names={"target": "fun_target_0"},
+            ),
+        }
+        yul_by_case = {
+            "selected_target": """
+                object "o" {
+                    code {
+                        function fun_target_0(var_x_hi_1, var_x_lo_2) -> var_z_3 {
+                            {
+                                function bad_1(var_x_14) -> var_y_15 {
+                                    for { } 1 { } { }
+                                }
+                                function ptr_inner_1(var_x_hi_11, var_x_lo_12) -> var_r_13 {
+                                    var_r_13 := fun_from_1(0, var_x_hi_11, var_x_lo_12)
+                                    var_r_13 := bad_1(var_r_13)
+                                }
+                                function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
+                                    var_r_out_7 := 0
+                                    mstore(var_r_4, var_x_hi_5)
+                                    mstore(add(0x20, var_r_4), var_x_lo_6)
+                                    var_r_out_7 := var_r_4
+                                }
+                                let usr$ptr := ptr_inner_1(var_x_hi_1, var_x_lo_2)
+                                var_z_3 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+                            }
+                        }
+                    }
+                }
+                """,
+            "collected_helper": """
+                object "o" {
+                    code {
+                        function fun_wrap_1(var_x_hi_8, var_x_lo_9) -> var_r_10 {
+                            {
+                                function bad_1(var_x_14) -> var_y_15 {
+                                    for { } 1 { } { }
+                                }
+                                function ptr_inner_1(var_x_hi_11, var_x_lo_12) -> var_r_13 {
+                                    var_r_13 := fun_from_1(0, var_x_hi_11, var_x_lo_12)
+                                    var_r_13 := bad_1(var_r_13)
+                                }
+                                function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
+                                    var_r_out_7 := 0
+                                    mstore(var_r_4, var_x_hi_5)
+                                    mstore(add(0x20, var_r_4), var_x_lo_6)
+                                    var_r_out_7 := var_r_4
+                                }
+                                let usr$ptr := ptr_inner_1(var_x_hi_8, var_x_lo_9)
+                                var_r_10 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+                            }
+                        }
+                        function fun_target_0(var_x_hi_1, var_x_lo_2) -> var_z_3 {
+                            var_z_3 := fun_wrap_1(var_x_hi_1, var_x_lo_2)
+                        }
+                    }
+                }
+                """,
+        }
+
+        for case, config in config_by_case.items():
+            with self.subTest(case=case):
+                with self.assertRaisesRegex(
+                    ytl.ParseError,
+                    "Cannot inline helper 'bad_1': its Yul body was rejected during collection",
+                ):
+                    ytl.translate_yul_to_models(
+                        yul_by_case[case],
+                        config,
+                        pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                    )
+
 
 if __name__ == "__main__":
     unittest.main()
