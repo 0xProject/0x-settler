@@ -185,12 +185,12 @@ contract TestSafeGuard is Test {
         string memory mnemonic = "test test test test test test test test test test test junk";
         address[] memory oldOwners = _safe.getOwners();
 
-        for (uint256 i; i < oldOwners.length; i++) {
+        for (uint256 i; i < oldOwners.length + 1; i++) {
             owners.push(vm.createWallet(vm.deriveKey(mnemonic, uint32(i)), string.concat("Owner #", i.itoa())));
         }
 
         vm.startPrank(address(_safe));
-        for (uint256 i; i < oldOwners.length; i++) {
+        for (uint256 i; i < owners.length; i++) {
             _safe.addOwnerWithThreshold(owners[i].addr, 2);
         }
         for (uint256 i = 0; i < oldOwners.length; i++) {
@@ -584,7 +584,7 @@ contract TestSafeGuard is Test {
         guard.cancel(txHash);
         vm.stopPrank();
 
-        address prevOwner = owners[1].addr;
+        address prevOwner = owners[0].addr;
 
         bytes memory data = abi.encodeWithSignature("removeOwner(address,address,uint256)", prevOwner, owner, 2);
         txHash = keccak256(
@@ -747,6 +747,7 @@ contract TestSafeGuard is Test {
                 _signSafeEncoded(owners[1], unlockTxHash),
                 _signSafeEncoded(owners[2], unlockTxHash),
                 _signSafeEncoded(owners[3], unlockTxHash),
+                _signSafeEncoded(owners[4], unlockTxHash),
                 uint256(uint160(owners[3].addr)),
                 bytes32(0),
                 uint8(1)
