@@ -10050,6 +10050,37 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
             (11,),
         )
 
+    def test_translate_yul_to_models_does_not_leak_selected_block_local_helper_scope(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("a", "b"),
+            exact_yul_names={
+                "a": "outer",
+                "b": "outer::helper",
+            },
+        )
+        yul = """
+            function outer() -> var_z_1 {
+                {
+                    function helper() -> var_r_1 {
+                        var_r_1 := 7
+                    }
+                }
+                var_z_1 := helper()
+            }
+        """
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "unresolved call target 'helper'",
+        ):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
