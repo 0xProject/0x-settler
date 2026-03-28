@@ -5610,22 +5610,40 @@ def prepare_translation(
     # processing.  Without this, a selected nested helper inside a bare
     # block gets substituted away before prepare_translation can preserve
     # the call edge.
-    protected_token_idxs: frozenset[int] = frozenset()
+    #
+    # This uses the same resolution logic as the real selection loop
+    # below (n_params, lexical-path matching) so only the precise
+    # binding is protected, not every same-name function.
+    _protected: set[int] = set()
     all_fn_defs: list[tuple[int, str, tuple[str, ...]]] = []
     if config.exact_yul_names:
-        all_fn_defs = list(YulParser(tokens)._walk_function_defs())
-        _protected: set[int] = set()
-        for _eyn in config.exact_yul_names.values():
+        resolver = YulParser(tokens)
+        all_fn_defs = list(resolver._walk_function_defs())
+        for _sol in selected:
+            _eyn = (
+                config.exact_yul_names.get(_sol)
+                if config.exact_yul_names is not None
+                else None
+            )
+            if _eyn is None:
+                continue
+            _n_params = config.n_params.get(_sol) if config.n_params else None
             _esel = _parse_exact_yul_selector(_eyn)
             if _esel is None:
-                for idx, fn_name, path in all_fn_defs:
-                    if fn_name == _eyn:
-                        _protected.add(idx)
+                matches = resolver._find_exact_function_matches(
+                    _eyn, n_params=_n_params, search_nested=True
+                )
             else:
-                for idx, fn_name, path in all_fn_defs:
-                    if path == _esel:
-                        _protected.add(idx)
-        protected_token_idxs = frozenset(_protected)
+                matches = [
+                    (idx, path)
+                    for idx, path in resolver._find_exact_function_matches(
+                        _esel[-1], n_params=_n_params, search_nested=True
+                    )
+                    if path == _esel
+                ]
+            if len(matches) == 1:
+                _protected.add(matches[0][0])
+    protected_token_idxs = frozenset(_protected)
 
     fn_map: dict[str, str] = {}
     yul_functions: dict[str, YulFunction] = {}
