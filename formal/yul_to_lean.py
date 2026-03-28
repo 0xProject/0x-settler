@@ -4414,20 +4414,20 @@ def yul_function_to_model(
                     _process_conditional_branch(stmt.else_body)
                 )
             else:
-                else_assignments_list = []
-                else_raw_map: dict[str, str] = {}
-                else_raw_last: dict[str, Expr] = {}
+                else_assignments_list = list[Assignment]()
+                else_raw_map = dict[str, str]()
+                else_raw_last = dict[str, Expr]()
 
             # Build modified list from raw Yul slots, ordered by
             # first appearance (then-branch first, then else-branch).
             # Keying by raw slot keeps distinct binders that share a
             # demangled name (e.g. var_c_1 / usr$c → c) separate.
             modified_raws: list[str] = list(
-                dict.fromkeys(
-                    raw
+                {
+                    raw: None
                     for raw in (*then_raw_map, *else_raw_map)
                     if raw in pre_if_names and pre_if_names[raw] in pre_if_scope
-                )
+                }
             )
 
             if modified_raws:

@@ -9772,10 +9772,10 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
         finally:
             ytl._gensym_counters = old_counters
 
-        self.assertEqual(
-            sorted(fn.yul_name for fn in preparation.collected_helpers.values()),
-            ["fun_from_1"],
+        helper_names: list[str] = sorted(
+            fn.yul_name for fn in preparation.collected_helpers.values()
         )
+        assert helper_names == ["fun_from_1"]
 
     def test_prepare_translation_does_not_duplicate_deferred_helper_for_exact_nested_target(
         self,
@@ -9808,14 +9808,12 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
         finally:
             ytl._gensym_counters = old_counters
 
-        self.assertEqual(
-            sum(
-                1
-                for fn in preparation.collected_helpers.values()
-                if fn.yul_name == "fun_from_1"
-            ),
-            1,
+        from_count = sum(
+            1
+            for fn in preparation.collected_helpers.values()
+            if fn.yul_name == "fun_from_1"
         )
+        self.assertEqual(from_count, 1)
 
     def test_translate_yul_to_models_allows_distinct_deferred_helpers_with_same_name_across_scopes(
         self,
