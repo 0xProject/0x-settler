@@ -10005,6 +10005,51 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
             )
         )
 
+    def test_translate_yul_to_models_does_not_overprotect_unqualified_exact_homonym(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("a", "b"),
+            exact_yul_names={
+                "a": "outer",
+                "b": "helper",
+            },
+            n_params={
+                "a": 0,
+                "b": 1,
+            },
+        )
+        yul = """
+            function helper(var_x_1) -> var_r_1 {
+                var_r_1 := 11
+            }
+
+            function outer() -> var_z_1 {
+                {
+                    function helper(var_x_2, var_y_3) -> var_r_2 {
+                        var_r_2 := add(var_x_2, var_y_3)
+                    }
+                    var_z_1 := helper(4, 5)
+                }
+            }
+        """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        models = ytl.build_model_table(result.models)
+
+        self.assertEqual(
+            ytl.evaluate_function_model(models["a"], (), model_table=models),
+            (9,),
+        )
+        self.assertEqual(
+            ytl.evaluate_function_model(models["b"], (123,), model_table=models),
+            (11,),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
