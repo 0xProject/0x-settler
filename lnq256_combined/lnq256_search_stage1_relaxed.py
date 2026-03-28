@@ -31,27 +31,20 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
+import sys
 from typing import Dict, Iterable, List, Sequence, Tuple
 
 import mpmath as mp
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from lnq256_case_battery import build_battery, merge_batteries
+from lnq256_common import N0, SCALE, _mulshr_floor, _qmul_coeff, _round_div, extract_state, hard_boundary_family
+from lnq256_stage1_q216_reference import C0_FAST, FAST_P, FAST_Q, G_FAST, LN2_FAST
 from remez_rational import W_MAX, rational_remez
-from lnq256_model_combined import (
-    C0_FAST,
-    FAST_BIAS_Q,
-    FAST_P,
-    FAST_Q,
-    FAST_RADIUS_Q,
-    G_FAST,
-    LN2_FAST,
-    N0,
-    SCALE,
-    _mulshr_floor,
-    _qmul_coeff,
-    _round_div,
-    extract_state,
-)
-from lnq256_test_battery_combined import build_battery, hard_boundary_family, merge_batteries
 
 mp.mp.dps = 420
 MP_TWO_POW_256 = mp.mpf(2) ** 256

@@ -7,7 +7,7 @@ This model implements one shared stage-1 skeleton that returns:
 
 The kernel shape is:
 
-- 16-bucket coarse reduction, shared with the combined model
+- 16-bucket coarse reduction with the shared N0 table
 - z = u / (2 + u), w = z^2
 - explicit odd terms through z^5
 - deferred residual z^7 * P(w) / Q(w)
@@ -25,14 +25,7 @@ from __future__ import annotations
 
 from typing import Tuple
 
-from lnq256_model_combined import (
-    SCALE,
-    _floor_div_pow2_signed,
-    _mulshr_floor,
-    _qmul_coeff,
-    _round_div,
-    extract_state,
-)
+from lnq256_common import SCALE, _floor_div_pow2_signed, _mulshr_floor, _qmul_coeff, _round_div, extract_state
 
 G_FAST = 9
 COEFF_BITS = 219
