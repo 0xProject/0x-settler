@@ -2009,24 +2009,20 @@ class YulParser(_TokenReader):
             n_params=n_params,
             search_nested=search_nested,
         )
-
-        if not matches:
-            if n_params is None:
-                raise ParseError(f"Exact Yul function {yul_name!r} not found")
-            raise ParseError(
+        qualified = ["::".join(path) for _, path in matches]
+        return self._parse_unique_exact_match(
+            matches,
+            n_params=n_params,
+            not_found=f"Exact Yul function {yul_name!r} not found",
+            not_found_with_params=(
                 f"Exact Yul function {yul_name!r} with {n_params} parameter(s) not found"
-            )
-
-        if len(matches) > 1:
-            qualified = ["::".join(path) for _, path in matches]
-            raise ParseError(
+            ),
+            ambiguous=(
                 f"Multiple exact Yul functions matched {yul_name!r}: {qualified}. "
                 "Use a scope-qualified exact_yul_names entry such as '::name' "
                 "for a top-level function or 'outer::inner' for a nested one."
-            )
-
-        self.i = matches[0][0]
-        return self.parse_function()
+            ),
+        )
 
     def find_exact_function_path(
         self,
@@ -2051,20 +2047,35 @@ class YulParser(_TokenReader):
             )
             if path == yul_path
         ]
-        if not matches:
-            rendered = "::".join(yul_path)
-            if n_params is None:
-                raise ParseError(f"Exact Yul function path {rendered!r} not found")
-            raise ParseError(
+        rendered = "::".join(yul_path)
+        return self._parse_unique_exact_match(
+            matches,
+            n_params=n_params,
+            not_found=f"Exact Yul function path {rendered!r} not found",
+            not_found_with_params=(
                 f"Exact Yul function path {rendered!r} with {n_params} "
                 f"parameter(s) not found"
-            )
-        if len(matches) > 1:
-            rendered = "::".join(yul_path)
-            raise ParseError(
+            ),
+            ambiguous=(
                 f"Multiple exact Yul functions matched path {rendered!r}. "
                 "Refuse to guess."
-            )
+            ),
+        )
+
+    def _parse_unique_exact_match(
+        self,
+        matches: list[tuple[int, tuple[str, ...]]],
+        *,
+        n_params: int | None,
+        not_found: str,
+        not_found_with_params: str,
+        ambiguous: str,
+    ) -> YulFunction:
+        """Parse the single matched exact function, or raise a tailored error."""
+        if not matches:
+            raise ParseError(not_found if n_params is None else not_found_with_params)
+        if len(matches) > 1:
+            raise ParseError(ambiguous)
         self.i = matches[0][0]
         return self.parse_function()
 
@@ -2489,6 +2500,38 @@ def _merge_helper_collection(
     # bodies that failed to parse.
     for name, info in collection.deferred_rejected.items():
         rejected_helpers[name] = info
+
+
+def _exclude_collected_helpers_by_token_idx(
+    collection: CollectedFunctions,
+    excluded_token_idxs: set[int],
+) -> CollectedFunctions:
+    """Drop helper entries whose absolute token index is already authoritative.
+
+    Parsed helpers carry ``token_idx`` provenance, so rescans can discard
+    helpers that belong to the selected target or one of its authoritative
+    deferred exports before merging them into the helper table.
+
+    Rejected helpers do not currently carry token provenance, so they are
+    preserved unchanged.
+    """
+    if not excluded_token_idxs:
+        return collection
+
+    return CollectedFunctions(
+        functions={
+            name: fn
+            for name, fn in collection.functions.items()
+            if fn.token_idx not in excluded_token_idxs
+        },
+        rejected=dict(collection.rejected),
+        deferred={
+            name: fn
+            for name, fn in collection.deferred.items()
+            if fn.token_idx not in excluded_token_idxs
+        },
+        deferred_rejected=dict(collection.deferred_rejected),
+    )
 
 
 def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
@@ -5614,9 +5657,14 @@ def prepare_translation(
     inlined_targets: dict[str, YulFunction] = {}
     for sol_name in selected:
         yf = yul_functions[sol_name]
-        yul_name = yf.yul_name
-
         fn_token_idx = yf.token_idx
+        authoritative_token_idxs = {
+            dfn.token_idx
+            for dfn in parse_deferred.get(sol_name, {}).values()
+            if dfn.token_idx is not None
+        }
+        if fn_token_idx is not None:
+            authoritative_token_idxs.add(fn_token_idx)
 
         # Collect helpers from the scope chain, from outermost to
         # innermost.  Inner scopes override outer ones (Yul lexical
@@ -5642,12 +5690,15 @@ def prepare_translation(
                 else:
                     break
             # Process from outermost to innermost (inner overrides outer).
-            # Process from outermost to innermost (inner overrides outer).
             for s_start, s_end in reversed(scope_chain):
                 scoped_tokens = tokens[s_start:s_end]
                 scope_coll = YulParser(
                     scoped_tokens, token_offset=s_start
                 ).collect_all_functions()
+                scope_coll = _exclude_collected_helpers_by_token_idx(
+                    scope_coll,
+                    authoritative_token_idxs,
+                )
                 _merge_helper_collection(
                     helper_table,
                     rejected_helpers,
@@ -5665,6 +5716,10 @@ def prepare_translation(
                 nested_coll = YulParser(
                     body_tokens, token_offset=body_start
                 ).collect_all_functions()
+                nested_coll = _exclude_collected_helpers_by_token_idx(
+                    nested_coll,
+                    authoritative_token_idxs,
+                )
                 nested_helper_names = set(nested_coll.functions)
                 _merge_helper_collection(
                     helper_table,
@@ -5678,25 +5733,6 @@ def prepare_translation(
                     nested_helper_names.add(dname)
                 for dname, derr in parse_deferred_rejected.get(sol_name, {}).items():
                     rejected_helpers[dname] = derr
-
-                # Deduplicate: scope chain and body rescan may have
-                # independently produced entries for the same lexical
-                # helper (raw or _dfr_*).  parse_deferred versions are
-                # authoritative.  Match by token_idx (absolute lexical
-                # identity) to avoid collapsing same-named helpers in
-                # different lexical scopes.
-                auth_keys = set(parse_deferred.get(sol_name, {}))
-                auth_token_idxs = {
-                    dfn.token_idx
-                    for dfn in parse_deferred.get(sol_name, {}).values()
-                }
-                for key in list(helper_table.keys()):
-                    if key in auth_keys:
-                        continue
-                    fn = helper_table[key]
-                    if fn.token_idx in auth_token_idxs:
-                        del helper_table[key]
-                        nested_helper_names.discard(key)
         else:
             nested_helper_names = set()
             function_collection = YulParser(tokens).collect_all_functions()
