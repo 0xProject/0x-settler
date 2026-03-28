@@ -5645,7 +5645,6 @@ def prepare_translation(
                 _protected.add(matches[0][0])
     protected_token_idxs = frozenset(_protected)
 
-    fn_map: dict[str, str] = {}
     yul_functions: dict[str, YulFunction] = {}
     # Helpers that require mstore_sink (uint512.from shape) are deferred
     # during parser-stage scope-local inlining.  Capture them per-target
@@ -5682,7 +5681,6 @@ def prepare_translation(
                 known_yul_names=known_yul_names or None,
                 exclude_known=sol_name in config.exclude_known,
             )
-        fn_map[yf.yul_name] = sol_name
         yul_functions[sol_name] = yf
         parse_deferred[sol_name] = dict(parser._deferred_helpers)
         parse_deferred_rejected[sol_name] = dict(parser._deferred_rejected)
@@ -5821,7 +5819,6 @@ def prepare_translation(
 
     return PreparedTranslation(
         selected_functions=tuple(selected),
-        fn_map=fn_map,
         target_fn_maps=target_fn_maps,
         yul_functions=inlined_targets,
         collected_helpers=all_helpers,
@@ -5839,7 +5836,7 @@ def build_restricted_ir_models(
         yul_function_to_model(
             preparation.yul_functions[fn],
             fn,
-            preparation.target_fn_maps.get(fn, preparation.fn_map),
+            preparation.target_fn_maps[fn],
             keep_solidity_locals=config.keep_solidity_locals,
         )
         for fn in preparation.selected_functions
@@ -6153,7 +6150,6 @@ class PreparedTranslation:
     """Selected Yul functions after parsing, discovery, and helper inlining."""
 
     selected_functions: tuple[str, ...]
-    fn_map: dict[str, str]
     target_fn_maps: dict[str, dict[str, str]]
     yul_functions: dict[str, YulFunction]
     collected_helpers: dict[str, YulFunction]

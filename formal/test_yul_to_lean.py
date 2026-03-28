@@ -3219,7 +3219,7 @@ class FunctionSelectionTest(unittest.TestCase):
         )
 
         expected_fn_map: dict[str, str] = {"fun_pick_2": "pick"}
-        self.assertEqual(result.preparation.fn_map, expected_fn_map)
+        self.assertEqual(result.preparation.target_fn_maps["pick"], expected_fn_map)
         model = result.models[0]
         self.assertEqual(model.fn_name, "pick")
         self.assertEqual(ytl.evaluate_function_model(model, (7,)), (6,))
