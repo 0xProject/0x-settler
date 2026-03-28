@@ -9914,6 +9914,56 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
             (9,),
         )
 
+    def test_translate_yul_to_models_distinguishes_selected_exact_homonyms(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("a", "b", "c"),
+            exact_yul_names={
+                "a": "fun_outer1_1::target",
+                "b": "fun_outer1_1::helper",
+                "c": "fun_outer2_1::helper",
+            },
+        )
+        yul = """
+            function fun_outer1_1() -> var_o1_1 {
+                function helper() -> var_h1_1 {
+                    var_h1_1 := 7
+                }
+                function target() -> var_t1_1 {
+                    var_t1_1 := helper()
+                }
+                var_o1_1 := target()
+            }
+
+            function fun_outer2_1() -> var_o2_1 {
+                function helper() -> var_h2_1 {
+                    var_h2_1 := 9
+                }
+                var_o2_1 := helper()
+            }
+        """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        models = ytl.build_model_table(result.models)
+
+        self.assertEqual(
+            ytl.evaluate_function_model(models["a"], (), model_table=models),
+            (7,),
+        )
+        self.assertEqual(
+            ytl.evaluate_function_model(models["b"], (), model_table=models),
+            (7,),
+        )
+        self.assertEqual(
+            ytl.evaluate_function_model(models["c"], (), model_table=models),
+            (9,),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
