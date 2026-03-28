@@ -2188,6 +2188,14 @@ library Lib512MathArithmetic {
     uint256 private constant _LN_BIAS = 0xff6afca204c6fea4002a00c400bc009a002a0002ff06054c0021fb8c0068ff4d;
     // Per-bucket fast radius, 16 × 16-bit unsigned, j=0 at bits 255:240
     uint256 private constant _LN_RADIUS = 0x04af16b218950dae0094038b05ee037b009600670d3618a9002c16a00202048a;
+    // Relaxed z^5/[6/7]/Q219/G9 shared interval constants.
+    uint256 private constant _LN_BOUNDS_BIAS = 125;
+    uint256 private constant _LN_BOUNDS_RADIUS = 216;
+    // Packed 9-bit C0 hi words for the relaxed Q265 prefix constants, j=0 at bits 143:135.
+    uint256 private constant _LN_BOUNDS_C0_HI = 0x80c8886a3f24d52bf6bbc2150a9350e8762;
+    uint256 private constant _LN_BOUNDS_LN2_HI = 354;
+    uint256 private constant _LN_BOUNDS_LN2_LO =
+        103212025217616957519630260555236733345647245497292992366923423973770079262671;
 
     function lnQ256(uint512 x) internal pure returns (uint512) {
         (uint256 x_hi, uint256 x_lo) = x.into();
@@ -2203,6 +2211,46 @@ library Lib512MathArithmetic {
 
         (uint256 r_hi, uint256 r_lo) = _lnQ256(x_hi, x_lo);
         return r.from(r_hi, r_lo);
+    }
+
+    /// @dev Lower relaxed lnQ256 bound:
+    /// returns either floor(ln(x) * 2^256) or one less.
+    function lnQ256LowerBound(uint512 x) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+
+        if ((x_hi | x_lo) == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
+        uint512 r = alloc();
+        if (x_hi == 0 && x_lo == 1) {
+            return r.from(0, 0);
+        }
+
+        (uint256 q_hi, uint256 q_lo) = _lnQ256BoundsRaw(x_hi, x_lo);
+        (q_hi, q_lo) = _sub(q_hi, q_lo, _LN_BOUNDS_RADIUS);
+        (q_hi, q_lo) = _shr(q_hi, q_lo, 9);
+        return r.from(q_hi, q_lo);
+    }
+
+    /// @dev Upper relaxed lnQ256 bound:
+    /// returns either ceil(ln(x) * 2^256) or one more.
+    function lnQ256UpperBound(uint512 x) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+
+        if ((x_hi | x_lo) == 0) {
+            Panic.panic(Panic.DIVISION_BY_ZERO);
+        }
+
+        uint512 r = alloc();
+        if (x_hi == 0 && x_lo == 1) {
+            return r.from(0, 0);
+        }
+
+        (uint256 q_hi, uint256 q_lo) = _lnQ256BoundsRaw(x_hi, x_lo);
+        (q_hi, q_lo) = _add(q_hi, q_lo, _LN_BOUNDS_RADIUS + ((1 << 9) - 1));
+        (q_hi, q_lo) = _shr(q_hi, q_lo, 9);
+        return r.from(q_hi, q_lo);
     }
 
     function _lnQ256(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r_hi, uint256 r_lo) {
@@ -2574,6 +2622,307 @@ library Lib512MathArithmetic {
 
         // ── Stage 2: Fallback ──
         return _lnFallback(z_floor_h, z_floor_lo, u_neg, e, j, hi_hi, hi_lo);
+    }
+
+    /// @dev Shared relaxed z^5/[6/7]/Q219/G9 ln core.
+    /// Returns q_raw in Q265 after adding the shared bias.
+    function _lnQ256BoundsRaw(uint256 x_hi, uint256 x_lo) private pure returns (uint256 q_hi, uint256 q_lo) {
+        uint256 e;
+        if (x_hi != 0) {
+            e = 511 - x_hi.clz();
+        } else {
+            e = 255 - x_lo.clz();
+        }
+
+        uint256 j;
+        assembly ("memory-safe") {
+            let shift := sub(e, 4)
+            j := and(0x0F, shr(shift, x_lo))
+            if lt(e, 4) { j := and(0x0F, shl(sub(4, e), x_lo)) }
+            if x_hi {
+                switch lt(shift, 256)
+                case 1 { j := and(0x0F, or(shl(sub(256, shift), x_hi), shr(shift, x_lo))) }
+                default { j := and(0x0F, shr(sub(shift, 256), x_hi)) }
+            }
+        }
+
+        uint256 n;
+        assembly ("memory-safe") {
+            n := and(0x1F, shr(mul(sub(15, j), 5), _LN_N0))
+        }
+
+        (uint256 nx_ex, uint256 nx_hi, uint256 nx_lo) = _mul768(x_hi, x_lo, n);
+
+        uint256 pow2_ex;
+        uint256 pow2_hi;
+        uint256 pow2_lo;
+        assembly ("memory-safe") {
+            let ep5 := add(e, 5)
+            pow2_lo := shl(ep5, lt(ep5, 256))
+            pow2_hi := shl(sub(ep5, 256), and(lt(ep5, 512), iszero(lt(ep5, 256))))
+            pow2_ex := shl(sub(ep5, 512), iszero(lt(ep5, 512)))
+        }
+
+        bool u_neg;
+        uint256 u_hi;
+        uint256 u_lo;
+        uint256 zd_ex;
+        uint256 zd_hi;
+        uint256 zd_lo;
+        assembly ("memory-safe") {
+            let borrow := lt(nx_lo, pow2_lo)
+            u_lo := sub(nx_lo, pow2_lo)
+            let v := sub(nx_hi, borrow)
+            borrow := or(lt(nx_hi, borrow), lt(v, pow2_hi))
+            u_hi := sub(v, pow2_hi)
+            let u_ex := sub(sub(nx_ex, pow2_ex), borrow)
+
+            u_neg := gt(u_ex, 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)
+
+            if u_neg {
+                borrow := lt(pow2_lo, nx_lo)
+                u_lo := sub(pow2_lo, nx_lo)
+                v := sub(pow2_hi, borrow)
+                borrow := or(lt(pow2_hi, borrow), lt(v, nx_hi))
+                u_hi := sub(v, nx_hi)
+            }
+
+            zd_lo := add(nx_lo, pow2_lo)
+            let carry := lt(zd_lo, nx_lo)
+            zd_hi := add(add(nx_hi, pow2_hi), carry)
+            carry := lt(zd_hi, nx_hi)
+            if and(iszero(carry), lt(zd_hi, add(nx_hi, pow2_hi))) { carry := 1 }
+            zd_ex := add(add(nx_ex, pow2_ex), carry)
+        }
+
+        uint256 z_hi;
+        uint256 z_lo;
+        {
+            uint256 a_ex;
+            uint256 a_hi;
+            uint256 a_lo;
+            assembly ("memory-safe") {
+                a_lo := shl(9, u_lo)
+                a_hi := or(shl(9, u_hi), shr(247, u_lo))
+                a_ex := shr(247, u_hi)
+            }
+
+            if (zd_hi == 0 && zd_ex == 0) {
+                uint256 rem;
+                if (a_ex != 0) {
+                    z_hi = _div(a_ex, a_hi, zd_lo);
+                    assembly ("memory-safe") {
+                        rem := addmod(mulmod(a_ex, sub(0, zd_lo), zd_lo), a_hi, zd_lo)
+                    }
+                } else {
+                    z_hi = a_hi / zd_lo;
+                    rem = a_hi % zd_lo;
+                }
+
+                z_hi = _div(rem, a_lo, zd_lo);
+                assembly ("memory-safe") {
+                    rem := addmod(mulmod(rem, sub(0, zd_lo), zd_lo), a_lo, zd_lo)
+                }
+                z_lo = _div(rem, 0, zd_lo);
+
+                assembly ("memory-safe") {
+                    let final_rem := addmod(mulmod(rem, sub(0, zd_lo), zd_lo), 0, zd_lo)
+                    let rnd := iszero(lt(shl(1, final_rem), zd_lo))
+                    z_lo := add(z_lo, rnd)
+                    z_hi := add(z_hi, and(rnd, iszero(z_lo)))
+                }
+            } else {
+                if (zd_ex != 0) {
+                    uint256 shift_amount;
+                    assembly ("memory-safe") {
+                        shift_amount := sub(256, clz(zd_ex))
+                    }
+                    (zd_hi, zd_lo) = _shr(zd_hi, zd_lo, shift_amount);
+                    assembly ("memory-safe") {
+                        zd_hi := or(shl(sub(256, shift_amount), zd_ex), zd_hi)
+                        a_lo := or(shr(shift_amount, a_lo), shl(sub(256, shift_amount), a_hi))
+                        a_hi := or(shr(shift_amount, a_hi), shl(sub(256, shift_amount), a_ex))
+                        a_ex := shr(shift_amount, a_ex)
+                    }
+                }
+
+                z_hi = _algorithmD(a_ex, a_hi, a_lo, zd_hi, zd_lo);
+                {
+                    (uint256 p_ex, uint256 p_hi, uint256 p_lo) = _mul768(zd_hi, zd_lo, z_hi);
+                    assembly ("memory-safe") {
+                        let b := lt(a_lo, p_lo)
+                        a_lo := sub(a_lo, p_lo)
+                        let mid := sub(a_hi, b)
+                        b := or(lt(a_hi, b), lt(mid, p_hi))
+                        a_hi := sub(mid, p_hi)
+                    }
+                }
+                z_lo = _algorithmD(a_hi, a_lo, 0, zd_hi, zd_lo);
+            }
+        }
+
+        (uint256 w_hi, uint256 w_lo) = _lnMulShr265(z_hi, z_lo, z_hi, z_lo);
+
+        uint256 w_q256;
+        assembly ("memory-safe") {
+            w_q256 := or(shr(9, w_lo), shl(247, w_hi))
+        }
+
+        (uint256 r_num, uint256 r_den) = _lnBoundsHorner(w_q256);
+
+        (uint256 z3_hi, uint256 z3_lo) = _lnMulShr265(z_hi, z_lo, w_hi, w_lo);
+        (uint256 z5_hi, uint256 z5_lo) = _lnMulShr265(z3_hi, z3_lo, w_hi, w_lo);
+        (uint256 z7_hi, uint256 z7_lo) = _lnMulShr265(z5_hi, z5_lo, w_hi, w_lo);
+
+        uint256 term3_hi;
+        uint256 term3_lo;
+        {
+            (uint256 z3x2_hi, uint256 z3x2_lo) = _add(z3_hi, z3_lo, z3_hi, z3_lo);
+            (term3_hi, term3_lo) = _lnRoundDivSmall(z3x2_hi, z3x2_lo, 3);
+        }
+
+        uint256 term5_hi;
+        uint256 term5_lo;
+        {
+            (uint256 z5x2_hi, uint256 z5x2_lo) = _add(z5_hi, z5_lo, z5_hi, z5_lo);
+            (term5_hi, term5_lo) = _lnRoundDivSmall(z5x2_hi, z5x2_lo, 5);
+        }
+
+        uint256 resid;
+        {
+            (uint256 p_hi, uint256 p_lo) = _mul(z7_hi, z7_lo, r_num);
+            resid = _div(p_hi, p_lo, r_den);
+        }
+
+        uint256 local_hi;
+        uint256 local_lo;
+        assembly ("memory-safe") {
+            local_lo := shl(1, z_lo)
+            local_hi := or(shl(1, z_hi), shr(255, z_lo))
+        }
+        (local_hi, local_lo) = _add(local_hi, local_lo, term3_hi, term3_lo);
+        (local_hi, local_lo) = _add(local_hi, local_lo, term5_hi, term5_lo);
+        (local_hi, local_lo) = _add(local_hi, local_lo, resid);
+
+        uint256 prefix_hi;
+        uint256 prefix_lo;
+        (prefix_hi, prefix_lo) = _mul(_LN_BOUNDS_LN2_HI, _LN_BOUNDS_LN2_LO, e);
+        {
+            uint256 c0_lo = _lnBoundsC0FastLo(j);
+            uint256 c0_hi;
+            assembly ("memory-safe") {
+                c0_hi := and(0x1FF, shr(mul(sub(15, j), 9), _LN_BOUNDS_C0_HI))
+            }
+            (prefix_hi, prefix_lo) = _add(prefix_hi, prefix_lo, c0_hi, c0_lo);
+        }
+
+        if (u_neg) {
+            (q_hi, q_lo) = _sub(prefix_hi, prefix_lo, local_hi, local_lo);
+        } else {
+            (q_hi, q_lo) = _add(prefix_hi, prefix_lo, local_hi, local_lo);
+        }
+        (q_hi, q_lo) = _add(q_hi, q_lo, _LN_BOUNDS_BIAS);
+    }
+
+    /// @dev Multiply two Q265 values and shift the result right by 265.
+    function _lnMulShr265(uint256 a_hi, uint256 a_lo, uint256 b_hi, uint256 b_lo)
+        private
+        pure
+        returns (uint256 r_hi, uint256 r_lo)
+    {
+        assembly ("memory-safe") {
+            let mm := mulmod(a_lo, b_lo, not(0x00))
+            let lo := mul(a_lo, b_lo)
+            let mid := sub(sub(mm, lo), lt(mm, lo))
+
+            let mm2 := mulmod(a_hi, b_lo, not(0x00))
+            let c1_lo := mul(a_hi, b_lo)
+            let c1_hi := sub(sub(mm2, c1_lo), lt(mm2, c1_lo))
+
+            let mm3 := mulmod(a_lo, b_hi, not(0x00))
+            let c2_lo := mul(a_lo, b_hi)
+            let c2_hi := sub(sub(mm3, c2_lo), lt(mm3, c2_lo))
+
+            let cross_lo := add(c1_lo, c2_lo)
+            let cross_hi := add(add(c1_hi, c2_hi), lt(cross_lo, c1_lo))
+
+            let mid2 := add(mid, cross_lo)
+            let ex := add(add(mul(a_hi, b_hi), cross_hi), lt(mid2, mid))
+
+            r_lo := or(shr(9, mid2), shl(247, ex))
+            r_hi := shr(9, ex)
+        }
+    }
+
+    function _lnQmulCoeffSigned(int256 a, uint256 w) private pure returns (int256) {
+        uint256 absA = a >= 0 ? uint256(a) : uint256(-a);
+        (uint256 hi, uint256 lo) = _mul(absA, w);
+        assembly ("memory-safe") {
+            hi := add(hi, shr(255, lo))
+        }
+        return a >= 0 ? int256(hi) : -int256(hi);
+    }
+
+    /// @dev Horner evaluation of the relaxed [6/7] rational. Returns the numerator
+    /// and denominator separately so the final residual can use floor division.
+    function _lnBoundsHorner(uint256 w) private pure returns (uint256 num, uint256 den) {
+        int256 acc = 1521140445728400881317144206354545492150820168570084615768076908;
+        acc = _lnQmulCoeffSigned(acc, w) - 29428858742257689620533621348207740500307533986678997577918944413;
+        acc = _lnQmulCoeffSigned(acc, w) + 197986098736219330316606554500676308686968121291991851924779674006;
+        acc = _lnQmulCoeffSigned(acc, w) - 622389145522399145631202759453811636853898915658567131448148651751;
+        acc = _lnQmulCoeffSigned(acc, w) + 994774743529741670303338135277211372715926779938264126946566598256;
+        acc = _lnQmulCoeffSigned(acc, w) - 782964781157562496087501476867986007452163248473290437191742117194;
+        acc = _lnQmulCoeffSigned(acc, w) + 240713809528130712452384063276960988157474503772683682866996520081;
+        num = uint256(acc);
+
+        acc = -3803682311226382199464682369978771004201589823147490710643929873;
+        acc = _lnQmulCoeffSigned(acc, w) + 79869510739631401117052396055227376879352715476624599804538876861;
+        acc = _lnQmulCoeffSigned(acc, w) - 612283407309183756467548958577498150464130858652129345002761245523;
+        acc = _lnQmulCoeffSigned(acc, w) + 2319097815309517464398116503122827280548053654085817715629104051332;
+        acc = _lnQmulCoeffSigned(acc, w) - 4816309105517415084201825791799174427639767207278649917176289330232;
+        acc = _lnQmulCoeffSigned(acc, w) + 5586639911404501036229922748377263243603150528664107334600183561328;
+        acc = _lnQmulCoeffSigned(acc, w) - 3395653215544713453537745119069678160511251963259933222420148298302;
+        acc = _lnQmulCoeffSigned(acc, w) + int256(1 << 219);
+        den = uint256(acc);
+    }
+
+    /// @dev Round a 2-word numerator divided by a small odd denominator (3 or 5).
+    function _lnRoundDivSmall(uint256 x_hi, uint256 x_lo, uint256 d) private pure returns (uint256 r_hi, uint256 r_lo) {
+        assembly ("memory-safe") {
+            r_hi := div(x_hi, d)
+            x_hi := mod(x_hi, d)
+        }
+        r_lo = _div(x_hi, x_lo, d);
+
+        uint256 rem;
+        assembly ("memory-safe") {
+            rem := addmod(x_hi, mod(x_lo, d), d)
+        }
+        if ((rem << 1) >= d) {
+            (r_hi, r_lo) = _add(r_hi, r_lo, 1);
+        }
+    }
+
+    function _lnBoundsC0FastLo(uint256 j) private pure returns (uint256 r) {
+        assembly ("memory-safe") {
+            switch j
+            case 0  { r := 29565603709123284939807116056499444759934406265308560963854267350440971448379 }
+            case 1  { r := 46469366342850566142378713014037866752060693120270608029272181828202156248103 }
+            case 2  { r := 42619944412555276515663489566138236679426529812266172934844180164239068533490 }
+            case 3  { r := 36052418902537257149248947573492648904256354159226929466327178879295370004046 }
+            case 4  { r := 45432172662928959288826123173646876078367800975718202506916288615110241893705 }
+            case 5  { r := 33952683234611578332166620025938255751944711713334903103479501456937334969929 }
+            case 6  { r := 9696855405392744697372700504426168756553887286987613705326826585770853552942 }
+            case 7  { r := 97618070863724084023810493756525740550130602941584741446441242741491464087153 }
+            case 8  { r := 76572627647166854847830109592076492431371241525601076038323681621176403503420 }
+            case 9  { r := 74322098940272958404228191864441804712007523236505597436919856294440160578188 }
+            case 10 { r := 104678931921632720029860947332584106805980956130729773786377616533869559946227 }
+            case 11 { r := 104678931921632720029860947332584106805980956130729773786377616533869559946227 }
+            case 12 { r := 67905366469223156664333240051876511503889423426669806206959002913874669939859 }
+            case 13 { r := 98602762468668204379331243624871963705268461688838610322026045121076645840140 }
+            case 14 { r := 98602762468668204379331243624871963705268461688838610322026045121076645840140 }
+            case 15 { r := 103212025217616957519630260555236733345647245497292992366923423973770079262671 }
+        }
     }
 
     /// Multiply two Q280 values (a_h, a_lo) * (b_h, b_lo) and shift right by 280.

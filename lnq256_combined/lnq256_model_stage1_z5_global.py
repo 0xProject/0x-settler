@@ -1,0 +1,143 @@
+"""Relaxed stage-1 lnQ256 model using a z^5 kernel and shared interval constants.
+
+This model implements one shared stage-1 skeleton that returns:
+
+- lower in [floor(2^256 * ln(x)) - 1, floor(2^256 * ln(x))]
+- upper in [ceil(2^256 * ln(x)), ceil(2^256 * ln(x)) + 1]
+
+The kernel shape is:
+
+- 16-bucket coarse reduction, shared with the combined model
+- z = u / (2 + u), w = z^2
+- explicit odd terms through z^5
+- deferred residual z^7 * P(w) / Q(w)
+- one global additive bias and one global radius
+
+The current tuned parameters are:
+
+- guard bits G = 9
+- rational degrees [6/7]
+- coefficient precision Q219
+- centered interval constants: bias = 125, radius = 216
+"""
+
+from __future__ import annotations
+
+from typing import Tuple
+
+from lnq256_model_combined import (
+    SCALE,
+    _floor_div_pow2_signed,
+    _mulshr_floor,
+    _qmul_coeff,
+    _round_div,
+    extract_state,
+)
+
+G_FAST = 9
+COEFF_BITS = 219
+SCALE_FAST = 1 << (256 + G_FAST)
+
+FAST_BIAS = 125
+FAST_RADIUS = 216
+
+FAST_P = [
+    240713809528130712452384063276960988157474503772683682866996520081,
+    -782964781157562496087501476867986007452163248473290437191742117194,
+    994774743529741670303338135277211372715926779938264126946566598256,
+    -622389145522399145631202759453811636853898915658567131448148651751,
+    197986098736219330316606554500676308686968121291991851924779674006,
+    -29428858742257689620533621348207740500307533986678997577918944413,
+    1521140445728400881317144206354545492150820168570084615768076908,
+]
+
+FAST_Q = [
+    -3395653215544713453537745119069678160511251963259933222420148298302,
+    5586639911404501036229922748377263243603150528664107334600183561328,
+    -4816309105517415084201825791799174427639767207278649917176289330232,
+    2319097815309517464398116503122827280548053654085817715629104051332,
+    -612283407309183756467548958577498150464130858652129345002761245523,
+    79869510739631401117052396055227376879352715476624599804538876861,
+    -3803682311226382199464682369978771004201589823147490710643929873,
+]
+
+LN2_FAST = 41093611615227550137463758953630756113403221817134052662334908162775017971800015
+
+C0_FAST = [
+    1882239031506182411716942876195505970412254160915557585595175611477051045687355,
+    5836073828208660337320927963448433259415559926402298810002151382223858638244903,
+    7916482012550056565318490470156915970701785487075824527617959892702331884049138,
+    12310013878058053972047773358494410881350874728717126717648831083718087111837262,
+    14635235416564769582658770234268323265590385868846429271478571873612164576525641,
+    17055389801120092305597101416303060710182632457562497816903744350620167392040521,
+    19578559936511829771280869166972682595959181295780242936373658523923089762702126,
+    22213907115191117409925868630415916140524697674078932472982839788252899225314929,
+    24971871813670148870915591886459976680884417944638322344521704243322499276089660,
+    27864423515896159860061264593949539689496803842990240966906740018193591274162828,
+    30905374669047740702699742959643567595775796877191119808282094962638762044169203,
+    30905374669047740702699742959643567595775796877191119808282094962638762044169203,
+    34110779602240184611194202832606121420365264915124995633807488701240334784081043,
+    37499447586121799326192759401431066200311473508690740795066825679677017519539468,
+    37499447586121799326192759401431066200311473508690740795066825679677017519539468,
+    41093611615227550137463758953630756113403221817134052662334908162775017971800015,
+]
+
+
+def _ceil_div_pow2_signed(x: int, shift: int) -> int:
+    return -((-x) >> shift)
+
+
+def _eval_fast_rational_parts(w_q256: int) -> Tuple[int, int]:
+    num = FAST_P[-1]
+    for c in reversed(FAST_P[:-1]):
+        num = _qmul_coeff(num, w_q256) + c
+
+    den = FAST_Q[-1]
+    for c in reversed(FAST_Q[:-1]):
+        den = _qmul_coeff(den, w_q256) + c
+    den = _qmul_coeff(den, w_q256) + (1 << COEFF_BITS)
+    return num, den
+
+
+def fast_eval_state_z5_global(state) -> int:
+    z_num = abs(state.u_num) * SCALE_FAST
+    if state.z_den < SCALE:
+        z_hi = _round_div(z_num, state.z_den)
+    else:
+        z_hi = z_num // state.z_den
+
+    w_hi = _mulshr_floor(z_hi, z_hi, 256 + G_FAST)
+    w_q256 = w_hi >> G_FAST
+
+    r_num, r_den = _eval_fast_rational_parts(w_q256)
+
+    z3_hi = _mulshr_floor(z_hi, w_hi, 256 + G_FAST)
+    z5_hi = _mulshr_floor(z3_hi, w_hi, 256 + G_FAST)
+    z7_hi = _mulshr_floor(z5_hi, w_hi, 256 + G_FAST)
+
+    term3_hi = _round_div(z3_hi * 2, 3)
+    term5_hi = _round_div(z5_hi * 2, 5)
+    resid_hi = (z7_hi * r_num) // r_den
+
+    local_hi = (z_hi << 1) + term3_hi + term5_hi + resid_hi
+    prefix_hi = state.exponent * LN2_FAST + C0_FAST[state.bucket]
+    q_fast = prefix_hi - local_hi if state.u_num < 0 else prefix_hi + local_hi
+    return q_fast + FAST_BIAS
+
+
+def bounds_ln_q256(x: int) -> Tuple[int, int]:
+    state = extract_state(x)
+    q_fast = fast_eval_state_z5_global(state)
+    lower = _floor_div_pow2_signed(q_fast - FAST_RADIUS, G_FAST)
+    upper = _ceil_div_pow2_signed(q_fast + FAST_RADIUS, G_FAST)
+    return lower, upper
+
+
+def lower_bound_ln_q256(x: int) -> int:
+    lower, _ = bounds_ln_q256(x)
+    return lower
+
+
+def upper_bound_ln_q256(x: int) -> int:
+    _, upper = bounds_ln_q256(x)
+    return upper
