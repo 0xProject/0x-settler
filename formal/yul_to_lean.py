@@ -1003,9 +1003,11 @@ class YulParser(_TokenReader):
         tokens: list[tuple[str, str]],
         *,
         token_offset: int = 0,
+        protected_token_idxs: frozenset[int] = frozenset(),
     ) -> None:
         super().__init__(tokens)
         self._token_offset = token_offset
+        self._protected_token_idxs = protected_token_idxs
         self._expr_stmts: list[Expr] = []
         self._reference_scope_cache: dict[int, ReferenceScope] = {}
         self._source_names: set[str] | None = None
@@ -1667,6 +1669,12 @@ class YulParser(_TokenReader):
             for name, fn_or_err in scope_fns.items():
                 if isinstance(fn_or_err, RejectedHelperInfo):
                     rejected_fns[name] = fn_or_err
+                elif (
+                    isinstance(fn_or_err, YulFunction)
+                    and fn_or_err.token_idx is not None
+                    and fn_or_err.token_idx in self._protected_token_idxs
+                ):
+                    pass  # Selected target: preserve call edge
                 elif name in non_pure:
                     deferred_fns[name] = fn_or_err
                 else:
@@ -5597,6 +5605,28 @@ def prepare_translation(
         selected_functions if selected_functions is not None else config.function_order
     )
 
+    # Pre-compute token positions of all exact-selected targets so the
+    # parser can avoid eagerly inlining them during scope-local helper
+    # processing.  Without this, a selected nested helper inside a bare
+    # block gets substituted away before prepare_translation can preserve
+    # the call edge.
+    protected_token_idxs: frozenset[int] = frozenset()
+    all_fn_defs: list[tuple[int, str, tuple[str, ...]]] = []
+    if config.exact_yul_names:
+        all_fn_defs = list(YulParser(tokens)._walk_function_defs())
+        _protected: set[int] = set()
+        for _eyn in config.exact_yul_names.values():
+            _esel = _parse_exact_yul_selector(_eyn)
+            if _esel is None:
+                for idx, fn_name, path in all_fn_defs:
+                    if fn_name == _eyn:
+                        _protected.add(idx)
+            else:
+                for idx, fn_name, path in all_fn_defs:
+                    if path == _esel:
+                        _protected.add(idx)
+        protected_token_idxs = frozenset(_protected)
+
     fn_map: dict[str, str] = {}
     yul_functions: dict[str, YulFunction] = {}
     # Helpers that require mstore_sink (uint512.from shape) are deferred
@@ -5607,7 +5637,7 @@ def prepare_translation(
 
     known_yul_names: set[str] = set()
     for sol_name in selected:
-        parser = YulParser(tokens)
+        parser = YulParser(tokens, protected_token_idxs=protected_token_idxs)
         n_params = config.n_params.get(sol_name) if config.n_params else None
         exact_yul_name = (
             config.exact_yul_names.get(sol_name)
@@ -5747,6 +5777,19 @@ def prepare_translation(
             if hf.token_idx is not None and hf.token_idx in all_selected_token_idxs:
                 target_fn_map[yn] = token_idx_to_sol_name[hf.token_idx]
                 del helper_table[yn]
+        # Also map selected targets that are lexically inside the current
+        # target's body but were missed by collect_all_functions (e.g.
+        # helpers inside bare { } blocks).  The pre-pass all_fn_defs list
+        # has every function definition with its token_idx and name.
+        if body_range is not None and protected_token_idxs:
+            b_start, b_end = body_range
+            for fidx, fname, _fpath in all_fn_defs:
+                if (
+                    b_start <= fidx < b_end
+                    and fidx in all_selected_token_idxs
+                    and fname not in target_fn_map
+                ):
+                    target_fn_map[fname] = token_idx_to_sol_name[fidx]
         target_fn_maps[sol_name] = target_fn_map
 
         inlined_targets[sol_name] = _inline_yul_function(
