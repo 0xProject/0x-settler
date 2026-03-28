@@ -5645,16 +5645,21 @@ def prepare_translation(
     all_helpers: dict[str, YulFunction] = {}
     all_rejected: RejectedHelperMap = {}
 
-    # Token-index identity set for all selected targets.  Used below to
-    # distinguish scope-distinct homonyms from the actual selected bindings
-    # when pruning the helper table.
+    # Token-index identity set and reverse map for all selected targets.
+    # Used below to distinguish scope-distinct homonyms from the actual
+    # selected bindings when pruning the helper table and to build
+    # per-target fn_maps that resolve bare Yul names to the lexically
+    # correct model name.
     all_selected_token_idxs: set[int] = set()
+    token_idx_to_sol_name: dict[int, str] = {}
     for sn in selected:
         _tidx = yul_functions[sn].token_idx
         if _tidx is not None:
             all_selected_token_idxs.add(_tidx)
+            token_idx_to_sol_name[_tidx] = sn
 
     inlined_targets: dict[str, YulFunction] = {}
+    target_fn_maps: dict[str, dict[str, str]] = {}
     for sol_name in selected:
         yf = yul_functions[sol_name]
         fn_token_idx = yf.token_idx
@@ -5734,10 +5739,15 @@ def prepare_translation(
         # Identity-aware pruning: only remove helpers that are the
         # exact same binding as a selected target (matching token_idx),
         # not scope-distinct homonyms that share the bare Yul name.
+        # While pruning, build a per-target fn_map that resolves each
+        # bare Yul name to the lexically correct selected target.
+        target_fn_map: dict[str, str] = {yf.yul_name: sol_name}
         for yn in list(helper_table):
             hf = helper_table[yn]
             if hf.token_idx is not None and hf.token_idx in all_selected_token_idxs:
+                target_fn_map[yn] = token_idx_to_sol_name[hf.token_idx]
                 del helper_table[yn]
+        target_fn_maps[sol_name] = target_fn_map
 
         inlined_targets[sol_name] = _inline_yul_function(
             yul_functions[sol_name],
@@ -5751,6 +5761,7 @@ def prepare_translation(
     return PreparedTranslation(
         selected_functions=tuple(selected),
         fn_map=fn_map,
+        target_fn_maps=target_fn_maps,
         yul_functions=inlined_targets,
         collected_helpers=all_helpers,
         rejected_helpers=all_rejected,
@@ -5767,7 +5778,7 @@ def build_restricted_ir_models(
         yul_function_to_model(
             preparation.yul_functions[fn],
             fn,
-            preparation.fn_map,
+            preparation.target_fn_maps.get(fn, preparation.fn_map),
             keep_solidity_locals=config.keep_solidity_locals,
         )
         for fn in preparation.selected_functions
@@ -6082,6 +6093,7 @@ class PreparedTranslation:
 
     selected_functions: tuple[str, ...]
     fn_map: dict[str, str]
+    target_fn_maps: dict[str, dict[str, str]]
     yul_functions: dict[str, YulFunction]
     collected_helpers: dict[str, YulFunction]
     rejected_helpers: RejectedHelperMap
