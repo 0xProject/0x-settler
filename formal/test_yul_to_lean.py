@@ -9962,6 +9962,49 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
             (9,),
         )
 
+    def test_translate_yul_to_models_preserves_selected_block_local_exact_helper(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("a", "b"),
+            exact_yul_names={
+                "a": "outer",
+                "b": "outer::helper",
+            },
+        )
+        yul = """
+            function outer() -> var_z_1 {
+                {
+                    function helper() -> var_r_1 {
+                        var_r_1 := 7
+                    }
+                    var_z_1 := helper()
+                }
+            }
+        """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        models = ytl.build_model_table(result.models)
+
+        self.assertEqual(
+            ytl.evaluate_function_model(models["a"], (), model_table=models),
+            (7,),
+        )
+        self.assertEqual(
+            ytl.evaluate_function_model(models["b"], (), model_table=models),
+            (7,),
+        )
+        self.assertTrue(
+            any(
+                isinstance(stmt, ytl.Assignment) and stmt.expr == ytl.Call("b", ())
+                for stmt in models["a"].assignments
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
