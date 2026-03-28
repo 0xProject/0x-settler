@@ -18,6 +18,7 @@ import pathlib
 import re
 import sys
 from collections import Counter
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Callable, assert_never
 
@@ -1903,6 +1904,40 @@ class YulParser(_TokenReader):
 
         return matches
 
+    def _walk_function_defs(
+        self,
+    ) -> Iterator[tuple[int, str, tuple[str, ...]]]:
+        """Yield ``(token_idx, fn_name, lexical_path)`` for each function def.
+
+        Walks the token stream tracking brace depth and function-body
+        nesting.  ``lexical_path`` is a tuple of enclosing function names
+        ending with the function's own name, e.g. ``("outer", "inner")``.
+        Top-level functions have a single-element path.
+        """
+        fn_body_stack: list[tuple[int, str]] = []
+        depth = 0
+        expect_fn_body: str | None = None
+
+        for idx in range(len(self.tokens) - 1):
+            k, text = self.tokens[idx]
+            if k == "{":
+                depth += 1
+                if expect_fn_body is not None:
+                    fn_body_stack.append((depth, expect_fn_body))
+                    expect_fn_body = None
+            elif k == "}":
+                if fn_body_stack and fn_body_stack[-1][0] == depth:
+                    fn_body_stack.pop()
+                depth -= 1
+            elif k == "ident" and text == "function":
+                fn_name = self._function_name_at(idx)
+                if fn_name is None:
+                    expect_fn_body = None
+                    continue
+                path = tuple(name for _, name in fn_body_stack) + (fn_name,)
+                yield (idx, fn_name, path)
+                expect_fn_body = fn_name
+
     def find_function(
         self,
         sol_fn_name: str,
@@ -1929,37 +1964,13 @@ class YulParser(_TokenReader):
         Raises on zero or ambiguous matches.
         """
         target_prefix = f"fun_{sol_fn_name}_"
-        matches: list[int] = []
-        # Track function-body nesting so that functions defined inside
-        # other function bodies are ignored.  We use a stack of brace
-        # depths: when we enter a function body, we push the current
-        # brace depth, and when we return to that depth, the function
-        # body is closed.
-        fn_body_stack: list[int] = []  # brace depths at fn body open
-        depth = 0
-        expect_fn_body = False
-
-        for idx in range(len(self.tokens) - 1):
-            k, text = self.tokens[idx]
-            if k == "{":
-                depth += 1
-                if expect_fn_body:
-                    fn_body_stack.append(depth)
-                    expect_fn_body = False
-            elif k == "}":
-                if fn_body_stack and fn_body_stack[-1] == depth:
-                    fn_body_stack.pop()
-                depth -= 1
-            elif k == "ident" and text == "function":
-                if (
-                    not fn_body_stack
-                    and self.tokens[idx + 1][0] == "ident"
-                    and self.tokens[idx + 1][1].startswith(target_prefix)
-                    and self.tokens[idx + 1][1][len(target_prefix) :].isdigit()
-                ):
-                    matches.append(idx)
-                # The next `{` opens a function body.
-                expect_fn_body = True
+        matches: list[int] = [
+            idx
+            for idx, fn_name, path in self._walk_function_defs()
+            if len(path) == 1
+            and fn_name.startswith(target_prefix)
+            and fn_name[len(target_prefix) :].isdigit()
+        ]
 
         if not matches:
             raise ParseError(
@@ -2087,36 +2098,13 @@ class YulParser(_TokenReader):
         search_nested: bool,
     ) -> list[tuple[int, tuple[str, ...]]]:
         """Return ``(token_idx, lexical_path)`` matches for ``yul_name``."""
-        matches: list[tuple[int, tuple[str, ...]]] = []
-        fn_body_stack: list[tuple[int, str]] = []
-        depth = 0
-        expect_fn_body: str | None = None
-
-        for idx in range(len(self.tokens) - 1):
-            k, text = self.tokens[idx]
-            if k == "{":
-                depth += 1
-                if expect_fn_body is not None:
-                    fn_body_stack.append((depth, expect_fn_body))
-                    expect_fn_body = None
-            elif k == "}":
-                if fn_body_stack and fn_body_stack[-1][0] == depth:
-                    fn_body_stack.pop()
-                depth -= 1
-            elif k == "ident" and text == "function":
-                fn_name = self._function_name_at(idx)
-                if fn_name is None:
-                    expect_fn_body = None
-                    continue
-                if (
-                    fn_name == yul_name
-                    and (search_nested or not fn_body_stack)
-                    and (n_params is None or self._count_params_at(idx) == n_params)
-                ):
-                    path = tuple(name for _, name in fn_body_stack) + (fn_name,)
-                    matches.append((idx, path))
-                expect_fn_body = fn_name
-        return matches
+        return [
+            (idx, path)
+            for idx, fn_name, path in self._walk_function_defs()
+            if fn_name == yul_name
+            and (search_nested or len(path) == 1)
+            and (n_params is None or self._count_params_at(idx) == n_params)
+        ]
 
     def _body_reference_summary(
         self,
@@ -4138,7 +4126,11 @@ def yul_function_to_model(
         outer-scope ones.
         """
         ssa_c = ssa_count_state if ssa_count_state is not None else ssa_count
-        ssa_e = emitted_ssa_names_state if emitted_ssa_names_state is not None else emitted_ssa_names
+        ssa_e = (
+            emitted_ssa_names_state
+            if emitted_ssa_names_state is not None
+            else emitted_ssa_names
+        )
 
         expr = substitute_expr(raw_expr, subst_state)
         expr = rename_expr(expr, var_map_state, fn_map)
@@ -4414,8 +4406,8 @@ def yul_function_to_model(
                             raw_to_last_expr[s.target] = assignment.expr
                 return branch_assignments, raw_to_last_ssa, raw_to_last_expr
 
-            body_assignments, then_raw_map, then_raw_last = (
-                _process_conditional_branch(stmt.body)
+            body_assignments, then_raw_map, then_raw_last = _process_conditional_branch(
+                stmt.body
             )
             if stmt.else_body is not None:
                 else_assignments_list, else_raw_map, else_raw_last = (
@@ -4430,10 +4422,13 @@ def yul_function_to_model(
             # first appearance (then-branch first, then else-branch).
             # Keying by raw slot keeps distinct binders that share a
             # demangled name (e.g. var_c_1 / usr$c → c) separate.
-            modified_raws: list[str] = list(dict.fromkeys(
-                raw for raw in (*then_raw_map, *else_raw_map)
-                if raw in pre_if_names and pre_if_names[raw] in pre_if_scope
-            ))
+            modified_raws: list[str] = list(
+                dict.fromkeys(
+                    raw
+                    for raw in (*then_raw_map, *else_raw_map)
+                    if raw in pre_if_names and pre_if_names[raw] in pre_if_scope
+                )
+            )
 
             if modified_raws:
                 # Generate output SSA names — one per raw slot.
@@ -4459,17 +4454,13 @@ def yul_function_to_model(
                     var_map[raw] = out
 
                 then_outputs = tuple(
-                    then_raw_map.get(r, pre_if_names[r])
-                    for r in modified_raws
+                    then_raw_map.get(r, pre_if_names[r]) for r in modified_raws
                 )
                 if stmt.else_body is None:
-                    else_outputs = tuple(
-                        pre_if_names[r] for r in modified_raws
-                    )
+                    else_outputs = tuple(pre_if_names[r] for r in modified_raws)
                 else:
                     else_outputs = tuple(
-                        else_raw_map.get(r, pre_if_names[r])
-                        for r in modified_raws
+                        else_raw_map.get(r, pre_if_names[r]) for r in modified_raws
                     )
 
                 assignments.append(
@@ -5654,17 +5645,30 @@ def prepare_translation(
     all_helpers: dict[str, YulFunction] = {}
     all_rejected: RejectedHelperMap = {}
 
+    # Token-index identity set for all selected targets.  Used below to
+    # distinguish scope-distinct homonyms from the actual selected bindings
+    # when pruning the helper table.
+    all_selected_token_idxs: set[int] = set()
+    for sn in selected:
+        _tidx = yul_functions[sn].token_idx
+        if _tidx is not None:
+            all_selected_token_idxs.add(_tidx)
+
     inlined_targets: dict[str, YulFunction] = {}
     for sol_name in selected:
         yf = yul_functions[sol_name]
         fn_token_idx = yf.token_idx
+        # parse_function() always sets token_idx; assert so scope-aware
+        # helper collection can rely on it unconditionally.
+        assert (
+            fn_token_idx is not None
+        ), f"Selected target {sol_name!r} ({yf.yul_name!r}) has no token_idx"
         authoritative_token_idxs = {
             dfn.token_idx
             for dfn in parse_deferred.get(sol_name, {}).values()
             if dfn.token_idx is not None
         }
-        if fn_token_idx is not None:
-            authoritative_token_idxs.add(fn_token_idx)
+        authoritative_token_idxs.add(fn_token_idx)
 
         # Collect helpers from the scope chain, from outermost to
         # innermost.  Inner scopes override outer ones (Yul lexical
@@ -5672,79 +5676,68 @@ def prepare_translation(
         helper_table: dict[str, YulFunction] = {}
         rejected_helpers: RejectedHelperMap = {}
 
-        nested_helper_names: set[str] = set()
-        if fn_token_idx is not None:
-            # Walk up through enclosing block scopes from outermost to
-            # innermost.  Each deeper scope overrides outer names.
-            scope_chain: list[tuple[int, int]] = []
-            cur_idx = fn_token_idx
-            while True:
-                obj_start, obj_end = _find_enclosing_block_range(tokens, cur_idx)
-                scope_chain.append((obj_start, obj_end))
-                if obj_start == 0 and obj_end == len(tokens):
-                    break
-                # Move to the enclosing block's opening brace to find
-                # the next outer scope.
-                if obj_start > 0:
-                    cur_idx = obj_start - 1
-                else:
-                    break
-            # Process from outermost to innermost (inner overrides outer).
-            for s_start, s_end in reversed(scope_chain):
-                scoped_tokens = tokens[s_start:s_end]
-                scope_coll = YulParser(
-                    scoped_tokens, token_offset=s_start
-                ).collect_all_functions()
-                scope_coll = _exclude_collected_helpers_by_token_idx(
-                    scope_coll,
-                    authoritative_token_idxs,
-                )
-                _merge_helper_collection(
-                    helper_table,
-                    rejected_helpers,
-                    scope_coll,
-                )
-
-            # Also collect nested helpers from inside the target's body.
-            # Track their names so the pop loop below preserves them —
-            # a nested helper that shadows a selected target's Yul name
-            # is a distinct function and must remain in the helper table.
-            body_range = _find_function_body_range(tokens, fn_token_idx)
-            if body_range is not None:
-                body_start, body_end = body_range
-                body_tokens = tokens[body_start:body_end]
-                nested_coll = YulParser(
-                    body_tokens, token_offset=body_start
-                ).collect_all_functions()
-                nested_coll = _exclude_collected_helpers_by_token_idx(
-                    nested_coll,
-                    authoritative_token_idxs,
-                )
-                nested_helper_names = set(nested_coll.functions)
-                _merge_helper_collection(
-                    helper_table,
-                    rejected_helpers,
-                    nested_coll,
-                )
-                # Merge parse_deferred as the authoritative source for
-                # deferred helpers tied to the selected target's parse.
-                for dname, dfn in parse_deferred.get(sol_name, {}).items():
-                    helper_table[dname] = dfn
-                    nested_helper_names.add(dname)
-                for dname, derr in parse_deferred_rejected.get(sol_name, {}).items():
-                    rejected_helpers[dname] = derr
-        else:
-            nested_helper_names = set()
-            function_collection = YulParser(tokens).collect_all_functions()
+        # Walk up through enclosing block scopes from outermost to
+        # innermost.  Each deeper scope overrides outer names.
+        scope_chain: list[tuple[int, int]] = []
+        cur_idx = fn_token_idx
+        while True:
+            obj_start, obj_end = _find_enclosing_block_range(tokens, cur_idx)
+            scope_chain.append((obj_start, obj_end))
+            if obj_start == 0 and obj_end == len(tokens):
+                break
+            # Move to the enclosing block's opening brace to find
+            # the next outer scope.
+            if obj_start > 0:
+                cur_idx = obj_start - 1
+            else:
+                break
+        # Process from outermost to innermost (inner overrides outer).
+        for s_start, s_end in reversed(scope_chain):
+            scoped_tokens = tokens[s_start:s_end]
+            scope_coll = YulParser(
+                scoped_tokens, token_offset=s_start
+            ).collect_all_functions()
+            scope_coll = _exclude_collected_helpers_by_token_idx(
+                scope_coll,
+                authoritative_token_idxs,
+            )
             _merge_helper_collection(
                 helper_table,
                 rejected_helpers,
-                function_collection,
+                scope_coll,
             )
 
-        for yn in fn_map:
-            if yn not in nested_helper_names:
-                helper_table.pop(yn, None)
+        # Also collect nested helpers from inside the target's body.
+        body_range = _find_function_body_range(tokens, fn_token_idx)
+        if body_range is not None:
+            body_start, body_end = body_range
+            body_tokens = tokens[body_start:body_end]
+            nested_coll = YulParser(
+                body_tokens, token_offset=body_start
+            ).collect_all_functions()
+            nested_coll = _exclude_collected_helpers_by_token_idx(
+                nested_coll,
+                authoritative_token_idxs,
+            )
+            _merge_helper_collection(
+                helper_table,
+                rejected_helpers,
+                nested_coll,
+            )
+            # Merge parse_deferred as the authoritative source for
+            # deferred helpers tied to the selected target's parse.
+            for dname, dfn in parse_deferred.get(sol_name, {}).items():
+                helper_table[dname] = dfn
+            for dname, derr in parse_deferred_rejected.get(sol_name, {}).items():
+                rejected_helpers[dname] = derr
+
+        # Identity-aware pruning: only remove helpers that are the
+        # exact same binding as a selected target (matching token_idx),
+        # not scope-distinct homonyms that share the bare Yul name.
+        for yn in list(helper_table):
+            hf = helper_table[yn]
+            if hf.token_idx is not None and hf.token_idx in all_selected_token_idxs:
+                del helper_table[yn]
 
         inlined_targets[sol_name] = _inline_yul_function(
             yul_functions[sol_name],
