@@ -50,6 +50,26 @@ class Var:
 class Call:
     name: str
     args: tuple["Expr", ...]
+    binding_token_idx: int | None = None
+
+
+@dataclass(frozen=True)
+class CallResolution:
+    """Resolve parsed Yul calls to selected model names.
+
+    ``by_name`` handles ordinary lexical helper discovery where the visible
+    helper survives into the helper table and can be matched by raw Yul name.
+    ``by_binding_token_idx`` handles calls whose exact lexical binding was
+    preserved during parsing, so lowering does not have to guess by name.
+    """
+
+    by_name: dict[str, str] = field(default_factory=dict)
+    by_binding_token_idx: dict[int, str] = field(default_factory=dict)
+
+    def resolve(self, call: Call) -> str:
+        if call.binding_token_idx is not None:
+            return self.by_binding_token_idx.get(call.binding_token_idx, call.name)
+        return self.by_name.get(call.name, call.name)
 
 
 @dataclass(frozen=True)
@@ -1008,7 +1028,6 @@ class YulParser(_TokenReader):
         super().__init__(tokens)
         self._token_offset = token_offset
         self._protected_token_idxs = protected_token_idxs
-        self._applied_protected_renames: dict[str, int] = {}
         self._expr_stmts: list[Expr] = []
         self._reference_scope_cache: dict[int, ReferenceScope] = {}
         self._source_names: set[str] | None = None
@@ -1667,7 +1686,7 @@ class YulParser(_TokenReader):
             pure_fns: dict[str, YulFunction] = {}
             rejected_fns: RejectedHelperMap = {}
             deferred_fns: dict[str, YulFunction] = {}
-            protected_renames: dict[str, str] = {}
+            protected_bindings: dict[str, int] = {}
             for name, fn_or_err in scope_fns.items():
                 if isinstance(fn_or_err, RejectedHelperInfo):
                     rejected_fns[name] = fn_or_err
@@ -1676,11 +1695,10 @@ class YulParser(_TokenReader):
                     and fn_or_err.token_idx is not None
                     and fn_or_err.token_idx in self._protected_token_idxs
                 ):
-                    # Selected target: rename calls to a synthetic name
-                    # that encodes the binding identity.  This preserves
-                    # the call edge AND lexical scope — only calls within
-                    # this block (where the helper is visible) are renamed.
-                    protected_renames[name] = f"__protected_{fn_or_err.token_idx}"
+                    # Selected target: preserve the exact lexical binding on
+                    # visible Call nodes so later phases do not have to guess
+                    # by bare name.
+                    protected_bindings[name] = fn_or_err.token_idx
                 elif name in non_pure:
                     deferred_fns[name] = fn_or_err
                 else:
@@ -1692,16 +1710,17 @@ class YulParser(_TokenReader):
                     results, pure_fns, rejected=rejected_fns
                 )
 
-            # Phase A½: rename calls to protected selected targets.
-            # Done after inlining so that calls from inlined pure
-            # helpers are also covered.  Record applied renames so
-            # prepare_translation can build matching fn_map entries.
-            for old_name, new_name in protected_renames.items():
-                results = _rename_calls_in_stmts(results, old_name, new_name)
-                fn_or_err = scope_fns[old_name]
-                assert isinstance(fn_or_err, YulFunction)
-                assert fn_or_err.token_idx is not None
-                self._applied_protected_renames[new_name] = fn_or_err.token_idx
+            # Phase A½: bind calls to protected selected targets.
+            # Done after pure-helper inlining so call edges introduced by
+            # inlined helpers inherit the same lexical identity.
+            for protected_name, binding_token_idx in protected_bindings.items():
+                results = _bind_calls_in_stmts(
+                    results, protected_name, binding_token_idx
+                )
+                for dname, dfn in list(deferred_fns.items()):
+                    deferred_fns[dname] = _bind_calls_in_yul_function(
+                        dfn, protected_name, binding_token_idx
+                    )
 
             # Phase B: export non-pure helpers as alpha-renamed
             # bindings.  Compute the transitive closure: if helper A
@@ -2280,22 +2299,39 @@ def demangle_var(
     return None
 
 
-def rename_expr(expr: Expr, var_map: dict[str, str], fn_map: dict[str, str]) -> Expr:
+def _coerce_call_resolution(
+    call_resolution: CallResolution | dict[str, str],
+) -> CallResolution:
+    if isinstance(call_resolution, CallResolution):
+        return call_resolution
+    return CallResolution(by_name=call_resolution)
+
+
+def rename_expr(
+    expr: Expr,
+    var_map: dict[str, str],
+    call_resolution: CallResolution | dict[str, str],
+) -> Expr:
+    call_resolution = _coerce_call_resolution(call_resolution)
     if isinstance(expr, IntLit):
         return expr
     if isinstance(expr, Var):
         return Var(var_map.get(expr.name, expr.name))
     if isinstance(expr, Ite):
         return Ite(
-            rename_expr(expr.cond, var_map, fn_map),
-            rename_expr(expr.if_true, var_map, fn_map),
-            rename_expr(expr.if_false, var_map, fn_map),
+            rename_expr(expr.cond, var_map, call_resolution),
+            rename_expr(expr.if_true, var_map, call_resolution),
+            rename_expr(expr.if_false, var_map, call_resolution),
         )
     if isinstance(expr, Project):
-        return Project(expr.index, expr.total, rename_expr(expr.inner, var_map, fn_map))
+        return Project(
+            expr.index,
+            expr.total,
+            rename_expr(expr.inner, var_map, call_resolution),
+        )
     if isinstance(expr, Call):
-        new_name = fn_map.get(expr.name, expr.name)
-        new_args = tuple(rename_expr(a, var_map, fn_map) for a in expr.args)
+        new_name = call_resolution.resolve(expr)
+        new_args = tuple(rename_expr(a, var_map, call_resolution) for a in expr.args)
         return Call(new_name, new_args)
     assert_never(expr)
 
@@ -2314,7 +2350,11 @@ def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
     if isinstance(expr, Project):
         return Project(expr.index, expr.total, substitute_expr(expr.inner, subst))
     if isinstance(expr, Call):
-        return Call(expr.name, tuple(substitute_expr(a, subst) for a in expr.args))
+        return Call(
+            expr.name,
+            tuple(substitute_expr(a, subst) for a in expr.args),
+            expr.binding_token_idx,
+        )
     assert_never(expr)
 
 
@@ -3295,41 +3335,47 @@ def _classify_non_pure_helpers(
     return non_pure
 
 
-def _rename_call_in_expr(expr: Expr, old: str, new: str) -> Expr:
-    """Rename Call nodes from *old* to *new* throughout *expr*."""
+def _rewrite_calls_in_expr(expr: Expr, rewrite: Callable[[Call], Call]) -> Expr:
+    """Apply *rewrite* to every Call node in *expr*."""
     if isinstance(expr, IntLit):
         return expr
     if isinstance(expr, Var):
         return expr
     if isinstance(expr, Call):
-        renamed_args = tuple(_rename_call_in_expr(a, old, new) for a in expr.args)
-        name = new if expr.name == old else expr.name
-        if name is expr.name and renamed_args == expr.args:
+        rewritten_args = tuple(_rewrite_calls_in_expr(a, rewrite) for a in expr.args)
+        call = (
+            expr
+            if rewritten_args == expr.args
+            else Call(expr.name, rewritten_args, expr.binding_token_idx)
+        )
+        rewritten_call = rewrite(call)
+        if rewritten_call == expr:
             return expr
-        return Call(name, renamed_args)
+        return rewritten_call
     if isinstance(expr, Ite):
-        c = _rename_call_in_expr(expr.cond, old, new)
-        t = _rename_call_in_expr(expr.if_true, old, new)
-        e = _rename_call_in_expr(expr.if_false, old, new)
+        c = _rewrite_calls_in_expr(expr.cond, rewrite)
+        t = _rewrite_calls_in_expr(expr.if_true, rewrite)
+        e = _rewrite_calls_in_expr(expr.if_false, rewrite)
         if c is expr.cond and t is expr.if_true and e is expr.if_false:
             return expr
         return Ite(c, t, e)
     if isinstance(expr, Project):
-        inner = _rename_call_in_expr(expr.inner, old, new)
+        inner = _rewrite_calls_in_expr(expr.inner, rewrite)
         if inner is expr.inner:
             return expr
         return Project(expr.index, expr.total, inner)
     assert_never(expr)
 
 
-def _rename_calls_in_stmts(
-    stmts: list[RawStatement], old: str, new: str
+def _rewrite_calls_in_stmts(
+    stmts: list[RawStatement],
+    rewrite: Callable[[Call], Call],
 ) -> list[RawStatement]:
-    """Rename Call nodes from *old* to *new* in a list of raw statements."""
+    """Apply *rewrite* to every Call node in *stmts*."""
     result: list[RawStatement] = []
     for stmt in stmts:
         if isinstance(stmt, PlainAssignment):
-            new_expr = _rename_call_in_expr(stmt.expr, old, new)
+            new_expr = _rewrite_calls_in_expr(stmt.expr, rewrite)
             result.append(
                 PlainAssignment(
                     stmt.target, new_expr, is_declaration=stmt.is_declaration
@@ -3338,11 +3384,11 @@ def _rename_calls_in_stmts(
                 else stmt
             )
         elif isinstance(stmt, ParsedIfBlock):
-            new_cond = _rename_call_in_expr(stmt.condition, old, new)
+            new_cond = _rewrite_calls_in_expr(stmt.condition, rewrite)
             new_body = tuple(
                 PlainAssignment(
                     s.target,
-                    _rename_call_in_expr(s.expr, old, new),
+                    _rewrite_calls_in_expr(s.expr, rewrite),
                     is_declaration=s.is_declaration,
                 )
                 for s in stmt.body
@@ -3352,7 +3398,7 @@ def _rename_calls_in_stmts(
                 new_else = tuple(
                     PlainAssignment(
                         s.target,
-                        _rename_call_in_expr(s.expr, old, new),
+                        _rewrite_calls_in_expr(s.expr, rewrite),
                         is_declaration=s.is_declaration,
                     )
                     for s in stmt.else_body
@@ -3370,13 +3416,89 @@ def _rename_calls_in_stmts(
         elif isinstance(stmt, MemoryWrite):
             result.append(
                 MemoryWrite(
-                    _rename_call_in_expr(stmt.address, old, new),
-                    _rename_call_in_expr(stmt.value, old, new),
+                    _rewrite_calls_in_expr(stmt.address, rewrite),
+                    _rewrite_calls_in_expr(stmt.value, rewrite),
                 )
             )
         else:
             assert_never(stmt)
     return result
+
+
+def _rename_call_in_expr(expr: Expr, old: str, new: str) -> Expr:
+    """Rename Call nodes from *old* to *new* throughout *expr*."""
+
+    def _rewrite(call: Call) -> Call:
+        name = new if call.name == old else call.name
+        if name == call.name:
+            return call
+        return Call(name, call.args, call.binding_token_idx)
+
+    return _rewrite_calls_in_expr(expr, _rewrite)
+
+
+def _rename_calls_in_stmts(
+    stmts: list[RawStatement], old: str, new: str
+) -> list[RawStatement]:
+    """Rename Call nodes from *old* to *new* in a list of raw statements."""
+
+    def _rewrite(call: Call) -> Call:
+        name = new if call.name == old else call.name
+        if name == call.name:
+            return call
+        return Call(name, call.args, call.binding_token_idx)
+
+    return _rewrite_calls_in_stmts(stmts, _rewrite)
+
+
+def _bind_calls_in_stmts(
+    stmts: list[RawStatement],
+    yul_name: str,
+    binding_token_idx: int,
+) -> list[RawStatement]:
+    """Bind visible calls to ``yul_name`` to a specific lexical definition."""
+
+    def _rewrite(call: Call) -> Call:
+        if call.name != yul_name or call.binding_token_idx is not None:
+            return call
+        return Call(call.name, call.args, binding_token_idx)
+
+    return _rewrite_calls_in_stmts(stmts, _rewrite)
+
+
+def _bind_calls_in_yul_function(
+    fn: YulFunction,
+    yul_name: str,
+    binding_token_idx: int,
+) -> YulFunction:
+    """Bind visible calls inside *fn* to a specific lexical definition."""
+
+    new_assignments = _bind_calls_in_stmts(fn.assignments, yul_name, binding_token_idx)
+    new_expr_stmts = (
+        [
+            _rewrite_calls_in_expr(
+                expr,
+                lambda call: (
+                    Call(call.name, call.args, binding_token_idx)
+                    if call.name == yul_name and call.binding_token_idx is None
+                    else call
+                ),
+            )
+            for expr in fn.expr_stmts
+        ]
+        if fn.expr_stmts is not None
+        else None
+    )
+    if new_assignments == fn.assignments and new_expr_stmts == fn.expr_stmts:
+        return fn
+    return YulFunction(
+        yul_name=fn.yul_name,
+        params=fn.params,
+        rets=fn.rets,
+        assignments=new_assignments,
+        expr_stmts=new_expr_stmts,
+        token_idx=fn.token_idx,
+    )
 
 
 def _inline_in_raw_statements(
@@ -3529,6 +3651,12 @@ def inline_calls(
                 )
                 for a in inner.args
             )
+            if inner.binding_token_idx is not None:
+                return Project(
+                    idx,
+                    total,
+                    Call(inner.name, inner_args, inner.binding_token_idx),
+                )
             if inner.name in fn_table:
                 result = _inline_single_call(
                     fn_table[inner.name],
@@ -3567,7 +3695,11 @@ def inline_calls(
                     )
                 )
             # Inner call not in table — rebuild with inlined args
-            return Project(idx, total, Call(inner.name, inner_args))
+            return Project(
+                idx,
+                total,
+                Call(inner.name, inner_args, inner.binding_token_idx),
+            )
         # Non-Call inner — just recurse
         return Project(
             idx,
@@ -3594,6 +3726,9 @@ def inline_calls(
             )
             for a in expr.args
         )
+
+        if expr.binding_token_idx is not None:
+            return Call(expr.name, args, expr.binding_token_idx)
 
         # Direct call to a collected function
         if expr.name in fn_table:
@@ -3622,7 +3757,7 @@ def inline_calls(
                 _format_rejected_helper_error(unsupported_function_errors[expr.name])
             )
 
-        return Call(expr.name, args)
+        return Call(expr.name, args, expr.binding_token_idx)
     assert_never(expr)
 
 
@@ -3905,7 +4040,7 @@ def _stmt_definitely_initializes_var(
 def yul_function_to_model(
     yf: YulFunction,
     sol_fn_name: str,
-    fn_map: dict[str, str],
+    call_resolution: CallResolution | dict[str, str],
     keep_solidity_locals: bool = False,
 ) -> FunctionModel:
     """Convert a parsed YulFunction into a FunctionModel.
@@ -3925,6 +4060,7 @@ def yul_function_to_model(
         yf.expr_stmts,
         context=f"Function {sol_fn_name!r} contains",
     )
+    call_resolution = _coerce_call_resolution(call_resolution)
 
     # ------------------------------------------------------------------
     # Pre-pass: count how many times each variable is assigned and
@@ -4098,6 +4234,7 @@ def yul_function_to_model(
                     _resolve_memory_expr(arg, const_locals_state=const_locals_state)
                     for arg in expr.args
                 ),
+                expr.binding_token_idx,
             )
         assert_never(expr)
 
@@ -4128,7 +4265,7 @@ def yul_function_to_model(
             new_args = tuple(_wrap_u256_literals(a) for a in expr.args)
             if new_args == expr.args:
                 return expr
-            return Call(expr.name, new_args)
+            return Call(expr.name, new_args, expr.binding_token_idx)
         assert_never(expr)
 
     def _process_assignment_into(
@@ -4158,7 +4295,7 @@ def yul_function_to_model(
         )
 
         expr = substitute_expr(raw_expr, subst_state)
-        expr = rename_expr(expr, var_map_state, fn_map)
+        expr = rename_expr(expr, var_map_state, call_resolution)
         expr = _resolve_memory_expr(expr, const_locals_state=const_locals_state)
         expr = _wrap_u256_literals(expr)
 
@@ -4244,7 +4381,7 @@ def yul_function_to_model(
         def _park_local(target: str, raw_expr: Expr) -> None:
             """Process *raw_expr* and park the result in subst for *target*."""
             expr = substitute_expr(raw_expr, subst)
-            expr = rename_expr(expr, var_map, fn_map)
+            expr = rename_expr(expr, var_map, call_resolution)
             expr = _resolve_memory_expr(
                 expr,
                 const_locals_state=const_locals,
@@ -4346,7 +4483,7 @@ def yul_function_to_model(
             # Process the if-block: apply copy-prop/demangling to
             # condition and body, then emit a ConditionalBlock.
             cond = substitute_expr(stmt.condition, subst)
-            cond = rename_expr(cond, var_map, fn_map)
+            cond = rename_expr(cond, var_map, call_resolution)
             cond = _resolve_memory_expr(cond, const_locals_state=const_locals)
 
             # Save pre-if Lean names so each branch can explicitly return
@@ -4386,7 +4523,7 @@ def yul_function_to_model(
                     if s.is_declaration:
                         branch_locals.add(s.target)
                         expr = substitute_expr(s.expr, branch_subst)
-                        expr = rename_expr(expr, branch_var_map, fn_map)
+                        expr = rename_expr(expr, branch_var_map, call_resolution)
                         expr = _resolve_memory_expr(
                             expr,
                             const_locals_state=branch_const_locals,
@@ -4407,7 +4544,7 @@ def yul_function_to_model(
                                 branch_const_locals[clean] = IntLit(cv)
                     elif s.target in branch_locals:
                         expr = substitute_expr(s.expr, branch_subst)
-                        expr = rename_expr(expr, branch_var_map, fn_map)
+                        expr = rename_expr(expr, branch_var_map, call_resolution)
                         expr = _resolve_memory_expr(
                             expr,
                             const_locals_state=branch_const_locals,
@@ -4526,9 +4663,9 @@ def yul_function_to_model(
 
         if isinstance(stmt, MemoryWrite):
             addr_expr = substitute_expr(stmt.address, subst)
-            addr_expr = rename_expr(addr_expr, var_map, fn_map)
+            addr_expr = rename_expr(addr_expr, var_map, call_resolution)
             value_expr = substitute_expr(stmt.value, subst)
-            value_expr = rename_expr(value_expr, var_map, fn_map)
+            value_expr = rename_expr(value_expr, var_map, call_resolution)
             value_expr = _resolve_memory_expr(
                 value_expr,
                 const_locals_state=const_locals,
@@ -4860,7 +4997,9 @@ def _replace_expr(expr: Expr, replacements: dict[Expr, str]) -> Expr:
         return Project(expr.index, expr.total, _replace_expr(expr.inner, replacements))
     if isinstance(expr, Call):
         return Call(
-            expr.name, tuple(_replace_expr(arg, replacements) for arg in expr.args)
+            expr.name,
+            tuple(_replace_expr(arg, replacements) for arg in expr.args),
+            expr.binding_token_idx,
         )
     assert_never(expr)
 
@@ -5662,7 +5801,6 @@ def prepare_translation(
     # so the later inlining phase can use them.
     parse_deferred: dict[str, dict[str, YulFunction]] = {}
     parse_deferred_rejected: dict[str, RejectedHelperMap] = {}
-    parse_protected_renames: dict[str, dict[str, int]] = {}
 
     known_yul_names: set[str] = set()
     for sol_name in selected:
@@ -5697,7 +5835,6 @@ def prepare_translation(
         yul_functions[sol_name] = yf
         parse_deferred[sol_name] = dict(parser._deferred_helpers)
         parse_deferred_rejected[sol_name] = dict(parser._deferred_rejected)
-        parse_protected_renames[sol_name] = dict(parser._applied_protected_renames)
         known_yul_names.add(yf.yul_name)
 
     # Scope helper collection per-target so that each target is inlined with
@@ -5708,8 +5845,7 @@ def prepare_translation(
     # Token-index identity set and reverse map for all selected targets.
     # Used below to distinguish scope-distinct homonyms from the actual
     # selected bindings when pruning the helper table and to build
-    # per-target fn_maps that resolve bare Yul names to the lexically
-    # correct model name.
+    # per-target call resolutions for the lexically correct model name.
     all_selected_token_idxs: set[int] = set()
     token_idx_to_sol_name: dict[int, str] = {}
     for sn in selected:
@@ -5719,7 +5855,7 @@ def prepare_translation(
             token_idx_to_sol_name[_tidx] = sn
 
     inlined_targets: dict[str, YulFunction] = {}
-    target_fn_maps: dict[str, dict[str, str]] = {}
+    target_call_resolutions: dict[str, CallResolution] = {}
     for sol_name in selected:
         yf = yul_functions[sol_name]
         fn_token_idx = yf.token_idx
@@ -5760,7 +5896,9 @@ def prepare_translation(
         for s_start, s_end in reversed(scope_chain):
             scoped_tokens = tokens[s_start:s_end]
             scope_coll = YulParser(
-                scoped_tokens, token_offset=s_start
+                scoped_tokens,
+                token_offset=s_start,
+                protected_token_idxs=protected_token_idxs,
             ).collect_all_functions()
             scope_coll = _exclude_collected_helpers_by_token_idx(
                 scope_coll,
@@ -5778,7 +5916,9 @@ def prepare_translation(
             body_start, body_end = body_range
             body_tokens = tokens[body_start:body_end]
             nested_coll = YulParser(
-                body_tokens, token_offset=body_start
+                body_tokens,
+                token_offset=body_start,
+                protected_token_idxs=protected_token_idxs,
             ).collect_all_functions()
             nested_coll = _exclude_collected_helpers_by_token_idx(
                 nested_coll,
@@ -5796,26 +5936,22 @@ def prepare_translation(
             for dname, derr in parse_deferred_rejected.get(sol_name, {}).items():
                 rejected_helpers[dname] = derr
 
-        # Identity-aware pruning: only remove helpers that are the
-        # exact same binding as a selected target (matching token_idx),
-        # not scope-distinct homonyms that share the bare Yul name.
-        # While pruning, build a per-target fn_map that resolves each
-        # bare Yul name to the lexically correct selected target.
-        target_fn_map: dict[str, str] = {yf.yul_name: sol_name}
+        # Identity-aware pruning: only remove helpers that are the exact
+        # same binding as a selected target (matching token_idx), not
+        # scope-distinct homonyms that share the bare Yul name.
+        # Calls whose parser-side lexical binding was preserved use the
+        # shared token-index map; ordinary unresolved helper names use
+        # the per-target name map below.
+        by_name: dict[str, str] = {yf.yul_name: sol_name}
         for yn in list(helper_table):
             hf = helper_table[yn]
             if hf.token_idx is not None and hf.token_idx in all_selected_token_idxs:
-                target_fn_map[yn] = token_idx_to_sol_name[hf.token_idx]
+                by_name[yn] = token_idx_to_sol_name[hf.token_idx]
                 del helper_table[yn]
-        # Map synthetic names (__protected_{token_idx}) that the parser
-        # actually inserted for selected targets inside bare blocks.
-        # The parser only renamed calls within the block where the
-        # helper was lexically visible, so these are scope-correct.
-        for synthetic, tidx in parse_protected_renames.get(sol_name, {}).items():
-            s_name = token_idx_to_sol_name.get(tidx)
-            if s_name is not None:
-                target_fn_map[synthetic] = s_name
-        target_fn_maps[sol_name] = target_fn_map
+        target_call_resolutions[sol_name] = CallResolution(
+            by_name=by_name,
+            by_binding_token_idx=dict(token_idx_to_sol_name),
+        )
 
         inlined_targets[sol_name] = _inline_yul_function(
             yul_functions[sol_name],
@@ -5828,7 +5964,7 @@ def prepare_translation(
 
     return PreparedTranslation(
         selected_functions=tuple(selected),
-        target_fn_maps=target_fn_maps,
+        target_call_resolutions=target_call_resolutions,
         yul_functions=inlined_targets,
         collected_helpers=all_helpers,
         rejected_helpers=all_rejected,
@@ -5845,7 +5981,7 @@ def build_restricted_ir_models(
         yul_function_to_model(
             preparation.yul_functions[fn],
             fn,
-            preparation.target_fn_maps[fn],
+            preparation.target_call_resolutions[fn],
             keep_solidity_locals=config.keep_solidity_locals,
         )
         for fn in preparation.selected_functions
@@ -6159,7 +6295,7 @@ class PreparedTranslation:
     """Selected Yul functions after parsing, discovery, and helper inlining."""
 
     selected_functions: tuple[str, ...]
-    target_fn_maps: dict[str, dict[str, str]]
+    target_call_resolutions: dict[str, CallResolution]
     yul_functions: dict[str, YulFunction]
     collected_helpers: dict[str, YulFunction]
     rejected_helpers: RejectedHelperMap

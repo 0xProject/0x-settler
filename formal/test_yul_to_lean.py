@@ -3218,8 +3218,10 @@ class FunctionSelectionTest(unittest.TestCase):
             pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
 
-        expected_fn_map: dict[str, str] = {"fun_pick_2": "pick"}
-        self.assertEqual(result.preparation.target_fn_maps["pick"], expected_fn_map)
+        self.assertEqual(
+            result.preparation.target_call_resolutions["pick"].by_name,
+            {"fun_pick_2": "pick"},
+        )
         model = result.models[0]
         self.assertEqual(model.fn_name, "pick")
         self.assertEqual(ytl.evaluate_function_model(model, (7,)), (6,))
@@ -10080,6 +10082,60 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
                 config,
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
+
+    def test_translate_yul_to_models_avoids_protected_call_name_collisions(
+        self,
+    ) -> None:
+        config = make_model_config(
+            ("a", "b"),
+            exact_yul_names={
+                "a": "outer",
+                "b": "outer::helper",
+            },
+        )
+        base_yul = """
+            function outer() -> var_z_1 {
+                function collision_name() -> var_r_0 {
+                    var_r_0 := 99
+                }
+                {
+                    function helper() -> var_r_1 {
+                        var_r_1 := 7
+                    }
+                    var_z_1 := helper()
+                }
+            }
+        """
+        helper_token_idx = ytl.YulParser(ytl.tokenize_yul(base_yul)).find_exact_function_path(
+            ("outer", "helper")
+        ).token_idx
+        assert helper_token_idx is not None
+        yul = base_yul.replace(
+            "collision_name",
+            f"__protected_{helper_token_idx}",
+        )
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        models = ytl.build_model_table(result.models)
+
+        self.assertEqual(
+            ytl.evaluate_function_model(models["a"], (), model_table=models),
+            (7,),
+        )
+        self.assertEqual(
+            ytl.evaluate_function_model(models["b"], (), model_table=models),
+            (7,),
+        )
+        self.assertTrue(
+            any(
+                isinstance(stmt, ytl.Assignment) and stmt.expr == ytl.Call("b", ())
+                for stmt in models["a"].assignments
+            )
+        )
 
 
 if __name__ == "__main__":
