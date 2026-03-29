@@ -10140,5 +10140,79 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
         )
 
 
+class LatestCriticalReviewRegressionTest(unittest.TestCase):
+    def test_translate_yul_to_models_threads_compiler_temporary_through_nonconstant_if(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                let expr_1 := 0
+                if var_c_1 {
+                    expr_1 := 1
+                }
+                var_z_2 := expr_1
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (1,))
+        self.assertEqual(ytl.evaluate_function_model(model, (7,)), (1,))
+
+    def test_translate_yul_to_models_threads_compiler_temporary_through_nonconstant_switch(
+        self,
+    ) -> None:
+        config = make_model_config(("f",))
+        yul = """
+            function fun_f_1(var_c_1) -> var_z_2 {
+                let expr_1 := 0
+                switch var_c_1
+                case 0 {
+                    expr_1 := 1
+                }
+                default {
+                    expr_1 := 2
+                }
+                var_z_2 := expr_1
+            }
+            """
+
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (1,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (2,))
+        self.assertEqual(ytl.evaluate_function_model(model, (9,)), (2,))
+
+    def test_build_lean_source_rejects_invalid_model_before_emitting_undefined_binders(
+        self,
+    ) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("y")),),
+        )
+
+        with self.assertRaisesRegex(ytl.ParseError, "out-of-scope variable use"):
+            ytl.build_lean_source(
+                models=[model],
+                source_path="test-source",
+                namespace="Test",
+                config=make_model_config(("f",)),
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
