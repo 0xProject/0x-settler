@@ -3218,10 +3218,10 @@ class FunctionSelectionTest(unittest.TestCase):
             pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
 
-        self.assertEqual(
-            result.preparation.target_call_resolutions["pick"].by_name,
-            {"fun_pick_2": "pick"},
-        )
+        pick_by_name: dict[str, str] = result.preparation.target_call_resolutions[
+            "pick"
+        ].by_name
+        assert pick_by_name == {"fun_pick_2": "pick"}
         model = result.models[0]
         self.assertEqual(model.fn_name, "pick")
         self.assertEqual(ytl.evaluate_function_model(model, (7,)), (6,))
@@ -10106,9 +10106,11 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
                 }
             }
         """
-        helper_token_idx = ytl.YulParser(ytl.tokenize_yul(base_yul)).find_exact_function_path(
-            ("outer", "helper")
-        ).token_idx
+        helper_token_idx = (
+            ytl.YulParser(ytl.tokenize_yul(base_yul))
+            .find_exact_function_path(("outer", "helper"))
+            .token_idx
+        )
         assert helper_token_idx is not None
         yul = base_yul.replace(
             "collision_name",
