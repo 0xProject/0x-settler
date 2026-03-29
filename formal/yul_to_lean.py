@@ -1008,6 +1008,7 @@ class YulParser(_TokenReader):
         super().__init__(tokens)
         self._token_offset = token_offset
         self._protected_token_idxs = protected_token_idxs
+        self._applied_protected_renames: dict[str, int] = {}
         self._expr_stmts: list[Expr] = []
         self._reference_scope_cache: dict[int, ReferenceScope] = {}
         self._source_names: set[str] | None = None
@@ -1666,6 +1667,7 @@ class YulParser(_TokenReader):
             pure_fns: dict[str, YulFunction] = {}
             rejected_fns: RejectedHelperMap = {}
             deferred_fns: dict[str, YulFunction] = {}
+            protected_renames: dict[str, str] = {}
             for name, fn_or_err in scope_fns.items():
                 if isinstance(fn_or_err, RejectedHelperInfo):
                     rejected_fns[name] = fn_or_err
@@ -1674,7 +1676,11 @@ class YulParser(_TokenReader):
                     and fn_or_err.token_idx is not None
                     and fn_or_err.token_idx in self._protected_token_idxs
                 ):
-                    pass  # Selected target: preserve call edge
+                    # Selected target: rename calls to a synthetic name
+                    # that encodes the binding identity.  This preserves
+                    # the call edge AND lexical scope — only calls within
+                    # this block (where the helper is visible) are renamed.
+                    protected_renames[name] = f"__protected_{fn_or_err.token_idx}"
                 elif name in non_pure:
                     deferred_fns[name] = fn_or_err
                 else:
@@ -1685,6 +1691,17 @@ class YulParser(_TokenReader):
                 results = _inline_in_raw_statements(
                     results, pure_fns, rejected=rejected_fns
                 )
+
+            # Phase A½: rename calls to protected selected targets.
+            # Done after inlining so that calls from inlined pure
+            # helpers are also covered.  Record applied renames so
+            # prepare_translation can build matching fn_map entries.
+            for old_name, new_name in protected_renames.items():
+                results = _rename_calls_in_stmts(results, old_name, new_name)
+                fn_or_err = scope_fns[old_name]
+                assert isinstance(fn_or_err, YulFunction)
+                assert fn_or_err.token_idx is not None
+                self._applied_protected_renames[new_name] = fn_or_err.token_idx
 
             # Phase B: export non-pure helpers as alpha-renamed
             # bindings.  Compute the transitive closure: if helper A
@@ -5605,20 +5622,14 @@ def prepare_translation(
         selected_functions if selected_functions is not None else config.function_order
     )
 
-    # Pre-compute token positions of all exact-selected targets so the
-    # parser can avoid eagerly inlining them during scope-local helper
-    # processing.  Without this, a selected nested helper inside a bare
-    # block gets substituted away before prepare_translation can preserve
-    # the call edge.
-    #
-    # This uses the same resolution logic as the real selection loop
-    # below (n_params, lexical-path matching) so only the precise
-    # binding is protected, not every same-name function.
-    _protected: set[int] = set()
-    all_fn_defs: list[tuple[int, str, tuple[str, ...]]] = []
+    # Pre-resolve exact-selected targets to token positions so the parser
+    # can protect them from eager inlining.  Uses _find_exact_function_matches
+    # (token walk only, no body parsing) with the same n_params / path
+    # filters as the real selection, so only the precise binding is protected.
+    # The main loop reuses these positions instead of re-finding them.
+    resolved_exact_positions: dict[str, int] = {}
     if config.exact_yul_names:
         resolver = YulParser(tokens)
-        all_fn_defs = list(resolver._walk_function_defs())
         for _sol in selected:
             _eyn = (
                 config.exact_yul_names.get(_sol)
@@ -5642,8 +5653,8 @@ def prepare_translation(
                     if path == _esel
                 ]
             if len(matches) == 1:
-                _protected.add(matches[0][0])
-    protected_token_idxs = frozenset(_protected)
+                resolved_exact_positions[_sol] = matches[0][0]
+    protected_token_idxs = frozenset(resolved_exact_positions.values())
 
     yul_functions: dict[str, YulFunction] = {}
     # Helpers that require mstore_sink (uint512.from shape) are deferred
@@ -5651,30 +5662,32 @@ def prepare_translation(
     # so the later inlining phase can use them.
     parse_deferred: dict[str, dict[str, YulFunction]] = {}
     parse_deferred_rejected: dict[str, RejectedHelperMap] = {}
+    parse_protected_renames: dict[str, dict[str, int]] = {}
 
     known_yul_names: set[str] = set()
     for sol_name in selected:
         parser = YulParser(tokens, protected_token_idxs=protected_token_idxs)
-        n_params = config.n_params.get(sol_name) if config.n_params else None
-        exact_yul_name = (
-            config.exact_yul_names.get(sol_name)
-            if config.exact_yul_names is not None
-            else None
-        )
-        if exact_yul_name is not None:
+        if sol_name in resolved_exact_positions:
+            # Position already resolved by the pre-pass.
+            parser.i = resolved_exact_positions[sol_name]
+            yf = parser.parse_function()
+        elif (
+            config.exact_yul_names is not None
+            and config.exact_yul_names.get(sol_name) is not None
+        ):
+            # Pre-pass did not resolve (ambiguous/missing).  Run the
+            # full resolution which will raise a descriptive error.
+            exact_yul_name = config.exact_yul_names[sol_name]
             exact_selector = _parse_exact_yul_selector(exact_yul_name)
+            n_params = config.n_params.get(sol_name) if config.n_params else None
             if exact_selector is None:
                 yf = parser.find_exact_function(
-                    exact_yul_name,
-                    n_params=n_params,
-                    search_nested=True,
+                    exact_yul_name, n_params=n_params, search_nested=True
                 )
             else:
-                yf = parser.find_exact_function_path(
-                    exact_selector,
-                    n_params=n_params,
-                )
+                yf = parser.find_exact_function_path(exact_selector, n_params=n_params)
         else:
+            n_params = config.n_params.get(sol_name) if config.n_params else None
             yf = parser.find_function(
                 sol_name,
                 n_params=n_params,
@@ -5684,6 +5697,7 @@ def prepare_translation(
         yul_functions[sol_name] = yf
         parse_deferred[sol_name] = dict(parser._deferred_helpers)
         parse_deferred_rejected[sol_name] = dict(parser._deferred_rejected)
+        parse_protected_renames[sol_name] = dict(parser._applied_protected_renames)
         known_yul_names.add(yf.yul_name)
 
     # Scope helper collection per-target so that each target is inlined with
@@ -5793,19 +5807,14 @@ def prepare_translation(
             if hf.token_idx is not None and hf.token_idx in all_selected_token_idxs:
                 target_fn_map[yn] = token_idx_to_sol_name[hf.token_idx]
                 del helper_table[yn]
-        # Also map selected targets that are lexically inside the current
-        # target's body but were missed by collect_all_functions (e.g.
-        # helpers inside bare { } blocks).  The pre-pass all_fn_defs list
-        # has every function definition with its token_idx and name.
-        if body_range is not None and protected_token_idxs:
-            b_start, b_end = body_range
-            for fidx, fname, _fpath in all_fn_defs:
-                if (
-                    b_start <= fidx < b_end
-                    and fidx in all_selected_token_idxs
-                    and fname not in target_fn_map
-                ):
-                    target_fn_map[fname] = token_idx_to_sol_name[fidx]
+        # Map synthetic names (__protected_{token_idx}) that the parser
+        # actually inserted for selected targets inside bare blocks.
+        # The parser only renamed calls within the block where the
+        # helper was lexically visible, so these are scope-correct.
+        for synthetic, tidx in parse_protected_renames.get(sol_name, {}).items():
+            s_name = token_idx_to_sol_name.get(tidx)
+            if s_name is not None:
+                target_fn_map[synthetic] = s_name
         target_fn_maps[sol_name] = target_fn_map
 
         inlined_targets[sol_name] = _inline_yul_function(
