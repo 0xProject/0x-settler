@@ -18,6 +18,7 @@
 * EkuboV2 VIP actions `EKUBO_VIP` and `METATXN_EKUBO_VIP` are not
   supported anymore and were removed from `ISettlerActions.sol`.
 * Add new `CHECK_SLIPPAGE` action to taker-submitted Settlers
+* Add USDD full PSM support (USDT/USDD pair) to the `MAKERPSM` action on Mainnet
 * Update the following chains to the Osaka EVM hardfork:
   * Arbitrum
   * Polygon
