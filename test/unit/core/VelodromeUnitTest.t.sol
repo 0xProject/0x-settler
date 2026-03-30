@@ -30,7 +30,7 @@ contract VelodromeConvergenceDummy is Velodrome {
         revert("unimplemented");
     }
 
-    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+    function _dispatch(uint256, uint256, bytes calldata, AllowedSlippage memory) internal pure override returns (bool) {
         revert("unimplemented");
     }
 
@@ -113,7 +113,7 @@ contract VelodromeConvergenceDummy is Velodrome {
         address,
         bytes memory,
         uint32,
-        function (bytes calldata) internal returns (bytes memory)
+        function(bytes calldata) internal returns (bytes memory)
     ) internal pure override returns (bytes memory) {
         revert("unimplemented");
     }
@@ -164,11 +164,7 @@ contract VelodromeConvergenceDummy is Velodrome {
     }
     */
 
-    function new_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis)
-        external
-        pure
-        returns (uint256)
-    {
+    function new_y(uint256 x, uint256 dx, uint256 x_basis, uint256 y, uint256 y_basis) external pure returns (uint256) {
         return _get_y(
             x * _VELODROME_TOKEN_BASIS / x_basis,
             dx * _VELODROME_TOKEN_BASIS / x_basis,
@@ -292,7 +288,9 @@ contract VelodromeUnitTest is Test {
 
     function testVelodrome_outOfBounds_refVelodrome() external view {
         uint256 _MAX_BALANCE_PLUS_ONE = dummy.MAX_BALANCE() + 1;
-        try this._testVelodrome_outOfBounds_refVelodrome(_MAX_BALANCE_PLUS_ONE, _MAX_BALANCE_PLUS_ONE) returns (uint256) {
+        try this._testVelodrome_outOfBounds_refVelodrome(_MAX_BALANCE_PLUS_ONE, _MAX_BALANCE_PLUS_ONE) returns (
+            uint256
+        ) {
             assert(false);
         } catch {}
     }
@@ -329,7 +327,7 @@ contract VelodromeUnitTest is Test {
         uint8 x_decimals,
         uint256 y,
         uint8 y_decimals,
-        function (uint256, uint256) internal pure returns (uint256) ref_k,
+        function(uint256, uint256) internal pure returns (uint256) ref_k,
         uint256 fudge
     ) internal view {
         x_decimals = uint8(bound(x_decimals, _MIN_DECIMALS, _MAX_DECIMALS));

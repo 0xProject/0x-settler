@@ -4,16 +4,16 @@ pragma solidity ^0.8.25;
 import {Test} from "@forge-std/Test.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
-<<<<<<< HEAD
-import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
-=======
->>>>>>> dcmt/cancun
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {BridgeSettler, BridgeSettlerBase} from "src/bridge/BridgeSettler.sol";
 import {ISettlerTakerSubmitted} from "src/interfaces/ISettlerTakerSubmitted.sol";
 import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
+<<<<<<< HEAD
+=======
+import {DAI, USDC, USDT, USDD} from "src/core/MakerPSM.sol";
+>>>>>>> dcmt/cancun
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {Utils} from "./Utils.sol";
 import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
@@ -58,9 +58,11 @@ contract BridgeSettlerUnitTest is BridgeSettlerTestBase {
         super.setUp();
 
         vm.etch(address(ALLOWANCE_HOLDER), vm.getDeployedCode("AllowanceHolderOld.sol:AllowanceHolder"));
-        // Mock DAI and USDC for MainnetSettler to be usable
+        // Mock DAI, USDC, USDT, and USDD for MainnetSettler to be usable
         deployCodeTo("MockERC20", abi.encode("DAI", "DAI", 18), address(DAI));
         deployCodeTo("MockERC20", abi.encode("USDC", "USDC", 6), address(USDC));
+        deployCodeTo("MockERC20", abi.encode("USDT", "USDT", 6), address(USDT));
+        deployCodeTo("MockERC20", abi.encode("USDD", "USDD", 18), address(USDD));
         settler = new MainnetSettler(bytes20(0));
     }
 }
@@ -115,9 +117,7 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
                     ISettlerTakerSubmitted.execute,
                     (
                         ISettlerBase.AllowedSlippage({
-                            recipient: payable(address(0)),
-                            buyToken: IERC20(address(0)),
-                            minAmountOut: 0
+                            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                         }),
                         settlerActions,
                         bytes32(0)
@@ -170,9 +170,7 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
                     ISettlerTakerSubmitted.execute,
                     (
                         ISettlerBase.AllowedSlippage({
-                            recipient: payable(address(0)),
-                            buyToken: IERC20(address(0)),
-                            minAmountOut: 0
+                            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
                         }),
                         settlerActions,
                         bytes32(0)

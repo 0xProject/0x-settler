@@ -130,8 +130,15 @@ library SafeCall {
             // Append the ERC-2771 forwarded caller
             mstore(add(returndata, data.length), shl(0x60, sender))
             // Only append the ERC-2771 forwarded caller if the selector is also present
-            success :=
-                call(gas(), target, value, returndata, add(mul(0x14, lt(0x03, data.length)), data.length), codesize(), 0x00)
+            success := call(
+                gas(),
+                target,
+                value,
+                returndata,
+                add(mul(0x14, lt(0x03, data.length)), data.length),
+                codesize(),
+                0x00
+            )
             let dst := add(0x20, returndata)
             returndatacopy(dst, 0x00, returndatasize())
             if iszero(success) { revert(dst, returndatasize()) }
@@ -224,15 +231,14 @@ library UnsafeCallArray {
             value := calldataload(add(0x40, s))
 
             // Indirect `data.offset` to get the `bytes` payload.
-            data.offset :=
-                add(
-                    s,
-                    // We allow the offset stored in the `Call` struct to be negative.
-                    calldataload(
-                        // Can't overflow; `s` is in-bounds of `calldata`.
-                        add(0x60, s)
-                    )
+            data.offset := add(
+                s,
+                // We allow the offset stored in the `Call` struct to be negative.
+                calldataload(
+                    // Can't overflow; `s` is in-bounds of `calldata`.
+                    add(0x60, s)
                 )
+            )
             // `data.offset` now points to the length field 32 bytes before the start of the actual array.
 
             // Now we load `data.length` and set `data.offset` to the start of the actual array.

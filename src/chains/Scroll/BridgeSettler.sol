@@ -2,7 +2,6 @@
 pragma solidity =0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {Across} from "../../core/Across.sol";
@@ -15,7 +14,7 @@ contract ScrollBridgeSettler is BridgeSettler, Across, StargateV2 {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(BridgeSettlerBase, SettlerAbstract)
+        override(BridgeSettlerBase)
         returns (bool)
     {
         if (super._dispatch(i, action, data)) {

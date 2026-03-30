@@ -87,7 +87,9 @@ contract DodoV2PairTest is BasePairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("settler_dodov2");
         _settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+            }),
             actions,
             bytes32(0)
         );
@@ -115,7 +117,9 @@ contract DodoV2PairTest is BasePairTest {
         vm.startPrank(FROM, FROM);
         snapStartName("settler_dodov2_custody");
         _settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0}),
+            ISettlerBase.AllowedSlippage({
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+            }),
             actions,
             bytes32(0)
         );

@@ -8,7 +8,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Panic} from "../utils/Panic.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
 
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {revertConfusedDeputy} from "./SettlerErrors.sol";
 
 interface ICurveTricrypto {
@@ -67,7 +67,7 @@ library FastCurveTricrypto {
     }
 }
 
-abstract contract CurveTricrypto is SettlerAbstract {
+abstract contract CurveTricrypto is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using AddressDerivation for address;
@@ -144,9 +144,7 @@ abstract contract CurveTricrypto is SettlerAbstract {
         return new bytes(0);
     }
 
-    function curveTricryptoSwapCallback(address payer, address, IERC20 sellToken, uint256 sellAmount, uint256)
-        private
-    {
+    function curveTricryptoSwapCallback(address payer, address, IERC20 sellToken, uint256 sellAmount, uint256) private {
         assert(payer == address(0));
         bool isForwarded;
         uint256 permittedAmount;

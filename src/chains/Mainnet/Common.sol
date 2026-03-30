@@ -14,6 +14,7 @@ import {Bebop} from "../../core/Bebop.sol";
 
 import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {FastLogic} from "../../utils/FastLogic.sol";
 import {Ternary} from "../../utils/Ternary.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -41,7 +42,7 @@ import {
 } from "../../core/univ3forks/SolidlyV3.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract MainnetMixin is
@@ -56,16 +57,17 @@ abstract contract MainnetMixin is
 {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
+    using FastLogic for bool;
     using Ternary for bool;
 
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256, uint256 action, bytes calldata data)
+    function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerAbstract, SettlerBase)
+        override(SettlerSwapAbstract, SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
@@ -117,7 +119,10 @@ abstract contract MainnetMixin is
                     token.safeTransfer(recipient, balance);
                 }
             }
-        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+        } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
+                .or(action == uint32(ISettlerActions.BALANCERV3.selector))
+                .or(action == uint32(ISettlerActions.EKUBO.selector))
+                .or(action == uint32(ISettlerActions.EKUBOV3.selector))) {
             revert("unimplemented");
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
             revert("unimplemented");
@@ -126,8 +131,6 @@ abstract contract MainnetMixin is
                 abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
 
             sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
-        } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
-            revert("unimplemented");
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
@@ -140,10 +143,6 @@ abstract contract MainnetMixin is
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
 
             sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
-            revert("unimplemented");
-        } else if (action == uint32(ISettlerActions.EKUBOV3.selector)) {
-            revert("unimplemented");
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (
                 address recipient,

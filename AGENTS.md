@@ -20,7 +20,7 @@ Key addresses:
 ### Three-Flavor Settlement Pattern
 
 ```
-SettlerAbstract (virtual dispatch interface)
+SettlerSwapAbstract (virtual dispatch interface)
     |
     +-- SettlerBase (RFQ + UniV3 + UniV2 + Velodrome + Basic)
     |       |
@@ -138,6 +138,7 @@ Chain-specific functionality is composed via mixins. When adding a new DEX:
 | Assembly is mandatory for low-level external calls | Full control over call parameters & return data, saves gas |
 | Precede every assembly block with: brief justification + equivalent Solidity pseudocode | Documents intent for reviewers |
 | Mark assembly blocks `memory-safe` when criteria are met | Enables compiler optimizations |
+| Use hex for all numeric constants in assembly (e.g. `0x60` not `96`, `0x20` not `32`) | Codebase convention; keeps assembly style uniform |
 
 ### Gas Optimization
 

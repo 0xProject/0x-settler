@@ -3,7 +3,6 @@ pragma solidity =0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {StargateV2} from "../../core/StargateV2.sol";
@@ -17,7 +16,7 @@ contract PlasmaBridgeSettler is BridgeSettler, StargateV2, DeBridge, Across {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(BridgeSettlerBase, SettlerAbstract)
+        override(BridgeSettlerBase)
         returns (bool)
     {
         if (super._dispatch(i, action, data)) {

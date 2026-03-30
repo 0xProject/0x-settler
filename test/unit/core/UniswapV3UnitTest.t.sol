@@ -51,7 +51,7 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
         return false;
     }
 
-    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
+    function _dispatch(uint256, uint256, bytes calldata, AllowedSlippage memory) internal pure override returns (bool) {
         revert("unimplemented");
     }
 
@@ -95,9 +95,8 @@ contract UniswapV3PoolDummy {
 
     fallback(bytes calldata) external payable returns (bytes memory) {
         (,,,, bytes memory data) = abi.decode(msg.data[4:], (address, bool, int256, uint160, bytes));
-        msg.sender.call(
-            abi.encodeWithSignature("uniswapV3SwapCallback(int256,int256,bytes)", int256(1), int256(1), data)
-        );
+        msg.sender
+            .call(abi.encodeWithSignature("uniswapV3SwapCallback(int256,int256,bytes)", int256(1), int256(1), data));
         return RETURN_DATA;
     }
 }
@@ -241,13 +240,7 @@ contract UniswapV3UnitTest is Utils, Test {
             new bytes(0)
         );
 
-        uni.sell(
-            RECIPIENT,
-            encodedPath,
-            permitTransfer,
-            hex"deadbeef",
-            minBuyAmount
-        );
+        uni.sell(RECIPIENT, encodedPath, permitTransfer, hex"deadbeef", minBuyAmount);
     }
 
     function testUniswapV3SellAllowanceHolder() public {
@@ -275,21 +268,13 @@ contract UniswapV3UnitTest is Utils, Test {
         );
 
         vm.prank(ALLOWANCE_HOLDER);
-        address(uni).call(
-            abi.encodePacked(
-                abi.encodeCall(
-                    uni.sell,
-                    (
-                        RECIPIENT,
-                        encodedPath,
-                        permitTransfer,
-                        hex"",
-                        minBuyAmount
-                    )
-                ),
-                address(this)
-            ) // Forward on true msg.sender
-        );
+        address(uni)
+            .call(
+                abi.encodePacked(
+                    abi.encodeCall(uni.sell, (RECIPIENT, encodedPath, permitTransfer, hex"", minBuyAmount)),
+                    address(this) // Forward on true msg.sender
+                )
+            );
         // uni.sell(RECIPIENT, encodedPath, minBuyAmount, permitTransfer, hex"");
     }
 }

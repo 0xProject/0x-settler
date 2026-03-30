@@ -8,7 +8,7 @@ import {FastLogic} from "../utils/FastLogic.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 interface IHanjiPool {
     function placeOrder(
@@ -105,7 +105,7 @@ library FastHanjiPool {
     }
 }
 
-abstract contract Hanji is SettlerAbstract {
+abstract contract Hanji is SettlerSwapAbstract {
     using FastHanjiPool for IHanjiPool;
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;

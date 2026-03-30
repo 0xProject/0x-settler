@@ -143,14 +143,15 @@ echo "Abandoning Safe: $safe_address" >&2
 echo "Will set sole owner to: $initial_owner" >&2
 
 . "$project_root"/sh/common_safe.sh
-. "$project_root"/sh/common_safe_owner.sh
-. "$project_root"/sh/common_wallet_type.sh
 
 # Verify the initial owner is not already the only owner
 if (( ${#owners_array[@]} == 1 )) && [[ $(cast to-checksum "${owners_array[0]}") = $(cast to-checksum "$initial_owner") ]] ; then
     echo 'Safe is already abandoned (initial owner is the only owner)' >&2
     exit 0
 fi
+
+. "$project_root"/sh/common_safe_owner.sh
+. "$project_root"/sh/common_wallet_type.sh
 
 declare -r removeOwner_sig='removeOwner(address,address,uint256)'
 declare -r swapOwner_sig='swapOwner(address,address,address)'

@@ -8,7 +8,7 @@ import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {Panic} from "../utils/Panic.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {AddressDerivation} from "../utils/AddressDerivation.sol";
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
@@ -33,7 +33,7 @@ interface IUniswapV3Pool {
     ) external returns (int256 amount0, int256 amount1);
 }
 
-abstract contract UniswapV3Fork is SettlerAbstract {
+abstract contract UniswapV3Fork is SettlerSwapAbstract {
     using Ternary for bool;
     using UnsafeMath for uint256;
     using UnsafeMath for int256;
@@ -91,8 +91,9 @@ abstract contract UniswapV3Fork is SettlerAbstract {
         bytes memory sig,
         uint256 minBuyAmount
     ) internal returns (uint256 buyAmount) {
-        bytes memory swapCallbackData =
-            new bytes(SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length);
+        bytes memory swapCallbackData = new bytes(
+            SWAP_CALLBACK_PREFIX_DATA_SIZE + PERMIT_DATA_SIZE + ISFORWARDED_DATA_SIZE + sig.length
+        );
         _encodePermit2Data(swapCallbackData, permit, sig, _isForwarded());
 
         buyAmount = _uniV3ForkSwap(
