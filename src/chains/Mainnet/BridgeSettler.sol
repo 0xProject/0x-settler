@@ -15,11 +15,7 @@ contract MainnetBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBri
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
-        internal
-        override(BridgeSettlerBase, SettlerAbstract)
-        returns (bool)
-    {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data) internal override returns (bool) {
         if (super._dispatch(i, action, data)) {
             return true;
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_ACROSS.selector)) {

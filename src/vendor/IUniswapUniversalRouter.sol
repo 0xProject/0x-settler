@@ -108,11 +108,7 @@ function encodeV4Swap(
     }
     IUniswapV4Router.ExactInputSingleParams memory params = IUniswapV4Router.ExactInputSingleParams({
         poolKey: PoolKey({
-            currency0: currency0,
-            currency1: currency1,
-            fee: feeTier,
-            tickSpacing: tickSpacing,
-            hooks: IHooks(hook)
+            currency0: currency0, currency1: currency1, fee: feeTier, tickSpacing: tickSpacing, hooks: IHooks(hook)
         }),
         zeroForOne: zeroForOne,
         amountIn: OPEN_DELTA,
@@ -133,10 +129,7 @@ function encodeV4Swap(
 function encodePermit2Permit(IERC20 token, uint48 nonce, bytes memory signature) pure returns (bytes1, bytes memory) {
     IAllowanceTransfer.PermitSingle memory permit = IAllowanceTransfer.PermitSingle({
         details: IAllowanceTransfer.PermitDetails({
-            token: address(token),
-            amount: type(uint160).max,
-            expiration: type(uint48).max,
-            nonce: nonce
+            token: address(token), amount: type(uint160).max, expiration: type(uint48).max, nonce: nonce
         }),
         spender: address(UNIVERSAL_ROUTER),
         sigDeadline: type(uint256).max

@@ -24,7 +24,7 @@ import {pancakeSwapV3InitHash, IPancakeSwapV3Callback} from "../../core/univ3for
 import {WORLDCHAIN_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract WorldChainMixin is FreeMemory, SettlerBase, UniswapV4 {
@@ -32,14 +32,14 @@ abstract contract WorldChainMixin is FreeMemory, SettlerBase, UniswapV4 {
         assert(block.chainid == 480 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerAbstract, SettlerBase)
+        override(SettlerSwapAbstract, SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
+        if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             (

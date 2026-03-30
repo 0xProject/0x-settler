@@ -99,9 +99,7 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
         );
 
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
@@ -129,9 +127,7 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
         );
 
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(toToken(), FROM);
@@ -159,9 +155,7 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
         );
 
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);

@@ -17,7 +17,9 @@ import {LayerZeroOFT} from "../core/LayerZeroOFT.sol";
 import {CCIP} from "../core/CCIP.sol";
 import {Underpayment} from "../core/SettlerErrors.sol";
 
-abstract contract BridgeSettlerBase is Basic, Relay, LayerZeroOFT, CCIP {
+import {SettlerBridgeAbstract} from "../SettlerAbstract.sol";
+
+abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, Relay, LayerZeroOFT, CCIP {
     using SafeTransferLib for IERC20;
     using Revert for bool;
     using FastDeployer for IDeployer;
@@ -89,7 +91,8 @@ abstract contract BridgeSettlerBase is Basic, Relay, LayerZeroOFT, CCIP {
             (address to, bytes32 requestId) = abi.decode(data, (address, bytes32));
             bridgeNativeToRelay(to, requestId);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_LAYER_ZERO_OFT.selector)) {
-            (IERC20 token, uint256 nativeFee, address oft, bytes memory sendData) = abi.decode(data, (IERC20, uint256, address, bytes));
+            (IERC20 token, uint256 nativeFee, address oft, bytes memory sendData) =
+                abi.decode(data, (IERC20, uint256, address, bytes));
             bridgeLayerZeroOFT(token, nativeFee, oft, sendData);
         } else if (action == uint32(IBridgeSettlerActions.UNDERPAYMENT_CHECK.selector)) {
             (uint256 msgValueMin) = abi.decode(data, (uint256));

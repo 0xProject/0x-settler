@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity =0.8.25;
 
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 
@@ -12,7 +11,7 @@ contract MonadBridgeSettler is BridgeSettler {
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(BridgeSettlerBase, SettlerAbstract)
+        override(BridgeSettlerBase)
         returns (bool)
     {
         if (super._dispatch(i, action, data)) {

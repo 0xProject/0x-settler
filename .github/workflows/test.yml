@@ -28,10 +28,10 @@ jobs:
           FOUNDRY_SOLC_VERSION: 0.8.28
 
       - name: Build contracts
-        run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip BlastDeployer.sol --skip ModeDeployer.sol --skip 'test/*' --skip 'script/*'
+        run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip ModeDeployer.sol --skip 'test/*' --skip 'script/*'
 
       - name: Build AllowanceHolder and Deployer
-        run: forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol src/deployer/BlastDeployer.sol src/deployer/ModeDeployer.sol
+        run: forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol src/deployer/ModeDeployer.sol
         env:
           FOUNDRY_SOLC_VERSION: 0.8.25
 
