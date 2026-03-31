@@ -11,6 +11,8 @@
 * Remove `MAVERICKV2_VIP` and `METATXN_MAVERICKV2_VIP` actions from Arbitrum,
   Base, Bnb, Mainnet, Scroll, and Sepolia. The `MAVERICKV2` action remains.
 * Update `RENEGADE` signature: add `baseForQuote` direction flag and `minBuyAmount` slippage protection
+* Abandon Mode chain
+  * Remove SupSwapV3, Kim, and SwapMode UniV3 forks
 
 ### Non-breaking changes
 
