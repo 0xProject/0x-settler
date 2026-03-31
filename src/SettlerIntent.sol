@@ -242,7 +242,9 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, SLIPPAGE_TYPEHASH)
-            mcopy(add(0x20, ptr), slippage, 0x60)
+            mstore(add(0x20, ptr), mload(slippage))
+            mstore(add(0x40, ptr), mload(add(0x20, slippage)))
+            mstore(add(0x60, ptr), mload(add(0x40, slippage)))
             result := keccak256(ptr, 0x80)
         }
     }
