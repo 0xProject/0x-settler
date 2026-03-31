@@ -240,11 +240,13 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
 
     function _hashSlippage(AllowedSlippage memory slippage) internal pure returns (bytes32 result) {
         assembly ("memory-safe") {
+            function mcopy(dst, src, len) {
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+            }
+
             let ptr := mload(0x40)
             mstore(ptr, SLIPPAGE_TYPEHASH)
-            mstore(add(0x20, ptr), mload(slippage))
-            mstore(add(0x40, ptr), mload(add(0x20, slippage)))
-            mstore(add(0x60, ptr), mload(add(0x40, slippage)))
+            mcopy(add(0x20, ptr), slippage, 0x60)
             result := keccak256(ptr, 0x80)
         }
     }

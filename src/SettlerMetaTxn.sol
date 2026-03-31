@@ -58,11 +58,13 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
     {
         bytes32 arrayOfBytesHash = _hashArrayOfBytes(actions);
         assembly ("memory-safe") {
+            function mcopy(dst, src, len) {
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+            }
+
             let ptr := mload(0x40)
             mstore(ptr, SLIPPAGE_AND_ACTIONS_TYPEHASH)
-            mstore(add(0x20, ptr), mload(slippage))
-            mstore(add(0x40, ptr), mload(add(0x20, slippage)))
-            mstore(add(0x60, ptr), mload(add(0x40, slippage)))
+            mcopy(add(0x20, ptr), slippage, 0x60)
             mstore(add(0x80, ptr), arrayOfBytesHash)
             result := keccak256(ptr, 0xa0)
         }
