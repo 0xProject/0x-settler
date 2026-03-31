@@ -238,7 +238,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         return true;
     }
 
-    function _hashSlippage(AllowedSlippage memory slippage) internal pure returns (bytes32 result) {
+    function _hashSlippage(AllowedSlippage memory slippage) internal view returns (bytes32 result) {
         assembly ("memory-safe") {
             function mcopy(dst, src, len) {
                 if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }

@@ -53,7 +53,7 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
 
     function _hashActionsAndSlippage(bytes[] calldata actions, AllowedSlippage memory slippage)
         internal
-        pure
+        view
         returns (bytes32 result)
     {
         bytes32 arrayOfBytesHash = _hashArrayOfBytes(actions);
