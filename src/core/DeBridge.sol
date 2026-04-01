@@ -58,25 +58,22 @@ contract DeBridge {
 
     function bridgeToDeBridge(uint256 globalFee, bytes memory createOrderData) internal {
         IERC20 inputToken;
-        uint256 value;
+        uint256 amount;
         assembly ("memory-safe") {
             // offset to giveTokenAddress
             inputToken := mload(add(0xe0, createOrderData))
-            value := selfbalance()
         }
         // Store the constant into source to read it only once
         IDlnSource source = DLN_SOURCE;
         if (address(inputToken) == address(0)) {
-            _bridgeToDeBridge(source, value, value - globalFee, createOrderData);
+            uint256 balance = address(this).balance;
+            amount = balance - globalFee;
+            globalFee = balance;
         } else {
-            uint256 amount = inputToken.fastBalanceOf(address(this));
+            amount = inputToken.fastBalanceOf(address(this));
             inputToken.safeApproveIfBelow(address(source), amount);
-
-            _bridgeToDeBridge(source, value, amount, createOrderData);
         }
-    }
-
-    function _bridgeToDeBridge(IDlnSource source, uint256 value, uint256 amount, bytes memory createOrderData) private {
+        
         assembly ("memory-safe") {
             // override giveAmount
             mstore(add(0x100, createOrderData), amount)
@@ -86,7 +83,7 @@ contract DeBridge {
             mstore(createOrderData, 0xb9303701) // selector for `createSaltedOrder((address,uint256,bytes,uint256,uint256,bytes,address,bytes,bytes,bytes,bytes),uint64,bytes,uint32,bytes,bytes)`
             // `createSaltedOrder` doesn't clash with any relevant function of restricted targets so we can skip checking `source`
             // `source` is also meant to be DLN_SOURCE
-            if iszero(call(gas(), source, value, add(0x1c, createOrderData), add(0x04, len), 0x00, 0x00)) {
+            if iszero(call(gas(), source, globalFee, add(0x1c, createOrderData), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
