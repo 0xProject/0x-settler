@@ -459,3 +459,29 @@ cast run <txhash> --rpc-url $RPC_URL
 ### Forge Standard Library
 
 See `lib/forge-std/src/*.sol` for cheatcodes and utilities that streamline testing (e.g., `Vm.sol`, `Test.sol`, `StdCheats.sol`).
+
+## Cursor Cloud specific instructions
+
+### Environment
+
+- **Foundry v1.5.1** is installed at `~/.foundry/bin/`. Ensure `PATH` includes `$HOME/.foundry/bin`.
+- **Node.js 22.x** is available (CI uses 18.x but all scripts work with 22.x).
+- **Git submodules** and **npm dependencies** are managed by the update script.
+
+### Build artifact ordering caveat
+
+This codebase compiles contracts with multiple solc versions and EVM targets. Builds with different `FOUNDRY_SOLC_VERSION` / `FOUNDRY_EVM_VERSION` overwrite shared artifacts in `out/`. This means:
+
+- **MultiCall tests** require rebuilding MultiCall first: `FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=1000000 FOUNDRY_SOLC_VERSION=0.8.28 forge build -- src/multicall/MultiCall.sol` then run `forge test ... --mp test/0.8.25/MultiCall.t.sol`.
+- **CrossChainReceiverFactory tests** similarly require their build step first: `FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=1000000 FOUNDRY_SOLC_VERSION=0.8.28 forge build -- src/CrossChainReceiverFactory.sol`.
+- Running these special builds **after** each other can corrupt the other's artifacts. Follow the CI ordering in `.github/workflows/test.yml` for reliable results.
+
+### Running tests
+
+- **Unit tests** (default profile): `forge test --skip 'src/*' --skip 'test/0.8.28/*' --skip CrossChainReceiverFactory.t.sol --skip MultiCall.t.sol`
+- **Integration tests** require `FOUNDRY_PROFILE=integration` and RPC URL env vars (`MAINNET_RPC_URL`, `BNB_MAINNET_RPC_URL`, `PLASMA_MAINNET_RPC_URL`, `MONAD_MAINNET_RPC_URL`, `ARBITRUM_MAINNET_RPC_URL`, `BASE_MAINNET_RPC_URL`).
+- See `.github/workflows/test.yml` and `.github/workflows/integration.yml` for canonical CI commands.
+
+### No running services
+
+This is a pure smart-contract codebase. There are no web servers, databases, or Docker services. The "application" is the build + test cycle. External RPC endpoints are the only runtime dependency for fork tests.
