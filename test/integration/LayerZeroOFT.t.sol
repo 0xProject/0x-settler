@@ -101,7 +101,7 @@ contract LayerZeroOFTEthereumTest is BridgeSettlerIntegrationTest {
         sendParam.amountLD = 0; // send 0 to let settler inject the value
         bridgeActions[1] = abi.encodeCall(
             IBridgeSettlerActions.BRIDGE_TO_LAYER_ZERO_OFT,
-            (address(token), fee, oft, abi.encode(sendParam, messagingFee, address(this)))
+            (address(token), oft, abi.encode(sendParam, messagingFee, address(this)))
         );
         sendParam.amountLD = amount;
 
@@ -169,7 +169,7 @@ contract LayerZeroOFTPlasmaTest is BridgeSettlerIntegrationTest {
         bytes[] memory bridgeActions = new bytes[](1);
         bridgeActions[0] = abi.encodeCall(
             IBridgeSettlerActions.BRIDGE_TO_LAYER_ZERO_OFT,
-            (address(token), fee, oft, abi.encode(sendParam, messagingFee, address(this)))
+            (address(token), oft, abi.encode(sendParam, messagingFee, address(this)))
         );
         sendParam.amountLD = amount;
 
@@ -206,7 +206,7 @@ contract LayerZeroOFTPlasmaTest is BridgeSettlerIntegrationTest {
         bytes[] memory bridgeActions = new bytes[](2);
         bridgeActions[0] = abi.encodeCall(
             IBridgeSettlerActions.BRIDGE_TO_LAYER_ZERO_OFT,
-            (address(token), fee, oft, abi.encode(sendParam, messagingFee, address(this)))
+            (address(token), oft, abi.encode(sendParam, messagingFee, address(this)))
         );
         bridgeActions[1] =
             abi.encodeCall(IBridgeSettlerActions.BASIC, (address(token), 10000, address(this), 0, bytes("")));

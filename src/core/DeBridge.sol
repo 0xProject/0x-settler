@@ -73,7 +73,7 @@ contract DeBridge {
             amount = inputToken.fastBalanceOf(address(this));
             inputToken.safeApproveIfBelow(address(source), amount);
         }
-        
+
         assembly ("memory-safe") {
             // override giveAmount
             mstore(add(0x100, createOrderData), amount)

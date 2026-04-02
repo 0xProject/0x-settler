@@ -12,6 +12,7 @@
   Base, Bnb, Mainnet, Scroll, and Sepolia. The `MAVERICKV2` action remains.
 * Update `RENEGADE` signature: add `baseForQuote` direction flag and `minBuyAmount` slippage protection
 * `BRIDGE_TO_CCIP` modified to remove the `token` argument that is already included in `ccipSendData`
+* `BRIDGE_TO_LAYER_ZERO_OFT` modified to remove the `nativeFee` argument that is already included in `sendData`
 
 ### Non-breaking changes
 
