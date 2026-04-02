@@ -28,14 +28,13 @@ contract CCIP {
     ///          bytes extraArgs
     ///        }
     ///
-    /// @param token The ERC20 token to bridge
     /// @param router The CCIP router address
     /// @param ccipSendData Pre-encoded ccipSend arguments (without selector)
-    function bridgeToCCIP(IERC20 token, address router, bytes memory ccipSendData) internal {
-        uint256 amount = token.fastBalanceOf(address(this));
-        token.safeApproveIfBelow(router, amount);
+    function bridgeToCCIP(address router, bytes memory ccipSendData) internal {
+        IERC20 token;
+        uint256 tokenAmountsPtr;
 
-        // Update the amount in ccipSendData and call the router
+        // Check ccipSendData and get the bridged token
         //
         // ccipSendData layout (after bytes length prefix):
         // 0x00: destinationChainSelector (uint64, right-aligned in 32 bytes)
@@ -51,7 +50,7 @@ contract CCIP {
         // tokenAmounts array (at tokensPtr, assuming 1 element):
         // +0x00: array length (1)
         // +0x20: tokenAmounts[0].token
-        // +0x40: tokenAmounts[0].amount <-- we update this
+        // +0x40: tokenAmounts[0].amount
         assembly ("memory-safe") {
             // Calculate the position of the amount field in tokenAmounts[0]
             let dataStart := add(0x20, ccipSendData) // skip bytes length
@@ -70,21 +69,26 @@ contract CCIP {
 
             // See above comment about malformed offsets.
             let tokensOffset := mload(add(0x40, msgPtr)) // offset to tokenAmounts array
-            let tokensPtr := add(msgPtr, tokensOffset) // pointer to tokenAmounts array
+            tokenAmountsPtr := add(msgPtr, tokensOffset) // pointer to tokenAmounts array
 
             // Verify tokenAmounts array has exactly 1 element
-            if xor(0x01, mload(tokensPtr)) {
+            if xor(0x01, mload(tokenAmountsPtr)) {
                 mstore(0x00, 0x2c419a85) // selector for `InvalidTokenAmountsLength()`
                 revert(0x1c, 0x04)
             }
 
-            // tokensPtr + 0x00 = array length
-            // tokensPtr + 0x20 = tokenAmounts[0].token
-            // tokensPtr + 0x40 = tokenAmounts[0].amount
-            let amountPtr := add(0x40, tokensPtr)
+            // tokenAmountsPtr + 0x00 = array length
+            // tokenAmountsPtr + 0x20 = tokenAmounts[0].token
+            // tokenAmountsPtr + 0x40 = tokenAmounts[0].amount
+            token := mload(add(0x20, tokenAmountsPtr))
+        }
 
+        uint256 amount = token.fastBalanceOf(address(this));
+        token.safeApproveIfBelow(router, amount);
+
+        assembly ("memory-safe") {
             // Update the amount
-            mstore(amountPtr, amount)
+            mstore(add(0x40, tokenAmountsPtr), amount)
 
             // Temporarily clobber the bytes length slot with the function selector
             let len := mload(ccipSendData)

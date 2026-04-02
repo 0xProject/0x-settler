@@ -143,7 +143,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         message.tokenAmounts[0].amount = 0;
         bytes memory ccipSendData = abi.encode(ARBITRUM_SELECTOR, message);
         bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(USDC), CCIP_ROUTER, ccipSendData));
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (CCIP_ROUTER, ccipSendData));
 
         // Restore amount for expectCall
         message.tokenAmounts[0].amount = amount;
@@ -202,7 +202,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         message.tokenAmounts[0].amount = 0;
         bytes memory ccipSendData = abi.encode(BASE_SELECTOR, message);
         bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(USDC), CCIP_ROUTER, ccipSendData));
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (CCIP_ROUTER, ccipSendData));
 
         // Restore amount for expectCall
         message.tokenAmounts[0].amount = amount;
@@ -267,7 +267,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         message.tokenAmounts[0].amount = 0;
         bytes memory ccipSendData = abi.encode(ARBITRUM_SELECTOR, message);
         bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(USDC), CCIP_ROUTER, ccipSendData));
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (CCIP_ROUTER, ccipSendData));
 
         message.tokenAmounts[0].amount = amount;
 
@@ -335,7 +335,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         message.tokenAmounts[0].amount = 0;
         bytes memory ccipSendData = abi.encode(ARBITRUM_SELECTOR, message);
         bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(USDC), CCIP_ROUTER, ccipSendData));
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (CCIP_ROUTER, ccipSendData));
 
         // Should revert because feeToken is not address(0)
         vm.expectRevert(InvalidFeeToken.selector);
@@ -382,7 +382,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
 
         bytes memory ccipSendData = abi.encode(ARBITRUM_SELECTOR, message);
         bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (address(USDC), CCIP_ROUTER, ccipSendData));
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (CCIP_ROUTER, ccipSendData));
 
         // Should revert because tokenAmounts length is not 1
         vm.expectRevert(InvalidTokenAmountsLength.selector);

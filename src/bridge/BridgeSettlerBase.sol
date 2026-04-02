@@ -105,8 +105,8 @@ abstract contract BridgeSettlerBase is SettlerBridgeAbstract, Basic, Relay, Laye
                 }
             }
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_CCIP.selector)) {
-            (IERC20 token, address router, bytes memory ccipSendData) = abi.decode(data, (IERC20, address, bytes));
-            bridgeToCCIP(token, router, ccipSendData);
+            (address router, bytes memory ccipSendData) = abi.decode(data, (address, bytes));
+            bridgeToCCIP(router, ccipSendData);
         } else {
             return false;
         }

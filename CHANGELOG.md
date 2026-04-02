@@ -11,6 +11,7 @@
 * Remove `MAVERICKV2_VIP` and `METATXN_MAVERICKV2_VIP` actions from Arbitrum,
   Base, Bnb, Mainnet, Scroll, and Sepolia. The `MAVERICKV2` action remains.
 * Update `RENEGADE` signature: add `baseForQuote` direction flag and `minBuyAmount` slippage protection
+* `BRIDGE_TO_CCIP` modified to remove the `token` argument that is already included in `ccipSendData`
 
 ### Non-breaking changes
 
