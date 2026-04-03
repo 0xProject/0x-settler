@@ -13,6 +13,7 @@
 * Update `RENEGADE` signature: add `baseForQuote` direction flag and `minBuyAmount` slippage protection
 * `BRIDGE_TO_CCIP` modified to remove the `token` argument that is already included in `ccipSendData`
 * `BRIDGE_TO_LAYER_ZERO_OFT` modified to remove the `nativeFee` argument that is already included in `sendData`
+* `BRIDGE_ERC20_TO_MAYAN` and `BRIDGE_NATIVE_TO_MAYAN` modified to remove `forwarder` argument. It is now hardcoded.
 
 ### Non-breaking changes
 
