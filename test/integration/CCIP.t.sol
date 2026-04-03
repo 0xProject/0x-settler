@@ -8,52 +8,13 @@ import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {InvalidFeeToken, InvalidTokenAmountsLength} from "src/core/SettlerErrors.sol";
-
-/// @dev Interface for CCIP Router
-interface IRouterClient {
-    struct EVMTokenAmount {
-        address token;
-        uint256 amount;
-    }
-
-    struct EVM2AnyMessage {
-        bytes receiver;
-        bytes data;
-        EVMTokenAmount[] tokenAmounts;
-        address feeToken;
-        bytes extraArgs;
-    }
-
-    function ccipSend(uint64 destinationChainSelector, EVM2AnyMessage calldata message)
-        external
-        payable
-        returns (bytes32);
-
-    function getFee(uint64 destinationChainSelector, EVM2AnyMessage calldata message) external view returns (uint256);
-
-    function isChainSupported(uint64 chainSelector) external view returns (bool);
-}
-
-interface IOnRamp {
-    /// @dev Matches Internal.EVM2EVMMessage from the CCIP onRamp for event decoding
-    struct EVM2EVMMessage {
-        uint64 sourceChainSelector;
-        address sender;
-        address receiver;
-        uint64 sequenceNumber;
-        uint256 gasLimit;
-        bool strict;
-        uint64 nonce;
-        address feeToken;
-        uint256 feeTokenAmount;
-        bytes data;
-        IRouterClient.EVMTokenAmount[] tokenAmounts;
-        bytes[] sourceTokenData;
-        bytes32 messageId;
-    }
-}
+import {LibBytes} from "../utils/LibBytes.sol";
+import {IRouterClient, IOnRamp} from "src/core/CCIP.sol";
+import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 contract CCIPTest is BridgeSettlerIntegrationTest {
+    using LibBytes for bytes;
+
     // CCIP Router on Ethereum Mainnet
     address constant CCIP_ROUTER = 0x80226fc0Ee2b096224EeAc085Bb9a8cba1146f7D;
 
@@ -89,9 +50,9 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         onRamp = address(uint160(uint256(vm.load(CCIP_ROUTER, keccak256(abi.encode(destinationChainSelector, 0x3))))));
     }
 
-    function _prepareMessage(address tokenAddress, uint256 amount, address recipient)
+    function _prepareMessage(address tokenAddress, uint256 amount)
         internal
-        pure
+        view
         returns (IRouterClient.EVM2AnyMessage memory message)
     {
         IRouterClient.EVMTokenAmount[] memory tokenAmounts = new IRouterClient.EVMTokenAmount[](1);
@@ -110,7 +71,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         uint256 amount = 1000e6; // 1000 USDC (6 decimals)
 
         // Prepare the CCIP message
-        IRouterClient.EVM2AnyMessage memory message = _prepareMessage(address(USDC), amount, recipient);
+        IRouterClient.EVM2AnyMessage memory message = _prepareMessage(address(USDC), amount);
 
         // Get the fee for the transfer
         uint256 fee = IRouterClient(CCIP_ROUTER).getFee(ARBITRUM_SELECTOR, message);
@@ -121,30 +82,16 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         uint256 usdcSupplyBefore = USDC.totalSupply();
         uint256 usdcBalanceBefore = USDC.balanceOf(address(this));
 
-        // Build bridge actions
-        bytes[] memory bridgeActions = new bytes[](2);
-
-        // Action 1: Transfer USDC to BridgeSettler
-        bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TRANSFER_FROM,
-            (
-                address(bridgeSettler),
-                ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({token: address(USDC), amount: amount}),
-                    nonce: 0,
-                    deadline: block.timestamp
-                }),
-                bytes("")
-            )
-        );
-
-        // Action 2: Bridge via CCIP
         // Set amount to 0 in message - the action will inject the actual balance
         message.tokenAmounts[0].amount = 0;
-        bytes memory ccipSendData = abi.encode(ARBITRUM_SELECTOR, message);
-        bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (CCIP_ROUTER, ccipSendData));
-
+        // Build bridge actions
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(USDC), amount),
+            abi.encodeCall(
+                IBridgeSettlerActions.BRIDGE_TO_CCIP,
+                (CCIP_ROUTER, abi.encodeCall(IRouterClient.ccipSend, (ARBITRUM_SELECTOR, message)).popSelector())
+            )
+        );
         // Restore amount for expectCall
         message.tokenAmounts[0].amount = amount;
 
@@ -170,7 +117,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         uint256 amount = 500e6; // 500 USDC (6 decimals)
 
         // Prepare the CCIP message
-        IRouterClient.EVM2AnyMessage memory message = _prepareMessage(address(USDC), amount, recipient);
+        IRouterClient.EVM2AnyMessage memory message = _prepareMessage(address(USDC), amount);
 
         // Get the fee for the transfer
         uint256 fee = IRouterClient(CCIP_ROUTER).getFee(BASE_SELECTOR, message);
@@ -181,29 +128,16 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         uint256 usdcSupplyBefore = USDC.totalSupply();
         uint256 usdcBalanceBefore = USDC.balanceOf(address(this));
 
+        // Set amount to 0 in message - the action will inject the actual balance
+        message.tokenAmounts[0].amount = 0;
         // Build bridge actions
-        bytes[] memory bridgeActions = new bytes[](2);
-
-        // Action 1: Transfer USDC to BridgeSettler
-        bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TRANSFER_FROM,
-            (
-                address(bridgeSettler),
-                ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({token: address(USDC), amount: amount}),
-                    nonce: 0,
-                    deadline: block.timestamp
-                }),
-                bytes("")
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(USDC), amount),
+            abi.encodeCall(
+                IBridgeSettlerActions.BRIDGE_TO_CCIP,
+                (CCIP_ROUTER, abi.encodeCall(IRouterClient.ccipSend, (BASE_SELECTOR, message)).popSelector())
             )
         );
-
-        // Action 2: Bridge via CCIP
-        message.tokenAmounts[0].amount = 0;
-        bytes memory ccipSendData = abi.encode(BASE_SELECTOR, message);
-        bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (CCIP_ROUTER, ccipSendData));
-
         // Restore amount for expectCall
         message.tokenAmounts[0].amount = amount;
 
@@ -249,26 +183,17 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         uint256 usdcSupplyBefore = USDC.totalSupply();
         uint256 usdcBalanceBefore = USDC.balanceOf(address(this));
 
-        // Build actions
-        bytes[] memory bridgeActions = new bytes[](2);
-        bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TRANSFER_FROM,
-            (
-                address(bridgeSettler),
-                ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({token: address(USDC), amount: amount}),
-                    nonce: 0,
-                    deadline: block.timestamp
-                }),
-                bytes("")
+        // Set amount to 0 in message - the action will inject the actual balance
+        message.tokenAmounts[0].amount = 0;
+        // Build bridge actions
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(USDC), amount),
+            abi.encodeCall(
+                IBridgeSettlerActions.BRIDGE_TO_CCIP,
+                (CCIP_ROUTER, abi.encodeCall(IRouterClient.ccipSend, (ARBITRUM_SELECTOR, message)).popSelector())
             )
         );
-
-        message.tokenAmounts[0].amount = 0;
-        bytes memory ccipSendData = abi.encode(ARBITRUM_SELECTOR, message);
-        bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (CCIP_ROUTER, ccipSendData));
-
+        // Restore amount for expectCall
         message.tokenAmounts[0].amount = amount;
 
         // Execute
@@ -316,26 +241,18 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
             extraArgs: bytes("")
         });
 
+        // Set amount to 0 in message - the action will inject the actual balance
+        message.tokenAmounts[0].amount = 0;
         // Build bridge actions
-        bytes[] memory bridgeActions = new bytes[](2);
-
-        bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TRANSFER_FROM,
-            (
-                address(bridgeSettler),
-                ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({token: address(USDC), amount: amount}),
-                    nonce: 0,
-                    deadline: block.timestamp
-                }),
-                bytes("")
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(USDC), amount),
+            abi.encodeCall(
+                IBridgeSettlerActions.BRIDGE_TO_CCIP,
+                (CCIP_ROUTER, abi.encodeCall(IRouterClient.ccipSend, (ARBITRUM_SELECTOR, message)).popSelector())
             )
         );
-
-        message.tokenAmounts[0].amount = 0;
-        bytes memory ccipSendData = abi.encode(ARBITRUM_SELECTOR, message);
-        bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (CCIP_ROUTER, ccipSendData));
+        // Restore amount for expectCall
+        message.tokenAmounts[0].amount = amount;
 
         // Should revert because feeToken is not address(0)
         vm.expectRevert(InvalidFeeToken.selector);
@@ -364,25 +281,18 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
             extraArgs: bytes("")
         });
 
+        // Set amount to 0 in message - the action will inject the actual balance
+        message.tokenAmounts[0].amount = 0;
         // Build bridge actions
-        bytes[] memory bridgeActions = new bytes[](2);
-
-        bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TRANSFER_FROM,
-            (
-                address(bridgeSettler),
-                ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({token: address(USDC), amount: amount}),
-                    nonce: 0,
-                    deadline: block.timestamp
-                }),
-                bytes("")
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(USDC), amount),
+            abi.encodeCall(
+                IBridgeSettlerActions.BRIDGE_TO_CCIP,
+                (CCIP_ROUTER, abi.encodeCall(IRouterClient.ccipSend, (ARBITRUM_SELECTOR, message)).popSelector())
             )
         );
-
-        bytes memory ccipSendData = abi.encode(ARBITRUM_SELECTOR, message);
-        bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_CCIP, (CCIP_ROUTER, ccipSendData));
+        // Restore amount for expectCall
+        message.tokenAmounts[0].amount = amount;
 
         // Should revert because tokenAmounts length is not 1
         vm.expectRevert(InvalidTokenAmountsLength.selector);

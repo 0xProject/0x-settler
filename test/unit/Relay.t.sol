@@ -8,14 +8,16 @@ import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {BridgeSettlerUnitTest} from "./BridgeSettler.t.sol";
 import {Utils} from "./Utils.sol";
 import {Relay} from "src/core/Relay.sol";
+import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 contract RelayTest is BridgeSettlerUnitTest, Utils {
     function testBridgeNative() public {
         address to = makeAddr("to");
         bytes32 requestId = keccak256("requestId - native transfer");
 
-        bytes[] memory bridgeActions = new bytes[](1);
-        bridgeActions[0] = abi.encodeCall(IBridgeSettlerActions.BRIDGE_NATIVE_TO_RELAY, (to, requestId));
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_NATIVE_TO_RELAY, (to, requestId))
+        );
 
         deal(address(this), 1000);
 
@@ -32,20 +34,10 @@ contract RelayTest is BridgeSettlerUnitTest, Utils {
         bytes32 requestId = keccak256("requestId - ERC20 transfer");
         uint256 amount = 1000;
 
-        bytes[] memory bridgeActions = new bytes[](2);
-        bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TRANSFER_FROM,
-            (
-                address(bridgeSettler),
-                ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({token: address(token), amount: amount}),
-                    nonce: 0,
-                    deadline: block.timestamp
-                }),
-                bytes("")
-            )
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(token), amount),
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_ERC20_TO_RELAY, (address(token), to, requestId))
         );
-        bridgeActions[1] = abi.encodeCall(IBridgeSettlerActions.BRIDGE_ERC20_TO_RELAY, (address(token), to, requestId));
 
         deal(address(token), address(this), amount);
         token.approve(address(ALLOWANCE_HOLDER), amount);

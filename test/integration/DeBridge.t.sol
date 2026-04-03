@@ -7,8 +7,12 @@ import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {DeBridge, DLN_SOURCE, IDlnSource} from "src/core/DeBridge.sol";
+import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
+import {LibBytes} from "../utils/LibBytes.sol";
 
 contract DeBridgeTest is BridgeSettlerIntegrationTest {
+    using LibBytes for bytes;
+
     uint256 globalFee;
     IERC20 USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 
@@ -44,24 +48,15 @@ contract DeBridgeTest is BridgeSettlerIntegrationTest {
         );
     }
 
-    function removeSelector(bytes memory data) public pure returns (bytes memory) {
-        assembly ("memory-safe") {
-            let len := sub(mload(data), 0x04)
-            data := add(0x04, data)
-            mstore(data, len)
-        }
-        return data;
-    }
-
     function testBridgeNative() public {
         uint256 amount = 1000;
 
         deal(address(this), amount + globalFee);
 
-        bytes[] memory bridgeActions = new bytes[](1);
-        // amount set to zero, to make sure BridgeSettler overrides it
-        bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_TO_DEBRIDGE, (globalFee, removeSelector(deBridgecall(address(0), amount)))
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            abi.encodeCall(
+                IBridgeSettlerActions.BRIDGE_TO_DEBRIDGE, (globalFee, deBridgecall(address(0), 0).popSelector())
+            )
         );
 
         uint256 balanceBefore = address(DLN_SOURCE).balance;
@@ -79,21 +74,11 @@ contract DeBridgeTest is BridgeSettlerIntegrationTest {
         deal(address(USDC), address(this), amount);
         USDC.approve(address(ALLOWANCE_HOLDER), amount);
 
-        bytes[] memory bridgeActions = new bytes[](2);
-        bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TRANSFER_FROM,
-            (
-                address(bridgeSettler),
-                ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({token: address(USDC), amount: amount}),
-                    nonce: 0,
-                    deadline: block.timestamp
-                }),
-                bytes("")
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(USDC), amount),
+            abi.encodeCall(
+                IBridgeSettlerActions.BRIDGE_TO_DEBRIDGE, (globalFee, deBridgecall(address(USDC), 0).popSelector())
             )
-        );
-        bridgeActions[1] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_TO_DEBRIDGE, (globalFee, removeSelector(deBridgecall(address(USDC), 0)))
         );
 
         uint256 usdcBalanceBefore = USDC.balanceOf(address(DLN_SOURCE));
