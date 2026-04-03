@@ -16,6 +16,7 @@ import {Utils} from "./Utils.sol";
 import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
 import {IERC721View} from "src/deployer/IDeployer.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
+import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 contract BridgeSettlerDummy is BridgeSettler {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {}
@@ -45,6 +46,29 @@ contract BridgeSettlerTestBase is Test {
         bridgeDummy = new BridgeDummy();
         token = IERC20(address(new MockERC20("Test Token", "TT", 18)));
     }
+
+    function _getDefaultTransferFrom(address token_, uint256 amount) internal returns (bytes memory) {
+        return _getDefaultTransferFrom(address(bridgeSettler), token_, amount);
+    }
+
+    function _getSettlerDefaultTransferFrom(address token_, uint256 amount) internal returns (bytes memory) {
+        return _getDefaultTransferFrom(address(settler), token_, amount);
+    }
+
+    function _getDefaultTransferFrom(address settler_, address token_, uint256 amount) internal returns (bytes memory) {
+        return abi.encodeCall(
+            ISettlerActions.TRANSFER_FROM,
+            (
+                address(bridgeSettler),
+                ISignatureTransfer.PermitTransferFrom({
+                    permitted: ISignatureTransfer.TokenPermissions({token: address(token_), amount: amount}),
+                    nonce: 0,
+                    deadline: block.timestamp
+                }),
+                bytes("")
+            )
+        );
+    }
 }
 
 contract BridgeSettlerUnitTest is BridgeSettlerTestBase {
@@ -66,63 +90,55 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
         address user = makeAddr("user");
         uint256 amount = 2000;
 
-        bytes[] memory settlerActions = new bytes[](2);
-        // Take the assets from BridgeSettler
-        settlerActions[0] = abi.encodeCall(
-            ISettlerActions.TRANSFER_FROM,
-            (
-                address(settler),
-                ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({token: address(token), amount: amount}),
-                    nonce: 0,
-                    deadline: block.timestamp
-                }),
-                bytes("")
-            )
-        );
-        // Just send them back to BridgeSettler
-        settlerActions[1] = abi.encodeCall(
-            ISettlerActions.BASIC,
-            (address(token), 10_000, address(token), 0x24, abi.encodeCall(IERC20.transfer, (address(bridgeSettler), 0)))
-        );
-
-        bytes[] memory bridgeActions = new bytes[](3);
-        // Take the assets from the BridgeSettler
-        bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TRANSFER_FROM,
-            (
-                address(bridgeSettler),
-                ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({token: address(token), amount: amount}),
-                    nonce: 0,
-                    deadline: block.timestamp
-                }),
-                bytes("")
-            )
-        );
-        // Do a swap (that just takes and returns the assets)
-        bridgeActions[1] = abi.encodeCall(
-            IBridgeSettlerActions.SETTLER_SWAP,
-            (
-                address(token),
-                amount,
-                address(settler),
-                abi.encodeCall(
-                    ISettlerTakerSubmitted.execute,
-                    (
-                        ISettlerBase.AllowedSlippage({
-                            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
-                        }),
-                        settlerActions,
-                        bytes32(0)
-                    )
+        // 1. Take the assets from BridgeSettler
+        // 2. And just send them back to BridgeSettler
+        bytes[] memory settlerActions = ActionDataBuilder.build(
+            _getSettlerDefaultTransferFrom(address(token), amount),
+            abi.encodeCall(
+                ISettlerActions.BASIC,
+                (
+                    address(token),
+                    10_000,
+                    address(token),
+                    0x24,
+                    abi.encodeCall(IERC20.transfer, (address(bridgeSettler), 0))
                 )
             )
         );
-        // Bridge the assets to the dummy bridge
-        bridgeActions[2] = abi.encodeCall(
-            IBridgeSettlerActions.BASIC,
-            (address(token), 10_000, address(bridgeDummy), 0x24, abi.encodeCall(BridgeDummy.take, (address(token), 0)))
+
+        // 1. Take the assets from the BridgeSettler
+        // 2. Do a swap (that just takes and returns the assets)
+        // 3. Bridge the assets to the dummy bridge
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(token), amount),
+            abi.encodeCall(
+                IBridgeSettlerActions.SETTLER_SWAP,
+                (
+                    address(token),
+                    amount,
+                    address(settler),
+                    abi.encodeCall(
+                        ISettlerTakerSubmitted.execute,
+                        (
+                            ISettlerBase.AllowedSlippage({
+                                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+                            }),
+                            settlerActions,
+                            bytes32(0)
+                        )
+                    )
+                )
+            ),
+            abi.encodeCall(
+                IBridgeSettlerActions.BASIC,
+                (
+                    address(token),
+                    10_000,
+                    address(bridgeDummy),
+                    0x24,
+                    abi.encodeCall(BridgeDummy.take, (address(token), 0))
+                )
+            )
         );
 
         vm.prank(user);
@@ -147,34 +163,34 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
         address ETH_ADDRESS = address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
         uint256 amount = 1000;
 
-        bytes[] memory settlerActions = new bytes[](1);
-        // Just send Native back to BridgeSettler
-        settlerActions[0] =
-            abi.encodeCall(ISettlerActions.BASIC, (ETH_ADDRESS, 10_000, address(bridgeSettler), 0x00, bytes("")));
+        // 1. Just send Native back to BridgeSettler
+        bytes[] memory settlerActions = ActionDataBuilder.build(
+            abi.encodeCall(ISettlerActions.BASIC, (ETH_ADDRESS, 10_000, address(bridgeSettler), 0x00, bytes("")))
+        );
 
-        bytes[] memory bridgeActions = new bytes[](2);
-        // Do a swap (that just sends and return the assets)
-        bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.SETTLER_SWAP,
-            (
-                ETH_ADDRESS,
-                amount,
-                address(settler),
-                abi.encodeCall(
-                    ISettlerTakerSubmitted.execute,
-                    (
-                        ISettlerBase.AllowedSlippage({
-                            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
-                        }),
-                        settlerActions,
-                        bytes32(0)
+        // 1. Do a swap (that just takes and returns the assets)
+        // 2. Bridge the assets to the dummy bridge
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            abi.encodeCall(
+                IBridgeSettlerActions.SETTLER_SWAP,
+                (
+                    ETH_ADDRESS,
+                    amount,
+                    address(settler),
+                    abi.encodeCall(
+                        ISettlerTakerSubmitted.execute,
+                        (
+                            ISettlerBase.AllowedSlippage({
+                                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+                            }),
+                            settlerActions,
+                            bytes32(0)
+                        )
                     )
                 )
-            )
+            ),
+            abi.encodeCall(IBridgeSettlerActions.BASIC, (ETH_ADDRESS, 10_000, address(bridgeDummy), 0, bytes("")))
         );
-        // Bridge the assets to the dummy bridge
-        bridgeActions[1] =
-            abi.encodeCall(IBridgeSettlerActions.BASIC, (ETH_ADDRESS, 10_000, address(bridgeDummy), 0, bytes("")));
 
         deal(user, amount);
 
