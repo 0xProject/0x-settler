@@ -70,7 +70,6 @@ contract LayerZeroOFT {
     using SafeTransferLib for IERC20;
     using FastLayerZeroOFT for address;
 
-
     /// @notice Bridge via LayerZero
     /// @param token The ERC20 token to bridge
     /// @param oft LayerZero OFT address

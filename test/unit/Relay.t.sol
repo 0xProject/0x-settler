@@ -15,9 +15,8 @@ contract RelayTest is BridgeSettlerUnitTest, Utils {
         address to = makeAddr("to");
         bytes32 requestId = keccak256("requestId - native transfer");
 
-        bytes[] memory bridgeActions = ActionDataBuilder.build(
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_NATIVE_TO_RELAY, (to, requestId))
-        );
+        bytes[] memory bridgeActions =
+            ActionDataBuilder.build(abi.encodeCall(IBridgeSettlerActions.BRIDGE_NATIVE_TO_RELAY, (to, requestId)));
 
         deal(address(this), 1000);
 

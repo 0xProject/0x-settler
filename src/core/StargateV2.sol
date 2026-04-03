@@ -32,7 +32,7 @@ contract StargateV2 {
         }
 
         if (token == ETH) {
-            // Any excess on top to of fee + amount is returned to 
+            // Any excess on top to of fee + amount is returned to
             // the refund address specified in `sendData`
             uint256 value = address(this).balance;
             // Input amount is adjusted with the pool convertRate

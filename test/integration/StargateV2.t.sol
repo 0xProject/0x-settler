@@ -65,9 +65,7 @@ contract StargateV2Test is BridgeSettlerIntegrationTest {
         deal(address(this), amount + fee);
         uint256 balanceBefore = address(pool).balance;
         vm.expectCall(
-            pool,
-            amount + excess + fee,
-            abi.encodeCall(IStargateV2.sendToken, (sendParam, messagingFee, address(this)))
+            pool, amount + excess + fee, abi.encodeCall(IStargateV2.sendToken, (sendParam, messagingFee, address(this)))
         );
         bridgeSettler.execute{value: amount + fee}(bridgeActions, bytes32(0));
         uint256 balanceAfter = address(pool).balance;
