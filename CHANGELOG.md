@@ -14,6 +14,10 @@
 * `BRIDGE_TO_CCIP` modified to remove the `token` argument that is already included in `ccipSendData`
 * `BRIDGE_TO_LAYER_ZERO_OFT` modified to remove the `nativeFee` argument that is already included in `sendData`
 * `BRIDGE_ERC20_TO_MAYAN` and `BRIDGE_NATIVE_TO_MAYAN` modified to remove `forwarder` argument. It is now hardcoded.
+* Remove `BRIDGE_ERC20_TO_STARGATE_V2` and `BRIDGE_NATIVE_TO_STARGATE_V2` in favor of a unified
+  `BRIDGE_TO_STARGATE_V2`. 
+  * `nativeFee` is taken from `sendData`
+  * `token` is used to differentiate between ERC20 and Native flows
 
 ### Non-breaking changes
 
