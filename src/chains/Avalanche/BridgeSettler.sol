@@ -21,11 +21,11 @@ contract AvalancheBridgeSettler is BridgeSettler, Mayan, StargateV2, DeBridge {
         if (super._dispatch(i, action, data)) {
             return true;
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN.selector)) {
-            (address forwarder, bytes memory protocolAndData) = abi.decode(data, (address, bytes));
-            bridgeERC20ToMayan(forwarder, protocolAndData);
+            (bytes memory protocolAndData) = abi.decode(data, (bytes));
+            bridgeERC20ToMayan(protocolAndData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN.selector)) {
-            (address forwarder, bytes memory protocolAndData) = abi.decode(data, (address, bytes));
-            bridgeNativeToMayan(forwarder, protocolAndData);
+            (bytes memory protocolAndData) = abi.decode(data, (bytes));
+            bridgeNativeToMayan(protocolAndData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_STARGATE_V2.selector)) {
             (IERC20 token, address pool, bytes memory sendData) = abi.decode(data, (IERC20, address, bytes));
             bridgeToStargateV2(token, pool, sendData);
