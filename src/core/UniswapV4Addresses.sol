@@ -15,3 +15,4 @@ IPoolManager constant INK_POOL_MANAGER = IPoolManager(0x360E68faCcca8cA495c1B759
 IPoolManager constant UNICHAIN_POOL_MANAGER = IPoolManager(0x1F98400000000000000000000000000000000004); // https://github.com/Uniswap/contracts/blob/main/deployments/130.md#wed-jan-22-2025
 IPoolManager constant SEPOLIA_POOL_MANAGER = IPoolManager(0xE03A1074c86CFeDd5C142C4F04F1a1536e203543);
 IPoolManager constant MONAD_POOL_MANAGER = IPoolManager(0x188d586Ddcf52439676Ca21A244753fA19F9Ea8e);
+IPoolManager constant TEMPO_POOL_MANAGER = IPoolManager(0x33620f62C5b9B2086dD6b62F4A297A9f30347029);
