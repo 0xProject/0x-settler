@@ -59,7 +59,7 @@ contract BridgeSettlerTestBase is Test {
         return abi.encodeCall(
             ISettlerActions.TRANSFER_FROM,
             (
-                address(bridgeSettler),
+                address(settler_),
                 ISignatureTransfer.PermitTransferFrom({
                     permitted: ISignatureTransfer.TokenPermissions({token: address(token_), amount: amount}),
                     nonce: 0,
@@ -146,6 +146,10 @@ contract BridgeSettlerTest is BridgeSettlerUnitTest, Utils {
         deal(address(token), user, amount);
 
         _mockExpectCall(address(DEPLOYER), abi.encodeCall(IERC721View.ownerOf, (2)), abi.encode(address(settler)));
+        vm.expectCall(
+            address(token), abi.encodeCall(IERC20.transferFrom, (address(bridgeSettler), address(settler), amount))
+        );
+        vm.expectCall(address(token), abi.encodeCall(IERC20.transfer, (address(bridgeSettler), amount)));
         vm.prank(user);
         ALLOWANCE_HOLDER.exec(
             address(bridgeSettler),
