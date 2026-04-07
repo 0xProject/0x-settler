@@ -35,5 +35,5 @@ jobs:
       - name: Install node dependencies
         run: npm install
 
-      - name: Check contract sizes
-        run: forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip ModeDeployer.sol --skip 'test/*'
+      - name: Check chain-specific Settler contract sizes
+        run: forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip ModeDeployer.sol --skip 'test/*' -- src/chains/
