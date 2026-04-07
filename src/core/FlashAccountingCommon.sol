@@ -152,11 +152,7 @@ library NotesLib {
     //// represent Ether as `address(0)` was stupid in the first place. `address(0)` represents the
     //// absence of a thing, not a special case of the thing. It creates confusion with
     //// uninitialized memory, storage, and variables.
-    function get(Note[] memory a, IERC20 newToken, uint256 hashMul, uint256 hashMod)
-        internal
-        pure
-        returns (NotePtr x)
-    {
+    function get(Note[] memory a, IERC20 newToken, uint256 hashMul, uint256 hashMod) internal pure returns (NotePtr x) {
         assembly ("memory-safe") {
             newToken := and(_ADDRESS_MASK, newToken)
             x := add(add(0x20, shl(0x05, MAX_TOKENS)), a) // `x` now points at the first `Note` on the heap
@@ -741,7 +737,8 @@ library Take {
             mstore(0x60, amount)
             mstore(0x40, to)
             mstore(
-                0x2c, mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, token)), token)
+                0x2c,
+                mul(iszero(eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, token)), token)
             ) // clears `to`'s padding
             mstore(0x0c, shl(0x60, selector)) // clears `token`'s padding
 
@@ -765,7 +762,7 @@ library Take {
         internal
         returns (uint256 buyAmount)
     {
-        // NOTICE: Any changes done in this function most likely need to be applied to `CompactTake.take` 
+        // NOTICE: Any changes done in this function most likely need to be applied to `CompactTake.take`
         // as well because it is a copy of this one with a different `_callSelector` function
         notes.del(state.buy());
         if (state.sell().amount() == 0) {
@@ -825,9 +822,13 @@ library CompactTake {
             mstore(0x38, amount)
             mstore(0x28, to)
             mstore(
-                0x14, mul(lt(0x00, shl(0x60, xor(0x000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token))), token)
+                0x14,
+                mul(
+                    lt(0x00, shl(0x60, xor(0x000000000000000000000000eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee, token))),
+                    token
+                )
             )
-            mstore(0x00, selector) 
+            mstore(0x00, selector)
 
             if iszero(call(gas(), caller(), 0x00, 0x1c, 0x3c, 0x00, 0x00)) {
                 returndatacopy(ptr, 0x00, returndatasize())
@@ -848,7 +849,7 @@ library CompactTake {
         internal
         returns (uint256 buyAmount)
     {
-        // NOTICE: Any changes done in this function most likely need to be applied to `Take.take` 
+        // NOTICE: Any changes done in this function most likely need to be applied to `Take.take`
         // as well because this function is a copy of it with a different `_callSelector` function
         notes.del(state.buy());
         if (state.sell().amount() == 0) {

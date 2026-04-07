@@ -129,7 +129,9 @@ contract DeploySafes is Script {
                 // We're using the old identity precompile version instead of
                 // the MCOPY opcode version because I don't want to have to deal
                 // with maintaining two versions of this
-                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) {
+                    invalid()
+                }
 
                 dst := add(dst, len)
                 mstore(bytes_length_ptr, add(len, mload(bytes_length_ptr)))

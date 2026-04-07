@@ -2,7 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
@@ -49,8 +49,9 @@ library FastDodoV2 {
     }
 
     function fastToken(IDodoV2 dodo, bool isBase) internal view returns (IERC20) {
-        uint256 result =
-            uint256(_get(dodo, isBase.ternary(uint32(dodo._BASE_TOKEN_.selector), uint32(dodo._QUOTE_TOKEN_.selector))));
+        uint256 result = uint256(
+            _get(dodo, isBase.ternary(uint32(dodo._BASE_TOKEN_.selector), uint32(dodo._QUOTE_TOKEN_.selector)))
+        );
         require(result >> 160 == 0);
         return IERC20(address(uint160(result)));
     }
@@ -62,7 +63,7 @@ library FastDodoV2 {
     }
 }
 
-abstract contract DodoV2 is SettlerAbstract {
+abstract contract DodoV2 is SettlerSwapAbstract {
     using UnsafeMath for uint256;
     using SafeTransferLib for IERC20;
     using FastDodoV2 for IDodoV2;

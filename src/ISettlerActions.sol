@@ -6,6 +6,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 interface ISettlerActions {
     /// VIP actions should always start with `recipient` address and the `permit` from the taker
     /// followed by all the other parameters to ensure compatibility with `executeWithPermit` entrypoint.
+    /// `minBuyAmount`/`amountOutMin` should always be the last parameter.
 
     /// @dev Transfer funds from msg.sender Permit2.
     function TRANSFER_FROM(address recipient, ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig)
@@ -201,27 +202,6 @@ interface ISettlerActions {
         int32 tickLimit,
         uint256 minBuyAmount
     ) external;
-    /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback
-    /// This action requires the use of the MaverickV2 callback, so we take the MaverickV2 CREATE2 salt as an argument to derive the pool address from the trusted factory and inithash.
-    /// @param salt is formed as `keccak256(abi.encode(feeAIn, feeBIn, tickSpacing, lookback, tokenA, tokenB, kinds, address(0)))`
-    function MAVERICKV2_VIP(
-        address recipient,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes32 salt,
-        bool tokenAIn,
-        bytes memory sig,
-        int32 tickLimit,
-        uint256 minBuyAmount
-    ) external;
-    /// @dev Trades against MaverickV2, spending the taker's coupon inside the callback; metatransaction variant
-    function METATXN_MAVERICKV2_VIP(
-        address recipient,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bytes32 salt,
-        bool tokenAIn,
-        int32 tickLimit,
-        uint256 minBuyAmount
-    ) external;
 
     /// @dev Trades against UniswapV2 using the contracts balance for funding
     /// @param swapInfo is encoded as the upper 16 bits as the fee of the pool in bps, the second
@@ -266,17 +246,6 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function EKUBO_VIP(
-        address recipient,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bool feeOnTransfer,
-        uint256 hashMul,
-        uint256 hashMod,
-        bytes memory fills,
-        bytes memory sig,
-        uint256 amountOutMin
-    ) external;
-
     function EKUBOV3_VIP(
         address recipient,
         ISignatureTransfer.PermitTransferFrom memory permit,
@@ -285,16 +254,6 @@ interface ISettlerActions {
         uint256 hashMod,
         bytes memory fills,
         bytes memory sig,
-        uint256 amountOutMin
-    ) external;
-
-    function METATXN_EKUBO_VIP(
-        address recipient,
-        ISignatureTransfer.PermitTransferFrom memory permit,
-        bool feeOnTransfer,
-        uint256 hashMul,
-        uint256 hashMod,
-        bytes memory fills,
         uint256 amountOutMin
     ) external;
 
@@ -317,16 +276,8 @@ interface ISettlerActions {
         uint256 amountOutMin
     ) external;
 
-    function RENEGADE(address target, address baseToken, bytes memory data) external;
-
-    function LFJTM(
-        address recipient,
-        address sellToken,
-        uint256 bps,
-        address pool,
-        bool zeroForOne,
-        uint256 amountOutMin
-    ) external;
+    function RENEGADE(address target, address sellToken, bool baseForQuote, bytes memory data, uint256 minBuyAmount)
+        external;
 
     struct BebopMakerSignature {
         bytes signatureBytes;
@@ -368,4 +319,6 @@ interface ISettlerActions {
         uint256 priceLimit,
         uint256 minBuyAmount
     ) external;
+
+    function CHECK_SLIPPAGE(bool transferExactLimit) external;
 }

@@ -247,16 +247,14 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     proof.offset := add(0x20, proof.offset)
                 }
 
-                return _verifyDeploymentRootHash(_getMerkleRoot(proof, hash), originalOwner).ternary(
-                    IERC1271.isValidSignature.selector, bytes4(0xffffffff)
-                );
+                return _verifyDeploymentRootHash(_getMerkleRoot(proof, hash), originalOwner)
+                    .ternary(IERC1271.isValidSignature.selector, bytes4(0xffffffff));
             }
         }
 
         // ERC7739 validation
-        return _verifyERC7739NestedTypedSignature(hash, signature, super.owner()).ternary(
-            IERC1271.isValidSignature.selector, bytes4(0xffffffff)
-        );
+        return _verifyERC7739NestedTypedSignature(hash, signature, super.owner())
+            .ternary(IERC1271.isValidSignature.selector, bytes4(0xffffffff));
     }
 
     /// @inheritdoc IERC5267
@@ -576,8 +574,9 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         if (msg.sender != address(_WNATIVE)) {
             IWrappedNative wnative = _WNATIVE;
             assembly ("memory-safe") {
-                if iszero(call(gas(), wnative, callvalue(), codesize(), returndatasize(), codesize(), returndatasize()))
-                {
+                if iszero(
+                    call(gas(), wnative, callvalue(), codesize(), returndatasize(), codesize(), returndatasize())
+                ) {
                     let ptr := mload(0x40)
                     returndatacopy(ptr, 0x00, returndatasize())
                     revert(ptr, returndatasize())

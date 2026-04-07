@@ -8,7 +8,7 @@ import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 import {CurveLib} from "./EulerSwapBUSL.sol";
 
 import {FastLogic} from "../utils/FastLogic.sol";
@@ -277,7 +277,9 @@ library FastEvault {
             }
             supplyCap := mload(0x00)
             borrowCap := mload(0x20)
-            if or(gt(0x40, returndatasize()), or(shr(0x10, supplyCap), shr(0x10, borrowCap))) { revert(0x00, 0x00) }
+            if or(gt(0x40, returndatasize()), or(shr(0x10, supplyCap), shr(0x10, borrowCap))) {
+                revert(0x00, 0x00)
+            }
         }
     }
 
@@ -371,7 +373,9 @@ library FastEulerSwap {
             }
             reserve0 := mload(0x00)
             reserve1 := mload(0x20)
-            if or(gt(0x60, returndatasize()), or(shr(0x70, reserve1), shr(0x70, reserve0))) { revert(0x00, 0x00) }
+            if or(gt(0x60, returndatasize()), or(shr(0x70, reserve1), shr(0x70, reserve0))) {
+                revert(0x00, 0x00)
+            }
         }
     }
 
@@ -821,7 +825,9 @@ library EulerSwapLib {
             }
             uint256 collateral; // the sum of all LTV-adjusted, unit-of-account valued collaterals
             for (
-                (EVaultIterator i, EVaultIterator end) = (collaterals.iter(), collaterals.end()); i != end; i = i.next()
+                (EVaultIterator i, EVaultIterator end) = (collaterals.iter(), collaterals.end());
+                i != end;
+                i = i.next()
             ) {
                 IEVault collateralVault = collaterals.get(i);
                 uint256 collateralAmount = collateralVault.fastConvertToAssets(collateralVault.fastBalanceOf(account));
@@ -861,7 +867,7 @@ library EulerSwapLib {
     }
 }
 
-abstract contract EulerSwap is SettlerAbstract {
+abstract contract EulerSwap is SettlerSwapAbstract {
     using Ternary for bool;
     using SafeTransferLib for IERC20;
     using ParamsLib for ParamsLib.Params;

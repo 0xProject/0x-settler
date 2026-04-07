@@ -24,11 +24,13 @@ abstract contract BebopPairTest is SettlerBasePairTest {
     //     1,
     //     0xbbbbbBB520d69a9775E85b458C58c648259FAD5F
     // ))
-    bytes32 internal constant BEBOP_DOMAIN_SEPARATOR = 0x31e9fc520926ab5a9e3842dc84bce011b96c3158dfd9cde10e518472a052d470;
+    bytes32 internal constant BEBOP_DOMAIN_SEPARATOR =
+        0x31e9fc520926ab5a9e3842dc84bce011b96c3158dfd9cde10e518472a052d470;
 
     // From BebopSigning.sol:
     // keccak256("SingleOrder(uint64 partner_id,uint256 expiry,address taker_address,address maker_address,uint256 maker_nonce,address taker_token,address maker_token,uint256 taker_amount,uint256 maker_amount,address receiver,uint256 packed_commands)")
-    bytes32 internal constant SINGLE_ORDER_TYPEHASH = 0xe34225bc7cd92038d42c258ee3ff66d30f9387dd932213ba32a52011df0603fc;
+    bytes32 internal constant SINGLE_ORDER_TYPEHASH =
+        0xe34225bc7cd92038d42c258ee3ff66d30f9387dd932213ba32a52011df0603fc;
 
     function setUp() public virtual override {
         super.setUp();
@@ -159,8 +161,9 @@ abstract contract BebopPairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.BEBOP, (FROM, address(_fromToken), order, makerSig, 0))
         );
 
-        ISettlerBase.AllowedSlippage memory allowedSlippage =
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+        });
 
         bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
 
@@ -215,8 +218,9 @@ abstract contract BebopPairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.BEBOP, (FROM, address(_fromToken), order, makerSig, amountOutMin))
         );
 
-        ISettlerBase.AllowedSlippage memory allowedSlippage =
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+        });
 
         bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
 
@@ -252,14 +256,17 @@ abstract contract BebopPairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.BEBOP, (FROM, address(_fromToken), order, makerSig, amountOutMin))
         );
 
-        ISettlerBase.AllowedSlippage memory allowedSlippage =
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+        });
 
         bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
 
         vm.startPrank(FROM, FROM);
         vm.expectRevert(
-            abi.encodeWithSignature("TooMuchSlippage(address,uint256,uint256)", address(toToken()), amountOutMin, makerAmount)
+            abi.encodeWithSignature(
+                "TooMuchSlippage(address,uint256,uint256)", address(toToken()), amountOutMin, makerAmount
+            )
         );
         allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
         vm.stopPrank();
@@ -290,8 +297,9 @@ abstract contract BebopPairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.BEBOP, (FROM, address(_fromToken), order, makerSig, 0))
         );
 
-        ISettlerBase.AllowedSlippage memory allowedSlippage =
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+        });
 
         bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
 
@@ -314,9 +322,7 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
     /// @dev Helper to build actions that attempt to call a restricted target via BASIC
     function _buildRestrictedTargetActions(address restrictedTarget) internal pure returns (bytes[] memory) {
-        return ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, restrictedTarget, 0, ""))
-        );
+        return ActionDataBuilder.build(abi.encodeCall(ISettlerActions.BASIC, (address(0), 0, restrictedTarget, 0, "")));
     }
 
     function testBebop_restrictedTarget_bebop() public {
@@ -326,8 +332,9 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         bytes[] memory actions = _buildRestrictedTargetActions(address(BEBOP));
 
-        ISettlerBase.AllowedSlippage memory allowedSlippage =
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+        });
 
         bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
 
@@ -344,8 +351,9 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         bytes[] memory actions = _buildRestrictedTargetActions(address(PERMIT2));
 
-        ISettlerBase.AllowedSlippage memory allowedSlippage =
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+        });
 
         bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
 
@@ -362,8 +370,9 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         bytes[] memory actions = _buildRestrictedTargetActions(address(ALLOWANCE_HOLDER));
 
-        ISettlerBase.AllowedSlippage memory allowedSlippage =
-            ISettlerBase.AllowedSlippage({recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0});
+        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
+        });
 
         bytes memory ahData = abi.encodeCall(_settler.execute, (allowedSlippage, actions, bytes32(0)));
 

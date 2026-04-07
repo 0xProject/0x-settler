@@ -39,8 +39,7 @@ abstract contract Permit2TransferTest is BasePairTest {
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
             new ISignatureTransfer.SignatureTransferDetails[](1);
         transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
-            to: address(BURN_ADDRESS),
-            requestedAmount: permit.permitted[0].amount
+            to: address(BURN_ADDRESS), requestedAmount: permit.permitted[0].amount
         });
 
         snapStartName("permit2_permitTransferFrom_warmNonce");
@@ -70,8 +69,7 @@ abstract contract Permit2TransferTest is BasePairTest {
         ISignatureTransfer.SignatureTransferDetails[] memory transferDetails =
             new ISignatureTransfer.SignatureTransferDetails[](1);
         transferDetails[0] = ISignatureTransfer.SignatureTransferDetails({
-            to: address(BURN_ADDRESS),
-            requestedAmount: permit.permitted[0].amount
+            to: address(BURN_ADDRESS), requestedAmount: permit.permitted[0].amount
         });
 
         snapStartName("permit2_permitWitnessTransferFrom_warmNonce");

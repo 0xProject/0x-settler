@@ -131,9 +131,8 @@ abstract contract HanjiTestBase is AllowanceHolderPairTest {
         uint256 beforeFrom = balanceOf(_fromToken, FROM);
         uint256 beforeTo = balanceOf(_toToken, FROM);
 
-        ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(FROM), buyToken: _toToken, minAmountOut: 0
-        });
+        ISettlerBase.AllowedSlippage memory allowedSlippage =
+            ISettlerBase.AllowedSlippage({recipient: payable(FROM), buyToken: _toToken, minAmountOut: 0});
 
         bytes memory ahData = abi.encodeCall(settler.execute, (allowedSlippage, actions, bytes32(0)));
 

@@ -3,13 +3,13 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Ternary} from "../utils/Ternary.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
-abstract contract RfqOrderSettlement is SettlerAbstract {
+abstract contract RfqOrderSettlement is SettlerSwapAbstract {
     using Ternary for bool;
     using SafeTransferLib for IERC20;
     using UnsafeMath for uint256;
@@ -149,10 +149,7 @@ abstract contract RfqOrderSettlement is SettlerAbstract {
         );
         bytes32 makerWitness = _hashConsideration(
             Consideration({
-                token: takerToken,
-                amount: maxTakerAmount,
-                counterparty: _msgSender(),
-                partialFillAllowed: true
+                token: takerToken, amount: maxTakerAmount, counterparty: _msgSender(), partialFillAllowed: true
             })
         );
 

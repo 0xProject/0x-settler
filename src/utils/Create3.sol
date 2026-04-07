@@ -147,10 +147,7 @@ library Create3 {
         return _createFromCalldata(salt, initCode, value, _SHIM0, _SHIM1, _SHIM_RUNTIME_HASH);
     }
 
-    function createFromCalldataLondon(bytes32 salt, bytes calldata initCode, uint256 value)
-        internal
-        returns (address)
-    {
+    function createFromCalldataLondon(bytes32 salt, bytes calldata initCode, uint256 value) internal returns (address) {
         return _createFromCalldata(salt, initCode, value, _SHIM0_LONDON, _SHIM1_LONDON, _SHIM_RUNTIME_HASH_LONDON);
     }
 
@@ -177,7 +174,9 @@ library Create3 {
             shim := create2(0x00, 0x00, _SHIM_LENGTH, salt)
             if iszero(shim) { revert(0x00, 0x00) }
             if iszero(eq(extcodehash(shim), shimRuntimeHash)) { revert(0x00, 0x00) }
-            if iszero(call(gas(), shim, value, add(0x20, initCode), mload(initCode), 0x00, 0x20)) { revert(0x00, 0x00) }
+            if iszero(call(gas(), shim, value, add(0x20, initCode), mload(initCode), 0x00, 0x20)) {
+                revert(0x00, 0x00)
+            }
             deployed := mload(0x00)
 
             // This causes the shim to selfdestruct. On some chains, `SELFDESTRUCT` reverts,
