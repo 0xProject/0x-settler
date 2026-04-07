@@ -54,7 +54,7 @@ else
     function decrypt_secrets {
         secrets="$(scrypt dec -f "$project_root"/secrets.json.scrypt)"
 
-        if [[ "$(jq -cM <<<"$secrets" | sha256sum)" != '9ab39d18541f716172c96cc7a1bf79350364bae743faf846109d89de32a2db4e  -' ]] ; then
+        if [[ "$(jq -cM <<<"$secrets" | sha256sum)" != 'a6290f70ec6fd0d919093736c02ef2f1a12a3fa17a2984a97f94cc9cd6e16592  -' ]] ; then
             echo "Decrypted secrets.json hash verification failed" >&2
             exit 1
         fi

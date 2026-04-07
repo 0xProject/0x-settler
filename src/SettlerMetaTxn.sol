@@ -51,20 +51,16 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
         }
     }
 
-    function _hashActionsAndSlippage(bytes[] calldata actions, AllowedSlippage calldata slippage)
+    function _hashActionsAndSlippage(bytes[] calldata actions, AllowedSlippage memory slippage)
         internal
         pure
         returns (bytes32 result)
     {
-        // This function does not check for or clean any dirty bits that might
-        // exist in `slippage`. We assume that `slippage` will be used elsewhere
-        // in this context and that if there are dirty bits it will result in a
-        // revert later.
         bytes32 arrayOfBytesHash = _hashArrayOfBytes(actions);
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, SLIPPAGE_AND_ACTIONS_TYPEHASH)
-            calldatacopy(add(0x20, ptr), slippage, 0x60)
+            mcopy(add(0x20, ptr), slippage, 0x60)
             mstore(add(0x80, ptr), arrayOfBytesHash)
             result := keccak256(ptr, 0xa0)
         }
@@ -91,22 +87,22 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
             // validate `sig` against `actions` here
             (
                 address recipient,
+                ISignatureTransfer.PermitTransferFrom memory takerPermit
                 ISignatureTransfer.PermitTransferFrom memory makerPermit,
                 address maker,
                 bytes memory makerSig,
-                ISignatureTransfer.PermitTransferFrom memory takerPermit
             ) = abi.decode(
                 data,
-                (address, ISignatureTransfer.PermitTransferFrom, address, bytes, ISignatureTransfer.PermitTransferFrom)
+                (address, ISignatureTransfer.PermitTransferFrom, ISignatureTransfer.PermitTransferFrom, address, bytes)
             );
             fillRfqOrderVIP(recipient, makerPermit, maker, makerSig, takerPermit, sig);
         } */ else if (action == uint32(ISettlerActions.METATXN_UNISWAPV3_VIP.selector)) {
             (
                 address recipient,
-                bytes memory path,
                 ISignatureTransfer.PermitTransferFrom memory permit,
+                bytes memory path,
                 uint256 amountOutMin
-            ) = abi.decode(data, (address, bytes, ISignatureTransfer.PermitTransferFrom, uint256));
+            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes, uint256));
 
             sellToUniswapV3VIP(recipient, path, permit, sig, amountOutMin);
         } else {
@@ -115,7 +111,7 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
         return true;
     }
 
-    function _executeMetaTxn(AllowedSlippage calldata slippage, bytes[] calldata actions, bytes calldata sig)
+    function _executeMetaTxn(AllowedSlippage memory slippage, bytes[] calldata actions, bytes calldata sig)
         internal
         returns (bool)
     {
@@ -137,17 +133,17 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
         it = it.unsafeAdd(32);
         for (uint256 i = 1; i < actions.length; (i, it) = (i.unsafeInc(), it.unsafeAdd(32))) {
             (uint256 action, bytes calldata data) = actions.decodeCall(it);
-            if (!_dispatch(i, action, data)) {
+            if (!_dispatch(i, action, data, slippage)) {
                 revertActionInvalid(i, action, data);
             }
         }
 
-        _checkSlippageAndTransfer(slippage);
+        _checkSlippageAndTransfer(slippage, false);
         return true;
     }
 
     function executeMetaTxn(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32 /* zid & affiliate */,
         address msgSender,

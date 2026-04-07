@@ -7,7 +7,10 @@ import {SettlerMetaTxn} from "./SettlerMetaTxn.sol";
 
 import {Permit2PaymentAbstract} from "./core/Permit2PaymentAbstract.sol";
 import {
-    Permit2PaymentIntent, Permit2PaymentMetaTxn, Permit2Payment, Permit2PaymentBase
+    Permit2PaymentIntent,
+    Permit2PaymentMetaTxn,
+    Permit2Payment,
+    Permit2PaymentBase
 } from "./core/Permit2Payment.sol";
 
 import {AbstractContext, Context} from "./Context.sol";
@@ -23,7 +26,8 @@ import {IOwnable} from "./interfaces/IOwnable.sol";
 // DANGER: do not reorder the inheritance list here. You will get shocking and incorrect results
 // inside `MultiCallContext` if `super._msgSender` is `Permit2PaymentMetaTxn._msgSender`.
 abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, SettlerMetaTxn {
-    bytes32 private constant _SOLVER_LIST_BASE_SLOT = 0x000000000000000000000000000000000000000008054751d605e5c08a2210bf; // uint96(uint256(keccak256("SettlerIntentSolverList")) - 1)
+    bytes32 private constant _SOLVER_LIST_BASE_SLOT =
+        0x000000000000000000000000000000000000000008054751d605e5c08a2210bf; // uint96(uint256(keccak256("SettlerIntentSolverList")) - 1)
 
     /// This mapping forms a circular singly-linked list that traverses all the authorized callers
     /// of `executeMetaTxn`. The head and tail of the list is `address(1)`, which is the constant
@@ -99,7 +103,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
     modifier onlySolver() {
         address operator = _operator();
         assembly ("memory-safe") {
-            mstore(0x00, and(0xffffffffffffffffffffffffffffffffffffffff, operator))
+            mstore(0x00, shr(0x60, shl(0x60, operator)))
             mstore(0x20, _SOLVER_LIST_BASE_SLOT)
             if iszero(shl(0x60, sload(keccak256(0x00, 0x40)))) {
                 mstore(0x00, 0x1e092104) // selector for `PermissionDenied()`
@@ -234,21 +238,17 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
         return true;
     }
 
-    function _hashSlippage(AllowedSlippage calldata slippage) internal pure returns (bytes32 result) {
-        // This function does not check for or clean any dirty bits that might
-        // exist in `slippage`. We assume that `slippage` will be used elsewhere
-        // in this context and that if there are dirty bits it will result in a
-        // revert later.
+    function _hashSlippage(AllowedSlippage memory slippage) internal pure returns (bytes32 result) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
             mstore(ptr, SLIPPAGE_TYPEHASH)
-            calldatacopy(add(0x20, ptr), slippage, 0x60)
+            mcopy(add(0x20, ptr), slippage, 0x60)
             result := keccak256(ptr, 0x80)
         }
     }
 
     function executeMetaTxn(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32 /* zid & affiliate */,
         address msgSender,

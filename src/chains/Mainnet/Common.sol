@@ -13,12 +13,14 @@ import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
-import {Ekubo} from "../../core/Ekubo.sol";
+import {EkuboV2} from "../../core/EkuboV2.sol";
+import {EkuboV3} from "../../core/EkuboV3.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {Bebop} from "../../core/Bebop.sol";
 
 import {SafeTransferLib} from "../../vendor/SafeTransferLib.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
+import {FastLogic} from "../../utils/FastLogic.sol";
 import {Ternary} from "../../utils/Ternary.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -48,7 +50,7 @@ import {
 import {MAINNET_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract MainnetMixin is
@@ -61,22 +63,24 @@ abstract contract MainnetMixin is
     DodoV2,
     UniswapV4,
     BalancerV3,
-    Ekubo,
+    EkuboV2,
+    EkuboV3,
     EulerSwap,
     Bebop
 {
     using SafeTransferLib for IERC20;
     using SafeTransferLib for address payable;
+    using FastLogic for bool;
     using Ternary for bool;
 
     constructor() {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256, uint256 action, bytes calldata data)
+    function _dispatch(uint256, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerAbstract, SettlerBase)
+        override(SettlerSwapAbstract, SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
@@ -128,7 +132,10 @@ abstract contract MainnetMixin is
                     token.safeTransfer(recipient, balance);
                 }
             }
-        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+        } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
+                .or(action == uint32(ISettlerActions.BALANCERV3.selector))
+                .or(action == uint32(ISettlerActions.EKUBO.selector))
+                .or(action == uint32(ISettlerActions.EKUBOV3.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -140,7 +147,15 @@ abstract contract MainnetMixin is
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+                sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
+                sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
+                sellToEkuboV2(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.EKUBOV3.selector))
+                sellToEkuboV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            }
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
             (address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, IPSM psm, IERC20 dai) =
                 abi.decode(data, (address, uint256, bool, uint256, IPSM, IERC20));
@@ -151,19 +166,6 @@ abstract contract MainnetMixin is
                 abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
 
             sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
-        } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
-            (
-                address recipient,
-                IERC20 sellToken,
-                uint256 bps,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
-
-            sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
@@ -176,19 +178,6 @@ abstract contract MainnetMixin is
             ) = abi.decode(data, (address, IERC20, uint256, IMaverickV2Pool, bool, int32, uint256));
 
             sellToMaverickV2(recipient, sellToken, bps, pool, tokenAIn, tickLimit, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
-            (
-                address recipient,
-                IERC20 sellToken,
-                uint256 bps,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
-
-            sellToEkubo(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (
                 address recipient,
@@ -259,6 +248,15 @@ abstract contract MainnetMixin is
     }
 
     // I hate Solidity inheritance
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
+        return super._fallback(data);
+    }
+
     function _isRestrictedTarget(address target)
         internal
         view

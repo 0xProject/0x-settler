@@ -85,9 +85,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
 
         Settler _settler = settler;
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: FROM,
-            buyToken: otcOrder.makerToken,
-            minAmountOut: otcOrder.makerAmount
+            recipient: FROM, buyToken: otcOrder.makerToken, minAmountOut: otcOrder.makerAmount
         });
         vm.startPrank(FROM, FROM);
         snapStartName("settler_zeroExOtc");
@@ -126,9 +124,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
 
         Settler _settler = settler;
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: FROM,
-            buyToken: otcOrder.makerToken,
-            minAmountOut: otcOrder.makerAmount / 2
+            recipient: FROM, buyToken: otcOrder.makerToken, minAmountOut: otcOrder.makerAmount / 2
         });
         vm.startPrank(FROM, FROM);
         snapStartName("settler_zeroExOtc_partialFill");
@@ -139,12 +135,10 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function testSettler_uniswapV3VIP() public skipIf(uniswapV3Path().length == 0) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, uniswapV3Path(), permit, sig, 0))
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (FROM, permit, uniswapV3Path(), sig, 0))
         );
         ISettlerBase.AllowedSlippage memory slippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0 ether
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
         });
 
         Settler _settler = settler;
@@ -166,9 +160,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapStartName("settler_uniswapV3_multiplex2");
         _settler.execute(
             ISettlerBase.AllowedSlippage({
-                recipient: payable(address(0)),
-                buyToken: IERC20(address(0)),
-                minAmountOut: 0 ether
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
             }),
             actions,
             bytes32(0)
@@ -187,9 +179,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapStartName("settler_uniswapV3");
         _settler.execute(
             ISettlerBase.AllowedSlippage({
-                recipient: payable(address(0)),
-                buyToken: IERC20(address(0)),
-                minAmountOut: 0 ether
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
             }),
             actions,
             bytes32(0)
@@ -227,7 +217,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
     function testSettler_uniswapV3_buyToken_fee_single_custody() public skipIf(uniswapV3Path().length == 0) {
         (ISignatureTransfer.PermitTransferFrom memory permit, bytes memory sig) = _getDefaultFromPermit2();
         bytes[] memory actions = ActionDataBuilder.build(
-            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(settler), uniswapV3Path(), permit, sig, 0)),
+            abi.encodeCall(ISettlerActions.UNISWAPV3_VIP, (address(settler), permit, uniswapV3Path(), sig, 0)),
             abi.encodeCall(
                 ISettlerActions.BASIC,
                 (
@@ -272,9 +262,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapStartName("settler_uniswapV3_sellToken_fee_full_custody");
         _settler.execute(
             ISettlerBase.AllowedSlippage({
-                recipient: payable(address(0)),
-                buyToken: IERC20(address(0)),
-                minAmountOut: 0 ether
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
             }),
             actions,
             bytes32(0)
@@ -300,9 +288,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapStartName("settler_uniswapV2");
         _settler.execute(
             ISettlerBase.AllowedSlippage({
-                recipient: payable(address(0)),
-                buyToken: IERC20(address(0)),
-                minAmountOut: 0 ether
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
             }),
             actions,
             bytes32(0)
@@ -330,7 +316,9 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         address nextPool = 0xBb2b8038a1640196FbE3e38816F3e67Cba72D940; // UniswapV2 WETH/WBTC
         bytes[] memory actions = ActionDataBuilder.build(
             permit2Action,
-            abi.encodeCall(ISettlerActions.UNISWAPV2, (nextPool, address(fromToken()), 0, uniswapV2Pool(), swapInfo, 0)),
+            abi.encodeCall(
+                ISettlerActions.UNISWAPV2, (nextPool, address(fromToken()), 0, uniswapV2Pool(), swapInfo, 0)
+            ),
             abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(toToken()), 0, nextPool, swapInfo2, 0))
         );
 
@@ -341,9 +329,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapStartName("settler_uniswapV2_multihop_single_chain");
         _settler.execute(
             ISettlerBase.AllowedSlippage({
-                recipient: payable(address(0)),
-                buyToken: IERC20(address(0)),
-                minAmountOut: 0 ether
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
             }),
             actions,
             bytes32(0)
@@ -374,9 +360,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapStartName("settler_uniswapV2_single_chain");
         _settler.execute(
             ISettlerBase.AllowedSlippage({
-                recipient: payable(address(0)),
-                buyToken: IERC20(address(0)),
-                minAmountOut: 0 ether
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
             }),
             actions,
             bytes32(0)
@@ -409,9 +393,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
         snapStartName("settler_uniswapV2_multihop");
         _settler.execute(
             ISettlerBase.AllowedSlippage({
-                recipient: payable(address(0)),
-                buyToken: IERC20(address(0)),
-                minAmountOut: 0 ether
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
             }),
             actions,
             bytes32(0)
@@ -502,9 +484,7 @@ abstract contract SettlerPairTest is SettlerBasePairTest {
 
         _settler.execute(
             ISettlerBase.AllowedSlippage({
-                recipient: payable(address(0)),
-                buyToken: IERC20(address(0)),
-                minAmountOut: 0 ether
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
             }),
             actions,
             bytes32(0)

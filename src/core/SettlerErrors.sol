@@ -118,3 +118,21 @@ error UnknownPoolManagerId(uint8 poolManagerId);
 
 /// @notice Thrown when the `msg.value` is less than the minimum expected value.
 error Underpayment(uint256 msgValueMin, uint256 msgValueActual);
+
+/// @notice Thrown when a permit call fails.
+error PermitFailed();
+
+/// @notice Thrown when a permit signature is incorrect
+error InvalidSignature();
+
+/// @notice Thrown when a permit signature is expired
+error PermitExpired();
+
+/// @notice Thrown when a permit type is unsupported
+error UnsupportedPermitType();
+
+/// @notice Thrown when a CCIP message specifies a non-zero feeToken (only native fees are supported)
+error InvalidFeeToken();
+
+/// @notice Thrown when a CCIP message does not have exactly 1 tokenAmounts element
+error InvalidTokenAmountsLength();

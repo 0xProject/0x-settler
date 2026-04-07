@@ -38,6 +38,11 @@ abstract contract MultiCallContext is Context {
         return IMultiCall(payable(EIP150_MULTICALL_ADDRESS));
     }
 
+    /// This function is not intended for use inside `fallback`. MultiCall only
+    /// forwards the sender if there are at least 4 bytes of ordinary data,
+    /// which is true _EXCEPT_ inside fallback. If you use this function when
+    /// the sender is not forwarded, you will incorrectly get `true` when
+    /// probably what you want is `false`.
     function _isForwarded(address multicall) internal view returns (bool) {
         return super._isForwarded().or(super._msgSender() == address(multicall));
     }
@@ -46,12 +51,16 @@ abstract contract MultiCallContext is Context {
         return MultiCallContext._isForwarded(address(_MULTICALL()));
     }
 
+    /// This function is not intended for use inside `fallback`. MultiCall only
+    /// forwards the sender if there are at least 4 bytes of ordinary data,
+    /// which is true _EXCEPT_ inside fallback. If you use this function when
+    /// the sender is not forwarded, you will get an underflow and a
+    /// massively-too-long calldata region for `_msgData()`.
     function _msgData(address multicall) internal view returns (bytes calldata r) {
         address sender = super._msgSender();
         r = super._msgData();
         assembly ("memory-safe") {
-            r.length :=
-                sub(r.length, mul(0x14, lt(0x00, shl(0x60, xor(multicall, sender)))))
+            r.length := sub(r.length, mul(0x14, iszero(shl(0x60, xor(multicall, sender)))))
         }
     }
 
@@ -59,20 +68,24 @@ abstract contract MultiCallContext is Context {
         return MultiCallContext._msgData(address(_MULTICALL()));
     }
 
+    /// This function is not intended for use inside `fallback`. MultiCall only
+    /// forwards the sender if there are at least 4 bytes of ordinary data,
+    /// which is true _EXCEPT_ inside fallback. If you use this function when
+    /// the sender is not forwarded, you will get a wrong address (mostly
+    /// zeroes) for `_msgSender()`.
     function _msgSender(address multicall) internal view returns (address sender) {
         sender = super._msgSender();
         bytes calldata data = super._msgData();
         assembly ("memory-safe") {
             // ERC-2771. The trusted forwarder (`_MULTICALL`) has appended the appropriate
             // msg.sender to the msg data
-            sender :=
-                xor(
-                    sender,
-                    mul(
-                        xor(shr(0x60, calldataload(add(data.offset, sub(data.length, 0x14)))), sender),
-                        and(lt(0x03, data.length), iszero(shl(0x60, xor(multicall, sender))))
-                    )
+            sender := xor(
+                sender,
+                mul(
+                    xor(shr(0x60, calldataload(add(data.offset, sub(data.length, 0x14)))), sender),
+                    and(lt(0x03, data.length), iszero(shl(0x60, xor(multicall, sender))))
                 )
+            )
         }
     }
 

@@ -2,7 +2,6 @@
 pragma solidity =0.8.33;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 import {Across} from "../../core/Across.sol";
@@ -10,14 +9,16 @@ import {Mayan} from "../../core/Mayan.sol";
 import {StargateV2} from "../../core/StargateV2.sol";
 import {DeBridge} from "../../core/DeBridge.sol";
 
-contract BaseBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBridge {
+import {IMsgSender} from "../../interfaces/IMsgSender.sol";
+
+contract BaseBridgeSettler is IMsgSender, BridgeSettler, Across, Mayan, StargateV2, DeBridge {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 8453 || block.chainid == 31337);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
         internal
-        override(BridgeSettlerBase, SettlerAbstract)
+        override(BridgeSettlerBase)
         returns (bool)
     {
         if (super._dispatch(i, action, data)) {
@@ -49,7 +50,7 @@ contract BaseBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBridge
         return true;
     }
 
-    function msgSender() external view returns (address result) {
+    function msgSender() external view override returns (address result) {
         result = _msgSender();
         require(result != address(0));
     }

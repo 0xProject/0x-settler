@@ -4,12 +4,12 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Math, UnsafeMath} from "../utils/UnsafeMath.sol";
 import {FastLogic} from "../utils/FastLogic.sol";
-import {FullMath} from "../vendor/FullMath.sol";
+import {tmp} from "../utils/512Math.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {revertTooMuchSlippage, NotConverged} from "./SettlerErrors.sol";
 //import {Panic} from "../utils/Panic.sol";
 
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 interface IVelodromePair {
     function metadata()
@@ -27,11 +27,10 @@ interface IVelodromePair {
     function swap(uint256 amount0Out, uint256 amount1Out, address to, bytes calldata data) external;
 }
 
-abstract contract Velodrome is SettlerAbstract {
+abstract contract Velodrome is SettlerSwapAbstract {
     using Math for uint256;
     using UnsafeMath for uint256;
     using FastLogic for bool;
-    using FullMath for uint256;
     using SafeTransferLib for IERC20;
 
     // This is the basis used for token balances. The original token may have fewer decimals, in
@@ -81,19 +80,19 @@ abstract contract Velodrome is SettlerAbstract {
 
     function _k(uint256 x, uint256 y, uint256 x_squared, uint256 y_squared) private pure returns (uint256) {
         unchecked {
-            return (x * y).unsafeMulDivAlt(x_squared + y_squared, _VELODROME_INTERNAL_BASIS);
+            return tmp().omul(x * y, x_squared + y_squared).unsafeDiv(_VELODROME_INTERNAL_BASIS);
         }
     }
 
     function _k_compat(uint256 x, uint256 y) internal pure returns (uint256) {
         unchecked {
-            return (x * y).unsafeMulDivAlt(x * x + y * y, _VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
+            return tmp().omul(x * y, x * x + y * y).unsafeDiv(_VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
         }
     }
 
     function _k_compat(uint256 x, uint256 y, uint256 x_squared) private pure returns (uint256) {
         unchecked {
-            return (x * y).unsafeMulDivAlt(x_squared + y * y, _VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
+            return tmp().omul(x * y, x_squared + y * y).unsafeDiv(_VELODROME_INTERNAL_BASIS * _VELODROME_TOKEN_BASIS);
         }
     }
 
@@ -249,7 +248,7 @@ abstract contract Velodrome is SettlerAbstract {
         assert(stable);
         if (!zeroForOne) {
             (sellBasis, buyBasis, sellReserve, buyReserve, sellToken, buyToken) =
-                (buyBasis, sellBasis, buyReserve, sellReserve, buyToken, sellToken);
+            (buyBasis, sellBasis, buyReserve, sellReserve, buyToken, sellToken);
         }
 
         uint256 buyAmount;
@@ -305,7 +304,7 @@ abstract contract Velodrome is SettlerAbstract {
 
         // Check slippage
         if (buyAmount < minAmountOut) {
-            revertTooMuchSlippage(sellToken, minAmountOut, buyAmount);
+            revertTooMuchSlippage(buyToken, minAmountOut, buyAmount);
         }
 
         // Perform the swap

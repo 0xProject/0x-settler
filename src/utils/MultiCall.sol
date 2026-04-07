@@ -18,13 +18,12 @@ library UnsafeArray {
             }
 
             // initially, we set `data.offset` to the pointer to the length. this is 32 bytes before the actual start of data
-            data.offset :=
-                add(
-                    datas.offset,
-                    calldataload(
-                        add(shl(5, i), datas.offset) // can't overflow; we assume `i` is in-bounds
-                    )
+            data.offset := add(
+                datas.offset,
+                calldataload(
+                    add(shl(5, i), datas.offset) // can't overflow; we assume `i` is in-bounds
                 )
+            )
             // because the offset to `data` stored in `datas` is arbitrary, we have to check it
             if lt(data.offset, add(shl(5, datas.length), datas.offset)) { overflow() }
             if iszero(lt(data.offset, calldatasize())) { bad_calldata() }

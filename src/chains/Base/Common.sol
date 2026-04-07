@@ -13,6 +13,7 @@ import {BalancerV3} from "../../core/BalancerV3.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
 import {Renegade, BASE_SELECTOR} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
+import {Hanji} from "../../core/Hanji.sol";
 
 import {IMsgSender} from "../../interfaces/IMsgSender.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -50,16 +51,12 @@ import {
     aerodromeForkIdV3_1
 } from "../../core/univ3forks/AerodromeSlipstream.sol";
 import {alienBaseV3Factory, alienBaseV3ForkId} from "../../core/univ3forks/AlienBaseV3.sol";
-import {baseXFactory, baseXForkId} from "../../core/univ3forks/BaseX.sol";
 import {swapBasedV3Factory, swapBasedV3ForkId} from "../../core/univ3forks/SwapBasedV3.sol";
-import {dackieSwapV3BaseFactory, dackieSwapV3ForkId} from "../../core/univ3forks/DackieSwapV3.sol";
-import {thickFactory, thickInitHash, thickForkId} from "../../core/univ3forks/Thick.sol";
-import {kinetixV3BaseFactory, kinetixV3ForkId} from "../../core/univ3forks/KinetixV3.sol";
 
 import {BASE_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract BaseMixin is
@@ -70,9 +67,10 @@ abstract contract BaseMixin is
     UniswapV4,
     BalancerV3,
     PancakeInfinity,
-    EulerSwap,
+    //EulerSwap,
     Renegade,
-    Bebop
+    Bebop,
+    Hanji
 {
     using FastLogic for bool;
 
@@ -80,14 +78,14 @@ abstract contract BaseMixin is
         assert(block.chainid == 8453 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, SettlerAbstract)
+        override(SettlerBase, SettlerSwapAbstract)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
+        if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             (
@@ -102,11 +100,13 @@ abstract contract BaseMixin is
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
             sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+        /*
         } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
                 abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
 
             sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
+        */
         } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
             (
                 address recipient,
@@ -163,9 +163,23 @@ abstract contract BaseMixin is
 
             sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
-            (address target, IERC20 baseToken, bytes memory renegadeData) = abi.decode(data, (address, IERC20, bytes));
+            (address target, IERC20 sellToken, bool baseForQuote, bytes memory renegadeData, uint256 minBuyAmount) =
+                abi.decode(data, (address, IERC20, bool, bytes, uint256));
 
-            sellToRenegade(target, baseToken, renegadeData);
+            sellToRenegade(target, sellToken, baseForQuote, renegadeData, minBuyAmount);
+        } else if (action == uint32(ISettlerActions.HANJI.selector)) {
+            (
+                IERC20 sellToken,
+                uint256 bps,
+                address pool,
+                uint256 sellScalingFactor,
+                uint256 buyScalingFactor,
+                bool isAsk,
+                uint256 priceLimit,
+                uint256 minBuyAmount
+            ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
+
+            sellToHanji(sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
         } else {
             return false;
         }
@@ -180,7 +194,7 @@ abstract contract BaseMixin is
     {
         initHash = uniswapV3InitHash;
         callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        if (forkId < alienBaseV3ForkId) {
+        if (forkId < aerodromeForkIdV3_0) {
             if (forkId < sushiswapV3ForkId) {
                 if (forkId == uniswapV3ForkId) {
                     factory = uniswapV3BaseFactory;
@@ -198,36 +212,25 @@ abstract contract BaseMixin is
                     factory = solidlyV3Factory;
                     initHash = solidlyV3InitHash;
                     callbackSelector = uint32(ISolidlyV3Callback.solidlyV3SwapCallback.selector);
-                } else if (forkId == aerodromeForkIdV3_0) {
-                    factory = aerodromeFactoryV3_0;
-                    initHash = aerodromeInitHashV3_0;
                 } else {
                     revertUnknownForkId(forkId);
                 }
             }
         } else {
-            if (forkId < dackieSwapV3ForkId) {
-                if (forkId == alienBaseV3ForkId) {
+            if (forkId < swapBasedV3ForkId) {
+                if (forkId == aerodromeForkIdV3_0) {
+                    factory = aerodromeFactoryV3_0;
+                    initHash = aerodromeInitHashV3_0;
+                } else if (forkId == alienBaseV3ForkId) {
                     factory = alienBaseV3Factory;
-                } else if (forkId == baseXForkId) {
-                    factory = baseXFactory;
-                } else if (forkId == swapBasedV3ForkId) {
-                    factory = swapBasedV3Factory;
-                    initHash = pancakeSwapV3InitHash;
-                    callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
                 } else {
                     revertUnknownForkId(forkId);
                 }
             } else {
-                if (forkId == dackieSwapV3ForkId) {
-                    factory = dackieSwapV3BaseFactory;
+                if (forkId == swapBasedV3ForkId) {
+                    factory = swapBasedV3Factory;
                     initHash = pancakeSwapV3InitHash;
                     callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-                } else if (forkId == thickForkId) {
-                    factory = thickFactory;
-                    initHash = thickInitHash;
-                } else if (forkId == kinetixV3ForkId) {
-                    factory = kinetixV3BaseFactory;
                 } else if (forkId == aerodromeForkIdV3_1) {
                     factory = aerodromeFactoryV3_1;
                     initHash = aerodromeInitHashV3_1;
@@ -242,23 +245,33 @@ abstract contract BaseMixin is
         return BASE_POOL_MANAGER;
     }
 
+    /*
     function _EVC() internal pure override returns (IEVC) {
         return IEVC(0x5301c7dD20bD945D2013b48ed0DEE3A284ca8989);
     }
+    */
 
-    function _chainSpecificFallback(bytes calldata data) internal view virtual returns (bytes memory result) {
+    function _fallback(bytes calldata data)
+        internal
+        virtual
+        override(Permit2PaymentAbstract, UniswapV4)
+        returns (bool success, bytes memory returndata)
+    {
         address msgSender = _msgSender();
         uint256 selector;
         assembly ("memory-safe") {
             selector := shr(0xe0, calldataload(data.offset))
         }
         uint256 msgSenderShifted = uint256(uint160(msgSender)) << 96;
-        require((selector == uint32(IMsgSender.msgSender.selector)).and(msgSenderShifted != 0));
+        success = (selector == uint32(IMsgSender.msgSender.selector)).and(msgSenderShifted != 0);
+        if (!success) {
+            return super._fallback(data);
+        }
         assembly ("memory-safe") {
-            result := mload(0x40)
-            mstore(0x40, add(0x40, result))
-            mstore(result, 0x20)
-            mstore(add(0x20, result), shr(0x60, msgSenderShifted))
+            returndata := mload(0x40)
+            mstore(0x40, add(0x40, returndata))
+            mstore(returndata, 0x20)
+            mstore(add(0x20, returndata), shr(0x60, msgSenderShifted))
         }
     }
 

@@ -12,6 +12,10 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
         return false;
     }
 
+    function _fallback(bytes calldata) internal virtual returns (bool success, bytes memory returndata) {
+        return (success, returndata);
+    }
+
     function _operator() internal view virtual returns (address);
 
     function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
@@ -68,7 +72,7 @@ abstract contract Permit2PaymentAbstract is AbstractContext {
         address target,
         bytes memory data,
         uint32 selector,
-        function (bytes calldata) internal returns (bytes memory) callback
+        function(bytes calldata) internal returns (bytes memory) callback
     ) internal virtual returns (bytes memory);
 
     modifier metaTx(address msgSender, bytes32 witness) virtual;

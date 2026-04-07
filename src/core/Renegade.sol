@@ -2,18 +2,19 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
+import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {FullMath} from "../vendor/FullMath.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 
 // selector for `sponsorMalleableAtomicMatchSettleWithRefundOptions(uint256,uint256,address,bytes,bytes,bytes,bytes,address,uint256,bool,uint256,bytes)`
 uint32 constant ARBITRUM_SELECTOR = 0x0f977971;
 // selector for `sponsorMalleableAtomicMatchSettle(uint256,uint256,address,(((uint256,uint256,uint256)),(uint256,uint256,uint256)),((address,address,(uint256),uint256,uint256,uint8),((uint256),(uint256)),((uint256),(uint256)),uint256[],address),(((uint256,uint256)[5],(uint256,uint256),(uint256,uint256)[5],(uint256,uint256),(uint256,uint256),uint256[5],uint256[4],uint256),((uint256,uint256)[5],(uint256,uint256),(uint256,uint256)[5],(uint256,uint256),(uint256,uint256),uint256[5],uint256[4],uint256),((uint256,uint256)[5],(uint256,uint256),(uint256,uint256)[5],(uint256,uint256),(uint256,uint256),uint256[5],uint256[4],uint256)),(((uint256,uint256),(uint256,uint256)),((uint256,uint256),(uint256,uint256))),address,bool,uint256,uint256,bytes)`
 uint32 constant BASE_SELECTOR = 0x322ef840;
 
-abstract contract Renegade is SettlerAbstract {
+abstract contract Renegade is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
-    using FullMath for uint256;
+    using UnsafeMath for uint256;
 
     constructor() {
         uint32 selector = _renegadeSelector();
@@ -25,32 +26,77 @@ abstract contract Renegade is SettlerAbstract {
 
     function _renegadeSelector() internal pure virtual returns (uint32);
 
-    function sellToRenegade(address target, IERC20 baseToken, bytes memory data) internal returns (uint256 buyAmount) {
-        uint256 newBaseAmount;
+    /// @dev Extracts buyToken (quoteMint or baseMint) from GasSponsor calldata.
+    /// Base: standard ABI encoding; quoteMint @ data+0x1080, baseMint @ data+0x10a0.
+    /// Arbitrum: packed 20-byte addresses in statement blob; offset pointer @ data+0xa0.
+    /// baseForQuote=true -> buyToken=quoteMint, else baseMint.
+    function _extractBuyToken(bytes memory data, bool baseForQuote) internal pure returns (IERC20 buyToken) {
+        uint32 selector = _renegadeSelector();
+        assembly ("memory-safe") {
+            switch selector
+            case 0x322ef840 {
+                // Base: quoteMint @ data+0x1080, baseMint @ data+0x10a0
+                buyToken := mload(add(data, add(0x1080, shl(0x05, iszero(baseForQuote)))))
+            }
+            case 0x0f977971 {
+                // Arbitrum: packed 20B addrs in statement blob (offset ptr @ data+0xa0)
+                let stmtOffset := mload(add(0xa0, data))
+                buyToken := shr(0x60, mload(add(data, add(mul(0x14, iszero(baseForQuote)), add(0x40, stmtOffset)))))
+            }
+        }
+    }
+
+    /// @param baseForQuote True if selling base for quote.
+    function sellToRenegade(
+        address target,
+        IERC20 sellToken,
+        bool baseForQuote,
+        bytes memory data,
+        uint256 minBuyAmount
+    ) internal returns (uint256 buyAmount) {
+        uint256 newSellAmount;
         uint256 value;
-        if (baseToken == ETH_ADDRESS) {
+        if (sellToken == ETH_ADDRESS) {
             value = address(this).balance;
-            newBaseAmount = value;
+            newSellAmount = value;
         } else {
-            newBaseAmount = baseToken.fastBalanceOf(address(this));
-            baseToken.safeApproveIfBelow(address(target), newBaseAmount);
+            newSellAmount = sellToken.fastBalanceOf(address(this));
+            sellToken.safeApproveIfBelow(address(target), newSellAmount);
         }
 
-        uint256 originalBaseAmount;
+        // word 0: quoteAmount, word 1: baseAmount
         uint256 originalQuoteAmount;
+        uint256 originalBaseAmount;
         assembly ("memory-safe") {
-            // baseAmount and quoteAmount are the first and second parameters in ARBITRUM_SELECTOR and BASE_SELECTOR
-            originalBaseAmount := mload(add(0x20, data))
-            originalQuoteAmount := mload(add(0x40, data))
+            originalQuoteAmount := mload(add(0x20, data))
+            originalBaseAmount := mload(add(0x40, data))
         }
-        // scale quoteAmount using newBaseAmount
-        buyAmount = originalQuoteAmount.mulDiv(newBaseAmount, originalBaseAmount);
+
+        uint256 newQuoteAmount;
+        uint256 newBaseAmount;
+        if (baseForQuote) {
+            newBaseAmount = newSellAmount;
+            unchecked {
+                newQuoteAmount = (originalQuoteAmount * newBaseAmount).unsafeDiv(originalBaseAmount);
+            }
+            buyAmount = newQuoteAmount;
+        } else {
+            newQuoteAmount = newSellAmount;
+            unchecked {
+                newBaseAmount = (originalBaseAmount * newQuoteAmount).unsafeDiv(originalQuoteAmount);
+            }
+            buyAmount = newBaseAmount;
+        }
+
+        if (buyAmount < minBuyAmount) {
+            revertTooMuchSlippage(_extractBuyToken(data, baseForQuote), minBuyAmount, buyAmount);
+        }
 
         uint32 selector = _renegadeSelector();
         assembly ("memory-safe") {
-            // override baseAmount and quoteAmount
-            mstore(add(0x20, data), newBaseAmount)
-            mstore(add(0x40, data), buyAmount)
+            // override quoteAmount and baseAmount
+            mstore(add(0x20, data), newQuoteAmount)
+            mstore(add(0x40, data), newBaseAmount)
 
             let len := mload(data)
             // temporarily clobber `data` size memory area
