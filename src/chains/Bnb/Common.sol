@@ -38,7 +38,7 @@ import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 import {BNB_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract BnbMixin is
@@ -56,14 +56,14 @@ abstract contract BnbMixin is
         assert(block.chainid == 56 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, SettlerAbstract)
+        override(SettlerBase, SettlerSwapAbstract)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
+        if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             (

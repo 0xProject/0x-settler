@@ -36,24 +36,18 @@ abstract contract ModeMixin is FreeMemory, SettlerBase {
         }
     }
 
-    function _isRestrictedTarget(address target)
-        internal
-        view
-        virtual
-        override(Permit2PaymentAbstract)
-        returns (bool)
-    {
+    function _isRestrictedTarget(address target) internal view virtual override(Permit2PaymentAbstract) returns (bool) {
         return (target == address(MODE_SFS)).or(super._isRestrictedTarget(target));
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
         override(SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _uniV3ForkInfo(uint8 forkId)

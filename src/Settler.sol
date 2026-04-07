@@ -15,9 +15,6 @@ import {UnsafeMath} from "./utils/UnsafeMath.sol";
 import {ISettlerActions} from "./ISettlerActions.sol";
 import {revertActionInvalid, SignatureExpired, MsgValueMismatch, revertConfusedDeputy} from "./core/SettlerErrors.sol";
 import {Revert} from "./utils/Revert.sol";
-
-// ugh; solidity inheritance
-import {SettlerAbstract} from "./SettlerAbstract.sol";
 import {FastLogic} from "./utils/FastLogic.sol";
 
 abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitted, SettlerBase, Permit {
@@ -34,17 +31,17 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         return false;
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerAbstract, SettlerBase)
+        override
         returns (bool)
     {
         //// NOTICE: Portions of this function have been copy/paste'd into
         //// `src/chains/Mainnet/TakerSubmitted.sol:MainnetSettler._dispatch`. If you make changes
         //// here, you need to make sure that corresponding changes are made to that function.
 
-        if (super._dispatch(i, action, data)) {
+        if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.NATIVE_CHECK.selector)) {
             (uint256 deadline, uint256 msgValue) = abi.decode(data, (uint256, uint256));
@@ -63,6 +60,8 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
                     revert(0x1c, 0x44)
                 }
             }
+        } else if (action == uint32(ISettlerActions.CHECK_SLIPPAGE.selector)) {
+            _checkSlippageAndTransfer(slippage, abi.decode(data, (bool)));
         } else {
             return false;
         }
@@ -121,7 +120,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
     }
 
     function execute(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32 /* zid & affiliate */
     )
@@ -135,7 +134,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
     }
 
     function executeWithPermit(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32 /* zid & affiliate */,
         bytes memory permitData
@@ -144,11 +143,11 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             revertConfusedDeputy();
         }
         // `token` should not be a restricted target, but `_isRestrictedTarget(token)` is not
-        // verified because the selectors of supported permit calls doesn't clash with any 
+        // verified because the selectors of supported permit calls doesn't clash with any
         // selectors of existing restricted targets, namely, AllowanceHolder, Permit2 and Bebop
         address token;
         assembly ("memory-safe") {
-            // initially, we set `args.offset` to the pointer to the length. this is 32 bytes 
+            // initially, we set `args.offset` to the pointer to the length. this is 32 bytes
             // before the actual start of data
             let offset :=
                 add(
@@ -166,7 +165,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
         return _execute(slippage, actions);
     }
 
-    function _execute(AllowedSlippage calldata slippage, bytes[] calldata actions) internal returns (bool) {
+    function _execute(AllowedSlippage memory slippage, bytes[] calldata actions) internal returns (bool) {
         if (actions.length != 0) {
             uint256 it;
             assembly ("memory-safe") {
@@ -175,7 +174,7 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             {
                 (uint256 action, bytes calldata data) = actions.decodeCall(it);
                 if (!_dispatchVIP(action, data)) {
-                    if (!_dispatch(0, action, data)) {
+                    if (!_dispatch(0, action, data, slippage)) {
                         revertActionInvalid(0, action, data);
                     }
                 }
@@ -183,13 +182,13 @@ abstract contract Settler is ISettlerTakerSubmitted, Permit2PaymentTakerSubmitte
             it = it.unsafeAdd(32);
             for (uint256 i = 1; i < actions.length; (i, it) = (i.unsafeInc(), it.unsafeAdd(32))) {
                 (uint256 action, bytes calldata data) = actions.decodeCall(it);
-                if (!_dispatch(i, action, data)) {
+                if (!_dispatch(i, action, data, slippage)) {
                     revertActionInvalid(i, action, data);
                 }
             }
         }
 
-        _checkSlippageAndTransfer(slippage);
+        _checkSlippageAndTransfer(slippage, false);
         return true;
     }
 

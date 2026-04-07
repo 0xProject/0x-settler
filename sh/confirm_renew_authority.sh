@@ -135,6 +135,11 @@ shift
 declare deployment_safe_address
 if [[ ${@: -1} = [Dd][Aa][Oo] ]] ; then
     deployment_safe_address="$(get_config governance.daoSafe)"
+    if [[ $deployment_safe_address = [Nn][Uu][Ll][Ll] ]] ; then
+        echo 'DAO Safe{Wallet} not configured for '"$chain_display_name" >&2
+        echo 'Exiting...' >&2
+        exit 0
+    fi
 else
     deployment_safe_address="$(get_config governance.deploymentSafe)"
 fi
@@ -178,4 +183,4 @@ declare signature
 signature="$(sign_call "$struct_json")"
 declare -r signature
 
-save_signature renew_authority "$renew_authority_calldata" "$signature" 1
+save_signature renew_authority "$renew_authority_calldata" "$signature"

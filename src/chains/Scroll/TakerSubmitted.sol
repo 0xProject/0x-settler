@@ -22,18 +22,6 @@ contract ScrollSettler is Settler, ScrollMixin {
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
-        } else if (action == uint32(ISettlerActions.MAVERICKV2_VIP.selector)) {
-            (
-                address recipient,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bytes32 salt,
-                bool tokenAIn,
-                bytes memory sig,
-                int32 tickLimit,
-                uint256 minBuyAmount
-            ) = abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom, bytes32, bool, bytes, int32, uint256));
-
-            sellToMaverickV2VIP(recipient, salt, tokenAIn, permit, sig, tickLimit, minBuyAmount);
         } else {
             return false;
         }
@@ -50,12 +38,12 @@ contract ScrollSettler is Settler, ScrollMixin {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         override(Settler, ScrollMixin)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {

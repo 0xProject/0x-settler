@@ -22,7 +22,7 @@ import {
 } from "../../core/univ3forks/HyperSwap.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract HyperEvmMixin is FreeMemory, SettlerBase, Bebop {
@@ -30,14 +30,14 @@ abstract contract HyperEvmMixin is FreeMemory, SettlerBase, Bebop {
         assert(block.chainid == 999 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerAbstract, SettlerBase)
+        override(SettlerSwapAbstract, SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
+        if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.BEBOP.selector)) {
             (

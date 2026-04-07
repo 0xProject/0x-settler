@@ -71,12 +71,16 @@ abstract contract EkuboV3Test is SettlerMetaTxnPairTest {
 
     function ekuboFills() internal view returns (bytes memory) {
         (IERC20 fromToken, IERC20 toToken) = ekuboTokens();
-        return abi.encodePacked(uint16(10_000), ekuboSqrtRatio(fromToken, toToken), bytes1(0x01), address(toToken), ekuboPoolConfig());
+        return abi.encodePacked(
+            uint16(10_000), ekuboSqrtRatio(fromToken, toToken), bytes1(0x01), address(toToken), ekuboPoolConfig()
+        );
     }
 
     function ekuboExtensionFills() internal view returns (bytes memory) {
         (IERC20 fromToken, IERC20 toToken) = ekuboTokens();
-        return abi.encodePacked(uint16(42768), ekuboSqrtRatio(fromToken, toToken), bytes1(0x01), address(toToken), ekuboExtensionConfig());
+        return abi.encodePacked(
+            uint16(42768), ekuboSqrtRatio(fromToken, toToken), bytes1(0x01), address(toToken), ekuboExtensionConfig()
+        );
     }
 
     function ekuboExtraActions(bytes[] memory actions) internal view virtual returns (bytes[] memory) {
@@ -120,9 +124,7 @@ abstract contract EkuboV3Test is SettlerMetaTxnPairTest {
         );
 
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
@@ -155,9 +157,7 @@ abstract contract EkuboV3Test is SettlerMetaTxnPairTest {
         );
 
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
@@ -187,9 +187,7 @@ abstract contract EkuboV3Test is SettlerMetaTxnPairTest {
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         uint256 beforeBalanceFrom = balanceOf(fromToken(), FROM);
@@ -208,8 +206,11 @@ abstract contract EkuboV3Test is SettlerMetaTxnPairTest {
     }
 
     function testEkuboVIPAllowanceHolder() public skipIf(ekuboPoolConfig() == bytes32(0)) setEkuboBlock {
-        ISignatureTransfer.PermitTransferFrom memory permit =
-            defaultERC20PermitTransfer(address(fromToken()), amount(), 0 /* nonce */ );
+        ISignatureTransfer.PermitTransferFrom memory permit = defaultERC20PermitTransfer(
+            address(fromToken()),
+            amount(),
+            0 /* nonce */
+        );
         bytes memory sig = new bytes(0);
 
         (uint256 hashMul, uint256 hashMod) = ekuboPerfectHash();
@@ -221,9 +222,7 @@ abstract contract EkuboV3Test is SettlerMetaTxnPairTest {
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
@@ -260,9 +259,7 @@ abstract contract EkuboV3Test is SettlerMetaTxnPairTest {
             )
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0 ether
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
         });
 
         bytes32[] memory actionHashes = new bytes32[](actions.length);
