@@ -24,7 +24,7 @@ contract StargateV2 {
         // Get the native fee
         assembly ("memory-safe") {
             // sendData layout:
-            // +0x00: lenght of sendData
+            // +0x00: length of sendData
             // +0x20: offset to SendParam
             // +0x40: MessagingFee.nativeFee
             // +0x60: MessagingFee.lzTokenFee
@@ -32,7 +32,7 @@ contract StargateV2 {
         }
 
         if (token == ETH) {
-            // Any excess on top to of fee + amount is returned to
+            // Any excess on top of fee + amount is returned to
             // the refund address specified in `sendData`
             uint256 value = address(this).balance;
             // Input amount is adjusted with the pool convertRate

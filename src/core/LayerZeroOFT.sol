@@ -81,7 +81,7 @@ contract LayerZeroOFT {
         // Get the native fee
         assembly ("memory-safe") {
             // sendData layout:
-            // +0x00: lenght of sendData
+            // +0x00: length of sendData
             // +0x20: offset to SendParam
             // +0x40: MessagingFee.nativeFee
             // +0x60: MessagingFee.lzTokenFee

@@ -45,7 +45,7 @@ contract Mayan {
             protocolDataPtr := add(protocolDataOffset, protocolAndDataPtr)
             // Layout at `protocolDataPtr` is:
             // +0x00: length of protocolData
-            // +0x04: selector to call in mayanProtocol
+            // +0x20: selector to call in mayanProtocol (4 bytes)
             // +0x24: offset to tokenIn
             // +0x44: amountIn
             // ... anything else needed in the mayanProtocol call
