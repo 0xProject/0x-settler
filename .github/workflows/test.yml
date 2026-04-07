@@ -20,7 +20,7 @@ jobs:
           version: v1.5.1
 
       - name: Install solc 0.8.34
-        run: forge compiler resolve --root src/chains/
+        run: forge build -- src/chains/Mainnet/TakerSubmitted.sol
         env:
           FOUNDRY_SOLC_VERSION: 0.8.34
 
