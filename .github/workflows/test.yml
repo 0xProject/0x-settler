@@ -58,7 +58,7 @@ jobs:
         env:
           FOUNDRY_EVM_VERSION: london
           FOUNDRY_OPTIMIZER_RUNS: 1000000
-          FOUNDRY_SOLC_VERSION: 0.8.28
+          FOUNDRY_SOLC_VERSION: 0.8.34
 
       - name: Run MultiCall tests
         run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --mp test/0.8.25/MultiCall.t.sol
