@@ -10,6 +10,11 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import norm_ir
 import yul_ast
 import yul_to_lean as ytl
+from norm_classify import (
+    InlineClassification,
+    classify_function_scope,
+    summarize_function,
+)
 from norm_eval import evaluate_normalized
 from yul_normalize import normalize_function
 from yul_parser import SyntaxParser
@@ -11134,6 +11139,159 @@ class NormalizeEvalTest(unittest.TestCase):
             """)
             func = SyntaxParser(tokens).parse_function()
             resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+
+
+class ClassifySummaryTest(unittest.TestCase):
+    """Tests for per-function effect summarization."""
+
+    def _summarize_helper(self, yul: str) -> norm_ir.NFunctionDef:
+        """Parse a function, normalize, and return the first NFunctionDef."""
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+        nf = normalize_function(func, result)
+        for stmt in nf.body.stmts:
+            if isinstance(stmt, norm_ir.NFunctionDef):
+                return stmt
+        raise AssertionError("No NFunctionDef found in body")
+
+    def test_pure_arithmetic_helper(self) -> None:
+        fdef = self._summarize_helper("""
+            function f(x) -> z {
+                function g(a) -> b { b := add(a, 1) }
+                z := g(x)
+            }
+        """)
+        s = summarize_function(fdef.body)
+        self.assertFalse(s.writes_memory)
+        self.assertFalse(s.reads_memory)
+        self.assertFalse(s.may_leave)
+        self.assertFalse(s.has_for_loop)
+        self.assertFalse(s.has_expr_effects)
+
+    def test_helper_with_mstore(self) -> None:
+        fdef = self._summarize_helper("""
+            function f() -> z {
+                function g() { mstore(0, 7) }
+                g()
+                z := mload(0)
+            }
+        """)
+        s = summarize_function(fdef.body)
+        self.assertTrue(s.writes_memory)
+        self.assertFalse(s.reads_memory)
+
+    def test_helper_with_mload(self) -> None:
+        fdef = self._summarize_helper("""
+            function f() -> z {
+                function g() -> b { b := mload(0) }
+                z := g()
+            }
+        """)
+        s = summarize_function(fdef.body)
+        self.assertFalse(s.writes_memory)
+        self.assertTrue(s.reads_memory)
+
+    def test_helper_with_leave(self) -> None:
+        fdef = self._summarize_helper("""
+            function f(x) -> z {
+                function g(a) -> b {
+                    if a { b := 1 leave }
+                    b := 0
+                }
+                z := g(x)
+            }
+        """)
+        s = summarize_function(fdef.body)
+        self.assertTrue(s.may_leave)
+
+    def test_helper_with_for_loop(self) -> None:
+        fdef = self._summarize_helper("""
+            function f(x) -> z {
+                function g(a) -> b {
+                    for { } a { } { b := 1 leave }
+                }
+                z := g(x)
+            }
+        """)
+        s = summarize_function(fdef.body)
+        self.assertTrue(s.has_for_loop)
+
+    def test_helper_with_expr_effect(self) -> None:
+        fdef = self._summarize_helper("""
+            function f(x) -> z {
+                function g(a) -> b { add(a, 1) b := a }
+                z := g(x)
+            }
+        """)
+        s = summarize_function(fdef.body)
+        self.assertTrue(s.has_expr_effects)
+
+
+class ClassifyInlineTest(unittest.TestCase):
+    """Tests for transitive inlining classification."""
+
+    def _classify(self, yul: str) -> dict[str, InlineClassification]:
+        """Classify helpers and return results keyed by helper name."""
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+        nf = normalize_function(func, result)
+        classifications = classify_function_scope(nf)
+        # Build name-keyed dict for test convenience.
+        name_map: dict[str, InlineClassification] = {}
+        for stmt in nf.body.stmts:
+            if isinstance(stmt, norm_ir.NFunctionDef):
+                if stmt.symbol_id in classifications:
+                    name_map[stmt.name] = classifications[stmt.symbol_id]
+        return name_map
+
+    def test_pure_helper_classified_as_pure(self) -> None:
+        c = self._classify("""
+            function f(x) -> z {
+                function g(a) -> b { b := add(a, 1) }
+                z := g(x)
+            }
+        """)
+        self.assertTrue(c["g"].is_pure)
+        self.assertFalse(c["g"].is_deferred)
+        self.assertIsNone(c["g"].unsupported_reason)
+
+    def test_memory_helper_classified_as_deferred(self) -> None:
+        c = self._classify("""
+            function f() -> z {
+                function g() { mstore(0, 7) }
+                g()
+                z := mload(0)
+            }
+        """)
+        self.assertFalse(c["g"].is_pure)
+        self.assertTrue(c["g"].is_deferred)
+
+    def test_transitive_deferred_propagation(self) -> None:
+        c = self._classify("""
+            function f() -> z {
+                function inner() { mstore(0, 7) }
+                function wrapper() -> b { inner() b := mload(0) }
+                wrapper()
+                z := mload(0)
+            }
+        """)
+        self.assertTrue(c["inner"].is_deferred)
+        self.assertTrue(c["wrapper"].is_deferred)
+        self.assertFalse(c["wrapper"].is_pure)
+
+    def test_for_loop_helper_unsupported(self) -> None:
+        c = self._classify("""
+            function f(x) -> z {
+                function g(a) -> b {
+                    for { } a { } { b := 1 leave }
+                }
+                z := g(x)
+            }
+        """)
+        self.assertFalse(c["g"].is_pure)
+        self.assertIsNotNone(c["g"].unsupported_reason)
 
 
 if __name__ == "__main__":

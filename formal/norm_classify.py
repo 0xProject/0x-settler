@@ -1,0 +1,384 @@
+"""
+Per-function effect analysis and inlining classification for normalized IR.
+
+Walks a ``NormalizedFunction`` to determine each nested helper's effects
+(memory, leave, for-loops, expression-statements) and classifies them
+for inlining: pure (safe to expression-substitute), deferred (has
+memory effects), or unsupported.
+
+This replaces the old pipeline's distributed logic in
+``_classify_non_pure_helpers()``, ``_is_uint512_from_helper()``,
+and ``_reject_expr_stmts()``.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from norm_ir import (
+    NAssign,
+    NBind,
+    NBlock,
+    NBuiltinCall,
+    NConst,
+    NExpr,
+    NExprEffect,
+    NFor,
+    NFunctionDef,
+    NIf,
+    NLeave,
+    NLocalCall,
+    NormalizedFunction,
+    NRef,
+    NStmt,
+    NSwitch,
+    NTopLevelCall,
+    NUnresolvedCall,
+)
+from yul_ast import SymbolId
+
+# ---------------------------------------------------------------------------
+# Memory op names — recognized regardless of call classification
+# ---------------------------------------------------------------------------
+
+_MEMORY_WRITE_OPS: frozenset[str] = frozenset({"mstore", "mstore8"})
+_MEMORY_READ_OPS: frozenset[str] = frozenset({"mload"})
+
+# ---------------------------------------------------------------------------
+# Per-function summary (local, no call-graph)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class FunctionSummary:
+    """Per-function analysis of effects and structure."""
+
+    writes_memory: bool
+    reads_memory: bool
+    may_leave: bool
+    has_for_loop: bool
+    has_expr_effects: bool
+    called_functions: frozenset[SymbolId]
+    called_builtins: frozenset[str]
+    is_uint512_from: bool
+
+
+def summarize_function(body: NBlock) -> FunctionSummary:
+    """Analyze a function body for effects (non-recursive into nested defs)."""
+    acc = _SummaryAccumulator()
+    _walk_block(acc, body)
+    return FunctionSummary(
+        writes_memory=acc.writes_memory,
+        reads_memory=acc.reads_memory,
+        may_leave=acc.may_leave,
+        has_for_loop=acc.has_for_loop,
+        has_expr_effects=acc.has_expr_effects,
+        called_functions=frozenset(acc.called_functions),
+        called_builtins=frozenset(acc.called_builtins),
+        is_uint512_from=False,  # set separately by caller
+    )
+
+
+class _SummaryAccumulator:
+    """Mutable accumulator for the summary walk."""
+
+    def __init__(self) -> None:
+        self.writes_memory: bool = False
+        self.reads_memory: bool = False
+        self.may_leave: bool = False
+        self.has_for_loop: bool = False
+        self.has_expr_effects: bool = False
+        self.called_functions: set[SymbolId] = set()
+        self.called_builtins: set[str] = set()
+
+
+def _walk_block(acc: _SummaryAccumulator, block: NBlock) -> None:
+    for stmt in block.stmts:
+        _walk_stmt(acc, stmt)
+
+
+def _walk_stmt(acc: _SummaryAccumulator, stmt: NStmt) -> None:
+    if isinstance(stmt, NBind):
+        if stmt.expr is not None:
+            _walk_expr(acc, stmt.expr)
+    elif isinstance(stmt, NAssign):
+        _walk_expr(acc, stmt.expr)
+    elif isinstance(stmt, NExprEffect):
+        acc.has_expr_effects = True
+        _walk_expr(acc, stmt.expr)
+    elif isinstance(stmt, NIf):
+        _walk_expr(acc, stmt.condition)
+        _walk_block(acc, stmt.then_body)
+    elif isinstance(stmt, NSwitch):
+        _walk_expr(acc, stmt.discriminant)
+        for case in stmt.cases:
+            _walk_block(acc, case.body)
+        if stmt.default is not None:
+            _walk_block(acc, stmt.default)
+    elif isinstance(stmt, NFor):
+        acc.has_for_loop = True
+        _walk_block(acc, stmt.init)
+        _walk_expr(acc, stmt.condition)
+        _walk_block(acc, stmt.post)
+        _walk_block(acc, stmt.body)
+    elif isinstance(stmt, NLeave):
+        acc.may_leave = True
+    elif isinstance(stmt, NBlock):
+        _walk_block(acc, stmt)
+    elif isinstance(stmt, NFunctionDef):
+        # Do NOT recurse into nested function bodies — they get
+        # their own summary.
+        pass
+
+
+def _walk_expr(acc: _SummaryAccumulator, expr: NExpr) -> None:
+    if isinstance(expr, (NConst, NRef)):
+        pass
+    elif isinstance(expr, NBuiltinCall):
+        acc.called_builtins.add(expr.op)
+        if expr.op in _MEMORY_WRITE_OPS:
+            acc.writes_memory = True
+        if expr.op in _MEMORY_READ_OPS:
+            acc.reads_memory = True
+        for a in expr.args:
+            _walk_expr(acc, a)
+    elif isinstance(expr, NLocalCall):
+        acc.called_functions.add(expr.symbol_id)
+        for a in expr.args:
+            _walk_expr(acc, a)
+    elif isinstance(expr, (NTopLevelCall, NUnresolvedCall)):
+        # Check for memory ops that aren't classified as builtins.
+        if expr.name in _MEMORY_WRITE_OPS:
+            acc.writes_memory = True
+        if expr.name in _MEMORY_READ_OPS:
+            acc.reads_memory = True
+        for a in expr.args:
+            _walk_expr(acc, a)
+
+
+# ---------------------------------------------------------------------------
+# uint512.from shape detection
+# ---------------------------------------------------------------------------
+
+
+def _is_uint512_from_shape(
+    fdef: NFunctionDef,
+) -> bool:
+    """Check if a function definition matches the exact uint512.from pattern.
+
+    Expected shape (3 params, 1 return, 4-5 statements):
+        [optional: let tmp := 0]
+        ret := 0  (or ret := tmp)
+        mstore(ptr, hi)
+        mstore(add(0x20, ptr) or add(ptr, 0x20), lo)
+        ret := ptr
+    """
+    if len(fdef.params) != 3 or len(fdef.returns) != 1:
+        return False
+
+    stmts = fdef.body.stmts
+    # Filter out NFunctionDef nodes (shouldn't be there, but be safe).
+    real_stmts: list[NStmt] = [s for s in stmts if not isinstance(s, NFunctionDef)]
+
+    if len(real_stmts) not in (4, 5):
+        return False
+
+    ptr_id = fdef.params[0]
+    hi_id = fdef.params[1]
+    lo_id = fdef.params[2]
+    ret_id = fdef.returns[0]
+
+    if len(real_stmts) == 5:
+        # 5-stmt form: let tmp := 0, ret := tmp, mstore(ptr, hi), mstore(ptr+32, lo), ret := ptr
+        zero_init = real_stmts[0]
+        init_ret = real_stmts[1]
+        write_hi = real_stmts[2]
+        write_lo = real_stmts[3]
+        ret_assign = real_stmts[4]
+
+        if not isinstance(zero_init, NBind) or zero_init.expr is None:
+            return False
+        if not _is_zero(zero_init.expr):
+            return False
+    else:
+        # 4-stmt form: ret := 0, mstore(ptr, hi), mstore(ptr+32, lo), ret := ptr
+        init_ret = real_stmts[0]
+        write_hi = real_stmts[1]
+        write_lo = real_stmts[2]
+        ret_assign = real_stmts[3]
+
+    # init_ret: ret := 0 or ret := <zero-tmp>
+    if not isinstance(init_ret, NAssign):
+        return False
+    if len(init_ret.targets) != 1 or init_ret.targets[0] != ret_id:
+        return False
+
+    # write_hi: mstore(ptr, hi) as NExprEffect
+    if not _is_mstore_effect(write_hi, ptr_id, hi_id):
+        return False
+
+    # write_lo: mstore(ptr + 0x20, lo) as NExprEffect
+    if not _is_mstore_offset_effect(write_lo, ptr_id, lo_id, 0x20):
+        return False
+
+    # ret_assign: ret := ptr
+    if not isinstance(ret_assign, NAssign):
+        return False
+    if len(ret_assign.targets) != 1 or ret_assign.targets[0] != ret_id:
+        return False
+    if not isinstance(ret_assign.expr, NRef) or ret_assign.expr.symbol_id != ptr_id:
+        return False
+
+    return True
+
+
+def _is_zero(expr: NExpr) -> bool:
+    return isinstance(expr, NConst) and expr.value == 0
+
+
+def _is_mstore_effect(stmt: NStmt, addr_id: SymbolId, value_id: SymbolId) -> bool:
+    """Check: NExprEffect(mstore(NRef(addr_id), NRef(value_id)))."""
+    if not isinstance(stmt, NExprEffect):
+        return False
+    call = stmt.expr
+    if not isinstance(call, (NBuiltinCall, NUnresolvedCall)):
+        return False
+    if call_name(call) != "mstore" or len(call.args) != 2:
+        return False
+    addr, value = call.args
+    if not isinstance(addr, NRef) or addr.symbol_id != addr_id:
+        return False
+    if not isinstance(value, NRef) or value.symbol_id != value_id:
+        return False
+    return True
+
+
+def _is_mstore_offset_effect(
+    stmt: NStmt, base_id: SymbolId, value_id: SymbolId, offset: int
+) -> bool:
+    """Check: NExprEffect(mstore(add(base, offset) or add(offset, base), NRef(value_id)))."""
+    if not isinstance(stmt, NExprEffect):
+        return False
+    call = stmt.expr
+    if not isinstance(call, (NBuiltinCall, NUnresolvedCall)):
+        return False
+    if call_name(call) != "mstore" or len(call.args) != 2:
+        return False
+    addr, value = call.args
+    if not isinstance(value, NRef) or value.symbol_id != value_id:
+        return False
+    return _is_add_offset(addr, base_id, offset)
+
+
+def _is_add_offset(expr: NExpr, base_id: SymbolId, offset: int) -> bool:
+    """Check: add(NRef(base_id), NConst(offset)) or add(NConst(offset), NRef(base_id))."""
+    if not isinstance(expr, NBuiltinCall) or expr.op != "add" or len(expr.args) != 2:
+        return False
+    a, b = expr.args
+    if (
+        isinstance(a, NRef)
+        and a.symbol_id == base_id
+        and isinstance(b, NConst)
+        and b.value == offset
+    ):
+        return True
+    if (
+        isinstance(b, NRef)
+        and b.symbol_id == base_id
+        and isinstance(a, NConst)
+        and a.value == offset
+    ):
+        return True
+    return False
+
+
+def call_name(expr: NBuiltinCall | NUnresolvedCall) -> str:
+    """Extract the call name from a builtin or unresolved call."""
+    if isinstance(expr, NBuiltinCall):
+        return expr.op
+    return expr.name
+
+
+# ---------------------------------------------------------------------------
+# Transitive classification (call-graph closure)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class InlineClassification:
+    """Inlining decision for a single function."""
+
+    is_pure: bool
+    is_deferred: bool
+    unsupported_reason: str | None
+
+
+def classify_helpers(
+    summaries: dict[SymbolId, FunctionSummary],
+) -> dict[SymbolId, InlineClassification]:
+    """Compute transitive inlining classifications from per-function summaries."""
+    # Phase 1: seed deferred set from direct memory effects or uint512.from shape.
+    deferred: set[SymbolId] = set()
+    unsupported: dict[SymbolId, str] = {}
+
+    for sid, s in summaries.items():
+        if s.writes_memory or s.reads_memory or s.is_uint512_from:
+            deferred.add(sid)
+        if s.has_for_loop:
+            unsupported[sid] = "contains for-loop"
+        elif s.has_expr_effects:
+            unsupported[sid] = "contains bare expression-statement"
+
+    # Phase 2: propagate deferred transitively.
+    changed = True
+    while changed:
+        changed = False
+        for sid, s in summaries.items():
+            if sid in deferred:
+                continue
+            if s.called_functions & deferred:
+                deferred.add(sid)
+                changed = True
+
+    # Phase 3: build classifications.
+    result: dict[SymbolId, InlineClassification] = {}
+    for sid, s in summaries.items():
+        reason = unsupported.get(sid)
+        is_def = sid in deferred
+        is_p = not is_def and reason is None and not s.may_leave
+        result[sid] = InlineClassification(
+            is_pure=is_p,
+            is_deferred=is_def,
+            unsupported_reason=reason,
+        )
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+
+def classify_function_scope(
+    func: NormalizedFunction,
+) -> dict[SymbolId, InlineClassification]:
+    """Classify all nested helpers in a function for inlining decisions.
+
+    Collects ``NFunctionDef`` nodes from the function body, summarizes
+    each, then runs transitive classification.
+    """
+    summaries: dict[SymbolId, FunctionSummary] = {}
+    for stmt in func.body.stmts:
+        if isinstance(stmt, NFunctionDef):
+            base = summarize_function(stmt.body)
+            summaries[stmt.symbol_id] = FunctionSummary(
+                writes_memory=base.writes_memory,
+                reads_memory=base.reads_memory,
+                may_leave=base.may_leave,
+                has_for_loop=base.has_for_loop,
+                has_expr_effects=base.has_expr_effects,
+                called_functions=base.called_functions,
+                called_builtins=base.called_builtins,
+                is_uint512_from=_is_uint512_from_shape(stmt),
+            )
+    return classify_helpers(summaries)
