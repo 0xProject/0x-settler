@@ -11818,6 +11818,108 @@ class ConstPropTest(unittest.TestCase):
             post = evaluate_normalized(prop, (x,))
             self.assertEqual(pre, post, f"Failed for x={x}")
 
+    def test_expr_effect_folded(self) -> None:
+        """Expression inside NExprEffect is constant-folded."""
+        nf = self._prop("""
+            function f() -> z {
+                mstore(0, add(3, 4))
+                z := mload(0)
+            }
+        """)
+        # The mstore arg should be folded to NConst(7).
+        effect = nf.body.stmts[0]
+        assert isinstance(effect, norm_ir.NExprEffect)
+        assert isinstance(effect.expr, norm_ir.NBuiltinCall)
+        self.assertEqual(effect.expr.args[1], norm_ir.NConst(7))
+        self.assertEqual(evaluate_normalized(nf, (), memory={}), (7,))
+
+    def test_for_loop_invalidates_modified_vars(self) -> None:
+        """Variables modified in a for-loop body are not propagated after."""
+        nf = self._prop("""
+            function f(n) -> z {
+                let i := 0
+                for { } lt(i, n) { i := add(i, 1) } {
+                    z := add(z, 1)
+                }
+            }
+        """)
+        # z and i are modified in the loop — should not be constant after.
+        # The for-loop should still be present (not eliminated).
+        has_for = any(isinstance(s, norm_ir.NFor) for s in nf.body.stmts)
+        self.assertTrue(has_for)
+        # Semantic check: f(3) should give z=3.
+        self.assertEqual(evaluate_normalized(nf, (3,)), (3,))
+
+    def test_leave_preserved(self) -> None:
+        """NLeave passes through constant propagation unchanged."""
+        nf = self._prop("""
+            function f(x) -> z {
+                if x { z := 1  leave }
+                z := 2
+            }
+        """)
+        # With x=1: z=1 (leave before z:=2). With x=0: z=2.
+        self.assertEqual(evaluate_normalized(nf, (1,)), (1,))
+        self.assertEqual(evaluate_normalized(nf, (0,)), (2,))
+
+    def test_nested_block_propagation(self) -> None:
+        """Constants propagate through nested bare blocks."""
+        nf = self._prop("""
+            function f() -> z {
+                let a := 10
+                {
+                    let b := add(a, 5)
+                    z := b
+                }
+            }
+        """)
+        # a=10 propagates into the block; b=15 propagates to z.
+        self.assertEqual(evaluate_normalized(nf, ()), (15,))
+
+        # Check that z's final assignment is folded.
+        def find_last_assign(block: norm_ir.NBlock) -> norm_ir.NAssign | None:
+            for s in reversed(block.stmts):
+                if isinstance(s, norm_ir.NAssign):
+                    return s
+                if isinstance(s, norm_ir.NBlock):
+                    r = find_last_assign(s)
+                    if r is not None:
+                        return r
+            return None
+
+        assign = find_last_assign(nf.body)
+        self.assertIsNotNone(assign)
+        assert assign is not None
+        self.assertEqual(assign.expr, norm_ir.NConst(15))
+
+    def test_function_def_preserved(self) -> None:
+        """NFunctionDef passes through without being removed or modified."""
+        nf = self._prop("""
+            function f(x) -> z {
+                function g(a) -> b { b := add(a, 1) }
+                z := g(x)
+            }
+        """)
+        has_fdef = any(isinstance(s, norm_ir.NFunctionDef) for s in nf.body.stmts)
+        self.assertTrue(has_fdef)
+
+    def test_for_loop_body_expressions_folded(self) -> None:
+        """Expressions inside for-loop bodies are still constant-folded."""
+        nf = self._prop("""
+            function f(n) -> z {
+                for { let i := 0 } lt(i, n) { i := add(i, 1) } {
+                    z := add(z, add(2, 3))
+                }
+            }
+        """)
+        # add(2, 3) should be folded to NConst(5) inside the loop body.
+        for_stmt = nf.body.stmts[0]
+        assert isinstance(for_stmt, norm_ir.NFor)
+        assign = for_stmt.body.stmts[0]
+        assert isinstance(assign, norm_ir.NAssign)
+        assert isinstance(assign.expr, norm_ir.NBuiltinCall)
+        self.assertEqual(assign.expr.args[1], norm_ir.NConst(5))
+
 
 if __name__ == "__main__":
     unittest.main()
