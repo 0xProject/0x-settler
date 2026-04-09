@@ -12009,33 +12009,50 @@ class InlineArchitectureTest(unittest.TestCase):
         return inline_pure_helpers(nf)
 
     def _has_local_call(self, block: norm_ir.NBlock, name: str) -> bool:
-        """Check if any NLocalCall to *name* remains in the block tree."""
+        """Check if any NLocalCall to *name* remains anywhere in the IR tree."""
+        from norm_walk import for_each_expr
+
         found: list[bool] = [False]
 
         def check_expr(e: norm_ir.NExpr) -> None:
             if isinstance(e, norm_ir.NLocalCall) and e.name == name:
                 found[0] = True
 
-        def check_block(b: norm_ir.NBlock) -> None:
+        def walk_block(b: norm_ir.NBlock) -> None:
             for stmt in b.stmts:
-                if isinstance(stmt, (norm_ir.NBind, norm_ir.NAssign)):
-                    if stmt.expr is not None:
-                        from norm_walk import for_each_expr
+                walk_stmt(stmt)
 
-                        for_each_expr(stmt.expr, check_expr)
-                elif isinstance(stmt, norm_ir.NExprEffect):
-                    from norm_walk import for_each_expr
-
+        def walk_stmt(stmt: norm_ir.NStmt) -> None:
+            if isinstance(stmt, (norm_ir.NBind, norm_ir.NAssign)):
+                if stmt.expr is not None:
                     for_each_expr(stmt.expr, check_expr)
-                elif isinstance(stmt, norm_ir.NIf):
-                    from norm_walk import for_each_expr
+            elif isinstance(stmt, norm_ir.NExprEffect):
+                for_each_expr(stmt.expr, check_expr)
+            elif isinstance(stmt, norm_ir.NStore):
+                for_each_expr(stmt.addr, check_expr)
+                for_each_expr(stmt.value, check_expr)
+            elif isinstance(stmt, norm_ir.NIf):
+                for_each_expr(stmt.condition, check_expr)
+                walk_block(stmt.then_body)
+            elif isinstance(stmt, norm_ir.NSwitch):
+                for_each_expr(stmt.discriminant, check_expr)
+                for case in stmt.cases:
+                    walk_block(case.body)
+                if stmt.default is not None:
+                    walk_block(stmt.default)
+            elif isinstance(stmt, norm_ir.NFor):
+                walk_block(stmt.init)
+                if stmt.condition_setup is not None:
+                    walk_block(stmt.condition_setup)
+                for_each_expr(stmt.condition, check_expr)
+                walk_block(stmt.post)
+                walk_block(stmt.body)
+            elif isinstance(stmt, norm_ir.NBlock):
+                walk_block(stmt)
+            elif isinstance(stmt, norm_ir.NFunctionDef):
+                pass  # Structural — not executed, don't check
 
-                    for_each_expr(stmt.condition, check_expr)
-                    check_block(stmt.then_body)
-                elif isinstance(stmt, norm_ir.NBlock):
-                    check_block(stmt)
-
-        check_block(block)
+        walk_block(block)
         return found[0]
 
     def test_nested_block_inline_call(self) -> None:
@@ -12113,17 +12130,42 @@ class InlineArchitectureTest(unittest.TestCase):
         self.assertEqual(evaluate_normalized(nf, (1, 0)), (1, 2))
         self.assertEqual(evaluate_normalized(nf, (0, 1)), (2, 1))
         self.assertEqual(evaluate_normalized(nf, (1, 1)), (1, 1))
-        # Verify no duplicate SymbolIds in NBind targets.
-        bind_targets: list[yul_ast.SymbolId] = []
-        for stmt in nf.body.stmts:
-            if isinstance(stmt, norm_ir.NBind):
-                for sid in stmt.targets:
-                    bind_targets.append(sid)
+        # Verify no duplicate SymbolIds across ALL declarations (recursive).
+        all_decl_ids: list[yul_ast.SymbolId] = []
+        self._collect_all_decl_ids(nf.body, all_decl_ids)
         self.assertEqual(
-            len(bind_targets),
-            len(set(bind_targets)),
-            f"Duplicate bind targets: {bind_targets}",
+            len(all_decl_ids),
+            len(set(all_decl_ids)),
+            f"Duplicate declaration SymbolIds: {all_decl_ids}",
         )
+
+    def _collect_all_decl_ids(
+        self, block: norm_ir.NBlock, out: list[yul_ast.SymbolId]
+    ) -> None:
+        """Recursively collect ALL declaration SymbolIds from the IR tree."""
+        for stmt in block.stmts:
+            if isinstance(stmt, norm_ir.NBind):
+                out.extend(stmt.targets)
+            elif isinstance(stmt, norm_ir.NFunctionDef):
+                out.append(stmt.symbol_id)
+                out.extend(stmt.params)
+                out.extend(stmt.returns)
+                self._collect_all_decl_ids(stmt.body, out)
+            elif isinstance(stmt, norm_ir.NIf):
+                self._collect_all_decl_ids(stmt.then_body, out)
+            elif isinstance(stmt, norm_ir.NSwitch):
+                for case in stmt.cases:
+                    self._collect_all_decl_ids(case.body, out)
+                if stmt.default is not None:
+                    self._collect_all_decl_ids(stmt.default, out)
+            elif isinstance(stmt, norm_ir.NFor):
+                self._collect_all_decl_ids(stmt.init, out)
+                if stmt.condition_setup is not None:
+                    self._collect_all_decl_ids(stmt.condition_setup, out)
+                self._collect_all_decl_ids(stmt.post, out)
+                self._collect_all_decl_ids(stmt.body, out)
+            elif isinstance(stmt, norm_ir.NBlock):
+                self._collect_all_decl_ids(stmt, out)
 
     def test_block_inline_prelude_has_no_inlineable_local_calls(self) -> None:
         """Nested EXPR_INLINE helper inside BLOCK_INLINE helper must be
