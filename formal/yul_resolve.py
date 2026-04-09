@@ -42,6 +42,7 @@ from yul_ast import (
     SymbolKind,
     SynExpr,
     SynStmt,
+    TopLevelFunctionTarget,
     UnresolvedTarget,
 )
 
@@ -128,6 +129,7 @@ class _ResolveCtx:
 
     table: SymbolTable
     builtins: frozenset[str]
+    module_names: frozenset[str] = field(default_factory=frozenset)
     symbols: dict[SymbolId, SymbolInfo] = field(default_factory=dict)
     references: dict[Span, SymbolId] = field(default_factory=dict)
     declarations: dict[Span, SymbolId] = field(default_factory=dict)
@@ -336,10 +338,16 @@ def _resolve_expr(ctx: _ResolveCtx, expr: SynExpr) -> None:
         else:
             func_info = ctx.table.lookup_function(expr.name)
             if func_info is not None:
-                ctx.record_call_target(
-                    expr.name_span,
-                    LocalFunctionTarget(id=func_info.id, name=func_info.name),
-                )
+                if func_info.name in ctx.module_names:
+                    ctx.record_call_target(
+                        expr.name_span,
+                        TopLevelFunctionTarget(name=func_info.name),
+                    )
+                else:
+                    ctx.record_call_target(
+                        expr.name_span,
+                        LocalFunctionTarget(id=func_info.id, name=func_info.name),
+                    )
             else:
                 ctx.record_call_target(expr.name_span, UnresolvedTarget(name=expr.name))
         # Resolve arguments.
@@ -348,3 +356,69 @@ def _resolve_expr(ctx: _ResolveCtx, expr: SynExpr) -> None:
 
     else:
         assert_never(expr)
+
+
+# ---------------------------------------------------------------------------
+# Module-level resolution
+# ---------------------------------------------------------------------------
+
+
+def resolve_module(
+    funcs: list[FunctionDef],
+    *,
+    builtins: frozenset[str] = frozenset(),
+) -> dict[str, ResolutionResult]:
+    """Resolve sibling functions in a shared top-level scope.
+
+    All *funcs* are hoisted into a single module scope before any
+    function body is resolved.  This enables:
+
+    - cross-function call classification (``TopLevelFunctionTarget``)
+    - cross-function duplicate/shadowing detection
+
+    Returns one ``ResolutionResult`` per function, keyed by name.
+
+    Raises ``ParseError`` on any lexical violation (including
+    cross-function conflicts such as a ``let`` shadowing a sibling
+    function name).
+    """
+    table = SymbolTable(builtins=builtins)
+    table.push_scope()
+
+    # Phase 1: hoist all function names into the module scope.
+    module_symbols: dict[SymbolId, SymbolInfo] = {}
+    module_declarations: dict[Span, SymbolId] = {}
+    func_names: set[str] = set()
+    for func in funcs:
+        if func.name in builtins:
+            raise ParseError(
+                f"Cannot use builtin function name {func.name!r} " f"as identifier name"
+            )
+        info = table.declare(func.name, SymbolKind.FUNCTION, func.name_span)
+        module_symbols[info.id] = info
+        module_declarations[info.span] = info.id
+        func_names.add(func.name)
+
+    module_names = frozenset(func_names)
+
+    # Phase 2: resolve each function body.
+    results: dict[str, ResolutionResult] = {}
+    for func in funcs:
+        ctx = _ResolveCtx(
+            table=table,
+            builtins=builtins,
+            module_names=module_names,
+            symbols=dict(module_symbols),
+            declarations=dict(module_declarations),
+        )
+        _resolve_function_def(ctx, func)
+        results[func.name] = ResolutionResult(
+            func=func,
+            symbols=ctx.symbols,
+            references=ctx.references,
+            declarations=ctx.declarations,
+            call_targets=ctx.call_targets,
+        )
+
+    table.pop_scope()
+    return results

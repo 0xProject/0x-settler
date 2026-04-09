@@ -25,7 +25,7 @@ from typing import Callable, assert_never
 from yul_ast import EvaluationError as EvaluationError
 from yul_ast import ParseError as ParseError
 from yul_parser import SyntaxParser
-from yul_resolve import resolve_function
+from yul_resolve import ResolutionResult, resolve_function, resolve_module
 
 # ---------------------------------------------------------------------------
 # AST nodes (shared by Yul parser and Lean emitter)
@@ -1001,17 +1001,21 @@ def _statement_reference_summary(
     raise TypeError(f"Unsupported ReferenceStatement: {type(stmt)}")
 
 
-def _validate_function_syntax(tokens: list[tuple[str, str]], start: int) -> None:
+def _validate_function_syntax(
+    tokens: list[tuple[str, str]], start: int
+) -> ResolutionResult:
     """Run the pure syntax parser + binder resolver as a pre-pass.
 
     Catches duplicate declarations, illegal shadowing, undefined
     variable references, and unsupported string literals before the
     lowering parser runs.  Also classifies call targets against the
     known EVM builtin set.  Raises ``ParseError`` on any violation.
+
+    Returns the ``ResolutionResult`` for downstream use.
     """
     parser = SyntaxParser(tokens[start:], token_offset=start)
     func = parser.parse_function()
-    resolve_function(func, builtins=_SUPPORTED_OPS_FROZENSET)
+    return resolve_function(func, builtins=_SUPPORTED_OPS_FROZENSET)
 
 
 class YulParser(_TokenReader):
@@ -5787,6 +5791,14 @@ def prepare_translation(
     """Parse Yul, select targets, and inline non-target helpers."""
 
     tokens = tokenize_yul(yul_text)
+
+    # Module-level pre-pass: validate cross-function scoping.
+    # All top-level functions share a single Yul namespace; nested
+    # functions that shadow a sibling name are rejected (solc 1395).
+    _syntax_funcs = SyntaxParser(tokens).parse_functions()
+    if _syntax_funcs:
+        resolve_module(_syntax_funcs, builtins=_SUPPORTED_OPS_FROZENSET)
+
     selected = (
         selected_functions if selected_functions is not None else config.function_order
     )

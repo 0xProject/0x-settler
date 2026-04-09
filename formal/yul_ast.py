@@ -255,10 +255,19 @@ class LocalFunctionTarget:
 
 
 @dataclass(frozen=True)
+class TopLevelFunctionTarget:
+    """Call target: a sibling function in the enclosing module scope."""
+
+    name: str
+
+
+@dataclass(frozen=True)
 class UnresolvedTarget:
     """Call target: callee not found in scope or builtins."""
 
     name: str
 
 
-CallTarget = Union[BuiltinTarget, LocalFunctionTarget, UnresolvedTarget]
+CallTarget = Union[
+    BuiltinTarget, LocalFunctionTarget, TopLevelFunctionTarget, UnresolvedTarget
+]

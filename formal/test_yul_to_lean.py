@@ -10,7 +10,7 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import yul_ast
 import yul_to_lean as ytl
 from yul_parser import SyntaxParser
-from yul_resolve import ResolutionResult, resolve_function
+from yul_resolve import ResolutionResult, resolve_function, resolve_module
 
 
 def branch(
@@ -3750,9 +3750,10 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
-    def test_translate_yul_to_models_keeps_nested_helper_shadowing_selected_name(
+    def test_translate_yul_to_models_rejects_nested_helper_shadowing_selected_sibling(
         self,
     ) -> None:
+        """Nested fun_g_2 shadows sibling top-level fun_g_2 — invalid per solc 1395."""
         config = make_model_config(("g", "f"))
         yul = """
             function fun_f_1(var_x_1) -> var_z_2 {
@@ -3767,18 +3768,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        table = ytl.build_model_table(result.models)
-        f_model = next(model for model in result.models if model.fn_name == "f")
-
-        self.assertEqual(
-            ytl.evaluate_function_model(f_model, (5,), model_table=table),
-            (6,),
-        )
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_rejects_return_shadow_in_all_switch_branches(
         self,
@@ -4810,9 +4805,10 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             (1,),
         )
 
-    def test_translate_yul_to_models_prefers_nested_local_helper_over_shadowed_sibling(
+    def test_translate_yul_to_models_rejects_nested_helper_shadowing_sibling_in_code_block(
         self,
     ) -> None:
+        """Nested helper inside fun_outer_1 shadows sibling top-level helper — invalid per solc 1395."""
         config = make_model_config(
             ("outer",),
             exact_yul_names={"outer": "fun_outer_1"},
@@ -4834,16 +4830,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-
-        self.assertEqual(
-            ytl.evaluate_function_model(result.models[0], ()),
-            (7,),
-        )
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_rejects_duplicate_helper_names_in_same_scope(
         self,
@@ -6250,9 +6242,10 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             (7,),
         )
 
-    def test_translate_yul_to_models_exact_target_can_select_qualified_nested_homonym(
+    def test_translate_yul_to_models_rejects_qualified_nested_homonym_shadowing_sibling(
         self,
     ) -> None:
+        """Nested helper2 inside fun_outer_1 shadows sibling top-level helper2 — invalid per solc 1395."""
         config = make_model_config(
             ("target",),
             exact_yul_names={"target": "fun_outer_1::helper2"},
@@ -6270,13 +6263,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-
-        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (7,))
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_rejects_ambiguous_unqualified_exact_target_across_scopes(
         self,
@@ -6305,9 +6297,10 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
-    def test_translate_yul_to_models_exact_top_level_target_ignores_unrelated_nested_homonym_when_qualified(
+    def test_translate_yul_to_models_rejects_nested_top_shadowing_sibling_when_qualified(
         self,
     ) -> None:
+        """Nested top inside outer shadows sibling top-level top — invalid per solc 1395."""
         config = make_model_config(
             ("target",),
             exact_yul_names={"target": "::top"},
@@ -6325,13 +6318,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-
-        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (1,))
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_exact_nested_target_rejects_rejected_sibling_helper_shadowing_outer_helper(
         self,
@@ -9032,9 +9024,10 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
                         pipeline=ytl.RAW_TRANSLATION_PIPELINE,
                     )
 
-    def test_translate_yul_to_models_allows_deferred_exact_from_helper_to_shadow_outer_rejected_helper(
+    def test_translate_yul_to_models_rejects_deferred_from_helper_shadowing_outer_rejected_sibling(
         self,
     ) -> None:
+        """Nested fun_from_1 shadows sibling top-level fun_from_1 — invalid per solc 1395."""
         config = make_model_config(
             ("target",),
             exact_yul_names={"target": "fun_target_0"},
@@ -9063,25 +9056,17 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
-        self.assertEqual(
-            ytl.evaluate_function_model(
-                model,
-                (5, 7),
-                model_table=ytl.build_model_table(result.models),
-            ),
-            (12,),
-        )
-
-    def test_translate_yul_to_models_allows_deferred_exact_from_helper_to_shadow_outer_valid_helper(
+    def test_translate_yul_to_models_rejects_deferred_from_helper_shadowing_outer_valid_sibling(
         self,
     ) -> None:
+        """Nested fun_from_1 shadows sibling top-level fun_from_1 — invalid per solc 1395."""
         config = make_model_config(
             ("target",),
             exact_yul_names={"target": "fun_target_0"},
@@ -9108,21 +9093,12 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
-
-        self.assertEqual(
-            ytl.evaluate_function_model(
-                model,
-                (5, 7),
-                model_table=ytl.build_model_table(result.models),
-            ),
-            (12,),
-        )
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_rejects_deferred_exact_from_helper_after_scope_ends(
         self,
@@ -9159,9 +9135,10 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
-    def test_translate_yul_to_models_allows_outer_helper_after_inner_deferred_exact_from_scope(
+    def test_translate_yul_to_models_rejects_outer_helper_when_inner_deferred_shadows_sibling(
         self,
     ) -> None:
+        """Nested fun_from_1 shadows sibling top-level fun_from_1 — invalid per solc 1395."""
         config = make_model_config(
             ("target",),
             exact_yul_names={"target": "fun_target_0"},
@@ -9189,21 +9166,12 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
-
-        self.assertEqual(
-            ytl.evaluate_function_model(
-                model,
-                (5, 7),
-                model_table=ytl.build_model_table(result.models),
-            ),
-            (0,),
-        )
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_allows_nested_exact_from_inside_inlined_helper(
         self,
@@ -9682,10 +9650,7 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
 
         for case, yul in yul_by_case.items():
             with self.subTest(case=case):
-                with self.assertRaisesRegex(
-                    ytl.ParseError,
-                    "Cannot inline helper 'bad_1': its Yul body was rejected during collection",
-                ):
+                with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
                     ytl.translate_yul_to_models(
                         yul,
                         config,
@@ -9763,22 +9728,12 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
 
         for case, yul in yul_by_case.items():
             with self.subTest(case=case):
-                with self.assertRaises(ytl.ParseError) as ctx:
+                with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
                     ytl.translate_yul_to_models(
                         yul,
                         config,
                         pipeline=ytl.RAW_TRANSLATION_PIPELINE,
                     )
-                message = str(ctx.exception)
-                self.assertIn(
-                    "Cannot inline helper 'bad_1': its Yul body was rejected during collection",
-                    message,
-                )
-                self.assertNotIn("_dfr_bad_1_", message)
-                self.assertEqual(
-                    message.count("its Yul body was rejected during collection"),
-                    1,
-                )
 
 
 class FinalCriticalReviewRegressionTest(unittest.TestCase):
@@ -10093,9 +10048,10 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
             )
         )
 
-    def test_translate_yul_to_models_does_not_overprotect_unqualified_exact_homonym(
+    def test_translate_yul_to_models_rejects_nested_helper_shadowing_unqualified_exact_sibling(
         self,
     ) -> None:
+        """Nested helper inside outer shadows sibling top-level helper — invalid per solc 1395."""
         config = make_model_config(
             ("a", "b"),
             exact_yul_names={
@@ -10122,21 +10078,12 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
             }
         """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        models = ytl.build_model_table(result.models)
-
-        self.assertEqual(
-            ytl.evaluate_function_model(models["a"], (), model_table=models),
-            (9,),
-        )
-        self.assertEqual(
-            ytl.evaluate_function_model(models["b"], (123,), model_table=models),
-            (11,),
-        )
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_does_not_leak_selected_block_local_helper_scope(
         self,
@@ -10693,6 +10640,154 @@ class ResolverSymbolIdTest(unittest.TestCase):
                 "function f(x) -> add { add := x }",
                 builtins=frozenset({"add"}),
             )
+
+
+class ResolverModuleTest(unittest.TestCase):
+    """Tests for module-level resolution (resolve_module) and TopLevelFunctionTarget."""
+
+    def _resolve_module(
+        self, yul: str, builtins: frozenset[str] = frozenset()
+    ) -> dict[str, ResolutionResult]:
+        tokens = ytl.tokenize_yul(yul)
+        funcs = SyntaxParser(tokens).parse_functions()
+        return resolve_module(funcs, builtins=builtins)
+
+    # -- call classification --------------------------------------------------
+
+    def test_sibling_call_classified_as_top_level_target(self) -> None:
+        results = self._resolve_module("""
+            function f(x) -> z { z := g(x) }
+            function g(a) -> b { b := a }
+        """)
+        f_targets = list(results["f"].call_targets.values())
+        self.assertEqual(len(f_targets), 1)
+        self.assertIsInstance(f_targets[0], yul_ast.TopLevelFunctionTarget)
+        assert isinstance(f_targets[0], yul_ast.TopLevelFunctionTarget)
+        self.assertEqual(f_targets[0].name, "g")
+
+    def test_nested_helper_classified_as_local_function_target(self) -> None:
+        results = self._resolve_module("""
+            function f(x) -> z {
+                function h(a) -> b { b := a }
+                z := h(x)
+            }
+            function g(a) -> b { b := a }
+        """)
+        f_targets = list(results["f"].call_targets.values())
+        self.assertEqual(len(f_targets), 1)
+        self.assertIsInstance(f_targets[0], yul_ast.LocalFunctionTarget)
+        assert isinstance(f_targets[0], yul_ast.LocalFunctionTarget)
+        self.assertEqual(f_targets[0].name, "h")
+
+    def test_builtin_call_still_classified_as_builtin(self) -> None:
+        results = self._resolve_module(
+            """
+            function f(x) -> z { z := add(x, 1) }
+            function g(a) -> b { b := a }
+            """,
+            builtins=frozenset({"add"}),
+        )
+        f_targets = list(results["f"].call_targets.values())
+        self.assertEqual(len(f_targets), 1)
+        self.assertIsInstance(f_targets[0], yul_ast.BuiltinTarget)
+
+    def test_unknown_call_classified_as_unresolved(self) -> None:
+        results = self._resolve_module("""
+            function f(x) -> z { z := unknown(x) }
+        """)
+        f_targets = list(results["f"].call_targets.values())
+        self.assertEqual(len(f_targets), 1)
+        self.assertIsInstance(f_targets[0], yul_ast.UnresolvedTarget)
+
+    # -- cross-function scoping -----------------------------------------------
+
+    def test_variable_shadowing_sibling_function_rejected(self) -> None:
+        """let helper inside f conflicts with sibling function helper."""
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            self._resolve_module("""
+                function helper(a) -> b { b := a }
+                function f(x) -> z { let helper := 7 z := x }
+            """)
+
+    def test_nested_function_shadowing_sibling_rejected(self) -> None:
+        """Nested function helper inside f conflicts with sibling function helper."""
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            self._resolve_module("""
+                function helper(a) -> b { b := a }
+                function f(x) -> z {
+                    function helper(c) -> d { d := c }
+                    z := helper(x)
+                }
+            """)
+
+    def test_sibling_scope_reuse_allowed(self) -> None:
+        """Different functions may each have their own nested 'inner' helper."""
+        results = self._resolve_module("""
+            function f(x) -> z {
+                function inner(a) -> b { b := a }
+                z := inner(x)
+            }
+            function g(x) -> z {
+                function inner(a) -> b { b := a }
+                z := inner(x)
+            }
+        """)
+        self.assertIn("f", results)
+        self.assertIn("g", results)
+
+    # -- module-level validation ----------------------------------------------
+
+    def test_duplicate_top_level_function_rejected(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            self._resolve_module("""
+                function f(x) -> z { z := x }
+                function f(a) -> b { b := a }
+            """)
+
+    def test_top_level_function_named_as_builtin_rejected(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "Cannot use builtin function name"):
+            self._resolve_module(
+                "function add(a, b) -> c { c := a }",
+                builtins=frozenset({"add"}),
+            )
+
+    def test_per_function_resolve_still_classifies_sibling_as_unresolved(self) -> None:
+        """resolve_function (without module context) classifies sibling calls
+        as UnresolvedTarget, preserving existing behavior."""
+        tokens = ytl.tokenize_yul("function f(x) -> z { z := g(x) }")
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func)
+        f_targets = list(result.call_targets.values())
+        self.assertEqual(len(f_targets), 1)
+        self.assertIsInstance(f_targets[0], yul_ast.UnresolvedTarget)
+
+    # -- parse_functions ------------------------------------------------------
+
+    def test_parse_functions_multiple(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function f(x) -> z { z := x }
+            function g(a) -> b { b := a }
+            function h(c) -> d { d := c }
+        """)
+        funcs = SyntaxParser(tokens).parse_functions()
+        self.assertEqual(len(funcs), 3)
+        names: list[str] = [f.name for f in funcs]
+        expected: list[str] = ["f", "g", "h"]
+        self.assertEqual(names, expected)
+
+    def test_parse_functions_skips_non_function_tokens(self) -> None:
+        """object/code wrappers are skipped; only function defs are returned."""
+        tokens = ytl.tokenize_yul("""
+            object "o" { code {
+                function f(x) -> z { z := x }
+                function g(a) -> b { b := a }
+            } }
+        """)
+        funcs = SyntaxParser(tokens).parse_functions()
+        self.assertEqual(len(funcs), 2)
+        names: list[str] = [f.name for f in funcs]
+        expected: list[str] = ["f", "g"]
+        self.assertEqual(names, expected)
 
 
 if __name__ == "__main__":

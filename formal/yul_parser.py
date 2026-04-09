@@ -324,3 +324,39 @@ class SyntaxParser:
     def parse_function(self) -> FunctionDef:
         """Parse a single function definition at current position."""
         return self._parse_function_def()
+
+    def parse_functions(self) -> list[FunctionDef]:
+        """Parse all sibling function definitions in the token stream.
+
+        Skips non-function tokens (object/code wrappers, etc.).
+        Only returns functions within the same brace-delimited scope
+        as the first function encountered — functions in sibling
+        ``object`` blocks are excluded.
+
+        Note: function-body braces are consumed by the recursive
+        descent parser, so the depth counter here only tracks
+        non-function-body braces (object/code wrappers).
+        """
+        funcs: list[FunctionDef] = []
+        depth = 0
+        first_depth: int | None = None
+        while not self._at_end():
+            kind = self._peek_kind()
+            if kind == "ident" and self._tokens[self._i][1] == "function":
+                if first_depth is None or depth == first_depth:
+                    funcs.append(self._parse_function_def())
+                    if first_depth is None:
+                        first_depth = depth
+                else:
+                    self._pop()
+            elif kind == "{":
+                depth += 1
+                self._pop()
+            elif kind == "}":
+                depth -= 1
+                self._pop()
+                if first_depth is not None and depth < first_depth:
+                    break
+            else:
+                self._pop()
+        return funcs
