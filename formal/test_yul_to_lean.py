@@ -11093,6 +11093,42 @@ class NormalizeEvalTest(unittest.TestCase):
         with self.assertRaisesRegex(ytl.EvaluationError, "Recursive call"):
             evaluate_normalized(nf_f, (1,), function_table=ft)
 
+    def test_sibling_helper_calling_sibling_helper(self) -> None:
+        """g() calls h() — both hoisted in the same block (valid per solc)."""
+        yul = """
+            function f() -> z {
+                function g() -> b { b := h() }
+                function h() -> c { c := 7 }
+                z := g()
+            }
+        """
+        self.assertEqual(self._eval_normalized(yul, ()), (7,))
+
+    def test_nested_function_cannot_capture_outer_variable(self) -> None:
+        """Yul functions are NOT closures — solc error 8198."""
+        with self.assertRaisesRegex(ytl.ParseError, "Undefined variable"):
+            tokens = ytl.tokenize_yul("""
+                function f(x) -> z {
+                    function g() -> b { b := x }
+                    z := g()
+                }
+            """)
+            func = SyntaxParser(tokens).parse_function()
+            resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+
+    def test_nested_function_cannot_capture_let_variable(self) -> None:
+        """let-bound variables are also not capturable across function boundaries."""
+        with self.assertRaisesRegex(ytl.ParseError, "Undefined variable"):
+            tokens = ytl.tokenize_yul("""
+                function f() -> z {
+                    let w := 7
+                    function g() -> b { b := w }
+                    z := g()
+                }
+            """)
+            func = SyntaxParser(tokens).parse_function()
+            resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+
 
 if __name__ == "__main__":
     unittest.main()

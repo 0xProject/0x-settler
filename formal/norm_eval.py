@@ -187,6 +187,7 @@ def evaluate_normalized(
     args: tuple[int, ...],
     *,
     function_table: dict[str, NormalizedFunction] | None = None,
+    enclosing_local_funcs: dict[SymbolId, NFunctionDef] | None = None,
     memory: dict[int, int] | None = None,
     call_stack: tuple[str, ...] = (),
 ) -> tuple[int, ...]:
@@ -194,7 +195,8 @@ def evaluate_normalized(
 
     *function_table* maps function names to ``NormalizedFunction`` for
     top-level (cross-function) calls.  Local helper calls are resolved
-    by ``SymbolId`` from ``NFunctionDef`` nodes in the function body.
+    by ``SymbolId`` from ``NFunctionDef`` nodes in the function body,
+    plus any *enclosing_local_funcs* inherited from the calling scope.
 
     *memory* is the shared Yul memory (mutated in-place by mstore).
     Pass an existing dict to share memory across calls.
@@ -221,7 +223,11 @@ def evaluate_normalized(
     named: dict[str, NormalizedFunction] = (
         dict(function_table) if function_table else {}
     )
-    local = _collect_local_funcs(func.body)
+    # Inherit enclosing local functions, then overlay with this body's.
+    local: dict[SymbolId, NFunctionDef] = (
+        dict(enclosing_local_funcs) if enclosing_local_funcs else {}
+    )
+    local.update(_collect_local_funcs(func.body))
 
     ctx = _EvalCtx(
         env=env,
@@ -423,6 +429,7 @@ def _call_function_def(
         nf,
         evaluated_args,
         function_table=ctx.named_funcs,
+        enclosing_local_funcs=ctx.local_funcs,
         memory=ctx.memory,
         call_stack=ctx.call_stack,
     )

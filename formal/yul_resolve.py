@@ -64,6 +64,11 @@ class SymbolTable:
         self._next_id += 1
         return sid
 
+    @property
+    def scope_depth(self) -> int:
+        """Current number of active scopes."""
+        return len(self._scopes)
+
     def push_scope(self) -> None:
         self._scopes.append({})
 
@@ -91,13 +96,14 @@ class SymbolTable:
         scope[name] = info
         return info
 
-    def lookup(self, name: str, span: Span) -> SymbolInfo:
+    def lookup(self, name: str, span: Span, *, scope_floor: int = 0) -> SymbolInfo:
         """Resolve *name* to its ``SymbolInfo``.
 
-        Searches from innermost scope outward.
+        Searches from innermost scope outward, stopping at
+        *scope_floor*.  The default (0) searches all scopes.
         Raises ``ParseError`` if not found.
         """
-        for scope in reversed(self._scopes):
+        for scope in reversed(self._scopes[scope_floor:]):
             if name in scope:
                 return scope[name]
         raise ParseError(f"Undefined variable {name!r}")
@@ -130,6 +136,7 @@ class _ResolveCtx:
     table: SymbolTable
     builtins: frozenset[str]
     module_names: frozenset[str] = field(default_factory=frozenset)
+    var_scope_floor: int = 0
     symbols: dict[SymbolId, SymbolInfo] = field(default_factory=dict)
     references: dict[Span, SymbolId] = field(default_factory=dict)
     declarations: dict[Span, SymbolId] = field(default_factory=dict)
@@ -202,7 +209,13 @@ def resolve_function(
 
 def _resolve_function_def(ctx: _ResolveCtx, func: FunctionDef) -> None:
     # Function body scope contains params + returns.
+    # Yul functions are NOT closures — they cannot access variables
+    # from enclosing function scopes (solc error 8198).  Set the
+    # variable-lookup floor to this scope so that NameExpr / AssignStmt
+    # targets can only resolve within the current function.
+    old_floor = ctx.var_scope_floor
     ctx.table.push_scope()
+    ctx.var_scope_floor = ctx.table.scope_depth - 1
 
     seen_sig: set[str] = set()
     for name, span in zip(func.params, func.param_spans):
@@ -225,6 +238,7 @@ def _resolve_function_def(ctx: _ResolveCtx, func: FunctionDef) -> None:
 
     _resolve_block_body(ctx, func.body)
     ctx.table.pop_scope()
+    ctx.var_scope_floor = old_floor
 
 
 def _resolve_block(ctx: _ResolveCtx, block: Block) -> None:
@@ -275,7 +289,7 @@ def _resolve_stmt(ctx: _ResolveCtx, stmt: SynStmt) -> None:
     elif isinstance(stmt, AssignStmt):
         _resolve_expr(ctx, stmt.expr)
         for name, span in zip(stmt.targets, stmt.target_spans):
-            info = ctx.table.lookup(name, span)
+            info = ctx.table.lookup(name, span, scope_floor=ctx.var_scope_floor)
             ctx.record_reference(span, info.id)
 
     elif isinstance(stmt, ExprStmt):
@@ -323,7 +337,7 @@ def _resolve_expr(ctx: _ResolveCtx, expr: SynExpr) -> None:
         pass
 
     elif isinstance(expr, NameExpr):
-        info = ctx.table.lookup(expr.name, expr.span)
+        info = ctx.table.lookup(expr.name, expr.span, scope_floor=ctx.var_scope_floor)
         ctx.record_reference(expr.span, info.id)
 
     elif isinstance(expr, StringExpr):
