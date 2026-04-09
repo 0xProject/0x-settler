@@ -12350,6 +12350,66 @@ class MemoryLowerTest(unittest.TestCase):
                 }
             """)
 
+    def test_mstore_inside_nested_switch_under_if_rejected(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "inside control flow"):
+            self._pipeline("""
+                function f(x) -> z {
+                    if x {
+                        switch x
+                        case 1 { mstore(0, 7) }
+                        default { }
+                    }
+                    z := 0
+                }
+            """)
+
+    def test_bare_mload_expr_stmt_inside_if_rejected(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "inside control flow"):
+            self._pipeline("""
+                function f(x) -> z {
+                    mstore(0, 7)
+                    if x { mload(0) }
+                    z := mload(0)
+                }
+            """)
+
+    def test_switch_condition_mload_resolved(self) -> None:
+        """mload in top-level switch discriminant must be resolved."""
+        nf = self._pipeline("""
+            function f() -> z {
+                mstore(0, 1)
+                switch mload(0)
+                case 0 { z := 10 }
+                case 1 { z := 20 }
+                default { z := 30 }
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, ()), (20,))
+
+    def test_for_condition_mload_resolved(self) -> None:
+        """mload in top-level for condition must be resolved."""
+        nf = self._pipeline("""
+            function f() -> z {
+                mstore(0, 0)
+                for { let i := 0 } lt(i, mload(0)) { i := add(i, 1) } {
+                    z := add(z, 1)
+                }
+            }
+        """)
+        # mload(0) resolves to NConst(0), lt(i, 0) is always false, loop never runs.
+        self.assertEqual(evaluate_normalized(nf, ()), (0,))
+
+    def test_snapshot_with_reassignment(self) -> None:
+        """mstore(0, x) then x := add(x, 1) then mload(0) must return original x=5, not 6."""
+        nf = self._pipeline("""
+            function f(x) -> z {
+                mstore(0, x)
+                x := add(x, 1)
+                z := mload(0)
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, (5,)), (5,))
+
 
 if __name__ == "__main__":
     unittest.main()

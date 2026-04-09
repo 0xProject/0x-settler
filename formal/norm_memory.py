@@ -38,7 +38,7 @@ from norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
-from norm_walk import map_expr
+from norm_walk import map_expr, max_symbol_id
 from yul_ast import ParseError, SymbolId
 
 # ---------------------------------------------------------------------------
@@ -74,35 +74,42 @@ def _reject_memory_ops_in_block(block: NBlock, context: str) -> None:
                 f"The memory model requires straight-line memory operations."
             )
         if isinstance(stmt, NExprEffect):
-            if isinstance(stmt.expr, NBuiltinCall) and stmt.expr.op == "mstore":
+            if _expr_has_memory_op(stmt.expr):
                 raise ParseError(
-                    f"mstore inside control flow ({context}). "
+                    f"Memory operation inside control flow ({context}). "
                     f"The memory model requires straight-line memory operations."
                 )
         if isinstance(stmt, (NBind, NAssign)):
-            if stmt.expr is not None and _expr_has_mload(stmt.expr):
+            if stmt.expr is not None and _expr_has_memory_op(stmt.expr):
                 raise ParseError(
-                    f"mload inside control flow ({context}). "
+                    f"Memory operation inside control flow ({context}). "
                     f"The memory model requires straight-line memory operations."
                 )
         if isinstance(stmt, NIf):
             _reject_memory_ops_in_block(stmt.then_body, context)
+        if isinstance(stmt, NSwitch):
+            for case in stmt.cases:
+                _reject_memory_ops_in_block(case.body, context)
+            if stmt.default is not None:
+                _reject_memory_ops_in_block(stmt.default, context)
         if isinstance(stmt, NBlock):
             _reject_memory_ops_in_block(stmt, context)
         if isinstance(stmt, NFor):
             _reject_memory_ops_in_block(stmt.init, context)
+            if stmt.condition_setup is not None:
+                _reject_memory_ops_in_block(stmt.condition_setup, context)
             _reject_memory_ops_in_block(stmt.post, context)
             _reject_memory_ops_in_block(stmt.body, context)
 
 
-def _expr_has_mload(expr: NExpr) -> bool:
-    """Check if an expression contains an mload call."""
+def _expr_has_memory_op(expr: NExpr) -> bool:
+    """Check if an expression contains any memory operation (mstore or mload)."""
     from norm_walk import for_each_expr
 
     found: list[bool] = [False]
 
     def check(e: NExpr) -> None:
-        if isinstance(e, NBuiltinCall) and e.op == "mload":
+        if isinstance(e, NBuiltinCall) and e.op in ("mstore", "mload"):
             found[0] = True
 
     for_each_expr(expr, check)
@@ -137,19 +144,34 @@ def _resolve_memory_in_expr(expr: NExpr, mem: dict[int, NExpr]) -> NExpr:
 # ---------------------------------------------------------------------------
 
 
-def _lower_block(block: NBlock, mem: dict[int, NExpr]) -> NBlock:
+class _MemCtx:
+    """Mutable context for memory lowering."""
+
+    def __init__(self, next_id: int) -> None:
+        self.mem: dict[int, NExpr] = {}
+        self._next_id = next_id
+
+    def alloc(self) -> SymbolId:
+        sid = SymbolId(self._next_id)
+        self._next_id += 1
+        return sid
+
+
+def _lower_block(block: NBlock, ctx: _MemCtx) -> NBlock:
     """Lower memory operations in a block."""
     stmts: list[NStmt] = []
     for stmt in block.stmts:
-        _lower_stmt(stmt, mem, stmts)
+        _lower_stmt(stmt, ctx, stmts)
     return NBlock(tuple(stmts))
 
 
 def _lower_stmt(
     stmt: NStmt,
-    mem: dict[int, NExpr],
+    ctx: _MemCtx,
     out: list[NStmt],
 ) -> None:
+    mem = ctx.mem
+
     if isinstance(stmt, NStore):
         addr = _resolve_const_addr(stmt.addr, "mstore")
         if addr in mem:
@@ -159,8 +181,15 @@ def _lower_stmt(
             )
         # Resolve any mload references in the stored value.
         resolved_value = _resolve_memory_in_expr(stmt.value, mem)
-        mem[addr] = resolved_value
-        # NStore is consumed — not emitted to output.
+        # Snapshot: bind value to a fresh temp so later reassignments
+        # don't affect the stored expression.
+        if not isinstance(resolved_value, NConst):
+            tid = ctx.alloc()
+            name = f"_mem_{addr}"
+            out.append(NBind(targets=(tid,), target_names=(name,), expr=resolved_value))
+            mem[addr] = NRef(symbol_id=tid, name=name)
+        else:
+            mem[addr] = resolved_value
         return
 
     if isinstance(stmt, NBind):
@@ -204,7 +233,16 @@ def _lower_stmt(
                     f"The memory model forbids aliasing or overwriting."
                 )
             resolved_value = _resolve_memory_in_expr(value_expr, mem)
-            mem[addr] = resolved_value
+            # Snapshot non-constant values.
+            if not isinstance(resolved_value, NConst):
+                tid = ctx.alloc()
+                name = f"_mem_{addr}"
+                out.append(
+                    NBind(targets=(tid,), target_names=(name,), expr=resolved_value)
+                )
+                mem[addr] = NRef(symbol_id=tid, name=name)
+            else:
+                mem[addr] = resolved_value
             return  # Consumed — not emitted
         new_expr = _resolve_memory_in_expr(stmt.expr, mem)
         out.append(NExprEffect(expr=new_expr))
@@ -222,7 +260,12 @@ def _lower_stmt(
         if stmt.default is not None:
             _reject_memory_ops_in_block(stmt.default, "switch-default")
         new_disc = _resolve_memory_in_expr(stmt.discriminant, mem)
-        out.append(stmt)
+        from norm_ir import NSwitchCase
+
+        new_cases = tuple(NSwitchCase(value=c.value, body=c.body) for c in stmt.cases)
+        out.append(
+            NSwitch(discriminant=new_disc, cases=new_cases, default=stmt.default)
+        )
         return
 
     if isinstance(stmt, NFor):
@@ -231,7 +274,20 @@ def _lower_stmt(
             _reject_memory_ops_in_block(stmt.condition_setup, "for-condition-setup")
         _reject_memory_ops_in_block(stmt.post, "for-post")
         _reject_memory_ops_in_block(stmt.body, "for-body")
-        out.append(stmt)
+        # Resolve mload in condition and condition_setup expressions.
+        new_cond = _resolve_memory_in_expr(stmt.condition, mem)
+        new_cond_setup = stmt.condition_setup
+        if new_cond_setup is not None:
+            new_cond_setup = _lower_block(new_cond_setup, ctx)
+        out.append(
+            NFor(
+                init=stmt.init,
+                condition=new_cond,
+                condition_setup=new_cond_setup,
+                post=stmt.post,
+                body=stmt.body,
+            )
+        )
         return
 
     if isinstance(stmt, (NLeave, NFunctionDef)):
@@ -239,7 +295,7 @@ def _lower_stmt(
         return
 
     if isinstance(stmt, NBlock):
-        out.append(_lower_block(stmt, mem))
+        out.append(_lower_block(stmt, ctx))
         return
 
     raise ParseError(f"Unexpected statement in memory lowering: {type(stmt).__name__}")
@@ -257,8 +313,8 @@ def lower_memory(func: NormalizedFunction) -> NormalizedFunction:
     the expression previously stored at that address.  Raises
     ``ParseError`` if any memory constraint is violated.
     """
-    mem: dict[int, NExpr] = {}
-    new_body = _lower_block(func.body, mem)
+    ctx = _MemCtx(next_id=max_symbol_id(func) + 1)
+    new_body = _lower_block(func.body, ctx)
     return NormalizedFunction(
         name=func.name,
         params=func.params,
