@@ -384,13 +384,19 @@ def _block_inline(
         )
     )
 
-    # Build substitution: params → atom_args, returns → ret_temps.
+    # Build substitution: params → atom_args, returns → ret_temps,
+    # ALL callee locals → fresh IDs (binder hygiene).
     subst: dict[SymbolId, SymbolId] = {}
     for old_sid, arg_ref in zip(fdef.params, atom_args):
         if isinstance(arg_ref, NRef):
             subst[old_sid] = arg_ref.symbol_id
     for old_sid, new_sid in zip(fdef.returns, ret_temps):
         subst[old_sid] = new_sid
+    # Allocate fresh IDs for all locally-declared variables.
+    param_ret_set: set[SymbolId] = set(fdef.params) | set(fdef.returns)
+    callee_locals = _collect_all_bind_targets(fdef.body, param_ret_set)
+    for old_sid in callee_locals:
+        subst[old_sid] = alloc.alloc()
 
     # Clone body with substitutions.
     cloned = _clone_body_for_block_inline(
@@ -444,6 +450,25 @@ def _clone_body_for_block_inline(
         if _stmt_may_leave(stmt):
             may_have_left = True
 
+    return out
+
+
+def _collect_all_bind_targets(block: NBlock, exclude: set[SymbolId]) -> set[SymbolId]:
+    """Collect all SymbolIds declared via NBind in *block* (recursive)."""
+    out: set[SymbolId] = set()
+
+    def walk(b: NBlock) -> None:
+        for stmt in b.stmts:
+            if isinstance(stmt, NBind):
+                for sid in stmt.targets:
+                    if sid not in exclude:
+                        out.add(sid)
+            elif isinstance(stmt, NIf):
+                walk(stmt.then_body)
+            elif isinstance(stmt, NBlock):
+                walk(stmt)
+
+    walk(block)
     return out
 
 
@@ -548,43 +573,104 @@ def _effect_lower(
 
 
 def _inline_in_expr(expr: NExpr, ctx: _InlineCtx, depth: int) -> NExpr:
-    """Inline pure helper calls within an expression (scalar context only)."""
+    """Inline helper calls within an expression (scalar context, no prelude).
+
+    Only handles EXPR_INLINE. For BLOCK_INLINE/EFFECT_LOWER, use
+    ``_inline_in_expr_with_prelude`` which can emit side-effect statements.
+    """
+    pre, result = _inline_in_expr_with_prelude(expr, ctx, depth)
+    if pre:
+        raise ParseError(
+            "Non-EXPR_INLINE call in pure expression context "
+            "(should use _inline_in_expr_with_prelude)"
+        )
+    return result
+
+
+def _inline_in_expr_with_prelude(
+    expr: NExpr, ctx: _InlineCtx, depth: int
+) -> tuple[list[NStmt], NExpr]:
+    """Inline helper calls, returning (prelude_stmts, result_expr).
+
+    Handles all strategies: EXPR_INLINE produces empty prelude,
+    BLOCK_INLINE/EFFECT_LOWER produce prelude statements.
+    """
     if isinstance(expr, (NConst, NRef)):
-        return expr
+        return [], expr
 
     if isinstance(expr, NBuiltinCall):
-        new_args = tuple(_inline_in_expr(a, ctx, depth) for a in expr.args)
-        return NBuiltinCall(op=expr.op, args=new_args)
+        pre: list[NStmt] = []
+        new_args: list[NExpr] = []
+        for a in expr.args:
+            a_pre, a_val = _inline_in_expr_with_prelude(a, ctx, depth)
+            pre.extend(a_pre)
+            new_args.append(a_val)
+        return pre, NBuiltinCall(op=expr.op, args=tuple(new_args))
 
     if isinstance(expr, NLocalCall):
-        new_args = tuple(_inline_in_expr(a, ctx, depth) for a in expr.args)
+        # Inline arguments first.
+        pre = []
+        new_args_list: list[NExpr] = []
+        for a in expr.args:
+            a_pre, a_val = _inline_in_expr_with_prelude(a, ctx, depth)
+            pre.extend(a_pre)
+            new_args_list.append(a_val)
+        new_args_t = tuple(new_args_list)
+
         strat = ctx.strategy_for(expr.symbol_id)
-        if strat == InlineStrategy.EXPR_INLINE and expr.symbol_id in ctx.defs:
+        if strat != InlineStrategy.DO_NOT_INLINE and expr.symbol_id in ctx.defs:
             if depth > ctx.max_depth:
                 raise ParseError(f"Inlining depth exceeded for {expr.name!r}")
             fdef = ctx.defs[expr.symbol_id]
-            frag = _expr_inline(fdef, new_args, ctx, depth + 1)
+
+            if strat == InlineStrategy.EXPR_INLINE:
+                frag = _expr_inline(fdef, new_args_t, ctx, depth + 1)
+            elif strat == InlineStrategy.BLOCK_INLINE:
+                arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
+                pre.extend(arg_binds)
+                frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
+            elif strat == InlineStrategy.EFFECT_LOWER:
+                arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
+                pre.extend(arg_binds)
+                frag = _effect_lower(fdef, tuple(atom_refs), ctx.alloc)
+
+            pre.extend(frag.prelude)
             if len(frag.results) == 1:
-                return frag.results[0]
+                return pre, frag.results[0]
+            if len(frag.results) == 0:
+                # Zero-return helper — effects are in prelude, no result value.
+                return pre, NConst(0)
             raise ParseError(
                 f"Multi-return call to {expr.name!r} in single-value context"
             )
-        return NLocalCall(symbol_id=expr.symbol_id, name=expr.name, args=new_args)
+        return pre, NLocalCall(
+            symbol_id=expr.symbol_id, name=expr.name, args=new_args_t
+        )
 
     if isinstance(expr, NTopLevelCall):
-        new_args = tuple(_inline_in_expr(a, ctx, depth) for a in expr.args)
-        return NTopLevelCall(name=expr.name, args=new_args)
+        pre = []
+        new_args_list = []
+        for a in expr.args:
+            a_pre, a_val = _inline_in_expr_with_prelude(a, ctx, depth)
+            pre.extend(a_pre)
+            new_args_list.append(a_val)
+        return pre, NTopLevelCall(name=expr.name, args=tuple(new_args_list))
 
     if isinstance(expr, NUnresolvedCall):
-        new_args = tuple(_inline_in_expr(a, ctx, depth) for a in expr.args)
-        return NUnresolvedCall(name=expr.name, args=new_args)
+        pre = []
+        new_args_list = []
+        for a in expr.args:
+            a_pre, a_val = _inline_in_expr_with_prelude(a, ctx, depth)
+            pre.extend(a_pre)
+            new_args_list.append(a_val)
+        return pre, NUnresolvedCall(name=expr.name, args=tuple(new_args_list))
 
     if isinstance(expr, NIte):
-        return NIte(
-            cond=_inline_in_expr(expr.cond, ctx, depth),
-            if_true=_inline_in_expr(expr.if_true, ctx, depth),
-            if_false=_inline_in_expr(expr.if_false, ctx, depth),
-        )
+        c_pre, c_val = _inline_in_expr_with_prelude(expr.cond, ctx, depth)
+        t_pre, t_val = _inline_in_expr_with_prelude(expr.if_true, ctx, depth)
+        f_pre, f_val = _inline_in_expr_with_prelude(expr.if_false, ctx, depth)
+        pre = c_pre + t_pre + f_pre
+        return pre, NIte(cond=c_val, if_true=t_val, if_false=f_val)
 
     raise ParseError(f"Unexpected expression type: {type(expr).__name__}")
 
@@ -606,34 +692,39 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
         return _rewrite_bind_or_assign(stmt, ctx)
 
     if isinstance(stmt, NExprEffect):
-        # Pure zero-return helper: preserve args, drop call.
+        # Check for inlineable call as expression-statement.
         if isinstance(stmt.expr, NLocalCall):
             strat = ctx.strategy_for(stmt.expr.symbol_id)
-            if strat == InlineStrategy.EXPR_INLINE:
-                fdef = ctx.defs.get(stmt.expr.symbol_id)
-                if fdef is not None and len(fdef.returns) == 0:
-                    result: list[NStmt] = []
-                    for arg in stmt.expr.args:
-                        inlined = _inline_in_expr(arg, ctx, 0)
-                        if not isinstance(inlined, (NConst, NRef)):
-                            result.append(NExprEffect(expr=inlined))
-                    return result
-        return [NExprEffect(expr=_inline_in_expr(stmt.expr, ctx, 0))]
+            fdef = ctx.defs.get(stmt.expr.symbol_id)
+            if strat != InlineStrategy.DO_NOT_INLINE and fdef is not None:
+                # Inline the call and emit prelude + discard result.
+                pre, val = _inline_in_expr_with_prelude(stmt.expr, ctx, 0)
+                if pre:
+                    return pre
+                # No prelude, no return value (zero-return pure helper).
+                if isinstance(val, (NConst, NRef)):
+                    return []
+                return [NExprEffect(expr=val)]
+        pre, val = _inline_in_expr_with_prelude(stmt.expr, ctx, 0)
+        out: list[NStmt] = list(pre)
+        out.append(NExprEffect(expr=val))
+        return out
 
     if isinstance(stmt, NStore):
-        return [
-            NStore(
-                addr=_inline_in_expr(stmt.addr, ctx, 0),
-                value=_inline_in_expr(stmt.value, ctx, 0),
-            )
-        ]
+        a_pre, a_val = _inline_in_expr_with_prelude(stmt.addr, ctx, 0)
+        v_pre, v_val = _inline_in_expr_with_prelude(stmt.value, ctx, 0)
+        out = list(a_pre) + list(v_pre)
+        out.append(NStore(addr=a_val, value=v_val))
+        return out
 
     if isinstance(stmt, NIf):
-        new_cond = _inline_in_expr(stmt.condition, ctx, 0)
-        return [NIf(condition=new_cond, then_body=_rewrite_block(stmt.then_body, ctx))]
+        c_pre, c_val = _inline_in_expr_with_prelude(stmt.condition, ctx, 0)
+        out = list(c_pre)
+        out.append(NIf(condition=c_val, then_body=_rewrite_block(stmt.then_body, ctx)))
+        return out
 
     if isinstance(stmt, NSwitch):
-        new_disc = _inline_in_expr(stmt.discriminant, ctx, 0)
+        d_pre, d_val = _inline_in_expr_with_prelude(stmt.discriminant, ctx, 0)
         new_cases = tuple(
             NSwitchCase(value=c.value, body=_rewrite_block(c.body, ctx))
             for c in stmt.cases
@@ -641,17 +732,22 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
         new_default = (
             _rewrite_block(stmt.default, ctx) if stmt.default is not None else None
         )
-        return [NSwitch(discriminant=new_disc, cases=new_cases, default=new_default)]
+        out = list(d_pre)
+        out.append(NSwitch(discriminant=d_val, cases=new_cases, default=new_default))
+        return out
 
     if isinstance(stmt, NFor):
-        return [
+        cond_pre, cond_val = _inline_in_expr_with_prelude(stmt.condition, ctx, 0)
+        out = list(cond_pre)
+        out.append(
             NFor(
                 init=_rewrite_block(stmt.init, ctx),
-                condition=_inline_in_expr(stmt.condition, ctx, 0),
+                condition=cond_val,
                 post=_rewrite_block(stmt.post, ctx),
                 body=_rewrite_block(stmt.body, ctx),
             )
-        ]
+        )
+        return out
 
     if isinstance(stmt, (NLeave, NFunctionDef)):
         return [stmt]
@@ -681,8 +777,14 @@ def _rewrite_bind_or_assign(
         fdef = ctx.defs[expr.symbol_id]
 
         if strat != InlineStrategy.DO_NOT_INLINE:
-            # Atomize arguments.
-            raw_args = tuple(_inline_in_expr(a, ctx, 0) for a in expr.args)
+            # Inline arguments (may produce prelude), then atomize.
+            arg_pre: list[NStmt] = []
+            raw_args_list: list[NExpr] = []
+            for a in expr.args:
+                a_p, a_v = _inline_in_expr_with_prelude(a, ctx, 0)
+                arg_pre.extend(a_p)
+                raw_args_list.append(a_v)
+            raw_args = tuple(raw_args_list)
             arg_binds, atom_refs = _atomize_args(raw_args, ctx.alloc)
 
             # Get InlineFragment from the appropriate strategy.
@@ -696,8 +798,8 @@ def _rewrite_bind_or_assign(
             else:
                 raise ParseError(f"Unknown strategy: {strat}")
 
-            # Emit: arg binds → prelude → target assignments.
-            out: list[NStmt] = list(arg_binds) + list(frag.prelude)
+            # Emit: arg_pre → arg binds → prelude → target assignments.
+            out: list[NStmt] = arg_pre + list(arg_binds) + list(frag.prelude)
 
             if len(stmt.targets) == len(frag.results):
                 if len(stmt.targets) == 1:
@@ -733,11 +835,13 @@ def _rewrite_bind_or_assign(
                         )
                 return out
 
-    # Not inlineable: just inline within expression.
-    new_expr = _inline_in_expr(expr, ctx, 0)
-    return [
+    # Not a direct inlineable call: inline within expression (may produce prelude).
+    pre, new_expr = _inline_in_expr_with_prelude(expr, ctx, 0)
+    result: list[NStmt] = list(pre)
+    result.append(
         cls_type(targets=stmt.targets, target_names=stmt.target_names, expr=new_expr)
-    ]
+    )
+    return result
 
 
 # ---------------------------------------------------------------------------

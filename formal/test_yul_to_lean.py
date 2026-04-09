@@ -11998,5 +11998,133 @@ class ConstPropTest(unittest.TestCase):
         self.assertEqual(assign.expr.args[1], norm_ir.NConst(5))
 
 
+class InlineArchitectureTest(unittest.TestCase):
+    """Regression tests for the block-based inliner architecture."""
+
+    def _inline(self, yul: str) -> norm_ir.NormalizedFunction:
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        return inline_pure_helpers(nf)
+
+    def _has_local_call(self, block: norm_ir.NBlock, name: str) -> bool:
+        """Check if any NLocalCall to *name* remains in the block tree."""
+        found: list[bool] = [False]
+
+        def check_expr(e: norm_ir.NExpr) -> None:
+            if isinstance(e, norm_ir.NLocalCall) and e.name == name:
+                found[0] = True
+
+        def check_block(b: norm_ir.NBlock) -> None:
+            for stmt in b.stmts:
+                if isinstance(stmt, (norm_ir.NBind, norm_ir.NAssign)):
+                    if stmt.expr is not None:
+                        from norm_walk import for_each_expr
+
+                        for_each_expr(stmt.expr, check_expr)
+                elif isinstance(stmt, norm_ir.NExprEffect):
+                    from norm_walk import for_each_expr
+
+                    for_each_expr(stmt.expr, check_expr)
+                elif isinstance(stmt, norm_ir.NIf):
+                    from norm_walk import for_each_expr
+
+                    for_each_expr(stmt.condition, check_expr)
+                    check_block(stmt.then_body)
+                elif isinstance(stmt, norm_ir.NBlock):
+                    check_block(stmt)
+
+        check_block(block)
+        return found[0]
+
+    def test_nested_block_inline_call(self) -> None:
+        """BLOCK_INLINE call nested inside add() must be inlined."""
+        nf = self._inline("""
+            function f(x) -> z {
+                function g(a) -> b {
+                    if a { b := 1  leave }
+                    b := 2
+                }
+                z := add(g(x), 10)
+            }
+        """)
+        self.assertFalse(
+            self._has_local_call(nf.body, "g"),
+            "g should be inlined, not left as NLocalCall",
+        )
+        self.assertEqual(evaluate_normalized(nf, (0,)), (12,))
+        self.assertEqual(evaluate_normalized(nf, (1,)), (11,))
+
+    def test_nested_effect_lower_call(self) -> None:
+        """EFFECT_LOWER call nested inside add() must be inlined."""
+        nf = self._inline("""
+            function f(hi, lo) -> z {
+                function from_helper(ptr, x_hi, x_lo) -> r {
+                    r := 0
+                    mstore(ptr, x_hi)
+                    mstore(add(0x20, ptr), x_lo)
+                    r := ptr
+                }
+                z := add(from_helper(64, hi, lo), 1)
+            }
+        """)
+        self.assertFalse(
+            self._has_local_call(nf.body, "from_helper"),
+            "from_helper should be inlined, not left as NLocalCall",
+        )
+        self.assertEqual(evaluate_normalized(nf, (5, 7), memory={}), (65,))
+
+    def test_effect_lower_as_expression_statement(self) -> None:
+        """Bare from_helper(64, hi, lo) as expression-statement must emit NStores."""
+        nf = self._inline("""
+            function f(hi, lo) -> z {
+                function from_helper(ptr, x_hi, x_lo) -> r {
+                    r := 0
+                    mstore(ptr, x_hi)
+                    mstore(add(0x20, ptr), x_lo)
+                    r := ptr
+                }
+                from_helper(64, hi, lo)
+                z := add(mload(64), mload(add(0x20, 64)))
+            }
+        """)
+        self.assertFalse(
+            self._has_local_call(nf.body, "from_helper"),
+            "from_helper should be inlined, not left as NLocalCall",
+        )
+        self.assertEqual(evaluate_normalized(nf, (5, 7), memory={}), (12,))
+
+    def test_block_inline_binder_hygiene(self) -> None:
+        """Two inlines of the same BLOCK_INLINE helper must use distinct SymbolIds."""
+        nf = self._inline("""
+            function f(x, y) -> p, q {
+                function g(a) -> b {
+                    let t := a
+                    if t { b := 1  leave }
+                    b := 2
+                }
+                p := g(x)
+                q := g(y)
+            }
+        """)
+        # Verify correctness.
+        self.assertEqual(evaluate_normalized(nf, (0, 0)), (2, 2))
+        self.assertEqual(evaluate_normalized(nf, (1, 0)), (1, 2))
+        self.assertEqual(evaluate_normalized(nf, (0, 1)), (2, 1))
+        self.assertEqual(evaluate_normalized(nf, (1, 1)), (1, 1))
+        # Verify no duplicate SymbolIds in NBind targets.
+        bind_targets: list[yul_ast.SymbolId] = []
+        for stmt in nf.body.stmts:
+            if isinstance(stmt, norm_ir.NBind):
+                for sid in stmt.targets:
+                    bind_targets.append(sid)
+        self.assertEqual(
+            len(bind_targets),
+            len(set(bind_targets)),
+            f"Duplicate bind targets: {bind_targets}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
