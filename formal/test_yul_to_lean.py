@@ -11238,13 +11238,35 @@ class ClassifyInlineTest(unittest.TestCase):
         result = resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
         nf = normalize_function(func, result)
         classifications = classify_function_scope(nf)
-        # Build name-keyed dict for test convenience.
+        # Build name-keyed dict for test convenience by walking all
+        # NFunctionDef nodes (including inside blocks).
         name_map: dict[str, InlineClassification] = {}
-        for stmt in nf.body.stmts:
+        self._collect_name_map(nf.body, classifications, name_map)
+        return name_map
+
+    def _collect_name_map(
+        self,
+        block: norm_ir.NBlock,
+        classifications: dict[yul_ast.SymbolId, InlineClassification],
+        out: dict[str, InlineClassification],
+    ) -> None:
+        for stmt in block.stmts:
             if isinstance(stmt, norm_ir.NFunctionDef):
                 if stmt.symbol_id in classifications:
-                    name_map[stmt.name] = classifications[stmt.symbol_id]
-        return name_map
+                    out[stmt.name] = classifications[stmt.symbol_id]
+            elif isinstance(stmt, norm_ir.NIf):
+                self._collect_name_map(stmt.then_body, classifications, out)
+            elif isinstance(stmt, norm_ir.NSwitch):
+                for case in stmt.cases:
+                    self._collect_name_map(case.body, classifications, out)
+                if stmt.default is not None:
+                    self._collect_name_map(stmt.default, classifications, out)
+            elif isinstance(stmt, norm_ir.NFor):
+                self._collect_name_map(stmt.init, classifications, out)
+                self._collect_name_map(stmt.post, classifications, out)
+                self._collect_name_map(stmt.body, classifications, out)
+            elif isinstance(stmt, norm_ir.NBlock):
+                self._collect_name_map(stmt, classifications, out)
 
     def test_pure_helper_classified_as_pure(self) -> None:
         c = self._classify("""
@@ -11292,6 +11314,64 @@ class ClassifyInlineTest(unittest.TestCase):
         """)
         self.assertFalse(c["g"].is_pure)
         self.assertIsNotNone(c["g"].unsupported_reason)
+
+    def test_unresolved_call_not_pure(self) -> None:
+        """Helper calling unresolved function must not be classified as pure."""
+        c = self._classify("""
+            function f(x) -> z {
+                function g(a) -> b { b := ext(a) }
+                z := g(x)
+            }
+        """)
+        self.assertFalse(c["g"].is_pure)
+        self.assertIsNotNone(c["g"].unsupported_reason)
+
+    def test_top_level_call_not_pure(self) -> None:
+        """Helper calling a top-level sibling must not be classified as pure."""
+        yul = """
+            function h(a) -> b { b := a }
+            function f(x) -> z {
+                function g(a) -> b { b := h(a) }
+                z := g(x)
+            }
+        """
+        tokens = ytl.tokenize_yul(yul)
+        funcs = SyntaxParser(tokens).parse_functions()
+        results = resolve_module(funcs, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+        nf_f = normalize_function(funcs[1], results["f"])
+        classifications = classify_function_scope(nf_f)
+        name_map: dict[str, InlineClassification] = {}
+        for stmt in nf_f.body.stmts:
+            if isinstance(stmt, norm_ir.NFunctionDef):
+                if stmt.symbol_id in classifications:
+                    name_map[stmt.name] = classifications[stmt.symbol_id]
+        self.assertFalse(name_map["g"].is_pure)
+
+    def test_mstore_as_expr_effect_not_flagged_as_unsupported(self) -> None:
+        """mstore(...) as an expression-statement is a normal memory op, not unsupported."""
+        c = self._classify("""
+            function f() -> z {
+                function g() { mstore(0, 7) }
+                g()
+                z := mload(0)
+            }
+        """)
+        self.assertTrue(c["g"].is_deferred)
+        self.assertIsNone(c["g"].unsupported_reason)
+
+    def test_block_local_helper_classified(self) -> None:
+        """Helper inside an if-block is still found and classified."""
+        c = self._classify("""
+            function f(x) -> z {
+                if x {
+                    function g() { mstore(0, 7) }
+                    g()
+                }
+                z := mload(0)
+            }
+        """)
+        self.assertIn("g", c)
+        self.assertTrue(c["g"].is_deferred)
 
 
 if __name__ == "__main__":

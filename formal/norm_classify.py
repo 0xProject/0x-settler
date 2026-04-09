@@ -58,6 +58,8 @@ class FunctionSummary:
     may_leave: bool
     has_for_loop: bool
     has_expr_effects: bool
+    calls_unresolved: bool
+    calls_top_level: bool
     called_functions: frozenset[SymbolId]
     called_builtins: frozenset[str]
     is_uint512_from: bool
@@ -73,6 +75,8 @@ def summarize_function(body: NBlock) -> FunctionSummary:
         may_leave=acc.may_leave,
         has_for_loop=acc.has_for_loop,
         has_expr_effects=acc.has_expr_effects,
+        calls_unresolved=acc.calls_unresolved,
+        calls_top_level=acc.calls_top_level,
         called_functions=frozenset(acc.called_functions),
         called_builtins=frozenset(acc.called_builtins),
         is_uint512_from=False,  # set separately by caller
@@ -88,6 +92,8 @@ class _SummaryAccumulator:
         self.may_leave: bool = False
         self.has_for_loop: bool = False
         self.has_expr_effects: bool = False
+        self.calls_unresolved: bool = False
+        self.calls_top_level: bool = False
         self.called_functions: set[SymbolId] = set()
         self.called_builtins: set[str] = set()
 
@@ -104,7 +110,10 @@ def _walk_stmt(acc: _SummaryAccumulator, stmt: NStmt) -> None:
     elif isinstance(stmt, NAssign):
         _walk_expr(acc, stmt.expr)
     elif isinstance(stmt, NExprEffect):
-        acc.has_expr_effects = True
+        # mstore/mload as expression-statements are normal memory ops,
+        # NOT unsupported expression-statements.
+        if not _is_known_effect_call(stmt.expr):
+            acc.has_expr_effects = True
         _walk_expr(acc, stmt.expr)
     elif isinstance(stmt, NIf):
         _walk_expr(acc, stmt.condition)
@@ -146,14 +155,34 @@ def _walk_expr(acc: _SummaryAccumulator, expr: NExpr) -> None:
         acc.called_functions.add(expr.symbol_id)
         for a in expr.args:
             _walk_expr(acc, a)
-    elif isinstance(expr, (NTopLevelCall, NUnresolvedCall)):
-        # Check for memory ops that aren't classified as builtins.
+    elif isinstance(expr, NTopLevelCall):
+        acc.calls_top_level = True
         if expr.name in _MEMORY_WRITE_OPS:
             acc.writes_memory = True
         if expr.name in _MEMORY_READ_OPS:
             acc.reads_memory = True
         for a in expr.args:
             _walk_expr(acc, a)
+    elif isinstance(expr, NUnresolvedCall):
+        # Known memory ops are not truly unresolved — they just aren't
+        # in the resolver's _SUPPORTED_OPS_FROZENSET.
+        if expr.name not in _MEMORY_WRITE_OPS and expr.name not in _MEMORY_READ_OPS:
+            acc.calls_unresolved = True
+        if expr.name in _MEMORY_WRITE_OPS:
+            acc.writes_memory = True
+        if expr.name in _MEMORY_READ_OPS:
+            acc.reads_memory = True
+        for a in expr.args:
+            _walk_expr(acc, a)
+
+
+def _is_known_effect_call(expr: NExpr) -> bool:
+    """Check if an expression is a known memory-effect call (mstore etc.)."""
+    if isinstance(expr, NBuiltinCall):
+        return expr.op in _MEMORY_WRITE_OPS or expr.op in _MEMORY_READ_OPS
+    if isinstance(expr, (NTopLevelCall, NUnresolvedCall)):
+        return expr.name in _MEMORY_WRITE_OPS or expr.name in _MEMORY_READ_OPS
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -212,6 +241,20 @@ def _is_uint512_from_shape(
         return False
     if len(init_ret.targets) != 1 or init_ret.targets[0] != ret_id:
         return False
+    # Value must be zero or a reference to the zero-init temp variable.
+    if len(real_stmts) == 5:
+        # 5-stmt form: init_ret must reference the zero-init temp.
+        assert isinstance(zero_init, NBind)  # already checked above
+        if not (
+            isinstance(init_ret.expr, NRef)
+            and len(zero_init.targets) == 1
+            and init_ret.expr.symbol_id == zero_init.targets[0]
+        ):
+            return False
+    else:
+        # 4-stmt form: init_ret must be literal zero.
+        if not _is_zero(init_ret.expr):
+            return False
 
     # write_hi: mstore(ptr, hi) as NExprEffect
     if not _is_mstore_effect(write_hi, ptr_id, hi_id):
@@ -328,6 +371,8 @@ def classify_helpers(
             unsupported[sid] = "contains for-loop"
         elif s.has_expr_effects:
             unsupported[sid] = "contains bare expression-statement"
+        elif s.calls_unresolved:
+            unsupported[sid] = "calls unresolved function"
 
     # Phase 2: propagate deferred transitively.
     changed = True
@@ -345,7 +390,9 @@ def classify_helpers(
     for sid, s in summaries.items():
         reason = unsupported.get(sid)
         is_def = sid in deferred
-        is_p = not is_def and reason is None and not s.may_leave
+        is_p = (
+            not is_def and reason is None and not s.may_leave and not s.calls_top_level
+        )
         result[sid] = InlineClassification(
             is_pure=is_p,
             is_deferred=is_def,
@@ -364,21 +411,45 @@ def classify_function_scope(
 ) -> dict[SymbolId, InlineClassification]:
     """Classify all nested helpers in a function for inlining decisions.
 
-    Collects ``NFunctionDef`` nodes from the function body, summarizes
-    each, then runs transitive classification.
+    Recursively collects ``NFunctionDef`` nodes from the entire function
+    body (including inside if/switch/for blocks), summarizes each, then
+    runs transitive classification.
     """
+    fdefs: list[NFunctionDef] = []
+    _collect_function_defs(func.body, fdefs)
     summaries: dict[SymbolId, FunctionSummary] = {}
-    for stmt in func.body.stmts:
-        if isinstance(stmt, NFunctionDef):
-            base = summarize_function(stmt.body)
-            summaries[stmt.symbol_id] = FunctionSummary(
-                writes_memory=base.writes_memory,
-                reads_memory=base.reads_memory,
-                may_leave=base.may_leave,
-                has_for_loop=base.has_for_loop,
-                has_expr_effects=base.has_expr_effects,
-                called_functions=base.called_functions,
-                called_builtins=base.called_builtins,
-                is_uint512_from=_is_uint512_from_shape(stmt),
-            )
+    for fdef in fdefs:
+        base = summarize_function(fdef.body)
+        summaries[fdef.symbol_id] = FunctionSummary(
+            writes_memory=base.writes_memory,
+            reads_memory=base.reads_memory,
+            may_leave=base.may_leave,
+            has_for_loop=base.has_for_loop,
+            has_expr_effects=base.has_expr_effects,
+            calls_unresolved=base.calls_unresolved,
+            calls_top_level=base.calls_top_level,
+            called_functions=base.called_functions,
+            called_builtins=base.called_builtins,
+            is_uint512_from=_is_uint512_from_shape(fdef),
+        )
     return classify_helpers(summaries)
+
+
+def _collect_function_defs(block: NBlock, out: list[NFunctionDef]) -> None:
+    """Recursively collect all NFunctionDef nodes from a block tree."""
+    for stmt in block.stmts:
+        if isinstance(stmt, NFunctionDef):
+            out.append(stmt)
+        elif isinstance(stmt, NIf):
+            _collect_function_defs(stmt.then_body, out)
+        elif isinstance(stmt, NSwitch):
+            for case in stmt.cases:
+                _collect_function_defs(case.body, out)
+            if stmt.default is not None:
+                _collect_function_defs(stmt.default, out)
+        elif isinstance(stmt, NFor):
+            _collect_function_defs(stmt.init, out)
+            _collect_function_defs(stmt.post, out)
+            _collect_function_defs(stmt.body, out)
+        elif isinstance(stmt, NBlock):
+            _collect_function_defs(stmt, out)
