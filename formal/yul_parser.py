@@ -339,41 +339,31 @@ class SyntaxParser:
         """Parse function definitions grouped by brace-delimited scope.
 
         Each element of the returned list contains the sibling functions
-        found within one brace-delimited block (e.g. one ``object``'s
-        ``code { ... }``).  Functions in different blocks form separate
-        groups.
+        found within one lexical scope instance. Top-level functions
+        share the root scope group even when separated by ``object`` or
+        ``code`` blocks; functions inside distinct brace-delimited blocks
+        form separate groups.
 
         Note: function-body braces are consumed by the recursive
-        descent parser, so the depth counter here only tracks
+        descent parser, so the explicit scope stack here only tracks
         non-function-body braces (object/code wrappers).
         """
         groups: list[list[FunctionDef]] = []
-        current: list[FunctionDef] = []
-        depth = 0
-        current_depth: int | None = None
+        scope_stack: list[list[FunctionDef]] = [[]]
         while not self._at_end():
             kind = self._peek_kind()
             if kind == "ident" and self._tokens[self._i][1] == "function":
-                if current_depth is None or depth == current_depth:
-                    current.append(self._parse_function_def())
-                    if current_depth is None:
-                        current_depth = depth
-                else:
-                    self._pop()
+                scope_funcs = scope_stack[-1]
+                if not scope_funcs:
+                    groups.append(scope_funcs)
+                scope_funcs.append(self._parse_function_def())
             elif kind == "{":
-                depth += 1
+                scope_stack.append([])
                 self._pop()
             elif kind == "}":
-                depth -= 1
+                if len(scope_stack) > 1:
+                    scope_stack.pop()
                 self._pop()
-                if current_depth is not None and depth < current_depth:
-                    if current:
-                        groups.append(current)
-                    current = []
-                    current_depth = None
             else:
                 self._pop()
-        # Flush any remaining functions (bare top-level, no braces).
-        if current:
-            groups.append(current)
         return groups

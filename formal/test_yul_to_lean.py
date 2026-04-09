@@ -10809,6 +10809,27 @@ class ResolverModuleTest(unittest.TestCase):
         self.assertEqual(group_a_names, expected_a)
         self.assertEqual(group_b_names, expected_b)
 
+    def test_parse_function_groups_keeps_root_scope_across_object_blocks(self) -> None:
+        """Top-level functions stay in one group even when object blocks intervene."""
+        tokens = ytl.tokenize_yul("""
+            function top1(x) -> z { z := x }
+            object "A" { code {
+                function f(a) -> b { b := a }
+            } }
+            function top2(c) -> d { d := c }
+            object "B" { code {
+                function h(e) -> r { r := e }
+            } }
+        """)
+        groups = SyntaxParser(tokens).parse_function_groups()
+        self.assertEqual(len(groups), 3)
+        root_names: list[str] = [f.name for f in groups[0]]
+        group_a_names: list[str] = [f.name for f in groups[1]]
+        group_b_names: list[str] = [f.name for f in groups[2]]
+        self.assertEqual(root_names, ["top1", "top2"])
+        self.assertEqual(group_a_names, ["f"])
+        self.assertEqual(group_b_names, ["h"])
+
     def test_module_prepass_validates_later_object_blocks(self) -> None:
         """Cross-scope shadowing in a later object block is rejected
         through the production pipeline (prepare_translation), not just
@@ -10818,6 +10839,36 @@ class ResolverModuleTest(unittest.TestCase):
             exact_yul_names={"foo": "target"},
         )
         yul = """
+            object "A" { code {
+                function ctor_ok(x) -> z { z := x }
+            } }
+            object "B" { code {
+                function helper(a) -> b { b := a }
+                function target(x) -> z {
+                    let helper := 7
+                    z := x
+                }
+            } }
+        """
+
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_module_prepass_validates_later_object_blocks_after_top_level_function(
+        self,
+    ) -> None:
+        """A prior top-level function must not prevent later object blocks
+        from receiving module-level validation."""
+        config = make_model_config(
+            ("foo",),
+            exact_yul_names={"foo": "target"},
+        )
+        yul = """
+            function top(x) -> z { z := x }
             object "A" { code {
                 function ctor_ok(x) -> z { z := x }
             } }
