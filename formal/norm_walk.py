@@ -9,7 +9,7 @@ duplicate the full isinstance dispatch over NExpr/NStmt variants.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import assert_never
+from typing import Protocol, assert_never
 
 from norm_ir import (
     NAssign,
@@ -142,6 +142,7 @@ def map_sub_blocks(stmt: NStmt, f: Callable[[NBlock], NBlock]) -> NStmt:
         return NFor(
             init=f(stmt.init),
             condition=stmt.condition,
+            condition_setup=f(stmt.condition_setup) if stmt.condition_setup else None,
             post=f(stmt.post),
             body=f(stmt.body),
         )
@@ -283,3 +284,156 @@ def max_symbol_id(func: NormalizedFunction) -> int:
 
     _walk_block(func.body)
     return result[0]
+
+
+# ---------------------------------------------------------------------------
+# Subtree freshening (binder hygiene)
+# ---------------------------------------------------------------------------
+
+
+class SymbolIdAllocator(Protocol):
+    """Protocol for SymbolId allocation."""
+
+    def alloc(self) -> SymbolId: ...
+
+
+def freshen_function_subtree(
+    fdef: NFunctionDef,
+    alloc: SymbolIdAllocator,
+) -> NFunctionDef:
+    """Return a copy of *fdef* with ALL internal SymbolIds freshened.
+
+    Freshens params, returns, all NBind targets, all NFunctionDef
+    symbol_ids/params/returns (recursively), and rewrites all NRef/
+    NLocalCall references to use the new IDs.
+    """
+    # Phase 1: collect every SymbolId declared in the subtree.
+    old_ids: set[SymbolId] = set()
+    old_ids.update(fdef.params)
+    old_ids.update(fdef.returns)
+    _collect_declared_ids(fdef.body, old_ids)
+
+    # Phase 2: allocate fresh ID for each.
+    id_map: dict[SymbolId, SymbolId] = {}
+    for old in old_ids:
+        id_map[old] = alloc.alloc()
+
+    # Phase 3: rewrite the subtree.
+    new_params = tuple(id_map.get(s, s) for s in fdef.params)
+    new_returns = tuple(id_map.get(s, s) for s in fdef.returns)
+    new_body = _freshen_block(fdef.body, id_map)
+    return NFunctionDef(
+        name=fdef.name,
+        symbol_id=id_map.get(fdef.symbol_id, fdef.symbol_id),
+        params=new_params,
+        param_names=fdef.param_names,
+        returns=new_returns,
+        return_names=fdef.return_names,
+        body=new_body,
+    )
+
+
+def _collect_declared_ids(block: NBlock, out: set[SymbolId]) -> None:
+    """Collect all SymbolIds declared in a block (recursive)."""
+    for stmt in block.stmts:
+        if isinstance(stmt, NBind):
+            out.update(stmt.targets)
+        elif isinstance(stmt, NFunctionDef):
+            out.add(stmt.symbol_id)
+            out.update(stmt.params)
+            out.update(stmt.returns)
+            _collect_declared_ids(stmt.body, out)
+        elif isinstance(stmt, NIf):
+            _collect_declared_ids(stmt.then_body, out)
+        elif isinstance(stmt, NSwitch):
+            for case in stmt.cases:
+                _collect_declared_ids(case.body, out)
+            if stmt.default is not None:
+                _collect_declared_ids(stmt.default, out)
+        elif isinstance(stmt, NFor):
+            _collect_declared_ids(stmt.init, out)
+            if stmt.condition_setup is not None:
+                _collect_declared_ids(stmt.condition_setup, out)
+            _collect_declared_ids(stmt.post, out)
+            _collect_declared_ids(stmt.body, out)
+        elif isinstance(stmt, NBlock):
+            _collect_declared_ids(stmt, out)
+
+
+def _freshen_block(block: NBlock, id_map: dict[SymbolId, SymbolId]) -> NBlock:
+    return NBlock(tuple(_freshen_stmt(s, id_map) for s in block.stmts))
+
+
+def _freshen_stmt(stmt: NStmt, m: dict[SymbolId, SymbolId]) -> NStmt:
+    if isinstance(stmt, NBind):
+        return NBind(
+            targets=tuple(m.get(s, s) for s in stmt.targets),
+            target_names=stmt.target_names,
+            expr=_freshen_expr(stmt.expr, m) if stmt.expr is not None else None,
+        )
+    if isinstance(stmt, NAssign):
+        return NAssign(
+            targets=tuple(m.get(s, s) for s in stmt.targets),
+            target_names=stmt.target_names,
+            expr=_freshen_expr(stmt.expr, m),
+        )
+    if isinstance(stmt, NExprEffect):
+        return NExprEffect(expr=_freshen_expr(stmt.expr, m))
+    if isinstance(stmt, NStore):
+        return NStore(
+            addr=_freshen_expr(stmt.addr, m), value=_freshen_expr(stmt.value, m)
+        )
+    if isinstance(stmt, NIf):
+        return NIf(
+            condition=_freshen_expr(stmt.condition, m),
+            then_body=_freshen_block(stmt.then_body, m),
+        )
+    if isinstance(stmt, NSwitch):
+        return NSwitch(
+            discriminant=_freshen_expr(stmt.discriminant, m),
+            cases=tuple(
+                NSwitchCase(value=c.value, body=_freshen_block(c.body, m))
+                for c in stmt.cases
+            ),
+            default=(
+                _freshen_block(stmt.default, m) if stmt.default is not None else None
+            ),
+        )
+    if isinstance(stmt, NFor):
+        return NFor(
+            init=_freshen_block(stmt.init, m),
+            condition=_freshen_expr(stmt.condition, m),
+            condition_setup=(
+                _freshen_block(stmt.condition_setup, m)
+                if stmt.condition_setup is not None
+                else None
+            ),
+            post=_freshen_block(stmt.post, m),
+            body=_freshen_block(stmt.body, m),
+        )
+    if isinstance(stmt, NLeave):
+        return stmt
+    if isinstance(stmt, NBlock):
+        return _freshen_block(stmt, m)
+    if isinstance(stmt, NFunctionDef):
+        return NFunctionDef(
+            name=stmt.name,
+            symbol_id=m.get(stmt.symbol_id, stmt.symbol_id),
+            params=tuple(m.get(s, s) for s in stmt.params),
+            param_names=stmt.param_names,
+            returns=tuple(m.get(s, s) for s in stmt.returns),
+            return_names=stmt.return_names,
+            body=_freshen_block(stmt.body, m),
+        )
+    assert_never(stmt)
+
+
+def _freshen_expr(expr: NExpr, m: dict[SymbolId, SymbolId]) -> NExpr:
+    def rewrite(e: NExpr) -> NExpr:
+        if isinstance(e, NRef) and e.symbol_id in m:
+            return NRef(symbol_id=m[e.symbol_id], name=e.name)
+        if isinstance(e, NLocalCall) and e.symbol_id in m:
+            return NLocalCall(symbol_id=m[e.symbol_id], name=e.name, args=e.args)
+        return e
+
+    return map_expr(expr, rewrite)

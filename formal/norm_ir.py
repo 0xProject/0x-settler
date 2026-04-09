@@ -155,10 +155,17 @@ class NSwitch:
 
 @dataclass(frozen=True)
 class NFor:
-    """``for init condition post { body }``."""
+    """``for init condition post { body }``.
+
+    ``condition_setup`` holds statements that must run before every
+    condition evaluation (e.g. prelude from inlining a helper call
+    in the condition position).  ``None`` when the condition is a
+    plain expression with no setup needed.
+    """
 
     init: NBlock
     condition: NExpr
+    condition_setup: NBlock | None
     post: NBlock
     body: NBlock
 

@@ -126,6 +126,7 @@ def _lower_stmt(stmt: SynStmt, r: ResolutionResult) -> NStmt:
         return NFor(
             init=_lower_block(stmt.init, r),
             condition=_lower_expr(stmt.condition, r),
+            condition_setup=None,
             post=_lower_block(stmt.post, r),
             body=_lower_block(stmt.body, r),
         )

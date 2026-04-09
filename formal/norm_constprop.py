@@ -262,11 +262,22 @@ def _prop_stmt(
         for sid in modified:
             env.pop(sid, None)
         new_init = _prop_block(stmt.init, dict(env))
+        new_cond_setup = (
+            _prop_block(stmt.condition_setup, dict(env))
+            if stmt.condition_setup is not None
+            else None
+        )
         new_cond = _subst_and_fold(stmt.condition, env)
         new_post = _prop_block(stmt.post, dict(env))
         new_body = _prop_block(stmt.body, dict(env))
         out.append(
-            NFor(init=new_init, condition=new_cond, post=new_post, body=new_body)
+            NFor(
+                init=new_init,
+                condition=new_cond,
+                condition_setup=new_cond_setup,
+                post=new_post,
+                body=new_body,
+            )
         )
         return
 

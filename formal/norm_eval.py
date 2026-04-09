@@ -309,6 +309,8 @@ def _exec_stmt(ctx: _EvalCtx, stmt: NStmt) -> None:
     if isinstance(stmt, NFor):
         _exec_block(ctx, stmt.init)
         for _ in range(_MAX_LOOP_ITERATIONS):
+            if stmt.condition_setup is not None:
+                _exec_block(ctx, stmt.condition_setup)
             cond = _to_scalar(_eval_expr(ctx, stmt.condition))
             if cond == 0:
                 return

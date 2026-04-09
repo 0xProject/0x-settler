@@ -49,6 +49,7 @@ from norm_ir import (
 from norm_walk import (
     collect_function_defs,
     for_each_expr,
+    freshen_function_subtree,
     map_expr,
     max_symbol_id,
 )
@@ -355,20 +356,23 @@ def _block_inline(
 ) -> InlineFragment:
     """Inline a leave-bearing helper by cloning its body.
 
-    Uses a ``did_leave`` flag: leave becomes ``did_leave := 1``,
-    and subsequent statements are guarded with ``if iszero(did_leave)``.
+    Uses ``freshen_function_subtree`` for full binder hygiene, then
+    rewrites leave as ``did_leave := 1`` with subsequent guards.
     """
+    # Phase 1: freshen the entire subtree (all binders, nested fdefs, refs).
+    fresh = freshen_function_subtree(fdef, alloc)
+
     prelude: list[NStmt] = []
 
-    # Fresh return temps.
-    ret_temps: list[SymbolId] = []
-    for i, sid in enumerate(fdef.returns):
-        tid = alloc.alloc()
-        ret_temps.append(tid)
+    # Fresh return temps (use the freshened return IDs).
+    ret_ids = fresh.returns
+
+    # Zero-initialize return temps.
+    for rid in ret_ids:
         prelude.append(
             NBind(
-                targets=(tid,),
-                target_names=(f"_ret_{tid._id}",),
+                targets=(rid,),
+                target_names=(f"_ret_{rid._id}",),
                 expr=NConst(0),
             )
         )
@@ -384,165 +388,135 @@ def _block_inline(
         )
     )
 
-    # Build substitution: params → atom_args, returns → ret_temps,
-    # ALL callee locals → fresh IDs (binder hygiene).
-    subst: dict[SymbolId, SymbolId] = {}
-    for old_sid, arg_ref in zip(fdef.params, atom_args):
-        if isinstance(arg_ref, NRef):
-            subst[old_sid] = arg_ref.symbol_id
-    for old_sid, new_sid in zip(fdef.returns, ret_temps):
-        subst[old_sid] = new_sid
-    # Allocate fresh IDs for all locally-declared variables.
-    param_ret_set: set[SymbolId] = set(fdef.params) | set(fdef.returns)
-    callee_locals = _collect_all_bind_targets(fdef.body, param_ret_set)
-    for old_sid in callee_locals:
-        subst[old_sid] = alloc.alloc()
+    # Build param substitution: fresh params → atom_args.
+    param_subst: dict[SymbolId, NExpr] = {}
+    for sid, arg in zip(fresh.params, atom_args):
+        param_subst[sid] = arg
 
-    # Clone body with substitutions.
+    # Clone body with param substitution + leave rewriting.
     cloned = _clone_body_for_block_inline(
-        fdef.body, subst, did_leave_id, did_leave_ref, alloc
+        fresh.body, param_subst, did_leave_id, did_leave_ref, alloc
     )
     prelude.extend(cloned)
 
-    results = tuple(NRef(symbol_id=tid, name=f"_ret_{tid._id}") for tid in ret_temps)
+    results = tuple(NRef(symbol_id=rid, name=f"_ret_{rid._id}") for rid in ret_ids)
     return InlineFragment(prelude=tuple(prelude), results=results)
 
 
 def _clone_body_for_block_inline(
     block: NBlock,
-    sid_map: dict[SymbolId, SymbolId],
+    param_subst: dict[SymbolId, NExpr],
     did_leave_id: SymbolId,
     did_leave_ref: NExpr,
     alloc: SymbolAllocator,
 ) -> list[NStmt]:
-    """Clone a helper body, rewriting leave as ``did_leave := 1``.
+    """Clone a freshened helper body, substituting params and rewriting leave.
 
-    Every statement after the first that could set ``did_leave``
-    (direct NLeave, or NIf whose body may leave) is wrapped in
-    ``if iszero(did_leave) { ... }`` to skip it after early exit.
+    The body must already be freshened via ``freshen_function_subtree``.
+    ``param_subst`` maps freshened param SymbolIds → argument expressions.
+
+    All ``NLeave`` nodes (at any depth) are rewritten to
+    ``did_leave := 1``.  Then top-level statements after any that may
+    set ``did_leave`` are guarded with ``if iszero(did_leave)``.
     """
+    # Apply param substitution to the whole block first.
+    subst_body = _subst_block(block, param_subst)
+
+    # Rewrite ALL NLeave nodes (recursively) into did_leave := 1.
+    rewritten = _rewrite_leave_recursive(subst_body, did_leave_id)
+
     out: list[NStmt] = []
     may_have_left = False
 
-    for stmt in block.stmts:
-        if isinstance(stmt, NLeave):
-            out.append(
-                NAssign(
-                    targets=(did_leave_id,),
-                    target_names=(f"_did_leave_{did_leave_id._id}",),
-                    expr=NConst(1),
-                )
-            )
-            may_have_left = True
-            continue
-
-        remapped = _remap_stmt(stmt, sid_map, did_leave_id, did_leave_ref, alloc)
-
+    for stmt in rewritten.stmts:
         if may_have_left:
-            # Guard this statement with if iszero(did_leave).
             guard_cond = NBuiltinCall(op="iszero", args=(did_leave_ref,))
-            out.append(NIf(condition=guard_cond, then_body=NBlock((remapped,))))
+            out.append(NIf(condition=guard_cond, then_body=NBlock((stmt,))))
         else:
-            out.append(remapped)
+            out.append(stmt)
 
-        # If this statement might contain a leave (e.g. NIf with leave body),
-        # subsequent statements need guarding.
-        if _stmt_may_leave(stmt):
+        if _stmt_may_leave_rewritten(stmt, did_leave_id):
             may_have_left = True
 
     return out
 
 
-def _collect_all_bind_targets(block: NBlock, exclude: set[SymbolId]) -> set[SymbolId]:
-    """Collect all SymbolIds declared via NBind in *block* (recursive)."""
-    out: set[SymbolId] = set()
-
-    def walk(b: NBlock) -> None:
-        for stmt in b.stmts:
-            if isinstance(stmt, NBind):
-                for sid in stmt.targets:
-                    if sid not in exclude:
-                        out.add(sid)
-            elif isinstance(stmt, NIf):
-                walk(stmt.then_body)
-            elif isinstance(stmt, NBlock):
-                walk(stmt)
-
-    walk(block)
-    return out
+def _subst_block(block: NBlock, subst: dict[SymbolId, NExpr]) -> NBlock:
+    """Substitute expressions for SymbolIds in a block (param replacement)."""
+    if not subst:
+        return block
+    return NBlock(tuple(_subst_stmt(s, subst) for s in block.stmts))
 
 
-def _stmt_may_leave(stmt: NStmt) -> bool:
-    """Check if a statement might set the did_leave flag."""
-    if isinstance(stmt, NLeave):
-        return True
-    if isinstance(stmt, NIf):
-        return any(_stmt_may_leave(s) for s in stmt.then_body.stmts)
-    if isinstance(stmt, NBlock):
-        return any(_stmt_may_leave(s) for s in stmt.stmts)
-    return False
-
-
-def _remap_expr(expr: NExpr, sid_map: dict[SymbolId, SymbolId]) -> NExpr:
-    """Remap SymbolIds in an expression."""
-
-    def rewrite(e: NExpr) -> NExpr:
-        if isinstance(e, NRef) and e.symbol_id in sid_map:
-            return NRef(symbol_id=sid_map[e.symbol_id], name=e.name)
-        if isinstance(e, NLocalCall) and e.symbol_id in sid_map:
-            return NLocalCall(symbol_id=sid_map[e.symbol_id], name=e.name, args=e.args)
-        return e
-
-    return map_expr(expr, rewrite)
-
-
-def _remap_stmt(
-    stmt: NStmt,
-    sid_map: dict[SymbolId, SymbolId],
-    did_leave_id: SymbolId,
-    did_leave_ref: NExpr,
-    alloc: SymbolAllocator,
-) -> NStmt:
-    """Remap a single statement for block-inline."""
+def _subst_stmt(stmt: NStmt, subst: dict[SymbolId, NExpr]) -> NStmt:
     if isinstance(stmt, NBind):
-        new_targets = tuple(sid_map.get(s, s) for s in stmt.targets)
-        new_expr = _remap_expr(stmt.expr, sid_map) if stmt.expr is not None else None
-        return NBind(targets=new_targets, target_names=stmt.target_names, expr=new_expr)
-    if isinstance(stmt, NAssign):
-        new_targets = tuple(sid_map.get(s, s) for s in stmt.targets)
-        return NAssign(
-            targets=new_targets,
+        return NBind(
+            targets=stmt.targets,
             target_names=stmt.target_names,
-            expr=_remap_expr(stmt.expr, sid_map),
+            expr=substitute_nexpr(stmt.expr, subst) if stmt.expr is not None else None,
         )
-    if isinstance(stmt, NIf):
-        inner = _clone_body_for_block_inline(
-            stmt.then_body, sid_map, did_leave_id, did_leave_ref, alloc
+    if isinstance(stmt, NAssign):
+        return NAssign(
+            targets=stmt.targets,
+            target_names=stmt.target_names,
+            expr=substitute_nexpr(stmt.expr, subst),
         )
-        return NIf(
-            condition=_remap_expr(stmt.condition, sid_map),
-            then_body=NBlock(tuple(inner)),
-        )
-    if isinstance(stmt, NBlock):
-        inner = _clone_body_for_block_inline(
-            stmt, sid_map, did_leave_id, did_leave_ref, alloc
-        )
-        return NBlock(tuple(inner))
     if isinstance(stmt, NExprEffect):
-        return NExprEffect(expr=_remap_expr(stmt.expr, sid_map))
+        return NExprEffect(expr=substitute_nexpr(stmt.expr, subst))
     if isinstance(stmt, NStore):
         return NStore(
-            addr=_remap_expr(stmt.addr, sid_map),
-            value=_remap_expr(stmt.value, sid_map),
+            addr=substitute_nexpr(stmt.addr, subst),
+            value=substitute_nexpr(stmt.value, subst),
         )
-    if isinstance(stmt, NFunctionDef):
-        return stmt
+    if isinstance(stmt, NIf):
+        return NIf(
+            condition=substitute_nexpr(stmt.condition, subst),
+            then_body=_subst_block(stmt.then_body, subst),
+        )
+    if isinstance(stmt, NBlock):
+        return _subst_block(stmt, subst)
     if isinstance(stmt, NLeave):
-        # Should be handled by _clone_body_for_block_inline.
-        raise ParseError("Unexpected NLeave in _remap_stmt")
-    if isinstance(stmt, (NFor, NSwitch)):
         return stmt
-    raise ParseError(f"Unexpected {type(stmt).__name__} in block-inline")
+    if isinstance(stmt, NFunctionDef):
+        return stmt  # Nested fdefs have their own scope
+    if isinstance(stmt, (NFor, NSwitch)):
+        return stmt  # Not expected in leave-bearing helpers
+    raise ParseError(f"Unexpected {type(stmt).__name__} in block-inline subst")
+
+
+def _rewrite_leave_recursive(block: NBlock, did_leave_id: SymbolId) -> NBlock:
+    """Rewrite all NLeave nodes to ``did_leave := 1`` recursively."""
+    return NBlock(tuple(_rewrite_leave_stmt(s, did_leave_id) for s in block.stmts))
+
+
+def _rewrite_leave_stmt(stmt: NStmt, did_leave_id: SymbolId) -> NStmt:
+    if isinstance(stmt, NLeave):
+        return NAssign(
+            targets=(did_leave_id,),
+            target_names=(f"_did_leave_{did_leave_id._id}",),
+            expr=NConst(1),
+        )
+    if isinstance(stmt, NIf):
+        return NIf(
+            condition=stmt.condition,
+            then_body=_rewrite_leave_recursive(stmt.then_body, did_leave_id),
+        )
+    if isinstance(stmt, NBlock):
+        return _rewrite_leave_recursive(stmt, did_leave_id)
+    return stmt
+
+
+def _stmt_may_leave_rewritten(stmt: NStmt, did_leave_id: SymbolId) -> bool:
+    """Check if a statement might assign did_leave (post-rewrite)."""
+    if isinstance(stmt, NAssign) and did_leave_id in stmt.targets:
+        return True
+    if isinstance(stmt, NIf):
+        return any(
+            _stmt_may_leave_rewritten(s, did_leave_id) for s in stmt.then_body.stmts
+        )
+    if isinstance(stmt, NBlock):
+        return any(_stmt_may_leave_rewritten(s, did_leave_id) for s in stmt.stmts)
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -738,16 +712,25 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
 
     if isinstance(stmt, NFor):
         cond_pre, cond_val = _inline_in_expr_with_prelude(stmt.condition, ctx, 0)
-        out = list(cond_pre)
-        out.append(
+        # Prelude goes into condition_setup so it runs every iteration.
+        existing_setup = stmt.condition_setup
+        if cond_pre or existing_setup:
+            setup_stmts: list[NStmt] = []
+            if existing_setup:
+                setup_stmts.extend(existing_setup.stmts)
+            setup_stmts.extend(cond_pre)
+            cond_setup: NBlock | None = NBlock(tuple(setup_stmts))
+        else:
+            cond_setup = None
+        return [
             NFor(
                 init=_rewrite_block(stmt.init, ctx),
                 condition=cond_val,
+                condition_setup=cond_setup,
                 post=_rewrite_block(stmt.post, ctx),
                 body=_rewrite_block(stmt.body, ctx),
             )
-        )
-        return out
+        ]
 
     if isinstance(stmt, (NLeave, NFunctionDef)):
         return [stmt]
