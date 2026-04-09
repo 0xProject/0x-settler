@@ -7,8 +7,11 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
+import norm_ir
 import yul_ast
 import yul_to_lean as ytl
+from norm_eval import evaluate_normalized
+from yul_normalize import normalize_function
 from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_function, resolve_module
 
@@ -10826,9 +10829,12 @@ class ResolverModuleTest(unittest.TestCase):
         root_names: list[str] = [f.name for f in groups[0]]
         group_a_names: list[str] = [f.name for f in groups[1]]
         group_b_names: list[str] = [f.name for f in groups[2]]
-        self.assertEqual(root_names, ["top1", "top2"])
-        self.assertEqual(group_a_names, ["f"])
-        self.assertEqual(group_b_names, ["h"])
+        expected_root: list[str] = ["top1", "top2"]
+        expected_a: list[str] = ["f"]
+        expected_b: list[str] = ["h"]
+        self.assertEqual(root_names, expected_root)
+        self.assertEqual(group_a_names, expected_a)
+        self.assertEqual(group_b_names, expected_b)
 
     def test_module_prepass_validates_later_object_blocks(self) -> None:
         """Cross-scope shadowing in a later object block is rejected
@@ -10887,6 +10893,198 @@ class ResolverModuleTest(unittest.TestCase):
                 config,
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
+
+
+class NormalizeStructureTest(unittest.TestCase):
+    """Tests for the syntax AST → normalized IR lowering pass."""
+
+    def _normalize(self, yul: str) -> norm_ir.NormalizedFunction:
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+        return normalize_function(func, result)
+
+    def test_params_and_returns_get_distinct_symbol_ids(self) -> None:
+        nf = self._normalize("function f(x, y) -> z { z := add(x, y) }")
+        self.assertEqual(len(nf.params), 2)
+        self.assertEqual(len(nf.returns), 1)
+        all_ids = list(nf.params) + list(nf.returns)
+        self.assertEqual(len(set(all_ids)), 3)
+
+    def test_let_binding_produces_nbind(self) -> None:
+        nf = self._normalize("function f(x) -> z { let w := x  z := w }")
+        stmts = nf.body.stmts
+        self.assertIsInstance(stmts[0], norm_ir.NBind)
+        bind = stmts[0]
+        assert isinstance(bind, norm_ir.NBind)
+        self.assertEqual(len(bind.targets), 1)
+        self.assertIsNotNone(bind.expr)
+
+    def test_assignment_produces_nassign(self) -> None:
+        nf = self._normalize("function f(x) -> z { z := x }")
+        stmts = nf.body.stmts
+        self.assertIsInstance(stmts[0], norm_ir.NAssign)
+        assign = stmts[0]
+        assert isinstance(assign, norm_ir.NAssign)
+        self.assertEqual(len(assign.targets), 1)
+        self.assertIsInstance(assign.expr, norm_ir.NRef)
+
+    def test_builtin_call_produces_nbuiltincall(self) -> None:
+        nf = self._normalize("function f(x) -> z { z := add(x, 1) }")
+        assign = nf.body.stmts[0]
+        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(assign.expr, norm_ir.NBuiltinCall)
+        call = assign.expr
+        assert isinstance(call, norm_ir.NBuiltinCall)
+        self.assertEqual(call.op, "add")
+        self.assertEqual(len(call.args), 2)
+
+    def test_local_function_call_produces_nlocalcall(self) -> None:
+        nf = self._normalize("""
+            function f(x) -> z {
+                function g(a) -> b { b := a }
+                z := g(x)
+            }
+        """)
+        # body has: NFunctionDef(g), NAssign(z := g(x))
+        assign = nf.body.stmts[1]
+        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(assign.expr, norm_ir.NLocalCall)
+        call = assign.expr
+        assert isinstance(call, norm_ir.NLocalCall)
+        self.assertEqual(call.name, "g")
+
+    def test_if_statement_produces_nif(self) -> None:
+        nf = self._normalize("function f(x) -> z { if x { z := 1 } }")
+        stmt = nf.body.stmts[0]
+        self.assertIsInstance(stmt, norm_ir.NIf)
+        assert isinstance(stmt, norm_ir.NIf)
+        self.assertIsInstance(stmt.condition, norm_ir.NRef)
+        self.assertEqual(len(stmt.then_body.stmts), 1)
+
+    def test_switch_produces_nswitch(self) -> None:
+        nf = self._normalize("""
+            function f(x) -> z {
+                switch x
+                case 0 { z := 1 }
+                default { z := 2 }
+            }
+        """)
+        stmt = nf.body.stmts[0]
+        self.assertIsInstance(stmt, norm_ir.NSwitch)
+        assert isinstance(stmt, norm_ir.NSwitch)
+        self.assertEqual(len(stmt.cases), 1)
+        self.assertIsNotNone(stmt.default)
+
+    def test_nested_function_produces_nfunctiondef(self) -> None:
+        nf = self._normalize("""
+            function f(x) -> z {
+                function g(a) -> b { b := a }
+                z := g(x)
+            }
+        """)
+        fdef = nf.body.stmts[0]
+        self.assertIsInstance(fdef, norm_ir.NFunctionDef)
+        assert isinstance(fdef, norm_ir.NFunctionDef)
+        self.assertEqual(fdef.name, "g")
+        self.assertEqual(len(fdef.params), 1)
+        self.assertEqual(len(fdef.returns), 1)
+
+
+class NormalizeEvalTest(unittest.TestCase):
+    """Semantic equivalence tests: normalized IR eval vs old pipeline eval."""
+
+    def _eval_normalized(
+        self,
+        yul: str,
+        args: tuple[int, ...],
+        builtins: frozenset[str] = ytl._SUPPORTED_OPS_FROZENSET,
+    ) -> tuple[int, ...]:
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=builtins)
+        nf = normalize_function(func, result)
+        return evaluate_normalized(nf, args)
+
+    def test_pure_arithmetic(self) -> None:
+        yul = "function f(x) -> z { z := add(x, 1) }"
+        self.assertEqual(self._eval_normalized(yul, (5,)), (6,))
+        self.assertEqual(self._eval_normalized(yul, (0,)), (1,))
+
+    def test_multi_param(self) -> None:
+        yul = "function f(x, y) -> z { z := add(x, y) }"
+        self.assertEqual(self._eval_normalized(yul, (3, 7)), (10,))
+
+    def test_if_branch(self) -> None:
+        yul = "function f(x) -> z { if x { z := 1 } }"
+        self.assertEqual(self._eval_normalized(yul, (0,)), (0,))
+        self.assertEqual(self._eval_normalized(yul, (1,)), (1,))
+
+    def test_switch_as_if_else(self) -> None:
+        yul = """
+            function f(x) -> z {
+                switch x
+                case 0 { z := 10 }
+                default { z := 20 }
+            }
+        """
+        self.assertEqual(self._eval_normalized(yul, (0,)), (10,))
+        self.assertEqual(self._eval_normalized(yul, (1,)), (20,))
+
+    def test_nested_helper_call(self) -> None:
+        yul = """
+            function f(x) -> z {
+                function g(a) -> b { b := add(a, 1) }
+                z := g(x)
+            }
+        """
+        # g is a nested helper — we need to build a function table.
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+        nf = normalize_function(func, result)
+
+        # Build function table from nested function definitions.
+        g_def = nf.body.stmts[0]
+        assert isinstance(g_def, norm_ir.NFunctionDef)
+        g_nf = norm_ir.NormalizedFunction(
+            name=g_def.name,
+            params=g_def.params,
+            param_names=g_def.param_names,
+            returns=g_def.returns,
+            return_names=g_def.return_names,
+            body=g_def.body,
+        )
+        ft: dict[str, norm_ir.NormalizedFunction] = {g_def.name: g_nf}
+
+        self.assertEqual(evaluate_normalized(nf, (5,), function_table=ft), (6,))
+        self.assertEqual(evaluate_normalized(nf, (0,), function_table=ft), (1,))
+
+    def test_multi_return(self) -> None:
+        yul = """
+            function f(x) -> a, b {
+                function g(v) -> p, q { p := v  q := add(v, 1) }
+                a, b := g(x)
+            }
+        """
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+        nf = normalize_function(func, result)
+
+        g_def = nf.body.stmts[0]
+        assert isinstance(g_def, norm_ir.NFunctionDef)
+        g_nf = norm_ir.NormalizedFunction(
+            name=g_def.name,
+            params=g_def.params,
+            param_names=g_def.param_names,
+            returns=g_def.returns,
+            return_names=g_def.return_names,
+            body=g_def.body,
+        )
+        ft: dict[str, norm_ir.NormalizedFunction] = {g_def.name: g_nf}
+
+        self.assertEqual(evaluate_normalized(nf, (10,), function_table=ft), (10, 11))
 
 
 if __name__ == "__main__":
