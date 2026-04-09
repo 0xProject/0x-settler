@@ -53,9 +53,10 @@ from yul_ast import (
 class SymbolTable:
     """Scoped symbol table with unique ``SymbolId`` allocation."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, builtins: frozenset[str] = frozenset()) -> None:
         self._scopes: list[dict[str, SymbolInfo]] = []
         self._next_id: int = 0
+        self._builtins = builtins
 
     def _alloc_id(self) -> SymbolId:
         sid = SymbolId(self._next_id)
@@ -72,10 +73,15 @@ class SymbolTable:
         """Declare *name* in the current (innermost) scope.
 
         Returns the new ``SymbolInfo``.  Raises ``ParseError`` if the
-        name is already visible in ANY enclosing scope.  Yul uses a
-        single flat namespace — solc rejects cross-scope shadowing
-        (error 1395 / 6052).
+        name collides with a builtin (solc error 5568) or is already
+        visible in ANY enclosing scope.  Yul uses a single flat
+        namespace — solc rejects cross-scope shadowing (error 1395 /
+        6052).
         """
+        if name in self._builtins:
+            raise ParseError(
+                f"Cannot use builtin function name {name!r} " f"as identifier name"
+            )
         for scope in self._scopes:
             if name in scope:
                 raise ParseError(f"Duplicate declaration of {name!r} in the same scope")
@@ -177,7 +183,11 @@ def resolve_function(
 
     Raises ``ParseError`` on any lexical violation.
     """
-    ctx = _ResolveCtx(table=SymbolTable(), builtins=builtins)
+    if func.name in builtins:
+        raise ParseError(
+            f"Cannot use builtin function name {func.name!r} " f"as identifier name"
+        )
+    ctx = _ResolveCtx(table=SymbolTable(builtins=builtins), builtins=builtins)
     _resolve_function_def(ctx, func)
     return ResolutionResult(
         func=func,
@@ -231,11 +241,6 @@ def _resolve_block_body(ctx: _ResolveCtx, block: Block) -> None:
     # Phase 1: hoist function declarations.
     for stmt in block.stmts:
         if isinstance(stmt, FunctionDefStmt):
-            if stmt.func.name in ctx.builtins:
-                raise ParseError(
-                    f"Cannot use builtin function name {stmt.func.name!r} "
-                    f"as identifier name"
-                )
             info = ctx.table.declare(
                 stmt.func.name, SymbolKind.FUNCTION, stmt.func.name_span
             )

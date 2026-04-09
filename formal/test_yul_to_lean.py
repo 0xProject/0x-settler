@@ -10662,6 +10662,38 @@ class ResolverSymbolIdTest(unittest.TestCase):
                 }
             """)
 
+    def test_rejects_toplevel_function_named_as_builtin(self) -> None:
+        """Top-level function named 'add' is rejected when add is a builtin."""
+        with self.assertRaisesRegex(ytl.ParseError, "Cannot use builtin function name"):
+            self._resolve(
+                "function add(a, b) -> c { c := a }",
+                builtins=frozenset({"add"}),
+            )
+
+    def test_rejects_let_variable_named_as_builtin(self) -> None:
+        """let add := 7 is rejected when add is a builtin (solc error 5568)."""
+        with self.assertRaisesRegex(ytl.ParseError, "Cannot use builtin function name"):
+            self._resolve(
+                "function f(x) -> z { let add := 7 z := x }",
+                builtins=frozenset({"add"}),
+            )
+
+    def test_rejects_param_named_as_builtin(self) -> None:
+        """Parameter named 'add' is rejected when add is a builtin."""
+        with self.assertRaisesRegex(ytl.ParseError, "Cannot use builtin function name"):
+            self._resolve(
+                "function f(add) -> z { z := add }",
+                builtins=frozenset({"add"}),
+            )
+
+    def test_rejects_return_named_as_builtin(self) -> None:
+        """Return variable named 'add' is rejected when add is a builtin."""
+        with self.assertRaisesRegex(ytl.ParseError, "Cannot use builtin function name"):
+            self._resolve(
+                "function f(x) -> add { add := x }",
+                builtins=frozenset({"add"}),
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
