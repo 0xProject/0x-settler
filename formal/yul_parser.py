@@ -326,27 +326,38 @@ class SyntaxParser:
         return self._parse_function_def()
 
     def parse_functions(self) -> list[FunctionDef]:
-        """Parse all sibling function definitions in the token stream.
+        """Parse all top-level function definitions in the token stream.
 
-        Skips non-function tokens (object/code wrappers, etc.).
-        Only returns functions within the same brace-delimited scope
-        as the first function encountered — functions in sibling
-        ``object`` blocks are excluded.
+        Returns functions from the first brace-delimited scope that
+        contains any.  Equivalent to ``parse_function_groups()[0]``
+        when at least one group exists, or ``[]`` otherwise.
+        """
+        groups = self.parse_function_groups()
+        return groups[0] if groups else []
+
+    def parse_function_groups(self) -> list[list[FunctionDef]]:
+        """Parse function definitions grouped by brace-delimited scope.
+
+        Each element of the returned list contains the sibling functions
+        found within one brace-delimited block (e.g. one ``object``'s
+        ``code { ... }``).  Functions in different blocks form separate
+        groups.
 
         Note: function-body braces are consumed by the recursive
         descent parser, so the depth counter here only tracks
         non-function-body braces (object/code wrappers).
         """
-        funcs: list[FunctionDef] = []
+        groups: list[list[FunctionDef]] = []
+        current: list[FunctionDef] = []
         depth = 0
-        first_depth: int | None = None
+        current_depth: int | None = None
         while not self._at_end():
             kind = self._peek_kind()
             if kind == "ident" and self._tokens[self._i][1] == "function":
-                if first_depth is None or depth == first_depth:
-                    funcs.append(self._parse_function_def())
-                    if first_depth is None:
-                        first_depth = depth
+                if current_depth is None or depth == current_depth:
+                    current.append(self._parse_function_def())
+                    if current_depth is None:
+                        current_depth = depth
                 else:
                     self._pop()
             elif kind == "{":
@@ -355,8 +366,14 @@ class SyntaxParser:
             elif kind == "}":
                 depth -= 1
                 self._pop()
-                if first_depth is not None and depth < first_depth:
-                    break
+                if current_depth is not None and depth < current_depth:
+                    if current:
+                        groups.append(current)
+                    current = []
+                    current_depth = None
             else:
                 self._pop()
-        return funcs
+        # Flush any remaining functions (bare top-level, no braces).
+        if current:
+            groups.append(current)
+        return groups

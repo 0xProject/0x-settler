@@ -5793,11 +5793,11 @@ def prepare_translation(
     tokens = tokenize_yul(yul_text)
 
     # Module-level pre-pass: validate cross-function scoping.
-    # All top-level functions share a single Yul namespace; nested
+    # Each brace-delimited scope (object/code block) is validated
+    # separately — sibling functions share a Yul namespace, so nested
     # functions that shadow a sibling name are rejected (solc 1395).
-    _syntax_funcs = SyntaxParser(tokens).parse_functions()
-    if _syntax_funcs:
-        resolve_module(_syntax_funcs, builtins=_SUPPORTED_OPS_FROZENSET)
+    for _func_group in SyntaxParser(tokens).parse_function_groups():
+        resolve_module(_func_group, builtins=_SUPPORTED_OPS_FROZENSET)
 
     selected = (
         selected_functions if selected_functions is not None else config.function_order

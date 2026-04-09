@@ -10789,6 +10789,54 @@ class ResolverModuleTest(unittest.TestCase):
         expected: list[str] = ["f", "g"]
         self.assertEqual(names, expected)
 
+    def test_parse_function_groups_separates_object_blocks(self) -> None:
+        """Functions in different object blocks form separate groups."""
+        tokens = ytl.tokenize_yul("""
+            object "A" { code {
+                function f(x) -> z { z := x }
+                function g(a) -> b { b := a }
+            } }
+            object "B" { code {
+                function h(c) -> d { d := c }
+            } }
+        """)
+        groups = SyntaxParser(tokens).parse_function_groups()
+        self.assertEqual(len(groups), 2)
+        group_a_names: list[str] = [f.name for f in groups[0]]
+        group_b_names: list[str] = [f.name for f in groups[1]]
+        expected_a: list[str] = ["f", "g"]
+        expected_b: list[str] = ["h"]
+        self.assertEqual(group_a_names, expected_a)
+        self.assertEqual(group_b_names, expected_b)
+
+    def test_module_prepass_validates_later_object_blocks(self) -> None:
+        """Cross-scope shadowing in a later object block is rejected
+        through the production pipeline (prepare_translation), not just
+        through direct resolve_module calls."""
+        config = make_model_config(
+            ("foo",),
+            exact_yul_names={"foo": "target"},
+        )
+        yul = """
+            object "A" { code {
+                function ctor_ok(x) -> z { z := x }
+            } }
+            object "B" { code {
+                function helper(a) -> b { b := a }
+                function target(x) -> z {
+                    let helper := 7
+                    z := x
+                }
+            } }
+        """
+
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
