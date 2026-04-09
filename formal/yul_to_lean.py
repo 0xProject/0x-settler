@@ -22,14 +22,10 @@ from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Callable, assert_never
 
-
-class ParseError(RuntimeError):
-    pass
-
-
-class EvaluationError(RuntimeError):
-    pass
-
+from yul_ast import EvaluationError as EvaluationError
+from yul_ast import ParseError as ParseError
+from yul_parser import SyntaxParser
+from yul_resolve import resolve_function
 
 # ---------------------------------------------------------------------------
 # AST nodes (shared by Yul parser and Lean emitter)
@@ -1005,6 +1001,18 @@ def _statement_reference_summary(
     raise TypeError(f"Unsupported ReferenceStatement: {type(stmt)}")
 
 
+def _validate_function_syntax(tokens: list[tuple[str, str]], start: int) -> None:
+    """Run the pure syntax parser + binder resolver as a pre-pass.
+
+    Catches duplicate declarations, illegal shadowing, and
+    unsupported string literals before the lowering parser runs.
+    Raises ``ParseError`` on any lexical violation.
+    """
+    parser = SyntaxParser(tokens[start:])
+    func = parser.parse_function()
+    resolve_function(func)
+
+
 class YulParser(_TokenReader):
     """Recursive-descent parser over a pre-tokenized Yul token stream.
 
@@ -1017,30 +1025,6 @@ class YulParser(_TokenReader):
     tracked so later passes can either handle them explicitly or reject
     them as incomplete semantics.
     """
-
-    def _parse_expr(self) -> Expr:
-        kind, text = self._pop()
-        if kind == "string":
-            raise ParseError(
-                f"Unsupported string literal {text!r} in expression position"
-            )
-        if kind == "num":
-            return IntLit(int(text, 0))
-        if kind == "ident":
-            if self._peek_kind() == "(":
-                self._pop()
-                args: list[Expr] = []
-                if self._peek_kind() != ")":
-                    while True:
-                        args.append(self._parse_expr())
-                        if self._peek_kind() == ",":
-                            self._pop()
-                            continue
-                        break
-                self._expect(")")
-                return Call(text, tuple(args))
-            return Var(text)
-        raise ParseError(f"Expected expression, got {kind!r} ({text!r})")
 
     def __init__(
         self,
@@ -1128,10 +1112,6 @@ class YulParser(_TokenReader):
         self._pop()  # consume 'let'
         target = self._expect_ident()
         if let_vars is not None:
-            if target in let_vars:
-                raise ParseError(
-                    f"Duplicate declaration of {target!r} in the same scope"
-                )
             let_vars.add(target)
         if self._peek_kind() == ",":
             all_targets: list[str] = [target]
@@ -1139,10 +1119,6 @@ class YulParser(_TokenReader):
                 self._pop()
                 t = self._expect_ident()
                 if let_vars is not None:
-                    if t in let_vars:
-                        raise ParseError(
-                            f"Duplicate declaration of {t!r} in the same scope"
-                        )
                     let_vars.add(t)
                 all_targets.append(t)
             if self._peek_kind() != ":=":
@@ -1843,6 +1819,12 @@ class YulParser(_TokenReader):
         self._skip_until_matching_brace()
 
     def parse_function(self) -> YulFunction:
+        # Pre-pass: run the pure syntax parser + binder resolver on
+        # the same token range for early fail-closed validation.
+        # This catches duplicate declarations, illegal shadowing, and
+        # unsupported string literals before the lowering parser runs.
+        _validate_function_syntax(self.tokens, self.i)
+
         token_idx = self.i + self._token_offset
         fn_kw = self._expect_ident()
         if fn_kw != "function":
@@ -1856,14 +1838,6 @@ class YulParser(_TokenReader):
                 self._pop()
                 params.append(self._expect_ident())
         self._expect(")")
-        # Validate: no duplicate parameter names.
-        _seen_params: set[str] = set()
-        for p in params:
-            if p in _seen_params:
-                raise ParseError(
-                    f"Duplicate parameter name {p!r} in function {yul_name!r}"
-                )
-            _seen_params.add(p)
         rets: list[str] = []
         if self._peek_kind() == "->":
             self._pop()
@@ -1871,22 +1845,11 @@ class YulParser(_TokenReader):
             while self._peek_kind() == ",":
                 self._pop()
                 rets.append(self._expect_ident())
-        # Validate: no duplicate return names.
-        _seen_rets: set[str] = set()
-        for r in rets:
-            if r in _seen_rets:
-                raise ParseError(
-                    f"Duplicate return name {r!r} in function {yul_name!r}"
-                )
-            _seen_rets.add(r)
         self._expect("{")
         self._expr_stmts = []
-        # Seed scope with params + rets so _parse_let can detect shadowing.
-        _body_scope: set[str] = set(params) | set(rets)
         assignments, has_top_level_leave = self._parse_assignment_loop(
             allow_control_flow=True,
             context="function body",
-            _let_vars=_body_scope,
         )
         self._expect("}")
         # Top-level ``leave`` is a no-op: it just means "return now" after all

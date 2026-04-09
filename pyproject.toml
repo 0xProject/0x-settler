@@ -4,6 +4,7 @@ target-version = ["py311"]
 [tool.isort]
 profile = "black"
 py_version = 311
+known_first_party = ["yul_to_lean", "yul_ast", "yul_parser", "yul_resolve"]
 
 [tool.mypy]
 python_version = "3.11"

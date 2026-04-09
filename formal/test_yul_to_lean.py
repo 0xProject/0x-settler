@@ -8,6 +8,8 @@ import unittest
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import yul_to_lean as ytl
+from yul_parser import SyntaxParser
+from yul_resolve import resolve_function
 
 
 def branch(
@@ -187,7 +189,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
             }
             """)
 
-        with self.assertRaisesRegex(ytl.ParseError, "Unsupported statement start"):
+        with self.assertRaisesRegex(ytl.ParseError, "string literal"):
             ytl.YulParser(tokens).parse_function()
 
     def test_parse_function_rejects_conditional_memory_write(self) -> None:
@@ -10306,6 +10308,88 @@ class LatestCriticalReviewRegressionTest(unittest.TestCase):
                 namespace="Test",
                 config=make_model_config(("f",)),
             )
+
+
+class ResolverFailClosedTest(unittest.TestCase):
+    """Tests that the new yul_resolve pass rejects invalid lexical patterns.
+
+    These mirror the corresponding FailClosedTranslatorTest binder-validation
+    cases, confirming that the resolver (not the lowering parser) is the
+    authoritative source of these rejections.
+    """
+
+    def _parse_and_resolve(self, yul: str) -> None:
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        resolve_function(func)
+
+    def test_resolve_rejects_duplicate_param_names(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "x"):
+            self._parse_and_resolve("function f(x, x) -> z { z := x }")
+
+    def test_resolve_rejects_duplicate_return_names(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "z"):
+            self._parse_and_resolve("function f(x) -> z, z { z := x }")
+
+    def test_resolve_rejects_duplicate_local_declaration_in_same_scope(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, r"usr\$tmp"):
+            self._parse_and_resolve("""
+                function f(x) -> z {
+                    let usr$tmp := 1
+                    let usr$tmp := 2
+                    z := usr$tmp
+                }
+            """)
+
+    def test_resolve_rejects_duplicate_multi_let_target(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, r"usr\$a"):
+            self._parse_and_resolve("""
+                function f(x) -> z {
+                    let usr$a, usr$a := fun_pair(x)
+                    z := usr$a
+                }
+            """)
+
+    def test_resolve_rejects_same_scope_local_shadowing_parameter(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "x"):
+            self._parse_and_resolve("""
+                function f(x) -> z {
+                    let x := 1
+                    z := x
+                }
+            """)
+
+    def test_resolve_rejects_same_scope_local_shadowing_return(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "z"):
+            self._parse_and_resolve("""
+                function f(x) -> z {
+                    let z := 1
+                }
+            """)
+
+    def test_resolve_rejects_duplicate_local_inside_bare_block(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, r"usr\$tmp"):
+            self._parse_and_resolve("""
+                function f(x) -> z {
+                    {
+                        let usr$tmp := 1
+                        let usr$tmp := 2
+                        z := usr$tmp
+                    }
+                }
+            """)
+
+    def test_resolve_rejects_string_literal_assignment_rhs(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "string"):
+            self._parse_and_resolve("""
+                function f(x) -> z {
+                    z := "oops"
+                }
+            """)
 
 
 if __name__ == "__main__":
