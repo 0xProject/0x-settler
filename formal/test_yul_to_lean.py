@@ -10663,21 +10663,18 @@ class ResolverSymbolIdTest(unittest.TestCase):
         target = next(iter(result.call_targets.values()))
         self.assertIsInstance(target, yul_ast.UnresolvedTarget)
 
-    def test_builtin_takes_precedence_over_local_function(self) -> None:
-        result = self._resolve(
-            """
-            function f(x) -> z {
-                function add(a, b) -> c { c := a }
-                z := add(x, 1)
-            }
-            """,
-            builtins=frozenset({"add"}),
-        )
-        self.assertEqual(len(result.call_targets), 1)
-        target = next(iter(result.call_targets.values()))
-        self.assertIsInstance(target, yul_ast.BuiltinTarget)
-        assert isinstance(target, yul_ast.BuiltinTarget)
-        self.assertEqual(target.name, "add")
+    def test_rejects_function_declaration_shadowing_builtin(self) -> None:
+        """Yul forbids declaring a function with a builtin opcode name."""
+        with self.assertRaisesRegex(ytl.ParseError, "Cannot use builtin function name"):
+            self._resolve(
+                """
+                function f(x) -> z {
+                    function add(a, b) -> c { c := a }
+                    z := add(x, 1)
+                }
+                """,
+                builtins=frozenset({"add"}),
+            )
 
     def test_variable_does_not_shadow_outer_function_in_call_position(
         self,

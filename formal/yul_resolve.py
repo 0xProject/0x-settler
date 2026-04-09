@@ -231,6 +231,11 @@ def _resolve_block_body(ctx: _ResolveCtx, block: Block) -> None:
     # Phase 1: hoist function declarations.
     for stmt in block.stmts:
         if isinstance(stmt, FunctionDefStmt):
+            if stmt.func.name in ctx.builtins:
+                raise ParseError(
+                    f"Cannot use builtin function name {stmt.func.name!r} "
+                    f"as identifier name"
+                )
             info = ctx.table.declare(
                 stmt.func.name, SymbolKind.FUNCTION, stmt.func.name_span
             )
