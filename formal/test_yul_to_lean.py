@@ -775,7 +775,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
         with self.assertRaisesRegex(ytl.ParseError, "expects 2 return values"):
             ytl.inline_calls(expr, fn_table)
 
-    def test_yul_function_to_model_rejects_multi_assigned_temporary(self) -> None:
+    def test_yul_function_to_model_promotes_multi_assigned_temporary(self) -> None:
         yf = ytl.YulFunction(
             yul_name="f",
             params=["arg"],
@@ -787,10 +787,10 @@ class FailClosedTranslatorTest(unittest.TestCase):
             ],
         )
 
-        with self.assertRaisesRegex(
-            ytl.ParseError, "classified as a compiler temporary"
-        ):
-            ytl.yul_function_to_model(yf, "f", {})
+        model = ytl.yul_function_to_model(yf, "f", {})
+        # Multi-assigned compiler temporary is promoted to a real variable;
+        # the last assignment (IntLit(2)) should win through SSA.
+        self.assertEqual(ytl.evaluate_function_model(model, (42,)), (2,))
 
     def test_inline_yul_function_rejects_helper_memory_write(
         self,

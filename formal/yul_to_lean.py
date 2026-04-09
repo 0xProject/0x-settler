@@ -1018,6 +1018,30 @@ class YulParser(_TokenReader):
     them as incomplete semantics.
     """
 
+    def _parse_expr(self) -> Expr:
+        kind, text = self._pop()
+        if kind == "string":
+            raise ParseError(
+                f"Unsupported string literal {text!r} in expression position"
+            )
+        if kind == "num":
+            return IntLit(int(text, 0))
+        if kind == "ident":
+            if self._peek_kind() == "(":
+                self._pop()
+                args: list[Expr] = []
+                if self._peek_kind() != ")":
+                    while True:
+                        args.append(self._parse_expr())
+                        if self._peek_kind() == ",":
+                            self._pop()
+                            continue
+                        break
+                self._expect(")")
+                return Call(text, tuple(args))
+            return Var(text)
+        raise ParseError(f"Expected expression, got {kind!r} ({text!r})")
+
     def __init__(
         self,
         tokens: list[tuple[str, str]],
@@ -1104,6 +1128,10 @@ class YulParser(_TokenReader):
         self._pop()  # consume 'let'
         target = self._expect_ident()
         if let_vars is not None:
+            if target in let_vars:
+                raise ParseError(
+                    f"Duplicate declaration of {target!r} in the same scope"
+                )
             let_vars.add(target)
         if self._peek_kind() == ",":
             all_targets: list[str] = [target]
@@ -1111,6 +1139,10 @@ class YulParser(_TokenReader):
                 self._pop()
                 t = self._expect_ident()
                 if let_vars is not None:
+                    if t in let_vars:
+                        raise ParseError(
+                            f"Duplicate declaration of {t!r} in the same scope"
+                        )
                     let_vars.add(t)
                 all_targets.append(t)
             if self._peek_kind() != ":=":
@@ -1208,6 +1240,7 @@ class YulParser(_TokenReader):
                 inner, inner_leave = self._parse_assignment_loop(
                     allow_control_flow=allow_control_flow,
                     context=context,
+                    _let_vars=set(),
                 )
                 inner_es = self._expr_stmts
                 self._expr_stmts = saved_stmts
@@ -1823,6 +1856,14 @@ class YulParser(_TokenReader):
                 self._pop()
                 params.append(self._expect_ident())
         self._expect(")")
+        # Validate: no duplicate parameter names.
+        _seen_params: set[str] = set()
+        for p in params:
+            if p in _seen_params:
+                raise ParseError(
+                    f"Duplicate parameter name {p!r} in function {yul_name!r}"
+                )
+            _seen_params.add(p)
         rets: list[str] = []
         if self._peek_kind() == "->":
             self._pop()
@@ -1830,11 +1871,22 @@ class YulParser(_TokenReader):
             while self._peek_kind() == ",":
                 self._pop()
                 rets.append(self._expect_ident())
+        # Validate: no duplicate return names.
+        _seen_rets: set[str] = set()
+        for r in rets:
+            if r in _seen_rets:
+                raise ParseError(
+                    f"Duplicate return name {r!r} in function {yul_name!r}"
+                )
+            _seen_rets.add(r)
         self._expect("{")
         self._expr_stmts = []
+        # Seed scope with params + rets so _parse_let can detect shadowing.
+        _body_scope: set[str] = set(params) | set(rets)
         assignments, has_top_level_leave = self._parse_assignment_loop(
             allow_control_flow=True,
             context="function body",
+            _let_vars=_body_scope,
         )
         self._expect("}")
         # Top-level ``leave`` is a no-op: it just means "return now" after all
@@ -4084,6 +4136,18 @@ def yul_function_to_model(
             if clean is not None:
                 all_clean_names.add(clean)
 
+    # Promote multi-assigned compiler temporaries to real variables so
+    # they go through SSA naming instead of copy-propagation.
+    promoted_temps: set[str] = set()
+    for target, count in assign_counts.items():
+        if count > 1:
+            c = demangle_var(
+                target, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals
+            )
+            if c is None:
+                promoted_temps.add(target)
+                all_clean_names.add(target)
+
     var_map: dict[str, str] = {}
     subst: dict[str, Expr] = {}
     const_locals: dict[str, Expr] = {}
@@ -4312,19 +4376,18 @@ def yul_function_to_model(
             target, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals
         )
         if clean is None:
-            if assign_counts[target] > 1:
-                raise ParseError(
-                    f"Variable {target!r} in {sol_fn_name!r} is classified "
-                    f"as a compiler temporary but is assigned "
-                    f"{assign_counts[target]} times. Refuse to copy-propagate "
-                    f"a multi-assigned temporary; demangle_var may be "
-                    f"misclassifying a real variable."
-                )
-            if isinstance(expr, Call) and expr.name.startswith("zero_value_for_split_"):
-                subst_state[target] = IntLit(0)
+            if target in promoted_temps:
+                # Multi-assigned compiler temporary — promote to a real
+                # variable and fall through to SSA naming.
+                clean = target
             else:
-                subst_state[target] = expr
-            return None
+                if isinstance(expr, Call) and expr.name.startswith(
+                    "zero_value_for_split_"
+                ):
+                    subst_state[target] = IntLit(0)
+                else:
+                    subst_state[target] = expr
+                return None
 
         # SSA: compute the Lean target name.
         ssa_c[clean] += 1
@@ -4602,7 +4665,8 @@ def yul_function_to_model(
                         yf.rets,
                         keep_solidity_locals=keep_solidity_locals,
                     )
-                    assert c is not None  # non-None since demangle_var passed earlier
+                    if c is None:
+                        c = raw  # promoted multi-assigned temporary
                     ssa_count[c] += 1
                     if ssa_count[c] == 1:
                         out = c
@@ -6594,6 +6658,10 @@ def build_lean_source(
             f"Header comment contains Lean doc-comment terminator '-/': "
             f"{config.header_comment!r}"
         )
+
+    # Validate each model before emission (catches undefined binders, etc.)
+    for model in models:
+        validate_function_model(model)
 
     emission_plan = _build_lean_emission_plan(models, config)
 
