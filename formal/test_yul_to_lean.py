@@ -10391,6 +10391,155 @@ class ResolverFailClosedTest(unittest.TestCase):
                 }
             """)
 
+    # -- Undefined-variable resolution tests --------------------------------
+
+    def test_resolve_rejects_undefined_rhs_variable(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "Undefined variable 'y'"):
+            self._parse_and_resolve("function f(x) -> z { z := y }")
+
+    def test_resolve_rejects_undefined_assignment_target(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "Undefined variable 'y'"):
+            self._parse_and_resolve("function f(x) -> z { y := x  z := x }")
+
+    def test_resolve_rejects_if_scoped_let_used_after_block(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "Undefined variable 'y'"):
+            self._parse_and_resolve("""
+                function f(x) -> z {
+                    if x { let y := 1 }
+                    z := y
+                }
+            """)
+
+    def test_resolve_rejects_bare_block_scoped_let_used_after_block(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "Undefined variable 'tmp'"):
+            self._parse_and_resolve("""
+                function f(x) -> z {
+                    { let tmp := x }
+                    z := tmp
+                }
+            """)
+
+    def test_resolve_rejects_switch_scoped_let_used_after_block(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "Undefined variable 'y'"):
+            self._parse_and_resolve("""
+                function f(x) -> z {
+                    switch x
+                    case 0 { let y := 1 }
+                    default { }
+                    z := y
+                }
+            """)
+
+    def test_resolve_rejects_for_body_scoped_let_used_after_loop(
+        self,
+    ) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "Undefined variable 'y'"):
+            self._parse_and_resolve("""
+                function f(x) -> z {
+                    for { } x { } { let y := 1 }
+                    z := y
+                }
+            """)
+
+    def test_resolve_accepts_for_init_variable_in_condition_and_body(
+        self,
+    ) -> None:
+        """For-loop init declarations are visible in condition, post, body."""
+        self._parse_and_resolve("""
+            function f(x) -> z {
+                for { let i := 0 } i { i := add(i, x) } {
+                    z := i
+                }
+            }
+        """)
+
+    def test_resolve_accepts_nested_block_inner_scope_shadowing(self) -> None:
+        """Inner block may shadow outer declarations (different scope)."""
+        self._parse_and_resolve("""
+            function f(x) -> z {
+                let y := x
+                {
+                    let y := 1
+                    z := y
+                }
+            }
+        """)
+
+    def test_resolve_accepts_sibling_block_reuse(self) -> None:
+        """Sibling blocks can each declare the same name independently."""
+        self._parse_and_resolve("""
+            function f(x) -> z {
+                { let tmp := 1 }
+                { let tmp := 2  z := tmp }
+            }
+        """)
+
+
+class SyntaxParserSpanTest(unittest.TestCase):
+    """Tests that SyntaxParser produces correct global Span offsets."""
+
+    def test_span_of_first_function_starts_at_zero(self) -> None:
+        tokens = ytl.tokenize_yul("function f(x) -> z { z := x }")
+        func = SyntaxParser(tokens).parse_function()
+        # 'function' is token 0
+        self.assertEqual(func.span.start, 0)
+        # 'f' is token 1
+        self.assertEqual(func.name_span.start, 1)
+        self.assertEqual(func.name_span.end, 2)
+
+    def test_span_with_token_offset_is_globally_correct(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function f(x) -> z { z := x }
+            function g(y) -> w { w := y }
+        """)
+        # Parse first function to find where it ends.
+        p1 = SyntaxParser(tokens)
+        f1 = p1.parse_function()
+        first_end = f1.span.end
+
+        # Parse second function with offset.
+        p2 = SyntaxParser(tokens[first_end:], token_offset=first_end)
+        f2 = p2.parse_function()
+
+        # 'g' should have a global span pointing into the original tokens.
+        self.assertEqual(tokens[f2.name_span.start][1], "g")
+        self.assertGreater(f2.name_span.start, first_end)
+        self.assertEqual(f2.span.start, first_end)
+
+    def test_inner_node_spans_respect_offset(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function f(x) -> z { z := x }
+            function g(y) -> w { w := add(y, 1) }
+        """)
+        p1 = SyntaxParser(tokens)
+        f1 = p1.parse_function()
+        first_end = f1.span.end
+
+        p2 = SyntaxParser(tokens[first_end:], token_offset=first_end)
+        f2 = p2.parse_function()
+
+        # The body should contain one AssignStmt whose span is global.
+        from yul_ast import AssignStmt
+
+        body_stmts = f2.body.stmts
+        self.assertEqual(len(body_stmts), 1)
+        stmt = body_stmts[0]
+        self.assertIsInstance(stmt, AssignStmt)
+        assert isinstance(stmt, AssignStmt)
+        self.assertGreater(stmt.span.start, first_end)
+        self.assertGreater(stmt.span.end, stmt.span.start)
+
+    def test_span_end_greater_than_start(self) -> None:
+        tokens = ytl.tokenize_yul("function f(x, y) -> z { z := add(x, y) }")
+        func = SyntaxParser(tokens).parse_function()
+        self.assertGreater(func.span.end, func.span.start)
+        self.assertGreater(func.body.span.end, func.body.span.start)
+        self.assertGreater(func.name_span.end, func.name_span.start)
+        for ps in func.param_spans:
+            self.assertGreater(ps.end, ps.start)
+
 
 if __name__ == "__main__":
     unittest.main()
