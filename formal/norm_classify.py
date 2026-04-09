@@ -26,6 +26,7 @@ from norm_ir import (
     NFor,
     NFunctionDef,
     NIf,
+    NIte,
     NLeave,
     NLocalCall,
     NormalizedFunction,
@@ -163,6 +164,10 @@ def _walk_expr(acc: _SummaryAccumulator, expr: NExpr) -> None:
         acc.calls_unresolved = True
         for a in expr.args:
             _walk_expr(acc, a)
+    elif isinstance(expr, NIte):
+        _walk_expr(acc, expr.cond)
+        _walk_expr(acc, expr.if_true)
+        _walk_expr(acc, expr.if_false)
 
 
 def _is_known_effect_call(expr: NExpr) -> bool:

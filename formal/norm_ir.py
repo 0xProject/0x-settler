@@ -72,7 +72,22 @@ class NUnresolvedCall:
     args: tuple[NExpr, ...]
 
 
-NExpr = Union[NConst, NRef, NBuiltinCall, NLocalCall, NTopLevelCall, NUnresolvedCall]
+@dataclass(frozen=True)
+class NIte:
+    """Conditional expression: if cond != 0 then if_true else if_false.
+
+    Not present in the syntax AST (Yul has no ternary).  Produced by
+    the inliner when merging branch-local values.
+    """
+
+    cond: NExpr
+    if_true: NExpr
+    if_false: NExpr
+
+
+NExpr = Union[
+    NConst, NRef, NBuiltinCall, NLocalCall, NTopLevelCall, NUnresolvedCall, NIte
+]
 
 
 # ---------------------------------------------------------------------------

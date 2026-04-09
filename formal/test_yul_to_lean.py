@@ -16,6 +16,7 @@ from norm_classify import (
     summarize_function,
 )
 from norm_eval import evaluate_normalized
+from norm_inline import inline_pure_helpers
 from yul_normalize import normalize_function
 from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_function, resolve_module
@@ -11452,6 +11453,118 @@ class ClassifyInlineTest(unittest.TestCase):
         self.assertTrue(c["h"].is_deferred)
         self.assertFalse(c["g"].is_pure)
         self.assertTrue(c["g"].is_deferred)
+
+
+class InlinePureTest(unittest.TestCase):
+    """Tests for pure helper inlining on normalized IR."""
+
+    def _inline(self, yul: str) -> norm_ir.NormalizedFunction:
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        return inline_pure_helpers(nf)
+
+    def _eval_inlined(self, yul: str, args: tuple[int, ...]) -> tuple[int, ...]:
+        nf = self._inline(yul)
+        return evaluate_normalized(nf, args)
+
+    def test_simple_pure_inline(self) -> None:
+        """g(a) -> add(a,1) inlined into z := g(x)."""
+        result = self._eval_inlined(
+            """
+            function f(x) -> z {
+                function g(a) -> b { b := add(a, 1) }
+                z := g(x)
+            }
+        """,
+            (5,),
+        )
+        self.assertEqual(result, (6,))
+
+    def test_multi_return_inline(self) -> None:
+        """g returns two values — split into separate binds after inlining."""
+        result = self._eval_inlined(
+            """
+            function f(x) -> p, q {
+                function g(a) -> b, c { b := a  c := add(a, 1) }
+                p, q := g(x)
+            }
+        """,
+            (10,),
+        )
+        self.assertEqual(result, (10, 11))
+
+    def test_nested_inline(self) -> None:
+        """g calls h, both pure — h inlined into g, then g into f."""
+        result = self._eval_inlined(
+            """
+            function f(x) -> z {
+                function h(a) -> b { b := add(a, 1) }
+                function g(a) -> b { b := h(a) }
+                z := g(x)
+            }
+        """,
+            (5,),
+        )
+        self.assertEqual(result, (6,))
+
+    def test_if_branch_merge(self) -> None:
+        """Pure helper with if-branch produces NIte after inlining."""
+        nf = self._inline("""
+            function f(x) -> z {
+                function g(a) -> b { if a { b := 1 } }
+                z := g(x)
+            }
+        """)
+        # After inlining, z's expression should be an NIte.
+        assign = nf.body.stmts[-1]
+        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(assign.expr, norm_ir.NIte)
+        # Verify semantics.
+        self.assertEqual(evaluate_normalized(nf, (0,)), (0,))
+        self.assertEqual(evaluate_normalized(nf, (1,)), (1,))
+
+    def test_constant_fold_branch(self) -> None:
+        """if 1 { z := 7 } is constant-folded — no NIte produced."""
+        nf = self._inline("""
+            function f() -> z {
+                function g() -> b { if 1 { b := 7 } }
+                z := g()
+            }
+        """)
+        assign = nf.body.stmts[-1]
+        assert isinstance(assign, norm_ir.NAssign)
+        # Should be NConst(7), not NIte.
+        self.assertIsInstance(assign.expr, norm_ir.NConst)
+        self.assertEqual(evaluate_normalized(nf, ()), (7,))
+
+    def test_semantic_equivalence(self) -> None:
+        """Inlined result matches pre-inline eval for multiple inputs."""
+        yul = """
+            function f(x, y) -> z {
+                function g(a, b) -> c { c := add(mul(a, a), b) }
+                z := g(x, y)
+            }
+        """
+        for x, y in [(0, 0), (1, 2), (3, 4), (10, 7)]:
+            pre = self._eval_inlined(yul, (x, y))
+            expected: tuple[int, ...] = ((x * x + y) % (2**256),)
+            self.assertEqual(pre, expected, f"Failed for x={x}, y={y}")
+
+    def test_non_pure_left_alone(self) -> None:
+        """Calls to deferred helpers remain as NLocalCall after inlining."""
+        nf = self._inline("""
+            function f() -> z {
+                function g() { mstore(0, 7) }
+                g()
+                z := mload(0)
+            }
+        """)
+        # g() is deferred (memory effect) — should remain as NExprEffect(NLocalCall).
+        effect_stmt = nf.body.stmts[1]
+        assert isinstance(effect_stmt, norm_ir.NExprEffect)
+        self.assertIsInstance(effect_stmt.expr, norm_ir.NLocalCall)
 
 
 if __name__ == "__main__":

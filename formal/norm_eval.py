@@ -28,6 +28,7 @@ from norm_ir import (
     NFor,
     NFunctionDef,
     NIf,
+    NIte,
     NLeave,
     NLocalCall,
     NormalizedFunction,
@@ -371,6 +372,12 @@ def _eval_expr(ctx: _EvalCtx, expr: NExpr) -> _EvalResult:
 
     if isinstance(expr, NUnresolvedCall):
         raise EvaluationError(f"Unresolved call to {expr.name!r}")
+
+    if isinstance(expr, NIte):
+        cond = _to_scalar(_eval_expr(ctx, expr.cond))
+        if cond != 0:
+            return _eval_expr(ctx, expr.if_true)
+        return _eval_expr(ctx, expr.if_false)
 
     assert_never(expr)
 
