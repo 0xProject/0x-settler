@@ -453,6 +453,8 @@ class FailClosedTranslatorTest(unittest.TestCase):
         self.assertEqual(yf.assignments, expected)
 
     def test_bare_block_inner_scope_shadows_outer(self) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # Inner 'let tmp' shadows outer 'let tmp' — invalid Yul.
         tokens = ytl.tokenize_yul("""
             function fun_f_1(var_x_1) -> var_z_2 {
                 {
@@ -464,29 +466,8 @@ class FailClosedTranslatorTest(unittest.TestCase):
                 }
             }
             """)
-
-        yf = ytl.YulParser(tokens).parse_function()
-        # Inner ``let tmp`` shadows the outer one.  The inner RHS
-        # ``add(tmp, tmp)`` references the outer ``tmp`` (not yet
-        # substituted at that level), so after both levels inline:
-        #   inner: z = mul(add(tmp, tmp), x)
-        #   outer: z = mul(add(x, x), x)
-        expected: list[ytl.RawStatement] = [
-            ytl.PlainAssignment(
-                "var_z_2",
-                ytl.Call(
-                    "mul",
-                    (
-                        ytl.Call(
-                            "add",
-                            (ytl.Var("var_x_1"), ytl.Var("var_x_1")),
-                        ),
-                        ytl.Var("var_x_1"),
-                    ),
-                ),
-            ),
-        ]
-        self.assertEqual(yf.assignments, expected)
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.YulParser(tokens).parse_function()
 
     def test_bare_block_sibling_scopes_same_name(self) -> None:
         tokens = ytl.tokenize_yul("""
@@ -3719,9 +3700,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 exclude_known=True,
             )
 
-    def test_translate_yul_to_models_preserves_shadowed_bare_block_local_inside_if(
+    def test_translate_yul_to_models_rejects_shadowed_bare_block_local_inside_if(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
@@ -3735,19 +3719,19 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
-
-    def test_translate_yul_to_models_preserves_shadowed_conditional_local_binding(
+    def test_translate_yul_to_models_rejects_shadowed_conditional_local_binding(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
@@ -3759,15 +3743,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
-
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_keeps_nested_helper_shadowing_selected_name(
         self,
@@ -3799,9 +3780,14 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             (6,),
         )
 
-    def test_translate_yul_to_models_zero_initializes_return_despite_branch_local_shadow_in_all_switch_branches(
+    def test_translate_yul_to_models_rejects_return_shadow_in_all_switch_branches(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
+        # NOTE: zero-initialization of return variables is tested
+        # separately by existing non-shadowing tests.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
@@ -3815,19 +3801,21 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (0,))
-
-    def test_translate_yul_to_models_zero_initializes_return_despite_branch_local_shadow_reassignment_in_all_switch_branches(
+    def test_translate_yul_to_models_rejects_return_shadow_reassignment_in_all_switch_branches(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
+        # NOTE: zero-initialization of return variables is tested
+        # separately by existing non-shadowing tests.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
@@ -3843,19 +3831,19 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (0,))
-
-    def test_translate_yul_to_models_preserves_outer_assignment_before_later_shadowing_block_let(
+    def test_translate_yul_to_models_rejects_outer_assignment_before_later_shadowing_block_let(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1() -> var_z_2 {
@@ -3868,18 +3856,19 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
-        self.assertEqual(ytl.evaluate_function_model(model, ()), (7,))
-
-    def test_translate_yul_to_models_preserves_outer_if_assignment_before_later_shadowing_block_let(
+    def test_translate_yul_to_models_rejects_outer_if_assignment_before_later_shadowing_block_let(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
@@ -3894,19 +3883,19 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
-
-    def test_translate_yul_to_models_preserves_outer_if_assignment_before_later_shadowing_top_level_let(
+    def test_translate_yul_to_models_rejects_outer_if_assignment_before_later_shadowing_top_level_let(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
@@ -3919,19 +3908,19 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
-
-    def test_translate_yul_to_models_preserves_nonconstant_if_branch_local_reassignment_shadowing_outer_binding(
+    def test_translate_yul_to_models_rejects_nonconstant_if_branch_local_reassignment_shadowing_outer_binding(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
@@ -3944,19 +3933,19 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (5,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
-
-    def test_translate_yul_to_models_preserves_outer_switch_branch_assignment_before_later_shadowing_let(
+    def test_translate_yul_to_models_rejects_outer_switch_branch_assignment_before_later_shadowing_let(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
@@ -3972,19 +3961,19 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (7,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (5,))
-
-    def test_translate_yul_to_models_preserves_outer_binding_after_nested_if_branch_local_ends_in_bare_block(
+    def test_translate_yul_to_models_rejects_outer_binding_after_nested_if_branch_local_ends_in_bare_block(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
@@ -3999,19 +3988,19 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (6,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (6,))
-
-    def test_translate_yul_to_models_preserves_outer_binding_after_nested_switch_branch_local_ends_in_bare_block(
+    def test_translate_yul_to_models_rejects_outer_binding_after_nested_switch_branch_local_ends_in_bare_block(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
@@ -4029,19 +4018,19 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (6,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (6,))
-
-    def test_translate_yul_to_models_preserves_live_switch_case_shadowing_after_dead_default_leave(
+    def test_translate_yul_to_models_rejects_live_switch_case_shadowing_after_dead_default_leave(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1() -> var_z_2 {
@@ -4057,14 +4046,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
-
-        self.assertEqual(ytl.evaluate_function_model(model, ()), (1,))
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_allows_conditional_return_write_that_is_later_overwritten(
         self,
@@ -4235,9 +4222,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
-    def test_translate_yul_to_models_preserves_constant_true_shadowing_local_binding(
+    def test_translate_yul_to_models_rejects_constant_true_shadowing_local_binding(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1() -> var_z_2 {
@@ -4250,14 +4240,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
-
-        self.assertEqual(ytl.evaluate_function_model(model, ()), (5,))
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_preserves_parser_folded_local_reassignment_in_constant_true_if(
         self,
@@ -4282,9 +4270,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         self.assertEqual(ytl.evaluate_function_model(model, ()), (2,))
 
-    def test_translate_yul_to_models_preserves_parser_folded_shadowing_local_reassignment_in_constant_true_if(
+    def test_translate_yul_to_models_rejects_parser_folded_shadowing_local_reassignment_in_constant_true_if(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1() -> var_z_2 {
@@ -4297,18 +4288,19 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
-        self.assertEqual(ytl.evaluate_function_model(model, ()), (5,))
-
-    def test_translate_yul_to_models_preserves_constant_true_switch_shadowing_local_binding(
+    def test_translate_yul_to_models_rejects_constant_true_switch_shadowing_local_binding(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         yul = """
             function fun_f_1() -> var_z_2 {
@@ -4323,14 +4315,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
-
-        self.assertEqual(ytl.evaluate_function_model(model, ()), (5,))
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
     def test_translate_yul_to_models_allows_branch_local_real_var_used_later_in_constant_true_branch(
         self,
@@ -8230,9 +8220,9 @@ class BranchExprStmtTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (9,)), (3,))
 
     def test_const_subst_not_poisoned_by_block_scoped_shadow(self) -> None:
-        """Block-scoped ``let x := 5`` inside ``if 1`` must not overwrite outer ``x``.
+        """Yul rejects cross-scope variable shadowing (solc error 1395).
 
-        After ``if 1 { let x := 5 }`` the outer ``x`` is still ``3``.
+        Inner ``let usr$x := 5`` shadows outer ``let usr$x := 3`` — invalid Yul.
         """
         yul = """
             function fun_target_1(var_a_1) -> var_z_2 {
@@ -8248,14 +8238,12 @@ class BranchExprStmtTest(unittest.TestCase):
             }
         """
         config = make_model_config(("target",))
-        result = ytl.translate_yul_to_models(
-            yul,
-            config,
-            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-        )
-        model = result.models[0]
-        # outer x is 3, so 9 / 3 == 3 (not 9 / 5)
-        self.assertEqual(ytl.evaluate_function_model(model, (9,)), (3,))
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
 
 
 class NewReviewRegressionTest(unittest.TestCase):
@@ -8412,9 +8400,12 @@ class NewReviewRegressionTest(unittest.TestCase):
 
         self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (1,))
 
-    def test_translate_yul_to_models_preserves_branch_local_shadow_reassignment_in_nonconstant_conditional(
+    def test_translate_yul_to_models_rejects_branch_local_shadow_reassignment_in_nonconstant_conditional(
         self,
     ) -> None:
+        # Yul rejects cross-scope variable shadowing (solc error 1395).
+        # This Yul snippet is invalid; the resolver catches it before
+        # the lowering parser runs.
         config = make_model_config(("f",))
         cases = {
             "if": """
@@ -8444,14 +8435,12 @@ class NewReviewRegressionTest(unittest.TestCase):
 
         for name, yul in cases.items():
             with self.subTest(name=name):
-                result = ytl.translate_yul_to_models(
-                    yul,
-                    config,
-                    pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-                )
-                model = result.models[0]
-                self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
-                self.assertEqual(ytl.evaluate_function_model(model, (1,)), (2,))
+                with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+                    ytl.translate_yul_to_models(
+                        yul,
+                        config,
+                        pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+                    )
 
     def test_evaluate_function_model_wraps_raw_large_integer_literals_to_u256(
         self,
@@ -10456,17 +10445,18 @@ class ResolverFailClosedTest(unittest.TestCase):
             }
         """)
 
-    def test_resolve_accepts_nested_block_inner_scope_shadowing(self) -> None:
-        """Inner block may shadow outer declarations (different scope)."""
-        self._parse_and_resolve("""
-            function f(x) -> z {
-                let y := x
-                {
-                    let y := 1
-                    z := y
+    def test_resolve_rejects_nested_block_inner_scope_shadowing(self) -> None:
+        """Yul rejects cross-scope shadowing (solc error 1395)."""
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            self._parse_and_resolve("""
+                function f(x) -> z {
+                    let y := x
+                    {
+                        let y := 1
+                        z := y
+                    }
                 }
-            }
-        """)
+            """)
 
     def test_resolve_accepts_sibling_block_reuse(self) -> None:
         """Sibling blocks can each declare the same name independently."""
@@ -10627,35 +10617,18 @@ class ResolverSymbolIdTest(unittest.TestCase):
         assert isinstance(target, yul_ast.UnresolvedTarget)
         self.assertEqual(target.name, "unknown")
 
-    def test_inner_scope_shadowing_produces_different_symbol_ids(self) -> None:
-        result = self._resolve("""
-            function f(x) -> z {
-                let y := x
-                {
-                    let y := 1
-                    z := y
+    def test_cross_scope_shadowing_rejected(self) -> None:
+        """Yul rejects cross-scope shadowing (solc error 1395)."""
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            self._resolve("""
+                function f(x) -> z {
+                    let y := x
+                    {
+                        let y := 1
+                        z := y
+                    }
                 }
-            }
-        """)
-        # Two distinct symbols named 'y'.
-        y_symbols = [info for info in result.symbols.values() if info.name == "y"]
-        self.assertEqual(len(y_symbols), 2)
-        self.assertNotEqual(y_symbols[0].id, y_symbols[1].id)
-
-        # The reference to 'y' inside the inner block should resolve
-        # to the inner y (the one declared with IntExpr(1)).
-        # There are two LOCAL y's; the inner one has a later span.
-        if y_symbols[0].span.start > y_symbols[1].span.start:
-            inner_y = y_symbols[0]
-        else:
-            inner_y = y_symbols[1]
-        # Find the reference that points to the inner y.
-        inner_refs = [
-            span for span, sid in result.references.items() if sid == inner_y.id
-        ]
-        self.assertTrue(
-            len(inner_refs) > 0, "inner 'y' should have at least one reference"
-        )
+            """)
 
     def test_no_builtins_classifies_all_calls_as_unresolved(self) -> None:
         result = self._resolve("function f(x) -> z { z := add(x, 1) }")
@@ -10676,40 +10649,18 @@ class ResolverSymbolIdTest(unittest.TestCase):
                 builtins=frozenset({"add"}),
             )
 
-    def test_variable_does_not_shadow_outer_function_in_call_position(
-        self,
-    ) -> None:
-        """A variable binding must not block function lookup in outer scope.
-
-        Yul functions and variables occupy separate resolution paths for
-        call expressions.  ``let helper := 7`` should not prevent
-        ``helper(x)`` from resolving to the outer ``function helper``.
-        """
-        result = self._resolve("""
-            function f(x) -> z {
-                function helper(a) -> b { b := a }
-                {
-                    let helper := 7
-                    z := helper(x)
+    def test_variable_shadowing_function_rejected(self) -> None:
+        """Yul rejects variable declaration shadowing a visible function (solc error 1395)."""
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate declaration"):
+            self._resolve("""
+                function f(x) -> z {
+                    function helper(a) -> b { b := a }
+                    {
+                        let helper := 7
+                        z := helper(x)
+                    }
                 }
-            }
-        """)
-        # Find helper's function declaration symbol.
-        helper_id: yul_ast.SymbolId | None = None
-        for sid, info in result.symbols.items():
-            if info.name == "helper" and info.kind == yul_ast.SymbolKind.FUNCTION:
-                helper_id = sid
-                break
-        self.assertIsNotNone(helper_id)
-
-        # The call to helper(x) should resolve as LocalFunctionTarget,
-        # not UnresolvedTarget.
-        call_targets = list(result.call_targets.values())
-        self.assertEqual(len(call_targets), 1)
-        target = call_targets[0]
-        self.assertIsInstance(target, yul_ast.LocalFunctionTarget)
-        assert isinstance(target, yul_ast.LocalFunctionTarget)
-        self.assertEqual(target.id, helper_id)
+            """)
 
 
 if __name__ == "__main__":

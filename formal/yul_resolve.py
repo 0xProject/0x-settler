@@ -72,11 +72,13 @@ class SymbolTable:
         """Declare *name* in the current (innermost) scope.
 
         Returns the new ``SymbolInfo``.  Raises ``ParseError`` if the
-        name is already declared in the current scope.
+        name is already visible in ANY enclosing scope.  Yul uses a
+        single flat namespace — solc rejects cross-scope shadowing
+        (error 1395 / 6052).
         """
-        scope = self._scopes[-1]
-        if name in scope:
-            raise ParseError(f"Duplicate declaration of {name!r} in the same scope")
+        for scope in self._scopes:
+            if name in scope:
+                raise ParseError(f"Duplicate declaration of {name!r} in the same scope")
         sid = self._alloc_id()
         info = SymbolInfo(id=sid, name=name, kind=kind, span=span)
         scope[name] = info
@@ -96,18 +98,16 @@ class SymbolTable:
     def lookup_function(self, name: str) -> SymbolInfo | None:
         """Look up *name* as a FUNCTION symbol (non-raising).
 
-        Returns ``None`` if the name is not found in any scope as a
-        function.  Variable bindings with the same name are skipped —
-        Yul functions and variables occupy separate resolution paths
-        for call expressions.
+        Yul uses a single namespace for functions and variables.  If
+        a non-function binding shadows the name, the function is not
+        reachable and this returns ``None``.
         """
         for scope in reversed(self._scopes):
             if name in scope:
                 info = scope[name]
                 if info.kind == SymbolKind.FUNCTION:
                     return info
-                # Variable binding — does not shadow outer functions
-                # in call position.  Continue searching.
+                return None  # variable shadows function
         return None
 
 
