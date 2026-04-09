@@ -4,6 +4,12 @@ Interpreter for the normalized imperative IR.
 Evaluates a ``NormalizedFunction`` with concrete integer arguments and
 returns the function's return values.  Used for semantic equivalence
 testing against the old pipeline's ``evaluate_function_model``.
+
+Key semantics:
+- Memory is shared across all calls (Yul semantics).
+- Local helper calls are dispatched by ``SymbolId``, not by name.
+- Top-level calls are dispatched by name.
+- ``leave`` is modeled as an exception caught at function boundary.
 """
 
 from __future__ import annotations
@@ -107,6 +113,14 @@ def _eval_builtin(name: str, args: tuple[int, ...]) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Memory builtins — recognized by name regardless of call classification,
+# since the resolver's _SUPPORTED_OPS_FROZENSET does not include them.
+# ---------------------------------------------------------------------------
+
+_MEMORY_OPS: frozenset[str] = frozenset({"mstore", "mload"})
+
+
+# ---------------------------------------------------------------------------
 # Leave signal
 # ---------------------------------------------------------------------------
 
@@ -125,19 +139,42 @@ _MAX_LOOP_ITERATIONS: int = 10_000
 
 
 class _EvalCtx:
-    """Mutable evaluation state for one function invocation."""
+    """Mutable evaluation state threaded through all calls."""
 
     def __init__(
         self,
         env: dict[SymbolId, int],
         memory: dict[int, int],
-        func_table: dict[str, NormalizedFunction],
+        local_funcs: dict[SymbolId, NFunctionDef],
+        named_funcs: dict[str, NormalizedFunction],
         call_stack: tuple[str, ...],
     ) -> None:
         self.env = env
         self.memory = memory
-        self.func_table = func_table
+        self.local_funcs = local_funcs
+        self.named_funcs = named_funcs
         self.call_stack = call_stack
+
+
+# ---------------------------------------------------------------------------
+# Collect nested function definitions from a block
+# ---------------------------------------------------------------------------
+
+
+def _collect_local_funcs(block: NBlock) -> dict[SymbolId, NFunctionDef]:
+    """Collect all ``NFunctionDef`` nodes from a block (non-recursive).
+
+    Yul functions are hoisted within their enclosing block, so all
+    function definitions at the top level of *block* are visible
+    throughout the block.  Nested functions inside those bodies are
+    NOT included — they will be collected when the inner function
+    is called.
+    """
+    result: dict[SymbolId, NFunctionDef] = {}
+    for stmt in block.stmts:
+        if isinstance(stmt, NFunctionDef):
+            result[stmt.symbol_id] = stmt
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -150,13 +187,28 @@ def evaluate_normalized(
     args: tuple[int, ...],
     *,
     function_table: dict[str, NormalizedFunction] | None = None,
+    memory: dict[int, int] | None = None,
+    call_stack: tuple[str, ...] = (),
 ) -> tuple[int, ...]:
-    """Evaluate *func* with concrete *args*, returning its return values."""
+    """Evaluate *func* with concrete *args*, returning its return values.
+
+    *function_table* maps function names to ``NormalizedFunction`` for
+    top-level (cross-function) calls.  Local helper calls are resolved
+    by ``SymbolId`` from ``NFunctionDef`` nodes in the function body.
+
+    *memory* is the shared Yul memory (mutated in-place by mstore).
+    Pass an existing dict to share memory across calls.
+
+    *call_stack* tracks active function names for recursion detection.
+    """
     if len(args) != len(func.params):
         raise EvaluationError(
             f"Function {func.name!r} expects {len(func.params)} arg(s), "
             f"got {len(args)}"
         )
+
+    if func.name in call_stack:
+        raise EvaluationError(f"Recursive call to {func.name!r}")
 
     env: dict[SymbolId, int] = {}
     for sid, val in zip(func.params, args):
@@ -165,8 +217,19 @@ def evaluate_normalized(
     for sid in func.returns:
         env[sid] = 0
 
-    ft: dict[str, NormalizedFunction] = dict(function_table) if function_table else {}
-    ctx = _EvalCtx(env=env, memory={}, func_table=ft, call_stack=(func.name,))
+    shared_memory = memory if memory is not None else {}
+    named: dict[str, NormalizedFunction] = (
+        dict(function_table) if function_table else {}
+    )
+    local = _collect_local_funcs(func.body)
+
+    ctx = _EvalCtx(
+        env=env,
+        memory=shared_memory,
+        local_funcs=local,
+        named_funcs=named,
+        call_stack=call_stack + (func.name,),
+    )
 
     try:
         _exec_block(ctx, func.body)
@@ -182,6 +245,11 @@ def evaluate_normalized(
 
 
 def _exec_block(ctx: _EvalCtx, block: NBlock) -> None:
+    # Hoist function definitions — Yul makes them visible throughout
+    # their enclosing block.  SymbolId keys ensure no collisions.
+    for stmt in block.stmts:
+        if isinstance(stmt, NFunctionDef):
+            ctx.local_funcs[stmt.symbol_id] = stmt
     for stmt in block.stmts:
         _exec_stmt(ctx, stmt)
 
@@ -276,42 +344,91 @@ def _eval_expr(ctx: _EvalCtx, expr: NExpr) -> _EvalResult:
         return ctx.env[expr.symbol_id]
 
     if isinstance(expr, NBuiltinCall):
-        # mstore: side effect on memory, returns nothing meaningful.
-        if expr.op == "mstore" and len(expr.args) == 2:
-            addr = _to_scalar(_eval_expr(ctx, expr.args[0]))
-            value = _to_scalar(_eval_expr(ctx, expr.args[1]))
-            ctx.memory[_u256(addr)] = _u256(value)
-            return 0
+        return _eval_call_by_name(ctx, expr.op, expr.args)
 
-        # mload: read from memory.
-        if expr.op == "mload" and len(expr.args) == 1:
-            addr = _to_scalar(_eval_expr(ctx, expr.args[0]))
-            return ctx.memory.get(_u256(addr), 0)
+    if isinstance(expr, NLocalCall):
+        # Look up by SymbolId — avoids name collisions across scopes.
+        if expr.symbol_id not in ctx.local_funcs:
+            raise EvaluationError(
+                f"Unknown local function {expr.name!r} " f"(symbol {expr.symbol_id!r})"
+            )
+        fdef = ctx.local_funcs[expr.symbol_id]
+        return _call_function_def(ctx, fdef, expr.args)
 
-        args = tuple(_to_scalar(_eval_expr(ctx, a)) for a in expr.args)
-        return _eval_builtin(expr.op, args)
-
-    if isinstance(expr, (NLocalCall, NTopLevelCall)):
-        name = expr.name
-        if name not in ctx.func_table:
-            raise EvaluationError(f"Unknown function {name!r}")
-        if name in ctx.call_stack:
-            raise EvaluationError(f"Recursive call to {name!r}")
-        callee = ctx.func_table[name]
+    if isinstance(expr, NTopLevelCall):
+        # Memory builtins may appear as top-level calls if not in
+        # the resolver's builtin set.
+        if expr.name in _MEMORY_OPS:
+            return _eval_call_by_name(ctx, expr.name, expr.args)
+        if expr.name not in ctx.named_funcs:
+            raise EvaluationError(f"Unknown top-level function {expr.name!r}")
+        callee = ctx.named_funcs[expr.name]
         args = tuple(_to_scalar(_eval_expr(ctx, a)) for a in expr.args)
         result = evaluate_normalized(
             callee,
             args,
-            function_table=ctx.func_table,
+            function_table=ctx.named_funcs,
+            memory=ctx.memory,
+            call_stack=ctx.call_stack,
         )
         if len(result) == 1:
             return result[0]
         return result
 
     if isinstance(expr, NUnresolvedCall):
+        # Memory builtins may be unresolved if not in the resolver's
+        # builtin set.  Try them before giving up.
+        if expr.name in _MEMORY_OPS or (expr.name, len(expr.args)) in _BUILTIN_DISPATCH:
+            return _eval_call_by_name(ctx, expr.name, expr.args)
         raise EvaluationError(f"Unresolved call to {expr.name!r}")
 
     assert_never(expr)
+
+
+def _eval_call_by_name(
+    ctx: _EvalCtx, name: str, args: tuple[NExpr, ...]
+) -> _EvalResult:
+    """Evaluate a call to a builtin or memory op by name."""
+    # mstore: side effect on memory.
+    if name == "mstore" and len(args) == 2:
+        addr = _to_scalar(_eval_expr(ctx, args[0]))
+        value = _to_scalar(_eval_expr(ctx, args[1]))
+        ctx.memory[_u256(addr)] = _u256(value)
+        return 0
+
+    # mload: read from memory.
+    if name == "mload" and len(args) == 1:
+        addr = _to_scalar(_eval_expr(ctx, args[0]))
+        return ctx.memory.get(_u256(addr), 0)
+
+    # Regular arithmetic builtin.
+    evaluated = tuple(_to_scalar(_eval_expr(ctx, a)) for a in args)
+    return _eval_builtin(name, evaluated)
+
+
+def _call_function_def(
+    ctx: _EvalCtx, fdef: NFunctionDef, args: tuple[NExpr, ...]
+) -> _EvalResult:
+    """Call a local helper function, sharing memory with the caller."""
+    nf = NormalizedFunction(
+        name=fdef.name,
+        params=fdef.params,
+        param_names=fdef.param_names,
+        returns=fdef.returns,
+        return_names=fdef.return_names,
+        body=fdef.body,
+    )
+    evaluated_args = tuple(_to_scalar(_eval_expr(ctx, a)) for a in args)
+    result = evaluate_normalized(
+        nf,
+        evaluated_args,
+        function_table=ctx.named_funcs,
+        memory=ctx.memory,
+        call_stack=ctx.call_stack,
+    )
+    if len(result) == 1:
+        return result[0]
+    return result
 
 
 def _to_scalar(val: _EvalResult) -> int:

@@ -11032,33 +11032,15 @@ class NormalizeEvalTest(unittest.TestCase):
         self.assertEqual(self._eval_normalized(yul, (1,)), (20,))
 
     def test_nested_helper_call(self) -> None:
+        """Local helper calls are auto-resolved by SymbolId from NFunctionDef nodes."""
         yul = """
             function f(x) -> z {
                 function g(a) -> b { b := add(a, 1) }
                 z := g(x)
             }
         """
-        # g is a nested helper — we need to build a function table.
-        tokens = ytl.tokenize_yul(yul)
-        func = SyntaxParser(tokens).parse_function()
-        result = resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
-        nf = normalize_function(func, result)
-
-        # Build function table from nested function definitions.
-        g_def = nf.body.stmts[0]
-        assert isinstance(g_def, norm_ir.NFunctionDef)
-        g_nf = norm_ir.NormalizedFunction(
-            name=g_def.name,
-            params=g_def.params,
-            param_names=g_def.param_names,
-            returns=g_def.returns,
-            return_names=g_def.return_names,
-            body=g_def.body,
-        )
-        ft: dict[str, norm_ir.NormalizedFunction] = {g_def.name: g_nf}
-
-        self.assertEqual(evaluate_normalized(nf, (5,), function_table=ft), (6,))
-        self.assertEqual(evaluate_normalized(nf, (0,), function_table=ft), (1,))
+        self.assertEqual(self._eval_normalized(yul, (5,)), (6,))
+        self.assertEqual(self._eval_normalized(yul, (0,)), (1,))
 
     def test_multi_return(self) -> None:
         yul = """
@@ -11067,24 +11049,49 @@ class NormalizeEvalTest(unittest.TestCase):
                 a, b := g(x)
             }
         """
+        self.assertEqual(self._eval_normalized(yul, (10,)), (10, 11))
+
+    def test_shared_memory_across_helper_calls(self) -> None:
+        """mstore in a helper is visible to mload in the caller (shared memory)."""
+        yul = """
+            function f() -> z {
+                function g() { mstore(0, 7) }
+                g()
+                z := mload(0)
+            }
+        """
+        # mstore/mload are not in _SUPPORTED_OPS, so pass empty builtins
+        # to avoid confusing them with arithmetic ops.
+        self.assertEqual(self._eval_normalized(yul, (), builtins=frozenset()), (7,))
+
+    def test_same_named_helpers_resolved_by_symbol_id(self) -> None:
+        """Two branch-local helpers named 'g' are distinguished by SymbolId."""
+        yul = """
+            function f(x) -> z {
+                if x {
+                    function g(a) -> b { b := add(a, 1) }
+                    z := g(1)
+                }
+            }
+        """
+        self.assertEqual(self._eval_normalized(yul, (1,)), (2,))
+        self.assertEqual(self._eval_normalized(yul, (0,)), (0,))
+
+    def test_recursion_detection(self) -> None:
+        """Mutual recursion (f→g→f) is caught before hitting Python stack limit."""
+        yul = """
+            function f(x) -> z { z := g(x) }
+            function g(x) -> z { z := f(x) }
+        """
         tokens = ytl.tokenize_yul(yul)
-        func = SyntaxParser(tokens).parse_function()
-        result = resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
-        nf = normalize_function(func, result)
+        funcs = SyntaxParser(tokens).parse_functions()
+        results = resolve_module(funcs)
+        nf_f = normalize_function(funcs[0], results["f"])
+        nf_g = normalize_function(funcs[1], results["g"])
 
-        g_def = nf.body.stmts[0]
-        assert isinstance(g_def, norm_ir.NFunctionDef)
-        g_nf = norm_ir.NormalizedFunction(
-            name=g_def.name,
-            params=g_def.params,
-            param_names=g_def.param_names,
-            returns=g_def.returns,
-            return_names=g_def.return_names,
-            body=g_def.body,
-        )
-        ft: dict[str, norm_ir.NormalizedFunction] = {g_def.name: g_nf}
-
-        self.assertEqual(evaluate_normalized(nf, (10,), function_table=ft), (10, 11))
+        ft: dict[str, norm_ir.NormalizedFunction] = {"f": nf_f, "g": nf_g}
+        with self.assertRaisesRegex(ytl.EvaluationError, "Recursive call"):
+            evaluate_normalized(nf_f, (1,), function_table=ft)
 
 
 if __name__ == "__main__":
