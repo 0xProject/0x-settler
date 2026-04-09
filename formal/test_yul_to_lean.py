@@ -11670,6 +11670,34 @@ class InlinePureTest(unittest.TestCase):
         assert isinstance(assign, norm_ir.NAssign)
         self.assertNotIsInstance(assign.expr, norm_ir.NLocalCall)
 
+    def test_multi_case_switch_inlines_correctly(self) -> None:
+        """Switch with multiple cases + default produces correct values."""
+        yul = """
+            function f(x) -> z {
+                function g(a) -> b {
+                    switch a
+                    case 0 { b := 10 }
+                    case 1 { b := 20 }
+                    default { b := 30 }
+                }
+                z := g(x)
+            }
+        """
+        self.assertEqual(self._eval_inlined(yul, (0,)), (10,))
+        self.assertEqual(self._eval_inlined(yul, (1,)), (20,))
+        self.assertEqual(self._eval_inlined(yul, (2,)), (30,))
+
+    def test_zero_return_pure_helper_eliminated(self) -> None:
+        """Pure void helper call in statement position is eliminated."""
+        nf = self._inline("""
+            function f() -> z {
+                function g() { }
+                g()
+                z := 1
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, ()), (1,))
+
 
 if __name__ == "__main__":
     unittest.main()

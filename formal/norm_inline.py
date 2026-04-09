@@ -366,98 +366,32 @@ def _remap_stmt_targets(stmt: NStmt, sid_map: dict[SymbolId, SymbolId]) -> NStmt
 
 
 def _normalize_switch_to_if(stmt: NSwitch) -> NStmt:
-    """Convert ``NSwitch`` to nested ``NIf`` chain.
+    """Convert ``NSwitch`` to nested ``NIf`` + ``NIf(iszero(...))`` chain.
 
-    switch d case 0 { A } case 1 { B } default { C }
-    →
-    if eq(d, 0) { A }
-    else → if eq(d, 1) { B }
-           else → { C }
+    Each case becomes a pair:
+        NIf(eq(d, val), case_body)
+        NIf(iszero(eq(d, val)), { ...rest... })
 
-    This keeps the inliner simple (only handles NIf).
+    Built bottom-up so the innermost block is the default (or empty).
+    Exactly one branch executes, matching Yul switch semantics.
     """
     disc = stmt.discriminant
-    # Build from the bottom up: start with default (or empty block).
-    else_block: NBlock = stmt.default if stmt.default is not None else NBlock(())
+    # Start with default body (or empty).
+    tail: NBlock = stmt.default if stmt.default is not None else NBlock(())
 
+    # Build from last case to first, wrapping each in an if/else pair.
     for case in reversed(stmt.cases):
         cond: NExpr = NBuiltinCall(op="eq", args=(disc, NConst(case.value.value)))
-        # NIf has no else, so we need to encode as:
-        #   if cond { case_body }
-        #   if iszero(cond) { else_chain }
-        # Or we can encode the whole thing as nested subst merges
-        # during symbolic execution.
-        #
-        # For the block-level rewrite, produce a NBlock containing:
-        #   NIf(eq(d, case_val), case_body)
-        # followed by the else chain wrapped in NIf(iszero(eq(d, case_val)), ...)
-        #
-        # Simpler: since we're in symbolic execution context, just
-        # produce nested NIf with an else body as a block.
-        #
-        # Actually, the simplest correct encoding: combine case + else
-        # into a single scope with conditional logic. Let's use the
-        # symbolic executor's ability to handle NIf for this.
-        # We'll produce:
-        #   { NIf(eq(d, case_val), case_body), <else_block as NBlock> }
-        # The symbolic executor merges NIf and then falls through to else.
-        # But this only works if else_block is "the rest" — not if there
-        # are more cases.
-        #
-        # The cleanest approach: build a single NIf chain where each
-        # case is "if eq(d, val) { body }" and variables merge.
-        # Process them sequentially in the symbolic executor.
-        pass
-
-    # Simple approach: produce a flat block of NIf statements,
-    # one per case, plus the default body at the end.
-    stmts: list[NStmt] = []
-    for case in stmt.cases:
-        cond = NBuiltinCall(op="eq", args=(disc, NConst(case.value.value)))
-        stmts.append(NIf(condition=cond, then_body=case.body))
-    if stmt.default is not None:
-        # Default: wrap as NIf(iszero(any_case_matched), default_body)
-        # But we don't have a clean "none matched" variable.
-        # For switch with case 0 + default (the common pattern),
-        # the default fires when d != 0, i.e., iszero(eq(d, 0)) = d != 0.
-        # For the general case, just append the default body as a block
-        # and let the symbolic executor handle it (variables are
-        # already set by whichever case matched).
-        #
-        # Actually, the correct encoding for symbolic execution:
-        # case 0: if eq(d,0) { body0 }
-        # default: the complementary condition is "not any case"
-        # For switch with exactly one case + default:
-        #   if eq(d, case_val) { case_body }
-        #   if iszero(eq(d, case_val)) { default_body }
-        if len(stmt.cases) == 1:
-            inv_cond: NExpr = NBuiltinCall(
-                op="iszero",
-                args=(
-                    NBuiltinCall(
-                        op="eq",
-                        args=(disc, NConst(stmt.cases[0].value.value)),
-                    ),
-                ),
+        inv_cond: NExpr = NBuiltinCall(op="iszero", args=(cond,))
+        # Produce: { NIf(cond, case_body), NIf(iszero(cond), tail) }
+        tail = NBlock(
+            (
+                NIf(condition=cond, then_body=case.body),
+                NIf(condition=inv_cond, then_body=tail),
             )
-            stmts.append(NIf(condition=inv_cond, then_body=stmt.default))
-        else:
-            # General case: chain of if-else.
-            # Build complementary condition: not(eq(d,c0) | eq(d,c1) | ...)
-            # For simplicity, just inline the default body as a NBlock.
-            # This is correct because in the symbolic executor, variables
-            # that weren't set by any case retain their pre-switch value.
-            # The default body will overwrite them.
-            # NOTE: This is only correct if cases are exhaustive + default.
-            # For Yul switch semantics (exactly one branch executes),
-            # we need proper exclusive conditions.
-            #
-            # Actually for now, restrict to the common pattern (1 case + default).
-            # General multi-case switches are rare in the Yul subset we handle.
-            for s in stmt.default.stmts:
-                stmts.append(s)
+        )
 
-    return NBlock(tuple(stmts))
+    return tail
 
 
 def _pre_normalize_block(block: NBlock) -> NBlock:
@@ -643,8 +577,7 @@ def _process_bind_or_assign(
             subst[sid] = val
     else:
         raise ParseError(
-            f"Multi-target assignment requires multi-return call, "
-            f"got single value"
+            f"Multi-target assignment requires multi-return call, " f"got single value"
         )
 
 
@@ -738,6 +671,12 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
         )
 
     if isinstance(stmt, NExprEffect):
+        # Pure zero-return helper calls can be eliminated entirely
+        # (no effects by definition).
+        if isinstance(stmt.expr, NLocalCall) and ctx.is_inlineable(stmt.expr.symbol_id):
+            fdef = ctx.defs[stmt.expr.symbol_id]
+            if len(fdef.returns) == 0:
+                return []  # Pure void call — eliminate
         return [NExprEffect(expr=_inline_in_expr(stmt.expr, ctx, 0))]
 
     if isinstance(stmt, NIf):
