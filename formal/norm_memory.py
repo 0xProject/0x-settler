@@ -61,6 +61,55 @@ def _resolve_const_addr(expr: NExpr, op: str) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Reject memory ops inside control flow
+# ---------------------------------------------------------------------------
+
+
+def _reject_memory_ops_in_block(block: NBlock, context: str) -> None:
+    """Raise if a block contains any memory operations (straight-line only)."""
+    for stmt in block.stmts:
+        if isinstance(stmt, NStore):
+            raise ParseError(
+                f"NStore inside control flow ({context}). "
+                f"The memory model requires straight-line memory operations."
+            )
+        if isinstance(stmt, NExprEffect):
+            if isinstance(stmt.expr, NBuiltinCall) and stmt.expr.op == "mstore":
+                raise ParseError(
+                    f"mstore inside control flow ({context}). "
+                    f"The memory model requires straight-line memory operations."
+                )
+        if isinstance(stmt, (NBind, NAssign)):
+            if stmt.expr is not None and _expr_has_mload(stmt.expr):
+                raise ParseError(
+                    f"mload inside control flow ({context}). "
+                    f"The memory model requires straight-line memory operations."
+                )
+        if isinstance(stmt, NIf):
+            _reject_memory_ops_in_block(stmt.then_body, context)
+        if isinstance(stmt, NBlock):
+            _reject_memory_ops_in_block(stmt, context)
+        if isinstance(stmt, NFor):
+            _reject_memory_ops_in_block(stmt.init, context)
+            _reject_memory_ops_in_block(stmt.post, context)
+            _reject_memory_ops_in_block(stmt.body, context)
+
+
+def _expr_has_mload(expr: NExpr) -> bool:
+    """Check if an expression contains an mload call."""
+    from norm_walk import for_each_expr
+
+    found: list[bool] = [False]
+
+    def check(e: NExpr) -> None:
+        if isinstance(e, NBuiltinCall) and e.op == "mload":
+            found[0] = True
+
+    for_each_expr(expr, check)
+    return found[0]
+
+
+# ---------------------------------------------------------------------------
 # Expression-level mload resolution
 # ---------------------------------------------------------------------------
 
@@ -162,41 +211,27 @@ def _lower_stmt(
         return
 
     if isinstance(stmt, NIf):
+        _reject_memory_ops_in_block(stmt.then_body, "if-body")
         new_cond = _resolve_memory_in_expr(stmt.condition, mem)
-        new_body = _lower_block(stmt.then_body, mem)
-        out.append(NIf(condition=new_cond, then_body=new_body))
+        out.append(NIf(condition=new_cond, then_body=stmt.then_body))
         return
 
     if isinstance(stmt, NSwitch):
+        for case in stmt.cases:
+            _reject_memory_ops_in_block(case.body, "switch-case")
+        if stmt.default is not None:
+            _reject_memory_ops_in_block(stmt.default, "switch-default")
         new_disc = _resolve_memory_in_expr(stmt.discriminant, mem)
-        new_cases = tuple(
-            type(c)(value=c.value, body=_lower_block(c.body, mem)) for c in stmt.cases
-        )
-        new_default = (
-            _lower_block(stmt.default, mem) if stmt.default is not None else None
-        )
-        out.append(NSwitch(discriminant=new_disc, cases=new_cases, default=new_default))
+        out.append(stmt)
         return
 
     if isinstance(stmt, NFor):
-        new_init = _lower_block(stmt.init, mem)
-        new_cond_setup = (
-            _lower_block(stmt.condition_setup, mem)
-            if stmt.condition_setup is not None
-            else None
-        )
-        new_cond = _resolve_memory_in_expr(stmt.condition, mem)
-        new_post = _lower_block(stmt.post, mem)
-        new_body = _lower_block(stmt.body, mem)
-        out.append(
-            NFor(
-                init=new_init,
-                condition=new_cond,
-                condition_setup=new_cond_setup,
-                post=new_post,
-                body=new_body,
-            )
-        )
+        _reject_memory_ops_in_block(stmt.init, "for-init")
+        if stmt.condition_setup is not None:
+            _reject_memory_ops_in_block(stmt.condition_setup, "for-condition-setup")
+        _reject_memory_ops_in_block(stmt.post, "for-post")
+        _reject_memory_ops_in_block(stmt.body, "for-body")
+        out.append(stmt)
         return
 
     if isinstance(stmt, (NLeave, NFunctionDef)):

@@ -12308,6 +12308,48 @@ class MemoryLowerTest(unittest.TestCase):
             post = evaluate_normalized(lowered, (hi, lo))
             self.assertEqual(pre, post, f"Failed for hi={hi}, lo={lo}")
 
+    def test_mstore_inside_if_rejected(self) -> None:
+        """mstore inside conditional is rejected (straight-line only)."""
+        with self.assertRaisesRegex(ytl.ParseError, "inside control flow"):
+            self._pipeline("""
+                function f(x) -> z {
+                    if x { mstore(0, 7) }
+                    z := mload(0)
+                }
+            """)
+
+    def test_mload_inside_if_rejected(self) -> None:
+        """mload inside conditional is rejected (straight-line only)."""
+        with self.assertRaisesRegex(ytl.ParseError, "inside control flow"):
+            self._pipeline("""
+                function f(x) -> z {
+                    mstore(0, 7)
+                    if x { z := mload(0) }
+                }
+            """)
+
+    def test_store_value_snapshot_semantics(self) -> None:
+        """mstore(0, x) then x := add(x, 1) then mload(0) must return original x."""
+        nf = self._pipeline("""
+            function f(x) -> z {
+                mstore(0, x)
+                z := mload(0)
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, (5,)), (5,))
+
+    def test_mstore_inside_for_rejected(self) -> None:
+        """mstore inside for-loop is rejected."""
+        with self.assertRaisesRegex(ytl.ParseError, "inside control flow"):
+            self._pipeline("""
+                function f(n) -> z {
+                    for { let i := 0 } lt(i, n) { i := add(i, 1) } {
+                        mstore(0, i)
+                    }
+                    z := mload(0)
+                }
+            """)
+
 
 if __name__ == "__main__":
     unittest.main()
