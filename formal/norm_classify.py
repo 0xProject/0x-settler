@@ -14,6 +14,7 @@ and ``_reject_expr_stmts()``.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import assert_never
 
 from norm_ir import (
     NAssign,
@@ -59,6 +60,7 @@ class FunctionSummary:
     may_leave: bool
     has_for_loop: bool
     has_expr_effects: bool
+    has_effectful_condition: bool
     calls_unresolved: bool
     calls_top_level: bool
     called_functions: frozenset[SymbolId]
@@ -76,6 +78,7 @@ def summarize_function(body: NBlock) -> FunctionSummary:
         may_leave=acc.may_leave,
         has_for_loop=acc.has_for_loop,
         has_expr_effects=acc.has_expr_effects,
+        has_effectful_condition=acc.has_effectful_condition,
         calls_unresolved=acc.calls_unresolved,
         calls_top_level=acc.calls_top_level,
         called_functions=frozenset(acc.called_functions),
@@ -93,6 +96,7 @@ class _SummaryAccumulator:
         self.may_leave: bool = False
         self.has_for_loop: bool = False
         self.has_expr_effects: bool = False
+        self.has_effectful_condition: bool = False
         self.calls_unresolved: bool = False
         self.calls_top_level: bool = False
         self.called_functions: set[SymbolId] = set()
@@ -117,9 +121,13 @@ def _walk_stmt(acc: _SummaryAccumulator, stmt: NStmt) -> None:
             acc.has_expr_effects = True
         _walk_expr(acc, stmt.expr)
     elif isinstance(stmt, NIf):
+        if _has_call_in_expr(stmt.condition):
+            acc.has_effectful_condition = True
         _walk_expr(acc, stmt.condition)
         _walk_block(acc, stmt.then_body)
     elif isinstance(stmt, NSwitch):
+        if _has_call_in_expr(stmt.discriminant):
+            acc.has_effectful_condition = True
         _walk_expr(acc, stmt.discriminant)
         for case in stmt.cases:
             _walk_block(acc, case.body)
@@ -127,6 +135,8 @@ def _walk_stmt(acc: _SummaryAccumulator, stmt: NStmt) -> None:
             _walk_block(acc, stmt.default)
     elif isinstance(stmt, NFor):
         acc.has_for_loop = True
+        if _has_call_in_expr(stmt.condition):
+            acc.has_effectful_condition = True
         _walk_block(acc, stmt.init)
         _walk_expr(acc, stmt.condition)
         _walk_block(acc, stmt.post)
@@ -139,6 +149,27 @@ def _walk_stmt(acc: _SummaryAccumulator, stmt: NStmt) -> None:
         # Do NOT recurse into nested function bodies — they get
         # their own summary.
         pass
+
+
+def _has_call_in_expr(expr: NExpr) -> bool:
+    """Check if an expression contains any function call (local/top-level/unresolved).
+
+    Used to detect effectful control-flow conditions.  Builtin calls
+    (EVM opcodes) are pure and do not count.
+    """
+    if isinstance(expr, (NConst, NRef)):
+        return False
+    if isinstance(expr, NBuiltinCall):
+        return any(_has_call_in_expr(a) for a in expr.args)
+    if isinstance(expr, (NLocalCall, NTopLevelCall, NUnresolvedCall)):
+        return True
+    if isinstance(expr, NIte):
+        return (
+            _has_call_in_expr(expr.cond)
+            or _has_call_in_expr(expr.if_true)
+            or _has_call_in_expr(expr.if_false)
+        )
+    assert_never(expr)
 
 
 def _walk_expr(acc: _SummaryAccumulator, expr: NExpr) -> None:
@@ -373,6 +404,9 @@ def classify_helpers(
         elif s.calls_unresolved:
             unsupported[sid] = "calls unresolved function"
             non_pure.add(sid)
+        elif s.has_effectful_condition:
+            unsupported[sid] = "function call in control-flow condition"
+            non_pure.add(sid)
         if s.may_leave:
             non_pure.add(sid)
         if s.calls_top_level:
@@ -431,6 +465,7 @@ def classify_function_scope(
             may_leave=base.may_leave,
             has_for_loop=base.has_for_loop,
             has_expr_effects=base.has_expr_effects,
+            has_effectful_condition=base.has_effectful_condition,
             calls_unresolved=base.calls_unresolved,
             calls_top_level=base.calls_top_level,
             called_functions=base.called_functions,

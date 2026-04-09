@@ -368,22 +368,19 @@ def _remap_stmt_targets(stmt: NStmt, sid_map: dict[SymbolId, SymbolId]) -> NStmt
 def _normalize_switch_to_if(stmt: NSwitch) -> NStmt:
     """Convert ``NSwitch`` to nested ``NIf`` + ``NIf(iszero(...))`` chain.
 
-    Each case becomes a pair:
-        NIf(eq(d, val), case_body)
-        NIf(iszero(eq(d, val)), { ...rest... })
+    The discriminant expression is duplicated into each condition.
+    This is safe because the classifier rejects functions with
+    effectful control-flow conditions (``has_effectful_condition``).
 
     Built bottom-up so the innermost block is the default (or empty).
     Exactly one branch executes, matching Yul switch semantics.
     """
     disc = stmt.discriminant
-    # Start with default body (or empty).
     tail: NBlock = stmt.default if stmt.default is not None else NBlock(())
 
-    # Build from last case to first, wrapping each in an if/else pair.
     for case in reversed(stmt.cases):
         cond: NExpr = NBuiltinCall(op="eq", args=(disc, NConst(case.value.value)))
         inv_cond: NExpr = NBuiltinCall(op="iszero", args=(cond,))
-        # Produce: { NIf(cond, case_body), NIf(iszero(cond), tail) }
         tail = NBlock(
             (
                 NIf(condition=cond, then_body=case.body),
@@ -671,12 +668,20 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
         )
 
     if isinstance(stmt, NExprEffect):
-        # Pure zero-return helper calls can be eliminated entirely
-        # (no effects by definition).
+        # Pure zero-return helper calls: the call itself can be dropped
+        # (pure = no effects), but arguments may be effectful and must
+        # be preserved as expression-statements.
         if isinstance(stmt.expr, NLocalCall) and ctx.is_inlineable(stmt.expr.symbol_id):
             fdef = ctx.defs[stmt.expr.symbol_id]
             if len(fdef.returns) == 0:
-                return []  # Pure void call — eliminate
+                result: list[NStmt] = []
+                for arg in stmt.expr.args:
+                    inlined_arg = _inline_in_expr(arg, ctx, 0)
+                    if not isinstance(inlined_arg, NConst) and not isinstance(
+                        inlined_arg, NRef
+                    ):
+                        result.append(NExprEffect(expr=inlined_arg))
+                return result
         return [NExprEffect(expr=_inline_in_expr(stmt.expr, ctx, 0))]
 
     if isinstance(stmt, NIf):
