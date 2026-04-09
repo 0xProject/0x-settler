@@ -305,6 +305,100 @@ class FailClosedTranslatorTest(unittest.TestCase):
         ):
             ytl.YulParser(tokens).parse_function()
 
+    def test_parse_function_rejects_duplicate_param_names(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_bad_1(x, x) -> z {
+                z := x
+            }
+            """)
+
+        with self.assertRaisesRegex(ytl.ParseError, "x"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_duplicate_return_names(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_bad_1(x) -> z, z {
+                z := x
+            }
+            """)
+
+        with self.assertRaisesRegex(ytl.ParseError, "z"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_duplicate_local_declaration_in_same_scope(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_bad_1(x) -> z {
+                let usr$tmp := 1
+                let usr$tmp := 2
+                z := usr$tmp
+            }
+            """)
+
+        with self.assertRaisesRegex(ytl.ParseError, r"usr\$tmp"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_duplicate_multi_let_target(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_bad_1(x) -> z {
+                let usr$a, usr$a := fun_pair_2(x)
+                z := usr$a
+            }
+            """)
+
+        with self.assertRaisesRegex(ytl.ParseError, r"usr\$a"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_same_scope_local_shadowing_parameter(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_bad_1(x) -> z {
+                let x := 1
+                z := x
+            }
+            """)
+
+        with self.assertRaisesRegex(ytl.ParseError, "x"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_same_scope_local_shadowing_return(
+        self,
+    ) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_bad_1(x) -> z {
+                let z := 1
+            }
+            """)
+
+        with self.assertRaisesRegex(ytl.ParseError, "z"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_duplicate_local_inside_bare_block(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_bad_1(x) -> z {
+                {
+                    let usr$tmp := 1
+                    let usr$tmp := 2
+                    z := usr$tmp
+                }
+            }
+            """)
+
+        with self.assertRaisesRegex(ytl.ParseError, r"usr\$tmp"):
+            ytl.YulParser(tokens).parse_function()
+
+    def test_parse_function_rejects_string_literal_assignment_rhs(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function fun_bad_1(x) -> z {
+                z := "oops"
+            }
+            """)
+
+        with self.assertRaisesRegex(ytl.ParseError, "string"):
+            ytl.YulParser(tokens).parse_function()
+
     def test_parse_function_inlines_bare_block_let_vars(self) -> None:
         tokens = ytl.tokenize_yul("""
             function fun_ok_1(var_x_1) -> var_z_2 {
