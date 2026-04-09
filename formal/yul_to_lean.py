@@ -4875,7 +4875,7 @@ _SUPPORTED_OPS_FROZENSET: frozenset[str] = frozenset(_SUPPORTED_OPS)
 # would shadow a builtin name.
 #
 # Source: "EVM Dialect" table in the Yul section of the Solidity docs:
-# https://docs.soliditylang.org/en/v0.8.28/yul.html#evm-dialect
+# https://docs.soliditylang.org/en/v0.8.34/yul.html#evm-dialect
 _EVM_BUILTINS: frozenset[str] = _SUPPORTED_OPS_FROZENSET | frozenset(
     (
         # Arithmetic / comparison (already in _SUPPORTED_OPS: add, sub, mul,
@@ -4957,10 +4957,14 @@ _EVM_BUILTINS: frozenset[str] = _SUPPORTED_OPS_FROZENSET | frozenset(
         "origin",
         "gasprice",
         "mcopy",
-        # Object access
+        # Object access / Yul-specific
         "datasize",
         "dataoffset",
         "datacopy",
+        "setimmutable",
+        "loadimmutable",
+        "linkersymbol",
+        "memoryguard",
     )
 )
 
