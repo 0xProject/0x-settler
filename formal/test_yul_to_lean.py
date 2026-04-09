@@ -10679,6 +10679,41 @@ class ResolverSymbolIdTest(unittest.TestCase):
         assert isinstance(target, yul_ast.BuiltinTarget)
         self.assertEqual(target.name, "add")
 
+    def test_variable_does_not_shadow_outer_function_in_call_position(
+        self,
+    ) -> None:
+        """A variable binding must not block function lookup in outer scope.
+
+        Yul functions and variables occupy separate resolution paths for
+        call expressions.  ``let helper := 7`` should not prevent
+        ``helper(x)`` from resolving to the outer ``function helper``.
+        """
+        result = self._resolve("""
+            function f(x) -> z {
+                function helper(a) -> b { b := a }
+                {
+                    let helper := 7
+                    z := helper(x)
+                }
+            }
+        """)
+        # Find helper's function declaration symbol.
+        helper_id: yul_ast.SymbolId | None = None
+        for sid, info in result.symbols.items():
+            if info.name == "helper" and info.kind == yul_ast.SymbolKind.FUNCTION:
+                helper_id = sid
+                break
+        self.assertIsNotNone(helper_id)
+
+        # The call to helper(x) should resolve as LocalFunctionTarget,
+        # not UnresolvedTarget.
+        call_targets = list(result.call_targets.values())
+        self.assertEqual(len(call_targets), 1)
+        target = call_targets[0]
+        self.assertIsInstance(target, yul_ast.LocalFunctionTarget)
+        assert isinstance(target, yul_ast.LocalFunctionTarget)
+        self.assertEqual(target.id, helper_id)
+
 
 if __name__ == "__main__":
     unittest.main()

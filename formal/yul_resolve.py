@@ -96,15 +96,18 @@ class SymbolTable:
     def lookup_function(self, name: str) -> SymbolInfo | None:
         """Look up *name* as a FUNCTION symbol (non-raising).
 
-        Returns ``None`` if the name is not found or is not a function.
-        Used for call-target classification.
+        Returns ``None`` if the name is not found in any scope as a
+        function.  Variable bindings with the same name are skipped —
+        Yul functions and variables occupy separate resolution paths
+        for call expressions.
         """
         for scope in reversed(self._scopes):
             if name in scope:
                 info = scope[name]
                 if info.kind == SymbolKind.FUNCTION:
                     return info
-                return None
+                # Variable binding — does not shadow outer functions
+                # in call position.  Continue searching.
         return None
 
 
