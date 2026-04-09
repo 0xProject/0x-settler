@@ -215,3 +215,50 @@ class SymbolKind(enum.Enum):
     RETURN = "return"
     LOCAL = "local"
     FUNCTION = "function"
+
+
+# ---------------------------------------------------------------------------
+# Symbol resolution types (populated by yul_resolve)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class SymbolId:
+    """Unique identifier for a declaration site."""
+
+    _id: int
+
+
+@dataclass(frozen=True)
+class SymbolInfo:
+    """Metadata for a single declaration."""
+
+    id: SymbolId
+    name: str
+    kind: SymbolKind
+    span: Span
+
+
+@dataclass(frozen=True)
+class BuiltinTarget:
+    """Call target: a known EVM opcode (e.g. ``add``, ``shr``)."""
+
+    name: str
+
+
+@dataclass(frozen=True)
+class LocalFunctionTarget:
+    """Call target: a locally-declared function visible in scope."""
+
+    id: SymbolId
+    name: str
+
+
+@dataclass(frozen=True)
+class UnresolvedTarget:
+    """Call target: callee not found in scope or builtins."""
+
+    name: str
+
+
+CallTarget = Union[BuiltinTarget, LocalFunctionTarget, UnresolvedTarget]

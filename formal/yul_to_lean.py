@@ -1006,11 +1006,12 @@ def _validate_function_syntax(tokens: list[tuple[str, str]], start: int) -> None
 
     Catches duplicate declarations, illegal shadowing, undefined
     variable references, and unsupported string literals before the
-    lowering parser runs.  Raises ``ParseError`` on any violation.
+    lowering parser runs.  Also classifies call targets against the
+    known EVM builtin set.  Raises ``ParseError`` on any violation.
     """
     parser = SyntaxParser(tokens[start:], token_offset=start)
     func = parser.parse_function()
-    resolve_function(func)
+    resolve_function(func, builtins=_SUPPORTED_OPS_FROZENSET)
 
 
 class YulParser(_TokenReader):
@@ -4861,6 +4862,8 @@ _SUPPORTED_OPS = (
     "gt",
     "mulmod",
 )
+
+_SUPPORTED_OPS_FROZENSET: frozenset[str] = frozenset(_SUPPORTED_OPS)
 
 OP_TO_LEAN_HELPER: dict[str, str] = {
     op: f"evm{op.capitalize()}" for op in _SUPPORTED_OPS

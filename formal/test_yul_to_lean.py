@@ -7,9 +7,10 @@ import unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
+import yul_ast
 import yul_to_lean as ytl
 from yul_parser import SyntaxParser
-from yul_resolve import resolve_function
+from yul_resolve import ResolutionResult, resolve_function
 
 
 def branch(
@@ -10521,13 +10522,11 @@ class SyntaxParserSpanTest(unittest.TestCase):
         f2 = p2.parse_function()
 
         # The body should contain one AssignStmt whose span is global.
-        from yul_ast import AssignStmt
-
         body_stmts = f2.body.stmts
         self.assertEqual(len(body_stmts), 1)
         stmt = body_stmts[0]
-        self.assertIsInstance(stmt, AssignStmt)
-        assert isinstance(stmt, AssignStmt)
+        self.assertIsInstance(stmt, yul_ast.AssignStmt)
+        assert isinstance(stmt, yul_ast.AssignStmt)
         self.assertGreater(stmt.span.start, first_end)
         self.assertGreater(stmt.span.end, stmt.span.start)
 
@@ -10539,6 +10538,146 @@ class SyntaxParserSpanTest(unittest.TestCase):
         self.assertGreater(func.name_span.end, func.name_span.start)
         for ps in func.param_spans:
             self.assertGreater(ps.end, ps.start)
+
+
+class ResolverSymbolIdTest(unittest.TestCase):
+    """Tests for symbol ID assignment and call-target classification."""
+
+    def _resolve(
+        self, yul: str, builtins: frozenset[str] = frozenset()
+    ) -> ResolutionResult:
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        return resolve_function(func, builtins=builtins)
+
+    def test_symbol_ids_are_unique_across_declarations(self) -> None:
+        result = self._resolve("function f(x, y) -> z { let w := x  z := w }")
+        # x, y, z, w → 4 distinct symbols.
+        self.assertEqual(len(result.symbols), 4)
+        ids = [info.id for info in result.symbols.values()]
+        self.assertEqual(len(set(ids)), 4)
+
+    def test_variable_references_resolve_to_correct_declaration(self) -> None:
+        result = self._resolve("function f(x) -> z { z := x }")
+        # Find the declaration IDs for x and z.
+        decl_by_name: dict[str, yul_ast.SymbolId] = {}
+        for sid, info in result.symbols.items():
+            decl_by_name[info.name] = sid
+
+        self.assertIn("x", decl_by_name)
+        self.assertIn("z", decl_by_name)
+
+        # The RHS 'x' reference should resolve to x's declaration.
+        x_ref_found = False
+        for span, sid in result.references.items():
+            if sid == decl_by_name["x"]:
+                x_ref_found = True
+        self.assertTrue(x_ref_found, "reference to 'x' not found")
+
+        # The LHS 'z' assignment target should resolve to z's declaration.
+        z_ref_found = False
+        for span, sid in result.references.items():
+            if sid == decl_by_name["z"]:
+                z_ref_found = True
+        self.assertTrue(z_ref_found, "reference to 'z' not found")
+
+    def test_builtin_call_classified_as_builtin_target(self) -> None:
+        result = self._resolve(
+            "function f(x) -> z { z := add(x, 1) }",
+            builtins=frozenset({"add"}),
+        )
+        # Exactly one call target.
+        self.assertEqual(len(result.call_targets), 1)
+        target = next(iter(result.call_targets.values()))
+        self.assertIsInstance(target, yul_ast.BuiltinTarget)
+        assert isinstance(target, yul_ast.BuiltinTarget)
+        self.assertEqual(target.name, "add")
+
+    def test_local_function_call_classified_as_local_function_target(
+        self,
+    ) -> None:
+        result = self._resolve("""
+            function f(x) -> z {
+                function g(a) -> b { b := a }
+                z := g(x)
+            }
+        """)
+        # Find g's declaration symbol.
+        g_id: yul_ast.SymbolId | None = None
+        for sid, info in result.symbols.items():
+            if info.name == "g":
+                g_id = sid
+                break
+        self.assertIsNotNone(g_id)
+
+        # The call to g should be LocalFunctionTarget with g's ID.
+        call_targets = list(result.call_targets.values())
+        self.assertEqual(len(call_targets), 1)
+        target = call_targets[0]
+        self.assertIsInstance(target, yul_ast.LocalFunctionTarget)
+        assert isinstance(target, yul_ast.LocalFunctionTarget)
+        self.assertEqual(target.id, g_id)
+        self.assertEqual(target.name, "g")
+
+    def test_unknown_call_classified_as_unresolved_target(self) -> None:
+        result = self._resolve("function f(x) -> z { z := unknown(x) }")
+        self.assertEqual(len(result.call_targets), 1)
+        target = next(iter(result.call_targets.values()))
+        self.assertIsInstance(target, yul_ast.UnresolvedTarget)
+        assert isinstance(target, yul_ast.UnresolvedTarget)
+        self.assertEqual(target.name, "unknown")
+
+    def test_inner_scope_shadowing_produces_different_symbol_ids(self) -> None:
+        result = self._resolve("""
+            function f(x) -> z {
+                let y := x
+                {
+                    let y := 1
+                    z := y
+                }
+            }
+        """)
+        # Two distinct symbols named 'y'.
+        y_symbols = [info for info in result.symbols.values() if info.name == "y"]
+        self.assertEqual(len(y_symbols), 2)
+        self.assertNotEqual(y_symbols[0].id, y_symbols[1].id)
+
+        # The reference to 'y' inside the inner block should resolve
+        # to the inner y (the one declared with IntExpr(1)).
+        # There are two LOCAL y's; the inner one has a later span.
+        if y_symbols[0].span.start > y_symbols[1].span.start:
+            inner_y = y_symbols[0]
+        else:
+            inner_y = y_symbols[1]
+        # Find the reference that points to the inner y.
+        inner_refs = [
+            span for span, sid in result.references.items() if sid == inner_y.id
+        ]
+        self.assertTrue(
+            len(inner_refs) > 0, "inner 'y' should have at least one reference"
+        )
+
+    def test_no_builtins_classifies_all_calls_as_unresolved(self) -> None:
+        result = self._resolve("function f(x) -> z { z := add(x, 1) }")
+        self.assertEqual(len(result.call_targets), 1)
+        target = next(iter(result.call_targets.values()))
+        self.assertIsInstance(target, yul_ast.UnresolvedTarget)
+
+    def test_builtin_takes_precedence_over_local_function(self) -> None:
+        result = self._resolve(
+            """
+            function f(x) -> z {
+                function add(a, b) -> c { c := a }
+                z := add(x, 1)
+            }
+            """,
+            builtins=frozenset({"add"}),
+        )
+        self.assertEqual(len(result.call_targets), 1)
+        target = next(iter(result.call_targets.values()))
+        self.assertIsInstance(target, yul_ast.BuiltinTarget)
+        assert isinstance(target, yul_ast.BuiltinTarget)
+        self.assertEqual(target.name, "add")
 
 
 if __name__ == "__main__":
