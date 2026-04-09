@@ -15,6 +15,7 @@ from norm_classify import (
     classify_function_scope,
     summarize_function,
 )
+from norm_constprop import fold_expr, propagate_constants
 from norm_eval import evaluate_normalized
 from norm_inline import inline_pure_helpers
 from yul_normalize import normalize_function
@@ -11717,6 +11718,105 @@ class InlinePureTest(unittest.TestCase):
         pre = evaluate_normalized(nf, ())
         post = evaluate_normalized(inline_pure_helpers(nf), ())
         self.assertEqual(pre, post)
+
+
+class ConstPropTest(unittest.TestCase):
+    """Tests for constant propagation and dead branch elimination."""
+
+    def _prop(self, yul: str) -> norm_ir.NormalizedFunction:
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        return propagate_constants(nf)
+
+    def test_fold_constant_arithmetic(self) -> None:
+        """add(3, 4) folds to NConst(7)."""
+        nf = self._prop("function f() -> z { z := add(3, 4) }")
+        assign = nf.body.stmts[0]
+        assert isinstance(assign, norm_ir.NAssign)
+        self.assertEqual(assign.expr, norm_ir.NConst(7))
+
+    def test_propagate_through_variable(self) -> None:
+        """let x := 3; z := add(x, 1) → z := NConst(4)."""
+        nf = self._prop("function f() -> z { let x := 3  z := add(x, 1) }")
+        assign = nf.body.stmts[1]
+        assert isinstance(assign, norm_ir.NAssign)
+        self.assertEqual(assign.expr, norm_ir.NConst(4))
+
+    def test_dead_branch_eliminated(self) -> None:
+        """if 0 { z := 1 } is removed entirely."""
+        nf = self._prop("function f() -> z { if 0 { z := 1 } }")
+        # Body should have no statements (the if was dead).
+        self.assertEqual(len(nf.body.stmts), 0)
+
+    def test_live_branch_flattened(self) -> None:
+        """if 1 { z := 7 } flattened to z := 7."""
+        nf = self._prop("function f() -> z { if 1 { z := 7 } }")
+        self.assertEqual(len(nf.body.stmts), 1)
+        assign = nf.body.stmts[0]
+        assert isinstance(assign, norm_ir.NAssign)
+        self.assertEqual(assign.expr, norm_ir.NConst(7))
+
+    def test_switch_constant_fold(self) -> None:
+        """switch 1 case 0 { ... } case 1 { z := 20 } default { ... } → z := 20."""
+        nf = self._prop("""
+            function f() -> z {
+                switch 1
+                case 0 { z := 10 }
+                case 1 { z := 20 }
+                default { z := 30 }
+            }
+        """)
+        # Only the matching case body should remain.
+        self.assertEqual(len(nf.body.stmts), 1)
+        assign = nf.body.stmts[0]
+        assert isinstance(assign, norm_ir.NAssign)
+        self.assertEqual(assign.expr, norm_ir.NConst(20))
+
+    def test_invalidation_at_conditional_join(self) -> None:
+        """Variable modified in if-body is not propagated after the if."""
+        nf = self._prop("""
+            function f(x) -> z {
+                let y := 5
+                if x { y := 10 }
+                z := y
+            }
+        """)
+        # z := y should NOT be folded to a constant (y is path-dependent).
+        assign = nf.body.stmts[2]
+        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(assign.expr, norm_ir.NRef)
+
+    def test_nite_constant_fold(self) -> None:
+        """NIte(NConst(1), a, b) folds to a."""
+        result = fold_expr(
+            norm_ir.NIte(
+                cond=norm_ir.NConst(1),
+                if_true=norm_ir.NConst(10),
+                if_false=norm_ir.NConst(20),
+            )
+        )
+        self.assertEqual(result, norm_ir.NConst(10))
+
+    def test_semantic_equivalence(self) -> None:
+        """Propagated result matches original for multiple inputs."""
+        yul = """
+            function f(x) -> z {
+                let a := 3
+                let b := add(a, 4)
+                z := add(x, b)
+            }
+        """
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        prop = propagate_constants(nf)
+        for x in [0, 1, 5, 100]:
+            pre = evaluate_normalized(nf, (x,))
+            post = evaluate_normalized(prop, (x,))
+            self.assertEqual(pre, post, f"Failed for x={x}")
 
 
 if __name__ == "__main__":
