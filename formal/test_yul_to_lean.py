@@ -11566,6 +11566,110 @@ class InlinePureTest(unittest.TestCase):
         assert isinstance(effect_stmt, norm_ir.NExprEffect)
         self.assertIsInstance(effect_stmt.expr, norm_ir.NLocalCall)
 
+    def test_simultaneous_multi_assignment_preserved(self) -> None:
+        """x, y := g(y, x) must swap — not clobber via sequential assignment."""
+        result = self._eval_inlined(
+            """
+            function f(x, y) -> z {
+                function g(a, b) -> c, d { c := a  d := b }
+                x, y := g(y, x)
+                z := sub(x, y)
+            }
+        """,
+            (3, 1),
+        )
+        # g(1, 3) → c=1, d=3 → x=1, y=3 → sub(1,3) wraps to 2^256-2
+        pre_inline = evaluate_normalized(
+            normalize_function(
+                SyntaxParser(ytl.tokenize_yul("""
+                    function f(x, y) -> z {
+                        function g(a, b) -> c, d { c := a  d := b }
+                        x, y := g(y, x)
+                        z := sub(x, y)
+                    }
+                """)).parse_function(),
+                resolve_function(
+                    SyntaxParser(ytl.tokenize_yul("""
+                        function f(x, y) -> z {
+                            function g(a, b) -> c, d { c := a  d := b }
+                            x, y := g(y, x)
+                            z := sub(x, y)
+                        }
+                    """)).parse_function(),
+                    builtins=ytl._EVM_BUILTINS,
+                ),
+            ),
+            (3, 1),
+        )
+        self.assertEqual(result, pre_inline)
+
+    def test_pure_helper_with_switch_inlines(self) -> None:
+        """Pure helper containing switch must inline correctly."""
+        result = self._eval_inlined(
+            """
+            function f(x) -> z {
+                function g(a) -> b {
+                    switch a
+                    case 0 { b := 10 }
+                    default { b := 20 }
+                }
+                z := g(x)
+            }
+        """,
+            (0,),
+        )
+        self.assertEqual(result, (10,))
+        result2 = self._eval_inlined(
+            """
+            function f(x) -> z {
+                function g(a) -> b {
+                    switch a
+                    case 0 { b := 10 }
+                    default { b := 20 }
+                }
+                z := g(x)
+            }
+        """,
+            (1,),
+        )
+        self.assertEqual(result2, (20,))
+
+    def test_internal_multi_return_in_pure_helper(self) -> None:
+        """Pure helper that internally calls another multi-return pure helper."""
+        result = self._eval_inlined(
+            """
+            function f(x) -> z {
+                function inner(a, b) -> c, d { c := a  d := b }
+                function g(a, b) -> e {
+                    let p, q := inner(b, a)
+                    e := sub(p, q)
+                }
+                z := g(x, 1)
+            }
+        """,
+            (5,),
+        )
+        # inner(1, 5) → c=1, d=5 → p=1, q=5 → sub(1,5) wraps
+        pre_val = (1 - 5) % (2**256)
+        self.assertEqual(result, (pre_val,))
+
+    def test_call_site_inside_if_block_inlined(self) -> None:
+        """Call site inside an if-block body must be inlined."""
+        nf = self._inline("""
+            function f(x) -> z {
+                function g(a) -> b { b := add(a, 1) }
+                if x { z := g(x) }
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, (0,)), (0,))
+        self.assertEqual(evaluate_normalized(nf, (5,)), (6,))
+        # Verify g is actually inlined (no NLocalCall remaining).
+        if_stmt = nf.body.stmts[-1]
+        assert isinstance(if_stmt, norm_ir.NIf)
+        assign = if_stmt.then_body.stmts[0]
+        assert isinstance(assign, norm_ir.NAssign)
+        self.assertNotIsInstance(assign.expr, norm_ir.NLocalCall)
+
 
 if __name__ == "__main__":
     unittest.main()
