@@ -18,6 +18,7 @@ from norm_classify import (
 from norm_constprop import fold_expr, propagate_constants
 from norm_eval import evaluate_normalized
 from norm_inline import inline_pure_helpers
+from norm_memory import lower_memory
 from yul_normalize import normalize_function
 from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_function, resolve_module
@@ -12186,6 +12187,126 @@ class InlineArchitectureTest(unittest.TestCase):
         )
         self.assertEqual(evaluate_normalized(nf, (0,)), (3,))
         self.assertEqual(evaluate_normalized(nf, (1,)), (2,))
+
+
+class MemoryLowerTest(unittest.TestCase):
+    """Tests for memory model lowering."""
+
+    def _pipeline(self, yul: str) -> norm_ir.NormalizedFunction:
+        """Run full pipeline: parse → resolve → normalize → inline → constprop → memory."""
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        nf = inline_pure_helpers(nf)
+        nf = propagate_constants(nf)
+        return lower_memory(nf)
+
+    def test_basic_mstore_mload_resolution(self) -> None:
+        """mstore(0, 7); z := mload(0) → z := 7, NStore removed."""
+        nf = self._pipeline("""
+            function f() -> z {
+                mstore(0, 7)
+                z := mload(0)
+            }
+        """)
+        # NStore should be removed, z should be NConst(7).
+        has_store = any(isinstance(s, norm_ir.NStore) for s in nf.body.stmts)
+        self.assertFalse(has_store, "NStore should be removed after lowering")
+        self.assertEqual(evaluate_normalized(nf, ()), (7,))
+
+    def test_uint512_from_pattern(self) -> None:
+        """Two NStore + two mload from uint512.from → direct value references."""
+        nf = self._pipeline("""
+            function f(hi, lo) -> z {
+                function from_helper(ptr, x_hi, x_lo) -> r {
+                    r := 0
+                    mstore(ptr, x_hi)
+                    mstore(add(0x20, ptr), x_lo)
+                    r := ptr
+                }
+                let p := from_helper(64, hi, lo)
+                z := add(mload(p), mload(add(0x20, p)))
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, (5, 7)), (12,))
+
+    def test_chained_resolution(self) -> None:
+        """mload in mstore value resolves recursively."""
+        nf = self._pipeline("""
+            function f() -> z {
+                mstore(0, 7)
+                mstore(32, mload(0))
+                z := mload(32)
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, ()), (7,))
+
+    def test_non_constant_address_rejected(self) -> None:
+        """mstore with non-constant address raises ParseError."""
+        with self.assertRaisesRegex(ytl.ParseError, "Non-constant"):
+            self._pipeline("""
+                function f(x) -> z {
+                    mstore(x, 7)
+                    z := mload(x)
+                }
+            """)
+
+    def test_unaligned_address_rejected(self) -> None:
+        """mstore to non-32-byte-aligned address raises ParseError."""
+        with self.assertRaisesRegex(ytl.ParseError, "Unaligned"):
+            self._pipeline("""
+                function f() -> z {
+                    mstore(1, 7)
+                    z := mload(1)
+                }
+            """)
+
+    def test_duplicate_write_rejected(self) -> None:
+        """Two mstore to same address raises ParseError."""
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate mstore"):
+            self._pipeline("""
+                function f() -> z {
+                    mstore(0, 7)
+                    mstore(0, 8)
+                    z := mload(0)
+                }
+            """)
+
+    def test_uninitialized_read_rejected(self) -> None:
+        """mload from address with no prior mstore raises ParseError."""
+        with self.assertRaisesRegex(ytl.ParseError, "no prior mstore"):
+            self._pipeline("""
+                function f() -> z {
+                    z := mload(0)
+                }
+            """)
+
+    def test_semantic_equivalence(self) -> None:
+        """Lowered result matches pre-lower eval for uint512.from inputs."""
+        yul = """
+            function f(hi, lo) -> z {
+                function from_helper(ptr, x_hi, x_lo) -> r {
+                    r := 0
+                    mstore(ptr, x_hi)
+                    mstore(add(0x20, ptr), x_lo)
+                    r := ptr
+                }
+                let p := from_helper(64, hi, lo)
+                z := add(mload(p), mload(add(0x20, p)))
+            }
+        """
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        nf = inline_pure_helpers(nf)
+        nf = propagate_constants(nf)
+        for hi, lo in [(0, 0), (5, 7), (100, 200)]:
+            pre = evaluate_normalized(nf, (hi, lo), memory={})
+            lowered = lower_memory(nf)
+            post = evaluate_normalized(lowered, (hi, lo))
+            self.assertEqual(pre, post, f"Failed for hi={hi}, lo={lo}")
 
 
 if __name__ == "__main__":
