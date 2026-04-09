@@ -4873,6 +4873,9 @@ _SUPPORTED_OPS_FROZENSET: frozenset[str] = frozenset(_SUPPORTED_OPS)
 # _SUPPORTED_OPS are the subset we model in Lean; this is the full set
 # used by the resolver to reject function/variable declarations that
 # would shadow a builtin name.
+#
+# Source: "EVM Dialect" table in the Yul section of the Solidity docs:
+# https://docs.soliditylang.org/en/v0.8.28/yul.html#evm-dialect
 _EVM_BUILTINS: frozenset[str] = _SUPPORTED_OPS_FROZENSET | frozenset(
     (
         # Arithmetic / comparison (already in _SUPPORTED_OPS: add, sub, mul,
@@ -4920,6 +4923,7 @@ _EVM_BUILTINS: frozenset[str] = _SUPPORTED_OPS_FROZENSET | frozenset(
         "coinbase",
         "timestamp",
         "number",
+        "difficulty",
         "prevrandao",
         "gaslimit",
         "chainid",
