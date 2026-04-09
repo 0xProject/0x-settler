@@ -177,9 +177,11 @@ def _walk_expr(acc: _SummaryAccumulator, expr: NExpr) -> None:
 
 
 def _is_known_effect_call(expr: NExpr) -> bool:
-    """Check if an expression is a known memory-effect call (mstore etc.)."""
-    if isinstance(expr, NBuiltinCall):
-        return expr.op in _MEMORY_WRITE_OPS or expr.op in _MEMORY_READ_OPS
+    """Check if an expression is a known memory-effect call (mstore etc.).
+
+    These ops are not in the resolver's builtin set, so they appear as
+    ``NUnresolvedCall`` or ``NTopLevelCall``, never ``NBuiltinCall``.
+    """
     if isinstance(expr, (NTopLevelCall, NUnresolvedCall)):
         return expr.name in _MEMORY_WRITE_OPS or expr.name in _MEMORY_READ_OPS
     return False
