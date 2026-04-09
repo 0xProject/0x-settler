@@ -43,14 +43,15 @@ class SyntaxParser:
     nodes for the resolver to handle.
     """
 
-    def __init__(self, tokens: list[tuple[str, str]]) -> None:
+    def __init__(self, tokens: list[tuple[str, str]], *, token_offset: int = 0) -> None:
         self._tokens = tokens
         self._i = 0
+        self._token_offset = token_offset
 
     # -- token primitives ---------------------------------------------------
 
     def _pos(self) -> int:
-        return self._i
+        return self._i + self._token_offset
 
     def _at_end(self) -> bool:
         return self._i >= len(self._tokens)
@@ -81,7 +82,7 @@ class SyntaxParser:
         return self._expect("ident")
 
     def _span_from(self, start: int) -> Span:
-        return Span(start, self._i)
+        return Span(start, self._pos())
 
     # -- lookahead ----------------------------------------------------------
 

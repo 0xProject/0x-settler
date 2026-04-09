@@ -1004,11 +1004,11 @@ def _statement_reference_summary(
 def _validate_function_syntax(tokens: list[tuple[str, str]], start: int) -> None:
     """Run the pure syntax parser + binder resolver as a pre-pass.
 
-    Catches duplicate declarations, illegal shadowing, and
-    unsupported string literals before the lowering parser runs.
-    Raises ``ParseError`` on any lexical violation.
+    Catches duplicate declarations, illegal shadowing, undefined
+    variable references, and unsupported string literals before the
+    lowering parser runs.  Raises ``ParseError`` on any violation.
     """
-    parser = SyntaxParser(tokens[start:])
+    parser = SyntaxParser(tokens[start:], token_offset=start)
     func = parser.parse_function()
     resolve_function(func)
 

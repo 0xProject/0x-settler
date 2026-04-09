@@ -164,11 +164,9 @@ def _resolve_stmt(table: SymbolTable, stmt: SynStmt) -> None:
             table.declare(name, SymbolKind.LOCAL, span)
 
     elif isinstance(stmt, AssignStmt):
-        # Only validate expressions for string literals.  Do NOT
-        # validate that assignment targets resolve — the old pipeline
-        # constant-folds branches which changes scope visibility.
-        # Reference resolution is for a future phase.
         _resolve_expr(table, stmt.expr)
+        for name, span in zip(stmt.targets, stmt.target_spans):
+            table.lookup(name, span)
 
     elif isinstance(stmt, ExprStmt):
         _resolve_expr(table, stmt.expr)
@@ -215,10 +213,7 @@ def _resolve_expr(table: SymbolTable, expr: SynExpr) -> None:
         pass
 
     elif isinstance(expr, NameExpr):
-        # Do NOT validate that the name resolves — the old pipeline
-        # constant-folds branches which changes scope visibility.
-        # Reference resolution is for a future phase.
-        pass
+        table.lookup(expr.name, expr.span)
 
     elif isinstance(expr, StringExpr):
         raise ParseError(

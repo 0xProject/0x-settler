@@ -4227,7 +4227,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ytl.ParseError, "out-of-scope variable use"):
+        with self.assertRaisesRegex(ytl.ParseError, "Undefined variable"):
             ytl.translate_yul_to_models(
                 yul,
                 config,
@@ -4536,7 +4536,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ytl.ParseError,
-            "mstore with non-constant address",
+            "Undefined variable",
         ):
             ytl.translate_yul_to_models(
                 yul,
@@ -8519,7 +8519,7 @@ class CriticalReviewRegressionTest(unittest.TestCase):
             with self.subTest(control_flow=label):
                 with self.assertRaisesRegex(
                     ytl.ParseError,
-                    "out-of-scope variable use",
+                    "Undefined variable",
                 ):
                     ytl.translate_yul_to_models(
                         yul,
@@ -8627,7 +8627,7 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
             with self.subTest(control_flow=label):
                 with self.assertRaisesRegex(
                     ytl.ParseError,
-                    "out-of-scope variable use",
+                    "Undefined variable",
                 ):
                     ytl.translate_yul_to_models(
                         yul,
