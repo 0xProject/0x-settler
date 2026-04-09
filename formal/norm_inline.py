@@ -242,6 +242,46 @@ class _InlineCtx:
 
 
 # ---------------------------------------------------------------------------
+# Register nested defs from a freshened prelude into the inline context
+# ---------------------------------------------------------------------------
+
+
+def _register_nested_defs(block: NBlock, ctx: _InlineCtx) -> None:
+    """Add freshened NFunctionDef nodes to ctx.defs + classifications.
+
+    After freshen_function_subtree, the cloned prelude may contain
+    NFunctionDefs with new SymbolIds. These must be registered so
+    _rewrite_block can inline calls to them.
+    """
+    from norm_classify import FunctionSummary, classify_helpers, summarize_function
+
+    new_fdefs = collect_function_defs(block)
+    if not new_fdefs:
+        return
+
+    summaries: dict[SymbolId, FunctionSummary] = {}
+    for fdef in new_fdefs:
+        ctx.defs[fdef.symbol_id] = fdef
+        base = summarize_function(fdef.body)
+        summaries[fdef.symbol_id] = FunctionSummary(
+            writes_memory=base.writes_memory,
+            reads_memory=base.reads_memory,
+            may_leave=base.may_leave,
+            has_for_loop=base.has_for_loop,
+            has_expr_effects=base.has_expr_effects,
+            has_effectful_condition=base.has_effectful_condition,
+            calls_unresolved=base.calls_unresolved,
+            calls_top_level=base.calls_top_level,
+            called_functions=base.called_functions,
+            called_builtins=base.called_builtins,
+            is_uint512_from=False,
+        )
+
+    new_cls = classify_helpers(summaries)
+    ctx.classifications.update(new_cls)
+
+
+# ---------------------------------------------------------------------------
 # ExprInline: symbolic execution of pure helper body
 # ---------------------------------------------------------------------------
 
@@ -608,7 +648,14 @@ def _inline_in_expr_with_prelude(
                 pre.extend(arg_binds)
                 frag = _effect_lower(fdef, tuple(atom_refs), ctx.alloc)
 
-            pre.extend(frag.prelude)
+            # Recursively rewrite BLOCK_INLINE preludes to inline nested calls.
+            if strat == InlineStrategy.BLOCK_INLINE and frag.prelude:
+                prelude_block = NBlock(frag.prelude)
+                _register_nested_defs(prelude_block, ctx)
+                rewritten = _rewrite_block(prelude_block, ctx)
+                pre.extend(rewritten.stmts)
+            else:
+                pre.extend(frag.prelude)
             if len(frag.results) == 1:
                 return pre, frag.results[0]
             if len(frag.results) == 0:
@@ -781,8 +828,17 @@ def _rewrite_bind_or_assign(
             else:
                 raise ParseError(f"Unknown strategy: {strat}")
 
-            # Emit: arg_pre → arg binds → prelude → target assignments.
-            out: list[NStmt] = arg_pre + list(arg_binds) + list(frag.prelude)
+            # For BLOCK_INLINE, the prelude may contain nested inlineable
+            # calls (e.g. EXPR_INLINE helpers inside the cloned body).
+            # Register freshened nested defs, then rewrite the prelude.
+            prelude_stmts = list(frag.prelude)
+            if strat == InlineStrategy.BLOCK_INLINE and prelude_stmts:
+                prelude_block = NBlock(tuple(prelude_stmts))
+                _register_nested_defs(prelude_block, ctx)
+                rewritten_prelude = _rewrite_block(prelude_block, ctx)
+                prelude_stmts = list(rewritten_prelude.stmts)
+
+            out: list[NStmt] = arg_pre + list(arg_binds) + prelude_stmts
 
             if len(stmt.targets) == len(frag.results):
                 if len(stmt.targets) == 1:

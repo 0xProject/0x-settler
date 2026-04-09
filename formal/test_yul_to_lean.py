@@ -12125,6 +12125,26 @@ class InlineArchitectureTest(unittest.TestCase):
             f"Duplicate bind targets: {bind_targets}",
         )
 
+    def test_block_inline_prelude_has_no_inlineable_local_calls(self) -> None:
+        """Nested EXPR_INLINE helper inside BLOCK_INLINE helper must be
+        inlined in the generated prelude — no NLocalCall to h should remain."""
+        nf = self._inline("""
+            function f(x) -> z {
+                function g(a) -> b {
+                    function h(v) -> c { c := add(v, 1) }
+                    if a { b := h(1)  leave }
+                    b := h(2)
+                }
+                z := g(x)
+            }
+        """)
+        self.assertFalse(
+            self._has_local_call(nf.body, "h"),
+            "h should be inlined inside g's block-inline prelude",
+        )
+        self.assertEqual(evaluate_normalized(nf, (0,)), (3,))
+        self.assertEqual(evaluate_normalized(nf, (1,)), (2,))
+
 
 if __name__ == "__main__":
     unittest.main()
