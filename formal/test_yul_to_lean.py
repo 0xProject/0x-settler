@@ -11065,17 +11065,23 @@ class NormalizeEvalTest(unittest.TestCase):
         self.assertEqual(self._eval_normalized(yul, (), builtins=frozenset()), (7,))
 
     def test_same_named_helpers_resolved_by_symbol_id(self) -> None:
-        """Two branch-local helpers named 'g' are distinguished by SymbolId."""
+        """Two sibling helpers named 'g' with different bodies are
+        distinguished by SymbolId — the correct one is called in each branch."""
         yul = """
             function f(x) -> z {
-                if x {
-                    function g(a) -> b { b := add(a, 1) }
-                    z := g(1)
+                switch x
+                case 0 {
+                    function g() -> b { b := 10 }
+                    z := g()
+                }
+                default {
+                    function g() -> b { b := 20 }
+                    z := g()
                 }
             }
         """
-        self.assertEqual(self._eval_normalized(yul, (1,)), (2,))
-        self.assertEqual(self._eval_normalized(yul, (0,)), (0,))
+        self.assertEqual(self._eval_normalized(yul, (0,)), (10,))
+        self.assertEqual(self._eval_normalized(yul, (1,)), (20,))
 
     def test_recursion_detection(self) -> None:
         """Mutual recursion (f→g→f) is caught before hitting Python stack limit."""
