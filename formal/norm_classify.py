@@ -13,6 +13,7 @@ and ``_reject_expr_stmts()``.
 
 from __future__ import annotations
 
+import enum
 from dataclasses import dataclass
 from typing import assert_never
 
@@ -337,10 +338,27 @@ def _is_add_offset(expr: NExpr, base_id: SymbolId, offset: int) -> bool:
 # ---------------------------------------------------------------------------
 
 
+class InlineStrategy(enum.Enum):
+    """How a helper should be inlined."""
+
+    EXPR_INLINE = "expr_inline"
+    """Pure helper: inline body as symbolic expression substitution."""
+
+    BLOCK_INLINE = "block_inline"
+    """Leave-bearing helper: clone body into caller with did_leave flag."""
+
+    EFFECT_LOWER = "effect_lower"
+    """uint512.from shape: emit explicit NStore statements at call site."""
+
+    DO_NOT_INLINE = "do_not_inline"
+    """Cannot be inlined: unsupported, top-level calls, etc."""
+
+
 @dataclass(frozen=True)
 class InlineClassification:
     """Inlining decision for a single function."""
 
+    strategy: InlineStrategy
     is_pure: bool
     is_deferred: bool
     unsupported_reason: str | None
@@ -391,11 +409,27 @@ def classify_helpers(
                 changed = True
 
     result: dict[SymbolId, InlineClassification] = {}
-    for sid in summaries:
+    for sid, s in summaries.items():
         reason = unsupported.get(sid)
         is_def = sid in deferred
         is_p = sid not in non_pure
+
+        # Determine strategy.
+        if reason is not None or s.calls_top_level:
+            strategy = InlineStrategy.DO_NOT_INLINE
+        elif s.is_uint512_from:
+            strategy = InlineStrategy.EFFECT_LOWER
+        elif is_def:
+            strategy = InlineStrategy.DO_NOT_INLINE
+        elif s.may_leave:
+            strategy = InlineStrategy.BLOCK_INLINE
+        elif is_p:
+            strategy = InlineStrategy.EXPR_INLINE
+        else:
+            strategy = InlineStrategy.DO_NOT_INLINE
+
         result[sid] = InlineClassification(
+            strategy=strategy,
             is_pure=is_p,
             is_deferred=is_def,
             unsupported_reason=reason,
