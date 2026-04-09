@@ -113,14 +113,6 @@ def _eval_builtin(name: str, args: tuple[int, ...]) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Memory builtins — recognized by name regardless of call classification,
-# since the resolver's _SUPPORTED_OPS_FROZENSET does not include them.
-# ---------------------------------------------------------------------------
-
-_MEMORY_OPS: frozenset[str] = frozenset({"mstore", "mload"})
-
-
-# ---------------------------------------------------------------------------
 # Leave signal
 # ---------------------------------------------------------------------------
 
@@ -362,10 +354,6 @@ def _eval_expr(ctx: _EvalCtx, expr: NExpr) -> _EvalResult:
         return _call_function_def(ctx, fdef, expr.args)
 
     if isinstance(expr, NTopLevelCall):
-        # Memory builtins may appear as top-level calls if not in
-        # the resolver's builtin set.
-        if expr.name in _MEMORY_OPS:
-            return _eval_call_by_name(ctx, expr.name, expr.args)
         if expr.name not in ctx.named_funcs:
             raise EvaluationError(f"Unknown top-level function {expr.name!r}")
         callee = ctx.named_funcs[expr.name]
@@ -382,10 +370,6 @@ def _eval_expr(ctx: _EvalCtx, expr: NExpr) -> _EvalResult:
         return result
 
     if isinstance(expr, NUnresolvedCall):
-        # Memory builtins may be unresolved if not in the resolver's
-        # builtin set.  Try them before giving up.
-        if expr.name in _MEMORY_OPS or (expr.name, len(expr.args)) in _BUILTIN_DISPATCH:
-            return _eval_call_by_name(ctx, expr.name, expr.args)
         raise EvaluationError(f"Unresolved call to {expr.name!r}")
 
     assert_never(expr)

@@ -10649,6 +10649,22 @@ class ResolverSymbolIdTest(unittest.TestCase):
                 builtins=frozenset({"add"}),
             )
 
+    def test_rejects_function_named_mstore(self) -> None:
+        """mstore is an EVM builtin — cannot be used as an identifier (solc 5568)."""
+        with self.assertRaisesRegex(ytl.ParseError, "Cannot use builtin function name"):
+            self._resolve(
+                "function f(x) -> z { function mstore(a, b) -> c { c := a } z := x }",
+                builtins=ytl._EVM_BUILTINS,
+            )
+
+    def test_rejects_let_named_mstore(self) -> None:
+        """let mstore := 7 is rejected when using the full EVM builtins set."""
+        with self.assertRaisesRegex(ytl.ParseError, "Cannot use builtin function name"):
+            self._resolve(
+                "function f(x) -> z { let mstore := 7 z := x }",
+                builtins=ytl._EVM_BUILTINS,
+            )
+
 
 class ResolverModuleTest(unittest.TestCase):
     """Tests for module-level resolution (resolve_module) and TopLevelFunctionTarget."""
@@ -10906,7 +10922,7 @@ class NormalizeStructureTest(unittest.TestCase):
     def _normalize(self, yul: str) -> norm_ir.NormalizedFunction:
         tokens = ytl.tokenize_yul(yul)
         func = SyntaxParser(tokens).parse_function()
-        result = resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
         return normalize_function(func, result)
 
     def test_params_and_returns_get_distinct_symbol_ids(self) -> None:
@@ -11003,7 +11019,7 @@ class NormalizeEvalTest(unittest.TestCase):
         self,
         yul: str,
         args: tuple[int, ...],
-        builtins: frozenset[str] = ytl._SUPPORTED_OPS_FROZENSET,
+        builtins: frozenset[str] = ytl._EVM_BUILTINS,
     ) -> tuple[int, ...]:
         tokens = ytl.tokenize_yul(yul)
         func = SyntaxParser(tokens).parse_function()
@@ -11067,7 +11083,7 @@ class NormalizeEvalTest(unittest.TestCase):
         """
         # mstore/mload are not in _SUPPORTED_OPS, so pass empty builtins
         # to avoid confusing them with arithmetic ops.
-        self.assertEqual(self._eval_normalized(yul, (), builtins=frozenset()), (7,))
+        self.assertEqual(self._eval_normalized(yul, ()), (7,))
 
     def test_same_named_helpers_resolved_by_symbol_id(self) -> None:
         """Two sibling helpers named 'g' with different bodies are
@@ -11125,7 +11141,7 @@ class NormalizeEvalTest(unittest.TestCase):
                 }
             """)
             func = SyntaxParser(tokens).parse_function()
-            resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+            resolve_function(func, builtins=ytl._EVM_BUILTINS)
 
     def test_nested_function_cannot_capture_let_variable(self) -> None:
         """let-bound variables are also not capturable across function boundaries."""
@@ -11138,7 +11154,7 @@ class NormalizeEvalTest(unittest.TestCase):
                 }
             """)
             func = SyntaxParser(tokens).parse_function()
-            resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+            resolve_function(func, builtins=ytl._EVM_BUILTINS)
 
 
 class ClassifySummaryTest(unittest.TestCase):
@@ -11148,7 +11164,7 @@ class ClassifySummaryTest(unittest.TestCase):
         """Parse a function, normalize, and return the first NFunctionDef."""
         tokens = ytl.tokenize_yul(yul)
         func = SyntaxParser(tokens).parse_function()
-        result = resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
         nf = normalize_function(func, result)
         for stmt in nf.body.stmts:
             if isinstance(stmt, norm_ir.NFunctionDef):
@@ -11235,7 +11251,7 @@ class ClassifyInlineTest(unittest.TestCase):
         """Classify helpers and return results keyed by helper name."""
         tokens = ytl.tokenize_yul(yul)
         func = SyntaxParser(tokens).parse_function()
-        result = resolve_function(func, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
         nf = normalize_function(func, result)
         classifications = classify_function_scope(nf)
         # Build name-keyed dict for test convenience by walking all
@@ -11337,7 +11353,7 @@ class ClassifyInlineTest(unittest.TestCase):
         """
         tokens = ytl.tokenize_yul(yul)
         funcs = SyntaxParser(tokens).parse_functions()
-        results = resolve_module(funcs, builtins=ytl._SUPPORTED_OPS_FROZENSET)
+        results = resolve_module(funcs, builtins=ytl._EVM_BUILTINS)
         nf_f = normalize_function(funcs[1], results["f"])
         classifications = classify_function_scope(nf_f)
         name_map: dict[str, InlineClassification] = {}

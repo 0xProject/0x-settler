@@ -1015,7 +1015,7 @@ def _validate_function_syntax(
     """
     parser = SyntaxParser(tokens[start:], token_offset=start)
     func = parser.parse_function()
-    return resolve_function(func, builtins=_SUPPORTED_OPS_FROZENSET)
+    return resolve_function(func, builtins=_EVM_BUILTINS)
 
 
 class YulParser(_TokenReader):
@@ -4869,6 +4869,97 @@ _SUPPORTED_OPS = (
 
 _SUPPORTED_OPS_FROZENSET: frozenset[str] = frozenset(_SUPPORTED_OPS)
 
+# Complete set of Yul/EVM builtins that solc reserves (error 5568).
+# _SUPPORTED_OPS are the subset we model in Lean; this is the full set
+# used by the resolver to reject function/variable declarations that
+# would shadow a builtin name.
+_EVM_BUILTINS: frozenset[str] = _SUPPORTED_OPS_FROZENSET | frozenset(
+    (
+        # Arithmetic / comparison (already in _SUPPORTED_OPS: add, sub, mul,
+        # div, mod, not, or, and, eq, iszero, shl, shr, lt, gt, mulmod)
+        "sdiv",
+        "smod",
+        "addmod",
+        "exp",
+        "signextend",
+        "xor",
+        "byte",
+        "sar",
+        "slt",
+        "sgt",
+        # Memory
+        "mload",
+        "mstore",
+        "mstore8",
+        "msize",
+        # Storage
+        "sload",
+        "sstore",
+        # Transient storage (EIP-1153)
+        "tload",
+        "tstore",
+        # Execution context
+        "gas",
+        "address",
+        "balance",
+        "selfbalance",
+        "caller",
+        "callvalue",
+        "calldataload",
+        "calldatasize",
+        "calldatacopy",
+        "codesize",
+        "codecopy",
+        "extcodesize",
+        "extcodecopy",
+        "returndatasize",
+        "returndatacopy",
+        "extcodehash",
+        # Block context
+        "blockhash",
+        "coinbase",
+        "timestamp",
+        "number",
+        "prevrandao",
+        "gaslimit",
+        "chainid",
+        "basefee",
+        "blobhash",
+        "blobbasefee",
+        # Control flow
+        "stop",
+        "return",
+        "revert",
+        "invalid",
+        "selfdestruct",
+        # Calls
+        "call",
+        "callcode",
+        "delegatecall",
+        "staticcall",
+        # Create
+        "create",
+        "create2",
+        # Log
+        "log0",
+        "log1",
+        "log2",
+        "log3",
+        "log4",
+        # Hash
+        "keccak256",
+        # Misc
+        "pop",
+        "origin",
+        "gasprice",
+        "mcopy",
+        # Object access
+        "datasize",
+        "dataoffset",
+        "datacopy",
+    )
+)
+
 OP_TO_LEAN_HELPER: dict[str, str] = {
     op: f"evm{op.capitalize()}" for op in _SUPPORTED_OPS
 }
@@ -5797,7 +5888,7 @@ def prepare_translation(
     # separately — sibling functions share a Yul namespace, so nested
     # functions that shadow a sibling name are rejected (solc 1395).
     for _func_group in SyntaxParser(tokens).parse_function_groups():
-        resolve_module(_func_group, builtins=_SUPPORTED_OPS_FROZENSET)
+        resolve_module(_func_group, builtins=_EVM_BUILTINS)
 
     selected = (
         selected_functions if selected_functions is not None else config.function_order

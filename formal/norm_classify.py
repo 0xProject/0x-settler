@@ -157,33 +157,18 @@ def _walk_expr(acc: _SummaryAccumulator, expr: NExpr) -> None:
             _walk_expr(acc, a)
     elif isinstance(expr, NTopLevelCall):
         acc.calls_top_level = True
-        if expr.name in _MEMORY_WRITE_OPS:
-            acc.writes_memory = True
-        if expr.name in _MEMORY_READ_OPS:
-            acc.reads_memory = True
         for a in expr.args:
             _walk_expr(acc, a)
     elif isinstance(expr, NUnresolvedCall):
-        # Known memory ops are not truly unresolved — they just aren't
-        # in the resolver's _SUPPORTED_OPS_FROZENSET.
-        if expr.name not in _MEMORY_WRITE_OPS and expr.name not in _MEMORY_READ_OPS:
-            acc.calls_unresolved = True
-        if expr.name in _MEMORY_WRITE_OPS:
-            acc.writes_memory = True
-        if expr.name in _MEMORY_READ_OPS:
-            acc.reads_memory = True
+        acc.calls_unresolved = True
         for a in expr.args:
             _walk_expr(acc, a)
 
 
 def _is_known_effect_call(expr: NExpr) -> bool:
-    """Check if an expression is a known memory-effect call (mstore etc.).
-
-    These ops are not in the resolver's builtin set, so they appear as
-    ``NUnresolvedCall`` or ``NTopLevelCall``, never ``NBuiltinCall``.
-    """
-    if isinstance(expr, (NTopLevelCall, NUnresolvedCall)):
-        return expr.name in _MEMORY_WRITE_OPS or expr.name in _MEMORY_READ_OPS
+    """Check if an expression is a known memory-effect call (mstore etc.)."""
+    if isinstance(expr, NBuiltinCall):
+        return expr.op in _MEMORY_WRITE_OPS or expr.op in _MEMORY_READ_OPS
     return False
 
 
@@ -286,9 +271,9 @@ def _is_mstore_effect(stmt: NStmt, addr_id: SymbolId, value_id: SymbolId) -> boo
     if not isinstance(stmt, NExprEffect):
         return False
     call = stmt.expr
-    if not isinstance(call, (NBuiltinCall, NUnresolvedCall)):
+    if not isinstance(call, NBuiltinCall):
         return False
-    if call_name(call) != "mstore" or len(call.args) != 2:
+    if call.op != "mstore" or len(call.args) != 2:
         return False
     addr, value = call.args
     if not isinstance(addr, NRef) or addr.symbol_id != addr_id:
@@ -305,9 +290,9 @@ def _is_mstore_offset_effect(
     if not isinstance(stmt, NExprEffect):
         return False
     call = stmt.expr
-    if not isinstance(call, (NBuiltinCall, NUnresolvedCall)):
+    if not isinstance(call, NBuiltinCall):
         return False
-    if call_name(call) != "mstore" or len(call.args) != 2:
+    if call.op != "mstore" or len(call.args) != 2:
         return False
     addr, value = call.args
     if not isinstance(value, NRef) or value.symbol_id != value_id:
@@ -335,13 +320,6 @@ def _is_add_offset(expr: NExpr, base_id: SymbolId, offset: int) -> bool:
     ):
         return True
     return False
-
-
-def call_name(expr: NBuiltinCall | NUnresolvedCall) -> str:
-    """Extract the call name from a builtin or unresolved call."""
-    if isinstance(expr, NBuiltinCall):
-        return expr.op
-    return expr.name
 
 
 # ---------------------------------------------------------------------------
