@@ -18,7 +18,11 @@ from __future__ import annotations
 
 from typing import assert_never
 
-from norm_classify import InlineClassification, classify_function_scope
+from norm_classify import (
+    InlineClassification,
+    _is_uint512_from_shape,
+    classify_function_scope,
+)
 from norm_ir import (
     NAssign,
     NBind,
@@ -447,6 +451,13 @@ class _InlineCtx:
         cls = self.classifications.get(sid)
         return cls is not None and cls.is_pure and sid in self.defs
 
+    def is_uint512_from(self, sid: SymbolId) -> bool:
+        cls = self.classifications.get(sid)
+        if cls is None or not cls.is_deferred:
+            return False
+        fdef = self.defs.get(sid)
+        return fdef is not None and _is_uint512_from_shape(fdef)
+
 
 # ---------------------------------------------------------------------------
 # Single-call inlining (pure helpers only)
@@ -477,11 +488,27 @@ def inline_pure_call(
     for sid in fdef.returns:
         subst[sid] = NConst(0)
 
-    _process_pure_block(fdef.body, subst, ctx, depth)
+    # leave_info: if a leave was encountered in an if-block, stores
+    # (condition, if-branch substitution). Only one leave site allowed.
+    leave_info: tuple[NExpr, dict[SymbolId, NExpr]] | None = None
+    block_result = _process_pure_block(fdef.body, subst, ctx, depth, leave_info)
+    if block_result is not True and isinstance(block_result, tuple):
+        leave_info = block_result
+
+    # Merge leave path with else path.
+    if leave_info is not None:
+        l_cond, l_subst = leave_info
+        for sid in fdef.returns:
+            if_val = l_subst.get(sid, NConst(0))
+            else_val = subst.get(sid, NConst(0))
+            subst[sid] = _simplify_ite(l_cond, if_val, else_val)
 
     if len(fdef.returns) == 1:
         return subst[fdef.returns[0]]
     return tuple(subst[sid] for sid in fdef.returns)
+
+
+_LeaveInfo = tuple[NExpr, dict[SymbolId, NExpr]] | None
 
 
 def _process_pure_block(
@@ -489,9 +516,20 @@ def _process_pure_block(
     subst: dict[SymbolId, NExpr],
     ctx: _InlineCtx,
     depth: int,
-) -> None:
+    leave_info: _LeaveInfo,
+) -> _LeaveInfo | bool:
+    """Process a block. Returns:
+    - True: direct/unconditional leave encountered, stop processing
+    - tuple: conditional leave_info (leave inside non-constant if)
+    - None: no leave
+    """
     for stmt in block.stmts:
-        _process_pure_stmt(stmt, subst, ctx, depth)
+        result = _process_pure_stmt(stmt, subst, ctx, depth, leave_info)
+        if result is True:
+            return True
+        if isinstance(result, tuple):
+            leave_info = result
+    return leave_info
 
 
 def _process_pure_stmt(
@@ -499,18 +537,24 @@ def _process_pure_stmt(
     subst: dict[SymbolId, NExpr],
     ctx: _InlineCtx,
     depth: int,
-) -> None:
+    leave_info: _LeaveInfo,
+) -> _LeaveInfo | bool:
+    """Process one statement. Returns:
+    - None: normal, no leave
+    - tuple: leave_info was set (leave in if-block)
+    - True: direct leave encountered, stop processing
+    """
     if isinstance(stmt, NBind):
         if stmt.expr is not None:
             _process_bind_or_assign(stmt.targets, stmt.expr, subst, ctx, depth)
         else:
             for sid in stmt.targets:
                 subst[sid] = NConst(0)
-        return
+        return leave_info
 
     if isinstance(stmt, NAssign):
         _process_bind_or_assign(stmt.targets, stmt.expr, subst, ctx, depth)
-        return
+        return leave_info
 
     if isinstance(stmt, NIf):
         cond = substitute_nexpr(stmt.condition, subst)
@@ -519,28 +563,58 @@ def _process_pure_stmt(
         c = _try_const(cond)
         if c is not None:
             if c != 0:
-                _process_pure_block(stmt.then_body, subst, ctx, depth)
-            return
+                # Constant-true branch. Propagate leave signal if body leaves.
+                inner = _process_pure_block(
+                    stmt.then_body, subst, ctx, depth, leave_info
+                )
+                if inner is True:
+                    return True
+                if isinstance(inner, tuple):
+                    return inner
+                return leave_info
+            # Constant-false: dead branch.
+            return leave_info
 
+        # Non-constant condition.
         if_subst = dict(subst)
-        _process_pure_block(stmt.then_body, if_subst, ctx, depth)
+        inner_leave = _process_pure_block(stmt.then_body, if_subst, ctx, depth, None)
+
+        if inner_leave is not None or _block_has_leave(stmt.then_body):
+            # Leave in the if-body: save as leave_info.
+            if leave_info is not None:
+                raise ParseError("Multiple leave sites in pure helper")
+            # Use if_subst as the leave-branch state.
+            # Don't merge into subst — remaining stmts use pre-if state.
+            return (cond, if_subst)
+
+        # Normal if (no leave): merge branches.
         for sid in if_subst:
             if if_subst[sid] is not subst.get(sid):
                 pre_val = subst.get(sid, NConst(0))
                 subst[sid] = _simplify_ite(cond, if_subst[sid], pre_val)
-        return
+        return leave_info
 
     if isinstance(stmt, NFunctionDef):
-        return
+        return leave_info
 
     if isinstance(stmt, NBlock):
-        _process_pure_block(stmt, subst, ctx, depth)
-        return
+        return _process_pure_block(stmt, subst, ctx, depth, leave_info)
 
-    if isinstance(stmt, (NFor, NLeave, NExprEffect, NSwitch)):
+    if isinstance(stmt, NLeave):
+        return True
+
+    if isinstance(stmt, (NFor, NExprEffect, NSwitch)):
         raise ParseError(f"Unexpected {type(stmt).__name__} in pure helper body")
 
     assert_never(stmt)
+
+
+def _block_has_leave(block: NBlock) -> bool:
+    """Check if a block directly contains NLeave (non-recursive into sub-blocks)."""
+    for stmt in block.stmts:
+        if isinstance(stmt, NLeave):
+            return True
+    return False
 
 
 def _process_bind_or_assign(
@@ -737,6 +811,11 @@ def _rewrite_bind_or_assign(
     cls = NBind if is_bind else NAssign
 
     if len(targets) == 1:
+        # Check for uint512.from deferred inlining.
+        if isinstance(expr, NLocalCall) and ctx.is_uint512_from(expr.symbol_id):
+            return _inline_uint512_from(
+                targets[0], target_names[0], expr, ctx, is_bind=is_bind
+            )
         new_expr = _inline_in_expr(expr, ctx, 0)
         return [cls(targets=targets, target_names=target_names, expr=new_expr)]
 
@@ -774,6 +853,43 @@ def _rewrite_bind_or_assign(
     # Not inlineable or not a call: inline within expression, pass through.
     new_expr = _inline_in_expr(expr, ctx, 0)
     return [cls(targets=targets, target_names=target_names, expr=new_expr)]
+
+
+def _inline_uint512_from(
+    target: SymbolId,
+    target_name: str,
+    call: NLocalCall,
+    ctx: _InlineCtx,
+    *,
+    is_bind: bool,
+) -> list[NStmt]:
+    """Inline a uint512.from helper by emitting explicit mstore statements.
+
+    Replaces ``ptr := from_helper(ptr_val, hi_val, lo_val)`` with:
+        mstore(ptr_val, hi_val)
+        mstore(add(0x20, ptr_val), lo_val)
+        ptr := ptr_val
+
+    This makes memory effects explicit in the IR (no sink side-channel).
+    """
+    if len(call.args) != 3:
+        raise ParseError(
+            f"uint512.from helper {call.name!r} expected 3 args, got {len(call.args)}"
+        )
+    ptr_arg = _inline_in_expr(call.args[0], ctx, 0)
+    hi_arg = _inline_in_expr(call.args[1], ctx, 0)
+    lo_arg = _inline_in_expr(call.args[2], ctx, 0)
+
+    # Emit: mstore(ptr, hi)
+    mstore_hi = NExprEffect(expr=NBuiltinCall(op="mstore", args=(ptr_arg, hi_arg)))
+    # Emit: mstore(add(0x20, ptr), lo)
+    lo_addr: NExpr = NBuiltinCall(op="add", args=(NConst(0x20), ptr_arg))
+    mstore_lo = NExprEffect(expr=NBuiltinCall(op="mstore", args=(lo_addr, lo_arg)))
+    # Emit: target := ptr
+    cls = NBind if is_bind else NAssign
+    assign_ptr = cls(targets=(target,), target_names=(target_name,), expr=ptr_arg)
+
+    return [mstore_hi, mstore_lo, assign_ptr]
 
 
 # ---------------------------------------------------------------------------

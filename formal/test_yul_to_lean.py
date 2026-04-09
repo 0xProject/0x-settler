@@ -11719,6 +11719,83 @@ class InlinePureTest(unittest.TestCase):
         post = evaluate_normalized(inline_pure_helpers(nf), ())
         self.assertEqual(pre, post)
 
+    def test_leave_bearing_helper_inlined(self) -> None:
+        """Helper with if cond { ... leave } is inlined via NIte merge."""
+        yul = """
+            function f(x) -> z {
+                function g(a) -> b {
+                    if a { b := 1  leave }
+                    b := 2
+                }
+                z := g(x)
+            }
+        """
+        self.assertEqual(self._eval_inlined(yul, (0,)), (2,))
+        self.assertEqual(self._eval_inlined(yul, (1,)), (1,))
+
+    def test_leave_bearing_helper_constant_fold(self) -> None:
+        """Leave branch with constant-true condition folds away."""
+        yul = """
+            function f() -> z {
+                function g() -> b {
+                    if 1 { b := 7  leave }
+                    b := 99
+                }
+                z := g()
+            }
+        """
+        self.assertEqual(self._eval_inlined(yul, ()), (7,))
+
+    def test_leave_bearing_helper_dead_branch(self) -> None:
+        """Leave branch with constant-false condition is eliminated."""
+        yul = """
+            function f() -> z {
+                function g() -> b {
+                    if 0 { b := 7  leave }
+                    b := 42
+                }
+                z := g()
+            }
+        """
+        self.assertEqual(self._eval_inlined(yul, ()), (42,))
+
+    def test_leave_helper_classified_pure(self) -> None:
+        """A leave-bearing helper with no other effects is classified pure."""
+        tokens = ytl.tokenize_yul("""
+            function f(x) -> z {
+                function g(a) -> b {
+                    if a { b := 1  leave }
+                    b := 2
+                }
+                z := g(x)
+            }
+        """)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        classifications = classify_function_scope(nf)
+        for sid, cls in classifications.items():
+            self.assertTrue(cls.is_pure, f"Helper should be pure: {cls}")
+
+    def test_uint512_from_inlined_as_explicit_mstores(self) -> None:
+        """uint512.from helper is inlined by emitting explicit mstore statements."""
+        nf = self._inline("""
+            function f(hi, lo) -> z {
+                function from_helper(ptr, x_hi, x_lo) -> r {
+                    r := 0
+                    mstore(ptr, x_hi)
+                    mstore(add(0x20, ptr), x_lo)
+                    r := ptr
+                }
+                let p := from_helper(64, hi, lo)
+                z := add(mload(p), mload(add(0x20, p)))
+            }
+        """)
+        # After inlining, the from_helper call should be replaced by
+        # explicit mstore statements + ptr assignment.
+        # Evaluate: hi=5, lo=7 → mstore(64, 5), mstore(96, 7) → z = 5+7 = 12
+        self.assertEqual(evaluate_normalized(nf, (5, 7), memory={}), (12,))
+
 
 class ConstPropTest(unittest.TestCase):
     """Tests for constant propagation and dead branch elimination."""

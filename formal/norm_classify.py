@@ -407,8 +407,8 @@ def classify_helpers(
         elif s.has_effectful_condition:
             unsupported[sid] = "function call in control-flow condition"
             non_pure.add(sid)
-        if s.may_leave:
-            non_pure.add(sid)
+        # may_leave does NOT make a helper non-pure — the inliner handles
+        # leave via NIte(leave_cond, leave_val, else_val) merge.
         if s.calls_top_level:
             non_pure.add(sid)
 
