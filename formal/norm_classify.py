@@ -166,10 +166,16 @@ def _walk_expr(acc: _SummaryAccumulator, expr: NExpr) -> None:
 
 
 def _is_known_effect_call(expr: NExpr) -> bool:
-    """Check if an expression is a known memory-effect call (mstore etc.)."""
+    """Check if an expression-statement is a known effect pattern.
+
+    Function calls (local, top-level) as bare statements are valid
+    void calls for side effects.  Memory builtins (mstore) are also
+    valid.  Only pure builtins with no side effects (e.g. bare
+    ``add(x, 1)``) are truly unsupported expression-statements.
+    """
     if isinstance(expr, NBuiltinCall):
         return expr.op in _MEMORY_WRITE_OPS or expr.op in _MEMORY_READ_OPS
-    return False
+    return isinstance(expr, (NLocalCall, NTopLevelCall, NUnresolvedCall))
 
 
 # ---------------------------------------------------------------------------
@@ -339,40 +345,54 @@ class InlineClassification:
 def classify_helpers(
     summaries: dict[SymbolId, FunctionSummary],
 ) -> dict[SymbolId, InlineClassification]:
-    """Compute transitive inlining classifications from per-function summaries."""
-    # Phase 1: seed deferred set from direct memory effects or uint512.from shape.
+    """Compute transitive inlining classifications from per-function summaries.
+
+    All non-inlineable properties (deferred, unsupported, may_leave,
+    calls_top_level) propagate transitively through the call graph.
+    """
+    # Phase 1: seed from direct properties.
     deferred: set[SymbolId] = set()
+    non_pure: set[SymbolId] = set()
     unsupported: dict[SymbolId, str] = {}
 
     for sid, s in summaries.items():
         if s.writes_memory or s.reads_memory or s.is_uint512_from:
             deferred.add(sid)
+            non_pure.add(sid)
         if s.has_for_loop:
             unsupported[sid] = "contains for-loop"
+            non_pure.add(sid)
         elif s.has_expr_effects:
             unsupported[sid] = "contains bare expression-statement"
+            non_pure.add(sid)
         elif s.calls_unresolved:
             unsupported[sid] = "calls unresolved function"
+            non_pure.add(sid)
+        if s.may_leave:
+            non_pure.add(sid)
+        if s.calls_top_level:
+            non_pure.add(sid)
 
-    # Phase 2: propagate deferred transitively.
+    # Phase 2: propagate transitively through the call graph.
+    # If A calls B and B is non-pure for any reason, A is also non-pure.
+    # If B is deferred, A is also deferred.
     changed = True
     while changed:
         changed = False
         for sid, s in summaries.items():
-            if sid in deferred:
-                continue
-            if s.called_functions & deferred:
+            if sid not in non_pure and s.called_functions & non_pure:
+                non_pure.add(sid)
+                changed = True
+            if sid not in deferred and s.called_functions & deferred:
                 deferred.add(sid)
                 changed = True
 
     # Phase 3: build classifications.
     result: dict[SymbolId, InlineClassification] = {}
-    for sid, s in summaries.items():
+    for sid in summaries:
         reason = unsupported.get(sid)
         is_def = sid in deferred
-        is_p = (
-            not is_def and reason is None and not s.may_leave and not s.calls_top_level
-        )
+        is_p = sid not in non_pure
         result[sid] = InlineClassification(
             is_pure=is_p,
             is_deferred=is_def,
@@ -416,10 +436,15 @@ def classify_function_scope(
 
 
 def _collect_function_defs(block: NBlock, out: list[NFunctionDef]) -> None:
-    """Recursively collect all NFunctionDef nodes from a block tree."""
+    """Recursively collect all NFunctionDef nodes from a block tree.
+
+    Descends into control-flow blocks AND into NFunctionDef bodies,
+    so deeply-nested helpers (helper inside helper) are found.
+    """
     for stmt in block.stmts:
         if isinstance(stmt, NFunctionDef):
             out.append(stmt)
+            _collect_function_defs(stmt.body, out)
         elif isinstance(stmt, NIf):
             _collect_function_defs(stmt.then_body, out)
         elif isinstance(stmt, NSwitch):

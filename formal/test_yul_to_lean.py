@@ -11270,6 +11270,7 @@ class ClassifyInlineTest(unittest.TestCase):
             if isinstance(stmt, norm_ir.NFunctionDef):
                 if stmt.symbol_id in classifications:
                     out[stmt.name] = classifications[stmt.symbol_id]
+                self._collect_name_map(stmt.body, classifications, out)
             elif isinstance(stmt, norm_ir.NIf):
                 self._collect_name_map(stmt.then_body, classifications, out)
             elif isinstance(stmt, norm_ir.NSwitch):
@@ -11387,6 +11388,69 @@ class ClassifyInlineTest(unittest.TestCase):
             }
         """)
         self.assertIn("g", c)
+        self.assertTrue(c["g"].is_deferred)
+
+    def test_wrapper_around_unresolved_callee_not_pure(self) -> None:
+        """wrapper -> inner -> ext(): wrapper must not be pure."""
+        c = self._classify("""
+            function f(x) -> z {
+                function inner(a) -> b { b := ext(a) }
+                function wrapper(a) -> b { b := inner(a) }
+                z := wrapper(x)
+            }
+        """)
+        self.assertFalse(c["inner"].is_pure)
+        self.assertFalse(c["wrapper"].is_pure)
+
+    def test_wrapper_around_for_loop_callee_not_pure(self) -> None:
+        """wrapper -> inner (has for): wrapper must not be pure."""
+        c = self._classify("""
+            function f(x) -> z {
+                function inner(a) -> b {
+                    for { } a { } { b := 1 leave }
+                }
+                function wrapper(a) -> b { b := inner(a) }
+                z := wrapper(x)
+            }
+        """)
+        self.assertFalse(c["inner"].is_pure)
+        self.assertFalse(c["wrapper"].is_pure)
+
+    def test_wrapper_around_top_level_callee_not_pure(self) -> None:
+        """wrapper -> inner -> top_level_sibling(): wrapper must not be pure."""
+        yul = """
+            function sibling(a) -> b { b := a }
+            function f(x) -> z {
+                function inner(a) -> b { b := sibling(a) }
+                function wrapper(a) -> b { b := inner(a) }
+                z := wrapper(x)
+            }
+        """
+        tokens = ytl.tokenize_yul(yul)
+        funcs = SyntaxParser(tokens).parse_functions()
+        results = resolve_module(funcs, builtins=ytl._EVM_BUILTINS)
+        nf_f = normalize_function(funcs[1], results["f"])
+        classifications = classify_function_scope(nf_f)
+        name_map: dict[str, InlineClassification] = {}
+        self._collect_name_map(nf_f.body, classifications, name_map)
+        self.assertFalse(name_map["inner"].is_pure)
+        self.assertFalse(name_map["wrapper"].is_pure)
+
+    def test_helper_nested_inside_helper_body_classified(self) -> None:
+        """h nested inside g's body must be found and classified."""
+        c = self._classify("""
+            function f(x) -> z {
+                function g(a) -> b {
+                    function h() { mstore(0, 7) }
+                    h()
+                    b := mload(0)
+                }
+                z := g(x)
+            }
+        """)
+        self.assertIn("h", c)
+        self.assertTrue(c["h"].is_deferred)
+        self.assertFalse(c["g"].is_pure)
         self.assertTrue(c["g"].is_deferred)
 
 
