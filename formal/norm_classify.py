@@ -33,10 +33,12 @@ from norm_ir import (
     NormalizedFunction,
     NRef,
     NStmt,
+    NStore,
     NSwitch,
     NTopLevelCall,
     NUnresolvedCall,
 )
+from norm_walk import collect_function_defs, for_each_expr
 from yul_ast import SymbolId
 
 # ---------------------------------------------------------------------------
@@ -111,24 +113,26 @@ def _walk_block(acc: _SummaryAccumulator, block: NBlock) -> None:
 def _walk_stmt(acc: _SummaryAccumulator, stmt: NStmt) -> None:
     if isinstance(stmt, NBind):
         if stmt.expr is not None:
-            _walk_expr(acc, stmt.expr)
+            _walk_expr_effects(acc, stmt.expr)
     elif isinstance(stmt, NAssign):
-        _walk_expr(acc, stmt.expr)
+        _walk_expr_effects(acc, stmt.expr)
     elif isinstance(stmt, NExprEffect):
-        # mstore/mload as expression-statements are normal memory ops,
-        # NOT unsupported expression-statements.
         if not _is_known_effect_call(stmt.expr):
             acc.has_expr_effects = True
-        _walk_expr(acc, stmt.expr)
+        _walk_expr_effects(acc, stmt.expr)
+    elif isinstance(stmt, NStore):
+        acc.writes_memory = True
+        _walk_expr_effects(acc, stmt.addr)
+        _walk_expr_effects(acc, stmt.value)
     elif isinstance(stmt, NIf):
         if _has_call_in_expr(stmt.condition):
             acc.has_effectful_condition = True
-        _walk_expr(acc, stmt.condition)
+        _walk_expr_effects(acc, stmt.condition)
         _walk_block(acc, stmt.then_body)
     elif isinstance(stmt, NSwitch):
         if _has_call_in_expr(stmt.discriminant):
             acc.has_effectful_condition = True
-        _walk_expr(acc, stmt.discriminant)
+        _walk_expr_effects(acc, stmt.discriminant)
         for case in stmt.cases:
             _walk_block(acc, case.body)
         if stmt.default is not None:
@@ -138,7 +142,7 @@ def _walk_stmt(acc: _SummaryAccumulator, stmt: NStmt) -> None:
         if _has_call_in_expr(stmt.condition):
             acc.has_effectful_condition = True
         _walk_block(acc, stmt.init)
-        _walk_expr(acc, stmt.condition)
+        _walk_expr_effects(acc, stmt.condition)
         _walk_block(acc, stmt.post)
         _walk_block(acc, stmt.body)
     elif isinstance(stmt, NLeave):
@@ -149,66 +153,44 @@ def _walk_stmt(acc: _SummaryAccumulator, stmt: NStmt) -> None:
         # Do NOT recurse into nested function bodies — they get
         # their own summary.
         pass
+    else:
+        assert_never(stmt)
+
+
+def _walk_expr_effects(acc: _SummaryAccumulator, expr: NExpr) -> None:
+    """Walk an expression and accumulate effects using for_each_expr."""
+
+    def visit(e: NExpr) -> None:
+        if isinstance(e, NBuiltinCall):
+            acc.called_builtins.add(e.op)
+            if e.op in _MEMORY_WRITE_OPS:
+                acc.writes_memory = True
+            if e.op in _MEMORY_READ_OPS:
+                acc.reads_memory = True
+        elif isinstance(e, NLocalCall):
+            acc.called_functions.add(e.symbol_id)
+        elif isinstance(e, NTopLevelCall):
+            acc.calls_top_level = True
+        elif isinstance(e, NUnresolvedCall):
+            acc.calls_unresolved = True
+
+    for_each_expr(expr, visit)
 
 
 def _has_call_in_expr(expr: NExpr) -> bool:
-    """Check if an expression contains any function call (local/top-level/unresolved).
+    """Check if an expression contains any function call."""
+    found: list[bool] = [False]
 
-    Used to detect effectful control-flow conditions.  Builtin calls
-    (EVM opcodes) are pure and do not count.
-    """
-    if isinstance(expr, (NConst, NRef)):
-        return False
-    if isinstance(expr, NBuiltinCall):
-        return any(_has_call_in_expr(a) for a in expr.args)
-    if isinstance(expr, (NLocalCall, NTopLevelCall, NUnresolvedCall)):
-        return True
-    if isinstance(expr, NIte):
-        return (
-            _has_call_in_expr(expr.cond)
-            or _has_call_in_expr(expr.if_true)
-            or _has_call_in_expr(expr.if_false)
-        )
-    assert_never(expr)
+    def visit(e: NExpr) -> None:
+        if isinstance(e, (NLocalCall, NTopLevelCall, NUnresolvedCall)):
+            found[0] = True
 
-
-def _walk_expr(acc: _SummaryAccumulator, expr: NExpr) -> None:
-    if isinstance(expr, (NConst, NRef)):
-        pass
-    elif isinstance(expr, NBuiltinCall):
-        acc.called_builtins.add(expr.op)
-        if expr.op in _MEMORY_WRITE_OPS:
-            acc.writes_memory = True
-        if expr.op in _MEMORY_READ_OPS:
-            acc.reads_memory = True
-        for a in expr.args:
-            _walk_expr(acc, a)
-    elif isinstance(expr, NLocalCall):
-        acc.called_functions.add(expr.symbol_id)
-        for a in expr.args:
-            _walk_expr(acc, a)
-    elif isinstance(expr, NTopLevelCall):
-        acc.calls_top_level = True
-        for a in expr.args:
-            _walk_expr(acc, a)
-    elif isinstance(expr, NUnresolvedCall):
-        acc.calls_unresolved = True
-        for a in expr.args:
-            _walk_expr(acc, a)
-    elif isinstance(expr, NIte):
-        _walk_expr(acc, expr.cond)
-        _walk_expr(acc, expr.if_true)
-        _walk_expr(acc, expr.if_false)
+    for_each_expr(expr, visit)
+    return found[0]
 
 
 def _is_known_effect_call(expr: NExpr) -> bool:
-    """Check if an expression-statement is a known effect pattern.
-
-    Function calls (local, top-level) as bare statements are valid
-    void calls for side effects.  Memory builtins (mstore) are also
-    valid.  Only pure builtins with no side effects (e.g. bare
-    ``add(x, 1)``) are truly unsupported expression-statements.
-    """
+    """Check if an expression-statement is a known effect pattern."""
     if isinstance(expr, NBuiltinCall):
         return expr.op in _MEMORY_WRITE_OPS or expr.op in _MEMORY_READ_OPS
     return isinstance(expr, (NLocalCall, NTopLevelCall, NUnresolvedCall))
@@ -235,7 +217,6 @@ def _is_uint512_from_shape(
         return False
 
     stmts = fdef.body.stmts
-    # Filter out NFunctionDef nodes (shouldn't be there, but be safe).
     real_stmts: list[NStmt] = [s for s in stmts if not isinstance(s, NFunctionDef)]
 
     if len(real_stmts) not in (4, 5):
@@ -247,7 +228,6 @@ def _is_uint512_from_shape(
     ret_id = fdef.returns[0]
 
     if len(real_stmts) == 5:
-        # 5-stmt form: let tmp := 0, ret := tmp, mstore(ptr, hi), mstore(ptr+32, lo), ret := ptr
         zero_init = real_stmts[0]
         init_ret = real_stmts[1]
         write_hi = real_stmts[2]
@@ -259,21 +239,17 @@ def _is_uint512_from_shape(
         if not _is_zero(zero_init.expr):
             return False
     else:
-        # 4-stmt form: ret := 0, mstore(ptr, hi), mstore(ptr+32, lo), ret := ptr
         init_ret = real_stmts[0]
         write_hi = real_stmts[1]
         write_lo = real_stmts[2]
         ret_assign = real_stmts[3]
 
-    # init_ret: ret := 0 or ret := <zero-tmp>
     if not isinstance(init_ret, NAssign):
         return False
     if len(init_ret.targets) != 1 or init_ret.targets[0] != ret_id:
         return False
-    # Value must be zero or a reference to the zero-init temp variable.
     if len(real_stmts) == 5:
-        # 5-stmt form: init_ret must reference the zero-init temp.
-        assert isinstance(zero_init, NBind)  # already checked above
+        assert isinstance(zero_init, NBind)
         if not (
             isinstance(init_ret.expr, NRef)
             and len(zero_init.targets) == 1
@@ -281,19 +257,14 @@ def _is_uint512_from_shape(
         ):
             return False
     else:
-        # 4-stmt form: init_ret must be literal zero.
         if not _is_zero(init_ret.expr):
             return False
 
-    # write_hi: mstore(ptr, hi) as NExprEffect
     if not _is_mstore_effect(write_hi, ptr_id, hi_id):
         return False
-
-    # write_lo: mstore(ptr + 0x20, lo) as NExprEffect
     if not _is_mstore_offset_effect(write_lo, ptr_id, lo_id, 0x20):
         return False
 
-    # ret_assign: ret := ptr
     if not isinstance(ret_assign, NAssign):
         return False
     if len(ret_assign.targets) != 1 or ret_assign.targets[0] != ret_id:
@@ -309,7 +280,6 @@ def _is_zero(expr: NExpr) -> bool:
 
 
 def _is_mstore_effect(stmt: NStmt, addr_id: SymbolId, value_id: SymbolId) -> bool:
-    """Check: NExprEffect(mstore(NRef(addr_id), NRef(value_id)))."""
     if not isinstance(stmt, NExprEffect):
         return False
     call = stmt.expr
@@ -328,7 +298,6 @@ def _is_mstore_effect(stmt: NStmt, addr_id: SymbolId, value_id: SymbolId) -> boo
 def _is_mstore_offset_effect(
     stmt: NStmt, base_id: SymbolId, value_id: SymbolId, offset: int
 ) -> bool:
-    """Check: NExprEffect(mstore(add(base, offset) or add(offset, base), NRef(value_id)))."""
     if not isinstance(stmt, NExprEffect):
         return False
     call = stmt.expr
@@ -343,7 +312,6 @@ def _is_mstore_offset_effect(
 
 
 def _is_add_offset(expr: NExpr, base_id: SymbolId, offset: int) -> bool:
-    """Check: add(NRef(base_id), NConst(offset)) or add(NConst(offset), NRef(base_id))."""
     if not isinstance(expr, NBuiltinCall) or expr.op != "add" or len(expr.args) != 2:
         return False
     a, b = expr.args
@@ -383,10 +351,11 @@ def classify_helpers(
 ) -> dict[SymbolId, InlineClassification]:
     """Compute transitive inlining classifications from per-function summaries.
 
-    All non-inlineable properties (deferred, unsupported, may_leave,
-    calls_top_level) propagate transitively through the call graph.
+    All non-inlineable properties (deferred, unsupported, calls_top_level)
+    propagate transitively through the call graph.
+    may_leave does NOT make a helper non-pure — the inliner handles
+    leave via NIte(leave_cond, leave_val, else_val) merge.
     """
-    # Phase 1: seed from direct properties.
     deferred: set[SymbolId] = set()
     non_pure: set[SymbolId] = set()
     unsupported: dict[SymbolId, str] = {}
@@ -407,14 +376,9 @@ def classify_helpers(
         elif s.has_effectful_condition:
             unsupported[sid] = "function call in control-flow condition"
             non_pure.add(sid)
-        # may_leave does NOT make a helper non-pure — the inliner handles
-        # leave via NIte(leave_cond, leave_val, else_val) merge.
         if s.calls_top_level:
             non_pure.add(sid)
 
-    # Phase 2: propagate transitively through the call graph.
-    # If A calls B and B is non-pure for any reason, A is also non-pure.
-    # If B is deferred, A is also deferred.
     changed = True
     while changed:
         changed = False
@@ -426,7 +390,6 @@ def classify_helpers(
                 deferred.add(sid)
                 changed = True
 
-    # Phase 3: build classifications.
     result: dict[SymbolId, InlineClassification] = {}
     for sid in summaries:
         reason = unsupported.get(sid)
@@ -454,8 +417,7 @@ def classify_function_scope(
     body (including inside if/switch/for blocks), summarizes each, then
     runs transitive classification.
     """
-    fdefs: list[NFunctionDef] = []
-    _collect_function_defs(func.body, fdefs)
+    fdefs = collect_function_defs(func.body)
     summaries: dict[SymbolId, FunctionSummary] = {}
     for fdef in fdefs:
         base = summarize_function(fdef.body)
@@ -473,28 +435,3 @@ def classify_function_scope(
             is_uint512_from=_is_uint512_from_shape(fdef),
         )
     return classify_helpers(summaries)
-
-
-def _collect_function_defs(block: NBlock, out: list[NFunctionDef]) -> None:
-    """Recursively collect all NFunctionDef nodes from a block tree.
-
-    Descends into control-flow blocks AND into NFunctionDef bodies,
-    so deeply-nested helpers (helper inside helper) are found.
-    """
-    for stmt in block.stmts:
-        if isinstance(stmt, NFunctionDef):
-            out.append(stmt)
-            _collect_function_defs(stmt.body, out)
-        elif isinstance(stmt, NIf):
-            _collect_function_defs(stmt.then_body, out)
-        elif isinstance(stmt, NSwitch):
-            for case in stmt.cases:
-                _collect_function_defs(case.body, out)
-            if stmt.default is not None:
-                _collect_function_defs(stmt.default, out)
-        elif isinstance(stmt, NFor):
-            _collect_function_defs(stmt.init, out)
-            _collect_function_defs(stmt.post, out)
-            _collect_function_defs(stmt.body, out)
-        elif isinstance(stmt, NBlock):
-            _collect_function_defs(stmt, out)

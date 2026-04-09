@@ -31,10 +31,12 @@ from norm_ir import (
     NormalizedFunction,
     NRef,
     NStmt,
+    NStore,
     NSwitch,
     NTopLevelCall,
     NUnresolvedCall,
 )
+from norm_walk import collect_modified_in_block, map_expr
 from yul_ast import SymbolId
 
 # ---------------------------------------------------------------------------
@@ -104,129 +106,48 @@ _BUILTIN_FOLD: dict[tuple[str, int], Callable[[tuple[int, ...]], int]] = {
 
 
 # ---------------------------------------------------------------------------
-# Expression folding (bottom-up)
+# Expression folding (via shared map_expr)
 # ---------------------------------------------------------------------------
+
+
+def _fold_node(expr: NExpr) -> NExpr:
+    """Fold callback for map_expr: evaluate constant builtins and NIte."""
+    if isinstance(expr, NConst):
+        return NConst(_u256(expr.value))
+    if isinstance(expr, NBuiltinCall):
+        fn = _BUILTIN_FOLD.get((expr.op, len(expr.args)))
+        if fn is not None and all(isinstance(a, NConst) for a in expr.args):
+            vals = tuple(a.value for a in expr.args if isinstance(a, NConst))
+            return NConst(_u256(fn(vals)))
+    if isinstance(expr, NIte):
+        if isinstance(expr.cond, NConst):
+            return expr.if_true if expr.cond.value != 0 else expr.if_false
+        if expr.if_true == expr.if_false:
+            return expr.if_true
+    return expr
 
 
 def fold_expr(expr: NExpr) -> NExpr:
     """Fold constant sub-expressions bottom-up."""
-    if isinstance(expr, NConst):
-        return NConst(_u256(expr.value))
-
-    if isinstance(expr, NRef):
-        return expr
-
-    if isinstance(expr, NBuiltinCall):
-        folded_args = tuple(fold_expr(a) for a in expr.args)
-        # Try to evaluate if all args are constant.
-        fn = _BUILTIN_FOLD.get((expr.op, len(folded_args)))
-        if fn is not None and all(isinstance(a, NConst) for a in folded_args):
-            vals = tuple(a.value for a in folded_args if isinstance(a, NConst))
-            return NConst(_u256(fn(vals)))
-        return NBuiltinCall(op=expr.op, args=folded_args)
-
-    if isinstance(expr, NLocalCall):
-        return NLocalCall(
-            symbol_id=expr.symbol_id,
-            name=expr.name,
-            args=tuple(fold_expr(a) for a in expr.args),
-        )
-
-    if isinstance(expr, NTopLevelCall):
-        return NTopLevelCall(
-            name=expr.name,
-            args=tuple(fold_expr(a) for a in expr.args),
-        )
-
-    if isinstance(expr, NUnresolvedCall):
-        return NUnresolvedCall(
-            name=expr.name,
-            args=tuple(fold_expr(a) for a in expr.args),
-        )
-
-    if isinstance(expr, NIte):
-        c = fold_expr(expr.cond)
-        t = fold_expr(expr.if_true)
-        f = fold_expr(expr.if_false)
-        # Fold constant condition.
-        if isinstance(c, NConst):
-            return t if c.value != 0 else f
-        # Identity: both branches same.
-        if t == f:
-            return t
-        return NIte(cond=c, if_true=t, if_false=f)
-
-    assert_never(expr)
+    return map_expr(expr, _fold_node)
 
 
 # ---------------------------------------------------------------------------
-# Substitute known constants in an expression
+# Substitute known constants (via shared map_expr)
 # ---------------------------------------------------------------------------
 
 
-def _subst_expr(expr: NExpr, env: dict[SymbolId, NConst]) -> NExpr:
-    """Replace NRef nodes with known constants from *env*, then fold."""
-    if isinstance(expr, NConst):
-        return expr
-    if isinstance(expr, NRef):
-        c = env.get(expr.symbol_id)
-        if c is not None:
-            return c
-        return expr
-    if isinstance(expr, NBuiltinCall):
-        return NBuiltinCall(
-            op=expr.op,
-            args=tuple(_subst_expr(a, env) for a in expr.args),
-        )
-    if isinstance(expr, NLocalCall):
-        return NLocalCall(
-            symbol_id=expr.symbol_id,
-            name=expr.name,
-            args=tuple(_subst_expr(a, env) for a in expr.args),
-        )
-    if isinstance(expr, NTopLevelCall):
-        return NTopLevelCall(
-            name=expr.name,
-            args=tuple(_subst_expr(a, env) for a in expr.args),
-        )
-    if isinstance(expr, NUnresolvedCall):
-        return NUnresolvedCall(
-            name=expr.name,
-            args=tuple(_subst_expr(a, env) for a in expr.args),
-        )
-    if isinstance(expr, NIte):
-        return NIte(
-            cond=_subst_expr(expr.cond, env),
-            if_true=_subst_expr(expr.if_true, env),
-            if_false=_subst_expr(expr.if_false, env),
-        )
-    assert_never(expr)
+def _subst_and_fold(expr: NExpr, env: dict[SymbolId, NConst]) -> NExpr:
+    """Substitute known constants from *env*, then fold."""
 
+    def rewrite(e: NExpr) -> NExpr:
+        if isinstance(e, NRef):
+            c = env.get(e.symbol_id)
+            if c is not None:
+                return c
+        return _fold_node(e)
 
-# ---------------------------------------------------------------------------
-# Collect modified SymbolIds in a block
-# ---------------------------------------------------------------------------
-
-
-def _collect_modified(block: NBlock, out: set[SymbolId]) -> None:
-    """Collect all SymbolIds assigned (NBind/NAssign targets) in a block."""
-    for stmt in block.stmts:
-        if isinstance(stmt, (NBind, NAssign)):
-            for sid in stmt.targets:
-                out.add(sid)
-        elif isinstance(stmt, NIf):
-            _collect_modified(stmt.then_body, out)
-        elif isinstance(stmt, NSwitch):
-            for case in stmt.cases:
-                _collect_modified(case.body, out)
-            if stmt.default is not None:
-                _collect_modified(stmt.default, out)
-        elif isinstance(stmt, NFor):
-            _collect_modified(stmt.init, out)
-            _collect_modified(stmt.post, out)
-            _collect_modified(stmt.body, out)
-        elif isinstance(stmt, NBlock):
-            _collect_modified(stmt, out)
+    return map_expr(expr, rewrite)
 
 
 # ---------------------------------------------------------------------------
@@ -250,25 +171,23 @@ def _prop_stmt(
     """Process one statement, appending results to *out*."""
     if isinstance(stmt, NBind):
         if stmt.expr is not None:
-            folded = fold_expr(_subst_expr(stmt.expr, env))
+            folded = _subst_and_fold(stmt.expr, env)
             if len(stmt.targets) == 1 and isinstance(folded, NConst):
                 env[stmt.targets[0]] = folded
             else:
-                # Not constant — invalidate targets.
                 for sid in stmt.targets:
                     env.pop(sid, None)
             out.append(
                 NBind(targets=stmt.targets, target_names=stmt.target_names, expr=folded)
             )
         else:
-            # Bare let — zero-initialized.
             for sid in stmt.targets:
                 env[sid] = NConst(0)
             out.append(stmt)
         return
 
     if isinstance(stmt, NAssign):
-        folded = fold_expr(_subst_expr(stmt.expr, env))
+        folded = _subst_and_fold(stmt.expr, env)
         if len(stmt.targets) == 1 and isinstance(folded, NConst):
             env[stmt.targets[0]] = folded
         else:
@@ -280,49 +199,45 @@ def _prop_stmt(
         return
 
     if isinstance(stmt, NExprEffect):
-        folded = fold_expr(_subst_expr(stmt.expr, env))
+        folded = _subst_and_fold(stmt.expr, env)
         out.append(NExprEffect(expr=folded))
         return
 
-    if isinstance(stmt, NIf):
-        cond = fold_expr(_subst_expr(stmt.condition, env))
+    if isinstance(stmt, NStore):
+        out.append(
+            NStore(
+                addr=_subst_and_fold(stmt.addr, env),
+                value=_subst_and_fold(stmt.value, env),
+            )
+        )
+        return
 
+    if isinstance(stmt, NIf):
+        cond = _subst_and_fold(stmt.condition, env)
         if isinstance(cond, NConst):
             if cond.value != 0:
-                # Live branch — flatten into outer block.
                 inner = _prop_block(stmt.then_body, env)
                 out.extend(inner.stmts)
-            # else: dead branch — eliminate entirely.
             return
-
-        # Non-constant: process body with env copy, invalidate modified vars.
         body_env = dict(env)
         new_body = _prop_block(stmt.then_body, body_env)
-        # Invalidate any variable modified in the body.
-        modified: set[SymbolId] = set()
-        _collect_modified(stmt.then_body, modified)
-        for sid in modified:
+        for sid in collect_modified_in_block(stmt.then_body):
             env.pop(sid, None)
         out.append(NIf(condition=cond, then_body=new_body))
         return
 
     if isinstance(stmt, NSwitch):
-        disc = fold_expr(_subst_expr(stmt.discriminant, env))
-
+        disc = _subst_and_fold(stmt.discriminant, env)
         if isinstance(disc, NConst):
-            # Find matching case.
             for case in stmt.cases:
                 if case.value.value == disc.value:
                     inner = _prop_block(case.body, env)
                     out.extend(inner.stmts)
                     return
-            # No case matched — use default.
             if stmt.default is not None:
                 inner = _prop_block(stmt.default, env)
                 out.extend(inner.stmts)
             return
-
-        # Non-constant: process all branches, invalidate modified vars.
         new_cases = tuple(
             type(c)(value=c.value, body=_prop_block(c.body, dict(env)))
             for c in stmt.cases
@@ -330,27 +245,24 @@ def _prop_stmt(
         new_default = (
             _prop_block(stmt.default, dict(env)) if stmt.default is not None else None
         )
-        modified = set[SymbolId]()
+        modified: set[SymbolId] = set()
         for c in stmt.cases:
-            _collect_modified(c.body, modified)
+            modified |= collect_modified_in_block(c.body)
         if stmt.default is not None:
-            _collect_modified(stmt.default, modified)
+            modified |= collect_modified_in_block(stmt.default)
         for sid in modified:
             env.pop(sid, None)
         out.append(NSwitch(discriminant=disc, cases=new_cases, default=new_default))
         return
 
     if isinstance(stmt, NFor):
-        # Conservative: invalidate everything the loop touches.
-        modified = set[SymbolId]()
-        _collect_modified(stmt.init, modified)
-        _collect_modified(stmt.post, modified)
-        _collect_modified(stmt.body, modified)
+        modified = collect_modified_in_block(stmt.init)
+        modified |= collect_modified_in_block(stmt.post)
+        modified |= collect_modified_in_block(stmt.body)
         for sid in modified:
             env.pop(sid, None)
-        # Still fold expressions inside the loop.
         new_init = _prop_block(stmt.init, dict(env))
-        new_cond = fold_expr(_subst_expr(stmt.condition, env))
+        new_cond = _subst_and_fold(stmt.condition, env)
         new_post = _prop_block(stmt.post, dict(env))
         new_body = _prop_block(stmt.body, dict(env))
         out.append(

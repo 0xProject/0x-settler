@@ -40,9 +40,16 @@ from norm_ir import (
     NormalizedFunction,
     NRef,
     NStmt,
+    NStore,
     NSwitch,
     NTopLevelCall,
     NUnresolvedCall,
+)
+from norm_walk import (
+    collect_function_defs,
+    for_each_expr,
+    map_expr,
+    max_symbol_id,
 )
 from yul_ast import ParseError, SymbolId
 
@@ -63,93 +70,8 @@ class SymbolAllocator:
         return sid
 
 
-def _max_symbol_id_impl(func: NormalizedFunction) -> int:
-    """Find the maximum SymbolId._id in a function."""
-    result: list[int] = [0]
-    for sid in func.params:
-        if sid._id > result[0]:
-            result[0] = sid._id
-    for sid in func.returns:
-        if sid._id > result[0]:
-            result[0] = sid._id
-    _scan_block_ids(func.body, result)
-    return result[0]
-
-
-def _scan_block_ids(block: NBlock, result: list[int]) -> None:
-    for stmt in block.stmts:
-        _scan_stmt_ids(stmt, result)
-
-
-def _scan_stmt_ids(stmt: NStmt, result: list[int]) -> None:
-    if isinstance(stmt, NBind):
-        for sid in stmt.targets:
-            if sid._id > result[0]:
-                result[0] = sid._id
-        if stmt.expr is not None:
-            _scan_expr_ids(stmt.expr, result)
-    elif isinstance(stmt, NAssign):
-        for sid in stmt.targets:
-            if sid._id > result[0]:
-                result[0] = sid._id
-        _scan_expr_ids(stmt.expr, result)
-    elif isinstance(stmt, NExprEffect):
-        _scan_expr_ids(stmt.expr, result)
-    elif isinstance(stmt, NIf):
-        _scan_expr_ids(stmt.condition, result)
-        _scan_block_ids(stmt.then_body, result)
-    elif isinstance(stmt, NSwitch):
-        _scan_expr_ids(stmt.discriminant, result)
-        for case in stmt.cases:
-            _scan_block_ids(case.body, result)
-        if stmt.default is not None:
-            _scan_block_ids(stmt.default, result)
-    elif isinstance(stmt, NFor):
-        _scan_block_ids(stmt.init, result)
-        _scan_expr_ids(stmt.condition, result)
-        _scan_block_ids(stmt.post, result)
-        _scan_block_ids(stmt.body, result)
-    elif isinstance(stmt, NLeave):
-        pass
-    elif isinstance(stmt, NBlock):
-        _scan_block_ids(stmt, result)
-    elif isinstance(stmt, NFunctionDef):
-        if stmt.symbol_id._id > result[0]:
-            result[0] = stmt.symbol_id._id
-        for sid in stmt.params:
-            if sid._id > result[0]:
-                result[0] = sid._id
-        for sid in stmt.returns:
-            if sid._id > result[0]:
-                result[0] = sid._id
-        _scan_block_ids(stmt.body, result)
-
-
-def _scan_expr_ids(expr: NExpr, result: list[int]) -> None:
-    if isinstance(expr, NConst):
-        pass
-    elif isinstance(expr, NRef):
-        if expr.symbol_id._id > result[0]:
-            result[0] = expr.symbol_id._id
-    elif isinstance(expr, NBuiltinCall):
-        for a in expr.args:
-            _scan_expr_ids(a, result)
-    elif isinstance(expr, NLocalCall):
-        if expr.symbol_id._id > result[0]:
-            result[0] = expr.symbol_id._id
-        for a in expr.args:
-            _scan_expr_ids(a, result)
-    elif isinstance(expr, (NTopLevelCall, NUnresolvedCall)):
-        for a in expr.args:
-            _scan_expr_ids(a, result)
-    elif isinstance(expr, NIte):
-        _scan_expr_ids(expr.cond, result)
-        _scan_expr_ids(expr.if_true, result)
-        _scan_expr_ids(expr.if_false, result)
-
-
 # ---------------------------------------------------------------------------
-# Expression substitution
+# Expression substitution (via shared map_expr)
 # ---------------------------------------------------------------------------
 
 
@@ -158,63 +80,26 @@ def substitute_nexpr(
     subst: dict[SymbolId, NExpr],
 ) -> NExpr:
     """Replace ``NRef`` nodes according to *subst*."""
-    if isinstance(expr, NConst):
-        return expr
-    if isinstance(expr, NRef):
-        return subst.get(expr.symbol_id, expr)
-    if isinstance(expr, NBuiltinCall):
-        return NBuiltinCall(
-            op=expr.op,
-            args=tuple(substitute_nexpr(a, subst) for a in expr.args),
-        )
-    if isinstance(expr, NLocalCall):
-        return NLocalCall(
-            symbol_id=expr.symbol_id,
-            name=expr.name,
-            args=tuple(substitute_nexpr(a, subst) for a in expr.args),
-        )
-    if isinstance(expr, NTopLevelCall):
-        return NTopLevelCall(
-            name=expr.name,
-            args=tuple(substitute_nexpr(a, subst) for a in expr.args),
-        )
-    if isinstance(expr, NUnresolvedCall):
-        return NUnresolvedCall(
-            name=expr.name,
-            args=tuple(substitute_nexpr(a, subst) for a in expr.args),
-        )
-    if isinstance(expr, NIte):
-        return NIte(
-            cond=substitute_nexpr(expr.cond, subst),
-            if_true=substitute_nexpr(expr.if_true, subst),
-            if_false=substitute_nexpr(expr.if_false, subst),
-        )
-    assert_never(expr)
+
+    def rewrite(e: NExpr) -> NExpr:
+        if isinstance(e, NRef):
+            return subst.get(e.symbol_id, e)
+        return e
+
+    return map_expr(expr, rewrite)
 
 
 # ---------------------------------------------------------------------------
-# Collect referenced SymbolIds in an expression
+# Collect referenced SymbolIds (via shared for_each_expr)
 # ---------------------------------------------------------------------------
 
 
 def _collect_refs(expr: NExpr, out: set[SymbolId]) -> None:
-    if isinstance(expr, NConst):
-        pass
-    elif isinstance(expr, NRef):
-        out.add(expr.symbol_id)
-    elif isinstance(expr, NBuiltinCall):
-        for a in expr.args:
-            _collect_refs(a, out)
-    elif isinstance(expr, NLocalCall):
-        for a in expr.args:
-            _collect_refs(a, out)
-    elif isinstance(expr, (NTopLevelCall, NUnresolvedCall)):
-        for a in expr.args:
-            _collect_refs(a, out)
-    elif isinstance(expr, NIte):
-        _collect_refs(expr.cond, out)
-        _collect_refs(expr.if_true, out)
-        _collect_refs(expr.if_false, out)
+    def visit(e: NExpr) -> None:
+        if isinstance(e, NRef):
+            out.add(e.symbol_id)
+
+    for_each_expr(expr, visit)
 
 
 # ---------------------------------------------------------------------------
@@ -330,7 +215,7 @@ def _substitute_stmt(stmt: NStmt, subst: dict[SymbolId, NExpr]) -> NStmt:
         return stmt
     if isinstance(stmt, NExprEffect):
         return NExprEffect(expr=substitute_nexpr(stmt.expr, subst))
-    if isinstance(stmt, (NFor, NLeave, NSwitch)):
+    if isinstance(stmt, (NFor, NLeave, NSwitch, NStore)):
         return stmt
     assert_never(stmt)
 
@@ -603,7 +488,7 @@ def _process_pure_stmt(
     if isinstance(stmt, NLeave):
         return True
 
-    if isinstance(stmt, (NFor, NExprEffect, NSwitch)):
+    if isinstance(stmt, (NFor, NExprEffect, NSwitch, NStore)):
         raise ParseError(f"Unexpected {type(stmt).__name__} in pure helper body")
 
     assert_never(stmt)
@@ -758,6 +643,11 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
                 return result
         return [NExprEffect(expr=_inline_in_expr(stmt.expr, ctx, 0))]
 
+    if isinstance(stmt, NStore):
+        new_addr = _inline_in_expr(stmt.addr, ctx, 0)
+        new_value = _inline_in_expr(stmt.value, ctx, 0)
+        return [NStore(addr=new_addr, value=new_value)]
+
     if isinstance(stmt, NIf):
         new_cond = _inline_in_expr(stmt.condition, ctx, 0)
         new_body = _rewrite_block(stmt.then_body, ctx)
@@ -897,26 +787,6 @@ def _inline_uint512_from(
 # ---------------------------------------------------------------------------
 
 
-def _collect_all_fdefs(block: NBlock, out: dict[SymbolId, NFunctionDef]) -> None:
-    for stmt in block.stmts:
-        if isinstance(stmt, NFunctionDef):
-            out[stmt.symbol_id] = stmt
-            _collect_all_fdefs(stmt.body, out)
-        elif isinstance(stmt, NIf):
-            _collect_all_fdefs(stmt.then_body, out)
-        elif isinstance(stmt, NSwitch):
-            for case in stmt.cases:
-                _collect_all_fdefs(case.body, out)
-            if stmt.default is not None:
-                _collect_all_fdefs(stmt.default, out)
-        elif isinstance(stmt, NFor):
-            _collect_all_fdefs(stmt.init, out)
-            _collect_all_fdefs(stmt.post, out)
-            _collect_all_fdefs(stmt.body, out)
-        elif isinstance(stmt, NBlock):
-            _collect_all_fdefs(stmt, out)
-
-
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
@@ -933,10 +803,11 @@ def inline_pure_helpers(
     3. Recursively rewrite the body, inlining pure calls at all depths
     """
     classifications = classify_function_scope(func)
-    alloc = SymbolAllocator(_max_symbol_id_impl(func) + 1)
+    alloc = SymbolAllocator(max_symbol_id(func) + 1)
 
-    defs: dict[SymbolId, NFunctionDef] = {}
-    _collect_all_fdefs(func.body, defs)
+    defs: dict[SymbolId, NFunctionDef] = {
+        fdef.symbol_id: fdef for fdef in collect_function_defs(func.body)
+    }
 
     # Pre-normalize switch → if ONLY in pure helper bodies.
     # The outer function body and non-pure helpers are left untouched.
