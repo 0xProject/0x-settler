@@ -11698,6 +11698,26 @@ class InlinePureTest(unittest.TestCase):
         """)
         self.assertEqual(evaluate_normalized(nf, ()), (1,))
 
+    def test_switch_with_effectful_discriminant_not_duplicated(self) -> None:
+        """Switch in the outer function body must not have its discriminant
+        duplicated — pre-normalization only applies to pure helper bodies."""
+        yul = """
+            function f() -> z {
+                mstore(0, 0)
+                switch mstore(0, add(mload(0), 1))
+                case 0 { }
+                default { }
+                z := mload(0)
+            }
+        """
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        pre = evaluate_normalized(nf, ())
+        post = evaluate_normalized(inline_pure_helpers(nf), ())
+        self.assertEqual(pre, post)
+
 
 if __name__ == "__main__":
     unittest.main()

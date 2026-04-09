@@ -811,41 +811,35 @@ def inline_pure_helpers(
 ) -> NormalizedFunction:
     """Inline all pure helper calls in *func*.
 
-    1. Pre-normalize switch → nested-if in helper bodies
-    2. Classify helpers
+    1. Classify helpers on the unmodified body
+    2. Pre-normalize switch → nested-if ONLY in pure helper bodies
+       (the outer function and non-pure helpers are not touched)
     3. Recursively rewrite the body, inlining pure calls at all depths
     """
-    # Pre-normalize switches in helper bodies.
-    pre_body = _pre_normalize_block(func.body)
-    pre_func = NormalizedFunction(
-        name=func.name,
-        params=func.params,
-        param_names=func.param_names,
-        returns=func.returns,
-        return_names=func.return_names,
-        body=pre_body,
-    )
-
-    classifications = classify_function_scope(pre_func)
-    alloc = SymbolAllocator(_max_symbol_id_impl(pre_func) + 1)
+    classifications = classify_function_scope(func)
+    alloc = SymbolAllocator(_max_symbol_id_impl(func) + 1)
 
     defs: dict[SymbolId, NFunctionDef] = {}
-    _collect_all_fdefs(pre_body, defs)
-    # Also pre-normalize switch in collected defs.
+    _collect_all_fdefs(func.body, defs)
+
+    # Pre-normalize switch → if ONLY in pure helper bodies.
+    # The outer function body and non-pure helpers are left untouched.
     for sid in defs:
-        old = defs[sid]
-        defs[sid] = NFunctionDef(
-            name=old.name,
-            symbol_id=old.symbol_id,
-            params=old.params,
-            param_names=old.param_names,
-            returns=old.returns,
-            return_names=old.return_names,
-            body=_pre_normalize_block(old.body),
-        )
+        cls = classifications.get(sid)
+        if cls is not None and cls.is_pure:
+            old = defs[sid]
+            defs[sid] = NFunctionDef(
+                name=old.name,
+                symbol_id=old.symbol_id,
+                params=old.params,
+                param_names=old.param_names,
+                returns=old.returns,
+                return_names=old.return_names,
+                body=_pre_normalize_block(old.body),
+            )
 
     ctx = _InlineCtx(defs=defs, classifications=classifications, alloc=alloc)
-    new_body = _rewrite_block(pre_body, ctx)
+    new_body = _rewrite_block(func.body, ctx)
 
     return NormalizedFunction(
         name=func.name,
