@@ -189,15 +189,28 @@ private theorem kq_both_correct
     have hn_mod : evmMod ((res % 2 ^ 170) * 2 ^ 86 + limb_hi) d =
         ((res % 2 ^ 170) * 2 ^ 86 + limb_hi) % d :=
       evmMod_eq' _ d hn_evm_lt hd_pos hd_wm
-    -- Simplify evmNot 0 = WORD_MOD - 1
-    have hnot_eq : evmNot 0 = WORD_MOD - 1 :=
-      evmNot_eq' 0 (by unfold WORD_MOD; omega)
+    -- The generated model folds `evmNot 0` to the literal `2^256 - 1`.
+    have hword_pred :
+        (115792089237316195423570985008687907853269984665640564039457584007913129639935 : Nat) =
+        WORD_MOD - 1 := by
+      unfold WORD_MOD
+      omega
     have hnot_wm : WORD_MOD - 1 < WORD_MOD := by omega
     have hwm_div : evmDiv (WORD_MOD - 1) d = (WORD_MOD - 1) / d :=
       evmDiv_eq' _ d hnot_wm hd_pos hd_wm
     have hwm_mod : evmMod (WORD_MOD - 1) d = (WORD_MOD - 1) % d :=
       evmMod_eq' _ d hnot_wm hd_pos hd_wm
-    simp only [hn_div, hn_mod, hnot_eq, hwm_div, hwm_mod]
+    have hwm_div_lit :
+        evmDiv 115792089237316195423570985008687907853269984665640564039457584007913129639935 d =
+        (WORD_MOD - 1) / d := by
+      rw [hword_pred]
+      exact hwm_div
+    have hwm_mod_lit :
+        evmMod 115792089237316195423570985008687907853269984665640564039457584007913129639935 d =
+        (WORD_MOD - 1) % d := by
+      rw [hword_pred]
+      exact hwm_mod
+    simp only [hn_div, hn_mod, hwm_div_lit, hwm_mod_lit]
     -- evmAdd 1 ((WORD_MOD-1) % d) = 1 + (WORD_MOD-1) % d
     have hrw_lt : (WORD_MOD - 1) % d < d := Nat.mod_lt _ hd_pos
     have hrw_wm : (WORD_MOD - 1) % d < WORD_MOD := Nat.lt_of_lt_of_le hrw_lt (by omega)
@@ -206,7 +219,6 @@ private theorem kq_both_correct
       Nat.lt_of_le_of_lt (by omega : 1 + (WORD_MOD - 1) % d ≤ d) hd_wm
     have hadd_1_rw : evmAdd 1 ((WORD_MOD - 1) % d) = 1 + (WORD_MOD - 1) % d :=
       evmAdd_eq' 1 _ h1_wm hrw_wm h1rw_sum
-    simp only [hadd_1_rw]
     -- evmAdd (n_evm%d) (1 + (WORD_MOD-1)%d) = remainder_sum
     have hr0_lt : ((res % 2 ^ 170) * 2 ^ 86 + limb_hi) % d < d := Nat.mod_lt _ hd_pos
     have hr0_wm : ((res % 2 ^ 170) * 2 ^ 86 + limb_hi) % d < WORD_MOD :=
@@ -216,7 +228,6 @@ private theorem kq_both_correct
     have hstep2 : evmAdd (((res % 2 ^ 170) * 2 ^ 86 + limb_hi) % d) (1 + (WORD_MOD - 1) % d) =
         ((res % 2 ^ 170) * 2 ^ 86 + limb_hi) % d + (1 + (WORD_MOD - 1) % d) :=
       evmAdd_eq' _ _ hr0_wm h1rw_sum hR_sum
-    simp only [hstep2]
     -- evmDiv/evmMod on remainder_sum
     have hR_lt2d : ((res % 2 ^ 170) * 2 ^ 86 + limb_hi) % d + (1 + (WORD_MOD - 1) % d) < 2 * d := by omega
     have hR_wm := hR_sum
@@ -226,7 +237,6 @@ private theorem kq_both_correct
     have hmod_R : evmMod (((res % 2 ^ 170) * 2 ^ 86 + limb_hi) % d + (1 + (WORD_MOD - 1) % d)) d =
         (((res % 2 ^ 170) * 2 ^ 86 + limb_hi) % d + (1 + (WORD_MOD - 1) % d)) % d :=
       evmMod_eq' _ d hR_wm hd_pos hd_wm
-    simp only [hdiv_R, hmod_R]
     -- evmAdd (n_evm/d) ((WORD_MOD-1)/d) = quotient_sum
     have hq0_wm : ((res % 2 ^ 170) * 2 ^ 86 + limb_hi) / d < WORD_MOD :=
       Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hn_evm_lt
@@ -245,7 +255,6 @@ private theorem kq_both_correct
     have hstep1 : evmAdd (((res % 2 ^ 170) * 2 ^ 86 + limb_hi) / d) ((WORD_MOD - 1) / d) =
         ((res % 2 ^ 170) * 2 ^ 86 + limb_hi) / d + (WORD_MOD - 1) / d :=
       evmAdd_eq' _ _ hq0_wm hqw_wm hq0qw_sum
-    simp only [hstep1]
     -- evmAdd quotient_sum (remainder_sum / d) = final result
     have hR_div_le1 : (((res % 2 ^ 170) * 2 ^ 86 + limb_hi) % d + (1 + (WORD_MOD - 1) % d)) / d ≤ 1 :=
       Nat.lt_succ_iff.mp ((Nat.div_lt_iff_lt_mul hd_pos).mpr hR_lt2d)
@@ -259,7 +268,6 @@ private theorem kq_both_correct
         ((res % 2 ^ 170) * 2 ^ 86 + limb_hi) / d + (WORD_MOD - 1) / d +
         (((res % 2 ^ 170) * 2 ^ 86 + limb_hi) % d + (1 + (WORD_MOD - 1) % d)) / d :=
       evmAdd_eq' _ _ hq0qw_sum hR_div_wm hfinal_sum
-    simp only [hstep3]
     -- === Now the goal is pure Nat: show these equal n_full / d and n_full % d ===
     have hn_full_decomp : res * 2 ^ 86 + limb_hi =
         d * (((res % 2 ^ 170) * 2 ^ 86 + limb_hi) / d + (WORD_MOD - 1) / d) +
@@ -268,8 +276,11 @@ private theorem kq_both_correct
       have h1 := (Nat.div_add_mod ((res % 2 ^ 170) * 2 ^ 86 + limb_hi) d).symm
       have h2 := (Nat.div_add_mod (WORD_MOD - 1) d).symm
       rw [Nat.mul_add]; omega
-    rw [hn_full_decomp]
-    exact ⟨(div_of_mul_add d _ _ hd_pos).symm, (mod_of_mul_add d _ _ hd_pos).symm⟩
+    refine ⟨?_, ?_⟩
+    · rw [hadd_1_rw, hstep2, hdiv_R, hstep1, hstep3, hn_full_decomp]
+      exact (div_of_mul_add d _ _ hd_pos).symm
+    · rw [hadd_1_rw, hstep2, hmod_R, hn_full_decomp]
+      exact (mod_of_mul_add d _ _ hd_pos).symm
   · -- === NO-CARRY CASE: res / 2^170 = 0 ===
     next hc_not =>
     have hc_zero : res / 2 ^ 170 = 0 := Decidable.byContradiction hc_not

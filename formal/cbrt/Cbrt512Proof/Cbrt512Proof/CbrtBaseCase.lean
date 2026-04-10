@@ -346,9 +346,8 @@ theorem model_cbrtBaseCase_evm_correct (x_hi_1 : Nat)
       rw [show (2 : Nat) ^ 85 * 2 ^ 85 = 2 ^ 170 from by rw [← Nat.pow_add], ← Nat.pow_add]
     unfold WORD_MOD; omega
   -- ======== Shift lemma ========
-  have hshift : evmShr (evmAnd (evmAnd 2 255) 255) x_hi_1 = w := by
-    have : evmAnd (evmAnd 2 255) 255 = 2 := baseCaseShiftMask_eq_two
-    rw [this]; exact evmShr_eq' 2 x_hi_1 (by omega) hx_hi
+  have hshift : evmShr 2 x_hi_1 = w := by
+    exact evmShr_eq' 2 x_hi_1 (by omega) hx_hi
   -- ======== EVM bridge: z6² and z6³ ========
   have hevmMul_z6z6 : evmMul z6 z6 = z6 * z6 := by
     rw [evmMul_eq' z6 z6 hz6_wm hz6_wm, Nat.mod_eq_of_lt hz6z6_wm]

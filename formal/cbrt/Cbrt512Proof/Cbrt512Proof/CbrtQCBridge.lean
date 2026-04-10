@@ -14,6 +14,10 @@ open Cbrt512GeneratedModel
 -- QC helper lemmas
 -- ============================================================================
 
+private theorem pow86_lit :
+    (77371252455336267181195264 : Nat) = 2 ^ 86 := by
+  native_decide
+
 /-- Bitwise OR of two values ≤ 1 is ≤ 1. -/
 theorem or_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) : a ||| b ≤ 1 := by
   have : a = 0 ∨ a = 1 := by omega
@@ -258,28 +262,119 @@ theorem model_cbrtQuadraticCorrection_evm_correct
           hmod_lt, heps3_wm, hEps3_eq, hSub_eq, hGt_eq⟩ :=
     qc_evm_setup r_hi r_lo hr_hi hr_lo hr_hi_pos hr_hi_bound hr_lo_bound
   let c := r_lo * r_lo / (r_hi * 2 ^ 86)
+  have hR_eq_lit : evmShl 86 r_hi = r_hi * 2 ^ 86 := by
+    rw [evmShl_eq' 86 r_hi (by omega) hr_hi]
+    exact Nat.mod_eq_of_lt hR_wm
   -- Unfold model and simplify
   unfold model_cbrtQuadraticCorrection_evm
   simp only [u256_id' r_hi hr_hi, u256_id' r_lo hr_lo, u256_id' rem hrem,
-             hR_eq, hSq_eq, hC_eq, hCR_eq, hResid_eq, hEps3_eq, hSub_eq, hGt_eq]
+             hR_eq_lit, hSq_eq, hC_eq, hCR_eq, hResid_eq, hEps3_eq, hSub_eq, hGt_eq]
   -- Case split on c > 1
   by_cases hcgt : c > 1
   · -- Case c > 1: undershoot fires, result = R + (r_lo - c) + u where u ≤ 1
-    rw [if_pos hcgt, if_pos (show (1 : Nat) ≠ 0 from by omega)]
-    have h_us_le := qc_undershoot_le_one
-        ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) rem r_hi
-    generalize evmOr _ _ = us at h_us_le ⊢
+    have hcgt_lit : 1 < r_lo * r_lo / (r_hi * 77371252455336267181195264) := by
+      simpa [c, pow86_lit] using hcgt
+    have hsub_lit :
+        r_lo - r_lo * r_lo / (r_hi * 77371252455336267181195264) = r_lo - c := by
+      simp [c, pow86_lit]
+    simp [pow86_lit, hcgt_lit]
+    let us : Nat :=
+      evmOr
+        (evmLt (evmShr 86 (r_lo * r_lo % (r_hi * 77371252455336267181195264) * 3)) (evmShr 86 rem))
+        (evmAnd
+          (evmEq (evmShr 86 (r_lo * r_lo % (r_hi * 77371252455336267181195264) * 3)) (evmShr 86 rem))
+          (evmLt
+            (evmMul (evmAnd (r_lo * r_lo % (r_hi * 77371252455336267181195264) * 3) 77371252455336267181195263) r_hi)
+            (evmShl 86 (evmAnd rem 77371252455336267181195263))))
+    have hus_rw :
+        us =
+          evmOr
+            (evmLt (evmShr (evmAnd (evmAnd 86 255) 255) ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3))
+                (evmShr (evmAnd (evmAnd 86 255) 255) rem))
+            (evmAnd
+              (evmEq (evmShr (evmAnd (evmAnd 86 255) 255) ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3))
+                  (evmShr (evmAnd (evmAnd 86 255) 255) rem))
+              (evmLt
+                (evmMul (evmAnd ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) 77371252455336267181195263) r_hi)
+                (evmShl (evmAnd (evmAnd 86 255) 255) (evmAnd rem 77371252455336267181195263)))) := by
+      unfold us
+      simp [pow86_lit, qc_const_86]
+    have h_us_le : us ≤ 1 := by
+      rw [hus_rw]
+      exact qc_undershoot_le_one ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) rem r_hi
     have h_rloc_wm : r_lo - c < WORD_MOD := Nat.lt_of_le_of_lt (Nat.sub_le _ _) hr_lo
-    have h_us_wm : us < WORD_MOD := by unfold WORD_MOD; omega
-    have h_inner : r_lo - c + us < WORD_MOD := by unfold WORD_MOD; omega
-    rw [evmAdd_eq' _ _ h_rloc_wm h_us_wm h_inner,
-        evmAdd_eq' _ _ hR_wm h_inner (by unfold WORD_MOD; omega)]
-    refine ⟨by omega, by omega, by unfold WORD_MOD; omega⟩
+    have h_rloc_wm' :
+        r_lo - r_lo * r_lo / (r_hi * 2 ^ 86) < WORD_MOD := by
+      simpa [c] using h_rloc_wm
+    have h_us_wm : us < WORD_MOD := by
+      unfold WORD_MOD
+      omega
+    have h_inner : r_lo - c + us < WORD_MOD := by
+      unfold WORD_MOD
+      omega
+    have h_inner' : r_lo - r_lo * r_lo / (r_hi * 2 ^ 86) + us < WORD_MOD := by
+      simpa [c] using h_inner
+    have h_add_inner :
+        evmAdd (r_lo - r_lo * r_lo / (r_hi * 2 ^ 86)) us =
+        r_lo - r_lo * r_lo / (r_hi * 2 ^ 86) + us := by
+      exact evmAdd_eq' _ _ h_rloc_wm' h_us_wm h_inner'
+    have h_add_outer :
+        evmAdd (r_hi * 77371252455336267181195264)
+            (r_lo - r_lo * r_lo / (r_hi * 77371252455336267181195264) + us) =
+        r_hi * 77371252455336267181195264 +
+            (r_lo - r_lo * r_lo / (r_hi * 77371252455336267181195264) + us) := by
+      simpa [pow86_lit] using
+        (evmAdd_eq' _ _ hR_wm h_inner' (by unfold WORD_MOD; omega))
+    rw [h_add_inner, h_add_outer, hsub_lit]
+    refine ⟨by
+        simpa [pow86_lit, c] using
+          (show r_hi * 77371252455336267181195264 + r_lo ≤
+              r_hi * 77371252455336267181195264 +
+                (r_lo - c +
+                  evmOr
+                    (evmLt (evmShr 86 (r_lo * r_lo % (r_hi * 77371252455336267181195264) * 3)) (evmShr 86 rem))
+                    (evmAnd
+                      (evmEq (evmShr 86 (r_lo * r_lo % (r_hi * 77371252455336267181195264) * 3)) (evmShr 86 rem))
+                      (evmLt
+                        (evmMul (evmAnd (r_lo * r_lo % (r_hi * 77371252455336267181195264) * 3) 77371252455336267181195263) r_hi)
+                        (evmShl 86 (evmAnd rem 77371252455336267181195263))))) + c by
+            omega),
+      by
+        simpa [pow86_lit, c] using
+          (show r_hi * 77371252455336267181195264 +
+              (r_lo - c +
+                evmOr
+                  (evmLt (evmShr 86 (r_lo * r_lo % (r_hi * 77371252455336267181195264) * 3)) (evmShr 86 rem))
+                  (evmAnd
+                    (evmEq (evmShr 86 (r_lo * r_lo % (r_hi * 77371252455336267181195264) * 3)) (evmShr 86 rem))
+                    (evmLt
+                      (evmMul (evmAnd (r_lo * r_lo % (r_hi * 77371252455336267181195264) * 3) 77371252455336267181195263) r_hi)
+                      (evmShl 86 (evmAnd rem 77371252455336267181195263))))) ≤
+              r_hi * 77371252455336267181195264 + r_lo - c + 1 by
+            omega),
+      by unfold WORD_MOD; omega⟩
   · -- Case c ≤ 1: no undershoot, result = R + (r_lo - c)
-    rw [if_neg hcgt, if_neg (fun h : (0 : Nat) ≠ 0 => h rfl)]
+    have hnotgt_lit : ¬ 1 < r_lo * r_lo / (r_hi * 77371252455336267181195264) := by
+      simpa [c, pow86_lit] using hcgt
+    have hsub_lit :
+        r_lo - r_lo * r_lo / (r_hi * 77371252455336267181195264) = r_lo - c := by
+      simp [c, pow86_lit]
+    simp [pow86_lit, hnotgt_lit]
     have h_rloc_wm : r_lo - c < WORD_MOD := Nat.lt_of_le_of_lt (Nat.sub_le _ _) hr_lo
-    rw [evmAdd_eq' _ _ hR_wm h_rloc_wm (by unfold WORD_MOD; omega)]
-    refine ⟨by omega, by omega, by unfold WORD_MOD; omega⟩
+    have h_rloc_wm' :
+        r_lo - r_lo * r_lo / (r_hi * 2 ^ 86) < WORD_MOD := by
+      simpa [c] using h_rloc_wm
+    have h_add_outer :
+        evmAdd (r_hi * 77371252455336267181195264)
+            (r_lo - r_lo * r_lo / (r_hi * 77371252455336267181195264)) =
+        r_hi * 77371252455336267181195264 +
+            (r_lo - r_lo * r_lo / (r_hi * 77371252455336267181195264)) := by
+      simpa [pow86_lit] using
+        (evmAdd_eq' _ _ hR_wm h_rloc_wm' (by unfold WORD_MOD; omega))
+    rw [h_add_outer, hsub_lit]
+    refine ⟨by simpa [pow86_lit, c] using (show r_hi * 77371252455336267181195264 + r_lo ≤ r_hi * 77371252455336267181195264 + (r_lo - c) + c by omega),
+      by simpa [pow86_lit, c] using (show r_hi * 77371252455336267181195264 + (r_lo - c) ≤ r_hi * 77371252455336267181195264 + r_lo - c + 1 by omega),
+      by unfold WORD_MOD; omega⟩
 
 /-- When c ≤ 1, the QC returns exactly r_qc (no undershoot correction). -/
 theorem model_cbrtQuadraticCorrection_evm_exact_when_c_le1
@@ -296,15 +391,43 @@ theorem model_cbrtQuadraticCorrection_evm_exact_when_c_le1
           _, _, hEps3_eq, hSub_eq, hGt_eq⟩ :=
     qc_evm_setup r_hi r_lo hr_hi hr_lo hr_hi_pos hr_hi_bound hr_lo_bound
   let c := r_lo * r_lo / (r_hi * 2 ^ 86)
+  have hR_eq_lit : evmShl 86 r_hi = r_hi * 2 ^ 86 := by
+    rw [evmShl_eq' 86 r_hi (by omega) hr_hi]
+    exact Nat.mod_eq_of_lt hR_wm
   -- Unfold and simplify
   unfold model_cbrtQuadraticCorrection_evm
   simp only [u256_id' r_hi hr_hi, u256_id' r_lo hr_lo, u256_id' rem hrem,
-             hR_eq, hSq_eq, hC_eq, hCR_eq, hResid_eq, hEps3_eq, hSub_eq, hGt_eq]
+             hR_eq_lit, hSq_eq, hC_eq, hCR_eq, hResid_eq, hEps3_eq, hSub_eq, hGt_eq]
   -- c ≤ 1: the if-branch is NOT taken
-  rw [if_neg (by omega : ¬(c > 1)), if_neg (fun h : (0 : Nat) ≠ 0 => h rfl)]
+  have hcgt : ¬c > 1 := by omega
+  have hnotgt_lit : ¬ 1 < r_lo * r_lo / (r_hi * 77371252455336267181195264) := by
+    simpa [c, pow86_lit] using hcgt
+  have hsub_lit :
+      r_lo - r_lo * r_lo / (r_hi * 77371252455336267181195264) = r_lo - c := by
+    simp [c, pow86_lit]
+  simp [pow86_lit, hnotgt_lit]
   have h_rloc_wm : r_lo - c < WORD_MOD := Nat.lt_of_le_of_lt (Nat.sub_le _ _) hr_lo
-  rw [evmAdd_eq' _ _ hR_wm h_rloc_wm (by unfold WORD_MOD; omega)]
-  omega
+  have h_rloc_wm' :
+      r_lo - r_lo * r_lo / (r_hi * 2 ^ 86) < WORD_MOD := by
+    simpa [c] using h_rloc_wm
+  have h_add_outer :
+      evmAdd (r_hi * 77371252455336267181195264)
+          (r_lo - r_lo * r_lo / (r_hi * 77371252455336267181195264)) =
+      r_hi * 77371252455336267181195264 +
+          (r_lo - r_lo * r_lo / (r_hi * 77371252455336267181195264)) := by
+    simpa [pow86_lit] using
+      (evmAdd_eq' _ _ hR_wm h_rloc_wm' (by unfold WORD_MOD; omega))
+  rw [h_add_outer, hsub_lit]
+  have hcorr_le :
+      r_lo * r_lo / (r_hi * 77371252455336267181195264) ≤ r_lo := by
+    simpa [c, pow86_lit] using hc_le
+  have hrhs_assoc :
+    r_hi * 77371252455336267181195264 + r_lo -
+        r_lo * r_lo / (r_hi * 77371252455336267181195264) =
+      r_hi * 77371252455336267181195264 +
+        (r_lo - r_lo * r_lo / (r_hi * 77371252455336267181195264)) := by
+    simpa using (Nat.add_sub_assoc hcorr_le (r_hi * 77371252455336267181195264))
+  rw [hrhs_assoc, hsub_lit]
 
 /-- Standalone QC bridge for the `c > 1`, `check = 0` branch: if the model
     returns exactly `r_qc`, the Karatsuba remainder is bounded by the scaled
@@ -328,12 +451,20 @@ theorem model_cbrtQuadraticCorrection_evm_rem_bound_when_c_gt1_exact
           hmod_lt, heps3_wm, hEps3_eq, hSub_eq, hGt_eq⟩ :=
     qc_evm_setup r_hi r_lo hr_hi hr_lo hr_hi_pos hr_hi_bound hr_lo_bound
   let c := r_lo * r_lo / (r_hi * 2 ^ 86)
+  have hR_eq_lit : evmShl 86 r_hi = r_hi * 2 ^ 86 := by
+    rw [evmShl_eq' 86 r_hi (by omega) hr_hi]
+    exact Nat.mod_eq_of_lt hR_wm
   have hShr_eps3 : evmShr (evmAnd (evmAnd 86 255) 255)
       ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) =
       ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) / 2 ^ 86 := by
     rw [qc_const_86, evmShr_eq' 86 _ (by omega) heps3_wm]
+  have hShr_eps3_lit : evmShr 86 ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) =
+      ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) / 2 ^ 86 := by
+    simpa using hShr_eps3
   have hShr_rem : evmShr (evmAnd (evmAnd 86 255) 255) rem = rem / 2 ^ 86 := by
     rw [qc_const_86, evmShr_eq' 86 rem (by omega) hrem]
+  have hShr_rem_lit : evmShr 86 rem = rem / 2 ^ 86 := by
+    simpa using hShr_rem
   have heps3_hi_wm : ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) / 2 ^ 86 < WORD_MOD :=
     Nat.lt_of_le_of_lt (Nat.div_le_self _ _) heps3_wm
   have hrem_hi_wm : rem / 2 ^ 86 < WORD_MOD := by
@@ -379,6 +510,8 @@ theorem model_cbrtQuadraticCorrection_evm_rem_bound_when_c_gt1_exact
       unfold WORD_MOD
       omega
     exact Nat.mod_eq_of_lt this
+  have hShl_rem_lit : evmShl 86 (rem % 2 ^ 86) = (rem % 2 ^ 86) * 2 ^ 86 := by
+    simpa using hShl_rem
   have hprod_rem_wm : (rem % 2 ^ 86) * 2 ^ 86 < WORD_MOD := by
     calc (rem % 2 ^ 86) * 2 ^ 86
         < 2 ^ 86 * 2 ^ 86 := Nat.mul_lt_mul_of_pos_right
@@ -393,9 +526,14 @@ theorem model_cbrtQuadraticCorrection_evm_rem_bound_when_c_gt1_exact
     evmLt_eq' _ _ hprod_eps3_wm hprod_rem_wm
   unfold model_cbrtQuadraticCorrection_evm at hr_exact
   simp only [u256_id' r_hi hr_hi, u256_id' r_lo hr_lo, u256_id' rem hrem,
-             hR_eq, hSq_eq, hC_eq, hCR_eq, hResid_eq, hEps3_eq, hSub_eq, hGt_eq] at hr_exact
-  rw [if_pos hc_gt1, if_pos (show (1 : Nat) ≠ 0 from by omega)] at hr_exact
-  rw [hShr_eps3, hShr_rem, hLt_hi, hAnd_eps3, hAnd_rem, hMul_lo, hShl_rem, hLt_lo,
+             hR_eq_lit, hSq_eq, hC_eq, hCR_eq, hResid_eq, hEps3_eq, hSub_eq, hGt_eq] at hr_exact
+  have hcgt_lit : 1 < r_lo * r_lo / (r_hi * 77371252455336267181195264) := by
+    simpa [c, pow86_lit] using hc_gt1
+  have hsub_lit :
+      r_lo - r_lo * r_lo / (r_hi * 77371252455336267181195264) = r_lo - c := by
+    simp [c, pow86_lit]
+  simp [pow86_lit, hcgt_lit] at hr_exact
+  rw [hShr_eps3_lit, hShr_rem_lit, hLt_hi, hAnd_eps3, hAnd_rem, hMul_lo, hShl_rem_lit, hLt_lo,
       hEq_hi] at hr_exact
   rw [evmAnd_eq'
       (if ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0)
@@ -437,9 +575,14 @@ theorem model_cbrtQuadraticCorrection_evm_rem_bound_when_c_gt1_exact
     have hc_ge2 : 2 ≤ c := hc_gt1
     unfold WORD_MOD
     omega
+  rw [hsub_lit] at hr_exact
   rw [evmAdd_eq' _ _ h_rloc_wm hcheck_wm h_inner,
       evmAdd_eq' _ _ hR_wm h_inner (by unfold WORD_MOD; omega)] at hr_exact
-  have hcheck_eq_zero : check = 0 := by omega
+  have hr_exact_nat :
+      r_hi * 2 ^ 86 + (r_lo - c + check) = r_hi * 2 ^ 86 + r_lo - c := by
+    simpa [pow86_lit, c] using hr_exact
+  have hcheck_eq_zero : check = 0 := by
+    omega
   have hcases := qc_check_zero_cases ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) rem r_hi (by
     simpa [hcheck] using hcheck_eq_zero)
   have hr_hi_le : r_hi ≤ 2 ^ 86 := by
