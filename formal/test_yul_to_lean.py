@@ -10596,11 +10596,10 @@ class NormalizeStructureTest(unittest.TestCase):
 
     def test_builtin_call_produces_nbuiltincall(self) -> None:
         nf = self._normalize("function f(x) -> z { z := add(x, 1) }")
-        assign = nf.body.stmts[0]
-        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
         self.assertIsInstance(assign.expr, norm_ir.NBuiltinCall)
-        call = assign.expr
-        assert isinstance(call, norm_ir.NBuiltinCall)
+        call = cast(norm_ir.NBuiltinCall, assign.expr)
         self.assertEqual(call.op, "add")
         self.assertEqual(len(call.args), 2)
 
@@ -10612,18 +10611,17 @@ class NormalizeStructureTest(unittest.TestCase):
             }
         """)
         # body has: NFunctionDef(g), NAssign(z := g(x))
-        assign = nf.body.stmts[1]
-        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(nf.body.stmts[1], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[1])
         self.assertIsInstance(assign.expr, norm_ir.NLocalCall)
-        call = assign.expr
-        assert isinstance(call, norm_ir.NLocalCall)
+        call = cast(norm_ir.NLocalCall, assign.expr)
         self.assertEqual(call.name, "g")
 
     def test_if_statement_produces_nif(self) -> None:
         nf = self._normalize("function f(x) -> z { if x { z := 1 } }")
         stmt = nf.body.stmts[0]
         self.assertIsInstance(stmt, norm_ir.NIf)
-        assert isinstance(stmt, norm_ir.NIf)
+        stmt = cast(norm_ir.NIf, stmt)
         self.assertIsInstance(stmt.condition, norm_ir.NRef)
         self.assertEqual(len(stmt.then_body.stmts), 1)
 
@@ -10637,7 +10635,7 @@ class NormalizeStructureTest(unittest.TestCase):
         """)
         stmt = nf.body.stmts[0]
         self.assertIsInstance(stmt, norm_ir.NSwitch)
-        assert isinstance(stmt, norm_ir.NSwitch)
+        stmt = cast(norm_ir.NSwitch, stmt)
         self.assertEqual(len(stmt.cases), 1)
         self.assertIsNotNone(stmt.default)
 
@@ -10650,7 +10648,7 @@ class NormalizeStructureTest(unittest.TestCase):
         """)
         fdef = nf.body.stmts[0]
         self.assertIsInstance(fdef, norm_ir.NFunctionDef)
-        assert isinstance(fdef, norm_ir.NFunctionDef)
+        fdef = cast(norm_ir.NFunctionDef, fdef)
         self.assertEqual(fdef.name, "g")
         self.assertEqual(len(fdef.params), 1)
         self.assertEqual(len(fdef.returns), 1)
@@ -11161,8 +11159,8 @@ class InlinePureTest(unittest.TestCase):
             }
         """)
         # After inlining, z's expression should be an NIte.
-        assign = nf.body.stmts[-1]
-        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(nf.body.stmts[-1], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[-1])
         self.assertIsInstance(assign.expr, norm_ir.NIte)
         # Verify semantics.
         self.assertEqual(evaluate_normalized(nf, (0,)), (0,))
@@ -11176,8 +11174,8 @@ class InlinePureTest(unittest.TestCase):
                 z := g()
             }
         """)
-        assign = nf.body.stmts[-1]
-        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(nf.body.stmts[-1], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[-1])
         # Should be NConst(7), not NIte.
         self.assertIsInstance(assign.expr, norm_ir.NConst)
         self.assertEqual(evaluate_normalized(nf, ()), (7,))
@@ -11205,8 +11203,8 @@ class InlinePureTest(unittest.TestCase):
             }
         """)
         # g() is deferred (memory effect) — should remain as NExprEffect(NLocalCall).
-        effect_stmt = nf.body.stmts[1]
-        assert isinstance(effect_stmt, norm_ir.NExprEffect)
+        self.assertIsInstance(nf.body.stmts[1], norm_ir.NExprEffect)
+        effect_stmt = cast(norm_ir.NExprEffect, nf.body.stmts[1])
         self.assertIsInstance(effect_stmt.expr, norm_ir.NLocalCall)
 
     def test_simultaneous_multi_assignment_preserved(self) -> None:
@@ -11307,10 +11305,10 @@ class InlinePureTest(unittest.TestCase):
         self.assertEqual(evaluate_normalized(nf, (0,)), (0,))
         self.assertEqual(evaluate_normalized(nf, (5,)), (6,))
         # Verify g is actually inlined (no NLocalCall remaining).
-        if_stmt = nf.body.stmts[-1]
-        assert isinstance(if_stmt, norm_ir.NIf)
-        assign = if_stmt.then_body.stmts[0]
-        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(nf.body.stmts[-1], norm_ir.NIf)
+        if_stmt = cast(norm_ir.NIf, nf.body.stmts[-1])
+        self.assertIsInstance(if_stmt.then_body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, if_stmt.then_body.stmts[0])
         self.assertNotIsInstance(assign.expr, norm_ir.NLocalCall)
 
     def test_multi_case_switch_inlines_correctly(self) -> None:
@@ -11452,15 +11450,15 @@ class ConstPropTest(unittest.TestCase):
     def test_fold_constant_arithmetic(self) -> None:
         """add(3, 4) folds to NConst(7)."""
         nf = self._prop("function f() -> z { z := add(3, 4) }")
-        assign = nf.body.stmts[0]
-        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
         self.assertEqual(assign.expr, norm_ir.NConst(7))
 
     def test_propagate_through_variable(self) -> None:
         """let x := 3; z := add(x, 1) → z := NConst(4)."""
         nf = self._prop("function f() -> z { let x := 3  z := add(x, 1) }")
-        assign = nf.body.stmts[1]
-        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(nf.body.stmts[1], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[1])
         self.assertEqual(assign.expr, norm_ir.NConst(4))
 
     def test_dead_branch_eliminated(self) -> None:
@@ -11473,8 +11471,8 @@ class ConstPropTest(unittest.TestCase):
         """if 1 { z := 7 } flattened to z := 7."""
         nf = self._prop("function f() -> z { if 1 { z := 7 } }")
         self.assertEqual(len(nf.body.stmts), 1)
-        assign = nf.body.stmts[0]
-        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
         self.assertEqual(assign.expr, norm_ir.NConst(7))
 
     def test_switch_constant_fold(self) -> None:
@@ -11489,8 +11487,8 @@ class ConstPropTest(unittest.TestCase):
         """)
         # Only the matching case body should remain.
         self.assertEqual(len(nf.body.stmts), 1)
-        assign = nf.body.stmts[0]
-        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
         self.assertEqual(assign.expr, norm_ir.NConst(20))
 
     def test_invalidation_at_conditional_join(self) -> None:
@@ -11503,8 +11501,8 @@ class ConstPropTest(unittest.TestCase):
             }
         """)
         # z := y should NOT be folded to a constant (y is path-dependent).
-        assign = nf.body.stmts[2]
-        assert isinstance(assign, norm_ir.NAssign)
+        self.assertIsInstance(nf.body.stmts[2], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[2])
         self.assertIsInstance(assign.expr, norm_ir.NRef)
 
     def test_nite_constant_fold(self) -> None:
@@ -11546,10 +11544,11 @@ class ConstPropTest(unittest.TestCase):
             }
         """)
         # The mstore arg should be folded to NConst(7).
-        effect = nf.body.stmts[0]
-        assert isinstance(effect, norm_ir.NExprEffect)
-        assert isinstance(effect.expr, norm_ir.NBuiltinCall)
-        self.assertEqual(effect.expr.args[1], norm_ir.NConst(7))
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NExprEffect)
+        effect = cast(norm_ir.NExprEffect, nf.body.stmts[0])
+        self.assertIsInstance(effect.expr, norm_ir.NBuiltinCall)
+        effect_call = cast(norm_ir.NBuiltinCall, effect.expr)
+        self.assertEqual(effect_call.args[1], norm_ir.NConst(7))
         self.assertEqual(evaluate_normalized(nf, (), memory={}), (7,))
 
     def test_for_loop_invalidates_modified_vars(self) -> None:
@@ -11608,7 +11607,7 @@ class ConstPropTest(unittest.TestCase):
 
         assign = find_last_assign(nf.body)
         self.assertIsNotNone(assign)
-        assert assign is not None
+        assign = cast(norm_ir.NAssign, assign)
         self.assertEqual(assign.expr, norm_ir.NConst(15))
 
     def test_function_def_preserved(self) -> None:
@@ -11632,12 +11631,13 @@ class ConstPropTest(unittest.TestCase):
             }
         """)
         # add(2, 3) should be folded to NConst(5) inside the loop body.
-        for_stmt = nf.body.stmts[0]
-        assert isinstance(for_stmt, norm_ir.NFor)
-        assign = for_stmt.body.stmts[0]
-        assert isinstance(assign, norm_ir.NAssign)
-        assert isinstance(assign.expr, norm_ir.NBuiltinCall)
-        self.assertEqual(assign.expr.args[1], norm_ir.NConst(5))
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NFor)
+        for_stmt = cast(norm_ir.NFor, nf.body.stmts[0])
+        self.assertIsInstance(for_stmt.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, for_stmt.body.stmts[0])
+        self.assertIsInstance(assign.expr, norm_ir.NBuiltinCall)
+        assign_call = cast(norm_ir.NBuiltinCall, assign.expr)
+        self.assertEqual(assign_call.args[1], norm_ir.NConst(5))
 
 
 class InlineArchitectureTest(unittest.TestCase):
@@ -12550,7 +12550,7 @@ class SSAModelTest(unittest.TestCase):
                 first_z = s
                 break
         self.assertIsNotNone(first_z)
-        assert first_z is not None
+        first_z = cast(ytl.Assignment, first_z)
         self.assertEqual(first_z.expr, ytl.IntLit(0))
 
     def test_memory_resolved_uint512(self) -> None:
@@ -12736,7 +12736,8 @@ class SSAModelTest(unittest.TestCase):
 
     def test_nested_untaken_branch_model_call(self) -> None:
         """Untaken branch with model call must not be eagerly evaluated."""
-        models = self._module_to_models("""
+        models = self._module_to_models(
+            """
             function good() -> r { r := 7 }
             function f(x, y) -> z {
                 if x {
@@ -12744,7 +12745,10 @@ class SSAModelTest(unittest.TestCase):
                     z := good()
                 }
             }
-        """, ("f", "good"), exact_yul_names={"f": "f", "good": "good"})
+        """,
+            ("f", "good"),
+            exact_yul_names={"f": "f", "good": "good"},
+        )
         # f(1, 0): outer if taken, inner if NOT taken, z := good() = 7
         self.assertEqual(
             ytl.evaluate_function_model(models["f"], (1, 0), model_table=models),
@@ -12758,7 +12762,8 @@ class SSAModelTest(unittest.TestCase):
 
     def test_nested_model_call_both_branches(self) -> None:
         """Model calls in both nested branches must eval correctly."""
-        models = self._module_to_models("""
+        models = self._module_to_models(
+            """
             function g() -> r { r := 10 }
             function h() -> r { r := 20 }
             function f(x, y) -> z {
@@ -12768,7 +12773,10 @@ class SSAModelTest(unittest.TestCase):
                     default { z := h() }
                 }
             }
-        """, ("f", "g", "h"), exact_yul_names={"f": "f", "g": "g", "h": "h"})
+        """,
+            ("f", "g", "h"),
+            exact_yul_names={"f": "f", "g": "g", "h": "h"},
+        )
         self.assertEqual(
             ytl.evaluate_function_model(models["f"], (1, 0), model_table=models),
             (10,),
@@ -12784,14 +12792,17 @@ class SSAModelTest(unittest.TestCase):
 
     def test_compiler_style_callee_names(self) -> None:
         """Compiler-generated function names are demangled for model calls."""
-        models = self._module_to_models("""
+        models = self._module_to_models(
+            """
             function fun_g_1(var_x_1) -> var_z_2 {
                 var_z_2 := add(var_x_1, 1)
             }
             function fun_f_2(var_a_1) -> var_b_2 {
                 var_b_2 := fun_g_1(var_a_1)
             }
-        """, ("f", "g"))
+        """,
+            ("f", "g"),
+        )
         self.assertIn("f", models)
         self.assertIn("g", models)
         # f calls g; g(5) = 6
@@ -13576,6 +13587,7 @@ class SSAModelTest(unittest.TestCase):
         plan = plan_module({"f": rf})
         for sid, base in plan.binder_names["f"].items():
             ytl.validate_ident(base, what="planned binder name")
+
 
 class StagedPipelineWiringTest(unittest.TestCase):
     """Tests that translate_yul_to_models uses the new staged pipeline."""
