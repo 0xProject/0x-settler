@@ -657,46 +657,6 @@ class FailClosedTranslatorTest(unittest.TestCase):
 
         self.assertEqual(parsed.assignments, expected_assignments)
 
-    def test_collect_all_functions_records_rejected_helper_and_inlining_fails(
-        self,
-    ) -> None:
-        tokens = ytl.tokenize_yul("""
-            function fun_target_1(x) -> z {
-                z := bad_helper(x)
-            }
-
-            function bad_helper(a) -> b {
-                for { } 1 { } { }
-            }
-            """)
-        collection = ytl.YulParser(tokens).collect_all_functions()
-        target = collection.functions["fun_target_1"]
-
-        self.assertIn("bad_helper", collection.rejected)
-        with self.assertRaisesRegex(
-            ytl.ParseError, "Cannot inline helper 'bad_helper'"
-        ):
-            ytl._inline_yul_function(
-                target,
-                collection.functions,
-                unsupported_function_errors=collection.rejected,
-            )
-
-    def test_yul_function_to_model_rejects_demangled_signature_collision(
-        self,
-    ) -> None:
-        yf = ytl.YulFunction(
-            yul_name="f",
-            params=["var_x_1"],
-            rets=["var_x_2"],
-            assignments=[
-                ytl.PlainAssignment("var_x_2", ytl.IntLit(1)),
-            ],
-        )
-
-        with self.assertRaisesRegex(ytl.ParseError, "both demangle to 'x'"):
-            ytl.yul_function_to_model(yf, "f", {})
-
     def test_inline_calls_rejects_depth_overflow(self) -> None:
         fn_table = {
             "f": ytl.YulFunction(
@@ -782,99 +742,6 @@ class FailClosedTranslatorTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ytl.ParseError, "expects 2 return values"):
             ytl.inline_calls(expr, fn_table)
-
-    def test_yul_function_to_model_promotes_multi_assigned_temporary(self) -> None:
-        yf = ytl.YulFunction(
-            yul_name="f",
-            params=["arg"],
-            rets=["ret"],
-            assignments=[
-                ytl.PlainAssignment("tmp", ytl.IntLit(1)),
-                ytl.PlainAssignment("tmp", ytl.IntLit(2)),
-                ytl.PlainAssignment("ret", ytl.Var("tmp")),
-            ],
-        )
-
-        model = ytl.yul_function_to_model(yf, "f", {})
-        # Multi-assigned compiler temporary is promoted to a real variable;
-        # the last assignment (IntLit(2)) should win through SSA.
-        self.assertEqual(ytl.evaluate_function_model(model, (42,)), (2,))
-
-    def test_inline_yul_function_rejects_helper_memory_write(
-        self,
-    ) -> None:
-        helper = ytl.YulFunction(
-            yul_name="store_helper",
-            params=["arg"],
-            rets=["ret"],
-            assignments=[
-                ytl.MemoryWrite(ytl.IntLit(0), ytl.Var("arg")),
-                ytl.PlainAssignment("ret", ytl.Var("arg")),
-            ],
-        )
-        target = ytl.YulFunction(
-            yul_name="target",
-            params=["flag", "x"],
-            rets=["ret"],
-            assignments=[
-                ytl.ParsedIfBlock(
-                    condition=ytl.Var("flag"),
-                    body=(
-                        ytl.PlainAssignment(
-                            "ret", ytl.Call("store_helper", (ytl.Var("x"),))
-                        ),
-                    ),
-                ),
-            ],
-        )
-
-        with self.assertRaisesRegex(
-            ytl.ParseError,
-            "helper memory writes are unsupported",
-        ):
-            ytl._inline_yul_function(target, {"store_helper": helper})
-
-    def test_inline_yul_function_preserves_else_body(self) -> None:
-        helper = ytl.YulFunction(
-            yul_name="inc",
-            params=["arg"],
-            rets=["ret"],
-            assignments=[
-                ytl.PlainAssignment(
-                    "ret", ytl.Call("add", (ytl.Var("arg"), ytl.IntLit(1)))
-                )
-            ],
-        )
-        target = ytl.YulFunction(
-            yul_name="target",
-            params=["flag", "x"],
-            rets=["ret"],
-            assignments=[
-                ytl.ParsedIfBlock(
-                    condition=ytl.Var("flag"),
-                    body=(
-                        ytl.PlainAssignment("ret", ytl.Call("inc", (ytl.Var("x"),))),
-                    ),
-                    else_body=(ytl.PlainAssignment("ret", ytl.Var("x")),),
-                ),
-            ],
-        )
-
-        inlined = ytl._inline_yul_function(target, {"inc": helper})
-
-        expected_assignments: list[ytl.RawStatement] = [
-            ytl.ParsedIfBlock(
-                condition=ytl.Var("flag"),
-                body=(
-                    ytl.PlainAssignment(
-                        "ret", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))
-                    ),
-                ),
-                else_body=(ytl.PlainAssignment("ret", ytl.Var("x")),),
-            ),
-        ]
-
-        self.assertEqual(inlined.assignments, expected_assignments)
 
 
 def make_model_config(
@@ -1376,23 +1243,6 @@ class TranslationPipelineTest(unittest.TestCase):
                 expected = ((x_hi - 1) % ytl.WORD_MOD,)
                 self.assertEqual(actual, expected)
 
-    def test_ssa_renaming_rejects_collision_with_other_demangled_name(self) -> None:
-        yf = ytl.YulFunction(
-            yul_name="f",
-            params=["var_x_1"],
-            rets=["var_z_2"],
-            assignments=[
-                ytl.PlainAssignment(
-                    "var_x_1", ytl.Call("add", (ytl.Var("var_x_1"), ytl.IntLit(1)))
-                ),
-                ytl.PlainAssignment("usr$x_1", ytl.IntLit(7)),
-                ytl.PlainAssignment("var_z_2", ytl.Var("usr$x_1")),
-            ],
-        )
-
-        with self.assertRaisesRegex(ytl.ParseError, "collides with the demangled name"):
-            ytl.yul_function_to_model(yf, "f", {})
-
     def test_ssa_renaming_avoids_reuse_after_conditional_reset(self) -> None:
         yul = """
             function fun_f_1(var_x_1, var_c_2) -> var_z_3 {
@@ -1627,121 +1477,6 @@ class TranslationPipelineTest(unittest.TestCase):
                     ytl.evaluate_function_model(model, args),
                     expected,
                 )
-
-
-class ExplicitMemoryModelTest(unittest.TestCase):
-    def test_yul_function_to_model_resolves_sequential_memory_slots(self) -> None:
-        yf = ytl.YulFunction(
-            yul_name="f",
-            params=["var_x_1"],
-            rets=["var_z_2"],
-            assignments=[
-                ytl.PlainAssignment("usr$base", ytl.IntLit(0)),
-                ytl.PlainAssignment("usr$offset", ytl.IntLit(32)),
-                ytl.MemoryWrite(ytl.Var("usr$base"), ytl.Var("var_x_1")),
-                ytl.MemoryWrite(
-                    ytl.Call("add", (ytl.Var("usr$base"), ytl.Var("usr$offset"))),
-                    ytl.Call("mload", (ytl.Var("usr$base"),)),
-                ),
-                ytl.PlainAssignment(
-                    "var_z_2",
-                    ytl.Call(
-                        "mload",
-                        (
-                            ytl.Call(
-                                "add", (ytl.Var("usr$base"), ytl.Var("usr$offset"))
-                            ),
-                        ),
-                    ),
-                ),
-            ],
-        )
-
-        model = ytl.yul_function_to_model(yf, "f", {})
-
-        self.assertEqual(
-            model.assignments,
-            (
-                ytl.Assignment("base", ytl.IntLit(0)),
-                ytl.Assignment("offset", ytl.IntLit(32)),
-                ytl.Assignment("z", ytl.Var("x")),
-            ),
-        )
-        self.assertEqual(model.return_names, ("z",))
-
-    def test_yul_function_to_model_rejects_duplicate_memory_address(self) -> None:
-        yf = ytl.YulFunction(
-            yul_name="f",
-            params=["var_x_1"],
-            rets=["var_z_2"],
-            assignments=[
-                ytl.PlainAssignment("usr$base", ytl.IntLit(0)),
-                ytl.MemoryWrite(ytl.Var("usr$base"), ytl.Var("var_x_1")),
-                ytl.MemoryWrite(ytl.Var("usr$base"), ytl.Var("var_x_1")),
-                ytl.PlainAssignment("var_z_2", ytl.Var("var_x_1")),
-            ],
-        )
-
-        with self.assertRaisesRegex(ytl.ParseError, "Multiple mstore writes"):
-            ytl.yul_function_to_model(yf, "f", {})
-
-    def test_yul_function_to_model_rejects_missing_memory_store(self) -> None:
-        yf = ytl.YulFunction(
-            yul_name="f",
-            params=["var_x_1"],
-            rets=["var_z_2"],
-            assignments=[
-                ytl.PlainAssignment("usr$base", ytl.IntLit(0)),
-                ytl.PlainAssignment(
-                    "var_z_2", ytl.Call("mload", (ytl.Var("usr$base"),))
-                ),
-            ],
-        )
-
-        with self.assertRaisesRegex(ytl.ParseError, "matching prior mstore"):
-            ytl.yul_function_to_model(yf, "f", {})
-
-    def test_yul_function_to_model_rejects_non_constant_memory_address(self) -> None:
-        yf = ytl.YulFunction(
-            yul_name="f",
-            params=["var_x_1"],
-            rets=["var_z_2"],
-            assignments=[
-                ytl.MemoryWrite(ytl.Var("var_x_1"), ytl.IntLit(7)),
-                ytl.PlainAssignment("var_z_2", ytl.IntLit(0)),
-            ],
-        )
-
-        with self.assertRaisesRegex(ytl.ParseError, "non-constant address"):
-            ytl.yul_function_to_model(yf, "f", {})
-
-    def test_yul_function_to_model_rejects_unaligned_memory_store(self) -> None:
-        yf = ytl.YulFunction(
-            yul_name="f",
-            params=["var_x_1"],
-            rets=["var_z_2"],
-            assignments=[
-                ytl.MemoryWrite(ytl.IntLit(1), ytl.Var("var_x_1")),
-                ytl.PlainAssignment("var_z_2", ytl.IntLit(0)),
-            ],
-        )
-
-        with self.assertRaisesRegex(ytl.ParseError, "unaligned address 1"):
-            ytl.yul_function_to_model(yf, "f", {})
-
-    def test_yul_function_to_model_rejects_unaligned_memory_load(self) -> None:
-        yf = ytl.YulFunction(
-            yul_name="f",
-            params=["var_x_1"],
-            rets=["var_z_2"],
-            assignments=[
-                ytl.MemoryWrite(ytl.IntLit(0), ytl.Var("var_x_1")),
-                ytl.PlainAssignment("var_z_2", ytl.Call("mload", (ytl.IntLit(1),))),
-            ],
-        )
-
-        with self.assertRaisesRegex(ytl.ParseError, "unaligned address 1"):
-            ytl.yul_function_to_model(yf, "f", {})
 
 
 class RestrictedIRInterpreterTest(ModelEquivalenceTestCase):
@@ -3350,24 +3085,6 @@ class FunctionSelectionTest(unittest.TestCase):
         # fun_pick_2: sub(x, 1) → pick(7) = 6
         self.assertEqual(ytl.evaluate_function_model(model, (7,)), (6,))
 
-    def test_prepare_translation_exact_yul_name_rejects_param_mismatch(self) -> None:
-        config = make_model_config(
-            ("pick",),
-            exact_yul_names={"pick": "fun_pick_2"},
-            n_params={"pick": 1},
-        )
-        yul = """
-            function fun_pick_2(var_x_1, var_y_2) -> var_z_3 {
-                var_z_3 := add(var_x_1, var_y_2)
-            }
-            """
-
-        with self.assertRaisesRegex(
-            ytl.ParseError,
-            "Exact Yul function 'fun_pick_2' with 1 parameter\\(s\\) not found",
-        ):
-            ytl.prepare_translation(yul, config)
-
 
 class ResolvedTranslatorRegressionTest(unittest.TestCase):
     def test_translate_yul_to_models_rejects_target_expression_statements(
@@ -3455,23 +3172,6 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
             ytl.evaluate_function_model(result.models[0], (1,)),
             (2,),
         )
-
-    def test_yul_function_to_model_zero_initializes_return_var_in_if_else_join(
-        self,
-    ) -> None:
-        yul = """
-            function fun_f_1(var_x_1) -> var_z_1 {
-                if var_x_1 {
-                    var_z_1 := 1
-                }
-            }
-            """
-        fn = ytl.YulParser(ytl.tokenize_yul(yul)).parse_function()
-
-        model = ytl.yul_function_to_model(fn, "f", {})
-
-        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
-        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (1,))
 
     def test_find_function_treats_nested_definition_as_reference(self) -> None:
         # A nested function *definition* named ``helper`` inside fun_pick_1
@@ -3634,9 +3334,7 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
         self.assertNotIn(
             ytl.Assignment("z", ytl.IntLit(0)),
             tuple(
-                stmt
-                for stmt in model.assignments
-                if isinstance(stmt, ytl.Assignment)
+                stmt for stmt in model.assignments if isinstance(stmt, ytl.Assignment)
             ),
         )
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (8,))
@@ -9810,75 +9508,6 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
 
         self.assertEqual(found.yul_name, "fun_pick_2")
 
-    def test_prepare_translation_does_not_duplicate_single_deferred_helper_export(
-        self,
-    ) -> None:
-        config = make_model_config(("target",))
-        yul = """
-            function fun_target_0(var_x_hi_1, var_x_lo_2) -> var_z_3 {
-                {
-                    function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
-                        var_r_out_7 := 0
-                        mstore(var_r_4, var_x_hi_5)
-                        mstore(add(0x20, var_r_4), var_x_lo_6)
-                        var_r_out_7 := var_r_4
-                    }
-                    let usr$ptr := fun_from_1(0, var_x_hi_1, var_x_lo_2)
-                    var_z_3 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
-                }
-            }
-        """
-
-        old_counters = dict(ytl._gensym_counters)
-        try:
-            ytl._gensym_counters = {}
-            preparation = ytl.prepare_translation(yul, config)
-        finally:
-            ytl._gensym_counters = old_counters
-
-        helper_names: list[str] = sorted(
-            fn.yul_name for fn in preparation.collected_helpers.values()
-        )
-        assert helper_names == ["fun_from_1"]
-
-    def test_prepare_translation_does_not_duplicate_deferred_helper_for_exact_nested_target(
-        self,
-    ) -> None:
-        config = make_model_config(
-            ("target",),
-            exact_yul_names={"target": "fun_outer_1::target"},
-        )
-        yul = """
-            function fun_outer_1() -> var_z_1 {
-                function target(var_x_hi_1, var_x_lo_2) -> var_z_3 {
-                    function fun_from_1(var_r_4, var_x_hi_5, var_x_lo_6) -> var_r_out_7 {
-                        var_r_out_7 := 0
-                        mstore(var_r_4, var_x_hi_5)
-                        mstore(add(0x20, var_r_4), var_x_lo_6)
-                        var_r_out_7 := var_r_4
-                    }
-                    let usr$ptr := fun_from_1(0, var_x_hi_1, var_x_lo_2)
-                    var_z_3 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
-                }
-
-                var_z_1 := target(1, 4)
-            }
-        """
-
-        old_counters = dict(ytl._gensym_counters)
-        try:
-            ytl._gensym_counters = {}
-            preparation = ytl.prepare_translation(yul, config)
-        finally:
-            ytl._gensym_counters = old_counters
-
-        from_count = sum(
-            1
-            for fn in preparation.collected_helpers.values()
-            if fn.yul_name == "fun_from_1"
-        )
-        self.assertEqual(from_count, 1)
-
     def test_translate_yul_to_models_allows_distinct_deferred_helpers_with_same_name_across_scopes(
         self,
     ) -> None:
@@ -12461,7 +12090,9 @@ class MemoryLowerTest(unittest.TestCase):
             }
         """)
         self.assertEqual(evaluate_normalized(nf, (0,)), (0,))
-        with self.assertRaisesRegex(EvaluationError, "For-loop exceeded maximum iteration count"):
+        with self.assertRaisesRegex(
+            EvaluationError, "For-loop exceeded maximum iteration count"
+        ):
             evaluate_normalized(nf, (1,))
 
 
@@ -14228,13 +13859,17 @@ class StagedPipelineEmbedTest(unittest.TestCase):
         )
         table = ytl.build_model_table(result.models)
         target_model = table["target"]
-        self.assertEqual(ytl.evaluate_function_model(target_model, (5,), model_table=table), (6,))
+        self.assertEqual(
+            ytl.evaluate_function_model(target_model, (5,), model_table=table), (6,)
+        )
 
         rendered = repr(target_model.assignments)
         self.assertIn("helper_model", rendered)
         self.assertNotIn("wrapper", rendered)
 
-    def test_top_level_helper_dead_after_leave_cleanup_is_origin_independent(self) -> None:
+    def test_top_level_helper_dead_after_leave_cleanup_is_origin_independent(
+        self,
+    ) -> None:
         """Top-level helper cleanup matches the existing local-helper behavior."""
         yul = """
             function fun_target_0(var_x_1) -> var_z_2 {

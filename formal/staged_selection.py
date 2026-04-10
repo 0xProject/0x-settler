@@ -49,7 +49,6 @@ class SelectionPlan:
     tokens: tuple[tuple[str, str], ...]
     parsed_groups: tuple[tuple[FunctionDef, ...], ...]
     selected_functions: tuple[str, ...]
-    target_yul_functions: dict[str, "YulFunction"]
     helper_tables: dict[str, dict[str, "YulFunction"]]
     rejected_helper_tables: dict[str, "RejectedHelperMap"]
     target_call_resolutions: dict[str, "CallResolution"]
@@ -66,7 +65,9 @@ def _group_for_token(
             if func.span.start <= token_idx < func.span.end:
                 matches.append((group_idx, func))
     if not matches:
-        raise ParseError(f"No enclosing function group found for token index {token_idx}")
+        raise ParseError(
+            f"No enclosing function group found for token index {token_idx}"
+        )
     matches.sort(key=lambda item: item[1].span.end - item[1].span.start)
     return matches[0][0]
 
@@ -93,7 +94,6 @@ def build_selection_plan(
     config: "ModelConfig",
     *,
     selected_functions: tuple[str, ...] | None = None,
-    include_legacy: bool = False,
 ) -> SelectionPlan:
     """Build the shared selection/helper-visibility plan for translation."""
 
@@ -102,7 +102,9 @@ def build_selection_plan(
     import yul_to_lean as ytl
 
     tokens = tuple(ytl.tokenize_yul(yul_text))
-    parsed_groups = tuple(tuple(g) for g in SyntaxParser(list(tokens)).parse_function_groups())
+    parsed_groups = tuple(
+        tuple(g) for g in SyntaxParser(list(tokens)).parse_function_groups()
+    )
 
     # Module-level pre-pass: validate cross-function scoping independently per
     # lexical group before any target selection occurs.
@@ -147,7 +149,9 @@ def build_selection_plan(
                 ]
             if not matches:
                 rendered = (
-                    "::".join(exact_selector) if exact_selector is not None else exact_yul_name
+                    "::".join(exact_selector)
+                    if exact_selector is not None
+                    else exact_yul_name
                 )
                 if n_params is not None:
                     raise ParseError(
@@ -156,7 +160,9 @@ def build_selection_plan(
                 raise ParseError(f"Exact Yul function path {rendered!r} not found")
             if len(matches) > 1:
                 rendered = (
-                    "::".join(exact_selector) if exact_selector is not None else exact_yul_name
+                    "::".join(exact_selector)
+                    if exact_selector is not None
+                    else exact_yul_name
                 )
                 raise ParseError(
                     f"Multiple exact Yul functions matched {rendered!r}. Refuse to guess."
@@ -219,21 +225,6 @@ def build_selection_plan(
         and config.exact_yul_names.get(sol_name) is not None
     )
 
-    target_yul_functions: dict[str, ytl.YulFunction] = {}
-    parse_deferred: dict[str, dict[str, ytl.YulFunction]] = {}
-    parse_deferred_rejected: dict[str, ytl.RejectedHelperMap] = {}
-    if include_legacy:
-        for sol_name in selected:
-            parser = ytl.YulParser(
-                list(tokens),
-                protected_token_idxs=protected_token_idxs,
-            )
-            token_idx, _raw_name, _path = resolved_positions[sol_name]
-            parser.i = token_idx
-            target_yul_functions[sol_name] = parser.parse_function()
-            parse_deferred[sol_name] = dict(parser._deferred_helpers)
-            parse_deferred_rejected[sol_name] = dict(parser._deferred_rejected)
-
     all_selected_token_idxs: set[int] = set()
     token_idx_to_sol_name: dict[int, str] = {}
     for sol_name in selected:
@@ -249,12 +240,7 @@ def build_selection_plan(
     for sol_name in selected:
         fn_token_idx, raw_name, lexical_path = resolved_positions[sol_name]
 
-        authoritative_token_idxs = {
-            dfn.token_idx
-            for dfn in parse_deferred.get(sol_name, {}).values()
-            if dfn.token_idx is not None
-        }
-        authoritative_token_idxs.add(fn_token_idx)
+        authoritative_token_idxs = {fn_token_idx}
 
         helper_table: dict[str, ytl.YulFunction] = {}
         rejected_helpers: ytl.RejectedHelperMap = {}
@@ -298,10 +284,6 @@ def build_selection_plan(
                 authoritative_token_idxs,
             )
             ytl._merge_helper_collection(helper_table, rejected_helpers, nested_coll)
-            for dname, dfn in parse_deferred.get(sol_name, {}).items():
-                helper_table[dname] = dfn
-            for dname, derr in parse_deferred_rejected.get(sol_name, {}).items():
-                rejected_helpers[dname] = derr
 
         by_name: dict[str, str] = {raw_name: sol_name}
         for helper_name in list(helper_table):
@@ -347,7 +329,6 @@ def build_selection_plan(
         tokens=tokens,
         parsed_groups=parsed_groups,
         selected_functions=tuple(selected),
-        target_yul_functions=target_yul_functions,
         helper_tables=helper_tables,
         rejected_helper_tables=rejected_helper_tables,
         target_call_resolutions=target_call_resolutions,

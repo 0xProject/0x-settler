@@ -163,11 +163,6 @@ OPTIMIZED_TRANSLATION_PIPELINE = TranslationPipeline(
     prune_dead_assignments=True,
 )
 
-TRANSLATION_PIPELINES = {
-    RAW_TRANSLATION_PIPELINE.name: RAW_TRANSLATION_PIPELINE,
-    OPTIMIZED_TRANSLATION_PIPELINE.name: OPTIMIZED_TRANSLATION_PIPELINE,
-}
-
 
 # ---------------------------------------------------------------------------
 # Yul tokenizer
@@ -5082,16 +5077,7 @@ def translate_yul_to_models(
         pipeline=pipeline,
     )
 
-    # Shim PreparedTranslation for backward compat.
-    preparation = PreparedTranslation(
-        selected_functions=selected,
-        target_call_resolutions={},
-        yul_functions={},
-        collected_helpers={},
-        rejected_helpers={},
-    )
     return TranslationResult(
-        preparation=preparation,
         models=models,
         pipeline=pipeline,
     )
@@ -5199,21 +5185,9 @@ class ModelConfig:
 
 
 @dataclass(frozen=True)
-class PreparedTranslation:
-    """Selected Yul functions after parsing, discovery, and helper inlining."""
-
-    selected_functions: tuple[str, ...]
-    target_call_resolutions: dict[str, CallResolution]
-    yul_functions: dict[str, YulFunction]
-    collected_helpers: dict[str, YulFunction]
-    rejected_helpers: RejectedHelperMap
-
-
-@dataclass(frozen=True)
 class TranslationResult:
     """End-to-end translation result before Lean source emission."""
 
-    preparation: PreparedTranslation
     models: list[FunctionModel]
     pipeline: TranslationPipeline
 
@@ -5225,19 +5199,6 @@ class RunArguments(argparse.Namespace):
     function: list[str] | None
     namespace: str
     output: str
-    pipeline: str
-
-
-def get_translation_pipeline(name: str) -> TranslationPipeline:
-    """Resolve a named translation pipeline."""
-
-    try:
-        return TRANSLATION_PIPELINES[name]
-    except KeyError as err:
-        choices = ", ".join(sorted(TRANSLATION_PIPELINES))
-        raise ParseError(
-            f"Unknown translation pipeline {name!r}. Expected one of: {choices}"
-        ) from err
 
 
 # ---------------------------------------------------------------------------
@@ -5719,18 +5680,12 @@ def run(config: ModelConfig) -> int:
         default=config.default_output,
         help="Output Lean file path",
     )
-    ap.add_argument(
-        "--pipeline",
-        default=OPTIMIZED_TRANSLATION_PIPELINE.name,
-        choices=sorted(TRANSLATION_PIPELINES),
-        help="Translation pipeline to run (default: optimized)",
-    )
     args = ap.parse_args(namespace=RunArguments())
 
     validate_ident(args.namespace, what="Lean namespace")
 
     selected_functions = parse_function_selection(args, config)
-    pipeline = get_translation_pipeline(args.pipeline)
+    pipeline = OPTIMIZED_TRANSLATION_PIPELINE
 
     yul_text: str
     if args.yul == "-":
@@ -5760,15 +5715,7 @@ def run(config: ModelConfig) -> int:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(lean_src)
 
-    if result.preparation.collected_helpers:
-        print(
-            "Collected "
-            f"{len(result.preparation.collected_helpers)} function definition(s) "
-            "for inlining"
-        )
-
     print(f"Generated {out_path}")
-    print(f"Pipeline: {pipeline.name}")
     for model in models:
         print(f"Parsed {len(model.assignments)} assignments for {model.fn_name}")
 
