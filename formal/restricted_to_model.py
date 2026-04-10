@@ -616,6 +616,57 @@ def _collect_helper_closure(
     return closure
 
 
+def _strip_dead_after_leave(block: NBlock) -> NBlock:
+    """Remove dead code after ``NLeave`` within each block (recursive)."""
+    out: list[NStmt] = []
+    for stmt in block.stmts:
+        if isinstance(stmt, NLeave):
+            out.append(stmt)
+            break
+        if isinstance(stmt, NIf):
+            out.append(
+                NIf(
+                    condition=stmt.condition,
+                    then_body=_strip_dead_after_leave(stmt.then_body),
+                )
+            )
+        elif isinstance(stmt, NSwitch):
+            out.append(
+                NSwitch(
+                    discriminant=stmt.discriminant,
+                    cases=tuple(
+                        NSwitchCase(
+                            value=c.value,
+                            body=_strip_dead_after_leave(c.body),
+                        )
+                        for c in stmt.cases
+                    ),
+                    default=(
+                        _strip_dead_after_leave(stmt.default)
+                        if stmt.default is not None
+                        else None
+                    ),
+                )
+            )
+        elif isinstance(stmt, NBlock):
+            out.append(_strip_dead_after_leave(stmt))
+        elif isinstance(stmt, NFunctionDef):
+            out.append(
+                NFunctionDef(
+                    name=stmt.name,
+                    symbol_id=stmt.symbol_id,
+                    params=stmt.params,
+                    param_names=stmt.param_names,
+                    returns=stmt.returns,
+                    return_names=stmt.return_names,
+                    body=_strip_dead_after_leave(stmt.body),
+                )
+            )
+        else:
+            out.append(stmt)
+    return NBlock(tuple(out))
+
+
 def _embed_helpers(
     target: NormalizedFunction,
     helpers: dict[str, NormalizedFunction],
@@ -643,9 +694,11 @@ def _embed_helpers(
             return NLocalCall(symbol_id=name_to_sid[e.name], name=e.name, args=e.args)
         return e
 
-    # Create NFunctionDef for each helper with rewritten bodies.
+    # Create NFunctionDef for each helper with rewritten + cleaned bodies.
     fdefs: list[NStmt] = []
     for name, nf in helpers.items():
+        # Strip dead code after leave within the helper body.
+        cleaned_body = _strip_dead_after_leave(nf.body)
         fdefs.append(
             NFunctionDef(
                 name=name,
@@ -654,7 +707,7 @@ def _embed_helpers(
                 param_names=nf.param_names,
                 returns=nf.returns,
                 return_names=nf.return_names,
-                body=_map_all_exprs_in_block(nf.body, _rewrite),
+                body=_map_all_exprs_in_block(cleaned_body, _rewrite),
             )
         )
 
