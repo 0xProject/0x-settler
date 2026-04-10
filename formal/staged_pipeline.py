@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from norm_simplify import simplify_function_def, simplify_normalized
+from norm_simplify import lower_leave, simplify_function_def, simplify_normalized
 from norm_validate import validate_restricted_boundary
 from staged_selection import (
     FunctionKey,
@@ -150,6 +150,7 @@ def translate_selected_models(
             ),
         )
         target_nf = simplify_normalized(target_nf)
+        target_nf = lower_leave(target_nf)
 
         from norm_constprop import propagate_constants
         from norm_memory import lower_memory

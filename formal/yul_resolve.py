@@ -341,9 +341,7 @@ def _resolve_expr(ctx: _ResolveCtx, expr: SynExpr) -> None:
         ctx.record_reference(expr.span, info.id)
 
     elif isinstance(expr, StringExpr):
-        raise ParseError(
-            f"Unsupported string literal {expr.text!r} in expression position"
-        )
+        pass  # String literals (e.g. linkersymbol args) need no resolution.
 
     elif isinstance(expr, CallExpr):
         # Classify the call target.

@@ -164,7 +164,15 @@ def _lower_expr(expr: SynExpr, r: ResolutionResult) -> NExpr:
         return NRef(symbol_id=sid, name=expr.name)
 
     if isinstance(expr, StringExpr):
-        raise ParseError(f"Unsupported string literal {expr.text!r} in normalized IR")
+        # Yul string literals are UTF-8 bytes right-padded to 32 bytes,
+        # interpreted as a big-endian integer (same as Solidity bytes32).
+        raw = expr.text.encode("utf-8")
+        if len(raw) > 32:
+            raise ParseError(
+                f"String literal {expr.text!r} exceeds 32 bytes " f"({len(raw)} bytes)"
+            )
+        padded = raw.ljust(32, b"\x00")
+        return NConst(value=int.from_bytes(padded, "big"))
 
     if isinstance(expr, CallExpr):
         args = tuple(_lower_expr(a, r) for a in expr.args)

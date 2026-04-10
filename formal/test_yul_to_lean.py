@@ -216,7 +216,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
             }
             """)
 
-        with self.assertRaisesRegex(ytl.ParseError, "string literal"):
+        with self.assertRaisesRegex(ytl.ParseError, "Unsupported statement start"):
             ytl.YulParser(tokens).parse_function()
 
     def test_parse_function_rejects_conditional_memory_write(self) -> None:
@@ -418,15 +418,14 @@ class FailClosedTranslatorTest(unittest.TestCase):
         with self.assertRaisesRegex(ytl.ParseError, r"usr\$tmp"):
             ytl.YulParser(tokens).parse_function()
 
-    def test_parse_function_rejects_string_literal_assignment_rhs(self) -> None:
+    def test_parse_function_accepts_string_literal_assignment_rhs(self) -> None:
         tokens = ytl.tokenize_yul("""
             function fun_bad_1(x) -> z {
                 z := "oops"
             }
             """)
-
-        with self.assertRaisesRegex(ytl.ParseError, "string"):
-            ytl.YulParser(tokens).parse_function()
+        fn = ytl.YulParser(tokens).parse_function()
+        self.assertEqual(fn.yul_name, "fun_bad_1")
 
     def test_parse_function_inlines_bare_block_let_vars(self) -> None:
         tokens = ytl.tokenize_yul("""
@@ -1404,18 +1403,18 @@ class TranslationPipelineTest(unittest.TestCase):
             (6,),
         )
 
-    def test_translate_yul_to_models_rejects_top_level_leave(
-        self,
-    ) -> None:
-        with self.assertRaisesRegex(
-            ytl.ParseError,
-            "NLeave in restricted IR lowering",
-        ):
-            ytl.translate_yul_to_models(
-                self.TOP_LEVEL_LEAVE_YUL,
-                self.TOP_LEVEL_LEAVE_CONFIG,
-                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-            )
+    def test_translate_yul_to_models_handles_top_level_leave(self) -> None:
+        """Top-level leave is lowered to did_leave flag semantics."""
+        result = ytl.translate_yul_to_models(
+            self.TOP_LEVEL_LEAVE_YUL,
+            self.TOP_LEVEL_LEAVE_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        # x=0: condition false → z=9
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
+        # x=1: condition true, leave → z=7
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
 
     def test_translate_yul_to_models_handles_multiple_inlined_leave_sites(
         self,
@@ -9974,13 +9973,14 @@ class ResolverFailClosedTest(unittest.TestCase):
                 }
             """)
 
-    def test_resolve_rejects_string_literal_assignment_rhs(self) -> None:
-        with self.assertRaisesRegex(ytl.ParseError, "string"):
-            self._parse_and_resolve("""
-                function f(x) -> z {
-                    z := "oops"
-                }
-            """)
+    def test_resolve_accepts_string_literal_assignment_rhs(self) -> None:
+        """String literals resolve without error (UTF-8 right-padded big-endian)."""
+        # Should not raise — strings resolve to integer constants.
+        self._parse_and_resolve("""
+            function f(x) -> z {
+                z := "oops"
+            }
+        """)
 
     # -- Undefined-variable resolution tests --------------------------------
 
@@ -13983,8 +13983,8 @@ class StagedPipelineSelectionTest(unittest.TestCase):
 class StagedPipelineValidationTest(unittest.TestCase):
     """Tests for pre-restricted validation in the staged pipeline."""
 
-    def test_top_level_leave_rejected(self) -> None:
-        """leave in the selected target itself (not in a helper) is rejected."""
+    def test_top_level_leave_handled(self) -> None:
+        """leave in the selected target is lowered via did_leave semantics."""
         yul = """
             function fun_f_1(var_x_1) -> var_z_2 {
                 var_z_2 := 1
@@ -13993,10 +13993,14 @@ class StagedPipelineValidationTest(unittest.TestCase):
             }
         """
         config = make_model_config(("f",))
-        with self.assertRaises(ytl.ParseError):
-            ytl.translate_yul_to_models(
-                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE
-            )
+        result = ytl.translate_yul_to_models(
+            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE
+        )
+        model = result.models[0]
+        # x=0: no leave → z=2
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (2,))
+        # x=1: leave → z=1 (leave with current z value)
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (1,))
 
     def test_bare_expression_stmt_rejected(self) -> None:
         """Bare expression statement (non-memory side effect) is rejected."""

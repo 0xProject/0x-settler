@@ -20,6 +20,7 @@ from norm_ir import (
     NIf,
     NLeave,
     NormalizedFunction,
+    NRef,
     NStmt,
     NStore,
     NSwitch,
@@ -138,6 +139,78 @@ def _simplify_stmt(stmt: NStmt) -> list[NStmt]:
         return [stmt]
 
     raise TypeError(f"Unexpected normalized statement {type(stmt).__name__}")
+
+
+def _contains_leave(block: NBlock) -> bool:
+    """Check if any NLeave exists in *block* (recursive)."""
+    for stmt in block.stmts:
+        if isinstance(stmt, NLeave):
+            return True
+        if isinstance(stmt, NIf) and _contains_leave(stmt.then_body):
+            return True
+        if isinstance(stmt, NSwitch):
+            for case in stmt.cases:
+                if _contains_leave(case.body):
+                    return True
+            if stmt.default is not None and _contains_leave(stmt.default):
+                return True
+        if isinstance(stmt, NFor):
+            if _contains_leave(stmt.body):
+                return True
+        if isinstance(stmt, NBlock) and _contains_leave(stmt):
+            return True
+    return False
+
+
+def lower_leave(func: NormalizedFunction) -> NormalizedFunction:
+    """Rewrite ``leave`` to ``did_leave`` flag semantics.
+
+    If the function body contains no ``NLeave``, returns unchanged.
+    Otherwise, introduces a ``did_leave`` flag variable, replaces all
+    ``NLeave`` with ``did_leave := 1``, and guards subsequent top-level
+    statements with ``if iszero(did_leave)``.
+    """
+    if not _contains_leave(func.body):
+        return func
+
+    from norm_inline import SymbolAllocator
+    from norm_walk import max_symbol_id
+
+    alloc = SymbolAllocator(max_symbol_id(func) + 1)
+    did_leave_id = alloc.alloc()
+    did_leave_ref = NRef(symbol_id=did_leave_id, name=f"_did_leave_{did_leave_id._id}")
+
+    # Import leave-rewriting helpers from the inliner.
+    from norm_inline import _rewrite_leave_recursive, _stmt_may_leave_rewritten
+
+    rewritten = _rewrite_leave_recursive(func.body, did_leave_id)
+
+    # Prepend did_leave := 0, then guard statements after any leave.
+    out: list[NStmt] = [
+        NBind(
+            targets=(did_leave_id,),
+            target_names=(f"_did_leave_{did_leave_id._id}",),
+            expr=NConst(0),
+        )
+    ]
+    may_have_left = False
+    for stmt in rewritten.stmts:
+        if may_have_left:
+            guard_cond = NBuiltinCall(op="iszero", args=(did_leave_ref,))
+            out.append(NIf(condition=guard_cond, then_body=NBlock((stmt,))))
+        else:
+            out.append(stmt)
+        if _stmt_may_leave_rewritten(stmt, did_leave_id):
+            may_have_left = True
+
+    return NormalizedFunction(
+        name=func.name,
+        params=func.params,
+        param_names=func.param_names,
+        returns=func.returns,
+        return_names=func.return_names,
+        body=NBlock(tuple(out)),
+    )
 
 
 def _definitely_terminates(stmt: NStmt) -> bool:
