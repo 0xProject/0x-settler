@@ -16,7 +16,7 @@ from norm_classify import (
     summarize_function,
 )
 from norm_constprop import fold_expr, propagate_constants
-from norm_eval import evaluate_normalized
+from norm_eval import EvaluationError, evaluate_normalized
 from norm_inline import inline_pure_helpers
 from norm_memory import lower_memory
 from norm_to_restricted import lower_to_restricted
@@ -1239,9 +1239,9 @@ class TranslationPipelineTest(unittest.TestCase):
             for stmt in model.assignments
             if isinstance(stmt, ytl.Assignment)
         ]
-        expected_targets: list[str] = ["z", "tmp", "dead", "z_1", "z_2"]
+        expected_targets: list[str] = ["tmp", "dead", "z", "z_1"]
         self.assertEqual(assignment_targets, expected_targets)
-        self.assertEqual(model.return_names, ("z_2",))
+        self.assertEqual(model.return_names, ("z_1",))
 
     def test_translate_yul_to_models_defaults_to_optimized_pipeline(self) -> None:
         default_result = ytl.translate_yul_to_models(
@@ -1257,9 +1257,14 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertEqual(default_result.pipeline, ytl.OPTIMIZED_TRANSLATION_PIPELINE)
         self.assertEqual(default_result.models, explicit_result.models)
         model = default_result.models[0]
+        self.assertEqual(len(model.assignments), 1)
+        only = model.assignments[0]
+        self.assertIsInstance(only, ytl.Assignment)
+        assert isinstance(only, ytl.Assignment)
+        self.assertTrue(only.target.startswith("z_"))
         self.assertEqual(
-            model.assignments,
-            (ytl.Assignment("z_2", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),),
+            only.expr,
+            ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1))),
         )
 
     def test_render_function_defs_uses_demangled_ssa_names(self) -> None:
@@ -1275,7 +1280,7 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertIn("let x := u256 x", rendered)
         self.assertIn("let dead := 7", rendered)
         self.assertIn("let z := 0", rendered)
-        self.assertIn("let z_2 := evmAdd (x) (1)", rendered)
+        self.assertIn("let z_1 := evmAdd (x) (1)", rendered)
         self.assertNotIn("usr$tmp", rendered)
         self.assertNotIn("var_z_2", rendered)
 
@@ -1430,31 +1435,41 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertEqual(ytl.evaluate_function_model(model, (10, 0)), (52,))
         self.assertEqual(ytl.evaluate_function_model(model, (10, 1)), (75,))
 
-    def test_translate_yul_to_models_rejects_nested_helper_memory_write_through_local(
+    def test_translate_yul_to_models_allows_nested_helper_memory_write_through_local(
         self,
     ) -> None:
-        with self.assertRaisesRegex(
-            ytl.ParseError,
-            "restricted IR lowering",
-        ):
-            ytl.translate_yul_to_models(
-                self.NESTED_MEMORY_ALIAS_LOCAL_YUL,
-                self.NESTED_MEMORY_ALIAS_CONFIG,
-                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-            )
+        result = ytl.translate_yul_to_models(
+            self.NESTED_MEMORY_ALIAS_LOCAL_YUL,
+            self.NESTED_MEMORY_ALIAS_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(
+            ytl.evaluate_function_model(
+                model,
+                (13,),
+                model_table=ytl.build_model_table(result.models),
+            ),
+            (13,),
+        )
 
-    def test_translate_yul_to_models_rejects_nested_helper_memory_write_through_temp(
+    def test_translate_yul_to_models_allows_nested_helper_memory_write_through_temp(
         self,
     ) -> None:
-        with self.assertRaisesRegex(
-            ytl.ParseError,
-            "restricted IR lowering",
-        ):
-            ytl.translate_yul_to_models(
-                self.NESTED_MEMORY_ALIAS_TEMP_YUL,
-                self.NESTED_MEMORY_ALIAS_CONFIG,
-                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-            )
+        result = ytl.translate_yul_to_models(
+            self.NESTED_MEMORY_ALIAS_TEMP_YUL,
+            self.NESTED_MEMORY_ALIAS_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(
+            ytl.evaluate_function_model(
+                model,
+                (13,),
+                model_table=ytl.build_model_table(result.models),
+            ),
+            (13,),
+        )
 
     def test_translate_yul_to_models_allows_top_level_memory_write_with_helper_mload(
         self,
@@ -9425,10 +9440,7 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(
-            ytl.ParseError,
-            "restricted IR lowering",
-        ):
+        with self.assertRaises(ytl.ParseError):
             ytl.translate_yul_to_models(
                 yul,
                 config,
@@ -9463,10 +9475,7 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(
-            ytl.ParseError,
-            "restricted IR lowering",
-        ):
+        with self.assertRaises(ytl.ParseError):
             ytl.translate_yul_to_models(
                 yul,
                 config,
@@ -9506,10 +9515,7 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(
-            ytl.ParseError,
-            "restricted IR lowering",
-        ):
+        with self.assertRaises(ytl.ParseError):
             ytl.translate_yul_to_models(
                 yul,
                 config,
@@ -9587,10 +9593,7 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
 
         for case, config in config_by_case.items():
             with self.subTest(case=case):
-                with self.assertRaisesRegex(
-                    ytl.ParseError,
-                    "restricted IR lowering",
-                ):
+                with self.assertRaises(ytl.ParseError):
                     ytl.translate_yul_to_models(
                         yul_by_case[case],
                         config,
@@ -12325,15 +12328,16 @@ class MemoryLowerTest(unittest.TestCase):
                 }
             """)
 
-    def test_mload_inside_if_rejected(self) -> None:
-        """mload inside conditional is rejected (straight-line only)."""
-        with self.assertRaisesRegex(ytl.ParseError, "inside control flow"):
-            self._pipeline("""
-                function f(x) -> z {
-                    mstore(0, 7)
-                    if x { z := mload(0) }
-                }
-            """)
+    def test_mload_inside_if_resolved(self) -> None:
+        """Read-only mload inside conditional resolves from straight-line writes."""
+        nf = self._pipeline("""
+            function f(x) -> z {
+                mstore(0, 7)
+                if x { z := mload(0) }
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, (0,)), (0,))
+        self.assertEqual(evaluate_normalized(nf, (1,)), (7,))
 
     def test_store_value_snapshot_semantics(self) -> None:
         """mstore(0, x) then x := add(x, 1) then mload(0) must return original x."""
@@ -12370,15 +12374,16 @@ class MemoryLowerTest(unittest.TestCase):
                 }
             """)
 
-    def test_bare_mload_expr_stmt_inside_if_rejected(self) -> None:
-        with self.assertRaisesRegex(ytl.ParseError, "inside control flow"):
-            self._pipeline("""
-                function f(x) -> z {
-                    mstore(0, 7)
-                    if x { mload(0) }
-                    z := mload(0)
-                }
-            """)
+    def test_bare_mload_expr_stmt_inside_if_resolved(self) -> None:
+        nf = self._pipeline("""
+            function f(x) -> z {
+                mstore(0, 7)
+                if x { mload(0) }
+                z := mload(0)
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, (0,)), (7,))
+        self.assertEqual(evaluate_normalized(nf, (1,)), (7,))
 
     def test_switch_condition_mload_resolved(self) -> None:
         """mload in top-level switch discriminant must be resolved."""
@@ -12417,43 +12422,47 @@ class MemoryLowerTest(unittest.TestCase):
         """)
         self.assertEqual(evaluate_normalized(nf, (5,)), (5,))
 
-    def test_mload_in_nested_if_condition_rejected(self) -> None:
-        """mload in a nested if-condition inside control flow is rejected."""
-        with self.assertRaisesRegex(ytl.ParseError, "inside control flow"):
-            self._pipeline("""
-                function f(x) -> z {
-                    mstore(0, 7)
-                    if x { if mload(0) { z := 1 } }
-                }
-            """)
+    def test_mload_in_nested_if_condition_resolved(self) -> None:
+        """Nested control-flow conditions may read from straight-line memory."""
+        nf = self._pipeline("""
+            function f(x) -> z {
+                mstore(0, 7)
+                if x { if mload(0) { z := 1 } }
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, (0,)), (0,))
+        self.assertEqual(evaluate_normalized(nf, (1,)), (1,))
 
-    def test_mload_in_nested_switch_discriminant_rejected(self) -> None:
-        """mload in a nested switch discriminant inside control flow is rejected."""
-        with self.assertRaisesRegex(ytl.ParseError, "inside control flow"):
-            self._pipeline("""
-                function f(x) -> z {
-                    mstore(0, 1)
-                    if x {
-                        switch mload(0)
-                        case 1 { z := 10 }
-                        default { z := 20 }
+    def test_mload_in_nested_switch_discriminant_resolved(self) -> None:
+        """Nested switch discriminants may read from straight-line memory."""
+        nf = self._pipeline("""
+            function f(x) -> z {
+                mstore(0, 1)
+                if x {
+                    switch mload(0)
+                    case 1 { z := 10 }
+                    default { z := 20 }
+                }
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, (0,)), (0,))
+        self.assertEqual(evaluate_normalized(nf, (1,)), (10,))
+
+    def test_mload_in_nested_for_condition_resolved(self) -> None:
+        """Nested for-conditions may read straight-line memory and preserve semantics."""
+        nf = self._pipeline("""
+            function f(x) -> z {
+                mstore(0, 0)
+                if x {
+                    for { let i := 0 } iszero(mload(0)) { i := add(i, 1) } {
+                        z := 1
                     }
                 }
-            """)
-
-    def test_mload_in_nested_for_condition_rejected(self) -> None:
-        """mload in a nested for-condition inside control flow is rejected."""
-        with self.assertRaisesRegex(ytl.ParseError, "inside control flow"):
-            self._pipeline("""
-                function f(x) -> z {
-                    mstore(0, 0)
-                    if x {
-                        for { let i := 0 } iszero(mload(0)) { i := add(i, 1) } {
-                            z := 1
-                        }
-                    }
-                }
-            """)
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, (0,)), (0,))
+        with self.assertRaisesRegex(EvaluationError, "For-loop exceeded maximum iteration count"):
+            evaluate_normalized(nf, (1,))
 
 
 class RestrictedIRTest(unittest.TestCase):

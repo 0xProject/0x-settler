@@ -94,6 +94,24 @@ class InlineFragment:
     results: tuple[NExpr, ...]
 
 
+@dataclass(frozen=True)
+class InlineBoundaryPolicy:
+    """Call-survival policy for one inlining run.
+
+    The standalone normalized-IR pass keeps its historical behavior by
+    default: unsupported/deferred helpers may remain as calls.
+
+    The staged translation path uses a stricter policy for selected targets:
+    local helper calls and the chosen non-selected top-level helper closure are
+    not allowed to survive past normalization, so they must be structurally
+    inlined before simplification + validation decide whether any unsupported
+    live constructs remain.
+    """
+
+    inline_local_helpers: bool = False
+    inline_top_level_helpers: frozenset[str] = frozenset()
+
+
 # ---------------------------------------------------------------------------
 # Argument atomization
 # ---------------------------------------------------------------------------
@@ -231,6 +249,7 @@ class _InlineCtx:
         alloc: SymbolAllocator,
         top_level_name_to_sid: dict[str, SymbolId] | None = None,
         allowed_model_calls: frozenset[str] = frozenset(),
+        boundary_policy: InlineBoundaryPolicy | None = None,
         max_depth: int = 40,
     ) -> None:
         self.defs = defs
@@ -240,6 +259,9 @@ class _InlineCtx:
             dict(top_level_name_to_sid) if top_level_name_to_sid is not None else {}
         )
         self.allowed_model_calls = allowed_model_calls
+        self.boundary_policy = (
+            boundary_policy if boundary_policy is not None else InlineBoundaryPolicy()
+        )
         self.max_depth = max_depth
 
     def strategy_for(self, sid: SymbolId) -> InlineStrategy:
@@ -247,6 +269,36 @@ class _InlineCtx:
         if cls is None:
             return InlineStrategy.DO_NOT_INLINE
         return cls.strategy
+
+    def classification_for(self, sid: SymbolId) -> InlineClassification | None:
+        return self.classifications.get(sid)
+
+
+def _effective_inline_strategy(
+    cls: InlineClassification | None,
+    *,
+    must_inline: bool,
+) -> InlineStrategy:
+    """Pick the actual rewrite strategy for a helper call site.
+
+    Classification remains strict: unsupported helpers are still classified as
+    ``DO_NOT_INLINE``. Some call sites, however, are covered by an explicit
+    boundary policy and are not allowed to survive as calls. For those sites,
+    we structurally inline with ``BLOCK_INLINE`` and let later simplification +
+    validation decide whether any live unsupported constructs remain.
+    """
+
+    if cls is None:
+        return InlineStrategy.DO_NOT_INLINE
+
+    strat = cls.strategy
+    if strat == InlineStrategy.EFFECT_LOWER:
+        return strat
+    if strat == InlineStrategy.BLOCK_INLINE and cls.is_deferred and not must_inline:
+        return InlineStrategy.DO_NOT_INLINE
+    if strat != InlineStrategy.DO_NOT_INLINE:
+        return strat
+    return InlineStrategy.BLOCK_INLINE if must_inline else InlineStrategy.DO_NOT_INLINE
 
 
 # ---------------------------------------------------------------------------
@@ -714,7 +766,10 @@ def _inline_in_expr_with_prelude(
             new_args_list.append(a_val)
         new_args_t = tuple(new_args_list)
 
-        strat = ctx.strategy_for(expr.symbol_id)
+        strat = _effective_inline_strategy(
+            ctx.classification_for(expr.symbol_id),
+            must_inline=ctx.boundary_policy.inline_local_helpers,
+        )
         if strat != InlineStrategy.DO_NOT_INLINE and expr.symbol_id in ctx.defs:
             if depth > ctx.max_depth:
                 raise ParseError(f"Inlining depth exceeded for {expr.name!r}")
@@ -761,7 +816,12 @@ def _inline_in_expr_with_prelude(
         new_args_t = tuple(new_args_list)
         sid = ctx.top_level_name_to_sid.get(expr.name)
         if sid is not None and sid in ctx.defs:
-            strat = ctx.strategy_for(sid)
+            strat = _effective_inline_strategy(
+                ctx.classification_for(sid),
+                must_inline=(
+                    expr.name in ctx.boundary_policy.inline_top_level_helpers
+                ),
+            )
             if strat != InlineStrategy.DO_NOT_INLINE:
                 if depth > ctx.max_depth:
                     raise ParseError(f"Inlining depth exceeded for {expr.name!r}")
@@ -862,12 +922,22 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
 
     if isinstance(stmt, NIf):
         c_pre, c_val = _inline_in_expr_with_prelude(stmt.condition, ctx, 0)
+        if c_pre:
+            raise ParseError(
+                "Control-flow condition requires statement prelude after helper "
+                "inlining. NIf conditions must remain expression-only."
+            )
         out = list(c_pre)
         out.append(NIf(condition=c_val, then_body=_rewrite_block(stmt.then_body, ctx)))
         return out
 
     if isinstance(stmt, NSwitch):
         d_pre, d_val = _inline_in_expr_with_prelude(stmt.discriminant, ctx, 0)
+        if d_pre:
+            raise ParseError(
+                "Control-flow condition requires statement prelude after helper "
+                "inlining. NSwitch discriminants must remain expression-only."
+            )
         new_cases = tuple(
             NSwitchCase(value=c.value, body=_rewrite_block(c.body, ctx))
             for c in stmt.cases
@@ -939,7 +1009,17 @@ def _rewrite_bind_or_assign(
             direct_name = expr.name
 
     if direct_sid is not None and direct_args is not None and direct_name is not None:
-        strat = ctx.strategy_for(direct_sid)
+        strat = _effective_inline_strategy(
+            ctx.classification_for(direct_sid),
+            must_inline=(
+                ctx.boundary_policy.inline_local_helpers
+                if isinstance(expr, NLocalCall)
+                else (
+                    isinstance(expr, NTopLevelCall)
+                    and expr.name in ctx.boundary_policy.inline_top_level_helpers
+                )
+            ),
+        )
         fdef = ctx.defs[direct_sid]
 
         if strat != InlineStrategy.DO_NOT_INLINE:
@@ -1030,6 +1110,7 @@ def inline_pure_helpers(
     extra_local_defs: dict[SymbolId, NFunctionDef] | None = None,
     top_level_inline_defs: dict[str, NFunctionDef] | None = None,
     allowed_model_calls: frozenset[str] = frozenset(),
+    boundary_policy: InlineBoundaryPolicy | None = None,
 ) -> NormalizedFunction:
     """Inline helpers according to their classification strategy.
 
@@ -1111,6 +1192,7 @@ def inline_pure_helpers(
         alloc=alloc,
         top_level_name_to_sid=top_level_name_to_sid,
         allowed_model_calls=allowed_model_calls,
+        boundary_policy=boundary_policy,
     )
     new_body = _rewrite_block(func.body, ctx)
 

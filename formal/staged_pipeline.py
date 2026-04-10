@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from norm_inline import SymbolAllocator, inline_pure_helpers
+from norm_inline import InlineBoundaryPolicy, SymbolAllocator, inline_pure_helpers
 from norm_ir import (
     NFunctionDef,
     NLocalCall,
@@ -141,6 +141,10 @@ def translate_selected_models(
             extra_local_defs=extra_local_defs,
             top_level_inline_defs=top_level_inline_defs,
             allowed_model_calls=frozenset(plan.selected_functions),
+            boundary_policy=InlineBoundaryPolicy(
+                inline_local_helpers=True,
+                inline_top_level_helpers=frozenset(top_level_inline_defs),
+            ),
         )
         target_nf = simplify_normalized(target_nf)
 
