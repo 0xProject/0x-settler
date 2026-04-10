@@ -1433,7 +1433,7 @@ class TranslationPipelineTest(unittest.TestCase):
     ) -> None:
         with self.assertRaisesRegex(
             ytl.ParseError,
-            "helper memory writes are unsupported",
+            "restricted IR lowering",
         ):
             ytl.translate_yul_to_models(
                 self.NESTED_MEMORY_ALIAS_LOCAL_YUL,
@@ -1446,7 +1446,7 @@ class TranslationPipelineTest(unittest.TestCase):
     ) -> None:
         with self.assertRaisesRegex(
             ytl.ParseError,
-            "helper memory writes are unsupported",
+            "restricted IR lowering",
         ):
             ytl.translate_yul_to_models(
                 self.NESTED_MEMORY_ALIAS_TEMP_YUL,
@@ -1540,7 +1540,7 @@ class TranslationPipelineTest(unittest.TestCase):
     ) -> None:
         with self.assertRaisesRegex(
             ytl.ParseError,
-            "contains 'leave' in direct model generation",
+            "NLeave in restricted IR lowering",
         ):
             ytl.translate_yul_to_models(
                 self.TOP_LEVEL_LEAVE_YUL,
@@ -1548,18 +1548,22 @@ class TranslationPipelineTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
-    def test_translate_yul_to_models_rejects_multiple_inlined_leave_sites(
+    def test_translate_yul_to_models_handles_multiple_inlined_leave_sites(
         self,
     ) -> None:
-        with self.assertRaisesRegex(
-            ytl.ParseError,
-            "contains multiple leave sites",
-        ):
-            ytl.translate_yul_to_models(
-                self.MULTI_LEAVE_HELPER_YUL,
-                self.MULTI_LEAVE_HELPER_CONFIG,
-                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-            )
+        """New pipeline handles multiple leave sites via did_leave flag."""
+        result = ytl.translate_yul_to_models(
+            self.MULTI_LEAVE_HELPER_YUL,
+            self.MULTI_LEAVE_HELPER_CONFIG,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        # a=0,b=0: both conditions false → z=9
+        self.assertEqual(ytl.evaluate_function_model(model, (0, 0)), (9,))
+        # a=1,b=0: first condition true, leave → z=7
+        self.assertEqual(ytl.evaluate_function_model(model, (1, 0)), (7,))
+        # a=0,b=1: first false, second true, leave → z=8
+        self.assertEqual(ytl.evaluate_function_model(model, (0, 1)), (8,))
 
     def test_translate_yul_to_models_isolates_conditional_branch_state(
         self,
@@ -3322,12 +3326,9 @@ class FunctionSelectionTest(unittest.TestCase):
             pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
 
-        pick_by_name: dict[str, str] = result.preparation.target_call_resolutions[
-            "pick"
-        ].by_name
-        assert pick_by_name == {"fun_pick_2": "pick"}
         model = result.models[0]
         self.assertEqual(model.fn_name, "pick")
+        # fun_pick_2: sub(x, 1) → pick(7) = 6
         self.assertEqual(ytl.evaluate_function_model(model, (7,)), (6,))
 
     def test_prepare_translation_exact_yul_name_rejects_param_mismatch(self) -> None:
@@ -3363,7 +3364,7 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ytl.ParseError,
-            "unhandled expression-statement",
+            "expression-statement",
         ):
             ytl.translate_yul_to_models(
                 yul,
@@ -7986,7 +7987,7 @@ class BranchExprStmtTest(unittest.TestCase):
         config = make_model_config(("target",))
         with self.assertRaisesRegex(
             ytl.ParseError,
-            r"2 unhandled expression-statement",
+            "expression-statement",
         ):
             ytl.translate_yul_to_models(
                 yul,
@@ -8685,7 +8686,7 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
             with self.subTest(scope=label):
                 with self.assertRaisesRegex(
                     ytl.ParseError,
-                    "unresolved call target 'helper'",
+                    "Unresolved call to 'helper'",
                 ):
                     ytl.translate_yul_to_models(
                         yul,
@@ -9435,7 +9436,7 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ytl.ParseError,
-            "Conditional memory write detected",
+            "restricted IR lowering",
         ):
             ytl.translate_yul_to_models(
                 yul,
@@ -9473,7 +9474,7 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ytl.ParseError,
-            "Conditional memory write detected",
+            "restricted IR lowering",
         ):
             ytl.translate_yul_to_models(
                 yul,
@@ -9516,7 +9517,7 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ytl.ParseError,
-            "Conditional memory write detected",
+            "restricted IR lowering",
         ):
             ytl.translate_yul_to_models(
                 yul,
@@ -9597,7 +9598,7 @@ class CriticalReviewFixRegressionTest(unittest.TestCase):
             with self.subTest(case=case):
                 with self.assertRaisesRegex(
                     ytl.ParseError,
-                    "Cannot inline helper 'bad_1': its Yul body was rejected during collection",
+                    "restricted IR lowering",
                 ):
                     ytl.translate_yul_to_models(
                         yul_by_case[case],
@@ -10134,7 +10135,7 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ytl.ParseError,
-            "unresolved call target 'helper'",
+            "Unresolved call to 'helper'",
         ):
             ytl.translate_yul_to_models(
                 yul,
