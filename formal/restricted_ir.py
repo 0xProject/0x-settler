@@ -52,7 +52,7 @@ class RBuiltinCall:
 
 @dataclass(frozen=True)
 class RModelCall:
-    """Call to another model-level function (top-level sibling)."""
+    """Scalar call to another model-level function (top-level sibling)."""
 
     name: str
     args: tuple[RExpr, ...]
@@ -85,30 +85,45 @@ class RAssignment:
 
 
 @dataclass(frozen=True)
+class RCallAssign:
+    """Model call assignment with explicit target arity.
+
+    This is used for direct call sites, especially multi-return
+    model calls, so the call is evaluated once and its outputs are
+    assigned positionally to the targets.
+    """
+
+    targets: tuple[SymbolId, ...]
+    target_names: tuple[str, ...]
+    callee: str
+    args: tuple[RExpr, ...]
+
+
+@dataclass(frozen=True)
 class RBranch:
-    """One branch of a conditional with local statements and output mapping."""
+    """One branch of a conditional with local statements and output expressions."""
 
     assignments: tuple[RStatement, ...]
-    outputs: tuple[SymbolId, ...]
+    output_exprs: tuple[RExpr, ...]
 
 
 @dataclass(frozen=True)
 class RConditionalBlock:
     """Conditional with explicit outputs for both branches.
 
-    ``output_vars`` are the outer-scope variables bound by this
-    conditional.  Each branch carries its local assignments and
-    a mapping from local variables to the output slots.
+    ``output_targets`` are the outer-scope variables bound by this
+    conditional. Each branch carries its local assignments plus one
+    output expression per target, evaluated in the branch-local scope.
     """
 
     condition: RExpr
-    output_vars: tuple[SymbolId, ...]
+    output_targets: tuple[SymbolId, ...]
     output_names: tuple[str, ...]
     then_branch: RBranch
     else_branch: RBranch
 
 
-RStatement = Union[RAssignment, RConditionalBlock]
+RStatement = Union[RAssignment, RCallAssign, RConditionalBlock]
 
 
 # ---------------------------------------------------------------------------

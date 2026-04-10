@@ -13,6 +13,7 @@ from restricted_ir import (
     RAssignment,
     RBranch,
     RBuiltinCall,
+    RCallAssign,
     RConditionalBlock,
     RConst,
     RestrictedFunction,
@@ -114,6 +115,10 @@ def _eval_expr(
         if model_table is None or expr.name not in model_table:
             raise EvaluationError(f"Unknown model function {expr.name!r}")
         callee = model_table[expr.name]
+        if len(callee.returns) != 1:
+            raise EvaluationError(
+                f"Scalar model call to {expr.name!r} with {len(callee.returns)} returns"
+            )
         args = tuple(_eval_expr(a, env, model_table) for a in expr.args)
         return evaluate_restricted(callee, args, model_table=model_table)[0]
 
@@ -140,6 +145,20 @@ def _eval_block(
         if isinstance(stmt, RAssignment):
             env[stmt.target] = _eval_expr(stmt.expr, env, model_table)
 
+        elif isinstance(stmt, RCallAssign):
+            if model_table is None or stmt.callee not in model_table:
+                raise EvaluationError(f"Unknown model function {stmt.callee!r}")
+            callee = model_table[stmt.callee]
+            args = tuple(_eval_expr(a, env, model_table) for a in stmt.args)
+            values = evaluate_restricted(callee, args, model_table=model_table)
+            if len(values) != len(stmt.targets):
+                raise EvaluationError(
+                    f"Call to {stmt.callee!r} returned {len(values)} value(s), "
+                    f"expected {len(stmt.targets)}"
+                )
+            for sid, value in zip(stmt.targets, values):
+                env[sid] = value
+
         elif isinstance(stmt, RConditionalBlock):
             cond = _eval_expr(stmt.condition, env, model_table)
             branch = stmt.then_branch if cond != 0 else stmt.else_branch
@@ -149,8 +168,8 @@ def _eval_block(
             _eval_block(branch.assignments, branch_env, model_table)
 
             # Extract outputs into outer scope.
-            for out_sid, src_sid in zip(stmt.output_vars, branch.outputs):
-                env[out_sid] = branch_env[src_sid]
+            for out_sid, out_expr in zip(stmt.output_targets, branch.output_exprs):
+                env[out_sid] = _eval_expr(out_expr, branch_env, model_table)
 
 
 # ---------------------------------------------------------------------------

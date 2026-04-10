@@ -12471,6 +12471,24 @@ class RestrictedIRTest(unittest.TestCase):
         assert isinstance(rf, RestrictedFunction)
         return evaluate_restricted(rf, args)
 
+    def _module_to_restricted(
+        self, yul: str
+    ) -> dict[str, "restricted_ir.RestrictedFunction"]:
+        tokens = ytl.tokenize_yul(yul)
+        funcs = SyntaxParser(tokens).parse_functions()
+        resolved = resolve_module(funcs, builtins=ytl._EVM_BUILTINS)
+        out: dict[str, "restricted_ir.RestrictedFunction"] = {}
+        from restricted_ir import RestrictedFunction
+
+        for name, result in resolved.items():
+            nf = normalize_function(result.func, result)
+            nf = inline_pure_helpers(nf)
+            nf = propagate_constants(nf)
+            rf = lower_to_restricted(nf)
+            assert isinstance(rf, RestrictedFunction)
+            out[name] = rf
+        return out
+
     def test_simple_assignment(self) -> None:
         result = self._eval_restricted("function f(x) -> z { z := add(x, 1) }", (5,))
         self.assertEqual(result, (6,))
@@ -12494,6 +12512,192 @@ class RestrictedIRTest(unittest.TestCase):
             (1,),
         )
         self.assertEqual(result2, (1,))
+
+    def test_switch_nonconstant(self) -> None:
+        self.assertEqual(
+            self._eval_restricted(
+                """
+                function f(x) -> z {
+                    switch x
+                    case 1 { z := 7 }
+                    default { z := 9 }
+                }
+            """,
+                (0,),
+            ),
+            (9,),
+        )
+        self.assertEqual(
+            self._eval_restricted(
+                """
+                function f(x) -> z {
+                    switch x
+                    case 1 { z := 7 }
+                    default { z := 9 }
+                }
+            """,
+                (1,),
+            ),
+            (7,),
+        )
+        self.assertEqual(
+            self._eval_restricted(
+                """
+                function f(x) -> z {
+                    switch x
+                    case 1 { z := 7 }
+                    default { z := 9 }
+                }
+            """,
+                (2,),
+            ),
+            (9,),
+        )
+
+    def test_switch_default_only(self) -> None:
+        self.assertEqual(
+            self._eval_restricted(
+                """
+                function f(x) -> z {
+                    switch x
+                    case 1 { }
+                    default { z := 9 }
+                }
+            """,
+                (0,),
+            ),
+            (9,),
+        )
+        self.assertEqual(
+            self._eval_restricted(
+                """
+                function f(x) -> z {
+                    switch x
+                    case 1 { }
+                    default { z := 9 }
+                }
+            """,
+                (1,),
+            ),
+            (0,),
+        )
+
+    def test_switch_case_only(self) -> None:
+        self.assertEqual(
+            self._eval_restricted(
+                """
+                function f(x) -> z {
+                    switch x
+                    case 1 { z := 7 }
+                }
+            """,
+                (0,),
+            ),
+            (0,),
+        )
+        self.assertEqual(
+            self._eval_restricted(
+                """
+                function f(x) -> z {
+                    switch x
+                    case 1 { z := 7 }
+                }
+            """,
+                (1,),
+            ),
+            (7,),
+        )
+
+    def test_switch_multi_case(self) -> None:
+        self.assertEqual(
+            self._eval_restricted(
+                """
+                function f(x) -> z {
+                    switch x
+                    case 0 { z := 10 }
+                    case 1 { z := 20 }
+                    default { z := 30 }
+                }
+            """,
+                (0,),
+            ),
+            (10,),
+        )
+        self.assertEqual(
+            self._eval_restricted(
+                """
+                function f(x) -> z {
+                    switch x
+                    case 0 { z := 10 }
+                    case 1 { z := 20 }
+                    default { z := 30 }
+                }
+            """,
+                (1,),
+            ),
+            (20,),
+        )
+        self.assertEqual(
+            self._eval_restricted(
+                """
+                function f(x) -> z {
+                    switch x
+                    case 0 { z := 10 }
+                    case 1 { z := 20 }
+                    default { z := 30 }
+                }
+            """,
+                (2,),
+            ),
+            (30,),
+        )
+
+    def test_nested_switch_under_if(self) -> None:
+        self.assertEqual(
+            self._eval_restricted(
+                """
+                function f(x, y) -> z {
+                    if x {
+                        switch y
+                        case 1 { z := 7 }
+                        default { z := 9 }
+                    }
+                }
+            """,
+                (0, 1),
+            ),
+            (0,),
+        )
+        self.assertEqual(
+            self._eval_restricted(
+                """
+                function f(x, y) -> z {
+                    if x {
+                        switch y
+                        case 1 { z := 7 }
+                        default { z := 9 }
+                    }
+                }
+            """,
+                (1, 1),
+            ),
+            (7,),
+        )
+        self.assertEqual(
+            self._eval_restricted(
+                """
+                function f(x, y) -> z {
+                    if x {
+                        switch y
+                        case 1 { z := 7 }
+                        default { z := 9 }
+                    }
+                }
+            """,
+                (1, 2),
+            ),
+            (9,),
+        )
 
     def test_mstore_mload_resolved(self) -> None:
         """Memory ops eliminated: mstore consumed, mload resolved."""
@@ -12600,6 +12804,27 @@ class RestrictedIRTest(unittest.TestCase):
             norm_result = evaluate_normalized(nf, (x,))
             rest_result = evaluate_restricted(rf, (x,))
             self.assertEqual(norm_result, rest_result, f"Mismatch at x={x}")
+
+    def test_top_level_multi_return_call(self) -> None:
+        models = self._module_to_restricted(
+            """
+            function g(x) -> a, b {
+                a := x
+                b := add(x, 1)
+            }
+            function f(x) -> z, w {
+                z, w := g(x)
+            }
+        """
+        )
+        self.assertEqual(
+            evaluate_restricted(models["f"], (0,), model_table=models),
+            (0, 1),
+        )
+        self.assertEqual(
+            evaluate_restricted(models["f"], (5,), model_table=models),
+            (5, 6),
+        )
 
 
 if __name__ == "__main__":

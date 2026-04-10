@@ -1,15 +1,13 @@
 """
 Lower normalized imperative IR to non-SSA restricted IR.
 
-Merges handoff Passes 7 (memory model lowering) and 8 (restricted IR
-construction) into one step.  Memory legality falls out of the
-``MemoryState.join`` operation rather than ad-hoc syntax inspection.
+This pass performs memory elimination plus restricted-IR construction.
+The resulting IR has:
 
-After this pass:
-- All memory operations are resolved (no mstore/mload/NStore)
-- Control flow is explicit ``RConditionalBlock`` with branch outputs
-- For-loops are rejected (must be eliminated by earlier passes)
-- Output is a flat sequence of ``RAssignment`` / ``RConditionalBlock``
+- no memory operations
+- explicit conditional outputs
+- direct model-call assignments for top-level calls
+- no SSA renaming
 """
 
 from __future__ import annotations
@@ -39,11 +37,12 @@ from norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
-from norm_walk import map_expr
+from norm_walk import for_each_expr, max_symbol_id
 from restricted_ir import (
     RAssignment,
     RBranch,
     RBuiltinCall,
+    RCallAssign,
     RConditionalBlock,
     RConst,
     RestrictedFunction,
@@ -54,10 +53,6 @@ from restricted_ir import (
     RStatement,
 )
 from yul_ast import ParseError, SymbolId
-
-# ---------------------------------------------------------------------------
-# SymbolId allocator (for memory snapshot temps and branch outputs)
-# ---------------------------------------------------------------------------
 
 
 class _Alloc:
@@ -70,18 +65,9 @@ class _Alloc:
         return sid
 
 
-# ---------------------------------------------------------------------------
-# Memory state (analysis, not syntax)
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class MemoryState:
-    """Tracks memory slots as SymbolId → stored value bindings.
-
-    Stored values are always SymbolIds (bound to temps at store time),
-    making snapshot semantics implicit and join well-defined.
-    """
+    """Straight-line memory state keyed by constant addresses."""
 
     slots: dict[int, SymbolId] = field(default_factory=dict)
 
@@ -105,29 +91,6 @@ class MemoryState:
     def copy(self) -> MemoryState:
         return MemoryState(slots=dict(self.slots))
 
-    def join(self, other: MemoryState) -> None:
-        """Join another branch's memory state into this one.
-
-        Rejects if either branch wrote to a slot the other didn't
-        (asymmetric writes are not supported in the restricted model).
-        """
-        for addr in other.slots:
-            if addr not in self.slots:
-                raise ParseError(
-                    f"Memory write to address {addr} inside conditional branch. "
-                    f"The memory model requires straight-line writes."
-                )
-        for addr in self.slots:
-            if addr not in other.slots:
-                # Slot exists in pre-if state but other branch didn't write —
-                # that's fine, the pre-if value is still valid.
-                pass
-
-
-# ---------------------------------------------------------------------------
-# Address validation
-# ---------------------------------------------------------------------------
-
 
 def _resolve_const_addr(expr: NExpr, op: str) -> int:
     folded = fold_expr(expr)
@@ -142,13 +105,80 @@ def _resolve_const_addr(expr: NExpr, op: str) -> int:
     return addr
 
 
-# ---------------------------------------------------------------------------
-# NExpr → RExpr conversion
-# ---------------------------------------------------------------------------
+def _expr_has_memory_op(expr: NExpr) -> bool:
+    found = False
+
+    def check(e: NExpr) -> None:
+        nonlocal found
+        if isinstance(e, NBuiltinCall) and e.op in ("mload", "mstore"):
+            found = True
+
+    for_each_expr(expr, check)
+    return found
+
+
+def _reject_memory_ops_in_block(block: NBlock, context: str) -> None:
+    """Reject memory ops anywhere inside nested control-flow bodies."""
+    for stmt in block.stmts:
+        if isinstance(stmt, NStore):
+            raise ParseError(
+                f"Memory operation inside conditional ({context}). "
+                f"The restricted memory model requires straight-line memory."
+            )
+        if isinstance(stmt, NExprEffect):
+            if _expr_has_memory_op(stmt.expr):
+                raise ParseError(
+                    f"Memory operation inside conditional ({context}). "
+                    f"The restricted memory model requires straight-line memory."
+                )
+            continue
+        if isinstance(stmt, (NBind, NAssign)):
+            if stmt.expr is not None and _expr_has_memory_op(stmt.expr):
+                raise ParseError(
+                    f"Memory operation inside conditional ({context}). "
+                    f"The restricted memory model requires straight-line memory."
+                )
+            continue
+        if isinstance(stmt, NIf):
+            if _expr_has_memory_op(stmt.condition):
+                raise ParseError(
+                    f"Memory operation inside conditional ({context}). "
+                    f"The restricted memory model requires straight-line memory."
+                )
+            _reject_memory_ops_in_block(stmt.then_body, context)
+            continue
+        if isinstance(stmt, NSwitch):
+            if _expr_has_memory_op(stmt.discriminant):
+                raise ParseError(
+                    f"Memory operation inside conditional ({context}). "
+                    f"The restricted memory model requires straight-line memory."
+                )
+            for case in stmt.cases:
+                _reject_memory_ops_in_block(case.body, context)
+            if stmt.default is not None:
+                _reject_memory_ops_in_block(stmt.default, context)
+            continue
+        if isinstance(stmt, NFor):
+            if _expr_has_memory_op(stmt.condition):
+                raise ParseError(
+                    f"Memory operation inside conditional ({context}). "
+                    f"The restricted memory model requires straight-line memory."
+                )
+            _reject_memory_ops_in_block(stmt.init, context)
+            if stmt.condition_setup is not None:
+                _reject_memory_ops_in_block(stmt.condition_setup, context)
+            _reject_memory_ops_in_block(stmt.post, context)
+            _reject_memory_ops_in_block(stmt.body, context)
+            continue
+        if isinstance(stmt, NBlock):
+            _reject_memory_ops_in_block(stmt, context)
+
+
+def _name_for_sid(sid: SymbolId, names: dict[SymbolId, str]) -> str:
+    return names.get(sid, f"_v_{sid._id}")
 
 
 def _lower_expr(expr: NExpr, mem: MemoryState) -> RExpr:
-    """Convert a normalized expression to restricted IR, resolving mload."""
     if isinstance(expr, NConst):
         return RConst(value=expr.value)
 
@@ -156,7 +186,6 @@ def _lower_expr(expr: NExpr, mem: MemoryState) -> RExpr:
         return RRef(symbol_id=expr.symbol_id, name=expr.name)
 
     if isinstance(expr, NBuiltinCall):
-        # mload: resolve from memory state.
         if expr.op == "mload" and len(expr.args) == 1:
             addr = _resolve_const_addr(expr.args[0], "mload")
             sid = mem.load(addr)
@@ -187,25 +216,78 @@ def _lower_expr(expr: NExpr, mem: MemoryState) -> RExpr:
     raise ParseError(f"Unexpected expression: {type(expr).__name__}")
 
 
-# ---------------------------------------------------------------------------
-# Block lowering
-# ---------------------------------------------------------------------------
+def _emit_memory_store(
+    *,
+    addr: int,
+    value_expr: NExpr,
+    mem: MemoryState,
+    alloc: _Alloc,
+    out: list[RStatement],
+    names: dict[SymbolId, str],
+) -> None:
+    rvalue = _lower_expr(value_expr, mem)
+    tid = alloc.alloc()
+    name = f"_mem_{addr}"
+    names[tid] = name
+    out.append(RAssignment(target=tid, target_name=name, expr=rvalue))
+    mem.store(addr, tid)
+
+
+def _modified_union(
+    outer_order: tuple[SymbolId, ...],
+    then_var: dict[SymbolId, bool],
+    else_var: dict[SymbolId, bool],
+) -> list[SymbolId]:
+    return [sid for sid in outer_order if sid in then_var or sid in else_var]
+
+
+def _build_conditional(
+    *,
+    condition: RExpr,
+    then_assignments: list[RStatement],
+    then_var: dict[SymbolId, bool],
+    else_assignments: list[RStatement],
+    else_var: dict[SymbolId, bool],
+    outer_order: tuple[SymbolId, ...],
+    names: dict[SymbolId, str],
+) -> tuple[RConditionalBlock | None, list[SymbolId]]:
+    output_targets = _modified_union(outer_order, then_var, else_var)
+    if not output_targets:
+        return None, []
+
+    output_names = tuple(_name_for_sid(sid, names) for sid in output_targets)
+    branch_outputs = tuple(
+        RRef(symbol_id=sid, name=_name_for_sid(sid, names)) for sid in output_targets
+    )
+    return (
+        RConditionalBlock(
+            condition=condition,
+            output_targets=tuple(output_targets),
+            output_names=output_names,
+            then_branch=RBranch(
+                assignments=tuple(then_assignments),
+                output_exprs=branch_outputs,
+            ),
+            else_branch=RBranch(
+                assignments=tuple(else_assignments),
+                output_exprs=branch_outputs,
+            ),
+        ),
+        output_targets,
+    )
 
 
 def _lower_block(
     block: NBlock,
     mem: MemoryState,
     alloc: _Alloc,
-    var_state: dict[SymbolId, bool],
+    names: dict[SymbolId, str],
+    visible_state: dict[SymbolId, bool],
+    modified_state: dict[SymbolId, bool],
 ) -> list[RStatement]:
-    """Lower a normalized block to restricted IR statements.
-
-    *var_state* tracks which SymbolIds have been assigned (for
-    detecting which variables are modified in a branch).
-    """
     out: list[RStatement] = []
     for stmt in block.stmts:
-        _lower_stmt(stmt, mem, alloc, var_state, out)
+        _lower_stmt(stmt, mem, alloc, names, visible_state, modified_state, out)
     return out
 
 
@@ -213,75 +295,95 @@ def _lower_stmt(
     stmt: NStmt,
     mem: MemoryState,
     alloc: _Alloc,
-    var_state: dict[SymbolId, bool],
+    names: dict[SymbolId, str],
+    visible_state: dict[SymbolId, bool],
+    modified_state: dict[SymbolId, bool],
     out: list[RStatement],
 ) -> None:
     if isinstance(stmt, NStore):
         addr = _resolve_const_addr(stmt.addr, "mstore")
-        # Snapshot: bind value to a fresh temp.
-        rvalue = _lower_expr(stmt.value, mem)
-        tid = alloc.alloc()
-        out.append(RAssignment(target=tid, target_name=f"_mem_{addr}", expr=rvalue))
-        mem.store(addr, tid)
+        _emit_memory_store(
+            addr=addr,
+            value_expr=stmt.value,
+            mem=mem,
+            alloc=alloc,
+            out=out,
+            names=names,
+        )
         return
 
     if isinstance(stmt, NExprEffect):
-        # Bare mstore from Yul source.
         if (
             isinstance(stmt.expr, NBuiltinCall)
             and stmt.expr.op == "mstore"
             and len(stmt.expr.args) == 2
         ):
             addr = _resolve_const_addr(stmt.expr.args[0], "mstore")
-            rvalue = _lower_expr(stmt.expr.args[1], mem)
-            tid = alloc.alloc()
-            out.append(RAssignment(target=tid, target_name=f"_mem_{addr}", expr=rvalue))
-            mem.store(addr, tid)
-            return
-        # Other expression-statements: just lower the expression.
-        # (They have no target, so emit nothing — the expression is
-        # for side effects only, which should have been eliminated.)
+            _emit_memory_store(
+                addr=addr,
+                value_expr=stmt.expr.args[1],
+                mem=mem,
+                alloc=alloc,
+                out=out,
+                names=names,
+            )
         return
 
     if isinstance(stmt, (NBind, NAssign)):
         expr = stmt.expr
         if isinstance(stmt, NBind) and expr is None:
-            # Bare let — zero-init each target.
             for sid, name in zip(stmt.targets, stmt.target_names):
+                names[sid] = name
                 out.append(RAssignment(target=sid, target_name=name, expr=RConst(0)))
-                var_state[sid] = True
+                visible_state[sid] = True
+                modified_state[sid] = True
             return
+
         assert expr is not None
-        rexpr = _lower_expr(expr, mem)
-        if len(stmt.targets) == 1:
-            sid = stmt.targets[0]
-            name = stmt.target_names[0]
-            out.append(RAssignment(target=sid, target_name=name, expr=rexpr))
-            var_state[sid] = True
-        else:
-            # Multi-target: should have been split by inliner.
-            # If still present, lower each target separately.
+        if isinstance(expr, NTopLevelCall):
+            args = tuple(_lower_expr(a, mem) for a in expr.args)
             for sid, name in zip(stmt.targets, stmt.target_names):
-                out.append(RAssignment(target=sid, target_name=name, expr=rexpr))
-                var_state[sid] = True
+                names[sid] = name
+                visible_state[sid] = True
+                modified_state[sid] = True
+            out.append(
+                RCallAssign(
+                    targets=stmt.targets,
+                    target_names=stmt.target_names,
+                    callee=expr.name,
+                    args=args,
+                )
+            )
+            return
+
+        if len(stmt.targets) > 1:
+            raise ParseError(
+                "Multi-target assignment in restricted IR lowering requires "
+                "a top-level model call"
+            )
+
+        rexpr = _lower_expr(expr, mem)
+        sid = stmt.targets[0]
+        name = stmt.target_names[0]
+        names[sid] = name
+        out.append(RAssignment(target=sid, target_name=name, expr=rexpr))
+        visible_state[sid] = True
+        modified_state[sid] = True
         return
 
     if isinstance(stmt, NIf):
-        _lower_if(stmt, mem, alloc, var_state, out)
+        _lower_if(stmt, mem, alloc, names, visible_state, modified_state, out)
         return
 
     if isinstance(stmt, NSwitch):
-        # Lower switch to nested conditionals.
-        _lower_switch(stmt, mem, alloc, var_state, out)
+        _lower_switch(stmt, mem, alloc, names, visible_state, modified_state, out)
         return
 
     if isinstance(stmt, NBlock):
-        nested = _lower_block(stmt, mem, alloc, var_state)
-        out.extend(nested)
+        out.extend(_lower_block(stmt, mem, alloc, names, visible_state, modified_state))
         return
 
     if isinstance(stmt, NFunctionDef):
-        # Structural — skip in restricted IR.
         return
 
     if isinstance(stmt, NLeave):
@@ -297,155 +399,143 @@ def _lower_if(
     stmt: NIf,
     mem: MemoryState,
     alloc: _Alloc,
-    var_state: dict[SymbolId, bool],
+    names: dict[SymbolId, str],
+    visible_state: dict[SymbolId, bool],
+    modified_state: dict[SymbolId, bool],
     out: list[RStatement],
 ) -> None:
-    """Lower an NIf to an RConditionalBlock with explicit outputs."""
+    _reject_memory_ops_in_block(stmt.then_body, "if-body")
+
     cond = _lower_expr(stmt.condition, mem)
+    outer_order = tuple(visible_state.keys())
 
-    # Lower then-branch under copied state.
     then_mem = mem.copy()
-    then_var: dict[SymbolId, bool] = {}
-    then_stmts = _lower_block(stmt.then_body, then_mem, alloc, then_var)
-
-    # Join memory states.
-    mem.join(then_mem)
-
-    # Determine which variables were modified in the then-branch.
-    modified_sids = [sid for sid in then_var]
-    if not modified_sids and not then_stmts:
-        return
-
-    # output_vars = the original variable SymbolIds that get new values.
-    # then_branch.outputs = which variables in the then-scope provide values.
-    # else_branch.outputs = same original SymbolIds (pre-if values).
-    output_names: list[str] = []
-    for sid in modified_sids:
-        output_names.append(_find_name_for_sid(sid, then_stmts))
-
-    then_branch = RBranch(
-        assignments=tuple(then_stmts),
-        outputs=tuple(modified_sids),  # Then: the modified values.
-    )
-    else_branch = RBranch(
-        assignments=(),  # Else: no assignments.
-        outputs=tuple(modified_sids),  # Else: pre-if values (same sids).
+    then_visible = dict(visible_state)
+    then_modified: dict[SymbolId, bool] = {}
+    then_assignments = _lower_block(
+        stmt.then_body, then_mem, alloc, names, then_visible, then_modified
     )
 
-    out.append(
-        RConditionalBlock(
-            condition=cond,
-            output_vars=tuple(modified_sids),
-            output_names=tuple(output_names),
-            then_branch=then_branch,
-            else_branch=else_branch,
+    conditional, outputs = _build_conditional(
+        condition=cond,
+        then_assignments=then_assignments,
+        then_var=then_modified,
+        else_assignments=[],
+        else_var={},
+        outer_order=outer_order,
+        names=names,
+    )
+    if conditional is not None:
+        out.append(conditional)
+        for sid in outputs:
+            visible_state[sid] = True
+            modified_state[sid] = True
+
+
+def _lower_switch_chain(
+    *,
+    disc: RExpr,
+    cases: tuple,
+    default: NBlock | None,
+    mem: MemoryState,
+    alloc: _Alloc,
+    names: dict[SymbolId, str],
+    outer_order: tuple[SymbolId, ...],
+    visible_state: dict[SymbolId, bool],
+) -> tuple[list[RStatement], dict[SymbolId, bool]]:
+    if not cases:
+        if default is None:
+            return [], {}
+        default_mem = mem.copy()
+        default_visible = dict(visible_state)
+        default_modified: dict[SymbolId, bool] = {}
+        default_assignments = _lower_block(
+            default, default_mem, alloc, names, default_visible, default_modified
         )
+        return default_assignments, default_modified
+
+    case = cases[0]
+    then_mem = mem.copy()
+    then_visible = dict(visible_state)
+    then_modified: dict[SymbolId, bool] = {}
+    then_assignments = _lower_block(
+        case.body, then_mem, alloc, names, then_visible, then_modified
     )
 
-    for sid in modified_sids:
-        var_state[sid] = True
+    else_assignments, else_var = _lower_switch_chain(
+        disc=disc,
+        cases=cases[1:],
+        default=default,
+        mem=mem.copy(),
+        alloc=alloc,
+        names=names,
+        outer_order=outer_order,
+        visible_state=visible_state,
+    )
+
+    condition = RBuiltinCall(op="eq", args=(disc, RConst(case.value.value)))
+    conditional, outputs = _build_conditional(
+        condition=condition,
+        then_assignments=then_assignments,
+        then_var=then_modified,
+        else_assignments=else_assignments,
+        else_var=else_var,
+        outer_order=outer_order,
+        names=names,
+    )
+    if conditional is None:
+        return else_assignments, else_var
+    return [conditional], {sid: True for sid in outputs}
 
 
 def _lower_switch(
     stmt: NSwitch,
     mem: MemoryState,
     alloc: _Alloc,
-    var_state: dict[SymbolId, bool],
+    names: dict[SymbolId, str],
+    visible_state: dict[SymbolId, bool],
+    modified_state: dict[SymbolId, bool],
     out: list[RStatement],
 ) -> None:
-    """Lower NSwitch to nested RConditionalBlock chain."""
-    disc = _lower_expr(stmt.discriminant, mem)
-
-    # For each case, build an NIf-like conditional.
-    # Process from last case to first, building a chain.
-    # For now, convert to nested NIf and lower recursively.
-    # This reuses the NIf lowering logic.
-
-    # Build from bottom up: default (or empty) as the else.
+    for case in stmt.cases:
+        _reject_memory_ops_in_block(case.body, "switch-case")
     if stmt.default is not None:
-        default_stmts = _lower_block(stmt.default, mem.copy(), alloc, dict(var_state))
-    else:
-        default_stmts = []
+        _reject_memory_ops_in_block(stmt.default, "switch-default")
 
-    # For single-case + default (the common Yul pattern):
-    if len(stmt.cases) == 1:
-        case = stmt.cases[0]
-        case_cond: RExpr = RBuiltinCall(op="eq", args=(disc, RConst(case.value.value)))
-        then_mem = mem.copy()
-        then_var: dict[SymbolId, bool] = {}
-        then_stmts = _lower_block(case.body, then_mem, alloc, then_var)
-        mem.join(then_mem)
+    disc = _lower_expr(stmt.discriminant, mem)
+    outer_order = tuple(visible_state.keys())
 
-        modified = list(then_var.keys())
-        output_sids: list[SymbolId] = []
-        output_names: list[str] = []
-        then_outputs: list[SymbolId] = []
-        else_outputs: list[SymbolId] = []
-
-        for sid in modified:
-            out_sid = alloc.alloc()
-            output_sids.append(out_sid)
-            output_names.append(_find_name_for_sid(sid, then_stmts))
-            then_outputs.append(sid)
-            else_outputs.append(sid)
-
-        out.append(
-            RConditionalBlock(
-                condition=case_cond,
-                output_vars=tuple(output_sids),
-                output_names=tuple(output_names),
-                then_branch=RBranch(
-                    assignments=tuple(then_stmts), outputs=tuple(then_outputs)
-                ),
-                else_branch=RBranch(
-                    assignments=tuple(default_stmts), outputs=tuple(else_outputs)
-                ),
-            )
-        )
-        for sid in output_sids:
-            var_state[sid] = True
-        return
-
-    # General multi-case: reject for now (rare in supported Yul subset).
-    raise ParseError(
-        f"Multi-case switch ({len(stmt.cases)} cases) not yet supported "
-        f"in restricted IR lowering"
+    chain_assignments, chain_var = _lower_switch_chain(
+        disc=disc,
+        cases=stmt.cases,
+        default=stmt.default,
+        mem=mem,
+        alloc=alloc,
+        names=names,
+        outer_order=outer_order,
+        visible_state=visible_state,
     )
-
-
-def _find_name_for_sid(sid: SymbolId, stmts: list[RStatement]) -> str:
-    """Find the target_name for a SymbolId from a list of assignments."""
-    for stmt in stmts:
-        if isinstance(stmt, RAssignment) and stmt.target == sid:
-            return stmt.target_name
-    return f"_v_{sid._id}"
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
+    out.extend(chain_assignments)
+    for sid in chain_var:
+        visible_state[sid] = True
+        modified_state[sid] = True
 
 
 def lower_to_restricted(func: NormalizedFunction) -> RestrictedFunction:
-    """Lower normalized IR to non-SSA restricted IR with memory elimination.
-
-    All memory operations are resolved to direct value references.
-    Control flow becomes explicit ``RConditionalBlock`` with branch
-    outputs.  For-loops and unresolved local calls are rejected.
-    """
-    from norm_walk import max_symbol_id
-
+    """Lower normalized IR to non-SSA restricted IR with memory elimination."""
     alloc = _Alloc(max_symbol_id(func) + 1)
     mem = MemoryState()
+    names: dict[SymbolId, str] = {}
     var_state: dict[SymbolId, bool] = {}
 
-    # Mark params and returns as existing.
-    for sid in func.params:
+    for sid, name in zip(func.params, func.param_names):
+        names[sid] = name
         var_state[sid] = True
-    for sid in func.returns:
+    for sid, name in zip(func.returns, func.return_names):
+        names[sid] = name
         var_state[sid] = True
 
-    body = _lower_block(func.body, mem, alloc, var_state)
+    body = _lower_block(func.body, mem, alloc, names, var_state, {})
 
     return RestrictedFunction(
         name=func.name,
