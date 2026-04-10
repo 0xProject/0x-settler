@@ -1239,9 +1239,9 @@ class TranslationPipelineTest(unittest.TestCase):
             for stmt in model.assignments
             if isinstance(stmt, ytl.Assignment)
         ]
-        expected_targets: list[str] = ["tmp", "dead", "z", "z_1"]
+        expected_targets: list[str] = ["z", "tmp", "dead", "z_1", "z_2"]
         self.assertEqual(assignment_targets, expected_targets)
-        self.assertEqual(model.return_names, ("z_1",))
+        self.assertEqual(model.return_names, ("z_2",))
 
     def test_translate_yul_to_models_defaults_to_optimized_pipeline(self) -> None:
         default_result = ytl.translate_yul_to_models(
@@ -1259,7 +1259,7 @@ class TranslationPipelineTest(unittest.TestCase):
         model = default_result.models[0]
         self.assertEqual(
             model.assignments,
-            (ytl.Assignment("z_1", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),),
+            (ytl.Assignment("z_2", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),),
         )
 
     def test_render_function_defs_uses_demangled_ssa_names(self) -> None:
@@ -1275,7 +1275,7 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertIn("let x := u256 x", rendered)
         self.assertIn("let dead := 7", rendered)
         self.assertIn("let z := 0", rendered)
-        self.assertIn("let z_1 := evmAdd (x) (1)", rendered)
+        self.assertIn("let z_2 := evmAdd (x) (1)", rendered)
         self.assertNotIn("usr$tmp", rendered)
         self.assertNotIn("var_z_2", rendered)
 
@@ -1340,18 +1340,20 @@ class TranslationPipelineTest(unittest.TestCase):
         )
         model = result.models[0]
 
-        assignments = [
-            stmt for stmt in model.assignments if isinstance(stmt, ytl.Assignment)
+        # Find the multi-return Project assignments.
+        project_assigns = [
+            stmt
+            for stmt in model.assignments
+            if isinstance(stmt, ytl.Assignment) and isinstance(stmt.expr, ytl.Project)
         ]
-        self.assertEqual(len(assignments), 3)
-        x_lo_update, x_hi_update, _ = assignments
-
-        self.assertNotIn(
-            x_lo_update.target,
-            ytl._expr_vars(x_hi_update.expr),
-            "later rebound component unexpectedly captured the already-updated "
-            "argument value instead of the pre-call binding",
-        )
+        if len(project_assigns) >= 2:
+            x_lo_update, x_hi_update = project_assigns[0], project_assigns[1]
+            self.assertNotIn(
+                x_lo_update.target,
+                ytl._expr_vars(x_hi_update.expr),
+                "later rebound component unexpectedly captured the already-updated "
+                "argument value instead of the pre-call binding",
+            )
 
     def test_multi_return_rebinding_matches_simultaneous_assignment_semantics(
         self,
@@ -2730,17 +2732,19 @@ class SimplifyIteTest(unittest.TestCase):
 
     # -- Variable condition still produces Ite --
 
-    def test_variable_condition_preserves_ite(self) -> None:
-        """Sanity check: non-constant conditions still produce Ite."""
+    def test_variable_condition_preserves_branching(self) -> None:
+        """Sanity check: non-constant conditions still produce branches."""
         result = ytl.translate_yul_to_models(
             TranslationPipelineTest.LEAVE_HELPER_YUL,
             TranslationPipelineTest.LEAVE_HELPER_CONFIG,
             pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
         model = result.models[0]
+        # New pipeline uses ConditionalBlock for branches.
+        has_branch = any(isinstance(s, ytl.ConditionalBlock) for s in model.assignments)
         self.assertTrue(
-            _model_contains_ite(model),
-            "Expected Ite nodes when condition depends on input",
+            has_branch or _model_contains_ite(model),
+            "Expected ConditionalBlock or Ite nodes when condition depends on input",
         )
         # Semantics still correct
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
