@@ -21,6 +21,7 @@ from norm_inline import inline_pure_helpers
 from norm_memory import lower_memory
 from norm_to_restricted import lower_to_restricted
 from restricted_eval import evaluate_restricted
+from restricted_to_model import to_function_model
 from yul_normalize import normalize_function
 from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_function, resolve_module
@@ -12806,8 +12807,7 @@ class RestrictedIRTest(unittest.TestCase):
             self.assertEqual(norm_result, rest_result, f"Mismatch at x={x}")
 
     def test_top_level_multi_return_call(self) -> None:
-        models = self._module_to_restricted(
-            """
+        models = self._module_to_restricted("""
             function g(x) -> a, b {
                 a := x
                 b := add(x, 1)
@@ -12815,8 +12815,7 @@ class RestrictedIRTest(unittest.TestCase):
             function f(x) -> z, w {
                 z, w := g(x)
             }
-        """
-        )
+        """)
         self.assertEqual(
             evaluate_restricted(models["f"], (0,), model_table=models),
             (0, 1),
@@ -12825,6 +12824,119 @@ class RestrictedIRTest(unittest.TestCase):
             evaluate_restricted(models["f"], (5,), model_table=models),
             (5, 6),
         )
+
+
+class SSAModelTest(unittest.TestCase):
+    """Tests for SSA renaming and FunctionModel conversion."""
+
+    def _to_model(self, yul: str, fn_name: str = "f") -> ytl.FunctionModel:
+        """Full pipeline: Yul → FunctionModel."""
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        nf = inline_pure_helpers(nf)
+        nf = propagate_constants(nf)
+        rf = lower_to_restricted(nf)
+        return to_function_model(rf, fn_name)
+
+    def test_simple_function(self) -> None:
+        """Params and returns get correct names, eval is correct."""
+        model = self._to_model("function f(x) -> z { z := add(x, 1) }")
+        self.assertEqual(model.fn_name, "f")
+        self.assertIn("x", model.param_names)
+        # Return name is the final SSA name for z (may have suffix).
+        self.assertTrue(
+            any(n.startswith("z") for n in model.return_names),
+            f"Expected return name starting with 'z': {model.return_names}",
+        )
+        self.assertEqual(ytl.evaluate_function_model(model, (5,)), (6,))
+
+    def test_ssa_numbering(self) -> None:
+        """Multiple assignments to same variable get suffixed SSA names."""
+        model = self._to_model("""
+            function f(x) -> z {
+                let a := x
+                a := add(a, 1)
+                z := a
+            }
+        """)
+        # a should appear as a, a_1
+        targets: list[str] = [
+            s.target for s in model.assignments if isinstance(s, ytl.Assignment)
+        ]
+        a_targets: list[str] = [t for t in targets if t.startswith("a")]
+        self.assertGreater(len(a_targets), 1, f"Expected SSA suffixes: {targets}")
+        self.assertEqual(ytl.evaluate_function_model(model, (5,)), (6,))
+
+    def test_conditional_block(self) -> None:
+        """If-else produces ConditionalBlock with correct eval."""
+        model = self._to_model("""
+            function f(x) -> z {
+                if x { z := 1 }
+            }
+        """)
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (1,))
+
+    def test_eval_equivalence_with_restricted(self) -> None:
+        """FunctionModel eval matches restricted IR eval."""
+        yul = """
+            function f(x) -> z {
+                let a := add(x, 3)
+                if x { a := mul(a, 2) }
+                z := a
+            }
+        """
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        nf = inline_pure_helpers(nf)
+        nf = propagate_constants(nf)
+        rf = lower_to_restricted(nf)
+        model = to_function_model(rf, "f")
+
+        from restricted_ir import RestrictedFunction
+
+        assert isinstance(rf, RestrictedFunction)
+        for x in [0, 1, 5, 100]:
+            rest_val = evaluate_restricted(rf, (x,))
+            model_val = ytl.evaluate_function_model(model, (x,))
+            self.assertEqual(rest_val, model_val, f"Mismatch at x={x}")
+
+    def test_zero_init_return(self) -> None:
+        """Return variable gets explicit zero-init."""
+        model = self._to_model("""
+            function f(x) -> z {
+                if x { z := 1 }
+            }
+        """)
+        # The first assignment to z should be zero-init.
+        first_z = None
+        for s in model.assignments:
+            if isinstance(s, ytl.Assignment) and s.target.startswith("z"):
+                first_z = s
+                break
+        self.assertIsNotNone(first_z)
+        assert first_z is not None
+        self.assertEqual(first_z.expr, ytl.IntLit(0))
+
+    def test_memory_resolved_uint512(self) -> None:
+        """Full pipeline with uint512.from produces valid FunctionModel."""
+        model = self._to_model("""
+            function f(hi, lo) -> z {
+                function from_helper(ptr, x_hi, x_lo) -> r {
+                    r := 0
+                    mstore(ptr, x_hi)
+                    mstore(add(0x20, ptr), x_lo)
+                    r := ptr
+                }
+                let p := from_helper(64, hi, lo)
+                z := add(mload(p), mload(add(0x20, p)))
+            }
+        """)
+        self.assertEqual(ytl.evaluate_function_model(model, (5, 7)), (12,))
 
 
 if __name__ == "__main__":
