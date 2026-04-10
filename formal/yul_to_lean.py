@@ -6359,10 +6359,10 @@ def translate_yul_to_models(
 ) -> TranslationResult:
     """Run the staged translation pipeline and return the final models.
 
-    Uses the new staged pipeline: parse → resolve → normalize → inline →
-    constprop → restricted IR → module-wide naming → SSA → FunctionModel.
+    Uses the selection-aware staged pipeline: parse → resolve → normalize →
+    embed helpers → inline → constprop → restricted IR → SSA → FunctionModel.
     """
-    from restricted_to_model import translate_groups
+    from restricted_to_model import translate_selected
 
     # Duplicate selected function check (early, before parsing)
     selected = (
@@ -6372,41 +6372,14 @@ def translate_yul_to_models(
         dupes = [f for f in selected if list(selected).count(f) > 1]
         raise ParseError(f"Duplicate selected functions: {sorted(set(dupes))}")
 
-    # Build all models via the new staged pipeline.
-    all_groups = translate_groups(yul_text)
-
-    # Merge all groups into one lookup dict.
-    all_models: dict[str, FunctionModel] = {}
-    for group in all_groups:
-        all_models.update(group)
-
-    # Select requested functions.
-    for fn in selected:
-        if fn not in all_models:
-            raise ParseError(
-                f"Selected function {fn!r} not found in Yul. "
-                f"Available: {sorted(all_models.keys())}"
-            )
-
-    # Include transitively-called sibling functions so that model calls
-    # in the selected set resolve.  The call-graph is computed from the
-    # model expressions; builtins are ignored.
-    needed: set[str] = set(selected)
-    worklist = list(selected)
-    while worklist:
-        fn = worklist.pop()
-        if fn not in all_models:
-            continue
-        for stmt in all_models[fn].assignments:
-            for callee in _model_call_names_in_stmt(stmt):
-                if callee in all_models and callee not in needed:
-                    needed.add(callee)
-                    worklist.append(callee)
-
-    # Order: selected functions first (in order), then dependencies.
-    models: list[FunctionModel] = [all_models[fn] for fn in selected]
-    for fn in sorted(needed - set(selected)):
-        models.append(all_models[fn])
+    # Selection-aware staged pipeline: embeds non-selected helpers
+    # into each target before inlining, so models are self-contained.
+    models: list[FunctionModel] = translate_selected(
+        yul_text,
+        selected=selected,
+        exact_yul_names=config.exact_yul_names,
+        n_params=config.n_params,
+    )
 
     validate_selected_models(models)
     models = apply_optional_model_transforms(
