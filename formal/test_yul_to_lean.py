@@ -13611,7 +13611,7 @@ class SSAModelTest(unittest.TestCase):
         """translate_groups returns one model-map per lexical function group."""
         from restricted_to_model import translate_groups
 
-        groups = translate_groups("""
+        groups: list[dict[str, ytl.FunctionModel]] = translate_groups("""
             object "A" { code {
                 function f(x) -> z { z := add(x, 1) }
             } }
@@ -13620,8 +13620,12 @@ class SSAModelTest(unittest.TestCase):
             } }
         """)
         self.assertEqual(len(groups), 2)
-        self.assertEqual(sorted(groups[0].keys()), ["f"])  # type: ignore[misc]
-        self.assertEqual(sorted(groups[1].keys()), ["g"])  # type: ignore[misc]
+        g0_names: list[str] = sorted(groups[0].keys())
+        g1_names: list[str] = sorted(groups[1].keys())
+        expected_g0: list[str] = ["f"]
+        expected_g1: list[str] = ["g"]
+        self.assertEqual(g0_names, expected_g0)
+        self.assertEqual(g1_names, expected_g1)
 
 
 class StagedPipelineWiringTest(unittest.TestCase):
@@ -13712,8 +13716,9 @@ class StagedPipelineWiringTest(unittest.TestCase):
             config,
         )
         self.assertEqual(len(result.models), 2)
-        names = [m.fn_name for m in result.models]
-        self.assertEqual(names, ["g", "f"])  # type: ignore[misc]
+        names: list[str] = [m.fn_name for m in result.models]
+        expected_names: list[str] = ["g", "f"]
+        self.assertEqual(names, expected_names)
         table = ytl.build_model_table(result.models)
         self.assertEqual(
             ytl.evaluate_function_model(result.models[1], (5,), model_table=table),
