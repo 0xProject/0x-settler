@@ -12410,6 +12410,44 @@ class MemoryLowerTest(unittest.TestCase):
         """)
         self.assertEqual(evaluate_normalized(nf, (5,)), (5,))
 
+    def test_mload_in_nested_if_condition_rejected(self) -> None:
+        """mload in a nested if-condition inside control flow is rejected."""
+        with self.assertRaisesRegex(ytl.ParseError, "inside control flow"):
+            self._pipeline("""
+                function f(x) -> z {
+                    mstore(0, 7)
+                    if x { if mload(0) { z := 1 } }
+                }
+            """)
+
+    def test_mload_in_nested_switch_discriminant_rejected(self) -> None:
+        """mload in a nested switch discriminant inside control flow is rejected."""
+        with self.assertRaisesRegex(ytl.ParseError, "inside control flow"):
+            self._pipeline("""
+                function f(x) -> z {
+                    mstore(0, 1)
+                    if x {
+                        switch mload(0)
+                        case 1 { z := 10 }
+                        default { z := 20 }
+                    }
+                }
+            """)
+
+    def test_mload_in_nested_for_condition_rejected(self) -> None:
+        """mload in a nested for-condition inside control flow is rejected."""
+        with self.assertRaisesRegex(ytl.ParseError, "inside control flow"):
+            self._pipeline("""
+                function f(x) -> z {
+                    mstore(0, 0)
+                    if x {
+                        for { let i := 0 } iszero(mload(0)) { i := add(i, 1) } {
+                            z := 1
+                        }
+                    }
+                }
+            """)
+
 
 if __name__ == "__main__":
     unittest.main()

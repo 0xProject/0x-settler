@@ -66,40 +66,59 @@ def _resolve_const_addr(expr: NExpr, op: str) -> int:
 
 
 def _reject_memory_ops_in_block(block: NBlock, context: str) -> None:
-    """Raise if a block contains any memory operations (straight-line only)."""
+    """Raise if a block contains any memory operations (straight-line only).
+
+    Checks ALL statement types including expressions in condition/
+    discriminant positions of nested control flow.
+
+    NOTE: This ad-hoc rejection approach should eventually be replaced
+    by analysis-state-based memory elimination on restricted IR, where
+    memory legality falls out of explicit branch joins rather than
+    syntax-shape inspection.
+    """
     for stmt in block.stmts:
-        if isinstance(stmt, NStore):
-            raise ParseError(
-                f"NStore inside control flow ({context}). "
-                f"The memory model requires straight-line memory operations."
-            )
-        if isinstance(stmt, NExprEffect):
-            if _expr_has_memory_op(stmt.expr):
-                raise ParseError(
-                    f"Memory operation inside control flow ({context}). "
-                    f"The memory model requires straight-line memory operations."
-                )
-        if isinstance(stmt, (NBind, NAssign)):
-            if stmt.expr is not None and _expr_has_memory_op(stmt.expr):
-                raise ParseError(
-                    f"Memory operation inside control flow ({context}). "
-                    f"The memory model requires straight-line memory operations."
-                )
-        if isinstance(stmt, NIf):
-            _reject_memory_ops_in_block(stmt.then_body, context)
-        if isinstance(stmt, NSwitch):
-            for case in stmt.cases:
-                _reject_memory_ops_in_block(case.body, context)
-            if stmt.default is not None:
-                _reject_memory_ops_in_block(stmt.default, context)
-        if isinstance(stmt, NBlock):
-            _reject_memory_ops_in_block(stmt, context)
-        if isinstance(stmt, NFor):
-            _reject_memory_ops_in_block(stmt.init, context)
-            if stmt.condition_setup is not None:
-                _reject_memory_ops_in_block(stmt.condition_setup, context)
-            _reject_memory_ops_in_block(stmt.post, context)
-            _reject_memory_ops_in_block(stmt.body, context)
+        _reject_memory_ops_in_stmt(stmt, context)
+
+
+def _reject_memory_ops_in_stmt(stmt: NStmt, context: str) -> None:
+    """Check a single statement for memory operations."""
+    if isinstance(stmt, NStore):
+        raise ParseError(
+            f"NStore inside control flow ({context}). "
+            f"The memory model requires straight-line memory operations."
+        )
+    if isinstance(stmt, NExprEffect):
+        _reject_memory_in_expr(stmt.expr, context)
+    elif isinstance(stmt, (NBind, NAssign)):
+        if stmt.expr is not None:
+            _reject_memory_in_expr(stmt.expr, context)
+    elif isinstance(stmt, NIf):
+        _reject_memory_in_expr(stmt.condition, context)
+        _reject_memory_ops_in_block(stmt.then_body, context)
+    elif isinstance(stmt, NSwitch):
+        _reject_memory_in_expr(stmt.discriminant, context)
+        for case in stmt.cases:
+            _reject_memory_ops_in_block(case.body, context)
+        if stmt.default is not None:
+            _reject_memory_ops_in_block(stmt.default, context)
+    elif isinstance(stmt, NFor):
+        _reject_memory_ops_in_block(stmt.init, context)
+        if stmt.condition_setup is not None:
+            _reject_memory_ops_in_block(stmt.condition_setup, context)
+        _reject_memory_in_expr(stmt.condition, context)
+        _reject_memory_ops_in_block(stmt.post, context)
+        _reject_memory_ops_in_block(stmt.body, context)
+    elif isinstance(stmt, NBlock):
+        _reject_memory_ops_in_block(stmt, context)
+
+
+def _reject_memory_in_expr(expr: NExpr, context: str) -> None:
+    """Raise if an expression contains mstore or mload."""
+    if _expr_has_memory_op(expr):
+        raise ParseError(
+            f"Memory operation inside control flow ({context}). "
+            f"The memory model requires straight-line memory operations."
+        )
 
 
 def _expr_has_memory_op(expr: NExpr) -> bool:
