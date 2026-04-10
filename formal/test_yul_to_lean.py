@@ -6332,6 +6332,48 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             source,
         )
 
+    def test_build_lean_source_rejects_norm_call_to_skipped_norm_callee(self) -> None:
+        config = ytl.ModelConfig(
+            function_order=("f", "g"),
+            model_names={"f": "model_f", "g": "model_g"},
+            header_comment="test",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={},
+            extra_lean_defs="",
+            norm_rewrite=None,
+            inner_fn="f",
+            skip_norm=frozenset({"f"}),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+        models = [
+            ytl.FunctionModel(
+                fn_name="f",
+                param_names=("x",),
+                return_names=("z",),
+                assignments=(ytl.Assignment("z", ytl.Var("x")),),
+            ),
+            ytl.FunctionModel(
+                fn_name="g",
+                param_names=("y",),
+                return_names=("w",),
+                assignments=(ytl.Assignment("w", ytl.Call("f", (ytl.Var("y"),))),),
+            ),
+        ]
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "norm model.*f.*not emitted|skipped norm",
+        ):
+            ytl.build_lean_source(
+                models=models,
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
     def test_translate_yul_to_models_allows_constant_false_top_level_memory_write_branch(
         self,
     ) -> None:
@@ -10580,6 +10622,42 @@ class ResolverModuleTest(unittest.TestCase):
         self.assertEqual(root_names, expected_root)
         self.assertEqual(group_a_names, expected_a)
         self.assertEqual(group_b_names, expected_b)
+
+    def test_parse_function_groups_rejects_unmatched_closing_brace(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            function f(x) -> z { z := x }
+            }
+        """)
+
+        with self.assertRaisesRegex(ytl.ParseError, "Unmatched closing brace"):
+            SyntaxParser(tokens).parse_function_groups()
+
+    def test_parse_function_groups_rejects_unclosed_scope(self) -> None:
+        tokens = ytl.tokenize_yul("""
+            object "A" { code {
+                function f(x) -> z { z := x }
+        """)
+
+        with self.assertRaisesRegex(ytl.ParseError, "Unterminated brace scope"):
+            SyntaxParser(tokens).parse_function_groups()
+
+    def test_parse_string_literal_preserves_raw_bytes(self) -> None:
+        tokens = ytl.tokenize_yul(r'''
+            function f() {
+                linkersymbol("\xff")
+            }
+        ''')
+
+        parsed = SyntaxParser(tokens).parse_function()
+        stmt = parsed.body.stmts[0]
+        self.assertIsInstance(stmt, yul_ast.ExprStmt)
+        stmt = cast(yul_ast.ExprStmt, stmt)
+        self.assertIsInstance(stmt.expr, yul_ast.CallExpr)
+        stmt_expr = cast(yul_ast.CallExpr, stmt.expr)
+        self.assertEqual(len(stmt_expr.args), 1)
+        self.assertIsInstance(stmt_expr.args[0], yul_ast.StringExpr)
+        arg = cast(yul_ast.StringExpr, stmt_expr.args[0])
+        self.assertEqual(arg.decoded_bytes, b"\xff")
 
     def test_module_prepass_validates_later_object_blocks(self) -> None:
         """Cross-scope shadowing in a later object block is rejected
