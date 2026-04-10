@@ -19,6 +19,8 @@ from norm_constprop import fold_expr, propagate_constants
 from norm_eval import evaluate_normalized
 from norm_inline import inline_pure_helpers
 from norm_memory import lower_memory
+from norm_to_restricted import lower_to_restricted
+from restricted_eval import evaluate_restricted
 from yul_normalize import normalize_function
 from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_function, resolve_module
@@ -12447,6 +12449,157 @@ class MemoryLowerTest(unittest.TestCase):
                     }
                 }
             """)
+
+
+class RestrictedIRTest(unittest.TestCase):
+    """Tests for restricted IR construction + memory elimination."""
+
+    def _to_restricted(self, yul: str) -> object:
+        """Full pipeline: Yul → restricted IR."""
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        nf = inline_pure_helpers(nf)
+        nf = propagate_constants(nf)
+        return lower_to_restricted(nf)
+
+    def _eval_restricted(self, yul: str, args: tuple[int, ...]) -> tuple[int, ...]:
+        rf = self._to_restricted(yul)
+        from restricted_ir import RestrictedFunction
+
+        assert isinstance(rf, RestrictedFunction)
+        return evaluate_restricted(rf, args)
+
+    def test_simple_assignment(self) -> None:
+        result = self._eval_restricted("function f(x) -> z { z := add(x, 1) }", (5,))
+        self.assertEqual(result, (6,))
+
+    def test_if_else_produces_conditional_block(self) -> None:
+        result = self._eval_restricted(
+            """
+            function f(x) -> z {
+                if x { z := 1 }
+            }
+        """,
+            (0,),
+        )
+        self.assertEqual(result, (0,))
+        result2 = self._eval_restricted(
+            """
+            function f(x) -> z {
+                if x { z := 1 }
+            }
+        """,
+            (1,),
+        )
+        self.assertEqual(result2, (1,))
+
+    def test_mstore_mload_resolved(self) -> None:
+        """Memory ops eliminated: mstore consumed, mload resolved."""
+        result = self._eval_restricted(
+            """
+            function f() -> z {
+                mstore(0, 7)
+                z := mload(0)
+            }
+        """,
+            (),
+        )
+        self.assertEqual(result, (7,))
+
+    def test_uint512_from_memory_pattern(self) -> None:
+        result = self._eval_restricted(
+            """
+            function f(hi, lo) -> z {
+                function from_helper(ptr, x_hi, x_lo) -> r {
+                    r := 0
+                    mstore(ptr, x_hi)
+                    mstore(add(0x20, ptr), x_lo)
+                    r := ptr
+                }
+                let p := from_helper(64, hi, lo)
+                z := add(mload(p), mload(add(0x20, p)))
+            }
+        """,
+            (5, 7),
+        )
+        self.assertEqual(result, (12,))
+
+    def test_snapshot_semantics(self) -> None:
+        """mstore(0, x) then x := add(x, 1) then mload(0) returns original x."""
+        result = self._eval_restricted(
+            """
+            function f(x) -> z {
+                mstore(0, x)
+                x := add(x, 1)
+                z := mload(0)
+            }
+        """,
+            (5,),
+        )
+        self.assertEqual(result, (5,))
+
+    def test_memory_in_branch_rejected(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "inside conditional"):
+            self._to_restricted("""
+                function f(x) -> z {
+                    if x { mstore(0, 7) }
+                    z := 0
+                }
+            """)
+
+    def test_non_constant_address_rejected(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "Non-constant"):
+            self._to_restricted("""
+                function f(x) -> z {
+                    mstore(x, 7)
+                    z := mload(x)
+                }
+            """)
+
+    def test_duplicate_write_rejected(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "Duplicate mstore"):
+            self._to_restricted("""
+                function f() -> z {
+                    mstore(0, 7)
+                    mstore(0, 8)
+                    z := mload(0)
+                }
+            """)
+
+    def test_uninitialized_read_rejected(self) -> None:
+        with self.assertRaisesRegex(ytl.ParseError, "no prior mstore"):
+            self._to_restricted("""
+                function f() -> z {
+                    z := mload(0)
+                }
+            """)
+
+    def test_semantic_equivalence_with_normalized(self) -> None:
+        """Restricted IR eval matches normalized IR eval."""
+        yul = """
+            function f(x) -> z {
+                let a := add(x, 3)
+                if x { a := mul(a, 2) }
+                z := a
+            }
+        """
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        nf = inline_pure_helpers(nf)
+        nf = propagate_constants(nf)
+        rf = lower_to_restricted(nf)
+
+        from restricted_ir import RestrictedFunction
+
+        assert isinstance(rf, RestrictedFunction)
+        for x in [0, 1, 5, 100]:
+            norm_result = evaluate_normalized(nf, (x,))
+            rest_result = evaluate_restricted(rf, (x,))
+            self.assertEqual(norm_result, rest_result, f"Mismatch at x={x}")
 
 
 if __name__ == "__main__":
