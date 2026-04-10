@@ -1,16 +1,21 @@
 """
-Memory model lowering on normalized IR.
+Memory lowering on normalized IR.
 
-Resolves ``NStore`` (mstore) and ``NBuiltinCall("mload", ...)`` to
-direct value references.  After this pass, the IR contains no memory
-operations — all mload calls are replaced with the expressions
-previously stored at those addresses.
+This pass resolves straight-line memory stores/loads into explicit
+value flow before restricted lowering.
 
-The memory model enforces:
-- Constant addresses (compile-time evaluable)
-- 32-byte alignment
-- Single write per address (no aliasing/overwriting)
-- All reads reference a prior write
+Supported:
+- straight-line ``mstore`` / ``NStore``
+- ``mload`` reads from previously written constant addresses
+- read-only control-flow bodies (``if`` / ``switch``) that may perform
+  ``mload`` from the current straight-line memory state
+- constant-address aliases tracked through normalized bind/assigns
+
+Rejected:
+- non-constant or unaligned addresses
+- duplicate writes / overwrites
+- reads before writes
+- memory writes inside control flow
 """
 
 from __future__ import annotations
@@ -27,28 +32,33 @@ from norm_ir import (
     NFor,
     NFunctionDef,
     NIf,
-    NIte,
     NLeave,
-    NLocalCall,
     NormalizedFunction,
     NRef,
     NStmt,
     NStore,
     NSwitch,
-    NTopLevelCall,
-    NUnresolvedCall,
+    NSwitchCase,
 )
-from norm_walk import map_expr, max_symbol_id
+from norm_walk import for_each_expr, map_expr, max_symbol_id
 from yul_ast import ParseError, SymbolId
 
-# ---------------------------------------------------------------------------
-# Address validation
-# ---------------------------------------------------------------------------
+
+def _subst_consts(expr: NExpr, env: dict[SymbolId, NConst]) -> NExpr:
+    def rewrite(e: NExpr) -> NExpr:
+        if isinstance(e, NRef):
+            return env.get(e.symbol_id, e)
+        return e
+
+    return map_expr(expr, rewrite)
 
 
-def _resolve_const_addr(expr: NExpr, op: str) -> int:
-    """Fold an address expression to a constant int. Validates alignment."""
-    folded = fold_expr(expr)
+def _resolve_const_addr(
+    expr: NExpr,
+    op: str,
+    env: dict[SymbolId, NConst],
+) -> int:
+    folded = fold_expr(_subst_consts(expr, env))
     if not isinstance(folded, NConst):
         raise ParseError(
             f"Non-constant {op} address: {expr!r}. "
@@ -60,92 +70,88 @@ def _resolve_const_addr(expr: NExpr, op: str) -> int:
     return addr
 
 
-# ---------------------------------------------------------------------------
-# Reject memory ops inside control flow
-# ---------------------------------------------------------------------------
-
-
-def _reject_memory_ops_in_block(block: NBlock, context: str) -> None:
-    """Raise if a block contains any memory operations (straight-line only).
-
-    Checks ALL statement types including expressions in condition/
-    discriminant positions of nested control flow.
-
-    NOTE: This ad-hoc rejection approach should eventually be replaced
-    by analysis-state-based memory elimination on restricted IR, where
-    memory legality falls out of explicit branch joins rather than
-    syntax-shape inspection.
-    """
-    for stmt in block.stmts:
-        _reject_memory_ops_in_stmt(stmt, context)
-
-
-def _reject_memory_ops_in_stmt(stmt: NStmt, context: str) -> None:
-    """Check a single statement for memory operations."""
-    if isinstance(stmt, NStore):
-        raise ParseError(
-            f"NStore inside control flow ({context}). "
-            f"The memory model requires straight-line memory operations."
-        )
-    if isinstance(stmt, NExprEffect):
-        _reject_memory_in_expr(stmt.expr, context)
-    elif isinstance(stmt, (NBind, NAssign)):
-        if stmt.expr is not None:
-            _reject_memory_in_expr(stmt.expr, context)
-    elif isinstance(stmt, NIf):
-        _reject_memory_in_expr(stmt.condition, context)
-        _reject_memory_ops_in_block(stmt.then_body, context)
-    elif isinstance(stmt, NSwitch):
-        _reject_memory_in_expr(stmt.discriminant, context)
-        for case in stmt.cases:
-            _reject_memory_ops_in_block(case.body, context)
-        if stmt.default is not None:
-            _reject_memory_ops_in_block(stmt.default, context)
-    elif isinstance(stmt, NFor):
-        _reject_memory_ops_in_block(stmt.init, context)
-        if stmt.condition_setup is not None:
-            _reject_memory_ops_in_block(stmt.condition_setup, context)
-        _reject_memory_in_expr(stmt.condition, context)
-        _reject_memory_ops_in_block(stmt.post, context)
-        _reject_memory_ops_in_block(stmt.body, context)
-    elif isinstance(stmt, NBlock):
-        _reject_memory_ops_in_block(stmt, context)
-
-
-def _reject_memory_in_expr(expr: NExpr, context: str) -> None:
-    """Raise if an expression contains mstore or mload."""
-    if _expr_has_memory_op(expr):
-        raise ParseError(
-            f"Memory operation inside control flow ({context}). "
-            f"The memory model requires straight-line memory operations."
-        )
-
-
-def _expr_has_memory_op(expr: NExpr) -> bool:
-    """Check if an expression contains any memory operation (mstore or mload)."""
-    from norm_walk import for_each_expr
-
-    found: list[bool] = [False]
+def _expr_has_memory_write(expr: NExpr) -> bool:
+    found = False
 
     def check(e: NExpr) -> None:
-        if isinstance(e, NBuiltinCall) and e.op in ("mstore", "mload"):
-            found[0] = True
+        nonlocal found
+        if isinstance(e, NBuiltinCall) and e.op in ("mstore", "mstore8"):
+            found = True
 
     for_each_expr(expr, check)
-    return found[0]
+    return found
 
 
-# ---------------------------------------------------------------------------
-# Expression-level mload resolution
-# ---------------------------------------------------------------------------
+def _reject_memory_writes_in_block(block: NBlock, context: str) -> None:
+    for stmt in block.stmts:
+        _reject_memory_writes_in_stmt(stmt, context)
 
 
-def _resolve_memory_in_expr(expr: NExpr, mem: dict[int, NExpr]) -> NExpr:
-    """Replace ``mload(addr)`` calls with the stored value from *mem*."""
+def _reject_memory_writes_in_stmt(stmt: NStmt, context: str) -> None:
+    if isinstance(stmt, NStore):
+        raise ParseError(
+            f"Memory write inside control flow ({context}). "
+            f"The memory model requires straight-line memory writes."
+        )
+    if isinstance(stmt, NExprEffect):
+        if _expr_has_memory_write(stmt.expr):
+            raise ParseError(
+                f"Memory write inside control flow ({context}). "
+                f"The memory model requires straight-line memory writes."
+            )
+        return
+    if isinstance(stmt, (NBind, NAssign)):
+        if stmt.expr is not None and _expr_has_memory_write(stmt.expr):
+            raise ParseError(
+                f"Memory write inside control flow ({context}). "
+                f"The memory model requires straight-line memory writes."
+            )
+        return
+    if isinstance(stmt, NIf):
+        if _expr_has_memory_write(stmt.condition):
+            raise ParseError(
+                f"Memory write inside control flow ({context}). "
+                f"The memory model requires straight-line memory writes."
+            )
+        _reject_memory_writes_in_block(stmt.then_body, context)
+        return
+    if isinstance(stmt, NSwitch):
+        if _expr_has_memory_write(stmt.discriminant):
+            raise ParseError(
+                f"Memory write inside control flow ({context}). "
+                f"The memory model requires straight-line memory writes."
+            )
+        for case in stmt.cases:
+            _reject_memory_writes_in_block(case.body, context)
+        if stmt.default is not None:
+            _reject_memory_writes_in_block(stmt.default, context)
+        return
+    if isinstance(stmt, NFor):
+        if _expr_has_memory_write(stmt.condition):
+            raise ParseError(
+                f"Memory write inside control flow ({context}). "
+                f"The memory model requires straight-line memory writes."
+            )
+        _reject_memory_writes_in_block(stmt.init, context)
+        if stmt.condition_setup is not None:
+            _reject_memory_writes_in_block(stmt.condition_setup, context)
+        _reject_memory_writes_in_block(stmt.post, context)
+        _reject_memory_writes_in_block(stmt.body, context)
+        return
+    if isinstance(stmt, NBlock):
+        _reject_memory_writes_in_block(stmt, context)
 
+
+def _resolve_memory_in_expr(
+    expr: NExpr,
+    mem: dict[int, NExpr],
+    env: dict[SymbolId, NConst],
+) -> NExpr:
     def rewrite(e: NExpr) -> NExpr:
+        if isinstance(e, NRef):
+            return env.get(e.symbol_id, e)
         if isinstance(e, NBuiltinCall) and e.op == "mload" and len(e.args) == 1:
-            addr = _resolve_const_addr(e.args[0], "mload")
+            addr = _resolve_const_addr(e.args[0], "mload", env)
             if addr not in mem:
                 available = sorted(mem.keys())
                 raise ParseError(
@@ -155,17 +161,10 @@ def _resolve_memory_in_expr(expr: NExpr, mem: dict[int, NExpr]) -> NExpr:
             return mem[addr]
         return e
 
-    return map_expr(expr, rewrite)
-
-
-# ---------------------------------------------------------------------------
-# Block-level lowering
-# ---------------------------------------------------------------------------
+    return fold_expr(map_expr(expr, rewrite))
 
 
 class _MemCtx:
-    """Mutable context for memory lowering."""
-
     def __init__(self, next_id: int) -> None:
         self.mem: dict[int, NExpr] = {}
         self._next_id = next_id
@@ -176,128 +175,155 @@ class _MemCtx:
         return sid
 
 
-def _lower_block(block: NBlock, ctx: _MemCtx) -> NBlock:
-    """Lower memory operations in a block."""
-    stmts: list[NStmt] = []
+def _update_const_env(
+    targets: tuple[SymbolId, ...],
+    expr: NExpr | None,
+    env: dict[SymbolId, NConst],
+) -> None:
+    if expr is not None and len(targets) == 1 and isinstance(expr, NConst):
+        env[targets[0]] = expr
+        return
+    for sid in targets:
+        env.pop(sid, None)
+
+
+def _join_const_envs(envs: list[dict[SymbolId, NConst]]) -> dict[SymbolId, NConst]:
+    if not envs:
+        return {}
+    common = set(envs[0].keys())
+    for env in envs[1:]:
+        common &= set(env.keys())
+    joined: dict[SymbolId, NConst] = {}
+    for sid in common:
+        value = envs[0][sid]
+        if all(env[sid] == value for env in envs[1:]):
+            joined[sid] = value
+    return joined
+
+
+def _emit_store(
+    *,
+    addr: int,
+    value_expr: NExpr,
+    ctx: _MemCtx,
+    env: dict[SymbolId, NConst],
+    out: list[NStmt],
+) -> None:
+    if addr in ctx.mem:
+        raise ParseError(
+            f"Duplicate mstore to address {addr}. "
+            f"The memory model forbids aliasing or overwriting."
+        )
+    resolved_value = _resolve_memory_in_expr(value_expr, ctx.mem, env)
+    if isinstance(resolved_value, NConst):
+        ctx.mem[addr] = resolved_value
+        return
+    tid = ctx.alloc()
+    name = f"_mem_{addr}"
+    out.append(NBind(targets=(tid,), target_names=(name,), expr=resolved_value))
+    ctx.mem[addr] = NRef(symbol_id=tid, name=name)
+
+
+def _lower_block(
+    block: NBlock,
+    ctx: _MemCtx,
+    env: dict[SymbolId, NConst],
+) -> NBlock:
+    out: list[NStmt] = []
     for stmt in block.stmts:
-        _lower_stmt(stmt, ctx, stmts)
-    return NBlock(tuple(stmts))
+        _lower_stmt(stmt, ctx, env, out)
+    return NBlock(tuple(out))
 
 
 def _lower_stmt(
     stmt: NStmt,
     ctx: _MemCtx,
+    env: dict[SymbolId, NConst],
     out: list[NStmt],
 ) -> None:
-    mem = ctx.mem
-
     if isinstance(stmt, NStore):
-        addr = _resolve_const_addr(stmt.addr, "mstore")
-        if addr in mem:
-            raise ParseError(
-                f"Duplicate mstore to address {addr}. "
-                f"The memory model forbids aliasing or overwriting."
-            )
-        # Resolve any mload references in the stored value.
-        resolved_value = _resolve_memory_in_expr(stmt.value, mem)
-        # Snapshot: bind value to a fresh temp so later reassignments
-        # don't affect the stored expression.
-        if not isinstance(resolved_value, NConst):
-            tid = ctx.alloc()
-            name = f"_mem_{addr}"
-            out.append(NBind(targets=(tid,), target_names=(name,), expr=resolved_value))
-            mem[addr] = NRef(symbol_id=tid, name=name)
-        else:
-            mem[addr] = resolved_value
+        addr = _resolve_const_addr(stmt.addr, "mstore", env)
+        _emit_store(addr=addr, value_expr=stmt.value, ctx=ctx, env=env, out=out)
         return
 
     if isinstance(stmt, NBind):
-        if stmt.expr is not None:
-            new_expr = _resolve_memory_in_expr(stmt.expr, mem)
-            out.append(
-                NBind(
-                    targets=stmt.targets,
-                    target_names=stmt.target_names,
-                    expr=new_expr,
-                )
-            )
-        else:
+        if stmt.expr is None:
+            for sid in stmt.targets:
+                env[sid] = NConst(0)
             out.append(stmt)
+            return
+        new_expr = _resolve_memory_in_expr(stmt.expr, ctx.mem, env)
+        _update_const_env(stmt.targets, new_expr, env)
+        out.append(NBind(targets=stmt.targets, target_names=stmt.target_names, expr=new_expr))
         return
 
     if isinstance(stmt, NAssign):
-        new_expr = _resolve_memory_in_expr(stmt.expr, mem)
-        out.append(
-            NAssign(
-                targets=stmt.targets,
-                target_names=stmt.target_names,
-                expr=new_expr,
-            )
-        )
+        new_expr = _resolve_memory_in_expr(stmt.expr, ctx.mem, env)
+        _update_const_env(stmt.targets, new_expr, env)
+        out.append(NAssign(targets=stmt.targets, target_names=stmt.target_names, expr=new_expr))
         return
 
     if isinstance(stmt, NExprEffect):
-        # NExprEffect(NBuiltinCall("mstore", (addr, value))) is a bare
-        # mstore from Yul source — treat the same as NStore.
         if (
             isinstance(stmt.expr, NBuiltinCall)
             and stmt.expr.op == "mstore"
             and len(stmt.expr.args) == 2
         ):
-            addr_expr, value_expr = stmt.expr.args
-            addr = _resolve_const_addr(addr_expr, "mstore")
-            if addr in mem:
-                raise ParseError(
-                    f"Duplicate mstore to address {addr}. "
-                    f"The memory model forbids aliasing or overwriting."
-                )
-            resolved_value = _resolve_memory_in_expr(value_expr, mem)
-            # Snapshot non-constant values.
-            if not isinstance(resolved_value, NConst):
-                tid = ctx.alloc()
-                name = f"_mem_{addr}"
-                out.append(
-                    NBind(targets=(tid,), target_names=(name,), expr=resolved_value)
-                )
-                mem[addr] = NRef(symbol_id=tid, name=name)
-            else:
-                mem[addr] = resolved_value
-            return  # Consumed — not emitted
-        new_expr = _resolve_memory_in_expr(stmt.expr, mem)
-        out.append(NExprEffect(expr=new_expr))
+            addr = _resolve_const_addr(stmt.expr.args[0], "mstore", env)
+            _emit_store(addr=addr, value_expr=stmt.expr.args[1], ctx=ctx, env=env, out=out)
+            return
+        out.append(NExprEffect(expr=_resolve_memory_in_expr(stmt.expr, ctx.mem, env)))
         return
 
     if isinstance(stmt, NIf):
-        _reject_memory_ops_in_block(stmt.then_body, "if-body")
-        new_cond = _resolve_memory_in_expr(stmt.condition, mem)
-        out.append(NIf(condition=new_cond, then_body=stmt.then_body))
+        _reject_memory_writes_in_block(stmt.then_body, "if-body")
+        before_env = dict(env)
+        then_env = dict(env)
+        new_cond = _resolve_memory_in_expr(stmt.condition, ctx.mem, env)
+        then_body = _lower_block(stmt.then_body, ctx, then_env)
+        env.clear()
+        env.update(_join_const_envs([before_env, then_env]))
+        out.append(NIf(condition=new_cond, then_body=then_body))
         return
 
     if isinstance(stmt, NSwitch):
         for case in stmt.cases:
-            _reject_memory_ops_in_block(case.body, "switch-case")
+            _reject_memory_writes_in_block(case.body, "switch-case")
         if stmt.default is not None:
-            _reject_memory_ops_in_block(stmt.default, "switch-default")
-        new_disc = _resolve_memory_in_expr(stmt.discriminant, mem)
-        from norm_ir import NSwitchCase
-
-        new_cases = tuple(NSwitchCase(value=c.value, body=c.body) for c in stmt.cases)
-        out.append(
-            NSwitch(discriminant=new_disc, cases=new_cases, default=stmt.default)
-        )
+            _reject_memory_writes_in_block(stmt.default, "switch-default")
+        new_disc = _resolve_memory_in_expr(stmt.discriminant, ctx.mem, env)
+        branch_envs: list[dict[SymbolId, NConst]] = []
+        new_cases: list[NSwitchCase] = []
+        for case in stmt.cases:
+            case_env = dict(env)
+            branch_envs.append(case_env)
+            new_cases.append(
+                NSwitchCase(value=case.value, body=_lower_block(case.body, ctx, case_env))
+            )
+        new_default = None
+        if stmt.default is not None:
+            default_env = dict(env)
+            branch_envs.append(default_env)
+            new_default = _lower_block(stmt.default, ctx, default_env)
+        else:
+            branch_envs.append(dict(env))
+        env.clear()
+        env.update(_join_const_envs(branch_envs))
+        out.append(NSwitch(discriminant=new_disc, cases=tuple(new_cases), default=new_default))
         return
 
     if isinstance(stmt, NFor):
-        _reject_memory_ops_in_block(stmt.init, "for-init")
+        _reject_memory_writes_in_block(stmt.init, "for-init")
         if stmt.condition_setup is not None:
-            _reject_memory_ops_in_block(stmt.condition_setup, "for-condition-setup")
-        _reject_memory_ops_in_block(stmt.post, "for-post")
-        _reject_memory_ops_in_block(stmt.body, "for-body")
-        # Resolve mload in condition and condition_setup expressions.
-        new_cond = _resolve_memory_in_expr(stmt.condition, mem)
-        new_cond_setup = stmt.condition_setup
-        if new_cond_setup is not None:
-            new_cond_setup = _lower_block(new_cond_setup, ctx)
+            _reject_memory_writes_in_block(stmt.condition_setup, "for-condition-setup")
+        _reject_memory_writes_in_block(stmt.post, "for-post")
+        _reject_memory_writes_in_block(stmt.body, "for-body")
+        new_cond = _resolve_memory_in_expr(stmt.condition, ctx.mem, env)
+        new_cond_setup = (
+            _lower_block(stmt.condition_setup, ctx, dict(env))
+            if stmt.condition_setup is not None
+            else None
+        )
         out.append(
             NFor(
                 init=stmt.init,
@@ -314,26 +340,16 @@ def _lower_stmt(
         return
 
     if isinstance(stmt, NBlock):
-        out.append(_lower_block(stmt, ctx))
+        out.append(_lower_block(stmt, ctx, env))
         return
 
     raise ParseError(f"Unexpected statement in memory lowering: {type(stmt).__name__}")
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
 def lower_memory(func: NormalizedFunction) -> NormalizedFunction:
-    """Resolve memory operations to direct value references.
-
-    Removes ``NStore`` statements and replaces ``mload(addr)`` with
-    the expression previously stored at that address.  Raises
-    ``ParseError`` if any memory constraint is violated.
-    """
+    """Resolve normalized-IR memory operations into direct value flow."""
     ctx = _MemCtx(next_id=max_symbol_id(func) + 1)
-    new_body = _lower_block(func.body, ctx)
+    new_body = _lower_block(func.body, ctx, {})
     return NormalizedFunction(
         name=func.name,
         params=func.params,

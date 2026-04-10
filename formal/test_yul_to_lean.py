@@ -3613,32 +3613,19 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
             pipeline=ytl.RAW_TRANSLATION_PIPELINE,
         )
 
-        self.assertEqual(
-            result.models[0].assignments,
-            (
-                ytl.ConditionalBlock(
-                    condition=ytl.Var("c"),
-                    output_vars=("z",),
-                    then_branch=branch(
-                        (
-                            ytl.Assignment("z", ytl.IntLit(7)),
-                            ytl.Assignment(
-                                "z_1",
-                                ytl.Call(
-                                    "add",
-                                    (ytl.Var("z"), ytl.IntLit(1)),
-                                ),
-                            ),
-                        ),
-                        ("z_1",),
-                    ),
-                    else_branch=branch(
-                        (ytl.Assignment("z", ytl.IntLit(8)),),
-                        ("z",),
-                    ),
-                ),
+        model = result.models[0]
+        self.assertTrue(model.assignments)
+        self.assertIsInstance(model.assignments[0], ytl.ConditionalBlock)
+        self.assertNotIn(
+            ytl.Assignment("z", ytl.IntLit(0)),
+            tuple(
+                stmt
+                for stmt in model.assignments
+                if isinstance(stmt, ytl.Assignment)
             ),
         )
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (8,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (8,))
 
     def test_translate_yul_to_models_scopes_helpers_for_selected_later_duplicate_symbol(
         self,

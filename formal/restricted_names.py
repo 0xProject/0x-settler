@@ -83,7 +83,11 @@ def _legalize_one(name: str) -> str:
     return legalize_identifier_base(name)
 
 
-def _uniquify_name_bases(raw_names: dict[SymbolId, str]) -> dict[SymbolId, str]:
+def _uniquify_name_bases(
+    raw_names: dict[SymbolId, str],
+    *,
+    extra_reserved_names: frozenset[str] = frozenset(),
+) -> dict[SymbolId, str]:
     """Legalize and uniquify binder base names while preserving order."""
     result: dict[SymbolId, str] = {}
     used: set[str] = set()
@@ -91,7 +95,11 @@ def _uniquify_name_bases(raw_names: dict[SymbolId, str]) -> dict[SymbolId, str]:
         base = _legalize_one(raw)
         candidate = base
         suffix = 1
-        while candidate in used or candidate in _RESERVED_LEAN_NAMES:
+        while (
+            candidate in used
+            or candidate in _RESERVED_LEAN_NAMES
+            or candidate in extra_reserved_names
+        ):
             candidate = f"{base}_{suffix}"
             suffix += 1
         used.add(candidate)
@@ -245,6 +253,8 @@ class ModuleNamePlan:
 
 def plan_module(
     funcs: dict[str, RestrictedFunction],
+    *,
+    extra_reserved_binder_names: frozenset[str] = frozenset(),
 ) -> ModuleNamePlan:
     """Build a complete module-wide naming plan.
 
@@ -268,7 +278,10 @@ def plan_module(
     binder_names: dict[str, dict[SymbolId, str]] = {}
     for raw_name, func in funcs.items():
         sid_to_raw = _collect_all_sids(func)
-        binder_names[raw_name] = _uniquify_name_bases(sid_to_raw)
+        binder_names[raw_name] = _uniquify_name_bases(
+            sid_to_raw,
+            extra_reserved_names=extra_reserved_binder_names,
+        )
 
     return ModuleNamePlan(
         function_names=function_names,

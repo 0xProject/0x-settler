@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from norm_constprop import fold_expr
+from norm_constprop import WORD_MOD, fold_expr
 from norm_ir import (
     NAssign,
     NBind,
@@ -478,7 +478,10 @@ def _lower_switch_chain(
         visible_state=visible_state,
     )
 
-    condition = RBuiltinCall(op="eq", args=(disc, RConst(case.value.value)))
+    condition = RBuiltinCall(
+        op="eq",
+        args=(disc, RConst(case.value.value % WORD_MOD)),
+    )
     conditional, outputs = _build_conditional(
         condition=condition,
         then_assignments=then_assignments,

@@ -236,15 +236,109 @@ def _convert_branch_block(
 # ---------------------------------------------------------------------------
 
 
+def _expr_uses_sid(expr: RExpr, sid: SymbolId) -> bool:
+    if isinstance(expr, RConst):
+        return False
+    if isinstance(expr, RRef):
+        return expr.symbol_id == sid
+    if isinstance(expr, (RBuiltinCall, RModelCall)):
+        return any(_expr_uses_sid(arg, sid) for arg in expr.args)
+    if isinstance(expr, RIte):
+        return (
+            _expr_uses_sid(expr.cond, sid)
+            or _expr_uses_sid(expr.if_true, sid)
+            or _expr_uses_sid(expr.if_false, sid)
+        )
+    raise ValueError(f"Unexpected RExpr: {type(expr).__name__}")
+
+
+def _analyze_branch_outputs(
+    sid: SymbolId,
+    branch: RBranch,
+    assigned_in: bool,
+) -> tuple[bool, bool]:
+    needs_init, assigned = _analyze_init_need_in_block(
+        sid,
+        branch.assignments,
+        assigned_in=assigned_in,
+    )
+    if needs_init:
+        return True, assigned
+    for expr in branch.output_exprs:
+        if _expr_uses_sid(expr, sid) and not assigned:
+            return True, assigned
+    return False, assigned
+
+
+def _analyze_init_need_in_stmt(
+    sid: SymbolId,
+    stmt: RStatement,
+    *,
+    assigned_in: bool,
+) -> tuple[bool, bool]:
+    if isinstance(stmt, RAssignment):
+        if _expr_uses_sid(stmt.expr, sid) and not assigned_in:
+            return True, assigned_in
+        return False, assigned_in or stmt.target == sid
+
+    if isinstance(stmt, RCallAssign):
+        if any(_expr_uses_sid(arg, sid) for arg in stmt.args) and not assigned_in:
+            return True, assigned_in
+        return False, assigned_in or sid in stmt.targets
+
+    if isinstance(stmt, RConditionalBlock):
+        if _expr_uses_sid(stmt.condition, sid) and not assigned_in:
+            return True, assigned_in
+        then_needs, _then_assigned = _analyze_branch_outputs(
+            sid,
+            stmt.then_branch,
+            assigned_in,
+        )
+        if then_needs:
+            return True, assigned_in
+        else_needs, _else_assigned = _analyze_branch_outputs(
+            sid,
+            stmt.else_branch,
+            assigned_in,
+        )
+        if else_needs:
+            return True, assigned_in
+        if sid in stmt.output_targets:
+            return False, True
+        return False, assigned_in
+
+    assert_never(stmt)
+
+
+def _analyze_init_need_in_block(
+    sid: SymbolId,
+    stmts: tuple[RStatement, ...],
+    *,
+    assigned_in: bool,
+) -> tuple[bool, bool]:
+    assigned = assigned_in
+    for stmt in stmts:
+        needs_init, assigned = _analyze_init_need_in_stmt(
+            sid,
+            stmt,
+            assigned_in=assigned,
+        )
+        if needs_init:
+            return True, assigned
+    return False, assigned
+
+
 def _needs_zero_init(
     sid: SymbolId,
     body: tuple[RStatement, ...],
 ) -> bool:
-    """Check if a return variable needs explicit zero-initialization.
-
-    Conservative: always zero-init.
-    """
-    return True
+    """Check if a return variable needs explicit zero-initialization."""
+    needs_init, assigned_out = _analyze_init_need_in_block(
+        sid,
+        body,
+        assigned_in=False,
+    )
+    return needs_init or not assigned_out
 
 
 # ---------------------------------------------------------------------------
@@ -306,6 +400,8 @@ def to_function_model(
 
 def to_function_models(
     funcs: dict[str, RestrictedFunction],
+    *,
+    extra_reserved_binder_names: frozenset[str] = frozenset(),
 ) -> dict[str, FunctionModel]:
     """Convert a module of ``RestrictedFunction``s to ``FunctionModel``s.
 
@@ -314,7 +410,10 @@ def to_function_models(
     it, then runs SSA per function.  Returns a dict keyed by clean
     (emitted) function names.
     """
-    name_plan = plan_module(funcs)
+    name_plan = plan_module(
+        funcs,
+        extra_reserved_binder_names=extra_reserved_binder_names,
+    )
     legalized = apply_module_plan(funcs, name_plan)
     models: dict[str, FunctionModel] = {}
     for raw_name, func in legalized.items():

@@ -390,10 +390,12 @@ def classify_helpers(
 ) -> dict[SymbolId, InlineClassification]:
     """Compute transitive inlining classifications from per-function summaries.
 
-    All non-inlineable properties (deferred, unsupported, calls_top_level)
-    propagate transitively through the call graph.
-    may_leave does NOT make a helper non-pure — the inliner handles
-    leave via NIte(leave_cond, leave_val, else_val) merge.
+    Deferred helpers (memory readers/writers) remain non-pure, but they
+    are still structurally inlineable so later memory lowering can
+    eliminate their effects in the selected target.
+
+    Unsupported helpers remain ``DO_NOT_INLINE`` until dead-code
+    elimination proves them unreachable.
     """
     deferred: set[SymbolId] = set()
     non_pure: set[SymbolId] = set()
@@ -443,9 +445,9 @@ def classify_helpers(
         # validation pass before restricted lowering.
         if s.is_uint512_from:
             strategy = InlineStrategy.EFFECT_LOWER
-        elif is_def or reason is not None or s.has_for_loop or s.calls_top_level:
+        elif reason is not None or s.has_for_loop or s.calls_top_level:
             strategy = InlineStrategy.DO_NOT_INLINE
-        elif s.may_leave:
+        elif is_def or s.may_leave:
             strategy = InlineStrategy.BLOCK_INLINE
         elif not is_p:
             strategy = InlineStrategy.DO_NOT_INLINE

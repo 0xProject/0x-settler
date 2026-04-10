@@ -231,7 +231,6 @@ class _InlineCtx:
         alloc: SymbolAllocator,
         top_level_name_to_sid: dict[str, SymbolId] | None = None,
         allowed_model_calls: frozenset[str] = frozenset(),
-        forced_inline_sids: frozenset[SymbolId] = frozenset(),
         max_depth: int = 40,
     ) -> None:
         self.defs = defs
@@ -241,7 +240,6 @@ class _InlineCtx:
             dict(top_level_name_to_sid) if top_level_name_to_sid is not None else {}
         )
         self.allowed_model_calls = allowed_model_calls
-        self.forced_inline_sids = set(forced_inline_sids)
         self.max_depth = max_depth
 
     def strategy_for(self, sid: SymbolId) -> InlineStrategy:
@@ -272,7 +270,6 @@ def _register_nested_defs(block: NBlock, ctx: _InlineCtx) -> None:
     summaries: dict[SymbolId, FunctionSummary] = {}
     for fdef in new_fdefs:
         ctx.defs[fdef.symbol_id] = fdef
-        ctx.forced_inline_sids.add(fdef.symbol_id)
         base = summarize_function(
             fdef.body,
             top_level_inline_sids=ctx.top_level_name_to_sid,
@@ -718,8 +715,7 @@ def _inline_in_expr_with_prelude(
         new_args_t = tuple(new_args_list)
 
         strat = ctx.strategy_for(expr.symbol_id)
-        force_structural_inline = expr.symbol_id in ctx.forced_inline_sids
-        if (strat != InlineStrategy.DO_NOT_INLINE or force_structural_inline) and expr.symbol_id in ctx.defs:
+        if strat != InlineStrategy.DO_NOT_INLINE and expr.symbol_id in ctx.defs:
             if depth > ctx.max_depth:
                 raise ParseError(f"Inlining depth exceeded for {expr.name!r}")
             fdef = ctx.defs[expr.symbol_id]
@@ -734,13 +730,9 @@ def _inline_in_expr_with_prelude(
                 arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
                 pre.extend(arg_binds)
                 frag = _effect_lower(fdef, tuple(atom_refs), ctx.alloc)
-            elif force_structural_inline:
-                arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
-                pre.extend(arg_binds)
-                frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
 
             # Recursively rewrite BLOCK_INLINE preludes to inline nested calls.
-            if (strat == InlineStrategy.BLOCK_INLINE or force_structural_inline) and frag.prelude:
+            if strat == InlineStrategy.BLOCK_INLINE and frag.prelude:
                 prelude_block = NBlock(frag.prelude)
                 _register_nested_defs(prelude_block, ctx)
                 rewritten = _rewrite_block(prelude_block, ctx)
@@ -770,8 +762,7 @@ def _inline_in_expr_with_prelude(
         sid = ctx.top_level_name_to_sid.get(expr.name)
         if sid is not None and sid in ctx.defs:
             strat = ctx.strategy_for(sid)
-            force_structural_inline = sid in ctx.forced_inline_sids
-            if strat != InlineStrategy.DO_NOT_INLINE or force_structural_inline:
+            if strat != InlineStrategy.DO_NOT_INLINE:
                 if depth > ctx.max_depth:
                     raise ParseError(f"Inlining depth exceeded for {expr.name!r}")
                 fdef = ctx.defs[sid]
@@ -785,13 +776,9 @@ def _inline_in_expr_with_prelude(
                     arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
                     pre.extend(arg_binds)
                     frag = _effect_lower(fdef, tuple(atom_refs), ctx.alloc)
-                elif force_structural_inline:
-                    arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
-                    pre.extend(arg_binds)
-                    frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
                 else:
                     raise ParseError(f"Unknown strategy: {strat}")
-                if (strat == InlineStrategy.BLOCK_INLINE or force_structural_inline) and frag.prelude:
+                if strat == InlineStrategy.BLOCK_INLINE and frag.prelude:
                     prelude_block = NBlock(frag.prelude)
                     _register_nested_defs(prelude_block, ctx)
                     rewritten = _rewrite_block(prelude_block, ctx)
@@ -852,8 +839,7 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
         if inline_sid is not None:
             strat = ctx.strategy_for(inline_sid)
             fdef = ctx.defs.get(inline_sid)
-            force_structural_inline = inline_sid in ctx.forced_inline_sids
-            if (strat != InlineStrategy.DO_NOT_INLINE or force_structural_inline) and fdef is not None:
+            if strat != InlineStrategy.DO_NOT_INLINE and fdef is not None:
                 # Inline the call and emit prelude + discard result.
                 pre, val = _inline_in_expr_with_prelude(stmt.expr, ctx, 0)
                 if pre:
@@ -955,9 +941,8 @@ def _rewrite_bind_or_assign(
     if direct_sid is not None and direct_args is not None and direct_name is not None:
         strat = ctx.strategy_for(direct_sid)
         fdef = ctx.defs[direct_sid]
-        force_structural_inline = direct_sid in ctx.forced_inline_sids
 
-        if strat != InlineStrategy.DO_NOT_INLINE or force_structural_inline:
+        if strat != InlineStrategy.DO_NOT_INLINE:
             # Inline arguments (may produce prelude), then atomize.
             arg_pre: list[NStmt] = []
             raw_args_list: list[NExpr] = []
@@ -976,8 +961,6 @@ def _rewrite_bind_or_assign(
                 frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
             elif strat == InlineStrategy.EFFECT_LOWER:
                 frag = _effect_lower(fdef, tuple(atom_refs), ctx.alloc)
-            elif force_structural_inline:
-                frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
             else:
                 raise ParseError(f"Unknown strategy: {strat}")
 
@@ -985,7 +968,7 @@ def _rewrite_bind_or_assign(
             # calls (e.g. EXPR_INLINE helpers inside the cloned body).
             # Register freshened nested defs, then rewrite the prelude.
             prelude_stmts = list(frag.prelude)
-            if (strat == InlineStrategy.BLOCK_INLINE or force_structural_inline) and prelude_stmts:
+            if strat == InlineStrategy.BLOCK_INLINE and prelude_stmts:
                 prelude_block = NBlock(tuple(prelude_stmts))
                 _register_nested_defs(prelude_block, ctx)
                 rewritten_prelude = _rewrite_block(prelude_block, ctx)
@@ -1057,17 +1040,14 @@ def inline_pure_helpers(
     defs: dict[SymbolId, NFunctionDef] = {
         fdef.symbol_id: fdef for fdef in collect_function_defs(func.body)
     }
-    forced_inline_sids: set[SymbolId] = set()
     if extra_local_defs is not None:
         defs.update(extra_local_defs)
-        forced_inline_sids.update(extra_local_defs)
 
     top_level_name_to_sid: dict[str, SymbolId] = {}
     if top_level_inline_defs is not None:
         for name, fdef in top_level_inline_defs.items():
             defs[fdef.symbol_id] = fdef
             top_level_name_to_sid[name] = fdef.symbol_id
-            forced_inline_sids.add(fdef.symbol_id)
 
     max_id = max_symbol_id(func)
     for fdef in defs.values():
@@ -1131,7 +1111,6 @@ def inline_pure_helpers(
         alloc=alloc,
         top_level_name_to_sid=top_level_name_to_sid,
         allowed_model_calls=allowed_model_calls,
-        forced_inline_sids=frozenset(forced_inline_sids),
     )
     new_body = _rewrite_block(func.body, ctx)
 

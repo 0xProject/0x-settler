@@ -7,7 +7,7 @@ cleanup to selected targets, local helpers, and top-level helper bodies.
 
 from __future__ import annotations
 
-from norm_constprop import fold_expr
+from norm_constprop import WORD_MOD, fold_expr
 from norm_ir import (
     NAssign,
     NBind,
@@ -107,7 +107,7 @@ def _simplify_stmt(stmt: NStmt) -> list[NStmt]:
         default = _simplify_block(stmt.default) if stmt.default is not None else None
         if isinstance(disc, NConst):
             for case in cases:
-                if case.value.value == disc.value:
+                if case.value.value % WORD_MOD == disc.value:
                     return list(case.body.stmts)
             return list(default.stmts) if default is not None else []
         return [NSwitch(discriminant=disc, cases=cases, default=default)]

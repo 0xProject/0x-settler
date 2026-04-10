@@ -145,6 +145,7 @@ def translate_selected_models(
         target_nf = simplify_normalized(target_nf)
 
         from norm_constprop import propagate_constants
+        from norm_memory import lower_memory
         from norm_to_restricted import lower_to_restricted
 
         target_nf = propagate_constants(target_nf)
@@ -152,10 +153,23 @@ def translate_selected_models(
         validate_restricted_boundary(
             target_nf,
             allowed_model_calls=frozenset(plan.selected_functions),
+            allow_memory_ops=True,
+        )
+        target_nf = lower_memory(target_nf)
+        target_nf = simplify_normalized(target_nf)
+        validate_restricted_boundary(
+            target_nf,
+            allowed_model_calls=frozenset(plan.selected_functions),
         )
         restricted_by_sol_name[sol_name] = lower_to_restricted(target_nf)
 
-    models_by_name = to_function_models(restricted_by_sol_name)
+    models_by_name = to_function_models(
+        restricted_by_sol_name,
+        extra_reserved_binder_names=_generated_model_def_names(
+            plan.selected_functions,
+            config,
+        ),
+    )
     return [models_by_name[sol_name] for sol_name in plan.selected_functions]
 
 
@@ -163,6 +177,19 @@ def _staged_builtins() -> frozenset[str]:
     from yul_to_lean import _EVM_BUILTINS
 
     return _EVM_BUILTINS
+
+
+def _generated_model_def_names(
+    selected_functions: tuple[str, ...],
+    config,
+) -> frozenset[str]:
+    names: set[str] = set()
+    for sol_name in selected_functions:
+        base = config.model_names[sol_name]
+        if sol_name not in config.skip_norm:
+            names.add(base)
+        names.add(f"{base}_evm")
+    return frozenset(names)
 
 
 def _index_group_functions(
@@ -334,27 +361,56 @@ def _build_inline_defs(
         helper_nf = normalize_function(helper_info.func, outer_result)
         if helper_key.token_idx == helper_info.top_level_token_idx:
             sid = alloc.alloc()
-            top_level_defs[helper_info.func.name] = NFunctionDef(
-                name=helper_nf.name,
-                symbol_id=sid,
-                params=helper_nf.params,
-                param_names=helper_nf.param_names,
-                returns=helper_nf.returns,
-                return_names=helper_nf.return_names,
-                body=helper_nf.body,
+            top_level_defs[helper_info.func.name] = _prepare_helper_for_inlining(
+                NFunctionDef(
+                    name=helper_nf.name,
+                    symbol_id=sid,
+                    params=helper_nf.params,
+                    param_names=helper_nf.param_names,
+                    returns=helper_nf.returns,
+                    return_names=helper_nf.return_names,
+                    body=helper_nf.body,
+                )
             )
         else:
             sid = outer_result.declarations[helper_info.func.name_span]
-            local_defs[sid] = NFunctionDef(
-                name=helper_nf.name,
-                symbol_id=sid,
-                params=helper_nf.params,
-                param_names=helper_nf.param_names,
-                returns=helper_nf.returns,
-                return_names=helper_nf.return_names,
-                body=helper_nf.body,
+            local_defs[sid] = _prepare_helper_for_inlining(
+                NFunctionDef(
+                    name=helper_nf.name,
+                    symbol_id=sid,
+                    params=helper_nf.params,
+                    param_names=helper_nf.param_names,
+                    returns=helper_nf.returns,
+                    return_names=helper_nf.return_names,
+                    body=helper_nf.body,
+                )
             )
     return local_defs, top_level_defs
+
+
+def _prepare_helper_for_inlining(fdef: NFunctionDef) -> NFunctionDef:
+    from norm_constprop import propagate_constants
+
+    simplified = simplify_function_def(fdef)
+    nf = NormalizedFunction(
+        name=simplified.name,
+        params=simplified.params,
+        param_names=simplified.param_names,
+        returns=simplified.returns,
+        return_names=simplified.return_names,
+        body=simplified.body,
+    )
+    nf = propagate_constants(nf)
+    nf = simplify_normalized(nf)
+    return NFunctionDef(
+        name=nf.name,
+        symbol_id=fdef.symbol_id,
+        params=nf.params,
+        param_names=nf.param_names,
+        returns=nf.returns,
+        return_names=nf.return_names,
+        body=nf.body,
+    )
 
 
 def _rewrite_selected_calls(
