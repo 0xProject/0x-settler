@@ -186,6 +186,27 @@ WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING *** WARNING
 /// * cbrt(uint512) returns (uint256)
 /// * cbrtUp(uint512) returns (uint256)
 ///
+/// ### Logarithm
+///
+/// * olnQ256(uint512,uint512)
+/// * ilnQ256(uint512)
+/// * olnQ256Up(uint512,uint512)
+/// * ilnQ256Up(uint512)
+///
+/// NOTE! For arcane numerical reasons[0] it is not possible to perform
+/// exactly-computed correctly-rounded logarithms in bounded computation (in
+/// general). Because the EVM demands bounded computation, we instead sacrifice
+/// accuracy. `ilnQ256(x)` occasionally returns ⌊ln(x)·2²⁵⁶⌋ - 1. `ilnQ256Up(x)`
+/// occasionally returns ⌈ln(x)·2²⁵⁶⌉ + 1. Because these transcendental
+/// functions are inherently inaccurate in the first place, this small degree of
+/// one-sided directional error is almost always tolerable by the end
+/// applications that depend on them, however it is important to note that they
+/// are not 𝑓𝑢𝑙𝑙𝑦 what they might otherwise appear to be.
+///
+/// However, these logarithm functions are both nondecreasing.
+///
+/// [0]: https://perso.ens-lyon.fr/jean-michel.muller/Intro-to-TMD.htm
+///
 /// ### Shifting
 ///
 /// * oshr(uint512,uint512,uint256)
@@ -1959,7 +1980,7 @@ library Lib512MathArithmetic {
 
     /// This is the Karatsuba step. The 86-bit lower limb of `r` is (almost):
     ///   rₗₒ = ⌊(res ⋅ 2⁸⁶ + xₗₒ) / (3 ⋅ rₕᵢ²)⌋
-    ///   resₒᵤₜ = (res ⋅ 2⁸⁶ + xₗₒ) mod (3 ⋅ rₕᵢ²)
+    ///   resₒᵤₜ = (res ⋅ 2⁸⁶ + xₗₒ) % (3 ⋅ rₕᵢ²)
     /// Where `res` is the (nearly) 2-limb residue from the previous "normal" cube root step. The
     /// new residue, `res_out`, is propagated to the quadratic correction step instead of the
     /// underflow check from Zimmermann
