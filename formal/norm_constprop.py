@@ -1,12 +1,14 @@
 """
-Constant propagation and dead branch elimination on normalized IR.
+Constant and copy propagation with dead branch elimination on normalized IR.
 
-Folds constant expressions, propagates known constant values through
-variable assignments, and eliminates dead branches (``NIf`` with
+Folds constant expressions, propagates known constant and copy values
+through variable assignments, and eliminates dead branches (``NIf`` with
 constant-zero condition, ``NSwitch`` with constant discriminant).
 
-This is a single-pass IR-to-IR transform, replacing the old pipeline's
-interleaved ``_try_const_eval``, ``const_subst``, and ``const_locals``.
+Copy propagation is conservative: only copies whose source is an
+immutable SymbolId (never appears as an ``NAssign`` target) are
+propagated.  This covers compiler-generated temps and parameters that
+are not reassigned.
 """
 
 from __future__ import annotations
@@ -137,17 +139,43 @@ def fold_expr(expr: NExpr) -> NExpr:
 # ---------------------------------------------------------------------------
 
 
-def _subst_and_fold(expr: NExpr, env: dict[SymbolId, NConst]) -> NExpr:
-    """Substitute known constants from *env*, then fold."""
+def _subst_and_fold(expr: NExpr, env: dict[SymbolId, NExpr]) -> NExpr:
+    """Substitute known constants and copies from *env*, then fold."""
 
     def rewrite(e: NExpr) -> NExpr:
         if isinstance(e, NRef):
-            c = env.get(e.symbol_id)
-            if c is not None:
-                return c
+            val = env.get(e.symbol_id)
+            if val is not None:
+                return val
         return _fold_node(e)
 
     return map_expr(expr, rewrite)
+
+
+def _collect_reassigned_sids(block: NBlock) -> set[SymbolId]:
+    """Collect SymbolIds that appear as ``NAssign`` targets (mutable vars)."""
+    out: set[SymbolId] = set()
+
+    def walk(b: NBlock) -> None:
+        for stmt in b.stmts:
+            if isinstance(stmt, NAssign):
+                out.update(stmt.targets)
+            elif isinstance(stmt, NIf):
+                walk(stmt.then_body)
+            elif isinstance(stmt, NSwitch):
+                for case in stmt.cases:
+                    walk(case.body)
+                if stmt.default is not None:
+                    walk(stmt.default)
+            elif isinstance(stmt, NFor):
+                walk(stmt.init)
+                walk(stmt.post)
+                walk(stmt.body)
+            elif isinstance(stmt, NBlock):
+                walk(stmt)
+
+    walk(block)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -155,24 +183,36 @@ def _subst_and_fold(expr: NExpr, env: dict[SymbolId, NConst]) -> NExpr:
 # ---------------------------------------------------------------------------
 
 
-def _prop_block(block: NBlock, env: dict[SymbolId, NConst]) -> NBlock:
-    """Propagate constants through a block, returning a new folded block."""
+def _prop_block(
+    block: NBlock, env: dict[SymbolId, NExpr], mutable: set[SymbolId]
+) -> NBlock:
+    """Propagate constants and copies through a block."""
     stmts: list[NStmt] = []
     for stmt in block.stmts:
-        _prop_stmt(stmt, env, stmts)
+        _prop_stmt(stmt, env, stmts, mutable)
     return NBlock(tuple(stmts))
+
+
+def _is_propagatable(folded: NExpr, mutable: set[SymbolId]) -> bool:
+    """Check if *folded* is a value safe to add to the propagation env."""
+    if isinstance(folded, NConst):
+        return True
+    if isinstance(folded, NRef) and folded.symbol_id not in mutable:
+        return True
+    return False
 
 
 def _prop_stmt(
     stmt: NStmt,
-    env: dict[SymbolId, NConst],
+    env: dict[SymbolId, NExpr],
     out: list[NStmt],
+    mutable: set[SymbolId],
 ) -> None:
     """Process one statement, appending results to *out*."""
     if isinstance(stmt, NBind):
         if stmt.expr is not None:
             folded = _subst_and_fold(stmt.expr, env)
-            if len(stmt.targets) == 1 and isinstance(folded, NConst):
+            if len(stmt.targets) == 1 and _is_propagatable(folded, mutable):
                 env[stmt.targets[0]] = folded
             else:
                 for sid in stmt.targets:
@@ -188,7 +228,7 @@ def _prop_stmt(
 
     if isinstance(stmt, NAssign):
         folded = _subst_and_fold(stmt.expr, env)
-        if len(stmt.targets) == 1 and isinstance(folded, NConst):
+        if len(stmt.targets) == 1 and _is_propagatable(folded, mutable):
             env[stmt.targets[0]] = folded
         else:
             for sid in stmt.targets:
@@ -216,11 +256,11 @@ def _prop_stmt(
         cond = _subst_and_fold(stmt.condition, env)
         if isinstance(cond, NConst):
             if cond.value != 0:
-                inner = _prop_block(stmt.then_body, env)
+                inner = _prop_block(stmt.then_body, env, mutable)
                 out.extend(inner.stmts)
             return
         body_env = dict(env)
-        new_body = _prop_block(stmt.then_body, body_env)
+        new_body = _prop_block(stmt.then_body, body_env, mutable)
         for sid in collect_modified_in_block(stmt.then_body):
             env.pop(sid, None)
         out.append(NIf(condition=cond, then_body=new_body))
@@ -231,19 +271,21 @@ def _prop_stmt(
         if isinstance(disc, NConst):
             for case in stmt.cases:
                 if case.value.value == disc.value:
-                    inner = _prop_block(case.body, env)
+                    inner = _prop_block(case.body, env, mutable)
                     out.extend(inner.stmts)
                     return
             if stmt.default is not None:
-                inner = _prop_block(stmt.default, env)
+                inner = _prop_block(stmt.default, env, mutable)
                 out.extend(inner.stmts)
             return
         new_cases = tuple(
-            type(c)(value=c.value, body=_prop_block(c.body, dict(env)))
+            type(c)(value=c.value, body=_prop_block(c.body, dict(env), mutable))
             for c in stmt.cases
         )
         new_default = (
-            _prop_block(stmt.default, dict(env)) if stmt.default is not None else None
+            _prop_block(stmt.default, dict(env), mutable)
+            if stmt.default is not None
+            else None
         )
         modified: set[SymbolId] = set()
         for c in stmt.cases:
@@ -261,15 +303,15 @@ def _prop_stmt(
         modified |= collect_modified_in_block(stmt.body)
         for sid in modified:
             env.pop(sid, None)
-        new_init = _prop_block(stmt.init, dict(env))
+        new_init = _prop_block(stmt.init, dict(env), mutable)
         new_cond_setup = (
-            _prop_block(stmt.condition_setup, dict(env))
+            _prop_block(stmt.condition_setup, dict(env), mutable)
             if stmt.condition_setup is not None
             else None
         )
         new_cond = _subst_and_fold(stmt.condition, env)
-        new_post = _prop_block(stmt.post, dict(env))
-        new_body = _prop_block(stmt.body, dict(env))
+        new_post = _prop_block(stmt.post, dict(env), mutable)
+        new_body = _prop_block(stmt.body, dict(env), mutable)
         out.append(
             NFor(
                 init=new_init,
@@ -286,7 +328,7 @@ def _prop_stmt(
         return
 
     if isinstance(stmt, NBlock):
-        inner = _prop_block(stmt, env)
+        inner = _prop_block(stmt, env, mutable)
         out.append(inner)
         return
 
@@ -303,9 +345,10 @@ def _prop_stmt(
 
 
 def propagate_constants(func: NormalizedFunction) -> NormalizedFunction:
-    """Fold constant expressions and eliminate dead branches."""
-    env: dict[SymbolId, NConst] = {}
-    new_body = _prop_block(func.body, env)
+    """Fold constants, propagate copies of immutable vars, eliminate dead branches."""
+    env: dict[SymbolId, NExpr] = {}
+    mutable = _collect_reassigned_sids(func.body)
+    new_body = _prop_block(func.body, env, mutable)
     return NormalizedFunction(
         name=func.name,
         params=func.params,
