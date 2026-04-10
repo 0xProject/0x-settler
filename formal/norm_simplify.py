@@ -181,11 +181,11 @@ def lower_leave(func: NormalizedFunction) -> NormalizedFunction:
     did_leave_ref = NRef(symbol_id=did_leave_id, name=f"_did_leave_{did_leave_id._id}")
 
     # Import leave-rewriting helpers from the inliner.
-    from norm_inline import _rewrite_leave_recursive, _stmt_may_leave_rewritten
+    from norm_inline import _partition_guarded_stmts, _rewrite_leave_recursive
 
     rewritten = _rewrite_leave_recursive(func.body, did_leave_id)
 
-    # Prepend did_leave := 0, then guard statements after any leave.
+    # Prepend did_leave := 0, then group guarded statements.
     out: list[NStmt] = [
         NBind(
             targets=(did_leave_id,),
@@ -193,15 +193,7 @@ def lower_leave(func: NormalizedFunction) -> NormalizedFunction:
             expr=NConst(0),
         )
     ]
-    may_have_left = False
-    for stmt in rewritten.stmts:
-        if may_have_left:
-            guard_cond = NBuiltinCall(op="iszero", args=(did_leave_ref,))
-            out.append(NIf(condition=guard_cond, then_body=NBlock((stmt,))))
-        else:
-            out.append(stmt)
-        if _stmt_may_leave_rewritten(stmt, did_leave_id):
-            may_have_left = True
+    out.extend(_partition_guarded_stmts(rewritten.stmts, did_leave_id, did_leave_ref))
 
     return NormalizedFunction(
         name=func.name,

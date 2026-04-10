@@ -529,20 +529,7 @@ def _clone_body_for_block_inline(
     # Rewrite ALL NLeave nodes (recursively) into did_leave := 1.
     rewritten = _rewrite_leave_recursive(subst_body, did_leave_id)
 
-    out: list[NStmt] = []
-    may_have_left = False
-
-    for stmt in rewritten.stmts:
-        if may_have_left:
-            guard_cond = NBuiltinCall(op="iszero", args=(did_leave_ref,))
-            out.append(NIf(condition=guard_cond, then_body=NBlock((stmt,))))
-        else:
-            out.append(stmt)
-
-        if _stmt_may_leave_rewritten(stmt, did_leave_id):
-            may_have_left = True
-
-    return out
+    return _partition_guarded_stmts(rewritten.stmts, did_leave_id, did_leave_ref)
 
 
 def _subst_block(block: NBlock, subst: dict[SymbolId, NExpr]) -> NBlock:
@@ -657,6 +644,46 @@ def _rewrite_leave_stmt(stmt: NStmt, did_leave_id: SymbolId) -> NStmt:
             body=_rewrite_leave_recursive(stmt.body, did_leave_id),
         )
     return stmt
+
+
+def _partition_guarded_stmts(
+    stmts: tuple[NStmt, ...],
+    did_leave_id: SymbolId,
+    did_leave_ref: NExpr,
+) -> list[NStmt]:
+    """Group post-leave statements into maximal guarded blocks.
+
+    After ``_rewrite_leave_recursive``, some statements may set
+    ``did_leave``.  This function accumulates consecutive non-leave-
+    setting statements into a single ``if iszero(did_leave) { ... }``
+    block, preventing temp chains from being fragmented across
+    sibling conditional boundaries.
+    """
+    out: list[NStmt] = []
+    may_have_left = False
+    pending: list[NStmt] = []
+
+    def flush() -> None:
+        nonlocal pending
+        if pending:
+            guard = NBuiltinCall(op="iszero", args=(did_leave_ref,))
+            out.append(NIf(condition=guard, then_body=NBlock(tuple(pending))))
+            pending = []
+
+    for stmt in stmts:
+        if may_have_left:
+            if _stmt_may_leave_rewritten(stmt, did_leave_id):
+                flush()
+                out.append(stmt)
+            else:
+                pending.append(stmt)
+        else:
+            out.append(stmt)
+            if _stmt_may_leave_rewritten(stmt, did_leave_id):
+                may_have_left = True
+
+    flush()
+    return out
 
 
 def _stmt_may_leave_rewritten(stmt: NStmt, did_leave_id: SymbolId) -> bool:
