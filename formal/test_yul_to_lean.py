@@ -23,7 +23,7 @@ from norm_memory import lower_memory
 from norm_to_restricted import lower_to_restricted
 from restricted_eval import evaluate_restricted
 from restricted_ir import RestrictedFunction
-from restricted_to_model import to_function_model
+from restricted_to_model import to_function_models
 from staged_selection import build_selection_plan
 from yul_ast import EvaluationError
 from yul_normalize import normalize_function
@@ -12628,7 +12628,7 @@ class SSAModelTest(unittest.TestCase):
         nf = inline_pure_helpers(nf)
         nf = propagate_constants(nf)
         rf = lower_to_restricted(nf)
-        return to_function_model(rf, fn_name)
+        return to_function_models({rf.name: rf})[fn_name]
 
     def test_simple_function(self) -> None:
         """Params and returns get correct names, eval is correct."""
@@ -12685,7 +12685,7 @@ class SSAModelTest(unittest.TestCase):
         nf = inline_pure_helpers(nf)
         nf = propagate_constants(nf)
         rf = lower_to_restricted(nf)
-        model = to_function_model(rf, "f")
+        model = to_function_models({rf.name: rf})["f"]
 
         for x in [0, 1, 5, 100]:
             rest_val = evaluate_restricted(rf, (x,))
@@ -13312,7 +13312,7 @@ class SSAModelTest(unittest.TestCase):
                 ),
             ),
         )
-        model = to_function_model(rf, "f")
+        model = to_function_models({rf.name: rf})["f"]
         for x in [0, 1, 5]:
             self.assertEqual(
                 evaluate_restricted(rf, (x,)),
@@ -13357,7 +13357,7 @@ class SSAModelTest(unittest.TestCase):
                 ),
             ),
         )
-        model = to_function_model(rf, "f")
+        model = to_function_models({rf.name: rf})["f"]
         for x in [0, 1, 5]:
             self.assertEqual(
                 evaluate_restricted(rf, (x,)),
@@ -13424,7 +13424,7 @@ class SSAModelTest(unittest.TestCase):
                 ),
             ),
         )
-        model = to_function_model(rf, "f")
+        model = to_function_models({rf.name: rf})["f"]
         for x, y in [(0, 0), (0, 1), (1, 0), (1, 1), (3, 5)]:
             self.assertEqual(
                 evaluate_restricted(rf, (x, y)),

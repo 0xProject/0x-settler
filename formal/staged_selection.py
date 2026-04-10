@@ -14,6 +14,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, assert_never
 
+from evm_builtins import EVM_BUILTINS, WORD_MOD, try_eval_pure_builtin
+from yul_lexer import tokenize_yul
 from yul_ast import (
     AssignStmt,
     Block,
@@ -71,6 +73,8 @@ class SelectionPlan:
     """Shared selection output consumed by both translation paths."""
 
     parsed_groups: tuple[tuple[FunctionDef, ...], ...]
+    resolved_groups: tuple[dict[str, ResolutionResult], ...]
+    syntax_indexes: tuple[dict[int, _SyntaxFunctionInfo], ...]
     selected_functions: tuple[str, ...]
     target_infos: dict[str, SelectedTargetInfo]
 
@@ -853,8 +857,6 @@ def _known_matches_info(
 
 
 def _try_const_eval_syn(expr: SynExpr) -> int | None:
-    from yul_to_lean import EvaluationError, WORD_MOD, _eval_builtin
-
     if isinstance(expr, IntExpr):
         return expr.value % WORD_MOD
     if isinstance(expr, (NameExpr, StringExpr)):
@@ -867,10 +869,23 @@ def _try_const_eval_syn(expr: SynExpr) -> int | None:
         if value is None:
             return None
         values.append(value)
-    try:
-        return _eval_builtin(expr.name, tuple(values))
-    except EvaluationError:
+    return try_eval_pure_builtin(expr.name, tuple(values))
+
+
+def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
+    """Parse a scope-qualified exact Yul selector.
+
+    ``None`` means the selector is an unqualified function name.
+    ``::top`` selects a top-level function. ``outer::helper`` selects a
+    function nested inside ``outer``.
+    """
+    if "::" not in selector:
         return None
+    raw = selector[2:] if selector.startswith("::") else selector
+    parts = tuple(raw.split("::"))
+    if any(not part for part in parts):
+        raise ParseError(f"Invalid exact Yul selector {selector!r}")
+    return parts
 
 
 def _collect_helper_keys_for_target(
@@ -944,12 +959,8 @@ def build_selection_plan(
 ) -> SelectionPlan:
     """Build the shared selection/helper-visibility plan for translation."""
 
-    # Avoid importing yul_to_lean at module import time: yul_to_lean itself
-    # uses this selection stage.
-    import yul_to_lean as ytl
-
-    tokens = tuple(ytl.tokenize_yul(yul_text))
-    index = _build_selection_index(list(tokens), builtins=ytl._EVM_BUILTINS)
+    tokens = tuple(tokenize_yul(yul_text))
+    index = _build_selection_index(list(tokens), builtins=EVM_BUILTINS)
     syntax_info_by_token_idx = {
         token_idx: info
         for syntax_index in index.syntax_indexes
@@ -968,7 +979,7 @@ def build_selection_plan(
             and config.exact_yul_names.get(sol_name) is not None
         ):
             exact_yul_name = config.exact_yul_names[sol_name]
-            exact_selector = ytl._parse_exact_yul_selector(exact_yul_name)
+            exact_selector = _parse_exact_yul_selector(exact_yul_name)
             n_params = config.n_params.get(sol_name) if config.n_params else None
             if exact_selector is None:
                 matches = index.exact_matches(
@@ -1094,6 +1105,8 @@ def build_selection_plan(
         )
     return SelectionPlan(
         parsed_groups=index.parsed_groups,
+        resolved_groups=index.resolved_groups,
+        syntax_indexes=index.syntax_indexes,
         selected_functions=tuple(selected),
         target_infos=target_infos,
     )

@@ -13,9 +13,9 @@ are not reassigned.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import assert_never
 
+from evm_builtins import eval_pure_builtin, u256
 from norm_ir import (
     NAssign,
     NBind,
@@ -39,72 +39,7 @@ from norm_ir import (
     NUnresolvedCall,
 )
 from norm_walk import collect_modified_in_block, map_expr
-from yul_ast import SymbolId
-
-# ---------------------------------------------------------------------------
-# u256 arithmetic (must match norm_eval.py semantics)
-# ---------------------------------------------------------------------------
-
-WORD_MOD: int = 2**256
-
-
-def _u256(value: int) -> int:
-    return value % WORD_MOD
-
-
-# ---------------------------------------------------------------------------
-# Builtin dispatch for constant folding
-# ---------------------------------------------------------------------------
-
-
-def _div(a: tuple[int, ...]) -> int:
-    aa, bb = _u256(a[0]), _u256(a[1])
-    return 0 if bb == 0 else aa // bb
-
-
-def _mod(a: tuple[int, ...]) -> int:
-    aa, bb = _u256(a[0]), _u256(a[1])
-    return 0 if bb == 0 else aa % bb
-
-
-def _shl(a: tuple[int, ...]) -> int:
-    shift, value = _u256(a[0]), _u256(a[1])
-    return _u256(value << shift) if shift < 256 else 0
-
-
-def _shr(a: tuple[int, ...]) -> int:
-    shift, value = _u256(a[0]), _u256(a[1])
-    return value >> shift if shift < 256 else 0
-
-
-def _clz(a: tuple[int, ...]) -> int:
-    value = _u256(a[0])
-    return 256 if value == 0 else 255 - (value.bit_length() - 1)
-
-
-def _mulmod(a: tuple[int, ...]) -> int:
-    aa, bb, nn = _u256(a[0]), _u256(a[1]), _u256(a[2])
-    return 0 if nn == 0 else (aa * bb) % nn
-
-
-_BUILTIN_FOLD: dict[tuple[str, int], Callable[[tuple[int, ...]], int]] = {
-    ("add", 2): lambda a: _u256(_u256(a[0]) + _u256(a[1])),
-    ("sub", 2): lambda a: _u256(_u256(a[0]) + WORD_MOD - _u256(a[1])),
-    ("mul", 2): lambda a: _u256(_u256(a[0]) * _u256(a[1])),
-    ("div", 2): _div,
-    ("mod", 2): _mod,
-    ("not", 1): lambda a: WORD_MOD - 1 - _u256(a[0]),
-    ("or", 2): lambda a: _u256(a[0]) | _u256(a[1]),
-    ("and", 2): lambda a: _u256(a[0]) & _u256(a[1]),
-    ("eq", 2): lambda a: 1 if _u256(a[0]) == _u256(a[1]) else 0,
-    ("iszero", 1): lambda a: 1 if _u256(a[0]) == 0 else 0,
-    ("shl", 2): _shl,
-    ("shr", 2): _shr,
-    ("clz", 1): _clz,
-    ("lt", 2): lambda a: 1 if _u256(a[0]) < _u256(a[1]) else 0,
-    ("gt", 2): lambda a: 1 if _u256(a[0]) > _u256(a[1]) else 0,
-    ("mulmod", 3): _mulmod,
-}
+from yul_ast import EvaluationError, SymbolId
 
 
 # ---------------------------------------------------------------------------
@@ -115,12 +50,14 @@ _BUILTIN_FOLD: dict[tuple[str, int], Callable[[tuple[int, ...]], int]] = {
 def _fold_node(expr: NExpr) -> NExpr:
     """Fold callback for map_expr: evaluate constant builtins and NIte."""
     if isinstance(expr, NConst):
-        return NConst(_u256(expr.value))
+        return NConst(u256(expr.value))
     if isinstance(expr, NBuiltinCall):
-        fn = _BUILTIN_FOLD.get((expr.op, len(expr.args)))
-        if fn is not None and all(isinstance(a, NConst) for a in expr.args):
+        if all(isinstance(a, NConst) for a in expr.args):
             vals = tuple(a.value for a in expr.args if isinstance(a, NConst))
-            return NConst(_u256(fn(vals)))
+            try:
+                return NConst(eval_pure_builtin(expr.op, vals))
+            except EvaluationError:
+                pass
     if isinstance(expr, NIte):
         if isinstance(expr.cond, NConst):
             return expr.if_true if expr.cond.value != 0 else expr.if_false

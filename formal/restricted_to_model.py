@@ -6,8 +6,9 @@ Converts a ``RestrictedFunction`` (SymbolId-keyed, non-SSA) into a
 
 The pipeline is:
 
-1. **Name legalization** (``restricted_names.legalize_names``):
-   demangle compiler names, sanitize identifiers, rewrite callee names.
+1. **Module-wide naming** (``restricted_names.plan_module`` +
+   ``restricted_names.apply_module_plan``): demangle compiler names,
+   sanitize identifiers, and rewrite model-call callee names.
 2. **SSA renaming** (this module): version base names and build
    ``FunctionModel`` with recursive branch support.
 
@@ -37,7 +38,7 @@ from restricted_ir import (
     RRef,
     RStatement,
 )
-from restricted_names import apply_module_plan, legalize_names, plan_module
+from restricted_names import apply_module_plan, plan_module
 from yul_ast import SymbolId
 
 # Import the shared output IR types.
@@ -51,6 +52,7 @@ from yul_to_lean import (
     IntLit,
     Ite,
     ModelStatement,
+    Project,
     Var,
 )
 
@@ -157,8 +159,6 @@ def _convert_stmt(
             out.append(Assignment(target=ssa_name, expr=call_expr))
         else:
             # Multi-return: use Project to extract each return value.
-            from yul_to_lean import Project
-
             total = len(stmt.targets)
             for i, (sid, name) in enumerate(zip(stmt.targets, stmt.target_names)):
                 ssa_name = ctx.assign(sid, name)
@@ -339,63 +339,6 @@ def _needs_zero_init(
         assigned_in=False,
     )
     return needs_init or not assigned_out
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-
-def to_function_model(
-    func: RestrictedFunction,
-    sol_fn_name: str,
-    *,
-    callee_names: dict[str, str] | None = None,
-) -> FunctionModel:
-    """Convert a RestrictedFunction to a FunctionModel with SSA naming.
-
-    Runs two passes in sequence:
-
-    1. Name legalization (demangle, sanitize, callee rewriting)
-    2. SSA renaming + ``FunctionModel`` construction
-
-    If *callee_names* is provided, model-call callee names are
-    rewritten from raw Yul names to their emitted model names.
-    """
-    # Pass 1: legalize names.
-    func = legalize_names(func, callee_names=callee_names)
-
-    # Pass 2: SSA renaming.
-    ctx = _SSACtx()
-
-    # Register parameters (SSA count starts at 1).
-    param_ssa: list[str] = []
-    for sid, name in zip(func.params, func.param_names):
-        ssa = ctx.assign(sid, name)
-        param_ssa.append(ssa)
-
-    # Zero-init return variables that need it.
-    assignments: list[ModelStatement] = []
-    for sid, name in zip(func.returns, func.return_names):
-        if _needs_zero_init(sid, func.body):
-            ssa = ctx.assign(sid, name)
-            assignments.append(Assignment(target=ssa, expr=IntLit(0)))
-
-    # Convert body statements.
-    body_stmts = _convert_block(func.body, ctx)
-    assignments.extend(body_stmts)
-
-    # Extract final return names.
-    return_ssa: list[str] = []
-    for sid in func.returns:
-        return_ssa.append(ctx.lookup(sid))
-
-    return FunctionModel(
-        fn_name=sol_fn_name,
-        assignments=tuple(assignments),
-        param_names=tuple(param_ssa),
-        return_names=tuple(return_ssa),
-    )
 
 
 def to_function_models(

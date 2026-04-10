@@ -17,7 +17,6 @@ from norm_simplify import lower_leave, simplify_function_def, simplify_normalize
 from norm_validate import validate_restricted_boundary
 from staged_selection import (
     SelectedTargetInfo,
-    _index_group_functions,
     build_selection_plan,
 )
 
@@ -35,7 +34,7 @@ from norm_walk import map_expr
 from restricted_ir import RestrictedFunction
 from restricted_to_model import to_function_models
 from yul_normalize import normalize_function
-from yul_resolve import ResolutionResult, resolve_module
+from yul_resolve import ResolutionResult
 
 if TYPE_CHECKING:
     from yul_to_lean import FunctionModel, ModelConfig
@@ -55,21 +54,12 @@ def translate_selected_models(
         selected_functions=selected_functions,
     )
 
-    resolved_groups = [
-        resolve_module(list(funcs), builtins=_staged_builtins())
-        for funcs in plan.parsed_groups
-    ]
-    syntax_indexes = [
-        _index_group_functions(group_idx, funcs)
-        for group_idx, funcs in enumerate(plan.parsed_groups)
-    ]
-
     restricted_by_sol_name: dict[str, RestrictedFunction] = {}
     for sol_name in plan.selected_functions:
         target_info = plan.target_infos[sol_name]
-        syntax_index = syntax_indexes[target_info.key.group_idx]
+        syntax_index = plan.syntax_indexes[target_info.key.group_idx]
         target_syntax = syntax_index[target_info.key.token_idx]
-        outer_result = resolved_groups[target_info.key.group_idx][
+        outer_result = plan.resolved_groups[target_info.key.group_idx][
             target_syntax.top_level_name
         ]
 
@@ -91,7 +81,7 @@ def translate_selected_models(
             target_info,
             plan,
             syntax_index,
-            resolved_groups[target_info.key.group_idx],
+            plan.resolved_groups[target_info.key.group_idx],
         )
 
         target_nf = _rewrite_selected_calls(
@@ -158,23 +148,18 @@ def translate_selected_models(
     return [models_by_name[sol_name] for sol_name in plan.selected_functions]
 
 
-def _staged_builtins() -> frozenset[str]:
-    from yul_to_lean import _EVM_BUILTINS
-
-    return _EVM_BUILTINS
-
-
 def _generated_model_def_names(
     selected_functions: tuple[str, ...],
     config: ModelConfig,
 ) -> frozenset[str]:
-    from yul_to_lean import _plan_emitted_model_defs
-
     names: set[str] = set()
-    for planned in _plan_emitted_model_defs(selected_functions, config):
-        if planned.emit_norm:
-            names.add(planned.base_name)
-        names.add(planned.evm_name)
+    for sol_name in selected_functions:
+        base_name = config.model_names.get(sol_name)
+        if base_name is None:
+            raise ValueError(f"Missing model name for selected function {sol_name!r}")
+        if sol_name not in config.skip_norm:
+            names.add(base_name)
+        names.add(f"{base_name}_evm")
     return frozenset(names)
 
 

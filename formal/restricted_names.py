@@ -10,10 +10,8 @@ for Lean emission:
 - Reserved Lean helper names avoided
 - Model-call callee names rewritten to emitted names
 
-This pass is the single source of truth for name demangling,
-sanitization, and callee-name remapping.  It operates on
-``RestrictedFunction`` and produces a new ``RestrictedFunction``
-with legalized names.
+This pass is the single source of truth for module-wide function-name
+demangling, binder sanitization, and callee-name remapping.
 
 Variable identity (``SymbolId``) is unchanged.  SSA versioning and
 base-name collision avoidance are handled by the downstream SSA pass.
@@ -39,7 +37,7 @@ from restricted_ir import (
     RStatement,
 )
 from yul_ast import SymbolId
-from yul_to_lean import _RESERVED_LEAN_NAMES
+from lean_names import RESERVED_LEAN_NAMES
 
 # ---------------------------------------------------------------------------
 # Demangling + sanitization
@@ -74,7 +72,7 @@ def legalize_identifier_base(name: str, *, avoid_reserved: bool = True) -> str:
     """Demangle + sanitize a binder name using the shared naming policy."""
     clean = _sanitize_base(_demangle(name))
     if avoid_reserved:
-        while clean in _RESERVED_LEAN_NAMES:
+        while clean in RESERVED_LEAN_NAMES:
             clean = clean + "_"
     return clean
 
@@ -97,7 +95,7 @@ def _uniquify_name_bases(
         suffix = 1
         while (
             candidate in used
-            or candidate in _RESERVED_LEAN_NAMES
+            or candidate in RESERVED_LEAN_NAMES
             or candidate in extra_reserved_names
         ):
             candidate = f"{base}_{suffix}"
@@ -267,7 +265,7 @@ def plan_module(
     used_fn: set[str] = set()
     for raw in funcs:
         clean = _sanitize_base(_demangle_function_name(raw))
-        while clean in _RESERVED_LEAN_NAMES:
+        while clean in RESERVED_LEAN_NAMES:
             clean = clean + "_"
         while clean in used_fn:
             clean = clean + "_"
@@ -295,7 +293,7 @@ def apply_module_plan(
 ) -> dict[str, RestrictedFunction]:
     """Apply a ``ModuleNamePlan`` to all functions in a module.
 
-    Rewrites binder names, callee names, and function identities.
+    Rewrites binder names and model-call callee names.
     """
     result: dict[str, RestrictedFunction] = {}
     for raw_name, func in funcs.items():
@@ -318,41 +316,3 @@ def apply_module_plan(
             body=new_body,
         )
     return result
-
-# ---------------------------------------------------------------------------
-# Public API (per-function, low-level)
-# ---------------------------------------------------------------------------
-
-
-def legalize_names(
-    func: RestrictedFunction,
-    *,
-    callee_names: dict[str, str] | None = None,
-) -> RestrictedFunction:
-    """Legalize all variable names in a single ``RestrictedFunction``.
-
-    Low-level API. For module-wide legalization, prefer
-    :func:`plan_module` + :func:`apply_module_plan`.
-    """
-    sid_to_raw = _collect_all_sids(func)
-
-    name_map: dict[SymbolId, str] = {}
-    for sid, raw in sid_to_raw.items():
-        name_map[sid] = _legalize_one(raw)
-
-    new_param_names = tuple(
-        name_map.get(sid, n) for sid, n in zip(func.params, func.param_names)
-    )
-    new_return_names = tuple(
-        name_map.get(sid, n) for sid, n in zip(func.returns, func.return_names)
-    )
-    new_body = tuple(_rewrite_stmt(s, name_map, callee_names) for s in func.body)
-
-    return RestrictedFunction(
-        name=func.name,
-        params=func.params,
-        param_names=new_param_names,
-        returns=func.returns,
-        return_names=new_return_names,
-        body=new_body,
-    )

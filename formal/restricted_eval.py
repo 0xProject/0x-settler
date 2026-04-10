@@ -7,8 +7,7 @@ evaluator and the old pipeline's ``evaluate_function_model``.
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
+from evm_builtins import eval_pure_builtin, u256
 from restricted_ir import (
     RAssignment,
     RBranch,
@@ -25,66 +24,6 @@ from restricted_ir import (
 )
 from yul_ast import EvaluationError, SymbolId
 
-# ---------------------------------------------------------------------------
-# u256 arithmetic (same as norm_eval.py)
-# ---------------------------------------------------------------------------
-
-WORD_MOD: int = 2**256
-
-
-def _u256(value: int) -> int:
-    return value % WORD_MOD
-
-
-def _div(a: tuple[int, ...]) -> int:
-    aa, bb = _u256(a[0]), _u256(a[1])
-    return 0 if bb == 0 else aa // bb
-
-
-def _mod(a: tuple[int, ...]) -> int:
-    aa, bb = _u256(a[0]), _u256(a[1])
-    return 0 if bb == 0 else aa % bb
-
-
-def _shl(a: tuple[int, ...]) -> int:
-    shift, value = _u256(a[0]), _u256(a[1])
-    return _u256(value << shift) if shift < 256 else 0
-
-
-def _shr(a: tuple[int, ...]) -> int:
-    shift, value = _u256(a[0]), _u256(a[1])
-    return value >> shift if shift < 256 else 0
-
-
-def _clz(a: tuple[int, ...]) -> int:
-    value = _u256(a[0])
-    return 256 if value == 0 else 255 - (value.bit_length() - 1)
-
-
-def _mulmod(a: tuple[int, ...]) -> int:
-    aa, bb, nn = _u256(a[0]), _u256(a[1]), _u256(a[2])
-    return 0 if nn == 0 else (aa * bb) % nn
-
-
-_BUILTIN_DISPATCH: dict[tuple[str, int], Callable[[tuple[int, ...]], int]] = {
-    ("add", 2): lambda a: _u256(_u256(a[0]) + _u256(a[1])),
-    ("sub", 2): lambda a: _u256(_u256(a[0]) + WORD_MOD - _u256(a[1])),
-    ("mul", 2): lambda a: _u256(_u256(a[0]) * _u256(a[1])),
-    ("div", 2): _div,
-    ("mod", 2): _mod,
-    ("not", 1): lambda a: WORD_MOD - 1 - _u256(a[0]),
-    ("or", 2): lambda a: _u256(a[0]) | _u256(a[1]),
-    ("and", 2): lambda a: _u256(a[0]) & _u256(a[1]),
-    ("eq", 2): lambda a: 1 if _u256(a[0]) == _u256(a[1]) else 0,
-    ("iszero", 1): lambda a: 1 if _u256(a[0]) == 0 else 0,
-    ("shl", 2): _shl,
-    ("shr", 2): _shr,
-    ("clz", 1): _clz,
-    ("lt", 2): lambda a: 1 if _u256(a[0]) < _u256(a[1]) else 0,
-    ("gt", 2): lambda a: 1 if _u256(a[0]) > _u256(a[1]) else 0,
-    ("mulmod", 3): _mulmod,
-}
-
 
 # ---------------------------------------------------------------------------
 # Expression evaluation
@@ -97,7 +36,7 @@ def _eval_expr(
     model_table: dict[str, RestrictedFunction] | None = None,
 ) -> int:
     if isinstance(expr, RConst):
-        return _u256(expr.value)
+        return u256(expr.value)
 
     if isinstance(expr, RRef):
         if expr.symbol_id not in env:
@@ -106,10 +45,7 @@ def _eval_expr(
 
     if isinstance(expr, RBuiltinCall):
         args = tuple(_eval_expr(a, env, model_table) for a in expr.args)
-        fn = _BUILTIN_DISPATCH.get((expr.op, len(args)))
-        if fn is None:
-            raise EvaluationError(f"Unsupported builtin {expr.op!r}/{len(args)}")
-        return _u256(fn(args))
+        return eval_pure_builtin(expr.op, args)
 
     if isinstance(expr, RModelCall):
         if model_table is None or expr.name not in model_table:
@@ -192,7 +128,7 @@ def evaluate_restricted(
 
     env: dict[SymbolId, int] = {}
     for sid, val in zip(func.params, args):
-        env[sid] = _u256(val)
+        env[sid] = u256(val)
     for sid in func.returns:
         env[sid] = 0
 

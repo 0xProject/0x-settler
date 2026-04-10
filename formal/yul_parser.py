@@ -3,9 +3,6 @@ Pure syntax parser for Yul IR.
 
 Produces ``yul_ast`` nodes without any semantic lowering, constant
 folding, block flattening, alpha-renaming, or helper classification.
-
-This is the second layer of the staged pipeline described in
-``yul_to_lean_refactor_handoff.md``.
 """
 
 from __future__ import annotations
@@ -367,20 +364,30 @@ class SyntaxParser:
                 scope_stack.append([])
                 self._pop()
             elif kind == "}":
-                if len(scope_stack) > 1:
-                    scope_stack.pop()
+                if len(scope_stack) == 1:
+                    raise ParseError(
+                        f"Unmatched closing brace at token index {self._pos()}"
+                    )
+                scope_stack.pop()
                 self._pop()
             else:
                 self._pop()
+        if len(scope_stack) != 1:
+            raise ParseError("Unterminated brace scope in Yul token stream")
         return groups
 
 
 def _decode_string_literal(token_text: str) -> bytes:
-    """Decode a tokenized Yul string literal into its UTF-8 bytes."""
+    """Decode a tokenized Yul string literal into its raw byte payload."""
     try:
         decoded = ast.literal_eval(token_text)
     except (SyntaxError, ValueError) as err:
         raise ParseError(f"Invalid Yul string literal {token_text!r}") from err
     if not isinstance(decoded, str):
         raise ParseError(f"Invalid Yul string literal {token_text!r}")
-    return decoded.encode("utf-8")
+    try:
+        return decoded.encode("latin-1")
+    except UnicodeEncodeError as err:
+        raise ParseError(
+            f"Yul string literal contains non-byte code point: {token_text!r}"
+        ) from err

@@ -2,12 +2,9 @@
 Shared infrastructure for generating Lean models from Yul IR.
 
 Provides:
-- Yul tokenizer and recursive-descent parser
-- AST types (IntLit, Var, Call, Ite, Project, Assignment, FunctionModel)
-- Yul → FunctionModel conversion (copy propagation + demangling)
-- Explicit translation pipelines: raw translation + optional transforms
-- Lean expression emission
-- Common Lean source scaffolding
+- the shared model IR used by the staged translator and Lean emitter
+- legacy raw-lowering helpers still used by targeted tests
+- translation pipeline orchestration and Lean source emission
 """
 
 from __future__ import annotations
@@ -21,8 +18,25 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Callable, assert_never
 
+from evm_builtins import (
+    BASE_NORM_HELPERS as _BASE_NORM_HELPERS,
+    EVM_BUILTINS as _EVM_BUILTINS,
+    OP_TO_LEAN_HELPER,
+    OP_TO_OPCODE,
+    SUPPORTED_MODEL_OPS as _SUPPORTED_OPS,
+    SUPPORTED_MODEL_OPS_SET as _SUPPORTED_OPS_FROZENSET,
+    WORD_MOD,
+    eval_pure_builtin as _eval_builtin,
+    u256,
+)
+from lean_names import (
+    BASE_RESERVED_LEAN_NAMES,
+    norm_reserved_lean_names,
+    validate_ident,
+)
 from yul_ast import EvaluationError as EvaluationError
 from yul_ast import ParseError as ParseError
+from yul_lexer import tokenize_yul
 from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_function, resolve_module
 
@@ -161,77 +175,6 @@ OPTIMIZED_TRANSLATION_PIPELINE = TranslationPipeline(
     hoist_repeated_calls=True,
     prune_dead_assignments=True,
 )
-
-
-# ---------------------------------------------------------------------------
-# Yul tokenizer
-# ---------------------------------------------------------------------------
-
-YUL_TOKEN_RE = re.compile(
-    r"""
-    (?P<doccomment>///[^\n]*)
-  | (?P<linecomment>//[^\n]*)
-  | (?P<ws>\s+)
-  | (?P<string>"(?:[^"\\]|\\.)*")
-  | (?P<hex>0x[0-9a-fA-F]+)
-  | (?P<num>[0-9]+)
-  | (?P<assign>:=)
-  | (?P<arrow>->)
-  | (?P<ident>[A-Za-z_.$][A-Za-z0-9_.$]*)
-  | (?P<lbrace>\{)
-  | (?P<rbrace>\})
-  | (?P<lparen>\()
-  | (?P<rparen>\))
-  | (?P<comma>,)
-""",
-    re.VERBOSE,
-)
-
-_TOKEN_KIND_MAP = {
-    "doccomment": None,
-    "linecomment": None,
-    "ws": None,
-    "string": "string",
-    "hex": "num",
-    "num": "num",
-    "assign": ":=",
-    "arrow": "->",
-    "ident": "ident",
-    "lbrace": "{",
-    "rbrace": "}",
-    "lparen": "(",
-    "rparen": ")",
-    "comma": ",",
-}
-
-
-def tokenize_yul(source: str) -> list[tuple[str, str]]:
-    """Tokenize Yul IR source into a list of (kind, text) pairs.
-
-    Comments and whitespace are discarded.  String literals are kept as
-    single tokens so that braces inside ``"contract Foo {..."`` never
-    confuse downstream code.
-    """
-    tokens: list[tuple[str, str]] = []
-    pos = 0
-    length = len(source)
-    while pos < length:
-        m = YUL_TOKEN_RE.match(source, pos)
-        if not m:
-            snippet = source[pos : pos + 30]
-            raise ParseError(f"Yul tokenizer stuck at position {pos}: {snippet!r}")
-        pos = m.end()
-        raw_kind = m.lastgroup
-        if raw_kind is None:
-            raise ParseError(
-                f"Yul tokenizer produced a match with no token kind at position {pos}"
-            )
-        kind = _TOKEN_KIND_MAP[raw_kind]
-        if kind is None:
-            continue
-        text = m.group()
-        tokens.append((kind, text))
-    return tokens
 
 
 # ---------------------------------------------------------------------------
@@ -2842,211 +2785,6 @@ def _prune_dead_assignments(
 # Lean emission helpers
 # ---------------------------------------------------------------------------
 
-_SUPPORTED_OPS = (
-    "add",
-    "sub",
-    "mul",
-    "div",
-    "mod",
-    "not",
-    "or",
-    "and",
-    "eq",
-    "iszero",
-    "shl",
-    "shr",
-    "clz",
-    "lt",
-    "gt",
-    "mulmod",
-)
-
-_SUPPORTED_OPS_FROZENSET: frozenset[str] = frozenset(_SUPPORTED_OPS)
-
-# Complete set of Yul/EVM builtins that solc reserves (error 5568).
-# _SUPPORTED_OPS are the subset we model in Lean; this is the full set
-# used by the resolver to reject function/variable declarations that
-# would shadow a builtin name.
-#
-# Source: "EVM Dialect" table in the Yul section of the Solidity docs:
-# https://docs.soliditylang.org/en/v0.8.34/yul.html#evm-dialect
-_EVM_BUILTINS: frozenset[str] = _SUPPORTED_OPS_FROZENSET | frozenset(
-    (
-        # Arithmetic / comparison (already in _SUPPORTED_OPS: add, sub, mul,
-        # div, mod, not, or, and, eq, iszero, shl, shr, lt, gt, mulmod)
-        "sdiv",
-        "smod",
-        "addmod",
-        "exp",
-        "signextend",
-        "xor",
-        "byte",
-        "sar",
-        "slt",
-        "sgt",
-        # Memory
-        "mload",
-        "mstore",
-        "mstore8",
-        "msize",
-        # Storage
-        "sload",
-        "sstore",
-        # Transient storage (EIP-1153)
-        "tload",
-        "tstore",
-        # Execution context
-        "gas",
-        "address",
-        "balance",
-        "selfbalance",
-        "caller",
-        "callvalue",
-        "calldataload",
-        "calldatasize",
-        "calldatacopy",
-        "codesize",
-        "codecopy",
-        "extcodesize",
-        "extcodecopy",
-        "returndatasize",
-        "returndatacopy",
-        "extcodehash",
-        # Block context
-        "blockhash",
-        "coinbase",
-        "timestamp",
-        "number",
-        "difficulty",
-        "prevrandao",
-        "gaslimit",
-        "chainid",
-        "basefee",
-        "blobhash",
-        "blobbasefee",
-        # Control flow
-        "stop",
-        "return",
-        "revert",
-        "invalid",
-        "selfdestruct",
-        # Calls
-        "call",
-        "callcode",
-        "delegatecall",
-        "staticcall",
-        # Create
-        "create",
-        "create2",
-        # Log
-        "log0",
-        "log1",
-        "log2",
-        "log3",
-        "log4",
-        # Hash
-        "keccak256",
-        # Misc
-        "pop",
-        "origin",
-        "gasprice",
-        "mcopy",
-        # Object access / Yul-specific
-        "datasize",
-        "dataoffset",
-        "datacopy",
-        "setimmutable",
-        "loadimmutable",
-        "linkersymbol",
-        "memoryguard",
-    )
-)
-
-OP_TO_LEAN_HELPER: dict[str, str] = {
-    op: f"evm{op.capitalize()}" for op in _SUPPORTED_OPS
-}
-OP_TO_OPCODE: dict[str, str] = {op: op.upper() for op in _SUPPORTED_OPS}
-
-# Base norm helpers shared by all generators.  Per-generator extras (like
-# bitLengthPlus1 for cbrt) are merged in via ModelConfig.extra_norm_ops.
-_BASE_NORM_HELPERS: dict[str, str] = {
-    op: f"norm{op.capitalize()}" for op in _SUPPORTED_OPS
-}
-
-
-_LEAN_KEYWORDS: frozenset[str] = frozenset(
-    {
-        "if",
-        "then",
-        "else",
-        "let",
-        "in",
-        "do",
-        "where",
-        "match",
-        "with",
-        "fun",
-        "return",
-        "import",
-        "open",
-        "namespace",
-        "end",
-        "def",
-        "theorem",
-        "lemma",
-        "example",
-        "structure",
-        "class",
-        "instance",
-        "section",
-        "variable",
-        "universe",
-        "axiom",
-        "inductive",
-        "coinductive",
-        "mutual",
-        "partial",
-        "unsafe",
-        "private",
-        "protected",
-        "noncomputable",
-        "macro",
-        "syntax",
-        "notation",
-        "prefix",
-        "infix",
-        "infixl",
-        "infixr",
-        "postfix",
-        "attribute",
-        "deriving",
-        "extends",
-        "abbrev",
-        "opaque",
-        "set_option",
-        "for",
-        "true",
-        "false",
-        "Type",
-        "Prop",
-        "Sort",
-    }
-)
-
-_RESERVED_LEAN_NAMES: frozenset[str] = frozenset(
-    {"u256", "WORD_MOD"}
-    | set(OP_TO_LEAN_HELPER.values())
-    | set(_BASE_NORM_HELPERS.values())
-    | _LEAN_KEYWORDS
-)
-
-
-def validate_ident(name: str, *, what: str) -> None:
-    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
-        raise ParseError(f"Invalid {what}: {name!r}")
-    if name in _RESERVED_LEAN_NAMES:
-        raise ParseError(f"Reserved Lean helper name used as {what}: {name!r}")
-
 
 def collect_ops(expr: Expr) -> list[str]:
     out: list[str] = []
@@ -3390,14 +3128,6 @@ def validate_function_model(model: FunctionModel) -> None:
             f"Model {model.fn_name!r} returns undefined vars: {sorted(missing_returns)}"
         )
 
-
-WORD_MOD = 2**256
-
-
-def u256(value: int) -> int:
-    return value % WORD_MOD
-
-
 def _expect_scalar(value: ModelValue, *, context: str) -> int:
     if isinstance(value, tuple):
         raise EvaluationError(f"{context} expected a scalar value, got tuple {value!r}")
@@ -3414,63 +3144,6 @@ def _expect_tuple(value: ModelValue, *, size: int, context: str) -> tuple[int, .
             f"{context} expected a {size}-tuple, got {len(value)} values: {value!r}"
         )
     return value
-
-
-def _div(a: tuple[int, ...]) -> int:
-    aa, bb = u256(a[0]), u256(a[1])
-    return 0 if bb == 0 else aa // bb
-
-
-def _mod(a: tuple[int, ...]) -> int:
-    aa, bb = u256(a[0]), u256(a[1])
-    return 0 if bb == 0 else aa % bb
-
-
-def _shl(a: tuple[int, ...]) -> int:
-    shift, value = u256(a[0]), u256(a[1])
-    return u256(value << shift) if shift < 256 else 0
-
-
-def _shr(a: tuple[int, ...]) -> int:
-    shift, value = u256(a[0]), u256(a[1])
-    return value >> shift if shift < 256 else 0
-
-
-def _clz(a: tuple[int, ...]) -> int:
-    value = u256(a[0])
-    return 256 if value == 0 else 255 - (value.bit_length() - 1)
-
-
-def _mulmod(a: tuple[int, ...]) -> int:
-    aa, bb, nn = u256(a[0]), u256(a[1]), u256(a[2])
-    return 0 if nn == 0 else (aa * bb) % nn
-
-
-_BUILTIN_DISPATCH: dict[tuple[str, int], Callable[[tuple[int, ...]], int]] = {
-    ("add", 2): lambda a: u256(u256(a[0]) + u256(a[1])),
-    ("sub", 2): lambda a: u256(u256(a[0]) + WORD_MOD - u256(a[1])),
-    ("mul", 2): lambda a: u256(u256(a[0]) * u256(a[1])),
-    ("div", 2): _div,
-    ("mod", 2): _mod,
-    ("not", 1): lambda a: WORD_MOD - 1 - u256(a[0]),
-    ("or", 2): lambda a: u256(a[0]) | u256(a[1]),
-    ("and", 2): lambda a: u256(a[0]) & u256(a[1]),
-    ("eq", 2): lambda a: 1 if u256(a[0]) == u256(a[1]) else 0,
-    ("iszero", 1): lambda a: 1 if u256(a[0]) == 0 else 0,
-    ("shl", 2): _shl,
-    ("shr", 2): _shr,
-    ("clz", 1): _clz,
-    ("lt", 2): lambda a: 1 if u256(a[0]) < u256(a[1]) else 0,
-    ("gt", 2): lambda a: 1 if u256(a[0]) > u256(a[1]) else 0,
-    ("mulmod", 3): _mulmod,
-}
-
-
-def _eval_builtin(name: str, args: tuple[int, ...]) -> int:
-    fn = _BUILTIN_DISPATCH.get((name, len(args)))
-    if fn is not None:
-        return fn(args)
-    raise EvaluationError(f"Unsupported builtin call {name!r} with {len(args)} arg(s)")
 
 
 def build_model_table(
@@ -4281,28 +3954,19 @@ def build_model_body(
     config: ModelConfig,
     param_names: tuple[str, ...] = ("x",),
     return_names: tuple[str, ...] = ("z",),
+    call_map: dict[str, str] | None = None,
 ) -> str:
     lines: list[str] = []
     norm_helpers = {**_BASE_NORM_HELPERS, **config.extra_norm_ops}
-    planned_defs = _plan_emitted_model_defs(config.function_order, config)
-    planned_by_name = {planned.fn_name: planned for planned in planned_defs}
 
     if evm:
         for p in param_names:
             lines.append(f"  let {p} := u256 {p}")
-        call_map = {
-            fn_name: planned_by_name[fn_name].evm_name
-            for fn_name in config.function_order
-        }
         op_map = OP_TO_LEAN_HELPER
     else:
-        call_map = {
-            fn_name: planned_by_name[fn_name].base_name
-            for fn_name in config.function_order
-        }
         op_map = norm_helpers
 
-    merged_map = {**op_map, **call_map}
+    merged_map = {**op_map, **(call_map or {})}
 
     def _emit_rhs(expr: Expr) -> str:
         rhs_expr = expr
@@ -4411,22 +4075,19 @@ def _build_lean_emission_plan(
     config: ModelConfig,
 ) -> LeanEmissionPlan:
     emit_any_norm = any_norm_models(models, config)
-    base_reserved = frozenset(
-        {"u256", "WORD_MOD"} | set(OP_TO_LEAN_HELPER.values()) | _LEAN_KEYWORDS
-    )
-    norm_reserved = frozenset(
-        (set(_BASE_NORM_HELPERS.values()) | set(config.extra_norm_ops.values()))
+    base_reserved = BASE_RESERVED_LEAN_NAMES
+    norm_reserved = (
+        norm_reserved_lean_names(config.extra_norm_ops)
         if emit_any_norm
-        else set()
+        else frozenset()
     )
-    builtin_helper_names = frozenset(
-        {"u256", "WORD_MOD"} | set(OP_TO_LEAN_HELPER.values()) | set(norm_reserved)
-    )
+    builtin_helper_names = base_reserved | norm_reserved
 
     planned_defs = _plan_emitted_model_defs(
         tuple(model.fn_name for model in models),
         config,
     )
+    planned_by_name = {planned.fn_name: planned for planned in planned_defs}
     model_defs: list[EmittedModelDef] = []
     generated_def_names: set[str] = set()
     for planned in planned_defs:
@@ -4457,6 +4118,23 @@ def _build_lean_emission_plan(
             generated_def_names.add(base_name)
         generated_def_names.add(evm_name)
         model_defs.append(planned)
+
+    for model in models:
+        planned = planned_by_name[model.fn_name]
+        if not planned.emit_norm:
+            continue
+        skipped_norm_callees = sorted(
+            callee
+            for stmt in model.assignments
+            for callee in _model_call_names_in_stmt(stmt)
+            if callee in planned_by_name and not planned_by_name[callee].emit_norm
+        )
+        if skipped_norm_callees:
+            skipped_list = ", ".join(repr(name) for name in skipped_norm_callees)
+            raise ParseError(
+                f"Cannot emit norm model for {model.fn_name!r}: "
+                f"calls skipped norm callee(s) {skipped_list}"
+            )
 
     for name in generated_def_names:
         if name in builtin_helper_names:
@@ -4491,6 +4169,14 @@ def render_function_defs(
         )
 
     parts: list[str] = []
+    evm_call_map = {
+        planned.fn_name: planned.evm_name for planned in emission_plan.model_defs
+    }
+    norm_call_map = {
+        planned.fn_name: planned.base_name
+        for planned in emission_plan.model_defs
+        if planned.emit_norm
+    }
     for model, planned in zip(models, emission_plan.model_defs):
         if planned.fn_name != model.fn_name:
             raise ParseError(
@@ -4503,6 +4189,7 @@ def render_function_defs(
             config=config,
             param_names=model.param_names,
             return_names=model.return_names,
+            call_map=evm_call_map,
         )
 
         if model.param_names:
@@ -4525,6 +4212,7 @@ def render_function_defs(
                 config=config,
                 param_names=model.param_names,
                 return_names=model.return_names,
+                call_map=norm_call_map,
             )
             parts.append(
                 f"/-- Normalized auto-generated model of `{model.fn_name}` on Nat arithmetic. -/\n"

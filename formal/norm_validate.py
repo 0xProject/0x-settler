@@ -59,8 +59,8 @@ def _validate_public_function_contract(func: NormalizedFunction) -> None:
     if not func.returns:
         raise ParseError(f"Selected function {func.name!r} has zero return values")
 
+    from lean_names import validate_ident
     from restricted_names import legalize_identifier_base
-    from yul_to_lean import validate_ident
 
     for raw in func.param_names:
         base = legalize_identifier_base(raw, avoid_reserved=False)
