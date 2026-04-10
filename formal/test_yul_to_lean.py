@@ -14096,5 +14096,98 @@ class StagedPipelineValidationTest(unittest.TestCase):
             )
 
 
+class LeaveGuardGroupingTest(unittest.TestCase):
+    """Tests that did_leave guards group trailing stmts into maximal blocks.
+
+    Regression for the bug where each trailing statement got its own
+    ``if iszero(did_leave) { ... }`` wrapper, fragmenting temp chains
+    across artificial conditional boundaries.
+    """
+
+    def test_block_inline_leave_temp_chain(self) -> None:
+        """Block-inlined helper with leave + temp chain evaluates correctly."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_r_2 {
+                var_r_2 := helper(var_x_1)
+            }
+            function helper(var_x_3) -> var_r_4 {
+                var_r_4 := 1
+                if var_x_3 {
+                    var_r_4 := 7
+                    leave
+                }
+                let usr$t := var_r_4
+                var_r_4 := add(usr$t, 1)
+            }
+        """
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE
+        )
+        model = result.models[0]
+        # x=0: no leave → r = 1, t = 1, r = 1+1 = 2
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (2,))
+        # x=1: leave → r = 7 (leave skips the temp chain)
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+
+    def test_top_level_leave_temp_chain(self) -> None:
+        """Selected target with leave + temp chain evaluates correctly."""
+        yul = """
+            function fun_f_1(var_x_1) -> var_r_2 {
+                var_r_2 := 1
+                if var_x_1 {
+                    var_r_2 := 7
+                    leave
+                }
+                let usr$t := var_r_2
+                var_r_2 := add(usr$t, 1)
+            }
+        """
+        config = make_model_config(("f",))
+        result = ytl.translate_yul_to_models(
+            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE
+        )
+        model = result.models[0]
+        # x=0: no leave → r = 1, t = 1, r = 1+1 = 2
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (2,))
+        # x=1: leave → r = 7
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+
+    def test_lower_leave_groups_trailing_stmts(self) -> None:
+        """Trailing statements after leave share one guarded block, not N."""
+        from norm_simplify import lower_leave
+        from yul_normalize import normalize_function
+        from yul_parser import SyntaxParser
+        from yul_resolve import resolve_function
+
+        tokens = ytl.tokenize_yul("""
+            function fun_f_1(var_x_1) -> var_r_2 {
+                var_r_2 := 1
+                if var_x_1 { leave }
+                let usr$a := 2
+                let usr$b := 3
+                var_r_2 := add(usr$a, usr$b)
+            }
+        """)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func)
+        nf = normalize_function(func, result)
+        lowered = lower_leave(nf)
+
+        # Count top-level NIf nodes in the lowered body.
+        from norm_ir import NIf
+
+        top_ifs = [s for s in lowered.body.stmts if isinstance(s, NIf)]
+        # Should have exactly 2 NIf: the original `if var_x_1 { ... }` and
+        # ONE grouped guard `if iszero(did_leave) { a; b; r := add(a, b) }`.
+        # NOT 3 separate guards (one per trailing statement).
+        self.assertEqual(
+            len(top_ifs),
+            2,
+            f"Expected 2 top-level NIf (original + 1 grouped guard), "
+            f"got {len(top_ifs)}",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
