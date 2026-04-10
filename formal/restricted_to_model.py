@@ -4,10 +4,19 @@ SSA renaming and FunctionModel conversion (Pass 9).
 Converts a ``RestrictedFunction`` (SymbolId-keyed, non-SSA) into a
 ``FunctionModel`` (string-named, SSA-renamed) ready for Lean emission.
 
+The pipeline is:
+
+1. **Name legalization** (``restricted_names.legalize_names``):
+   demangle compiler names, sanitize identifiers.
+2. **Control-flow flattening** (``restricted_flatten.flatten_function``):
+   lift nested conditionals out of branch bodies.
+3. **SSA renaming** (this module): version base names and build
+   ``FunctionModel``.
+
 SSA naming rules match the old pipeline:
 - First assignment to a clean name uses the bare name (e.g. ``z``)
 - Subsequent assignments suffix ``_{n-1}`` (e.g. ``z_1``, ``z_2``)
-- Collisions with existing names are skipped
+- Collisions with already-emitted names are skipped
 - Branch-local SSA uses copied counters; merge uses outer counters
 """
 
@@ -16,6 +25,7 @@ from __future__ import annotations
 from collections import Counter
 from typing import assert_never
 
+from restricted_flatten import flatten_function
 from restricted_ir import (
     RAssignment,
     RBranch,
@@ -30,6 +40,7 @@ from restricted_ir import (
     RRef,
     RStatement,
 )
+from restricted_names import legalize_names
 from yul_ast import SymbolId
 
 # Import the old pipeline's IR types for the output.
@@ -54,16 +65,15 @@ from yul_to_lean import (
 class _SSACtx:
     """Mutable SSA naming state."""
 
-    def __init__(self, all_clean_names: set[str]) -> None:
+    def __init__(self) -> None:
         self.ssa_count: Counter[str] = Counter()
         self.emitted: set[str] = set()
-        self.all_clean_names = all_clean_names
         # SymbolId → current SSA name
         self.sid_map: dict[SymbolId, str] = {}
 
     def copy(self) -> _SSACtx:
         """Create a branch-local copy."""
-        c = _SSACtx(self.all_clean_names)
+        c = _SSACtx()
         c.ssa_count = Counter(self.ssa_count)
         c.emitted = set(self.emitted)
         c.sid_map = dict(self.sid_map)
@@ -73,14 +83,12 @@ class _SSACtx:
         """Generate an SSA name for an assignment to *clean* and bind *sid*."""
         self.ssa_count[clean] += 1
         count = self.ssa_count[clean]
-        if count == 1:
-            ssa_name = clean
-        else:
+        ssa_name = clean if count == 1 else f"{clean}_{count - 1}"
+        # Skip names already emitted (handles first-assignment collisions too).
+        while ssa_name in self.emitted:
+            self.ssa_count[clean] += 1
+            count = self.ssa_count[clean]
             ssa_name = f"{clean}_{count - 1}"
-            while ssa_name in self.emitted:
-                self.ssa_count[clean] += 1
-                count = self.ssa_count[clean]
-                ssa_name = f"{clean}_{count - 1}"
         self.emitted.add(ssa_name)
         self.sid_map[sid] = ssa_name
         return ssa_name
@@ -221,9 +229,8 @@ def _convert_branch_block(
 ) -> list[Assignment]:
     """Convert branch-local statements to Assignment only.
 
-    The old pipeline's ConditionalBranch.assignments is
-    tuple[Assignment, ...] — no nested ConditionalBlocks allowed
-    inside branches.
+    After the flattening pass, branches contain only ``RAssignment``
+    and ``RCallAssign`` — no nested ``RConditionalBlock``.
     """
     out: list[Assignment] = []
     for stmt in stmts:
@@ -251,8 +258,8 @@ def _convert_branch_block(
                     )
         elif isinstance(stmt, RConditionalBlock):
             raise ValueError(
-                "Nested ConditionalBlock inside branch not supported "
-                "in the old pipeline's FunctionModel format"
+                "Nested ConditionalBlock inside branch after flattening — "
+                "this indicates a bug in restricted_flatten"
             )
         else:
             assert_never(stmt)
@@ -260,16 +267,9 @@ def _convert_branch_block(
 
 
 def _ssa_name_for_output_expr(expr: RExpr, ctx: _SSACtx) -> str:
-    """Get the SSA name for a branch output expression.
-
-    Output expressions are typically RRef nodes pointing to the
-    variable that feeds the outer output. For constant expressions
-    or complex expressions, we need to emit a temp assignment.
-    """
+    """Get the SSA name for a branch output expression."""
     if isinstance(expr, RRef):
         return ctx.lookup(expr.symbol_id)
-    # For non-ref outputs (e.g. RConst), we'd need to emit a temp.
-    # For now, only RRef is expected in branch outputs.
     raise ValueError(f"Branch output must be RRef, got {type(expr).__name__}: {expr!r}")
 
 
@@ -284,11 +284,8 @@ def _needs_zero_init(
 ) -> bool:
     """Check if a return variable needs explicit zero-initialization.
 
-    Returns True if the variable might be read before being written
-    on some execution path.
+    Conservative: always zero-init.
     """
-    # Conservative: always zero-init. The old pipeline does a more
-    # nuanced analysis, but zero-init is always safe.
     return True
 
 
@@ -303,17 +300,20 @@ def to_function_model(
 ) -> FunctionModel:
     """Convert a RestrictedFunction to a FunctionModel with SSA naming.
 
-    This is Pass 9 from the handoff doc: SSA renaming as a dedicated
-    transformation on the non-SSA restricted IR.
-    """
-    # Collect all clean names for collision detection.
-    all_clean: set[str] = set()
-    all_clean.update(func.param_names)
-    all_clean.update(func.return_names)
-    for stmt in func.body:
-        _collect_clean_names(stmt, all_clean)
+    Runs three passes in sequence:
 
-    ctx = _SSACtx(all_clean)
+    1. Name legalization (demangle, sanitize)
+    2. Control-flow flattening (nested conditionals → ``RIte``)
+    3. SSA renaming + ``FunctionModel`` construction
+    """
+    # Pass 1: legalize names.
+    func = legalize_names(func)
+
+    # Pass 2: flatten nested conditionals.
+    func = flatten_function(func)
+
+    # Pass 3: SSA renaming.
+    ctx = _SSACtx()
 
     # Register parameters (SSA count starts at 1).
     param_ssa: list[str] = []
@@ -323,12 +323,10 @@ def to_function_model(
 
     # Zero-init return variables that need it.
     assignments: list[ModelStatement] = []
-    return_sids_needing_init: list[tuple[SymbolId, str]] = []
     for sid, name in zip(func.returns, func.return_names):
         if _needs_zero_init(sid, func.body):
             ssa = ctx.assign(sid, name)
             assignments.append(Assignment(target=ssa, expr=IntLit(0)))
-            return_sids_needing_init.append((sid, name))
 
     # Convert body statements.
     body_stmts = _convert_block(func.body, ctx)
@@ -345,17 +343,3 @@ def to_function_model(
         param_names=tuple(param_ssa),
         return_names=tuple(return_ssa),
     )
-
-
-def _collect_clean_names(stmt: RStatement, out: set[str]) -> None:
-    """Collect all target_name values from a statement tree."""
-    if isinstance(stmt, RAssignment):
-        out.add(stmt.target_name)
-    elif isinstance(stmt, RCallAssign):
-        out.update(stmt.target_names)
-    elif isinstance(stmt, RConditionalBlock):
-        out.update(stmt.output_names)
-        for s in stmt.then_branch.assignments:
-            _collect_clean_names(s, out)
-        for s in stmt.else_branch.assignments:
-            _collect_clean_names(s, out)

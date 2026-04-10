@@ -4,7 +4,7 @@ target-version = ["py311"]
 [tool.isort]
 profile = "black"
 py_version = 311
-known_first_party = ["yul_to_lean", "yul_ast", "yul_parser", "yul_resolve", "norm_ir", "yul_normalize", "norm_eval", "norm_classify", "norm_inline", "norm_constprop", "norm_walk", "norm_memory", "restricted_ir", "norm_to_restricted", "restricted_eval", "restricted_to_model"]
+known_first_party = ["yul_to_lean", "yul_ast", "yul_parser", "yul_resolve", "norm_ir", "yul_normalize", "norm_eval", "norm_classify", "norm_inline", "norm_constprop", "norm_walk", "norm_memory", "restricted_ir", "norm_to_restricted", "restricted_eval", "restricted_names", "restricted_flatten", "restricted_to_model"]
 
 [tool.mypy]
 python_version = "3.11"

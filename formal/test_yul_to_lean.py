@@ -21,6 +21,7 @@ from norm_inline import inline_pure_helpers
 from norm_memory import lower_memory
 from norm_to_restricted import lower_to_restricted
 from restricted_eval import evaluate_restricted
+from restricted_ir import RestrictedFunction
 from restricted_to_model import to_function_model
 from yul_normalize import normalize_function
 from yul_parser import SyntaxParser
@@ -12455,7 +12456,7 @@ class MemoryLowerTest(unittest.TestCase):
 class RestrictedIRTest(unittest.TestCase):
     """Tests for restricted IR construction + memory elimination."""
 
-    def _to_restricted(self, yul: str) -> object:
+    def _to_restricted(self, yul: str) -> RestrictedFunction:
         """Full pipeline: Yul → restricted IR."""
         tokens = ytl.tokenize_yul(yul)
         func = SyntaxParser(tokens).parse_function()
@@ -12466,28 +12467,19 @@ class RestrictedIRTest(unittest.TestCase):
         return lower_to_restricted(nf)
 
     def _eval_restricted(self, yul: str, args: tuple[int, ...]) -> tuple[int, ...]:
-        rf = self._to_restricted(yul)
-        from restricted_ir import RestrictedFunction
+        return evaluate_restricted(self._to_restricted(yul), args)
 
-        assert isinstance(rf, RestrictedFunction)
-        return evaluate_restricted(rf, args)
-
-    def _module_to_restricted(
-        self, yul: str
-    ) -> dict[str, "restricted_ir.RestrictedFunction"]:
+    def _module_to_restricted(self, yul: str) -> dict[str, RestrictedFunction]:
         tokens = ytl.tokenize_yul(yul)
         funcs = SyntaxParser(tokens).parse_functions()
         resolved = resolve_module(funcs, builtins=ytl._EVM_BUILTINS)
-        out: dict[str, "restricted_ir.RestrictedFunction"] = {}
-        from restricted_ir import RestrictedFunction
+        out: dict[str, RestrictedFunction] = {}
 
         for name, result in resolved.items():
             nf = normalize_function(result.func, result)
             nf = inline_pure_helpers(nf)
             nf = propagate_constants(nf)
-            rf = lower_to_restricted(nf)
-            assert isinstance(rf, RestrictedFunction)
-            out[name] = rf
+            out[name] = lower_to_restricted(nf)
         return out
 
     def test_simple_assignment(self) -> None:
@@ -12798,9 +12790,6 @@ class RestrictedIRTest(unittest.TestCase):
         nf = propagate_constants(nf)
         rf = lower_to_restricted(nf)
 
-        from restricted_ir import RestrictedFunction
-
-        assert isinstance(rf, RestrictedFunction)
         for x in [0, 1, 5, 100]:
             norm_result = evaluate_normalized(nf, (x,))
             rest_result = evaluate_restricted(rf, (x,))
@@ -12897,9 +12886,6 @@ class SSAModelTest(unittest.TestCase):
         rf = lower_to_restricted(nf)
         model = to_function_model(rf, "f")
 
-        from restricted_ir import RestrictedFunction
-
-        assert isinstance(rf, RestrictedFunction)
         for x in [0, 1, 5, 100]:
             rest_val = evaluate_restricted(rf, (x,))
             model_val = ytl.evaluate_function_model(model, (x,))
@@ -12937,6 +12923,146 @@ class SSAModelTest(unittest.TestCase):
             }
         """)
         self.assertEqual(ytl.evaluate_function_model(model, (5, 7)), (12,))
+
+    # ------------------------------------------------------------------
+    # Regression tests for nested conditionals, SSA collision, and name
+    # legalization (findings 1–3 from the critic).
+    # ------------------------------------------------------------------
+
+    def test_nested_if_in_if(self) -> None:
+        """Nested if inside if must flatten and eval correctly."""
+        model = self._to_model("""
+            function f(x) -> z {
+                if x { if add(x, 1) { z := 7 } }
+            }
+        """)
+        rf = self._to_restricted(
+            "function f(x) -> z { if x { if add(x, 1) { z := 7 } } }"
+        )
+        for x in [0, 1, 5]:
+            rest_val = evaluate_restricted(rf, (x,))
+            model_val = ytl.evaluate_function_model(model, (x,))
+            self.assertEqual(rest_val, model_val, f"Mismatch at x={x}")
+
+    def test_nested_switch_in_if(self) -> None:
+        """Nested switch inside if must flatten and eval correctly."""
+        model = self._to_model("""
+            function f(x, y) -> z {
+                if x {
+                    switch y
+                    case 1 { z := 7 }
+                    default { z := 9 }
+                }
+            }
+        """)
+        rf = self._to_restricted("""function f(x, y) -> z {
+                if x { switch y case 1 { z := 7 } default { z := 9 } }
+            }""")
+        for x, y in [(0, 0), (0, 1), (1, 0), (1, 1), (3, 1)]:
+            rest_val = evaluate_restricted(rf, (x, y))
+            model_val = ytl.evaluate_function_model(model, (x, y))
+            self.assertEqual(rest_val, model_val, f"Mismatch at x={x}, y={y}")
+
+    def test_nested_conditional_both_branches(self) -> None:
+        """Nested conditionals in BOTH then and else branches."""
+        model = self._to_model("""
+            function f(x, y) -> z {
+                switch x
+                case 0 {
+                    if y { z := 10 }
+                }
+                default {
+                    if y { z := 20 }
+                }
+            }
+        """)
+        rf = self._to_restricted("""
+            function f(x, y) -> z {
+                switch x
+                case 0 { if y { z := 10 } }
+                default { if y { z := 20 } }
+            }
+        """)
+        for x, y in [(0, 0), (0, 1), (1, 0), (1, 1), (2, 1)]:
+            rest_val = evaluate_restricted(rf, (x, y))
+            model_val = ytl.evaluate_function_model(model, (x, y))
+            self.assertEqual(rest_val, model_val, f"Mismatch at x={x}, y={y}")
+
+    def test_ssa_collision(self) -> None:
+        """SSA allocator must not alias x_1 (from SSA) with literal x_1."""
+        model = self._to_model("""
+            function f(x) -> z {
+                x := add(x, 1)
+                let x_1 := 7
+                z := x
+            }
+        """)
+        # z should be x+1, NOT 7.
+        for x in [0, 5, 100]:
+            self.assertEqual(
+                ytl.evaluate_function_model(model, (x,)),
+                ((x + 1) % (2**256),),
+                f"SSA collision at x={x}: got {ytl.evaluate_function_model(model, (x,))}",
+            )
+
+    def test_invalid_name_sanitization(self) -> None:
+        """Compiler-generated names like var_x_1 and usr$tmp must be legalized."""
+        model = self._to_model(
+            "function fun_f_1(var_x_1) -> var_z_2 "
+            "{ let usr$tmp := add(var_x_1, 1) var_z_2 := usr$tmp }",
+            fn_name="f",
+        )
+        # Must pass validation (no invalid binder names).
+        ytl.validate_function_model(model)
+        # Must evaluate correctly.
+        self.assertEqual(ytl.evaluate_function_model(model, (5,)), (6,))
+
+    def test_demangle_collision(self) -> None:
+        """Two variables that demangle to the same base name stay distinct."""
+        # var_a_1 and var_a_2 both demangle to "a" — should still eval correctly.
+        model = self._to_model(
+            "function fun_f_1(var_a_1) -> var_z_2 "
+            "{ let var_a_2 := add(var_a_1, 10) var_z_2 := add(var_a_1, var_a_2) }",
+            fn_name="f",
+        )
+        ytl.validate_function_model(model)
+        # a=5: a_2=15, z=5+15=20
+        self.assertEqual(ytl.evaluate_function_model(model, (5,)), (20,))
+
+    def test_flat_branch_invariant(self) -> None:
+        """After to_function_model, no ConditionalBranch contains nested blocks."""
+        model = self._to_model("""
+            function f(x) -> z {
+                if x { if add(x, 1) { z := 7 } }
+            }
+        """)
+        for stmt in model.assignments:
+            if isinstance(stmt, ytl.ConditionalBlock):
+                for a in stmt.then_branch.assignments:
+                    self.assertIsInstance(a, ytl.Assignment)
+                for a in stmt.else_branch.assignments:
+                    self.assertIsInstance(a, ytl.Assignment)
+
+    def test_all_binders_valid(self) -> None:
+        """Every produced binder must pass validate_ident."""
+        for yul in [
+            "function f(x) -> z { if x { if add(x, 1) { z := 7 } } }",
+            "function fun_f_1(var_x_1) -> var_z_2 "
+            "{ let usr$tmp := add(var_x_1, 1) var_z_2 := usr$tmp }",
+        ]:
+            model = self._to_model(yul, fn_name="f")
+            # validate_function_model checks all binders via validate_ident.
+            ytl.validate_function_model(model)
+
+    def _to_restricted(self, yul: str) -> RestrictedFunction:
+        """Full pipeline: Yul → RestrictedFunction."""
+        tokens = ytl.tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=ytl._EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        nf = inline_pure_helpers(nf)
+        nf = propagate_constants(nf)
+        return lower_to_restricted(nf)
 
 
 if __name__ == "__main__":

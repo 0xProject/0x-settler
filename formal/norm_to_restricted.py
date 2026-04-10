@@ -34,6 +34,7 @@ from norm_ir import (
     NStmt,
     NStore,
     NSwitch,
+    NSwitchCase,
     NTopLevelCall,
     NUnresolvedCall,
 )
@@ -435,7 +436,7 @@ def _lower_if(
 def _lower_switch_chain(
     *,
     disc: RExpr,
-    cases: tuple,
+    cases: tuple[NSwitchCase, ...],
     default: NBlock | None,
     mem: MemoryState,
     alloc: _Alloc,
