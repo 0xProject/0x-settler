@@ -13461,6 +13461,318 @@ class SSAModelTest(unittest.TestCase):
         elif isinstance(expr, ytl.Project):
             self._check_calls_in_expr(expr.inner, model_names)
 
+    # ------------------------------------------------------------------
+    # Regression: expression-valued branch outputs (finding 1)
+    # ------------------------------------------------------------------
+
+    def test_branch_output_const(self) -> None:
+        """Branch output_exprs can be RConst, not just RRef."""
+        from restricted_ir import (
+            RAssignment,
+            RBranch,
+            RConditionalBlock,
+            RConst,
+            RRef,
+        )
+
+        x_sid, z_sid = yul_ast.SymbolId(0), yul_ast.SymbolId(1)
+        rf = RestrictedFunction(
+            name="f",
+            params=(x_sid,),
+            param_names=("x",),
+            returns=(z_sid,),
+            return_names=("z",),
+            body=(
+                RConditionalBlock(
+                    condition=RRef(symbol_id=x_sid, name="x"),
+                    output_targets=(z_sid,),
+                    output_names=("z",),
+                    then_branch=RBranch(
+                        assignments=(),
+                        output_exprs=(RConst(7),),  # NOT RRef
+                    ),
+                    else_branch=RBranch(
+                        assignments=(),
+                        output_exprs=(RConst(0),),  # NOT RRef
+                    ),
+                ),
+            ),
+        )
+        model = to_function_model(rf, "f")
+        for x in [0, 1, 5]:
+            self.assertEqual(
+                evaluate_restricted(rf, (x,)),
+                ytl.evaluate_function_model(model, (x,)),
+                f"Mismatch at x={x}",
+            )
+
+    def test_branch_output_builtin_call(self) -> None:
+        """Branch output_exprs can be RBuiltinCall."""
+        from restricted_ir import (
+            RBranch,
+            RBuiltinCall,
+            RConditionalBlock,
+            RConst,
+            RRef,
+        )
+
+        x_sid, z_sid = yul_ast.SymbolId(0), yul_ast.SymbolId(1)
+        rf = RestrictedFunction(
+            name="f",
+            params=(x_sid,),
+            param_names=("x",),
+            returns=(z_sid,),
+            return_names=("z",),
+            body=(
+                RConditionalBlock(
+                    condition=RRef(symbol_id=x_sid, name="x"),
+                    output_targets=(z_sid,),
+                    output_names=("z",),
+                    then_branch=RBranch(
+                        assignments=(),
+                        output_exprs=(
+                            RBuiltinCall(
+                                "add", (RRef(symbol_id=x_sid, name="x"), RConst(1))
+                            ),
+                        ),
+                    ),
+                    else_branch=RBranch(
+                        assignments=(),
+                        output_exprs=(RConst(0),),
+                    ),
+                ),
+            ),
+        )
+        model = to_function_model(rf, "f")
+        for x in [0, 1, 5]:
+            self.assertEqual(
+                evaluate_restricted(rf, (x,)),
+                ytl.evaluate_function_model(model, (x,)),
+                f"Mismatch at x={x}",
+            )
+
+    def test_nested_conditional_with_expr_output(self) -> None:
+        """Inner branch with expression output, outer with ref output."""
+        from restricted_ir import (
+            RAssignment,
+            RBranch,
+            RBuiltinCall,
+            RConditionalBlock,
+            RConst,
+            RRef,
+        )
+
+        x_sid = yul_ast.SymbolId(0)
+        y_sid = yul_ast.SymbolId(1)
+        z_sid = yul_ast.SymbolId(2)
+        z2_sid = yul_ast.SymbolId(3)
+        rf = RestrictedFunction(
+            name="f",
+            params=(x_sid, y_sid),
+            param_names=("x", "y"),
+            returns=(z_sid,),
+            return_names=("z",),
+            body=(
+                RConditionalBlock(
+                    condition=RRef(symbol_id=x_sid, name="x"),
+                    output_targets=(z_sid,),
+                    output_names=("z",),
+                    then_branch=RBranch(
+                        assignments=(
+                            RConditionalBlock(
+                                condition=RRef(symbol_id=y_sid, name="y"),
+                                output_targets=(z2_sid,),
+                                output_names=("z",),
+                                then_branch=RBranch(
+                                    assignments=(),
+                                    output_exprs=(
+                                        RBuiltinCall(
+                                            "add",
+                                            (
+                                                RRef(symbol_id=x_sid, name="x"),
+                                                RRef(symbol_id=y_sid, name="y"),
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                                else_branch=RBranch(
+                                    assignments=(),
+                                    output_exprs=(RConst(99),),
+                                ),
+                            ),
+                        ),
+                        output_exprs=(RRef(symbol_id=z2_sid, name="z"),),
+                    ),
+                    else_branch=RBranch(
+                        assignments=(),
+                        output_exprs=(RConst(0),),
+                    ),
+                ),
+            ),
+        )
+        model = to_function_model(rf, "f")
+        for x, y in [(0, 0), (0, 1), (1, 0), (1, 1), (3, 5)]:
+            self.assertEqual(
+                evaluate_restricted(rf, (x, y)),
+                ytl.evaluate_function_model(model, (x, y)),
+                f"Mismatch at x={x}, y={y}",
+            )
+
+    # ------------------------------------------------------------------
+    # Regression: positive branch-local hoist (finding 2)
+    # ------------------------------------------------------------------
+
+    def test_branch_local_hoist_sibling_stmts(self) -> None:
+        """Repeated model call across sibling stmts in same branch gets CSE'd."""
+        inner = ytl.FunctionModel(
+            fn_name="inner",
+            param_names=("x",),
+            return_names=("r",),
+            assignments=(
+                ytl.Assignment("r", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),
+            ),
+        )
+        # f(p) -> out: if p { a := inner(p); b := inner(p); out := add(a,b) }
+        f_model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("p",),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment("out", ytl.IntLit(0)),
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("p"),
+                    output_vars=("out",),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(
+                            ytl.Assignment("a", ytl.Call("inner", (ytl.Var("p"),))),
+                            ytl.Assignment("b", ytl.Call("inner", (ytl.Var("p"),))),
+                            ytl.Assignment(
+                                "out",
+                                ytl.Call("add", (ytl.Var("a"), ytl.Var("b"))),
+                            ),
+                        ),
+                        outputs=(ytl.Var("out"),),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=(ytl.Var("out"),),
+                    ),
+                ),
+            ),
+        )
+        hoisted = ytl.hoist_repeated_model_calls(
+            f_model, model_call_names=frozenset({"inner"})
+        )
+        # The _cse should be INSIDE the then-branch, not at top level.
+        top_cse = [
+            s
+            for s in hoisted.assignments
+            if isinstance(s, ytl.Assignment) and s.target.startswith("_cse")
+        ]
+        self.assertFalse(top_cse, "CSE incorrectly hoisted to top level")
+        # Find CSE inside then-branch.
+        cond_blocks = [
+            s for s in hoisted.assignments if isinstance(s, ytl.ConditionalBlock)
+        ]
+        self.assertTrue(cond_blocks)
+        then_cse = [
+            s
+            for s in cond_blocks[0].then_branch.assignments
+            if isinstance(s, ytl.Assignment) and s.target.startswith("_cse")
+        ]
+        self.assertTrue(then_cse, "Expected branch-local CSE inside then-branch")
+        # Eval equivalence.
+        table = ytl.build_model_table([inner, f_model])
+        for p in [0, 1, 5]:
+            self.assertEqual(
+                ytl.evaluate_function_model(f_model, (p,), model_table=table),
+                ytl.evaluate_function_model(hoisted, (p,), model_table=table),
+            )
+
+    # ------------------------------------------------------------------
+    # Regression: ModuleNamePlan (finding 3)
+    # ------------------------------------------------------------------
+
+    def test_name_plan_uniqueness(self) -> None:
+        """ModuleNamePlan produces unique, valid names for colliding demangles."""
+        from restricted_names import plan_module
+
+        # Two functions that demangle to the same clean name.
+        rf_dummy = RestrictedFunction(
+            name="dummy",
+            params=(),
+            param_names=(),
+            returns=(yul_ast.SymbolId(0),),
+            return_names=("r",),
+            body=(),
+        )
+        funcs = {"fun_f_1": rf_dummy, "fun_f_2": rf_dummy}
+        plan = plan_module(funcs)
+        names = list(plan.function_names.values())
+        self.assertEqual(len(names), len(set(names)), f"Duplicate names: {names}")
+        for n in names:
+            ytl.validate_ident(n, what="planned function name")
+
+    def test_name_plan_binder_reserved(self) -> None:
+        """ModuleNamePlan avoids reserved Lean names for binders."""
+        from restricted_ir import RAssignment, RBuiltinCall, RConst, RRef
+        from restricted_names import plan_module
+
+        x_sid, z_sid, u_sid = (
+            yul_ast.SymbolId(0),
+            yul_ast.SymbolId(1),
+            yul_ast.SymbolId(2),
+        )
+        rf = RestrictedFunction(
+            name="f",
+            params=(x_sid,),
+            param_names=("x",),
+            returns=(z_sid,),
+            return_names=("z",),
+            body=(
+                RAssignment(
+                    target=u_sid,
+                    target_name="u256",  # reserved Lean name
+                    expr=RBuiltinCall(
+                        "add", (RRef(symbol_id=x_sid, name="x"), RConst(1))
+                    ),
+                ),
+                RAssignment(
+                    target=z_sid,
+                    target_name="z",
+                    expr=RRef(symbol_id=u_sid, name="u256"),
+                ),
+            ),
+        )
+        plan = plan_module({"f": rf})
+        for sid, base in plan.binder_names["f"].items():
+            ytl.validate_ident(base, what="planned binder name")
+
+    # ------------------------------------------------------------------
+    # Regression: translate_module end-to-end (finding 4)
+    # ------------------------------------------------------------------
+
+    def test_translate_module_end_to_end(self) -> None:
+        """translate_module produces valid, evaluable models from raw Yul."""
+        from restricted_to_model import translate_module
+
+        models = translate_module("""
+            function fun_g_1(var_x_1) -> var_z_2 {
+                var_z_2 := add(var_x_1, 1)
+            }
+            function fun_f_2(var_a_1) -> var_b_2 {
+                var_b_2 := fun_g_1(var_a_1)
+            }
+        """)
+        self.assertIn("f", models)
+        self.assertIn("g", models)
+        self.assertEqual(
+            ytl.evaluate_function_model(models["f"], (5,), model_table=models),
+            (6,),
+        )
+        for m in models.values():
+            ytl.validate_function_model(m)
+
 
 if __name__ == "__main__":
     unittest.main()
