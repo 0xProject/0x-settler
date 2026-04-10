@@ -34,15 +34,7 @@ from norm_ir import (
     NTopLevelCall,
 )
 from norm_walk import map_expr
-from restricted_ir import (
-    RBranch,
-    RCallAssign,
-    RConditionalBlock,
-    RestrictedFunction,
-    RExpr,
-    RModelCall,
-    RStatement,
-)
+from restricted_ir import RestrictedFunction
 from restricted_to_model import to_function_models
 from yul_ast import (
     Block,
@@ -622,82 +614,3 @@ def _rewrite_selected_calls_in_block(
     from norm_ir import NBlock
 
     return NBlock(tuple(out))
-
-
-def remap_model_callees(
-    func: RestrictedFunction,
-    mapping: dict[str, str],
-) -> RestrictedFunction:
-    """Rewrite selected top-level callee names after restricted lowering."""
-    return RestrictedFunction(
-        name=func.name,
-        params=func.params,
-        param_names=func.param_names,
-        returns=func.returns,
-        return_names=func.return_names,
-        body=tuple(_remap_stmt(stmt, mapping) for stmt in func.body),
-    )
-
-
-def _remap_stmt(stmt: RStatement, mapping: dict[str, str]) -> RStatement:
-    if isinstance(stmt, RCallAssign):
-        return RCallAssign(
-            targets=stmt.targets,
-            target_names=stmt.target_names,
-            callee=mapping.get(stmt.callee, stmt.callee),
-            args=tuple(_remap_expr(arg, mapping) for arg in stmt.args),
-        )
-    if isinstance(stmt, RConditionalBlock):
-        return RConditionalBlock(
-            condition=_remap_expr(stmt.condition, mapping),
-            output_targets=stmt.output_targets,
-            output_names=stmt.output_names,
-            then_branch=RBranch(
-                assignments=tuple(
-                    _remap_stmt(s, mapping) for s in stmt.then_branch.assignments
-                ),
-                output_exprs=tuple(
-                    _remap_expr(e, mapping) for e in stmt.then_branch.output_exprs
-                ),
-            ),
-            else_branch=RBranch(
-                assignments=tuple(
-                    _remap_stmt(s, mapping) for s in stmt.else_branch.assignments
-                ),
-                output_exprs=tuple(
-                    _remap_expr(e, mapping) for e in stmt.else_branch.output_exprs
-                ),
-            ),
-        )
-    from restricted_ir import RAssignment
-
-    if isinstance(stmt, RAssignment):
-        return RAssignment(
-            target=stmt.target,
-            target_name=stmt.target_name,
-            expr=_remap_expr(stmt.expr, mapping),
-        )
-    raise TypeError(f"Unexpected restricted statement {type(stmt).__name__}")
-
-
-def _remap_expr(expr: RExpr, mapping: dict[str, str]) -> RExpr:
-    from restricted_ir import RBuiltinCall, RConst, RIte, RRef
-
-    if isinstance(expr, (RConst, RRef)):
-        return expr
-    if isinstance(expr, RBuiltinCall):
-        return RBuiltinCall(
-            op=expr.op, args=tuple(_remap_expr(a, mapping) for a in expr.args)
-        )
-    if isinstance(expr, RModelCall):
-        return RModelCall(
-            name=mapping.get(expr.name, expr.name),
-            args=tuple(_remap_expr(a, mapping) for a in expr.args),
-        )
-    if isinstance(expr, RIte):
-        return RIte(
-            cond=_remap_expr(expr.cond, mapping),
-            if_true=_remap_expr(expr.if_true, mapping),
-            if_false=_remap_expr(expr.if_false, mapping),
-        )
-    raise TypeError(f"Unexpected restricted expression {type(expr).__name__}")

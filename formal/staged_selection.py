@@ -25,7 +25,7 @@ def _span_size(item: tuple[int, FunctionDef]) -> int:
 
 
 if TYPE_CHECKING:
-    from yul_to_lean import CallResolution, ModelConfig, RejectedHelperMap, YulFunction
+    from yul_to_lean import ModelConfig
 
 
 @dataclass(frozen=True)
@@ -52,12 +52,8 @@ class SelectedTargetInfo:
 class SelectionPlan:
     """Shared selection output consumed by both translation paths."""
 
-    tokens: tuple[tuple[str, str], ...]
     parsed_groups: tuple[tuple[FunctionDef, ...], ...]
     selected_functions: tuple[str, ...]
-    helper_tables: dict[str, dict[str, "YulFunction"]]
-    rejected_helper_tables: dict[str, "RejectedHelperMap"]
-    target_call_resolutions: dict[str, "CallResolution"]
     target_infos: dict[str, SelectedTargetInfo]
 
 
@@ -232,15 +228,10 @@ def build_selection_plan(
     )
 
     all_selected_token_idxs: set[int] = set()
-    token_idx_to_sol_name: dict[int, str] = {}
     for sol_name in selected:
         token_idx = resolved_positions[sol_name][0]
         all_selected_token_idxs.add(token_idx)
-        token_idx_to_sol_name[token_idx] = sol_name
 
-    helper_tables: dict[str, dict[str, ytl.YulFunction]] = {}
-    rejected_helper_tables: dict[str, ytl.RejectedHelperMap] = {}
-    target_call_resolutions: dict[str, ytl.CallResolution] = {}
     target_infos: dict[str, SelectedTargetInfo] = {}
 
     for sol_name in selected:
@@ -291,19 +282,13 @@ def build_selection_plan(
             )
             ytl._merge_helper_collection(helper_table, rejected_helpers, nested_coll)
 
-        by_name: dict[str, str] = {raw_name: sol_name}
         for helper_name in list(helper_table):
             helper_fn = helper_table[helper_name]
             if (
                 helper_fn.token_idx is not None
                 and helper_fn.token_idx in all_selected_token_idxs
             ):
-                by_name[helper_name] = token_idx_to_sol_name[helper_fn.token_idx]
                 del helper_table[helper_name]
-        target_call_resolutions[sol_name] = ytl.CallResolution(
-            by_name=by_name,
-            by_binding_token_idx=dict(token_idx_to_sol_name),
-        )
 
         group_idx, top_level_func = _top_level_for_token(parsed_groups, fn_token_idx)
         helper_keys: list[FunctionKey] = []
@@ -328,15 +313,8 @@ def build_selection_plan(
             ),
             helper_keys=tuple(helper_keys),
         )
-        helper_tables[sol_name] = helper_table
-        rejected_helper_tables[sol_name] = rejected_helpers
-
     return SelectionPlan(
-        tokens=tokens,
         parsed_groups=parsed_groups,
         selected_functions=tuple(selected),
-        helper_tables=helper_tables,
-        rejected_helper_tables=rejected_helper_tables,
-        target_call_resolutions=target_call_resolutions,
         target_infos=target_infos,
     )

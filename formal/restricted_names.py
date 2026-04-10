@@ -319,15 +319,6 @@ def apply_module_plan(
         )
     return result
 
-
-# Backward-compatible alias.
-def plan_module_names(
-    funcs: dict[str, RestrictedFunction],
-) -> dict[str, str]:
-    """Build a raw-name → clean-name mapping for all functions in a module."""
-    return plan_module(funcs).function_names
-
-
 # ---------------------------------------------------------------------------
 # Public API (per-function, low-level)
 # ---------------------------------------------------------------------------

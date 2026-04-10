@@ -4,6 +4,7 @@ import random
 import subprocess
 import sys
 import unittest
+from typing import cast
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
@@ -571,7 +572,7 @@ class FailClosedTranslatorTest(unittest.TestCase):
         self.assertEqual(len(yf.assignments), 1)
         stmt = yf.assignments[0]
         self.assertIsInstance(stmt, ytl.PlainAssignment)
-        assert isinstance(stmt, ytl.PlainAssignment)
+        stmt = cast(ytl.PlainAssignment, stmt)
         self.assertEqual(stmt.target, "var_z_3")
         # The expression should be Ite(c, add(x, 1), x)
         self.assertIsInstance(stmt.expr, ytl.Ite)
@@ -1128,7 +1129,7 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertEqual(len(model.assignments), 1)
         only = model.assignments[0]
         self.assertIsInstance(only, ytl.Assignment)
-        assert isinstance(only, ytl.Assignment)
+        only = cast(ytl.Assignment, only)
         self.assertTrue(only.target.startswith("z_"))
         self.assertEqual(
             only.expr,
@@ -1200,7 +1201,7 @@ class TranslationPipelineTest(unittest.TestCase):
         self.assertNotEqual(optimized_models, expected_models)
         first_stmt = optimized_models[0].assignments[0]
         self.assertIsInstance(first_stmt, ytl.Assignment)
-        assert isinstance(first_stmt, ytl.Assignment)
+        first_stmt = cast(ytl.Assignment, first_stmt)
         self.assertRegex(first_stmt.target, r"^_cse_\d+$")
 
     def test_multi_return_rebinding_keeps_old_argument_binding_for_later_components(
@@ -9796,7 +9797,8 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
             .find_exact_function_path(("outer", "helper"))
             .token_idx
         )
-        assert helper_token_idx is not None
+        self.assertIsNotNone(helper_token_idx)
+        helper_token_idx = cast(int, helper_token_idx)
         yul = base_yul.replace(
             "collision_name",
             f"__protected_{helper_token_idx}",
@@ -10115,7 +10117,7 @@ class SyntaxParserSpanTest(unittest.TestCase):
         self.assertEqual(len(body_stmts), 1)
         stmt = body_stmts[0]
         self.assertIsInstance(stmt, yul_ast.AssignStmt)
-        assert isinstance(stmt, yul_ast.AssignStmt)
+        stmt = cast(yul_ast.AssignStmt, stmt)
         self.assertGreater(stmt.span.start, first_end)
         self.assertGreater(stmt.span.end, stmt.span.start)
 
@@ -10179,7 +10181,7 @@ class ResolverSymbolIdTest(unittest.TestCase):
         self.assertEqual(len(result.call_targets), 1)
         target = next(iter(result.call_targets.values()))
         self.assertIsInstance(target, yul_ast.BuiltinTarget)
-        assert isinstance(target, yul_ast.BuiltinTarget)
+        target = cast(yul_ast.BuiltinTarget, target)
         self.assertEqual(target.name, "add")
 
     def test_local_function_call_classified_as_local_function_target(
@@ -10204,7 +10206,7 @@ class ResolverSymbolIdTest(unittest.TestCase):
         self.assertEqual(len(call_targets), 1)
         target = call_targets[0]
         self.assertIsInstance(target, yul_ast.LocalFunctionTarget)
-        assert isinstance(target, yul_ast.LocalFunctionTarget)
+        target = cast(yul_ast.LocalFunctionTarget, target)
         self.assertEqual(target.id, g_id)
         self.assertEqual(target.name, "g")
 
@@ -10213,7 +10215,7 @@ class ResolverSymbolIdTest(unittest.TestCase):
         self.assertEqual(len(result.call_targets), 1)
         target = next(iter(result.call_targets.values()))
         self.assertIsInstance(target, yul_ast.UnresolvedTarget)
-        assert isinstance(target, yul_ast.UnresolvedTarget)
+        target = cast(yul_ast.UnresolvedTarget, target)
         self.assertEqual(target.name, "unknown")
 
     def test_cross_scope_shadowing_rejected(self) -> None:
@@ -10330,8 +10332,8 @@ class ResolverModuleTest(unittest.TestCase):
         f_targets = list(results["f"].call_targets.values())
         self.assertEqual(len(f_targets), 1)
         self.assertIsInstance(f_targets[0], yul_ast.TopLevelFunctionTarget)
-        assert isinstance(f_targets[0], yul_ast.TopLevelFunctionTarget)
-        self.assertEqual(f_targets[0].name, "g")
+        f_target_0 = cast(yul_ast.TopLevelFunctionTarget, f_targets[0])
+        self.assertEqual(f_target_0.name, "g")
 
     def test_nested_helper_classified_as_local_function_target(self) -> None:
         results = self._resolve_module("""
@@ -10344,8 +10346,8 @@ class ResolverModuleTest(unittest.TestCase):
         f_targets = list(results["f"].call_targets.values())
         self.assertEqual(len(f_targets), 1)
         self.assertIsInstance(f_targets[0], yul_ast.LocalFunctionTarget)
-        assert isinstance(f_targets[0], yul_ast.LocalFunctionTarget)
-        self.assertEqual(f_targets[0].name, "h")
+        f_target_0 = cast(yul_ast.LocalFunctionTarget, f_targets[0])
+        self.assertEqual(f_target_0.name, "h")
 
     def test_builtin_call_still_classified_as_builtin(self) -> None:
         results = self._resolve_module(
@@ -10580,8 +10582,7 @@ class NormalizeStructureTest(unittest.TestCase):
         nf = self._normalize("function f(x) -> z { let w := x  z := w }")
         stmts = nf.body.stmts
         self.assertIsInstance(stmts[0], norm_ir.NBind)
-        bind = stmts[0]
-        assert isinstance(bind, norm_ir.NBind)
+        bind = cast(norm_ir.NBind, stmts[0])
         self.assertEqual(len(bind.targets), 1)
         self.assertIsNotNone(bind.expr)
 
@@ -10589,8 +10590,7 @@ class NormalizeStructureTest(unittest.TestCase):
         nf = self._normalize("function f(x) -> z { z := x }")
         stmts = nf.body.stmts
         self.assertIsInstance(stmts[0], norm_ir.NAssign)
-        assign = stmts[0]
-        assert isinstance(assign, norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, stmts[0])
         self.assertEqual(len(assign.targets), 1)
         self.assertIsInstance(assign.expr, norm_ir.NRef)
 
@@ -12714,11 +12714,20 @@ class SSAModelTest(unittest.TestCase):
         nf = propagate_constants(nf)
         return lower_to_restricted(nf)
 
-    def _module_to_models(self, yul: str) -> dict[str, ytl.FunctionModel]:
-        """Full pipeline: multi-function Yul → dict of FunctionModels."""
-        from restricted_to_model import translate_module
-
-        return translate_module(yul)
+    def _module_to_models(
+        self,
+        yul: str,
+        selected: tuple[str, ...],
+        *,
+        exact_yul_names: dict[str, str] | None = None,
+    ) -> dict[str, ytl.FunctionModel]:
+        """Public staged path: multi-function Yul → model table."""
+        result = ytl.translate_yul_to_models(
+            yul,
+            make_model_config(selected, exact_yul_names=exact_yul_names),
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        return ytl.build_model_table(result.models)
 
     # ------------------------------------------------------------------
     # Regression tests for critic round 2: unsound flattening, callee
@@ -12735,7 +12744,7 @@ class SSAModelTest(unittest.TestCase):
                     z := good()
                 }
             }
-        """)
+        """, ("f", "good"), exact_yul_names={"f": "f", "good": "good"})
         # f(1, 0): outer if taken, inner if NOT taken, z := good() = 7
         self.assertEqual(
             ytl.evaluate_function_model(models["f"], (1, 0), model_table=models),
@@ -12759,7 +12768,7 @@ class SSAModelTest(unittest.TestCase):
                     default { z := h() }
                 }
             }
-        """)
+        """, ("f", "g", "h"), exact_yul_names={"f": "f", "g": "g", "h": "h"})
         self.assertEqual(
             ytl.evaluate_function_model(models["f"], (1, 0), model_table=models),
             (10,),
@@ -12782,7 +12791,7 @@ class SSAModelTest(unittest.TestCase):
             function fun_f_2(var_a_1) -> var_b_2 {
                 var_b_2 := fun_g_1(var_a_1)
             }
-        """)
+        """, ("f", "g"))
         self.assertIn("f", models)
         self.assertIn("g", models)
         # f calls g; g(5) = 6
@@ -13567,66 +13576,6 @@ class SSAModelTest(unittest.TestCase):
         plan = plan_module({"f": rf})
         for sid, base in plan.binder_names["f"].items():
             ytl.validate_ident(base, what="planned binder name")
-
-    # ------------------------------------------------------------------
-    # Regression: translate_module end-to-end (finding 4)
-    # ------------------------------------------------------------------
-
-    def test_translate_module_end_to_end(self) -> None:
-        """translate_module produces valid, evaluable models from raw Yul."""
-        from restricted_to_model import translate_module
-
-        models = translate_module("""
-            function fun_g_1(var_x_1) -> var_z_2 {
-                var_z_2 := add(var_x_1, 1)
-            }
-            function fun_f_2(var_a_1) -> var_b_2 {
-                var_b_2 := fun_g_1(var_a_1)
-            }
-        """)
-        self.assertIn("f", models)
-        self.assertIn("g", models)
-        self.assertEqual(
-            ytl.evaluate_function_model(models["f"], (5,), model_table=models),
-            (6,),
-        )
-        for m in models.values():
-            ytl.validate_function_model(m)
-
-    def test_translate_module_rejects_multiple_function_groups(self) -> None:
-        """translate_module must not silently drop later object/code groups."""
-        from restricted_to_model import translate_module
-
-        with self.assertRaisesRegex(ytl.ParseError, "multiple function groups"):
-            translate_module("""
-                object "A" { code {
-                    function f(x) -> z { z := add(x, 1) }
-                } }
-                object "B" { code {
-                    function g(x) -> z { z := add(x, 2) }
-                } }
-            """)
-
-    def test_translate_groups_handles_multiple_function_groups(self) -> None:
-        """translate_groups returns one model-map per lexical function group."""
-        from restricted_to_model import translate_groups
-
-        groups: list[dict[str, ytl.FunctionModel]] = translate_groups("""
-            object "A" { code {
-                function f(x) -> z { z := add(x, 1) }
-            } }
-            object "B" { code {
-                function g(x) -> z { z := add(x, 2) }
-            } }
-        """)
-        self.assertEqual(len(groups), 2)
-        g0_names: list[str] = sorted(groups[0].keys())
-        g1_names: list[str] = sorted(groups[1].keys())
-        expected_g0: list[str] = ["f"]
-        expected_g1: list[str] = ["g"]
-        self.assertEqual(g0_names, expected_g0)
-        self.assertEqual(g1_names, expected_g1)
-
 
 class StagedPipelineWiringTest(unittest.TestCase):
     """Tests that translate_yul_to_models uses the new staged pipeline."""
