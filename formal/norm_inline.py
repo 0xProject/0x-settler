@@ -675,8 +675,7 @@ def _stmt_may_leave_rewritten(stmt: NStmt, did_leave_id: SymbolId) -> bool:
         ) or (
             stmt.default is not None
             and any(
-                _stmt_may_leave_rewritten(s, did_leave_id)
-                for s in stmt.default.stmts
+                _stmt_may_leave_rewritten(s, did_leave_id) for s in stmt.default.stmts
             )
         )
     if isinstance(stmt, NFor):
@@ -818,9 +817,7 @@ def _inline_in_expr_with_prelude(
         if sid is not None and sid in ctx.defs:
             strat = _effective_inline_strategy(
                 ctx.classification_for(sid),
-                must_inline=(
-                    expr.name in ctx.boundary_policy.inline_top_level_helpers
-                ),
+                must_inline=(expr.name in ctx.boundary_policy.inline_top_level_helpers),
             )
             if strat != InlineStrategy.DO_NOT_INLINE:
                 if depth > ctx.max_depth:

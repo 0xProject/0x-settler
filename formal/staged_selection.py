@@ -18,6 +18,12 @@ from yul_ast import FunctionDef, ParseError
 from yul_parser import SyntaxParser
 from yul_resolve import resolve_module
 
+
+def _span_size(item: tuple[int, FunctionDef]) -> int:
+    """Sort key: span width of the FunctionDef in a (group_idx, func) pair."""
+    return item[1].span.end - item[1].span.start
+
+
 if TYPE_CHECKING:
     from yul_to_lean import CallResolution, ModelConfig, RejectedHelperMap, YulFunction
 
@@ -68,7 +74,7 @@ def _group_for_token(
         raise ParseError(
             f"No enclosing function group found for token index {token_idx}"
         )
-    matches.sort(key=lambda item: item[1].span.end - item[1].span.start)
+    matches.sort(key=_span_size)
     return matches[0][0]
 
 
@@ -85,7 +91,7 @@ def _top_level_for_token(
         raise ParseError(
             f"No enclosing top-level function found for token index {token_idx}"
         )
-    matches.sort(key=lambda item: item[1].span.end - item[1].span.start)
+    matches.sort(key=_span_size)
     return matches[0]
 
 
@@ -172,49 +178,49 @@ def build_selection_plan(
         else:
             n_params = config.n_params.get(sol_name) if config.n_params else None
             target_prefix = f"fun_{sol_name}_"
-            matches = [
+            matches3: list[tuple[int, str, tuple[str, ...]]] = [
                 (idx, fn_name, path)
                 for idx, fn_name, path in parser._walk_function_defs()
                 if len(path) == 1
                 and fn_name.startswith(target_prefix)
                 and fn_name[len(target_prefix) :].isdigit()
             ]
-            if not matches:
+            if not matches3:
                 raise ParseError(
                     f"Yul function for '{sol_name}' not found "
                     f"(expected pattern fun_{sol_name}_<digits>)"
                 )
             if n_params is not None:
-                matches = [
+                matches3 = [
                     (idx, fn_name, path)
-                    for idx, fn_name, path in matches
+                    for idx, fn_name, path in matches3
                     if parser._count_params_at(idx) == n_params
                 ]
-                if not matches:
+                if not matches3:
                     raise ParseError(
                         f"No Yul function for {sol_name!r} matches "
                         f"{n_params} parameter(s)"
                     )
-            if known_yul_names and len(matches) > 1:
+            if known_yul_names and len(matches3) > 1:
                 narrowed = parser._disambiguate_by_references(
-                    [idx for idx, _name, _path in matches],
+                    [idx for idx, _name, _path in matches3],
                     known_yul_names,
                     sol_name in config.exclude_known,
                 )
                 narrowed_set = set(narrowed)
-                matches = [
+                matches3 = [
                     (idx, fn_name, path)
-                    for idx, fn_name, path in matches
+                    for idx, fn_name, path in matches3
                     if idx in narrowed_set
                 ]
-            if len(matches) > 1:
-                names = [fn_name for _idx, fn_name, _path in matches]
+            if len(matches3) > 1:
+                names = [fn_name for _idx, fn_name, _path in matches3]
                 raise ParseError(
                     f"Multiple Yul functions match '{sol_name}': {names}. "
                     f"Rename wrapper functions to avoid collisions "
                     f"(e.g. prefix with 'wrap_')."
                 )
-            token_idx, raw_name, path = matches[0]
+            token_idx, raw_name, path = matches3[0]
             resolved_positions[sol_name] = (token_idx, raw_name, path)
         known_yul_names.add(resolved_positions[sol_name][1])
 

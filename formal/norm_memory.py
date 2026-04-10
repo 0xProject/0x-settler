@@ -254,13 +254,17 @@ def _lower_stmt(
             return
         new_expr = _resolve_memory_in_expr(stmt.expr, ctx.mem, env)
         _update_const_env(stmt.targets, new_expr, env)
-        out.append(NBind(targets=stmt.targets, target_names=stmt.target_names, expr=new_expr))
+        out.append(
+            NBind(targets=stmt.targets, target_names=stmt.target_names, expr=new_expr)
+        )
         return
 
     if isinstance(stmt, NAssign):
         new_expr = _resolve_memory_in_expr(stmt.expr, ctx.mem, env)
         _update_const_env(stmt.targets, new_expr, env)
-        out.append(NAssign(targets=stmt.targets, target_names=stmt.target_names, expr=new_expr))
+        out.append(
+            NAssign(targets=stmt.targets, target_names=stmt.target_names, expr=new_expr)
+        )
         return
 
     if isinstance(stmt, NExprEffect):
@@ -270,7 +274,9 @@ def _lower_stmt(
             and len(stmt.expr.args) == 2
         ):
             addr = _resolve_const_addr(stmt.expr.args[0], "mstore", env)
-            _emit_store(addr=addr, value_expr=stmt.expr.args[1], ctx=ctx, env=env, out=out)
+            _emit_store(
+                addr=addr, value_expr=stmt.expr.args[1], ctx=ctx, env=env, out=out
+            )
             return
         out.append(NExprEffect(expr=_resolve_memory_in_expr(stmt.expr, ctx.mem, env)))
         return
@@ -298,7 +304,9 @@ def _lower_stmt(
             case_env = dict(env)
             branch_envs.append(case_env)
             new_cases.append(
-                NSwitchCase(value=case.value, body=_lower_block(case.body, ctx, case_env))
+                NSwitchCase(
+                    value=case.value, body=_lower_block(case.body, ctx, case_env)
+                )
             )
         new_default = None
         if stmt.default is not None:
@@ -309,7 +317,9 @@ def _lower_stmt(
             branch_envs.append(dict(env))
         env.clear()
         env.update(_join_const_envs(branch_envs))
-        out.append(NSwitch(discriminant=new_disc, cases=tuple(new_cases), default=new_default))
+        out.append(
+            NSwitch(discriminant=new_disc, cases=tuple(new_cases), default=new_default)
+        )
         return
 
     if isinstance(stmt, NFor):

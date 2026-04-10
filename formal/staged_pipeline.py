@@ -12,32 +12,38 @@ restricted→model bridge in separate layers.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
-from norm_inline import InlineBoundaryPolicy, SymbolAllocator, inline_pure_helpers
-from norm_ir import (
-    NFunctionDef,
-    NLocalCall,
-    NTopLevelCall,
-    NormalizedFunction,
-)
 from norm_simplify import simplify_function_def, simplify_normalized
 from norm_validate import validate_restricted_boundary
-from norm_walk import map_expr
-from restricted_ir import (
-    RBranch,
-    RCallAssign,
-    RConditionalBlock,
-    RModelCall,
-    RStatement,
-    RestrictedFunction,
-)
-from restricted_to_model import to_function_models
 from staged_selection import (
     FunctionKey,
     SelectedTargetInfo,
     SelectionPlan,
     build_selection_plan,
 )
+
+from norm_inline import InlineBoundaryPolicy, SymbolAllocator, inline_pure_helpers
+from norm_ir import (
+    NBlock,
+    NExpr,
+    NFunctionDef,
+    NLocalCall,
+    NormalizedFunction,
+    NStmt,
+    NTopLevelCall,
+)
+from norm_walk import map_expr
+from restricted_ir import (
+    RBranch,
+    RCallAssign,
+    RConditionalBlock,
+    RestrictedFunction,
+    RExpr,
+    RModelCall,
+    RStatement,
+)
+from restricted_to_model import to_function_models
 from yul_ast import (
     Block,
     BlockStmt,
@@ -53,6 +59,9 @@ from yul_normalize import normalize_function
 from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_module
 
+if TYPE_CHECKING:
+    from yul_to_lean import FunctionModel, ModelConfig
+
 
 @dataclass(frozen=True)
 class _SyntaxFunctionInfo:
@@ -65,10 +74,10 @@ class _SyntaxFunctionInfo:
 
 def translate_selected_models(
     yul_text: str,
-    config,
+    config: ModelConfig,
     *,
     selected_functions: tuple[str, ...] | None = None,
-) -> list:
+) -> list[FunctionModel]:
     """Run the new staged translation path for the selected targets."""
 
     plan = build_selection_plan(
@@ -105,7 +114,9 @@ def translate_selected_models(
             outer_result,
             syntax_index,
         )
-        top_level_selected_map = _build_top_level_selected_map(plan, target_info.key.group_idx)
+        top_level_selected_map = _build_top_level_selected_map(
+            plan, target_info.key.group_idx
+        )
 
         extra_local_defs, top_level_inline_defs = _build_inline_defs(
             target_info,
@@ -185,7 +196,7 @@ def _staged_builtins() -> frozenset[str]:
 
 def _generated_model_def_names(
     selected_functions: tuple[str, ...],
-    config,
+    config: ModelConfig,
 ) -> frozenset[str]:
     names: set[str] = set()
     for sol_name in selected_functions:
@@ -459,11 +470,11 @@ def _rewrite_selected_calls_in_fdef(
 
 
 def _rewrite_selected_calls_in_block(
-    block,
+    block: NBlock,
     *,
     local_selected_map: dict[SymbolId, str],
     top_level_selected_map: dict[str, str],
-):
+) -> NBlock:
     from norm_ir import (
         NAssign,
         NBind,
@@ -477,7 +488,7 @@ def _rewrite_selected_calls_in_block(
         NSwitchCase,
     )
 
-    def rewrite_expr(expr):
+    def rewrite_expr(expr: NExpr) -> NExpr:
         if isinstance(expr, NLocalCall) and expr.symbol_id in local_selected_map:
             return NTopLevelCall(
                 name=local_selected_map[expr.symbol_id],
@@ -490,14 +501,18 @@ def _rewrite_selected_calls_in_block(
             )
         return expr
 
-    out = []
+    out: list[NStmt] = []
     for stmt in block.stmts:
         if isinstance(stmt, NBind):
             out.append(
                 NBind(
                     targets=stmt.targets,
                     target_names=stmt.target_names,
-                    expr=map_expr(stmt.expr, rewrite_expr) if stmt.expr is not None else None,
+                    expr=(
+                        map_expr(stmt.expr, rewrite_expr)
+                        if stmt.expr is not None
+                        else None
+                    ),
                 )
             )
         elif isinstance(stmt, NAssign):
@@ -638,12 +653,20 @@ def _remap_stmt(stmt: RStatement, mapping: dict[str, str]) -> RStatement:
             output_targets=stmt.output_targets,
             output_names=stmt.output_names,
             then_branch=RBranch(
-                assignments=tuple(_remap_stmt(s, mapping) for s in stmt.then_branch.assignments),
-                output_exprs=tuple(_remap_expr(e, mapping) for e in stmt.then_branch.output_exprs),
+                assignments=tuple(
+                    _remap_stmt(s, mapping) for s in stmt.then_branch.assignments
+                ),
+                output_exprs=tuple(
+                    _remap_expr(e, mapping) for e in stmt.then_branch.output_exprs
+                ),
             ),
             else_branch=RBranch(
-                assignments=tuple(_remap_stmt(s, mapping) for s in stmt.else_branch.assignments),
-                output_exprs=tuple(_remap_expr(e, mapping) for e in stmt.else_branch.output_exprs),
+                assignments=tuple(
+                    _remap_stmt(s, mapping) for s in stmt.else_branch.assignments
+                ),
+                output_exprs=tuple(
+                    _remap_expr(e, mapping) for e in stmt.else_branch.output_exprs
+                ),
             ),
         )
     from restricted_ir import RAssignment
@@ -657,15 +680,20 @@ def _remap_stmt(stmt: RStatement, mapping: dict[str, str]) -> RStatement:
     raise TypeError(f"Unexpected restricted statement {type(stmt).__name__}")
 
 
-def _remap_expr(expr, mapping: dict[str, str]):
+def _remap_expr(expr: RExpr, mapping: dict[str, str]) -> RExpr:
     from restricted_ir import RBuiltinCall, RConst, RIte, RRef
 
     if isinstance(expr, (RConst, RRef)):
         return expr
     if isinstance(expr, RBuiltinCall):
-        return RBuiltinCall(op=expr.op, args=tuple(_remap_expr(a, mapping) for a in expr.args))
+        return RBuiltinCall(
+            op=expr.op, args=tuple(_remap_expr(a, mapping) for a in expr.args)
+        )
     if isinstance(expr, RModelCall):
-        return RModelCall(name=mapping.get(expr.name, expr.name), args=tuple(_remap_expr(a, mapping) for a in expr.args))
+        return RModelCall(
+            name=mapping.get(expr.name, expr.name),
+            args=tuple(_remap_expr(a, mapping) for a in expr.args),
+        )
     if isinstance(expr, RIte):
         return RIte(
             cond=_remap_expr(expr.cond, mapping),

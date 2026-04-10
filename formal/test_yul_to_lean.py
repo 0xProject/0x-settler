@@ -16,13 +16,14 @@ from norm_classify import (
     summarize_function,
 )
 from norm_constprop import fold_expr, propagate_constants
-from norm_eval import EvaluationError, evaluate_normalized
+from norm_eval import evaluate_normalized
 from norm_inline import inline_pure_helpers
 from norm_memory import lower_memory
 from norm_to_restricted import lower_to_restricted
 from restricted_eval import evaluate_restricted
 from restricted_ir import RestrictedFunction
 from restricted_to_model import to_function_model
+from yul_ast import EvaluationError
 from yul_normalize import normalize_function
 from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_function, resolve_module
@@ -3331,11 +3332,12 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
         model = result.models[0]
         self.assertTrue(model.assignments)
         self.assertIsInstance(model.assignments[0], ytl.ConditionalBlock)
+        assign_stmts: tuple[ytl.Assignment, ...] = tuple(
+            stmt for stmt in model.assignments if isinstance(stmt, ytl.Assignment)
+        )
         self.assertNotIn(
             ytl.Assignment("z", ytl.IntLit(0)),
-            tuple(
-                stmt for stmt in model.assignments if isinstance(stmt, ytl.Assignment)
-            ),
+            assign_stmts,
         )
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (8,))
         self.assertEqual(ytl.evaluate_function_model(model, (1,)), (8,))
@@ -13364,10 +13366,8 @@ class SSAModelTest(unittest.TestCase):
                 ),
             ),
         )
-        self.assertEqual(
-            ytl.collect_model_opcodes([model]),
-            [ytl.OP_TO_OPCODE["clz"]],
-        )
+        expected_ops: list[str] = [ytl.OP_TO_OPCODE["clz"]]
+        self.assertEqual(ytl.collect_model_opcodes([model]), expected_ops)
 
     # ------------------------------------------------------------------
     # Regression: positive branch-local hoist (finding 2)
@@ -13620,8 +13620,8 @@ class SSAModelTest(unittest.TestCase):
             } }
         """)
         self.assertEqual(len(groups), 2)
-        self.assertEqual(sorted(groups[0].keys()), ["f"])
-        self.assertEqual(sorted(groups[1].keys()), ["g"])
+        self.assertEqual(sorted(groups[0].keys()), ["f"])  # type: ignore[misc]
+        self.assertEqual(sorted(groups[1].keys()), ["g"])  # type: ignore[misc]
 
 
 class StagedPipelineWiringTest(unittest.TestCase):
@@ -13713,7 +13713,7 @@ class StagedPipelineWiringTest(unittest.TestCase):
         )
         self.assertEqual(len(result.models), 2)
         names = [m.fn_name for m in result.models]
-        self.assertEqual(names, ["g", "f"])
+        self.assertEqual(names, ["g", "f"])  # type: ignore[misc]
         table = ytl.build_model_table(result.models)
         self.assertEqual(
             ytl.evaluate_function_model(result.models[1], (5,), model_table=table),

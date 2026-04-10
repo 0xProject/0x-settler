@@ -26,6 +26,7 @@ from norm_ir import (
     NLocalCall,
     NormalizedFunction,
     NRef,
+    NStmt,
     NStore,
     NSwitch,
     NTopLevelCall,
@@ -88,7 +89,7 @@ def _validate_block(
 
 
 def _validate_stmt(
-    stmt,
+    stmt: NStmt,
     *,
     allowed_model_calls: frozenset[str],
     allow_memory_ops: bool,
@@ -117,13 +118,11 @@ def _validate_stmt(
         return
 
     if isinstance(stmt, NExprEffect):
-        is_supported_memory_effect = (
-            isinstance(stmt.expr, NBuiltinCall)
-            and stmt.expr.op
-            in (
-                _ALLOWED_EXPR_STMT_BUILTINS
-                | (frozenset({"mload"}) if allow_memory_ops else frozenset())
-            )
+        is_supported_memory_effect = isinstance(
+            stmt.expr, NBuiltinCall
+        ) and stmt.expr.op in (
+            _ALLOWED_EXPR_STMT_BUILTINS
+            | (frozenset({"mload"}) if allow_memory_ops else frozenset())
         )
         if not is_supported_memory_effect:
             raise ParseError(
