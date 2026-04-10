@@ -4213,6 +4213,29 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
+    def test_translate_yul_to_models_rejects_nested_call_to_enclosing_function(
+        self,
+    ) -> None:
+        config = make_model_config(("outer",))
+        yul = """
+            function fun_outer_0(x) -> z {
+                function inner(a) -> b {
+                    b := fun_outer_0(a)
+                }
+                z := inner(x)
+            }
+            """
+
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            r"Unresolved call to 'fun_outer_0'",
+        ):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
     def test_translate_yul_to_models_accepts_conditionally_constant_memory_address(
         self,
     ) -> None:
@@ -6664,6 +6687,42 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             extra_lean_defs="",
             norm_rewrite=None,
             inner_fn="f",
+            n_params=None,
+            exact_yul_names=None,
+            keep_solidity_locals=False,
+            hoist_repeated_calls=frozenset(),
+            skip_prune=frozenset(),
+            default_source_label="test",
+            default_namespace="Test",
+            default_output="",
+            cli_description="test",
+        )
+
+        with self.assertRaises(ytl.ParseError):
+            ytl.build_lean_source(
+                models=[model],
+                source_path="test-source",
+                namespace="Test",
+                config=config,
+            )
+
+    def test_build_lean_source_rejects_raw_function_name_injection(self) -> None:
+        injected_name = "f_bad` -/\naxiom injected : False\n/--"
+        model = ytl.FunctionModel(
+            fn_name=injected_name,
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(ytl.Assignment("z", ytl.Var("x")),),
+        )
+        config = ytl.ModelConfig(
+            function_order=(injected_name,),
+            model_names={injected_name: "model_f"},
+            header_comment="test",
+            generator_label="formal/test_yul_to_lean.py",
+            extra_norm_ops={},
+            extra_lean_defs="",
+            norm_rewrite=None,
+            inner_fn=injected_name,
             n_params=None,
             exact_yul_names=None,
             keep_solidity_locals=False,
