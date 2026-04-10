@@ -5109,6 +5109,27 @@ def _walk_model_exprs_in_stmt(
     assert_never(stmt)
 
 
+def _model_call_names_in_stmt(stmt: ModelStatement) -> set[str]:
+    """Collect non-builtin call names from a model statement."""
+    names: set[str] = set()
+
+    def _walk(expr: Expr) -> None:
+        if isinstance(expr, Call):
+            if expr.name not in OP_TO_LEAN_HELPER:
+                names.add(expr.name)
+            for a in expr.args:
+                _walk(a)
+        elif isinstance(expr, Ite):
+            _walk(expr.cond)
+            _walk(expr.if_true)
+            _walk(expr.if_false)
+        elif isinstance(expr, Project):
+            _walk(expr.inner)
+
+    _walk_model_exprs_in_stmt(stmt, _walk)
+    return names
+
+
 def collect_ops_from_statement(stmt: ModelStatement) -> list[str]:
     """Collect opcodes from an Assignment or ConditionalBlock."""
     ops: list[str] = []
@@ -6336,28 +6357,71 @@ def translate_yul_to_models(
     selected_functions: tuple[str, ...] | None = None,
     pipeline: TranslationPipeline = OPTIMIZED_TRANSLATION_PIPELINE,
 ) -> TranslationResult:
-    """Run the selected translation pipeline and return the final models."""
+    """Run the staged translation pipeline and return the final models.
+
+    Uses the new staged pipeline: parse → resolve → normalize → inline →
+    constprop → restricted IR → module-wide naming → SSA → FunctionModel.
+    """
+    from restricted_to_model import translate_groups
 
     # Duplicate selected function check (early, before parsing)
-    if selected_functions is not None:
-        if len(set(selected_functions)) != len(selected_functions):
-            dupes = [f for f in selected_functions if selected_functions.count(f) > 1]
-            raise ParseError(f"Duplicate selected functions: {sorted(set(dupes))}")
+    selected = (
+        selected_functions if selected_functions is not None else config.function_order
+    )
+    if len(set(selected)) != len(selected):
+        dupes = [f for f in selected if list(selected).count(f) > 1]
+        raise ParseError(f"Duplicate selected functions: {sorted(set(dupes))}")
 
-    preparation = prepare_translation(
-        yul_text,
-        config,
-        selected_functions=selected_functions,
-    )
-    models = build_restricted_ir_models(
-        preparation,
-        config,
-    )
+    # Build all models via the new staged pipeline.
+    all_groups = translate_groups(yul_text)
+
+    # Merge all groups into one lookup dict.
+    all_models: dict[str, FunctionModel] = {}
+    for group in all_groups:
+        all_models.update(group)
+
+    # Select requested functions.
+    for fn in selected:
+        if fn not in all_models:
+            raise ParseError(
+                f"Selected function {fn!r} not found in Yul. "
+                f"Available: {sorted(all_models.keys())}"
+            )
+
+    # Include transitively-called sibling functions so that model calls
+    # in the selected set resolve.  The call-graph is computed from the
+    # model expressions; builtins are ignored.
+    needed: set[str] = set(selected)
+    worklist = list(selected)
+    while worklist:
+        fn = worklist.pop()
+        if fn not in all_models:
+            continue
+        for stmt in all_models[fn].assignments:
+            for callee in _model_call_names_in_stmt(stmt):
+                if callee in all_models and callee not in needed:
+                    needed.add(callee)
+                    worklist.append(callee)
+
+    # Order: selected functions first (in order), then dependencies.
+    models: list[FunctionModel] = [all_models[fn] for fn in selected]
+    for fn in sorted(needed - set(selected)):
+        models.append(all_models[fn])
+
     validate_selected_models(models)
     models = apply_optional_model_transforms(
         models,
         config,
         pipeline=pipeline,
+    )
+
+    # Shim PreparedTranslation for backward compat.
+    preparation = PreparedTranslation(
+        selected_functions=selected,
+        target_call_resolutions={},
+        yul_functions={},
+        collected_helpers={},
+        rejected_helpers={},
     )
     return TranslationResult(
         preparation=preparation,
