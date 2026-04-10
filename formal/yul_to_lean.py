@@ -99,12 +99,13 @@ class Assignment:
 class ConditionalBranch:
     """A single branch of a restricted-IR conditional.
 
-    ``assignments`` are the branch-local let-bindings.
+    ``assignments`` are the branch-local statements (may include
+    nested ``ConditionalBlock`` for the new pipeline).
     ``outputs`` lists the variables whose values become the outer
     ``ConditionalBlock.output_vars`` when this branch is taken.
     """
 
-    assignments: tuple[Assignment, ...]
+    assignments: tuple["ModelStatement", ...]
     outputs: tuple[str, ...]
 
 
@@ -4764,17 +4765,24 @@ def _prune_dead_assignments(
     """Drop dead pure assignments from a model to avoid unused Lean lets."""
 
     def _prune_assignment_block(
-        assignments: tuple[Assignment, ...],
+        assignments: tuple[ModelStatement, ...],
         live_out: set[str],
-    ) -> tuple[tuple[Assignment, ...], set[str]]:
+    ) -> tuple[tuple[ModelStatement, ...], set[str]]:
         live = set(live_out)
-        kept_rev: list[Assignment] = []
+        kept_rev: list[ModelStatement] = []
         for stmt in reversed(assignments):
-            if stmt.target not in live:
-                continue
-            live.remove(stmt.target)
-            live.update(_expr_vars(stmt.expr))
-            kept_rev.append(stmt)
+            if isinstance(stmt, Assignment):
+                if stmt.target not in live:
+                    continue
+                live.remove(stmt.target)
+                live.update(_expr_vars(stmt.expr))
+                kept_rev.append(stmt)
+            elif isinstance(stmt, ConditionalBlock):
+                # Keep nested conditionals unconditionally.
+                for var in stmt.output_vars:
+                    live.discard(var)
+                live.update(_expr_vars(stmt.condition))
+                kept_rev.append(stmt)
         kept_rev.reverse()
         return tuple(kept_rev), live
 
@@ -5076,10 +5084,10 @@ def collect_ops_from_statement(stmt: ModelStatement) -> list[str]:
         return collect_ops(stmt.expr)
     if isinstance(stmt, ConditionalBlock):
         ops = collect_ops(stmt.condition)
-        for a in stmt.then_branch.assignments:
-            ops.extend(collect_ops(a.expr))
-        for a in stmt.else_branch.assignments:
-            ops.extend(collect_ops(a.expr))
+        for s in stmt.then_branch.assignments:
+            ops.extend(collect_ops_from_statement(s))
+        for s in stmt.else_branch.assignments:
+            ops.extend(collect_ops_from_statement(s))
         return ops
     assert_never(stmt)
 
@@ -5181,66 +5189,85 @@ def validate_function_model(model: FunctionModel) -> None:
     for name in model.return_names:
         validate_ident(name, what=f"return name in {model.fn_name!r}")
 
-    for stmt in model.assignments:
-        if isinstance(stmt, Assignment):
-            validate_ident(stmt.target, what=f"assignment target in {model.fn_name!r}")
-        elif isinstance(stmt, ConditionalBlock):
-            for var in stmt.output_vars:
-                validate_ident(var, what=f"conditional output var in {model.fn_name!r}")
-            if len(set(stmt.output_vars)) != len(stmt.output_vars):
-                raise ParseError(
-                    f"Model {model.fn_name!r} has duplicate conditional output_vars: "
-                    f"{stmt.output_vars!r}"
-                )
-            for a in stmt.then_branch.assignments:
-                validate_ident(
-                    a.target, what=f"then-branch target in {model.fn_name!r}"
-                )
-            for a in stmt.else_branch.assignments:
-                validate_ident(
-                    a.target, what=f"else-branch target in {model.fn_name!r}"
-                )
+    def _validate_idents_in_stmts(stmts: tuple[ModelStatement, ...]) -> None:
+        for s in stmts:
+            if isinstance(s, Assignment):
+                validate_ident(s.target, what=f"assignment target in {model.fn_name!r}")
+            elif isinstance(s, ConditionalBlock):
+                for var in s.output_vars:
+                    validate_ident(
+                        var, what=f"conditional output var in {model.fn_name!r}"
+                    )
+                if len(set(s.output_vars)) != len(s.output_vars):
+                    raise ParseError(
+                        f"Model {model.fn_name!r} has duplicate conditional "
+                        f"output_vars: {s.output_vars!r}"
+                    )
+                _validate_idents_in_stmts(s.then_branch.assignments)
+                _validate_idents_in_stmts(s.else_branch.assignments)
 
-    def _validate_assignment_block(
-        assignments: tuple[Assignment, ...],
+    _validate_idents_in_stmts(model.assignments)
+
+    def _validate_statement_block(
+        statements: tuple[ModelStatement, ...],
         *,
         available: set[str],
         block_name: str,
     ) -> set[str]:
         scope = set(available)
-        for stmt in assignments:
-            missing = _expr_vars(stmt.expr) - scope
-            if missing:
-                raise ParseError(
-                    f"Model {model.fn_name!r} has an out-of-scope variable use in "
-                    f"{block_name}: {stmt.target!r} depends on {sorted(missing)}"
-                )
-            scope.add(stmt.target)
+        for s in statements:
+            if isinstance(s, Assignment):
+                _validate_expr_shape(s.expr)
+                missing = _expr_vars(s.expr) - scope
+                if missing:
+                    raise ParseError(
+                        f"Model {model.fn_name!r} has an out-of-scope variable "
+                        f"use in {block_name}: {s.target!r} depends on "
+                        f"{sorted(missing)}"
+                    )
+                scope.add(s.target)
+            elif isinstance(s, ConditionalBlock):
+                _validate_conditional_in_scope(s, scope=scope, block_name=block_name)
+                scope.update(s.output_vars)
         return scope
 
-    def _validate_conditional_branch(
-        branch: ConditionalBranch,
+    def _validate_conditional_in_scope(
+        cond: ConditionalBlock,
         *,
-        available: set[str],
+        scope: set[str],
         block_name: str,
-        output_vars: tuple[str, ...],
     ) -> None:
-        branch_scope = _validate_assignment_block(
-            branch.assignments,
-            available=available,
-            block_name=block_name,
-        )
-        if len(branch.outputs) != len(output_vars):
+        _validate_expr_shape(cond.condition)
+        for s in cond.then_branch.assignments:
+            _validate_expr_shapes_in_stmt(s)
+        for s in cond.else_branch.assignments:
+            _validate_expr_shapes_in_stmt(s)
+        missing = _expr_vars(cond.condition) - scope
+        if missing:
             raise ParseError(
-                f"Model {model.fn_name!r} has mismatched {block_name} output arity: "
-                f"{len(branch.outputs)} vs {len(output_vars)}"
+                f"Model {model.fn_name!r} has an out-of-scope conditional: "
+                f"{sorted(missing)}"
             )
-        missing_outputs = set(branch.outputs) - branch_scope
-        if missing_outputs:
-            raise ParseError(
-                f"Model {model.fn_name!r} has undefined {block_name} outputs: "
-                f"{sorted(missing_outputs)}"
+        for label, branch in [
+            ("then-branch", cond.then_branch),
+            ("else-branch", cond.else_branch),
+        ]:
+            branch_scope = _validate_statement_block(
+                branch.assignments,
+                available=scope,
+                block_name=f"{block_name}/{label}",
             )
+            if len(branch.outputs) != len(cond.output_vars):
+                raise ParseError(
+                    f"Model {model.fn_name!r} has mismatched {label} output "
+                    f"arity: {len(branch.outputs)} vs {len(cond.output_vars)}"
+                )
+            missing_outputs = set(branch.outputs) - branch_scope
+            if missing_outputs:
+                raise ParseError(
+                    f"Model {model.fn_name!r} has undefined {label} outputs: "
+                    f"{sorted(missing_outputs)}"
+                )
 
     def _validate_expr_shape(expr: Expr) -> None:
         """Reject structurally malformed expressions."""
@@ -5298,49 +5325,21 @@ def validate_function_model(model: FunctionModel) -> None:
         for arg in expr.args:
             _validate_expr_shape(arg)
 
-    scope = set(model.param_names)
-    for stmt in model.assignments:
-        if isinstance(stmt, Assignment):
-            _validate_expr_shape(stmt.expr)
-            missing = _expr_vars(stmt.expr) - scope
-            if missing:
-                raise ParseError(
-                    f"Model {model.fn_name!r} has an out-of-scope variable use: "
-                    f"{stmt.target!r} depends on {sorted(missing)}"
-                )
-            scope.add(stmt.target)
-            continue
+    def _validate_expr_shapes_in_stmt(s: ModelStatement) -> None:
+        if isinstance(s, Assignment):
+            _validate_expr_shape(s.expr)
+        elif isinstance(s, ConditionalBlock):
+            _validate_expr_shape(s.condition)
+            for sub in s.then_branch.assignments:
+                _validate_expr_shapes_in_stmt(sub)
+            for sub in s.else_branch.assignments:
+                _validate_expr_shapes_in_stmt(sub)
 
-        if not isinstance(stmt, ConditionalBlock):
-            assert_never(stmt)
-
-        _validate_expr_shape(stmt.condition)
-        for a in stmt.then_branch.assignments:
-            _validate_expr_shape(a.expr)
-        for a in stmt.else_branch.assignments:
-            _validate_expr_shape(a.expr)
-
-        missing = _expr_vars(stmt.condition) - scope
-        if missing:
-            raise ParseError(
-                f"Model {model.fn_name!r} has an out-of-scope conditional: "
-                f"{sorted(missing)}"
-            )
-
-        _validate_conditional_branch(
-            stmt.then_branch,
-            available=scope,
-            block_name="then-branch",
-            output_vars=stmt.output_vars,
-        )
-        _validate_conditional_branch(
-            stmt.else_branch,
-            available=scope,
-            block_name="else-branch",
-            output_vars=stmt.output_vars,
-        )
-
-        scope.update(stmt.output_vars)
+    scope = _validate_statement_block(
+        model.assignments,
+        available=set(model.param_names),
+        block_name="top-level",
+    )
 
     missing_returns = set(model.return_names) - scope
     if missing_returns:
@@ -5658,7 +5657,7 @@ def _walk_model_calls(
 def _replace_statement(
     stmt: ModelStatement, replacements: dict[Expr, str]
 ) -> ModelStatement:
-    """Apply *replacements* inside a single statement."""
+    """Apply *replacements* inside a single statement (recursive)."""
     if isinstance(stmt, Assignment):
         return Assignment(
             target=stmt.target,
@@ -5670,21 +5669,15 @@ def _replace_statement(
             output_vars=stmt.output_vars,
             then_branch=ConditionalBranch(
                 assignments=tuple(
-                    Assignment(
-                        target=a.target,
-                        expr=_replace_expr(a.expr, replacements),
-                    )
-                    for a in stmt.then_branch.assignments
+                    _replace_statement(s, replacements)
+                    for s in stmt.then_branch.assignments
                 ),
                 outputs=stmt.then_branch.outputs,
             ),
             else_branch=ConditionalBranch(
                 assignments=tuple(
-                    Assignment(
-                        target=a.target,
-                        expr=_replace_expr(a.expr, replacements),
-                    )
-                    for a in stmt.else_branch.assignments
+                    _replace_statement(s, replacements)
+                    for s in stmt.else_branch.assignments
                 ),
                 outputs=stmt.else_branch.outputs,
             ),
@@ -5739,23 +5732,17 @@ def _localize_statement_cse(
             model_call_names=model_call_names,
         )
 
-        then_assignments: list[Assignment] = []
-        for assignment in stmt.then_branch.assignments:
-            hoisted, expr = _hoist_repeated_calls_in_expr(
-                assignment.expr,
-                model_call_names=model_call_names,
+        then_stmts: list[ModelStatement] = []
+        for s in stmt.then_branch.assignments:
+            then_stmts.extend(
+                _localize_statement_cse(s, model_call_names=model_call_names)
             )
-            then_assignments.extend(hoisted)
-            then_assignments.append(Assignment(target=assignment.target, expr=expr))
 
-        localized_else: list[Assignment] = []
-        for assignment in stmt.else_branch.assignments:
-            hoisted, expr = _hoist_repeated_calls_in_expr(
-                assignment.expr,
-                model_call_names=model_call_names,
+        else_stmts: list[ModelStatement] = []
+        for s in stmt.else_branch.assignments:
+            else_stmts.extend(
+                _localize_statement_cse(s, model_call_names=model_call_names)
             )
-            localized_else.extend(hoisted)
-            localized_else.append(Assignment(target=assignment.target, expr=expr))
 
         return [
             *prefix,
@@ -5763,11 +5750,11 @@ def _localize_statement_cse(
                 condition=condition,
                 output_vars=stmt.output_vars,
                 then_branch=ConditionalBranch(
-                    assignments=tuple(then_assignments),
+                    assignments=tuple(then_stmts),
                     outputs=stmt.then_branch.outputs,
                 ),
                 else_branch=ConditionalBranch(
-                    assignments=tuple(localized_else),
+                    assignments=tuple(else_stmts),
                     outputs=stmt.else_branch.outputs,
                 ),
             ),
@@ -5798,37 +5785,28 @@ def hoist_repeated_model_calls(
         m = re.fullmatch(r"_cse_(\d+)", name)
         if m:
             max_cse = max(max_cse, int(m.group(1)))
-    for stmt in model.assignments:
-        if isinstance(stmt, Assignment):
-            m = re.fullmatch(r"_cse_(\d+)", stmt.target)
-            if m:
-                max_cse = max(max_cse, int(m.group(1)))
-        elif isinstance(stmt, ConditionalBlock):
-            for var in stmt.output_vars:
-                m = re.fullmatch(r"_cse_(\d+)", var)
-                if m:
-                    max_cse = max(max_cse, int(m.group(1)))
-            for a in stmt.then_branch.assignments:
-                m = re.fullmatch(r"_cse_(\d+)", a.target)
-                if m:
-                    max_cse = max(max_cse, int(m.group(1)))
-            for a in stmt.else_branch.assignments:
-                m = re.fullmatch(r"_cse_(\d+)", a.target)
-                if m:
-                    max_cse = max(max_cse, int(m.group(1)))
+    all_binders = _collect_model_binders(model)
+    for binder in all_binders:
+        m = re.fullmatch(r"_cse_(\d+)", binder)
+        if m:
+            max_cse = max(max_cse, int(m.group(1)))
     _gensym_counters["cse"] = max_cse
 
     # -- Pass 1: count occurrences across the entire model -----------------
     counts: Counter[Expr] = Counter()
+
+    def _walk_stmt_calls(s: ModelStatement) -> None:
+        if isinstance(s, Assignment):
+            _walk_model_calls(s.expr, model_call_names, counts)
+        elif isinstance(s, ConditionalBlock):
+            _walk_model_calls(s.condition, model_call_names, counts)
+            for sub in s.then_branch.assignments:
+                _walk_stmt_calls(sub)
+            for sub in s.else_branch.assignments:
+                _walk_stmt_calls(sub)
+
     for stmt in model.assignments:
-        if isinstance(stmt, Assignment):
-            _walk_model_calls(stmt.expr, model_call_names, counts)
-        elif isinstance(stmt, ConditionalBlock):
-            _walk_model_calls(stmt.condition, model_call_names, counts)
-            for a in stmt.then_branch.assignments:
-                _walk_model_calls(a.expr, model_call_names, counts)
-            for a in stmt.else_branch.assignments:
-                _walk_model_calls(a.expr, model_call_names, counts)
+        _walk_stmt_calls(stmt)
 
     param_names = set(model.param_names)
     repeated_global = [
@@ -6249,22 +6227,22 @@ def validate_selected_models(models: list[FunctionModel]) -> None:
 
     # Build call graph and check all expressions
     call_graph: dict[str, set[str]] = {m.fn_name: set() for m in models}
+
+    def _collect_calls_from_stmt(
+        s: ModelStatement, fn_name: str, out: set[str]
+    ) -> None:
+        if isinstance(s, Assignment):
+            out.update(_check_calls(s.expr, fn_name))
+        elif isinstance(s, ConditionalBlock):
+            out.update(_check_calls(s.condition, fn_name))
+            for sub in s.then_branch.assignments:
+                _collect_calls_from_stmt(sub, fn_name, out)
+            for sub in s.else_branch.assignments:
+                _collect_calls_from_stmt(sub, fn_name, out)
+
     for model in models:
         for stmt in model.assignments:
-            if isinstance(stmt, Assignment):
-                call_graph[model.fn_name].update(_check_calls(stmt.expr, model.fn_name))
-            elif isinstance(stmt, ConditionalBlock):
-                call_graph[model.fn_name].update(
-                    _check_calls(stmt.condition, model.fn_name)
-                )
-                for a in stmt.then_branch.assignments:
-                    call_graph[model.fn_name].update(
-                        _check_calls(a.expr, model.fn_name)
-                    )
-                for a in stmt.else_branch.assignments:
-                    call_graph[model.fn_name].update(
-                        _check_calls(a.expr, model.fn_name)
-                    )
+            _collect_calls_from_stmt(stmt, model.fn_name, call_graph[model.fn_name])
 
     # Cycle detection via DFS
     WHITE, GRAY, BLACK = 0, 1, 2
@@ -6511,31 +6489,25 @@ def build_model_body(
             return vars_[0]
         return f"({', '.join(vars_)})"
 
-    for stmt in assignments:
-        if isinstance(stmt, ConditionalBlock):
-            # Emit Lean tuple-destructuring if-then-else:
-            #   let (v1, v2) := if cond ≠ 0 then
-            #       let v1 := ...
-            #       ...
-            #       (v1, v2)
-            #     else (v1, v2)
-            cond_str = _emit_rhs(stmt.condition)
-            lhs = _emit_tuple(stmt.output_vars)
-            lines.append(f"  let {lhs} := if ({cond_str}) ≠ 0 then")
-            for a in stmt.then_branch.assignments:
-                rhs = _emit_rhs(a.expr)
-                lines.append(f"      let {a.target} := {rhs}")
-            lines.append(f"      {_emit_tuple(stmt.then_branch.outputs)}")
-            lines.append("    else")
-            for a in stmt.else_branch.assignments:
-                rhs = _emit_rhs(a.expr)
-                lines.append(f"      let {a.target} := {rhs}")
-            lines.append(f"      {_emit_tuple(stmt.else_branch.outputs)}")
-        elif isinstance(stmt, Assignment):
-            rhs = _emit_rhs(stmt.expr)
-            lines.append(f"  let {stmt.target} := {rhs}")
-        else:
-            assert_never(stmt)
+    def _emit_stmts(stmts: tuple[ModelStatement, ...], indent: int) -> None:
+        prefix = " " * indent
+        for s in stmts:
+            if isinstance(s, Assignment):
+                rhs = _emit_rhs(s.expr)
+                lines.append(f"{prefix}let {s.target} := {rhs}")
+            elif isinstance(s, ConditionalBlock):
+                cond_str = _emit_rhs(s.condition)
+                lhs = _emit_tuple(s.output_vars)
+                lines.append(f"{prefix}let {lhs} := if ({cond_str}) ≠ 0 then")
+                _emit_stmts(s.then_branch.assignments, indent + 4)
+                lines.append(f"{prefix}    {_emit_tuple(s.then_branch.outputs)}")
+                lines.append(f"{prefix}  else")
+                _emit_stmts(s.else_branch.assignments, indent + 4)
+                lines.append(f"{prefix}    {_emit_tuple(s.else_branch.outputs)}")
+            else:
+                assert_never(s)
+
+    _emit_stmts(assignments, indent=2)
 
     if len(return_names) == 1:
         lines.append(f"  {return_names[0]}")
@@ -6563,15 +6535,21 @@ class LeanEmissionPlan:
 def _collect_model_binders(model: FunctionModel) -> list[str]:
     binders = [*model.param_names, *model.return_names]
     for stmt in model.assignments:
-        if isinstance(stmt, Assignment):
-            binders.append(stmt.target)
-        elif isinstance(stmt, ConditionalBlock):
-            binders.extend(stmt.output_vars)
-            binders.extend(a.target for a in stmt.then_branch.assignments)
-            binders.extend(a.target for a in stmt.else_branch.assignments)
-        else:
-            assert_never(stmt)
+        _collect_binders_from_stmt(stmt, binders)
     return binders
+
+
+def _collect_binders_from_stmt(stmt: ModelStatement, out: list[str]) -> None:
+    if isinstance(stmt, Assignment):
+        out.append(stmt.target)
+    elif isinstance(stmt, ConditionalBlock):
+        out.extend(stmt.output_vars)
+        for s in stmt.then_branch.assignments:
+            _collect_binders_from_stmt(s, out)
+        for s in stmt.else_branch.assignments:
+            _collect_binders_from_stmt(s, out)
+    else:
+        assert_never(stmt)
 
 
 def _build_lean_emission_plan(

@@ -2496,22 +2496,24 @@ def _expr_contains_ite(expr: ytl.Expr) -> bool:
     return False
 
 
-def _model_contains_ite(model: ytl.FunctionModel) -> bool:
-    """Return True if any expression in *model* contains an ``Ite`` node."""
-    for stmt in model.assignments:
+def _model_stmts_contain_ite(stmts: tuple[ytl.ModelStatement, ...]) -> bool:
+    for stmt in stmts:
         if isinstance(stmt, ytl.Assignment):
             if _expr_contains_ite(stmt.expr):
                 return True
         elif isinstance(stmt, ytl.ConditionalBlock):
             if _expr_contains_ite(stmt.condition):
                 return True
-            for a in stmt.then_branch.assignments:
-                if _expr_contains_ite(a.expr):
-                    return True
-            for a in stmt.else_branch.assignments:
-                if _expr_contains_ite(a.expr):
-                    return True
+            if _model_stmts_contain_ite(stmt.then_branch.assignments):
+                return True
+            if _model_stmts_contain_ite(stmt.else_branch.assignments):
+                return True
     return False
+
+
+def _model_contains_ite(model: ytl.FunctionModel) -> bool:
+    """Return True if any expression in *model* contains an ``Ite`` node."""
+    return _model_stmts_contain_ite(model.assignments)
 
 
 class SimplifyIteTest(unittest.TestCase):
@@ -13029,19 +13031,24 @@ class SSAModelTest(unittest.TestCase):
         # a=5: a_2=15, z=5+15=20
         self.assertEqual(ytl.evaluate_function_model(model, (5,)), (20,))
 
-    def test_flat_branch_invariant(self) -> None:
-        """After to_function_model, no ConditionalBranch contains nested blocks."""
+    def test_nested_conditional_preserved(self) -> None:
+        """Nested ConditionalBlock must survive in model branches."""
         model = self._to_model("""
             function f(x) -> z {
                 if x { if add(x, 1) { z := 7 } }
             }
         """)
-        for stmt in model.assignments:
-            if isinstance(stmt, ytl.ConditionalBlock):
-                for a in stmt.then_branch.assignments:
-                    self.assertIsInstance(a, ytl.Assignment)
-                for a in stmt.else_branch.assignments:
-                    self.assertIsInstance(a, ytl.Assignment)
+        outer_conds = [
+            s for s in model.assignments if isinstance(s, ytl.ConditionalBlock)
+        ]
+        self.assertTrue(outer_conds, "Expected outer ConditionalBlock")
+        outer = outer_conds[0]
+        nested = [
+            s
+            for s in outer.then_branch.assignments
+            if isinstance(s, ytl.ConditionalBlock)
+        ]
+        self.assertTrue(nested, "Expected nested ConditionalBlock in then-branch")
 
     def test_all_binders_valid(self) -> None:
         """Every produced binder must pass validate_ident."""
@@ -13063,6 +13070,120 @@ class SSAModelTest(unittest.TestCase):
         nf = inline_pure_helpers(nf)
         nf = propagate_constants(nf)
         return lower_to_restricted(nf)
+
+    def _module_to_models(self, yul: str) -> dict[str, ytl.FunctionModel]:
+        """Full pipeline: multi-function Yul → dict of FunctionModels."""
+        import re as _re
+
+        tokens = ytl.tokenize_yul(yul)
+        funcs = SyntaxParser(tokens).parse_functions()
+        resolved = resolve_module(funcs, builtins=ytl._EVM_BUILTINS)
+        # Build callee name mapping: raw name → demangled name.
+        callee_names: dict[str, str] = {}
+        for name in resolved:
+            m = _re.fullmatch(r"fun_(\w+?)_\d+", name)
+            callee_names[name] = m.group(1) if m else name
+        models: dict[str, ytl.FunctionModel] = {}
+        for name, result in resolved.items():
+            nf = normalize_function(result.func, result)
+            nf = inline_pure_helpers(nf)
+            nf = propagate_constants(nf)
+            rf = lower_to_restricted(nf)
+            sol_name = callee_names[name]
+            models[sol_name] = to_function_model(
+                rf, sol_name, callee_names=callee_names
+            )
+        return models
+
+    # ------------------------------------------------------------------
+    # Regression tests for critic round 2: unsound flattening, callee
+    # names, reserved Lean names.
+    # ------------------------------------------------------------------
+
+    def test_nested_untaken_branch_model_call(self) -> None:
+        """Untaken branch with model call must not be eagerly evaluated."""
+        models = self._module_to_models("""
+            function good() -> r { r := 7 }
+            function f(x, y) -> z {
+                if x {
+                    if y { z := good() }
+                    z := good()
+                }
+            }
+        """)
+        # f(1, 0): outer if taken, inner if NOT taken, z := good() = 7
+        self.assertEqual(
+            ytl.evaluate_function_model(models["f"], (1, 0), model_table=models),
+            (7,),
+        )
+        # f(0, 1): outer if not taken, z = 0
+        self.assertEqual(
+            ytl.evaluate_function_model(models["f"], (0, 1), model_table=models),
+            (0,),
+        )
+
+    def test_nested_model_call_both_branches(self) -> None:
+        """Model calls in both nested branches must eval correctly."""
+        models = self._module_to_models("""
+            function g() -> r { r := 10 }
+            function h() -> r { r := 20 }
+            function f(x, y) -> z {
+                if x {
+                    switch y
+                    case 0 { z := g() }
+                    default { z := h() }
+                }
+            }
+        """)
+        self.assertEqual(
+            ytl.evaluate_function_model(models["f"], (1, 0), model_table=models),
+            (10,),
+        )
+        self.assertEqual(
+            ytl.evaluate_function_model(models["f"], (1, 1), model_table=models),
+            (20,),
+        )
+        self.assertEqual(
+            ytl.evaluate_function_model(models["f"], (0, 0), model_table=models),
+            (0,),
+        )
+
+    def test_compiler_style_callee_names(self) -> None:
+        """Compiler-generated function names are demangled for model calls."""
+        models = self._module_to_models("""
+            function fun_g_1(var_x_1) -> var_z_2 {
+                var_z_2 := add(var_x_1, 1)
+            }
+            function fun_f_2(var_a_1) -> var_b_2 {
+                var_b_2 := fun_g_1(var_a_1)
+            }
+        """)
+        self.assertIn("f", models)
+        self.assertIn("g", models)
+        # f calls g; g(5) = 6
+        self.assertEqual(
+            ytl.evaluate_function_model(models["f"], (5,), model_table=models),
+            (6,),
+        )
+        # All models must pass validation.
+        for m in models.values():
+            ytl.validate_function_model(m)
+
+    def test_reserved_lean_name_avoided(self) -> None:
+        """Demangled names that collide with reserved Lean names are suffixed."""
+        model = self._to_model(
+            "function fun_f_1(var_x_1) -> var_z_2 "
+            "{ let usr$u256 := add(var_x_1, 1) var_z_2 := usr$u256 }",
+            fn_name="f",
+        )
+        ytl.validate_function_model(model)
+        self.assertEqual(ytl.evaluate_function_model(model, (5,)), (6,))
+        # The binder must NOT be "u256" (reserved).
+        binders: list[str] = []
+        for s in model.assignments:
+            if isinstance(s, ytl.Assignment):
+                binders.append(s.target)
+        self.assertNotIn("u256", binders, "Reserved name 'u256' leaked through")
 
 
 if __name__ == "__main__":

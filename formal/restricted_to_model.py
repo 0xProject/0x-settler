@@ -7,11 +7,9 @@ Converts a ``RestrictedFunction`` (SymbolId-keyed, non-SSA) into a
 The pipeline is:
 
 1. **Name legalization** (``restricted_names.legalize_names``):
-   demangle compiler names, sanitize identifiers.
-2. **Control-flow flattening** (``restricted_flatten.flatten_function``):
-   lift nested conditionals out of branch bodies.
-3. **SSA renaming** (this module): version base names and build
-   ``FunctionModel``.
+   demangle compiler names, sanitize identifiers, rewrite callee names.
+2. **SSA renaming** (this module): version base names and build
+   ``FunctionModel`` with recursive branch support.
 
 SSA naming rules match the old pipeline:
 - First assignment to a clean name uses the bare name (e.g. ``z``)
@@ -25,7 +23,6 @@ from __future__ import annotations
 from collections import Counter
 from typing import assert_never
 
-from restricted_flatten import flatten_function
 from restricted_ir import (
     RAssignment,
     RBranch,
@@ -189,14 +186,14 @@ def _convert_conditional(
 
     # Process then-branch with branch-local SSA state.
     then_ctx = ctx.copy()
-    then_assignments = _convert_branch_block(stmt.then_branch.assignments, then_ctx)
+    then_stmts = _convert_branch_block(stmt.then_branch.assignments, then_ctx)
     then_outputs: list[str] = []
     for expr in stmt.then_branch.output_exprs:
         then_outputs.append(_ssa_name_for_output_expr(expr, then_ctx))
 
     # Process else-branch with branch-local SSA state.
     else_ctx = ctx.copy()
-    else_assignments = _convert_branch_block(stmt.else_branch.assignments, else_ctx)
+    else_stmts = _convert_branch_block(stmt.else_branch.assignments, else_ctx)
     else_outputs: list[str] = []
     for expr in stmt.else_branch.output_exprs:
         else_outputs.append(_ssa_name_for_output_expr(expr, else_ctx))
@@ -212,11 +209,11 @@ def _convert_conditional(
             condition=cond,
             output_vars=tuple(output_vars),
             then_branch=ConditionalBranch(
-                assignments=tuple(then_assignments),
+                assignments=tuple(then_stmts),
                 outputs=tuple(then_outputs),
             ),
             else_branch=ConditionalBranch(
-                assignments=tuple(else_assignments),
+                assignments=tuple(else_stmts),
                 outputs=tuple(else_outputs),
             ),
         )
@@ -226,43 +223,11 @@ def _convert_conditional(
 def _convert_branch_block(
     stmts: tuple[RStatement, ...],
     ctx: _SSACtx,
-) -> list[Assignment]:
-    """Convert branch-local statements to Assignment only.
-
-    After the flattening pass, branches contain only ``RAssignment``
-    and ``RCallAssign`` — no nested ``RConditionalBlock``.
-    """
-    out: list[Assignment] = []
+) -> list[ModelStatement]:
+    """Convert branch-local statements, handling nested conditionals recursively."""
+    out: list[ModelStatement] = []
     for stmt in stmts:
-        if isinstance(stmt, RAssignment):
-            expr = _convert_expr(stmt.expr, ctx)
-            ssa_name = ctx.assign(stmt.target, stmt.target_name)
-            out.append(Assignment(target=ssa_name, expr=expr))
-        elif isinstance(stmt, RCallAssign):
-            args = tuple(_convert_expr(a, ctx) for a in stmt.args)
-            call_expr: Expr = Call(stmt.callee, args)
-            if len(stmt.targets) == 1:
-                ssa_name = ctx.assign(stmt.targets[0], stmt.target_names[0])
-                out.append(Assignment(target=ssa_name, expr=call_expr))
-            else:
-                from yul_to_lean import Project
-
-                total = len(stmt.targets)
-                for i, (sid, name) in enumerate(zip(stmt.targets, stmt.target_names)):
-                    ssa_name = ctx.assign(sid, name)
-                    out.append(
-                        Assignment(
-                            target=ssa_name,
-                            expr=Project(index=i, total=total, inner=call_expr),
-                        )
-                    )
-        elif isinstance(stmt, RConditionalBlock):
-            raise ValueError(
-                "Nested ConditionalBlock inside branch after flattening — "
-                "this indicates a bug in restricted_flatten"
-            )
-        else:
-            assert_never(stmt)
+        _convert_stmt(stmt, ctx, out)
     return out
 
 
@@ -297,22 +262,23 @@ def _needs_zero_init(
 def to_function_model(
     func: RestrictedFunction,
     sol_fn_name: str,
+    *,
+    callee_names: dict[str, str] | None = None,
 ) -> FunctionModel:
     """Convert a RestrictedFunction to a FunctionModel with SSA naming.
 
-    Runs three passes in sequence:
+    Runs two passes in sequence:
 
-    1. Name legalization (demangle, sanitize)
-    2. Control-flow flattening (nested conditionals → ``RIte``)
-    3. SSA renaming + ``FunctionModel`` construction
+    1. Name legalization (demangle, sanitize, callee rewriting)
+    2. SSA renaming + ``FunctionModel`` construction
+
+    If *callee_names* is provided, model-call callee names are
+    rewritten from raw Yul names to their emitted model names.
     """
     # Pass 1: legalize names.
-    func = legalize_names(func)
+    func = legalize_names(func, callee_names=callee_names)
 
-    # Pass 2: flatten nested conditionals.
-    func = flatten_function(func)
-
-    # Pass 3: SSA renaming.
+    # Pass 2: SSA renaming.
     ctx = _SSACtx()
 
     # Register parameters (SSA count starts at 1).
