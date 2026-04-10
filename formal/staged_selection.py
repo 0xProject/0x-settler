@@ -100,7 +100,7 @@ class _ReferenceAnalysisResult:
 @dataclass(frozen=True)
 class _SelectionIndex:
     parsed_groups: tuple[tuple[FunctionDef, ...], ...]
-    resolved_groups: tuple[dict[str, ResolutionResult] | None, ...]
+    resolved_groups: tuple[dict[str, ResolutionResult], ...]
     syntax_indexes: tuple[dict[int, _SyntaxFunctionInfo], ...]
     infos_in_token_order: tuple[_SyntaxFunctionInfo, ...]
     top_level_by_group_name: tuple[dict[str, _SyntaxFunctionInfo], ...]
@@ -181,17 +181,7 @@ class _SelectionIndex:
         info: _SyntaxFunctionInfo,
         known: _KnownFunctionCriteria,
     ) -> _ReferenceAnalysisResult:
-        resolved_group = self.resolved_groups[info.group_idx]
-        if resolved_group is None:
-            if known.keys:
-                raise ParseError(
-                    "Cannot disambiguate by exact helper identity without resolver state"
-                )
-            return self._syntax_scope_reference_summary(
-                info.func.body,
-                live_names=set(known.names),
-            )
-        result = resolved_group[info.top_level_name]
+        result = self.resolved_groups[info.group_idx][info.top_level_name]
         return self._scope_reference_summary(
             info.func.body,
             result=result,
@@ -200,319 +190,6 @@ class _SelectionIndex:
             known=known,
             visible_local_summaries={},
         )
-
-    def _syntax_scope_reference_summary(
-        self,
-        block: Block,
-        *,
-        live_names: set[str],
-        dead_names: set[str] | None = None,
-    ) -> _ReferenceAnalysisResult:
-        if dead_names is None:
-            dead_names = set()
-        local_functions = [
-            stmt.func for stmt in block.stmts if isinstance(stmt, FunctionDefStmt)
-        ]
-        local_names = {func.name for func in local_functions}
-        live_referencing: set[str] = set()
-        dead_referencing: set[str] = set()
-
-        changed = True
-        while changed:
-            changed = False
-            visible_live = (live_names - local_names) | live_referencing
-            visible_dead = (
-                (dead_names - local_names) | dead_referencing
-            ) - live_referencing
-            for func in local_functions:
-                summary = self._syntax_scope_reference_summary(
-                    func.body,
-                    live_names=visible_live,
-                    dead_names=visible_dead,
-                )
-                if summary.live_references and func.name not in live_referencing:
-                    live_referencing.add(func.name)
-                    dead_referencing.discard(func.name)
-                    changed = True
-                    continue
-                if (
-                    not summary.live_references
-                    and summary.dead_references
-                    and func.name not in dead_referencing
-                ):
-                    dead_referencing.add(func.name)
-                    changed = True
-
-        visible_live = (live_names - local_names) | live_referencing
-        visible_dead = ((dead_names - local_names) | dead_referencing) - live_referencing
-        live = False
-        dead = False
-        terminated = False
-        for stmt in block.stmts:
-            if isinstance(stmt, FunctionDefStmt):
-                continue
-            stmt_summary = self._syntax_statement_reference_summary(
-                stmt,
-                live_names=visible_live,
-                dead_names=visible_dead,
-            )
-            if terminated:
-                dead = dead or stmt_summary.live_references or stmt_summary.dead_references
-                continue
-            live = live or stmt_summary.live_references
-            dead = dead or stmt_summary.dead_references
-            terminated = stmt_summary.definitely_terminates
-        return _ReferenceAnalysisResult(live, dead, terminated)
-
-    def _syntax_statement_reference_summary(
-        self,
-        stmt: SynStmt,
-        *,
-        live_names: set[str],
-        dead_names: set[str],
-    ) -> _ReferenceAnalysisResult:
-        if isinstance(stmt, LetStmt):
-            if stmt.init is None:
-                return _ReferenceAnalysisResult(False, False, False)
-            return self._syntax_expr_reference_summary(
-                stmt.init,
-                live_names=live_names,
-                dead_names=dead_names,
-            )
-
-        if isinstance(stmt, (AssignStmt, ExprStmt)):
-            return self._syntax_expr_reference_summary(
-                stmt.expr,
-                live_names=live_names,
-                dead_names=dead_names,
-            )
-
-        if isinstance(stmt, LeaveStmt):
-            return _ReferenceAnalysisResult(False, False, True)
-
-        if isinstance(stmt, BlockStmt):
-            return self._syntax_scope_reference_summary(
-                stmt.block,
-                live_names=live_names,
-                dead_names=dead_names,
-            )
-
-        if isinstance(stmt, IfStmt):
-            cond_summary = self._syntax_expr_reference_summary(
-                stmt.condition,
-                live_names=live_names,
-                dead_names=dead_names,
-            )
-            const_cond = _try_const_eval_syn(stmt.condition)
-            if const_cond is not None:
-                live = cond_summary.live_references
-                dead = cond_summary.dead_references
-                then_summary = self._syntax_scope_reference_summary(
-                    stmt.body,
-                    live_names=live_names,
-                    dead_names=dead_names,
-                )
-                if const_cond != 0:
-                    return _ReferenceAnalysisResult(
-                        live or then_summary.live_references,
-                        dead or then_summary.dead_references,
-                        then_summary.definitely_terminates,
-                    )
-                return _ReferenceAnalysisResult(
-                    live,
-                    dead or then_summary.live_references or then_summary.dead_references,
-                    False,
-                )
-
-            then_summary = self._syntax_scope_reference_summary(
-                stmt.body,
-                live_names=live_names,
-                dead_names=dead_names,
-            )
-            return _ReferenceAnalysisResult(
-                cond_summary.live_references or then_summary.live_references,
-                cond_summary.dead_references or then_summary.dead_references,
-                False,
-            )
-
-        if isinstance(stmt, SwitchStmt):
-            discrim_summary = self._syntax_expr_reference_summary(
-                stmt.discriminant,
-                live_names=live_names,
-                dead_names=dead_names,
-            )
-            const_disc = _try_const_eval_syn(stmt.discriminant)
-            if const_disc is not None:
-                chosen_summary: _ReferenceAnalysisResult | None = None
-                dead = discrim_summary.dead_references
-                for case in stmt.cases:
-                    case_val = _try_const_eval_syn(case.value)
-                    case_summary = self._syntax_scope_reference_summary(
-                        case.body,
-                        live_names=live_names,
-                        dead_names=dead_names,
-                    )
-                    if case_val is not None and case_val == const_disc:
-                        chosen_summary = case_summary
-                    else:
-                        dead = (
-                            dead
-                            or case_summary.live_references
-                            or case_summary.dead_references
-                        )
-                default_summary = (
-                    self._syntax_scope_reference_summary(
-                        stmt.default.body,
-                        live_names=live_names,
-                        dead_names=dead_names,
-                    )
-                    if stmt.default is not None
-                    else None
-                )
-                if chosen_summary is None:
-                    chosen_summary = default_summary
-                elif default_summary is not None:
-                    dead = (
-                        dead
-                        or default_summary.live_references
-                        or default_summary.dead_references
-                    )
-                if chosen_summary is None:
-                    return _ReferenceAnalysisResult(
-                        discrim_summary.live_references,
-                        dead,
-                        False,
-                    )
-                return _ReferenceAnalysisResult(
-                    discrim_summary.live_references or chosen_summary.live_references,
-                    dead or chosen_summary.dead_references,
-                    chosen_summary.definitely_terminates,
-                )
-
-            branch_summaries = [
-                self._syntax_scope_reference_summary(
-                    case.body,
-                    live_names=live_names,
-                    dead_names=dead_names,
-                )
-                for case in stmt.cases
-            ]
-            default_summary = (
-                self._syntax_scope_reference_summary(
-                    stmt.default.body,
-                    live_names=live_names,
-                    dead_names=dead_names,
-                )
-                if stmt.default is not None
-                else None
-            )
-            return _ReferenceAnalysisResult(
-                discrim_summary.live_references
-                or any(summary.live_references for summary in branch_summaries)
-                or (
-                    default_summary.live_references
-                    if default_summary is not None
-                    else False
-                ),
-                discrim_summary.dead_references
-                or any(summary.dead_references for summary in branch_summaries)
-                or (
-                    default_summary.dead_references
-                    if default_summary is not None
-                    else False
-                ),
-                default_summary is not None
-                and all(summary.definitely_terminates for summary in branch_summaries)
-                and default_summary.definitely_terminates,
-            )
-
-        if isinstance(stmt, ForStmt):
-            init_summary = self._syntax_scope_reference_summary(
-                stmt.init,
-                live_names=live_names,
-                dead_names=dead_names,
-            )
-            cond_summary = self._syntax_expr_reference_summary(
-                stmt.condition,
-                live_names=live_names,
-                dead_names=dead_names,
-            )
-            body_summary = self._syntax_scope_reference_summary(
-                stmt.body,
-                live_names=live_names,
-                dead_names=dead_names,
-            )
-            post_summary = self._syntax_scope_reference_summary(
-                stmt.post,
-                live_names=live_names,
-                dead_names=dead_names,
-            )
-
-            if init_summary.definitely_terminates:
-                return _ReferenceAnalysisResult(
-                    init_summary.live_references,
-                    init_summary.dead_references
-                    or cond_summary.live_references
-                    or cond_summary.dead_references
-                    or body_summary.live_references
-                    or body_summary.dead_references
-                    or post_summary.live_references
-                    or post_summary.dead_references,
-                    True,
-                )
-
-            const_cond = _try_const_eval_syn(stmt.condition)
-            if const_cond is not None and const_cond == 0:
-                return _ReferenceAnalysisResult(
-                    init_summary.live_references or cond_summary.live_references,
-                    init_summary.dead_references
-                    or cond_summary.dead_references
-                    or body_summary.live_references
-                    or body_summary.dead_references
-                    or post_summary.live_references
-                    or post_summary.dead_references,
-                    False,
-                )
-
-            return _ReferenceAnalysisResult(
-                init_summary.live_references
-                or cond_summary.live_references
-                or body_summary.live_references
-                or post_summary.live_references,
-                init_summary.dead_references
-                or cond_summary.dead_references
-                or body_summary.dead_references
-                or post_summary.dead_references,
-                const_cond is not None and const_cond != 0,
-            )
-
-        if isinstance(stmt, FunctionDefStmt):
-            return _ReferenceAnalysisResult(False, False, False)
-
-        assert_never(stmt)
-
-    def _syntax_expr_reference_summary(
-        self,
-        expr: SynExpr,
-        *,
-        live_names: set[str],
-        dead_names: set[str],
-    ) -> _ReferenceAnalysisResult:
-        if isinstance(expr, (IntExpr, NameExpr, StringExpr)):
-            return _ReferenceAnalysisResult(False, False, False)
-        if not isinstance(expr, CallExpr):
-            assert_never(expr)
-        live = expr.name in live_names
-        dead = expr.name in dead_names
-        for arg in expr.args:
-            child = self._syntax_expr_reference_summary(
-                arg,
-                live_names=live_names,
-                dead_names=dead_names,
-            )
-            live = live or child.live_references
-            dead = dead or child.dead_references
-        return _ReferenceAnalysisResult(live, dead, False)
 
     def _scope_reference_summary(
         self,
@@ -1033,22 +710,14 @@ def _build_selection_index(
     tokens: list[tuple[str, str]],
     *,
     builtins: frozenset[str],
-    allow_resolution_failures: bool = False,
 ) -> _SelectionIndex:
     parsed_groups = tuple(
         tuple(g) for g in SyntaxParser(list(tokens)).parse_function_groups()
     )
-    resolved_groups_list: list[dict[str, ResolutionResult] | None] = []
-    for func_group in parsed_groups:
-        try:
-            resolved_groups_list.append(
-                resolve_module(list(func_group), builtins=builtins)
-            )
-        except ParseError:
-            if not allow_resolution_failures:
-                raise
-            resolved_groups_list.append(None)
-    resolved_groups = tuple(resolved_groups_list)
+    resolved_groups = tuple(
+        resolve_module(list(func_group), builtins=builtins)
+        for func_group in parsed_groups
+    )
     syntax_indexes = tuple(
         _index_group_functions(group_idx, funcs)
         for group_idx, funcs in enumerate(parsed_groups)
@@ -1079,13 +748,12 @@ def _build_selection_index(
             for info in syntax_index.values()
         }
         per_top_level: dict[str, dict[SymbolId, _SyntaxFunctionInfo]] = {}
-        if resolved_group is not None:
-            for top_level_name, result in resolved_group.items():
-                per_top_level[top_level_name] = {
-                    sid: by_name_span[decl_info.span]
-                    for sid, decl_info in result.symbols.items()
-                    if decl_info.span in by_name_span
-                }
+        for top_level_name, result in resolved_group.items():
+            per_top_level[top_level_name] = {
+                sid: by_name_span[decl_info.span]
+                for sid, decl_info in result.symbols.items()
+                if decl_info.span in by_name_span
+            }
         local_info_by_group_top_level.append(per_top_level)
     return _SelectionIndex(
         parsed_groups=parsed_groups,
@@ -1440,11 +1108,7 @@ def find_function_match(
     exclude_known: bool = False,
     builtins: frozenset[str] = frozenset(),
 ) -> tuple[int, tuple[str, ...]]:
-    index = _build_selection_index(
-        tokens,
-        builtins=builtins,
-        allow_resolution_failures=True,
-    )
+    index = _build_selection_index(tokens, builtins=builtins)
     matches = index.wrapper_matches(sol_fn_name, n_params=n_params)
 
     if not matches:
@@ -1487,11 +1151,7 @@ def find_exact_function_match(
     search_nested: bool = False,
     builtins: frozenset[str] = frozenset(),
 ) -> tuple[int, tuple[str, ...]]:
-    index = _build_selection_index(
-        tokens,
-        builtins=builtins,
-        allow_resolution_failures=True,
-    )
+    index = _build_selection_index(tokens, builtins=builtins)
     matches = index.exact_matches(
         yul_name,
         n_params=n_params,
@@ -1523,11 +1183,7 @@ def find_exact_function_path_match(
 ) -> tuple[int, tuple[str, ...]]:
     if not yul_path:
         raise ParseError("Exact Yul function path cannot be empty")
-    index = _build_selection_index(
-        tokens,
-        builtins=builtins,
-        allow_resolution_failures=True,
-    )
+    index = _build_selection_index(tokens, builtins=builtins)
     matches = [
         info
         for info in index.exact_matches(

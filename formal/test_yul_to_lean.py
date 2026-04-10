@@ -3175,11 +3175,10 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
             (2,),
         )
 
-    def test_find_function_treats_nested_definition_as_reference(self) -> None:
-        # A nested function *definition* named ``helper`` inside fun_pick_1
-        # should NOT count as a reference to the outer ``helper``.  Only
-        # fun_pick_2 actually calls ``helper``, so it should be selected
-        # unambiguously.
+    def test_find_function_rejects_nested_definition_name_collision(self) -> None:
+        # The nested ``helper`` collides with the top-level helper name.
+        # Selection should fail during resolver validation instead of trying
+        # to disambiguate malformed Yul.
         tokens = ytl.tokenize_yul("""
             function helper(var_x_1) -> var_z_2 {
                 var_z_2 := var_x_1
@@ -3197,11 +3196,14 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
             }
             """)
 
-        func = ytl.YulParser(tokens).find_function(
-            "pick",
-            known_yul_names={"helper"},
-        )
-        self.assertEqual(func.yul_name, "fun_pick_2")
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "Duplicate declaration of 'helper' in the same scope",
+        ):
+            ytl.YulParser(tokens).find_function(
+                "pick",
+                known_yul_names={"helper"},
+            )
 
     def test_translate_yul_to_models_scopes_helpers_per_selected_target_object(
         self,
@@ -3417,7 +3419,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ytl.ParseError,
-            "Multiple Yul functions match 'pick'",
+            "Duplicate declaration of 'helper' in the same scope",
         ):
             ytl.YulParser(tokens).find_function(
                 "pick",
@@ -3426,7 +3428,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ytl.ParseError,
-            "Multiple Yul functions match 'pick'",
+            "Duplicate declaration of 'helper' in the same scope",
         ):
             ytl.YulParser(tokens).find_function(
                 "pick",
@@ -4904,7 +4906,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ytl.ParseError,
-            "Multiple Yul functions match 'pick'",
+            "Duplicate declaration of 'nested' in the same scope",
         ):
             ytl.YulParser(tokens).find_function(
                 "pick",
@@ -4913,7 +4915,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         with self.assertRaisesRegex(
             ytl.ParseError,
-            "Multiple Yul functions match 'pick'",
+            "Duplicate declaration of 'nested' in the same scope",
         ):
             ytl.YulParser(tokens).find_function(
                 "pick",
@@ -5095,7 +5097,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
 
         self.assertEqual(found.yul_name, "fun_pick_3")
 
-    def test_find_exact_function_ignores_nested_local_name_collisions(self) -> None:
+    def test_find_exact_function_rejects_nested_local_name_collision(self) -> None:
         tokens = ytl.tokenize_yul("""
             function fun_pick_1() -> var_z_1 {
                 var_z_1 := 11
@@ -5109,14 +5111,11 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """)
 
-        found = ytl.YulParser(tokens).find_exact_function("fun_pick_1")
-
-        expected_rets: list[str] = ["var_z_1"]
-        self.assertEqual(found.rets, expected_rets)
-        expected_assignments: list[ytl.RawStatement] = [
-            ytl.PlainAssignment("var_z_1", ytl.IntLit(11)),
-        ]
-        self.assertEqual(found.assignments, expected_assignments)
+        with self.assertRaisesRegex(
+            ytl.ParseError,
+            "Duplicate declaration of 'fun_pick_1' in the same scope",
+        ):
+            ytl.YulParser(tokens).find_exact_function("fun_pick_1")
 
     def test_validate_function_model_rejects_reserved_lean_helper_binder_names(
         self,
