@@ -14268,5 +14268,125 @@ class LeaveGuardGroupingTest(unittest.TestCase):
         )
 
 
+class UncoveredRegressionTest(unittest.TestCase):
+    def test_translate_yul_to_models_string_literal_omits_quote_bytes(self) -> None:
+        yul = """
+            function fun_f_1() -> var_z_2 {
+                var_z_2 := "AB"
+            }
+        """
+        config = make_model_config(("f",))
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        expected = int.from_bytes(b"AB".ljust(32, b"\x00"), "big")
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[0], ()),
+            (expected,),
+        )
+
+    def test_translate_yul_to_models_string_literal_decodes_escape_sequences(
+        self,
+    ) -> None:
+        yul = r'''
+            function fun_f_1() -> var_z_2 {
+                var_z_2 := "A\n"
+            }
+        '''
+        config = make_model_config(("f",))
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        expected = int.from_bytes(b"A\n".ljust(32, b"\x00"), "big")
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[0], ()),
+            (expected,),
+        )
+
+    def test_translate_yul_to_models_rejects_missing_model_name_mapping(self) -> None:
+        base = make_model_config(("f",))
+        config = ytl.ModelConfig(
+            function_order=base.function_order,
+            model_names={},
+            header_comment=base.header_comment,
+            generator_label=base.generator_label,
+            extra_norm_ops=base.extra_norm_ops,
+            extra_lean_defs=base.extra_lean_defs,
+            norm_rewrite=base.norm_rewrite,
+            inner_fn=base.inner_fn,
+            n_params=base.n_params,
+            exact_yul_names=base.exact_yul_names,
+            keep_solidity_locals=base.keep_solidity_locals,
+            exclude_known=base.exclude_known,
+            skip_norm=base.skip_norm,
+            hoist_repeated_calls=base.hoist_repeated_calls,
+            skip_prune=base.skip_prune,
+            default_source_label=base.default_source_label,
+            default_namespace=base.default_namespace,
+            default_output=base.default_output,
+            cli_description=base.cli_description,
+        )
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                var_z_2 := var_x_1
+            }
+        """
+
+        with self.assertRaisesRegex(ytl.ParseError, "model_names"):
+            ytl.translate_yul_to_models(
+                yul,
+                config,
+                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+            )
+
+    def test_hoist_repeated_model_calls_hoists_branch_output_exprs(self) -> None:
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("p",),
+            return_names=("out_a", "out_b"),
+            assignments=(
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("p"),
+                    output_vars=("out_a", "out_b"),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=(
+                            ytl.Call("inner", (ytl.Var("p"),)),
+                            ytl.Call("inner", (ytl.Var("p"),)),
+                        ),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=(ytl.IntLit(0), ytl.IntLit(0)),
+                    ),
+                ),
+            ),
+        )
+
+        hoisted = ytl.hoist_repeated_model_calls(
+            model,
+            model_call_names=frozenset({"inner"}),
+        )
+
+        cond_block = next(
+            stmt for stmt in hoisted.assignments if isinstance(stmt, ytl.ConditionalBlock)
+        )
+        then_cse = [
+            stmt
+            for stmt in cond_block.then_branch.assignments
+            if isinstance(stmt, ytl.Assignment) and stmt.target.startswith("_cse")
+        ]
+        self.assertTrue(then_cse, "Expected branch-output CSE inside then-branch")
+        hoisted_name = then_cse[0].target
+        self.assertEqual(
+            cond_block.then_branch.outputs,
+            (ytl.Var(hoisted_name), ytl.Var(hoisted_name)),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
