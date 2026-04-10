@@ -29,12 +29,15 @@ from yul_resolve import ResolutionResult, resolve_function, resolve_module
 
 
 def branch(
-    assignments: tuple[ytl.Assignment, ...] | list[ytl.Assignment],
-    outputs: tuple[str, ...] | list[str],
+    assignments: tuple[ytl.ModelStatement, ...] | list[ytl.ModelStatement],
+    outputs: tuple[str | ytl.Expr, ...] | list[str | ytl.Expr],
 ) -> ytl.ConditionalBranch:
+    wrapped: tuple[ytl.Expr, ...] = tuple(
+        ytl.Var(o) if isinstance(o, str) else o for o in outputs
+    )
     return ytl.ConditionalBranch(
         assignments=tuple(assignments),
-        outputs=tuple(outputs),
+        outputs=wrapped,
     )
 
 
@@ -164,15 +167,21 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
                 stmt.then_branch.assignments,
                 available=scope,
             )
-            for var in stmt.then_branch.outputs:
-                self.assertIn(var, then_scope, f"then-branch output {var} missing")
+            for out_expr in stmt.then_branch.outputs:
+                missing = ytl._expr_vars(out_expr) - then_scope
+                self.assertFalse(
+                    missing, f"then-branch output {out_expr} uses {sorted(missing)}"
+                )
 
             else_scope = self._assert_block_well_scoped(
                 stmt.else_branch.assignments,
                 available=scope,
             )
-            for var in stmt.else_branch.outputs:
-                self.assertIn(var, else_scope, f"else-branch output {var} missing")
+            for out_expr in stmt.else_branch.outputs:
+                missing = ytl._expr_vars(out_expr) - else_scope
+                self.assertFalse(
+                    missing, f"else-branch output {out_expr} uses {sorted(missing)}"
+                )
 
             scope.update(stmt.output_vars)
 
@@ -2848,11 +2857,11 @@ class ValidateFunctionModelTest(unittest.TestCase):
                     output_vars=("a", "a"),
                     then_branch=ytl.ConditionalBranch(
                         assignments=(ytl.Assignment("a", ytl.IntLit(1)),),
-                        outputs=("a", "a"),
+                        outputs=(ytl.Var("a"), ytl.Var("a")),
                     ),
                     else_branch=ytl.ConditionalBranch(
                         assignments=(ytl.Assignment("a", ytl.IntLit(2)),),
-                        outputs=("a", "a"),
+                        outputs=(ytl.Var("a"), ytl.Var("a")),
                     ),
                 ),
                 ytl.Assignment("z", ytl.Var("a")),
@@ -5643,7 +5652,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                             ),
                             ytl.Assignment("tmp", ytl.Var("p")),
                         ),
-                        outputs=("tmp",),
+                        outputs=(ytl.Var("tmp"),),
                     ),
                     else_branch=ytl.ConditionalBranch(
                         assignments=(
@@ -5653,7 +5662,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                             ),
                             ytl.Assignment("tmp", ytl.Var("p")),
                         ),
-                        outputs=("tmp",),
+                        outputs=(ytl.Var("tmp"),),
                     ),
                 ),
                 ytl.Assignment("z", ytl.Var("tmp")),
@@ -5700,11 +5709,11 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                     output_vars=("normBitLengthPlus1",),
                     then_branch=ytl.ConditionalBranch(
                         assignments=(),
-                        outputs=("p",),
+                        outputs=(ytl.Var("p"),),
                     ),
                     else_branch=ytl.ConditionalBranch(
                         assignments=(),
-                        outputs=("p",),
+                        outputs=(ytl.Var("p"),),
                     ),
                 ),
                 ytl.Assignment("z", ytl.Var("normBitLengthPlus1")),
@@ -6758,11 +6767,11 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                     output_vars=("model_inner",),
                     then_branch=ytl.ConditionalBranch(
                         assignments=(),
-                        outputs=("x",),
+                        outputs=(ytl.Var("x"),),
                     ),
                     else_branch=ytl.ConditionalBranch(
                         assignments=(),
-                        outputs=("x",),
+                        outputs=(ytl.Var("x"),),
                     ),
                 ),
                 ytl.Assignment(
@@ -6814,7 +6823,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                                 ),
                             ),
                         ),
-                        outputs=("tmp",),
+                        outputs=(ytl.Var("tmp"),),
                     ),
                     else_branch=ytl.ConditionalBranch(
                         assignments=(
@@ -6827,7 +6836,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                                 ),
                             ),
                         ),
-                        outputs=("tmp",),
+                        outputs=(ytl.Var("tmp"),),
                     ),
                 ),
                 ytl.Assignment("z", ytl.Var("tmp")),
@@ -7369,11 +7378,11 @@ class KnownOptimizerBugRegressionTest(ModelEquivalenceTestCase):
                     output_vars=("_cse_1",),
                     then_branch=ytl.ConditionalBranch(
                         assignments=(),
-                        outputs=("p",),
+                        outputs=(ytl.Var("p"),),
                     ),
                     else_branch=ytl.ConditionalBranch(
                         assignments=(),
-                        outputs=("p",),
+                        outputs=(ytl.Var("p"),),
                     ),
                 ),
                 ytl.Assignment("a", ytl.Call("inner", (ytl.Var("p"),))),
@@ -13073,18 +13082,9 @@ class SSAModelTest(unittest.TestCase):
 
     def _module_to_models(self, yul: str) -> dict[str, ytl.FunctionModel]:
         """Full pipeline: multi-function Yul → dict of FunctionModels."""
-        from restricted_to_model import to_function_models
+        from restricted_to_model import translate_module
 
-        tokens = ytl.tokenize_yul(yul)
-        funcs = SyntaxParser(tokens).parse_functions()
-        resolved = resolve_module(funcs, builtins=ytl._EVM_BUILTINS)
-        restricted: dict[str, RestrictedFunction] = {}
-        for name, result in resolved.items():
-            nf = normalize_function(result.func, result)
-            nf = inline_pure_helpers(nf)
-            nf = propagate_constants(nf)
-            restricted[name] = lower_to_restricted(nf)
-        return to_function_models(restricted)
+        return translate_module(yul)
 
     # ------------------------------------------------------------------
     # Regression tests for critic round 2: unsound flattening, callee
@@ -13225,20 +13225,20 @@ class SSAModelTest(unittest.TestCase):
                                             ),
                                         ),
                                     ),
-                                    outputs=("z_1",),
+                                    outputs=(ytl.Var("z_1"),),
                                 ),
                                 else_branch=ytl.ConditionalBranch(
                                     assignments=(),
-                                    outputs=("z",),
+                                    outputs=(ytl.Var("z"),),
                                 ),
                             ),
                             ytl.Assignment("z_2", ytl.Call("good", ())),
                         ),
-                        outputs=("z_2",),
+                        outputs=(ytl.Var("z_2"),),
                     ),
                     else_branch=ytl.ConditionalBranch(
                         assignments=(),
-                        outputs=("z",),
+                        outputs=(ytl.Var("z"),),
                     ),
                 ),
             ),
@@ -13284,13 +13284,13 @@ class SSAModelTest(unittest.TestCase):
                         assignments=(
                             ytl.Assignment("z", ytl.Call("inner", (ytl.Var("x"),))),
                         ),
-                        outputs=("z",),
+                        outputs=(ytl.Var("z"),),
                     ),
                     else_branch=ytl.ConditionalBranch(
                         assignments=(
                             ytl.Assignment("z", ytl.Call("inner", (ytl.Var("x"),))),
                         ),
-                        outputs=("z",),
+                        outputs=(ytl.Var("z"),),
                     ),
                 ),
             ),

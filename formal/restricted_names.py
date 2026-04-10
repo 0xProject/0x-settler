@@ -22,6 +22,7 @@ base-name collision avoidance are handled by the downstream SSA pass.
 from __future__ import annotations
 
 import re
+from dataclasses import dataclass, field
 
 from restricted_ir import (
     RAssignment,
@@ -197,7 +198,7 @@ def _collect_sids_stmt(stmt: RStatement, out: dict[SymbolId, str]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Function-name demangling (module-level)
+# Module-wide naming plan
 # ---------------------------------------------------------------------------
 
 
@@ -207,28 +208,94 @@ def _demangle_function_name(name: str) -> str:
     return m.group(1) if m else name
 
 
-def plan_module_names(
-    funcs: dict[str, RestrictedFunction],
-) -> dict[str, str]:
-    """Build a raw-name → clean-name mapping for all functions in a module.
+@dataclass(frozen=True)
+class ModuleNamePlan:
+    """Authoritative module-wide naming plan.
 
-    Demangles compiler-generated function names (``fun_f_1`` → ``f``)
-    and sanitizes them.  The result is suitable as the *callee_names*
-    argument to :func:`legalize_names` and :func:`to_function_model`.
+    Owns function-name demangling, binder-name demangling/sanitization,
+    reserved-name avoidance, and uniqueness — all computed up front
+    before SSA versioning.
     """
-    result: dict[str, str] = {}
-    used: set[str] = set()
+
+    function_names: dict[str, str] = field(default_factory=dict)
+    binder_names: dict[str, dict[SymbolId, str]] = field(default_factory=dict)
+
+
+def plan_module(
+    funcs: dict[str, RestrictedFunction],
+) -> ModuleNamePlan:
+    """Build a complete module-wide naming plan.
+
+    Plans both function emitted names and per-function binder base
+    names. All names are demangled, sanitized, checked against reserved
+    Lean names, and made unique.
+    """
+    # Plan function names.
+    function_names: dict[str, str] = {}
+    used_fn: set[str] = set()
     for raw in funcs:
         clean = _sanitize(_demangle_function_name(raw))
-        while clean in used:
+        while clean in used_fn:
             clean = clean + "_"
-        used.add(clean)
-        result[raw] = clean
+        used_fn.add(clean)
+        function_names[raw] = clean
+
+    # Plan binder names per function.
+    binder_names: dict[str, dict[SymbolId, str]] = {}
+    for raw_name, func in funcs.items():
+        sid_to_raw = _collect_all_sids(func)
+        name_map: dict[SymbolId, str] = {}
+        for sid, raw in sid_to_raw.items():
+            name_map[sid] = _legalize_one(raw)
+        binder_names[raw_name] = name_map
+
+    return ModuleNamePlan(
+        function_names=function_names,
+        binder_names=binder_names,
+    )
+
+
+def apply_module_plan(
+    funcs: dict[str, RestrictedFunction],
+    plan: ModuleNamePlan,
+) -> dict[str, RestrictedFunction]:
+    """Apply a ``ModuleNamePlan`` to all functions in a module.
+
+    Rewrites binder names, callee names, and function identities.
+    """
+    result: dict[str, RestrictedFunction] = {}
+    for raw_name, func in funcs.items():
+        name_map = plan.binder_names.get(raw_name, {})
+        new_param_names = tuple(
+            name_map.get(sid, n) for sid, n in zip(func.params, func.param_names)
+        )
+        new_return_names = tuple(
+            name_map.get(sid, n) for sid, n in zip(func.returns, func.return_names)
+        )
+        new_body = tuple(
+            _rewrite_stmt(s, name_map, plan.function_names) for s in func.body
+        )
+        result[raw_name] = RestrictedFunction(
+            name=func.name,
+            params=func.params,
+            param_names=new_param_names,
+            returns=func.returns,
+            return_names=new_return_names,
+            body=new_body,
+        )
     return result
 
 
+# Backward-compatible alias.
+def plan_module_names(
+    funcs: dict[str, RestrictedFunction],
+) -> dict[str, str]:
+    """Build a raw-name → clean-name mapping for all functions in a module."""
+    return plan_module(funcs).function_names
+
+
 # ---------------------------------------------------------------------------
-# Public API
+# Public API (per-function, low-level)
 # ---------------------------------------------------------------------------
 
 
@@ -237,13 +304,10 @@ def legalize_names(
     *,
     callee_names: dict[str, str] | None = None,
 ) -> RestrictedFunction:
-    """Legalize all variable names in a ``RestrictedFunction``.
+    """Legalize all variable names in a single ``RestrictedFunction``.
 
-    Demangles compiler-generated names, sanitizes identifiers, and
-    avoids reserved Lean helper names.
-
-    If *callee_names* is provided, also rewrites ``RModelCall.name``
-    and ``RCallAssign.callee`` to their emitted model names.
+    Low-level API. For module-wide legalization, prefer
+    :func:`plan_module` + :func:`apply_module_plan`.
     """
     sid_to_raw = _collect_all_sids(func)
 

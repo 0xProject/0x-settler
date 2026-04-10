@@ -37,7 +37,7 @@ from restricted_ir import (
     RRef,
     RStatement,
 )
-from restricted_names import legalize_names, plan_module_names
+from restricted_names import apply_module_plan, legalize_names, plan_module
 from yul_ast import SymbolId
 
 # Import the old pipeline's IR types for the output.
@@ -187,16 +187,16 @@ def _convert_conditional(
     # Process then-branch with branch-local SSA state.
     then_ctx = ctx.copy()
     then_stmts = _convert_branch_block(stmt.then_branch.assignments, then_ctx)
-    then_outputs: list[str] = []
-    for expr in stmt.then_branch.output_exprs:
-        then_outputs.append(_ssa_name_for_output_expr(expr, then_ctx))
+    then_outputs: list[Expr] = [
+        _convert_expr(e, then_ctx) for e in stmt.then_branch.output_exprs
+    ]
 
     # Process else-branch with branch-local SSA state.
     else_ctx = ctx.copy()
     else_stmts = _convert_branch_block(stmt.else_branch.assignments, else_ctx)
-    else_outputs: list[str] = []
-    for expr in stmt.else_branch.output_exprs:
-        else_outputs.append(_ssa_name_for_output_expr(expr, else_ctx))
+    else_outputs: list[Expr] = [
+        _convert_expr(e, else_ctx) for e in stmt.else_branch.output_exprs
+    ]
 
     # Generate merge-point SSA names using the OUTER context.
     output_vars: list[str] = []
@@ -229,13 +229,6 @@ def _convert_branch_block(
     for stmt in stmts:
         _convert_stmt(stmt, ctx, out)
     return out
-
-
-def _ssa_name_for_output_expr(expr: RExpr, ctx: _SSACtx) -> str:
-    """Get the SSA name for a branch output expression."""
-    if isinstance(expr, RRef):
-        return ctx.lookup(expr.symbol_id)
-    raise ValueError(f"Branch output must be RRef, got {type(expr).__name__}: {expr!r}")
 
 
 # ---------------------------------------------------------------------------
@@ -316,13 +309,75 @@ def to_function_models(
 ) -> dict[str, FunctionModel]:
     """Convert a module of ``RestrictedFunction``s to ``FunctionModel``s.
 
-    Automatically demangles function names, builds the callee-name
-    mapping, and converts each function.  Returns a dict keyed by
-    clean (emitted) function names.
+    Builds a ``ModuleNamePlan`` that owns all naming decisions
+    (function names, binder names, reserved-name avoidance), applies
+    it, then runs SSA per function.  Returns a dict keyed by clean
+    (emitted) function names.
     """
-    callee_names = plan_module_names(funcs)
+    name_plan = plan_module(funcs)
+    legalized = apply_module_plan(funcs, name_plan)
     models: dict[str, FunctionModel] = {}
-    for raw_name, func in funcs.items():
-        sol_name = callee_names[raw_name]
-        models[sol_name] = to_function_model(func, sol_name, callee_names=callee_names)
+    for raw_name, func in legalized.items():
+        sol_name = name_plan.function_names[raw_name]
+        # Name legalization already applied by apply_module_plan.
+        models[sol_name] = _ssa_and_model(func, sol_name)
     return models
+
+
+def _ssa_and_model(func: RestrictedFunction, sol_fn_name: str) -> FunctionModel:
+    """SSA renaming + FunctionModel construction (no legalization)."""
+    ctx = _SSACtx()
+    param_ssa: list[str] = []
+    for sid, name in zip(func.params, func.param_names):
+        ssa = ctx.assign(sid, name)
+        param_ssa.append(ssa)
+    assignments: list[ModelStatement] = []
+    for sid, name in zip(func.returns, func.return_names):
+        if _needs_zero_init(sid, func.body):
+            ssa = ctx.assign(sid, name)
+            assignments.append(Assignment(target=ssa, expr=IntLit(0)))
+    body_stmts = _convert_block(func.body, ctx)
+    assignments.extend(body_stmts)
+    return_ssa: list[str] = []
+    for sid in func.returns:
+        return_ssa.append(ctx.lookup(sid))
+    return FunctionModel(
+        fn_name=sol_fn_name,
+        assignments=tuple(assignments),
+        param_names=tuple(param_ssa),
+        return_names=tuple(return_ssa),
+    )
+
+
+def translate_module(
+    yul_text: str,
+    *,
+    builtins: frozenset[str] | None = None,
+) -> dict[str, FunctionModel]:
+    """Full pipeline: Yul source → dict of ``FunctionModel``s.
+
+    This is the public entry point for the new staged pipeline.
+    Handles parsing, resolution, normalization, inlining, constant
+    propagation, restricted IR lowering, name legalization, and SSA
+    renaming.
+    """
+    from norm_constprop import propagate_constants
+    from norm_inline import inline_pure_helpers
+    from norm_to_restricted import lower_to_restricted
+    from yul_normalize import normalize_function
+    from yul_parser import SyntaxParser
+    from yul_resolve import resolve_module
+    from yul_to_lean import _EVM_BUILTINS, tokenize_yul
+
+    if builtins is None:
+        builtins = _EVM_BUILTINS
+    tokens = tokenize_yul(yul_text)
+    funcs = SyntaxParser(tokens).parse_functions()
+    resolved = resolve_module(funcs, builtins=builtins)
+    restricted: dict[str, RestrictedFunction] = {}
+    for name, result in resolved.items():
+        nf = normalize_function(result.func, result)
+        nf = inline_pure_helpers(nf)
+        nf = propagate_constants(nf)
+        restricted[name] = lower_to_restricted(nf)
+    return to_function_models(restricted)

@@ -101,12 +101,13 @@ class ConditionalBranch:
 
     ``assignments`` are the branch-local statements (may include
     nested ``ConditionalBlock`` for the new pipeline).
-    ``outputs`` lists the variables whose values become the outer
+    ``outputs`` are the expressions whose values become the outer
     ``ConditionalBlock.output_vars`` when this branch is taken.
+    Typically ``Var(name)`` but may be any ``Expr``.
     """
 
     assignments: tuple["ModelStatement", ...]
-    outputs: tuple[str, ...]
+    outputs: tuple["Expr", ...]
 
 
 @dataclass(frozen=True)
@@ -4648,14 +4649,16 @@ def yul_function_to_model(
                     output_vars.append(out)
                     var_map[raw] = out
 
-                then_outputs = tuple(
-                    then_raw_map.get(r, pre_if_names[r]) for r in modified_raws
+                then_outputs: tuple[Expr, ...] = tuple(
+                    Var(then_raw_map.get(r, pre_if_names[r])) for r in modified_raws
                 )
                 if stmt.else_body is None:
-                    else_outputs = tuple(pre_if_names[r] for r in modified_raws)
+                    else_outputs: tuple[Expr, ...] = tuple(
+                        Var(pre_if_names[r]) for r in modified_raws
+                    )
                 else:
                     else_outputs = tuple(
-                        else_raw_map.get(r, pre_if_names[r]) for r in modified_raws
+                        Var(else_raw_map.get(r, pre_if_names[r])) for r in modified_raws
                     )
 
                 assignments.append(
@@ -4808,13 +4811,19 @@ def _prune_dead_assignments(
         if not needed_outputs:
             continue
 
+        then_out_live: set[str] = set()
+        for idx in needed_indices:
+            then_out_live.update(_expr_vars(stmt.then_branch.outputs[idx]))
         then_assignments, then_live = _prune_assignment_block(
             stmt.then_branch.assignments,
-            {stmt.then_branch.outputs[idx] for idx in needed_indices},
+            then_out_live,
         )
+        else_out_live: set[str] = set()
+        for idx in needed_indices:
+            else_out_live.update(_expr_vars(stmt.else_branch.outputs[idx]))
         else_assignments, else_live = _prune_assignment_block(
             stmt.else_branch.assignments,
-            {stmt.else_branch.outputs[idx] for idx in needed_indices},
+            else_out_live,
         )
 
         live.difference_update(needed_outputs)
@@ -5262,12 +5271,14 @@ def validate_function_model(model: FunctionModel) -> None:
                     f"Model {model.fn_name!r} has mismatched {label} output "
                     f"arity: {len(branch.outputs)} vs {len(cond.output_vars)}"
                 )
-            missing_outputs = set(branch.outputs) - branch_scope
-            if missing_outputs:
-                raise ParseError(
-                    f"Model {model.fn_name!r} has undefined {label} outputs: "
-                    f"{sorted(missing_outputs)}"
-                )
+            for out_expr in branch.outputs:
+                _validate_expr_shape(out_expr)
+                missing_out = _expr_vars(out_expr) - branch_scope
+                if missing_out:
+                    raise ParseError(
+                        f"Model {model.fn_name!r} has undefined {label} outputs: "
+                        f"{sorted(missing_out)}"
+                    )
 
     def _validate_expr_shape(expr: Expr) -> None:
         """Reject structurally malformed expressions."""
@@ -5570,8 +5581,16 @@ def _evaluate_statement_block(
             model_table=model_table,
             call_stack=call_stack,
         )
-        for target, source in zip(stmt.output_vars, branch.outputs, strict=True):
-            scope[target] = branch_scope[source]
+        for target, out_expr in zip(stmt.output_vars, branch.outputs, strict=True):
+            scope[target] = _expect_scalar(
+                evaluate_model_expr(
+                    out_expr,
+                    branch_scope,
+                    model_table=model_table,
+                    call_stack=call_stack,
+                ),
+                context=f"branch output for {target!r}",
+            )
 
     return scope
 
@@ -5763,6 +5782,88 @@ def _localize_statement_cse(
     assert_never(stmt)
 
 
+def _hoist_calls_in_block(
+    stmts: tuple[ModelStatement, ...],
+    *,
+    scope: set[str],
+    model_call_names: frozenset[str],
+) -> tuple[ModelStatement, ...]:
+    """Block-local CSE: hoist repeated model calls within one block.
+
+    Only counts calls in guaranteed-executed positions of THIS block
+    (not inside conditional branch bodies). For each ConditionalBlock,
+    recurses independently into each branch. Never moves a call above
+    a conditional boundary.
+    """
+    # Pass 1: count model calls at this block level only.
+    counts: Counter[Expr] = Counter()
+    for s in stmts:
+        if isinstance(s, Assignment):
+            _walk_model_calls(s.expr, model_call_names, counts)
+        elif isinstance(s, ConditionalBlock):
+            _walk_model_calls(s.condition, model_call_names, counts)
+
+    # Find hoistable: repeated, pure model calls, args in scope.
+    hoistable = [
+        node
+        for node, count in counts.items()
+        if count > 1
+        and isinstance(node, Call)
+        and _expr_vars(node).issubset(scope)
+        and (
+            node.name in model_call_names
+            or _is_component_wrapped_model_call(node, model_call_names)
+        )
+    ]
+    hoistable.sort(key=_expr_size)
+
+    # Build replacements + hoisted let-bindings.
+    replacements: dict[Expr, str] = {}
+    hoisted: list[Assignment] = []
+    for call in hoistable:
+        name = _gensym("cse")
+        expr = _replace_expr(call, replacements)
+        hoisted.append(Assignment(target=name, expr=expr))
+        replacements[call] = name
+
+    # Track scope for branch recursion.
+    local_scope = set(scope)
+    for a in hoisted:
+        local_scope.add(a.target)
+
+    # Rewrite + recurse.
+    result: list[ModelStatement] = list(hoisted)
+    for s in stmts:
+        rewritten = _replace_statement(s, replacements) if replacements else s
+        if isinstance(rewritten, ConditionalBlock):
+            rewritten = ConditionalBlock(
+                condition=rewritten.condition,
+                output_vars=rewritten.output_vars,
+                then_branch=ConditionalBranch(
+                    assignments=_hoist_calls_in_block(
+                        rewritten.then_branch.assignments,
+                        scope=local_scope,
+                        model_call_names=model_call_names,
+                    ),
+                    outputs=rewritten.then_branch.outputs,
+                ),
+                else_branch=ConditionalBranch(
+                    assignments=_hoist_calls_in_block(
+                        rewritten.else_branch.assignments,
+                        scope=local_scope,
+                        model_call_names=model_call_names,
+                    ),
+                    outputs=rewritten.else_branch.outputs,
+                ),
+            )
+            local_scope.update(rewritten.output_vars)
+        elif isinstance(rewritten, Assignment):
+            local_scope.add(rewritten.target)
+        result.append(rewritten)
+
+    return tuple(result)
+
+
 def hoist_repeated_model_calls(
     model: FunctionModel,
     *,
@@ -5770,88 +5871,28 @@ def hoist_repeated_model_calls(
 ) -> FunctionModel:
     """Hoist repeated pure model-call sub-expressions into let-bindings.
 
-    Collects repeated calls across *all* statements (assignments and
-    conditional blocks), but only hoists them globally when every argument
-    depends solely on function parameters. Calls that mention local or
-    branch-assigned variables are hoisted only immediately before the
-    statement that uses them (or inside the relevant conditional branch).
-    This keeps hoisting within scopes where the referenced bindings are
-    definitely available. Model calls are assumed pure.
+    Uses block-local recursive CSE: each statement block (top-level,
+    then-branch, else-branch) is processed independently. Repeated
+    calls within a block are hoisted to the top of that block. Calls
+    are never moved across conditional boundaries.
     """
-    # Initialize CSE counter past any existing _cse_N names (params, returns,
-    # and assignment targets) to avoid collisions.
+    # Initialize CSE counter past any existing _cse_N names.
     max_cse = 0
-    for name in (*model.param_names, *model.return_names):
-        m = re.fullmatch(r"_cse_(\d+)", name)
-        if m:
-            max_cse = max(max_cse, int(m.group(1)))
-    all_binders = _collect_model_binders(model)
-    for binder in all_binders:
-        m = re.fullmatch(r"_cse_(\d+)", binder)
-        if m:
-            max_cse = max(max_cse, int(m.group(1)))
+    for binder in _collect_model_binders(model):
+        m_cse = re.fullmatch(r"_cse_(\d+)", binder)
+        if m_cse:
+            max_cse = max(max_cse, int(m_cse.group(1)))
     _gensym_counters["cse"] = max_cse
 
-    # -- Pass 1: count occurrences across the entire model -----------------
-    counts: Counter[Expr] = Counter()
-
-    def _walk_stmt_calls(s: ModelStatement) -> None:
-        if isinstance(s, Assignment):
-            _walk_model_calls(s.expr, model_call_names, counts)
-        elif isinstance(s, ConditionalBlock):
-            # Only count calls in the condition (always evaluated).
-            # Do NOT recurse into branch bodies — those are lazily
-            # evaluated and hoisting calls out of them is unsound
-            # (model calls may diverge or fail on untaken paths).
-            _walk_model_calls(s.condition, model_call_names, counts)
-
-    for stmt in model.assignments:
-        _walk_stmt_calls(stmt)
-
-    param_names = set(model.param_names)
-    repeated_global = [
-        node
-        for node, count in counts.items()
-        if count > 1
-        and isinstance(node, Call)
-        and _expr_vars(node).issubset(param_names)
-    ]
-    repeated_global.sort(key=_expr_size)
-
-    # Sanity: every hoisted call must be a known-pure model call.
-    for call in repeated_global:
-        if call.name not in model_call_names and not _is_component_wrapped_model_call(
-            call, model_call_names
-        ):
-            raise ParseError(f"CSE: refusing to hoist non-model call {call!r}")
-
-    # -- Pass 2: build global replacements and hoisted let-bindings --------
-    global_replacements: dict[Expr, str] = {}
-    hoisted_global: list[Assignment] = []
-    for call in repeated_global:
-        hoisted_name = _gensym("cse")
-        hoisted_expr = _replace_expr(call, global_replacements)
-        hoisted_global.append(Assignment(target=hoisted_name, expr=hoisted_expr))
-        global_replacements[call] = hoisted_name
-
-    # -- Pass 3: rewrite all statements with global replacements -----------
-    rewritten_statements = [
-        _replace_statement(stmt, global_replacements) for stmt in model.assignments
-    ]
-
-    # -- Pass 4: locally hoist remaining repeated calls in safe scopes -----
-    new_assignments: list[ModelStatement] = list(hoisted_global)
-    for stmt in rewritten_statements:
-        new_assignments.extend(
-            _localize_statement_cse(
-                stmt,
-                model_call_names=model_call_names,
-            )
-        )
+    new_stmts = _hoist_calls_in_block(
+        model.assignments,
+        scope=set(model.param_names),
+        model_call_names=model_call_names,
+    )
 
     result = FunctionModel(
         fn_name=model.fn_name,
-        assignments=tuple(new_assignments),
+        assignments=new_stmts,
         param_names=model.param_names,
         return_names=model.return_names,
     )
@@ -6484,10 +6525,16 @@ def build_model_body(
             rhs_expr = config.norm_rewrite(rhs_expr)
         return emit_expr(rhs_expr, helper_map=merged_map)
 
-    def _emit_tuple(vars_: tuple[str, ...]) -> str:
+    def _emit_name_tuple(vars_: tuple[str, ...]) -> str:
         if len(vars_) == 1:
             return vars_[0]
         return f"({', '.join(vars_)})"
+
+    def _emit_expr_tuple(exprs: tuple[Expr, ...]) -> str:
+        parts = [_emit_rhs(e) for e in exprs]
+        if len(parts) == 1:
+            return parts[0]
+        return f"({', '.join(parts)})"
 
     def _emit_stmts(stmts: tuple[ModelStatement, ...], indent: int) -> None:
         prefix = " " * indent
@@ -6497,13 +6544,13 @@ def build_model_body(
                 lines.append(f"{prefix}let {s.target} := {rhs}")
             elif isinstance(s, ConditionalBlock):
                 cond_str = _emit_rhs(s.condition)
-                lhs = _emit_tuple(s.output_vars)
+                lhs = _emit_name_tuple(s.output_vars)
                 lines.append(f"{prefix}let {lhs} := if ({cond_str}) ≠ 0 then")
                 _emit_stmts(s.then_branch.assignments, indent + 4)
-                lines.append(f"{prefix}    {_emit_tuple(s.then_branch.outputs)}")
+                lines.append(f"{prefix}    {_emit_expr_tuple(s.then_branch.outputs)}")
                 lines.append(f"{prefix}  else")
                 _emit_stmts(s.else_branch.assignments, indent + 4)
-                lines.append(f"{prefix}    {_emit_tuple(s.else_branch.outputs)}")
+                lines.append(f"{prefix}    {_emit_expr_tuple(s.else_branch.outputs)}")
             else:
                 assert_never(s)
 
