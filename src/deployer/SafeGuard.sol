@@ -256,7 +256,7 @@ contract EvmVersionDummy {
 /// | malicious owner | 1                  | recoverable | unanimous          |
 /// | malicious owner | less than quorum   | bricked     | n/a                |
 /// | malicious owner | quorum             | bricked     | 2 owners           |
-/// | malicious owner | all                | compromised | n/a                |
+/// | malicious owner | all minus 1        | compromised | n/a                |
 abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     using SafeLib for ISafeMinimal;
 
