@@ -38,7 +38,7 @@ from restricted_ir import (
     RStatement,
 )
 from restricted_names import apply_module_plan, legalize_names, plan_module
-from yul_ast import SymbolId
+from yul_ast import ParseError, SymbolId
 
 # Import the old pipeline's IR types for the output.
 from yul_to_lean import (
@@ -321,6 +321,9 @@ def to_function_models(
         sol_name = name_plan.function_names[raw_name]
         # Name legalization already applied by apply_module_plan.
         models[sol_name] = _ssa_and_model(func, sol_name)
+    from yul_to_lean import validate_selected_models
+
+    validate_selected_models(list(models.values()))
     return models
 
 
@@ -361,6 +364,27 @@ def translate_module(
     propagation, restricted IR lowering, name legalization, and SSA
     renaming.
     """
+    from yul_to_lean import _EVM_BUILTINS
+
+    if builtins is None:
+        builtins = _EVM_BUILTINS
+    groups = translate_groups(yul_text, builtins=builtins)
+    if not groups:
+        return {}
+    if len(groups) != 1:
+        raise ParseError(
+            "translate_module found multiple function groups; use translate_groups() "
+            "to translate object/code scopes independently"
+        )
+    return groups[0]
+
+
+def translate_groups(
+    yul_text: str,
+    *,
+    builtins: frozenset[str] | None = None,
+) -> list[dict[str, FunctionModel]]:
+    """Full pipeline: Yul source -> one model map per lexical function group."""
     from norm_constprop import propagate_constants
     from norm_inline import inline_pure_helpers
     from norm_to_restricted import lower_to_restricted
@@ -372,12 +396,15 @@ def translate_module(
     if builtins is None:
         builtins = _EVM_BUILTINS
     tokens = tokenize_yul(yul_text)
-    funcs = SyntaxParser(tokens).parse_functions()
-    resolved = resolve_module(funcs, builtins=builtins)
-    restricted: dict[str, RestrictedFunction] = {}
-    for name, result in resolved.items():
-        nf = normalize_function(result.func, result)
-        nf = inline_pure_helpers(nf)
-        nf = propagate_constants(nf)
-        restricted[name] = lower_to_restricted(nf)
-    return to_function_models(restricted)
+    groups = SyntaxParser(tokens).parse_function_groups()
+    out: list[dict[str, FunctionModel]] = []
+    for funcs in groups:
+        resolved = resolve_module(funcs, builtins=builtins)
+        restricted: dict[str, RestrictedFunction] = {}
+        for name, result in resolved.items():
+            nf = normalize_function(result.func, result)
+            nf = inline_pure_helpers(nf)
+            nf = propagate_constants(nf)
+            restricted[name] = lower_to_restricted(nf)
+        out.append(to_function_models(restricted))
+    return out

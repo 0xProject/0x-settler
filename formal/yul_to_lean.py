@@ -5087,18 +5087,33 @@ def collect_ops(expr: Expr) -> list[str]:
     return out
 
 
+def _walk_model_exprs_in_stmt(
+    stmt: ModelStatement,
+    visit: Callable[[Expr], None],
+) -> None:
+    """Visit every expression position reachable from a model statement."""
+    if isinstance(stmt, Assignment):
+        visit(stmt.expr)
+        return
+    if isinstance(stmt, ConditionalBlock):
+        visit(stmt.condition)
+        for s in stmt.then_branch.assignments:
+            _walk_model_exprs_in_stmt(s, visit)
+        for s in stmt.else_branch.assignments:
+            _walk_model_exprs_in_stmt(s, visit)
+        for expr in stmt.then_branch.outputs:
+            visit(expr)
+        for expr in stmt.else_branch.outputs:
+            visit(expr)
+        return
+    assert_never(stmt)
+
+
 def collect_ops_from_statement(stmt: ModelStatement) -> list[str]:
     """Collect opcodes from an Assignment or ConditionalBlock."""
-    if isinstance(stmt, Assignment):
-        return collect_ops(stmt.expr)
-    if isinstance(stmt, ConditionalBlock):
-        ops = collect_ops(stmt.condition)
-        for s in stmt.then_branch.assignments:
-            ops.extend(collect_ops_from_statement(s))
-        for s in stmt.else_branch.assignments:
-            ops.extend(collect_ops_from_statement(s))
-        return ops
-    assert_never(stmt)
+    ops: list[str] = []
+    _walk_model_exprs_in_stmt(stmt, lambda expr: ops.extend(collect_ops(expr)))
+    return ops
 
 
 def ordered_unique(items: list[str]) -> list[str]:
@@ -5733,6 +5748,16 @@ def _hoist_repeated_calls_in_expr(
     return hoisted, _replace_expr(expr, replacements)
 
 
+def _is_hoistable_model_expr(
+    expr: Expr,
+    *,
+    model_call_names: frozenset[str],
+) -> bool:
+    if isinstance(expr, Call):
+        return expr.name in model_call_names
+    return _is_component_wrapped_model_call(expr, model_call_names)
+
+
 def _localize_statement_cse(
     stmt: ModelStatement,
     *,
@@ -5808,12 +5833,8 @@ def _hoist_calls_in_block(
         node
         for node, count in counts.items()
         if count > 1
-        and isinstance(node, Call)
         and _expr_vars(node).issubset(scope)
-        and (
-            node.name in model_call_names
-            or _is_component_wrapped_model_call(node, model_call_names)
-        )
+        and _is_hoistable_model_expr(node, model_call_names=model_call_names)
     ]
     hoistable.sort(key=_expr_size)
 
@@ -6272,14 +6293,10 @@ def validate_selected_models(models: list[FunctionModel]) -> None:
     def _collect_calls_from_stmt(
         s: ModelStatement, fn_name: str, out: set[str]
     ) -> None:
-        if isinstance(s, Assignment):
-            out.update(_check_calls(s.expr, fn_name))
-        elif isinstance(s, ConditionalBlock):
-            out.update(_check_calls(s.condition, fn_name))
-            for sub in s.then_branch.assignments:
-                _collect_calls_from_stmt(sub, fn_name, out)
-            for sub in s.else_branch.assignments:
-                _collect_calls_from_stmt(sub, fn_name, out)
+        _walk_model_exprs_in_stmt(
+            s,
+            lambda expr: out.update(_check_calls(expr, fn_name)),
+        )
 
     for model in models:
         for stmt in model.assignments:

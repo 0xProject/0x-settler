@@ -77,6 +77,22 @@ def _legalize_one(name: str) -> str:
     return _sanitize(_demangle(name))
 
 
+def _uniquify_name_bases(raw_names: dict[SymbolId, str]) -> dict[SymbolId, str]:
+    """Legalize and uniquify binder base names while preserving order."""
+    result: dict[SymbolId, str] = {}
+    used: set[str] = set()
+    for sid, raw in raw_names.items():
+        base = _legalize_one(raw)
+        candidate = base
+        suffix = 1
+        while candidate in used or candidate in _RESERVED_LEAN_NAMES:
+            candidate = f"{base}_{suffix}"
+            suffix += 1
+        used.add(candidate)
+        result[sid] = candidate
+    return result
+
+
 # ---------------------------------------------------------------------------
 # IR rewriting helpers
 # ---------------------------------------------------------------------------
@@ -244,10 +260,7 @@ def plan_module(
     binder_names: dict[str, dict[SymbolId, str]] = {}
     for raw_name, func in funcs.items():
         sid_to_raw = _collect_all_sids(func)
-        name_map: dict[SymbolId, str] = {}
-        for sid, raw in sid_to_raw.items():
-            name_map[sid] = _legalize_one(raw)
-        binder_names[raw_name] = name_map
+        binder_names[raw_name] = _uniquify_name_bases(sid_to_raw)
 
     return ModuleNamePlan(
         function_names=function_names,

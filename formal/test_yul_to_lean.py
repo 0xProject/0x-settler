@@ -13443,6 +13443,10 @@ class SSAModelTest(unittest.TestCase):
                 self._check_calls_in_stmt(s, model_names)
             for s in stmt.else_branch.assignments:
                 self._check_calls_in_stmt(s, model_names)
+            for expr in stmt.then_branch.outputs:
+                self._check_calls_in_expr(expr, model_names)
+            for expr in stmt.else_branch.outputs:
+                self._check_calls_in_expr(expr, model_names)
 
     def _check_calls_in_expr(self, expr: ytl.Expr, model_names: set[str]) -> None:
         if isinstance(expr, ytl.Call):
@@ -13618,6 +13622,121 @@ class SSAModelTest(unittest.TestCase):
                 f"Mismatch at x={x}, y={y}",
             )
 
+    def test_validate_selected_models_rejects_branch_output_cycle(self) -> None:
+        """Cross-model validation must inspect calls that appear only in branch outputs."""
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("p",),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment("out", ytl.IntLit(0)),
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("p"),
+                    output_vars=("out",),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=(ytl.Call("f", (ytl.Var("p"),)),),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=(ytl.IntLit(0),),
+                    ),
+                ),
+            ),
+        )
+        with self.assertRaisesRegex(ytl.ParseError, "Cycle detected"):
+            ytl.validate_selected_models([model])
+
+    def test_validate_selected_models_rejects_unresolved_branch_output_call(
+        self,
+    ) -> None:
+        """Cross-model validation must reject unresolved calls in branch outputs."""
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("p",),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment("out", ytl.IntLit(0)),
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("p"),
+                    output_vars=("out",),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=(ytl.Call("missing", (ytl.Var("p"),)),),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=(ytl.IntLit(0),),
+                    ),
+                ),
+            ),
+        )
+        with self.assertRaisesRegex(ytl.ParseError, "unresolved call target"):
+            ytl.validate_selected_models([model])
+
+    def test_validate_selected_models_rejects_multi_return_branch_output_scalar_use(
+        self,
+    ) -> None:
+        """Branch outputs in scalar context must not hide tuple-returning model calls."""
+        callee = ytl.FunctionModel(
+            fn_name="g",
+            param_names=("x",),
+            return_names=("a", "b"),
+            assignments=(
+                ytl.Assignment("a", ytl.Var("x")),
+                ytl.Assignment("b", ytl.IntLit(1)),
+            ),
+        )
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("p",),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment("out", ytl.IntLit(0)),
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("p"),
+                    output_vars=("out",),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=(ytl.Call("g", (ytl.Var("p"),)),),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=(ytl.IntLit(0),),
+                    ),
+                ),
+            ),
+        )
+        with self.assertRaisesRegex(ytl.ParseError, "multi-return function"):
+            ytl.validate_selected_models([model, callee])
+
+    def test_collect_model_opcodes_includes_branch_output_exprs(self) -> None:
+        """Builtin calls used only in branch outputs must still count as used opcodes."""
+        model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("out",),
+            assignments=(
+                ytl.Assignment("out", ytl.IntLit(0)),
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("x"),
+                    output_vars=("out",),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=(ytl.Call("clz", (ytl.Var("x"),)),),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=(ytl.IntLit(0),),
+                    ),
+                ),
+            ),
+        )
+        self.assertEqual(
+            ytl.collect_model_opcodes([model]),
+            [ytl.OP_TO_OPCODE["clz"]],
+        )
+
     # ------------------------------------------------------------------
     # Regression: positive branch-local hoist (finding 2)
     # ------------------------------------------------------------------
@@ -13689,6 +13808,43 @@ class SSAModelTest(unittest.TestCase):
                 ytl.evaluate_function_model(hoisted, (p,), model_table=table),
             )
 
+    def test_hoist_projected_model_call_top_level(self) -> None:
+        """Repeated projected model calls should still be hoisted."""
+        f_model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Call(
+                        "add",
+                        (
+                            ytl.Project(
+                                0,
+                                2,
+                                ytl.Call("g", (ytl.Var("x"),)),
+                            ),
+                            ytl.Project(
+                                0,
+                                2,
+                                ytl.Call("g", (ytl.Var("x"),)),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        hoisted = ytl.hoist_repeated_model_calls(
+            f_model, model_call_names=frozenset({"g"})
+        )
+        cse_assigns = [
+            s
+            for s in hoisted.assignments
+            if isinstance(s, ytl.Assignment) and s.target.startswith("_cse")
+        ]
+        self.assertTrue(cse_assigns, "Projected model call was not hoisted")
+
     # ------------------------------------------------------------------
     # Regression: ModuleNamePlan (finding 3)
     # ------------------------------------------------------------------
@@ -13712,6 +13868,36 @@ class SSAModelTest(unittest.TestCase):
         self.assertEqual(len(names), len(set(names)), f"Duplicate names: {names}")
         for n in names:
             ytl.validate_ident(n, what="planned function name")
+
+    def test_name_plan_binder_uniqueness(self) -> None:
+        """ModuleNamePlan must uniquify colliding binder base names too."""
+        from restricted_ir import RAssignment, RConst
+        from restricted_names import plan_module
+
+        x_sid, z_sid, local_sid = (
+            yul_ast.SymbolId(10),
+            yul_ast.SymbolId(11),
+            yul_ast.SymbolId(12),
+        )
+        rf = RestrictedFunction(
+            name="f",
+            params=(x_sid,),
+            param_names=("var_x_1",),
+            returns=(z_sid,),
+            return_names=("var_z_2",),
+            body=(
+                RAssignment(
+                    target=local_sid,
+                    target_name="usr$x",
+                    expr=RConst(1),
+                ),
+            ),
+        )
+        plan = plan_module({"fun_f_1": rf})
+        names = list(plan.binder_names["fun_f_1"].values())
+        self.assertEqual(len(names), len(set(names)), f"Duplicate binder names: {names}")
+        for n in names:
+            ytl.validate_ident(n, what="planned binder name")
 
     def test_name_plan_binder_reserved(self) -> None:
         """ModuleNamePlan avoids reserved Lean names for binders."""
@@ -13772,6 +13958,36 @@ class SSAModelTest(unittest.TestCase):
         )
         for m in models.values():
             ytl.validate_function_model(m)
+
+    def test_translate_module_rejects_multiple_function_groups(self) -> None:
+        """translate_module must not silently drop later object/code groups."""
+        from restricted_to_model import translate_module
+
+        with self.assertRaisesRegex(ytl.ParseError, "multiple function groups"):
+            translate_module("""
+                object "A" { code {
+                    function f(x) -> z { z := add(x, 1) }
+                } }
+                object "B" { code {
+                    function g(x) -> z { z := add(x, 2) }
+                } }
+            """)
+
+    def test_translate_groups_handles_multiple_function_groups(self) -> None:
+        """translate_groups returns one model-map per lexical function group."""
+        from restricted_to_model import translate_groups
+
+        groups = translate_groups("""
+            object "A" { code {
+                function f(x) -> z { z := add(x, 1) }
+            } }
+            object "B" { code {
+                function g(x) -> z { z := add(x, 2) }
+            } }
+        """)
+        self.assertEqual(len(groups), 2)
+        self.assertEqual(sorted(groups[0].keys()), ["f"])
+        self.assertEqual(sorted(groups[1].keys()), ["g"])
 
 
 if __name__ == "__main__":
