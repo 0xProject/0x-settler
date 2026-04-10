@@ -100,7 +100,7 @@ class ConditionalBranch:
     """A single branch of a restricted-IR conditional.
 
     ``assignments`` are the branch-local statements (may include
-    nested ``ConditionalBlock`` for the new pipeline).
+    nested ``ConditionalBlock``).
     ``outputs`` are the expressions whose values become the outer
     ``ConditionalBlock.output_vars`` when this branch is taken.
     Typically ``Var(name)`` but may be any ``Expr``.
@@ -345,25 +345,6 @@ class RejectedHelperInfo:
 
 
 RejectedHelperMap = dict[str, RejectedHelperInfo]
-
-
-@dataclass(frozen=True)
-class CollectedFunctions:
-    """All helper functions discovered during a collection pass.
-
-    ``functions`` contains successfully parsed helpers.
-    ``rejected`` records helper bindings whose bodies were rejected.
-    ``deferred`` contains helpers (alpha-renamed to unique binding names)
-    that were resolved at parse time but require later sink-aware lowering.
-    ``deferred_rejected`` records rejected helpers that are transitively
-    referenced by deferred helper bodies. Keys may be mangled binding names;
-    ``RejectedHelperInfo.helper_name`` preserves the original source name.
-    """
-
-    functions: dict[str, YulFunction]
-    rejected: RejectedHelperMap
-    deferred: dict[str, YulFunction] = field(default_factory=dict)
-    deferred_rejected: RejectedHelperMap = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -1004,8 +985,8 @@ def _validate_function_syntax(
     """Run the pure syntax parser + binder resolver as a pre-pass.
 
     Catches duplicate declarations, illegal shadowing, undefined
-    variable references, and unsupported string literals before the
-    lowering parser runs.  Also classifies call targets against the
+    variable references before the lowering parser runs. Also
+    classifies call targets against the
     known EVM builtin set.  Raises ``ParseError`` on any violation.
 
     Returns the ``ResolutionResult`` for downstream use.
@@ -1824,7 +1805,7 @@ class YulParser(_TokenReader):
         # Pre-pass: run the pure syntax parser + binder resolver on
         # the same token range for early fail-closed validation.
         # This catches duplicate declarations, illegal shadowing, and
-        # unsupported string literals before the lowering parser runs.
+        # undefined references before the lowering parser runs.
         _validate_function_syntax(self.tokens, self.i)
 
         token_idx = self.i + self._token_offset
@@ -2213,70 +2194,6 @@ class YulParser(_TokenReader):
             return None
         return text
 
-    def collect_all_functions(self) -> CollectedFunctions:
-        """Parse all function definitions in the token stream.
-
-        Only collects functions at the top level of the token stream.
-        Brace-delimited blocks that are not function bodies (e.g.
-        ``object`` blocks) are skipped, so functions in different
-        ``object`` blocks never collide.  Duplicate function names
-        at the same scope level raise ``ParseError``.
-
-        Successfully parsed helpers go into ``functions``. Helpers whose
-        bodies fail to parse are recorded in ``rejected`` so later inlining
-        can fail loudly if a selected target depends on them.
-        """
-        functions: dict[str, YulFunction] = {}
-        rejected: RejectedHelperMap = {}
-        deferred: dict[str, YulFunction] = {}
-        deferred_rejected: RejectedHelperMap = {}
-        while not self._at_end():
-            if self._peek_kind() == "ident" and self.tokens[self.i][1] == "function":
-                saved_i = self.i
-                saved_stmts = self._expr_stmts
-                self._deferred_helpers = {}
-                try:
-                    fn = self.parse_function()
-                except ParseError as err:
-                    fn_name = self._function_name_at(saved_i) or f"<unknown@{saved_i}>"
-                    if fn_name in functions or fn_name in rejected:
-                        raise ParseError(
-                            f"Duplicate helper function {fn_name!r} in the "
-                            f"same scope. Refuse to collect ambiguous helpers."
-                        )
-                    rejected[fn_name] = RejectedHelperInfo(fn_name, str(err))
-                    self.i = saved_i
-                    self._skip_function_def()
-                    continue
-                finally:
-                    self._expr_stmts = saved_stmts
-                if fn.yul_name in functions or fn.yul_name in rejected:
-                    raise ParseError(
-                        f"Duplicate helper function {fn.yul_name!r} in the "
-                        f"same scope. Refuse to collect ambiguous helpers."
-                    )
-                functions[fn.yul_name] = fn
-                # Drain deferred helpers and their rejected dependencies
-                # accumulated while parsing this function's body.
-                deferred.update(self._deferred_helpers)
-                deferred_rejected.update(self._deferred_rejected)
-            elif self._peek_kind() == "{":
-                # Non-function brace block (object/code wrapper).
-                # Skip to matching } to avoid collecting functions
-                # from a different scope.
-                brace_idx = self.i
-                end_idx = self._find_matching_brace(brace_idx)
-                self.i = end_idx + 1
-            else:
-                self._pop()
-        return CollectedFunctions(
-            functions=functions,
-            rejected=rejected,
-            deferred=deferred,
-            deferred_rejected=deferred_rejected,
-        )
-
-
 # ---------------------------------------------------------------------------
 # Yul → FunctionModel conversion
 # ---------------------------------------------------------------------------
@@ -2478,59 +2395,6 @@ def _split_branch_scoped(
                 PlainAssignment(s.target, sub_expr, is_declaration=s.is_declaration)
             )
     return outer, enclosing_mods
-
-
-def _merge_helper_collection(
-    helper_table: dict[str, YulFunction],
-    rejected_helpers: RejectedHelperMap,
-    collection: CollectedFunctions,
-) -> None:
-    """Merge one lexical scope's helpers, with inner names overriding outer."""
-    for name, fn in collection.functions.items():
-        rejected_helpers.pop(name, None)
-        helper_table[name] = fn
-    for name, err in collection.rejected.items():
-        helper_table.pop(name, None)
-        rejected_helpers[name] = err
-    # Deferred helpers have alpha-renamed unique names — just add them.
-    for name, fn in collection.deferred.items():
-        helper_table[name] = fn
-    # Deferred rejected: helpers transitively referenced by deferred
-    # bodies that failed to parse.
-    for name, info in collection.deferred_rejected.items():
-        rejected_helpers[name] = info
-
-
-def _exclude_collected_helpers_by_token_idx(
-    collection: CollectedFunctions,
-    excluded_token_idxs: set[int],
-) -> CollectedFunctions:
-    """Drop helper entries whose absolute token index is already authoritative.
-
-    Parsed helpers carry ``token_idx`` provenance, so rescans can discard
-    helpers that belong to the selected target or one of its authoritative
-    deferred exports before merging them into the helper table.
-
-    Rejected helpers do not currently carry token provenance, so they are
-    preserved unchanged.
-    """
-    if not excluded_token_idxs:
-        return collection
-
-    return CollectedFunctions(
-        functions={
-            name: fn
-            for name, fn in collection.functions.items()
-            if fn.token_idx not in excluded_token_idxs
-        },
-        rejected=dict(collection.rejected),
-        deferred={
-            name: fn
-            for name, fn in collection.deferred.items()
-            if fn.token_idx not in excluded_token_idxs
-        },
-        deferred_rejected=dict(collection.deferred_rejected),
-    )
 
 
 def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
@@ -4661,14 +4525,20 @@ def _replace_statement(
                     _replace_statement(s, replacements)
                     for s in stmt.then_branch.assignments
                 ),
-                outputs=stmt.then_branch.outputs,
+                outputs=tuple(
+                    _replace_expr(expr, replacements)
+                    for expr in stmt.then_branch.outputs
+                ),
             ),
             else_branch=ConditionalBranch(
                 assignments=tuple(
                     _replace_statement(s, replacements)
                     for s in stmt.else_branch.assignments
                 ),
-                outputs=stmt.else_branch.outputs,
+                outputs=tuple(
+                    _replace_expr(expr, replacements)
+                    for expr in stmt.else_branch.outputs
+                ),
             ),
         )
     assert_never(stmt)
@@ -4713,53 +4583,120 @@ def _is_hoistable_model_expr(
     return _is_component_wrapped_model_call(expr, model_call_names)
 
 
-def _localize_statement_cse(
-    stmt: ModelStatement,
+def _count_block_level_model_calls(
+    stmts: tuple[ModelStatement, ...],
     *,
+    outputs: tuple[Expr, ...] = (),
     model_call_names: frozenset[str],
-) -> list[ModelStatement]:
-    if isinstance(stmt, Assignment):
-        hoisted, expr = _hoist_repeated_calls_in_expr(
-            stmt.expr,
-            model_call_names=model_call_names,
-        )
-        return [*hoisted, Assignment(target=stmt.target, expr=expr)]
+) -> Counter[Expr]:
+    counts: Counter[Expr] = Counter()
+    for stmt in stmts:
+        if isinstance(stmt, Assignment):
+            _walk_model_calls(stmt.expr, model_call_names, counts)
+        elif isinstance(stmt, ConditionalBlock):
+            _walk_model_calls(stmt.condition, model_call_names, counts)
+        else:
+            assert_never(stmt)
+    for expr in outputs:
+        _walk_model_calls(expr, model_call_names, counts)
+    return counts
 
-    if isinstance(stmt, ConditionalBlock):
-        prefix, condition = _hoist_repeated_calls_in_expr(
-            stmt.condition,
-            model_call_names=model_call_names,
-        )
 
-        then_stmts: list[ModelStatement] = []
-        for s in stmt.then_branch.assignments:
-            then_stmts.extend(
-                _localize_statement_cse(s, model_call_names=model_call_names)
-            )
+def _build_hoist_bindings(
+    counts: Counter[Expr],
+    *,
+    scope: set[str],
+    model_call_names: frozenset[str],
+) -> tuple[list[Assignment], dict[Expr, str]]:
+    hoistable = [
+        node
+        for node, count in counts.items()
+        if count > 1
+        and _expr_vars(node).issubset(scope)
+        and _is_hoistable_model_expr(node, model_call_names=model_call_names)
+    ]
+    hoistable.sort(key=_expr_size)
 
-        else_stmts: list[ModelStatement] = []
-        for s in stmt.else_branch.assignments:
-            else_stmts.extend(
-                _localize_statement_cse(s, model_call_names=model_call_names)
-            )
+    replacements: dict[Expr, str] = {}
+    hoisted: list[Assignment] = []
+    for call in hoistable:
+        name = _gensym("cse")
+        expr = _replace_expr(call, replacements)
+        hoisted.append(Assignment(target=name, expr=expr))
+        replacements[call] = name
+    return hoisted, replacements
 
-        return [
-            *prefix,
-            ConditionalBlock(
-                condition=condition,
-                output_vars=stmt.output_vars,
-                then_branch=ConditionalBranch(
-                    assignments=tuple(then_stmts),
-                    outputs=stmt.then_branch.outputs,
+
+def _hoist_calls_in_branch(
+    branch: ConditionalBranch,
+    *,
+    scope: set[str],
+    model_call_names: frozenset[str],
+) -> ConditionalBranch:
+    counts = _count_block_level_model_calls(
+        branch.assignments,
+        outputs=branch.outputs,
+        model_call_names=model_call_names,
+    )
+    hoisted, replacements = _build_hoist_bindings(
+        counts,
+        scope=scope,
+        model_call_names=model_call_names,
+    )
+    rewritten_assignments = _rewrite_hoisted_block(
+        branch.assignments,
+        scope=scope,
+        model_call_names=model_call_names,
+        hoisted=hoisted,
+        replacements=replacements,
+    )
+    rewritten_outputs = (
+        tuple(_replace_expr(expr, replacements) for expr in branch.outputs)
+        if replacements
+        else branch.outputs
+    )
+    return ConditionalBranch(
+        assignments=rewritten_assignments,
+        outputs=rewritten_outputs,
+    )
+
+
+def _rewrite_hoisted_block(
+    stmts: tuple[ModelStatement, ...],
+    *,
+    scope: set[str],
+    model_call_names: frozenset[str],
+    hoisted: list[Assignment],
+    replacements: dict[Expr, str],
+) -> tuple[ModelStatement, ...]:
+    local_scope = set(scope)
+    for assignment in hoisted:
+        local_scope.add(assignment.target)
+
+    result: list[ModelStatement] = list(hoisted)
+    for stmt in stmts:
+        rewritten = _replace_statement(stmt, replacements) if replacements else stmt
+        if isinstance(rewritten, ConditionalBlock):
+            rewritten = ConditionalBlock(
+                condition=rewritten.condition,
+                output_vars=rewritten.output_vars,
+                then_branch=_hoist_calls_in_branch(
+                    rewritten.then_branch,
+                    scope=local_scope,
+                    model_call_names=model_call_names,
                 ),
-                else_branch=ConditionalBranch(
-                    assignments=tuple(else_stmts),
-                    outputs=stmt.else_branch.outputs,
+                else_branch=_hoist_calls_in_branch(
+                    rewritten.else_branch,
+                    scope=local_scope,
+                    model_call_names=model_call_names,
                 ),
-            ),
-        ]
+            )
+            local_scope.update(rewritten.output_vars)
+        elif isinstance(rewritten, Assignment):
+            local_scope.add(rewritten.target)
+        result.append(rewritten)
 
-    assert_never(stmt)
+    return tuple(result)
 
 
 def _hoist_calls_in_block(
@@ -4775,69 +4712,19 @@ def _hoist_calls_in_block(
     recurses independently into each branch. Never moves a call above
     a conditional boundary.
     """
-    # Pass 1: count model calls at this block level only.
-    counts: Counter[Expr] = Counter()
-    for s in stmts:
-        if isinstance(s, Assignment):
-            _walk_model_calls(s.expr, model_call_names, counts)
-        elif isinstance(s, ConditionalBlock):
-            _walk_model_calls(s.condition, model_call_names, counts)
-
-    # Find hoistable: repeated, pure model calls, args in scope.
-    hoistable = [
-        node
-        for node, count in counts.items()
-        if count > 1
-        and _expr_vars(node).issubset(scope)
-        and _is_hoistable_model_expr(node, model_call_names=model_call_names)
-    ]
-    hoistable.sort(key=_expr_size)
-
-    # Build replacements + hoisted let-bindings.
-    replacements: dict[Expr, str] = {}
-    hoisted: list[Assignment] = []
-    for call in hoistable:
-        name = _gensym("cse")
-        expr = _replace_expr(call, replacements)
-        hoisted.append(Assignment(target=name, expr=expr))
-        replacements[call] = name
-
-    # Track scope for branch recursion.
-    local_scope = set(scope)
-    for a in hoisted:
-        local_scope.add(a.target)
-
-    # Rewrite + recurse.
-    result: list[ModelStatement] = list(hoisted)
-    for s in stmts:
-        rewritten = _replace_statement(s, replacements) if replacements else s
-        if isinstance(rewritten, ConditionalBlock):
-            rewritten = ConditionalBlock(
-                condition=rewritten.condition,
-                output_vars=rewritten.output_vars,
-                then_branch=ConditionalBranch(
-                    assignments=_hoist_calls_in_block(
-                        rewritten.then_branch.assignments,
-                        scope=local_scope,
-                        model_call_names=model_call_names,
-                    ),
-                    outputs=rewritten.then_branch.outputs,
-                ),
-                else_branch=ConditionalBranch(
-                    assignments=_hoist_calls_in_block(
-                        rewritten.else_branch.assignments,
-                        scope=local_scope,
-                        model_call_names=model_call_names,
-                    ),
-                    outputs=rewritten.else_branch.outputs,
-                ),
-            )
-            local_scope.update(rewritten.output_vars)
-        elif isinstance(rewritten, Assignment):
-            local_scope.add(rewritten.target)
-        result.append(rewritten)
-
-    return tuple(result)
+    counts = _count_block_level_model_calls(stmts, model_call_names=model_call_names)
+    hoisted, replacements = _build_hoist_bindings(
+        counts,
+        scope=scope,
+        model_call_names=model_call_names,
+    )
+    return _rewrite_hoisted_block(
+        stmts,
+        scope=scope,
+        model_call_names=model_call_names,
+        hoisted=hoisted,
+        replacements=replacements,
+    )
 
 
 def hoist_repeated_model_calls(

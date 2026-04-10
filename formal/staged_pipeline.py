@@ -11,15 +11,13 @@ restricted→model bridge in separate layers.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from norm_simplify import lower_leave, simplify_function_def, simplify_normalized
 from norm_validate import validate_restricted_boundary
 from staged_selection import (
-    FunctionKey,
     SelectedTargetInfo,
-    SelectionPlan,
+    _index_group_functions,
     build_selection_plan,
 )
 
@@ -36,32 +34,12 @@ from norm_ir import (
 from norm_walk import map_expr
 from restricted_ir import RestrictedFunction
 from restricted_to_model import to_function_models
-from yul_ast import (
-    Block,
-    BlockStmt,
-    ForStmt,
-    FunctionDef,
-    FunctionDefStmt,
-    IfStmt,
-    ParseError,
-    SwitchStmt,
-    SymbolId,
-)
+from yul_ast import ParseError
 from yul_normalize import normalize_function
-from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_module
 
 if TYPE_CHECKING:
     from yul_to_lean import FunctionModel, ModelConfig
-
-
-@dataclass(frozen=True)
-class _SyntaxFunctionInfo:
-    func: FunctionDef
-    group_idx: int
-    lexical_path: tuple[str, ...]
-    top_level_token_idx: int
-    top_level_name: str
 
 
 def translate_selected_models(
@@ -193,122 +171,15 @@ def _generated_model_def_names(
 ) -> frozenset[str]:
     names: set[str] = set()
     for sol_name in selected_functions:
-        base = config.model_names[sol_name]
+        base = config.model_names.get(sol_name)
+        if base is None:
+            raise ParseError(
+                f"Missing config.model_names entry for selected function {sol_name!r}"
+            )
         if sol_name not in config.skip_norm:
             names.add(base)
         names.add(f"{base}_evm")
     return frozenset(names)
-
-
-def _index_group_functions(
-    group_idx: int,
-    funcs: tuple[FunctionDef, ...],
-) -> dict[int, _SyntaxFunctionInfo]:
-    out: dict[int, _SyntaxFunctionInfo] = {}
-    for func in funcs:
-        _index_function(
-            func,
-            group_idx=group_idx,
-            lexical_path=(func.name,),
-            top_level_token_idx=func.span.start,
-            top_level_name=func.name,
-            out=out,
-        )
-    return out
-
-
-def _index_function(
-    func: FunctionDef,
-    *,
-    group_idx: int,
-    lexical_path: tuple[str, ...],
-    top_level_token_idx: int,
-    top_level_name: str,
-    out: dict[int, _SyntaxFunctionInfo],
-) -> None:
-    out[func.span.start] = _SyntaxFunctionInfo(
-        func=func,
-        group_idx=group_idx,
-        lexical_path=lexical_path,
-        top_level_token_idx=top_level_token_idx,
-        top_level_name=top_level_name,
-    )
-    _index_block(
-        func.body,
-        group_idx=group_idx,
-        lexical_path=lexical_path,
-        top_level_token_idx=top_level_token_idx,
-        top_level_name=top_level_name,
-        out=out,
-    )
-
-
-def _index_block(
-    block: Block,
-    *,
-    group_idx: int,
-    lexical_path: tuple[str, ...],
-    top_level_token_idx: int,
-    top_level_name: str,
-    out: dict[int, _SyntaxFunctionInfo],
-) -> None:
-    for stmt in block.stmts:
-        if isinstance(stmt, FunctionDefStmt):
-            _index_function(
-                stmt.func,
-                group_idx=group_idx,
-                lexical_path=lexical_path + (stmt.func.name,),
-                top_level_token_idx=top_level_token_idx,
-                top_level_name=top_level_name,
-                out=out,
-            )
-        elif isinstance(stmt, BlockStmt):
-            _index_block(
-                stmt.block,
-                group_idx=group_idx,
-                lexical_path=lexical_path,
-                top_level_token_idx=top_level_token_idx,
-                top_level_name=top_level_name,
-                out=out,
-            )
-        elif isinstance(stmt, IfStmt):
-            _index_block(
-                stmt.body,
-                group_idx=group_idx,
-                lexical_path=lexical_path,
-                top_level_token_idx=top_level_token_idx,
-                top_level_name=top_level_name,
-                out=out,
-            )
-        elif isinstance(stmt, SwitchStmt):
-            for case in stmt.cases:
-                _index_block(
-                    case.body,
-                    group_idx=group_idx,
-                    lexical_path=lexical_path,
-                    top_level_token_idx=top_level_token_idx,
-                    top_level_name=top_level_name,
-                    out=out,
-                )
-            if stmt.default is not None:
-                _index_block(
-                    stmt.default.body,
-                    group_idx=group_idx,
-                    lexical_path=lexical_path,
-                    top_level_token_idx=top_level_token_idx,
-                    top_level_name=top_level_name,
-                    out=out,
-                )
-        elif isinstance(stmt, ForStmt):
-            for sub in (stmt.init, stmt.post, stmt.body):
-                _index_block(
-                    sub,
-                    group_idx=group_idx,
-                    lexical_path=lexical_path,
-                    top_level_token_idx=top_level_token_idx,
-                    top_level_name=top_level_name,
-                    out=out,
-                )
 
 
 def _build_local_selected_map(

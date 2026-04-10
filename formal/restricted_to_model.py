@@ -11,7 +11,7 @@ The pipeline is:
 2. **SSA renaming** (this module): version base names and build
    ``FunctionModel`` with recursive branch support.
 
-SSA naming rules match the old pipeline:
+SSA naming rules for the emitted ``FunctionModel`` are:
 - First assignment to a clean name uses the bare name (e.g. ``z``)
 - Subsequent assignments suffix ``_{n-1}`` (e.g. ``z_1``, ``z_2``)
 - Collisions with already-emitted names are skipped
@@ -40,7 +40,7 @@ from restricted_ir import (
 from restricted_names import apply_module_plan, legalize_names, plan_module
 from yul_ast import SymbolId
 
-# Import the old pipeline's IR types for the output.
+# Import the shared output IR types.
 from yul_to_lean import (
     Assignment,
     Call,

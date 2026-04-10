@@ -37,12 +37,6 @@ from yul_ast import (
 from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_module
 
-
-def _span_size(item: tuple[int, FunctionDef]) -> int:
-    """Sort key: span width of the FunctionDef in a (group_idx, func) pair."""
-    return item[1].span.end - item[1].span.start
-
-
 if TYPE_CHECKING:
     from yul_to_lean import ModelConfig
 
@@ -83,40 +77,6 @@ class _SyntaxFunctionInfo:
     lexical_path: tuple[str, ...]
     top_level_token_idx: int
     top_level_name: str
-
-
-def _group_for_token(
-    parsed_groups: tuple[tuple[FunctionDef, ...], ...],
-    token_idx: int,
-) -> int:
-    matches: list[tuple[int, FunctionDef]] = []
-    for group_idx, funcs in enumerate(parsed_groups):
-        for func in funcs:
-            if func.span.start <= token_idx < func.span.end:
-                matches.append((group_idx, func))
-    if not matches:
-        raise ParseError(
-            f"No enclosing function group found for token index {token_idx}"
-        )
-    matches.sort(key=_span_size)
-    return matches[0][0]
-
-
-def _top_level_for_token(
-    parsed_groups: tuple[tuple[FunctionDef, ...], ...],
-    token_idx: int,
-) -> tuple[int, FunctionDef]:
-    matches: list[tuple[int, FunctionDef]] = []
-    for group_idx, funcs in enumerate(parsed_groups):
-        for func in funcs:
-            if func.span.start <= token_idx < func.span.end:
-                matches.append((group_idx, func))
-    if not matches:
-        raise ParseError(
-            f"No enclosing top-level function found for token index {token_idx}"
-        )
-    matches.sort(key=_span_size)
-    return matches[0]
 
 
 def _index_group_functions(

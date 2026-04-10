@@ -62,7 +62,7 @@ class NameExpr:
 
 @dataclass(frozen=True)
 class StringExpr:
-    """String literal — preserved so the resolver can reject it."""
+    """String literal token text, preserved for semantic decoding later."""
 
     text: str
     span: Span

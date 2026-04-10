@@ -39,8 +39,8 @@ class SyntaxParser:
     """Recursive-descent parser producing a pure syntax AST.
 
     No lowering, no constant folding, no block flattening, no helper
-    classification.  String literals are preserved as ``StringExpr``
-    nodes for the resolver to handle.
+    classification. String literals stay as raw ``StringExpr`` tokens
+    so later lowering can decode their literal contents explicitly.
     """
 
     def __init__(self, tokens: list[tuple[str, str]], *, token_offset: int = 0) -> None:

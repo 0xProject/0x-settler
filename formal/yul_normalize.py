@@ -10,6 +10,7 @@ No constant folding, block flattening, or helper inlining occurs here.
 
 from __future__ import annotations
 
+import ast
 from typing import assert_never
 
 from norm_ir import (
@@ -164,9 +165,9 @@ def _lower_expr(expr: SynExpr, r: ResolutionResult) -> NExpr:
         return NRef(symbol_id=sid, name=expr.name)
 
     if isinstance(expr, StringExpr):
-        # Yul string literals are UTF-8 bytes right-padded to 32 bytes,
-        # interpreted as a big-endian integer (same as Solidity bytes32).
-        raw = expr.text.encode("utf-8")
+        # Decode the literal contents first, then lower them to the
+        # right-padded bytes32-style integer used by Yul.
+        raw = _decode_string_literal(expr.text)
         if len(raw) > 32:
             raise ParseError(
                 f"String literal {expr.text!r} exceeds 32 bytes " f"({len(raw)} bytes)"
@@ -197,3 +198,14 @@ def _const_value(expr: SynExpr) -> int:
     if isinstance(expr, IntExpr):
         return expr.value
     raise ParseError(f"Switch case value must be an integer, got {type(expr).__name__}")
+
+
+def _decode_string_literal(token_text: str) -> bytes:
+    """Decode a tokenized Yul string literal into its UTF-8 bytes."""
+    try:
+        decoded = ast.literal_eval(token_text)
+    except (SyntaxError, ValueError) as err:
+        raise ParseError(f"Invalid Yul string literal {token_text!r}") from err
+    if not isinstance(decoded, str):
+        raise ParseError(f"Invalid Yul string literal {token_text!r}")
+    return decoded.encode("utf-8")
