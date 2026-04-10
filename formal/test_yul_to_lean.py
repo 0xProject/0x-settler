@@ -13185,6 +13185,291 @@ class SSAModelTest(unittest.TestCase):
                 binders.append(s.target)
         self.assertNotIn("u256", binders, "Reserved name 'u256' leaked through")
 
+    # ------------------------------------------------------------------
+    # Regression: hoist_repeated_model_calls must respect branch laziness
+    # ------------------------------------------------------------------
+
+    def test_hoist_does_not_pull_call_from_nested_branch(self) -> None:
+        """Hoisting must not pull model calls out of untaken nested branches."""
+        # bad() is recursive — evaluating it diverges. It appears twice
+        # inside a nested branch (if b), but the test evaluates at b=0
+        # so that branch is never taken.
+        bad_model = ytl.FunctionModel(
+            fn_name="bad",
+            param_names=("a",),
+            return_names=("r",),
+            assignments=(ytl.Assignment("r", ytl.Call("bad", (ytl.Var("a"),))),),
+        )
+        good_model = ytl.FunctionModel(
+            fn_name="good",
+            param_names=(),
+            return_names=("r",),
+            assignments=(ytl.Assignment("r", ytl.IntLit(7)),),
+        )
+        # f(a, b) -> z: if a { if b { z := add(bad(a), bad(a)) } z := good() }
+        f_model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("a", "b"),
+            return_names=("z_2",),
+            assignments=(
+                ytl.Assignment("z", ytl.IntLit(0)),
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("a"),
+                    output_vars=("z_2",),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(
+                            ytl.ConditionalBlock(
+                                condition=ytl.Var("b"),
+                                output_vars=("z_1",),
+                                then_branch=ytl.ConditionalBranch(
+                                    assignments=(
+                                        ytl.Assignment(
+                                            "z_1",
+                                            ytl.Call(
+                                                "add",
+                                                (
+                                                    ytl.Call("bad", (ytl.Var("a"),)),
+                                                    ytl.Call("bad", (ytl.Var("a"),)),
+                                                ),
+                                            ),
+                                        ),
+                                    ),
+                                    outputs=("z_1",),
+                                ),
+                                else_branch=ytl.ConditionalBranch(
+                                    assignments=(),
+                                    outputs=("z",),
+                                ),
+                            ),
+                            ytl.Assignment("z_2", ytl.Call("good", ())),
+                        ),
+                        outputs=("z_2",),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(),
+                        outputs=("z",),
+                    ),
+                ),
+            ),
+        )
+        table = ytl.build_model_table([bad_model, good_model, f_model])
+        # Before hoisting: (1, 0) → (7,) because inner branch is skipped.
+        self.assertEqual(
+            ytl.evaluate_function_model(f_model, (1, 0), model_table=table),
+            (7,),
+        )
+        # After hoisting: must still be (7,), not diverge.
+        hoisted = ytl.hoist_repeated_model_calls(
+            f_model, model_call_names=frozenset({"bad", "good"})
+        )
+        self.assertEqual(
+            ytl.evaluate_function_model(hoisted, (1, 0), model_table=table),
+            (7,),
+        )
+
+    def test_hoist_does_not_pull_call_across_conditional(self) -> None:
+        """Model call appearing once in then and once in else must not hoist above if."""
+        inner_model = ytl.FunctionModel(
+            fn_name="inner",
+            param_names=("x",),
+            return_names=("r",),
+            assignments=(
+                ytl.Assignment("r", ytl.Call("add", (ytl.Var("x"), ytl.IntLit(1)))),
+            ),
+        )
+        # f(x) -> z: if x { z := inner(x) } else { z := inner(x) }
+        # inner(x) depends only on params, appears in both branches.
+        # Hoist must NOT move it above the if (would change semantics for
+        # model calls that might fail/diverge).
+        f_model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.ConditionalBlock(
+                    condition=ytl.Var("x"),
+                    output_vars=("z",),
+                    then_branch=ytl.ConditionalBranch(
+                        assignments=(
+                            ytl.Assignment("z", ytl.Call("inner", (ytl.Var("x"),))),
+                        ),
+                        outputs=("z",),
+                    ),
+                    else_branch=ytl.ConditionalBranch(
+                        assignments=(
+                            ytl.Assignment("z", ytl.Call("inner", (ytl.Var("x"),))),
+                        ),
+                        outputs=("z",),
+                    ),
+                ),
+            ),
+        )
+        hoisted = ytl.hoist_repeated_model_calls(
+            f_model, model_call_names=frozenset({"inner"})
+        )
+        # The call must NOT be hoisted to a top-level _cse assignment.
+        top_level_cse = [
+            s
+            for s in hoisted.assignments
+            if isinstance(s, ytl.Assignment) and s.target.startswith("_cse")
+        ]
+        self.assertEqual(
+            top_level_cse, [], "inner(x) was incorrectly hoisted above conditional"
+        )
+        # Eval equivalence must still hold.
+        table = ytl.build_model_table([inner_model, f_model])
+        for x in [0, 1, 5]:
+            self.assertEqual(
+                ytl.evaluate_function_model(f_model, (x,), model_table=table),
+                ytl.evaluate_function_model(hoisted, (x,), model_table=table),
+            )
+
+    def test_hoist_still_works_for_top_level_repeated_calls(self) -> None:
+        """Repeated model call at top level must still be hoisted."""
+        inner_model = ytl.FunctionModel(
+            fn_name="inner",
+            param_names=("x",),
+            return_names=("r",),
+            assignments=(
+                ytl.Assignment(
+                    "r",
+                    ytl.Call(
+                        "add",
+                        (ytl.Call("mul", (ytl.Var("x"), ytl.Var("x"))), ytl.IntLit(1)),
+                    ),
+                ),
+            ),
+        )
+        # z := add(inner(x), inner(x)) — repeated at top level.
+        f_model = ytl.FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ytl.Assignment(
+                    "z",
+                    ytl.Call(
+                        "add",
+                        (
+                            ytl.Call("inner", (ytl.Var("x"),)),
+                            ytl.Call("inner", (ytl.Var("x"),)),
+                        ),
+                    ),
+                ),
+            ),
+        )
+        hoisted = ytl.hoist_repeated_model_calls(
+            f_model, model_call_names=frozenset({"inner"})
+        )
+        # There should be a top-level _cse assignment.
+        cse_assigns = [
+            s
+            for s in hoisted.assignments
+            if isinstance(s, ytl.Assignment) and s.target.startswith("_cse")
+        ]
+        self.assertTrue(cse_assigns, "Top-level repeated call was not hoisted")
+        # Eval equivalence.
+        table = ytl.build_model_table([inner_model, f_model])
+        for x in [0, 1, 5]:
+            self.assertEqual(
+                ytl.evaluate_function_model(f_model, (x,), model_table=table),
+                ytl.evaluate_function_model(hoisted, (x,), model_table=table),
+            )
+
+    # ------------------------------------------------------------------
+    # Regression: module-level API (to_function_models)
+    # ------------------------------------------------------------------
+
+    def test_module_api_compiler_style_names(self) -> None:
+        """to_function_models must handle compiler-style names without external map."""
+        from restricted_to_model import to_function_models
+
+        tokens = ytl.tokenize_yul("""
+            function fun_g_1(var_x_1) -> var_z_2 {
+                var_z_2 := add(var_x_1, 1)
+            }
+            function fun_f_2(var_a_1) -> var_b_2 {
+                var_b_2 := fun_g_1(var_a_1)
+            }
+        """)
+        funcs = SyntaxParser(tokens).parse_functions()
+        resolved = resolve_module(funcs, builtins=ytl._EVM_BUILTINS)
+        restricted: dict[str, RestrictedFunction] = {}
+        for name, result in resolved.items():
+            nf = normalize_function(result.func, result)
+            nf = inline_pure_helpers(nf)
+            nf = propagate_constants(nf)
+            restricted[name] = lower_to_restricted(nf)
+        models = to_function_models(restricted)
+        self.assertIn("f", models)
+        self.assertIn("g", models)
+        # f calls g; g(5) = 6
+        self.assertEqual(
+            ytl.evaluate_function_model(models["f"], (5,), model_table=models),
+            (6,),
+        )
+        for m in models.values():
+            ytl.validate_function_model(m)
+
+    def test_module_api_callee_invariant(self) -> None:
+        """Every non-builtin call in a module's models must be a module function."""
+        from restricted_to_model import to_function_models
+
+        tokens = ytl.tokenize_yul("""
+            function fun_g_1(var_x_1) -> var_z_2 {
+                var_z_2 := add(var_x_1, 1)
+            }
+            function fun_f_2(var_a_1) -> var_b_2 {
+                var_b_2 := fun_g_1(var_a_1)
+            }
+        """)
+        funcs = SyntaxParser(tokens).parse_functions()
+        resolved = resolve_module(funcs, builtins=ytl._EVM_BUILTINS)
+        restricted: dict[str, RestrictedFunction] = {}
+        for name, result in resolved.items():
+            nf = normalize_function(result.func, result)
+            nf = inline_pure_helpers(nf)
+            nf = propagate_constants(nf)
+            restricted[name] = lower_to_restricted(nf)
+        models = to_function_models(restricted)
+        model_names = set(models.keys())
+        # Collect all non-builtin call names from all models.
+        for model in models.values():
+            for op in ytl.collect_model_opcodes([model]):
+                # opcodes are builtins — skip
+                pass
+            for stmt in model.assignments:
+                self._check_calls_in_stmt(stmt, model_names)
+
+    def _check_calls_in_stmt(
+        self, stmt: ytl.ModelStatement, model_names: set[str]
+    ) -> None:
+        if isinstance(stmt, ytl.Assignment):
+            self._check_calls_in_expr(stmt.expr, model_names)
+        elif isinstance(stmt, ytl.ConditionalBlock):
+            self._check_calls_in_expr(stmt.condition, model_names)
+            for s in stmt.then_branch.assignments:
+                self._check_calls_in_stmt(s, model_names)
+            for s in stmt.else_branch.assignments:
+                self._check_calls_in_stmt(s, model_names)
+
+    def _check_calls_in_expr(self, expr: ytl.Expr, model_names: set[str]) -> None:
+        if isinstance(expr, ytl.Call):
+            if expr.name not in ytl.OP_TO_LEAN_HELPER:
+                self.assertIn(
+                    expr.name,
+                    model_names,
+                    f"Non-builtin call {expr.name!r} not in module function set",
+                )
+            for a in expr.args:
+                self._check_calls_in_expr(a, model_names)
+        elif isinstance(expr, ytl.Ite):
+            self._check_calls_in_expr(expr.cond, model_names)
+            self._check_calls_in_expr(expr.if_true, model_names)
+            self._check_calls_in_expr(expr.if_false, model_names)
+        elif isinstance(expr, ytl.Project):
+            self._check_calls_in_expr(expr.inner, model_names)
+
 
 if __name__ == "__main__":
     unittest.main()
