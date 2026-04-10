@@ -172,6 +172,19 @@ private theorem mul512_high_word (r : Nat) (hr : r < WORD_MOD) :
     rw [hsub2]
     rw [hhi_val]; omega
 
+/-- The generated model now folds `evmNot 0` to the literal `2^256 - 1`. -/
+private theorem mul512_high_word_lit (r : Nat) (hr : r < WORD_MOD) :
+    let mm := evmMulmod r r
+      115792089237316195423570985008687907853269984665640564039457584007913129639935
+    let m := evmMul r r
+    evmSub (evmSub mm m) (evmLt mm m) = r * r / WORD_MOD := by
+  have hword_pred :
+      (115792089237316195423570985008687907853269984665640564039457584007913129639935 : Nat) =
+      WORD_MOD - 1 := by
+    unfold WORD_MOD
+    omega
+  simpa [hword_pred] using mul512_high_word r hr
+
 /-- mul(r, r) gives the low word of r². -/
 private theorem mul512_low_word (r : Nat) (hr : r < WORD_MOD) :
     evmMul r r = r * r % WORD_MOD := by
@@ -325,7 +338,7 @@ theorem model_osqrtUp_evm_correct (x_hi x_lo : Nat)
       unfold evmEq; simp [u256_id' x_hi hr_wm]; exact Nat.ne_of_gt hxhi_pos
     -- Simplify: evmEq x_hi 0 = 0, then (0 ≠ 0) is decidably False, take else branches
     have h0eq0 : ¬((0 : Nat) ≠ 0) := by omega
-    simp only [hneq, if_neg h0eq0]
+    simp only [hneq]
     -- Abbreviate r = model_sqrt512_evm x_hi x_lo
     -- First establish r = natSqrt(x) and r < WORD_MOD
     have hr_eq : model_sqrt512_evm x_hi x_lo = natSqrt (x_hi * 2 ^ 256 + x_lo) :=
@@ -349,7 +362,7 @@ theorem model_osqrtUp_evm_correct (x_hi x_lo : Nat)
     -- Generalize model_sqrt512_evm x_hi x_lo = r
     generalize hgen : model_sqrt512_evm x_hi x_lo = r at *
     -- Rewrite sq_hi and sq_lo using mul512_high_word and mul512_low_word
-    rw [mul512_high_word r hr_wm', mul512_low_word r hr_wm']
+    rw [mul512_high_word_lit r hr_wm', mul512_low_word r hr_wm']
     -- Establish bounds for sq_hi and sq_lo
     have hsqhi_bound : r * r / WORD_MOD < WORD_MOD := by
       have : r * r < WORD_MOD * WORD_MOD :=
@@ -406,7 +419,17 @@ theorem model_osqrtUp_evm_correct (x_hi x_lo : Nat)
         unfold evmLt; by_cases h : u256 (evmAdd r needsUp) < u256 r <;> simp [h]
       rcases hlt_01 with h | h <;>
         (rw [h]; unfold evmAdd u256 WORD_MOD; simp (config := { decide := true }))
-    rw [hfst_simp, ← hWM, hcarry]
+    have heq00 : evmEq 0 0 = 1 := by
+      unfold evmEq u256
+      simp
+    have heq00_nz : evmEq 0 0 ≠ 0 := by
+      rw [heq00]
+      decide
+    have hiszero00 : evmIszero (evmEq 0 0) = 0 := by
+      rw [heq00]
+      unfold evmIszero u256 WORD_MOD
+      simp
+    simp [heq00_nz, hiszero00, hfst_simp, ← hWM, hcarry]
     -- Goal: r + needsUp = sqrtUp512 (x_hi * WORD_MOD + x_lo)
     -- Rewrite hr_eq to use WORD_MOD
     have hr_eq_wm : r = natSqrt (x_hi * WORD_MOD + x_lo) := by rw [hr_eq, hWM]

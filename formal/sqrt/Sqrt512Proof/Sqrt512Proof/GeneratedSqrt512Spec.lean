@@ -800,7 +800,7 @@ private theorem model_bstep_evm_eq_bstep (x z : Nat)
   have hz_wm : z < WORD_MOD := by unfold WORD_MOD; omega
   unfold model_bstep_evm
   simp only [u256_id' x hx_wm, u256_id' z hz_wm]
-  rw [evmAnd_1_255_255, evmAdd_comm (evmDiv x z) z]
+  rw [evmAdd_comm (evmDiv x z) z]
   exact evm_bstep_eq x z hx_lo hx_hi hz_lo hz_hi
 
 /-- FIXED_SEED < 2^128 < 2^129. -/
@@ -1010,15 +1010,18 @@ private theorem model_karatsubaQuotient_evm_correct
     have hn_mod : evmMod ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) d =
         ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d :=
       evmMod_eq' _ d hn_evm_lt hd_pos hd_wm
-    -- Simplify evmNot 0 = WORD_MOD - 1
-    have hnot_eq : evmNot 0 = WORD_MOD - 1 :=
-      evmNot_eq' 0 (by unfold WORD_MOD; omega)
+    -- The generator now folds evmNot 0 to the max-word literal directly.
+    have hword_pred :
+        (115792089237316195423570985008687907853269984665640564039457584007913129639935 : Nat) =
+        WORD_MOD - 1 := by
+      unfold WORD_MOD
+      omega
     have hnot_wm : WORD_MOD - 1 < WORD_MOD := by omega
     have hwm_div : evmDiv (WORD_MOD - 1) d = (WORD_MOD - 1) / d :=
       evmDiv_eq' _ d hnot_wm hd_pos hd_wm
     have hwm_mod : evmMod (WORD_MOD - 1) d = (WORD_MOD - 1) % d :=
       evmMod_eq' _ d hnot_wm hd_pos hd_wm
-    simp only [hn_div, hn_mod, hnot_eq, hwm_div, hwm_mod]
+    simp only [hn_div, hn_mod, hword_pred, hwm_div, hwm_mod]
     -- Now: evmAdd 1 ((WORD_MOD-1) % d) = 1 + (WORD_MOD-1) % d
     have hrw_lt : (WORD_MOD - 1) % d < d := Nat.mod_lt _ hd_pos
     have hrw_wm : (WORD_MOD - 1) % d < WORD_MOD :=
@@ -1028,7 +1031,6 @@ private theorem model_karatsubaQuotient_evm_correct
       Nat.lt_of_le_of_lt (by omega : 1 + (WORD_MOD - 1) % d ≤ d) (by unfold WORD_MOD; omega)
     have hadd_1_rw : evmAdd 1 ((WORD_MOD - 1) % d) = 1 + (WORD_MOD - 1) % d :=
       evmAdd_eq' 1 _ h1_wm hrw_wm h1rw_sum
-    simp only [hadd_1_rw]
     -- evmAdd (n_evm%d) (1 + (WORD_MOD-1)%d) = R where R = n_evm%d + 1 + (WORD_MOD-1)%d
     have hr0_lt : ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d < d :=
       Nat.mod_lt _ hd_pos
@@ -1042,7 +1044,6 @@ private theorem model_karatsubaQuotient_evm_correct
         (1 + (WORD_MOD - 1) % d) =
         ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d + (1 + (WORD_MOD - 1) % d) :=
       evmAdd_eq' _ _ hr0_wm h1rw_sum hR_sum
-    simp only [hstep2]
     -- Abbreviate R = n_evm%d + 1 + (WORD_MOD-1)%d
     -- evmDiv R d = R / d, evmMod R d = R % d
     have hR_lt2d : ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
@@ -1059,7 +1060,6 @@ private theorem model_karatsubaQuotient_evm_correct
         (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
         (1 + (WORD_MOD - 1) % d)) % d :=
       evmMod_eq' _ d hR_wm hd_pos hd_wm
-    simp only [hdiv_R, hmod_R]
     -- evmAdd (n_evm/d) ((WORD_MOD-1)/d) = n_evm/d + (WORD_MOD-1)/d
     have hq0_wm : ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) / d < WORD_MOD := by
       unfold WORD_MOD; exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hn_evm_lt
@@ -1081,7 +1081,6 @@ private theorem model_karatsubaQuotient_evm_correct
         ((WORD_MOD - 1) / d) =
         ((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) / d + (WORD_MOD - 1) / d :=
       evmAdd_eq' _ _ hq0_wm hqw_wm hq0qw_sum
-    simp only [hstep1]
     -- evmAdd (q0+qw) (R/d) = q0+qw+R/d
     have hR_div_le1 : (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
         (1 + (WORD_MOD - 1) % d)) / d ≤ 1 :=
@@ -1101,7 +1100,6 @@ private theorem model_karatsubaQuotient_evm_correct
         (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
         (1 + (WORD_MOD - 1) % d)) / d :=
       evmAdd_eq' _ _ hq0qw_sum hR_div_wm hfinal_sum
-    simp only [hstep3]
     -- === Now the goal is pure Nat ===
     -- Show these equal n_full/d and n_full%d via the carry correction identity
     -- n_full = n_evm + WORD_MOD where n_evm = (res%2^128)*2^128 + x_lo/2^128
@@ -1137,11 +1135,13 @@ private theorem model_karatsubaQuotient_evm_correct
     have hn_full_mod_wm : n_full % d < WORD_MOD :=
       Nat.lt_of_lt_of_le (Nat.mod_lt n_full hd_pos) (by unfold WORD_MOD; omega)
     refine ⟨?_, ?_⟩
-    · rw [hn_div]; exact (Nat.mod_eq_of_lt hfinal_sum).symm
+    · rw [hadd_1_rw, hstep2, hdiv_R, hstep1, hstep3, hn_div]
+      exact (Nat.mod_eq_of_lt hfinal_sum).symm
     · rw [hn_mod]
       have : (((res % 2 ^ 128) * 2 ^ 128 + x_lo / 2 ^ 128) % d +
           (1 + (WORD_MOD - 1) % d)) % d < WORD_MOD :=
         Nat.lt_of_lt_of_le (Nat.mod_lt _ hd_pos) (by unfold WORD_MOD; omega)
+      rw [hadd_1_rw, hstep2, hmod_R]
       exact (Nat.mod_eq_of_lt this).symm
   · -- NO CARRY case
     next hc_not =>
@@ -1661,6 +1661,10 @@ theorem model_sqrt512_evm_eq_sqrt512 (x_hi x_lo : Nat)
   -- Step 4: Convert evmShr to division
   have hshift_lt : evmShr (evmAnd (evmAnd 1 255) 255) (evmClz (u256 x_hi)) < 256 := by
     rw [hnorm.2.2.1]; exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) (by omega)
+  have hshift_eq : evmShr (evmAnd (evmAnd 1 255) 255) (evmClz (u256 x_hi)) =
+      evmShr 1 (evmClz (u256 x_hi)) := by
+    rw [evmAnd_1_255_255]
+  rw [← hshift_eq]
   rw [evmShr_eq' _ _ hshift_lt
     (karatsubaFloor_lt_word _ _ hnorm.2.2.2.1 hnorm.2.2.2.2.1 hnorm.2.2.2.2.2)]
 
