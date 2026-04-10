@@ -18,10 +18,12 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from norm_classify import (
+    FunctionSummary,
     InlineClassification,
     InlineStrategy,
     _is_uint512_from_shape,
-    classify_function_scope,
+    classify_helpers,
+    summarize_function,
 )
 from norm_ir import (
     NAssign,
@@ -227,11 +229,19 @@ class _InlineCtx:
         defs: dict[SymbolId, NFunctionDef],
         classifications: dict[SymbolId, InlineClassification],
         alloc: SymbolAllocator,
+        top_level_name_to_sid: dict[str, SymbolId] | None = None,
+        allowed_model_calls: frozenset[str] = frozenset(),
+        forced_inline_sids: frozenset[SymbolId] = frozenset(),
         max_depth: int = 40,
     ) -> None:
         self.defs = defs
         self.classifications = classifications
         self.alloc = alloc
+        self.top_level_name_to_sid = (
+            dict(top_level_name_to_sid) if top_level_name_to_sid is not None else {}
+        )
+        self.allowed_model_calls = allowed_model_calls
+        self.forced_inline_sids = set(forced_inline_sids)
         self.max_depth = max_depth
 
     def strategy_for(self, sid: SymbolId) -> InlineStrategy:
@@ -262,7 +272,12 @@ def _register_nested_defs(block: NBlock, ctx: _InlineCtx) -> None:
     summaries: dict[SymbolId, FunctionSummary] = {}
     for fdef in new_fdefs:
         ctx.defs[fdef.symbol_id] = fdef
-        base = summarize_function(fdef.body)
+        ctx.forced_inline_sids.add(fdef.symbol_id)
+        base = summarize_function(
+            fdef.body,
+            top_level_inline_sids=ctx.top_level_name_to_sid,
+            allowed_model_calls=ctx.allowed_model_calls,
+        )
         summaries[fdef.symbol_id] = FunctionSummary(
             writes_memory=base.writes_memory,
             reads_memory=base.reads_memory,
@@ -513,14 +528,35 @@ def _subst_stmt(stmt: NStmt, subst: dict[SymbolId, NExpr]) -> NStmt:
             condition=substitute_nexpr(stmt.condition, subst),
             then_body=_subst_block(stmt.then_body, subst),
         )
+    if isinstance(stmt, NSwitch):
+        return NSwitch(
+            discriminant=substitute_nexpr(stmt.discriminant, subst),
+            cases=tuple(
+                NSwitchCase(value=case.value, body=_subst_block(case.body, subst))
+                for case in stmt.cases
+            ),
+            default=(
+                _subst_block(stmt.default, subst) if stmt.default is not None else None
+            ),
+        )
+    if isinstance(stmt, NFor):
+        return NFor(
+            init=_subst_block(stmt.init, subst),
+            condition=substitute_nexpr(stmt.condition, subst),
+            condition_setup=(
+                _subst_block(stmt.condition_setup, subst)
+                if stmt.condition_setup is not None
+                else None
+            ),
+            post=_subst_block(stmt.post, subst),
+            body=_subst_block(stmt.body, subst),
+        )
     if isinstance(stmt, NBlock):
         return _subst_block(stmt, subst)
     if isinstance(stmt, NLeave):
         return stmt
     if isinstance(stmt, NFunctionDef):
         return stmt  # Nested fdefs have their own scope
-    if isinstance(stmt, (NFor, NSwitch)):
-        return stmt  # Not expected in leave-bearing helpers
     raise ParseError(f"Unexpected {type(stmt).__name__} in block-inline subst")
 
 
@@ -543,6 +579,34 @@ def _rewrite_leave_stmt(stmt: NStmt, did_leave_id: SymbolId) -> NStmt:
         )
     if isinstance(stmt, NBlock):
         return _rewrite_leave_recursive(stmt, did_leave_id)
+    if isinstance(stmt, NSwitch):
+        return NSwitch(
+            discriminant=stmt.discriminant,
+            cases=tuple(
+                NSwitchCase(
+                    value=case.value,
+                    body=_rewrite_leave_recursive(case.body, did_leave_id),
+                )
+                for case in stmt.cases
+            ),
+            default=(
+                _rewrite_leave_recursive(stmt.default, did_leave_id)
+                if stmt.default is not None
+                else None
+            ),
+        )
+    if isinstance(stmt, NFor):
+        return NFor(
+            init=_rewrite_leave_recursive(stmt.init, did_leave_id),
+            condition=stmt.condition,
+            condition_setup=(
+                _rewrite_leave_recursive(stmt.condition_setup, did_leave_id)
+                if stmt.condition_setup is not None
+                else None
+            ),
+            post=_rewrite_leave_recursive(stmt.post, did_leave_id),
+            body=_rewrite_leave_recursive(stmt.body, did_leave_id),
+        )
     return stmt
 
 
@@ -554,6 +618,28 @@ def _stmt_may_leave_rewritten(stmt: NStmt, did_leave_id: SymbolId) -> bool:
         return any(
             _stmt_may_leave_rewritten(s, did_leave_id) for s in stmt.then_body.stmts
         )
+    if isinstance(stmt, NSwitch):
+        return any(
+            _stmt_may_leave_rewritten(s, did_leave_id)
+            for case in stmt.cases
+            for s in case.body.stmts
+        ) or (
+            stmt.default is not None
+            and any(
+                _stmt_may_leave_rewritten(s, did_leave_id)
+                for s in stmt.default.stmts
+            )
+        )
+    if isinstance(stmt, NFor):
+        for block in (
+            stmt.init,
+            stmt.condition_setup if stmt.condition_setup is not None else NBlock(()),
+            stmt.post,
+            stmt.body,
+        ):
+            if any(_stmt_may_leave_rewritten(s, did_leave_id) for s in block.stmts):
+                return True
+        return False
     if isinstance(stmt, NBlock):
         return any(_stmt_may_leave_rewritten(s, did_leave_id) for s in stmt.stmts)
     return False
@@ -632,7 +718,8 @@ def _inline_in_expr_with_prelude(
         new_args_t = tuple(new_args_list)
 
         strat = ctx.strategy_for(expr.symbol_id)
-        if strat != InlineStrategy.DO_NOT_INLINE and expr.symbol_id in ctx.defs:
+        force_structural_inline = expr.symbol_id in ctx.forced_inline_sids
+        if (strat != InlineStrategy.DO_NOT_INLINE or force_structural_inline) and expr.symbol_id in ctx.defs:
             if depth > ctx.max_depth:
                 raise ParseError(f"Inlining depth exceeded for {expr.name!r}")
             fdef = ctx.defs[expr.symbol_id]
@@ -647,9 +734,13 @@ def _inline_in_expr_with_prelude(
                 arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
                 pre.extend(arg_binds)
                 frag = _effect_lower(fdef, tuple(atom_refs), ctx.alloc)
+            elif force_structural_inline:
+                arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
+                pre.extend(arg_binds)
+                frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
 
             # Recursively rewrite BLOCK_INLINE preludes to inline nested calls.
-            if strat == InlineStrategy.BLOCK_INLINE and frag.prelude:
+            if (strat == InlineStrategy.BLOCK_INLINE or force_structural_inline) and frag.prelude:
                 prelude_block = NBlock(frag.prelude)
                 _register_nested_defs(prelude_block, ctx)
                 rewritten = _rewrite_block(prelude_block, ctx)
@@ -675,7 +766,46 @@ def _inline_in_expr_with_prelude(
             a_pre, a_val = _inline_in_expr_with_prelude(a, ctx, depth)
             pre.extend(a_pre)
             new_args_list.append(a_val)
-        return pre, NTopLevelCall(name=expr.name, args=tuple(new_args_list))
+        new_args_t = tuple(new_args_list)
+        sid = ctx.top_level_name_to_sid.get(expr.name)
+        if sid is not None and sid in ctx.defs:
+            strat = ctx.strategy_for(sid)
+            force_structural_inline = sid in ctx.forced_inline_sids
+            if strat != InlineStrategy.DO_NOT_INLINE or force_structural_inline:
+                if depth > ctx.max_depth:
+                    raise ParseError(f"Inlining depth exceeded for {expr.name!r}")
+                fdef = ctx.defs[sid]
+                if strat == InlineStrategy.EXPR_INLINE:
+                    frag = _expr_inline(fdef, new_args_t, ctx, depth + 1)
+                elif strat == InlineStrategy.BLOCK_INLINE:
+                    arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
+                    pre.extend(arg_binds)
+                    frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
+                elif strat == InlineStrategy.EFFECT_LOWER:
+                    arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
+                    pre.extend(arg_binds)
+                    frag = _effect_lower(fdef, tuple(atom_refs), ctx.alloc)
+                elif force_structural_inline:
+                    arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
+                    pre.extend(arg_binds)
+                    frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
+                else:
+                    raise ParseError(f"Unknown strategy: {strat}")
+                if (strat == InlineStrategy.BLOCK_INLINE or force_structural_inline) and frag.prelude:
+                    prelude_block = NBlock(frag.prelude)
+                    _register_nested_defs(prelude_block, ctx)
+                    rewritten = _rewrite_block(prelude_block, ctx)
+                    pre.extend(rewritten.stmts)
+                else:
+                    pre.extend(frag.prelude)
+                if len(frag.results) == 1:
+                    return pre, frag.results[0]
+                if len(frag.results) == 0:
+                    return pre, NConst(0)
+                raise ParseError(
+                    f"Multi-return call to {expr.name!r} in single-value context"
+                )
+        return pre, NTopLevelCall(name=expr.name, args=new_args_t)
 
     if isinstance(expr, NUnresolvedCall):
         pre = []
@@ -714,10 +844,16 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
 
     if isinstance(stmt, NExprEffect):
         # Check for inlineable call as expression-statement.
+        inline_sid: SymbolId | None = None
         if isinstance(stmt.expr, NLocalCall):
-            strat = ctx.strategy_for(stmt.expr.symbol_id)
-            fdef = ctx.defs.get(stmt.expr.symbol_id)
-            if strat != InlineStrategy.DO_NOT_INLINE and fdef is not None:
+            inline_sid = stmt.expr.symbol_id
+        elif isinstance(stmt.expr, NTopLevelCall):
+            inline_sid = ctx.top_level_name_to_sid.get(stmt.expr.name)
+        if inline_sid is not None:
+            strat = ctx.strategy_for(inline_sid)
+            fdef = ctx.defs.get(inline_sid)
+            force_structural_inline = inline_sid in ctx.forced_inline_sids
+            if (strat != InlineStrategy.DO_NOT_INLINE or force_structural_inline) and fdef is not None:
                 # Inline the call and emit prelude + discard result.
                 pre, val = _inline_in_expr_with_prelude(stmt.expr, ctx, 0)
                 if pre:
@@ -802,15 +938,30 @@ def _rewrite_bind_or_assign(
     cls_type = NBind if is_bind else NAssign
 
     # Check if the RHS is an inlineable call.
+    direct_sid: SymbolId | None = None
+    direct_args: tuple[NExpr, ...] | None = None
+    direct_name: str | None = None
     if isinstance(expr, NLocalCall) and expr.symbol_id in ctx.defs:
-        strat = ctx.strategy_for(expr.symbol_id)
-        fdef = ctx.defs[expr.symbol_id]
+        direct_sid = expr.symbol_id
+        direct_args = expr.args
+        direct_name = expr.name
+    elif isinstance(expr, NTopLevelCall):
+        top_sid = ctx.top_level_name_to_sid.get(expr.name)
+        if top_sid is not None and top_sid in ctx.defs:
+            direct_sid = top_sid
+            direct_args = expr.args
+            direct_name = expr.name
 
-        if strat != InlineStrategy.DO_NOT_INLINE:
+    if direct_sid is not None and direct_args is not None and direct_name is not None:
+        strat = ctx.strategy_for(direct_sid)
+        fdef = ctx.defs[direct_sid]
+        force_structural_inline = direct_sid in ctx.forced_inline_sids
+
+        if strat != InlineStrategy.DO_NOT_INLINE or force_structural_inline:
             # Inline arguments (may produce prelude), then atomize.
             arg_pre: list[NStmt] = []
             raw_args_list: list[NExpr] = []
-            for a in expr.args:
+            for a in direct_args:
                 a_p, a_v = _inline_in_expr_with_prelude(a, ctx, 0)
                 arg_pre.extend(a_p)
                 raw_args_list.append(a_v)
@@ -825,6 +976,8 @@ def _rewrite_bind_or_assign(
                 frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
             elif strat == InlineStrategy.EFFECT_LOWER:
                 frag = _effect_lower(fdef, tuple(atom_refs), ctx.alloc)
+            elif force_structural_inline:
+                frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
             else:
                 raise ParseError(f"Unknown strategy: {strat}")
 
@@ -832,7 +985,7 @@ def _rewrite_bind_or_assign(
             # calls (e.g. EXPR_INLINE helpers inside the cloned body).
             # Register freshened nested defs, then rewrite the prelude.
             prelude_stmts = list(frag.prelude)
-            if strat == InlineStrategy.BLOCK_INLINE and prelude_stmts:
+            if (strat == InlineStrategy.BLOCK_INLINE or force_structural_inline) and prelude_stmts:
                 prelude_block = NBlock(tuple(prelude_stmts))
                 _register_nested_defs(prelude_block, ctx)
                 rewritten_prelude = _rewrite_block(prelude_block, ctx)
@@ -890,6 +1043,10 @@ def _rewrite_bind_or_assign(
 
 def inline_pure_helpers(
     func: NormalizedFunction,
+    *,
+    extra_local_defs: dict[SymbolId, NFunctionDef] | None = None,
+    top_level_inline_defs: dict[str, NFunctionDef] | None = None,
+    allowed_model_calls: frozenset[str] = frozenset(),
 ) -> NormalizedFunction:
     """Inline helpers according to their classification strategy.
 
@@ -897,13 +1054,59 @@ def inline_pure_helpers(
     2. Pre-normalize switch → if in pure/block-inline helper bodies
     3. Recursively rewrite the body
     """
-    classifications = classify_function_scope(func)
-    alloc = SymbolAllocator(max_symbol_id(func) + 1)
-
     defs: dict[SymbolId, NFunctionDef] = {
         fdef.symbol_id: fdef for fdef in collect_function_defs(func.body)
     }
+    forced_inline_sids: set[SymbolId] = set()
+    if extra_local_defs is not None:
+        defs.update(extra_local_defs)
+        forced_inline_sids.update(extra_local_defs)
 
+    top_level_name_to_sid: dict[str, SymbolId] = {}
+    if top_level_inline_defs is not None:
+        for name, fdef in top_level_inline_defs.items():
+            defs[fdef.symbol_id] = fdef
+            top_level_name_to_sid[name] = fdef.symbol_id
+            forced_inline_sids.add(fdef.symbol_id)
+
+    max_id = max_symbol_id(func)
+    for fdef in defs.values():
+        max_id = max(
+            max_id,
+            max_symbol_id(
+                NormalizedFunction(
+                    name=fdef.name,
+                    params=fdef.params,
+                    param_names=fdef.param_names,
+                    returns=fdef.returns,
+                    return_names=fdef.return_names,
+                    body=fdef.body,
+                )
+            ),
+        )
+    alloc = SymbolAllocator(max_id + 1)
+
+    summaries: dict[SymbolId, FunctionSummary] = {}
+    for sid, fdef in defs.items():
+        base = summarize_function(
+            fdef.body,
+            top_level_inline_sids=top_level_name_to_sid,
+            allowed_model_calls=allowed_model_calls,
+        )
+        summaries[sid] = FunctionSummary(
+            writes_memory=base.writes_memory,
+            reads_memory=base.reads_memory,
+            may_leave=base.may_leave,
+            has_for_loop=base.has_for_loop,
+            has_expr_effects=base.has_expr_effects,
+            has_effectful_condition=base.has_effectful_condition,
+            calls_unresolved=base.calls_unresolved,
+            calls_top_level=base.calls_top_level,
+            called_functions=base.called_functions,
+            called_builtins=base.called_builtins,
+            is_uint512_from=_is_uint512_from_shape(fdef),
+        )
+    classifications = classify_helpers(summaries)
     # Pre-normalize switch → if ONLY in inlineable helper bodies.
     for sid in defs:
         cls = classifications.get(sid)
@@ -922,7 +1125,14 @@ def inline_pure_helpers(
                 body=_pre_normalize_block(old.body),
             )
 
-    ctx = _InlineCtx(defs=defs, classifications=classifications, alloc=alloc)
+    ctx = _InlineCtx(
+        defs=defs,
+        classifications=classifications,
+        alloc=alloc,
+        top_level_name_to_sid=top_level_name_to_sid,
+        allowed_model_calls=allowed_model_calls,
+        forced_inline_sids=frozenset(forced_inline_sids),
+    )
     new_body = _rewrite_block(func.body, ctx)
 
     return NormalizedFunction(

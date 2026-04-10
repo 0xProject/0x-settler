@@ -5949,224 +5949,33 @@ def prepare_translation(
     selected_functions: tuple[str, ...] | None = None,
 ) -> PreparedTranslation:
     """Parse Yul, select targets, and inline non-target helpers."""
+    from staged_selection import build_selection_plan
 
-    tokens = tokenize_yul(yul_text)
-
-    # Module-level pre-pass: validate cross-function scoping.
-    # Each brace-delimited scope (object/code block) is validated
-    # separately — sibling functions share a Yul namespace, so nested
-    # functions that shadow a sibling name are rejected (solc 1395).
-    for _func_group in SyntaxParser(tokens).parse_function_groups():
-        resolve_module(_func_group, builtins=_EVM_BUILTINS)
-
-    selected = (
-        selected_functions if selected_functions is not None else config.function_order
+    plan = build_selection_plan(
+        yul_text,
+        config,
+        selected_functions=selected_functions,
+        include_legacy=True,
     )
 
-    # Pre-resolve exact-selected targets to token positions so the parser
-    # can protect them from eager inlining.  Uses _find_exact_function_matches
-    # (token walk only, no body parsing) with the same n_params / path
-    # filters as the real selection, so only the precise binding is protected.
-    # The main loop reuses these positions instead of re-finding them.
-    resolved_exact_positions: dict[str, int] = {}
-    if config.exact_yul_names:
-        resolver = YulParser(tokens)
-        for _sol in selected:
-            _eyn = (
-                config.exact_yul_names.get(_sol)
-                if config.exact_yul_names is not None
-                else None
-            )
-            if _eyn is None:
-                continue
-            _n_params = config.n_params.get(_sol) if config.n_params else None
-            _esel = _parse_exact_yul_selector(_eyn)
-            if _esel is None:
-                matches = resolver._find_exact_function_matches(
-                    _eyn, n_params=_n_params, search_nested=True
-                )
-            else:
-                matches = [
-                    (idx, path)
-                    for idx, path in resolver._find_exact_function_matches(
-                        _esel[-1], n_params=_n_params, search_nested=True
-                    )
-                    if path == _esel
-                ]
-            if len(matches) == 1:
-                resolved_exact_positions[_sol] = matches[0][0]
-    protected_token_idxs = frozenset(resolved_exact_positions.values())
-
-    yul_functions: dict[str, YulFunction] = {}
-    # Helpers that require mstore_sink (uint512.from shape) are deferred
-    # during parser-stage scope-local inlining.  Capture them per-target
-    # so the later inlining phase can use them.
-    parse_deferred: dict[str, dict[str, YulFunction]] = {}
-    parse_deferred_rejected: dict[str, RejectedHelperMap] = {}
-
-    known_yul_names: set[str] = set()
-    for sol_name in selected:
-        parser = YulParser(tokens, protected_token_idxs=protected_token_idxs)
-        if sol_name in resolved_exact_positions:
-            # Position already resolved by the pre-pass.
-            parser.i = resolved_exact_positions[sol_name]
-            yf = parser.parse_function()
-        elif (
-            config.exact_yul_names is not None
-            and config.exact_yul_names.get(sol_name) is not None
-        ):
-            # Pre-pass did not resolve (ambiguous/missing).  Run the
-            # full resolution which will raise a descriptive error.
-            exact_yul_name = config.exact_yul_names[sol_name]
-            exact_selector = _parse_exact_yul_selector(exact_yul_name)
-            n_params = config.n_params.get(sol_name) if config.n_params else None
-            if exact_selector is None:
-                yf = parser.find_exact_function(
-                    exact_yul_name, n_params=n_params, search_nested=True
-                )
-            else:
-                yf = parser.find_exact_function_path(exact_selector, n_params=n_params)
-        else:
-            n_params = config.n_params.get(sol_name) if config.n_params else None
-            yf = parser.find_function(
-                sol_name,
-                n_params=n_params,
-                known_yul_names=known_yul_names or None,
-                exclude_known=sol_name in config.exclude_known,
-            )
-        yul_functions[sol_name] = yf
-        parse_deferred[sol_name] = dict(parser._deferred_helpers)
-        parse_deferred_rejected[sol_name] = dict(parser._deferred_rejected)
-        known_yul_names.add(yf.yul_name)
-
-    # Scope helper collection per-target so that each target is inlined with
-    # helpers from its own enclosing Yul object.
+    inlined_targets: dict[str, YulFunction] = {}
     all_helpers: dict[str, YulFunction] = {}
     all_rejected: RejectedHelperMap = {}
 
-    # Token-index identity set and reverse map for all selected targets.
-    # Used below to distinguish scope-distinct homonyms from the actual
-    # selected bindings when pruning the helper table and to build
-    # per-target call resolutions for the lexically correct model name.
-    all_selected_token_idxs: set[int] = set()
-    token_idx_to_sol_name: dict[int, str] = {}
-    for sn in selected:
-        _tidx = yul_functions[sn].token_idx
-        if _tidx is not None:
-            all_selected_token_idxs.add(_tidx)
-            token_idx_to_sol_name[_tidx] = sn
-
-    inlined_targets: dict[str, YulFunction] = {}
-    target_call_resolutions: dict[str, CallResolution] = {}
-    for sol_name in selected:
-        yf = yul_functions[sol_name]
-        fn_token_idx = yf.token_idx
-        # parse_function() always sets token_idx; assert so scope-aware
-        # helper collection can rely on it unconditionally.
-        assert (
-            fn_token_idx is not None
-        ), f"Selected target {sol_name!r} ({yf.yul_name!r}) has no token_idx"
-        authoritative_token_idxs = {
-            dfn.token_idx
-            for dfn in parse_deferred.get(sol_name, {}).values()
-            if dfn.token_idx is not None
-        }
-        authoritative_token_idxs.add(fn_token_idx)
-
-        # Collect helpers from the scope chain, from outermost to
-        # innermost.  Inner scopes override outer ones (Yul lexical
-        # scoping).
-        helper_table: dict[str, YulFunction] = {}
-        rejected_helpers: RejectedHelperMap = {}
-
-        # Walk up through enclosing block scopes from outermost to
-        # innermost.  Each deeper scope overrides outer names.
-        scope_chain: list[tuple[int, int]] = []
-        cur_idx = fn_token_idx
-        while True:
-            obj_start, obj_end = _find_enclosing_block_range(tokens, cur_idx)
-            scope_chain.append((obj_start, obj_end))
-            if obj_start == 0 and obj_end == len(tokens):
-                break
-            # Move to the enclosing block's opening brace to find
-            # the next outer scope.
-            if obj_start > 0:
-                cur_idx = obj_start - 1
-            else:
-                break
-        # Process from outermost to innermost (inner overrides outer).
-        for s_start, s_end in reversed(scope_chain):
-            scoped_tokens = tokens[s_start:s_end]
-            scope_coll = YulParser(
-                scoped_tokens,
-                token_offset=s_start,
-                protected_token_idxs=protected_token_idxs,
-            ).collect_all_functions()
-            scope_coll = _exclude_collected_helpers_by_token_idx(
-                scope_coll,
-                authoritative_token_idxs,
-            )
-            _merge_helper_collection(
-                helper_table,
-                rejected_helpers,
-                scope_coll,
-            )
-
-        # Also collect nested helpers from inside the target's body.
-        body_range = _find_function_body_range(tokens, fn_token_idx)
-        if body_range is not None:
-            body_start, body_end = body_range
-            body_tokens = tokens[body_start:body_end]
-            nested_coll = YulParser(
-                body_tokens,
-                token_offset=body_start,
-                protected_token_idxs=protected_token_idxs,
-            ).collect_all_functions()
-            nested_coll = _exclude_collected_helpers_by_token_idx(
-                nested_coll,
-                authoritative_token_idxs,
-            )
-            _merge_helper_collection(
-                helper_table,
-                rejected_helpers,
-                nested_coll,
-            )
-            # Merge parse_deferred as the authoritative source for
-            # deferred helpers tied to the selected target's parse.
-            for dname, dfn in parse_deferred.get(sol_name, {}).items():
-                helper_table[dname] = dfn
-            for dname, derr in parse_deferred_rejected.get(sol_name, {}).items():
-                rejected_helpers[dname] = derr
-
-        # Identity-aware pruning: only remove helpers that are the exact
-        # same binding as a selected target (matching token_idx), not
-        # scope-distinct homonyms that share the bare Yul name.
-        # Calls whose parser-side lexical binding was preserved use the
-        # shared token-index map; ordinary unresolved helper names use
-        # the per-target name map below.
-        by_name: dict[str, str] = {yf.yul_name: sol_name}
-        for yn in list(helper_table):
-            hf = helper_table[yn]
-            if hf.token_idx is not None and hf.token_idx in all_selected_token_idxs:
-                by_name[yn] = token_idx_to_sol_name[hf.token_idx]
-                del helper_table[yn]
-        target_call_resolutions[sol_name] = CallResolution(
-            by_name=by_name,
-            by_binding_token_idx=dict(token_idx_to_sol_name),
-        )
-
+    for sol_name in plan.selected_functions:
+        helper_table = plan.helper_tables[sol_name]
+        rejected_helpers = plan.rejected_helper_tables[sol_name]
         inlined_targets[sol_name] = _inline_yul_function(
-            yul_functions[sol_name],
+            plan.target_yul_functions[sol_name],
             helper_table,
             unsupported_function_errors=rejected_helpers,
         )
-
         all_helpers.update(helper_table)
         all_rejected.update(rejected_helpers)
 
     return PreparedTranslation(
-        selected_functions=tuple(selected),
-        target_call_resolutions=target_call_resolutions,
+        selected_functions=plan.selected_functions,
+        target_call_resolutions=plan.target_call_resolutions,
         yul_functions=inlined_targets,
         collected_helpers=all_helpers,
         rejected_helpers=all_rejected,
@@ -6359,10 +6168,10 @@ def translate_yul_to_models(
 ) -> TranslationResult:
     """Run the staged translation pipeline and return the final models.
 
-    Uses the selection-aware staged pipeline: parse → resolve → normalize →
-    embed helpers → inline → constprop → restricted IR → SSA → FunctionModel.
+    Uses the selection-aware staged pipeline: selection → normalize →
+    simplify → validate → restricted IR → SSA → FunctionModel.
     """
-    from restricted_to_model import translate_selected
+    from staged_pipeline import translate_selected_models
 
     # Duplicate selected function check (early, before parsing)
     selected = (
@@ -6371,14 +6180,17 @@ def translate_yul_to_models(
     if len(set(selected)) != len(selected):
         dupes = [f for f in selected if list(selected).count(f) > 1]
         raise ParseError(f"Duplicate selected functions: {sorted(set(dupes))}")
+    builtin_name_collisions = sorted({name for name in selected if name in OP_TO_LEAN_HELPER})
+    if builtin_name_collisions:
+        raise ParseError(
+            "Selected function names collide with builtin model helpers: "
+            f"{builtin_name_collisions}"
+        )
 
-    # Selection-aware staged pipeline: embeds non-selected helpers
-    # into each target before inlining, so models are self-contained.
-    models: list[FunctionModel] = translate_selected(
+    models: list[FunctionModel] = translate_selected_models(
         yul_text,
-        selected=selected,
-        exact_yul_names=config.exact_yul_names,
-        n_params=config.n_params,
+        config,
+        selected_functions=selected,
     )
 
     validate_selected_models(models)

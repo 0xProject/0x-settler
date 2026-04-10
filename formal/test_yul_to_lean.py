@@ -14095,12 +14095,12 @@ class StagedPipelineWiringTest(unittest.TestCase):
 
 
 class StagedPipelineEmbedTest(unittest.TestCase):
-    """Tests that the staged pipeline embeds non-selected helpers into targets.
+    """Tests that the staged pipeline internalizes non-selected helpers.
 
     These tests verify that when ``config.function_order`` selects only a
-    subset of the module, the non-selected helpers are internalized and
-    inlined, producing self-contained models that evaluate without an
-    external ``model_table``.
+    subset of the module, the non-selected helpers are internal to the
+    selected targets and are handled by the staged inline plan rather than
+    by emitting extra standalone models.
     """
 
     # -- target calls a simple pure helper (not selected) --
@@ -14205,6 +14205,64 @@ class StagedPipelineEmbedTest(unittest.TestCase):
         # target(5, 11) = mload(0)+mload(0x20) = 5+11 = 16
         self.assertEqual(ytl.evaluate_function_model(model, (5, 11)), (16,))
 
+    def test_selected_sibling_remains_model_call_while_wrapper_inlines(self) -> None:
+        """Selected helper stays a model call; non-selected wrapper does not."""
+        yul = """
+            function fun_target_0(var_x_1) -> var_z_2 {
+                var_z_2 := wrapper(var_x_1)
+            }
+            function wrapper(var_a_3) -> var_r_4 {
+                var_r_4 := helper(var_a_3)
+            }
+            function helper(var_b_5) -> var_s_6 {
+                var_s_6 := add(var_b_5, 1)
+            }
+        """
+        config = make_model_config(
+            ("helper_model", "target"),
+            exact_yul_names={
+                "helper_model": "helper",
+                "target": "fun_target_0",
+            },
+        )
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        table = ytl.build_model_table(result.models)
+        target_model = table["target"]
+        self.assertEqual(ytl.evaluate_function_model(target_model, (5,), model_table=table), (6,))
+
+        rendered = repr(target_model.assignments)
+        self.assertIn("helper_model", rendered)
+        self.assertNotIn("wrapper", rendered)
+
+    def test_top_level_helper_dead_after_leave_cleanup_is_origin_independent(self) -> None:
+        """Top-level helper cleanup matches the existing local-helper behavior."""
+        yul = """
+            function fun_target_0(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1)
+            }
+            function helper(var_x_3) -> var_z_4 {
+                if var_x_3 {
+                    var_z_4 := 7
+                    leave
+                    var_z_4 := 99
+                }
+                var_z_4 := 9
+            }
+        """
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+
 
 class StagedPipelineSelectionTest(unittest.TestCase):
     """Tests for config-driven function selection in the staged pipeline."""
@@ -14287,6 +14345,43 @@ class StagedPipelineSelectionTest(unittest.TestCase):
         # f calls object A's helper → 1, not object B's → 2
         self.assertEqual(ytl.evaluate_function_model(model, ()), (1,))
 
+    def test_exact_selected_nested_target_inlines_disambiguating_helper(self) -> None:
+        """A helper named only in the selected path is inlined, not emitted."""
+        yul = """
+            function fun_outer1_1() -> var_o1_1 {
+                function helper() -> var_h1_1 {
+                    var_h1_1 := 7
+                }
+                function target() -> var_t1_1 {
+                    var_t1_1 := helper()
+                }
+                var_o1_1 := target()
+            }
+
+            function fun_outer2_1() -> var_o2_1 {
+                function helper() -> var_h2_1 {
+                    var_h2_1 := 9
+                }
+                function target() -> var_t2_1 {
+                    var_t2_1 := helper()
+                }
+                var_o2_1 := target()
+            }
+        """
+        config = make_model_config(
+            ("pick",),
+            exact_yul_names={"pick": "fun_outer1_1::target"},
+        )
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        self.assertEqual(len(result.models), 1)
+        self.assertEqual(result.models[0].fn_name, "pick")
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], ()), (7,))
+        self.assertNotIn("helper", repr(result.models[0].assignments))
+
 
 class StagedPipelineValidationTest(unittest.TestCase):
     """Tests for pre-restricted validation in the staged pipeline."""
@@ -14323,6 +14418,24 @@ class StagedPipelineValidationTest(unittest.TestCase):
                 yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE
             )
 
+    def test_dead_expression_stmt_eliminated_before_validation(self) -> None:
+        """Dead bare expression statements are removed before the fail-closed boundary."""
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                if 0 {
+                    side_effect()
+                }
+                var_z_2 := add(var_x_1, 1)
+            }
+        """
+        config = make_model_config(("f",))
+        result = ytl.translate_yul_to_models(
+            yul,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], (5,)), (6,))
+
     def test_reserved_lean_keyword_param_rejected(self) -> None:
         """Parameter demangling to a Lean keyword (if, let, etc.) is rejected."""
         yul = """
@@ -14345,6 +14458,38 @@ class StagedPipelineValidationTest(unittest.TestCase):
         """
         config = make_model_config(("f",))
         with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE
+            )
+
+    def test_dead_unresolved_call_eliminated_before_validation(self) -> None:
+        """Dead unresolved calls are removed before the validation boundary."""
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                if 0 {
+                    var_z_2 := missing(var_x_1)
+                }
+                var_z_2 := add(var_x_1, 1)
+            }
+        """
+        config = make_model_config(("f",))
+        result = ytl.translate_yul_to_models(
+            yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE
+        )
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], (5,)), (6,))
+
+    def test_live_unresolved_call_rejected_before_restricted_lowering(self) -> None:
+        """Live unresolved calls fail at the explicit validation boundary."""
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                if var_x_1 {
+                    var_z_2 := missing(var_x_1)
+                }
+                var_z_2 := 7
+            }
+        """
+        config = make_model_config(("f",))
+        with self.assertRaisesRegex(ytl.ParseError, "unresolved call"):
             ytl.translate_yul_to_models(
                 yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE
             )

@@ -71,9 +71,17 @@ class FunctionSummary:
     is_uint512_from: bool
 
 
-def summarize_function(body: NBlock) -> FunctionSummary:
+def summarize_function(
+    body: NBlock,
+    *,
+    top_level_inline_sids: dict[str, SymbolId] | None = None,
+    allowed_model_calls: frozenset[str] = frozenset(),
+) -> FunctionSummary:
     """Analyze a function body for effects (non-recursive into nested defs)."""
-    acc = _SummaryAccumulator()
+    acc = _SummaryAccumulator(
+        top_level_inline_sids=top_level_inline_sids,
+        allowed_model_calls=allowed_model_calls,
+    )
     _walk_block(acc, body)
     return FunctionSummary(
         writes_memory=acc.writes_memory,
@@ -93,7 +101,12 @@ def summarize_function(body: NBlock) -> FunctionSummary:
 class _SummaryAccumulator:
     """Mutable accumulator for the summary walk."""
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        top_level_inline_sids: dict[str, SymbolId] | None,
+        allowed_model_calls: frozenset[str],
+    ) -> None:
         self.writes_memory: bool = False
         self.reads_memory: bool = False
         self.may_leave: bool = False
@@ -104,6 +117,10 @@ class _SummaryAccumulator:
         self.calls_top_level: bool = False
         self.called_functions: set[SymbolId] = set()
         self.called_builtins: set[str] = set()
+        self.top_level_inline_sids = (
+            dict(top_level_inline_sids) if top_level_inline_sids is not None else {}
+        )
+        self.allowed_model_calls = allowed_model_calls
 
 
 def _walk_block(acc: _SummaryAccumulator, block: NBlock) -> None:
@@ -171,7 +188,11 @@ def _walk_expr_effects(acc: _SummaryAccumulator, expr: NExpr) -> None:
         elif isinstance(e, NLocalCall):
             acc.called_functions.add(e.symbol_id)
         elif isinstance(e, NTopLevelCall):
-            acc.calls_top_level = True
+            inline_sid = acc.top_level_inline_sids.get(e.name)
+            if inline_sid is not None:
+                acc.called_functions.add(inline_sid)
+            elif e.name not in acc.allowed_model_calls:
+                acc.calls_top_level = True
         elif isinstance(e, NUnresolvedCall):
             acc.calls_unresolved = True
 
@@ -416,24 +437,20 @@ def classify_helpers(
 
         # Determine strategy.
         #
-        # For-loops and top-level calls are truly non-inlineable.
-        # Memory-bearing helpers need special handling (EFFECT_LOWER
-        # or DO_NOT_INLINE).  Everything else is block-inlined so that
-        # downstream constprop can eliminate dead branches containing
-        # expression statements or unresolved calls.
-        if s.has_for_loop or s.calls_top_level:
-            strategy = InlineStrategy.DO_NOT_INLINE
-        elif s.is_uint512_from:
+        # The classifier is strict: unsupported constructs remain
+        # unsupported here. Dead-code elimination belongs in the
+        # simplifier, and fail-closed acceptance belongs in the
+        # validation pass before restricted lowering.
+        if s.is_uint512_from:
             strategy = InlineStrategy.EFFECT_LOWER
-        elif is_def:
+        elif is_def or reason is not None or s.has_for_loop or s.calls_top_level:
             strategy = InlineStrategy.DO_NOT_INLINE
-        elif is_p and not s.may_leave:
-            strategy = InlineStrategy.EXPR_INLINE
-        else:
-            # may_leave, expr effects, unresolved calls, effectful
-            # conditions, or transitively non-pure: clone body and let
-            # constprop clean up dead branches before restricted lowering.
+        elif s.may_leave:
             strategy = InlineStrategy.BLOCK_INLINE
+        elif not is_p:
+            strategy = InlineStrategy.DO_NOT_INLINE
+        else:
+            strategy = InlineStrategy.EXPR_INLINE
 
         result[sid] = InlineClassification(
             strategy=strategy,
@@ -451,6 +468,9 @@ def classify_helpers(
 
 def classify_function_scope(
     func: NormalizedFunction,
+    *,
+    top_level_inline_sids: dict[str, SymbolId] | None = None,
+    allowed_model_calls: frozenset[str] = frozenset(),
 ) -> dict[SymbolId, InlineClassification]:
     """Classify all nested helpers in a function for inlining decisions.
 
@@ -461,7 +481,11 @@ def classify_function_scope(
     fdefs = collect_function_defs(func.body)
     summaries: dict[SymbolId, FunctionSummary] = {}
     for fdef in fdefs:
-        base = summarize_function(fdef.body)
+        base = summarize_function(
+            fdef.body,
+            top_level_inline_sids=top_level_inline_sids,
+            allowed_model_calls=allowed_model_calls,
+        )
         summaries[fdef.symbol_id] = FunctionSummary(
             writes_memory=base.writes_memory,
             reads_memory=base.reads_memory,

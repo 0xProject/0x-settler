@@ -61,20 +61,26 @@ def _demangle(name: str) -> str:
     return name
 
 
-def _sanitize(name: str) -> str:
-    """Ensure *name* is a valid, non-reserved identifier."""
+def _sanitize_base(name: str) -> str:
+    """Ensure *name* is a syntactically valid identifier."""
     name = name.replace("$", "_").replace(".", "_")
     name = re.sub(r"[^A-Za-z0-9_]", "", name)
     if not name or not name[0].isalpha() and name[0] != "_":
         name = "_" + name if name else "_v"
-    # Avoid reserved Lean helper names.
-    while name in _RESERVED_LEAN_NAMES:
-        name = name + "_"
     return name
 
 
+def legalize_identifier_base(name: str, *, avoid_reserved: bool = True) -> str:
+    """Demangle + sanitize a binder name using the shared naming policy."""
+    clean = _sanitize_base(_demangle(name))
+    if avoid_reserved:
+        while clean in _RESERVED_LEAN_NAMES:
+            clean = clean + "_"
+    return clean
+
+
 def _legalize_one(name: str) -> str:
-    return _sanitize(_demangle(name))
+    return legalize_identifier_base(name)
 
 
 def _uniquify_name_bases(raw_names: dict[SymbolId, str]) -> dict[SymbolId, str]:
@@ -250,7 +256,9 @@ def plan_module(
     function_names: dict[str, str] = {}
     used_fn: set[str] = set()
     for raw in funcs:
-        clean = _sanitize(_demangle_function_name(raw))
+        clean = _sanitize_base(_demangle_function_name(raw))
+        while clean in _RESERVED_LEAN_NAMES:
+            clean = clean + "_"
         while clean in used_fn:
             clean = clean + "_"
         used_fn.add(clean)
