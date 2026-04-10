@@ -415,18 +415,25 @@ def classify_helpers(
         is_p = sid not in non_pure
 
         # Determine strategy.
-        if reason is not None or s.calls_top_level:
+        #
+        # For-loops and top-level calls are truly non-inlineable.
+        # Memory-bearing helpers need special handling (EFFECT_LOWER
+        # or DO_NOT_INLINE).  Everything else is block-inlined so that
+        # downstream constprop can eliminate dead branches containing
+        # expression statements or unresolved calls.
+        if s.has_for_loop or s.calls_top_level:
             strategy = InlineStrategy.DO_NOT_INLINE
         elif s.is_uint512_from:
             strategy = InlineStrategy.EFFECT_LOWER
         elif is_def:
             strategy = InlineStrategy.DO_NOT_INLINE
-        elif s.may_leave:
-            strategy = InlineStrategy.BLOCK_INLINE
-        elif is_p:
+        elif is_p and not s.may_leave:
             strategy = InlineStrategy.EXPR_INLINE
         else:
-            strategy = InlineStrategy.DO_NOT_INLINE
+            # may_leave, expr effects, unresolved calls, effectful
+            # conditions, or transitively non-pure: clone body and let
+            # constprop clean up dead branches before restricted lowering.
+            strategy = InlineStrategy.BLOCK_INLINE
 
         result[sid] = InlineClassification(
             strategy=strategy,

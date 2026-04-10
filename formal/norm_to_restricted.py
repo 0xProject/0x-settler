@@ -328,7 +328,11 @@ def _lower_stmt(
                 out=out,
                 names=names,
             )
-        return
+            return
+        raise ParseError(
+            f"Unsupported expression-statement in restricted IR lowering. "
+            f"Expression statements other than mstore() cannot be modeled."
+        )
 
     if isinstance(stmt, (NBind, NAssign)):
         expr = stmt.expr
