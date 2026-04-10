@@ -13895,7 +13895,9 @@ class SSAModelTest(unittest.TestCase):
         )
         plan = plan_module({"fun_f_1": rf})
         names = list(plan.binder_names["fun_f_1"].values())
-        self.assertEqual(len(names), len(set(names)), f"Duplicate binder names: {names}")
+        self.assertEqual(
+            len(names), len(set(names)), f"Duplicate binder names: {names}"
+        )
         for n in names:
             ytl.validate_ident(n, what="planned binder name")
 
@@ -13988,6 +13990,103 @@ class SSAModelTest(unittest.TestCase):
         self.assertEqual(len(groups), 2)
         self.assertEqual(sorted(groups[0].keys()), ["f"])
         self.assertEqual(sorted(groups[1].keys()), ["g"])
+
+
+class StagedPipelineWiringTest(unittest.TestCase):
+    """Tests that translate_yul_to_models uses the new staged pipeline."""
+
+    NESTED_IF_YUL = """
+        function fun_f_1(var_x_1) -> var_z_2 {
+            if var_x_1 {
+                if add(var_x_1, 1) { var_z_2 := 7 }
+            }
+        }
+    """
+    NESTED_IF_CONFIG = make_model_config(("f",))
+
+    MULTI_FN_YUL = """
+        function fun_g_1(var_x_1) -> var_z_2 {
+            var_z_2 := add(var_x_1, 1)
+        }
+        function fun_f_2(var_a_1) -> var_b_2 {
+            var_b_2 := fun_g_1(var_a_1)
+        }
+    """
+
+    def test_production_path_produces_recursive_branches(self) -> None:
+        """translate_yul_to_models must use new pipeline (recursive branches).
+
+        The old pipeline produces flat branches. The new pipeline preserves
+        nested ConditionalBlock in branch bodies. This test detects which
+        pipeline is active.
+        """
+        result = ytl.translate_yul_to_models(
+            self.NESTED_IF_YUL,
+            self.NESTED_IF_CONFIG,
+        )
+        model = result.models[0]
+        # Find nested ConditionalBlock inside a branch.
+        found_nested = False
+        for stmt in model.assignments:
+            if isinstance(stmt, ytl.ConditionalBlock):
+                for s in stmt.then_branch.assignments:
+                    if isinstance(s, ytl.ConditionalBlock):
+                        found_nested = True
+        self.assertTrue(
+            found_nested,
+            "Expected nested ConditionalBlock in branch (new pipeline behavior)",
+        )
+
+    def test_production_path_valid_and_evaluable(self) -> None:
+        """Models from translate_yul_to_models must validate and evaluate."""
+        result = ytl.translate_yul_to_models(
+            self.NESTED_IF_YUL,
+            self.NESTED_IF_CONFIG,
+        )
+        model = result.models[0]
+        ytl.validate_function_model(model)
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (0,))
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+
+    def test_production_path_lean_emission(self) -> None:
+        """translate_yul_to_models + build_lean_source must succeed."""
+        result = ytl.translate_yul_to_models(
+            self.NESTED_IF_YUL,
+            self.NESTED_IF_CONFIG,
+        )
+        lean_src = ytl.build_lean_source(
+            models=result.models,
+            source_path="test",
+            namespace="Test",
+            config=self.NESTED_IF_CONFIG,
+        )
+        self.assertIn("model_f", lean_src)
+
+    def test_production_path_function_selection(self) -> None:
+        """translate_yul_to_models selects only config.function_order."""
+        config = make_model_config(("f",))
+        result = ytl.translate_yul_to_models(
+            self.MULTI_FN_YUL,
+            config,
+        )
+        self.assertEqual(len(result.models), 1)
+        self.assertEqual(result.models[0].fn_name, "f")
+
+    def test_production_path_multi_function_with_calls(self) -> None:
+        """translate_yul_to_models with multiple selected functions and calls."""
+        config = make_model_config(("g", "f"))
+        result = ytl.translate_yul_to_models(
+            self.MULTI_FN_YUL,
+            config,
+        )
+        self.assertEqual(len(result.models), 2)
+        names = [m.fn_name for m in result.models]
+        self.assertEqual(names, ["g", "f"])
+        table = ytl.build_model_table(result.models)
+        self.assertEqual(
+            ytl.evaluate_function_model(result.models[1], (5,), model_table=table),
+            (6,),
+        )
 
 
 if __name__ == "__main__":
