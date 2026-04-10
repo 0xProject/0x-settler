@@ -4146,6 +4146,7 @@ def validate_function_model(model: FunctionModel) -> None:
     """Reject malformed restricted-IR models before Lean emission."""
 
     # -- Structural invariants on names --
+    validate_ident(model.fn_name, what="model name")
     if len(set(model.param_names)) != len(model.param_names):
         raise ParseError(
             f"Model {model.fn_name!r} has duplicate param names: {model.param_names!r}"
@@ -5387,6 +5388,9 @@ def render_function_defs(
     *,
     emission_plan: LeanEmissionPlan | None = None,
 ) -> str:
+    for model in models:
+        validate_function_model(model)
+
     if emission_plan is None:
         emission_plan = _build_lean_emission_plan(models, config)
     if len(emission_plan.model_defs) != len(models):

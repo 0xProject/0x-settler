@@ -24,6 +24,7 @@ from norm_to_restricted import lower_to_restricted
 from restricted_eval import evaluate_restricted
 from restricted_ir import RestrictedFunction
 from restricted_to_model import to_function_model
+from staged_selection import build_selection_plan
 from yul_ast import EvaluationError
 from yul_normalize import normalize_function
 from yul_parser import SyntaxParser
@@ -4213,28 +4214,47 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
                 pipeline=ytl.RAW_TRANSLATION_PIPELINE,
             )
 
-    def test_translate_yul_to_models_rejects_nested_call_to_enclosing_function(
+    def test_build_selection_plan_exact_nested_target_collects_only_reachable_helpers(
         self,
     ) -> None:
-        config = make_model_config(("outer",))
+        config = make_model_config(
+            ("pick",),
+            exact_yul_names={"pick": "fun_outer_0::target"},
+        )
         yul = """
-            function fun_outer_0(x) -> z {
-                function inner(a) -> b {
-                    b := fun_outer_0(a)
+            function fun_outer_0() -> z {
+                function helper() -> h {
+                    h := 7
                 }
-                z := inner(x)
+                function target() -> t {
+                    t := helper()
+                }
+                z := target()
             }
             """
+        plan = build_selection_plan(
+            yul,
+            config,
+            selected_functions=("pick",),
+        )
 
-        with self.assertRaisesRegex(
-            ytl.ParseError,
-            r"Unresolved call to 'fun_outer_0'",
-        ):
-            ytl.translate_yul_to_models(
-                yul,
-                config,
-                pipeline=ytl.RAW_TRANSLATION_PIPELINE,
-            )
+        def collect_function_names(func: yul_ast.FunctionDef) -> dict[int, str]:
+            names = {func.span.start: func.name}
+            for stmt in func.body.stmts:
+                if isinstance(stmt, yul_ast.FunctionDefStmt):
+                    names.update(collect_function_names(stmt.func))
+            return names
+
+        fn_names: dict[int, str] = {}
+        for group in plan.parsed_groups:
+            for func in group:
+                fn_names.update(collect_function_names(func))
+
+        helper_names = {
+            fn_names[helper_key.token_idx]
+            for helper_key in plan.target_infos["pick"].helper_keys
+        }
+        self.assertEqual(helper_names, {"helper"})
 
     def test_translate_yul_to_models_accepts_conditionally_constant_memory_address(
         self,
