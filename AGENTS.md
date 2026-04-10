@@ -317,10 +317,10 @@ The codebase uses `auto_detect_solc = true` — the compiler version is determin
 
 ```bash
 # Standard build (skips special contracts)
-forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip BlastDeployer.sol --skip ModeDeployer.sol --skip 'test/*' --skip 'script/*'
+forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip 'test/*' --skip 'script/*'
 
 # Build AllowanceHolder and Deployer (pinned to 0.8.25)
-FOUNDRY_SOLC_VERSION=0.8.25 forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol src/deployer/BlastDeployer.sol src/deployer/ModeDeployer.sol
+FOUNDRY_SOLC_VERSION=0.8.25 forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol
 
 # Build MultiCall (requires london EVM)
 FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=1000000 FOUNDRY_SOLC_VERSION=0.8.28 \

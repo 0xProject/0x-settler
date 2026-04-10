@@ -4,6 +4,13 @@
 
 ### Non-breaking changes
 
+## 2026-04-10
+
+### Breaking changes
+
+* Abandon Mode chain
+  * Remove SupSwapV3, Kim, and SwapMode UniV3 forks
+
 ## 2026-04-08
 
 ### Breaking changes

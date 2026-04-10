@@ -36,7 +36,7 @@ jobs:
         run: npm install
 
       - name: Build AllowanceHolder and Deployer
-        run: forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol src/deployer/ModeDeployer.sol
+        run: forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol
         env:
           FOUNDRY_SOLC_VERSION: 0.8.25
 
