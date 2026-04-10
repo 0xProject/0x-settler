@@ -10,7 +10,6 @@ No constant folding, block flattening, or helper inlining occurs here.
 
 from __future__ import annotations
 
-import ast
 from typing import assert_never
 
 from norm_ir import (
@@ -165,14 +164,14 @@ def _lower_expr(expr: SynExpr, r: ResolutionResult) -> NExpr:
         return NRef(symbol_id=sid, name=expr.name)
 
     if isinstance(expr, StringExpr):
-        # Decode the literal contents first, then lower them to the
-        # right-padded bytes32-style integer used by Yul.
-        raw = _decode_string_literal(expr.text)
-        if len(raw) > 32:
+        # The syntax parser already decoded the literal contents; normalization
+        # only performs the Yul bytes32-style integer lowering.
+        if len(expr.decoded_bytes) > 32:
             raise ParseError(
-                f"String literal {expr.text!r} exceeds 32 bytes " f"({len(raw)} bytes)"
+                f"String literal {expr.text!r} exceeds 32 bytes "
+                f"({len(expr.decoded_bytes)} bytes)"
             )
-        padded = raw.ljust(32, b"\x00")
+        padded = expr.decoded_bytes.ljust(32, b"\x00")
         return NConst(value=int.from_bytes(padded, "big"))
 
     if isinstance(expr, CallExpr):
@@ -198,14 +197,3 @@ def _const_value(expr: SynExpr) -> int:
     if isinstance(expr, IntExpr):
         return expr.value
     raise ParseError(f"Switch case value must be an integer, got {type(expr).__name__}")
-
-
-def _decode_string_literal(token_text: str) -> bytes:
-    """Decode a tokenized Yul string literal into its UTF-8 bytes."""
-    try:
-        decoded = ast.literal_eval(token_text)
-    except (SyntaxError, ValueError) as err:
-        raise ParseError(f"Invalid Yul string literal {token_text!r}") from err
-    if not isinstance(decoded, str):
-        raise ParseError(f"Invalid Yul string literal {token_text!r}")
-    return decoded.encode("utf-8")

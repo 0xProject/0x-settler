@@ -34,7 +34,6 @@ from norm_ir import (
 from norm_walk import map_expr
 from restricted_ir import RestrictedFunction
 from restricted_to_model import to_function_models
-from yul_ast import ParseError
 from yul_normalize import normalize_function
 from yul_resolve import ResolutionResult, resolve_module
 
@@ -169,16 +168,13 @@ def _generated_model_def_names(
     selected_functions: tuple[str, ...],
     config: ModelConfig,
 ) -> frozenset[str]:
+    from yul_to_lean import _plan_emitted_model_defs
+
     names: set[str] = set()
-    for sol_name in selected_functions:
-        base = config.model_names.get(sol_name)
-        if base is None:
-            raise ParseError(
-                f"Missing config.model_names entry for selected function {sol_name!r}"
-            )
-        if sol_name not in config.skip_norm:
-            names.add(base)
-        names.add(f"{base}_evm")
+    for planned in _plan_emitted_model_defs(selected_functions, config):
+        if planned.emit_norm:
+            names.add(planned.base_name)
+        names.add(planned.evm_name)
     return frozenset(names)
 
 

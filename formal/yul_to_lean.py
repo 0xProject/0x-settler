@@ -18,7 +18,6 @@ import pathlib
 import re
 import sys
 from collections import Counter
-from collections.abc import Iterator
 from dataclasses import dataclass, field
 from typing import Callable, assert_never
 
@@ -347,78 +346,6 @@ class RejectedHelperInfo:
 RejectedHelperMap = dict[str, RejectedHelperInfo]
 
 
-@dataclass(frozen=True)
-class ReferenceExprStatement:
-    expr: Expr
-
-
-@dataclass(frozen=True)
-class ReferenceBlock:
-    scope: "ReferenceScope"
-
-
-@dataclass(frozen=True)
-class ReferenceIf:
-    condition: Expr
-    body: "ReferenceScope"
-    else_body: "ReferenceScope | None" = None
-
-
-@dataclass(frozen=True)
-class ReferenceSwitchCase:
-    value: Expr
-    body: "ReferenceScope"
-
-
-@dataclass(frozen=True)
-class ReferenceSwitch:
-    discriminant: Expr
-    cases: tuple[ReferenceSwitchCase, ...]
-    default: "ReferenceScope | None" = None
-
-
-@dataclass(frozen=True)
-class ReferenceFor:
-    init: "ReferenceScope"
-    condition: Expr
-    post: "ReferenceScope"
-    body: "ReferenceScope"
-
-
-@dataclass(frozen=True)
-class ReferenceLeave:
-    pass
-
-
-ReferenceStatement = (
-    ReferenceExprStatement
-    | ReferenceBlock
-    | ReferenceIf
-    | ReferenceSwitch
-    | ReferenceFor
-    | ReferenceLeave
-)
-
-
-@dataclass(frozen=True)
-class ReferenceLocalFunction:
-    name: str
-    body: "ReferenceScope"
-
-
-@dataclass(frozen=True)
-class ReferenceScope:
-    statements: tuple[ReferenceStatement, ...]
-    local_functions: tuple[ReferenceLocalFunction, ...] = ()
-
-
-@dataclass(frozen=True)
-class ReferenceAnalysisResult:
-    live_references: bool
-    dead_references: bool
-    definitely_terminates: bool
-
-
 class _TokenReader:
     """Shared token-stream primitives for Yul parsers.
 
@@ -490,495 +417,6 @@ class _TokenReader:
             return Var(text)
         raise ParseError(f"Expected expression, got {kind!r} ({text!r})")
 
-
-class _ReferenceScopeParser(_TokenReader):
-    """Parse a lexical Yul scope for helper-reference analysis.
-
-    This parser is intentionally broader than the main model-generation parser:
-    it keeps local function definitions and lexical blocks so dependency
-    analysis can follow real scope rules, while still reusing the same basic
-    expression grammar.
-    """
-
-    def _parse_block(self) -> ReferenceScope:
-        self._expect("{")
-        scope = self.parse_scope()
-        self._expect("}")
-        return scope
-
-    def _looks_like_assignment(self) -> bool:
-        if self._peek_kind() != "ident":
-            return False
-        j = self.i + 1
-        while j < len(self.tokens) and self.tokens[j][0] == ",":
-            j += 1
-            if j >= len(self.tokens) or self.tokens[j][0] != "ident":
-                return False
-            j += 1
-        return j < len(self.tokens) and self.tokens[j][0] == ":="
-
-    def _parse_let_statement(self) -> Expr | None:
-        self._expect_ident()  # let
-        self._expect_ident()
-        while self._peek_kind() == ",":
-            self._pop()
-            self._expect_ident()
-        if self._peek_kind() != ":=":
-            return None
-        self._pop()
-        return self._parse_expr()
-
-    def _parse_assignment_statement(self) -> Expr:
-        self._expect_ident()
-        while self._peek_kind() == ",":
-            self._pop()
-            self._expect_ident()
-        self._expect(":=")
-        return self._parse_expr()
-
-    def _parse_function(self) -> ReferenceLocalFunction:
-        fn_kw = self._expect_ident()
-        if fn_kw != "function":
-            raise ParseError(f"Expected 'function', got {fn_kw!r}")
-        name = self._expect_ident()
-        self._expect("(")
-        if self._peek_kind() != ")":
-            self._expect_ident()
-            while self._peek_kind() == ",":
-                self._pop()
-                self._expect_ident()
-        self._expect(")")
-        if self._peek_kind() == "->":
-            self._pop()
-            self._expect_ident()
-            while self._peek_kind() == ",":
-                self._pop()
-                self._expect_ident()
-        body = self._parse_block()
-        return ReferenceLocalFunction(name=name, body=body)
-
-    def _parse_if(self) -> ReferenceIf:
-        self._expect_ident()  # if
-        condition = self._parse_expr()
-        body = self._parse_block()
-        return ReferenceIf(condition=condition, body=body)
-
-    def _parse_switch(self) -> ReferenceSwitch:
-        self._expect_ident()  # switch
-        discriminant = self._parse_expr()
-        cases: list[ReferenceSwitchCase] = []
-        default: ReferenceScope | None = None
-        while (
-            not self._at_end()
-            and self._peek_kind() == "ident"
-            and self.tokens[self.i][1] in ("case", "default")
-        ):
-            branch = self._expect_ident()
-            if branch == "case":
-                value = self._parse_expr()
-                cases.append(ReferenceSwitchCase(value=value, body=self._parse_block()))
-            else:
-                if default is not None:
-                    raise ParseError("Duplicate 'default' in switch statement")
-                default = self._parse_block()
-        return ReferenceSwitch(
-            discriminant=discriminant,
-            cases=tuple(cases),
-            default=default,
-        )
-
-    def _parse_for(self) -> ReferenceFor:
-        self._expect_ident()  # for
-        init = self._parse_block()
-        condition = self._parse_expr()
-        post = self._parse_block()
-        body = self._parse_block()
-        return ReferenceFor(init=init, condition=condition, post=post, body=body)
-
-    def parse_scope(self) -> ReferenceScope:
-        statements: list[ReferenceStatement] = []
-        local_functions: list[ReferenceLocalFunction] = []
-
-        while not self._at_end() and self._peek_kind() != "}":
-            kind = self._peek_kind()
-            if kind == "{":
-                statements.append(ReferenceBlock(self._parse_block()))
-                continue
-
-            if kind == "ident":
-                text = self.tokens[self.i][1]
-                if text == "function":
-                    local_functions.append(self._parse_function())
-                    continue
-                if text == "let":
-                    expr = self._parse_let_statement()
-                    if expr is not None:
-                        statements.append(ReferenceExprStatement(expr))
-                    continue
-                if text == "leave":
-                    self._pop()
-                    statements.append(ReferenceLeave())
-                    continue
-                if text == "if":
-                    statements.append(self._parse_if())
-                    continue
-                if text == "switch":
-                    statements.append(self._parse_switch())
-                    continue
-                if text == "for":
-                    statements.append(self._parse_for())
-                    continue
-                if self._looks_like_assignment():
-                    statements.append(
-                        ReferenceExprStatement(self._parse_assignment_statement())
-                    )
-                    continue
-
-            if kind in ("ident", "num", "string"):
-                statements.append(ReferenceExprStatement(self._parse_expr()))
-                continue
-
-            tok = self._peek()
-            raise ParseError(
-                f"Unsupported statement start {tok!r} in helper reference analysis"
-            )
-
-        return ReferenceScope(
-            statements=tuple(statements),
-            local_functions=tuple(local_functions),
-        )
-
-
-def _expr_reference_summary(
-    expr: Expr,
-    live_names: set[str],
-    dead_names: set[str],
-) -> ReferenceAnalysisResult:
-    if isinstance(expr, (IntLit, Var)):
-        return ReferenceAnalysisResult(False, False, False)
-    if isinstance(expr, Ite):
-        live = False
-        dead = False
-        for sub in (expr.cond, expr.if_true, expr.if_false):
-            child = _expr_reference_summary(sub, live_names, dead_names)
-            live = live or child.live_references
-            dead = dead or child.dead_references
-        return ReferenceAnalysisResult(live, dead, False)
-    if isinstance(expr, Project):
-        return _expr_reference_summary(expr.inner, live_names, dead_names)
-    if isinstance(expr, Call):
-        live = expr.name in live_names
-        dead = expr.name in dead_names
-        for arg in expr.args:
-            child = _expr_reference_summary(arg, live_names, dead_names)
-            live = live or child.live_references
-            dead = dead or child.dead_references
-        return ReferenceAnalysisResult(live, dead, False)
-    assert_never(expr)
-
-
-def _scope_reference_summary(
-    scope: ReferenceScope,
-    live_names: set[str],
-    dead_names: set[str] | None = None,
-) -> ReferenceAnalysisResult:
-    if dead_names is None:
-        dead_names = set()
-    local_names = {fn.name for fn in scope.local_functions}
-    live_referencing: set[str] = set()
-    dead_referencing: set[str] = set()
-
-    changed = True
-    while changed:
-        changed = False
-        visible_live = (live_names - local_names) | live_referencing
-        visible_dead = (
-            (dead_names - local_names) | dead_referencing
-        ) - live_referencing
-        for local_fn in scope.local_functions:
-            summary = _scope_reference_summary(
-                local_fn.body,
-                visible_live,
-                visible_dead,
-            )
-            if summary.live_references and local_fn.name not in live_referencing:
-                live_referencing.add(local_fn.name)
-                dead_referencing.discard(local_fn.name)
-                changed = True
-                continue
-            if (
-                not summary.live_references
-                and summary.dead_references
-                and local_fn.name not in dead_referencing
-            ):
-                dead_referencing.add(local_fn.name)
-                changed = True
-
-    visible_live = (live_names - local_names) | live_referencing
-    visible_dead = ((dead_names - local_names) | dead_referencing) - live_referencing
-    live = False
-    dead = False
-    terminated = False
-    for stmt in scope.statements:
-        stmt_summary = _statement_reference_summary(
-            stmt,
-            visible_live,
-            visible_dead,
-        )
-        if terminated:
-            dead = dead or stmt_summary.live_references or stmt_summary.dead_references
-            continue
-        live = live or stmt_summary.live_references
-        dead = dead or stmt_summary.dead_references
-        terminated = stmt_summary.definitely_terminates
-    return ReferenceAnalysisResult(live, dead, terminated)
-
-
-def _statement_reference_summary(
-    stmt: ReferenceStatement,
-    live_names: set[str],
-    dead_names: set[str],
-) -> ReferenceAnalysisResult:
-    if isinstance(stmt, ReferenceExprStatement):
-        expr_summary = _expr_reference_summary(stmt.expr, live_names, dead_names)
-        return ReferenceAnalysisResult(
-            expr_summary.live_references,
-            expr_summary.dead_references,
-            False,
-        )
-
-    if isinstance(stmt, ReferenceLeave):
-        return ReferenceAnalysisResult(False, False, True)
-
-    if isinstance(stmt, ReferenceBlock):
-        return _scope_reference_summary(stmt.scope, live_names, dead_names)
-
-    if isinstance(stmt, ReferenceIf):
-        cond_summary = _expr_reference_summary(stmt.condition, live_names, dead_names)
-
-        const_cond = _try_const_eval(stmt.condition)
-        if const_cond is not None:
-            live = cond_summary.live_references
-            dead = cond_summary.dead_references
-            if const_cond != 0:
-                chosen_summary = _scope_reference_summary(
-                    stmt.body,
-                    live_names,
-                    dead_names,
-                )
-                live = live or chosen_summary.live_references
-                dead = dead or chosen_summary.dead_references
-                if stmt.else_body is not None:
-                    dead_branch = _scope_reference_summary(
-                        stmt.else_body,
-                        live_names,
-                        dead_names,
-                    )
-                    dead = (
-                        dead
-                        or dead_branch.live_references
-                        or dead_branch.dead_references
-                    )
-                return ReferenceAnalysisResult(
-                    live,
-                    dead,
-                    chosen_summary.definitely_terminates,
-                )
-            if stmt.else_body is None:
-                dead_branch = _scope_reference_summary(
-                    stmt.body,
-                    live_names,
-                    dead_names,
-                )
-                dead = (
-                    dead or dead_branch.live_references or dead_branch.dead_references
-                )
-                return ReferenceAnalysisResult(live, dead, False)
-            chosen_summary = _scope_reference_summary(
-                stmt.else_body,
-                live_names,
-                dead_names,
-            )
-            dead_branch = _scope_reference_summary(
-                stmt.body,
-                live_names,
-                dead_names,
-            )
-            live = live or chosen_summary.live_references
-            dead = (
-                dead
-                or chosen_summary.dead_references
-                or dead_branch.live_references
-                or dead_branch.dead_references
-            )
-            return ReferenceAnalysisResult(
-                live,
-                dead,
-                chosen_summary.definitely_terminates,
-            )
-
-        then_summary = _scope_reference_summary(stmt.body, live_names, dead_names)
-
-        if stmt.else_body is None:
-            return ReferenceAnalysisResult(
-                cond_summary.live_references or then_summary.live_references,
-                cond_summary.dead_references or then_summary.dead_references,
-                False,
-            )
-
-        else_summary = _scope_reference_summary(
-            stmt.else_body,
-            live_names,
-            dead_names,
-        )
-
-        return ReferenceAnalysisResult(
-            cond_summary.live_references
-            or then_summary.live_references
-            or else_summary.live_references,
-            cond_summary.dead_references
-            or then_summary.dead_references
-            or else_summary.dead_references,
-            then_summary.definitely_terminates and else_summary.definitely_terminates,
-        )
-
-    if isinstance(stmt, ReferenceSwitch):
-        discrim_summary = _expr_reference_summary(
-            stmt.discriminant,
-            live_names,
-            dead_names,
-        )
-
-        const_disc = _try_const_eval(stmt.discriminant)
-        if const_disc is not None:
-            chosen_scope = None
-            dead = discrim_summary.dead_references
-            for case in stmt.cases:
-                case_val = _try_const_eval(case.value)
-                if case_val is not None and case_val == const_disc:
-                    chosen_scope = case.body
-                else:
-                    dead_branch = _scope_reference_summary(
-                        case.body,
-                        live_names,
-                        dead_names,
-                    )
-                    dead = (
-                        dead
-                        or dead_branch.live_references
-                        or dead_branch.dead_references
-                    )
-            default_summary = (
-                _scope_reference_summary(stmt.default, live_names, dead_names)
-                if stmt.default is not None
-                else None
-            )
-            switch_chosen: ReferenceAnalysisResult | None
-            if chosen_scope is None:
-                switch_chosen = default_summary
-            else:
-                switch_chosen = _scope_reference_summary(
-                    chosen_scope,
-                    live_names,
-                    dead_names,
-                )
-                if default_summary is not None:
-                    dead = (
-                        dead
-                        or default_summary.live_references
-                        or default_summary.dead_references
-                    )
-            if switch_chosen is None:
-                return ReferenceAnalysisResult(
-                    discrim_summary.live_references,
-                    dead,
-                    False,
-                )
-            return ReferenceAnalysisResult(
-                discrim_summary.live_references or switch_chosen.live_references,
-                dead or switch_chosen.dead_references,
-                switch_chosen.definitely_terminates,
-            )
-
-        branch_summaries = [
-            _scope_reference_summary(case.body, live_names, dead_names)
-            for case in stmt.cases
-        ]
-        default_summary = (
-            _scope_reference_summary(stmt.default, live_names, dead_names)
-            if stmt.default is not None
-            else None
-        )
-        return ReferenceAnalysisResult(
-            discrim_summary.live_references
-            or any(summary.live_references for summary in branch_summaries)
-            or (
-                default_summary.live_references
-                if default_summary is not None
-                else False
-            ),
-            discrim_summary.dead_references
-            or any(summary.dead_references for summary in branch_summaries)
-            or (
-                default_summary.dead_references
-                if default_summary is not None
-                else False
-            ),
-            default_summary is not None
-            and all(summary.definitely_terminates for summary in branch_summaries)
-            and default_summary.definitely_terminates,
-        )
-
-    if isinstance(stmt, ReferenceFor):
-        init_summary = _scope_reference_summary(stmt.init, live_names, dead_names)
-        cond_summary = _expr_reference_summary(stmt.condition, live_names, dead_names)
-        body_summary = _scope_reference_summary(stmt.body, live_names, dead_names)
-        post_summary = _scope_reference_summary(stmt.post, live_names, dead_names)
-
-        if init_summary.definitely_terminates:
-            return ReferenceAnalysisResult(
-                init_summary.live_references,
-                init_summary.dead_references
-                or cond_summary.live_references
-                or cond_summary.dead_references
-                or body_summary.live_references
-                or body_summary.dead_references
-                or post_summary.live_references
-                or post_summary.dead_references,
-                True,
-            )
-
-        const_cond = _try_const_eval(stmt.condition)
-        if const_cond is not None and const_cond == 0:
-            return ReferenceAnalysisResult(
-                init_summary.live_references or cond_summary.live_references,
-                init_summary.dead_references
-                or cond_summary.dead_references
-                or body_summary.live_references
-                or body_summary.dead_references
-                or post_summary.live_references
-                or post_summary.dead_references,
-                False,
-            )
-
-        # A for-loop with a constant nonzero condition is an
-        # infinite loop — it never falls through, so later
-        # statements are dead regardless of body/post content.
-        return ReferenceAnalysisResult(
-            init_summary.live_references
-            or cond_summary.live_references
-            or body_summary.live_references
-            or post_summary.live_references,
-            init_summary.dead_references
-            or cond_summary.dead_references
-            or body_summary.dead_references
-            or post_summary.dead_references,
-            const_cond is not None and const_cond != 0,
-        )
-
-    raise TypeError(f"Unsupported ReferenceStatement: {type(stmt)}")
-
-
 def _validate_function_syntax(
     tokens: list[tuple[str, str]], start: int
 ) -> ResolutionResult:
@@ -1020,7 +458,6 @@ class YulParser(_TokenReader):
         self._token_offset = token_offset
         self._protected_token_idxs = protected_token_idxs
         self._expr_stmts: list[Expr] = []
-        self._reference_scope_cache: dict[int, ReferenceScope] = {}
         self._source_names: set[str] | None = None
         self._deferred_helpers: dict[str, YulFunction] = {}
         self._deferred_rejected: RejectedHelperMap = {}
@@ -1847,139 +1284,6 @@ class YulParser(_TokenReader):
             token_idx=token_idx,
         )
 
-    def _count_params_at(self, idx: int) -> int:
-        """Count the number of parameters of the function at token index ``idx``.
-
-        Scans the parenthesized parameter list without advancing the main
-        cursor.  Returns the count of comma-separated identifiers.
-        """
-        # idx points to 'function', idx+1 is the name, idx+2 should be '('
-        j = idx + 2
-        if j >= len(self.tokens) or self.tokens[j][0] != "(":
-            return 0
-        j += 1  # skip '('
-        if j < len(self.tokens) and self.tokens[j][0] == ")":
-            return 0
-        count = 1
-        while j < len(self.tokens) and self.tokens[j][0] != ")":
-            if self.tokens[j][0] == ",":
-                count += 1
-            j += 1
-        return count
-
-    def _disambiguate_by_references(
-        self,
-        matches: list[int],
-        known_yul_names: set[str],
-        exclude_known: bool,
-    ) -> list[int]:
-        """Narrow *matches* using helper-reference analysis.
-
-        Each candidate's body is analyzed for references to
-        *known_yul_names*.  References are classified as **live**
-        (reachable at runtime) or **dead** (behind constant-false
-        guards or after ``leave``).
-
-        **exclude_known=True** — selecting a *leaf* function that does
-        NOT call known helpers:
-
-        1. Prefer candidates with no live references.
-        2. Among those, prefer candidates that DO have dead references
-           (a dead reference proves the compiler originally considered
-           this variant related to the helper — it is the right leaf
-           rather than an unrelated function that happens to match).
-        3. If no candidate has dead references, accept all
-           live-independent candidates.
-
-        **exclude_known=False** — selecting a *wrapper* that calls
-        known helpers:
-
-        1. Prefer candidates with live references.
-        2. If none have live references, prefer candidates with no
-           dead references (a dead reference suggests the optimizer
-           stripped a real call — probably not the right match).
-
-        **Partial-parse fallback** — when some candidate bodies fail
-        to parse (summary is None), use only the live-reference signal.
-
-        Returns the narrowed list, or *matches* unchanged when no
-        filtering applies.
-        """
-        summaries = {
-            m: self._body_reference_summary(m, known_yul_names) for m in matches
-        }
-
-        def _has_live(m: int) -> bool:
-            s = summaries[m]
-            return s is not None and s.live_references
-
-        def _has_dead(m: int) -> bool:
-            s = summaries[m]
-            return s is not None and s.dead_references
-
-        if all(summary is not None for summary in summaries.values()):
-            # All bodies parsed — use full disambiguation.
-            if exclude_known:
-                # Leaf selection: discard candidates that call known helpers.
-                live_independent = [m for m in matches if not _has_live(m)]
-                if live_independent:
-                    # Tiebreak: prefer candidates whose dead code DOES
-                    # reference known helpers (proves compiler affinity).
-                    dead_tiebreak = [m for m in live_independent if _has_dead(m)]
-                    return dead_tiebreak if dead_tiebreak else live_independent
-            else:
-                # Wrapper selection: prefer candidates that call known helpers.
-                live_dependent = [m for m in matches if _has_live(m)]
-                if live_dependent:
-                    return live_dependent
-                # No live references anywhere.  Prefer candidates with
-                # no dead references — a dead ref suggests the optimizer
-                # stripped a real call, making that candidate the wrong match.
-                clean_candidates = [m for m in matches if not _has_dead(m)]
-                if clean_candidates:
-                    return clean_candidates
-        else:
-            # Some bodies failed to parse — simple fallback.
-            live_dependent = [m for m in matches if _has_live(m)]
-            if live_dependent:
-                return live_dependent
-
-        return matches
-
-    def _walk_function_defs(
-        self,
-    ) -> Iterator[tuple[int, str, tuple[str, ...]]]:
-        """Yield ``(token_idx, fn_name, lexical_path)`` for each function def.
-
-        Walks the token stream tracking brace depth and function-body
-        nesting.  ``lexical_path`` is a tuple of enclosing function names
-        ending with the function's own name, e.g. ``("outer", "inner")``.
-        Top-level functions have a single-element path.
-        """
-        fn_body_stack: list[tuple[int, str]] = []
-        depth = 0
-        expect_fn_body: str | None = None
-
-        for idx in range(len(self.tokens) - 1):
-            k, text = self.tokens[idx]
-            if k == "{":
-                depth += 1
-                if expect_fn_body is not None:
-                    fn_body_stack.append((depth, expect_fn_body))
-                    expect_fn_body = None
-            elif k == "}":
-                if fn_body_stack and fn_body_stack[-1][0] == depth:
-                    fn_body_stack.pop()
-                depth -= 1
-            elif k == "ident" and text == "function":
-                fn_name = self._function_name_at(idx)
-                if fn_name is None:
-                    expect_fn_body = None
-                    continue
-                path = tuple(name for _, name in fn_body_stack) + (fn_name,)
-                yield (idx, fn_name, path)
-                expect_fn_body = fn_name
-
     def find_function(
         self,
         sol_fn_name: str,
@@ -2005,43 +1309,16 @@ class YulParser(_TokenReader):
 
         Raises on zero or ambiguous matches.
         """
-        target_prefix = f"fun_{sol_fn_name}_"
-        matches: list[int] = [
-            idx
-            for idx, fn_name, path in self._walk_function_defs()
-            if len(path) == 1
-            and fn_name.startswith(target_prefix)
-            and fn_name[len(target_prefix) :].isdigit()
-        ]
+        from staged_selection import find_function_match
 
-        if not matches:
-            raise ParseError(
-                f"Yul function for '{sol_fn_name}' not found "
-                f"(expected pattern fun_{sol_fn_name}_<digits>)"
-            )
-
-        if n_params is not None:
-            matches = [m for m in matches if self._count_params_at(m) == n_params]
-            if not matches:
-                raise ParseError(
-                    f"No Yul function for {sol_fn_name!r} matches "
-                    f"{n_params} parameter(s)"
-                )
-
-        if known_yul_names and len(matches) > 1:
-            matches = self._disambiguate_by_references(
-                matches, known_yul_names, exclude_known
-            )
-
-        if len(matches) > 1:
-            names = [self.tokens[m + 1][1] for m in matches]
-            raise ParseError(
-                f"Multiple Yul functions match '{sol_fn_name}': {names}. "
-                f"Rename wrapper functions to avoid collisions "
-                f"(e.g. prefix with 'wrap_')."
-            )
-
-        self.i = matches[0]
+        self.i, _ = find_function_match(
+            self.tokens,
+            sol_fn_name,
+            n_params=n_params,
+            known_yul_names=known_yul_names,
+            exclude_known=exclude_known,
+            builtins=_EVM_BUILTINS,
+        )
         return self.parse_function()
 
     def find_exact_function(
@@ -2057,25 +1334,16 @@ class YulParser(_TokenReader):
         skipped.  Pass *search_nested=True* to also search inside
         function bodies (for selecting nested helpers).
         """
-        matches = self._find_exact_function_matches(
+        from staged_selection import find_exact_function_match
+
+        self.i, _ = find_exact_function_match(
+            self.tokens,
             yul_name,
             n_params=n_params,
             search_nested=search_nested,
+            builtins=_EVM_BUILTINS,
         )
-        qualified = ["::".join(path) for _, path in matches]
-        return self._parse_unique_exact_match(
-            matches,
-            n_params=n_params,
-            not_found=f"Exact Yul function {yul_name!r} not found",
-            not_found_with_params=(
-                f"Exact Yul function {yul_name!r} with {n_params} parameter(s) not found"
-            ),
-            ambiguous=(
-                f"Multiple exact Yul functions matched {yul_name!r}: {qualified}. "
-                "Use a scope-qualified exact_yul_names entry such as '::name' "
-                "for a top-level function or 'outer::inner' for a nested one."
-            ),
-        )
+        return self.parse_function()
 
     def find_exact_function_path(
         self,
@@ -2088,103 +1356,15 @@ class YulParser(_TokenReader):
         ``("top",)`` selects a top-level function, while
         ``("outer", "helper")`` selects ``helper`` nested inside ``outer``.
         """
-        if not yul_path:
-            raise ParseError("Exact Yul function path cannot be empty")
-        yul_name = yul_path[-1]
-        matches = [
-            (idx, path)
-            for idx, path in self._find_exact_function_matches(
-                yul_name,
-                n_params=n_params,
-                search_nested=True,
-            )
-            if path == yul_path
-        ]
-        rendered = "::".join(yul_path)
-        return self._parse_unique_exact_match(
-            matches,
+        from staged_selection import find_exact_function_path_match
+
+        self.i, _ = find_exact_function_path_match(
+            self.tokens,
+            yul_path,
             n_params=n_params,
-            not_found=f"Exact Yul function path {rendered!r} not found",
-            not_found_with_params=(
-                f"Exact Yul function path {rendered!r} with {n_params} "
-                f"parameter(s) not found"
-            ),
-            ambiguous=(
-                f"Multiple exact Yul functions matched path {rendered!r}. "
-                "Refuse to guess."
-            ),
+            builtins=_EVM_BUILTINS,
         )
-
-    def _parse_unique_exact_match(
-        self,
-        matches: list[tuple[int, tuple[str, ...]]],
-        *,
-        n_params: int | None,
-        not_found: str,
-        not_found_with_params: str,
-        ambiguous: str,
-    ) -> YulFunction:
-        """Parse the single matched exact function, or raise a tailored error."""
-        if not matches:
-            raise ParseError(not_found if n_params is None else not_found_with_params)
-        if len(matches) > 1:
-            raise ParseError(ambiguous)
-        self.i = matches[0][0]
         return self.parse_function()
-
-    def _find_exact_function_matches(
-        self,
-        yul_name: str,
-        *,
-        n_params: int | None = None,
-        search_nested: bool,
-    ) -> list[tuple[int, tuple[str, ...]]]:
-        """Return ``(token_idx, lexical_path)`` matches for ``yul_name``."""
-        return [
-            (idx, path)
-            for idx, fn_name, path in self._walk_function_defs()
-            if fn_name == yul_name
-            and (search_nested or len(path) == 1)
-            and (n_params is None or self._count_params_at(idx) == n_params)
-        ]
-
-    def _body_reference_summary(
-        self,
-        fn_start: int,
-        yul_names: set[str],
-    ) -> ReferenceAnalysisResult | None:
-        """Summarize live/dead dependencies on *yul_names* for a function body."""
-        # Find the opening brace of the function body.
-        body_start = fn_start
-        while body_start < len(self.tokens) and self.tokens[body_start][0] != "{":
-            body_start += 1
-        if body_start >= len(self.tokens):
-            return None
-        body_end = self._find_matching_brace(body_start)
-        if fn_start not in self._reference_scope_cache:
-            try:
-                body_tokens = self.tokens[body_start + 1 : body_end]
-                scope = _ReferenceScopeParser(body_tokens).parse_scope()
-            except ParseError:
-                return None
-            self._reference_scope_cache[fn_start] = scope
-        return _scope_reference_summary(
-            self._reference_scope_cache[fn_start],
-            yul_names,
-        )
-
-    def _find_matching_brace(self, open_idx: int) -> int:
-        """Return the index of the ``}`` matching the ``{`` at *open_idx*."""
-        depth = 0
-        for j in range(open_idx, len(self.tokens)):
-            k, _ = self.tokens[j]
-            if k == "{":
-                depth += 1
-            elif k == "}":
-                depth -= 1
-                if depth == 0:
-                    return j
-        return len(self.tokens) - 1
 
     def _function_name_at(self, idx: int) -> str | None:
         if idx + 1 >= len(self.tokens):
@@ -3894,14 +3074,8 @@ def _walk_model_exprs_in_stmt(
         return
     if isinstance(stmt, ConditionalBlock):
         visit(stmt.condition)
-        for s in stmt.then_branch.assignments:
-            _walk_model_exprs_in_stmt(s, visit)
-        for s in stmt.else_branch.assignments:
-            _walk_model_exprs_in_stmt(s, visit)
-        for expr in stmt.then_branch.outputs:
-            visit(expr)
-        for expr in stmt.else_branch.outputs:
-            visit(expr)
+        _walk_model_exprs_in_branch(stmt.then_branch, visit)
+        _walk_model_exprs_in_branch(stmt.else_branch, visit)
         return
     assert_never(stmt)
 
@@ -4004,6 +3178,30 @@ def _expr_vars(expr: Expr) -> set[str]:
             out.update(_expr_vars(arg))
         return out
     assert_never(expr)
+
+
+def _walk_model_exprs_in_branch(
+    branch: ConditionalBranch,
+    visit: Callable[[Expr], None],
+) -> None:
+    for stmt in branch.assignments:
+        _walk_model_exprs_in_stmt(stmt, visit)
+    for expr in branch.outputs:
+        visit(expr)
+
+
+def _replace_branch(
+    branch: ConditionalBranch,
+    replacements: dict[Expr, str],
+) -> ConditionalBranch:
+    return ConditionalBranch(
+        assignments=tuple(
+            _replace_statement(stmt, replacements) for stmt in branch.assignments
+        ),
+        outputs=tuple(
+            _replace_expr(expr, replacements) for expr in branch.outputs
+        ),
+    )
 
 
 def validate_function_model(model: FunctionModel) -> None:
@@ -4520,26 +3718,8 @@ def _replace_statement(
         return ConditionalBlock(
             condition=_replace_expr(stmt.condition, replacements),
             output_vars=stmt.output_vars,
-            then_branch=ConditionalBranch(
-                assignments=tuple(
-                    _replace_statement(s, replacements)
-                    for s in stmt.then_branch.assignments
-                ),
-                outputs=tuple(
-                    _replace_expr(expr, replacements)
-                    for expr in stmt.then_branch.outputs
-                ),
-            ),
-            else_branch=ConditionalBranch(
-                assignments=tuple(
-                    _replace_statement(s, replacements)
-                    for s in stmt.else_branch.assignments
-                ),
-                outputs=tuple(
-                    _replace_expr(expr, replacements)
-                    for expr in stmt.else_branch.outputs
-                ),
-            ),
+            then_branch=_replace_branch(stmt.then_branch, replacements),
+            else_branch=_replace_branch(stmt.else_branch, replacements),
         )
     assert_never(stmt)
 
@@ -5104,14 +4284,22 @@ def build_model_body(
 ) -> str:
     lines: list[str] = []
     norm_helpers = {**_BASE_NORM_HELPERS, **config.extra_norm_ops}
+    planned_defs = _plan_emitted_model_defs(config.function_order, config)
+    planned_by_name = {planned.fn_name: planned for planned in planned_defs}
 
     if evm:
         for p in param_names:
             lines.append(f"  let {p} := u256 {p}")
-        call_map = {fn: f"{config.model_names[fn]}_evm" for fn in config.function_order}
+        call_map = {
+            fn_name: planned_by_name[fn_name].evm_name
+            for fn_name in config.function_order
+        }
         op_map = OP_TO_LEAN_HELPER
     else:
-        call_map = dict(config.model_names)
+        call_map = {
+            fn_name: planned_by_name[fn_name].base_name
+            for fn_name in config.function_order
+        }
         op_map = norm_helpers
 
     merged_map = {**op_map, **call_map}
@@ -5176,6 +4364,28 @@ class LeanEmissionPlan:
     extra_norm_binder_names: frozenset[str]
 
 
+def _plan_emitted_model_defs(
+    function_names: tuple[str, ...],
+    config: ModelConfig,
+) -> tuple[EmittedModelDef, ...]:
+    planned: list[EmittedModelDef] = []
+    for fn_name in function_names:
+        base_name = config.model_names.get(fn_name)
+        if base_name is None:
+            raise ParseError(
+                f"Model {fn_name!r} has no entry in config.model_names"
+            )
+        planned.append(
+            EmittedModelDef(
+                fn_name=fn_name,
+                base_name=base_name,
+                evm_name=f"{base_name}_evm",
+                emit_norm=fn_name not in config.skip_norm,
+            )
+        )
+    return tuple(planned)
+
+
 def _collect_model_binders(model: FunctionModel) -> list[str]:
     binders = [*model.param_names, *model.return_names]
     for stmt in model.assignments:
@@ -5213,46 +4423,40 @@ def _build_lean_emission_plan(
         {"u256", "WORD_MOD"} | set(OP_TO_LEAN_HELPER.values()) | set(norm_reserved)
     )
 
+    planned_defs = _plan_emitted_model_defs(
+        tuple(model.fn_name for model in models),
+        config,
+    )
     model_defs: list[EmittedModelDef] = []
     generated_def_names: set[str] = set()
-    for model in models:
-        if model.fn_name not in config.model_names:
-            raise ParseError(
-                f"Model {model.fn_name!r} has no entry in config.model_names"
-            )
-        base_name = config.model_names[model.fn_name]
+    for planned in planned_defs:
+        base_name = planned.base_name
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", base_name):
             raise ParseError(
-                f"Invalid generated model name for {model.fn_name!r}: {base_name!r}"
+                f"Invalid generated model name for {planned.fn_name!r}: {base_name!r}"
             )
 
-        emit_norm = model.fn_name not in config.skip_norm
-        reserved_names = base_reserved | (norm_reserved if emit_norm else frozenset())
+        reserved_names = (
+            base_reserved | (norm_reserved if planned.emit_norm else frozenset())
+        )
         if base_name in reserved_names:
             raise ParseError(
-                f"Reserved name used as model name for {model.fn_name!r}: "
+                f"Reserved name used as model name for {planned.fn_name!r}: "
                 f"{base_name!r}"
             )
 
-        evm_name = f"{base_name}_evm"
+        evm_name = planned.evm_name
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", evm_name):
             raise ParseError(f"Invalid generated EVM model name: {evm_name!r}")
-        if emit_norm and base_name in generated_def_names:
+        if planned.emit_norm and base_name in generated_def_names:
             raise ParseError(f"Duplicate generated model name {base_name!r}")
         if evm_name in generated_def_names:
             raise ParseError(f"Duplicate generated EVM model name {evm_name!r}")
 
-        if emit_norm:
+        if planned.emit_norm:
             generated_def_names.add(base_name)
         generated_def_names.add(evm_name)
-        model_defs.append(
-            EmittedModelDef(
-                fn_name=model.fn_name,
-                base_name=base_name,
-                evm_name=evm_name,
-                emit_norm=emit_norm,
-            )
-        )
+        model_defs.append(planned)
 
     for name in generated_def_names:
         if name in builtin_helper_names:

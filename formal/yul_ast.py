@@ -62,9 +62,10 @@ class NameExpr:
 
 @dataclass(frozen=True)
 class StringExpr:
-    """String literal token text, preserved for semantic decoding later."""
+    """Decoded string literal plus its original token spelling."""
 
     text: str
+    decoded_bytes: bytes
     span: Span
 
 

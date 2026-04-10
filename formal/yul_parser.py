@@ -10,6 +10,8 @@ This is the second layer of the staged pipeline described in
 
 from __future__ import annotations
 
+import ast
+
 from yul_ast import (
     AssignStmt,
     Block,
@@ -106,7 +108,11 @@ class SyntaxParser:
         if kind == "num":
             return IntExpr(int(text, 0), self._span_from(start))
         if kind == "string":
-            return StringExpr(text, self._span_from(start))
+            return StringExpr(
+                text=text,
+                decoded_bytes=_decode_string_literal(text),
+                span=self._span_from(start),
+            )
         if kind == "ident":
             if self._peek_kind() == "(":
                 name_span = self._span_from(start)
@@ -367,3 +373,14 @@ class SyntaxParser:
             else:
                 self._pop()
         return groups
+
+
+def _decode_string_literal(token_text: str) -> bytes:
+    """Decode a tokenized Yul string literal into its UTF-8 bytes."""
+    try:
+        decoded = ast.literal_eval(token_text)
+    except (SyntaxError, ValueError) as err:
+        raise ParseError(f"Invalid Yul string literal {token_text!r}") from err
+    if not isinstance(decoded, str):
+        raise ParseError(f"Invalid Yul string literal {token_text!r}")
+    return decoded.encode("utf-8")
