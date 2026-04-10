@@ -38,7 +38,7 @@ contract AddressDerivationTest is Test {
             uint256 q = r.unsafeDiv(r_);
             unchecked {
                 (r, r_, t, t_) =
-                    (r_, r.unsafeAddMod(m - q.unsafeMulMod(r_, m), m), t_, t.unsafeAddMod(m - q.unsafeMulMod(t_, m), m));
+                (r_, r.unsafeAddMod(m - q.unsafeMulMod(r_, m), m), t_, t.unsafeAddMod(m - q.unsafeMulMod(t_, m), m));
             }
         }
         if (r != 1) {

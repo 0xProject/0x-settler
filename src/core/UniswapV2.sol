@@ -6,7 +6,7 @@ import {Panic} from "../utils/Panic.sol";
 import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 import {Ternary} from "../utils/Ternary.sol";
-import {SettlerAbstract} from "../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
 
 interface IUniV2Pair {
     function token0() external view returns (address);
@@ -81,7 +81,7 @@ library fastUniswapV2Pool {
     }
 }
 
-abstract contract UniswapV2 is SettlerAbstract {
+abstract contract UniswapV2 is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
     using fastUniswapV2Pool for address;
 

@@ -71,10 +71,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
-            token: fromToken(),
-            amount: amount(),
-            counterparty: FROM,
-            partialFillAllowed: false
+            token: fromToken(), amount: amount(), counterparty: FROM, partialFillAllowed: false
         });
 
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
@@ -94,9 +91,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapStartName("settler_rfq");
         _settler.execute(
             ISettlerBase.AllowedSlippage({
-                recipient: payable(address(0)),
-                buyToken: IERC20(address(0)),
-                minAmountOut: 0 ether
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
             }),
             actions,
             bytes32(0)
@@ -136,9 +131,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapStartName("settler_metaTxn_uniswapV3");
         _settlerMetaTxn.executeMetaTxn(
             ISettlerBase.AllowedSlippage({
-                recipient: payable(address(0)),
-                buyToken: IERC20(address(0)),
-                minAmountOut: 0 ether
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
             }),
             actions,
             bytes32(0),
@@ -173,9 +166,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapStartName("settler_metaTxn_uniswapV3VIP");
         _settlerMetaTxn.executeMetaTxn(
             ISettlerBase.AllowedSlippage({
-                recipient: payable(address(0)),
-                buyToken: IERC20(address(0)),
-                minAmountOut: 0 ether
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
             }),
             actions,
             bytes32(0),
@@ -192,10 +183,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             defaultERC20PermitTransfer(address(fromToken()), amount(), PERMIT2_FROM_NONCE);
 
         RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
-            token: fromToken(),
-            amount: amount(),
-            counterparty: FROM,
-            partialFillAllowed: false
+            token: fromToken(), amount: amount(), counterparty: FROM, partialFillAllowed: false
         });
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
@@ -233,9 +221,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         snapStartName("settler_metaTxn_rfq");
         _settlerMetaTxn.executeMetaTxn(
             ISettlerBase.AllowedSlippage({
-                recipient: payable(address(0)),
-                buyToken: IERC20(address(0)),
-                minAmountOut: 0 ether
+                recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0 ether
             }),
             actions,
             bytes32(0),
@@ -262,10 +248,7 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
             deadline: block.timestamp + 100
         });
         RfqOrderSettlement.Consideration memory makerConsideration = RfqOrderSettlement.Consideration({
-            token: fromToken(),
-            amount: amount(),
-            counterparty: FROM,
-            partialFillAllowed: true
+            token: fromToken(), amount: amount(), counterparty: FROM, partialFillAllowed: true
         });
         bytes32 makerWitness = keccak256(bytes.concat(CONSIDERATION_TYPEHASH, abi.encode(makerConsideration)));
         bytes memory makerSig = getPermitWitnessTransferSignature(
@@ -293,7 +276,9 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
         vm.startPrank(FROM);
         snapStartName("settler_rfq_fee_full_custody");
         _settler.execute(
-            ISettlerBase.AllowedSlippage({recipient: FROM, buyToken: toToken(), minAmountOut: amount() * 9_000 / 10_000}),
+            ISettlerBase.AllowedSlippage({
+                recipient: FROM, buyToken: toToken(), minAmountOut: amount() * 9_000 / 10_000
+            }),
             actions,
             bytes32(0)
         );

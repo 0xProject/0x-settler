@@ -87,9 +87,7 @@ contract USDTWETHTest is
         returns (ICurveV2Pool.CurveV2PoolData memory poolData)
     {
         poolData = ICurveV2Pool.CurveV2PoolData({
-            pool: 0xD51a44d3FaE010294C616388b506AcdA1bfAAE46,
-            fromTokenIndex: 0,
-            toTokenIndex: 2
+            pool: 0xD51a44d3FaE010294C616388b506AcdA1bfAAE46, fromTokenIndex: 0, toTokenIndex: 2
         });
     }
 

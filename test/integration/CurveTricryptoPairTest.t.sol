@@ -23,9 +23,7 @@ abstract contract CurveTricryptoPairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.CURVE_TRICRYPTO_VIP, (FROM, permit, curveV2TricryptoPoolId(), sig, 0))
         );
         ISettlerBase.AllowedSlippage memory allowedSlippage = ISettlerBase.AllowedSlippage({
-            recipient: payable(address(0)),
-            buyToken: IERC20(address(0)),
-            minAmountOut: 0
+            recipient: payable(address(0)), buyToken: IERC20(address(0)), minAmountOut: 0
         });
         Settler _settler = settler;
         vm.startPrank(FROM, FROM);

@@ -9,7 +9,6 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
@@ -44,7 +43,10 @@ contract PolygonSettler is Settler, PolygonMixin {
         return true;
     }
 
-    function _handlePermit(address owner, address token, Permit.PermitType permitType, bytes memory permitData) internal override {
+    function _handlePermit(address owner, address token, Permit.PermitType permitType, bytes memory permitData)
+        internal
+        override
+    {
         if (permitType == Permit.PermitType.ERC2612) {
             callPermit(owner, token, permitData);
         } else if (permitType == Permit.PermitType.DAIPermit) {
@@ -61,12 +63,12 @@ contract PolygonSettler is Settler, PolygonMixin {
         return super._isRestrictedTarget(target);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         override(Settler, PolygonMixin)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _msgSender() internal view override(Settler, AbstractContext) returns (address) {

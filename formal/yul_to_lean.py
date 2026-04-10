@@ -18,17 +18,14 @@ import pathlib
 import re
 import sys
 from collections import Counter
-from dataclasses import dataclass
+from collections.abc import Iterator
+from dataclasses import dataclass, field
 from typing import Callable, assert_never
 
-
-class ParseError(RuntimeError):
-    pass
-
-
-class EvaluationError(RuntimeError):
-    pass
-
+from yul_ast import EvaluationError as EvaluationError
+from yul_ast import ParseError as ParseError
+from yul_parser import SyntaxParser
+from yul_resolve import ResolutionResult, resolve_function, resolve_module
 
 # ---------------------------------------------------------------------------
 # AST nodes (shared by Yul parser and Lean emitter)
@@ -49,6 +46,26 @@ class Var:
 class Call:
     name: str
     args: tuple["Expr", ...]
+    binding_token_idx: int | None = None
+
+
+@dataclass(frozen=True)
+class CallResolution:
+    """Resolve parsed Yul calls to selected model names.
+
+    ``by_name`` handles ordinary lexical helper discovery where the visible
+    helper survives into the helper table and can be matched by raw Yul name.
+    ``by_binding_token_idx`` handles calls whose exact lexical binding was
+    preserved during parsing, so lowering does not have to guess by name.
+    """
+
+    by_name: dict[str, str] = field(default_factory=dict)
+    by_binding_token_idx: dict[int, str] = field(default_factory=dict)
+
+    def resolve(self, call: Call) -> str:
+        if call.binding_token_idx is not None:
+            return self.by_binding_token_idx.get(call.binding_token_idx, call.name)
+        return self.by_name.get(call.name, call.name)
 
 
 @dataclass(frozen=True)
@@ -82,13 +99,15 @@ class Assignment:
 class ConditionalBranch:
     """A single branch of a restricted-IR conditional.
 
-    ``assignments`` are the branch-local let-bindings.
-    ``outputs`` lists the variables whose values become the outer
+    ``assignments`` are the branch-local statements (may include
+    nested ``ConditionalBlock`` for the new pipeline).
+    ``outputs`` are the expressions whose values become the outer
     ``ConditionalBlock.output_vars`` when this branch is taken.
+    Typically ``Var(name)`` but may be any ``Expr``.
     """
 
-    assignments: tuple[Assignment, ...]
-    outputs: tuple[str, ...]
+    assignments: tuple["ModelStatement", ...]
+    outputs: tuple["Expr", ...]
 
 
 @dataclass(frozen=True)
@@ -143,11 +162,6 @@ OPTIMIZED_TRANSLATION_PIPELINE = TranslationPipeline(
     hoist_repeated_calls=True,
     prune_dead_assignments=True,
 )
-
-TRANSLATION_PIPELINES = {
-    RAW_TRANSLATION_PIPELINE.name: RAW_TRANSLATION_PIPELINE,
-    OPTIMIZED_TRANSLATION_PIPELINE.name: OPTIMIZED_TRANSLATION_PIPELINE,
-}
 
 
 # ---------------------------------------------------------------------------
@@ -318,16 +332,38 @@ class YulFunction:
 
 
 @dataclass(frozen=True)
+class RejectedHelperInfo:
+    """Structured rejection metadata for a helper binding.
+
+    ``helper_name`` is the user-facing Yul helper name that should appear in
+    diagnostics. The dictionary key that points to this object may be a
+    synthetic binding name such as ``_dfr_*``.
+    """
+
+    helper_name: str
+    reason: str
+
+
+RejectedHelperMap = dict[str, RejectedHelperInfo]
+
+
+@dataclass(frozen=True)
 class CollectedFunctions:
     """All helper functions discovered during a collection pass.
 
     ``functions`` contains successfully parsed helpers.
-    ``rejected`` records helper names whose bodies were rejected, along with
-    the parse error that explains why.
+    ``rejected`` records helper bindings whose bodies were rejected.
+    ``deferred`` contains helpers (alpha-renamed to unique binding names)
+    that were resolved at parse time but require later sink-aware lowering.
+    ``deferred_rejected`` records rejected helpers that are transitively
+    referenced by deferred helper bodies. Keys may be mangled binding names;
+    ``RejectedHelperInfo.helper_name`` preserves the original source name.
     """
 
     functions: dict[str, YulFunction]
-    rejected: dict[str, str]
+    rejected: RejectedHelperMap
+    deferred: dict[str, YulFunction] = field(default_factory=dict)
+    deferred_rejected: RejectedHelperMap = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -441,6 +477,15 @@ class _TokenReader:
 
     def _expect_ident(self) -> str:
         return self._expect("ident")
+
+    def _parse_case_literal(self) -> int:
+        """Parse a Yul switch case label, which must be a numeric literal."""
+        kind, text = self._pop()
+        if kind != "num":
+            raise ParseError(
+                f"switch case value must be a literal, got {kind} " f"({text!r})"
+            )
+        return int(text, 0) % WORD_MOD
 
     def _parse_expr(self) -> Expr:
         kind, text = self._pop()
@@ -935,6 +980,9 @@ def _statement_reference_summary(
                 False,
             )
 
+        # A for-loop with a constant nonzero condition is an
+        # infinite loop — it never falls through, so later
+        # statements are dead regardless of body/post content.
         return ReferenceAnalysisResult(
             init_summary.live_references
             or cond_summary.live_references
@@ -944,12 +992,27 @@ def _statement_reference_summary(
             or cond_summary.dead_references
             or body_summary.dead_references
             or post_summary.dead_references,
-            const_cond is not None
-            and const_cond != 0
-            and body_summary.definitely_terminates,
+            const_cond is not None and const_cond != 0,
         )
 
     raise TypeError(f"Unsupported ReferenceStatement: {type(stmt)}")
+
+
+def _validate_function_syntax(
+    tokens: list[tuple[str, str]], start: int
+) -> ResolutionResult:
+    """Run the pure syntax parser + binder resolver as a pre-pass.
+
+    Catches duplicate declarations, illegal shadowing, undefined
+    variable references, and unsupported string literals before the
+    lowering parser runs.  Also classifies call targets against the
+    known EVM builtin set.  Raises ``ParseError`` on any violation.
+
+    Returns the ``ResolutionResult`` for downstream use.
+    """
+    parser = SyntaxParser(tokens[start:], token_offset=start)
+    func = parser.parse_function()
+    return resolve_function(func, builtins=_EVM_BUILTINS)
 
 
 class YulParser(_TokenReader):
@@ -965,11 +1028,21 @@ class YulParser(_TokenReader):
     them as incomplete semantics.
     """
 
-    def __init__(self, tokens: list[tuple[str, str]]) -> None:
+    def __init__(
+        self,
+        tokens: list[tuple[str, str]],
+        *,
+        token_offset: int = 0,
+        protected_token_idxs: frozenset[int] = frozenset(),
+    ) -> None:
         super().__init__(tokens)
+        self._token_offset = token_offset
+        self._protected_token_idxs = protected_token_idxs
         self._expr_stmts: list[Expr] = []
         self._reference_scope_cache: dict[int, ReferenceScope] = {}
         self._source_names: set[str] | None = None
+        self._deferred_helpers: dict[str, YulFunction] = {}
+        self._deferred_rejected: RejectedHelperMap = {}
 
     def _all_source_names(self) -> set[str]:
         """Lazily collect all identifier names from the token stream."""
@@ -1129,6 +1202,7 @@ class YulParser(_TokenReader):
         """
         results: list[RawStatement] = []
         has_leave = False
+        scope_fns: dict[str, YulFunction | RejectedHelperInfo] = {}
 
         while not self._at_end() and self._peek_kind() != "}":
             kind = self._peek_kind()
@@ -1144,6 +1218,7 @@ class YulParser(_TokenReader):
                 inner, inner_leave = self._parse_assignment_loop(
                     allow_control_flow=allow_control_flow,
                     context=context,
+                    _let_vars=set(),
                 )
                 inner_es = self._expr_stmts
                 self._expr_stmts = saved_stmts
@@ -1266,7 +1341,33 @@ class YulParser(_TokenReader):
                 break
 
             if kind == "ident" and self.tokens[self.i][1] == "function":
-                self._skip_function_def()
+                # Collect scope-local helper.  Classification (pure vs
+                # non-pure) is deferred until ALL helpers in this scope
+                # have been discovered, so that forward references and
+                # same-scope dependencies are handled correctly.
+                saved_i = self.i
+                saved_fn_stmts = self._expr_stmts
+                try:
+                    fn = self.parse_function()
+                except ParseError as err:
+                    fn_name = self._function_name_at(saved_i) or f"<unknown@{saved_i}>"
+                    if fn_name in scope_fns:
+                        raise ParseError(
+                            f"Duplicate helper function {fn_name!r} in the "
+                            f"same lexical scope."
+                        ) from err
+                    scope_fns[fn_name] = RejectedHelperInfo(fn_name, str(err))
+                    self.i = saved_i
+                    self._skip_function_def()
+                    continue
+                finally:
+                    self._expr_stmts = saved_fn_stmts
+                if fn.yul_name in scope_fns:
+                    raise ParseError(
+                        f"Duplicate helper function {fn.yul_name!r} in the "
+                        f"same lexical scope."
+                    )
+                scope_fns[fn.yul_name] = fn
                 continue
 
             if kind == "ident" and self.tokens[self.i][1] in ("if", "switch", "for"):
@@ -1302,7 +1403,11 @@ class YulParser(_TokenReader):
                             allow_control_flow=allow_control_flow,
                             context="if-body (live, constant-true)",
                         )
-                        _flatten_scoped_block(live_body, results)
+                        _flatten_scoped_block(
+                            live_body,
+                            results,
+                            avoid_names=self._all_source_names(),
+                        )
                         # Propagate live branch expr_stmts to outer scope.
                         self._expr_stmts.extend(live_es)
                         if live_leave:
@@ -1333,9 +1438,18 @@ class YulParser(_TokenReader):
                     if const_disc is not None:
                         # Constant discriminant: parse all branches but
                         # only keep the matching one (flattened).
+                        # Case values may be any constant (not restricted
+                        # to 0), default is optional, and any number of
+                        # branches is allowed.  We reject: empty switches,
+                        # non-constant case values, duplicate case values,
+                        # and default-before-case (trailing branches after
+                        # default would be silently dropped by the loop).
                         live_branch_stmts: list[RawStatement] = []
                         live_leave = False
                         found_live = False
+                        has_default = False
+                        n_const_branches = 0
+                        seen_case_values: set[int] = set()
                         while (
                             not self._at_end()
                             and self._peek_kind() == "ident"
@@ -1344,11 +1458,18 @@ class YulParser(_TokenReader):
                             br = self.tokens[self.i][1]
                             self._pop()
                             if br == "case":
-                                case_val = self._parse_expr()
-                                cv = _try_const_eval(case_val)
+                                cv = self._parse_case_literal()
+                                if cv in seen_case_values:
+                                    raise ParseError(
+                                        f"Duplicate case value {cv} in switch "
+                                        f"statement."
+                                    )
+                                seen_case_values.add(cv)
                                 is_live = (cv == const_disc) and not found_live
                             else:
+                                has_default = True
                                 is_live = not found_live
+                            n_const_branches += 1
                             br_body, br_leave, br_es = self._parse_scoped_body(
                                 allow_control_flow=(
                                     allow_control_flow if is_live else True
@@ -1363,7 +1484,23 @@ class YulParser(_TokenReader):
                                 found_live = True
                             if br == "default":
                                 break
-                        _flatten_scoped_block(live_branch_stmts, results)
+                        if n_const_branches == 0:
+                            raise ParseError("switch with no case/default branches")
+                        # Reject trailing branches after default.
+                        if (
+                            has_default
+                            and not self._at_end()
+                            and self._peek_kind() == "ident"
+                            and self.tokens[self.i][1] in ("case", "default")
+                        ):
+                            raise ParseError(
+                                "'default' must be the last branch in a switch."
+                            )
+                        _flatten_scoped_block(
+                            live_branch_stmts,
+                            results,
+                            avoid_names=self._all_source_names(),
+                        )
                         if live_leave:
                             has_leave = True
                             self._skip_to_end_of_current_block()
@@ -1388,11 +1525,10 @@ class YulParser(_TokenReader):
                         branch = self.tokens[self.i][1]
                         self._pop()  # consume 'case' or 'default'
                         if branch == "case":
-                            case_val = self._parse_expr()
-                            cv = _try_const_eval(case_val)
+                            cv = self._parse_case_literal()
                             if cv != 0:
                                 raise ParseError(
-                                    f"switch case value {case_val!r} is not 0. "
+                                    f"switch case value {cv} is not 0. "
                                     f"Only 'switch e case 0 {{ ... }} default "
                                     f"{{ ... }}' is supported."
                                 )
@@ -1550,6 +1686,123 @@ class YulParser(_TokenReader):
                 f"Refuse to skip unrecognized Yul syntax."
             )
 
+        # Two-phase helper processing: with all scope-level helpers
+        # now collected, classify which are pure (safe to expression-
+        # substitute at parse time) vs non-pure (need sink-aware
+        # lowering later).  This is order-independent: a helper
+        # defined before a deferred one in the same scope is correctly
+        # classified as non-pure even though it was parsed first.
+        if scope_fns:
+            non_pure = _classify_non_pure_helpers(scope_fns, self._deferred_helpers)
+            pure_fns: dict[str, YulFunction] = {}
+            rejected_fns: RejectedHelperMap = {}
+            deferred_fns: dict[str, YulFunction] = {}
+            protected_bindings: dict[str, int] = {}
+            for name, fn_or_err in scope_fns.items():
+                if isinstance(fn_or_err, RejectedHelperInfo):
+                    rejected_fns[name] = fn_or_err
+                elif (
+                    isinstance(fn_or_err, YulFunction)
+                    and fn_or_err.token_idx is not None
+                    and fn_or_err.token_idx in self._protected_token_idxs
+                ):
+                    # Selected target: preserve the exact lexical binding on
+                    # visible Call nodes so later phases do not have to guess
+                    # by bare name.
+                    protected_bindings[name] = fn_or_err.token_idx
+                elif name in non_pure:
+                    deferred_fns[name] = fn_or_err
+                else:
+                    pure_fns[name] = fn_or_err
+
+            # Phase A: inline pure helpers.
+            if pure_fns:
+                results = _inline_in_raw_statements(
+                    results, pure_fns, rejected=rejected_fns
+                )
+
+            # Phase A½: bind calls to protected selected targets.
+            # Done after pure-helper inlining so call edges introduced by
+            # inlined helpers inherit the same lexical identity.
+            for protected_name, binding_token_idx in protected_bindings.items():
+                results = _bind_calls_in_stmts(
+                    results, protected_name, binding_token_idx
+                )
+                for dname, dfn in list(deferred_fns.items()):
+                    deferred_fns[dname] = _bind_calls_in_yul_function(
+                        dfn, protected_name, binding_token_idx
+                    )
+
+            # Phase B: export non-pure helpers as alpha-renamed
+            # bindings.  Compute the transitive closure: if helper A
+            # is called in the scope output and A's body calls helper
+            # B (same scope or inner deferred), B must also be
+            # exported and A's body rewritten to B's mangled name.
+            if deferred_fns:
+                called = _collect_call_names_in_stmts(results)
+
+                # Step 1: transitive closure of needed helpers.
+                # Also track rejected helpers referenced by exported
+                # bodies so their rejection info flows to later phases.
+                needed: set[str] = {n for n in deferred_fns if n in called}
+                needed_rejected: RejectedHelperMap = {}
+                worklist = list(needed)
+                while worklist:
+                    dep = worklist.pop()
+                    if dep not in deferred_fns:
+                        continue
+                    fn = deferred_fns[dep]
+                    for ref in _collect_call_names_in_stmts(fn.assignments):
+                        if ref in rejected_fns and ref not in needed_rejected:
+                            needed_rejected[ref] = rejected_fns[ref]
+                        if ref not in needed and (
+                            ref in deferred_fns or ref in self._deferred_helpers
+                        ):
+                            needed.add(ref)
+                            worklist.append(ref)
+
+                # Step 2: generate mangled names for same-scope
+                # helpers AND rejected dependencies.  Rejected refs
+                # must also be renamed so they don't collide with
+                # outer valid helpers of the same name.
+                rename_map: dict[str, str] = {}
+                for n in needed:
+                    if n in deferred_fns:
+                        rename_map[n] = _gensym(
+                            f"dfr_{n}", avoid=self._all_source_names()
+                        )
+                for n in needed_rejected:
+                    rename_map[n] = _gensym(f"dfr_{n}", avoid=self._all_source_names())
+
+                # Step 3: rename calls in scope output
+                for old, new in rename_map.items():
+                    results = _rename_calls_in_stmts(results, old, new)
+
+                # Step 4: export helpers with renamed bodies
+                for n in needed:
+                    if n in deferred_fns:
+                        fn = deferred_fns[n]
+                        body = list(fn.assignments)
+                        for old, new in rename_map.items():
+                            body = _rename_calls_in_stmts(body, old, new)
+                        self._deferred_helpers[rename_map[n]] = YulFunction(
+                            yul_name=fn.yul_name,
+                            params=fn.params,
+                            rets=fn.rets,
+                            assignments=body,
+                            expr_stmts=fn.expr_stmts,
+                            token_idx=fn.token_idx,
+                        )
+                # Export rejected deps with mangled names.
+                # Store (original_name, raw_reason) so the error site
+                # can report the user-facing name, not the synthetic
+                # _dfr_* binding key.
+                for n, info in needed_rejected.items():
+                    self._deferred_rejected[rename_map[n]] = RejectedHelperInfo(
+                        info.helper_name,
+                        info.reason,
+                    )
+
         return results, has_leave
 
     def _skip_function_def(self) -> None:
@@ -1568,7 +1821,13 @@ class YulParser(_TokenReader):
         self._skip_until_matching_brace()
 
     def parse_function(self) -> YulFunction:
-        token_idx = self.i
+        # Pre-pass: run the pure syntax parser + binder resolver on
+        # the same token range for early fail-closed validation.
+        # This catches duplicate declarations, illegal shadowing, and
+        # unsupported string literals before the lowering parser runs.
+        _validate_function_syntax(self.tokens, self.i)
+
+        token_idx = self.i + self._token_offset
         fn_kw = self._expect_ident()
         if fn_kw != "function":
             raise ParseError(f"Expected 'function', got {fn_kw!r}")
@@ -1706,6 +1965,40 @@ class YulParser(_TokenReader):
 
         return matches
 
+    def _walk_function_defs(
+        self,
+    ) -> Iterator[tuple[int, str, tuple[str, ...]]]:
+        """Yield ``(token_idx, fn_name, lexical_path)`` for each function def.
+
+        Walks the token stream tracking brace depth and function-body
+        nesting.  ``lexical_path`` is a tuple of enclosing function names
+        ending with the function's own name, e.g. ``("outer", "inner")``.
+        Top-level functions have a single-element path.
+        """
+        fn_body_stack: list[tuple[int, str]] = []
+        depth = 0
+        expect_fn_body: str | None = None
+
+        for idx in range(len(self.tokens) - 1):
+            k, text = self.tokens[idx]
+            if k == "{":
+                depth += 1
+                if expect_fn_body is not None:
+                    fn_body_stack.append((depth, expect_fn_body))
+                    expect_fn_body = None
+            elif k == "}":
+                if fn_body_stack and fn_body_stack[-1][0] == depth:
+                    fn_body_stack.pop()
+                depth -= 1
+            elif k == "ident" and text == "function":
+                fn_name = self._function_name_at(idx)
+                if fn_name is None:
+                    expect_fn_body = None
+                    continue
+                path = tuple(name for _, name in fn_body_stack) + (fn_name,)
+                yield (idx, fn_name, path)
+                expect_fn_body = fn_name
+
     def find_function(
         self,
         sol_fn_name: str,
@@ -1732,37 +2025,13 @@ class YulParser(_TokenReader):
         Raises on zero or ambiguous matches.
         """
         target_prefix = f"fun_{sol_fn_name}_"
-        matches: list[int] = []
-        # Track function-body nesting so that functions defined inside
-        # other function bodies are ignored.  We use a stack of brace
-        # depths: when we enter a function body, we push the current
-        # brace depth, and when we return to that depth, the function
-        # body is closed.
-        fn_body_stack: list[int] = []  # brace depths at fn body open
-        depth = 0
-        expect_fn_body = False
-
-        for idx in range(len(self.tokens) - 1):
-            k, text = self.tokens[idx]
-            if k == "{":
-                depth += 1
-                if expect_fn_body:
-                    fn_body_stack.append(depth)
-                    expect_fn_body = False
-            elif k == "}":
-                if fn_body_stack and fn_body_stack[-1] == depth:
-                    fn_body_stack.pop()
-                depth -= 1
-            elif k == "ident" and text == "function":
-                if (
-                    not fn_body_stack
-                    and self.tokens[idx + 1][0] == "ident"
-                    and self.tokens[idx + 1][1].startswith(target_prefix)
-                    and self.tokens[idx + 1][1][len(target_prefix) :].isdigit()
-                ):
-                    matches.append(idx)
-                # The next `{` opens a function body.
-                expect_fn_body = True
+        matches: list[int] = [
+            idx
+            for idx, fn_name, path in self._walk_function_defs()
+            if len(path) == 1
+            and fn_name.startswith(target_prefix)
+            and fn_name[len(target_prefix) :].isdigit()
+        ]
 
         if not matches:
             raise ParseError(
@@ -1812,24 +2081,20 @@ class YulParser(_TokenReader):
             n_params=n_params,
             search_nested=search_nested,
         )
-
-        if not matches:
-            if n_params is None:
-                raise ParseError(f"Exact Yul function {yul_name!r} not found")
-            raise ParseError(
+        qualified = ["::".join(path) for _, path in matches]
+        return self._parse_unique_exact_match(
+            matches,
+            n_params=n_params,
+            not_found=f"Exact Yul function {yul_name!r} not found",
+            not_found_with_params=(
                 f"Exact Yul function {yul_name!r} with {n_params} parameter(s) not found"
-            )
-
-        if len(matches) > 1:
-            qualified = ["::".join(path) for _, path in matches]
-            raise ParseError(
+            ),
+            ambiguous=(
                 f"Multiple exact Yul functions matched {yul_name!r}: {qualified}. "
                 "Use a scope-qualified exact_yul_names entry such as '::name' "
                 "for a top-level function or 'outer::inner' for a nested one."
-            )
-
-        self.i = matches[0][0]
-        return self.parse_function()
+            ),
+        )
 
     def find_exact_function_path(
         self,
@@ -1854,20 +2119,35 @@ class YulParser(_TokenReader):
             )
             if path == yul_path
         ]
-        if not matches:
-            rendered = "::".join(yul_path)
-            if n_params is None:
-                raise ParseError(f"Exact Yul function path {rendered!r} not found")
-            raise ParseError(
+        rendered = "::".join(yul_path)
+        return self._parse_unique_exact_match(
+            matches,
+            n_params=n_params,
+            not_found=f"Exact Yul function path {rendered!r} not found",
+            not_found_with_params=(
                 f"Exact Yul function path {rendered!r} with {n_params} "
                 f"parameter(s) not found"
-            )
-        if len(matches) > 1:
-            rendered = "::".join(yul_path)
-            raise ParseError(
+            ),
+            ambiguous=(
                 f"Multiple exact Yul functions matched path {rendered!r}. "
                 "Refuse to guess."
-            )
+            ),
+        )
+
+    def _parse_unique_exact_match(
+        self,
+        matches: list[tuple[int, tuple[str, ...]]],
+        *,
+        n_params: int | None,
+        not_found: str,
+        not_found_with_params: str,
+        ambiguous: str,
+    ) -> YulFunction:
+        """Parse the single matched exact function, or raise a tailored error."""
+        if not matches:
+            raise ParseError(not_found if n_params is None else not_found_with_params)
+        if len(matches) > 1:
+            raise ParseError(ambiguous)
         self.i = matches[0][0]
         return self.parse_function()
 
@@ -1879,36 +2159,13 @@ class YulParser(_TokenReader):
         search_nested: bool,
     ) -> list[tuple[int, tuple[str, ...]]]:
         """Return ``(token_idx, lexical_path)`` matches for ``yul_name``."""
-        matches: list[tuple[int, tuple[str, ...]]] = []
-        fn_body_stack: list[tuple[int, str]] = []
-        depth = 0
-        expect_fn_body: str | None = None
-
-        for idx in range(len(self.tokens) - 1):
-            k, text = self.tokens[idx]
-            if k == "{":
-                depth += 1
-                if expect_fn_body is not None:
-                    fn_body_stack.append((depth, expect_fn_body))
-                    expect_fn_body = None
-            elif k == "}":
-                if fn_body_stack and fn_body_stack[-1][0] == depth:
-                    fn_body_stack.pop()
-                depth -= 1
-            elif k == "ident" and text == "function":
-                fn_name = self._function_name_at(idx)
-                if fn_name is None:
-                    expect_fn_body = None
-                    continue
-                if (
-                    fn_name == yul_name
-                    and (search_nested or not fn_body_stack)
-                    and (n_params is None or self._count_params_at(idx) == n_params)
-                ):
-                    path = tuple(name for _, name in fn_body_stack) + (fn_name,)
-                    matches.append((idx, path))
-                expect_fn_body = fn_name
-        return matches
+        return [
+            (idx, path)
+            for idx, fn_name, path in self._walk_function_defs()
+            if fn_name == yul_name
+            and (search_nested or len(path) == 1)
+            and (n_params is None or self._count_params_at(idx) == n_params)
+        ]
 
     def _body_reference_summary(
         self,
@@ -1970,11 +2227,14 @@ class YulParser(_TokenReader):
         can fail loudly if a selected target depends on them.
         """
         functions: dict[str, YulFunction] = {}
-        rejected: dict[str, str] = {}
+        rejected: RejectedHelperMap = {}
+        deferred: dict[str, YulFunction] = {}
+        deferred_rejected: RejectedHelperMap = {}
         while not self._at_end():
             if self._peek_kind() == "ident" and self.tokens[self.i][1] == "function":
                 saved_i = self.i
                 saved_stmts = self._expr_stmts
+                self._deferred_helpers = {}
                 try:
                     fn = self.parse_function()
                 except ParseError as err:
@@ -1984,7 +2244,7 @@ class YulParser(_TokenReader):
                             f"Duplicate helper function {fn_name!r} in the "
                             f"same scope. Refuse to collect ambiguous helpers."
                         )
-                    rejected[fn_name] = str(err)
+                    rejected[fn_name] = RejectedHelperInfo(fn_name, str(err))
                     self.i = saved_i
                     self._skip_function_def()
                     continue
@@ -1996,6 +2256,10 @@ class YulParser(_TokenReader):
                         f"same scope. Refuse to collect ambiguous helpers."
                     )
                 functions[fn.yul_name] = fn
+                # Drain deferred helpers and their rejected dependencies
+                # accumulated while parsing this function's body.
+                deferred.update(self._deferred_helpers)
+                deferred_rejected.update(self._deferred_rejected)
             elif self._peek_kind() == "{":
                 # Non-function brace block (object/code wrapper).
                 # Skip to matching } to avoid collecting functions
@@ -2005,66 +2269,17 @@ class YulParser(_TokenReader):
                 self.i = end_idx + 1
             else:
                 self._pop()
-        return CollectedFunctions(functions=functions, rejected=rejected)
+        return CollectedFunctions(
+            functions=functions,
+            rejected=rejected,
+            deferred=deferred,
+            deferred_rejected=deferred_rejected,
+        )
 
 
 # ---------------------------------------------------------------------------
 # Yul → FunctionModel conversion
 # ---------------------------------------------------------------------------
-
-
-def demangle_var(
-    name: str,
-    param_vars: list[str],
-    return_vars: list[str],
-    *,
-    keep_solidity_locals: bool = False,
-) -> str | None:
-    """Map a Yul variable name back to its Solidity-level name.
-
-    Returns the cleaned name, or None if the variable is a compiler temporary
-    that should be copy-propagated away.
-
-    ``param_vars`` is a list of Yul parameter variable names (supports
-    multi-parameter functions).
-
-    ``return_vars`` is a list of Yul return variable names.
-
-    When *keep_solidity_locals* is True, variables matching the
-    ``var_<name>_<digits>`` pattern (compiler representation of
-    Solidity-declared locals) are kept in the model even if they are
-    not the function parameter or return variable.
-    """
-    if name in param_vars or name in return_vars:
-        m = re.fullmatch(r"var_(\w+?)_\d+", name)
-        return m.group(1) if m else name
-    if name.startswith("usr$"):
-        return name[4:]
-    if keep_solidity_locals:
-        m = re.fullmatch(r"var_(\w+?)_\d+", name)
-        if m:
-            return m.group(1)
-    return None
-
-
-def rename_expr(expr: Expr, var_map: dict[str, str], fn_map: dict[str, str]) -> Expr:
-    if isinstance(expr, IntLit):
-        return expr
-    if isinstance(expr, Var):
-        return Var(var_map.get(expr.name, expr.name))
-    if isinstance(expr, Ite):
-        return Ite(
-            rename_expr(expr.cond, var_map, fn_map),
-            rename_expr(expr.if_true, var_map, fn_map),
-            rename_expr(expr.if_false, var_map, fn_map),
-        )
-    if isinstance(expr, Project):
-        return Project(expr.index, expr.total, rename_expr(expr.inner, var_map, fn_map))
-    if isinstance(expr, Call):
-        new_name = fn_map.get(expr.name, expr.name)
-        new_args = tuple(rename_expr(a, var_map, fn_map) for a in expr.args)
-        return Call(new_name, new_args)
-    assert_never(expr)
 
 
 def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
@@ -2081,7 +2296,11 @@ def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
     if isinstance(expr, Project):
         return Project(expr.index, expr.total, substitute_expr(expr.inner, subst))
     if isinstance(expr, Call):
-        return Call(expr.name, tuple(substitute_expr(a, subst) for a in expr.args))
+        return Call(
+            expr.name,
+            tuple(substitute_expr(a, subst) for a in expr.args),
+            expr.binding_token_idx,
+        )
     assert_never(expr)
 
 
@@ -2146,6 +2365,8 @@ def _find_enclosing_block_range(
 def _flatten_scoped_block(
     stmts: list[RawStatement],
     results: list[RawStatement],
+    *,
+    avoid_names: set[str] | None = None,
 ) -> None:
     """Emit *stmts* into *results* with block scoping applied.
 
@@ -2155,6 +2376,12 @@ def _flatten_scoped_block(
     in the local set updates that local binding (never escapes to outer
     scope).  Only assignments to names *not* local to this block are
     emitted to *results*.
+
+    When *avoid_names* is provided, ``usr$`` declarations are
+    alpha-renamed to fresh internal names and emitted as real
+    assignments (matching the bare-block path) instead of being
+    substituted away.  This prevents duplication of call expressions
+    that may have side effects (e.g. uint512.from helpers).
     """
     block_sub: dict[str, Expr] = {}
     block_locals: set[str] = set()
@@ -2163,7 +2390,12 @@ def _flatten_scoped_block(
             expr = substitute_expr(stmt.expr, block_sub)
             if stmt.is_declaration:
                 block_locals.add(stmt.target)
-                block_sub[stmt.target] = expr
+                if avoid_names is not None and stmt.target.startswith("usr$"):
+                    fresh = _gensym("blk", avoid=avoid_names)
+                    results.append(PlainAssignment(fresh, expr, is_declaration=True))
+                    block_sub[stmt.target] = Var(fresh)
+                else:
+                    block_sub[stmt.target] = expr
             elif stmt.target in block_locals:
                 # Reassignment of a block-local name — update local.
                 block_sub[stmt.target] = expr
@@ -2250,7 +2482,7 @@ def _split_branch_scoped(
 
 def _merge_helper_collection(
     helper_table: dict[str, YulFunction],
-    rejected_helpers: dict[str, str],
+    rejected_helpers: RejectedHelperMap,
     collection: CollectedFunctions,
 ) -> None:
     """Merge one lexical scope's helpers, with inner names overriding outer."""
@@ -2260,6 +2492,45 @@ def _merge_helper_collection(
     for name, err in collection.rejected.items():
         helper_table.pop(name, None)
         rejected_helpers[name] = err
+    # Deferred helpers have alpha-renamed unique names — just add them.
+    for name, fn in collection.deferred.items():
+        helper_table[name] = fn
+    # Deferred rejected: helpers transitively referenced by deferred
+    # bodies that failed to parse.
+    for name, info in collection.deferred_rejected.items():
+        rejected_helpers[name] = info
+
+
+def _exclude_collected_helpers_by_token_idx(
+    collection: CollectedFunctions,
+    excluded_token_idxs: set[int],
+) -> CollectedFunctions:
+    """Drop helper entries whose absolute token index is already authoritative.
+
+    Parsed helpers carry ``token_idx`` provenance, so rescans can discard
+    helpers that belong to the selected target or one of its authoritative
+    deferred exports before merging them into the helper table.
+
+    Rejected helpers do not currently carry token provenance, so they are
+    preserved unchanged.
+    """
+    if not excluded_token_idxs:
+        return collection
+
+    return CollectedFunctions(
+        functions={
+            name: fn
+            for name, fn in collection.functions.items()
+            if fn.token_idx not in excluded_token_idxs
+        },
+        rejected=dict(collection.rejected),
+        deferred={
+            name: fn
+            for name, fn in collection.deferred.items()
+            if fn.token_idx not in excluded_token_idxs
+        },
+        deferred_rejected=dict(collection.deferred_rejected),
+    )
 
 
 def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
@@ -2272,8 +2543,8 @@ def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
     if "::" not in selector:
         return None
     raw = selector[2:] if selector.startswith("::") else selector
-    parts = tuple(part for part in raw.split("::") if part)
-    if not parts:
+    parts = tuple(raw.split("::"))
+    if any(not part for part in parts):
         raise ParseError(f"Invalid exact Yul selector {selector!r}")
     return parts
 
@@ -2554,7 +2825,7 @@ def _inline_single_call(
     depth: int,
     max_depth: int,
     mstore_sink: list[FromWriteEffect] | None = None,
-    unsupported_function_errors: dict[str, str] | None = None,
+    unsupported_function_errors: RejectedHelperMap | None = None,
 ) -> Expr | tuple[Expr, ...]:
     """Inline one function call, returning its return-value expression(s).
 
@@ -2743,15 +3014,25 @@ def _inline_single_call(
                     "Only a single top-level 'if cond { ... leave }' is supported "
                     "during helper inlining."
                 )
-            # Evaluate condition
+            # Evaluate condition — pass mstore_sink so that exact-from
+            # calls are detected and rejected rather than silently
+            # failing with a missing-sink error.
+            pre_cond_sink_len = len(mstore_sink) if mstore_sink is not None else 0
             cond = substitute_expr(stmt.condition, subst)
             cond = inline_calls(
                 cond,
                 fn_table,
                 depth,
                 max_depth,
+                mstore_sink=mstore_sink,
                 unsupported_function_errors=unsupported_function_errors,
             )
+            if mstore_sink is not None and len(mstore_sink) > pre_cond_sink_len:
+                raise ParseError(
+                    f"Conditional memory write detected in {fn.yul_name!r}: "
+                    "uint512.from accessor effect(s) emitted inside an if/switch "
+                    "condition. Keep uint512.from(...) outside conditional expressions."
+                )
 
             # Constant-fold non-leave if/switch: eliminate dead branches
             # BEFORE processing bodies.  This prevents spurious
@@ -2922,13 +3203,330 @@ def _inline_single_call(
     return tuple(_get_ret(r) for r in fn.rets)
 
 
+def _collect_call_names_in_expr(expr: Expr, out: set[str]) -> None:
+    """Collect all function-call names referenced in *expr*."""
+    if isinstance(expr, (IntLit, Var)):
+        return
+    if isinstance(expr, Call):
+        out.add(expr.name)
+        for a in expr.args:
+            _collect_call_names_in_expr(a, out)
+        return
+    if isinstance(expr, Ite):
+        _collect_call_names_in_expr(expr.cond, out)
+        _collect_call_names_in_expr(expr.if_true, out)
+        _collect_call_names_in_expr(expr.if_false, out)
+        return
+    if isinstance(expr, Project):
+        _collect_call_names_in_expr(expr.inner, out)
+        return
+    assert_never(expr)
+
+
+def _collect_call_names_in_stmts(stmts: list[RawStatement]) -> set[str]:
+    """Collect all function-call names in a list of raw statements."""
+    names: set[str] = set()
+    for stmt in stmts:
+        if isinstance(stmt, PlainAssignment):
+            _collect_call_names_in_expr(stmt.expr, names)
+        elif isinstance(stmt, ParsedIfBlock):
+            _collect_call_names_in_expr(stmt.condition, names)
+            for s in stmt.body:
+                _collect_call_names_in_expr(s.expr, names)
+            if stmt.else_body is not None:
+                for s in stmt.else_body:
+                    _collect_call_names_in_expr(s.expr, names)
+        elif isinstance(stmt, MemoryWrite):
+            _collect_call_names_in_expr(stmt.address, names)
+            _collect_call_names_in_expr(stmt.value, names)
+    return names
+
+
+def _classify_non_pure_helpers(
+    scope_fns: dict[str, "YulFunction | RejectedHelperInfo"],
+    deferred_from_inner: dict[str, "YulFunction"],
+) -> set[str]:
+    """Classify which helpers in a scope are non-pure.
+
+    A helper is non-pure if it IS a uint512.from shape, or if it
+    transitively references any non-pure helper (in the same scope or
+    in ``deferred_from_inner`` from child scopes).  Non-pure helpers
+    need sink-aware lowering and cannot be expression-substituted.
+    """
+    non_pure: set[str] = set()
+    inner_keys = set(deferred_from_inner.keys())
+
+    # Seed: direct exact-from helpers
+    for name, fn_or_err in scope_fns.items():
+        if isinstance(fn_or_err, RejectedHelperInfo):
+            continue
+        if _is_uint512_from_helper(fn_or_err) is not None:
+            non_pure.add(name)
+
+    # Fixed-point: propagate through helper-to-helper references.
+    # Uses _collect_call_names_in_stmts to scan the full statement
+    # tree (PlainAssignment, ParsedIfBlock, MemoryWrite), matching
+    # the same IR that the inliner operates on.
+    changed = True
+    while changed:
+        changed = False
+        for name, fn_or_err in scope_fns.items():
+            if name in non_pure or isinstance(fn_or_err, RejectedHelperInfo):
+                continue
+            body_calls = _collect_call_names_in_stmts(fn_or_err.assignments)
+            if body_calls & (non_pure | inner_keys):
+                non_pure.add(name)
+                changed = True
+
+    return non_pure
+
+
+def _rewrite_calls_in_expr(expr: Expr, rewrite: Callable[[Call], Call]) -> Expr:
+    """Apply *rewrite* to every Call node in *expr*."""
+    if isinstance(expr, IntLit):
+        return expr
+    if isinstance(expr, Var):
+        return expr
+    if isinstance(expr, Call):
+        rewritten_args = tuple(_rewrite_calls_in_expr(a, rewrite) for a in expr.args)
+        call = (
+            expr
+            if rewritten_args == expr.args
+            else Call(expr.name, rewritten_args, expr.binding_token_idx)
+        )
+        rewritten_call = rewrite(call)
+        if rewritten_call == expr:
+            return expr
+        return rewritten_call
+    if isinstance(expr, Ite):
+        c = _rewrite_calls_in_expr(expr.cond, rewrite)
+        t = _rewrite_calls_in_expr(expr.if_true, rewrite)
+        e = _rewrite_calls_in_expr(expr.if_false, rewrite)
+        if c is expr.cond and t is expr.if_true and e is expr.if_false:
+            return expr
+        return Ite(c, t, e)
+    if isinstance(expr, Project):
+        inner = _rewrite_calls_in_expr(expr.inner, rewrite)
+        if inner is expr.inner:
+            return expr
+        return Project(expr.index, expr.total, inner)
+    assert_never(expr)
+
+
+def _rewrite_calls_in_stmts(
+    stmts: list[RawStatement],
+    rewrite: Callable[[Call], Call],
+) -> list[RawStatement]:
+    """Apply *rewrite* to every Call node in *stmts*."""
+    result: list[RawStatement] = []
+    for stmt in stmts:
+        if isinstance(stmt, PlainAssignment):
+            new_expr = _rewrite_calls_in_expr(stmt.expr, rewrite)
+            result.append(
+                PlainAssignment(
+                    stmt.target, new_expr, is_declaration=stmt.is_declaration
+                )
+                if new_expr is not stmt.expr
+                else stmt
+            )
+        elif isinstance(stmt, ParsedIfBlock):
+            new_cond = _rewrite_calls_in_expr(stmt.condition, rewrite)
+            new_body = tuple(
+                PlainAssignment(
+                    s.target,
+                    _rewrite_calls_in_expr(s.expr, rewrite),
+                    is_declaration=s.is_declaration,
+                )
+                for s in stmt.body
+            )
+            new_else = None
+            if stmt.else_body is not None:
+                new_else = tuple(
+                    PlainAssignment(
+                        s.target,
+                        _rewrite_calls_in_expr(s.expr, rewrite),
+                        is_declaration=s.is_declaration,
+                    )
+                    for s in stmt.else_body
+                )
+            result.append(
+                ParsedIfBlock(
+                    condition=new_cond,
+                    body=new_body,
+                    has_leave=stmt.has_leave,
+                    else_body=new_else,
+                    body_expr_stmts=stmt.body_expr_stmts,
+                    else_body_expr_stmts=stmt.else_body_expr_stmts,
+                )
+            )
+        elif isinstance(stmt, MemoryWrite):
+            result.append(
+                MemoryWrite(
+                    _rewrite_calls_in_expr(stmt.address, rewrite),
+                    _rewrite_calls_in_expr(stmt.value, rewrite),
+                )
+            )
+        else:
+            assert_never(stmt)
+    return result
+
+
+def _rename_calls_in_stmts(
+    stmts: list[RawStatement], old: str, new: str
+) -> list[RawStatement]:
+    """Rename Call nodes from *old* to *new* in a list of raw statements."""
+
+    def _rewrite(call: Call) -> Call:
+        name = new if call.name == old else call.name
+        if name == call.name:
+            return call
+        return Call(name, call.args, call.binding_token_idx)
+
+    return _rewrite_calls_in_stmts(stmts, _rewrite)
+
+
+def _bind_calls_in_stmts(
+    stmts: list[RawStatement],
+    yul_name: str,
+    binding_token_idx: int,
+) -> list[RawStatement]:
+    """Bind visible calls to ``yul_name`` to a specific lexical definition."""
+
+    def _rewrite(call: Call) -> Call:
+        if call.name != yul_name or call.binding_token_idx is not None:
+            return call
+        return Call(call.name, call.args, binding_token_idx)
+
+    return _rewrite_calls_in_stmts(stmts, _rewrite)
+
+
+def _bind_calls_in_yul_function(
+    fn: YulFunction,
+    yul_name: str,
+    binding_token_idx: int,
+) -> YulFunction:
+    """Bind visible calls inside *fn* to a specific lexical definition."""
+
+    new_assignments = _bind_calls_in_stmts(fn.assignments, yul_name, binding_token_idx)
+    new_expr_stmts = (
+        [
+            _rewrite_calls_in_expr(
+                expr,
+                lambda call: (
+                    Call(call.name, call.args, binding_token_idx)
+                    if call.name == yul_name and call.binding_token_idx is None
+                    else call
+                ),
+            )
+            for expr in fn.expr_stmts
+        ]
+        if fn.expr_stmts is not None
+        else None
+    )
+    if new_assignments == fn.assignments and new_expr_stmts == fn.expr_stmts:
+        return fn
+    return YulFunction(
+        yul_name=fn.yul_name,
+        params=fn.params,
+        rets=fn.rets,
+        assignments=new_assignments,
+        expr_stmts=new_expr_stmts,
+        token_idx=fn.token_idx,
+    )
+
+
+def _inline_in_raw_statements(
+    stmts: list[RawStatement],
+    fn_table: dict[str, YulFunction],
+    rejected: RejectedHelperMap | None = None,
+) -> list[RawStatement]:
+    """Apply ``inline_calls`` to every expression in a list of raw statements.
+
+    Walks PlainAssignment, ParsedIfBlock, and MemoryWrite nodes,
+    inlining calls in all their expressions.  Unresolved calls (not in
+    *fn_table*) pass through unchanged.
+    """
+    result: list[RawStatement] = []
+    for stmt in stmts:
+        if isinstance(stmt, PlainAssignment):
+            new_expr = inline_calls(
+                stmt.expr,
+                fn_table,
+                unsupported_function_errors=rejected,
+            )
+            result.append(
+                PlainAssignment(
+                    stmt.target, new_expr, is_declaration=stmt.is_declaration
+                )
+            )
+        elif isinstance(stmt, ParsedIfBlock):
+            new_cond = inline_calls(
+                stmt.condition,
+                fn_table,
+                unsupported_function_errors=rejected,
+            )
+            new_body = tuple(
+                PlainAssignment(
+                    s.target,
+                    inline_calls(
+                        s.expr, fn_table, unsupported_function_errors=rejected
+                    ),
+                    is_declaration=s.is_declaration,
+                )
+                for s in stmt.body
+            )
+            new_else = None
+            if stmt.else_body is not None:
+                new_else = tuple(
+                    PlainAssignment(
+                        s.target,
+                        inline_calls(
+                            s.expr, fn_table, unsupported_function_errors=rejected
+                        ),
+                        is_declaration=s.is_declaration,
+                    )
+                    for s in stmt.else_body
+                )
+            result.append(
+                ParsedIfBlock(
+                    condition=new_cond,
+                    body=new_body,
+                    has_leave=stmt.has_leave,
+                    else_body=new_else,
+                    body_expr_stmts=stmt.body_expr_stmts,
+                    else_body_expr_stmts=stmt.else_body_expr_stmts,
+                )
+            )
+        elif isinstance(stmt, MemoryWrite):
+            result.append(
+                MemoryWrite(
+                    inline_calls(
+                        stmt.address, fn_table, unsupported_function_errors=rejected
+                    ),
+                    inline_calls(
+                        stmt.value, fn_table, unsupported_function_errors=rejected
+                    ),
+                )
+            )
+        else:
+            assert_never(stmt)
+    return result
+
+
+def _format_rejected_helper_error(info: RejectedHelperInfo) -> str:
+    return (
+        f"Cannot inline helper {info.helper_name!r}: its Yul body was "
+        f"rejected during collection: {info.reason}"
+    )
+
+
 def inline_calls(
     expr: Expr,
     fn_table: dict[str, YulFunction],
     depth: int = 0,
     max_depth: int = 40,
     mstore_sink: list[FromWriteEffect] | None = None,
-    unsupported_function_errors: dict[str, str] | None = None,
+    unsupported_function_errors: RejectedHelperMap | None = None,
 ) -> Expr:
     """Recursively inline function calls in an expression.
 
@@ -2987,6 +3585,12 @@ def inline_calls(
                 )
                 for a in inner.args
             )
+            if inner.binding_token_idx is not None:
+                return Project(
+                    idx,
+                    total,
+                    Call(inner.name, inner_args, inner.binding_token_idx),
+                )
             if inner.name in fn_table:
                 result = _inline_single_call(
                     fn_table[inner.name],
@@ -3020,12 +3624,16 @@ def inline_calls(
                 and inner.name in unsupported_function_errors
             ):
                 raise ParseError(
-                    f"Cannot inline helper {inner.name!r}: its Yul body was "
-                    f"rejected during collection: "
-                    f"{unsupported_function_errors[inner.name]}"
+                    _format_rejected_helper_error(
+                        unsupported_function_errors[inner.name]
+                    )
                 )
             # Inner call not in table — rebuild with inlined args
-            return Project(idx, total, Call(inner.name, inner_args))
+            return Project(
+                idx,
+                total,
+                Call(inner.name, inner_args, inner.binding_token_idx),
+            )
         # Non-Call inner — just recurse
         return Project(
             idx,
@@ -3053,6 +3661,9 @@ def inline_calls(
             for a in expr.args
         )
 
+        if expr.binding_token_idx is not None:
+            return Call(expr.name, args, expr.binding_token_idx)
+
         # Direct call to a collected function
         if expr.name in fn_table:
             fn = fn_table[expr.name]
@@ -3077,936 +3688,11 @@ def inline_calls(
             and expr.name in unsupported_function_errors
         ):
             raise ParseError(
-                f"Cannot inline helper {expr.name!r}: its Yul body was "
-                f"rejected during collection: {unsupported_function_errors[expr.name]}"
+                _format_rejected_helper_error(unsupported_function_errors[expr.name])
             )
 
-        return Call(expr.name, args)
+        return Call(expr.name, args, expr.binding_token_idx)
     assert_never(expr)
-
-
-def _inline_yul_function(
-    yf: YulFunction,
-    fn_table: dict[str, YulFunction],
-    unsupported_function_errors: dict[str, str] | None = None,
-) -> YulFunction:
-    """Apply ``inline_calls`` to every expression in a YulFunction."""
-
-    _reject_expr_stmts(
-        yf.expr_stmts,
-        context=f"Function {yf.yul_name!r} contains",
-    )
-
-    mstore_sink: list[FromWriteEffect] = []
-    new_assignments: list[RawStatement] = []
-    const_subst: dict[str, Expr] = {}
-    for stmt in yf.assignments:
-        if isinstance(stmt, ParsedIfBlock):
-            _reject_branch_expr_stmts(
-                stmt,
-                context=f"Function {yf.yul_name!r}",
-            )
-            pre_len = len(mstore_sink)
-            new_cond = inline_calls(
-                substitute_expr(stmt.condition, const_subst),
-                fn_table,
-                mstore_sink=mstore_sink,
-                unsupported_function_errors=unsupported_function_errors,
-            )
-            new_body: list[PlainAssignment] = []
-            for s in stmt.body:
-                new_body.append(
-                    PlainAssignment(
-                        s.target,
-                        inline_calls(
-                            substitute_expr(s.expr, const_subst),
-                            fn_table,
-                            mstore_sink=mstore_sink,
-                            unsupported_function_errors=unsupported_function_errors,
-                        ),
-                        is_declaration=s.is_declaration,
-                    )
-                )
-            new_else_body: list[PlainAssignment] | None = None
-            if stmt.else_body is not None:
-                new_else_body = []
-                for s in stmt.else_body:
-                    new_else_body.append(
-                        PlainAssignment(
-                            s.target,
-                            inline_calls(
-                                substitute_expr(s.expr, const_subst),
-                                fn_table,
-                                mstore_sink=mstore_sink,
-                                unsupported_function_errors=unsupported_function_errors,
-                            ),
-                            is_declaration=s.is_declaration,
-                        )
-                    )
-            if len(mstore_sink) > pre_len:
-                raise ParseError(
-                    f"Conditional memory write detected in {yf.yul_name!r} while "
-                    "inlining a control-flow block. Exact uint512.from(...) "
-                    "accessor writes must stay on the straight-line path."
-                )
-            new_if = ParsedIfBlock(
-                condition=new_cond,
-                body=tuple(new_body),
-                has_leave=stmt.has_leave,
-                else_body=(tuple(new_else_body) if new_else_body is not None else None),
-                body_expr_stmts=stmt.body_expr_stmts,
-                else_body_expr_stmts=stmt.else_body_expr_stmts,
-            )
-            # Invalidate any variables conditionally assigned
-            for t in _stmt_targets(new_if):
-                const_subst.pop(t, None)
-            new_assignments.append(new_if)
-        elif isinstance(stmt, MemoryWrite):
-            pre_len = len(mstore_sink)
-            new_addr = inline_calls(
-                substitute_expr(stmt.address, const_subst),
-                fn_table,
-                mstore_sink=mstore_sink,
-                unsupported_function_errors=unsupported_function_errors,
-            )
-            new_value = inline_calls(
-                substitute_expr(stmt.value, const_subst),
-                fn_table,
-                mstore_sink=mstore_sink,
-                unsupported_function_errors=unsupported_function_errors,
-            )
-            if len(mstore_sink) > pre_len:
-                raise ParseError(
-                    f"Nested memory write detected while evaluating an mstore in "
-                    f"{yf.yul_name!r}. The supported memory model requires "
-                    "direct straight-line writes."
-                )
-            new_assignments.append(MemoryWrite(new_addr, new_value))
-        else:
-            pre_len = len(mstore_sink)
-            inlined = inline_calls(
-                substitute_expr(stmt.expr, const_subst),
-                fn_table,
-                mstore_sink=mstore_sink,
-                unsupported_function_errors=unsupported_function_errors,
-            )
-            if _try_const_eval(inlined) is not None:
-                const_subst[stmt.target] = inlined
-            else:
-                const_subst.pop(stmt.target, None)
-            for effect in mstore_sink[pre_len:]:
-                new_assignments.extend(effect.lower())
-            del mstore_sink[pre_len:]
-            new_assignments.append(
-                PlainAssignment(
-                    stmt.target, inlined, is_declaration=stmt.is_declaration
-                )
-            )
-
-    if mstore_sink:
-        raise ParseError(
-            f"Undrained mstore_sink after inlining {yf.yul_name!r}: "
-            f"{len(mstore_sink)} FromWriteEffect(s) were never lowered. "
-            "All uint512.from(...) effects must appear in plain-assignment context."
-        )
-
-    return YulFunction(
-        yul_name=yf.yul_name,
-        params=yf.params,
-        rets=yf.rets,
-        assignments=new_assignments,
-    )
-
-
-def _stmt_targets(stmt: RawStatement) -> list[str]:
-    """Extract assignment targets from a raw statement.
-
-    For ``ParsedIfBlock``, only returns targets that are outer-scope
-    writes.  Branch-local declarations and their subsequent
-    reassignments are excluded because they are separate bindings
-    scoped to each branch.
-    """
-    if isinstance(stmt, ParsedIfBlock):
-        targets: list[str] = []
-        for branch in (stmt.body, stmt.else_body or ()):
-            branch_locals: set[str] = set()
-            for s in branch:
-                if s.is_declaration:
-                    branch_locals.add(s.target)
-                elif s.target not in branch_locals:
-                    targets.append(s.target)
-        return targets
-    if isinstance(stmt, MemoryWrite):
-        return []
-    return [stmt.target]
-
-
-def _branch_reads_var_before_write(
-    assignments: tuple[PlainAssignment, ...],
-    *,
-    var: str,
-    initialized: bool,
-) -> bool:
-    """Whether a straight-line branch reads *var* before assigning it."""
-    branch_initialized = initialized
-    for stmt in assignments:
-        if not branch_initialized and var in _expr_vars(stmt.expr):
-            return True
-        if stmt.target == var:
-            branch_initialized = True
-    return False
-
-
-def _branch_definitely_initializes_var(
-    assignments: tuple[PlainAssignment, ...],
-    *,
-    var: str,
-    initialized: bool,
-) -> bool:
-    """Whether *var* is definitely initialized after a straight-line branch."""
-    branch_initialized = initialized
-    for stmt in assignments:
-        if stmt.target == var:
-            branch_initialized = True
-    return branch_initialized
-
-
-def _stmt_reads_var_before_write(
-    stmt: RawStatement,
-    *,
-    var: str,
-    initialized: bool,
-) -> bool:
-    """Whether *stmt* can read *var* before it is initialized on that path."""
-    if isinstance(stmt, PlainAssignment):
-        return not initialized and var in _expr_vars(stmt.expr)
-    if isinstance(stmt, MemoryWrite):
-        return not initialized and var in (
-            _expr_vars(stmt.address) | _expr_vars(stmt.value)
-        )
-
-    if not initialized and var in _expr_vars(stmt.condition):
-        return True
-
-    if _branch_reads_var_before_write(stmt.body, var=var, initialized=initialized):
-        return True
-    if stmt.else_body is not None:
-        return _branch_reads_var_before_write(
-            stmt.else_body,
-            var=var,
-            initialized=initialized,
-        )
-    return False
-
-
-def _stmt_definitely_initializes_var(
-    stmt: RawStatement,
-    *,
-    var: str,
-    initialized: bool,
-) -> bool:
-    """Whether *var* is definitely initialized after executing *stmt*."""
-    if isinstance(stmt, PlainAssignment):
-        return initialized or stmt.target == var
-    if isinstance(stmt, MemoryWrite):
-        return initialized
-
-    then_initialized = _branch_definitely_initializes_var(
-        stmt.body,
-        var=var,
-        initialized=initialized,
-    )
-    else_initialized = _branch_definitely_initializes_var(
-        stmt.else_body or (),
-        var=var,
-        initialized=initialized,
-    )
-    return then_initialized and else_initialized
-
-
-def yul_function_to_model(
-    yf: YulFunction,
-    sol_fn_name: str,
-    fn_map: dict[str, str],
-    keep_solidity_locals: bool = False,
-) -> FunctionModel:
-    """Convert a parsed YulFunction into a FunctionModel.
-
-    Performs copy propagation to eliminate compiler temporaries and renames
-    variables/calls back to Solidity-level names.
-
-    Validates:
-    - Multi-assigned compiler temporaries are rejected.
-    - The return variable is recognized and assigned in the model.
-    - Distinct Yul signature binders must demangle to distinct IR names.
-    - Memory use must stay within the explicit supported subset:
-      straight-line constant-address, 32-byte-aligned ``mstore``/``mload``
-      with no aliasing.
-    """
-    _reject_expr_stmts(
-        yf.expr_stmts,
-        context=f"Function {sol_fn_name!r} contains",
-    )
-
-    # ------------------------------------------------------------------
-    # Pre-pass: count how many times each variable is assigned and
-    # collect clean (demangled) names for collision detection.
-    # A compiler temporary assigned more than once is unusual and could
-    # indicate a naming-convention change that made a real variable look
-    # like a temporary.
-    # ------------------------------------------------------------------
-    assign_counts: Counter[str] = Counter()
-    all_clean_names: set[str] = set()
-    for stmt in yf.assignments:
-        targets = _stmt_targets(stmt)
-        for target in targets:
-            assign_counts[target] += 1
-            clean = demangle_var(
-                target,
-                yf.params,
-                yf.rets,
-                keep_solidity_locals=keep_solidity_locals,
-            )
-            if clean is not None:
-                all_clean_names.add(clean)
-
-    var_map: dict[str, str] = {}
-    subst: dict[str, Expr] = {}
-    const_locals: dict[str, Expr] = {}
-    memory_state: dict[int, Expr] = {}
-
-    signature_name_sources: dict[str, str] = {}
-    for name in [*yf.params, *yf.rets]:
-        clean = demangle_var(
-            name, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals
-        )
-        if clean:
-            prior = signature_name_sources.get(clean)
-            if prior is not None and prior != name:
-                raise ParseError(
-                    f"Distinct Yul signature binders {prior!r} and {name!r} in "
-                    f"{sol_fn_name!r} both demangle to {clean!r}. Refuse to "
-                    f"collapse separate parameter/return slots into one IR name."
-                )
-            signature_name_sources[clean] = name
-            var_map[name] = clean
-            all_clean_names.add(clean)
-
-    # Save param names before SSA processing may rename them.
-    param_names = tuple(var_map[p] for p in yf.params)
-
-    # ------------------------------------------------------------------
-    # SSA state: track assignment count per clean name so that
-    # reassigned variables get distinct Lean names (_1, _2, ...).
-    # Parameters start at count 1 (the function-parameter binding).
-    # ------------------------------------------------------------------
-    ssa_count: Counter[str] = Counter()
-    emitted_ssa_names: set[str] = set()
-    for name in yf.params:
-        clean = var_map.get(name)
-        if clean:
-            ssa_count[clean] = 1
-            emitted_ssa_names.add(clean)
-
-    assignments: list[ModelStatement] = []
-
-    # Emit explicit zero-initialization for return variables (Yul semantics).
-    # We only need an explicit binder when a path can read the return slot
-    # before any assignment on that path, or when the slot can remain
-    # uninitialized until function exit.
-    needs_zero_init: set[str] = set()
-    for ret in yf.rets:
-        initialized = False
-        for s in yf.assignments:
-            if _stmt_reads_var_before_write(s, var=ret, initialized=initialized):
-                needs_zero_init.add(ret)
-                break
-            # A conditional write while not yet initialized means the
-            # ConditionalBlock's else-output needs the zero-init value —
-            # but only if the statement doesn't definitely initialize
-            # the variable (e.g. switch with all branches writing it).
-            if (
-                not initialized
-                and isinstance(s, ParsedIfBlock)
-                and any(a.target == ret and not a.is_declaration for a in s.body)
-                and not _stmt_definitely_initializes_var(
-                    s,
-                    var=ret,
-                    initialized=False,
-                )
-            ):
-                needs_zero_init.add(ret)
-                break
-            initialized = _stmt_definitely_initializes_var(
-                s,
-                var=ret,
-                initialized=initialized,
-            )
-        if not initialized and ret not in needs_zero_init:
-            needs_zero_init.add(ret)
-    for ret in yf.rets:
-        clean = var_map.get(ret)
-        if (
-            clean is not None
-            and clean not in emitted_ssa_names
-            and ret in needs_zero_init
-        ):
-            emitted_ssa_names.add(clean)
-            ssa_count[clean] = 1
-            assignments.append(Assignment(target=clean, expr=IntLit(0)))
-            const_locals[clean] = IntLit(0)
-
-    def _resolve_memory_address(
-        expr: Expr,
-        *,
-        op_name: str,
-        const_locals_state: dict[str, Expr],
-    ) -> int:
-        addr = _try_const_eval(substitute_expr(expr, const_locals_state))
-        if addr is None:
-            raise ParseError(
-                f"{op_name} with non-constant address {expr!r} in "
-                f"{sol_fn_name!r}. The supported memory model only allows "
-                f"constant 32-byte-aligned scratch slots."
-            )
-        if addr % 32 != 0:
-            raise ParseError(
-                f"{op_name} with unaligned address {addr} in {sol_fn_name!r}. "
-                f"The supported memory model only allows 32-byte-aligned "
-                f"scratch slots."
-            )
-        return addr
-
-    def _resolve_memory_expr(
-        expr: Expr,
-        *,
-        const_locals_state: dict[str, Expr],
-    ) -> Expr:
-        if isinstance(expr, (IntLit, Var)):
-            return expr
-        if isinstance(expr, Ite):
-            return Ite(
-                _resolve_memory_expr(expr.cond, const_locals_state=const_locals_state),
-                _resolve_memory_expr(
-                    expr.if_true, const_locals_state=const_locals_state
-                ),
-                _resolve_memory_expr(
-                    expr.if_false, const_locals_state=const_locals_state
-                ),
-            )
-        if isinstance(expr, Project):
-            return Project(
-                expr.index,
-                expr.total,
-                _resolve_memory_expr(expr.inner, const_locals_state=const_locals_state),
-            )
-        if isinstance(expr, Call):
-            if expr.name == "mload" and len(expr.args) == 1:
-                addr = _resolve_memory_address(
-                    expr.args[0],
-                    op_name="mload",
-                    const_locals_state=const_locals_state,
-                )
-                if addr not in memory_state:
-                    raise ParseError(
-                        f"mload at address {addr} in {sol_fn_name!r} has no "
-                        f"matching prior mstore. Available addresses: "
-                        f"{sorted(memory_state.keys())}"
-                    )
-                return memory_state[addr]
-            return Call(
-                expr.name,
-                tuple(
-                    _resolve_memory_expr(arg, const_locals_state=const_locals_state)
-                    for arg in expr.args
-                ),
-            )
-        assert_never(expr)
-
-    def _wrap_u256_literals(expr: Expr) -> Expr:
-        """Normalize IntLit values to [0, 2^256) per EVM u256 semantics."""
-        if isinstance(expr, IntLit):
-            wrapped = expr.value % WORD_MOD
-            return IntLit(wrapped) if wrapped != expr.value else expr
-        if isinstance(expr, Var):
-            return expr
-        if isinstance(expr, Ite):
-            new_cond = _wrap_u256_literals(expr.cond)
-            new_if = _wrap_u256_literals(expr.if_true)
-            new_else = _wrap_u256_literals(expr.if_false)
-            if (
-                new_cond is expr.cond
-                and new_if is expr.if_true
-                and new_else is expr.if_false
-            ):
-                return expr
-            return Ite(new_cond, new_if, new_else)
-        if isinstance(expr, Project):
-            new_inner = _wrap_u256_literals(expr.inner)
-            if new_inner is expr.inner:
-                return expr
-            return Project(expr.index, expr.total, new_inner)
-        if isinstance(expr, Call):
-            new_args = tuple(_wrap_u256_literals(a) for a in expr.args)
-            if new_args == expr.args:
-                return expr
-            return Call(expr.name, new_args)
-        assert_never(expr)
-
-    def _process_assignment_into(
-        target: str,
-        raw_expr: Expr,
-        *,
-        var_map_state: dict[str, str],
-        subst_state: dict[str, Expr],
-        const_locals_state: dict[str, Expr],
-        inside_conditional: bool = False,
-    ) -> Assignment | None:
-        """Process a single raw assignment through copy-prop and demangling.
-
-        Returns an Assignment if the target is a real variable, or None if
-        it was copy-propagated into ``subst``.
-        """
-        expr = substitute_expr(raw_expr, subst_state)
-        expr = rename_expr(expr, var_map_state, fn_map)
-        expr = _resolve_memory_expr(expr, const_locals_state=const_locals_state)
-        expr = _wrap_u256_literals(expr)
-
-        # Detect out-of-scope variable references.  After substitution
-        # and renaming, every Var should reference a previously emitted
-        # SSA name or a name currently in var_map (which covers block-
-        # local real variables added during _lower_live_branch).
-        if not inside_conditional:
-            known_names = emitted_ssa_names | set(var_map_state.values())
-            for v in _expr_vars(expr):
-                if v not in known_names:
-                    raise ParseError(
-                        f"out-of-scope variable use: {v!r} referenced by "
-                        f"assignment to {target!r} in {sol_fn_name!r}"
-                    )
-
-        clean = demangle_var(
-            target, yf.params, yf.rets, keep_solidity_locals=keep_solidity_locals
-        )
-        if clean is None:
-            if assign_counts[target] > 1:
-                raise ParseError(
-                    f"Variable {target!r} in {sol_fn_name!r} is classified "
-                    f"as a compiler temporary but is assigned "
-                    f"{assign_counts[target]} times. Refuse to copy-propagate "
-                    f"a multi-assigned temporary; demangle_var may be "
-                    f"misclassifying a real variable."
-                )
-            if isinstance(expr, Call) and expr.name.startswith("zero_value_for_split_"):
-                subst_state[target] = IntLit(0)
-            else:
-                subst_state[target] = expr
-            return None
-
-        # SSA: compute the Lean target name.  Inside conditional
-        # blocks, Lean's scoped ``let`` handles shadowing, so we
-        # use the base clean name directly.
-        if not inside_conditional:
-            ssa_count[clean] += 1
-            if ssa_count[clean] == 1:
-                ssa_name = clean
-            else:
-                ssa_name = f"{clean}_{ssa_count[clean] - 1}"
-                while ssa_name in emitted_ssa_names:
-                    ssa_count[clean] += 1
-                    ssa_name = f"{clean}_{ssa_count[clean] - 1}"
-                if ssa_name in all_clean_names:
-                    raise ParseError(
-                        f"SSA-generated name {ssa_name!r} in {sol_fn_name!r} "
-                        f"collides with the demangled name of another variable. "
-                        f"Refuse to generate ambiguous Lean binders."
-                    )
-            emitted_ssa_names.add(ssa_name)
-        else:
-            ssa_name = clean
-
-        # Update var_map AFTER rename_expr.
-        var_map_state[target] = ssa_name
-
-        if not inside_conditional:
-            const_value = _try_const_eval(substitute_expr(expr, const_locals_state))
-            if const_value is not None:
-                const_locals_state[ssa_name] = IntLit(const_value)
-            else:
-                const_locals_state.pop(ssa_name, None)
-
-        return Assignment(target=ssa_name, expr=expr)
-
-    def _lower_live_branch(
-        body: tuple[PlainAssignment, ...],
-    ) -> None:
-        """Lower a constant-folded live branch as straight-line in a lexical scope.
-
-        Maintains a block-local environment of names introduced by
-        ``let`` in this block:
-
-        - A **declaration** adds its target to the local set and parks
-          the processed value in ``subst``.
-        - A later **reassignment** to a name in the local set updates
-          that local binding in ``subst`` (never hits outer SSA).
-        - Only assignments to names *not* local to this block go
-          through the normal outer SSA machinery.
-
-        At block exit, all local ``subst`` entries are removed (or
-        shadowed outer values are restored).
-        """
-        # Track block-local subst entries for cleanup at block exit.
-        # Each entry saves the previous subst value (or None) so that
-        # shadowed outer copy-propagation entries are restored.
-        local_subst_saves: list[tuple[str, Expr | None]] = []
-        block_locals: set[str] = set()
-
-        def _park_local(target: str, raw_expr: Expr) -> None:
-            """Process *raw_expr* and park the result in subst for *target*."""
-            expr = substitute_expr(raw_expr, subst)
-            expr = rename_expr(expr, var_map, fn_map)
-            expr = _resolve_memory_expr(
-                expr,
-                const_locals_state=const_locals,
-            )
-            expr = _wrap_u256_literals(expr)
-            subst[target] = expr
-
-        for s in body:
-            if s.is_declaration:
-                # Block-local declaration: add to local set, park in subst.
-                block_locals.add(s.target)
-                saved = subst.get(s.target)
-                _park_local(s.target, s.expr)
-                local_subst_saves.append((s.target, saved))
-            elif s.target in block_locals:
-                # Reassignment of a block-local name — update local subst.
-                _park_local(s.target, s.expr)
-            else:
-                # Outer reassignment: full SSA, emit to assignments,
-                # const_locals updated.
-                a = _process_assignment_into(
-                    s.target,
-                    s.expr,
-                    var_map_state=var_map,
-                    subst_state=subst,
-                    const_locals_state=const_locals,
-                )
-                if a is not None:
-                    assignments.append(a)
-
-        # Clean up block-local subst entries.
-        for k, saved in local_subst_saves:
-            if saved is None:
-                subst.pop(k, None)
-            else:
-                subst[k] = saved
-
-    for stmt in yf.assignments:
-        if isinstance(stmt, ParsedIfBlock):
-            # Constant-fold the condition before rejecting leave.
-            if stmt.has_leave:
-                cond_sub = substitute_expr(stmt.condition, subst)
-                fold = _classify_if_fold(
-                    _try_const_eval(cond_sub),
-                    has_else=stmt.else_body is not None,
-                )
-                if fold == _IfFoldDecision.ELSE_LIVE:
-                    _reject_expr_stmts(
-                        (
-                            list(stmt.else_body_expr_stmts)
-                            if stmt.else_body_expr_stmts
-                            else None
-                        ),
-                        context=f"Function {sol_fn_name!r} else-branch has",
-                    )
-                    assert stmt.else_body is not None  # ELSE_LIVE requires else
-                    _lower_live_branch(stmt.else_body)
-                    continue
-                if fold == _IfFoldDecision.DEAD:
-                    continue
-                # THEN_LIVE or NOT_CONSTANT with leave → error
-                raise ParseError(
-                    f"Function {sol_fn_name!r} contains 'leave' in direct model "
-                    "generation. Early return is only supported when inlining a "
-                    "helper with a single top-level 'if cond { ... leave }'."
-                )
-            # Non-leave: constant-fold all cases via _classify_if_fold.
-            cond_sub = substitute_expr(stmt.condition, subst)
-            fold = _classify_if_fold(
-                _try_const_eval(cond_sub),
-                has_else=stmt.else_body is not None,
-            )
-            if fold == _IfFoldDecision.THEN_LIVE:
-                _reject_expr_stmts(
-                    list(stmt.body_expr_stmts) if stmt.body_expr_stmts else None,
-                    context=f"Function {sol_fn_name!r} then-branch has",
-                )
-                _lower_live_branch(stmt.body)
-                continue
-            if fold == _IfFoldDecision.ELSE_LIVE:
-                _reject_expr_stmts(
-                    (
-                        list(stmt.else_body_expr_stmts)
-                        if stmt.else_body_expr_stmts
-                        else None
-                    ),
-                    context=f"Function {sol_fn_name!r} else-branch has",
-                )
-                assert stmt.else_body is not None  # ELSE_LIVE requires else
-                _lower_live_branch(stmt.else_body)
-                continue
-            if fold == _IfFoldDecision.DEAD:
-                continue
-            # NOT_CONSTANT: fall through to ConditionalBlock emission.
-            _reject_branch_expr_stmts(
-                stmt,
-                context=f"Function {sol_fn_name!r}",
-            )
-            # Process the if-block: apply copy-prop/demangling to
-            # condition and body, then emit a ConditionalBlock.
-            cond = substitute_expr(stmt.condition, subst)
-            cond = rename_expr(cond, var_map, fn_map)
-            cond = _resolve_memory_expr(cond, const_locals_state=const_locals)
-
-            # Save pre-if Lean names so each branch can explicitly return
-            # the values that were live before the conditional ran.
-            pre_if_names: dict[str, str] = {}
-            # Snapshot of all Lean names in scope before the if-body.
-            pre_if_scope: set[str] = set(var_map.values())
-
-            def _record_pre_if_name(target: str) -> str | None:
-                clean = demangle_var(
-                    target,
-                    yf.params,
-                    yf.rets,
-                    keep_solidity_locals=keep_solidity_locals,
-                )
-                if clean is not None and clean not in pre_if_names:
-                    pre_if_names[clean] = var_map.get(target, clean)
-                return clean
-
-            def _process_conditional_branch(
-                raw_assignments: tuple[PlainAssignment, ...],
-            ) -> list[Assignment]:
-                branch_var_map = dict(var_map)
-                branch_subst = dict(subst)
-                branch_const_locals = dict(const_locals)
-                branch_assignments: list[Assignment] = []
-                branch_locals: set[str] = set()
-                for s in raw_assignments:
-                    if s.is_declaration:
-                        # Branch-local declaration: park in branch_subst
-                        # so later statements can resolve it.  Do not
-                        # emit — this binding dies at branch exit.
-                        branch_locals.add(s.target)
-                        expr = substitute_expr(s.expr, branch_subst)
-                        expr = rename_expr(expr, branch_var_map, fn_map)
-                        expr = _resolve_memory_expr(
-                            expr,
-                            const_locals_state=branch_const_locals,
-                        )
-                        expr = _wrap_u256_literals(expr)
-                        branch_subst[s.target] = expr
-                        # Track const fact for mload address resolution.
-                        clean = demangle_var(
-                            s.target,
-                            yf.params,
-                            yf.rets,
-                            keep_solidity_locals=keep_solidity_locals,
-                        )
-                        if clean is not None:
-                            cv = _try_const_eval(
-                                substitute_expr(expr, branch_const_locals),
-                            )
-                            if cv is not None:
-                                branch_const_locals[clean] = IntLit(cv)
-                    elif s.target in branch_locals:
-                        # Reassignment of branch-local — update subst.
-                        expr = substitute_expr(s.expr, branch_subst)
-                        expr = rename_expr(expr, branch_var_map, fn_map)
-                        expr = _resolve_memory_expr(
-                            expr,
-                            const_locals_state=branch_const_locals,
-                        )
-                        expr = _wrap_u256_literals(expr)
-                        branch_subst[s.target] = expr
-                    else:
-                        # Outer-scope modification.
-                        _record_pre_if_name(s.target)
-                        assignment = _process_assignment_into(
-                            s.target,
-                            s.expr,
-                            var_map_state=branch_var_map,
-                            subst_state=branch_subst,
-                            const_locals_state=branch_const_locals,
-                            inside_conditional=True,
-                        )
-                        if assignment is not None:
-                            branch_assignments.append(assignment)
-                return branch_assignments
-
-            body_assignments = _process_conditional_branch(stmt.body)
-            else_assignments_list = (
-                _process_conditional_branch(stmt.else_body)
-                if stmt.else_body is not None
-                else []
-            )
-
-            # Deduplicate while preserving order, excluding block-scoped
-            # variables that did not exist before the conditional.
-            seen_vars: set[str] = set()
-            modified_list: list[str] = []
-            for branch_assignment in (*body_assignments, *else_assignments_list):
-                if branch_assignment.target in seen_vars:
-                    continue
-                seen_vars.add(branch_assignment.target)
-                pre_name = pre_if_names.get(branch_assignment.target)
-                if pre_name is not None and pre_name in pre_if_scope:
-                    modified_list.append(branch_assignment.target)
-
-            if modified_list:
-                modified = tuple(modified_list)
-                then_assigned = {a.target for a in body_assignments}
-                else_assigned = {a.target for a in else_assignments_list}
-                then_outputs = tuple(
-                    target if target in then_assigned else pre_if_names[target]
-                    for target in modified_list
-                )
-                if stmt.else_body is None:
-                    else_outputs = tuple(
-                        pre_if_names[target] for target in modified_list
-                    )
-                else:
-                    else_outputs = tuple(
-                        target if target in else_assigned else pre_if_names[target]
-                        for target in modified_list
-                    )
-
-                assignments.append(
-                    ConditionalBlock(
-                        condition=cond,
-                        output_vars=modified,
-                        then_branch=ConditionalBranch(
-                            assignments=tuple(body_assignments),
-                            outputs=then_outputs,
-                        ),
-                        else_branch=ConditionalBranch(
-                            assignments=tuple(else_assignments_list),
-                            outputs=else_outputs,
-                        ),
-                    )
-                )
-
-                # After the conditional the Lean tuple-destructuring creates
-                # fresh bindings with the base clean names. Reset var_map and
-                # ssa_count accordingly so later references are correct.
-                modified_set = set(modified_list)
-
-                # Build lookup of last expression per target in each branch.
-                then_last: dict[str, Expr] = {}
-                for a in body_assignments:
-                    then_last[a.target] = a.expr
-                else_last: dict[str, Expr] = {}
-                for a in else_assignments_list:
-                    else_last[a.target] = a.expr
-
-                all_body_targets = list(stmt.body)
-                if stmt.else_body is not None:
-                    all_body_targets.extend(stmt.else_body)
-                for s in all_body_targets:
-                    c = demangle_var(
-                        s.target,
-                        yf.params,
-                        yf.rets,
-                        keep_solidity_locals=keep_solidity_locals,
-                    )
-                    if c is not None and c in modified_set:
-                        var_map[s.target] = c
-                        ssa_count[c] = 1
-                        # Preserve const fact if both branches agree.
-                        pre_cv = const_locals.get(c)
-                        t_expr = then_last.get(c)
-                        e_expr = else_last.get(c)
-                        t_cv = (
-                            _try_const_eval(t_expr)
-                            if t_expr is not None
-                            else (pre_cv.value if isinstance(pre_cv, IntLit) else None)
-                        )
-                        e_cv = (
-                            _try_const_eval(e_expr)
-                            if e_expr is not None
-                            else (pre_cv.value if isinstance(pre_cv, IntLit) else None)
-                        )
-                        if t_cv is not None and t_cv == e_cv:
-                            const_locals[c] = IntLit(t_cv)
-                        else:
-                            const_locals.pop(c, None)
-            continue
-
-        if isinstance(stmt, MemoryWrite):
-            addr_expr = substitute_expr(stmt.address, subst)
-            addr_expr = rename_expr(addr_expr, var_map, fn_map)
-            value_expr = substitute_expr(stmt.value, subst)
-            value_expr = rename_expr(value_expr, var_map, fn_map)
-            value_expr = _resolve_memory_expr(
-                value_expr,
-                const_locals_state=const_locals,
-            )
-            addr = _resolve_memory_address(
-                addr_expr,
-                op_name="mstore",
-                const_locals_state=const_locals,
-            )
-            if addr in memory_state:
-                raise ParseError(
-                    f"Multiple mstore writes to address {addr} in {sol_fn_name!r}. "
-                    f"The supported memory model forbids aliasing or overwrite "
-                    f"of scratch slots."
-                )
-            memory_state[addr] = value_expr
-            continue
-
-        maybe_a = _process_assignment_into(
-            stmt.target,
-            stmt.expr,
-            var_map_state=var_map,
-            subst_state=subst,
-            const_locals_state=const_locals,
-        )
-        if maybe_a is not None:
-            assignments.append(maybe_a)
-
-    if not assignments:
-        raise ParseError(f"No assignments parsed for function {sol_fn_name!r}")
-
-    # ------------------------------------------------------------------
-    # Post-build validation: ensure the return variable(s) were recognized.
-    # If demangle_var failed to match a return variable's naming
-    # pattern, the model would silently lose the output.
-    # ------------------------------------------------------------------
-    return_names_list: list[str] = []
-    for ret_var in yf.rets:
-        return_clean = var_map.get(ret_var)
-        if return_clean is None:
-            raise ParseError(
-                f"Return variable {ret_var!r} of {sol_fn_name!r} was not "
-                f"recognized as a real variable by demangle_var. The compiler "
-                f"naming convention may have changed. Current patterns: "
-                f"var_<name>_<digits> for param/return, usr$<name> for locals."
-            )
-        # Use the final (possibly SSA-renamed) var_map entry.
-        return_names_list.append(var_map[ret_var])
-
-    model = FunctionModel(
-        fn_name=sol_fn_name,
-        assignments=tuple(assignments),
-        param_names=param_names,
-        return_names=tuple(return_names_list),
-    )
-
-    validate_function_model(model)
-    return model
 
 
 def _prune_dead_assignments(
@@ -4015,17 +3701,24 @@ def _prune_dead_assignments(
     """Drop dead pure assignments from a model to avoid unused Lean lets."""
 
     def _prune_assignment_block(
-        assignments: tuple[Assignment, ...],
+        assignments: tuple[ModelStatement, ...],
         live_out: set[str],
-    ) -> tuple[tuple[Assignment, ...], set[str]]:
+    ) -> tuple[tuple[ModelStatement, ...], set[str]]:
         live = set(live_out)
-        kept_rev: list[Assignment] = []
+        kept_rev: list[ModelStatement] = []
         for stmt in reversed(assignments):
-            if stmt.target not in live:
-                continue
-            live.remove(stmt.target)
-            live.update(_expr_vars(stmt.expr))
-            kept_rev.append(stmt)
+            if isinstance(stmt, Assignment):
+                if stmt.target not in live:
+                    continue
+                live.remove(stmt.target)
+                live.update(_expr_vars(stmt.expr))
+                kept_rev.append(stmt)
+            elif isinstance(stmt, ConditionalBlock):
+                # Keep nested conditionals unconditionally.
+                for var in stmt.output_vars:
+                    live.discard(var)
+                live.update(_expr_vars(stmt.condition))
+                kept_rev.append(stmt)
         kept_rev.reverse()
         return tuple(kept_rev), live
 
@@ -4051,13 +3744,19 @@ def _prune_dead_assignments(
         if not needed_outputs:
             continue
 
+        then_out_live: set[str] = set()
+        for idx in needed_indices:
+            then_out_live.update(_expr_vars(stmt.then_branch.outputs[idx]))
         then_assignments, then_live = _prune_assignment_block(
             stmt.then_branch.assignments,
-            {stmt.then_branch.outputs[idx] for idx in needed_indices},
+            then_out_live,
         )
+        else_out_live: set[str] = set()
+        for idx in needed_indices:
+            else_out_live.update(_expr_vars(stmt.else_branch.outputs[idx]))
         else_assignments, else_live = _prune_assignment_block(
             stmt.else_branch.assignments,
-            {stmt.else_branch.outputs[idx] for idx in needed_indices},
+            else_out_live,
         )
 
         live.difference_update(needed_outputs)
@@ -4116,6 +3815,107 @@ _SUPPORTED_OPS = (
     "lt",
     "gt",
     "mulmod",
+)
+
+_SUPPORTED_OPS_FROZENSET: frozenset[str] = frozenset(_SUPPORTED_OPS)
+
+# Complete set of Yul/EVM builtins that solc reserves (error 5568).
+# _SUPPORTED_OPS are the subset we model in Lean; this is the full set
+# used by the resolver to reject function/variable declarations that
+# would shadow a builtin name.
+#
+# Source: "EVM Dialect" table in the Yul section of the Solidity docs:
+# https://docs.soliditylang.org/en/v0.8.34/yul.html#evm-dialect
+_EVM_BUILTINS: frozenset[str] = _SUPPORTED_OPS_FROZENSET | frozenset(
+    (
+        # Arithmetic / comparison (already in _SUPPORTED_OPS: add, sub, mul,
+        # div, mod, not, or, and, eq, iszero, shl, shr, lt, gt, mulmod)
+        "sdiv",
+        "smod",
+        "addmod",
+        "exp",
+        "signextend",
+        "xor",
+        "byte",
+        "sar",
+        "slt",
+        "sgt",
+        # Memory
+        "mload",
+        "mstore",
+        "mstore8",
+        "msize",
+        # Storage
+        "sload",
+        "sstore",
+        # Transient storage (EIP-1153)
+        "tload",
+        "tstore",
+        # Execution context
+        "gas",
+        "address",
+        "balance",
+        "selfbalance",
+        "caller",
+        "callvalue",
+        "calldataload",
+        "calldatasize",
+        "calldatacopy",
+        "codesize",
+        "codecopy",
+        "extcodesize",
+        "extcodecopy",
+        "returndatasize",
+        "returndatacopy",
+        "extcodehash",
+        # Block context
+        "blockhash",
+        "coinbase",
+        "timestamp",
+        "number",
+        "difficulty",
+        "prevrandao",
+        "gaslimit",
+        "chainid",
+        "basefee",
+        "blobhash",
+        "blobbasefee",
+        # Control flow
+        "stop",
+        "return",
+        "revert",
+        "invalid",
+        "selfdestruct",
+        # Calls
+        "call",
+        "callcode",
+        "delegatecall",
+        "staticcall",
+        # Create
+        "create",
+        "create2",
+        # Log
+        "log0",
+        "log1",
+        "log2",
+        "log3",
+        "log4",
+        # Hash
+        "keccak256",
+        # Misc
+        "pop",
+        "origin",
+        "gasprice",
+        "mcopy",
+        # Object access / Yul-specific
+        "datasize",
+        "dataoffset",
+        "datacopy",
+        "setimmutable",
+        "loadimmutable",
+        "linkersymbol",
+        "memoryguard",
+    )
 )
 
 OP_TO_LEAN_HELPER: dict[str, str] = {
@@ -4220,18 +4020,54 @@ def collect_ops(expr: Expr) -> list[str]:
     return out
 
 
+def _walk_model_exprs_in_stmt(
+    stmt: ModelStatement,
+    visit: Callable[[Expr], None],
+) -> None:
+    """Visit every expression position reachable from a model statement."""
+    if isinstance(stmt, Assignment):
+        visit(stmt.expr)
+        return
+    if isinstance(stmt, ConditionalBlock):
+        visit(stmt.condition)
+        for s in stmt.then_branch.assignments:
+            _walk_model_exprs_in_stmt(s, visit)
+        for s in stmt.else_branch.assignments:
+            _walk_model_exprs_in_stmt(s, visit)
+        for expr in stmt.then_branch.outputs:
+            visit(expr)
+        for expr in stmt.else_branch.outputs:
+            visit(expr)
+        return
+    assert_never(stmt)
+
+
+def _model_call_names_in_stmt(stmt: ModelStatement) -> set[str]:
+    """Collect non-builtin call names from a model statement."""
+    names: set[str] = set()
+
+    def _walk(expr: Expr) -> None:
+        if isinstance(expr, Call):
+            if expr.name not in OP_TO_LEAN_HELPER:
+                names.add(expr.name)
+            for a in expr.args:
+                _walk(a)
+        elif isinstance(expr, Ite):
+            _walk(expr.cond)
+            _walk(expr.if_true)
+            _walk(expr.if_false)
+        elif isinstance(expr, Project):
+            _walk(expr.inner)
+
+    _walk_model_exprs_in_stmt(stmt, _walk)
+    return names
+
+
 def collect_ops_from_statement(stmt: ModelStatement) -> list[str]:
     """Collect opcodes from an Assignment or ConditionalBlock."""
-    if isinstance(stmt, Assignment):
-        return collect_ops(stmt.expr)
-    if isinstance(stmt, ConditionalBlock):
-        ops = collect_ops(stmt.condition)
-        for a in stmt.then_branch.assignments:
-            ops.extend(collect_ops(a.expr))
-        for a in stmt.else_branch.assignments:
-            ops.extend(collect_ops(a.expr))
-        return ops
-    assert_never(stmt)
+    ops: list[str] = []
+    _walk_model_exprs_in_stmt(stmt, lambda expr: ops.extend(collect_ops(expr)))
+    return ops
 
 
 def ordered_unique(items: list[str]) -> list[str]:
@@ -4280,7 +4116,9 @@ def _replace_expr(expr: Expr, replacements: dict[Expr, str]) -> Expr:
         return Project(expr.index, expr.total, _replace_expr(expr.inner, replacements))
     if isinstance(expr, Call):
         return Call(
-            expr.name, tuple(_replace_expr(arg, replacements) for arg in expr.args)
+            expr.name,
+            tuple(_replace_expr(arg, replacements) for arg in expr.args),
+            expr.binding_token_idx,
         )
     assert_never(expr)
 
@@ -4329,70 +4167,98 @@ def validate_function_model(model: FunctionModel) -> None:
     for name in model.return_names:
         validate_ident(name, what=f"return name in {model.fn_name!r}")
 
-    for stmt in model.assignments:
-        if isinstance(stmt, Assignment):
-            validate_ident(stmt.target, what=f"assignment target in {model.fn_name!r}")
-        elif isinstance(stmt, ConditionalBlock):
-            for var in stmt.output_vars:
-                validate_ident(var, what=f"conditional output var in {model.fn_name!r}")
-            if len(set(stmt.output_vars)) != len(stmt.output_vars):
-                raise ParseError(
-                    f"Model {model.fn_name!r} has duplicate conditional output_vars: "
-                    f"{stmt.output_vars!r}"
-                )
-            for a in stmt.then_branch.assignments:
-                validate_ident(
-                    a.target, what=f"then-branch target in {model.fn_name!r}"
-                )
-            for a in stmt.else_branch.assignments:
-                validate_ident(
-                    a.target, what=f"else-branch target in {model.fn_name!r}"
-                )
+    def _validate_idents_in_stmts(stmts: tuple[ModelStatement, ...]) -> None:
+        for s in stmts:
+            if isinstance(s, Assignment):
+                validate_ident(s.target, what=f"assignment target in {model.fn_name!r}")
+            elif isinstance(s, ConditionalBlock):
+                for var in s.output_vars:
+                    validate_ident(
+                        var, what=f"conditional output var in {model.fn_name!r}"
+                    )
+                if len(set(s.output_vars)) != len(s.output_vars):
+                    raise ParseError(
+                        f"Model {model.fn_name!r} has duplicate conditional "
+                        f"output_vars: {s.output_vars!r}"
+                    )
+                _validate_idents_in_stmts(s.then_branch.assignments)
+                _validate_idents_in_stmts(s.else_branch.assignments)
 
-    def _validate_assignment_block(
-        assignments: tuple[Assignment, ...],
+    _validate_idents_in_stmts(model.assignments)
+
+    def _validate_statement_block(
+        statements: tuple[ModelStatement, ...],
         *,
         available: set[str],
         block_name: str,
     ) -> set[str]:
         scope = set(available)
-        for stmt in assignments:
-            missing = _expr_vars(stmt.expr) - scope
-            if missing:
-                raise ParseError(
-                    f"Model {model.fn_name!r} has an out-of-scope variable use in "
-                    f"{block_name}: {stmt.target!r} depends on {sorted(missing)}"
-                )
-            scope.add(stmt.target)
+        for s in statements:
+            if isinstance(s, Assignment):
+                _validate_expr_shape(s.expr)
+                missing = _expr_vars(s.expr) - scope
+                if missing:
+                    raise ParseError(
+                        f"Model {model.fn_name!r} has an out-of-scope variable "
+                        f"use in {block_name}: {s.target!r} depends on "
+                        f"{sorted(missing)}"
+                    )
+                scope.add(s.target)
+            elif isinstance(s, ConditionalBlock):
+                _validate_conditional_in_scope(s, scope=scope, block_name=block_name)
+                scope.update(s.output_vars)
         return scope
 
-    def _validate_conditional_branch(
-        branch: ConditionalBranch,
+    def _validate_conditional_in_scope(
+        cond: ConditionalBlock,
         *,
-        available: set[str],
+        scope: set[str],
         block_name: str,
-        output_vars: tuple[str, ...],
     ) -> None:
-        branch_scope = _validate_assignment_block(
-            branch.assignments,
-            available=available,
-            block_name=block_name,
-        )
-        if len(branch.outputs) != len(output_vars):
+        _validate_expr_shape(cond.condition)
+        for s in cond.then_branch.assignments:
+            _validate_expr_shapes_in_stmt(s)
+        for s in cond.else_branch.assignments:
+            _validate_expr_shapes_in_stmt(s)
+        missing = _expr_vars(cond.condition) - scope
+        if missing:
             raise ParseError(
-                f"Model {model.fn_name!r} has mismatched {block_name} output arity: "
-                f"{len(branch.outputs)} vs {len(output_vars)}"
+                f"Model {model.fn_name!r} has an out-of-scope conditional: "
+                f"{sorted(missing)}"
             )
-        missing_outputs = set(branch.outputs) - branch_scope
-        if missing_outputs:
-            raise ParseError(
-                f"Model {model.fn_name!r} has undefined {block_name} outputs: "
-                f"{sorted(missing_outputs)}"
+        for label, branch in [
+            ("then-branch", cond.then_branch),
+            ("else-branch", cond.else_branch),
+        ]:
+            branch_scope = _validate_statement_block(
+                branch.assignments,
+                available=scope,
+                block_name=f"{block_name}/{label}",
             )
+            if len(branch.outputs) != len(cond.output_vars):
+                raise ParseError(
+                    f"Model {model.fn_name!r} has mismatched {label} output "
+                    f"arity: {len(branch.outputs)} vs {len(cond.output_vars)}"
+                )
+            for out_expr in branch.outputs:
+                _validate_expr_shape(out_expr)
+                missing_out = _expr_vars(out_expr) - branch_scope
+                if missing_out:
+                    raise ParseError(
+                        f"Model {model.fn_name!r} has undefined {label} outputs: "
+                        f"{sorted(missing_out)}"
+                    )
 
     def _validate_expr_shape(expr: Expr) -> None:
         """Reject structurally malformed expressions."""
-        if isinstance(expr, (IntLit, Var)):
+        if isinstance(expr, Var):
+            return
+        if isinstance(expr, IntLit):
+            if expr.value < 0:
+                raise ParseError(
+                    f"Model {model.fn_name!r}: IntLit({expr.value}) is negative "
+                    f"(Yul integers are unsigned)"
+                )
             return
         if isinstance(expr, Ite):
             _validate_expr_shape(expr.cond)
@@ -4405,10 +4271,20 @@ def validate_function_model(model: FunctionModel) -> None:
                     f"Model {model.fn_name!r}: Project({expr.index}, {expr.total}) inner "
                     f"must be a Call, got {type(expr.inner).__name__}"
                 )
-            if expr.index >= expr.total:
+            if expr.index < 0 or expr.index >= expr.total:
                 raise ParseError(
                     f"Model {model.fn_name!r}: Project({expr.index}, {expr.total}) index "
                     f"{expr.index} out of range [0, {expr.total})"
+                )
+            if expr.total < 2:
+                raise ParseError(
+                    f"Model {model.fn_name!r}: Project({expr.index}, {expr.total}) "
+                    f"requires total >= 2 (scalar values cannot be projected)"
+                )
+            if expr.inner.name in OP_TO_LEAN_HELPER:
+                raise ParseError(
+                    f"Model {model.fn_name!r}: cannot project builtin "
+                    f"{expr.inner.name!r} (returns scalar, not tuple)"
                 )
             _validate_expr_shape(expr.inner)
             return
@@ -4429,49 +4305,21 @@ def validate_function_model(model: FunctionModel) -> None:
         for arg in expr.args:
             _validate_expr_shape(arg)
 
-    scope = set(model.param_names)
-    for stmt in model.assignments:
-        if isinstance(stmt, Assignment):
-            _validate_expr_shape(stmt.expr)
-            missing = _expr_vars(stmt.expr) - scope
-            if missing:
-                raise ParseError(
-                    f"Model {model.fn_name!r} has an out-of-scope variable use: "
-                    f"{stmt.target!r} depends on {sorted(missing)}"
-                )
-            scope.add(stmt.target)
-            continue
+    def _validate_expr_shapes_in_stmt(s: ModelStatement) -> None:
+        if isinstance(s, Assignment):
+            _validate_expr_shape(s.expr)
+        elif isinstance(s, ConditionalBlock):
+            _validate_expr_shape(s.condition)
+            for sub in s.then_branch.assignments:
+                _validate_expr_shapes_in_stmt(sub)
+            for sub in s.else_branch.assignments:
+                _validate_expr_shapes_in_stmt(sub)
 
-        if not isinstance(stmt, ConditionalBlock):
-            assert_never(stmt)
-
-        _validate_expr_shape(stmt.condition)
-        for a in stmt.then_branch.assignments:
-            _validate_expr_shape(a.expr)
-        for a in stmt.else_branch.assignments:
-            _validate_expr_shape(a.expr)
-
-        missing = _expr_vars(stmt.condition) - scope
-        if missing:
-            raise ParseError(
-                f"Model {model.fn_name!r} has an out-of-scope conditional: "
-                f"{sorted(missing)}"
-            )
-
-        _validate_conditional_branch(
-            stmt.then_branch,
-            available=scope,
-            block_name="then-branch",
-            output_vars=stmt.output_vars,
-        )
-        _validate_conditional_branch(
-            stmt.else_branch,
-            available=scope,
-            block_name="else-branch",
-            output_vars=stmt.output_vars,
-        )
-
-        scope.update(stmt.output_vars)
+    scope = _validate_statement_block(
+        model.assignments,
+        available=set(model.param_names),
+        block_name="top-level",
+    )
 
     missing_returns = set(model.return_names) - scope
     if missing_returns:
@@ -4581,7 +4429,7 @@ def evaluate_model_expr(
     call_stack: tuple[str, ...] = (),
 ) -> ModelValue:
     if isinstance(expr, IntLit):
-        return expr.value
+        return expr.value % WORD_MOD
     if isinstance(expr, Var):
         try:
             return env[expr.name]
@@ -4702,8 +4550,16 @@ def _evaluate_statement_block(
             model_table=model_table,
             call_stack=call_stack,
         )
-        for target, source in zip(stmt.output_vars, branch.outputs, strict=True):
-            scope[target] = branch_scope[source]
+        for target, out_expr in zip(stmt.output_vars, branch.outputs, strict=True):
+            scope[target] = _expect_scalar(
+                evaluate_model_expr(
+                    out_expr,
+                    branch_scope,
+                    model_table=model_table,
+                    call_stack=call_stack,
+                ),
+                context=f"branch output for {target!r}",
+            )
 
     return scope
 
@@ -4789,7 +4645,7 @@ def _walk_model_calls(
 def _replace_statement(
     stmt: ModelStatement, replacements: dict[Expr, str]
 ) -> ModelStatement:
-    """Apply *replacements* inside a single statement."""
+    """Apply *replacements* inside a single statement (recursive)."""
     if isinstance(stmt, Assignment):
         return Assignment(
             target=stmt.target,
@@ -4801,21 +4657,15 @@ def _replace_statement(
             output_vars=stmt.output_vars,
             then_branch=ConditionalBranch(
                 assignments=tuple(
-                    Assignment(
-                        target=a.target,
-                        expr=_replace_expr(a.expr, replacements),
-                    )
-                    for a in stmt.then_branch.assignments
+                    _replace_statement(s, replacements)
+                    for s in stmt.then_branch.assignments
                 ),
                 outputs=stmt.then_branch.outputs,
             ),
             else_branch=ConditionalBranch(
                 assignments=tuple(
-                    Assignment(
-                        target=a.target,
-                        expr=_replace_expr(a.expr, replacements),
-                    )
-                    for a in stmt.else_branch.assignments
+                    _replace_statement(s, replacements)
+                    for s in stmt.else_branch.assignments
                 ),
                 outputs=stmt.else_branch.outputs,
             ),
@@ -4852,6 +4702,16 @@ def _hoist_repeated_calls_in_expr(
     return hoisted, _replace_expr(expr, replacements)
 
 
+def _is_hoistable_model_expr(
+    expr: Expr,
+    *,
+    model_call_names: frozenset[str],
+) -> bool:
+    if isinstance(expr, Call):
+        return expr.name in model_call_names
+    return _is_component_wrapped_model_call(expr, model_call_names)
+
+
 def _localize_statement_cse(
     stmt: ModelStatement,
     *,
@@ -4870,23 +4730,17 @@ def _localize_statement_cse(
             model_call_names=model_call_names,
         )
 
-        then_assignments: list[Assignment] = []
-        for assignment in stmt.then_branch.assignments:
-            hoisted, expr = _hoist_repeated_calls_in_expr(
-                assignment.expr,
-                model_call_names=model_call_names,
+        then_stmts: list[ModelStatement] = []
+        for s in stmt.then_branch.assignments:
+            then_stmts.extend(
+                _localize_statement_cse(s, model_call_names=model_call_names)
             )
-            then_assignments.extend(hoisted)
-            then_assignments.append(Assignment(target=assignment.target, expr=expr))
 
-        localized_else: list[Assignment] = []
-        for assignment in stmt.else_branch.assignments:
-            hoisted, expr = _hoist_repeated_calls_in_expr(
-                assignment.expr,
-                model_call_names=model_call_names,
+        else_stmts: list[ModelStatement] = []
+        for s in stmt.else_branch.assignments:
+            else_stmts.extend(
+                _localize_statement_cse(s, model_call_names=model_call_names)
             )
-            localized_else.extend(hoisted)
-            localized_else.append(Assignment(target=assignment.target, expr=expr))
 
         return [
             *prefix,
@@ -4894,17 +4748,95 @@ def _localize_statement_cse(
                 condition=condition,
                 output_vars=stmt.output_vars,
                 then_branch=ConditionalBranch(
-                    assignments=tuple(then_assignments),
+                    assignments=tuple(then_stmts),
                     outputs=stmt.then_branch.outputs,
                 ),
                 else_branch=ConditionalBranch(
-                    assignments=tuple(localized_else),
+                    assignments=tuple(else_stmts),
                     outputs=stmt.else_branch.outputs,
                 ),
             ),
         ]
 
     assert_never(stmt)
+
+
+def _hoist_calls_in_block(
+    stmts: tuple[ModelStatement, ...],
+    *,
+    scope: set[str],
+    model_call_names: frozenset[str],
+) -> tuple[ModelStatement, ...]:
+    """Block-local CSE: hoist repeated model calls within one block.
+
+    Only counts calls in guaranteed-executed positions of THIS block
+    (not inside conditional branch bodies). For each ConditionalBlock,
+    recurses independently into each branch. Never moves a call above
+    a conditional boundary.
+    """
+    # Pass 1: count model calls at this block level only.
+    counts: Counter[Expr] = Counter()
+    for s in stmts:
+        if isinstance(s, Assignment):
+            _walk_model_calls(s.expr, model_call_names, counts)
+        elif isinstance(s, ConditionalBlock):
+            _walk_model_calls(s.condition, model_call_names, counts)
+
+    # Find hoistable: repeated, pure model calls, args in scope.
+    hoistable = [
+        node
+        for node, count in counts.items()
+        if count > 1
+        and _expr_vars(node).issubset(scope)
+        and _is_hoistable_model_expr(node, model_call_names=model_call_names)
+    ]
+    hoistable.sort(key=_expr_size)
+
+    # Build replacements + hoisted let-bindings.
+    replacements: dict[Expr, str] = {}
+    hoisted: list[Assignment] = []
+    for call in hoistable:
+        name = _gensym("cse")
+        expr = _replace_expr(call, replacements)
+        hoisted.append(Assignment(target=name, expr=expr))
+        replacements[call] = name
+
+    # Track scope for branch recursion.
+    local_scope = set(scope)
+    for a in hoisted:
+        local_scope.add(a.target)
+
+    # Rewrite + recurse.
+    result: list[ModelStatement] = list(hoisted)
+    for s in stmts:
+        rewritten = _replace_statement(s, replacements) if replacements else s
+        if isinstance(rewritten, ConditionalBlock):
+            rewritten = ConditionalBlock(
+                condition=rewritten.condition,
+                output_vars=rewritten.output_vars,
+                then_branch=ConditionalBranch(
+                    assignments=_hoist_calls_in_block(
+                        rewritten.then_branch.assignments,
+                        scope=local_scope,
+                        model_call_names=model_call_names,
+                    ),
+                    outputs=rewritten.then_branch.outputs,
+                ),
+                else_branch=ConditionalBranch(
+                    assignments=_hoist_calls_in_block(
+                        rewritten.else_branch.assignments,
+                        scope=local_scope,
+                        model_call_names=model_call_names,
+                    ),
+                    outputs=rewritten.else_branch.outputs,
+                ),
+            )
+            local_scope.update(rewritten.output_vars)
+        elif isinstance(rewritten, Assignment):
+            local_scope.add(rewritten.target)
+        result.append(rewritten)
+
+    return tuple(result)
 
 
 def hoist_repeated_model_calls(
@@ -4914,254 +4846,33 @@ def hoist_repeated_model_calls(
 ) -> FunctionModel:
     """Hoist repeated pure model-call sub-expressions into let-bindings.
 
-    Collects repeated calls across *all* statements (assignments and
-    conditional blocks), but only hoists them globally when every argument
-    depends solely on function parameters. Calls that mention local or
-    branch-assigned variables are hoisted only immediately before the
-    statement that uses them (or inside the relevant conditional branch).
-    This keeps hoisting within scopes where the referenced bindings are
-    definitely available. Model calls are assumed pure.
+    Uses block-local recursive CSE: each statement block (top-level,
+    then-branch, else-branch) is processed independently. Repeated
+    calls within a block are hoisted to the top of that block. Calls
+    are never moved across conditional boundaries.
     """
-    # Initialize CSE counter past any existing _cse_N names (params, returns,
-    # and assignment targets) to avoid collisions.
+    # Initialize CSE counter past any existing _cse_N names.
     max_cse = 0
-    for name in (*model.param_names, *model.return_names):
-        m = re.fullmatch(r"_cse_(\d+)", name)
-        if m:
-            max_cse = max(max_cse, int(m.group(1)))
-    for stmt in model.assignments:
-        if isinstance(stmt, Assignment):
-            m = re.fullmatch(r"_cse_(\d+)", stmt.target)
-            if m:
-                max_cse = max(max_cse, int(m.group(1)))
-        elif isinstance(stmt, ConditionalBlock):
-            for var in stmt.output_vars:
-                m = re.fullmatch(r"_cse_(\d+)", var)
-                if m:
-                    max_cse = max(max_cse, int(m.group(1)))
-            for a in stmt.then_branch.assignments:
-                m = re.fullmatch(r"_cse_(\d+)", a.target)
-                if m:
-                    max_cse = max(max_cse, int(m.group(1)))
-            for a in stmt.else_branch.assignments:
-                m = re.fullmatch(r"_cse_(\d+)", a.target)
-                if m:
-                    max_cse = max(max_cse, int(m.group(1)))
+    for binder in _collect_model_binders(model):
+        m_cse = re.fullmatch(r"_cse_(\d+)", binder)
+        if m_cse:
+            max_cse = max(max_cse, int(m_cse.group(1)))
     _gensym_counters["cse"] = max_cse
 
-    # -- Pass 1: count occurrences across the entire model -----------------
-    counts: Counter[Expr] = Counter()
-    for stmt in model.assignments:
-        if isinstance(stmt, Assignment):
-            _walk_model_calls(stmt.expr, model_call_names, counts)
-        elif isinstance(stmt, ConditionalBlock):
-            _walk_model_calls(stmt.condition, model_call_names, counts)
-            for a in stmt.then_branch.assignments:
-                _walk_model_calls(a.expr, model_call_names, counts)
-            for a in stmt.else_branch.assignments:
-                _walk_model_calls(a.expr, model_call_names, counts)
-
-    param_names = set(model.param_names)
-    repeated_global = [
-        node
-        for node, count in counts.items()
-        if count > 1
-        and isinstance(node, Call)
-        and _expr_vars(node).issubset(param_names)
-    ]
-    repeated_global.sort(key=_expr_size)
-
-    # Sanity: every hoisted call must be a known-pure model call.
-    for call in repeated_global:
-        if call.name not in model_call_names and not _is_component_wrapped_model_call(
-            call, model_call_names
-        ):
-            raise ParseError(f"CSE: refusing to hoist non-model call {call!r}")
-
-    # -- Pass 2: build global replacements and hoisted let-bindings --------
-    global_replacements: dict[Expr, str] = {}
-    hoisted_global: list[Assignment] = []
-    for call in repeated_global:
-        hoisted_name = _gensym("cse")
-        hoisted_expr = _replace_expr(call, global_replacements)
-        hoisted_global.append(Assignment(target=hoisted_name, expr=hoisted_expr))
-        global_replacements[call] = hoisted_name
-
-    # -- Pass 3: rewrite all statements with global replacements -----------
-    rewritten_statements = [
-        _replace_statement(stmt, global_replacements) for stmt in model.assignments
-    ]
-
-    # -- Pass 4: locally hoist remaining repeated calls in safe scopes -----
-    new_assignments: list[ModelStatement] = list(hoisted_global)
-    for stmt in rewritten_statements:
-        new_assignments.extend(
-            _localize_statement_cse(
-                stmt,
-                model_call_names=model_call_names,
-            )
-        )
+    new_stmts = _hoist_calls_in_block(
+        model.assignments,
+        scope=set(model.param_names),
+        model_call_names=model_call_names,
+    )
 
     result = FunctionModel(
         fn_name=model.fn_name,
-        assignments=tuple(new_assignments),
+        assignments=new_stmts,
         param_names=model.param_names,
         return_names=model.return_names,
     )
     validate_function_model(result)
     return result
-
-
-def prepare_translation(
-    yul_text: str,
-    config: ModelConfig,
-    *,
-    selected_functions: tuple[str, ...] | None = None,
-) -> PreparedTranslation:
-    """Parse Yul, select targets, and inline non-target helpers."""
-
-    tokens = tokenize_yul(yul_text)
-    selected = (
-        selected_functions if selected_functions is not None else config.function_order
-    )
-
-    fn_map: dict[str, str] = {}
-    yul_functions: dict[str, YulFunction] = {}
-
-    known_yul_names: set[str] = set()
-    for sol_name in selected:
-        parser = YulParser(tokens)
-        n_params = config.n_params.get(sol_name) if config.n_params else None
-        exact_yul_name = (
-            config.exact_yul_names.get(sol_name)
-            if config.exact_yul_names is not None
-            else None
-        )
-        if exact_yul_name is not None:
-            exact_selector = _parse_exact_yul_selector(exact_yul_name)
-            if exact_selector is None:
-                yf = parser.find_exact_function(
-                    exact_yul_name,
-                    n_params=n_params,
-                    search_nested=True,
-                )
-            else:
-                yf = parser.find_exact_function_path(
-                    exact_selector,
-                    n_params=n_params,
-                )
-        else:
-            yf = parser.find_function(
-                sol_name,
-                n_params=n_params,
-                known_yul_names=known_yul_names or None,
-                exclude_known=sol_name in config.exclude_known,
-            )
-        fn_map[yf.yul_name] = sol_name
-        yul_functions[sol_name] = yf
-        known_yul_names.add(yf.yul_name)
-
-    # Scope helper collection per-target so that each target is inlined with
-    # helpers from its own enclosing Yul object.
-    all_helpers: dict[str, YulFunction] = {}
-    all_rejected: dict[str, str] = {}
-
-    inlined_targets: dict[str, YulFunction] = {}
-    for sol_name in selected:
-        yf = yul_functions[sol_name]
-        yul_name = yf.yul_name
-
-        fn_token_idx = yf.token_idx
-
-        # Collect helpers from the scope chain, from outermost to
-        # innermost.  Inner scopes override outer ones (Yul lexical
-        # scoping).
-        helper_table: dict[str, YulFunction] = {}
-        rejected_helpers: dict[str, str] = {}
-
-        if fn_token_idx is not None:
-            # Walk up through enclosing block scopes from outermost to
-            # innermost.  Each deeper scope overrides outer names.
-            scope_chain: list[tuple[int, int]] = []
-            cur_idx = fn_token_idx
-            while True:
-                obj_start, obj_end = _find_enclosing_block_range(tokens, cur_idx)
-                scope_chain.append((obj_start, obj_end))
-                if obj_start == 0 and obj_end == len(tokens):
-                    break
-                # Move to the enclosing block's opening brace to find
-                # the next outer scope.
-                if obj_start > 0:
-                    cur_idx = obj_start - 1
-                else:
-                    break
-            # Process from outermost to innermost (inner overrides outer).
-            # Process from outermost to innermost (inner overrides outer).
-            for s_start, s_end in reversed(scope_chain):
-                scoped_tokens = tokens[s_start:s_end]
-                scope_coll = YulParser(scoped_tokens).collect_all_functions()
-                _merge_helper_collection(
-                    helper_table,
-                    rejected_helpers,
-                    scope_coll,
-                )
-
-            # Also collect nested helpers from inside the target's body.
-            body_range = _find_function_body_range(tokens, fn_token_idx)
-            if body_range is not None:
-                body_start, body_end = body_range
-                body_tokens = tokens[body_start:body_end]
-                nested_coll = YulParser(body_tokens).collect_all_functions()
-                _merge_helper_collection(
-                    helper_table,
-                    rejected_helpers,
-                    nested_coll,
-                )
-        else:
-            function_collection = YulParser(tokens).collect_all_functions()
-            _merge_helper_collection(
-                helper_table,
-                rejected_helpers,
-                function_collection,
-            )
-
-        for yn in fn_map:
-            helper_table.pop(yn, None)
-
-        inlined_targets[sol_name] = _inline_yul_function(
-            yul_functions[sol_name],
-            helper_table,
-            unsupported_function_errors=rejected_helpers,
-        )
-
-        all_helpers.update(helper_table)
-        all_rejected.update(rejected_helpers)
-
-    return PreparedTranslation(
-        selected_functions=tuple(selected),
-        fn_map=fn_map,
-        yul_functions=inlined_targets,
-        collected_helpers=all_helpers,
-        rejected_helpers=all_rejected,
-    )
-
-
-def build_restricted_ir_models(
-    preparation: PreparedTranslation,
-    config: ModelConfig,
-) -> list[FunctionModel]:
-    """Convert selected Yul functions into validated restricted-IR models."""
-
-    models = [
-        yul_function_to_model(
-            preparation.yul_functions[fn],
-            fn,
-            preparation.fn_map,
-            keep_solidity_locals=config.keep_solidity_locals,
-        )
-        for fn in preparation.selected_functions
-    ]
-    return models
 
 
 def apply_optional_model_transforms(
@@ -5238,6 +4949,12 @@ def validate_selected_models(models: list[FunctionModel]) -> None:
                         f"expects {expr.total} return values from {inner.name!r}, "
                         f"but it returns {callee_rets}"
                     )
+                if callee_rets < 2:
+                    raise ParseError(
+                        f"Model {model_fn_name!r}: cannot project "
+                        f"{inner.name!r} which returns {callee_rets} value(s) "
+                        f"(need >= 2 for projection)"
+                    )
                 callee_params, _ = sig_table[inner.name]
                 if len(inner.args) != callee_params:
                     raise ParseError(
@@ -5277,22 +4994,18 @@ def validate_selected_models(models: list[FunctionModel]) -> None:
 
     # Build call graph and check all expressions
     call_graph: dict[str, set[str]] = {m.fn_name: set() for m in models}
+
+    def _collect_calls_from_stmt(
+        s: ModelStatement, fn_name: str, out: set[str]
+    ) -> None:
+        _walk_model_exprs_in_stmt(
+            s,
+            lambda expr: out.update(_check_calls(expr, fn_name)),
+        )
+
     for model in models:
         for stmt in model.assignments:
-            if isinstance(stmt, Assignment):
-                call_graph[model.fn_name].update(_check_calls(stmt.expr, model.fn_name))
-            elif isinstance(stmt, ConditionalBlock):
-                call_graph[model.fn_name].update(
-                    _check_calls(stmt.condition, model.fn_name)
-                )
-                for a in stmt.then_branch.assignments:
-                    call_graph[model.fn_name].update(
-                        _check_calls(a.expr, model.fn_name)
-                    )
-                for a in stmt.else_branch.assignments:
-                    call_graph[model.fn_name].update(
-                        _check_calls(a.expr, model.fn_name)
-                    )
+            _collect_calls_from_stmt(stmt, model.fn_name, call_graph[model.fn_name])
 
     # Cycle detection via DFS
     WHITE, GRAY, BLACK = 0, 1, 2
@@ -5328,31 +5041,43 @@ def translate_yul_to_models(
     selected_functions: tuple[str, ...] | None = None,
     pipeline: TranslationPipeline = OPTIMIZED_TRANSLATION_PIPELINE,
 ) -> TranslationResult:
-    """Run the selected translation pipeline and return the final models."""
+    """Run the staged translation pipeline and return the final models.
+
+    Uses the selection-aware staged pipeline: selection → normalize →
+    simplify → validate → restricted IR → SSA → FunctionModel.
+    """
+    from staged_pipeline import translate_selected_models
 
     # Duplicate selected function check (early, before parsing)
-    if selected_functions is not None:
-        if len(set(selected_functions)) != len(selected_functions):
-            dupes = [f for f in selected_functions if selected_functions.count(f) > 1]
-            raise ParseError(f"Duplicate selected functions: {sorted(set(dupes))}")
+    selected = (
+        selected_functions if selected_functions is not None else config.function_order
+    )
+    if len(set(selected)) != len(selected):
+        dupes = [f for f in selected if list(selected).count(f) > 1]
+        raise ParseError(f"Duplicate selected functions: {sorted(set(dupes))}")
+    builtin_name_collisions = sorted(
+        {name for name in selected if name in OP_TO_LEAN_HELPER}
+    )
+    if builtin_name_collisions:
+        raise ParseError(
+            "Selected function names collide with builtin model helpers: "
+            f"{builtin_name_collisions}"
+        )
 
-    preparation = prepare_translation(
+    models: list[FunctionModel] = translate_selected_models(
         yul_text,
         config,
-        selected_functions=selected_functions,
+        selected_functions=selected,
     )
-    models = build_restricted_ir_models(
-        preparation,
-        config,
-    )
+
     validate_selected_models(models)
     models = apply_optional_model_transforms(
         models,
         config,
         pipeline=pipeline,
     )
+
     return TranslationResult(
-        preparation=preparation,
         models=models,
         pipeline=pipeline,
     )
@@ -5364,7 +5089,7 @@ def emit_expr(
     helper_map: dict[str, str],
 ) -> str:
     if isinstance(expr, IntLit):
-        return str(expr.value)
+        return str(expr.value % WORD_MOD)
     if isinstance(expr, Var):
         return expr.name
     if isinstance(expr, Project):
@@ -5460,21 +5185,9 @@ class ModelConfig:
 
 
 @dataclass(frozen=True)
-class PreparedTranslation:
-    """Selected Yul functions after parsing, discovery, and helper inlining."""
-
-    selected_functions: tuple[str, ...]
-    fn_map: dict[str, str]
-    yul_functions: dict[str, YulFunction]
-    collected_helpers: dict[str, YulFunction]
-    rejected_helpers: dict[str, str]
-
-
-@dataclass(frozen=True)
 class TranslationResult:
     """End-to-end translation result before Lean source emission."""
 
-    preparation: PreparedTranslation
     models: list[FunctionModel]
     pipeline: TranslationPipeline
 
@@ -5486,19 +5199,6 @@ class RunArguments(argparse.Namespace):
     function: list[str] | None
     namespace: str
     output: str
-    pipeline: str
-
-
-def get_translation_pipeline(name: str) -> TranslationPipeline:
-    """Resolve a named translation pipeline."""
-
-    try:
-        return TRANSLATION_PIPELINES[name]
-    except KeyError as err:
-        choices = ", ".join(sorted(TRANSLATION_PIPELINES))
-        raise ParseError(
-            f"Unknown translation pipeline {name!r}. Expected one of: {choices}"
-        ) from err
 
 
 # ---------------------------------------------------------------------------
@@ -5534,36 +5234,36 @@ def build_model_body(
             rhs_expr = config.norm_rewrite(rhs_expr)
         return emit_expr(rhs_expr, helper_map=merged_map)
 
-    def _emit_tuple(vars_: tuple[str, ...]) -> str:
+    def _emit_name_tuple(vars_: tuple[str, ...]) -> str:
         if len(vars_) == 1:
             return vars_[0]
         return f"({', '.join(vars_)})"
 
-    for stmt in assignments:
-        if isinstance(stmt, ConditionalBlock):
-            # Emit Lean tuple-destructuring if-then-else:
-            #   let (v1, v2) := if cond ≠ 0 then
-            #       let v1 := ...
-            #       ...
-            #       (v1, v2)
-            #     else (v1, v2)
-            cond_str = _emit_rhs(stmt.condition)
-            lhs = _emit_tuple(stmt.output_vars)
-            lines.append(f"  let {lhs} := if ({cond_str}) ≠ 0 then")
-            for a in stmt.then_branch.assignments:
-                rhs = _emit_rhs(a.expr)
-                lines.append(f"      let {a.target} := {rhs}")
-            lines.append(f"      {_emit_tuple(stmt.then_branch.outputs)}")
-            lines.append("    else")
-            for a in stmt.else_branch.assignments:
-                rhs = _emit_rhs(a.expr)
-                lines.append(f"      let {a.target} := {rhs}")
-            lines.append(f"      {_emit_tuple(stmt.else_branch.outputs)}")
-        elif isinstance(stmt, Assignment):
-            rhs = _emit_rhs(stmt.expr)
-            lines.append(f"  let {stmt.target} := {rhs}")
-        else:
-            assert_never(stmt)
+    def _emit_expr_tuple(exprs: tuple[Expr, ...]) -> str:
+        parts = [_emit_rhs(e) for e in exprs]
+        if len(parts) == 1:
+            return parts[0]
+        return f"({', '.join(parts)})"
+
+    def _emit_stmts(stmts: tuple[ModelStatement, ...], indent: int) -> None:
+        prefix = " " * indent
+        for s in stmts:
+            if isinstance(s, Assignment):
+                rhs = _emit_rhs(s.expr)
+                lines.append(f"{prefix}let {s.target} := {rhs}")
+            elif isinstance(s, ConditionalBlock):
+                cond_str = _emit_rhs(s.condition)
+                lhs = _emit_name_tuple(s.output_vars)
+                lines.append(f"{prefix}let {lhs} := if ({cond_str}) ≠ 0 then")
+                _emit_stmts(s.then_branch.assignments, indent + 4)
+                lines.append(f"{prefix}    {_emit_expr_tuple(s.then_branch.outputs)}")
+                lines.append(f"{prefix}  else")
+                _emit_stmts(s.else_branch.assignments, indent + 4)
+                lines.append(f"{prefix}    {_emit_expr_tuple(s.else_branch.outputs)}")
+            else:
+                assert_never(s)
+
+    _emit_stmts(assignments, indent=2)
 
     if len(return_names) == 1:
         lines.append(f"  {return_names[0]}")
@@ -5591,15 +5291,21 @@ class LeanEmissionPlan:
 def _collect_model_binders(model: FunctionModel) -> list[str]:
     binders = [*model.param_names, *model.return_names]
     for stmt in model.assignments:
-        if isinstance(stmt, Assignment):
-            binders.append(stmt.target)
-        elif isinstance(stmt, ConditionalBlock):
-            binders.extend(stmt.output_vars)
-            binders.extend(a.target for a in stmt.then_branch.assignments)
-            binders.extend(a.target for a in stmt.else_branch.assignments)
-        else:
-            assert_never(stmt)
+        _collect_binders_from_stmt(stmt, binders)
     return binders
+
+
+def _collect_binders_from_stmt(stmt: ModelStatement, out: list[str]) -> None:
+    if isinstance(stmt, Assignment):
+        out.append(stmt.target)
+    elif isinstance(stmt, ConditionalBlock):
+        out.extend(stmt.output_vars)
+        for s in stmt.then_branch.assignments:
+            _collect_binders_from_stmt(s, out)
+        for s in stmt.else_branch.assignments:
+            _collect_binders_from_stmt(s, out)
+    else:
+        assert_never(stmt)
 
 
 def _build_lean_emission_plan(
@@ -5763,6 +5469,10 @@ def build_lean_source(
             f"Header comment contains Lean doc-comment terminator '-/': "
             f"{config.header_comment!r}"
         )
+
+    # Validate each model before emission (catches undefined binders, etc.)
+    for model in models:
+        validate_function_model(model)
 
     emission_plan = _build_lean_emission_plan(models, config)
 
@@ -5970,18 +5680,12 @@ def run(config: ModelConfig) -> int:
         default=config.default_output,
         help="Output Lean file path",
     )
-    ap.add_argument(
-        "--pipeline",
-        default=OPTIMIZED_TRANSLATION_PIPELINE.name,
-        choices=sorted(TRANSLATION_PIPELINES),
-        help="Translation pipeline to run (default: optimized)",
-    )
     args = ap.parse_args(namespace=RunArguments())
 
     validate_ident(args.namespace, what="Lean namespace")
 
     selected_functions = parse_function_selection(args, config)
-    pipeline = get_translation_pipeline(args.pipeline)
+    pipeline = OPTIMIZED_TRANSLATION_PIPELINE
 
     yul_text: str
     if args.yul == "-":
@@ -6011,15 +5715,7 @@ def run(config: ModelConfig) -> int:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(lean_src)
 
-    if result.preparation.collected_helpers:
-        print(
-            "Collected "
-            f"{len(result.preparation.collected_helpers)} function definition(s) "
-            "for inlining"
-        )
-
     print(f"Generated {out_path}")
-    print(f"Pipeline: {pipeline.name}")
     for model in models:
         print(f"Parsed {len(model.assignments)} assignments for {model.fn_name}")
 

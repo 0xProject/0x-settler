@@ -26,10 +26,6 @@ contract BasicDummy is Permit2PaymentTakerSubmitted, Basic {
         return false;
     }
 
-    function _dispatch(uint256, uint256, bytes calldata) internal pure override returns (bool) {
-        revert("unimplemented");
-    }
-
     function _div512to256(uint512, uint512) internal view override returns (uint256) {
         revert("unimplemented");
     }
