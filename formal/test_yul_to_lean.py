@@ -14089,5 +14089,261 @@ class StagedPipelineWiringTest(unittest.TestCase):
         )
 
 
+class StagedPipelineEmbedTest(unittest.TestCase):
+    """Tests that the staged pipeline embeds non-selected helpers into targets.
+
+    These tests verify that when ``config.function_order`` selects only a
+    subset of the module, the non-selected helpers are internalized and
+    inlined, producing self-contained models that evaluate without an
+    external ``model_table``.
+    """
+
+    # -- target calls a simple pure helper (not selected) --
+    HELPER_INLINE_YUL = """
+        function fun_target_1(var_x_1) -> var_z_2 {
+            var_z_2 := helper(var_x_1)
+        }
+        function helper(var_a_3) -> var_r_4 {
+            var_r_4 := add(var_a_3, 42)
+        }
+    """
+
+    def test_non_selected_helper_inlined_into_target(self) -> None:
+        """Helper not in function_order is inlined; model evaluates standalone."""
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            self.HELPER_INLINE_YUL,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        self.assertEqual(len(result.models), 1)
+        self.assertEqual(result.models[0].fn_name, "target")
+        self.assertEqual(ytl.evaluate_function_model(result.models[0], (10,)), (52,))
+
+    # -- target calls helper-with-leave (not selected) --
+    LEAVE_HELPER_YUL = """
+        function fun_target_1(var_x_1) -> var_z_2 {
+            var_z_2 := helper(var_x_1)
+        }
+        function helper(var_x_3) -> var_z_4 {
+            var_z_4 := 1
+            if var_x_3 {
+                var_z_4 := 7
+                leave
+            }
+            var_z_4 := 9
+        }
+    """
+
+    def test_leave_in_non_selected_helper_inlined(self) -> None:
+        """Helper with ``leave`` is block-inlined via did_leave semantics."""
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            self.LEAVE_HELPER_YUL,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        # x=0: condition false → z=9 (fall through past leave)
+        self.assertEqual(ytl.evaluate_function_model(model, (0,)), (9,))
+        # x=1: condition true → z=7 (leave skips z=9)
+        self.assertEqual(ytl.evaluate_function_model(model, (1,)), (7,))
+
+    # -- transitive helper chain A→B (neither selected) --
+    CHAIN_YUL = """
+        function fun_target_1(var_x_1) -> var_z_2 {
+            var_z_2 := helperA(var_x_1)
+        }
+        function helperA(var_a_3) -> var_r_4 {
+            var_r_4 := helperB(add(var_a_3, 1))
+        }
+        function helperB(var_b_5) -> var_s_6 {
+            var_s_6 := mul(var_b_5, 2)
+        }
+    """
+
+    def test_transitive_helper_chain_inlined(self) -> None:
+        """Transitive helper closure A→B both internalized and inlined."""
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            self.CHAIN_YUL,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        # target(3) = helperA(3) = helperB(4) = 4*2 = 8
+        self.assertEqual(ytl.evaluate_function_model(model, (3,)), (8,))
+
+    # -- helper with mstore/mload (memory resolved after inlining) --
+    MEMORY_HELPER_YUL = """
+        function fun_target_1(var_x_hi_1, var_x_lo_2) -> var_z_3 {
+            let usr$ptr := fun_from_4(0, var_x_hi_1, var_x_lo_2)
+            var_z_3 := add(mload(usr$ptr), mload(add(0x20, usr$ptr)))
+        }
+        function fun_from_4(var_r_5, var_hi_6, var_lo_7) -> var_r_out_8 {
+            var_r_out_8 := 0
+            mstore(var_r_5, var_hi_6)
+            mstore(add(0x20, var_r_5), var_lo_7)
+            var_r_out_8 := var_r_5
+        }
+    """
+
+    def test_memory_helper_resolved_after_embed(self) -> None:
+        """mstore/mload in helper resolved after embedding + inlining + constprop."""
+        config = make_model_config(("target",))
+        result = ytl.translate_yul_to_models(
+            self.MEMORY_HELPER_YUL,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        # target(5, 11) = mload(0)+mload(0x20) = 5+11 = 16
+        self.assertEqual(ytl.evaluate_function_model(model, (5, 11)), (16,))
+
+
+class StagedPipelineSelectionTest(unittest.TestCase):
+    """Tests for config-driven function selection in the staged pipeline."""
+
+    # -- exact_yul_names selects among homonyms --
+    HOMONYM_YUL = """
+        function fun_pick_1(var_x_1) -> var_z_2 {
+            var_z_2 := add(var_x_1, 100)
+        }
+        function fun_pick_2(var_x_3) -> var_z_4 {
+            var_z_4 := sub(var_x_3, 1)
+        }
+    """
+
+    def test_exact_yul_names_selects_correct_homonym(self) -> None:
+        """exact_yul_names={'pick': 'fun_pick_2'} picks the second function."""
+        config = make_model_config(("pick",), exact_yul_names={"pick": "fun_pick_2"})
+        result = ytl.translate_yul_to_models(
+            self.HOMONYM_YUL,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        self.assertEqual(model.fn_name, "pick")
+        # fun_pick_2: sub(x, 1) → pick(7) = 6
+        self.assertEqual(ytl.evaluate_function_model(model, (7,)), (6,))
+
+    # -- n_params disambiguates by arity --
+    ARITY_YUL = """
+        function fun_f_1(var_x_1) -> var_z_2 {
+            var_z_2 := add(var_x_1, 1)
+        }
+        function fun_f_2(var_a_3, var_b_4) -> var_z_5 {
+            var_z_5 := mul(var_a_3, var_b_4)
+        }
+    """
+
+    def test_n_params_disambiguates_by_arity(self) -> None:
+        """n_params={'f': 2} selects the two-parameter variant."""
+        config = make_model_config(("f",), n_params={"f": 2})
+        result = ytl.translate_yul_to_models(
+            self.ARITY_YUL,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        # fun_f_2: mul(a, b) → f(3, 4) = 12
+        self.assertEqual(ytl.evaluate_function_model(model, (3, 4)), (12,))
+
+    # -- multi-object: object-local helper scoping --
+    MULTI_OBJECT_YUL = """
+        object "A" {
+            code {
+                function fun_f_1() -> var_z_1 {
+                    var_z_1 := helper()
+                }
+                function helper() -> var_r_2 {
+                    var_r_2 := 1
+                }
+            }
+        }
+        object "B" {
+            code {
+                function helper() -> var_r_3 {
+                    var_r_3 := 2
+                }
+            }
+        }
+    """
+
+    def test_object_local_helper_scope(self) -> None:
+        """Selecting f from object A resolves helper within A, not B."""
+        config = make_model_config(("f",))
+        result = ytl.translate_yul_to_models(
+            self.MULTI_OBJECT_YUL,
+            config,
+            pipeline=ytl.RAW_TRANSLATION_PIPELINE,
+        )
+        model = result.models[0]
+        # f calls object A's helper → 1, not object B's → 2
+        self.assertEqual(ytl.evaluate_function_model(model, ()), (1,))
+
+
+class StagedPipelineValidationTest(unittest.TestCase):
+    """Tests for pre-restricted validation in the staged pipeline."""
+
+    def test_top_level_leave_rejected(self) -> None:
+        """leave in the selected target itself (not in a helper) is rejected."""
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                var_z_2 := 1
+                if var_x_1 { leave }
+                var_z_2 := 2
+            }
+        """
+        config = make_model_config(("f",))
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE
+            )
+
+    def test_bare_expression_stmt_rejected(self) -> None:
+        """Bare expression statement (non-memory side effect) is rejected."""
+        yul = """
+            function fun_f_1(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1, 3)
+            }
+            function helper(var_a_3, var_b_4) -> var_r_5 {
+                side_effect()
+                var_r_5 := div(var_a_3, var_b_4)
+            }
+        """
+        config = make_model_config(("f",))
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE
+            )
+
+    def test_reserved_lean_keyword_param_rejected(self) -> None:
+        """Parameter demangling to a Lean keyword (if, let, etc.) is rejected."""
+        yul = """
+            function fun_f_1(var_if_1) -> var_z_2 {
+                var_z_2 := var_if_1
+            }
+        """
+        config = make_model_config(("f",))
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE
+            )
+
+    def test_zero_return_function_rejected(self) -> None:
+        """Function with zero return values is rejected."""
+        yul = """
+            function fun_f_1(var_x_1) {
+                mstore(0, var_x_1)
+            }
+        """
+        config = make_model_config(("f",))
+        with self.assertRaises(ytl.ParseError):
+            ytl.translate_yul_to_models(
+                yul, config, pipeline=ytl.RAW_TRANSLATION_PIPELINE
+            )
+
+
 if __name__ == "__main__":
     unittest.main()
