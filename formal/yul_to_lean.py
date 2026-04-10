@@ -5799,11 +5799,11 @@ def hoist_repeated_model_calls(
         if isinstance(s, Assignment):
             _walk_model_calls(s.expr, model_call_names, counts)
         elif isinstance(s, ConditionalBlock):
+            # Only count calls in the condition (always evaluated).
+            # Do NOT recurse into branch bodies — those are lazily
+            # evaluated and hoisting calls out of them is unsound
+            # (model calls may diverge or fail on untaken paths).
             _walk_model_calls(s.condition, model_call_names, counts)
-            for sub in s.then_branch.assignments:
-                _walk_stmt_calls(sub)
-            for sub in s.else_branch.assignments:
-                _walk_stmt_calls(sub)
 
     for stmt in model.assignments:
         _walk_stmt_calls(stmt)

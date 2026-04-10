@@ -13073,27 +13073,18 @@ class SSAModelTest(unittest.TestCase):
 
     def _module_to_models(self, yul: str) -> dict[str, ytl.FunctionModel]:
         """Full pipeline: multi-function Yul → dict of FunctionModels."""
-        import re as _re
+        from restricted_to_model import to_function_models
 
         tokens = ytl.tokenize_yul(yul)
         funcs = SyntaxParser(tokens).parse_functions()
         resolved = resolve_module(funcs, builtins=ytl._EVM_BUILTINS)
-        # Build callee name mapping: raw name → demangled name.
-        callee_names: dict[str, str] = {}
-        for name in resolved:
-            m = _re.fullmatch(r"fun_(\w+?)_\d+", name)
-            callee_names[name] = m.group(1) if m else name
-        models: dict[str, ytl.FunctionModel] = {}
+        restricted: dict[str, RestrictedFunction] = {}
         for name, result in resolved.items():
             nf = normalize_function(result.func, result)
             nf = inline_pure_helpers(nf)
             nf = propagate_constants(nf)
-            rf = lower_to_restricted(nf)
-            sol_name = callee_names[name]
-            models[sol_name] = to_function_model(
-                rf, sol_name, callee_names=callee_names
-            )
-        return models
+            restricted[name] = lower_to_restricted(nf)
+        return to_function_models(restricted)
 
     # ------------------------------------------------------------------
     # Regression tests for critic round 2: unsound flattening, callee
@@ -13313,8 +13304,8 @@ class SSAModelTest(unittest.TestCase):
             for s in hoisted.assignments
             if isinstance(s, ytl.Assignment) and s.target.startswith("_cse")
         ]
-        self.assertEqual(
-            top_level_cse, [], "inner(x) was incorrectly hoisted above conditional"
+        self.assertFalse(
+            top_level_cse, "inner(x) was incorrectly hoisted above conditional"
         )
         # Eval equivalence must still hold.
         table = ytl.build_model_table([inner_model, f_model])

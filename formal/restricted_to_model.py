@@ -37,7 +37,7 @@ from restricted_ir import (
     RRef,
     RStatement,
 )
-from restricted_names import legalize_names
+from restricted_names import legalize_names, plan_module_names
 from yul_ast import SymbolId
 
 # Import the old pipeline's IR types for the output.
@@ -309,3 +309,20 @@ def to_function_model(
         param_names=tuple(param_ssa),
         return_names=tuple(return_ssa),
     )
+
+
+def to_function_models(
+    funcs: dict[str, RestrictedFunction],
+) -> dict[str, FunctionModel]:
+    """Convert a module of ``RestrictedFunction``s to ``FunctionModel``s.
+
+    Automatically demangles function names, builds the callee-name
+    mapping, and converts each function.  Returns a dict keyed by
+    clean (emitted) function names.
+    """
+    callee_names = plan_module_names(funcs)
+    models: dict[str, FunctionModel] = {}
+    for raw_name, func in funcs.items():
+        sol_name = callee_names[raw_name]
+        models[sol_name] = to_function_model(func, sol_name, callee_names=callee_names)
+    return models

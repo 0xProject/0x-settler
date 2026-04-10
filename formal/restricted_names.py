@@ -197,6 +197,37 @@ def _collect_sids_stmt(stmt: RStatement, out: dict[SymbolId, str]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Function-name demangling (module-level)
+# ---------------------------------------------------------------------------
+
+
+def _demangle_function_name(name: str) -> str:
+    """Demangle a Yul function name: ``fun_f_1`` → ``f``, else identity."""
+    m = re.fullmatch(r"fun_(\w+?)_\d+", name)
+    return m.group(1) if m else name
+
+
+def plan_module_names(
+    funcs: dict[str, RestrictedFunction],
+) -> dict[str, str]:
+    """Build a raw-name → clean-name mapping for all functions in a module.
+
+    Demangles compiler-generated function names (``fun_f_1`` → ``f``)
+    and sanitizes them.  The result is suitable as the *callee_names*
+    argument to :func:`legalize_names` and :func:`to_function_model`.
+    """
+    result: dict[str, str] = {}
+    used: set[str] = set()
+    for raw in funcs:
+        clean = _sanitize(_demangle_function_name(raw))
+        while clean in used:
+            clean = clean + "_"
+        used.add(clean)
+        result[raw] = clean
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
