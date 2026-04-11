@@ -4973,23 +4973,16 @@ class TranslatorBehaviorTest(unittest.TestCase):
             return_names=("z",),
             assignments=(Assignment("z", Var("normBitLengthPlus1")),),
         )
-        config = modelcfg.ModelConfig(
-            function_order=("f",),
-            model_names={"f": "model_f"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-            extra_lean_defs=("def normBitLengthPlus1 (x : Nat) : Nat := x + 1"),
+        config = make_model_config(
+            ("f",),
+            norm_extensions=(
+                modelcfg.NormExtension(
+                    op_name="bitLengthPlus1",
+                    lean_name="normBitLengthPlus1",
+                    lean_def="def normBitLengthPlus1 (x : Nat) : Nat := x + 1",
+                ),
+            ),
             norm_rewrite=lambda expr: Call("bitLengthPlus1", (expr,)),
-            inner_fn="f",
-            n_params=None,
-            exact_yul_names=None,
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
 
         with self.assertRaises(ParseError):
@@ -5009,23 +5002,17 @@ class TranslatorBehaviorTest(unittest.TestCase):
             return_names=("z",),
             assignments=(Assignment("z", Var("x")),),
         )
-        config = modelcfg.ModelConfig(
-            function_order=("f",),
+        config = make_model_config(
+            ("f",),
             model_names={"f": "normBitLengthPlus1"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-            extra_lean_defs=("def normBitLengthPlus1 (x : Nat) : Nat := x + 1"),
+            norm_extensions=(
+                modelcfg.NormExtension(
+                    op_name="bitLengthPlus1",
+                    lean_name="normBitLengthPlus1",
+                    lean_def="def normBitLengthPlus1 (x : Nat) : Nat := x + 1",
+                ),
+            ),
             norm_rewrite=lambda expr: Call("bitLengthPlus1", (expr,)),
-            inner_fn="f",
-            n_params=None,
-            exact_yul_names=None,
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
 
         with self.assertRaises(ParseError):
@@ -5051,23 +5038,9 @@ class TranslatorBehaviorTest(unittest.TestCase):
             return_names=("r",),
             assignments=(Assignment("r", Var("y")),),
         )
-        config = modelcfg.ModelConfig(
-            function_order=("f", "g"),
+        config = make_model_config(
+            ("f", "g"),
             model_names={"f": "foo", "g": "foo_evm"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={},
-            extra_lean_defs="",
-            norm_rewrite=None,
-            inner_fn="f",
-            n_params=None,
-            exact_yul_names=None,
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
 
         with self.assertRaises(ParseError):
@@ -5087,24 +5060,17 @@ class TranslatorBehaviorTest(unittest.TestCase):
             return_names=("z",),
             assignments=(Assignment("z", Var("normBitLengthPlus1")),),
         )
-        config = modelcfg.ModelConfig(
-            function_order=("f",),
-            model_names={"f": "model_f"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-            extra_lean_defs=("def normBitLengthPlus1 (x : Nat) : Nat := x + 1"),
+        config = make_model_config(
+            ("f",),
+            norm_extensions=(
+                modelcfg.NormExtension(
+                    op_name="bitLengthPlus1",
+                    lean_name="normBitLengthPlus1",
+                    lean_def="def normBitLengthPlus1 (x : Nat) : Nat := x + 1",
+                ),
+            ),
             norm_rewrite=lambda expr: Call("bitLengthPlus1", (expr,)),
-            inner_fn="f",
-            n_params=None,
-            exact_yul_names=None,
             skip_norm=frozenset({"f"}),
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
 
         source = build_lean_source(
@@ -5152,23 +5118,16 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 Assignment("z", Var("tmp")),
             ),
         )
-        config = modelcfg.ModelConfig(
-            function_order=("f",),
-            model_names={"f": "model_f"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-            extra_lean_defs=("def normBitLengthPlus1 (x : Nat) : Nat := x + 1"),
+        config = make_model_config(
+            ("f",),
+            norm_extensions=(
+                modelcfg.NormExtension(
+                    op_name="bitLengthPlus1",
+                    lean_name="normBitLengthPlus1",
+                    lean_def="def normBitLengthPlus1 (x : Nat) : Nat := x + 1",
+                ),
+            ),
             norm_rewrite=lambda expr: Call("bitLengthPlus1", (expr,)),
-            inner_fn="f",
-            n_params=None,
-            exact_yul_names=None,
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
 
         with self.assertRaises(ParseError):
@@ -5202,23 +5161,16 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 Assignment("z", Var("normBitLengthPlus1")),
             ),
         )
-        config = modelcfg.ModelConfig(
-            function_order=("f",),
-            model_names={"f": "model_f"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-            extra_lean_defs=("def normBitLengthPlus1 (x : Nat) : Nat := x + 1"),
+        config = make_model_config(
+            ("f",),
+            norm_extensions=(
+                modelcfg.NormExtension(
+                    op_name="bitLengthPlus1",
+                    lean_name="normBitLengthPlus1",
+                    lean_def="def normBitLengthPlus1 (x : Nat) : Nat := x + 1",
+                ),
+            ),
             norm_rewrite=lambda expr: Call("bitLengthPlus1", (expr,)),
-            inner_fn="f",
-            n_params=None,
-            exact_yul_names=None,
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
 
         with self.assertRaises(ParseError):
@@ -5510,23 +5462,16 @@ class TranslatorBehaviorTest(unittest.TestCase):
             return_names=("z",),
             assignments=(Assignment("z", Var("x")),),
         )
-        config = modelcfg.ModelConfig(
-            function_order=("f",),
-            model_names={"f": "model_f"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-            extra_lean_defs=("def normBitLengthPlus1 (x : Nat) : Nat := x + 1"),
+        config = make_model_config(
+            ("f",),
+            norm_extensions=(
+                modelcfg.NormExtension(
+                    op_name="bitLengthPlus1",
+                    lean_name="normBitLengthPlus1",
+                    lean_def="def normBitLengthPlus1 (x : Nat) : Nat := x + 1",
+                ),
+            ),
             norm_rewrite=lambda expr: Call("bitLengthPlus1", (expr,)),
-            inner_fn="f",
-            n_params=None,
-            exact_yul_names=None,
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
 
         source = build_lean_source(
@@ -5904,26 +5849,9 @@ class TranslatorBehaviorTest(unittest.TestCase):
     def test_build_lean_source_allows_binder_named_like_skipped_norm_model(
         self,
     ) -> None:
-        base = make_model_config(("f",))
-        config = modelcfg.ModelConfig(
-            function_order=base.function_order,
-            model_names=base.model_names,
-            header_comment=base.header_comment,
-            generator_label=base.generator_label,
-            extra_norm_ops=base.extra_norm_ops,
-            extra_lean_defs=base.extra_lean_defs,
-            norm_rewrite=base.norm_rewrite,
-            inner_fn=base.inner_fn,
-            n_params=base.n_params,
-            exact_yul_names=base.exact_yul_names,
-            avoid_reaching_selected=base.selection.avoid_reaching_selected,
+        config = make_model_config(
+            ("f",),
             skip_norm=frozenset({"f"}),
-            hoist_repeated_calls=base.hoist_repeated_calls,
-            skip_prune=base.skip_prune,
-            default_source_label=base.default_source_label,
-            default_namespace=base.default_namespace,
-            default_output=base.default_output,
-            cli_description=base.cli_description,
         )
         model = FunctionModel(
             fn_name="f",
@@ -5945,20 +5873,10 @@ class TranslatorBehaviorTest(unittest.TestCase):
     def test_build_lean_source_allows_reserved_base_name_for_skipped_norm_model(
         self,
     ) -> None:
-        config = modelcfg.ModelConfig(
-            function_order=("f",),
+        config = make_model_config(
+            ("f",),
             model_names={"f": "normAdd"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={},
-            extra_lean_defs="",
-            norm_rewrite=None,
-            inner_fn="f",
             skip_norm=frozenset({"f"}),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
         model = FunctionModel(
             fn_name="f",
@@ -5980,20 +5898,17 @@ class TranslatorBehaviorTest(unittest.TestCase):
     def test_build_lean_source_allows_extra_norm_helper_name_for_skipped_norm_model(
         self,
     ) -> None:
-        config = modelcfg.ModelConfig(
-            function_order=("f",),
+        config = make_model_config(
+            ("f",),
             model_names={"f": "normBitLengthPlus1"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-            extra_lean_defs="def normBitLengthPlus1 (x : Nat) : Nat := x + 1",
-            norm_rewrite=None,
-            inner_fn="f",
+            norm_extensions=(
+                modelcfg.NormExtension(
+                    op_name="bitLengthPlus1",
+                    lean_name="normBitLengthPlus1",
+                    lean_def="def normBitLengthPlus1 (x : Nat) : Nat := x + 1",
+                ),
+            ),
             skip_norm=frozenset({"f"}),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
         model = FunctionModel(
             fn_name="f",
@@ -6015,20 +5930,10 @@ class TranslatorBehaviorTest(unittest.TestCase):
     def test_build_lean_source_allows_skipped_norm_model_name_when_other_models_emit_norm_defs(
         self,
     ) -> None:
-        config = modelcfg.ModelConfig(
-            function_order=("f", "g"),
+        config = make_model_config(
+            ("f", "g"),
             model_names={"f": "normAdd", "g": "model_g"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={},
-            extra_lean_defs="",
-            norm_rewrite=None,
-            inner_fn="f",
             skip_norm=frozenset({"f"}),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
         models = [
             FunctionModel(
@@ -6063,20 +5968,9 @@ class TranslatorBehaviorTest(unittest.TestCase):
         )
 
     def test_build_lean_source_rejects_norm_call_to_skipped_norm_callee(self) -> None:
-        config = modelcfg.ModelConfig(
-            function_order=("f", "g"),
-            model_names={"f": "model_f", "g": "model_g"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={},
-            extra_lean_defs="",
-            norm_rewrite=None,
-            inner_fn="f",
+        config = make_model_config(
+            ("f", "g"),
             skip_norm=frozenset({"f"}),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
         models = [
             FunctionModel(
@@ -6432,23 +6326,9 @@ class TranslatorBehaviorTest(unittest.TestCase):
             return_names=("z",),
             assignments=(Assignment("z", Var("x")),),
         )
-        config = modelcfg.ModelConfig(
-            function_order=("f",),
-            model_names={"f": "model_f"},
-            header_comment="test",
-            generator_label=("formal/test_yul_to_lean.py\nopen scoped BigOperators"),
-            extra_norm_ops={},
-            extra_lean_defs="",
-            norm_rewrite=None,
-            inner_fn="f",
-            n_params=None,
-            exact_yul_names=None,
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
+        config = make_model_config(
+            ("f",),
+            generator_label="formal/test_yul_to_lean.py\nopen scoped BigOperators",
         )
 
         with self.assertRaises(ParseError):
@@ -6468,23 +6348,9 @@ class TranslatorBehaviorTest(unittest.TestCase):
             return_names=("z",),
             assignments=(Assignment("z", Var("x")),),
         )
-        config = modelcfg.ModelConfig(
-            function_order=("f",),
-            model_names={"f": "model_f"},
+        config = make_model_config(
+            ("f",),
             header_comment="test -/\nopen scoped BigOperators\n/--",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={},
-            extra_lean_defs="",
-            norm_rewrite=None,
-            inner_fn="f",
-            n_params=None,
-            exact_yul_names=None,
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
 
         with self.assertRaises(ParseError):
@@ -6503,23 +6369,9 @@ class TranslatorBehaviorTest(unittest.TestCase):
             return_names=("z",),
             assignments=(Assignment("z", Var("x")),),
         )
-        config = modelcfg.ModelConfig(
-            function_order=(injected_name,),
+        config = make_model_config(
+            (injected_name,),
             model_names={injected_name: "model_f"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={},
-            extra_lean_defs="",
-            norm_rewrite=None,
-            inner_fn=injected_name,
-            n_params=None,
-            exact_yul_names=None,
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
 
         with self.assertRaises(ParseError):
@@ -6558,23 +6410,9 @@ class TranslatorBehaviorTest(unittest.TestCase):
             return_names=("z",),
             assignments=(Assignment("z", Var("x")),),
         )
-        config = modelcfg.ModelConfig(
-            function_order=("f",),
+        config = make_model_config(
+            ("f",),
             model_names={"f": "bad-name"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={},
-            extra_lean_defs="",
-            norm_rewrite=None,
-            inner_fn="f",
-            n_params=None,
-            exact_yul_names=None,
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
 
         with self.assertRaises(ParseError):
@@ -6594,23 +6432,9 @@ class TranslatorBehaviorTest(unittest.TestCase):
             return_names=("z",),
             assignments=(Assignment("z", Var("x")),),
         )
-        config = modelcfg.ModelConfig(
-            function_order=("f",),
+        config = make_model_config(
+            ("f",),
             model_names={"f": "if"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={},
-            extra_lean_defs="",
-            norm_rewrite=None,
-            inner_fn="f",
-            n_params=None,
-            exact_yul_names=None,
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
 
         with self.assertRaises(ParseError):
@@ -6630,23 +6454,9 @@ class TranslatorBehaviorTest(unittest.TestCase):
             return_names=("z",),
             assignments=(Assignment("z", Var("x")),),
         )
-        config = modelcfg.ModelConfig(
-            function_order=("f",),
+        config = make_model_config(
+            ("f",),
             model_names={"f": "u256"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={},
-            extra_lean_defs="",
-            norm_rewrite=None,
-            inner_fn="f",
-            n_params=None,
-            exact_yul_names=None,
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
 
         with self.assertRaises(ParseError):
@@ -6687,23 +6497,9 @@ class TranslatorBehaviorTest(unittest.TestCase):
             return_names=("r",),
             assignments=(Assignment("r", Var("y")),),
         )
-        config = modelcfg.ModelConfig(
-            function_order=("f", "g"),
+        config = make_model_config(
+            ("f", "g"),
             model_names={"f": "model_dup", "g": "model_dup"},
-            header_comment="test",
-            generator_label="formal/test_yul_to_lean.py",
-            extra_norm_ops={},
-            extra_lean_defs="",
-            norm_rewrite=None,
-            inner_fn="f",
-            n_params=None,
-            exact_yul_names=None,
-            hoist_repeated_calls=frozenset(),
-            skip_prune=frozenset(),
-            default_source_label="test",
-            default_namespace="Test",
-            default_output="",
-            cli_description="test",
         )
 
         with self.assertRaises(ParseError):
@@ -7131,22 +6927,16 @@ from model_ir import ConditionalBlock
 from yul_to_lean import translate_yul_to_models
 
 config = modelcfg.ModelConfig(
-    function_order=("f",),
-    model_names={{"f": "model_f"}},
-    header_comment="test",
-    generator_label="formal/test_yul_to_lean.py",
-    extra_norm_ops={{}},
-    extra_lean_defs="",
-    norm_rewrite=None,
-    inner_fn="f",
-    n_params=None,
-    exact_yul_names=None,
-    hoist_repeated_calls=frozenset(),
-    skip_prune=frozenset(),
-    default_source_label="test",
-    default_namespace="Test",
-    default_output="",
-    cli_description="test",
+    selection=modelcfg.SelectionConfig(
+        function_order=("f",),
+        inner_fn="f",
+    ),
+    emission=modelcfg.EmissionConfig(
+        model_names={{"f": "model_f"}},
+        header_comment="test",
+        generator_label="formal/test_yul_to_lean.py",
+        norm_rewrite=None,
+    ),
 )
 yul = \"\"\"
 function fun_f_1(var_c_1, var_x_2) -> var_z_3 {{
@@ -13959,26 +13749,17 @@ class AdditionalBehaviorTest(unittest.TestCase):
         )
 
     def test_missing_model_name_mapping_is_checked_at_emission(self) -> None:
-        base = make_model_config(("f",))
         config = modelcfg.ModelConfig(
-            function_order=base.function_order,
-            model_names={},
-            header_comment=base.header_comment,
-            generator_label=base.generator_label,
-            extra_norm_ops=base.extra_norm_ops,
-            extra_lean_defs=base.extra_lean_defs,
-            norm_rewrite=base.norm_rewrite,
-            inner_fn=base.inner_fn,
-            n_params=base.n_params,
-            exact_yul_names=base.exact_yul_names,
-            avoid_reaching_selected=base.selection.avoid_reaching_selected,
-            skip_norm=base.skip_norm,
-            hoist_repeated_calls=base.hoist_repeated_calls,
-            skip_prune=base.skip_prune,
-            default_source_label=base.default_source_label,
-            default_namespace=base.default_namespace,
-            default_output=base.default_output,
-            cli_description=base.cli_description,
+            selection=modelcfg.SelectionConfig(
+                function_order=("f",),
+                inner_fn="f",
+            ),
+            emission=modelcfg.EmissionConfig(
+                model_names={},
+                header_comment="test",
+                generator_label="formal/test_yul_to_lean.py",
+                norm_rewrite=None,
+            ),
         )
         yul = """
             function fun_f_1(var_x_1) -> var_z_2 {
