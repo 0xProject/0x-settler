@@ -202,8 +202,8 @@ private theorem qc_evm_setup (r_hi r_lo : Nat)
   have hcR_wm : c * (r_hi * 2 ^ 86) < WORD_MOD :=
     Nat.lt_of_le_of_lt hcR_le hr_lo_sq_wm
   -- EVM reductions
-  have hR_eq : evmShl (evmAnd (evmAnd 86 255) 255) r_hi = r_hi * 2 ^ 86 := by
-    rw [qc_const_86, evmShl_eq' 86 r_hi (by omega) hr_hi]
+  have hR_eq : evmShl 86 r_hi = r_hi * 2 ^ 86 := by
+    rw [evmShl_eq' 86 r_hi (by omega) hr_hi]
     exact Nat.mod_eq_of_lt hR_wm
   have hSq_eq : evmMul r_lo r_lo = r_lo * r_lo := by
     rw [evmMul_eq' r_lo r_lo hr_lo hr_lo]; exact Nat.mod_eq_of_lt hr_lo_sq_wm
@@ -289,16 +289,16 @@ theorem model_cbrtQuadraticCorrection_evm_correct
     have hus_rw :
         us =
           evmOr
-            (evmLt (evmShr (evmAnd (evmAnd 86 255) 255) ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3))
-                (evmShr (evmAnd (evmAnd 86 255) 255) rem))
+            (evmLt (evmShr 86 ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3))
+                (evmShr 86 rem))
             (evmAnd
-              (evmEq (evmShr (evmAnd (evmAnd 86 255) 255) ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3))
-                  (evmShr (evmAnd (evmAnd 86 255) 255) rem))
+              (evmEq (evmShr 86 ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3))
+                  (evmShr 86 rem))
               (evmLt
                 (evmMul (evmAnd ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) 77371252455336267181195263) r_hi)
-                (evmShl (evmAnd (evmAnd 86 255) 255) (evmAnd rem 77371252455336267181195263)))) := by
+                (evmShl 86 (evmAnd rem 77371252455336267181195263)))) := by
       unfold us
-      simp [pow86_lit, qc_const_86]
+      simp [pow86_lit]
     have h_us_le : us ≤ 1 := by
       rw [hus_rw]
       exact qc_undershoot_le_one ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) rem r_hi
@@ -454,17 +454,11 @@ theorem model_cbrtQuadraticCorrection_evm_rem_bound_when_c_gt1_exact
   have hR_eq_lit : evmShl 86 r_hi = r_hi * 2 ^ 86 := by
     rw [evmShl_eq' 86 r_hi (by omega) hr_hi]
     exact Nat.mod_eq_of_lt hR_wm
-  have hShr_eps3 : evmShr (evmAnd (evmAnd 86 255) 255)
-      ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) =
-      ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) / 2 ^ 86 := by
-    rw [qc_const_86, evmShr_eq' 86 _ (by omega) heps3_wm]
   have hShr_eps3_lit : evmShr 86 ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) =
       ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) / 2 ^ 86 := by
-    simpa using hShr_eps3
-  have hShr_rem : evmShr (evmAnd (evmAnd 86 255) 255) rem = rem / 2 ^ 86 := by
-    rw [qc_const_86, evmShr_eq' 86 rem (by omega) hrem]
+    rw [evmShr_eq' 86 _ (by omega) heps3_wm]
   have hShr_rem_lit : evmShr 86 rem = rem / 2 ^ 86 := by
-    simpa using hShr_rem
+    rw [evmShr_eq' 86 rem (by omega) hrem]
   have heps3_hi_wm : ((r_lo * r_lo % (r_hi * 2 ^ 86)) * 3) / 2 ^ 86 < WORD_MOD :=
     Nat.lt_of_le_of_lt (Nat.div_le_self _ _) heps3_wm
   have hrem_hi_wm : rem / 2 ^ 86 < WORD_MOD := by
@@ -499,9 +493,8 @@ theorem model_cbrtQuadraticCorrection_evm_rem_bound_when_c_gt1_exact
     unfold WORD_MOD
     omega
   rw [Nat.mod_eq_of_lt hprod_eps3_wm] at hMul_lo
-  have hShl_rem : evmShl (evmAnd (evmAnd 86 255) 255) (rem % 2 ^ 86) =
-      (rem % 2 ^ 86) * 2 ^ 86 := by
-    rw [qc_const_86, evmShl_eq' 86 (rem % 2 ^ 86) (by omega) hrem_lo_wm]
+  have hShl_rem_lit : evmShl 86 (rem % 2 ^ 86) = (rem % 2 ^ 86) * 2 ^ 86 := by
+    rw [evmShl_eq' 86 (rem % 2 ^ 86) (by omega) hrem_lo_wm]
     have : (rem % 2 ^ 86) * 2 ^ 86 < WORD_MOD := by
       calc (rem % 2 ^ 86) * 2 ^ 86
           < 2 ^ 86 * 2 ^ 86 := Nat.mul_lt_mul_of_pos_right
@@ -510,8 +503,6 @@ theorem model_cbrtQuadraticCorrection_evm_rem_bound_when_c_gt1_exact
       unfold WORD_MOD
       omega
     exact Nat.mod_eq_of_lt this
-  have hShl_rem_lit : evmShl 86 (rem % 2 ^ 86) = (rem % 2 ^ 86) * 2 ^ 86 := by
-    simpa using hShl_rem
   have hprod_rem_wm : (rem % 2 ^ 86) * 2 ^ 86 < WORD_MOD := by
     calc (rem % 2 ^ 86) * 2 ^ 86
         < 2 ^ 86 * 2 ^ 86 := Nat.mul_lt_mul_of_pos_right

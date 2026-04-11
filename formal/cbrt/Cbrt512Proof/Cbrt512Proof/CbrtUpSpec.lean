@@ -24,8 +24,8 @@ open Cbrt512GeneratedModel
 /-- When x_hi = 0, model_cbrtUp512_wrapper_evm equals model_cbrt_up_evm from CbrtProof. -/
 theorem cbrtUp_wrapper_zero_eq_cbrt_up_evm (x_lo : Nat) :
     model_cbrtUp512_wrapper_evm 0 x_lo = CbrtGeneratedModel.model_cbrt_up_evm x_lo := by
-  simp only [model_cbrtUp512_wrapper_evm, model_cbrt256_up_evm,
-    CbrtGeneratedModel.model_cbrt_up_evm, CbrtGeneratedModel.model_cbrt_evm]
+  unfold model_cbrtUp512_wrapper_evm model_cbrt256_up_evm
+  unfold CbrtGeneratedModel.model_cbrt_up_evm CbrtGeneratedModel.model_cbrt_evm
   simp only [evmEq_compat, evmShr_compat, evmAdd_compat, evmDiv_compat,
     evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat,
     evmMul_compat, u256_compat]
@@ -80,52 +80,61 @@ theorem model_cbrtUp512_wrapper_evm_correct (x_hi x_lo : Nat)
       exact if_neg (Nat.ne_of_gt hxhi_pos)
     have hcond_neg : ¬((evmEq x_hi 0) ≠ 0) := by rw [hneq]; omega
     rw [if_neg hcond_neg]
-    -- Generalize the approximation
-    generalize hr_def : model_cbrt512_evm x_hi x_lo = r
-    -- Name cube sub-expressions via let (matching cube512_correct's structure)
+    -- Rewrite the unfolded wrapper incrementally; a single `show`-based
+    -- normalization here triggers kernel recursion on the full term.
+    let r := model_cbrt512_evm x_hi x_lo
+    have hr_def : model_cbrt512_evm x_hi x_lo = r := rfl
+    rw [hr_def]
+    have hcontinue : (evmIszero (0, 0).snd) ≠ 0 := by
+      simp [evmIszero, u256]
+    rw [if_pos hcontinue]
     let r2lo := evmMul r r
-    let mm1 := evmMulmod r r (evmNot 0)
+    have hr2lo_def : evmMul r r = r2lo := rfl
+    rw [hr2lo_def]
+    let mm1 := evmMulmod r r 115792089237316195423570985008687907853269984665640564039457584007913129639935
+    have hmm1_def : evmMulmod r r 115792089237316195423570985008687907853269984665640564039457584007913129639935 = mm1 := rfl
+    rw [hmm1_def]
     let r2hi := evmSub (evmSub mm1 r2lo) (evmLt mm1 r2lo)
-    let mm2 := evmMulmod r2lo r (evmNot 0)
+    have hr2hi_def : evmSub (evmSub mm1 r2lo) (evmLt mm1 r2lo) = r2hi := rfl
+    rw [hr2hi_def]
+    let mm2 := evmMulmod r2lo r 115792089237316195423570985008687907853269984665640564039457584007913129639935
+    have hmm2_def : evmMulmod r2lo r 115792089237316195423570985008687907853269984665640564039457584007913129639935 = mm2 := rfl
+    rw [hmm2_def]
     let r3lo := evmMul r2lo r
+    have hr3lo_def : evmMul r2lo r = r3lo := rfl
+    rw [hr3lo_def]
     let r3hi := evmAdd (evmSub (evmSub mm2 r3lo) (evmLt mm2 r3lo)) (evmMul r2hi r)
+    have hr3hi_def : evmAdd (evmSub (evmSub mm2 r3lo) (evmLt mm2 r3lo)) (evmMul r2hi r) = r3hi := rfl
+    rw [hr3hi_def]
     let cmp := evmOr (evmLt r3hi x_hi) (evmAnd (evmEq r3hi x_hi) (evmLt r3lo x_lo))
-    -- Restate goal using named variables
-    show evmAdd r cmp = cbrtUp512 (x_hi * 2 ^ 256 + x_lo)
-    -- Get bounds from strengthened within_1ulp theorem
+    have hcmp_def : evmOr (evmLt r3hi x_hi) (evmAnd (evmEq r3hi x_hi) (evmLt r3lo x_lo)) = cmp := rfl
+    rw [hcmp_def]
     have hbounds := model_cbrt512_evm_within_1ulp x_hi x_lo hxhi_pos
       (show x_hi < 2 ^ 256 from hxhi) (show x_lo < 2 ^ 256 from hxlo)
     simp only at hbounds
     rw [hr_def] at hbounds
     obtain ⟨h_lo, h_hi, hr_lt, hcube_lt, hr_succ_lt, h_overshoot⟩ := hbounds
-    -- Cube decomposition: r3hi * WORD_MOD + r3lo = r³
-    have hcube_eq : r3hi * WORD_MOD + r3lo = r * r * r := cube512_correct r hr_lt hcube_lt
-    -- Bounds on r3hi and r3lo (EVM ops always < WORD_MOD)
+    have hcube_eq : r3hi * WORD_MOD + r3lo = r * r * r := by
+      simpa [mm1, r2lo, r2hi, mm2, r3lo, r3hi] using cube512_correct r hr_lt hcube_lt
     have hr3lo_lt : r3lo < WORD_MOD := by
-      show evmMul (evmMul r r) r < WORD_MOD
-      unfold evmMul u256 WORD_MOD; exact Nat.mod_lt _ (Nat.two_pow_pos 256)
+      rw [← hr3lo_def]
+      exact evmMul_lt_WORD_MOD _ _
     have hr3hi_lt : r3hi < WORD_MOD := by
-      show evmAdd _ _ < WORD_MOD
-      unfold evmAdd u256 WORD_MOD; exact Nat.mod_lt _ (Nat.two_pow_pos 256)
-    -- Comparison produces 0 or 1
+      rw [← hr3hi_def]
+      exact evmAdd_lt_WORD_MOD _ _
     have hcmp_01 : cmp = 0 ∨ cmp = 1 :=
-      evmOr_01 _ _ (evmLt_01 _ _ hr3hi_lt hxhi_wm)
-        (evmAnd_01 _ _ (evmEq_01 _ _ hr3hi_lt hxhi_wm) (evmLt_01 _ _ hr3lo_lt hxlo_wm))
-    -- Comparison iff: cmp ≠ 0 ↔ r³ < x
+      lt512_01 x_hi x_lo r3hi r3lo hxhi_wm hxlo_wm hr3hi_lt hr3lo_lt
     have hcmp_iff : (cmp ≠ 0) ↔ (r * r * r < x_hi * WORD_MOD + x_lo) := by
       have hlt := lt512_correct x_hi x_lo r3hi r3lo hxhi_wm hxlo_wm hr3hi_lt hr3lo_lt
       simp only at hlt
       rw [hcube_eq] at hlt
       exact hlt
-    -- x < 2^512 (needed for cbrtUp512_unique)
     have hx512 : x_hi * 2 ^ 256 + x_lo < 2 ^ 512 := by
       calc x_hi * 2 ^ 256 + x_lo
           ≤ (2 ^ 256 - 1) * 2 ^ 256 + (2 ^ 256 - 1) := by omega
         _ < 2 ^ 512 := by unfold WORD_MOD at hxhi_wm hxlo_wm; omega
-    -- Case split on r³ vs x
     by_cases hlt_x : r * r * r < x_hi * WORD_MOD + x_lo
-    · -- r³ < x: cmp = 1, result = r + 1
-      -- r = icbrt x (r³ < x and r ≥ icbrt x imply r can't be icbrt x + 1)
+    ·
       have hr_eq : r = icbrt (x_hi * 2 ^ 256 + x_lo) := by
         have hrm : r = icbrt (x_hi * 2 ^ 256 + x_lo) ∨
                    r = icbrt (x_hi * 2 ^ 256 + x_lo) + 1 := by omega
@@ -147,8 +156,7 @@ theorem model_cbrtUp512_wrapper_evm_correct (x_hi x_lo : Nat)
           icbrt (x_hi * 2 ^ 256 + x_lo) < x_hi * 2 ^ 256 + x_lo := by
         rw [hr_eq] at hlt_x; unfold WORD_MOD at hlt_x; exact hlt_x
       simp [h_icbrt_lt]
-    · -- r³ ≥ x: cmp = 0, result = r
-      -- hlt_x : ¬(r³ < x_hi * WORD_MOD + x_lo), i.e., r³ ≥ x
+    ·
       have hge_x : x_hi * WORD_MOD + x_lo ≤ r * r * r := Nat.not_lt.mp hlt_x
       have hcmp_zero : cmp = 0 := by
         rcases hcmp_01 with h | h
@@ -160,15 +168,13 @@ theorem model_cbrtUp512_wrapper_evm_correct (x_hi x_lo : Nat)
       rw [hr_add]
       have hx_le_rcube : x_hi * 2 ^ 256 + x_lo ≤ r * r * r := by
         unfold WORD_MOD at hge_x; exact hge_x
-      -- Case-split on r = icbrt x vs r = icbrt x + 1
       have hrm : r = icbrt (x_hi * 2 ^ 256 + x_lo) ∨
                  r = icbrt (x_hi * 2 ^ 256 + x_lo) + 1 := by omega
       rcases hrm with hr_eq | hr_eq
-      · -- r = icbrt x and r³ ≥ x: perfect cube, cbrtUp = icbrt
+      ·
         rw [hr_eq]
         unfold cbrtUp512
         have h_cube_le := icbrt_cube_le (x_hi * 2 ^ 256 + x_lo)
-        -- icbrt(x)³ ≤ x and x ≤ r³ = icbrt(x)³, so icbrt(x)³ = x
         have hx_le_icbrt : x_hi * 2 ^ 256 + x_lo ≤
             icbrt (x_hi * 2 ^ 256 + x_lo) * icbrt (x_hi * 2 ^ 256 + x_lo) *
             icbrt (x_hi * 2 ^ 256 + x_lo) := by
@@ -177,7 +183,7 @@ theorem model_cbrtUp512_wrapper_evm_correct (x_hi x_lo : Nat)
             icbrt (x_hi * 2 ^ 256 + x_lo) < x_hi * 2 ^ 256 + x_lo) :=
           Nat.not_lt.mpr hx_le_icbrt
         simp [h_eq]
-      · -- r = icbrt x + 1: x is not a perfect cube (from h_overshoot)
+      ·
         have h_rcube_gt : r * r * r > x_hi * 2 ^ 256 + x_lo := by
           have := icbrt_lt_succ_cube (x_hi * 2 ^ 256 + x_lo)
           rw [hr_eq]; omega

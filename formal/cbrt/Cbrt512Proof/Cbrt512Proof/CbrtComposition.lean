@@ -243,8 +243,8 @@ private theorem undershoot_implies_rem_gt_3Reps
   have hcR_wm : c * (m * 2 ^ 86) < WORD_MOD :=
     Nat.lt_of_le_of_lt hcR_le hr_lo_sq_wm
   -- ======== EVM-to-Nat reduction lemmas ========
-  have hR_eq : evmShl (evmAnd (evmAnd 86 255) 255) m = m * 2 ^ 86 := by
-    rw [qc_const_86, evmShl_eq' 86 m (by omega) hm_wm]
+  have hR_eq : evmShl 86 m = m * 2 ^ 86 := by
+    rw [evmShl_eq' 86 m (by omega) hm_wm]
     exact Nat.mod_eq_of_lt hR_wm
   have hSq_eq : evmMul nat_r_lo nat_r_lo = nat_r_lo * nat_r_lo := by
     rw [evmMul_eq' nat_r_lo nat_r_lo hr_lo_wm hr_lo_wm]; exact Nat.mod_eq_of_lt hr_lo_sq_wm
@@ -289,10 +289,10 @@ private theorem undershoot_implies_rem_gt_3Reps
   rw [if_pos (show (1 : Nat) ≠ 0 from by omega)] at hr1_eq
   -- ======== Reduce the check sub-expressions ========
   -- eps3 / 2^86 and rem / 2^86 (the high parts)
-  have hShr_eps3 : evmShr (evmAnd (evmAnd 86 255) 255) eps3 = eps3 / 2 ^ 86 := by
-    rw [qc_const_86, evmShr_eq' 86 eps3 (by omega) heps3_wm']
-  have hShr_rem : evmShr (evmAnd (evmAnd 86 255) 255) nat_rem = nat_rem / 2 ^ 86 := by
-    rw [qc_const_86, evmShr_eq' 86 nat_rem (by omega) hrem_wm]
+  have hShr_eps3 : evmShr 86 eps3 = eps3 / 2 ^ 86 := by
+    rw [evmShr_eq' 86 eps3 (by omega) heps3_wm']
+  have hShr_rem : evmShr 86 nat_rem = nat_rem / 2 ^ 86 := by
+    rw [evmShr_eq' 86 nat_rem (by omega) hrem_wm]
   have heps3_hi_wm : eps3 / 2 ^ 86 < WORD_MOD :=
     Nat.lt_of_le_of_lt (Nat.div_le_self _ _) heps3_wm'
   have hrem_hi_wm : nat_rem / 2 ^ 86 < WORD_MOD := by
@@ -326,9 +326,9 @@ private theorem undershoot_implies_rem_gt_3Reps
   have hprod_eps3_wm : (eps3 % 2 ^ 86) * m < WORD_MOD := by unfold WORD_MOD; omega
   rw [Nat.mod_eq_of_lt hprod_eps3_wm] at hMul_lo
   -- evmShl 86 (rem % 2^86) = (rem % 2^86) * 2^86
-  have hShl_rem : evmShl (evmAnd (evmAnd 86 255) 255) (nat_rem % 2 ^ 86) =
+  have hShl_rem : evmShl 86 (nat_rem % 2 ^ 86) =
       (nat_rem % 2 ^ 86) * 2 ^ 86 := by
-    rw [qc_const_86, evmShl_eq' 86 (nat_rem % 2 ^ 86) (by omega) hrem_lo_wm]
+    rw [evmShl_eq' 86 (nat_rem % 2 ^ 86) (by omega) hrem_lo_wm]
     -- (rem % 2^86) * 2^86 < 2^86 * 2^86 = 2^172 < WORD_MOD
     have : (nat_rem % 2 ^ 86) * 2 ^ 86 < 2 ^ 172 :=
       calc (nat_rem % 2 ^ 86) * 2 ^ 86

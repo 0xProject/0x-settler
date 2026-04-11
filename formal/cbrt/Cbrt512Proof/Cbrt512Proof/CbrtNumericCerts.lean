@@ -195,11 +195,6 @@ theorem baseCaseShiftMask_eq_two : evmAnd (evmAnd 2 255) 255 = 2 := by
 -- ============================================================================
 
 set_option exponentiation.threshold 1024 in
-theorem qc_const_86 : evmAnd (evmAnd 86 255) 255 = 86 := by
-  unfold evmAnd u256 WORD_MOD
-  decide
-
-set_option exponentiation.threshold 1024 in
 theorem mask_86_eq : 77371252455336267181195263 = 2 ^ 86 - 1 := by
   decide
 
