@@ -123,11 +123,11 @@ def _find_function(
         ),
     )
     plan = build_selection_plan(_tokens_to_yul(tokens), config.selection)
-    info = plan.target_infos[sol_fn_name]
+    target = plan.target_infos[sol_fn_name]
     return _SelectedMatch(
-        yul_name=info.raw_name,
-        lexical_path=info.lexical_path,
-        token_idx=info.key.token_idx,
+        yul_name=target.info.raw_name,
+        lexical_path=target.info.lexical_path,
+        token_idx=target.info.key.token_idx,
     )
 
 
@@ -155,11 +155,11 @@ def _find_exact_function(
                     f"Exact Yul function {yul_name!r}{message[len(path_prefix) + len(repr(yul_name)):]}"
                 ) from exc
         raise
-    info = plan.target_infos["target"]
+    target = plan.target_infos["target"]
     return _SelectedMatch(
-        yul_name=info.raw_name,
-        lexical_path=info.lexical_path,
-        token_idx=info.key.token_idx,
+        yul_name=target.info.raw_name,
+        lexical_path=target.info.lexical_path,
+        token_idx=target.info.key.token_idx,
     )
 
 
@@ -178,11 +178,11 @@ def _find_exact_function_path(
         n_params={"target": n_params} if n_params is not None else None,
     )
     plan = build_selection_plan(_tokens_to_yul(tokens), config.selection)
-    info = plan.target_infos["target"]
+    target = plan.target_infos["target"]
     return _SelectedMatch(
-        yul_name=info.raw_name,
-        lexical_path=info.lexical_path,
-        token_idx=info.key.token_idx,
+        yul_name=target.info.raw_name,
+        lexical_path=target.info.lexical_path,
+        token_idx=target.info.key.token_idx,
     )
 
 

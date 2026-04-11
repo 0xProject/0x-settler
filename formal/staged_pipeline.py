@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from norm_simplify import lower_leave, simplify_normalized
 from norm_validate import validate_restricted_boundary
-from staged_selection import SelectedHelperInfo, SelectedTargetInfo, SelectionPlan
+from staged_selection import SelectedFunctionInfo, SelectedTargetInfo, SelectionPlan
 
 from norm_constprop import propagate_constants
 from norm_inline import InlineBoundaryPolicy, SymbolAllocator, inline_pure_helpers
@@ -58,9 +58,9 @@ def _lower_target(
     allowed_model_calls: frozenset[str],
 ) -> RestrictedFunction:
     local_selected_map = _build_local_selected_map(plan, target)
-    top_level_selected_map = _build_top_level_selected_map(plan, target.key.group_idx)
+    top_level_selected_map = _build_top_level_selected_map(plan, target.info.key.group_idx)
 
-    normalized = normalize_function(target.func, target.resolution)
+    normalized = normalize_function(target.info.func, target.info.resolution)
     normalized = _rewrite_selected_calls(
         normalized,
         local_selected_map=local_selected_map,
@@ -109,13 +109,13 @@ def _build_local_selected_map(
     for other_sol_name, other in plan.target_infos.items():
         if other_sol_name == target.sol_name:
             continue
-        if other.key.group_idx != target.key.group_idx:
+        if other.info.key.group_idx != target.info.key.group_idx:
             continue
-        if other.top_level_key != target.top_level_key:
+        if other.info.top_level_key != target.info.top_level_key:
             continue
-        if len(other.lexical_path) == 1:
+        if len(other.info.lexical_path) == 1:
             continue
-        mapping[target.resolution.declarations[other.func.name_span]] = other_sol_name
+        mapping[target.info.resolution.declarations[other.info.func.name_span]] = other_sol_name
     return mapping
 
 
@@ -125,11 +125,11 @@ def _build_top_level_selected_map(
 ) -> dict[str, str]:
     mapping: dict[str, str] = {}
     for sol_name, target in plan.target_infos.items():
-        if target.key.group_idx != group_idx:
+        if target.info.key.group_idx != group_idx:
             continue
-        if target.key != target.top_level_key:
+        if target.info.key != target.info.top_level_key:
             continue
-        mapping[target.raw_name] = sol_name
+        mapping[target.info.raw_name] = sol_name
     return mapping
 
 
@@ -140,7 +140,7 @@ def _build_inline_defs(
     top_level_selected_map: dict[str, str],
 ) -> tuple[dict[SymbolId, NFunctionDef], dict[str, NFunctionDef]]:
     max_existing = 0
-    for sid in target.resolution.symbols:
+    for sid in target.info.resolution.symbols:
         max_existing = max(max_existing, sid._id)
     for helper in target.helper_infos:
         for sid in helper.resolution.symbols:
@@ -171,7 +171,7 @@ def _build_inline_defs(
 
 
 def _prepare_helper(
-    helper: SelectedHelperInfo,
+    helper: SelectedFunctionInfo,
     *,
     local_selected_map: dict[SymbolId, str],
     top_level_selected_map: dict[str, str],

@@ -42,7 +42,9 @@ class FunctionKey:
 
 
 @dataclass(frozen=True)
-class SelectedHelperInfo:
+class SelectedFunctionInfo:
+    """Canonical record for a selected function (target or helper)."""
+
     key: FunctionKey
     raw_name: str
     lexical_path: tuple[str, ...]
@@ -50,19 +52,18 @@ class SelectedHelperInfo:
     resolution: ResolutionResult
     top_level_name: str
     top_level_key: FunctionKey
+
+
+# Backward-compatible alias — callers that referenced SelectedHelperInfo
+# now use the same type as targets.
+SelectedHelperInfo = SelectedFunctionInfo
 
 
 @dataclass(frozen=True)
 class SelectedTargetInfo:
     sol_name: str
-    key: FunctionKey
-    raw_name: str
-    lexical_path: tuple[str, ...]
-    func: FunctionDef
-    resolution: ResolutionResult
-    top_level_name: str
-    top_level_key: FunctionKey
-    helper_infos: tuple[SelectedHelperInfo, ...]
+    info: SelectedFunctionInfo
+    helper_infos: tuple[SelectedFunctionInfo, ...]
 
 
 @dataclass(frozen=True)
@@ -197,8 +198,7 @@ def build_selection_plan(
             target_info=info,
             exclude_keys=selected_keys,
         )
-        target_infos[sol_name] = SelectedTargetInfo(
-            sol_name=sol_name,
+        func_info = SelectedFunctionInfo(
             key=info.key,
             raw_name=info.func.name,
             lexical_path=info.lexical_path,
@@ -206,6 +206,10 @@ def build_selection_plan(
             resolution=index.resolved_groups[info.group_idx][info.top_level_name],
             top_level_name=info.top_level_name,
             top_level_key=info.top_level_key,
+        )
+        target_infos[sol_name] = SelectedTargetInfo(
+            sol_name=sol_name,
+            info=func_info,
             helper_infos=helper_infos,
         )
     return SelectionPlan(
