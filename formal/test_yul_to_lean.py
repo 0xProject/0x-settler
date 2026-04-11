@@ -46,7 +46,7 @@ from model_transforms import (
     hoist_repeated_model_calls,
 )
 from model_validate import validate_function_model, validate_model_set
-from staged_selection import build_selection_plan
+from selection import build_selection_plan
 from yul_lexer import tokenize_yul
 
 import norm_ir
