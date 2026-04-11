@@ -5,7 +5,7 @@ from collections import Counter
 from typing import Callable, assert_never
 
 from .model_config import TransformConfig
-from .model_helpers import _collect_model_binders, _expr_size, _expr_vars, _replace_expr
+from .model_helpers import collect_model_binders, expr_size, expr_vars, replace_expr
 from .model_ir import (
     Assignment,
     Call,
@@ -36,7 +36,7 @@ def _prune_dead_assignments(
                 if stmt.target not in live:
                     continue
                 live.remove(stmt.target)
-                live.update(_expr_vars(stmt.expr))
+                live.update(expr_vars(stmt.expr))
                 kept_rev.append(stmt)
             elif isinstance(stmt, ConditionalBlock):
                 needed_indices = tuple(
@@ -48,7 +48,7 @@ def _prune_dead_assignments(
                 needed_outputs = tuple(stmt.output_vars[idx] for idx in needed_indices)
                 then_out_live: set[str] = set()
                 for idx in needed_indices:
-                    then_out_live.update(_expr_vars(stmt.then_branch.outputs[idx]))
+                    then_out_live.update(expr_vars(stmt.then_branch.outputs[idx]))
                 then_assignments, then_live = _prune_block(
                     stmt.then_branch.assignments,
                     then_out_live,
@@ -56,7 +56,7 @@ def _prune_dead_assignments(
 
                 else_out_live: set[str] = set()
                 for idx in needed_indices:
-                    else_out_live.update(_expr_vars(stmt.else_branch.outputs[idx]))
+                    else_out_live.update(expr_vars(stmt.else_branch.outputs[idx]))
                 else_assignments, else_live = _prune_block(
                     stmt.else_branch.assignments,
                     else_out_live,
@@ -64,7 +64,7 @@ def _prune_dead_assignments(
 
                 for var in stmt.output_vars:
                     live.discard(var)
-                live.update(_expr_vars(stmt.condition))
+                live.update(expr_vars(stmt.condition))
                 live.update(then_live)
                 live.update(else_live)
                 kept_rev.append(
@@ -101,7 +101,7 @@ def _prune_dead_assignments(
 
 def _make_cse_gensym(model: FunctionModel) -> Callable[[], str]:
     max_cse = 0
-    for binder in _collect_model_binders(model):
+    for binder in collect_model_binders(model):
         match = re.fullmatch(r"_cse_(\d+)", binder)
         if match:
             max_cse = max(max_cse, int(match.group(1)))
@@ -156,7 +156,7 @@ def _replace_branch(
         assignments=tuple(
             _replace_statement(stmt, replacements) for stmt in branch.assignments
         ),
-        outputs=tuple(_replace_expr(expr, replacements) for expr in branch.outputs),
+        outputs=tuple(replace_expr(expr, replacements) for expr in branch.outputs),
     )
 
 
@@ -167,11 +167,11 @@ def _replace_statement(
     if isinstance(stmt, Assignment):
         return Assignment(
             target=stmt.target,
-            expr=_replace_expr(stmt.expr, replacements),
+            expr=replace_expr(stmt.expr, replacements),
         )
     if isinstance(stmt, ConditionalBlock):
         return ConditionalBlock(
-            condition=_replace_expr(stmt.condition, replacements),
+            condition=replace_expr(stmt.condition, replacements),
             output_vars=stmt.output_vars,
             then_branch=_replace_branch(stmt.then_branch, replacements),
             else_branch=_replace_branch(stmt.else_branch, replacements),
@@ -219,16 +219,16 @@ def _build_hoist_bindings(
         node
         for node, count in counts.items()
         if count > 1
-        and _expr_vars(node).issubset(scope)
+        and expr_vars(node).issubset(scope)
         and _is_hoistable_model_expr(node, model_call_names=model_call_names)
     ]
-    hoistable.sort(key=_expr_size)
+    hoistable.sort(key=expr_size)
 
     replacements: dict[Expr, str] = {}
     hoisted: list[Assignment] = []
     for call in hoistable:
         name = gensym()
-        expr = _replace_expr(call, replacements)
+        expr = replace_expr(call, replacements)
         hoisted.append(Assignment(target=name, expr=expr))
         replacements[call] = name
     return hoisted, replacements
@@ -261,7 +261,7 @@ def _hoist_calls_in_branch(
         gensym=gensym,
     )
     rewritten_outputs = (
-        tuple(_replace_expr(expr, replacements) for expr in branch.outputs)
+        tuple(replace_expr(expr, replacements) for expr in branch.outputs)
         if replacements
         else branch.outputs
     )

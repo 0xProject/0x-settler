@@ -4,7 +4,7 @@ import re
 from typing import assert_never
 
 from .evm_builtins import MODELED_BUILTIN_ARITY, OP_TO_LEAN_HELPER
-from .model_helpers import _expr_vars, _walk_model_exprs_in_stmt
+from .model_helpers import expr_vars, walk_model_exprs_in_stmt
 from .model_ir import (
     Assignment,
     Call,
@@ -140,7 +140,7 @@ def validate_function_model(model: FunctionModel) -> None:
         for s in statements:
             if isinstance(s, Assignment):
                 _validate_expr_shape(s.expr)
-                missing = _expr_vars(s.expr) - scope
+                missing = expr_vars(s.expr) - scope
                 if missing:
                     raise ParseError(
                         f"Model {model.fn_name!r} has an out-of-scope variable "
@@ -164,7 +164,7 @@ def validate_function_model(model: FunctionModel) -> None:
             _validate_expr_shapes_in_stmt(s)
         for s in cond.else_branch.assignments:
             _validate_expr_shapes_in_stmt(s)
-        missing = _expr_vars(cond.condition) - scope
+        missing = expr_vars(cond.condition) - scope
         if missing:
             raise ParseError(
                 f"Model {model.fn_name!r} has an out-of-scope conditional: "
@@ -186,7 +186,7 @@ def validate_function_model(model: FunctionModel) -> None:
                 )
             for out_expr in branch.outputs:
                 _validate_expr_shape(out_expr)
-                missing_out = _expr_vars(out_expr) - branch_scope
+                missing_out = expr_vars(out_expr) - branch_scope
                 if missing_out:
                     raise ParseError(
                         f"Model {model.fn_name!r} has undefined {label} outputs: "
@@ -293,7 +293,7 @@ def validate_model_set(models: list[FunctionModel]) -> None:
         fn_name: str,
         out: set[str],
     ) -> None:
-        _walk_model_exprs_in_stmt(
+        walk_model_exprs_in_stmt(
             stmt,
             lambda expr: out.update(_check_calls(expr, fn_name)),
         )

@@ -1,5 +1,8 @@
 """
-Lean-facing identifier policy shared by naming, validation, and emission.
+Lean-facing identifier policy shared by validation and emission.
+
+Restricted-IR naming stays generic; this module owns the Lean-specific
+reserved-name surface that generated code must avoid.
 """
 
 from __future__ import annotations

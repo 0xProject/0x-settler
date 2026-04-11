@@ -1,16 +1,14 @@
 """
 Evaluator for the non-SSA restricted IR.
 
-Used for semantic equivalence testing against the normalized IR
-evaluator.
+Test-only support for semantic equivalence checks.
 """
 
 from __future__ import annotations
 
-from .evm_builtins import eval_pure_builtin, u256
-from .restricted_ir import (
+from ..evm_builtins import eval_pure_builtin, u256
+from ..restricted_ir import (
     RAssignment,
-    RBranch,
     RBuiltinCall,
     RCallAssign,
     RConditionalBlock,
@@ -22,11 +20,7 @@ from .restricted_ir import (
     RRef,
     RStatement,
 )
-from .yul_ast import EvaluationError, SymbolId
-
-# ---------------------------------------------------------------------------
-# Expression evaluation
-# ---------------------------------------------------------------------------
+from ..yul_ast import EvaluationError, SymbolId
 
 
 def _eval_expr(
@@ -66,11 +60,6 @@ def _eval_expr(
     raise EvaluationError(f"Unexpected expression: {type(expr).__name__}")
 
 
-# ---------------------------------------------------------------------------
-# Statement evaluation
-# ---------------------------------------------------------------------------
-
-
 def _eval_block(
     stmts: tuple[RStatement, ...],
     env: dict[SymbolId, int],
@@ -98,18 +87,11 @@ def _eval_block(
             cond = _eval_expr(stmt.condition, env, model_table)
             branch = stmt.then_branch if cond != 0 else stmt.else_branch
 
-            # Evaluate branch assignments in a local scope.
             branch_env = dict(env)
             _eval_block(branch.assignments, branch_env, model_table)
 
-            # Extract outputs into outer scope.
             for out_sid, out_expr in zip(stmt.output_targets, branch.output_exprs):
                 env[out_sid] = _eval_expr(out_expr, branch_env, model_table)
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 
 def evaluate_restricted(
@@ -118,7 +100,6 @@ def evaluate_restricted(
     *,
     model_table: dict[str, RestrictedFunction] | None = None,
 ) -> tuple[int, ...]:
-    """Evaluate a restricted IR function with concrete arguments."""
     if len(args) != len(func.params):
         raise EvaluationError(
             f"Function {func.name!r} expects {len(func.params)} arg(s), "

@@ -24,8 +24,7 @@ from .lean_emit import (
     render_function_defs,
 )
 from .lean_names import validate_ident
-from .model_eval import build_model_table, evaluate_function_model
-from .model_helpers import _expr_vars, collect_model_opcodes, collect_ops_from_statement
+from .model_helpers import collect_model_opcodes, collect_ops_from_statement, expr_vars
 from .model_ir import (
     Assignment,
     Call,
@@ -51,14 +50,15 @@ from .norm_classify import (
     summarize_function,
 )
 from .norm_constprop import fold_expr, propagate_constants
-from .norm_eval import evaluate_normalized
 from .norm_inline import inline_pure_helpers
 from .norm_memory import lower_memory
 from .norm_to_restricted import lower_to_restricted
-from .restricted_eval import evaluate_restricted
 from .restricted_ir import RestrictedFunction
 from .restricted_to_model import to_function_models
 from .selection import build_selection_plan
+from .testing.model_eval import build_model_table, evaluate_function_model
+from .testing.norm_eval import evaluate_normalized
+from .testing.restricted_eval import evaluate_restricted
 from .translator import translate_yul_to_models
 from .yul_ast import EvaluationError, ParseError
 from .yul_lexer import tokenize_yul
@@ -286,7 +286,7 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
 
         for stmt in statements:
             if isinstance(stmt, Assignment):
-                missing = _expr_vars(stmt.expr) - scope
+                missing = expr_vars(stmt.expr) - scope
                 self.assertFalse(
                     missing,
                     f"{stmt.target} uses undefined vars: {sorted(missing)}",
@@ -297,7 +297,7 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
             if not isinstance(stmt, ConditionalBlock):
                 raise TypeError(f"Unsupported statement: {type(stmt)}")
 
-            missing = _expr_vars(stmt.condition) - scope
+            missing = expr_vars(stmt.condition) - scope
             self.assertFalse(
                 missing,
                 f"conditional uses undefined vars: {sorted(missing)}",
@@ -308,7 +308,7 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
                 available=scope,
             )
             for out_expr in stmt.then_branch.outputs:
-                missing = _expr_vars(out_expr) - then_scope
+                missing = expr_vars(out_expr) - then_scope
                 self.assertFalse(
                     missing, f"then-branch output {out_expr} uses {sorted(missing)}"
                 )
@@ -318,7 +318,7 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
                 available=scope,
             )
             for out_expr in stmt.else_branch.outputs:
-                missing = _expr_vars(out_expr) - else_scope
+                missing = expr_vars(out_expr) - else_scope
                 self.assertFalse(
                     missing, f"else-branch output {out_expr} uses {sorted(missing)}"
                 )
@@ -978,7 +978,7 @@ class TranslationFlowTest(unittest.TestCase):
             x_lo_update, x_hi_update = project_assigns[0], project_assigns[1]
             self.assertNotIn(
                 x_lo_update.target,
-                _expr_vars(x_hi_update.expr),
+                expr_vars(x_hi_update.expr),
                 "later rebound component unexpectedly captured the already-updated "
                 "argument value instead of the pre-call binding",
             )
@@ -13655,6 +13655,15 @@ class TranslationValidationTest(unittest.TestCase):
 class LeaveGuardGroupingTest(unittest.TestCase):
     """Tests that did_leave guards group trailing stmts into maximal blocks."""
 
+    def _lower_normalized(self, yul: str) -> norm_ir.NormalizedFunction:
+        from .norm_leave import lower_leave
+
+        tokens = tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        return lower_leave(nf)
+
     def test_block_inline_leave_temp_chain(self) -> None:
         """Block-inlined helper with leave + temp chain evaluates correctly."""
         yul = """
@@ -13679,6 +13688,28 @@ class LeaveGuardGroupingTest(unittest.TestCase):
         # x=1: leave → r = 7 (leave skips the temp chain)
         self.assertEqual(evaluate_function_model(model, (1,)), (7,))
 
+    def test_block_inline_nested_branch_leave_skips_branch_suffix(self) -> None:
+        """Inlined helpers must not execute code later in the same leave branch."""
+        yul = """
+            function fun_target_1(var_x_1) -> var_r_2 {
+                var_r_2 := helper(var_x_1)
+            }
+            function helper(var_x_3) -> var_r_4 {
+                var_r_4 := 1
+                if var_x_3 {
+                    var_r_4 := 7
+                    leave
+                    var_r_4 := 8
+                }
+                var_r_4 := add(var_r_4, 1)
+            }
+        """
+        config = make_model_config(("target",))
+        result = translate_yul_to_models(yul, config, optimize=False)
+        model = result[0]
+        self.assertEqual(evaluate_function_model(model, (0,)), (2,))
+        self.assertEqual(evaluate_function_model(model, (1,)), (7,))
+
     def test_top_level_leave_temp_chain(self) -> None:
         """Selected target with leave + temp chain evaluates correctly."""
         yul = """
@@ -13700,14 +13731,59 @@ class LeaveGuardGroupingTest(unittest.TestCase):
         # x=1: leave → r = 7
         self.assertEqual(evaluate_function_model(model, (1,)), (7,))
 
+    def test_top_level_nested_branch_leave_skips_branch_suffix(self) -> None:
+        """Top-level lowering must guard code later in the same leave branch."""
+        yul = """
+            function fun_f_1(var_x_1) -> var_r_2 {
+                var_r_2 := 1
+                if var_x_1 {
+                    var_r_2 := 7
+                    leave
+                    var_r_2 := 8
+                }
+                var_r_2 := add(var_r_2, 1)
+            }
+        """
+        config = make_model_config(("f",))
+        result = translate_yul_to_models(yul, config, optimize=False)
+        model = result[0]
+        self.assertEqual(evaluate_function_model(model, (0,)), (2,))
+        self.assertEqual(evaluate_function_model(model, (1,)), (7,))
+
+    def test_lower_leave_skips_for_post_and_outer_suffix(self) -> None:
+        """Loop leave must skip the post block and statements after the loop."""
+        lowered = self._lower_normalized("""
+            function fun_f_1(var_n_1) -> var_z_2 {
+                var_z_2 := 0
+                for { } lt(var_z_2, var_n_1) { var_z_2 := add(var_z_2, 1) } {
+                    if eq(var_z_2, 2) {
+                        var_z_2 := 99
+                        leave
+                    }
+                }
+                var_z_2 := add(var_z_2, 1000)
+            }
+        """)
+        self.assertEqual(evaluate_normalized(lowered, (1,)), (1001,))
+        self.assertEqual(evaluate_normalized(lowered, (4,)), (99,))
+
+    def test_lower_leave_keeps_function_defs_hoisted(self) -> None:
+        """Function definitions after a leave-capable stmt must remain visible."""
+        lowered = self._lower_normalized("""
+            function fun_f_1(var_x_1) -> var_z_2 {
+                if var_x_1 { leave }
+                function helper() -> var_r_3 {
+                    var_r_3 := 7
+                }
+                var_z_2 := helper()
+            }
+        """)
+        self.assertEqual(evaluate_normalized(lowered, (0,)), (7,))
+        self.assertEqual(evaluate_normalized(lowered, (1,)), (0,))
+
     def test_lower_leave_groups_trailing_stmts(self) -> None:
         """Trailing statements after leave share one guarded block, not N."""
-        from .norm_leave import lower_leave
-        from .yul_normalize import normalize_function
-        from .yul_parser import SyntaxParser
-        from .yul_resolve import resolve_function
-
-        tokens = tokenize_yul("""
+        lowered = self._lower_normalized("""
             function fun_f_1(var_x_1) -> var_r_2 {
                 var_r_2 := 1
                 if var_x_1 { leave }
@@ -13716,10 +13792,6 @@ class LeaveGuardGroupingTest(unittest.TestCase):
                 var_r_2 := add(usr$a, usr$b)
             }
         """)
-        func = SyntaxParser(tokens).parse_function()
-        result = resolve_function(func)
-        nf = normalize_function(func, result)
-        lowered = lower_leave(nf)
 
         # Count top-level NIf nodes in the lowered body.
         from .norm_ir import NIf

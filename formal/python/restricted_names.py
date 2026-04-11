@@ -9,11 +9,12 @@ for `FunctionModel` conversion:
 - Invalid identifier characters sanitized
 - Model-call callee names rewritten to emitted names
 
-This pass is the single source of truth for module-wide function-name
-demangling, binder sanitization, and callee-name remapping.
+This pass owns Yul-facing demangling, binder sanitization, and
+module-local uniqueness before SSA.
 
 Variable identity (``SymbolId``) is unchanged.  SSA versioning and
-base-name collision avoidance are handled by the downstream SSA pass.
+Lean-facing reserved-name policy and emitted-definition collision
+checks live downstream in ``lean_names.py`` / ``lean_emit.py``.
 """
 
 from __future__ import annotations
@@ -227,7 +228,7 @@ def _demangle_function_name(name: str) -> str:
 
 @dataclass(frozen=True)
 class ModuleNamePlan:
-    """Authoritative module-wide naming plan.
+    """Module-wide naming plan before Lean-specific emission checks.
 
     Owns function-name demangling, binder-name demangling/sanitization,
     and uniqueness — all computed up front before SSA versioning.
@@ -243,8 +244,9 @@ def plan_module(
     """Build a complete module-wide naming plan.
 
     Plans both function emitted names and per-function binder base
-    names. All names are demangled, sanitized, checked against reserved
-    Lean names, and made unique.
+    names. All names are demangled, sanitized, and made unique at the
+    restricted-IR boundary. Lean reserved-name policy is enforced later
+    when emission decides which definitions and helpers will exist.
     """
     # Plan function names.
     function_names: dict[str, str] = {}

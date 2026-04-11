@@ -34,7 +34,7 @@ def collect_ops(expr: Expr) -> list[str]:
     return out
 
 
-def _walk_model_exprs_in_stmt(
+def walk_model_exprs_in_stmt(
     stmt: ModelStatement,
     visit: Callable[[Expr], None],
 ) -> None:
@@ -50,7 +50,7 @@ def _walk_model_exprs_in_stmt(
     assert_never(stmt)
 
 
-def _model_call_names_in_stmt(stmt: ModelStatement) -> set[str]:
+def model_call_names_in_stmt(stmt: ModelStatement) -> set[str]:
     """Collect non-builtin call names from a model statement."""
     names: set[str] = set()
 
@@ -67,14 +67,14 @@ def _model_call_names_in_stmt(stmt: ModelStatement) -> set[str]:
         elif isinstance(expr, Project):
             _walk(expr.inner)
 
-    _walk_model_exprs_in_stmt(stmt, _walk)
+    walk_model_exprs_in_stmt(stmt, _walk)
     return names
 
 
 def collect_ops_from_statement(stmt: ModelStatement) -> list[str]:
     """Collect opcodes from an Assignment or ConditionalBlock."""
     ops: list[str] = []
-    _walk_model_exprs_in_stmt(stmt, lambda expr: ops.extend(collect_ops(expr)))
+    walk_model_exprs_in_stmt(stmt, lambda expr: ops.extend(collect_ops(expr)))
     return ops
 
 
@@ -92,58 +92,56 @@ def collect_model_opcodes(models: list[FunctionModel]) -> list[str]:
     return ordered_unique([OP_TO_OPCODE[name] for name in raw_ops])
 
 
-def _expr_size(expr: Expr) -> int:
+def expr_size(expr: Expr) -> int:
     if isinstance(expr, (IntLit, Var)):
         return 1
     if isinstance(expr, Ite):
         return (
             1
-            + _expr_size(expr.cond)
-            + _expr_size(expr.if_true)
-            + _expr_size(expr.if_false)
+            + expr_size(expr.cond)
+            + expr_size(expr.if_true)
+            + expr_size(expr.if_false)
         )
     if isinstance(expr, Project):
-        return 1 + _expr_size(expr.inner)
+        return 1 + expr_size(expr.inner)
     if isinstance(expr, Call):
-        return 1 + sum(_expr_size(arg) for arg in expr.args)
+        return 1 + sum(expr_size(arg) for arg in expr.args)
     assert_never(expr)
 
 
-def _replace_expr(expr: Expr, replacements: dict[Expr, str]) -> Expr:
+def replace_expr(expr: Expr, replacements: dict[Expr, str]) -> Expr:
     if expr in replacements:
         return Var(replacements[expr])
     if isinstance(expr, (IntLit, Var)):
         return expr
     if isinstance(expr, Ite):
         return Ite(
-            _replace_expr(expr.cond, replacements),
-            _replace_expr(expr.if_true, replacements),
-            _replace_expr(expr.if_false, replacements),
+            replace_expr(expr.cond, replacements),
+            replace_expr(expr.if_true, replacements),
+            replace_expr(expr.if_false, replacements),
         )
     if isinstance(expr, Project):
-        return Project(expr.index, expr.total, _replace_expr(expr.inner, replacements))
+        return Project(expr.index, expr.total, replace_expr(expr.inner, replacements))
     if isinstance(expr, Call):
         return Call(
-            expr.name, tuple(_replace_expr(arg, replacements) for arg in expr.args)
+            expr.name, tuple(replace_expr(arg, replacements) for arg in expr.args)
         )
     assert_never(expr)
 
 
-def _expr_vars(expr: Expr) -> set[str]:
+def expr_vars(expr: Expr) -> set[str]:
     if isinstance(expr, IntLit):
         return set()
     if isinstance(expr, Var):
         return {expr.name}
     if isinstance(expr, Ite):
-        return (
-            _expr_vars(expr.cond) | _expr_vars(expr.if_true) | _expr_vars(expr.if_false)
-        )
+        return expr_vars(expr.cond) | expr_vars(expr.if_true) | expr_vars(expr.if_false)
     if isinstance(expr, Project):
-        return _expr_vars(expr.inner)
+        return expr_vars(expr.inner)
     if isinstance(expr, Call):
         out: set[str] = set()
         for arg in expr.args:
-            out.update(_expr_vars(arg))
+            out.update(expr_vars(arg))
         return out
     assert_never(expr)
 
@@ -153,12 +151,12 @@ def _walk_model_exprs_in_branch(
     visit: Callable[[Expr], None],
 ) -> None:
     for stmt in branch.assignments:
-        _walk_model_exprs_in_stmt(stmt, visit)
+        walk_model_exprs_in_stmt(stmt, visit)
     for expr in branch.outputs:
         visit(expr)
 
 
-def _collect_model_binders(model: FunctionModel) -> list[str]:
+def collect_model_binders(model: FunctionModel) -> list[str]:
     binders = [*model.param_names, *model.return_names]
     for stmt in model.assignments:
         _collect_binders_from_stmt(stmt, binders)

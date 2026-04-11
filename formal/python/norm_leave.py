@@ -1,8 +1,8 @@
 """
 Leave lowering for normalized IR.
 
-This module owns the ``leave`` to ``did_leave`` rewrite shared by
-the inliner and the public normalization pipeline.
+This module owns the canonical ``leave`` to ``did_leave`` lowering
+shared by the inliner and the public normalization pipeline.
 """
 
 from __future__ import annotations
@@ -15,14 +15,14 @@ from .norm_ir import (
     NBlock,
     NBuiltinCall,
     NConst,
-    NExpr,
     NExprEffect,
     NFor,
     NFunctionDef,
     NIf,
+    NIte,
     NLeave,
-    NRef,
     NormalizedFunction,
+    NRef,
     NStmt,
     NStore,
     NSwitch,
@@ -39,10 +39,9 @@ def lower_leave(func: NormalizedFunction) -> NormalizedFunction:
 
     alloc = SymbolAllocator(max_symbol_id(func) + 1)
     did_leave_id = alloc.alloc()
-    did_leave_name = f"_did_leave_{did_leave_id._id}"
-    did_leave_ref = NRef(symbol_id=did_leave_id, name=did_leave_name)
+    did_leave_name = _did_leave_name(did_leave_id)
 
-    rewritten = rewrite_leave_as_flag(func.body, did_leave_id)
+    lowered_body = lower_leave_block(func.body, did_leave_id)
     out: list[NStmt] = [
         NBind(
             targets=(did_leave_id,),
@@ -50,7 +49,7 @@ def lower_leave(func: NormalizedFunction) -> NormalizedFunction:
             expr=NConst(0),
         )
     ]
-    out.extend(guard_stmts_after_leave(rewritten.stmts, did_leave_id, did_leave_ref))
+    out.extend(lowered_body.stmts)
 
     return NormalizedFunction(
         name=func.name,
@@ -62,43 +61,29 @@ def lower_leave(func: NormalizedFunction) -> NormalizedFunction:
     )
 
 
-def rewrite_leave_as_flag(block: NBlock, did_leave_id: SymbolId) -> NBlock:
-    """Rewrite all ``NLeave`` nodes to ``did_leave := 1`` recursively."""
-    return NBlock(
-        tuple(_rewrite_leave_stmt(stmt, did_leave_id) for stmt in block.stmts)
-    )
+def lower_leave_block(block: NBlock, did_leave_id: SymbolId) -> NBlock:
+    """Lower ``leave`` correctly for one runtime block subtree.
+
+    This is the canonical subtree transformation shared by both the
+    top-level normalization pipeline and block inlining.
+    """
+    return NBlock(tuple(_lower_leave_stmt_list(block.stmts, did_leave_id)))
 
 
-def guard_stmts_after_leave(
+def _lower_leave_stmt_list(
     stmts: tuple[NStmt, ...],
     did_leave_id: SymbolId,
-    did_leave_ref: NExpr,
 ) -> list[NStmt]:
-    """Group post-leave statements into maximal guarded blocks."""
+    """Lower one statement list, guarding runtime suffixes after ``leave``."""
     out: list[NStmt] = []
-    may_have_left = False
-    pending: list[NStmt] = []
-
-    def flush() -> None:
-        if pending:
-            guard = NBuiltinCall(op="iszero", args=(did_leave_ref,))
-            out.append(NIf(condition=guard, then_body=NBlock(tuple(pending))))
-            pending.clear()
-
-    for stmt in stmts:
-        if may_have_left:
-            if _stmt_sets_leave_flag(stmt, did_leave_id):
-                flush()
-                out.append(stmt)
-            else:
-                pending.append(stmt)
+    for idx, stmt in enumerate(stmts):
+        lowered = _lower_leave_stmt(stmt, did_leave_id)
+        out.append(lowered)
+        if isinstance(lowered, NFunctionDef):
             continue
-
-        out.append(stmt)
-        if _stmt_sets_leave_flag(stmt, did_leave_id):
-            may_have_left = True
-
-    flush()
+        if _stmt_sets_leave_flag(lowered, did_leave_id):
+            out.extend(_guard_runtime_suffix(stmts[idx + 1 :], did_leave_id))
+            break
     return out
 
 
@@ -114,51 +99,108 @@ def _contains_leave(block: NBlock) -> bool:
     return found
 
 
-def _rewrite_leave_stmt(stmt: NStmt, did_leave_id: SymbolId) -> NStmt:
+def _lower_leave_stmt(stmt: NStmt, did_leave_id: SymbolId) -> NStmt:
     if isinstance(stmt, NLeave):
         return NAssign(
             targets=(did_leave_id,),
-            target_names=(f"_did_leave_{did_leave_id._id}",),
+            target_names=(_did_leave_name(did_leave_id),),
             expr=NConst(1),
         )
     if isinstance(stmt, NIf):
         return NIf(
             condition=stmt.condition,
-            then_body=rewrite_leave_as_flag(stmt.then_body, did_leave_id),
+            then_body=lower_leave_block(stmt.then_body, did_leave_id),
         )
     if isinstance(stmt, NBlock):
-        return rewrite_leave_as_flag(stmt, did_leave_id)
+        return lower_leave_block(stmt, did_leave_id)
     if isinstance(stmt, NSwitch):
         return NSwitch(
             discriminant=stmt.discriminant,
             cases=tuple(
                 NSwitchCase(
                     value=case.value,
-                    body=rewrite_leave_as_flag(case.body, did_leave_id),
+                    body=lower_leave_block(case.body, did_leave_id),
                 )
                 for case in stmt.cases
             ),
             default=(
-                rewrite_leave_as_flag(stmt.default, did_leave_id)
+                lower_leave_block(stmt.default, did_leave_id)
                 if stmt.default is not None
                 else None
             ),
         )
     if isinstance(stmt, NFor):
+        lowered_condition_setup = (
+            lower_leave_block(stmt.condition_setup, did_leave_id)
+            if stmt.condition_setup is not None
+            else None
+        )
+        lowered_post = lower_leave_block(stmt.post, did_leave_id)
         return NFor(
-            init=rewrite_leave_as_flag(stmt.init, did_leave_id),
-            condition=stmt.condition,
+            init=lower_leave_block(stmt.init, did_leave_id),
+            condition=NIte(
+                cond=_not_did_leave(did_leave_id),
+                if_true=stmt.condition,
+                if_false=NConst(0),
+            ),
             condition_setup=(
-                rewrite_leave_as_flag(stmt.condition_setup, did_leave_id)
-                if stmt.condition_setup is not None
+                _guard_runtime_block(lowered_condition_setup, did_leave_id)
+                if lowered_condition_setup is not None
                 else None
             ),
-            post=rewrite_leave_as_flag(stmt.post, did_leave_id),
-            body=rewrite_leave_as_flag(stmt.body, did_leave_id),
+            post=_guard_runtime_block(lowered_post, did_leave_id),
+            body=lower_leave_block(stmt.body, did_leave_id),
         )
     if isinstance(stmt, (NBind, NAssign, NExprEffect, NStore, NFunctionDef)):
         return stmt
     assert_never(stmt)
+
+
+def _guard_runtime_suffix(
+    stmts: tuple[NStmt, ...],
+    did_leave_id: SymbolId,
+) -> list[NStmt]:
+    """Guard runtime statement segments while keeping function defs visible."""
+    out: list[NStmt] = []
+    pending_runtime: list[NStmt] = []
+
+    def flush() -> None:
+        if not pending_runtime:
+            return
+        lowered = _lower_leave_stmt_list(tuple(pending_runtime), did_leave_id)
+        out.append(_guard_stmt_block(NBlock(tuple(lowered)), did_leave_id))
+        pending_runtime.clear()
+
+    for stmt in stmts:
+        if isinstance(stmt, NFunctionDef):
+            flush()
+            out.append(stmt)
+            continue
+        pending_runtime.append(stmt)
+
+    flush()
+    return out
+
+
+def _guard_runtime_block(block: NBlock, did_leave_id: SymbolId) -> NBlock:
+    if not block.stmts:
+        return block
+    return NBlock((_guard_stmt_block(block, did_leave_id),))
+
+
+def _guard_stmt_block(block: NBlock, did_leave_id: SymbolId) -> NIf:
+    return NIf(condition=_not_did_leave(did_leave_id), then_body=block)
+
+
+def _did_leave_name(did_leave_id: SymbolId) -> str:
+    return f"_did_leave_{did_leave_id._id}"
+
+
+def _not_did_leave(did_leave_id: SymbolId) -> NBuiltinCall:
+    return NBuiltinCall(
+        op="iszero",
+        args=(NRef(symbol_id=did_leave_id, name=_did_leave_name(did_leave_id)),),
+    )
 
 
 def _stmt_sets_leave_flag(stmt: NStmt, did_leave_id: SymbolId) -> bool:

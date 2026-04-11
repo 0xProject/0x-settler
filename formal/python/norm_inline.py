@@ -24,7 +24,6 @@ from .norm_classify import (
     classify_helpers,
     summarize_function,
 )
-from .norm_leave import guard_stmts_after_leave, rewrite_leave_as_flag
 from .norm_ir import (
     NAssign,
     NBind,
@@ -48,6 +47,7 @@ from .norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
+from .norm_leave import lower_leave_block
 from .norm_walk import (
     SymbolAllocator,
     collect_function_defs,
@@ -431,7 +431,8 @@ def _block_inline(
     """Inline a leave-bearing helper by cloning its body.
 
     Uses ``freshen_function_subtree`` for full binder hygiene, then
-    rewrites leave as ``did_leave := 1`` with subsequent guards.
+    lowers leave with the canonical subtree transform from
+    ``norm_leave.py``.
     """
     # Phase 1: freshen the entire subtree (all binders, nested fdefs, refs).
     fresh = freshen_function_subtree(fdef, alloc)
@@ -453,7 +454,6 @@ def _block_inline(
 
     # did_leave flag.
     did_leave_id = alloc.alloc()
-    did_leave_ref = NRef(symbol_id=did_leave_id, name=f"_did_leave_{did_leave_id._id}")
     prelude.append(
         NBind(
             targets=(did_leave_id,),
@@ -468,9 +468,7 @@ def _block_inline(
         param_subst[sid] = arg
 
     # Clone body with param substitution + leave rewriting.
-    cloned = _clone_body_for_block_inline(
-        fresh.body, param_subst, did_leave_id, did_leave_ref, alloc
-    )
+    cloned = _clone_body_for_block_inline(fresh.body, param_subst, did_leave_id)
     prelude.extend(cloned)
 
     results = tuple(NRef(symbol_id=rid, name=f"_ret_{rid._id}") for rid in ret_ids)
@@ -481,25 +479,20 @@ def _clone_body_for_block_inline(
     block: NBlock,
     param_subst: dict[SymbolId, NExpr],
     did_leave_id: SymbolId,
-    did_leave_ref: NExpr,
-    alloc: SymbolAllocator,
 ) -> list[NStmt]:
     """Clone a freshened helper body, substituting params and rewriting leave.
 
     The body must already be freshened via ``freshen_function_subtree``.
     ``param_subst`` maps freshened param SymbolIds → argument expressions.
 
-    All ``NLeave`` nodes (at any depth) are rewritten to
-    ``did_leave := 1``.  Then top-level statements after any that may
-    set ``did_leave`` are guarded with ``if iszero(did_leave)``.
+    All ``NLeave`` nodes are lowered by the shared leave transformer,
+    so nested blocks and loops reuse the same semantics as the
+    top-level pipeline.
     """
     # Apply param substitution to the whole block first.
     subst_body = _subst_block(block, param_subst)
 
-    # Rewrite ALL NLeave nodes (recursively) into did_leave := 1.
-    rewritten = rewrite_leave_as_flag(subst_body, did_leave_id)
-
-    return guard_stmts_after_leave(rewritten.stmts, did_leave_id, did_leave_ref)
+    return list(lower_leave_block(subst_body, did_leave_id).stmts)
 
 
 def _subst_block(block: NBlock, subst: dict[SymbolId, NExpr]) -> NBlock:

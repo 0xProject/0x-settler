@@ -1,22 +1,15 @@
 """
 Interpreter for the normalized imperative IR.
 
-Evaluates a ``NormalizedFunction`` with concrete integer arguments and
-returns the function's return values.
-
-Key semantics:
-- Memory is shared across all calls (Yul semantics).
-- Local helper calls are dispatched by ``SymbolId``, not by name.
-- Top-level calls are dispatched by name.
-- ``leave`` is modeled as an exception caught at function boundary.
+Test-only support for semantic equivalence checks.
 """
 
 from __future__ import annotations
 
 from typing import assert_never
 
-from .evm_builtins import WORD_MOD, eval_pure_builtin, u256
-from .norm_ir import (
+from ..evm_builtins import eval_pure_builtin, u256
+from ..norm_ir import (
     NAssign,
     NBind,
     NBlock,
@@ -38,11 +31,7 @@ from .norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
-from .yul_ast import EvaluationError, SymbolId
-
-# ---------------------------------------------------------------------------
-# Leave signal
-# ---------------------------------------------------------------------------
+from ..yul_ast import EvaluationError, SymbolId
 
 
 class _LeaveSignal(Exception):
@@ -50,10 +39,6 @@ class _LeaveSignal(Exception):
 
     pass
 
-
-# ---------------------------------------------------------------------------
-# Evaluation context
-# ---------------------------------------------------------------------------
 
 _MAX_LOOP_ITERATIONS: int = 10_000
 
@@ -76,30 +61,12 @@ class _EvalCtx:
         self.call_stack = call_stack
 
 
-# ---------------------------------------------------------------------------
-# Collect nested function definitions from a block
-# ---------------------------------------------------------------------------
-
-
 def _collect_local_funcs(block: NBlock) -> dict[SymbolId, NFunctionDef]:
-    """Collect all ``NFunctionDef`` nodes from a block (non-recursive).
-
-    Yul functions are hoisted within their enclosing block, so all
-    function definitions at the top level of *block* are visible
-    throughout the block.  Nested functions inside those bodies are
-    NOT included — they will be collected when the inner function
-    is called.
-    """
     result: dict[SymbolId, NFunctionDef] = {}
     for stmt in block.stmts:
         if isinstance(stmt, NFunctionDef):
             result[stmt.symbol_id] = stmt
     return result
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
 
 
 def evaluate_normalized(
@@ -111,18 +78,6 @@ def evaluate_normalized(
     memory: dict[int, int] | None = None,
     call_stack: tuple[str, ...] = (),
 ) -> tuple[int, ...]:
-    """Evaluate *func* with concrete *args*, returning its return values.
-
-    *function_table* maps function names to ``NormalizedFunction`` for
-    top-level (cross-function) calls.  Local helper calls are resolved
-    by ``SymbolId`` from ``NFunctionDef`` nodes in the function body,
-    plus any *enclosing_local_funcs* inherited from the calling scope.
-
-    *memory* is the shared Yul memory (mutated in-place by mstore).
-    Pass an existing dict to share memory across calls.
-
-    *call_stack* tracks active function names for recursion detection.
-    """
     if len(args) != len(func.params):
         raise EvaluationError(
             f"Function {func.name!r} expects {len(func.params)} arg(s), "
@@ -135,7 +90,6 @@ def evaluate_normalized(
     env: dict[SymbolId, int] = {}
     for sid, val in zip(func.params, args):
         env[sid] = u256(val)
-    # Return variables default to 0.
     for sid in func.returns:
         env[sid] = 0
 
@@ -143,7 +97,6 @@ def evaluate_normalized(
     named: dict[str, NormalizedFunction] = (
         dict(function_table) if function_table else {}
     )
-    # Inherit enclosing local functions, then overlay with this body's.
     local: dict[SymbolId, NFunctionDef] = (
         dict(enclosing_local_funcs) if enclosing_local_funcs else {}
     )
@@ -165,14 +118,7 @@ def evaluate_normalized(
     return tuple(ctx.env[sid] for sid in func.returns)
 
 
-# ---------------------------------------------------------------------------
-# Statement execution
-# ---------------------------------------------------------------------------
-
-
 def _exec_block(ctx: _EvalCtx, block: NBlock) -> None:
-    # Hoist function definitions — Yul makes them visible throughout
-    # their enclosing block.  SymbolId keys ensure no collisions.
     for stmt in block.stmts:
         if isinstance(stmt, NFunctionDef):
             ctx.local_funcs[stmt.symbol_id] = stmt
@@ -191,7 +137,6 @@ def _exec_stmt(ctx: _EvalCtx, stmt: NStmt) -> None:
                 for sid, v in zip(stmt.targets, tup):
                     ctx.env[sid] = v
         else:
-            # Bare let — initialize to 0.
             for sid in stmt.targets:
                 ctx.env[sid] = 0
         return
@@ -255,15 +200,10 @@ def _exec_stmt(ctx: _EvalCtx, stmt: NStmt) -> None:
         return
 
     if isinstance(stmt, NFunctionDef):
-        # Function definitions are structural; not executed at runtime.
         return
 
     assert_never(stmt)
 
-
-# ---------------------------------------------------------------------------
-# Expression evaluation
-# ---------------------------------------------------------------------------
 
 _EvalResult = int | tuple[int, ...]
 
@@ -281,10 +221,9 @@ def _eval_expr(ctx: _EvalCtx, expr: NExpr) -> _EvalResult:
         return _eval_call_by_name(ctx, expr.op, expr.args)
 
     if isinstance(expr, NLocalCall):
-        # Look up by SymbolId — avoids name collisions across scopes.
         if expr.symbol_id not in ctx.local_funcs:
             raise EvaluationError(
-                f"Unknown local function {expr.name!r} " f"(symbol {expr.symbol_id!r})"
+                f"Unknown local function {expr.name!r} (symbol {expr.symbol_id!r})"
             )
         fdef = ctx.local_funcs[expr.symbol_id]
         return _call_function_def(ctx, fdef, expr.args)
@@ -320,20 +259,16 @@ def _eval_expr(ctx: _EvalCtx, expr: NExpr) -> _EvalResult:
 def _eval_call_by_name(
     ctx: _EvalCtx, name: str, args: tuple[NExpr, ...]
 ) -> _EvalResult:
-    """Evaluate a call to a builtin or memory op by name."""
-    # mstore: side effect on memory.
     if name == "mstore" and len(args) == 2:
         addr = _to_scalar(_eval_expr(ctx, args[0]))
         value = _to_scalar(_eval_expr(ctx, args[1]))
         ctx.memory[u256(addr)] = u256(value)
         return 0
 
-    # mload: read from memory.
     if name == "mload" and len(args) == 1:
         addr = _to_scalar(_eval_expr(ctx, args[0]))
         return ctx.memory.get(u256(addr), 0)
 
-    # Regular arithmetic builtin.
     evaluated = tuple(_to_scalar(_eval_expr(ctx, a)) for a in args)
     return eval_pure_builtin(name, evaluated)
 
@@ -341,7 +276,6 @@ def _eval_call_by_name(
 def _call_function_def(
     ctx: _EvalCtx, fdef: NFunctionDef, args: tuple[NExpr, ...]
 ) -> _EvalResult:
-    """Call a local helper function, sharing memory with the caller."""
     evaluated_args = tuple(_to_scalar(_eval_expr(ctx, a)) for a in args)
     result = evaluate_normalized(
         fdef,

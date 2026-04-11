@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import assert_never
 
-from .evm_builtins import OP_TO_LEAN_HELPER
-from .evm_builtins import eval_pure_builtin as _eval_builtin
-from .evm_builtins import u256
-from .model_ir import (
+from ..evm_builtins import OP_TO_LEAN_HELPER
+from ..evm_builtins import eval_pure_builtin as _eval_builtin
+from ..evm_builtins import u256
+from ..model_ir import (
     Assignment,
     Call,
     ConditionalBlock,
@@ -18,7 +18,7 @@ from .model_ir import (
     Project,
     Var,
 )
-from .yul_ast import EvaluationError
+from ..yul_ast import EvaluationError
 
 
 def _expect_scalar(value: ModelValue, *, context: str) -> int:

@@ -12,9 +12,9 @@ from .lean_names import (
 )
 from .model_config import EmissionConfig, TransformConfig
 from .model_helpers import (
-    _collect_model_binders,
-    _model_call_names_in_stmt,
+    collect_model_binders,
     collect_model_opcodes,
+    model_call_names_in_stmt,
 )
 from .model_ir import (
     Assignment,
@@ -234,7 +234,7 @@ def _build_lean_emission_plan(
         skipped_norm_callees = sorted(
             callee
             for stmt in model.assignments
-            for callee in _model_call_names_in_stmt(stmt)
+            for callee in model_call_names_in_stmt(stmt)
             if callee in planned_by_name and not planned_by_name[callee].emit_norm
         )
         if skipped_norm_callees:
@@ -361,7 +361,7 @@ def build_lean_source(
     )
 
     for model in models:
-        for binder in _collect_model_binders(model):
+        for binder in collect_model_binders(model):
             validate_ident(
                 binder,
                 what=f"binder in model {model.fn_name!r}",
