@@ -172,7 +172,7 @@ def collect_function_defs(block: NBlock) -> list[NFunctionDef]:
     return out
 
 
-def max_symbol_id(func: NormalizedFunction) -> int:
+def max_symbol_id(func: NormalizedFunction | NFunctionDef) -> int:
     """Find the maximum ``SymbolId._id`` in *func*."""
     result: list[int] = [0]
 
@@ -180,6 +180,8 @@ def max_symbol_id(func: NormalizedFunction) -> int:
         if sid._id > result[0]:
             result[0] = sid._id
 
+    if isinstance(func, NFunctionDef):
+        _check(func.symbol_id)
     for sid in func.params:
         _check(sid)
     for sid in func.returns:

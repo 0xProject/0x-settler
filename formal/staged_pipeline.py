@@ -4,7 +4,7 @@ Lower selected Yul targets to FunctionModel.
 
 from __future__ import annotations
 
-from norm_simplify import lower_leave, simplify_function_def, simplify_normalized
+from norm_simplify import lower_leave, simplify_normalized
 from norm_validate import validate_restricted_boundary
 from staged_selection import SelectedHelperInfo, SelectedTargetInfo, SelectionPlan
 
@@ -150,9 +150,8 @@ def _build_inline_defs(
     local_defs: dict[SymbolId, NFunctionDef] = {}
     top_level_defs: dict[str, NFunctionDef] = {}
     for helper in target.helper_infos:
-        helper_def = _prepare_helper_for_inlining(helper)
-        helper_def = _rewrite_selected_calls_in_fdef(
-            simplify_function_def(helper_def),
+        helper_def = _prepare_helper(
+            helper,
             local_selected_map=local_selected_map,
             top_level_selected_map=top_level_selected_map,
         )
@@ -171,41 +170,32 @@ def _build_inline_defs(
     return local_defs, top_level_defs
 
 
-def _prepare_helper_for_inlining(helper: SelectedHelperInfo) -> NFunctionDef:
+def _prepare_helper(
+    helper: SelectedHelperInfo,
+    *,
+    local_selected_map: dict[SymbolId, str],
+    top_level_selected_map: dict[str, str],
+) -> NFunctionDef:
+    """Normalize, simplify, constprop, and rewrite a helper for inlining."""
     normalized = normalize_function(helper.func, helper.resolution)
-    return _prepare_function_def(
-        NFunctionDef(
-            name=normalized.name,
-            symbol_id=helper.resolution.declarations[helper.func.name_span],
-            params=normalized.params,
-            param_names=normalized.param_names,
-            returns=normalized.returns,
-            return_names=normalized.return_names,
-            body=normalized.body,
-        )
-    )
-
-
-def _prepare_function_def(fdef: NFunctionDef) -> NFunctionDef:
-    simplified = simplify_function_def(fdef)
-    normalized = NormalizedFunction(
+    symbol_id = helper.resolution.declarations[helper.func.name_span]
+    # Simplify and constprop operate on NormalizedFunction; do one round-trip.
+    simplified = simplify_normalized(normalized)
+    simplified = propagate_constants(simplified)
+    simplified = simplify_normalized(simplified)
+    fdef = NFunctionDef(
         name=simplified.name,
+        symbol_id=symbol_id,
         params=simplified.params,
         param_names=simplified.param_names,
         returns=simplified.returns,
         return_names=simplified.return_names,
         body=simplified.body,
     )
-    normalized = propagate_constants(normalized)
-    normalized = simplify_normalized(normalized)
-    return NFunctionDef(
-        name=normalized.name,
-        symbol_id=fdef.symbol_id,
-        params=normalized.params,
-        param_names=normalized.param_names,
-        returns=normalized.returns,
-        return_names=normalized.return_names,
-        body=normalized.body,
+    return _rewrite_selected_calls_in_fdef(
+        fdef,
+        local_selected_map=local_selected_map,
+        top_level_selected_map=top_level_selected_map,
     )
 
 

@@ -104,7 +104,7 @@ def _collect_local_funcs(block: NBlock) -> dict[SymbolId, NFunctionDef]:
 
 
 def evaluate_normalized(
-    func: NormalizedFunction,
+    func: NormalizedFunction | NFunctionDef,
     args: tuple[int, ...],
     *,
     function_table: dict[str, NormalizedFunction] | None = None,
@@ -343,17 +343,9 @@ def _call_function_def(
     ctx: _EvalCtx, fdef: NFunctionDef, args: tuple[NExpr, ...]
 ) -> _EvalResult:
     """Call a local helper function, sharing memory with the caller."""
-    nf = NormalizedFunction(
-        name=fdef.name,
-        params=fdef.params,
-        param_names=fdef.param_names,
-        returns=fdef.returns,
-        return_names=fdef.return_names,
-        body=fdef.body,
-    )
     evaluated_args = tuple(_to_scalar(_eval_expr(ctx, a)) for a in args)
     result = evaluate_normalized(
-        nf,
+        fdef,
         evaluated_args,
         function_table=ctx.named_funcs,
         enclosing_local_funcs=ctx.local_funcs,

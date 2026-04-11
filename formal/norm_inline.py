@@ -1146,19 +1146,7 @@ def inline_pure_helpers(
 
     max_id = max_symbol_id(func)
     for fdef in defs.values():
-        max_id = max(
-            max_id,
-            max_symbol_id(
-                NormalizedFunction(
-                    name=fdef.name,
-                    params=fdef.params,
-                    param_names=fdef.param_names,
-                    returns=fdef.returns,
-                    return_names=fdef.return_names,
-                    body=fdef.body,
-                )
-            ),
-        )
+        max_id = max(max_id, max_symbol_id(fdef))
     alloc = SymbolAllocator(max_id + 1)
 
     summaries: dict[SymbolId, FunctionSummary] = {}
