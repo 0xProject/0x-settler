@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.33;
+pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
 
@@ -11,17 +11,17 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 
 abstract contract KatanaMixin is FreeMemory, SettlerBase {
     constructor() {
         assert(block.chainid == 747474 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(/* SettlerAbstract, */ SettlerBase)
+        override(/* SettlerSwapAbstract, */ SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {

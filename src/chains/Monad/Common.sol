@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.33;
+pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
 
@@ -7,7 +7,6 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {Hanji} from "../../core/Hanji.sol";
-import {LfjTokenMill} from "../../core/LfjTokenMill.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -31,22 +30,22 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {MONAD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
-abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, Hanji, LfjTokenMill {
+abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, Hanji {
     constructor() {
         assert(block.chainid == 143 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerAbstract, SettlerBase)
+        override(SettlerSwapAbstract, SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
+        if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
             (
@@ -87,11 +86,6 @@ abstract contract MonadMixin is FreeMemory, SettlerBase, BalancerV3, UniswapV4, 
             ) = abi.decode(data, (IERC20, uint256, address, uint256, uint256, bool, uint256, uint256));
 
             sellToHanji(sellToken, bps, pool, sellScalingFactor, buyScalingFactor, isAsk, priceLimit, minBuyAmount);
-        } else if (action == uint32(ISettlerActions.LFJTM.selector)) {
-            (address recipient, IERC20 sellToken, uint256 bps, address pool, bool zeroForOne, uint256 minBuyAmount) =
-                abi.decode(data, (address, IERC20, uint256, address, bool, uint256));
-
-            sellToLfjTokenMill(recipient, sellToken, bps, pool, zeroForOne, minBuyAmount);
         } else {
             return false;
         }

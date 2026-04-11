@@ -24,11 +24,16 @@ jobs:
         with:
           version: v1.5.1
 
+      - name: Install solc 0.8.34
+        run: forge build -- src/chains/Mainnet/TakerSubmitted.sol
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.34
+
       - name: Install dependencies
         run: git submodule update --recursive --init
 
       - name: Install node dependencies
         run: npm install
 
-      - name: Check contract sizes
-        run: forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip BlastDeployer.sol --skip ModeDeployer.sol --skip 'test/*'
+      - name: Check chain-specific Settler contract sizes
+        run: forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip 'test/*' -- src/chains/

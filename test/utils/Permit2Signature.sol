@@ -49,10 +49,7 @@ contract Permit2Signature is Test {
     {
         permit = IAllowanceTransfer.PermitSingle({
             details: IAllowanceTransfer.PermitDetails({
-                token: address(token),
-                amount: type(uint160).max,
-                expiration: type(uint48).max,
-                nonce: nonce
+                token: address(token), amount: type(uint160).max, expiration: type(uint48).max, nonce: nonce
             }),
             spender: address(0),
             sigDeadline: type(uint256).max

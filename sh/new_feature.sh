@@ -128,6 +128,14 @@ declare -r safe_address
 . "$project_root"/sh/common_safe.sh
 . "$project_root"/sh/common_safe_deployer.sh
 
+declare deployment_safe_address
+if [[ ${@: -1} = [Dd][Aa][Oo] ]] ; then
+    deployment_safe_address="$(get_config governance.daoSafe)"
+else
+    deployment_safe_address="$(get_config governance.deploymentSafe)"
+fi
+declare -r deployment_safe_address
+
 declare signer
 IFS='' read -p 'What address will you submit with?: ' -e -r -i 0xEf37aD2BACD70119F141140f7B5E46Cd53a65fc4 signer
 declare -r signer
@@ -191,7 +199,7 @@ calls+=(
 )
 
 declare authorize_call
-authorize_call="$(cast calldata "$authorize_sig" $feature "$(get_config governance.deploymentSafe)" "$auth_deadline")"
+authorize_call="$(cast calldata "$authorize_sig" $feature "$deployment_safe_address" "$auth_deadline")"
 declare -r authorize_call
 
 calls+=(
@@ -227,7 +235,7 @@ gas_limit="$(apply_gas_multiplier $gas_estimate)"
 declare -r -i gas_limit
 
 if [[ $wallet_type = 'frame' ]] ; then
-    cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "${args[@]}"
+    cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "${args[@]}"
 else
     cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "${args[@]}"
 fi

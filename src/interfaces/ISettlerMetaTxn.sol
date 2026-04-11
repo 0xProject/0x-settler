@@ -5,7 +5,7 @@ import {ISettlerBase} from "./ISettlerBase.sol";
 
 interface ISettlerMetaTxn is ISettlerBase {
     function executeMetaTxn(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32 /* zid & affiliate */,
         address msgSender,

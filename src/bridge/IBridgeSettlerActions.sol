@@ -47,4 +47,7 @@ interface IBridgeSettlerActions {
 
     /// @dev Bridge ERC20 through DeBridge
     function BRIDGE_TO_DEBRIDGE(uint256 globalFee, bytes calldata createOrderData) external;
+
+    /// @dev Bridge ERC20 through Chainlink CCIP, paying fees in native token
+    function BRIDGE_TO_CCIP(address token, address router, bytes calldata ccipSendData) external;
 }

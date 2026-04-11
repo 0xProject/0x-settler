@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.33;
+pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
 
@@ -26,21 +26,21 @@ import {zebraV3Factory, zebraV3InitHash, zebraV3ForkId, IZebraV3SwapCallback} fr
 import {metavaultV3Factory, metavaultV3ForkId} from "../../core/univ3forks/MetavaultV3.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
+import {SettlerAbstract, SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 
 abstract contract ScrollMixin is FreeMemory, SettlerBase, MaverickV2, DodoV1, DodoV2 {
     constructor() {
         assert(block.chainid == 534352 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerBase, SettlerAbstract)
+        override(SettlerBase, SettlerSwapAbstract)
         DANGEROUS_freeMemory
         returns (bool)
     {
-        if (super._dispatch(i, action, data)) {
+        if (super._dispatch(i, action, data, slippage)) {
             return true;
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (

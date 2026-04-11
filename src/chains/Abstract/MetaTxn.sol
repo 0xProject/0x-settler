@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.33;
+pragma solidity =0.8.34;
 
 import {AbstractMixin} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
@@ -9,7 +9,6 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
-import {SettlerAbstract} from "../../SettlerAbstract.sol";
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
@@ -36,13 +35,13 @@ contract AbstractSettlerMetaTxn is SettlerMetaTxn, AbstractMixin {
     }
 
     // Solidity inheritance is stupid
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerAbstract, SettlerBase, AbstractMixin)
+        override(SettlerBase, AbstractMixin)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _isRestrictedTarget(address target)
@@ -59,7 +58,13 @@ contract AbstractSettlerMetaTxn is SettlerMetaTxn, AbstractMixin {
         return super._msgSender();
     }
 
-    function _isEraVmUniV3Fork(uint8 forkId) internal pure virtual override(AbstractMixin, UniswapV3Fork) returns (bool) {
+    function _isEraVmUniV3Fork(uint8 forkId)
+        internal
+        pure
+        virtual
+        override(AbstractMixin, UniswapV3Fork)
+        returns (bool)
+    {
         return super._isEraVmUniV3Fork(forkId);
     }
 }

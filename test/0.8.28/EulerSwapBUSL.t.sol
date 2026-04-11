@@ -93,10 +93,7 @@ contract CurveLibTest is Test {
         assertEq(CurveLib.f(x, px, py, x0, y0, cx), CurveLib.saturatingF(x, px, py, x0, y0, cx));
     }
 
-    function test_fuzzF(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy)
-        public
-        pure
-    {
+    function test_fuzzF(uint256 x, uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy) public pure {
         // Params
         px = bound(px, 1, 1e25);
         py = bound(py, 1, 1e25);
@@ -245,8 +242,7 @@ contract CurveLibTest is Test {
         uint256 yMin = 0;
         while (yMin < yMax) {
             uint256 yMid = (yMin + yMax) / 2;
-            if (
-                CurveLib.verify(
+            if (CurveLib.verify(
                     newReserve0,
                     yMid,
                     equilibriumReserve0,
@@ -255,8 +251,7 @@ contract CurveLibTest is Test {
                     priceY,
                     concentrationX,
                     concentrationY
-                )
-            ) {
+                )) {
                 yMax = yMid;
             } else {
                 yMin = yMid + 1;
@@ -410,8 +405,7 @@ contract CurveLibTest is Test {
         uint256 xMin = 0;
         while (xMin < xMax) {
             uint256 xMid = (xMin + xMax) / 2;
-            if (
-                CurveLib.verify(
+            if (CurveLib.verify(
                     xMid,
                     newReserve1,
                     equilibriumReserve0,
@@ -420,8 +414,7 @@ contract CurveLibTest is Test {
                     priceY,
                     concentrationX,
                     concentrationY
-                )
-            ) {
+                )) {
                 xMax = xMid;
             } else {
                 xMin = xMid + 1;
@@ -459,10 +452,7 @@ contract CurveLibTest is Test {
         return xMin;
     }
 
-    function test_fuzzFEquilibrium(uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy)
-        public
-        pure
-    {
+    function test_fuzzFEquilibrium(uint256 px, uint256 py, uint256 x0, uint256 y0, uint256 cx, uint256 cy) public pure {
         // Params
         px = bound(px, 1, 1e25);
         py = bound(py, 1, 1e25);
