@@ -324,20 +324,6 @@ class SyntaxParser:
 
     # -- public API ---------------------------------------------------------
 
-    def parse_function(self) -> FunctionDef:
-        """Parse a single function definition at current position."""
-        return self._parse_function_def()
-
-    def parse_functions(self) -> list[FunctionDef]:
-        """Parse all top-level function definitions in the token stream.
-
-        Returns functions from the first brace-delimited scope that
-        contains any.  Equivalent to ``parse_function_groups()[0]``
-        when at least one group exists, or ``[]`` otherwise.
-        """
-        groups = self.parse_function_groups()
-        return groups[0] if groups else []
-
     def parse_function_groups(self) -> list[list[FunctionDef]]:
         """Parse function definitions grouped by brace-delimited scope.
 

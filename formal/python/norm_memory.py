@@ -16,6 +16,7 @@ Rejected:
 - duplicate writes / overwrites
 - reads before writes
 - memory writes inside control flow
+- for-loops
 """
 
 from __future__ import annotations
@@ -324,27 +325,10 @@ def _lower_stmt(
         return
 
     if isinstance(stmt, NFor):
-        _reject_memory_writes_in_block(stmt.init, "for-init")
-        if stmt.condition_setup is not None:
-            _reject_memory_writes_in_block(stmt.condition_setup, "for-condition-setup")
-        _reject_memory_writes_in_block(stmt.post, "for-post")
-        _reject_memory_writes_in_block(stmt.body, "for-body")
-        new_cond = _resolve_memory_in_expr(stmt.condition, ctx.mem, env)
-        new_cond_setup = (
-            _lower_block(stmt.condition_setup, ctx, dict(env))
-            if stmt.condition_setup is not None
-            else None
+        raise ParseError(
+            "NFor reached memory lowering. The staged pipeline should reject "
+            "for-loops before memory lowering."
         )
-        out.append(
-            NFor(
-                init=stmt.init,
-                condition=new_cond,
-                condition_setup=new_cond_setup,
-                post=stmt.post,
-                body=stmt.body,
-            )
-        )
-        return
 
     if isinstance(stmt, (NLeave, NFunctionDef)):
         out.append(stmt)

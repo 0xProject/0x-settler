@@ -59,12 +59,12 @@ from .selection import build_selection_plan
 from .testing.model_eval import build_model_table, evaluate_function_model
 from .testing.norm_eval import evaluate_normalized
 from .testing.restricted_eval import evaluate_restricted
+from .testing.syntax import SyntaxParser, resolve_function
 from .translator import translate_yul_to_models
 from .yul_ast import EvaluationError, ParseError
 from .yul_lexer import tokenize_yul
 from .yul_normalize import normalize_function
-from .yul_parser import SyntaxParser
-from .yul_resolve import ResolutionResult, resolve_function, resolve_module
+from .yul_resolve import ResolutionResult, resolve_module
 
 
 def branch(
@@ -9687,10 +9687,10 @@ class ResolverSymbolIdTest(unittest.TestCase):
 
     def test_symbol_ids_are_unique_across_declarations(self) -> None:
         result = self._resolve("function f(x, y) -> z { let w := x  z := w }")
-        # x, y, z, w → 4 distinct symbols.
-        self.assertEqual(len(result.symbols), 4)
+        # Module-style resolution also records the top-level function symbol.
+        self.assertEqual(len(result.symbols), 5)
         ids = [info.id for info in result.symbols.values()]
-        self.assertEqual(len(set(ids)), 4)
+        self.assertEqual(len(set(ids)), 5)
 
     def test_variable_references_resolve_to_correct_declaration(self) -> None:
         result = self._resolve("function f(x) -> z { z := x }")
@@ -9965,9 +9965,8 @@ class ResolverModuleTest(unittest.TestCase):
                 builtins=frozenset({"add"}),
             )
 
-    def test_per_function_resolve_still_classifies_sibling_as_unresolved(self) -> None:
-        """resolve_function (without module context) classifies sibling calls
-        as UnresolvedTarget, preserving existing behavior."""
+    def test_single_function_resolution_keeps_absent_sibling_unresolved(self) -> None:
+        """A single-function module still leaves truly absent callees unresolved."""
         tokens = tokenize_yul("function f(x) -> z { z := g(x) }")
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func)
@@ -11563,13 +11562,25 @@ class MemoryLowerTest(unittest.TestCase):
 
     def test_mstore_inside_for_rejected(self) -> None:
         """mstore inside for-loop is rejected."""
-        with self.assertRaisesRegex(ParseError, "inside control flow"):
+        with self.assertRaisesRegex(ParseError, "NFor reached memory lowering"):
             self._pipeline("""
                 function f(n) -> z {
                     for { let i := 0 } lt(i, n) { i := add(i, 1) } {
                         mstore(0, i)
                     }
                     z := mload(0)
+                }
+            """)
+
+    def test_for_loop_is_rejected_before_partial_memory_lowering(self) -> None:
+        """Regression: lower_memory must not partially rewrite loops and leave them behind."""
+        with self.assertRaisesRegex(ParseError, "NFor reached memory lowering"):
+            self._pipeline("""
+                function f() -> z {
+                    mstore(0, 7)
+                    for { let i := mload(0) } lt(0, mload(0)) { let j := mload(0) } {
+                        z := mload(0)
+                    }
                 }
             """)
 
@@ -11610,18 +11621,17 @@ class MemoryLowerTest(unittest.TestCase):
         """)
         self.assertEqual(evaluate_normalized(nf, ()), (20,))
 
-    def test_for_condition_mload_resolved(self) -> None:
-        """mload in top-level for condition must be resolved."""
-        nf = self._pipeline("""
-            function f() -> z {
-                mstore(0, 0)
-                for { let i := 0 } lt(i, mload(0)) { i := add(i, 1) } {
-                    z := add(z, 1)
+    def test_for_condition_mload_rejected(self) -> None:
+        """Memory lowering fails closed if a for-loop reaches it at all."""
+        with self.assertRaisesRegex(ParseError, "NFor reached memory lowering"):
+            self._pipeline("""
+                function f() -> z {
+                    mstore(0, 0)
+                    for { let i := 0 } lt(i, mload(0)) { i := add(i, 1) } {
+                        z := add(z, 1)
+                    }
                 }
-            }
-        """)
-        # mload(0) resolves to NConst(0), lt(i, 0) is always false, loop never runs.
-        self.assertEqual(evaluate_normalized(nf, ()), (0,))
+            """)
 
     def test_snapshot_with_reassignment(self) -> None:
         """mstore(0, x) then x := add(x, 1) then mload(0) must return original x=5, not 6."""
@@ -11660,23 +11670,19 @@ class MemoryLowerTest(unittest.TestCase):
         self.assertEqual(evaluate_normalized(nf, (0,)), (0,))
         self.assertEqual(evaluate_normalized(nf, (1,)), (10,))
 
-    def test_mload_in_nested_for_condition_resolved(self) -> None:
-        """Nested for-conditions may read straight-line memory and preserve semantics."""
-        nf = self._pipeline("""
-            function f(x) -> z {
-                mstore(0, 0)
-                if x {
-                    for { let i := 0 } iszero(mload(0)) { i := add(i, 1) } {
-                        z := 1
+    def test_mload_in_nested_for_condition_rejected(self) -> None:
+        """Nested loops are rejected too; memory lowering no longer carries loop logic."""
+        with self.assertRaisesRegex(ParseError, "NFor reached memory lowering"):
+            self._pipeline("""
+                function f(x) -> z {
+                    mstore(0, 0)
+                    if x {
+                        for { let i := 0 } iszero(mload(0)) { i := add(i, 1) } {
+                            z := 1
+                        }
                     }
                 }
-            }
-        """)
-        self.assertEqual(evaluate_normalized(nf, (0,)), (0,))
-        with self.assertRaisesRegex(
-            EvaluationError, "For-loop exceeded maximum iteration count"
-        ):
-            evaluate_normalized(nf, (1,))
+            """)
 
 
 class RestrictedIRTest(unittest.TestCase):

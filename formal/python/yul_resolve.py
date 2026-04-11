@@ -1,6 +1,9 @@
 """
 Binder resolution and scope validation for Yul syntax ASTs.
 
+Production code should resolve sibling functions together through
+``resolve_module()`` so call classification sees the real top-level scope.
+
 Walks a ``yul_ast.FunctionDef`` and:
 - assigns unique ``SymbolId``s to every declaration
 - attaches each variable reference to its declaring ``SymbolId``
@@ -167,44 +170,6 @@ class ResolutionResult:
     references: dict[Span, SymbolId]
     declarations: dict[Span, SymbolId]
     call_targets: dict[Span, CallTarget]
-
-
-# ---------------------------------------------------------------------------
-# Resolver
-# ---------------------------------------------------------------------------
-
-
-def resolve_function(
-    func: FunctionDef,
-    *,
-    builtins: frozenset[str] = frozenset(),
-) -> ResolutionResult:
-    """Resolve symbols and validate lexical scopes for a parsed function.
-
-    Assigns unique ``SymbolId``s to every declaration, attaches each
-    variable reference to its declaring ``SymbolId``, and classifies
-    each call target.
-
-    *builtins* is the set of known EVM opcode names (e.g. ``add``,
-    ``shr``).  Calls to builtins are classified as ``BuiltinTarget``;
-    calls to locally-declared functions as ``LocalFunctionTarget``;
-    everything else as ``UnresolvedTarget``.
-
-    Raises ``ParseError`` on any lexical violation.
-    """
-    if func.name in builtins:
-        raise ParseError(
-            f"Cannot use builtin function name {func.name!r} " f"as identifier name"
-        )
-    ctx = _ResolveCtx(table=SymbolTable(builtins=builtins), builtins=builtins)
-    _resolve_function_def(ctx, func)
-    return ResolutionResult(
-        func=func,
-        symbols=ctx.symbols,
-        references=ctx.references,
-        declarations=ctx.declarations,
-        call_targets=ctx.call_targets,
-    )
 
 
 def _resolve_function_def(ctx: _ResolveCtx, func: FunctionDef) -> None:
