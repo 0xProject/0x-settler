@@ -8,7 +8,7 @@ from model_config import ModelConfig
 from model_transforms import apply_optional_model_transforms
 from model_validate import validate_model_set
 from staged_pipeline import translate_selected_models
-from staged_selection import build_selection_plan, normalize_requested_functions
+from staged_selection import build_selection_plan
 
 
 def translate_yul_to_models(
@@ -18,11 +18,10 @@ def translate_yul_to_models(
     selected_functions: tuple[str, ...] | None = None,
     optimize: bool = True,
 ) -> list["FunctionModel"]:
-    selected = normalize_requested_functions(config.selection, selected_functions)
     selection_plan = build_selection_plan(
         yul_text,
         config.selection,
-        selected_functions=selected,
+        selected_functions=selected_functions,
     )
     models = translate_selected_models(selection_plan)
     models = apply_optional_model_transforms(

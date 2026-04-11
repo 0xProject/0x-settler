@@ -9,8 +9,6 @@ from lean_emit import build_lean_source
 from lean_names import validate_ident
 from model_config import ModelConfig
 from model_helpers import collect_model_opcodes
-from staged_selection import normalize_requested_functions
-
 from yul_ast import ParseError
 from yul_to_lean import translate_yul_to_models
 
@@ -62,9 +60,7 @@ def run_generator(config: ModelConfig) -> int:
     args = parser.parse_args(namespace=_CliArgs())
 
     validate_ident(args.namespace, what="Lean namespace")
-    selected_functions = _parse_function_selection(
-        config, args.function, args.functions
-    )
+    selected_functions = _parse_function_selection(args.function, args.functions)
     if args.yul == "-":
         stdin = sys.stdin
         if stdin is None:
@@ -98,10 +94,9 @@ def run_generator(config: ModelConfig) -> int:
 
 
 def _parse_function_selection(
-    config: ModelConfig,
     functions: list[str] | None,
     csv_functions: str,
-) -> tuple[str, ...]:
+) -> tuple[str, ...] | None:
     selected: list[str] = []
     if functions:
         selected.extend(functions)
@@ -109,7 +104,4 @@ def _parse_function_selection(
         name = raw_name.strip()
         if name:
             selected.append(name)
-    return normalize_requested_functions(
-        config.selection,
-        selected or None,
-    )
+    return tuple(selected) if selected else None
