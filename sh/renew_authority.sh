@@ -135,8 +135,31 @@ declare -r signer
 . "$project_root"/sh/common_wallet_type.sh
 . "$project_root"/sh/common_gas.sh
 
-declare -r -i feature="$1"
+declare -i feature="$1"
 shift
+if (( $# > 0 )) && [[ $1 =~ ^[0-9]+$ ]] ; then
+    declare -a feature=( $feature )
+    while (( $# > 0 )) && [[ $1 =~ ^[0-9]+$ ]] ; do
+        feature+=( $1 )
+        shift
+    done
+    declare -r -a feature
+else
+    declare -r -i feature
+fi
+
+declare deployment_safe_address
+if [[ ${@: -1} = [Dd][Aa][Oo] ]] ; then
+    deployment_safe_address="$(get_config governance.daoSafe)"
+    if [[ $deployment_safe_address = [Nn][Uu][Ll][Ll] ]] ; then
+        echo 'DAO Safe{Wallet} not configured for '"$chain_display_name" >&2
+        echo 'Exiting...' >&2
+        exit 0
+    fi
+else
+    deployment_safe_address="$(get_config governance.deploymentSafe)"
+fi
+declare -r deployment_safe_address
 
 declare -r authorize_sig='authorize(uint128,address,uint40)(bool)'
 
@@ -164,30 +187,43 @@ declare -i auth_deadline
 auth_deadline="$(_compat_date "$auth_deadline_datestring" +%s)"
 declare -r -i auth_deadline
 
-declare renew_authority_calldata
-renew_authority_calldata="$(cast calldata "$authorize_sig" $feature "$(get_config governance.deploymentSafe)" $auth_deadline)"
-declare -r renew_authority_calldata
+declare multisend_data=''
+declare -i tokenid
+for tokenid in "${feature[@]}" ; do
+    declare renew_authority_calldata
+    declare packed_signatures
+    declare -a exec_args
+    declare exec_call
 
-declare packed_signatures
-packed_signatures="$(retrieve_signatures renew_authority "$renew_authority_calldata")"
-declare -r packed_signatures
+    renew_authority_calldata="$(cast calldata "$authorize_sig" $tokenid "$deployment_safe_address" $auth_deadline)"
+    packed_signatures="$(retrieve_signatures renew_authority "$renew_authority_calldata")"
+    exec_args=(
+        # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
+        "$(target 0)" 0 "$renew_authority_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
+    )
+    exec_call="$(cast calldata "$execTransaction_sig" "${exec_args[@]}")"
 
-declare -r -a args=(
-    "$safe_address" "$execTransaction_sig"
-    # to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
-    "$(target 0)" 0 "$renew_authority_calldata" 0 0 0 0 "$(cast address-zero)" "$(cast address-zero)" "$packed_signatures"
-)
+    multisend_data="$(cast concat-hex "$multisend_data" 0x00 "$safe_address" "$(cast to-uint256 0)" "$(cast to-uint256 $(( (${#exec_call} - 2) / 2 )))" "$exec_call")"
+
+    SAFE_NONCE_INCREMENT=$((${SAFE_NONCE_INCREMENT:-0} + 1))
+
+    unset -v exec_call
+    unset -v exec_args
+    unset -v packed_signatures
+    unset -v renew_authority_calldata
+done
+unset -v tokenid
+declare -r multisend_data
 
 declare -i gas_estimate
-gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${extra_flags[@]}" "${args[@]}")"
+gas_estimate="$(cast estimate --from "$signer" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${extra_flags[@]}" "$multicall_address" "$multisend_sig" "$multisend_data")"
 declare -r -i gas_estimate
 declare -i gas_limit
 gas_limit="$(apply_gas_multiplier $gas_estimate)"
 declare -r -i gas_limit
 
 if [[ $wallet_type = 'frame' ]] ; then
-    cast send --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "${args[@]}"
+    cast send --timeout 300 --rpc-timeout 300 --confirmations 10 --from "$signer" --rpc-url 'http://127.0.0.1:1248/' --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "$multicall_address" "$multisend_sig" "$multisend_data"
 else
-    cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "${args[@]}"
+    cast send --confirmations 10 --from "$signer" --rpc-url "$rpc_url" --chain $chainid --gas-price $gas_price --gas-limit $gas_limit "${wallet_args[@]}" "${extra_flags[@]}" "$multicall_address" "$multisend_sig" "$multisend_data"
 fi
-

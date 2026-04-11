@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.33;
+pragma solidity =0.8.34;
 
 import {Panic} from "./Panic.sol";
 import {UnsafeMath} from "./UnsafeMath.sol";
@@ -1864,10 +1864,9 @@ using Lib512MathArithmetic for uint512 global;
 
 library Lib512MathUserDefinedHelpers {
     function checkNull(uint512 x, uint512 y) internal pure {
-        assembly ("memory-safe") {
-            if iszero(mul(x, y)) {
-                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
-                mstore(0x20, 0x01) // code for "assertion failure"
+        unchecked {
+            if (uint256(uint512.unwrap(x)) * uint256(uint512.unwrap(y)) == 0) {
+                Panic.panic(Panic.ASSERT_FAIL);
             }
         }
     }

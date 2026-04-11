@@ -30,11 +30,17 @@ function retrieve_signatures {
     declare -a _retrieve_signatures_result
     if [[ $safe_url = 'NOT SUPPORTED' ]] || [[ ${FORCE_IGNORE_STS-No} = [Yy]es ]] ; then
         set +f
-        declare confirmation
-        for confirmation in "$project_root"/"$_retrieve_signatures_prefix"_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_*_$(nonce).txt ; do
-            signatures+=("$(<"$confirmation")")
-            if (( ${#signatures[@]} == 2 )) ; then
-                break
+        declare _retrieve_signatures_confirmation
+        declare _retrieve_signatures_signer
+        for _retrieve_signatures_confirmation in "$project_root"/"$_retrieve_signatures_prefix"_"$chain_display_name"_"$(git rev-parse --short=8 HEAD)"_*_$(nonce).txt ; do
+            _retrieve_signatures_signer="${_retrieve_signatures_confirmation%%_$(nonce).txt}"
+            _retrieve_signatures_signer="${_retrieve_signatures_signer##*_}"
+            _retrieve_signatures_confirmation="$(<"$_retrieve_signatures_confirmation")"
+            if cast wallet verify --no-hash --address "$_retrieve_signatures_signer" "$_retrieve_signatures_signing_hash" "$_retrieve_signatures_confirmation" >&2 ; then
+                signatures+=("$_retrieve_signatures_confirmation")
+                if (( ${#signatures[@]} == 2 )) ; then
+                    break
+                fi
             fi
         done
         set -f

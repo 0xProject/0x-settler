@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.33;
+pragma solidity =0.8.34;
 
 import {BaseSettlerMetaTxn} from "./MetaTxn.sol";
 import {SettlerIntent} from "../../SettlerIntent.sol";
@@ -23,7 +23,7 @@ contract BaseSettlerIntent is SettlerIntent, BaseSettlerMetaTxn {
 
     // Solidity inheritance is stupid
     function executeMetaTxn(
-        AllowedSlippage calldata slippage,
+        AllowedSlippage memory slippage,
         bytes[] calldata actions,
         bytes32, /* zid & affiliate */
         address msgSender,
@@ -32,12 +32,12 @@ contract BaseSettlerIntent is SettlerIntent, BaseSettlerMetaTxn {
         return super.executeMetaTxn(slippage, actions, bytes32(0), msgSender, sig);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
+    function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
-        override(BaseSettlerMetaTxn, SettlerBase, SettlerAbstract)
+        override(BaseSettlerMetaTxn, SettlerBase)
         returns (bool)
     {
-        return super._dispatch(i, action, data);
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _isForwarded() internal view override(AbstractContext, Context, SettlerIntent) returns (bool) {

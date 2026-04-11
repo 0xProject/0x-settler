@@ -1,5 +1,6 @@
 [profile.default]
 unchecked_cheatcode_artifacts = true
+ignored_error_codes = [2394, 2424, 4591, 5159, 9170]
 
 # https://github.com/foundry-rs/foundry/issues/6780#issuecomment-1962319449
 bytecode_hash = "none"

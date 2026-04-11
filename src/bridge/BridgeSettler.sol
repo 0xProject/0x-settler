@@ -35,7 +35,10 @@ abstract contract BridgeSettler is IBridgeSettlerTakerSubmitted, Permit2PaymentT
         return true;
     }
 
-    function execute(bytes[] calldata actions, bytes32 /* zid & affiliate */ )
+    function execute(
+        bytes[] calldata actions,
+        bytes32 /* zid & affiliate */
+    )
         public
         payable
         override

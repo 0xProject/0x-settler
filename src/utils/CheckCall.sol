@@ -13,11 +13,7 @@ library CheckCall {
      * @param minReturnBytes `success` is false if the call doesn't return at least this much return
      *                       data
      */
-    function checkCall(address target, bytes memory data, uint256 minReturnBytes)
-        internal
-        view
-        returns (bool success)
-    {
+    function checkCall(address target, bytes memory data, uint256 minReturnBytes) internal view returns (bool success) {
         assembly ("memory-safe") {
             let beforeGas
             {

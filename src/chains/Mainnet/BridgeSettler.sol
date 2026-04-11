@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.33;
+pragma solidity =0.8.34;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
@@ -15,11 +15,7 @@ contract MainnetBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBri
         assert(block.chainid == 1 || block.chainid == 31337);
     }
 
-    function _dispatch(uint256 i, uint256 action, bytes calldata data)
-        internal
-        override(BridgeSettlerBase, SettlerAbstract)
-        returns (bool)
-    {
+    function _dispatch(uint256 i, uint256 action, bytes calldata data) internal override returns (bool) {
         if (super._dispatch(i, action, data)) {
             return true;
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_ACROSS.selector)) {

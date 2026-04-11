@@ -125,11 +125,10 @@ your integration.
 
 * `0x0000000000001fF3684f28c67538d4D072C22734` on chains supporting the Cancun
   hardfork (Ethereum mainnet, Ethereum Sepolia testnet, Polygon, Base, Optimism,
-  Arbitrum, Blast, Bnb, Mode, World Chain, Gnosis, Fantom Sonic, Ink, Monad
-  testnet, Avalanche, Unichain, Berachain, Scroll, HyperEvm, Katana, Plasma,
-  Monad mainnet, Abstract, Linea, Tempo)
+  Arbitrum, Bnb, World Chain, Fantom Sonic, Ink, Avalanche, Unichain, Berachain,
+  Scroll, HyperEvm, Katana, Plasma, Monad mainnet, Abstract, Linea, Tempo)
 * `0x0000000000005E88410CcDFaDe4a5EfaE4b49562` on chains supporting the Shanghai
-  hardfork (Mantle, Taiko)
+  hardfork (Mantle)
 
 ### ERC2771 forwarding MultiCall address
 
@@ -1483,8 +1482,9 @@ is passed through the callback unmodified. _**This is critical for security.**_
 Some chains have a form of sequencer fee sharing or other chain-specific
 deploy-time setup. Configure this in the constructor of the Settler (and ideally
 in the constructor of the Deployer, remembering that this is complicated by the
-fact that the Deployer is a proxy). See the deployments to Blast and to Mode for
-examples.
+fact that the Deployer is a proxy). There are no present examples for how to do
+this, but there are historical examples for the chains Blast and Mode in the git
+history.
 
 Fourth, deploy `MultiCall`. Run [`BROADCAST=no ./sh/deploy_multicall.sh
 <CHAIN_NAME>`](sh/deploy_multicall.sh). Then switch to `BROADCAST=yes` to
