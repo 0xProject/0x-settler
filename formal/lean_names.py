@@ -8,6 +8,7 @@ import re
 from collections.abc import Mapping
 
 from evm_builtins import BASE_NORM_HELPERS, OP_TO_LEAN_HELPER
+
 from yul_ast import ParseError
 
 # Conservative subset of the fixed builtin command/term keywords from Lean 4's

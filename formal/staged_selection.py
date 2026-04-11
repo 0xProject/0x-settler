@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, assert_never
 
 from evm_builtins import EVM_BUILTINS, WORD_MOD, try_eval_pure_builtin
 from yul_lexer import tokenize_yul
+
 from yul_ast import (
     AssignStmt,
     Block,
@@ -35,8 +36,8 @@ from yul_ast import (
     NameExpr,
     ParseError,
     StringExpr,
-    SymbolId,
     SwitchStmt,
+    SymbolId,
     SynExpr,
     SynStmt,
     TopLevelFunctionTarget,
@@ -176,7 +177,9 @@ class _SelectionIndex:
         live_dependent = [info for info in matches if _summary(info).live_references]
         if live_dependent:
             return live_dependent
-        clean_candidates = [info for info in matches if not _summary(info).dead_references]
+        clean_candidates = [
+            info for info in matches if not _summary(info).dead_references
+        ]
         if clean_candidates:
             return clean_candidates
         return matches
@@ -252,7 +255,9 @@ class _SelectionIndex:
                 visible_local_summaries=combined,
             )
             if terminated:
-                dead = dead or stmt_summary.live_references or stmt_summary.dead_references
+                dead = (
+                    dead or stmt_summary.live_references or stmt_summary.dead_references
+                )
                 continue
             live = live or stmt_summary.live_references
             dead = dead or stmt_summary.dead_references
@@ -333,7 +338,9 @@ class _SelectionIndex:
                     )
                 return _ReferenceAnalysisResult(
                     live,
-                    dead or then_summary.live_references or then_summary.dead_references,
+                    dead
+                    or then_summary.live_references
+                    or then_summary.dead_references,
                     False,
                 )
 
@@ -567,9 +574,9 @@ class _SelectionIndex:
             if _known_matches_info(helper_info, known):
                 live = True
         elif isinstance(target, LocalFunctionTarget):
-            helper_info = self.local_info_by_group_top_level[group_idx][top_level_name].get(
-                target.id
-            )
+            helper_info = self.local_info_by_group_top_level[group_idx][
+                top_level_name
+            ].get(target.id)
             if helper_info is None:
                 raise ParseError(
                     f"Missing syntax info for local helper {target.name!r}"
@@ -623,7 +630,10 @@ def normalize_requested_functions(
         raise ParseError(f"Unsupported function(s): {', '.join(bad)}")
 
     normalized = list(selected)
-    if any(name != config.inner_fn for name in normalized) and config.inner_fn not in normalized:
+    if (
+        any(name != config.inner_fn for name in normalized)
+        and config.inner_fn not in normalized
+    ):
         if config.inner_fn not in allowed:
             raise ParseError(
                 f"Inner function {config.inner_fn!r} is not in function_order. "
@@ -746,6 +756,10 @@ def _index_block(
                 )
 
 
+def _syntax_info_token_start(info: _SyntaxFunctionInfo) -> int:
+    return info.func.span.start
+
+
 def _build_selection_index(
     tokens: list[tuple[str, str]],
     *,
@@ -764,12 +778,8 @@ def _build_selection_index(
     )
     infos_in_token_order = tuple(
         sorted(
-            (
-                info
-                for syntax_index in syntax_indexes
-                for info in syntax_index.values()
-            ),
-            key=lambda info: info.func.span.start,
+            (info for syntax_index in syntax_indexes for info in syntax_index.values()),
+            key=_syntax_info_token_start,
         )
     )
     top_level_by_group_name = tuple(
@@ -780,13 +790,12 @@ def _build_selection_index(
         }
         for syntax_index in syntax_indexes
     )
-    local_info_by_group_top_level: list[dict[str, dict[SymbolId, _SyntaxFunctionInfo]]] = []
+    local_info_by_group_top_level: list[
+        dict[str, dict[SymbolId, _SyntaxFunctionInfo]]
+    ] = []
     for group_idx, resolved_group in enumerate(resolved_groups):
         syntax_index = syntax_indexes[group_idx]
-        by_name_span = {
-            info.func.name_span: info
-            for info in syntax_index.values()
-        }
+        by_name_span = {info.func.name_span: info for info in syntax_index.values()}
         per_top_level: dict[str, dict[SymbolId, _SyntaxFunctionInfo]] = {}
         for top_level_name, result in resolved_group.items():
             per_top_level[top_level_name] = {
@@ -815,7 +824,10 @@ def _direct_call_targets(
     when those helpers are visited recursively.
     """
 
-    def walk_expr(expr: SynExpr, out: list[LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget]) -> None:
+    def walk_expr(
+        expr: SynExpr,
+        out: list[LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget],
+    ) -> None:
         if isinstance(expr, CallExpr):
             target = resolution.call_targets.get(expr.name_span)
             if target is None:
@@ -1043,9 +1055,7 @@ def build_selection_plan(
                         f"with {n_params} parameter(s) not found"
                     )
                 if exact_selector is None:
-                    raise ParseError(
-                        f"Exact Yul function {exact_yul_name!r} not found"
-                    )
+                    raise ParseError(f"Exact Yul function {exact_yul_name!r} not found")
                 raise ParseError(
                     f"Exact Yul function path {'::'.join(exact_selector)!r} not found"
                 )
@@ -1103,7 +1113,9 @@ def build_selection_plan(
             )
         known_exact_keys.add(
             FunctionKey(
-                group_idx=syntax_info_by_token_idx[resolved_positions[sol_name][0]].group_idx,
+                group_idx=syntax_info_by_token_idx[
+                    resolved_positions[sol_name][0]
+                ].group_idx,
                 token_idx=resolved_positions[sol_name][0],
             )
         )

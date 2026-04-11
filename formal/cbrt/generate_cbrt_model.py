@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from model_config import ModelConfig
 from model_ir import Call, Expr, IntLit
+
 from yul_to_lean import run
 
 

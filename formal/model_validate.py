@@ -11,12 +11,13 @@ from model_ir import (
     ConditionalBlock,
     Expr,
     FunctionModel,
-    Ite,
     IntLit,
+    Ite,
     ModelStatement,
     Project,
     Var,
 )
+
 from yul_ast import ParseError
 
 

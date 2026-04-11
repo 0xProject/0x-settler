@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import assert_never
 
 from evm_builtins import eval_pure_builtin, u256
+
 from norm_ir import (
     NAssign,
     NBind,
@@ -40,7 +41,6 @@ from norm_ir import (
 )
 from norm_walk import collect_modified_in_block, map_expr
 from yul_ast import EvaluationError, SymbolId
-
 
 # ---------------------------------------------------------------------------
 # Expression folding (via shared map_expr)

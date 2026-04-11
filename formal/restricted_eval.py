@@ -8,6 +8,7 @@ evaluator.
 from __future__ import annotations
 
 from evm_builtins import eval_pure_builtin, u256
+
 from restricted_ir import (
     RAssignment,
     RBranch,
@@ -23,7 +24,6 @@ from restricted_ir import (
     RStatement,
 )
 from yul_ast import EvaluationError, SymbolId
-
 
 # ---------------------------------------------------------------------------
 # Expression evaluation

@@ -41,6 +41,7 @@ if TYPE_CHECKING:
     from model_config import ModelConfig
     from model_ir import FunctionModel
     from staged_selection import FunctionKey, SelectionPlan, _SyntaxFunctionInfo
+
     from yul_ast import SymbolId
 
 
@@ -161,8 +162,7 @@ def _generated_model_def_names(
         base_name = config.model_names.get(sol_name)
         if base_name is None:
             raise ParseError(
-                "Missing model_names entry for selected function "
-                f"{sol_name!r}"
+                "Missing model_names entry for selected function " f"{sol_name!r}"
             )
         if sol_name not in config.skip_norm:
             names.add(base_name)

@@ -4,8 +4,8 @@ import re
 from dataclasses import dataclass
 from typing import assert_never
 
+from evm_builtins import BASE_NORM_HELPERS as _BASE_NORM_HELPERS
 from evm_builtins import (
-    BASE_NORM_HELPERS as _BASE_NORM_HELPERS,
     MODELED_BUILTINS,
     OP_TO_LEAN_HELPER,
     WORD_MOD,
@@ -27,13 +27,14 @@ from model_ir import (
     ConditionalBlock,
     Expr,
     FunctionModel,
+    IntLit,
     Ite,
     ModelStatement,
     Project,
     Var,
-    IntLit,
 )
 from model_validate import validate_model_set
+
 from yul_ast import ParseError
 
 
@@ -118,10 +119,14 @@ def build_model_body(
                 lhs = _emit_name_tuple(stmt.output_vars)
                 lines.append(f"{prefix}let {lhs} := if ({cond_str}) ≠ 0 then")
                 _emit_stmts(stmt.then_branch.assignments, indent + 4)
-                lines.append(f"{prefix}    {_emit_expr_tuple(stmt.then_branch.outputs)}")
+                lines.append(
+                    f"{prefix}    {_emit_expr_tuple(stmt.then_branch.outputs)}"
+                )
                 lines.append(f"{prefix}  else")
                 _emit_stmts(stmt.else_branch.assignments, indent + 4)
-                lines.append(f"{prefix}    {_emit_expr_tuple(stmt.else_branch.outputs)}")
+                lines.append(
+                    f"{prefix}    {_emit_expr_tuple(stmt.else_branch.outputs)}"
+                )
             else:
                 assert_never(stmt)
 
@@ -158,9 +163,7 @@ def _plan_emitted_model_defs(
     for fn_name in function_names:
         base_name = config.model_names.get(fn_name)
         if base_name is None:
-            raise ParseError(
-                f"Model {fn_name!r} has no entry in config.model_names"
-            )
+            raise ParseError(f"Model {fn_name!r} has no entry in config.model_names")
         planned.append(
             EmittedModelDef(
                 fn_name=fn_name,
@@ -199,8 +202,8 @@ def _build_lean_emission_plan(
                 f"Invalid generated model name for {planned.fn_name!r}: {base_name!r}"
             )
 
-        reserved_names = (
-            base_reserved | (norm_reserved if planned.emit_norm else frozenset())
+        reserved_names = base_reserved | (
+            norm_reserved if planned.emit_norm else frozenset()
         )
         if base_name in reserved_names:
             raise ParseError(

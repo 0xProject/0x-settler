@@ -24,6 +24,20 @@ from __future__ import annotations
 from collections import Counter
 from typing import assert_never
 
+from model_ir import (
+    Assignment,
+    Call,
+    ConditionalBlock,
+    ConditionalBranch,
+    Expr,
+    FunctionModel,
+    IntLit,
+    Ite,
+    ModelStatement,
+    Project,
+    Var,
+)
+
 from restricted_ir import (
     RAssignment,
     RBranch,
@@ -39,19 +53,6 @@ from restricted_ir import (
     RStatement,
 )
 from restricted_names import apply_module_plan, plan_module
-from model_ir import (
-    Assignment,
-    Call,
-    ConditionalBlock,
-    ConditionalBranch,
-    Expr,
-    FunctionModel,
-    IntLit,
-    Ite,
-    ModelStatement,
-    Project,
-    Var,
-)
 from yul_ast import SymbolId
 
 # ---------------------------------------------------------------------------

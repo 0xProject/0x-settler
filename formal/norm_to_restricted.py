@@ -12,6 +12,7 @@ The resulting IR has:
 from __future__ import annotations
 
 from evm_builtins import WORD_MOD
+
 from norm_ir import (
     NAssign,
     NBind,

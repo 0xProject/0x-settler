@@ -10,9 +10,6 @@ from typing import cast
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 
 import model_config as modelcfg
-import norm_ir
-import yul_ast
-import yul_to_lean as ytl
 from evm_builtins import (
     BASE_NORM_HELPERS,
     EVM_BUILTINS,
@@ -21,7 +18,12 @@ from evm_builtins import (
     WORD_MOD,
     eval_pure_builtin,
 )
-from lean_emit import build_lean_source, build_model_body, emit_expr, render_function_defs
+from lean_emit import (
+    build_lean_source,
+    build_model_body,
+    emit_expr,
+    render_function_defs,
+)
 from lean_names import validate_ident
 from model_helpers import _expr_vars, collect_model_opcodes, collect_ops_from_statement
 from model_ir import (
@@ -31,8 +33,8 @@ from model_ir import (
     ConditionalBranch,
     Expr,
     FunctionModel,
-    Ite,
     IntLit,
+    Ite,
     ModelStatement,
     Project,
     Var,
@@ -43,6 +45,12 @@ from model_transforms import (
     hoist_repeated_model_calls,
 )
 from model_validate import validate_model_set
+from staged_selection import build_selection_plan
+from yul_lexer import tokenize_yul
+
+import norm_ir
+import yul_ast
+import yul_to_lean as ytl
 from norm_classify import (
     InlineClassification,
     classify_function_scope,
@@ -56,9 +64,7 @@ from norm_to_restricted import lower_to_restricted
 from restricted_eval import evaluate_restricted
 from restricted_ir import RestrictedFunction
 from restricted_to_model import to_function_models
-from staged_selection import build_selection_plan
 from yul_ast import EvaluationError
-from yul_lexer import tokenize_yul
 from yul_normalize import normalize_function
 from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_function, resolve_module
@@ -84,6 +90,7 @@ class _SelectedMatch:
     yul_name: str
     lexical_path: tuple[str, ...]
     token_idx: int
+
 
 def _tokens_to_yul(tokens: list[tuple[str, str]]) -> str:
     return " ".join(text for _, text in tokens)
@@ -237,18 +244,14 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
                     output_vars=("y", "a"),
                     then_branch=branch(
                         (
-                            Assignment(
-                                "y", Call("add", (Var("p"), Var("p")))
-                            ),
+                            Assignment("y", Call("add", (Var("p"), Var("p")))),
                             Assignment("a", Call("inner", (Var("y"),))),
                         ),
                         ("y", "a"),
                     ),
                     else_branch=branch(
                         (
-                            Assignment(
-                                "y", Call("add", (Var("p"), Var("p")))
-                            ),
+                            Assignment("y", Call("add", (Var("p"), Var("p")))),
                             Assignment("a", Call("inner", (Var("y"),))),
                         ),
                         ("y", "a"),
@@ -431,7 +434,9 @@ class StagedPipelineCompatibilityTest(unittest.TestCase):
         models = ytl.build_model_table(result.models)
         model = models["f"]
 
-        self.assertEqual(ytl.evaluate_function_model(model, (), model_table=models), (7,))
+        self.assertEqual(
+            ytl.evaluate_function_model(model, (), model_table=models), (7,)
+        )
         self.assertIn(
             Assignment(
                 "a_1",
@@ -833,9 +838,7 @@ class TranslationPipelineTest(unittest.TestCase):
 
         self.assertEqual(result.pipeline, UNOPTIMIZED_PIPELINE)
         assignment_targets: list[str] = [
-            stmt.target
-            for stmt in model.assignments
-            if isinstance(stmt, Assignment)
+            stmt.target for stmt in model.assignments if isinstance(stmt, Assignment)
         ]
         expected_targets: list[str] = ["tmp", "dead", "z", "z_1"]
         self.assertEqual(assignment_targets, expected_targets)
@@ -1288,9 +1291,7 @@ class RestrictedIRInterpreterTest(ModelEquivalenceTestCase):
                         Call("pair", (Var("x"), Var("y"))),
                     ),
                 ),
-                Assignment(
-                    "out", Call("add", (Var("lhs"), Var("rhs")))
-                ),
+                Assignment("out", Call("add", (Var("lhs"), Var("rhs")))),
             ),
         )
         table = ytl.build_model_table([pair, outer])
@@ -1396,9 +1397,7 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
         for _ in range(2):
             name = new_name("v")
             assignments.append(
-                Assignment(
-                    name, self._random_expr(rng, tuple(outer_scope), depth=2)
-                )
+                Assignment(name, self._random_expr(rng, tuple(outer_scope), depth=2))
             )
             outer_scope.append(name)
             mutable_scope.append(name)
@@ -1615,9 +1614,7 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
             assignments=(
                 Assignment("dead", Call("add", (Var("x"), IntLit(9)))),
                 Assignment("live", Call("mul", (Var("x"), IntLit(3)))),
-                Assignment(
-                    "out", Call("sub", (Var("live"), IntLit(1)))
-                ),
+                Assignment("out", Call("sub", (Var("live"), IntLit(1)))),
             ),
         )
 
@@ -1636,11 +1633,7 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
                     condition=Call("gt", (Var("x"), IntLit(10))),
                     output_vars=("tmp",),
                     then_branch=branch(
-                        (
-                            Assignment(
-                                "tmp", Call("add", (Var("x"), IntLit(1)))
-                            ),
-                        ),
+                        (Assignment("tmp", Call("add", (Var("x"), IntLit(1)))),),
                         ("tmp",),
                     ),
                     else_branch=branch((), ("tmp",)),
@@ -1849,15 +1842,21 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
 class TryConstEvalTest(unittest.TestCase):
     def test_fold_expr_folds_all_builtin_ops(self) -> None:
         self.assertEqual(
-            fold_expr(norm_ir.NBuiltinCall("mul", (norm_ir.NConst(3), norm_ir.NConst(7)))),
+            fold_expr(
+                norm_ir.NBuiltinCall("mul", (norm_ir.NConst(3), norm_ir.NConst(7)))
+            ),
             norm_ir.NConst(21),
         )
         self.assertEqual(
-            fold_expr(norm_ir.NBuiltinCall("div", (norm_ir.NConst(20), norm_ir.NConst(3)))),
+            fold_expr(
+                norm_ir.NBuiltinCall("div", (norm_ir.NConst(20), norm_ir.NConst(3)))
+            ),
             norm_ir.NConst(6),
         )
         self.assertEqual(
-            fold_expr(norm_ir.NBuiltinCall("mod", (norm_ir.NConst(10), norm_ir.NConst(3)))),
+            fold_expr(
+                norm_ir.NBuiltinCall("mod", (norm_ir.NConst(10), norm_ir.NConst(3)))
+            ),
             norm_ir.NConst(1),
         )
         self.assertEqual(
@@ -1865,28 +1864,40 @@ class TryConstEvalTest(unittest.TestCase):
             norm_ir.NConst(WORD_MOD - 1),
         )
         self.assertEqual(
-            fold_expr(norm_ir.NBuiltinCall("shl", (norm_ir.NConst(8), norm_ir.NConst(1)))),
+            fold_expr(
+                norm_ir.NBuiltinCall("shl", (norm_ir.NConst(8), norm_ir.NConst(1)))
+            ),
             norm_ir.NConst(256),
         )
         self.assertEqual(
-            fold_expr(norm_ir.NBuiltinCall("shr", (norm_ir.NConst(4), norm_ir.NConst(256)))),
+            fold_expr(
+                norm_ir.NBuiltinCall("shr", (norm_ir.NConst(4), norm_ir.NConst(256)))
+            ),
             norm_ir.NConst(16),
         )
         self.assertEqual(
-            fold_expr(norm_ir.NBuiltinCall("eq", (norm_ir.NConst(5), norm_ir.NConst(5)))),
-            norm_ir.NConst(1),
-        )
-        self.assertEqual(
-            fold_expr(norm_ir.NBuiltinCall("lt", (norm_ir.NConst(3), norm_ir.NConst(7)))),
-            norm_ir.NConst(1),
-        )
-        self.assertEqual(
-            fold_expr(norm_ir.NBuiltinCall("gt", (norm_ir.NConst(7), norm_ir.NConst(3)))),
+            fold_expr(
+                norm_ir.NBuiltinCall("eq", (norm_ir.NConst(5), norm_ir.NConst(5)))
+            ),
             norm_ir.NConst(1),
         )
         self.assertEqual(
             fold_expr(
-                norm_ir.NBuiltinCall("and", (norm_ir.NConst(0xFF), norm_ir.NConst(0x0F)))
+                norm_ir.NBuiltinCall("lt", (norm_ir.NConst(3), norm_ir.NConst(7)))
+            ),
+            norm_ir.NConst(1),
+        )
+        self.assertEqual(
+            fold_expr(
+                norm_ir.NBuiltinCall("gt", (norm_ir.NConst(7), norm_ir.NConst(3)))
+            ),
+            norm_ir.NConst(1),
+        )
+        self.assertEqual(
+            fold_expr(
+                norm_ir.NBuiltinCall(
+                    "and", (norm_ir.NConst(0xFF), norm_ir.NConst(0x0F))
+                )
             ),
             norm_ir.NConst(0x0F),
         )
@@ -2063,7 +2074,9 @@ class SimplifyIteTest(unittest.TestCase):
         self.assertEqual(result, expr)
 
     def test_variable_condition_emits_ite(self) -> None:
-        result = fold_expr(norm_ir.NIte(_nref("c"), _nref("a", sid=1), _nref("b", sid=2)))
+        result = fold_expr(
+            norm_ir.NIte(_nref("c"), _nref("a", sid=1), _nref("b", sid=2))
+        )
         self.assertEqual(
             result,
             norm_ir.NIte(_nref("c"), _nref("a", sid=1), _nref("b", sid=2)),
@@ -2270,9 +2283,7 @@ class EvalBuiltinCorrectnessTest(unittest.TestCase):
         self.assertEqual(eval_pure_builtin("sub", (0, 1)), WORD_MOD - 1)
 
     def test_mul_wraps(self) -> None:
-        self.assertEqual(
-            eval_pure_builtin("mul", (WORD_MOD - 1, WORD_MOD - 1)), 1
-        )
+        self.assertEqual(eval_pure_builtin("mul", (WORD_MOD - 1, WORD_MOD - 1)), 1)
 
     def test_div_by_zero(self) -> None:
         self.assertEqual(eval_pure_builtin("div", (7, 0)), 0)
@@ -2307,9 +2318,7 @@ class EvalBuiltinCorrectnessTest(unittest.TestCase):
         self.assertEqual(eval_pure_builtin("mulmod", (3, 5, 0)), 0)
         # (WORD_MOD-1)^2 mod (WORD_MOD-1) = 0
         self.assertEqual(
-            eval_pure_builtin(
-                "mulmod", (WORD_MOD - 1, WORD_MOD - 1, WORD_MOD - 1)
-            ),
+            eval_pure_builtin("mulmod", (WORD_MOD - 1, WORD_MOD - 1, WORD_MOD - 1)),
             0,
         )
         # Standard case: 3*5 mod 7 = 1
@@ -2483,11 +2492,7 @@ class CollectOpsTest(unittest.TestCase):
                 ("out",),
             ),
             else_branch=branch(
-                (
-                    Assignment(
-                        "out", Call("mul", (IntLit(3), IntLit(7)))
-                    ),
-                ),
+                (Assignment("out", Call("mul", (IntLit(3), IntLit(7)))),),
                 ("out",),
             ),
         )
@@ -2779,7 +2784,8 @@ class FunctionSelectionTest(unittest.TestCase):
             }
             """)
 
-        found = _find_function(tokens, 
+        found = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
         )
@@ -2801,7 +2807,8 @@ class FunctionSelectionTest(unittest.TestCase):
             }
             """)
 
-        found = _find_function(tokens, 
+        found = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
             exclude_known=True,
@@ -2954,7 +2961,8 @@ class ResolvedTranslatorRegressionTest(unittest.TestCase):
             ytl.ParseError,
             "Duplicate declaration of 'helper' in the same scope",
         ):
-            _find_function(tokens, 
+            _find_function(
+                tokens,
                 "pick",
                 known_yul_names={"helper"},
             )
@@ -3175,7 +3183,8 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             ytl.ParseError,
             "Duplicate declaration of 'helper' in the same scope",
         ):
-            _find_function(tokens, 
+            _find_function(
+                tokens,
                 "pick",
                 known_yul_names={"helper"},
             )
@@ -3184,7 +3193,8 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             ytl.ParseError,
             "Duplicate declaration of 'helper' in the same scope",
         ):
-            _find_function(tokens, 
+            _find_function(
+                tokens,
                 "pick",
                 known_yul_names={"helper"},
                 exclude_known=True,
@@ -3995,7 +4005,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         )
 
         def collect_function_names(func: yul_ast.FunctionDef) -> dict[int, str]:
-            names = {func.span.start: func.name}
+            names: dict[int, str] = {func.span.start: func.name}
             for stmt in func.body.stmts:
                 if isinstance(stmt, yul_ast.FunctionDefStmt):
                     names.update(collect_function_names(stmt.func))
@@ -4006,11 +4016,12 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             for func in group:
                 fn_names.update(collect_function_names(func))
 
-        helper_names = {
+        helper_names: set[str] = {
             fn_names[helper_key.token_idx]
             for helper_key in plan.target_infos["pick"].helper_keys
         }
-        self.assertEqual(helper_names, {"helper"})
+        expected_helper_names: set[str] = {"helper"}
+        self.assertEqual(helper_names, expected_helper_names)
 
     def test_translate_yul_to_models_accepts_conditionally_constant_memory_address(
         self,
@@ -4448,9 +4459,7 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
         model = result.models[0]
 
         targets: set[str] = {
-            stmt.target
-            for stmt in model.assignments
-            if isinstance(stmt, Assignment)
+            stmt.target for stmt in model.assignments if isinstance(stmt, Assignment)
         }
         self.assertNotIn("model_f", targets)
 
@@ -4493,7 +4502,8 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             """)
 
         with self.assertRaises(ytl.ParseError):
-            _find_function(tokens, 
+            _find_function(
+                tokens,
                 "pick",
                 n_params=1,
                 known_yul_names={"helper"},
@@ -4519,13 +4529,15 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """)
 
-        func = _find_function(tokens, 
+        func = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
         )
         self.assertEqual(func.yul_name, "fun_pick_2")
 
-        leaf = _find_function(tokens, 
+        leaf = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
             exclude_known=True,
@@ -4555,13 +4567,15 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """)
 
-        func = _find_function(tokens, 
+        func = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
         )
         self.assertEqual(func.yul_name, "fun_pick_2")
 
-        leaf = _find_function(tokens, 
+        leaf = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
             exclude_known=True,
@@ -4598,7 +4612,8 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             ytl.ParseError,
             "Duplicate declaration of 'nested' in the same scope",
         ):
-            _find_function(tokens, 
+            _find_function(
+                tokens,
                 "pick",
                 known_yul_names={"helper"},
             )
@@ -4607,7 +4622,8 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             ytl.ParseError,
             "Duplicate declaration of 'nested' in the same scope",
         ):
-            _find_function(tokens, 
+            _find_function(
+                tokens,
                 "pick",
                 known_yul_names={"helper"},
                 exclude_known=True,
@@ -4635,13 +4651,15 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """)
 
-        func = _find_function(tokens, 
+        func = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
         )
         self.assertEqual(func.yul_name, "fun_pick_1")
 
-        leaf = _find_function(tokens, 
+        leaf = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
             exclude_known=True,
@@ -4671,13 +4689,15 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """)
 
-        func = _find_function(tokens, 
+        func = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
         )
         self.assertEqual(func.yul_name, "fun_pick_1")
 
-        leaf = _find_function(tokens, 
+        leaf = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
             exclude_known=True,
@@ -4707,7 +4727,8 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """)
 
-        func = _find_function(tokens, 
+        func = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
         )
@@ -4757,7 +4778,8 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             ytl.ParseError,
             "Multiple Yul functions match 'pick'",
         ):
-            _find_function(tokens, 
+            _find_function(
+                tokens,
                 "pick",
                 known_yul_names={"helper"},
             )
@@ -4780,7 +4802,8 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """)
 
-        found = _find_function(tokens, 
+        found = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
         )
@@ -5213,13 +5236,15 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """)
 
-        found = _find_function(tokens, 
+        found = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
         )
         self.assertEqual(found.yul_name, "fun_pick_2")
 
-        leaf = _find_function(tokens, 
+        leaf = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
             exclude_known=True,
@@ -5246,13 +5271,15 @@ class KnownTranslatorBugRegressionTest(unittest.TestCase):
             }
             """)
 
-        found = _find_function(tokens, 
+        found = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
         )
         self.assertEqual(found.yul_name, "fun_pick_2")
 
-        leaf = _find_function(tokens, 
+        leaf = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
             exclude_known=True,
@@ -7040,9 +7067,7 @@ class LeanSourceDeterminismTest(unittest.TestCase):
             fn_name="f",
             param_names=("x",),
             return_names=("z",),
-            assignments=(
-                Assignment("z", Call("add", (Var("x"), IntLit(1)))),
-            ),
+            assignments=(Assignment("z", Call("add", (Var("x"), IntLit(1)))),),
         )
 
         src1 = build_lean_source(
@@ -9146,7 +9171,8 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
             }
             """)
 
-        found = _find_function(tokens, 
+        found = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
         )
@@ -9172,7 +9198,8 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
             }
             """)
 
-        found = _find_function(tokens, 
+        found = _find_function(
+            tokens,
             "pick",
             known_yul_names={"helper"},
         )
@@ -9465,7 +9492,6 @@ class FinalCriticalReviewRegressionTest(unittest.TestCase):
             ("outer", "helper"),
         ).token_idx
         self.assertIsNotNone(helper_token_idx)
-        helper_token_idx = cast(int, helper_token_idx)
         yul = base_yul.replace(
             "collision_name",
             f"__protected_{helper_token_idx}",
@@ -10190,11 +10216,11 @@ class ResolverModuleTest(unittest.TestCase):
             SyntaxParser(tokens).parse_function_groups()
 
     def test_parse_string_literal_preserves_raw_bytes(self) -> None:
-        tokens = tokenize_yul(r'''
+        tokens = tokenize_yul(r"""
             function f() {
                 linkersymbol("\xff")
             }
-        ''')
+        """)
 
         parsed = SyntaxParser(tokens).parse_function()
         stmt = parsed.body.stmts[0]
@@ -12385,15 +12411,11 @@ class SSAModelTest(unittest.TestCase):
                 if x { if add(x, 1) { z := 7 } }
             }
         """)
-        outer_conds = [
-            s for s in model.assignments if isinstance(s, ConditionalBlock)
-        ]
+        outer_conds = [s for s in model.assignments if isinstance(s, ConditionalBlock)]
         self.assertTrue(outer_conds, "Expected outer ConditionalBlock")
         outer = outer_conds[0]
         nested = [
-            s
-            for s in outer.then_branch.assignments
-            if isinstance(s, ConditionalBlock)
+            s for s in outer.then_branch.assignments if isinstance(s, ConditionalBlock)
         ]
         self.assertTrue(nested, "Expected nested ConditionalBlock in then-branch")
 
@@ -12622,9 +12644,7 @@ class SSAModelTest(unittest.TestCase):
             fn_name="inner",
             param_names=("x",),
             return_names=("r",),
-            assignments=(
-                Assignment("r", Call("add", (Var("x"), IntLit(1)))),
-            ),
+            assignments=(Assignment("r", Call("add", (Var("x"), IntLit(1)))),),
         )
         # f(x) -> z: if x { z := inner(x) } else { z := inner(x) }
         # inner(x) depends only on params, appears in both branches.
@@ -12639,15 +12659,11 @@ class SSAModelTest(unittest.TestCase):
                     condition=Var("x"),
                     output_vars=("z",),
                     then_branch=ConditionalBranch(
-                        assignments=(
-                            Assignment("z", Call("inner", (Var("x"),))),
-                        ),
+                        assignments=(Assignment("z", Call("inner", (Var("x"),))),),
                         outputs=(Var("z"),),
                     ),
                     else_branch=ConditionalBranch(
-                        assignments=(
-                            Assignment("z", Call("inner", (Var("x"),))),
-                        ),
+                        assignments=(Assignment("z", Call("inner", (Var("x"),))),),
                         outputs=(Var("z"),),
                     ),
                 ),
@@ -12790,9 +12806,7 @@ class SSAModelTest(unittest.TestCase):
             for stmt in model.assignments:
                 self._check_calls_in_stmt(stmt, model_names)
 
-    def _check_calls_in_stmt(
-        self, stmt: ModelStatement, model_names: set[str]
-    ) -> None:
+    def _check_calls_in_stmt(self, stmt: ModelStatement, model_names: set[str]) -> None:
         if isinstance(stmt, Assignment):
             self._check_calls_in_expr(stmt.expr, model_names)
         elif isinstance(stmt, ConditionalBlock):
@@ -13103,9 +13117,7 @@ class SSAModelTest(unittest.TestCase):
             fn_name="inner",
             param_names=("x",),
             return_names=("r",),
-            assignments=(
-                Assignment("r", Call("add", (Var("x"), IntLit(1)))),
-            ),
+            assignments=(Assignment("r", Call("add", (Var("x"), IntLit(1)))),),
         )
         # f(p) -> out: if p { a := inner(p); b := inner(p); out := add(a,b) }
         f_model = FunctionModel(
@@ -13191,9 +13203,7 @@ class SSAModelTest(unittest.TestCase):
                 ),
             ),
         )
-        hoisted = hoist_repeated_model_calls(
-            f_model, model_call_names=frozenset({"g"})
-        )
+        hoisted = hoist_repeated_model_calls(f_model, model_call_names=frozenset({"g"}))
         cse_assigns = [
             s
             for s in hoisted.assignments
@@ -13692,9 +13702,7 @@ class StagedPipelineValidationTest(unittest.TestCase):
             }
         """
         config = make_model_config(("f",))
-        result = ytl.translate_yul_to_models(
-            yul, config, pipeline=UNOPTIMIZED_PIPELINE
-        )
+        result = ytl.translate_yul_to_models(yul, config, pipeline=UNOPTIMIZED_PIPELINE)
         model = result.models[0]
         # x=0: no leave → z=2
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (2,))
@@ -13714,9 +13722,7 @@ class StagedPipelineValidationTest(unittest.TestCase):
         """
         config = make_model_config(("f",))
         with self.assertRaises(ytl.ParseError):
-            ytl.translate_yul_to_models(
-                yul, config, pipeline=UNOPTIMIZED_PIPELINE
-            )
+            ytl.translate_yul_to_models(yul, config, pipeline=UNOPTIMIZED_PIPELINE)
 
     def test_dead_expression_stmt_eliminated_before_validation(self) -> None:
         """Dead bare expression statements are removed before the fail-closed boundary."""
@@ -13745,9 +13751,7 @@ class StagedPipelineValidationTest(unittest.TestCase):
         """
         config = make_model_config(("f",))
         with self.assertRaises(ytl.ParseError):
-            ytl.translate_yul_to_models(
-                yul, config, pipeline=UNOPTIMIZED_PIPELINE
-            )
+            ytl.translate_yul_to_models(yul, config, pipeline=UNOPTIMIZED_PIPELINE)
 
     def test_zero_return_function_rejected(self) -> None:
         """Function with zero return values is rejected."""
@@ -13758,9 +13762,7 @@ class StagedPipelineValidationTest(unittest.TestCase):
         """
         config = make_model_config(("f",))
         with self.assertRaises(ytl.ParseError):
-            ytl.translate_yul_to_models(
-                yul, config, pipeline=UNOPTIMIZED_PIPELINE
-            )
+            ytl.translate_yul_to_models(yul, config, pipeline=UNOPTIMIZED_PIPELINE)
 
     def test_dead_unresolved_call_eliminated_before_validation(self) -> None:
         """Dead unresolved calls are removed before the validation boundary."""
@@ -13773,9 +13775,7 @@ class StagedPipelineValidationTest(unittest.TestCase):
             }
         """
         config = make_model_config(("f",))
-        result = ytl.translate_yul_to_models(
-            yul, config, pipeline=UNOPTIMIZED_PIPELINE
-        )
+        result = ytl.translate_yul_to_models(yul, config, pipeline=UNOPTIMIZED_PIPELINE)
         self.assertEqual(ytl.evaluate_function_model(result.models[0], (5,)), (6,))
 
     def test_live_unresolved_call_rejected_before_restricted_lowering(self) -> None:
@@ -13790,9 +13790,7 @@ class StagedPipelineValidationTest(unittest.TestCase):
         """
         config = make_model_config(("f",))
         with self.assertRaisesRegex(ytl.ParseError, "unresolved call"):
-            ytl.translate_yul_to_models(
-                yul, config, pipeline=UNOPTIMIZED_PIPELINE
-            )
+            ytl.translate_yul_to_models(yul, config, pipeline=UNOPTIMIZED_PIPELINE)
 
 
 class LeaveGuardGroupingTest(unittest.TestCase):
@@ -13820,9 +13818,7 @@ class LeaveGuardGroupingTest(unittest.TestCase):
             }
         """
         config = make_model_config(("target",))
-        result = ytl.translate_yul_to_models(
-            yul, config, pipeline=UNOPTIMIZED_PIPELINE
-        )
+        result = ytl.translate_yul_to_models(yul, config, pipeline=UNOPTIMIZED_PIPELINE)
         model = result.models[0]
         # x=0: no leave → r = 1, t = 1, r = 1+1 = 2
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (2,))
@@ -13843,9 +13839,7 @@ class LeaveGuardGroupingTest(unittest.TestCase):
             }
         """
         config = make_model_config(("f",))
-        result = ytl.translate_yul_to_models(
-            yul, config, pipeline=UNOPTIMIZED_PIPELINE
-        )
+        result = ytl.translate_yul_to_models(yul, config, pipeline=UNOPTIMIZED_PIPELINE)
         model = result.models[0]
         # x=0: no leave → r = 1, t = 1, r = 1+1 = 2
         self.assertEqual(ytl.evaluate_function_model(model, (0,)), (2,))
@@ -13855,6 +13849,7 @@ class LeaveGuardGroupingTest(unittest.TestCase):
     def test_lower_leave_groups_trailing_stmts(self) -> None:
         """Trailing statements after leave share one guarded block, not N."""
         from norm_simplify import lower_leave
+
         from yul_normalize import normalize_function
         from yul_parser import SyntaxParser
         from yul_resolve import resolve_function
@@ -13910,11 +13905,11 @@ class UncoveredRegressionTest(unittest.TestCase):
     def test_translate_yul_to_models_string_literal_decodes_escape_sequences(
         self,
     ) -> None:
-        yul = r'''
+        yul = r"""
             function fun_f_1() -> var_z_2 {
                 var_z_2 := "A\n"
             }
-        '''
+        """
         config = make_model_config(("f",))
         result = ytl.translate_yul_to_models(
             yul,

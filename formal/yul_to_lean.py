@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import pathlib
 import sys
+from typing import cast
 
 from evm_builtins import OP_TO_LEAN_HELPER
 from lean_emit import build_lean_source
@@ -28,6 +29,7 @@ from model_eval import build_model_table, evaluate_function_model, evaluate_mode
 from model_helpers import collect_model_opcodes as _collect_model_opcodes
 from model_transforms import apply_optional_model_transforms
 from model_validate import validate_function_model, validate_model_set
+
 from yul_ast import EvaluationError as EvaluationError
 from yul_ast import ParseError as ParseError
 
@@ -152,7 +154,7 @@ def run(config: ModelConfig) -> int:
         stdin = sys.stdin
         if stdin is None:
             raise ParseError("stdin is unavailable while reading Yul input")
-        yul_text = stdin.read()
+        yul_text: str = cast(str, stdin.read())
     else:
         yul_text = pathlib.Path(args.yul).read_text()
 

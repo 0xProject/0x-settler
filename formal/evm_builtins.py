@@ -14,9 +14,9 @@ from dataclasses import dataclass
 
 from yul_ast import EvaluationError
 
-WORD_BITS = 256
-WORD_MOD = 2**WORD_BITS
-_WORD_SIGN_BIT = 1 << (WORD_BITS - 1)
+WORD_BITS: int = 256
+WORD_MOD: int = 2**WORD_BITS
+_WORD_SIGN_BIT: int = 1 << (WORD_BITS - 1)
 
 
 def u256(value: int) -> int:
@@ -155,8 +155,7 @@ MODELED_BUILTINS: tuple[ModeledBuiltin, ...] = (
         "def evmMulmod (a b n : Nat) : Nat :=\n"
         "  let aa := u256 a; let bb := u256 b; let nn := u256 n\n"
         "  if nn = 0 then 0 else (aa * bb) % nn",
-        "def normMulmod (a b n : Nat) : Nat :=\n"
-        "  if n = 0 then 0 else (a * b) % n",
+        "def normMulmod (a b n : Nat) : Nat :=\n" "  if n = 0 then 0 else (a * b) % n",
     ),
 )
 

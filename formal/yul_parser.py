@@ -380,11 +380,12 @@ class SyntaxParser:
 def _decode_string_literal(token_text: str) -> bytes:
     """Decode a tokenized Yul string literal into its raw byte payload."""
     try:
-        decoded = ast.literal_eval(token_text)
+        decoded_obj: object = ast.literal_eval(token_text)
     except (SyntaxError, ValueError) as err:
         raise ParseError(f"Invalid Yul string literal {token_text!r}") from err
-    if not isinstance(decoded, str):
+    if not isinstance(decoded_obj, str):
         raise ParseError(f"Invalid Yul string literal {token_text!r}")
+    decoded = decoded_obj
     try:
         return decoded.encode("latin-1")
     except UnicodeEncodeError as err:

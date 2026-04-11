@@ -118,6 +118,7 @@ def _prune_dead_assignments(
     validate_function_model(result)
     return result
 
+
 def _make_cse_gensym(model: FunctionModel) -> Callable[[], str]:
     max_cse = 0
     for binder in _collect_model_binders(model):

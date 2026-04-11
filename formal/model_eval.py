@@ -2,20 +2,23 @@ from __future__ import annotations
 
 from typing import assert_never
 
-from evm_builtins import OP_TO_LEAN_HELPER, eval_pure_builtin as _eval_builtin, u256
+from evm_builtins import OP_TO_LEAN_HELPER
+from evm_builtins import eval_pure_builtin as _eval_builtin
+from evm_builtins import u256
 from model_ir import (
     Assignment,
     Call,
     ConditionalBlock,
     Expr,
     FunctionModel,
-    Ite,
     IntLit,
+    Ite,
     ModelStatement,
     ModelValue,
     Project,
     Var,
 )
+
 from yul_ast import EvaluationError
 
 

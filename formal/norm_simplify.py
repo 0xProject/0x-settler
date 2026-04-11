@@ -8,6 +8,7 @@ cleanup to selected targets, local helpers, and top-level helper bodies.
 from __future__ import annotations
 
 from evm_builtins import WORD_MOD
+
 from norm_constprop import fold_expr
 from norm_ir import (
     NAssign,

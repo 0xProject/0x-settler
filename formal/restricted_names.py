@@ -22,6 +22,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from lean_names import RESERVED_LEAN_NAMES
+
 from restricted_ir import (
     RAssignment,
     RBranch,
@@ -37,7 +39,6 @@ from restricted_ir import (
     RStatement,
 )
 from yul_ast import SymbolId
-from lean_names import RESERVED_LEAN_NAMES
 
 # ---------------------------------------------------------------------------
 # Demangling + sanitization
