@@ -10,7 +10,7 @@ from lean_names import (
     norm_reserved_lean_names,
     validate_ident,
 )
-from model_config import EmissionConfig, ModelConfig, TransformConfig
+from model_config import EmissionConfig, TransformConfig
 from model_helpers import (
     _collect_model_binders,
     _model_call_names_in_stmt,
@@ -71,17 +71,12 @@ def build_model_body(
     assignments: tuple[ModelStatement, ...],
     *,
     evm: bool,
-    emission: EmissionConfig | ModelConfig | None = None,
-    config: ModelConfig | None = None,
+    emission: EmissionConfig,
     param_names: tuple[str, ...] = ("x",),
     return_names: tuple[str, ...] = ("z",),
     call_map: dict[str, str] | None = None,
 ) -> str:
-    emission_config, _ = _resolve_config_slices(
-        emission=emission,
-        transforms=None,
-        config=config,
-    )
+    emission_config = emission
     lines: list[str] = []
     norm_helpers = {**_BASE_NORM_HELPERS, **emission_config.norm_helper_map()}
 
@@ -260,17 +255,12 @@ def _build_lean_emission_plan(
 
 def render_function_defs(
     models: list[FunctionModel],
-    emission: EmissionConfig | ModelConfig | None = None,
-    transforms: TransformConfig | None = None,
+    emission: EmissionConfig,
+    transforms: TransformConfig,
     *,
-    config: ModelConfig | None = None,
     emission_plan: LeanEmissionPlan | None = None,
 ) -> str:
-    emission_config, transform_config = _resolve_config_slices(
-        emission=emission,
-        transforms=transforms,
-        config=config,
-    )
+    emission_config, transform_config = emission, transforms
     validate_model_set(models)
 
     if emission_plan is None:
@@ -339,15 +329,10 @@ def build_lean_source(
     models: list[FunctionModel],
     source_path: str,
     namespace: str,
-    emission: EmissionConfig | ModelConfig | None = None,
-    transforms: TransformConfig | None = None,
-    config: ModelConfig | None = None,
+    emission: EmissionConfig,
+    transforms: TransformConfig = TransformConfig(),
 ) -> str:
-    emission_config, transform_config = _resolve_config_slices(
-        emission=emission,
-        transforms=transforms,
-        config=config,
-    )
+    emission_config, transform_config = emission, transforms
     validate_ident(namespace, what="Lean namespace")
     if "\n" in source_path:
         raise ParseError(
@@ -425,24 +410,3 @@ def build_lean_source(
         f"{function_defs}\n"
         f"end {namespace}\n"
     )
-
-
-def _resolve_config_slices(
-    *,
-    emission: EmissionConfig | ModelConfig | None,
-    transforms: TransformConfig | None,
-    config: ModelConfig | None,
-) -> tuple[EmissionConfig, TransformConfig]:
-    if isinstance(emission, ModelConfig):
-        if config is not None or transforms is not None:
-            raise ParseError(
-                "Pass either a ModelConfig or explicit emission/transforms"
-            )
-        return emission.emission, emission.transforms
-    if config is not None:
-        if emission is not None or transforms is not None:
-            raise ParseError("Pass either config or explicit emission/transforms")
-        return config.emission, config.transforms
-    if emission is None:
-        raise ParseError("Lean emission requires an emission config")
-    return emission, transforms or TransformConfig()

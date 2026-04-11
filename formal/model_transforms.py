@@ -4,7 +4,7 @@ import re
 from collections import Counter
 from typing import Callable, assert_never
 
-from model_config import ModelConfig, TransformConfig
+from model_config import TransformConfig
 from model_helpers import _collect_model_binders, _expr_size, _expr_vars, _replace_expr
 from model_ir import (
     Assignment,
@@ -362,20 +362,12 @@ def hoist_repeated_model_calls(
 
 def apply_optional_model_transforms(
     models: list[FunctionModel],
-    config: TransformConfig | ModelConfig,
+    transforms: TransformConfig,
     *,
-    model_call_names: frozenset[str] | None = None,
+    model_call_names: frozenset[str],
     optimize: bool,
 ) -> list[FunctionModel]:
-    transform_config: TransformConfig
-    if isinstance(config, ModelConfig):
-        transform_config = config.transforms
-        if model_call_names is None:
-            model_call_names = frozenset(config.selection.function_order)
-    else:
-        transform_config = config
-    if model_call_names is None:
-        raise TypeError("apply_optional_model_transforms requires model_call_names")
+    transform_config = transforms
 
     transformed = list(models)
 

@@ -896,7 +896,7 @@ class TranslationFlowTest(unittest.TestCase):
             optimize=False,
         )
         model = result[0]
-        rendered = render_function_defs([model], self.SIMPLE_CONFIG)
+        rendered = render_function_defs([model], self.SIMPLE_CONFIG.emission, self.SIMPLE_CONFIG.transforms)
 
         self.assertIn("def model_f_evm (x : Nat) : Nat :=", rendered)
         self.assertIn("let x := u256 x", rendered)
@@ -914,7 +914,7 @@ class TranslationFlowTest(unittest.TestCase):
             return_names=("z",),
         )
 
-        rendered = render_function_defs([model], self.SIMPLE_CONFIG)
+        rendered = render_function_defs([model], self.SIMPLE_CONFIG.emission, self.SIMPLE_CONFIG.transforms)
 
         self.assertIn("def model_f_evm : Nat :=", rendered)
         self.assertIn("def model_f : Nat :=", rendered)
@@ -940,12 +940,14 @@ class TranslationFlowTest(unittest.TestCase):
 
         raw_models = apply_optional_model_transforms(
             [model],
-            config,
+            config.transforms,
+            model_call_names=frozenset(config.selection.function_order),
             optimize=False,
         )
         optimized_models = apply_optional_model_transforms(
             [model],
-            config,
+            config.transforms,
+            model_call_names=frozenset(config.selection.function_order),
             optimize=True,
         )
 
@@ -4440,7 +4442,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[inner, outer],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_ignores_constant_true_branch_local_binder_named_like_generated_model(
@@ -4474,7 +4477,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=result,
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_find_function_rejects_nonmatching_param_count_even_when_unique(
@@ -4864,7 +4868,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_translate_yul_to_models_rejects_lean_keyword_parameter_name(
@@ -4888,7 +4893,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=models,
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_validate_function_model_rejects_malformed_builtin_arity(self) -> None:
@@ -4990,7 +4996,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_generated_model_name_collision_with_extra_norm_helper(
@@ -5020,7 +5027,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_cross_collision_between_generated_evm_and_norm_names(
@@ -5048,7 +5056,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[first, second],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_allows_extra_norm_helper_name_when_norm_is_skipped(
@@ -5077,7 +5086,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
             models=[model],
             source_path="test-source",
             namespace="Test",
-            config=config,
+            emission=config.emission,
+            transforms=config.transforms,
         )
 
         self.assertIn("def model_f_evm", source)
@@ -5135,7 +5145,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_extra_norm_helper_collisions_in_conditional_output_vars(
@@ -5178,7 +5189,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_translate_yul_to_models_rejects_zero_return_functions(self) -> None:
@@ -5478,7 +5490,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
             models=[model],
             source_path="test-source",
             namespace="Test",
-            config=config,
+            emission=config.emission,
+            transforms=config.transforms,
         )
 
         self.assertLess(
@@ -5843,7 +5856,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[inner, outer],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_allows_binder_named_like_skipped_norm_model(
@@ -5864,7 +5878,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
             models=[model],
             source_path="test-source",
             namespace="Test",
-            config=config,
+            emission=config.emission,
+            transforms=config.transforms,
         )
 
         self.assertIn("def model_f_evm", source)
@@ -5889,7 +5904,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
             models=[model],
             source_path="test-source",
             namespace="Test",
-            config=config,
+            emission=config.emission,
+            transforms=config.transforms,
         )
 
         self.assertIn("def normAdd_evm", source)
@@ -5921,7 +5937,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
             models=[model],
             source_path="test-source",
             namespace="Test",
-            config=config,
+            emission=config.emission,
+            transforms=config.transforms,
         )
 
         self.assertIn("def normBitLengthPlus1_evm", source)
@@ -5954,7 +5971,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
             models=models,
             source_path="test-source",
             namespace="Test",
-            config=config,
+            emission=config.emission,
+            transforms=config.transforms,
         )
 
         self.assertIn("def normAdd_evm (x : Nat) : Nat :=", source)
@@ -5995,7 +6013,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=models,
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_translate_yul_to_models_allows_constant_false_top_level_memory_write_branch(
@@ -6201,7 +6220,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[inner, outer],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_generated_evm_model_name_collision_in_conditional_branch_targets(
@@ -6263,7 +6283,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[inner, outer],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_invalid_namespace_name(self) -> None:
@@ -6280,7 +6301,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="invalid-name",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_lean_keyword_namespace(self) -> None:
@@ -6297,7 +6319,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="if",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_source_path_newline_injection(self) -> None:
@@ -6314,7 +6337,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source\nopen scoped BigOperators",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_generator_label_newline_injection(
@@ -6336,7 +6360,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_header_comment_terminator_injection(
@@ -6358,7 +6383,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_raw_function_name_injection(self) -> None:
@@ -6379,7 +6405,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_translate_yul_to_models_rejects_mutually_recursive_selected_model_calls(
@@ -6420,7 +6447,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_lean_keyword_generated_model_name(
@@ -6442,7 +6470,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_generated_model_name_collision_with_builtin_helper(
@@ -6464,7 +6493,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_missing_model_name_mapping(self) -> None:
@@ -6481,7 +6511,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_build_lean_source_rejects_duplicate_generated_model_names(self) -> None:
@@ -6507,7 +6538,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 models=[first, second],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_translate_yul_to_models_preserves_bare_block_temporary_snapshot_across_outer_rebind(
@@ -6672,7 +6704,8 @@ class TranslatorBehaviorTest(unittest.TestCase):
             models=result,
             source_path="test-source",
             namespace="Test",
-            config=config,
+            emission=config.emission,
+            transforms=config.transforms,
         )
 
 
@@ -6900,13 +6933,15 @@ class LeanSourceDeterminismTest(unittest.TestCase):
             models=[model],
             source_path="test-source",
             namespace="Test",
-            config=self.CONFIG,
+            emission=self.CONFIG.emission,
+            transforms=self.CONFIG.transforms,
         )
         src2 = build_lean_source(
             models=[model],
             source_path="test-source",
             namespace="Test",
-            config=self.CONFIG,
+            emission=self.CONFIG.emission,
+            transforms=self.CONFIG.transforms,
         )
 
         self.assertEqual(src1, src2)
@@ -7700,7 +7735,7 @@ class ReviewBehaviorTest(unittest.TestCase):
         body = build_model_body(
             model.assignments,
             evm=True,
-            config=make_model_config(("f",)),
+            emission=make_model_config(("f",)).emission,
             param_names=model.param_names,
             return_names=model.return_names,
         )
@@ -9405,12 +9440,14 @@ class CompilerTemporaryThreadingTest(unittest.TestCase):
             assignments=(Assignment("z", Var("y")),),
         )
 
+        _cfg = make_model_config(("f",))
         with self.assertRaisesRegex(ParseError, "out-of-scope variable use"):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=make_model_config(("f",)),
+                emission=_cfg.emission,
+                transforms=_cfg.transforms,
             )
 
 
@@ -12379,7 +12416,8 @@ class SSAModelTest(unittest.TestCase):
                 models=[model],
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     # ------------------------------------------------------------------
@@ -13189,7 +13227,8 @@ class StagedPipelineWiringTest(unittest.TestCase):
             models=result,
             source_path="test",
             namespace="Test",
-            config=self.NESTED_IF_CONFIG,
+            emission=self.NESTED_IF_CONFIG.emission,
+            transforms=self.NESTED_IF_CONFIG.transforms,
         )
         self.assertIn("model_f", lean_src)
 
@@ -13581,7 +13620,8 @@ class StagedPipelineValidationTest(unittest.TestCase):
                 models=models,
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_zero_return_function_rejected(self) -> None:
@@ -13777,7 +13817,8 @@ class AdditionalBehaviorTest(unittest.TestCase):
                 models=models,
                 source_path="test-source",
                 namespace="Test",
-                config=config,
+                emission=config.emission,
+                transforms=config.transforms,
             )
 
     def test_hoist_repeated_model_calls_hoists_branch_output_exprs(self) -> None:
