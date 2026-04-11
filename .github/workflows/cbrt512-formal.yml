@@ -10,7 +10,7 @@ on:
       - src/wrappers/CbrtWrapper.sol
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
-      - formal/yul_to_lean.py
+      - formal/translator.py
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/Cbrt512Model.t.sol
       - .github/workflows/cbrt512-formal.yml
@@ -21,7 +21,7 @@ on:
       - src/wrappers/CbrtWrapper.sol
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
-      - formal/yul_to_lean.py
+      - formal/translator.py
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/Cbrt512Model.t.sol
       - .github/workflows/cbrt512-formal.yml

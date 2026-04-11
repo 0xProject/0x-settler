@@ -47,6 +47,7 @@ from model_transforms import (
 )
 from model_validate import validate_function_model, validate_model_set
 from selection import build_selection_plan
+from translator import translate_yul_to_models
 from yul_lexer import tokenize_yul
 
 import norm_ir
@@ -68,7 +69,6 @@ from yul_ast import EvaluationError, ParseError
 from yul_normalize import normalize_function
 from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_function, resolve_module
-from yul_to_lean import translate_yul_to_models
 
 
 def branch(
@@ -123,11 +123,11 @@ def _find_function(
         ),
     )
     plan = build_selection_plan(_tokens_to_yul(tokens), config.selection)
-    target = plan.target_infos[sol_fn_name]
+    target = plan.targets[sol_fn_name]
     return _SelectedMatch(
-        yul_name=target.info.raw_name,
-        lexical_path=target.info.lexical_path,
-        token_idx=target.info.key.token_idx,
+        yul_name=target.raw_name,
+        lexical_path=target.lexical_path,
+        token_idx=target.key.token_idx,
     )
 
 
@@ -155,11 +155,11 @@ def _find_exact_function(
                     f"Exact Yul function {yul_name!r}{message[len(path_prefix) + len(repr(yul_name)):]}"
                 ) from exc
         raise
-    target = plan.target_infos["target"]
+    target = plan.targets["target"]
     return _SelectedMatch(
-        yul_name=target.info.raw_name,
-        lexical_path=target.info.lexical_path,
-        token_idx=target.info.key.token_idx,
+        yul_name=target.raw_name,
+        lexical_path=target.lexical_path,
+        token_idx=target.key.token_idx,
     )
 
 
@@ -178,11 +178,11 @@ def _find_exact_function_path(
         n_params={"target": n_params} if n_params is not None else None,
     )
     plan = build_selection_plan(_tokens_to_yul(tokens), config.selection)
-    target = plan.target_infos["target"]
+    target = plan.targets["target"]
     return _SelectedMatch(
-        yul_name=target.info.raw_name,
-        lexical_path=target.info.lexical_path,
-        token_idx=target.info.key.token_idx,
+        yul_name=target.raw_name,
+        lexical_path=target.lexical_path,
+        token_idx=target.key.token_idx,
     )
 
 
@@ -193,7 +193,6 @@ def _nref(name: str, sid: int = 0) -> norm_ir.NRef:
 class HoistRepeatedModelCallsTest(unittest.TestCase):
     MODEL_CALLS = frozenset({"inner"})
 
-    # Define ``inner`` as a proper FunctionModel: inner(x) = x*x + 1
     INNER_MODEL = FunctionModel(
         fn_name="inner",
         param_names=("x",),
@@ -340,7 +339,7 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
         return result[0]
 
 
-class StagedPipelineSmokeTest(unittest.TestCase):
+class TranslationSmokeTest(unittest.TestCase):
     def test_tokenize_yul_rejects_malformed_input(self) -> None:
         with self.assertRaisesRegex(ParseError, "tokenizer stuck"):
             tokenize_yul("function fun_bad_1() { let x := 1 @ }")
@@ -896,7 +895,9 @@ class TranslationFlowTest(unittest.TestCase):
             optimize=False,
         )
         model = result[0]
-        rendered = render_function_defs([model], self.SIMPLE_CONFIG.emission, self.SIMPLE_CONFIG.transforms)
+        rendered = render_function_defs(
+            [model], self.SIMPLE_CONFIG.emission, self.SIMPLE_CONFIG.transforms
+        )
 
         self.assertIn("def model_f_evm (x : Nat) : Nat :=", rendered)
         self.assertIn("let x := u256 x", rendered)
@@ -914,7 +915,9 @@ class TranslationFlowTest(unittest.TestCase):
             return_names=("z",),
         )
 
-        rendered = render_function_defs([model], self.SIMPLE_CONFIG.emission, self.SIMPLE_CONFIG.transforms)
+        rendered = render_function_defs(
+            [model], self.SIMPLE_CONFIG.emission, self.SIMPLE_CONFIG.transforms
+        )
 
         self.assertIn("def model_f_evm : Nat :=", rendered)
         self.assertIn("def model_f : Nat :=", rendered)
@@ -1858,7 +1861,7 @@ class ModelEquivalenceFuzzerTest(ModelEquivalenceTestCase):
 
 
 # ---------------------------------------------------------------------------
-# Step 1 tests: normalized constant folding used by the staged pipeline
+# Normalized constant-folding tests
 # ---------------------------------------------------------------------------
 
 
@@ -4022,12 +4025,10 @@ class TranslatorBehaviorTest(unittest.TestCase):
             """
         plan = build_selection_plan(
             yul,
-            config,
+            config.selection,
             selected_functions=("pick",),
         )
-        helper_names = {
-            helper.raw_name for helper in plan.target_infos["pick"].helper_infos
-        }
+        helper_names = {helper.raw_name for helper in plan.targets["pick"].helper_infos}
         expected_helper_names: set[str] = {"helper"}
         self.assertEqual(helper_names, expected_helper_names)
 
@@ -6959,7 +6960,7 @@ sys.path.insert(0, {str(formal_dir)!r})
 
 import model_config as modelcfg
 from model_ir import ConditionalBlock
-from yul_to_lean import translate_yul_to_models
+from translator import translate_yul_to_models
 
 config = modelcfg.ModelConfig(
     selection=modelcfg.SelectionConfig(
@@ -13166,8 +13167,8 @@ class SSAModelTest(unittest.TestCase):
         self.assertIn("u256", plan.binder_names["f"].values())
 
 
-class StagedPipelineWiringTest(unittest.TestCase):
-    """Tests that translate_yul_to_models uses the staged pipeline."""
+class TranslationPipelineWiringTest(unittest.TestCase):
+    """Smoke tests for the production translation pipeline."""
 
     NESTED_IF_YUL = """
         function fun_f_1(var_x_1) -> var_z_2 {
@@ -13260,14 +13261,8 @@ class StagedPipelineWiringTest(unittest.TestCase):
         )
 
 
-class StagedPipelineEmbedTest(unittest.TestCase):
-    """Tests that the staged pipeline internalizes non-selected helpers.
-
-    These tests verify that when ``config.function_order`` selects only a
-    subset of the module, the non-selected helpers are internal to the
-    selected targets and are handled by the staged inline plan rather than
-    by emitting extra standalone models.
-    """
+class TranslationHelperInliningTest(unittest.TestCase):
+    """Tests that non-selected helpers stay internal to selected targets."""
 
     # -- target calls a simple pure helper (not selected) --
     HELPER_INLINE_YUL = """
@@ -13434,8 +13429,8 @@ class StagedPipelineEmbedTest(unittest.TestCase):
         self.assertEqual(evaluate_function_model(model, (1,)), (7,))
 
 
-class StagedPipelineSelectionTest(unittest.TestCase):
-    """Tests for config-driven function selection in the staged pipeline."""
+class TranslationSelectionTest(unittest.TestCase):
+    """Tests for config-driven function selection."""
 
     # -- exact_yul_names selects among homonyms --
     HOMONYM_YUL = """
@@ -13553,8 +13548,8 @@ class StagedPipelineSelectionTest(unittest.TestCase):
         self.assertNotIn("helper", repr(result[0].assignments))
 
 
-class StagedPipelineValidationTest(unittest.TestCase):
-    """Tests for pre-restricted validation in the staged pipeline."""
+class TranslationValidationTest(unittest.TestCase):
+    """Tests for pre-restricted validation."""
 
     def test_top_level_leave_handled(self) -> None:
         """leave in the selected target is lowered via did_leave semantics."""

@@ -8,7 +8,7 @@ on:
       - src/vendor/Cbrt.sol
       - src/wrappers/CbrtWrapper.sol
       - formal/cbrt/**
-      - formal/yul_to_lean.py
+      - formal/translator.py
       - test/0.8.25/Cbrt.t.sol
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/CbrtModel.t.sol
@@ -18,7 +18,7 @@ on:
       - src/vendor/Cbrt.sol
       - src/wrappers/CbrtWrapper.sol
       - formal/cbrt/**
-      - formal/yul_to_lean.py
+      - formal/translator.py
       - test/0.8.25/Cbrt.t.sol
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/CbrtModel.t.sol

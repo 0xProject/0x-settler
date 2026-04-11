@@ -4,10 +4,11 @@ Select explicit Yul targets and collect the helpers visible from each target.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 
 from evm_builtins import EVM_BUILTINS
-from model_config import ModelConfig, SelectionConfig
+from model_config import FrozenMap, SelectionConfig
 from yul_lexer import tokenize_yul
 
 from yul_ast import (
@@ -43,8 +44,6 @@ class FunctionKey:
 
 @dataclass(frozen=True)
 class SelectedFunctionInfo:
-    """Canonical record for a selected function (target or helper)."""
-
     key: FunctionKey
     raw_name: str
     lexical_path: tuple[str, ...]
@@ -54,25 +53,30 @@ class SelectedFunctionInfo:
     top_level_key: FunctionKey
 
 
-# Backward-compatible alias — callers that referenced SelectedHelperInfo
-# now use the same type as targets.
-SelectedHelperInfo = SelectedFunctionInfo
-
-
 @dataclass(frozen=True)
 class SelectedTargetInfo:
     sol_name: str
-    info: SelectedFunctionInfo
+    key: FunctionKey
+    raw_name: str
+    lexical_path: tuple[str, ...]
+    func: FunctionDef
+    resolution: ResolutionResult
+    top_level_name: str
+    top_level_key: FunctionKey
     helper_infos: tuple[SelectedFunctionInfo, ...]
 
 
 @dataclass(frozen=True)
 class SelectionPlan:
     selected_functions: tuple[str, ...]
-    target_infos: dict[str, SelectedTargetInfo]
+    targets: Mapping[str, SelectedTargetInfo]
+
+    def __post_init__(self) -> None:
+        frozen_targets: FrozenMap[str, SelectedTargetInfo] = FrozenMap(self.targets)
+        object.__setattr__(self, "targets", frozen_targets)
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True)
 class _SyntaxFunctionInfo:
     func: FunctionDef
     group_idx: int
@@ -89,16 +93,18 @@ class _SyntaxFunctionInfo:
         return FunctionKey(self.group_idx, self.top_level_token_idx)
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True)
 class _SelectionIndex:
     resolved_groups: tuple[dict[str, ResolutionResult], ...]
-    syntax_indexes: tuple[dict[int, _SyntaxFunctionInfo], ...]
     infos_in_token_order: tuple[_SyntaxFunctionInfo, ...]
     top_level_by_group_name: tuple[dict[str, _SyntaxFunctionInfo], ...]
     local_info_by_group_top_level: tuple[
         dict[str, dict[SymbolId, _SyntaxFunctionInfo]],
         ...,
     ]
+    reachable_helper_keys: dict[FunctionKey, frozenset[FunctionKey]] = field(
+        default_factory=dict
+    )
 
     def wrapper_matches(
         self,
@@ -135,11 +141,10 @@ class _SelectionIndex:
 
 
 def normalize_requested_functions(
-    config: SelectionConfig | ModelConfig,
+    config: SelectionConfig,
     requested: tuple[str, ...] | list[str] | None = None,
 ) -> tuple[str, ...]:
-    selection_config = config.selection if isinstance(config, ModelConfig) else config
-    selected = tuple(requested) if requested else selection_config.function_order
+    selected = tuple(requested) if requested else config.function_order
 
     seen: set[str] = set()
     dupes: list[str] = []
@@ -150,47 +155,42 @@ def normalize_requested_functions(
     if dupes:
         raise ParseError(f"Duplicate selected functions: {sorted(dupes)}")
 
-    allowed = set(selection_config.function_order)
+    allowed = set(config.function_order)
     bad = [name for name in selected if name not in allowed]
     if bad:
         raise ParseError(f"Unsupported function(s): {', '.join(bad)}")
 
     normalized = list(selected)
     if (
-        any(name != selection_config.inner_fn for name in normalized)
-        and selection_config.inner_fn not in normalized
+        any(name != config.inner_fn for name in normalized)
+        and config.inner_fn not in normalized
     ):
-        if selection_config.inner_fn not in allowed:
+        if config.inner_fn not in allowed:
             raise ParseError(
-                f"Inner function {selection_config.inner_fn!r} is not in function_order. "
-                f"Available: {', '.join(selection_config.function_order)}"
+                f"Inner function {config.inner_fn!r} is not in function_order. "
+                f"Available: {', '.join(config.function_order)}"
             )
-        normalized.append(selection_config.inner_fn)
+        normalized.append(config.inner_fn)
 
     normalized_set = set(normalized)
-    return tuple(
-        name for name in selection_config.function_order if name in normalized_set
-    )
+    return tuple(name for name in config.function_order if name in normalized_set)
 
 
 def build_selection_plan(
     yul_text: str,
-    config: SelectionConfig | ModelConfig,
+    config: SelectionConfig,
     *,
     selected_functions: tuple[str, ...] | None = None,
 ) -> SelectionPlan:
-    selection_config = config.selection if isinstance(config, ModelConfig) else config
     tokens = tuple(tokenize_yul(yul_text))
     index = _build_selection_index(list(tokens))
 
-    selected = normalize_requested_functions(selection_config, selected_functions)
-    candidate_lists = _build_candidate_lists(index, selection_config, selected)
-    resolved_infos = _resolve_candidates(
-        index, selection_config, selected, candidate_lists
-    )
+    selected = normalize_requested_functions(config, selected_functions)
+    candidate_lists = _build_candidate_lists(index, config, selected)
+    resolved_infos = _resolve_candidates(index, config, selected, candidate_lists)
     selected_keys = {info.key for info in resolved_infos.values()}
 
-    target_infos: dict[str, SelectedTargetInfo] = {}
+    targets: dict[str, SelectedTargetInfo] = {}
     for sol_name in selected:
         info = resolved_infos[sol_name]
         helper_infos = _collect_helper_infos_for_target(
@@ -198,7 +198,8 @@ def build_selection_plan(
             target_info=info,
             exclude_keys=selected_keys,
         )
-        func_info = SelectedFunctionInfo(
+        targets[sol_name] = SelectedTargetInfo(
+            sol_name=sol_name,
             key=info.key,
             raw_name=info.func.name,
             lexical_path=info.lexical_path,
@@ -206,15 +207,11 @@ def build_selection_plan(
             resolution=index.resolved_groups[info.group_idx][info.top_level_name],
             top_level_name=info.top_level_name,
             top_level_key=info.top_level_key,
-        )
-        target_infos[sol_name] = SelectedTargetInfo(
-            sol_name=sol_name,
-            info=func_info,
             helper_infos=helper_infos,
         )
     return SelectionPlan(
         selected_functions=selected,
-        target_infos=target_infos,
+        targets=targets,
     )
 
 
@@ -486,7 +483,6 @@ def _build_selection_index(
         local_info_by_group_top_level.append(per_top_level)
     return _SelectionIndex(
         resolved_groups=resolved_groups,
-        syntax_indexes=syntax_indexes,
         infos_in_token_order=infos_in_token_order,
         top_level_by_group_name=top_level_by_group_name,
         local_info_by_group_top_level=tuple(local_info_by_group_top_level),
@@ -613,7 +609,7 @@ def _collect_helper_infos_for_target(
     index: _SelectionIndex,
     target_info: _SyntaxFunctionInfo,
     exclude_keys: set[FunctionKey],
-) -> tuple[SelectedHelperInfo, ...]:
+) -> tuple[SelectedFunctionInfo, ...]:
     ordered: list[_SyntaxFunctionInfo] = []
     seen: set[FunctionKey] = set()
 
@@ -627,7 +623,7 @@ def _collect_helper_infos_for_target(
 
     visit(target_info)
     return tuple(
-        SelectedHelperInfo(
+        SelectedFunctionInfo(
             key=helper.key,
             raw_name=helper.func.name,
             lexical_path=helper.lexical_path,
@@ -644,7 +640,10 @@ def _collect_reachable_helper_keys(
     index: _SelectionIndex,
     target_info: _SyntaxFunctionInfo,
 ) -> frozenset[FunctionKey]:
-    return frozenset(
+    cached = index.reachable_helper_keys.get(target_info.key)
+    if cached is not None:
+        return cached
+    cached = frozenset(
         helper.key
         for helper in _collect_helper_infos_for_target(
             index=index,
@@ -652,6 +651,8 @@ def _collect_reachable_helper_keys(
             exclude_keys=set(),
         )
     )
+    index.reachable_helper_keys[target_info.key] = cached
+    return cached
 
 
 def _direct_helper_infos(

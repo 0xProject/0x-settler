@@ -3,14 +3,15 @@ from __future__ import annotations
 import argparse
 import pathlib
 import sys
-from typing import cast
+from typing import TextIO
 
 from lean_emit import build_lean_source
 from lean_names import validate_ident
 from model_config import ModelConfig
 from model_helpers import collect_model_opcodes
+from translator import translate_yul_to_models
+
 from yul_ast import ParseError
-from yul_to_lean import translate_yul_to_models
 
 
 class _CliArgs(argparse.Namespace):
@@ -65,7 +66,8 @@ def run_generator(config: ModelConfig) -> int:
         stdin = sys.stdin
         if stdin is None:
             raise ParseError("stdin is unavailable while reading Yul input")
-        yul_text = cast(str, stdin.read())
+        text_stdin: TextIO = stdin
+        yul_text = text_stdin.read()
     else:
         yul_text = pathlib.Path(args.yul).read_text()
 

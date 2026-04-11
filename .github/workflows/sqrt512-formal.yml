@@ -9,7 +9,7 @@ on:
       - src/vendor/Sqrt.sol
       - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
-      - formal/yul_to_lean.py
+      - formal/translator.py
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/Sqrt512Model.t.sol
       - .github/workflows/sqrt512-formal.yml
@@ -19,7 +19,7 @@ on:
       - src/vendor/Sqrt.sol
       - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
-      - formal/yul_to_lean.py
+      - formal/translator.py
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/Sqrt512Model.t.sol
       - .github/workflows/sqrt512-formal.yml

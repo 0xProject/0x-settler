@@ -1,4 +1,4 @@
-name: YulToLean Unit Tests
+name: Translator Unit Tests
 
 on:
   push:
