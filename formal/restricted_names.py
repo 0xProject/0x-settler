@@ -71,10 +71,6 @@ def legalize_identifier_base(name: str) -> str:
     return _sanitize_base(_demangle(name))
 
 
-def _legalize_one(name: str) -> str:
-    return legalize_identifier_base(name)
-
-
 def _uniquify_name_bases(
     raw_names: dict[SymbolId, str],
 ) -> dict[SymbolId, str]:
@@ -82,7 +78,7 @@ def _uniquify_name_bases(
     result: dict[SymbolId, str] = {}
     used: set[str] = set()
     for sid, raw in raw_names.items():
-        base = _legalize_one(raw)
+        base = legalize_identifier_base(raw)
         candidate = base
         suffix = 1
         while candidate in used:

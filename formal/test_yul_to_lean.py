@@ -7918,7 +7918,7 @@ class ReviewBehaviorTest(unittest.TestCase):
         self.assertEqual(body.splitlines()[0], "  let z := 1")
 
 
-class CriticalReviewBehaviorTest(unittest.TestCase):
+class ScopeLeakRejectionTest(unittest.TestCase):
     def test_translate_yul_to_models_rejects_nonconstant_conditional_local_used_out_of_scope_after_name_leak(
         self,
     ) -> None:
@@ -8030,7 +8030,7 @@ class CriticalReviewBehaviorTest(unittest.TestCase):
                     build_selection_plan(yul, config.selection)
 
 
-class CriticalReviewFixTest(unittest.TestCase):
+class ConditionalScopeRejectionTest(unittest.TestCase):
     def test_translate_yul_to_models_rejects_nonconstant_conditional_local_reassignment_used_out_of_scope(
         self,
     ) -> None:
@@ -9181,7 +9181,7 @@ class CriticalReviewFixTest(unittest.TestCase):
                     )
 
 
-class FinalCriticalReviewTest(unittest.TestCase):
+class DeadCodeHelperFilterTest(unittest.TestCase):
     def test_find_function_ignores_dead_helper_reference_after_infinite_for_loop(
         self,
     ) -> None:
@@ -9550,7 +9550,7 @@ class FinalCriticalReviewTest(unittest.TestCase):
         )
 
 
-class LatestCriticalReviewTest(unittest.TestCase):
+class CompilerTemporaryThreadingTest(unittest.TestCase):
     def test_translate_yul_to_models_threads_compiler_temporary_through_nonconstant_if(
         self,
     ) -> None:

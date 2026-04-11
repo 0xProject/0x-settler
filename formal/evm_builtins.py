@@ -159,12 +159,12 @@ MODELED_BUILTINS: tuple[ModeledBuiltin, ...] = (
     ),
 )
 
-SUPPORTED_MODEL_OPS = tuple(spec.name for spec in MODELED_BUILTINS)
-
-SUPPORTED_MODEL_OPS_SET: frozenset[str] = frozenset(SUPPORTED_MODEL_OPS)
+SUPPORTED_MODEL_OPS_SET: frozenset[str] = frozenset(
+    spec.name for spec in MODELED_BUILTINS
+)
 
 # Complete set of Yul/EVM builtins that solc reserves (error 5568).
-# SUPPORTED_MODEL_OPS are the subset we model in Lean; this is the full set
+# SUPPORTED_MODEL_OPS_SET is the subset we model in Lean; this is the full set
 # used by the resolver to reject function/variable declarations that would
 # shadow a builtin name.
 #
@@ -387,10 +387,3 @@ def eval_pure_builtin(name: str, args: tuple[int, ...]) -> int:
             f"Unsupported builtin call {name!r} with {len(args)} arg(s)"
         )
     return u256(fn(args))
-
-
-def try_eval_pure_builtin(name: str, args: tuple[int, ...]) -> int | None:
-    try:
-        return eval_pure_builtin(name, args)
-    except EvaluationError:
-        return None

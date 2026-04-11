@@ -1,5 +1,5 @@
 """
-SSA renaming and FunctionModel conversion (Pass 9).
+SSA renaming and FunctionModel conversion.
 
 Converts a ``RestrictedFunction`` (SymbolId-keyed, non-SSA) into a
 ``FunctionModel`` (string-named, SSA-renamed) ready for validation,

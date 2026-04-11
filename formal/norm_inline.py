@@ -1,7 +1,6 @@
 """
 Block-based helper inlining on the normalized imperative IR.
 
-Architecture (per critic recommendation):
 - Inlining a call returns an ``InlineFragment`` (prelude + results),
   not just an expression.  This cleanly separates effect emission
   from result computation.
