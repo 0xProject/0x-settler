@@ -7,13 +7,14 @@ cleanup to selected targets, local helpers, and top-level helper bodies.
 
 from __future__ import annotations
 
+from typing import assert_never
+
 from .evm_builtins import WORD_MOD
 from .norm_constprop import fold_expr
 from .norm_ir import (
     NAssign,
     NBind,
     NBlock,
-    NBuiltinCall,
     NConst,
     NExprEffect,
     NFor,
@@ -21,7 +22,6 @@ from .norm_ir import (
     NIf,
     NLeave,
     NormalizedFunction,
-    NRef,
     NStmt,
     NStore,
     NSwitch,
@@ -139,78 +139,14 @@ def _simplify_stmt(stmt: NStmt) -> list[NStmt]:
     if isinstance(stmt, NLeave):
         return [stmt]
 
-    raise TypeError(f"Unexpected normalized statement {type(stmt).__name__}")
-
-
-def _contains_leave(block: NBlock) -> bool:
-    """Check if any NLeave exists in *block* (recursive)."""
-    for stmt in block.stmts:
-        if isinstance(stmt, NLeave):
-            return True
-        if isinstance(stmt, NIf) and _contains_leave(stmt.then_body):
-            return True
-        if isinstance(stmt, NSwitch):
-            for case in stmt.cases:
-                if _contains_leave(case.body):
-                    return True
-            if stmt.default is not None and _contains_leave(stmt.default):
-                return True
-        if isinstance(stmt, NFor):
-            if _contains_leave(stmt.body):
-                return True
-        if isinstance(stmt, NBlock) and _contains_leave(stmt):
-            return True
-    return False
-
-
-def lower_leave(func: NormalizedFunction) -> NormalizedFunction:
-    """Rewrite ``leave`` to ``did_leave`` flag semantics.
-
-    If the function body contains no ``NLeave``, returns unchanged.
-    Otherwise, introduces a ``did_leave`` flag variable, replaces all
-    ``NLeave`` with ``did_leave := 1``, and guards subsequent top-level
-    statements with ``if iszero(did_leave)``.
-    """
-    if not _contains_leave(func.body):
-        return func
-
-    from .norm_inline import SymbolAllocator
-    from .norm_walk import max_symbol_id
-
-    alloc = SymbolAllocator(max_symbol_id(func) + 1)
-    did_leave_id = alloc.alloc()
-    did_leave_ref = NRef(symbol_id=did_leave_id, name=f"_did_leave_{did_leave_id._id}")
-
-    # Import leave-rewriting helpers from the inliner.
-    from .norm_inline import _partition_guarded_stmts, _rewrite_leave_recursive
-
-    rewritten = _rewrite_leave_recursive(func.body, did_leave_id)
-
-    # Prepend did_leave := 0, then group guarded statements.
-    out: list[NStmt] = [
-        NBind(
-            targets=(did_leave_id,),
-            target_names=(f"_did_leave_{did_leave_id._id}",),
-            expr=NConst(0),
-        )
-    ]
-    out.extend(_partition_guarded_stmts(rewritten.stmts, did_leave_id, did_leave_ref))
-
-    return NormalizedFunction(
-        name=func.name,
-        params=func.params,
-        param_names=func.param_names,
-        returns=func.returns,
-        return_names=func.return_names,
-        body=NBlock(tuple(out)),
-    )
+    assert_never(stmt)
 
 
 def _definitely_terminates(stmt: NStmt) -> bool:
     if isinstance(stmt, NLeave):
         return True
-    if isinstance(stmt, NBlock) and stmt.stmts:
-        return _definitely_terminates(stmt.stmts[-1])
+    if isinstance(stmt, NBlock):
+        return bool(stmt.stmts) and _definitely_terminates(stmt.stmts[-1])
     if isinstance(stmt, NIf):
         return False
     if isinstance(stmt, NSwitch):
@@ -219,4 +155,4 @@ def _definitely_terminates(stmt: NStmt) -> bool:
         return False
     if isinstance(stmt, (NBind, NAssign, NExprEffect, NStore, NFunctionDef)):
         return False
-    raise TypeError(f"Unexpected normalized statement {type(stmt).__name__}")
+    assert_never(stmt)

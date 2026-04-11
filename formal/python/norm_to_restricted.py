@@ -11,6 +11,8 @@ The resulting IR has:
 
 from __future__ import annotations
 
+from typing import assert_never
+
 from .evm_builtins import WORD_MOD
 from .norm_ir import (
     NAssign,
@@ -92,7 +94,7 @@ def _lower_expr(expr: NExpr) -> RExpr:
             if_false=_lower_expr(expr.if_false),
         )
 
-    raise ParseError(f"Unexpected expression: {type(expr).__name__}")
+    assert_never(expr)
 
 
 def _modified_union(
@@ -233,7 +235,7 @@ def _lower_stmt(
     if isinstance(stmt, NFor):
         raise ParseError("NFor in restricted IR lowering — not supported")
 
-    raise ParseError(f"Unexpected statement: {type(stmt).__name__}")
+    assert_never(stmt)
 
 
 def _lower_if(

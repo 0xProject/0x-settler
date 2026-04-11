@@ -38,6 +38,7 @@ from .model_ir import (
     Project,
     Var,
 )
+from .model_validate import validate_model_set
 from .restricted_ir import (
     RAssignment,
     RBranch,
@@ -121,7 +122,7 @@ def _convert_expr(expr: RExpr, ctx: _SSACtx) -> Expr:
             _convert_expr(expr.if_true, ctx),
             _convert_expr(expr.if_false, ctx),
         )
-    raise ValueError(f"Unexpected RExpr: {type(expr).__name__}")
+    assert_never(expr)
 
 
 # ---------------------------------------------------------------------------
@@ -185,14 +186,14 @@ def _convert_conditional(
 
     # Process then-branch with branch-local SSA state.
     then_ctx = ctx.copy()
-    then_stmts = _convert_branch_block(stmt.then_branch.assignments, then_ctx)
+    then_stmts = _convert_block(stmt.then_branch.assignments, then_ctx)
     then_outputs: list[Expr] = [
         _convert_expr(e, then_ctx) for e in stmt.then_branch.output_exprs
     ]
 
     # Process else-branch with branch-local SSA state.
     else_ctx = ctx.copy()
-    else_stmts = _convert_branch_block(stmt.else_branch.assignments, else_ctx)
+    else_stmts = _convert_block(stmt.else_branch.assignments, else_ctx)
     else_outputs: list[Expr] = [
         _convert_expr(e, else_ctx) for e in stmt.else_branch.output_exprs
     ]
@@ -219,17 +220,6 @@ def _convert_conditional(
     )
 
 
-def _convert_branch_block(
-    stmts: tuple[RStatement, ...],
-    ctx: _SSACtx,
-) -> list[ModelStatement]:
-    """Convert branch-local statements, handling nested conditionals recursively."""
-    out: list[ModelStatement] = []
-    for stmt in stmts:
-        _convert_stmt(stmt, ctx, out)
-    return out
-
-
 # ---------------------------------------------------------------------------
 # Zero-initialization for return variables
 # ---------------------------------------------------------------------------
@@ -248,7 +238,7 @@ def _expr_uses_sid(expr: RExpr, sid: SymbolId) -> bool:
             or _expr_uses_sid(expr.if_true, sid)
             or _expr_uses_sid(expr.if_false, sid)
         )
-    raise ValueError(f"Unexpected RExpr: {type(expr).__name__}")
+    assert_never(expr)
 
 
 def _analyze_branch_outputs(
@@ -356,7 +346,6 @@ def to_function_models(
         sol_name = name_plan.function_names[raw_name]
         # Name legalization already applied by apply_module_plan.
         models[sol_name] = _ssa_and_model(func, sol_name)
-    from .model_validate import validate_model_set
 
     validate_model_set(list(models.values()))
     return models

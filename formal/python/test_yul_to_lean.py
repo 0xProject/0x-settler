@@ -11234,11 +11234,12 @@ class InlineArchitectureTest(unittest.TestCase):
         """Check if any NLocalCall to *name* remains anywhere in the IR tree."""
         from .norm_walk import for_each_expr
 
-        found: list[bool] = [False]
+        found = False
 
         def check_expr(e: norm_ir.NExpr) -> None:
+            nonlocal found
             if isinstance(e, norm_ir.NLocalCall) and e.name == name:
-                found[0] = True
+                found = True
 
         def walk_block(b: norm_ir.NBlock) -> None:
             for stmt in b.stmts:
@@ -11275,7 +11276,7 @@ class InlineArchitectureTest(unittest.TestCase):
                 pass  # Structural — not executed, don't check
 
         walk_block(block)
-        return found[0]
+        return found
 
     def test_nested_block_inline_call(self) -> None:
         """BLOCK_INLINE call nested inside add() must be inlined."""
@@ -13701,7 +13702,7 @@ class LeaveGuardGroupingTest(unittest.TestCase):
 
     def test_lower_leave_groups_trailing_stmts(self) -> None:
         """Trailing statements after leave share one guarded block, not N."""
-        from .norm_simplify import lower_leave
+        from .norm_leave import lower_leave
         from .yul_normalize import normalize_function
         from .yul_parser import SyntaxParser
         from .yul_resolve import resolve_function

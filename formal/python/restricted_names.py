@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from typing import assert_never
 
 from .restricted_ir import (
     RAssignment,
@@ -119,7 +120,7 @@ def _rewrite_expr(
             if_true=_rewrite_expr(expr.if_true, name_map, callee_map),
             if_false=_rewrite_expr(expr.if_false, name_map, callee_map),
         )
-    raise ValueError(f"Unexpected RExpr: {type(expr).__name__}")
+    assert_never(expr)
 
 
 def _rewrite_stmt(
@@ -174,7 +175,7 @@ def _rewrite_stmt(
                 ),
             ),
         )
-    raise ValueError(f"Unexpected RStatement: {type(stmt).__name__}")
+    assert_never(stmt)
 
 
 # ---------------------------------------------------------------------------
@@ -197,16 +198,20 @@ def _collect_all_sids(func: RestrictedFunction) -> dict[SymbolId, str]:
 def _collect_sids_stmt(stmt: RStatement, out: dict[SymbolId, str]) -> None:
     if isinstance(stmt, RAssignment):
         out[stmt.target] = stmt.target_name
-    elif isinstance(stmt, RCallAssign):
+        return
+    if isinstance(stmt, RCallAssign):
         for sid, name in zip(stmt.targets, stmt.target_names):
             out[sid] = name
-    elif isinstance(stmt, RConditionalBlock):
+        return
+    if isinstance(stmt, RConditionalBlock):
         for sid, name in zip(stmt.output_targets, stmt.output_names):
             out[sid] = name
         for s in stmt.then_branch.assignments:
             _collect_sids_stmt(s, out)
         for s in stmt.else_branch.assignments:
             _collect_sids_stmt(s, out)
+        return
+    assert_never(stmt)
 
 
 # ---------------------------------------------------------------------------

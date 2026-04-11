@@ -35,7 +35,7 @@ from .norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
-from .norm_walk import collect_function_defs, for_each_expr
+from .norm_walk import collect_function_defs, expr_contains, for_each_expr
 from .yul_ast import SymbolId
 
 # ---------------------------------------------------------------------------
@@ -201,14 +201,10 @@ def _walk_expr_effects(acc: _SummaryAccumulator, expr: NExpr) -> None:
 
 def _has_call_in_expr(expr: NExpr) -> bool:
     """Check if an expression contains any function call."""
-    found: list[bool] = [False]
-
-    def visit(e: NExpr) -> None:
-        if isinstance(e, (NLocalCall, NTopLevelCall, NUnresolvedCall)):
-            found[0] = True
-
-    for_each_expr(expr, visit)
-    return found[0]
+    return expr_contains(
+        expr,
+        lambda e: isinstance(e, (NLocalCall, NTopLevelCall, NUnresolvedCall)),
+    )
 
 
 def _is_known_effect_call(expr: NExpr) -> bool:

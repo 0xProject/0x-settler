@@ -110,6 +110,62 @@ def for_each_expr(expr: NExpr, f: Callable[[NExpr], None]) -> None:
         assert_never(expr)
 
 
+def expr_contains(expr: NExpr, predicate: Callable[[NExpr], bool]) -> bool:
+    """Return whether any sub-expression satisfies *predicate*."""
+    found = False
+
+    def visit(node: NExpr) -> None:
+        nonlocal found
+        if predicate(node):
+            found = True
+
+    for_each_expr(expr, visit)
+    return found
+
+
+# ---------------------------------------------------------------------------
+# Statement visitor (pre-order)
+# ---------------------------------------------------------------------------
+
+
+def for_each_stmt(
+    block: NBlock,
+    f: Callable[[NStmt], None],
+    *,
+    include_function_bodies: bool = False,
+) -> None:
+    """Call *f* on every statement in pre-order."""
+
+    def walk(current: NBlock) -> None:
+        for stmt in current.stmts:
+            f(stmt)
+            if isinstance(stmt, NIf):
+                walk(stmt.then_body)
+            elif isinstance(stmt, NSwitch):
+                for case in stmt.cases:
+                    walk(case.body)
+                if stmt.default is not None:
+                    walk(stmt.default)
+            elif isinstance(stmt, NFor):
+                walk(stmt.init)
+                if stmt.condition_setup is not None:
+                    walk(stmt.condition_setup)
+                walk(stmt.post)
+                walk(stmt.body)
+            elif isinstance(stmt, NBlock):
+                walk(stmt)
+            elif isinstance(stmt, NFunctionDef) and include_function_bodies:
+                walk(stmt.body)
+            elif isinstance(stmt, (NBind, NAssign, NExprEffect, NStore, NLeave)):
+                pass
+            elif isinstance(stmt, NFunctionDef):
+                pass
+            else:
+                assert_never(stmt)
+
+    walk(block)
+
+
 # ---------------------------------------------------------------------------
 # Shared collectors
 # ---------------------------------------------------------------------------
@@ -118,28 +174,17 @@ def for_each_expr(expr: NExpr, f: Callable[[NExpr], None]) -> None:
 def collect_modified_in_block(block: NBlock) -> set[SymbolId]:
     """Collect all SymbolIds assigned (NBind/NAssign targets) in *block*."""
     out: set[SymbolId] = set()
-    _collect_modified_walk(block, out)
+
+    def collect_stmt(stmt: NStmt) -> None:
+        _collect_modified_stmt(stmt, out)
+
+    for_each_stmt(block, collect_stmt)
     return out
 
 
-def _collect_modified_walk(block: NBlock, out: set[SymbolId]) -> None:
-    for stmt in block.stmts:
-        if isinstance(stmt, (NBind, NAssign)):
-            for sid in stmt.targets:
-                out.add(sid)
-        elif isinstance(stmt, NIf):
-            _collect_modified_walk(stmt.then_body, out)
-        elif isinstance(stmt, NSwitch):
-            for case in stmt.cases:
-                _collect_modified_walk(case.body, out)
-            if stmt.default is not None:
-                _collect_modified_walk(stmt.default, out)
-        elif isinstance(stmt, NFor):
-            _collect_modified_walk(stmt.init, out)
-            _collect_modified_walk(stmt.post, out)
-            _collect_modified_walk(stmt.body, out)
-        elif isinstance(stmt, NBlock):
-            _collect_modified_walk(stmt, out)
+def _collect_modified_stmt(stmt: NStmt, out: set[SymbolId]) -> None:
+    if isinstance(stmt, (NBind, NAssign)):
+        out.update(stmt.targets)
 
 
 def collect_reassigned_in_block(block: NBlock) -> set[SymbolId]:
@@ -149,27 +194,17 @@ def collect_reassigned_in_block(block: NBlock) -> set[SymbolId]:
     this only finds variables that are re-assigned after initial binding.
     """
     out: set[SymbolId] = set()
-    _collect_reassigned_walk(block, out)
+
+    def collect_stmt(stmt: NStmt) -> None:
+        _collect_reassigned_stmt(stmt, out)
+
+    for_each_stmt(block, collect_stmt)
     return out
 
 
-def _collect_reassigned_walk(block: NBlock, out: set[SymbolId]) -> None:
-    for stmt in block.stmts:
-        if isinstance(stmt, NAssign):
-            out.update(stmt.targets)
-        elif isinstance(stmt, NIf):
-            _collect_reassigned_walk(stmt.then_body, out)
-        elif isinstance(stmt, NSwitch):
-            for case in stmt.cases:
-                _collect_reassigned_walk(case.body, out)
-            if stmt.default is not None:
-                _collect_reassigned_walk(stmt.default, out)
-        elif isinstance(stmt, NFor):
-            _collect_reassigned_walk(stmt.init, out)
-            _collect_reassigned_walk(stmt.post, out)
-            _collect_reassigned_walk(stmt.body, out)
-        elif isinstance(stmt, NBlock):
-            _collect_reassigned_walk(stmt, out)
+def _collect_reassigned_stmt(stmt: NStmt, out: set[SymbolId]) -> None:
+    if isinstance(stmt, NAssign):
+        out.update(stmt.targets)
 
 
 def collect_function_defs(block: NBlock) -> list[NFunctionDef]:
@@ -179,36 +214,22 @@ def collect_function_defs(block: NBlock) -> list[NFunctionDef]:
     """
     out: list[NFunctionDef] = []
 
-    def _walk(b: NBlock) -> None:
-        for stmt in b.stmts:
-            if isinstance(stmt, NFunctionDef):
-                out.append(stmt)
-                _walk(stmt.body)
-            elif isinstance(stmt, NIf):
-                _walk(stmt.then_body)
-            elif isinstance(stmt, NSwitch):
-                for case in stmt.cases:
-                    _walk(case.body)
-                if stmt.default is not None:
-                    _walk(stmt.default)
-            elif isinstance(stmt, NFor):
-                _walk(stmt.init)
-                _walk(stmt.post)
-                _walk(stmt.body)
-            elif isinstance(stmt, NBlock):
-                _walk(stmt)
+    def collect_stmt(stmt: NStmt) -> None:
+        if isinstance(stmt, NFunctionDef):
+            out.append(stmt)
 
-    _walk(block)
+    for_each_stmt(block, collect_stmt, include_function_bodies=True)
     return out
 
 
 def max_symbol_id(func: NormalizedFunction | NFunctionDef) -> int:
     """Find the maximum ``SymbolId._id`` in *func*."""
-    result: list[int] = [0]
+    result = 0
 
     def _check(sid: SymbolId) -> None:
-        if sid._id > result[0]:
-            result[0] = sid._id
+        nonlocal result
+        if sid._id > result:
+            result = sid._id
 
     if isinstance(func, NFunctionDef):
         _check(func.symbol_id)
@@ -223,11 +244,7 @@ def max_symbol_id(func: NormalizedFunction | NFunctionDef) -> int:
         elif isinstance(e, NLocalCall):
             _check(e.symbol_id)
 
-    def _walk_block(b: NBlock) -> None:
-        for stmt in b.stmts:
-            _walk_stmt(stmt)
-
-    def _walk_stmt(stmt: NStmt) -> None:
+    def visit_stmt(stmt: NStmt) -> None:
         if isinstance(stmt, NBind):
             for sid in stmt.targets:
                 _check(sid)
@@ -244,32 +261,25 @@ def max_symbol_id(func: NormalizedFunction | NFunctionDef) -> int:
             for_each_expr(stmt.value, visit_expr)
         elif isinstance(stmt, NIf):
             for_each_expr(stmt.condition, visit_expr)
-            _walk_block(stmt.then_body)
         elif isinstance(stmt, NSwitch):
             for_each_expr(stmt.discriminant, visit_expr)
-            for case in stmt.cases:
-                _walk_block(case.body)
-            if stmt.default is not None:
-                _walk_block(stmt.default)
         elif isinstance(stmt, NFor):
-            _walk_block(stmt.init)
             for_each_expr(stmt.condition, visit_expr)
-            _walk_block(stmt.post)
-            _walk_block(stmt.body)
         elif isinstance(stmt, NLeave):
             pass
-        elif isinstance(stmt, NBlock):
-            _walk_block(stmt)
         elif isinstance(stmt, NFunctionDef):
             _check(stmt.symbol_id)
             for sid in stmt.params:
                 _check(sid)
             for sid in stmt.returns:
                 _check(sid)
-            _walk_block(stmt.body)
+        elif isinstance(stmt, NBlock):
+            pass
+        else:
+            assert_never(stmt)
 
-    _walk_block(func.body)
-    return result[0]
+    for_each_stmt(func.body, visit_stmt, include_function_bodies=True)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -281,6 +291,18 @@ class SymbolIdAllocator(Protocol):
     """Protocol for SymbolId allocation."""
 
     def alloc(self) -> SymbolId: ...
+
+
+class SymbolAllocator:
+    """Generate fresh ``SymbolId`` values."""
+
+    def __init__(self, start: int) -> None:
+        self._next = start
+
+    def alloc(self) -> SymbolId:
+        sid = SymbolId(self._next)
+        self._next += 1
+        return sid
 
 
 def freshen_function_subtree(
@@ -321,29 +343,16 @@ def freshen_function_subtree(
 
 def _collect_declared_ids(block: NBlock, out: set[SymbolId]) -> None:
     """Collect all SymbolIds declared in a block (recursive)."""
-    for stmt in block.stmts:
+
+    def collect_stmt(stmt: NStmt) -> None:
         if isinstance(stmt, NBind):
             out.update(stmt.targets)
         elif isinstance(stmt, NFunctionDef):
             out.add(stmt.symbol_id)
             out.update(stmt.params)
             out.update(stmt.returns)
-            _collect_declared_ids(stmt.body, out)
-        elif isinstance(stmt, NIf):
-            _collect_declared_ids(stmt.then_body, out)
-        elif isinstance(stmt, NSwitch):
-            for case in stmt.cases:
-                _collect_declared_ids(case.body, out)
-            if stmt.default is not None:
-                _collect_declared_ids(stmt.default, out)
-        elif isinstance(stmt, NFor):
-            _collect_declared_ids(stmt.init, out)
-            if stmt.condition_setup is not None:
-                _collect_declared_ids(stmt.condition_setup, out)
-            _collect_declared_ids(stmt.post, out)
-            _collect_declared_ids(stmt.body, out)
-        elif isinstance(stmt, NBlock):
-            _collect_declared_ids(stmt, out)
+
+    for_each_stmt(block, collect_stmt, include_function_bodies=True)
 
 
 def _freshen_block(block: NBlock, id_map: dict[SymbolId, SymbolId]) -> NBlock:

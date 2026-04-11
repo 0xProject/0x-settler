@@ -6,13 +6,13 @@ Owns the end-to-end pipeline: selection -> lowering -> model transforms.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from .model_config import ModelConfig
 from .model_transforms import apply_optional_model_transforms
 from .model_validate import validate_model_set
 from .norm_constprop import propagate_constants
-from .norm_inline import InlineBoundaryPolicy, SymbolAllocator, inline_pure_helpers
+from .norm_inline import InlineBoundaryPolicy, inline_pure_helpers
 from .norm_ir import (
     NAssign,
     NBind,
@@ -31,11 +31,12 @@ from .norm_ir import (
     NSwitchCase,
     NTopLevelCall,
 )
+from .norm_leave import lower_leave
 from .norm_memory import lower_memory
-from .norm_simplify import lower_leave, simplify_normalized
+from .norm_simplify import simplify_normalized
 from .norm_to_restricted import lower_to_restricted
 from .norm_validate import validate_restricted_boundary
-from .norm_walk import map_expr
+from .norm_walk import SymbolAllocator, map_expr
 from .restricted_ir import RestrictedFunction
 from .restricted_to_model import to_function_models
 from .selection import (
@@ -44,7 +45,7 @@ from .selection import (
     SelectionPlan,
     build_selection_plan,
 )
-from .yul_ast import ParseError, SymbolId
+from .yul_ast import SymbolId
 from .yul_normalize import normalize_function
 
 if TYPE_CHECKING:
@@ -324,7 +325,7 @@ def _rewrite_selected_calls(
             return rw_block(stmt)
         if isinstance(stmt, NLeave):
             return stmt
-        raise ParseError(f"Unexpected normalized statement {type(stmt).__name__}")
+        assert_never(stmt)
 
     return NormalizedFunction(
         name=func.name,

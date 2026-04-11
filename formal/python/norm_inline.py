@@ -15,6 +15,7 @@ Block-based helper inlining on the normalized imperative IR.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import assert_never
 
 from .norm_classify import (
     FunctionSummary,
@@ -23,6 +24,7 @@ from .norm_classify import (
     classify_helpers,
     summarize_function,
 )
+from .norm_leave import guard_stmts_after_leave, rewrite_leave_as_flag
 from .norm_ir import (
     NAssign,
     NBind,
@@ -47,6 +49,7 @@ from .norm_ir import (
     NUnresolvedCall,
 )
 from .norm_walk import (
+    SymbolAllocator,
     collect_function_defs,
     for_each_expr,
     freshen_function_subtree,
@@ -54,23 +57,6 @@ from .norm_walk import (
     max_symbol_id,
 )
 from .yul_ast import ParseError, SymbolId
-
-# ---------------------------------------------------------------------------
-# SymbolId allocator
-# ---------------------------------------------------------------------------
-
-
-class SymbolAllocator:
-    """Generates fresh ``SymbolId`` values."""
-
-    def __init__(self, start: int) -> None:
-        self._next = start
-
-    def alloc(self) -> SymbolId:
-        sid = SymbolId(self._next)
-        self._next += 1
-        return sid
-
 
 # ---------------------------------------------------------------------------
 # InlineFragment — the universal inlining result
@@ -511,9 +497,9 @@ def _clone_body_for_block_inline(
     subst_body = _subst_block(block, param_subst)
 
     # Rewrite ALL NLeave nodes (recursively) into did_leave := 1.
-    rewritten = _rewrite_leave_recursive(subst_body, did_leave_id)
+    rewritten = rewrite_leave_as_flag(subst_body, did_leave_id)
 
-    return _partition_guarded_stmts(rewritten.stmts, did_leave_id, did_leave_ref)
+    return guard_stmts_after_leave(rewritten.stmts, did_leave_id, did_leave_ref)
 
 
 def _subst_block(block: NBlock, subst: dict[SymbolId, NExpr]) -> NBlock:
@@ -577,131 +563,7 @@ def _subst_stmt(stmt: NStmt, subst: dict[SymbolId, NExpr]) -> NStmt:
         return stmt
     if isinstance(stmt, NFunctionDef):
         return stmt  # Nested fdefs have their own scope
-    raise ParseError(f"Unexpected {type(stmt).__name__} in block-inline subst")
-
-
-def _rewrite_leave_recursive(block: NBlock, did_leave_id: SymbolId) -> NBlock:
-    """Rewrite all NLeave nodes to ``did_leave := 1`` recursively."""
-    return NBlock(tuple(_rewrite_leave_stmt(s, did_leave_id) for s in block.stmts))
-
-
-def _rewrite_leave_stmt(stmt: NStmt, did_leave_id: SymbolId) -> NStmt:
-    if isinstance(stmt, NLeave):
-        return NAssign(
-            targets=(did_leave_id,),
-            target_names=(f"_did_leave_{did_leave_id._id}",),
-            expr=NConst(1),
-        )
-    if isinstance(stmt, NIf):
-        return NIf(
-            condition=stmt.condition,
-            then_body=_rewrite_leave_recursive(stmt.then_body, did_leave_id),
-        )
-    if isinstance(stmt, NBlock):
-        return _rewrite_leave_recursive(stmt, did_leave_id)
-    if isinstance(stmt, NSwitch):
-        return NSwitch(
-            discriminant=stmt.discriminant,
-            cases=tuple(
-                NSwitchCase(
-                    value=case.value,
-                    body=_rewrite_leave_recursive(case.body, did_leave_id),
-                )
-                for case in stmt.cases
-            ),
-            default=(
-                _rewrite_leave_recursive(stmt.default, did_leave_id)
-                if stmt.default is not None
-                else None
-            ),
-        )
-    if isinstance(stmt, NFor):
-        return NFor(
-            init=_rewrite_leave_recursive(stmt.init, did_leave_id),
-            condition=stmt.condition,
-            condition_setup=(
-                _rewrite_leave_recursive(stmt.condition_setup, did_leave_id)
-                if stmt.condition_setup is not None
-                else None
-            ),
-            post=_rewrite_leave_recursive(stmt.post, did_leave_id),
-            body=_rewrite_leave_recursive(stmt.body, did_leave_id),
-        )
-    return stmt
-
-
-def _partition_guarded_stmts(
-    stmts: tuple[NStmt, ...],
-    did_leave_id: SymbolId,
-    did_leave_ref: NExpr,
-) -> list[NStmt]:
-    """Group post-leave statements into maximal guarded blocks.
-
-    After ``_rewrite_leave_recursive``, some statements may set
-    ``did_leave``.  This function accumulates consecutive non-leave-
-    setting statements into a single ``if iszero(did_leave) { ... }``
-    block, preventing temp chains from being fragmented across
-    sibling conditional boundaries.
-    """
-    out: list[NStmt] = []
-    may_have_left = False
-    pending: list[NStmt] = []
-
-    def flush() -> None:
-        nonlocal pending
-        if pending:
-            guard = NBuiltinCall(op="iszero", args=(did_leave_ref,))
-            out.append(NIf(condition=guard, then_body=NBlock(tuple(pending))))
-            pending = []
-
-    for stmt in stmts:
-        if may_have_left:
-            if _stmt_may_leave_rewritten(stmt, did_leave_id):
-                flush()
-                out.append(stmt)
-            else:
-                pending.append(stmt)
-        else:
-            out.append(stmt)
-            if _stmt_may_leave_rewritten(stmt, did_leave_id):
-                may_have_left = True
-
-    flush()
-    return out
-
-
-def _stmt_may_leave_rewritten(stmt: NStmt, did_leave_id: SymbolId) -> bool:
-    """Check if a statement might assign did_leave (post-rewrite)."""
-    if isinstance(stmt, NAssign) and did_leave_id in stmt.targets:
-        return True
-    if isinstance(stmt, NIf):
-        return any(
-            _stmt_may_leave_rewritten(s, did_leave_id) for s in stmt.then_body.stmts
-        )
-    if isinstance(stmt, NSwitch):
-        return any(
-            _stmt_may_leave_rewritten(s, did_leave_id)
-            for case in stmt.cases
-            for s in case.body.stmts
-        ) or (
-            stmt.default is not None
-            and any(
-                _stmt_may_leave_rewritten(s, did_leave_id) for s in stmt.default.stmts
-            )
-        )
-    if isinstance(stmt, NFor):
-        for block in (
-            stmt.init,
-            stmt.condition_setup if stmt.condition_setup is not None else NBlock(()),
-            stmt.post,
-            stmt.body,
-        ):
-            if any(_stmt_may_leave_rewritten(s, did_leave_id) for s in block.stmts):
-                return True
-        return False
-    if isinstance(stmt, NBlock):
-        return any(_stmt_may_leave_rewritten(s, did_leave_id) for s in stmt.stmts)
-    return False
+    assert_never(stmt)
 
 
 # ---------------------------------------------------------------------------
@@ -884,7 +746,7 @@ def _inline_in_expr_with_prelude(
             )
         return c_pre, NIte(cond=c_val, if_true=t_val, if_false=f_val)
 
-    raise ParseError(f"Unexpected expression type: {type(expr).__name__}")
+    assert_never(expr)
 
 
 # ---------------------------------------------------------------------------
@@ -991,7 +853,7 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
     if isinstance(stmt, NBlock):
         return [_rewrite_block(stmt, ctx)]
 
-    raise ParseError(f"Unexpected statement: {type(stmt).__name__}")
+    assert_never(stmt)
 
 
 def _rewrite_bind_or_assign(

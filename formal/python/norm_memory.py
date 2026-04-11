@@ -20,6 +20,8 @@ Rejected:
 
 from __future__ import annotations
 
+from typing import assert_never
+
 from .norm_constprop import fold_expr
 from .norm_ir import (
     NAssign,
@@ -40,7 +42,7 @@ from .norm_ir import (
     NSwitch,
     NSwitchCase,
 )
-from .norm_walk import for_each_expr, map_expr, max_symbol_id
+from .norm_walk import expr_contains, for_each_expr, map_expr, max_symbol_id
 from .yul_ast import ParseError, SymbolId
 
 
@@ -71,15 +73,10 @@ def _resolve_const_addr(
 
 
 def _expr_has_memory_write(expr: NExpr) -> bool:
-    found = False
-
-    def check(e: NExpr) -> None:
-        nonlocal found
-        if isinstance(e, NBuiltinCall) and e.op in ("mstore", "mstore8"):
-            found = True
-
-    for_each_expr(expr, check)
-    return found
+    return expr_contains(
+        expr,
+        lambda e: isinstance(e, NBuiltinCall) and e.op in ("mstore", "mstore8"),
+    )
 
 
 def _reject_memory_writes_in_block(block: NBlock, context: str) -> None:
@@ -140,6 +137,10 @@ def _reject_memory_writes_in_stmt(stmt: NStmt, context: str) -> None:
         return
     if isinstance(stmt, NBlock):
         _reject_memory_writes_in_block(stmt, context)
+        return
+    if isinstance(stmt, (NFunctionDef, NLeave)):
+        return
+    assert_never(stmt)
 
 
 def _resolve_memory_in_expr(
@@ -353,7 +354,7 @@ def _lower_stmt(
         out.append(_lower_block(stmt, ctx, env))
         return
 
-    raise ParseError(f"Unexpected statement in memory lowering: {type(stmt).__name__}")
+    assert_never(stmt)
 
 
 def lower_memory(func: NormalizedFunction) -> NormalizedFunction:
