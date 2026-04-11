@@ -4,7 +4,7 @@ Facade for staged Yul -> FunctionModel translation and Lean emission.
 This module intentionally owns only:
 - the staged translation entrypoint
 - CLI glue shared by the generators
-- re-exports of the live model/evaluation/emission surface
+- the stable top-level translation/evaluation/emission surface
 """
 
 from __future__ import annotations
@@ -13,22 +13,8 @@ import argparse
 import pathlib
 import sys
 
-from evm_builtins import (
-    BASE_NORM_HELPERS as _BASE_NORM_HELPERS,
-    EVM_BUILTINS as _EVM_BUILTINS,
-    OP_TO_LEAN_HELPER,
-    OP_TO_OPCODE,
-    WORD_MOD,
-    eval_pure_builtin as _eval_builtin,
-    u256,
-)
-from lean_emit import (
-    any_norm_models,
-    build_lean_source,
-    build_model_body,
-    emit_expr,
-    render_function_defs,
-)
+from evm_builtins import OP_TO_LEAN_HELPER
+from lean_emit import build_lean_source
 from lean_names import validate_ident
 from model_config import (
     OPTIMIZED_TRANSLATION_PIPELINE,
@@ -39,35 +25,30 @@ from model_config import (
     TranslationResult,
 )
 from model_eval import build_model_table, evaluate_function_model, evaluate_model_expr
-from model_helpers import (
-    _expr_vars,
-    collect_model_opcodes,
-    collect_ops,
-    collect_ops_from_statement,
-)
-from model_ir import (
-    Assignment,
-    Call,
-    ConditionalBlock,
-    ConditionalBranch,
-    Expr,
-    FunctionModel,
-    Ite,
-    IntLit,
-    ModelStatement,
-    ModelValue,
-    Project,
-    Var,
-)
-from model_transforms import (
-    _prune_dead_assignments,
-    apply_optional_model_transforms,
-    hoist_repeated_model_calls,
-)
-from model_validate import validate_function_model, validate_selected_models
+from model_helpers import collect_model_opcodes as _collect_model_opcodes
+from model_transforms import apply_optional_model_transforms
+from model_validate import validate_function_model, validate_model_set
 from yul_ast import EvaluationError as EvaluationError
 from yul_ast import ParseError as ParseError
-from yul_lexer import tokenize_yul
+
+__all__ = (
+    "EvaluationError",
+    "ModelConfig",
+    "OPTIMIZED_TRANSLATION_PIPELINE",
+    "ParseError",
+    "RunArguments",
+    "TranslationPipeline",
+    "TranslationResult",
+    "UNOPTIMIZED_TRANSLATION_PIPELINE",
+    "build_lean_source",
+    "build_model_table",
+    "evaluate_function_model",
+    "evaluate_model_expr",
+    "run",
+    "translate_yul_to_models",
+    "validate_function_model",
+    "validate_model_set",
+)
 
 
 def translate_yul_to_models(
@@ -79,13 +60,9 @@ def translate_yul_to_models(
 ) -> TranslationResult:
     """Run the staged translation pipeline and return the final models."""
     from staged_pipeline import translate_selected_models
+    from staged_selection import normalize_requested_functions
 
-    selected = (
-        selected_functions if selected_functions is not None else config.function_order
-    )
-    if len(set(selected)) != len(selected):
-        dupes = [f for f in selected if list(selected).count(f) > 1]
-        raise ParseError(f"Duplicate selected functions: {sorted(set(dupes))}")
+    selected = normalize_requested_functions(config, selected_functions)
 
     builtin_name_collisions = sorted(
         {name for name in selected if name in OP_TO_LEAN_HELPER}
@@ -101,19 +78,21 @@ def translate_yul_to_models(
         config,
         selected_functions=selected,
     )
-    validate_selected_models(models)
     models = apply_optional_model_transforms(
         models,
         config,
         pipeline=pipeline,
     )
+    validate_model_set(models)
     return TranslationResult(models=models, pipeline=pipeline)
 
 
-def parse_function_selection(
+def _parse_function_selection(
     args: RunArguments,
     config: ModelConfig,
 ) -> tuple[str, ...]:
+    from staged_selection import normalize_requested_functions
+
     selected: list[str] = []
 
     if args.function:
@@ -125,23 +104,8 @@ def parse_function_selection(
                 selected.append(name)
 
     if not selected:
-        selected = list(config.function_order)
-
-    allowed = set(config.function_order)
-    bad = [f for f in selected if f not in allowed]
-    if bad:
-        raise ParseError(f"Unsupported function(s): {', '.join(bad)}")
-
-    if any(fn != config.inner_fn for fn in selected) and config.inner_fn not in selected:
-        if config.inner_fn not in allowed:
-            raise ParseError(
-                f"Inner function {config.inner_fn!r} is not in function_order. "
-                f"Available: {', '.join(config.function_order)}"
-            )
-        selected.append(config.inner_fn)
-
-    selected_set = set(selected)
-    return tuple(fn for fn in config.function_order if fn in selected_set)
+        return normalize_requested_functions(config)
+    return normalize_requested_functions(config, selected)
 
 
 def run(config: ModelConfig) -> int:
@@ -181,7 +145,7 @@ def run(config: ModelConfig) -> int:
 
     validate_ident(args.namespace, what="Lean namespace")
 
-    selected_functions = parse_function_selection(args, config)
+    selected_functions = _parse_function_selection(args, config)
     pipeline = OPTIMIZED_TRANSLATION_PIPELINE
 
     if args.yul == "-":
@@ -215,7 +179,7 @@ def run(config: ModelConfig) -> int:
     for model in models:
         print(f"Parsed {len(model.assignments)} assignments for {model.fn_name}")
 
-    opcodes = collect_model_opcodes(models)
+    opcodes = _collect_model_opcodes(models)
     print(f"Modeled opcodes: {', '.join(opcodes)}")
 
     return 0

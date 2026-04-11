@@ -6,6 +6,7 @@ from typing import assert_never
 
 from evm_builtins import (
     BASE_NORM_HELPERS as _BASE_NORM_HELPERS,
+    MODELED_BUILTINS,
     OP_TO_LEAN_HELPER,
     WORD_MOD,
 )
@@ -32,7 +33,7 @@ from model_ir import (
     Var,
     IntLit,
 )
-from model_validate import validate_function_model
+from model_validate import validate_model_set
 from yul_ast import ParseError
 
 
@@ -258,8 +259,7 @@ def render_function_defs(
     *,
     emission_plan: LeanEmissionPlan | None = None,
 ) -> str:
-    for model in models:
-        validate_function_model(model)
+    validate_model_set(models)
 
     if emission_plan is None:
         emission_plan = _build_lean_emission_plan(models, config)
@@ -351,8 +351,7 @@ def build_lean_source(
             f"{config.header_comment!r}"
         )
 
-    for model in models:
-        validate_function_model(model)
+    validate_model_set(models)
 
     emission_plan = _build_lean_emission_plan(models, config)
 
@@ -388,37 +387,16 @@ def build_lean_source(
         emission_plan=emission_plan,
     )
 
-    extra_lean_defs = ""
-    if config.extra_lean_defs and config.extra_lean_defs.strip():
-        extra_lean_defs = config.extra_lean_defs.rstrip() + "\n\n"
-
+    extra_lean_defs = config.extra_lean_defs.rstrip() if config.extra_lean_defs else ""
+    evm_defs = "\n\n".join(spec.evm_def for spec in MODELED_BUILTINS) + "\n\n"
     norm_defs = ""
     if emission_plan.emit_any_norm:
-        norm_defs = (
-            "def normAdd (a b : Nat) : Nat := a + b\n\n"
-            "def normSub (a b : Nat) : Nat := a - b\n\n"
-            "def normMul (a b : Nat) : Nat := a * b\n\n"
-            "def normDiv (a b : Nat) : Nat := a / b\n\n"
-            "def normMod (a b : Nat) : Nat := a % b\n\n"
-            "def normNot (a : Nat) : Nat := WORD_MOD - 1 - a\n\n"
-            "def normOr (a b : Nat) : Nat := a ||| b\n\n"
-            "def normAnd (a b : Nat) : Nat := a &&& b\n\n"
-            "def normEq (a b : Nat) : Nat :=\n"
-            "  if a = b then 1 else 0\n\n"
-            "def normIszero (a : Nat) : Nat :=\n"
-            "  if a = 0 then 1 else 0\n\n"
-            "def normShl (shift value : Nat) : Nat := value <<< shift\n\n"
-            "def normShr (shift value : Nat) : Nat := value / 2 ^ shift\n\n"
-            "def normClz (value : Nat) : Nat :=\n"
-            "  if value = 0 then 256 else 255 - Nat.log2 value\n\n"
-            f"{extra_lean_defs}"
-            "def normLt (a b : Nat) : Nat :=\n"
-            "  if a < b then 1 else 0\n\n"
-            "def normGt (a b : Nat) : Nat :=\n"
-            "  if a > b then 1 else 0\n\n"
-            "def normMulmod (a b n : Nat) : Nat :=\n"
-            "  if n = 0 then 0 else (a * b) % n\n\n"
-        )
+        norm_parts: list[str] = []
+        for spec in MODELED_BUILTINS:
+            norm_parts.append(spec.norm_def)
+            if spec.name == "clz" and extra_lean_defs:
+                norm_parts.append(extra_lean_defs)
+        norm_defs = "\n\n".join(norm_parts) + "\n\n"
 
     return (
         "import Init\n\n"
@@ -431,48 +409,7 @@ def build_lean_source(
         "def WORD_MOD : Nat := 2 ^ 256\n\n"
         "def u256 (x : Nat) : Nat :=\n"
         "  x % WORD_MOD\n\n"
-        "def evmAdd (a b : Nat) : Nat :=\n"
-        "  u256 (u256 a + u256 b)\n\n"
-        "def evmSub (a b : Nat) : Nat :=\n"
-        "  u256 (u256 a + WORD_MOD - u256 b)\n\n"
-        "def evmMul (a b : Nat) : Nat :=\n"
-        "  u256 (u256 a * u256 b)\n\n"
-        "def evmDiv (a b : Nat) : Nat :=\n"
-        "  let aa := u256 a\n"
-        "  let bb := u256 b\n"
-        "  if bb = 0 then 0 else aa / bb\n\n"
-        "def evmMod (a b : Nat) : Nat :=\n"
-        "  let aa := u256 a\n"
-        "  let bb := u256 b\n"
-        "  if bb = 0 then 0 else aa % bb\n\n"
-        "def evmNot (a : Nat) : Nat :=\n"
-        "  WORD_MOD - 1 - u256 a\n\n"
-        "def evmOr (a b : Nat) : Nat :=\n"
-        "  u256 a ||| u256 b\n\n"
-        "def evmAnd (a b : Nat) : Nat :=\n"
-        "  u256 a &&& u256 b\n\n"
-        "def evmEq (a b : Nat) : Nat :=\n"
-        "  if u256 a = u256 b then 1 else 0\n\n"
-        "def evmIszero (a : Nat) : Nat :=\n"
-        "  if u256 a = 0 then 1 else 0\n\n"
-        "def evmShl (shift value : Nat) : Nat :=\n"
-        "  let s := u256 shift\n"
-        "  let v := u256 value\n"
-        "  if s < 256 then u256 (v * 2 ^ s) else 0\n\n"
-        "def evmShr (shift value : Nat) : Nat :=\n"
-        "  let s := u256 shift\n"
-        "  let v := u256 value\n"
-        "  if s < 256 then v / 2 ^ s else 0\n\n"
-        "def evmClz (value : Nat) : Nat :=\n"
-        "  let v := u256 value\n"
-        "  if v = 0 then 256 else 255 - Nat.log2 v\n\n"
-        "def evmLt (a b : Nat) : Nat :=\n"
-        "  if u256 a < u256 b then 1 else 0\n\n"
-        "def evmGt (a b : Nat) : Nat :=\n"
-        "  if u256 a > u256 b then 1 else 0\n\n"
-        "def evmMulmod (a b n : Nat) : Nat :=\n"
-        "  let aa := u256 a; let bb := u256 b; let nn := u256 n\n"
-        "  if nn = 0 then 0 else (aa * bb) % nn\n\n"
+        f"{evm_defs}"
         f"{norm_defs}"
         f"{function_defs}\n"
         f"end {namespace}\n"

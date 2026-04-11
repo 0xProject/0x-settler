@@ -1,7 +1,8 @@
 """
-Shared target-selection stage for both the old and new translation paths.
+Shared target-selection stage for staged translation.
 
 This module owns:
+- function-selection normalization
 - exact/raw function selection semantics
 - scope-aware helper visibility collection
 - token-based identity for selected targets and visible helpers
@@ -599,6 +600,41 @@ class _SelectionIndex:
         return _ReferenceAnalysisResult(live, dead, False)
 
 
+def normalize_requested_functions(
+    config: "ModelConfig",
+    requested: tuple[str, ...] | list[str] | None = None,
+) -> tuple[str, ...]:
+    """Normalize a requested function subset to config order."""
+
+    selected = tuple(requested) if requested else config.function_order
+
+    seen: set[str] = set()
+    dupes: list[str] = []
+    for name in selected:
+        if name in seen and name not in dupes:
+            dupes.append(name)
+        seen.add(name)
+    if dupes:
+        raise ParseError(f"Duplicate selected functions: {sorted(dupes)}")
+
+    allowed = set(config.function_order)
+    bad = [name for name in selected if name not in allowed]
+    if bad:
+        raise ParseError(f"Unsupported function(s): {', '.join(bad)}")
+
+    normalized = list(selected)
+    if any(name != config.inner_fn for name in normalized) and config.inner_fn not in normalized:
+        if config.inner_fn not in allowed:
+            raise ParseError(
+                f"Inner function {config.inner_fn!r} is not in function_order. "
+                f"Available: {', '.join(config.function_order)}"
+            )
+        normalized.append(config.inner_fn)
+
+    normalized_set = set(normalized)
+    return tuple(name for name in config.function_order if name in normalized_set)
+
+
 def _index_group_functions(
     group_idx: int,
     funcs: tuple[FunctionDef, ...],
@@ -967,9 +1003,7 @@ def build_selection_plan(
         for token_idx, info in syntax_index.items()
     }
 
-    selected = (
-        selected_functions if selected_functions is not None else config.function_order
-    )
+    selected = normalize_requested_functions(config, selected_functions)
 
     resolved_positions: dict[str, tuple[int, str, tuple[str, ...]]] = {}
     known_exact_keys: set[FunctionKey] = set()
@@ -1110,113 +1144,3 @@ def build_selection_plan(
         selected_functions=tuple(selected),
         target_infos=target_infos,
     )
-
-
-def find_function_match(
-    tokens: list[tuple[str, str]],
-    sol_fn_name: str,
-    *,
-    n_params: int | None = None,
-    known_yul_names: set[str] | None = None,
-    exclude_known: bool = False,
-    builtins: frozenset[str] = frozenset(),
-) -> tuple[int, tuple[str, ...]]:
-    index = _build_selection_index(tokens, builtins=builtins)
-    matches = index.wrapper_matches(sol_fn_name, n_params=n_params)
-
-    if not matches:
-        if n_params is not None:
-            prefixed = index.wrapper_matches(sol_fn_name)
-            if prefixed:
-                raise ParseError(
-                    f"No Yul function for {sol_fn_name!r} matches "
-                    f"{n_params} parameter(s)"
-                )
-        raise ParseError(
-            f"Yul function for '{sol_fn_name}' not found "
-            f"(expected pattern fun_{sol_fn_name}_<digits>)"
-        )
-
-    if known_yul_names and len(matches) > 1:
-        matches = index.disambiguate_by_references(
-            matches,
-            known=_KnownFunctionCriteria(names=frozenset(known_yul_names)),
-            exclude_known=exclude_known,
-        )
-
-    if len(matches) > 1:
-        names = [info.func.name for info in matches]
-        raise ParseError(
-            f"Multiple Yul functions match '{sol_fn_name}': {names}. "
-            f"Rename wrapper functions to avoid collisions "
-            f"(e.g. prefix with 'wrap_')."
-        )
-
-    match = matches[0]
-    return match.func.span.start, match.lexical_path
-
-
-def find_exact_function_match(
-    tokens: list[tuple[str, str]],
-    yul_name: str,
-    *,
-    n_params: int | None = None,
-    search_nested: bool = False,
-    builtins: frozenset[str] = frozenset(),
-) -> tuple[int, tuple[str, ...]]:
-    index = _build_selection_index(tokens, builtins=builtins)
-    matches = index.exact_matches(
-        yul_name,
-        n_params=n_params,
-        search_nested=search_nested,
-    )
-    if not matches:
-        if n_params is None:
-            raise ParseError(f"Exact Yul function {yul_name!r} not found")
-        raise ParseError(
-            f"Exact Yul function {yul_name!r} with {n_params} parameter(s) not found"
-        )
-    if len(matches) > 1:
-        qualified = ["::".join(info.lexical_path) for info in matches]
-        raise ParseError(
-            f"Multiple exact Yul functions matched {yul_name!r}: {qualified}. "
-            "Use a scope-qualified exact_yul_names entry such as '::name' "
-            "for a top-level function or 'outer::inner' for a nested one."
-        )
-    match = matches[0]
-    return match.func.span.start, match.lexical_path
-
-
-def find_exact_function_path_match(
-    tokens: list[tuple[str, str]],
-    yul_path: tuple[str, ...],
-    *,
-    n_params: int | None = None,
-    builtins: frozenset[str] = frozenset(),
-) -> tuple[int, tuple[str, ...]]:
-    if not yul_path:
-        raise ParseError("Exact Yul function path cannot be empty")
-    index = _build_selection_index(tokens, builtins=builtins)
-    matches = [
-        info
-        for info in index.exact_matches(
-            yul_path[-1],
-            n_params=n_params,
-            search_nested=True,
-        )
-        if info.lexical_path == yul_path
-    ]
-    rendered = "::".join(yul_path)
-    if not matches:
-        if n_params is None:
-            raise ParseError(f"Exact Yul function path {rendered!r} not found")
-        raise ParseError(
-            f"Exact Yul function path {rendered!r} with {n_params} parameter(s) not found"
-        )
-    if len(matches) > 1:
-        raise ParseError(
-            f"Multiple exact Yul functions matched path {rendered!r}. "
-            "Refuse to guess."
-        )
-    match = matches[0]
-    return match.func.span.start, match.lexical_path

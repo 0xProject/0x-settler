@@ -14,13 +14,10 @@ from model_ir import (
     Expr,
     FunctionModel,
     Ite,
-    IntLit,
     ModelStatement,
     Project,
-    Var,
 )
 from model_validate import validate_function_model
-from yul_ast import ParseError
 
 
 def _prune_dead_assignments(
@@ -136,16 +133,6 @@ def _make_cse_gensym(model: FunctionModel) -> Callable[[], str]:
         return name
 
     return _gensym
-
-
-def _collect_repeated_model_calls(
-    expr: Expr, model_call_names: frozenset[str]
-) -> list[Expr]:
-    counts: Counter[Expr] = Counter()
-    _walk_model_calls(expr, model_call_names, counts)
-    repeated = [node for node, count in counts.items() if count > 1]
-    repeated.sort(key=_expr_size)
-    return [node for node in repeated if isinstance(node, (Call, Project))]
 
 
 def _is_component_wrapped_model_call(

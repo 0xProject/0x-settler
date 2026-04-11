@@ -45,7 +45,6 @@ class ModelConfig:
     inner_fn: str
     n_params: dict[str, int] | None = None
     exact_yul_names: dict[str, str] | None = None
-    keep_solidity_locals: bool = False
     exclude_known: frozenset[str] = frozenset()
     skip_norm: frozenset[str] = frozenset()
     hoist_repeated_calls: frozenset[str] = frozenset()

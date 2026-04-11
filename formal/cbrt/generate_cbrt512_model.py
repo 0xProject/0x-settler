@@ -80,7 +80,6 @@ CONFIG = ModelConfig(
         "wrap_cbrt512": 2,
         "wrap_cbrtUp512": 2,
     },
-    keep_solidity_locals=True,
     # 256-bit cbrt/cbrtUp share names with 512-bit wrappers; use
     # exclude_known to select the leaf (256-bit) versions that do NOT
     # call the already-targeted _cbrt (512-bit).

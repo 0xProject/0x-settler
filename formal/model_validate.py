@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import assert_never
 
-from evm_builtins import OP_TO_LEAN_HELPER
+from evm_builtins import MODELED_BUILTIN_ARITY, OP_TO_LEAN_HELPER
 from lean_names import validate_ident
 from model_helpers import _expr_vars, _walk_model_exprs_in_stmt
 from model_ir import (
@@ -44,7 +44,7 @@ def validate_function_model(model: FunctionModel) -> None:
     for name in model.return_names:
         validate_ident(name, what=f"return name in {model.fn_name!r}")
 
-    def _validate_idents_in_stmts(stmts: tuple[ModelStatement, ...]) -> None:
+    def _validate_decl_binders_in_stmts(stmts: tuple[ModelStatement, ...]) -> None:
         for s in stmts:
             if isinstance(s, Assignment):
                 validate_ident(s.target, what=f"assignment target in {model.fn_name!r}")
@@ -58,10 +58,10 @@ def validate_function_model(model: FunctionModel) -> None:
                         f"Model {model.fn_name!r} has duplicate conditional "
                         f"output_vars: {s.output_vars!r}"
                     )
-                _validate_idents_in_stmts(s.then_branch.assignments)
-                _validate_idents_in_stmts(s.else_branch.assignments)
+                _validate_decl_binders_in_stmts(s.then_branch.assignments)
+                _validate_decl_binders_in_stmts(s.else_branch.assignments)
 
-    _validate_idents_in_stmts(model.assignments)
+    _validate_decl_binders_in_stmts(model.assignments)
 
     def _validate_expr_shape(expr: Expr) -> None:
         if isinstance(expr, Var):
@@ -104,11 +104,7 @@ def validate_function_model(model: FunctionModel) -> None:
         if not isinstance(expr, Call):
             assert_never(expr)
         if expr.name in OP_TO_LEAN_HELPER:
-            expected = (
-                1
-                if expr.name in ("not", "clz", "iszero")
-                else (3 if expr.name == "mulmod" else 2)
-            )
+            expected = MODELED_BUILTIN_ARITY[expr.name]
             if len(expr.args) != expected:
                 raise ParseError(
                     f"Model {model.fn_name!r}: builtin {expr.name!r} expects "
@@ -203,8 +199,11 @@ def validate_function_model(model: FunctionModel) -> None:
         )
 
 
-def validate_selected_models(models: list[FunctionModel]) -> None:
-    """Cross-validate selected models for call-graph consistency."""
+def validate_model_set(models: list[FunctionModel]) -> None:
+    """Validate a model set structurally and across its call graph."""
+
+    for model in models:
+        validate_function_model(model)
 
     sig_table = {
         model.fn_name: (len(model.param_names), len(model.return_names))

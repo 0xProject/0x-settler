@@ -74,7 +74,6 @@ CONFIG = ModelConfig(
         "wrap_sqrt512": 2,
         "wrap_osqrtUp": 2,
     },
-    keep_solidity_locals=True,
     # 256-bit sqrt/sqrtUp share names with 512-bit wrappers; use
     # exclude_known to select the leaf (256-bit) versions that do NOT
     # call the already-targeted _sqrt (512-bit).

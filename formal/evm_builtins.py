@@ -10,6 +10,7 @@ This module is the single source of truth for:
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 
 from yul_ast import EvaluationError
 
@@ -22,24 +23,144 @@ def u256(value: int) -> int:
     return value % WORD_MOD
 
 
-SUPPORTED_MODEL_OPS = (
-    "add",
-    "sub",
-    "mul",
-    "div",
-    "mod",
-    "not",
-    "or",
-    "and",
-    "eq",
-    "iszero",
-    "shl",
-    "shr",
-    "clz",
-    "lt",
-    "gt",
-    "mulmod",
+@dataclass(frozen=True)
+class ModeledBuiltin:
+    name: str
+    arity: int
+    evm_def: str
+    norm_def: str
+
+    @property
+    def opcode(self) -> str:
+        return self.name.upper()
+
+    @property
+    def evm_helper(self) -> str:
+        return f"evm{self.name.capitalize()}"
+
+    @property
+    def norm_helper(self) -> str:
+        return f"norm{self.name.capitalize()}"
+
+
+MODELED_BUILTINS: tuple[ModeledBuiltin, ...] = (
+    ModeledBuiltin(
+        "add",
+        2,
+        "def evmAdd (a b : Nat) : Nat :=\n  u256 (u256 a + u256 b)",
+        "def normAdd (a b : Nat) : Nat := a + b",
+    ),
+    ModeledBuiltin(
+        "sub",
+        2,
+        "def evmSub (a b : Nat) : Nat :=\n  u256 (u256 a + WORD_MOD - u256 b)",
+        "def normSub (a b : Nat) : Nat := a - b",
+    ),
+    ModeledBuiltin(
+        "mul",
+        2,
+        "def evmMul (a b : Nat) : Nat :=\n  u256 (u256 a * u256 b)",
+        "def normMul (a b : Nat) : Nat := a * b",
+    ),
+    ModeledBuiltin(
+        "div",
+        2,
+        "def evmDiv (a b : Nat) : Nat :=\n"
+        "  let aa := u256 a\n"
+        "  let bb := u256 b\n"
+        "  if bb = 0 then 0 else aa / bb",
+        "def normDiv (a b : Nat) : Nat := a / b",
+    ),
+    ModeledBuiltin(
+        "mod",
+        2,
+        "def evmMod (a b : Nat) : Nat :=\n"
+        "  let aa := u256 a\n"
+        "  let bb := u256 b\n"
+        "  if bb = 0 then 0 else aa % bb",
+        "def normMod (a b : Nat) : Nat := a % b",
+    ),
+    ModeledBuiltin(
+        "not",
+        1,
+        "def evmNot (a : Nat) : Nat :=\n  WORD_MOD - 1 - u256 a",
+        "def normNot (a : Nat) : Nat := WORD_MOD - 1 - a",
+    ),
+    ModeledBuiltin(
+        "or",
+        2,
+        "def evmOr (a b : Nat) : Nat :=\n  u256 a ||| u256 b",
+        "def normOr (a b : Nat) : Nat := a ||| b",
+    ),
+    ModeledBuiltin(
+        "and",
+        2,
+        "def evmAnd (a b : Nat) : Nat :=\n  u256 a &&& u256 b",
+        "def normAnd (a b : Nat) : Nat := a &&& b",
+    ),
+    ModeledBuiltin(
+        "eq",
+        2,
+        "def evmEq (a b : Nat) : Nat :=\n  if u256 a = u256 b then 1 else 0",
+        "def normEq (a b : Nat) : Nat :=\n  if a = b then 1 else 0",
+    ),
+    ModeledBuiltin(
+        "iszero",
+        1,
+        "def evmIszero (a : Nat) : Nat :=\n  if u256 a = 0 then 1 else 0",
+        "def normIszero (a : Nat) : Nat :=\n  if a = 0 then 1 else 0",
+    ),
+    ModeledBuiltin(
+        "shl",
+        2,
+        "def evmShl (shift value : Nat) : Nat :=\n"
+        "  let s := u256 shift\n"
+        "  let v := u256 value\n"
+        "  if s < 256 then u256 (v * 2 ^ s) else 0",
+        "def normShl (shift value : Nat) : Nat := value <<< shift",
+    ),
+    ModeledBuiltin(
+        "shr",
+        2,
+        "def evmShr (shift value : Nat) : Nat :=\n"
+        "  let s := u256 shift\n"
+        "  let v := u256 value\n"
+        "  if s < 256 then v / 2 ^ s else 0",
+        "def normShr (shift value : Nat) : Nat := value / 2 ^ shift",
+    ),
+    ModeledBuiltin(
+        "clz",
+        1,
+        "def evmClz (value : Nat) : Nat :=\n"
+        "  let v := u256 value\n"
+        "  if v = 0 then 256 else 255 - Nat.log2 v",
+        "def normClz (value : Nat) : Nat :=\n"
+        "  if value = 0 then 256 else 255 - Nat.log2 value",
+    ),
+    ModeledBuiltin(
+        "lt",
+        2,
+        "def evmLt (a b : Nat) : Nat :=\n  if u256 a < u256 b then 1 else 0",
+        "def normLt (a b : Nat) : Nat :=\n  if a < b then 1 else 0",
+    ),
+    ModeledBuiltin(
+        "gt",
+        2,
+        "def evmGt (a b : Nat) : Nat :=\n  if u256 a > u256 b then 1 else 0",
+        "def normGt (a b : Nat) : Nat :=\n  if a > b then 1 else 0",
+    ),
+    ModeledBuiltin(
+        "mulmod",
+        3,
+        "def evmMulmod (a b n : Nat) : Nat :=\n"
+        "  let aa := u256 a; let bb := u256 b; let nn := u256 n\n"
+        "  if nn = 0 then 0 else (aa * bb) % nn",
+        "def normMulmod (a b n : Nat) : Nat :=\n"
+        "  if n = 0 then 0 else (a * b) % n",
+    ),
 )
+
+SUPPORTED_MODEL_OPS = tuple(spec.name for spec in MODELED_BUILTINS)
 
 SUPPORTED_MODEL_OPS_SET: frozenset[str] = frozenset(SUPPORTED_MODEL_OPS)
 
@@ -128,12 +249,15 @@ EVM_BUILTINS: frozenset[str] = SUPPORTED_MODEL_OPS_SET | frozenset(
     )
 )
 
-OP_TO_LEAN_HELPER: dict[str, str] = {
-    op: f"evm{op.capitalize()}" for op in SUPPORTED_MODEL_OPS
+MODELED_BUILTIN_ARITY: dict[str, int] = {
+    spec.name: spec.arity for spec in MODELED_BUILTINS
 }
-OP_TO_OPCODE: dict[str, str] = {op: op.upper() for op in SUPPORTED_MODEL_OPS}
+OP_TO_LEAN_HELPER: dict[str, str] = {
+    spec.name: spec.evm_helper for spec in MODELED_BUILTINS
+}
+OP_TO_OPCODE: dict[str, str] = {spec.name: spec.opcode for spec in MODELED_BUILTINS}
 BASE_NORM_HELPERS: dict[str, str] = {
-    op: f"norm{op.capitalize()}" for op in SUPPORTED_MODEL_OPS
+    spec.name: spec.norm_helper for spec in MODELED_BUILTINS
 }
 
 
