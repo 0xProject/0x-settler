@@ -39,10 +39,7 @@ from restricted_ir import (
     RStatement,
 )
 from restricted_names import apply_module_plan, plan_module
-from yul_ast import SymbolId
-
-# Import the shared output IR types.
-from yul_to_lean import (
+from model_ir import (
     Assignment,
     Call,
     ConditionalBlock,
@@ -55,6 +52,7 @@ from yul_to_lean import (
     Project,
     Var,
 )
+from yul_ast import SymbolId
 
 # ---------------------------------------------------------------------------
 # SSA state

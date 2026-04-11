@@ -2,9 +2,9 @@
 Shared infrastructure for generating Lean models from Yul IR.
 
 Provides:
-- the shared model IR used by the staged translator and Lean emitter
-- legacy raw-lowering helpers still used by targeted tests
-- translation pipeline orchestration and Lean source emission
+- the public staged translation entrypoint
+- model validation / evaluation / emission helpers
+- the remaining legacy raw-lowering compatibility surface
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ import pathlib
 import re
 import sys
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Callable, assert_never
 
 from evm_builtins import (
@@ -24,7 +24,6 @@ from evm_builtins import (
     OP_TO_LEAN_HELPER,
     OP_TO_OPCODE,
     SUPPORTED_MODEL_OPS as _SUPPORTED_OPS,
-    SUPPORTED_MODEL_OPS_SET as _SUPPORTED_OPS_FROZENSET,
     WORD_MOD,
     eval_pure_builtin as _eval_builtin,
     u256,
@@ -34,147 +33,33 @@ from lean_names import (
     norm_reserved_lean_names,
     validate_ident,
 )
+from model_config import (
+    OPTIMIZED_TRANSLATION_PIPELINE,
+    RAW_TRANSLATION_PIPELINE,
+    ModelConfig,
+    RunArguments,
+    TranslationPipeline,
+    TranslationResult,
+)
+from model_ir import (
+    Assignment,
+    Call,
+    ConditionalBlock,
+    ConditionalBranch,
+    Expr,
+    FunctionModel,
+    Ite,
+    IntLit,
+    ModelStatement,
+    ModelValue,
+    Project,
+    Var,
+)
 from yul_ast import EvaluationError as EvaluationError
 from yul_ast import ParseError as ParseError
 from yul_lexer import tokenize_yul
 from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_function, resolve_module
-
-# ---------------------------------------------------------------------------
-# AST nodes (shared by Yul parser and Lean emitter)
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class IntLit:
-    value: int
-
-
-@dataclass(frozen=True)
-class Var:
-    name: str
-
-
-@dataclass(frozen=True)
-class Call:
-    name: str
-    args: tuple["Expr", ...]
-    binding_token_idx: int | None = None
-
-
-@dataclass(frozen=True)
-class CallResolution:
-    """Resolve parsed Yul calls to selected model names.
-
-    ``by_name`` handles ordinary lexical helper discovery where the visible
-    helper survives into the helper table and can be matched by raw Yul name.
-    ``by_binding_token_idx`` handles calls whose exact lexical binding was
-    preserved during parsing, so lowering does not have to guess by name.
-    """
-
-    by_name: dict[str, str] = field(default_factory=dict)
-    by_binding_token_idx: dict[int, str] = field(default_factory=dict)
-
-    def resolve(self, call: Call) -> str:
-        if call.binding_token_idx is not None:
-            return self.by_binding_token_idx.get(call.binding_token_idx, call.name)
-        return self.by_name.get(call.name, call.name)
-
-
-@dataclass(frozen=True)
-class Ite:
-    """Conditional value: ``if cond ≠ 0 then if_true else if_false``."""
-
-    cond: "Expr"
-    if_true: "Expr"
-    if_false: "Expr"
-
-
-@dataclass(frozen=True)
-class Project:
-    """Projection of the Nth return value from a multi-return call."""
-
-    index: int
-    total: int
-    inner: "Expr"
-
-
-Expr = IntLit | Var | Call | Ite | Project
-
-
-@dataclass(frozen=True)
-class Assignment:
-    target: str
-    expr: Expr
-
-
-@dataclass(frozen=True)
-class ConditionalBranch:
-    """A single branch of a restricted-IR conditional.
-
-    ``assignments`` are the branch-local statements (may include
-    nested ``ConditionalBlock``).
-    ``outputs`` are the expressions whose values become the outer
-    ``ConditionalBlock.output_vars`` when this branch is taken.
-    Typically ``Var(name)`` but may be any ``Expr``.
-    """
-
-    assignments: tuple["ModelStatement", ...]
-    outputs: tuple["Expr", ...]
-
-
-@dataclass(frozen=True)
-class ConditionalBlock:
-    """A restricted-IR conditional with explicit outputs for both branches.
-
-    ``output_vars`` are the outer variables bound by the conditional.
-    ``then_branch`` and ``else_branch`` each carry both their local
-    assignments and the exact variables that feed the outer outputs.
-    """
-
-    condition: Expr
-    output_vars: tuple[str, ...]
-    then_branch: ConditionalBranch
-    else_branch: ConditionalBranch
-
-
-# A model statement is either a plain assignment or a conditional block.
-ModelStatement = Assignment | ConditionalBlock
-
-
-@dataclass(frozen=True)
-class FunctionModel:
-    fn_name: str
-    assignments: tuple[ModelStatement, ...]
-    param_names: tuple[str, ...] = ("x",)
-    return_names: tuple[str, ...] = ("z",)
-
-
-ModelValue = int | tuple[int, ...]
-
-
-@dataclass(frozen=True)
-class TranslationPipeline:
-    """Controls which non-literal passes run after raw model construction."""
-
-    name: str
-    hoist_repeated_calls: bool
-    prune_dead_assignments: bool
-
-
-RAW_TRANSLATION_PIPELINE = TranslationPipeline(
-    name="raw",
-    hoist_repeated_calls=False,
-    prune_dead_assignments=False,
-)
-
-OPTIMIZED_TRANSLATION_PIPELINE = TranslationPipeline(
-    name="optimized",
-    # Zero-assignment elision is not semantics-preserving in general. Keep the
-    # optimized default limited to passes with direct equivalence tests.
-    hoist_repeated_calls=True,
-    prune_dead_assignments=True,
-)
 
 
 # ---------------------------------------------------------------------------
@@ -1344,64 +1229,6 @@ def substitute_expr(expr: Expr, subst: dict[str, Expr]) -> Expr:
     assert_never(expr)
 
 
-def _find_function_body_range(
-    tokens: list[tuple[str, str]], fn_start_idx: int
-) -> tuple[int, int] | None:
-    """Return the (start, end) token range of a function's body contents.
-
-    *fn_start_idx* points to the ``function`` keyword. Returns the range
-    of tokens INSIDE the body braces (exclusive of ``{`` and ``}``), or
-    None if no body brace is found.
-    """
-    # Skip past the function keyword and signature to find the opening {.
-    j = fn_start_idx + 1
-    while j < len(tokens) and tokens[j][0] != "{":
-        j += 1
-    if j >= len(tokens):
-        return None
-    open_brace = j
-    depth = 0
-    for m in range(open_brace, len(tokens)):
-        if tokens[m][0] == "{":
-            depth += 1
-        elif tokens[m][0] == "}":
-            depth -= 1
-            if depth == 0:
-                return (open_brace + 1, m)
-    return None
-
-
-def _find_enclosing_block_range(
-    tokens: list[tuple[str, str]], inner_idx: int
-) -> tuple[int, int]:
-    """Return (start, end) of the innermost brace-block containing *inner_idx*."""
-    depth = 0
-    start = 0
-    found_start = False
-    for j in range(inner_idx - 1, -1, -1):
-        if tokens[j][0] == "}":
-            depth += 1
-        elif tokens[j][0] == "{":
-            if depth == 0:
-                start = j + 1
-                found_start = True
-                break
-            depth -= 1
-    if not found_start:
-        return 0, len(tokens)
-    depth = 0
-    end = len(tokens)
-    for j in range(start - 1, len(tokens)):
-        if tokens[j][0] == "{":
-            depth += 1
-        elif tokens[j][0] == "}":
-            depth -= 1
-            if depth == 0:
-                end = j
-                break
-    return start, end
-
-
 def _flatten_scoped_block(
     stmts: list[RawStatement],
     results: list[RawStatement],
@@ -1521,19 +1348,10 @@ def _split_branch_scoped(
 
 
 def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
-    """Parse a scope-qualified exact Yul selector.
+    """Backward-compatible facade for exact-Yul selector parsing."""
+    from staged_selection import _parse_exact_yul_selector as _shared_parse
 
-    ``None`` means the selector is an unqualified function name.
-    ``::top`` selects a top-level function. ``outer::helper`` selects a
-    function nested inside ``outer``.
-    """
-    if "::" not in selector:
-        return None
-    raw = selector[2:] if selector.startswith("::") else selector
-    parts = tuple(raw.split("::"))
-    if any(not part for part in parts):
-        raise ParseError(f"Invalid exact Yul selector {selector!r}")
-    return parts
+    return _shared_parse(selector)
 
 
 def _reject_expr_stmts(expr_stmts: list[Expr] | None, *, context: str) -> None:
@@ -3861,85 +3679,6 @@ def emit_expr(
         args = " ".join(f"({emit_expr(a, helper_map=helper_map)})" for a in expr.args)
         return f"{helper} {args}".rstrip()
     assert_never(expr)
-
-
-# ---------------------------------------------------------------------------
-# Per-generator configuration
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class ModelConfig:
-    """All the per-library knobs that differ between cbrt and sqrt generators."""
-
-    # Ordered Solidity function names to model.
-    function_order: tuple[str, ...]
-    # sol_fn_name → Lean model base name  (e.g. "_cbrt" → "model_cbrt")
-    model_names: dict[str, str]
-    # Lean header line  (e.g. "Auto-generated from Solidity Cbrt assembly …")
-    header_comment: str
-    # Generator script path for the header  (e.g. "formal/cbrt/generate_cbrt_model.py")
-    generator_label: str
-    # Additional norm-helper entries beyond the base set.
-    extra_norm_ops: dict[str, str]
-    # Additional Lean definitions emitted right before normLt/normGt.
-    extra_lean_defs: str
-    # Optional AST rewrite applied to expressions in the Nat model.
-    norm_rewrite: Callable[[Expr], Expr] | None
-    # Inner function name that the public functions depend on.
-    inner_fn: str
-    # Optional per-function expected parameter counts for disambiguation.
-    # When set, find_function uses param count to pick among homonymous
-    # Yul functions (e.g. single-param _sqrt vs two-param _sqrt).
-    n_params: dict[str, int] | None = None
-    # Optional per-function exact Yul symbol overrides. When set, the
-    # translator selects the named Yul function directly instead of using
-    # heuristic fun_<name>_<digits> discovery. Entries may be unqualified
-    # (`helper`) or scope-qualified (`::top_level`, `outer::helper`).
-    exact_yul_names: dict[str, str] | None = None
-    # When True, variables matching var_<name>_<digits> (Solidity-declared
-    # locals) are kept in the model instead of being copy-propagated.
-    # Needed for functions with mixed assembly + Solidity code.
-    keep_solidity_locals: bool = False
-    # Function names whose find_function should use exclude_known=True,
-    # i.e. prefer candidates that do NOT reference already-targeted
-    # functions. Used to select leaf functions (e.g. 256-bit Sqrt.sqrt)
-    # over higher-level wrappers with the same name.
-    exclude_known: frozenset[str] = frozenset()
-    # Function names for which the normalized (unbounded Nat) model
-    # variation should be suppressed.  The norm model uses normShl/normMul
-    # etc. which do NOT match EVM uint256 semantics.  For wrapper functions
-    # whose proofs bridge the EVM model directly, the norm model is unused.
-    skip_norm: frozenset[str] = frozenset()
-    # Function names whose repeated generated-model calls should be hoisted
-    # into let-bound temporaries before emission. Useful for wrappers whose
-    # IR duplicates the same pure helper call many times.
-    hoist_repeated_calls: frozenset[str] = frozenset()
-    # Function names for which dead-assignment pruning should be skipped.
-    skip_prune: frozenset[str] = frozenset()
-
-    # -- CLI defaults --
-    default_source_label: str = ""
-    default_namespace: str = ""
-    default_output: str = ""
-    cli_description: str = ""
-
-
-@dataclass(frozen=True)
-class TranslationResult:
-    """End-to-end translation result before Lean source emission."""
-
-    models: list[FunctionModel]
-    pipeline: TranslationPipeline
-
-
-class RunArguments(argparse.Namespace):
-    yul: str
-    source_label: str
-    functions: str
-    function: list[str] | None
-    namespace: str
-    output: str
 
 
 # ---------------------------------------------------------------------------

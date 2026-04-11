@@ -16,7 +16,9 @@ from pathlib import Path
 # Allow importing the shared module from formal/
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from yul_to_lean import Call, Expr, IntLit, ModelConfig, run
+from model_config import ModelConfig
+from model_ir import Call, Expr, IntLit
+from yul_to_lean import run
 
 
 def rewrite_norm_ast(expr: Expr) -> Expr:

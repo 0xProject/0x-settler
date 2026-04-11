@@ -69,5 +69,7 @@ def tokenize_yul(source: str) -> list[tuple[str, str]]:
         elif kind == "string":
             out.append(("string", text))
         else:
-            raise ParseError(f"Unexpected character in Yul input: {text!r}")
+            raise ParseError(
+                f"tokenizer stuck: unexpected character in Yul input: {text!r}"
+            )
     return out

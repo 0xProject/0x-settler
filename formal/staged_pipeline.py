@@ -33,11 +33,15 @@ from norm_ir import (
 from norm_walk import map_expr
 from restricted_ir import RestrictedFunction
 from restricted_to_model import to_function_models
+from yul_ast import ParseError
 from yul_normalize import normalize_function
 from yul_resolve import ResolutionResult
 
 if TYPE_CHECKING:
-    from yul_to_lean import FunctionModel, ModelConfig
+    from model_config import ModelConfig
+    from model_ir import FunctionModel
+    from staged_selection import FunctionKey, SelectionPlan, _SyntaxFunctionInfo
+    from yul_ast import SymbolId
 
 
 def translate_selected_models(
@@ -156,7 +160,10 @@ def _generated_model_def_names(
     for sol_name in selected_functions:
         base_name = config.model_names.get(sol_name)
         if base_name is None:
-            raise ValueError(f"Missing model name for selected function {sol_name!r}")
+            raise ParseError(
+                "Missing model_names entry for selected function "
+                f"{sol_name!r}"
+            )
         if sol_name not in config.skip_norm:
             names.add(base_name)
         names.add(f"{base_name}_evm")

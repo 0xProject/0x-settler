@@ -45,7 +45,7 @@ from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_module
 
 if TYPE_CHECKING:
-    from yul_to_lean import ModelConfig
+    from model_config import ModelConfig
 
 
 @dataclass(frozen=True)

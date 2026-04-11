@@ -32,7 +32,8 @@ from pathlib import Path
 # Allow importing the shared module from formal/
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from yul_to_lean import ModelConfig, run
+from model_config import ModelConfig
+from yul_to_lean import run
 
 CONFIG = ModelConfig(
     function_order=(
