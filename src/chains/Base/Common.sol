@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.33;
+pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
 
@@ -87,7 +87,9 @@ abstract contract BaseMixin is
     {
         if (super._dispatch(i, action, data, slippage)) {
             return true;
-        } else if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+        } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
+            .or(action == uint32(ISettlerActions.BALANCERV3.selector))
+            .or(action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -99,7 +101,13 @@ abstract contract BaseMixin is
                 uint256 amountOutMin
             ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
 
-            sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
+                sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
+                sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+                sellToPancakeInfinity(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
+            }
         /*
         } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
@@ -107,32 +115,6 @@ abstract contract BaseMixin is
 
             sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
         */
-        } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
-            (
-                address recipient,
-                IERC20 sellToken,
-                uint256 bps,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
-
-            sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-        } else if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector)) {
-            (
-                address recipient,
-                IERC20 sellToken,
-                uint256 bps,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
-
-            sellToPancakeInfinity(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
