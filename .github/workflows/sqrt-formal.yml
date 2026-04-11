@@ -48,6 +48,11 @@ jobs:
           "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
           "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
 
+      - name: Install solc 0.8.34
+        run: forge build -- src/chains/Mainnet/TakerSubmitted.sol
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.34
+
       - name: Generate Lean model from Sqrt.sol via Yul IR
         run: |
           forge inspect src/wrappers/SqrtWrapper.sol:SqrtWrapper ir | \
