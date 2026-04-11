@@ -401,8 +401,10 @@ def _symex_stmt(
                 for sid, val in zip(stmt.targets, multi):
                     subst[sid] = val
             else:
-                resolved = _inline_in_expr(resolved, ctx, depth)
-                subst[stmt.targets[0]] = resolved
+                raise ParseError(
+                    f"Multi-target assignment to non-inlineable call "
+                    f"in ExprInline body (targets: {len(stmt.targets)})"
+                )
         return
 
     if isinstance(stmt, NIf):
@@ -889,8 +891,14 @@ def _inline_in_expr_with_prelude(
         c_pre, c_val = _inline_in_expr_with_prelude(expr.cond, ctx, depth)
         t_pre, t_val = _inline_in_expr_with_prelude(expr.if_true, ctx, depth)
         f_pre, f_val = _inline_in_expr_with_prelude(expr.if_false, ctx, depth)
-        pre = c_pre + t_pre + f_pre
-        return pre, NIte(cond=c_val, if_true=t_val, if_false=f_val)
+        # NIte branches must not produce statement preludes — they execute
+        # unconditionally here, so any side effects would be unsound.
+        if t_pre or f_pre:
+            raise ParseError(
+                "NIte branch produced statement prelude during inlining. "
+                "Branch sub-expressions must be pure (no BLOCK_INLINE or EFFECT_LOWER)."
+            )
+        return c_pre, NIte(cond=c_val, if_true=t_val, if_false=f_val)
 
     raise ParseError(f"Unexpected expression type: {type(expr).__name__}")
 

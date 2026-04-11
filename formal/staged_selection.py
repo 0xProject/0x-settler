@@ -22,6 +22,7 @@ from yul_ast import (
     FunctionDefStmt,
     IfStmt,
     LeaveStmt,
+    LetStmt,
     LocalFunctionTarget,
     ParseError,
     SwitchStmt,
@@ -751,8 +752,6 @@ def _direct_call_targets(
             return
         if isinstance(stmt, LeaveStmt):
             return
-        from yul_ast import LetStmt
-
         if isinstance(stmt, LetStmt):
             if stmt.init is not None:
                 walk_expr(stmt.init, out)
