@@ -13,9 +13,9 @@ Key semantics:
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import assert_never
 
+from evm_builtins import WORD_MOD, eval_pure_builtin, u256
 from norm_ir import (
     NAssign,
     NBind,
@@ -39,78 +39,6 @@ from norm_ir import (
     NUnresolvedCall,
 )
 from yul_ast import EvaluationError, SymbolId
-
-# ---------------------------------------------------------------------------
-# u256 arithmetic (matches yul_to_lean.py semantics)
-# ---------------------------------------------------------------------------
-
-WORD_MOD: int = 2**256
-
-
-def _u256(value: int) -> int:
-    return value % WORD_MOD
-
-
-# ---------------------------------------------------------------------------
-# Builtin dispatch
-# ---------------------------------------------------------------------------
-
-
-def _div(a: tuple[int, ...]) -> int:
-    aa, bb = _u256(a[0]), _u256(a[1])
-    return 0 if bb == 0 else aa // bb
-
-
-def _mod(a: tuple[int, ...]) -> int:
-    aa, bb = _u256(a[0]), _u256(a[1])
-    return 0 if bb == 0 else aa % bb
-
-
-def _shl(a: tuple[int, ...]) -> int:
-    shift, value = _u256(a[0]), _u256(a[1])
-    return _u256(value << shift) if shift < 256 else 0
-
-
-def _shr(a: tuple[int, ...]) -> int:
-    shift, value = _u256(a[0]), _u256(a[1])
-    return value >> shift if shift < 256 else 0
-
-
-def _clz(a: tuple[int, ...]) -> int:
-    value = _u256(a[0])
-    return 256 if value == 0 else 255 - (value.bit_length() - 1)
-
-
-def _mulmod(a: tuple[int, ...]) -> int:
-    aa, bb, nn = _u256(a[0]), _u256(a[1]), _u256(a[2])
-    return 0 if nn == 0 else (aa * bb) % nn
-
-
-_BUILTIN_DISPATCH: dict[tuple[str, int], Callable[[tuple[int, ...]], int]] = {
-    ("add", 2): lambda a: _u256(_u256(a[0]) + _u256(a[1])),
-    ("sub", 2): lambda a: _u256(_u256(a[0]) + WORD_MOD - _u256(a[1])),
-    ("mul", 2): lambda a: _u256(_u256(a[0]) * _u256(a[1])),
-    ("div", 2): _div,
-    ("mod", 2): _mod,
-    ("not", 1): lambda a: WORD_MOD - 1 - _u256(a[0]),
-    ("or", 2): lambda a: _u256(a[0]) | _u256(a[1]),
-    ("and", 2): lambda a: _u256(a[0]) & _u256(a[1]),
-    ("eq", 2): lambda a: 1 if _u256(a[0]) == _u256(a[1]) else 0,
-    ("iszero", 1): lambda a: 1 if _u256(a[0]) == 0 else 0,
-    ("shl", 2): _shl,
-    ("shr", 2): _shr,
-    ("clz", 1): _clz,
-    ("lt", 2): lambda a: 1 if _u256(a[0]) < _u256(a[1]) else 0,
-    ("gt", 2): lambda a: 1 if _u256(a[0]) > _u256(a[1]) else 0,
-    ("mulmod", 3): _mulmod,
-}
-
-
-def _eval_builtin(name: str, args: tuple[int, ...]) -> int:
-    fn = _BUILTIN_DISPATCH.get((name, len(args)))
-    if fn is not None:
-        return fn(args)
-    raise EvaluationError(f"Unsupported builtin {name!r}/{len(args)}")
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +135,7 @@ def evaluate_normalized(
 
     env: dict[SymbolId, int] = {}
     for sid, val in zip(func.params, args):
-        env[sid] = _u256(val)
+        env[sid] = u256(val)
     # Return variables default to 0.
     for sid in func.returns:
         env[sid] = 0
@@ -286,7 +214,7 @@ def _exec_stmt(ctx: _EvalCtx, stmt: NStmt) -> None:
     if isinstance(stmt, NStore):
         addr = _to_scalar(_eval_expr(ctx, stmt.addr))
         value = _to_scalar(_eval_expr(ctx, stmt.value))
-        ctx.memory[_u256(addr)] = _u256(value)
+        ctx.memory[u256(addr)] = u256(value)
         return
 
     if isinstance(stmt, NIf):
@@ -343,7 +271,7 @@ _EvalResult = int | tuple[int, ...]
 
 def _eval_expr(ctx: _EvalCtx, expr: NExpr) -> _EvalResult:
     if isinstance(expr, NConst):
-        return _u256(expr.value)
+        return u256(expr.value)
 
     if isinstance(expr, NRef):
         if expr.symbol_id not in ctx.env:
@@ -398,17 +326,17 @@ def _eval_call_by_name(
     if name == "mstore" and len(args) == 2:
         addr = _to_scalar(_eval_expr(ctx, args[0]))
         value = _to_scalar(_eval_expr(ctx, args[1]))
-        ctx.memory[_u256(addr)] = _u256(value)
+        ctx.memory[u256(addr)] = u256(value)
         return 0
 
     # mload: read from memory.
     if name == "mload" and len(args) == 1:
         addr = _to_scalar(_eval_expr(ctx, args[0]))
-        return ctx.memory.get(_u256(addr), 0)
+        return ctx.memory.get(u256(addr), 0)
 
     # Regular arithmetic builtin.
     evaluated = tuple(_to_scalar(_eval_expr(ctx, a)) for a in args)
-    return _eval_builtin(name, evaluated)
+    return eval_pure_builtin(name, evaluated)
 
 
 def _call_function_def(
