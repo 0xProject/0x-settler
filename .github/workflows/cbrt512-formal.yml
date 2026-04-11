@@ -70,7 +70,7 @@ jobs:
 
       - name: Generate 512-bit Lean model from Cbrt512Wrapper via Yul IR
         run: |
-          FOUNDRY_SOLC_VERSION=0.8.33 \
+          FOUNDRY_SOLC_VERSION=0.8.34 \
             forge inspect src/wrappers/Cbrt512Wrapper.sol:Cbrt512Wrapper ir | \
             python3 -W error -m formal.python.cbrt.generate_cbrt512_model \
               --yul - \

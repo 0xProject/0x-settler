@@ -36,7 +36,7 @@ python3 -m formal.python.sqrt.generate_sqrt_cert \
 cd formal/sqrt/SqrtProof && lake build
 
 # --- 512-bit sqrt ---
-FOUNDRY_SOLC_VERSION=0.8.33 \
+FOUNDRY_SOLC_VERSION=0.8.34 \
   forge inspect src/wrappers/Sqrt512Wrapper.sol:Sqrt512Wrapper ir | \
   python3 -m formal.python.sqrt.generate_sqrt512_model --yul - \
     --output formal/sqrt/Sqrt512Proof/Sqrt512Proof/GeneratedSqrt512Model.lean
@@ -55,7 +55,7 @@ python3 -m formal.python.cbrt.generate_cbrt_cert \
 cd formal/cbrt/CbrtProof && lake build
 
 # --- 512-bit cbrt ---
-FOUNDRY_SOLC_VERSION=0.8.33 \
+FOUNDRY_SOLC_VERSION=0.8.34 \
   forge inspect src/wrappers/Cbrt512Wrapper.sol:Cbrt512Wrapper ir | \
   python3 -m formal.python.cbrt.generate_cbrt512_model --yul - \
     --output formal/cbrt/Cbrt512Proof/Cbrt512Proof/GeneratedCbrt512Model.lean

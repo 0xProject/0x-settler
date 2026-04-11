@@ -68,7 +68,7 @@ jobs:
 
       - name: Generate 512-bit Lean model from Sqrt512Wrapper via Yul IR
         run: |
-          FOUNDRY_SOLC_VERSION=0.8.33 \
+          FOUNDRY_SOLC_VERSION=0.8.34 \
             forge inspect src/wrappers/Sqrt512Wrapper.sol:Sqrt512Wrapper ir | \
             python3 -W error -m formal.python.sqrt.generate_sqrt512_model \
               --yul - \
