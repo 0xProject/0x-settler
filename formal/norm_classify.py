@@ -5,10 +5,6 @@ Walks a ``NormalizedFunction`` to determine each nested helper's effects
 (memory, leave, for-loops, expression-statements) and classifies them
 for inlining: pure (safe to expression-substitute), deferred (has
 memory effects), or unsupported.
-
-This replaces the old pipeline's distributed logic in
-``_classify_non_pure_helpers()``, ``_is_uint512_from_helper()``,
-and ``_reject_expr_stmts()``.
 """
 
 from __future__ import annotations

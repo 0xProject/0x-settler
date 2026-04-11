@@ -1,18 +1,12 @@
 """
-Non-SSA restricted IR for the new pipeline.
+Non-SSA restricted IR.
 
-This is the output of Pass 8 (restricted IR construction) from the
-handoff doc.  It uses ``SymbolId``-keyed variable references (not
-string names — SSA renaming is a separate later pass).
+Uses ``SymbolId``-keyed variable references. SSA renaming happens
+later.
 
 The restricted IR is a flat sequence of ``RAssignment`` and
 ``RConditionalBlock`` statements with explicit branch outputs.
-No nested blocks, no implicit control flow, no memory operations
-(those are resolved during lowering).
-
-Corresponds to the old pipeline's ``FunctionModel`` / ``Assignment``
-/ ``ConditionalBlock`` types but with ``SymbolId`` instead of
-string-based variable names.
+No nested blocks, no implicit control flow, and no memory operations.
 """
 
 from __future__ import annotations

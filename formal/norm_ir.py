@@ -1,10 +1,9 @@
 """
 Normalized imperative IR for resolved Yul programs.
 
-This is the first IR in the new pipeline that uses resolved symbols
-natively.  Every variable reference carries a ``SymbolId`` from the
-binder resolver, and every call is pre-classified as builtin, local
-helper, top-level sibling, or unresolved.
+Every variable reference carries a ``SymbolId`` from the binder
+resolver, and every call is pre-classified as builtin, local helper,
+top-level sibling, or unresolved.
 
 The normalized IR faithfully preserves all Yul control flow (if,
 switch, for, leave, bare blocks) without flattening, constant folding,

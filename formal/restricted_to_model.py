@@ -361,7 +361,7 @@ def to_function_models(
         sol_name = name_plan.function_names[raw_name]
         # Name legalization already applied by apply_module_plan.
         models[sol_name] = _ssa_and_model(func, sol_name)
-    from yul_to_lean import validate_selected_models
+    from model_validate import validate_selected_models
 
     validate_selected_models(list(models.values()))
     return models

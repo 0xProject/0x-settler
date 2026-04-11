@@ -30,11 +30,6 @@ OPTIMIZED_TRANSLATION_PIPELINE = TranslationPipeline(
     prune_dead_assignments=True,
 )
 
-# Backward-compatible alias kept only because older tests and callers still
-# spell this pipeline "raw" even though translation now always uses the staged
-# path and this flag only controls optional post-processing.
-RAW_TRANSLATION_PIPELINE = UNOPTIMIZED_TRANSLATION_PIPELINE
-
 
 @dataclass(frozen=True)
 class ModelConfig:

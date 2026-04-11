@@ -98,14 +98,12 @@ class InlineFragment:
 class InlineBoundaryPolicy:
     """Call-survival policy for one inlining run.
 
-    The standalone normalized-IR pass keeps its historical behavior by
-    default: unsupported/deferred helpers may remain as calls.
+    By default, unsupported or deferred helpers may remain as calls.
 
-    The staged translation path uses a stricter policy for selected targets:
-    local helper calls and the chosen non-selected top-level helper closure are
-    not allowed to survive past normalization, so they must be structurally
-    inlined before simplification + validation decide whether any unsupported
-    live constructs remain.
+    Selected-target translation uses a stricter policy: local helper calls and
+    the chosen non-selected top-level helper closure are not allowed to survive
+    past normalization, so they must be structurally inlined before
+    simplification and validation.
     """
 
     inline_local_helpers: bool = False

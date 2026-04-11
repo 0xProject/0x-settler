@@ -2,8 +2,7 @@
 Interpreter for the normalized imperative IR.
 
 Evaluates a ``NormalizedFunction`` with concrete integer arguments and
-returns the function's return values.  Used for semantic equivalence
-testing against the old pipeline's ``evaluate_function_model``.
+returns the function's return values.
 
 Key semantics:
 - Memory is shared across all calls (Yul semantics).

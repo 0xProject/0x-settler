@@ -2,7 +2,7 @@
 Evaluator for the non-SSA restricted IR.
 
 Used for semantic equivalence testing against the normalized IR
-evaluator and the old pipeline's ``evaluate_function_model``.
+evaluator.
 """
 
 from __future__ import annotations
