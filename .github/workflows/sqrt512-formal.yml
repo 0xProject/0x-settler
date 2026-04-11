@@ -9,7 +9,7 @@ on:
       - src/vendor/Sqrt.sol
       - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
-      - formal/translator.py
+      - formal/python/**
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/Sqrt512Model.t.sol
       - .github/workflows/sqrt512-formal.yml
@@ -19,7 +19,7 @@ on:
       - src/vendor/Sqrt.sol
       - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
-      - formal/translator.py
+      - formal/python/**
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/Sqrt512Model.t.sol
       - .github/workflows/sqrt512-formal.yml
@@ -52,20 +52,20 @@ jobs:
       - name: Generate 256-bit Lean model (SqrtProof dependency)
         run: |
           forge inspect src/wrappers/SqrtWrapper.sol:SqrtWrapper ir | \
-            python3 -W error formal/sqrt/generate_sqrt_model.py \
+            python3 -W error -m formal.python.sqrt.generate_sqrt_model \
               --yul - \
               --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
 
       - name: Generate finite certificate from sqrt spec
         run: |
-          python3 formal/sqrt/generate_sqrt_cert.py \
+          python3 -m formal.python.sqrt.generate_sqrt_cert \
             --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
 
       - name: Generate 512-bit Lean model from Sqrt512Wrapper via Yul IR
         run: |
           FOUNDRY_SOLC_VERSION=0.8.33 \
             forge inspect src/wrappers/Sqrt512Wrapper.sol:Sqrt512Wrapper ir | \
-            python3 -W error formal/sqrt/generate_sqrt512_model.py \
+            python3 -W error -m formal.python.sqrt.generate_sqrt512_model \
               --yul - \
               --output formal/sqrt/Sqrt512Proof/Sqrt512Proof/GeneratedSqrt512Model.lean
 

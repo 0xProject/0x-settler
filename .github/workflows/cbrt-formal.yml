@@ -8,7 +8,7 @@ on:
       - src/vendor/Cbrt.sol
       - src/wrappers/CbrtWrapper.sol
       - formal/cbrt/**
-      - formal/translator.py
+      - formal/python/**
       - test/0.8.25/Cbrt.t.sol
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/CbrtModel.t.sol
@@ -18,7 +18,7 @@ on:
       - src/vendor/Cbrt.sol
       - src/wrappers/CbrtWrapper.sol
       - formal/cbrt/**
-      - formal/translator.py
+      - formal/python/**
       - test/0.8.25/Cbrt.t.sol
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/CbrtModel.t.sol
@@ -51,13 +51,13 @@ jobs:
       - name: Generate Lean model from Cbrt.sol via Yul IR
         run: |
           forge inspect src/wrappers/CbrtWrapper.sol:CbrtWrapper ir | \
-            python3 -W error formal/cbrt/generate_cbrt_model.py \
+            python3 -W error -m formal.python.cbrt.generate_cbrt_model \
               --yul - \
               --output formal/cbrt/CbrtProof/CbrtProof/GeneratedCbrtModel.lean
 
       - name: Generate finite certificate from cbrt spec
         run: |
-          python3 formal/cbrt/generate_cbrt_cert.py \
+          python3 -m formal.python.cbrt.generate_cbrt_cert \
             --output formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean
 
       - name: Build Cbrt proof and model evaluator

@@ -42,4 +42,4 @@ jobs:
         run: python3 -m mypy formal
 
       - name: Run translator unit tests
-        run: python3 -m unittest discover -s formal -p 'test_yul_to_lean.py' -v
+        run: python3 -m unittest formal.python.test_yul_to_lean -v

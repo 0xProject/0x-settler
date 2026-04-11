@@ -22,13 +22,15 @@ Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler.
 
 All auto-generated files (`GeneratedSqrtModel.lean`, `FiniteCert.lean`, etc.) are `.gitignore`d and regenerated in CI. See `.github/workflows/sqrt-formal.yml`, `sqrt512-formal.yml`, `cbrt-formal.yml`, and `cbrt512-formal.yml` for the canonical build steps.
 
+The Python tooling now lives under `formal/python/`; the `formal/sqrt/` and `formal/cbrt/` trees are reserved for Lean proofs and generated Lean artifacts.
+
 ```bash
 # --- 256-bit sqrt ---
 forge inspect src/wrappers/SqrtWrapper.sol:SqrtWrapper ir | \
-  python3 formal/sqrt/generate_sqrt_model.py --yul - \
+  python3 -m formal.python.sqrt.generate_sqrt_model --yul - \
     --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
 
-python3 formal/sqrt/generate_sqrt_cert.py \
+python3 -m formal.python.sqrt.generate_sqrt_cert \
   --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
 
 cd formal/sqrt/SqrtProof && lake build
@@ -36,7 +38,7 @@ cd formal/sqrt/SqrtProof && lake build
 # --- 512-bit sqrt ---
 FOUNDRY_SOLC_VERSION=0.8.33 \
   forge inspect src/wrappers/Sqrt512Wrapper.sol:Sqrt512Wrapper ir | \
-  python3 formal/sqrt/generate_sqrt512_model.py --yul - \
+  python3 -m formal.python.sqrt.generate_sqrt512_model --yul - \
     --output formal/sqrt/Sqrt512Proof/Sqrt512Proof/GeneratedSqrt512Model.lean
 
 # FiniteCert.lean (shared with SqrtProof) must be generated first — see above.
@@ -44,10 +46,10 @@ cd formal/sqrt/Sqrt512Proof && lake build
 
 # --- cbrt ---
 forge inspect src/wrappers/CbrtWrapper.sol:CbrtWrapper ir | \
-  python3 formal/cbrt/generate_cbrt_model.py --yul - \
+  python3 -m formal.python.cbrt.generate_cbrt_model --yul - \
     --output formal/cbrt/CbrtProof/CbrtProof/GeneratedCbrtModel.lean
 
-python3 formal/cbrt/generate_cbrt_cert.py \
+python3 -m formal.python.cbrt.generate_cbrt_cert \
   --output formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean
 
 cd formal/cbrt/CbrtProof && lake build
@@ -55,7 +57,7 @@ cd formal/cbrt/CbrtProof && lake build
 # --- 512-bit cbrt ---
 FOUNDRY_SOLC_VERSION=0.8.33 \
   forge inspect src/wrappers/Cbrt512Wrapper.sol:Cbrt512Wrapper ir | \
-  python3 formal/cbrt/generate_cbrt512_model.py --yul - \
+  python3 -m formal.python.cbrt.generate_cbrt512_model --yul - \
     --output formal/cbrt/Cbrt512Proof/Cbrt512Proof/GeneratedCbrt512Model.lean
 
 # FiniteCert.lean (shared with CbrtProof) must be generated first — see above.

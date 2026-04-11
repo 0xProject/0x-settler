@@ -414,6 +414,7 @@ IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeee
 ### DO NOT
 
 - Create documentation files unless explicitly requested
+- Write notes, comments, or docs that describe historical evolution instead of the current system unless the history is required for current correctness
 - Make up performance numbers or generic justifications for changes
 - Add features beyond what was asked (no over-engineering)
 - Modify the `_dispatch` copy/paste pattern without updating all locations
