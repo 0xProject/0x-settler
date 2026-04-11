@@ -20,7 +20,6 @@ from norm_classify import (
     FunctionSummary,
     InlineClassification,
     InlineStrategy,
-    _is_uint512_from_shape,
     classify_helpers,
     summarize_function,
 )
@@ -310,8 +309,6 @@ def _register_nested_defs(block: NBlock, ctx: _InlineCtx) -> None:
     NFunctionDefs with new SymbolIds. These must be registered so
     _rewrite_block can inline calls to them.
     """
-    from norm_classify import FunctionSummary, classify_helpers, summarize_function
-
     new_fdefs = collect_function_defs(block)
     if not new_fdefs:
         return
@@ -319,23 +316,11 @@ def _register_nested_defs(block: NBlock, ctx: _InlineCtx) -> None:
     summaries: dict[SymbolId, FunctionSummary] = {}
     for fdef in new_fdefs:
         ctx.defs[fdef.symbol_id] = fdef
-        base = summarize_function(
+        summaries[fdef.symbol_id] = summarize_function(
             fdef.body,
+            fdef=fdef,
             top_level_inline_sids=ctx.top_level_name_to_sid,
             allowed_model_calls=ctx.allowed_model_calls,
-        )
-        summaries[fdef.symbol_id] = FunctionSummary(
-            writes_memory=base.writes_memory,
-            reads_memory=base.reads_memory,
-            may_leave=base.may_leave,
-            has_for_loop=base.has_for_loop,
-            has_expr_effects=base.has_expr_effects,
-            has_effectful_condition=base.has_effectful_condition,
-            calls_unresolved=base.calls_unresolved,
-            calls_top_level=base.calls_top_level,
-            called_functions=base.called_functions,
-            called_builtins=base.called_builtins,
-            is_uint512_from=False,
         )
 
     new_cls = classify_helpers(summaries)
@@ -1178,23 +1163,11 @@ def inline_pure_helpers(
 
     summaries: dict[SymbolId, FunctionSummary] = {}
     for sid, fdef in defs.items():
-        base = summarize_function(
+        summaries[sid] = summarize_function(
             fdef.body,
+            fdef=fdef,
             top_level_inline_sids=top_level_name_to_sid,
             allowed_model_calls=allowed_model_calls,
-        )
-        summaries[sid] = FunctionSummary(
-            writes_memory=base.writes_memory,
-            reads_memory=base.reads_memory,
-            may_leave=base.may_leave,
-            has_for_loop=base.has_for_loop,
-            has_expr_effects=base.has_expr_effects,
-            has_effectful_condition=base.has_effectful_condition,
-            calls_unresolved=base.calls_unresolved,
-            calls_top_level=base.calls_top_level,
-            called_functions=base.called_functions,
-            called_builtins=base.called_builtins,
-            is_uint512_from=_is_uint512_from_shape(fdef),
         )
     classifications = classify_helpers(summaries)
     # Pre-normalize switch → if ONLY in inlineable helper bodies.
