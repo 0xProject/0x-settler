@@ -2,12 +2,11 @@
 Name legalization pass for restricted IR (pre-SSA).
 
 Converts raw Yul variable names to valid, clean base names suitable
-for Lean emission:
+for `FunctionModel` conversion:
 
 - ``var_x_1`` → ``x``   (Solidity compiler parameter/return pattern)
 - ``usr$tmp`` → ``tmp``  (Solidity compiler user-local pattern)
 - Invalid identifier characters sanitized
-- Reserved Lean helper names avoided
 - Model-call callee names rewritten to emitted names
 
 This pass is the single source of truth for module-wide function-name
@@ -21,8 +20,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-
-from lean_names import RESERVED_LEAN_NAMES
 
 from restricted_ir import (
     RAssignment,
@@ -69,13 +66,9 @@ def _sanitize_base(name: str) -> str:
     return name
 
 
-def legalize_identifier_base(name: str, *, avoid_reserved: bool = True) -> str:
-    """Demangle + sanitize a binder name using the shared naming policy."""
-    clean = _sanitize_base(_demangle(name))
-    if avoid_reserved:
-        while clean in RESERVED_LEAN_NAMES:
-            clean = clean + "_"
-    return clean
+def legalize_identifier_base(name: str) -> str:
+    """Demangle + sanitize a binder name."""
+    return _sanitize_base(_demangle(name))
 
 
 def _legalize_one(name: str) -> str:
@@ -84,8 +77,6 @@ def _legalize_one(name: str) -> str:
 
 def _uniquify_name_bases(
     raw_names: dict[SymbolId, str],
-    *,
-    extra_reserved_names: frozenset[str] = frozenset(),
 ) -> dict[SymbolId, str]:
     """Legalize and uniquify binder base names while preserving order."""
     result: dict[SymbolId, str] = {}
@@ -94,11 +85,7 @@ def _uniquify_name_bases(
         base = _legalize_one(raw)
         candidate = base
         suffix = 1
-        while (
-            candidate in used
-            or candidate in RESERVED_LEAN_NAMES
-            or candidate in extra_reserved_names
-        ):
+        while candidate in used:
             candidate = f"{base}_{suffix}"
             suffix += 1
         used.add(candidate)
@@ -242,8 +229,7 @@ class ModuleNamePlan:
     """Authoritative module-wide naming plan.
 
     Owns function-name demangling, binder-name demangling/sanitization,
-    reserved-name avoidance, and uniqueness — all computed up front
-    before SSA versioning.
+    and uniqueness — all computed up front before SSA versioning.
     """
 
     function_names: dict[str, str] = field(default_factory=dict)
@@ -252,8 +238,6 @@ class ModuleNamePlan:
 
 def plan_module(
     funcs: dict[str, RestrictedFunction],
-    *,
-    extra_reserved_binder_names: frozenset[str] = frozenset(),
 ) -> ModuleNamePlan:
     """Build a complete module-wide naming plan.
 
@@ -266,8 +250,6 @@ def plan_module(
     used_fn: set[str] = set()
     for raw in funcs:
         clean = _sanitize_base(_demangle_function_name(raw))
-        while clean in RESERVED_LEAN_NAMES:
-            clean = clean + "_"
         while clean in used_fn:
             clean = clean + "_"
         used_fn.add(clean)
@@ -277,10 +259,7 @@ def plan_module(
     binder_names: dict[str, dict[SymbolId, str]] = {}
     for raw_name, func in funcs.items():
         sid_to_raw = _collect_all_sids(func)
-        binder_names[raw_name] = _uniquify_name_bases(
-            sid_to_raw,
-            extra_reserved_names=extra_reserved_binder_names,
-        )
+        binder_names[raw_name] = _uniquify_name_bases(sid_to_raw)
 
     return ModuleNamePlan(
         function_names=function_names,

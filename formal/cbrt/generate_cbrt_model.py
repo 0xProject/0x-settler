@@ -13,13 +13,17 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-# Allow importing the shared module from formal/
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from model_config import ModelConfig
+from generator_cli import run_generator
+from model_config import (
+    CliConfig,
+    EmissionConfig,
+    ModelConfig,
+    NormExtension,
+    SelectionConfig,
+)
 from model_ir import Call, Expr, IntLit
-
-from yul_to_lean import run
 
 
 def rewrite_norm_ast(expr: Expr) -> Expr:
@@ -46,27 +50,38 @@ def rewrite_norm_ast(expr: Expr) -> Expr:
 
 
 CONFIG = ModelConfig(
-    function_order=("_cbrt", "cbrt", "cbrtUp"),
-    model_names={
-        "_cbrt": "model_cbrt",
-        "cbrt": "model_cbrt_floor",
-        "cbrtUp": "model_cbrt_up",
-    },
-    header_comment="Auto-generated from Solidity Cbrt assembly and assignment flow.",
-    generator_label="formal/cbrt/generate_cbrt_model.py",
-    extra_norm_ops={"bitLengthPlus1": "normBitLengthPlus1"},
-    extra_lean_defs=(
-        "def normBitLengthPlus1 (value : Nat) : Nat :=\n"
-        "  if value = 0 then 1 else Nat.log2 value + 2\n\n"
+    selection=SelectionConfig(
+        function_order=("_cbrt", "cbrt", "cbrtUp"),
+        inner_fn="_cbrt",
     ),
-    norm_rewrite=rewrite_norm_ast,
-    inner_fn="_cbrt",
-    default_source_label="src/vendor/Cbrt.sol",
-    default_namespace="CbrtGeneratedModel",
-    default_output="formal/cbrt/CbrtProof/CbrtProof/GeneratedCbrtModel.lean",
-    cli_description="Generate Lean model of Cbrt.sol functions from Yul IR",
+    emission=EmissionConfig(
+        model_names={
+            "_cbrt": "model_cbrt",
+            "cbrt": "model_cbrt_floor",
+            "cbrtUp": "model_cbrt_up",
+        },
+        header_comment="Auto-generated from Solidity Cbrt assembly and assignment flow.",
+        generator_label="formal/cbrt/generate_cbrt_model.py",
+        norm_rewrite=rewrite_norm_ast,
+        norm_extensions=(
+            NormExtension(
+                op_name="bitLengthPlus1",
+                lean_name="normBitLengthPlus1",
+                lean_def=(
+                    "def normBitLengthPlus1 (value : Nat) : Nat :=\n"
+                    "  if value = 0 then 1 else Nat.log2 value + 2"
+                ),
+            ),
+        ),
+    ),
+    cli=CliConfig(
+        source_label="src/vendor/Cbrt.sol",
+        namespace="CbrtGeneratedModel",
+        output="formal/cbrt/CbrtProof/CbrtProof/GeneratedCbrtModel.lean",
+        description="Generate Lean model of Cbrt.sol functions from Yul IR",
+    ),
 )
 
 
 if __name__ == "__main__":
-    raise SystemExit(run(CONFIG))
+    raise SystemExit(run_generator(CONFIG))

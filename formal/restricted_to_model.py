@@ -2,7 +2,8 @@
 SSA renaming and FunctionModel conversion (Pass 9).
 
 Converts a ``RestrictedFunction`` (SymbolId-keyed, non-SSA) into a
-``FunctionModel`` (string-named, SSA-renamed) ready for Lean emission.
+``FunctionModel`` (string-named, SSA-renamed) ready for validation,
+evaluation, optimization, and emission.
 
 The pipeline is:
 
@@ -342,20 +343,14 @@ def _needs_zero_init(
 
 def to_function_models(
     funcs: dict[str, RestrictedFunction],
-    *,
-    extra_reserved_binder_names: frozenset[str] = frozenset(),
 ) -> dict[str, FunctionModel]:
     """Convert a module of ``RestrictedFunction``s to ``FunctionModel``s.
 
     Builds a ``ModuleNamePlan`` that owns all naming decisions
-    (function names, binder names, reserved-name avoidance), applies
-    it, then runs SSA per function.  Returns a dict keyed by clean
-    (emitted) function names.
+    (function names and binder names), applies it, then runs SSA per
+    function. Returns a dict keyed by clean function names.
     """
-    name_plan = plan_module(
-        funcs,
-        extra_reserved_binder_names=extra_reserved_binder_names,
-    )
+    name_plan = plan_module(funcs)
     legalized = apply_module_plan(funcs, name_plan)
     models: dict[str, FunctionModel] = {}
     for raw_name, func in legalized.items():

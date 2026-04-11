@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import re
 from typing import assert_never
 
 from evm_builtins import MODELED_BUILTIN_ARITY, OP_TO_LEAN_HELPER
-from lean_names import validate_ident
 from model_helpers import _expr_vars, _walk_model_exprs_in_stmt
 from model_ir import (
     Assignment,
@@ -21,10 +21,15 @@ from model_ir import (
 from yul_ast import ParseError
 
 
-def validate_function_model(model: FunctionModel) -> None:
-    """Reject malformed restricted-IR models before Lean emission."""
+def _validate_identifier(name: str, *, what: str) -> None:
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+        raise ParseError(f"Invalid {what}: {name!r}")
 
-    validate_ident(model.fn_name, what="model name")
+
+def validate_function_model(model: FunctionModel) -> None:
+    """Reject malformed restricted-IR models."""
+
+    _validate_identifier(model.fn_name, what="model name")
     if len(set(model.param_names)) != len(model.param_names):
         raise ParseError(
             f"Model {model.fn_name!r} has duplicate param names: {model.param_names!r}"
@@ -41,17 +46,19 @@ def validate_function_model(model: FunctionModel) -> None:
             f"restricted-IR functions must return at least one value"
         )
     for name in model.param_names:
-        validate_ident(name, what=f"param name in {model.fn_name!r}")
+        _validate_identifier(name, what=f"param name in {model.fn_name!r}")
     for name in model.return_names:
-        validate_ident(name, what=f"return name in {model.fn_name!r}")
+        _validate_identifier(name, what=f"return name in {model.fn_name!r}")
 
     def _validate_decl_binders_in_stmts(stmts: tuple[ModelStatement, ...]) -> None:
         for s in stmts:
             if isinstance(s, Assignment):
-                validate_ident(s.target, what=f"assignment target in {model.fn_name!r}")
+                _validate_identifier(
+                    s.target, what=f"assignment target in {model.fn_name!r}"
+                )
             elif isinstance(s, ConditionalBlock):
                 for var in s.output_vars:
-                    validate_ident(
+                    _validate_identifier(
                         var, what=f"conditional output var in {model.fn_name!r}"
                     )
                 if len(set(s.output_vars)) != len(s.output_vars):
@@ -206,16 +213,16 @@ def validate_model_set(models: list[FunctionModel]) -> None:
     for model in models:
         validate_function_model(model)
 
-    sig_table = {
-        model.fn_name: (len(model.param_names), len(model.return_names))
-        for model in models
-    }
-
     seen_names: set[str] = set()
     for model in models:
         if model.fn_name in seen_names:
             raise ParseError(f"Duplicate selected function {model.fn_name!r}")
         seen_names.add(model.fn_name)
+
+    sig_table = {
+        model.fn_name: (len(model.param_names), len(model.return_names))
+        for model in models
+    }
 
     def _check_calls(expr: Expr, model_fn_name: str) -> set[str]:
         callees: set[str] = set()

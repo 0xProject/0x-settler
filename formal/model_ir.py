@@ -17,7 +17,6 @@ class Var:
 class Call:
     name: str
     args: tuple["Expr", ...]
-    binding_token_idx: int | None = None
 
 
 @dataclass(frozen=True)

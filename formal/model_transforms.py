@@ -4,7 +4,7 @@ import re
 from collections import Counter
 from typing import Callable, assert_never
 
-from model_config import ModelConfig, TranslationPipeline
+from model_config import ModelConfig, TransformConfig
 from model_helpers import _collect_model_binders, _expr_size, _expr_vars, _replace_expr
 from model_ir import (
     Assignment,
@@ -25,7 +25,7 @@ def _prune_dead_assignments(
 ) -> FunctionModel:
     """Drop dead pure assignments from a model to avoid unused Lean lets."""
 
-    def _prune_assignment_block(
+    def _prune_block(
         assignments: tuple[ModelStatement, ...],
         live_out: set[str],
     ) -> tuple[tuple[ModelStatement, ...], set[str]]:
@@ -39,79 +39,59 @@ def _prune_dead_assignments(
                 live.update(_expr_vars(stmt.expr))
                 kept_rev.append(stmt)
             elif isinstance(stmt, ConditionalBlock):
+                needed_indices = tuple(
+                    idx for idx, output in enumerate(stmt.output_vars) if output in live
+                )
+                if not needed_indices:
+                    continue
+
+                needed_outputs = tuple(stmt.output_vars[idx] for idx in needed_indices)
+                then_out_live: set[str] = set()
+                for idx in needed_indices:
+                    then_out_live.update(_expr_vars(stmt.then_branch.outputs[idx]))
+                then_assignments, then_live = _prune_block(
+                    stmt.then_branch.assignments,
+                    then_out_live,
+                )
+
+                else_out_live: set[str] = set()
+                for idx in needed_indices:
+                    else_out_live.update(_expr_vars(stmt.else_branch.outputs[idx]))
+                else_assignments, else_live = _prune_block(
+                    stmt.else_branch.assignments,
+                    else_out_live,
+                )
+
                 for var in stmt.output_vars:
                     live.discard(var)
                 live.update(_expr_vars(stmt.condition))
-                kept_rev.append(stmt)
+                live.update(then_live)
+                live.update(else_live)
+                kept_rev.append(
+                    ConditionalBlock(
+                        condition=stmt.condition,
+                        output_vars=needed_outputs,
+                        then_branch=ConditionalBranch(
+                            assignments=then_assignments,
+                            outputs=tuple(
+                                stmt.then_branch.outputs[idx] for idx in needed_indices
+                            ),
+                        ),
+                        else_branch=ConditionalBranch(
+                            assignments=else_assignments,
+                            outputs=tuple(
+                                stmt.else_branch.outputs[idx] for idx in needed_indices
+                            ),
+                        ),
+                    )
+                )
         kept_rev.reverse()
         return tuple(kept_rev), live
 
-    live = set(model.return_names)
-    kept_rev: list[ModelStatement] = []
-
-    for stmt in reversed(model.assignments):
-        if isinstance(stmt, Assignment):
-            if stmt.target not in live:
-                continue
-            live.remove(stmt.target)
-            live.update(_expr_vars(stmt.expr))
-            kept_rev.append(stmt)
-            continue
-
-        if not isinstance(stmt, ConditionalBlock):
-            assert_never(stmt)
-
-        needed_indices = tuple(
-            idx for idx, output in enumerate(stmt.output_vars) if output in live
-        )
-        needed_outputs = tuple(stmt.output_vars[idx] for idx in needed_indices)
-        if not needed_outputs:
-            continue
-
-        then_out_live: set[str] = set()
-        for idx in needed_indices:
-            then_out_live.update(_expr_vars(stmt.then_branch.outputs[idx]))
-        then_assignments, then_live = _prune_assignment_block(
-            stmt.then_branch.assignments,
-            then_out_live,
-        )
-
-        else_out_live: set[str] = set()
-        for idx in needed_indices:
-            else_out_live.update(_expr_vars(stmt.else_branch.outputs[idx]))
-        else_assignments, else_live = _prune_assignment_block(
-            stmt.else_branch.assignments,
-            else_out_live,
-        )
-
-        live.difference_update(needed_outputs)
-        live.update(_expr_vars(stmt.condition))
-        live.update(then_live)
-        live.update(else_live)
-
-        kept_rev.append(
-            ConditionalBlock(
-                condition=stmt.condition,
-                output_vars=needed_outputs,
-                then_branch=ConditionalBranch(
-                    assignments=then_assignments,
-                    outputs=tuple(
-                        stmt.then_branch.outputs[idx] for idx in needed_indices
-                    ),
-                ),
-                else_branch=ConditionalBranch(
-                    assignments=else_assignments,
-                    outputs=tuple(
-                        stmt.else_branch.outputs[idx] for idx in needed_indices
-                    ),
-                ),
-            )
-        )
-
-    kept_rev.reverse()
+    kept_rev, _ = _prune_block(model.assignments, set(model.return_names))
     result = FunctionModel(
         fn_name=model.fn_name,
-        assignments=tuple(kept_rev),
+        assignments=kept_rev,
         param_names=model.param_names,
         return_names=model.return_names,
     )
@@ -382,31 +362,41 @@ def hoist_repeated_model_calls(
 
 def apply_optional_model_transforms(
     models: list[FunctionModel],
-    config: ModelConfig,
+    config: TransformConfig | ModelConfig,
     *,
-    pipeline: TranslationPipeline,
+    model_call_names: frozenset[str] | None = None,
+    optimize: bool,
 ) -> list[FunctionModel]:
+    transform_config: TransformConfig
+    if isinstance(config, ModelConfig):
+        transform_config = config.transforms
+        if model_call_names is None:
+            model_call_names = frozenset(config.selection.function_order)
+    else:
+        transform_config = config
+    if model_call_names is None:
+        raise TypeError("apply_optional_model_transforms requires model_call_names")
+
     transformed = list(models)
 
-    if pipeline.hoist_repeated_calls and config.hoist_repeated_calls:
-        model_call_names = frozenset(config.function_order)
+    if optimize and transform_config.hoist_repeated_calls:
         transformed = [
             (
                 hoist_repeated_model_calls(
                     model,
                     model_call_names=model_call_names,
                 )
-                if model.fn_name in config.hoist_repeated_calls
+                if model.fn_name in transform_config.hoist_repeated_calls
                 else model
             )
             for model in transformed
         ]
 
-    if pipeline.prune_dead_assignments:
+    if optimize:
         transformed = [
             (
                 _prune_dead_assignments(model)
-                if model.fn_name not in config.skip_prune
+                if model.fn_name not in transform_config.skip_prune
                 else model
             )
             for model in transformed

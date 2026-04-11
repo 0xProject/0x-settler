@@ -1,192 +1,121 @@
 """
-Selection-aware staged translation pipeline.
-
-This module owns orchestration from:
-selection plan -> normalized IR -> simplification -> validation ->
-restricted IR -> FunctionModel
-
-It deliberately keeps selection, simplification, validation, and the
-restricted→model bridge in separate layers.
+Lower selected Yul targets to FunctionModel.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from norm_simplify import lower_leave, simplify_function_def, simplify_normalized
 from norm_validate import validate_restricted_boundary
-from staged_selection import (
-    SelectedTargetInfo,
-    build_selection_plan,
-)
+from staged_selection import SelectedHelperInfo, SelectedTargetInfo, SelectionPlan
 
+from norm_constprop import propagate_constants
 from norm_inline import InlineBoundaryPolicy, SymbolAllocator, inline_pure_helpers
 from norm_ir import (
+    NAssign,
+    NBind,
     NBlock,
     NExpr,
+    NExprEffect,
+    NFor,
     NFunctionDef,
+    NIf,
+    NLeave,
     NLocalCall,
     NormalizedFunction,
     NStmt,
+    NStore,
+    NSwitch,
+    NSwitchCase,
     NTopLevelCall,
 )
+from norm_memory import lower_memory
+from norm_to_restricted import lower_to_restricted
 from norm_walk import map_expr
 from restricted_ir import RestrictedFunction
 from restricted_to_model import to_function_models
-from yul_ast import ParseError
+from yul_ast import ParseError, SymbolId
 from yul_normalize import normalize_function
-from yul_resolve import ResolutionResult
-
-if TYPE_CHECKING:
-    from model_config import ModelConfig
-    from model_ir import FunctionModel
-    from staged_selection import FunctionKey, SelectionPlan, _SyntaxFunctionInfo
-
-    from yul_ast import SymbolId
 
 
-def translate_selected_models(
-    yul_text: str,
-    config: ModelConfig,
-    *,
-    selected_functions: tuple[str, ...] | None = None,
-) -> list[FunctionModel]:
-    """Run the new staged translation path for the selected targets."""
-
-    plan = build_selection_plan(
-        yul_text,
-        config,
-        selected_functions=selected_functions,
-    )
-
-    restricted_by_sol_name: dict[str, RestrictedFunction] = {}
+def translate_selected_models(plan: SelectionPlan) -> list["FunctionModel"]:
+    allowed_model_calls = frozenset(plan.selected_functions)
+    restricted_by_name: dict[str, RestrictedFunction] = {}
     for sol_name in plan.selected_functions:
-        target_info = plan.target_infos[sol_name]
-        syntax_index = plan.syntax_indexes[target_info.key.group_idx]
-        target_syntax = syntax_index[target_info.key.token_idx]
-        outer_result = plan.resolved_groups[target_info.key.group_idx][
-            target_syntax.top_level_name
-        ]
-
-        target_nf = simplify_normalized(
-            normalize_function(target_syntax.func, outer_result)
+        restricted_by_name[sol_name] = _lower_target(
+            target=plan.target_infos[sol_name],
+            plan=plan,
+            allowed_model_calls=allowed_model_calls,
         )
 
-        local_selected_map = _build_local_selected_map(
-            plan,
-            sol_name,
-            outer_result,
-            syntax_index,
-        )
-        top_level_selected_map = _build_top_level_selected_map(
-            plan, target_info.key.group_idx
-        )
-
-        extra_local_defs, top_level_inline_defs = _build_inline_defs(
-            target_info,
-            plan,
-            syntax_index,
-            plan.resolved_groups[target_info.key.group_idx],
-        )
-
-        target_nf = _rewrite_selected_calls(
-            target_nf,
-            local_selected_map=local_selected_map,
-            top_level_selected_map=top_level_selected_map,
-        )
-        extra_local_defs = {
-            sid: _rewrite_selected_calls_in_fdef(
-                simplify_function_def(fdef),
-                local_selected_map=local_selected_map,
-                top_level_selected_map=top_level_selected_map,
-            )
-            for sid, fdef in extra_local_defs.items()
-        }
-        top_level_inline_defs = {
-            name: _rewrite_selected_calls_in_fdef(
-                simplify_function_def(fdef),
-                local_selected_map=local_selected_map,
-                top_level_selected_map=top_level_selected_map,
-            )
-            for name, fdef in top_level_inline_defs.items()
-        }
-
-        target_nf = inline_pure_helpers(
-            target_nf,
-            extra_local_defs=extra_local_defs,
-            top_level_inline_defs=top_level_inline_defs,
-            allowed_model_calls=frozenset(plan.selected_functions),
-            boundary_policy=InlineBoundaryPolicy(
-                inline_local_helpers=True,
-                inline_top_level_helpers=frozenset(top_level_inline_defs),
-            ),
-        )
-        target_nf = simplify_normalized(target_nf)
-        target_nf = lower_leave(target_nf)
-
-        from norm_constprop import propagate_constants
-        from norm_memory import lower_memory
-        from norm_to_restricted import lower_to_restricted
-
-        target_nf = propagate_constants(target_nf)
-        target_nf = simplify_normalized(target_nf)
-        validate_restricted_boundary(
-            target_nf,
-            allowed_model_calls=frozenset(plan.selected_functions),
-            allow_memory_ops=True,
-        )
-        target_nf = lower_memory(target_nf)
-        target_nf = simplify_normalized(target_nf)
-        validate_restricted_boundary(
-            target_nf,
-            allowed_model_calls=frozenset(plan.selected_functions),
-        )
-        restricted_by_sol_name[sol_name] = lower_to_restricted(target_nf)
-
-    models_by_name = to_function_models(
-        restricted_by_sol_name,
-        extra_reserved_binder_names=_generated_model_def_names(
-            plan.selected_functions,
-            config,
-        ),
-    )
+    models_by_name = to_function_models(restricted_by_name)
     return [models_by_name[sol_name] for sol_name in plan.selected_functions]
 
 
-def _generated_model_def_names(
-    selected_functions: tuple[str, ...],
-    config: ModelConfig,
-) -> frozenset[str]:
-    names: set[str] = set()
-    for sol_name in selected_functions:
-        base_name = config.model_names.get(sol_name)
-        if base_name is None:
-            raise ParseError(
-                "Missing model_names entry for selected function " f"{sol_name!r}"
-            )
-        if sol_name not in config.skip_norm:
-            names.add(base_name)
-        names.add(f"{base_name}_evm")
-    return frozenset(names)
+def _lower_target(
+    *,
+    target: SelectedTargetInfo,
+    plan: SelectionPlan,
+    allowed_model_calls: frozenset[str],
+) -> RestrictedFunction:
+    local_selected_map = _build_local_selected_map(plan, target)
+    top_level_selected_map = _build_top_level_selected_map(plan, target.key.group_idx)
+
+    normalized = normalize_function(target.func, target.resolution)
+    normalized = _rewrite_selected_calls(
+        normalized,
+        local_selected_map=local_selected_map,
+        top_level_selected_map=top_level_selected_map,
+    )
+
+    local_defs, top_level_defs = _build_inline_defs(
+        target,
+        local_selected_map=local_selected_map,
+        top_level_selected_map=top_level_selected_map,
+    )
+    normalized = inline_pure_helpers(
+        normalized,
+        extra_local_defs=local_defs,
+        top_level_inline_defs=top_level_defs,
+        allowed_model_calls=allowed_model_calls,
+        boundary_policy=InlineBoundaryPolicy(
+            inline_local_helpers=True,
+            inline_top_level_helpers=frozenset(top_level_defs),
+        ),
+    )
+
+    normalized = simplify_normalized(normalized)
+    normalized = lower_leave(normalized)
+    normalized = propagate_constants(normalized)
+    normalized = simplify_normalized(normalized)
+    validate_restricted_boundary(
+        normalized,
+        allowed_model_calls=allowed_model_calls,
+        allow_memory_ops=True,
+    )
+    normalized = lower_memory(normalized)
+    normalized = simplify_normalized(normalized)
+    validate_restricted_boundary(
+        normalized,
+        allowed_model_calls=allowed_model_calls,
+    )
+    return lower_to_restricted(normalized)
 
 
 def _build_local_selected_map(
     plan: SelectionPlan,
-    sol_name: str,
-    outer_result: ResolutionResult,
-    syntax_index: dict[int, _SyntaxFunctionInfo],
+    target: SelectedTargetInfo,
 ) -> dict[SymbolId, str]:
-    current = plan.target_infos[sol_name]
     mapping: dict[SymbolId, str] = {}
-    for other_sol, other in plan.target_infos.items():
-        if other.key.group_idx != current.key.group_idx:
+    for other_sol_name, other in plan.target_infos.items():
+        if other_sol_name == target.sol_name:
             continue
-        if other.top_level_key != current.top_level_key:
+        if other.key.group_idx != target.key.group_idx:
+            continue
+        if other.top_level_key != target.top_level_key:
             continue
         if len(other.lexical_path) == 1:
             continue
-        other_func = syntax_index[other.key.token_idx].func
-        mapping[outer_result.declarations[other_func.name_span]] = other_sol
+        mapping[target.resolution.declarations[other.func.name_span]] = other_sol_name
     return mapping
 
 
@@ -195,71 +124,71 @@ def _build_top_level_selected_map(
     group_idx: int,
 ) -> dict[str, str]:
     mapping: dict[str, str] = {}
-    for sol_name, info in plan.target_infos.items():
-        if info.key.group_idx != group_idx:
+    for sol_name, target in plan.target_infos.items():
+        if target.key.group_idx != group_idx:
             continue
-        if info.key != info.top_level_key:
+        if target.key != target.top_level_key:
             continue
-        mapping[info.raw_name] = sol_name
+        mapping[target.raw_name] = sol_name
     return mapping
 
 
 def _build_inline_defs(
-    target_info: SelectedTargetInfo,
-    plan: SelectionPlan,
-    syntax_index: dict[int, _SyntaxFunctionInfo],
-    resolved_group: dict[str, ResolutionResult],
+    target: SelectedTargetInfo,
+    *,
+    local_selected_map: dict[SymbolId, str],
+    top_level_selected_map: dict[str, str],
 ) -> tuple[dict[SymbolId, NFunctionDef], dict[str, NFunctionDef]]:
     max_existing = 0
-    for result in resolved_group.values():
-        for sid in result.symbols:
+    for sid in target.resolution.symbols:
+        max_existing = max(max_existing, sid._id)
+    for helper in target.helper_infos:
+        for sid in helper.resolution.symbols:
             max_existing = max(max_existing, sid._id)
     alloc = SymbolAllocator(max_existing + 1)
 
     local_defs: dict[SymbolId, NFunctionDef] = {}
     top_level_defs: dict[str, NFunctionDef] = {}
-    seen: set[FunctionKey] = set()
-    for helper_key in target_info.helper_keys:
-        if helper_key in seen:
+    for helper in target.helper_infos:
+        helper_def = _prepare_helper_for_inlining(helper)
+        helper_def = _rewrite_selected_calls_in_fdef(
+            simplify_function_def(helper_def),
+            local_selected_map=local_selected_map,
+            top_level_selected_map=top_level_selected_map,
+        )
+        if helper.key == helper.top_level_key:
+            top_level_defs[helper.raw_name] = NFunctionDef(
+                name=helper_def.name,
+                symbol_id=alloc.alloc(),
+                params=helper_def.params,
+                param_names=helper_def.param_names,
+                returns=helper_def.returns,
+                return_names=helper_def.return_names,
+                body=helper_def.body,
+            )
             continue
-        seen.add(helper_key)
-        helper_info = syntax_index[helper_key.token_idx]
-        outer_result = resolved_group[helper_info.top_level_name]
-        helper_nf = normalize_function(helper_info.func, outer_result)
-        if helper_key.token_idx == helper_info.top_level_token_idx:
-            sid = alloc.alloc()
-            top_level_defs[helper_info.func.name] = _prepare_helper_for_inlining(
-                NFunctionDef(
-                    name=helper_nf.name,
-                    symbol_id=sid,
-                    params=helper_nf.params,
-                    param_names=helper_nf.param_names,
-                    returns=helper_nf.returns,
-                    return_names=helper_nf.return_names,
-                    body=helper_nf.body,
-                )
-            )
-        else:
-            sid = outer_result.declarations[helper_info.func.name_span]
-            local_defs[sid] = _prepare_helper_for_inlining(
-                NFunctionDef(
-                    name=helper_nf.name,
-                    symbol_id=sid,
-                    params=helper_nf.params,
-                    param_names=helper_nf.param_names,
-                    returns=helper_nf.returns,
-                    return_names=helper_nf.return_names,
-                    body=helper_nf.body,
-                )
-            )
+        local_defs[helper.resolution.declarations[helper.func.name_span]] = helper_def
     return local_defs, top_level_defs
 
 
-def _prepare_helper_for_inlining(fdef: NFunctionDef) -> NFunctionDef:
-    from norm_constprop import propagate_constants
+def _prepare_helper_for_inlining(helper: SelectedHelperInfo) -> NFunctionDef:
+    normalized = normalize_function(helper.func, helper.resolution)
+    return _prepare_function_def(
+        NFunctionDef(
+            name=normalized.name,
+            symbol_id=helper.resolution.declarations[helper.func.name_span],
+            params=normalized.params,
+            param_names=normalized.param_names,
+            returns=normalized.returns,
+            return_names=normalized.return_names,
+            body=normalized.body,
+        )
+    )
 
+
+def _prepare_function_def(fdef: NFunctionDef) -> NFunctionDef:
     simplified = simplify_function_def(fdef)
-    nf = NormalizedFunction(
+    normalized = NormalizedFunction(
         name=simplified.name,
         params=simplified.params,
         param_names=simplified.param_names,
@@ -267,16 +196,16 @@ def _prepare_helper_for_inlining(fdef: NFunctionDef) -> NFunctionDef:
         return_names=simplified.return_names,
         body=simplified.body,
     )
-    nf = propagate_constants(nf)
-    nf = simplify_normalized(nf)
+    normalized = propagate_constants(normalized)
+    normalized = simplify_normalized(normalized)
     return NFunctionDef(
-        name=nf.name,
+        name=normalized.name,
         symbol_id=fdef.symbol_id,
-        params=nf.params,
-        param_names=nf.param_names,
-        returns=nf.returns,
-        return_names=nf.return_names,
-        body=nf.body,
+        params=normalized.params,
+        param_names=normalized.param_names,
+        returns=normalized.returns,
+        return_names=normalized.return_names,
+        body=normalized.body,
     )
 
 
@@ -327,19 +256,6 @@ def _rewrite_selected_calls_in_block(
     local_selected_map: dict[SymbolId, str],
     top_level_selected_map: dict[str, str],
 ) -> NBlock:
-    from norm_ir import (
-        NAssign,
-        NBind,
-        NBlock,
-        NExprEffect,
-        NFor,
-        NIf,
-        NLeave,
-        NStore,
-        NSwitch,
-        NSwitchCase,
-    )
-
     def rewrite_expr(expr: NExpr) -> NExpr:
         if isinstance(expr, NLocalCall) and expr.symbol_id in local_selected_map:
             return NTopLevelCall(
@@ -353,10 +269,10 @@ def _rewrite_selected_calls_in_block(
             )
         return expr
 
-    out: list[NStmt] = []
+    rewritten: list[NStmt] = []
     for stmt in block.stmts:
         if isinstance(stmt, NBind):
-            out.append(
+            rewritten.append(
                 NBind(
                     targets=stmt.targets,
                     target_names=stmt.target_names,
@@ -368,7 +284,7 @@ def _rewrite_selected_calls_in_block(
                 )
             )
         elif isinstance(stmt, NAssign):
-            out.append(
+            rewritten.append(
                 NAssign(
                     targets=stmt.targets,
                     target_names=stmt.target_names,
@@ -376,16 +292,16 @@ def _rewrite_selected_calls_in_block(
                 )
             )
         elif isinstance(stmt, NExprEffect):
-            out.append(NExprEffect(expr=map_expr(stmt.expr, rewrite_expr)))
+            rewritten.append(NExprEffect(expr=map_expr(stmt.expr, rewrite_expr)))
         elif isinstance(stmt, NStore):
-            out.append(
+            rewritten.append(
                 NStore(
                     addr=map_expr(stmt.addr, rewrite_expr),
                     value=map_expr(stmt.value, rewrite_expr),
                 )
             )
         elif isinstance(stmt, NIf):
-            out.append(
+            rewritten.append(
                 NIf(
                     condition=map_expr(stmt.condition, rewrite_expr),
                     then_body=_rewrite_selected_calls_in_block(
@@ -396,7 +312,7 @@ def _rewrite_selected_calls_in_block(
                 )
             )
         elif isinstance(stmt, NSwitch):
-            out.append(
+            rewritten.append(
                 NSwitch(
                     discriminant=map_expr(stmt.discriminant, rewrite_expr),
                     cases=tuple(
@@ -422,7 +338,7 @@ def _rewrite_selected_calls_in_block(
                 )
             )
         elif isinstance(stmt, NFor):
-            out.append(
+            rewritten.append(
                 NFor(
                     init=_rewrite_selected_calls_in_block(
                         stmt.init,
@@ -452,7 +368,7 @@ def _rewrite_selected_calls_in_block(
                 )
             )
         elif isinstance(stmt, NFunctionDef):
-            out.append(
+            rewritten.append(
                 _rewrite_selected_calls_in_fdef(
                     stmt,
                     local_selected_map=local_selected_map,
@@ -460,7 +376,7 @@ def _rewrite_selected_calls_in_block(
                 )
             )
         elif isinstance(stmt, NBlock):
-            out.append(
+            rewritten.append(
                 _rewrite_selected_calls_in_block(
                     stmt,
                     local_selected_map=local_selected_map,
@@ -468,9 +384,13 @@ def _rewrite_selected_calls_in_block(
                 )
             )
         elif isinstance(stmt, NLeave):
-            out.append(stmt)
+            rewritten.append(stmt)
         else:
-            raise TypeError(f"Unexpected normalized statement {type(stmt).__name__}")
-    from norm_ir import NBlock
+            raise ParseError(f"Unexpected normalized statement {type(stmt).__name__}")
+    return NBlock(tuple(rewritten))
 
-    return NBlock(tuple(out))
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from model_ir import FunctionModel

@@ -1,21 +1,13 @@
 """
-Shared target-selection stage for staged translation.
-
-This module owns:
-- function-selection normalization
-- exact/raw function selection semantics
-- scope-aware helper visibility collection
-- token-based identity for selected targets and visible helpers
-
-It intentionally does NOT own inlining, normalization, or model lowering.
+Select explicit Yul targets and collect the helpers visible from each target.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, assert_never
 
-from evm_builtins import EVM_BUILTINS, WORD_MOD, try_eval_pure_builtin
+from evm_builtins import EVM_BUILTINS
+from model_config import ModelConfig, SelectionConfig
 from yul_lexer import tokenize_yul
 
 from yul_ast import (
@@ -29,54 +21,51 @@ from yul_ast import (
     FunctionDef,
     FunctionDefStmt,
     IfStmt,
-    IntExpr,
     LeaveStmt,
-    LetStmt,
     LocalFunctionTarget,
-    NameExpr,
     ParseError,
-    StringExpr,
     SwitchStmt,
     SymbolId,
     SynExpr,
     SynStmt,
     TopLevelFunctionTarget,
-    UnresolvedTarget,
 )
 from yul_parser import SyntaxParser
 from yul_resolve import ResolutionResult, resolve_module
 
-if TYPE_CHECKING:
-    from model_config import ModelConfig
-
 
 @dataclass(frozen=True)
 class FunctionKey:
-    """Opaque identity for a function definition within one lexical group."""
-
     group_idx: int
     token_idx: int
 
 
 @dataclass(frozen=True)
-class SelectedTargetInfo:
-    """Selection metadata for one requested output model."""
+class SelectedHelperInfo:
+    key: FunctionKey
+    raw_name: str
+    lexical_path: tuple[str, ...]
+    func: FunctionDef
+    resolution: ResolutionResult
+    top_level_name: str
+    top_level_key: FunctionKey
 
+
+@dataclass(frozen=True)
+class SelectedTargetInfo:
     sol_name: str
     key: FunctionKey
     raw_name: str
     lexical_path: tuple[str, ...]
+    func: FunctionDef
+    resolution: ResolutionResult
+    top_level_name: str
     top_level_key: FunctionKey
-    helper_keys: tuple[FunctionKey, ...]
+    helper_infos: tuple[SelectedHelperInfo, ...]
 
 
 @dataclass(frozen=True)
 class SelectionPlan:
-    """Shared selection output consumed by both translation paths."""
-
-    parsed_groups: tuple[tuple[FunctionDef, ...], ...]
-    resolved_groups: tuple[dict[str, ResolutionResult], ...]
-    syntax_indexes: tuple[dict[int, _SyntaxFunctionInfo], ...]
     selected_functions: tuple[str, ...]
     target_infos: dict[str, SelectedTargetInfo]
 
@@ -89,23 +78,17 @@ class _SyntaxFunctionInfo:
     top_level_token_idx: int
     top_level_name: str
 
+    @property
+    def key(self) -> FunctionKey:
+        return FunctionKey(self.group_idx, self.func.span.start)
 
-@dataclass(frozen=True)
-class _KnownFunctionCriteria:
-    keys: frozenset[FunctionKey] = frozenset()
-    names: frozenset[str] = frozenset()
-
-
-@dataclass(frozen=True)
-class _ReferenceAnalysisResult:
-    live_references: bool
-    dead_references: bool
-    definitely_terminates: bool
+    @property
+    def top_level_key(self) -> FunctionKey:
+        return FunctionKey(self.group_idx, self.top_level_token_idx)
 
 
 @dataclass(frozen=True)
 class _SelectionIndex:
-    parsed_groups: tuple[tuple[FunctionDef, ...], ...]
     resolved_groups: tuple[dict[str, ResolutionResult], ...]
     syntax_indexes: tuple[dict[int, _SyntaxFunctionInfo], ...]
     infos_in_token_order: tuple[_SyntaxFunctionInfo, ...]
@@ -148,472 +131,13 @@ class _SelectionIndex:
             and (n_params is None or len(info.func.params) == n_params)
         ]
 
-    def disambiguate_by_references(
-        self,
-        matches: list[_SyntaxFunctionInfo],
-        *,
-        known: _KnownFunctionCriteria,
-        exclude_known: bool,
-    ) -> list[_SyntaxFunctionInfo]:
-        summaries = {
-            _function_key(info): self._body_reference_summary(info, known)
-            for info in matches
-        }
-
-        def _summary(info: _SyntaxFunctionInfo) -> _ReferenceAnalysisResult:
-            return summaries[_function_key(info)]
-
-        if exclude_known:
-            live_independent = [
-                info for info in matches if not _summary(info).live_references
-            ]
-            if live_independent:
-                dead_tiebreak = [
-                    info for info in live_independent if _summary(info).dead_references
-                ]
-                return dead_tiebreak if dead_tiebreak else live_independent
-            return matches
-
-        live_dependent = [info for info in matches if _summary(info).live_references]
-        if live_dependent:
-            return live_dependent
-        clean_candidates = [
-            info for info in matches if not _summary(info).dead_references
-        ]
-        if clean_candidates:
-            return clean_candidates
-        return matches
-
-    def _body_reference_summary(
-        self,
-        info: _SyntaxFunctionInfo,
-        known: _KnownFunctionCriteria,
-    ) -> _ReferenceAnalysisResult:
-        result = self.resolved_groups[info.group_idx][info.top_level_name]
-        return self._scope_reference_summary(
-            info.func.body,
-            result=result,
-            group_idx=info.group_idx,
-            top_level_name=info.top_level_name,
-            known=known,
-            visible_local_summaries={},
-        )
-
-    def _scope_reference_summary(
-        self,
-        block: Block,
-        *,
-        result: ResolutionResult,
-        group_idx: int,
-        top_level_name: str,
-        known: _KnownFunctionCriteria,
-        visible_local_summaries: dict[SymbolId, _ReferenceAnalysisResult],
-    ) -> _ReferenceAnalysisResult:
-        local_functions = [
-            stmt.func for stmt in block.stmts if isinstance(stmt, FunctionDefStmt)
-        ]
-        local_summaries: dict[SymbolId, _ReferenceAnalysisResult] = {
-            result.declarations[func.name_span]: _ReferenceAnalysisResult(
-                live_references=False,
-                dead_references=False,
-                definitely_terminates=False,
-            )
-            for func in local_functions
-        }
-
-        changed = True
-        while changed:
-            changed = False
-            combined = {**visible_local_summaries, **local_summaries}
-            for func in local_functions:
-                sid = result.declarations[func.name_span]
-                summary = self._scope_reference_summary(
-                    func.body,
-                    result=result,
-                    group_idx=group_idx,
-                    top_level_name=top_level_name,
-                    known=known,
-                    visible_local_summaries=combined,
-                )
-                if summary != local_summaries[sid]:
-                    local_summaries[sid] = summary
-                    changed = True
-
-        combined = {**visible_local_summaries, **local_summaries}
-        live = False
-        dead = False
-        terminated = False
-        for stmt in block.stmts:
-            if isinstance(stmt, FunctionDefStmt):
-                continue
-            stmt_summary = self._statement_reference_summary(
-                stmt,
-                result=result,
-                group_idx=group_idx,
-                top_level_name=top_level_name,
-                known=known,
-                visible_local_summaries=combined,
-            )
-            if terminated:
-                dead = (
-                    dead or stmt_summary.live_references or stmt_summary.dead_references
-                )
-                continue
-            live = live or stmt_summary.live_references
-            dead = dead or stmt_summary.dead_references
-            terminated = stmt_summary.definitely_terminates
-        return _ReferenceAnalysisResult(live, dead, terminated)
-
-    def _statement_reference_summary(
-        self,
-        stmt: SynStmt,
-        *,
-        result: ResolutionResult,
-        group_idx: int,
-        top_level_name: str,
-        known: _KnownFunctionCriteria,
-        visible_local_summaries: dict[SymbolId, _ReferenceAnalysisResult],
-    ) -> _ReferenceAnalysisResult:
-        if isinstance(stmt, LetStmt):
-            if stmt.init is None:
-                return _ReferenceAnalysisResult(False, False, False)
-            return self._expr_reference_summary(
-                stmt.init,
-                result=result,
-                group_idx=group_idx,
-                top_level_name=top_level_name,
-                known=known,
-                visible_local_summaries=visible_local_summaries,
-            )
-
-        if isinstance(stmt, (AssignStmt, ExprStmt)):
-            return self._expr_reference_summary(
-                stmt.expr,
-                result=result,
-                group_idx=group_idx,
-                top_level_name=top_level_name,
-                known=known,
-                visible_local_summaries=visible_local_summaries,
-            )
-
-        if isinstance(stmt, LeaveStmt):
-            return _ReferenceAnalysisResult(False, False, True)
-
-        if isinstance(stmt, BlockStmt):
-            return self._scope_reference_summary(
-                stmt.block,
-                result=result,
-                group_idx=group_idx,
-                top_level_name=top_level_name,
-                known=known,
-                visible_local_summaries=visible_local_summaries,
-            )
-
-        if isinstance(stmt, IfStmt):
-            cond_summary = self._expr_reference_summary(
-                stmt.condition,
-                result=result,
-                group_idx=group_idx,
-                top_level_name=top_level_name,
-                known=known,
-                visible_local_summaries=visible_local_summaries,
-            )
-            const_cond = _try_const_eval_syn(stmt.condition)
-            if const_cond is not None:
-                live = cond_summary.live_references
-                dead = cond_summary.dead_references
-                then_summary = self._scope_reference_summary(
-                    stmt.body,
-                    result=result,
-                    group_idx=group_idx,
-                    top_level_name=top_level_name,
-                    known=known,
-                    visible_local_summaries=visible_local_summaries,
-                )
-                if const_cond != 0:
-                    return _ReferenceAnalysisResult(
-                        live or then_summary.live_references,
-                        dead or then_summary.dead_references,
-                        then_summary.definitely_terminates,
-                    )
-                return _ReferenceAnalysisResult(
-                    live,
-                    dead
-                    or then_summary.live_references
-                    or then_summary.dead_references,
-                    False,
-                )
-
-            then_summary = self._scope_reference_summary(
-                stmt.body,
-                result=result,
-                group_idx=group_idx,
-                top_level_name=top_level_name,
-                known=known,
-                visible_local_summaries=visible_local_summaries,
-            )
-            return _ReferenceAnalysisResult(
-                cond_summary.live_references or then_summary.live_references,
-                cond_summary.dead_references or then_summary.dead_references,
-                False,
-            )
-
-        if isinstance(stmt, SwitchStmt):
-            discrim_summary = self._expr_reference_summary(
-                stmt.discriminant,
-                result=result,
-                group_idx=group_idx,
-                top_level_name=top_level_name,
-                known=known,
-                visible_local_summaries=visible_local_summaries,
-            )
-            const_disc = _try_const_eval_syn(stmt.discriminant)
-            if const_disc is not None:
-                chosen_summary: _ReferenceAnalysisResult | None = None
-                dead = discrim_summary.dead_references
-                for case in stmt.cases:
-                    case_val = _try_const_eval_syn(case.value)
-                    case_summary = self._scope_reference_summary(
-                        case.body,
-                        result=result,
-                        group_idx=group_idx,
-                        top_level_name=top_level_name,
-                        known=known,
-                        visible_local_summaries=visible_local_summaries,
-                    )
-                    if case_val is not None and case_val == const_disc:
-                        chosen_summary = case_summary
-                    else:
-                        dead = (
-                            dead
-                            or case_summary.live_references
-                            or case_summary.dead_references
-                        )
-                default_summary = (
-                    self._scope_reference_summary(
-                        stmt.default.body,
-                        result=result,
-                        group_idx=group_idx,
-                        top_level_name=top_level_name,
-                        known=known,
-                        visible_local_summaries=visible_local_summaries,
-                    )
-                    if stmt.default is not None
-                    else None
-                )
-                if chosen_summary is None:
-                    chosen_summary = default_summary
-                elif default_summary is not None:
-                    dead = (
-                        dead
-                        or default_summary.live_references
-                        or default_summary.dead_references
-                    )
-                if chosen_summary is None:
-                    return _ReferenceAnalysisResult(
-                        discrim_summary.live_references,
-                        dead,
-                        False,
-                    )
-                return _ReferenceAnalysisResult(
-                    discrim_summary.live_references or chosen_summary.live_references,
-                    dead or chosen_summary.dead_references,
-                    chosen_summary.definitely_terminates,
-                )
-
-            branch_summaries = [
-                self._scope_reference_summary(
-                    case.body,
-                    result=result,
-                    group_idx=group_idx,
-                    top_level_name=top_level_name,
-                    known=known,
-                    visible_local_summaries=visible_local_summaries,
-                )
-                for case in stmt.cases
-            ]
-            default_summary = (
-                self._scope_reference_summary(
-                    stmt.default.body,
-                    result=result,
-                    group_idx=group_idx,
-                    top_level_name=top_level_name,
-                    known=known,
-                    visible_local_summaries=visible_local_summaries,
-                )
-                if stmt.default is not None
-                else None
-            )
-            return _ReferenceAnalysisResult(
-                discrim_summary.live_references
-                or any(summary.live_references for summary in branch_summaries)
-                or (
-                    default_summary.live_references
-                    if default_summary is not None
-                    else False
-                ),
-                discrim_summary.dead_references
-                or any(summary.dead_references for summary in branch_summaries)
-                or (
-                    default_summary.dead_references
-                    if default_summary is not None
-                    else False
-                ),
-                default_summary is not None
-                and all(summary.definitely_terminates for summary in branch_summaries)
-                and default_summary.definitely_terminates,
-            )
-
-        if isinstance(stmt, ForStmt):
-            init_summary = self._scope_reference_summary(
-                stmt.init,
-                result=result,
-                group_idx=group_idx,
-                top_level_name=top_level_name,
-                known=known,
-                visible_local_summaries=visible_local_summaries,
-            )
-            cond_summary = self._expr_reference_summary(
-                stmt.condition,
-                result=result,
-                group_idx=group_idx,
-                top_level_name=top_level_name,
-                known=known,
-                visible_local_summaries=visible_local_summaries,
-            )
-            body_summary = self._scope_reference_summary(
-                stmt.body,
-                result=result,
-                group_idx=group_idx,
-                top_level_name=top_level_name,
-                known=known,
-                visible_local_summaries=visible_local_summaries,
-            )
-            post_summary = self._scope_reference_summary(
-                stmt.post,
-                result=result,
-                group_idx=group_idx,
-                top_level_name=top_level_name,
-                known=known,
-                visible_local_summaries=visible_local_summaries,
-            )
-
-            if init_summary.definitely_terminates:
-                return _ReferenceAnalysisResult(
-                    init_summary.live_references,
-                    init_summary.dead_references
-                    or cond_summary.live_references
-                    or cond_summary.dead_references
-                    or body_summary.live_references
-                    or body_summary.dead_references
-                    or post_summary.live_references
-                    or post_summary.dead_references,
-                    True,
-                )
-
-            const_cond = _try_const_eval_syn(stmt.condition)
-            if const_cond is not None and const_cond == 0:
-                return _ReferenceAnalysisResult(
-                    init_summary.live_references or cond_summary.live_references,
-                    init_summary.dead_references
-                    or cond_summary.dead_references
-                    or body_summary.live_references
-                    or body_summary.dead_references
-                    or post_summary.live_references
-                    or post_summary.dead_references,
-                    False,
-                )
-
-            return _ReferenceAnalysisResult(
-                init_summary.live_references
-                or cond_summary.live_references
-                or body_summary.live_references
-                or post_summary.live_references,
-                init_summary.dead_references
-                or cond_summary.dead_references
-                or body_summary.dead_references
-                or post_summary.dead_references,
-                const_cond is not None and const_cond != 0,
-            )
-
-        if isinstance(stmt, FunctionDefStmt):
-            return _ReferenceAnalysisResult(False, False, False)
-
-        assert_never(stmt)
-
-    def _expr_reference_summary(
-        self,
-        expr: SynExpr,
-        *,
-        result: ResolutionResult,
-        group_idx: int,
-        top_level_name: str,
-        known: _KnownFunctionCriteria,
-        visible_local_summaries: dict[SymbolId, _ReferenceAnalysisResult],
-    ) -> _ReferenceAnalysisResult:
-        if isinstance(expr, (IntExpr, NameExpr, StringExpr)):
-            return _ReferenceAnalysisResult(False, False, False)
-
-        if not isinstance(expr, CallExpr):
-            assert_never(expr)
-
-        live = False
-        dead = False
-        target = result.call_targets.get(expr.name_span)
-        if target is None:
-            raise ParseError(
-                f"Resolver omitted call target for {expr.name!r} "
-                f"at span {expr.name_span!r}"
-            )
-        if isinstance(target, TopLevelFunctionTarget):
-            helper_info = self.top_level_by_group_name[group_idx].get(target.name)
-            if helper_info is None:
-                raise ParseError(
-                    f"Missing syntax info for top-level helper {target.name!r}"
-                )
-            if _known_matches_info(helper_info, known):
-                live = True
-        elif isinstance(target, LocalFunctionTarget):
-            helper_info = self.local_info_by_group_top_level[group_idx][
-                top_level_name
-            ].get(target.id)
-            if helper_info is None:
-                raise ParseError(
-                    f"Missing syntax info for local helper {target.name!r}"
-                )
-            if _known_matches_info(helper_info, known):
-                live = True
-            summary = visible_local_summaries.get(target.id)
-            if summary is None:
-                raise ParseError(
-                    f"Missing visible summary for local helper {target.name!r}"
-                )
-            live = live or summary.live_references
-            dead = dead or summary.dead_references
-        elif not isinstance(target, (BuiltinTarget, UnresolvedTarget)):
-            assert_never(target)
-
-        for arg in expr.args:
-            child = self._expr_reference_summary(
-                arg,
-                result=result,
-                group_idx=group_idx,
-                top_level_name=top_level_name,
-                known=known,
-                visible_local_summaries=visible_local_summaries,
-            )
-            live = live or child.live_references
-            dead = dead or child.dead_references
-        return _ReferenceAnalysisResult(live, dead, False)
-
 
 def normalize_requested_functions(
-    config: "ModelConfig",
+    config: SelectionConfig | ModelConfig,
     requested: tuple[str, ...] | list[str] | None = None,
 ) -> tuple[str, ...]:
-    """Normalize a requested function subset to config order."""
-
-    selected = tuple(requested) if requested else config.function_order
+    selection_config = config.selection if isinstance(config, ModelConfig) else config
+    selected = tuple(requested) if requested else selection_config.function_order
 
     seen: set[str] = set()
     dupes: list[str] = []
@@ -624,25 +148,348 @@ def normalize_requested_functions(
     if dupes:
         raise ParseError(f"Duplicate selected functions: {sorted(dupes)}")
 
-    allowed = set(config.function_order)
+    allowed = set(selection_config.function_order)
     bad = [name for name in selected if name not in allowed]
     if bad:
         raise ParseError(f"Unsupported function(s): {', '.join(bad)}")
 
     normalized = list(selected)
     if (
-        any(name != config.inner_fn for name in normalized)
-        and config.inner_fn not in normalized
+        any(name != selection_config.inner_fn for name in normalized)
+        and selection_config.inner_fn not in normalized
     ):
-        if config.inner_fn not in allowed:
+        if selection_config.inner_fn not in allowed:
             raise ParseError(
-                f"Inner function {config.inner_fn!r} is not in function_order. "
-                f"Available: {', '.join(config.function_order)}"
+                f"Inner function {selection_config.inner_fn!r} is not in function_order. "
+                f"Available: {', '.join(selection_config.function_order)}"
             )
-        normalized.append(config.inner_fn)
+        normalized.append(selection_config.inner_fn)
 
     normalized_set = set(normalized)
-    return tuple(name for name in config.function_order if name in normalized_set)
+    return tuple(
+        name for name in selection_config.function_order if name in normalized_set
+    )
+
+
+def build_selection_plan(
+    yul_text: str,
+    config: SelectionConfig | ModelConfig,
+    *,
+    selected_functions: tuple[str, ...] | None = None,
+) -> SelectionPlan:
+    selection_config = config.selection if isinstance(config, ModelConfig) else config
+    tokens = tuple(tokenize_yul(yul_text))
+    index = _build_selection_index(list(tokens))
+
+    selected = normalize_requested_functions(selection_config, selected_functions)
+    candidate_lists = _build_candidate_lists(index, selection_config, selected)
+    resolved_infos = _resolve_candidates(
+        index, selection_config, selected, candidate_lists
+    )
+    selected_keys = {info.key for info in resolved_infos.values()}
+
+    target_infos: dict[str, SelectedTargetInfo] = {}
+    for sol_name in selected:
+        info = resolved_infos[sol_name]
+        helper_infos = _collect_helper_infos_for_target(
+            index=index,
+            target_info=info,
+            exclude_keys=selected_keys,
+        )
+        target_infos[sol_name] = SelectedTargetInfo(
+            sol_name=sol_name,
+            key=info.key,
+            raw_name=info.func.name,
+            lexical_path=info.lexical_path,
+            func=info.func,
+            resolution=index.resolved_groups[info.group_idx][info.top_level_name],
+            top_level_name=info.top_level_name,
+            top_level_key=info.top_level_key,
+            helper_infos=helper_infos,
+        )
+    return SelectionPlan(
+        selected_functions=selected,
+        target_infos=target_infos,
+    )
+
+
+def _build_candidate_lists(
+    index: _SelectionIndex,
+    config: SelectionConfig,
+    selected: tuple[str, ...],
+) -> dict[str, list[_SyntaxFunctionInfo]]:
+    candidates: dict[str, list[_SyntaxFunctionInfo]] = {}
+    for sol_name in selected:
+        n_params = config.n_params.get(sol_name)
+        exact_selector = config.exact_yul_names.get(sol_name)
+        if exact_selector is not None:
+            candidates[sol_name] = _select_exact_matches(
+                index=index,
+                selector=exact_selector,
+                n_params=n_params,
+            )
+            continue
+
+        matches = index.wrapper_matches(sol_name, n_params=n_params)
+        if not matches:
+            if n_params is None:
+                raise ParseError(
+                    f"Yul function for '{sol_name}' not found "
+                    f"(expected pattern fun_{sol_name}_<digits>)"
+                )
+            raise ParseError(
+                f"No Yul function for {sol_name!r} matches {n_params} parameter(s)"
+            )
+        candidates[sol_name] = matches
+    return candidates
+
+
+def _resolve_candidates(
+    index: _SelectionIndex,
+    config: SelectionConfig,
+    selected: tuple[str, ...],
+    candidate_lists: dict[str, list[_SyntaxFunctionInfo]],
+) -> dict[str, _SyntaxFunctionInfo]:
+    for sol_name, avoid_names in config.avoid_reaching_selected.items():
+        if sol_name not in candidate_lists:
+            raise ParseError(
+                f"avoid_reaching_selected references unknown function {sol_name!r}"
+            )
+        unknown = sorted(name for name in avoid_names if name not in candidate_lists)
+        if unknown:
+            raise ParseError(
+                f"avoid_reaching_selected[{sol_name!r}] references unknown "
+                f"selected function(s): {', '.join(unknown)}"
+            )
+    for sol_name, require_names in config.require_reaching_selected.items():
+        if sol_name not in candidate_lists:
+            raise ParseError(
+                f"require_reaching_selected references unknown function {sol_name!r}"
+            )
+        unknown = sorted(name for name in require_names if name not in candidate_lists)
+        if unknown:
+            raise ParseError(
+                f"require_reaching_selected[{sol_name!r}] references unknown "
+                f"selected function(s): {', '.join(unknown)}"
+            )
+
+    current = {name: list(matches) for name, matches in candidate_lists.items()}
+    resolved = {
+        name: matches[0] for name, matches in current.items() if len(matches) == 1
+    }
+
+    changed = True
+    while changed:
+        changed = False
+        for sol_name in selected:
+            if sol_name in resolved:
+                continue
+            matches = current[sol_name]
+            filtered = _apply_require_reaching_filter(
+                index=index,
+                sol_name=sol_name,
+                matches=matches,
+                resolved=resolved,
+                require_names=config.require_reaching_selected.get(
+                    sol_name, frozenset()
+                ),
+            )
+            if len(filtered) != len(matches):
+                current[sol_name] = filtered
+                matches = filtered
+                changed = True
+            filtered = _apply_avoid_reaching_filter(
+                index=index,
+                sol_name=sol_name,
+                matches=matches,
+                resolved=resolved,
+                avoid_names=config.avoid_reaching_selected.get(sol_name, frozenset()),
+            )
+            if len(filtered) != len(matches):
+                current[sol_name] = filtered
+                matches = filtered
+                changed = True
+            if len(matches) == 1:
+                resolved[sol_name] = matches[0]
+                changed = True
+
+    unresolved = {
+        name: matches for name, matches in current.items() if len(matches) > 1
+    }
+    if unresolved:
+        sol_name = next(name for name in selected if name in unresolved)
+        names = [info.func.name for info in unresolved[sol_name]]
+        raise ParseError(
+            f"Multiple Yul functions match '{sol_name}': {names}. "
+            f"Pass exact_yul_names or avoid_reaching_selected to disambiguate."
+        )
+    return resolved
+
+
+def _apply_require_reaching_filter(
+    *,
+    index: _SelectionIndex,
+    sol_name: str,
+    matches: list[_SyntaxFunctionInfo],
+    resolved: dict[str, _SyntaxFunctionInfo],
+    require_names: frozenset[str],
+) -> list[_SyntaxFunctionInfo]:
+    if not require_names:
+        return matches
+    if any(name not in resolved for name in require_names):
+        return matches
+
+    required = {resolved[name].key for name in require_names}
+    filtered = [
+        info
+        for info in matches
+        if required.issubset(_collect_reachable_helper_keys(index, info))
+    ]
+    if not filtered:
+        raise ParseError(
+            f"No Yul function for {sol_name!r} reaches selected helper "
+            f"dependencies {sorted(require_names)!r}"
+        )
+    return filtered
+
+
+def _apply_avoid_reaching_filter(
+    *,
+    index: _SelectionIndex,
+    sol_name: str,
+    matches: list[_SyntaxFunctionInfo],
+    resolved: dict[str, _SyntaxFunctionInfo],
+    avoid_names: frozenset[str],
+) -> list[_SyntaxFunctionInfo]:
+    if not avoid_names:
+        return matches
+    if any(name not in resolved for name in avoid_names):
+        return matches
+
+    forbidden = {resolved[name].key for name in avoid_names}
+    filtered = [
+        info
+        for info in matches
+        if forbidden.isdisjoint(_collect_reachable_helper_keys(index, info))
+    ]
+    if not filtered:
+        raise ParseError(
+            f"No Yul function for {sol_name!r} avoids selected helper reachability "
+            f"to {sorted(avoid_names)!r}"
+        )
+    return filtered
+
+
+def _select_exact_matches(
+    *,
+    index: _SelectionIndex,
+    selector: str,
+    n_params: int | None,
+) -> list[_SyntaxFunctionInfo]:
+    exact_path = _parse_exact_yul_selector(selector)
+    if exact_path is None:
+        matches = index.exact_matches(
+            selector,
+            n_params=n_params,
+            search_nested=True,
+        )
+    else:
+        matches = [
+            info
+            for info in index.exact_matches(
+                exact_path[-1],
+                n_params=n_params,
+                search_nested=True,
+            )
+            if info.lexical_path == exact_path
+        ]
+
+    if not matches:
+        if n_params is not None:
+            if exact_path is None:
+                raise ParseError(
+                    f"Exact Yul function {selector!r} with "
+                    f"{n_params} parameter(s) not found"
+                )
+            raise ParseError(
+                f"Exact Yul function path {'::'.join(exact_path)!r} with "
+                f"{n_params} parameter(s) not found"
+            )
+        if exact_path is None:
+            raise ParseError(f"Exact Yul function {selector!r} not found")
+        raise ParseError(f"Exact Yul function path {'::'.join(exact_path)!r} not found")
+
+    if len(matches) > 1:
+        rendered = "::".join(exact_path) if exact_path is not None else selector
+        raise ParseError(
+            f"Multiple exact Yul functions matched {rendered!r}. Refuse to guess."
+        )
+    return matches
+
+
+def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
+    if "::" not in selector:
+        return None
+    raw = selector[2:] if selector.startswith("::") else selector
+    parts = tuple(raw.split("::"))
+    if any(not part for part in parts):
+        raise ParseError(f"Invalid exact Yul selector {selector!r}")
+    return parts
+
+
+def _build_selection_index(
+    tokens: list[tuple[str, str]],
+) -> _SelectionIndex:
+    parsed_groups = tuple(
+        tuple(group) for group in SyntaxParser(list(tokens)).parse_function_groups()
+    )
+    resolved_groups = tuple(
+        resolve_module(list(func_group), builtins=EVM_BUILTINS)
+        for func_group in parsed_groups
+    )
+    syntax_indexes = tuple(
+        _index_group_functions(group_idx, funcs)
+        for group_idx, funcs in enumerate(parsed_groups)
+    )
+    infos_in_token_order = tuple(
+        sorted(
+            (info for syntax_index in syntax_indexes for info in syntax_index.values()),
+            key=_syntax_info_token_start,
+        )
+    )
+    top_level_by_group_name = tuple(
+        {
+            info.func.name: info
+            for info in syntax_index.values()
+            if info.func.span.start == info.top_level_token_idx
+        }
+        for syntax_index in syntax_indexes
+    )
+    local_info_by_group_top_level: list[
+        dict[str, dict[SymbolId, _SyntaxFunctionInfo]]
+    ] = []
+    for group_idx, resolved_group in enumerate(resolved_groups):
+        syntax_index = syntax_indexes[group_idx]
+        by_name_span = {info.func.name_span: info for info in syntax_index.values()}
+        per_top_level: dict[str, dict[SymbolId, _SyntaxFunctionInfo]] = {}
+        for top_level_name, result in resolved_group.items():
+            per_top_level[top_level_name] = {
+                sid: by_name_span[decl_info.span]
+                for sid, decl_info in result.symbols.items()
+                if decl_info.span in by_name_span
+            }
+        local_info_by_group_top_level.append(per_top_level)
+    return _SelectionIndex(
+        resolved_groups=resolved_groups,
+        syntax_indexes=syntax_indexes,
+        infos_in_token_order=infos_in_token_order,
+        top_level_by_group_name=top_level_by_group_name,
+        local_info_by_group_top_level=tuple(local_info_by_group_top_level),
+    )
+
+
+def _syntax_info_token_start(info: _SyntaxFunctionInfo) -> int:
+    return info.func.span.start
 
 
 def _index_group_functions(
@@ -756,105 +603,129 @@ def _index_block(
                 )
 
 
-def _syntax_info_token_start(info: _SyntaxFunctionInfo) -> int:
-    return info.func.span.start
-
-
-def _build_selection_index(
-    tokens: list[tuple[str, str]],
+def _collect_helper_infos_for_target(
     *,
-    builtins: frozenset[str],
-) -> _SelectionIndex:
-    parsed_groups = tuple(
-        tuple(g) for g in SyntaxParser(list(tokens)).parse_function_groups()
+    index: _SelectionIndex,
+    target_info: _SyntaxFunctionInfo,
+    exclude_keys: set[FunctionKey],
+) -> tuple[SelectedHelperInfo, ...]:
+    ordered: list[_SyntaxFunctionInfo] = []
+    seen: set[FunctionKey] = set()
+
+    def visit(info: _SyntaxFunctionInfo) -> None:
+        for helper_info in _direct_helper_infos(index, info):
+            if helper_info.key in exclude_keys or helper_info.key in seen:
+                continue
+            seen.add(helper_info.key)
+            ordered.append(helper_info)
+            visit(helper_info)
+
+    visit(target_info)
+    return tuple(
+        SelectedHelperInfo(
+            key=helper.key,
+            raw_name=helper.func.name,
+            lexical_path=helper.lexical_path,
+            func=helper.func,
+            resolution=index.resolved_groups[helper.group_idx][helper.top_level_name],
+            top_level_name=helper.top_level_name,
+            top_level_key=helper.top_level_key,
+        )
+        for helper in ordered
     )
-    resolved_groups = tuple(
-        resolve_module(list(func_group), builtins=builtins)
-        for func_group in parsed_groups
-    )
-    syntax_indexes = tuple(
-        _index_group_functions(group_idx, funcs)
-        for group_idx, funcs in enumerate(parsed_groups)
-    )
-    infos_in_token_order = tuple(
-        sorted(
-            (info for syntax_index in syntax_indexes for info in syntax_index.values()),
-            key=_syntax_info_token_start,
+
+
+def _collect_reachable_helper_keys(
+    index: _SelectionIndex,
+    target_info: _SyntaxFunctionInfo,
+) -> frozenset[FunctionKey]:
+    return frozenset(
+        helper.key
+        for helper in _collect_helper_infos_for_target(
+            index=index,
+            target_info=target_info,
+            exclude_keys=set(),
         )
     )
-    top_level_by_group_name = tuple(
-        {
-            info.func.name: info
-            for info in syntax_index.values()
-            if info.func.span.start == info.top_level_token_idx
-        }
-        for syntax_index in syntax_indexes
-    )
-    local_info_by_group_top_level: list[
-        dict[str, dict[SymbolId, _SyntaxFunctionInfo]]
-    ] = []
-    for group_idx, resolved_group in enumerate(resolved_groups):
-        syntax_index = syntax_indexes[group_idx]
-        by_name_span = {info.func.name_span: info for info in syntax_index.values()}
-        per_top_level: dict[str, dict[SymbolId, _SyntaxFunctionInfo]] = {}
-        for top_level_name, result in resolved_group.items():
-            per_top_level[top_level_name] = {
-                sid: by_name_span[decl_info.span]
-                for sid, decl_info in result.symbols.items()
-                if decl_info.span in by_name_span
-            }
-        local_info_by_group_top_level.append(per_top_level)
-    return _SelectionIndex(
-        parsed_groups=parsed_groups,
-        resolved_groups=resolved_groups,
-        syntax_indexes=syntax_indexes,
-        infos_in_token_order=infos_in_token_order,
-        top_level_by_group_name=top_level_by_group_name,
-        local_info_by_group_top_level=tuple(local_info_by_group_top_level),
-    )
+
+
+def _direct_helper_infos(
+    index: _SelectionIndex,
+    info: _SyntaxFunctionInfo,
+) -> list[_SyntaxFunctionInfo]:
+    resolved_group = index.resolved_groups[info.group_idx]
+    resolution = resolved_group[info.top_level_name]
+    direct_targets = _direct_call_targets(info.func, resolution)
+    out: list[_SyntaxFunctionInfo] = []
+    for target in direct_targets:
+        helper_info = _resolve_helper_info(index, info, target)
+        if helper_info is not None:
+            out.append(helper_info)
+    return out
+
+
+def _resolve_helper_info(
+    index: _SelectionIndex,
+    current_info: _SyntaxFunctionInfo,
+    target: LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget,
+) -> _SyntaxFunctionInfo | None:
+    if isinstance(target, BuiltinTarget):
+        return None
+    if isinstance(target, LocalFunctionTarget):
+        outer_result = index.resolved_groups[current_info.group_idx][
+            current_info.top_level_name
+        ]
+        decl_info = outer_result.symbols.get(target.id)
+        if decl_info is None:
+            raise ParseError(
+                f"Resolver/local-helper index mismatch for {target.name!r}"
+            )
+        helper_info = index.local_info_by_group_top_level[current_info.group_idx][
+            current_info.top_level_name
+        ].get(target.id)
+        if helper_info is None:
+            raise ParseError(f"Missing syntax info for local helper {target.name!r}")
+        return helper_info
+    helper_info = index.top_level_by_group_name[current_info.group_idx].get(target.name)
+    if helper_info is None:
+        raise ParseError(f"Missing syntax info for top-level helper {target.name!r}")
+    return helper_info
 
 
 def _direct_call_targets(
     func: FunctionDef,
     resolution: ResolutionResult,
 ) -> list[LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget]:
-    """Collect direct call targets from one function body.
-
-    Nested function definitions are skipped: their dependencies are tracked
-    when those helpers are visited recursively.
-    """
-
     def walk_expr(
         expr: SynExpr,
         out: list[LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget],
     ) -> None:
-        if isinstance(expr, CallExpr):
-            target = resolution.call_targets.get(expr.name_span)
-            if target is None:
-                raise ParseError(
-                    f"Resolver omitted call target for {expr.name!r} "
-                    f"at span {expr.name_span!r}"
-                )
-            if isinstance(
-                target,
-                (BuiltinTarget, LocalFunctionTarget, TopLevelFunctionTarget),
-            ):
-                out.append(target)
-            for arg in expr.args:
-                walk_expr(arg, out)
+        if not isinstance(expr, CallExpr):
+            return
+        target = resolution.call_targets.get(expr.name_span)
+        if target is None:
+            raise ParseError(
+                f"Resolver omitted call target for {expr.name!r} "
+                f"at span {expr.name_span!r}"
+            )
+        if isinstance(
+            target,
+            (BuiltinTarget, LocalFunctionTarget, TopLevelFunctionTarget),
+        ):
+            out.append(target)
+        for arg in expr.args:
+            walk_expr(arg, out)
 
     def walk_stmt(
         stmt: SynStmt,
         out: list[LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget],
     ) -> None:
-        if isinstance(stmt, LetStmt):
-            if stmt.init is not None:
-                walk_expr(stmt.init, out)
-            return
-        if isinstance(stmt, AssignStmt):
-            walk_expr(stmt.expr, out)
+        if isinstance(stmt, FunctionDefStmt):
             return
         if isinstance(stmt, ExprStmt):
+            walk_expr(stmt.expr, out)
+            return
+        if isinstance(stmt, AssignStmt):
             walk_expr(stmt.expr, out)
             return
         if isinstance(stmt, BlockStmt):
@@ -878,8 +749,13 @@ def _direct_call_targets(
             walk_block(stmt.post, out)
             walk_block(stmt.body, out)
             return
-        if isinstance(stmt, (FunctionDefStmt, LeaveStmt)):
+        if isinstance(stmt, LeaveStmt):
             return
+        from yul_ast import LetStmt
+
+        if isinstance(stmt, LetStmt):
+            if stmt.init is not None:
+                walk_expr(stmt.init, out)
 
     def walk_block(
         block: Block,
@@ -891,268 +767,3 @@ def _direct_call_targets(
     out: list[LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget] = []
     walk_block(func.body, out)
     return out
-
-
-def _function_key(info: _SyntaxFunctionInfo) -> FunctionKey:
-    return FunctionKey(group_idx=info.group_idx, token_idx=info.func.span.start)
-
-
-def _known_matches_info(
-    info: _SyntaxFunctionInfo,
-    known: _KnownFunctionCriteria,
-) -> bool:
-    return _function_key(info) in known.keys or info.func.name in known.names
-
-
-def _try_const_eval_syn(expr: SynExpr) -> int | None:
-    if isinstance(expr, IntExpr):
-        return expr.value % WORD_MOD
-    if isinstance(expr, (NameExpr, StringExpr)):
-        return None
-    if not isinstance(expr, CallExpr):
-        assert_never(expr)
-    values: list[int] = []
-    for arg in expr.args:
-        value = _try_const_eval_syn(arg)
-        if value is None:
-            return None
-        values.append(value)
-    return try_eval_pure_builtin(expr.name, tuple(values))
-
-
-def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
-    """Parse a scope-qualified exact Yul selector.
-
-    ``None`` means the selector is an unqualified function name.
-    ``::top`` selects a top-level function. ``outer::helper`` selects a
-    function nested inside ``outer``.
-    """
-    if "::" not in selector:
-        return None
-    raw = selector[2:] if selector.startswith("::") else selector
-    parts = tuple(raw.split("::"))
-    if any(not part for part in parts):
-        raise ParseError(f"Invalid exact Yul selector {selector!r}")
-    return parts
-
-
-def _collect_helper_keys_for_target(
-    *,
-    target_info: _SyntaxFunctionInfo,
-    resolved_group: dict[str, ResolutionResult],
-    syntax_index: dict[int, _SyntaxFunctionInfo],
-    selected_token_idxs: set[int],
-) -> tuple[FunctionKey, ...]:
-    by_name_span = {info.func.name_span: info for info in syntax_index.values()}
-    top_level_by_name = {
-        info.func.name: info
-        for info in syntax_index.values()
-        if info.func.span.start == info.top_level_token_idx
-    }
-
-    ordered: list[FunctionKey] = []
-    seen: set[FunctionKey] = set()
-
-    def resolve_helper_info(
-        current_info: _SyntaxFunctionInfo,
-        target: LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget,
-    ) -> _SyntaxFunctionInfo | None:
-        if isinstance(target, BuiltinTarget):
-            return None
-        if isinstance(target, LocalFunctionTarget):
-            outer_result = resolved_group[current_info.top_level_name]
-            decl_info = outer_result.symbols.get(target.id)
-            if decl_info is None:
-                raise ParseError(
-                    f"Resolver/local-helper index mismatch for {target.name!r}"
-                )
-            helper_info = by_name_span.get(decl_info.span)
-            if helper_info is None:
-                raise ParseError(
-                    f"Missing syntax info for local helper {target.name!r}"
-                )
-            return helper_info
-        helper_info = top_level_by_name.get(target.name)
-        if helper_info is None:
-            raise ParseError(
-                f"Missing syntax info for top-level helper {target.name!r}"
-            )
-        return helper_info
-
-    def visit(info: _SyntaxFunctionInfo) -> None:
-        resolution = resolved_group[info.top_level_name]
-        for target in _direct_call_targets(info.func, resolution):
-            helper_info = resolve_helper_info(info, target)
-            if helper_info is None:
-                continue
-            key = FunctionKey(
-                group_idx=helper_info.group_idx,
-                token_idx=helper_info.func.span.start,
-            )
-            if key.token_idx in selected_token_idxs or key in seen:
-                continue
-            seen.add(key)
-            ordered.append(key)
-            visit(helper_info)
-
-    visit(target_info)
-    return tuple(ordered)
-
-
-def build_selection_plan(
-    yul_text: str,
-    config: "ModelConfig",
-    *,
-    selected_functions: tuple[str, ...] | None = None,
-) -> SelectionPlan:
-    """Build the shared selection/helper-visibility plan for translation."""
-
-    tokens = tuple(tokenize_yul(yul_text))
-    index = _build_selection_index(list(tokens), builtins=EVM_BUILTINS)
-    syntax_info_by_token_idx = {
-        token_idx: info
-        for syntax_index in index.syntax_indexes
-        for token_idx, info in syntax_index.items()
-    }
-
-    selected = normalize_requested_functions(config, selected_functions)
-
-    resolved_positions: dict[str, tuple[int, str, tuple[str, ...]]] = {}
-    known_exact_keys: set[FunctionKey] = set()
-    for sol_name in selected:
-        if (
-            config.exact_yul_names is not None
-            and config.exact_yul_names.get(sol_name) is not None
-        ):
-            exact_yul_name = config.exact_yul_names[sol_name]
-            exact_selector = _parse_exact_yul_selector(exact_yul_name)
-            n_params = config.n_params.get(sol_name) if config.n_params else None
-            if exact_selector is None:
-                matches = index.exact_matches(
-                    exact_yul_name,
-                    n_params=n_params,
-                    search_nested=True,
-                )
-            else:
-                matches = [
-                    info
-                    for info in index.exact_matches(
-                        exact_selector[-1],
-                        n_params=n_params,
-                        search_nested=True,
-                    )
-                    if info.lexical_path == exact_selector
-                ]
-            if not matches:
-                if n_params is not None:
-                    if exact_selector is None:
-                        raise ParseError(
-                            f"Exact Yul function {exact_yul_name!r} with "
-                            f"{n_params} parameter(s) not found"
-                        )
-                    raise ParseError(
-                        f"Exact Yul function path {'::'.join(exact_selector)!r} "
-                        f"with {n_params} parameter(s) not found"
-                    )
-                if exact_selector is None:
-                    raise ParseError(f"Exact Yul function {exact_yul_name!r} not found")
-                raise ParseError(
-                    f"Exact Yul function path {'::'.join(exact_selector)!r} not found"
-                )
-            if len(matches) > 1:
-                rendered = (
-                    "::".join(exact_selector)
-                    if exact_selector is not None
-                    else exact_yul_name
-                )
-                raise ParseError(
-                    f"Multiple exact Yul functions matched {rendered!r}. Refuse to guess."
-                )
-            match = matches[0]
-            resolved_positions[sol_name] = (
-                match.func.span.start,
-                match.lexical_path[-1],
-                match.lexical_path,
-            )
-        else:
-            n_params = config.n_params.get(sol_name) if config.n_params else None
-            all_matches = index.wrapper_matches(sol_name)
-            if not all_matches:
-                raise ParseError(
-                    f"Yul function for '{sol_name}' not found "
-                    f"(expected pattern fun_{sol_name}_<digits>)"
-                )
-            matches = (
-                [info for info in all_matches if len(info.func.params) == n_params]
-                if n_params is not None
-                else all_matches
-            )
-            if n_params is not None and not matches:
-                raise ParseError(
-                    f"No Yul function for {sol_name!r} matches "
-                    f"{n_params} parameter(s)"
-                )
-            if known_exact_keys and len(matches) > 1:
-                matches = index.disambiguate_by_references(
-                    matches,
-                    known=_KnownFunctionCriteria(keys=frozenset(known_exact_keys)),
-                    exclude_known=sol_name in config.exclude_known,
-                )
-            if len(matches) > 1:
-                names = [info.func.name for info in matches]
-                raise ParseError(
-                    f"Multiple Yul functions match '{sol_name}': {names}. "
-                    f"Rename wrapper functions to avoid collisions "
-                    f"(e.g. prefix with 'wrap_')."
-                )
-            match = matches[0]
-            resolved_positions[sol_name] = (
-                match.func.span.start,
-                match.func.name,
-                match.lexical_path,
-            )
-        known_exact_keys.add(
-            FunctionKey(
-                group_idx=syntax_info_by_token_idx[
-                    resolved_positions[sol_name][0]
-                ].group_idx,
-                token_idx=resolved_positions[sol_name][0],
-            )
-        )
-
-    all_selected_token_idxs: set[int] = set()
-    for sol_name in selected:
-        token_idx = resolved_positions[sol_name][0]
-        all_selected_token_idxs.add(token_idx)
-
-    target_infos: dict[str, SelectedTargetInfo] = {}
-
-    for sol_name in selected:
-        fn_token_idx, raw_name, lexical_path = resolved_positions[sol_name]
-        target_syntax = syntax_info_by_token_idx[fn_token_idx]
-        group_idx = target_syntax.group_idx
-        helper_keys = _collect_helper_keys_for_target(
-            target_info=target_syntax,
-            resolved_group=index.resolved_groups[group_idx],
-            syntax_index=index.syntax_indexes[group_idx],
-            selected_token_idxs=all_selected_token_idxs,
-        )
-
-        target_infos[sol_name] = SelectedTargetInfo(
-            sol_name=sol_name,
-            key=FunctionKey(group_idx=group_idx, token_idx=fn_token_idx),
-            raw_name=raw_name,
-            lexical_path=lexical_path,
-            top_level_key=FunctionKey(
-                group_idx=group_idx,
-                token_idx=target_syntax.top_level_token_idx,
-            ),
-            helper_keys=helper_keys,
-        )
-    return SelectionPlan(
-        parsed_groups=index.parsed_groups,
-        resolved_groups=index.resolved_groups,
-        syntax_indexes=index.syntax_indexes,
-        selected_functions=tuple(selected),
-        target_infos=target_infos,
-    )

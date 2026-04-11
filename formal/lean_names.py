@@ -5,7 +5,7 @@ Lean-facing identifier policy shared by naming, validation, and emission.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable
 
 from evm_builtins import BASE_NORM_HELPERS, OP_TO_LEAN_HELPER
 
@@ -85,14 +85,18 @@ RESERVED_LEAN_NAMES: frozenset[str] = frozenset(
 
 
 def norm_reserved_lean_names(
-    extra_norm_ops: Mapping[str, str] | None = None,
+    extra_helper_names: Iterable[str] = (),
 ) -> frozenset[str]:
-    extras = set(extra_norm_ops.values()) if extra_norm_ops is not None else set()
-    return frozenset(set(BASE_NORM_HELPERS.values()) | extras)
+    return frozenset(set(BASE_NORM_HELPERS.values()) | set(extra_helper_names))
 
 
-def validate_ident(name: str, *, what: str) -> None:
+def validate_ident(
+    name: str,
+    *,
+    what: str,
+    extra_reserved: Iterable[str] = (),
+) -> None:
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
         raise ParseError(f"Invalid {what}: {name!r}")
-    if name in RESERVED_LEAN_NAMES:
+    if name in RESERVED_LEAN_NAMES or name in set(extra_reserved):
         raise ParseError(f"Reserved Lean helper name used as {what}: {name!r}")

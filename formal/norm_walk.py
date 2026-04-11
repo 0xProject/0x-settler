@@ -111,52 +111,6 @@ def for_each_expr(expr: NExpr, f: Callable[[NExpr], None]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Statement-level: sub-block mapper
-# ---------------------------------------------------------------------------
-
-
-def map_sub_blocks(stmt: NStmt, f: Callable[[NBlock], NBlock]) -> NStmt:
-    """Apply *f* to every sub-block of *stmt*.
-
-    Returns the statement with all sub-blocks replaced.  Statements
-    without sub-blocks (NBind, NAssign, NExprEffect, NStore, NLeave)
-    are returned unchanged.  NFunctionDef is returned unchanged
-    (function bodies are separate scopes).
-    """
-    if isinstance(stmt, (NBind, NAssign, NExprEffect, NStore, NLeave)):
-        return stmt
-
-    if isinstance(stmt, NIf):
-        return NIf(condition=stmt.condition, then_body=f(stmt.then_body))
-
-    if isinstance(stmt, NSwitch):
-        new_cases = tuple(
-            NSwitchCase(value=c.value, body=f(c.body)) for c in stmt.cases
-        )
-        new_default = f(stmt.default) if stmt.default is not None else None
-        return NSwitch(
-            discriminant=stmt.discriminant, cases=new_cases, default=new_default
-        )
-
-    if isinstance(stmt, NFor):
-        return NFor(
-            init=f(stmt.init),
-            condition=stmt.condition,
-            condition_setup=f(stmt.condition_setup) if stmt.condition_setup else None,
-            post=f(stmt.post),
-            body=f(stmt.body),
-        )
-
-    if isinstance(stmt, NBlock):
-        return f(stmt)
-
-    if isinstance(stmt, NFunctionDef):
-        return stmt
-
-    assert_never(stmt)
-
-
-# ---------------------------------------------------------------------------
 # Shared collectors
 # ---------------------------------------------------------------------------
 

@@ -124,9 +124,7 @@ def _replace_expr(expr: Expr, replacements: dict[Expr, str]) -> Expr:
         return Project(expr.index, expr.total, _replace_expr(expr.inner, replacements))
     if isinstance(expr, Call):
         return Call(
-            expr.name,
-            tuple(_replace_expr(arg, replacements) for arg in expr.args),
-            expr.binding_token_idx,
+            expr.name, tuple(_replace_expr(arg, replacements) for arg in expr.args)
         )
     assert_never(expr)
 

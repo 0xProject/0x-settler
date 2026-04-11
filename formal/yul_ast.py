@@ -5,8 +5,7 @@ These types represent a faithful parse tree with no semantic lowering,
 constant folding, block flattening, or alpha-renaming.  Every node
 carries a ``Span`` for source-location error reporting.
 
-This module is the first layer of the staged pipeline described in
-``yul_to_lean_refactor_handoff.md``.
+This module is the first layer of the formal translator pipeline.
 """
 
 from __future__ import annotations
