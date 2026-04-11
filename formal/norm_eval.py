@@ -16,6 +16,7 @@ from __future__ import annotations
 from typing import assert_never
 
 from evm_builtins import WORD_MOD, eval_pure_builtin, u256
+
 from norm_ir import (
     NAssign,
     NBind,
@@ -39,7 +40,6 @@ from norm_ir import (
     NUnresolvedCall,
 )
 from yul_ast import EvaluationError, SymbolId
-
 
 # ---------------------------------------------------------------------------
 # Leave signal
