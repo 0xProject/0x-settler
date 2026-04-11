@@ -142,6 +142,36 @@ def _collect_modified_walk(block: NBlock, out: set[SymbolId]) -> None:
             _collect_modified_walk(stmt, out)
 
 
+def collect_reassigned_in_block(block: NBlock) -> set[SymbolId]:
+    """Collect SymbolIds that appear as ``NAssign`` targets (mutable vars).
+
+    Unlike ``collect_modified_in_block`` which includes ``NBind`` targets,
+    this only finds variables that are re-assigned after initial binding.
+    """
+    out: set[SymbolId] = set()
+    _collect_reassigned_walk(block, out)
+    return out
+
+
+def _collect_reassigned_walk(block: NBlock, out: set[SymbolId]) -> None:
+    for stmt in block.stmts:
+        if isinstance(stmt, NAssign):
+            out.update(stmt.targets)
+        elif isinstance(stmt, NIf):
+            _collect_reassigned_walk(stmt.then_body, out)
+        elif isinstance(stmt, NSwitch):
+            for case in stmt.cases:
+                _collect_reassigned_walk(case.body, out)
+            if stmt.default is not None:
+                _collect_reassigned_walk(stmt.default, out)
+        elif isinstance(stmt, NFor):
+            _collect_reassigned_walk(stmt.init, out)
+            _collect_reassigned_walk(stmt.post, out)
+            _collect_reassigned_walk(stmt.body, out)
+        elif isinstance(stmt, NBlock):
+            _collect_reassigned_walk(stmt, out)
+
+
 def collect_function_defs(block: NBlock) -> list[NFunctionDef]:
     """Recursively collect all ``NFunctionDef`` nodes from *block*.
 

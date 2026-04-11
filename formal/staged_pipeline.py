@@ -205,18 +205,58 @@ def _rewrite_selected_calls(
     local_selected_map: dict[SymbolId, str],
     top_level_selected_map: dict[str, str],
 ) -> NormalizedFunction:
+    def rw(expr: NExpr) -> NExpr:
+        if isinstance(expr, NLocalCall) and expr.symbol_id in local_selected_map:
+            return NTopLevelCall(name=local_selected_map[expr.symbol_id], args=expr.args)
+        if isinstance(expr, NTopLevelCall) and expr.name in top_level_selected_map:
+            return NTopLevelCall(name=top_level_selected_map[expr.name], args=expr.args)
+        return expr
+
+    def rw_block(block: NBlock) -> NBlock:
+        return NBlock(tuple(rw_stmt(s) for s in block.stmts))
+
+    def rw_block_or_none(block: NBlock | None) -> NBlock | None:
+        return rw_block(block) if block is not None else None
+
+    def rw_stmt(stmt: NStmt) -> NStmt:
+        if isinstance(stmt, NBind):
+            return NBind(targets=stmt.targets, target_names=stmt.target_names,
+                         expr=map_expr(stmt.expr, rw) if stmt.expr is not None else None)
+        if isinstance(stmt, NAssign):
+            return NAssign(targets=stmt.targets, target_names=stmt.target_names,
+                           expr=map_expr(stmt.expr, rw))
+        if isinstance(stmt, NExprEffect):
+            return NExprEffect(expr=map_expr(stmt.expr, rw))
+        if isinstance(stmt, NStore):
+            return NStore(addr=map_expr(stmt.addr, rw), value=map_expr(stmt.value, rw))
+        if isinstance(stmt, NIf):
+            return NIf(condition=map_expr(stmt.condition, rw),
+                       then_body=rw_block(stmt.then_body))
+        if isinstance(stmt, NSwitch):
+            return NSwitch(
+                discriminant=map_expr(stmt.discriminant, rw),
+                cases=tuple(NSwitchCase(value=c.value, body=rw_block(c.body))
+                            for c in stmt.cases),
+                default=rw_block_or_none(stmt.default))
+        if isinstance(stmt, NFor):
+            return NFor(init=rw_block(stmt.init), condition=map_expr(stmt.condition, rw),
+                        condition_setup=rw_block_or_none(stmt.condition_setup),
+                        post=rw_block(stmt.post), body=rw_block(stmt.body))
+        if isinstance(stmt, NFunctionDef):
+            return NFunctionDef(
+                name=stmt.name, symbol_id=stmt.symbol_id, params=stmt.params,
+                param_names=stmt.param_names, returns=stmt.returns,
+                return_names=stmt.return_names, body=rw_block(stmt.body))
+        if isinstance(stmt, NBlock):
+            return rw_block(stmt)
+        if isinstance(stmt, NLeave):
+            return stmt
+        raise ParseError(f"Unexpected normalized statement {type(stmt).__name__}")
+
     return NormalizedFunction(
-        name=func.name,
-        params=func.params,
-        param_names=func.param_names,
-        returns=func.returns,
-        return_names=func.return_names,
-        body=_rewrite_selected_calls_in_block(
-            func.body,
-            local_selected_map=local_selected_map,
-            top_level_selected_map=top_level_selected_map,
-        ),
-    )
+        name=func.name, params=func.params, param_names=func.param_names,
+        returns=func.returns, return_names=func.return_names,
+        body=rw_block(func.body))
 
 
 def _rewrite_selected_calls_in_fdef(
@@ -225,159 +265,17 @@ def _rewrite_selected_calls_in_fdef(
     local_selected_map: dict[SymbolId, str],
     top_level_selected_map: dict[str, str],
 ) -> NFunctionDef:
-    return NFunctionDef(
-        name=fdef.name,
-        symbol_id=fdef.symbol_id,
-        params=fdef.params,
-        param_names=fdef.param_names,
-        returns=fdef.returns,
-        return_names=fdef.return_names,
-        body=_rewrite_selected_calls_in_block(
-            fdef.body,
-            local_selected_map=local_selected_map,
-            top_level_selected_map=top_level_selected_map,
-        ),
+    rewritten = _rewrite_selected_calls(
+        NormalizedFunction(
+            name=fdef.name, params=fdef.params, param_names=fdef.param_names,
+            returns=fdef.returns, return_names=fdef.return_names, body=fdef.body),
+        local_selected_map=local_selected_map,
+        top_level_selected_map=top_level_selected_map,
     )
-
-
-def _rewrite_selected_calls_in_block(
-    block: NBlock,
-    *,
-    local_selected_map: dict[SymbolId, str],
-    top_level_selected_map: dict[str, str],
-) -> NBlock:
-    def rewrite_expr(expr: NExpr) -> NExpr:
-        if isinstance(expr, NLocalCall) and expr.symbol_id in local_selected_map:
-            return NTopLevelCall(
-                name=local_selected_map[expr.symbol_id],
-                args=expr.args,
-            )
-        if isinstance(expr, NTopLevelCall) and expr.name in top_level_selected_map:
-            return NTopLevelCall(
-                name=top_level_selected_map[expr.name],
-                args=expr.args,
-            )
-        return expr
-
-    rewritten: list[NStmt] = []
-    for stmt in block.stmts:
-        if isinstance(stmt, NBind):
-            rewritten.append(
-                NBind(
-                    targets=stmt.targets,
-                    target_names=stmt.target_names,
-                    expr=(
-                        map_expr(stmt.expr, rewrite_expr)
-                        if stmt.expr is not None
-                        else None
-                    ),
-                )
-            )
-        elif isinstance(stmt, NAssign):
-            rewritten.append(
-                NAssign(
-                    targets=stmt.targets,
-                    target_names=stmt.target_names,
-                    expr=map_expr(stmt.expr, rewrite_expr),
-                )
-            )
-        elif isinstance(stmt, NExprEffect):
-            rewritten.append(NExprEffect(expr=map_expr(stmt.expr, rewrite_expr)))
-        elif isinstance(stmt, NStore):
-            rewritten.append(
-                NStore(
-                    addr=map_expr(stmt.addr, rewrite_expr),
-                    value=map_expr(stmt.value, rewrite_expr),
-                )
-            )
-        elif isinstance(stmt, NIf):
-            rewritten.append(
-                NIf(
-                    condition=map_expr(stmt.condition, rewrite_expr),
-                    then_body=_rewrite_selected_calls_in_block(
-                        stmt.then_body,
-                        local_selected_map=local_selected_map,
-                        top_level_selected_map=top_level_selected_map,
-                    ),
-                )
-            )
-        elif isinstance(stmt, NSwitch):
-            rewritten.append(
-                NSwitch(
-                    discriminant=map_expr(stmt.discriminant, rewrite_expr),
-                    cases=tuple(
-                        NSwitchCase(
-                            value=case.value,
-                            body=_rewrite_selected_calls_in_block(
-                                case.body,
-                                local_selected_map=local_selected_map,
-                                top_level_selected_map=top_level_selected_map,
-                            ),
-                        )
-                        for case in stmt.cases
-                    ),
-                    default=(
-                        _rewrite_selected_calls_in_block(
-                            stmt.default,
-                            local_selected_map=local_selected_map,
-                            top_level_selected_map=top_level_selected_map,
-                        )
-                        if stmt.default is not None
-                        else None
-                    ),
-                )
-            )
-        elif isinstance(stmt, NFor):
-            rewritten.append(
-                NFor(
-                    init=_rewrite_selected_calls_in_block(
-                        stmt.init,
-                        local_selected_map=local_selected_map,
-                        top_level_selected_map=top_level_selected_map,
-                    ),
-                    condition=map_expr(stmt.condition, rewrite_expr),
-                    condition_setup=(
-                        _rewrite_selected_calls_in_block(
-                            stmt.condition_setup,
-                            local_selected_map=local_selected_map,
-                            top_level_selected_map=top_level_selected_map,
-                        )
-                        if stmt.condition_setup is not None
-                        else None
-                    ),
-                    post=_rewrite_selected_calls_in_block(
-                        stmt.post,
-                        local_selected_map=local_selected_map,
-                        top_level_selected_map=top_level_selected_map,
-                    ),
-                    body=_rewrite_selected_calls_in_block(
-                        stmt.body,
-                        local_selected_map=local_selected_map,
-                        top_level_selected_map=top_level_selected_map,
-                    ),
-                )
-            )
-        elif isinstance(stmt, NFunctionDef):
-            rewritten.append(
-                _rewrite_selected_calls_in_fdef(
-                    stmt,
-                    local_selected_map=local_selected_map,
-                    top_level_selected_map=top_level_selected_map,
-                )
-            )
-        elif isinstance(stmt, NBlock):
-            rewritten.append(
-                _rewrite_selected_calls_in_block(
-                    stmt,
-                    local_selected_map=local_selected_map,
-                    top_level_selected_map=top_level_selected_map,
-                )
-            )
-        elif isinstance(stmt, NLeave):
-            rewritten.append(stmt)
-        else:
-            raise ParseError(f"Unexpected normalized statement {type(stmt).__name__}")
-    return NBlock(tuple(rewritten))
+    return NFunctionDef(
+        name=rewritten.name, symbol_id=fdef.symbol_id, params=rewritten.params,
+        param_names=rewritten.param_names, returns=rewritten.returns,
+        return_names=rewritten.return_names, body=rewritten.body)
 
 
 from typing import TYPE_CHECKING

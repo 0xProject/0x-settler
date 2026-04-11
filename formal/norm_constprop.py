@@ -39,7 +39,7 @@ from norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
-from norm_walk import collect_modified_in_block, map_expr
+from norm_walk import collect_modified_in_block, collect_reassigned_in_block, map_expr
 from yul_ast import EvaluationError, SymbolId
 
 # ---------------------------------------------------------------------------
@@ -87,32 +87,6 @@ def _subst_and_fold(expr: NExpr, env: dict[SymbolId, NExpr]) -> NExpr:
         return _fold_node(e)
 
     return map_expr(expr, rewrite)
-
-
-def _collect_reassigned_sids(block: NBlock) -> set[SymbolId]:
-    """Collect SymbolIds that appear as ``NAssign`` targets (mutable vars)."""
-    out: set[SymbolId] = set()
-
-    def walk(b: NBlock) -> None:
-        for stmt in b.stmts:
-            if isinstance(stmt, NAssign):
-                out.update(stmt.targets)
-            elif isinstance(stmt, NIf):
-                walk(stmt.then_body)
-            elif isinstance(stmt, NSwitch):
-                for case in stmt.cases:
-                    walk(case.body)
-                if stmt.default is not None:
-                    walk(stmt.default)
-            elif isinstance(stmt, NFor):
-                walk(stmt.init)
-                walk(stmt.post)
-                walk(stmt.body)
-            elif isinstance(stmt, NBlock):
-                walk(stmt)
-
-    walk(block)
-    return out
 
 
 # ---------------------------------------------------------------------------
@@ -284,7 +258,7 @@ def _prop_stmt(
 def propagate_constants(func: NormalizedFunction) -> NormalizedFunction:
     """Fold constants, propagate copies of immutable vars, eliminate dead branches."""
     env: dict[SymbolId, NExpr] = {}
-    mutable = _collect_reassigned_sids(func.body)
+    mutable = collect_reassigned_in_block(func.body)
     new_body = _prop_block(func.body, env, mutable)
     return NormalizedFunction(
         name=func.name,
