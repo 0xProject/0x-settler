@@ -217,5 +217,9 @@ def for_each_stmt_expr(stmt: RStatement, f: Callable[[RExpr], None]) -> None:
         return
     if isinstance(stmt, RConditionalBlock):
         for_each_expr(stmt.condition, f)
+        for expr in stmt.then_branch.output_exprs:
+            for_each_expr(expr, f)
+        for expr in stmt.else_branch.output_exprs:
+            for_each_expr(expr, f)
         return
     assert_never(stmt)

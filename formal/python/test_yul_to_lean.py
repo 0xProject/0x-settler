@@ -1969,6 +1969,44 @@ class TryConstEvalTest(unittest.TestCase):
             norm_ir.NBuiltinCall("mul", (norm_ir.NConst(2), y)),
         )
 
+    def test_fold_expr_folds_div_mod_identities(self) -> None:
+        x = _nref("x")
+        self.assertEqual(
+            fold_expr(norm_ir.NBuiltinCall("div", (x, norm_ir.NConst(1)))),
+            x,
+        )
+        self.assertEqual(
+            fold_expr(norm_ir.NBuiltinCall("div", (x, norm_ir.NConst(0)))),
+            norm_ir.NConst(0),
+        )
+        self.assertEqual(
+            fold_expr(norm_ir.NBuiltinCall("mod", (x, x))),
+            norm_ir.NConst(0),
+        )
+        self.assertEqual(
+            fold_expr(norm_ir.NBuiltinCall("mod", (x, norm_ir.NConst(1)))),
+            norm_ir.NConst(0),
+        )
+
+    def test_fold_expr_keeps_div_mod_with_impure_operands(self) -> None:
+        impure = norm_ir.NLocalCall(
+            symbol_id=yul_ast.SymbolId(9),
+            name="helper",
+            args=(),
+        )
+        self.assertEqual(
+            fold_expr(norm_ir.NBuiltinCall("div", (impure, norm_ir.NConst(0)))),
+            norm_ir.NBuiltinCall("div", (impure, norm_ir.NConst(0))),
+        )
+        self.assertEqual(
+            fold_expr(norm_ir.NBuiltinCall("div", (norm_ir.NConst(0), impure))),
+            norm_ir.NBuiltinCall("div", (norm_ir.NConst(0), impure)),
+        )
+        self.assertEqual(
+            fold_expr(norm_ir.NBuiltinCall("mod", (impure, impure))),
+            norm_ir.NBuiltinCall("mod", (impure, impure)),
+        )
+
     def test_fold_expr_folds_constant_ite_conditions(self) -> None:
         self.assertEqual(
             fold_expr(
@@ -12570,6 +12608,45 @@ class RestrictedIRTest(unittest.TestCase):
             ),
             (30,),
         )
+
+    def test_for_each_stmt_expr_visits_conditional_branch_outputs(self) -> None:
+        from .restricted_ir import (
+            RAssignment,
+            RBranch,
+            RConditionalBlock,
+            RConst,
+            RExpr,
+            RRef,
+        )
+        from .restricted_walk import for_each_stmt_expr
+
+        x_sid = yul_ast.SymbolId(0)
+        z_sid = yul_ast.SymbolId(1)
+        condition = RRef(symbol_id=x_sid, name="x")
+        then_output = RConst(1)
+        else_output = RConst(2)
+        stmt = RConditionalBlock(
+            condition=condition,
+            output_targets=(z_sid,),
+            output_names=("z",),
+            then_branch=RBranch(
+                assignments=(
+                    RAssignment(target=z_sid, target_name="z", expr=RConst(11)),
+                ),
+                output_exprs=(then_output,),
+            ),
+            else_branch=RBranch(
+                assignments=(
+                    RAssignment(target=z_sid, target_name="z", expr=RConst(22)),
+                ),
+                output_exprs=(else_output,),
+            ),
+        )
+
+        seen: list[RExpr] = []
+        for_each_stmt_expr(stmt, seen.append)
+        expected: list[RExpr] = [condition, then_output, else_output]
+        self.assertEqual(seen, expected)
 
     def test_nested_switch_under_if(self) -> None:
         self.assertEqual(

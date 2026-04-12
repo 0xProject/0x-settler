@@ -9,7 +9,7 @@ dispatch over SynStmt/SynExpr variants.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TypeVar, assert_never, cast
+from typing import TypeVar, assert_never, cast, overload
 
 from .yul_ast import (
     AssignStmt,
@@ -87,6 +87,26 @@ def for_each_expr_in_stmt(
 # ---------------------------------------------------------------------------
 # Block-level statement visitor (pre-order) with optional threaded context
 # ---------------------------------------------------------------------------
+
+
+@overload
+def for_each_stmt_in_block(
+    block: Block,
+    visit: Callable[[SynStmt, None], None],
+    ctx: None = None,
+    *,
+    include_function_bodies: bool = False,
+) -> None: ...
+
+
+@overload
+def for_each_stmt_in_block(
+    block: Block,
+    visit: Callable[[SynStmt, _T], _T],
+    ctx: _T,
+    *,
+    include_function_bodies: bool = False,
+) -> None: ...
 
 
 def for_each_stmt_in_block(
