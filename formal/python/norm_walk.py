@@ -11,6 +11,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import assert_never
 
+from .expr_walk import expr_contains as expr_contains
+from .expr_walk import for_each_expr as for_each_expr
+from .expr_walk import map_expr as map_expr
 from .norm_ir import (
     NAssign,
     NBind,
@@ -36,96 +39,6 @@ from .norm_ir import (
 from .yul_ast import SymbolId
 
 NBlockItem = NStmt | NFunctionDef
-
-# ---------------------------------------------------------------------------
-# Expression mapper (bottom-up)
-# ---------------------------------------------------------------------------
-
-
-def map_expr(expr: NExpr, f: Callable[[NExpr], NExpr]) -> NExpr:
-    """Apply *f* bottom-up to every node in the expression tree.
-
-    Children are mapped first, then *f* is called on the
-    reconstructed parent.  Callers provide a rewrite function
-    that handles the node types they care about and returns the
-    node unchanged otherwise.
-    """
-    if isinstance(expr, NConst):
-        return f(expr)
-
-    if isinstance(expr, NRef):
-        return f(expr)
-
-    if isinstance(expr, NBuiltinCall):
-        mapped_args = tuple(map_expr(a, f) for a in expr.args)
-        return f(NBuiltinCall(op=expr.op, args=mapped_args))
-
-    if isinstance(expr, NLocalCall):
-        mapped_args = tuple(map_expr(a, f) for a in expr.args)
-        return f(NLocalCall(symbol_id=expr.symbol_id, name=expr.name, args=mapped_args))
-
-    if isinstance(expr, NTopLevelCall):
-        mapped_args = tuple(map_expr(a, f) for a in expr.args)
-        return f(NTopLevelCall(name=expr.name, args=mapped_args))
-
-    if isinstance(expr, NUnresolvedCall):
-        mapped_args = tuple(map_expr(a, f) for a in expr.args)
-        return f(NUnresolvedCall(name=expr.name, args=mapped_args))
-
-    if isinstance(expr, NIte):
-        return f(
-            NIte(
-                cond=map_expr(expr.cond, f),
-                if_true=map_expr(expr.if_true, f),
-                if_false=map_expr(expr.if_false, f),
-            )
-        )
-
-    assert_never(expr)
-
-
-# ---------------------------------------------------------------------------
-# Expression visitor (pre-order)
-# ---------------------------------------------------------------------------
-
-
-def for_each_expr(expr: NExpr, f: Callable[[NExpr], None]) -> None:
-    """Call *f* on every sub-expression in pre-order."""
-    f(expr)
-    if isinstance(expr, (NConst, NRef)):
-        pass
-    elif isinstance(expr, NBuiltinCall):
-        for a in expr.args:
-            for_each_expr(a, f)
-    elif isinstance(expr, NLocalCall):
-        for a in expr.args:
-            for_each_expr(a, f)
-    elif isinstance(expr, (NTopLevelCall, NUnresolvedCall)):
-        for a in expr.args:
-            for_each_expr(a, f)
-    elif isinstance(expr, NIte):
-        for_each_expr(expr.cond, f)
-        for_each_expr(expr.if_true, f)
-        for_each_expr(expr.if_false, f)
-    else:
-        assert_never(expr)
-
-
-def expr_contains(expr: NExpr, predicate: Callable[[NExpr], bool]) -> bool:
-    """Return whether any sub-expression satisfies *predicate*."""
-    if predicate(expr):
-        return True
-    if isinstance(expr, (NConst, NRef)):
-        return False
-    if isinstance(expr, (NBuiltinCall, NLocalCall, NTopLevelCall, NUnresolvedCall)):
-        return any(expr_contains(a, predicate) for a in expr.args)
-    if isinstance(expr, NIte):
-        return (
-            expr_contains(expr.cond, predicate)
-            or expr_contains(expr.if_true, predicate)
-            or expr_contains(expr.if_false, predicate)
-        )
-    assert_never(expr)
 
 
 # ---------------------------------------------------------------------------

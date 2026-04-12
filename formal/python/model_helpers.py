@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import Callable, assert_never
 
 from .evm_builtins import OP_TO_LEAN_HELPER, OP_TO_OPCODE
+from .expr_walk import for_each_expr as for_each_model_expr
+from .expr_walk import map_expr as map_model_expr
 from .model_ir import (
     Assignment,
     Call,
@@ -16,48 +18,6 @@ from .model_ir import (
     Project,
     Var,
 )
-
-# ---------------------------------------------------------------------------
-# Generic Expr walkers
-# ---------------------------------------------------------------------------
-
-
-def for_each_model_expr(expr: Expr, fn: Callable[[Expr], None]) -> None:
-    """Pre-order traversal visiting every Expr node."""
-    fn(expr)
-    if isinstance(expr, (IntLit, Var)):
-        pass
-    elif isinstance(expr, Call):
-        for arg in expr.args:
-            for_each_model_expr(arg, fn)
-    elif isinstance(expr, Ite):
-        for_each_model_expr(expr.cond, fn)
-        for_each_model_expr(expr.if_true, fn)
-        for_each_model_expr(expr.if_false, fn)
-    elif isinstance(expr, Project):
-        for_each_model_expr(expr.inner, fn)
-    else:
-        assert_never(expr)
-
-
-def map_model_expr(expr: Expr, fn: Callable[[Expr], Expr]) -> Expr:
-    """Bottom-up map: recurse children first, then apply *fn* to result."""
-    if isinstance(expr, (IntLit, Var)):
-        return fn(expr)
-    if isinstance(expr, Call):
-        return fn(Call(expr.name, tuple(map_model_expr(a, fn) for a in expr.args)))
-    if isinstance(expr, Ite):
-        return fn(
-            Ite(
-                map_model_expr(expr.cond, fn),
-                map_model_expr(expr.if_true, fn),
-                map_model_expr(expr.if_false, fn),
-            )
-        )
-    if isinstance(expr, Project):
-        return fn(Project(expr.index, expr.total, map_model_expr(expr.inner, fn)))
-    assert_never(expr)
-
 
 # ---------------------------------------------------------------------------
 # Statement walkers

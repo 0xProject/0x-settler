@@ -12,6 +12,9 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import assert_never
 
+from .expr_walk import expr_contains as expr_contains
+from .expr_walk import for_each_expr as for_each_expr
+from .expr_walk import map_expr as map_expr
 from .restricted_ir import (
     RAssignment,
     RBranch,
@@ -26,78 +29,6 @@ from .restricted_ir import (
     RStatement,
 )
 from .yul_ast import SymbolId
-
-# ---------------------------------------------------------------------------
-# Expression mapper (bottom-up)
-# ---------------------------------------------------------------------------
-
-
-def map_expr(expr: RExpr, f: Callable[[RExpr], RExpr]) -> RExpr:
-    """Apply *f* bottom-up to every node in the expression tree.
-
-    Children are mapped first, then *f* is called on the
-    reconstructed parent.
-    """
-    if isinstance(expr, (RConst, RRef)):
-        return f(expr)
-
-    if isinstance(expr, RBuiltinCall):
-        mapped_args = tuple(map_expr(a, f) for a in expr.args)
-        return f(RBuiltinCall(op=expr.op, args=mapped_args))
-
-    if isinstance(expr, RModelCall):
-        mapped_args = tuple(map_expr(a, f) for a in expr.args)
-        return f(RModelCall(name=expr.name, args=mapped_args))
-
-    if isinstance(expr, RIte):
-        return f(
-            RIte(
-                cond=map_expr(expr.cond, f),
-                if_true=map_expr(expr.if_true, f),
-                if_false=map_expr(expr.if_false, f),
-            )
-        )
-
-    assert_never(expr)
-
-
-# ---------------------------------------------------------------------------
-# Expression visitor (pre-order)
-# ---------------------------------------------------------------------------
-
-
-def for_each_expr(expr: RExpr, f: Callable[[RExpr], None]) -> None:
-    """Call *f* on every sub-expression in pre-order."""
-    f(expr)
-    if isinstance(expr, (RConst, RRef)):
-        pass
-    elif isinstance(expr, (RBuiltinCall, RModelCall)):
-        for a in expr.args:
-            for_each_expr(a, f)
-    elif isinstance(expr, RIte):
-        for_each_expr(expr.cond, f)
-        for_each_expr(expr.if_true, f)
-        for_each_expr(expr.if_false, f)
-    else:
-        assert_never(expr)
-
-
-def expr_contains(expr: RExpr, predicate: Callable[[RExpr], bool]) -> bool:
-    """Return whether any sub-expression satisfies *predicate*."""
-    if predicate(expr):
-        return True
-    if isinstance(expr, (RConst, RRef)):
-        return False
-    if isinstance(expr, (RBuiltinCall, RModelCall)):
-        return any(expr_contains(a, predicate) for a in expr.args)
-    if isinstance(expr, RIte):
-        return (
-            expr_contains(expr.cond, predicate)
-            or expr_contains(expr.if_true, predicate)
-            or expr_contains(expr.if_false, predicate)
-        )
-    assert_never(expr)
-
 
 # ---------------------------------------------------------------------------
 # Statement mapper

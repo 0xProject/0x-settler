@@ -179,7 +179,7 @@ def _is_recognized_expr_stmt(expr: NExpr) -> bool:
     ``has_expr_effects``.
     """
     if isinstance(expr, NBuiltinCall):
-        return expr.op in _MEMORY_WRITE_OPS or expr.op in _MEMORY_READ_OPS
+        return expr.op in _MEMORY_WRITE_OPS
     return isinstance(expr, (NLocalCall, NTopLevelCall, NUnresolvedCall))
 
 
