@@ -52,6 +52,7 @@ from .norm_classify import (
 from .norm_constprop import fold_expr, propagate_constants
 from .norm_inline import inline_pure_helpers
 from .norm_memory import lower_memory
+from .norm_simplify import simplify_normalized
 from .norm_to_restricted import lower_to_restricted
 from .restricted_ir import RestrictedFunction
 from .restricted_to_model import to_function_models
@@ -2290,6 +2291,40 @@ class SimplifyIteTest(unittest.TestCase):
         # Semantics still correct
         self.assertEqual(evaluate_function_model(model, (0,)), (9,))
         self.assertEqual(evaluate_function_model(model, (1,)), (7,))
+
+
+class SimplifyNormalizedTest(unittest.TestCase):
+    def _simplify(self, yul: str) -> norm_ir.NormalizedFunction:
+        tokens = tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        return simplify_normalized(nf)
+
+    def test_preserves_hoisted_helper_after_terminating_runtime_stmt(self) -> None:
+        nf = self._simplify("""
+            function f() -> z {
+                z := g()
+                leave
+                function g() -> a { a := 7 }
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, ()), (7,))
+        self.assertTrue(
+            any(isinstance(stmt, norm_ir.NFunctionDef) for stmt in nf.body.stmts)
+        )
+
+    def test_eliminates_constant_false_for_loop(self) -> None:
+        nf = self._simplify("""
+            function f() -> z {
+                z := 1
+                for { } 0 { } {
+                    z := 2
+                }
+            }
+        """)
+        self.assertFalse(any(isinstance(stmt, norm_ir.NFor) for stmt in nf.body.stmts))
+        self.assertEqual(evaluate_normalized(nf, ()), (1,))
 
 
 # ---------------------------------------------------------------------------
@@ -11255,6 +11290,19 @@ class ConstPropTest(unittest.TestCase):
         has_fdef = any(isinstance(s, norm_ir.NFunctionDef) for s in nf.body.stmts)
         self.assertTrue(has_fdef)
 
+    def test_preserves_hoisted_helper_after_exhaustive_terminating_switch(self) -> None:
+        nf = self._prop("""
+            function f(x) -> z {
+                z := g()
+                switch x
+                case 0 { leave }
+                default { leave }
+                function g() -> a { a := 7 }
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, (0,)), (7,))
+        self.assertEqual(evaluate_normalized(nf, (1,)), (7,))
+
     def test_for_loop_body_expressions_folded(self) -> None:
         """Expressions inside for-loop bodies are still constant-folded."""
         nf = self._prop("""
@@ -11288,6 +11336,18 @@ class ConstPropTest(unittest.TestCase):
         self.assertIsInstance(loop.body.stmts[0], norm_ir.NAssign)
         assign = cast(norm_ir.NAssign, loop.body.stmts[0])
         self.assertEqual(assign.expr, norm_ir.NConst(8))
+
+    def test_constant_false_for_loop_is_eliminated(self) -> None:
+        nf = self._prop("""
+            function f() -> z {
+                z := 1
+                for { } 0 { } {
+                    z := 2
+                }
+            }
+        """)
+        self.assertFalse(any(isinstance(stmt, norm_ir.NFor) for stmt in nf.body.stmts))
+        self.assertEqual(evaluate_normalized(nf, ()), (1,))
 
     def test_for_loop_condition_setup_facts_reach_condition_and_body(self) -> None:
         """Loop-head setup facts are available to condition and body rewrites."""
@@ -11337,6 +11397,72 @@ class ConstPropTest(unittest.TestCase):
         self.assertIsInstance(loop.body.stmts[0], norm_ir.NAssign)
         assign = cast(norm_ir.NAssign, loop.body.stmts[0])
         self.assertEqual(assign.expr, norm_ir.NConst(7))
+
+    def test_constant_false_for_loop_executes_condition_setup_once(self) -> None:
+        z_sid = yul_ast.SymbolId(1)
+        nf = norm_ir.NormalizedFunction(
+            name="f",
+            params=(),
+            param_names=(),
+            returns=(z_sid,),
+            return_names=("z",),
+            body=norm_ir.NBlock(
+                (
+                    norm_ir.NFor(
+                        init=norm_ir.NBlock(()),
+                        condition=norm_ir.NConst(0),
+                        condition_setup=norm_ir.NBlock(
+                            (
+                                norm_ir.NAssign(
+                                    targets=(z_sid,),
+                                    target_names=("z",),
+                                    expr=norm_ir.NConst(7),
+                                ),
+                            )
+                        ),
+                        post=norm_ir.NBlock(()),
+                        body=norm_ir.NBlock(
+                            (
+                                norm_ir.NAssign(
+                                    targets=(z_sid,),
+                                    target_names=("z",),
+                                    expr=norm_ir.NConst(9),
+                                ),
+                            )
+                        ),
+                    ),
+                )
+            ),
+        )
+        prop = propagate_constants(nf)
+        self.assertFalse(any(isinstance(stmt, norm_ir.NFor) for stmt in prop.body.stmts))
+        self.assertEqual(evaluate_normalized(prop, ()), (7,))
+
+    def test_for_loop_init_leave_eliminates_loop_and_outer_suffix(self) -> None:
+        nf = self._prop("""
+            function f() -> z {
+                for { leave } 0 { } { }
+                z := 1
+            }
+        """)
+        self.assertFalse(any(isinstance(stmt, norm_ir.NFor) for stmt in nf.body.stmts))
+        self.assertEqual(evaluate_normalized(nf, ()), (0,))
+
+    def test_translate_yul_to_models_accepts_constant_false_for_loop(self) -> None:
+        config = make_model_config(("f",), exact_yul_names={"f": "f"})
+        model = translate_yul_to_models(
+            """
+                function f() -> z {
+                    z := 1
+                    for { } 0 { } {
+                        z := 2
+                    }
+                }
+            """,
+            config,
+            optimize=False,
+        )[0]
+        self.assertEqual(evaluate_function_model(model, ()), (1,))
 
 
 class InlineArchitectureTest(unittest.TestCase):

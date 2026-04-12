@@ -26,6 +26,7 @@ from .norm_ir import (
     NSwitch,
     NSwitchCase,
 )
+from .norm_optimize_shared import drop_dead_runtime_suffix, sequential_block
 from .norm_walk import map_stmt
 
 
@@ -56,15 +57,10 @@ def _simplify_function_def(fdef: NFunctionDef) -> NFunctionDef:
 
 def _simplify_block(block: NBlock) -> NBlock:
     out: list[NStmt] = []
-    terminated = False
-    for stmt in block.stmts:
-        if terminated:
+    for idx, stmt in enumerate(block.stmts):
+        if not _append_stmt_sequence(out, _simplify_stmt(stmt)):
+            out.extend(drop_dead_runtime_suffix(block.stmts[idx + 1 :]))
             break
-        for simplified in _simplify_stmt(stmt):
-            out.append(simplified)
-            if _definitely_terminates(simplified):
-                terminated = True
-                break
     return NBlock(tuple(out))
 
 
@@ -90,6 +86,36 @@ def _simplify_stmt(stmt: NStmt) -> list[NStmt]:
             return list(default.stmts) if default is not None else []
         return [NSwitch(discriminant=disc, cases=cases, default=default)]
 
+    if isinstance(stmt, NFor):
+        init = _simplify_block(stmt.init)
+        if _definitely_terminates(init):
+            preamble = sequential_block(init)
+            return [preamble] if preamble is not None else []
+
+        condition_setup = (
+            _simplify_block(stmt.condition_setup)
+            if stmt.condition_setup is not None
+            else None
+        )
+        if condition_setup is not None and _definitely_terminates(condition_setup):
+            preamble = sequential_block(init, condition_setup)
+            return [preamble] if preamble is not None else []
+
+        cond = fold_expr(stmt.condition)
+        if isinstance(cond, NConst) and cond.value == 0:
+            preamble = sequential_block(init, condition_setup)
+            return [preamble] if preamble is not None else []
+
+        return [
+            NFor(
+                init=init,
+                condition=cond,
+                condition_setup=condition_setup,
+                post=_simplify_block(stmt.post),
+                body=_simplify_block(stmt.body),
+            )
+        ]
+
     if isinstance(stmt, NFunctionDef):
         return [_simplify_function_def(stmt)]
 
@@ -97,11 +123,33 @@ def _simplify_stmt(stmt: NStmt) -> list[NStmt]:
     return [map_stmt(stmt, map_expr_fn=fold_expr, map_block_fn=_simplify_block)]
 
 
+def _append_stmt_sequence(out: list[NStmt], stmts: list[NStmt]) -> bool:
+    """Append one simplified statement expansion.
+
+    If a runtime statement in *stmts* definitely terminates, preserve only later
+    sibling ``NFunctionDef`` nodes from that same expansion.
+    """
+
+    for idx, stmt in enumerate(stmts):
+        out.append(stmt)
+        if _definitely_terminates(stmt):
+            out.extend(drop_dead_runtime_suffix(stmts[idx + 1 :]))
+            return False
+    return True
+
+
+def _stmt_sequence_definitely_terminates(stmts: tuple[NStmt, ...]) -> bool:
+    for stmt in stmts:
+        if _definitely_terminates(stmt):
+            return True
+    return False
+
+
 def _definitely_terminates(stmt: NStmt) -> bool:
     if isinstance(stmt, NLeave):
         return True
     if isinstance(stmt, NBlock):
-        return bool(stmt.stmts) and _definitely_terminates(stmt.stmts[-1])
+        return _stmt_sequence_definitely_terminates(stmt.stmts)
     if isinstance(stmt, NIf):
         return False
     if isinstance(stmt, NSwitch):

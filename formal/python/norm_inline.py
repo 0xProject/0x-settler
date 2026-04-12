@@ -48,6 +48,7 @@ from .norm_ir import (
     NUnresolvedCall,
 )
 from .norm_leave import lower_leave_block
+from .norm_optimize_shared import simplify_ite
 from .norm_walk import (
     SymbolAllocator,
     collect_function_defs,
@@ -153,15 +154,6 @@ def _try_const(expr: NExpr) -> int | None:
     if isinstance(expr, NConst):
         return expr.value
     return None
-
-
-def _simplify_ite(cond: NExpr, if_true: NExpr, if_false: NExpr) -> NExpr:
-    if if_true == if_false:
-        return if_true
-    c = _try_const(cond)
-    if c is not None:
-        return if_true if c != 0 else if_false
-    return NIte(cond=cond, if_true=if_true, if_false=if_false)
 
 
 # ---------------------------------------------------------------------------
@@ -391,7 +383,7 @@ def _symex_stmt(
         for sid in if_subst:
             if if_subst[sid] is not subst.get(sid):
                 pre_val = subst.get(sid, NConst(0))
-                subst[sid] = _simplify_ite(cond, if_subst[sid], pre_val)
+                subst[sid] = simplify_ite(cond, if_subst[sid], pre_val)
         return
 
     if isinstance(stmt, (NFunctionDef, NBlock)):

@@ -43,6 +43,11 @@ from .norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
+from .norm_optimize_shared import (
+    drop_dead_runtime_suffix,
+    sequential_block,
+    simplify_ite,
+)
 from .norm_walk import map_expr
 from .yul_ast import EvaluationError, SymbolId
 
@@ -72,11 +77,7 @@ def _fold_node(expr: NExpr) -> NExpr:
             except EvaluationError:
                 pass
     if isinstance(expr, NIte):
-        cond = _const_truthy(expr.cond)
-        if cond is not None:
-            return expr.if_true if cond else expr.if_false
-        if expr.if_true == expr.if_false:
-            return expr.if_true
+        return simplify_ite(expr.cond, expr.if_true, expr.if_false)
     return expr
 
 
@@ -238,11 +239,12 @@ class _FactEnv:
 def _rewrite_block(block: NBlock, env: _FactEnv) -> _RewriteResult:
     stmts: list[NStmt] = []
     current_env = env
-    for stmt in block.stmts:
+    for idx, stmt in enumerate(block.stmts):
         result = _rewrite_stmt(stmt, current_env)
         stmts.extend(result.stmts)
         current_env = result.env
         if not result.falls_through:
+            stmts.extend(drop_dead_runtime_suffix(block.stmts[idx + 1 :]))
             return _RewriteResult.stop_with(tuple(stmts), current_env)
     return _RewriteResult.continue_with(tuple(stmts), current_env)
 
@@ -390,6 +392,13 @@ def _rewrite_stmt(stmt: NStmt, env: _FactEnv) -> _RewriteResult:
 def _rewrite_for(stmt: NFor, env: _FactEnv) -> _RewriteResult:
     """Rewrite one loop using a localized loop-head fact fixpoint."""
     init_result = _rewrite_block(stmt.init, env)
+    if not init_result.falls_through:
+        return _loop_preamble_result(
+            env=init_result.env,
+            falls_through=False,
+            init=init_result.as_block(),
+        )
+
     pre_setup_env = init_result.env
     loop_result: tuple[
         _RewriteResult | None,
@@ -404,18 +413,33 @@ def _rewrite_for(stmt: NFor, env: _FactEnv) -> _RewriteResult:
         if stmt.condition_setup is not None:
             setup_result = _rewrite_block(stmt.condition_setup, working_env)
             cond_env = setup_result.env
+            if not setup_result.falls_through:
+                return _loop_preamble_result(
+                    env=setup_result.env,
+                    falls_through=False,
+                    init=init_result.as_block(),
+                    condition_setup=setup_result.as_block(),
+                )
         else:
             setup_result = None
             cond_env = working_env
 
         cond = cond_env.rewrite_expr(stmt.condition)
+        cond_truthy = _const_truthy(cond)
+        if cond_truthy is False:
+            return _loop_preamble_result(
+                env=cond_env,
+                falls_through=True,
+                init=init_result.as_block(),
+                condition_setup=setup_result.as_block() if setup_result else None,
+            )
+
         body_result = _rewrite_block(stmt.body, cond_env.copy())
         post_result = _rewrite_block(stmt.post, body_result.env.copy())
         loop_result = (setup_result, cond_env, cond, body_result, post_result)
 
         backedge_envs: list[_FactEnv] = []
         if body_result.falls_through and post_result.falls_through:
-            cond_truthy = _const_truthy(cond)
             if cond_truthy is not False:
                 backedge_envs.append(post_result.env)
 
@@ -445,6 +469,20 @@ def _rewrite_for(stmt: NFor, env: _FactEnv) -> _RewriteResult:
         env=loop_exit_env,
         falls_through=loop_falls_through,
     )
+
+
+def _loop_preamble_result(
+    *,
+    env: _FactEnv,
+    falls_through: bool,
+    init: NBlock | None,
+    condition_setup: NBlock | None = None,
+) -> _RewriteResult:
+    preamble = sequential_block(init, condition_setup)
+    stmts: tuple[NStmt, ...] = (preamble,) if preamble is not None else ()
+    if falls_through:
+        return _RewriteResult.continue_with(stmts, env)
+    return _RewriteResult.stop_with(stmts, env)
 
 
 # ---------------------------------------------------------------------------

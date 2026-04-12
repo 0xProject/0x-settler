@@ -28,6 +28,7 @@ from .norm_ir import (
     NSwitch,
     NSwitchCase,
 )
+from .norm_optimize_shared import rewrite_runtime_suffix_preserving_hoisted_defs
 from .norm_walk import SymbolAllocator, for_each_stmt, max_symbol_id
 from .yul_ast import SymbolId
 
@@ -161,25 +162,11 @@ def _guard_runtime_suffix(
     did_leave_id: SymbolId,
 ) -> list[NStmt]:
     """Guard runtime statement segments while keeping function defs visible."""
-    out: list[NStmt] = []
-    pending_runtime: list[NStmt] = []
+    def rewrite_runtime(chunk: tuple[NStmt, ...]) -> tuple[NStmt, ...]:
+        lowered = _lower_leave_stmt_list(chunk, did_leave_id)
+        return (_guard_stmt_block(NBlock(tuple(lowered)), did_leave_id),)
 
-    def flush() -> None:
-        if not pending_runtime:
-            return
-        lowered = _lower_leave_stmt_list(tuple(pending_runtime), did_leave_id)
-        out.append(_guard_stmt_block(NBlock(tuple(lowered)), did_leave_id))
-        pending_runtime.clear()
-
-    for stmt in stmts:
-        if isinstance(stmt, NFunctionDef):
-            flush()
-            out.append(stmt)
-            continue
-        pending_runtime.append(stmt)
-
-    flush()
-    return out
+    return rewrite_runtime_suffix_preserving_hoisted_defs(stmts, rewrite_runtime)
 
 
 def _guard_runtime_block(block: NBlock, did_leave_id: SymbolId) -> NBlock:
