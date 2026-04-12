@@ -24,6 +24,7 @@ from .norm_classify import (
     classify_helpers,
     summarize_function,
 )
+from .norm_constprop import simplify_normalized
 from .norm_ir import (
     NAssign,
     NBind,
@@ -47,6 +48,7 @@ from .norm_ir import (
     NUnresolvedCall,
 )
 from .norm_leave import lower_leave_block
+from .norm_memory import lower_memory
 from .norm_walk import (
     SymbolAllocator,
     collect_function_defs,
@@ -86,12 +88,14 @@ class InlineFragment:
 class InlineBoundaryPolicy:
     """Call-survival policy for one inlining run.
 
-    By default, unsupported or deferred helpers may remain as calls.
+    By default, helper calls may remain live.
 
     Selected-target translation uses a stricter policy: local helper calls and
     the chosen non-selected top-level helper closure are not allowed to survive
-    past normalization, so they must be structurally inlined before
-    simplification and validation.
+    past normalization. The boundary policy controls whether a call may survive;
+    the helper classification still controls whether inlining that call is
+    legal. Unsupported helpers therefore fail when a strict boundary requires
+    eliminating the call.
     """
 
     inline_local_helpers: bool = False
@@ -232,29 +236,146 @@ class _InlineCtx:
         return self.classifications.get(sid)
 
 
+def _nested_inline_ctx(
+    ctx: _InlineCtx,
+    *,
+    boundary_policy: InlineBoundaryPolicy | None = None,
+) -> _InlineCtx:
+    """Clone an inline context for recursive prelude rewriting."""
+    return _InlineCtx(
+        defs=dict(ctx.defs),
+        classifications=dict(ctx.classifications),
+        alloc=ctx.alloc,
+        top_level_name_to_sid=ctx.top_level_name_to_sid,
+        allowed_model_calls=ctx.allowed_model_calls,
+        boundary_policy=(
+            boundary_policy if boundary_policy is not None else InlineBoundaryPolicy()
+        ),
+        max_depth=ctx.max_depth,
+    )
+
+
 def _effective_inline_strategy(
     cls: InlineClassification | None,
     *,
-    must_inline: bool,
+    must_eliminate_call: bool,
 ) -> InlineStrategy:
     """Pick the actual rewrite strategy for a helper call site.
 
-    Classification remains strict: unsupported helpers are still classified as
-    ``DO_NOT_INLINE``. Some call sites, however, are covered by an explicit
-    boundary policy and are not allowed to survive as calls. For those sites,
-    we structurally inline with ``BLOCK_INLINE`` and let later simplification +
-    validation decide whether any live unsupported constructs remain.
+    Helper classification is authoritative for whether inlining is legal.
+    Boundary policy only decides whether a surviving call is acceptable. A
+    strict boundary may require eliminating a deferred/block-inlineable helper
+    call, but it must not upgrade ``DO_NOT_INLINE`` helpers into ``BLOCK_INLINE``.
     """
 
     if cls is None:
         return InlineStrategy.DO_NOT_INLINE
 
     strat = cls.strategy
-    if strat == InlineStrategy.BLOCK_INLINE and cls.is_deferred and not must_inline:
+    if (
+        strat == InlineStrategy.BLOCK_INLINE
+        and cls.is_deferred
+        and not must_eliminate_call
+    ):
         return InlineStrategy.DO_NOT_INLINE
-    if strat != InlineStrategy.DO_NOT_INLINE:
-        return strat
-    return InlineStrategy.BLOCK_INLINE if must_inline else InlineStrategy.DO_NOT_INLINE
+    return strat
+
+
+def _preview_unsupported_reason(summary: FunctionSummary) -> str | None:
+    """Return the first intrinsic structural blocker in a preview body."""
+    if summary.has_for_loop:
+        return "contains for-loop"
+    if summary.has_expr_effects:
+        return "contains bare expression-statement"
+    if summary.calls_unresolved:
+        return "calls unresolved function"
+    if summary.has_effectful_condition:
+        return "function call in control-flow condition"
+    if summary.calls_top_level:
+        return "calls non-model top-level helper"
+    return None
+
+
+def _preview_can_retry_after_memory_lowering(summary: FunctionSummary) -> bool:
+    """Check whether memory lowering might erase the current structural blocker."""
+    if not summary.reads_memory:
+        return False
+    return (
+        not summary.has_for_loop
+        and not summary.calls_top_level
+        and (summary.has_expr_effects or summary.has_effectful_condition)
+    )
+
+
+def _summarize_preview_body(
+    block: NBlock,
+    ctx: _InlineCtx,
+) -> FunctionSummary:
+    return summarize_function(
+        block,
+        top_level_inline_sids=ctx.top_level_name_to_sid,
+        allowed_model_calls=ctx.allowed_model_calls,
+    )
+
+
+def _preview_block_inline_fragment(
+    *,
+    helper_name: str,
+    helper_kind: str,
+    fdef: NFunctionDef,
+    actual_args: tuple[NExpr, ...],
+    ctx: _InlineCtx,
+    depth: int,
+) -> InlineFragment:
+    """Try call-site specialization before failing a strict helper boundary.
+
+    Some helpers are globally ``DO_NOT_INLINE`` only because unsupported code is
+    hidden behind branches that become dead once the actual arguments are known
+    or once the specialized fragment is simplified in its caller. Preview one
+    block-inline expansion, simplify it locally, and reject it only if the
+    preview body still has its own unsupported structure. Nested helper calls
+    may survive into the next whole-function fixed-point round.
+    """
+    if depth > ctx.max_depth:
+        raise LoweringError(f"Inlining depth exceeded for {helper_name!r}")
+
+    arg_binds, atom_refs = _atomize_args(actual_args, ctx.alloc)
+    frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
+    preview_block = NBlock(stmts=tuple(arg_binds) + frag.prelude)
+    result_refs = tuple(result for result in frag.results if isinstance(result, NRef))
+    if len(result_refs) != len(frag.results):
+        raise LoweringError(
+            f"Cannot eliminate {helper_kind} call {helper_name!r}: "
+            "block-inline preview produced non-reference return values."
+        )
+
+    preview_func = NormalizedFunction(
+        name=fdef.name,
+        params=(),
+        param_names=(),
+        returns=tuple(ref.symbol_id for ref in result_refs),
+        return_names=tuple(ref.name for ref in result_refs),
+        body=preview_block,
+    )
+    preview_func = simplify_normalized(preview_func)
+    preview_summary = _summarize_preview_body(preview_func.body, ctx)
+    if _preview_can_retry_after_memory_lowering(preview_summary):
+        preview_func = lower_memory(preview_func)
+        preview_func = simplify_normalized(preview_func)
+        preview_summary = _summarize_preview_body(preview_func.body, ctx)
+    reason = _preview_unsupported_reason(preview_summary)
+    if reason is not None:
+        raise LoweringError(
+            f"Cannot eliminate {helper_kind} call {helper_name!r}: {reason}."
+        )
+
+    return InlineFragment(
+        prelude=preview_func.body.stmts,
+        results=tuple(
+            NRef(symbol_id=sid, name=name)
+            for sid, name in zip(preview_func.returns, preview_func.return_names)
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -535,14 +656,44 @@ def _inline_in_expr_with_prelude(
             new_args_list.append(a_val)
         new_args_t = tuple(new_args_list)
 
+        must_eliminate_call = ctx.boundary_policy.inline_local_helpers
+        classification = ctx.classification_for(expr.symbol_id)
         strat = _effective_inline_strategy(
-            ctx.classification_for(expr.symbol_id),
-            must_inline=ctx.boundary_policy.inline_local_helpers,
+            classification,
+            must_eliminate_call=must_eliminate_call,
         )
-        if strat != InlineStrategy.DO_NOT_INLINE and expr.symbol_id in ctx.defs:
+        fdef = ctx.defs.get(expr.symbol_id)
+        preview_frag: InlineFragment | None = None
+        if strat == InlineStrategy.DO_NOT_INLINE and must_eliminate_call:
+            if fdef is None:
+                raise LoweringError(
+                    f"Cannot inline local helper call {expr.name!r}: missing helper definition."
+                )
+            preview_frag = _preview_block_inline_fragment(
+                helper_name=expr.name,
+                helper_kind="local helper",
+                fdef=fdef,
+                actual_args=new_args_t,
+                ctx=ctx,
+                depth=depth + 1,
+            )
+        elif strat != InlineStrategy.DO_NOT_INLINE and fdef is None:
+            raise LoweringError(
+                f"Cannot inline local helper call {expr.name!r}: missing helper definition."
+            )
+        if preview_frag is not None:
+            pre.extend(preview_frag.prelude)
+            if len(preview_frag.results) == 1:
+                return pre, preview_frag.results[0]
+            if len(preview_frag.results) == 0:
+                return pre, NConst(0)
+            raise LoweringError(
+                f"Multi-return call to {expr.name!r} in single-value context"
+            )
+        if strat != InlineStrategy.DO_NOT_INLINE:
+            assert fdef is not None
             if depth > ctx.max_depth:
                 raise LoweringError(f"Inlining depth exceeded for {expr.name!r}")
-            fdef = ctx.defs[expr.symbol_id]
 
             if strat == InlineStrategy.EXPR_INLINE:
                 frag = _expr_inline(fdef, new_args_t, ctx, depth + 1)
@@ -556,8 +707,9 @@ def _inline_in_expr_with_prelude(
             # Recursively rewrite BLOCK_INLINE preludes to inline nested calls.
             if frag.prelude:
                 prelude_block = NBlock(stmts=frag.prelude)
-                _register_nested_defs(prelude_block, ctx)
-                rewritten = _rewrite_block(prelude_block, ctx)
+                prelude_ctx = _nested_inline_ctx(ctx)
+                _register_nested_defs(prelude_block, prelude_ctx)
+                rewritten = _rewrite_block(prelude_block, prelude_ctx)
                 if rewritten.defs or rewritten.stmts:
                     pre.append(rewritten)
             if len(frag.results) == 1:
@@ -582,14 +734,46 @@ def _inline_in_expr_with_prelude(
         new_args_t = tuple(new_args_list)
         sid = ctx.top_level_name_to_sid.get(expr.name)
         if sid is not None and sid in ctx.defs:
-            strat = _effective_inline_strategy(
-                ctx.classification_for(sid),
-                must_inline=(expr.name in ctx.boundary_policy.inline_top_level_helpers),
+            must_eliminate_call = (
+                expr.name in ctx.boundary_policy.inline_top_level_helpers
             )
+            classification = ctx.classification_for(sid)
+            strat = _effective_inline_strategy(
+                classification,
+                must_eliminate_call=must_eliminate_call,
+            )
+            fdef = ctx.defs.get(sid)
+            preview_top_frag: InlineFragment | None = None
+            if strat == InlineStrategy.DO_NOT_INLINE and must_eliminate_call:
+                if fdef is None:
+                    raise LoweringError(
+                        f"Cannot inline top-level helper call {expr.name!r}: missing helper definition."
+                    )
+                preview_top_frag = _preview_block_inline_fragment(
+                    helper_name=expr.name,
+                    helper_kind="top-level helper",
+                    fdef=fdef,
+                    actual_args=new_args_t,
+                    ctx=ctx,
+                    depth=depth + 1,
+                )
+            elif strat != InlineStrategy.DO_NOT_INLINE and fdef is None:
+                raise LoweringError(
+                    f"Cannot inline top-level helper call {expr.name!r}: missing helper definition."
+                )
+            if preview_top_frag is not None:
+                pre.extend(preview_top_frag.prelude)
+                if len(preview_top_frag.results) == 1:
+                    return pre, preview_top_frag.results[0]
+                if len(preview_top_frag.results) == 0:
+                    return pre, NConst(0)
+                raise LoweringError(
+                    f"Multi-return call to {expr.name!r} in single-value context"
+                )
             if strat != InlineStrategy.DO_NOT_INLINE:
+                assert fdef is not None
                 if depth > ctx.max_depth:
                     raise LoweringError(f"Inlining depth exceeded for {expr.name!r}")
-                fdef = ctx.defs[sid]
                 if strat == InlineStrategy.EXPR_INLINE:
                     frag = _expr_inline(fdef, new_args_t, ctx, depth + 1)
                 elif strat == InlineStrategy.BLOCK_INLINE:
@@ -600,8 +784,9 @@ def _inline_in_expr_with_prelude(
                     raise LoweringError(f"Unknown strategy: {strat}")
                 if frag.prelude:
                     prelude_block = NBlock(stmts=frag.prelude)
-                    _register_nested_defs(prelude_block, ctx)
-                    rewritten = _rewrite_block(prelude_block, ctx)
+                    prelude_ctx = _nested_inline_ctx(ctx)
+                    _register_nested_defs(prelude_block, prelude_ctx)
+                    rewritten = _rewrite_block(prelude_block, prelude_ctx)
                     if rewritten.defs or rewritten.stmts:
                         pre.append(rewritten)
                 if len(frag.results) == 1:
@@ -768,28 +953,90 @@ def _rewrite_bind_or_assign(
             direct_name = expr.name
 
     if direct_sid is not None and direct_args is not None and direct_name is not None:
-        strat = _effective_inline_strategy(
-            ctx.classification_for(direct_sid),
-            must_inline=(
-                ctx.boundary_policy.inline_local_helpers
-                if isinstance(expr, NLocalCall)
-                else (
-                    isinstance(expr, NTopLevelCall)
-                    and expr.name in ctx.boundary_policy.inline_top_level_helpers
-                )
-            ),
+        must_eliminate_call = (
+            ctx.boundary_policy.inline_local_helpers
+            if isinstance(expr, NLocalCall)
+            else (
+                isinstance(expr, NTopLevelCall)
+                and expr.name in ctx.boundary_policy.inline_top_level_helpers
+            )
         )
-        fdef = ctx.defs[direct_sid]
+        classification = ctx.classification_for(direct_sid)
+        strat = _effective_inline_strategy(
+            classification,
+            must_eliminate_call=must_eliminate_call,
+        )
+        fdef = ctx.defs.get(direct_sid)
+
+        # Inline arguments first so call-site specialization can see constants.
+        arg_pre: list[NStmt] = []
+        raw_args_list: list[NExpr] = []
+        for a in direct_args:
+            a_p, a_v = _inline_in_expr_with_prelude(a, ctx, 0)
+            arg_pre.extend(a_p)
+            raw_args_list.append(a_v)
+        raw_args = tuple(raw_args_list)
+
+        preview_frag: InlineFragment | None = None
+        if strat == InlineStrategy.DO_NOT_INLINE and must_eliminate_call:
+            if fdef is None:
+                raise LoweringError(
+                    f"Cannot inline {direct_name!r}: missing helper definition."
+                )
+            preview_frag = _preview_block_inline_fragment(
+                helper_name=direct_name,
+                helper_kind=(
+                    "local helper"
+                    if isinstance(expr, NLocalCall)
+                    else "top-level helper"
+                ),
+                fdef=fdef,
+                actual_args=raw_args,
+                ctx=ctx,
+                depth=1,
+            )
+        elif strat != InlineStrategy.DO_NOT_INLINE and fdef is None:
+            raise LoweringError(
+                f"Cannot inline {direct_name!r}: missing helper definition."
+            )
+
+        if preview_frag is not None:
+            preview_out: list[NStmt] = arg_pre + list(preview_frag.prelude)
+            if len(stmt.targets) == len(preview_frag.results):
+                if len(stmt.targets) == 1:
+                    preview_out.append(
+                        cls_type(
+                            targets=stmt.targets,
+                            target_names=stmt.target_names,
+                            expr=preview_frag.results[0],
+                        )
+                    )
+                else:
+                    preview_temp_ids: list[SymbolId] = []
+                    for val in preview_frag.results:
+                        tid = ctx.alloc.alloc()
+                        preview_temp_ids.append(tid)
+                        preview_out.append(
+                            NBind(
+                                targets=(tid,),
+                                target_names=(f"_tmp_{tid._id}",),
+                                expr=val,
+                            )
+                        )
+                    for sid, name, tid in zip(
+                        stmt.targets, stmt.target_names, preview_temp_ids
+                    ):
+                        preview_out.append(
+                            cls_type(
+                                targets=(sid,),
+                                target_names=(name,),
+                                expr=NRef(symbol_id=tid, name=f"_tmp_{tid._id}"),
+                            )
+                        )
+                return preview_out
 
         if strat != InlineStrategy.DO_NOT_INLINE:
-            # Inline arguments (may produce prelude), then atomize.
-            arg_pre: list[NStmt] = []
-            raw_args_list: list[NExpr] = []
-            for a in direct_args:
-                a_p, a_v = _inline_in_expr_with_prelude(a, ctx, 0)
-                arg_pre.extend(a_p)
-                raw_args_list.append(a_v)
-            raw_args = tuple(raw_args_list)
+            assert fdef is not None
             arg_binds, atom_refs = _atomize_args(raw_args, ctx.alloc)
 
             # Get InlineFragment from the appropriate strategy.
@@ -807,15 +1054,16 @@ def _rewrite_bind_or_assign(
             prelude_stmts = list(frag.prelude)
             if prelude_stmts:
                 prelude_block = NBlock(stmts=tuple(prelude_stmts))
-                _register_nested_defs(prelude_block, ctx)
-                rewritten_prelude = _rewrite_block(prelude_block, ctx)
+                prelude_ctx = _nested_inline_ctx(ctx)
+                _register_nested_defs(prelude_block, prelude_ctx)
+                rewritten_prelude = _rewrite_block(prelude_block, prelude_ctx)
                 prelude_stmts = (
                     [rewritten_prelude]
                     if rewritten_prelude.defs or rewritten_prelude.stmts
                     else []
                 )
 
-            out: list[NStmt] = arg_pre + list(arg_binds) + prelude_stmts
+            out = arg_pre + list(arg_binds) + prelude_stmts
 
             if len(stmt.targets) == len(frag.results):
                 if len(stmt.targets) == 1:
@@ -863,6 +1111,40 @@ def _rewrite_bind_or_assign(
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
+
+def inline_helpers_to_boundary(
+    func: NormalizedFunction,
+    *,
+    extra_local_defs: dict[SymbolId, NFunctionDef] | None = None,
+    top_level_inline_defs: dict[str, NFunctionDef] | None = None,
+    allowed_model_calls: frozenset[str] = frozenset(),
+    boundary_policy: InlineBoundaryPolicy,
+    max_rounds: int = 8,
+) -> NormalizedFunction:
+    """Run strict helper elimination to a simplification fixed point.
+
+    Call-site specialization can expose dead branches only after the specialized
+    fragment is placed back into its caller. Re-run strict helper elimination
+    after simplification so newly live helper calls are either removed or fail
+    explicitly before the helper boundary is sealed.
+    """
+    current = func
+    for _ in range(max_rounds):
+        rewritten = inline_pure_helpers(
+            current,
+            extra_local_defs=extra_local_defs,
+            top_level_inline_defs=top_level_inline_defs,
+            allowed_model_calls=allowed_model_calls,
+            boundary_policy=boundary_policy,
+        )
+        simplified = simplify_normalized(rewritten)
+        if simplified == current:
+            return simplified
+        current = simplified
+    raise LoweringError(
+        "Helper elimination did not converge before the helper boundary."
+    )
 
 
 def inline_pure_helpers(

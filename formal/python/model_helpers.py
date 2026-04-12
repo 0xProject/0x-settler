@@ -4,7 +4,7 @@ from typing import Callable, assert_never
 
 from .evm_builtins import OP_TO_LEAN_HELPER, OP_TO_OPCODE
 from .expr_walk import for_each_expr as for_each_model_expr
-from .expr_walk import map_expr as map_model_expr
+from .expr_walk import map_expr as _map_model_expr
 from .model_ir import (
     Assignment,
     Call,
@@ -173,11 +173,19 @@ def expr_size(expr: Expr) -> int:
     return count
 
 
+def rewrite_model_expr(
+    expr: Expr,
+    rewrite: Callable[[Expr], Expr],
+) -> Expr:
+    """Apply a local bottom-up rewrite across a model expression tree."""
+    return _map_model_expr(expr, rewrite)
+
+
 def replace_expr(expr: Expr, replacements: dict[Expr, str]) -> Expr:
     def fn(e: Expr) -> Expr:
         return Var(replacements[e]) if e in replacements else e
 
-    return map_model_expr(expr, fn)
+    return rewrite_model_expr(expr, fn)
 
 
 def expr_vars(expr: Expr) -> set[str]:

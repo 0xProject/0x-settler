@@ -9,6 +9,7 @@ from typing import Callable, cast
 
 from . import model_config as modelcfg
 from . import norm_ir, yul_ast
+from .cbrt.generate_cbrt_model import rewrite_norm_ast as rewrite_cbrt_norm_ast
 from .evm_builtins import (
     BASE_NORM_HELPERS,
     EVM_BUILTINS,
@@ -51,12 +52,15 @@ from .name_policy import (
 )
 from .norm_classify import (
     InlineClassification,
+    InlineStrategy,
     classify_function_scope,
     summarize_function,
 )
 from .norm_constprop import fold_expr, simplify_normalized
 from .norm_inline import (
     InlineBoundaryPolicy,
+    _effective_inline_strategy,
+    inline_helpers_to_boundary,
     inline_pure_helpers,
     seal_helper_boundary,
 )
@@ -90,6 +94,15 @@ def branch(
     return ConditionalBranch(
         assignments=tuple(assignments),
         outputs=wrapped,
+    )
+
+
+def inline_local_helpers_to_boundary(
+    nf: norm_ir.NormalizedFunction,
+) -> norm_ir.NormalizedFunction:
+    return inline_helpers_to_boundary(
+        nf,
+        boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
     )
 
 
@@ -7933,6 +7946,22 @@ class BranchExprStmtTest(unittest.TestCase):
 
 
 class ReviewBehaviorTest(unittest.TestCase):
+    def _cbrt_emission(self) -> modelcfg.EmissionConfig:
+        return make_model_config(
+            ("f",),
+            norm_extensions=(
+                modelcfg.NormExtension(
+                    op_name="bitLengthPlus1",
+                    lean_name="normBitLengthPlus1",
+                    lean_def=(
+                        "def normBitLengthPlus1 (value : Nat) : Nat :=\n"
+                        "  if value = 0 then 1 else Nat.log2 value + 2"
+                    ),
+                ),
+            ),
+            norm_rewrite=rewrite_cbrt_norm_ast,
+        ).emission
+
     def test_translate_yul_to_models_accepts_constant_switch_without_default(
         self,
     ) -> None:
@@ -8055,6 +8084,142 @@ class ReviewBehaviorTest(unittest.TestCase):
         )
 
         self.assertEqual(body.splitlines()[0], "  let z := 1")
+
+    def test_build_model_body_rewrites_nested_ite_branches(self) -> None:
+        model = FunctionModel(
+            fn_name="f",
+            param_names=("p", "x"),
+            return_names=("z",),
+            assignments=(
+                Assignment(
+                    "z",
+                    Ite(
+                        cond=Var("p"),
+                        if_true=Call(
+                            "sub",
+                            (IntLit(257), Call("clz", (Var("x"),))),
+                        ),
+                        if_false=IntLit(0),
+                    ),
+                ),
+            ),
+        )
+
+        body = build_model_body(
+            model.assignments,
+            evm=False,
+            emission=self._cbrt_emission(),
+            param_names=model.param_names,
+            return_names=model.return_names,
+        )
+
+        self.assertIn(
+            "if (p) ≠ 0 then normBitLengthPlus1 (x) else 0",
+            body,
+        )
+
+    def test_build_model_body_rewrites_project_inner_calls(self) -> None:
+        model = FunctionModel(
+            fn_name="f",
+            param_names=("x", "y"),
+            return_names=("z",),
+            assignments=(
+                Assignment(
+                    "z",
+                    Project(
+                        1,
+                        2,
+                        Call(
+                            "pair",
+                            (
+                                Call(
+                                    "sub",
+                                    (IntLit(257), Call("clz", (Var("x"),))),
+                                ),
+                                Var("y"),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        body = build_model_body(
+            model.assignments,
+            evm=False,
+            emission=self._cbrt_emission(),
+            param_names=model.param_names,
+            return_names=model.return_names,
+            call_map={"pair": "pair"},
+        )
+
+        self.assertIn("(pair (normBitLengthPlus1 (x)) (y)).2", body)
+
+    def test_build_model_body_rewrites_nested_call_arguments(self) -> None:
+        model = FunctionModel(
+            fn_name="f",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                Assignment(
+                    "z",
+                    Call(
+                        "add",
+                        (
+                            Call(
+                                "sub",
+                                (IntLit(257), Call("clz", (Var("x"),))),
+                            ),
+                            IntLit(1),
+                        ),
+                    ),
+                ),
+            ),
+        )
+
+        body = build_model_body(
+            model.assignments,
+            evm=False,
+            emission=self._cbrt_emission(),
+            param_names=model.param_names,
+            return_names=model.return_names,
+        )
+
+        self.assertIn("normAdd (normBitLengthPlus1 (x)) (1)", body)
+
+    def test_build_model_body_rewrites_conditional_branch_outputs(self) -> None:
+        model = FunctionModel(
+            fn_name="f",
+            param_names=("p", "x"),
+            return_names=("z",),
+            assignments=(
+                ConditionalBlock(
+                    condition=Var("p"),
+                    output_vars=("tmp",),
+                    then_branch=branch(
+                        (),
+                        (
+                            Call(
+                                "sub",
+                                (IntLit(257), Call("clz", (Var("x"),))),
+                            ),
+                        ),
+                    ),
+                    else_branch=branch((), (Var("x"),)),
+                ),
+                Assignment("z", Var("tmp")),
+            ),
+        )
+
+        body = build_model_body(
+            model.assignments,
+            evm=False,
+            emission=self._cbrt_emission(),
+            param_names=model.param_names,
+            return_names=model.return_names,
+        )
+
+        self.assertIn("normBitLengthPlus1 (x)", body)
 
 
 class ScopeLeakRejectionTest(unittest.TestCase):
@@ -11072,6 +11237,46 @@ class ClassifyInlineTest(unittest.TestCase):
         self.assertTrue(c["g"].is_deferred)
 
 
+class InlineStrategyDecisionTest(unittest.TestCase):
+    def test_effective_inline_strategy_respects_boundary_without_reclassifying(
+        self,
+    ) -> None:
+        deferred_block = InlineClassification(
+            strategy=InlineStrategy.BLOCK_INLINE,
+            is_pure=False,
+            is_deferred=True,
+            unsupported_reason=None,
+        )
+        unsupported = InlineClassification(
+            strategy=InlineStrategy.DO_NOT_INLINE,
+            is_pure=False,
+            is_deferred=False,
+            unsupported_reason="contains for-loop",
+        )
+
+        self.assertEqual(
+            _effective_inline_strategy(
+                deferred_block,
+                must_eliminate_call=False,
+            ),
+            InlineStrategy.DO_NOT_INLINE,
+        )
+        self.assertEqual(
+            _effective_inline_strategy(
+                deferred_block,
+                must_eliminate_call=True,
+            ),
+            InlineStrategy.BLOCK_INLINE,
+        )
+        self.assertEqual(
+            _effective_inline_strategy(
+                unsupported,
+                must_eliminate_call=True,
+            ),
+            InlineStrategy.DO_NOT_INLINE,
+        )
+
+
 class InlinePureTest(unittest.TestCase):
     """Tests for pure helper inlining on normalized IR."""
 
@@ -11964,10 +12169,7 @@ class InlineArchitectureTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        return inline_pure_helpers(
-            nf,
-            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
-        )
+        return inline_local_helpers_to_boundary(nf)
 
     def _has_local_call(self, block: norm_ir.NBlock, name: str) -> bool:
         """Check if any live executable ``NLocalCall`` to *name* remains."""
@@ -12051,6 +12253,20 @@ class InlineArchitectureTest(unittest.TestCase):
             evaluate_normalized(nf, (5, 7), memory={64: 128, 96: 0}),
             (129,),
         )
+
+    def test_strict_boundary_rejects_unsupported_local_helper(self) -> None:
+        with self.assertRaisesRegex(
+            yul_ast.LoweringError,
+            "Cannot eliminate local helper call 'g': contains for-loop",
+        ):
+            self._inline("""
+                function f(x) -> z {
+                    function g(a) -> b {
+                        for { } a { } { b := 1 leave }
+                    }
+                    z := g(x)
+                }
+            """)
 
     def test_deferred_memory_call_as_expression_statement(self) -> None:
         """Bare deferred memory helper call as expression-statement must inline."""
@@ -12176,10 +12392,7 @@ class MemoryLowerTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(
-            nf,
-            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
-        )
+        nf = inline_local_helpers_to_boundary(nf)
         nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         return lower_memory(nf)
@@ -12366,10 +12579,7 @@ class MemoryLowerTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(
-            nf,
-            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
-        )
+        nf = inline_local_helpers_to_boundary(nf)
         nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         for hi, lo in [(0, 0), (5, 7), (100, 200)]:
@@ -12589,10 +12799,7 @@ class RestrictedIRTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(
-            nf,
-            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
-        )
+        nf = inline_local_helpers_to_boundary(nf)
         nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         return lower_to_restricted(lower_memory(nf))
@@ -12608,10 +12815,7 @@ class RestrictedIRTest(unittest.TestCase):
 
         for name, result in resolved.items():
             nf = normalize_function(result.func, result)
-            nf = inline_pure_helpers(
-                nf,
-                boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
-            )
+            nf = inline_local_helpers_to_boundary(nf)
             nf = seal_helper_boundary(nf)
             nf = simplify_normalized(nf)
             out[name] = lower_to_restricted(lower_memory(nf))
@@ -12966,10 +13170,7 @@ class RestrictedIRTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(
-            nf,
-            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
-        )
+        nf = inline_local_helpers_to_boundary(nf)
         nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         rf = lower_to_restricted(lower_memory(nf))
@@ -13046,10 +13247,7 @@ class SSAModelTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(
-            nf,
-            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
-        )
+        nf = inline_local_helpers_to_boundary(nf)
         nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         rf = lower_to_restricted(lower_memory(nf))
@@ -13116,10 +13314,7 @@ class SSAModelTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(
-            nf,
-            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
-        )
+        nf = inline_local_helpers_to_boundary(nf)
         nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         rf = lower_to_restricted(lower_memory(nf))
@@ -13305,10 +13500,7 @@ class SSAModelTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(
-            nf,
-            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
-        )
+        nf = inline_local_helpers_to_boundary(nf)
         nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         return lower_to_restricted(lower_memory(nf))
@@ -13642,10 +13834,7 @@ class SSAModelTest(unittest.TestCase):
         restricted: dict[str, RestrictedFunction] = {}
         for name, result in resolved.items():
             nf = normalize_function(result.func, result)
-            nf = inline_pure_helpers(
-                nf,
-                boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
-            )
+            nf = inline_local_helpers_to_boundary(nf)
             nf = seal_helper_boundary(nf)
             nf = simplify_normalized(nf)
             restricted[name] = lower_to_restricted(lower_memory(nf))
@@ -13686,10 +13875,7 @@ class SSAModelTest(unittest.TestCase):
         restricted: dict[str, RestrictedFunction] = {}
         for name, result in resolved.items():
             nf = normalize_function(result.func, result)
-            nf = inline_pure_helpers(
-                nf,
-                boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
-            )
+            nf = inline_local_helpers_to_boundary(nf)
             nf = seal_helper_boundary(nf)
             nf = simplify_normalized(nf)
             restricted[name] = lower_to_restricted(lower_memory(nf))
@@ -14512,6 +14698,30 @@ class TranslationHelperInliningTest(unittest.TestCase):
         model = result[0]
         self.assertEqual(evaluate_function_model(model, (0,)), (9,))
         self.assertEqual(evaluate_function_model(model, (1,)), (7,))
+
+    def test_non_selected_unsupported_helper_fails_with_targeted_error(self) -> None:
+        yul = """
+            function fun_target_1(var_x_1) -> var_z_2 {
+                var_z_2 := helper(var_x_1)
+            }
+            function helper(var_x_3) -> var_z_4 {
+                for { } var_x_3 { } {
+                    var_z_4 := 1
+                    leave
+                }
+            }
+        """
+        config = make_model_config(("target",))
+
+        with self.assertRaisesRegex(
+            TranslationError,
+            "Cannot eliminate top-level helper call 'helper': contains for-loop",
+        ):
+            translate_yul_to_models(
+                yul,
+                config,
+                optimize=False,
+            )
 
 
 class TranslationSelectionTest(unittest.TestCase):

@@ -10,6 +10,7 @@ from .model_helpers import (
     collect_model_binders,
     collect_model_opcodes,
     model_call_names_in_stmt,
+    rewrite_model_expr,
 )
 from .model_ir import (
     Assignment,
@@ -92,7 +93,9 @@ def build_model_body(
 
     def emit_rhs(expr: Expr) -> str:
         rendered = (
-            emission.norm_rewrite(expr) if not evm and emission.norm_rewrite else expr
+            rewrite_model_expr(expr, emission.norm_rewrite)
+            if not evm and emission.norm_rewrite
+            else expr
         )
         return emit_expr(rendered, helper_map=merged_map)
 

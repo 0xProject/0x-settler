@@ -174,13 +174,13 @@ def _has_call_in_expr(expr: NExpr) -> bool:
 def _is_recognized_expr_stmt(expr: NExpr) -> bool:
     """Check if an expression-statement is a recognized pattern.
 
-    Memory ops and function calls are expected as bare statements.
-    Anything else (e.g. a bare ``add(x, y)``) is unusual and flags
-    ``has_expr_effects``.
+    Memory writes and resolved helper/model calls are expected as bare
+    statements. Anything else (e.g. a bare ``add(x, y)`` or unresolved call)
+    is unusual and flags ``has_expr_effects``.
     """
     if isinstance(expr, NBuiltinCall):
         return expr.op in _MEMORY_WRITE_OPS
-    return isinstance(expr, (NLocalCall, NTopLevelCall, NUnresolvedCall))
+    return isinstance(expr, (NLocalCall, NTopLevelCall))
 
 
 # ---------------------------------------------------------------------------

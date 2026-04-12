@@ -40,23 +40,25 @@ else:
 def rewrite_norm_ast(expr: Expr) -> Expr:
     """Rewrite sub(257, clz(arg)) → bitLengthPlus1(arg) for the Nat model.
 
-    In Nat arithmetic, normSub 257 (normClz x) = 257 - (255 - log2 x) underflows
-    for x ≥ 2^256 because 255 - log2 x truncates to 0.  normBitLengthPlus1(x)
-    computes log2(x) + 2 directly, giving the correct value for all Nat.
+    This hook is a local bottom-up rewrite. The emitter has already rewritten
+    child expressions before calling it.
+
+    In Nat arithmetic, normSub 257 (normClz x) = 257 - (255 - log2 x)
+    underflows for x ≥ 2^256 because 255 - log2 x truncates to 0.
+    normBitLengthPlus1(x) computes log2(x) + 2 directly, giving the correct
+    value for all Nat.
     """
-    if isinstance(expr, Call):
-        args = tuple(rewrite_norm_ast(a) for a in expr.args)
-        if (
-            expr.name == "sub"
-            and len(args) == 2
-            and isinstance(args[0], IntLit)
-            and args[0].value == 257
-            and isinstance(args[1], Call)
-            and args[1].name == "clz"
-            and len(args[1].args) == 1
-        ):
-            return Call("bitLengthPlus1", args[1].args)
-        return Call(expr.name, args)
+    if (
+        isinstance(expr, Call)
+        and expr.name == "sub"
+        and len(expr.args) == 2
+        and isinstance(expr.args[0], IntLit)
+        and expr.args[0].value == 257
+        and isinstance(expr.args[1], Call)
+        and expr.args[1].name == "clz"
+        and len(expr.args[1].args) == 1
+    ):
+        return Call("bitLengthPlus1", expr.args[1].args)
     return expr
 
 

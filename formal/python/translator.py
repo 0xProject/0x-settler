@@ -14,6 +14,7 @@ from .model_validate import validate_model_set
 from .norm_constprop import simplify_normalized
 from .norm_inline import (
     InlineBoundaryPolicy,
+    inline_helpers_to_boundary,
     inline_pure_helpers,
     seal_helper_boundary,
 )
@@ -114,6 +115,7 @@ def _lower_target(
         local_selected_map=local_selected_map,
         top_level_selected_map=top_level_selected_map,
     )
+    normalized = simplify_normalized(normalized)
 
     local_defs, top_level_defs = _build_inline_defs(
         target,
@@ -121,6 +123,13 @@ def _lower_target(
         top_level_selected_map=top_level_selected_map,
     )
     normalized = inline_pure_helpers(
+        normalized,
+        extra_local_defs=local_defs,
+        top_level_inline_defs=top_level_defs,
+        allowed_model_calls=allowed_model_calls,
+    )
+    normalized = simplify_normalized(normalized)
+    normalized = inline_helpers_to_boundary(
         normalized,
         extra_local_defs=local_defs,
         top_level_inline_defs=top_level_defs,

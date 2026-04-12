@@ -76,6 +76,14 @@ class NormExtension:
 
 @dataclass(frozen=True)
 class EmissionConfig:
+    """Backend-facing emission settings.
+
+    ``norm_rewrite``, when set, is a local expression rewrite applied bottom-up
+    to every model-expression node before normalized Lean emission. The hook
+    receives one node whose children have already been rewritten and returns the
+    replacement for that node.
+    """
+
     model_names: Mapping[str, str]
     header_comment: str
     generator_label: str
