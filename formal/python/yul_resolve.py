@@ -96,10 +96,10 @@ class SymbolTable:
                 raise ParseError(f"Duplicate declaration of {name!r} in the same scope")
         sid = self._alloc_id()
         info = SymbolInfo(id=sid, name=name, kind=kind, span=span)
-        scope[name] = info
+        self._scopes[-1][name] = info
         return info
 
-    def lookup(self, name: str, span: Span, *, scope_floor: int = 0) -> SymbolInfo:
+    def lookup(self, name: str, *, scope_floor: int = 0) -> SymbolInfo:
         """Resolve *name* to its ``SymbolInfo``.
 
         Searches from innermost scope outward, stopping at
@@ -254,7 +254,7 @@ def _resolve_stmt(ctx: _ResolveCtx, stmt: SynStmt) -> None:
     elif isinstance(stmt, AssignStmt):
         _resolve_expr(ctx, stmt.expr)
         for name, span in zip(stmt.targets, stmt.target_spans):
-            info = ctx.table.lookup(name, span, scope_floor=ctx.var_scope_floor)
+            info = ctx.table.lookup(name, scope_floor=ctx.var_scope_floor)
             ctx.record_reference(span, info.id)
 
     elif isinstance(stmt, ExprStmt):
@@ -302,7 +302,7 @@ def _resolve_expr(ctx: _ResolveCtx, expr: SynExpr) -> None:
         pass
 
     elif isinstance(expr, NameExpr):
-        info = ctx.table.lookup(expr.name, expr.span, scope_floor=ctx.var_scope_floor)
+        info = ctx.table.lookup(expr.name, scope_floor=ctx.var_scope_floor)
         ctx.record_reference(expr.span, info.id)
 
     elif isinstance(expr, StringExpr):

@@ -43,7 +43,7 @@ from .norm_ir import (
     NSwitch,
     NSwitchCase,
 )
-from .norm_walk import expr_contains, for_each_expr, map_expr, max_symbol_id
+from .norm_walk import expr_contains, map_expr, max_symbol_id
 from .yul_ast import ParseError, SymbolId
 
 

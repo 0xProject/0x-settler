@@ -164,11 +164,16 @@ def _prop_stmt(
 
     if isinstance(stmt, NIf):
         cond = _subst_and_fold(stmt.condition, env)
-        if isinstance(cond, NConst):
-            if cond.value != 0:
-                inner = _prop_block(stmt.then_body, env, mutable)
-                out.extend(inner.stmts)
+        if isinstance(cond, NConst) and cond.value != 0:
+            # Always-true: body always executes, propagate with shared env.
+            new_body = _prop_block(stmt.then_body, env, mutable)
+            out.append(NIf(condition=cond, then_body=new_body))
             return
+        if isinstance(cond, NConst):
+            # Always-false: body never executes, skip processing.
+            out.append(NIf(condition=cond, then_body=stmt.then_body))
+            return
+        # Variable condition: fork env, kill modified vars.
         body_env = dict(env)
         new_body = _prop_block(stmt.then_body, body_env, mutable)
         for sid in collect_modified_in_block(stmt.then_body):
@@ -178,16 +183,6 @@ def _prop_stmt(
 
     if isinstance(stmt, NSwitch):
         disc = _subst_and_fold(stmt.discriminant, env)
-        if isinstance(disc, NConst):
-            for case in stmt.cases:
-                if case.value.value == disc.value:
-                    inner = _prop_block(case.body, env, mutable)
-                    out.extend(inner.stmts)
-                    return
-            if stmt.default is not None:
-                inner = _prop_block(stmt.default, env, mutable)
-                out.extend(inner.stmts)
-            return
         new_cases = tuple(
             type(c)(value=c.value, body=_prop_block(c.body, dict(env), mutable))
             for c in stmt.cases

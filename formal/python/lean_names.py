@@ -114,7 +114,9 @@ def reserved_model_binder_names(
     emission: EmissionConfig,
     transforms: TransformConfig,
 ) -> frozenset[str]:
-    emit_any_norm = any(fn_name not in transforms.skip_norm for fn_name in function_names)
+    emit_any_norm = any(
+        fn_name not in transforms.skip_norm for fn_name in function_names
+    )
     extra_norm_names = emission.norm_helper_names() if emit_any_norm else frozenset()
     reserved = set(BASE_RESERVED_LEAN_NAMES)
     if emit_any_norm:

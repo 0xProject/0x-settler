@@ -9,7 +9,7 @@ duplicate the full isinstance dispatch over NExpr/NStmt variants.
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Protocol, assert_never
+from typing import assert_never
 
 from .norm_ir import (
     NAssign,
@@ -283,14 +283,99 @@ def max_symbol_id(func: NormalizedFunction | NFunctionDef) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Subtree freshening (binder hygiene)
+# Generic structural statement mapper
 # ---------------------------------------------------------------------------
 
 
-class SymbolIdAllocator(Protocol):
-    """Protocol for SymbolId allocation."""
+def map_stmt(
+    stmt: NStmt,
+    *,
+    map_expr_fn: Callable[[NExpr], NExpr],
+    map_block_fn: Callable[[NBlock], NBlock],
+    map_bind_targets: (
+        Callable[[tuple[SymbolId, ...]], tuple[SymbolId, ...]] | None
+    ) = None,
+    recurse_fdefs: bool = False,
+) -> NStmt:
+    """Map expressions and recurse into sub-blocks structurally.
 
-    def alloc(self) -> SymbolId: ...
+    This is the canonical "structural map over NStmt."  Each consumer
+    pass supplies its own expression rewriter and block recursion
+    callback; ``map_stmt`` handles the per-variant dispatch once.
+
+    *map_bind_targets* (optional) remaps the ``targets`` tuple on
+    ``NBind``/``NAssign``.  When *None*, targets pass through
+    unchanged.
+
+    *recurse_fdefs* controls whether ``NFunctionDef`` bodies are
+    recursed into (preserving all other fields).
+    """
+
+    def _map_block_or_none(block: NBlock | None) -> NBlock | None:
+        return map_block_fn(block) if block is not None else None
+
+    if isinstance(stmt, NBind):
+        targets = map_bind_targets(stmt.targets) if map_bind_targets else stmt.targets
+        return NBind(
+            targets=targets,
+            target_names=stmt.target_names,
+            expr=map_expr_fn(stmt.expr) if stmt.expr is not None else None,
+        )
+    if isinstance(stmt, NAssign):
+        targets = map_bind_targets(stmt.targets) if map_bind_targets else stmt.targets
+        return NAssign(
+            targets=targets,
+            target_names=stmt.target_names,
+            expr=map_expr_fn(stmt.expr),
+        )
+    if isinstance(stmt, NExprEffect):
+        return NExprEffect(expr=map_expr_fn(stmt.expr))
+    if isinstance(stmt, NStore):
+        return NStore(addr=map_expr_fn(stmt.addr), value=map_expr_fn(stmt.value))
+    if isinstance(stmt, NIf):
+        return NIf(
+            condition=map_expr_fn(stmt.condition),
+            then_body=map_block_fn(stmt.then_body),
+        )
+    if isinstance(stmt, NSwitch):
+        return NSwitch(
+            discriminant=map_expr_fn(stmt.discriminant),
+            cases=tuple(
+                NSwitchCase(value=c.value, body=map_block_fn(c.body))
+                for c in stmt.cases
+            ),
+            default=_map_block_or_none(stmt.default),
+        )
+    if isinstance(stmt, NFor):
+        return NFor(
+            init=map_block_fn(stmt.init),
+            condition=map_expr_fn(stmt.condition),
+            condition_setup=_map_block_or_none(stmt.condition_setup),
+            post=map_block_fn(stmt.post),
+            body=map_block_fn(stmt.body),
+        )
+    if isinstance(stmt, NLeave):
+        return stmt
+    if isinstance(stmt, NBlock):
+        return map_block_fn(stmt)
+    if isinstance(stmt, NFunctionDef):
+        if recurse_fdefs:
+            return NFunctionDef(
+                name=stmt.name,
+                symbol_id=stmt.symbol_id,
+                params=stmt.params,
+                param_names=stmt.param_names,
+                returns=stmt.returns,
+                return_names=stmt.return_names,
+                body=map_block_fn(stmt.body),
+            )
+        return stmt
+    assert_never(stmt)
+
+
+# ---------------------------------------------------------------------------
+# Subtree freshening (binder hygiene)
+# ---------------------------------------------------------------------------
 
 
 class SymbolAllocator:
@@ -307,7 +392,7 @@ class SymbolAllocator:
 
 def freshen_function_subtree(
     fdef: NFunctionDef,
-    alloc: SymbolIdAllocator,
+    alloc: SymbolAllocator,
 ) -> NFunctionDef:
     """Return a copy of *fdef* with ALL internal SymbolIds freshened.
 
@@ -360,56 +445,8 @@ def _freshen_block(block: NBlock, id_map: dict[SymbolId, SymbolId]) -> NBlock:
 
 
 def _freshen_stmt(stmt: NStmt, m: dict[SymbolId, SymbolId]) -> NStmt:
-    if isinstance(stmt, NBind):
-        return NBind(
-            targets=tuple(m.get(s, s) for s in stmt.targets),
-            target_names=stmt.target_names,
-            expr=_freshen_expr(stmt.expr, m) if stmt.expr is not None else None,
-        )
-    if isinstance(stmt, NAssign):
-        return NAssign(
-            targets=tuple(m.get(s, s) for s in stmt.targets),
-            target_names=stmt.target_names,
-            expr=_freshen_expr(stmt.expr, m),
-        )
-    if isinstance(stmt, NExprEffect):
-        return NExprEffect(expr=_freshen_expr(stmt.expr, m))
-    if isinstance(stmt, NStore):
-        return NStore(
-            addr=_freshen_expr(stmt.addr, m), value=_freshen_expr(stmt.value, m)
-        )
-    if isinstance(stmt, NIf):
-        return NIf(
-            condition=_freshen_expr(stmt.condition, m),
-            then_body=_freshen_block(stmt.then_body, m),
-        )
-    if isinstance(stmt, NSwitch):
-        return NSwitch(
-            discriminant=_freshen_expr(stmt.discriminant, m),
-            cases=tuple(
-                NSwitchCase(value=c.value, body=_freshen_block(c.body, m))
-                for c in stmt.cases
-            ),
-            default=(
-                _freshen_block(stmt.default, m) if stmt.default is not None else None
-            ),
-        )
-    if isinstance(stmt, NFor):
-        return NFor(
-            init=_freshen_block(stmt.init, m),
-            condition=_freshen_expr(stmt.condition, m),
-            condition_setup=(
-                _freshen_block(stmt.condition_setup, m)
-                if stmt.condition_setup is not None
-                else None
-            ),
-            post=_freshen_block(stmt.post, m),
-            body=_freshen_block(stmt.body, m),
-        )
-    if isinstance(stmt, NLeave):
-        return stmt
-    if isinstance(stmt, NBlock):
-        return _freshen_block(stmt, m)
+    # NFunctionDef needs full field remapping (symbol_id, params, returns)
+    # which map_stmt's map_bind_targets doesn't cover, so handle it directly.
     if isinstance(stmt, NFunctionDef):
         return NFunctionDef(
             name=stmt.name,
@@ -420,7 +457,12 @@ def _freshen_stmt(stmt: NStmt, m: dict[SymbolId, SymbolId]) -> NStmt:
             return_names=stmt.return_names,
             body=_freshen_block(stmt.body, m),
         )
-    assert_never(stmt)
+    return map_stmt(
+        stmt,
+        map_expr_fn=lambda e: _freshen_expr(e, m),
+        map_block_fn=lambda b: _freshen_block(b, m),
+        map_bind_targets=lambda ts: tuple(m.get(s, s) for s in ts),
+    )
 
 
 def _freshen_expr(expr: NExpr, m: dict[SymbolId, SymbolId]) -> NExpr:

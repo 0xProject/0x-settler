@@ -51,9 +51,9 @@ from .norm_leave import lower_leave_block
 from .norm_walk import (
     SymbolAllocator,
     collect_function_defs,
-    for_each_expr,
     freshen_function_subtree,
     map_expr,
+    map_stmt,
     max_symbol_id,
 )
 from .yul_ast import ParseError, SymbolId
@@ -106,7 +106,8 @@ def _atomize_args(
     """Bind each argument to a fresh temp, returning (binds, refs).
 
     Ensures each argument is evaluated exactly once, in order.
-    Trivial atoms (NConst, NRef) are passed through without a temp.
+    NRef atoms are passed through without a temp; NConst values are
+    bound to avoid duplicating large constants.
     """
     binds: list[NStmt] = []
     refs: list[NRef] = []
@@ -499,64 +500,16 @@ def _subst_block(block: NBlock, subst: dict[SymbolId, NExpr]) -> NBlock:
     """Substitute expressions for SymbolIds in a block (param replacement)."""
     if not subst:
         return block
-    return NBlock(tuple(_subst_stmt(s, subst) for s in block.stmts))
-
-
-def _subst_stmt(stmt: NStmt, subst: dict[SymbolId, NExpr]) -> NStmt:
-    if isinstance(stmt, NBind):
-        return NBind(
-            targets=stmt.targets,
-            target_names=stmt.target_names,
-            expr=substitute_nexpr(stmt.expr, subst) if stmt.expr is not None else None,
+    return NBlock(
+        tuple(
+            map_stmt(
+                s,
+                map_expr_fn=lambda e: substitute_nexpr(e, subst),
+                map_block_fn=lambda b: _subst_block(b, subst),
+            )
+            for s in block.stmts
         )
-    if isinstance(stmt, NAssign):
-        return NAssign(
-            targets=stmt.targets,
-            target_names=stmt.target_names,
-            expr=substitute_nexpr(stmt.expr, subst),
-        )
-    if isinstance(stmt, NExprEffect):
-        return NExprEffect(expr=substitute_nexpr(stmt.expr, subst))
-    if isinstance(stmt, NStore):
-        return NStore(
-            addr=substitute_nexpr(stmt.addr, subst),
-            value=substitute_nexpr(stmt.value, subst),
-        )
-    if isinstance(stmt, NIf):
-        return NIf(
-            condition=substitute_nexpr(stmt.condition, subst),
-            then_body=_subst_block(stmt.then_body, subst),
-        )
-    if isinstance(stmt, NSwitch):
-        return NSwitch(
-            discriminant=substitute_nexpr(stmt.discriminant, subst),
-            cases=tuple(
-                NSwitchCase(value=case.value, body=_subst_block(case.body, subst))
-                for case in stmt.cases
-            ),
-            default=(
-                _subst_block(stmt.default, subst) if stmt.default is not None else None
-            ),
-        )
-    if isinstance(stmt, NFor):
-        return NFor(
-            init=_subst_block(stmt.init, subst),
-            condition=substitute_nexpr(stmt.condition, subst),
-            condition_setup=(
-                _subst_block(stmt.condition_setup, subst)
-                if stmt.condition_setup is not None
-                else None
-            ),
-            post=_subst_block(stmt.post, subst),
-            body=_subst_block(stmt.body, subst),
-        )
-    if isinstance(stmt, NBlock):
-        return _subst_block(stmt, subst)
-    if isinstance(stmt, NLeave):
-        return stmt
-    if isinstance(stmt, NFunctionDef):
-        return stmt  # Nested fdefs have their own scope
-    assert_never(stmt)
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -796,9 +749,7 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
                 "Control-flow condition requires statement prelude after helper "
                 "inlining. NIf conditions must remain expression-only."
             )
-        out = list(c_pre)
-        out.append(NIf(condition=c_val, then_body=_rewrite_block(stmt.then_body, ctx)))
-        return out
+        return [NIf(condition=c_val, then_body=_rewrite_block(stmt.then_body, ctx))]
 
     if isinstance(stmt, NSwitch):
         d_pre, d_val = _inline_in_expr_with_prelude(stmt.discriminant, ctx, 0)

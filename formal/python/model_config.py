@@ -91,19 +91,6 @@ class TransformConfig:
     hoist_repeated_calls: frozenset[str] = frozenset()
     skip_prune: frozenset[str] = frozenset()
 
-    def __post_init__(self) -> None:
-        skip_norm = frozenset(self.skip_norm)
-        hoist_repeated_calls = frozenset(self.hoist_repeated_calls)
-        skip_prune = frozenset(self.skip_prune)
-
-        object.__setattr__(self, "skip_norm", skip_norm)
-        object.__setattr__(
-            self,
-            "hoist_repeated_calls",
-            hoist_repeated_calls,
-        )
-        object.__setattr__(self, "skip_prune", skip_prune)
-
 
 @dataclass(frozen=True)
 class NormExtension:

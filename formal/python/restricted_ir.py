@@ -6,7 +6,8 @@ later.
 
 The restricted IR is a flat sequence of ``RAssignment`` and
 ``RConditionalBlock`` statements with explicit branch outputs.
-No nested blocks, no implicit control flow, and no memory operations.
+No bare nested blocks (conditionals may nest), no implicit control flow,
+and no memory operations.
 """
 
 from __future__ import annotations

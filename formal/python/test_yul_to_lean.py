@@ -11052,22 +11052,27 @@ class ConstPropTest(unittest.TestCase):
         assign = cast(norm_ir.NAssign, nf.body.stmts[1])
         self.assertEqual(assign.expr, norm_ir.NConst(4))
 
-    def test_dead_branch_eliminated(self) -> None:
-        """if 0 { z := 1 } is removed entirely."""
+    def test_dead_branch_preserved_with_const_condition(self) -> None:
+        """if 0 { z := 1 } — constprop folds condition but leaves the NIf for simplify."""
         nf = self._prop("function f() -> z { if 0 { z := 1 } }")
-        # Body should have no statements (the if was dead).
-        self.assertEqual(len(nf.body.stmts), 0)
-
-    def test_live_branch_flattened(self) -> None:
-        """if 1 { z := 7 } flattened to z := 7."""
-        nf = self._prop("function f() -> z { if 1 { z := 7 } }")
+        # Constprop outputs the NIf with constant-zero condition; simplify removes it.
         self.assertEqual(len(nf.body.stmts), 1)
-        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
-        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
-        self.assertEqual(assign.expr, norm_ir.NConst(7))
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NIf)
+        nif = cast(norm_ir.NIf, nf.body.stmts[0])
+        self.assertEqual(nif.condition, norm_ir.NConst(0))
+
+    def test_live_branch_propagated_with_const_condition(self) -> None:
+        """if 1 { z := 7 } — constprop propagates through body with shared env."""
+        nf = self._prop("function f() -> z { if 1 { z := 7 } }")
+        # Constprop outputs the NIf with constant-nonzero condition; simplify inlines it.
+        self.assertEqual(len(nf.body.stmts), 1)
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NIf)
+        nif = cast(norm_ir.NIf, nf.body.stmts[0])
+        self.assertEqual(nif.condition, norm_ir.NConst(1))
 
     def test_switch_constant_fold(self) -> None:
-        """switch 1 case 0 { ... } case 1 { z := 20 } default { ... } → z := 20."""
+        """switch 1 case 0 { ... } case 1 { z := 20 } default { ... } — constprop
+        folds discriminant but leaves the NSwitch for simplify to select the case."""
         nf = self._prop("""
             function f() -> z {
                 switch 1
@@ -11076,11 +11081,11 @@ class ConstPropTest(unittest.TestCase):
                 default { z := 30 }
             }
         """)
-        # Only the matching case body should remain.
+        # Constprop outputs the NSwitch with constant discriminant; simplify picks the case.
         self.assertEqual(len(nf.body.stmts), 1)
-        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
-        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
-        self.assertEqual(assign.expr, norm_ir.NConst(20))
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NSwitch)
+        nswitch = cast(norm_ir.NSwitch, nf.body.stmts[0])
+        self.assertEqual(nswitch.discriminant, norm_ir.NConst(1))
 
     def test_switch_constant_fold_wraps_oversized_case_literals_to_u256(self) -> None:
         nf = self._prop(f"""
@@ -11090,10 +11095,11 @@ class ConstPropTest(unittest.TestCase):
                 default {{ z := 20 }}
             }}
         """)
+        # Constprop outputs the NSwitch with constant discriminant; simplify picks the case.
         self.assertEqual(len(nf.body.stmts), 1)
-        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
-        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
-        self.assertEqual(assign.expr, norm_ir.NConst(10))
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NSwitch)
+        nswitch = cast(norm_ir.NSwitch, nf.body.stmts[0])
+        self.assertEqual(nswitch.discriminant, norm_ir.NConst(0))
 
     def test_invalidation_at_conditional_join(self) -> None:
         """Variable modified in if-body is not propagated after the if."""

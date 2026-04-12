@@ -37,8 +37,7 @@ def tokenize_yul(source: str) -> list[tuple[str, str]]:
     pos = 0
     while pos < len(source):
         m = YUL_TOKEN_RE.match(source, pos)
-        if not m:
-            raise ParseError(f"Unexpected tokenization failure at offset {pos}")
+        assert m is not None  # regex has (?P<other>.) fallback; always matches
         pos = m.end()
         kind = m.lastgroup
         text = m.group()

@@ -100,8 +100,6 @@ def evaluate_normalized(
     local: dict[SymbolId, NFunctionDef] = (
         dict(enclosing_local_funcs) if enclosing_local_funcs else {}
     )
-    local.update(_collect_local_funcs(func.body))
-
     ctx = _EvalCtx(
         env=env,
         memory=shared_memory,
@@ -185,10 +183,7 @@ def _exec_stmt(ctx: _EvalCtx, stmt: NStmt) -> None:
             cond = _to_scalar(_eval_expr(ctx, stmt.condition))
             if cond == 0:
                 return
-            try:
-                _exec_block(ctx, stmt.body)
-            except _LeaveSignal:
-                raise
+            _exec_block(ctx, stmt.body)
             _exec_block(ctx, stmt.post)
         raise EvaluationError("For-loop exceeded maximum iteration count")
 

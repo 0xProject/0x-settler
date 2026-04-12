@@ -26,6 +26,7 @@ from .norm_ir import (
     NSwitch,
     NSwitchCase,
 )
+from .norm_walk import map_stmt
 
 
 def simplify_normalized(func: NormalizedFunction) -> NormalizedFunction:
@@ -40,7 +41,7 @@ def simplify_normalized(func: NormalizedFunction) -> NormalizedFunction:
     )
 
 
-def simplify_function_def(fdef: NFunctionDef) -> NFunctionDef:
+def _simplify_function_def(fdef: NFunctionDef) -> NFunctionDef:
     """Apply the same cleanup to a helper definition."""
     return NFunctionDef(
         name=fdef.name,
@@ -68,30 +69,6 @@ def _simplify_block(block: NBlock) -> NBlock:
 
 
 def _simplify_stmt(stmt: NStmt) -> list[NStmt]:
-    if isinstance(stmt, NBind):
-        return [
-            NBind(
-                targets=stmt.targets,
-                target_names=stmt.target_names,
-                expr=fold_expr(stmt.expr) if stmt.expr is not None else None,
-            )
-        ]
-
-    if isinstance(stmt, NAssign):
-        return [
-            NAssign(
-                targets=stmt.targets,
-                target_names=stmt.target_names,
-                expr=fold_expr(stmt.expr),
-            )
-        ]
-
-    if isinstance(stmt, NExprEffect):
-        return [NExprEffect(expr=fold_expr(stmt.expr))]
-
-    if isinstance(stmt, NStore):
-        return [NStore(addr=fold_expr(stmt.addr), value=fold_expr(stmt.value))]
-
     if isinstance(stmt, NIf):
         cond = fold_expr(stmt.condition)
         then_body = _simplify_block(stmt.then_body)
@@ -113,32 +90,11 @@ def _simplify_stmt(stmt: NStmt) -> list[NStmt]:
             return list(default.stmts) if default is not None else []
         return [NSwitch(discriminant=disc, cases=cases, default=default)]
 
-    if isinstance(stmt, NFor):
-        condition_setup = (
-            _simplify_block(stmt.condition_setup)
-            if stmt.condition_setup is not None
-            else None
-        )
-        return [
-            NFor(
-                init=_simplify_block(stmt.init),
-                condition=fold_expr(stmt.condition),
-                condition_setup=condition_setup,
-                post=_simplify_block(stmt.post),
-                body=_simplify_block(stmt.body),
-            )
-        ]
-
     if isinstance(stmt, NFunctionDef):
-        return [simplify_function_def(stmt)]
+        return [_simplify_function_def(stmt)]
 
-    if isinstance(stmt, NBlock):
-        return [_simplify_block(stmt)]
-
-    if isinstance(stmt, NLeave):
-        return [stmt]
-
-    assert_never(stmt)
+    # All other variants: fold expressions + recurse blocks
+    return [map_stmt(stmt, map_expr_fn=fold_expr, map_block_fn=_simplify_block)]
 
 
 def _definitely_terminates(stmt: NStmt) -> bool:

@@ -68,7 +68,7 @@ def _sanitize_base(name: str) -> str:
     return name
 
 
-def legalize_identifier_base(name: str) -> str:
+def _legalize_identifier_base(name: str) -> str:
     """Demangle + sanitize a binder name."""
     return _sanitize_base(_demangle(name))
 
@@ -82,7 +82,7 @@ def _uniquify_name_bases(
     result: dict[SymbolId, str] = {}
     used: set[str] = set(reserved_names)
     for sid, raw in raw_names.items():
-        base = legalize_identifier_base(raw)
+        base = _legalize_identifier_base(raw)
         candidate = base
         suffix = 1
         while candidate in used:
@@ -258,11 +258,14 @@ def plan_module(
     function_names: dict[str, str] = {}
     used_fn: set[str] = set()
     for raw in funcs:
-        clean = _sanitize_base(_demangle_function_name(raw))
-        while clean in used_fn:
-            clean = clean + "_"
-        used_fn.add(clean)
-        function_names[raw] = clean
+        base = _sanitize_base(_demangle_function_name(raw))
+        candidate = base
+        suffix = 1
+        while candidate in used_fn:
+            candidate = f"{base}_{suffix}"
+            suffix += 1
+        used_fn.add(candidate)
+        function_names[raw] = candidate
 
     # Plan binder names per function.
     binder_names: dict[str, dict[SymbolId, str]] = {}

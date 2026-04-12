@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from typing import assert_never
 
 from .evm_builtins import EVM_BUILTINS
 from .model_config import FrozenMap, SelectionConfig
@@ -139,7 +140,7 @@ class _SelectionIndex:
         ]
 
 
-def normalize_requested_functions(
+def _normalize_requested_functions(
     config: SelectionConfig,
     requested: tuple[str, ...] | list[str] | None = None,
 ) -> tuple[str, ...]:
@@ -184,7 +185,7 @@ def build_selection_plan(
     tokens = tuple(tokenize_yul(yul_text))
     index = _build_selection_index(list(tokens))
 
-    selected = normalize_requested_functions(config, selected_functions)
+    selected = _normalize_requested_functions(config, selected_functions)
     candidate_lists = _build_candidate_lists(index, config, selected)
     resolved_infos = _resolve_candidates(index, config, selected, candidate_lists)
     selected_keys = {info.key for info in resolved_infos.values()}
@@ -759,6 +760,8 @@ def _direct_call_targets(
         if isinstance(stmt, LetStmt):
             if stmt.init is not None:
                 walk_expr(stmt.init, out)
+            return
+        assert_never(stmt)
 
     def walk_block(
         block: Block,

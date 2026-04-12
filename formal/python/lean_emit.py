@@ -76,9 +76,8 @@ def build_model_body(
     return_names: tuple[str, ...] = ("z",),
     call_map: dict[str, str] | None = None,
 ) -> str:
-    emission_config = emission
     lines: list[str] = []
-    norm_helpers = {**_BASE_NORM_HELPERS, **emission_config.norm_helper_map()}
+    norm_helpers = {**_BASE_NORM_HELPERS, **emission.norm_helper_map()}
 
     if evm:
         for name in param_names:
@@ -91,9 +90,7 @@ def build_model_body(
 
     def emit_rhs(expr: Expr) -> str:
         rendered = (
-            emission_config.norm_rewrite(expr)
-            if not evm and emission_config.norm_rewrite
-            else expr
+            emission.norm_rewrite(expr) if not evm and emission.norm_rewrite else expr
         )
         return emit_expr(rendered, helper_map=merged_map)
 
@@ -147,7 +144,7 @@ class LeanEmissionPlan:
     model_defs: tuple[EmittedModelDef, ...]
 
 
-def any_norm_models(
+def _any_norm_models(
     models: list[FunctionModel],
     transforms: TransformConfig,
 ) -> bool:
@@ -180,7 +177,7 @@ def _build_lean_emission_plan(
     emission: EmissionConfig,
     transforms: TransformConfig,
 ) -> LeanEmissionPlan:
-    emit_any_norm = any_norm_models(models, transforms)
+    emit_any_norm = _any_norm_models(models, transforms)
     extra_norm_names = emission.norm_helper_names()
     norm_reserved = (
         norm_reserved_lean_names(extra_norm_names) if emit_any_norm else frozenset()
@@ -256,14 +253,13 @@ def render_function_defs(
     *,
     emission_plan: LeanEmissionPlan | None = None,
 ) -> str:
-    emission_config, transform_config = emission, transforms
     validate_model_set(models)
 
     if emission_plan is None:
         emission_plan = _build_lean_emission_plan(
             models,
-            emission_config,
-            transform_config,
+            emission,
+            transforms,
         )
     if len(emission_plan.model_defs) != len(models):
         raise ParseError("Lean emission plan/model count mismatch")
@@ -284,7 +280,7 @@ def render_function_defs(
         evm_body = build_model_body(
             model.assignments,
             evm=True,
-            emission=emission_config,
+            emission=emission,
             param_names=model.param_names,
             return_names=model.return_names,
             call_map=evm_call_map,
@@ -307,7 +303,7 @@ def render_function_defs(
             norm_body = build_model_body(
                 model.assignments,
                 evm=False,
-                emission=emission_config,
+                emission=emission,
                 param_names=model.param_names,
                 return_names=model.return_names,
                 call_map=norm_call_map,
@@ -328,33 +324,31 @@ def build_lean_source(
     emission: EmissionConfig,
     transforms: TransformConfig = TransformConfig(),
 ) -> str:
-    emission_config, transform_config = emission, transforms
     validate_ident(namespace, what="Lean namespace")
     if "\n" in source_path:
         raise ParseError(
             f"Source path contains newline (potential injection): {source_path!r}"
         )
-    if "\n" in emission_config.generator_label:
+    if "\n" in emission.generator_label:
         raise ParseError(
             f"Generator label contains newline (potential injection): "
-            f"{emission_config.generator_label!r}"
+            f"{emission.generator_label!r}"
         )
-    if "-/" in emission_config.header_comment:
+    if "-/" in emission.header_comment:
         raise ParseError(
             f"Header comment contains Lean doc-comment terminator '-/': "
-            f"{emission_config.header_comment!r}"
+            f"{emission.header_comment!r}"
         )
 
-    validate_model_set(models)
     emission_plan = _build_lean_emission_plan(
         models,
-        emission_config,
-        transform_config,
+        emission,
+        transforms,
     )
     binder_reserved = reserved_model_binder_names(
         tuple(model.fn_name for model in models),
-        emission_config,
-        transform_config,
+        emission,
+        transforms,
     )
 
     for model in models:
@@ -369,8 +363,8 @@ def build_lean_source(
     opcodes_line = ", ".join(collect_model_opcodes(models))
     function_defs = render_function_defs(
         models,
-        emission_config,
-        transform_config,
+        emission,
+        transforms,
         emission_plan=emission_plan,
     )
 
@@ -380,7 +374,7 @@ def build_lean_source(
         norm_parts = [spec.norm_def for spec in MODELED_BUILTINS]
         norm_parts.extend(
             extension.lean_def.rstrip()
-            for extension in emission_config.norm_extensions
+            for extension in emission.norm_extensions
             if extension.lean_def.strip()
         )
         norm_defs = "\n\n".join(norm_parts) + "\n\n"
@@ -388,10 +382,10 @@ def build_lean_source(
     return (
         "import Init\n\n"
         f"namespace {namespace}\n\n"
-        f"/-- {emission_config.header_comment} -/\n"
+        f"/-- {emission.header_comment} -/\n"
         f"-- Source: {source_path}\n"
         f"-- Modeled functions: {modeled_functions}\n"
-        f"-- Generated by: {emission_config.generator_label}\n"
+        f"-- Generated by: {emission.generator_label}\n"
         f"-- Modeled opcodes/Yul builtins: {opcodes_line}\n\n"
         "def WORD_MOD : Nat := 2 ^ 256\n\n"
         "def u256 (x : Nat) : Nat :=\n"

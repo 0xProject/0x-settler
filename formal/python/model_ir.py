@@ -48,7 +48,7 @@ class Assignment:
 
 @dataclass(frozen=True)
 class ConditionalBranch:
-    """A single branch of a restricted-IR conditional."""
+    """A single branch of a model-IR conditional."""
 
     assignments: tuple["ModelStatement", ...]
     outputs: tuple["Expr", ...]
@@ -56,7 +56,7 @@ class ConditionalBranch:
 
 @dataclass(frozen=True)
 class ConditionalBlock:
-    """A restricted-IR conditional with explicit outputs for both branches."""
+    """A model-IR conditional with explicit outputs for both branches."""
 
     condition: Expr
     output_vars: tuple[str, ...]
@@ -71,8 +71,8 @@ ModelStatement = Assignment | ConditionalBlock
 class FunctionModel:
     fn_name: str
     assignments: tuple[ModelStatement, ...]
-    param_names: tuple[str, ...] = ("x",)
-    return_names: tuple[str, ...] = ("z",)
+    param_names: tuple[str, ...]
+    return_names: tuple[str, ...]
 
 
 ModelValue = int | tuple[int, ...]

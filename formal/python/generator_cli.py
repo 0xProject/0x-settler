@@ -6,7 +6,6 @@ import sys
 from typing import TextIO
 
 from .lean_emit import build_lean_source
-from .lean_names import validate_ident
 from .model_config import ModelConfig
 from .model_helpers import collect_model_opcodes
 from .translator import translate_yul_to_models
@@ -59,7 +58,6 @@ def run_generator(config: ModelConfig) -> int:
     )
     args = parser.parse_args(namespace=_CliArgs())
 
-    validate_ident(args.namespace, what="Lean namespace")
     selected_functions = _parse_function_selection(args.function, args.functions)
     if args.yul == "-":
         stdin = sys.stdin

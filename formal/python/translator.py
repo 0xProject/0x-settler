@@ -6,7 +6,7 @@ Owns the end-to-end pipeline: selection -> lowering -> model transforms.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, assert_never
+from typing import TYPE_CHECKING, overload
 
 from .model_config import ModelConfig
 from .model_transforms import apply_optional_model_transforms
@@ -14,21 +14,11 @@ from .model_validate import validate_model_set
 from .norm_constprop import propagate_constants
 from .norm_inline import InlineBoundaryPolicy, inline_pure_helpers
 from .norm_ir import (
-    NAssign,
-    NBind,
     NBlock,
     NExpr,
-    NExprEffect,
-    NFor,
     NFunctionDef,
-    NIf,
-    NLeave,
     NLocalCall,
     NormalizedFunction,
-    NStmt,
-    NStore,
-    NSwitch,
-    NSwitchCase,
     NTopLevelCall,
 )
 from .norm_leave import lower_leave
@@ -36,7 +26,7 @@ from .norm_memory import lower_memory
 from .norm_simplify import simplify_normalized
 from .norm_to_restricted import lower_to_restricted
 from .norm_validate import validate_restricted_boundary
-from .norm_walk import SymbolAllocator, map_expr
+from .norm_walk import SymbolAllocator, map_expr, map_stmt
 from .restricted_ir import RestrictedFunction
 from .restricted_to_model import to_function_models
 from .selection import (
@@ -251,19 +241,37 @@ def _prepare_helper(
         return_names=simplified.return_names,
         body=simplified.body,
     )
-    return _rewrite_selected_calls_in_fdef(
+    return _rewrite_selected_calls(
         fdef,
         local_selected_map=local_selected_map,
         top_level_selected_map=top_level_selected_map,
     )
 
 
+@overload
 def _rewrite_selected_calls(
     func: NormalizedFunction,
     *,
     local_selected_map: dict[SymbolId, str],
     top_level_selected_map: dict[str, str],
-) -> NormalizedFunction:
+) -> NormalizedFunction: ...
+
+
+@overload
+def _rewrite_selected_calls(
+    func: NFunctionDef,
+    *,
+    local_selected_map: dict[SymbolId, str],
+    top_level_selected_map: dict[str, str],
+) -> NFunctionDef: ...
+
+
+def _rewrite_selected_calls(
+    func: NormalizedFunction | NFunctionDef,
+    *,
+    local_selected_map: dict[SymbolId, str],
+    top_level_selected_map: dict[str, str],
+) -> NormalizedFunction | NFunctionDef:
     def rw(expr: NExpr) -> NExpr:
         if isinstance(expr, NLocalCall) and expr.symbol_id in local_selected_map:
             return NTopLevelCall(
@@ -274,100 +282,35 @@ def _rewrite_selected_calls(
         return expr
 
     def rw_block(block: NBlock) -> NBlock:
-        return NBlock(tuple(rw_stmt(s) for s in block.stmts))
+        return NBlock(
+            tuple(
+                map_stmt(
+                    s,
+                    map_expr_fn=lambda e: map_expr(e, rw),
+                    map_block_fn=rw_block,
+                    recurse_fdefs=True,
+                )
+                for s in block.stmts
+            )
+        )
 
-    def rw_block_or_none(block: NBlock | None) -> NBlock | None:
-        return rw_block(block) if block is not None else None
+    new_body = rw_block(func.body)
 
-    def rw_stmt(stmt: NStmt) -> NStmt:
-        if isinstance(stmt, NBind):
-            return NBind(
-                targets=stmt.targets,
-                target_names=stmt.target_names,
-                expr=map_expr(stmt.expr, rw) if stmt.expr is not None else None,
-            )
-        if isinstance(stmt, NAssign):
-            return NAssign(
-                targets=stmt.targets,
-                target_names=stmt.target_names,
-                expr=map_expr(stmt.expr, rw),
-            )
-        if isinstance(stmt, NExprEffect):
-            return NExprEffect(expr=map_expr(stmt.expr, rw))
-        if isinstance(stmt, NStore):
-            return NStore(addr=map_expr(stmt.addr, rw), value=map_expr(stmt.value, rw))
-        if isinstance(stmt, NIf):
-            return NIf(
-                condition=map_expr(stmt.condition, rw),
-                then_body=rw_block(stmt.then_body),
-            )
-        if isinstance(stmt, NSwitch):
-            return NSwitch(
-                discriminant=map_expr(stmt.discriminant, rw),
-                cases=tuple(
-                    NSwitchCase(value=c.value, body=rw_block(c.body))
-                    for c in stmt.cases
-                ),
-                default=rw_block_or_none(stmt.default),
-            )
-        if isinstance(stmt, NFor):
-            return NFor(
-                init=rw_block(stmt.init),
-                condition=map_expr(stmt.condition, rw),
-                condition_setup=rw_block_or_none(stmt.condition_setup),
-                post=rw_block(stmt.post),
-                body=rw_block(stmt.body),
-            )
-        if isinstance(stmt, NFunctionDef):
-            return NFunctionDef(
-                name=stmt.name,
-                symbol_id=stmt.symbol_id,
-                params=stmt.params,
-                param_names=stmt.param_names,
-                returns=stmt.returns,
-                return_names=stmt.return_names,
-                body=rw_block(stmt.body),
-            )
-        if isinstance(stmt, NBlock):
-            return rw_block(stmt)
-        if isinstance(stmt, NLeave):
-            return stmt
-        assert_never(stmt)
-
+    if isinstance(func, NFunctionDef):
+        return NFunctionDef(
+            name=func.name,
+            symbol_id=func.symbol_id,
+            params=func.params,
+            param_names=func.param_names,
+            returns=func.returns,
+            return_names=func.return_names,
+            body=new_body,
+        )
     return NormalizedFunction(
         name=func.name,
         params=func.params,
         param_names=func.param_names,
         returns=func.returns,
         return_names=func.return_names,
-        body=rw_block(func.body),
-    )
-
-
-def _rewrite_selected_calls_in_fdef(
-    fdef: NFunctionDef,
-    *,
-    local_selected_map: dict[SymbolId, str],
-    top_level_selected_map: dict[str, str],
-) -> NFunctionDef:
-    rewritten = _rewrite_selected_calls(
-        NormalizedFunction(
-            name=fdef.name,
-            params=fdef.params,
-            param_names=fdef.param_names,
-            returns=fdef.returns,
-            return_names=fdef.return_names,
-            body=fdef.body,
-        ),
-        local_selected_map=local_selected_map,
-        top_level_selected_map=top_level_selected_map,
-    )
-    return NFunctionDef(
-        name=rewritten.name,
-        symbol_id=fdef.symbol_id,
-        params=rewritten.params,
-        param_names=rewritten.param_names,
-        returns=rewritten.returns,
-        return_names=rewritten.return_names,
-        body=rewritten.body,
+        body=new_body,
     )

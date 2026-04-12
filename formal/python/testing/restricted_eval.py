@@ -6,6 +6,8 @@ Test-only support for semantic equivalence checks.
 
 from __future__ import annotations
 
+from typing import assert_never
+
 from ..evm_builtins import eval_pure_builtin, u256
 from ..restricted_ir import (
     RAssignment,
@@ -57,7 +59,7 @@ def _eval_expr(
             return _eval_expr(expr.if_true, env, model_table)
         return _eval_expr(expr.if_false, env, model_table)
 
-    raise EvaluationError(f"Unexpected expression: {type(expr).__name__}")
+    assert_never(expr)
 
 
 def _eval_block(
@@ -92,6 +94,9 @@ def _eval_block(
 
             for out_sid, out_expr in zip(stmt.output_targets, branch.output_exprs):
                 env[out_sid] = _eval_expr(out_expr, branch_env, model_table)
+
+        else:
+            assert_never(stmt)
 
 
 def evaluate_restricted(
