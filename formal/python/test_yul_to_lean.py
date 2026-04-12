@@ -2464,7 +2464,7 @@ class ValidateFunctionModelTest(unittest.TestCase):
         with self.assertRaisesRegex(TranslationError, "duplicate return"):
             validate_function_model(model)
 
-    def test_validate_allows_param_return_overlap_in_restricted_ir(self) -> None:
+    def test_validate_allows_returning_parameter_directly(self) -> None:
         model = FunctionModel(
             fn_name="identity",
             param_names=("x",),
@@ -2473,6 +2473,31 @@ class ValidateFunctionModelTest(unittest.TestCase):
         )
         validate_function_model(model)
         self.assertEqual(evaluate_function_model(model, (7,)), (7,))
+
+    def test_validate_allows_rebinding_parameter_name(self) -> None:
+        model = FunctionModel(
+            fn_name="rebind_param",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                Assignment("x", IntLit(1)),
+                Assignment("z", Var("x")),
+            ),
+        )
+        validate_function_model(model)
+
+    def test_validate_allows_rebinding_same_name_sequentially(self) -> None:
+        model = FunctionModel(
+            fn_name="rebind_seq",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                Assignment("tmp", IntLit(1)),
+                Assignment("tmp", IntLit(2)),
+                Assignment("z", Var("tmp")),
+            ),
+        )
+        validate_function_model(model)
 
     def test_validate_rejects_duplicate_conditional_output_vars(self) -> None:
         model = FunctionModel(
@@ -2499,6 +2524,47 @@ class ValidateFunctionModelTest(unittest.TestCase):
             TranslationError, "duplicate conditional output_vars"
         ):
             validate_function_model(model)
+
+    def test_validate_allows_conditional_output_rebinding_existing_name(self) -> None:
+        model = FunctionModel(
+            fn_name="cond_rebind",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                Assignment("tmp", IntLit(0)),
+                ConditionalBlock(
+                    condition=Var("x"),
+                    output_vars=("tmp",),
+                    then_branch=branch((), (IntLit(1),)),
+                    else_branch=branch((), (IntLit(2),)),
+                ),
+                Assignment("z", Var("tmp")),
+            ),
+        )
+        validate_function_model(model)
+
+    def test_validate_allows_branch_local_name_reuse_across_branches(self) -> None:
+        model = FunctionModel(
+            fn_name="branch_locals",
+            param_names=("x",),
+            return_names=("z",),
+            assignments=(
+                ConditionalBlock(
+                    condition=Var("x"),
+                    output_vars=("out",),
+                    then_branch=branch(
+                        (Assignment("tmp", IntLit(1)),),
+                        ("tmp",),
+                    ),
+                    else_branch=branch(
+                        (Assignment("tmp", IntLit(2)),),
+                        ("tmp",),
+                    ),
+                ),
+                Assignment("z", Var("out")),
+            ),
+        )
+        validate_function_model(model)
 
     def test_validate_rejects_invalid_ident_in_param(self) -> None:
         model = FunctionModel(
@@ -2619,6 +2685,111 @@ class CollectOpsTest(unittest.TestCase):
         )
         ops = collect_ops_from_statement(stmt)
         self.assertIn("gt", ops)
+
+
+class ExprWalkTest(unittest.TestCase):
+    def test_yul_for_each_expr_uses_shared_recursive_traversal(self) -> None:
+        from .yul_walk import for_each_expr
+
+        expr: yul_ast.SynExpr = yul_ast.CallExpr(
+            name="f",
+            name_span=yul_ast.Span(0, 1),
+            args=(
+                yul_ast.NameExpr("x", yul_ast.Span(1, 2)),
+                yul_ast.CallExpr(
+                    name="g",
+                    name_span=yul_ast.Span(2, 3),
+                    args=(yul_ast.IntExpr(1, yul_ast.Span(3, 4)),),
+                    span=yul_ast.Span(2, 4),
+                ),
+            ),
+            span=yul_ast.Span(0, 4),
+        )
+
+        seen: list[str] = []
+
+        def record(current: yul_ast.SynExpr) -> None:
+            if isinstance(current, yul_ast.CallExpr):
+                seen.append("CallExpr")
+            elif isinstance(current, yul_ast.NameExpr):
+                seen.append("NameExpr")
+            elif isinstance(current, yul_ast.IntExpr):
+                seen.append("IntExpr")
+            elif isinstance(current, yul_ast.StringExpr):
+                seen.append("StringExpr")
+            else:
+                self.fail(f"Unexpected Yul expr type: {type(current).__name__}")
+
+        for_each_expr(expr, record)
+        actual: list[str] = seen
+        expected: list[str] = ["CallExpr", "NameExpr", "CallExpr", "IntExpr"]
+        self.assertEqual(actual, expected)
+
+    def test_generic_map_expr_supports_normalized_exprs(self) -> None:
+        from .expr_walk import map_expr
+
+        expr: norm_ir.NExpr = norm_ir.NBuiltinCall(
+            op="add",
+            args=(norm_ir.NConst(1), norm_ir.NConst(2)),
+        )
+
+        def rewrite(current: norm_ir.NExpr) -> norm_ir.NExpr:
+            if isinstance(current, norm_ir.NConst) and current.value == 2:
+                return norm_ir.NConst(7)
+            return current
+
+        rewritten = map_expr(expr, rewrite)
+        self.assertEqual(
+            rewritten,
+            norm_ir.NBuiltinCall(
+                op="add",
+                args=(norm_ir.NConst(1), norm_ir.NConst(7)),
+            ),
+        )
+
+    def test_generic_expr_contains_supports_restricted_exprs(self) -> None:
+        from . import restricted_ir
+        from .expr_walk import expr_contains
+
+        expr: restricted_ir.RExpr = restricted_ir.RIte(
+            cond=restricted_ir.RConst(0),
+            if_true=restricted_ir.RModelCall(
+                name="foo",
+                args=(restricted_ir.RConst(1),),
+            ),
+            if_false=restricted_ir.RConst(2),
+        )
+
+        def is_foo_model_call(current: restricted_ir.RExpr) -> bool:
+            return (
+                isinstance(current, restricted_ir.RModelCall) and current.name == "foo"
+            )
+
+        self.assertTrue(expr_contains(expr, is_foo_model_call))
+
+    def test_generic_map_expr_supports_model_projection_exprs(self) -> None:
+        from .expr_walk import map_expr
+
+        expr: Expr = Project(
+            0,
+            2,
+            Call("pair", (Var("x"), IntLit(1))),
+        )
+
+        def rewrite(current: Expr) -> Expr:
+            if isinstance(current, IntLit) and current.value == 1:
+                return IntLit(9)
+            return current
+
+        rewritten = map_expr(expr, rewrite)
+        self.assertEqual(
+            rewritten,
+            Project(
+                0,
+                2,
+                Call("pair", (Var("x"), IntLit(9))),
+            ),
+        )
 
 
 # ---------------------------------------------------------------------------

@@ -26,7 +26,13 @@ def _validate_identifier(name: str, *, what: str) -> None:
 
 
 def validate_function_model(model: FunctionModel) -> None:
-    """Reject malformed restricted-IR models."""
+    """Reject malformed model IR.
+
+    ``FunctionModel`` is imperative rather than SSA-only: assignment targets
+    and conditional outputs may intentionally rebind existing names.
+    Validation therefore checks identifier shape, scoping, and expression
+    well-formedness without imposing global binder uniqueness.
+    """
 
     _validate_identifier(model.fn_name, what="model name")
     if len(set(model.param_names)) != len(model.param_names):

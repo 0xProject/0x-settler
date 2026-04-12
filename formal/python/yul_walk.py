@@ -11,43 +11,23 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TypeVar, assert_never, cast, overload
 
+from .expr_walk import for_each_expr as for_each_expr
 from .yul_ast import (
     AssignStmt,
     Block,
     BlockStmt,
-    CallExpr,
     ExprStmt,
     ForStmt,
     FunctionDefStmt,
     IfStmt,
-    IntExpr,
     LeaveStmt,
     LetStmt,
-    NameExpr,
-    StringExpr,
     SwitchStmt,
     SynExpr,
     SynStmt,
 )
 
 _T = TypeVar("_T")
-
-# ---------------------------------------------------------------------------
-# Expression visitor (pre-order)
-# ---------------------------------------------------------------------------
-
-
-def for_each_expr(expr: SynExpr, visit: Callable[[SynExpr], None]) -> None:
-    """Call *visit* on every sub-expression in pre-order."""
-    visit(expr)
-    if isinstance(expr, (IntExpr, NameExpr, StringExpr)):
-        pass
-    elif isinstance(expr, CallExpr):
-        for arg in expr.args:
-            for_each_expr(arg, visit)
-    else:
-        assert_never(expr)
-
 
 # ---------------------------------------------------------------------------
 # Statement-level expression visitor

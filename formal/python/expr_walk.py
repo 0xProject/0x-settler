@@ -9,7 +9,7 @@ where child expressions live in one of these field patterns:
 - ite:     ``cond``, ``if_true``, ``if_false`` fields (e.g. NIte, Ite)
 - project: an ``inner`` field (e.g. Project)
 
-All three IR layers (norm, restricted, model) conform to this.
+All four expression layers (Yul, norm, restricted, model) conform to this.
 """
 
 from __future__ import annotations
