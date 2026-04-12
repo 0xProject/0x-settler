@@ -201,6 +201,46 @@ class InlineStrategy(enum.Enum):
     """Cannot be inlined: unsupported, top-level calls, etc."""
 
 
+class UnsupportedKind(enum.Enum):
+    """Intrinsic blockers that prevent helper inlining."""
+
+    FOR_LOOP = "for_loop"
+    BARE_EXPR_STMT = "bare_expr_stmt"
+    UNRESOLVED_CALL = "unresolved_call"
+    EFFECTFUL_CONDITION = "effectful_condition"
+    TOP_LEVEL_CALL = "top_level_call"
+
+
+def unsupported_kind_reason(kind: UnsupportedKind) -> str:
+    """Render the stable human-readable reason for an unsupported helper."""
+    if kind == UnsupportedKind.FOR_LOOP:
+        return "contains for-loop"
+    if kind == UnsupportedKind.BARE_EXPR_STMT:
+        return "contains bare expression-statement"
+    if kind == UnsupportedKind.UNRESOLVED_CALL:
+        return "calls unresolved function"
+    if kind == UnsupportedKind.EFFECTFUL_CONDITION:
+        return "function call in control-flow condition"
+    if kind == UnsupportedKind.TOP_LEVEL_CALL:
+        return "calls non-model top-level helper"
+    assert_never(kind)
+
+
+def first_unsupported_kind(summary: FunctionSummary) -> UnsupportedKind | None:
+    """Return the first structural blocker for helper inlining."""
+    if summary.has_for_loop:
+        return UnsupportedKind.FOR_LOOP
+    if summary.has_expr_effects:
+        return UnsupportedKind.BARE_EXPR_STMT
+    if summary.calls_unresolved:
+        return UnsupportedKind.UNRESOLVED_CALL
+    if summary.has_effectful_condition:
+        return UnsupportedKind.EFFECTFUL_CONDITION
+    if summary.calls_top_level:
+        return UnsupportedKind.TOP_LEVEL_CALL
+    return None
+
+
 @dataclass(frozen=True)
 class InlineClassification:
     """Inlining decision for a single function."""
@@ -208,7 +248,15 @@ class InlineClassification:
     strategy: InlineStrategy
     is_pure: bool
     is_deferred: bool
-    unsupported_reason: str | None
+    unsupported_kind: UnsupportedKind | None
+
+    @property
+    def unsupported_reason(self) -> str | None:
+        return (
+            unsupported_kind_reason(self.unsupported_kind)
+            if self.unsupported_kind is not None
+            else None
+        )
 
 
 def classify_helpers(
@@ -225,25 +273,15 @@ def classify_helpers(
     """
     deferred: set[SymbolId] = set()
     non_pure: set[SymbolId] = set()
-    unsupported: dict[SymbolId, str] = {}
+    unsupported: dict[SymbolId, UnsupportedKind] = {}
 
     for sid, s in summaries.items():
         if s.writes_memory or s.reads_memory:
             deferred.add(sid)
             non_pure.add(sid)
-        if s.has_for_loop:
-            unsupported[sid] = "contains for-loop"
-            non_pure.add(sid)
-        elif s.has_expr_effects:
-            unsupported[sid] = "contains bare expression-statement"
-            non_pure.add(sid)
-        elif s.calls_unresolved:
-            unsupported[sid] = "calls unresolved function"
-            non_pure.add(sid)
-        elif s.has_effectful_condition:
-            unsupported[sid] = "function call in control-flow condition"
-            non_pure.add(sid)
-        if s.calls_top_level:
+        blocker = first_unsupported_kind(s)
+        if blocker is not None:
+            unsupported[sid] = blocker
             non_pure.add(sid)
 
     changed = True
@@ -259,7 +297,7 @@ def classify_helpers(
 
     result: dict[SymbolId, InlineClassification] = {}
     for sid, s in summaries.items():
-        reason = unsupported.get(sid)
+        unsupported_kind = unsupported.get(sid)
         is_def = sid in deferred
         is_p = sid not in non_pure
 
@@ -269,7 +307,7 @@ def classify_helpers(
         # unsupported here. Dead-code elimination belongs in the
         # simplifier, and fail-closed acceptance belongs in the
         # validation pass before restricted lowering.
-        if reason is not None or s.has_for_loop or s.calls_top_level:
+        if unsupported_kind is not None:
             strategy = InlineStrategy.DO_NOT_INLINE
         elif is_def or s.may_leave:
             strategy = InlineStrategy.BLOCK_INLINE
@@ -282,7 +320,7 @@ def classify_helpers(
             strategy=strategy,
             is_pure=is_p,
             is_deferred=is_def,
-            unsupported_reason=reason,
+            unsupported_kind=unsupported_kind,
         )
     return result
 

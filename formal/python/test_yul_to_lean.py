@@ -53,13 +53,13 @@ from .name_policy import (
 from .norm_classify import (
     InlineClassification,
     InlineStrategy,
+    UnsupportedKind,
     classify_function_scope,
     summarize_function,
 )
 from .norm_constprop import fold_expr, simplify_normalized
 from .norm_inline import (
     InlineBoundaryPolicy,
-    _effective_inline_strategy,
     inline_helpers_to_boundary,
     inline_pure_helpers,
     seal_helper_boundary,
@@ -11237,44 +11237,61 @@ class ClassifyInlineTest(unittest.TestCase):
         self.assertTrue(c["g"].is_deferred)
 
 
-class InlineStrategyDecisionTest(unittest.TestCase):
-    def test_effective_inline_strategy_respects_boundary_without_reclassifying(
-        self,
-    ) -> None:
-        deferred_block = InlineClassification(
-            strategy=InlineStrategy.BLOCK_INLINE,
-            is_pure=False,
-            is_deferred=True,
-            unsupported_reason=None,
-        )
-        unsupported = InlineClassification(
-            strategy=InlineStrategy.DO_NOT_INLINE,
-            is_pure=False,
-            is_deferred=False,
-            unsupported_reason="contains for-loop",
-        )
+class InlineBoundaryBehaviorTest(unittest.TestCase):
+    def _normalize(self, yul: str) -> norm_ir.NormalizedFunction:
+        tokens = tokenize_yul(yul)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=EVM_BUILTINS)
+        return normalize_function(func, result)
 
-        self.assertEqual(
-            _effective_inline_strategy(
-                deferred_block,
-                must_eliminate_call=False,
-            ),
-            InlineStrategy.DO_NOT_INLINE,
+    def test_deferred_helper_survives_loose_pass(self) -> None:
+        nf = inline_pure_helpers(self._normalize("""
+                function f() -> z {
+                    function g() { mstore(0, 7) }
+                    g()
+                    z := mload(0)
+                }
+            """))
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NExprEffect)
+        effect = cast(norm_ir.NExprEffect, nf.body.stmts[0])
+        self.assertIsInstance(effect.expr, norm_ir.NLocalCall)
+
+    def test_deferred_helper_is_eliminated_at_strict_boundary(self) -> None:
+        nf = inline_helpers_to_boundary(
+            self._normalize("""
+                function f() -> z {
+                    function g() { mstore(0, 7) }
+                    g()
+                    z := mload(0)
+                }
+            """),
+            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
         )
-        self.assertEqual(
-            _effective_inline_strategy(
-                deferred_block,
-                must_eliminate_call=True,
-            ),
-            InlineStrategy.BLOCK_INLINE,
+        self.assertFalse(
+            any(
+                isinstance(stmt, norm_ir.NExprEffect)
+                and isinstance(stmt.expr, norm_ir.NLocalCall)
+                for stmt in nf.body.stmts
+            )
         )
-        self.assertEqual(
-            _effective_inline_strategy(
-                unsupported,
-                must_eliminate_call=True,
-            ),
-            InlineStrategy.DO_NOT_INLINE,
-        )
+        self.assertEqual(evaluate_normalized(nf, ()), (7,))
+
+    def test_unsupported_helper_still_fails_at_strict_boundary(self) -> None:
+        with self.assertRaisesRegex(
+            yul_ast.LoweringError,
+            "Cannot eliminate local helper call 'g': contains for-loop",
+        ):
+            inline_helpers_to_boundary(
+                self._normalize("""
+                    function f(x) -> z {
+                        function g(a) -> b {
+                            for { } a { } { b := 1 leave }
+                        }
+                        z := g(x)
+                    }
+                """),
+                boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
+            )
 
 
 class InlinePureTest(unittest.TestCase):
@@ -12381,6 +12398,129 @@ class InlineArchitectureTest(unittest.TestCase):
         self.assertFalse(sealed.body.defs)
         self.assertEqual(evaluate_normalized(sealed, (0,)), (3,))
         self.assertEqual(evaluate_normalized(sealed, (1,)), (2,))
+
+
+class TopLevelHelperInlineParityTest(unittest.TestCase):
+    def _inline_target_with_top_level_defs(
+        self,
+        yul: str,
+        *,
+        target_name: str,
+        helper_names: tuple[str, ...],
+    ) -> norm_ir.NormalizedFunction:
+        tokens = tokenize_yul(yul)
+        funcs = SyntaxParser(tokens).parse_functions()
+        by_name = {func.name: func for func in funcs}
+        results = resolve_module(funcs, builtins=EVM_BUILTINS)
+        target = normalize_function(by_name[target_name], results[target_name])
+
+        top_level_defs: dict[str, norm_ir.NFunctionDef] = {}
+        for idx, helper_name in enumerate(helper_names, start=1):
+            helper = normalize_function(by_name[helper_name], results[helper_name])
+            top_level_defs[helper_name] = norm_ir.NFunctionDef(
+                name=helper.name,
+                symbol_id=yul_ast.SymbolId(100_000 + idx),
+                params=helper.params,
+                param_names=helper.param_names,
+                returns=helper.returns,
+                return_names=helper.return_names,
+                body=helper.body,
+            )
+
+        return inline_pure_helpers(
+            target,
+            top_level_inline_defs=top_level_defs,
+        )
+
+    def _has_top_level_call(self, block: norm_ir.NBlock, name: str) -> bool:
+        from .norm_walk import for_each_expr
+
+        found = False
+
+        def walk_block(current: norm_ir.NBlock) -> None:
+            for stmt in current.stmts:
+                walk_stmt(stmt)
+
+        def walk_stmt(stmt: norm_ir.NStmt) -> None:
+            nonlocal found
+            if isinstance(stmt, (norm_ir.NBind, norm_ir.NAssign)):
+                if stmt.expr is not None:
+                    for_each_expr(stmt.expr, visit_expr)
+            elif isinstance(stmt, norm_ir.NExprEffect):
+                for_each_expr(stmt.expr, visit_expr)
+            elif isinstance(stmt, norm_ir.NIf):
+                for_each_expr(stmt.condition, visit_expr)
+                walk_block(stmt.then_body)
+            elif isinstance(stmt, norm_ir.NSwitch):
+                for_each_expr(stmt.discriminant, visit_expr)
+                for case in stmt.cases:
+                    walk_block(case.body)
+                if stmt.default is not None:
+                    walk_block(stmt.default)
+            elif isinstance(stmt, norm_ir.NFor):
+                walk_block(stmt.init)
+                if stmt.condition_setup is not None:
+                    walk_block(stmt.condition_setup)
+                for_each_expr(stmt.condition, visit_expr)
+                walk_block(stmt.post)
+                walk_block(stmt.body)
+            elif isinstance(stmt, norm_ir.NBlock):
+                walk_block(stmt)
+
+        def visit_expr(expr: norm_ir.NExpr) -> None:
+            nonlocal found
+            if isinstance(expr, norm_ir.NTopLevelCall) and expr.name == name:
+                found = True
+
+        walk_block(block)
+        return found
+
+    def test_top_level_multi_return_helper_materializes_like_local_helper(self) -> None:
+        local_tokens = tokenize_yul("""
+            function f(x, y) -> z {
+                function pair(a, b) -> c, d { c := a d := b }
+                let p, q := pair(y, x)
+                z := sub(p, q)
+            }
+        """)
+        local_func = SyntaxParser(local_tokens).parse_function()
+        local_result = resolve_function(local_func, builtins=EVM_BUILTINS)
+        local_nf = inline_pure_helpers(normalize_function(local_func, local_result))
+
+        top_nf = self._inline_target_with_top_level_defs(
+            """
+            function pair(a, b) -> c, d { c := a d := b }
+            function f(x, y) -> z {
+                let p, q := pair(y, x)
+                z := sub(p, q)
+            }
+            """,
+            target_name="f",
+            helper_names=("pair",),
+        )
+
+        self.assertFalse(self._has_top_level_call(top_nf.body, "pair"))
+        self.assertEqual(
+            evaluate_normalized(local_nf, (3, 1)),
+            evaluate_normalized(top_nf, (3, 1)),
+        )
+
+    def test_top_level_zero_return_helper_is_discarded_like_local_helper(self) -> None:
+        nf = self._inline_target_with_top_level_defs(
+            """
+            function noop() { }
+            function f() -> z {
+                noop()
+                z := 1
+            }
+            """,
+            target_name="f",
+            helper_names=("noop",),
+        )
+
+        self.assertFalse(self._has_top_level_call(nf.body, "noop"))
+        self.assertEqual(len(nf.body.stmts), 1)
+        self.assertEqual(evaluate_normalized(nf, ()), (1,))
 
 
 class MemoryLowerTest(unittest.TestCase):
