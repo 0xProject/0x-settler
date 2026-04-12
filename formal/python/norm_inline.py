@@ -41,7 +41,6 @@ from .norm_ir import (
     NormalizedFunction,
     NRef,
     NStmt,
-    NStore,
     NSwitch,
     NSwitchCase,
     NTopLevelCall,
@@ -379,7 +378,7 @@ def _symex_stmt(
         _symex_block(stmt, subst, ctx, depth)
         return
 
-    if isinstance(stmt, (NFor, NLeave, NExprEffect, NSwitch, NStore)):
+    if isinstance(stmt, (NFor, NLeave, NExprEffect, NSwitch)):
         raise ParseError(f"Unexpected {type(stmt).__name__} in ExprInline body")
 
 
@@ -685,13 +684,6 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
         pre, val = _inline_in_expr_with_prelude(stmt.expr, ctx, 0)
         out: list[NStmt] = list(pre)
         out.append(NExprEffect(expr=val))
-        return out
-
-    if isinstance(stmt, NStore):
-        a_pre, a_val = _inline_in_expr_with_prelude(stmt.addr, ctx, 0)
-        v_pre, v_val = _inline_in_expr_with_prelude(stmt.value, ctx, 0)
-        out = list(a_pre) + list(v_pre)
-        out.append(NStore(addr=a_val, value=v_val))
         return out
 
     if isinstance(stmt, NIf):

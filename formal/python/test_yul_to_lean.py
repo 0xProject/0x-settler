@@ -11041,8 +11041,8 @@ class InlinePureTest(unittest.TestCase):
         for sid, cls in classifications.items():
             self.assertTrue(cls.is_pure, f"Helper should be pure: {cls}")
 
-    def test_uint512_from_helper_is_block_inlined(self) -> None:
-        """uint512.from-shaped helper is handled by generic block inlining."""
+    def test_two_word_memory_helper_is_block_inlined(self) -> None:
+        """Two-word memory helper is handled by generic block inlining."""
         nf = self._inline("""
             function f(hi, lo) -> z {
                 function from_helper(ptr, x_hi, x_lo) -> r {
@@ -11583,6 +11583,26 @@ class ConstPropTest(unittest.TestCase):
         )[0]
         self.assertEqual(evaluate_function_model(model, (5,)), (7,))
 
+    def test_translate_yul_to_models_accepts_memory_derived_dead_branch_in_helper(
+        self,
+    ) -> None:
+        config = make_model_config(("f",), exact_yul_names={"f": "f"})
+        model = translate_yul_to_models(
+            """
+                function f() -> z {
+                    function g() -> r {
+                        mstore(0, 0)
+                        if mload(0) { ghost() }
+                        r := 1
+                    }
+                    z := g()
+                }
+            """,
+            config,
+            optimize=False,
+        )[0]
+        self.assertEqual(evaluate_function_model(model, ()), (1,))
+
 
 class InlineArchitectureTest(unittest.TestCase):
     """Coverage for the block-based inliner architecture."""
@@ -11618,9 +11638,6 @@ class InlineArchitectureTest(unittest.TestCase):
                     for_each_expr(stmt.expr, check_expr)
             elif isinstance(stmt, norm_ir.NExprEffect):
                 for_each_expr(stmt.expr, check_expr)
-            elif isinstance(stmt, norm_ir.NStore):
-                for_each_expr(stmt.addr, check_expr)
-                for_each_expr(stmt.value, check_expr)
             elif isinstance(stmt, norm_ir.NIf):
                 for_each_expr(stmt.condition, check_expr)
                 walk_block(stmt.then_body)
@@ -11799,20 +11816,21 @@ class MemoryLowerTest(unittest.TestCase):
         return lower_memory(nf)
 
     def test_basic_mstore_mload_resolution(self) -> None:
-        """mstore(0, 7); z := mload(0) → z := 7, NStore removed."""
+        """mstore(0, 7); z := mload(0) → z := 7, memory ops removed."""
         nf = self._pipeline("""
             function f() -> z {
                 mstore(0, 7)
                 z := mload(0)
             }
         """)
-        # NStore should be removed, z should be NConst(7).
-        has_store = any(isinstance(s, norm_ir.NStore) for s in nf.body.stmts)
-        self.assertFalse(has_store, "NStore should be removed after lowering")
+        self.assertFalse(
+            any(isinstance(s, norm_ir.NExprEffect) for s in nf.body.stmts),
+            "Memory effects should be removed after lowering",
+        )
         self.assertEqual(evaluate_normalized(nf, ()), (7,))
 
-    def test_uint512_from_pattern(self) -> None:
-        """Two NStore + two mload from uint512.from → direct value references."""
+    def test_two_word_memory_pattern(self) -> None:
+        """Two stores + two mloads through a returned pointer resolve directly."""
         nf = self._pipeline("""
             function f(hi, lo) -> z {
                 function from_helper(ptr, x_hi, x_lo) -> r {
@@ -11940,6 +11958,15 @@ class MemoryLowerTest(unittest.TestCase):
                 }
             """)
 
+    def test_oversized_free_relative_offset_rejected(self) -> None:
+        with self.assertRaisesRegex(ParseError, ">= 2\\^64"):
+            self._pipeline("""
+                function f() -> z {
+                    mstore(add(mload(64), 0x10000000000000000), 7)
+                    z := 0
+                }
+            """)
+
     def test_mstore8_rejected(self) -> None:
         with self.assertRaisesRegex(ParseError, "mstore8"):
             self._pipeline("""
@@ -11950,7 +11977,7 @@ class MemoryLowerTest(unittest.TestCase):
             """)
 
     def test_semantic_equivalence(self) -> None:
-        """Lowered result matches pre-lower eval for uint512.from inputs."""
+        """Lowered result matches pre-lower eval for a two-word helper pattern."""
         yul = """
             function f(hi, lo) -> z {
                 function from_helper(ptr, x_hi, x_lo) -> r {
@@ -11999,6 +12026,39 @@ class MemoryLowerTest(unittest.TestCase):
         """)
         self.assertEqual(evaluate_normalized(nf, (0,)), (0,))
         self.assertEqual(evaluate_normalized(nf, (1,)), (7,))
+
+    def test_memory_derived_dead_if_branch_is_skipped(self) -> None:
+        nf = self._pipeline("""
+            function f() -> z {
+                mstore(0, 0)
+                if mload(0) { z := mload(32) }
+                z := 1
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, ()), (1,))
+
+    def test_memory_derived_constant_true_if_becomes_straight_line(self) -> None:
+        nf = self._pipeline("""
+            function f() -> z {
+                mstore(0, 1)
+                if mload(0) { mstore(32, 7) }
+                z := mload(32)
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, ()), (7,))
+
+    def test_memory_derived_switch_selects_live_arm_only(self) -> None:
+        nf = self._pipeline("""
+            function f() -> z {
+                mstore(0, 1)
+                switch mload(0)
+                case 0 { z := mload(32) }
+                case 1 { mstore(32, 7) }
+                default { z := 9 }
+                z := mload(32)
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, ()), (7,))
 
     def test_store_value_snapshot_semantics(self) -> None:
         """mstore(0, x) then x := add(x, 1) then mload(0) must return original x."""
@@ -12393,7 +12453,7 @@ class RestrictedIRTest(unittest.TestCase):
         )
         self.assertEqual(result, (7,))
 
-    def test_uint512_from_memory_pattern(self) -> None:
+    def test_two_word_memory_pattern(self) -> None:
         result = self._eval_restricted(
             """
             function f(hi, lo) -> z {
@@ -12625,8 +12685,8 @@ class SSAModelTest(unittest.TestCase):
         first_z = cast(Assignment, first_z)
         self.assertEqual(first_z.expr, IntLit(0))
 
-    def test_memory_resolved_uint512(self) -> None:
-        """Full pipeline with uint512.from produces valid FunctionModel."""
+    def test_memory_resolved_two_word_helper(self) -> None:
+        """Full pipeline with a two-word helper produces a valid FunctionModel."""
         model = self._to_model("""
             function f(hi, lo) -> z {
                 function from_helper(ptr, x_hi, x_lo) -> r {

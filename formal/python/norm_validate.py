@@ -1,10 +1,4 @@
-"""
-Pre-restricted validation for normalized IR.
-
-This pass defines the public acceptance boundary for the staged path.
-It runs after inlining + normalized-IR optimization and before restricted lowering,
-so low-level lowering errors do not become the user-facing contract.
-"""
+"""Validate the post-memory normalized IR accepted by restricted lowering."""
 
 from __future__ import annotations
 
@@ -19,7 +13,6 @@ from .norm_ir import (
     NExpr,
     NExprEffect,
     NFor,
-    NFunctionDef,
     NIf,
     NIte,
     NLeave,
@@ -27,54 +20,39 @@ from .norm_ir import (
     NormalizedFunction,
     NRef,
     NStmt,
-    NStore,
     NSwitch,
     NTopLevelCall,
     NUnresolvedCall,
 )
 from .yul_ast import ParseError
 
-_ALLOWED_EXPR_STMT_BUILTINS = frozenset({"mstore"})
-
 
 def validate_restricted_boundary(
     func: NormalizedFunction,
     *,
     allowed_model_calls: frozenset[str],
-    allow_memory_ops: bool = False,
 ) -> None:
     """Reject residual live constructs unsupported by restricted lowering."""
-    _validate_public_function_contract(func)
+    if not func.returns:
+        raise ParseError(f"Selected function {func.name!r} has zero return values")
     _validate_block(
         func.body,
         allowed_model_calls=allowed_model_calls,
-        allow_memory_ops=allow_memory_ops,
         context=f"selected target {func.name!r}",
-        inside_control_flow=False,
     )
-
-
-def _validate_public_function_contract(func: NormalizedFunction) -> None:
-    """Validate the public selected-target contract before lowering."""
-    if not func.returns:
-        raise ParseError(f"Selected function {func.name!r} has zero return values")
 
 
 def _validate_block(
     block: NBlock,
     *,
     allowed_model_calls: frozenset[str],
-    allow_memory_ops: bool,
     context: str,
-    inside_control_flow: bool,
 ) -> None:
     for stmt in block.stmts:
         _validate_stmt(
             stmt,
             allowed_model_calls=allowed_model_calls,
-            allow_memory_ops=allow_memory_ops,
             context=context,
-            inside_control_flow=inside_control_flow,
         )
 
 
@@ -82,18 +60,14 @@ def _validate_stmt(
     stmt: NStmt,
     *,
     allowed_model_calls: frozenset[str],
-    allow_memory_ops: bool,
     context: str,
-    inside_control_flow: bool,
 ) -> None:
     if isinstance(stmt, NBind):
         if stmt.expr is not None:
             _validate_expr(
                 stmt.expr,
                 allowed_model_calls=allowed_model_calls,
-                allow_memory_ops=allow_memory_ops,
                 context=context,
-                inside_control_flow=inside_control_flow,
             )
         return
 
@@ -101,69 +75,26 @@ def _validate_stmt(
         _validate_expr(
             stmt.expr,
             allowed_model_calls=allowed_model_calls,
-            allow_memory_ops=allow_memory_ops,
             context=context,
-            inside_control_flow=inside_control_flow,
         )
         return
 
     if isinstance(stmt, NExprEffect):
-        is_supported_memory_effect = isinstance(
-            stmt.expr, NBuiltinCall
-        ) and stmt.expr.op in (
-            _ALLOWED_EXPR_STMT_BUILTINS
-            | (frozenset({"mload"}) if allow_memory_ops else frozenset())
+        raise ParseError(
+            f"{context} contains unsupported expression-statement "
+            f"{type(stmt.expr).__name__}. Refuse to proceed with incomplete semantics."
         )
-        if not is_supported_memory_effect:
-            raise ParseError(
-                f"{context} contains unsupported expression-statement "
-                f"{type(stmt.expr).__name__}. Refuse to proceed with incomplete semantics."
-            )
-        _validate_expr(
-            stmt.expr,
-            allowed_model_calls=allowed_model_calls,
-            allow_memory_ops=allow_memory_ops,
-            context=context,
-            inside_control_flow=inside_control_flow,
-        )
-        return
-
-    if isinstance(stmt, NStore):
-        if inside_control_flow and not allow_memory_ops:
-            raise ParseError(
-                f"{context} reaches restricted IR lowering with memory operation "
-                f"inside conditional control flow"
-            )
-        _validate_expr(
-            stmt.addr,
-            allowed_model_calls=allowed_model_calls,
-            allow_memory_ops=allow_memory_ops,
-            context=context,
-            inside_control_flow=inside_control_flow,
-        )
-        _validate_expr(
-            stmt.value,
-            allowed_model_calls=allowed_model_calls,
-            allow_memory_ops=allow_memory_ops,
-            context=context,
-            inside_control_flow=inside_control_flow,
-        )
-        return
 
     if isinstance(stmt, NIf):
         _validate_expr(
             stmt.condition,
             allowed_model_calls=allowed_model_calls,
-            allow_memory_ops=allow_memory_ops,
             context=context,
-            inside_control_flow=True,
         )
         _validate_block(
             stmt.then_body,
             allowed_model_calls=allowed_model_calls,
-            allow_memory_ops=allow_memory_ops,
             context=context,
-            inside_control_flow=True,
         )
         return
 
@@ -171,25 +102,19 @@ def _validate_stmt(
         _validate_expr(
             stmt.discriminant,
             allowed_model_calls=allowed_model_calls,
-            allow_memory_ops=allow_memory_ops,
             context=context,
-            inside_control_flow=True,
         )
         for case in stmt.cases:
             _validate_block(
                 case.body,
                 allowed_model_calls=allowed_model_calls,
-                allow_memory_ops=allow_memory_ops,
                 context=context,
-                inside_control_flow=True,
             )
         if stmt.default is not None:
             _validate_block(
                 stmt.default,
                 allowed_model_calls=allowed_model_calls,
-                allow_memory_ops=allow_memory_ops,
                 context=context,
-                inside_control_flow=True,
             )
         return
 
@@ -205,9 +130,7 @@ def _validate_stmt(
         _validate_block(
             stmt,
             allowed_model_calls=allowed_model_calls,
-            allow_memory_ops=allow_memory_ops,
             context=context,
-            inside_control_flow=inside_control_flow,
         )
         return
 
@@ -218,30 +141,22 @@ def _validate_expr(
     expr: NExpr,
     *,
     allowed_model_calls: frozenset[str],
-    allow_memory_ops: bool,
     context: str,
-    inside_control_flow: bool,
 ) -> None:
     if isinstance(expr, (NConst, NRef)):
         return
 
     if isinstance(expr, NBuiltinCall):
-        if (
-            inside_control_flow
-            and not allow_memory_ops
-            and expr.op in _ALLOWED_EXPR_STMT_BUILTINS.union({"mload"})
-        ):
+        if expr.op in {"mload", "mstore", "mstore8"}:
             raise ParseError(
-                f"{context} reaches restricted IR lowering with memory operation "
-                f"inside conditional control flow"
+                f"{context} reaches restricted IR lowering with residual memory "
+                f"builtin {expr.op!r}. Memory must be lowered before this stage."
             )
         for arg in expr.args:
             _validate_expr(
                 arg,
                 allowed_model_calls=allowed_model_calls,
-                allow_memory_ops=allow_memory_ops,
                 context=context,
-                inside_control_flow=inside_control_flow,
             )
         return
 
@@ -263,9 +178,7 @@ def _validate_expr(
             _validate_expr(
                 arg,
                 allowed_model_calls=allowed_model_calls,
-                allow_memory_ops=allow_memory_ops,
                 context=context,
-                inside_control_flow=inside_control_flow,
             )
         return
 
@@ -278,23 +191,17 @@ def _validate_expr(
         _validate_expr(
             expr.cond,
             allowed_model_calls=allowed_model_calls,
-            allow_memory_ops=allow_memory_ops,
             context=context,
-            inside_control_flow=inside_control_flow,
         )
         _validate_expr(
             expr.if_true,
             allowed_model_calls=allowed_model_calls,
-            allow_memory_ops=allow_memory_ops,
             context=context,
-            inside_control_flow=inside_control_flow,
         )
         _validate_expr(
             expr.if_false,
             allowed_model_calls=allowed_model_calls,
-            allow_memory_ops=allow_memory_ops,
             context=context,
-            inside_control_flow=inside_control_flow,
         )
         return
 

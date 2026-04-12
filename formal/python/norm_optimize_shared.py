@@ -7,13 +7,23 @@ from __future__ import annotations
 from .norm_ir import NBlock, NConst, NExpr, NIte
 
 
+def const_value(expr: NExpr) -> int | None:
+    return expr.value if isinstance(expr, NConst) else None
+
+
+def const_truthy(expr: NExpr) -> bool | None:
+    value = const_value(expr)
+    return None if value is None else value != 0
+
+
 def simplify_ite(cond: NExpr, if_true: NExpr, if_false: NExpr) -> NExpr:
     """Fold an ``NIte`` when the condition or branches make it redundant."""
 
     if if_true == if_false:
         return if_true
-    if isinstance(cond, NConst):
-        return if_true if cond.value != 0 else if_false
+    truthy = const_truthy(cond)
+    if truthy is not None:
+        return if_true if truthy else if_false
     return NIte(cond=cond, if_true=if_true, if_false=if_false)
 
 

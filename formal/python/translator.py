@@ -129,12 +129,8 @@ def _lower_target(
 
     normalized = simplify_normalized(normalized)
     normalized = lower_leave(normalized)
-    validate_restricted_boundary(
-        normalized,
-        allowed_model_calls=allowed_model_calls,
-        allow_memory_ops=True,
-    )
     normalized = lower_memory(normalized)
+    normalized = simplify_normalized(normalized)
     validate_restricted_boundary(
         normalized,
         allowed_model_calls=allowed_model_calls,

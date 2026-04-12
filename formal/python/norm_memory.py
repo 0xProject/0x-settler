@@ -1,21 +1,24 @@
 """Memory lowering on normalized IR.
 
 This pass resolves straight-line memory stores/loads into explicit
-value flow before restricted lowering.
+value flow before restricted lowering. It is intentionally narrow:
+it resolves memory semantics and lets the ordinary normalized-IR
+simplifier clean up any newly dead control flow afterward.
 
 Supported:
-- straight-line ``mstore`` / ``NStore``
+- straight-line ``mstore``
 - ``mload`` reads in straight-line code and control-flow conditions
-- free-pointer-relative addresses of the form ``free + k``
+- free-pointer-relative addresses of the form ``free + k`` where
+  ``0 <= k < 2^64`` and ``k`` is 32-byte aligned
 - last-write-wins semantics for modeled slots
 
 Rejected:
-- memory writes inside control flow
+- memory writes inside dynamic control flow
 - ``mstore8``
 - unaligned addresses
 - reads before writes from modeled word slots
 - writes or reads to forbidden constant slots
-- negative or non-constant free-relative offsets
+- negative, non-constant, or oversized free-relative offsets
 - free-pointer values escaping ordinary value flow
 - for-loops
 """
@@ -43,12 +46,12 @@ from .norm_ir import (
     NormalizedFunction,
     NRef,
     NStmt,
-    NStore,
     NSwitch,
     NSwitchCase,
     NTopLevelCall,
     NUnresolvedCall,
 )
+from .norm_optimize_shared import const_truthy, const_value
 from .norm_walk import expr_contains, map_expr, max_symbol_id
 from .yul_ast import ParseError, SymbolId
 
@@ -56,6 +59,7 @@ _MODELED_CONST_SLOTS = frozenset({0, 32, 64, 96})
 _WRITABLE_WORD_SLOTS = frozenset({0, 32})
 _FREE_PTR_SLOT = 64
 _READONLY_ZERO_SLOT = 96
+_MAX_FREE_PTR_OFFSET = 1 << 64
 
 
 @dataclass(frozen=True)
@@ -65,6 +69,8 @@ class _FreePtr:
     def __post_init__(self) -> None:
         if self.offset < 0:
             raise ValueError("free-pointer offsets must be non-negative")
+        if self.offset >= _MAX_FREE_PTR_OFFSET:
+            raise ValueError("free-pointer offsets must be below 2^64")
         if self.offset % 32 != 0:
             raise ValueError("free-pointer offsets must be 32-byte aligned")
 
@@ -184,9 +190,7 @@ def _subst_const_facts(expr: NExpr, env: _FactEnv) -> NExpr:
 
 def _resolve_const_value(expr: NExpr, env: _FactEnv) -> int | None:
     folded = fold_expr(_subst_const_facts(expr, env))
-    if isinstance(folded, NConst):
-        return folded.value
-    return None
+    return const_value(folded)
 
 
 def _resolve_offset_value(expr: NExpr, env: _FactEnv) -> int | None:
@@ -212,6 +216,14 @@ def _require_aligned_addr(addr: int, op: str) -> None:
         raise ParseError(f"Unaligned {op} address {addr} (must be 32-byte aligned)")
 
 
+def _require_free_offset(offset: int, op: str) -> None:
+    if offset < 0:
+        raise ParseError(f"{op} with negative free-relative offset is forbidden.")
+    if offset >= _MAX_FREE_PTR_OFFSET:
+        raise ParseError(f"{op} with free-relative offset >= 2^64 is forbidden.")
+    _require_aligned_addr(offset, op)
+
+
 def _resolve_const_slot(
     expr: NExpr,
     op: str,
@@ -231,9 +243,7 @@ def _resolve_const_slot(
 
 def _offset_free_ptr(ptr: _FreePtr, delta: int, op: str) -> _FreePtr:
     new_offset = ptr.offset + delta
-    if new_offset < 0:
-        raise ParseError(f"{op} with negative free-relative offset is forbidden.")
-    _require_aligned_addr(new_offset, op)
+    _require_free_offset(new_offset, op)
     return _FreePtr(new_offset)
 
 
@@ -335,11 +345,6 @@ def _reject_memory_writes_in_block(block: NBlock, context: str) -> None:
 
 
 def _reject_memory_writes_in_stmt(stmt: NStmt, context: str) -> None:
-    if isinstance(stmt, NStore):
-        raise ParseError(
-            f"Memory write inside control flow ({context}). "
-            f"The memory model requires straight-line memory writes."
-        )
     if isinstance(stmt, NExprEffect):
         if _expr_has_memory_write(stmt.expr):
             raise ParseError(
@@ -556,11 +561,6 @@ def _lower_stmt(
     env: _FactEnv,
     out: list[NStmt],
 ) -> None:
-    if isinstance(stmt, NStore):
-        addr = _resolve_addr(stmt.addr, "mstore", ctx.mem, env)
-        _emit_store(addr=addr, value_expr=stmt.value, ctx=ctx, env=env, out=out)
-        return
-
     if isinstance(stmt, NBind):
         if stmt.expr is None:
             for sid in stmt.targets:
@@ -620,10 +620,19 @@ def _lower_stmt(
         return
 
     if isinstance(stmt, NIf):
+        new_cond = _resolve_word_expr(stmt.condition, ctx.mem, env)
+        cond_truthy = const_truthy(new_cond)
+        if cond_truthy is not None:
+            if not cond_truthy:
+                return
+            lowered_then = _lower_block(stmt.then_body, ctx, env)
+            if lowered_then.defs or lowered_then.stmts:
+                out.append(lowered_then)
+            return
+
         _reject_memory_writes_in_block(stmt.then_body, "if-body")
         before_env = env.copy()
         then_env = env.copy()
-        new_cond = _resolve_word_expr(stmt.condition, ctx.mem, env)
         then_body = _lower_block(stmt.then_body, ctx, then_env)
         joined = _join_fact_envs([before_env, then_env])
         env.known = joined.known
@@ -632,11 +641,25 @@ def _lower_stmt(
         return
 
     if isinstance(stmt, NSwitch):
+        new_disc = _resolve_word_expr(stmt.discriminant, ctx.mem, env)
+        disc_value = const_value(new_disc)
+        if disc_value is not None:
+            for case in stmt.cases:
+                if case.value.value == disc_value:
+                    lowered_case = _lower_block(case.body, ctx, env)
+                    if lowered_case.defs or lowered_case.stmts:
+                        out.append(lowered_case)
+                    return
+            if stmt.default is not None:
+                lowered_default = _lower_block(stmt.default, ctx, env)
+                if lowered_default.defs or lowered_default.stmts:
+                    out.append(lowered_default)
+            return
+
         for case in stmt.cases:
             _reject_memory_writes_in_block(case.body, "switch-case")
         if stmt.default is not None:
             _reject_memory_writes_in_block(stmt.default, "switch-default")
-        new_disc = _resolve_word_expr(stmt.discriminant, ctx.mem, env)
         branch_envs: list[_FactEnv] = []
         new_cases: list[NSwitchCase] = []
         for case in stmt.cases:

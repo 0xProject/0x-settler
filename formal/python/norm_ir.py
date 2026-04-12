@@ -124,14 +124,6 @@ class NExprEffect:
 
 
 @dataclass(frozen=True)
-class NStore:
-    """``mstore(addr, value)`` — first-class memory write statement."""
-
-    addr: NExpr
-    value: NExpr
-
-
-@dataclass(frozen=True)
 class NIf:
     """``if condition { then_body }``."""
 
@@ -205,7 +197,6 @@ NStmt = Union[
     NBind,
     NAssign,
     NExprEffect,
-    NStore,
     NIf,
     NSwitch,
     NFor,

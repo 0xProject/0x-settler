@@ -28,7 +28,6 @@ from .norm_ir import (
     NormalizedFunction,
     NRef,
     NStmt,
-    NStore,
     NSwitch,
     NSwitchCase,
     NTopLevelCall,
@@ -160,7 +159,7 @@ def for_each_stmt(
                 walk(stmt.body)
             elif isinstance(stmt, NBlock):
                 walk(stmt)
-            elif isinstance(stmt, (NBind, NAssign, NExprEffect, NStore, NLeave)):
+            elif isinstance(stmt, (NBind, NAssign, NExprEffect, NLeave)):
                 pass
             else:
                 assert_never(stmt)
@@ -258,9 +257,6 @@ def max_symbol_id(func: NormalizedFunction | NFunctionDef) -> int:
             for_each_expr(stmt.expr, visit_expr)
         elif isinstance(stmt, NExprEffect):
             for_each_expr(stmt.expr, visit_expr)
-        elif isinstance(stmt, NStore):
-            for_each_expr(stmt.addr, visit_expr)
-            for_each_expr(stmt.value, visit_expr)
         elif isinstance(stmt, NIf):
             for_each_expr(stmt.condition, visit_expr)
         elif isinstance(stmt, NSwitch):
@@ -329,8 +325,6 @@ def map_stmt(
         )
     if isinstance(stmt, NExprEffect):
         return NExprEffect(expr=map_expr_fn(stmt.expr))
-    if isinstance(stmt, NStore):
-        return NStore(addr=map_expr_fn(stmt.addr), value=map_expr_fn(stmt.value))
     if isinstance(stmt, NIf):
         return NIf(
             condition=map_expr_fn(stmt.condition),

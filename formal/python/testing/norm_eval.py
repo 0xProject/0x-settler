@@ -26,7 +26,6 @@ from ..norm_ir import (
     NormalizedFunction,
     NRef,
     NStmt,
-    NStore,
     NSwitch,
     NTopLevelCall,
     NUnresolvedCall,
@@ -146,12 +145,6 @@ def _exec_stmt(ctx: _EvalCtx, stmt: NStmt) -> None:
 
     if isinstance(stmt, NExprEffect):
         _eval_expr(ctx, stmt.expr)
-        return
-
-    if isinstance(stmt, NStore):
-        addr = _to_scalar(_eval_expr(ctx, stmt.addr))
-        value = _to_scalar(_eval_expr(ctx, stmt.value))
-        ctx.memory[u256(addr)] = u256(value)
         return
 
     if isinstance(stmt, NIf):

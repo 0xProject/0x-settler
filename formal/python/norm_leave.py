@@ -24,7 +24,6 @@ from .norm_ir import (
     NormalizedFunction,
     NRef,
     NStmt,
-    NStore,
     NSwitch,
     NSwitchCase,
 )
@@ -152,7 +151,7 @@ def _lower_leave_stmt(stmt: NStmt, did_leave_id: SymbolId) -> NStmt:
             post=_guard_runtime_block(lowered_post, did_leave_id),
             body=lower_leave_block(stmt.body, did_leave_id),
         )
-    if isinstance(stmt, (NBind, NAssign, NExprEffect, NStore)):
+    if isinstance(stmt, (NBind, NAssign, NExprEffect)):
         return stmt
     assert_never(stmt)
 

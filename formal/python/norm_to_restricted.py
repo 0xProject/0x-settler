@@ -30,7 +30,6 @@ from .norm_ir import (
     NormalizedFunction,
     NRef,
     NStmt,
-    NStore,
     NSwitch,
     NSwitchCase,
     NTopLevelCall,
@@ -159,12 +158,6 @@ def _lower_stmt(
     modified_state: dict[SymbolId, bool],
     out: list[RStatement],
 ) -> None:
-    if isinstance(stmt, NStore):
-        raise ParseError(
-            "NStore reached restricted IR lowering. Memory must be lowered "
-            "before this pass."
-        )
-
     if isinstance(stmt, NExprEffect):
         raise ParseError(
             "Expression statement reached restricted IR lowering. Effect "

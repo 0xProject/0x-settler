@@ -31,28 +31,23 @@ from .norm_ir import (
     NormalizedFunction,
     NRef,
     NStmt,
-    NStore,
     NSwitch,
     NSwitchCase,
     NTopLevelCall,
     NUnresolvedCall,
 )
-from .norm_optimize_shared import sequential_block, simplify_ite
+from .norm_optimize_shared import (
+    const_truthy,
+    const_value,
+    sequential_block,
+    simplify_ite,
+)
 from .norm_walk import map_expr
 from .yul_ast import EvaluationError, SymbolId
 
 # ---------------------------------------------------------------------------
 # Expression folding (via shared map_expr)
 # ---------------------------------------------------------------------------
-
-
-def _const_value(expr: NExpr) -> int | None:
-    return expr.value if isinstance(expr, NConst) else None
-
-
-def _const_truthy(expr: NExpr) -> bool | None:
-    value = _const_value(expr)
-    return None if value is None else value != 0
 
 
 def _is_zero(expr: NExpr) -> bool:
@@ -450,20 +445,9 @@ def _rewrite_stmt(stmt: NStmt, env: _FactEnv) -> _StmtRewrite:
             env,
         )
 
-    if isinstance(stmt, NStore):
-        return _StmtRewrite.continue_with(
-            (
-                NStore(
-                    addr=env.rewrite_expr(stmt.addr),
-                    value=env.rewrite_expr(stmt.value),
-                ),
-            ),
-            env,
-        )
-
     if isinstance(stmt, NIf):
         cond = env.rewrite_expr(stmt.condition)
-        cond_truthy = _const_truthy(cond)
+        cond_truthy = const_truthy(cond)
         if cond_truthy is not None:
             if not cond_truthy:
                 return _StmtRewrite.continue_with((), env)
@@ -485,7 +469,7 @@ def _rewrite_stmt(stmt: NStmt, env: _FactEnv) -> _StmtRewrite:
 
     if isinstance(stmt, NSwitch):
         disc = env.rewrite_expr(stmt.discriminant)
-        disc_value = _const_value(disc)
+        disc_value = const_value(disc)
         if disc_value is not None:
             for case in stmt.cases:
                 if case.value.value == disc_value:
@@ -576,7 +560,7 @@ def _rewrite_for(stmt: NFor, env: _FactEnv) -> _StmtRewrite:
             cond_env = working_env
 
         cond = cond_env.rewrite_expr(stmt.condition)
-        cond_truthy = _const_truthy(cond)
+        cond_truthy = const_truthy(cond)
         if cond_truthy is False:
             return _loop_preamble_result(
                 env=cond_env,
@@ -605,7 +589,7 @@ def _rewrite_for(stmt: NFor, env: _FactEnv) -> _StmtRewrite:
     assert loop_result is not None
     setup_result, cond_env, cond, body_result, post_result = loop_result
 
-    cond_truthy = _const_truthy(cond)
+    cond_truthy = const_truthy(cond)
     loop_falls_through = cond_truthy is not True
     loop_exit_env = cond_env if loop_falls_through else _FactEnv()
 

@@ -27,7 +27,6 @@ from .norm_ir import (
     NLocalCall,
     NormalizedFunction,
     NStmt,
-    NStore,
     NSwitch,
     NTopLevelCall,
     NUnresolvedCall,
@@ -129,10 +128,6 @@ def _walk_stmt(acc: _SummaryAccumulator, stmt: NStmt) -> None:
         if not _is_known_effect_call(stmt.expr):
             acc.has_expr_effects = True
         _walk_expr_effects(acc, stmt.expr)
-    elif isinstance(stmt, NStore):
-        acc.writes_memory = True
-        _walk_expr_effects(acc, stmt.addr)
-        _walk_expr_effects(acc, stmt.value)
     elif isinstance(stmt, NIf):
         if _has_call_in_expr(stmt.condition):
             acc.has_effectful_condition = True
