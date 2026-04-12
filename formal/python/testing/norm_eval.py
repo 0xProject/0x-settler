@@ -112,10 +112,16 @@ def evaluate_normalized(
 
 
 def _exec_block(ctx: _EvalCtx, block: NBlock) -> None:
+    added_local_funcs: list[SymbolId] = []
     for fdef in block.defs:
         ctx.local_funcs[fdef.symbol_id] = fdef
-    for stmt in block.stmts:
-        _exec_stmt(ctx, stmt)
+        added_local_funcs.append(fdef.symbol_id)
+    try:
+        for stmt in block.stmts:
+            _exec_stmt(ctx, stmt)
+    finally:
+        for sid in added_local_funcs:
+            ctx.local_funcs.pop(sid, None)
 
 
 def _exec_stmt(ctx: _EvalCtx, stmt: NStmt) -> None:

@@ -6,8 +6,8 @@ This script extracts `_sqrt_babylonianStep`, `_sqrt_baseCase`,
 `_sqrt_karatsubaQuotient`, `_sqrt_correction`, `_sqrt`, `sqrt`,
 `sqrtUp`, `wrap_sqrt512`, and `wrap_osqrtUp` from the Yul IR produced
 by `forge inspect` on Sqrt512Wrapper and emits opcode-faithful uint256
-EVM Lean definitions (norm model suppressed via evm_only=True since the
-proofs bridge the EVM model directly).
+EVM Lean definitions, plus normalized Nat models for the selected 512-bit
+sub-functions.
 
 By keeping the sub-functions in `function_order`, the pipeline emits
 separate models for each. `model_sqrt512_evm` calls into sub-models
@@ -22,14 +22,29 @@ arithmetic, library calls) are inlined to raw opcodes automatically.
 
 from __future__ import annotations
 
-from ..generator_cli import run_generator
-from ..model_config import (
-    CliConfig,
-    EmissionConfig,
-    ModelConfig,
-    SelectionConfig,
-    TransformConfig,
-)
+if __package__ in (None, ""):
+    import pathlib
+    import sys
+
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
+
+    from formal.python.generator_cli import run_generator
+    from formal.python.model_config import (
+        CliConfig,
+        EmissionConfig,
+        ModelConfig,
+        SelectionConfig,
+        TransformConfig,
+    )
+else:
+    from ..generator_cli import run_generator
+    from ..model_config import (
+        CliConfig,
+        EmissionConfig,
+        ModelConfig,
+        SelectionConfig,
+        TransformConfig,
+    )
 
 CONFIG = ModelConfig(
     selection=SelectionConfig(

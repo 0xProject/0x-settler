@@ -10,8 +10,22 @@ This script extracts `_sqrt`, `sqrt`, and `sqrtUp` from the Yul IR produced by
 
 from __future__ import annotations
 
-from ..generator_cli import run_generator
-from ..model_config import CliConfig, EmissionConfig, ModelConfig, SelectionConfig
+if __package__ in (None, ""):
+    import pathlib
+    import sys
+
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
+
+    from formal.python.generator_cli import run_generator
+    from formal.python.model_config import (
+        CliConfig,
+        EmissionConfig,
+        ModelConfig,
+        SelectionConfig,
+    )
+else:
+    from ..generator_cli import run_generator
+    from ..model_config import CliConfig, EmissionConfig, ModelConfig, SelectionConfig
 
 CONFIG = ModelConfig(
     selection=SelectionConfig(

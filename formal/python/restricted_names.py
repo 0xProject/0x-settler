@@ -288,11 +288,12 @@ def apply_module_plan(
 ) -> dict[str, RestrictedFunction]:
     """Apply a ``ModuleNamePlan`` to all functions in a module.
 
-    Rewrites binder names and model-call callee names.
+    Rewrites function names, binder names, and model-call callee names.
     """
     result: dict[str, RestrictedFunction] = {}
     for raw_name, func in funcs.items():
         name_map = plan.binder_names.get(raw_name, {})
+        function_name = plan.function_names.get(raw_name, func.name)
         new_param_names = tuple(
             name_map.get(sid, n) for sid, n in zip(func.params, func.param_names)
         )
@@ -303,7 +304,7 @@ def apply_module_plan(
             _rewrite_stmt(s, name_map, plan.function_names) for s in func.body
         )
         result[raw_name] = RestrictedFunction(
-            name=func.name,
+            name=function_name,
             params=func.params,
             param_names=new_param_names,
             returns=func.returns,

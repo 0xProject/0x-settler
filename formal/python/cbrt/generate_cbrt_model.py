@@ -10,15 +10,31 @@ This script extracts `_cbrt`, `cbrt`, and `cbrtUp` from the Yul IR produced by
 
 from __future__ import annotations
 
-from ..generator_cli import run_generator
-from ..model_config import (
-    CliConfig,
-    EmissionConfig,
-    ModelConfig,
-    NormExtension,
-    SelectionConfig,
-)
-from ..model_ir import Call, Expr, IntLit
+if __package__ in (None, ""):
+    import pathlib
+    import sys
+
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
+
+    from formal.python.generator_cli import run_generator
+    from formal.python.model_config import (
+        CliConfig,
+        EmissionConfig,
+        ModelConfig,
+        NormExtension,
+        SelectionConfig,
+    )
+    from formal.python.model_ir import Call, Expr, IntLit
+else:
+    from ..generator_cli import run_generator
+    from ..model_config import (
+        CliConfig,
+        EmissionConfig,
+        ModelConfig,
+        NormExtension,
+        SelectionConfig,
+    )
+    from ..model_ir import Call, Expr, IntLit
 
 
 def rewrite_norm_ast(expr: Expr) -> Expr:

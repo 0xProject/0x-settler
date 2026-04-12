@@ -7040,6 +7040,26 @@ print(repr((stmt.output_vars, stmt.then_branch.outputs, stmt.else_branch.outputs
         self.assertEqual(outputs[0], outputs[1])
 
 
+class GeneratorScriptEntryPointTest(unittest.TestCase):
+    def test_model_generators_run_as_scripts(self) -> None:
+        script_root = pathlib.Path(__file__).resolve().parent
+        cases = (
+            ("sqrt/generate_sqrt_model.py", "Generate Lean model of Sqrt.sol"),
+            ("sqrt/generate_sqrt512_model.py", "Generate Lean model of 512Math._sqrt"),
+            ("cbrt/generate_cbrt_model.py", "Generate Lean model of Cbrt.sol"),
+            ("cbrt/generate_cbrt512_model.py", "Generate Lean model of 512Math._cbrt"),
+        )
+        for relative_path, expected in cases:
+            with self.subTest(script=relative_path):
+                completed = subprocess.run(
+                    [sys.executable, str(script_root / relative_path), "--help"],
+                    capture_output=True,
+                    text=True,
+                )
+                self.assertEqual(completed.returncode, 0, completed.stderr)
+                self.assertIn(expected, completed.stdout)
+
+
 class BranchExprStmtTest(unittest.TestCase):
     """Tests for scope-aware expression-statement tracking in branches."""
 
@@ -10369,6 +10389,56 @@ class NormalizeEvalTest(unittest.TestCase):
         """
         self.assertEqual(self._eval_normalized(yul, (0,)), (10,))
         self.assertEqual(self._eval_normalized(yul, (1,)), (20,))
+
+    def test_block_local_helper_does_not_leak_outside_scope(self) -> None:
+        """A helper declared in a nested block is not visible after that block exits."""
+        helper_sid = yul_ast.SymbolId(10)
+        helper_ret_sid = yul_ast.SymbolId(11)
+        out_sid = yul_ast.SymbolId(12)
+        nf = norm_ir.NormalizedFunction(
+            name="f",
+            params=(),
+            param_names=(),
+            returns=(out_sid,),
+            return_names=("out",),
+            body=norm_ir.NBlock(
+                stmts=(
+                    norm_ir.NBlock(
+                        defs=(
+                            norm_ir.NFunctionDef(
+                                name="g",
+                                symbol_id=helper_sid,
+                                params=(),
+                                param_names=(),
+                                returns=(helper_ret_sid,),
+                                return_names=("r",),
+                                body=norm_ir.NBlock(
+                                    stmts=(
+                                        norm_ir.NAssign(
+                                            targets=(helper_ret_sid,),
+                                            target_names=("r",),
+                                            expr=norm_ir.NConst(7),
+                                        ),
+                                    )
+                                ),
+                            ),
+                        ),
+                        stmts=(),
+                    ),
+                    norm_ir.NAssign(
+                        targets=(out_sid,),
+                        target_names=("out",),
+                        expr=norm_ir.NLocalCall(
+                            symbol_id=helper_sid,
+                            name="g",
+                            args=(),
+                        ),
+                    ),
+                )
+            ),
+        )
+        with self.assertRaisesRegex(EvaluationError, "Unknown local function"):
+            evaluate_normalized(nf, ())
 
     def test_recursion_detection(self) -> None:
         """Mutual recursion (f→g→f) is caught before hitting Python stack limit."""
@@ -13751,6 +13821,35 @@ class SSAModelTest(unittest.TestCase):
         )
         plan = plan_module({"f": rf})
         self.assertIn("u256", plan.binder_names["f"].values())
+
+    def test_apply_module_plan_rewrites_function_name(self) -> None:
+        """The rewritten function object name matches rewritten callee names."""
+        from .restricted_ir import RCallAssign, RConst
+        from .restricted_names import apply_module_plan, plan_module
+
+        ret_sid = yul_ast.SymbolId(0)
+        rf = RestrictedFunction(
+            name="fun_demo_1",
+            params=(),
+            param_names=(),
+            returns=(ret_sid,),
+            return_names=("var_x_1",),
+            body=(
+                RCallAssign(
+                    targets=(ret_sid,),
+                    target_names=("var_x_1",),
+                    callee="fun_demo_1",
+                    args=(RConst(0),),
+                ),
+            ),
+        )
+        plan = plan_module({"fun_demo_1": rf})
+        rewritten = apply_module_plan({"fun_demo_1": rf}, plan)["fun_demo_1"]
+        self.assertEqual(rewritten.name, "demo")
+        self.assertEqual(rewritten.return_names, ("x",))
+        self.assertIsInstance(rewritten.body[0], RCallAssign)
+        call = cast(RCallAssign, rewritten.body[0])
+        self.assertEqual(call.callee, "demo")
 
 
 class TranslationPipelineWiringTest(unittest.TestCase):

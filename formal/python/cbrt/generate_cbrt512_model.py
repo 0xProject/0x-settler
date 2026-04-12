@@ -26,14 +26,29 @@ library calls) are inlined to raw opcodes automatically.
 
 from __future__ import annotations
 
-from ..generator_cli import run_generator
-from ..model_config import (
-    CliConfig,
-    EmissionConfig,
-    ModelConfig,
-    SelectionConfig,
-    TransformConfig,
-)
+if __package__ in (None, ""):
+    import pathlib
+    import sys
+
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
+
+    from formal.python.generator_cli import run_generator
+    from formal.python.model_config import (
+        CliConfig,
+        EmissionConfig,
+        ModelConfig,
+        SelectionConfig,
+        TransformConfig,
+    )
+else:
+    from ..generator_cli import run_generator
+    from ..model_config import (
+        CliConfig,
+        EmissionConfig,
+        ModelConfig,
+        SelectionConfig,
+        TransformConfig,
+    )
 
 CONFIG = ModelConfig(
     selection=SelectionConfig(
