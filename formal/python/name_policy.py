@@ -19,18 +19,19 @@ from .evm_builtins import BASE_NORM_HELPERS, OP_TO_LEAN_HELPER
 from .model_config import EmissionConfig, TransformConfig
 from .restricted_ir import (
     RAssignment,
-    RBranch,
-    RBuiltinCall,
     RCallAssign,
     RConditionalBlock,
-    RConst,
     RestrictedFunction,
     RExpr,
-    RIte,
     RModelCall,
     RRef,
     RStatement,
 )
+from .restricted_walk import (
+    for_each_stmt,
+)
+from .restricted_walk import map_expr as _map_expr
+from .restricted_walk import map_stmt as _map_stmt
 from .yul_ast import EmissionError, SymbolId
 
 # Conservative subset of the fixed builtin command/term keywords from Lean 4's
@@ -241,31 +242,18 @@ def _rewrite_expr(
     name_map: dict[SymbolId, str],
     callee_map: dict[str, str] | None,
 ) -> RExpr:
-    if isinstance(expr, RConst):
-        return expr
-    if isinstance(expr, RRef):
-        new_name = name_map.get(expr.symbol_id, expr.name)
-        if new_name == expr.name:
-            return expr
-        return RRef(symbol_id=expr.symbol_id, name=new_name)
-    if isinstance(expr, RBuiltinCall):
-        return RBuiltinCall(
-            op=expr.op,
-            args=tuple(_rewrite_expr(a, name_map, callee_map) for a in expr.args),
-        )
-    if isinstance(expr, RModelCall):
-        new_name = callee_map.get(expr.name, expr.name) if callee_map else expr.name
-        return RModelCall(
-            name=new_name,
-            args=tuple(_rewrite_expr(a, name_map, callee_map) for a in expr.args),
-        )
-    if isinstance(expr, RIte):
-        return RIte(
-            cond=_rewrite_expr(expr.cond, name_map, callee_map),
-            if_true=_rewrite_expr(expr.if_true, name_map, callee_map),
-            if_false=_rewrite_expr(expr.if_false, name_map, callee_map),
-        )
-    raise TypeError(f"Unsupported restricted expr: {type(expr).__name__}")
+    def rewrite(e: RExpr) -> RExpr:
+        if isinstance(e, RRef):
+            new_name = name_map.get(e.symbol_id, e.name)
+            if new_name != e.name:
+                return RRef(symbol_id=e.symbol_id, name=new_name)
+        elif isinstance(e, RModelCall) and callee_map:
+            new_name = callee_map.get(e.name, e.name)
+            if new_name != e.name:
+                return RModelCall(name=new_name, args=e.args)
+        return e
+
+    return _map_expr(expr, rewrite)
 
 
 def _rewrite_stmt(
@@ -273,55 +261,12 @@ def _rewrite_stmt(
     name_map: dict[SymbolId, str],
     callee_map: dict[str, str] | None,
 ) -> RStatement:
-    if isinstance(stmt, RAssignment):
-        return RAssignment(
-            target=stmt.target,
-            target_name=name_map.get(stmt.target, stmt.target_name),
-            expr=_rewrite_expr(stmt.expr, name_map, callee_map),
-        )
-    if isinstance(stmt, RCallAssign):
-        new_callee = (
-            callee_map.get(stmt.callee, stmt.callee) if callee_map else stmt.callee
-        )
-        return RCallAssign(
-            targets=stmt.targets,
-            target_names=tuple(
-                name_map.get(sid, name)
-                for sid, name in zip(stmt.targets, stmt.target_names)
-            ),
-            callee=new_callee,
-            args=tuple(_rewrite_expr(arg, name_map, callee_map) for arg in stmt.args),
-        )
-    if isinstance(stmt, RConditionalBlock):
-        return RConditionalBlock(
-            condition=_rewrite_expr(stmt.condition, name_map, callee_map),
-            output_targets=stmt.output_targets,
-            output_names=tuple(
-                name_map.get(sid, name)
-                for sid, name in zip(stmt.output_targets, stmt.output_names)
-            ),
-            then_branch=RBranch(
-                assignments=tuple(
-                    _rewrite_stmt(sub_stmt, name_map, callee_map)
-                    for sub_stmt in stmt.then_branch.assignments
-                ),
-                output_exprs=tuple(
-                    _rewrite_expr(expr, name_map, callee_map)
-                    for expr in stmt.then_branch.output_exprs
-                ),
-            ),
-            else_branch=RBranch(
-                assignments=tuple(
-                    _rewrite_stmt(sub_stmt, name_map, callee_map)
-                    for sub_stmt in stmt.else_branch.assignments
-                ),
-                output_exprs=tuple(
-                    _rewrite_expr(expr, name_map, callee_map)
-                    for expr in stmt.else_branch.output_exprs
-                ),
-            ),
-        )
-    raise TypeError(f"Unsupported restricted stmt: {type(stmt).__name__}")
+    return _map_stmt(
+        stmt,
+        map_expr_fn=lambda e: _rewrite_expr(e, name_map, callee_map),
+        map_target_name=lambda sid, name: name_map.get(sid, name),
+        map_callee=((lambda c: callee_map.get(c, c)) if callee_map else None),
+    )
 
 
 def _collect_all_sids(func: RestrictedFunction) -> dict[SymbolId, str]:
@@ -331,28 +276,19 @@ def _collect_all_sids(func: RestrictedFunction) -> dict[SymbolId, str]:
         result[sid] = name
     for sid, name in zip(func.returns, func.return_names):
         result[sid] = name
-    for stmt in func.body:
-        _collect_sids_stmt(stmt, result)
+
+    def visit(stmt: RStatement) -> None:
+        if isinstance(stmt, RAssignment):
+            result[stmt.target] = stmt.target_name
+        elif isinstance(stmt, RCallAssign):
+            for sid, name in zip(stmt.targets, stmt.target_names):
+                result[sid] = name
+        elif isinstance(stmt, RConditionalBlock):
+            for sid, name in zip(stmt.output_targets, stmt.output_names):
+                result[sid] = name
+
+    for_each_stmt(func.body, visit)
     return result
-
-
-def _collect_sids_stmt(stmt: RStatement, out: dict[SymbolId, str]) -> None:
-    if isinstance(stmt, RAssignment):
-        out[stmt.target] = stmt.target_name
-        return
-    if isinstance(stmt, RCallAssign):
-        for sid, name in zip(stmt.targets, stmt.target_names):
-            out[sid] = name
-        return
-    if isinstance(stmt, RConditionalBlock):
-        for sid, name in zip(stmt.output_targets, stmt.output_names):
-            out[sid] = name
-        for sub_stmt in stmt.then_branch.assignments:
-            _collect_sids_stmt(sub_stmt, out)
-        for sub_stmt in stmt.else_branch.assignments:
-            _collect_sids_stmt(sub_stmt, out)
-        return
-    raise TypeError(f"Unsupported restricted stmt: {type(stmt).__name__}")
 
 
 def _demangle_function_name(name: str) -> str:

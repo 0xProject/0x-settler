@@ -413,12 +413,6 @@ theorem model_osqrtUp_evm_correct (x_hi x_lo : Nat)
     have hcarry := add_with_carry r needsUp hr_wm' hnu_01
     simp only at hcarry
     -- evmAdd 0 x = x when x ∈ {0, 1}
-    have hfst_simp : evmAdd 0 (evmLt (evmAdd r needsUp) r) =
-        evmLt (evmAdd r needsUp) r := by
-      have hlt_01 : evmLt (evmAdd r needsUp) r = 0 ∨ evmLt (evmAdd r needsUp) r = 1 := by
-        unfold evmLt; by_cases h : u256 (evmAdd r needsUp) < u256 r <;> simp [h]
-      rcases hlt_01 with h | h <;>
-        (rw [h]; unfold evmAdd u256 WORD_MOD; simp (config := { decide := true }))
     have heq00 : evmEq 0 0 = 1 := by
       unfold evmEq u256
       simp
@@ -429,7 +423,7 @@ theorem model_osqrtUp_evm_correct (x_hi x_lo : Nat)
       rw [heq00]
       unfold evmIszero u256 WORD_MOD
       simp
-    simp [heq00_nz, hiszero00, hfst_simp, ← hWM, hcarry]
+    simp [heq00_nz, hiszero00, ← hWM, hcarry]
     -- Goal: r + needsUp = sqrtUp512 (x_hi * WORD_MOD + x_lo)
     -- Rewrite hr_eq to use WORD_MOD
     have hr_eq_wm : r = natSqrt (x_hi * WORD_MOD + x_lo) := by rw [hr_eq, hWM]

@@ -1186,14 +1186,13 @@ private theorem model_sqrtCorrection_evm_correct
   have hrem_129 : rem < 2 ^ 129 := by omega
   have h_wm_sq : WORD_MOD = 2 ^ 128 * 2 ^ 128 := by unfold WORD_MOD; rw [← Nat.pow_add]
   -- Constant-fold: evmAnd(evmAnd(128, 255), 255) = 128
-  have hcf128 : evmAnd (evmAnd 128 255) 255 = 128 := by decide
   -- 340282366920938463463374607431768211455 = 2^128 - 1
   have hmask : (340282366920938463463374607431768211455 : Nat) = 2 ^ 128 - 1 := by decide
   -- Unfold and inline let-bindings
   unfold model_sqrtCorrection_evm
   dsimp only
   simp only [u256_id' r_hi hrhi_wm, u256_id' r_lo hrlo_wm, u256_id' rem hrem_wm,
-             u256_id' x_lo hxlo_wm, hcf128, hmask]
+             u256_id' x_lo hxlo_wm, hmask]
   -- === Simplify each EVM operation ===
   -- evmShl 128 r_hi, evmShr 128 rem, evmShr 128 r_lo
   have hshl_rhi : evmShl 128 r_hi = r_hi * 2 ^ 128 := by

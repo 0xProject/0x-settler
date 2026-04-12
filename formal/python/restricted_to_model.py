@@ -60,6 +60,7 @@ from .restricted_ir import (
     RRef,
     RStatement,
 )
+from .restricted_walk import expr_contains
 from .yul_ast import SymbolId
 
 # ---------------------------------------------------------------------------
@@ -228,19 +229,7 @@ def _convert_conditional(
 
 
 def _expr_uses_sid(expr: RExpr, sid: SymbolId) -> bool:
-    if isinstance(expr, RConst):
-        return False
-    if isinstance(expr, RRef):
-        return expr.symbol_id == sid
-    if isinstance(expr, (RBuiltinCall, RModelCall)):
-        return any(_expr_uses_sid(arg, sid) for arg in expr.args)
-    if isinstance(expr, RIte):
-        return (
-            _expr_uses_sid(expr.cond, sid)
-            or _expr_uses_sid(expr.if_true, sid)
-            or _expr_uses_sid(expr.if_false, sid)
-        )
-    assert_never(expr)
+    return expr_contains(expr, lambda e: isinstance(e, RRef) and e.symbol_id == sid)
 
 
 def _analyze_branch_outputs(

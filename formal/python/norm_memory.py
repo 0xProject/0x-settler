@@ -111,6 +111,11 @@ class _FactEnv:
         other.pointer_taint = set(self.pointer_taint)
         return other
 
+    def update_from(self, other: _FactEnv) -> None:
+        """Replace this environment's state with *other*'s state."""
+        self.known = dict(other.known)
+        self.pointer_taint = set(other.pointer_taint)
+
     def fact(self, sid: SymbolId) -> _Fact | None:
         return self.known.get(sid)
 
@@ -607,9 +612,7 @@ def _lower_stmt(
         before_env = env.copy()
         then_env = env.copy()
         then_body = _lower_block(stmt.then_body, ctx, then_env)
-        joined = _join_fact_envs([before_env, then_env])
-        env.known = joined.known
-        env.pointer_taint = joined.pointer_taint
+        env.update_from(_join_fact_envs([before_env, then_env]))
         out.append(NIf(condition=new_cond, then_body=then_body))
         return
 
@@ -650,9 +653,7 @@ def _lower_stmt(
             new_default = _lower_block(stmt.default, ctx, default_env)
         else:
             branch_envs.append(env.copy())
-        joined = _join_fact_envs(branch_envs)
-        env.known = joined.known
-        env.pointer_taint = joined.pointer_taint
+        env.update_from(_join_fact_envs(branch_envs))
         out.append(
             NSwitch(discriminant=new_disc, cases=tuple(new_cases), default=new_default)
         )

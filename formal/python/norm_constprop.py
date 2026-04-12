@@ -115,6 +115,26 @@ def _fold_builtin(expr: NBuiltinCall) -> NExpr:
             return NConst(0)
         return expr
 
+    if expr.op == "div":
+        if _is_one(rhs):
+            return lhs
+        if _is_zero(lhs) and _expr_is_obviously_pure(rhs):
+            return NConst(0)
+        if _is_zero(rhs) and _expr_is_obviously_pure(lhs):
+            return NConst(0)
+        return expr
+
+    if expr.op == "mod":
+        if _is_one(rhs) and _expr_is_obviously_pure(lhs):
+            return NConst(0)
+        if _is_zero(lhs) and _expr_is_obviously_pure(rhs):
+            return NConst(0)
+        if _is_zero(rhs) and _expr_is_obviously_pure(lhs):
+            return NConst(0)
+        if _same_pure_expr(lhs, rhs):
+            return NConst(0)
+        return expr
+
     if expr.op == "and":
         if _is_all_ones(lhs):
             return rhs

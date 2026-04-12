@@ -7,26 +7,16 @@ from __future__ import annotations
 import types
 from collections.abc import Mapping
 from dataclasses import dataclass, field
-from typing import assert_never
 
 from .evm_builtins import EVM_BUILTINS
 from .model_config import SelectionConfig
 from .yul_ast import (
-    AssignStmt,
-    Block,
-    BlockStmt,
     BuiltinTarget,
     CallExpr,
-    ExprStmt,
-    ForStmt,
     FunctionDef,
     FunctionDefStmt,
-    IfStmt,
-    LeaveStmt,
-    LetStmt,
     LocalFunctionTarget,
     SelectionError,
-    SwitchStmt,
     SymbolId,
     SynExpr,
     SynStmt,
@@ -35,6 +25,7 @@ from .yul_ast import (
 from .yul_lexer import tokenize_yul
 from .yul_parser import SyntaxParser
 from .yul_resolve import ResolutionResult, resolve_module
+from .yul_walk import for_each_expr_in_stmt, for_each_stmt_in_block
 
 
 @dataclass(frozen=True)
@@ -535,82 +526,20 @@ def _index_function(
         top_level_token_idx=top_level_token_idx,
         top_level_name=top_level_name,
     )
-    _index_block(
-        func.body,
-        group_idx=group_idx,
-        lexical_path=lexical_path,
-        top_level_token_idx=top_level_token_idx,
-        top_level_name=top_level_name,
-        out=out,
-    )
 
-
-def _index_block(
-    block: Block,
-    *,
-    group_idx: int,
-    lexical_path: tuple[str, ...],
-    top_level_token_idx: int,
-    top_level_name: str,
-    out: dict[int, _SyntaxFunctionInfo],
-) -> None:
-    for stmt in block.stmts:
+    def visit(stmt: SynStmt, path: tuple[str, ...]) -> tuple[str, ...]:
         if isinstance(stmt, FunctionDefStmt):
             _index_function(
                 stmt.func,
                 group_idx=group_idx,
-                lexical_path=lexical_path + (stmt.func.name,),
+                lexical_path=path + (stmt.func.name,),
                 top_level_token_idx=top_level_token_idx,
                 top_level_name=top_level_name,
                 out=out,
             )
-        elif isinstance(stmt, BlockStmt):
-            _index_block(
-                stmt.block,
-                group_idx=group_idx,
-                lexical_path=lexical_path,
-                top_level_token_idx=top_level_token_idx,
-                top_level_name=top_level_name,
-                out=out,
-            )
-        elif isinstance(stmt, IfStmt):
-            _index_block(
-                stmt.body,
-                group_idx=group_idx,
-                lexical_path=lexical_path,
-                top_level_token_idx=top_level_token_idx,
-                top_level_name=top_level_name,
-                out=out,
-            )
-        elif isinstance(stmt, SwitchStmt):
-            for case in stmt.cases:
-                _index_block(
-                    case.body,
-                    group_idx=group_idx,
-                    lexical_path=lexical_path,
-                    top_level_token_idx=top_level_token_idx,
-                    top_level_name=top_level_name,
-                    out=out,
-                )
-            if stmt.default is not None:
-                _index_block(
-                    stmt.default.body,
-                    group_idx=group_idx,
-                    lexical_path=lexical_path,
-                    top_level_token_idx=top_level_token_idx,
-                    top_level_name=top_level_name,
-                    out=out,
-                )
-        elif isinstance(stmt, ForStmt):
-            for sub in (stmt.init, stmt.post, stmt.body):
-                _index_block(
-                    sub,
-                    group_idx=group_idx,
-                    lexical_path=lexical_path,
-                    top_level_token_idx=top_level_token_idx,
-                    top_level_name=top_level_name,
-                    out=out,
-                )
+        return path
+
+    for_each_stmt_in_block(func.body, visit, lexical_path)
 
 
 def _collect_helper_infos_for_target(
@@ -715,10 +644,9 @@ def _direct_call_targets(
     func: FunctionDef,
     resolution: ResolutionResult,
 ) -> list[LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget]:
-    def walk_expr(
-        expr: SynExpr,
-        out: list[LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget],
-    ) -> None:
+    out: list[LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget] = []
+
+    def visit_expr(expr: SynExpr) -> None:
         if not isinstance(expr, CallExpr):
             return
         target = resolution.call_targets.get(expr.name_span)
@@ -732,57 +660,11 @@ def _direct_call_targets(
             (BuiltinTarget, LocalFunctionTarget, TopLevelFunctionTarget),
         ):
             out.append(target)
-        for arg in expr.args:
-            walk_expr(arg, out)
 
-    def walk_stmt(
-        stmt: SynStmt,
-        out: list[LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget],
-    ) -> None:
-        if isinstance(stmt, FunctionDefStmt):
-            return
-        if isinstance(stmt, ExprStmt):
-            walk_expr(stmt.expr, out)
-            return
-        if isinstance(stmt, AssignStmt):
-            walk_expr(stmt.expr, out)
-            return
-        if isinstance(stmt, BlockStmt):
-            walk_block(stmt.block, out)
-            return
-        if isinstance(stmt, IfStmt):
-            walk_expr(stmt.condition, out)
-            walk_block(stmt.body, out)
-            return
-        if isinstance(stmt, SwitchStmt):
-            walk_expr(stmt.discriminant, out)
-            for case in stmt.cases:
-                walk_expr(case.value, out)
-                walk_block(case.body, out)
-            if stmt.default is not None:
-                walk_block(stmt.default.body, out)
-            return
-        if isinstance(stmt, ForStmt):
-            walk_block(stmt.init, out)
-            walk_expr(stmt.condition, out)
-            walk_block(stmt.post, out)
-            walk_block(stmt.body, out)
-            return
-        if isinstance(stmt, LeaveStmt):
-            return
-        if isinstance(stmt, LetStmt):
-            if stmt.init is not None:
-                walk_expr(stmt.init, out)
-            return
-        assert_never(stmt)
+    def visit_stmt(stmt: SynStmt, _ctx: None) -> None:
+        if not isinstance(stmt, FunctionDefStmt):
+            for_each_expr_in_stmt(stmt, visit_expr)
+        return None
 
-    def walk_block(
-        block: Block,
-        out: list[LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget],
-    ) -> None:
-        for stmt in block.stmts:
-            walk_stmt(stmt, out)
-
-    out: list[LocalFunctionTarget | TopLevelFunctionTarget | BuiltinTarget] = []
-    walk_block(func.body, out)
+    for_each_stmt_in_block(func.body, visit_stmt)
     return out

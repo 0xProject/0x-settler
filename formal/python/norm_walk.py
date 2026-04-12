@@ -278,35 +278,17 @@ def max_symbol_id(func: NormalizedFunction | NFunctionDef) -> int:
             _check(e.symbol_id)
 
     def visit_stmt(stmt: NBlockItem) -> None:
-        if isinstance(stmt, NBind):
-            for sid in stmt.targets:
-                _check(sid)
-            if stmt.expr is not None:
-                for_each_expr(stmt.expr, visit_expr)
-        elif isinstance(stmt, NAssign):
-            for sid in stmt.targets:
-                _check(sid)
-            for_each_expr(stmt.expr, visit_expr)
-        elif isinstance(stmt, NExprEffect):
-            for_each_expr(stmt.expr, visit_expr)
-        elif isinstance(stmt, NIf):
-            for_each_expr(stmt.condition, visit_expr)
-        elif isinstance(stmt, NSwitch):
-            for_each_expr(stmt.discriminant, visit_expr)
-        elif isinstance(stmt, NFor):
-            for_each_expr(stmt.condition, visit_expr)
-        elif isinstance(stmt, NLeave):
-            pass
-        elif isinstance(stmt, NFunctionDef):
+        if isinstance(stmt, NFunctionDef):
             _check(stmt.symbol_id)
             for sid in stmt.params:
                 _check(sid)
             for sid in stmt.returns:
                 _check(sid)
-        elif isinstance(stmt, NBlock):
-            pass
-        else:
-            assert_never(stmt)
+            return
+        if isinstance(stmt, (NBind, NAssign)):
+            for sid in stmt.targets:
+                _check(sid)
+        for_each_stmt_expr(stmt, visit_expr)
 
     for_each_stmt(func.body, visit_stmt, include_function_bodies=True)
     return result
