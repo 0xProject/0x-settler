@@ -64,30 +64,95 @@ def map_model_expr(expr: Expr, fn: Callable[[Expr], Expr]) -> Expr:
 # ---------------------------------------------------------------------------
 
 
-def walk_model_exprs_in_stmt(
+def for_each_model_stmt(
+    stmt: ModelStatement,
+    visit: Callable[[ModelStatement], None],
+) -> None:
+    """Pre-order traversal over model statements and nested branch statements."""
+    visit(stmt)
+    if isinstance(stmt, Assignment):
+        return
+    if isinstance(stmt, ConditionalBlock):
+        for sub_stmt in stmt.then_branch.assignments:
+            for_each_model_stmt(sub_stmt, visit)
+        for sub_stmt in stmt.else_branch.assignments:
+            for_each_model_stmt(sub_stmt, visit)
+        return
+    assert_never(stmt)
+
+
+def for_each_model_stmt_expr(
     stmt: ModelStatement,
     visit: Callable[[Expr], None],
 ) -> None:
-    """Visit every expression position reachable from a model statement."""
+    """Visit every direct expression slot attached to one model statement."""
     if isinstance(stmt, Assignment):
         visit(stmt.expr)
         return
     if isinstance(stmt, ConditionalBlock):
         visit(stmt.condition)
-        _walk_model_exprs_in_branch(stmt.then_branch, visit)
-        _walk_model_exprs_in_branch(stmt.else_branch, visit)
+        for expr in stmt.then_branch.outputs:
+            visit(expr)
+        for expr in stmt.else_branch.outputs:
+            visit(expr)
         return
     assert_never(stmt)
 
 
-def _walk_model_exprs_in_branch(
-    branch: ConditionalBranch,
+def walk_model_exprs_in_stmt(
+    stmt: ModelStatement,
     visit: Callable[[Expr], None],
 ) -> None:
-    for stmt in branch.assignments:
-        walk_model_exprs_in_stmt(stmt, visit)
-    for expr in branch.outputs:
-        visit(expr)
+    """Visit every expression position reachable from a model statement."""
+
+    def walk_stmt(current: ModelStatement) -> None:
+        for_each_model_stmt_expr(current, visit)
+
+    for_each_model_stmt(stmt, walk_stmt)
+
+
+def map_model_branch(
+    branch: ConditionalBranch,
+    *,
+    map_stmt_fn: Callable[[ModelStatement], ModelStatement],
+    map_expr_fn: Callable[[Expr], Expr],
+) -> ConditionalBranch:
+    return ConditionalBranch(
+        assignments=tuple(map_stmt_fn(stmt) for stmt in branch.assignments),
+        outputs=tuple(map_expr_fn(expr) for expr in branch.outputs),
+    )
+
+
+def map_model_stmt(
+    stmt: ModelStatement,
+    *,
+    map_expr_fn: Callable[[Expr], Expr],
+    map_branch_fn: Callable[[ConditionalBranch], ConditionalBranch] | None = None,
+) -> ModelStatement:
+    """Map one model statement structurally."""
+    if isinstance(stmt, Assignment):
+        return Assignment(target=stmt.target, expr=map_expr_fn(stmt.expr))
+    if isinstance(stmt, ConditionalBlock):
+
+        def default_branch_map(branch: ConditionalBranch) -> ConditionalBranch:
+            return map_model_branch(
+                branch,
+                map_stmt_fn=lambda sub_stmt: map_model_stmt(
+                    sub_stmt,
+                    map_expr_fn=map_expr_fn,
+                    map_branch_fn=map_branch_fn,
+                ),
+                map_expr_fn=map_expr_fn,
+            )
+
+        branch_map = map_branch_fn if map_branch_fn is not None else default_branch_map
+        return ConditionalBlock(
+            condition=map_expr_fn(stmt.condition),
+            output_vars=stmt.output_vars,
+            then_branch=branch_map(stmt.then_branch),
+            else_branch=branch_map(stmt.else_branch),
+        )
+    assert_never(stmt)
 
 
 # ---------------------------------------------------------------------------
@@ -169,18 +234,18 @@ def expr_vars(expr: Expr) -> set[str]:
 def collect_model_binders(model: FunctionModel) -> list[str]:
     binders = [*model.param_names, *model.return_names]
     for stmt in model.assignments:
-        _collect_binders_from_stmt(stmt, binders)
+        for_each_model_stmt(
+            stmt,
+            lambda current: _collect_binders_from_stmt(current, binders),
+        )
     return binders
 
 
 def _collect_binders_from_stmt(stmt: ModelStatement, out: list[str]) -> None:
     if isinstance(stmt, Assignment):
         out.append(stmt.target)
-    elif isinstance(stmt, ConditionalBlock):
+        return
+    if isinstance(stmt, ConditionalBlock):
         out.extend(stmt.output_vars)
-        for s in stmt.then_branch.assignments:
-            _collect_binders_from_stmt(s, out)
-        for s in stmt.else_branch.assignments:
-            _collect_binders_from_stmt(s, out)
-    else:
-        assert_never(stmt)
+        return
+    assert_never(stmt)

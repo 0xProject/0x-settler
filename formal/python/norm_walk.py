@@ -171,6 +171,29 @@ def for_each_stmt(
     walk(block)
 
 
+def for_each_stmt_expr(stmt: NStmt, f: Callable[[NExpr], None]) -> None:
+    """Visit every direct expression slot carried by one statement."""
+    if isinstance(stmt, NBind):
+        if stmt.expr is not None:
+            for_each_expr(stmt.expr, f)
+        return
+    if isinstance(stmt, (NAssign, NExprEffect)):
+        for_each_expr(stmt.expr, f)
+        return
+    if isinstance(stmt, NIf):
+        for_each_expr(stmt.condition, f)
+        return
+    if isinstance(stmt, NSwitch):
+        for_each_expr(stmt.discriminant, f)
+        return
+    if isinstance(stmt, NFor):
+        for_each_expr(stmt.condition, f)
+        return
+    if isinstance(stmt, (NLeave, NBlock)):
+        return
+    assert_never(stmt)
+
+
 # ---------------------------------------------------------------------------
 # Shared collectors
 # ---------------------------------------------------------------------------
@@ -192,26 +215,6 @@ def _collect_modified_stmt(stmt: NBlockItem, out: set[SymbolId]) -> None:
         out.update(stmt.targets)
 
 
-def collect_reassigned_in_block(block: NBlock) -> set[SymbolId]:
-    """Collect SymbolIds that appear as ``NAssign`` targets (mutable vars).
-
-    Unlike ``collect_modified_in_block`` which includes ``NBind`` targets,
-    this only finds variables that are re-assigned after initial binding.
-    """
-    out: set[SymbolId] = set()
-
-    def collect_stmt(stmt: NBlockItem) -> None:
-        _collect_reassigned_stmt(stmt, out)
-
-    for_each_stmt(block, collect_stmt)
-    return out
-
-
-def _collect_reassigned_stmt(stmt: NBlockItem, out: set[SymbolId]) -> None:
-    if isinstance(stmt, NAssign):
-        out.update(stmt.targets)
-
-
 def collect_function_defs(block: NBlock) -> list[NFunctionDef]:
     """Recursively collect all ``NFunctionDef`` nodes from *block*.
 
@@ -225,6 +228,31 @@ def collect_function_defs(block: NBlock) -> list[NFunctionDef]:
 
     for_each_stmt(block, collect_stmt, include_function_bodies=True)
     return out
+
+
+def first_runtime_local_call(block: NBlock) -> NLocalCall | None:
+    """Return the first executable ``NLocalCall`` found in *block*.
+
+    Only runtime statement trees are inspected. Nested helper bodies are
+    intentionally ignored because callers use this to validate the
+    helper-free runtime boundary immediately before erasing ``block.defs``.
+    """
+    found: NLocalCall | None = None
+
+    def visit_stmt(item: NBlockItem) -> None:
+        nonlocal found
+        if found is not None or isinstance(item, NFunctionDef):
+            return
+
+        def visit_expr(expr: NExpr) -> None:
+            nonlocal found
+            if found is None and isinstance(expr, NLocalCall):
+                found = expr
+
+        for_each_stmt_expr(item, visit_expr)
+
+    for_each_stmt(block, visit_stmt)
+    return found
 
 
 def max_symbol_id(func: NormalizedFunction | NFunctionDef) -> int:
@@ -356,6 +384,39 @@ def map_stmt(
     if isinstance(stmt, NBlock):
         return map_block_fn(stmt)
     assert_never(stmt)
+
+
+def map_block(
+    block: NBlock,
+    *,
+    map_stmt_fn: Callable[[NStmt], NStmt],
+    map_function_def_fn: Callable[[NFunctionDef], NFunctionDef] | None = None,
+) -> NBlock:
+    """Map one block structurally without re-implementing tuple rebuilding."""
+
+    def identity_function_def(fdef: NFunctionDef) -> NFunctionDef:
+        return fdef
+
+    fn_map = map_function_def_fn or identity_function_def
+    return NBlock(
+        defs=tuple(fn_map(fdef) for fdef in block.defs),
+        stmts=tuple(map_stmt_fn(stmt) for stmt in block.stmts),
+    )
+
+
+def strip_function_defs(block: NBlock) -> NBlock:
+    """Recursively erase ``block.defs`` from a helper-free runtime tree."""
+    return NBlock(
+        defs=(),
+        stmts=tuple(
+            map_stmt(
+                stmt,
+                map_expr_fn=lambda expr: expr,
+                map_block_fn=strip_function_defs,
+            )
+            for stmt in block.stmts
+        ),
+    )
 
 
 def map_function_def(

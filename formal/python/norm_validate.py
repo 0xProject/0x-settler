@@ -13,6 +13,7 @@ from .norm_ir import (
     NExpr,
     NExprEffect,
     NFor,
+    NFunctionDef,
     NIf,
     NIte,
     NLeave,
@@ -23,6 +24,13 @@ from .norm_ir import (
     NSwitch,
     NTopLevelCall,
     NUnresolvedCall,
+)
+from .norm_walk import (
+    NBlockItem,
+    collect_function_defs,
+    first_runtime_local_call,
+    for_each_stmt,
+    for_each_stmt_expr,
 )
 from .yul_ast import ValidationError
 
@@ -35,6 +43,19 @@ def validate_restricted_boundary(
     """Reject residual live constructs unsupported by restricted lowering."""
     if not func.returns:
         raise ValidationError(f"Selected function {func.name!r} has zero return values")
+    if collect_function_defs(func.body):
+        raise ValidationError(
+            f"Selected target {func.name!r} reaches restricted lowering with "
+            "nested helper defs still attached. Seal the helper boundary "
+            "before restricted lowering."
+        )
+    residual_call = first_runtime_local_call(func.body)
+    if residual_call is not None:
+        raise ValidationError(
+            f"Selected target {func.name!r} reaches restricted lowering with "
+            f"residual local helper call {residual_call.name!r}. Seal the "
+            "helper boundary before restricted lowering."
+        )
     _validate_block(
         func.body,
         allowed_model_calls=allowed_model_calls,
@@ -48,95 +69,32 @@ def _validate_block(
     allowed_model_calls: frozenset[str],
     context: str,
 ) -> None:
-    for stmt in block.stmts:
-        _validate_stmt(
-            stmt,
-            allowed_model_calls=allowed_model_calls,
-            context=context,
-        )
-
-
-def _validate_stmt(
-    stmt: NStmt,
-    *,
-    allowed_model_calls: frozenset[str],
-    context: str,
-) -> None:
-    if isinstance(stmt, NBind):
-        if stmt.expr is not None:
-            _validate_expr(
-                stmt.expr,
+    def visit(item: NBlockItem) -> None:
+        if isinstance(item, NFunctionDef):
+            return
+        if isinstance(item, NExprEffect):
+            raise ValidationError(
+                f"{context} contains unsupported expression-statement "
+                f"{type(item.expr).__name__}. Refuse to proceed with incomplete semantics."
+            )
+        if isinstance(item, NFor):
+            raise ValidationError(
+                f"{context} contains unsupported for-loop after simplification"
+            )
+        if isinstance(item, NLeave):
+            raise ValidationError(
+                "NLeave in restricted IR lowering — should have been lowered"
+            )
+        for_each_stmt_expr(
+            item,
+            lambda expr: _validate_expr(
+                expr,
                 allowed_model_calls=allowed_model_calls,
                 context=context,
-            )
-        return
-
-    if isinstance(stmt, NAssign):
-        _validate_expr(
-            stmt.expr,
-            allowed_model_calls=allowed_model_calls,
-            context=context,
-        )
-        return
-
-    if isinstance(stmt, NExprEffect):
-        raise ValidationError(
-            f"{context} contains unsupported expression-statement "
-            f"{type(stmt.expr).__name__}. Refuse to proceed with incomplete semantics."
+            ),
         )
 
-    if isinstance(stmt, NIf):
-        _validate_expr(
-            stmt.condition,
-            allowed_model_calls=allowed_model_calls,
-            context=context,
-        )
-        _validate_block(
-            stmt.then_body,
-            allowed_model_calls=allowed_model_calls,
-            context=context,
-        )
-        return
-
-    if isinstance(stmt, NSwitch):
-        _validate_expr(
-            stmt.discriminant,
-            allowed_model_calls=allowed_model_calls,
-            context=context,
-        )
-        for case in stmt.cases:
-            _validate_block(
-                case.body,
-                allowed_model_calls=allowed_model_calls,
-                context=context,
-            )
-        if stmt.default is not None:
-            _validate_block(
-                stmt.default,
-                allowed_model_calls=allowed_model_calls,
-                context=context,
-            )
-        return
-
-    if isinstance(stmt, NFor):
-        raise ValidationError(
-            f"{context} contains unsupported for-loop after simplification"
-        )
-
-    if isinstance(stmt, NLeave):
-        raise ValidationError(
-            "NLeave in restricted IR lowering — should have been inlined"
-        )
-
-    if isinstance(stmt, NBlock):
-        _validate_block(
-            stmt,
-            allowed_model_calls=allowed_model_calls,
-            context=context,
-        )
-        return
-
-    assert_never(stmt)
+    for_each_stmt(block, visit)
 
 
 def _validate_expr(

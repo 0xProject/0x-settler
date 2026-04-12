@@ -4,7 +4,7 @@ import re
 from typing import assert_never
 
 from .evm_builtins import MODELED_BUILTIN_ARITY, OP_TO_LEAN_HELPER
-from .model_helpers import expr_vars, walk_model_exprs_in_stmt
+from .model_helpers import expr_vars, for_each_model_stmt, walk_model_exprs_in_stmt
 from .model_ir import (
     Assignment,
     Call,
@@ -51,26 +51,27 @@ def validate_function_model(model: FunctionModel) -> None:
     for name in model.return_names:
         _validate_identifier(name, what=f"return name in {model.fn_name!r}")
 
-    def _validate_decl_binders_in_stmts(stmts: tuple[ModelStatement, ...]) -> None:
-        for s in stmts:
-            if isinstance(s, Assignment):
+    def _validate_decl_binders(stmt: ModelStatement) -> None:
+        if isinstance(stmt, Assignment):
+            _validate_identifier(
+                stmt.target, what=f"assignment target in {model.fn_name!r}"
+            )
+            return
+        if isinstance(stmt, ConditionalBlock):
+            for var in stmt.output_vars:
                 _validate_identifier(
-                    s.target, what=f"assignment target in {model.fn_name!r}"
+                    var, what=f"conditional output var in {model.fn_name!r}"
                 )
-            elif isinstance(s, ConditionalBlock):
-                for var in s.output_vars:
-                    _validate_identifier(
-                        var, what=f"conditional output var in {model.fn_name!r}"
-                    )
-                if len(set(s.output_vars)) != len(s.output_vars):
-                    raise ValidationError(
-                        f"Model {model.fn_name!r} has duplicate conditional "
-                        f"output_vars: {s.output_vars!r}"
-                    )
-                _validate_decl_binders_in_stmts(s.then_branch.assignments)
-                _validate_decl_binders_in_stmts(s.else_branch.assignments)
+            if len(set(stmt.output_vars)) != len(stmt.output_vars):
+                raise ValidationError(
+                    f"Model {model.fn_name!r} has duplicate conditional "
+                    f"output_vars: {stmt.output_vars!r}"
+                )
+            return
+        assert_never(stmt)
 
-    _validate_decl_binders_in_stmts(model.assignments)
+    for stmt in model.assignments:
+        for_each_model_stmt(stmt, _validate_decl_binders)
 
     def _validate_expr_shape(expr: Expr) -> None:
         if isinstance(expr, Var):
@@ -122,15 +123,8 @@ def validate_function_model(model: FunctionModel) -> None:
         for arg in expr.args:
             _validate_expr_shape(arg)
 
-    def _validate_expr_shapes_in_stmt(s: ModelStatement) -> None:
-        if isinstance(s, Assignment):
-            _validate_expr_shape(s.expr)
-        elif isinstance(s, ConditionalBlock):
-            _validate_expr_shape(s.condition)
-            for sub in s.then_branch.assignments:
-                _validate_expr_shapes_in_stmt(sub)
-            for sub in s.else_branch.assignments:
-                _validate_expr_shapes_in_stmt(sub)
+    def _validate_expr_shapes_in_stmt(stmt: ModelStatement) -> None:
+        walk_model_exprs_in_stmt(stmt, _validate_expr_shape)
 
     def _validate_statement_block(
         statements: tuple[ModelStatement, ...],

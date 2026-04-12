@@ -5,7 +5,14 @@ from collections import Counter
 from typing import Callable, assert_never
 
 from .model_config import TransformConfig
-from .model_helpers import collect_model_binders, expr_size, expr_vars, replace_expr
+from .model_helpers import (
+    collect_model_binders,
+    expr_size,
+    expr_vars,
+    map_model_branch,
+    map_model_stmt,
+    replace_expr,
+)
 from .model_ir import (
     Assignment,
     Call,
@@ -152,11 +159,10 @@ def _replace_branch(
     branch: ConditionalBranch,
     replacements: dict[Expr, str],
 ) -> ConditionalBranch:
-    return ConditionalBranch(
-        assignments=tuple(
-            _replace_statement(stmt, replacements) for stmt in branch.assignments
-        ),
-        outputs=tuple(replace_expr(expr, replacements) for expr in branch.outputs),
+    return map_model_branch(
+        branch,
+        map_stmt_fn=lambda stmt: _replace_statement(stmt, replacements),
+        map_expr_fn=lambda expr: replace_expr(expr, replacements),
     )
 
 
@@ -164,19 +170,11 @@ def _replace_statement(
     stmt: ModelStatement,
     replacements: dict[Expr, str],
 ) -> ModelStatement:
-    if isinstance(stmt, Assignment):
-        return Assignment(
-            target=stmt.target,
-            expr=replace_expr(stmt.expr, replacements),
-        )
-    if isinstance(stmt, ConditionalBlock):
-        return ConditionalBlock(
-            condition=replace_expr(stmt.condition, replacements),
-            output_vars=stmt.output_vars,
-            then_branch=_replace_branch(stmt.then_branch, replacements),
-            else_branch=_replace_branch(stmt.else_branch, replacements),
-        )
-    assert_never(stmt)
+    return map_model_stmt(
+        stmt,
+        map_expr_fn=lambda expr: replace_expr(expr, replacements),
+        map_branch_fn=lambda branch: _replace_branch(branch, replacements),
+    )
 
 
 def _is_hoistable_model_expr(

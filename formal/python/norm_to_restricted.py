@@ -35,6 +35,7 @@ from .norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
+from .norm_walk import collect_function_defs, first_runtime_local_call
 from .restricted_ir import (
     RAssignment,
     RBranch,
@@ -222,7 +223,7 @@ def _lower_stmt(
 
     if isinstance(stmt, NLeave):
         raise LoweringError(
-            "NLeave in restricted IR lowering — should have been inlined"
+            "NLeave in restricted IR lowering — should have been lowered"
         )
 
     if isinstance(stmt, NFor):
@@ -337,7 +338,19 @@ def _lower_switch(
 
 
 def lower_to_restricted(func: NormalizedFunction) -> RestrictedFunction:
-    """Lower memory-free normalized IR to non-SSA restricted IR."""
+    """Lower helper-free, memory-free normalized IR to non-SSA restricted IR."""
+    if collect_function_defs(func.body):
+        raise LoweringError(
+            "Nested helper definitions reached restricted IR lowering. "
+            "Seal the helper boundary after inlining and before restricted lowering."
+        )
+    residual_call = first_runtime_local_call(func.body)
+    if residual_call is not None:
+        raise LoweringError(
+            f"Residual local helper call {residual_call.name!r} reached "
+            "restricted IR lowering. Seal the helper boundary after "
+            "inlining and before restricted lowering."
+        )
     names: dict[SymbolId, str] = {}
     var_state: dict[SymbolId, bool] = {}
 

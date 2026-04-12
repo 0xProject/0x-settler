@@ -14,15 +14,13 @@ from dataclasses import dataclass
 from typing import assert_never
 
 from .norm_ir import (
-    NAssign,
-    NBind,
     NBlock,
     NBuiltinCall,
     NExpr,
     NExprEffect,
     NFor,
+    NFunctionDef,
     NIf,
-    NIte,
     NLeave,
     NLocalCall,
     NormalizedFunction,
@@ -31,7 +29,14 @@ from .norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
-from .norm_walk import collect_function_defs, expr_contains, for_each_expr
+from .norm_walk import (
+    NBlockItem,
+    collect_function_defs,
+    expr_contains,
+    for_each_expr,
+    for_each_stmt,
+    for_each_stmt_expr,
+)
 from .yul_ast import SymbolId
 
 # ---------------------------------------------------------------------------
@@ -73,7 +78,28 @@ def summarize_function(
         top_level_inline_sids=top_level_inline_sids,
         allowed_model_calls=allowed_model_calls,
     )
-    _walk_block(acc, body)
+
+    def visit(item: NBlockItem) -> None:
+        if isinstance(item, NFunctionDef):
+            return
+        if isinstance(item, NExprEffect):
+            if not _is_recognized_expr_stmt(item.expr):
+                acc.has_expr_effects = True
+        elif isinstance(item, NIf):
+            if _has_call_in_expr(item.condition):
+                acc.has_effectful_condition = True
+        elif isinstance(item, NSwitch):
+            if _has_call_in_expr(item.discriminant):
+                acc.has_effectful_condition = True
+        elif isinstance(item, NFor):
+            acc.has_for_loop = True
+            if _has_call_in_expr(item.condition):
+                acc.has_effectful_condition = True
+        elif isinstance(item, NLeave):
+            acc.may_leave = True
+        for_each_stmt_expr(item, lambda expr: _walk_expr_effects(acc, expr))
+
+    for_each_stmt(body, visit)
     return FunctionSummary(
         writes_memory=acc.writes_memory,
         reads_memory=acc.reads_memory,
@@ -111,50 +137,6 @@ class _SummaryAccumulator:
             dict(top_level_inline_sids) if top_level_inline_sids is not None else {}
         )
         self.allowed_model_calls = allowed_model_calls
-
-
-def _walk_block(acc: _SummaryAccumulator, block: NBlock) -> None:
-    for stmt in block.stmts:
-        _walk_stmt(acc, stmt)
-
-
-def _walk_stmt(acc: _SummaryAccumulator, stmt: NStmt) -> None:
-    if isinstance(stmt, NBind):
-        if stmt.expr is not None:
-            _walk_expr_effects(acc, stmt.expr)
-    elif isinstance(stmt, NAssign):
-        _walk_expr_effects(acc, stmt.expr)
-    elif isinstance(stmt, NExprEffect):
-        if not _is_recognized_expr_stmt(stmt.expr):
-            acc.has_expr_effects = True
-        _walk_expr_effects(acc, stmt.expr)
-    elif isinstance(stmt, NIf):
-        if _has_call_in_expr(stmt.condition):
-            acc.has_effectful_condition = True
-        _walk_expr_effects(acc, stmt.condition)
-        _walk_block(acc, stmt.then_body)
-    elif isinstance(stmt, NSwitch):
-        if _has_call_in_expr(stmt.discriminant):
-            acc.has_effectful_condition = True
-        _walk_expr_effects(acc, stmt.discriminant)
-        for case in stmt.cases:
-            _walk_block(acc, case.body)
-        if stmt.default is not None:
-            _walk_block(acc, stmt.default)
-    elif isinstance(stmt, NFor):
-        acc.has_for_loop = True
-        if _has_call_in_expr(stmt.condition):
-            acc.has_effectful_condition = True
-        _walk_block(acc, stmt.init)
-        _walk_expr_effects(acc, stmt.condition)
-        _walk_block(acc, stmt.post)
-        _walk_block(acc, stmt.body)
-    elif isinstance(stmt, NLeave):
-        acc.may_leave = True
-    elif isinstance(stmt, NBlock):
-        _walk_block(acc, stmt)
-    else:
-        assert_never(stmt)
 
 
 def _walk_expr_effects(acc: _SummaryAccumulator, expr: NExpr) -> None:

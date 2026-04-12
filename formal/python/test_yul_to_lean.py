@@ -23,7 +23,6 @@ from .lean_emit import (
     emit_expr,
     render_function_defs,
 )
-from .lean_names import validate_ident
 from .model_helpers import collect_model_opcodes, collect_ops_from_statement, expr_vars
 from .model_ir import (
     Assignment,
@@ -44,13 +43,18 @@ from .model_transforms import (
     hoist_repeated_model_calls,
 )
 from .model_validate import validate_function_model, validate_model_set
+from .name_policy import validate_ident
 from .norm_classify import (
     InlineClassification,
     classify_function_scope,
     summarize_function,
 )
 from .norm_constprop import fold_expr, simplify_normalized
-from .norm_inline import InlineBoundaryPolicy, inline_pure_helpers
+from .norm_inline import (
+    InlineBoundaryPolicy,
+    inline_pure_helpers,
+    seal_helper_boundary,
+)
 from .norm_memory import lower_memory
 from .norm_to_restricted import lower_to_restricted
 from .restricted_ir import RestrictedFunction
@@ -11892,6 +11896,22 @@ class InlineArchitectureTest(unittest.TestCase):
         self.assertEqual(evaluate_normalized(nf, (0,)), (3,))
         self.assertEqual(evaluate_normalized(nf, (1,)), (2,))
 
+    def test_seal_helper_boundary_erases_nested_defs_after_inlining(self) -> None:
+        nf = self._inline("""
+            function f(x) -> z {
+                function g(a) -> b {
+                    function h(v) -> c { c := add(v, 1) }
+                    if a { b := h(1) leave }
+                    b := h(2)
+                }
+                z := g(x)
+            }
+        """)
+        sealed = seal_helper_boundary(nf)
+        self.assertFalse(sealed.body.defs)
+        self.assertEqual(evaluate_normalized(sealed, (0,)), (3,))
+        self.assertEqual(evaluate_normalized(sealed, (1,)), (2,))
+
 
 class MemoryLowerTest(unittest.TestCase):
     """Tests for memory model lowering."""
@@ -11906,6 +11926,7 @@ class MemoryLowerTest(unittest.TestCase):
             nf,
             boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
         )
+        nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         return lower_memory(nf)
 
@@ -12095,12 +12116,26 @@ class MemoryLowerTest(unittest.TestCase):
             nf,
             boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
         )
+        nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         for hi, lo in [(0, 0), (5, 7), (100, 200)]:
             pre = evaluate_normalized(nf, (hi, lo), memory={64: 128, 96: 0})
             lowered = lower_memory(nf)
             post = evaluate_normalized(lowered, (hi, lo))
             self.assertEqual(pre, post, f"Failed for hi={hi}, lo={lo}")
+
+    def test_lower_memory_requires_helper_boundary(self) -> None:
+        tokens = tokenize_yul("""
+            function f(x) -> z {
+                function g(a) -> b { b := add(a, 1) }
+                z := g(x)
+            }
+        """)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        with self.assertRaisesRegex(TranslationError, "Nested helper definitions"):
+            lower_memory(nf)
 
     def test_mstore_inside_if_rejected(self) -> None:
         """mstore inside conditional is rejected (straight-line only)."""
@@ -12304,6 +12339,7 @@ class RestrictedIRTest(unittest.TestCase):
             nf,
             boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
         )
+        nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         return lower_to_restricted(lower_memory(nf))
 
@@ -12322,6 +12358,7 @@ class RestrictedIRTest(unittest.TestCase):
                 nf,
                 boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
             )
+            nf = seal_helper_boundary(nf)
             nf = simplify_normalized(nf)
             out[name] = lower_to_restricted(lower_memory(nf))
         return out
@@ -12640,6 +12677,7 @@ class RestrictedIRTest(unittest.TestCase):
             nf,
             boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
         )
+        nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         rf = lower_to_restricted(lower_memory(nf))
 
@@ -12667,6 +12705,19 @@ class RestrictedIRTest(unittest.TestCase):
             (5, 6),
         )
 
+    def test_lower_to_restricted_requires_helper_boundary(self) -> None:
+        tokens = tokenize_yul("""
+            function f(x) -> z {
+                function g(a) -> b { b := add(a, 1) }
+                z := g(x)
+            }
+        """)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=EVM_BUILTINS)
+        nf = normalize_function(func, result)
+        with self.assertRaisesRegex(TranslationError, "Nested helper definitions"):
+            lower_to_restricted(nf)
+
 
 class SSAModelTest(unittest.TestCase):
     """Tests for SSA renaming and FunctionModel conversion."""
@@ -12681,6 +12732,7 @@ class SSAModelTest(unittest.TestCase):
             nf,
             boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
         )
+        nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         rf = lower_to_restricted(lower_memory(nf))
         config = make_model_config(
@@ -12750,6 +12802,7 @@ class SSAModelTest(unittest.TestCase):
             nf,
             boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
         )
+        nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         rf = lower_to_restricted(lower_memory(nf))
         config = make_model_config(("f",))
@@ -12938,6 +12991,7 @@ class SSAModelTest(unittest.TestCase):
             nf,
             boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
         )
+        nf = seal_helper_boundary(nf)
         nf = simplify_normalized(nf)
         return lower_to_restricted(lower_memory(nf))
 
@@ -13274,6 +13328,7 @@ class SSAModelTest(unittest.TestCase):
                 nf,
                 boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
             )
+            nf = seal_helper_boundary(nf)
             nf = simplify_normalized(nf)
             restricted[name] = lower_to_restricted(lower_memory(nf))
         config = make_model_config(
@@ -13317,6 +13372,7 @@ class SSAModelTest(unittest.TestCase):
                 nf,
                 boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
             )
+            nf = seal_helper_boundary(nf)
             nf = simplify_normalized(nf)
             restricted[name] = lower_to_restricted(lower_memory(nf))
         config = make_model_config(
@@ -13764,7 +13820,7 @@ class SSAModelTest(unittest.TestCase):
 
     def test_name_plan_uniqueness(self) -> None:
         """ModuleNamePlan produces unique, valid names for colliding demangles."""
-        from .restricted_names import plan_module
+        from .name_policy import plan_module
 
         # Two functions that demangle to the same clean name.
         rf_dummy = RestrictedFunction(
@@ -13784,8 +13840,8 @@ class SSAModelTest(unittest.TestCase):
 
     def test_name_plan_binder_uniqueness(self) -> None:
         """ModuleNamePlan must uniquify colliding binder base names too."""
+        from .name_policy import plan_module
         from .restricted_ir import RAssignment, RConst
-        from .restricted_names import plan_module
 
         x_sid, z_sid, local_sid = (
             yul_ast.SymbolId(10),
@@ -13816,8 +13872,8 @@ class SSAModelTest(unittest.TestCase):
 
     def test_name_plan_binder_preserves_generic_base_name(self) -> None:
         """ModuleNamePlan stays generic and leaves Lean checks to emission."""
+        from .name_policy import plan_module
         from .restricted_ir import RAssignment, RBuiltinCall, RConst, RRef
-        from .restricted_names import plan_module
 
         x_sid, z_sid, u_sid = (
             yul_ast.SymbolId(0),
@@ -13850,8 +13906,8 @@ class SSAModelTest(unittest.TestCase):
 
     def test_apply_module_plan_rewrites_function_name(self) -> None:
         """The rewritten function object name matches rewritten callee names."""
+        from .name_policy import apply_module_plan, plan_module
         from .restricted_ir import RCallAssign, RConst
-        from .restricted_names import apply_module_plan, plan_module
 
         ret_sid = yul_ast.SymbolId(0)
         rf = RestrictedFunction(

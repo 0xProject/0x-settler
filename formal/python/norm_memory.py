@@ -51,7 +51,18 @@ from .norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
-from .norm_walk import const_truthy, const_value, expr_contains, map_expr, max_symbol_id
+from .norm_walk import (
+    NBlockItem,
+    collect_function_defs,
+    const_truthy,
+    const_value,
+    expr_contains,
+    first_runtime_local_call,
+    for_each_stmt,
+    for_each_stmt_expr,
+    map_expr,
+    max_symbol_id,
+)
 from .yul_ast import LoweringError, SymbolId
 
 _MODELED_CONST_SLOTS = frozenset({0, 32, 64, 96})
@@ -341,62 +352,23 @@ def _expr_has_memory_write(expr: NExpr) -> bool:
 
 
 def _reject_memory_writes_in_block(block: NBlock, context: str) -> None:
-    for stmt in block.stmts:
-        _reject_memory_writes_in_stmt(stmt, context)
+    def reject(item: NBlockItem) -> None:
+        if isinstance(item, NFunctionDef):
+            return
+        for_each_stmt_expr(
+            item,
+            lambda expr: _reject_expr_memory_write(expr, context),
+        )
+
+    for_each_stmt(block, reject)
 
 
-def _reject_memory_writes_in_stmt(stmt: NStmt, context: str) -> None:
-    if isinstance(stmt, NExprEffect):
-        if _expr_has_memory_write(stmt.expr):
-            raise LoweringError(
-                f"Memory write inside control flow ({context}). "
-                f"The memory model requires straight-line memory writes."
-            )
-        return
-    if isinstance(stmt, (NBind, NAssign)):
-        if stmt.expr is not None and _expr_has_memory_write(stmt.expr):
-            raise LoweringError(
-                f"Memory write inside control flow ({context}). "
-                f"The memory model requires straight-line memory writes."
-            )
-        return
-    if isinstance(stmt, NIf):
-        if _expr_has_memory_write(stmt.condition):
-            raise LoweringError(
-                f"Memory write inside control flow ({context}). "
-                f"The memory model requires straight-line memory writes."
-            )
-        _reject_memory_writes_in_block(stmt.then_body, context)
-        return
-    if isinstance(stmt, NSwitch):
-        if _expr_has_memory_write(stmt.discriminant):
-            raise LoweringError(
-                f"Memory write inside control flow ({context}). "
-                f"The memory model requires straight-line memory writes."
-            )
-        for case in stmt.cases:
-            _reject_memory_writes_in_block(case.body, context)
-        if stmt.default is not None:
-            _reject_memory_writes_in_block(stmt.default, context)
-        return
-    if isinstance(stmt, NFor):
-        if _expr_has_memory_write(stmt.condition):
-            raise LoweringError(
-                f"Memory write inside control flow ({context}). "
-                f"The memory model requires straight-line memory writes."
-            )
-        _reject_memory_writes_in_block(stmt.init, context)
-        if stmt.condition_setup is not None:
-            _reject_memory_writes_in_block(stmt.condition_setup, context)
-        _reject_memory_writes_in_block(stmt.post, context)
-        _reject_memory_writes_in_block(stmt.body, context)
-        return
-    if isinstance(stmt, NBlock):
-        _reject_memory_writes_in_block(stmt, context)
-        return
-    if isinstance(stmt, NLeave):
-        return
-    assert_never(stmt)
+def _reject_expr_memory_write(expr: NExpr, context: str) -> None:
+    if _expr_has_memory_write(expr):
+        raise LoweringError(
+            f"Memory write inside control flow ({context}). "
+            f"The memory model requires straight-line memory writes."
+        )
 
 
 def _resolve_word_expr(
@@ -704,7 +676,19 @@ def _lower_stmt(
 
 
 def lower_memory(func: NormalizedFunction) -> NormalizedFunction:
-    """Resolve normalized-IR memory operations into direct value flow."""
+    """Resolve helper-free normalized-IR memory operations into direct value flow."""
+    if collect_function_defs(func.body):
+        raise LoweringError(
+            "Nested helper definitions reached memory lowering. "
+            "Seal the helper boundary after inlining and before memory lowering."
+        )
+    residual_call = first_runtime_local_call(func.body)
+    if residual_call is not None:
+        raise LoweringError(
+            f"Residual local helper call {residual_call.name!r} reached memory "
+            "lowering. Seal the helper boundary after inlining and before "
+            "memory lowering."
+        )
     ctx = _MemCtx(next_id=max_symbol_id(func) + 1)
     env = _FactEnv()
     new_body = _lower_block(func.body, ctx, env)

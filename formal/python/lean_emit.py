@@ -5,12 +5,6 @@ from typing import assert_never
 
 from .evm_builtins import BASE_NORM_HELPERS as _BASE_NORM_HELPERS
 from .evm_builtins import MODELED_BUILTINS, OP_TO_LEAN_HELPER, WORD_MOD
-from .lean_names import (
-    BASE_RESERVED_LEAN_NAMES,
-    norm_reserved_lean_names,
-    reserved_model_binder_names,
-    validate_ident,
-)
 from .model_config import EmissionConfig, TransformConfig
 from .model_helpers import (
     collect_model_binders,
@@ -30,6 +24,12 @@ from .model_ir import (
     Var,
 )
 from .model_validate import validate_model_set
+from .name_policy import (
+    BASE_RESERVED_LEAN_NAMES,
+    norm_reserved_lean_names,
+    reserved_model_binder_names,
+    validate_ident,
+)
 from .yul_ast import EmissionError
 
 

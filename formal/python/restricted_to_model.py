@@ -7,8 +7,8 @@ evaluation, optimization, and emission.
 
 The pipeline is:
 
-1. **Module-wide naming** (``restricted_names.plan_module`` +
-   ``restricted_names.apply_module_plan``): demangle compiler names,
+1. **Module-wide naming** (``name_policy.plan_module`` +
+   ``name_policy.apply_module_plan``): demangle compiler names,
    sanitize identifiers, and rewrite model-call callee names.
 2. **SSA renaming** (this module): version base names and build
    ``FunctionModel`` with recursive branch support.
@@ -25,7 +25,6 @@ from __future__ import annotations
 from collections import Counter
 from typing import assert_never
 
-from .lean_names import reserved_model_binder_names
 from .model_config import EmissionConfig, TransformConfig
 from .model_ir import (
     Assignment,
@@ -41,6 +40,12 @@ from .model_ir import (
     Var,
 )
 from .model_validate import validate_model_set
+from .name_policy import (
+    apply_module_plan,
+    next_ssa_name,
+    plan_module,
+    reserved_model_binder_names,
+)
 from .restricted_ir import (
     RAssignment,
     RBranch,
@@ -55,7 +60,6 @@ from .restricted_ir import (
     RRef,
     RStatement,
 )
-from .restricted_names import apply_module_plan, plan_module
 from .yul_ast import SymbolId
 
 # ---------------------------------------------------------------------------
@@ -82,15 +86,11 @@ class _SSACtx:
 
     def assign(self, sid: SymbolId, clean: str) -> str:
         """Generate an SSA name for an assignment to *clean* and bind *sid*."""
-        self.ssa_count[clean] += 1
-        count = self.ssa_count[clean]
-        ssa_name = clean if count == 1 else f"{clean}_{count - 1}"
-        # Skip names already emitted (handles first-assignment collisions too).
-        while ssa_name in self.emitted:
-            self.ssa_count[clean] += 1
-            count = self.ssa_count[clean]
-            ssa_name = f"{clean}_{count - 1}"
-        self.emitted.add(ssa_name)
+        ssa_name = next_ssa_name(
+            clean,
+            ssa_count=self.ssa_count,
+            emitted=self.emitted,
+        )
         self.sid_map[sid] = ssa_name
         return ssa_name
 

@@ -51,12 +51,14 @@ from .norm_walk import (
     SymbolAllocator,
     collect_function_defs,
     const_value,
+    first_runtime_local_call,
     freshen_function_subtree,
     map_expr,
     map_function_def,
     map_stmt,
     max_symbol_id,
     simplify_ite,
+    strip_function_defs,
 )
 from .yul_ast import LoweringError, SymbolId
 
@@ -937,4 +939,30 @@ def inline_pure_helpers(
         returns=func.returns,
         return_names=func.return_names,
         body=new_body,
+    )
+
+
+def seal_helper_boundary(func: NormalizedFunction) -> NormalizedFunction:
+    """Erase nested helper defs after runtime helper calls are gone.
+
+    This is the explicit phase boundary between the general normalized IR,
+    which may still carry hoisted nested helpers, and the helper-free form
+    expected by downstream lowering passes.
+    """
+    residual_call = first_runtime_local_call(func.body)
+    if residual_call is not None:
+        raise LoweringError(
+            f"Residual local helper call {residual_call.name!r} crossed the "
+            "helper boundary. All runtime helper calls must be inlined "
+            "before nested defs are erased."
+        )
+    if not collect_function_defs(func.body):
+        return func
+    return NormalizedFunction(
+        name=func.name,
+        params=func.params,
+        param_names=func.param_names,
+        returns=func.returns,
+        return_names=func.return_names,
+        body=strip_function_defs(func.body),
     )

@@ -174,7 +174,12 @@ class NLeave:
 
 @dataclass(frozen=True)
 class NBlock:
-    """Brace-delimited scope with hoisted local defs and runtime statements."""
+    """Brace-delimited scope with hoisted local defs and runtime statements.
+
+    ``defs`` only belong to the pre-boundary normalized IR. Downstream
+    helper-free phases must erase them explicitly once runtime local calls
+    have been inlined away.
+    """
 
     defs: tuple[NFunctionDef, ...] = ()
     stmts: tuple[NStmt, ...] = ()
@@ -212,7 +217,12 @@ NStmt = Union[
 
 @dataclass(frozen=True)
 class NormalizedFunction:
-    """A single function lowered to normalized IR."""
+    """A single function lowered to normalized IR.
+
+    Early normalization may still carry nested helper defs. The
+    helper-free lowering pipeline seals that boundary explicitly before
+    memory/restricted lowering.
+    """
 
     name: str
     params: tuple[SymbolId, ...]

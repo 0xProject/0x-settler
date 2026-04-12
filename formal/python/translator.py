@@ -12,7 +12,11 @@ from .model_config import ModelConfig
 from .model_transforms import apply_optional_model_transforms
 from .model_validate import validate_model_set
 from .norm_constprop import simplify_normalized
-from .norm_inline import InlineBoundaryPolicy, inline_pure_helpers
+from .norm_inline import (
+    InlineBoundaryPolicy,
+    inline_pure_helpers,
+    seal_helper_boundary,
+)
 from .norm_ir import (
     NBlock,
     NExpr,
@@ -25,7 +29,7 @@ from .norm_leave import lower_leave
 from .norm_memory import lower_memory
 from .norm_to_restricted import lower_to_restricted
 from .norm_validate import validate_restricted_boundary
-from .norm_walk import SymbolAllocator, map_expr, map_function_def, map_stmt
+from .norm_walk import SymbolAllocator, map_block, map_expr, map_function_def, map_stmt
 from .restricted_ir import RestrictedFunction
 from .restricted_to_model import to_function_models
 from .selection import (
@@ -126,6 +130,7 @@ def _lower_target(
             inline_top_level_helpers=frozenset(top_level_defs),
         ),
     )
+    normalized = seal_helper_boundary(normalized)
 
     normalized = simplify_normalized(normalized)
     normalized = lower_leave(normalized)
@@ -272,17 +277,16 @@ def _rewrite_selected_calls(
         return expr
 
     def rw_block(block: NBlock) -> NBlock:
-        return NBlock(
-            defs=tuple(
-                map_function_def(fdef, map_block_fn=rw_block) for fdef in block.defs
+        return map_block(
+            block,
+            map_function_def_fn=lambda fdef: map_function_def(
+                fdef,
+                map_block_fn=rw_block,
             ),
-            stmts=tuple(
-                map_stmt(
-                    s,
-                    map_expr_fn=lambda e: map_expr(e, rw),
-                    map_block_fn=rw_block,
-                )
-                for s in block.stmts
+            map_stmt_fn=lambda stmt: map_stmt(
+                stmt,
+                map_expr_fn=lambda e: map_expr(e, rw),
+                map_block_fn=rw_block,
             ),
         )
 
