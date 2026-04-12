@@ -4467,16 +4467,16 @@ class TranslatorBehaviorTest(unittest.TestCase):
         targets: set[str] = {
             stmt.target for stmt in model.assignments if isinstance(stmt, Assignment)
         }
-        self.assertIn("model_f", targets)
+        self.assertNotIn("model_f", targets)
+        self.assertIn("model_f_1", targets)
 
-        with self.assertRaisesRegex(ParseError, "collides with a generated model def"):
-            build_lean_source(
-                models=result,
-                source_path="test-source",
-                namespace="Test",
-                emission=config.emission,
-                transforms=config.transforms,
-            )
+        build_lean_source(
+            models=result,
+            source_path="test-source",
+            namespace="Test",
+            emission=config.emission,
+            transforms=config.transforms,
+        )
 
     def test_find_function_rejects_nonmatching_param_count_even_when_unique(
         self,
@@ -4869,7 +4869,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
                 transforms=config.transforms,
             )
 
-    def test_translate_yul_to_models_rejects_lean_keyword_parameter_name(
+    def test_translate_yul_to_models_renames_lean_keyword_parameter_name(
         self,
     ) -> None:
         config = make_model_config(("f",))
@@ -4884,15 +4884,16 @@ class TranslatorBehaviorTest(unittest.TestCase):
             config,
             optimize=False,
         )
-
-        with self.assertRaises(ParseError):
-            build_lean_source(
-                models=models,
-                source_path="test-source",
-                namespace="Test",
-                emission=config.emission,
-                transforms=config.transforms,
-            )
+        model = models[0]
+        self.assertEqual(evaluate_function_model(model, (7,)), (7,))
+        self.assertNotIn("if", model.param_names)
+        build_lean_source(
+            models=models,
+            source_path="test-source",
+            namespace="Test",
+            emission=config.emission,
+            transforms=config.transforms,
+        )
 
     def test_validate_function_model_rejects_malformed_builtin_arity(self) -> None:
         model = FunctionModel(
@@ -10273,6 +10274,17 @@ class NormalizeEvalTest(unittest.TestCase):
         self.assertEqual(self._eval_normalized(yul, (0,)), (10,))
         self.assertEqual(self._eval_normalized(yul, (1,)), (20,))
 
+    def test_switch_wraps_oversized_case_literals_to_u256(self) -> None:
+        yul = f"""
+            function f(x) -> z {{
+                switch x
+                case {WORD_MOD} {{ z := 10 }}
+                default {{ z := 20 }}
+            }}
+        """
+        self.assertEqual(self._eval_normalized(yul, (0,)), (10,))
+        self.assertEqual(self._eval_normalized(yul, (1,)), (20,))
+
     def test_nested_helper_call(self) -> None:
         """Local helper calls are auto-resolved by SymbolId from NFunctionDef nodes."""
         yul = """
@@ -11069,6 +11081,19 @@ class ConstPropTest(unittest.TestCase):
         self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
         assign = cast(norm_ir.NAssign, nf.body.stmts[0])
         self.assertEqual(assign.expr, norm_ir.NConst(20))
+
+    def test_switch_constant_fold_wraps_oversized_case_literals_to_u256(self) -> None:
+        nf = self._prop(f"""
+            function f() -> z {{
+                switch 0
+                case {WORD_MOD} {{ z := 10 }}
+                default {{ z := 20 }}
+            }}
+        """)
+        self.assertEqual(len(nf.body.stmts), 1)
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
+        self.assertEqual(assign.expr, norm_ir.NConst(10))
 
     def test_invalidation_at_conditional_join(self) -> None:
         """Variable modified in if-body is not propagated after the if."""
@@ -12059,7 +12084,16 @@ class SSAModelTest(unittest.TestCase):
         nf = inline_pure_helpers(nf)
         nf = propagate_constants(nf)
         rf = lower_to_restricted(lower_memory(nf))
-        return to_function_models({rf.name: rf})[fn_name]
+        config = make_model_config(
+            (rf.name,),
+            model_names={rf.name: f"model_{fn_name}"},
+            inner_fn=rf.name,
+        )
+        return to_function_models(
+            {rf.name: rf},
+            emission=config.emission,
+            transforms=config.transforms,
+        )[fn_name]
 
     def test_simple_function(self) -> None:
         """Params and returns get correct names, eval is correct."""
@@ -12116,7 +12150,12 @@ class SSAModelTest(unittest.TestCase):
         nf = inline_pure_helpers(nf)
         nf = propagate_constants(nf)
         rf = lower_to_restricted(lower_memory(nf))
-        model = to_function_models({rf.name: rf})["f"]
+        config = make_model_config(("f",))
+        model = to_function_models(
+            {rf.name: rf},
+            emission=config.emission,
+            transforms=config.transforms,
+        )["f"]
 
         for x in [0, 1, 5, 100]:
             rest_val = evaluate_restricted(rf, (x,))
@@ -12395,8 +12434,8 @@ class SSAModelTest(unittest.TestCase):
         for m in models.values():
             validate_function_model(m)
 
-    def test_reserved_lean_name_is_checked_at_emission(self) -> None:
-        """Lean-reserved binders remain valid model names until emission."""
+    def test_reserved_lean_name_is_renamed_during_model_conversion(self) -> None:
+        """Restricted→model conversion legalizes Lean helper names up front."""
         model = self._to_model(
             "function fun_f_1(var_x_1) -> var_z_2 "
             "{ let usr$u256 := add(var_x_1, 1) var_z_2 := usr$u256 }",
@@ -12408,17 +12447,16 @@ class SSAModelTest(unittest.TestCase):
         for s in model.assignments:
             if isinstance(s, Assignment):
                 binders.append(s.target)
-        self.assertIn("u256", binders)
+        self.assertNotIn("u256", binders)
 
         config = make_model_config(("f",))
-        with self.assertRaises(ParseError):
-            build_lean_source(
-                models=[model],
-                source_path="test-source",
-                namespace="Test",
-                emission=config.emission,
-                transforms=config.transforms,
-            )
+        build_lean_source(
+            models=[model],
+            source_path="test-source",
+            namespace="Test",
+            emission=config.emission,
+            transforms=config.transforms,
+        )
 
     # ------------------------------------------------------------------
     # Branch-local hoisting behavior
@@ -12629,7 +12667,16 @@ class SSAModelTest(unittest.TestCase):
             nf = inline_pure_helpers(nf)
             nf = propagate_constants(nf)
             restricted[name] = lower_to_restricted(lower_memory(nf))
-        models = to_function_models(restricted)
+        config = make_model_config(
+            tuple(restricted),
+            model_names={name: f"model_{name}" for name in restricted},
+            inner_fn="fun_f_2",
+        )
+        models = to_function_models(
+            restricted,
+            emission=config.emission,
+            transforms=config.transforms,
+        )
         self.assertIn("f", models)
         self.assertIn("g", models)
         # f calls g; g(5) = 6
@@ -12660,7 +12707,16 @@ class SSAModelTest(unittest.TestCase):
             nf = inline_pure_helpers(nf)
             nf = propagate_constants(nf)
             restricted[name] = lower_to_restricted(lower_memory(nf))
-        models = to_function_models(restricted)
+        config = make_model_config(
+            tuple(restricted),
+            model_names={name: f"model_{name}" for name in restricted},
+            inner_fn="fun_f_2",
+        )
+        models = to_function_models(
+            restricted,
+            emission=config.emission,
+            transforms=config.transforms,
+        )
         model_names = set(models.keys())
         # Collect all non-builtin call names from all models.
         for model in models.values():
@@ -12738,7 +12794,12 @@ class SSAModelTest(unittest.TestCase):
                 ),
             ),
         )
-        model = to_function_models({rf.name: rf})["f"]
+        config = make_model_config(("f",))
+        model = to_function_models(
+            {rf.name: rf},
+            emission=config.emission,
+            transforms=config.transforms,
+        )["f"]
         for x in [0, 1, 5]:
             self.assertEqual(
                 evaluate_restricted(rf, (x,)),
@@ -12783,7 +12844,12 @@ class SSAModelTest(unittest.TestCase):
                 ),
             ),
         )
-        model = to_function_models({rf.name: rf})["f"]
+        config = make_model_config(("f",))
+        model = to_function_models(
+            {rf.name: rf},
+            emission=config.emission,
+            transforms=config.transforms,
+        )["f"]
         for x in [0, 1, 5]:
             self.assertEqual(
                 evaluate_restricted(rf, (x,)),
@@ -12850,7 +12916,12 @@ class SSAModelTest(unittest.TestCase):
                 ),
             ),
         )
-        model = to_function_models({rf.name: rf})["f"]
+        config = make_model_config(("f",))
+        model = to_function_models(
+            {rf.name: rf},
+            emission=config.emission,
+            transforms=config.transforms,
+        )["f"]
         for x, y in [(0, 0), (0, 1), (1, 0), (1, 1), (3, 5)]:
             self.assertEqual(
                 evaluate_restricted(rf, (x, y)),
@@ -13600,8 +13671,8 @@ class TranslationValidationTest(unittest.TestCase):
         )
         self.assertEqual(evaluate_function_model(result[0], (5,)), (6,))
 
-    def test_reserved_lean_keyword_param_is_checked_at_emission(self) -> None:
-        """Lean keywords stay valid until Lean emission runs."""
+    def test_reserved_lean_keyword_param_is_renamed_during_translation(self) -> None:
+        """Selected-target translation legalizes Lean keywords before emission."""
         yul = """
             function fun_f_1(var_if_1) -> var_z_2 {
                 var_z_2 := var_if_1
@@ -13609,14 +13680,15 @@ class TranslationValidationTest(unittest.TestCase):
         """
         config = make_model_config(("f",))
         models = translate_yul_to_models(yul, config, optimize=False)
-        with self.assertRaises(ParseError):
-            build_lean_source(
-                models=models,
-                source_path="test-source",
-                namespace="Test",
-                emission=config.emission,
-                transforms=config.transforms,
-            )
+        self.assertEqual(evaluate_function_model(models[0], (9,)), (9,))
+        self.assertNotIn("if", models[0].param_names)
+        build_lean_source(
+            models=models,
+            source_path="test-source",
+            namespace="Test",
+            emission=config.emission,
+            transforms=config.transforms,
+        )
 
     def test_zero_return_function_rejected(self) -> None:
         """Function with zero return values is rejected."""
@@ -13853,7 +13925,7 @@ class AdditionalBehaviorTest(unittest.TestCase):
             (expected,),
         )
 
-    def test_missing_model_name_mapping_is_checked_at_emission(self) -> None:
+    def test_missing_model_name_mapping_is_checked_during_translation(self) -> None:
         config = modelcfg.ModelConfig(
             selection=modelcfg.SelectionConfig(
                 function_order=("f",),
@@ -13872,18 +13944,11 @@ class AdditionalBehaviorTest(unittest.TestCase):
             }
         """
 
-        models = translate_yul_to_models(
-            yul,
-            config,
-            optimize=False,
-        )
         with self.assertRaisesRegex(ParseError, "model_names"):
-            build_lean_source(
-                models=models,
-                source_path="test-source",
-                namespace="Test",
-                emission=config.emission,
-                transforms=config.transforms,
+            translate_yul_to_models(
+                yul,
+                config,
+                optimize=False,
             )
 
     def test_hoist_repeated_model_calls_hoists_branch_output_exprs(self) -> None:

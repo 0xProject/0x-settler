@@ -75,10 +75,12 @@ def legalize_identifier_base(name: str) -> str:
 
 def _uniquify_name_bases(
     raw_names: dict[SymbolId, str],
+    *,
+    reserved_names: frozenset[str] = frozenset(),
 ) -> dict[SymbolId, str]:
     """Legalize and uniquify binder base names while preserving order."""
     result: dict[SymbolId, str] = {}
-    used: set[str] = set()
+    used: set[str] = set(reserved_names)
     for sid, raw in raw_names.items():
         base = legalize_identifier_base(raw)
         candidate = base
@@ -240,13 +242,17 @@ class ModuleNamePlan:
 
 def plan_module(
     funcs: dict[str, RestrictedFunction],
+    *,
+    reserved_binder_names: frozenset[str] = frozenset(),
 ) -> ModuleNamePlan:
     """Build a complete module-wide naming plan.
 
     Plans both function emitted names and per-function binder base
     names. All names are demangled, sanitized, and made unique at the
-    restricted-IR boundary. Lean reserved-name policy is enforced later
-    when emission decides which definitions and helpers will exist.
+    restricted-IR boundary. ``reserved_binder_names`` lets the caller
+    reserve target-specific names (for example Lean helper names and
+    generated definition names) so later emission does not need a
+    second binder-legalization pass.
     """
     # Plan function names.
     function_names: dict[str, str] = {}
@@ -262,7 +268,10 @@ def plan_module(
     binder_names: dict[str, dict[SymbolId, str]] = {}
     for raw_name, func in funcs.items():
         sid_to_raw = _collect_all_sids(func)
-        binder_names[raw_name] = _uniquify_name_bases(sid_to_raw)
+        binder_names[raw_name] = _uniquify_name_bases(
+            sid_to_raw,
+            reserved_names=reserved_binder_names,
+        )
 
     return ModuleNamePlan(
         function_names=function_names,

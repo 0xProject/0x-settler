@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from typing import assert_never
 
-from .evm_builtins import WORD_MOD
 from .norm_constprop import fold_expr
 from .norm_ir import (
     NAssign,
@@ -109,7 +108,7 @@ def _simplify_stmt(stmt: NStmt) -> list[NStmt]:
         default = _simplify_block(stmt.default) if stmt.default is not None else None
         if isinstance(disc, NConst):
             for case in cases:
-                if case.value.value % WORD_MOD == disc.value:
+                if case.value.value == disc.value:
                     return list(case.body.stmts)
             return list(default.stmts) if default is not None else []
         return [NSwitch(discriminant=disc, cases=cases, default=default)]

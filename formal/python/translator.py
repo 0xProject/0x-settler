@@ -69,7 +69,7 @@ def translate_yul_to_models(
         config.selection,
         selected_functions=selected_functions,
     )
-    models = _translate_selected_models(selection_plan)
+    models = _translate_selected_models(selection_plan, config)
     models = apply_optional_model_transforms(
         models,
         config.transforms,
@@ -85,7 +85,10 @@ def translate_yul_to_models(
 # ---------------------------------------------------------------------------
 
 
-def _translate_selected_models(plan: SelectionPlan) -> list[FunctionModel]:
+def _translate_selected_models(
+    plan: SelectionPlan,
+    config: ModelConfig,
+) -> list[FunctionModel]:
     allowed_model_calls = frozenset(plan.selected_functions)
     restricted_by_name: dict[str, RestrictedFunction] = {}
     for sol_name in plan.selected_functions:
@@ -95,7 +98,11 @@ def _translate_selected_models(plan: SelectionPlan) -> list[FunctionModel]:
             allowed_model_calls=allowed_model_calls,
         )
 
-    models_by_name = to_function_models(restricted_by_name)
+    models_by_name = to_function_models(
+        restricted_by_name,
+        emission=config.emission,
+        transforms=config.transforms,
+    )
     return [models_by_name[sol_name] for sol_name in plan.selected_functions]
 
 

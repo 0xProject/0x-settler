@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from typing import assert_never
 
-from .evm_builtins import eval_pure_builtin, u256
+from .evm_builtins import eval_pure_builtin
 from .norm_ir import (
     NAssign,
     NBind,
@@ -49,7 +49,7 @@ from .yul_ast import EvaluationError, SymbolId
 def _fold_node(expr: NExpr) -> NExpr:
     """Fold callback for map_expr: evaluate constant builtins and NIte."""
     if isinstance(expr, NConst):
-        return NConst(u256(expr.value))
+        return expr
     if isinstance(expr, NBuiltinCall):
         if all(isinstance(a, NConst) for a in expr.args):
             vals = tuple(a.value for a in expr.args if isinstance(a, NConst))

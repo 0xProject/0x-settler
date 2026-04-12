@@ -16,6 +16,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Union
 
+from .evm_builtins import u256
 from .yul_ast import SymbolId
 
 # ---------------------------------------------------------------------------
@@ -25,9 +26,12 @@ from .yul_ast import SymbolId
 
 @dataclass(frozen=True)
 class NConst:
-    """Integer constant."""
+    """EVM word constant, canonicalized modulo 2^256."""
 
     value: int
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "value", u256(self.value))
 
 
 @dataclass(frozen=True)

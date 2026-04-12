@@ -8,6 +8,7 @@ from .evm_builtins import MODELED_BUILTINS, OP_TO_LEAN_HELPER, WORD_MOD
 from .lean_names import (
     BASE_RESERVED_LEAN_NAMES,
     norm_reserved_lean_names,
+    reserved_model_binder_names,
     validate_ident,
 )
 from .model_config import EmissionConfig, TransformConfig
@@ -144,8 +145,6 @@ class EmittedModelDef:
 class LeanEmissionPlan:
     emit_any_norm: bool
     model_defs: tuple[EmittedModelDef, ...]
-    generated_def_names: frozenset[str]
-    extra_norm_helper_names: frozenset[str]
 
 
 def any_norm_models(
@@ -247,8 +246,6 @@ def _build_lean_emission_plan(
     return LeanEmissionPlan(
         emit_any_norm=emit_any_norm,
         model_defs=tuple(model_defs),
-        generated_def_names=frozenset(generated_def_names),
-        extra_norm_helper_names=extra_norm_names,
     )
 
 
@@ -354,10 +351,10 @@ def build_lean_source(
         emission_config,
         transform_config,
     )
-    extra_reserved = (
-        emission_plan.extra_norm_helper_names
-        if emission_plan.emit_any_norm
-        else frozenset()
+    binder_reserved = reserved_model_binder_names(
+        tuple(model.fn_name for model in models),
+        emission_config,
+        transform_config,
     )
 
     for model in models:
@@ -365,13 +362,8 @@ def build_lean_source(
             validate_ident(
                 binder,
                 what=f"binder in model {model.fn_name!r}",
-                extra_reserved=extra_reserved,
+                extra_reserved=binder_reserved,
             )
-            if binder in emission_plan.generated_def_names:
-                raise ParseError(
-                    f"Binder {binder!r} in model {model.fn_name!r} collides "
-                    f"with a generated model def name"
-                )
 
     modeled_functions = ", ".join(model.fn_name for model in models)
     opcodes_line = ", ".join(collect_model_opcodes(models))

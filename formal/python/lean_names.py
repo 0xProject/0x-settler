@@ -11,6 +11,7 @@ import re
 from collections.abc import Iterable
 
 from .evm_builtins import BASE_NORM_HELPERS, OP_TO_LEAN_HELPER
+from .model_config import EmissionConfig, TransformConfig
 from .yul_ast import ParseError
 
 # Conservative subset of the fixed builtin command/term keywords from Lean 4's
@@ -90,6 +91,36 @@ def norm_reserved_lean_names(
     extra_helper_names: Iterable[str] = (),
 ) -> frozenset[str]:
     return frozenset(set(BASE_NORM_HELPERS.values()) | set(extra_helper_names))
+
+
+def emitted_model_def_names(
+    function_names: tuple[str, ...],
+    emission: EmissionConfig,
+    transforms: TransformConfig,
+) -> frozenset[str]:
+    generated: set[str] = set()
+    for fn_name in function_names:
+        base_name = emission.model_names.get(fn_name)
+        if base_name is None:
+            raise ParseError(f"Model {fn_name!r} has no entry in emission.model_names")
+        if fn_name not in transforms.skip_norm:
+            generated.add(base_name)
+        generated.add(f"{base_name}_evm")
+    return frozenset(generated)
+
+
+def reserved_model_binder_names(
+    function_names: tuple[str, ...],
+    emission: EmissionConfig,
+    transforms: TransformConfig,
+) -> frozenset[str]:
+    emit_any_norm = any(fn_name not in transforms.skip_norm for fn_name in function_names)
+    extra_norm_names = emission.norm_helper_names() if emit_any_norm else frozenset()
+    reserved = set(BASE_RESERVED_LEAN_NAMES)
+    if emit_any_norm:
+        reserved.update(norm_reserved_lean_names(extra_norm_names))
+    reserved.update(emitted_model_def_names(function_names, emission, transforms))
+    return frozenset(reserved)
 
 
 def validate_ident(

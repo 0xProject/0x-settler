@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from typing import assert_never
 
-from .evm_builtins import WORD_MOD
 from .norm_ir import (
     NAssign,
     NBind,
@@ -303,7 +302,7 @@ def _lower_switch_chain(
 
     condition = RBuiltinCall(
         op="eq",
-        args=(disc, RConst(case.value.value % WORD_MOD)),
+        args=(disc, RConst(case.value.value)),
     )
     conditional, outputs = _build_conditional(
         condition=condition,

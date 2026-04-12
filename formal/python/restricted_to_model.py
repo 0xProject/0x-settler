@@ -25,6 +25,8 @@ from __future__ import annotations
 from collections import Counter
 from typing import assert_never
 
+from .lean_names import reserved_model_binder_names
+from .model_config import EmissionConfig, TransformConfig
 from .model_ir import (
     Assignment,
     Call,
@@ -332,14 +334,28 @@ def _needs_zero_init(
 
 def to_function_models(
     funcs: dict[str, RestrictedFunction],
+    *,
+    emission: EmissionConfig,
+    transforms: TransformConfig,
 ) -> dict[str, FunctionModel]:
     """Convert a module of ``RestrictedFunction``s to ``FunctionModel``s.
 
     Builds a ``ModuleNamePlan`` that owns all naming decisions
     (function names and binder names), applies it, then runs SSA per
-    function. Returns a dict keyed by clean function names.
+    function. The planner receives the emission config so binder names
+    are legalized against the actual backend namespace, not fixed up
+    later during Lean rendering. Returns a dict keyed by clean
+    function names.
     """
-    name_plan = plan_module(funcs)
+    function_names = tuple(funcs)
+    name_plan = plan_module(
+        funcs,
+        reserved_binder_names=reserved_model_binder_names(
+            function_names,
+            emission,
+            transforms,
+        ),
+    )
     legalized = apply_module_plan(funcs, name_plan)
     models: dict[str, FunctionModel] = {}
     for raw_name, func in legalized.items():
