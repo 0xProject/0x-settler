@@ -411,10 +411,15 @@ IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeee
 
 ## Critical Reminders
 
+Comments, notes, commit messages, PR descriptions, and docs must describe only
+the current implementation unless historical context is required for present
+correctness. Archaeology is forbidden.
+
 ### DO NOT
 
 - Create documentation files unless explicitly requested
-- Write notes, comments, or docs that describe historical evolution instead of the current system unless the history is required for current correctness
+- Write notes, comments, docs, commit messages, or PR descriptions that describe historical evolution instead of the current system unless the history is required for current correctness
+- Use comments to explain what used to be true, what changed, why something was once necessary, or that a workaround/kludge existed previously
 - Make up performance numbers or generic justifications for changes
 - Add features beyond what was asked (no over-engineering)
 - Modify the `_dispatch` copy/paste pattern without updating all locations
@@ -423,6 +428,7 @@ IERC20 internal constant ETH_ADDRESS = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeee
 ### ALWAYS
 
 - Read relevant existing code before making changes
+- Write comments as current-state documentation only
 - Check gas impact with `npm run diff:main`
 - Follow existing patterns in chain-specific code
 - Mark assembly blocks `memory-safe` when appropriate

@@ -34,7 +34,7 @@ from .norm_ir import (
 )
 from .yul_ast import ParseError
 
-_ALLOWED_EXPR_STMT_BUILTINS = frozenset({"mstore", "mstore8"})
+_ALLOWED_EXPR_STMT_BUILTINS = frozenset({"mstore"})
 
 
 def validate_restricted_boundary(

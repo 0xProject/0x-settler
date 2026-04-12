@@ -18,17 +18,14 @@ from .norm_ir import (
     NBind,
     NBlock,
     NBuiltinCall,
-    NConst,
     NExpr,
     NExprEffect,
     NFor,
-    NFunctionDef,
     NIf,
     NIte,
     NLeave,
     NLocalCall,
     NormalizedFunction,
-    NRef,
     NStmt,
     NStore,
     NSwitch,
@@ -64,20 +61,15 @@ class FunctionSummary:
     calls_top_level: bool
     called_functions: frozenset[SymbolId]
     called_builtins: frozenset[str]
-    is_uint512_from: bool
 
 
 def summarize_function(
     body: NBlock,
     *,
-    fdef: NFunctionDef | None = None,
     top_level_inline_sids: dict[str, SymbolId] | None = None,
     allowed_model_calls: frozenset[str] = frozenset(),
 ) -> FunctionSummary:
-    """Analyze a function body for effects (non-recursive into nested defs).
-
-    If *fdef* is provided, also checks for the ``uint512.from`` shape.
-    """
+    """Analyze a function body for effects (non-recursive into nested defs)."""
     acc = _SummaryAccumulator(
         top_level_inline_sids=top_level_inline_sids,
         allowed_model_calls=allowed_model_calls,
@@ -94,7 +86,6 @@ def summarize_function(
         calls_top_level=acc.calls_top_level,
         called_functions=frozenset(acc.called_functions),
         called_builtins=frozenset(acc.called_builtins),
-        is_uint512_from=_is_uint512_from_shape(fdef) if fdef is not None else False,
     )
 
 
@@ -211,141 +202,6 @@ def _is_known_effect_call(expr: NExpr) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# uint512.from shape detection
-# ---------------------------------------------------------------------------
-
-
-def _is_uint512_from_shape(
-    fdef: NFunctionDef,
-) -> bool:
-    """Check if a function definition matches the exact uint512.from pattern.
-
-    Expected shape (3 params, 1 return, 4-5 statements):
-        [optional: let tmp := 0]
-        ret := 0  (or ret := tmp)
-        mstore(ptr, hi)
-        mstore(add(0x20, ptr) or add(ptr, 0x20), lo)
-        ret := ptr
-    """
-    if len(fdef.params) != 3 or len(fdef.returns) != 1:
-        return False
-
-    real_stmts = list(fdef.body.stmts)
-
-    if len(real_stmts) not in (4, 5):
-        return False
-
-    ptr_id = fdef.params[0]
-    hi_id = fdef.params[1]
-    lo_id = fdef.params[2]
-    ret_id = fdef.returns[0]
-
-    if len(real_stmts) == 5:
-        zero_init = real_stmts[0]
-        init_ret = real_stmts[1]
-        write_hi = real_stmts[2]
-        write_lo = real_stmts[3]
-        ret_assign = real_stmts[4]
-
-        if not isinstance(zero_init, NBind) or zero_init.expr is None:
-            return False
-        if not _is_zero(zero_init.expr):
-            return False
-    else:
-        init_ret = real_stmts[0]
-        write_hi = real_stmts[1]
-        write_lo = real_stmts[2]
-        ret_assign = real_stmts[3]
-
-    if not isinstance(init_ret, NAssign):
-        return False
-    if len(init_ret.targets) != 1 or init_ret.targets[0] != ret_id:
-        return False
-    if len(real_stmts) == 5:
-        assert isinstance(zero_init, NBind)
-        if not (
-            isinstance(init_ret.expr, NRef)
-            and len(zero_init.targets) == 1
-            and init_ret.expr.symbol_id == zero_init.targets[0]
-        ):
-            return False
-    else:
-        if not _is_zero(init_ret.expr):
-            return False
-
-    if not _is_mstore_effect(write_hi, ptr_id, hi_id):
-        return False
-    if not _is_mstore_offset_effect(write_lo, ptr_id, lo_id, 0x20):
-        return False
-
-    if not isinstance(ret_assign, NAssign):
-        return False
-    if len(ret_assign.targets) != 1 or ret_assign.targets[0] != ret_id:
-        return False
-    if not isinstance(ret_assign.expr, NRef) or ret_assign.expr.symbol_id != ptr_id:
-        return False
-
-    return True
-
-
-def _is_zero(expr: NExpr) -> bool:
-    return isinstance(expr, NConst) and expr.value == 0
-
-
-def _is_mstore_effect(stmt: NStmt, addr_id: SymbolId, value_id: SymbolId) -> bool:
-    if not isinstance(stmt, NExprEffect):
-        return False
-    call = stmt.expr
-    if not isinstance(call, NBuiltinCall):
-        return False
-    if call.op != "mstore" or len(call.args) != 2:
-        return False
-    addr, value = call.args
-    if not isinstance(addr, NRef) or addr.symbol_id != addr_id:
-        return False
-    if not isinstance(value, NRef) or value.symbol_id != value_id:
-        return False
-    return True
-
-
-def _is_mstore_offset_effect(
-    stmt: NStmt, base_id: SymbolId, value_id: SymbolId, offset: int
-) -> bool:
-    if not isinstance(stmt, NExprEffect):
-        return False
-    call = stmt.expr
-    if not isinstance(call, NBuiltinCall):
-        return False
-    if call.op != "mstore" or len(call.args) != 2:
-        return False
-    addr, value = call.args
-    if not isinstance(value, NRef) or value.symbol_id != value_id:
-        return False
-    return _is_add_offset(addr, base_id, offset)
-
-
-def _is_add_offset(expr: NExpr, base_id: SymbolId, offset: int) -> bool:
-    if not isinstance(expr, NBuiltinCall) or expr.op != "add" or len(expr.args) != 2:
-        return False
-    a, b = expr.args
-    if (
-        isinstance(a, NRef)
-        and a.symbol_id == base_id
-        and isinstance(b, NConst)
-        and b.value == offset
-    ):
-        return True
-    if (
-        isinstance(b, NRef)
-        and b.symbol_id == base_id
-        and isinstance(a, NConst)
-        and a.value == offset
-    ):
-        return True
-    return False
-
-
-# ---------------------------------------------------------------------------
 # Transitive classification (call-graph closure)
 # ---------------------------------------------------------------------------
 
@@ -358,9 +214,6 @@ class InlineStrategy(enum.Enum):
 
     BLOCK_INLINE = "block_inline"
     """Leave-bearing helper: clone body into caller with did_leave flag."""
-
-    EFFECT_LOWER = "effect_lower"
-    """uint512.from shape: emit explicit NStore statements at call site."""
 
     DO_NOT_INLINE = "do_not_inline"
     """Cannot be inlined: unsupported, top-level calls, etc."""
@@ -393,7 +246,7 @@ def classify_helpers(
     unsupported: dict[SymbolId, str] = {}
 
     for sid, s in summaries.items():
-        if s.writes_memory or s.reads_memory or s.is_uint512_from:
+        if s.writes_memory or s.reads_memory:
             deferred.add(sid)
             non_pure.add(sid)
         if s.has_for_loop:
@@ -434,9 +287,7 @@ def classify_helpers(
         # unsupported here. Dead-code elimination belongs in the
         # simplifier, and fail-closed acceptance belongs in the
         # validation pass before restricted lowering.
-        if s.is_uint512_from:
-            strategy = InlineStrategy.EFFECT_LOWER
-        elif reason is not None or s.has_for_loop or s.calls_top_level:
+        if reason is not None or s.has_for_loop or s.calls_top_level:
             strategy = InlineStrategy.DO_NOT_INLINE
         elif is_def or s.may_leave:
             strategy = InlineStrategy.BLOCK_INLINE
@@ -476,7 +327,6 @@ def classify_function_scope(
     for fdef in fdefs:
         summaries[fdef.symbol_id] = summarize_function(
             fdef.body,
-            fdef=fdef,
             top_level_inline_sids=top_level_inline_sids,
             allowed_model_calls=allowed_model_calls,
         )

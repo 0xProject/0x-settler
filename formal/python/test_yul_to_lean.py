@@ -50,7 +50,7 @@ from .norm_classify import (
     summarize_function,
 )
 from .norm_constprop import fold_expr, simplify_normalized
-from .norm_inline import inline_pure_helpers
+from .norm_inline import InlineBoundaryPolicy, inline_pure_helpers
 from .norm_memory import lower_memory
 from .norm_to_restricted import lower_to_restricted
 from .restricted_ir import RestrictedFunction
@@ -4066,12 +4066,12 @@ class TranslatorBehaviorTest(unittest.TestCase):
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
-                let usr$ptr := 64
+                let usr$ptr := mload(64)
                 if var_c_1 {
-                    usr$ptr := 64
+                    usr$ptr := mload(64)
                 }
                 mstore(usr$ptr, 7)
-                var_z_2 := mload(64)
+                var_z_2 := mload(mload(64))
             }
             """
 
@@ -4117,12 +4117,12 @@ class TranslatorBehaviorTest(unittest.TestCase):
         yul = """
             function fun_f_1() -> var_z_2 {
                 let expr_1 := 1
-                let usr$ptr := 32
+                let usr$ptr := 0
                 if expr_1 {
-                    usr$ptr := 64
+                    usr$ptr := mload(64)
                 }
                 mstore(usr$ptr, 7)
-                var_z_2 := mload(64)
+                var_z_2 := mload(mload(64))
             }
             """
 
@@ -4141,10 +4141,11 @@ class TranslatorBehaviorTest(unittest.TestCase):
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
-                mstore(64, 7)
+                let usr$base := mload(64)
+                mstore(usr$base, 7)
                 var_z_2 := 1
                 if var_c_1 {
-                    let usr$ptr := 64
+                    let usr$ptr := mload(64)
                     var_z_2 := mload(usr$ptr)
                 }
             }
@@ -4166,10 +4167,11 @@ class TranslatorBehaviorTest(unittest.TestCase):
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
-                mstore(64, 7)
+                let usr$base := mload(64)
+                mstore(usr$base, 7)
                 var_z_2 := 1
                 if var_c_1 {
-                    let var_ptr_3 := 64
+                    let var_ptr_3 := mload(64)
                     var_z_2 := mload(var_ptr_3)
                 }
             }
@@ -4191,12 +4193,12 @@ class TranslatorBehaviorTest(unittest.TestCase):
         config = make_model_config(("f",))
         yul = """
             function fun_f_1(var_c_1) -> var_z_2 {
-                let var_ptr_3 := 64
+                let var_ptr_3 := mload(64)
                 if var_c_1 {
-                    var_ptr_3 := 64
+                    var_ptr_3 := mload(64)
                 }
                 mstore(var_ptr_3, 7)
-                var_z_2 := mload(64)
+                var_z_2 := mload(mload(64))
             }
             """
 
@@ -9115,7 +9117,7 @@ class DeadCodeHelperFilterTest(unittest.TestCase):
                         var_r_out_15 := var_r_12
                     }
                     let usr$p1 := outer_wrap(var_x_hi_9, var_x_lo_10)
-                    let usr$p2 := fun_from_1(64, var_x_hi_9, var_x_lo_10)
+                    let usr$p2 := fun_from_1(mload(64), var_x_hi_9, var_x_lo_10)
                     var_t_11 := add(usr$p1, mload(usr$p2))
                 }
 
@@ -11039,8 +11041,8 @@ class InlinePureTest(unittest.TestCase):
         for sid, cls in classifications.items():
             self.assertTrue(cls.is_pure, f"Helper should be pure: {cls}")
 
-    def test_uint512_from_inlined_as_explicit_mstores(self) -> None:
-        """uint512.from helper is inlined by emitting explicit mstore statements."""
+    def test_uint512_from_helper_is_block_inlined(self) -> None:
+        """uint512.from-shaped helper is handled by generic block inlining."""
         nf = self._inline("""
             function f(hi, lo) -> z {
                 function from_helper(ptr, x_hi, x_lo) -> r {
@@ -11049,14 +11051,13 @@ class InlinePureTest(unittest.TestCase):
                     mstore(add(0x20, ptr), x_lo)
                     r := ptr
                 }
-                let p := from_helper(64, hi, lo)
+                let p := from_helper(mload(64), hi, lo)
                 z := add(mload(p), mload(add(0x20, p)))
             }
         """)
-        # After inlining, the from_helper call should be replaced by
-        # explicit mstore statements + ptr assignment.
-        # Evaluate: hi=5, lo=7 → mstore(64, 5), mstore(96, 7) → z = 5+7 = 12
-        self.assertEqual(evaluate_normalized(nf, (5, 7), memory={}), (12,))
+        self.assertEqual(
+            evaluate_normalized(nf, (5, 7), memory={64: 128, 96: 0}), (12,)
+        )
 
 
 class ConstPropTest(unittest.TestCase):
@@ -11572,9 +11573,9 @@ class ConstPropTest(unittest.TestCase):
         model = translate_yul_to_models(
             """
                 function f(y) -> z {
-                    let ptr := add(64, sub(y, y))
+                    let ptr := add(mload(64), sub(y, y))
                     mstore(ptr, 7)
-                    z := mload(64)
+                    z := mload(mload(64))
                 }
             """,
             config,
@@ -11591,7 +11592,10 @@ class InlineArchitectureTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        return inline_pure_helpers(nf)
+        return inline_pure_helpers(
+            nf,
+            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
+        )
 
     def _has_local_call(self, block: norm_ir.NBlock, name: str) -> bool:
         """Check if any live executable ``NLocalCall`` to *name* remains."""
@@ -11657,8 +11661,8 @@ class InlineArchitectureTest(unittest.TestCase):
         self.assertEqual(evaluate_normalized(nf, (0,)), (12,))
         self.assertEqual(evaluate_normalized(nf, (1,)), (11,))
 
-    def test_nested_effect_lower_call(self) -> None:
-        """EFFECT_LOWER call nested inside add() must be inlined."""
+    def test_nested_deferred_memory_call(self) -> None:
+        """Deferred memory helper nested inside add() must be block-inlined."""
         nf = self._inline("""
             function f(hi, lo) -> z {
                 function from_helper(ptr, x_hi, x_lo) -> r {
@@ -11667,17 +11671,20 @@ class InlineArchitectureTest(unittest.TestCase):
                     mstore(add(0x20, ptr), x_lo)
                     r := ptr
                 }
-                z := add(from_helper(64, hi, lo), 1)
+                z := add(from_helper(mload(64), hi, lo), 1)
             }
         """)
         self.assertFalse(
             self._has_local_call(nf.body, "from_helper"),
             "from_helper should be inlined, not left as NLocalCall",
         )
-        self.assertEqual(evaluate_normalized(nf, (5, 7), memory={}), (65,))
+        self.assertEqual(
+            evaluate_normalized(nf, (5, 7), memory={64: 128, 96: 0}),
+            (129,),
+        )
 
-    def test_effect_lower_as_expression_statement(self) -> None:
-        """Bare from_helper(64, hi, lo) as expression-statement must emit NStores."""
+    def test_deferred_memory_call_as_expression_statement(self) -> None:
+        """Bare deferred memory helper call as expression-statement must inline."""
         nf = self._inline("""
             function f(hi, lo) -> z {
                 function from_helper(ptr, x_hi, x_lo) -> r {
@@ -11686,15 +11693,18 @@ class InlineArchitectureTest(unittest.TestCase):
                     mstore(add(0x20, ptr), x_lo)
                     r := ptr
                 }
-                from_helper(64, hi, lo)
-                z := add(mload(64), mload(add(0x20, 64)))
+                let p := mload(64)
+                from_helper(p, hi, lo)
+                z := add(mload(p), mload(add(0x20, p)))
             }
         """)
         self.assertFalse(
             self._has_local_call(nf.body, "from_helper"),
             "from_helper should be inlined, not left as NLocalCall",
         )
-        self.assertEqual(evaluate_normalized(nf, (5, 7), memory={}), (12,))
+        self.assertEqual(
+            evaluate_normalized(nf, (5, 7), memory={64: 128, 96: 0}), (12,)
+        )
 
     def test_block_inline_binder_hygiene(self) -> None:
         """Two inlines of the same BLOCK_INLINE helper must use distinct SymbolIds."""
@@ -11781,7 +11791,10 @@ class MemoryLowerTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(nf)
+        nf = inline_pure_helpers(
+            nf,
+            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
+        )
         nf = simplify_normalized(nf)
         return lower_memory(nf)
 
@@ -11808,7 +11821,8 @@ class MemoryLowerTest(unittest.TestCase):
                     mstore(add(0x20, ptr), x_lo)
                     r := ptr
                 }
-                let p := from_helper(64, hi, lo)
+                let p := from_helper(mload(64), hi, lo)
+                mstore(64, add(p, 0x40))
                 z := add(mload(p), mload(add(0x20, p)))
             }
         """)
@@ -11845,23 +11859,93 @@ class MemoryLowerTest(unittest.TestCase):
                 }
             """)
 
-    def test_duplicate_write_rejected(self) -> None:
-        """Two mstore to same address raises ParseError."""
-        with self.assertRaisesRegex(ParseError, "Duplicate mstore"):
+    def test_duplicate_write_last_write_wins(self) -> None:
+        """Repeated writes overwrite the prior modeled slot value."""
+        nf = self._pipeline("""
+            function f() -> z {
+                mstore(0, 7)
+                mstore(0, 8)
+                z := mload(0)
+            }
+        """)
+        self.assertEqual(evaluate_normalized(nf, ()), (8,))
+
+    def test_uninitialized_read_rejected(self) -> None:
+        """mload from address with no prior mstore raises ParseError."""
+        with self.assertRaisesRegex(ParseError, "before write"):
             self._pipeline("""
                 function f() -> z {
-                    mstore(0, 7)
-                    mstore(0, 8)
                     z := mload(0)
                 }
             """)
 
-    def test_uninitialized_read_rejected(self) -> None:
-        """mload from address with no prior mstore raises ParseError."""
-        with self.assertRaisesRegex(ParseError, "no prior mstore"):
+    def test_slot_32_starts_undefined(self) -> None:
+        with self.assertRaisesRegex(ParseError, "slot 32 before write"):
             self._pipeline("""
                 function f() -> z {
-                    z := mload(0)
+                    z := mload(32)
+                }
+            """)
+
+    def test_slot_64_is_pointer_typed(self) -> None:
+        with self.assertRaisesRegex(ParseError, "slot 64 must store"):
+            self._pipeline("""
+                function f() -> z {
+                    mstore(64, 7)
+                    z := 0
+                }
+            """)
+
+    def test_slot_64_cannot_escape_value_flow(self) -> None:
+        with self.assertRaisesRegex(ParseError, "free-pointer value"):
+            self._pipeline("""
+                function f() -> z {
+                    z := mload(64)
+                }
+            """)
+
+    def test_slot_96_is_read_only_zero(self) -> None:
+        with self.assertRaisesRegex(ParseError, "slot 96"):
+            self._pipeline("""
+                function f() -> z {
+                    mstore(96, 7)
+                    z := 0
+                }
+            """)
+
+    def test_unwritten_free_relative_read_rejected(self) -> None:
+        with self.assertRaisesRegex(ParseError, "free-relative slot 0 before write"):
+            self._pipeline("""
+                function f() -> z {
+                    let p := mload(64)
+                    z := mload(p)
+                }
+            """)
+
+    def test_nonconstant_free_relative_offset_rejected(self) -> None:
+        with self.assertRaisesRegex(ParseError, "constant offset"):
+            self._pipeline("""
+                function f(x) -> z {
+                    mstore(add(mload(64), x), 7)
+                    z := 0
+                }
+            """)
+
+    def test_negative_free_relative_offset_rejected(self) -> None:
+        with self.assertRaisesRegex(ParseError, "negative free-relative offset"):
+            self._pipeline("""
+                function f() -> z {
+                    mstore(sub(mload(64), 0x20), 7)
+                    z := 0
+                }
+            """)
+
+    def test_mstore8_rejected(self) -> None:
+        with self.assertRaisesRegex(ParseError, "mstore8"):
+            self._pipeline("""
+                function f() -> z {
+                    mstore8(0, 7)
+                    z := 0
                 }
             """)
 
@@ -11875,7 +11959,8 @@ class MemoryLowerTest(unittest.TestCase):
                     mstore(add(0x20, ptr), x_lo)
                     r := ptr
                 }
-                let p := from_helper(64, hi, lo)
+                let p := from_helper(mload(64), hi, lo)
+                mstore(64, add(p, 0x40))
                 z := add(mload(p), mload(add(0x20, p)))
             }
         """
@@ -11883,10 +11968,13 @@ class MemoryLowerTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(nf)
+        nf = inline_pure_helpers(
+            nf,
+            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
+        )
         nf = simplify_normalized(nf)
         for hi, lo in [(0, 0), (5, 7), (100, 200)]:
-            pre = evaluate_normalized(nf, (hi, lo), memory={})
+            pre = evaluate_normalized(nf, (hi, lo), memory={64: 128, 96: 0})
             lowered = lower_memory(nf)
             post = evaluate_normalized(lowered, (hi, lo))
             self.assertEqual(pre, post, f"Failed for hi={hi}, lo={lo}")
@@ -12056,7 +12144,10 @@ class RestrictedIRTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(nf)
+        nf = inline_pure_helpers(
+            nf,
+            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
+        )
         nf = simplify_normalized(nf)
         return lower_to_restricted(lower_memory(nf))
 
@@ -12071,7 +12162,10 @@ class RestrictedIRTest(unittest.TestCase):
 
         for name, result in resolved.items():
             nf = normalize_function(result.func, result)
-            nf = inline_pure_helpers(nf)
+            nf = inline_pure_helpers(
+                nf,
+                boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
+            )
             nf = simplify_normalized(nf)
             out[name] = lower_to_restricted(lower_memory(nf))
         return out
@@ -12309,7 +12403,8 @@ class RestrictedIRTest(unittest.TestCase):
                     mstore(add(0x20, ptr), x_lo)
                     r := ptr
                 }
-                let p := from_helper(64, hi, lo)
+                let p := from_helper(mload(64), hi, lo)
+                mstore(64, add(p, 0x40))
                 z := add(mload(p), mload(add(0x20, p)))
             }
         """,
@@ -12349,18 +12444,23 @@ class RestrictedIRTest(unittest.TestCase):
                 }
             """)
 
-    def test_duplicate_write_rejected(self) -> None:
-        with self.assertRaisesRegex(ParseError, "Duplicate mstore"):
-            self._to_restricted("""
+    def test_duplicate_write_last_write_wins(self) -> None:
+        self.assertEqual(
+            self._eval_restricted(
+                """
                 function f() -> z {
                     mstore(0, 7)
                     mstore(0, 8)
                     z := mload(0)
                 }
-            """)
+            """,
+                (),
+            ),
+            (8,),
+        )
 
     def test_uninitialized_read_rejected(self) -> None:
-        with self.assertRaisesRegex(ParseError, "no prior mstore"):
+        with self.assertRaisesRegex(ParseError, "before write"):
             self._to_restricted("""
                 function f() -> z {
                     z := mload(0)
@@ -12380,7 +12480,10 @@ class RestrictedIRTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(nf)
+        nf = inline_pure_helpers(
+            nf,
+            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
+        )
         nf = simplify_normalized(nf)
         rf = lower_to_restricted(lower_memory(nf))
 
@@ -12418,7 +12521,10 @@ class SSAModelTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(nf)
+        nf = inline_pure_helpers(
+            nf,
+            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
+        )
         nf = simplify_normalized(nf)
         rf = lower_to_restricted(lower_memory(nf))
         config = make_model_config(
@@ -12484,7 +12590,10 @@ class SSAModelTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(nf)
+        nf = inline_pure_helpers(
+            nf,
+            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
+        )
         nf = simplify_normalized(nf)
         rf = lower_to_restricted(lower_memory(nf))
         config = make_model_config(("f",))
@@ -12526,7 +12635,8 @@ class SSAModelTest(unittest.TestCase):
                     mstore(add(0x20, ptr), x_lo)
                     r := ptr
                 }
-                let p := from_helper(64, hi, lo)
+                let p := from_helper(mload(64), hi, lo)
+                mstore(64, add(p, 0x40))
                 z := add(mload(p), mload(add(0x20, p)))
             }
         """)
@@ -12668,7 +12778,10 @@ class SSAModelTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        nf = inline_pure_helpers(nf)
+        nf = inline_pure_helpers(
+            nf,
+            boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
+        )
         nf = simplify_normalized(nf)
         return lower_to_restricted(lower_memory(nf))
 
@@ -13001,7 +13114,10 @@ class SSAModelTest(unittest.TestCase):
         restricted: dict[str, RestrictedFunction] = {}
         for name, result in resolved.items():
             nf = normalize_function(result.func, result)
-            nf = inline_pure_helpers(nf)
+            nf = inline_pure_helpers(
+                nf,
+                boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
+            )
             nf = simplify_normalized(nf)
             restricted[name] = lower_to_restricted(lower_memory(nf))
         config = make_model_config(
@@ -13041,7 +13157,10 @@ class SSAModelTest(unittest.TestCase):
         restricted: dict[str, RestrictedFunction] = {}
         for name, result in resolved.items():
             nf = normalize_function(result.func, result)
-            nf = inline_pure_helpers(nf)
+            nf = inline_pure_helpers(
+                nf,
+                boundary_policy=InlineBoundaryPolicy(inline_local_helpers=True),
+            )
             nf = simplify_normalized(nf)
             restricted[name] = lower_to_restricted(lower_memory(nf))
         config = make_model_config(

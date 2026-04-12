@@ -9,7 +9,7 @@ Block-based helper inlining on the normalized imperative IR.
 - Leave is represented as control flow (``did_leave`` flag) rather
   than expression-level ``(cond, subst)`` merging.
 - Strategy classification drives which path each helper takes:
-  ``ExprInline``, ``BlockInline``, ``EffectLower``, ``DoNotInline``.
+  ``ExprInline``, ``BlockInline``, ``DoNotInline``.
 """
 
 from __future__ import annotations
@@ -259,8 +259,6 @@ def _effective_inline_strategy(
         return InlineStrategy.DO_NOT_INLINE
 
     strat = cls.strategy
-    if strat == InlineStrategy.EFFECT_LOWER:
-        return strat
     if strat == InlineStrategy.BLOCK_INLINE and cls.is_deferred and not must_inline:
         return InlineStrategy.DO_NOT_INLINE
     if strat != InlineStrategy.DO_NOT_INLINE:
@@ -289,7 +287,6 @@ def _register_nested_defs(block: NBlock, ctx: _InlineCtx) -> None:
         ctx.defs[fdef.symbol_id] = fdef
         summaries[fdef.symbol_id] = summarize_function(
             fdef.body,
-            fdef=fdef,
             top_level_inline_sids=ctx.top_level_name_to_sid,
             allowed_model_calls=ctx.allowed_model_calls,
         )
@@ -498,28 +495,6 @@ def _subst_block(block: NBlock, subst: dict[SymbolId, NExpr]) -> NBlock:
 
 
 # ---------------------------------------------------------------------------
-# EffectLower: uint512.from → explicit NStore
-# ---------------------------------------------------------------------------
-
-
-def _effect_lower(
-    fdef: NFunctionDef,
-    atom_args: tuple[NExpr, ...],
-    alloc: SymbolAllocator,
-) -> InlineFragment:
-    """Lower a uint512.from helper into explicit NStore statements."""
-    if len(atom_args) != 3 or len(fdef.returns) != 1:
-        raise ParseError(f"EffectLower for {fdef.name!r}: expected 3 args / 1 return")
-    ptr, hi, lo = atom_args
-    lo_addr: NExpr = NBuiltinCall(op="add", args=(NConst(0x20), ptr))
-    prelude: tuple[NStmt, ...] = (
-        NStore(addr=ptr, value=hi),
-        NStore(addr=lo_addr, value=lo),
-    )
-    return InlineFragment(prelude=prelude, results=(ptr,))
-
-
-# ---------------------------------------------------------------------------
 # Expression-level inlining (scalar context)
 # ---------------------------------------------------------------------------
 
@@ -527,7 +502,7 @@ def _effect_lower(
 def _inline_in_expr(expr: NExpr, ctx: _InlineCtx, depth: int) -> NExpr:
     """Inline helper calls within an expression (scalar context, no prelude).
 
-    Only handles EXPR_INLINE. For BLOCK_INLINE/EFFECT_LOWER, use
+    Only handles EXPR_INLINE. For BLOCK_INLINE, use
     ``_inline_in_expr_with_prelude`` which can emit side-effect statements.
     """
     pre, result = _inline_in_expr_with_prelude(expr, ctx, depth)
@@ -545,7 +520,7 @@ def _inline_in_expr_with_prelude(
     """Inline helper calls, returning (prelude_stmts, result_expr).
 
     Handles all strategies: EXPR_INLINE produces empty prelude,
-    BLOCK_INLINE/EFFECT_LOWER produce prelude statements.
+    BLOCK_INLINE produces prelude statements.
     """
     if isinstance(expr, (NConst, NRef)):
         return [], expr
@@ -584,20 +559,16 @@ def _inline_in_expr_with_prelude(
                 arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
                 pre.extend(arg_binds)
                 frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
-            elif strat == InlineStrategy.EFFECT_LOWER:
-                arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
-                pre.extend(arg_binds)
-                frag = _effect_lower(fdef, tuple(atom_refs), ctx.alloc)
+            else:
+                raise ParseError(f"Unknown strategy: {strat}")
 
             # Recursively rewrite BLOCK_INLINE preludes to inline nested calls.
-            if strat == InlineStrategy.BLOCK_INLINE and frag.prelude:
+            if frag.prelude:
                 prelude_block = NBlock(stmts=frag.prelude)
                 _register_nested_defs(prelude_block, ctx)
                 rewritten = _rewrite_block(prelude_block, ctx)
                 if rewritten.defs or rewritten.stmts:
                     pre.append(rewritten)
-            else:
-                pre.extend(frag.prelude)
             if len(frag.results) == 1:
                 return pre, frag.results[0]
             if len(frag.results) == 0:
@@ -634,20 +605,14 @@ def _inline_in_expr_with_prelude(
                     arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
                     pre.extend(arg_binds)
                     frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
-                elif strat == InlineStrategy.EFFECT_LOWER:
-                    arg_binds, atom_refs = _atomize_args(new_args_t, ctx.alloc)
-                    pre.extend(arg_binds)
-                    frag = _effect_lower(fdef, tuple(atom_refs), ctx.alloc)
                 else:
                     raise ParseError(f"Unknown strategy: {strat}")
-                if strat == InlineStrategy.BLOCK_INLINE and frag.prelude:
+                if frag.prelude:
                     prelude_block = NBlock(stmts=frag.prelude)
                     _register_nested_defs(prelude_block, ctx)
                     rewritten = _rewrite_block(prelude_block, ctx)
                     if rewritten.defs or rewritten.stmts:
                         pre.append(rewritten)
-                else:
-                    pre.extend(frag.prelude)
                 if len(frag.results) == 1:
                     return pre, frag.results[0]
                 if len(frag.results) == 0:
@@ -675,7 +640,7 @@ def _inline_in_expr_with_prelude(
         if t_pre or f_pre:
             raise ParseError(
                 "NIte branch produced statement prelude during inlining. "
-                "Branch sub-expressions must be pure (no BLOCK_INLINE or EFFECT_LOWER)."
+                "Branch sub-expressions must be pure (no BLOCK_INLINE)."
             )
         return c_pre, NIte(cond=c_val, if_true=t_val, if_false=f_val)
 
@@ -849,8 +814,6 @@ def _rewrite_bind_or_assign(
                 frag = _expr_inline(fdef, tuple(atom_refs), ctx, 1)
             elif strat == InlineStrategy.BLOCK_INLINE:
                 frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
-            elif strat == InlineStrategy.EFFECT_LOWER:
-                frag = _effect_lower(fdef, tuple(atom_refs), ctx.alloc)
             else:
                 raise ParseError(f"Unknown strategy: {strat}")
 
@@ -858,7 +821,7 @@ def _rewrite_bind_or_assign(
             # calls (e.g. EXPR_INLINE helpers inside the cloned body).
             # Register freshened nested defs, then rewrite the prelude.
             prelude_stmts = list(frag.prelude)
-            if strat == InlineStrategy.BLOCK_INLINE and prelude_stmts:
+            if prelude_stmts:
                 prelude_block = NBlock(stmts=tuple(prelude_stmts))
                 _register_nested_defs(prelude_block, ctx)
                 rewritten_prelude = _rewrite_block(prelude_block, ctx)
@@ -953,7 +916,6 @@ def inline_pure_helpers(
     for sid, fdef in defs.items():
         summaries[sid] = summarize_function(
             fdef.body,
-            fdef=fdef,
             top_level_inline_sids=top_level_name_to_sid,
             allowed_model_calls=allowed_model_calls,
         )
