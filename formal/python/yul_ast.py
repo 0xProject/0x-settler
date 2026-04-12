@@ -19,7 +19,45 @@ from typing import Union
 # ---------------------------------------------------------------------------
 
 
-class ParseError(RuntimeError):
+class TranslationError(RuntimeError):
+    """Base error for any phase of the Yul-to-Lean translation pipeline."""
+
+    pass
+
+
+class ParseError(TranslationError):
+    """Error during lexing or parsing of Yul source text."""
+
+    pass
+
+
+class ResolutionError(TranslationError):
+    """Error during binder resolution or scope validation."""
+
+    pass
+
+
+class SelectionError(TranslationError):
+    """Error during function selection or candidate matching."""
+
+    pass
+
+
+class LoweringError(TranslationError):
+    """Error during IR lowering (normalization, inlining, memory, restricted)."""
+
+    pass
+
+
+class ValidationError(TranslationError):
+    """Error during IR or model validation."""
+
+    pass
+
+
+class EmissionError(TranslationError):
+    """Error during Lean code emission or name legalization."""
+
     pass
 
 

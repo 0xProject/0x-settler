@@ -24,7 +24,7 @@ from .norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
-from .yul_ast import ParseError
+from .yul_ast import ValidationError
 
 
 def validate_restricted_boundary(
@@ -34,7 +34,7 @@ def validate_restricted_boundary(
 ) -> None:
     """Reject residual live constructs unsupported by restricted lowering."""
     if not func.returns:
-        raise ParseError(f"Selected function {func.name!r} has zero return values")
+        raise ValidationError(f"Selected function {func.name!r} has zero return values")
     _validate_block(
         func.body,
         allowed_model_calls=allowed_model_calls,
@@ -80,7 +80,7 @@ def _validate_stmt(
         return
 
     if isinstance(stmt, NExprEffect):
-        raise ParseError(
+        raise ValidationError(
             f"{context} contains unsupported expression-statement "
             f"{type(stmt.expr).__name__}. Refuse to proceed with incomplete semantics."
         )
@@ -119,12 +119,14 @@ def _validate_stmt(
         return
 
     if isinstance(stmt, NFor):
-        raise ParseError(
+        raise ValidationError(
             f"{context} contains unsupported for-loop after simplification"
         )
 
     if isinstance(stmt, NLeave):
-        raise ParseError("NLeave in restricted IR lowering — should have been inlined")
+        raise ValidationError(
+            "NLeave in restricted IR lowering — should have been inlined"
+        )
 
     if isinstance(stmt, NBlock):
         _validate_block(
@@ -148,7 +150,7 @@ def _validate_expr(
 
     if isinstance(expr, NBuiltinCall):
         if expr.op in {"mload", "mstore", "mstore8"}:
-            raise ParseError(
+            raise ValidationError(
                 f"{context} reaches restricted IR lowering with residual memory "
                 f"builtin {expr.op!r}. Memory must be lowered before this stage."
             )
@@ -161,7 +163,7 @@ def _validate_expr(
         return
 
     if isinstance(expr, NLocalCall):
-        raise ParseError(
+        raise ValidationError(
             f"{context} reaches restricted IR lowering with residual local helper "
             f"call {expr.name!r}. "
             f"All non-selected helpers must be inlined before restricted lowering."
@@ -169,7 +171,7 @@ def _validate_expr(
 
     if isinstance(expr, NTopLevelCall):
         if expr.name not in allowed_model_calls:
-            raise ParseError(
+            raise ValidationError(
                 f"{context} reaches restricted IR lowering with non-selected "
                 f"model call {expr.name!r}. "
                 f"Only explicitly selected targets may remain as model calls."
@@ -183,7 +185,7 @@ def _validate_expr(
         return
 
     if isinstance(expr, NUnresolvedCall):
-        raise ParseError(
+        raise ValidationError(
             f"Unresolved call to {expr.name!r} in {context}; unresolved call is live"
         )
 

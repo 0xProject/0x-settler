@@ -51,9 +51,8 @@ from .norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
-from .norm_optimize_shared import const_truthy, const_value
-from .norm_walk import expr_contains, map_expr, max_symbol_id
-from .yul_ast import ParseError, SymbolId
+from .norm_walk import const_truthy, const_value, expr_contains, map_expr, max_symbol_id
+from .yul_ast import LoweringError, SymbolId
 
 _MODELED_CONST_SLOTS = frozenset({0, 32, 64, 96})
 _WRITABLE_WORD_SLOTS = frozenset({0, 32})
@@ -132,12 +131,12 @@ class _MemoryState:
                 return self.free_ptr
             if addr.addr in self.const_words:
                 return self.const_words[addr.addr]
-            raise ParseError(
+            raise LoweringError(
                 f"{op} from slot {addr.addr} before write. "
                 "The memory model forbids reads before writes."
             )
         if addr.offset not in self.free_words:
-            raise ParseError(
+            raise LoweringError(
                 f"{op} from free-relative slot {addr.offset} before write. "
                 "The memory model forbids reads before writes."
             )
@@ -147,7 +146,7 @@ class _MemoryState:
         if isinstance(addr, _ConstSlot):
             if addr.addr in _WRITABLE_WORD_SLOTS:
                 if isinstance(value, _FreePtr):
-                    raise ParseError(
+                    raise LoweringError(
                         f"{op} to slot {addr.addr} cannot store the free pointer. "
                         "Only slot 64 may hold free-relative addresses."
                     )
@@ -155,17 +154,17 @@ class _MemoryState:
                 return
             if addr.addr == _FREE_PTR_SLOT:
                 if not isinstance(value, _FreePtr):
-                    raise ParseError(
+                    raise LoweringError(
                         f"{op} to slot 64 must store a free-relative pointer."
                     )
                 self.free_ptr = value
                 return
             if addr.addr == _READONLY_ZERO_SLOT:
-                raise ParseError("Writes to slot 96 are forbidden.")
-            raise ParseError(f"{op} to unsupported constant slot {addr.addr}.")
+                raise LoweringError("Writes to slot 96 are forbidden.")
+            raise LoweringError(f"{op} to unsupported constant slot {addr.addr}.")
 
         if isinstance(value, _FreePtr):
-            raise ParseError(
+            raise LoweringError(
                 f"{op} to free-relative slot {addr.offset} cannot store the free pointer."
             )
         self.free_words[addr.offset] = value
@@ -213,14 +212,14 @@ def _resolve_offset_value(expr: NExpr, env: _FactEnv) -> int | None:
 
 def _require_aligned_addr(addr: int, op: str) -> None:
     if addr % 32 != 0:
-        raise ParseError(f"Unaligned {op} address {addr} (must be 32-byte aligned)")
+        raise LoweringError(f"Unaligned {op} address {addr} (must be 32-byte aligned)")
 
 
 def _require_free_offset(offset: int, op: str) -> None:
     if offset < 0:
-        raise ParseError(f"{op} with negative free-relative offset is forbidden.")
+        raise LoweringError(f"{op} with negative free-relative offset is forbidden.")
     if offset >= _MAX_FREE_PTR_OFFSET:
-        raise ParseError(f"{op} with free-relative offset >= 2^64 is forbidden.")
+        raise LoweringError(f"{op} with free-relative offset >= 2^64 is forbidden.")
     _require_aligned_addr(offset, op)
 
 
@@ -234,7 +233,7 @@ def _resolve_const_slot(
         return None
     _require_aligned_addr(addr, op)
     if addr not in _MODELED_CONST_SLOTS:
-        raise ParseError(
+        raise LoweringError(
             f"{op} at forbidden constant address {addr}. "
             "Only slots 0, 32, 64, and 96 are modeled."
         )
@@ -257,7 +256,7 @@ def _resolve_pointer_expr(
         if isinstance(fact, _FreePtr):
             return fact
         if env.is_tainted(expr.symbol_id):
-            raise ParseError(
+            raise LoweringError(
                 f"Pointer value {expr.name!r} is not uniquely known after control flow."
             )
         return None
@@ -279,13 +278,13 @@ def _resolve_pointer_expr(
             if lhs_ptr is None and rhs_ptr is None:
                 return None
             if lhs_ptr is not None and rhs_ptr is not None:
-                raise ParseError(
+                raise LoweringError(
                     "Free-relative addresses may use at most one free-pointer base."
                 )
             if lhs_ptr is not None:
                 delta = _resolve_offset_value(expr.args[1], env)
                 if delta is None:
-                    raise ParseError(
+                    raise LoweringError(
                         "Free-relative addresses require a constant offset."
                     )
                 if expr.op == "sub":
@@ -294,12 +293,14 @@ def _resolve_pointer_expr(
 
             assert rhs_ptr is not None
             if expr.op == "sub":
-                raise ParseError(
+                raise LoweringError(
                     "Free-relative addresses cannot subtract a free-pointer base."
                 )
             delta = _resolve_offset_value(expr.args[0], env)
             if delta is None:
-                raise ParseError("Free-relative addresses require a constant offset.")
+                raise LoweringError(
+                    "Free-relative addresses require a constant offset."
+                )
             return _offset_free_ptr(rhs_ptr, delta, expr.op)
 
     if isinstance(expr, NIte):
@@ -309,7 +310,7 @@ def _resolve_pointer_expr(
             return None
         if true_ptr == false_ptr and true_ptr is not None:
             return true_ptr
-        raise ParseError("Conditional free-pointer values are forbidden.")
+        raise LoweringError("Conditional free-pointer values are forbidden.")
 
     return None
 
@@ -325,7 +326,7 @@ def _resolve_addr(
         return const_slot
     ptr = _resolve_pointer_expr(expr, mem, env)
     if ptr is None:
-        raise ParseError(
+        raise LoweringError(
             f"Non-constant {op} address: {expr!r}. "
             "Addresses must be one of the modeled constant slots or free + const."
         )
@@ -347,21 +348,21 @@ def _reject_memory_writes_in_block(block: NBlock, context: str) -> None:
 def _reject_memory_writes_in_stmt(stmt: NStmt, context: str) -> None:
     if isinstance(stmt, NExprEffect):
         if _expr_has_memory_write(stmt.expr):
-            raise ParseError(
+            raise LoweringError(
                 f"Memory write inside control flow ({context}). "
                 f"The memory model requires straight-line memory writes."
             )
         return
     if isinstance(stmt, (NBind, NAssign)):
         if stmt.expr is not None and _expr_has_memory_write(stmt.expr):
-            raise ParseError(
+            raise LoweringError(
                 f"Memory write inside control flow ({context}). "
                 f"The memory model requires straight-line memory writes."
             )
         return
     if isinstance(stmt, NIf):
         if _expr_has_memory_write(stmt.condition):
-            raise ParseError(
+            raise LoweringError(
                 f"Memory write inside control flow ({context}). "
                 f"The memory model requires straight-line memory writes."
             )
@@ -369,7 +370,7 @@ def _reject_memory_writes_in_stmt(stmt: NStmt, context: str) -> None:
         return
     if isinstance(stmt, NSwitch):
         if _expr_has_memory_write(stmt.discriminant):
-            raise ParseError(
+            raise LoweringError(
                 f"Memory write inside control flow ({context}). "
                 f"The memory model requires straight-line memory writes."
             )
@@ -380,7 +381,7 @@ def _reject_memory_writes_in_stmt(stmt: NStmt, context: str) -> None:
         return
     if isinstance(stmt, NFor):
         if _expr_has_memory_write(stmt.condition):
-            raise ParseError(
+            raise LoweringError(
                 f"Memory write inside control flow ({context}). "
                 f"The memory model requires straight-line memory writes."
             )
@@ -410,7 +411,7 @@ def _resolve_word_expr(
         if isinstance(fact, NConst):
             return fact
         if env.is_tainted(expr.symbol_id):
-            raise ParseError(
+            raise LoweringError(
                 f"free-pointer value {expr.name!r} escapes ordinary value flow."
             )
         return expr
@@ -418,12 +419,12 @@ def _resolve_word_expr(
         if expr.op == "mload" and len(expr.args) == 1:
             value = mem.load(_resolve_addr(expr.args[0], "mload", mem, env), op="mload")
             if isinstance(value, _FreePtr):
-                raise ParseError(
+                raise LoweringError(
                     "free-pointer value escapes ordinary value flow via mload."
                 )
             return value
         if expr.op == "mstore8":
-            raise ParseError("mstore8 is forbidden by the memory model.")
+            raise LoweringError("mstore8 is forbidden by the memory model.")
         return fold_expr(
             NBuiltinCall(
                 op=expr.op,
@@ -571,7 +572,7 @@ def _lower_stmt(
         _update_fact_env(stmt.targets, value, env)
         if isinstance(value, _FreePtr):
             if len(stmt.targets) != 1:
-                raise ParseError(
+                raise LoweringError(
                     "Pointer-valued bindings must have exactly one target."
                 )
             return
@@ -585,7 +586,7 @@ def _lower_stmt(
         _update_fact_env(stmt.targets, value, env)
         if isinstance(value, _FreePtr):
             if len(stmt.targets) != 1:
-                raise ParseError(
+                raise LoweringError(
                     "Pointer-valued assignments must have exactly one target."
                 )
             return
@@ -596,7 +597,7 @@ def _lower_stmt(
 
     if isinstance(stmt, NExprEffect):
         if isinstance(stmt.expr, NBuiltinCall) and stmt.expr.op == "mstore8":
-            raise ParseError("mstore8 is forbidden by the memory model.")
+            raise LoweringError("mstore8 is forbidden by the memory model.")
         if (
             isinstance(stmt.expr, NBuiltinCall)
             and stmt.expr.op == "mstore"
@@ -686,7 +687,7 @@ def _lower_stmt(
         return
 
     if isinstance(stmt, NFor):
-        raise ParseError(
+        raise LoweringError(
             "NFor reached memory lowering. The staged pipeline should reject "
             "for-loops before memory lowering."
         )
@@ -709,7 +710,7 @@ def lower_memory(func: NormalizedFunction) -> NormalizedFunction:
     new_body = _lower_block(func.body, ctx, env)
     for sid, name in zip(func.returns, func.return_names):
         if env.is_tainted(sid):
-            raise ParseError(
+            raise LoweringError(
                 f"Return value {name!r} may still hold a free-pointer value."
             )
     return NormalizedFunction(

@@ -17,12 +17,12 @@ from .model_ir import (
     Project,
     Var,
 )
-from .yul_ast import ParseError
+from .yul_ast import ValidationError
 
 
 def _validate_identifier(name: str, *, what: str) -> None:
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
-        raise ParseError(f"Invalid {what}: {name!r}")
+        raise ValidationError(f"Invalid {what}: {name!r}")
 
 
 def validate_function_model(model: FunctionModel) -> None:
@@ -30,17 +30,19 @@ def validate_function_model(model: FunctionModel) -> None:
 
     _validate_identifier(model.fn_name, what="model name")
     if len(set(model.param_names)) != len(model.param_names):
-        raise ParseError(
+        raise ValidationError(
             f"Model {model.fn_name!r} has duplicate param names: {model.param_names!r}"
         )
     if len(set(model.return_names)) != len(model.return_names):
-        raise ParseError(
+        raise ValidationError(
             f"Model {model.fn_name!r} has duplicate return names: {model.return_names!r}"
         )
     if model.fn_name in OP_TO_LEAN_HELPER:
-        raise ParseError(f"Model name {model.fn_name!r} collides with builtin opcode")
+        raise ValidationError(
+            f"Model name {model.fn_name!r} collides with builtin opcode"
+        )
     if not model.return_names:
-        raise ParseError(
+        raise ValidationError(
             f"Model {model.fn_name!r} has no return variables; "
             f"restricted-IR functions must return at least one value"
         )
@@ -61,7 +63,7 @@ def validate_function_model(model: FunctionModel) -> None:
                         var, what=f"conditional output var in {model.fn_name!r}"
                     )
                 if len(set(s.output_vars)) != len(s.output_vars):
-                    raise ParseError(
+                    raise ValidationError(
                         f"Model {model.fn_name!r} has duplicate conditional "
                         f"output_vars: {s.output_vars!r}"
                     )
@@ -75,7 +77,7 @@ def validate_function_model(model: FunctionModel) -> None:
             return
         if isinstance(expr, IntLit):
             if expr.value < 0:
-                raise ParseError(
+                raise ValidationError(
                     f"Model {model.fn_name!r}: IntLit({expr.value}) is negative "
                     f"(Yul integers are unsigned)"
                 )
@@ -87,22 +89,22 @@ def validate_function_model(model: FunctionModel) -> None:
             return
         if isinstance(expr, Project):
             if not isinstance(expr.inner, Call):
-                raise ParseError(
+                raise ValidationError(
                     f"Model {model.fn_name!r}: Project({expr.index}, {expr.total}) inner "
                     f"must be a Call, got {type(expr.inner).__name__}"
                 )
             if expr.index < 0 or expr.index >= expr.total:
-                raise ParseError(
+                raise ValidationError(
                     f"Model {model.fn_name!r}: Project({expr.index}, {expr.total}) index "
                     f"{expr.index} out of range [0, {expr.total})"
                 )
             if expr.total < 2:
-                raise ParseError(
+                raise ValidationError(
                     f"Model {model.fn_name!r}: Project({expr.index}, {expr.total}) "
                     f"requires total >= 2 (scalar values cannot be projected)"
                 )
             if expr.inner.name in OP_TO_LEAN_HELPER:
-                raise ParseError(
+                raise ValidationError(
                     f"Model {model.fn_name!r}: cannot project builtin "
                     f"{expr.inner.name!r} (returns scalar, not tuple)"
                 )
@@ -113,7 +115,7 @@ def validate_function_model(model: FunctionModel) -> None:
         if expr.name in OP_TO_LEAN_HELPER:
             expected = MODELED_BUILTIN_ARITY[expr.name]
             if len(expr.args) != expected:
-                raise ParseError(
+                raise ValidationError(
                     f"Model {model.fn_name!r}: builtin {expr.name!r} expects "
                     f"{expected} arg(s), got {len(expr.args)}"
                 )
@@ -142,7 +144,7 @@ def validate_function_model(model: FunctionModel) -> None:
                 _validate_expr_shape(s.expr)
                 missing = expr_vars(s.expr) - scope
                 if missing:
-                    raise ParseError(
+                    raise ValidationError(
                         f"Model {model.fn_name!r} has an out-of-scope variable "
                         f"use in {block_name}: {s.target!r} depends on "
                         f"{sorted(missing)}"
@@ -166,7 +168,7 @@ def validate_function_model(model: FunctionModel) -> None:
             _validate_expr_shapes_in_stmt(s)
         missing = expr_vars(cond.condition) - scope
         if missing:
-            raise ParseError(
+            raise ValidationError(
                 f"Model {model.fn_name!r} has an out-of-scope conditional: "
                 f"{sorted(missing)}"
             )
@@ -180,7 +182,7 @@ def validate_function_model(model: FunctionModel) -> None:
                 block_name=f"{block_name}/{label}",
             )
             if len(branch.outputs) != len(cond.output_vars):
-                raise ParseError(
+                raise ValidationError(
                     f"Model {model.fn_name!r} has mismatched {label} output "
                     f"arity: {len(branch.outputs)} vs {len(cond.output_vars)}"
                 )
@@ -188,7 +190,7 @@ def validate_function_model(model: FunctionModel) -> None:
                 _validate_expr_shape(out_expr)
                 missing_out = expr_vars(out_expr) - branch_scope
                 if missing_out:
-                    raise ParseError(
+                    raise ValidationError(
                         f"Model {model.fn_name!r} has undefined {label} outputs: "
                         f"{sorted(missing_out)}"
                     )
@@ -201,7 +203,7 @@ def validate_function_model(model: FunctionModel) -> None:
 
     missing_returns = set(model.return_names) - scope
     if missing_returns:
-        raise ParseError(
+        raise ValidationError(
             f"Model {model.fn_name!r} returns undefined vars: {sorted(missing_returns)}"
         )
 
@@ -215,7 +217,7 @@ def validate_model_set(models: list[FunctionModel]) -> None:
     seen_names: set[str] = set()
     for model in models:
         if model.fn_name in seen_names:
-            raise ParseError(f"Duplicate selected function {model.fn_name!r}")
+            raise ValidationError(f"Duplicate selected function {model.fn_name!r}")
         seen_names.add(model.fn_name)
 
     sig_table = {
@@ -238,20 +240,20 @@ def validate_model_set(models: list[FunctionModel]) -> None:
                 callees.add(inner.name)
                 _, callee_rets = sig_table[inner.name]
                 if callee_rets != expr.total:
-                    raise ParseError(
+                    raise ValidationError(
                         f"Model {model_fn_name!r}: Project({expr.index}, {expr.total}) "
                         f"expects {expr.total} return values from {inner.name!r}, "
                         f"but it returns {callee_rets}"
                     )
                 if callee_rets < 2:
-                    raise ParseError(
+                    raise ValidationError(
                         f"Model {model_fn_name!r}: cannot project "
                         f"{inner.name!r} which returns {callee_rets} value(s) "
                         f"(need >= 2 for projection)"
                     )
                 callee_params, _ = sig_table[inner.name]
                 if len(inner.args) != callee_params:
-                    raise ParseError(
+                    raise ValidationError(
                         f"Model {model_fn_name!r}: call to {inner.name!r} "
                         f"passes {len(inner.args)} arg(s), expected {callee_params}"
                     )
@@ -267,18 +269,18 @@ def validate_model_set(models: list[FunctionModel]) -> None:
             callees.add(expr.name)
             callee_params, callee_rets = sig_table[expr.name]
             if len(expr.args) != callee_params:
-                raise ParseError(
+                raise ValidationError(
                     f"Model {model_fn_name!r}: call to {expr.name!r} passes "
                     f"{len(expr.args)} arg(s), expected {callee_params}"
                 )
             if callee_rets > 1:
-                raise ParseError(
+                raise ValidationError(
                     f"Model {model_fn_name!r}: multi-return function "
                     f"{expr.name!r} ({callee_rets} returns) used in scalar "
                     f"context without Project projection"
                 )
         elif expr.name not in OP_TO_LEAN_HELPER:
-            raise ParseError(
+            raise ValidationError(
                 f"Model {model_fn_name!r}: unresolved call target {expr.name!r}"
             )
 
@@ -314,7 +316,7 @@ def validate_model_set(models: list[FunctionModel]) -> None:
             if color[callee] == GRAY:
                 cycle_start = path.index(callee)
                 cycle = path[cycle_start:]
-                raise ParseError(
+                raise ValidationError(
                     f"Cycle detected among selected models: "
                     f"{' → '.join(cycle)} → {callee}"
                 )

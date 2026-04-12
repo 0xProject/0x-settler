@@ -30,7 +30,7 @@ from .model_ir import (
     Var,
 )
 from .model_validate import validate_model_set
-from .yul_ast import ParseError
+from .yul_ast import EmissionError
 
 
 def emit_expr(
@@ -59,7 +59,7 @@ def emit_expr(
     if isinstance(expr, Call):
         helper = helper_map.get(expr.name)
         if helper is None:
-            raise ParseError(f"Unsupported call in Lean emitter: {expr.name!r}")
+            raise EmissionError(f"Unsupported call in Lean emitter: {expr.name!r}")
         args = " ".join(
             f"({emit_expr(arg, helper_map=helper_map)})" for arg in expr.args
         )
@@ -160,7 +160,9 @@ def _plan_emitted_model_defs(
     for fn_name in function_names:
         base_name = emission.model_names.get(fn_name)
         if base_name is None:
-            raise ParseError(f"Model {fn_name!r} has no entry in emission.model_names")
+            raise EmissionError(
+                f"Model {fn_name!r} has no entry in emission.model_names"
+            )
         planned.append(
             EmittedModelDef(
                 fn_name=fn_name,
@@ -203,20 +205,22 @@ def _build_lean_emission_plan(
         )
 
         if planned.emit_norm and planned.base_name in builtin_helper_names:
-            raise ParseError(
+            raise EmissionError(
                 f"Reserved name used as model name for {planned.fn_name!r}: "
                 f"{planned.base_name!r}"
             )
         if planned.evm_name in builtin_helper_names:
-            raise ParseError(
+            raise EmissionError(
                 f"Generated model name {planned.evm_name!r} collides with a builtin "
                 f"helper or reserved name"
             )
 
         if planned.emit_norm and planned.base_name in generated_def_names:
-            raise ParseError(f"Duplicate generated model name {planned.base_name!r}")
+            raise EmissionError(f"Duplicate generated model name {planned.base_name!r}")
         if planned.evm_name in generated_def_names:
-            raise ParseError(f"Duplicate generated EVM model name {planned.evm_name!r}")
+            raise EmissionError(
+                f"Duplicate generated EVM model name {planned.evm_name!r}"
+            )
 
         if planned.emit_norm:
             generated_def_names.add(planned.base_name)
@@ -235,7 +239,7 @@ def _build_lean_emission_plan(
         )
         if skipped_norm_callees:
             skipped_list = ", ".join(repr(name) for name in skipped_norm_callees)
-            raise ParseError(
+            raise EmissionError(
                 f"Cannot emit norm model for {model.fn_name!r}: "
                 f"calls skipped norm callee(s) {skipped_list}"
             )
@@ -262,7 +266,7 @@ def render_function_defs(
             transforms,
         )
     if len(emission_plan.model_defs) != len(models):
-        raise ParseError("Lean emission plan/model count mismatch")
+        raise EmissionError("Lean emission plan/model count mismatch")
 
     parts: list[str] = []
     evm_call_map = {
@@ -275,7 +279,7 @@ def render_function_defs(
     }
     for model, planned in zip(models, emission_plan.model_defs):
         if planned.fn_name != model.fn_name:
-            raise ParseError("Lean emission plan/model order mismatch")
+            raise EmissionError("Lean emission plan/model order mismatch")
 
         evm_body = build_model_body(
             model.assignments,
@@ -326,16 +330,16 @@ def build_lean_source(
 ) -> str:
     validate_ident(namespace, what="Lean namespace")
     if "\n" in source_path:
-        raise ParseError(
+        raise EmissionError(
             f"Source path contains newline (potential injection): {source_path!r}"
         )
     if "\n" in emission.generator_label:
-        raise ParseError(
+        raise EmissionError(
             f"Generator label contains newline (potential injection): "
             f"{emission.generator_label!r}"
         )
     if "-/" in emission.header_comment:
-        raise ParseError(
+        raise EmissionError(
             f"Header comment contains Lean doc-comment terminator '-/': "
             f"{emission.header_comment!r}"
         )

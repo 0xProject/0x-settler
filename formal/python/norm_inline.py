@@ -47,17 +47,18 @@ from .norm_ir import (
     NUnresolvedCall,
 )
 from .norm_leave import lower_leave_block
-from .norm_optimize_shared import simplify_ite
 from .norm_walk import (
     SymbolAllocator,
     collect_function_defs,
+    const_value,
     freshen_function_subtree,
     map_expr,
     map_function_def,
     map_stmt,
     max_symbol_id,
+    simplify_ite,
 )
-from .yul_ast import ParseError, SymbolId
+from .yul_ast import LoweringError, SymbolId
 
 # ---------------------------------------------------------------------------
 # InlineFragment — the universal inlining result
@@ -143,17 +144,6 @@ def substitute_nexpr(
         return e
 
     return map_expr(expr, rewrite)
-
-
-# ---------------------------------------------------------------------------
-# Simplify Ite
-# ---------------------------------------------------------------------------
-
-
-def _try_const(expr: NExpr) -> int | None:
-    if isinstance(expr, NConst):
-        return expr.value
-    return None
 
 
 # ---------------------------------------------------------------------------
@@ -352,7 +342,7 @@ def _symex_stmt(
                 for sid, val in zip(stmt.targets, multi):
                     subst[sid] = val
             else:
-                raise ParseError(
+                raise LoweringError(
                     f"Multi-target assignment to non-inlineable call "
                     f"in ExprInline body (targets: {len(stmt.targets)})"
                 )
@@ -361,7 +351,7 @@ def _symex_stmt(
     if isinstance(stmt, NIf):
         cond = substitute_nexpr(stmt.condition, subst)
         cond = _inline_in_expr(cond, ctx, depth)
-        c = _try_const(cond)
+        c = const_value(cond)
         if c is not None:
             if c != 0:
                 _symex_block(stmt.then_body, subst, ctx, depth)
@@ -379,7 +369,7 @@ def _symex_stmt(
         return
 
     if isinstance(stmt, (NFor, NLeave, NExprEffect, NSwitch)):
-        raise ParseError(f"Unexpected {type(stmt).__name__} in ExprInline body")
+        raise LoweringError(f"Unexpected {type(stmt).__name__} in ExprInline body")
 
 
 def _try_inline_multi(
@@ -506,7 +496,7 @@ def _inline_in_expr(expr: NExpr, ctx: _InlineCtx, depth: int) -> NExpr:
     """
     pre, result = _inline_in_expr_with_prelude(expr, ctx, depth)
     if pre:
-        raise ParseError(
+        raise LoweringError(
             "Non-EXPR_INLINE call in pure expression context "
             "(should use _inline_in_expr_with_prelude)"
         )
@@ -549,7 +539,7 @@ def _inline_in_expr_with_prelude(
         )
         if strat != InlineStrategy.DO_NOT_INLINE and expr.symbol_id in ctx.defs:
             if depth > ctx.max_depth:
-                raise ParseError(f"Inlining depth exceeded for {expr.name!r}")
+                raise LoweringError(f"Inlining depth exceeded for {expr.name!r}")
             fdef = ctx.defs[expr.symbol_id]
 
             if strat == InlineStrategy.EXPR_INLINE:
@@ -559,7 +549,7 @@ def _inline_in_expr_with_prelude(
                 pre.extend(arg_binds)
                 frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
             else:
-                raise ParseError(f"Unknown strategy: {strat}")
+                raise LoweringError(f"Unknown strategy: {strat}")
 
             # Recursively rewrite BLOCK_INLINE preludes to inline nested calls.
             if frag.prelude:
@@ -573,7 +563,7 @@ def _inline_in_expr_with_prelude(
             if len(frag.results) == 0:
                 # Zero-return helper — effects are in prelude, no result value.
                 return pre, NConst(0)
-            raise ParseError(
+            raise LoweringError(
                 f"Multi-return call to {expr.name!r} in single-value context"
             )
         return pre, NLocalCall(
@@ -596,7 +586,7 @@ def _inline_in_expr_with_prelude(
             )
             if strat != InlineStrategy.DO_NOT_INLINE:
                 if depth > ctx.max_depth:
-                    raise ParseError(f"Inlining depth exceeded for {expr.name!r}")
+                    raise LoweringError(f"Inlining depth exceeded for {expr.name!r}")
                 fdef = ctx.defs[sid]
                 if strat == InlineStrategy.EXPR_INLINE:
                     frag = _expr_inline(fdef, new_args_t, ctx, depth + 1)
@@ -605,7 +595,7 @@ def _inline_in_expr_with_prelude(
                     pre.extend(arg_binds)
                     frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
                 else:
-                    raise ParseError(f"Unknown strategy: {strat}")
+                    raise LoweringError(f"Unknown strategy: {strat}")
                 if frag.prelude:
                     prelude_block = NBlock(stmts=frag.prelude)
                     _register_nested_defs(prelude_block, ctx)
@@ -616,7 +606,7 @@ def _inline_in_expr_with_prelude(
                     return pre, frag.results[0]
                 if len(frag.results) == 0:
                     return pre, NConst(0)
-                raise ParseError(
+                raise LoweringError(
                     f"Multi-return call to {expr.name!r} in single-value context"
                 )
         return pre, NTopLevelCall(name=expr.name, args=new_args_t)
@@ -637,7 +627,7 @@ def _inline_in_expr_with_prelude(
         # NIte branches must not produce statement preludes — they execute
         # unconditionally here, so any side effects would be unsound.
         if t_pre or f_pre:
-            raise ParseError(
+            raise LoweringError(
                 "NIte branch produced statement prelude during inlining. "
                 "Branch sub-expressions must be pure (no BLOCK_INLINE)."
             )
@@ -689,7 +679,7 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
     if isinstance(stmt, NIf):
         c_pre, c_val = _inline_in_expr_with_prelude(stmt.condition, ctx, 0)
         if c_pre:
-            raise ParseError(
+            raise LoweringError(
                 "Control-flow condition requires statement prelude after helper "
                 "inlining. NIf conditions must remain expression-only."
             )
@@ -698,7 +688,7 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
     if isinstance(stmt, NSwitch):
         d_pre, d_val = _inline_in_expr_with_prelude(stmt.discriminant, ctx, 0)
         if d_pre:
-            raise ParseError(
+            raise LoweringError(
                 "Control-flow condition requires statement prelude after helper "
                 "inlining. NSwitch discriminants must remain expression-only."
             )
@@ -807,7 +797,7 @@ def _rewrite_bind_or_assign(
             elif strat == InlineStrategy.BLOCK_INLINE:
                 frag = _block_inline(fdef, tuple(atom_refs), ctx.alloc)
             else:
-                raise ParseError(f"Unknown strategy: {strat}")
+                raise LoweringError(f"Unknown strategy: {strat}")
 
             # For BLOCK_INLINE, the prelude may contain nested inlineable
             # calls (e.g. EXPR_INLINE helpers inside the cloned body).

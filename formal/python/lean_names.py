@@ -12,7 +12,7 @@ from collections.abc import Iterable
 
 from .evm_builtins import BASE_NORM_HELPERS, OP_TO_LEAN_HELPER
 from .model_config import EmissionConfig, TransformConfig
-from .yul_ast import ParseError
+from .yul_ast import EmissionError
 
 # Conservative subset of the fixed builtin command/term keywords from Lean 4's
 # default parser, used to keep generated names away from the surface syntax we
@@ -102,7 +102,9 @@ def emitted_model_def_names(
     for fn_name in function_names:
         base_name = emission.model_names.get(fn_name)
         if base_name is None:
-            raise ParseError(f"Model {fn_name!r} has no entry in emission.model_names")
+            raise EmissionError(
+                f"Model {fn_name!r} has no entry in emission.model_names"
+            )
         if fn_name not in transforms.skip_norm:
             generated.add(base_name)
         generated.add(f"{base_name}_evm")
@@ -132,6 +134,6 @@ def validate_ident(
     extra_reserved: Iterable[str] = (),
 ) -> None:
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
-        raise ParseError(f"Invalid {what}: {name!r}")
+        raise EmissionError(f"Invalid {what}: {name!r}")
     if name in RESERVED_LEAN_NAMES or name in set(extra_reserved):
-        raise ParseError(f"Reserved Lean helper name used as {what}: {name!r}")
+        raise EmissionError(f"Reserved Lean helper name used as {what}: {name!r}")

@@ -49,7 +49,7 @@ from .restricted_ir import (
     RRef,
     RStatement,
 )
-from .yul_ast import ParseError, SymbolId
+from .yul_ast import LoweringError, SymbolId
 
 
 def _name_for_sid(sid: SymbolId, names: dict[SymbolId, str]) -> str:
@@ -65,7 +65,7 @@ def _lower_expr(expr: NExpr) -> RExpr:
 
     if isinstance(expr, NBuiltinCall):
         if expr.op in ("mload", "mstore", "mstore8"):
-            raise ParseError(
+            raise LoweringError(
                 f"Memory builtin {expr.op!r} reached restricted IR lowering. "
                 "Memory must be lowered before this pass."
             )
@@ -73,7 +73,7 @@ def _lower_expr(expr: NExpr) -> RExpr:
         return RBuiltinCall(op=expr.op, args=args)
 
     if isinstance(expr, NLocalCall):
-        raise ParseError(
+        raise LoweringError(
             f"Unresolved local call to {expr.name!r} in restricted IR lowering. "
             f"All helpers should be inlined before this pass."
         )
@@ -83,7 +83,9 @@ def _lower_expr(expr: NExpr) -> RExpr:
         return RModelCall(name=expr.name, args=args)
 
     if isinstance(expr, NUnresolvedCall):
-        raise ParseError(f"Unresolved call to {expr.name!r} in restricted IR lowering")
+        raise LoweringError(
+            f"Unresolved call to {expr.name!r} in restricted IR lowering"
+        )
 
     if isinstance(expr, NIte):
         return RIte(
@@ -159,7 +161,7 @@ def _lower_stmt(
     out: list[RStatement],
 ) -> None:
     if isinstance(stmt, NExprEffect):
-        raise ParseError(
+        raise LoweringError(
             "Expression statement reached restricted IR lowering. Effect "
             "statements must be eliminated before this pass."
         )
@@ -192,7 +194,7 @@ def _lower_stmt(
             return
 
         if len(stmt.targets) > 1:
-            raise ParseError(
+            raise LoweringError(
                 "Multi-target assignment in restricted IR lowering requires "
                 "a top-level model call"
             )
@@ -219,10 +221,12 @@ def _lower_stmt(
         return
 
     if isinstance(stmt, NLeave):
-        raise ParseError("NLeave in restricted IR lowering — should have been inlined")
+        raise LoweringError(
+            "NLeave in restricted IR lowering — should have been inlined"
+        )
 
     if isinstance(stmt, NFor):
-        raise ParseError("NFor in restricted IR lowering — not supported")
+        raise LoweringError("NFor in restricted IR lowering — not supported")
 
     assert_never(stmt)
 

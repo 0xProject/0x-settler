@@ -61,7 +61,7 @@ from .testing.norm_eval import evaluate_normalized
 from .testing.restricted_eval import evaluate_restricted
 from .testing.syntax import SyntaxParser, resolve_function
 from .translator import translate_yul_to_models
-from .yul_ast import EvaluationError, ParseError
+from .yul_ast import EvaluationError, TranslationError
 from .yul_lexer import tokenize_yul
 from .yul_normalize import normalize_function
 from .yul_resolve import ResolutionResult, resolve_module
@@ -142,12 +142,12 @@ def _find_exact_function(
     )
     try:
         plan = build_selection_plan(_tokens_to_yul(tokens), config.selection)
-    except ParseError as exc:
+    except TranslationError as exc:
         if not search_nested:
             message = str(exc)
             path_prefix = "Exact Yul function path "
             if message.startswith(path_prefix):
-                raise ParseError(
+                raise TranslationError(
                     f"Exact Yul function {yul_name!r}{message[len(path_prefix) + len(repr(yul_name)):]}"
                 ) from exc
         raise
@@ -166,7 +166,7 @@ def _find_exact_function_path(
     n_params: int | None = None,
 ) -> _SelectedMatch:
     if not yul_path:
-        raise ParseError("Exact Yul function path cannot be empty")
+        raise TranslationError("Exact Yul function path cannot be empty")
     selector = f"::{yul_path[0]}" if len(yul_path) == 1 else "::".join(yul_path)
     config = make_model_config(
         ("target",),
@@ -337,13 +337,13 @@ class HoistRepeatedModelCallsTest(unittest.TestCase):
 
 class TranslationSmokeTest(unittest.TestCase):
     def test_tokenize_yul_rejects_malformed_input(self) -> None:
-        with self.assertRaisesRegex(ParseError, "tokenizer stuck"):
+        with self.assertRaisesRegex(TranslationError, "tokenizer stuck"):
             tokenize_yul("function fun_bad_1() { let x := 1 @ }")
 
     def test_syntax_parser_rejects_non_function_keyword(self) -> None:
         parser = SyntaxParser([("ident", "not_function")])
 
-        with self.assertRaisesRegex(ParseError, "Expected 'function'"):
+        with self.assertRaisesRegex(TranslationError, "Expected 'function'"):
             parser.parse_function()
 
     def test_syntax_parser_rejects_unrecognized_statement_start(self) -> None:
@@ -354,7 +354,7 @@ class TranslationSmokeTest(unittest.TestCase):
             }
             """)
 
-        with self.assertRaisesRegex(ParseError, "Unexpected statement start"):
+        with self.assertRaisesRegex(TranslationError, "Unexpected statement start"):
             SyntaxParser(tokens).parse_function()
 
     def test_translate_yul_to_models_zero_initializes_multi_var_declaration(
@@ -396,7 +396,7 @@ class TranslationSmokeTest(unittest.TestCase):
             """
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "Multi-target assignment in restricted IR lowering requires",
         ):
             translate_yul_to_models(
@@ -841,7 +841,7 @@ class TranslationFlowTest(unittest.TestCase):
             ),
         )
 
-        with self.assertRaisesRegex(ParseError, "out-of-scope"):
+        with self.assertRaisesRegex(TranslationError, "out-of-scope"):
             validate_function_model(bad_model)
 
     def test_translate_yul_to_models_raw_preserves_zero_and_dead_assignments(
@@ -1279,7 +1279,7 @@ class RestrictedIRInterpreterTest(ModelEquivalenceTestCase):
             ),
         )
 
-        with self.assertRaisesRegex(ParseError, "undefined then-branch outputs"):
+        with self.assertRaisesRegex(TranslationError, "undefined then-branch outputs"):
             validate_function_model(bad_model)
 
     def test_evaluate_function_model_supports_multi_return_projection(self) -> None:
@@ -2400,7 +2400,7 @@ class ValidateFunctionModelTest(unittest.TestCase):
             return_names=("z",),
             assignments=(Assignment("z", Var("x")),),
         )
-        with self.assertRaisesRegex(ParseError, "duplicate param"):
+        with self.assertRaisesRegex(TranslationError, "duplicate param"):
             validate_function_model(model)
 
     def test_validate_rejects_duplicate_return_names(self) -> None:
@@ -2410,7 +2410,7 @@ class ValidateFunctionModelTest(unittest.TestCase):
             return_names=("z", "z"),
             assignments=(Assignment("z", Var("x")),),
         )
-        with self.assertRaisesRegex(ParseError, "duplicate return"):
+        with self.assertRaisesRegex(TranslationError, "duplicate return"):
             validate_function_model(model)
 
     def test_validate_allows_param_return_overlap_in_restricted_ir(self) -> None:
@@ -2444,7 +2444,9 @@ class ValidateFunctionModelTest(unittest.TestCase):
                 Assignment("z", Var("a")),
             ),
         )
-        with self.assertRaisesRegex(ParseError, "duplicate conditional output_vars"):
+        with self.assertRaisesRegex(
+            TranslationError, "duplicate conditional output_vars"
+        ):
             validate_function_model(model)
 
     def test_validate_rejects_invalid_ident_in_param(self) -> None:
@@ -2454,7 +2456,7 @@ class ValidateFunctionModelTest(unittest.TestCase):
             return_names=("z",),
             assignments=(Assignment("z", IntLit(0)),),
         )
-        with self.assertRaisesRegex(ParseError, "Invalid.*param"):
+        with self.assertRaisesRegex(TranslationError, "Invalid.*param"):
             validate_function_model(model)
 
     def test_validate_rejects_negative_project_index(self) -> None:
@@ -2470,7 +2472,7 @@ class ValidateFunctionModelTest(unittest.TestCase):
             ),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             validate_function_model(model)
 
     def test_validate_rejects_projection_of_builtin_call(self) -> None:
@@ -2490,7 +2492,7 @@ class ValidateFunctionModelTest(unittest.TestCase):
             ),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             validate_function_model(model)
 
     def test_validate_rejects_negative_nat_literal(self) -> None:
@@ -2501,7 +2503,7 @@ class ValidateFunctionModelTest(unittest.TestCase):
             assignments=(Assignment("z", IntLit(-1)),),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             validate_function_model(model)
 
     def test_validate_selected_models_rejects_projection_of_single_return_model(
@@ -2525,7 +2527,7 @@ class ValidateFunctionModelTest(unittest.TestCase):
             ),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             validate_model_set([inner, outer])
 
 
@@ -2602,7 +2604,7 @@ class EmitExprTest(unittest.TestCase):
         self.assertIn(".1", result)
 
     def test_emit_unknown_call_raises(self) -> None:
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             self._emit(Call("totally_unknown_func", (IntLit(1),)))
 
 
@@ -2801,7 +2803,9 @@ class FunctionSelectionTest(unittest.TestCase):
             }
             """)
 
-        with self.assertRaisesRegex(ParseError, "Multiple Yul functions match 'dup'"):
+        with self.assertRaisesRegex(
+            TranslationError, "Multiple Yul functions match 'dup'"
+        ):
             _find_function(tokens, "dup")
 
     def test_find_function_uses_param_count_to_disambiguate(self) -> None:
@@ -2877,7 +2881,7 @@ class FunctionSelectionTest(unittest.TestCase):
         tokens = tokenize_yul(self.EXACT_SELECTION_YUL)
 
         with self.assertRaisesRegex(
-            ParseError, "Exact Yul function 'fun_missing_9' not found"
+            TranslationError, "Exact Yul function 'fun_missing_9' not found"
         ):
             _find_exact_function(tokens, "fun_missing_9")
 
@@ -2912,7 +2916,7 @@ class ResolvedTranslatorBehaviorTest(unittest.TestCase):
             """
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "expression-statement",
         ):
             translate_yul_to_models(
@@ -3008,7 +3012,7 @@ class ResolvedTranslatorBehaviorTest(unittest.TestCase):
             """)
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "Duplicate declaration of 'helper' in the same scope",
         ):
             _find_function(
@@ -3233,7 +3237,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             """)
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "Duplicate declaration of 'helper' in the same scope",
         ):
             _find_function(
@@ -3243,7 +3247,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             )
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "Duplicate declaration of 'helper' in the same scope",
         ):
             _find_function(
@@ -3272,7 +3276,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3296,7 +3300,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3321,7 +3325,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3349,7 +3353,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3379,7 +3383,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3404,7 +3408,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3431,7 +3435,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3456,7 +3460,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3481,7 +3485,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3509,7 +3513,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3536,7 +3540,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3566,7 +3570,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3594,7 +3598,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3763,7 +3767,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Undefined variable"):
+        with self.assertRaisesRegex(TranslationError, "Undefined variable"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3788,7 +3792,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3836,7 +3840,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -3863,7 +3867,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -4026,7 +4030,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -4101,7 +4105,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             """
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "Undefined variable",
         ):
             translate_yul_to_models(
@@ -4261,7 +4265,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -4281,7 +4285,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -4348,7 +4352,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -4376,7 +4380,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -4406,7 +4410,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -4433,7 +4437,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -4468,7 +4472,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             ),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[inner, outer],
                 source_path="test-source",
@@ -4521,7 +4525,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """)
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             _find_function(tokens, "dup", n_params=1)
 
     def test_find_function_rejects_when_requested_arity_matches_no_candidate(
@@ -4541,7 +4545,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """)
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             _find_function(
                 tokens,
                 "pick",
@@ -4569,7 +4573,9 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """)
 
-        with self.assertRaisesRegex(ParseError, "Multiple Yul functions match 'pick'"):
+        with self.assertRaisesRegex(
+            TranslationError, "Multiple Yul functions match 'pick'"
+        ):
             _find_function(
                 tokens,
                 "pick",
@@ -4577,7 +4583,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             )
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "avoids selected helper reachability",
         ):
             _find_function(
@@ -4610,7 +4616,9 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """)
 
-        with self.assertRaisesRegex(ParseError, "Multiple Yul functions match 'pick'"):
+        with self.assertRaisesRegex(
+            TranslationError, "Multiple Yul functions match 'pick'"
+        ):
             _find_function(
                 tokens,
                 "pick",
@@ -4618,7 +4626,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             )
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "avoids selected helper reachability",
         ):
             _find_function(
@@ -4655,7 +4663,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             """)
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "Duplicate declaration of 'nested' in the same scope",
         ):
             _find_function(
@@ -4665,7 +4673,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             )
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "Duplicate declaration of 'nested' in the same scope",
         ):
             _find_function(
@@ -4795,7 +4803,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -4821,7 +4829,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             """)
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "reaches selected helper dependencies",
         ):
             _find_function(
@@ -4871,7 +4879,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             """)
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "Duplicate declaration of 'fun_pick_1' in the same scope",
         ):
             _find_exact_function(tokens, "fun_pick_1")
@@ -4894,7 +4902,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
         validate_function_model(model)
 
         config = make_model_config(("f",))
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -4942,7 +4950,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             ),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             validate_function_model(model)
 
     def test_validate_function_model_rejects_malformed_component_projection_shape(
@@ -4960,7 +4968,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             ),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             validate_function_model(model)
 
     def test_validate_function_model_rejects_out_of_range_component_projection_index(
@@ -4982,7 +4990,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             ),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             validate_function_model(model)
 
     def test_validate_function_model_rejects_project_with_non_call_inner(self) -> None:
@@ -4999,7 +5007,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             ),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             validate_function_model(model)
 
     def test_build_lean_source_rejects_extra_norm_helper_binder_collisions(
@@ -5023,7 +5031,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             norm_rewrite=lambda expr: Call("bitLengthPlus1", (expr,)),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -5054,7 +5062,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             norm_rewrite=lambda expr: Call("bitLengthPlus1", (expr,)),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -5083,7 +5091,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             model_names={"f": "foo", "g": "foo_evm"},
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[first, second],
                 source_path="test-source",
@@ -5172,7 +5180,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             norm_rewrite=lambda expr: Call("bitLengthPlus1", (expr,)),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -5216,7 +5224,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             norm_rewrite=lambda expr: Call("bitLengthPlus1", (expr,)),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -5233,7 +5241,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -5549,7 +5557,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -5591,7 +5599,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -5614,7 +5622,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -5636,7 +5644,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -5660,7 +5668,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -5759,7 +5767,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -5786,7 +5794,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -5814,7 +5822,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -5848,7 +5856,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -5883,7 +5891,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             ),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[inner, outer],
                 source_path="test-source",
@@ -6038,7 +6046,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
         ]
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "norm model.*f.*not emitted|skipped norm",
         ):
             build_lean_source(
@@ -6110,7 +6118,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -6247,7 +6255,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             ),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[inner, outer],
                 source_path="test-source",
@@ -6310,7 +6318,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             ),
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[inner, outer],
                 source_path="test-source",
@@ -6328,7 +6336,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
         )
         config = make_model_config(("f",))
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -6346,7 +6354,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
         )
         config = make_model_config(("f",))
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -6364,7 +6372,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
         )
         config = make_model_config(("f",))
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source\nopen scoped BigOperators",
@@ -6387,7 +6395,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             generator_label="formal/python/test_yul_to_lean.py\nopen scoped BigOperators",
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -6410,7 +6418,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             header_comment="test -/\nopen scoped BigOperators\n/--",
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -6432,7 +6440,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             model_names={injected_name: "model_f"},
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -6455,7 +6463,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -6474,7 +6482,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             model_names={"f": "bad-name"},
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -6497,7 +6505,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             model_names={"f": "if"},
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -6520,7 +6528,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             model_names={"f": "u256"},
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -6538,7 +6546,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
         )
         config = make_model_config(("f",))
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -6565,7 +6573,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
             model_names={"f": "model_dup", "g": "model_dup"},
         )
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             build_lean_source(
                 models=[first, second],
                 source_path="test-source",
@@ -7095,7 +7103,7 @@ class BranchExprStmtTest(unittest.TestCase):
             }
         """
         config = make_model_config(("target",))
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -7114,7 +7122,7 @@ class BranchExprStmtTest(unittest.TestCase):
             }
         """
         config = make_model_config(("target",))
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -7169,7 +7177,7 @@ class BranchExprStmtTest(unittest.TestCase):
         """
         config = make_model_config(("target",))
         # iszero(0) == 1 → default is live, and it has side_effect()
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -7222,7 +7230,7 @@ class BranchExprStmtTest(unittest.TestCase):
         """
         config = make_model_config(("target",))
         # iszero(0) == 1 → THEN_LIVE, leave branch has side_effect()
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -7323,7 +7331,7 @@ class BranchExprStmtTest(unittest.TestCase):
             }
         """
         config = make_model_config(("target",))
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -7339,7 +7347,7 @@ class BranchExprStmtTest(unittest.TestCase):
             }
         """
         config = make_model_config(("target",))
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -7387,7 +7395,7 @@ class BranchExprStmtTest(unittest.TestCase):
         """
         config = make_model_config(("target",))
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "expression-statement",
         ):
             translate_yul_to_models(
@@ -7435,7 +7443,7 @@ class BranchExprStmtTest(unittest.TestCase):
             }
         """
         config = make_model_config(("target",))
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -7457,7 +7465,7 @@ class BranchExprStmtTest(unittest.TestCase):
             }
         """
         config = make_model_config(("target",))
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -7475,7 +7483,7 @@ class BranchExprStmtTest(unittest.TestCase):
             }
         """
         config = make_model_config(("target",))
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -7547,7 +7555,7 @@ class BranchExprStmtTest(unittest.TestCase):
             }
         """
         config = make_model_config(("target",))
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -7658,7 +7666,7 @@ class BranchExprStmtTest(unittest.TestCase):
             }
         """
         config = make_model_config(("target",))
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -7751,7 +7759,7 @@ class ReviewBehaviorTest(unittest.TestCase):
 
         for name, yul in cases.items():
             with self.subTest(name=name):
-                with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+                with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
                     translate_yul_to_models(
                         yul,
                         config,
@@ -7824,7 +7832,7 @@ class ScopeLeakRejectionTest(unittest.TestCase):
         for label, yul in cases.items():
             with self.subTest(control_flow=label):
                 with self.assertRaisesRegex(
-                    ParseError,
+                    TranslationError,
                     "Undefined variable",
                 ):
                     translate_yul_to_models(
@@ -7897,7 +7905,7 @@ class ScopeLeakRejectionTest(unittest.TestCase):
             with self.subTest(selector=selector):
                 config = make_model_config(("f",), exact_yul_names={"f": selector})
                 with self.assertRaisesRegex(
-                    ParseError,
+                    TranslationError,
                     "Invalid exact Yul selector",
                 ):
                     build_selection_plan(yul, config.selection)
@@ -7938,7 +7946,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
         for label, yul in cases.items():
             with self.subTest(control_flow=label):
                 with self.assertRaisesRegex(
-                    ParseError,
+                    TranslationError,
                     "Undefined variable",
                 ):
                     translate_yul_to_models(
@@ -7988,7 +7996,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
         for label, yul in cases.items():
             with self.subTest(scope=label):
                 with self.assertRaisesRegex(
-                    ParseError,
+                    TranslationError,
                     "Unresolved call to 'helper'",
                 ):
                     translate_yul_to_models(
@@ -8101,7 +8109,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
 
         for label, yul in cases.items():
             with self.subTest(ordering=label):
-                with self.assertRaises(ParseError):
+                with self.assertRaises(TranslationError):
                     translate_yul_to_models(
                         yul,
                         config,
@@ -8258,7 +8266,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
 
         for label, yul in cases.items():
             with self.subTest(scope=label):
-                with self.assertRaises(ParseError):
+                with self.assertRaises(TranslationError):
                     translate_yul_to_models(
                         yul,
                         config,
@@ -8347,7 +8355,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
 
         for label, yul in cases.items():
             with self.subTest(ordering=label):
-                with self.assertRaises(ParseError):
+                with self.assertRaises(TranslationError):
                     translate_yul_to_models(
                         yul,
                         config,
@@ -8386,7 +8394,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -8423,7 +8431,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -8458,7 +8466,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -8496,7 +8504,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -8737,7 +8745,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -8772,7 +8780,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -8812,7 +8820,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
             }
             """
 
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(
                 yul,
                 config,
@@ -8890,7 +8898,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
 
         for case, config in config_by_case.items():
             with self.subTest(case=case):
-                with self.assertRaises(ParseError):
+                with self.assertRaises(TranslationError):
                     translate_yul_to_models(
                         yul_by_case[case],
                         config,
@@ -8968,7 +8976,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
 
         for case, yul in yul_by_case.items():
             with self.subTest(case=case):
-                with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+                with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
                     translate_yul_to_models(
                         yul,
                         config,
@@ -9046,7 +9054,7 @@ class ConditionalScopeRejectionTest(unittest.TestCase):
 
         for case, yul in yul_by_case.items():
             with self.subTest(case=case):
-                with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+                with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
                     translate_yul_to_models(
                         yul,
                         config,
@@ -9329,7 +9337,7 @@ class DeadCodeHelperFilterTest(unittest.TestCase):
             }
         """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -9358,7 +9366,7 @@ class DeadCodeHelperFilterTest(unittest.TestCase):
         """
 
         with self.assertRaisesRegex(
-            ParseError,
+            TranslationError,
             "Unresolved call to 'helper'",
         ):
             translate_yul_to_models(
@@ -9489,7 +9497,7 @@ class CompilerTemporaryThreadingTest(unittest.TestCase):
         )
 
         _cfg = make_model_config(("f",))
-        with self.assertRaisesRegex(ParseError, "out-of-scope variable use"):
+        with self.assertRaisesRegex(TranslationError, "out-of-scope variable use"):
             build_lean_source(
                 models=[model],
                 source_path="test-source",
@@ -9513,17 +9521,17 @@ class ResolverFailClosedTest(unittest.TestCase):
         resolve_function(func)
 
     def test_resolve_rejects_duplicate_param_names(self) -> None:
-        with self.assertRaisesRegex(ParseError, "x"):
+        with self.assertRaisesRegex(TranslationError, "x"):
             self._parse_and_resolve("function f(x, x) -> z { z := x }")
 
     def test_resolve_rejects_duplicate_return_names(self) -> None:
-        with self.assertRaisesRegex(ParseError, "z"):
+        with self.assertRaisesRegex(TranslationError, "z"):
             self._parse_and_resolve("function f(x) -> z, z { z := x }")
 
     def test_resolve_rejects_duplicate_local_declaration_in_same_scope(
         self,
     ) -> None:
-        with self.assertRaisesRegex(ParseError, r"usr\$tmp"):
+        with self.assertRaisesRegex(TranslationError, r"usr\$tmp"):
             self._parse_and_resolve("""
                 function f(x) -> z {
                     let usr$tmp := 1
@@ -9533,7 +9541,7 @@ class ResolverFailClosedTest(unittest.TestCase):
             """)
 
     def test_resolve_rejects_duplicate_multi_let_target(self) -> None:
-        with self.assertRaisesRegex(ParseError, r"usr\$a"):
+        with self.assertRaisesRegex(TranslationError, r"usr\$a"):
             self._parse_and_resolve("""
                 function f(x) -> z {
                     let usr$a, usr$a := fun_pair(x)
@@ -9544,7 +9552,7 @@ class ResolverFailClosedTest(unittest.TestCase):
     def test_resolve_rejects_same_scope_local_shadowing_parameter(
         self,
     ) -> None:
-        with self.assertRaisesRegex(ParseError, "x"):
+        with self.assertRaisesRegex(TranslationError, "x"):
             self._parse_and_resolve("""
                 function f(x) -> z {
                     let x := 1
@@ -9553,7 +9561,7 @@ class ResolverFailClosedTest(unittest.TestCase):
             """)
 
     def test_resolve_rejects_same_scope_local_shadowing_return(self) -> None:
-        with self.assertRaisesRegex(ParseError, "z"):
+        with self.assertRaisesRegex(TranslationError, "z"):
             self._parse_and_resolve("""
                 function f(x) -> z {
                     let z := 1
@@ -9561,7 +9569,7 @@ class ResolverFailClosedTest(unittest.TestCase):
             """)
 
     def test_resolve_rejects_duplicate_local_inside_bare_block(self) -> None:
-        with self.assertRaisesRegex(ParseError, r"usr\$tmp"):
+        with self.assertRaisesRegex(TranslationError, r"usr\$tmp"):
             self._parse_and_resolve("""
                 function f(x) -> z {
                     {
@@ -9584,15 +9592,15 @@ class ResolverFailClosedTest(unittest.TestCase):
     # -- Undefined-variable resolution tests --------------------------------
 
     def test_resolve_rejects_undefined_rhs_variable(self) -> None:
-        with self.assertRaisesRegex(ParseError, "Undefined variable 'y'"):
+        with self.assertRaisesRegex(TranslationError, "Undefined variable 'y'"):
             self._parse_and_resolve("function f(x) -> z { z := y }")
 
     def test_resolve_rejects_undefined_assignment_target(self) -> None:
-        with self.assertRaisesRegex(ParseError, "Undefined variable 'y'"):
+        with self.assertRaisesRegex(TranslationError, "Undefined variable 'y'"):
             self._parse_and_resolve("function f(x) -> z { y := x  z := x }")
 
     def test_resolve_rejects_if_scoped_let_used_after_block(self) -> None:
-        with self.assertRaisesRegex(ParseError, "Undefined variable 'y'"):
+        with self.assertRaisesRegex(TranslationError, "Undefined variable 'y'"):
             self._parse_and_resolve("""
                 function f(x) -> z {
                     if x { let y := 1 }
@@ -9603,7 +9611,7 @@ class ResolverFailClosedTest(unittest.TestCase):
     def test_resolve_rejects_bare_block_scoped_let_used_after_block(
         self,
     ) -> None:
-        with self.assertRaisesRegex(ParseError, "Undefined variable 'tmp'"):
+        with self.assertRaisesRegex(TranslationError, "Undefined variable 'tmp'"):
             self._parse_and_resolve("""
                 function f(x) -> z {
                     { let tmp := x }
@@ -9612,7 +9620,7 @@ class ResolverFailClosedTest(unittest.TestCase):
             """)
 
     def test_resolve_rejects_switch_scoped_let_used_after_block(self) -> None:
-        with self.assertRaisesRegex(ParseError, "Undefined variable 'y'"):
+        with self.assertRaisesRegex(TranslationError, "Undefined variable 'y'"):
             self._parse_and_resolve("""
                 function f(x) -> z {
                     switch x
@@ -9625,7 +9633,7 @@ class ResolverFailClosedTest(unittest.TestCase):
     def test_resolve_rejects_for_body_scoped_let_used_after_loop(
         self,
     ) -> None:
-        with self.assertRaisesRegex(ParseError, "Undefined variable 'y'"):
+        with self.assertRaisesRegex(TranslationError, "Undefined variable 'y'"):
             self._parse_and_resolve("""
                 function f(x) -> z {
                     for { } x { } { let y := 1 }
@@ -9647,7 +9655,7 @@ class ResolverFailClosedTest(unittest.TestCase):
 
     def test_resolve_rejects_nested_block_inner_scope_shadowing(self) -> None:
         """Yul rejects cross-scope shadowing (solc error 1395)."""
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             self._parse_and_resolve("""
                 function f(x) -> z {
                     let y := x
@@ -9819,7 +9827,7 @@ class ResolverSymbolIdTest(unittest.TestCase):
 
     def test_cross_scope_shadowing_rejected(self) -> None:
         """Yul rejects cross-scope shadowing (solc error 1395)."""
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             self._resolve("""
                 function f(x) -> z {
                     let y := x
@@ -9838,7 +9846,9 @@ class ResolverSymbolIdTest(unittest.TestCase):
 
     def test_rejects_function_declaration_shadowing_builtin(self) -> None:
         """Yul forbids declaring a function with a builtin opcode name."""
-        with self.assertRaisesRegex(ParseError, "Cannot use builtin function name"):
+        with self.assertRaisesRegex(
+            TranslationError, "Cannot use builtin function name"
+        ):
             self._resolve(
                 """
                 function f(x) -> z {
@@ -9851,7 +9861,7 @@ class ResolverSymbolIdTest(unittest.TestCase):
 
     def test_variable_shadowing_function_rejected(self) -> None:
         """Yul rejects variable declaration shadowing a visible function (solc error 1395)."""
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             self._resolve("""
                 function f(x) -> z {
                     function helper(a) -> b { b := a }
@@ -9864,7 +9874,9 @@ class ResolverSymbolIdTest(unittest.TestCase):
 
     def test_rejects_toplevel_function_named_as_builtin(self) -> None:
         """Top-level function named 'add' is rejected when add is a builtin."""
-        with self.assertRaisesRegex(ParseError, "Cannot use builtin function name"):
+        with self.assertRaisesRegex(
+            TranslationError, "Cannot use builtin function name"
+        ):
             self._resolve(
                 "function add(a, b) -> c { c := a }",
                 builtins=frozenset({"add"}),
@@ -9872,7 +9884,9 @@ class ResolverSymbolIdTest(unittest.TestCase):
 
     def test_rejects_let_variable_named_as_builtin(self) -> None:
         """let add := 7 is rejected when add is a builtin (solc error 5568)."""
-        with self.assertRaisesRegex(ParseError, "Cannot use builtin function name"):
+        with self.assertRaisesRegex(
+            TranslationError, "Cannot use builtin function name"
+        ):
             self._resolve(
                 "function f(x) -> z { let add := 7 z := x }",
                 builtins=frozenset({"add"}),
@@ -9880,7 +9894,9 @@ class ResolverSymbolIdTest(unittest.TestCase):
 
     def test_rejects_param_named_as_builtin(self) -> None:
         """Parameter named 'add' is rejected when add is a builtin."""
-        with self.assertRaisesRegex(ParseError, "Cannot use builtin function name"):
+        with self.assertRaisesRegex(
+            TranslationError, "Cannot use builtin function name"
+        ):
             self._resolve(
                 "function f(add) -> z { z := add }",
                 builtins=frozenset({"add"}),
@@ -9888,7 +9904,9 @@ class ResolverSymbolIdTest(unittest.TestCase):
 
     def test_rejects_return_named_as_builtin(self) -> None:
         """Return variable named 'add' is rejected when add is a builtin."""
-        with self.assertRaisesRegex(ParseError, "Cannot use builtin function name"):
+        with self.assertRaisesRegex(
+            TranslationError, "Cannot use builtin function name"
+        ):
             self._resolve(
                 "function f(x) -> add { add := x }",
                 builtins=frozenset({"add"}),
@@ -9896,7 +9914,9 @@ class ResolverSymbolIdTest(unittest.TestCase):
 
     def test_rejects_function_named_mstore(self) -> None:
         """mstore is an EVM builtin — cannot be used as an identifier (solc 5568)."""
-        with self.assertRaisesRegex(ParseError, "Cannot use builtin function name"):
+        with self.assertRaisesRegex(
+            TranslationError, "Cannot use builtin function name"
+        ):
             self._resolve(
                 "function f(x) -> z { function mstore(a, b) -> c { c := a } z := x }",
                 builtins=EVM_BUILTINS,
@@ -9904,7 +9924,9 @@ class ResolverSymbolIdTest(unittest.TestCase):
 
     def test_rejects_let_named_mstore(self) -> None:
         """let mstore := 7 is rejected when using the full EVM builtins set."""
-        with self.assertRaisesRegex(ParseError, "Cannot use builtin function name"):
+        with self.assertRaisesRegex(
+            TranslationError, "Cannot use builtin function name"
+        ):
             self._resolve(
                 "function f(x) -> z { let mstore := 7 z := x }",
                 builtins=EVM_BUILTINS,
@@ -9972,7 +9994,7 @@ class ResolverModuleTest(unittest.TestCase):
 
     def test_variable_shadowing_sibling_function_rejected(self) -> None:
         """let helper inside f conflicts with sibling function helper."""
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             self._resolve_module("""
                 function helper(a) -> b { b := a }
                 function f(x) -> z { let helper := 7 z := x }
@@ -9980,7 +10002,7 @@ class ResolverModuleTest(unittest.TestCase):
 
     def test_nested_function_shadowing_sibling_rejected(self) -> None:
         """Nested function helper inside f conflicts with sibling function helper."""
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             self._resolve_module("""
                 function helper(a) -> b { b := a }
                 function f(x) -> z {
@@ -10007,14 +10029,16 @@ class ResolverModuleTest(unittest.TestCase):
     # -- module-level validation ----------------------------------------------
 
     def test_duplicate_top_level_function_rejected(self) -> None:
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             self._resolve_module("""
                 function f(x) -> z { z := x }
                 function f(a) -> b { b := a }
             """)
 
     def test_top_level_function_named_as_builtin_rejected(self) -> None:
-        with self.assertRaisesRegex(ParseError, "Cannot use builtin function name"):
+        with self.assertRaisesRegex(
+            TranslationError, "Cannot use builtin function name"
+        ):
             self._resolve_module(
                 "function add(a, b) -> c { c := a }",
                 builtins=frozenset({"add"}),
@@ -10107,7 +10131,7 @@ class ResolverModuleTest(unittest.TestCase):
             }
         """)
 
-        with self.assertRaisesRegex(ParseError, "Unmatched closing brace"):
+        with self.assertRaisesRegex(TranslationError, "Unmatched closing brace"):
             SyntaxParser(tokens).parse_function_groups()
 
     def test_parse_function_groups_rejects_unclosed_scope(self) -> None:
@@ -10116,7 +10140,7 @@ class ResolverModuleTest(unittest.TestCase):
                 function f(x) -> z { z := x }
         """)
 
-        with self.assertRaisesRegex(ParseError, "Unterminated brace scope"):
+        with self.assertRaisesRegex(TranslationError, "Unterminated brace scope"):
             SyntaxParser(tokens).parse_function_groups()
 
     def test_parse_string_literal_preserves_raw_bytes(self) -> None:
@@ -10158,7 +10182,7 @@ class ResolverModuleTest(unittest.TestCase):
             } }
         """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -10188,7 +10212,7 @@ class ResolverModuleTest(unittest.TestCase):
             } }
         """
 
-        with self.assertRaisesRegex(ParseError, "Duplicate declaration"):
+        with self.assertRaisesRegex(TranslationError, "Duplicate declaration"):
             translate_yul_to_models(
                 yul,
                 config,
@@ -10469,7 +10493,7 @@ class NormalizeEvalTest(unittest.TestCase):
 
     def test_nested_function_cannot_capture_outer_variable(self) -> None:
         """Yul functions are NOT closures — solc error 8198."""
-        with self.assertRaisesRegex(ParseError, "Undefined variable"):
+        with self.assertRaisesRegex(TranslationError, "Undefined variable"):
             tokens = tokenize_yul("""
                 function f(x) -> z {
                     function g() -> b { b := x }
@@ -10481,7 +10505,7 @@ class NormalizeEvalTest(unittest.TestCase):
 
     def test_nested_function_cannot_capture_let_variable(self) -> None:
         """let-bound variables are also not capturable across function boundaries."""
-        with self.assertRaisesRegex(ParseError, "Undefined variable"):
+        with self.assertRaisesRegex(TranslationError, "Undefined variable"):
             tokens = tokenize_yul("""
                 function f() -> z {
                     let w := 7
@@ -11928,8 +11952,8 @@ class MemoryLowerTest(unittest.TestCase):
         self.assertEqual(evaluate_normalized(nf, ()), (7,))
 
     def test_non_constant_address_rejected(self) -> None:
-        """mstore with non-constant address raises ParseError."""
-        with self.assertRaisesRegex(ParseError, "Non-constant"):
+        """mstore with non-constant address raises TranslationError."""
+        with self.assertRaisesRegex(TranslationError, "Non-constant"):
             self._pipeline("""
                 function f(x) -> z {
                     mstore(x, 7)
@@ -11938,8 +11962,8 @@ class MemoryLowerTest(unittest.TestCase):
             """)
 
     def test_unaligned_address_rejected(self) -> None:
-        """mstore to non-32-byte-aligned address raises ParseError."""
-        with self.assertRaisesRegex(ParseError, "Unaligned"):
+        """mstore to non-32-byte-aligned address raises TranslationError."""
+        with self.assertRaisesRegex(TranslationError, "Unaligned"):
             self._pipeline("""
                 function f() -> z {
                     mstore(1, 7)
@@ -11959,8 +11983,8 @@ class MemoryLowerTest(unittest.TestCase):
         self.assertEqual(evaluate_normalized(nf, ()), (8,))
 
     def test_uninitialized_read_rejected(self) -> None:
-        """mload from address with no prior mstore raises ParseError."""
-        with self.assertRaisesRegex(ParseError, "before write"):
+        """mload from address with no prior mstore raises TranslationError."""
+        with self.assertRaisesRegex(TranslationError, "before write"):
             self._pipeline("""
                 function f() -> z {
                     z := mload(0)
@@ -11968,7 +11992,7 @@ class MemoryLowerTest(unittest.TestCase):
             """)
 
     def test_slot_32_starts_undefined(self) -> None:
-        with self.assertRaisesRegex(ParseError, "slot 32 before write"):
+        with self.assertRaisesRegex(TranslationError, "slot 32 before write"):
             self._pipeline("""
                 function f() -> z {
                     z := mload(32)
@@ -11976,7 +12000,7 @@ class MemoryLowerTest(unittest.TestCase):
             """)
 
     def test_slot_64_is_pointer_typed(self) -> None:
-        with self.assertRaisesRegex(ParseError, "slot 64 must store"):
+        with self.assertRaisesRegex(TranslationError, "slot 64 must store"):
             self._pipeline("""
                 function f() -> z {
                     mstore(64, 7)
@@ -11985,7 +12009,7 @@ class MemoryLowerTest(unittest.TestCase):
             """)
 
     def test_slot_64_cannot_escape_value_flow(self) -> None:
-        with self.assertRaisesRegex(ParseError, "free-pointer value"):
+        with self.assertRaisesRegex(TranslationError, "free-pointer value"):
             self._pipeline("""
                 function f() -> z {
                     z := mload(64)
@@ -11993,7 +12017,7 @@ class MemoryLowerTest(unittest.TestCase):
             """)
 
     def test_slot_96_is_read_only_zero(self) -> None:
-        with self.assertRaisesRegex(ParseError, "slot 96"):
+        with self.assertRaisesRegex(TranslationError, "slot 96"):
             self._pipeline("""
                 function f() -> z {
                     mstore(96, 7)
@@ -12002,7 +12026,9 @@ class MemoryLowerTest(unittest.TestCase):
             """)
 
     def test_unwritten_free_relative_read_rejected(self) -> None:
-        with self.assertRaisesRegex(ParseError, "free-relative slot 0 before write"):
+        with self.assertRaisesRegex(
+            TranslationError, "free-relative slot 0 before write"
+        ):
             self._pipeline("""
                 function f() -> z {
                     let p := mload(64)
@@ -12011,7 +12037,7 @@ class MemoryLowerTest(unittest.TestCase):
             """)
 
     def test_nonconstant_free_relative_offset_rejected(self) -> None:
-        with self.assertRaisesRegex(ParseError, "constant offset"):
+        with self.assertRaisesRegex(TranslationError, "constant offset"):
             self._pipeline("""
                 function f(x) -> z {
                     mstore(add(mload(64), x), 7)
@@ -12020,7 +12046,7 @@ class MemoryLowerTest(unittest.TestCase):
             """)
 
     def test_negative_free_relative_offset_rejected(self) -> None:
-        with self.assertRaisesRegex(ParseError, "negative free-relative offset"):
+        with self.assertRaisesRegex(TranslationError, "negative free-relative offset"):
             self._pipeline("""
                 function f() -> z {
                     mstore(sub(mload(64), 0x20), 7)
@@ -12029,7 +12055,7 @@ class MemoryLowerTest(unittest.TestCase):
             """)
 
     def test_oversized_free_relative_offset_rejected(self) -> None:
-        with self.assertRaisesRegex(ParseError, ">= 2\\^64"):
+        with self.assertRaisesRegex(TranslationError, ">= 2\\^64"):
             self._pipeline("""
                 function f() -> z {
                     mstore(add(mload(64), 0x10000000000000000), 7)
@@ -12038,7 +12064,7 @@ class MemoryLowerTest(unittest.TestCase):
             """)
 
     def test_mstore8_rejected(self) -> None:
-        with self.assertRaisesRegex(ParseError, "mstore8"):
+        with self.assertRaisesRegex(TranslationError, "mstore8"):
             self._pipeline("""
                 function f() -> z {
                     mstore8(0, 7)
@@ -12078,7 +12104,7 @@ class MemoryLowerTest(unittest.TestCase):
 
     def test_mstore_inside_if_rejected(self) -> None:
         """mstore inside conditional is rejected (straight-line only)."""
-        with self.assertRaisesRegex(ParseError, "inside control flow"):
+        with self.assertRaisesRegex(TranslationError, "inside control flow"):
             self._pipeline("""
                 function f(x) -> z {
                     if x { mstore(0, 7) }
@@ -12142,7 +12168,7 @@ class MemoryLowerTest(unittest.TestCase):
 
     def test_mstore_inside_for_rejected(self) -> None:
         """mstore inside for-loop is rejected."""
-        with self.assertRaisesRegex(ParseError, "NFor reached memory lowering"):
+        with self.assertRaisesRegex(TranslationError, "NFor reached memory lowering"):
             self._pipeline("""
                 function f(n) -> z {
                     for { let i := 0 } lt(i, n) { i := add(i, 1) } {
@@ -12154,7 +12180,7 @@ class MemoryLowerTest(unittest.TestCase):
 
     def test_for_loop_is_rejected_before_partial_memory_lowering(self) -> None:
         """Regression: lower_memory must not partially rewrite loops and leave them behind."""
-        with self.assertRaisesRegex(ParseError, "NFor reached memory lowering"):
+        with self.assertRaisesRegex(TranslationError, "NFor reached memory lowering"):
             self._pipeline("""
                 function f() -> z {
                     mstore(0, 7)
@@ -12165,7 +12191,7 @@ class MemoryLowerTest(unittest.TestCase):
             """)
 
     def test_mstore_inside_nested_switch_under_if_rejected(self) -> None:
-        with self.assertRaisesRegex(ParseError, "inside control flow"):
+        with self.assertRaisesRegex(TranslationError, "inside control flow"):
             self._pipeline("""
                 function f(x) -> z {
                     if x {
@@ -12203,7 +12229,7 @@ class MemoryLowerTest(unittest.TestCase):
 
     def test_for_condition_mload_rejected(self) -> None:
         """Memory lowering fails closed if a for-loop reaches it at all."""
-        with self.assertRaisesRegex(ParseError, "NFor reached memory lowering"):
+        with self.assertRaisesRegex(TranslationError, "NFor reached memory lowering"):
             self._pipeline("""
                 function f() -> z {
                     mstore(0, 0)
@@ -12252,7 +12278,7 @@ class MemoryLowerTest(unittest.TestCase):
 
     def test_mload_in_nested_for_condition_rejected(self) -> None:
         """Nested loops are rejected too; memory lowering no longer carries loop logic."""
-        with self.assertRaisesRegex(ParseError, "NFor reached memory lowering"):
+        with self.assertRaisesRegex(TranslationError, "NFor reached memory lowering"):
             self._pipeline("""
                 function f(x) -> z {
                     mstore(0, 0)
@@ -12557,7 +12583,7 @@ class RestrictedIRTest(unittest.TestCase):
         self.assertEqual(result, (5,))
 
     def test_memory_in_branch_rejected(self) -> None:
-        with self.assertRaisesRegex(ParseError, "inside control flow"):
+        with self.assertRaisesRegex(TranslationError, "inside control flow"):
             self._to_restricted("""
                 function f(x) -> z {
                     if x { mstore(0, 7) }
@@ -12566,7 +12592,7 @@ class RestrictedIRTest(unittest.TestCase):
             """)
 
     def test_non_constant_address_rejected(self) -> None:
-        with self.assertRaisesRegex(ParseError, "Non-constant"):
+        with self.assertRaisesRegex(TranslationError, "Non-constant"):
             self._to_restricted("""
                 function f(x) -> z {
                     mstore(x, 7)
@@ -12590,7 +12616,7 @@ class RestrictedIRTest(unittest.TestCase):
         )
 
     def test_uninitialized_read_rejected(self) -> None:
-        with self.assertRaisesRegex(ParseError, "before write"):
+        with self.assertRaisesRegex(TranslationError, "before write"):
             self._to_restricted("""
                 function f() -> z {
                     z := mload(0)
@@ -13537,7 +13563,7 @@ class SSAModelTest(unittest.TestCase):
                 ),
             ),
         )
-        with self.assertRaisesRegex(ParseError, "Cycle detected"):
+        with self.assertRaisesRegex(TranslationError, "Cycle detected"):
             validate_model_set([model])
 
     def test_validate_selected_models_rejects_unresolved_branch_output_call(
@@ -13564,7 +13590,7 @@ class SSAModelTest(unittest.TestCase):
                 ),
             ),
         )
-        with self.assertRaisesRegex(ParseError, "unresolved call target"):
+        with self.assertRaisesRegex(TranslationError, "unresolved call target"):
             validate_model_set([model])
 
     def test_validate_selected_models_rejects_multi_return_branch_output_scalar_use(
@@ -13600,7 +13626,7 @@ class SSAModelTest(unittest.TestCase):
                 ),
             ),
         )
-        with self.assertRaisesRegex(ParseError, "multi-return function"):
+        with self.assertRaisesRegex(TranslationError, "multi-return function"):
             validate_model_set([model, callee])
 
     def test_collect_model_opcodes_includes_branch_output_exprs(self) -> None:
@@ -14265,7 +14291,7 @@ class TranslationValidationTest(unittest.TestCase):
             }
         """
         config = make_model_config(("f",))
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(yul, config, optimize=False)
 
     def test_dead_expression_stmt_eliminated_before_validation(self) -> None:
@@ -14313,7 +14339,7 @@ class TranslationValidationTest(unittest.TestCase):
             }
         """
         config = make_model_config(("f",))
-        with self.assertRaises(ParseError):
+        with self.assertRaises(TranslationError):
             translate_yul_to_models(yul, config, optimize=False)
 
     def test_dead_unresolved_call_eliminated_before_validation(self) -> None:
@@ -14341,7 +14367,7 @@ class TranslationValidationTest(unittest.TestCase):
             }
         """
         config = make_model_config(("f",))
-        with self.assertRaisesRegex(ParseError, "unresolved call"):
+        with self.assertRaisesRegex(TranslationError, "unresolved call"):
             translate_yul_to_models(yul, config, optimize=False)
 
 
@@ -14559,7 +14585,7 @@ class AdditionalBehaviorTest(unittest.TestCase):
             }
         """
 
-        with self.assertRaisesRegex(ParseError, "model_names"):
+        with self.assertRaisesRegex(TranslationError, "model_names"):
             translate_yul_to_models(
                 yul,
                 config,

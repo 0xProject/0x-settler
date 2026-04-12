@@ -1,47 +1,22 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Mapping
+import types
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
-from typing import Generic, TypeVar
 
 from .model_ir import Expr
 
-_K = TypeVar("_K")
-_V = TypeVar("_V")
 
-
-class FrozenMap(Mapping[_K, _V], Generic[_K, _V]):
-    __slots__ = ("_data",)
-
-    def __init__(
-        self,
-        values: Mapping[_K, _V] | None = None,
-    ) -> None:
-        data: dict[_K, _V] = {}
-        if values is not None:
-            for key, value in values.items():
-                data[key] = value
-        self._data = data
-
-    def __getitem__(self, key: _K) -> _V:
-        return self._data[key]
-
-    def __iter__(self) -> Iterator[_K]:
-        return iter(self._data)
-
-    def __len__(self) -> int:
-        return len(self._data)
-
-
-def _freeze_mapping(values: Mapping[_K, _V]) -> FrozenMap[_K, _V]:
-    return FrozenMap(values)
+def _freeze_mapping(
+    values: Mapping[str, object],
+) -> types.MappingProxyType[str, object]:
+    return types.MappingProxyType(dict(values))
 
 
 def _freeze_frozenset_mapping(
     values: Mapping[str, frozenset[str]],
-) -> FrozenMap[str, frozenset[str]]:
-    frozen = {key: frozenset(group) for key, group in values.items()}
-    return FrozenMap(frozen)
+) -> types.MappingProxyType[str, frozenset[str]]:
+    return types.MappingProxyType(dict(values))
 
 
 @dataclass(frozen=True)

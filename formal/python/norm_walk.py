@@ -113,15 +113,19 @@ def for_each_expr(expr: NExpr, f: Callable[[NExpr], None]) -> None:
 
 def expr_contains(expr: NExpr, predicate: Callable[[NExpr], bool]) -> bool:
     """Return whether any sub-expression satisfies *predicate*."""
-    found = False
-
-    def visit(node: NExpr) -> None:
-        nonlocal found
-        if predicate(node):
-            found = True
-
-    for_each_expr(expr, visit)
-    return found
+    if predicate(expr):
+        return True
+    if isinstance(expr, (NConst, NRef)):
+        return False
+    if isinstance(expr, (NBuiltinCall, NLocalCall, NTopLevelCall, NUnresolvedCall)):
+        return any(expr_contains(a, predicate) for a in expr.args)
+    if isinstance(expr, NIte):
+        return (
+            expr_contains(expr.cond, predicate)
+            or expr_contains(expr.if_true, predicate)
+            or expr_contains(expr.if_false, predicate)
+        )
+    assert_never(expr)
 
 
 # ---------------------------------------------------------------------------
@@ -479,3 +483,28 @@ def _freshen_expr(expr: NExpr, m: dict[SymbolId, SymbolId]) -> NExpr:
         return e
 
     return map_expr(expr, rewrite)
+
+
+# ---------------------------------------------------------------------------
+# Shared expression queries and simplifications
+# ---------------------------------------------------------------------------
+
+
+def const_value(expr: NExpr) -> int | None:
+    return expr.value if isinstance(expr, NConst) else None
+
+
+def const_truthy(expr: NExpr) -> bool | None:
+    value = const_value(expr)
+    return None if value is None else value != 0
+
+
+def simplify_ite(cond: NExpr, if_true: NExpr, if_false: NExpr) -> NExpr:
+    """Fold an ``NIte`` when the condition or branches make it redundant."""
+
+    if if_true == if_false:
+        return if_true
+    truthy = const_truthy(cond)
+    if truthy is not None:
+        return if_true if truthy else if_false
+    return NIte(cond=cond, if_true=if_true, if_false=if_false)

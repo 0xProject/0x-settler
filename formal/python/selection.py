@@ -4,12 +4,13 @@ Select explicit Yul targets and collect the helpers visible from each target.
 
 from __future__ import annotations
 
+import types
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import assert_never
 
 from .evm_builtins import EVM_BUILTINS
-from .model_config import FrozenMap, SelectionConfig
+from .model_config import SelectionConfig
 from .yul_ast import (
     AssignStmt,
     Block,
@@ -24,7 +25,7 @@ from .yul_ast import (
     LeaveStmt,
     LetStmt,
     LocalFunctionTarget,
-    ParseError,
+    SelectionError,
     SwitchStmt,
     SymbolId,
     SynExpr,
@@ -72,8 +73,10 @@ class SelectionPlan:
     targets: Mapping[str, SelectedTargetInfo]
 
     def __post_init__(self) -> None:
-        frozen_targets: FrozenMap[str, SelectedTargetInfo] = FrozenMap(self.targets)
-        object.__setattr__(self, "targets", frozen_targets)
+        frozen: Mapping[str, SelectedTargetInfo] = types.MappingProxyType(
+            dict(self.targets)
+        )
+        object.__setattr__(self, "targets", frozen)
 
 
 @dataclass(slots=True, frozen=True)
@@ -83,14 +86,18 @@ class _SyntaxFunctionInfo:
     lexical_path: tuple[str, ...]
     top_level_token_idx: int
     top_level_name: str
+    key: FunctionKey = field(init=False)
+    top_level_key: FunctionKey = field(init=False)
 
-    @property
-    def key(self) -> FunctionKey:
-        return FunctionKey(self.group_idx, self.func.span.start)
-
-    @property
-    def top_level_key(self) -> FunctionKey:
-        return FunctionKey(self.group_idx, self.top_level_token_idx)
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "key", FunctionKey(self.group_idx, self.func.span.start)
+        )
+        object.__setattr__(
+            self,
+            "top_level_key",
+            FunctionKey(self.group_idx, self.top_level_token_idx),
+        )
 
 
 @dataclass(slots=True)
@@ -153,12 +160,12 @@ def _normalize_requested_functions(
             dupes.append(name)
         seen.add(name)
     if dupes:
-        raise ParseError(f"Duplicate selected functions: {sorted(dupes)}")
+        raise SelectionError(f"Duplicate selected functions: {sorted(dupes)}")
 
     allowed = set(config.function_order)
     bad = [name for name in selected if name not in allowed]
     if bad:
-        raise ParseError(f"Unsupported function(s): {', '.join(bad)}")
+        raise SelectionError(f"Unsupported function(s): {', '.join(bad)}")
 
     normalized = list(selected)
     if (
@@ -166,7 +173,7 @@ def _normalize_requested_functions(
         and config.inner_fn not in normalized
     ):
         if config.inner_fn not in allowed:
-            raise ParseError(
+            raise SelectionError(
                 f"Inner function {config.inner_fn!r} is not in function_order. "
                 f"Available: {', '.join(config.function_order)}"
             )
@@ -235,11 +242,11 @@ def _build_candidate_lists(
         matches = index.wrapper_matches(sol_name, n_params=n_params)
         if not matches:
             if n_params is None:
-                raise ParseError(
+                raise SelectionError(
                     f"Yul function for '{sol_name}' not found "
                     f"(expected pattern fun_{sol_name}_<digits>)"
                 )
-            raise ParseError(
+            raise SelectionError(
                 f"No Yul function for {sol_name!r} matches {n_params} parameter(s)"
             )
         candidates[sol_name] = matches
@@ -254,23 +261,23 @@ def _resolve_candidates(
 ) -> dict[str, _SyntaxFunctionInfo]:
     for sol_name, avoid_names in config.avoid_reaching_selected.items():
         if sol_name not in candidate_lists:
-            raise ParseError(
+            raise SelectionError(
                 f"avoid_reaching_selected references unknown function {sol_name!r}"
             )
         unknown = sorted(name for name in avoid_names if name not in candidate_lists)
         if unknown:
-            raise ParseError(
+            raise SelectionError(
                 f"avoid_reaching_selected[{sol_name!r}] references unknown "
                 f"selected function(s): {', '.join(unknown)}"
             )
     for sol_name, require_names in config.require_reaching_selected.items():
         if sol_name not in candidate_lists:
-            raise ParseError(
+            raise SelectionError(
                 f"require_reaching_selected references unknown function {sol_name!r}"
             )
         unknown = sorted(name for name in require_names if name not in candidate_lists)
         if unknown:
-            raise ParseError(
+            raise SelectionError(
                 f"require_reaching_selected[{sol_name!r}] references unknown "
                 f"selected function(s): {', '.join(unknown)}"
             )
@@ -321,7 +328,7 @@ def _resolve_candidates(
     if unresolved:
         sol_name = next(name for name in selected if name in unresolved)
         names = [info.func.name for info in unresolved[sol_name]]
-        raise ParseError(
+        raise SelectionError(
             f"Multiple Yul functions match '{sol_name}': {names}. "
             f"Pass exact_yul_names or avoid_reaching_selected to disambiguate."
         )
@@ -348,7 +355,7 @@ def _apply_require_reaching_filter(
         if required.issubset(_collect_reachable_helper_keys(index, info))
     ]
     if not filtered:
-        raise ParseError(
+        raise SelectionError(
             f"No Yul function for {sol_name!r} reaches selected helper "
             f"dependencies {sorted(require_names)!r}"
         )
@@ -375,7 +382,7 @@ def _apply_avoid_reaching_filter(
         if forbidden.isdisjoint(_collect_reachable_helper_keys(index, info))
     ]
     if not filtered:
-        raise ParseError(
+        raise SelectionError(
             f"No Yul function for {sol_name!r} avoids selected helper reachability "
             f"to {sorted(avoid_names)!r}"
         )
@@ -409,21 +416,23 @@ def _select_exact_matches(
     if not matches:
         if n_params is not None:
             if exact_path is None:
-                raise ParseError(
+                raise SelectionError(
                     f"Exact Yul function {selector!r} with "
                     f"{n_params} parameter(s) not found"
                 )
-            raise ParseError(
+            raise SelectionError(
                 f"Exact Yul function path {'::'.join(exact_path)!r} with "
                 f"{n_params} parameter(s) not found"
             )
         if exact_path is None:
-            raise ParseError(f"Exact Yul function {selector!r} not found")
-        raise ParseError(f"Exact Yul function path {'::'.join(exact_path)!r} not found")
+            raise SelectionError(f"Exact Yul function {selector!r} not found")
+        raise SelectionError(
+            f"Exact Yul function path {'::'.join(exact_path)!r} not found"
+        )
 
     if len(matches) > 1:
         rendered = "::".join(exact_path) if exact_path is not None else selector
-        raise ParseError(
+        raise SelectionError(
             f"Multiple exact Yul functions matched {rendered!r}. Refuse to guess."
         )
     return matches
@@ -435,7 +444,7 @@ def _parse_exact_yul_selector(selector: str) -> tuple[str, ...] | None:
     raw = selector[2:] if selector.startswith("::") else selector
     parts = tuple(raw.split("::"))
     if any(not part for part in parts):
-        raise ParseError(f"Invalid exact Yul selector {selector!r}")
+        raise SelectionError(f"Invalid exact Yul selector {selector!r}")
     return parts
 
 
@@ -683,18 +692,22 @@ def _resolve_helper_info(
         ]
         decl_info = outer_result.symbols.get(target.id)
         if decl_info is None:
-            raise ParseError(
+            raise SelectionError(
                 f"Resolver/local-helper index mismatch for {target.name!r}"
             )
         helper_info = index.local_info_by_group_top_level[current_info.group_idx][
             current_info.top_level_name
         ].get(target.id)
         if helper_info is None:
-            raise ParseError(f"Missing syntax info for local helper {target.name!r}")
+            raise SelectionError(
+                f"Missing syntax info for local helper {target.name!r}"
+            )
         return helper_info
     helper_info = index.top_level_by_group_name[current_info.group_idx].get(target.name)
     if helper_info is None:
-        raise ParseError(f"Missing syntax info for top-level helper {target.name!r}")
+        raise SelectionError(
+            f"Missing syntax info for top-level helper {target.name!r}"
+        )
     return helper_info
 
 
@@ -710,7 +723,7 @@ def _direct_call_targets(
             return
         target = resolution.call_targets.get(expr.name_span)
         if target is None:
-            raise ParseError(
+            raise SelectionError(
                 f"Resolver omitted call target for {expr.name!r} "
                 f"at span {expr.name_span!r}"
             )

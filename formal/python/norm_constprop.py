@@ -36,13 +36,7 @@ from .norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
-from .norm_optimize_shared import (
-    const_truthy,
-    const_value,
-    sequential_block,
-    simplify_ite,
-)
-from .norm_walk import map_expr
+from .norm_walk import const_truthy, const_value, map_expr, simplify_ite
 from .yul_ast import EvaluationError, SymbolId
 
 # ---------------------------------------------------------------------------
@@ -608,6 +602,17 @@ def _rewrite_for(stmt: NFor, env: _FactEnv) -> _StmtRewrite:
     )
 
 
+def _sequential_block(*blocks: NBlock | None) -> NBlock | None:
+    """Build one executable block from sequential sub-blocks."""
+
+    executed = tuple(
+        block for block in blocks if block is not None and (block.defs or block.stmts)
+    )
+    if not executed:
+        return None
+    return NBlock(stmts=executed)
+
+
 def _loop_preamble_result(
     *,
     env: _FactEnv,
@@ -615,7 +620,7 @@ def _loop_preamble_result(
     init: NBlock | None,
     condition_setup: NBlock | None = None,
 ) -> _StmtRewrite:
-    preamble = sequential_block(init, condition_setup)
+    preamble = _sequential_block(init, condition_setup)
     stmts: tuple[NStmt, ...] = (preamble,) if preamble is not None else ()
     if falls_through:
         return _StmtRewrite.continue_with(stmts, env)

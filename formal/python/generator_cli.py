@@ -9,7 +9,7 @@ from .lean_emit import build_lean_source
 from .model_config import ModelConfig
 from .model_helpers import collect_model_opcodes
 from .translator import translate_yul_to_models
-from .yul_ast import ParseError
+from .yul_ast import TranslationError
 
 
 class _CliArgs(argparse.Namespace):
@@ -62,7 +62,7 @@ def run_generator(config: ModelConfig) -> int:
     if args.yul == "-":
         stdin = sys.stdin
         if stdin is None:
-            raise ParseError("stdin is unavailable while reading Yul input")
+            raise TranslationError("stdin is unavailable while reading Yul input")
         text_stdin: TextIO = stdin
         yul_text = text_stdin.read()
     else:

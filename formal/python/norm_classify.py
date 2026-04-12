@@ -125,7 +125,7 @@ def _walk_stmt(acc: _SummaryAccumulator, stmt: NStmt) -> None:
     elif isinstance(stmt, NAssign):
         _walk_expr_effects(acc, stmt.expr)
     elif isinstance(stmt, NExprEffect):
-        if not _is_known_effect_call(stmt.expr):
+        if not _is_recognized_expr_stmt(stmt.expr):
             acc.has_expr_effects = True
         _walk_expr_effects(acc, stmt.expr)
     elif isinstance(stmt, NIf):
@@ -189,8 +189,13 @@ def _has_call_in_expr(expr: NExpr) -> bool:
     )
 
 
-def _is_known_effect_call(expr: NExpr) -> bool:
-    """Check if an expression-statement is a known effect pattern."""
+def _is_recognized_expr_stmt(expr: NExpr) -> bool:
+    """Check if an expression-statement is a recognized pattern.
+
+    Memory ops and function calls are expected as bare statements.
+    Anything else (e.g. a bare ``add(x, y)``) is unusual and flags
+    ``has_expr_effects``.
+    """
     if isinstance(expr, NBuiltinCall):
         return expr.op in _MEMORY_WRITE_OPS or expr.op in _MEMORY_READ_OPS
     return isinstance(expr, (NLocalCall, NTopLevelCall, NUnresolvedCall))

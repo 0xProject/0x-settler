@@ -48,8 +48,8 @@ from .yul_ast import (
     LeaveStmt,
     LetStmt,
     LocalFunctionTarget,
+    LoweringError,
     NameExpr,
-    ParseError,
     StringExpr,
     SwitchStmt,
     SynExpr,
@@ -142,7 +142,7 @@ def _lower_stmt(stmt: SynStmt, r: ResolutionResult) -> NStmt:
         return _lower_block(stmt.block, r)
 
     if isinstance(stmt, FunctionDefStmt):
-        raise ParseError("Function definitions are lowered by block scope handling")
+        raise LoweringError("Function definitions are lowered by block scope handling")
 
     assert_never(stmt)
 
@@ -174,7 +174,7 @@ def _lower_expr(expr: SynExpr, r: ResolutionResult) -> NExpr:
         # The syntax parser already decoded the literal contents; normalization
         # only performs the Yul bytes32-style integer lowering.
         if len(expr.decoded_bytes) > 32:
-            raise ParseError(
+            raise LoweringError(
                 f"String literal {expr.text!r} exceeds 32 bytes "
                 f"({len(expr.decoded_bytes)} bytes)"
             )
@@ -203,4 +203,6 @@ def _const_value(expr: SynExpr) -> int:
     """Extract the integer value from a switch case literal."""
     if isinstance(expr, IntExpr):
         return expr.value
-    raise ParseError(f"Switch case value must be an integer, got {type(expr).__name__}")
+    raise LoweringError(
+        f"Switch case value must be an integer, got {type(expr).__name__}"
+    )

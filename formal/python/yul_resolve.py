@@ -36,7 +36,7 @@ from .yul_ast import (
     LetStmt,
     LocalFunctionTarget,
     NameExpr,
-    ParseError,
+    ResolutionError,
     Span,
     StringExpr,
     SwitchStmt,
@@ -81,19 +81,21 @@ class SymbolTable:
     def declare(self, name: str, kind: SymbolKind, span: Span) -> SymbolInfo:
         """Declare *name* in the current (innermost) scope.
 
-        Returns the new ``SymbolInfo``.  Raises ``ParseError`` if the
+        Returns the new ``SymbolInfo``.  Raises ``ResolutionError`` if the
         name collides with a builtin (solc error 5568) or is already
         visible in ANY enclosing scope.  Yul uses a single flat
         namespace — solc rejects cross-scope shadowing (error 1395 /
         6052).
         """
         if name in self._builtins:
-            raise ParseError(
+            raise ResolutionError(
                 f"Cannot use builtin function name {name!r} " f"as identifier name"
             )
         for scope in self._scopes:
             if name in scope:
-                raise ParseError(f"Duplicate declaration of {name!r} in the same scope")
+                raise ResolutionError(
+                    f"Duplicate declaration of {name!r} in the same scope"
+                )
         sid = self._alloc_id()
         info = SymbolInfo(id=sid, name=name, kind=kind, span=span)
         self._scopes[-1][name] = info
@@ -104,12 +106,12 @@ class SymbolTable:
 
         Searches from innermost scope outward, stopping at
         *scope_floor*.  The default (0) searches all scopes.
-        Raises ``ParseError`` if not found.
+        Raises ``ResolutionError`` if not found.
         """
         for scope in reversed(self._scopes[scope_floor:]):
             if name in scope:
                 return scope[name]
-        raise ParseError(f"Undefined variable {name!r}")
+        raise ResolutionError(f"Undefined variable {name!r}")
 
     def lookup_function(self, name: str) -> SymbolInfo | None:
         """Look up *name* as a FUNCTION symbol (non-raising).
@@ -185,7 +187,7 @@ def _resolve_function_def(ctx: _ResolveCtx, func: FunctionDef) -> None:
     seen_sig: set[str] = set()
     for name, span in zip(func.params, func.param_spans):
         if name in seen_sig:
-            raise ParseError(
+            raise ResolutionError(
                 f"Duplicate parameter name {name!r} in function {func.name!r}"
             )
         seen_sig.add(name)
@@ -194,7 +196,7 @@ def _resolve_function_def(ctx: _ResolveCtx, func: FunctionDef) -> None:
 
     for name, span in zip(func.returns, func.return_spans):
         if name in seen_sig:
-            raise ParseError(
+            raise ResolutionError(
                 f"Duplicate return name {name!r} in function {func.name!r}"
             )
         seen_sig.add(name)
@@ -238,7 +240,9 @@ def _resolve_stmt(ctx: _ResolveCtx, stmt: SynStmt) -> None:
         let_names: set[str] = set()
         for name, span in zip(stmt.targets, stmt.target_spans):
             if name in let_names:
-                raise ParseError(f"Duplicate declaration of {name!r} in the same scope")
+                raise ResolutionError(
+                    f"Duplicate declaration of {name!r} in the same scope"
+                )
             let_names.add(name)
 
         # Resolve init expression BEFORE declaring targets (Yul
@@ -355,7 +359,7 @@ def resolve_module(
 
     Returns one ``ResolutionResult`` per function, keyed by name.
 
-    Raises ``ParseError`` on any lexical violation (including
+    Raises ``ResolutionError`` on any lexical violation (including
     cross-function conflicts such as a ``let`` shadowing a sibling
     function name).
     """
@@ -368,7 +372,7 @@ def resolve_module(
     func_names: set[str] = set()
     for func in funcs:
         if func.name in builtins:
-            raise ParseError(
+            raise ResolutionError(
                 f"Cannot use builtin function name {func.name!r} " f"as identifier name"
             )
         info = table.declare(func.name, SymbolKind.FUNCTION, func.name_span)
