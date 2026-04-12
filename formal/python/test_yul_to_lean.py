@@ -11052,27 +11052,21 @@ class ConstPropTest(unittest.TestCase):
         assign = cast(norm_ir.NAssign, nf.body.stmts[1])
         self.assertEqual(assign.expr, norm_ir.NConst(4))
 
-    def test_dead_branch_preserved_with_const_condition(self) -> None:
-        """if 0 { z := 1 } — constprop folds condition but leaves the NIf for simplify."""
+    def test_dead_branch_eliminated_with_const_condition(self) -> None:
+        """if 0 { z := 1 } is removed during constprop."""
         nf = self._prop("function f() -> z { if 0 { z := 1 } }")
-        # Constprop outputs the NIf with constant-zero condition; simplify removes it.
-        self.assertEqual(len(nf.body.stmts), 1)
-        self.assertIsInstance(nf.body.stmts[0], norm_ir.NIf)
-        nif = cast(norm_ir.NIf, nf.body.stmts[0])
-        self.assertEqual(nif.condition, norm_ir.NConst(0))
+        self.assertEqual(nf.body.stmts, ())
 
     def test_live_branch_propagated_with_const_condition(self) -> None:
-        """if 1 { z := 7 } — constprop propagates through body with shared env."""
+        """if 1 { z := 7 } is inlined during constprop."""
         nf = self._prop("function f() -> z { if 1 { z := 7 } }")
-        # Constprop outputs the NIf with constant-nonzero condition; simplify inlines it.
         self.assertEqual(len(nf.body.stmts), 1)
-        self.assertIsInstance(nf.body.stmts[0], norm_ir.NIf)
-        nif = cast(norm_ir.NIf, nf.body.stmts[0])
-        self.assertEqual(nif.condition, norm_ir.NConst(1))
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
+        self.assertEqual(assign.expr, norm_ir.NConst(7))
 
     def test_switch_constant_fold(self) -> None:
-        """switch 1 case 0 { ... } case 1 { z := 20 } default { ... } — constprop
-        folds discriminant but leaves the NSwitch for simplify to select the case."""
+        """Constant switch selects the live arm during constprop."""
         nf = self._prop("""
             function f() -> z {
                 switch 1
@@ -11081,11 +11075,26 @@ class ConstPropTest(unittest.TestCase):
                 default { z := 30 }
             }
         """)
-        # Constprop outputs the NSwitch with constant discriminant; simplify picks the case.
         self.assertEqual(len(nf.body.stmts), 1)
-        self.assertIsInstance(nf.body.stmts[0], norm_ir.NSwitch)
-        nswitch = cast(norm_ir.NSwitch, nf.body.stmts[0])
-        self.assertEqual(nswitch.discriminant, norm_ir.NConst(1))
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
+        self.assertEqual(assign.expr, norm_ir.NConst(20))
+
+    def test_switch_constant_selected_arm_threads_facts_forward(self) -> None:
+        """Facts from the chosen switch arm are visible after the switch."""
+        nf = self._prop("""
+            function f() -> z {
+                let y := 3
+                switch 1
+                case 0 { y := 10 }
+                case 1 { y := 20 }
+                default { y := 30 }
+                z := y
+            }
+        """)
+        self.assertIsInstance(nf.body.stmts[-1], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[-1])
+        self.assertEqual(assign.expr, norm_ir.NConst(20))
 
     def test_switch_constant_fold_wraps_oversized_case_literals_to_u256(self) -> None:
         nf = self._prop(f"""
@@ -11095,11 +11104,10 @@ class ConstPropTest(unittest.TestCase):
                 default {{ z := 20 }}
             }}
         """)
-        # Constprop outputs the NSwitch with constant discriminant; simplify picks the case.
         self.assertEqual(len(nf.body.stmts), 1)
-        self.assertIsInstance(nf.body.stmts[0], norm_ir.NSwitch)
-        nswitch = cast(norm_ir.NSwitch, nf.body.stmts[0])
-        self.assertEqual(nswitch.discriminant, norm_ir.NConst(0))
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
+        self.assertEqual(assign.expr, norm_ir.NConst(10))
 
     def test_invalidation_at_conditional_join(self) -> None:
         """Variable modified in if-body is not propagated after the if."""
@@ -11114,6 +11122,22 @@ class ConstPropTest(unittest.TestCase):
         self.assertIsInstance(nf.body.stmts[2], norm_ir.NAssign)
         assign = cast(norm_ir.NAssign, nf.body.stmts[2])
         self.assertIsInstance(assign.expr, norm_ir.NRef)
+
+    def test_dead_branch_write_does_not_poison_copy_propagation(self) -> None:
+        """A write in a dead branch must not kill a live alias."""
+        nf = self._prop("""
+            function f(x) -> z {
+                let c := 0
+                let y := x
+                if c { x := 1 }
+                z := y
+            }
+        """)
+        self.assertIsInstance(nf.body.stmts[-1], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[-1])
+        self.assertIsInstance(assign.expr, norm_ir.NRef)
+        ref = cast(norm_ir.NRef, assign.expr)
+        self.assertEqual(ref.name, "x")
 
     def test_nite_constant_fold(self) -> None:
         """NIte(NConst(1), a, b) folds to a."""
@@ -11248,6 +11272,71 @@ class ConstPropTest(unittest.TestCase):
         self.assertIsInstance(assign.expr, norm_ir.NBuiltinCall)
         assign_call = cast(norm_ir.NBuiltinCall, assign.expr)
         self.assertEqual(assign_call.args[1], norm_ir.NConst(5))
+
+    def test_for_loop_init_invariant_reaches_body(self) -> None:
+        """Loop-invariant facts from init rewrite the reused body safely."""
+        nf = self._prop("""
+            function f() -> z {
+                for { let i := 0 let c := 7 } lt(i, 1) { i := add(i, 1) } {
+                    z := add(c, 1)
+                }
+            }
+        """)
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NFor)
+        loop = cast(norm_ir.NFor, nf.body.stmts[0])
+        self.assertIsInstance(loop.condition, norm_ir.NBuiltinCall)
+        self.assertIsInstance(loop.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, loop.body.stmts[0])
+        self.assertEqual(assign.expr, norm_ir.NConst(8))
+
+    def test_for_loop_condition_setup_facts_reach_condition_and_body(self) -> None:
+        """Loop-head setup facts are available to condition and body rewrites."""
+        t_sid = yul_ast.SymbolId(2)
+        z_sid = yul_ast.SymbolId(1)
+        nf = norm_ir.NormalizedFunction(
+            name="f",
+            params=(),
+            param_names=(),
+            returns=(z_sid,),
+            return_names=("z",),
+            body=norm_ir.NBlock(
+                (
+                    norm_ir.NFor(
+                        init=norm_ir.NBlock(()),
+                        condition=norm_ir.NBuiltinCall(
+                            "eq",
+                            (_nref("t", sid=2), norm_ir.NConst(7)),
+                        ),
+                        condition_setup=norm_ir.NBlock(
+                            (
+                                norm_ir.NAssign(
+                                    targets=(t_sid,),
+                                    target_names=("t",),
+                                    expr=norm_ir.NConst(7),
+                                ),
+                            )
+                        ),
+                        post=norm_ir.NBlock(()),
+                        body=norm_ir.NBlock(
+                            (
+                                norm_ir.NAssign(
+                                    targets=(z_sid,),
+                                    target_names=("z",),
+                                    expr=_nref("t", sid=2),
+                                ),
+                            )
+                        ),
+                    ),
+                )
+            ),
+        )
+        prop = propagate_constants(nf)
+        self.assertIsInstance(prop.body.stmts[0], norm_ir.NFor)
+        loop = cast(norm_ir.NFor, prop.body.stmts[0])
+        self.assertEqual(loop.condition, norm_ir.NConst(1))
+        self.assertIsInstance(loop.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, loop.body.stmts[0])
+        self.assertEqual(assign.expr, norm_ir.NConst(7))
 
 
 class InlineArchitectureTest(unittest.TestCase):
