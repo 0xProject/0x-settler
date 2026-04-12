@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, overload
 from .model_config import ModelConfig
 from .model_transforms import apply_optional_model_transforms
 from .model_validate import validate_model_set
-from .norm_constprop import propagate_constants
+from .norm_constprop import simplify_normalized
 from .norm_inline import InlineBoundaryPolicy, inline_pure_helpers
 from .norm_ir import (
     NBlock,
@@ -127,15 +127,14 @@ def _lower_target(
         ),
     )
 
+    normalized = simplify_normalized(normalized)
     normalized = lower_leave(normalized)
-    normalized = propagate_constants(normalized)
     validate_restricted_boundary(
         normalized,
         allowed_model_calls=allowed_model_calls,
         allow_memory_ops=True,
     )
     normalized = lower_memory(normalized)
-    normalized = propagate_constants(normalized)
     validate_restricted_boundary(
         normalized,
         allowed_model_calls=allowed_model_calls,
@@ -223,10 +222,10 @@ def _prepare_helper(
     local_selected_map: dict[SymbolId, str],
     top_level_selected_map: dict[str, str],
 ) -> NFunctionDef:
-    """Normalize, optimize, and rewrite a helper for inlining."""
+    """Normalize, simplify, and rewrite a helper for inlining."""
     normalized = normalize_function(helper.func, helper.resolution)
     symbol_id = helper.resolution.declarations[helper.func.name_span]
-    optimized = propagate_constants(normalized)
+    optimized = simplify_normalized(normalized)
     fdef = NFunctionDef(
         name=optimized.name,
         symbol_id=symbol_id,

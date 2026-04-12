@@ -49,7 +49,7 @@ from .norm_classify import (
     classify_function_scope,
     summarize_function,
 )
-from .norm_constprop import fold_expr, propagate_constants
+from .norm_constprop import fold_expr, simplify_normalized
 from .norm_inline import inline_pure_helpers
 from .norm_memory import lower_memory
 from .norm_to_restricted import lower_to_restricted
@@ -2298,7 +2298,7 @@ class NormalizedOptimizerTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        return propagate_constants(nf)
+        return simplify_normalized(nf)
 
     def test_preserves_hoisted_helper_after_terminating_runtime_stmt(self) -> None:
         nf = self._optimize("""
@@ -11067,7 +11067,7 @@ class ConstPropTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        return propagate_constants(nf)
+        return simplify_normalized(nf)
 
     def test_fold_constant_arithmetic(self) -> None:
         """add(3, 4) folds to NConst(7)."""
@@ -11095,6 +11095,20 @@ class ConstPropTest(unittest.TestCase):
         self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
         assign = cast(norm_ir.NAssign, nf.body.stmts[0])
         self.assertEqual(assign.expr, norm_ir.NConst(7))
+
+    def test_constant_true_if_preserves_branch_local_defs(self) -> None:
+        nf = self._prop("""
+            function f() -> z {
+                if 1 {
+                    function g() -> r { r := 7 }
+                    z := g()
+                }
+            }
+        """)
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NBlock)
+        block = cast(norm_ir.NBlock, nf.body.stmts[0])
+        self.assertEqual(len(block.defs), 1)
+        self.assertEqual(evaluate_normalized(nf, ()), (7,))
 
     def test_return_variable_zero_fact_eliminates_dead_branch(self) -> None:
         nf = self._prop("""
@@ -11150,6 +11164,23 @@ class ConstPropTest(unittest.TestCase):
         self.assertIsInstance(nf.body.stmts[-1], norm_ir.NAssign)
         assign = cast(norm_ir.NAssign, nf.body.stmts[-1])
         self.assertEqual(assign.expr, norm_ir.NConst(20))
+
+    def test_switch_constant_selected_arm_preserves_branch_local_defs(self) -> None:
+        nf = self._prop("""
+            function f() -> z {
+                switch 1
+                case 0 { z := 10 }
+                case 1 {
+                    function g() -> r { r := 20 }
+                    z := g()
+                }
+                default { z := 30 }
+            }
+        """)
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NBlock)
+        block = cast(norm_ir.NBlock, nf.body.stmts[0])
+        self.assertEqual(len(block.defs), 1)
+        self.assertEqual(evaluate_normalized(nf, ()), (20,))
 
     def test_switch_constant_fold_wraps_oversized_case_literals_to_u256(self) -> None:
         nf = self._prop(f"""
@@ -11218,7 +11249,7 @@ class ConstPropTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        prop = propagate_constants(nf)
+        prop = simplify_normalized(nf)
         for x in [0, 1, 5, 100]:
             pre = evaluate_normalized(nf, (x,))
             post = evaluate_normalized(prop, (x,))
@@ -11374,6 +11405,21 @@ class ConstPropTest(unittest.TestCase):
         assign = cast(norm_ir.NAssign, loop.body.stmts[0])
         self.assertEqual(assign.expr, norm_ir.NConst(8))
 
+    def test_for_loop_dead_post_is_eliminated_when_body_cannot_fall_through(
+        self,
+    ) -> None:
+        nf = self._prop("""
+            function f() -> z {
+                for { } 1 { ghost() } {
+                    leave
+                }
+            }
+        """)
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NFor)
+        loop = cast(norm_ir.NFor, nf.body.stmts[0])
+        self.assertEqual(loop.post.stmts, ())
+        self.assertEqual(evaluate_normalized(nf, ()), (0,))
+
     def test_constant_false_for_loop_is_eliminated(self) -> None:
         nf = self._prop("""
             function f() -> z {
@@ -11427,7 +11473,7 @@ class ConstPropTest(unittest.TestCase):
                 )
             ),
         )
-        prop = propagate_constants(nf)
+        prop = simplify_normalized(nf)
         self.assertIsInstance(prop.body.stmts[0], norm_ir.NFor)
         loop = cast(norm_ir.NFor, prop.body.stmts[0])
         self.assertEqual(loop.condition, norm_ir.NConst(1))
@@ -11471,7 +11517,7 @@ class ConstPropTest(unittest.TestCase):
                 )
             ),
         )
-        prop = propagate_constants(nf)
+        prop = simplify_normalized(nf)
         self.assertFalse(
             any(isinstance(stmt, norm_ir.NFor) for stmt in prop.body.stmts)
         )
@@ -11736,7 +11782,7 @@ class MemoryLowerTest(unittest.TestCase):
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
         nf = inline_pure_helpers(nf)
-        nf = propagate_constants(nf)
+        nf = simplify_normalized(nf)
         return lower_memory(nf)
 
     def test_basic_mstore_mload_resolution(self) -> None:
@@ -11838,7 +11884,7 @@ class MemoryLowerTest(unittest.TestCase):
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
         nf = inline_pure_helpers(nf)
-        nf = propagate_constants(nf)
+        nf = simplify_normalized(nf)
         for hi, lo in [(0, 0), (5, 7), (100, 200)]:
             pre = evaluate_normalized(nf, (hi, lo), memory={})
             lowered = lower_memory(nf)
@@ -12011,7 +12057,7 @@ class RestrictedIRTest(unittest.TestCase):
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
         nf = inline_pure_helpers(nf)
-        nf = propagate_constants(nf)
+        nf = simplify_normalized(nf)
         return lower_to_restricted(lower_memory(nf))
 
     def _eval_restricted(self, yul: str, args: tuple[int, ...]) -> tuple[int, ...]:
@@ -12026,7 +12072,7 @@ class RestrictedIRTest(unittest.TestCase):
         for name, result in resolved.items():
             nf = normalize_function(result.func, result)
             nf = inline_pure_helpers(nf)
-            nf = propagate_constants(nf)
+            nf = simplify_normalized(nf)
             out[name] = lower_to_restricted(lower_memory(nf))
         return out
 
@@ -12335,7 +12381,7 @@ class RestrictedIRTest(unittest.TestCase):
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
         nf = inline_pure_helpers(nf)
-        nf = propagate_constants(nf)
+        nf = simplify_normalized(nf)
         rf = lower_to_restricted(lower_memory(nf))
 
         for x in [0, 1, 5, 100]:
@@ -12373,7 +12419,7 @@ class SSAModelTest(unittest.TestCase):
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
         nf = inline_pure_helpers(nf)
-        nf = propagate_constants(nf)
+        nf = simplify_normalized(nf)
         rf = lower_to_restricted(lower_memory(nf))
         config = make_model_config(
             (rf.name,),
@@ -12439,7 +12485,7 @@ class SSAModelTest(unittest.TestCase):
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
         nf = inline_pure_helpers(nf)
-        nf = propagate_constants(nf)
+        nf = simplify_normalized(nf)
         rf = lower_to_restricted(lower_memory(nf))
         config = make_model_config(("f",))
         model = to_function_models(
@@ -12623,7 +12669,7 @@ class SSAModelTest(unittest.TestCase):
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
         nf = inline_pure_helpers(nf)
-        nf = propagate_constants(nf)
+        nf = simplify_normalized(nf)
         return lower_to_restricted(lower_memory(nf))
 
     def _module_to_models(
@@ -12956,7 +13002,7 @@ class SSAModelTest(unittest.TestCase):
         for name, result in resolved.items():
             nf = normalize_function(result.func, result)
             nf = inline_pure_helpers(nf)
-            nf = propagate_constants(nf)
+            nf = simplify_normalized(nf)
             restricted[name] = lower_to_restricted(lower_memory(nf))
         config = make_model_config(
             tuple(restricted),
@@ -12996,7 +13042,7 @@ class SSAModelTest(unittest.TestCase):
         for name, result in resolved.items():
             nf = normalize_function(result.func, result)
             nf = inline_pure_helpers(nf)
-            nf = propagate_constants(nf)
+            nf = simplify_normalized(nf)
             restricted[name] = lower_to_restricted(lower_memory(nf))
         config = make_model_config(
             tuple(restricted),

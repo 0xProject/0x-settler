@@ -1,7 +1,7 @@
 """
-Structured constant and copy propagation on normalized IR.
+Structured simplification on raw normalized IR.
 
-This pass mirrors normalized-IR execution directly:
+This pass operates before leave lowering and memory lowering. It:
 - folds constant expressions
 - propagates known constants and aliases through assignments
 - eliminates dead branches when control-flow conditions become constant
@@ -201,8 +201,7 @@ _FactExpr = NConst | NRef
 
 
 @dataclass(frozen=True, slots=True)
-class _RewriteResult:
-    defs: tuple[NFunctionDef, ...]
+class _StmtRewrite:
     stmts: tuple[NStmt, ...]
     env: _FactEnv
     falls_through: bool
@@ -212,21 +211,39 @@ class _RewriteResult:
         cls,
         stmts: tuple[NStmt, ...],
         env: _FactEnv,
-        defs: tuple[NFunctionDef, ...] = (),
-    ) -> _RewriteResult:
-        return cls(defs=defs, stmts=stmts, env=env, falls_through=True)
+    ) -> _StmtRewrite:
+        return cls(stmts=stmts, env=env, falls_through=True)
 
     @classmethod
     def stop_with(
         cls,
         stmts: tuple[NStmt, ...],
         env: _FactEnv,
-        defs: tuple[NFunctionDef, ...] = (),
-    ) -> _RewriteResult:
-        return cls(defs=defs, stmts=stmts, env=env, falls_through=False)
+    ) -> _StmtRewrite:
+        return cls(stmts=stmts, env=env, falls_through=False)
 
-    def as_block(self) -> NBlock:
-        return NBlock(defs=self.defs, stmts=self.stmts)
+
+@dataclass(frozen=True, slots=True)
+class _BlockRewrite:
+    block: NBlock
+    env: _FactEnv
+    falls_through: bool
+
+    @classmethod
+    def continue_with(
+        cls,
+        block: NBlock,
+        env: _FactEnv,
+    ) -> _BlockRewrite:
+        return cls(block=block, env=env, falls_through=True)
+
+    @classmethod
+    def stop_with(
+        cls,
+        block: NBlock,
+        env: _FactEnv,
+    ) -> _BlockRewrite:
+        return cls(block=block, env=env, falls_through=False)
 
 
 class _FactEnv:
@@ -351,24 +368,30 @@ def _entry_env(returns: tuple[SymbolId, ...]) -> _FactEnv:
     return env
 
 
-def _rewrite_block(block: NBlock, env: _FactEnv) -> _RewriteResult:
+def _rewrite_block(block: NBlock, env: _FactEnv) -> _BlockRewrite:
     defs = tuple(_rewrite_function_def(fdef) for fdef in block.defs)
     stmts: list[NStmt] = []
     current_env = env
-    for idx, stmt in enumerate(block.stmts):
+    for stmt in block.stmts:
         result = _rewrite_stmt(stmt, current_env)
         stmts.extend(result.stmts)
         current_env = result.env
         if not result.falls_through:
-            return _RewriteResult.stop_with(tuple(stmts), current_env, defs=defs)
-    return _RewriteResult.continue_with(tuple(stmts), current_env, defs=defs)
+            return _BlockRewrite.stop_with(
+                NBlock(defs=defs, stmts=tuple(stmts)),
+                current_env,
+            )
+    return _BlockRewrite.continue_with(
+        NBlock(defs=defs, stmts=tuple(stmts)),
+        current_env,
+    )
 
 
-def _rewrite_binding(stmt: NBind | NAssign, env: _FactEnv) -> _RewriteResult:
+def _rewrite_binding(stmt: NBind | NAssign, env: _FactEnv) -> _StmtRewrite:
     if isinstance(stmt, NBind) and stmt.expr is None:
         next_env = env.copy()
         next_env.assign_zero_targets(stmt.targets)
-        return _RewriteResult.continue_with((stmt,), next_env)
+        return _StmtRewrite.continue_with((stmt,), next_env)
 
     expr = stmt.expr
     assert expr is not None
@@ -392,21 +415,43 @@ def _rewrite_binding(stmt: NBind | NAssign, env: _FactEnv) -> _RewriteResult:
             target_names=stmt.target_names,
             expr=rewritten_expr,
         )
-    return _RewriteResult.continue_with((rewritten_stmt,), next_env)
+    return _StmtRewrite.continue_with((rewritten_stmt,), next_env)
 
 
-def _rewrite_stmt(stmt: NStmt, env: _FactEnv) -> _RewriteResult:
+def _nest_block(block_result: _BlockRewrite) -> _StmtRewrite:
+    """Preserve a rewritten block as a nested runtime statement."""
+    if block_result.falls_through:
+        return _StmtRewrite.continue_with(
+            (block_result.block,),
+            block_result.env,
+        )
+    return _StmtRewrite.stop_with(
+        (block_result.block,),
+        block_result.env,
+    )
+
+
+def _splice_block(block_result: _BlockRewrite) -> _StmtRewrite:
+    """Flatten a rewritten block when it does not introduce a new scope."""
+    if block_result.block.defs:
+        return _nest_block(block_result)
+    if block_result.falls_through:
+        return _StmtRewrite.continue_with(block_result.block.stmts, block_result.env)
+    return _StmtRewrite.stop_with(block_result.block.stmts, block_result.env)
+
+
+def _rewrite_stmt(stmt: NStmt, env: _FactEnv) -> _StmtRewrite:
     if isinstance(stmt, (NBind, NAssign)):
         return _rewrite_binding(stmt, env)
 
     if isinstance(stmt, NExprEffect):
-        return _RewriteResult.continue_with(
+        return _StmtRewrite.continue_with(
             (NExprEffect(expr=env.rewrite_expr(stmt.expr)),),
             env,
         )
 
     if isinstance(stmt, NStore):
-        return _RewriteResult.continue_with(
+        return _StmtRewrite.continue_with(
             (
                 NStore(
                     addr=env.rewrite_expr(stmt.addr),
@@ -421,18 +466,18 @@ def _rewrite_stmt(stmt: NStmt, env: _FactEnv) -> _RewriteResult:
         cond_truthy = _const_truthy(cond)
         if cond_truthy is not None:
             if not cond_truthy:
-                return _RewriteResult.continue_with((), env)
-            return _rewrite_block(stmt.then_body, env)
+                return _StmtRewrite.continue_with((), env)
+            return _splice_block(_rewrite_block(stmt.then_body, env))
 
         then_result = _rewrite_block(stmt.then_body, env.copy())
         joined_env = _FactEnv.join(
             [env] + ([then_result.env] if then_result.falls_through else [])
         )
-        return _RewriteResult.continue_with(
+        return _StmtRewrite.continue_with(
             (
                 NIf(
                     condition=cond,
-                    then_body=then_result.as_block(),
+                    then_body=then_result.block,
                 ),
             ),
             joined_env,
@@ -444,17 +489,17 @@ def _rewrite_stmt(stmt: NStmt, env: _FactEnv) -> _RewriteResult:
         if disc_value is not None:
             for case in stmt.cases:
                 if case.value.value == disc_value:
-                    return _rewrite_block(case.body, env)
+                    return _splice_block(_rewrite_block(case.body, env))
             if stmt.default is None:
-                return _RewriteResult.continue_with((), env)
-            return _rewrite_block(stmt.default, env)
+                return _StmtRewrite.continue_with((), env)
+            return _splice_block(_rewrite_block(stmt.default, env))
 
         rewritten_cases: list[NSwitchCase] = []
         fallthrough_envs: list[_FactEnv] = []
         for case in stmt.cases:
             case_result = _rewrite_block(case.body, env.copy())
             rewritten_cases.append(
-                NSwitchCase(value=case.value, body=case_result.as_block())
+                NSwitchCase(value=case.value, body=case_result.block)
             )
             if case_result.falls_through:
                 fallthrough_envs.append(case_result.env)
@@ -462,14 +507,13 @@ def _rewrite_stmt(stmt: NStmt, env: _FactEnv) -> _RewriteResult:
         rewritten_default = None
         if stmt.default is not None:
             default_result = _rewrite_block(stmt.default, env.copy())
-            rewritten_default = default_result.as_block()
+            rewritten_default = default_result.block
             if default_result.falls_through:
                 fallthrough_envs.append(default_result.env)
         else:
             fallthrough_envs.append(env)
 
-        return _RewriteResult(
-            defs=(),
+        return _StmtRewrite(
             stmts=(
                 NSwitch(
                     discriminant=disc,
@@ -485,41 +529,32 @@ def _rewrite_stmt(stmt: NStmt, env: _FactEnv) -> _RewriteResult:
         return _rewrite_for(stmt, env)
 
     if isinstance(stmt, NLeave):
-        return _RewriteResult.stop_with((stmt,), env)
+        return _StmtRewrite.stop_with((stmt,), env)
 
     if isinstance(stmt, NBlock):
-        block_result = _rewrite_block(stmt, env)
-        if block_result.falls_through:
-            return _RewriteResult.continue_with(
-                (block_result.as_block(),),
-                block_result.env,
-            )
-        return _RewriteResult.stop_with(
-            (block_result.as_block(),),
-            block_result.env,
-        )
+        return _nest_block(_rewrite_block(stmt, env))
 
     assert_never(stmt)
 
 
-def _rewrite_for(stmt: NFor, env: _FactEnv) -> _RewriteResult:
+def _rewrite_for(stmt: NFor, env: _FactEnv) -> _StmtRewrite:
     """Rewrite one loop using a localized loop-head fact fixpoint."""
     init_result = _rewrite_block(stmt.init, env)
     if not init_result.falls_through:
         return _loop_preamble_result(
             env=init_result.env,
             falls_through=False,
-            init=init_result.as_block(),
+            init=init_result.block,
         )
 
     pre_setup_env = init_result.env
     loop_result: (
         tuple[
-            _RewriteResult | None,
+            _BlockRewrite | None,
             _FactEnv,
             NExpr,
-            _RewriteResult,
-            _RewriteResult,
+            _BlockRewrite,
+            _BlockRewrite,
         ]
         | None
     ) = None
@@ -533,8 +568,8 @@ def _rewrite_for(stmt: NFor, env: _FactEnv) -> _RewriteResult:
                 return _loop_preamble_result(
                     env=setup_result.env,
                     falls_through=False,
-                    init=init_result.as_block(),
-                    condition_setup=setup_result.as_block(),
+                    init=init_result.block,
+                    condition_setup=setup_result.block,
                 )
         else:
             setup_result = None
@@ -546,12 +581,15 @@ def _rewrite_for(stmt: NFor, env: _FactEnv) -> _RewriteResult:
             return _loop_preamble_result(
                 env=cond_env,
                 falls_through=True,
-                init=init_result.as_block(),
-                condition_setup=setup_result.as_block() if setup_result else None,
+                init=init_result.block,
+                condition_setup=setup_result.block if setup_result else None,
             )
 
         body_result = _rewrite_block(stmt.body, cond_env.copy())
-        post_result = _rewrite_block(stmt.post, body_result.env.copy())
+        if body_result.falls_through:
+            post_result = _rewrite_block(stmt.post, body_result.env.copy())
+        else:
+            post_result = _BlockRewrite.continue_with(NBlock(), body_result.env)
         loop_result = (setup_result, cond_env, cond, body_result, post_result)
 
         backedge_envs: list[_FactEnv] = []
@@ -571,15 +609,14 @@ def _rewrite_for(stmt: NFor, env: _FactEnv) -> _RewriteResult:
     loop_falls_through = cond_truthy is not True
     loop_exit_env = cond_env if loop_falls_through else _FactEnv()
 
-    return _RewriteResult(
-        defs=(),
+    return _StmtRewrite(
         stmts=(
             NFor(
-                init=init_result.as_block(),
+                init=init_result.block,
                 condition=cond,
-                condition_setup=setup_result.as_block() if setup_result else None,
-                post=post_result.as_block(),
-                body=body_result.as_block(),
+                condition_setup=setup_result.block if setup_result else None,
+                post=post_result.block,
+                body=body_result.block,
             ),
         ),
         env=loop_exit_env,
@@ -593,12 +630,12 @@ def _loop_preamble_result(
     falls_through: bool,
     init: NBlock | None,
     condition_setup: NBlock | None = None,
-) -> _RewriteResult:
+) -> _StmtRewrite:
     preamble = sequential_block(init, condition_setup)
     stmts: tuple[NStmt, ...] = (preamble,) if preamble is not None else ()
     if falls_through:
-        return _RewriteResult.continue_with(stmts, env)
-    return _RewriteResult.stop_with(stmts, env)
+        return _StmtRewrite.continue_with(stmts, env)
+    return _StmtRewrite.stop_with(stmts, env)
 
 
 def _rewrite_function_def(fdef: NFunctionDef) -> NFunctionDef:
@@ -610,7 +647,7 @@ def _rewrite_function_def(fdef: NFunctionDef) -> NFunctionDef:
         param_names=fdef.param_names,
         returns=fdef.returns,
         return_names=fdef.return_names,
-        body=rewritten.as_block(),
+        body=rewritten.block,
     )
 
 
@@ -619,8 +656,8 @@ def _rewrite_function_def(fdef: NFunctionDef) -> NFunctionDef:
 # ---------------------------------------------------------------------------
 
 
-def propagate_constants(func: NormalizedFunction) -> NormalizedFunction:
-    """Fold constants, propagate live aliases, and prune dead control flow."""
+def simplify_normalized(func: NormalizedFunction) -> NormalizedFunction:
+    """Simplify a raw normalized function before leave and memory lowering."""
     rewritten = _rewrite_block(func.body, _entry_env(func.returns))
     return NormalizedFunction(
         name=func.name,
@@ -628,5 +665,5 @@ def propagate_constants(func: NormalizedFunction) -> NormalizedFunction:
         param_names=func.param_names,
         returns=func.returns,
         return_names=func.return_names,
-        body=rewritten.as_block(),
+        body=rewritten.block,
     )
