@@ -167,10 +167,6 @@ def _walk_stmt(acc: _SummaryAccumulator, stmt: NStmt) -> None:
         acc.may_leave = True
     elif isinstance(stmt, NBlock):
         _walk_block(acc, stmt)
-    elif isinstance(stmt, NFunctionDef):
-        # Do NOT recurse into nested function bodies — they get
-        # their own summary.
-        pass
     else:
         assert_never(stmt)
 
@@ -234,8 +230,7 @@ def _is_uint512_from_shape(
     if len(fdef.params) != 3 or len(fdef.returns) != 1:
         return False
 
-    stmts = fdef.body.stmts
-    real_stmts: list[NStmt] = [s for s in stmts if not isinstance(s, NFunctionDef)]
+    real_stmts = list(fdef.body.stmts)
 
     if len(real_stmts) not in (4, 5):
         return False

@@ -6,12 +6,6 @@ This pass mirrors normalized-IR execution directly:
 - propagates known constants and aliases through assignments
 - eliminates dead branches when control-flow conditions become constant
 - joins facts only at real control-flow joins
-
-Unlike the previous implementation, copy propagation is not driven by a
-whole-function "mutable variable" pre-scan.  Facts are tracked locally
-and invalidated when a live assignment changes the source they depend on.
-This keeps dead writes from poisoning propagation and lets constant
-branches thread their selected-arm facts forward in a single pass.
 """
 
 from __future__ import annotations
@@ -19,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import assert_never
 
-from .evm_builtins import eval_pure_builtin
+from .evm_builtins import eval_pure_builtin, is_pure_builtin
 from .norm_ir import (
     NAssign,
     NBind,
@@ -43,11 +37,7 @@ from .norm_ir import (
     NTopLevelCall,
     NUnresolvedCall,
 )
-from .norm_optimize_shared import (
-    drop_dead_runtime_suffix,
-    sequential_block,
-    simplify_ite,
-)
+from .norm_optimize_shared import sequential_block, simplify_ite
 from .norm_walk import map_expr
 from .yul_ast import EvaluationError, SymbolId
 
@@ -65,17 +55,133 @@ def _const_truthy(expr: NExpr) -> bool | None:
     return None if value is None else value != 0
 
 
+def _is_zero(expr: NExpr) -> bool:
+    return isinstance(expr, NConst) and expr.value == 0
+
+
+def _is_one(expr: NExpr) -> bool:
+    return isinstance(expr, NConst) and expr.value == 1
+
+
+def _is_all_ones(expr: NExpr) -> bool:
+    return isinstance(expr, NConst) and expr.value == (2**256 - 1)
+
+
+def _expr_is_obviously_pure(expr: NExpr) -> bool:
+    if isinstance(expr, (NConst, NRef)):
+        return True
+    if isinstance(expr, NBuiltinCall):
+        return is_pure_builtin(expr.op, len(expr.args)) and all(
+            _expr_is_obviously_pure(arg) for arg in expr.args
+        )
+    if isinstance(expr, NIte):
+        return (
+            _expr_is_obviously_pure(expr.cond)
+            and _expr_is_obviously_pure(expr.if_true)
+            and _expr_is_obviously_pure(expr.if_false)
+        )
+    if isinstance(expr, (NLocalCall, NTopLevelCall, NUnresolvedCall)):
+        return False
+    assert_never(expr)
+
+
+def _same_pure_expr(lhs: NExpr, rhs: NExpr) -> bool:
+    return lhs == rhs and _expr_is_obviously_pure(lhs)
+
+
+def _fold_builtin(expr: NBuiltinCall) -> NExpr:
+    if all(isinstance(arg, NConst) for arg in expr.args):
+        vals = tuple(arg.value for arg in expr.args if isinstance(arg, NConst))
+        try:
+            return NConst(eval_pure_builtin(expr.op, vals))
+        except EvaluationError:
+            return expr
+
+    if len(expr.args) != 2:
+        return expr
+
+    lhs, rhs = expr.args
+    if expr.op == "add":
+        if _is_zero(lhs):
+            return rhs
+        if _is_zero(rhs):
+            return lhs
+        return expr
+
+    if expr.op == "sub":
+        if _is_zero(rhs):
+            return lhs
+        if _same_pure_expr(lhs, rhs):
+            return NConst(0)
+        return expr
+
+    if expr.op == "mul":
+        if _is_one(lhs):
+            return rhs
+        if _is_one(rhs):
+            return lhs
+        if _is_zero(lhs) and _expr_is_obviously_pure(rhs):
+            return NConst(0)
+        if _is_zero(rhs) and _expr_is_obviously_pure(lhs):
+            return NConst(0)
+        return expr
+
+    if expr.op == "and":
+        if _is_all_ones(lhs):
+            return rhs
+        if _is_all_ones(rhs):
+            return lhs
+        if _is_zero(lhs) and _expr_is_obviously_pure(rhs):
+            return NConst(0)
+        if _is_zero(rhs) and _expr_is_obviously_pure(lhs):
+            return NConst(0)
+        if _same_pure_expr(lhs, rhs):
+            return lhs
+        return expr
+
+    if expr.op == "or":
+        if _is_zero(lhs):
+            return rhs
+        if _is_zero(rhs):
+            return lhs
+        if _same_pure_expr(lhs, rhs):
+            return lhs
+        return expr
+
+    if expr.op == "xor":
+        if _is_zero(lhs):
+            return rhs
+        if _is_zero(rhs):
+            return lhs
+        if _same_pure_expr(lhs, rhs):
+            return NConst(0)
+        return expr
+
+    if expr.op == "eq":
+        if _same_pure_expr(lhs, rhs):
+            return NConst(1)
+        return expr
+
+    if expr.op in ("lt", "gt"):
+        if _same_pure_expr(lhs, rhs):
+            return NConst(0)
+        return expr
+
+    if expr.op == "shl" and _is_zero(lhs):
+        return rhs
+
+    if expr.op == "shr" and _is_zero(lhs):
+        return rhs
+
+    return expr
+
+
 def _fold_node(expr: NExpr) -> NExpr:
-    """Fold callback for map_expr: evaluate constant builtins and NIte."""
+    """Fold callback for map_expr."""
     if isinstance(expr, NConst):
         return expr
     if isinstance(expr, NBuiltinCall):
-        if all(isinstance(a, NConst) for a in expr.args):
-            vals = tuple(a.value for a in expr.args if isinstance(a, NConst))
-            try:
-                return NConst(eval_pure_builtin(expr.op, vals))
-            except EvaluationError:
-                pass
+        return _fold_builtin(expr)
     if isinstance(expr, NIte):
         return simplify_ite(expr.cond, expr.if_true, expr.if_false)
     return expr
@@ -96,6 +202,7 @@ _FactExpr = NConst | NRef
 
 @dataclass(frozen=True, slots=True)
 class _RewriteResult:
+    defs: tuple[NFunctionDef, ...]
     stmts: tuple[NStmt, ...]
     env: _FactEnv
     falls_through: bool
@@ -105,19 +212,21 @@ class _RewriteResult:
         cls,
         stmts: tuple[NStmt, ...],
         env: _FactEnv,
+        defs: tuple[NFunctionDef, ...] = (),
     ) -> _RewriteResult:
-        return cls(stmts=stmts, env=env, falls_through=True)
+        return cls(defs=defs, stmts=stmts, env=env, falls_through=True)
 
     @classmethod
     def stop_with(
         cls,
         stmts: tuple[NStmt, ...],
         env: _FactEnv,
+        defs: tuple[NFunctionDef, ...] = (),
     ) -> _RewriteResult:
-        return cls(stmts=stmts, env=env, falls_through=False)
+        return cls(defs=defs, stmts=stmts, env=env, falls_through=False)
 
     def as_block(self) -> NBlock:
-        return NBlock(self.stmts)
+        return NBlock(defs=self.defs, stmts=self.stmts)
 
 
 class _FactEnv:
@@ -236,7 +345,14 @@ class _FactEnv:
         self._facts.pop(target, None)
 
 
+def _entry_env(returns: tuple[SymbolId, ...]) -> _FactEnv:
+    env = _FactEnv()
+    env.assign_zero_targets(returns)
+    return env
+
+
 def _rewrite_block(block: NBlock, env: _FactEnv) -> _RewriteResult:
+    defs = tuple(_rewrite_function_def(fdef) for fdef in block.defs)
     stmts: list[NStmt] = []
     current_env = env
     for idx, stmt in enumerate(block.stmts):
@@ -244,9 +360,8 @@ def _rewrite_block(block: NBlock, env: _FactEnv) -> _RewriteResult:
         stmts.extend(result.stmts)
         current_env = result.env
         if not result.falls_through:
-            stmts.extend(drop_dead_runtime_suffix(block.stmts[idx + 1 :]))
-            return _RewriteResult.stop_with(tuple(stmts), current_env)
-    return _RewriteResult.continue_with(tuple(stmts), current_env)
+            return _RewriteResult.stop_with(tuple(stmts), current_env, defs=defs)
+    return _RewriteResult.continue_with(tuple(stmts), current_env, defs=defs)
 
 
 def _rewrite_binding(stmt: NBind | NAssign, env: _FactEnv) -> _RewriteResult:
@@ -354,6 +469,7 @@ def _rewrite_stmt(stmt: NStmt, env: _FactEnv) -> _RewriteResult:
             fallthrough_envs.append(env)
 
         return _RewriteResult(
+            defs=(),
             stmts=(
                 NSwitch(
                     discriminant=disc,
@@ -383,9 +499,6 @@ def _rewrite_stmt(stmt: NStmt, env: _FactEnv) -> _RewriteResult:
             block_result.env,
         )
 
-    if isinstance(stmt, NFunctionDef):
-        return _RewriteResult.continue_with((stmt,), env)
-
     assert_never(stmt)
 
 
@@ -400,13 +513,16 @@ def _rewrite_for(stmt: NFor, env: _FactEnv) -> _RewriteResult:
         )
 
     pre_setup_env = init_result.env
-    loop_result: tuple[
-        _RewriteResult | None,
-        _FactEnv,
-        NExpr,
-        _RewriteResult,
-        _RewriteResult,
-    ] | None = None
+    loop_result: (
+        tuple[
+            _RewriteResult | None,
+            _FactEnv,
+            NExpr,
+            _RewriteResult,
+            _RewriteResult,
+        ]
+        | None
+    ) = None
 
     while True:
         working_env = pre_setup_env.copy()
@@ -440,8 +556,7 @@ def _rewrite_for(stmt: NFor, env: _FactEnv) -> _RewriteResult:
 
         backedge_envs: list[_FactEnv] = []
         if body_result.falls_through and post_result.falls_through:
-            if cond_truthy is not False:
-                backedge_envs.append(post_result.env)
+            backedge_envs.append(post_result.env)
 
         next_pre_setup = _FactEnv.join([init_result.env] + backedge_envs)
         if next_pre_setup.same_facts(pre_setup_env):
@@ -457,6 +572,7 @@ def _rewrite_for(stmt: NFor, env: _FactEnv) -> _RewriteResult:
     loop_exit_env = cond_env if loop_falls_through else _FactEnv()
 
     return _RewriteResult(
+        defs=(),
         stmts=(
             NFor(
                 init=init_result.as_block(),
@@ -485,19 +601,32 @@ def _loop_preamble_result(
     return _RewriteResult.stop_with(stmts, env)
 
 
+def _rewrite_function_def(fdef: NFunctionDef) -> NFunctionDef:
+    rewritten = _rewrite_block(fdef.body, _entry_env(fdef.returns))
+    return NFunctionDef(
+        name=fdef.name,
+        symbol_id=fdef.symbol_id,
+        params=fdef.params,
+        param_names=fdef.param_names,
+        returns=fdef.returns,
+        return_names=fdef.return_names,
+        body=rewritten.as_block(),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
 
 def propagate_constants(func: NormalizedFunction) -> NormalizedFunction:
-    """Fold constants, propagate live aliases, and simplify structured control flow."""
-    rewritten = _rewrite_block(func.body, _FactEnv())
+    """Fold constants, propagate live aliases, and prune dead control flow."""
+    rewritten = _rewrite_block(func.body, _entry_env(func.returns))
     return NormalizedFunction(
         name=func.name,
         params=func.params,
         param_names=func.param_names,
         returns=func.returns,
         return_names=func.return_names,
-        body=NBlock(rewritten.stmts),
+        body=rewritten.as_block(),
     )

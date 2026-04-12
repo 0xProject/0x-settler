@@ -385,3 +385,7 @@ def eval_pure_builtin(name: str, args: tuple[int, ...]) -> int:
             f"Unsupported builtin call {name!r} with {len(args)} arg(s)"
         )
     return u256(fn(args))
+
+
+def is_pure_builtin(name: str, arity: int) -> bool:
+    return (name, arity) in _PURE_BUILTIN_DISPATCH

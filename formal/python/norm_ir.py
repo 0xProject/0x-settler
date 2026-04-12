@@ -182,14 +182,15 @@ class NLeave:
 
 @dataclass(frozen=True)
 class NBlock:
-    """Brace-delimited ``{ ... }`` sequence of statements."""
+    """Brace-delimited scope with hoisted local defs and runtime statements."""
 
-    stmts: tuple[NStmt, ...]
+    defs: tuple[NFunctionDef, ...] = ()
+    stmts: tuple[NStmt, ...] = ()
 
 
 @dataclass(frozen=True)
 class NFunctionDef:
-    """Nested function definition (preserved for later inlining passes)."""
+    """Nested function definition, hoisted within its enclosing block."""
 
     name: str
     symbol_id: SymbolId
@@ -210,7 +211,6 @@ NStmt = Union[
     NFor,
     NLeave,
     NBlock,
-    NFunctionDef,
 ]
 
 

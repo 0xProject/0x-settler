@@ -36,6 +36,8 @@ from .norm_ir import (
 )
 from .yul_ast import SymbolId
 
+NBlockItem = NStmt | NFunctionDef
+
 # ---------------------------------------------------------------------------
 # Expression mapper (bottom-up)
 # ---------------------------------------------------------------------------
@@ -130,13 +132,17 @@ def expr_contains(expr: NExpr, predicate: Callable[[NExpr], bool]) -> bool:
 
 def for_each_stmt(
     block: NBlock,
-    f: Callable[[NStmt], None],
+    f: Callable[[NBlockItem], None],
     *,
     include_function_bodies: bool = False,
 ) -> None:
     """Call *f* on every statement in pre-order."""
 
     def walk(current: NBlock) -> None:
+        for fdef in current.defs:
+            f(fdef)
+            if include_function_bodies:
+                walk(fdef.body)
         for stmt in current.stmts:
             f(stmt)
             if isinstance(stmt, NIf):
@@ -154,11 +160,7 @@ def for_each_stmt(
                 walk(stmt.body)
             elif isinstance(stmt, NBlock):
                 walk(stmt)
-            elif isinstance(stmt, NFunctionDef) and include_function_bodies:
-                walk(stmt.body)
             elif isinstance(stmt, (NBind, NAssign, NExprEffect, NStore, NLeave)):
-                pass
-            elif isinstance(stmt, NFunctionDef):
                 pass
             else:
                 assert_never(stmt)
@@ -175,14 +177,14 @@ def collect_modified_in_block(block: NBlock) -> set[SymbolId]:
     """Collect all SymbolIds assigned (NBind/NAssign targets) in *block*."""
     out: set[SymbolId] = set()
 
-    def collect_stmt(stmt: NStmt) -> None:
+    def collect_stmt(stmt: NBlockItem) -> None:
         _collect_modified_stmt(stmt, out)
 
     for_each_stmt(block, collect_stmt)
     return out
 
 
-def _collect_modified_stmt(stmt: NStmt, out: set[SymbolId]) -> None:
+def _collect_modified_stmt(stmt: NBlockItem, out: set[SymbolId]) -> None:
     if isinstance(stmt, (NBind, NAssign)):
         out.update(stmt.targets)
 
@@ -195,14 +197,14 @@ def collect_reassigned_in_block(block: NBlock) -> set[SymbolId]:
     """
     out: set[SymbolId] = set()
 
-    def collect_stmt(stmt: NStmt) -> None:
+    def collect_stmt(stmt: NBlockItem) -> None:
         _collect_reassigned_stmt(stmt, out)
 
     for_each_stmt(block, collect_stmt)
     return out
 
 
-def _collect_reassigned_stmt(stmt: NStmt, out: set[SymbolId]) -> None:
+def _collect_reassigned_stmt(stmt: NBlockItem, out: set[SymbolId]) -> None:
     if isinstance(stmt, NAssign):
         out.update(stmt.targets)
 
@@ -214,7 +216,7 @@ def collect_function_defs(block: NBlock) -> list[NFunctionDef]:
     """
     out: list[NFunctionDef] = []
 
-    def collect_stmt(stmt: NStmt) -> None:
+    def collect_stmt(stmt: NBlockItem) -> None:
         if isinstance(stmt, NFunctionDef):
             out.append(stmt)
 
@@ -244,7 +246,7 @@ def max_symbol_id(func: NormalizedFunction | NFunctionDef) -> int:
         elif isinstance(e, NLocalCall):
             _check(e.symbol_id)
 
-    def visit_stmt(stmt: NStmt) -> None:
+    def visit_stmt(stmt: NBlockItem) -> None:
         if isinstance(stmt, NBind):
             for sid in stmt.targets:
                 _check(sid)
@@ -292,10 +294,9 @@ def map_stmt(
     *,
     map_expr_fn: Callable[[NExpr], NExpr],
     map_block_fn: Callable[[NBlock], NBlock],
-    map_bind_targets: (
-        Callable[[tuple[SymbolId, ...]], tuple[SymbolId, ...]] | None
-    ) = None,
-    recurse_fdefs: bool = False,
+    map_bind_targets: Callable[[tuple[SymbolId, ...]], tuple[SymbolId, ...]] | None = (
+        None
+    ),
 ) -> NStmt:
     """Map expressions and recurse into sub-blocks structurally.
 
@@ -307,8 +308,6 @@ def map_stmt(
     ``NBind``/``NAssign``.  When *None*, targets pass through
     unchanged.
 
-    *recurse_fdefs* controls whether ``NFunctionDef`` bodies are
-    recursed into (preserving all other fields).
     """
 
     def _map_block_or_none(block: NBlock | None) -> NBlock | None:
@@ -358,19 +357,25 @@ def map_stmt(
         return stmt
     if isinstance(stmt, NBlock):
         return map_block_fn(stmt)
-    if isinstance(stmt, NFunctionDef):
-        if recurse_fdefs:
-            return NFunctionDef(
-                name=stmt.name,
-                symbol_id=stmt.symbol_id,
-                params=stmt.params,
-                param_names=stmt.param_names,
-                returns=stmt.returns,
-                return_names=stmt.return_names,
-                body=map_block_fn(stmt.body),
-            )
-        return stmt
     assert_never(stmt)
+
+
+def map_function_def(
+    fdef: NFunctionDef,
+    *,
+    map_block_fn: Callable[[NBlock], NBlock],
+) -> NFunctionDef:
+    """Map the body of a nested function definition structurally."""
+
+    return NFunctionDef(
+        name=fdef.name,
+        symbol_id=fdef.symbol_id,
+        params=fdef.params,
+        param_names=fdef.param_names,
+        returns=fdef.returns,
+        return_names=fdef.return_names,
+        body=map_block_fn(fdef.body),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -429,7 +434,7 @@ def freshen_function_subtree(
 def _collect_declared_ids(block: NBlock, out: set[SymbolId]) -> None:
     """Collect all SymbolIds declared in a block (recursive)."""
 
-    def collect_stmt(stmt: NStmt) -> None:
+    def collect_stmt(stmt: NBlockItem) -> None:
         if isinstance(stmt, NBind):
             out.update(stmt.targets)
         elif isinstance(stmt, NFunctionDef):
@@ -441,27 +446,33 @@ def _collect_declared_ids(block: NBlock, out: set[SymbolId]) -> None:
 
 
 def _freshen_block(block: NBlock, id_map: dict[SymbolId, SymbolId]) -> NBlock:
-    return NBlock(tuple(_freshen_stmt(s, id_map) for s in block.stmts))
+    return NBlock(
+        defs=tuple(_freshen_function_def(fdef, id_map) for fdef in block.defs),
+        stmts=tuple(_freshen_stmt(stmt, id_map) for stmt in block.stmts),
+    )
 
 
 def _freshen_stmt(stmt: NStmt, m: dict[SymbolId, SymbolId]) -> NStmt:
-    # NFunctionDef needs full field remapping (symbol_id, params, returns)
-    # which map_stmt's map_bind_targets doesn't cover, so handle it directly.
-    if isinstance(stmt, NFunctionDef):
-        return NFunctionDef(
-            name=stmt.name,
-            symbol_id=m.get(stmt.symbol_id, stmt.symbol_id),
-            params=tuple(m.get(s, s) for s in stmt.params),
-            param_names=stmt.param_names,
-            returns=tuple(m.get(s, s) for s in stmt.returns),
-            return_names=stmt.return_names,
-            body=_freshen_block(stmt.body, m),
-        )
     return map_stmt(
         stmt,
         map_expr_fn=lambda e: _freshen_expr(e, m),
         map_block_fn=lambda b: _freshen_block(b, m),
         map_bind_targets=lambda ts: tuple(m.get(s, s) for s in ts),
+    )
+
+
+def _freshen_function_def(
+    fdef: NFunctionDef,
+    m: dict[SymbolId, SymbolId],
+) -> NFunctionDef:
+    return NFunctionDef(
+        name=fdef.name,
+        symbol_id=m.get(fdef.symbol_id, fdef.symbol_id),
+        params=tuple(m.get(s, s) for s in fdef.params),
+        param_names=fdef.param_names,
+        returns=tuple(m.get(s, s) for s in fdef.returns),
+        return_names=fdef.return_names,
+        body=_freshen_block(fdef.body, m),
     )
 
 

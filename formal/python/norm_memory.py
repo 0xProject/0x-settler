@@ -139,7 +139,7 @@ def _reject_memory_writes_in_stmt(stmt: NStmt, context: str) -> None:
     if isinstance(stmt, NBlock):
         _reject_memory_writes_in_block(stmt, context)
         return
-    if isinstance(stmt, (NFunctionDef, NLeave)):
+    if isinstance(stmt, NLeave):
         return
     assert_never(stmt)
 
@@ -234,7 +234,7 @@ def _lower_block(
     out: list[NStmt] = []
     for stmt in block.stmts:
         _lower_stmt(stmt, ctx, env, out)
-    return NBlock(tuple(out))
+    return NBlock(defs=block.defs, stmts=tuple(out))
 
 
 def _lower_stmt(
@@ -330,7 +330,7 @@ def _lower_stmt(
             "for-loops before memory lowering."
         )
 
-    if isinstance(stmt, (NLeave, NFunctionDef)):
+    if isinstance(stmt, NLeave):
         out.append(stmt)
         return
 

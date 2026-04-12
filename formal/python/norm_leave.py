@@ -28,8 +28,7 @@ from .norm_ir import (
     NSwitch,
     NSwitchCase,
 )
-from .norm_optimize_shared import rewrite_runtime_suffix_preserving_hoisted_defs
-from .norm_walk import SymbolAllocator, for_each_stmt, max_symbol_id
+from .norm_walk import NBlockItem, SymbolAllocator, for_each_stmt, max_symbol_id
 from .yul_ast import SymbolId
 
 
@@ -58,7 +57,7 @@ def lower_leave(func: NormalizedFunction) -> NormalizedFunction:
         param_names=func.param_names,
         returns=func.returns,
         return_names=func.return_names,
-        body=NBlock(tuple(out)),
+        body=NBlock(defs=lowered_body.defs, stmts=tuple(out)),
     )
 
 
@@ -68,7 +67,10 @@ def lower_leave_block(block: NBlock, did_leave_id: SymbolId) -> NBlock:
     This is the canonical subtree transformation shared by both the
     top-level normalization pipeline and block inlining.
     """
-    return NBlock(tuple(_lower_leave_stmt_list(block.stmts, did_leave_id)))
+    return NBlock(
+        defs=block.defs,
+        stmts=tuple(_lower_leave_stmt_list(block.stmts, did_leave_id)),
+    )
 
 
 def _lower_leave_stmt_list(
@@ -80,8 +82,6 @@ def _lower_leave_stmt_list(
     for idx, stmt in enumerate(stmts):
         lowered = _lower_leave_stmt(stmt, did_leave_id)
         out.append(lowered)
-        if isinstance(lowered, NFunctionDef):
-            continue
         if _stmt_sets_leave_flag(lowered, did_leave_id):
             out.extend(_guard_runtime_suffix(stmts[idx + 1 :], did_leave_id))
             break
@@ -91,7 +91,7 @@ def _lower_leave_stmt_list(
 def _contains_leave(block: NBlock) -> bool:
     found = False
 
-    def visit(stmt: NStmt) -> None:
+    def visit(stmt: NBlockItem) -> None:
         nonlocal found
         if isinstance(stmt, NLeave):
             found = True
@@ -152,7 +152,7 @@ def _lower_leave_stmt(stmt: NStmt, did_leave_id: SymbolId) -> NStmt:
             post=_guard_runtime_block(lowered_post, did_leave_id),
             body=lower_leave_block(stmt.body, did_leave_id),
         )
-    if isinstance(stmt, (NBind, NAssign, NExprEffect, NStore, NFunctionDef)):
+    if isinstance(stmt, (NBind, NAssign, NExprEffect, NStore)):
         return stmt
     assert_never(stmt)
 
@@ -161,18 +161,17 @@ def _guard_runtime_suffix(
     stmts: tuple[NStmt, ...],
     did_leave_id: SymbolId,
 ) -> list[NStmt]:
-    """Guard runtime statement segments while keeping function defs visible."""
-    def rewrite_runtime(chunk: tuple[NStmt, ...]) -> tuple[NStmt, ...]:
-        lowered = _lower_leave_stmt_list(chunk, did_leave_id)
-        return (_guard_stmt_block(NBlock(tuple(lowered)), did_leave_id),)
-
-    return rewrite_runtime_suffix_preserving_hoisted_defs(stmts, rewrite_runtime)
+    """Guard the runtime suffix after a statement that executes ``leave``."""
+    if not stmts:
+        return []
+    lowered = _lower_leave_stmt_list(stmts, did_leave_id)
+    return [_guard_stmt_block(NBlock(stmts=tuple(lowered)), did_leave_id)]
 
 
 def _guard_runtime_block(block: NBlock, did_leave_id: SymbolId) -> NBlock:
     if not block.stmts:
         return block
-    return NBlock((_guard_stmt_block(block, did_leave_id),))
+    return NBlock(stmts=(_guard_stmt_block(block, did_leave_id),))
 
 
 def _guard_stmt_block(block: NBlock, did_leave_id: SymbolId) -> NIf:
@@ -193,12 +192,10 @@ def _not_did_leave(did_leave_id: SymbolId) -> NBuiltinCall:
 def _stmt_sets_leave_flag(stmt: NStmt, did_leave_id: SymbolId) -> bool:
     found = False
 
-    def visit(sub_stmt: NStmt) -> None:
+    def visit(sub_stmt: NBlockItem) -> None:
         nonlocal found
         if isinstance(sub_stmt, NAssign) and did_leave_id in sub_stmt.targets:
             found = True
 
-    if isinstance(stmt, NFunctionDef):
-        return False
-    for_each_stmt(NBlock((stmt,)), visit)
+    for_each_stmt(NBlock(stmts=(stmt,)), visit)
     return found

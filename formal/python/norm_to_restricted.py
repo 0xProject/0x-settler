@@ -225,9 +225,6 @@ def _lower_stmt(
         out.extend(_lower_block(stmt, names, visible_state, modified_state))
         return
 
-    if isinstance(stmt, NFunctionDef):
-        return
-
     if isinstance(stmt, NLeave):
         raise ParseError("NLeave in restricted IR lowering — should have been inlined")
 

@@ -23,10 +23,9 @@ from .norm_ir import (
 )
 from .norm_leave import lower_leave
 from .norm_memory import lower_memory
-from .norm_simplify import simplify_normalized
 from .norm_to_restricted import lower_to_restricted
 from .norm_validate import validate_restricted_boundary
-from .norm_walk import SymbolAllocator, map_expr, map_stmt
+from .norm_walk import SymbolAllocator, map_expr, map_function_def, map_stmt
 from .restricted_ir import RestrictedFunction
 from .restricted_to_model import to_function_models
 from .selection import (
@@ -128,17 +127,15 @@ def _lower_target(
         ),
     )
 
-    normalized = simplify_normalized(normalized)
     normalized = lower_leave(normalized)
     normalized = propagate_constants(normalized)
-    normalized = simplify_normalized(normalized)
     validate_restricted_boundary(
         normalized,
         allowed_model_calls=allowed_model_calls,
         allow_memory_ops=True,
     )
     normalized = lower_memory(normalized)
-    normalized = simplify_normalized(normalized)
+    normalized = propagate_constants(normalized)
     validate_restricted_boundary(
         normalized,
         allowed_model_calls=allowed_model_calls,
@@ -226,20 +223,18 @@ def _prepare_helper(
     local_selected_map: dict[SymbolId, str],
     top_level_selected_map: dict[str, str],
 ) -> NFunctionDef:
-    """Normalize, simplify, constprop, and rewrite a helper for inlining."""
+    """Normalize, optimize, and rewrite a helper for inlining."""
     normalized = normalize_function(helper.func, helper.resolution)
     symbol_id = helper.resolution.declarations[helper.func.name_span]
-    simplified = simplify_normalized(normalized)
-    simplified = propagate_constants(simplified)
-    simplified = simplify_normalized(simplified)
+    optimized = propagate_constants(normalized)
     fdef = NFunctionDef(
-        name=simplified.name,
+        name=optimized.name,
         symbol_id=symbol_id,
-        params=simplified.params,
-        param_names=simplified.param_names,
-        returns=simplified.returns,
-        return_names=simplified.return_names,
-        body=simplified.body,
+        params=optimized.params,
+        param_names=optimized.param_names,
+        returns=optimized.returns,
+        return_names=optimized.return_names,
+        body=optimized.body,
     )
     return _rewrite_selected_calls(
         fdef,
@@ -283,15 +278,17 @@ def _rewrite_selected_calls(
 
     def rw_block(block: NBlock) -> NBlock:
         return NBlock(
-            tuple(
+            defs=tuple(
+                map_function_def(fdef, map_block_fn=rw_block) for fdef in block.defs
+            ),
+            stmts=tuple(
                 map_stmt(
                     s,
                     map_expr_fn=lambda e: map_expr(e, rw),
                     map_block_fn=rw_block,
-                    recurse_fdefs=True,
                 )
                 for s in block.stmts
-            )
+            ),
         )
 
     new_body = rw_block(func.body)

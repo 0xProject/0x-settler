@@ -62,11 +62,7 @@ class _EvalCtx:
 
 
 def _collect_local_funcs(block: NBlock) -> dict[SymbolId, NFunctionDef]:
-    result: dict[SymbolId, NFunctionDef] = {}
-    for stmt in block.stmts:
-        if isinstance(stmt, NFunctionDef):
-            result[stmt.symbol_id] = stmt
-    return result
+    return {fdef.symbol_id: fdef for fdef in block.defs}
 
 
 def evaluate_normalized(
@@ -117,9 +113,8 @@ def evaluate_normalized(
 
 
 def _exec_block(ctx: _EvalCtx, block: NBlock) -> None:
-    for stmt in block.stmts:
-        if isinstance(stmt, NFunctionDef):
-            ctx.local_funcs[stmt.symbol_id] = stmt
+    for fdef in block.defs:
+        ctx.local_funcs[fdef.symbol_id] = fdef
     for stmt in block.stmts:
         _exec_stmt(ctx, stmt)
 
@@ -192,9 +187,6 @@ def _exec_stmt(ctx: _EvalCtx, stmt: NStmt) -> None:
 
     if isinstance(stmt, NBlock):
         _exec_block(ctx, stmt)
-        return
-
-    if isinstance(stmt, NFunctionDef):
         return
 
     assert_never(stmt)

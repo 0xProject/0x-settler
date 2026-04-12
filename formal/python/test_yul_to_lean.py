@@ -52,7 +52,6 @@ from .norm_classify import (
 from .norm_constprop import fold_expr, propagate_constants
 from .norm_inline import inline_pure_helpers
 from .norm_memory import lower_memory
-from .norm_simplify import simplify_normalized
 from .norm_to_restricted import lower_to_restricted
 from .restricted_ir import RestrictedFunction
 from .restricted_to_model import to_function_models
@@ -2293,16 +2292,16 @@ class SimplifyIteTest(unittest.TestCase):
         self.assertEqual(evaluate_function_model(model, (1,)), (7,))
 
 
-class SimplifyNormalizedTest(unittest.TestCase):
-    def _simplify(self, yul: str) -> norm_ir.NormalizedFunction:
+class NormalizedOptimizerTest(unittest.TestCase):
+    def _optimize(self, yul: str) -> norm_ir.NormalizedFunction:
         tokens = tokenize_yul(yul)
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        return simplify_normalized(nf)
+        return propagate_constants(nf)
 
     def test_preserves_hoisted_helper_after_terminating_runtime_stmt(self) -> None:
-        nf = self._simplify("""
+        nf = self._optimize("""
             function f() -> z {
                 z := g()
                 leave
@@ -2310,12 +2309,10 @@ class SimplifyNormalizedTest(unittest.TestCase):
             }
         """)
         self.assertEqual(evaluate_normalized(nf, ()), (7,))
-        self.assertTrue(
-            any(isinstance(stmt, norm_ir.NFunctionDef) for stmt in nf.body.stmts)
-        )
+        self.assertTrue(nf.body.defs)
 
     def test_eliminates_constant_false_for_loop(self) -> None:
-        nf = self._simplify("""
+        nf = self._optimize("""
             function f() -> z {
                 z := 1
                 for { } 0 { } {
@@ -4063,7 +4060,7 @@ class TranslatorBehaviorTest(unittest.TestCase):
         expected_helper_names: set[str] = {"helper"}
         self.assertEqual(helper_names, expected_helper_names)
 
-    def test_translate_yul_to_models_accepts_conditionally_constant_memory_address(
+    def test_translate_yul_to_models_accepts_constant_address_from_identity_fold(
         self,
     ) -> None:
         config = make_model_config(("f",))
@@ -10225,9 +10222,9 @@ class NormalizeStructureTest(unittest.TestCase):
                 z := g(x)
             }
         """)
-        # body has: NFunctionDef(g), NAssign(z := g(x))
-        self.assertIsInstance(nf.body.stmts[1], norm_ir.NAssign)
-        assign = cast(norm_ir.NAssign, nf.body.stmts[1])
+        self.assertEqual(len(nf.body.defs), 1)
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
         self.assertIsInstance(assign.expr, norm_ir.NLocalCall)
         call = cast(norm_ir.NLocalCall, assign.expr)
         self.assertEqual(call.name, "g")
@@ -10261,9 +10258,8 @@ class NormalizeStructureTest(unittest.TestCase):
                 z := g(x)
             }
         """)
-        fdef = nf.body.stmts[0]
-        self.assertIsInstance(fdef, norm_ir.NFunctionDef)
-        fdef = cast(norm_ir.NFunctionDef, fdef)
+        self.assertEqual(len(nf.body.defs), 1)
+        fdef = nf.body.defs[0]
         self.assertEqual(fdef.name, "g")
         self.assertEqual(len(fdef.params), 1)
         self.assertEqual(len(fdef.returns), 1)
@@ -10434,9 +10430,8 @@ class ClassifySummaryTest(unittest.TestCase):
         func = SyntaxParser(tokens).parse_function()
         result = resolve_function(func, builtins=EVM_BUILTINS)
         nf = normalize_function(func, result)
-        for stmt in nf.body.stmts:
-            if isinstance(stmt, norm_ir.NFunctionDef):
-                return stmt
+        if nf.body.defs:
+            return nf.body.defs[0]
         raise AssertionError("No NFunctionDef found in body")
 
     def test_pure_arithmetic_helper(self) -> None:
@@ -10534,12 +10529,12 @@ class ClassifyInlineTest(unittest.TestCase):
         classifications: dict[yul_ast.SymbolId, InlineClassification],
         out: dict[str, InlineClassification],
     ) -> None:
+        for fdef in block.defs:
+            if fdef.symbol_id in classifications:
+                out[fdef.name] = classifications[fdef.symbol_id]
+            self._collect_name_map(fdef.body, classifications, out)
         for stmt in block.stmts:
-            if isinstance(stmt, norm_ir.NFunctionDef):
-                if stmt.symbol_id in classifications:
-                    out[stmt.name] = classifications[stmt.symbol_id]
-                self._collect_name_map(stmt.body, classifications, out)
-            elif isinstance(stmt, norm_ir.NIf):
+            if isinstance(stmt, norm_ir.NIf):
                 self._collect_name_map(stmt.then_body, classifications, out)
             elif isinstance(stmt, norm_ir.NSwitch):
                 for case in stmt.cases:
@@ -10548,6 +10543,8 @@ class ClassifyInlineTest(unittest.TestCase):
                     self._collect_name_map(stmt.default, classifications, out)
             elif isinstance(stmt, norm_ir.NFor):
                 self._collect_name_map(stmt.init, classifications, out)
+                if stmt.condition_setup is not None:
+                    self._collect_name_map(stmt.condition_setup, classifications, out)
                 self._collect_name_map(stmt.post, classifications, out)
                 self._collect_name_map(stmt.body, classifications, out)
             elif isinstance(stmt, norm_ir.NBlock):
@@ -10626,10 +10623,9 @@ class ClassifyInlineTest(unittest.TestCase):
         nf_f = normalize_function(funcs[1], results["f"])
         classifications = classify_function_scope(nf_f)
         name_map: dict[str, InlineClassification] = {}
-        for stmt in nf_f.body.stmts:
-            if isinstance(stmt, norm_ir.NFunctionDef):
-                if stmt.symbol_id in classifications:
-                    name_map[stmt.name] = classifications[stmt.symbol_id]
+        for fdef in nf_f.body.defs:
+            if fdef.symbol_id in classifications:
+                name_map[fdef.name] = classifications[fdef.symbol_id]
         self.assertFalse(name_map["g"].is_pure)
 
     def test_mstore_as_expr_effect_not_flagged_as_unsupported(self) -> None:
@@ -10829,8 +10825,8 @@ class InlinePureTest(unittest.TestCase):
             }
         """)
         # g() is deferred (memory effect) — should remain as NExprEffect(NLocalCall).
-        self.assertIsInstance(nf.body.stmts[1], norm_ir.NExprEffect)
-        effect_stmt = cast(norm_ir.NExprEffect, nf.body.stmts[1])
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NExprEffect)
+        effect_stmt = cast(norm_ir.NExprEffect, nf.body.stmts[0])
         self.assertIsInstance(effect_stmt.expr, norm_ir.NLocalCall)
 
     def test_simultaneous_multi_assignment_preserved(self) -> None:
@@ -11100,6 +11096,30 @@ class ConstPropTest(unittest.TestCase):
         assign = cast(norm_ir.NAssign, nf.body.stmts[0])
         self.assertEqual(assign.expr, norm_ir.NConst(7))
 
+    def test_return_variable_zero_fact_eliminates_dead_branch(self) -> None:
+        nf = self._prop("""
+            function f() -> z {
+                if z { z := 7 }
+                z := 1
+            }
+        """)
+        self.assertEqual(len(nf.body.stmts), 1)
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
+        self.assertEqual(assign.expr, norm_ir.NConst(1))
+
+    def test_absorbing_zero_fold_eliminates_dead_branch(self) -> None:
+        nf = self._prop("""
+            function f(x) -> z {
+                if mul(x, 0) { z := 7 }
+                z := 1
+            }
+        """)
+        self.assertEqual(len(nf.body.stmts), 1)
+        self.assertIsInstance(nf.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, nf.body.stmts[0])
+        self.assertEqual(assign.expr, norm_ir.NConst(1))
+
     def test_switch_constant_fold(self) -> None:
         """Constant switch selects the live arm during constprop."""
         nf = self._prop("""
@@ -11287,8 +11307,25 @@ class ConstPropTest(unittest.TestCase):
                 z := g(x)
             }
         """)
-        has_fdef = any(isinstance(s, norm_ir.NFunctionDef) for s in nf.body.stmts)
-        self.assertTrue(has_fdef)
+        self.assertEqual(len(nf.body.defs), 1)
+
+    def test_function_def_body_is_optimized_recursively(self) -> None:
+        nf = self._prop("""
+            function f(x) -> z {
+                function g(a) -> b {
+                    if 0 { b := 9 }
+                    b := add(a, 1)
+                }
+                z := g(x)
+            }
+        """)
+        fdef = nf.body.defs[0]
+        self.assertEqual(len(fdef.body.stmts), 1)
+        self.assertIsInstance(fdef.body.stmts[0], norm_ir.NAssign)
+        assign = cast(norm_ir.NAssign, fdef.body.stmts[0])
+        self.assertIsInstance(assign.expr, norm_ir.NBuiltinCall)
+        call = cast(norm_ir.NBuiltinCall, assign.expr)
+        self.assertEqual(call.op, "add")
 
     def test_preserves_hoisted_helper_after_exhaustive_terminating_switch(self) -> None:
         nf = self._prop("""
@@ -11360,15 +11397,15 @@ class ConstPropTest(unittest.TestCase):
             returns=(z_sid,),
             return_names=("z",),
             body=norm_ir.NBlock(
-                (
+                stmts=(
                     norm_ir.NFor(
-                        init=norm_ir.NBlock(()),
+                        init=norm_ir.NBlock(stmts=()),
                         condition=norm_ir.NBuiltinCall(
                             "eq",
                             (_nref("t", sid=2), norm_ir.NConst(7)),
                         ),
                         condition_setup=norm_ir.NBlock(
-                            (
+                            stmts=(
                                 norm_ir.NAssign(
                                     targets=(t_sid,),
                                     target_names=("t",),
@@ -11376,9 +11413,9 @@ class ConstPropTest(unittest.TestCase):
                                 ),
                             )
                         ),
-                        post=norm_ir.NBlock(()),
+                        post=norm_ir.NBlock(stmts=()),
                         body=norm_ir.NBlock(
-                            (
+                            stmts=(
                                 norm_ir.NAssign(
                                     targets=(z_sid,),
                                     target_names=("z",),
@@ -11407,12 +11444,12 @@ class ConstPropTest(unittest.TestCase):
             returns=(z_sid,),
             return_names=("z",),
             body=norm_ir.NBlock(
-                (
+                stmts=(
                     norm_ir.NFor(
-                        init=norm_ir.NBlock(()),
+                        init=norm_ir.NBlock(stmts=()),
                         condition=norm_ir.NConst(0),
                         condition_setup=norm_ir.NBlock(
-                            (
+                            stmts=(
                                 norm_ir.NAssign(
                                     targets=(z_sid,),
                                     target_names=("z",),
@@ -11420,9 +11457,9 @@ class ConstPropTest(unittest.TestCase):
                                 ),
                             )
                         ),
-                        post=norm_ir.NBlock(()),
+                        post=norm_ir.NBlock(stmts=()),
                         body=norm_ir.NBlock(
-                            (
+                            stmts=(
                                 norm_ir.NAssign(
                                     targets=(z_sid,),
                                     target_names=("z",),
@@ -11435,7 +11472,9 @@ class ConstPropTest(unittest.TestCase):
             ),
         )
         prop = propagate_constants(nf)
-        self.assertFalse(any(isinstance(stmt, norm_ir.NFor) for stmt in prop.body.stmts))
+        self.assertFalse(
+            any(isinstance(stmt, norm_ir.NFor) for stmt in prop.body.stmts)
+        )
         self.assertEqual(evaluate_normalized(prop, ()), (7,))
 
     def test_for_loop_init_leave_eliminates_loop_and_outer_suffix(self) -> None:
@@ -11464,6 +11503,39 @@ class ConstPropTest(unittest.TestCase):
         )[0]
         self.assertEqual(evaluate_function_model(model, ()), (1,))
 
+    def test_translate_yul_to_models_accepts_dead_branch_from_return_zero_fact(
+        self,
+    ) -> None:
+        config = make_model_config(("f",), exact_yul_names={"f": "f"})
+        model = translate_yul_to_models(
+            """
+                function f() -> z {
+                    if z { ghost() }
+                    z := 1
+                }
+            """,
+            config,
+            optimize=False,
+        )[0]
+        self.assertEqual(evaluate_function_model(model, ()), (1,))
+
+    def test_translate_yul_to_models_accepts_conditionally_constant_memory_address(
+        self,
+    ) -> None:
+        config = make_model_config(("f",), exact_yul_names={"f": "f"})
+        model = translate_yul_to_models(
+            """
+                function f(y) -> z {
+                    let ptr := add(64, sub(y, y))
+                    mstore(ptr, 7)
+                    z := mload(64)
+                }
+            """,
+            config,
+            optimize=False,
+        )[0]
+        self.assertEqual(evaluate_function_model(model, (5,)), (7,))
+
 
 class InlineArchitectureTest(unittest.TestCase):
     """Coverage for the block-based inliner architecture."""
@@ -11476,7 +11548,7 @@ class InlineArchitectureTest(unittest.TestCase):
         return inline_pure_helpers(nf)
 
     def _has_local_call(self, block: norm_ir.NBlock, name: str) -> bool:
-        """Check if any NLocalCall to *name* remains anywhere in the IR tree."""
+        """Check if any live executable ``NLocalCall`` to *name* remains."""
         from .norm_walk import for_each_expr
 
         found = False
@@ -11517,8 +11589,6 @@ class InlineArchitectureTest(unittest.TestCase):
                 walk_block(stmt.body)
             elif isinstance(stmt, norm_ir.NBlock):
                 walk_block(stmt)
-            elif isinstance(stmt, norm_ir.NFunctionDef):
-                pass  # Structural — not executed, don't check
 
         walk_block(block)
         return found
@@ -11611,14 +11681,14 @@ class InlineArchitectureTest(unittest.TestCase):
         self, block: norm_ir.NBlock, out: list[yul_ast.SymbolId]
     ) -> None:
         """Recursively collect ALL declaration SymbolIds from the IR tree."""
+        for fdef in block.defs:
+            out.append(fdef.symbol_id)
+            out.extend(fdef.params)
+            out.extend(fdef.returns)
+            self._collect_all_decl_ids(fdef.body, out)
         for stmt in block.stmts:
             if isinstance(stmt, norm_ir.NBind):
                 out.extend(stmt.targets)
-            elif isinstance(stmt, norm_ir.NFunctionDef):
-                out.append(stmt.symbol_id)
-                out.extend(stmt.params)
-                out.extend(stmt.returns)
-                self._collect_all_decl_ids(stmt.body, out)
             elif isinstance(stmt, norm_ir.NIf):
                 self._collect_all_decl_ids(stmt.then_body, out)
             elif isinstance(stmt, norm_ir.NSwitch):

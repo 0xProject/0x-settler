@@ -2,7 +2,7 @@
 Pre-restricted validation for normalized IR.
 
 This pass defines the public acceptance boundary for the staged path.
-It runs after inlining + simplification and before restricted lowering,
+It runs after inlining + normalized-IR optimization and before restricted lowering,
 so low-level lowering errors do not become the user-facing contract.
 """
 
@@ -200,12 +200,6 @@ def _validate_stmt(
 
     if isinstance(stmt, NLeave):
         raise ParseError("NLeave in restricted IR lowering — should have been inlined")
-
-    if isinstance(stmt, NFunctionDef):
-        # Local helper definitions are structural. Validation focuses on the
-        # executable path; any still-live use of a local helper is rejected via
-        # NLocalCall in expression position.
-        return
 
     if isinstance(stmt, NBlock):
         _validate_block(

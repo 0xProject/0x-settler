@@ -54,6 +54,7 @@ from .norm_walk import (
     collect_function_defs,
     freshen_function_subtree,
     map_expr,
+    map_function_def,
     map_stmt,
     max_symbol_id,
 )
@@ -167,12 +168,12 @@ def _normalize_switch_to_if(stmt: NSwitch) -> NStmt:
     Safe because the classifier rejects effectful conditions.
     """
     disc = stmt.discriminant
-    tail: NBlock = stmt.default if stmt.default is not None else NBlock(())
+    tail: NBlock = stmt.default if stmt.default is not None else NBlock(stmts=())
     for case in reversed(stmt.cases):
         cond: NExpr = NBuiltinCall(op="eq", args=(disc, NConst(case.value.value)))
         inv_cond: NExpr = NBuiltinCall(op="iszero", args=(cond,))
         tail = NBlock(
-            (
+            stmts=(
                 NIf(condition=cond, then_body=case.body),
                 NIf(condition=inv_cond, then_body=tail),
             )
@@ -181,6 +182,9 @@ def _normalize_switch_to_if(stmt: NSwitch) -> NStmt:
 
 
 def _pre_normalize_block(block: NBlock) -> NBlock:
+    defs = tuple(
+        map_function_def(fdef, map_block_fn=_pre_normalize_block) for fdef in block.defs
+    )
     stmts: list[NStmt] = []
     for stmt in block.stmts:
         if isinstance(stmt, NSwitch):
@@ -194,21 +198,9 @@ def _pre_normalize_block(block: NBlock) -> NBlock:
             )
         elif isinstance(stmt, NBlock):
             stmts.append(_pre_normalize_block(stmt))
-        elif isinstance(stmt, NFunctionDef):
-            stmts.append(
-                NFunctionDef(
-                    name=stmt.name,
-                    symbol_id=stmt.symbol_id,
-                    params=stmt.params,
-                    param_names=stmt.param_names,
-                    returns=stmt.returns,
-                    return_names=stmt.return_names,
-                    body=_pre_normalize_block(stmt.body),
-                )
-            )
         else:
             stmts.append(stmt)
-    return NBlock(tuple(stmts))
+    return NBlock(defs=defs, stmts=tuple(stmts))
 
 
 # ---------------------------------------------------------------------------
@@ -386,9 +378,8 @@ def _symex_stmt(
                 subst[sid] = simplify_ite(cond, if_subst[sid], pre_val)
         return
 
-    if isinstance(stmt, (NFunctionDef, NBlock)):
-        if isinstance(stmt, NBlock):
-            _symex_block(stmt, subst, ctx, depth)
+    if isinstance(stmt, NBlock):
+        _symex_block(stmt, subst, ctx, depth)
         return
 
     if isinstance(stmt, (NFor, NLeave, NExprEffect, NSwitch, NStore)):
@@ -462,7 +453,8 @@ def _block_inline(
 
     # Clone body with param substitution + leave rewriting.
     cloned = _clone_body_for_block_inline(fresh.body, param_subst, did_leave_id)
-    prelude.extend(cloned)
+    if cloned.defs or cloned.stmts:
+        prelude.append(cloned)
 
     results = tuple(NRef(symbol_id=rid, name=f"_ret_{rid._id}") for rid in ret_ids)
     return InlineFragment(prelude=tuple(prelude), results=results)
@@ -472,7 +464,7 @@ def _clone_body_for_block_inline(
     block: NBlock,
     param_subst: dict[SymbolId, NExpr],
     did_leave_id: SymbolId,
-) -> list[NStmt]:
+) -> NBlock:
     """Clone a freshened helper body, substituting params and rewriting leave.
 
     The body must already be freshened via ``freshen_function_subtree``.
@@ -485,7 +477,7 @@ def _clone_body_for_block_inline(
     # Apply param substitution to the whole block first.
     subst_body = _subst_block(block, param_subst)
 
-    return list(lower_leave_block(subst_body, did_leave_id).stmts)
+    return lower_leave_block(subst_body, did_leave_id)
 
 
 def _subst_block(block: NBlock, subst: dict[SymbolId, NExpr]) -> NBlock:
@@ -493,14 +485,15 @@ def _subst_block(block: NBlock, subst: dict[SymbolId, NExpr]) -> NBlock:
     if not subst:
         return block
     return NBlock(
-        tuple(
+        defs=block.defs,
+        stmts=tuple(
             map_stmt(
                 s,
                 map_expr_fn=lambda e: substitute_nexpr(e, subst),
                 map_block_fn=lambda b: _subst_block(b, subst),
             )
             for s in block.stmts
-        )
+        ),
     )
 
 
@@ -598,10 +591,11 @@ def _inline_in_expr_with_prelude(
 
             # Recursively rewrite BLOCK_INLINE preludes to inline nested calls.
             if strat == InlineStrategy.BLOCK_INLINE and frag.prelude:
-                prelude_block = NBlock(frag.prelude)
+                prelude_block = NBlock(stmts=frag.prelude)
                 _register_nested_defs(prelude_block, ctx)
                 rewritten = _rewrite_block(prelude_block, ctx)
-                pre.extend(rewritten.stmts)
+                if rewritten.defs or rewritten.stmts:
+                    pre.append(rewritten)
             else:
                 pre.extend(frag.prelude)
             if len(frag.results) == 1:
@@ -647,10 +641,11 @@ def _inline_in_expr_with_prelude(
                 else:
                     raise ParseError(f"Unknown strategy: {strat}")
                 if strat == InlineStrategy.BLOCK_INLINE and frag.prelude:
-                    prelude_block = NBlock(frag.prelude)
+                    prelude_block = NBlock(stmts=frag.prelude)
                     _register_nested_defs(prelude_block, ctx)
                     rewritten = _rewrite_block(prelude_block, ctx)
-                    pre.extend(rewritten.stmts)
+                    if rewritten.defs or rewritten.stmts:
+                        pre.append(rewritten)
                 else:
                     pre.extend(frag.prelude)
                 if len(frag.results) == 1:
@@ -696,7 +691,7 @@ def _rewrite_block(block: NBlock, ctx: _InlineCtx) -> NBlock:
     stmts: list[NStmt] = []
     for stmt in block.stmts:
         stmts.extend(_rewrite_stmt(stmt, ctx))
-    return NBlock(tuple(stmts))
+    return NBlock(defs=block.defs, stmts=tuple(stmts))
 
 
 def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
@@ -770,7 +765,10 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
             if existing_setup:
                 setup_stmts.extend(existing_setup.stmts)
             setup_stmts.extend(cond_pre)
-            cond_setup: NBlock | None = NBlock(tuple(setup_stmts))
+            cond_setup = NBlock(
+                defs=existing_setup.defs if existing_setup is not None else (),
+                stmts=tuple(setup_stmts),
+            )
         else:
             cond_setup = None
         return [
@@ -783,7 +781,7 @@ def _rewrite_stmt(stmt: NStmt, ctx: _InlineCtx) -> list[NStmt]:
             )
         ]
 
-    if isinstance(stmt, (NLeave, NFunctionDef)):
+    if isinstance(stmt, NLeave):
         return [stmt]
 
     if isinstance(stmt, NBlock):
@@ -861,10 +859,14 @@ def _rewrite_bind_or_assign(
             # Register freshened nested defs, then rewrite the prelude.
             prelude_stmts = list(frag.prelude)
             if strat == InlineStrategy.BLOCK_INLINE and prelude_stmts:
-                prelude_block = NBlock(tuple(prelude_stmts))
+                prelude_block = NBlock(stmts=tuple(prelude_stmts))
                 _register_nested_defs(prelude_block, ctx)
                 rewritten_prelude = _rewrite_block(prelude_block, ctx)
-                prelude_stmts = list(rewritten_prelude.stmts)
+                prelude_stmts = (
+                    [rewritten_prelude]
+                    if rewritten_prelude.defs or rewritten_prelude.stmts
+                    else []
+                )
 
             out: list[NStmt] = arg_pre + list(arg_binds) + prelude_stmts
 

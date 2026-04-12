@@ -79,10 +79,14 @@ def normalize_function(
 
 
 def _lower_block(block: Block, r: ResolutionResult) -> NBlock:
+    defs: list[NFunctionDef] = []
     stmts: list[NStmt] = []
     for stmt in block.stmts:
+        if isinstance(stmt, FunctionDefStmt):
+            defs.append(_lower_function_def(stmt.func, r))
+            continue
         stmts.append(_lower_stmt(stmt, r))
-    return NBlock(tuple(stmts))
+    return NBlock(defs=tuple(defs), stmts=tuple(stmts))
 
 
 def _lower_stmt(stmt: SynStmt, r: ResolutionResult) -> NStmt:
@@ -138,21 +142,24 @@ def _lower_stmt(stmt: SynStmt, r: ResolutionResult) -> NStmt:
         return _lower_block(stmt.block, r)
 
     if isinstance(stmt, FunctionDefStmt):
-        f = stmt.func
-        sym_id = r.declarations[f.name_span]
-        params = tuple(r.declarations[s] for s in f.param_spans)
-        returns = tuple(r.declarations[s] for s in f.return_spans)
-        return NFunctionDef(
-            name=f.name,
-            symbol_id=sym_id,
-            params=params,
-            param_names=f.params,
-            returns=returns,
-            return_names=f.returns,
-            body=_lower_block(f.body, r),
-        )
+        raise ParseError("Function definitions are lowered by block scope handling")
 
     assert_never(stmt)
+
+
+def _lower_function_def(func: FunctionDef, r: ResolutionResult) -> NFunctionDef:
+    sym_id = r.declarations[func.name_span]
+    params = tuple(r.declarations[s] for s in func.param_spans)
+    returns = tuple(r.declarations[s] for s in func.return_spans)
+    return NFunctionDef(
+        name=func.name,
+        symbol_id=sym_id,
+        params=params,
+        param_names=func.params,
+        returns=returns,
+        return_names=func.returns,
+        body=_lower_block(func.body, r),
+    )
 
 
 def _lower_expr(expr: SynExpr, r: ResolutionResult) -> NExpr:
