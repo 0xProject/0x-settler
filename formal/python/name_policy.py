@@ -109,22 +109,60 @@ def norm_reserved_lean_names(
     return frozenset(set(BASE_NORM_HELPERS.values()) | set(extra_helper_names))
 
 
-def emitted_model_def_names(
+@dataclass(frozen=True)
+class EmittedModelDef:
+    """One emitted Lean definition pair owned by the naming policy."""
+
+    fn_name: str
+    base_name: str
+    evm_name: str
+    emit_norm: bool
+
+
+def plan_emitted_model_defs(
     function_names: tuple[str, ...],
     emission: EmissionConfig,
     transforms: TransformConfig,
-) -> frozenset[str]:
-    generated: set[str] = set()
+) -> tuple[EmittedModelDef, ...]:
+    """Plan emitted model names once for both reservation and emission."""
+
+    planned: list[EmittedModelDef] = []
     for fn_name in function_names:
         base_name = emission.model_names.get(fn_name)
         if base_name is None:
             raise EmissionError(
                 f"Model {fn_name!r} has no entry in emission.model_names"
             )
-        if fn_name not in transforms.skip_norm:
-            generated.add(base_name)
-        generated.add(f"{base_name}_evm")
+        planned.append(
+            EmittedModelDef(
+                fn_name=fn_name,
+                base_name=base_name,
+                evm_name=f"{base_name}_evm",
+                emit_norm=fn_name not in transforms.skip_norm,
+            )
+        )
+    return tuple(planned)
+
+
+def _emitted_model_def_names(
+    planned_defs: tuple[EmittedModelDef, ...],
+) -> frozenset[str]:
+    generated: set[str] = set()
+    for planned in planned_defs:
+        if planned.emit_norm:
+            generated.add(planned.base_name)
+        generated.add(planned.evm_name)
     return frozenset(generated)
+
+
+def emitted_model_def_names(
+    function_names: tuple[str, ...],
+    emission: EmissionConfig,
+    transforms: TransformConfig,
+) -> frozenset[str]:
+    return _emitted_model_def_names(
+        plan_emitted_model_defs(function_names, emission, transforms)
+    )
 
 
 def reserved_model_binder_names(
@@ -132,14 +170,13 @@ def reserved_model_binder_names(
     emission: EmissionConfig,
     transforms: TransformConfig,
 ) -> frozenset[str]:
-    emit_any_norm = any(
-        fn_name not in transforms.skip_norm for fn_name in function_names
-    )
+    planned_defs = plan_emitted_model_defs(function_names, emission, transforms)
+    emit_any_norm = any(planned.emit_norm for planned in planned_defs)
     extra_norm_names = emission.norm_helper_names() if emit_any_norm else frozenset()
     reserved = set(BASE_RESERVED_LEAN_NAMES)
     if emit_any_norm:
         reserved.update(norm_reserved_lean_names(extra_norm_names))
-    reserved.update(emitted_model_def_names(function_names, emission, transforms))
+    reserved.update(_emitted_model_def_names(planned_defs))
     return frozenset(reserved)
 
 

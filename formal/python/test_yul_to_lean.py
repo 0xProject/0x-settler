@@ -43,7 +43,12 @@ from .model_transforms import (
     hoist_repeated_model_calls,
 )
 from .model_validate import validate_function_model, validate_model_set
-from .name_policy import validate_ident
+from .name_policy import (
+    EmittedModelDef,
+    emitted_model_def_names,
+    plan_emitted_model_defs,
+    validate_ident,
+)
 from .norm_classify import (
     InlineClassification,
     classify_function_scope,
@@ -57,6 +62,10 @@ from .norm_inline import (
 )
 from .norm_memory import lower_memory
 from .norm_to_restricted import lower_to_restricted
+from .norm_validate import (
+    restricted_lowering_precondition_error,
+    validate_restricted_boundary,
+)
 from .restricted_ir import RestrictedFunction
 from .restricted_to_model import to_function_models
 from .selection import build_selection_plan
@@ -6027,6 +6036,42 @@ class TranslatorBehaviorTest(unittest.TestCase):
         self.assertIn(
             "/-- Normalized auto-generated model of `g` on Nat arithmetic. -/",
             source,
+        )
+
+    def test_emitted_model_def_planner_matches_reserved_names(self) -> None:
+        config = make_model_config(
+            ("f", "g"),
+            model_names={"f": "normAdd", "g": "model_g"},
+            skip_norm=frozenset({"f"}),
+        )
+
+        planned = plan_emitted_model_defs(
+            ("f", "g"), config.emission, config.transforms
+        )
+
+        self.assertEqual(
+            planned,
+            (
+                EmittedModelDef(
+                    fn_name="f",
+                    base_name="normAdd",
+                    evm_name="normAdd_evm",
+                    emit_norm=False,
+                ),
+                EmittedModelDef(
+                    fn_name="g",
+                    base_name="model_g",
+                    evm_name="model_g_evm",
+                    emit_norm=True,
+                ),
+            ),
+        )
+        self.assertEqual(
+            emitted_model_def_names(("f", "g"), config.emission, config.transforms),
+            cast(
+                frozenset[str],
+                frozenset(("normAdd_evm", "model_g", "model_g_evm")),
+            ),
         )
 
     def test_build_lean_source_rejects_norm_call_to_skipped_norm_callee(self) -> None:
@@ -12717,6 +12762,31 @@ class RestrictedIRTest(unittest.TestCase):
         nf = normalize_function(func, result)
         with self.assertRaisesRegex(TranslationError, "Nested helper definitions"):
             lower_to_restricted(nf)
+
+    def test_validate_and_lower_share_restricted_lowering_precondition_error(
+        self,
+    ) -> None:
+        tokens = tokenize_yul("""
+            function f(x) -> z {
+                function g(a) -> b { b := add(a, 1) }
+                z := g(x)
+            }
+        """)
+        func = SyntaxParser(tokens).parse_function()
+        result = resolve_function(func, builtins=EVM_BUILTINS)
+        nf = normalize_function(func, result)
+
+        error = restricted_lowering_precondition_error(nf)
+        self.assertIsNotNone(error)
+        error = cast(str, error)
+
+        with self.assertRaises(TranslationError) as validation_err:
+            validate_restricted_boundary(nf, allowed_model_calls=frozenset())
+        self.assertEqual(str(validation_err.exception), error)
+
+        with self.assertRaises(TranslationError) as lowering_err:
+            lower_to_restricted(nf)
+        self.assertEqual(str(lowering_err.exception), error)
 
 
 class SSAModelTest(unittest.TestCase):

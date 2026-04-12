@@ -26,7 +26,9 @@ from .model_ir import (
 from .model_validate import validate_model_set
 from .name_policy import (
     BASE_RESERVED_LEAN_NAMES,
+    EmittedModelDef,
     norm_reserved_lean_names,
+    plan_emitted_model_defs,
     reserved_model_binder_names,
     validate_ident,
 )
@@ -131,14 +133,6 @@ def build_model_body(
 
 
 @dataclass(frozen=True)
-class EmittedModelDef:
-    fn_name: str
-    base_name: str
-    evm_name: str
-    emit_norm: bool
-
-
-@dataclass(frozen=True)
 class LeanEmissionPlan:
     emit_any_norm: bool
     model_defs: tuple[EmittedModelDef, ...]
@@ -149,29 +143,6 @@ def _any_norm_models(
     transforms: TransformConfig,
 ) -> bool:
     return any(model.fn_name not in transforms.skip_norm for model in models)
-
-
-def _plan_emitted_model_defs(
-    function_names: tuple[str, ...],
-    emission: EmissionConfig,
-    transforms: TransformConfig,
-) -> tuple[EmittedModelDef, ...]:
-    planned: list[EmittedModelDef] = []
-    for fn_name in function_names:
-        base_name = emission.model_names.get(fn_name)
-        if base_name is None:
-            raise EmissionError(
-                f"Model {fn_name!r} has no entry in emission.model_names"
-            )
-        planned.append(
-            EmittedModelDef(
-                fn_name=fn_name,
-                base_name=base_name,
-                evm_name=f"{base_name}_evm",
-                emit_norm=fn_name not in transforms.skip_norm,
-            )
-        )
-    return tuple(planned)
 
 
 def _build_lean_emission_plan(
@@ -186,7 +157,7 @@ def _build_lean_emission_plan(
     )
     builtin_helper_names = BASE_RESERVED_LEAN_NAMES | norm_reserved
 
-    planned_defs = _plan_emitted_model_defs(
+    planned_defs = plan_emitted_model_defs(
         tuple(model.fn_name for model in models),
         emission,
         transforms,

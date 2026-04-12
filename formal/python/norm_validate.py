@@ -35,27 +35,36 @@ from .norm_walk import (
 from .yul_ast import ValidationError
 
 
+def restricted_lowering_precondition_error(func: NormalizedFunction) -> str | None:
+    """Return the shared precondition failure before restricted lowering."""
+
+    if not func.returns:
+        return f"Selected function {func.name!r} has zero return values"
+    if collect_function_defs(func.body):
+        return (
+            f"Nested helper definitions reached restricted lowering for "
+            f"selected target {func.name!r}. Seal the helper boundary "
+            "before restricted lowering."
+        )
+    residual_call = first_runtime_local_call(func.body)
+    if residual_call is not None:
+        return (
+            f"Residual local helper call {residual_call.name!r} reached "
+            f"restricted lowering for selected target {func.name!r}. "
+            "Seal the helper boundary before restricted lowering."
+        )
+    return None
+
+
 def validate_restricted_boundary(
     func: NormalizedFunction,
     *,
     allowed_model_calls: frozenset[str],
 ) -> None:
     """Reject residual live constructs unsupported by restricted lowering."""
-    if not func.returns:
-        raise ValidationError(f"Selected function {func.name!r} has zero return values")
-    if collect_function_defs(func.body):
-        raise ValidationError(
-            f"Selected target {func.name!r} reaches restricted lowering with "
-            "nested helper defs still attached. Seal the helper boundary "
-            "before restricted lowering."
-        )
-    residual_call = first_runtime_local_call(func.body)
-    if residual_call is not None:
-        raise ValidationError(
-            f"Selected target {func.name!r} reaches restricted lowering with "
-            f"residual local helper call {residual_call.name!r}. Seal the "
-            "helper boundary before restricted lowering."
-        )
+    error = restricted_lowering_precondition_error(func)
+    if error is not None:
+        raise ValidationError(error)
     _validate_block(
         func.body,
         allowed_model_calls=allowed_model_calls,
