@@ -2,6 +2,8 @@
 
 ### Breaking changes
 
+* SolidlyV3 UniV3 fork removed from Mainnet and Sonic
+
 ### Non-breaking changes
 
 ## 2026-04-10
