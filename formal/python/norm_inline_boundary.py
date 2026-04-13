@@ -17,7 +17,6 @@ from .norm_inline_engine import (
     InlineFragment,
     InlineSession,
     ResolvedHelperCall,
-    atomize_args,
 )
 from .norm_ir import NBlock, NFunctionDef, NormalizedFunction, NRef
 from .norm_memory import lower_memory
@@ -122,36 +121,8 @@ def preview_specialized_call(
     depth: int,
 ) -> InlineFragment:
     """Try call-site specialization before failing a strict helper boundary."""
-    if depth > session.max_depth:
-        raise LoweringError(f"Inlining depth exceeded for {call.name!r}")
-    if call.fdef is None:
-        raise LoweringError(
-            f"Cannot inline {call.helper_kind_label} call {call.name!r}: "
-            "missing helper definition."
-        )
-
-    binds, refs = atomize_args(call.args, session.alloc)
     engine = InlineEngine(catalog, session)
-    fragment = engine._block_inline(call.fdef, refs)
-    preview_block = NBlock(stmts=binds + fragment.prelude)
-
-    result_refs = tuple(
-        result for result in fragment.results if isinstance(result, NRef)
-    )
-    if len(result_refs) != len(fragment.results):
-        raise LoweringError(
-            f"Cannot eliminate {call.helper_kind_label} call {call.name!r}: "
-            "block-inline preview produced non-reference return values."
-        )
-
-    preview_func = NormalizedFunction(
-        name=call.name,
-        params=(),
-        param_names=(),
-        returns=tuple(ref.symbol_id for ref in result_refs),
-        return_names=tuple(ref.name for ref in result_refs),
-        body=preview_block,
-    )
+    preview_func = engine.build_block_inline_preview(call, depth=depth)
     preview_func = simplify_normalized(preview_func)
     summary = summarize_preview_body(preview_func.body, catalog)
     if preview_can_retry_after_memory_lowering(summary):

@@ -678,7 +678,7 @@ class InlineEngine:
         *,
         depth: int,
     ) -> tuple[NExpr, ...] | NExpr:
-        if not isinstance(expr, NLocalCall):
+        if not isinstance(expr, (NLocalCall, NTopLevelCall)):
             return expr
         call = self._resolve_helper_call(expr, expr.args)
         if call is None or call.classification is None:
@@ -689,6 +689,41 @@ class InlineEngine:
         if len(fragment.results) == 1:
             return fragment.results[0]
         return fragment.results
+
+    def build_block_inline_preview(
+        self,
+        call: ResolvedHelperCall,
+        *,
+        depth: int,
+    ) -> NormalizedFunction:
+        """Build a preview function for strict helper-boundary checking."""
+        if depth > self.session.max_depth:
+            raise LoweringError(f"Inlining depth exceeded for {call.name!r}")
+        if call.fdef is None:
+            raise LoweringError(
+                f"Cannot inline {call.helper_kind_label} call {call.name!r}: "
+                "missing helper definition."
+            )
+
+        binds, refs = atomize_args(call.args, self.session.alloc)
+        fragment = self._block_inline(call.fdef, refs)
+        result_refs = tuple(
+            result for result in fragment.results if isinstance(result, NRef)
+        )
+        if len(result_refs) != len(fragment.results):
+            raise LoweringError(
+                f"Cannot eliminate {call.helper_kind_label} call {call.name!r}: "
+                "block-inline preview produced non-reference return values."
+            )
+
+        return NormalizedFunction(
+            name=call.name,
+            params=(),
+            param_names=(),
+            returns=tuple(ref.symbol_id for ref in result_refs),
+            return_names=tuple(ref.name for ref in result_refs),
+            body=NBlock(stmts=binds + fragment.prelude),
+        )
 
     def _block_inline(
         self,

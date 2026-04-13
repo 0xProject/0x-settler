@@ -12505,6 +12505,48 @@ class TopLevelHelperInlineParityTest(unittest.TestCase):
             evaluate_normalized(top_nf, (3, 1)),
         )
 
+    def test_top_level_multi_return_helper_expr_inline_matches_local_helper(
+        self,
+    ) -> None:
+        local_tokens = tokenize_yul("""
+            function f(x, y) -> z {
+                function pair(a, b) -> c, d { c := a d := b }
+                function h(m, n) -> r {
+                    let p, q := pair(m, n)
+                    r := sub(p, q)
+                }
+                z := h(x, y)
+            }
+        """)
+        local_func = SyntaxParser(local_tokens).parse_function()
+        local_result = resolve_function(local_func, builtins=EVM_BUILTINS)
+        local_nf = inline_pure_helpers(normalize_function(local_func, local_result))
+
+        top_nf = self._inline_target_with_top_level_defs(
+            """
+            function pair(a, b) -> c, d { c := a d := b }
+            function f(x, y) -> z {
+                function h(m, n) -> r {
+                    let p, q := pair(m, n)
+                    r := sub(p, q)
+                }
+                z := h(x, y)
+            }
+            """,
+            target_name="f",
+            helper_names=("pair",),
+        )
+
+        self.assertFalse(self._has_top_level_call(top_nf.body, "pair"))
+        self.assertEqual(
+            evaluate_normalized(local_nf, (5, 3)),
+            evaluate_normalized(top_nf, (5, 3)),
+        )
+        self.assertEqual(
+            evaluate_normalized(local_nf, (3, 5)),
+            evaluate_normalized(top_nf, (3, 5)),
+        )
+
     def test_top_level_zero_return_helper_is_discarded_like_local_helper(self) -> None:
         nf = self._inline_target_with_top_level_defs(
             """
@@ -14838,6 +14880,34 @@ class TranslationHelperInliningTest(unittest.TestCase):
         model = result[0]
         self.assertEqual(evaluate_function_model(model, (0,)), (9,))
         self.assertEqual(evaluate_function_model(model, (1,)), (7,))
+
+    def test_nested_expr_inline_helper_can_destructure_top_level_multi_return_helper(
+        self,
+    ) -> None:
+        yul = """
+            function pair(a, b) -> c, d {
+                c := a
+                d := b
+            }
+            function fun_target_1(var_x_1, var_y_2) -> var_z_3 {
+                function helper(var_m_4, var_n_5) -> var_r_6 {
+                    let usr$p, usr$q := pair(var_m_4, var_n_5)
+                    var_r_6 := sub(usr$p, usr$q)
+                }
+                var_z_3 := helper(var_x_1, var_y_2)
+            }
+        """
+        config = make_model_config(("target",))
+        result = translate_yul_to_models(
+            yul,
+            config,
+            optimize=False,
+        )
+        self.assertEqual(len(result), 1)
+        model = result[0]
+        self.assertEqual(evaluate_function_model(model, (5, 3)), (2,))
+        self.assertEqual(evaluate_function_model(model, (3, 5)), (WORD_MOD - 2,))
+        self.assertNotIn("pair", repr(model.assignments))
 
     def test_non_selected_unsupported_helper_fails_with_targeted_error(self) -> None:
         yul = """
