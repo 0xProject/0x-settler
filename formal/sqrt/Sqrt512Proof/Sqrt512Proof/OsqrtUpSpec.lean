@@ -419,11 +419,7 @@ theorem model_osqrtUp_evm_correct (x_hi x_lo : Nat)
     have heq00_nz : evmEq 0 0 ≠ 0 := by
       rw [heq00]
       decide
-    have hiszero00 : evmIszero (evmEq 0 0) = 0 := by
-      rw [heq00]
-      unfold evmIszero u256 WORD_MOD
-      simp
-    simp [heq00_nz, hiszero00, ← hWM, hcarry]
+    simp [heq00_nz, ← hWM, hcarry]
     -- Goal: r + needsUp = sqrtUp512 (x_hi * WORD_MOD + x_lo)
     -- Rewrite hr_eq to use WORD_MOD
     have hr_eq_wm : r = natSqrt (x_hi * WORD_MOD + x_lo) := by rw [hr_eq, hWM]
