@@ -2195,49 +2195,43 @@ library Lib512MathArithmetic {
     uint256 private constant _LN_BOUNDS_LN2_LO =
         103212025217616957519630260555236733345647245497292992366923423973770079262671;
 
-    /// @dev Lower relaxed lnQ256 bound:
-    /// returns either floor(ln(x) * 2^256) or one less.
-    function lnQ256LowerBound(uint512 x) internal pure returns (uint512) {
+    function olnQ256(uint512 r, uint512 x) internal pure returns (uint512) {
         (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 q_hi, uint256 q_lo) = _lnQ256(x_hi, x_lo);
 
-        if ((x_hi | x_lo) == 0) {
-            Panic.panic(Panic.DIVISION_BY_ZERO);
-        }
-
-        uint512 r = alloc();
-        if (x_hi == 0 && x_lo == 1) {
-            return r.from(0, 0);
-        }
-
-        (uint256 q_hi, uint256 q_lo) = _lnQ256BoundsRaw(x_hi, x_lo);
         (q_hi, q_lo) = _sub(q_hi, q_lo, _LN_BOUNDS_RADIUS);
         (q_hi, q_lo) = _shr(q_hi, q_lo, 9);
+
         return r.from(q_hi, q_lo);
     }
 
-    /// @dev Upper relaxed lnQ256 bound:
-    /// returns either ceil(ln(x) * 2^256) or one more.
-    function lnQ256UpperBound(uint512 x) internal pure returns (uint512) {
-        (uint256 x_hi, uint256 x_lo) = x.into();
+    function ilnQ256(uint512 r) internal pure returns (uint512) {
+        return olnQ256(r, r);
+    }
 
+    function olnQ256Up(uint512 r, uint512 x) internal pure returns (uint512) {
+        (uint256 x_hi, uint256 x_lo) = x.into();
+        (uint256 q_hi, uint256 q_lo) = _lnQ256(x_hi, x_lo);
+
+        (q_hi, q_lo) = _add(q_hi, q_lo, _LN_BOUNDS_RADIUS + ((1 << 9) - 1));
+        (q_hi, q_lo) = _shr(q_hi, q_lo, 9);
+
+        return r.from(q_hi, q_lo);
+    }
+
+    function ilnQ256Up(uint512 r) internal pure returns (uint512) {
+        return olnQ256Up(r, r);
+    }
+
+    function _lnQ256(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r_hi, uint256 r_lo) {
         if ((x_hi | x_lo) == 0) {
             Panic.panic(Panic.DIVISION_BY_ZERO);
         }
 
-        uint512 r = alloc();
-        if (x_hi == 0 && x_lo == 1) {
-            return r.from(0, 0);
+        if ((x_hi == 0).and(x_lo == 1)) {
+            return (0, _LN_BOUNDS_RADIUS);
         }
 
-        (uint256 q_hi, uint256 q_lo) = _lnQ256BoundsRaw(x_hi, x_lo);
-        (q_hi, q_lo) = _add(q_hi, q_lo, _LN_BOUNDS_RADIUS + ((1 << 9) - 1));
-        (q_hi, q_lo) = _shr(q_hi, q_lo, 9);
-        return r.from(q_hi, q_lo);
-    }
-
-    /// @dev Shared relaxed z^5/[6/7]/Q219/G9 ln core.
-    /// Returns q_raw in Q265 after adding the shared bias.
-    function _lnQ256BoundsRaw(uint256 x_hi, uint256 x_lo) private pure returns (uint256 q_hi, uint256 q_lo) {
         uint256 e;
         if (x_hi != 0) {
             e = 511 - x_hi.clz();
@@ -2428,11 +2422,11 @@ library Lib512MathArithmetic {
         }
 
         if (u_neg) {
-            (q_hi, q_lo) = _sub(prefix_hi, prefix_lo, local_hi, local_lo);
+            (r_hi, r_lo) = _sub(prefix_hi, prefix_lo, local_hi, local_lo);
         } else {
-            (q_hi, q_lo) = _add(prefix_hi, prefix_lo, local_hi, local_lo);
+            (r_hi, r_lo) = _add(prefix_hi, prefix_lo, local_hi, local_lo);
         }
-        (q_hi, q_lo) = _add(q_hi, q_lo, _LN_BOUNDS_BIAS);
+        (r_hi, r_lo) = _add(r_hi, r_lo, _LN_BOUNDS_BIAS);
     }
 
     /// @dev Multiply two Q265 values and shift the result right by 265.
