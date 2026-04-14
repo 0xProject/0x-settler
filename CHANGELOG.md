@@ -2,6 +2,8 @@
 
 ### Breaking changes
 
+* Abandon Katana chain (which only had stripped-down Settler anyways)
+
 ### Non-breaking changes
 
 ## 2026-04-10
