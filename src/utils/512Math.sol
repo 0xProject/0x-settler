@@ -2299,15 +2299,9 @@ library Lib512MathArithmetic {
 
             if (zd_hi == 0 && zd_ex == 0) {
                 uint256 rem;
-                if (a_ex != 0) {
-                    z_hi = _div(a_ex, a_hi, zd_lo);
-                    assembly ("memory-safe") {
-                        rem := addmod(mulmod(a_ex, sub(0, zd_lo), zd_lo), a_hi, zd_lo)
-                    }
-                } else {
-                    z_hi = a_hi / zd_lo;
-                    rem = a_hi % zd_lo;
-                }
+                // Here `zd < 2**256`, so `u < zd` and therefore `a_ex = (u << 9) >> 256 = 0`.
+                z_hi = a_hi / zd_lo;
+                rem = a_hi % zd_lo;
 
                 z_hi = _div(rem, a_lo, zd_lo);
                 assembly ("memory-safe") {
@@ -2338,7 +2332,7 @@ library Lib512MathArithmetic {
 
                 z_hi = _algorithmD(a_ex, a_hi, a_lo, zd_hi, zd_lo);
                 {
-                    (uint256 p_ex, uint256 p_hi, uint256 p_lo) = _mul768(zd_hi, zd_lo, z_hi);
+                    (, uint256 p_hi, uint256 p_lo) = _mul768(zd_hi, zd_lo, z_hi);
                     assembly ("memory-safe") {
                         let b := lt(a_lo, p_lo)
                         a_lo := sub(a_lo, p_lo)
