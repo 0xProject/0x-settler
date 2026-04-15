@@ -694,9 +694,8 @@ library Decoder {
                     // the middle of `payer`, because `payer` is all zeroes, it's treated as padding
                     // for the first word of `permit`, which is the sell token
                     permit := sub(data.offset, 0x0c)
-                    let isForwarded_ := and(0xff, calldataload(add(0x55, data.offset)))
-                    if shr(0x01, isForwarded_) { revert(0x00, 0x00) }
-                    isForwarded := isForwarded_
+                    isForwarded := and(0xff, calldataload(add(0x55, data.offset)))
+                    if shr(0x01, isForwarded) { revert(0x00, 0x00) }
 
                     // `sig` is packed at the end of `data`, in "reverse ABI-ish encoded" fashion
                     sig.offset := sub(add(data.offset, data.length), 0x03)

@@ -55,9 +55,8 @@ library FastEvc {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
-            let authorized_ := mload(0x00)
-            if or(lt(returndatasize(), 0x20), shr(0x01, authorized_)) { revert(0x00, 0x00) }
-            authorized := authorized_
+            authorized := mload(0x00)
+            if or(lt(returndatasize(), 0x20), shr(0x01, authorized)) { revert(0x00, 0x00) }
             mstore(0x40, ptr)
         }
     }
