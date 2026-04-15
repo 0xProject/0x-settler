@@ -549,11 +549,19 @@ contract DeploySafes is Script {
         );
         address predictedBridgeSettler = Create3.predict(salt(bridgeFeature, Nonce.wrap(1)), deployerProxy);
 
+        // DAO feature: initialize and authorize DAO Safe for feature 1001
+        Feature daoFeature = Feature.wrap(1001);
+        bytes memory daoSetDescriptionCall =
+            abi.encodeCall(Deployer.setDescription, (daoFeature, "0x DAO authorized feature"));
+        bytes memory daoAuthorizeCall = abi.encodeCall(
+            Deployer.authorize, (daoFeature, SafeConfig.daoSafe, uint40(block.timestamp + 365 days))
+        );
+
         address[] memory upgradeOwners = SafeConfig.getUpgradeSafeSigners();
         bytes[] memory changeOwnersCalls =
             _encodeChangeOwners(upgradeSafe, SafeConfig.upgradeSafeThreshold, proxyDeployer, upgradeOwners);
         assert(changeOwnersCalls.length == upgradeOwners.length + 1);
-        bytes[] memory upgradeSetupCalls = new bytes[](9 + changeOwnersCalls.length);
+        bytes[] memory upgradeSetupCalls = new bytes[](11 + changeOwnersCalls.length);
         upgradeSetupCalls[0] = _encodeMultisend(deployerProxy, acceptOwnershipCall);
         upgradeSetupCalls[1] = _encodeMultisend(deployerProxy, takerSubmittedSetDescriptionCall);
         upgradeSetupCalls[2] = _encodeMultisend(deployerProxy, takerSubmittedAuthorizeCall);
@@ -563,8 +571,10 @@ contract DeploySafes is Script {
         upgradeSetupCalls[6] = _encodeMultisend(deployerProxy, intentAuthorizeCall);
         upgradeSetupCalls[7] = _encodeMultisend(deployerProxy, bridgeSetDescriptionCall);
         upgradeSetupCalls[8] = _encodeMultisend(deployerProxy, bridgeAuthorizeCall);
+        upgradeSetupCalls[9] = _encodeMultisend(deployerProxy, daoSetDescriptionCall);
+        upgradeSetupCalls[10] = _encodeMultisend(deployerProxy, daoAuthorizeCall);
         for (uint256 i; i < changeOwnersCalls.length; i++) {
-            upgradeSetupCalls[i + 9] = changeOwnersCalls[i];
+            upgradeSetupCalls[i + 11] = changeOwnersCalls[i];
         }
         bytes memory upgradeSetupCall = _encodeMultisend(upgradeSetupCalls);
 

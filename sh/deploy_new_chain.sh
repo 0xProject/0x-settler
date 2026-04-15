@@ -339,7 +339,8 @@ echo 'Add the following to your chain_config.json' >&2
 echo '"governance": {' >&2
 echo '	"upgradeSafe": "'"$upgrade_safe"'",' >&2
 echo '	"deploymentSafe": "'"$deployment_safe"'",' >&2
-echo '	"pause": "'"$ice_cold_coffee"'"' >&2
+echo '	"pause": "'"$ice_cold_coffee"'",' >&2
+echo '	"daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"' >&2
 echo '},' >&2
 echo '"deployment": {' >&2
 echo '	"deployer": "'"$deployer_proxy"'"' >&2

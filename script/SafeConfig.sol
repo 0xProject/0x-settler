@@ -133,4 +133,6 @@ library SafeConfig {
         result[5] = 0x36b7E0738fe11f05d26dA55d10eE679e684e06f4; // Lazaro
         return result;
     }
+
+    address internal constant daoSafe = 0x23030a6124E871F4744Cb9bc14D519b1f033FFe3;
 }
