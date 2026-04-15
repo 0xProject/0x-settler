@@ -529,7 +529,6 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
                 // starts at the beginning of sellToken
                 permit := add(0x20, data.offset)
                 isForwarded := calldataload(add(0xa0, data.offset))
-                if shr(0x01, isForwarded) { revert(0x00, 0x00) }
 
                 sig.offset := add(0xc0, data.offset)
                 sig.length := calldataload(sig.offset)
