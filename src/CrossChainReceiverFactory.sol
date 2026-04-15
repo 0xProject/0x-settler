@@ -952,7 +952,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
             if (address(this).balance < value) {
                 uint256 wrappedBalance;
                 IWrappedNative wnative = _WNATIVE;
-                bool hasWnative = _HAS_WNATIVE;
+                bool missingWnative = _MISSING_WNATIVE;
                 assembly ("memory-safe") {
                     mstore(0x00, 0x70a08231) // `IERC20.balanceOf.selector`
                     mstore(0x20, address())
@@ -962,7 +962,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                         revert(codesize(), callvalue())
                     }
 
-                    wrappedBalance := mul(iszero(iszero(hasWnative)), mload(callvalue()))
+                    wrappedBalance := mul(iszero(missingWnative), mload(callvalue()))
                 }
 
                 uint256 toUnwrap = (address(this).balance + wrappedBalance < value)

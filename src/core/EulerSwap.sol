@@ -56,7 +56,8 @@ library FastEvc {
                 revert(ptr_, returndatasize())
             }
             authorized := mload(0x00)
-            if or(lt(returndatasize(), 0x20), shr(0x01, authorized)) { revert(0x00, 0x00) }
+            // we don't check for short returndata or dirty bits because we know that `evc` is
+            // well-behaved
             mstore(0x40, ptr)
         }
     }
