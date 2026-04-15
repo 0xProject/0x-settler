@@ -36,4 +36,9 @@ jobs:
         run: npm install
 
       - name: Check chain-specific Settler contract sizes
-        run: forge build --sizes --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip 'test/*' -- src/chains/
+        run: |
+          set -Eeufo pipefail -o posix
+          jq -r '.[].displayName' < chain_config.json | while IFS= read -r chain ; do
+            echo 'Checking sizes for '"$chain" >&2
+            forge build --sizes -- src/chains/"$chain"
+          done
