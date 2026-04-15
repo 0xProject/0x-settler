@@ -2332,7 +2332,7 @@ library Lib512MathArithmetic {
 
                 z_hi = _algorithmD(a_ex, a_hi, a_lo, zd_hi, zd_lo);
                 {
-                    (, uint256 p_hi, uint256 p_lo) = _mul768(zd_hi, zd_lo, z_hi);
+                    (uint256 p_hi, uint256 p_lo) = _mul(zd_hi, zd_lo, z_hi);
                     assembly ("memory-safe") {
                         let b := lt(a_lo, p_lo)
                         a_lo := sub(a_lo, p_lo)
