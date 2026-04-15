@@ -149,7 +149,7 @@ library UnsafePancakeInfinityPoolManager {
             let ptr := mload(0x40)
             mstore(ptr, 0xcd0cc1ce) // selector for `swap((address,address,address,address,uint24,bytes32),(bool,int256,uint160),bytes)`
             mcopy(add(0x20, ptr), key, 0xc0)
-            mstore(add(0xe0, ptr), iszero(iszero(zeroForOne)))
+            mstore(add(0xe0, ptr), lt(0x00, zeroForOne))
             mstore(add(0x100, ptr), amountSpecified)
             mstore(add(0x120, ptr), sqrtPriceLimitX96)
             mstore(add(0x140, ptr), 0x140)
@@ -178,7 +178,7 @@ library UnsafePancakeInfinityBinPoolManager {
             let ptr := mload(0x40)
             mstore(ptr, 0x911a63b7) // selector for `swap((address,address,address,address,uint24,bytes32),bool,int128,bytes)`
             mcopy(add(0x20, ptr), key, 0xc0)
-            mstore(add(0xe0, ptr), iszero(iszero(swapForY)))
+            mstore(add(0xe0, ptr), lt(0x00, swapForY))
             mstore(add(0x100, ptr), signextend(0x0f, amountSpecified))
             mstore(add(0x120, ptr), 0x120)
             mstore(add(0x140, ptr), hookData.length)

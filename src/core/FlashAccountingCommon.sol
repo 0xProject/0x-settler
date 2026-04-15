@@ -409,7 +409,7 @@ library Encoder {
             mstore(add(0x24, data), 0x20)
             mstore(add(0x04, data), unlockSelector)
             mstore(data, add(0xb3, pathLen))
-            mstore8(add(0xa8, data), iszero(iszero(feeOnTransfer)))
+            mstore8(add(0xa8, data), lt(0x00, feeOnTransfer))
 
             mstore(0x40, add(data, add(0xd3, pathLen)))
         }
@@ -455,7 +455,7 @@ library Encoder {
                 mstore(0x40, add(0x03, ptr))
             }
 
-            mstore8(add(0x131, data), iszero(iszero(isForwarded)))
+            mstore8(add(0x131, data), lt(0x00, isForwarded))
             mcopy(add(0xf1, data), add(0x20, permit), 0x40)
             mcopy(add(0xb1, data), mload(permit), 0x40) // aliases `payer` on purpose
             mstore(add(0x9d, data), 0x00) // payer
@@ -470,7 +470,7 @@ library Encoder {
             mstore(add(0x04, data), unlockSelector)
             mstore(data, add(0x115, add(pathLen, sigLen)))
 
-            mstore8(add(0xa8, data), iszero(iszero(feeOnTransfer)))
+            mstore8(add(0xa8, data), lt(0x00, feeOnTransfer))
         }
     }
 }

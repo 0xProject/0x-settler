@@ -386,7 +386,7 @@ library FastEulerSwap {
             let ptr := mload(0x40)
             mstore(ptr, 0x022c0d9f) // selector for `swap(uint256,uint256,address,bytes)`
             {
-                zeroForOne := shl(0x05, iszero(iszero(zeroForOne)))
+                zeroForOne := shl(0x05, lt(0x00, zeroForOne))
                 let amountsStart := add(0x20, ptr)
                 let amountWord := add(amountsStart, zeroForOne)
                 let zeroWord := add(xor(0x20, zeroForOne), amountsStart)
