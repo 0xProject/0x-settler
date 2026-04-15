@@ -8,65 +8,69 @@ library Ternary {
     //// it doesn't need to do a ton of masking when types are cast to each other without
     //// modification.
 
+    // Solidity `bool` may be any nonzero value for truthy. `iszero(c)` produces clean 0/1 and we
+    // restructure each formula around the negated condition so a single `iszero` suffices.
+    // `orZero` has no negation-based reformulation, so it uses `lt(0x00, c)` to normalize.
+
     function ternary(bool c, uint256 x, uint256 y) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
-            r := xor(y, mul(xor(x, y), c))
+            r := xor(x, mul(xor(x, y), iszero(c)))
         }
     }
 
     function ternary(bool c, int256 x, int256 y) internal pure returns (int256 r) {
         assembly ("memory-safe") {
-            r := xor(y, mul(xor(x, y), c))
+            r := xor(x, mul(xor(x, y), iszero(c)))
         }
     }
 
     function ternary(bool c, bytes4 x, bytes4 y) internal pure returns (bytes4 r) {
         assembly ("memory-safe") {
-            r := xor(y, mul(xor(x, y), c))
+            r := xor(x, mul(xor(x, y), iszero(c)))
         }
     }
 
     function ternary(bool c, address x, address y) internal pure returns (address r) {
         assembly ("memory-safe") {
-            r := xor(y, mul(xor(x, y), c))
+            r := xor(x, mul(xor(x, y), iszero(c)))
         }
     }
 
     function orZero(bool c, uint256 x) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
-            r := mul(x, c)
+            r := mul(x, lt(0x00, c))
         }
     }
 
     function maybeSwap(bool c, uint256 x, uint256 y) internal pure returns (uint256 a, uint256 b) {
         assembly ("memory-safe") {
-            let t := mul(xor(x, y), c)
-            a := xor(x, t)
-            b := xor(y, t)
+            let t := mul(xor(x, y), iszero(c))
+            a := xor(y, t)
+            b := xor(x, t)
         }
     }
 
     function maybeSwap(bool c, int256 x, int256 y) internal pure returns (int256 a, int256 b) {
         assembly ("memory-safe") {
-            let t := mul(xor(x, y), c)
-            a := xor(x, t)
-            b := xor(y, t)
+            let t := mul(xor(x, y), iszero(c))
+            a := xor(y, t)
+            b := xor(x, t)
         }
     }
 
     function maybeSwap(bool c, IERC20 x, IERC20 y) internal pure returns (IERC20 a, IERC20 b) {
         assembly ("memory-safe") {
-            let t := mul(xor(x, y), c)
-            a := xor(x, t)
-            b := xor(y, t)
+            let t := mul(xor(x, y), iszero(c))
+            a := xor(y, t)
+            b := xor(x, t)
         }
     }
 
     function maybeSwap(bool c, address x, address y) internal pure returns (address a, address b) {
         assembly ("memory-safe") {
-            let t := mul(xor(x, y), c)
-            a := xor(x, t)
-            b := xor(y, t)
+            let t := mul(xor(x, y), iszero(c))
+            a := xor(y, t)
+            b := xor(x, t)
         }
     }
 }

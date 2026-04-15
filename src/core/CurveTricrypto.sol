@@ -101,7 +101,7 @@ abstract contract CurveTricrypto is SettlerSwapAbstract {
         */
         bool isForwarded = _isForwarded();
         assembly ("memory-safe") {
-            tstore(0x00, isForwarded)
+            tstore(0x00, lt(0x00, isForwarded))
             tstore(0x01, mload(add(0x20, mload(permit)))) // amount
             tstore(0x02, mload(add(0x20, permit))) // nonce
             tstore(0x03, mload(add(0x40, permit))) // deadline
@@ -152,7 +152,7 @@ abstract contract CurveTricrypto is SettlerSwapAbstract {
         uint256 deadline;
         bytes memory sig;
         assembly ("memory-safe") {
-            isForwarded := tload(0x00)
+            isForwarded := lt(0x00, tload(0x00))
             tstore(0x00, 0x00)
             permittedAmount := tload(0x01)
             tstore(0x01, 0x00)
