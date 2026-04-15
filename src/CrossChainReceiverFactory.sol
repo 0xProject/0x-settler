@@ -407,6 +407,8 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         bytes32 proxyInitCode0 = _proxyInitCode0;
         bytes32 proxyInitCode1 = _proxyInitCode1;
         assembly ("memory-safe") {
+            setOwnerNotCleanup := iszero(iszero(setOwnerNotCleanup))
+
             // derive the deployment salt from the owner
             mstore(0x14, initialOwner)
             mstore(callvalue(), root)
