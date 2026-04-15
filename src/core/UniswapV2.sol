@@ -34,9 +34,9 @@ library fastUniswapV2Pool {
                 revert(ptr, returndatasize())
             }
             if lt(returndatasize(), 0x40) { revert(0x00, 0x00) }
-            let r := shl(0x05, lt(0x00, zeroForOne))
-            buyReserve := mload(r)
-            sellReserve := mload(xor(0x20, r))
+            let r := shl(0x05, iszero(zeroForOne))
+            sellReserve := mload(r)
+            buyReserve := mload(xor(0x20, r))
         }
     }
 
@@ -63,9 +63,9 @@ library fastUniswapV2Pool {
             // set amount0Out and amount1Out
             let buyAmountBaseOffset := add(0x20, ptr)
             // If `zeroForOne`, buyAmount offset is 0x40, else 0x20
-            let directionOffset := shl(0x05, lt(0x00, zeroForOne))
-            mstore(add(buyAmountBaseOffset, directionOffset), buyAmount)
-            mstore(add(buyAmountBaseOffset, xor(0x20, directionOffset)), 0x00)
+            let directionOffset := shl(0x05, iszero(zeroForOne))
+            mstore(add(buyAmountBaseOffset, directionOffset), 0x00)
+            mstore(add(buyAmountBaseOffset, xor(0x20, directionOffset)), buyAmount)
 
             mstore(add(0x60, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, recipient))
             mstore(add(0x80, ptr), 0x80) // offset to length of data
