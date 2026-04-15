@@ -8,6 +8,10 @@ library Ternary {
     //// it doesn't need to do a ton of masking when types are cast to each other without
     //// modification.
 
+    // Solidity `bool` may be any nonzero value for truthy. `iszero(c)` produces clean 0/1 and we
+    // restructure each formula around the negated condition so a single `iszero` suffices.
+    // `orZero` has no negation-based reformulation, so it uses `lt(0x00, c)` to normalize.
+
     function ternary(bool c, uint256 x, uint256 y) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
             r := xor(x, mul(xor(x, y), iszero(c)))

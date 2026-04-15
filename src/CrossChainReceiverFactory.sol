@@ -407,7 +407,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
         bytes32 proxyInitCode0 = _proxyInitCode0;
         bytes32 proxyInitCode1 = _proxyInitCode1;
         assembly ("memory-safe") {
-            setOwnerNotCleanup := lt(0x00, setOwnerNotCleanup)
+            setOwnerNotCleanup := iszero(iszero(setOwnerNotCleanup))
 
             // derive the deployment salt from the owner
             mstore(0x14, initialOwner)
@@ -962,7 +962,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                         revert(codesize(), callvalue())
                     }
 
-                    wrappedBalance := mul(lt(0x00, hasWnative), mload(callvalue()))
+                    wrappedBalance := mul(iszero(iszero(hasWnative)), mload(callvalue()))
                 }
 
                 uint256 toUnwrap = (address(this).balance + wrappedBalance < value)
