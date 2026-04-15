@@ -152,7 +152,7 @@ abstract contract CurveTricrypto is SettlerSwapAbstract {
         uint256 deadline;
         bytes memory sig;
         assembly ("memory-safe") {
-            isForwarded := lt(0x00, tload(0x00))
+            isForwarded := tload(0x00)
             tstore(0x00, 0x00)
             permittedAmount := tload(0x01)
             tstore(0x01, 0x00)

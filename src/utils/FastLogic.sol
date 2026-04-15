@@ -19,9 +19,9 @@ library FastLogic {
     }
 
     function andNot(bool a, bool b) internal pure returns (bool r) {
-        // a ∧ ¬b: normalize via iszero then compare
+        // a ∧ ¬b ≡ ¬(¬a ∨ b); `b` needs no normalization since any nonzero makes `or` nonzero
         assembly ("memory-safe") {
-            r := gt(iszero(b), iszero(a))
+            r := iszero(or(iszero(a), b))
         }
     }
 
