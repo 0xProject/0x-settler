@@ -64,6 +64,7 @@ library FastHanjiPool {
     ) internal returns (uint256 executed) {
         assembly ("memory-safe") {
             let ptr := mload(0x40)
+            isAsk := iszero(iszero(isAsk))
             mstore(ptr, xor(0xad73d32e, mul(0x58603c62, isAsk)))       // selector
             mstore(add(0x20, ptr), isAsk)
             mstore(add(0x40, ptr), and(0xffffffffffffffffffffffffffffffff, quantity))
@@ -97,7 +98,7 @@ library FastHanjiPool {
                 revert(ptr, returndatasize())
             }
 
-            result := mload(add(0x40, shl(0x05, tokenY)))
+            result := mload(add(0x40, shl(0x05, iszero(iszero(tokenY)))))
 
             mstore(0x40, ptr)
             mstore(0x60, 0x00)

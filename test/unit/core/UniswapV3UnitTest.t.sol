@@ -101,6 +101,28 @@ contract UniswapV3PoolDummy {
     }
 }
 
+contract UniswapV3PoolDirtyForwardedBoolDummy {
+    bytes public RETURN_DATA;
+
+    constructor(bytes memory returnData) {
+        RETURN_DATA = returnData;
+    }
+
+    fallback(bytes calldata) external payable returns (bytes memory) {
+        (,,,, bytes memory data) = abi.decode(msg.data[4:], (address, bool, int256, uint160, bytes));
+        data[0x88] = bytes1(uint8(2));
+
+        (bool success, bytes memory returndata) =
+            msg.sender.call(abi.encodeWithSignature("uniswapV3SwapCallback(int256,int256,bytes)", int256(1), int256(1), data));
+        if (!success) {
+            assembly ("memory-safe") {
+                revert(add(0x20, returndata), mload(returndata))
+            }
+        }
+        return RETURN_DATA;
+    }
+}
+
 contract UniswapV3UnitTest is Utils, Test {
     UniswapV3Dummy uni;
     address UNI_FACTORY = _createNamedRejectionDummy("UNI_FACTORY");
@@ -276,5 +298,23 @@ contract UniswapV3UnitTest is Utils, Test {
                 )
             );
         // uni.sell(RECIPIENT, encodedPath, minBuyAmount, permitTransfer, hex"");
+    }
+
+    function testUniswapV3SellPermit2RejectsDirtyForwardedBool() public {
+        uint256 amount = 99999;
+
+        deployCodeTo(
+            "UniswapV3UnitTest.t.sol:UniswapV3PoolDirtyForwardedBoolDummy",
+            abi.encode(abi.encodePacked(-int256(amount), -int256(amount))),
+            POOL
+        );
+
+        ISignatureTransfer.TokenPermissions memory permitted =
+            ISignatureTransfer.TokenPermissions({token: TOKEN0, amount: amount});
+        ISignatureTransfer.PermitTransferFrom memory permitTransfer =
+            ISignatureTransfer.PermitTransferFrom({permitted: permitted, nonce: 0, deadline: 0});
+
+        vm.expectRevert(bytes(""));
+        uni.sell(RECIPIENT, encodedPath, permitTransfer, hex"deadbeef", amount);
     }
 }

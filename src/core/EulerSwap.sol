@@ -55,7 +55,9 @@ library FastEvc {
                 returndatacopy(ptr_, 0x00, returndatasize())
                 revert(ptr_, returndatasize())
             }
-            authorized := mload(0x00)
+            let authorized_ := mload(0x00)
+            if or(lt(returndatasize(), 0x20), shr(0x01, authorized_)) { revert(0x00, 0x00) }
+            authorized := authorized_
             mstore(0x40, ptr)
         }
     }
@@ -384,7 +386,7 @@ library FastEulerSwap {
             let ptr := mload(0x40)
             mstore(ptr, 0x022c0d9f) // selector for `swap(uint256,uint256,address,bytes)`
             {
-                zeroForOne := shl(0x05, zeroForOne)
+                zeroForOne := shl(0x05, iszero(iszero(zeroForOne)))
                 let amountsStart := add(0x20, ptr)
                 let amountWord := add(amountsStart, zeroForOne)
                 let zeroWord := add(xor(0x20, zeroForOne), amountsStart)

@@ -158,7 +158,7 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 mstore(add(0xa4, data), 0xa0)
                 mstore(add(0x84, data), and(0xffffffffffffffffffffffffffffffffffffffff, sqrtPriceLimitX96))
                 mstore(add(0x64, data), sellAmount)
-                mstore(add(0x44, data), zeroForOne)
+                mstore(add(0x44, data), iszero(iszero(zeroForOne)))
                 mstore(add(0x24, data), to)
                 mstore(add(0x10, data), 0x128acb08000000000000000000000000) // selector for `swap(address,bool,int256,uint160,bytes)` with `to`'s padding
 
@@ -248,7 +248,10 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
         assembly ("memory-safe") {
             mstore(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, swapCallbackData), mload(add(0x20, mload(permit))))
             mcopy(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, 0x20), swapCallbackData), add(0x20, permit), 0x40)
-            mstore8(add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), swapCallbackData), isForwarded)
+            mstore8(
+                add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), swapCallbackData),
+                iszero(iszero(isForwarded))
+            )
             mcopy(
                 add(
                     add(add(SWAP_CALLBACK_PERMIT2DATA_OFFSET, PERMIT_DATA_SIZE), ISFORWARDED_DATA_SIZE),
@@ -362,7 +365,9 @@ abstract contract UniswapV3Fork is SettlerSwapAbstract {
                 // middle of `payer`, because `payer` is all zeroes, it's treated as padding for the
                 // first word of `permit`, which is the sell token
                 permit := sub(permit2Data.offset, 0x0c)
-                isForwarded := and(0x01, calldataload(add(0x55, permit2Data.offset)))
+                let isForwarded_ := and(0xff, calldataload(add(0x55, permit2Data.offset)))
+                if shr(0x01, isForwarded_) { revert(0x00, 0x00) }
+                isForwarded := isForwarded_
                 sig.offset := add(0x75, permit2Data.offset)
                 sig.length := sub(permit2Data.length, 0x75)
             }

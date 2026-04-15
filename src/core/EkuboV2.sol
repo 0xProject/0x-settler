@@ -79,7 +79,7 @@ library UnsafeEkuboCore {
             mcopy(poolKeyPtr, poolKey, 0x60)
             // ABI decoding in Ekubo will check if amount fits in int128
             mstore(add(0x80, ptr), amount)
-            mstore(add(0xa0, ptr), isToken1)
+            mstore(add(0xa0, ptr), iszero(iszero(isToken1)))
             mstore(add(0xc0, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
             mstore(add(0xe0, ptr), 0x00)
 
@@ -110,7 +110,7 @@ library UnsafeEkuboCore {
             let poolKeyPtr := add(0x34, ptr)
             mcopy(poolKeyPtr, poolKey, 0x60)
             mstore(add(0x94, ptr), amount)
-            mstore(add(0xb4, ptr), isToken1)
+            mstore(add(0xb4, ptr), iszero(iszero(isToken1)))
             mstore(add(0xd4, ptr), and(0xffffffffffffffffffffffff, sqrtRatioLimit))
             mstore(add(0xf4, ptr), 0x00)
 
@@ -284,7 +284,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
                 if iszero(eq(payer, address())) {
                     // let's skip token and sell amount and reuse the values already in data
                     calldatacopy(add(0x64, data), add(0x40, permit), 0x40)
-                    mstore(add(0xa4, data), isForwarded)
+                    mstore(add(0xa4, data), iszero(iszero(isForwarded)))
                     mstore(add(0xc4, data), sig.length)
                     calldatacopy(add(0xe4, data), sig.offset, sig.length)
                     size := add(size, add(0x80, sig.length))
@@ -528,7 +528,9 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             assembly ("memory-safe") {
                 // starts at the beginning of sellToken
                 permit := add(0x20, data.offset)
-                isForwarded := calldataload(add(0xa0, data.offset))
+                let isForwarded_ := calldataload(add(0xa0, data.offset))
+                if shr(0x01, isForwarded_) { revert(0x00, 0x00) }
+                isForwarded := isForwarded_
 
                 sig.offset := add(0xc0, data.offset)
                 sig.length := calldataload(sig.offset)

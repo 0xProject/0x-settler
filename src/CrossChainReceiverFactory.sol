@@ -960,7 +960,7 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                         revert(codesize(), callvalue())
                     }
 
-                    wrappedBalance := mul(hasWnative, mload(callvalue()))
+                    wrappedBalance := mul(iszero(iszero(hasWnative)), mload(callvalue()))
                 }
 
                 uint256 toUnwrap = (address(this).balance + wrappedBalance < value)

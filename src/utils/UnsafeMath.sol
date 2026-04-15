@@ -12,7 +12,7 @@ library UnsafeMath {
 
     function unsafeInc(uint256 x, bool b) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
-            r := add(x, b)
+            r := add(x, iszero(iszero(b)))
         }
     }
 
@@ -30,7 +30,7 @@ library UnsafeMath {
 
     function unsafeDec(uint256 x, bool b) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
-            r := sub(x, b)
+            r := sub(x, iszero(iszero(b)))
         }
     }
 
@@ -113,7 +113,7 @@ library UnsafeMath {
 library Math {
     function inc(uint256 x, bool c) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
-            r := add(x, c)
+            r := add(x, iszero(iszero(c)))
         }
         if (r < x) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
@@ -122,7 +122,7 @@ library Math {
 
     function dec(uint256 x, bool c) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
-            r := sub(x, c)
+            r := sub(x, iszero(iszero(c)))
         }
         if (r > x) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
@@ -131,7 +131,7 @@ library Math {
 
     function toInt(bool c) internal pure returns (uint256 r) {
         assembly ("memory-safe") {
-            r := c
+            r := iszero(iszero(c))
         }
     }
 

@@ -138,6 +138,7 @@ abstract contract SettlerIntent is MultiCallContext, Permit2PaymentIntent, Settl
             // Clean dirty bits.
             prev := shr(0x60, shl(0x60, prev))
             solver := shr(0x60, shl(0x60, solver))
+            addNotRemove := iszero(iszero(addNotRemove))
 
             // A solver of zero is special-cased. It is forbidden to set it because that would
             // corrupt the list.
