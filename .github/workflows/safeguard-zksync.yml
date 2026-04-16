@@ -17,7 +17,9 @@ jobs:
 
       - name: Install Foundry-ZKsync
         run: |
-          curl -L https://raw.githubusercontent.com/matter-labs/foundry-zksync/main/install-foundry-zksync | bash
+          curl -L https://raw.githubusercontent.com/matter-labs/foundry-zksync/main/foundryup-zksync/install -o install-foundry-zksync
+          chmod +x ./install-foundry-zksync
+          ./install-foundry-zksync
           echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
           "$HOME/.foundry/bin/foundryup-zksync"
 
