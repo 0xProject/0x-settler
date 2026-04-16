@@ -2,24 +2,28 @@
 pragma solidity ^0.8.25;
 
 import {IUniswapV3Pool, UniswapV3Fork} from "src/core/UniswapV3Fork.sol";
-import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
-import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 import {uniswapV3InitHash, IUniswapV3Callback} from "src/core/univ3forks/UniswapV3.sol";
 import {revertUnknownForkId} from "src/core/SettlerErrors.sol";
 import {uint512} from "src/utils/512Math.sol";
+import {AbstractContext} from "src/Context.sol";
 
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {IAllowanceHolder, ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 
 import {Utils} from "../Utils.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 import {Test} from "@forge-std/Test.sol";
 
-contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
+ISignatureTransfer constant PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
+
+contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
     address internal immutable uniFactory;
+    address private _payer;
+    address private _callbackCaller;
+    function(bytes calldata) internal returns (bytes memory) private _callback;
 
     constructor(address _uniFactory) {
         uniFactory = _uniFactory;
@@ -27,6 +31,16 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
 
     function _tokenId() internal pure override returns (uint256) {
         revert("unimplemented");
+    }
+
+    fallback(bytes calldata) external returns (bytes memory) {
+        require(_operator() == _callbackCaller);
+        bytes calldata data = _msgData();
+        require(uint32(bytes4(data)) == uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector));
+        function(bytes calldata) internal returns (bytes memory) callback = _callback;
+        delete _callback;
+        delete _callbackCaller;
+        return callback(data[4:]);
     }
 
     function sellSelf(address recipient, uint256 bps, bytes memory encodedPath, uint256 minBuyAmount)
@@ -49,6 +63,14 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
 
     function _hasMetaTxn() internal pure override returns (bool) {
         return false;
+    }
+
+    function _msgSender() internal view override(AbstractContext, AllowanceHolderContext) returns (address payer) {
+        require((payer = _payer) != address(0));
+    }
+
+    function _operator() internal view override returns (address) {
+        return super._msgSender();
     }
 
     function _dispatch(uint256, uint256, bytes calldata, AllowedSlippage memory) internal pure override returns (bool) {
@@ -74,13 +96,121 @@ contract UniswapV3Dummy is Permit2PaymentTakerSubmitted, UniswapV3Fork {
         }
     }
 
-    function _isRestrictedTarget(address target)
+    function _isRestrictedTarget(address) internal pure override returns (bool) {
+        return false;
+    }
+
+    function _permitToSellAmountCalldata(ISignatureTransfer.PermitTransferFrom calldata permit)
         internal
-        view
-        override(Permit2PaymentTakerSubmitted, Permit2PaymentAbstract)
-        returns (bool)
+        pure
+        override
+        returns (uint256)
     {
-        return super._isRestrictedTarget(target);
+        return permit.permitted.amount;
+    }
+
+    function _permitToSellAmount(ISignatureTransfer.PermitTransferFrom memory permit)
+        internal
+        pure
+        override
+        returns (uint256)
+    {
+        return permit.permitted.amount;
+    }
+
+    function _permitToTransferDetails(ISignatureTransfer.PermitTransferFrom memory permit, address recipient)
+        internal
+        pure
+        override
+        returns (ISignatureTransfer.SignatureTransferDetails memory transferDetails, uint256 sellAmount)
+    {
+        transferDetails.to = recipient;
+        transferDetails.requestedAmount = sellAmount = permit.permitted.amount;
+    }
+
+    function _transferFromIKnowWhatImDoing(
+        ISignatureTransfer.PermitTransferFrom memory,
+        ISignatureTransfer.SignatureTransferDetails memory,
+        address,
+        bytes32,
+        string memory,
+        bytes memory,
+        bool
+    ) internal pure override {
+        revert("unimplemented");
+    }
+
+    function _transferFromIKnowWhatImDoing(
+        ISignatureTransfer.PermitTransferFrom memory,
+        ISignatureTransfer.SignatureTransferDetails memory,
+        address,
+        bytes32,
+        string memory,
+        bytes memory
+    ) internal pure override {
+        revert("unimplemented");
+    }
+
+    function _transferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        bytes memory sig,
+        bool isForwarded
+    ) internal override {
+        if (isForwarded) {
+            require(sig.length == 0);
+            require(permit.nonce == 0);
+            require(block.timestamp <= permit.deadline);
+            _allowanceHolderTransferFrom(
+                permit.permitted.token, _msgSender(), transferDetails.to, transferDetails.requestedAmount
+            );
+        } else {
+            PERMIT2.permitTransferFrom(permit, transferDetails, _msgSender(), sig);
+        }
+    }
+
+    function _transferFrom(
+        ISignatureTransfer.PermitTransferFrom memory permit,
+        ISignatureTransfer.SignatureTransferDetails memory transferDetails,
+        bytes memory sig
+    ) internal override {
+        _transferFrom(permit, transferDetails, sig, _isForwarded());
+    }
+
+    function _setOperatorAndCall(
+        address target,
+        bytes memory data,
+        uint32 selector,
+        function(bytes calldata) internal returns (bytes memory) callback
+    ) internal override returns (bytes memory) {
+        _callback = callback;
+        _callbackCaller = target;
+        require(selector == uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector));
+        (bool success, bytes memory returndata) = target.call(data);
+        if (!success) {
+            assembly ("memory-safe") {
+                revert(add(0x20, returndata), mload(returndata))
+            }
+        }
+        return returndata;
+    }
+
+    modifier metaTx(address, bytes32) override {
+        revert("unimplemented");
+        _;
+    }
+
+    modifier takerSubmitted() override {
+        _payer = _operator();
+        _;
+        delete _payer;
+    }
+
+    function _allowanceHolderTransferFrom(address token, address owner, address recipient, uint256 amount)
+        internal
+        override
+    {
+        require(ALLOWANCE_HOLDER.transferFrom(token, owner, recipient, amount));
     }
 }
 
@@ -126,8 +256,6 @@ contract UniswapV3PoolDirtyForwardedBoolDummy {
 contract UniswapV3UnitTest is Utils, Test {
     UniswapV3Dummy uni;
     address UNI_FACTORY = _createNamedRejectionDummy("UNI_FACTORY");
-    address PERMIT2 = _etchNamedRejectionDummy("PERMIT2", 0x000000000022D473030F116dDEE9F6B43aC78BA3);
-    address ALLOWANCE_HOLDER = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", 0x0000000000001fF3684f28c67538d4D072C22734);
 
     address TOKEN0 = _createNamedRejectionDummy("TOKEN0");
     address TOKEN1 = _createNamedRejectionDummy("TOKEN1");
@@ -157,6 +285,8 @@ contract UniswapV3UnitTest is Utils, Test {
     }
 
     function setUp() public {
+        _etchNamedRejectionDummy("PERMIT2", address(PERMIT2));
+        _etchNamedRejectionDummy("ALLOWANCE_HOLDER", address(ALLOWANCE_HOLDER));
         uni = new UniswapV3Dummy(UNI_FACTORY);
     }
 
@@ -252,7 +382,7 @@ contract UniswapV3UnitTest is Utils, Test {
         // permitTransferFrom(((address,uint256),uint256,uint256),(address,uint256),address,bytes) 30f28b7a
         // cannot use abi.encodeWithSelector due to the selector overload and ambiguity
         _mockExpectCall(
-            PERMIT2,
+            address(PERMIT2),
             bytes.concat(
                 abi.encodeWithSelector(
                     bytes4(0x30f28b7a), permitTransfer, transferDetails, address(this), uint256(0x100)
@@ -284,12 +414,12 @@ contract UniswapV3UnitTest is Utils, Test {
         });
 
         _mockExpectCall(
-            ALLOWANCE_HOLDER,
+            address(ALLOWANCE_HOLDER),
             abi.encodeCall(IAllowanceHolder.transferFrom, (TOKEN0, address(this), POOL, 1)),
             abi.encode(true)
         );
 
-        vm.prank(ALLOWANCE_HOLDER);
+        vm.prank(address(ALLOWANCE_HOLDER));
         address(uni)
             .call(
                 abi.encodePacked(
