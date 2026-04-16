@@ -317,11 +317,14 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     uint256 internal constant _MINIMUM_OWNERS = 4;
     uint256 internal constant _MINIMUM_THRESHOLD = 2;
 
-    address private immutable _SINGLETON;
-    address private immutable _FALLBACK;
-    address private immutable _MULTISEND;
+    address internal immutable _SINGLETON;
+    address internal immutable _FALLBACK;
+    address internal immutable _MULTISEND;
     address private constant _NONEIP155_CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
+    // Safe's singleton factory on legacy zkSync/EraVM networks.
+    // Ref: https://github.com/safe-global/safe-singleton-factory
+    address private constant _SAFE_SINGLETON_FACTORY_ERAVM = 0xaECDbB0a3B1C6D1Fe1755866e330D82eC81fD4FD;
     address private constant _ERC7955_CREATE2_FACTORY = 0xC0DEb853af168215879d284cc8B4d0A645fA9b0E;
 
     bytes32 private constant _SAFE_PROXY_1_1_CODEHASH =
@@ -330,22 +333,36 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
     bytes32 private constant _SAFE_PROXY_1_4_CODEHASH =
         0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c;
+    // These values are the `EXTCODEHASH`/`address.codehash` values observed for live zkSync/EraVM
+    // Safe proxies. They match the EraVM bytecode-hash format described in the zkSync docs.
+    // The corresponding proxy factories are:
+    // 1.3.0: 0xDAec33641865E4651fB43181C6DB6f7232Ee91c2
+    // 1.4.1: 0xc329D02fd8CB2fc13aa919005aF46320794a8629
+    bytes32 private constant _SAFE_PROXY_1_3_ERAVM_CODEHASH =
+        0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d;
+    bytes32 private constant _SAFE_PROXY_1_4_ERAVM_CODEHASH =
+        0x0100003b6cfa15bd7d1cae1c9c022074524d7785d34859ad0576d8fab4305d4f;
 
     // This is the correct hash only if this contract has been compiled for the London hardfork
     bytes32 private constant _EVM_VERSION_DUMMY_INITHASH =
         0xe7bcbbfee5c3a9a42621a8cbb24d1eade8e9469bc40e23d16b5d0607ba27027a;
 
+    function _isSupportedFactory(address deployer) internal pure returns (bool) {
+        return deployer == _NONEIP155_CREATE2_FACTORY || deployer == _SAFE_SINGLETON_FACTORY
+            || deployer == _SAFE_SINGLETON_FACTORY_ERAVM || deployer == _ERC7955_CREATE2_FACTORY;
+    }
+
+    function _isSupportedProxyCodeHash(bytes32 safeCodeHash) internal pure returns (bool) {
+        return safeCodeHash == _SAFE_PROXY_1_1_CODEHASH || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
+            || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH || safeCodeHash == _SAFE_PROXY_1_3_ERAVM_CODEHASH
+            || safeCodeHash == _SAFE_PROXY_1_4_ERAVM_CODEHASH;
+    }
+
     function _constructorChecks() internal view returns (bool result) {
         result = keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337;
         bytes32 safeCodeHash = address(safe).codehash;
-        result = result
-            && (safeCodeHash == _SAFE_PROXY_1_1_CODEHASH
-                || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
-                || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH);
-        result = result
-            && (msg.sender == _NONEIP155_CREATE2_FACTORY
-                || msg.sender == _SAFE_SINGLETON_FACTORY
-                || msg.sender == _ERC7955_CREATE2_FACTORY);
+        result = result && _isSupportedProxyCodeHash(safeCodeHash);
+        result = result && _isSupportedFactory(msg.sender);
     }
 
     function _predictCreate2(bytes32 inithash) private view returns (address) {
@@ -354,11 +371,25 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         );
     }
 
-    constructor(ISafeMinimal _safe, bytes32 singletonInithash, bytes32 fallbackInithash, bytes32 multisendInithash) {
+    constructor(
+        ISafeMinimal _safe,
+        bytes32 singletonInithash,
+        bytes32 fallbackInithash,
+        bytes32 multisendInithash,
+        address singletonEraVm,
+        address fallbackEraVm,
+        address multisendEraVm
+    ) {
         safe = _safe;
-        _SINGLETON = _predictCreate2(singletonInithash);
-        _FALLBACK = _predictCreate2(fallbackInithash);
-        _MULTISEND = _predictCreate2(multisendInithash);
+        if (msg.sender == _SAFE_SINGLETON_FACTORY_ERAVM) {
+            _SINGLETON = singletonEraVm;
+            _FALLBACK = fallbackEraVm;
+            _MULTISEND = multisendEraVm;
+        } else {
+            _SINGLETON = _predictCreate2(singletonInithash);
+            _FALLBACK = _predictCreate2(fallbackInithash);
+            _MULTISEND = _predictCreate2(multisendInithash);
+        }
     }
 
     function _requireSafe() private view {
@@ -690,7 +721,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         uint256 ownerCount;
         result = result && (ownerCount = _safe.ownerCount()) >= _MINIMUM_OWNERS;
         uint256 threshold;
-        result = result && (threshold =_safe.getThreshold()) >= _MINIMUM_THRESHOLD;
+        result = result && (threshold = _safe.getThreshold()) >= _MINIMUM_THRESHOLD;
         unchecked {
             result = result && (ownerCount - threshold >= _MINIMUM_THRESHOLD);
         }
@@ -933,10 +964,20 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSaf
         0x272190de126b4577e187d9f00b9ca5daeae76d771965d734876891a51f9c43d8;
     bytes32 private constant _SAFE_MULTISEND_1_3_INITHASH =
         0x35e699c3e43ec3e03a101730ab916c5e540893eaaf806451e929d138c3ff53b7;
+    // Ref: https://github.com/safe-global/safe-deployments/tree/main/src/assets/v1.3.0
+    address private constant _SAFE_SINGLETON_1_3_ERAVM = 0x1727c2c531cf966f902E5927b98490fDFb3b2b70;
+    address private constant _SAFE_FALLBACK_1_3_ERAVM = 0x2f870a80647BbC554F3a0EBD093f11B4d2a7492A;
+    address private constant _SAFE_MULTISEND_1_3_ERAVM = 0xf220D3b4DFb23C4ade8C88E526C1353AbAcbC38F;
 
     constructor(ISafeMinimal _safe)
         ZeroExSettlerDeployerSafeGuardBase(
-            _safe, _SAFE_SINGLETON_1_3_INITHASH, _SAFE_FALLBACK_1_3_INITHASH, _SAFE_MULTISEND_1_3_INITHASH
+            _safe,
+            _SAFE_SINGLETON_1_3_INITHASH,
+            _SAFE_FALLBACK_1_3_INITHASH,
+            _SAFE_MULTISEND_1_3_INITHASH,
+            _SAFE_SINGLETON_1_3_ERAVM,
+            _SAFE_FALLBACK_1_3_ERAVM,
+            _SAFE_MULTISEND_1_3_ERAVM
         )
     {
         // These checks ensure that the Guard is safely installed in the Safe at the time it is
@@ -962,10 +1003,20 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSe
         0x5a63128db658d8601220c014848acd6c27b855a0427f0181eb3ba8c25e2d3e95;
     bytes32 private constant _SAFE_MULTISEND_1_4_INITHASH =
         0xa7934433f19155c708af2674b14c6c8b591fedbed7b01ce8cf64014f307468a0;
+    // Ref: https://github.com/safe-global/safe-deployments/tree/main/src/assets/v1.4.1
+    address private constant _SAFE_SINGLETON_1_4_ERAVM = 0x610fcA2e0279Fa1F8C00c8c2F71dF522AD469380;
+    address private constant _SAFE_FALLBACK_1_4_ERAVM = 0x9301E98DD367135f21bdF66f342A249c9D5F9069;
+    address private constant _SAFE_MULTISEND_1_4_ERAVM = 0x0408EF011960d02349d50286D20531229BCef773;
 
     constructor(ISafeMinimal _safe)
         ZeroExSettlerDeployerSafeGuardBase(
-            _safe, _SAFE_SINGLETON_1_4_INITHASH, _SAFE_FALLBACK_1_4_INITHASH, _SAFE_MULTISEND_1_4_INITHASH
+            _safe,
+            _SAFE_SINGLETON_1_4_INITHASH,
+            _SAFE_FALLBACK_1_4_INITHASH,
+            _SAFE_MULTISEND_1_4_INITHASH,
+            _SAFE_SINGLETON_1_4_ERAVM,
+            _SAFE_FALLBACK_1_4_ERAVM,
+            _SAFE_MULTISEND_1_4_ERAVM
         )
     {
         // In contrast to the 1.3.0 Guard, the 1.4.1 Guard must be deployed *before* being enabled

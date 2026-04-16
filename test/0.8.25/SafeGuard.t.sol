@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 import {Test} from "@forge-std/Test.sol";
 import {Vm} from "@forge-std/Vm.sol";
 
+import {ISafeMinimal as ISafeMinimalInternal, ZeroExSettlerDeployerSafeGuardBase} from "src/deployer/SafeGuard.sol";
 import {ItoA} from "src/utils/ItoA.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 
@@ -165,6 +166,123 @@ contract MigrationDummy {
     }
 }
 
+contract SafeGuardHarness is ZeroExSettlerDeployerSafeGuardBase {
+    constructor(
+        ISafeMinimalInternal _safe,
+        bytes32 singletonInithash,
+        bytes32 fallbackInithash,
+        bytes32 multisendInithash,
+        address singletonEraVm,
+        address fallbackEraVm,
+        address multisendEraVm
+    )
+        ZeroExSettlerDeployerSafeGuardBase(
+            _safe, singletonInithash, fallbackInithash, multisendInithash, singletonEraVm, fallbackEraVm, multisendEraVm
+        )
+    {}
+
+    function singleton() external view returns (address) {
+        return _SINGLETON;
+    }
+
+    function fallbackHandler() external view returns (address) {
+        return _FALLBACK;
+    }
+
+    function multicall() external view returns (address) {
+        return _MULTISEND;
+    }
+
+    function isSupportedFactory(address deployer) external pure returns (bool) {
+        return _isSupportedFactory(deployer);
+    }
+
+    function isSupportedProxyCodeHash(bytes32 codeHash) external pure returns (bool) {
+        return _isSupportedProxyCodeHash(codeHash);
+    }
+}
+
+contract TestSafeGuardZkSync is Test {
+    address internal constant evmFactory = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
+    address internal constant eraVmFactory = 0xaECDbB0a3B1C6D1Fe1755866e330D82eC81fD4FD;
+
+    bytes32 internal constant safeSingleton1_3InitHash =
+        0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438;
+    bytes32 internal constant fallback1_3InitHash = 0x272190de126b4577e187d9f00b9ca5daeae76d771965d734876891a51f9c43d8;
+    bytes32 internal constant multicall1_3InitHash = 0x35e699c3e43ec3e03a101730ab916c5e540893eaaf806451e929d138c3ff53b7;
+
+    address internal constant safeSingleton1_3EraVm = 0x1727c2c531cf966f902E5927b98490fDFb3b2b70;
+    address internal constant fallback1_3EraVm = 0x2f870a80647BbC554F3a0EBD093f11B4d2a7492A;
+    address internal constant multicall1_3EraVm = 0xf220D3b4DFb23C4ade8C88E526C1353AbAcbC38F;
+    bytes32 internal constant proxyCodeHash1_3EraVm =
+        0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d;
+    bytes32 internal constant proxyCodeHash1_4EraVm =
+        0x0100003b6cfa15bd7d1cae1c9c022074524d7785d34859ad0576d8fab4305d4f;
+    bytes32 internal constant proxyRuntimeKeccakEraVm =
+        0x3d70c4a51cf0b92f04e5e281833aeece55198933569c08f5d11fcc45c495253e;
+
+    function testAddressSelectionUsesEraVmMetadata() external {
+        vm.prank(eraVmFactory);
+        SafeGuardHarness harness = new SafeGuardHarness(
+            ISafeMinimalInternal(address(0)),
+            safeSingleton1_3InitHash,
+            fallback1_3InitHash,
+            multicall1_3InitHash,
+            safeSingleton1_3EraVm,
+            fallback1_3EraVm,
+            multicall1_3EraVm
+        );
+
+        assertEq(harness.singleton(), safeSingleton1_3EraVm);
+        assertEq(harness.fallbackHandler(), fallback1_3EraVm);
+        assertEq(harness.multicall(), multicall1_3EraVm);
+    }
+
+    function testAddressSelectionStillUsesCreate2OnEvm() external {
+        vm.prank(evmFactory);
+        SafeGuardHarness harness = new SafeGuardHarness(
+            ISafeMinimalInternal(address(0)),
+            safeSingleton1_3InitHash,
+            fallback1_3InitHash,
+            multicall1_3InitHash,
+            safeSingleton1_3EraVm,
+            fallback1_3EraVm,
+            multicall1_3EraVm
+        );
+
+        assertEq(
+            harness.singleton(),
+            AddressDerivation.deriveDeterministicContract(evmFactory, bytes32(0), safeSingleton1_3InitHash)
+        );
+        assertEq(
+            harness.fallbackHandler(),
+            AddressDerivation.deriveDeterministicContract(evmFactory, bytes32(0), fallback1_3InitHash)
+        );
+        assertEq(
+            harness.multicall(),
+            AddressDerivation.deriveDeterministicContract(evmFactory, bytes32(0), multicall1_3InitHash)
+        );
+    }
+
+    function testSupportedProxyCodeHashesIncludeEraVmOnePointThreeAndOnePointFour() external {
+        vm.prank(evmFactory);
+        SafeGuardHarness harness = new SafeGuardHarness(
+            ISafeMinimalInternal(address(0)),
+            safeSingleton1_3InitHash,
+            fallback1_3InitHash,
+            multicall1_3InitHash,
+            safeSingleton1_3EraVm,
+            fallback1_3EraVm,
+            multicall1_3EraVm
+        );
+
+        assertTrue(harness.isSupportedFactory(eraVmFactory));
+        assertTrue(harness.isSupportedProxyCodeHash(proxyCodeHash1_3EraVm));
+        assertTrue(harness.isSupportedProxyCodeHash(proxyCodeHash1_4EraVm));
+        assertFalse(harness.isSupportedProxyCodeHash(proxyRuntimeKeccakEraVm));
+    }
+}
+
 contract TestSafeGuard is Test {
     using ItoA for uint256;
 
@@ -281,22 +399,22 @@ contract TestSafeGuard is Test {
                     )
                 ),
                 keccak256(
-                    abi.encode(
-                        keccak256(
-                            "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
-                        ),
-                        to,
-                        value,
-                        keccak256(data),
-                        operation,
-                        safeTxGas,
-                        baseGas,
-                        gasPrice,
-                        gasToken,
-                        refundReceiver,
-                        nonce
+                        abi.encode(
+                            keccak256(
+                                "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                            ),
+                            to,
+                            value,
+                            keccak256(data),
+                            operation,
+                            safeTxGas,
+                            baseGas,
+                            gasPrice,
+                            gasToken,
+                            refundReceiver,
+                            nonce
+                        )
                     )
-                )
             )
         );
 
@@ -339,8 +457,7 @@ contract TestSafeGuard is Test {
             uint256 baseGas,
             uint256 gasPrice,
             address gasToken,
-            address payable refundReceiver,
-            ,
+            address payable refundReceiver,,
             bytes32 txHash,
             bytes memory signatures
         ) = _enqueuePoke();
@@ -390,8 +507,7 @@ contract TestSafeGuard is Test {
             uint256 baseGas,
             uint256 gasPrice,
             address gasToken,
-            address payable refundReceiver,
-            ,
+            address payable refundReceiver,,
             bytes32 txHash,
             bytes memory signatures
         ) = _enqueuePoke();
@@ -418,8 +534,7 @@ contract TestSafeGuard is Test {
             uint256 baseGas,
             uint256 gasPrice,
             address gasToken,
-            address payable refundReceiver,
-            ,
+            address payable refundReceiver,,
             bytes32 txHash,
             bytes memory signatures
         ) = _enqueuePoke();
@@ -489,8 +604,9 @@ contract TestSafeGuard is Test {
             bytes memory signatures
         )
     {
-        (to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver,, txHash, signatures) =
-            _enqueuePoke();
+        (
+            to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver,, txHash, signatures
+        ) = _enqueuePoke();
 
         bytes32 unlockTxHash = guard.unlockTxHash();
 
@@ -596,22 +712,22 @@ contract TestSafeGuard is Test {
                     )
                 ),
                 keccak256(
-                    abi.encode(
-                        keccak256(
-                            "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
-                        ),
-                        safe,
-                        0,
-                        keccak256(data),
-                        Operation.Call,
-                        0,
-                        0,
-                        0,
-                        address(0),
-                        payable(address(0)),
-                        safe.nonce()
+                        abi.encode(
+                            keccak256(
+                                "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                            ),
+                            safe,
+                            0,
+                            keccak256(data),
+                            Operation.Call,
+                            0,
+                            0,
+                            0,
+                            address(0),
+                            payable(address(0)),
+                            safe.nonce()
+                        )
                     )
-                )
             )
         );
         assertEq(txHash, resignTxHash);
@@ -645,22 +761,22 @@ contract TestSafeGuard is Test {
                     )
                 ),
                 keccak256(
-                    abi.encode(
-                        keccak256(
-                            "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
-                        ),
-                        safe,
-                        0 ether,
-                        keccak256(data),
-                        Operation.Call,
-                        0,
-                        0,
-                        0 gwei,
-                        address(0),
-                        payable(address(0)),
-                        safe.nonce()
+                        abi.encode(
+                            keccak256(
+                                "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                            ),
+                            safe,
+                            0 ether,
+                            keccak256(data),
+                            Operation.Call,
+                            0,
+                            0,
+                            0 gwei,
+                            address(0),
+                            payable(address(0)),
+                            safe.nonce()
+                        )
                     )
-                )
             )
         );
 
@@ -698,8 +814,7 @@ contract TestSafeGuard is Test {
             uint256 baseGas,
             uint256 gasPrice,
             address gasToken,
-            address payable refundReceiver,
-            ,
+            address payable refundReceiver,,
             bytes memory signatures
         ) = testLockDownHappyPath();
 
@@ -798,22 +913,22 @@ contract TestSafeGuard is Test {
                     )
                 ),
                 keccak256(
-                    abi.encode(
-                        keccak256(
-                            "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
-                        ),
-                        unlockTo,
-                        unlockValue,
-                        keccak256(unlockData),
-                        unlockOperation,
-                        unlockSafeTxGas,
-                        unlockBaseGas,
-                        unlockGasPrice,
-                        unlockGasToken,
-                        unlockRefundReceiver,
-                        safe.nonce()
+                        abi.encode(
+                            keccak256(
+                                "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                            ),
+                            unlockTo,
+                            unlockValue,
+                            keccak256(unlockData),
+                            unlockOperation,
+                            unlockSafeTxGas,
+                            unlockBaseGas,
+                            unlockGasPrice,
+                            unlockGasToken,
+                            unlockRefundReceiver,
+                            safe.nonce()
+                        )
                     )
-                )
             )
         );
 
@@ -899,22 +1014,22 @@ contract TestSafeGuard is Test {
                     )
                 ),
                 keccak256(
-                    abi.encode(
-                        keccak256(
-                            "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
-                        ),
-                        to,
-                        value,
-                        keccak256(data),
-                        operation,
-                        safeTxGas,
-                        baseGas,
-                        gasPrice,
-                        gasToken,
-                        refundReceiver,
-                        nonce
+                        abi.encode(
+                            keccak256(
+                                "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                            ),
+                            to,
+                            value,
+                            keccak256(data),
+                            operation,
+                            safeTxGas,
+                            baseGas,
+                            gasPrice,
+                            gasToken,
+                            refundReceiver,
+                            nonce
+                        )
                     )
-                )
             )
         );
 
@@ -932,8 +1047,7 @@ contract TestSafeGuard is Test {
             uint256 gasPrice,
             address gasToken,
             address payable refundReceiver,
-            uint256 nonce,
-            ,
+            uint256 nonce,,
             bytes memory signatures
         ) = _encodeMulticallPoke();
 
@@ -953,8 +1067,7 @@ contract TestSafeGuard is Test {
             uint256 gasPrice,
             address gasToken,
             address payable refundReceiver,
-            uint256 nonce,
-            ,
+            uint256 nonce,,
             bytes memory signatures
         ) = _encodeMulticallPoke();
 
@@ -987,22 +1100,22 @@ contract TestSafeGuard is Test {
                     )
                 ),
                 keccak256(
-                    abi.encode(
-                        keccak256(
-                            "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
-                        ),
-                        address(migration),
-                        0 wei,
-                        keccak256(data),
-                        Operation.DelegateCall,
-                        0,
-                        0,
-                        0 gwei,
-                        address(0),
-                        payable(address(0)),
-                        safe.nonce()
+                        abi.encode(
+                            keccak256(
+                                "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                            ),
+                            address(migration),
+                            0 wei,
+                            keccak256(data),
+                            Operation.DelegateCall,
+                            0,
+                            0,
+                            0 gwei,
+                            address(0),
+                            payable(address(0)),
+                            safe.nonce()
+                        )
                     )
-                )
             )
         );
         bytes memory signatures =
@@ -1046,22 +1159,22 @@ contract TestSafeGuard is Test {
                     )
                 ),
                 keccak256(
-                    abi.encode(
-                        keccak256(
-                            "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
-                        ),
-                        address(safe),
-                        0 wei,
-                        keccak256(data),
-                        Operation.Call,
-                        0,
-                        0,
-                        0 gwei,
-                        address(0),
-                        payable(address(0)),
-                        safe.nonce()
+                        abi.encode(
+                            keccak256(
+                                "SafeTx(address to,uint256 value,bytes data,uint8 operation,uint256 safeTxGas,uint256 baseGas,uint256 gasPrice,address gasToken,address refundReceiver,uint256 nonce)"
+                            ),
+                            address(safe),
+                            0 wei,
+                            keccak256(data),
+                            Operation.Call,
+                            0,
+                            0,
+                            0 gwei,
+                            address(0),
+                            payable(address(0)),
+                            safe.nonce()
+                        )
                     )
-                )
             )
         );
         signatures = abi.encodePacked(_signSafeEncoded(owners[0], txHash), _signSafeEncoded(owners[1], txHash));
