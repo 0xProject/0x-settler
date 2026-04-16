@@ -22,7 +22,7 @@ jobs:
           ./install-foundry-zksync
           FOUNDRY_ZKSYNC_BIN_DIR="${XDG_CONFIG_HOME:-$HOME}/.foundry/bin"
           echo "$FOUNDRY_ZKSYNC_BIN_DIR" >> "$GITHUB_PATH"
-          "$FOUNDRY_ZKSYNC_BIN_DIR/foundryup-zksync"
+          "$FOUNDRY_ZKSYNC_BIN_DIR/foundryup-zksync" --install 0.1.9
 
       - name: Install dependencies
         run: git submodule update --recursive --init
