@@ -135,10 +135,6 @@ if [[ ! -f "$project_root"/sh/initial_description_crosschain_intent.md ]] ; then
     echo 'sh/initial_description_crosschain_intent.md is missing' >&2
     exit 1
 fi
-if [[ ! -f "$project_root"/sh/initial_description_dao.md ]] ; then
-    echo 'sh/initial_description_dao.md is missing' >&2
-    exit 1
-fi
 
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
@@ -186,7 +182,7 @@ bridge_description="$(jq -MRs < "$project_root"/sh/initial_description_bridge_se
 bridge_description="${bridge_description:1:$((${#bridge_description} - 2))}"
 declare -r bridge_description
 declare dao_description
-dao_description="$(jq -MRs < "$project_root"/sh/initial_description_dao.md)"
+dao_description="$(jq -MRs < "$project_root"/sh/initial_description_crosschain_intent.md)"
 dao_description="${dao_description:1:$((${#dao_description} - 2))}"
 declare -r dao_description
 
@@ -348,12 +344,12 @@ forge script                                             \
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,string,string,string,string,string,string,bytes,address[])' \
+    --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,string,string,string,string,string,address,string,bytes,address[])' \
     "${extra_flags[@]}"                                  \
     $(get_config extraScriptFlags)                       \
     script/DeploySafes.s.sol:DeploySafes                 \
     "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
-    2 3 4 5 "$taker_submitted_description" "$metatransaction_description" "$intents_description" "$bridge_description" "$dao_description" \
+    2 3 4 5 "$taker_submitted_description" "$metatransaction_description" "$intents_description" "$bridge_description" "$dao_description" "$dao_safe" \
     "$chain_display_name" "$constructor_args" "$(IFS=, ; echo "[${solvers[*]}]")"
 unset -v ICECOLDCOFFEE_DEPLOYER_KEY
 unset -v DEPLOYER_PROXY_DEPLOYER_KEY

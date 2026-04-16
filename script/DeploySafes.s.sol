@@ -375,6 +375,7 @@ contract DeploySafes is Script {
         string calldata initialDescriptionIntent,
         string calldata initialDescriptionBridge,
         string calldata initialDescriptionDao,
+        address daoSafe,
         string calldata chainDisplayName,
         bytes calldata constructorArgs,
         address[] calldata solvers
@@ -463,7 +464,6 @@ contract DeploySafes is Script {
         bytes32 daoSafeSalt =
             keccak256(bytes.concat(keccak256(daoInitializer), bytes32(safeDeploymentSaltNonce)));
 
-        address daoSafe;
         if (safeCompatConfig.isEraVm) {
             bytes32 constructorHash = keccak256(abi.encode(safeSingleton));
 
@@ -479,8 +479,11 @@ contract DeploySafes is Script {
                 ) == upgradeSafe,
                 "upgrade safe address mismatch"
             );
-            daoSafe = AddressDerivation.deriveDeterministicContractEraVm(
-                address(safeFactory), daoSafeSalt, safeProxyInitHashEraVm, constructorHash
+            require(
+                AddressDerivation.deriveDeterministicContractEraVm(
+                    address(safeFactory), daoSafeSalt, safeProxyInitHashEraVm, constructorHash
+                ) == daoSafe,
+                "dao safe address mismatch"
             );
         } else {
             bytes memory creationCode = safeFactory.proxyCreationCode();
@@ -496,10 +499,12 @@ contract DeploySafes is Script {
                     == upgradeSafe,
                 "upgrade safe address mismatch"
             );
-            daoSafe = AddressDerivation.deriveDeterministicContract(address(safeFactory), daoSafeSalt, initHash);
+            require(
+                AddressDerivation.deriveDeterministicContract(address(safeFactory), daoSafeSalt, initHash)
+                    == daoSafe,
+                "dao safe address mismatch"
+            );
         }
-        require(daoSafe.code.length == 0, "dao safe is already deployed");
-
         // after everything is deployed, we're going to need to set up permissions; these are those calls
         bytes memory addModuleCall = abi.encodeCall(ISafeModule.enableModule, (iceColdCoffee));
         bytes memory acceptOwnershipCall = abi.encodeWithSignature("acceptOwnership()");
@@ -645,10 +650,16 @@ contract DeploySafes is Script {
         address deployedDeploymentSafe =
             _createProxyWithNonce(safeCompatConfig, deploymentInitializer, safeDeploymentSaltNonce);
 
-        // deploy the DAO multisig with its actual signers
+        // deploy the DAO multisig with its actual signers (skip if already deployed by someone else;
+        // the CREATE2 address is fully determined by the initializer, so the config is guaranteed correct)
         gasSplits[3] = gasleft();
-        address deployedDaoSafe =
-            _createProxyWithNonce(safeCompatConfig, daoInitializer, safeDeploymentSaltNonce);
+        address deployedDaoSafe;
+        if (daoSafe.code.length == 0) {
+            deployedDaoSafe =
+                _createProxyWithNonce(safeCompatConfig, daoInitializer, safeDeploymentSaltNonce);
+        } else {
+            deployedDaoSafe = daoSafe;
+        }
 
         gasSplits[4] = gasleft();
         _stopBroadcast(safeCompatConfig);
@@ -745,6 +756,11 @@ contract DeploySafes is Script {
             keccak256(abi.encodePacked(_getOwners(safeCompatConfig, ISafeOwners(upgradeSafe))))
                 == keccak256(abi.encodePacked(upgradeOwners)),
             "upgrade safe owners mismatch"
+        );
+        require(
+            keccak256(abi.encodePacked(_getOwners(safeCompatConfig, ISafeOwners(daoSafe))))
+                == keccak256(abi.encodePacked(SafeConfig.getDAOSafeSigners())),
+            "dao safe owners mismatch"
         );
         {
             (bool success, bytes memory returndata) =
