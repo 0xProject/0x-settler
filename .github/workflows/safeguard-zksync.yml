@@ -1,0 +1,34 @@
+name: SafeGuard ZKsync
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  safeguard-zksync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Foundry-ZKsync
+        run: |
+          curl -L https://raw.githubusercontent.com/matter-labs/foundry-zksync/main/install-foundry-zksync | bash
+          echo "$HOME/.foundry/bin" >> "$GITHUB_PATH"
+          "$HOME/.foundry/bin/foundryup-zksync"
+
+      - name: Install dependencies
+        run: git submodule update --recursive --init
+
+      - name: Build zkSync SafeGuard artifacts
+        run: forge build --zksync --zk-compile -o zkout --cache-path zkcache src/deployer/SafeGuard.sol zksrc/SafeGuardWrappers.sol
+        env:
+          FOUNDRY_EVM_VERSION: london
+          FOUNDRY_OPTIMIZER_RUNS: 200
+
+      - name: Run zkSync SafeGuard tests
+        run: forge test --zksync -C zktest --root "$GITHUB_WORKSPACE" --lib-paths "$GITHUB_WORKSPACE/lib" --match-contract TestSafeGuardZkSyncArtifacts

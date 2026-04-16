@@ -337,14 +337,12 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     }
 
     function _isSupportedFactory(address deployer) internal pure virtual returns (bool) {
-        return deployer == _NONEIP155_CREATE2_FACTORY
-            || deployer == _SAFE_SINGLETON_FACTORY
+        return deployer == _NONEIP155_CREATE2_FACTORY || deployer == _SAFE_SINGLETON_FACTORY
             || deployer == _ERC7955_CREATE2_FACTORY;
     }
 
     function _isSupportedProxyCodeHash(bytes32 safeCodeHash) internal pure virtual returns (bool) {
-        return safeCodeHash == _SAFE_PROXY_1_1_CODEHASH
-            || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
+        return safeCodeHash == _SAFE_PROXY_1_1_CODEHASH || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
             || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH;
     }
 
@@ -943,8 +941,11 @@ abstract contract ZeroExSettlerDeployerSafeGuardEraVm is ZeroExSettlerDeployerSa
     bytes32 private constant _SAFE_PROXY_1_4_ERAVM_CODEHASH =
         0x0100003b6cfa15bd7d1cae1c9c022074524d7785d34859ad0576d8fab4305d4f;
 
+    // On EraVM, `type(C).creationCode` lowers to a compact deployment descriptor rather than the
+    // full contract bytecode. This constant is `keccak256(type(EvmVersionDummy).creationCode)`
+    // when compiled with zksolc for the London hardfork.
     function _EVM_VERSION_DUMMY_INITHASH() internal pure virtual override returns (bytes32) {
-        return bytes32(0); // TODO:
+        return 0xfce4b7826969737d1006560c768bc061ede964f30aea2c10743c4abd11f1ae3b;
     }
 
     function _isSupportedFactory(address deployer) internal pure virtual override returns (bool) {
@@ -1028,7 +1029,12 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm is
 
     // Appease the almighty compiler because Solidity inheritance is stupid
 
-    function _EVM_VERSION_DUMMY_INITHASH() internal pure override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (bytes32) {
+    function _EVM_VERSION_DUMMY_INITHASH()
+        internal
+        pure
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
+        returns (bytes32)
+    {
         return super._EVM_VERSION_DUMMY_INITHASH();
     }
 
@@ -1126,7 +1132,12 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm is
 
     // Appease the almighty compiler because Solidity inheritance is stupid
 
-    function _EVM_VERSION_DUMMY_INITHASH() internal pure override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (bytes32) {
+    function _EVM_VERSION_DUMMY_INITHASH()
+        internal
+        pure
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
+        returns (bytes32)
+    {
         return super._EVM_VERSION_DUMMY_INITHASH();
     }
 

@@ -18,13 +18,21 @@ block_gas_limit = 16_777_216
 no_match_path = "test/integration/*"
 # needed for marktoda/forge-gas-snapshot
 ffi = true
-fs_permissions = [{ access = "read-write", path = ".forge-snapshots/" }, { access = "read", path = "out" }, { access = "read", path = "script/" }]
+fs_permissions = [
+    { access = "read-write", path = ".forge-snapshots/" },
+    { access = "read", path = "out" },
+    { access = "read", path = "zkout" },
+    { access = "read", path = "script/" },
+]
 gas_snapshot_emit = true
 
 # https://github.com/foundry-rs/foundry/issues/6780#issuecomment-1962319449
 [profile.default.optimizer_details]
 constantOptimizer = true
 yul = true
+
+[profile.default.zksync]
+bytecode_hash = "none"
 
 [profile.integration]
 no_match_path = "test/unit/*"
