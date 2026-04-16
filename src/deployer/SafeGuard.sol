@@ -332,8 +332,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c;
 
     // This is the correct hash only if this contract has been compiled for the London hardfork
-    bytes32 private constant _EVM_VERSION_DUMMY_INITHASH =
-        0xe7bcbbfee5c3a9a42621a8cbb24d1eade8e9469bc40e23d16b5d0607ba27027a;
+    function _EVM_VERSION_DUMMY_INITHASH() internal pure virtual returns (bytes32) {
+        return 0xe7bcbbfee5c3a9a42621a8cbb24d1eade8e9469bc40e23d16b5d0607ba27027a;
+    }
 
     function _isSupportedFactory(address deployer) internal pure virtual returns (bool) {
         return deployer == _NONEIP155_CREATE2_FACTORY
@@ -348,7 +349,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     }
 
     function _constructorChecks() internal view returns (bool result) {
-        result = keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH || block.chainid == 31337;
+        result = keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH();
         bytes32 safeCodeHash = address(safe).codehash;
         result = result && _isSupportedProxyCodeHash(safeCodeHash);
         result = result && _isSupportedFactory(msg.sender);
@@ -942,6 +943,10 @@ abstract contract ZeroExSettlerDeployerSafeGuardEraVm is ZeroExSettlerDeployerSa
     bytes32 private constant _SAFE_PROXY_1_4_ERAVM_CODEHASH =
         0x0100003b6cfa15bd7d1cae1c9c022074524d7785d34859ad0576d8fab4305d4f;
 
+    function _EVM_VERSION_DUMMY_INITHASH() internal pure virtual override returns (bytes32) {
+        return bytes32(0); // TODO:
+    }
+
     function _isSupportedFactory(address deployer) internal pure virtual override returns (bool) {
         return deployer == _SAFE_SINGLETON_FACTORY_ERAVM;
     }
@@ -1022,6 +1027,10 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm is
     constructor(ISafeMinimal _safe) ZeroExSettlerDeployerSafeGuardOnePointThree(_safe) {}
 
     // Appease the almighty compiler because Solidity inheritance is stupid
+
+    function _EVM_VERSION_DUMMY_INITHASH() internal pure override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (bytes32) {
+        return super._EVM_VERSION_DUMMY_INITHASH();
+    }
 
     function _isSupportedFactory(address deployer)
         internal
@@ -1116,6 +1125,10 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm is
     constructor(ISafeMinimal _safe) ZeroExSettlerDeployerSafeGuardOnePointFourPointOne(_safe) {}
 
     // Appease the almighty compiler because Solidity inheritance is stupid
+
+    function _EVM_VERSION_DUMMY_INITHASH() internal pure override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (bytes32) {
+        return super._EVM_VERSION_DUMMY_INITHASH();
+    }
 
     function _isSupportedFactory(address deployer)
         internal
