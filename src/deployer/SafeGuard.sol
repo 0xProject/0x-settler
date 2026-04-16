@@ -317,14 +317,11 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     uint256 internal constant _MINIMUM_OWNERS = 4;
     uint256 internal constant _MINIMUM_THRESHOLD = 2;
 
-    address internal immutable _SINGLETON;
-    address internal immutable _FALLBACK;
-    address internal immutable _MULTISEND;
+    address private immutable _SINGLETON;
+    address private immutable _FALLBACK;
+    address private immutable _MULTISEND;
     address private constant _NONEIP155_CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
-    // Safe's singleton factory on legacy zkSync/EraVM networks.
-    // Ref: https://github.com/safe-global/safe-singleton-factory
-    address private constant _SAFE_SINGLETON_FACTORY_ERAVM = 0xaECDbB0a3B1C6D1Fe1755866e330D82eC81fD4FD;
     address private constant _ERC7955_CREATE2_FACTORY = 0xC0DEb853af168215879d284cc8B4d0A645fA9b0E;
 
     bytes32 private constant _SAFE_PROXY_1_1_CODEHASH =
@@ -333,29 +330,21 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         0xb89c1b3bdf2cf8827818646bce9a8f6e372885f8c55e5c07acbd307cb133b000;
     bytes32 private constant _SAFE_PROXY_1_4_CODEHASH =
         0xd7d408ebcd99b2b70be43e20253d6d92a8ea8fab29bd3be7f55b10032331fb4c;
-    // These values are the `EXTCODEHASH`/`address.codehash` values observed for live zkSync/EraVM
-    // Safe proxies. They match the EraVM bytecode-hash format described in the zkSync docs.
-    // The corresponding proxy factories are:
-    // 1.3.0: 0xDAec33641865E4651fB43181C6DB6f7232Ee91c2
-    // 1.4.1: 0xc329D02fd8CB2fc13aa919005aF46320794a8629
-    bytes32 private constant _SAFE_PROXY_1_3_ERAVM_CODEHASH =
-        0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d;
-    bytes32 private constant _SAFE_PROXY_1_4_ERAVM_CODEHASH =
-        0x0100003b6cfa15bd7d1cae1c9c022074524d7785d34859ad0576d8fab4305d4f;
 
     // This is the correct hash only if this contract has been compiled for the London hardfork
     bytes32 private constant _EVM_VERSION_DUMMY_INITHASH =
         0xe7bcbbfee5c3a9a42621a8cbb24d1eade8e9469bc40e23d16b5d0607ba27027a;
 
-    function _isSupportedFactory(address deployer) internal pure returns (bool) {
-        return deployer == _NONEIP155_CREATE2_FACTORY || deployer == _SAFE_SINGLETON_FACTORY
-            || deployer == _SAFE_SINGLETON_FACTORY_ERAVM || deployer == _ERC7955_CREATE2_FACTORY;
+    function _isSupportedFactory(address deployer) internal pure virtual returns (bool) {
+        return deployer == _NONEIP155_CREATE2_FACTORY
+            || deployer == _SAFE_SINGLETON_FACTORY
+            || deployer == _ERC7955_CREATE2_FACTORY;
     }
 
-    function _isSupportedProxyCodeHash(bytes32 safeCodeHash) internal pure returns (bool) {
-        return safeCodeHash == _SAFE_PROXY_1_1_CODEHASH || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
-            || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH || safeCodeHash == _SAFE_PROXY_1_3_ERAVM_CODEHASH
-            || safeCodeHash == _SAFE_PROXY_1_4_ERAVM_CODEHASH;
+    function _isSupportedProxyCodeHash(bytes32 safeCodeHash) internal pure virtual returns (bool) {
+        return safeCodeHash == _SAFE_PROXY_1_1_CODEHASH
+            || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
+            || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH;
     }
 
     function _constructorChecks() internal view returns (bool result) {
@@ -365,7 +354,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         result = result && _isSupportedFactory(msg.sender);
     }
 
-    function _predictCreate2(bytes32 inithash) private view returns (address) {
+    function _predictCreate2(bytes32 inithash) internal virtual view returns (address) {
         return address(
             uint160(uint256(keccak256(bytes.concat(bytes1(0xff), bytes20(uint160(msg.sender)), bytes32(0), inithash))))
         );
@@ -375,21 +364,12 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         ISafeMinimal _safe,
         bytes32 singletonInithash,
         bytes32 fallbackInithash,
-        bytes32 multisendInithash,
-        address singletonEraVm,
-        address fallbackEraVm,
-        address multisendEraVm
+        bytes32 multisendInithash
     ) {
         safe = _safe;
-        if (msg.sender == _SAFE_SINGLETON_FACTORY_ERAVM) {
-            _SINGLETON = singletonEraVm;
-            _FALLBACK = fallbackEraVm;
-            _MULTISEND = multisendEraVm;
-        } else {
-            _SINGLETON = _predictCreate2(singletonInithash);
-            _FALLBACK = _predictCreate2(fallbackInithash);
-            _MULTISEND = _predictCreate2(multisendInithash);
-        }
+        _SINGLETON = _predictCreate2(singletonInithash);
+        _FALLBACK = _predictCreate2(fallbackInithash);
+        _MULTISEND = _predictCreate2(multisendInithash);
     }
 
     function _requireSafe() private view {
@@ -957,27 +937,51 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     }
 }
 
+abstract contract ZeroExSettlerDeployerSafeGuardEraVm is ZeroExSettlerDeployerSafeGuardBase {
+    address private constant _SAFE_SINGLETON_FACTORY_ERAVM = 0xaECDbB0a3B1C6D1Fe1755866e330D82eC81fD4FD;
+
+    // These aren't so much a "hash" as they are a versioned discriminator
+    // ref: https://web.archive.org/web/20251108134721/https://matter-labs.github.io/zksync-era/core/latest/guides/advanced/12_alternative_vm_intro.html#bytecode-hashes
+    bytes32 private constant _SAFE_PROXY_1_3_ERAVM_CODEHASH =
+        0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d;
+    bytes32 private constant _SAFE_PROXY_1_4_ERAVM_CODEHASH =
+        0x0100003b6cfa15bd7d1cae1c9c022074524d7785d34859ad0576d8fab4305d4f;
+
+    function _isSupportedFactory(address deployer) internal pure virtual override returns (bool) {
+        return deployer == _SAFE_SINGLETON_FACTORY_ERAVM;
+    }
+
+    function _isSupportedProxyCodeHash(bytes32 safeCodeHash) internal pure virtual override returns (bool) {
+        return safeCodeHash == _SAFE_PROXY_1_3_ERAVM_CODEHASH
+            || safeCodeHash == _SAFE_PROXY_1_4_ERAVM_CODEHASH;
+    }
+
+    function _predictCreate2(bytes32 inithash) internal virtual override view returns (address) {
+        return address(
+            uint160(uint256(keccak256(bytes.concat(keccak256("zksyncCreate2"), bytes32(uint256(uint160(msg.sender))), bytes32(0), inithash, keccak256("")))))
+        );
+    }
+}
+
 contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSafeGuardBase {
-    bytes32 private constant _SAFE_SINGLETON_1_3_INITHASH =
-        0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438;
-    bytes32 private constant _SAFE_FALLBACK_1_3_INITHASH =
-        0x272190de126b4577e187d9f00b9ca5daeae76d771965d734876891a51f9c43d8;
-    bytes32 private constant _SAFE_MULTISEND_1_3_INITHASH =
-        0x35e699c3e43ec3e03a101730ab916c5e540893eaaf806451e929d138c3ff53b7;
-    // Ref: https://github.com/safe-global/safe-deployments/tree/main/src/assets/v1.3.0
-    address private constant _SAFE_SINGLETON_1_3_ERAVM = 0x1727c2c531cf966f902E5927b98490fDFb3b2b70;
-    address private constant _SAFE_FALLBACK_1_3_ERAVM = 0x2f870a80647BbC554F3a0EBD093f11B4d2a7492A;
-    address private constant _SAFE_MULTISEND_1_3_ERAVM = 0xf220D3b4DFb23C4ade8C88E526C1353AbAcbC38F;
+    function _SAFE_SINGLETON_1_3_INITHASH() internal pure virtual returns (bytes32) {
+        return 0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438;
+    }
+
+    function _SAFE_FALLBACK_1_3_INITHASH() internal pure virtual returns (bytes32) {
+        return 0x272190de126b4577e187d9f00b9ca5daeae76d771965d734876891a51f9c43d8;
+    }
+
+    function _SAFE_MULTISEND_1_3_INITHASH() internal pure virtual returns (bytes32) {
+        return 0x35e699c3e43ec3e03a101730ab916c5e540893eaaf806451e929d138c3ff53b7;
+    }
 
     constructor(ISafeMinimal _safe)
         ZeroExSettlerDeployerSafeGuardBase(
             _safe,
-            _SAFE_SINGLETON_1_3_INITHASH,
-            _SAFE_FALLBACK_1_3_INITHASH,
-            _SAFE_MULTISEND_1_3_INITHASH,
-            _SAFE_SINGLETON_1_3_ERAVM,
-            _SAFE_FALLBACK_1_3_ERAVM,
-            _SAFE_MULTISEND_1_3_ERAVM
+            _SAFE_SINGLETON_1_3_INITHASH(),
+            _SAFE_FALLBACK_1_3_INITHASH(),
+            _SAFE_MULTISEND_1_3_INITHASH()
         )
     {
         // These checks ensure that the Guard is safely installed in the Safe at the time it is
@@ -996,27 +1000,55 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSaf
     }
 }
 
+contract ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm is ZeroExSettlerDeployerSafeGuardEraVm, ZeroExSettlerDeployerSafeGuardOnePointThree {
+    function _SAFE_SINGLETON_1_3_INITHASH() internal pure override returns (bytes32) {
+        return 0x0100080f935a1a562e892e1e71d9a0ca8cd349d19a413e0b7e7172c5e8c83ed1;
+    }
+
+    function _SAFE_FALLBACK_1_3_INITHASH() internal pure override returns (bytes32) {
+        return 0x010002416a25dcb4ee218297a41538dde5937bbf8b64e5d3656217e27fd04d19;
+    }
+
+    function _SAFE_MULTISEND_1_3_INITHASH() internal pure override returns (bytes32) {
+        return 0x0100002daeda170fa43cc4e00e452a18debfe54f988fa3484ab08e7f22ee79d5;
+    }
+
+    constructor(ISafeMinimal _safe) ZeroExSettlerDeployerSafeGuardOnePointThree(_safe) {}
+
+    // Appease the almighty compiler because Solidity inheritance is stupid
+
+    function _isSupportedFactory(address deployer) internal pure override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (bool) {
+        return super._isSupportedFactory(deployer);
+    }
+
+    function _isSupportedProxyCodeHash(bytes32 safeCodeHash) internal pure override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (bool) {
+        return super._isSupportedProxyCodeHash(safeCodeHash);
+    }
+
+    function _predictCreate2(bytes32 inithash) internal view override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (address) {
+        return super._predictCreate2(inithash);
+    }
+}
+
 contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSettlerDeployerSafeGuardBase {
-    bytes32 private constant _SAFE_SINGLETON_1_4_INITHASH =
-        0x3555bd3ee95b1c6605c602740d71efaf200068e0395ccd701ac82ab8e42307bd;
-    bytes32 private constant _SAFE_FALLBACK_1_4_INITHASH =
-        0x5a63128db658d8601220c014848acd6c27b855a0427f0181eb3ba8c25e2d3e95;
-    bytes32 private constant _SAFE_MULTISEND_1_4_INITHASH =
-        0xa7934433f19155c708af2674b14c6c8b591fedbed7b01ce8cf64014f307468a0;
-    // Ref: https://github.com/safe-global/safe-deployments/tree/main/src/assets/v1.4.1
-    address private constant _SAFE_SINGLETON_1_4_ERAVM = 0x610fcA2e0279Fa1F8C00c8c2F71dF522AD469380;
-    address private constant _SAFE_FALLBACK_1_4_ERAVM = 0x9301E98DD367135f21bdF66f342A249c9D5F9069;
-    address private constant _SAFE_MULTISEND_1_4_ERAVM = 0x0408EF011960d02349d50286D20531229BCef773;
+    function _SAFE_SINGLETON_1_4_INITHASH() internal pure virtual returns (bytes32) {
+        return 0x3555bd3ee95b1c6605c602740d71efaf200068e0395ccd701ac82ab8e42307bd;
+    }
+
+    function _SAFE_FALLBACK_1_4_INITHASH() internal pure virtual returns (bytes32) {
+        return 0x5a63128db658d8601220c014848acd6c27b855a0427f0181eb3ba8c25e2d3e95;
+    }
+
+    function _SAFE_MULTISEND_1_4_INITHASH() internal pure virtual returns (bytes32) {
+        return 0xa7934433f19155c708af2674b14c6c8b591fedbed7b01ce8cf64014f307468a0;
+    }
 
     constructor(ISafeMinimal _safe)
         ZeroExSettlerDeployerSafeGuardBase(
             _safe,
-            _SAFE_SINGLETON_1_4_INITHASH,
-            _SAFE_FALLBACK_1_4_INITHASH,
-            _SAFE_MULTISEND_1_4_INITHASH,
-            _SAFE_SINGLETON_1_4_ERAVM,
-            _SAFE_FALLBACK_1_4_ERAVM,
-            _SAFE_MULTISEND_1_4_ERAVM
+            _SAFE_SINGLETON_1_4_INITHASH(),
+            _SAFE_FALLBACK_1_4_INITHASH(),
+            _SAFE_MULTISEND_1_4_INITHASH()
         )
     {
         // In contrast to the 1.3.0 Guard, the 1.4.1 Guard must be deployed *before* being enabled
@@ -1044,5 +1076,35 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSe
             return msg.sender == address(_safe) && uint32(interfaceID) == uint32(type(IGuard).interfaceId)
                 && _checkAfterExecutionReturnBool(_safe);
         }
+    }
+}
+
+contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm is ZeroExSettlerDeployerSafeGuardEraVm, ZeroExSettlerDeployerSafeGuardOnePointFourPointOne {
+    function _SAFE_SINGLETON_1_4_INITHASH() internal pure override returns (bytes32) {
+        return 0x010006c19437ff25b448f038f7ea0a4c910e0ae9cd8e55f2d199b7916b72eb1e;
+    }
+
+    function _SAFE_FALLBACK_1_4_INITHASH() internal pure override returns (bytes32) {
+        return 0x01000227ab67505fb2fa65c81aceddb0a46ddbf3b974583188beda4c5e90417c;
+    }
+
+    function _SAFE_MULTISEND_1_4_INITHASH() internal pure override returns (bytes32) {
+        return 0x0100002f5fb8e4746cf6c3f70d2aba9d82d3f2045150860e9cfb7a336caa9690;
+    }
+
+    constructor(ISafeMinimal _safe) ZeroExSettlerDeployerSafeGuardOnePointFourPointOne(_safe) {}
+
+    // Appease the almighty compiler because Solidity inheritance is stupid
+
+    function _isSupportedFactory(address deployer) internal pure override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (bool) {
+        return super._isSupportedFactory(deployer);
+    }
+
+    function _isSupportedProxyCodeHash(bytes32 safeCodeHash) internal pure override (ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (bool) {
+        return super._isSupportedProxyCodeHash(safeCodeHash);
+    }
+
+    function _predictCreate2(bytes32 inithash) internal view override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (address) {
+        return super._predictCreate2(inithash);
     }
 }
