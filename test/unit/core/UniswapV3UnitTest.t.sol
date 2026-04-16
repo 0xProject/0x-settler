@@ -242,8 +242,8 @@ contract UniswapV3PoolDirtyForwardedBoolDummy {
         (,,,, bytes memory data) = abi.decode(msg.data[4:], (address, bool, int256, uint160, bytes));
         data[0x88] = bytes1(uint8(2));
 
-        (bool success, bytes memory returndata) =
-            msg.sender.call(abi.encodeWithSignature("uniswapV3SwapCallback(int256,int256,bytes)", int256(1), int256(1), data));
+        (bool success, bytes memory returndata) = msg.sender
+            .call(abi.encodeWithSignature("uniswapV3SwapCallback(int256,int256,bytes)", int256(1), int256(1), data));
         if (!success) {
             assembly ("memory-safe") {
                 revert(add(0x20, returndata), mload(returndata))
