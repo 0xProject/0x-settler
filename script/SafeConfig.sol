@@ -133,4 +133,13 @@ library SafeConfig {
         result[5] = 0x36b7E0738fe11f05d26dA55d10eE679e684e06f4; // Lazaro
         return result;
     }
+
+    uint256 internal constant daoSafeThreshold = 2;
+
+    function getDAOSafeSigners() internal pure returns (address[] memory result) {
+        result = new address[](3);
+        result[0] = 0x3C6A208ae02554e744e0EF8fc6d1cd1afAF03B1C;
+        result[1] = 0x026f80585A532F6bB68A1c1Fda61F5DF71C2b10E;
+        result[2] = 0x0abaA253d9C3D9E94771D3daa662cdA5df69EA53;
+    }
 }

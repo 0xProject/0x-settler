@@ -362,6 +362,7 @@ contract DeploySafes is Script {
         address deployerProxy,
         address deploymentSafe,
         address upgradeSafe,
+        address daoSafe,
         ISafeFactory safeFactory,
         address safeSingleton,
         address safeFallback,
@@ -370,10 +371,12 @@ contract DeploySafes is Script {
         Feature metaTxFeature,
         Feature intentFeature,
         Feature bridgeFeature,
+        Feature daoFeature,
         string calldata initialDescriptionTakerSubmitted,
         string calldata initialDescriptionMetaTx,
         string calldata initialDescriptionIntent,
         string calldata initialDescriptionBridge,
+        string calldata initialDescriptionDao,
         string calldata chainDisplayName,
         bytes calldata constructorArgs,
         address[] calldata solvers
@@ -411,6 +414,7 @@ contract DeploySafes is Script {
         require(Feature.unwrap(metaTxFeature) == 3, "wrong metatransaction feature (tokenId)");
         require(Feature.unwrap(intentFeature) == 4, "wrong intents feature (tokenId)");
         require(Feature.unwrap(bridgeFeature) == 5, "wrong bridge feature (tokenId)");
+        require(Feature.unwrap(daoFeature) == 1001, "wrong DAO feature (tokenId)");
 
         uint256 moduleDeployerKey = vm.envUint("ICECOLDCOFFEE_DEPLOYER_KEY");
         uint256 proxyDeployerKey = vm.envUint("DEPLOYER_PROXY_DEPLOYER_KEY");
@@ -446,6 +450,22 @@ contract DeploySafes is Script {
         bytes32 upgradeDerivedSalt =
             keccak256(bytes.concat(keccak256(upgradeInitializer), bytes32(safeDeploymentSaltNonce)));
 
+        bytes memory daoInitializer = abi.encodeCall(
+            ISafeSetup.setup,
+            (
+                SafeConfig.getDAOSafeSigners(),
+                SafeConfig.daoSafeThreshold,
+                address(0),
+                new bytes(0),
+                safeFallback,
+                address(0),
+                0,
+                payable(address(0))
+            )
+        );
+        bytes32 daoSafeSalt =
+            keccak256(bytes.concat(keccak256(daoInitializer), bytes32(safeDeploymentSaltNonce)));
+
         if (safeCompatConfig.isEraVm) {
             bytes32 constructorHash = keccak256(abi.encode(safeSingleton));
 
@@ -461,6 +481,12 @@ contract DeploySafes is Script {
                 ) == upgradeSafe,
                 "upgrade safe address mismatch"
             );
+            require(
+                AddressDerivation.deriveDeterministicContractEraVm(
+                    address(safeFactory), daoSafeSalt, safeProxyInitHashEraVm, constructorHash
+                ) == daoSafe,
+                "dao safe address mismatch"
+            );
         } else {
             bytes memory creationCode = safeFactory.proxyCreationCode();
             bytes32 initHash = keccak256(bytes.concat(creationCode, bytes32(uint256(uint160(safeSingleton)))));
@@ -474,6 +500,11 @@ contract DeploySafes is Script {
                 AddressDerivation.deriveDeterministicContract(address(safeFactory), upgradeDerivedSalt, initHash)
                     == upgradeSafe,
                 "upgrade safe address mismatch"
+            );
+            require(
+                AddressDerivation.deriveDeterministicContract(address(safeFactory), daoSafeSalt, initHash)
+                    == daoSafe,
+                "dao safe address mismatch"
             );
         }
 
@@ -549,11 +580,18 @@ contract DeploySafes is Script {
         );
         address predictedBridgeSettler = Create3.predict(salt(bridgeFeature, Nonce.wrap(1)), deployerProxy);
 
+        // DAO feature: initialize and authorize DAO Safe for feature 1001
+        bytes memory daoSetDescriptionCall =
+            abi.encodeCall(Deployer.setDescription, (daoFeature, initialDescriptionDao));
+        bytes memory daoAuthorizeCall = abi.encodeCall(
+            Deployer.authorize, (daoFeature, daoSafe, uint40(block.timestamp + 365 days))
+        );
+
         address[] memory upgradeOwners = SafeConfig.getUpgradeSafeSigners();
         bytes[] memory changeOwnersCalls =
             _encodeChangeOwners(upgradeSafe, SafeConfig.upgradeSafeThreshold, proxyDeployer, upgradeOwners);
         assert(changeOwnersCalls.length == upgradeOwners.length + 1);
-        bytes[] memory upgradeSetupCalls = new bytes[](9 + changeOwnersCalls.length);
+        bytes[] memory upgradeSetupCalls = new bytes[](11 + changeOwnersCalls.length);
         upgradeSetupCalls[0] = _encodeMultisend(deployerProxy, acceptOwnershipCall);
         upgradeSetupCalls[1] = _encodeMultisend(deployerProxy, takerSubmittedSetDescriptionCall);
         upgradeSetupCalls[2] = _encodeMultisend(deployerProxy, takerSubmittedAuthorizeCall);
@@ -563,8 +601,10 @@ contract DeploySafes is Script {
         upgradeSetupCalls[6] = _encodeMultisend(deployerProxy, intentAuthorizeCall);
         upgradeSetupCalls[7] = _encodeMultisend(deployerProxy, bridgeSetDescriptionCall);
         upgradeSetupCalls[8] = _encodeMultisend(deployerProxy, bridgeAuthorizeCall);
+        upgradeSetupCalls[9] = _encodeMultisend(deployerProxy, daoSetDescriptionCall);
+        upgradeSetupCalls[10] = _encodeMultisend(deployerProxy, daoAuthorizeCall);
         for (uint256 i; i < changeOwnersCalls.length; i++) {
-            upgradeSetupCalls[i + 9] = changeOwnersCalls[i];
+            upgradeSetupCalls[i + 11] = changeOwnersCalls[i];
         }
         bytes memory upgradeSetupCall = _encodeMultisend(upgradeSetupCalls);
 
@@ -597,7 +637,7 @@ contract DeploySafes is Script {
         bytes memory deploymentSignature = abi.encodePacked(uint256(uint160(moduleDeployer)), bytes32(0), uint8(1));
         bytes memory upgradeSignature = abi.encodePacked(uint256(uint160(proxyDeployer)), bytes32(0), uint8(1));
 
-        uint256[] memory gasSplits = new uint256[](10);
+        uint256[] memory gasSplits = new uint256[](11);
 
         _startBroadcast(safeCompatConfig, moduleDeployerKey);
 
@@ -612,22 +652,33 @@ contract DeploySafes is Script {
         address deployedDeploymentSafe =
             _createProxyWithNonce(safeCompatConfig, deploymentInitializer, safeDeploymentSaltNonce);
 
+        // deploy the DAO multisig with its actual signers (skip if already deployed by someone else;
+        // the CREATE2 address is fully determined by the initializer, so the config is guaranteed correct)
         gasSplits[3] = gasleft();
+        address deployedDaoSafe;
+        if (daoSafe.code.length == 0) {
+            deployedDaoSafe =
+                _createProxyWithNonce(safeCompatConfig, daoInitializer, safeDeploymentSaltNonce);
+        } else {
+            deployedDaoSafe = daoSafe;
+        }
+
+        gasSplits[4] = gasleft();
         _stopBroadcast(safeCompatConfig);
 
         _startBroadcast(safeCompatConfig, proxyDeployerKey);
 
         // first we deploy the proxy for the deployer to get the correct address
-        gasSplits[4] = gasleft();
+        gasSplits[5] = gasleft();
         address deployedDeployerProxy =
             ERC1967UUPSProxy.create(deployerImpl, abi.encodeCall(Deployer.initialize, (upgradeSafe)));
         // then we deploy the safe that's going to own the proxy
-        gasSplits[5] = gasleft();
+        gasSplits[6] = gasleft();
         address deployedUpgradeSafe =
             _createProxyWithNonce(safeCompatConfig, upgradeInitializer, safeDeploymentSaltNonce);
 
         // configure the deployer (accept ownership; set descriptions; authorize; set new owners)
-        gasSplits[6] = gasleft();
+        gasSplits[7] = gasleft();
         _execTransaction(
             safeCompatConfig,
             ISafeExecute(upgradeSafe),
@@ -643,13 +694,13 @@ contract DeploySafes is Script {
             upgradeSignature
         );
 
-        gasSplits[7] = gasleft();
+        gasSplits[8] = gasleft();
         _stopBroadcast(safeCompatConfig);
 
         _startBroadcast(safeCompatConfig, moduleDeployerKey);
 
         // add rollback module; deploy settlers; set new owners
-        gasSplits[8] = gasleft();
+        gasSplits[9] = gasleft();
         _execTransaction(
             safeCompatConfig,
             ISafeExecute(deploymentSafe),
@@ -665,7 +716,7 @@ contract DeploySafes is Script {
             deploymentSignature
         );
 
-        gasSplits[9] = gasleft();
+        gasSplits[10] = gasleft();
         _stopBroadcast(safeCompatConfig);
 
         {
@@ -677,6 +728,7 @@ contract DeploySafes is Script {
 
         require(deployedModule == iceColdCoffee, "deployment/prediction mismatch");
         require(deployedDeploymentSafe == deploymentSafe, "deployed safe/predicted safe mismatch");
+        require(deployedDaoSafe == daoSafe, "dao safe deployed/predicted safe mismatch");
         require(deployedUpgradeSafe == upgradeSafe, "upgrade deployed safe/predicted safe mismatch");
         require(deployedDeployerProxy == deployerProxy, "deployer proxy predicted mismatch");
         require(Deployer(deployerProxy).owner() == upgradeSafe, "deployer not owned by upgrade safe");
@@ -706,6 +758,11 @@ contract DeploySafes is Script {
             keccak256(abi.encodePacked(_getOwners(safeCompatConfig, ISafeOwners(upgradeSafe))))
                 == keccak256(abi.encodePacked(upgradeOwners)),
             "upgrade safe owners mismatch"
+        );
+        require(
+            keccak256(abi.encodePacked(_getOwners(safeCompatConfig, ISafeOwners(daoSafe))))
+                == keccak256(abi.encodePacked(SafeConfig.getDAOSafeSigners())),
+            "dao safe owners mismatch"
         );
         {
             (bool success, bytes memory returndata) =
