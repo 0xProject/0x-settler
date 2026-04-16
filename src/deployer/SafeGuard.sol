@@ -354,18 +354,13 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         result = result && _isSupportedFactory(msg.sender);
     }
 
-    function _predictCreate2(bytes32 inithash) internal virtual view returns (address) {
+    function _predictCreate2(bytes32 inithash) internal view virtual returns (address) {
         return address(
             uint160(uint256(keccak256(bytes.concat(bytes1(0xff), bytes20(uint160(msg.sender)), bytes32(0), inithash))))
         );
     }
 
-    constructor(
-        ISafeMinimal _safe,
-        bytes32 singletonInithash,
-        bytes32 fallbackInithash,
-        bytes32 multisendInithash
-    ) {
+    constructor(ISafeMinimal _safe, bytes32 singletonInithash, bytes32 fallbackInithash, bytes32 multisendInithash) {
         safe = _safe;
         _SINGLETON = _predictCreate2(singletonInithash);
         _FALLBACK = _predictCreate2(fallbackInithash);
@@ -956,9 +951,21 @@ abstract contract ZeroExSettlerDeployerSafeGuardEraVm is ZeroExSettlerDeployerSa
             || safeCodeHash == _SAFE_PROXY_1_4_ERAVM_CODEHASH;
     }
 
-    function _predictCreate2(bytes32 inithash) internal virtual override view returns (address) {
+    function _predictCreate2(bytes32 inithash) internal view virtual override returns (address) {
         return address(
-            uint160(uint256(keccak256(bytes.concat(keccak256("zksyncCreate2"), bytes32(uint256(uint160(msg.sender))), bytes32(0), inithash, keccak256("")))))
+            uint160(
+                uint256(
+                    keccak256(
+                        bytes.concat(
+                            keccak256("zksyncCreate2"),
+                            bytes32(uint256(uint160(msg.sender))),
+                            bytes32(0),
+                            inithash,
+                            keccak256("")
+                        )
+                    )
+                )
+            )
         );
     }
 }
@@ -978,10 +985,7 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSaf
 
     constructor(ISafeMinimal _safe)
         ZeroExSettlerDeployerSafeGuardBase(
-            _safe,
-            _SAFE_SINGLETON_1_3_INITHASH(),
-            _SAFE_FALLBACK_1_3_INITHASH(),
-            _SAFE_MULTISEND_1_3_INITHASH()
+            _safe, _SAFE_SINGLETON_1_3_INITHASH(), _SAFE_FALLBACK_1_3_INITHASH(), _SAFE_MULTISEND_1_3_INITHASH()
         )
     {
         // These checks ensure that the Guard is safely installed in the Safe at the time it is
@@ -1000,7 +1004,10 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSaf
     }
 }
 
-contract ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm is ZeroExSettlerDeployerSafeGuardEraVm, ZeroExSettlerDeployerSafeGuardOnePointThree {
+contract ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm is
+    ZeroExSettlerDeployerSafeGuardEraVm,
+    ZeroExSettlerDeployerSafeGuardOnePointThree
+{
     function _SAFE_SINGLETON_1_3_INITHASH() internal pure override returns (bytes32) {
         return 0x0100080f935a1a562e892e1e71d9a0ca8cd349d19a413e0b7e7172c5e8c83ed1;
     }
@@ -1017,15 +1024,30 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm is ZeroExSettlerDeploy
 
     // Appease the almighty compiler because Solidity inheritance is stupid
 
-    function _isSupportedFactory(address deployer) internal pure override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (bool) {
+    function _isSupportedFactory(address deployer)
+        internal
+        pure
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
+        returns (bool)
+    {
         return super._isSupportedFactory(deployer);
     }
 
-    function _isSupportedProxyCodeHash(bytes32 safeCodeHash) internal pure override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (bool) {
+    function _isSupportedProxyCodeHash(bytes32 safeCodeHash)
+        internal
+        pure
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
+        returns (bool)
+    {
         return super._isSupportedProxyCodeHash(safeCodeHash);
     }
 
-    function _predictCreate2(bytes32 inithash) internal view override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (address) {
+    function _predictCreate2(bytes32 inithash)
+        internal
+        view
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
+        returns (address)
+    {
         return super._predictCreate2(inithash);
     }
 }
@@ -1045,10 +1067,7 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSe
 
     constructor(ISafeMinimal _safe)
         ZeroExSettlerDeployerSafeGuardBase(
-            _safe,
-            _SAFE_SINGLETON_1_4_INITHASH(),
-            _SAFE_FALLBACK_1_4_INITHASH(),
-            _SAFE_MULTISEND_1_4_INITHASH()
+            _safe, _SAFE_SINGLETON_1_4_INITHASH(), _SAFE_FALLBACK_1_4_INITHASH(), _SAFE_MULTISEND_1_4_INITHASH()
         )
     {
         // In contrast to the 1.3.0 Guard, the 1.4.1 Guard must be deployed *before* being enabled
@@ -1079,7 +1098,10 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSe
     }
 }
 
-contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm is ZeroExSettlerDeployerSafeGuardEraVm, ZeroExSettlerDeployerSafeGuardOnePointFourPointOne {
+contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm is
+    ZeroExSettlerDeployerSafeGuardEraVm,
+    ZeroExSettlerDeployerSafeGuardOnePointFourPointOne
+{
     function _SAFE_SINGLETON_1_4_INITHASH() internal pure override returns (bytes32) {
         return 0x010006c19437ff25b448f038f7ea0a4c910e0ae9cd8e55f2d199b7916b72eb1e;
     }
@@ -1096,15 +1118,30 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm is ZeroExSettle
 
     // Appease the almighty compiler because Solidity inheritance is stupid
 
-    function _isSupportedFactory(address deployer) internal pure override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (bool) {
+    function _isSupportedFactory(address deployer)
+        internal
+        pure
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
+        returns (bool)
+    {
         return super._isSupportedFactory(deployer);
     }
 
-    function _isSupportedProxyCodeHash(bytes32 safeCodeHash) internal pure override (ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (bool) {
+    function _isSupportedProxyCodeHash(bytes32 safeCodeHash)
+        internal
+        pure
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
+        returns (bool)
+    {
         return super._isSupportedProxyCodeHash(safeCodeHash);
     }
 
-    function _predictCreate2(bytes32 inithash) internal view override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm) returns (address) {
+    function _predictCreate2(bytes32 inithash)
+        internal
+        view
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
+        returns (address)
+    {
         return super._predictCreate2(inithash);
     }
 }
