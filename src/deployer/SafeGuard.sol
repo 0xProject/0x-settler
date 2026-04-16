@@ -336,12 +336,14 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         0xe7bcbbfee5c3a9a42621a8cbb24d1eade8e9469bc40e23d16b5d0607ba27027a;
 
     function _isSupportedFactory(address deployer) internal pure virtual returns (bool) {
-        return deployer == _NONEIP155_CREATE2_FACTORY || deployer == _SAFE_SINGLETON_FACTORY
+        return deployer == _NONEIP155_CREATE2_FACTORY
+            || deployer == _SAFE_SINGLETON_FACTORY
             || deployer == _ERC7955_CREATE2_FACTORY;
     }
 
     function _isSupportedProxyCodeHash(bytes32 safeCodeHash) internal pure virtual returns (bool) {
-        return safeCodeHash == _SAFE_PROXY_1_1_CODEHASH || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
+        return safeCodeHash == _SAFE_PROXY_1_1_CODEHASH
+            || safeCodeHash == _SAFE_PROXY_1_3_CODEHASH
             || safeCodeHash == _SAFE_PROXY_1_4_CODEHASH;
     }
 
@@ -363,18 +365,6 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         _SINGLETON = _predictCreate2(singletonInithash);
         _FALLBACK = _predictCreate2(fallbackInithash);
         _MULTISEND = _predictCreate2(multisendInithash);
-    }
-
-    function _singleton() internal view returns (address) {
-        return _SINGLETON;
-    }
-
-    function _fallbackHandler() internal view returns (address) {
-        return _FALLBACK;
-    }
-
-    function _multisend() internal view returns (address) {
-        return _MULTISEND;
     }
 
     function _requireSafe() private view {
@@ -1036,7 +1026,6 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm is
     function _isSupportedFactory(address deployer)
         internal
         pure
-        virtual
         override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
         returns (bool)
     {
@@ -1046,7 +1035,6 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm is
     function _isSupportedProxyCodeHash(bytes32 safeCodeHash)
         internal
         pure
-        virtual
         override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
         returns (bool)
     {
@@ -1056,7 +1044,6 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm is
     function _predictCreate2(bytes32 inithash)
         internal
         view
-        virtual
         override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
         returns (address)
     {
@@ -1133,7 +1120,6 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm is
     function _isSupportedFactory(address deployer)
         internal
         pure
-        virtual
         override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
         returns (bool)
     {
@@ -1143,7 +1129,6 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm is
     function _isSupportedProxyCodeHash(bytes32 safeCodeHash)
         internal
         pure
-        virtual
         override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
         returns (bool)
     {
@@ -1153,7 +1138,6 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm is
     function _predictCreate2(bytes32 inithash)
         internal
         view
-        virtual
         override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardEraVm)
         returns (address)
     {
