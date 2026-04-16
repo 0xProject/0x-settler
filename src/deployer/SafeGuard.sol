@@ -945,7 +945,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardEraVm is ZeroExSettlerDeployerSa
 
     // On EraVM, `type(C).creationCode` lowers to a compact deployment descriptor rather than the
     // full contract bytecode. This constant is `keccak256(type(EvmVersionDummy).creationCode)` when
-    // compiled with zksolc for the London hardfork.
+    // compiled with zksolc
     function _EVM_VERSION_DUMMY_INITHASH() internal pure virtual override returns (bytes32) {
         return 0xfce4b7826969737d1006560c768bc061ede964f30aea2c10743c4abd11f1ae3b;
     }
