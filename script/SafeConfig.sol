@@ -134,5 +134,12 @@ library SafeConfig {
         return result;
     }
 
-    address internal constant daoSafe = 0x23030a6124E871F4744Cb9bc14D519b1f033FFe3;
+    uint256 internal constant daoSafeThreshold = 2;
+
+    function getDAOSafeSigners() internal pure returns (address[] memory result) {
+        result = new address[](3);
+        result[0] = 0x3C6A208ae02554e744e0EF8fc6d1cd1afAF03B1C;
+        result[1] = 0x026f80585A532F6bB68A1c1Fda61F5DF71C2b10E;
+        result[2] = 0x0abaA253d9C3D9E94771D3daa662cdA5df69EA53;
+    }
 }

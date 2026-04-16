@@ -131,6 +131,14 @@ if [[ ! -f "$project_root"/sh/initial_description_bridge_settler.md ]] ; then
     echo 'sh/initial_description_bridge_settler.md is missing' >&2
     exit 1
 fi
+if [[ ! -f "$project_root"/sh/initial_description_crosschain_intent.md ]] ; then
+    echo 'sh/initial_description_crosschain_intent.md is missing' >&2
+    exit 1
+fi
+if [[ ! -f "$project_root"/sh/initial_description_dao.md ]] ; then
+    echo 'sh/initial_description_dao.md is missing' >&2
+    exit 1
+fi
 
 . "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
@@ -177,6 +185,10 @@ declare bridge_description
 bridge_description="$(jq -MRs < "$project_root"/sh/initial_description_bridge_settler.md)"
 bridge_description="${bridge_description:1:$((${#bridge_description} - 2))}"
 declare -r bridge_description
+declare dao_description
+dao_description="$(jq -MRs < "$project_root"/sh/initial_description_dao.md)"
+dao_description="${dao_description:1:$((${#dao_description} - 2))}"
+declare -r dao_description
 
 # safe constants
 declare safe_factory
@@ -266,6 +278,33 @@ fi
 upgrade_safe="$(cast to-check-sum-address "0x${upgrade_safe:26:40}")"
 declare -r upgrade_safe
 
+# compute dao safe
+declare dao_safe_initializer
+dao_safe_initializer="$(
+    cast calldata                                                                                                             \
+    "$setup_signature"                                                                                                        \
+    '[0x3C6A208ae02554e744e0EF8fc6d1cd1afAF03B1C,0x026f80585A532F6bB68A1c1Fda61F5DF71C2b10E,0x0abaA253d9C3D9E94771D3daa662cdA5df69EA53]' \
+    2                                                                                                                         \
+    $(cast address-zero)                                                                                                      \
+    0x                                                                                                                        \
+    "$safe_fallback"                                                                                                          \
+    $(cast address-zero)                                                                                                      \
+    0                                                                                                                         \
+    $(cast address-zero)
+)"
+declare -r dao_safe_initializer
+declare dao_safe_salt
+dao_safe_salt="$(cast keccak "$(cast concat-hex "$(cast keccak "$dao_safe_initializer")" "$(cast hash-zero)")")"
+declare -r dao_safe_salt
+declare dao_safe
+if [[ $era_vm = [Ff]alse ]] ; then
+    dao_safe="$(cast keccak "$(cast concat-hex 0xff "$safe_factory" "$dao_safe_salt" "$safe_inithash")")"
+else
+    dao_safe="$(cast keccak "$(cast concat-hex "$(cast keccak zksyncCreate2)" "$(cast to-uint256 "$safe_factory")" "$dao_safe_salt" "$safe_inithash" "$safe_constructorhash")")"
+fi
+dao_safe="$(cast to-check-sum-address "0x${dao_safe:26:40}")"
+declare -r dao_safe
+
 . "$project_root"/sh/common_gas.sh
 
 declare -a maybe_broadcast=()
@@ -309,12 +348,12 @@ forge script                                             \
     --rpc-url "$rpc_url"                                 \
     -vvvvv                                               \
     "${maybe_broadcast[@]}"                              \
-    --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,string,string,string,string,string,bytes,address[])' \
+    --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,string,string,string,string,string,string,bytes,address[])' \
     "${extra_flags[@]}"                                  \
     $(get_config extraScriptFlags)                       \
     script/DeploySafes.s.sol:DeploySafes                 \
     "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
-    2 3 4 5 "$taker_submitted_description" "$metatransaction_description" "$intents_description" "$bridge_description" \
+    2 3 4 5 "$taker_submitted_description" "$metatransaction_description" "$intents_description" "$bridge_description" "$dao_description" \
     "$chain_display_name" "$constructor_args" "$(IFS=, ; echo "[${solvers[*]}]")"
 unset -v ICECOLDCOFFEE_DEPLOYER_KEY
 unset -v DEPLOYER_PROXY_DEPLOYER_KEY
@@ -340,7 +379,7 @@ echo '"governance": {' >&2
 echo '	"upgradeSafe": "'"$upgrade_safe"'",' >&2
 echo '	"deploymentSafe": "'"$deployment_safe"'",' >&2
 echo '	"pause": "'"$ice_cold_coffee"'",' >&2
-echo '	"daoSafe": "0x23030a6124E871F4744Cb9bc14D519b1f033FFe3"' >&2
+echo '	"daoSafe": "'"$dao_safe"'"' >&2
 echo '},' >&2
 echo '"deployment": {' >&2
 echo '	"deployer": "'"$deployer_proxy"'"' >&2
