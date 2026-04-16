@@ -7,7 +7,6 @@ import {Vm} from "@forge-std/Vm.sol";
 import {
     ISafeMinimal as ISafeMinimalInternal,
     ZeroExSettlerDeployerSafeGuardBase,
-    ZeroExSettlerDeployerSafeGuardEraVm,
     ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm,
     ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm
 } from "src/deployer/SafeGuard.sol";
@@ -180,18 +179,6 @@ contract SafeGuardHarness is ZeroExSettlerDeployerSafeGuardBase {
         bytes32 multisendInithash
     ) ZeroExSettlerDeployerSafeGuardBase(_safe, singletonInithash, fallbackInithash, multisendInithash) {}
 
-    function singleton() external view returns (address) {
-        return _singleton();
-    }
-
-    function fallbackHandler() external view returns (address) {
-        return _fallbackHandler();
-    }
-
-    function multicall() external view returns (address) {
-        return _multisend();
-    }
-
     function predictCreate2(bytes32 inithash) external view returns (address) {
         return _predictCreate2(inithash);
     }
@@ -205,72 +192,59 @@ contract SafeGuardHarness is ZeroExSettlerDeployerSafeGuardBase {
     }
 }
 
-contract SafeGuardEraVmHarness is ZeroExSettlerDeployerSafeGuardEraVm {
-    constructor(
-        ISafeMinimalInternal _safe,
-        bytes32 singletonInithash,
-        bytes32 fallbackInithash,
-        bytes32 multisendInithash
-    ) ZeroExSettlerDeployerSafeGuardBase(_safe, singletonInithash, fallbackInithash, multisendInithash) {}
-
-    function singleton() external view returns (address) {
-        return _singleton();
-    }
-
-    function fallbackHandler() external view returns (address) {
-        return _fallbackHandler();
-    }
-
-    function multicall() external view returns (address) {
-        return _multisend();
-    }
-
-    function predictCreate2(bytes32 inithash) external view returns (address) {
-        return _predictCreate2(inithash);
-    }
-
-    function isSupportedFactory(address deployer) external pure returns (bool) {
-        return _isSupportedFactory(deployer);
-    }
-
-    function isSupportedProxyCodeHash(bytes32 codeHash) external pure returns (bool) {
-        return _isSupportedProxyCodeHash(codeHash);
-    }
-}
-
-contract SafeGuardOnePointThreeEraVmHarness is ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm {
+contract SafeGuardOnePointThreeEraVmWrapper is ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm {
     constructor(ISafeMinimalInternal _safe) ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm(_safe) {}
 
-    function singleton() external view returns (address) {
-        return _singleton();
+    function singletonInithash() external pure returns (bytes32) {
+        return _SAFE_SINGLETON_1_3_INITHASH();
     }
 
-    function fallbackHandler() external view returns (address) {
-        return _fallbackHandler();
+    function fallbackInithash() external pure returns (bytes32) {
+        return _SAFE_FALLBACK_1_3_INITHASH();
     }
 
-    function multicall() external view returns (address) {
-        return _multisend();
+    function multisendInithash() external pure returns (bytes32) {
+        return _SAFE_MULTISEND_1_3_INITHASH();
+    }
+
+    function predictCreate2(bytes32 inithash) external view returns (address) {
+        return _predictCreate2(inithash);
+    }
+
+    function isSupportedFactory(address deployer) external pure returns (bool) {
+        return _isSupportedFactory(deployer);
+    }
+
+    function isSupportedProxyCodeHash(bytes32 codeHash) external pure returns (bool) {
+        return _isSupportedProxyCodeHash(codeHash);
     }
 }
 
-contract SafeGuardOnePointFourPointOneEraVmHarness is ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm {
+contract SafeGuardOnePointFourPointOneEraVmWrapper is ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm {
     constructor(ISafeMinimalInternal _safe) ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm(_safe) {}
 
-    function singleton() external view returns (address) {
-        return _singleton();
+    function singletonInithash() external pure returns (bytes32) {
+        return _SAFE_SINGLETON_1_4_INITHASH();
     }
 
-    function fallbackHandler() external view returns (address) {
-        return _fallbackHandler();
+    function fallbackInithash() external pure returns (bytes32) {
+        return _SAFE_FALLBACK_1_4_INITHASH();
     }
 
-    function multicall() external view returns (address) {
-        return _multisend();
+    function multisendInithash() external pure returns (bytes32) {
+        return _SAFE_MULTISEND_1_4_INITHASH();
     }
 
-    function _isSupportedProxyCodeHash(bytes32) internal pure override returns (bool) {
-        return true;
+    function predictCreate2(bytes32 inithash) external view returns (address) {
+        return _predictCreate2(inithash);
+    }
+
+    function isSupportedFactory(address deployer) external pure returns (bool) {
+        return _isSupportedFactory(deployer);
+    }
+
+    function isSupportedProxyCodeHash(bytes32 codeHash) external pure returns (bool) {
+        return _isSupportedProxyCodeHash(codeHash);
     }
 }
 
@@ -312,6 +286,21 @@ contract TestSafeGuardZkSync is Test {
     bytes32 internal constant proxyRuntimeKeccakEraVm =
         0x3d70c4a51cf0b92f04e5e281833aeece55198933569c08f5d11fcc45c495253e;
 
+    function _etchOnePointThreeEraVmWrapper() private returns (SafeGuardOnePointThreeEraVmWrapper wrapper) {
+        address target = makeAddr("SafeGuardOnePointThreeEraVmWrapper");
+        vm.etch(target, vm.getDeployedCode("SafeGuard.t.sol:SafeGuardOnePointThreeEraVmWrapper"));
+        return SafeGuardOnePointThreeEraVmWrapper(target);
+    }
+
+    function _etchOnePointFourPointOneEraVmWrapper()
+        private
+        returns (SafeGuardOnePointFourPointOneEraVmWrapper wrapper)
+    {
+        address target = makeAddr("SafeGuardOnePointFourPointOneEraVmWrapper");
+        vm.etch(target, vm.getDeployedCode("SafeGuard.t.sol:SafeGuardOnePointFourPointOneEraVmWrapper"));
+        return SafeGuardOnePointFourPointOneEraVmWrapper(target);
+    }
+
     function _deriveEraVmContract(address deployer, bytes32 inithash) private pure returns (address) {
         return address(
             uint160(
@@ -331,40 +320,23 @@ contract TestSafeGuardZkSync is Test {
     }
 
     function testAddressSelectionStillUsesCreate2OnEvm() external {
-        vm.prank(evmFactory);
+        vm.startPrank(evmFactory);
         SafeGuardHarness harness = new SafeGuardHarness(
             ISafeMinimalInternal(address(0)), safeSingleton1_3InitHash, fallback1_3InitHash, multicall1_3InitHash
         );
 
         assertEq(
-            harness.singleton(),
+            harness.predictCreate2(safeSingleton1_3InitHash),
             AddressDerivation.deriveDeterministicContract(evmFactory, bytes32(0), safeSingleton1_3InitHash)
         );
         assertEq(
-            harness.fallbackHandler(),
+            harness.predictCreate2(fallback1_3InitHash),
             AddressDerivation.deriveDeterministicContract(evmFactory, bytes32(0), fallback1_3InitHash)
         );
         assertEq(
-            harness.multicall(),
+            harness.predictCreate2(multicall1_3InitHash),
             AddressDerivation.deriveDeterministicContract(evmFactory, bytes32(0), multicall1_3InitHash)
         );
-    }
-
-    function testAddressSelectionUsesEraVmCreate2() external {
-        vm.startPrank(eraVmFactory);
-        SafeGuardEraVmHarness harness = new SafeGuardEraVmHarness(
-            ISafeMinimalInternal(address(0)),
-            safeSingleton1_3EraVmInitHash,
-            fallback1_3EraVmInitHash,
-            multicall1_3EraVmInitHash
-        );
-
-        assertEq(harness.singleton(), safeSingleton1_3EraVm);
-        assertEq(harness.fallbackHandler(), fallback1_3EraVm);
-        assertEq(harness.multicall(), multicall1_3EraVm);
-        assertEq(harness.predictCreate2(safeSingleton1_4EraVmInitHash), safeSingleton1_4EraVm);
-        assertEq(harness.predictCreate2(fallback1_4EraVmInitHash), fallback1_4EraVm);
-        assertEq(harness.predictCreate2(multicall1_4EraVmInitHash), multicall1_4EraVm);
         vm.stopPrank();
     }
 
@@ -389,40 +361,40 @@ contract TestSafeGuardZkSync is Test {
         assertFalse(harness.isSupportedProxyCodeHash(proxyRuntimeKeccakEraVm));
     }
 
-    function testEraVmHarnessAcceptsEraVmFactoryAndProxyCodeHashes() external {
-        vm.prank(eraVmFactory);
-        SafeGuardEraVmHarness harness = new SafeGuardEraVmHarness(
-            ISafeMinimalInternal(address(0)),
-            safeSingleton1_3EraVmInitHash,
-            fallback1_3EraVmInitHash,
-            multicall1_3EraVmInitHash
-        );
+    function testOnePointThreeEraVmWrapperExposesExpectedInithashesAndDerivations() external {
+        SafeGuardOnePointThreeEraVmWrapper wrapper = _etchOnePointThreeEraVmWrapper();
 
-        assertTrue(harness.isSupportedFactory(eraVmFactory));
-        assertTrue(harness.isSupportedProxyCodeHash(proxyCodeHash1_3EraVm));
-        assertTrue(harness.isSupportedProxyCodeHash(proxyCodeHash1_4EraVm));
-        assertFalse(harness.isSupportedProxyCodeHash(proxyRuntimeKeccakEraVm));
+        assertEq(wrapper.singletonInithash(), safeSingleton1_3EraVmInitHash);
+        assertEq(wrapper.fallbackInithash(), fallback1_3EraVmInitHash);
+        assertEq(wrapper.multisendInithash(), multicall1_3EraVmInitHash);
+        assertTrue(wrapper.isSupportedFactory(eraVmFactory));
+        assertTrue(wrapper.isSupportedProxyCodeHash(proxyCodeHash1_3EraVm));
+        assertTrue(wrapper.isSupportedProxyCodeHash(proxyCodeHash1_4EraVm));
+        assertFalse(wrapper.isSupportedProxyCodeHash(proxyRuntimeKeccakEraVm));
+
+        vm.startPrank(eraVmFactory);
+        assertEq(wrapper.predictCreate2(wrapper.singletonInithash()), safeSingleton1_3EraVm);
+        assertEq(wrapper.predictCreate2(wrapper.fallbackInithash()), fallback1_3EraVm);
+        assertEq(wrapper.predictCreate2(wrapper.multisendInithash()), multicall1_3EraVm);
+        vm.stopPrank();
     }
 
-    function testOnePointThreeEraVmVariantDerivesExpectedAddresses() external {
-        vm.prank(eraVmFactory);
-        SafeGuardOnePointThreeEraVmHarness harness =
-            new SafeGuardOnePointThreeEraVmHarness(ISafeMinimalInternal(address(0)));
+    function testOnePointFourPointOneEraVmWrapperExposesExpectedInithashesAndDerivations() external {
+        SafeGuardOnePointFourPointOneEraVmWrapper wrapper = _etchOnePointFourPointOneEraVmWrapper();
 
-        assertEq(harness.singleton(), safeSingleton1_3EraVm);
-        assertEq(harness.fallbackHandler(), fallback1_3EraVm);
-        assertEq(harness.multicall(), multicall1_3EraVm);
-    }
+        assertEq(wrapper.singletonInithash(), safeSingleton1_4EraVmInitHash);
+        assertEq(wrapper.fallbackInithash(), fallback1_4EraVmInitHash);
+        assertEq(wrapper.multisendInithash(), multicall1_4EraVmInitHash);
+        assertTrue(wrapper.isSupportedFactory(eraVmFactory));
+        assertTrue(wrapper.isSupportedProxyCodeHash(proxyCodeHash1_3EraVm));
+        assertTrue(wrapper.isSupportedProxyCodeHash(proxyCodeHash1_4EraVm));
+        assertFalse(wrapper.isSupportedProxyCodeHash(proxyRuntimeKeccakEraVm));
 
-    function testOnePointFourPointOneEraVmVariantDerivesExpectedAddresses() external {
-        MigrationDummy safe = new MigrationDummy();
-        vm.prank(eraVmFactory);
-        SafeGuardOnePointFourPointOneEraVmHarness harness =
-            new SafeGuardOnePointFourPointOneEraVmHarness(ISafeMinimalInternal(address(safe)));
-
-        assertEq(harness.singleton(), safeSingleton1_4EraVm);
-        assertEq(harness.fallbackHandler(), fallback1_4EraVm);
-        assertEq(harness.multicall(), multicall1_4EraVm);
+        vm.startPrank(eraVmFactory);
+        assertEq(wrapper.predictCreate2(wrapper.singletonInithash()), safeSingleton1_4EraVm);
+        assertEq(wrapper.predictCreate2(wrapper.fallbackInithash()), fallback1_4EraVm);
+        assertEq(wrapper.predictCreate2(wrapper.multisendInithash()), multicall1_4EraVm);
+        vm.stopPrank();
     }
 }
 
