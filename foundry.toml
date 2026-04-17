@@ -33,6 +33,7 @@ yul = true
 
 [profile.default.zksync]
 bytecode_hash = "none"
+cbor_metadata = false
 
 [profile.integration]
 no_match_path = "test/unit/*"
