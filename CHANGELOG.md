@@ -3,6 +3,7 @@
 ### Breaking changes
 
 * SolidlyV3 UniV3 fork removed from Mainnet and Sonic
+* Abandon Katana chain (which only had stripped-down Settler anyways)
 
 ### Non-breaking changes
 
