@@ -29,29 +29,51 @@ interface IMultiCall {
     receive() external payable;
 }
 
-address constant MULTICALL_ADDRESS = 0x00000000000000CF9E3c5A26621af382fA17f24f;
+address constant EIP150_MULTICALL_ADDRESS = 0x00000000000000CF9E3c5A26621af382fA17f24f;
 
 abstract contract MultiCallContext is Context {
     using FastLogic for bool;
 
-    IMultiCall internal constant _MULTICALL = IMultiCall(payable(MULTICALL_ADDRESS));
-
-    function _isForwarded() internal view virtual override returns (bool) {
-        return super._isForwarded().or(super._msgSender() == address(_MULTICALL));
+    function _MULTICALL() internal view virtual returns (IMultiCall) {
+        return IMultiCall(payable(EIP150_MULTICALL_ADDRESS));
     }
 
-    function _msgData() internal view virtual override returns (bytes calldata r) {
+    /// This function is not intended for use inside `fallback`. MultiCall only
+    /// forwards the sender if there are at least 4 bytes of ordinary data,
+    /// which is true _EXCEPT_ inside fallback. If you use this function when
+    /// the sender is not forwarded, you will incorrectly get `true` when
+    /// probably what you want is `false`.
+    function _isForwarded(address multicall) internal view returns (bool) {
+        return super._isForwarded().or(super._msgSender() == address(multicall));
+    }
+
+    function _isForwarded() internal view virtual override returns (bool) {
+        return MultiCallContext._isForwarded(address(_MULTICALL()));
+    }
+
+    /// This function is not intended for use inside `fallback`. MultiCall only
+    /// forwards the sender if there are at least 4 bytes of ordinary data,
+    /// which is true _EXCEPT_ inside fallback. If you use this function when
+    /// the sender is not forwarded, you will get an underflow and a
+    /// massively-too-long calldata region for `_msgData()`.
+    function _msgData(address multicall) internal view returns (bytes calldata r) {
         address sender = super._msgSender();
         r = super._msgData();
         assembly ("memory-safe") {
-            r.length := sub(
-                r.length,
-                mul(0x14, eq(MULTICALL_ADDRESS, and(0xffffffffffffffffffffffffffffffffffffffff, sender)))
-            )
+            r.length := sub(r.length, mul(0x14, iszero(shl(0x60, xor(multicall, sender)))))
         }
     }
 
-    function _msgSender() internal view virtual override returns (address sender) {
+    function _msgData() internal view virtual override returns (bytes calldata) {
+        return MultiCallContext._msgData(address(_MULTICALL()));
+    }
+
+    /// This function is not intended for use inside `fallback`. MultiCall only
+    /// forwards the sender if there are at least 4 bytes of ordinary data,
+    /// which is true _EXCEPT_ inside fallback. If you use this function when
+    /// the sender is not forwarded, you will get a wrong address (mostly
+    /// zeroes) for `_msgSender()`.
+    function _msgSender(address multicall) internal view returns (address sender) {
         sender = super._msgSender();
         bytes calldata data = super._msgData();
         assembly ("memory-safe") {
@@ -61,9 +83,13 @@ abstract contract MultiCallContext is Context {
                 sender,
                 mul(
                     xor(shr(0x60, calldataload(add(data.offset, sub(data.length, 0x14)))), sender),
-                    and(lt(0x03, data.length), iszero(shl(0x60, xor(MULTICALL_ADDRESS, sender))))
+                    and(lt(0x03, data.length), iszero(shl(0x60, xor(multicall, sender))))
                 )
             )
         }
+    }
+
+    function _msgSender() internal view virtual override returns (address) {
+        return MultiCallContext._msgSender(address(_MULTICALL()));
     }
 }

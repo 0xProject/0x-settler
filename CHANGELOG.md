@@ -2,15 +2,8 @@
 
 ### Breaking changes
 
-* DackieSwap and BaseX UniV3 forks removed from Base
-* Remove `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad mainnet chain
-* Abandon the following chains:
-  * Blast
-  * Taiko
-  * Gnosis (XDAI)
-* Remove `MAVERICKV2_VIP` and `METATXN_MAVERICKV2_VIP` actions from Arbitrum,
-  Base, Bnb, Mainnet, Scroll, and Sepolia. The `MAVERICKV2` action remains.
-* Update `RENEGADE` signature: add `baseForQuote` direction flag and `minBuyAmount` slippage protection
+* SolidlyV3 UniV3 fork removed from Mainnet and Sonic
+* Abandon Katana chain (which only had stripped-down Settler anyways)
 * `BRIDGE_TO_CCIP` modified to remove the `token` argument that is already included in `ccipSendData`
 * `BRIDGE_TO_LAYER_ZERO_OFT` modified to remove the `nativeFee` argument that is already included in `sendData`
 * `BRIDGE_ERC20_TO_MAYAN` and `BRIDGE_NATIVE_TO_MAYAN` modified to remove `forwarder` argument. It is now hardcoded.
@@ -18,6 +11,31 @@
   `BRIDGE_TO_STARGATE_V2`. 
   * `nativeFee` is taken from `sendData`
   * `token` is used to differentiate between ERC20 and Native flows
+
+### Non-breaking changes
+
+## 2026-04-10
+
+### Breaking changes
+
+* Abandon Mode chain
+  * Remove SupSwapV3, Kim, and SwapMode UniV3 forks
+
+## 2026-04-08
+
+### Breaking changes
+
+* DackieSwap and BaseX UniV3 forks removed from Base
+* Remove `LFJTM` action for Let's F***ing Joe Token Mill V2 on Monad mainnet
+  chain
+* Abandon the following chains:
+  * Blast
+  * Taiko
+  * Gnosis (XDAI)
+* Remove `MAVERICKV2_VIP` and `METATXN_MAVERICKV2_VIP` actions from Arbitrum,
+  Base, Bnb, Mainnet, Scroll, and Sepolia. The `MAVERICKV2` action remains.
+* Update `RENEGADE` signature: add `baseForQuote` direction flag and
+  `minBuyAmount` slippage protection
 
 ### Non-breaking changes
 

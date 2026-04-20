@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.33;
+pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
 
@@ -40,12 +40,6 @@ import {
     IPancakeSwapV3Callback
 } from "../../core/univ3forks/PancakeSwapV3.sol";
 import {sushiswapV3MainnetFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
-import {
-    solidlyV3Factory,
-    solidlyV3InitHash,
-    solidlyV3ForkId,
-    ISolidlyV3Callback
-} from "../../core/univ3forks/SolidlyV3.sol";
 
 import {MAINNET_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
@@ -224,10 +218,6 @@ abstract contract MainnetMixin is
             factory = sushiswapV3MainnetFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        } else if (forkId == solidlyV3ForkId) {
-            factory = solidlyV3Factory;
-            initHash = solidlyV3InitHash;
-            callbackSelector = uint32(ISolidlyV3Callback.solidlyV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
