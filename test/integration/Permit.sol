@@ -78,7 +78,7 @@ contract PermitTest is SettlerBasePairTest {
         (v, r, s) = vm.sign(privateKey, digest);
     }
 
-    function _signNativeMetaTransaction(address owner, address spender, uint256 amount, uint256 privateKey)
+    function _signNativeMetaTransaction(address owner, address spender, uint256 value, uint256 privateKey)
         internal
         view
         returns (uint8 v, bytes32 r, bytes32 s)
@@ -88,7 +88,7 @@ contract PermitTest is SettlerBasePairTest {
 
         bytes32 structHash = keccak256(
             abi.encode(
-                _META_TRANSACTION_TYPEHASH, nonce, owner, keccak256(abi.encodeCall(ROUTE.approve, (spender, amount)))
+                _META_TRANSACTION_TYPEHASH, nonce, owner, keccak256(abi.encodeCall(ROUTE.approve, (spender, value)))
             )
         );
 

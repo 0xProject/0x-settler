@@ -25,10 +25,10 @@ interface IBridgeSettlerActions {
     function BRIDGE_NATIVE_TO_RELAY(address to, bytes32 requestId) external;
 
     /// @dev Bridge ERC20 through Mayan
-    function BRIDGE_ERC20_TO_MAYAN(address forwarder, bytes calldata protocolAndData) external;
+    function BRIDGE_ERC20_TO_MAYAN(bytes calldata protocolAndData) external;
 
     /// @dev Bridge native through Mayan
-    function BRIDGE_NATIVE_TO_MAYAN(address forwarder, bytes calldata protocolAndData) external;
+    function BRIDGE_NATIVE_TO_MAYAN(bytes calldata protocolAndData) external;
 
     /// @dev Bridge ERC20 through Across
     function BRIDGE_ERC20_TO_ACROSS(address spoke, bytes calldata depositData) external;
@@ -36,18 +36,15 @@ interface IBridgeSettlerActions {
     /// @dev Bridge native through Across
     function BRIDGE_NATIVE_TO_ACROSS(address spoke, bytes calldata depositData) external;
 
-    /// @dev Bridge ERC20 through StargateV2
-    function BRIDGE_ERC20_TO_STARGATE_V2(address token, address pool, bytes calldata sendData) external;
-
-    /// @dev Bridge native through StargateV2
-    function BRIDGE_NATIVE_TO_STARGATE_V2(address pool, uint256 destinationGas, bytes calldata sendData) external;
+    /// @dev Bridge through StargateV2
+    function BRIDGE_TO_STARGATE_V2(address token, address pool, bytes calldata sendData) external;
 
     /// @dev Bridge ERC20 through LayerZeroOFT
-    function BRIDGE_TO_LAYER_ZERO_OFT(address token, uint256 nativeFee, address oft, bytes calldata sendData) external;
+    function BRIDGE_TO_LAYER_ZERO_OFT(address token, address oft, bytes calldata sendData) external;
 
     /// @dev Bridge ERC20 through DeBridge
     function BRIDGE_TO_DEBRIDGE(uint256 globalFee, bytes calldata createOrderData) external;
 
     /// @dev Bridge ERC20 through Chainlink CCIP, paying fees in native token
-    function BRIDGE_TO_CCIP(address token, address router, bytes calldata ccipSendData) external;
+    function BRIDGE_TO_CCIP(address router, bytes calldata ccipSendData) external;
 }
