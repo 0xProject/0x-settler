@@ -39,7 +39,7 @@ contract StargateV2 {
             // any leftover contributes towards the refunded excess
             updatedInputAmount = value - nativeFee;
 
-            nativeFee += updatedInputAmount;
+            nativeFee = value;
         } else {
             updatedInputAmount = token.fastBalanceOf(address(this));
             token.safeApproveIfBelow(pool, updatedInputAmount);
