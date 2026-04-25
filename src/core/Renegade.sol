@@ -31,7 +31,7 @@ abstract contract Renegade is SettlerSwapAbstract {
     /// Arbitrum: packed 20-byte addresses in statement blob; offset pointer @ data+0xa0.
     /// baseForQuote=true -> buyToken=quoteMint, else baseMint.
     function _extractBuyToken(bytes memory data, bool baseForQuote) internal pure returns (IERC20 buyToken) {
-        uint32 selector = _renegadeSelector();
+        uint256 selector = _renegadeSelector();
         assembly ("memory-safe") {
             switch selector
             case 0x322ef840 {
