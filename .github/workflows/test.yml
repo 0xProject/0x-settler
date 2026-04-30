@@ -27,11 +27,23 @@ jobs:
       - name: Install dependencies
         run: git submodule update --recursive --init
 
+      - name: Build Safe Guard
+        run: forge build src/deployer/SafeGuard.sol
+        env:
+          FOUNDRY_EVM_VERSION: london
+          FOUNDRY_OPTIMIZER_RUNS: 200
+
+      - name: Run SafeGuard tests
+        run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --mp test/0.8.25/SafeGuard.t.sol
+        env:
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+          BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
+
       - name: Run EulerSwap math tests
         run: forge test --skip 'src/*' --skip 'script/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.25/*' --mp test/0.8.28/EulerSwapBUSL.t.sol
 
       - name: Build contracts
-        run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip 'test/*' --skip 'script/*'
+        run: forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip SafeGuard.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip 'test/*' --skip 'script/*'
 
       - name: Build AllowanceHolder and Deployer
         run: forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol
