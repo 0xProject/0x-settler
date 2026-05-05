@@ -7,7 +7,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
-import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
+import {EulerSwap, IEulerSwap} from "../../core/EulerSwap.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {Bebop} from "../../core/Bebop.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -107,10 +107,10 @@ abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2, UniswapV4, 
             factory = uniswapV3AvalancheFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
-        //} else if (forkId == sushiswapV3ForkId) {
-        //    factory = sushiswapV3AvalancheFactory;
-        //    initHash = uniswapV3InitHash;
-        //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+            //} else if (forkId == sushiswapV3ForkId) {
+            //    factory = sushiswapV3AvalancheFactory;
+            //    initHash = uniswapV3InitHash;
+            //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
@@ -118,10 +118,6 @@ abstract contract AvalancheMixin is FreeMemory, SettlerBase, DodoV2, UniswapV4, 
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return AVALANCHE_POOL_MANAGER;
-    }
-
-    function _EVC() internal pure override returns (IEVC) {
-        return IEVC(0xddcbe30A761Edd2e19bba930A977475265F36Fa1);
     }
 
     // I hate Solidity inheritance

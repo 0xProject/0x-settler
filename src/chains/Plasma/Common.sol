@@ -5,7 +5,7 @@ import {SettlerBase} from "../../SettlerBase.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
-import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
+import {EulerSwap, IEulerSwap} from "../../core/EulerSwap.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -73,9 +73,5 @@ abstract contract PlasmaMixin is FreeMemory, SettlerBase, BalancerV3, EulerSwap 
         } else {
             revertUnknownForkId(forkId);
         }
-    }
-
-    function _EVC() internal pure override returns (IEVC) {
-        return IEVC(0x7bdbd0A7114aA42CA957F292145F6a931a345583);
     }
 }

@@ -10,7 +10,7 @@ import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
-import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
+import {EulerSwap, IEulerSwap} from "../../core/EulerSwap.sol";
 import {Bebop} from "../../core/Bebop.sol";
 
 import {FreeMemory} from "../../utils/FreeMemory.sol";
@@ -150,10 +150,10 @@ abstract contract BnbMixin is
             factory = pancakeSwapV3Factory;
             initHash = pancakeSwapV3InitHash;
             callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
-        //} else if (forkId == sushiswapV3ForkId) {
-        //    factory = sushiswapV3BnbFactory;
-        //    initHash = uniswapV3InitHash;
-        //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+            //} else if (forkId == sushiswapV3ForkId) {
+            //    factory = sushiswapV3BnbFactory;
+            //    initHash = uniswapV3InitHash;
+            //    callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
         } else if (forkId == thenaForkId) {
             factory = thenaFactory;
             initHash = thenaInitHash;
@@ -165,10 +165,6 @@ abstract contract BnbMixin is
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return BNB_POOL_MANAGER;
-    }
-
-    function _EVC() internal pure override returns (IEVC) {
-        return IEVC(0xb2E5a73CeE08593d1a076a2AE7A6e02925a640ea);
     }
 
     // I hate Solidity inheritance

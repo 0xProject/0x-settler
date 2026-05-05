@@ -6,7 +6,7 @@ import {SettlerBase} from "../../SettlerBase.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
-import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
+import {EulerSwap, IEulerSwap} from "../../core/EulerSwap.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -81,10 +81,6 @@ abstract contract UnichainMixin is FreeMemory, SettlerBase, UniswapV4, EulerSwap
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return UNICHAIN_POOL_MANAGER;
-    }
-
-    function _EVC() internal pure override returns (IEVC) {
-        return IEVC(0x2A1176964F5D7caE5406B627Bf6166664FE83c60);
     }
 
     // I hate Solidity inheritance
