@@ -7,7 +7,7 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
 import {BalancerV3Test} from "./BalancerV3.t.sol";
 import {EkuboV3Test} from "./Ekubo.t.sol";
-import {EulerSwapTest} from "./EulerSwap.t.sol";
+import {EulerSwapTest, IEVC} from "./EulerSwap.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
@@ -40,6 +40,18 @@ contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV3Test, EulerSwap
 
     function eulerSwapBlock() internal pure override returns (uint256) {
         return 25026826;
+    }
+
+    function eulerSwapEvc() internal pure override returns (IEVC) {
+        return IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);
+    }
+
+    function eulerSwapAccount() internal pure override returns (address) {
+        return 0x0e0c281ff05D34729Cd764DcfC4Fa999b720407c;
+    }
+
+    function eulerSwapAccountOwner() internal pure override returns (address) {
+        return 0x0E0c281ff05d34729CD764dcFC4Fa999b720407d;
     }
 
     function _testName() internal pure override returns (string memory) {

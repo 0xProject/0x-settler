@@ -67,6 +67,10 @@ abstract contract EulerSwap is SettlerSwapAbstract {
             uint256 balanceBefore = buyToken.fastBalanceOf(recipient);
             pool.swap(zeroForOne ? 0 : amountOut, zeroForOne ? amountOut : 0, recipient, "");
 
+            // EulerSwap v2 admits non-EVK vaults whose `withdraw`/`borrow` may be malicious, and
+            // permits per-pool swap hooks that can quote a different fee than they charge. Both
+            // can cause the recipient to receive less than `amountOut`. Verify the actual delivery
+            // matches the quote.
             uint256 actualBuyAmount = buyToken.fastBalanceOf(recipient) - balanceBefore;
             if (actualBuyAmount < amountOut) {
                 revertTooMuchSlippage(buyToken, amountOut, actualBuyAmount);
