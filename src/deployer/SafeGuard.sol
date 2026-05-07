@@ -392,6 +392,18 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         _;
     }
 
+    function _requireNotReentrancyLocked() private view {
+        if (_reentrancyGuard) {
+            revert Reentrancy();
+        }
+    }
+
+    function _requireReentrancyLocked() private view {
+        if (!_reentrancyGuard) {
+            revert Reentrancy();
+        }
+    }
+
     function _requireNotLockedDown() private view {
         address locker = lockedDownBy;
         if (locker != address(0)) {
@@ -418,6 +430,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     modifier normalOperation() {
         _requireNotRemoved();
         _requireNotLockedDown();
+        _requireNotReentrancyLocked();
         _;
     }
 
@@ -541,9 +554,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             return;
         }
 
-        if (_reentrancyGuard) {
-            revert Reentrancy();
-        }
+        _requireNotReentrancyLocked();
         _reentrancyGuard = true;
 
         // At this point, we can be confident that we are executing inside of a call to
@@ -627,9 +638,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             return;
         }
 
-        if (!_reentrancyGuard) {
-            revert Reentrancy();
-        }
+        _requireReentrancyLocked();
         _reentrancyGuard = false;
 
         // We have to check that we're not locked down here (instead of in `checkTransaction`) to
@@ -673,9 +682,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     }
 
     function check() external view {
-        if (!_reentrancyGuard) {
-            revert Reentrancy();
-        }
+        _requireReentrancyLocked();
         ISafeMinimal _safe = safe;
         _checkAfterExecution(_safe);
         if (_safe.getGuard() != address(this)) {
@@ -883,6 +890,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     }
 
     function cancel(bytes32 txHash) external onlyOwner {
+        _requireNotReentrancyLocked();
         ISafeMinimal _safe = safe;
         uint256 nonce = _safe.nonce();
         if (lockedDownBy != address(0)) {
