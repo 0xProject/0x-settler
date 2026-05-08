@@ -41,6 +41,9 @@ theorem evmMul_compat (a b : Nat) :
 theorem evmDiv_compat (a b : Nat) :
     Cbrt512GeneratedModel.evmDiv a b = CbrtGeneratedModel.evmDiv a b := by
   simp only [Cbrt512GeneratedModel.evmDiv, CbrtGeneratedModel.evmDiv, u256_compat]
+theorem evmMod_compat (a b : Nat) :
+    Cbrt512GeneratedModel.evmMod a b = CbrtGeneratedModel.evmMod a b := by
+  simp only [Cbrt512GeneratedModel.evmMod, CbrtGeneratedModel.evmMod, u256_compat]
 theorem evmShl_compat (s v : Nat) :
     Cbrt512GeneratedModel.evmShl s v = CbrtGeneratedModel.evmShl s v := by
   simp only [Cbrt512GeneratedModel.evmShl, CbrtGeneratedModel.evmShl, u256_compat]
@@ -103,7 +106,8 @@ theorem wrapper_zero_eq_cbrt_floor_evm (x_lo : Nat) :
   unfold model_cbrt512_wrapper_evm model_cbrt256_floor_evm
   unfold CbrtGeneratedModel.model_cbrt_floor_evm CbrtGeneratedModel.model_cbrt_evm
   simp only [evmEq_compat, evmShr_compat, evmAdd_compat, evmDiv_compat,
-    evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat,
+    evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat, evmMod_compat,
+    evmOr_compat, evmAnd_compat,
     evmMul_compat, evmGt_compat, u256_compat]
   simp only [cu256_zero, cu256_idem]
   simp (config := { decide := true })
@@ -494,8 +498,7 @@ theorem model_cbrt512_wrapper_evm_correct (x_hi x_lo : Nat)
     by_cases hxlo0 : x_lo = 0
     · subst hxlo0
       rw [CbrtGeneratedModel.model_cbrt_floor_evm_eq_floorCbrt 0 hxlo]
-      unfold floorCbrt innerCbrt cbrtSeed cbrtStep
-      simp [icbrt, icbrtAux]
+      decide
     · exact CbrtGeneratedModel.model_cbrt_floor_evm_correct x_lo (Nat.pos_of_ne_zero hxlo0) hxlo
   · have hxhi_pos : 0 < x_hi := Nat.pos_of_ne_zero hxhi0
     have hxhi_wm : x_hi < WORD_MOD := by unfold WORD_MOD; exact hxhi

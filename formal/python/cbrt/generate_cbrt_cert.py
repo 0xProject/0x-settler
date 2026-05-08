@@ -7,7 +7,7 @@ For each of 256 octaves (n = 0..255), where octave n contains x in [2^n, 2^(n+1)
   - hiOf(n) = icbrt(2^(n+1) - 1)  -- upper bound on icbrt(x)
   - seedOf(n) = cbrt seed for octave n
   - d1(n): first-step error bound from algebraic formula
-  - d2..d6(n): chained via nextD(lo, d) = d^2/lo + 1
+  - d2..d5(n): chained via nextD(lo, d) = d^2/lo + 1
 
 The d1 bound uses the cubic identity:
     3*s^2*(z1 - m) <= (m-s)^2*(m+2s) + 3*m*(m+1)
@@ -22,8 +22,10 @@ import argparse
 import sys
 from collections.abc import Sequence
 
-DRecord = tuple[int, int, int, int, int, int]
+DRecord = tuple[int, int, int, int, int]
 DTable = dict[int, DRecord]
+
+CBRT_SEED_MULTIPLIERS = (0xB4, 0xE3, 0x11D)
 
 
 class MainArguments(argparse.Namespace):
@@ -59,8 +61,8 @@ def cbrt_step(x: int, z: int) -> int:
 
 def cbrt_seed(n: int) -> int:
     """Seed for octave n."""
-    q = (n + 2) // 3
-    return ((0xE9 << q) >> 8) + 1
+    y = n + 2
+    return ((CBRT_SEED_MULTIPLIERS[y % 3] << (y // 3)) >> 8) | 1
 
 
 def next_d(lo: int, d: int) -> int:
@@ -130,24 +132,23 @@ def main() -> int:
         d3 = next_d(lo, d2)
         d4 = next_d(lo, d3)
         d5 = next_d(lo, d4)
-        d6 = next_d(lo, d5)
-        d_data[n] = (d1, d2, d3, d4, d5, d6)
+        d_data[n] = (d1, d2, d3, d4, d5)
 
-        if d6 > 1:
+        if d5 > 1:
             print(
-                f"FAIL d6: n={n}, d1={d1}, d2={d2}, d3={d3}, "
-                f"d4={d4}, d5={d5}, d6={d6}, lo={lo}"
+                f"FAIL d5: n={n}, d1={d1}, d2={d2}, d3={d3}, "
+                f"d4={d4}, d5={d5}, lo={lo}"
             )
             all_ok = False
 
-        # Check side conditions: 2*dk <= lo for k=1..5
-        for k, dk in enumerate([d1, d2, d3, d4, d5], 1):
+        # Check side conditions: 2*dk <= lo for k=1..4
+        for k, dk in enumerate([d1, d2, d3, d4], 1):
             if 2 * dk > lo:
                 print(f"SIDE FAIL: n={n}, 2*d{k}={2*dk} > lo={lo}")
                 all_ok = False
 
     if all_ok:
-        print(f"All octaves {START_OCTAVE}-255 pass: d6 <= 1, all side conditions OK.")
+        print(f"All octaves {START_OCTAVE}-255 pass: d5 <= 1, all side conditions OK.")
     else:
         print("SOME OCTAVES FAIL.")
 
@@ -212,7 +213,7 @@ def main() -> int:
 
     # Summary
     print(f"\n--- Summary (octaves {START_OCTAVE}-255) ---")
-    for k in range(6):
+    for k in range(5):
         vals = [d_data[n][k] for n in range(START_OCTAVE, 256)]
         mx = max(vals)
         mi = START_OCTAVE + vals.index(mx)
@@ -267,6 +268,21 @@ def generate_lean_file(
         for n in range(start_octave, 256)
     ]
 
+    def finite_forall_decide_proof(length: int) -> str:
+        lines: list[str] = []
+        indent = "  "
+        for _ in range(length):
+            lines.append(f"{indent}refine (Fin.forall_fin_succ).2 ?_")
+            lines.append(f"{indent}constructor")
+            lines.append(f"{indent}· decide")
+            lines.append(f"{indent}·")
+            indent += "  "
+        lines.append(f"{indent}intro i")
+        lines.append(f"{indent}exact Fin.elim0 i")
+        return "\n".join(lines)
+
+    forall_decide_proof = finite_forall_decide_proof(num)
+
     content = f"""import Init
 
 /-
@@ -278,9 +294,9 @@ def generate_lean_file(
   - seedOf(i): the cbrt seed for the octave
   - maxAbsOf(i): max|seed - m| for m in [lo, hi]
   - d1Of(i): first-step error bound (analytic)
-  - nextD, d2..d6: chained error recurrence
+  - nextD, d2..d5: chained error recurrence
 
-  All 248 octaves verified: d6 <= 1 and 2*dk <= lo for k=1..5.
+  All 248 octaves verified: d5 <= 1 and 2*dk <= lo for k=1..4.
 -/
 
 namespace CbrtCert
@@ -313,69 +329,83 @@ def d2Of (i : Fin {num}) : Nat := nextD (loOf i) (d1Of i)
 def d3Of (i : Fin {num}) : Nat := nextD (loOf i) (d2Of i)
 def d4Of (i : Fin {num}) : Nat := nextD (loOf i) (d3Of i)
 def d5Of (i : Fin {num}) : Nat := nextD (loOf i) (d4Of i)
-def d6Of (i : Fin {num}) : Nat := nextD (loOf i) (d5Of i)
 
 -- ============================================================================
 -- Computational verification of certificate properties
 -- ============================================================================
 
 /-- lo is always positive. -/
-theorem lo_pos : ∀ i : Fin {num}, 0 < loOf i := by decide
+theorem lo_pos : ∀ i : Fin {num}, 0 < loOf i := by
+{forall_decide_proof}
 
 /-- lo >= 2 (needed for cbrtStep_upper_of_le). -/
-theorem lo_ge_two : ∀ i : Fin {num}, 2 ≤ loOf i := by decide
+theorem lo_ge_two : ∀ i : Fin {num}, 2 ≤ loOf i := by
+{forall_decide_proof}
 
 /-- lo <= hi. -/
-theorem lo_le_hi : ∀ i : Fin {num}, loOf i ≤ hiOf i := by decide
+theorem lo_le_hi : ∀ i : Fin {num}, loOf i ≤ hiOf i := by
+{forall_decide_proof}
 
 /-- seed is positive. -/
-theorem seed_pos : ∀ i : Fin {num}, 0 < seedOf i := by decide
+theorem seed_pos : ∀ i : Fin {num}, 0 < seedOf i := by
+{forall_decide_proof}
 
 /-- lo^3 <= 2^(i + certOffset). -/
 theorem lo_cube_le_pow2 : ∀ i : Fin {num},
-    loOf i * loOf i * loOf i ≤ 2 ^ (i.val + certOffset) := by decide
+    loOf i * loOf i * loOf i ≤ 2 ^ (i.val + certOffset) := by
+{forall_decide_proof}
 
 /-- 2^(i + certOffset + 1) <= (hi+1)^3. -/
 theorem pow2_succ_le_hi_succ_cube : ∀ i : Fin {num},
-    2 ^ (i.val + certOffset + 1) ≤ (hiOf i + 1) * (hiOf i + 1) * (hiOf i + 1) := by decide
+    2 ^ (i.val + certOffset + 1) ≤ (hiOf i + 1) * (hiOf i + 1) * (hiOf i + 1) := by
+{forall_decide_proof}
 
 /-- d1 is the correct analytic bound:
     d1Of(i) = (maxAbsOf(i)^2 * (hiOf(i) + 2*seedOf(i)) + 3*hiOf(i)*(hiOf(i)+1)) / (3*seedOf(i)^2) -/
 theorem d1_eq : ∀ i : Fin {num},
     d1Of i = (maxAbsOf i * maxAbsOf i * (hiOf i + 2 * seedOf i) +
-              3 * hiOf i * (hiOf i + 1)) / (3 * (seedOf i * seedOf i)) := by decide
+              3 * hiOf i * (hiOf i + 1)) / (3 * (seedOf i * seedOf i)) := by
+{forall_decide_proof}
 
 /-- maxAbs captures the correct value. -/
 theorem maxabs_eq : ∀ i : Fin {num},
-    maxAbsOf i = max (seedOf i - loOf i) (hiOf i - seedOf i) := by decide
+    maxAbsOf i = max (seedOf i - loOf i) (hiOf i - seedOf i) := by
+{forall_decide_proof}
 
-/-- Terminal bound: d6 <= 1 for all certificate octaves. -/
-theorem d6_le_one : ∀ i : Fin {num}, d6Of i ≤ 1 := by decide
+/-- Terminal bound: d5 <= 1 for all certificate octaves. -/
+theorem d5_le_one : ∀ i : Fin {num}, d5Of i ≤ 1 := by
+{forall_decide_proof}
 
 /-- Side condition: 2 * d1 <= lo. -/
-theorem two_d1_le_lo : ∀ i : Fin {num}, 2 * d1Of i ≤ loOf i := by decide
+theorem two_d1_le_lo : ∀ i : Fin {num}, 2 * d1Of i ≤ loOf i := by
+{forall_decide_proof}
 
 /-- Side condition: 2 * d2 <= lo. -/
-theorem two_d2_le_lo : ∀ i : Fin {num}, 2 * d2Of i ≤ loOf i := by decide
+theorem two_d2_le_lo : ∀ i : Fin {num}, 2 * d2Of i ≤ loOf i := by
+{forall_decide_proof}
 
 /-- Side condition: 2 * d3 <= lo. -/
-theorem two_d3_le_lo : ∀ i : Fin {num}, 2 * d3Of i ≤ loOf i := by decide
+theorem two_d3_le_lo : ∀ i : Fin {num}, 2 * d3Of i ≤ loOf i := by
+{forall_decide_proof}
 
 /-- Side condition: 2 * d4 <= lo. -/
-theorem two_d4_le_lo : ∀ i : Fin {num}, 2 * d4Of i ≤ loOf i := by decide
-
-/-- Side condition: 2 * d5 <= lo. -/
-theorem two_d5_le_lo : ∀ i : Fin {num}, 2 * d5Of i ≤ loOf i := by decide
+theorem two_d4_le_lo : ∀ i : Fin {num}, 2 * d4Of i ≤ loOf i := by
+{forall_decide_proof}
 
 /-- Seed matches the cbrt seed formula:
-    seedOf(i) = ((0xe9 <<< ((i + certOffset + 2) / 3)) >>> 8) + 1 -/
+    seedOf(i) = ((((multiplier(i) <<< ((i + certOffset + 2) / 3)) >>> 8) ||| 1),
+    where multiplier(i) is selected from [0xb4, 0xe3, 0x11d] by (i + certOffset + 2) % 3. -/
 theorem seed_eq : ∀ i : Fin {num},
-    seedOf i = ((0xe9 <<< ((i.val + certOffset + 2) / 3)) >>> 8) + 1 := by decide
+    seedOf i =
+      (1 ||| (((#[0xb4, 0xe3, 0x11d][(i.val + certOffset + 2) % 3]!) <<<
+        ((i.val + certOffset + 2) / 3)) >>> 8)) := by
+{forall_decide_proof}
 
-/-- Perfect-cube key: d5² < lo for all certificate octaves.
-    This ensures that on perfect cubes x = m³, the 6th NR step gives exactly m
+/-- Perfect-cube key: d4² < lo for all certificate octaves.
+    This ensures that on perfect cubes x = m³, the 5th NR step gives exactly m
     (since the per-step error d²/m < 1 when d² < m and m ≥ lo). -/
-theorem d5_sq_lt_lo : ∀ i : Fin {num}, d5Of i * d5Of i < loOf i := by decide
+theorem d4_sq_lt_lo : ∀ i : Fin {num}, d4Of i * d4Of i < loOf i := by
+{forall_decide_proof}
 
 end CbrtCert
 """

@@ -5,7 +5,7 @@
   Strategy:
     - For x < 256: use decide (innerCbrt_upper_of_lt_256)
     - For x ≥ 256: map x to certificate octave, verify seed/interval match,
-      apply CbrtCertified.run6_le_m_plus_one
+      apply CbrtCertified.run5_le_m_plus_one
 -/
 import Init
 import CbrtProof.CbrtCorrect
@@ -36,7 +36,7 @@ theorem cbrtSeed_eq_certSeed (i : Fin 248) (x : Nat)
   unfold cbrtSeed
   simp [hlog]
   have hseed := seed_eq i
-  simp [seedOf] at hseed ⊢
+  simp [seedOf, cbrtSeedMultiplier] at hseed ⊢
   rw [hseed]
 
 /-- m = icbrt(x) lies within [loOf i, hiOf i] for x in octave i. -/
@@ -89,14 +89,14 @@ theorem innerCbrt_upper_of_octave
   have hinterval := m_within_cert_interval i x m hmlo hmhi hOct
   have hm2 : 2 ≤ m := Nat.le_trans (lo_ge_two i) hinterval.1
   have hseed : cbrtSeed x = seedOf i := cbrtSeed_eq_certSeed i x hOct
-  -- innerCbrt x = run6From x (cbrtSeed x) = run6From x (seedOf i)
-  have hrun : run6From x (seedOf i) ≤ m + 1 :=
-    run6_le_m_plus_one i x m hm2 hmlo hmhi hinterval.1 hinterval.2
-  -- Connect innerCbrt to run6From
-  have hinnerEq : innerCbrt x = run6From x (cbrtSeed x) :=
-    innerCbrt_eq_run6From_seed x
-  calc innerCbrt x = run6From x (cbrtSeed x) := hinnerEq
-    _ = run6From x (seedOf i) := by rw [hseed]
+  -- innerCbrt x = run5From x (cbrtSeed x) = run5From x (seedOf i)
+  have hrun : run5From x (seedOf i) ≤ m + 1 :=
+    run5_le_m_plus_one i x m hm2 hmlo hmhi hinterval.1 hinterval.2
+  -- Connect innerCbrt to run5From
+  have hinnerEq : innerCbrt x = run5From x (cbrtSeed x) :=
+    innerCbrt_eq_run5From_seed x
+  calc innerCbrt x = run5From x (cbrtSeed x) := hinnerEq
+    _ = run5From x (seedOf i) := by rw [hseed]
     _ ≤ m + 1 := hrun
 
 /-- Universal upper bound on uint256 domain:
@@ -165,9 +165,9 @@ theorem floorCbrt_correct_u256_all (x : Nat) (hx256 : x < 2 ^ 256) :
 
 /-- On a perfect cube, innerCbrt returns the exact cube root.
     For m < 256: verified computationally (innerCbrt_on_perfect_cube_small).
-    For m ≥ 256: the certificate chain gives z₅ ≤ m + d5Of(i), and
-    d5Of(i)² < loOf(i) ≤ m (from d5_sq_lt_lo), so
-    cbrtStep_eq_on_perfect_cube_of_sq_lt gives z₆ = m. -/
+    For m ≥ 256: the certificate chain gives z₄ ≤ m + d4Of(i), and
+    d4Of(i)² < loOf(i) ≤ m (from d4_sq_lt_lo), so
+    cbrtStep_eq_on_perfect_cube_of_sq_lt gives z₅ = m. -/
 theorem innerCbrt_on_perfect_cube
     (m : Nat) (hm : 0 < m) (hm256 : m * m * m < 2 ^ 256) :
     innerCbrt (m * m * m) = m := by
@@ -229,30 +229,30 @@ theorem innerCbrt_on_perfect_cube
       have hmhi_cube : x < (m + 1) * (m + 1) * (m + 1) := hm1_cube
       have hinterval := m_within_cert_interval idx x m hmlo_cube hmhi_cube hOct
       have hm2 : 2 ≤ m := Nat.le_trans (by decide : 2 ≤ 256) hm256_le
-      -- Use shared 5-step certified bounds
+      -- Use shared 4-step certified bounds
       have hseed : cbrtSeed x = seedOf idx := cbrtSeed_eq_certSeed idx x hOct
-      have ⟨hmz5, hd5, h2d5⟩ := run5_certified_bounds idx x m hm2 hmlo_cube hmhi_cube
+      have ⟨hmz4, hd4, h2d4⟩ := run4_certified_bounds idx x m hm2 hmlo_cube hmhi_cube
         hinterval.1 hinterval.2
-      let z5 := run5From x (seedOf idx)
-      -- innerCbrt(x) = cbrtStep(x, z5) via run5From expansion
-      have hinner_run : innerCbrt x = cbrtStep x z5 := by
-        rw [innerCbrt_eq_step_run5_seed, hseed]
-      -- So cbrtStep(x, z5) = m + 1
-      have hz6_eq : cbrtStep x z5 = m + 1 := by rw [← hinner_run]; exact heq1
-      -- z₅ = m + e where e ≤ d5, e² < m, 2e ≤ m
-      have hd5sq_m : d5Of idx * d5Of idx < m :=
-        Nat.lt_of_lt_of_le (d5_sq_lt_lo idx) hinterval.1
-      have he_sq : (z5 - m) * (z5 - m) < m :=
-        Nat.lt_of_le_of_lt (Nat.mul_le_mul hd5 hd5) hd5sq_m
-      have h2e : 2 * (z5 - m) ≤ m :=
-        Nat.le_trans (Nat.mul_le_mul_left 2 hd5) h2d5
-      -- cbrtStep(m³, z₅) = m via the perfect-cube lemma
-      have hz5_eq : z5 = m + (z5 - m) := by omega
-      have hz6_m : cbrtStep x z5 = m := by
-        show cbrtStep (m * m * m) z5 = m
-        rw [hz5_eq]
-        exact cbrtStep_eq_on_perfect_cube_of_sq_lt m (z5 - m) hm2 h2e he_sq
-      -- Contradiction: cbrtStep(x, z5) = m but also = m + 1
+      let z4 := run4From x (seedOf idx)
+      -- innerCbrt(x) = cbrtStep(x, z4) via run4From expansion
+      have hinner_run : innerCbrt x = cbrtStep x z4 := by
+        rw [innerCbrt_eq_step_run4_seed, hseed]
+      -- So cbrtStep(x, z4) = m + 1
+      have hz5_eq : cbrtStep x z4 = m + 1 := by rw [← hinner_run]; exact heq1
+      -- z₄ = m + e where e ≤ d4, e² < m, 2e ≤ m
+      have hd4sq_m : d4Of idx * d4Of idx < m :=
+        Nat.lt_of_lt_of_le (d4_sq_lt_lo idx) hinterval.1
+      have he_sq : (z4 - m) * (z4 - m) < m :=
+        Nat.lt_of_le_of_lt (Nat.mul_le_mul hd4 hd4) hd4sq_m
+      have h2e : 2 * (z4 - m) ≤ m :=
+        Nat.le_trans (Nat.mul_le_mul_left 2 hd4) h2d4
+      -- cbrtStep(m³, z₄) = m via the perfect-cube lemma
+      have hz4_eq : z4 = m + (z4 - m) := by omega
+      have hz5_m : cbrtStep x z4 = m := by
+        show cbrtStep (m * m * m) z4 = m
+        rw [hz4_eq]
+        exact cbrtStep_eq_on_perfect_cube_of_sq_lt m (z4 - m) hm2 h2e he_sq
+      -- Contradiction: cbrtStep(x, z4) = m but also = m + 1
       omega
 
 end CbrtWiring

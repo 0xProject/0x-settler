@@ -16,7 +16,7 @@ open Cbrt512GeneratedModel
 
 private theorem pow86_lit :
     (77371252455336267181195264 : Nat) = 2 ^ 86 := by
-  native_decide
+  decide
 
 /-- Bitwise OR of two values ≤ 1 is ≤ 1. -/
 theorem or_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) : a ||| b ≤ 1 := by

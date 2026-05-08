@@ -27,6 +27,14 @@ def run5From (x z : Nat) : Nat :=
   let z := cbrtStep x z
   z
 
+/-- Run four cbrt Newton steps from an explicit starting point. -/
+def run4From (x z : Nat) : Nat :=
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  let z := cbrtStep x z
+  z
+
 /-- Run six cbrt Newton steps from an explicit starting point. -/
 def run6From (x z : Nat) : Nat :=
   let z := cbrtStep x z
@@ -37,20 +45,27 @@ def run6From (x z : Nat) : Nat :=
   let z := cbrtStep x z
   z
 
+/-- run5From = cbrtStep after run4From (definitional). -/
+theorem run5_eq_step_run4 (x z : Nat) :
+    run5From x z = cbrtStep x (run4From x z) := rfl
+
 /-- run6From = cbrtStep after run5From (definitional). -/
 theorem run6_eq_step_run5 (x z : Nat) :
     run6From x z = cbrtStep x (run5From x z) := rfl
 
-/-- The cbrt seed:
-    z = ⌊233 * 2^q / 256⌋ + 1  where q = ⌊(log2(x) + 2) / 3⌋.
-    Matches EVM: add(shr(8, shl(div(sub(257, clz(x)), 3), 0xe9)), lt(0x00, x)) -/
-def cbrtSeed (x : Nat) : Nat :=
-  (0xe9 <<< ((Nat.log2 x + 2) / 3)) >>> 8 + 1
+/-- Fixed-point multiplier selected by `(log2(x) + 2) % 3`. -/
+def cbrtSeedMultiplier (y : Nat) : Nat :=
+  #[0xb4, 0xe3, 0x11d][y % 3]!
 
-/-- _cbrt: seed + 6 Newton-Raphson steps. -/
+/-- The cbrt seed:
+    z = (⌊c * 2^q / 256⌋ | 1) where y = log2(x) + 2, q = ⌊y / 3⌋, and
+    c is selected from [0xb4, 0xe3, 0x11d] by y % 3. -/
+def cbrtSeed (x : Nat) : Nat :=
+  1 ||| ((cbrtSeedMultiplier (Nat.log2 x + 2) <<< ((Nat.log2 x + 2) / 3)) >>> 8)
+
+/-- _cbrt: seed + 5 Newton-Raphson steps. -/
 def innerCbrt (x : Nat) : Nat :=
   let z := cbrtSeed x
-  let z := cbrtStep x z
   let z := cbrtStep x z
   let z := cbrtStep x z
   let z := cbrtStep x z
@@ -181,10 +196,12 @@ theorem icbrt_eq_of_bounds (x r : Nat)
 -- Part 2: Seed and step positivity
 -- ============================================================================
 
-/-- The cbrt seed is always positive (due to the +1 term). -/
+/-- The cbrt seed is always positive (due to the low-bit OR). -/
 theorem cbrtSeed_pos (x : Nat) : 0 < cbrtSeed x := by
   unfold cbrtSeed
-  exact Nat.succ_pos _
+  have h : 1 ≤ 1 ||| ((cbrtSeedMultiplier (Nat.log2 x + 2) <<< ((Nat.log2 x + 2) / 3)) >>> 8) :=
+    Nat.left_le_or
+  omega
 
 /-- cbrtStep preserves positivity when x > 0 and z > 0. -/
 theorem cbrtStep_pos (x z : Nat) (hx : 0 < x) (hz : 0 < z) : 0 < cbrtStep x z := by
@@ -511,13 +528,13 @@ theorem cbrtStep_upper_of_le
 -- Part 4: innerCbrt structure
 -- ============================================================================
 
-/-- `_cbrt` is exactly `run6From` from the seed (definitional). -/
-theorem innerCbrt_eq_run6From_seed (x : Nat) :
-    innerCbrt x = run6From x (cbrtSeed x) := rfl
+/-- `_cbrt` is exactly `run5From` from the seed (definitional). -/
+theorem innerCbrt_eq_run5From_seed (x : Nat) :
+    innerCbrt x = run5From x (cbrtSeed x) := rfl
 
-/-- `_cbrt` is `cbrtStep` applied to `run5From` of the seed (definitional). -/
-theorem innerCbrt_eq_step_run5_seed (x : Nat) :
-    innerCbrt x = cbrtStep x (run5From x (cbrtSeed x)) := rfl
+/-- `_cbrt` is `cbrtStep` applied to `run4From` of the seed (definitional). -/
+theorem innerCbrt_eq_step_run4_seed (x : Nat) :
+    innerCbrt x = cbrtStep x (run4From x (cbrtSeed x)) := rfl
 
 set_option maxRecDepth 1000000 in
 /-- Direct finite check for small inputs. -/
@@ -539,8 +556,7 @@ theorem innerCbrt_lower (x m : Nat) (hx : 0 < x)
   have h2 := cbrtStep_pos x _ hx h1
   have h3 := cbrtStep_pos x _ hx h2
   have h4 := cbrtStep_pos x _ hx h3
-  have h5 := cbrtStep_pos x _ hx h4
-  exact cbrt_step_floor_bound x _ m h5 hm
+  exact cbrt_step_floor_bound x _ m h4 hm
 
 -- ============================================================================
 -- Part 5: Main correctness theorems (under explicit upper-bound hypothesis)

@@ -27,7 +27,8 @@ theorem cbrtUp_wrapper_zero_eq_cbrt_up_evm (x_lo : Nat) :
   unfold model_cbrtUp512_wrapper_evm model_cbrt256_up_evm
   unfold CbrtGeneratedModel.model_cbrt_up_evm CbrtGeneratedModel.model_cbrt_evm
   simp only [evmEq_compat, evmShr_compat, evmAdd_compat, evmDiv_compat,
-    evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat,
+    evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat, evmMod_compat,
+    evmOr_compat, evmAnd_compat,
     evmMul_compat, u256_compat]
   simp only [cu256_zero, cu256_idem]
   simp (config := { decide := true })

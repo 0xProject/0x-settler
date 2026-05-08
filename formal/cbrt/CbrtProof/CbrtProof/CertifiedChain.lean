@@ -1,16 +1,16 @@
 /-
-  Certified chain: 6 cbrt NR steps with per-octave error tracking.
+  Certified chain: 5 cbrt NR steps with per-octave error tracking.
 
   Given a certificate octave i with:
     - lo ≤ m ≤ hi (bounds on icbrt(x))
     - seed = cbrt seed for the octave
-    - d1..d6 error bounds with d6 ≤ 1
+    - d1..d5 error bounds with d5 ≤ 1
 
-  We prove: run6From x (seedOf i) ≤ m + 1.
+  We prove: run5From x (seedOf i) ≤ m + 1.
 
   The proof chains:
     Step 1: d1 bound from analytic formula (cbrt_d1_bound)
-    Steps 2-6: each step contracts via cbrtStep_upper_of_le + relaxation to lo
+    Steps 2-5: each step contracts via cbrtStep_upper_of_le + relaxation to lo
 -/
 import Init
 import CbrtProof.FloorBound
@@ -271,26 +271,25 @@ theorem cbrt_d1_bound
     _ ≤ RHS := hassemble
 
 -- ============================================================================
--- Six-step certified chain
+-- Five-step certified chain
 -- ============================================================================
 
-/-- Five-step certified chain: z₅ ≥ m, error ≤ d5, and 2*d5 ≤ m. -/
-theorem run5_certified_bounds
+/-- Four-step certified chain: z₄ ≥ m, error ≤ d4, and 2*d4 ≤ m. -/
+theorem run4_certified_bounds
     (i : Fin 248) (x m : Nat)
     (hm2 : 2 ≤ m)
     (hmlo : m * m * m ≤ x)
     (hmhi : x < (m + 1) * (m + 1) * (m + 1))
     (hlo : loOf i ≤ m)
     (hhi : m ≤ hiOf i) :
-    m ≤ run5From x (seedOf i) ∧
-    run5From x (seedOf i) - m ≤ d5Of i ∧
-    2 * d5Of i ≤ m := by
+    m ≤ run4From x (seedOf i) ∧
+    run4From x (seedOf i) - m ≤ d4Of i ∧
+    2 * d4Of i ≤ m := by
   -- Name intermediate values using let
   let z1 := cbrtStep x (seedOf i)
   let z2 := cbrtStep x z1
   let z3 := cbrtStep x z2
   let z4 := cbrtStep x z3
-  let z5 := cbrtStep x z4
 
   have hloPos : 0 < loOf i := lo_pos i
   have hsPos : 0 < seedOf i := seed_pos i
@@ -303,8 +302,6 @@ theorem run5_certified_bounds
   have hmz3 : m ≤ z3 := cbrt_step_floor_bound x z2 m hz2Pos hmlo
   have hz3Pos : 0 < z3 := by omega
   have hmz4 : m ≤ z4 := cbrt_step_floor_bound x z3 m hz3Pos hmlo
-  have hz4Pos : 0 < z4 := by omega
-  have hmz5 : m ≤ z5 := cbrt_step_floor_bound x z4 m hz4Pos hmlo
 
   -- Step 1: d1 bound from analytic formula
   have hd1 : z1 - m ≤ d1Of i := by
@@ -318,7 +315,7 @@ theorem run5_certified_bounds
     exact h
   have h2d1 : 2 * d1Of i ≤ m := Nat.le_trans (two_d1_le_lo i) hlo
 
-  -- Steps 2-5 via step_from_bound
+  -- Steps 2-4 via step_from_bound
   have hd2 : z2 - m ≤ d2Of i := by
     have h := step_from_bound x m (loOf i) z1 (d1Of i) hm2 hloPos hlo hmhi hmz1 hd1 h2d1
     show cbrtStep x z1 - m ≤ d2Of i
@@ -337,16 +334,10 @@ theorem run5_certified_bounds
     unfold d4Of; exact h
   have h2d4 : 2 * d4Of i ≤ m := Nat.le_trans (two_d4_le_lo i) hlo
 
-  have hd5 : z5 - m ≤ d5Of i := by
-    have h := step_from_bound x m (loOf i) z4 (d4Of i) hm2 hloPos hlo hmhi hmz4 hd4 h2d4
-    show cbrtStep x z4 - m ≤ d5Of i
-    unfold d5Of; exact h
-  have h2d5 : 2 * d5Of i ≤ m := Nat.le_trans (two_d5_le_lo i) hlo
+  exact ⟨hmz4, hd4, h2d4⟩
 
-  exact ⟨hmz5, hd5, h2d5⟩
-
-/-- Chain 6 steps through the error recurrence, concluding z₆ ≤ m + 1. -/
-theorem run6_le_m_plus_one
+/-- Chain 5 steps through the error recurrence, concluding z₅ ≤ m + 1. -/
+theorem run5_le_m_plus_one
     (i : Fin 248)
     (x m : Nat)
     (hm2 : 2 ≤ m)
@@ -354,19 +345,19 @@ theorem run6_le_m_plus_one
     (hmhi : x < (m + 1) * (m + 1) * (m + 1))
     (hlo : loOf i ≤ m)
     (hhi : m ≤ hiOf i) :
-    run6From x (seedOf i) ≤ m + 1 := by
-  have ⟨hmz5, hd5, h2d5⟩ := run5_certified_bounds i x m hm2 hmlo hmhi hlo hhi
-  -- Step 6 error bound
+    run5From x (seedOf i) ≤ m + 1 := by
+  have ⟨hmz4, hd4, h2d4⟩ := run4_certified_bounds i x m hm2 hmlo hmhi hlo hhi
+  -- Step 5 error bound
   have hloPos : 0 < loOf i := lo_pos i
-  have hd6 : cbrtStep x (run5From x (seedOf i)) - m ≤ d6Of i := by
-    have h := step_from_bound x m (loOf i) (run5From x (seedOf i)) (d5Of i)
-      hm2 hloPos hlo hmhi hmz5 hd5 h2d5
-    unfold d6Of; exact h
-  -- Terminal: d6 ≤ 1
-  have hd6le1 : cbrtStep x (run5From x (seedOf i)) - m ≤ 1 :=
-    Nat.le_trans hd6 (d6_le_one i)
-  show run6From x (seedOf i) ≤ m + 1
-  rw [run6_eq_step_run5]
+  have hd5 : cbrtStep x (run4From x (seedOf i)) - m ≤ d5Of i := by
+    have h := step_from_bound x m (loOf i) (run4From x (seedOf i)) (d4Of i)
+      hm2 hloPos hlo hmhi hmz4 hd4 h2d4
+    unfold d5Of; exact h
+  -- Terminal: d5 ≤ 1
+  have hd5le1 : cbrtStep x (run4From x (seedOf i)) - m ≤ 1 :=
+    Nat.le_trans hd5 (d5_le_one i)
+  show run5From x (seedOf i) ≤ m + 1
+  rw [run5_eq_step_run4]
   omega
 
 end CbrtCertified

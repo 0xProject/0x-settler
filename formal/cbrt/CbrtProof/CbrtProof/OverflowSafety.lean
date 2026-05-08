@@ -24,14 +24,13 @@ open CbrtWiring
 
 private def R_MAX : Nat := 48740834812604276470692694
 
-private def hiD1 : Nat := 5865868362315021153806969
+private def hiD1 : Nat := 780027522101964442272687
 private def hiD2 : Nat := hiD1 * hiD1 / R_MAX + 1
 private def hiD3 : Nat := hiD2 * hiD2 / R_MAX + 1
 private def hiD4 : Nat := hiD3 * hiD3 / R_MAX + 1
-private def hiD5 : Nat := hiD4 * hiD4 / R_MAX + 1
 
 -- ============================================================================
--- Verified constants (kernel-checked via decide, no native_decide)
+-- Verified constants (kernel-checked via decide)
 -- ============================================================================
 
 private theorem r_max_cube_lt_word : R_MAX * R_MAX * R_MAX < 2 ^ 256 := by decide
@@ -39,17 +38,15 @@ private theorem r_max_succ_cube_ge_word :
     2 ^ 256 ≤ (R_MAX + 1) * (R_MAX + 1) * (R_MAX + 1) := by decide
 set_option maxRecDepth 1000000 in
 private theorem hiD1_eq : hiD1 = d1Of ⟨247, by omega⟩ := by decide
-private theorem hiD5_sq_lt_rmax : hiD5 * hiD5 < R_MAX := by decide
 private theorem two_hiD1_le_rmax : 2 * hiD1 ≤ R_MAX := by decide
 private theorem two_hiD2_le_rmax : 2 * hiD2 ≤ R_MAX := by decide
 private theorem two_hiD3_le_rmax : 2 * hiD3 ≤ R_MAX := by decide
 private theorem two_hiD4_le_rmax : 2 * hiD4 ≤ R_MAX := by decide
-private theorem two_hiD5_le_rmax : 2 * hiD5 ≤ R_MAX := by decide
 private theorem pow255_le_rmax_cube : 2 ^ 255 ≤ R_MAX * R_MAX * R_MAX := by decide
 private theorem fBound_at_zero :
     (R_MAX + 3) * (R_MAX * R_MAX) ≥ 2 ^ 256 := by decide
-private theorem fBound_at_hiD5 :
-    (R_MAX + 3 - 2 * hiD5) * ((R_MAX + hiD5) * (R_MAX + hiD5)) ≥ 2 ^ 256 := by decide
+private theorem fBound_at_hiD4 :
+    (R_MAX + 3 - 2 * hiD4) * ((R_MAX + hiD4) * (R_MAX + hiD4)) ≥ 2 ^ 256 := by decide
 
 -- d1 bound for octave 247 matches the analytic formula (decide)
 set_option maxRecDepth 1000000 in
@@ -125,19 +122,19 @@ private theorem fBound_step_le (e : Nat) (he : 1 ≤ e) (h2e : 2 * e ≤ R_MAX +
   -- a*(2b+1) ≤ (b-2)*(2b+1) ≤ 2b².
   exact Nat.le_trans (Nat.mul_le_mul_right _ hab) hbd
 
-/-- f is non-increasing on [1, hiD5]: for e in this range, f(e) ≥ f(hiD5). -/
-private theorem fBound_ge_endpoint (e : Nat) (he1 : 1 ≤ e) (he2 : e ≤ hiD5) :
+/-- f is non-increasing on [1, hiD4]: for e in this range, f(e) ≥ f(hiD4). -/
+private theorem fBound_ge_endpoint (e : Nat) (he1 : 1 ≤ e) (he2 : e ≤ hiD4) :
     (R_MAX + 3 - 2 * e) * ((R_MAX + e) * (R_MAX + e)) ≥
-      (R_MAX + 3 - 2 * hiD5) * ((R_MAX + hiD5) * (R_MAX + hiD5)) := by
-  -- Induction on n = hiD5 - e, generalizing e.
-  have key : ∀ n, ∀ e', 1 ≤ e' → e' ≤ hiD5 → n = hiD5 - e' →
+      (R_MAX + 3 - 2 * hiD4) * ((R_MAX + hiD4) * (R_MAX + hiD4)) := by
+  -- Induction on n = hiD4 - e, generalizing e.
+  have key : ∀ n, ∀ e', 1 ≤ e' → e' ≤ hiD4 → n = hiD4 - e' →
       (R_MAX + 3 - 2 * e') * ((R_MAX + e') * (R_MAX + e')) ≥
-        (R_MAX + 3 - 2 * hiD5) * ((R_MAX + hiD5) * (R_MAX + hiD5)) := by
+        (R_MAX + 3 - 2 * hiD4) * ((R_MAX + hiD4) * (R_MAX + hiD4)) := by
     intro n
     induction n with
     | zero =>
       intro e' he1' _ hk
-      have : e' = hiD5 := by omega
+      have : e' = hiD4 := by omega
       subst this
       exact Nat.le_refl _
     | succ k ih =>
@@ -145,35 +142,35 @@ private theorem fBound_ge_endpoint (e : Nat) (he1 : 1 ≤ e) (he2 : e ≤ hiD5) 
       -- Apply the inductive hypothesis to e' + 1
       have h_ih := ih (e' + 1) (by omega) (by omega) (by omega)
       -- f(e') ≥ f(e'+1) by the step lemma
-      have h_step := fBound_step_le e' he1' (by have := two_hiD5_le_rmax; omega)
-      -- f(e') ≥ f(e'+1) ≥ f(hiD5)
+      have h_step := fBound_step_le e' he1' (by have := two_hiD4_le_rmax; omega)
+      -- f(e') ≥ f(e'+1) ≥ f(hiD4)
       exact Nat.le_trans h_ih h_step
-  exact key (hiD5 - e) e he1 he2 rfl
+  exact key (hiD4 - e) e he1 he2 rfl
 
-/-- For all e ∈ [0, hiD5], f(e) ≥ 2^256. -/
-private theorem fBound_ge_word (e : Nat) (he : e ≤ hiD5) :
+/-- For all e ∈ [0, hiD4], f(e) ≥ 2^256. -/
+private theorem fBound_ge_word (e : Nat) (he : e ≤ hiD4) :
     (R_MAX + 3 - 2 * e) * ((R_MAX + e) * (R_MAX + e)) ≥ 2 ^ 256 := by
   by_cases he0 : e = 0
   · subst he0; simp; exact fBound_at_zero
-  · exact Nat.le_trans fBound_at_hiD5 (fBound_ge_endpoint e (by omega) he)
+  · exact Nat.le_trans fBound_at_hiD4 (fBound_ge_endpoint e (by omega) he)
 
 -- ============================================================================
 -- cbrtStep bounded by R_MAX when z is close to R_MAX
 -- ============================================================================
 
-/-- If z ∈ [R_MAX, R_MAX + hiD5] and x < 2^256, then cbrtStep x z ≤ R_MAX.
+/-- If z ∈ [R_MAX, R_MAX + hiD4] and x < 2^256, then cbrtStep x z ≤ R_MAX.
     Proof: x < f(d) = (R+3-2d)(R+d)² gives x/(R+d)² ≤ R+2-2d,
     so x/(R+d)² + 2(R+d) ≤ 3R+2, and step ≤ R. -/
 private theorem cbrtStep_le_rmax
     (x z : Nat)
     (hx : x < 2 ^ 256)
     (hmz : R_MAX ≤ z)
-    (hze : z ≤ R_MAX + hiD5) :
+    (hze : z ≤ R_MAX + hiD4) :
     cbrtStep x z ≤ R_MAX := by
   unfold cbrtStep
-  have hd_def : z - R_MAX ≤ hiD5 := by omega
+  have hd_def : z - R_MAX ≤ hiD4 := by omega
   have hzd : z = R_MAX + (z - R_MAX) := by omega
-  have h2d : 2 * (z - R_MAX) ≤ R_MAX := by have := two_hiD5_le_rmax; omega
+  have h2d : 2 * (z - R_MAX) ≤ R_MAX := by have := two_hiD4_le_rmax; omega
   -- f(d) ≥ 2^256 > x
   have hf := fBound_ge_word (z - R_MAX) hd_def
   have hf_gt_x : x < (R_MAX + 3 - 2 * (z - R_MAX)) * ((R_MAX + (z - R_MAX)) * (R_MAX + (z - R_MAX))) :=
@@ -192,27 +189,23 @@ private theorem cbrtStep_le_rmax
   exact Nat.le_trans (Nat.div_le_div_right hsum) (by omega)
 
 -- ============================================================================
--- Tighter 5-step chain
+-- Tighter 4-step chain
 -- ============================================================================
 
-/-- When m = R_MAX, z₅ ∈ [R_MAX, R_MAX + hiD5]. -/
-private theorem run5_hi_bound
+/-- When m = R_MAX, z₄ ∈ [R_MAX, R_MAX + hiD4]. -/
+private theorem run4_hi_bound
     (x : Nat) (hx : x < 2 ^ 256) (_hx_pos : 0 < x)
     (hmlo : R_MAX * R_MAX * R_MAX ≤ x)
     (hmhi : x < (R_MAX + 1) * (R_MAX + 1) * (R_MAX + 1)) :
-    R_MAX ≤ run5From x (seedOf ⟨247, by omega⟩) ∧
-    run5From x (seedOf ⟨247, by omega⟩) ≤ R_MAX + hiD5 := by
+    R_MAX ≤ run4From x (seedOf ⟨247, by omega⟩) ∧
+    run4From x (seedOf ⟨247, by omega⟩) ≤ R_MAX + hiD4 := by
   let idx : Fin 248 := ⟨247, by omega⟩
   have hOct : 2 ^ (idx.val + certOffset) ≤ x ∧ x < 2 ^ (idx.val + certOffset + 1) :=
     ⟨Nat.le_trans pow255_le_rmax_cube hmlo, hx⟩
   have hinterval := m_within_cert_interval idx x R_MAX hmlo hmhi hOct
   have hm2 : 2 ≤ R_MAX := by unfold R_MAX; omega
   have hsPos : 0 < seedOf idx := seed_pos idx
-  -- Use run5_certified_bounds from CertifiedChain, but with R_MAX-specific d bounds.
-  -- We need our own chain because we use R_MAX as the denominator (not loOf idx).
-  -- The 5-step chain through run5From is definitionally:
-  --   run5From x s = cbrtStep x (cbrtStep x (cbrtStep x (cbrtStep x (cbrtStep x s))))
-  -- We prove bounds step by step.
+  -- We need this local chain because it uses R_MAX as the denominator.
   -- Step 1: floor bound
   have hmz1 : R_MAX ≤ cbrtStep x (seedOf idx) :=
     cbrt_step_floor_bound x (seedOf idx) R_MAX hsPos hmlo
@@ -223,7 +216,7 @@ private theorem run5_hi_bound
       hinterval.1 hinterval.2
     simp only at h
     exact Nat.le_trans h (Nat.le_of_eq d1_bound_247)
-  -- Steps 2-5 using step_from_bound with R_MAX as both m and lo
+  -- Steps 2-4 using step_from_bound with R_MAX as both m and lo
   have hloPos : 0 < R_MAX := by omega
   have hmz2 : R_MAX ≤ cbrtStep x (cbrtStep x (seedOf idx)) :=
     cbrt_step_floor_bound x _ R_MAX (by omega) hmlo
@@ -237,16 +230,11 @@ private theorem run5_hi_bound
     cbrt_step_floor_bound x _ R_MAX (by omega) hmlo
   have hd4 : cbrtStep x (cbrtStep x (cbrtStep x (cbrtStep x (seedOf idx)))) - R_MAX ≤ hiD4 :=
     step_from_bound x R_MAX R_MAX _ hiD3 hm2 hloPos (Nat.le_refl _) hmhi hmz3 hd3 two_hiD3_le_rmax
-  -- z5 = run5From x (seedOf idx)
-  have hmz5 : R_MAX ≤ cbrtStep x (cbrtStep x (cbrtStep x (cbrtStep x (cbrtStep x (seedOf idx))))) :=
-    cbrt_step_floor_bound x _ R_MAX (by omega) hmlo
-  have hd5 : cbrtStep x (cbrtStep x (cbrtStep x (cbrtStep x (cbrtStep x (seedOf idx))))) - R_MAX ≤ hiD5 :=
-    step_from_bound x R_MAX R_MAX _ hiD4 hm2 hloPos (Nat.le_refl _) hmhi hmz4 hd4 two_hiD4_le_rmax
-  -- run5From x (seedOf idx) is definitionally equal to the 5-step chain
-  have hrun5_def : run5From x (seedOf idx) =
-      cbrtStep x (cbrtStep x (cbrtStep x (cbrtStep x (cbrtStep x (seedOf idx))))) := rfl
-  rw [hrun5_def]
-  exact ⟨hmz5, by omega⟩
+  -- run4From x (seedOf idx) is definitionally equal to the 4-step chain
+  have hrun4_def : run4From x (seedOf idx) =
+      cbrtStep x (cbrtStep x (cbrtStep x (cbrtStep x (seedOf idx)))) := rfl
+  rw [hrun4_def]
+  exact ⟨hmz4, by omega⟩
 
 -- ============================================================================
 -- Main theorem
@@ -293,17 +281,17 @@ theorem innerCbrt_cube_lt_word (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
       have hm_eq : m = R_MAX := Nat.le_antisymm hm_le hm_ge
       -- Rewrite m = R_MAX everywhere
       rw [hm_eq] at hmlo hmhi
-      -- z5 is in [R, R + hiD5]
-      have ⟨hmz5, hz5⟩ := run5_hi_bound x hx256 hx hmlo hmhi
-      -- innerCbrt = cbrtStep(x, z5)
+      -- z4 is in [R, R + hiD4]
+      have ⟨hmz4, hz4⟩ := run4_hi_bound x hx256 hx hmlo hmhi
+      -- innerCbrt = cbrtStep(x, z4)
       have hseed : cbrtSeed x = seedOf ⟨247, by omega⟩ :=
         cbrtSeed_eq_certSeed _ x ⟨Nat.le_trans pow255_le_rmax_cube hmlo, hx256⟩
-      have hinner_eq : innerCbrt x = cbrtStep x (run5From x (seedOf ⟨247, by omega⟩)) := by
-        rw [innerCbrt_eq_step_run5_seed, hseed]
-      -- cbrtStep(x, z5) ≤ R_MAX
-      have hz6 := cbrtStep_le_rmax x _ hx256 hmz5 hz5
+      have hinner_eq : innerCbrt x = cbrtStep x (run4From x (seedOf ⟨247, by omega⟩)) := by
+        rw [innerCbrt_eq_step_run4_seed, hseed]
+      -- cbrtStep(x, z4) ≤ R_MAX
+      have hz5 := cbrtStep_le_rmax x _ hx256 hmz4 hz4
       -- innerCbrt(x) ≤ R_MAX
-      have hinner_le : innerCbrt x ≤ R_MAX := hinner_eq ▸ hz6
+      have hinner_le : innerCbrt x ≤ R_MAX := hinner_eq ▸ hz5
       -- But innerCbrt(x) = icbrt(x) + 1 and icbrt(x) = R_MAX
       rw [heqm1] at hinner_le
       -- hinner_le : icbrt x + 1 ≤ R_MAX, hm_eq : icbrt x = R_MAX (since m := icbrt x)
