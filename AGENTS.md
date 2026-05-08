@@ -359,8 +359,10 @@ Key settings in `foundry.toml`:
 # ✅ Stage specific files and review
 git add src/core/MyFeature.sol test/unit/MyFeatureTest.t.sol
 git diff --staged
-git commit -m "Fix bug in MyFeature"
+git commit -m "Fix bug in MyFeature" -m 'Co-Authored-By: AI Agent <ai-agent@example.com>'
 ```
+
+You MUST add a `Co-Authored-By:` line at the end of each commit message explicitly referencing yourself as the coauthor. Refer to yourself using the name that best describes your identity as a model, harness, or agentic system. If this is ambiguous, add multiple `Co-Authored-By:` lines.
 
 ### Before Committing
 
