@@ -362,7 +362,7 @@ git diff --staged
 git commit -m "Fix bug in MyFeature" -m 'Co-Authored-By: AI Agent <ai-agent@example.com>'
 ```
 
-You MUST add a `Co-Authored-By:` line at the end of each commit message explicitly referencing yourself as the coauthor. Refer to yourself using the name that best describes your identity as a model, harness, or agentic system. If this is ambiguous, add multiple `Co-Authored-By:` lines.
+You MUST add a `Co-Authored-By:` line at the end of each commit message explicitly referencing yourself as the coauthor. Refer to yourself using the name that best describes your identity as a model, harness, or agentic system, and use an email address that is reflective of your creator(s). If this is ambiguous, add multiple `Co-Authored-By:` lines.
 
 ### Before Committing
 
