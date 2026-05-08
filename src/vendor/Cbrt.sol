@@ -9,12 +9,12 @@ library Cbrt {
     function _cbrt(uint256 x) private pure returns (uint256 z) {
         assembly ("memory-safe") {
             // Initial guess z ≈ c · 2𐞥 where y = ⌊log₂(x)⌋ + 2, q = ⌊y / 3⌋. The fixed-point
-            // multipliers `c`: 180/256, 227/256, and 285/256 are selected by y mod 3 to balance
+            // multipliers `c`: 180/256, 227/256, and 285/256 are selected by `y mod 3` to balance
             // each octave's endpoint error. This gives >85 bits of precision after only 5
             // Newton-Raphson iterations. The `or(1, ...)` keeps z ≥ 1 when the shifted estimate is
             // 0.
             let y := sub(257, clz(x))
-            z := or(1, shr(8, shl(div(y, 3), and(0x1ff, shr(mul(9, mod(y, 3)), 0x0475c6b4)))))
+            z := or(1, shr(8, shl(div(y, 3), and(0x1ff, shr(mul(9, mod(y, 3)), 0x475c6b4)))))
 
             // 5 Newton-Raphson iterations
             z := div(add(add(div(x, mul(z, z)), z), z), 3)
