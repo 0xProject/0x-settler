@@ -8,20 +8,19 @@ library Cbrt {
     /// https://github.com/pcaversaccio/snekmate/blob/main/src/snekmate/utils/math.vy
     function _cbrt(uint256 x) private pure returns (uint256 z) {
         assembly ("memory-safe") {
-            // Initial guess z ≈ ∛(3/4) · 2𐞥 where q = ⌊(257 − clz(x)) / 3⌋. The multiplier 233/256
-            // ≈ 0.909 ≈ ∛(3/4) balances the worst-case over/underestimate across each octave
-            // triplet (ε_over ≈ 0.445, ε_under ≈ −0.278), giving >85 bits of precision after 6 N-R
-            // iterations. The `add(1, ...)` term ensures z ≥ 1 when x > 0 (the `shr` can produce 0
-            // for small `q`)
-            z := add(1, shr(8, shl(div(sub(257, clz(x)), 3), 233)))
+            // Initial guess z ≈ c · 2ᵠ where y = ⌊log₂(x)⌋ + 2, q = ⌊y / 3⌋. The fixed-point
+            // multipliers 180/256, 227/256, and 285/256 are selected by y mod 3 to balance each
+            // octave's endpoint error. This gives enough precision for 5 N-R iterations. The `or`
+            // keeps z ≥ 1 when the shifted estimate is 0.
+            let y := sub(0x0101, clz(x))
+            z := or(0x01, shr(0x08, shl(div(y, 0x03), and(0x01ff, shr(mul(0x09, mod(y, 0x03)), 0x0475c6b4)))))
 
-            // 6 Newton-Raphson iterations
-            z := div(add(add(div(x, mul(z, z)), z), z), 3)
-            z := div(add(add(div(x, mul(z, z)), z), z), 3)
-            z := div(add(add(div(x, mul(z, z)), z), z), 3)
-            z := div(add(add(div(x, mul(z, z)), z), z), 3)
-            z := div(add(add(div(x, mul(z, z)), z), z), 3)
-            z := div(add(add(div(x, mul(z, z)), z), z), 3)
+            // 5 Newton-Raphson iterations
+            z := div(add(add(div(x, mul(z, z)), z), z), 0x03)
+            z := div(add(add(div(x, mul(z, z)), z), z), 0x03)
+            z := div(add(add(div(x, mul(z, z)), z), z), 0x03)
+            z := div(add(add(div(x, mul(z, z)), z), z), 0x03)
+            z := div(add(add(div(x, mul(z, z)), z), z), 0x03)
         }
     }
 
