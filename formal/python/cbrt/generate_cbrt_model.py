@@ -21,45 +21,16 @@ if __package__ in (None, ""):
         CliConfig,
         EmissionConfig,
         ModelConfig,
-        NormExtension,
         SelectionConfig,
     )
-    from formal.python.model_ir import Call, Expr, IntLit
 else:
     from ..generator_cli import run_generator
     from ..model_config import (
         CliConfig,
         EmissionConfig,
         ModelConfig,
-        NormExtension,
         SelectionConfig,
     )
-    from ..model_ir import Call, Expr, IntLit
-
-
-def rewrite_norm_ast(expr: Expr) -> Expr:
-    """Rewrite sub(258, clz(arg)) → bitLengthPlus2(arg) for the Nat model.
-
-    This hook is a local bottom-up rewrite. The emitter has already rewritten
-    child expressions before calling it.
-
-    In Nat arithmetic, normSub 258 (normClz x) = 258 - (255 - log2 x)
-    underflows for x ≥ 2^256 because 255 - log2 x truncates to 0.
-    normBitLengthPlus2(x) computes log2(x) + 3 directly, giving the correct
-    value for all Nat.
-    """
-    if (
-        isinstance(expr, Call)
-        and expr.name == "sub"
-        and len(expr.args) == 2
-        and isinstance(expr.args[0], IntLit)
-        and expr.args[0].value == 258
-        and isinstance(expr.args[1], Call)
-        and expr.args[1].name == "clz"
-        and len(expr.args[1].args) == 1
-    ):
-        return Call("bitLengthPlus2", expr.args[1].args)
-    return expr
 
 
 CONFIG = ModelConfig(
@@ -75,17 +46,7 @@ CONFIG = ModelConfig(
         },
         header_comment="Auto-generated from Solidity Cbrt assembly and assignment flow.",
         generator_label="formal/python/cbrt/generate_cbrt_model.py",
-        norm_rewrite=rewrite_norm_ast,
-        norm_extensions=(
-            NormExtension(
-                op_name="bitLengthPlus2",
-                lean_name="normBitLengthPlus2",
-                lean_def=(
-                    "def normBitLengthPlus2 (value : Nat) : Nat :=\n"
-                    "  if value = 0 then 2 else Nat.log2 value + 3"
-                ),
-            ),
-        ),
+        norm_rewrite=None,
     ),
     cli=CliConfig(
         source_label="src/vendor/Cbrt.sol",
