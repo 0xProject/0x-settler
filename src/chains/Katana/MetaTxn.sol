@@ -4,15 +4,10 @@ pragma solidity =0.8.34;
 import {KatanaMixin} from "./Common.sol";
 import {SettlerMetaTxn} from "../../SettlerMetaTxn.sol";
 
-import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {ISettlerActions} from "../../ISettlerActions.sol";
-
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
-import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
 contract KatanaSettlerMetaTxn is SettlerMetaTxn, KatanaMixin {

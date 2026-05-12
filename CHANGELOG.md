@@ -13,9 +13,7 @@
 
 ### Non-breaking changes
 
-* Katana Settler now delegates to the standard base dispatch, gaining `UNISWAPV3`,
-  `UNISWAPV3_VIP`, `UNISWAPV2`, `RFQ`, `VELODROME`, and `POSITIVE_SLIPPAGE` actions.
-* Add SushiSwapV3 UniV3 fork on Katana
+* Add SushiSwapV3 UniV3 fork on Katana.
 
 ## 2026-04-10
 

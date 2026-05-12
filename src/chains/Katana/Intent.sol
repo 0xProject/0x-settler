@@ -2,11 +2,8 @@
 pragma solidity =0.8.34;
 
 import {KatanaSettlerMetaTxn} from "./MetaTxn.sol";
-import {SettlerIntent} from "../../SettlerIntent.sol";
 
-import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {ISettlerActions} from "../../ISettlerActions.sol";
 
 // Solidity inheritance is stupid
 import {SettlerAbstract} from "../../SettlerAbstract.sol";
