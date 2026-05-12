@@ -74,6 +74,9 @@ theorem evmOr_compat (a b : Nat) :
 theorem evmAnd_compat (a b : Nat) :
     Cbrt512GeneratedModel.evmAnd a b = CbrtGeneratedModel.evmAnd a b := by
   simp only [Cbrt512GeneratedModel.evmAnd, CbrtGeneratedModel.evmAnd, u256_compat]
+theorem evmByte_compat (index value : Nat) :
+    Cbrt512GeneratedModel.evmByte index value = CbrtGeneratedModel.evmByte index value := by
+  simp only [Cbrt512GeneratedModel.evmByte, CbrtGeneratedModel.evmByte, u256_compat]
 
 end NamespaceCompat
 
@@ -107,7 +110,7 @@ theorem wrapper_zero_eq_cbrt_floor_evm (x_lo : Nat) :
   unfold CbrtGeneratedModel.model_cbrt_floor_evm CbrtGeneratedModel.model_cbrt_evm
   simp only [evmEq_compat, evmShr_compat, evmAdd_compat, evmDiv_compat,
     evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat, evmMod_compat,
-    evmOr_compat, evmAnd_compat,
+    evmOr_compat, evmAnd_compat, evmByte_compat,
     evmMul_compat, evmGt_compat, u256_compat]
   simp only [cu256_zero, cu256_idem]
   simp (config := { decide := true })
