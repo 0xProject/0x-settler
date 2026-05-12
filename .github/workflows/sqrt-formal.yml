@@ -76,10 +76,10 @@ jobs:
             'import SqrtProof.GeneratedSqrtSpec' \
             '#print axioms SqrtGeneratedModel.model_sqrt_floor_evm_eq_floorSqrt' \
             '#print axioms SqrtGeneratedModel.model_sqrt_up_evm_ceil_u256' \
-            | lake env lean --stdin > actual_axioms.txt
+            | lake env lean --stdin > actual_axioms.txt 2>&1
           diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
-          'SqrtGeneratedModel.model_sqrt_floor_evm_eq_floorSqrt' depends on axioms: [propext, Quot.sound]
-          'SqrtGeneratedModel.model_sqrt_up_evm_ceil_u256' depends on axioms: [propext, Quot.sound]
+          'SqrtGeneratedModel.model_sqrt_floor_evm_eq_floorSqrt' depends on axioms: [propext, Classical.choice, Quot.sound]
+          'SqrtGeneratedModel.model_sqrt_up_evm_ceil_u256' depends on axioms: [propext, Classical.choice, Quot.sound]
           EXPECTED
 
       - name: Fuzz-test Lean model against Solidity

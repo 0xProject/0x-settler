@@ -86,12 +86,12 @@ jobs:
             'import Sqrt512Proof.SqrtUpCorrect' \
             'import Sqrt512Proof.OsqrtUpSpec' \
             '#print axioms Sqrt512Spec.model_sqrt512_evm_correct' \
-            '#print axioms Sqrt512Spec.sqrtUp512_correct' \
+            '#print axioms sqrtUp512_correct' \
             '#print axioms Sqrt512Spec.model_osqrtUp_evm_correct' \
-            | lake env lean --stdin > actual_axioms.txt
+            | lake env lean --stdin > actual_axioms.txt 2>&1
           diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
           'Sqrt512Spec.model_sqrt512_evm_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
-          'Sqrt512Spec.sqrtUp512_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
+          'sqrtUp512_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
           'Sqrt512Spec.model_osqrtUp_evm_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
           EXPECTED
 

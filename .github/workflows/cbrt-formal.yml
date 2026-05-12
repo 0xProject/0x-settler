@@ -76,7 +76,7 @@ jobs:
             'import CbrtProof.GeneratedCbrtSpec' \
             '#print axioms CbrtGeneratedModel.model_cbrt_floor_evm_correct' \
             '#print axioms CbrtGeneratedModel.model_cbrt_up_evm_ceil_u256' \
-            | lake env lean --stdin > actual_axioms.txt
+            | lake env lean --stdin > actual_axioms.txt 2>&1
           diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
           'CbrtGeneratedModel.model_cbrt_floor_evm_correct' depends on axioms: [propext, Quot.sound]
           'CbrtGeneratedModel.model_cbrt_up_evm_ceil_u256' depends on axioms: [propext, Quot.sound]

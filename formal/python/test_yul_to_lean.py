@@ -9,7 +9,6 @@ from typing import Callable, cast
 
 from . import model_config as modelcfg
 from . import norm_ir, yul_ast
-from .cbrt.generate_cbrt_model import rewrite_norm_ast as rewrite_cbrt_norm_ast
 from .evm_builtins import (
     BASE_NORM_HELPERS,
     EVM_BUILTINS,
@@ -7945,6 +7944,21 @@ class BranchExprStmtTest(unittest.TestCase):
             )
 
 
+def _rewrite_sub257_clz(expr: Expr) -> Expr:
+    if (
+        isinstance(expr, Call)
+        and expr.name == "sub"
+        and len(expr.args) == 2
+        and isinstance(expr.args[0], IntLit)
+        and expr.args[0].value == 257
+        and isinstance(expr.args[1], Call)
+        and expr.args[1].name == "clz"
+        and len(expr.args[1].args) == 1
+    ):
+        return Call("bitLengthPlus1", expr.args[1].args)
+    return expr
+
+
 class ReviewBehaviorTest(unittest.TestCase):
     def _cbrt_emission(self) -> modelcfg.EmissionConfig:
         return make_model_config(
@@ -7959,7 +7973,7 @@ class ReviewBehaviorTest(unittest.TestCase):
                     ),
                 ),
             ),
-            norm_rewrite=rewrite_cbrt_norm_ast,
+            norm_rewrite=_rewrite_sub257_clz,
         ).emission
 
     def test_translate_yul_to_models_accepts_constant_switch_without_default(
