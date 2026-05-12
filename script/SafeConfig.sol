@@ -31,6 +31,7 @@ library SafeConfig {
                 || block.chainid == 59144 // linea
                 || block.chainid == 80094 // berachain
                 || block.chainid == 534352 // scroll
+                || block.chainid == 747474 // katana
         ) {
             return false;
         }
@@ -61,6 +62,7 @@ library SafeConfig {
                 || block.chainid == 59144 // linea
                 || block.chainid == 80094 // berachain
                 || block.chainid == 534352 // scroll
+                || block.chainid == 747474 // katana
                 || block.chainid == 11155111 // sepolia
         ) {
             return false;
@@ -94,6 +96,7 @@ library SafeConfig {
                 || block.chainid == 59144 // linea
                 || block.chainid == 80094 // berachain
                 || block.chainid == 534352 // scroll
+                || block.chainid == 747474 // katana
                 || block.chainid == 11155111 // sepolia
         ) {
             return false;
