@@ -8,11 +8,12 @@ library Sqrt {
         assembly ("memory-safe") {
             // Initial guess z = 2^⌊(n+1)/2⌋ where n = ⌊log₂(x)⌋. This seed gives ε₁ = 0.0607 after
             // one Babylonian step for all inputs. With ε_{n+1} ≈ ε²/2, 6 steps yield 2⁻¹⁶⁰ relative
-            // error (>128 correct bits).
-            z := shl(shr(1, sub(256, clz(x))), 1)
+            // error (>128 correct bits). We implicitly represent z as log₂(z) so that the first
+            // `div` becomes a `shr`.
+            z := shr(1, sub(256, clz(x)))
 
             // 6 Babylonian steps
-            z := shr(1, add(z, div(x, z)))
+            z := shr(1, add(shl(z, 1), shr(z, x)))
             z := shr(1, add(z, div(x, z)))
             z := shr(1, add(z, div(x, z)))
             z := shr(1, add(z, div(x, z)))

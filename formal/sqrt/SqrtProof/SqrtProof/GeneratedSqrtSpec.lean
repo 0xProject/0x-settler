@@ -132,9 +132,19 @@ private theorem evmLt_le_one (a b : Nat) : evmLt a b ≤ 1 := by
   unfold evmLt
   split <;> omega
 
-private theorem seed_evm_eq_norm (x : Nat) (hx : x < WORD_MOD) :
-    evmShl (evmShr 1 (evmSub 256 (evmClz x))) 1 =
-      normShl (normShr 1 (normSub 256 (normClz x))) 1 := by
+private theorem sqrtLog_norm_lt_256 (x : Nat) :
+    normShr 1 (normSub 256 (normClz x)) < 256 := by
+  unfold normShr
+  have hle : normSub 256 (normClz x) ≤ 256 := by
+    unfold normSub
+    exact Nat.sub_le _ _
+  have hdiv : normSub 256 (normClz x) / 2 ^ 1 ≤ 256 / 2 ^ 1 := Nat.div_le_div_right hle
+  have hdiv' : normSub 256 (normClz x) / 2 ^ 1 ≤ 128 := by simpa using hdiv
+  omega
+
+private theorem sqrtLog_evm_eq_norm (x : Nat) (hx : x < WORD_MOD) :
+    evmShr 1 (evmSub 256 (evmClz x)) =
+      normShr 1 (normSub 256 (normClz x)) := by
   have hclz : evmClz x = normClz x := evmClz_eq_normClz_of_u256 x hx
   have hclzLe : normClz x ≤ 256 := normClz_le_256 x
   have hsub :
@@ -147,20 +157,17 @@ private theorem seed_evm_eq_norm (x : Nat) (hx : x < WORD_MOD) :
       unfold normSub
       exact Nat.sub_le _ _
     exact Nat.lt_of_le_of_lt hle word_mod_gt_256
+  have h1 : (1 : Nat) < 256 := by decide
+  simpa [hsub] using
+    (evmShr_eq_normShr_of_u256 1 (normSub 256 (normClz x)) h1 hsubLt)
+
+private theorem seed_evm_eq_norm (x : Nat) (hx : x < WORD_MOD) :
+    evmShl (evmShr 1 (evmSub 256 (evmClz x))) 1 =
+      normShl (normShr 1 (normSub 256 (normClz x))) 1 := by
   have hshr :
       evmShr 1 (evmSub 256 (evmClz x)) =
-        normShr 1 (normSub 256 (normClz x)) := by
-    have h1 : (1 : Nat) < 256 := by decide
-    simpa [hsub] using
-      (evmShr_eq_normShr_of_u256 1 (normSub 256 (normClz x)) h1 hsubLt)
-  have hsLt256 : normShr 1 (normSub 256 (normClz x)) < 256 := by
-    unfold normShr
-    have hle : normSub 256 (normClz x) ≤ 256 := by
-      unfold normSub
-      exact Nat.sub_le _ _
-    have hdiv : normSub 256 (normClz x) / 2 ^ 1 ≤ 256 / 2 ^ 1 := Nat.div_le_div_right hle
-    have hdiv' : normSub 256 (normClz x) / 2 ^ 1 ≤ 128 := by simpa using hdiv
-    omega
+        normShr 1 (normSub 256 (normClz x)) := sqrtLog_evm_eq_norm x hx
+  have hsLt256 : normShr 1 (normSub 256 (normClz x)) < 256 := sqrtLog_norm_lt_256 x
   have hsLtWord : normShr 1 (normSub 256 (normClz x)) < WORD_MOD :=
     Nat.lt_of_lt_of_le hsLt256 (Nat.le_of_lt word_mod_gt_256)
   have hsafeMul :
@@ -342,6 +349,10 @@ theorem model_sqrt_evm_eq_model_sqrt
     have hseedEvm :
         evmShl (evmShr 1 (evmSub 256 (evmClz x))) 1 = seedOf i := by
       exact (seed_evm_eq_norm x hx256).trans hseedNorm
+    have hqEvm :
+        evmShr 1 (evmSub 256 (evmClz x)) =
+          normShr 1 (normSub 256 (normClz x)) := sqrtLog_evm_eq_norm x hx256
+    have hqLt : normShr 1 (normSub 256 (normClz x)) < 256 := sqrtLog_norm_lt_256 x
     let z0 := seedOf i
     let z1 := bstep x z0
     let z2 := bstep x z1
@@ -398,9 +409,53 @@ theorem model_sqrt_evm_eq_model_sqrt
     have hz3 : z3 < WORD_MOD := Nat.lt_of_le_of_lt (Nat.le_add_right z3 (x / z3)) hsum3
     have hz4 : z4 < WORD_MOD := Nat.lt_of_le_of_lt (Nat.le_add_right z4 (x / z4)) hsum4
     have hz5 : z5 < WORD_MOD := Nat.lt_of_le_of_lt (Nat.le_add_right z5 (x / z5)) hsum5
-    have hstep1 : evmShr 1 (evmAdd z0 (evmDiv x z0)) = z1 := by
-      have h := step_evm_eq_norm_of_safe x z0 hx256 hsPos hz0 hsum0
-      simpa [z1, normStep_eq_bstep] using h
+    have hshiftDiv :
+        evmShr (evmShr 1 (evmSub 256 (evmClz x))) x = x / z0 := by
+      calc
+        evmShr (evmShr 1 (evmSub 256 (evmClz x))) x
+            = evmShr (normShr 1 (normSub 256 (normClz x))) x := by simp [hqEvm]
+        _ = normShr (normShr 1 (normSub 256 (normClz x))) x := by
+              simpa using
+                evmShr_eq_normShr_of_u256
+                  (normShr 1 (normSub 256 (normClz x))) x hqLt hx256
+        _ = x / z0 := by
+              dsimp [z0]
+              rw [← hseedNorm]
+              simp [normShr, normShl, Nat.shiftLeft_eq]
+    have hfirstEvm :
+        evmShr 1
+            (evmAdd z0 (evmShr (evmShr 1 (evmSub 256 (evmClz x))) x)) =
+          z1 := by
+      have hdivLt : x / z0 < WORD_MOD := Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hx256
+      have hadd : evmAdd z0 (evmShr (evmShr 1 (evmSub 256 (evmClz x))) x) =
+          normAdd z0 (normDiv x z0) := by
+        simpa [hshiftDiv, normDiv] using
+          evmAdd_eq_normAdd_of_no_overflow z0 (x / z0) hz0 hdivLt hsum0
+      have hsumLt : normAdd z0 (normDiv x z0) < WORD_MOD := by
+        simpa [normAdd, normDiv] using hsum0
+      have h1 : (1 : Nat) < 256 := by decide
+      calc
+        evmShr 1 (evmAdd z0 (evmShr (evmShr 1 (evmSub 256 (evmClz x))) x))
+            = evmShr 1 (normAdd z0 (normDiv x z0)) := by simp [hadd]
+        _ = normShr 1 (normAdd z0 (normDiv x z0)) := by
+              simpa using evmShr_eq_normShr_of_u256 1 (normAdd z0 (normDiv x z0)) h1 hsumLt
+        _ = z1 := by
+              simp [z1, normStep_eq_bstep]
+    have hfirstNorm :
+        normShr 1
+            (normAdd z0 (normShr (normShr 1 (normSub 256 (normClz x))) x)) =
+          z1 := by
+      have hz0eq : z0 = 2 ^ (normShr 1 (normSub 256 (normClz x))) := by
+        dsimp [z0]
+        rw [← hseedNorm]
+        simp [normShl, Nat.shiftLeft_eq]
+      calc
+        normShr 1 (normAdd z0 (normShr (normShr 1 (normSub 256 (normClz x))) x))
+            = (z0 + x / z0) / 2 := by
+                  rw [hz0eq]
+                  simp [normShr, normAdd]
+        _ = z1 := by
+              simp [z1, bstep]
     have hstep2 : evmShr 1 (evmAdd z1 (evmDiv x z1)) = z2 := by
       have h := step_evm_eq_norm_of_safe x z1 hx256 hz1Pos hz1 hsum1
       simpa [z2, normStep_eq_bstep] using h
@@ -419,7 +474,7 @@ theorem model_sqrt_evm_eq_model_sqrt
     have hxmod : u256 x = x := u256_eq_of_lt x hx256
     unfold model_sqrt_evm model_sqrt
     simp [hxmod, hseedEvm, hseedNorm, z0, z1, z2, z3, z4, z5, z6,
-      hstep1, hstep2, hstep3, hstep4, hstep5, hstep6, normStep_eq_bstep]
+      hfirstEvm, hfirstNorm, hstep2, hstep3, hstep4, hstep5, hstep6, normStep_eq_bstep]
 
 theorem model_sqrt_eq_innerSqrt (x : Nat) (hx256 : x < 2 ^ 256) :
     model_sqrt x = innerSqrt x := by
@@ -429,8 +484,14 @@ theorem model_sqrt_eq_innerSqrt (x : Nat) (hx256 : x < 2 ^ 256) :
   · have hx : 0 < x := Nat.pos_of_ne_zero hx0
     have hseed : normShl (normShr 1 (normSub 256 (normClz x))) 1 = sqrtSeed x :=
       normSeed_eq_sqrtSeed_of_pos x hx hx256
+    have hfirst :
+        normShr 1
+            (normAdd (sqrtSeed x) (normShr (normShr 1 (normSub 256 (normClz x))) x)) =
+          bstep x (sqrtSeed x) := by
+      rw [← hseed]
+      simp [normShl, normShr, normAdd, bstep, Nat.shiftLeft_eq]
     unfold model_sqrt innerSqrt
-    simp [Nat.ne_of_gt hx, hseed, normStep_eq_bstep]
+    simp [Nat.ne_of_gt hx, hseed, hfirst, normStep_eq_bstep]
 
 theorem model_sqrt_bracket_u256_all
   (x : Nat)
