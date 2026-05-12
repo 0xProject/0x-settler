@@ -47,6 +47,7 @@ jobs:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
           PLASMA_MAINNET_RPC_URL: ${{ secrets.PLASMA_MAINNET_RPC_URL }}
+          KATANA_MAINNET_RPC_URL: ${{ secrets.KATANA_MAINNET_RPC_URL }}
           ARBITRUM_MAINNET_RPC_URL: ${{ secrets.ARBITRUM_MAINNET_RPC_URL }}
           BASE_MAINNET_RPC_URL: ${{ secrets.BASE_MAINNET_RPC_URL }}
           MONAD_MAINNET_RPC_URL: ${{ secrets.MONAD_MAINNET_RPC_URL }}

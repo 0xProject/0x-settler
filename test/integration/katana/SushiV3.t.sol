@@ -97,7 +97,7 @@ contract SushiV3KatanaIntegrationTest is SettlerBasePairTest {
         );
     }
 
-    // Sells 0.1 WETH for AUSD via the SushiV3 WETH/AUSD pool on Katana.
+    // Sells 0.001 WETH for AUSD via the SushiV3 WETH/AUSD pool on Katana.
     // Verifies the full path: AllowanceHolder → KatanaSettler.execute → UNISWAPV3 action →
     // KatanaMixin._uniV3ForkInfo(sushiswapV3ForkId) → CREATE2 derives pool 0xa522…2f38.
     function testKatanaSushiV3() public {
