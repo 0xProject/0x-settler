@@ -38,14 +38,14 @@ else:
 
 
 def rewrite_norm_ast(expr: Expr) -> Expr:
-    """Rewrite sub(257, clz(arg)) → bitLengthPlus1(arg) for the Nat model.
+    """Rewrite sub(258, clz(arg)) → bitLengthPlus2(arg) for the Nat model.
 
     This hook is a local bottom-up rewrite. The emitter has already rewritten
     child expressions before calling it.
 
-    In Nat arithmetic, normSub 257 (normClz x) = 257 - (255 - log2 x)
+    In Nat arithmetic, normSub 258 (normClz x) = 258 - (255 - log2 x)
     underflows for x ≥ 2^256 because 255 - log2 x truncates to 0.
-    normBitLengthPlus1(x) computes log2(x) + 2 directly, giving the correct
+    normBitLengthPlus2(x) computes log2(x) + 3 directly, giving the correct
     value for all Nat.
     """
     if (
@@ -53,12 +53,12 @@ def rewrite_norm_ast(expr: Expr) -> Expr:
         and expr.name == "sub"
         and len(expr.args) == 2
         and isinstance(expr.args[0], IntLit)
-        and expr.args[0].value == 257
+        and expr.args[0].value == 258
         and isinstance(expr.args[1], Call)
         and expr.args[1].name == "clz"
         and len(expr.args[1].args) == 1
     ):
-        return Call("bitLengthPlus1", expr.args[1].args)
+        return Call("bitLengthPlus2", expr.args[1].args)
     return expr
 
 
@@ -78,11 +78,11 @@ CONFIG = ModelConfig(
         norm_rewrite=rewrite_norm_ast,
         norm_extensions=(
             NormExtension(
-                op_name="bitLengthPlus1",
-                lean_name="normBitLengthPlus1",
+                op_name="bitLengthPlus2",
+                lean_name="normBitLengthPlus2",
                 lean_def=(
-                    "def normBitLengthPlus1 (value : Nat) : Nat :=\n"
-                    "  if value = 0 then 1 else Nat.log2 value + 2"
+                    "def normBitLengthPlus2 (value : Nat) : Nat :=\n"
+                    "  if value = 0 then 2 else Nat.log2 value + 3"
                 ),
             ),
         ),

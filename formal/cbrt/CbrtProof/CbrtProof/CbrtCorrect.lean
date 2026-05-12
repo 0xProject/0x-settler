@@ -53,15 +53,15 @@ theorem run5_eq_step_run4 (x z : Nat) :
 theorem run6_eq_step_run5 (x z : Nat) :
     run6From x z = cbrtStep x (run5From x z) := rfl
 
-/-- Fixed-point multiplier selected by `(log2(x) + 2) % 3`. -/
+/-- Fixed-point multiplier selected by `(log2(x) + 3) % 3`. -/
 def cbrtSeedMultiplier (y : Nat) : Nat :=
-  #[0xb4, 0xe3, 0x11d][y % 3]!
+  #[0x90, 0xb5, 0xe5][y % 3]!
 
 /-- The cbrt seed:
-    z = (⌊c * 2^q / 256⌋ | 1) where y = log2(x) + 2, q = ⌊y / 3⌋, and
-    c is selected from [0xb4, 0xe3, 0x11d] by y % 3. -/
+    z = (⌊c * 2^q / 256⌋ | 1) where y = log2(x) + 3, q = ⌊y / 3⌋, and
+    c is selected from [0x90, 0xb5, 0xe5] by y % 3. -/
 def cbrtSeed (x : Nat) : Nat :=
-  1 ||| ((cbrtSeedMultiplier (Nat.log2 x + 2) <<< ((Nat.log2 x + 2) / 3)) >>> 8)
+  1 ||| ((cbrtSeedMultiplier (Nat.log2 x + 3) <<< ((Nat.log2 x + 3) / 3)) >>> 8)
 
 /-- _cbrt: seed + 5 Newton-Raphson steps. -/
 def innerCbrt (x : Nat) : Nat :=
@@ -199,7 +199,7 @@ theorem icbrt_eq_of_bounds (x r : Nat)
 /-- The cbrt seed is always positive (due to the low-bit OR). -/
 theorem cbrtSeed_pos (x : Nat) : 0 < cbrtSeed x := by
   unfold cbrtSeed
-  have h : 1 ≤ 1 ||| ((cbrtSeedMultiplier (Nat.log2 x + 2) <<< ((Nat.log2 x + 2) / 3)) >>> 8) :=
+  have h : 1 ≤ 1 ||| ((cbrtSeedMultiplier (Nat.log2 x + 3) <<< ((Nat.log2 x + 3) / 3)) >>> 8) :=
     Nat.left_le_or
   omega
 

@@ -99,6 +99,16 @@ MODELED_BUILTINS: tuple[ModeledBuiltin, ...] = (
         "def normAnd (a b : Nat) : Nat := a &&& b",
     ),
     ModeledBuiltin(
+        "byte",
+        2,
+        "def evmByte (index value : Nat) : Nat :=\n"
+        "  let i := u256 index\n"
+        "  let v := u256 value\n"
+        "  if i < 32 then (v / 2 ^ (8 * (31 - i))) % 256 else 0",
+        "def normByte (index value : Nat) : Nat :=\n"
+        "  if index < 32 then (value / 2 ^ (8 * (31 - index))) % 256 else 0",
+    ),
+    ModeledBuiltin(
         "eq",
         2,
         "def evmEq (a b : Nat) : Nat :=\n  if u256 a = u256 b then 1 else 0",
