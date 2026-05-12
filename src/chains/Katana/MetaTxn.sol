@@ -25,21 +25,7 @@ contract KatanaSettlerMetaTxn is SettlerMetaTxn, KatanaMixin {
         DANGEROUS_freeMemory
         returns (bool)
     {
-        // This does not make use of `super._dispatchVIP`. This chain's Settler is extremely
-        // stripped-down and has almost no capabilities
-        if (action == uint32(ISettlerActions.METATXN_TRANSFER_FROM.selector)) {
-            (address recipient, ISignatureTransfer.PermitTransferFrom memory permit) =
-                abi.decode(data, (address, ISignatureTransfer.PermitTransferFrom));
-            (ISignatureTransfer.SignatureTransferDetails memory transferDetails,) =
-                _permitToTransferDetails(permit, recipient);
-
-            // We simultaneously transfer-in the taker's tokens and authenticate the
-            // metatransaction.
-            _transferFrom(permit, transferDetails, sig);
-        } else {
-            return false;
-        }
-        return true;
+        return super._dispatchVIP(action, data, sig);
     }
 
     // Solidity inheritance is stupid

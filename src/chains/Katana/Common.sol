@@ -3,15 +3,16 @@ pragma solidity =0.8.34;
 
 import {SettlerBase} from "../../SettlerBase.sol";
 
-import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
 
-import {ISettlerActions} from "../../ISettlerActions.sol";
-import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {revertUnknownForkId} from "../../core/SettlerErrors.sol";
 
-// Solidity inheritance is stupid
-import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
+import {IUniswapV3Callback} from "../../core/univ3forks/UniswapV3.sol";
+import {
+    sushiswapV3KatanaFactory,
+    sushiswapV3KatanaInitHash,
+    sushiswapV3ForkId
+} from "../../core/univ3forks/SushiswapV3.sol";
 
 abstract contract KatanaMixin is FreeMemory, SettlerBase {
     constructor() {
@@ -21,21 +22,11 @@ abstract contract KatanaMixin is FreeMemory, SettlerBase {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(/* SettlerSwapAbstract, */ SettlerBase)
+        override
         DANGEROUS_freeMemory
         returns (bool)
     {
-        // This does not make use of `super._dispatch`. This chain's Settler is extremely
-        // stripped-down and has almost no capabilities
-        if (action == uint32(ISettlerActions.BASIC.selector)) {
-            (IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory _data) =
-                abi.decode(data, (IERC20, uint256, address, uint256, bytes));
-
-            basicSellToPool(sellToken, bps, pool, offset, _data);
-        } else {
-            return false;
-        }
-        return true;
+        return super._dispatch(i, action, data, slippage);
     }
 
     function _uniV3ForkInfo(uint8 forkId)
@@ -44,6 +35,12 @@ abstract contract KatanaMixin is FreeMemory, SettlerBase {
         override
         returns (address factory, bytes32 initHash, uint32 callbackSelector)
     {
-        revertUnknownForkId(forkId);
+        if (forkId == sushiswapV3ForkId) {
+            factory = sushiswapV3KatanaFactory;
+            initHash = sushiswapV3KatanaInitHash;
+            callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else {
+            revertUnknownForkId(forkId);
+        }
     }
 }
