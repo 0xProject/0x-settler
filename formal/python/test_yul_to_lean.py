@@ -7944,37 +7944,7 @@ class BranchExprStmtTest(unittest.TestCase):
             )
 
 
-def _rewrite_sub257_clz(expr: Expr) -> Expr:
-    if (
-        isinstance(expr, Call)
-        and expr.name == "sub"
-        and len(expr.args) == 2
-        and isinstance(expr.args[0], IntLit)
-        and expr.args[0].value == 257
-        and isinstance(expr.args[1], Call)
-        and expr.args[1].name == "clz"
-        and len(expr.args[1].args) == 1
-    ):
-        return Call("bitLengthPlus1", expr.args[1].args)
-    return expr
-
-
 class ReviewBehaviorTest(unittest.TestCase):
-    def _cbrt_emission(self) -> modelcfg.EmissionConfig:
-        return make_model_config(
-            ("f",),
-            norm_extensions=(
-                modelcfg.NormExtension(
-                    op_name="bitLengthPlus1",
-                    lean_name="normBitLengthPlus1",
-                    lean_def=(
-                        "def normBitLengthPlus1 (value : Nat) : Nat :=\n"
-                        "  if value = 0 then 1 else Nat.log2 value + 2"
-                    ),
-                ),
-            ),
-            norm_rewrite=_rewrite_sub257_clz,
-        ).emission
 
     def test_translate_yul_to_models_accepts_constant_switch_without_default(
         self,
@@ -8122,13 +8092,13 @@ class ReviewBehaviorTest(unittest.TestCase):
         body = build_model_body(
             model.assignments,
             evm=False,
-            emission=self._cbrt_emission(),
+            emission=make_model_config(("f",)).emission,
             param_names=model.param_names,
             return_names=model.return_names,
         )
 
         self.assertIn(
-            "if (p) ≠ 0 then normBitLengthPlus1 (x) else 0",
+            "if (p) ≠ 0 then normSub (257) (normClz (x)) else 0",
             body,
         )
 
@@ -8161,13 +8131,13 @@ class ReviewBehaviorTest(unittest.TestCase):
         body = build_model_body(
             model.assignments,
             evm=False,
-            emission=self._cbrt_emission(),
+            emission=make_model_config(("f",)).emission,
             param_names=model.param_names,
             return_names=model.return_names,
             call_map={"pair": "pair"},
         )
 
-        self.assertIn("(pair (normBitLengthPlus1 (x)) (y)).2", body)
+        self.assertIn("(pair (normSub (257) (normClz (x))) (y)).2", body)
 
     def test_build_model_body_rewrites_nested_call_arguments(self) -> None:
         model = FunctionModel(
@@ -8194,12 +8164,12 @@ class ReviewBehaviorTest(unittest.TestCase):
         body = build_model_body(
             model.assignments,
             evm=False,
-            emission=self._cbrt_emission(),
+            emission=make_model_config(("f",)).emission,
             param_names=model.param_names,
             return_names=model.return_names,
         )
 
-        self.assertIn("normAdd (normBitLengthPlus1 (x)) (1)", body)
+        self.assertIn("normAdd (normSub (257) (normClz (x))) (1)", body)
 
     def test_build_model_body_rewrites_conditional_branch_outputs(self) -> None:
         model = FunctionModel(
@@ -8228,12 +8198,12 @@ class ReviewBehaviorTest(unittest.TestCase):
         body = build_model_body(
             model.assignments,
             evm=False,
-            emission=self._cbrt_emission(),
+            emission=make_model_config(("f",)).emission,
             param_names=model.param_names,
             return_names=model.return_names,
         )
 
-        self.assertIn("normBitLengthPlus1 (x)", body)
+        self.assertIn("normSub (257) (normClz (x))", body)
 
 
 class ScopeLeakRejectionTest(unittest.TestCase):
