@@ -69,6 +69,19 @@ jobs:
         working-directory: formal/sqrt/SqrtProof
         run: lake build && lake build sqrt-model
 
+      - name: Check proof axioms
+        working-directory: formal/sqrt/SqrtProof
+        run: |
+          printf '%s\n' \
+            'import SqrtProof.GeneratedSqrtSpec' \
+            '#print axioms SqrtGeneratedModel.model_sqrt_floor_evm_eq_floorSqrt' \
+            '#print axioms SqrtGeneratedModel.model_sqrt_up_evm_ceil_u256' \
+            | lake env lean --stdin > actual_axioms.txt
+          diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
+          'SqrtGeneratedModel.model_sqrt_floor_evm_eq_floorSqrt' depends on axioms: [propext, Quot.sound]
+          'SqrtGeneratedModel.model_sqrt_up_evm_ceil_u256' depends on axioms: [propext, Quot.sound]
+          EXPECTED
+
       - name: Fuzz-test Lean model against Solidity
         run: |
           FOUNDRY_PROFILE=formal-model forge test \
