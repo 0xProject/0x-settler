@@ -820,19 +820,21 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         uint256 nonce,
         bytes calldata signatures
     ) external normalOperation {
+        ISafeMinimal _safe = safe;
+
         // See comment in `checkTransaction`
         if (operation != Operation.Call) {
             require(value == 0);
-            _checkDelegateCall(true, to, data);
+            _checkDelegateCall(true, true, _safe, to, data);
         } else {
-            _forbidSafePrivilegedCalls(true, to, data, 0);
+            _forbidSafePrivilegedCalls(true, true, _safe, to, data, 0);
         }
 
-        bytes memory txHashData = safe.encodeTransactionData(
+        bytes memory txHashData = _safe.encodeTransactionData(
             to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, nonce
         );
-        bytes32 txHash = safe.getTransactionHash(txHashData);
-        safe.checkSignatures(txHash, txHashData, signatures);
+        bytes32 txHash = _safe.getTransactionHash(txHashData);
+        _safe.checkSignatures(txHash, txHashData, signatures);
 
         uint256 _timelockEnd = block.timestamp + delay;
         if (timelockEnd[txHash] != 0) {
