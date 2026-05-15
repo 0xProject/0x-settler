@@ -720,7 +720,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         }
     }
 
-    // This function has exactly the same checks as `_checkAfterExecution`, but is returns `false`
+    // This function has mostly the same checks as `_checkAfterExecution`, but is returns `false`
     // on failure of those checks instead of reverting.
     function _checkAfterExecutionReturnBool(ISafeMinimal _safe) internal view returns (bool result) {
         result = true;
@@ -733,6 +733,10 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         }
         result = result && _safe.getFallback() == _FALLBACK;
         result = result && !_safe.isOwner(address(this));
+
+        // These checks against the signer configuration of the Safe are not included in
+        // `_checkAfterExecution` to allow `this.check()` to pass on some intermediate/temporary
+        // invalid states that will fail `checkAfterExecution`.
         uint256 ownerCount;
         result = result && (ownerCount = _safe.ownerCount()) >= _MINIMUM_OWNERS;
         uint256 threshold;
