@@ -450,11 +450,14 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         delay = newDelay;
     }
 
-    function _forbidSafePrivilegedCalls(bool requireUnanimity, bool forbidSponsorship, ISafeMinimal _safe, address to, bytes calldata data, uint256 callsCount)
-        private
-        view
-        returns (bool, bool)
-    {
+    function _forbidSafePrivilegedCalls(
+        bool requireUnanimity,
+        bool forbidSponsorship,
+        ISafeMinimal _safe,
+        address to,
+        bytes calldata data,
+        uint256 callsCount
+    ) private view returns (bool, bool) {
         if (to == address(this)) {
             // Forbid calls to `this.checkTransaction` and `this.checkAfterExecution`.
             if (
@@ -468,13 +471,20 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             requireUnanimity =
                 requireUnanimity || (data.length >= 4 && uint32(bytes4(data)) == uint32(this.unlock.selector));
         } else if (to == address(_safe)) {
-            forbidSponsorship = forbidSponsorship || (data.length >= 36 && uint32(bytes4(data)) == uint32(_safe.setGuard.selector));
+            forbidSponsorship =
+                forbidSponsorship || (data.length >= 36 && uint32(bytes4(data)) == uint32(_safe.setGuard.selector));
         }
         return (requireUnanimity, forbidSponsorship);
     }
 
     /// See comment in `checkTransaction`
-    function _checkDelegateCall(bool requireUnanimity, bool forbidSponsorship, ISafeMinimal _safe, address to, bytes calldata data) private view returns (bool, bool) {
+    function _checkDelegateCall(
+        bool requireUnanimity,
+        bool forbidSponsorship,
+        ISafeMinimal _safe,
+        address to,
+        bytes calldata data
+    ) private view returns (bool, bool) {
         if (to == _MULTISEND && uint32(bytes4(data)) == uint32(ISafeMultiSend.multiSend.selector)) {
             // Slice off the selector.
             bytes calldata multicalls = data[4:];
@@ -516,8 +526,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                         revert GuardCheckNotEnforced(callsCount, multicallTo, multicallData);
                     }
                 } else {
-                    (requireUnanimity, forbidSponsorship) =
-                        _forbidSafePrivilegedCalls(requireUnanimity, forbidSponsorship, _safe, multicallTo, multicallData, callsCount);
+                    (requireUnanimity, forbidSponsorship) = _forbidSafePrivilegedCalls(
+                        requireUnanimity, forbidSponsorship, _safe, multicallTo, multicallData, callsCount
+                    );
                 }
 
                 unchecked {
@@ -589,9 +600,11 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         bool forbidSponsorship;
         if (operation != Operation.Call) {
             require(value == 0);
-            (requireUnanimity, forbidSponsorship) = _checkDelegateCall(requireUnanimity, forbidSponsorship, _safe, to, data);
+            (requireUnanimity, forbidSponsorship) =
+                _checkDelegateCall(requireUnanimity, forbidSponsorship, _safe, to, data);
         } else {
-            (requireUnanimity, forbidSponsorship) = _forbidSafePrivilegedCalls(requireUnanimity, forbidSponsorship, _safe, to, data, 0);
+            (requireUnanimity, forbidSponsorship) =
+                _forbidSafePrivilegedCalls(requireUnanimity, forbidSponsorship, _safe, to, data, 0);
         }
 
         // Because the relayer/paymaster/sponsor gas reimbursement payment is made after "normal"
