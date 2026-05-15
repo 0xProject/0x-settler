@@ -31,6 +31,8 @@ interface ISafeMinimal {
 
     function approvedHashes(address owner, bytes32 txHash) external view returns (bool);
 
+    function setGuard(address guard) external;
+
     function getModulesPaginated(address start, uint256 pageSize)
         external
         view
@@ -295,6 +297,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     error NotLockedDown();
     error UnexpectedUpgrade(address newSingleton);
     error Reentrancy();
+    error ERC20SponsorshipUnsafe(address gasToken);
     error ModuleInstalled(address module);
     error IncorrectFallbackHandler(address handler);
     error GuardCheckNotEnforced(uint256 callIndex, address target, bytes data);
@@ -447,10 +450,10 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         delay = newDelay;
     }
 
-    function _forbidSafePrivilegedCalls(bool requireUnanimity, address to, bytes calldata data, uint256 callsCount)
+    function _forbidSafePrivilegedCalls(bool requireUnanimity, bool forbidSponsorship, ISafeMinimal _safe, address to, bytes calldata data, uint256 callsCount)
         private
         view
-        returns (bool)
+        returns (bool, bool)
     {
         if (to == address(this)) {
             // Forbid calls to `this.checkTransaction` and `this.checkAfterExecution`.
@@ -464,12 +467,14 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             // Transactions containing calls to `this.unlock()` must be unanimous
             requireUnanimity =
                 requireUnanimity || (data.length >= 4 && uint32(bytes4(data)) == uint32(this.unlock.selector));
+        } else if (to == address(_safe)) {
+            forbidSponsorship = forbidSponsorship || (data.length >= 36 && uint32(bytes4(data)) == uint32(_safe.setGuard.selector));
         }
-        return requireUnanimity;
+        return (requireUnanimity, forbidSponsorship);
     }
 
     /// See comment in `checkTransaction`
-    function _checkDelegateCall(bool requireUnanimity, address to, bytes calldata data) private view returns (bool) {
+    function _checkDelegateCall(bool requireUnanimity, bool forbidSponsorship, ISafeMinimal _safe, address to, bytes calldata data) private view returns (bool, bool) {
         if (to == _MULTISEND && uint32(bytes4(data)) == uint32(ISafeMultiSend.multiSend.selector)) {
             // Slice off the selector.
             bytes calldata multicalls = data[4:];
@@ -511,8 +516,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
                         revert GuardCheckNotEnforced(callsCount, multicallTo, multicallData);
                     }
                 } else {
-                    requireUnanimity =
-                        _forbidSafePrivilegedCalls(requireUnanimity, multicallTo, multicallData, callsCount);
+                    (requireUnanimity, forbidSponsorship) =
+                        _forbidSafePrivilegedCalls(requireUnanimity, forbidSponsorship, _safe, multicallTo, multicallData, callsCount);
                 }
 
                 unchecked {
@@ -525,7 +530,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         } else {
             revert NoDelegateCall();
         }
-        return requireUnanimity;
+        return (requireUnanimity, forbidSponsorship);
     }
 
     function checkTransaction(
@@ -581,11 +586,23 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // calls to `MultiSendCallOnly`, we do deep inspection of the payload to ensure that
         // user-defined calls are interleaved with calls to `this.check()`.
         bool requireUnanimity;
+        bool forbidSponsorship;
         if (operation != Operation.Call) {
             require(value == 0);
-            requireUnanimity = _checkDelegateCall(requireUnanimity, to, data);
+            (requireUnanimity, forbidSponsorship) = _checkDelegateCall(requireUnanimity, forbidSponsorship, _safe, to, data);
         } else {
-            requireUnanimity = _forbidSafePrivilegedCalls(requireUnanimity, to, data, 0);
+            (requireUnanimity, forbidSponsorship) = _forbidSafePrivilegedCalls(requireUnanimity, forbidSponsorship, _safe, to, data, 0);
+        }
+
+        // Because the relayer/paymaster/sponsor gas reimbursement payment is made after "normal"
+        // execution, but *before* `checkAfterExecution` is called, there is an opportunity for
+        // smuggling an un-checked, un-queued transaction through the Safe. If the Guard is removed
+        // during execution and the specified `gasToken` reenters the Safe, a transaction can bypass
+        // the checks. Therefore, if a transaction contains a call to `safe.setGuard(address)`,
+        // ERC20 sponsorship is forbidden. Native asset sponsorship is permissible because the Safe
+        // uses `send`, which defuses reentrancy due to the 2300 gas rule.
+        if (forbidSponsorship && gasPrice > 0 && gasToken != address(0)) {
+            revert ERC20SponsorshipUnsafe(gasToken);
         }
 
         // The nonce has already been incremented past the value used in the
