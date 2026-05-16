@@ -358,6 +358,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         bytes32 safeCodeHash = address(safe).codehash;
         result = result && _isSupportedProxyCodeHash(safeCodeHash);
         result = result && _isSupportedFactory(msg.sender);
+        result = result && _SINGLETON.code.length != 0;
+        result = result && _FALLBACK.code.length != 0;
+        result = result && _MULTISEND.code.length != 0;
     }
 
     function _predictCreate2(bytes32 inithash) internal view virtual returns (address) {
