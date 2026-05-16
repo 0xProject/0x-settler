@@ -1139,7 +1139,7 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSe
         // in the Safe. However, because the Safe does an ERC165 check during the Guard enabling
         // process, we are able to perform a nearly atomic check. See the logic and comment in
         // `supportsInterface` below.
-        assert(_constructorChecks());
+        require(_constructorChecks());
     }
 
     /// @inheritdoc IERC165
