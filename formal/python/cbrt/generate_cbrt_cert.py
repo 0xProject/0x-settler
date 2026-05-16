@@ -25,7 +25,7 @@ from collections.abc import Sequence
 DRecord = tuple[int, int, int, int, int]
 DTable = dict[int, DRecord]
 
-CBRT_SEED_MULTIPLIERS = (0x90, 0xB5, 0xE5)
+CBRT_SEED_MULTIPLIERS = (0x95, 0xB1, 0xE9)
 
 
 class MainArguments(argparse.Namespace):
@@ -393,10 +393,10 @@ theorem two_d4_le_lo : ∀ i : Fin {num}, 2 * d4Of i ≤ loOf i := by
 
 /-- Seed matches the cbrt seed formula:
     seedOf(i) = ((((multiplier(i) <<< ((i + certOffset) / 3)) >>> 7) ||| 1),
-    where multiplier(i) is selected from [0x90, 0xb5, 0xe5] by (i + certOffset) % 3. -/
+    where multiplier(i) is selected from [0x95, 0xb1, 0xe9] by (i + certOffset) % 3. -/
 theorem seed_eq : ∀ i : Fin {num},
     seedOf i =
-      (1 ||| (((#[0x90, 0xb5, 0xe5][(i.val + certOffset) % 3]!) <<<
+      (1 ||| (((#[0x95, 0xb1, 0xe9][(i.val + certOffset) % 3]!) <<<
         ((i.val + certOffset) / 3)) >>> 7)) := by
 {forall_decide_proof}
 

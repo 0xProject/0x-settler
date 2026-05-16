@@ -34,11 +34,11 @@ private theorem normStep_eq_cbrtStep (x z : Nat) :
   simp [normDiv, normAdd, normMul, cbrtStep]
   omega
 
-/-- The packed 8-bit multiplier table decodes to the three cbrt seed multipliers. -/
-private theorem packedMultiplier_eq (y : Nat) :
-    normByte (normAdd 29 (normMod y 3)) 9483749 =
+/-- The arithmetic multiplier expression decodes to the three cbrt seed multipliers. -/
+private theorem seedMultiplierExpr_eq (y : Nat) :
+    normAdd 121 (normShl (normMod y 3) 28) =
       cbrtSeedMultiplier y := by
-  unfold normByte normAdd normMod cbrtSeedMultiplier
+  unfold normAdd normShl normMod cbrtSeedMultiplier
   have hmod_lt : y % 3 < 3 := Nat.mod_lt y (by decide)
   have hcases : y % 3 = 0 ∨ y % 3 = 1 ∨ y % 3 = 2 := by omega
   rcases hcases with h | h | h <;> simp [h] <;> decide
@@ -63,11 +63,11 @@ private theorem normSub255Clz_eq_log2_of_pos_u256
 private theorem normSub255Clz_eq_cbrtSeed_of_pos_u256
     (x : Nat) (hx : 0 < x) (hx256 : x < 2 ^ 256) :
     normOr 1 (normShr 7 (normShl (normDiv (normSub 255 (normClz x)) 3)
-      (normByte (normAdd 29 (normMod (normSub 255 (normClz x)) 3)) 9483749))) =
+      (normAdd 121 (normShl (normMod (normSub 255 (normClz x)) 3) 28)))) =
       cbrtSeed x := by
   have hy := normSub255Clz_eq_log2_of_pos_u256 x hx hx256
   rw [hy]
-  rw [packedMultiplier_eq (Nat.log2 x)]
+  rw [seedMultiplierExpr_eq (Nat.log2 x)]
   unfold normOr normShr normShl normDiv cbrtSeed
   simp [Nat.shiftLeft_eq, Nat.shiftRight_eq_div_pow]
 
@@ -81,7 +81,7 @@ theorem model_cbrt_eq_innerCbrt (x : Nat) (hx256 : x < 2 ^ 256) :
   · subst hx0; decide
   · have hx : 0 < x := Nat.pos_of_ne_zero hx0
     have hseed : normOr 1 (normShr 7 (normShl (normDiv (normSub 255 (normClz x)) 3)
-        (normByte (normAdd 29 (normMod (normSub 255 (normClz x)) 3)) 9483749))) =
+        (normAdd 121 (normShl (normMod (normSub 255 (normClz x)) 3) 28)))) =
         cbrtSeed x :=
       normSub255Clz_eq_cbrtSeed_of_pos_u256 x hx hx256
     unfold model_cbrt innerCbrt
@@ -214,9 +214,6 @@ private theorem three_lt_word : (3 : Nat) < WORD_MOD := by
   unfold WORD_MOD; decide
 
 private theorem two_fifty_five_lt_word : (255 : Nat) < WORD_MOD := by
-  unfold WORD_MOD; decide
-
-private theorem packed_table_lt_word : (9483749 : Nat) < WORD_MOD := by
   unfold WORD_MOD; decide
 
 -- ============================================================================
@@ -352,9 +349,9 @@ private theorem step_evm_eq_norm_of_safe
 -- Seed: EVM = Nat
 private theorem seed_evm_eq_norm (x : Nat) (hxPos : 0 < x) (hxWord : x < WORD_MOD) :
     evmOr 1 (evmShr 7 (evmShl (evmDiv (evmSub 255 (evmClz x)) 3)
-      (evmByte (evmAdd 29 (evmMod (evmSub 255 (evmClz x)) 3)) 9483749))) =
+      (evmAdd 121 (evmShl (evmMod (evmSub 255 (evmClz x)) 3) 28)))) =
       normOr 1 (normShr 7 (normShl (normDiv (normSub 255 (normClz x)) 3)
-        (normByte (normAdd 29 (normMod (normSub 255 (normClz x)) 3)) 9483749))) := by
+        (normAdd 121 (normShl (normMod (normSub 255 (normClz x)) 3) 28)))) := by
   have hclz : evmClz x = normClz x := evmClz_eq_normClz_of_u256 x hxWord
   -- evmSub 255 (evmClz x) = normSub 255 (normClz x)
   have h255W : (255 : Nat) < WORD_MOD := by unfold WORD_MOD; decide
@@ -366,8 +363,7 @@ private theorem seed_evm_eq_norm (x : Nat) (hxPos : 0 < x) (hxWord : x < WORD_MO
   let y := normSub 255 (normClz x)
   have hyLe : y ≤ 255 := by dsimp [y]; unfold normSub; exact Nat.sub_le _ _
   have hyLt : y < WORD_MOD := Nat.lt_of_le_of_lt hyLe h255W
-  let index := normAdd 29 (normMod y 3)
-  let packed := normByte index 9483749
+  let multiplier := normAdd 121 (normShl (normMod y 3) 28)
   let q := normDiv y 3
   -- evmDiv (...) 3 = normDiv (...) 3
   have hdiv : evmDiv (evmSub 255 (evmClz x)) 3 = q := by
@@ -385,73 +381,84 @@ private theorem seed_evm_eq_norm (x : Nat) (hxPos : 0 < x) (hxWord : x < WORD_MO
     omega
   have hmodW : normMod y 3 < WORD_MOD :=
     by omega
-  -- evmAdd 29 (y % 3) = normAdd 29 (y % 3)
-  have hindex : evmAdd 29 (evmMod (evmSub 255 (evmClz x)) 3) = index := by
+  have hmodLt256 : normMod y 3 < 256 := by omega
+  have hsmallShlSafe : 28 * 2 ^ normMod y 3 < WORD_MOD := by
+    have hpow : 2 ^ normMod y 3 ≤ 2 ^ 2 :=
+      Nat.pow_le_pow_right (by decide : 1 ≤ 2) hmodLe
+    have hle : 28 * 2 ^ normMod y 3 ≤ 28 * 2 ^ 2 :=
+      Nat.mul_le_mul_left 28 hpow
+    have h112 : 28 * 2 ^ 2 ≤ 112 := by decide
+    have h112W : (112 : Nat) < WORD_MOD := by unfold WORD_MOD; decide
+    exact Nat.lt_of_le_of_lt (Nat.le_trans hle h112) h112W
+  have hsmallShl : evmShl (evmMod (evmSub 255 (evmClz x)) 3) 28 =
+      normShl (normMod y 3) 28 := by
     rw [hmod]
-    dsimp [index]
-    exact evmAdd_eq_normAdd_of_no_overflow 29 (normMod y 3) (by unfold WORD_MOD; decide)
-      hmodW (by
-        have hle : 29 + normMod y 3 ≤ 31 := by omega
-        have hlt : (31 : Nat) < WORD_MOD := by unfold WORD_MOD; decide
+    exact evmShl_eq_normShl_of_safe (normMod y 3) 28 hmodLt256
+      (by unfold WORD_MOD; decide) hsmallShlSafe
+  have hsmallShlLt : normShl (normMod y 3) 28 < WORD_MOD := by
+    unfold normShl
+    rw [Nat.shiftLeft_eq]
+    exact hsmallShlSafe
+  have hsmallShlLe : normShl (normMod y 3) 28 ≤ 112 := by
+    unfold normShl
+    rw [Nat.shiftLeft_eq]
+    have hpow : 2 ^ normMod y 3 ≤ 2 ^ 2 :=
+      Nat.pow_le_pow_right (by decide : 1 ≤ 2) hmodLe
+    have hle : 28 * 2 ^ normMod y 3 ≤ 28 * 2 ^ 2 :=
+      Nat.mul_le_mul_left 28 hpow
+    have h112 : 28 * 2 ^ 2 ≤ 112 := by decide
+    exact Nat.le_trans hle h112
+  have hmult : evmAdd 121 (evmShl (evmMod (evmSub 255 (evmClz x)) 3) 28) =
+      multiplier := by
+    rw [hsmallShl]
+    dsimp [multiplier]
+    exact evmAdd_eq_normAdd_of_no_overflow 121 (normShl (normMod y 3) 28)
+      (by unfold WORD_MOD; decide) hsmallShlLt (by
+        have h233W : (233 : Nat) < WORD_MOD := by unfold WORD_MOD; decide
         omega)
-  have hindexLe : index ≤ 31 := by
-    dsimp [index]
-    unfold normAdd
-    omega
-  have hindexLt32 : index < 32 := by omega
-  have hindexW : index < WORD_MOD := by
-    have hlt : (31 : Nat) < WORD_MOD := by unfold WORD_MOD; decide
-    omega
-  -- Decode the packed multiplier.
-  have hbyte : evmByte (evmAdd 29 (evmMod (evmSub 255 (evmClz x)) 3)) 9483749 =
-      packed := by
-    rw [hindex]
-    dsimp [packed]
-    exact evmByte_eq_normByte_of_u256 index 9483749 hindexW packed_table_lt_word
-  have hpackedEq : packed = cbrtSeedMultiplier y := by
-    dsimp [packed, index]
-    exact packedMultiplier_eq y
-  have hpackedLe : packed ≤ 255 := by
-    rw [hpackedEq]
+  have hmultEq : multiplier = cbrtSeedMultiplier y := by
+    dsimp [multiplier]
+    exact seedMultiplierExpr_eq y
+  have hmultLe : multiplier ≤ 255 := by
+    rw [hmultEq]
     exact cbrtSeedMultiplier_le_255 y
-  have hpackedW : packed < WORD_MOD :=
-    Nat.lt_of_le_of_lt hpackedLe two_fifty_five_lt_word
+  have hmultW : multiplier < WORD_MOD :=
+    Nat.lt_of_le_of_lt hmultLe two_fifty_five_lt_word
   -- q := normDiv result ≤ 85
   have hdivLe : q ≤ 85 := by
     dsimp [q]
     unfold normDiv
     exact Nat.le_trans (Nat.div_le_div_right hyLe) (by decide)
   have hdivLt256 : q < 256 := by omega
-  -- evmShl q packed: shift = q, value = packed
-  -- Need: packed * 2^q < WORD_MOD
+  -- evmShl q multiplier: shift = q, value = multiplier.
   have hqLt : q < 256 := hdivLt256
-  have hshlSafe : packed * 2 ^ q < WORD_MOD := by
+  have hshlSafe : multiplier * 2 ^ q < WORD_MOD := by
     have hq_le_85 : q ≤ 85 := hdivLe
-    have h1 : packed * 2 ^ q ≤ 255 * 2 ^ 85 :=
-      Nat.mul_le_mul hpackedLe (Nat.pow_le_pow_right (by decide : 1 ≤ 2) hq_le_85)
+    have h1 : multiplier * 2 ^ q ≤ 255 * 2 ^ 85 :=
+      Nat.mul_le_mul hmultLe (Nat.pow_le_pow_right (by decide : 1 ≤ 2) hq_le_85)
     have h2 : 255 * 2 ^ 85 < 2 ^ 93 := by decide
     have h3 : 2 ^ 93 < WORD_MOD := two_pow_lt_word 93 (by decide)
     omega
   have hshl : evmShl (evmDiv (evmSub 255 (evmClz x)) 3)
-      (evmByte (evmAdd 29 (evmMod (evmSub 255 (evmClz x)) 3)) 9483749) =
-      normShl q packed := by
-    rw [hdiv, hbyte]
-    exact evmShl_eq_normShl_of_safe q packed hqLt hpackedW hshlSafe
+      (evmAdd 121 (evmShl (evmMod (evmSub 255 (evmClz x)) 3) 28)) =
+      normShl q multiplier := by
+    rw [hdiv, hmult]
+    exact evmShl_eq_normShl_of_safe q multiplier hqLt hmultW hshlSafe
   -- normShl result < WORD_MOD
-  have hshlVal : normShl q packed < WORD_MOD := by
+  have hshlVal : normShl q multiplier < WORD_MOD := by
     unfold normShl; rw [Nat.shiftLeft_eq]; exact hshlSafe
   -- evmShr 7 (...) = normShr 7 (...)
   have hshr : evmShr 7 (evmShl (evmDiv (evmSub 255 (evmClz x)) 3)
-      (evmByte (evmAdd 29 (evmMod (evmSub 255 (evmClz x)) 3)) 9483749)) =
-      normShr 7 (normShl q packed) := by
+      (evmAdd 121 (evmShl (evmMod (evmSub 255 (evmClz x)) 3) 28))) =
+      normShr 7 (normShl q multiplier) := by
     rw [hshl]
-    exact evmShr_eq_normShr_of_u256 7 (normShl q packed) (by decide) hshlVal
+    exact evmShr_eq_normShr_of_u256 7 (normShl q multiplier) (by decide) hshlVal
   -- shr result < WORD_MOD
-  have hshrLt : normShr 7 (normShl q packed) < WORD_MOD := by
+  have hshrLt : normShr 7 (normShl q multiplier) < WORD_MOD := by
     unfold normShr; exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hshlVal
   rw [hshr]
-  simpa [y, index, packed, q] using
-    evmOr_eq_normOr_of_u256 1 (normShr 7 (normShl q packed)) one_lt_word hshrLt
+  simpa [y, multiplier, q] using
+    evmOr_eq_normOr_of_u256 1 (normShr 7 (normShl q multiplier)) one_lt_word hshrLt
 
 -- ============================================================================
 -- Level 2: Full EVM = Nat model
@@ -645,12 +652,12 @@ theorem model_cbrt_evm_eq_model_cbrt
       -- Seed: EVM = norm
       have hseedNorm :
           normOr 1 (normShr 7 (normShl (normDiv (normSub 255 (normClz x)) 3)
-            (normByte (normAdd 29 (normMod (normSub 255 (normClz x)) 3)) 9483749))) =
+            (normAdd 121 (normShl (normMod (normSub 255 (normClz x)) 3) 28)))) =
             seedOf idx := by
         exact (normSub255Clz_eq_cbrtSeed_of_pos_u256 x hx hx256).trans hseedOf
       have hseedEvm :
           evmOr 1 (evmShr 7 (evmShl (evmDiv (evmSub 255 (evmClz x)) 3)
-            (evmByte (evmAdd 29 (evmMod (evmSub 255 (evmClz x)) 3)) 9483749))) =
+            (evmAdd 121 (evmShl (evmMod (evmSub 255 (evmClz x)) 3) 28)))) =
             seedOf idx := by
         have hOldNorm := (normSub255Clz_eq_cbrtSeed_of_pos_u256 x hx hx256).trans hseedOf
         exact (seed_evm_eq_norm x hx hx256).trans hOldNorm

@@ -24,7 +24,7 @@ open CbrtWiring
 
 private def R_MAX : Nat := 48740834812604276470692694
 
-private def hiD1 : Nat := 650998673544029893434529
+private def hiD1 : Nat := 919078142018937887842283
 private def hiD2 : Nat := hiD1 * hiD1 / R_MAX + 1
 private def hiD3 : Nat := hiD2 * hiD2 / R_MAX + 1
 private def hiD4 : Nat := hiD3 * hiD3 / R_MAX + 1
