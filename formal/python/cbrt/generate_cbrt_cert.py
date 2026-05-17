@@ -25,7 +25,7 @@ from collections.abc import Sequence
 DRecord = tuple[int, int, int, int, int]
 DTable = dict[int, DRecord]
 
-CBRT_SEED_MULTIPLIERS = (0x95, 0xB1, 0xE9)
+CBRT_SEED_MULTIPLIERS = (0x8D, 0xB2, 0xE6)
 
 
 class MainArguments(argparse.Namespace):
@@ -61,7 +61,7 @@ def cbrt_step(x: int, z: int) -> int:
 
 def cbrt_seed(n: int) -> int:
     """Seed for octave n."""
-    return ((CBRT_SEED_MULTIPLIERS[n % 3] << (n // 3)) >> 7) | 1
+    return (CBRT_SEED_MULTIPLIERS[n % 3] << (n // 3)) >> 7
 
 
 def next_d(lo: int, d: int) -> int:
@@ -392,12 +392,12 @@ theorem two_d4_le_lo : ∀ i : Fin {num}, 2 * d4Of i ≤ loOf i := by
 {forall_decide_proof}
 
 /-- Seed matches the cbrt seed formula:
-    seedOf(i) = ((((multiplier(i) <<< ((i + certOffset) / 3)) >>> 7) ||| 1),
-    where multiplier(i) is selected from [0x95, 0xb1, 0xe9] by (i + certOffset) % 3. -/
+    seedOf(i) = ((multiplier(i) <<< ((i + certOffset) / 3)) >>> 7),
+    where multiplier(i) is selected from [0x8d, 0xb2, 0xe6] by (i + certOffset) % 3. -/
 theorem seed_eq : ∀ i : Fin {num},
     seedOf i =
-      (1 ||| (((#[0x95, 0xb1, 0xe9][(i.val + certOffset) % 3]!) <<<
-        ((i.val + certOffset) / 3)) >>> 7)) := by
+      (((#[0x8d, 0xb2, 0xe6][(i.val + certOffset) % 3]!) <<<
+        ((i.val + certOffset) / 3)) >>> 7) := by
 {forall_decide_proof}
 
 /-- Perfect-cube key: d4² < lo for all certificate octaves.
