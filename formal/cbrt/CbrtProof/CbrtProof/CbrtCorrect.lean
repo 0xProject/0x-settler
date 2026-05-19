@@ -55,11 +55,11 @@ theorem run6_eq_step_run5 (x z : Nat) :
 
 /-- Fixed-point multiplier selected by `log2(x) % 3`. -/
 def cbrtSeedMultiplier (y : Nat) : Nat :=
-  #[0x8d, 0xb2, 0xe6][y % 3]!
+  #[0x8e, 0xb4, 0xe8][y % 3]!
 
 /-- The cbrt seed:
     z = ⌊c * 2^q / 128⌋ where y = log2(x), q = ⌊y / 3⌋, and
-    c is selected from [0x8d, 0xb2, 0xe6] by y % 3. -/
+    c is selected from [0x8e, 0xb4, 0xe8] by y % 3. -/
 def cbrtSeed (x : Nat) : Nat :=
   (cbrtSeedMultiplier (Nat.log2 x) <<< (Nat.log2 x / 3)) >>> 7
 
