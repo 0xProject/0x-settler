@@ -783,7 +783,7 @@
     "extraScriptFlags": "--isolate --skip-simulation",
     "gasMultiplierPercent": 1000,
     "minGasPriceGwei": 1,
-    "wnative": null,
+    "wnative": "0x0Bd7D308f8E1639FAb988df18A8011f41EAcAD73",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
       "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
