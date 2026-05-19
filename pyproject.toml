@@ -1,0 +1,21 @@
+[tool.black]
+target-version = ["py311"]
+
+[tool.isort]
+profile = "black"
+py_version = 311
+known_first_party = ["formal"]
+
+[tool.mypy]
+python_version = "3.11"
+files = ["formal"]
+strict = true
+disallow_any_expr = true
+disallow_any_decorated = true
+disallow_any_explicit = true
+disallow_any_generics = true
+disallow_any_unimported = true
+disallow_subclassing_any = true
+warn_unreachable = true
+show_error_codes = true
+pretty = true

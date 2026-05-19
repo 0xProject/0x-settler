@@ -1696,10 +1696,105 @@ library Lib512MathArithmetic {
         return omodAlt(r, y, r);
     }
 
+    //// The following 512-bit square root implementation is a realization of Zimmermann's "Karatsuba
+    //// Square Root" algorithm https://inria.hal.science/inria-00072854/document . This approach is
+    //// inspired by https://github.com/SimonSuckut/Solidity_Uint512/ . These helper functions are
+    //// broken out separately to ease formal verification.
+
+    /// One square root Babylonian step: r = ⌊(x/r + r) / 2⌋
+    function _sqrt_babylonianStep(uint256 x, uint256 r) private pure returns (uint256) {
+        unchecked {
+            return x.unsafeDiv(r) + r >> 1;
+        }
+    }
+
+    /// 6 Babylonian steps from fixed seed + floor correction + residue for Karatsuba
+    ///
+    /// Implementing this as:
+    ///   uint256 r_hi = x_hi.sqrt();
+    ///   uint256 res = x_hi - r_hi * r_hi;
+    /// is correct, but duplicates the normalization that we do in `_sqrt` and performs a
+    /// more-costly initialization step. solc is not very smart. It can't optimize away the
+    /// initialization step of `Sqrt.sqrt`. It also can't optimize the calculation of `res`, so
+    /// doing it in Yul is meaningfully more gas efficient.
+    function _sqrt_baseCase(uint256 x_hi) private pure returns (uint256 r_hi, uint256 res) {
+        // Seed with √(2²⁵⁵), the geometric mean of the normalized √xₕᵢ range [2¹²⁷, 2¹²⁸).
+        // This balances worst-case over/underestimate (ε ≈ ±0.414/0.293), giving >128 bits of
+        // precision in 6 Babylonian steps
+        r_hi = 0xb504f333f9de6484597d89b3754abe9f;
+
+        // 6 Babylonian steps is sufficient for convergence
+        r_hi = _sqrt_babylonianStep(x_hi, r_hi);
+        r_hi = _sqrt_babylonianStep(x_hi, r_hi);
+        r_hi = _sqrt_babylonianStep(x_hi, r_hi);
+        r_hi = _sqrt_babylonianStep(x_hi, r_hi);
+        r_hi = _sqrt_babylonianStep(x_hi, r_hi);
+        r_hi = _sqrt_babylonianStep(x_hi, r_hi);
+
+        // The Babylonian step can oscillate between ⌊√xₕᵢ⌋ and ⌈√xₕᵢ⌉. Clean that up.
+        r_hi = r_hi.unsafeDec(x_hi.unsafeDiv(r_hi) < r_hi);
+
+        assembly ("memory-safe") {
+            // This is cheaper than
+            //   unchecked {
+            //     uint256 res = x_hi - r_hi * r_hi;
+            //   }
+            // for no clear reason
+            res := sub(x_hi, mul(r_hi, r_hi))
+        }
+    }
+
+    /// Karatsuba quotient with carry correction
+    ///
+    /// `res` is (almost) a single limb. Create a new (almost) machine word `n` with `res` as
+    /// the upper limb and shifting in the next limb of `x` (namely `x_lo >> 128`) as the
+    /// lower limb. The next step of Zimmermann's algorithm is:
+    ///   rₗₒ = n / (2 · rₕᵢ)
+    ///   res = n % (2 · rₕᵢ)
+    function _sqrt_karatsubaQuotient(uint256 res, uint256 x_lo, uint256 r_hi)
+        private
+        pure
+        returns (uint256 r_lo, uint256 res_out)
+    {
+        assembly ("memory-safe") {
+            let n := or(shl(0x80, res), shr(0x80, x_lo))
+            let d := shl(0x01, r_hi)
+            r_lo := div(n, d)
+
+            let c := shr(0x80, res)
+            res_out := mod(n, d)
+
+            // It's possible that `n` was 257 bits and overflowed (`res` was not just a single
+            // limb). Explicitly handling the carry avoids 512-bit division.
+            if c {
+                r_lo := add(r_lo, div(not(0x00), d))
+                res_out := add(res_out, add(0x01, mod(not(0x00), d)))
+                r_lo := add(r_lo, div(res_out, d))
+                res_out := mod(res_out, d)
+            }
+        }
+    }
+
+    /// Combine `r_hi` with `r_lo` and perform the 257-bit underflow correction
+    ///
+    /// The final step of Zimmermann's algorithm is: if res · 2¹²⁸ + xₗₒ % 2¹²⁸ < rₗₒ², decrement
+    /// `r`. We have to do this in a complicated manner because both `res` and `r_lo` can be
+    /// 𝑠𝑙𝑖𝑔ℎ𝑡𝑙𝑦 longer than 1 limb (128 bits). This is more efficient than performing the full
+    /// 257-bit comparison.
+    function _sqrt_correction(uint256 r_hi, uint256 r_lo, uint256 res, uint256 x_lo) private pure returns (uint256 r) {
+        unchecked {
+            r = (r_hi << 128) + r_lo;
+            r = r.unsafeDec(
+                ((res >> 128) < (r_lo >> 128))
+                .or(
+                    ((res >> 128) == (r_lo >> 128))
+                    .and((res << 128) | (x_lo & 0xffffffffffffffffffffffffffffffff) < r_lo * r_lo)
+                )
+            );
+        }
+    }
+
     function _sqrt(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r) {
-        /// Our general approach is to apply Zimmerman's "Karatsuba Square Root" algorithm
-        /// https://inria.hal.science/inria-00072854/document with the helpers from Solady and
-        /// 512Math. This approach is inspired by https://github.com/SimonSuckut/Solidity_Uint512/
         unchecked {
             // Normalize `x` so the top word has its MSB in bit 255 or 254. This makes the "shift
             // back" step exact.
@@ -1711,74 +1806,15 @@ library Lib512MathArithmetic {
             // We treat `r` as a ≤2-limb bigint where each limb is half a machine word (128 bits).
             // Spliting √x in this way lets us apply "ordinary" 256-bit `sqrt` to the top word of
             // `x`. Then we can recover the bottom limb of `r` without 512-bit division.
-            //
-            // Implementing this as:
-            //   uint256 r_hi = x_hi.sqrt();
-            // is correct, but duplicates the normalization that we just did above and performs a
-            // more-costly initialization step. solc is not smart enough to optimize this away, so
-            // we inline and do it ourselves.
-            uint256 r_hi;
-            assembly ("memory-safe") {
-                // Initialization requires that the first bit of `r_hi` be in the correct
-                // position. This is correct from the normalization above.
-                r_hi := 0x80000000000000000000000000000000
+            (uint256 r_hi, uint256 res) = _sqrt_baseCase(x_hi);
 
-                // Seven Babylonian steps is sufficient for convergence.
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-                r_hi := shr(0x01, add(r_hi, div(x_hi, r_hi)))
-
-                // The Babylonian step can oscillate between ⌊√x_hi⌋ and ⌈√x_hi⌉. Clean that up.
-                r_hi := sub(r_hi, lt(div(x_hi, r_hi), r_hi))
-            }
-
-            // This is cheaper than
-            //   uint256 res = x_hi - r_hi * r_hi;
-            // for no clear reason
-            uint256 res;
-            assembly ("memory-safe") {
-                res := sub(x_hi, mul(r_hi, r_hi))
-            }
-
+            // The next titular Karatsuba step extends the upper limb of `r` to approximate the
+            // lower limb.
             uint256 r_lo;
-            // `res` is (almost) a single limb. Create a new (almost) machine word `n` with `res` as
-            // the upper limb and shifting in the next limb of `x` (namely `x_lo >> 128`) as the
-            // lower limb. The next step of Zimmerman's algorithm is:
-            //   r_lo = n / (2 · r_hi)
-            //   res = n % (2 · r_hi)
-            assembly ("memory-safe") {
-                let n := or(shl(0x80, res), shr(0x80, x_lo))
-                let d := shl(0x01, r_hi)
-                r_lo := div(n, d)
+            (r_lo, res) = _sqrt_karatsubaQuotient(res, x_lo, r_hi);
 
-                let c := shr(0x80, res)
-                res := mod(n, d)
-
-                // It's possible that `n` was 257 bits and overflowed (`res` was not just a single
-                // limb). Explicitly handling the carry avoids 512-bit division.
-                if c {
-                    r_lo := add(r_lo, div(not(0x00), d))
-                    res := add(res, add(0x01, mod(not(0x00), d)))
-                    r_lo := add(r_lo, div(res, d))
-                    res := mod(res, d)
-                }
-            }
-            r = (r_hi << 128) + r_lo;
-
-            // Then, if res · 2¹²⁸ + x_lo % 2¹²⁸ < r_lo², decrement `r`. We have to do this in a
-            // complicated manner because both `res` and `r_lo` can be _slightly_ longer than 1 limb
-            // (128 bits). This is more efficient than performing the full 257-bit comparison.
-            r = r.unsafeDec(
-                ((res >> 128) < (r_lo >> 128))
-                .or(
-                    ((res >> 128) == (r_lo >> 128))
-                    .and((res << 128) | (x_lo & 0xffffffffffffffffffffffffffffffff) < r_lo * r_lo)
-                )
-            );
+            // The Karatsuba step is an approximation. This refinement makes it exactly ⌊√x⌋
+            r = _sqrt_correction(r_hi, r_lo, res, x_lo);
 
             // Un-normalize
             return r >> shift;
@@ -1798,15 +1834,16 @@ library Lib512MathArithmetic {
     function osqrtUp(uint512 r, uint512 x) internal pure returns (uint512) {
         (uint256 x_hi, uint256 x_lo) = x.into();
 
+        uint256 r_hi;
+        uint256 r_lo;
         if (x_hi == 0) {
-            return r.from(0, x_lo.sqrtUp());
+            r_lo = x_lo.sqrtUp();
+        } else {
+            r_lo = _sqrt(x_hi, x_lo);
+            (uint256 r2_hi, uint256 r2_lo) = _mul(r_lo, r_lo);
+            (r_hi, r_lo) = _add(0, r_lo, _gt(x_hi, x_lo, r2_hi, r2_lo).toUint());
         }
 
-        uint256 r_lo = _sqrt(x_hi, x_lo);
-
-        (uint256 r2_hi, uint256 r2_lo) = _mul(r_lo, r_lo);
-        uint256 r_hi;
-        (r_hi, r_lo) = _add(0, r_lo, _gt(x_hi, x_lo, r2_hi, r2_lo).toUint());
         return r.from(r_hi, r_lo);
     }
 
@@ -1814,8 +1851,128 @@ library Lib512MathArithmetic {
         return osqrtUp(r, r);
     }
 
+    //// Similar to the 512-bit square root implementation, the 512-bit cube root is also a
+    //// realization of Zimmermann's Karatsuba, but this implements the generalized-root variation
+    //// that is obliquely referenced just before the "Acknowledgements" and more explicitly
+    //// detailed in §1.5.2 of Brent and Zimmermann's "Modern Computer Arithmetic"
+    //// https://members.loria.fr/PZimmermann/mca/mca-0.2.1.pdf . The key difference here is that in
+    //// the expansion of the 𝑐𝑢𝑏𝑒 of the limbs of the result (the Karatsuba step), there are 3
+    //// terms that meaningfully contribute to the result. This requires an additional, more
+    //// elaborate, quadratic correction step.
+    ////
+    //// The square root algorithm works with limbs of the result that are half of a word. For cube
+    //// root, we use limbs of `r` that are (roughly) one third of a word.
+
+    /// One cube root Newton-Raphson step: r = ⌊(⌊x/r²⌋ + 2·r) / 3⌋
+    function _cbrt_newtonRaphsonStep(uint256 x, uint256 r) private pure returns (uint256) {
+        unchecked {
+            return (x.unsafeDiv(r * r) + r + r) / 3;
+        }
+    }
+
+    /// 6 Newton-Raphson steps from the fixed seed, including a rounding fixup step and returning
+    /// the residue for Karatsuba
+    ///
+    /// Like the square root case, implementing this as:
+    ///   uint256 r_hi = x_hi.cbrt();
+    ///   uint256 res = x_hi - r_hi * r_hi * r_hi;
+    ///   uint256 d = r_hi * r_hi * 3;
+    /// is correct, but we can shave some gas by avoiding the normalization step from
+    /// `Cbrt.cbrt`. `d` is the derivative/denominator for the subsequent Karatsuba step.
+    function _cbrt_baseCase(uint256 x_hi) private pure returns (uint256 r_hi, uint256 res, uint256 d) {
+        unchecked {
+            x_hi >>= 2; // xₕᵢ ≥ 2²⁵¹; xₕᵢ < 2²⁵⁴ from the normalization
+            r_hi = 0x1250bfe1b082f4f9b8d4ce; // ∛(3·2²⁵¹) suitable given `x_hi` in its range
+
+            r_hi = _cbrt_newtonRaphsonStep(x_hi, r_hi);
+            r_hi = _cbrt_newtonRaphsonStep(x_hi, r_hi);
+            r_hi = _cbrt_newtonRaphsonStep(x_hi, r_hi);
+            r_hi = _cbrt_newtonRaphsonStep(x_hi, r_hi);
+            r_hi = _cbrt_newtonRaphsonStep(x_hi, r_hi);
+            r_hi = _cbrt_newtonRaphsonStep(x_hi, r_hi);
+
+            // 6 iterations yield >85 bits of precision (absolute error < 2⁻¹⁶), so `r_hi` is at
+            // most ⌊∛xₕᵢ⌋ + 1. A branchless floor correction suffices.
+            uint256 r_hi2 = r_hi * r_hi;
+            uint256 r_hi3 = r_hi2 * r_hi;
+            r_hi = r_hi.unsafeDec(r_hi3 > x_hi);
+            r_hi2 = r_hi * r_hi;
+            r_hi3 = r_hi2 * r_hi;
+
+            res = x_hi - r_hi3;
+            d = r_hi2 * 3;
+        }
+    }
+
+    /// This is the Karatsuba step. The 86-bit lower limb of `r` is (almost):
+    ///   rₗₒ = ⌊(res ⋅ 2⁸⁶ + xₗₒ) / (3 ⋅ rₕᵢ²)⌋
+    ///   resₒᵤₜ = (res ⋅ 2⁸⁶ + xₗₒ) mod (3 ⋅ rₕᵢ²)
+    /// Where `res` is the (nearly) 2-limb residue from the previous "normal" cube root step. The
+    /// new residue, `res_out`, is propagated to the quadratic correction step instead of the
+    /// underflow check from Zimmermann
+    function _cbrt_karatsubaQuotient(uint256 res, uint256 x_lo, uint256 d)
+        private
+        pure
+        returns (uint256 r_lo, uint256 res_out)
+    {
+        assembly ("memory-safe") {
+            let n := or(shl(0x56, res), x_lo)
+            r_lo := div(n, d)
+
+            let c := shr(0xaa, res)
+            res_out := mod(n, d)
+
+            // If `res` was 171 bits (one more than expected), then `n` overflowed to 257
+            // bits. Explicitly handling the carry avoids 512-bit division.
+            if c {
+                r_lo := add(r_lo, div(not(0x00), d))
+                res_out := add(res_out, add(0x01, mod(not(0x00), d)))
+                r_lo := add(r_lo, div(res_out, d))
+                res_out := mod(res_out, d)
+            }
+        }
+    }
+
+    /// Combine `r_hi` with `r_lo`, perform the quadratic correction, and prevent undershoot
+    ///
+    /// Unlike the square-root case, the error from the linear Karatsuba step can still be large
+    /// because the expansion has more terms. We do a quadratic correction to get close enough that
+    /// we can use `res` to correct. In the square-root version, the only ignored term in (s + q)²
+    /// is q², which is small enough for a 1ulp correction. For cube root, the binomial expansion
+    /// (rₕᵢ·2⁸⁶ + rₗₒ)³ contains the cross term 3·(rₕᵢ·2⁸⁶)·rₗₒ². The linear Karatsuba step
+    /// overestimates rₗₒ by ≈rₗₒ²/(rₕᵢ·2⁸⁶). After correction, this leaves only the rₗₒ³ term, on
+    /// the order of 2²⁵⁸/(3·2³⁴²), much less than 1ulp.
+    ///
+    /// The quadratic correction subtracts ⌊rₗₒ²/rₕᵢ·2⁸⁶⌋. This can over-correct by 1 because the
+    /// Karatsuba division drops the low 172 bits of x. This remainder is captured by `res`.
+    /// Undershoot occurs when ε/(rₕᵢ·2⁸⁶) < res/d (where ε = rₗₒ² % (rₕᵢ·2⁸⁶)), equivalently
+    /// ε·3·rₕᵢ < res·2⁸⁶ because d = 3·rₕᵢ².
+    function _cbrt_quadraticCorrection(uint256 r_hi, uint256 r_lo, uint256 res) private pure returns (uint256 r) {
+        unchecked {
+            uint256 R = r_hi << 86;
+            uint256 r_lo2 = r_lo * r_lo;
+            uint256 c = r_lo2.unsafeDiv(R);
+            uint256 eps3 = (r_lo2 - c * R) * 3;
+
+            r_lo -= c;
+            // For c ≤ 1 (~68.5% of the time), undershoot never occurs, so we can skip the check
+            if (c > 1) {
+                // This awkward boolean expression is more gas efficient because it avoids 512-bit
+                // multiplication
+                r_lo = r_lo.unsafeInc(
+                    ((eps3 >> 86) < (res >> 86))
+                    .or(
+                        ((eps3 >> 86) == (res >> 86))
+                        .and((eps3 & 0x3fffffffffffffffffffff) * r_hi < (res & 0x3fffffffffffffffffffff) << 86)
+                    )
+                );
+            }
+            r = R + r_lo;
+        }
+    }
+
     function _cbrt(uint256 x_hi, uint256 x_lo) private pure returns (uint256 r) {
-        /// This is the same general technique as we applied in `_sqrt`, patterned after Zimmerman's
+        /// This is the same general technique as we applied in `_sqrt`, patterned after Zimmermann's
         /// "Karatsuba Square Root" algorithm, but adapted to compute cube roots instead.
         unchecked {
             // Normalize `x` so that its MSB is in bit 255, 254, or 253. This makes the left shift a
@@ -1824,86 +1981,26 @@ library Lib512MathArithmetic {
             uint256 shift = x_hi.clz() / 3;
             (, x_hi, x_lo) = _shl256(x_hi, x_lo, shift * 3);
 
-            // Zimmerman's "Karatsuba Square Root" algorithm works with limbs of `r` that are half
-            // of a word. For cube root, we use limbs of `r` that are (roughly) one third of a
-            // word. The initial step to compute the first "limb" of `r` uses the "normal" cube root
-            // algorithm and consumes the first (almost) word of `x`. The second and final limb of
-            // `r` is computed using an analogue of the Karatsuba step from the original algorithm,
-            // followed by a pair of cleanup steps.
+            // The initial step to compute the first "limb" of `r` uses the "normal" cube root
+            // algorithm and consumes the first (almost) word of `x`.
+            (uint256 r_hi, uint256 res, uint256 d) = _cbrt_baseCase(x_hi);
 
-            // Now we run the "normal" cube root algorithm to obtain the first limb of `r`, which we
-            // store in `r_hi`. `res` is the residue after this first operation and `d` is the
-            // derivative/denominator for the subsequent Karatsuba step.
-            uint256 r_hi;
-            uint256 res;
-            uint256 d;
-            assembly ("memory-safe") {
-                let w := shr(0x02, x_hi) // w ≥ 2²⁵¹; w < 2²⁵⁴ from the above normalization
-                r_hi := 0x1000000000000000000000 // Given `w` in its range, this seed is suitable
-
-                r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
-                r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
-                r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
-                r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
-                r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
-                r_hi := div(add(add(div(w, mul(r_hi, r_hi)), r_hi), r_hi), 0x03)
-
-                let r_hi_sq := mul(r_hi, r_hi)
-                let r_hi_cube := mul(r_hi_sq, r_hi)
-                if gt(r_hi_cube, w) {
-                    // We gate the 7th Newton-Raphson step and ceil/floor cleanup on whether it has
-                    // overestimated. The second-order correction further below is sufficient to
-                    // correct for small underestimation. This branch is net gas-optimizing.
-                    r_hi := div(add(add(div(w, r_hi_sq), r_hi), r_hi), 0x03)
-                    r_hi := sub(r_hi, lt(div(w, mul(r_hi, r_hi)), r_hi))
-                    r_hi_sq := mul(r_hi, r_hi)
-                    r_hi_cube := mul(r_hi_sq, r_hi)
-                }
-
-                res := sub(w, r_hi_cube)
-                d := mul(0x03, r_hi_sq)
-            }
-
-            // `limb_hi` is the next 86-bit limb of `x` after the first whole-ish word.
+            // `limb_hi` is the next 86-bit limb of `x` after the first whole-ish word `w`.
             uint256 limb_hi;
             assembly ("memory-safe") {
-                limb_hi := or(shl(0x54, and(x_hi, 0x03)), shr(0xac, x_lo))
+                limb_hi := or(shl(0x54, and(0x03, x_hi)), shr(0xac, x_lo))
             }
-            // This is the Karatsuba step. The 86-bit lower limb of `r` is (almost):
-            //   r_lo = ⌊(res ⋅ 2⁸⁶ + limb_hi) / (3 ⋅ r_hi²)⌋
-            // Where `res` is the (nearly) 2-limb residue from the previous "normal" cube root
-            // step. We discard `res` after this step and perform a quadratic correction instead of
-            // the underflow check from Zimmerman
+
+            // The second and final limb of `r` is computed using an analogue of the Karatsuba step
+            // from the original algorithm, followed by a pair of cleanup steps.
             uint256 r_lo;
-            assembly ("memory-safe") {
-                let n := or(shl(0x56, res), limb_hi)
-                r_lo := div(n, d)
+            (r_lo, res) = _cbrt_karatsubaQuotient(res, limb_hi, d);
 
-                // If `res` was 171 bits (one more than expected), then `n` overflowed to 257
-                // bits. Explicitly handling the carry avoids 512-bit division.
-                if shr(0xaa, res) {
-                    let rem := mod(n, d)
-                    r_lo := add(r_lo, div(not(0x00), d))
-                    rem := add(rem, add(0x01, mod(not(0x00), d)))
-                    r_lo := add(r_lo, div(rem, d))
-                }
-            }
-
-            // Unlike the square-root case, the error from the linear Karatsuba step can still be
-            // large because the expansion has more terms. We do a quadratic correction to get close
-            // enough that the single subtraction is sufficient for exactness.
-            //
-            // In the square-root version, the only ignored term in (s + q)² is q², which is small
-            // enough for a 1ulp correction. For cube root, the binomial expansion (r_hi·2⁸⁶ +
-            // r_lo)³ contains the cross term 3·(r_hi·2⁸⁶)·r_lo². The linear Karatsuba step
-            // overestimates r_lo by ≈r_lo²/(r_hi·2⁸⁶). After correction, this leaves only the r_lo³
-            // term, on the order of 2²⁵⁸/(3·2³⁴²), much less than 1ulp.
-            r_lo -= (r_lo * r_lo).unsafeDiv(r_hi << 86);
-            r = (r_hi << 86) + r_lo;
-            // Our error is now down to 1ulp.
+            r = _cbrt_quadraticCorrection(r_hi, r_lo, res);
+            // Our error is now down to at most 1ulp over.
 
             // Un-normalize
-            return r >> shift;
+            r >>= shift;
         }
     }
 
@@ -1919,18 +2016,18 @@ library Lib512MathArithmetic {
         // The following cube-and-compare technique for obtaining the floor appears, at first, to
         // have an overflow bug in it. Consider that `_cbrt` returns a value within 1ulp of the
         // correct value. Define:
-        //   r_max = 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628
-        // this means that for values of x in [r_max³, 2⁵¹² - 1], `_cbrt` could return r_max + 1,
+        //   rₘₐₓ = 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628
+        // this means that for values of x in [rₘₐₓ³, 2⁵¹² - 1], `_cbrt` could return rₘₐₓ + 1,
         // which would result in overflow when cubing `r`. However, this does not happen. Given `x`
-        // in the specified range, the `_cbrt` follows the steps below:
+        // in the specified range, `_cbrt` follows the steps below:
         //
-        // 1) shift = ⌊clz(x_hi) / 3⌋ = 0
+        // 1) shift = ⌊clz(xₕᵢ) / 3⌋ = 0
         // 2) w = x_hi >> 2 lies in [0x3fff..fffb0959fdf442978718ddcb, 2²⁵⁴ - 1]
-        // 3) In that full interval, ⌊∛w⌋ is constant. For `r_hi`, we get:
-        //      after 6 Newton-Raphson iterations: r_hi = 0x1965fea53d6e3c82b0c310
-        //      which forces a 7th iteration
-        //      after the branch is taken:         r_hi = 0x1965fea53d6e3c82b05999
-        // 4) Therefore d = 3 ⋅ r_hi² is constant:
+        // 3) In that full interval, ⌊∛w⌋ is constant. With the ∛(3·2²⁵¹) seed, the 6
+        //    Newton-Raphson iterations converge directly to the correct value:
+        //      r_hi = 0x1965fea53d6e3c82b05999
+        //    The branchless floor correction is a no-op (rₕᵢ³ ≤ w for all w in the interval)
+        // 4) Therefore d = 3 ⋅ rₕᵢ² is constant:
         //      d = 0x78f3d1d950af414cd731fe48f48fde1309821333853
         // 5) n = (res << 86) | limb_hi overflows and is truncated to 256 bits. The truncated ⌊n / d⌋
         //    is constant:
@@ -1940,21 +2037,21 @@ library Lib512MathArithmetic {
         //      ⌊(2²⁵⁶ - 1) / d⌋ = 0x21dd5386fc92fb58eb2224
         //    and the final carry refinement term is zero, giving:
         //      r_lo = 0x2ad0f7137bc6601d885629
-        //    The quotient stays in one "bucket" because `res` varies by only ~0.62·2⁸³, and
+        //    The quotient stays in one "bucket" because `res` varies by only ~0.620·2⁸³, and
         //    `limb_hi`'s full 86-bit range contributes <1/2⁸⁴ to n/d. Total swing in the continuous
-        //    quotient is ~0.164.  At the boundaries, frac(n/d) ≈ 0.118 (at x = r_max³) and ≈0.283
+        //    quotient is ~0.164. At the boundaries, frac(n/d) ≈ 0.128 (at x = rₘₐₓ³) and ≈ 0.292
         //    (at x = 2⁵¹² - 1), so the floor never crosses an integer boundary
         // 6) After the carry adjustment branch, `r_lo` is constant:
         //      r_lo = 0x2ad0f7137bc6601d885629
         // 7) The quadratic correction subtracts exactly 1:
-        //      ⌊r_lo² / (r_hi·2⁸⁶)⌋ = 1
+        //      ⌊rₗₒ² / (rₕᵢ·2⁸⁶)⌋ = 1
         //    so r_lo = 0x2ad0f7137bc6601d885628 and
-        //      r = r_hi·2⁸⁶ + r_lo = r_max
+        //      r = rₕᵢ·2⁸⁶ + rₗₒ = rₘₐₓ
         //
         // So, the cube-and-compare code below only cubes a value of at most `r_max`, which fits in
         // 512 bits. `cbrtUp` reaches `r_max + 1` only via its final +1 correction
         //
-        // The following assembly block is identical to
+        // The following assembly block is identical to:
         //   (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
         //   (uint256 r3_hi, uint256 r3_lo) = _mul(r2_hi, r2_lo, r);
         //   r = r.unsafeDec(_gt(r3_hi, r3_lo, x_hi, x_lo));
@@ -1983,7 +2080,7 @@ library Lib512MathArithmetic {
 
         // `_cbrt` gives a result within 1ulp. Check if `r` is too low and correct.
         //
-        // The following assembly block is identical to
+        // The following assembly block is identical to:
         //   (uint256 r2_hi, uint256 r2_lo) = _mul(r, r);
         //   (uint256 r3_hi, uint256 r3_lo) = _mul(r2_hi, r2_lo, r);
         //   r = r.unsafeInc(_gt(x_hi, x_lo, r3_hi, r3_lo));
@@ -2119,7 +2216,7 @@ struct uint512_external {
 library Lib512MathExternal {
     function from(uint512 r, uint512_external memory x) internal pure returns (uint512) {
         assembly ("memory-safe") {
-            // This *could* be done with `mcopy`, but that would mean giving up compatibility with
+            // This 𝐜𝐨𝐮𝐥𝐝 be done with `mcopy`, but that would mean giving up compatibility with
             // Shanghai (or less) chains. If you care about gas efficiency, you should be using
             // `into()` instead.
             mstore(r, mload(x))

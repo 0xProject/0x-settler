@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.25;
+pragma solidity ^0.8.31;
 
 // @author Modified from Solady by Vectorized and Akshay Tarpara https://github.com/Vectorized/solady/blob/ff6256a18851749e765355b3e21dc9bfa417255b/src/utils/clz/FixedPointMathLib.sol#L799-L822 under the MIT license.
 library Cbrt {
@@ -8,15 +8,14 @@ library Cbrt {
     /// https://github.com/pcaversaccio/snekmate/blob/main/src/snekmate/utils/math.vy
     function _cbrt(uint256 x) private pure returns (uint256 z) {
         assembly ("memory-safe") {
-            // Initial guess z ≈ ∛(3/4) · 2𐞥 where q = ⌊(257 − clz(x)) / 3⌋. The multiplier 233/256
-            // ≈ 0.909 ≈ ∛(3/4) balances the worst-case over/underestimate across each octave
-            // triplet (ε_over ≈ 0.445, ε_under ≈ −0.278), giving >85 bits of precision after 6 N-R
-            // iterations. The `add(1, ...)` term ensures z ≥ 1 when x > 0 (the `shr` can produce 0
-            // for small `q`)
-            z := add(1, shr(8, shl(div(sub(257, clz(x)), 3), 233)))
+            // Initial guess z ≈ c · 2𐞥 where b = ⌊log₂(x)⌋ + 2, q = ⌊b / 3⌋. The 8-bit fixed-point
+            // multipliers `c`: 90/128, 116/128, and 142/128 are selected by `b mod 3` to balance
+            // each octave's worst-case final error. This gives >94 bits of precision after only 5
+            // Newton-Raphson iterations.
+            let b := sub(257, clz(x))
+            z := shr(7, shl(div(b, 3), add(90, mul(26, mod(b, 3)))))
 
-            // 6 Newton-Raphson iterations
-            z := div(add(add(div(x, mul(z, z)), z), z), 3)
+            // 5 Newton-Raphson iterations
             z := div(add(add(div(x, mul(z, z)), z), z), 3)
             z := div(add(add(div(x, mul(z, z)), z), z), 3)
             z := div(add(add(div(x, mul(z, z)), z), z), 3)

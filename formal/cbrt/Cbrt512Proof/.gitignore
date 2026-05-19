@@ -1,0 +1,5 @@
+/.lake
+lake-manifest.json
+
+# Auto-generated from `formal/cbrt/generate_cbrt512_model.py`
+/Cbrt512Proof/GeneratedCbrt512Model.lean

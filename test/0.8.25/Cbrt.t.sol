@@ -12,8 +12,16 @@ contract CbrtTest is Test {
     uint256 private constant _CBRT_FLOOR_MAX_UINT256_CUBE =
         0xffffffffffffffffffffef214b5539a2d22f71387253e480168f34c9da3f5898;
 
-    function testCbrt(uint256 x) external pure {
-        uint256 r = x.cbrt();
+    function _cbrtFloor(uint256 x) internal virtual returns (uint256) {
+        return x.cbrt();
+    }
+
+    function _cbrtUp(uint256 x) internal virtual returns (uint256) {
+        return x.cbrtUp();
+    }
+
+    function testCbrt(uint256 x) external {
+        uint256 r = _cbrtFloor(x);
         assertLe(r * r * r, x, "cbrt too high");
         if (x < _CBRT_FLOOR_MAX_UINT256_CUBE) {
             r++;
@@ -23,8 +31,8 @@ contract CbrtTest is Test {
         }
     }
 
-    function testCbrtUp(uint256 x) external pure {
-        uint256 r = x.cbrtUp();
+    function testCbrtUp(uint256 x) external {
+        uint256 r = _cbrtUp(x);
         if (x <= _CBRT_FLOOR_MAX_UINT256_CUBE) {
             assertGe(r * r * r, x, "cbrtUp too low");
         } else {
@@ -38,17 +46,17 @@ contract CbrtTest is Test {
         }
     }
 
-    function testCbrtUp_overflowCubeRange(uint256 x) external pure {
+    function testCbrtUp_overflowCubeRange(uint256 x) external {
         x = bound(x, _CBRT_FLOOR_MAX_UINT256_CUBE + 1, type(uint256).max);
 
-        assertEq(x.cbrt(), _CBRT_FLOOR_MAX_UINT256, "cbrt overflow-cube range");
-        assertEq(x.cbrtUp(), _CBRT_CEIL_MAX_UINT256, "cbrtUp overflow-cube range");
+        assertEq(_cbrtFloor(x), _CBRT_FLOOR_MAX_UINT256, "cbrt overflow-cube range");
+        assertEq(_cbrtUp(x), _CBRT_CEIL_MAX_UINT256, "cbrtUp overflow-cube range");
     }
 
-    function testCbrtUp_overflowCubeBoundary() external pure {
+    function testCbrtUp_overflowCubeBoundary() external {
         uint256 x = _CBRT_FLOOR_MAX_UINT256_CUBE;
 
-        assertEq(x.cbrt(), _CBRT_FLOOR_MAX_UINT256, "cbrt boundary");
-        assertEq(x.cbrtUp(), _CBRT_FLOOR_MAX_UINT256, "cbrtUp boundary");
+        assertEq(_cbrtFloor(x), _CBRT_FLOOR_MAX_UINT256, "cbrt boundary");
+        assertEq(_cbrtUp(x), _CBRT_FLOOR_MAX_UINT256, "cbrtUp boundary");
     }
 }
