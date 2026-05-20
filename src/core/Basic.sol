@@ -18,6 +18,7 @@ abstract contract Basic is SettlerAbstract {
 
     /// @dev Sell to a pool with a generic approval, transferFrom interaction.
     /// offset in the calldata is used to update the sellAmount given a proportion of the sellToken balance
+    /// high 128 bits of offset can optionally contain a min-out calldata offset to scale
     function basicSellToPool(IERC20 sellToken, uint256 bps, address pool, uint256 offset, bytes memory data) internal {
         if (_isRestrictedTarget(pool)) {
             revertConfusedDeputy();
@@ -50,11 +51,34 @@ abstract contract Basic is SettlerAbstract {
             // We treat `bps > BASIS` as a GIGO error
             uint256 amount = tmp().omul(sellToken.fastBalanceOf(address(this)), bps).unsafeDiv(BASIS);
 
-            if ((offset += 32) > data.length) {
+            uint256 minOffset = offset >> 128;
+            offset = uint256(uint128(offset));
+            uint256 amountSlot = offset + 32;
+            if (amountSlot > data.length) {
                 Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
             }
+            if (minOffset != 0) {
+                uint256 minSlot = minOffset + 32;
+                if (minSlot > data.length) {
+                    Panic.panic(Panic.ARRAY_OUT_OF_BOUNDS);
+                }
+                uint256 placeholder;
+                uint256 encodedMin;
+                assembly ("memory-safe") {
+                    placeholder := mload(add(data, amountSlot))
+                    encodedMin := mload(add(data, minSlot))
+                }
+                // reject exact-out
+                if (placeholder >> 255 != 0) revert InvalidOffset();
+                if (placeholder != 0 && amount < placeholder) {
+                    uint256 newMin = tmp().omul(encodedMin, amount).unsafeDiv(placeholder);
+                    assembly ("memory-safe") {
+                        mstore(add(data, minSlot), newMin)
+                    }
+                }
+            }
             assembly ("memory-safe") {
-                mstore(add(data, offset), amount)
+                mstore(add(data, amountSlot), amount)
             }
             if (address(sellToken) != pool) {
                 sellToken.safeApproveIfBelow(pool, amount);
