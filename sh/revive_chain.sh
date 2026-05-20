@@ -201,7 +201,6 @@ ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPL
     --skip 'src/core/*.sol'                              \
     --skip 'src/multicall/*.sol'                         \
     --skip 'src/utils/*.sol'                             \
-    --isolate                                            \
     --gas-estimate-multiplier $gas_estimate_multiplier   \
     --with-gas-price $gas_price                          \
     --chain $chainid                                     \
