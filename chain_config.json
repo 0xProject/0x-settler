@@ -774,9 +774,9 @@
     "chainId": 4663,
     "displayName": "RobinHood",
     "hardfork": {
-      "shanghai": null,
-      "cancun": null,
-      "osaka": null,
+      "shanghai": true,
+      "cancun": true,
+      "osaka": true,
       "eraVm": false
     },
     "extraFlags": "--legacy",
