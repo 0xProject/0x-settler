@@ -719,11 +719,8 @@ contract DeploySafes is Script {
         gasSplits[10] = gasleft();
         _stopBroadcast(safeCompatConfig);
 
-        {
-            uint256 gasPrev = gasSplits[0];
-            for (uint256 i = 1; i < gasSplits.length; i++) {
-                require(gasPrev + 15728639 > (gasPrev = gasSplits[i]), "transaction is likely to exceed EIP-7825 limit");
-            }
+        for (uint256 i = 1; i < gasSplits.length; i++) {
+            require(gasSplits[i] + 15728639 > gasSplits[i - 1], "transaction is likely to exceed EIP-7825 limit");
         }
 
         require(deployedModule == iceColdCoffee, "deployment/prediction mismatch");
