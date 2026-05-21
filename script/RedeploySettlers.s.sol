@@ -6,6 +6,16 @@ import {Deployer, Feature} from "src/deployer/Deployer.sol";
 import {SafeConfig} from "./SafeConfig.sol";
 
 contract RedeploySettlers is SafeMultisend {
+    function _execDelegateCall(address safe, address multicall, bytes memory data, bytes memory signature)
+        internal
+        returns (bool)
+    {
+        return ISafeExecute(safe)
+            .execTransaction(
+                multicall, 0, data, ISafeExecute.Operation.DelegateCall, 0, 0, 0, address(0), address(0), signature
+            );
+    }
+
     function _deployCall(
         string calldata chainDisplayName,
         Feature feature,
@@ -48,10 +58,15 @@ contract RedeploySettlers is SafeMultisend {
         require(Feature.unwrap(intentFeature) == 4, "wrong intents feature (tokenId)");
         require(Feature.unwrap(bridgeFeature) == 5, "wrong bridge feature (tokenId)");
 
-        uint256 moduleDeployerKey = vm.envUint("ICECOLDCOFFEE_DEPLOYER_KEY");
-        uint256 proxyDeployerKey = vm.envUint("DEPLOYER_PROXY_DEPLOYER_KEY");
-        require(vm.addr(moduleDeployerKey) == moduleDeployer, "module deployer key/address mismatch");
-        require(vm.addr(proxyDeployerKey) == proxyDeployer, "proxy deployer key/address mismatch");
+        // Keys are optional so the script can be dry-run in simulation without decrypting secrets.
+        uint256 moduleDeployerKey = vm.envOr("ICECOLDCOFFEE_DEPLOYER_KEY", uint256(0));
+        uint256 proxyDeployerKey = vm.envOr("DEPLOYER_PROXY_DEPLOYER_KEY", uint256(0));
+        if (moduleDeployerKey != 0) {
+            require(vm.addr(moduleDeployerKey) == moduleDeployer, "module deployer key/address mismatch");
+        }
+        if (proxyDeployerKey != 0) {
+            require(vm.addr(proxyDeployerKey) == proxyDeployer, "proxy deployer key/address mismatch");
+        }
 
         require(deploymentSafe.code.length > 0, "deployment safe not deployed");
         require(upgradeSafe.code.length > 0, "upgrade safe not deployed");
@@ -132,63 +147,54 @@ contract RedeploySettlers is SafeMultisend {
         changeOwnersCalls =
             _encodeChangeOwners(deploymentSafe, SafeConfig.deploymentSafeThreshold, moduleDeployer, deployerOwners);
         assert(changeOwnersCalls.length == deployerOwners.length + 1);
-        bytes[] memory solverCalls = _encodeSolversMultisend(predictedIntentSettler, solvers);
-        bytes[] memory deploySetupCalls = new bytes[](4 + solverCalls.length + changeOwnersCalls.length);
-        deploySetupCalls[0] = _encodeMultisend(deployerProxy, takerSubmittedDeployCall);
-        deploySetupCalls[1] = _encodeMultisend(deployerProxy, metaTxDeployCall);
-        deploySetupCalls[2] = _encodeMultisend(deployerProxy, intentDeployCall);
-        deploySetupCalls[3] = _encodeMultisend(deployerProxy, bridgeDeployCall);
-        for (uint256 i; i < solverCalls.length; i++) {
-            deploySetupCalls[i + 4] = solverCalls[i];
-        }
-        for (uint256 i; i < changeOwnersCalls.length; i++) {
-            deploySetupCalls[i + 4 + solverCalls.length] = changeOwnersCalls[i];
-        }
-        bytes memory deploySetupCall = _encodeMultisend(deploySetupCalls);
+
+        bytes[] memory deploySetupCalls1 = new bytes[](2);
+        deploySetupCalls1[0] = _encodeMultisend(deployerProxy, takerSubmittedDeployCall);
+        deploySetupCalls1[1] = _encodeMultisend(deployerProxy, metaTxDeployCall);
+        bytes memory deploySetupCall1 = _encodeMultisend(deploySetupCalls1);
+
+        bytes[] memory deploySetupCalls2 = new bytes[](2);
+        deploySetupCalls2[0] = _encodeMultisend(deployerProxy, intentDeployCall);
+        deploySetupCalls2[1] = _encodeMultisend(deployerProxy, bridgeDeployCall);
+        bytes memory deploySetupCall2 = _encodeMultisend(deploySetupCalls2);
+
+        bytes memory deploySetupCall3 = _encodeMultisend(_encodeSolversMultisend(predictedIntentSettler, solvers));
+
+        bytes memory deploySetupCall4 = _encodeMultisend(changeOwnersCalls);
 
         bytes memory deploymentSignature = abi.encodePacked(uint256(uint160(moduleDeployer)), bytes32(0), uint8(1));
         bytes memory upgradeSignature = abi.encodePacked(uint256(uint160(proxyDeployer)), bytes32(0), uint8(1));
 
-        uint256[] memory gasSplits = new uint256[](4);
+        uint256[] memory gasSplits = new uint256[](7);
 
-        vm.startBroadcast(proxyDeployerKey);
+        if (proxyDeployerKey != 0) vm.startBroadcast(proxyDeployerKey);
+        else vm.startBroadcast(proxyDeployer);
 
         // configure the deployer (authorize; set new owners)
         gasSplits[0] = gasleft();
-        ISafeExecute(upgradeSafe)
-            .execTransaction(
-                safeMulticall,
-                0,
-                upgradeSetupCall,
-                ISafeExecute.Operation.DelegateCall,
-                0,
-                0,
-                0,
-                address(0),
-                address(0),
-                upgradeSignature
-            );
+        _execDelegateCall(upgradeSafe, safeMulticall, upgradeSetupCall, upgradeSignature);
         gasSplits[1] = gasleft();
         vm.stopBroadcast();
 
-        vm.startBroadcast(moduleDeployerKey);
+        if (moduleDeployerKey != 0) vm.startBroadcast(moduleDeployerKey);
+        else vm.startBroadcast(moduleDeployer);
 
         // deploy settlers; register solvers; set new owners
         gasSplits[2] = gasleft();
-        ISafeExecute(deploymentSafe)
-            .execTransaction(
-                safeMulticall,
-                0,
-                deploySetupCall,
-                ISafeExecute.Operation.DelegateCall,
-                0,
-                0,
-                0,
-                address(0),
-                address(0),
-                deploymentSignature
-            );
+        _execDelegateCall(deploymentSafe, safeMulticall, deploySetupCall1, deploymentSignature);
+
         gasSplits[3] = gasleft();
+        _execDelegateCall(deploymentSafe, safeMulticall, deploySetupCall2, deploymentSignature);
+
+        gasSplits[4] = gasleft();
+        if (solvers.length > 0) {
+            _execDelegateCall(deploymentSafe, safeMulticall, deploySetupCall3, deploymentSignature);
+        }
+
+        gasSplits[5] = gasleft();
+        _execDelegateCall(deploymentSafe, safeMulticall, deploySetupCall4, deploymentSignature);
+
+        gasSplits[6] = gasleft();
         vm.stopBroadcast();
 
         _assertEip7825(gasSplits);
