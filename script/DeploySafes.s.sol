@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {Script} from "@forge-std/Script.sol";
+import {SafeMultisend, ISafeExecute, ISafeOwners} from "./SafeMultisend.sol";
 import {Vm, VmSafe} from "@forge-std/Vm.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Create3} from "src/utils/Create3.sol";
@@ -31,61 +31,17 @@ interface ISafeSetup {
     ) external;
 }
 
-interface ISafeExecute {
-    enum Operation {
-        Call,
-        DelegateCall
-    }
-
-    function execTransaction(
-        address to,
-        uint256 value,
-        bytes calldata data,
-        Operation operation,
-        uint256 safeTxGas,
-        uint256 baseGas,
-        uint256 gasPrice,
-        address gasToken,
-        address refundReceiver,
-        bytes calldata signatures
-    ) external payable returns (bool);
-}
-
-interface ISafeOwners {
-    function addOwnerWithThreshold(address owner, uint256 _threshold) external;
-    function removeOwner(address prevOwner, address owner, uint256 _threshold) external;
-    function changeThreshold(uint256 _threshold) external;
-    function getOwners() external view returns (address[] memory);
-}
-
 interface ISafeModule {
     function enableModule(address module) external;
 }
 
-interface ISafeMulticall {
-    /// @dev Sends multiple transactions and reverts all if one fails.
-    /// @param transactions Encoded transactions. Each transaction is encoded as a packed bytes of
-    ///                     operation has to be uint8(0) in this version (=> 1 byte),
-    ///                     to as a address (=> 20 bytes),
-    ///                     value as a uint256 (=> 32 bytes),
-    ///                     data length as a uint256 (=> 32 bytes),
-    ///                     data as bytes.
-    ///                     see abi.encodePacked for more information on packed encoding
-    /// @notice The code is for most part the same as the normal MultiSend (to keep compatibility),
-    ///         but reverts if a transaction tries to use a delegatecall.
-    /// @notice This method is payable as delegatecalls keep the msg.value from the previous call
-    ///         If the calling method (e.g. execTransaction) received ETH this would revert otherwise
-    function multiSend(bytes memory transactions) external payable;
-}
-
-contract DeploySafes is Script {
+contract DeploySafes is SafeMultisend {
     bytes32 internal constant singletonHash = 0x21842597390c4c6e3c1239e434a682b054bd9548eee5e9b1d6a4482731023c0f;
     bytes32 internal constant singletonHashEraVm = 0xe2ca068330339d608367d83a0b25545efe39e619098597699ab8ff828cb1ddd8;
     bytes32 internal constant factoryHash = 0x337d7f54be11b6ed55fef7b667ea5488db53db8320a05d1146aa4bd169a39a9b;
     bytes32 internal constant factoryHashEraVm = 0x55daa5d390d283edbc5fa835bd53befce45179c758feaac8c149a95850d0a6b6;
     bytes32 internal constant fallbackHash = 0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf;
     bytes32 internal constant fallbackHashEraVm = 0x017e9a83d5513f503fb85274f4d1ad1811040d7caa31772750ffb08638c28fbb;
-    bytes32 internal constant multicallHash = 0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad;
     bytes32 internal constant multicallHashEraVm = 0x064ddbf252714bcd4cb79f679e8c12df96d998ce07bbb13b3118c1dbf4a31942;
     uint256 internal constant safeDeploymentSaltNonce = 0;
 
@@ -105,69 +61,6 @@ contract DeploySafes is Script {
         address safeFallback;
         address safeMulticall;
         SafeBytecodes safeBytecodes;
-    }
-
-    function _encodeMultisend(bytes[] memory calls) internal view returns (bytes memory result) {
-        // The Gnosis multicall contract uses a very obnoxious packed encoding
-        // that is very similar to, but not exactly the same as
-        // `abi.encodePacked`
-        assembly ("memory-safe") {
-            result := mload(0x40)
-            mstore(add(0x04, result), 0x8d80ff0a) // selector for `multiSend(bytes)`
-            mstore(add(0x24, result), 0x20)
-            let bytes_length_ptr := add(0x44, result)
-            mstore(bytes_length_ptr, 0x00)
-            for {
-                let i := add(0x20, calls)
-                let end := add(i, shl(0x05, mload(calls)))
-                let dst := add(0x20, bytes_length_ptr)
-            } lt(i, end) { i := add(0x20, i) } {
-                let src := mload(i)
-                let len := mload(src)
-                src := add(0x20, src)
-
-                // We're using the old identity precompile version instead of
-                // the MCOPY opcode version because I don't want to have to deal
-                // with maintaining two versions of this
-                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) {
-                    invalid()
-                }
-
-                dst := add(dst, len)
-                mstore(bytes_length_ptr, add(len, mload(bytes_length_ptr)))
-            }
-            mstore(result, add(0x44, mload(bytes_length_ptr)))
-            mstore(0x40, add(0x20, add(mload(result), result)))
-        }
-    }
-
-    function _encodeMultisend(address safe, bytes memory call) internal pure returns (bytes memory) {
-        return abi.encodePacked(
-            uint8(ISafeExecute.Operation.Call),
-            safe,
-            uint256(0), // value
-            call.length,
-            call
-        );
-    }
-
-    function _encodeChangeOwners(address safe, uint256 threshold, address oldOwner, address[] memory newOwners)
-        internal
-        view
-        returns (bytes[] memory)
-    {
-        bytes[] memory subCalls = new bytes[](newOwners.length + 1);
-        for (uint256 i; i < newOwners.length; i++) {
-            bytes memory data =
-                abi.encodeCall(ISafeOwners.addOwnerWithThreshold, (newOwners[newOwners.length - i - 1], 1));
-            subCalls[i] = _encodeMultisend(safe, data);
-        }
-        {
-            bytes memory data =
-                abi.encodeCall(ISafeOwners.removeOwner, (newOwners[newOwners.length - 1], oldOwner, threshold));
-            subCalls[newOwners.length] = _encodeMultisend(safe, data);
-        }
-        return subCalls;
     }
 
     modifier eraVmCompat(
@@ -619,14 +512,9 @@ contract DeploySafes is Script {
         deploySetupCalls[3] = _encodeMultisend(deployerProxy, intentDeployCall);
         deploySetupCalls[4] = _encodeMultisend(deployerProxy, bridgeDeployCall);
         {
-            address prevSolver = 0x0000000000000000000000000000000000000001;
-            for (uint256 i; i < solvers.length; i++) {
-                address solver = solvers[i];
-                deploySetupCalls[i + 5] = _encodeMultisend(
-                    predictedIntentSettler,
-                    abi.encodeWithSignature("setSolver(address,address,bool)", prevSolver, solver, true)
-                );
-                prevSolver = solver;
+            bytes[] memory solverCalls = _encodeSolversMultisend(predictedIntentSettler, solvers);
+            for (uint256 i; i < solverCalls.length; i++) {
+                deploySetupCalls[i + 5] = solverCalls[i];
             }
         }
         for (uint256 i; i < changeOwnersCalls.length; i++) {
@@ -719,9 +607,7 @@ contract DeploySafes is Script {
         gasSplits[10] = gasleft();
         _stopBroadcast(safeCompatConfig);
 
-        for (uint256 i = 1; i < gasSplits.length; i++) {
-            require(gasSplits[i] + 15728639 > gasSplits[i - 1], "transaction is likely to exceed EIP-7825 limit");
-        }
+        _assertEip7825(gasSplits);
 
         require(deployedModule == iceColdCoffee, "deployment/prediction mismatch");
         require(deployedDeploymentSafe == deploymentSafe, "deployed safe/predicted safe mismatch");
