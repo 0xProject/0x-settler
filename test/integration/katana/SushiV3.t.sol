@@ -8,7 +8,7 @@ import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {SettlerBasePairTest, Shim} from "../SettlerBasePairTest.t.sol";
+import {SettlerBasePairTest} from "../SettlerBasePairTest.t.sol";
 import {sushiswapV3ForkId} from "src/core/univ3forks/SushiswapV3.sol";
 import {TooMuchSlippage} from "src/core/SettlerErrors.sol";
 
@@ -21,7 +21,7 @@ contract SushiV3KatanaIntegrationTest is SettlerBasePairTest {
     function setUp() public virtual override {
         // Katana proxy token balance slots are not discoverable by `deal()`.
         vm.createSelectFork(_testChainId(), _testBlockNumber());
-        vm.setEvmVersion("osaka");
+        vm.setEvmVersion("cancun");
         permit2Domain = keccak256(
             abi.encode(
                 keccak256("EIP712Domain(string name,uint256 chainId,address verifyingContract)"),
@@ -40,7 +40,7 @@ contract SushiV3KatanaIntegrationTest is SettlerBasePairTest {
         fromToken().transfer(FROM, amount());
 
         allowanceHolder = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
-        uint256 forkChainId = (new Shim()).chainId();
+        uint256 forkChainId = vm.getChainId();
         vm.chainId(31337);
         bytes memory initCode = settlerInitCode();
         assembly ("memory-safe") {
