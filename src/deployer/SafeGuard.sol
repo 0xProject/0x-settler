@@ -310,8 +310,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     error ConfusedDeputy(uint256 callIndex, address target, bytes data);
     error CannotCancelOwnResignation(bytes32 txHash);
 
-    mapping(bytes32 => uint256) public timelockEnd;
-    mapping(bytes32 => address) public cantCancel;
+    mapping(bytes32 txHash => uint256 expiry) public timelockEnd;
+    mapping(bytes32 txHash => address owner) public cantCancel;
     address public lockedDownBy;
     uint24 public delay;
     bool private _reentrancyGuard;
@@ -850,6 +850,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         }
         timelockEnd[txHash] = _timelockEnd;
 
+        // If this call removes an owner from the Safe, that owner is forbidden from cancelling the
+        // transaction.
         if (
             to == address(_safe) && data.length >= 100
                 && uint32(bytes4(data)) == uint32(ISafeMinimal.removeOwner.selector)
@@ -860,6 +862,9 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             // check `value` or `operation`, which is too lax in an irrelevant way.
             cantCancel[txHash] = address(uint160(uint256(bytes32(data[36:]))));
         }
+        // We deliberately do not unpack multicalls and do deep inspection of them because that
+        // would open up a dangerous mechanism for a quorum of key-compromised Safe owners to be
+        // able to force through an un-cancellable malicious transaction.
 
         emit SafeTransactionEnqueued(
             txHash,
