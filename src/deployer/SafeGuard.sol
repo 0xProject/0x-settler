@@ -357,8 +357,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
     function _constructorChecks() internal view returns (bool result) {
         result = keccak256(type(EvmVersionDummy).creationCode) == _EVM_VERSION_DUMMY_INITHASH();
-        bytes32 safeCodeHash = address(safe).codehash;
-        result = result && _isSupportedProxyCodeHash(safeCodeHash);
+        result = result && _isSupportedProxyCodeHash(address(safe).codehash);
         result = result && _isSupportedFactory(msg.sender);
         result = result && _SINGLETON.code.length != 0;
         result = result && _FALLBACK.code.length != 0;
