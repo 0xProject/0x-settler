@@ -623,7 +623,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // the checks. Therefore, if a transaction contains a call to `safe.setGuard(address)`,
         // ERC20 sponsorship is forbidden. Native asset sponsorship is permissible because the Safe
         // uses `send`, which defuses reentrancy due to the 2300 gas rule.
-        if (forbidSponsorship && gasPrice > 0 && gasToken != address(0)) {
+        if (forbidSponsorship && gasPrice != 0 && gasToken != address(0)) {
             revert ERC20SponsorshipUnsafe(gasToken);
         }
 
