@@ -178,12 +178,9 @@ fi
 declare -r -a maybe_broadcast
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    # Revived chains may have dust left over from prior deploy attempts, so checking >0 isn't
-    # enough. Require enough balance to cover the full multi-tx deployment sequence
-    # (~25M gas total per deployer, scaled by gasMultiplierPercent) at the current gas price.
-    # `bc` avoids 64-bit overflow on high-gas-price chains (e.g. polygon at 200 gwei).
     declare min_balance module_deployer_balance proxy_deployer_balance
-    min_balance="$(bc <<<"$gas_price * 25000000 * $gas_estimate_multiplier / 100")"
+    # 24M = sum of per-tx gas from a Katana dry-run sim (~23.1M actual + small pad)
+    min_balance="$(bc <<<"$gas_price * 24000000 * $gas_estimate_multiplier / 100")"
     module_deployer_balance="$(cast balance --rpc-url "$rpc_url" "$module_deployer")"
     proxy_deployer_balance="$(cast balance --rpc-url "$rpc_url" "$proxy_deployer")"
     if (( $(bc <<<"$module_deployer_balance < $min_balance") )) ; then
