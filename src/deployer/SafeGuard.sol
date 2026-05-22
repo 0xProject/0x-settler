@@ -311,12 +311,12 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     error CannotCancelOwnResignation(bytes32 txHash);
     error CannotEnqueuePastTransaction(bytes32 txHash, uint256 nonce);
 
-    mapping(bytes32 txHash => uint256 expiry) public timelockEnd;
-    mapping(bytes32 txHash => address owner) public cantCancel;
     address public lockedDownBy;
     uint24 public delay;
     bool private _reentrancyGuard;
     bool private _guardRemoved;
+    mapping(bytes32 txHash => uint256 expiry) public timelockEnd;
+    mapping(bytes32 txHash => address owner) public cantCancel;
 
     ISafeMinimal public immutable safe;
     uint256 internal constant _MINIMUM_OWNERS = 4;
