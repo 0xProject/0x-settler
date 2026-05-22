@@ -315,8 +315,13 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     uint24 public delay;
     bool private _reentrancyGuard;
     bool private _guardRemoved;
-    mapping(bytes32 txHash => uint256 expiry) public timelockEnd;
-    mapping(bytes32 txHash => address owner) public cantCancel;
+
+    struct TxInfo {
+        uint256 timelockEnd;
+        address cantCancel;
+    }
+
+    mapping(bytes32 txHash => TxInfo info) public txInfo;
 
     ISafeMinimal public immutable safe;
     uint256 internal constant _MINIMUM_OWNERS = 4;
@@ -657,12 +662,12 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // the Safe is not locked down (checked in `checkAfterExecution`), 2) that the transaction
         // was previously queued through `enqueue` and 3) that `delay` has elapsed since `enqueue`
         // was called.
-        uint256 _timelockEnd = timelockEnd[txHash];
-        if (_timelockEnd == 0) {
+        uint256 timelockEnd = txInfo[txHash].timelockEnd;
+        if (timelockEnd == 0) {
             revert NotQueued(txHash);
         }
-        if (block.timestamp <= _timelockEnd) {
-            revert TimelockNotElapsed(txHash, _timelockEnd);
+        if (block.timestamp <= timelockEnd) {
+            revert TimelockNotElapsed(txHash, timelockEnd);
         }
     }
 
@@ -848,11 +853,12 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             revert CannotEnqueuePastTransaction(txHash, nonce);
         }
 
-        uint256 _timelockEnd = block.timestamp + delay;
-        if (timelockEnd[txHash] != 0) {
+        TxInfo storage info = txInfo[txHash];
+        uint256 timelockEnd = block.timestamp + delay;
+        if (info.timelockEnd != 0) {
             revert AlreadyQueued(txHash);
         }
-        timelockEnd[txHash] = _timelockEnd;
+        info.timelockEnd = timelockEnd;
 
         // If this call removes an owner from the Safe, that owner is forbidden from cancelling the
         // transaction.
@@ -864,7 +870,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             // call to `removeOwner` which reverts on dirty bits. The discrepancy here is irrelevant
             // considering that a call containing dirty bits cannot succeed. Likewise, we do not
             // check `value` or `operation`, which is too lax in an irrelevant way.
-            cantCancel[txHash] = address(uint160(uint256(bytes32(data[36:]))));
+            info.cantCancel = address(uint160(uint256(bytes32(data[36:]))));
         }
         // We deliberately do not unpack multicalls and do deep inspection of them because that
         // would open up a dangerous mechanism for a quorum of key-compromised Safe owners to be
@@ -872,7 +878,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
         emit SafeTransactionEnqueued(
             txHash,
-            _timelockEnd,
+            timelockEnd,
             to,
             value,
             data,
@@ -951,9 +957,6 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
     function cancel(bytes32 txHash) external onlyOwner {
         _requireNotReentrancyLocked();
-        if (cantCancel[txHash] == msg.sender) {
-            revert CannotCancelOwnResignation(txHash);
-        }
 
         ISafeMinimal _safe = safe;
         uint256 nonce = _safe.nonce();
@@ -965,14 +968,19 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         );
         _requirePreApproved(_safe, resignHash);
 
-        uint256 _timelockEnd = timelockEnd[txHash];
-        if (_timelockEnd == 0) {
+        TxInfo storage info = txInfo[txHash];
+        uint256 timelockEnd = info.timelockEnd;
+        if (timelockEnd == 0) {
             revert NotQueued(txHash);
         }
-        if (block.timestamp > _timelockEnd) {
-            revert TimelockElapsed(txHash, _timelockEnd);
+        if (block.timestamp > timelockEnd) {
+            revert TimelockElapsed(txHash, timelockEnd);
         }
-        timelockEnd[txHash] = type(uint256).max;
+        if (info.cantCancel == msg.sender) {
+            revert CannotCancelOwnResignation(txHash);
+        }
+
+        info.timelockEnd = type(uint256).max;
         emit ResignTxHash(resignHash);
         emit SafeTransactionCanceled(txHash, msg.sender);
     }
