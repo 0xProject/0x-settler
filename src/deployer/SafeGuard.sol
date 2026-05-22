@@ -311,6 +311,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     error CannotCancelOwnResignation(bytes32 txHash);
 
     mapping(bytes32 => uint256) public timelockEnd;
+    mapping(bytes32 => address) public cantCancel;
     address public lockedDownBy;
     uint24 public delay;
     bool private _reentrancyGuard;
@@ -849,6 +850,17 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         }
         timelockEnd[txHash] = _timelockEnd;
 
+        if (
+            to == address(_safe) && data.length >= 100
+                && uint32(bytes4(data)) == uint32(ISafeMinimal.removeOwner.selector)
+        ) {
+            // This cleans/ignores dirty bits in the `oldOwner` word. This is laxer than the actual
+            // call to `removeOwner` which reverts on dirty bits. The discrepancy here is irrelevant
+            // considering that a call containing dirty bits cannot succeed. Likewise, we do not
+            // check `value` or `operation`, which is too lax in an irrelevant way.
+            cantCancel[txHash] = address(uint160(uint256(bytes32(data[36:]))));
+        }
+
         emit SafeTransactionEnqueued(
             txHash,
             _timelockEnd,
@@ -930,6 +942,10 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
 
     function cancel(bytes32 txHash) external onlyOwner {
         _requireNotReentrancyLocked();
+        if (cantCancel[txHash] == msg.sender) {
+            revert CannotCancelOwnResignation(txHash);
+        }
+
         ISafeMinimal _safe = safe;
         uint256 nonce = _safe.nonce();
         if (lockedDownBy != address(0)) {
@@ -938,9 +954,6 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         bytes32 resignHash = _removeOwnerTxHash(
             _safe, _safe.getPrevOwner(msg.sender), msg.sender, _getThresholdAfterResign(_safe), nonce
         );
-        if (resignHash == txHash) {
-            revert CannotCancelOwnResignation(txHash);
-        }
         _requirePreApproved(_safe, resignHash);
 
         uint256 _timelockEnd = timelockEnd[txHash];
