@@ -153,9 +153,10 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
         uint256 expectedShares = depositAmount;
         uint256 fee = INucleusTeller(TELLER).previewFee(expectedShares, data);
 
-        // depositAmount field is overridden by the action; encode 0 placeholder
+        // `depositAmount` and `minimumMint` are rewritten by the action (the latter scaled by the
+        // depositAmount delta); encode the API-previewed values here.
         bytes memory depositAndBridgeCallData =
-            abi.encodeCall(INucleusTeller.depositAndBridge, (PAXG, 0, 0, data)).popSelector();
+            abi.encodeCall(INucleusTeller.depositAndBridge, (PAXG, depositAmount, expectedShares, data)).popSelector();
 
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultTransferFrom(address(PAXG), depositAmount),
@@ -164,7 +165,10 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
 
         deal(address(this), fee);
 
-        vm.expectCall(TELLER, fee, abi.encodeCall(INucleusTeller.depositAndBridge, (PAXG, depositAmount, 0, data)));
+        // Runtime balance equals the encoded amount, so the scaled `minimumMint` equals `expectedShares`.
+        vm.expectCall(
+            TELLER, fee, abi.encodeCall(INucleusTeller.depositAndBridge, (PAXG, depositAmount, expectedShares, data))
+        );
         vm.recordLogs();
         ALLOWANCE_HOLDER.exec{value: fee}(
             address(bridgeSettler),

@@ -4,8 +4,9 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-/// @dev Mirrors the relevant subset of paxoslabs/nucleus-boring-vault
-/// `MultiChainLayerZeroTellerWithMultiAssetSupport`. `BridgeData` follows
+/// @dev Mirrors the relevant subset of the deployed Nucleus WPAXG Teller
+/// (0xeE98730AAAdA5e6e092cA69F1AC1B9B554c059dF), sourced from paxoslabs/nucleus-boring-vault at
+/// commit d9a1dff0098b4f0cc81e264f2dbe0d244e065b81. `BridgeData` follows
 /// `src/interfaces/ICrossChainTypes.sol` from that repo.
 interface INucleusTeller {
     struct BridgeData {
@@ -52,24 +53,37 @@ contract NucleusTeller {
     }
 
     /// @notice Deposit `depositAsset` into the WPAXG BoringVault and bridge the resulting shares.
+    /// @dev `depositAmount` is overridden with this contract's runtime balance of `depositAsset`,
+    /// and `minimumMint` is scaled by the same ratio so the caller's slippage tolerance is
+    /// preserved. Dirty upper bits in the encoded `depositAsset` aren't masked here; the Teller's
+    /// ABI decoder will reject them down the line.
     /// @param depositAndBridgeCallData Encoded args (no selector) to `INucleusTeller.depositAndBridge`.
     function depositAndBridgeToNucleusTeller(bytes memory depositAndBridgeCallData) internal {
         IERC20 depositAsset;
+        uint256 encodedDepositAmount;
+        uint256 encodedMinimumMint;
         assembly ("memory-safe") {
             // depositAndBridgeCallData layout in memory:
             // +0x00: bytes length
-            // +0x20: depositAsset              <- read
-            // +0x40: depositAmount             <- override
-            // +0x60: minimumMint
+            // +0x20: depositAsset
+            // +0x40: depositAmount             <- override below
+            // +0x60: minimumMint               <- override below (scaled)
             // +0x80: offset to BridgeData tuple
             depositAsset := mload(add(0x20, depositAndBridgeCallData))
+            encodedDepositAmount := mload(add(0x40, depositAndBridgeCallData))
+            encodedMinimumMint := mload(add(0x60, depositAndBridgeCallData))
         }
 
         uint256 depositAmount = depositAsset.fastBalanceOf(address(this));
         depositAsset.safeApproveIfBelow(address(WPAXG), depositAmount);
 
+        // Scale `minimumMint` proportionally to the actual deposit amount. Rounding down favors
+        // the caller (smaller slippage threshold). Reverts on encoded amount of zero.
+        uint256 minimumMint = encodedMinimumMint * depositAmount / encodedDepositAmount;
+
         assembly ("memory-safe") {
             mstore(add(0x40, depositAndBridgeCallData), depositAmount)
+            mstore(add(0x60, depositAndBridgeCallData), minimumMint)
         }
         // selector for `depositAndBridge(address,uint256,uint256,(uint32,address,address,uint64,bytes))`
         _callTeller(0xbfe1a0f2, depositAndBridgeCallData);
