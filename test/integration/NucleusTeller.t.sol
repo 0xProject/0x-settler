@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {Vm} from "@forge-std/Vm.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
@@ -10,6 +11,15 @@ import {INucleusTeller} from "src/core/NucleusTeller.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
+
+interface INucleusAccountant {
+    function getRateInQuoteSafe(IERC20 quote) external view returns (uint256);
+}
+
+interface INucleusTellerExt {
+    function accountant() external view returns (INucleusAccountant);
+    function vault() external view returns (IERC20);
+}
 
 contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
     using SafeTransferLib for IERC20;
@@ -20,8 +30,11 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
     IERC20 constant WPAXG = IERC20(0x5cB5C4d5e8B184A364534bc688DA0553Ccf8F484);
     IERC20 constant PAXG = IERC20(0x45804880De22913dAFE09f4980848ECE6EcbAf78);
 
-    // LayerZero v2 endpoint ID for Optimism (destination chain)
+    // LayerZero v2 endpoint IDs (https://docs.layerzero.network/v2/deployments/deployed-contracts)
     uint32 constant OP_LZ_EID = 30111;
+
+    // event MessageSent(bytes32 messageId, uint256 shareAmount, address to)
+    bytes32 constant MESSAGE_SENT_TOPIC = 0xe0ec62d39b054dc2fd626dbc271483735df6e6fa1ef8389754bf8ab27a75eab2;
 
     address recipient;
 
@@ -34,7 +47,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
 
     function setUp() public override {
         super.setUp();
-        vm.label(TELLER, "WPAXG_Teller");
+        vm.label(TELLER, "Teller");
         vm.label(address(WPAXG), "WPAXG");
         vm.label(address(PAXG), "PAXG");
         recipient = makeAddr("recipient");
@@ -50,10 +63,34 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
         });
     }
 
+    /// @dev Mirrors Teller._erc20Deposit:
+    ///   shares = depositAmount.mulDivDown(ONE_SHARE, accountant.getRateInQuoteSafe(depositAsset))
+    function _quoteShares(IERC20 depositAsset, uint256 depositAmount) internal view returns (uint256) {
+        uint256 oneShare = 10 ** uint256(WPAXG.decimals());
+        uint256 rate = INucleusTellerExt(TELLER).accountant().getRateInQuoteSafe(depositAsset);
+        return (depositAmount * oneShare) / rate;
+    }
+
+    /// @dev Asserts exactly one `MessageSent(bytes32,uint256,address)` was emitted by the Teller
+    /// with the given `shareAmount` and `to` fields. The `messageId` (LayerZero GUID) is unknown
+    /// up front, so we decode the data manually rather than using `vm.expectEmit`.
+    function _assertMessageSent(uint256 expectedShareAmount, address expectedTo) internal {
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        uint256 matched;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics[0] == MESSAGE_SENT_TOPIC && logs[i].emitter == TELLER) {
+                (, uint256 shareAmount, address to) = abi.decode(logs[i].data, (bytes32, uint256, address));
+                assertEq(shareAmount, expectedShareAmount, "MessageSent shareAmount mismatch");
+                assertEq(to, expectedTo, "MessageSent destinationChainReceiver mismatch");
+                matched++;
+            }
+        }
+        assertEq(matched, 1, "Teller MessageSent event not emitted exactly once");
+    }
+
     function testBridge_WPAXG_to_OP() public {
         uint256 shareAmount = 1e18;
 
-        // Fund this contract with WPAXG and approve AllowanceHolder so BridgeSettler can pull them in
         deal(address(WPAXG), address(this), shareAmount, true);
         WPAXG.safeApprove(address(ALLOWANCE_HOLDER), shareAmount);
 
@@ -72,6 +109,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
         uint256 supplyBefore = WPAXG.totalSupply();
 
         vm.expectCall(TELLER, fee, abi.encodeCall(INucleusTeller.bridge, (shareAmount, data)));
+        vm.recordLogs();
         ALLOWANCE_HOLDER.exec{value: fee}(
             address(bridgeSettler),
             address(WPAXG),
@@ -80,6 +118,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
             abi.encodeCall(bridgeSettler.execute, (actions, bytes32(0)))
         );
 
+        _assertMessageSent(shareAmount, recipient);
         assertEq(WPAXG.balanceOf(address(bridgeSettler)), 0, "BridgeSettler should hold no WPAXG after bridge");
         assertEq(WPAXG.totalSupply(), supplyBefore - shareAmount, "Shares should have been burned");
         assertEq(address(bridgeSettler).balance, 0, "BridgeSettler should have forwarded the full fee");
@@ -104,6 +143,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
         deal(address(this), fee + excess);
         uint256 supplyBefore = WPAXG.totalSupply();
 
+        vm.recordLogs();
         ALLOWANCE_HOLDER.exec{value: fee + excess}(
             address(bridgeSettler),
             address(WPAXG),
@@ -112,6 +152,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
             abi.encodeCall(bridgeSettler.execute, (actions, bytes32(0)))
         );
 
+        _assertMessageSent(shareAmount, recipient);
         assertEq(WPAXG.totalSupply(), supplyBefore - shareAmount, "Bridge should have completed");
         // LayerZero refunds excess to the Teller's `payable(msg.sender)` — i.e. BridgeSettler.
         assertEq(address(bridgeSettler).balance, excess, "Excess should be refunded back to BridgeSettler");
@@ -120,16 +161,11 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
     function testDepositAndBridge_PAXG_to_OP() public {
         uint256 depositAmount = 1e18;
 
-        // Fund this contract with PAXG and approve AllowanceHolder
         deal(address(PAXG), address(this), depositAmount, true);
         PAXG.safeApprove(address(ALLOWANCE_HOLDER), depositAmount);
 
         INucleusTeller.BridgeData memory data = _bridgeData();
-        // previewFee takes shares, not deposit amount. We compute expected shares from the
-        // BoringVault accountant rate, mirroring `_erc20Deposit`. For the test purpose, we
-        // simply use the deposit amount as a fee preview proxy — actual conversion is done by
-        // the Teller via the accountant.
-        uint256 expectedShares = depositAmount; // 1:1 placeholder for fee preview
+        uint256 expectedShares = _quoteShares(PAXG, depositAmount);
         uint256 fee = INucleusTeller(TELLER).previewFee(expectedShares, data);
 
         // depositAmount field is overridden by the action; encode 0 placeholder
@@ -144,6 +180,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
         deal(address(this), fee);
 
         vm.expectCall(TELLER, fee, abi.encodeCall(INucleusTeller.depositAndBridge, (PAXG, depositAmount, 0, data)));
+        vm.recordLogs();
         ALLOWANCE_HOLDER.exec{value: fee}(
             address(bridgeSettler),
             address(PAXG),
@@ -152,6 +189,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
             abi.encodeCall(bridgeSettler.execute, (actions, bytes32(0)))
         );
 
+        _assertMessageSent(expectedShares, recipient);
         assertEq(PAXG.balanceOf(address(bridgeSettler)), 0, "BridgeSettler should hold no PAXG after");
         assertEq(WPAXG.balanceOf(address(bridgeSettler)), 0, "BridgeSettler should hold no WPAXG after bridge");
         assertEq(address(bridgeSettler).balance, 0, "BridgeSettler should have forwarded the full fee");
