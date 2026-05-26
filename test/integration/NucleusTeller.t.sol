@@ -85,6 +85,38 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
         assertEq(address(bridgeSettler).balance, 0, "BridgeSettler should have forwarded the full fee");
     }
 
+    function testBridge_WPAXG_to_OP_refundsExcessFee() public {
+        uint256 shareAmount = 1e18;
+
+        deal(address(WPAXG), address(this), shareAmount, true);
+        WPAXG.safeApprove(address(ALLOWANCE_HOLDER), shareAmount);
+
+        INucleusTeller.BridgeData memory data = _bridgeData();
+        uint256 fee = INucleusTeller(TELLER).previewFee(shareAmount, data);
+        uint256 excess = 0.1 ether;
+
+        bytes memory bridgeCallData = abi.encodeCall(INucleusTeller.bridge, (0, data)).popSelector();
+        bytes[] memory actions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(WPAXG), shareAmount),
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_NUCLEUS_TELLER, (bridgeCallData))
+        );
+
+        deal(address(this), fee + excess);
+        uint256 supplyBefore = WPAXG.totalSupply();
+
+        ALLOWANCE_HOLDER.exec{value: fee + excess}(
+            address(bridgeSettler),
+            address(WPAXG),
+            shareAmount,
+            payable(address(bridgeSettler)),
+            abi.encodeCall(bridgeSettler.execute, (actions, bytes32(0)))
+        );
+
+        assertEq(WPAXG.totalSupply(), supplyBefore - shareAmount, "Bridge should have completed");
+        // LayerZero refunds excess to the Teller's `payable(msg.sender)` — i.e. BridgeSettler.
+        assertEq(address(bridgeSettler).balance, excess, "Excess should be refunded back to BridgeSettler");
+    }
+
     function testDepositAndBridge_PAXG_to_OP() public {
         uint256 depositAmount = 1e18;
 

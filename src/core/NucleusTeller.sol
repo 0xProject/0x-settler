@@ -26,8 +26,9 @@ interface INucleusTeller {
 
 /// @title NucleusTeller
 /// @notice BridgeSettler integration for the Paxos Nucleus WPAXG `CrossChainTellerBase`.
-/// @dev Native bridge fees are paid from the contract's full ETH balance. Per Paxos Nucleus, any
-/// excess is consumed by the underlying messaging protocol (LayerZero) and is not refunded.
+/// @dev Native bridge fees are paid from the contract's full ETH balance. The underlying
+/// LayerZero endpoint refunds any excess back to this contract via the Teller's
+/// `payable(msg.sender)` refund address.
 /// The Teller and WPAXG share token addresses are identical on every chain the deployment
 /// supports (Ethereum and Optimism), so they are hardcoded.
 contract NucleusTeller {
@@ -40,8 +41,6 @@ contract NucleusTeller {
     IERC20 internal constant WPAXG = IERC20(0x5cB5C4d5e8B184A364534bc688DA0553Ccf8F484);
 
     /// @notice Bridge WPAXG shares held by this contract via the Nucleus Teller.
-    /// @dev `bridge` burns shares from `msg.sender` (this contract) via `vault.exit(...)`, so the
-    /// shares must already be sitting here. No approval is required.
     /// @param bridgeCallData Encoded args (no selector) to `INucleusTeller.bridge`:
     ///        `(shareAmount, BridgeData)`. `shareAmount` is overridden with this contract's
     ///        WPAXG balance.
@@ -59,9 +58,6 @@ contract NucleusTeller {
     }
 
     /// @notice Deposit `depositAsset` into the WPAXG BoringVault and bridge the resulting shares.
-    /// @dev `depositAndBridge` pulls `depositAsset` from `msg.sender` (this contract) into the
-    /// BoringVault, mints shares to `msg.sender`, then immediately burns and bridges them. WPAXG
-    /// — the BoringVault, not the Teller — needs the ERC20 approval.
     /// @param depositAndBridgeCallData Encoded args (no selector) to `INucleusTeller.depositAndBridge`:
     ///        `(depositAsset, depositAmount, minimumMint, BridgeData)`. `depositAmount` is
     ///        overridden with this contract's balance of `depositAsset`.
@@ -87,16 +83,16 @@ contract NucleusTeller {
         _callTeller(0xbfe1a0f2, depositAndBridgeCallData);
     }
 
-    /// @dev Calls `NUCLEUS_TELLER` with `selector` prepended to `data`, forwarding the full ETH
-    /// balance as msg.value. Temporarily clobbers and restores the `data` length slot to avoid
-    /// allocating a new memory buffer. Bubbles up any revert data.
+    /// @dev Calls `NUCLEUS_TELLER` with `selector` prepended to `data`, forwarding the full ETH balance.
     function _callTeller(uint256 selector, bytes memory data) private {
         assembly ("memory-safe") {
             let len := mload(data)
             // Temporarily clobber the bytes length slot with the function selector
             mstore(data, selector)
 
-            // The hardcoded `NUCLEUS_TELLER` cannot clash with restricted targets (AllowanceHolder & Permit2)
+            // `NUCLEUS_TELLER` is hardcoded and doesn't clash with restricted targets (AllowanceHolder & Permit2).
+            // `selfbalance()` is safe: the underlying LayerZero endpoint refunds any excess to this
+            // contract via the Teller's `payable(msg.sender)` refund address.
             if iszero(call(gas(), NUCLEUS_TELLER, selfbalance(), add(0x1c, data), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
