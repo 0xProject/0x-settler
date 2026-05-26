@@ -9,7 +9,6 @@ import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {INucleusTeller} from "src/core/NucleusTeller.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
-import {FullMath} from "@uniswapv4/libraries/FullMath.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 
@@ -53,14 +52,6 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
             messageGas: 200_000,
             data: bytes("")
         });
-    }
-
-    /// @dev Mirrors Teller._erc20Deposit:
-    ///   shares = depositAmount.mulDivDown(ONE_SHARE, accountant.getRateInQuoteSafe(depositAsset))
-    function _quoteShares(IERC20 depositAsset, uint256 depositAmount) internal view returns (uint256) {
-        uint256 oneShare = 10 ** uint256(WPAXG.decimals());
-        uint256 rate = INucleusTeller(TELLER).accountant().getRateInQuoteSafe(depositAsset);
-        return FullMath.mulDiv(depositAmount, oneShare, rate);
     }
 
     /// @dev Asserts exactly one `MessageSent(bytes32,uint256,address)` was emitted by the Teller
@@ -157,7 +148,8 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
         PAXG.safeApprove(address(ALLOWANCE_HOLDER), depositAmount);
 
         INucleusTeller.BridgeData memory data = _bridgeData();
-        uint256 expectedShares = _quoteShares(PAXG, depositAmount);
+        // PAXG → WPAXG is a 1:1 wrap, so the resulting share count equals the deposit amount.
+        uint256 expectedShares = depositAmount;
         uint256 fee = INucleusTeller(TELLER).previewFee(expectedShares, data);
 
         // depositAmount field is overridden by the action; encode 0 placeholder

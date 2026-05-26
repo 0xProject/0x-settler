@@ -14,11 +14,9 @@
 
 ### Non-breaking changes
 
-* Add `BRIDGE_TO_NUCLEUS_TELLER` and `DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER`
-  actions for bridging through the Paxos Nucleus WPAXG `CrossChainTellerBase`
-  (LayerZero under the hood). Available on Mainnet (both actions) and
-  Optimism (`BRIDGE_TO_NUCLEUS_TELLER` only; PAXG is Ethereum-only).
-  Teller and BoringVault addresses are hardcoded.
+* Add `BRIDGE_TO_NUCLEUS_TELLER` (Mainnet and Optimism) and
+  `DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER` (Mainnet) actions for bridging WPAXG
+  through Nucleus Teller
 
 ## 2026-04-10
 

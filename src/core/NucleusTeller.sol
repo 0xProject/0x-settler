@@ -4,13 +4,9 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
-/// @dev Mirrors the relevant subset of paxoslabs/nucleus-boring-vault `AccountantWithRateProviders`.
-interface INucleusAccountant {
-    function getRateInQuoteSafe(IERC20 quote) external view returns (uint256);
-}
-
-/// @dev Mirrors the relevant subset of paxoslabs/nucleus-boring-vault `CrossChainTellerBase`.
-/// `BridgeData` follows `src/interfaces/ICrossChainTypes.sol` from that repo.
+/// @dev Mirrors the relevant subset of paxoslabs/nucleus-boring-vault
+/// `MultiChainLayerZeroTellerWithMultiAssetSupport`. `BridgeData` follows
+/// `src/interfaces/ICrossChainTypes.sol` from that repo.
 interface INucleusTeller {
     struct BridgeData {
         uint32 chainSelector;
@@ -27,20 +23,16 @@ interface INucleusTeller {
         payable;
 
     function previewFee(uint256 shareAmount, BridgeData calldata data) external view returns (uint256);
-
-    function accountant() external view returns (INucleusAccountant);
-
-    function vault() external view returns (IERC20);
 }
 
 /// @title NucleusTeller
-/// @notice BridgeSettler integration for the Paxos Nucleus WPAXG `CrossChainTellerBase`.
+/// @notice BridgeSettler integration for the Paxos Nucleus WPAXG Teller.
 /// @dev The Teller and WPAXG share token addresses are identical on every chain the deployment
 /// supports (Ethereum and Optimism), so they are hardcoded.
 contract NucleusTeller {
     using SafeTransferLib for IERC20;
 
-    /// @notice Paxos Nucleus WPAXG `CrossChainTellerBase` (same address on Ethereum and Optimism)
+    /// @notice Paxos Nucleus WPAXG Teller (same address on Ethereum and Optimism)
     address internal constant NUCLEUS_TELLER = 0xeE98730AAAdA5e6e092cA69F1AC1B9B554c059dF;
 
     /// @notice WPAXG share token / Nucleus `BoringVault` (same address on Ethereum and Optimism)
