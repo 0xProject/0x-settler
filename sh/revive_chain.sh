@@ -215,13 +215,20 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
         exit 1
     fi
 
+    # Buffer jq's output and check its exit code before iterating: `jq | while read` via process
+    # substitution would emit valid prefix rows to stdout before failing, leaving sender_gas
+    # partially populated and silently broadcasting an unchecked sender.
+    declare jq_out
+    if ! jq_out="$(jq -r '.transactions[] | [.transaction.from // error, .transaction.gas // error] | @tsv' "$dry_run_json")" ; then
+        echo "Failed to parse dry-run JSON at $dry_run_json" >&2
+        exit 1
+    fi
+
     declare -A sender_gas=()
     while IFS=$'\t' read -r from gas_hex ; do
         sender_gas[$from]=$(( ${sender_gas[$from]:-0} + gas_hex ))
-    done < <(jq -r '.transactions[] | [.transaction.from // error, .transaction.gas // error] | @tsv' "$dry_run_json")
+    done <<<"$jq_out"
 
-    # `jq` failures inside the process substitution don't trip `set -e`; guard against a silently
-    # empty parse (malformed JSON, unexpected schema, etc.) so we never broadcast unchecked.
     if (( ${#sender_gas[@]} == 0 )) ; then
         echo "No transactions parsed from dry-run JSON; cannot verify balances" >&2
         exit 1
@@ -229,7 +236,9 @@ if [[ ${BROADCAST-no} = [Yy]es ]] ; then
 
     declare sender required actual
     for sender in "${!sender_gas[@]}" ; do
-        required="$(bc <<<"$gas_price * ${sender_gas[$sender]} * $gas_estimate_multiplier / 100")"
+        # `sender_gas` already includes `gas_estimate_multiplier` (forge applies it during
+        # simulation before serializing tx.gas), so don't multiply again.
+        required="$(bc <<<"$gas_price * ${sender_gas[$sender]}")"
         actual="$(cast balance --rpc-url "$rpc_url" "$sender")"
         if (( $(bc <<<"$actual < $required") )) ; then
             echo "Insufficient ETH at $sender ($actual wei, need >= $required wei for ${sender_gas[$sender]} gas)" >&2
