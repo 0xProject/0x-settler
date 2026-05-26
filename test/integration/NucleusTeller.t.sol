@@ -32,8 +32,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
     receive() external payable {}
 
     function _testBlockNumber() internal pure override returns (uint256) {
-        // Recent mainnet block where the WPAXG Teller and BoringVault are deployed.
-        return 24700000;
+        return 25180132;
     }
 
     function setUp() public override {
