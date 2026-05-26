@@ -48,12 +48,12 @@ interface IBridgeSettlerActions {
     /// @dev Bridge ERC20 through Chainlink CCIP, paying fees in native token
     function BRIDGE_TO_CCIP(address router, bytes calldata ccipSendData) external;
 
-    /// @dev Bridge BoringVault shares through a Paxos Nucleus `CrossChainTellerBase`, paying fees in native token.
-    /// Pre-req: BridgeSettler holds shares of the BoringVault associated with `teller`.
-    function BRIDGE_TO_NUCLEUS_TELLER(address teller, bytes calldata bridgeCallData) external;
+    /// @dev Bridge BoringVault shares through the Paxos Nucleus WPAXG `CrossChainTellerBase`, paying fees in native token.
+    /// Pre-req: BridgeSettler holds WPAXG shares.
+    function BRIDGE_TO_NUCLEUS_TELLER(bytes calldata bridgeCallData) external;
 
-    /// @dev Deposit an ERC20 into a Paxos Nucleus BoringVault and bridge the resulting shares
+    /// @dev Deposit PAXG into the Paxos Nucleus WPAXG BoringVault and bridge the resulting shares
     /// through its `CrossChainTellerBase` in one call, paying fees in native token.
     /// Pre-req: BridgeSettler holds the deposit asset encoded in `depositAndBridgeCallData`.
-    function DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER(address teller, bytes calldata depositAndBridgeCallData) external;
+    function DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER(bytes calldata depositAndBridgeCallData) external;
 }

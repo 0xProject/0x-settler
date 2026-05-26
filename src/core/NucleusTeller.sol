@@ -15,8 +15,6 @@ interface INucleusTeller {
         bytes data;
     }
 
-    function vault() external view returns (address);
-
     function bridge(uint256 shareAmount, BridgeData calldata data) external payable returns (bytes32);
 
     function depositAndBridge(IERC20 depositAsset, uint256 depositAmount, uint256 minimumMint, BridgeData calldata data)
@@ -27,21 +25,28 @@ interface INucleusTeller {
 }
 
 /// @title NucleusTeller
-/// @notice BridgeSettler integration for Paxos Nucleus `CrossChainTellerBase` contracts (e.g. WPAXG).
+/// @notice BridgeSettler integration for the Paxos Nucleus WPAXG `CrossChainTellerBase`.
 /// @dev Native bridge fees are paid from the contract's full ETH balance. Per Paxos Nucleus, any
 /// excess is consumed by the underlying messaging protocol (LayerZero) and is not refunded.
+/// The Teller and BoringVault addresses are identical on every chain the deployment supports
+/// (Ethereum and Optimism), so they are hardcoded.
 contract NucleusTeller {
     using SafeTransferLib for IERC20;
 
-    /// @notice Bridge BoringVault shares held by this contract via a Nucleus Teller.
+    /// @notice Paxos Nucleus WPAXG `CrossChainTellerBase` (same address on Ethereum and Optimism)
+    address internal constant NUCLEUS_TELLER = 0xeE98730AAAdA5e6e092cA69F1AC1B9B554c059dF;
+
+    /// @notice Paxos Nucleus WPAXG `BoringVault` / share token (same address on Ethereum and Optimism)
+    IERC20 internal constant NUCLEUS_VAULT = IERC20(0x5cB5C4d5e8B184A364534bc688DA0553Ccf8F484);
+
+    /// @notice Bridge BoringVault shares held by this contract via the Nucleus Teller.
     /// @dev `bridge` burns shares from `msg.sender` (this contract) via `vault.exit(...)`, so the
     /// shares must already be sitting here. No approval is required.
-    /// @param teller The `CrossChainTellerBase` to call
     /// @param bridgeCallData Encoded args (no selector) to `INucleusTeller.bridge`:
     ///        `(shareAmount, BridgeData)`. `shareAmount` is overridden with this contract's
     ///        share balance.
-    function bridgeToNucleusTeller(address teller, bytes memory bridgeCallData) internal {
-        uint256 shareAmount = IERC20(_tellerVault(teller)).fastBalanceOf(address(this));
+    function bridgeToNucleusTeller(bytes memory bridgeCallData) internal {
+        uint256 shareAmount = NUCLEUS_VAULT.fastBalanceOf(address(this));
 
         assembly ("memory-safe") {
             // bridgeCallData layout in memory:
@@ -54,9 +59,10 @@ contract NucleusTeller {
             // Temporarily clobber the bytes length slot with the function selector
             mstore(bridgeCallData, 0xa69559d1) // selector for `bridge(uint256,(uint32,address,address,uint64,bytes))`
 
-            // `teller` is user-provided but we're calling a specific function `bridge` which doesn't
-            // clash with restricted targets (AllowanceHolder & Permit2)
-            if iszero(call(gas(), teller, selfbalance(), add(0x1c, bridgeCallData), add(0x04, len), 0x00, 0x00)) {
+            // The hardcoded `NUCLEUS_TELLER` cannot clash with restricted targets (AllowanceHolder & Permit2)
+            if iszero(
+                call(gas(), NUCLEUS_TELLER, selfbalance(), add(0x1c, bridgeCallData), add(0x04, len), 0x00, 0x00)
+            ) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
@@ -70,11 +76,10 @@ contract NucleusTeller {
     /// @dev `depositAndBridge` pulls `depositAsset` from `msg.sender` (this contract) into the
     /// BoringVault, mints shares to `msg.sender`, then immediately burns and bridges them. The
     /// BoringVault — not the Teller — needs the ERC20 approval.
-    /// @param teller The `CrossChainTellerBase` to call
     /// @param depositAndBridgeCallData Encoded args (no selector) to `INucleusTeller.depositAndBridge`:
     ///        `(depositAsset, depositAmount, minimumMint, BridgeData)`. `depositAmount` is
     ///        overridden with this contract's balance of `depositAsset`.
-    function depositAndBridgeToNucleusTeller(address teller, bytes memory depositAndBridgeCallData) internal {
+    function depositAndBridgeToNucleusTeller(bytes memory depositAndBridgeCallData) internal {
         IERC20 depositAsset;
         assembly ("memory-safe") {
             // depositAndBridgeCallData layout in memory:
@@ -87,7 +92,7 @@ contract NucleusTeller {
         }
 
         uint256 depositAmount = depositAsset.fastBalanceOf(address(this));
-        depositAsset.safeApproveIfBelow(_tellerVault(teller), depositAmount);
+        depositAsset.safeApproveIfBelow(address(NUCLEUS_VAULT), depositAmount);
 
         assembly ("memory-safe") {
             mstore(add(0x40, depositAndBridgeCallData), depositAmount)
@@ -96,26 +101,21 @@ contract NucleusTeller {
             mstore(depositAndBridgeCallData, 0xbfe1a0f2) // selector for `depositAndBridge(address,uint256,uint256,(uint32,address,address,uint64,bytes))`
 
             if iszero(
-                call(gas(), teller, selfbalance(), add(0x1c, depositAndBridgeCallData), add(0x04, len), 0x00, 0x00)
+                call(
+                    gas(),
+                    NUCLEUS_TELLER,
+                    selfbalance(),
+                    add(0x1c, depositAndBridgeCallData),
+                    add(0x04, len),
+                    0x00,
+                    0x00
+                )
             ) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
             mstore(depositAndBridgeCallData, len)
-        }
-    }
-
-    function _tellerVault(address teller) private view returns (address vault) {
-        assembly ("memory-safe") {
-            mstore(0x00, 0xfbfa77cf) // selector for `vault()`
-            if iszero(staticcall(gas(), teller, 0x1c, 0x04, 0x00, 0x20)) {
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            if gt(0x20, returndatasize()) { revert(0x00, 0x00) }
-            vault := mload(0x00)
         }
     }
 }

@@ -38,11 +38,11 @@ contract MainnetBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBri
             (uint256 globalFee, bytes memory createOrderData) = abi.decode(data, (uint256, bytes));
             bridgeToDeBridge(globalFee, createOrderData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_NUCLEUS_TELLER.selector)) {
-            (address teller, bytes memory bridgeCallData) = abi.decode(data, (address, bytes));
-            bridgeToNucleusTeller(teller, bridgeCallData);
+            bytes memory bridgeCallData = abi.decode(data, (bytes));
+            bridgeToNucleusTeller(bridgeCallData);
         } else if (action == uint32(IBridgeSettlerActions.DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER.selector)) {
-            (address teller, bytes memory depositAndBridgeCallData) = abi.decode(data, (address, bytes));
-            depositAndBridgeToNucleusTeller(teller, depositAndBridgeCallData);
+            bytes memory depositAndBridgeCallData = abi.decode(data, (bytes));
+            depositAndBridgeToNucleusTeller(depositAndBridgeCallData);
         } else {
             return false;
         }

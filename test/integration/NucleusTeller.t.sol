@@ -15,7 +15,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
     using SafeTransferLib for IERC20;
     using LibBytes for bytes;
 
-    // WPAXG Teller (Paxos Nucleus CrossChainTellerBase) and BoringVault (= WPAXG share token) on Ethereum mainnet
+    // Hardcoded in NucleusTeller.sol — same address on every supported chain
     address constant TELLER = 0xeE98730AAAdA5e6e092cA69F1AC1B9B554c059dF;
     IERC20 constant WPAXG = IERC20(0x5cB5C4d5e8B184A364534bc688DA0553Ccf8F484);
     IERC20 constant PAXG = IERC20(0x45804880De22913dAFE09f4980848ECE6EcbAf78);
@@ -65,7 +65,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultTransferFrom(address(WPAXG), shareAmount),
-            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_NUCLEUS_TELLER, (TELLER, bridgeCallData))
+            abi.encodeCall(IBridgeSettlerActions.BRIDGE_TO_NUCLEUS_TELLER, (bridgeCallData))
         );
 
         deal(address(this), fee);
@@ -106,9 +106,7 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
 
         bytes[] memory actions = ActionDataBuilder.build(
             _getDefaultTransferFrom(address(PAXG), depositAmount),
-            abi.encodeCall(
-                IBridgeSettlerActions.DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER, (TELLER, depositAndBridgeCallData)
-            )
+            abi.encodeCall(IBridgeSettlerActions.DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER, (depositAndBridgeCallData))
         );
 
         deal(address(this), fee);
