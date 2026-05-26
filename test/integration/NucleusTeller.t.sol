@@ -43,12 +43,15 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
         recipient = makeAddr("recipient");
     }
 
+    // The Teller hardcodes `NATIVE = 0xEeee...EEeE` as the only allowed bridgeFeeToken.
+    IERC20 constant ETH_PLACEHOLDER = IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE);
+
     function _bridgeData() internal view returns (INucleusTeller.BridgeData memory) {
         return INucleusTeller.BridgeData({
             chainSelector: OP_LZ_EID,
             destinationChainReceiver: recipient,
-            bridgeFeeToken: IERC20(address(0)),
-            messageGas: 200_000,
+            bridgeFeeToken: ETH_PLACEHOLDER,
+            messageGas: 100_000,
             data: bytes("")
         });
     }
