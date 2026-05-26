@@ -28,54 +28,40 @@ interface INucleusTeller {
 /// @notice BridgeSettler integration for the Paxos Nucleus WPAXG `CrossChainTellerBase`.
 /// @dev Native bridge fees are paid from the contract's full ETH balance. Per Paxos Nucleus, any
 /// excess is consumed by the underlying messaging protocol (LayerZero) and is not refunded.
-/// The Teller and BoringVault addresses are identical on every chain the deployment supports
-/// (Ethereum and Optimism), so they are hardcoded.
+/// The Teller and WPAXG share token addresses are identical on every chain the deployment
+/// supports (Ethereum and Optimism), so they are hardcoded.
 contract NucleusTeller {
     using SafeTransferLib for IERC20;
 
     /// @notice Paxos Nucleus WPAXG `CrossChainTellerBase` (same address on Ethereum and Optimism)
     address internal constant NUCLEUS_TELLER = 0xeE98730AAAdA5e6e092cA69F1AC1B9B554c059dF;
 
-    /// @notice Paxos Nucleus WPAXG `BoringVault` / share token (same address on Ethereum and Optimism)
-    IERC20 internal constant NUCLEUS_VAULT = IERC20(0x5cB5C4d5e8B184A364534bc688DA0553Ccf8F484);
+    /// @notice WPAXG share token / Nucleus `BoringVault` (same address on Ethereum and Optimism)
+    IERC20 internal constant WPAXG = IERC20(0x5cB5C4d5e8B184A364534bc688DA0553Ccf8F484);
 
-    /// @notice Bridge BoringVault shares held by this contract via the Nucleus Teller.
+    /// @notice Bridge WPAXG shares held by this contract via the Nucleus Teller.
     /// @dev `bridge` burns shares from `msg.sender` (this contract) via `vault.exit(...)`, so the
     /// shares must already be sitting here. No approval is required.
     /// @param bridgeCallData Encoded args (no selector) to `INucleusTeller.bridge`:
     ///        `(shareAmount, BridgeData)`. `shareAmount` is overridden with this contract's
-    ///        share balance.
+    ///        WPAXG balance.
     function bridgeToNucleusTeller(bytes memory bridgeCallData) internal {
-        uint256 shareAmount = NUCLEUS_VAULT.fastBalanceOf(address(this));
-
+        uint256 shareAmount = WPAXG.fastBalanceOf(address(this));
         assembly ("memory-safe") {
             // bridgeCallData layout in memory:
             // +0x00: bytes length
             // +0x20: shareAmount               <- OVERRIDE here
             // +0x40: offset to BridgeData tuple
             mstore(add(0x20, bridgeCallData), shareAmount)
-
-            let len := mload(bridgeCallData)
-            // Temporarily clobber the bytes length slot with the function selector
-            mstore(bridgeCallData, 0xa69559d1) // selector for `bridge(uint256,(uint32,address,address,uint64,bytes))`
-
-            // The hardcoded `NUCLEUS_TELLER` cannot clash with restricted targets (AllowanceHolder & Permit2)
-            if iszero(
-                call(gas(), NUCLEUS_TELLER, selfbalance(), add(0x1c, bridgeCallData), add(0x04, len), 0x00, 0x00)
-            ) {
-                let ptr := mload(0x40)
-                returndatacopy(ptr, 0x00, returndatasize())
-                revert(ptr, returndatasize())
-            }
-            // Restore clobbered length
-            mstore(bridgeCallData, len)
         }
+        // selector for `bridge(uint256,(uint32,address,address,uint64,bytes))`
+        _callTeller(0xa69559d1, bridgeCallData);
     }
 
-    /// @notice Deposit `depositAsset` into the Nucleus BoringVault and bridge the resulting shares.
+    /// @notice Deposit `depositAsset` into the WPAXG BoringVault and bridge the resulting shares.
     /// @dev `depositAndBridge` pulls `depositAsset` from `msg.sender` (this contract) into the
-    /// BoringVault, mints shares to `msg.sender`, then immediately burns and bridges them. The
-    /// BoringVault — not the Teller — needs the ERC20 approval.
+    /// BoringVault, mints shares to `msg.sender`, then immediately burns and bridges them. WPAXG
+    /// — the BoringVault, not the Teller — needs the ERC20 approval.
     /// @param depositAndBridgeCallData Encoded args (no selector) to `INucleusTeller.depositAndBridge`:
     ///        `(depositAsset, depositAmount, minimumMint, BridgeData)`. `depositAmount` is
     ///        overridden with this contract's balance of `depositAsset`.
@@ -92,30 +78,32 @@ contract NucleusTeller {
         }
 
         uint256 depositAmount = depositAsset.fastBalanceOf(address(this));
-        depositAsset.safeApproveIfBelow(address(NUCLEUS_VAULT), depositAmount);
+        depositAsset.safeApproveIfBelow(address(WPAXG), depositAmount);
 
         assembly ("memory-safe") {
             mstore(add(0x40, depositAndBridgeCallData), depositAmount)
+        }
+        // selector for `depositAndBridge(address,uint256,uint256,(uint32,address,address,uint64,bytes))`
+        _callTeller(0xbfe1a0f2, depositAndBridgeCallData);
+    }
 
-            let len := mload(depositAndBridgeCallData)
-            mstore(depositAndBridgeCallData, 0xbfe1a0f2) // selector for `depositAndBridge(address,uint256,uint256,(uint32,address,address,uint64,bytes))`
+    /// @dev Calls `NUCLEUS_TELLER` with `selector` prepended to `data`, forwarding the full ETH
+    /// balance as msg.value. Temporarily clobbers and restores the `data` length slot to avoid
+    /// allocating a new memory buffer. Bubbles up any revert data.
+    function _callTeller(uint256 selector, bytes memory data) private {
+        assembly ("memory-safe") {
+            let len := mload(data)
+            // Temporarily clobber the bytes length slot with the function selector
+            mstore(data, selector)
 
-            if iszero(
-                call(
-                    gas(),
-                    NUCLEUS_TELLER,
-                    selfbalance(),
-                    add(0x1c, depositAndBridgeCallData),
-                    add(0x04, len),
-                    0x00,
-                    0x00
-                )
-            ) {
+            // The hardcoded `NUCLEUS_TELLER` cannot clash with restricted targets (AllowanceHolder & Permit2)
+            if iszero(call(gas(), NUCLEUS_TELLER, selfbalance(), add(0x1c, data), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
-            mstore(depositAndBridgeCallData, len)
+            // Restore clobbered length
+            mstore(data, len)
         }
     }
 }
