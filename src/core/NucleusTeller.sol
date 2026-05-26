@@ -66,9 +66,9 @@ contract NucleusTeller {
         assembly ("memory-safe") {
             // depositAndBridgeCallData layout in memory:
             // +0x00: bytes length
-            // +0x20: depositAsset
-            // +0x40: depositAmount             <- override below
-            // +0x60: minimumMint               <- override below (scaled)
+            // +0x20: depositAsset              <- read
+            // +0x40: depositAmount             <- override
+            // +0x60: minimumMint               <- override
             // +0x80: offset to BridgeData tuple
             depositAsset := mload(add(0x20, depositAndBridgeCallData))
             encodedDepositAmount := mload(add(0x40, depositAndBridgeCallData))
@@ -78,8 +78,7 @@ contract NucleusTeller {
         uint256 depositAmount = depositAsset.fastBalanceOf(address(this));
         depositAsset.safeApproveIfBelow(address(WPAXG), depositAmount);
 
-        // Scale `minimumMint` proportionally to the actual deposit amount via 512-bit intermediate
-        // to avoid overflow. Rounds down (favors the caller); reverts on encoded amount of zero.
+        // Scale `minimumMint` proportionally to the actual deposit amount.
         uint256 minimumMint = tmp().omul(encodedMinimumMint, depositAmount).div(encodedDepositAmount);
 
         assembly ("memory-safe") {
