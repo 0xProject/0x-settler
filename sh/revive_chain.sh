@@ -171,56 +171,67 @@ declare -i gas_estimate_multiplier
 gas_estimate_multiplier="$(get_config gasMultiplierPercent)"
 declare -r -i gas_estimate_multiplier
 
-declare -a maybe_broadcast=()
-if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    maybe_broadcast+=(--broadcast)
-fi
-declare -r -a maybe_broadcast
-
-if [[ ${BROADCAST-no} = [Yy]es ]] ; then
-    declare min_balance module_deployer_balance proxy_deployer_balance
-    # 25M ~ sum of per-tx gas from a Katana dry-run (~24M measured, padded for per-chain solver-count variance).
-    min_balance="$(bc <<<"$gas_price * 25000000 * $gas_estimate_multiplier / 100")"
-    module_deployer_balance="$(cast balance --rpc-url "$rpc_url" "$module_deployer")"
-    proxy_deployer_balance="$(cast balance --rpc-url "$rpc_url" "$proxy_deployer")"
-    if (( $(bc <<<"$module_deployer_balance < $min_balance") )) ; then
-        echo "Insufficient ETH at $module_deployer ($module_deployer_balance wei, need >= $min_balance wei)." >&2
-        exit 1
-    fi
-    if (( $(bc <<<"$proxy_deployer_balance < $min_balance") )) ; then
-        echo "Insufficient ETH at $proxy_deployer ($proxy_deployer_balance wei, need >= $min_balance wei)." >&2
-        exit 1
-    fi
-fi
-
 export FOUNDRY_OPTIMIZER_RUNS=1000000
 
-ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" \
-    forge script                                         \
-    --slow                                               \
-    --no-storage-caching                                 \
-    --skip 'Flat.sol'                                    \
-    --skip 'CrossChainReceiverFactory.sol'               \
-    --skip 'src/allowanceholder/*.sol'                   \
-    --skip 'src/chains/*.sol'                            \
-    --skip 'src/core/*.sol'                              \
-    --skip 'src/multicall/*.sol'                         \
-    --skip 'src/utils/*.sol'                             \
-    --gas-estimate-multiplier $gas_estimate_multiplier   \
-    --with-gas-price $gas_price                          \
-    --chain $chainid                                     \
-    --rpc-url "$rpc_url"                                 \
-    -vvvvv                                               \
-    "${maybe_broadcast[@]}"                              \
-    --sig 'run(address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,string,bytes,address[])' \
-    $(get_config extraFlags)                             \
-    $(get_config extraScriptFlags)                       \
-    script/RedeploySettlers.s.sol:RedeploySettlers       \
-    "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_multicall" \
-    2 3 4 5 \
-    "$chain_display_name" "$constructor_args" "$(IFS=, ; echo "[${solvers[*]}]")"
+function _run_redeploy_script {
+    ICECOLDCOFFEE_DEPLOYER_KEY="$(get_secret iceColdCoffee key)" DEPLOYER_PROXY_DEPLOYER_KEY="$(get_secret deployer key)" \
+        forge script                                         \
+        --slow                                               \
+        --no-storage-caching                                 \
+        --skip 'Flat.sol'                                    \
+        --skip 'CrossChainReceiverFactory.sol'               \
+        --skip 'src/allowanceholder/*.sol'                   \
+        --skip 'src/chains/*.sol'                            \
+        --skip 'src/core/*.sol'                              \
+        --skip 'src/multicall/*.sol'                         \
+        --skip 'src/utils/*.sol'                             \
+        --gas-estimate-multiplier $gas_estimate_multiplier   \
+        --with-gas-price $gas_price                          \
+        --chain $chainid                                     \
+        --rpc-url "$rpc_url"                                 \
+        -vvvvv                                               \
+        "$@"                                                 \
+        --sig 'run(address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,string,bytes,address[])' \
+        $(get_config extraFlags)                             \
+        $(get_config extraScriptFlags)                       \
+        script/RedeploySettlers.s.sol:RedeploySettlers       \
+        "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_multicall" \
+        2 3 4 5 \
+        "$chain_display_name" "$constructor_args" "$(IFS=, ; echo "[${solvers[*]}]")"
+}
+
+# Always run a dry-run simulation first: populates broadcast/.../dry-run/run-latest.json
+# with per-tx gas the node would charge under whatever rules are currently active.
+_run_redeploy_script
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
+    # Check each deployer's balance against its own subtotal of tx gas (sender-grouped from
+    # the dry-run). Auto-tracks active gas pricing including EIP-8037-style changes.
+    declare dry_run_json
+    dry_run_json="$project_root/broadcast/RedeploySettlers.s.sol/$chainid/dry-run/run-latest.json"
+    declare -r dry_run_json
+    if [ ! -f "$dry_run_json" ] ; then
+        echo "Dry-run JSON not found at $dry_run_json" >&2
+        exit 1
+    fi
+
+    declare -A sender_gas=()
+    while IFS=$'\t' read -r from gas_hex ; do
+        sender_gas[$from]=$(( ${sender_gas[$from]:-0} + gas_hex ))
+    done < <(jq -r '.transactions[] | [.transaction.from, .transaction.gas] | @tsv' "$dry_run_json")
+
+    declare sender required actual
+    for sender in "${!sender_gas[@]}" ; do
+        required="$(bc <<<"$gas_price * ${sender_gas[$sender]} * $gas_estimate_multiplier / 100")"
+        actual="$(cast balance --rpc-url "$rpc_url" "$sender")"
+        if (( $(bc <<<"$actual < $required") )) ; then
+            echo "Insufficient ETH at $sender ($actual wei, need >= $required wei for ${sender_gas[$sender]} gas)" >&2
+            exit 1
+        fi
+    done
+
+    _run_redeploy_script --broadcast
+
     echo 'Settlers redeployed and Safes returned to canonical multisig ownership.' >&2
     echo 'Run `sh/verify_settler.sh '"$chain_name"'` to verify on Etherscan.' >&2
 fi
