@@ -42,7 +42,6 @@ contract DeploySafes is SafeMultisend {
     bytes32 internal constant factoryHashEraVm = 0x55daa5d390d283edbc5fa835bd53befce45179c758feaac8c149a95850d0a6b6;
     bytes32 internal constant fallbackHash = 0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf;
     bytes32 internal constant fallbackHashEraVm = 0x017e9a83d5513f503fb85274f4d1ad1811040d7caa31772750ffb08638c28fbb;
-    bytes32 internal constant multicallHashEraVm = 0x064ddbf252714bcd4cb79f679e8c12df96d998ce07bbb13b3118c1dbf4a31942;
     uint256 internal constant safeDeploymentSaltNonce = 0;
 
     // This is derived from calling `proxyCreationCode()` on the factory and then decoding the EraVm-style encoded
@@ -298,10 +297,7 @@ contract DeploySafes is SafeMultisend {
             safeFallback.codehash == (safeCompatConfig.isEraVm ? fallbackHashEraVm : fallbackHash),
             "Safe fallback codehash"
         );
-        require(
-            safeMulticall.codehash == (safeCompatConfig.isEraVm ? multicallHashEraVm : multicallHash),
-            "Safe multicall codehash"
-        );
+        _assertMulticallCodehash(safeMulticall);
 
         require(Feature.unwrap(takerSubmittedFeature) == 2, "wrong taker-submitted feature (tokenId)");
         require(Feature.unwrap(metaTxFeature) == 3, "wrong metatransaction feature (tokenId)");

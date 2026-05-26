@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {Script} from "@forge-std/Script.sol";
+import {SafeConfig} from "./SafeConfig.sol";
 
 interface ISafeExecute {
     enum Operation {
@@ -34,6 +35,20 @@ interface ISafeOwners {
 
 abstract contract SafeMultisend is Script {
     bytes32 internal constant multicallHash = 0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad;
+    bytes32 internal constant multicallHashEraVm = 0x064ddbf252714bcd4cb79f679e8c12df96d998ce07bbb13b3118c1dbf4a31942;
+
+    function _assertMulticallCodehash(address safeMulticall) internal view {
+        require(
+            safeMulticall.codehash == (SafeConfig.isEraVm() ? multicallHashEraVm : multicallHash),
+            "Safe multicall codehash"
+        );
+    }
+
+    function _wrapSingleMultisend(bytes memory call) internal view returns (bytes memory) {
+        bytes[] memory calls = new bytes[](1);
+        calls[0] = call;
+        return _encodeMultisend(calls);
+    }
 
     function _encodeMultisend(bytes[] memory calls) internal view returns (bytes memory result) {
         // The Gnosis multicall contract uses a very obnoxious packed encoding
