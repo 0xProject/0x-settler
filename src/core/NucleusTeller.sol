@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
+import {tmp} from "../utils/512Math.sol";
 
 /// @dev Mirrors the relevant subset of the deployed Nucleus WPAXG Teller
 /// (0xeE98730AAAdA5e6e092cA69F1AC1B9B554c059dF), sourced from paxoslabs/nucleus-boring-vault at
@@ -77,9 +78,9 @@ contract NucleusTeller {
         uint256 depositAmount = depositAsset.fastBalanceOf(address(this));
         depositAsset.safeApproveIfBelow(address(WPAXG), depositAmount);
 
-        // Scale `minimumMint` proportionally to the actual deposit amount. Rounding down favors
-        // the caller (smaller slippage threshold). Reverts on encoded amount of zero.
-        uint256 minimumMint = encodedMinimumMint * depositAmount / encodedDepositAmount;
+        // Scale `minimumMint` proportionally to the actual deposit amount via 512-bit intermediate
+        // to avoid overflow. Rounds down (favors the caller); reverts on encoded amount of zero.
+        uint256 minimumMint = tmp().omul(encodedMinimumMint, depositAmount).div(encodedDepositAmount);
 
         assembly ("memory-safe") {
             mstore(add(0x40, depositAndBridgeCallData), depositAmount)
