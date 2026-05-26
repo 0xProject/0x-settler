@@ -26,9 +26,7 @@ interface INucleusTeller {
 }
 
 /// @title NucleusTeller
-/// @notice BridgeSettler integration for the Paxos Nucleus WPAXG Teller.
-/// @dev The Teller and WPAXG share token addresses are identical on every chain the deployment
-/// supports (Ethereum and Optimism), so they are hardcoded.
+/// @notice BridgeSettler integration for Nucleus Teller WPAXG.
 contract NucleusTeller {
     using SafeTransferLib for IERC20;
 
