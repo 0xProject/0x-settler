@@ -2,7 +2,16 @@
 pragma solidity ^0.8.25;
 
 import {Script} from "@forge-std/Script.sol";
+import {Vm, VmSafe} from "@forge-std/Vm.sol";
 import {SafeConfig} from "./SafeConfig.sol";
+import {SafeBytecodes} from "./SafeCode.sol";
+
+interface ISafeFactory {
+    function createProxyWithNonce(address singleton, bytes calldata initializer, uint256 saltNonce)
+        external
+        returns (address);
+    function proxyCreationCode() external view returns (bytes memory);
+}
 
 interface ISafeExecute {
     enum Operation {
@@ -133,6 +142,90 @@ abstract contract SafeMultisend is Script {
     function _assertEip7825(uint256[] memory gasSplits) internal pure {
         for (uint256 i = 1; i < gasSplits.length; i++) {
             require(gasSplits[i] + 15728639 > gasSplits[i - 1], "transaction is likely to exceed EIP-7825 limit");
+        }
+    }
+
+    modifier eraVmCompat(
+        bool isEraVm,
+        uint256 privateKey,
+        ISafeExecute safe,
+        ISafeFactory safeFactory,
+        address safeSingleton,
+        address safeFallback,
+        address safeMulticall,
+        SafeBytecodes memory safeBytecodes
+    ) {
+        if (isEraVm) {
+            (VmSafe.CallerMode callerMode, address msgSender, address txOrigin) = vm.readCallers();
+            require(callerMode != VmSafe.CallerMode.Broadcast);
+            if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
+                require(msgSender == txOrigin);
+                require(msgSender == vm.addr(privateKey));
+                vm.stopBroadcast();
+            }
+
+            bytes memory oldFactoryCode = address(safeFactory).code;
+            vm.etch(address(safeFactory), safeBytecodes.factoryCode);
+            bytes memory oldSingletonCode = safeSingleton.code;
+            vm.etch(safeSingleton, safeBytecodes.singletonCode);
+            bytes memory oldFallbackCode = safeFallback.code;
+            vm.etch(safeFallback, safeBytecodes.fallbackCode);
+            bytes memory oldMulticallCode = safeMulticall.code;
+            vm.etch(safeMulticall, safeBytecodes.multicallCode);
+
+            bytes memory oldSafeCode;
+            if (address(safe) != address(0)) {
+                oldSafeCode = address(safe).code;
+                vm.etch(address(safe), safeBytecodes.proxyCode);
+            }
+
+            vm.startPrank(msgSender, txOrigin);
+            vm.startStateDiffRecording();
+            _;
+            uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
+            Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
+            vm.stopPrank();
+            gasUsed = gasUsed * 6 / 5;
+
+            Vm.AccountAccess memory theOneImportantCall;
+            for (uint256 i; i < accesses.length; i++) {
+                theOneImportantCall = accesses[i];
+                if (theOneImportantCall.kind == VmSafe.AccountAccessKind.Call) {
+                    require(theOneImportantCall.accessor == msgSender, "unexpected top-level call");
+                    for (uint256 j = i + 1; j < accesses.length; j++) {
+                        Vm.AccountAccess memory jAA = accesses[j];
+                        if (jAA.kind == VmSafe.AccountAccessKind.Call) {
+                            require(jAA.accessor != msgSender || jAA.account == address(vm), "duplicate top-level call");
+                        }
+                    }
+                    break;
+                }
+            }
+
+            vm.etch(address(safeFactory), oldFactoryCode);
+            vm.etch(safeSingleton, oldSingletonCode);
+            vm.etch(safeFallback, oldFallbackCode);
+            vm.etch(safeMulticall, oldMulticallCode);
+
+            if (address(safe) != address(0)) {
+                vm.etch(address(safe), oldSafeCode);
+            }
+
+            if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
+                vm.startBroadcast(privateKey);
+
+                // repeat the call from the modified function, blindly, while broadcasting
+                {
+                    address target = theOneImportantCall.account;
+                    uint256 value = theOneImportantCall.value;
+                    bytes memory data = theOneImportantCall.data;
+                    assembly ("memory-safe") {
+                        pop(call(gasUsed, target, value, add(0x20, data), mload(data), 0x00, 0x00))
+                    }
+                }
+            }
+        } else {
+            _;
         }
     }
 }
