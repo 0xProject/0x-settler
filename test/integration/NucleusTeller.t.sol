@@ -9,17 +9,9 @@ import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {INucleusTeller} from "src/core/NucleusTeller.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
+import {FullMath} from "@uniswapv4/libraries/FullMath.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
-
-interface INucleusAccountant {
-    function getRateInQuoteSafe(IERC20 quote) external view returns (uint256);
-}
-
-interface INucleusTellerExt {
-    function accountant() external view returns (INucleusAccountant);
-    function vault() external view returns (IERC20);
-}
 
 contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
     using SafeTransferLib for IERC20;
@@ -67,8 +59,8 @@ contract NucleusTellerMainnetTest is BridgeSettlerIntegrationTest {
     ///   shares = depositAmount.mulDivDown(ONE_SHARE, accountant.getRateInQuoteSafe(depositAsset))
     function _quoteShares(IERC20 depositAsset, uint256 depositAmount) internal view returns (uint256) {
         uint256 oneShare = 10 ** uint256(WPAXG.decimals());
-        uint256 rate = INucleusTellerExt(TELLER).accountant().getRateInQuoteSafe(depositAsset);
-        return (depositAmount * oneShare) / rate;
+        uint256 rate = INucleusTeller(TELLER).accountant().getRateInQuoteSafe(depositAsset);
+        return FullMath.mulDiv(depositAmount, oneShare, rate);
     }
 
     /// @dev Asserts exactly one `MessageSent(bytes32,uint256,address)` was emitted by the Teller

@@ -4,6 +4,11 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
+/// @dev Mirrors the relevant subset of paxoslabs/nucleus-boring-vault `AccountantWithRateProviders`.
+interface INucleusAccountant {
+    function getRateInQuoteSafe(IERC20 quote) external view returns (uint256);
+}
+
 /// @dev Mirrors the relevant subset of paxoslabs/nucleus-boring-vault `CrossChainTellerBase`.
 /// `BridgeData` follows `src/interfaces/ICrossChainTypes.sol` from that repo.
 interface INucleusTeller {
@@ -22,6 +27,10 @@ interface INucleusTeller {
         payable;
 
     function previewFee(uint256 shareAmount, BridgeData calldata data) external view returns (uint256);
+
+    function accountant() external view returns (INucleusAccountant);
+
+    function vault() external view returns (IERC20);
 }
 
 /// @title NucleusTeller
