@@ -35,10 +35,7 @@ interface INucleusTeller {
 
 /// @title NucleusTeller
 /// @notice BridgeSettler integration for the Paxos Nucleus WPAXG `CrossChainTellerBase`.
-/// @dev Native bridge fees are paid from the contract's full ETH balance. The underlying
-/// LayerZero endpoint refunds any excess back to this contract via the Teller's
-/// `payable(msg.sender)` refund address.
-/// The Teller and WPAXG share token addresses are identical on every chain the deployment
+/// @dev The Teller and WPAXG share token addresses are identical on every chain the deployment
 /// supports (Ethereum and Optimism), so they are hardcoded.
 contract NucleusTeller {
     using SafeTransferLib for IERC20;
@@ -50,15 +47,13 @@ contract NucleusTeller {
     IERC20 internal constant WPAXG = IERC20(0x5cB5C4d5e8B184A364534bc688DA0553Ccf8F484);
 
     /// @notice Bridge WPAXG shares held by this contract via the Nucleus Teller.
-    /// @param bridgeCallData Encoded args (no selector) to `INucleusTeller.bridge`:
-    ///        `(shareAmount, BridgeData)`. `shareAmount` is overridden with this contract's
-    ///        WPAXG balance.
+    /// @param bridgeCallData Encoded args (no selector) to `INucleusTeller.bridge`.
     function bridgeToNucleusTeller(bytes memory bridgeCallData) internal {
         uint256 shareAmount = WPAXG.fastBalanceOf(address(this));
         assembly ("memory-safe") {
             // bridgeCallData layout in memory:
             // +0x00: bytes length
-            // +0x20: shareAmount               <- OVERRIDE here
+            // +0x20: shareAmount               <- override
             // +0x40: offset to BridgeData tuple
             mstore(add(0x20, bridgeCallData), shareAmount)
         }
@@ -67,16 +62,14 @@ contract NucleusTeller {
     }
 
     /// @notice Deposit `depositAsset` into the WPAXG BoringVault and bridge the resulting shares.
-    /// @param depositAndBridgeCallData Encoded args (no selector) to `INucleusTeller.depositAndBridge`:
-    ///        `(depositAsset, depositAmount, minimumMint, BridgeData)`. `depositAmount` is
-    ///        overridden with this contract's balance of `depositAsset`.
+    /// @param depositAndBridgeCallData Encoded args (no selector) to `INucleusTeller.depositAndBridge`.
     function depositAndBridgeToNucleusTeller(bytes memory depositAndBridgeCallData) internal {
         IERC20 depositAsset;
         assembly ("memory-safe") {
             // depositAndBridgeCallData layout in memory:
             // +0x00: bytes length
             // +0x20: depositAsset              <- read
-            // +0x40: depositAmount             <- OVERRIDE below
+            // +0x40: depositAmount             <- override
             // +0x60: minimumMint
             // +0x80: offset to BridgeData tuple
             depositAsset := mload(add(0x20, depositAndBridgeCallData))
@@ -100,8 +93,7 @@ contract NucleusTeller {
             mstore(data, selector)
 
             // `NUCLEUS_TELLER` is hardcoded and doesn't clash with restricted targets (AllowanceHolder & Permit2).
-            // `selfbalance()` is safe: the underlying LayerZero endpoint refunds any excess to this
-            // contract via the Teller's `payable(msg.sender)` refund address.
+            // `selfbalance()` is safe: the underlying LayerZero endpoint refunds any excess to this contract.
             if iszero(call(gas(), NUCLEUS_TELLER, selfbalance(), add(0x1c, data), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
