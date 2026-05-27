@@ -793,13 +793,13 @@
       "apiUrl": "NOT SUPPORTED"
     },
     "governance": {
-      "upgradeSafe": null,
-      "deploymentSafe": null,
-      "pause": null,
-      "daoSafe": null
+      "upgradeSafe": "0xf36b9f50E59870A24F42F9Ba43b2aD0A4b8f2F51",
+      "deploymentSafe": "0x8E5DE7118a596E99B0563D3022039c11927f4827",
+      "pause": "0x1CeC01DC0fFEE5eB5aF47DbEc1809F2A7c601C30",
+      "daoSafe": "0x97A8620F5c88Cb4A1d9C2E18b0d3CA1eEF59d471"
     },
     "deployment": {
-      "deployer": null,
+      "deployer": "0x00000000000004533Fe15556B1E086BB1A72cEae",
       "allowanceHolder": "0x0000000000001fF3684f28c67538d4D072C22734",
       "forwardingMultiCall": "0x00000000000000CF9E3c5A26621af382fA17f24f",
       "crossChainFactory": "0x00000000000000304861c3aDfb80dd5ebeC96325"
