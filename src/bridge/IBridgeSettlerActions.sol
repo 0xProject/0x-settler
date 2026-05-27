@@ -47,4 +47,11 @@ interface IBridgeSettlerActions {
 
     /// @dev Bridge ERC20 through Chainlink CCIP, paying fees in native token
     function BRIDGE_TO_CCIP(address router, bytes calldata ccipSendData) external;
+
+    /// @dev Bridge WPAXG through Nucleus Teller, paying fees in native token.
+    function BRIDGE_TO_NUCLEUS_TELLER(bytes calldata bridgeCallData) external;
+
+    /// @dev Wraps PAXG into WPAXG and bridges the resulting shares through Nucleus Teller,
+    /// paying fees in native token.
+    function DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER(bytes calldata depositAndBridgeCallData) external;
 }

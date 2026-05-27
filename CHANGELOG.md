@@ -14,6 +14,10 @@
 
 ### Non-breaking changes
 
+* Add `BRIDGE_TO_NUCLEUS_TELLER` (Mainnet and Optimism) and
+  `DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER` (Mainnet) actions for bridging WPAXG
+  through Nucleus Teller
+
 ## 2026-04-10
 
 ### Breaking changes
