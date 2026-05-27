@@ -53,9 +53,6 @@ contract NucleusTeller {
     }
 
     /// @notice Deposit `depositAsset` into the WPAXG BoringVault and bridge the resulting shares.
-    /// @dev `depositAmount` is overridden with this contract's runtime balance of `depositAsset`;
-    /// `minimumMint` is passed through as a strict slippage check. Dirty upper bits in the encoded
-    /// `depositAsset` aren't masked here; the Teller's ABI decoder will reject them down the line.
     /// @param depositAndBridgeCallData Encoded args (no selector) to `INucleusTeller.depositAndBridge`.
     function depositAndBridgeToNucleusTeller(bytes memory depositAndBridgeCallData) internal {
         IERC20 depositAsset;
@@ -66,6 +63,8 @@ contract NucleusTeller {
             // +0x40: depositAmount             <- override
             // +0x60: minimumMint
             // +0x80: offset to BridgeData tuple
+            // Dirty upper bits in `depositAsset` aren't masked; the Teller's ABI decoder will
+            // reject them down the line.
             depositAsset := mload(add(0x20, depositAndBridgeCallData))
         }
 
