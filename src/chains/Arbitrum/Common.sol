@@ -12,7 +12,7 @@ import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {FreeMemory} from "../../utils/FreeMemory.sol";
-import {Renegade, ARBITRUM_SELECTOR} from "../../core/Renegade.sol";
+import {Renegade} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
 
 import {ISettlerActions} from "../../ISettlerActions.sol";
@@ -134,10 +134,10 @@ abstract contract ArbitrumMixin is
 
             sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
-            (address target, IERC20 sellToken, bool baseForQuote, bytes memory renegadeData, uint256 minBuyAmount) =
-                abi.decode(data, (address, IERC20, bool, bytes, uint256));
+            (address target, IERC20 sellToken, bytes memory renegadeData, uint256 minBuyAmount) =
+                abi.decode(data, (address, IERC20, bytes, uint256));
 
-            sellToRenegade(target, sellToken, baseForQuote, renegadeData, minBuyAmount);
+            sellToRenegade(target, sellToken, renegadeData, minBuyAmount);
         } else {
             return false;
         }
@@ -191,10 +191,6 @@ abstract contract ArbitrumMixin is
 
     function _POOL_MANAGER() internal pure override returns (IPoolManager) {
         return ARBITRUM_POOL_MANAGER;
-    }
-
-    function _renegadeSelector() internal pure override returns (uint32) {
-        return ARBITRUM_SELECTOR;
     }
 
     // I hate Solidity inheritance
