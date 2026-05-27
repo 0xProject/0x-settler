@@ -22,7 +22,7 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase {
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual
-        override(SettlerSwapAbstract, SettlerBase)
+        override(/* SettlerSwapAbstract, */ SettlerBase)
         DANGEROUS_freeMemory
         returns (bool)
     {
@@ -47,7 +47,7 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase {
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, UniswapV4)
+        override(Permit2PaymentAbstract)
         returns (bool success, bytes memory returndata)
     {
         return super._fallback(data);

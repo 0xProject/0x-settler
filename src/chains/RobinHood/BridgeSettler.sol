@@ -4,7 +4,7 @@ pragma solidity =0.8.34;
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
 import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 
-contract RobinHoodBridgeSettler is BridgeSettler, Across {
+contract RobinHoodBridgeSettler is BridgeSettler {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(true || block.chainid == 31337);
     }
