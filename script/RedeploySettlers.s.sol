@@ -69,8 +69,8 @@ contract RedeploySettlers is SafeMultisend {
         bytes calldata constructorArgs,
         address[] calldata solvers
     ) public {
-        // eraVmCompat wraps the Safe-mutating txs for homogeneity with DeploySafes. A full EraVm revive
-        // is not yet supported: the condition reads of the pre-existing on-chain Deployer aren't simulable.
+        // EraVm: Settler/Deployer are EVM-emulated (EVM-derived addresses, so Create3 prediction and the
+        // Deployer reads work as-is); only the native zkSync Safes are reached through eraVmCompat.
         SafeCompatConfig memory safeCompatConfig = SafeCompatConfig({
             isEraVm: SafeConfig.isEraVm(),
             privateKey: 0,
@@ -106,24 +106,24 @@ contract RedeploySettlers is SafeMultisend {
         require(deployerProxy.code.length > 0, "deployer proxy not deployed");
         require(iceColdCoffee.code.length > 0, "iceColdCoffee module not deployed");
         require(
-            ISafeOwners(deploymentSafe).isModuleEnabled(iceColdCoffee),
+            _isModuleEnabled(safeCompatConfig, ISafeOwners(deploymentSafe), iceColdCoffee),
             "iceColdCoffee module not enabled on deployment safe"
         );
         {
-            address[] memory currentOwners = ISafeOwners(deploymentSafe).getOwners();
+            address[] memory currentOwners = _getOwners(safeCompatConfig, ISafeOwners(deploymentSafe));
             require(
                 currentOwners.length == 1 && currentOwners[0] == moduleDeployer,
                 "deployment safe is not sole-owned by moduleDeployer"
             );
-            require(ISafeOwners(deploymentSafe).getThreshold() == 1, "deployment safe threshold != 1");
+            require(_getThreshold(safeCompatConfig, ISafeOwners(deploymentSafe)) == 1, "deployment safe threshold != 1");
         }
         {
-            address[] memory currentOwners = ISafeOwners(upgradeSafe).getOwners();
+            address[] memory currentOwners = _getOwners(safeCompatConfig, ISafeOwners(upgradeSafe));
             require(
                 currentOwners.length == 1 && currentOwners[0] == proxyDeployer,
                 "upgrade safe is not sole-owned by proxyDeployer"
             );
-            require(ISafeOwners(upgradeSafe).getThreshold() == 1, "upgrade safe threshold != 1");
+            require(_getThreshold(safeCompatConfig, ISafeOwners(upgradeSafe)) == 1, "upgrade safe threshold != 1");
         }
         require(Deployer(deployerProxy).owner() == upgradeSafe, "deployer proxy not owned by upgrade safe");
         require(Deployer(deployerProxy).pendingOwner() == address(0), "deployer proxy has pending owner transfer");
@@ -253,21 +253,21 @@ contract RedeploySettlers is SafeMultisend {
             "predicted bridgesettler address mismatch"
         );
         require(
-            keccak256(abi.encodePacked(ISafeOwners(deploymentSafe).getOwners()))
+            keccak256(abi.encodePacked(_getOwners(safeCompatConfig, ISafeOwners(deploymentSafe))))
                 == keccak256(abi.encodePacked(deployerOwners)),
             "deployment safe owners mismatch"
         );
         require(
-            ISafeOwners(deploymentSafe).getThreshold() == SafeConfig.deploymentSafeThreshold,
+            _getThreshold(safeCompatConfig, ISafeOwners(deploymentSafe)) == SafeConfig.deploymentSafeThreshold,
             "deployment safe threshold mismatch"
         );
         require(
-            keccak256(abi.encodePacked(ISafeOwners(upgradeSafe).getOwners()))
+            keccak256(abi.encodePacked(_getOwners(safeCompatConfig, ISafeOwners(upgradeSafe))))
                 == keccak256(abi.encodePacked(upgradeOwners)),
             "upgrade safe owners mismatch"
         );
         require(
-            ISafeOwners(upgradeSafe).getThreshold() == SafeConfig.upgradeSafeThreshold,
+            _getThreshold(safeCompatConfig, ISafeOwners(upgradeSafe)) == SafeConfig.upgradeSafeThreshold,
             "upgrade safe threshold mismatch"
         );
         {

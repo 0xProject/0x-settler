@@ -310,6 +310,40 @@ abstract contract SafeMultisend is Script {
         return safe.getOwners();
     }
 
+    function _getThreshold(SafeCompatConfig memory compatConfig, ISafeOwners safe)
+        internal
+        eraVmCompat(
+            compatConfig.isEraVm,
+            compatConfig.privateKey,
+            ISafeExecute(address(safe)),
+            compatConfig.safeFactory,
+            compatConfig.safeSingleton,
+            compatConfig.safeFallback,
+            compatConfig.safeMulticall,
+            compatConfig.safeBytecodes
+        )
+        returns (uint256)
+    {
+        return safe.getThreshold();
+    }
+
+    function _isModuleEnabled(SafeCompatConfig memory compatConfig, ISafeOwners safe, address module)
+        internal
+        eraVmCompat(
+            compatConfig.isEraVm,
+            compatConfig.privateKey,
+            ISafeExecute(address(safe)),
+            compatConfig.safeFactory,
+            compatConfig.safeSingleton,
+            compatConfig.safeFallback,
+            compatConfig.safeMulticall,
+            compatConfig.safeBytecodes
+        )
+        returns (bool)
+    {
+        return safe.isModuleEnabled(module);
+    }
+
     function _startBroadcast(SafeCompatConfig memory compatConfig, uint256 privateKey, address sender) internal {
         compatConfig.privateKey = privateKey;
         if (privateKey == 0) {
