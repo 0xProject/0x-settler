@@ -46,7 +46,7 @@ abstract contract EkuboV2Test is SettlerMetaTxnPairTest {
     }
 
     function ekuboV2BlockNumber() internal view virtual returns (uint256) {
-        return 24261657;
+        return 22239136;
     }
 
     modifier setEkuboV2Block() {
