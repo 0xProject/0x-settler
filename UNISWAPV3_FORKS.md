@@ -24,12 +24,6 @@
    <!-- -->
    17. MetavaultV3
    <!-- -->
-   21. SupSwapV3
-   <!-- -->
-   22. Kim (Algebra-like)
-   <!-- -->
-   23. SwapMode
-   <!-- -->
    27. SpookySwap
    <!-- -->
    28. Wagmi

@@ -25,14 +25,12 @@ library SafeConfig {
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
                 || block.chainid == 9745 // plasma
-                || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
                 || block.chainid == 80094 // berachain
                 || block.chainid == 534352 // scroll
-                || block.chainid == 747474 // katana
         ) {
             return false;
         }
@@ -57,14 +55,12 @@ library SafeConfig {
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
                 || block.chainid == 9745 // plasma
-                || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
                 || block.chainid == 80094 // berachain
                 || block.chainid == 534352 // scroll
-                || block.chainid == 747474 // katana
                 || block.chainid == 11155111 // sepolia
         ) {
             return false;
@@ -92,14 +88,12 @@ library SafeConfig {
                 || block.chainid == 5000 // mantle
                 || block.chainid == 8453 // base
                 || block.chainid == 9745 // plasma
-                || block.chainid == 34443 // mode
                 || block.chainid == 42161 // arbitrum
                 || block.chainid == 43114 // avalanche
                 || block.chainid == 57073 // ink
                 || block.chainid == 59144 // linea
                 || block.chainid == 80094 // berachain
                 || block.chainid == 534352 // scroll
-                || block.chainid == 747474 // katana
                 || block.chainid == 11155111 // sepolia
         ) {
             return false;
@@ -135,5 +129,14 @@ library SafeConfig {
         result[4] = 0xEC3E1F7aC9Df42c31570b02068f2e7500915e557; // Andy
         result[5] = 0x36b7E0738fe11f05d26dA55d10eE679e684e06f4; // Lazaro
         return result;
+    }
+
+    uint256 internal constant daoSafeThreshold = 2;
+
+    function getDAOSafeSigners() internal pure returns (address[] memory result) {
+        result = new address[](3);
+        result[0] = 0x3C6A208ae02554e744e0EF8fc6d1cd1afAF03B1C;
+        result[1] = 0x026f80585A532F6bB68A1c1Fda61F5DF71C2b10E;
+        result[2] = 0x0abaA253d9C3D9E94771D3daa662cdA5df69EA53;
     }
 }

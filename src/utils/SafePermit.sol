@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC20PermitCommon, IERC2612, IDAIStylePermit} from "../interfaces/IERC2612.sol";
@@ -182,7 +182,7 @@ library SafePermit {
             mstore(0x40, r) // `r`.
             mstore(0x60, and(0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff, vs)) // `s`.
             let recovered := mload(staticcall(gas(), 0x01, 0x00, 0x80, 0x01, 0x20))
-            if lt(returndatasize(), shl(0x60, xor(owner, recovered))) {
+            if iszero(gt(returndatasize(), shl(0x60, xor(owner, recovered)))) {
                 mstore(0x00, 0x8baa579f) // selector for `InvalidSignature()`
                 revert(0x1c, 0x04)
             }
