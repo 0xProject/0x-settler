@@ -306,7 +306,7 @@ The codebase uses `auto_detect_solc = true` — the compiler version is determin
 | Component | Solc Version | EVM Version | Optimizer Runs |
 |-----------|--------------|-------------|----------------|
 | Core libraries (`src/core/`, `src/*.sol`) | `^0.8.25` (auto-detected) | osaka | 2,000 |
-| Chain contracts (`src/chains/*/`) | `=0.8.33` | osaka | 2,000 |
+| Chain contracts (`src/chains/*/`) | `=0.8.34` | osaka | 2,000 |
 | AllowanceHolder + Deployer | `=0.8.25` (CI-pinned) | osaka | 2,000 |
 | UniswapV4 (`lib/v4-core/`) | 0.8.26 (CI-pinned) | osaka | 2,000 |
 | MultiCall | 0.8.28 | london | 1,000,000 |
@@ -317,10 +317,10 @@ The codebase uses `auto_detect_solc = true` — the compiler version is determin
 
 ```bash
 # Standard build (skips special contracts)
-forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip BlastDeployer.sol --skip ModeDeployer.sol --skip 'test/*' --skip 'script/*'
+forge build --skip MultiCall.sol --skip CrossChainReceiverFactory.sol --skip AllowanceHolder.sol --skip Deployer.sol --skip 'test/*' --skip 'script/*'
 
 # Build AllowanceHolder and Deployer (pinned to 0.8.25)
-FOUNDRY_SOLC_VERSION=0.8.25 forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol src/deployer/BlastDeployer.sol src/deployer/ModeDeployer.sol
+FOUNDRY_SOLC_VERSION=0.8.25 forge build -- src/allowanceholder/AllowanceHolder.sol src/deployer/Deployer.sol
 
 # Build MultiCall (requires london EVM)
 FOUNDRY_EVM_VERSION=london FOUNDRY_OPTIMIZER_RUNS=1000000 FOUNDRY_SOLC_VERSION=0.8.28 \

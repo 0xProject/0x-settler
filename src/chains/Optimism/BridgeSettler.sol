@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity =0.8.25;
+pragma solidity =0.8.34;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IBridgeSettlerActions} from "../../bridge/IBridgeSettlerActions.sol";
@@ -8,8 +8,9 @@ import {Across} from "../../core/Across.sol";
 import {Mayan} from "../../core/Mayan.sol";
 import {StargateV2} from "../../core/StargateV2.sol";
 import {DeBridge} from "../../core/DeBridge.sol";
+import {NucleusTeller} from "../../core/NucleusTeller.sol";
 
-contract OptimismBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBridge {
+contract OptimismBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBridge, NucleusTeller {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 10 || block.chainid == 31337);
     }
@@ -28,20 +29,20 @@ contract OptimismBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBr
             (address spoke, bytes memory depositData) = abi.decode(data, (address, bytes));
             bridgeNativeToAcross(spoke, depositData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN.selector)) {
-            (address forwarder, bytes memory protocolAndData) = abi.decode(data, (address, bytes));
-            bridgeERC20ToMayan(forwarder, protocolAndData);
+            (bytes memory protocolAndData) = abi.decode(data, (bytes));
+            bridgeERC20ToMayan(protocolAndData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN.selector)) {
-            (address forwarder, bytes memory protocolAndData) = abi.decode(data, (address, bytes));
-            bridgeNativeToMayan(forwarder, protocolAndData);
-        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_STARGATE_V2.selector)) {
+            (bytes memory protocolAndData) = abi.decode(data, (bytes));
+            bridgeNativeToMayan(protocolAndData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_STARGATE_V2.selector)) {
             (IERC20 token, address pool, bytes memory sendData) = abi.decode(data, (IERC20, address, bytes));
-            bridgeERC20ToStargateV2(token, pool, sendData);
-        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_STARGATE_V2.selector)) {
-            (address pool, uint256 destinationGas, bytes memory sendData) = abi.decode(data, (address, uint256, bytes));
-            bridgeNativeToStargateV2(pool, destinationGas, sendData);
+            bridgeToStargateV2(token, pool, sendData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_DEBRIDGE.selector)) {
             (uint256 globalFee, bytes memory createOrderData) = abi.decode(data, (uint256, bytes));
             bridgeToDeBridge(globalFee, createOrderData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_NUCLEUS_TELLER.selector)) {
+            bytes memory bridgeCallData = abi.decode(data, (bytes));
+            bridgeToNucleusTeller(bridgeCallData);
         } else {
             return false;
         }

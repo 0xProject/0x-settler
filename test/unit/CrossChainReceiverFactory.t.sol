@@ -3,17 +3,18 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
-import {IMultiCall, MULTICALL_ADDRESS} from "src/multicall/MultiCallContext.sol";
+import {IMultiCall, EIP150_MULTICALL_ADDRESS as MULTICALL_ADDRESS} from "src/multicall/MultiCallContext.sol";
 
 import {Test} from "@forge-std/Test.sol";
 import {ICrossChainReceiverFactory} from "src/interfaces/ICrossChainReceiverFactory.sol";
 
 contract CrossChainReceiverFactoryTest is Test {
     ICrossChainReceiverFactory internal constant factory =
-        ICrossChainReceiverFactory(payable(0x00000000000000304861c3aDfb80dd5ebeC96325));
+        ICrossChainReceiverFactory(payable(0x00000000000000fFffFfffFffFFFFFFfFffFFfFf));
 
     IERC20 internal constant WETH = IERC20(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
-    bytes32 internal constant salt = 0x0000000000000000000000000000000000000009435af220071616d150499b5f;
+
+    receive() external payable {}
 
     function setUp() public {
         vm.etch(
@@ -23,9 +24,8 @@ contract CrossChainReceiverFactoryTest is Test {
 
         IMultiCall multicall = IMultiCall(payable(MULTICALL_ADDRESS));
         bytes memory multicallInitcode = vm.getCode("MultiCall.sol:MultiCall");
-        bytes32 multicallSalt = 0x0000000000000000000000000000000000000031a5e6991d522b26211cf840ce;
         (bool success, bytes memory returndata) =
-            0x4e59b44847b379578588920cA78FbF26c0B4956C.call(bytes.concat(multicallSalt, multicallInitcode));
+            CREATE2_FACTORY.call(bytes.concat(bytes32(0x0000000000000000000000000000000000000031a5e6991d522b26211cf840ce), multicallInitcode));
         require(success);
         require(returndata.length == 20);
         require(address(uint160(bytes20(returndata))) == MULTICALL_ADDRESS);
@@ -33,38 +33,65 @@ contract CrossChainReceiverFactoryTest is Test {
         // In production, this call would be bundled with the `MultiCall`s below, but that requires
         // that it go through a shim that strips the forwarded sender. That's a pain, so it's not
         // done in this test setup.
+        bytes32 wrappedNativeSalt = keccak256("Wrapped Native Token Address");
+        bytes memory shimInitCode = hex"326df01b1d1c8eef6c6cf71a0b658fbc1815601657fe5b7f60143603803560601c6df01b1d1c8eef6c6cf71a0b658fbc14336ccf9e3c5a263d527f621af382fa17f24f1416602e57fe5b3d54604b57583d55803d3d373d34f03d8159526d6045573dfd5b5260203df35b30ff60901b5952604e3df3";
         vm.prank(0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc, 0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc);
-        (success, returndata) = 0x4e59b44847b379578588920cA78FbF26c0B4956C
-        .call(
-            hex"40d0824c8df4e3642c10f547614c683762a4702daa5ec86bd42ec64291679b44326df01b1d1c8eef6c6cf71a0b658fbc1815601657fe5b7f60143603803560601c6df01b1d1c8eef6c6cf71a0b658fbc14336ccf9e3c5a263d527f621af382fa17f24f1416602e57fe5b3d54604b57583d55803d3d373d34f03d8159526d6045573dfd5b5260203df35b30ff60901b5952604e3df3"
-        );
+        (success, returndata) = CREATE2_FACTORY.call(bytes.concat(wrappedNativeSalt, shimInitCode));
         require(success);
         require(returndata.length == 20);
-        address shim = address(uint160(bytes20(returndata)));
-        vm.label(shim, "wrapped native address storage shim");
+        address wnativeShim = address(uint160(bytes20(returndata)));
+        vm.label(wnativeShim, "wrapped native address storage shim");
         address wnativeStorage =
-            address(uint160(uint256(keccak256(bytes.concat(bytes2(0xd694), bytes20(uint160(shim)), bytes1(0x01))))));
+            address(uint160(uint256(keccak256(bytes.concat(bytes2(0xd694), bytes20(uint160(wnativeShim)), bytes1(0x01))))));
         vm.label(wnativeStorage, "wrapped native address storage");
-        vm.prank(0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc);
-        IMultiCall.Call[] memory calls = new IMultiCall.Call[](3);
-        calls[0].target = shim;
+
+        bytes32 multicallSalt = keccak256("ERC2771-forwarding MultiCall Address");
+        vm.prank(0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc, 0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc);
+        (success, returndata) = CREATE2_FACTORY.call(bytes.concat(multicallSalt, shimInitCode));
+        require(success);
+        require(returndata.length == 20);
+        address multicallShim = address(uint160(bytes20(returndata)));
+        vm.label(multicallShim, "multicall address storage shim");
+        address multicallStorage =
+            address(uint160(uint256(keccak256(bytes.concat(bytes2(0xd694), bytes20(uint160(multicallShim)), bytes1(0x01))))));
+        vm.label(multicallStorage, "multicall address storage");
+
+        IMultiCall.Call[] memory calls = new IMultiCall.Call[](6);
+        calls[0].target = wnativeShim;
         calls[0].data = bytes.concat(hex"7f30ff00000000000000000000", bytes20(uint160(address(WETH))), hex"5f52595ff3");
-        calls[1].target = shim;
-        calls[1].revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
-        calls[1].data = hex"00000000";
-        calls[2].target = wnativeStorage;
+        calls[1].target = multicallShim;
+        calls[1].data = bytes.concat(hex"7f30ff00000000000000000000", bytes20(uint160(address(MULTICALL_ADDRESS))), hex"5f52595ff3");
+        calls[2].target = wnativeShim;
         calls[2].revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
+        calls[2].data = hex"00000000";
+        calls[3].target = wnativeStorage;
+        calls[3].revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
+        calls[4].target = multicallShim;
+        calls[4].revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
+        calls[4].data = hex"00000000";
+        calls[5].target = multicallStorage;
+        calls[5].revertPolicy = IMultiCall.RevertPolicy.CONTINUE;
+
+        vm.prank(0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc, 0x000000000000F01B1D1c8EEF6c6cF71a0b658Fbc);
         multicall.multicall(calls, 0);
         require(wnativeStorage.code.length != 0);
+        require(multicallStorage.code.length != 0);
 
-        vm.deal(address(this), 2 wei);
+        vm.deal(CREATE2_FACTORY, 2 wei);
+        vm.chainId(31337);
+        vm.prank(CREATE2_FACTORY, address(this));
+        deployCodeTo("CrossChainReceiverFactory.sol", new bytes(0), 2 wei, address(factory));
         vm.chainId(1);
-        (success, returndata) = 0x4e59b44847b379578588920cA78FbF26c0B4956C.call{value: 2 wei}(
+
+        /*
+        (success, returndata) = CREATE2_FACTORY.call{value: 2 wei}(
             bytes.concat(salt, vm.getCode("CrossChainReceiverFactory.sol"))
         );
         require(success);
         require(returndata.length == 20);
         require(address(uint160(bytes20(returndata))) == address(factory));
+        */
+
         vm.label(address(factory), "CrossChainReceiverFactory");
     }
 
