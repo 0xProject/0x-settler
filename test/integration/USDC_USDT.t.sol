@@ -6,7 +6,7 @@ import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
 import {BalancerV3Test} from "./BalancerV3.t.sol";
-import {EkuboV3Test} from "./Ekubo.t.sol";
+import {EkuboV3Test} from "./EkuboV3.t.sol";
 import {EulerSwapTest} from "./EulerSwap.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
