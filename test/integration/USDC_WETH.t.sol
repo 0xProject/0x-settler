@@ -195,6 +195,11 @@ contract USDCWETHTest is
         return bytes32(0x00000000000000000000000000000000000000000020c49ba5e353f7000003e8);
     }
 
+    function ekuboV2ExtensionConfig() internal pure override returns (bytes32) {
+        // Key for ETH_USDC pool (not WETH)
+        return bytes32(0x553a2efc570c9e104942cec6ac1c18118e54c09100068db8bac710cb000000c8);
+    }
+
     function ekuboV2Tokens() internal pure override returns (IERC20, IERC20) {
         return (fromToken(), ETH);
     }
