@@ -3,7 +3,9 @@ name: Size Limit Check
 on:
   push:
     branches:
-      - master
+      - main
+      - fork/cancun
+      - fork/shanghai
   pull_request:
 
 jobs:

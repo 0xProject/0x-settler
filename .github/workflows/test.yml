@@ -3,7 +3,9 @@ name: tests
 on:
   push:
     branches:
-      - master
+      - main
+      - fork/cancun
+      - fork/shanghai
   pull_request:
 
 jobs:
