@@ -5,6 +5,8 @@ import {Clz} from "./Clz.sol";
 
 // @author Modified from Solady by Vectorized https://github.com/Vectorized/solady/blob/701406e8126cfed931645727b274df303fbcd94d/src/utils/FixedPointMathLib.sol#L774-L826 under the MIT license.
 library Sqrt {
+    using Clz for uint256;
+
     /// @dev Returns the square root of `x`, rounded maybe-up maybe-down. For expert use only.
     function _sqrt(uint256 x) private pure returns (uint256 z) {
         z = x.clz();
