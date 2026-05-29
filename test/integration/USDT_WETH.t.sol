@@ -17,7 +17,7 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 
 import {MainnetDefaultFork} from "./BaseForkTest.t.sol";
-import {EkuboV3Test} from "./Ekubo.t.sol";
+import {EkuboV3Test} from "./EkuboV3.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 
 contract USDTWETHTest is

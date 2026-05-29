@@ -6,7 +6,8 @@ import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
 import {BalancerV3Test} from "./BalancerV3.t.sol";
-import {EkuboV3Test} from "./Ekubo.t.sol";
+import {EkuboV2Test} from "./EkuboV2.t.sol";
+import {EkuboV3Test} from "./EkuboV3.t.sol";
 import {EulerSwapTest} from "./EulerSwap.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
@@ -16,8 +17,8 @@ import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV3Test, EulerSwapTest {
-    function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboV3Test, EulerSwapTest) {
+contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Test, EulerSwapTest {
+    function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Test, EulerSwapTest) {
         super.setUp();
     }
 
@@ -77,6 +78,10 @@ contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV3Test, EulerSwap
 
     function ekuboPoolConfig() internal pure override returns (bytes32) {
         return bytes32(0x00000000000000000000000000000000000000000000a7c5ac471b4880000032);
+    }
+
+    function ekuboV2PoolConfig() internal pure override returns (bytes32) {
+        return bytes32(0x00000000000000000000000000000000000000000000a7c5ac471b4700000032);
     }
 
     function getCurveV2PoolData() internal pure override returns (ICurveV2Pool.CurveV2PoolData memory) {}

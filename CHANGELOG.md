@@ -14,6 +14,9 @@
 
 ### Non-breaking changes
 
+* Add `BRIDGE_TO_NUCLEUS_TELLER` (Mainnet and Optimism) and
+  `DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER` (Mainnet) actions for bridging WPAXG
+  through Nucleus Teller
 * Deploy Settler to RobinHood chain
 
 ## 2026-04-10
