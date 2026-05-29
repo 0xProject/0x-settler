@@ -809,9 +809,9 @@
     "chainId": 5042,
     "displayName": "Arc",
     "hardfork": {
-      "shanghai": null,
-      "cancun": null,
-      "osaka": null,
+      "shanghai": true,
+      "cancun": true,
+      "osaka": true,
       "eraVm": false
     },
     "extraFlags": "",
