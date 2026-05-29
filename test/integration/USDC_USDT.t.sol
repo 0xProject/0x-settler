@@ -7,7 +7,6 @@ import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
 import {BalancerV3Test} from "./BalancerV3.t.sol";
 import {EkuboV2Test} from "./EkuboV2.t.sol";
-import {EkuboV3Test} from "./EkuboV3.t.sol";
 import {EulerSwapTest} from "./EulerSwap.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
@@ -17,8 +16,8 @@ import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Test, EulerSwapTest {
-    function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Test, EulerSwapTest) {
+contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV2Test, EulerSwapTest {
+    function setUp() public override(SettlerPairTest, BalancerV3Test, EkuboV2Test, EulerSwapTest) {
         super.setUp();
     }
 
@@ -74,10 +73,6 @@ contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EkuboV2Test, EkuboV3Te
 
     function uniswapV2Pool() internal pure override(AllowanceHolderPairTest, SettlerPairTest) returns (address) {
         return address(0);
-    }
-
-    function ekuboPoolConfig() internal pure override returns (bytes32) {
-        return bytes32(0x00000000000000000000000000000000000000000000a7c5ac471b4880000032);
     }
 
     function ekuboV2PoolConfig() internal pure override returns (bytes32) {

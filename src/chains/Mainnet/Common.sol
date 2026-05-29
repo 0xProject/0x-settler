@@ -14,7 +14,6 @@ import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {EkuboV2} from "../../core/EkuboV2.sol";
-import {EkuboV3} from "../../core/EkuboV3.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {Bebop} from "../../core/Bebop.sol";
 
@@ -58,7 +57,6 @@ abstract contract MainnetMixin is
     UniswapV4,
     BalancerV3,
     EkuboV2,
-    EkuboV3,
     EulerSwap,
     Bebop
 {
@@ -128,8 +126,7 @@ abstract contract MainnetMixin is
             }
         } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
                 .or(action == uint32(ISettlerActions.BALANCERV3.selector))
-                .or(action == uint32(ISettlerActions.EKUBO.selector))
-                .or(action == uint32(ISettlerActions.EKUBOV3.selector))) {
+                .or(action == uint32(ISettlerActions.EKUBO.selector))) {
             (
                 address recipient,
                 IERC20 sellToken,
@@ -145,10 +142,8 @@ abstract contract MainnetMixin is
                 sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
                 sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else if (action == uint32(ISettlerActions.EKUBO.selector)) {
+            } else { // if (action == uint32(ISettlerActions.EKUBO.selector))
                 sellToEkuboV2(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.EKUBOV3.selector))
-                sellToEkuboV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
             (address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, IPSM psm, IERC20 dai) =

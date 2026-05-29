@@ -57,8 +57,7 @@ contract MainnetSettler is Settler, MainnetMixin {
         if (super._dispatchVIP(action, data)) {
             return true;
         } else if ((action == uint32(ISettlerActions.UNISWAPV4_VIP.selector))
-                .or(action == uint32(ISettlerActions.BALANCERV3_VIP.selector))
-                .or(action == uint32(ISettlerActions.EKUBOV3_VIP.selector))) {
+                .or(action == uint32(ISettlerActions.BALANCERV3_VIP.selector))) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -74,10 +73,8 @@ contract MainnetSettler is Settler, MainnetMixin {
 
             if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
                 sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector)) {
+            } else { // if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector))
                 sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.EKUBOV3_VIP.selector))
-                sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
             }
         } /* else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
             (

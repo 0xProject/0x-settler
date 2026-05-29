@@ -18,7 +18,6 @@ import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {Permit2TransferTest} from "./Permit2TransferTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {EkuboV2Test} from "./EkuboV2.t.sol";
-import {EkuboV3Test} from "./EkuboV3.t.sol";
 import {BebopPairTest} from "./BebopPairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 
@@ -38,7 +37,6 @@ contract USDCWETHTest is
     TokenTransferTest,
     Permit2TransferTest,
     EkuboV2Test,
-    EkuboV3Test,
     BebopPairTest
 {
     function setUp()
@@ -54,7 +52,6 @@ contract USDCWETHTest is
             TokenTransferTest,
             Permit2TransferTest,
             EkuboV2Test,
-            EkuboV3Test,
             BebopPairTest
         )
     {
@@ -153,37 +150,6 @@ contract USDCWETHTest is
 
     function maverickV2TokenAIn() internal pure override returns (bool) {
         return fromToken() < toToken();
-    }
-
-    function ekuboPoolConfig() internal pure override returns (bytes32) {
-        // Key for ETH_USDC pool (not WETH)
-        return bytes32(0x00000000000000000000000000000000000000000020c49ba5e353f7800003e8);
-    }
-
-    function ekuboTokens() internal pure override returns (IERC20, IERC20) {
-        return (fromToken(), ETH);
-    }
-
-    function recipient() internal view virtual override returns (address) {
-        return address(settler);
-    }
-
-    function metaTxnRecipient() internal view virtual override returns (address) {
-        return address(settlerMetaTxn);
-    }
-
-    function ekuboExtraActions(bytes[] memory actions) internal view virtual override returns (bytes[] memory) {
-        bytes[] memory data = new bytes[](actions.length + 2);
-        address _weth = address(toToken());
-        for (uint256 i; i < actions.length; i++) {
-            data[i] = actions[i];
-        }
-        data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (address(ETH), 10_000, address(_weth), 0, ""));
-        data[actions.length + 1] = abi.encodeCall(
-            ISettlerActions.BASIC,
-            (_weth, 10_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0))))
-        );
-        return data;
     }
 
     function ekuboV2BlockNumber() internal pure override returns (uint256) {
