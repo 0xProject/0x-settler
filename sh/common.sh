@@ -60,12 +60,12 @@ function get_config {
 
 if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
     if [[ $(get_config hardfork.shanghai) != [Tt]rue ]] ; then
-        echo 'You are on the wrong branch (switch to `dcmt/london`)' >&2
+        echo 'You are on the wrong branch (switch to `fork/london`)' >&2
         exit 1
     fi
 
     if [[ $(get_config hardfork.cancun) != [Tt]rue ]] ; then
-        echo 'You are on the wrong branch (switch to `dcmt/shanghai`)' >&2
+        echo 'You are on the wrong branch (switch to `fork/shanghai`)' >&2
         exit 1
     fi
 

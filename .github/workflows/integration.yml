@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - master
+      - fork/cancun
+      - fork/shanghai
   pull_request:
 
 jobs:

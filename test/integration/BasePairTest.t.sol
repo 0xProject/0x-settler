@@ -117,9 +117,8 @@ abstract contract BasePairTest is Test, GasSnapshot, Permit2Signature, MainnetDe
     }
 
     modifier skipIf(bool condition) {
-        if (!condition) {
-            _;
-        }
+        vm.skip(condition);
+        _;
     }
 
     function safeApproveIfBelow(IERC20 token, address who, address spender, uint256 _amount) internal {
