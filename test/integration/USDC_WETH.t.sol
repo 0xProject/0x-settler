@@ -17,7 +17,6 @@ import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
 import {Permit2TransferTest} from "./Permit2TransferTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
-import {EkuboV2Test} from "./EkuboV2.t.sol";
 import {BebopPairTest} from "./BebopPairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 
@@ -36,7 +35,6 @@ contract USDCWETHTest is
     MaverickV2PairTest,
     TokenTransferTest,
     Permit2TransferTest,
-    EkuboV2Test,
     BebopPairTest
 {
     function setUp()
@@ -51,7 +49,6 @@ contract USDCWETHTest is
             UniswapV3PairTest,
             TokenTransferTest,
             Permit2TransferTest,
-            EkuboV2Test,
             BebopPairTest
         )
     {
@@ -150,41 +147,5 @@ contract USDCWETHTest is
 
     function maverickV2TokenAIn() internal pure override returns (bool) {
         return fromToken() < toToken();
-    }
-
-    function ekuboV2BlockNumber() internal pure override returns (uint256) {
-        return 22682485;
-    }
-
-    function ekuboV2PoolConfig() internal pure override returns (bytes32) {
-        // Key for ETH_USDC pool (not WETH)
-        return bytes32(0x00000000000000000000000000000000000000000020c49ba5e353f7000003e8);
-    }
-
-    function ekuboV2ExtensionConfig() internal pure override returns (bytes32) {
-        // Key for ETH_USDC pool (not WETH)
-        return bytes32(0x553a2efc570c9e104942cec6ac1c18118e54c09100068db8bac710cb000000c8);
-    }
-
-    function ekuboV2Tokens() internal pure override returns (IERC20, IERC20) {
-        return (fromToken(), ETH);
-    }
-
-    function ekuboV2Recipient() internal view virtual override returns (address) {
-        return address(settler);
-    }
-
-    function ekuboV2ExtraActions(bytes[] memory actions) internal view virtual override returns (bytes[] memory) {
-        bytes[] memory data = new bytes[](actions.length + 2);
-        address _weth = address(toToken());
-        for (uint256 i; i < actions.length; i++) {
-            data[i] = actions[i];
-        }
-        data[actions.length] = abi.encodeCall(ISettlerActions.BASIC, (address(ETH), 10_000, address(_weth), 0, ""));
-        data[actions.length + 1] = abi.encodeCall(
-            ISettlerActions.BASIC,
-            (_weth, 10_000, address(_weth), 36, abi.encodeCall(toToken().transfer, (FROM, uint256(0))))
-        );
-        return data;
     }
 }

@@ -13,7 +13,6 @@ import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
 import {UniswapV4} from "../../core/UniswapV4.sol";
 import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
-import {EkuboV2} from "../../core/EkuboV2.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {Bebop} from "../../core/Bebop.sol";
 
@@ -56,7 +55,6 @@ abstract contract MainnetMixin is
     DodoV2,
     UniswapV4,
     BalancerV3,
-    EkuboV2,
     EulerSwap,
     Bebop
 {
@@ -140,10 +138,8 @@ abstract contract MainnetMixin is
 
             if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
                 sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
+            } else { // if (action == uint32(ISettlerActions.BALANCERV3.selector))
                 sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.EKUBO.selector))
-                sellToEkuboV2(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
             (address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, IPSM psm, IERC20 dai) =
