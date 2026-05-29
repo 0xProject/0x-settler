@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {Script} from "@forge-std/Script.sol";
-import {Vm, VmSafe} from "@forge-std/Vm.sol";
+import {SafeMultisend, ISafeExecute, ISafeFactory, ISafeOwners} from "./SafeMultisend.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
 import {Create3} from "src/utils/Create3.sol";
 import {ZeroExSettlerDeployerSafeModule} from "src/deployer/SafeModule.sol";
@@ -10,13 +9,6 @@ import {Deployer, Feature, Nonce, salt} from "src/deployer/Deployer.sol";
 import {ERC1967UUPSProxy} from "src/proxy/ERC1967UUPSProxy.sol";
 import {SafeConfig} from "./SafeConfig.sol";
 import {SafeBytecodes} from "./SafeCode.sol";
-
-interface ISafeFactory {
-    function createProxyWithNonce(address singleton, bytes calldata initializer, uint256 saltNonce)
-        external
-        returns (address);
-    function proxyCreationCode() external view returns (bytes memory);
-}
 
 interface ISafeSetup {
     function setup(
@@ -31,62 +23,11 @@ interface ISafeSetup {
     ) external;
 }
 
-interface ISafeExecute {
-    enum Operation {
-        Call,
-        DelegateCall
-    }
-
-    function execTransaction(
-        address to,
-        uint256 value,
-        bytes calldata data,
-        Operation operation,
-        uint256 safeTxGas,
-        uint256 baseGas,
-        uint256 gasPrice,
-        address gasToken,
-        address refundReceiver,
-        bytes calldata signatures
-    ) external payable returns (bool);
-}
-
-interface ISafeOwners {
-    function addOwnerWithThreshold(address owner, uint256 _threshold) external;
-    function removeOwner(address prevOwner, address owner, uint256 _threshold) external;
-    function changeThreshold(uint256 _threshold) external;
-    function getOwners() external view returns (address[] memory);
-}
-
 interface ISafeModule {
     function enableModule(address module) external;
 }
 
-interface ISafeMulticall {
-    /// @dev Sends multiple transactions and reverts all if one fails.
-    /// @param transactions Encoded transactions. Each transaction is encoded as a packed bytes of
-    ///                     operation has to be uint8(0) in this version (=> 1 byte),
-    ///                     to as a address (=> 20 bytes),
-    ///                     value as a uint256 (=> 32 bytes),
-    ///                     data length as a uint256 (=> 32 bytes),
-    ///                     data as bytes.
-    ///                     see abi.encodePacked for more information on packed encoding
-    /// @notice The code is for most part the same as the normal MultiSend (to keep compatibility),
-    ///         but reverts if a transaction tries to use a delegatecall.
-    /// @notice This method is payable as delegatecalls keep the msg.value from the previous call
-    ///         If the calling method (e.g. execTransaction) received ETH this would revert otherwise
-    function multiSend(bytes memory transactions) external payable;
-}
-
-contract DeploySafes is Script {
-    bytes32 internal constant singletonHash = 0x21842597390c4c6e3c1239e434a682b054bd9548eee5e9b1d6a4482731023c0f;
-    bytes32 internal constant singletonHashEraVm = 0xe2ca068330339d608367d83a0b25545efe39e619098597699ab8ff828cb1ddd8;
-    bytes32 internal constant factoryHash = 0x337d7f54be11b6ed55fef7b667ea5488db53db8320a05d1146aa4bd169a39a9b;
-    bytes32 internal constant factoryHashEraVm = 0x55daa5d390d283edbc5fa835bd53befce45179c758feaac8c149a95850d0a6b6;
-    bytes32 internal constant fallbackHash = 0x03e69f7ce809e81687c69b19a7d7cca45b6d551ffdec73d9bb87178476de1abf;
-    bytes32 internal constant fallbackHashEraVm = 0x017e9a83d5513f503fb85274f4d1ad1811040d7caa31772750ffb08638c28fbb;
-    bytes32 internal constant multicallHash = 0xa9865ac2d9c7a1591619b188c4d88167b50df6cc0c5327fcbd1c8c75f7c066ad;
-    bytes32 internal constant multicallHashEraVm = 0x064ddbf252714bcd4cb79f679e8c12df96d998ce07bbb13b3118c1dbf4a31942;
+contract DeploySafes is SafeMultisend {
     uint256 internal constant safeDeploymentSaltNonce = 0;
 
     // This is derived from calling `proxyCreationCode()` on the factory and then decoding the EraVm-style encoded
@@ -96,163 +37,6 @@ contract DeploySafes is Script {
     bytes32 internal constant safeProxyInitHashEraVm =
         0x0100004124426fb9ebb25e27d670c068e52f9ba631bd383279a188be47e3f86d;
     bytes32 internal constant safeProxyHashEraVm = 0x3d70c4a51cf0b92f04e5e281833aeece55198933569c08f5d11fcc45c495253e;
-
-    struct SafeCompatConfig {
-        bool isEraVm;
-        uint256 privateKey;
-        ISafeFactory safeFactory;
-        address safeSingleton;
-        address safeFallback;
-        address safeMulticall;
-        SafeBytecodes safeBytecodes;
-    }
-
-    function _encodeMultisend(bytes[] memory calls) internal view returns (bytes memory result) {
-        // The Gnosis multicall contract uses a very obnoxious packed encoding
-        // that is very similar to, but not exactly the same as
-        // `abi.encodePacked`
-        assembly ("memory-safe") {
-            result := mload(0x40)
-            mstore(add(0x04, result), 0x8d80ff0a) // selector for `multiSend(bytes)`
-            mstore(add(0x24, result), 0x20)
-            let bytes_length_ptr := add(0x44, result)
-            mstore(bytes_length_ptr, 0x00)
-            for {
-                let i := add(0x20, calls)
-                let end := add(i, shl(0x05, mload(calls)))
-                let dst := add(0x20, bytes_length_ptr)
-            } lt(i, end) { i := add(0x20, i) } {
-                let src := mload(i)
-                let len := mload(src)
-                src := add(0x20, src)
-
-                // We're using the old identity precompile version instead of
-                // the MCOPY opcode version because I don't want to have to deal
-                // with maintaining two versions of this
-                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) {
-                    invalid()
-                }
-
-                dst := add(dst, len)
-                mstore(bytes_length_ptr, add(len, mload(bytes_length_ptr)))
-            }
-            mstore(result, add(0x44, mload(bytes_length_ptr)))
-            mstore(0x40, add(0x20, add(mload(result), result)))
-        }
-    }
-
-    function _encodeMultisend(address safe, bytes memory call) internal pure returns (bytes memory) {
-        return abi.encodePacked(
-            uint8(ISafeExecute.Operation.Call),
-            safe,
-            uint256(0), // value
-            call.length,
-            call
-        );
-    }
-
-    function _encodeChangeOwners(address safe, uint256 threshold, address oldOwner, address[] memory newOwners)
-        internal
-        view
-        returns (bytes[] memory)
-    {
-        bytes[] memory subCalls = new bytes[](newOwners.length + 1);
-        for (uint256 i; i < newOwners.length; i++) {
-            bytes memory data =
-                abi.encodeCall(ISafeOwners.addOwnerWithThreshold, (newOwners[newOwners.length - i - 1], 1));
-            subCalls[i] = _encodeMultisend(safe, data);
-        }
-        {
-            bytes memory data =
-                abi.encodeCall(ISafeOwners.removeOwner, (newOwners[newOwners.length - 1], oldOwner, threshold));
-            subCalls[newOwners.length] = _encodeMultisend(safe, data);
-        }
-        return subCalls;
-    }
-
-    modifier eraVmCompat(
-        bool isEraVm,
-        uint256 privateKey,
-        ISafeExecute safe,
-        ISafeFactory safeFactory,
-        address safeSingleton,
-        address safeFallback,
-        address safeMulticall,
-        SafeBytecodes memory safeBytecodes
-    ) {
-        if (isEraVm) {
-            (VmSafe.CallerMode callerMode, address msgSender, address txOrigin) = vm.readCallers();
-            require(callerMode != VmSafe.CallerMode.Broadcast);
-            if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
-                require(msgSender == txOrigin);
-                require(msgSender == vm.addr(privateKey));
-                vm.stopBroadcast();
-            }
-
-            bytes memory oldFactoryCode = address(safeFactory).code;
-            vm.etch(address(safeFactory), safeBytecodes.factoryCode);
-            bytes memory oldSingletonCode = safeSingleton.code;
-            vm.etch(safeSingleton, safeBytecodes.singletonCode);
-            bytes memory oldFallbackCode = safeFallback.code;
-            vm.etch(safeFallback, safeBytecodes.fallbackCode);
-            bytes memory oldMulticallCode = safeMulticall.code;
-            vm.etch(safeMulticall, safeBytecodes.multicallCode);
-
-            bytes memory oldSafeCode;
-            if (address(safe) != address(0)) {
-                oldSafeCode = address(safe).code;
-                vm.etch(address(safe), safeBytecodes.proxyCode);
-            }
-
-            vm.startPrank(msgSender, txOrigin);
-            vm.startStateDiffRecording();
-            _;
-            uint256 gasUsed = vm.lastCallGas().gasTotalUsed;
-            Vm.AccountAccess[] memory accesses = vm.stopAndReturnStateDiff();
-            vm.stopPrank();
-            gasUsed = gasUsed * 6 / 5;
-
-            Vm.AccountAccess memory theOneImportantCall;
-            for (uint256 i; i < accesses.length; i++) {
-                theOneImportantCall = accesses[i];
-                if (theOneImportantCall.kind == VmSafe.AccountAccessKind.Call) {
-                    require(theOneImportantCall.accessor == msgSender, "unexpected top-level call");
-                    for (uint256 j = i + 1; j < accesses.length; j++) {
-                        Vm.AccountAccess memory jAA = accesses[j];
-                        if (jAA.kind == VmSafe.AccountAccessKind.Call) {
-                            require(jAA.accessor != msgSender || jAA.account == address(vm), "duplicate top-level call");
-                        }
-                    }
-                    break;
-                }
-            }
-
-            vm.etch(address(safeFactory), oldFactoryCode);
-            vm.etch(safeSingleton, oldSingletonCode);
-            vm.etch(safeFallback, oldFallbackCode);
-            vm.etch(safeMulticall, oldMulticallCode);
-
-            if (address(safe) != address(0)) {
-                vm.etch(address(safe), oldSafeCode);
-            }
-
-            if (callerMode == VmSafe.CallerMode.RecurrentBroadcast) {
-                vm.startBroadcast(privateKey);
-
-                // repeat the call from the modified function, blindly, while broadcasting
-                {
-                    address target = theOneImportantCall.account;
-                    uint256 value = theOneImportantCall.value;
-                    bytes memory data = theOneImportantCall.data;
-                    assembly ("memory-safe") {
-                        pop(call(gasUsed, target, value, add(0x20, data), mload(data), 0x00, 0x00))
-                    }
-                }
-            }
-        } else {
-            _;
-        }
-    }
 
     function _createProxyWithNonce(SafeCompatConfig memory compatConfig, bytes memory initializer, uint256 saltNonce)
         private
@@ -295,65 +79,6 @@ contract DeploySafes is Script {
         }
     }
 
-    function _execTransaction(
-        SafeCompatConfig memory compatConfig,
-        ISafeExecute safe,
-        address to,
-        uint256 value,
-        bytes memory data,
-        ISafeExecute.Operation operation,
-        uint256 safeTxGas,
-        uint256 baseGas,
-        uint256 gasPrice,
-        address gasToken,
-        address refundReceiver,
-        bytes memory signatures
-    )
-        internal
-        eraVmCompat(
-            compatConfig.isEraVm,
-            compatConfig.privateKey,
-            safe,
-            compatConfig.safeFactory,
-            compatConfig.safeSingleton,
-            compatConfig.safeFallback,
-            compatConfig.safeMulticall,
-            compatConfig.safeBytecodes
-        )
-        returns (bool)
-    {
-        return safe.execTransaction(
-            to, value, data, operation, safeTxGas, baseGas, gasPrice, gasToken, refundReceiver, signatures
-        );
-    }
-
-    function _getOwners(SafeCompatConfig memory compatConfig, ISafeOwners safe)
-        internal
-        eraVmCompat(
-            compatConfig.isEraVm,
-            compatConfig.privateKey,
-            ISafeExecute(address(safe)),
-            compatConfig.safeFactory,
-            compatConfig.safeSingleton,
-            compatConfig.safeFallback,
-            compatConfig.safeMulticall,
-            compatConfig.safeBytecodes
-        )
-        returns (address[] memory)
-    {
-        return safe.getOwners();
-    }
-
-    function _startBroadcast(SafeCompatConfig memory compatConfig, uint256 privateKey) private {
-        compatConfig.privateKey = privateKey;
-        vm.startBroadcast(privateKey);
-    }
-
-    function _stopBroadcast(SafeCompatConfig memory compatConfig) private {
-        compatConfig.privateKey = 0;
-        vm.stopBroadcast();
-    }
-
     function run(
         bool isEraVm,
         address moduleDeployer,
@@ -393,22 +118,7 @@ contract DeploySafes is Script {
         safeCompatConfig.safeBytecodes.load(vm);
 
         require(isEraVm == safeCompatConfig.isEraVm, "isEraVm mismatch");
-        require(
-            address(safeFactory).codehash == (safeCompatConfig.isEraVm ? factoryHashEraVm : factoryHash),
-            "Safe factory codehash"
-        );
-        require(
-            safeSingleton.codehash == (safeCompatConfig.isEraVm ? singletonHashEraVm : singletonHash),
-            "Safe singleton codehash"
-        );
-        require(
-            safeFallback.codehash == (safeCompatConfig.isEraVm ? fallbackHashEraVm : fallbackHash),
-            "Safe fallback codehash"
-        );
-        require(
-            safeMulticall.codehash == (safeCompatConfig.isEraVm ? multicallHashEraVm : multicallHash),
-            "Safe multicall codehash"
-        );
+        _assertSafeInfraCodehashes(safeCompatConfig);
 
         require(Feature.unwrap(takerSubmittedFeature) == 2, "wrong taker-submitted feature (tokenId)");
         require(Feature.unwrap(metaTxFeature) == 3, "wrong metatransaction feature (tokenId)");
@@ -619,14 +329,9 @@ contract DeploySafes is Script {
         deploySetupCalls[3] = _encodeMultisend(deployerProxy, intentDeployCall);
         deploySetupCalls[4] = _encodeMultisend(deployerProxy, bridgeDeployCall);
         {
-            address prevSolver = 0x0000000000000000000000000000000000000001;
-            for (uint256 i; i < solvers.length; i++) {
-                address solver = solvers[i];
-                deploySetupCalls[i + 5] = _encodeMultisend(
-                    predictedIntentSettler,
-                    abi.encodeWithSignature("setSolver(address,address,bool)", prevSolver, solver, true)
-                );
-                prevSolver = solver;
+            bytes[] memory solverCalls = _encodeSolversMultisend(predictedIntentSettler, solvers);
+            for (uint256 i; i < solverCalls.length; i++) {
+                deploySetupCalls[i + 5] = solverCalls[i];
             }
         }
         for (uint256 i; i < changeOwnersCalls.length; i++) {
@@ -639,7 +344,7 @@ contract DeploySafes is Script {
 
         uint256[] memory gasSplits = new uint256[](11);
 
-        _startBroadcast(safeCompatConfig, moduleDeployerKey);
+        _startBroadcast(safeCompatConfig, moduleDeployerKey, moduleDeployer);
 
         // first, we deploy the module to get the correct address
         gasSplits[0] = gasleft();
@@ -666,7 +371,7 @@ contract DeploySafes is Script {
         gasSplits[4] = gasleft();
         _stopBroadcast(safeCompatConfig);
 
-        _startBroadcast(safeCompatConfig, proxyDeployerKey);
+        _startBroadcast(safeCompatConfig, proxyDeployerKey, proxyDeployer);
 
         // first we deploy the proxy for the deployer to get the correct address
         gasSplits[5] = gasleft();
@@ -697,7 +402,7 @@ contract DeploySafes is Script {
         gasSplits[8] = gasleft();
         _stopBroadcast(safeCompatConfig);
 
-        _startBroadcast(safeCompatConfig, moduleDeployerKey);
+        _startBroadcast(safeCompatConfig, moduleDeployerKey, moduleDeployer);
 
         // add rollback module; deploy settlers; set new owners
         gasSplits[9] = gasleft();
@@ -719,12 +424,7 @@ contract DeploySafes is Script {
         gasSplits[10] = gasleft();
         _stopBroadcast(safeCompatConfig);
 
-        {
-            uint256 gasPrev = gasSplits[0];
-            for (uint256 i = 1; i < gasSplits.length; i++) {
-                require(gasPrev + 15728639 > (gasPrev = gasSplits[i]), "transaction is likely to exceed EIP-7825 limit");
-            }
-        }
+        _assertEip7825(gasSplits);
 
         require(deployedModule == iceColdCoffee, "deployment/prediction mismatch");
         require(deployedDeploymentSafe == deploymentSafe, "deployed safe/predicted safe mismatch");
