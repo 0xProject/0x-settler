@@ -3,7 +3,7 @@ name: Integration Tests
 on:
   push:
     branches:
-      - main
+      - master
       - fork/cancun
       - fork/shanghai
   pull_request:
