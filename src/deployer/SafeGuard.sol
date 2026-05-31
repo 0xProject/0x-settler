@@ -33,6 +33,8 @@ interface ISafeMinimal {
 
     function setGuard(address guard) external;
 
+    function enableModule(address module) external;
+
     function getModulesPaginated(address start, uint256 pageSize)
         external
         view
@@ -480,8 +482,10 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             requireUnanimity =
                 requireUnanimity || (data.length >= 4 && uint32(bytes4(data)) == uint32(this.unlock.selector));
         } else if (to == address(_safe)) {
-            forbidSponsorship =
-                forbidSponsorship || (data.length >= 36 && uint32(bytes4(data)) == uint32(_safe.setGuard.selector));
+            forbidSponsorship = forbidSponsorship
+                || (data.length >= 36
+                    && (uint32(bytes4(data)) == uint32(_safe.setGuard.selector)
+                        || uint32(bytes4(data)) == uint32(_safe.enableModule.selector)));
         }
         return (requireUnanimity, forbidSponsorship);
     }
@@ -620,9 +624,10 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         // execution, but *before* `checkAfterExecution` is called, there is an opportunity for
         // smuggling an un-checked, un-queued transaction through the Safe. If the Guard is removed
         // during execution and the specified `gasToken` reenters the Safe, a transaction can bypass
-        // the checks. Therefore, if a transaction contains a call to `safe.setGuard(address)`,
-        // ERC20 sponsorship is forbidden. Native asset sponsorship is permissible because the Safe
-        // uses `send`, which defuses reentrancy due to the 2300 gas rule.
+        // the checks. Therefore, if a transaction contains a call to `safe.setGuard(address)` or
+        // `safe.enableModule(address)`, ERC20 sponsorship is forbidden. Native asset sponsorship is
+        // permissible because the Safe uses `send`, which defuses reentrancy due to the 2300 gas
+        // rule.
         if (forbidSponsorship && gasPrice != 0 && gasToken != address(0)) {
             revert ERC20SponsorshipUnsafe(gasToken);
         }
