@@ -14,7 +14,7 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {IAllowanceHolder, ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {Settler} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {RfqOrderSettlement} from "src/core/RfqOrderSettlement.sol";
@@ -26,8 +26,8 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
     function setUp() public virtual override {
         super.setUp();
         // Trusted Forwarder / Allowance Holder
-        safeApproveIfBelow(fromToken(), FROM, address(allowanceHolder), amount());
-        safeApproveIfBelow(toToken(), FROM, address(allowanceHolder), amount());
+        safeApproveIfBelow(fromToken(), FROM, address(ALLOWANCE_HOLDER), amount());
+        safeApproveIfBelow(toToken(), FROM, address(ALLOWANCE_HOLDER), amount());
         safeApproveIfBelow(toToken(), MAKER, address(PERMIT2), amount());
     }
 
@@ -53,7 +53,6 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.UNISWAPV3, (FROM, 10_000, uniswapV3Path(), 0))
         );
 
-        IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
         IERC20 _fromToken = fromToken();
         uint256 _amount = amount();
@@ -63,7 +62,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_uniswapV3");
         //_cold_account_access();
 
-        _allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(_settler),
             address(_fromToken),
             _amount,
@@ -101,7 +100,6 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             )
         );
 
-        IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
         IERC20 _fromToken = fromToken();
         uint256 _amount = amount();
@@ -111,7 +109,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_uniswapV3VIP");
         //_cold_account_access();
 
-        _allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(_settler),
             address(_fromToken),
             _amount,
@@ -149,7 +147,6 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             )
         );
 
-        IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
         IERC20 _fromToken = fromToken();
         uint256 _amount = amount();
@@ -159,7 +156,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_uniswapV3VIP_contract");
         //_cold_account_access();
 
-        _allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(_settler),
             address(_fromToken),
             _amount,
@@ -199,7 +196,6 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.RFQ_VIP, (FROM, takerPermit, makerPermit, MAKER, makerSig, takerSig))
         );
 
-        IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
         IERC20 _fromToken = fromToken();
         uint256 _amount = amount();
@@ -209,7 +205,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_rfq");
         //_cold_account_access();
 
-        _allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(_settler),
             address(_fromToken),
             _amount,
@@ -260,7 +256,6 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.RFQ, (FROM, makerPermit, MAKER, makerSig, address(fromToken()), amount()))
         );
 
-        IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
         IERC20 _fromToken = fromToken();
         uint256 _amount = amount();
@@ -270,7 +265,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_rfq_proportionalFee_sellToken");
         //_cold_account_access();
 
-        _allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(_settler),
             address(_fromToken),
             _amount,
@@ -311,7 +306,6 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             abi.encodeCall(ISettlerActions.UNISWAPV2, (FROM, address(fromToken()), 0, uniswapV2Pool(), swapInfo, 0))
         );
 
-        IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
         IERC20 _fromToken = fromToken();
         uint256 _amount = amount();
@@ -321,7 +315,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
         snapStartName("allowanceHolder_uniswapV2_single_chain");
         _cold_account_access();
 
-        _allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(_settler),
             address(_fromToken),
             _amount,
@@ -353,12 +347,11 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
             )
         );
 
-        IAllowanceHolder _allowanceHolder = allowanceHolder;
         Settler _settler = settler;
 
         vm.startPrank(FROM, FROM);
         snapStartName("allowanceHolder_empty");
-        _allowanceHolder.exec(address(0), address(0), 0, payable(address(_settler)), call);
+        ALLOWANCE_HOLDER.exec(address(0), address(0), 0, payable(address(_settler)), call);
         snapEnd();
     }
 
@@ -368,7 +361,7 @@ abstract contract AllowanceHolderPairTest is SettlerBasePairTest {
     function _warm_allowanceHolder_slots(address token, uint256 amount) internal {
         bytes32 allowedSlot = keccak256(abi.encodePacked(address(settler), FROM, token));
         bytes32 allowedValue = bytes32(amount);
-        vm.store(address(allowanceHolder), allowedSlot, allowedValue);
+        vm.store(address(ALLOWANCE_HOLDER), allowedSlot, allowedValue);
     }
 
     function _cold_account_access() internal {
