@@ -42,14 +42,6 @@ jobs:
         env:
           FOUNDRY_SOLC_VERSION: 0.8.25
 
-      - name: Build UniswapV4 tests
-        run: forge build -- test/unit/core/UniswapV4UnitTest.t.sol
-
-      - name: Build UniswapV4
-        run: forge build -- lib/v4-core/src/PoolManager.sol
-        env:
-          FOUNDRY_SOLC_VERSION: 0.8.26
-
       - name: Build MultiCall
         run: forge build -- src/multicall/MultiCall.sol
         env:
