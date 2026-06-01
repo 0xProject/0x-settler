@@ -37,7 +37,7 @@ abstract contract BebopPairTest is SettlerBasePairTest {
         vm.label(address(BEBOP), "BebopSettlement");
 
         // Approve allowanceHolder to spend FROM's tokens (needed for AllowanceHolder.exec)
-        safeApproveIfBelow(fromToken(), FROM, address(allowanceHolder), amount());
+        safeApproveIfBelow(fromToken(), FROM, address(ALLOWANCE_HOLDER), amount());
 
         // Deal maker tokens to MAKER and approve Bebop
         deal(address(toToken()), MAKER, amount() * 2);
@@ -174,7 +174,7 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         vm.startPrank(FROM, FROM);
         snapStartName("allowanceHolder_bebop");
-        allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
+        ALLOWANCE_HOLDER.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
         snapEnd();
         vm.stopPrank();
 
@@ -226,7 +226,7 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         vm.startPrank(FROM, FROM);
         snapStartName("allowanceHolder_bebop_slippage");
-        allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
+        ALLOWANCE_HOLDER.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
         snapEnd();
         vm.stopPrank();
     }
@@ -268,7 +268,7 @@ abstract contract BebopPairTest is SettlerBasePairTest {
                 "TooMuchSlippage(address,uint256,uint256)", address(toToken()), amountOutMin, makerAmount
             )
         );
-        allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
+        ALLOWANCE_HOLDER.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
         vm.stopPrank();
     }
 
@@ -308,7 +308,7 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         vm.startPrank(FROM, FROM);
         snapStartName("allowanceHolder_bebop_partial");
-        allowanceHolder.exec(address(_settler), address(_fromToken), halfAmount, payable(address(_settler)), ahData);
+        ALLOWANCE_HOLDER.exec(address(_settler), address(_fromToken), halfAmount, payable(address(_settler)), ahData);
         snapEnd();
         vm.stopPrank();
 
@@ -340,7 +340,7 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         vm.startPrank(FROM, FROM);
         vm.expectRevert(abi.encodeWithSignature("ConfusedDeputy()"));
-        allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
+        ALLOWANCE_HOLDER.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
         vm.stopPrank();
     }
 
@@ -359,7 +359,7 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         vm.startPrank(FROM, FROM);
         vm.expectRevert(abi.encodeWithSignature("ConfusedDeputy()"));
-        allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
+        ALLOWANCE_HOLDER.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
         vm.stopPrank();
     }
 
@@ -378,7 +378,7 @@ abstract contract BebopPairTest is SettlerBasePairTest {
 
         vm.startPrank(FROM, FROM);
         vm.expectRevert(abi.encodeWithSignature("ConfusedDeputy()"));
-        allowanceHolder.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
+        ALLOWANCE_HOLDER.exec(address(_settler), address(_fromToken), _amount, payable(address(_settler)), ahData);
         vm.stopPrank();
     }
 }
