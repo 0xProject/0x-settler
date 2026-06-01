@@ -10,7 +10,6 @@ import {IERC2612, IDAIStylePermit} from "src/interfaces/IERC2612.sol";
 import {IERC20MetaTransaction} from "src/interfaces/INativeMetaTransaction.sol";
 import {Permit} from "src/core/Permit.sol";
 import {PermitFailed} from "src/core/SettlerErrors.sol";
-import {PolygonSettler as Settler} from "src/chains/Polygon/TakerSubmitted.sol";
 
 contract PermitTest is SettlerBasePairTest {
     IERC2612 internal constant USDC = IERC2612(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
