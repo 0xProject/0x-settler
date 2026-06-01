@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 
 import {BridgeSettlerTestBase} from "../unit/BridgeSettler.t.sol";
@@ -21,7 +20,7 @@ abstract contract BridgeSettlerIntegrationTest is BridgeSettlerTestBase, Mainnet
     }
 
     function setUp() public virtual override {
-        vm.etch(address(ALLOWANCE_HOLDER), address(new AllowanceHolder()).code);
+        vm.etch(address(ALLOWANCE_HOLDER), vm.getDeployedCode("AllowanceHolderOld.sol:AllowanceHolder"));
         vm.makePersistent(address(ALLOWANCE_HOLDER));
 
         // deploy BridgeSettler
