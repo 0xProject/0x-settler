@@ -202,7 +202,7 @@ abstract contract MainnetMixin is
     function _fallback(bytes calldata data)
         internal
         virtual
-        override(Permit2PaymentAbstract, UniswapV4)
+        override(Permit2PaymentAbstract)
         returns (bool success, bytes memory returndata)
     {
         return super._fallback(data);
