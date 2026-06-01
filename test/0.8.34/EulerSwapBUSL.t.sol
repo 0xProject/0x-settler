@@ -345,6 +345,10 @@ contract CurveLibTest is Test {
         {
             uint256 xBinRef = type(uint256).max;
             assembly ("memory-safe") {
+                function mcopy(dst, src, len) {
+                    if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+                }
+
                 let ptr := mload(0x40)
                 mstore(ptr, 0xf626f3ed) // this.binSearchXRef.selector
                 mstore(add(0x20, ptr), y)
