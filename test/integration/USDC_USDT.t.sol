@@ -49,7 +49,7 @@ contract USDCUSDTTest is SettlerPairTest, EulerSwapTest {
 
     function uniswapV3Path()
         internal
-        pure
+        view
         override(SettlerPairTest, AllowanceHolderPairTest)
         returns (bytes memory)
     {
