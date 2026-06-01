@@ -109,7 +109,6 @@ contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
             revert("expected TooMuchSlippage revert");
         } catch (bytes memory reason) {
             assertEq(bytes4(reason), TooMuchSlippage.selector);
-            // Decode the token address from the error data (first word after selector)
             IERC20 revertedToken;
             assembly ("memory-safe") {
                 revertedToken := mload(add(reason, 0x24))

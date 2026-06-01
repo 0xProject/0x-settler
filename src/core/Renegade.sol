@@ -45,68 +45,40 @@ abstract contract Renegade is SettlerSwapAbstract {
         revert("Renegade: unsupported chain");
     }
 
-    /*
-     * @param target The `GasSponsorV2` contract address.
-     * @param sellToken The token that the taker is selling (the sell-token).
-     * @param data The ABI-encoded (sans 4-byte selector) calldata to
-     *             `sponsorExternalMatch()`
-     * @param minBuyAmt The minimum amount of the buy-token the taker must receive.
-     */
     function sellToRenegade(address target, IERC20 sellToken, bytes memory data, uint256 minBuyAmt)
         internal
         returns (uint256 buyAmt)
     {
-        // Extract the recipient from `data` and require that it resolves to address(this).
         address recipient;
-        assembly ("memory-safe") {
-            recipient := mload(add(data, 0x40))
-        }
-        require((recipient == address(0)) || (recipient == address(this)), "Renegade: bad recipient");
-
-        // Extract buyToken and the expected sellToken from `data`.
         IERC20 buyToken;
         IERC20 internalPartyOutputToken;
-        assembly ("memory-safe") {
-            buyToken := mload(add(data, 0x60))
-            internalPartyOutputToken := mload(add(data, 0x80))
-        }
-        require(sellToken == internalPartyOutputToken, "Renegade: bad sellToken");
-
-        // Extract `minInternalPartyAmountIn` and `maxInternalPartyAmountIn` from `data`
         uint256 minInternalPartyAmountIn;
         uint256 maxInternalPartyAmountIn;
+        uint256 priceRepr;
         assembly ("memory-safe") {
+            recipient := mload(add(data, 0x40))
+            buyToken := mload(add(data, 0x60))
+            internalPartyOutputToken := mload(add(data, 0x80))
+            priceRepr := mload(add(data, 0xa0))
             minInternalPartyAmountIn := mload(add(data, 0xc0))
             maxInternalPartyAmountIn := mload(add(data, 0xe0))
         }
+        require((recipient == address(0)) || (recipient == address(this)), "Renegade: bad recipient");
+        require(sellToken == internalPartyOutputToken, "Renegade: bad sellToken");
 
-        // We need to look up the sellToken balance here because previous hops
-        // may have already swapped it, so it may be different than the amount
-        // that the user expects.
         uint256 newSellAmt = sellToken.fastBalanceOf(address(this));
-
-        // Extract price from `data`.
-        uint256 priceRepr;
-        assembly ("memory-safe") {
-            priceRepr := mload(add(data, 0xa0))
-        }
 
         // newBuyAmt = floor(newSellAmt / price), matching
         // FixedPointLib.divIntegerByFixedPoint.
         uint256 newBuyAmt = (newSellAmt << 63) / priceRepr;
 
-        // Check newBuyAmt
         if (newBuyAmt < minBuyAmt) revertTooMuchSlippage(buyToken, minBuyAmt, newBuyAmt);
         require(newBuyAmt >= minInternalPartyAmountIn, "Renegade: newBuyAmt < minInternalPartyAmountIn");
         require(newBuyAmt <= maxInternalPartyAmountIn, "Renegade: newBuyAmt > maxInternalPartyAmountIn");
 
         require(target == _renegadeGasSponsorV2(), "Renegade: bad target");
 
-        // Snapshot the buyToken balance before the call so we can measure the
-        // actual amount transferred after.
         uint256 buyTokenBalanceBefore = buyToken.fastBalanceOf(address(this));
-
-        // Allow the sellToken contract to move newSellAmt tokens from this contract.
         sellToken.safeApproveIfBelow(address(target), newSellAmt);
 
         uint32 sel = RENEGADE_SELECTOR;
@@ -115,34 +87,21 @@ abstract contract Renegade is SettlerSwapAbstract {
             // Override sellTokenAmt in data (at position 0x20) with newSellAmt.
             mstore(add(data, 0x20), newSellAmt)
 
-            // data[0x00..0x20) holds the length, data[0x20..) is the payload.
-            // Stash the length and overwrite the length word with the 32-byte
-            // selector. The 4-byte selector occupies the low 4 bytes of that
-            // word, so the on-the-wire calldata [selector | payload] begins at
-            // data + 0x1c (0x20 - 4).
+            // Stash the length and overwrite its slot with the selector; calldata
+            // starts at data + 0x1c so the call sees [selector | payload].
             let len := mload(data)
             mstore(data, sel)
 
-            // Invoke sponsorExternalMatch():
-            //   in     = data + 0x1c        (start of [selector | payload])
-            //   insize = 4 + len            (4-byte selector + len-byte payload)
-            //   out/outsize = 0             (returndata not consumed on success;
-            //                                on revert we copy returndata directly
-            //                                from the precompile buffer and bubble it)
             if iszero(call(gas(), target, 0, add(0x1c, data), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
 
-            // Restore the length word clobbered with the selector. Required to
-            // (a) keep `data` a valid `bytes memory` for any subsequent reads, and
-            // (b) honor the memory-safe assembly contract, which forbids leaving
-            // compiler-managed slots in a corrupted state on exit.
+            // Restore the clobbered length word before leaving memory-safe assembly.
             mstore(data, len)
         }
 
-        // Check the balance delta.
         buyAmt = buyToken.fastBalanceOf(address(this)) - buyTokenBalanceBefore;
         if (buyAmt < minBuyAmt) revertTooMuchSlippage(buyToken, minBuyAmt, buyAmt);
     }

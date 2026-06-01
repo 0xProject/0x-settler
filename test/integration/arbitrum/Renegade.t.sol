@@ -112,7 +112,7 @@ contract RenegadeArbitrumIntegrationTest is SettlerBasePairTest {
     }
 
     // GMX -> USDC with `recipient == address(0)`.
-    // Replays https://arbiscan.io/tx/0xc8f6bc1f5bdbc0efd76d03de8ca8d7f5d4988f6ab741d4e92d2be843fe192889
+    // Replays the embedded Renegade v2 call from https://arbiscan.io/tx/0xc8f6bc1f5bdbc0efd76d03de8ca8d7f5d4988f6ab741d4e92d2be843fe192889
     function testSellToRenegade() public {
         _rerunTxn(ARBITRUM_TXN_CALLDATA, ARBITRUM_GMX, ARBITRUM_USDC, ARBITRUM_AMOUNT);
     }
