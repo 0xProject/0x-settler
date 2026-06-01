@@ -30,13 +30,7 @@ abstract contract Renegade is SettlerSwapAbstract {
      *     0x140  uint256   <offset>  GasSponsorOptions: (address refundAddress, bool refundNativeEth, uint256 refundAmount, uint256 nonce, bytes signature)
      *   )
      */
-    uint32 internal constant RENEGADE_SELECTOR = uint32(
-        bytes4(
-            keccak256(
-                "sponsorExternalMatch(uint256,address,(address,address,(uint256),uint256,uint256,uint256),(bool,uint8,bytes),(address,bool,uint256,uint256,bytes))"
-            )
-        )
-    );
+    uint32 private constant RENEGADE_SELECTOR = 0x54ea46d4;
 
     /// @notice The expected `GasSponsorV2` proxy address for the current chain.
     /// @dev Adding a new chain requires a source change + redeploy of this contract.
@@ -79,8 +73,6 @@ abstract contract Renegade is SettlerSwapAbstract {
         uint256 buyTokenBalanceBefore = buyToken.fastBalanceOf(address(this));
         sellToken.safeApproveIfBelow(address(target), newSellAmt);
 
-        uint32 sel = RENEGADE_SELECTOR;
-
         assembly ("memory-safe") {
             // Override sellTokenAmt in data (at position 0x20) with newSellAmt.
             mstore(add(0x20, data), newSellAmt)
@@ -88,7 +80,7 @@ abstract contract Renegade is SettlerSwapAbstract {
             // Stash the length and overwrite its slot with the selector; calldata
             // starts at data + 0x1c so the call sees [selector | payload].
             let len := mload(data)
-            mstore(data, sel)
+            mstore(data, RENEGADE_SELECTOR)
 
             if iszero(call(gas(), target, 0, add(0x1c, data), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
