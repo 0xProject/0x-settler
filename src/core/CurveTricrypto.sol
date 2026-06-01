@@ -101,23 +101,23 @@ abstract contract CurveTricrypto is SettlerSwapAbstract {
         */
         bool isForwarded = _isForwarded();
         assembly ("memory-safe") {
-            tstore(0x00, isForwarded)
-            tstore(0x01, mload(add(0x20, mload(permit)))) // amount
-            tstore(0x02, mload(add(0x20, permit))) // nonce
-            tstore(0x03, mload(add(0x40, permit))) // deadline
+            sstore(0x00, isForwarded)
+            sstore(0x01, mload(add(0x20, mload(permit)))) // amount
+            sstore(0x02, mload(add(0x20, permit))) // nonce
+            sstore(0x03, mload(add(0x40, permit))) // deadline
             for {
                 let src := add(0x20, sig)
                 let end
                 {
                     let len := mload(sig)
                     end := add(len, src)
-                    tstore(0x04, len)
+                    sstore(0x04, len)
                 }
                 let dst := 0x05
             } lt(src, end) {
                 src := add(0x20, src)
                 dst := add(0x01, dst)
-            } { tstore(dst, mload(src)) }
+            } { sstore(dst, mload(src)) }
         }
         _setOperatorAndCall(
             pool,
@@ -152,21 +152,21 @@ abstract contract CurveTricrypto is SettlerSwapAbstract {
         uint256 deadline;
         bytes memory sig;
         assembly ("memory-safe") {
-            isForwarded := tload(0x00)
-            tstore(0x00, 0x00)
-            permittedAmount := tload(0x01)
-            tstore(0x01, 0x00)
-            nonce := tload(0x02)
-            tstore(0x02, 0x00)
-            deadline := tload(0x03)
-            tstore(0x03, 0x00)
+            isForwarded := sload(0x00)
+            sstore(0x00, 0x00)
+            permittedAmount := sload(0x01)
+            sstore(0x01, 0x00)
+            nonce := sload(0x02)
+            sstore(0x02, 0x00)
+            deadline := sload(0x03)
+            sstore(0x03, 0x00)
             sig := mload(0x40)
             for {
                 let dst := add(0x20, sig)
                 let end
                 {
-                    let len := tload(0x04)
-                    tstore(0x04, 0x00)
+                    let len := sload(0x04)
+                    sstore(0x04, 0x00)
                     end := add(dst, len)
                     mstore(sig, len)
                     mstore(0x40, end)
@@ -176,8 +176,8 @@ abstract contract CurveTricrypto is SettlerSwapAbstract {
                 src := add(0x01, src)
                 dst := add(0x20, dst)
             } {
-                mstore(dst, tload(src))
-                tstore(src, 0x00)
+                mstore(dst, sload(src))
+                sstore(src, 0x00)
             }
         }
         ISignatureTransfer.PermitTransferFrom memory permit = ISignatureTransfer.PermitTransferFrom({

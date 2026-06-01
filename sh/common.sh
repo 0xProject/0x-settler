@@ -64,8 +64,8 @@ if [[ ${IGNORE_HARDFORK-no} != [Yy]es ]] ; then
         exit 1
     fi
 
-    if [[ $(get_config hardfork.cancun) != [Tt]rue ]] ; then
-        echo 'You are on the wrong branch (switch to `fork/shanghai`)' >&2
+    if [[ $(get_config hardfork.cancun) != [Ff]alse ]] ; then
+        echo 'You are on the wrong branch (switch to `fork/cancun`)' >&2
         exit 1
     fi
 

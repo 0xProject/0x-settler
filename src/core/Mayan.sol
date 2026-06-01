@@ -63,6 +63,10 @@ contract Mayan {
         token.safeApproveIfBelow(address(forwarder), amount);
 
         assembly ("memory-safe") {
+            function mcopy(dst, src, len) {
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+            }
+
             let ptr := mload(0x40)
 
             // update amountIn

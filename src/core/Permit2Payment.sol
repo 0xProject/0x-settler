@@ -60,11 +60,11 @@ library TransientStorage {
         function(bytes calldata) internal returns (bytes memory) callback
     ) internal {
         assembly ("memory-safe") {
-            if iszero(shl(0x60, xor(tload(_PAYER_SLOT), operator))) {
+            if iszero(shl(0x60, xor(sload(_PAYER_SLOT), operator))) {
                 mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
                 revert(0x1c, 0x04)
             }
-            let slotValue := tload(_OPERATOR_SLOT)
+            let slotValue := sload(_OPERATOR_SLOT)
             if slotValue {
                 // It should be impossible to reach this error because the first thing the fallback
                 // does is clear the operator. It's also not possible to reenter the entrypoint
@@ -74,7 +74,7 @@ library TransientStorage {
                 revert(0x1c, 0x24)
             }
 
-            tstore(
+            sstore(
                 _OPERATOR_SLOT,
                 or(
                     shl(0xe0, selector),
@@ -86,7 +86,7 @@ library TransientStorage {
 
     function checkSpentOperatorAndCallback() internal view {
         assembly ("memory-safe") {
-            let slotValue := tload(_OPERATOR_SLOT)
+            let slotValue := sload(_OPERATOR_SLOT)
             if slotValue {
                 mstore(0x00, 0xd66fcc38) // selector for `CallbackNotSpent(uint256)`
                 mstore(0x20, slotValue)
@@ -100,12 +100,12 @@ library TransientStorage {
         returns (function(bytes calldata) internal returns (bytes memory) callback)
     {
         assembly ("memory-safe") {
-            let slotValue := tload(_OPERATOR_SLOT)
+            let slotValue := sload(_OPERATOR_SLOT)
             let success :=
                 iszero(or(shr(0xe0, xor(calldataload(0x00), slotValue)), shl(0x60, xor(caller(), slotValue))))
             callback := mul(and(0xffff, shr(0xa0, slotValue)), success)
             if success {
-                tstore(_OPERATOR_SLOT, 0x00)
+                sstore(_OPERATOR_SLOT, 0x00)
             }
         }
     }
@@ -113,7 +113,7 @@ library TransientStorage {
     // `newWitness` must not be `bytes32(0)`. This is not checked.
     function setWitness(bytes32 newWitness) internal {
         assembly ("memory-safe") {
-            let slotValue := tload(_WITNESS_SLOT)
+            let slotValue := sload(_WITNESS_SLOT)
             if slotValue {
                 // It should be impossible to reach this error because the first thing a
                 // metatransaction does on entry is to spend the `witness` (either directly or via a
@@ -123,13 +123,13 @@ library TransientStorage {
                 revert(0x1c, 0x24)
             }
 
-            tstore(_WITNESS_SLOT, newWitness)
+            sstore(_WITNESS_SLOT, newWitness)
         }
     }
 
     function checkSpentWitness() internal view {
         assembly ("memory-safe") {
-            let slotValue := tload(_WITNESS_SLOT)
+            let slotValue := sload(_WITNESS_SLOT)
             if slotValue {
                 mstore(0x00, 0xe25527c2) // selector for `WitnessNotSpent(bytes32)`
                 mstore(0x20, slotValue)
@@ -140,8 +140,8 @@ library TransientStorage {
 
     function getAndClearWitness() internal returns (bytes32 witness) {
         assembly ("memory-safe") {
-            witness := tload(_WITNESS_SLOT)
-            tstore(_WITNESS_SLOT, 0x00)
+            witness := sload(_WITNESS_SLOT)
+            sstore(_WITNESS_SLOT, 0x00)
         }
     }
 
@@ -151,31 +151,31 @@ library TransientStorage {
                 mstore(0x00, 0xe758b8d5) // selector for `ConfusedDeputy()`
                 revert(0x1c, 0x04)
             }
-            let slotValue := tload(_PAYER_SLOT)
+            let slotValue := sload(_PAYER_SLOT)
             if shl(0x60, slotValue) {
                 mstore(0x14, slotValue)
                 mstore(0x00, 0x7407c0f8000000000000000000000000) // selector for `ReentrantPayer(address)` with `oldPayer`'s padding
                 revert(0x10, 0x24)
             }
 
-            tstore(_PAYER_SLOT, payer)
+            sstore(_PAYER_SLOT, payer)
         }
     }
 
     function getPayer() internal view returns (address payer) {
         assembly ("memory-safe") {
-            payer := tload(_PAYER_SLOT)
+            payer := sload(_PAYER_SLOT)
         }
     }
 
     function clearPayer(address expectedOldPayer) internal {
         assembly ("memory-safe") {
-            if shl(0x60, xor(tload(_PAYER_SLOT), expectedOldPayer)) {
+            if shl(0x60, xor(sload(_PAYER_SLOT), expectedOldPayer)) {
                 mstore(0x00, 0x5149e795) // selector for `PayerSpent()`
                 revert(0x1c, 0x04)
             }
 
-            tstore(_PAYER_SLOT, 0x00)
+            sstore(_PAYER_SLOT, 0x00)
         }
     }
 }
@@ -277,59 +277,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
             }
         }
 
-        // This is effectively
-        /*
         PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
-        */
-        // but it's written in assembly for contract size reasons. This produces a non-strict ABI
-        // encoding (https://docs.soliditylang.org/en/v0.8.25/abi-spec.html#strict-encoding-mode),
-        // but it's fine because Solidity's ABI *decoder* will handle anything that is validly
-        // encoded, strict or not.
-
-        // Solidity won't let us reference the constant `PERMIT2` in assembly, but this compiles
-        // down to just a single PUSH opcode just before the CALL, with optimization turned on.
-        ISignatureTransfer _PERMIT2 = PERMIT2;
-        assembly ("memory-safe") {
-            let ptr := mload(0x40)
-            mstore(ptr, 0x137c29fe) // selector for `permitWitnessTransferFrom(((address,uint256),uint256,uint256),(address,uint256),address,bytes32,string,bytes)`
-
-            // The layout of nested structs in memory is different from that in calldata. We have to
-            // chase the pointer to `permit.permitted`.
-            mcopy(add(0x20, ptr), mload(permit), 0x40)
-            // The rest of the members of `permit` are laid out linearly,
-            mcopy(add(0x60, ptr), add(0x20, permit), 0x40)
-            // as are the members of `transferDetails.
-            mcopy(add(0xa0, ptr), transferDetails, 0x40)
-            // Because we're passing `from` on the stack, it must be cleaned.
-            mstore(add(0xe0, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, from))
-            mstore(add(0x100, ptr), witness)
-            mstore(add(0x120, ptr), 0x140) // Offset to `witnessTypeString` (the end of of the non-dynamic types)
-            let witnessTypeStringLength := mload(witnessTypeString)
-            mstore(add(0x140, ptr), add(0x160, witnessTypeStringLength)) // Offset to `sig` (past the end of `witnessTypeString`)
-
-            // Now we encode the 2 dynamic objects, `witnessTypeString` and `sig`.
-            mcopy(add(0x160, ptr), witnessTypeString, add(0x20, witnessTypeStringLength))
-            let sigLength := mload(sig)
-            mcopy(add(0x180, add(ptr, witnessTypeStringLength)), sig, add(0x20, sigLength))
-
-            // We don't need to check that Permit2 has code, and it always signals failure by
-            // reverting.
-            if iszero(
-                call(
-                    gas(),
-                    _PERMIT2,
-                    0x00,
-                    add(0x1c, ptr),
-                    add(0x184, add(witnessTypeStringLength, sigLength)),
-                    0x00,
-                    0x00
-                )
-            ) {
-                let ptr_ := mload(0x40)
-                returndatacopy(ptr_, 0x00, returndatasize())
-                revert(ptr_, returndatasize())
-            }
-        }
     }
 
     // See comment in above overload; don't use this function
@@ -425,48 +373,7 @@ abstract contract Permit2PaymentTakerSubmitted is AllowanceHolderContext, Permit
                 permit.permitted.token, _msgSender(), transferDetails.to, transferDetails.requestedAmount
             );
         } else {
-            // This is effectively
-            /*
             PERMIT2.permitTransferFrom(permit, transferDetails, _msgSender(), sig);
-            */
-            // but it's written in assembly for contract size reasons. This produces a non-strict
-            // ABI encoding
-            // (https://docs.soliditylang.org/en/v0.8.25/abi-spec.html#strict-encoding-mode), but
-            // it's fine because Solidity's ABI *decoder* will handle anything that is validly
-            // encoded, strict or not.
-
-            // Solidity won't let us reference the constant `PERMIT2` in assembly, but this
-            // compiles down to just a single PUSH opcode just before the CALL, with optimization
-            // turned on.
-            ISignatureTransfer _PERMIT2 = PERMIT2;
-            address from = _msgSender();
-            assembly ("memory-safe") {
-                let ptr := mload(0x40)
-                mstore(ptr, 0x30f28b7a) // selector for `permitTransferFrom(((address,uint256),uint256,uint256),(address,uint256),address,bytes)`
-
-                // The layout of nested structs in memory is different from that in calldata. We
-                // have to chase the pointer to `permit.permitted`.
-                mcopy(add(0x20, ptr), mload(permit), 0x40)
-                // The rest of the members of `permit` are laid out linearly,
-                mcopy(add(0x60, ptr), add(0x20, permit), 0x40)
-                // as are the members of `transferDetails.
-                mcopy(add(0xa0, ptr), transferDetails, 0x40)
-                // Because we're passing `from` on the stack, it must be cleaned.
-                mstore(add(0xe0, ptr), and(0xffffffffffffffffffffffffffffffffffffffff, from))
-                mstore(add(0x100, ptr), 0x100) // Offset to `sig` (the end of the non-dynamic types)
-
-                // Encode the dynamic object `sig`
-                let sigLength := mload(sig)
-                mcopy(add(0x120, ptr), sig, add(0x20, sigLength))
-
-                // We don't need to check that Permit2 has code, and it always signals failure by
-                // reverting.
-                if iszero(call(gas(), _PERMIT2, 0x00, add(0x1c, ptr), add(0x124, sigLength), 0x00, 0x00)) {
-                    let ptr_ := mload(0x40)
-                    returndatacopy(ptr_, 0x00, returndatasize())
-                    revert(ptr_, returndatasize())
-                }
-            }
         }
     }
 

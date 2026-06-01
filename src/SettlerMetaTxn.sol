@@ -53,11 +53,15 @@ abstract contract SettlerMetaTxn is ISettlerMetaTxn, Permit2PaymentMetaTxn, Sett
 
     function _hashActionsAndSlippage(bytes[] calldata actions, AllowedSlippage memory slippage)
         internal
-        pure
+        view
         returns (bytes32 result)
     {
         bytes32 arrayOfBytesHash = _hashArrayOfBytes(actions);
         assembly ("memory-safe") {
+            function mcopy(dst, src, len) {
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+            }
+
             let ptr := mload(0x40)
             mstore(ptr, SLIPPAGE_AND_ACTIONS_TYPEHASH)
             mcopy(add(0x20, ptr), slippage, 0x60)

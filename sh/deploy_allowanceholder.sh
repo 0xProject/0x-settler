@@ -131,23 +131,23 @@ export FOUNDRY_SOLC_VERSION=0.8.25
 export FOUNDRY_EVM_HARDFORK=cancun
 
 forge clean
-forge build src/allowanceholder/AllowanceHolder.sol
+forge build src/allowanceholder/AllowanceHolderOld.sol
 
 declare allowanceholder_initcode
-allowanceholder_initcode="$(jq -rM '.bytecode.object' < out/AllowanceHolder.sol/AllowanceHolder.json)"
+allowanceholder_initcode="$(jq -rM '.bytecode.object' < out/AllowanceHolderOld.sol/AllowanceHolder.json)"
 declare -r allowanceholder_initcode
 
 declare -i gas_limit
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     declare -i gas_estimate
-    gas_estimate="$(cast estimate --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${extra_flags[@]}" --create "$allowanceholder_initcode")"
+    gas_estimate="$(cast estimate --from "$(get_secret allowanceHolderOld deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --chain $chainid "${extra_flags[@]}" --create "$allowanceholder_initcode")"
     declare -r -i gas_estimate
 
     gas_limit="$(apply_gas_multiplier $gas_estimate)"
 
     maybe_broadcast+=(send --chain $chainid --private-key)
-    maybe_broadcast+=("$(get_secret allowanceHolder key)")
+    maybe_broadcast+=("$(get_secret allowanceHolderOld key)")
 else
     gas_limit=$eip7825_gas_limit
     maybe_broadcast+=(call --trace -vvvv)
@@ -155,17 +155,17 @@ fi
 declare -r -i gas_limit
 declare -r -a maybe_broadcast
 
-cast "${maybe_broadcast[@]}" --from "$(get_secret allowanceHolder deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" --create "$allowanceholder_initcode"
+cast "${maybe_broadcast[@]}" --from "$(get_secret allowanceHolderOld deployer)" --rpc-url "$rpc_url" --gas-price $gas_price --gas-limit $gas_limit "${extra_flags[@]}" --create "$allowanceholder_initcode"
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     sleep 60
 
-    verify_contract 0x "$(get_secret allowanceHolder address)" src/allowanceholder/AllowanceHolder.sol:AllowanceHolder
+    verify_contract 0x "$(get_secret allowanceHolderOld address)" src/allowanceholder/AllowanceHolderOld.sol:AllowanceHolder
 
     echo 'Deployment is complete' >&2
     echo 'Add the following to your chain_config.json' >&2
     echo '"deployment": {' >&2
-    echo '	"allowanceHolder": "'"$(get_secret allowanceHolder address)"'"' >&2
+    echo '	"allowanceHolder": "'"$(get_secret allowanceHolderOld address)"'"' >&2
     echo '}' >&2
 else
     echo 'Did not broadcast; skipping verification' >&2

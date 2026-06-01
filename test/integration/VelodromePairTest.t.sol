@@ -10,7 +10,7 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {BaseSettler as Settler} from "src/chains/Base/TakerSubmitted.sol";
 import {Shim} from "./SettlerBasePairTest.t.sol";
 
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {IAllowanceHolder, ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 
 contract VelodromePairTest is BasePairTest {
     function _testName() internal pure override returns (string memory) {
@@ -18,7 +18,6 @@ contract VelodromePairTest is BasePairTest {
     }
 
     Settler internal settler;
-    IAllowanceHolder internal allowanceHolder;
     uint256 private _amount;
 
     function setUp() public override {
@@ -38,12 +37,10 @@ contract VelodromePairTest is BasePairTest {
         safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
         warmPermit2Nonce(FROM);
 
-        allowanceHolder = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
-
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);
         settler = new Settler(bytes20(0));
-        vm.etch(address(allowanceHolder), vm.getDeployedCode("AllowanceHolder.sol:AllowanceHolder"));
+        vm.etch(address(ALLOWANCE_HOLDER), vm.getDeployedCode("AllowanceHolderOld.sol:AllowanceHolder"));
         vm.chainId(forkChainId);
 
         // USDT is obnoxious about throwing errors, so let's check here before
