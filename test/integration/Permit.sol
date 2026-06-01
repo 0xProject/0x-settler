@@ -12,6 +12,8 @@ import {IERC20MetaTransaction} from "src/interfaces/INativeMetaTransaction.sol";
 import {Permit} from "src/core/Permit.sol";
 import {PermitFailed} from "src/core/SettlerErrors.sol";
 
+import {MainnetSettler as Settler} from "src/chains/Mainnet/TakerSubmitted.sol";
+
 contract PermitTest is SettlerBasePairTest {
     IERC2612 internal constant USDC = IERC2612(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
     IDAIStylePermit internal constant DAI = IDAIStylePermit(0x6B175474E89094C44Da98b954EedeAC495271d0F);
