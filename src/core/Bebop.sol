@@ -54,6 +54,10 @@ library FastBebop {
         uint256 filledTakerAmount
     ) internal {
         assembly ("memory-safe") {
+            function mcopy(dst, src, len) {
+                if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+            }
+
             let ptr := mload(0x40)
             mstore(ptr, 0x4dcebcba)                                                             // IBebopSettlement.swapSingle.selector
             mstore(add(0x20, ptr), mload(order))                                                // expiry
