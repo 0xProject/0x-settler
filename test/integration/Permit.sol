@@ -2,6 +2,7 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
+import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
@@ -102,7 +103,7 @@ contract PermitTest is SettlerBasePairTest {
         deal(address(USDC), sender, amount());
 
         uint256 deadline = block.timestamp + 1 hours;
-        (uint8 v, bytes32 r, bytes32 s) = _signERC2612Permit(sender, address(allowanceHolder), amount(), deadline, pk);
+        (uint8 v, bytes32 r, bytes32 s) = _signERC2612Permit(sender, address(ALLOWANCE_HOLDER), amount(), deadline, pk);
 
         bytes memory permitData =
             abi.encodePacked(Permit.PermitType.ERC2612, abi.encode(amount(), deadline, r, _vs(v, s)));
@@ -118,7 +119,7 @@ contract PermitTest is SettlerBasePairTest {
 
         vm.prank(sender);
         snapStartName("ERC2612");
-        allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(settler),
             address(USDC),
             amount(),
@@ -143,10 +144,10 @@ contract PermitTest is SettlerBasePairTest {
         vm.revertTo(snapshot);
 
         // Front-running the permit
-        USDC.permit(sender, address(allowanceHolder), amount(), deadline, v, r, s);
+        USDC.permit(sender, address(ALLOWANCE_HOLDER), amount(), deadline, v, r, s);
 
         vm.prank(sender);
-        allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(settler),
             address(USDC),
             amount(),
@@ -170,7 +171,7 @@ contract PermitTest is SettlerBasePairTest {
         // resubmitting should fail because the nonce in the signature is now incorrect
         vm.expectRevert(PermitFailed.selector);
         vm.prank(sender);
-        allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(settler),
             address(USDC),
             amount(),
@@ -196,7 +197,7 @@ contract PermitTest is SettlerBasePairTest {
 
         uint256 expiry = block.timestamp + 1 hours;
         uint256 nonce = DAI.nonces(sender);
-        (uint8 v, bytes32 r, bytes32 s) = _signDAIPermit(sender, address(allowanceHolder), nonce, expiry, true, pk);
+        (uint8 v, bytes32 r, bytes32 s) = _signDAIPermit(sender, address(ALLOWANCE_HOLDER), nonce, expiry, true, pk);
 
         bytes memory permitData =
             abi.encodePacked(Permit.PermitType.DAIPermit, abi.encode(nonce, expiry, true, r, _vs(v, s)));
@@ -212,7 +213,7 @@ contract PermitTest is SettlerBasePairTest {
 
         vm.prank(sender);
         snapStartName("DAIPermit");
-        allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(settler),
             address(DAI),
             amount(),
@@ -237,10 +238,10 @@ contract PermitTest is SettlerBasePairTest {
         vm.revertTo(snapshot);
 
         // Front-running the permit
-        DAI.permit(sender, address(allowanceHolder), nonce, expiry, true, v, r, s);
+        DAI.permit(sender, address(ALLOWANCE_HOLDER), nonce, expiry, true, v, r, s);
 
         vm.prank(sender);
-        allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(settler),
             address(DAI),
             amount(),
@@ -266,7 +267,7 @@ contract PermitTest is SettlerBasePairTest {
         // should fail attempting to do the transfer because there is no enough balance to transfer
         vm.expectRevert("Dai/insufficient-balance");
         vm.prank(sender);
-        allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(settler),
             address(DAI),
             amount(),
@@ -290,7 +291,7 @@ contract PermitTest is SettlerBasePairTest {
 
         deal(address(ROUTE), sender, amount());
 
-        (uint8 v, bytes32 r, bytes32 s) = _signNativeMetaTransaction(sender, address(allowanceHolder), amount(), pk);
+        (uint8 v, bytes32 r, bytes32 s) = _signNativeMetaTransaction(sender, address(ALLOWANCE_HOLDER), amount(), pk);
 
         bytes memory permitData =
             abi.encodePacked(Permit.PermitType.NativeMetaTransaction, abi.encode(amount(), r, _vs(v, s)));
@@ -306,7 +307,7 @@ contract PermitTest is SettlerBasePairTest {
 
         vm.prank(sender);
         snapStartName("NativeMetaTransaction");
-        allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(settler),
             address(ROUTE),
             amount(),
@@ -332,11 +333,11 @@ contract PermitTest is SettlerBasePairTest {
 
         // Front-running the executeMetaTransaction
         ROUTE.executeMetaTransaction(
-            sender, abi.encodeCall(ROUTE.approve, (address(allowanceHolder), amount())), r, s, v
+            sender, abi.encodeCall(ROUTE.approve, (address(ALLOWANCE_HOLDER), amount())), r, s, v
         );
 
         vm.prank(sender);
-        allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(settler),
             address(ROUTE),
             amount(),
@@ -360,7 +361,7 @@ contract PermitTest is SettlerBasePairTest {
         // resubmitting should fail because the nonce in the signature is now incorrect
         vm.expectRevert(PermitFailed.selector);
         vm.prank(sender);
-        allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(settler),
             address(ROUTE),
             amount(),
@@ -382,7 +383,7 @@ contract PermitTest is SettlerBasePairTest {
     function testUnsupportedPermitType() public {
         (address sender, uint256 pk) = makeAddrAndKey("sender");
 
-        (uint8 v, bytes32 r, bytes32 s) = _signERC2612Permit(sender, address(allowanceHolder), 0, 0, pk);
+        (uint8 v, bytes32 r, bytes32 s) = _signERC2612Permit(sender, address(ALLOWANCE_HOLDER), 0, 0, pk);
 
         bytes memory permitData = abi.encodePacked(uint8(4));
 
@@ -395,7 +396,7 @@ contract PermitTest is SettlerBasePairTest {
 
         vm.prank(sender);
         vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x21));
-        allowanceHolder.exec(
+        ALLOWANCE_HOLDER.exec(
             address(settler),
             address(USDC),
             amount(),

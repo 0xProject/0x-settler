@@ -7,6 +7,7 @@ import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
+import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {Settler} from "src/Settler.sol";
 
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
@@ -78,7 +79,7 @@ abstract contract EulerSwapTest is AllowanceHolderPairTest {
         super.setUp();
         if (eulerSwapPool() != address(0)) {
             vm.makePersistent(address(PERMIT2));
-            vm.makePersistent(address(allowanceHolder));
+            vm.makePersistent(address(ALLOWANCE_HOLDER));
             vm.makePersistent(address(settler));
             vm.makePersistent(address(fromToken()));
             vm.makePersistent(address(toToken()));
