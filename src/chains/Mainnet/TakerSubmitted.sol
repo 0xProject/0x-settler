@@ -57,25 +57,9 @@ contract MainnetSettler is Settler, MainnetMixin {
         if (super._dispatchVIP(action, data)) {
             return true;
         } else if ((action == uint32(ISettlerActions.UNISWAPV4_VIP.selector))
-                .or(action == uint32(ISettlerActions.BALANCERV3_VIP.selector))) {
-            (
-                address recipient,
-                ISignatureTransfer.PermitTransferFrom memory permit,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                bytes memory sig,
-                uint256 amountOutMin
-            ) = abi.decode(
-                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
-            );
-
-            if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
-                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.BALANCERV3_VIP.selector))
-                sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            }
+                .or(action == uint32(ISettlerActions.BALANCERV3_VIP.selector))
+                .or(action == uint32(ISettlerActions.EKUBOV3_VIP.selector))) {
+            revert("unimplemented");
         } /* else if (action == uint32(ISettlerActions.CURVE_TRICRYPTO_VIP.selector)) {
             (
                 address recipient,

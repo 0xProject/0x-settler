@@ -280,7 +280,7 @@ abstract contract Permit2Payment is Permit2PaymentBase {
         PERMIT2.permitWitnessTransferFrom(permit, transferDetails, from, witness, witnessTypeString, sig);
     }
 
-    // See comment in above overload; don't use this function
+    // see comment in above overload; don't use this function
     function _transferFromIKnowWhatImDoing(
         ISignatureTransfer.PermitTransferFrom memory permit,
         ISignatureTransfer.SignatureTransferDetails memory transferDetails,

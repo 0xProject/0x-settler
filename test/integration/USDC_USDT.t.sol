@@ -5,32 +5,18 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {IERC4626} from "@forge-std/interfaces/IERC4626.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-import {BalancerV3Test} from "./BalancerV3.t.sol";
-import {EulerSwapTest} from "./EulerSwap.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
+import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
+import {EulerSwapTest} from "./EulerSwap.t.sol";
 
 // Solidity inheritance is stupid
-import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 
-contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EulerSwapTest {
-    function setUp() public override(SettlerPairTest, BalancerV3Test, EulerSwapTest) {
+contract USDCUSDTTest is SettlerPairTest, EulerSwapTest {
+    function setUp() public override(SettlerPairTest, EulerSwapTest) {
         super.setUp();
-    }
-
-    function balancerV3Pool() internal pure override returns (address) {
-        // Aave-boosted USDC/USDT
-        return 0x89BB794097234E5E930446C0CeC0ea66b35D7570;
-    }
-
-    function fromTokenWrapped() internal pure override returns (IERC4626) {
-        return IERC4626(0xD4fa2D31b7968E448877f69A96DE69f5de8cD23E); // aUSDC
-    }
-
-    function toTokenWrapped() internal pure override returns (IERC4626) {
-        return IERC4626(0x7Bc3485026Ac48b6cf9BaF0A377477Fff5703Af8); // aUSDT
     }
 
     function eulerSwapPool() internal pure override returns (address) {
@@ -63,8 +49,8 @@ contract USDCUSDTTest is SettlerPairTest, BalancerV3Test, EulerSwapTest {
 
     function uniswapV3Path()
         internal
-        view
-        override(SettlerPairTest, BalancerV3Test, AllowanceHolderPairTest)
+        pure
+        override(SettlerPairTest, SettlerMetaTxnPairTest, AllowanceHolderPairTest)
         returns (bytes memory)
     {
         return abi.encodePacked(fromToken(), uint8(0), uint24(100), sqrtPriceLimitX96FromTo(), toToken());

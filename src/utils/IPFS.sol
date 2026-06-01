@@ -18,7 +18,9 @@ library IPFS {
             bytes memory len2 = _protobufVarint(contentLength == 0 ? 4 : contentLength + 4 + 2 * len.length);
             assembly ("memory-safe") {
                 function mcopy(dst, src, len) {
-                    if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) { invalid() }
+                    if or(xor(returndatasize(), len), iszero(staticcall(gas(), 0x04, src, len, dst, len))) {
+                        invalid()
+                    }
                 }
 
                 let ptr := mload(0x40)

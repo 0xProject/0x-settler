@@ -10,13 +10,19 @@ import {ISettlerTakerSubmitted} from "src/interfaces/ISettlerTakerSubmitted.sol"
 import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
+<<<<<<< HEAD
+=======
 import {DAI, USDC, USDT, USDD} from "src/core/MakerPSM.sol";
+>>>>>>> dcmt/cancun
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {Utils} from "./Utils.sol";
 import {DEPLOYER} from "src/deployer/DeployerAddress.sol";
 import {IERC721View} from "src/deployer/IDeployer.sol";
 import {MockERC20} from "@solmate/test/utils/mocks/MockERC20.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
+
+IERC20 constant DAI = IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
+IERC20 constant USDC = IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 
 contract BridgeSettlerDummy is BridgeSettler {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {}

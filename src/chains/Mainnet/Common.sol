@@ -4,15 +4,11 @@ pragma solidity =0.8.34;
 import {SettlerBase} from "../../SettlerBase.sol";
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {IPSM, MakerPSM} from "../../core/MakerPSM.sol";
 import {MaverickV2, IMaverickV2Pool} from "../../core/MaverickV2.sol";
 // When these actions are reenabled, reenable the integration tests by setting `curveV2TricryptoPoolId()`
 // import {CurveTricrypto} from "../../core/CurveTricrypto.sol";
 import {DodoV1, IDodoV1} from "../../core/DodoV1.sol";
 import {DodoV2, IDodoV2} from "../../core/DodoV2.sol";
-import {UniswapV4} from "../../core/UniswapV4.sol";
-import {IPoolManager} from "../../core/UniswapV4Types.sol";
-import {BalancerV3} from "../../core/BalancerV3.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {Bebop} from "../../core/Bebop.sol";
 
@@ -39,8 +35,6 @@ import {
 } from "../../core/univ3forks/PancakeSwapV3.sol";
 import {sushiswapV3MainnetFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
 
-import {MAINNET_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
-
 // Solidity inheritance is stupid
 import {SettlerSwapAbstract} from "../../SettlerAbstract.sol";
 import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
@@ -48,13 +42,10 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 abstract contract MainnetMixin is
     FreeMemory,
     SettlerBase,
-    MakerPSM,
     MaverickV2,
     //CurveTricrypto,
     DodoV1,
     DodoV2,
-    UniswapV4,
-    BalancerV3,
     EulerSwap,
     Bebop
 {
@@ -124,28 +115,11 @@ abstract contract MainnetMixin is
             }
         } else if ((action == uint32(ISettlerActions.UNISWAPV4.selector))
                 .or(action == uint32(ISettlerActions.BALANCERV3.selector))
-                .or(action == uint32(ISettlerActions.EKUBO.selector))) {
-            (
-                address recipient,
-                IERC20 sellToken,
-                uint256 bps,
-                bool feeOnTransfer,
-                uint256 hashMul,
-                uint256 hashMod,
-                bytes memory fills,
-                uint256 amountOutMin
-            ) = abi.decode(data, (address, IERC20, uint256, bool, uint256, uint256, bytes, uint256));
-
-            if (action == uint32(ISettlerActions.UNISWAPV4.selector)) {
-                sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.BALANCERV3.selector))
-                sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            }
+                .or(action == uint32(ISettlerActions.EKUBO.selector))
+                .or(action == uint32(ISettlerActions.EKUBOV3.selector))) {
+            revert("unimplemented");
         } else if (action == uint32(ISettlerActions.MAKERPSM.selector)) {
-            (address recipient, uint256 bps, bool buyGem, uint256 amountOutMin, IPSM psm, IERC20 dai) =
-                abi.decode(data, (address, uint256, bool, uint256, IPSM, IERC20));
-
-            sellToMakerPsm(recipient, bps, buyGem, amountOutMin, psm, dai);
+            revert("unimplemented");
         } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
             (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
                 abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
@@ -219,10 +193,6 @@ abstract contract MainnetMixin is
         return 0x0c0e5f2fF0ff18a3be9b835635039256dC4B4963;
     }
     */
-
-    function _POOL_MANAGER() internal pure override returns (IPoolManager) {
-        return MAINNET_POOL_MANAGER;
-    }
 
     function _EVC() internal pure override returns (IEVC) {
         return IEVC(0x0C9a3dd6b8F28529d72d7f9cE918D493519EE383);

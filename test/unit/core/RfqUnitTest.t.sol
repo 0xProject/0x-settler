@@ -170,7 +170,7 @@ contract RfqUnitTest is Utils, Test {
     RfqOrderSettlementDummy rfq;
     RfqOrderSettlementMetaTxnDummy rfqMeta;
     address PERMIT2 = _etchNamedRejectionDummy("PERMIT2", 0x000000000022D473030F116dDEE9F6B43aC78BA3);
-    address ALLOWANCE_HOLDER = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", address(ALLOWANCE_HOLDER));
+    address _ALLOWANCE_HOLDER = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", address(ALLOWANCE_HOLDER));
 
     address TOKEN0 = _createNamedRejectionDummy("TOKEN0");
     address TOKEN1 = _createNamedRejectionDummy("TOKEN1");

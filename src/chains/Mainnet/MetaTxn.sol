@@ -44,9 +44,11 @@ contract MainnetSettlerMetaTxn is SettlerMetaTxn, MainnetMixin {
             );
 
             if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
-                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
-            } else { // if (action == uint32(ISettlerActions.METATXN_BALANCERV3_VIP.selector))
-                sellToBalancerV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+                revert("unimplemented");
+            } else if (action == uint32(ISettlerActions.METATXN_BALANCERV3_VIP.selector)) {
+                revert("unimplemented");
+            } else { // if (action == uint32(ISettlerActions.METATXN_EKUBOV3_VIP.selector))
+                revert("unimplemented");
             }
         } /* else if (action == uint32(ISettlerActions.METATXN_CURVE_TRICRYPTO_VIP.selector)) {
             (

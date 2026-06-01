@@ -7,7 +7,6 @@ import {AllowanceHolderPairTest} from "./AllowanceHolderPairTest.t.sol";
 import {ZeroExPairTest} from "./ZeroExPairTest.t.sol";
 import {UniswapV2PairTest} from "./UniswapV2PairTest.t.sol";
 import {UniswapV3PairTest} from "./UniswapV3PairTest.t.sol";
-import {UniswapV4PairTest} from "./UniswapV4PairTest.t.sol";
 import {SettlerPairTest} from "./SettlerPairTest.t.sol";
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
 import {TokenTransferTest} from "./TokenTransferTest.t.sol";
@@ -23,13 +22,11 @@ contract DAIWETHTest is
     TokenTransferTest,
     UniswapV2PairTest,
     UniswapV3PairTest,
-    UniswapV4PairTest,
     ZeroExPairTest
 {
     function setUp()
         public
         override(
-            SettlerBasePairTest,
             AllowanceHolderPairTest,
             SettlerPairTest,
             SettlerMetaTxnPairTest,
@@ -86,14 +83,6 @@ contract DAIWETHTest is
 
     function uniswapV2Pool() internal pure override(SettlerPairTest, AllowanceHolderPairTest) returns (address) {
         return 0xA478c2975Ab1Ea89e8196811F51A7B7Ade33eB11;
-    }
-
-    function uniswapV4FeeTier() internal view virtual override returns (uint24) {
-        return 3000;
-    }
-
-    function uniswapV4TickSpacing() internal view virtual override returns (int24) {
-        return 60;
     }
 
     function getCurveV2PoolData()
