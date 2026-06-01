@@ -212,22 +212,17 @@ contract RfqUnitTest is Utils, Test {
             )
         );
 
-        bytes memory witnessTypeString = bytes(rfq.considerationWitnessType());
-        // the calldata is somewhat tortured here because Settler produces a non-strict ABI encoding
-        // when calling Permit2
+        string memory witnessTypeString = rfq.considerationWitnessType();
         _mockExpectCall(
             PERMIT2,
-            bytes.concat(
-                abi.encodeWithSelector(
-                    bytes4(0x137c29fe),
-                    makerPermit,
-                    transferDetails,
-                    MAKER,
-                    witness,
-                    uint256(0x140),
-                    uint256(0x160 + witnessTypeString.length)
-                ),
-                abi.encodePacked(witnessTypeString.length, witnessTypeString, uint256(2), hex"dead")
+            abi.encodeWithSelector(
+                bytes4(0x137c29fe),
+                makerPermit,
+                transferDetails,
+                MAKER,
+                witness,
+                witnessTypeString,
+                bytes(hex"dead")
             ),
             new bytes(0)
         );
@@ -298,22 +293,17 @@ contract RfqUnitTest is Utils, Test {
                 false
             )
         );
-        bytes memory witnessTypeString = bytes(rfq.considerationWitnessType());
-        // the calldata is somewhat tortured here because Settler produces a non-strict ABI encoding
-        // when calling Permit2
+        string memory witnessTypeString = rfq.considerationWitnessType();
         _mockExpectCall(
             PERMIT2,
-            bytes.concat(
-                abi.encodeWithSelector(
-                    bytes4(0x137c29fe),
-                    makerPermit,
-                    transferDetails,
-                    MAKER,
-                    witness,
-                    uint256(0x140),
-                    uint256(0x160 + witnessTypeString.length)
-                ),
-                abi.encodePacked(witnessTypeString.length, witnessTypeString, uint256(2), hex"dead")
+            abi.encodeWithSelector(
+                bytes4(0x137c29fe),
+                makerPermit,
+                transferDetails,
+                MAKER,
+                witness,
+                witnessTypeString,
+                bytes(hex"dead")
             ),
             new bytes(0)
         );
@@ -380,23 +370,18 @@ contract RfqUnitTest is Utils, Test {
                 true
             )
         );
-        bytes memory witnessTypeString = bytes(rfq.considerationWitnessType());
+        string memory witnessTypeString = rfq.considerationWitnessType();
 
-        // the calldata is somewhat tortured here because Settler produces a non-strict ABI encoding
-        // when calling Permit2
         _mockExpectCall(
             PERMIT2,
-            bytes.concat(
-                abi.encodeWithSelector(
-                    bytes4(0x137c29fe),
-                    makerPermit,
-                    transferDetails,
-                    MAKER,
-                    witness,
-                    uint256(0x140),
-                    uint256(0x160 + witnessTypeString.length)
-                ),
-                abi.encodePacked(witnessTypeString.length, witnessTypeString, uint256(2), hex"dead")
+            abi.encodeWithSelector(
+                bytes4(0x137c29fe),
+                makerPermit,
+                transferDetails,
+                MAKER,
+                witness,
+                witnessTypeString,
+                bytes(hex"dead")
             ),
             new bytes(0)
         );
@@ -460,27 +445,20 @@ contract RfqUnitTest is Utils, Test {
             )
         );
 
-        bytes memory actionsAndSlippageWitnessType = bytes(rfqMeta.actionsAndSlippageWitnessType());
-        bytes memory considerationWitnessType = bytes(rfqMeta.considerationWitnessType());
-        // the calldata is somewhat tortured here because Settler produces a non-strict ABI encoding
-        // when calling Permit2
+        string memory actionsAndSlippageWitnessType = rfqMeta.actionsAndSlippageWitnessType();
+        string memory considerationWitnessType = rfqMeta.considerationWitnessType();
 
         // Taker payment via Permit2
         _mockExpectCall(
             PERMIT2,
-            bytes.concat(
-                abi.encodeWithSelector(
-                    bytes4(0x137c29fe),
-                    takerPermit,
-                    ISignatureTransfer.SignatureTransferDetails({to: MAKER, requestedAmount: amount}),
-                    taker,
-                    bytes32(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff), /* witness */
-                    uint256(0x140),
-                    uint256(0x160 + actionsAndSlippageWitnessType.length)
-                ),
-                abi.encodePacked(
-                    actionsAndSlippageWitnessType.length, actionsAndSlippageWitnessType, uint256(2), hex"beef"
-                )
+            abi.encodeWithSelector(
+                bytes4(0x137c29fe),
+                takerPermit,
+                ISignatureTransfer.SignatureTransferDetails({to: MAKER, requestedAmount: amount}),
+                taker,
+                bytes32(0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff), /* witness */
+                actionsAndSlippageWitnessType,
+                bytes(hex"beef")
             ),
             new bytes(0)
         );
@@ -488,17 +466,14 @@ contract RfqUnitTest is Utils, Test {
         // Maker payment via Permit2
         _mockExpectCall(
             PERMIT2,
-            bytes.concat(
-                abi.encodeWithSelector(
-                    bytes4(0x137c29fe),
-                    makerPermit,
-                    transferDetails,
-                    MAKER,
-                    witness,
-                    uint256(0x140),
-                    uint256(0x160 + considerationWitnessType.length)
-                ),
-                abi.encodePacked(considerationWitnessType.length, considerationWitnessType, uint256(2), hex"dead")
+            abi.encodeWithSelector(
+                bytes4(0x137c29fe),
+                makerPermit,
+                transferDetails,
+                MAKER,
+                witness,
+                considerationWitnessType,
+                bytes(hex"dead")
             ),
             new bytes(0)
         );
