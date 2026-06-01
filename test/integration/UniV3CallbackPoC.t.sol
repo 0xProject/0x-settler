@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.25;
 
-import {AllowanceHolder} from "src/allowanceholder/AllowanceHolderOld.sol";
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {IAllowanceHolder, ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {MainnetSettler as Settler} from "src/chains/Mainnet/TakerSubmitted.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {IUniswapV3Pool} from "src/core/UniswapV3Fork.sol";
@@ -60,7 +59,6 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
     ISignatureTransfer permit2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
     bytes32 internal permit2Domain;
 
-    IAllowanceHolder ah;
     Settler settler;
     address pool;
 
@@ -92,11 +90,10 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
         permit2Domain = permit2.DOMAIN_SEPARATOR();
 
         // Deploy AllowanceHolder
-        ah = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
         {
             uint256 forkChainId = (new Shim()).chainId();
             vm.chainId(31337);
-            vm.etch(address(ah), address(new AllowanceHolder()).code);
+            vm.etch(address(ALLOWANCE_HOLDER), vm.getDeployedCode("AllowanceHolderOld.sol:AllowanceHolder"));
             vm.chainId(forkChainId);
         }
 
@@ -149,7 +146,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
         MockERC20(dai).mint(alice, 100e18);
 
         vm.prank(alice);
-        MockERC20(dai).approve(address(ah), type(uint256).max);
+        MockERC20(dai).approve(address(ALLOWANCE_HOLDER), type(uint256).max);
         vm.prank(alice);
         MockERC20(dai).approve(address(permit2), type(uint256).max);
 
