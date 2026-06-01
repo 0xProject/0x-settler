@@ -28,7 +28,7 @@ abstract contract Renegade is SettlerSwapAbstract {
      *     0x140  uint256   <offset>  GasSponsorOptions: (address refundAddress, bool refundNativeEth, uint256 refundAmount, uint256 nonce, bytes signature)
      *   )
      */
-    uint32 public constant selector = uint32(
+    uint32 internal constant RENEGADE_SELECTOR = uint32(
         bytes4(
             keccak256(
                 "sponsorExternalMatch(uint256,address,(address,address,(uint256),uint256,uint256,uint256),(bool,uint8,bytes),(address,bool,uint256,uint256,bytes))"
@@ -109,7 +109,7 @@ abstract contract Renegade is SettlerSwapAbstract {
         // Allow the sellToken contract to move newSellAmt tokens from this contract.
         sellToken.safeApproveIfBelow(address(target), newSellAmt);
 
-        uint32 sel = selector;
+        uint32 sel = RENEGADE_SELECTOR;
 
         assembly ("memory-safe") {
             // Override sellTokenAmt in data (at position 0x20) with newSellAmt.
