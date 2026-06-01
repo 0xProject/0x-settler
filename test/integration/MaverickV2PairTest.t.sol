@@ -11,7 +11,7 @@ import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet/MetaTx
 import {Settler} from "src/Settler.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {AddressDerivation} from "src/utils/AddressDerivation.sol";
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {maverickV2InitHash, maverickV2Factory} from "src/core/MaverickV2.sol";
 
 import {SettlerMetaTxnPairTest} from "./SettlerMetaTxnPairTest.t.sol";
@@ -21,7 +21,7 @@ abstract contract MaverickV2PairTest is SettlerMetaTxnPairTest {
         super.setUp();
         if (maverickV2Salt() != bytes32(0)) {
             vm.makePersistent(address(PERMIT2));
-            vm.makePersistent(address(allowanceHolder));
+            vm.makePersistent(address(ALLOWANCE_HOLDER));
             vm.makePersistent(address(settler));
             vm.makePersistent(address(settlerMetaTxn));
             vm.makePersistent(address(fromToken()));
