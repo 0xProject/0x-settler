@@ -262,12 +262,12 @@ contract UniswapV3UnitTest is Utils, Test {
         });
 
         _mockExpectCall(
-            ALLOWANCE_HOLDER,
+            address(ALLOWANCE_HOLDER),
             abi.encodeCall(IAllowanceHolder.transferFrom, (TOKEN0, address(this), POOL, 1)),
             abi.encode(true)
         );
 
-        vm.prank(ALLOWANCE_HOLDER);
+        vm.prank(address(ALLOWANCE_HOLDER));
         address(uni)
             .call(
                 abi.encodePacked(
