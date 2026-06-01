@@ -11,7 +11,7 @@ import {IPoolManager} from "../../core/UniswapV4Types.sol";
 import {EulerSwap, IEVC, IEulerSwap} from "../../core/EulerSwap.sol";
 import {BalancerV3} from "../../core/BalancerV3.sol";
 import {PancakeInfinity} from "../../core/PancakeInfinity.sol";
-import {Renegade, BASE_SELECTOR} from "../../core/Renegade.sol";
+import {Renegade} from "../../core/Renegade.sol";
 import {Bebop} from "../../core/Bebop.sol";
 import {Hanji} from "../../core/Hanji.sol";
 
@@ -76,6 +76,10 @@ abstract contract BaseMixin is
 
     constructor() {
         assert(block.chainid == 8453 || block.chainid == 31337);
+    }
+
+    function _renegadeGasSponsorV2() internal pure override returns (address) {
+        return 0xD9E0507D706408D0f14E22e50880189Fd915be80;
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
@@ -145,10 +149,10 @@ abstract contract BaseMixin is
 
             sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
-            (address target, IERC20 sellToken, bool baseForQuote, bytes memory renegadeData, uint256 minBuyAmount) =
-                abi.decode(data, (address, IERC20, bool, bytes, uint256));
+            (address target, IERC20 sellToken, bytes memory renegadeData, uint256 minBuyAmount) =
+                abi.decode(data, (address, IERC20, bytes, uint256));
 
-            sellToRenegade(target, sellToken, baseForQuote, renegadeData, minBuyAmount);
+            sellToRenegade(target, sellToken, renegadeData, minBuyAmount);
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
             (
                 IERC20 sellToken,
@@ -255,10 +259,6 @@ abstract contract BaseMixin is
             mstore(returndata, 0x20)
             mstore(add(0x20, returndata), shr(0x60, msgSenderShifted))
         }
-    }
-
-    function _renegadeSelector() internal pure override returns (uint32) {
-        return BASE_SELECTOR;
     }
 
     // I hate Solidity inheritance

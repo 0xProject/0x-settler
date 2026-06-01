@@ -2,24 +2,19 @@
 pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
-import {BASE_SELECTOR} from "src/core/Renegade.sol";
 import {BaseSettler} from "src/chains/Base/TakerSubmitted.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
-import {TooMuchSlippage} from "src/core/SettlerErrors.sol";
+import {InvalidRenegadeData, TooMuchSlippage} from "src/core/SettlerErrors.sol";
 import {
-    BASE_GAS_SPONSOR,
-    BASE_TXN_CALLDATA,
-    BASE_TXN_BLOCK,
-    BASE_USDC,
-    BASE_WETH,
     BASE_AMOUNT,
-    BASE_SELL_BASE_CALLDATA,
-    BASE_SELL_BASE_BLOCK,
-    BASE_SELL_BASE_AMOUNT
+    BASE_GAS_SPONSOR,
+    BASE_TXN_BLOCK,
+    BASE_TXN_CALLDATA,
+    BASE_USDC,
+    BASE_WETH
 } from "./RenegadeTxn.t.sol";
 
 contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
@@ -58,7 +53,6 @@ contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
 
     function _buildExecData(
         bytes memory txnCalldata,
-        bool baseForQuote,
         IERC20 sellToken,
         IERC20 buyToken,
         uint256 sellAmount,
@@ -74,21 +68,14 @@ contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
         return abi.encodeCall(
             settler.execute,
             (
-                ISettlerBase.AllowedSlippage({
-                    recipient: payable(address(this)), buyToken: buyToken, minAmountOut: 0
-                }),
+                ISettlerBase.AllowedSlippage({recipient: payable(address(this)), buyToken: buyToken, minAmountOut: 0}),
                 ActionDataBuilder.build(
                     abi.encodeCall(
                         ISettlerActions.TRANSFER_FROM,
-                        (
-                            address(settler),
-                            defaultERC20PermitTransfer(address(sellToken), sellAmount, 0),
-                            new bytes(0)
-                        )
+                        (address(settler), defaultERC20PermitTransfer(address(sellToken), sellAmount, 0), new bytes(0))
                     ),
                     abi.encodeCall(
-                        ISettlerActions.RENEGADE,
-                        (BASE_GAS_SPONSOR, address(sellToken), baseForQuote, _calldata, minBuyAmount)
+                        ISettlerActions.RENEGADE, (BASE_GAS_SPONSOR, address(sellToken), _calldata, minBuyAmount)
                     )
                 ),
                 bytes32(0)
@@ -96,51 +83,25 @@ contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
         );
     }
 
-    function _rerunTxn(
-        bytes memory txnCalldata,
-        bool baseForQuote,
-        IERC20 sellToken,
-        IERC20 buyToken,
-        uint256 sellAmount
-    ) internal {
-        bytes memory ahData = _buildExecData(txnCalldata, baseForQuote, sellToken, buyToken, sellAmount, 0);
+    function _rerunTxn(bytes memory txnCalldata, IERC20 sellToken, IERC20 buyToken, uint256 sellAmount) internal {
+        bytes memory ahData = _buildExecData(txnCalldata, sellToken, buyToken, sellAmount, 0);
 
+        uint256 balanceBefore = balanceOf(buyToken, address(this));
         deal(address(sellToken), address(this), sellAmount);
         sellToken.approve(address(allowanceHolder), sellAmount);
         allowanceHolder.exec(address(settler), address(sellToken), sellAmount, payable(address(settler)), ahData);
+        assertGt(balanceOf(buyToken, address(this)), balanceBefore);
     }
 
-    // Sell-quote: USDC -> WETH
-    // Replays https://basescan.org/tx/0xbfcb0bcd28de600cbca36a3be9630aeed3b0d44be2e78a21e46f0abc64414085
-    function testSellQuote() public {
-        _rerunTxn(BASE_TXN_CALLDATA, false, BASE_USDC, BASE_WETH, BASE_AMOUNT);
+    // USDC -> WETH with `recipient == address(0)`.
+    // Replays the embedded Renegade v2 call from https://basescan.org/tx/0x7512ca3f27ac43ed33648b7d19d89ede5667aef512f851a8fdfe9202c539ec63
+    function testSellToRenegade() public {
+        _rerunTxn(BASE_TXN_CALLDATA, BASE_USDC, BASE_WETH, BASE_AMOUNT);
     }
 
-    // Sell-base: WETH -> USDC
-    // Replays https://basescan.org/tx/0xcfe9507e3e591f9340a185a8114cc762c44ba973c22925880f36516f1001e2b2
-    function testSellBase() public {
-        // Roll to a different block for sell-base calldata; redeploy settler + AllowanceHolder
-        vm.rollFork(BASE_SELL_BASE_BLOCK - 1);
-        uint256 forkChainId = vm.getChainId();
-        vm.chainId(31337);
-        bytes memory initCode = settlerInitCode();
-        assembly ("memory-safe") {
-            let s := create(0x00, add(0x20, initCode), mload(initCode))
-            if iszero(s) { revert(0x00, 0x00) }
-            sstore(settler.slot, s)
-        }
-        vm.etch(address(allowanceHolder), vm.getDeployedCode("AllowanceHolder.sol:AllowanceHolder"));
-        vm.chainId(forkChainId);
-
-        _rerunTxn(BASE_SELL_BASE_CALLDATA, true, BASE_WETH, BASE_USDC, BASE_SELL_BASE_AMOUNT);
-    }
-
-    function _expectSlippageRevert(
-        bytes memory ahData,
-        IERC20 sellToken,
-        IERC20 expectedBuyToken,
-        uint256 sellAmount
-    ) internal {
+    function _expectSlippageRevert(bytes memory ahData, IERC20 sellToken, IERC20 expectedBuyToken, uint256 sellAmount)
+        internal
+    {
         deal(address(sellToken), address(this), sellAmount);
         sellToken.approve(address(allowanceHolder), sellAmount);
 
@@ -148,7 +109,6 @@ contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
             revert("expected TooMuchSlippage revert");
         } catch (bytes memory reason) {
             assertEq(bytes4(reason), TooMuchSlippage.selector);
-            // Decode the token address from the error data (first word after selector)
             IERC20 revertedToken;
             assembly ("memory-safe") {
                 revertedToken := mload(add(reason, 0x24))
@@ -157,27 +117,17 @@ contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
         }
     }
 
-    // Verify revertTooMuchSlippage reports the correct buyToken (WETH) when selling quote (USDC)
-    function testSellQuoteSlippageRevert() public {
-        bytes memory ahData = _buildExecData(BASE_TXN_CALLDATA, false, BASE_USDC, BASE_WETH, BASE_AMOUNT, type(uint256).max);
+    function testSlippageRevertReportsBuyToken() public {
+        bytes memory ahData = _buildExecData(BASE_TXN_CALLDATA, BASE_USDC, BASE_WETH, BASE_AMOUNT, type(uint256).max);
         _expectSlippageRevert(ahData, BASE_USDC, BASE_WETH, BASE_AMOUNT);
     }
 
-    // Verify revertTooMuchSlippage reports the correct buyToken (USDC) when selling base (WETH)
-    function testSellBaseSlippageRevert() public {
-        vm.rollFork(BASE_SELL_BASE_BLOCK - 1);
-        uint256 forkChainId = vm.getChainId();
-        vm.chainId(31337);
-        bytes memory initCode = settlerInitCode();
-        assembly ("memory-safe") {
-            let s := create(0x00, add(0x20, initCode), mload(initCode))
-            if iszero(s) { revert(0x00, 0x00) }
-            sstore(settler.slot, s)
-        }
-        vm.etch(address(allowanceHolder), vm.getDeployedCode("AllowanceHolder.sol:AllowanceHolder"));
-        vm.chainId(forkChainId);
+    function testSellTokenMustMatchRenegadeOutputToken() public {
+        bytes memory ahData = _buildExecData(BASE_TXN_CALLDATA, BASE_WETH, BASE_USDC, 1 ether, 0);
 
-        bytes memory ahData = _buildExecData(BASE_SELL_BASE_CALLDATA, true, BASE_WETH, BASE_USDC, BASE_SELL_BASE_AMOUNT, type(uint256).max);
-        _expectSlippageRevert(ahData, BASE_WETH, BASE_USDC, BASE_SELL_BASE_AMOUNT);
+        deal(address(BASE_WETH), address(this), 1 ether);
+        BASE_WETH.approve(address(allowanceHolder), 1 ether);
+        vm.expectRevert(InvalidRenegadeData.selector);
+        allowanceHolder.exec(address(settler), address(BASE_WETH), 1 ether, payable(address(settler)), ahData);
     }
 }
