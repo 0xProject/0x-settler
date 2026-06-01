@@ -3,6 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
+import {revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
 abstract contract Renegade is SettlerSwapAbstract {
@@ -40,7 +41,7 @@ abstract contract Renegade is SettlerSwapAbstract {
     function _renegadeGasSponsorV2() internal view returns (address) {
         uint256 chainId = block.chainid;
         if (chainId == 42161) return 0xcE7a8D45daa9a5B29f6d255552F577d53fF9EBcf; // Arbitrum One
-        if (chainId == 8453)  return 0xD9E0507D706408D0f14E22e50880189Fd915be80; // Base mainnet
+        if (chainId == 8453) return 0xD9E0507D706408D0f14E22e50880189Fd915be80; // Base mainnet
         revert("Renegade: unsupported chain");
     }
 
@@ -51,18 +52,25 @@ abstract contract Renegade is SettlerSwapAbstract {
      *             `sponsorExternalMatch()`
      * @param minBuyAmt The minimum amount of the buy-token the taker must receive.
      */
-    function sellToRenegade(
-        address target,
-        IERC20 sellToken,
-        bytes memory data,
-        uint256 minBuyAmt
-    ) internal returns (uint256 buyAmt) {
-        // Extract the recipient from `data` and require that it matches address(this)
+    function sellToRenegade(address target, IERC20 sellToken, bytes memory data, uint256 minBuyAmt)
+        internal
+        returns (uint256 buyAmt)
+    {
+        // Extract the recipient from `data` and require that it resolves to address(this).
         address recipient;
         assembly ("memory-safe") {
             recipient := mload(add(data, 0x40))
         }
-        require(recipient == address(this), "Renegade: bad recipient");
+        require((recipient == address(0)) || (recipient == address(this)), "Renegade: bad recipient");
+
+        // Extract buyToken and the expected sellToken from `data`.
+        IERC20 buyToken;
+        IERC20 internalPartyOutputToken;
+        assembly ("memory-safe") {
+            buyToken := mload(add(data, 0x60))
+            internalPartyOutputToken := mload(add(data, 0x80))
+        }
+        require(sellToken == internalPartyOutputToken, "Renegade: bad sellToken");
 
         // Extract `minInternalPartyAmountIn` and `maxInternalPartyAmountIn` from `data`
         uint256 minInternalPartyAmountIn;
@@ -88,19 +96,11 @@ abstract contract Renegade is SettlerSwapAbstract {
         uint256 newBuyAmt = (newSellAmt << 63) / priceRepr;
 
         // Check newBuyAmt
-        require(newBuyAmt >= minBuyAmt, "Renegade: newBuyAmt < minBuyAmt");
+        if (newBuyAmt < minBuyAmt) revertTooMuchSlippage(buyToken, minBuyAmt, newBuyAmt);
         require(newBuyAmt >= minInternalPartyAmountIn, "Renegade: newBuyAmt < minInternalPartyAmountIn");
         require(newBuyAmt <= maxInternalPartyAmountIn, "Renegade: newBuyAmt > maxInternalPartyAmountIn");
 
         require(target == _renegadeGasSponsorV2(), "Renegade: bad target");
-
-        // Extract buyToken from `data`. From the external party's perspective
-        // the buy-side asset is `BoundedMatchResult.internalPartyInputToken`,
-        // at offset 0x60.
-        IERC20 buyToken;
-        assembly ("memory-safe") {
-            buyToken := mload(add(data, 0x60))
-        }
 
         // Snapshot the buyToken balance before the call so we can measure the
         // actual amount transferred after.
@@ -144,6 +144,6 @@ abstract contract Renegade is SettlerSwapAbstract {
 
         // Check the balance delta.
         buyAmt = buyToken.fastBalanceOf(address(this)) - buyTokenBalanceBefore;
-        require(buyAmt >= minBuyAmt, "Renegade: delta < minBuyAmt");
+        if (buyAmt < minBuyAmt) revertTooMuchSlippage(buyToken, minBuyAmt, buyAmt);
     }
 }
