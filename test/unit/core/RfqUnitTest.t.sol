@@ -319,7 +319,7 @@ contract RfqUnitTest is Utils, Test {
         );
 
         _mockExpectCall(
-            ALLOWANCE_HOLDER,
+            address(ALLOWANCE_HOLDER),
             abi.encodeCall(IAllowanceHolder.transferFrom, (TOKEN0, address(this), MAKER, amount)),
             abi.encode(true)
         );
@@ -349,7 +349,7 @@ contract RfqUnitTest is Utils, Test {
         //     uint128(amount)
         // );
 
-        vm.prank(ALLOWANCE_HOLDER);
+        vm.prank(address(ALLOWANCE_HOLDER));
         (bool success,) = address(rfq)
             .call(
                 abi.encodePacked(
