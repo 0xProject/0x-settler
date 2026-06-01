@@ -64,6 +64,10 @@ abstract contract ArbitrumMixin is
         assert(block.chainid == 42161 || block.chainid == 31337);
     }
 
+    function _renegadeGasSponsorV2() internal pure override returns (address) {
+        return 0xcE7a8D45daa9a5B29f6d255552F577d53fF9EBcf;
+    }
+
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual

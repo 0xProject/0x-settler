@@ -3,17 +3,19 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
+import {revertInvalidRenegadeData, revertInvalidTarget, revertTooMuchSlippage} from "./SettlerErrors.sol";
+import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
 abstract contract Renegade is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
+    using UnsafeMath for uint256;
 
     /*
      * Memory layout of `data` (the args to `sponsorExternalMatch`, sans the
      * 4-byte selector). The first 32 bytes are the bytes-length word; the
      * payload begins at `data + 0x20`. Offsets below are relative to `data`
-     * itself, matching the `mload(add(data, OFFSET))` reads in this file.
+     * itself, matching the `mload(add(OFFSET, data))` reads in this file.
      *
      *   sponsorExternalMatch(
      *     0x20   uint256   sellTokenAmt
@@ -38,12 +40,7 @@ abstract contract Renegade is SettlerSwapAbstract {
 
     /// @notice The expected `GasSponsorV2` proxy address for the current chain.
     /// @dev Adding a new chain requires a source change + redeploy of this contract.
-    function _renegadeGasSponsorV2() internal view returns (address) {
-        uint256 chainId = block.chainid;
-        if (chainId == 42161) return 0xcE7a8D45daa9a5B29f6d255552F577d53fF9EBcf; // Arbitrum One
-        if (chainId == 8453) return 0xD9E0507D706408D0f14E22e50880189Fd915be80; // Base mainnet
-        revert("Renegade: unsupported chain");
-    }
+    function _renegadeGasSponsorV2() internal pure virtual returns (address);
 
     function sellToRenegade(address target, IERC20 sellToken, bytes memory data, uint256 minBuyAmt)
         internal
@@ -56,27 +53,28 @@ abstract contract Renegade is SettlerSwapAbstract {
         uint256 maxInternalPartyAmountIn;
         uint256 priceRepr;
         assembly ("memory-safe") {
-            recipient := mload(add(data, 0x40))
-            buyToken := mload(add(data, 0x60))
-            internalPartyOutputToken := mload(add(data, 0x80))
-            priceRepr := mload(add(data, 0xa0))
-            minInternalPartyAmountIn := mload(add(data, 0xc0))
-            maxInternalPartyAmountIn := mload(add(data, 0xe0))
+            recipient := mload(add(0x40, data))
+            buyToken := mload(add(0x60, data))
+            internalPartyOutputToken := mload(add(0x80, data))
+            priceRepr := mload(add(0xa0, data))
+            minInternalPartyAmountIn := mload(add(0xc0, data))
+            maxInternalPartyAmountIn := mload(add(0xe0, data))
         }
-        require((recipient == address(0)) || (recipient == address(this)), "Renegade: bad recipient");
-        require(sellToken == internalPartyOutputToken, "Renegade: bad sellToken");
+        if ((recipient != address(0)) && (recipient != address(this))) revertInvalidRenegadeData();
+        if (sellToken != internalPartyOutputToken) revertInvalidRenegadeData();
+        if (priceRepr == 0) revertInvalidRenegadeData();
 
         uint256 newSellAmt = sellToken.fastBalanceOf(address(this));
 
         // newBuyAmt = floor(newSellAmt / price), matching
         // FixedPointLib.divIntegerByFixedPoint.
-        uint256 newBuyAmt = (newSellAmt << 63) / priceRepr;
+        uint256 newBuyAmt = (newSellAmt << 63).unsafeDiv(priceRepr);
 
         if (newBuyAmt < minBuyAmt) revertTooMuchSlippage(buyToken, minBuyAmt, newBuyAmt);
-        require(newBuyAmt >= minInternalPartyAmountIn, "Renegade: newBuyAmt < minInternalPartyAmountIn");
-        require(newBuyAmt <= maxInternalPartyAmountIn, "Renegade: newBuyAmt > maxInternalPartyAmountIn");
+        if (newBuyAmt < minInternalPartyAmountIn) revertInvalidRenegadeData();
+        if (newBuyAmt > maxInternalPartyAmountIn) revertInvalidRenegadeData();
 
-        require(target == _renegadeGasSponsorV2(), "Renegade: bad target");
+        if (target != _renegadeGasSponsorV2()) revertInvalidTarget();
 
         uint256 buyTokenBalanceBefore = buyToken.fastBalanceOf(address(this));
         sellToken.safeApproveIfBelow(address(target), newSellAmt);
@@ -85,7 +83,7 @@ abstract contract Renegade is SettlerSwapAbstract {
 
         assembly ("memory-safe") {
             // Override sellTokenAmt in data (at position 0x20) with newSellAmt.
-            mstore(add(data, 0x20), newSellAmt)
+            mstore(add(0x20, data), newSellAmt)
 
             // Stash the length and overwrite its slot with the selector; calldata
             // starts at data + 0x1c so the call sees [selector | payload].

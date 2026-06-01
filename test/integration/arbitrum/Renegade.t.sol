@@ -7,7 +7,7 @@ import {ActionDataBuilder} from "../../utils/ActionDataBuilder.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {SettlerBasePairTest} from "../SettlerBasePairTest.t.sol";
-import {TooMuchSlippage} from "src/core/SettlerErrors.sol";
+import {InvalidRenegadeData, TooMuchSlippage} from "src/core/SettlerErrors.sol";
 import {
     ARBITRUM_AMOUNT,
     ARBITRUM_GMX,
@@ -128,7 +128,7 @@ contract RenegadeArbitrumIntegrationTest is SettlerBasePairTest {
 
         deal(address(ARBITRUM_USDC), address(this), 1e6);
         ARBITRUM_USDC.approve(address(allowanceHolder), 1e6);
-        vm.expectRevert(bytes("Renegade: bad sellToken"));
+        vm.expectRevert(InvalidRenegadeData.selector);
         allowanceHolder.exec(address(settler), address(ARBITRUM_USDC), 1e6, payable(address(settler)), ahData);
     }
 }

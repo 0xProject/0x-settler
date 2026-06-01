@@ -78,6 +78,10 @@ abstract contract BaseMixin is
         assert(block.chainid == 8453 || block.chainid == 31337);
     }
 
+    function _renegadeGasSponsorV2() internal pure override returns (address) {
+        return 0xD9E0507D706408D0f14E22e50880189Fd915be80;
+    }
+
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)
         internal
         virtual

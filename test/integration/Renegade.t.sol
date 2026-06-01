@@ -7,7 +7,7 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
-import {TooMuchSlippage} from "src/core/SettlerErrors.sol";
+import {InvalidRenegadeData, TooMuchSlippage} from "src/core/SettlerErrors.sol";
 import {
     BASE_AMOUNT,
     BASE_GAS_SPONSOR,
@@ -127,7 +127,7 @@ contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
 
         deal(address(BASE_WETH), address(this), 1 ether);
         BASE_WETH.approve(address(allowanceHolder), 1 ether);
-        vm.expectRevert(bytes("Renegade: bad sellToken"));
+        vm.expectRevert(InvalidRenegadeData.selector);
         allowanceHolder.exec(address(settler), address(BASE_WETH), 1 ether, payable(address(settler)), ahData);
     }
 }
