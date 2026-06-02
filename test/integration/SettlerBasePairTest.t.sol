@@ -11,7 +11,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {IAllowanceHolder, ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {MainnetSettler as Settler} from "src/chains/Mainnet/TakerSubmitted.sol";
 
 contract Shim {
@@ -33,7 +33,6 @@ abstract contract SettlerBasePairTest is BasePairTest {
     uint256 internal constant PERMIT2_MAKER_NONCE = 1;
 
     Settler internal settler;
-    IAllowanceHolder internal allowanceHolder;
     IZeroEx internal ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
 
     function settlerInitCode() internal virtual returns (bytes memory) {
@@ -50,14 +49,13 @@ abstract contract SettlerBasePairTest is BasePairTest {
 
     function setUp() public virtual override {
         super.setUp();
-        allowanceHolder = IAllowanceHolder(0x0000000000005E88410CcDFaDe4a5EfaE4b49562);
 
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);
         settler = _deploySettler();
         vm.label(address(settler), "Settler");
-        vm.etch(address(allowanceHolder), vm.getDeployedCode("AllowanceHolderOld.sol:AllowanceHolder"));
-        vm.label(address(allowanceHolder), "AllowanceHolder");
+        vm.etch(address(ALLOWANCE_HOLDER), vm.getDeployedCode("AllowanceHolderOld.sol:AllowanceHolder"));
+        vm.label(address(ALLOWANCE_HOLDER), "AllowanceHolder");
         vm.chainId(forkChainId);
     }
 
