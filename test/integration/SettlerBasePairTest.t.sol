@@ -11,8 +11,9 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {SafeTransferLib} from "src/vendor/SafeTransferLib.sol";
 
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
-import {MainnetSettler as Settler} from "src/chains/Mainnet/TakerSubmitted.sol";
+import {IAllowanceHolder, ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
+import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
+import {Settler} from "src/Settler.sol";
 
 contract Shim {
     // forgefmt: disable-next-line
@@ -37,7 +38,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
     IZeroEx internal ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
 
     function settlerInitCode() internal virtual returns (bytes memory) {
-        return bytes.concat(type(Settler).creationCode, abi.encode(bytes20(0)));
+        return bytes.concat(type(MainnetSettler).creationCode, abi.encode(bytes20(0)));
     }
 
     function _deploySettler() private returns (Settler r) {
@@ -50,7 +51,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
 
     function setUp() public virtual override {
         super.setUp();
-        allowanceHolder = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
+        allowanceHolder = ALLOWANCE_HOLDER;
 
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);

@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
-import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {DeBridge, DLN_SOURCE, IDlnSource} from "src/core/DeBridge.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
@@ -72,7 +71,7 @@ contract DeBridgeTest is BridgeSettlerIntegrationTest {
 
         deal(address(this), globalFee);
         deal(address(USDC), address(this), amount);
-        USDC.approve(address(ALLOWANCE_HOLDER), amount);
+        USDC.approve(address(allowanceHolder), amount);
 
         bytes[] memory bridgeActions = ActionDataBuilder.build(
             _getDefaultTransferFrom(address(USDC), amount),
@@ -84,7 +83,7 @@ contract DeBridgeTest is BridgeSettlerIntegrationTest {
         uint256 usdcBalanceBefore = USDC.balanceOf(address(DLN_SOURCE));
         uint256 ethBalanceBefore = address(DLN_SOURCE).balance;
         vm.expectCall(address(DLN_SOURCE), globalFee, deBridgecall(address(USDC), amount));
-        ALLOWANCE_HOLDER.exec{value: globalFee}(
+        allowanceHolder.exec{value: globalFee}(
             address(bridgeSettler),
             address(USDC),
             amount,

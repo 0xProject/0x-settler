@@ -11,7 +11,7 @@ import {uniswapV3InitHash, IUniswapV3Callback} from "src/core/univ3forks/Uniswap
 import {revertUnknownForkId} from "src/core/SettlerErrors.sol";
 import {uint512} from "src/utils/512Math.sol";
 
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {IAllowanceHolder, ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 
 import {Utils} from "../Utils.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
@@ -105,7 +105,7 @@ contract UniswapV3UnitTest is Utils, Test {
     UniswapV3Dummy uni;
     address UNI_FACTORY = _createNamedRejectionDummy("UNI_FACTORY");
     address PERMIT2 = _etchNamedRejectionDummy("PERMIT2", 0x000000000022D473030F116dDEE9F6B43aC78BA3);
-    address ALLOWANCE_HOLDER = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", 0x0000000000001fF3684f28c67538d4D072C22734);
+    address ALLOWANCE_HOLDER_ = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", address(ALLOWANCE_HOLDER));
 
     address TOKEN0 = _createNamedRejectionDummy("TOKEN0");
     address TOKEN1 = _createNamedRejectionDummy("TOKEN1");
@@ -262,12 +262,12 @@ contract UniswapV3UnitTest is Utils, Test {
         });
 
         _mockExpectCall(
-            ALLOWANCE_HOLDER,
+            ALLOWANCE_HOLDER_,
             abi.encodeCall(IAllowanceHolder.transferFrom, (TOKEN0, address(this), POOL, 1)),
             abi.encode(true)
         );
 
-        vm.prank(ALLOWANCE_HOLDER);
+        vm.prank(ALLOWANCE_HOLDER_);
         address(uni)
             .call(
                 abi.encodePacked(

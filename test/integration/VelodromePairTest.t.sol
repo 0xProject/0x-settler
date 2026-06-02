@@ -4,22 +4,24 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
-import {BasePairTest} from "./BasePairTest.t.sol";
+import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
-import {BaseSettler as Settler} from "src/chains/Base/TakerSubmitted.sol";
-import {Shim} from "./SettlerBasePairTest.t.sol";
+import {BaseSettler} from "src/chains/Base/TakerSubmitted.sol";
+import {Settler} from "src/Settler.sol";
 
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
-contract VelodromePairTest is BasePairTest {
+contract VelodromePairTest is SettlerBasePairTest {
     function _testName() internal pure override returns (string memory) {
         return "USDT-USDC";
     }
 
-    Settler internal settler;
-    IAllowanceHolder internal allowanceHolder;
     uint256 private _amount;
+
+    function settlerInitCode() internal virtual override returns (bytes memory) {
+        return bytes.concat(type(BaseSettler).creationCode, abi.encode(bytes20(0)));
+    }
 
     function setUp() public override {
         super.setUp();
@@ -37,14 +39,6 @@ contract VelodromePairTest is BasePairTest {
         }
         safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
         warmPermit2Nonce(FROM);
-
-        allowanceHolder = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
-
-        uint256 forkChainId = (new Shim()).chainId();
-        vm.chainId(31337);
-        settler = new Settler(bytes20(0));
-        vm.etch(address(allowanceHolder), vm.getDeployedCode("AllowanceHolder.sol:AllowanceHolder"));
-        vm.chainId(forkChainId);
 
         // USDT is obnoxious about throwing errors, so let's check here before
         // we run into something inscrutable. Do this here to avoid incorrectly

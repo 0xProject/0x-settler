@@ -10,7 +10,7 @@ import {
     Permit2PaymentBase
 } from "src/core/Permit2Payment.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
-import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
+import {IAllowanceHolder, ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {Context, AbstractContext} from "src/Context.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
 
@@ -170,7 +170,7 @@ contract RfqUnitTest is Utils, Test {
     RfqOrderSettlementDummy rfq;
     RfqOrderSettlementMetaTxnDummy rfqMeta;
     address PERMIT2 = _etchNamedRejectionDummy("PERMIT2", 0x000000000022D473030F116dDEE9F6B43aC78BA3);
-    address ALLOWANCE_HOLDER = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", 0x0000000000001fF3684f28c67538d4D072C22734);
+    address ALLOWANCE_HOLDER_ = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", address(ALLOWANCE_HOLDER));
 
     address TOKEN0 = _createNamedRejectionDummy("TOKEN0");
     address TOKEN1 = _createNamedRejectionDummy("TOKEN1");
@@ -319,7 +319,7 @@ contract RfqUnitTest is Utils, Test {
         );
 
         _mockExpectCall(
-            ALLOWANCE_HOLDER,
+            ALLOWANCE_HOLDER_,
             abi.encodeCall(IAllowanceHolder.transferFrom, (TOKEN0, address(this), MAKER, amount)),
             abi.encode(true)
         );
@@ -349,7 +349,7 @@ contract RfqUnitTest is Utils, Test {
         //     uint128(amount)
         // );
 
-        vm.prank(ALLOWANCE_HOLDER);
+        vm.prank(ALLOWANCE_HOLDER_);
         (bool success,) = address(rfq)
             .call(
                 abi.encodePacked(

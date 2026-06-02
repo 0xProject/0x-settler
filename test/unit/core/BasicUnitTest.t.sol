@@ -5,6 +5,7 @@ import {Basic} from "src/core/Basic.sol";
 import {Permit2PaymentTakerSubmitted} from "src/core/Permit2Payment.sol";
 import {Permit2PaymentAbstract} from "src/core/Permit2PaymentAbstract.sol";
 import {AllowanceHolderContext} from "src/allowanceholder/AllowanceHolderContext.sol";
+import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 
 import {uint512} from "src/utils/512Math.sol";
 
@@ -43,7 +44,7 @@ contract BasicDummy is Permit2PaymentTakerSubmitted, Basic {
 contract BasicUnitTest is Utils, Test {
     BasicDummy basic;
     address PERMIT2 = _etchNamedRejectionDummy("PERMIT2", 0x000000000022D473030F116dDEE9F6B43aC78BA3);
-    address ALLOWANCE_HOLDER = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", 0x0000000000001fF3684f28c67538d4D072C22734);
+    address ALLOWANCE_HOLDER_ = _etchNamedRejectionDummy("ALLOWANCE_HOLDER", address(ALLOWANCE_HOLDER));
     address POOL = _createNamedRejectionDummy("POOL");
     IERC20 TOKEN = IERC20(_createNamedRejectionDummy("TOKEN"));
 
@@ -198,7 +199,7 @@ contract BasicUnitTest is Utils, Test {
         basic.sellToPool(IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bps, PERMIT2, offset, data);
 
         vm.expectRevert();
-        basic.sellToPool(IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bps, ALLOWANCE_HOLDER, offset, data);
+        basic.sellToPool(IERC20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), bps, ALLOWANCE_HOLDER_, offset, data);
     }
 
     function testBasicBubblesUpRevert() public {
