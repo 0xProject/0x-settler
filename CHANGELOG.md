@@ -14,6 +14,7 @@
 
 ### Non-breaking changes
 
+* Add SquadSwapV3 UniV3 fork to Bnb with fork ID 38
 * Add `BRIDGE_TO_NUCLEUS_TELLER` (Mainnet and Optimism) and
   `DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER` (Mainnet) actions for bridging WPAXG
   through Nucleus Teller
