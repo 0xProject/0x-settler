@@ -35,6 +35,8 @@ interface ISafeMinimal {
 
     function enableModule(address module) external;
 
+    function setFallbackHandler(address handler) external;
+
     function getModulesPaginated(address start, uint256 pageSize)
         external
         view
@@ -485,7 +487,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
             forbidSponsorship = forbidSponsorship
                 || (data.length >= 36
                     && (uint32(bytes4(data)) == uint32(_safe.setGuard.selector)
-                        || uint32(bytes4(data)) == uint32(_safe.enableModule.selector)));
+                        || uint32(bytes4(data)) == uint32(_safe.enableModule.selector)
+                        || uint32(bytes4(data)) == uint32(_safe.setFallbackHandler.selector)));
         }
         return (requireUnanimity, forbidSponsorship);
     }
