@@ -331,9 +331,13 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     uint256 internal constant _MINIMUM_OWNERS = 4;
     uint256 internal constant _MINIMUM_THRESHOLD = 2;
 
-    address private immutable _SINGLETON;
-    address private immutable _FALLBACK;
-    address private immutable _MULTISEND;
+    function _singletonInithash() internal pure virtual returns (bytes32);
+    function _fallbackInithash() internal pure virtual returns (bytes32);
+    function _multisendInithash() internal pure virtual returns (bytes32);
+
+    address private immutable _SINGLETON = _predictCreate2(_singletonInithash());
+    address private immutable _FALLBACK = _predictCreate2(_fallbackInithash());
+    address private immutable _MULTISEND = _predictCreate2(_multisendInithash());
     address private constant _NONEIP155_CREATE2_FACTORY = 0x4e59b44847b379578588920cA78FbF26c0B4956C;
     address private constant _SAFE_SINGLETON_FACTORY = 0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7;
     address private constant _ERC7955_CREATE2_FACTORY = 0xC0DEb853af168215879d284cc8B4d0A645fA9b0E;
@@ -379,11 +383,8 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         );
     }
 
-    constructor(ISafeMinimal _safe, bytes32 singletonInithash, bytes32 fallbackInithash, bytes32 multisendInithash) {
+    constructor(ISafeMinimal _safe) {
         safe = _safe;
-        _SINGLETON = _predictCreate2(singletonInithash);
-        _FALLBACK = _predictCreate2(fallbackInithash);
-        _MULTISEND = _predictCreate2(multisendInithash);
     }
 
     function _requireSafe() private view {
@@ -1066,23 +1067,19 @@ abstract contract ZeroExSettlerDeployerSafeGuardEraVm is ZeroExSettlerDeployerSa
 }
 
 contract ZeroExSettlerDeployerSafeGuardOnePointThree is ZeroExSettlerDeployerSafeGuardBase {
-    function _SAFE_SINGLETON_1_3_INITHASH() internal pure virtual returns (bytes32) {
+    function _singletonInithash() internal pure virtual override returns (bytes32) {
         return 0x49f30800a6ac5996a48b80c47ff20f19f8728812498a2a7fe75a14864fab6438;
     }
 
-    function _SAFE_FALLBACK_1_3_INITHASH() internal pure virtual returns (bytes32) {
+    function _fallbackInithash() internal pure virtual override returns (bytes32) {
         return 0x272190de126b4577e187d9f00b9ca5daeae76d771965d734876891a51f9c43d8;
     }
 
-    function _SAFE_MULTISEND_1_3_INITHASH() internal pure virtual returns (bytes32) {
+    function _multisendInithash() internal pure virtual override returns (bytes32) {
         return 0x35e699c3e43ec3e03a101730ab916c5e540893eaaf806451e929d138c3ff53b7;
     }
 
-    constructor(ISafeMinimal _safe)
-        ZeroExSettlerDeployerSafeGuardBase(
-            _safe, _SAFE_SINGLETON_1_3_INITHASH(), _SAFE_FALLBACK_1_3_INITHASH(), _SAFE_MULTISEND_1_3_INITHASH()
-        )
-    {
+    constructor(ISafeMinimal _safe) ZeroExSettlerDeployerSafeGuardBase(_safe) {
         // These checks ensure that the Guard is safely installed in the Safe at the time it is
         // deployed, with the exception of the installation and subsequent concealment of a
         // malicious Safe module. The author knows of no way to enforce that the Guard is installed
@@ -1103,15 +1100,30 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm is
     ZeroExSettlerDeployerSafeGuardEraVm,
     ZeroExSettlerDeployerSafeGuardOnePointThree
 {
-    function _SAFE_SINGLETON_1_3_INITHASH() internal pure override returns (bytes32) {
+    function _singletonInithash()
+        internal
+        pure
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardOnePointThree)
+        returns (bytes32)
+    {
         return 0x0100080f935a1a562e892e1e71d9a0ca8cd349d19a413e0b7e7172c5e8c83ed1;
     }
 
-    function _SAFE_FALLBACK_1_3_INITHASH() internal pure override returns (bytes32) {
+    function _fallbackInithash()
+        internal
+        pure
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardOnePointThree)
+        returns (bytes32)
+    {
         return 0x010002416a25dcb4ee218297a41538dde5937bbf8b64e5d3656217e27fd04d19;
     }
 
-    function _SAFE_MULTISEND_1_3_INITHASH() internal pure override returns (bytes32) {
+    function _multisendInithash()
+        internal
+        pure
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardOnePointThree)
+        returns (bytes32)
+    {
         return 0x0100002daeda170fa43cc4e00e452a18debfe54f988fa3484ab08e7f22ee79d5;
     }
 
@@ -1157,23 +1169,19 @@ contract ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm is
 }
 
 contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOne is IERC165, ZeroExSettlerDeployerSafeGuardBase {
-    function _SAFE_SINGLETON_1_4_INITHASH() internal pure virtual returns (bytes32) {
+    function _singletonInithash() internal pure virtual override returns (bytes32) {
         return 0x3555bd3ee95b1c6605c602740d71efaf200068e0395ccd701ac82ab8e42307bd;
     }
 
-    function _SAFE_FALLBACK_1_4_INITHASH() internal pure virtual returns (bytes32) {
+    function _fallbackInithash() internal pure virtual override returns (bytes32) {
         return 0x5a63128db658d8601220c014848acd6c27b855a0427f0181eb3ba8c25e2d3e95;
     }
 
-    function _SAFE_MULTISEND_1_4_INITHASH() internal pure virtual returns (bytes32) {
+    function _multisendInithash() internal pure virtual override returns (bytes32) {
         return 0xa7934433f19155c708af2674b14c6c8b591fedbed7b01ce8cf64014f307468a0;
     }
 
-    constructor(ISafeMinimal _safe)
-        ZeroExSettlerDeployerSafeGuardBase(
-            _safe, _SAFE_SINGLETON_1_4_INITHASH(), _SAFE_FALLBACK_1_4_INITHASH(), _SAFE_MULTISEND_1_4_INITHASH()
-        )
-    {
+    constructor(ISafeMinimal _safe) ZeroExSettlerDeployerSafeGuardBase(_safe) {
         // In contrast to the 1.3.0 Guard, the 1.4.1 Guard must be deployed *before* being enabled
         // in the Safe. However, because the Safe does an ERC165 check during the Guard enabling
         // process, we are able to perform a nearly atomic check. See the logic and comment in
@@ -1206,15 +1214,30 @@ contract ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm is
     ZeroExSettlerDeployerSafeGuardEraVm,
     ZeroExSettlerDeployerSafeGuardOnePointFourPointOne
 {
-    function _SAFE_SINGLETON_1_4_INITHASH() internal pure override returns (bytes32) {
+    function _singletonInithash()
+        internal
+        pure
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardOnePointFourPointOne)
+        returns (bytes32)
+    {
         return 0x010006c19437ff25b448f038f7ea0a4c910e0ae9cd8e55f2d199b7916b72eb1e;
     }
 
-    function _SAFE_FALLBACK_1_4_INITHASH() internal pure override returns (bytes32) {
+    function _fallbackInithash()
+        internal
+        pure
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardOnePointFourPointOne)
+        returns (bytes32)
+    {
         return 0x01000227ab67505fb2fa65c81aceddb0a46ddbf3b974583188beda4c5e90417c;
     }
 
-    function _SAFE_MULTISEND_1_4_INITHASH() internal pure override returns (bytes32) {
+    function _multisendInithash()
+        internal
+        pure
+        override(ZeroExSettlerDeployerSafeGuardBase, ZeroExSettlerDeployerSafeGuardOnePointFourPointOne)
+        returns (bytes32)
+    {
         return 0x0100002f5fb8e4746cf6c3f70d2aba9d82d3f2045150860e9cfb7a336caa9690;
     }
 
