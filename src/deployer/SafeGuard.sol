@@ -925,7 +925,7 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         );
     }
 
-    function unlockTxHash() public view returns (bytes32) {
+    function unlockTxHash() external view returns (bytes32) {
         return _unlockTxHash(safe);
     }
 
