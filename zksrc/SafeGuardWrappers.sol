@@ -10,7 +10,7 @@ import {
     ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm
 } from "src/deployer/SafeGuard.sol";
 
-abstract contract SafeGuardEraVmHarness is ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm {
+contract SafeGuardEraVmHarness is ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm {
     constructor(ISafeMinimal _safe) ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm(_safe) {}
 
     function evmVersionDummyCreationCodeLength() external pure returns (uint256) {
