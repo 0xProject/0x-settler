@@ -932,8 +932,10 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
     function _getThresholdAfterResign(ISafeMinimal _safe) private view returns (uint256 threshold) {
         threshold = _safe.getThreshold();
         uint256 ownerCount = _safe.ownerCount();
-        if (ownerCount - threshold <= _MINIMUM_THRESHOLD) {
-            threshold--;
+        unchecked {
+            if (ownerCount - threshold == _MINIMUM_THRESHOLD) {
+                threshold--;
+            }
         }
     }
 
