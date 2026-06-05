@@ -473,23 +473,30 @@ abstract contract ZeroExSettlerDeployerSafeGuardBase is IGuard {
         uint256 callsCount
     ) private view returns (bool, bool) {
         if (to == address(this)) {
-            // Forbid calls to `this.checkTransaction` and `this.checkAfterExecution`.
-            if (
-                data.length >= 68
-                    && ((data.length >= 356 && uint32(bytes4(data)) == uint32(this.checkTransaction.selector))
-                        || uint32(bytes4(data)) == uint32(this.checkAfterExecution.selector))
-            ) {
-                revert ConfusedDeputy(callsCount, to, data);
+            if (data.length >= 4) {
+                uint32 selector = uint32(bytes4(data));
+
+                // Forbid calls to `this.checkTransaction` and `this.checkAfterExecution`.
+                if (data.length >= 68) {
+                    if (
+                        (data.length >= 356 && selector == uint32(this.checkTransaction.selector))
+                            || selector == uint32(this.checkAfterExecution.selector)
+                    ) {
+                        revert ConfusedDeputy(callsCount, to, data);
+                    }
+                }
+
+                // Transactions containing calls to `this.unlock()` must be unanimous
+                requireUnanimity = requireUnanimity || (selector == uint32(this.unlock.selector));
             }
-            // Transactions containing calls to `this.unlock()` must be unanimous
-            requireUnanimity =
-                requireUnanimity || (data.length >= 4 && uint32(bytes4(data)) == uint32(this.unlock.selector));
         } else if (to == address(_safe)) {
-            forbidSponsorship = forbidSponsorship
-                || (data.length >= 36
-                    && (uint32(bytes4(data)) == uint32(_safe.setGuard.selector)
-                        || uint32(bytes4(data)) == uint32(_safe.enableModule.selector)
-                        || uint32(bytes4(data)) == uint32(_safe.setFallbackHandler.selector)));
+            if (!forbidSponsorship && data.length >= 36) {
+                uint32 selector = uint32(bytes4(data));
+
+                forbidSponsorship = selector == uint32(_safe.setGuard.selector)
+                    || selector == uint32(_safe.enableModule.selector)
+                    || selector == uint32(_safe.setFallbackHandler.selector);
+            }
         }
         return (requireUnanimity, forbidSponsorship);
     }
