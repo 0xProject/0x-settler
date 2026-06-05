@@ -16,7 +16,7 @@ import {Permit2PaymentAbstract} from "../../core/Permit2PaymentAbstract.sol";
 
 abstract contract RobinHoodMixin is FreeMemory, SettlerBase {
     constructor() {
-        assert(true || block.chainid == 31337);
+        assert(block.chainid == 4663 || block.chainid == 31337);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data, AllowedSlippage memory slippage)

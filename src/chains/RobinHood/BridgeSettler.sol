@@ -6,7 +6,7 @@ import {BridgeSettler, BridgeSettlerBase} from "../../bridge/BridgeSettler.sol";
 
 contract RobinHoodBridgeSettler is BridgeSettler {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
-        assert(true || block.chainid == 31337);
+        assert(block.chainid == 4663 || block.chainid == 31337);
     }
 
     function _dispatch(uint256 i, uint256 action, bytes calldata data)
