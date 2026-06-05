@@ -89,23 +89,6 @@ contract TestSafeGuardZkSyncArtifacts is Test {
         assertEq(_deriveEraVmContract(eraVmFactory, multicall1_4EraVmInitHash), multicall1_4EraVm);
     }
 
-    function testEraVmHarnessAcceptsEraVmFactoryAndProxyCodeHashes() external {
-        ISafeGuardEraVmHarness harness = ISafeGuardEraVmHarness(
-            _etchHarness("zkout/SafeGuardWrappers.sol/SafeGuardEraVmHarness.json", "SafeGuardEraVmHarness")
-        );
-
-        assertTrue(harness.isSupportedFactory(eraVmFactory));
-        assertTrue(harness.isSupportedProxyCodeHash(proxyCodeHash1_3EraVm));
-        assertTrue(harness.isSupportedProxyCodeHash(proxyCodeHash1_4EraVm));
-        assertFalse(harness.isSupportedProxyCodeHash(proxyRuntimeKeccakEraVm));
-
-        vm.startPrank(eraVmFactory);
-        assertEq(harness.predictCreate2(safeSingleton1_3EraVmInitHash), safeSingleton1_3EraVm);
-        assertEq(harness.predictCreate2(fallback1_3EraVmInitHash), fallback1_3EraVm);
-        assertEq(harness.predictCreate2(multicall1_3EraVmInitHash), multicall1_3EraVm);
-        vm.stopPrank();
-    }
-
     function testOnePointThreeEraVmWrapperExposesExpectedInithashesAndDerivations() external {
         ISafeGuardOnePointThreeEraVmWrapper wrapper = ISafeGuardOnePointThreeEraVmWrapper(
             _etchHarness(

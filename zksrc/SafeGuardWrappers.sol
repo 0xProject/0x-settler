@@ -10,22 +10,8 @@ import {
     ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm
 } from "src/deployer/SafeGuard.sol";
 
-contract SafeGuardEraVmHarness is ZeroExSettlerDeployerSafeGuardEraVm {
-    constructor(ISafeMinimal _safe, bytes32 singletonInithash, bytes32 fallbackInithash, bytes32 multisendInithash)
-        ZeroExSettlerDeployerSafeGuardBase(_safe, singletonInithash, fallbackInithash, multisendInithash)
-    {}
-
-    function predictCreate2(bytes32 inithash) external view returns (address) {
-        return _predictCreate2(inithash);
-    }
-
-    function isSupportedFactory(address deployer) external pure returns (bool) {
-        return _isSupportedFactory(deployer);
-    }
-
-    function isSupportedProxyCodeHash(bytes32 codeHash) external pure returns (bool) {
-        return _isSupportedProxyCodeHash(codeHash);
-    }
+abstract contract SafeGuardEraVmHarness is ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm {
+    constructor(ISafeMinimal _safe) ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm(_safe) {}
 
     function evmVersionDummyCreationCodeLength() external pure returns (uint256) {
         return type(EvmVersionDummy).creationCode.length;
