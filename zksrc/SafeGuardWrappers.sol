@@ -44,15 +44,15 @@ contract SafeGuardOnePointThreeEraVmWrapper is ZeroExSettlerDeployerSafeGuardOne
     constructor(ISafeMinimal _safe) ZeroExSettlerDeployerSafeGuardOnePointThreeEraVm(_safe) {}
 
     function singletonInithash() external pure returns (bytes32) {
-        return _SAFE_SINGLETON_1_3_INITHASH();
+        return _singletonInithash();
     }
 
     function fallbackInithash() external pure returns (bytes32) {
-        return _SAFE_FALLBACK_1_3_INITHASH();
+        return _fallbackInithash();
     }
 
     function multisendInithash() external pure returns (bytes32) {
-        return _SAFE_MULTISEND_1_3_INITHASH();
+        return _multisendInithash();
     }
 
     function predictCreate2(bytes32 inithash) external view returns (address) {
@@ -72,15 +72,15 @@ contract SafeGuardOnePointFourPointOneEraVmWrapper is ZeroExSettlerDeployerSafeG
     constructor(ISafeMinimal _safe) ZeroExSettlerDeployerSafeGuardOnePointFourPointOneEraVm(_safe) {}
 
     function singletonInithash() external pure returns (bytes32) {
-        return _SAFE_SINGLETON_1_4_INITHASH();
+        return _singletonInithash();
     }
 
     function fallbackInithash() external pure returns (bytes32) {
-        return _SAFE_FALLBACK_1_4_INITHASH();
+        return _fallbackInithash();
     }
 
     function multisendInithash() external pure returns (bytes32) {
-        return _SAFE_MULTISEND_1_4_INITHASH();
+        return _multisendInithash();
     }
 
     function predictCreate2(bytes32 inithash) external view returns (address) {
