@@ -6,6 +6,9 @@
 
 ### Non-breaking changes
 
+* Add UniswapV3 UniV3 fork on RobinHood chain
+* Add UniswapV4 actions to RobinHood chain
+
 ## 2026-06-03
 
 ### Breaking changes
