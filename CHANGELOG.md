@@ -3,6 +3,13 @@
 ### Breaking changes
 
 * SolidlyV3 UniV3 fork removed from Mainnet and Sonic
+
+### Non-breaking changes
+
+## 2026-06-03
+
+### Breaking changes
+
 * Abandon Katana chain (which only had stripped-down Settler anyways)
 * `BRIDGE_TO_CCIP` modified to remove the `token` argument that is already included in `ccipSendData`
 * `BRIDGE_TO_LAYER_ZERO_OFT` modified to remove the `nativeFee` argument that is already included in `sendData`
@@ -15,6 +22,9 @@
 ### Non-breaking changes
 
 * Deploy Settler to RobinHood chain
+* Add `BRIDGE_TO_NUCLEUS_TELLER` (Mainnet and Optimism) and
+  `DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER` (Mainnet) actions for bridging WPAXG
+  through Nucleus Teller
 
 ## 2026-04-10
 
