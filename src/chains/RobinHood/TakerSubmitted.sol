@@ -20,6 +20,21 @@ contract RobinHoodSettler is Settler, RobinHoodMixin {
     function _dispatchVIP(uint256 action, bytes calldata data) internal override DANGEROUS_freeMemory returns (bool) {
         if (super._dispatchVIP(action, data)) {
             return true;
+        } else if (action == uint32(ISettlerActions.UNISWAPV4_VIP.selector)) {
+            (
+                address recipient,
+                ISignatureTransfer.PermitTransferFrom memory permit,
+                bool feeOnTransfer,
+                uint256 hashMul,
+                uint256 hashMod,
+                bytes memory fills,
+                bytes memory sig,
+                uint256 amountOutMin
+            ) = abi.decode(
+                data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, bytes, uint256)
+            );
+
+            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
         } else {
             return false;
         }
