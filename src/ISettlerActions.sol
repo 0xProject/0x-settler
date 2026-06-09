@@ -321,4 +321,6 @@ interface ISettlerActions {
     ) external;
 
     function CHECK_SLIPPAGE(bool transferExactLimit) external;
+
+    function CREDIBLE_CHECK_IMPACT(uint256 maxPriceImpactBps) external;
 }
