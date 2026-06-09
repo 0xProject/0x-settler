@@ -21,44 +21,37 @@ library Ln {
             let TWO96 := shl(96, 1)
             let z := sdiv(shl(96, sub(x, TWO96)), add(x, TWO96))
 
+            // z = [0, 1/3] * 2^96
             // ── 3. u = z²   in Q96 ─────────────────────────────────────────
-            let u := sar(96, mul(z, z))
+            let u := shr(96, mul(z, z))
 
             // ── 4. Numerator p(u) — Horner; LAST step leaves num in Q192 ──
-            let num :=     386692213752848720801329619                            // P4
-            num := sub(sar(96, mul(num, u)),  14278668760191006216796320113)      // P3
-            num := add(sar(96, mul(num, u)),   80791143393211373894836915812)      // P2
-            num := sub(sar(96, mul(num, u)), 144012260871247609072064398628)      // P1
-            num := add(mul(num, u), shl(96,    79228162514264337609150029708))     // P0 promoted
+            let p := sub(sar(96, mul(11118219211550167393714956266, u)), 617966711108841718279123450878)
+            p := add(sar(96, mul(p, u)), 5440510745984559975347664312626)
+            p := sub(sar(96, mul(p, u)), 16611667854347085824509759028817) // 2^96
+            p := add(sar(96, mul(p, u)), 20539621768103526992786752172899)
+            p := sub(sar(96, mul(p, u)), 8828913114255221716823834898758) // 2^96
 
-            // ── 5. Denominator q(u) — Horner stays in Q96 ─────────────────
-            let den :=    2277930843114621577247569024                            // Q4
-            den := sub(sar(96, mul(den, u)),  32096890353737504506818729143)     // Q3
-            den := add(sar(96, mul(den, u)),  121752727015687765449182681860)     // Q2
-            den := sub(sar(96, mul(den, u)), 170421648376002366840644783424)     // Q1
-            den := add(sar(96, mul(den, u)),   79228162514264337593543950336)     // Q0
 
-            // ── 6. f(u) = num / den.  Q192 / Q96 → Q96 ───────────────────
-            let f := sdiv(num, den)
+            // // ── 5. Denominator q(u) — Horner stays in Q96 ─────────────────
+            let q := sub(u, 1644639538787028851042260486634)
+            q := add(sar(96, mul(q, u)), 9563070875747371828339838696894)
+            q := sub(sar(96, mul(q, u)), 22673416166892241714432840535271)
+            q := add(sar(96, mul(q, u)), 23482592806188600898200439671396)
+            q := sub(sar(96, mul(q, u)), 8828913114255221716823740237208) // 2^96
 
-            // ── 7-8. (2·z·f) in (5^18·2^192) basis — one mul folds the ×2 ──
-            // 2·5^18 = 7629394531250;  z·f is Q192, so this promotes to big basis.
-            let logM := mul(mul(z, f), 7629394531250)
 
-            // ── 9. Add k·ln(2) and the rounded reconciliation constant ─────
-            // The second constant is  (96·ln(2) − ln(1e18))·5^18·2^192  +  2^173.
-            // The extra 2^173 is half an output-ULP: folding it in makes the
-            // final sar a round-to-nearest instead of a floor, for ZERO extra ops.
-            // (Without it, ln(1) computes as −0.066 ULP and floors to −1.)
-            let logX := add(
-                add(logM,
-                    mul(k, 16597577552685614221487285958193947469193820559219878177908093499208371)
-                ),  //                                                            ↑ ln(2) · 5^18 · 2^192
-                        600920179829731861748675400734636216301396844198685892064399282412077700
-            )       //                       ↑ (96·ln(2) − ln(1e18))·5^18·2^192  +  2^173  (round-to-nearest)
+            // p/q = [1, 1.03972077084) * 2^96
 
-            // ── 10. (5^18·2^192) → WAD via a single right shift ───────────
-            r := sar(174, logX)
+            // ── 6. P * S / q --> Q96 format ()
+            r := sdiv(mul(7629394531250, mul(p,z)), q)
+
+            r := add(
+                r,
+                mul(209490880843000310329976925384580330202103, k)
+            )
+            r := add(7584678992416887619351357778094049639144312, r)
+            r := sar(78, r)
         }
     }
 }
