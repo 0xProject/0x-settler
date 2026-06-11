@@ -1,0 +1,8 @@
+/.lake/
+/actual_axioms.txt
+
+# Auto-generated; rebuild with:
+#   forge inspect src/wrappers/LnWrapper.sol:LnWrapper ir | \
+#     python3 -m formal.python.ln.generate_ln_model --yul - \
+#       --output formal/ln/LnProof/LnProof/GeneratedLnModel.lean
+/LnProof/GeneratedLnModel.lean

@@ -18,14 +18,14 @@ EXPECTED_FLOOR_RESULT = 10**9 - 1
 # Constants mirrored from src/vendor/Ln.sol (see the comments there for derivations).
 _S = 0xB504F333F9DE6484597D89B375
 _P4 = 0xF642B0ED5372FF45E0
-_P3 = 0xEDE142E73A9ACBB00E9C
-_P2 = 0xF2A56533E74A454C9D585F
-_P1 = 0xB44D9253CD61FB87DC7EFCFC
+_P3 = 0xEDE142E73A9ACBB00E9C42
+_P2 = 0xF2A56533E74A454C9D585F70
+_P1 = 0xB44D9253CD61FB87DC7EFCFBC5
 _C0 = 0xB05A8B41CF51C04D1B8A08D465
 _Q4 = 0x364589193443B48661938F59DA
-_Q3 = 0xE904C4E76307954DF790
-_Q2 = 0xAD960AB2F600BD9765C160
-_Q1 = 0xD1B1FEDEC544F0EA0BC812BC
+_Q3 = 0xE904C4E76307954DF78FEEDF
+_Q2 = 0xAD960AB2F600BD9765C15FFD
+_Q1 = 0xD1B1FEDEC544F0EA0BC812BBBC
 _K = 0x6765C793FA10079D
 _LN2 = 0x23D5B9FF36551802AA5D6F9754B0F3FAD83B19450
 _BIAS = 0x61E2C6B2C35132B01EAD59B23E2239090A9B352BD5
@@ -46,6 +46,8 @@ def ln_wad_evm(x: int) -> int:
     if _op("iszero", _op("sgt", x_word, 0)) != 0:
         raise ValueError("LnWadUndefined")
 
+    one = _op("eq", x_word, 0xDE0B6B3A7640000)
+
     c = _op("clz", x_word)
     k = _op("sub", 0x98, c)
     x_word = _op("shr", 0x98, _op("shl", c, x_word))
@@ -53,22 +55,28 @@ def ln_wad_evm(x: int) -> int:
     z = _op("sdiv", _op("shl", 0x64, _op("sub", _S, x_word)), _op("add", x_word, _S))
     u = _op("shr", 0x68, _op("mul", z, z))
 
-    p = _op("sub", _op("shr", 0x5C, _op("mul", _P4, u)), _P3)
+    p = _op("sub", _op("shr", 0x54, _op("mul", _P4, u)), _P3)
     p = _op("add", _op("sar", 0x5A, _op("mul", p, u)), _P2)
     p = _op("sub", _op("sar", 0x59, _op("mul", p, u)), _P1)
-    p = _op("add", _op("sar", 0x57, _op("mul", p, u)), _C0)
+    p = _op("add", _op("sar", 0x5F, _op("mul", p, u)), _C0)
 
     q = _op("sub", u, _Q4)
-    q = _op("add", _op("sar", 0x79, _op("mul", q, u)), _Q3)
-    q = _op("sub", _op("sar", 0x5A, _op("mul", q, u)), _Q2)
+    q = _op("add", _op("sar", 0x69, _op("mul", q, u)), _Q3)
+    q = _op("sub", _op("sar", 0x62, _op("mul", q, u)), _Q2)
     q = _op("add", _op("sar", 0x58, _op("mul", q, u)), _Q1)
-    q = _op("sub", _op("sar", 0x57, _op("mul", q, u)), _C0)
+    q = _op("sub", _op("sar", 0x5F, _op("mul", q, u)), _C0)
 
     r = _op("sdiv", _op("mul", p, z), q)
     r = _op("mul", r, _K)
     r = _op("add", r, _op("mul", _LN2, k))
     r = _op("add", r, _BIAS)
-    return _i256(_op("sar", 0x48, r))
+    return _i256(_op("add", _op("sar", 0x48, r), one))
+
+
+def ln_wad_to_wad_evm(x: int) -> int:
+    """Step-for-step mirror of `Ln.lnWadToWad` from src/vendor/Ln.sol (wad in, wad out)."""
+    r = u256(ln_wad_evm(x))
+    return _i256(_op("sdiv", _op("sub", r, _op("mul", _op("slt", r, 0), 0x3B9AC9FF)), 0x3B9ACA00))
 
 
 def floor_spec_for_witness(x: int) -> int:
@@ -94,8 +102,12 @@ def main() -> int:
     assert expected == EXPECTED_FLOOR_RESULT, expected
     # lnWad must return floor(L) or floor(L) - 1.
     assert actual in (expected, expected - 1), actual
-    # lnWad(WAD) likewise: floor(L) = 0, so the result must be 0 or -1.
-    assert ln_wad_evm(WAD) in (0, -1)
+    # ln(10**18 / 10**18) = 0 exactly, and the implementation pins it.
+    assert ln_wad_evm(WAD) == 0
+    assert ln_wad_to_wad_evm(WAD) == 0
+    # The wad-basis helper floors the ray result by 10**9 in both sign regimes.
+    assert ln_wad_to_wad_evm(WITNESS_X) in (0, -1)
+    assert ln_wad_to_wad_evm(WAD - 1) == -2  # ray result -1000000001 floors to -2
 
     print(f"x = {WITNESS_X}")
     print(f"lnWad EVM result = {actual}")

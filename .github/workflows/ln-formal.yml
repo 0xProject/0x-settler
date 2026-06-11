@@ -1,0 +1,96 @@
+name: Ln.sol Formal Check
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - src/vendor/Ln.sol
+      - src/wrappers/LnWrapper.sol
+      - formal/ln/**
+      - formal/python/**
+      - test/0.8.34/Ln.t.sol
+      - test/0.8.25/formal-model/FormalModelFFI.t.sol
+      - test/0.8.25/formal-model/LnModel.t.sol
+      - .github/workflows/ln-formal.yml
+  pull_request:
+    paths:
+      - src/vendor/Ln.sol
+      - src/wrappers/LnWrapper.sol
+      - formal/ln/**
+      - formal/python/**
+      - test/0.8.34/Ln.t.sol
+      - test/0.8.25/formal-model/FormalModelFFI.t.sol
+      - test/0.8.25/formal-model/LnModel.t.sol
+      - .github/workflows/ln-formal.yml
+
+jobs:
+  ln-formal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pinned Lean toolchain
+        run: |
+          curl https://raw.githubusercontent.com/leanprover/elan/917c18d0ad52f649c2603dc8b973f5b9fa5f8f43/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> "$GITHUB_PATH"
+          LEAN_TOOLCHAIN="$(cat formal/ln/LnProof/lean-toolchain)"
+          "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
+          "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
+
+      - name: Install solc 0.8.34
+        run: forge build -- src/chains/Mainnet/TakerSubmitted.sol
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.34
+
+      - name: Check floor-specification witness and helper mirror
+        run: python3 -W error -m formal.python.ln.check_ln_counterexample
+
+      - name: Check monotonicity certificate
+        run: python3 -W error -m formal.python.ln.check_ln_monotone
+
+      - name: Generate Lean model from Ln.sol via Yul IR
+        run: |
+          forge inspect src/wrappers/LnWrapper.sol:LnWrapper ir | \
+            python3 -W error -m formal.python.ln.generate_ln_model \
+              --yul - \
+              --output formal/ln/LnProof/LnProof/GeneratedLnModel.lean
+
+      - name: Build Ln proof and model evaluator
+        working-directory: formal/ln/LnProof
+        run: lake build && lake build ln-model
+
+      - name: Check proof axioms
+        working-directory: formal/ln/LnProof
+        run: |
+          printf '%s\n' \
+            'import LnProof.LnMono' \
+            '#print axioms LnGeneratedModel.model_ln_wad_one_wad' \
+            '#print axioms LnGeneratedModel.model_ln_wad_to_wad_one_wad' \
+            '#print axioms LnGeneratedModel.model_ln_wad_one_wad_mono' \
+            '#print axioms LnGeneratedModel.model_ln_wad_seam_mono' \
+            '#print axioms LnGeneratedModel.model_ln_wad_to_wad_seam_mono' \
+            | lake env lean --stdin > actual_axioms.txt 2>&1
+          diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
+          'LnGeneratedModel.model_ln_wad_one_wad' does not depend on any axioms
+          'LnGeneratedModel.model_ln_wad_to_wad_one_wad' does not depend on any axioms
+          'LnGeneratedModel.model_ln_wad_one_wad_mono' does not depend on any axioms
+          'LnGeneratedModel.model_ln_wad_seam_mono' does not depend on any axioms
+          'LnGeneratedModel.model_ln_wad_to_wad_seam_mono' does not depend on any axioms
+          EXPECTED
+
+      - name: Fuzz-test Lean model against Solidity
+        run: |
+          FOUNDRY_PROFILE=formal-model forge test \
+            --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' \
+            --match-contract LnModelTest

@@ -7,7 +7,13 @@ library Ln {
     /// @dev Let L = 10**27 * ln(x / 10**18) be the exact, infinite-precision result. This
     ///      function returns either `floor(L)` or `floor(L) - 1` (equivalently, the unique
     ///      integers r satisfy L - 2 < r <= L). It never returns a value greater than the
-    ///      correctly-rounded-down result. Reverts with `LnWadUndefined()` when `x <= 0`.
+    ///      correctly-rounded-down result. `lnWad(10**18) == 0` exactly, and the result is
+    ///      negative iff `x < 10**18`. The function is monotone: `x1 < x2` implies
+    ///      `lnWad(x1) <= lnWad(x2)`. Of the monotonicity argument's two legs, only the
+    ///      finite one (the 254 clz seams and the corrected point `x = 10**18`) is proven in
+    ///      Lean (formal/ln/LnProof); the within-octave leg is certified by exact rational
+    ///      arithmetic in formal/python/ln/check_ln_monotone.py and is not yet
+    ///      machine-checked. Reverts with `LnWadUndefined()` when `x <= 0`.
     function lnWad(int256 x) internal pure returns (int256 r) {
         // Assembly is required for `clz`, wrapping arithmetic on 256-bit fixnums, and the
         // truncating `sar`/`sdiv` primitives whose rounding directions the error analysis
@@ -17,7 +23,7 @@ library Ln {
         //     m = x / 2**k;                              // Q103 fixnum in [1, 2)
         //     z = (s - m) / (m + s);                     // s = sqrt(2) * 2**103; |z| <= 3 - 2*sqrt(2)
         //     A = 2 * atanh(-z) = (p(z**2) * z) / q(z**2);  // ln(m / 2**103) = A + ln(s / 2**103)
-        //     return floor(10**27 * (A + ln(s) + k*ln(2) - 18*ln(10)) - margin);
+        //     return floor(10**27 * (A + ln(s) + k*ln(2) - 18*ln(10)) - margin) + (x == 10**18);
         //
         // z is negated (s - m, not m - s) so that every polynomial coefficient below can be
         // written as a positive literal; p carries the compensating negation. p/q is a
@@ -33,13 +39,17 @@ library Ln {
         //     z:      Q100 (one sdiv)
         //     u = z**2: Q96 (one shr by 104, straight from the Q200 product)
         //     Horner stages: a coefficient followed by j more multiplies by u tolerates a
-        //         basis ~5.1 bits (= log2(1/u_max)) shorter per unit of j, so the stage bases
-        //         climb a staircase -- p: Q68, Q72, Q78, Q85, Q94; q: Q96 (the monic stage
-        //         shares u's basis for free), Q71, Q77, Q85, Q94 -- and each literal then
-        //         takes the widest basis that fits its minimal PUSH width. One sar per
-        //         multiply is forced: ray precision requires ~96 significant bits while each
-        //         multiply by u consumes ~91 bits of headroom, so consecutive unrenormalized
-        //         steps cannot fit in 256 bits.
+        //         shorter basis, so the stage bases form a staircase -- p: Q68, Q80, Q86,
+        //         Q93, Q94; q: Q96 (the monic stage shares u's basis for free), Q87, Q85,
+        //         Q93, Q94 -- where each stage basis is floored by the monotonicity
+        //         certificate (a truncation at basis b followed by j multiplies perturbs the
+        //         final Q94 polynomial by < 2**(94-b) * u_max**j, and the sum of these slops
+        //         must stay well below one quotient unit; see
+        //         formal/python/ln/check_ln_monotone.py) and each literal then takes the
+        //         widest basis that fits its minimal PUSH width. One sar per multiply is
+        //         forced: ray precision requires ~96 significant bits while each multiply by
+        //         u consumes ~91 bits of headroom, so consecutive unrenormalized steps cannot
+        //         fit in 256 bits.
         //     p, q final: Q94 (|p * z| < 2**201; both final stage shifts land there directly)
         //     p*z/q: one sdiv at Q100 (granularity 2**-100, ~0.0016 ulp)
         //     output: multiply by 5**27 = 10**27 / 2**27 -- exact, no rounding -- places the
@@ -48,16 +58,32 @@ library Ln {
         //
         // Error budget in ulps (1 ulp = 1e-27 of ln, = 2**72 pre-shift units): minimax and
         // coefficient quantization (certified together) <= 0.325; z, u, and sdiv truncations
-        // <= 0.005 combined; Horner stage truncations <= 0.014; ln(2) and bias constant
+        // <= 0.005 combined; Horner stage truncations <= 1e-4; ln(2) and bias constant
         // rounding <= 1e-19. The bias is reduced by a margin of 1.7e21 units (~0.360 ulp)
-        // > certified upward error 0.343 ulp, so the Q72 accumulator never exceeds L*2**72;
-        // margin plus downward errors total < 0.704 * 2**72, so it always exceeds
+        // > certified upward error 0.329 ulp, so the Q72 accumulator never exceeds L*2**72;
+        // margin plus downward errors total < 0.690 * 2**72, so it always exceeds
         // (L-1)*2**72. `sar(72, .)` therefore yields floor(L) or floor(L) - 1.
+        //
+        // Monotonicity: within an octave (fixed clz), the mantissa map m -> z is antitone
+        // because d/dm[(s-m)/(m+s)] = -2s/(m+s)**2 < 0 with |dz/dm| < 1, and the quotient
+        // p*z/q is an antitone function of the integer z: per unit step of z it moves by at
+        // least R_min - z_max*2J > 0.82 quotient units (R = p/-q >= 0.939 certified; J
+        // bounds the truncation jitter of R between adjacent u values), and `sdiv`
+        // truncation toward zero preserves order. Octave seams reduce to the 254 adjacent
+        // pairs (2**t - 1, 2**t), each verified exactly (the rational's error at u_max is
+        // certified negative, giving ~0.32 ulp of seam slack). The x == 10**18 correction
+        // below preserves monotonicity because its neighbors' results bracket [0, 999999999].
         assembly ("memory-safe") {
             if iszero(sgt(x, 0)) {
                 mstore(0x00, 0x1615e638) // `LnWadUndefined()`.
                 revert(0x1c, 0x04)
             }
+
+            // ln(10**18 / 10**18) = 0 is the only input whose exact result is an integer;
+            // the floored accumulator below lands on -1 for it (pinned by test and by the
+            // Lean model theorem `model_ln_wad_one_wad`). Adding this flag back yields
+            // the exact 0, branchlessly. Recorded before `x` is clobbered.
+            let one := eq(x, 0xde0b6b3a7640000)
 
             // Normalize: x := m, a Q103 fixnum in [1, 2), truncated from x / 2**k. Truncation
             // underestimates ln(x) by less than 2**-103 (only possible when k > 0).
@@ -78,22 +104,22 @@ library Ln {
             // literal is shared.
             let c0 := 0xb05a8b41cf51c04d1b8a08d465
 
-            // Numerator p(u), Horner up the basis staircase Q68 -> Q72 -> Q78 -> Q85 -> Q94.
+            // Numerator p(u), Horner up the basis staircase Q68 -> Q80 -> Q86 -> Q93 -> Q94.
             // p(u)/2**94 in [663.7, 705.5] on the domain. The leading product is nonnegative,
             // so the first shift may be logical.
-            let p := sub(shr(0x5c, mul(0xf642b0ed5372ff45e0, u)), 0xede142e73a9acbb00e9c)
-            p := add(sar(0x5a, mul(p, u)), 0xf2a56533e74a454c9d585f)
-            p := sub(sar(0x59, mul(p, u)), 0xb44d9253cd61fb87dc7efcfc)
-            p := add(sar(0x57, mul(p, u)), c0)
+            let p := sub(shr(0x54, mul(0xf642b0ed5372ff45e0, u)), 0xede142e73a9acbb00e9c42)
+            p := add(sar(0x5a, mul(p, u)), 0xf2a56533e74a454c9d585f70)
+            p := sub(sar(0x59, mul(p, u)), 0xb44d9253cd61fb87dc7efcfbc5)
+            p := add(sar(0x5f, mul(p, u)), c0)
 
-            // Denominator q(u), monic, Horner up the staircase Q96 -> Q71 -> Q77 -> Q85 ->
+            // Denominator q(u), monic, Horner up the staircase Q96 -> Q87 -> Q85 -> Q93 ->
             // Q94. q(u)/2**94 in [-705.5, -656.0] on the domain: bounded away from zero, and
             // p(u)/(-q(u)) in [1, 1.01].
             let q := sub(u, 0x364589193443b48661938f59da)
-            q := add(sar(0x79, mul(q, u)), 0xe904c4e76307954df790)
-            q := sub(sar(0x5a, mul(q, u)), 0xad960ab2f600bd9765c160)
-            q := add(sar(0x58, mul(q, u)), 0xd1b1fedec544f0ea0bc812bc)
-            q := sub(sar(0x57, mul(q, u)), c0)
+            q := add(sar(0x69, mul(q, u)), 0xe904c4e76307954df78feedf)
+            q := sub(sar(0x62, mul(q, u)), 0xad960ab2f600bd9765c15ffd)
+            q := add(sar(0x58, mul(q, u)), 0xd1b1fedec544f0ea0bc812bbbc)
+            q := sub(sar(0x5f, mul(q, u)), c0)
 
             // A = 2*atanh(-z/2**100) in Q100: |p * z| < 2**201 and |q| > 656 * 2**94, so
             // the quotient fits in 98 bits.
@@ -110,8 +136,25 @@ library Ln {
             // The 1.7e21 subtrahend is the one-sided error margin described above.
             r := add(r, 0x61e2c6b2c35132b01ead59b23e2239090a9b352bd5)
 
-            // Q72 -> integer ray result; `sar` floors.
-            r := sar(0x48, r)
+            // Q72 -> integer ray result (`sar` floors), then the x == 10**18 correction.
+            r := add(sar(0x48, r), one)
+        }
+    }
+
+    /// @notice Compute the natural logarithm of a positive fixnum with 10**18 (wad) basis,
+    ///         returning the result as a fixnum with 10**18 (wad) basis.
+    /// @dev Let Lw = 10**18 * ln(x / 10**18) be the exact, infinite-precision result. This
+    ///      function returns either `floor(Lw)` or `floor(Lw) - 1`; the contract, the
+    ///      monotonicity guarantee, and `lnWadToWad(10**18) == 0` carry over from `lnWad`
+    ///      because flooring composes exactly with floor division by 10**9.
+    function lnWadToWad(int256 x) internal pure returns (int256 r) {
+        r = lnWad(x);
+        // Floor division of the ray result by 10**9 (`sdiv` alone truncates toward zero,
+        // which would round negative results the wrong way). Equivalent Solidity:
+        //     r = (r - (r < 0 ? 10**9 - 1 : 0)) / 10**9;
+        // The subtraction cannot overflow: |r| < 2**97.
+        assembly ("memory-safe") {
+            r := sdiv(sub(r, mul(slt(r, 0), 0x3b9ac9ff)), 0x3b9aca00)
         }
     }
 }

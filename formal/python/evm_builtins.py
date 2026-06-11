@@ -167,6 +167,73 @@ MODELED_BUILTINS: tuple[ModeledBuiltin, ...] = (
         "  if nn = 0 then 0 else (aa * bb) % nn",
         "def normMulmod (a b n : Nat) : Nat :=\n" "  if n = 0 then 0 else (a * b) % n",
     ),
+    ModeledBuiltin(
+        "sdiv",
+        2,
+        # Two's complement division truncating toward zero, in sign-magnitude
+        # form. The magnitude of a negative word w is WORD_MOD - w, which also
+        # makes the lone wrapping case sdiv(-2^255, -1) = -2^255 come out
+        # right: 2^255 / 1 = 2^255 re-encodes to itself.
+        "def evmSdiv (a b : Nat) : Nat :=\n"
+        "  let aa := u256 a\n"
+        "  let bb := u256 b\n"
+        "  let na := decide (2 ^ 255 ≤ aa)\n"
+        "  let nb := decide (2 ^ 255 ≤ bb)\n"
+        "  let ma := if na then WORD_MOD - aa else aa\n"
+        "  let mb := if nb then WORD_MOD - bb else bb\n"
+        "  if bb = 0 then 0\n"
+        "  else if na = nb then u256 (ma / mb)\n"
+        "  else u256 (WORD_MOD - ma / mb)",
+        "def normSdiv (a b : Nat) : Nat :=\n"
+        "  let na := decide (2 ^ 255 ≤ a % WORD_MOD)\n"
+        "  let nb := decide (2 ^ 255 ≤ b % WORD_MOD)\n"
+        "  let ma := if na then WORD_MOD - a % WORD_MOD else a % WORD_MOD\n"
+        "  let mb := if nb then WORD_MOD - b % WORD_MOD else b % WORD_MOD\n"
+        "  if b % WORD_MOD = 0 then 0\n"
+        "  else if na = nb then ma / mb % WORD_MOD\n"
+        "  else (WORD_MOD - ma / mb) % WORD_MOD",
+    ),
+    ModeledBuiltin(
+        "sar",
+        2,
+        # Arithmetic shift right via the identity sar(s, v) = not(shr(s, not v))
+        # for negative v.
+        "def evmSar (shift value : Nat) : Nat :=\n"
+        "  let s := u256 shift\n"
+        "  let v := u256 value\n"
+        "  if 2 ^ 255 ≤ v then\n"
+        "    if 256 ≤ s then WORD_MOD - 1\n"
+        "    else WORD_MOD - 1 - (WORD_MOD - 1 - v) / 2 ^ s\n"
+        "  else if 256 ≤ s then 0\n"
+        "  else v / 2 ^ s",
+        "def normSar (shift value : Nat) : Nat :=\n"
+        "  let s := shift % WORD_MOD\n"
+        "  let v := value % WORD_MOD\n"
+        "  if 2 ^ 255 ≤ v then\n"
+        "    if 256 ≤ s then WORD_MOD - 1\n"
+        "    else WORD_MOD - 1 - (WORD_MOD - 1 - v) / 2 ^ s\n"
+        "  else if 256 ≤ s then 0\n"
+        "  else v / 2 ^ s",
+    ),
+    ModeledBuiltin(
+        "slt",
+        2,
+        # Signed comparison is unsigned comparison with the sign bit flipped.
+        "def evmSlt (a b : Nat) : Nat :=\n"
+        "  if (u256 a + 2 ^ 255) % WORD_MOD < (u256 b + 2 ^ 255) % WORD_MOD then 1 else 0",
+        "def normSlt (a b : Nat) : Nat :=\n"
+        "  if (a % WORD_MOD + 2 ^ 255) % WORD_MOD < (b % WORD_MOD + 2 ^ 255) % WORD_MOD then 1\n"
+        "  else 0",
+    ),
+    ModeledBuiltin(
+        "sgt",
+        2,
+        "def evmSgt (a b : Nat) : Nat :=\n"
+        "  if (u256 b + 2 ^ 255) % WORD_MOD < (u256 a + 2 ^ 255) % WORD_MOD then 1 else 0",
+        "def normSgt (a b : Nat) : Nat :=\n"
+        "  if (b % WORD_MOD + 2 ^ 255) % WORD_MOD < (a % WORD_MOD + 2 ^ 255) % WORD_MOD then 1\n"
+        "  else 0",
+    ),
 )
 
 # Complete set of Yul/EVM builtins that solc reserves (error 5568).
