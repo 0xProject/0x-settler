@@ -2,8 +2,9 @@
 pragma solidity ^0.8.34;
 
 library Ln {
-    /// @notice Compute the natural logarithm of a positive fixnum with 10**18 basis.
-    /// @dev Let L = 10**18 * ln(x / 10**18) be the exact, infinite-precision result. This
+    /// @notice Compute the natural logarithm of a positive fixnum with 10**18 (wad) basis,
+    ///         returning the result as a fixnum with 10**27 (ray) basis.
+    /// @dev Let L = 10**27 * ln(x / 10**18) be the exact, infinite-precision result. This
     ///      function returns either `floor(L)` or `floor(L) - 1` (equivalently, the unique
     ///      integers r satisfy L - 2 < r <= L). It never returns a value greater than the
     ///      correctly-rounded-down result. Reverts with `LnWadUndefined()` when `x <= 0`.
@@ -12,69 +13,105 @@ library Ln {
         // truncating `sar`/`sdiv` primitives whose rounding directions the error analysis
         // below depends on. Equivalent pseudocode, in exact real arithmetic:
         //     require(x > 0);
-        //     k = floor(log2(x)) - 96;                    // x = m * 2**k, m in [2**96, 2**97)
-        //     m = x / 2**k;                               // Q96 fixnum in [1, 2)
-        //     z = (m - s) / (m + s);                      // s = sqrt(2) * 2**96; |z| <= 3 - 2*sqrt(2)
-        //     A = 2 * atanh(z) ~= z * p(z**2) / q(z**2);  // ln(m / 2**96) = 2*atanh(z) + ln(s / 2**96)
-        //     return floor(10**18 * (A + ln(s) + k*ln(2) - 18*ln(10)) - margin);
+        //     k = floor(log2(x)) - 103;                  // x = m * 2**k, m in [2**103, 2**104)
+        //     m = x / 2**k;                              // Q103 fixnum in [1, 2)
+        //     z = (s - m) / (m + s);                     // s = sqrt(2) * 2**103; |z| <= 3 - 2*sqrt(2)
+        //     A = 2 * atanh(-z) = (p(z**2) * z) / q(z**2);  // ln(m / 2**103) = A + ln(s / 2**103)
+        //     return floor(10**27 * (A + ln(s) + k*ln(2) - 18*ln(10)) - margin);
         //
-        // p/q is a (3,3)-degree rational minimax approximation of f(u) = atanh(sqrt(u))/sqrt(u)
-        // on u in [0, (3-2*sqrt(2))**2], with coefficients rounded to Q96; the sup-norm error of
-        // the rounded rational is certified <= 2.532e-19. The result is accumulated in Q78 with
-        // basis 10**18 (1 final ulp = 2**78). Upper error bound before the margin: minimax
-        // 2*|z|*2.532e-19*10**18*2**78 <= 2.63e22, plus truncation of z, u, the Horner steps,
-        // the final sdiv, and rounding of the ln(2) constant, together < 1e13. The constant
-        // term is biased down by a margin of 3e22 > 2.63e22 so the Q78 accumulator never
-        // exceeds L*2**78. Lower bound: margin + downward errors (the same terms, plus < 2**-96
-        // relative truncation of m) total < 5.7e22 < 2**78, so the accumulator also always
-        // exceeds (L-1)*2**78. `sar(78, .)` therefore yields floor(L) or floor(L) - 1.
+        // z is negated (s - m, not m - s) so that every polynomial coefficient below can be
+        // written as a positive literal; p carries the compensating negation. p/q is a
+        // (4,5)-degree rational minimax approximation of f(u) = atanh(sqrt(u))/sqrt(u) on
+        // u in [0, (3-2*sqrt(2))**2], fit under the weight sqrt(u) (the weight the error
+        // carries into ln), with q monic and p(0) = q(0) constrained so both polynomials
+        // share their constant-term literal. Certified weighted sup-norm error of the
+        // integer-rounded rational: 2*sqrt(u)*|p/q - f| * 10**27 <= 0.325 ulp.
+        //
+        // Mixed fixed-point bases, chosen so every renormalizing shift lands a value directly
+        // at the basis its consumer needs (each runtime quantity is rounded exactly once):
+        //     m:      Q103 (truncated from x; error < 2**-103)
+        //     z:      Q100 (one sdiv)
+        //     u = z**2: Q96 (one shr by 104, straight from the Q200 product)
+        //     Horner stages: a coefficient followed by j more multiplies by u tolerates a
+        //         basis ~5.1 bits (= log2(1/u_max)) shorter per unit of j, so the stage bases
+        //         climb a staircase -- p: Q68, Q72, Q78, Q85, Q94; q: Q96 (the monic stage
+        //         shares u's basis for free), Q71, Q77, Q85, Q94 -- and each literal then
+        //         takes the widest basis that fits its minimal PUSH width. One sar per
+        //         multiply is forced: ray precision requires ~96 significant bits while each
+        //         multiply by u consumes ~91 bits of headroom, so consecutive unrenormalized
+        //         steps cannot fit in 256 bits.
+        //     p, q final: Q94 (|p * z| < 2**201; both final stage shifts land there directly)
+        //     p*z/q: one sdiv at Q100 (granularity 2**-100, ~0.0016 ulp)
+        //     output: multiply by 5**27 = 10**27 / 2**27 -- exact, no rounding -- places the
+        //         quotient on the 10**27 * 2**72 grid shared by the k*ln(2) term and the
+        //         bias, so the closing `sar(72)` is the single output-rounding floor
+        //
+        // Error budget in ulps (1 ulp = 1e-27 of ln, = 2**72 pre-shift units): minimax and
+        // coefficient quantization (certified together) <= 0.325; z, u, and sdiv truncations
+        // <= 0.005 combined; Horner stage truncations <= 0.014; ln(2) and bias constant
+        // rounding <= 1e-19. The bias is reduced by a margin of 1.7e21 units (~0.360 ulp)
+        // > certified upward error 0.343 ulp, so the Q72 accumulator never exceeds L*2**72;
+        // margin plus downward errors total < 0.704 * 2**72, so it always exceeds
+        // (L-1)*2**72. `sar(72, .)` therefore yields floor(L) or floor(L) - 1.
         assembly ("memory-safe") {
             if iszero(sgt(x, 0)) {
                 mstore(0x00, 0x1615e638) // `LnWadUndefined()`.
                 revert(0x1c, 0x04)
             }
 
-            // Normalize: x := m, a Q96 fixnum in [1, 2), truncated from x / 2**k. Truncation
-            // underestimates ln(x) by less than 2**-96 (only possible when k > 0).
+            // Normalize: x := m, a Q103 fixnum in [1, 2), truncated from x / 2**k. Truncation
+            // underestimates ln(x) by less than 2**-103 (only possible when k > 0).
             let c := clz(x)
-            let k := sub(0x9f, c)
-            x := shr(0x9f, shl(c, x))
+            let k := sub(0x98, c)
+            x := shr(0x98, shl(c, x))
 
-            // z = (m - s)/(m + s) in Q96, truncated toward zero, where the Q96 constant
-            // s = 0x16a09e667f3bcc908b2fb1367 = round(sqrt(2) * 2**96). Centering at s makes
-            // |z| <= 3 - 2*sqrt(2) ~= 0.17157 over m in [1, 2), and
-            // ln(m) = 2*atanh(z/2**96) + ln(s/2**96).
-            let s := 0x16a09e667f3bcc908b2fb1367
-            let z := sdiv(shl(0x60, sub(x, s)), add(x, s))
+            // z = (s - m)/(m + s) in Q100, truncated toward zero, where the Q103 constant
+            // s = 0xb504f333f9de6484597d89b375 = round(sqrt(2) * 2**103). Centering at s
+            // makes |z| <= 3 - 2*sqrt(2) ~= 0.17157 over m in [1, 2).
+            let s := 0xb504f333f9de6484597d89b375
+            let z := sdiv(shl(0x64, sub(s, x)), add(x, s))
 
             // u = z**2 in Q96, truncated; u in [0, 0.029438 * 2**96].
-            let u := shr(0x60, mul(z, z))
+            let u := shr(0x68, mul(z, z))
 
-            // Numerator p(u), Horner in Q96. p(u)/2**96 in [-12.03, -11.57] on the domain.
-            let p := sub(sar(0x60, mul(0x35df006e603cd672cc56856f, u)), 0x4d2343bbe6f1bc6bc52c19476)
-            p := add(sar(0x60, mul(p, u)), 0xf7eb3d8e052bcbf7ee1828049)
-            p := sub(sar(0x60, mul(p, u)), 0xc0631c0b347de96c2c5867380)
+            // Constant terms of p and q in Q94; p(0) = q(0) by construction, so the
+            // literal is shared.
+            let c0 := 0xb05a8b41cf51c04d1b8a08d465
 
-            // Denominator q(u), monic, Horner in Q96. q(u)/2**96 in [-12.03, -11.45] on the
-            // domain: bounded away from zero, and p(u)/q(u) in [1, 1.01].
-            let q := sub(u, 0x8ead228f38fe4d674ca1bf0b2)
-            q := add(sar(0x60, mul(q, u)), 0x1380c46e716aaf05b93b36e930)
-            q := sub(sar(0x60, mul(q, u)), 0xc0631c0b347de968fad1273f4)
+            // Numerator p(u), Horner up the basis staircase Q68 -> Q72 -> Q78 -> Q85 -> Q94.
+            // p(u)/2**94 in [663.7, 705.5] on the domain. The leading product is nonnegative,
+            // so the first shift may be logical.
+            let p := sub(shr(0x5c, mul(0xf642b0ed5372ff45e0, u)), 0xede142e73a9acbb00e9c)
+            p := add(sar(0x5a, mul(p, u)), 0xf2a56533e74a454c9d585f)
+            p := sub(sar(0x59, mul(p, u)), 0xb44d9253cd61fb87dc7efcfc)
+            p := add(sar(0x57, mul(p, u)), c0)
 
-            // r = 2*atanh(z/2**96) * 10**18 * 2**78 ~= (10**18 / 2**17) * p * z / q.
-            // |p * z| < 2**194 and |(10**18 / 2**17) * p * z| < 2**237: no overflow.
-            r := sdiv(mul(0x6f05b59d3b2, mul(p, z)), q)
+            // Denominator q(u), monic, Horner up the staircase Q96 -> Q71 -> Q77 -> Q85 ->
+            // Q94. q(u)/2**94 in [-705.5, -656.0] on the domain: bounded away from zero, and
+            // p(u)/(-q(u)) in [1, 1.01].
+            let q := sub(u, 0x364589193443b48661938f59da)
+            q := add(sar(0x79, mul(q, u)), 0xe904c4e76307954df790)
+            q := sub(sar(0x5a, mul(q, u)), 0xad960ab2f600bd9765c160)
+            q := add(sar(0x58, mul(q, u)), 0xd1b1fedec544f0ea0bc812bc)
+            q := sub(sar(0x57, mul(q, u)), c0)
 
-            // Add k * round(ln(2) * 10**18 * 2**78). k is two's complement (k in [-96, 158]);
+            // A = 2*atanh(-z/2**100) in Q100: |p * z| < 2**201 and |q| > 656 * 2**94, so
+            // the quotient fits in 98 bits.
+            r := sdiv(mul(p, z), q)
+
+            // Rescale to ray in Q72: 5**27 = 10**27 * 2**72 / 2**(100 + 27); exact.
+            r := mul(r, 0x6765c793fa10079d)
+
+            // Add k * round(ln(2) * 10**27 * 2**72). k is two's complement (k in [-103, 151]);
             // `mul` wraps correctly.
-            r := add(r, mul(0x267a36c0c95b3975ab3ee5b203a7614a3f7, k))
+            r := add(r, mul(0x23d5b9ff36551802aa5d6f9754b0f3fad83b19450, k))
 
-            // Add floor((ln(s/2**96) + 96*ln(2) - 18*ln(10)) * 10**18 * 2**78) - 3e22.
-            // The 3e22 subtrahend is the one-sided error margin described above.
-            r := add(r, 0x58452ffd07d74b4395bf265ea3c4e3c7f3f1)
+            // Add floor((ln(s/2**103) + 103*ln(2) - 18*ln(10)) * 10**27 * 2**72) - 1.7e21.
+            // The 1.7e21 subtrahend is the one-sided error margin described above.
+            r := add(r, 0x61e2c6b2c35132b01ead59b23e2239090a9b352bd5)
 
-            // Q78 -> integer result; `sar` floors.
-            r := sar(0x4e, r)
+            // Q72 -> integer ray result; `sar` floors.
+            r := sar(0x48, r)
         }
     }
 }
