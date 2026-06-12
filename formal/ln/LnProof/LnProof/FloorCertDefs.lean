@@ -77,6 +77,9 @@ def certLtUp : List Int :=
 def certLtLo : List Int :=
   polyAdd (polyScale ((Sc : Int) * EUD * KF1) (polyPow ltTD 23))
     (polyScale (-(EUD - EUN)) (polyMul [0, 1] (polyAdd (polyScale 23 (polyMul (expPolyNum ltTN ltTD 22) ltTD)) (polyScale 2 (polyPow ltTN 23)))))
+def UB : Int := 2333000000000000000000000000
+def certGeWS : List Int := polyAdd (polyScale UB geB2) (polyScale (-(2 ^ 96)) geA2)
+def certLtWS : List Int := polyAdd (polyScale UB ltB2) (polyScale (-(2 ^ 96)) ltA2)
 def certGeH : List Int := polyAdd (polyScale 26 geTD) (polyScale (-2) geTN)
 def certLtH : List Int := polyAdd (polyScale 26 ltTD) (polyScale (-2) ltTN)
 def certGeTD : List Int := polyAdd geTD [-1]

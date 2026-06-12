@@ -85,4 +85,20 @@ theorem ltTN2_nonneg {m : Int} (h1 : 10141204801825835211973625643008 ≤ m) (h2
     0 ≤ evalPoly ltTN2b m :=
   checkCover_sound _ _ _ _ ltTN2_check m h1 h2
 
+theorem geWS_check : checkCover certGeWS 14341829369545251819195376186275 20282409603651670423947251286015
+    [5940580234106418604751875099740] = true := by
+  decide +kernel
+
+theorem geWS_nonneg {m : Int} (h1 : 14341829369545251819195376186275 ≤ m) (h2 : m ≤ 20282409603651670423947251286015) :
+    0 ≤ evalPoly certGeWS m :=
+  checkCover_sound _ _ _ _ geWS_check m h1 h2
+
+theorem ltWS_check : checkCover certLtWS 10141204801825835211973625643008 14341829369545251819195376186183
+    [4200624567719416607221750543175] = true := by
+  decide +kernel
+
+theorem ltWS_nonneg {m : Int} (h1 : 10141204801825835211973625643008 ≤ m) (h2 : m ≤ 14341829369545251819195376186183) :
+    0 ≤ evalPoly certLtWS m :=
+  checkCover_sound _ _ _ _ ltWS_check m h1 h2
+
 end LnFloorCert
