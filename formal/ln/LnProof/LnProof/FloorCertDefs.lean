@@ -60,23 +60,23 @@ def ltTD2 : List Int := polyScale (2 ^ 56) ltDLO
 def ltTN2b : List Int := polyAdd (polyScale (2 ^ 99) ltTN2) (polyNeg ltTD2)
 def ltTD2b : List Int := polyScale (2 ^ 99) ltTD2
 
-def KF : Int := 620448401733239439360000
-def KF1 : Int := 15511210043330985984000000
+def KF : Int := 1124000727777607680000
+def KF1 : Int := 25852016738884976640000
 def EUN : Int := 42
 def EUD : Int := 10 ^ 29
 
 def certGeUp : List Int :=
-  polyAdd (polyScale ((EUD + EUN) * KF1) (polyMul [0, 1] (polyPow geTD 25)))
-    (polyScale (-(Sc : Int) * EUD) (polyAdd (polyScale 25 (polyMul (expPolyNum geTN geTD 24) geTD)) (polyScale 2 (polyPow geTN 25))))
+  polyAdd (polyScale ((EUD + EUN) * KF1) (polyMul [0, 1] (polyPow geTD 23)))
+    (polyScale (-(Sc : Int) * EUD) (polyAdd (polyScale 23 (polyMul (expPolyNum geTN geTD 22) geTD)) (polyScale 2 (polyPow geTN 23))))
 def certGeLo : List Int :=
-  polyAdd (polyScale (EUD * (Sc : Int)) (expPolyNum geTN2b geTD2b 24))
-    (polyScale (-(EUD - EUN) * KF) (polyMul [0, 1] (polyPow geTD2b 24)))
+  polyAdd (polyScale (EUD * (Sc : Int)) (expPolyNum geTN2b geTD2b 22))
+    (polyScale (-(EUD - EUN) * KF) (polyMul [0, 1] (polyPow geTD2b 22)))
 def certLtUp : List Int :=
-  polyAdd (polyScale (EUD + EUN) (polyMul [0, 1] (expPolyNum ltTN2b ltTD2b 24)))
-    (polyScale (-EUD * (Sc : Int) * KF) (polyPow ltTD2b 24))
+  polyAdd (polyScale (EUD + EUN) (polyMul [0, 1] (expPolyNum ltTN2b ltTD2b 22)))
+    (polyScale (-EUD * (Sc : Int) * KF) (polyPow ltTD2b 22))
 def certLtLo : List Int :=
-  polyAdd (polyScale ((Sc : Int) * EUD * KF1) (polyPow ltTD 25))
-    (polyScale (-(EUD - EUN)) (polyMul [0, 1] (polyAdd (polyScale 25 (polyMul (expPolyNum ltTN ltTD 24) ltTD)) (polyScale 2 (polyPow ltTN 25)))))
+  polyAdd (polyScale ((Sc : Int) * EUD * KF1) (polyPow ltTD 23))
+    (polyScale (-(EUD - EUN)) (polyMul [0, 1] (polyAdd (polyScale 23 (polyMul (expPolyNum ltTN ltTD 22) ltTD)) (polyScale 2 (polyPow ltTN 23)))))
 def certGeH : List Int := polyAdd (polyScale 26 geTD) (polyScale (-2) geTN)
 def certLtH : List Int := polyAdd (polyScale 26 ltTD) (polyScale (-2) ltTN)
 def certGeTD : List Int := polyAdd geTD [-1]

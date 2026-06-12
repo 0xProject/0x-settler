@@ -382,4 +382,35 @@ theorem df4 (x y : Int) :
   -- (x² - y²)(x² + y²) = ((x-y)(x+y))(x² + y²)
   rw [h1, h2, h3, h4, Int.mul_assoc]
 
+theorem sq_nonneg' (a : Int) : 0 ≤ a * a := by
+  rcases Int.le_total 0 a with h | h
+  · exact Int.mul_nonneg h h
+  · have h2 := Int.mul_nonneg (a := -a) (b := -a) (by omega) (by omega)
+    have e : (-a) * (-a) = a * a := by
+      rw [Int.neg_mul, Int.mul_neg]
+      omega
+    omega
+
+/-- Interval bound for a product: `|a| ≤ A`, `0 ≤ b ≤ B` give `|ab| ≤ AB`. -/
+theorem mul_bound {a A b B : Int} (ha1 : -A ≤ a) (ha2 : a ≤ A)
+    (hb0 : 0 ≤ b) (hb : b ≤ B) : -(A * B) ≤ a * b ∧ a * b ≤ A * B := by
+  have hA : 0 ≤ A := by omega
+  have hB : 0 ≤ B := by omega
+  constructor
+  · rcases Int.le_total 0 a with h | h
+    · have h1 : 0 ≤ a * b := Int.mul_nonneg h hb0
+      have h2 : 0 ≤ A * B := Int.mul_nonneg hA hB
+      omega
+    · have h1 : a * B ≤ a * b := mul_le_mul_left_nonpos hb h
+      have h2 : (-A) * B ≤ a * B := mul_le_mul_right_nonneg ha1 hB
+      have e : (-A) * B = -(A * B) := Int.neg_mul A B
+      omega
+  · rcases Int.le_total 0 a with h | h
+    · have h1 : a * b ≤ a * B := mul_le_mul_left_nonneg hb h
+      have h2 : a * B ≤ A * B := mul_le_mul_right_nonneg ha2 hB
+      omega
+    · have h1 : a * b ≤ 0 := Int.mul_nonpos_of_nonpos_of_nonneg h hb0
+      have h2 : 0 ≤ A * B := Int.mul_nonneg hA hB
+      omega
+
 end LnFloorCert
