@@ -286,4 +286,100 @@ theorem un_le_dsq {d q u B : Nat} (hB : 0 < B)
     omega
   exact Int.le_of_mul_le_mul_right key (by decide)
 
+/-! ## Divided-difference dominance for the homogenized stage polynomials
+
+`homEvalI PPc · D` is decreasing and `homEvalI QQc · D` is increasing on
+`|n| 2^96 ≤ Uc D`: the divided difference is dominated by its linear
+coefficient (`-P1c 2^263` resp. `Q1c 2^291`), with every higher term
+crudely bounded through the box radius. -/
+
+/-- Unfolded quartic form of `homEvalI PPc`. -/
+theorem homEvalI_PPc_eq (n D : Int) :
+    homEvalI PPc n D =
+      (8203564106909714963200842018493798951984754309521818719427488640634114742013119919947469548416190884842555317059682247072626112599280320512 : Int) * D ^ 4 +
+        n * (-(211724653123857194763950383719813360812387246807907859655976840812609762088646804783336607575824561935839395840 : Int) * D ^ 3 +
+          n * ((1798175745614395766239082622521528960720477616324792863638563111730471590055378944 : Int) * D ^ 2 +
+            n * (-(5562590447406762316237749022682109217671325297934336 : Int) * D ^ 1 +
+              n * ((4542704643877621417440 : Int) * D ^ 0 + n * 0)))) := rfl
+
+/-- Unfolded quintic form of `homEvalI QQc`. -/
+theorem homEvalI_QQc_eq (n D : Int) :
+    homEvalI QQc n D =
+      (-(2202127471863542086976841246818343354848349628124454549898853972183438719928614203693782484275214277955754824740140383208045055653095158108464873472 : Int)) * D ^ 5 +
+        n * ((66099322585698201304896817119077614168377752650671880634963909888244721857603941759324591151523373370374573118109777920 : Int) * D ^ 4 +
+          n * (-(690627211385037298547738551962892852267586075469791719173459072596031701017399264062472192 : Int) * D ^ 3 +
+            n * ((2925363287404360843667081097142065961887817512291358090461184 : Int) * D ^ 2 +
+              n * (-(4299840983308505679614339668442 : Int) * D ^ 1 +
+                n * ((1 : Int) * D ^ 0 + n * 0))))) := rfl
+
+/-- `a² ≤ b²` whenever `-b ≤ a ≤ b`. -/
+theorem sq_le_of_abs_le {a b : Int} (h1 : -b ≤ a) (h2 : a ≤ b) : a * a ≤ b * b := by
+  rcases Int.le_total 0 a with h0 | h0
+  · exact sq_le_sq' h0 h2
+  · have := sq_le_sq' (a := -a) (b := b) (by omega) (by omega)
+    have e : (-a) * (-a) = a * a := by
+      rw [Int.neg_mul, Int.mul_neg]
+      omega
+    omega
+
+/-- Nested-Horner quartic distributes onto power-products. -/
+theorem quartic_expand (c1 c2 c3 c4 n E3 E2 E1 : Int) :
+    n * (c1 * E3 + n * (c2 * E2 + n * (c3 * E1 + n * c4))) =
+      c1 * n * E3 + c2 * (n * n) * E2 + c3 * (n * n * n) * E1 +
+        c4 * (n * n * n * n) := by
+  have a0 : n * (c3 * E1 + n * c4) = n * (c3 * E1) + n * (n * c4) :=
+    Int.mul_add n (c3 * E1) (n * c4)
+  have a0' : n * (c2 * E2 + n * (c3 * E1 + n * c4)) =
+      n * (c2 * E2) + n * (n * (c3 * E1) + n * (n * c4)) := by
+    rw [Int.mul_add n (c2 * E2) (n * (c3 * E1 + n * c4)), a0]
+  have a0'' : n * (n * (c3 * E1) + n * (n * c4)) =
+      n * (n * (c3 * E1)) + n * (n * (n * c4)) :=
+    Int.mul_add n (n * (c3 * E1)) (n * (n * c4))
+  rw [Int.mul_add n (c1 * E3) _, a0', a0'']
+  have a0''' : n * (n * (c2 * E2) + (n * (n * (c3 * E1)) + n * (n * (n * c4)))) =
+      n * (n * (c2 * E2)) + (n * (n * (n * (c3 * E1))) + n * (n * (n * (n * c4)))) := by
+    rw [Int.mul_add n (n * (c2 * E2)) _, Int.mul_add n (n * (n * (c3 * E1))) _]
+  have a1 : n * (c1 * E3) = c1 * n * E3 := by
+    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  have a2 : n * (n * (c2 * E2)) = c2 * (n * n) * E2 := by
+    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  have a3 : n * (n * (n * (c3 * E1))) = c3 * (n * n * n) * E1 := by
+    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  have a4 : n * (n * (n * (n * c4))) = c4 * (n * n * n * n) := by
+    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  omega
+
+theorem df2 (x y : Int) : x * x - y * y = (x - y) * (x + y) := by
+  rw [Int.sub_mul, Int.mul_add, Int.mul_add]
+  have : y * x = x * y := Int.mul_comm y x
+  omega
+
+theorem df3 (x y : Int) :
+    x * x * x - y * y * y = (x - y) * (x * x + x * y + y * y) := by
+  rw [Int.sub_mul, Int.mul_add, Int.mul_add, Int.mul_add, Int.mul_add]
+  have a1 : y * (x * x) = x * (x * y) := by
+    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  have a2 : x * (x * x) = x * x * x := by
+    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  have a3 : y * (x * y) = y * y * x := by
+    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  have a4 : x * (y * y) = y * y * x := by
+    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  have a5 : y * (y * y) = y * y * y := by
+    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  have a6 : x * (x * y) = x * (x * y) := rfl
+  omega
+
+theorem df4 (x y : Int) :
+    x * x * x * x - y * y * y * y =
+      (x - y) * ((x + y) * (x * x + y * y)) := by
+  have h1 : x * x * x * x = (x * x) * (x * x) := by
+    simp only [Int.mul_assoc]
+  have h2 : y * y * y * y = (y * y) * (y * y) := by
+    simp only [Int.mul_assoc]
+  have h3 := df2 (x * x) (y * y)
+  have h4 := df2 x y
+  -- (x² - y²)(x² + y²) = ((x-y)(x+y))(x² + y²)
+  rw [h1, h2, h3, h4, Int.mul_assoc]
+
 end LnFloorCert
