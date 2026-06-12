@@ -17,9 +17,9 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 
 import {Test} from "@forge-std/Test.sol";
 
-ISignatureTransfer constant PERMIT2 = ISignatureTransfer(0x000000000022D473030F116dDEE9F6B43aC78BA3);
-
 contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
+    address private constant _PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
+
     address internal immutable uniFactory;
     address private _payer;
     address private _callbackCaller;
@@ -34,7 +34,7 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
     }
 
     fallback(bytes calldata) external returns (bytes memory) {
-        require(_operator() == _callbackCaller);
+        require(msg.sender == _callbackCaller);
         bytes calldata data = _msgData();
         require(uint32(bytes4(data)) == uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector));
         function(bytes calldata) internal returns (bytes memory) callback = _callback;
@@ -65,12 +65,13 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
         return false;
     }
 
-    function _msgSender() internal view override(AbstractContext, AllowanceHolderContext) returns (address payer) {
-        require((payer = _payer) != address(0));
+    function _msgSender() internal view override(AbstractContext, AllowanceHolderContext) returns (address) {
+        address payer = _payer;
+        return payer == address(0) ? AllowanceHolderContext._msgSender() : payer;
     }
 
     function _operator() internal view override returns (address) {
-        return super._msgSender();
+        return _msgSender();
     }
 
     function _dispatch(uint256, uint256, bytes calldata, AllowedSlippage memory) internal pure override returns (bool) {
@@ -165,7 +166,13 @@ contract UniswapV3Dummy is AllowanceHolderContext, UniswapV3Fork {
                 permit.permitted.token, _msgSender(), transferDetails.to, transferDetails.requestedAmount
             );
         } else {
-            PERMIT2.permitTransferFrom(permit, transferDetails, _msgSender(), sig);
+            (bool success, bytes memory returndata) =
+                _PERMIT2.call(abi.encodeWithSelector(bytes4(0x30f28b7a), permit, transferDetails, _msgSender(), sig));
+            if (!success) {
+                assembly ("memory-safe") {
+                    revert(add(0x20, returndata), mload(returndata))
+                }
+            }
         }
     }
 
@@ -255,6 +262,7 @@ contract UniswapV3PoolDirtyForwardedBoolDummy {
 
 contract UniswapV3UnitTest is Utils, Test {
     UniswapV3Dummy uni;
+    address constant PERMIT2 = 0x000000000022D473030F116dDEE9F6B43aC78BA3;
     address UNI_FACTORY = _createNamedRejectionDummy("UNI_FACTORY");
 
     address TOKEN0 = _createNamedRejectionDummy("TOKEN0");
@@ -285,7 +293,7 @@ contract UniswapV3UnitTest is Utils, Test {
     }
 
     function setUp() public {
-        _etchNamedRejectionDummy("PERMIT2", address(PERMIT2));
+        _etchNamedRejectionDummy("PERMIT2", PERMIT2);
         _etchNamedRejectionDummy("ALLOWANCE_HOLDER", address(ALLOWANCE_HOLDER));
         uni = new UniswapV3Dummy(UNI_FACTORY);
     }
