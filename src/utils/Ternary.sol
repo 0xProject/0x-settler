@@ -40,33 +40,33 @@ library Ternary {
 
     function maybeSwap(bool c, uint256 x, uint256 y) internal pure returns (uint256 a, uint256 b) {
         assembly ("memory-safe") {
-            let t := mul(lt(0x00, c), sub(y, x))
-            a := add(x, t)
-            b := sub(y, t)
+            let t := mul(iszero(c), sub(y, x))
+            a := sub(y, t)
+            b := add(x, t)
         }
     }
 
     function maybeSwap(bool c, int256 x, int256 y) internal pure returns (int256 a, int256 b) {
         assembly ("memory-safe") {
-            let t := mul(lt(0x00, c), sub(y, x))
-            a := add(x, t)
-            b := sub(y, t)
+            let t := mul(iszero(c), sub(y, x))
+            a := sub(y, t)
+            b := add(x, t)
         }
     }
 
     function maybeSwap(bool c, IERC20 x, IERC20 y) internal pure returns (IERC20 a, IERC20 b) {
         assembly ("memory-safe") {
-            let t := mul(lt(0x00, c), sub(y, x))
-            a := add(x, t)
-            b := sub(y, t)
+            let t := mul(iszero(c), sub(y, x))
+            a := sub(y, t)
+            b := add(x, t)
         }
     }
 
     function maybeSwap(bool c, address x, address y) internal pure returns (address a, address b) {
         assembly ("memory-safe") {
-            let t := mul(lt(0x00, c), sub(y, x))
-            a := add(x, t)
-            b := sub(y, t)
+            let t := mul(iszero(c), sub(y, x))
+            a := sub(y, t)
+            b := add(x, t)
         }
     }
 }
