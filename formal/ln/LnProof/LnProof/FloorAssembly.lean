@@ -1,6 +1,7 @@
 import LnProof.FloorCaps
 import LnProof.FloorBudget
 import LnProof.FloorModel
+import LnProof.FloorWindow
 
 /-!
 # Floor-spec assembly: scale identities
@@ -63,22 +64,19 @@ theorem v_scale_neg (X1v : Int) (c : Nat) (hc : 152 < c) :
 /-- Upper master chain, `m ≥ S` branch, nonnegative binade shift:
 `e^(r/10^27) ≤ x/10^18` as a `capUB`, assembled from the `X1` cap, the
 `2^k` cap, the bias cap, and the budget. -/
-theorem up_ge_pos {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
+theorem up_ge_pos {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc1 : 1 ≤ c) (hc : c ≤ 152)
-    (hup : 0 ≤ evalPoly certGeUp (m : Int))
     (hr : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269)
     (hr0 : 0 ≤ r)
     (hmx : m * 2 ^ (152 - c) ≤ x) :
     capUB (r.toNat * 2 ^ 99) QS x (10 ^ 18) := by
-  have cap1 := x1capGeUp h1 h2 hup
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capGeUpF h1 h2
   have cap2 := capUB_pow QS_pos cap2U (152 - c)
   have cap12 := capUB_mul QS_pos cap1 cap2
   have cap123 := capUB_mul QS_pos cap12 capBU
   -- the exponent sum dominates r·2^99
-  have hX1 := x1_nonneg_ge h1 h2
+  have hX1 := x1_nonneg_geF h1 h2
   have hVs := v_scale_pos (toInt (x1W (zWord m))) c hc
   have hple : r.toNat * 2 ^ 99 ≤
       (toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
@@ -107,7 +105,7 @@ theorem up_ge_pos {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       rw [← hgA, ← hgD, Int.natCast_mul, hX1n]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hVs hX1 cap1 cap2 cap12 cap123 hup hr h1 h2 hmx hc hc1
+    clear hX1n hVs hX1 cap1 cap2 cap12 cap123 hr h1 h2 hmx hc hc1
     omega
   have hmul : r.toNat * 2 ^ 99 * QS ≤
       ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
@@ -196,23 +194,20 @@ theorem budgetL_fold {m k : Nat} (hm : 2 ^ 103 ≤ m) (hk : k ≤ 151) :
 /-- Lower master chain, `m ≥ S` branch, nonnegative binade shift:
 `x/10^18 < e^((r+2)/10^27)` as a `capLB` with one part in `10^30` of
 strictness slack. -/
-theorem lo_ge_pos {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
+theorem lo_ge_pos {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc1 : 1 ≤ c) (hc : c ≤ 152)
-    (hlo : 0 ≤ evalPoly certGeLo (m : Int))
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269 < (r + 1) * 2 ^ 72)
     (hr0 : -1 ≤ r)
     (hxm : x < (m + 1) * 2 ^ (152 - c)) :
     capLB ((r + 2).toNat * 2 ^ 99) QS (x * 10 ^ 30) (10 ^ 18 * (10 ^ 30 - 1)) := by
-  have cap1 := x1capGeLo h1 h2 hlo
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capGeLoF h1 h2
   have cap2 := capLB_pow cap2L (152 - c)
   have cap12 := capLB_mul cap1 cap2
   have cap123 := capLB_mul cap12 capBL
   have cap1234 := capLB_mul cap123 capEL
   -- (r+2)·2^99 dominates the exponent sum
-  have hX1 := x1_nonneg_ge h1 h2
+  have hX1 := x1_nonneg_geF h1 h2
   have hVs := v_scale_pos (toInt (x1W (zWord m))) c hc
   have hple : (toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
       (152 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27 + 2 ^ 99 ≤
@@ -244,7 +239,7 @@ theorem lo_ge_pos {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       rw [← hgA, ← hgD, Int.natCast_mul, hX1n]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hVs hX1 cap1 cap2 cap12 cap123 cap1234 hlo hr h1 h2 hxm hc hc1
+    clear hX1n hVs hX1 cap1 cap2 cap12 cap123 cap1234 hr h1 h2 hxm hc hc1
     omega
   have hmul : ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
       (152 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27 + 2 ^ 99) * QS ≤
@@ -325,19 +320,16 @@ theorem lo_ge_pos {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
 
 /-- Upper master chain, `m ≥ S` branch, negative binade shift
 (`c > 152`, exact mantissa `m = x·2^(c-152)`). -/
-theorem up_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
+theorem up_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 152 < c) (hc2 : c ≤ 255)
-    (hup : 0 ≤ evalPoly certGeUp (m : Int))
     (hr : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269)
     (hr0 : 0 ≤ r)
     (hmx : m = x * 2 ^ (c - 152)) :
     capUB (r.toNat * 2 ^ 99) QS x (10 ^ 18) := by
-  have cap1 := x1capGeUp h1 h2 hup
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capGeUpF h1 h2
   have cap1B := capUB_mul QS_pos cap1 capBU
-  have hX1 := x1_nonneg_ge h1 h2
+  have hX1 := x1_nonneg_geF h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
   -- the Nat split: X1·E + BIAS = pa + j·L with pa ≥ r·2^99
   have hsplit : (toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
@@ -363,7 +355,7 @@ theorem up_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       generalize hgV' : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at hm ⊢
       generalize hgR : r * 2 ^ 72 * 2 ^ 27 = R27 at hm h0
-      clear cap1 cap1B hup hX1 hVs hX1n hBc hLc h1 h2 hmx hc hc2 hr hr0
+      clear cap1 cap1B hX1 hVs hX1n hBc hLc h1 h2 hmx hc hc2 hr hr0
       omega
     generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at hV0 hVs
@@ -375,7 +367,7 @@ theorem up_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       rw [← hgA, ← hgD, Int.natCast_mul, hX1n]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 cap1B hup hr h1 h2 hc hc2 hmx
+    clear hX1n hX1 cap1 cap1B hr h1 h2 hc hc2 hmx
     omega
   rw [hsplit] at cap1B
   have capV := capUB_cancel QS_pos cap1B (capLB_pow cap2L (c - 152))
@@ -412,7 +404,7 @@ theorem up_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       rw [← hgA, ← hgD, Int.natCast_mul, hX1n]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hVs hX1 cap1 cap1B capV hup hr h1 h2 hc hc2 hmx hsplit
+    clear hX1n hVs hX1 cap1 cap1B capV hr h1 h2 hc hc2 hmx hsplit
     omega
   have hmul : r.toNat * 2 ^ 99 * QS ≤
       ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
@@ -468,9 +460,8 @@ theorem up_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
     omega
 
 /-- Lower master chain, `m ≥ S` branch, negative binade shift. -/
-theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
+theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 152 < c) (hc2 : c ≤ 255)
-    (hlo : 0 ≤ evalPoly certGeLo (m : Int))
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269 < (r + 1) * 2 ^ 72)
     (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
@@ -478,12 +469,10 @@ theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
     (hr0 : -1 ≤ r)
     (hmx : m = x * 2 ^ (c - 152)) :
     capLB ((r + 2).toNat * 2 ^ 99) QS (x * 10 ^ 30) (10 ^ 18 * (10 ^ 30 - 1)) := by
-  have cap1 := x1capGeLo h1 h2 hlo
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capGeLoF h1 h2
   have cap1B := capLB_mul cap1 capBL
   have cap1BE := capLB_mul cap1B capEL
-  have hX1 := x1_nonneg_ge h1 h2
+  have hX1 := x1_nonneg_geF h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
   have hVnn : -(2 ^ 99) ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 := by
@@ -526,7 +515,7 @@ theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       rw [← hgA, ← hgD, Int.natCast_mul, hX1n]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 cap1B cap1BE hlo hr h1 h2 hc hc2 hmx
+    clear hX1n hX1 cap1 cap1B cap1BE hr h1 h2 hc hc2 hmx
     omega
   rw [hsplit] at cap1BE
   have capV := capLB_cancel QS_pos cap1BE (capUB_pow QS_pos cap2U (c - 152))
@@ -561,7 +550,7 @@ theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       rw [← hgA, ← hgD, Int.natCast_mul, hX1n]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 cap1B cap1BE capV hlo hr h1 h2 hc hc2 hmx hsplit
+    clear hX1n hX1 cap1 cap1B cap1BE capV hr h1 h2 hc hc2 hmx hsplit
     omega
   have hmul : ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
       BIASc * 2 ^ 27 + 2 ^ 99 - (c - 152) * (LN2c * 2 ^ 27)) * QS ≤
@@ -609,19 +598,16 @@ theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
     omega
 
 /-- Upper master chain, `m < S` branch, nonnegative binade shift. -/
-theorem up_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
+theorem up_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc1 : 1 ≤ c) (hc : c ≤ 152)
-    (hup : 0 ≤ evalPoly certLtUp (m : Int))
     (hr : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269)
     (hr0 : 0 ≤ r)
     (hmx : m * 2 ^ (152 - c) ≤ x) :
     capUB (r.toNat * 2 ^ 99) QS x (10 ^ 18) := by
-  have cap1 := x1capLtUp h1 h2 hup
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capLtUpF h1 h2
   have hsum := capUB_mul QS_pos (capUB_pow QS_pos cap2U (152 - c)) capBU
-  have hX1 := x1_nonpos_lt h1 h2
+  have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_pos (toInt (x1W (zWord m))) c hc
   -- split: kL + B = pa + |X1|·E with pa = V·2^27 ≥ 0
   have hsplit : (152 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27 =
@@ -645,7 +631,7 @@ theorem up_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
       generalize hgV' : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at hm ⊢
       generalize hgR : r * 2 ^ 72 * 2 ^ 27 = R27 at hm h0
-      clear cap1 hsum hup hX1 hVs hX1n hBc hLc h1 h2 hmx hc hc1 hr hr0
+      clear cap1 hsum hX1 hVs hX1n hBc hLc h1 h2 hmx hc hc1 hr hr0
       omega
     generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at hV0 hVs
@@ -660,7 +646,7 @@ theorem up_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           rw [Int.neg_mul]]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hsum hup hr h1 h2 hc hc1 hmx
+    clear hX1n hX1 cap1 hsum hr h1 h2 hc hc1 hmx
     omega
   rw [hsplit] at hsum
   have capV := capUB_cancel QS_pos hsum cap1
@@ -695,7 +681,7 @@ theorem up_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           rw [Int.neg_mul]]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hsum capV hup hr h1 h2 hc hc1 hmx hsplit
+    clear hX1n hX1 cap1 hsum capV hr h1 h2 hc hc1 hmx hsplit
     omega
   have hmul : r.toNat * 2 ^ 99 * QS ≤
       ((152 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27 -
@@ -749,9 +735,8 @@ theorem up_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
     omega
 
 /-- Lower master chain, `m < S` branch, nonnegative binade shift. -/
-theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
+theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc1 : 1 ≤ c) (hc : c ≤ 152)
-    (hlo : 0 ≤ evalPoly certLtLo (m : Int))
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269 < (r + 1) * 2 ^ 72)
     (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
@@ -759,11 +744,9 @@ theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
     (hr0 : -1 ≤ r)
     (hxm : x < (m + 1) * 2 ^ (152 - c)) :
     capLB ((r + 2).toNat * 2 ^ 99) QS (x * 10 ^ 30) (10 ^ 18 * (10 ^ 30 - 1)) := by
-  have cap1 := x1capLtLo h1 h2 hlo
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capLtLoF h1 h2
   have hsum := capLB_mul (capLB_mul (capLB_pow cap2L (152 - c)) capBL) capEL
-  have hX1 := x1_nonpos_lt h1 h2
+  have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_pos (toInt (x1W (zWord m))) c hc
   have hVnn : -(2 ^ 99) ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 := by
@@ -808,7 +791,7 @@ theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           rw [Int.neg_mul]]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hsum hlo hr h1 h2 hc hc1 hxm hrlo
+    clear hX1n hX1 cap1 hsum hr h1 h2 hc hc1 hxm hrlo
     omega
   rw [hsplit] at hsum
   have capV := capLB_cancel QS_pos hsum cap1
@@ -846,7 +829,7 @@ theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           rw [Int.neg_mul]]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hsum capV hlo hr h1 h2 hc hc1 hxm hsplit hrlo
+    clear hX1n hX1 cap1 hsum capV hr h1 h2 hc hc1 hxm hsplit hrlo
     omega
   have hmul : ((152 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27 + 2 ^ 99 -
       (-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) * QS ≤
@@ -922,19 +905,16 @@ theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
 
 /-- Upper master chain, `m < S` branch, negative binade shift
 (exact mantissa). -/
-theorem up_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
+theorem up_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 152 < c) (hc2 : c ≤ 255)
-    (hup : 0 ≤ evalPoly certLtUp (m : Int))
     (hr : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269)
     (hr0 : 0 ≤ r)
     (hmx : m = x * 2 ^ (c - 152)) :
     capUB (r.toNat * 2 ^ 99) QS x (10 ^ 18) := by
-  have cap1 := x1capLtUp h1 h2 hup
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capLtUpF h1 h2
   have hb := capLB_mul cap1 (capLB_pow cap2L (c - 152))
-  have hX1 := x1_nonpos_lt h1 h2
+  have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
   -- split: B = pa + (|X1|·E + j·L) with pa = V·2^27 ≥ 0
   have hsplit : BIASc * 2 ^ 27 =
@@ -959,7 +939,7 @@ theorem up_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
       generalize hgV' : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at hm ⊢
       generalize hgR : r * 2 ^ 72 * 2 ^ 27 = R27 at hm h0
-      clear cap1 hb hup hX1 hVs hX1n hBc hLc h1 h2 hmx hc hc2 hr hr0
+      clear cap1 hb hX1 hVs hX1n hBc hLc h1 h2 hmx hc hc2 hr hr0
       omega
     generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at hV0 hVs
@@ -974,7 +954,7 @@ theorem up_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           rw [Int.neg_mul]]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hb hup hr h1 h2 hc hc2 hmx
+    clear hX1n hX1 cap1 hb hr h1 h2 hc hc2 hmx
     omega
   have hsumB : capUB (BIASc * 2 ^ 27) QS (Sc * (10 ^ 30 - 499)) (10 ^ 18 * 10 ^ 30) :=
     capBU
@@ -1011,7 +991,7 @@ theorem up_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           rw [Int.neg_mul]]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hb capV hup hr h1 h2 hc hc2 hmx hsplit
+    clear hX1n hX1 cap1 hb capV hr h1 h2 hc hc2 hmx hsplit
     omega
   have hmul : r.toNat * 2 ^ 99 * QS ≤
       (BIASc * 2 ^ 27 - ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
@@ -1057,9 +1037,8 @@ theorem up_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
 
 /-- Lower master chain, `m < S` branch, negative binade shift
 (exact mantissa). -/
-theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
+theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 152 < c) (hc2 : c ≤ 255)
-    (hlo : 0 ≤ evalPoly certLtLo (m : Int))
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269 < (r + 1) * 2 ^ 72)
     (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
@@ -1067,12 +1046,10 @@ theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
     (hr0 : -1 ≤ r)
     (hmx : m = x * 2 ^ (c - 152)) :
     capLB ((r + 2).toNat * 2 ^ 99) QS (x * 10 ^ 30) (10 ^ 18 * (10 ^ 30 - 1)) := by
-  have cap1 := x1capLtLo h1 h2 hlo
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capLtLoF h1 h2
   have hb := capUB_mul QS_pos cap1 (capUB_pow QS_pos cap2U (c - 152))
   have hsum := capLB_mul capBL capEL
-  have hX1 := x1_nonpos_lt h1 h2
+  have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
   have hVnn : -(2 ^ 99) ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 := by
@@ -1119,7 +1096,7 @@ theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           rw [Int.neg_mul]]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hb hsum hlo hr h1 h2 hc hc2 hmx hrlo
+    clear hX1n hX1 cap1 hb hsum hr h1 h2 hc hc2 hmx hrlo
     omega
   rw [hsplit] at hsum
   have capV := capLB_cancel QS_pos hsum hb
@@ -1158,7 +1135,7 @@ theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           rw [Int.neg_mul]]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hb hsum capV hlo hr h1 h2 hc hc2 hmx hsplit hrlo
+    clear hX1n hX1 cap1 hb hsum capV hr h1 h2 hc hc2 hmx hsplit hrlo
     omega
   have hmul : (BIASc * 2 ^ 27 + 2 ^ 99 -
       ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
@@ -1216,9 +1193,8 @@ theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
 
 /-- A-atom master for negative outputs, `m < S` branch, `k ≥ 0`:
 `e^(|r|/10^27) ≥ 10^18/x`. -/
-theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
+theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc1 : 1 ≤ c) (hc : c ≤ 152)
-    (hup : 0 ≤ evalPoly certLtUp (m : Int))
     (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269)
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
@@ -1226,11 +1202,9 @@ theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
     (hrneg : r < 0)
     (hmx : m * 2 ^ (152 - c) ≤ x) :
     capLB ((-r).toNat * 2 ^ 99) QS (10 ^ 18) x := by
-  have cap1 := x1capLtUp h1 h2 hup
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capLtUpF h1 h2
   have hb := capUB_mul QS_pos (capUB_pow QS_pos cap2U (152 - c)) capBU
-  have hX1 := x1_nonpos_lt h1 h2
+  have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_pos (toInt (x1W (zWord m))) c hc
   -- split: |X1|·E = pa + (kL + B) with pa = -V·2^27 ≥ 0
   have hsplit : (-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 =
@@ -1263,7 +1237,7 @@ theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           omega) (show (0 : Int) ≤ 2 ^ 27 by omega)
       generalize hgV' : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at hm ⊢
-      clear cap1 hb hX1 hVs hup hrlo hr h1 h2 hmx hX1n hBc hLc
+      clear cap1 hb hX1 hVs hrlo hr h1 h2 hmx hX1n hBc hLc
       omega
     generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at hV0 hVs
@@ -1278,7 +1252,7 @@ theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           rw [Int.neg_mul]]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hb hup hr h1 h2 hc hc1 hmx hrlo hrneg
+    clear hX1n hX1 cap1 hb hr h1 h2 hc hc1 hmx hrlo hrneg
     omega
   rw [hsplit] at cap1
   have capV := capLB_cancel QS_pos cap1 hb
@@ -1326,7 +1300,7 @@ theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           rw [Int.neg_mul]]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hb capV hup hr h1 h2 hc hc1 hmx hsplit hrlo
+    clear hX1n hX1 cap1 hb capV hr h1 h2 hc hc1 hmx hsplit hrlo
     omega
   have hmul : ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 -
       ((152 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27)) * QS ≤
@@ -1382,9 +1356,8 @@ theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
 
 /-- A-atom master for negative outputs, `m ≥ S` branch, negative shift
 (exact mantissa). -/
-theorem an_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
+theorem an_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 152 < c) (hc2 : c ≤ 255)
-    (hup : 0 ≤ evalPoly certGeUp (m : Int))
     (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269)
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
@@ -1392,12 +1365,10 @@ theorem an_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
     (hrneg : r < 0)
     (hmx : m = x * 2 ^ (c - 152)) :
     capLB ((-r).toNat * 2 ^ 99) QS (10 ^ 18) x := by
-  have cap1 := x1capGeUp h1 h2 hup
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capGeUpF h1 h2
   have hb := capUB_mul QS_pos cap1 capBU
   have hsum := capLB_pow cap2L (c - 152)
-  have hX1 := x1_nonneg_ge h1 h2
+  have hX1 := x1_nonneg_geF h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
   -- split: jL = pa + (X1·E + B) with pa = -V·2^27 ≥ 0
   have hsplit : (c - 152) * (LN2c * 2 ^ 27) =
@@ -1426,12 +1397,12 @@ theorem an_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
           omega
         generalize hgV' : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
           143060321855302967919159136223863753677754092301269 = V at hr ⊢
-        clear cap1 hb hsum hX1 hVs hup hrlo h1 h2 hmx hX1n hBc hLc
+        clear cap1 hb hsum hX1 hVs hrlo h1 h2 hmx hX1n hBc hLc
         omega
       have := mul_le_mul_right_nonneg hVle (show (0 : Int) ≤ 2 ^ 27 by omega)
       generalize hgV' : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at this ⊢
-      clear cap1 hb hsum hX1 hVs hup hrlo hr h1 h2 hmx hX1n hBc hLc
+      clear cap1 hb hsum hX1 hVs hrlo hr h1 h2 hmx hX1n hBc hLc
       omega
     generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at hV0 hVs
@@ -1443,7 +1414,7 @@ theorem an_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       rw [← hgA, ← hgD, Int.natCast_mul, hX1n]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hb hsum hup hr h1 h2 hc hc2 hmx hrlo hrneg
+    clear hX1n hX1 cap1 hb hsum hr h1 h2 hc hc2 hmx hrlo hrneg
     omega
   rw [hsplit] at hsum
   have capV := capLB_cancel QS_pos hsum hb
@@ -1473,7 +1444,7 @@ theorem an_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       rw [← hgA, ← hgD, Int.natCast_mul, hX1n]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hb hsum capV hup hr h1 h2 hc hc2 hmx hsplit hrlo
+    clear hX1n hX1 cap1 hb hsum capV hr h1 h2 hc hc2 hmx hsplit hrlo
     omega
   have hmul : ((c - 152) * (LN2c * 2 ^ 27) -
       ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
@@ -1518,9 +1489,8 @@ theorem an_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
 
 /-- A-atom master for negative outputs, `m < S` branch, negative shift
 (exact mantissa). -/
-theorem an_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
+theorem an_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 152 < c) (hc2 : c ≤ 255)
-    (hup : 0 ≤ evalPoly certLtUp (m : Int))
     (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269)
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
@@ -1528,11 +1498,9 @@ theorem an_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
     (hrneg : r < 0)
     (hmx : m = x * 2 ^ (c - 152)) :
     capLB ((-r).toNat * 2 ^ 99) QS (10 ^ 18) x := by
-  have cap1 := x1capLtUp h1 h2 hup
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capLtUpF h1 h2
   have hsum := capLB_mul cap1 (capLB_pow cap2L (c - 152))
-  have hX1 := x1_nonpos_lt h1 h2
+  have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
   have hsplit : (-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
       (c - 152) * (LN2c * 2 ^ 27) =
@@ -1558,12 +1526,12 @@ theorem an_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           omega
         generalize hgV' : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
           143060321855302967919159136223863753677754092301269 = V at hr ⊢
-        clear cap1 hsum hX1 hVs hup hrlo h1 h2 hmx hX1n hBc hLc
+        clear cap1 hsum hX1 hVs hrlo h1 h2 hmx hX1n hBc hLc
         omega
       have := mul_le_mul_right_nonneg hVle (show (0 : Int) ≤ 2 ^ 27 by omega)
       generalize hgV' : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at this ⊢
-      clear cap1 hsum hX1 hVs hup hrlo hr h1 h2 hmx hX1n hBc hLc
+      clear cap1 hsum hX1 hVs hrlo hr h1 h2 hmx hX1n hBc hLc
       omega
     generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at hV0 hVs
@@ -1578,7 +1546,7 @@ theorem an_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           rw [Int.neg_mul]]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hsum hup hr h1 h2 hc hc2 hmx hrlo hrneg
+    clear hX1n hX1 cap1 hsum hr h1 h2 hc hc2 hmx hrlo hrneg
     omega
   rw [hsplit] at hsum
   have capV := capLB_cancel QS_pos hsum capBU
@@ -1610,7 +1578,7 @@ theorem an_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
           rw [Int.neg_mul]]
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
-    clear hX1n hX1 cap1 hsum capV hup hr h1 h2 hc hc2 hmx hsplit hrlo
+    clear hX1n hX1 cap1 hsum capV hr h1 h2 hc hc2 hmx hsplit hrlo
     omega
   have hmul : ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
       (c - 152) * (LN2c * 2 ^ 27) - BIASc * 2 ^ 27) * QS ≤
@@ -1684,19 +1652,16 @@ theorem budgetB_fold {m k : Nat} (hm : 2 ^ 103 ≤ m) (hk : k ≤ 151) :
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
 
 /-- B-atom master for `r + 2 ≤ 0`, `m < S` branch, `k ≥ 0`. -/
-theorem bn_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
+theorem bn_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc1 : 1 ≤ c) (hc : c ≤ 152)
-    (hlo : 0 ≤ evalPoly certLtLo (m : Int))
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269 < (r + 1) * 2 ^ 72)
     (hrneg : r + 2 ≤ 0)
     (hxm : x < (m + 1) * 2 ^ (152 - c)) :
     capUB ((-(r + 2)).toNat * 2 ^ 99) QS (10 ^ 18 * (10 ^ 30 - 1)) (x * 10 ^ 30) := by
-  have cap1 := x1capLtLo h1 h2 hlo
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capLtLoF h1 h2
   have hb := capLB_mul (capLB_mul (capLB_pow cap2L (152 - c)) capBL) capEL
-  have hX1 := x1_nonpos_lt h1 h2
+  have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_pos (toInt (x1W (zWord m))) c hc
   -- the exponent gap: -V·2^27 ≥ (|r+2|+1)·2^99 + 2^27
   have hgap : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
@@ -1744,7 +1709,7 @@ theorem bn_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
     generalize hgR : (r + 1) * 2 ^ 99 = R99 at hgap hr99
-    clear hX1n hX1 cap1 hb hlo hr h1 h2 hc hc1 hxm hrneg
+    clear hX1n hX1 cap1 hb hr h1 h2 hc hc1 hxm hrneg
     omega
   rw [hsplit] at cap1
   have capV := capUB_cancel QS_pos cap1 hb
@@ -1777,7 +1742,7 @@ theorem bn_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
       rw [Int.add_mul, Int.one_mul]
     generalize hgR : (r + 1) * 2 ^ 99 = R99 at hgap hr99
     generalize hgr : r * 2 ^ 99 = R at hr99
-    clear hX1n hX1 cap1 hb capV hlo hr h1 h2 hc hc1 hxm hsplit
+    clear hX1n hX1 cap1 hb capV hr h1 h2 hc hc1 hxm hsplit
     omega
   have hmul : (-(r + 2)).toNat * 2 ^ 99 * QS ≤
       ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 -
@@ -1847,20 +1812,17 @@ theorem bn_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
 
 /-- B-atom master for `r + 2 ≤ 0`, `m ≥ S` branch, negative shift
 (exact mantissa). -/
-theorem bn_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
+theorem bn_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 152 < c) (hc2 : c ≤ 255)
-    (hlo : 0 ≤ evalPoly certGeLo (m : Int))
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269 < (r + 1) * 2 ^ 72)
     (hrneg : r + 2 ≤ 0)
     (hmx : m = x * 2 ^ (c - 152)) :
     capUB ((-(r + 2)).toNat * 2 ^ 99) QS (10 ^ 18 * (10 ^ 30 - 1)) (x * 10 ^ 30) := by
-  have cap1 := x1capGeLo h1 h2 hlo
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capGeLoF h1 h2
   have hb := capLB_mul (capLB_mul cap1 capBL) capEL
   have hsum := capUB_pow QS_pos cap2U (c - 152)
-  have hX1 := x1_nonneg_ge h1 h2
+  have hX1 := x1_nonneg_geF h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
   have hgap : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 ≤
@@ -1906,7 +1868,7 @@ theorem bn_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
     generalize hgR : (r + 1) * 2 ^ 99 = R99 at hgap hr99
-    clear hX1n hX1 cap1 hb hsum hlo hr h1 h2 hc hc2 hmx hrneg
+    clear hX1n hX1 cap1 hb hsum hr h1 h2 hc hc2 hmx hrneg
     omega
   rw [hsplit] at hsum
   have capV := capUB_cancel QS_pos hsum hb
@@ -1937,7 +1899,7 @@ theorem bn_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       rw [Int.add_mul, Int.one_mul]
     generalize hgR : (r + 1) * 2 ^ 99 = R99 at hgap hr99
     generalize hgr : r * 2 ^ 99 = R at hr99
-    clear hX1n hX1 cap1 hb hsum capV hlo hr h1 h2 hc hc2 hmx hsplit
+    clear hX1n hX1 cap1 hb hsum capV hr h1 h2 hc hc2 hmx hsplit
     omega
   have hmul : (-(r + 2)).toNat * 2 ^ 99 * QS ≤
       ((c - 152) * (LN2c * 2 ^ 27) -
@@ -1982,20 +1944,17 @@ theorem bn_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
 
 /-- B-atom master for `r + 2 ≤ 0`, `m < S` branch, negative shift
 (exact mantissa). -/
-theorem bn_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
+theorem bn_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 152 < c) (hc2 : c ≤ 255)
-    (hlo : 0 ≤ evalPoly certLtLo (m : Int))
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269 < (r + 1) * 2 ^ 72)
     (hrneg : r + 2 ≤ 0)
     (hmx : m = x * 2 ^ (c - 152)) :
     capUB ((-(r + 2)).toNat * 2 ^ 99) QS (10 ^ 18 * (10 ^ 30 - 1)) (x * 10 ^ 30) := by
-  have cap1 := x1capLtLo h1 h2 hlo
-  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
-    from by decide] at cap1
+  have cap1 := x1capLtLoF h1 h2
   have hsum := capUB_mul QS_pos cap1 (capUB_pow QS_pos cap2U (c - 152))
   have hb := capLB_mul capBL capEL
-  have hX1 := x1_nonpos_lt h1 h2
+  have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
   have hgap : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 ≤
@@ -2043,7 +2002,7 @@ theorem bn_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
       rfl
     generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
     generalize hgR : (r + 1) * 2 ^ 99 = R99 at hgap hr99
-    clear hX1n hX1 cap1 hsum hb hlo hr h1 h2 hc hc2 hmx hrneg
+    clear hX1n hX1 cap1 hsum hb hr h1 h2 hc hc2 hmx hrneg
     omega
   rw [hsplit] at hsum
   have capV := capUB_cancel QS_pos hsum hb
@@ -2076,7 +2035,7 @@ theorem bn_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
       rw [Int.add_mul, Int.one_mul]
     generalize hgR : (r + 1) * 2 ^ 99 = R99 at hgap hr99
     generalize hgr : r * 2 ^ 99 = R at hr99
-    clear hX1n hX1 cap1 hsum hb capV hlo hr h1 h2 hc hc2 hmx hsplit
+    clear hX1n hX1 cap1 hsum hb capV hr h1 h2 hc hc2 hmx hsplit
     omega
   have hmul : (-(r + 2)).toNat * 2 ^ 99 * QS ≤
       ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
