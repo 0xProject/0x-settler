@@ -201,7 +201,7 @@ theorem lo_ge_pos {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
     (hlo : 0 ≤ evalPoly certGeLo (m : Int))
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269 < (r + 1) * 2 ^ 72)
-    (hr0 : 0 ≤ r)
+    (hr0 : -1 ≤ r)
     (hxm : x < (m + 1) * 2 ^ (152 - c)) :
     capLB ((r + 2).toNat * 2 ^ 99) QS (x * 10 ^ 30) (10 ^ 18 * (10 ^ 30 - 1)) := by
   have cap1 := x1capGeLo h1 h2 hlo
@@ -475,7 +475,7 @@ theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
       143060321855302967919159136223863753677754092301269 < (r + 1) * 2 ^ 72)
     (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269)
-    (hr0 : 0 ≤ r)
+    (hr0 : -1 ≤ r)
     (hmx : m = x * 2 ^ (c - 152)) :
     capLB ((r + 2).toNat * 2 ^ 99) QS (x * 10 ^ 30) (10 ^ 18 * (10 ^ 30 - 1)) := by
   have cap1 := x1capGeLo h1 h2 hlo
@@ -485,18 +485,23 @@ theorem lo_ge_neg {m c x : Nat} {r : Int} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
   have cap1BE := capLB_mul cap1B capEL
   have hX1 := x1_nonneg_ge h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
-  have hVnn : 0 ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+  have hVnn : -(2 ^ 99) ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 := by
-    have h0 : 0 ≤ r * 2 ^ 72 := Int.mul_nonneg hr0 (by omega)
-    have : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    have h0 : -(2 ^ 72) ≤ r * 2 ^ 72 := by
+      have := mul_le_mul_right_nonneg (show (-1 : Int) ≤ r from hr0)
+        (show (0 : Int) ≤ 2 ^ 72 by omega)
+      generalize hgT : r * 2 ^ 72 = T at this ⊢
+      omega
+    have hg : -(2 ^ 72) ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         143060321855302967919159136223863753677754092301269 := by
       generalize hgV : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         143060321855302967919159136223863753677754092301269 = V at hrlo ⊢
       omega
-    generalize hgV : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      143060321855302967919159136223863753677754092301269 = V at this ⊢
-    have h27 : (0 : Int) ≤ 2 ^ 27 := by omega
-    exact Int.mul_nonneg this h27
+    have := mul_le_mul_right_nonneg hg (show (0 : Int) ≤ 2 ^ 27 by omega)
+    generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at this ⊢
+    have e : (-(2 ^ 72) : Int) * 2 ^ 27 = -(2 ^ 99) := by decide
+    omega
   have hsplit : (toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
       BIASc * 2 ^ 27 + 2 ^ 99 =
       ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
@@ -751,7 +756,7 @@ theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
       143060321855302967919159136223863753677754092301269 < (r + 1) * 2 ^ 72)
     (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269)
-    (hr0 : 0 ≤ r)
+    (hr0 : -1 ≤ r)
     (hxm : x < (m + 1) * 2 ^ (152 - c)) :
     capLB ((r + 2).toNat * 2 ^ 99) QS (x * 10 ^ 30) (10 ^ 18 * (10 ^ 30 - 1)) := by
   have cap1 := x1capLtLo h1 h2 hlo
@@ -760,17 +765,23 @@ theorem lo_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
   have hsum := capLB_mul (capLB_mul (capLB_pow cap2L (152 - c)) capBL) capEL
   have hX1 := x1_nonpos_lt h1 h2
   have hVs := v_scale_pos (toInt (x1W (zWord m))) c hc
-  have hVnn : 0 ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+  have hVnn : -(2 ^ 99) ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 := by
-    have h0 : 0 ≤ r * 2 ^ 72 := Int.mul_nonneg hr0 (by omega)
-    have hg : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    have h0 : -(2 ^ 72) ≤ r * 2 ^ 72 := by
+      have := mul_le_mul_right_nonneg (show (-1 : Int) ≤ r from hr0)
+        (show (0 : Int) ≤ 2 ^ 72 by omega)
+      generalize hgT : r * 2 ^ 72 = T at this ⊢
+      omega
+    have hg : -(2 ^ 72) ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         143060321855302967919159136223863753677754092301269 := by
       generalize hgV : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         143060321855302967919159136223863753677754092301269 = V at hrlo ⊢
       omega
-    generalize hgV : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      143060321855302967919159136223863753677754092301269 = V at hg ⊢
-    exact Int.mul_nonneg hg (by omega)
+    have := mul_le_mul_right_nonneg hg (show (0 : Int) ≤ 2 ^ 27 by omega)
+    generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at this ⊢
+    have e : (-(2 ^ 72) : Int) * 2 ^ 27 = -(2 ^ 99) := by decide
+    omega
   have hsplit : (152 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27 + 2 ^ 99 =
       ((152 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27 + 2 ^ 99 -
         (-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) +
@@ -1053,7 +1064,7 @@ theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
       143060321855302967919159136223863753677754092301269 < (r + 1) * 2 ^ 72)
     (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269)
-    (hr0 : 0 ≤ r)
+    (hr0 : -1 ≤ r)
     (hmx : m = x * 2 ^ (c - 152)) :
     capLB ((r + 2).toNat * 2 ^ 99) QS (x * 10 ^ 30) (10 ^ 18 * (10 ^ 30 - 1)) := by
   have cap1 := x1capLtLo h1 h2 hlo
@@ -1063,17 +1074,23 @@ theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
   have hsum := capLB_mul capBL capEL
   have hX1 := x1_nonpos_lt h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
-  have hVnn : 0 ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+  have hVnn : -(2 ^ 99) ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       143060321855302967919159136223863753677754092301269) * 2 ^ 27 := by
-    have h0 : 0 ≤ r * 2 ^ 72 := Int.mul_nonneg hr0 (by omega)
-    have hg : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    have h0 : -(2 ^ 72) ≤ r * 2 ^ 72 := by
+      have := mul_le_mul_right_nonneg (show (-1 : Int) ≤ r from hr0)
+        (show (0 : Int) ≤ 2 ^ 72 by omega)
+      generalize hgT : r * 2 ^ 72 = T at this ⊢
+      omega
+    have hg : -(2 ^ 72) ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         143060321855302967919159136223863753677754092301269 := by
       generalize hgV : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         143060321855302967919159136223863753677754092301269 = V at hrlo ⊢
       omega
-    generalize hgV : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      143060321855302967919159136223863753677754092301269 = V at hg ⊢
-    exact Int.mul_nonneg hg (by omega)
+    have := mul_le_mul_right_nonneg hg (show (0 : Int) ≤ 2 ^ 27 by omega)
+    generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at this ⊢
+    have e : (-(2 ^ 72) : Int) * 2 ^ 27 = -(2 ^ 99) := by decide
+    omega
   have hsplit : BIASc * 2 ^ 27 + 2 ^ 99 =
       (BIASc * 2 ^ 27 + 2 ^ 99 -
         ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
