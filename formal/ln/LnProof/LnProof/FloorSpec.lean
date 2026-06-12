@@ -1,0 +1,263 @@
+import LnProof.FloorAssembly
+
+/-!
+# The floor specification of the `lnWad` model
+
+Top-line statement: for every input `1 ≤ x < 2^255`, the model output
+`r` satisfies `r ≤ 10^27·ln(x/10^18) < r + 2` — that is, the model
+returns exactly `⌊10^27·ln(x/10^18)⌋` or one less.
+
+The two sides are arithmetized without real numbers through the
+partial sums `S_N(t) = Σ_{j≤N} t^j/j!` of the exponential, using
+`e^t = sup_N S_N(t)` for `t ≥ 0`:
+
+* `FloorSpecA` says `e^(r/10^27) ≤ x/10^18` (for negative `r`, the
+  reciprocal form `e^(|r|/10^27) ≥ 10^18/x`), which is exactly
+  `r ≤ 10^27·ln(x/10^18)`.
+* `FloorSpecB` says `x/10^18 < e^((r+2)/10^27)` with one part in
+  `10^30` of strictness slack (reciprocal form for `r + 2 ≤ 0`),
+  which is exactly `10^27·ln(x/10^18) < r + 2`.
+
+Both are `capUB`/`capLB` statements over `QS = 10^27·2^99`: a `capUB`
+is a `∀ N` bound on every integer-scaled partial sum, a `capLB` exhibits
+one witness partial sum.
+-/
+
+namespace LnFloorCert
+open LnGeneratedModel LnPoly LnExp LnFloor
+
+set_option maxRecDepth 4096
+
+/-- `r ≤ 10^27·ln(x/10^18)`, arithmetized. -/
+def FloorSpecA (r : Int) (x : Nat) : Prop :=
+  if 0 ≤ r then
+    capUB (r.toNat * 2 ^ 99) QS x (10 ^ 18)
+  else
+    capLB ((-r).toNat * 2 ^ 99) QS (10 ^ 18) x
+
+/-- `10^27·ln(x/10^18) < r + 2`, arithmetized with `1/10^30` slack. -/
+def FloorSpecB (r : Int) (x : Nat) : Prop :=
+  if -1 ≤ r then
+    capLB ((r + 2).toNat * 2 ^ 99) QS (x * 10 ^ 30) (10 ^ 18 * (10 ^ 30 - 1))
+  else
+    capUB ((-(r + 2)).toNat * 2 ^ 99) QS (10 ^ 18 * (10 ^ 30 - 1)) (x * 10 ^ 30)
+
+/-! ## Small pieces -/
+
+theorem expNum_zero (q : Nat) : ∀ n, expNum n 0 q = fact n * q ^ n := by
+  intro n
+  induction n with
+  | zero => rfl
+  | succ k ih =>
+    show (k + 1) * q * expNum k 0 q + 0 ^ (k + 1) = fact (k + 1) * q ^ (k + 1)
+    rw [ih]
+    have h0 : (0 : Nat) ^ (k + 1) = 0 := Nat.zero_pow (by omega)
+    rw [h0]
+    show (k + 1) * q * (fact k * q ^ k) + 0 = (k + 1) * fact k * q ^ (k + 1)
+    have e : q ^ (k + 1) = q ^ k * q := Nat.pow_succ _ _
+    rw [e]
+    simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+    omega
+
+theorem capUB_diag {q y : Nat} (hq : 0 < q) : capUB 0 q y y := by
+  intro n
+  rw [expNum_zero]
+  have e : fact n * q ^ n * y = y * (fact n * q ^ n) := Nat.mul_comm _ _
+  omega
+
+/-- The model maps the wad exactly to zero. -/
+theorem model_at_wad : toInt (model_ln_wad_evm 1000000000000000000) = 0 := by
+  decide +kernel
+
+/-- Binade window for the mantissa, low-shift side. -/
+theorem mant_window_le {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
+    (hc : evmClz x ≤ 152) :
+    mant x * 2 ^ (152 - evmClz x) ≤ x ∧ x < (mant x + 1) * 2 ^ (152 - evmClz x) := by
+  obtain ⟨me, _, _⟩ := mant_facts h1 h2
+  have hclz : evmClz x = 255 - Nat.log2 x := evmClz_eq h1 (by omega)
+  have hm : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 152 := me
+  rw [hclz] at hc ⊢
+  have hdm := Nat.div_add_mod (x * 2 ^ (255 - Nat.log2 x)) (2 ^ 152)
+  have hml := Nat.mod_lt (x * 2 ^ (255 - Nat.log2 x)) (y := 2 ^ 152) (by decide)
+  have hsplit : 2 ^ (255 - Nat.log2 x) * 2 ^ (152 - (255 - Nat.log2 x)) = 2 ^ 152 := by
+    rw [← Nat.pow_add]
+    congr 1
+    omega
+  rw [hm]
+  generalize hgq : x * 2 ^ (255 - Nat.log2 x) / 2 ^ 152 = q at *
+  generalize hgA : (2 : Nat) ^ (255 - Nat.log2 x) = A at *
+  generalize hgB : (2 : Nat) ^ (152 - (255 - Nat.log2 x)) = B at *
+  have hA0 : 0 < A := by rw [← hgA]; exact Nat.pow_pos (by omega)
+  constructor
+  · refine Nat.le_of_mul_le_mul_left ?_ hA0
+    have e1 : A * (q * B) = 2 ^ 152 * q := by
+      rw [show A * (q * B) = q * (A * B) from by
+        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm], hsplit]
+      exact Nat.mul_comm _ _
+    have e2 : A * x = x * A := Nat.mul_comm _ _
+    generalize hg1 : A * (q * B) = T1 at e1 ⊢
+    generalize hg3 : A * x = T3 at e2 ⊢
+    generalize hg4 : x * A = T4 at e2 hdm
+    generalize hg5 : 2 ^ 152 * q = T5 at e1 hdm
+    omega
+  · have hlt : x * A < (q + 1) * 2 ^ 152 := by
+      have e : (q + 1) * 2 ^ 152 = 2 ^ 152 * q + 2 ^ 152 := by
+        rw [Nat.add_mul, Nat.one_mul, Nat.mul_comm]
+      omega
+    refine Nat.lt_of_mul_lt_mul_left (a := A) ?_
+    have e1 : A * x = x * A := Nat.mul_comm _ _
+    have e2 : A * ((q + 1) * B) = (q + 1) * 2 ^ 152 := by
+      rw [show A * ((q + 1) * B) = (q + 1) * (A * B) from by
+        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm], hsplit]
+    generalize hg1 : A * x = T1 at e1 ⊢
+    generalize hg2 : x * A = T2 at e1 hlt
+    generalize hg3 : A * ((q + 1) * B) = T3 at e2 ⊢
+    generalize hg5 : (q + 1) * 2 ^ 152 = T5 at e2 hlt
+    omega
+
+/-- Binade window, high-shift side: the mantissa is exact. -/
+theorem mant_window_gt {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
+    (hc : 152 < evmClz x) :
+    mant x = x * 2 ^ (evmClz x - 152) := by
+  obtain ⟨me, _, _⟩ := mant_facts h1 h2
+  have hclz : evmClz x = 255 - Nat.log2 x := evmClz_eq h1 (by omega)
+  have hm : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 152 := me
+  rw [hclz] at hc ⊢
+  have hsplit : (2 : Nat) ^ (255 - Nat.log2 x) =
+      2 ^ 152 * 2 ^ ((255 - Nat.log2 x) - 152) := by
+    rw [← Nat.pow_add]
+    congr 1
+    omega
+  rw [hm, hsplit]
+  have e : x * (2 ^ 152 * 2 ^ ((255 - Nat.log2 x) - 152)) =
+      x * 2 ^ ((255 - Nat.log2 x) - 152) * 2 ^ 152 := by
+    simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+  rw [e]
+  exact Nat.mul_div_cancel _ (by decide)
+
+theorem clz_bounds {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
+    1 ≤ evmClz x ∧ evmClz x ≤ 255 := by
+  have hclz : evmClz x = 255 - Nat.log2 x := evmClz_eq h1 (by omega)
+  have hlog : Nat.log2 x < 255 := (Nat.log2_lt (by omega)).mpr (by omega)
+  omega
+
+/-- On the `m ≥ S` branch with a nonnegative shift, the accumulator is
+positive, so the output cannot be negative. -/
+theorem v_pos_ge_pos {m c : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) (hc : c ≤ 152) :
+    0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      143060321855302967919159136223863753677754092301269 := by
+  have hX1 := x1_nonneg_geF h1 h2
+  have hx0 : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 :=
+    Int.mul_nonneg hX1 (by omega)
+  have hl : 0 ≤ ln2kInt c := by
+    unfold ln2kInt
+    rw [if_pos hc]
+    exact Int.mul_nonneg (by omega) (Int.natCast_nonneg _)
+  generalize toInt (x1W (zWord m)) * 7450580596923828125 = X at hx0 ⊢
+  omega
+
+/-! ## The theorem -/
+
+/-- **Floor specification.** For every `1 ≤ x < 2^255` the model output
+`r` satisfies `r ≤ 10^27·ln(x/10^18) < r + 2`: the model computes
+`⌊10^27·ln(x/10^18)⌋` exactly or one less. -/
+theorem model_ln_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
+    FloorSpecA (toInt (model_ln_wad_evm x)) x ∧
+      FloorSpecB (toInt (model_ln_wad_evm x)) x := by
+  by_cases hne : x = 1000000000000000000
+  · subst hne
+    rw [model_at_wad]
+    constructor
+    · show FloorSpecA 0 1000000000000000000
+      unfold FloorSpecA
+      rw [if_pos (by omega)]
+      show capUB ((0 : Int).toNat * 2 ^ 99) QS 1000000000000000000 (10 ^ 18)
+      have e : (0 : Int).toNat * 2 ^ 99 = 0 := by decide
+      rw [e]
+      exact capUB_diag QS_pos
+    · show FloorSpecB 0 1000000000000000000
+      unfold FloorSpecB
+      rw [if_pos (by omega)]
+      exact ⟨1, by decide +kernel⟩
+  · obtain ⟨hbr1, hbr2⟩ := model_floor_bracket h1 h2 hne
+    rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1 hbr2
+    have hbr2' : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+        ln2kInt (evmClz x) + 143060321855302967919159136223863753677754092301269 <
+        (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 := by
+      have e : (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 =
+          toInt (model_ln_wad_evm x) * 2 ^ 72 + 2 ^ 72 := by
+        rw [Int.add_mul, Int.one_mul]
+      omega
+    obtain ⟨me, hmlo, hmhi⟩ := mant_facts h1 h2
+    have hmant_eq : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 152 := me
+    have hmant_lo : MLO ≤ mant x := by rw [hmant_eq]; exact hmlo
+    have hmant_hi : mant x < MHI := by rw [hmant_eq]; exact hmhi
+    obtain ⟨hc1, hc255⟩ := clz_bounds h1 h2
+    rcases Nat.lt_or_ge (mant x) Sc with hbranch | hbranch
+    · -- m < S
+      rcases Nat.lt_or_ge 152 (evmClz x) with hcgt | hc
+      · have hw := mant_window_gt h1 h2 hcgt
+        constructor
+        · unfold FloorSpecA
+          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) 0 with hr | hr
+          · rw [if_neg (by omega)]
+            exact an_lt_neg hmant_lo hbranch hcgt hc255 hbr1 hbr2' hr hw
+          · rw [if_pos hr]
+            exact up_lt_neg hmant_lo hbranch hcgt hc255 hbr1 hr hw
+        · unfold FloorSpecB
+          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) (-1) with hr | hr
+          · rw [if_neg (by omega)]
+            exact bn_lt_neg hmant_lo hbranch hcgt hc255 hbr2' (by omega) hw
+          · rw [if_pos (by omega)]
+            exact lo_lt_neg hmant_lo hbranch hcgt hc255 hbr2' hbr1 (by omega) hw
+      · obtain ⟨hw1, hw2⟩ := mant_window_le h1 h2 hc
+        constructor
+        · unfold FloorSpecA
+          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) 0 with hr | hr
+          · rw [if_neg (by omega)]
+            exact an_lt_pos hmant_lo hbranch hc1 hc hbr1 hbr2' hr hw1
+          · rw [if_pos hr]
+            exact up_lt_pos hmant_lo hbranch hc1 hc hbr1 hr hw1
+        · unfold FloorSpecB
+          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) (-1) with hr | hr
+          · rw [if_neg (by omega)]
+            exact bn_lt_pos hmant_lo hbranch hc1 hc hbr2' (by omega) hw2
+          · rw [if_pos (by omega)]
+            exact lo_lt_pos hmant_lo hbranch hc1 hc hbr2' hbr1 (by omega) hw2
+    · -- m ≥ S
+      rcases Nat.lt_or_ge 152 (evmClz x) with hcgt | hc
+      · have hw := mant_window_gt h1 h2 hcgt
+        constructor
+        · unfold FloorSpecA
+          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) 0 with hr | hr
+          · rw [if_neg (by omega)]
+            exact an_ge_neg hbranch hmant_hi hcgt hc255 hbr1 hbr2' hr hw
+          · rw [if_pos hr]
+            exact up_ge_neg hbranch hmant_hi hcgt hc255 hbr1 hr hw
+        · unfold FloorSpecB
+          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) (-1) with hr | hr
+          · rw [if_neg (by omega)]
+            exact bn_ge_neg hbranch hmant_hi hcgt hc255 hbr2' (by omega) hw
+          · rw [if_pos (by omega)]
+            exact lo_ge_neg hbranch hmant_hi hcgt hc255 hbr2' hbr1 (by omega) hw
+      · obtain ⟨hw1, hw2⟩ := mant_window_le h1 h2 hc
+        have hVpos := v_pos_ge_pos hbranch hmant_hi hc
+        have hrpos : 0 ≤ toInt (model_ln_wad_evm x) := by
+          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) 0 with hr | hr
+          · exfalso
+            have hR : (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 ≤ 0 := by
+              have hle : toInt (model_ln_wad_evm x) + 1 ≤ 0 := by omega
+              have := mul_le_mul_right_nonneg hle (show (0 : Int) ≤ 2 ^ 72 by omega)
+              generalize hgT : (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 = T at this ⊢
+              omega
+            omega
+          · exact hr
+        constructor
+        · unfold FloorSpecA
+          rw [if_pos hrpos]
+          exact up_ge_pos hbranch hmant_hi hc1 hc hbr1 hrpos hw1
+        · unfold FloorSpecB
+          rw [if_pos (by omega)]
+          exact lo_ge_pos hbranch hmant_hi hc1 hc hbr2' (by omega) hw2
+
+end LnFloorCert
