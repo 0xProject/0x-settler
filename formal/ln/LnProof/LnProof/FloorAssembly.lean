@@ -1197,4 +1197,170 @@ theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
       (10 ^ 18 * (10 ^ 30 - 1)) = T4 at eR ⊢
     omega
 
+/-- A-atom master for negative outputs, `m < S` branch, `k ≥ 0`:
+`e^(|r|/10^27) ≥ 10^18/x`. -/
+theorem an_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
+    (hc1 : 1 ≤ c) (hc : c ≤ 152)
+    (hup : 0 ≤ evalPoly certLtUp (m : Int))
+    (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      143060321855302967919159136223863753677754092301269)
+    (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      143060321855302967919159136223863753677754092301269 < (r + 1) * 2 ^ 72)
+    (hrneg : r < 0)
+    (hmx : m * 2 ^ (152 - c) ≤ x) :
+    capLB ((-r).toNat * 2 ^ 99) QS (10 ^ 18) x := by
+  have cap1 := x1capLtUp h1 h2 hup
+  rw [show (633825300114114700748351602688000000000000000000000000000 : Nat) = QS
+    from by decide] at cap1
+  have hb := capUB_mul QS_pos (capUB_pow QS_pos cap2U (152 - c)) capBU
+  have hX1 := x1_nonpos_lt h1 h2
+  have hVs := v_scale_pos (toInt (x1W (zWord m))) c hc
+  -- split: |X1|·E = pa + (kL + B) with pa = -V·2^27 ≥ 0
+  have hsplit : (-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 =
+      ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 -
+        ((152 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27)) +
+        ((152 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27) := by
+    have hX1n : (((-toInt (x1W (zWord m))).toNat : Nat) : Int) = -toInt (x1W (zWord m)) :=
+      Int.toNat_of_nonneg (by omega)
+    have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
+        143060321855302967919159136223863753677754092301269 * 2 ^ 27 := by
+      decide +kernel
+    have hLc : (((152 - c) * (LN2c * 2 ^ 27) : Nat) : Int) =
+        ((152 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
+      simp only [Int.natCast_mul]
+      rfl
+    have hV0 : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+        143060321855302967919159136223863753677754092301269) * 2 ^ 27 ≤ 0 := by
+      have hm := mul_le_mul_right_nonneg (show toInt (x1W (zWord m)) *
+        7450580596923828125 + ln2kInt c +
+        143060321855302967919159136223863753677754092301269 ≤ 0 from by
+          generalize hgV' : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+            143060321855302967919159136223863753677754092301269 = V at hr ⊢
+          generalize hgR : (r + 1) * 2 ^ 72 = R at hr
+          have : R ≤ 0 := by
+            rw [← hgR]
+            have : r + 1 ≤ 0 := by omega
+            have := mul_le_mul_right_nonneg this (show (0 : Int) ≤ 2 ^ 72 by omega)
+            generalize hgT : (r + 1) * 2 ^ 72 = T at this ⊢
+            omega
+          omega) (show (0 : Int) ≤ 2 ^ 27 by omega)
+      generalize hgV' : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+        143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at hm ⊢
+      clear cap1 hb hX1 hVs hup hrlo hr h1 h2 hmx hX1n hBc hLc
+      omega
+    generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at hV0 hVs
+    generalize hgA : toInt (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
+    generalize hgB : ((152 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
+    generalize hgC : (152 - c) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
+    generalize hgD : (-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 = D at ⊢
+    have hAD : (D : Int) = -A := by
+      rw [← hgA, ← hgD, Int.natCast_mul, hX1n]
+      rw [show (-toInt (x1W (zWord m))) * ((1000000000000000000000000000 : Nat) : Int) =
+        -(toInt (x1W (zWord m)) * ((1000000000000000000000000000 : Nat) : Int)) from by
+          rw [Int.neg_mul]]
+      rfl
+    generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
+    clear hX1n hX1 cap1 hb hup hr h1 h2 hc hc1 hmx hrlo hrneg
+    omega
+  rw [hsplit] at cap1
+  have capV := capLB_cancel QS_pos cap1 hb
+  have hple : (-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 -
+      ((152 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27) ≤ (-r).toNat * 2 ^ 99 := by
+    have hsc : (-r) * 2 ^ 72 * 2 ^ 27 ≥ -(toInt (x1W (zWord m)) * 7450580596923828125 +
+        ln2kInt c + 143060321855302967919159136223863753677754092301269) * 2 ^ 27 := by
+      have h := mul_le_mul_right_nonneg hrlo (show (0 : Int) ≤ 2 ^ 27 by omega)
+      generalize hgV' : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+        143060321855302967919159136223863753677754092301269) = V at h ⊢
+      generalize hgR : r * 2 ^ 72 * 2 ^ 27 = R at h
+      have e1 : (-r) * 2 ^ 72 * 2 ^ 27 = -(r * 2 ^ 72 * 2 ^ 27) := by
+        rw [Int.neg_mul, Int.neg_mul]
+      have e2 : -V * 2 ^ 27 = -(V * 2 ^ 27) := Int.neg_mul _ _
+      generalize hgV2 : V * 2 ^ 27 = V27 at h e2 ⊢
+      omega
+    have e99 : (-r) * 2 ^ 72 * 2 ^ 27 = (-r) * 2 ^ 99 := by
+      rw [Int.mul_assoc, show ((2 : Int) ^ 72 * 2 ^ 27) = 2 ^ 99 from by decide]
+    rw [e99] at hsc
+    have hX1n : (((-toInt (x1W (zWord m))).toNat : Nat) : Int) = -toInt (x1W (zWord m)) :=
+      Int.toNat_of_nonneg (by omega)
+    have hBc : ((BIASc * 2 ^ 27 : Nat) : Int) =
+        143060321855302967919159136223863753677754092301269 * 2 ^ 27 := by
+      decide +kernel
+    have hLc : (((152 - c) * (LN2c * 2 ^ 27) : Nat) : Int) =
+        ((152 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) := by
+      simp only [Int.natCast_mul]
+      rfl
+    have hnegV : -(toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+        143060321855302967919159136223863753677754092301269) * 2 ^ 27 =
+        -((toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+          143060321855302967919159136223863753677754092301269) * 2 ^ 27) :=
+      Int.neg_mul _ _
+    rw [hnegV] at hsc
+    generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      143060321855302967919159136223863753677754092301269) * 2 ^ 27 = V27 at hsc hVs
+    generalize hgA : toInt (x1W (zWord m)) * 1000000000000000000000000000 = A at hVs
+    generalize hgB : ((152 - c : Nat) : Int) * ((LN2c : Int) * 2 ^ 27) = B at hVs hLc
+    generalize hgC : (152 - c) * (LN2c * 2 ^ 27) = Cn at hLc ⊢
+    generalize hgD : (-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 = D at ⊢
+    have hAD : (D : Int) = -A := by
+      rw [← hgA, ← hgD, Int.natCast_mul, hX1n]
+      rw [show (-toInt (x1W (zWord m))) * ((1000000000000000000000000000 : Nat) : Int) =
+        -(toInt (x1W (zWord m)) * ((1000000000000000000000000000 : Nat) : Int)) from by
+          rw [Int.neg_mul]]
+      rfl
+    generalize hgE : (BIASc * 2 ^ 27 : Nat) = E at hBc ⊢
+    clear hX1n hX1 cap1 hb capV hup hr h1 h2 hc hc1 hmx hsplit hrlo
+    omega
+  have hmul : ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 -
+      ((152 - c) * (LN2c * 2 ^ 27) + BIASc * 2 ^ 27)) * QS ≤
+      (-r).toNat * 2 ^ 99 * QS :=
+    Nat.mul_le_mul_right _ hple
+  have capR := capLB_arg QS_pos hmul capV
+  refine capLB_weaken ?_ capR ?_
+  · have h1' : 0 < m * 100000000000000000000000000042 := by
+      have : 0 < m := by simp only [MLO] at h1; omega
+      exact Nat.mul_pos this (by decide)
+    exact Nat.mul_pos h1' (Nat.mul_pos (Nat.pow_pos (by decide)) (by decide))
+  · have hbg := budgetU_le (k := 152 - c) (by omega)
+    have hbm : m * (Sc * ((10 ^ 29 + 42) * (2 * (10 ^ 40 + 1)) ^ (152 - c) *
+        (10 ^ 30 - 499) * 10 ^ 18)) ≤
+        m * (Sc * (2 ^ (152 - c) * (10 ^ 40 : Nat) ^ (152 - c) * 10 ^ 77)) :=
+      Nat.mul_le_mul_left _ (Nat.mul_le_mul_left _ hbg)
+    have hxm : m * 2 ^ (152 - c) * (Sc * ((10 ^ 40 : Nat) ^ (152 - c) * 10 ^ 77)) ≤
+        x * (Sc * ((10 ^ 40 : Nat) ^ (152 - c) * 10 ^ 77)) :=
+      Nat.mul_le_mul_right _ hmx
+    have e1 : 10 ^ 18 * (m * 100000000000000000000000000042 *
+        ((2 * (10 ^ 40 + 1)) ^ (152 - c) * (Sc * (10 ^ 30 - 499)))) =
+        m * (Sc * ((10 ^ 29 + 42) * (2 * (10 ^ 40 + 1)) ^ (152 - c) *
+          (10 ^ 30 - 499) * 10 ^ 18)) := by
+      rw [show (100000000000000000000000000042 : Nat) = 10 ^ 29 + 42 from by decide]
+      simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+    have e2 : m * (Sc * (2 ^ (152 - c) * (10 ^ 40 : Nat) ^ (152 - c) * 10 ^ 77)) =
+        m * 2 ^ (152 - c) * (Sc * ((10 ^ 40 : Nat) ^ (152 - c) * 10 ^ 77)) := by
+      simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+    have e3 : 1434182936954525181919537618622900000000000000000000000000000 *
+        ((10 ^ 40 : Nat) ^ (152 - c) * (10 ^ 18 * 10 ^ 30)) * x =
+        x * (Sc * ((10 ^ 40 : Nat) ^ (152 - c) * 10 ^ 77)) := by
+      rw [show (1434182936954525181919537618622900000000000000000000000000000 : Nat) =
+        Sc * 10 ^ 29 from by decide]
+      have e' : ∀ P : Nat, (10 : Nat) ^ 18 * ((10 : Nat) ^ 29 * ((10 : Nat) ^ 30 * P)) =
+          (10 : Nat) ^ 77 * P := by
+        intro P
+        rw [← Nat.mul_assoc, ← Nat.mul_assoc,
+          show ((10 : Nat) ^ 18 * 10 ^ 29 * 10 ^ 30) = 10 ^ 77 from by decide]
+      simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      rw [e' ((10 ^ 40 : Nat) ^ (152 - c))]
+    generalize hT1 : 10 ^ 18 * (m * 100000000000000000000000000042 *
+      ((2 * (10 ^ 40 + 1)) ^ (152 - c) * (Sc * (10 ^ 30 - 499)))) = T1 at e1 ⊢
+    generalize hT2 : m * (Sc * ((10 ^ 29 + 42) * (2 * (10 ^ 40 + 1)) ^ (152 - c) *
+      (10 ^ 30 - 499) * 10 ^ 18)) = T2 at hbm e1
+    generalize hT3 : m * (Sc * (2 ^ (152 - c) * (10 ^ 40 : Nat) ^ (152 - c) * 10 ^ 77)) =
+      T3 at hbm e2
+    generalize hT4 : m * 2 ^ (152 - c) * (Sc * ((10 ^ 40 : Nat) ^ (152 - c) * 10 ^ 77)) =
+      T4 at hxm e2
+    generalize hT5 : x * (Sc * ((10 ^ 40 : Nat) ^ (152 - c) * 10 ^ 77)) = T5 at hxm e3
+    generalize hT6 : 1434182936954525181919537618622900000000000000000000000000000 *
+      ((10 ^ 40 : Nat) ^ (152 - c) * (10 ^ 18 * 10 ^ 30)) * x = T6 at e3 ⊢
+    omega
+
 end LnFloorCert
