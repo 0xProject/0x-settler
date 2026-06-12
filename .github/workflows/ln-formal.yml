@@ -66,6 +66,9 @@ jobs:
               --yul - \
               --output formal/ln/LnProof/LnProof/GeneratedLnModel.lean
 
+      - name: Generate certificate coefficient literals
+        run: python3 -W error formal/python/ln/gen_cert_literals.py
+
       - name: Build Ln proof and model evaluator
         working-directory: formal/ln/LnProof
         run: lake build && lake build ln-model
@@ -75,6 +78,7 @@ jobs:
         run: |
           printf '%s\n' \
             'import LnProof.TopMono' \
+            'import LnProof.FloorSpec' \
             '#print axioms LnGeneratedModel.model_ln_wad_one_wad' \
             '#print axioms LnGeneratedModel.model_ln_wad_to_wad_one_wad' \
             '#print axioms LnGeneratedModel.model_ln_wad_one_wad_mono' \
@@ -82,6 +86,7 @@ jobs:
             '#print axioms LnGeneratedModel.model_ln_wad_to_wad_seam_mono' \
             '#print axioms LnGeneratedModel.model_ln_wad_mono' \
             '#print axioms LnGeneratedModel.model_ln_wad_to_wad_mono' \
+            '#print axioms LnFloorCert.model_ln_wad_floor' \
             | lake env lean --stdin > actual_axioms.txt 2>&1
           diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
           'LnGeneratedModel.model_ln_wad_one_wad' does not depend on any axioms
@@ -91,6 +96,7 @@ jobs:
           'LnGeneratedModel.model_ln_wad_to_wad_seam_mono' does not depend on any axioms
           'LnGeneratedModel.model_ln_wad_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
           'LnGeneratedModel.model_ln_wad_to_wad_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
+          'LnFloorCert.model_ln_wad_floor' depends on axioms: [propext, Classical.choice, Quot.sound]
           EXPECTED
 
       - name: Fuzz-test Lean model against Solidity
