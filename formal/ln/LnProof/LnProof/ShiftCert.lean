@@ -333,4 +333,90 @@ theorem homEvalI_collapse (u D : Int) :
       rw [Int.mul_comm]
     omega
 
+/-! ## Sharing-friendly mirrors of the shift checker
+
+`synthDiv` names its recursive result three times, and the kernel
+re-evaluates each occurrence during `decide`. The `M`-variants bind the
+recursive result through a `match`, so the kernel computes it once per
+step; `checkCoverM_sound` transfers soundness from the reference checker.
+-/
+
+def synthDivM : List Int → Int → List Int × Int
+  | [], _ => ([], 0)
+  | [c], _ => ([], c)
+  | c :: cs, a =>
+    match synthDivM cs a with
+    | (q, r) => (r :: q, c + a * r)
+
+theorem synthDivM_eq : ∀ (C : List Int) (a : Int), synthDivM C a = synthDiv C a := by
+  intro C a
+  match C with
+  | [] => rfl
+  | [c] => rfl
+  | c :: c2 :: cs =>
+    have ih := synthDivM_eq (c2 :: cs) a
+    show (match synthDivM (c2 :: cs) a with
+      | (q, r) => (r :: q, c + a * r)) = _
+    rw [ih]
+    rcases h : synthDiv (c2 :: cs) a with ⟨q, r⟩
+    show (r :: q, c + a * r) = ((synthDiv (c2 :: cs) a).2 :: (synthDiv (c2 :: cs) a).1,
+      c + a * (synthDiv (c2 :: cs) a).2)
+    rw [h]
+
+def polyShiftAuxM : Nat → List Int → Int → List Int
+  | 0, _, _ => []
+  | _ + 1, [], _ => []
+  | fuel + 1, c :: cs, a =>
+    match synthDivM (c :: cs) a with
+    | (q, r) => r :: polyShiftAuxM fuel q a
+
+theorem polyShiftAuxM_eq : ∀ (fuel : Nat) (C : List Int) (a : Int),
+    polyShiftAuxM fuel C a = polyShiftAux fuel C a := by
+  intro fuel
+  induction fuel with
+  | zero => intro C a; rfl
+  | succ f ih =>
+    intro C a
+    match C with
+    | [] => rfl
+    | c :: cs =>
+      show (match synthDivM (c :: cs) a with
+        | (q, r) => r :: polyShiftAuxM f q a) = _
+      rw [synthDivM_eq]
+      rcases h : synthDiv (c :: cs) a with ⟨q, r⟩
+      show r :: polyShiftAuxM f q a =
+        (synthDiv (c :: cs) a).2 :: polyShiftAux f (synthDiv (c :: cs) a).1 a
+      rw [h, ih]
+
+def polyShiftM (C : List Int) (a : Int) : List Int :=
+  polyShiftAuxM C.length C a
+
+theorem polyShiftM_eq (C : List Int) (a : Int) : polyShiftM C a = polyShift C a :=
+  polyShiftAuxM_eq C.length C a
+
+def checkCoverM (C : List Int) (lo hi : Int) : List Int → Bool
+  | [] => decide (hi < lo)
+  | w :: ws =>
+    decide (0 ≤ w) && decide (0 ≤ (hornerIv (polyShiftM C lo) 0 w).1) &&
+      checkCoverM C (lo + w + 1) hi ws
+
+theorem checkCoverM_eq (C : List Int) : ∀ (ws : List Int) (lo hi : Int),
+    checkCoverM C lo hi ws = checkCover C lo hi ws := by
+  intro ws
+  induction ws with
+  | nil => intro lo hi; rfl
+  | cons w ws ih =>
+    intro lo hi
+    show (decide (0 ≤ w) && decide (0 ≤ (hornerIv (polyShiftM C lo) 0 w).1) &&
+      checkCoverM C (lo + w + 1) hi ws) = _
+    rw [polyShiftM_eq, ih]
+    rfl
+
+theorem checkCoverM_sound (C : List Int) (ws : List Int) (lo hi : Int)
+    (h : checkCoverM C lo hi ws = true) :
+    ∀ x : Int, lo ≤ x → x ≤ hi → 0 ≤ evalPoly C x := by
+  refine checkCover_sound C ws lo hi ?_
+  rw [← checkCoverM_eq]
+  exact h
+
 end LnPoly
