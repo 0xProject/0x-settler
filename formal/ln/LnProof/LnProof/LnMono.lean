@@ -11,9 +11,9 @@ Monotonicity of `lnWad` over its whole domain `0 < x < 2^255` decomposes as:
 
 * adjacent inputs that share the Q103 mantissa and exponent return the same
   word (the model is a function of the mantissa/exponent pair);
-* within an octave, the mantissa-to-result map is nondecreasing -- this is
-  the analytic certificate checked by exact rational arithmetic in
-  `formal/python/ln/check_ln_monotone.py`;
+* within an octave, the mantissa-to-result map is nondecreasing -- proven in
+  `LnProof.StepMono`/`LnProof.ZOctave`/`LnProof.OctaveMono` from the
+  polynomial certificates in `LnProof.Certs`;
 * across the 254 clz seams, the adjacent pair `(2^t - 1, 2^t)` is decided
   here by kernel evaluation of the generated model;
 * the single corrected point `x = 10^18` (whose exact result, 0, is the only
@@ -22,7 +22,8 @@ Monotonicity of `lnWad` over its whole domain `0 < x < 2^255` decomposes as:
 
 The theorems in this file are the finitely-decidable legs of that argument,
 evaluated against the same generated model that the FFI fuzz suite checks
-against the deployed Solidity.
+against the deployed Solidity. `LnProof.TopMono` composes all of the legs
+into `model_ln_wad_mono`, monotonicity over the whole domain.
 -/
 
 set_option maxRecDepth 8192

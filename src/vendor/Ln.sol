@@ -9,11 +9,12 @@ library Ln {
     ///      integers r satisfy L - 2 < r <= L). It never returns a value greater than the
     ///      correctly-rounded-down result. `lnWad(10**18) == 0` exactly, and the result is
     ///      negative iff `x < 10**18`. The function is monotone: `x1 < x2` implies
-    ///      `lnWad(x1) <= lnWad(x2)`. Of the monotonicity argument's two legs, only the
-    ///      finite one (the 254 clz seams and the corrected point `x = 10**18`) is proven in
-    ///      Lean (formal/ln/LnProof); the within-octave leg is certified by exact rational
-    ///      arithmetic in formal/python/ln/check_ln_monotone.py and is not yet
-    ///      machine-checked. Reverts with `LnWadUndefined()` when `x <= 0`.
+    ///      `lnWad(x1) <= lnWad(x2)`; both legs of the monotonicity argument (the analytic
+    ///      within-octave leg and the finite leg covering the 254 clz seams and the
+    ///      corrected point `x = 10**18`) are proven in Lean over the generated model
+    ///      (formal/ln/LnProof, theorem `model_ln_wad_mono`), with an executable
+    ///      exact-rational counterpart in formal/python/ln/check_ln_monotone.py.
+    ///      Reverts with `LnWadUndefined()` when `x <= 0`.
     function lnWad(int256 x) internal pure returns (int256 r) {
         // Assembly is required for `clz`, wrapping arithmetic on 256-bit fixnums, and the
         // truncating `sar`/`sdiv` primitives whose rounding directions the error analysis

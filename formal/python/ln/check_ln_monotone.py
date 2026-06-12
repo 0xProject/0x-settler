@@ -50,6 +50,10 @@ rather than by luck; this script re-derives the seam results from the EVM
 mirror rather than trusting that analysis.
 
 Everything here is exact integer/rational arithmetic -- no floating point.
+
+The same argument is machine-checked end to end in Lean against the generated
+model (formal/ln/LnProof, theorem `model_ln_wad_mono` in LnProof/TopMono.lean);
+this script is its executable exact-rational counterpart.
 """
 
 from __future__ import annotations
