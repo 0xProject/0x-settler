@@ -281,4 +281,56 @@ theorem polyDiffHi_bound (cs : List Int) (B : Int) :
       rw [Int.add_mul, Int.mul_comm (polyHi cs B) (y - x)]
     omega
 
+/-! ## Homogenized two-point evaluation -/
+
+/-- `homPoly cs num den` is `Σ_j cs_j num^j den^(deg - j)` at the
+polynomial level. -/
+def homPoly : List Int → List Int → List Int → List Int
+  | [], _, _ => [0]
+  | c :: cs, num, den =>
+    polyAdd (polyScale c (polyPow den cs.length)) (polyMul num (homPoly cs num den))
+
+/-- `homEvalI cs n d = Σ_j cs_j n^j d^(deg-j)`, Horner-style. -/
+def homEvalI : List Int → Int → Int → Int
+  | [], _, _ => 0
+  | c :: cs, nv, dv => c * dv ^ cs.length + nv * homEvalI cs nv dv
+
+theorem evalPoly_homPoly (cs : List Int) (num den : List Int) (x : Int) :
+    evalPoly (homPoly cs num den) x =
+      homEvalI cs (evalPoly num x) (evalPoly den x) := by
+  induction cs with
+  | nil =>
+    show (0 : Int) + x * 0 = 0
+    omega
+  | cons c cs ih =>
+    show evalPoly (polyAdd (polyScale c (polyPow den cs.length))
+      (polyMul num (homPoly cs num den))) x = _
+    rw [evalPoly_polyAdd, evalPoly_polyScale, evalPoly_polyPow, evalPoly_polyMul, ih]
+    rfl
+
+/-- The trivial homogenization identity: at the pair `(u d, d)` the
+homogenized value collapses to `d^deg · P(u)`. -/
+theorem homEvalI_collapse (u D : Int) :
+    ∀ (c : Int) (cs : List Int),
+      homEvalI (c :: cs) (u * D) D = D ^ cs.length * evalPoly (c :: cs) u := by
+  intro c cs
+  induction cs generalizing c with
+  | nil =>
+    show c * D ^ 0 + u * D * 0 = D ^ 0 * (c + u * 0)
+    rw [Int.mul_zero, Int.mul_zero, Int.add_zero, Int.add_zero, Int.mul_comm]
+  | cons c2 cs ih =>
+    show c * D ^ (c2 :: cs).length + u * D * homEvalI (c2 :: cs) (u * D) D = _
+    rw [ih c2]
+    show c * D ^ (cs.length + 1) + u * D * (D ^ cs.length * evalPoly (c2 :: cs) u) =
+      D ^ (cs.length + 1) * (c + u * evalPoly (c2 :: cs) u)
+    have e1 : (D : Int) ^ (cs.length + 1) = D * D ^ cs.length := by
+      rw [Int.pow_succ, Int.mul_comm]
+    rw [e1, Int.mul_add]
+    have e2 : u * D * (D ^ cs.length * evalPoly (c2 :: cs) u) =
+        D * D ^ cs.length * (u * evalPoly (c2 :: cs) u) := by
+      simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    have e3 : c * (D * D ^ cs.length) = D * D ^ cs.length * c := by
+      rw [Int.mul_comm]
+    omega
+
 end LnPoly
