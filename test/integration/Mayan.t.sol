@@ -7,6 +7,9 @@ import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
 import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {ArbitrumBridgeSettler} from "src/chains/Arbitrum/BridgeSettler.sol";
+import {IMayanForwarder} from "src/core/Mayan.sol";
+import {LibBytes} from "../utils/LibBytes.sol";
+import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 
 contract MayanProtocolDummy {
     function mayanNativeReceiver(bytes32) external payable {}
@@ -17,6 +20,8 @@ contract MayanProtocolDummy {
 }
 
 contract MayanTest is BridgeSettlerIntegrationTest {
+    using LibBytes for bytes;
+
     address forwarder = 0x337685fdaB40D39bd02028545a4FfA7D287cC3E2;
     address mayanProtocol;
 
@@ -39,12 +44,13 @@ contract MayanTest is BridgeSettlerIntegrationTest {
 
         deal(address(this), amount);
 
-        bytes[] memory bridgeActions = new bytes[](1);
-        bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN,
-            (
-                forwarder,
-                abi.encode(mayanProtocol, abi.encodeCall(MayanProtocolDummy.mayanNativeReceiver, (someExtraBytes)))
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            abi.encodeCall(
+                IBridgeSettlerActions.BRIDGE_NATIVE_TO_MAYAN,
+                (abi.encodeCall(
+                            IMayanForwarder.forwardEth,
+                            (mayanProtocol, abi.encodeCall(MayanProtocolDummy.mayanNativeReceiver, (someExtraBytes)))
+                        ).popSelector())
             )
         );
 
@@ -60,27 +66,19 @@ contract MayanTest is BridgeSettlerIntegrationTest {
         deal(address(token), address(this), amount);
         token.approve(address(ALLOWANCE_HOLDER), amount);
 
-        bytes[] memory bridgeActions = new bytes[](2);
-        bridgeActions[0] = abi.encodeCall(
-            IBridgeSettlerActions.TRANSFER_FROM,
-            (
-                address(bridgeSettler),
-                ISignatureTransfer.PermitTransferFrom({
-                    permitted: ISignatureTransfer.TokenPermissions({token: address(token), amount: amount}),
-                    nonce: 0,
-                    deadline: block.timestamp
-                }),
-                bytes("")
-            )
-        );
-        bridgeActions[1] = abi.encodeCall(
-            IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN,
-            (
-                forwarder,
-                abi.encode(
-                    mayanProtocol,
-                    abi.encodeCall(MayanProtocolDummy.mayanERC20Receiver, (address(token), 0, someExtraBytes))
-                )
+        bytes[] memory bridgeActions = ActionDataBuilder.build(
+            _getDefaultTransferFrom(address(token), amount),
+            abi.encodeCall(
+                IBridgeSettlerActions.BRIDGE_ERC20_TO_MAYAN,
+                (abi.encodeCall(
+                            IMayanForwarder.forwardEth,
+                            (
+                                mayanProtocol,
+                                abi.encodeCall(
+                                    MayanProtocolDummy.mayanERC20Receiver, (address(token), 0, someExtraBytes)
+                                )
+                            )
+                        ).popSelector())
             )
         );
 
