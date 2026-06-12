@@ -817,6 +817,35 @@ theorem capLB_arg {p q p' q' y w : Nat} (hq' : 0 < q') (h : p' * q ≤ p * q')
     _ = expNum n p q * w * q' ^ n := by
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
 
+/-- Weaken an upper cap to a looser target: `y/w ≤ y'/w'`. -/
+theorem capUB_weaken {p q y w y' w' : Nat} (hw : 0 < w)
+    (h : capUB p q y w) (hyy : y * w' ≤ y' * w) : capUB p q y' w' := by
+  intro n
+  refine Nat.le_of_mul_le_mul_right ?_ hw
+  calc expNum n p q * w' * w = expNum n p q * w * w' := by
+        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+    _ ≤ y * (fact n * q ^ n) * w' := Nat.mul_le_mul_right _ (h n)
+    _ = y * w' * (fact n * q ^ n) := by
+        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+    _ ≤ y' * w * (fact n * q ^ n) := Nat.mul_le_mul_right _ hyy
+    _ = y' * (fact n * q ^ n) * w := by
+        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+
+/-- Strengthen a lower cap to a looser target: `y'/w' ≤ y/w`. -/
+theorem capLB_weaken {p q y w y' w' : Nat} (hw : 0 < w)
+    (h : capLB p q y w) (hyy : y' * w ≤ y * w') : capLB p q y' w' := by
+  obtain ⟨n, hn⟩ := h
+  refine ⟨n, ?_⟩
+  refine Nat.le_of_mul_le_mul_right ?_ hw
+  calc y' * (fact n * q ^ n) * w = y' * w * (fact n * q ^ n) := by
+        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+    _ ≤ y * w' * (fact n * q ^ n) := Nat.mul_le_mul_right _ hyy
+    _ = y * (fact n * q ^ n) * w' := by
+        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+    _ ≤ expNum n p q * w * w' := Nat.mul_le_mul_right _ hn
+    _ = expNum n p q * w' * w := by
+        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+
 /-- Turn one evaluated partial sum plus the geometric tail into a full upper
 cap: with `2p ≤ (K+2)q` and
 `(E_K (K+1) q + 2 p^(K+1)) w ≤ y (K+1)! q^(K+1)`, conclude `e^(p/q) ≤ y/w`. -/
