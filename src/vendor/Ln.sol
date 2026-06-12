@@ -8,12 +8,14 @@ library Ln {
     ///      function returns either `floor(L)` or `floor(L) - 1` (equivalently, the unique
     ///      integers r satisfy L - 2 < r <= L). It never returns a value greater than the
     ///      correctly-rounded-down result. `lnWad(10**18) == 0` exactly, and the result is
-    ///      negative iff `x < 10**18`. The function is monotone: `x1 < x2` implies
-    ///      `lnWad(x1) <= lnWad(x2)`; both legs of the monotonicity argument (the analytic
-    ///      within-octave leg and the finite leg covering the 254 clz seams and the
-    ///      corrected point `x = 10**18`) are proven in Lean over the generated model
-    ///      (formal/ln/LnProof, theorem `model_ln_wad_mono`), with an executable
-    ///      exact-rational counterpart in formal/python/ln/check_ln_monotone.py.
+    ///      negative iff `x < 10**18`. Both properties are proven in Lean over the
+    ///      generated model (formal/ln/LnProof): the floor specification
+    ///      `r <= L < r + 2` is theorem `model_ln_wad_floor` (arithmetized through
+    ///      integer-scaled partial sums of the exponential, standard axioms only), and
+    ///      monotonicity — `x1 < x2` implies `lnWad(x1) <= lnWad(x2)`, via the analytic
+    ///      within-octave leg plus the finite leg covering the 254 clz seams and the
+    ///      corrected point `x = 10**18` — is theorem `model_ln_wad_mono`, with an
+    ///      executable exact-rational counterpart in formal/python/ln/check_ln_monotone.py.
     ///      Reverts with `LnWadUndefined()` when `x <= 0`.
     function lnWad(int256 x) internal pure returns (int256 r) {
         // Assembly is required for `clz`, wrapping arithmetic on 256-bit fixnums, and the
