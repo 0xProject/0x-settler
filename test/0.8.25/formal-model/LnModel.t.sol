@@ -17,7 +17,7 @@ contract LnModelTest is LnTest, FormalModelFFI {
         _wrapper = new LnWrapper();
     }
 
-    function _lnWad(int256 x) internal override returns (int256) {
+    function _lnWadToRay(int256 x) internal override returns (int256) {
         return int256(_ffiScalar(_BIN, "ln_wad", uint256(x)));
     }
 
@@ -25,20 +25,20 @@ contract LnModelTest is LnTest, FormalModelFFI {
     /// domain), so the revert behavior is exercised against the real contract.
     function testLnWadUndefined() external override {
         vm.expectRevert(LnWadUndefined.selector);
-        _wrapper.wrap_lnWad(0);
+        _wrapper.wrap_lnWadToRay(0);
         vm.expectRevert(LnWadUndefined.selector);
-        _wrapper.wrap_lnWad(-1);
+        _wrapper.wrap_lnWadToRay(-1);
         vm.expectRevert(LnWadUndefined.selector);
-        _wrapper.wrap_lnWadToWad(type(int256).min);
+        _wrapper.wrap_lnWad(type(int256).min);
     }
 
     function testDiffLnWad(int256 x) external {
         x = bound(x, 1, type(int256).max);
-        assertEq(_wrapper.wrap_lnWad(x), int256(_ffiScalar(_BIN, "ln_wad", uint256(x))));
+        assertEq(_wrapper.wrap_lnWadToRay(x), int256(_ffiScalar(_BIN, "ln_wad", uint256(x))));
     }
 
     function testDiffLnWadToWad(int256 x) external {
         x = bound(x, 1, type(int256).max);
-        assertEq(_wrapper.wrap_lnWadToWad(x), int256(_ffiScalar(_BIN, "ln_wad_to_wad", uint256(x))));
+        assertEq(_wrapper.wrap_lnWad(x), int256(_ffiScalar(_BIN, "ln_wad_to_wad", uint256(x))));
     }
 }

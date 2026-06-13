@@ -41,7 +41,7 @@ def _i256(word: int) -> int:
 
 
 def ln_wad_evm(x: int) -> int:
-    """Step-for-step mirror of `Ln.lnWad` from src/vendor/Ln.sol (wad in, ray out)."""
+    """Step-for-step mirror of `Ln.lnWadToRay` from src/vendor/Ln.sol (wad in, ray out)."""
     x_word = u256(x)
     if _op("iszero", _op("sgt", x_word, 0)) != 0:
         raise ValueError("LnWadUndefined")
@@ -74,7 +74,7 @@ def ln_wad_evm(x: int) -> int:
 
 
 def ln_wad_to_wad_evm(x: int) -> int:
-    """Step-for-step mirror of `Ln.lnWadToWad` from src/vendor/Ln.sol (wad in, wad out)."""
+    """Step-for-step mirror of `Ln.lnWad` from src/vendor/Ln.sol (wad in, wad out)."""
     r = u256(ln_wad_evm(x))
     return _i256(_op("sdiv", _op("sub", r, _op("mul", _op("slt", r, 0), 0x3B9AC9FF)), 0x3B9ACA00))
 
@@ -100,7 +100,7 @@ def main() -> int:
     value = decimal_ln_ray(WITNESS_X)
 
     assert expected == EXPECTED_FLOOR_RESULT, expected
-    # lnWad must return floor(L) or floor(L) - 1.
+    # lnWadToRay must return floor(L) or floor(L) - 1.
     assert actual in (expected, expected - 1), actual
     # ln(10**18 / 10**18) = 0 exactly, and the implementation pins it.
     assert ln_wad_evm(WAD) == 0
@@ -110,7 +110,7 @@ def main() -> int:
     assert ln_wad_to_wad_evm(WAD - 1) == -2  # ray result -1000000001 floors to -2
 
     print(f"x = {WITNESS_X}")
-    print(f"lnWad EVM result = {actual}")
+    print(f"lnWadToRay EVM result = {actual}")
     print(f"floor mathematical result = {expected}")
     print(f"1e27 * ln(x / 1e18) = {value}")
     return 0

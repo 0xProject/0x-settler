@@ -2,7 +2,7 @@
 """
 Generate Lean models of Ln.sol from Yul IR.
 
-This script extracts `lnWad` and `lnWadToWad` from the Yul IR produced by
+This script extracts `lnWadToRay` and `lnWad` from the Yul IR produced by
 `forge inspect` on a wrapper contract and emits Lean definitions with
 opcode-faithful uint256 EVM semantics.
 
@@ -57,20 +57,24 @@ else:
 
 CONFIG = ModelConfig(
     selection=SelectionConfig(
-        function_order=("lnWad", "lnWadToWad"),
-        inner_fn="lnWad",
+        function_order=("lnWadToRay", "lnWad"),
+        inner_fn="lnWadToRay",
     ),
     emission=EmissionConfig(
+        # The model identifiers keep their established names: `model_ln_wad` is the
+        # ray-output computation (Solidity `lnWadToRay`) and `model_ln_wad_to_wad` is
+        # the wad-output computation (Solidity `lnWad`), matching every theorem in the
+        # proof corpus.
         model_names={
-            "lnWad": "model_ln_wad",
-            "lnWadToWad": "model_ln_wad_to_wad",
+            "lnWadToRay": "model_ln_wad",
+            "lnWad": "model_ln_wad_to_wad",
         },
         header_comment="Auto-generated from Solidity Ln assembly and assignment flow.",
         generator_label="formal/python/ln/generate_ln_model.py",
         norm_rewrite=None,
     ),
     transforms=TransformConfig(
-        skip_norm=frozenset({"lnWad", "lnWadToWad"}),
+        skip_norm=frozenset({"lnWadToRay", "lnWad"}),
     ),
     cli=CliConfig(
         source_label="src/vendor/Ln.sol",

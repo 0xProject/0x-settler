@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Monotonicity certificate for `Ln.lnWad` (src/vendor/Ln.sol).
+"""Monotonicity certificate for `Ln.lnWadToRay` (src/vendor/Ln.sol).
 
-The claim: x1 < x2 implies lnWad(x1) <= lnWad(x2) over the whole domain
+The claim: x1 < x2 implies lnWadToRay(x1) <= lnWadToRay(x2) over the whole domain
 x in [1, 2**255).
 
 Proof structure
@@ -222,7 +222,7 @@ def main() -> int:
     print("within-octave step margin:", float(step_margin))
     print("R in [", float(r_min), ",", float(r_max), "]")
     print("slop_p =", float(slop_p), " slop_q =", float(slop_q), " z_max*2J =", float(zmax * 2 * jitter))
-    print("all 254 clz seams monotone; lnWad(10**18) == 0")
+    print("all 254 clz seams monotone; lnWadToRay(10**18) == 0")
     print("monotonicity certificate: OK")
     return 0
 

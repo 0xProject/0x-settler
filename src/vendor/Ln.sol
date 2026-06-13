@@ -7,17 +7,17 @@ library Ln {
     /// @dev Let L = 10**27 * ln(x / 10**18) be the exact, infinite-precision result. This
     ///      function returns either `floor(L)` or `floor(L) - 1` (equivalently, the unique
     ///      integers r satisfy L - 2 < r <= L). It never returns a value greater than the
-    ///      correctly-rounded-down result. `lnWad(10**18) == 0` exactly, and the result is
-    ///      negative iff `x < 10**18`. Both properties are proven in Lean over the
+    ///      correctly-rounded-down result. `lnWadToRay(10**18) == 0` exactly, and the result
+    ///      is negative iff `x < 10**18`. Both properties are proven in Lean over the
     ///      generated model (formal/ln/LnProof): the floor specification
     ///      `r <= L < r + 2` is theorem `model_ln_wad_floor` (arithmetized through
     ///      integer-scaled partial sums of the exponential, standard axioms only), and
-    ///      monotonicity — `x1 < x2` implies `lnWad(x1) <= lnWad(x2)`, via the analytic
-    ///      within-octave leg plus the finite leg covering the 254 clz seams and the
+    ///      monotonicity — `x1 < x2` implies `lnWadToRay(x1) <= lnWadToRay(x2)`, via the
+    ///      analytic within-octave leg plus the finite leg covering the 254 clz seams and the
     ///      corrected point `x = 10**18` — is theorem `model_ln_wad_mono`, with an
     ///      executable exact-rational counterpart in formal/python/ln/check_ln_monotone.py.
     ///      Reverts with `LnWadUndefined()` when `x <= 0`.
-    function lnWad(int256 x) internal pure returns (int256 r) {
+    function lnWadToRay(int256 x) internal pure returns (int256 r) {
         // Assembly is required for `clz`, wrapping arithmetic on 256-bit fixnums, and the
         // truncating `sar`/`sdiv` primitives whose rounding directions the error analysis
         // below depends on. Equivalent pseudocode, in exact real arithmetic:
@@ -148,10 +148,10 @@ library Ln {
     ///         returning the result as a fixnum with 10**18 (wad) basis.
     /// @dev Let Lw = 10**18 * ln(x / 10**18) be the exact, infinite-precision result. This
     ///      function returns either `floor(Lw)` or `floor(Lw) - 1`; the contract, the
-    ///      monotonicity guarantee, and `lnWadToWad(10**18) == 0` carry over from `lnWad`
+    ///      monotonicity guarantee, and `lnWad(10**18) == 0` carry over from `lnWadToRay`
     ///      because flooring composes exactly with floor division by 10**9.
-    function lnWadToWad(int256 x) internal pure returns (int256 r) {
-        r = lnWad(x);
+    function lnWad(int256 x) internal pure returns (int256 r) {
+        r = lnWadToRay(x);
         // Floor division of the ray result by 10**9 (`sdiv` alone truncates toward zero,
         // which would round negative results the wrong way). Equivalent Solidity:
         //     r = (r - (r < 0 ? 10**9 - 1 : 0)) / 10**9;

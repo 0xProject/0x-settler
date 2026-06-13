@@ -7,11 +7,11 @@ import {Ln} from "src/vendor/Ln.sol";
 /// Function names are prefixed with `wrap_` to avoid Yul name collisions with the
 /// library functions, keeping the IR unambiguous for the formal-proof code generator.
 contract LnWrapper {
-    function wrap_lnWad(int256 x) external pure returns (int256) {
-        return Ln.lnWad(x);
+    function wrap_lnWadToRay(int256 x) external pure returns (int256) {
+        return Ln.lnWadToRay(x);
     }
 
-    function wrap_lnWadToWad(int256 x) external pure returns (int256) {
-        return Ln.lnWadToWad(x);
+    function wrap_lnWad(int256 x) external pure returns (int256) {
+        return Ln.lnWad(x);
     }
 }

@@ -7,28 +7,28 @@ import {Test} from "@forge-std/Test.sol";
 contract LnTest is Test {
     error LnWadUndefined();
 
-    int256 private constant _MIN_RESULT = -41446531673892822312323846185; // lnWad(1)
-    int256 private constant _MAX_RESULT = 135305999368893231589070344786; // lnWad(2**255 - 1)
+    int256 private constant _MIN_RESULT = -41446531673892822312323846185; // lnWadToRay(1)
+    int256 private constant _MAX_RESULT = 135305999368893231589070344786; // lnWadToRay(2**255 - 1)
     // floor(ln(2) * 10**27); the exact value's fractional part is ~0.458
     int256 private constant _LN2_RAY_FLOOR = 693147180559945309417232121;
 
-    function _lnWad(int256 x) internal virtual returns (int256) {
-        return Ln.lnWad(x);
+    function _lnWadToRay(int256 x) internal virtual returns (int256) {
+        return Ln.lnWadToRay(x);
     }
 
-    /// Asserts that `lnWad(x)` returns exactly `expected`, and that `expected` honors the
+    /// Asserts that `lnWadToRay(x)` returns exactly `expected`, and that `expected` honors the
     /// specification `r == floor(L) || r == floor(L) - 1` for the independently computed
     /// `floorL = floor(10**27 * ln(x / 10**18))`. Reference values were generated with
     /// 1500-bit precision arithmetic.
     function _check(int256 x, int256 floorL, int256 expected) internal {
         assertTrue(expected == floorL || expected == floorL - 1, "vector violates spec");
-        assertEq(_lnWad(x), expected, "lnWad mismatch");
+        assertEq(_lnWadToRay(x), expected, "lnWadToRay mismatch");
     }
 
     /// Same as `_check`, for the wad-basis helper (`floorL` here is floor(10**18 * ln(x/10**18))).
     function _checkWad(int256 x, int256 floorL, int256 expected) internal {
         assertTrue(expected == floorL || expected == floorL - 1, "wad vector violates spec");
-        assertEq(Ln.lnWadToWad(x), expected, "lnWadToWad mismatch");
+        assertEq(Ln.lnWad(x), expected, "lnWad mismatch");
     }
 
     function testLnWadVectors() external {
@@ -136,17 +136,17 @@ contract LnTest is Test {
         );
     }
 
-    function lnWadExternal(int256 x) external returns (int256) {
-        return _lnWad(x);
+    function lnWadToRayExternal(int256 x) external returns (int256) {
+        return _lnWadToRay(x);
     }
 
     function testLnWadUndefined() external virtual {
         vm.expectRevert(LnWadUndefined.selector);
-        this.lnWadExternal(0);
+        this.lnWadToRayExternal(0);
         vm.expectRevert(LnWadUndefined.selector);
-        this.lnWadExternal(-1);
+        this.lnWadToRayExternal(-1);
         vm.expectRevert(LnWadUndefined.selector);
-        this.lnWadExternal(type(int256).min);
+        this.lnWadToRayExternal(type(int256).min);
     }
 
     /// `L(2x) - L(x) = 10**27 * ln(2)` exactly. Both results lie in `(L - 2, L]`, so their
@@ -155,14 +155,14 @@ contract LnTest is Test {
     /// `[floor - 1, floor + 2]`.
     function testFuzzLnWadDouble(int256 x) external {
         x = bound(x, 1, (type(int256).max >> 1));
-        int256 d = _lnWad(x << 1) - _lnWad(x);
+        int256 d = _lnWadToRay(x << 1) - _lnWadToRay(x);
         assertGe(d, _LN2_RAY_FLOOR - 1, "doubling delta too low");
         assertLe(d, _LN2_RAY_FLOOR + 2, "doubling delta too high");
     }
 
     function testFuzzLnWadRange(int256 x) external {
         x = bound(x, 1, type(int256).max);
-        int256 r = _lnWad(x);
+        int256 r = _lnWadToRay(x);
         assertGe(r, _MIN_RESULT, "below global minimum");
         assertLe(r, _MAX_RESULT, "above global maximum");
     }
@@ -269,8 +269,8 @@ contract LnTest is Test {
     }
 
     function testLnWadExactOne() external {
-        assertEq(_lnWad(1e18), 0, "lnWad(1e18) != 0");
-        assertEq(Ln.lnWadToWad(1e18), 0, "lnWadToWad(1e18) != 0");
+        assertEq(_lnWadToRay(1e18), 0, "lnWadToRay(1e18) != 0");
+        assertEq(Ln.lnWad(1e18), 0, "lnWad(1e18) != 0");
     }
 
     /// Monotonicity across every clz seam: the only adjacent-input pairs not covered by the
@@ -278,13 +278,13 @@ contract LnTest is Test {
     function testLnWadMonotoneBoundaries() external {
         for (uint256 t = 1; t < 255; t++) {
             int256 hi = int256(uint256(1) << t);
-            assertGe(_lnWad(hi), _lnWad(hi - 1), "octave seam not monotone");
+            assertGe(_lnWadToRay(hi), _lnWadToRay(hi - 1), "octave seam not monotone");
         }
     }
 
     function testFuzzLnWadMonotone(int256 x) external {
         x = bound(x, 1, type(int256).max - 1);
-        assertGe(_lnWad(x + 1), _lnWad(x), "not monotone");
-        assertGe(Ln.lnWadToWad(x + 1), Ln.lnWadToWad(x), "wad helper not monotone");
+        assertGe(_lnWadToRay(x + 1), _lnWadToRay(x), "not monotone");
+        assertGe(Ln.lnWad(x + 1), Ln.lnWad(x), "wad helper not monotone");
     }
 }
