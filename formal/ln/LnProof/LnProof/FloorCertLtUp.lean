@@ -19,9 +19,11 @@ open LnGeneratedModel LnPoly
 set_option maxRecDepth 100000
 
 theorem ltTN2b_eq_lit : ltTN2b = ltTN2bLit := by
+  unfold ltTN2b ltTN2 ltTD2 ltPLOP ltDLO ltAZ ltPPHws ltQQHwlo ltA96 ltWLO ltD8 ltB2 ltA2
   decide +kernel
 
 theorem ltTD2b_eq_lit : ltTD2b = ltTD2bLit := by
+  unfold ltTD2b ltTD2 ltDLO ltQQHwlo ltWLO ltD8 ltB2 ltA2
   decide +kernel
 
 theorem ltUp_eval_eq : ∀ x : Int, evalPoly certLtUp x = evalPoly certLtUpLit x := by

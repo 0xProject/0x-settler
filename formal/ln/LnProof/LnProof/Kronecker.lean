@@ -125,6 +125,10 @@ theorem evalPoly_ext {B : Nat} : ∀ (p q : List Int),
       rw [htail]
       omega
 
+theorem eval01 (x : Int) : evalPoly ([0, 1] : List Int) x = x := by
+  show (0 : Int) + x * (1 + x * 0) = x
+  omega
+
 /-! ## ℓ1 bounds through the polynomial operations -/
 
 theorem polyL1_polyAdd : ∀ (p q : List Int), polyL1 (polyAdd p q) ≤ polyL1 p + polyL1 q := by
