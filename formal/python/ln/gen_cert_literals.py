@@ -96,6 +96,33 @@ certs["certLtLoLit"] = padd(
            pmul([0, 1], padd(pscale(K + 1, pmul(EPNlt_t, LT["TD"])),
                              pscale(2, ppow(LT["TN"], K + 1))))))
 
+def peval(a, x):
+    acc = 0
+    for c in reversed(a):
+        acc = acc * x + c
+    return acc
+
+def ptrim(a):
+    # Drop high-degree zero coefficients (the trailing entries of the
+    # low-degree-first list). Horner evaluation ignores them, so the trimmed
+    # list agrees with the original everywhere and has a no-larger ell-1 norm;
+    # the cell walks then Taylor-shift a shorter polynomial. The cert literals
+    # are matched to their constructions by `evalPoly_ext` (an evaluation
+    # identity), which tolerates this; the base TN/TD literals below are
+    # matched by list equality and are left exactly as built.
+    out = list(a)
+    while len(out) > 1 and out[-1] == 0:
+        out.pop()
+    return out
+
+_B_CERT = 50000
+for _name in ("certGeUpLit", "certGeLoLit", "certLtUpLit", "certLtLoLit"):
+    _full = certs[_name]
+    _trimmed = ptrim(_full)
+    assert peval(_trimmed, 1 << _B_CERT) == peval(_full, 1 << _B_CERT), _name
+    print(_name, "trimmed", len(_full), "->", len(_trimmed))
+    certs[_name] = _trimmed
+
 base = {}
 for br, D in (("ge", GE), ("lt", LT)):
     for nm in ("TN", "TD", "TN2b", "TD2b"):
