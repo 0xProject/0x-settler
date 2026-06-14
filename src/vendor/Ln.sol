@@ -34,14 +34,14 @@ library Ln {
         //     Horner stages: a coefficient followed by j more multiplies by u tolerates a shorter
         //         basis, so the stage bases form a staircase -- p: Q68, Q80, Q86, Q93, Q94; q: Q96
         //         (the monic stage shares u's basis for free), Q87, Q85, Q93, Q94. Each literal
-        //         then takes the widest basis that fits its minimal `PUSH` width. One `sar` per
+        //         then takes the widest basis that fits its minimal `PUSH` width. One `SAR` per
         //         multiply is forced: ray precision requires ~96 significant bits while each
         //         multiply by u consumes ~91 bits of headroom, so consecutive unrenormalized steps
         //         cannot fit in 256 bits.
         //     p, q final: Q94 (|p ⋅ z| < 2²⁰¹; both final stage shifts land there directly)
         //     p⋅z/q: one sdiv at Q100 (granularity 2⁻¹⁰⁰, ~0.0016 ulp)
         //     output: multiply by 5²⁷ = 10²⁷ / 2²⁷ places the quotient on the 10²⁷ ⋅ 2⁷² grid
-        //         shared by the k⋅ln(2) term and the bias, so the closing `sar(72, ...)` is the
+        //         shared by the k⋅ln(2) term and the bias, so the closing `sar(72, …)` is the
         //         single output-rounding floor
         //
         // Error budget in ulps (1 ulp = 10⁻²⁷ of ln; 2⁷² pre-shift units): rational polynomial
@@ -60,29 +60,28 @@ library Ln {
         // correction preserves monotonicity because its neighbors' results bracket [0, 999999999].
         assembly ("memory-safe") {
             if iszero(sgt(x, 0)) {
-                mstore(0x00, 0x1615e638) // `LnWadUndefined()`.
-                revert(0x1c, 0x04)
+                mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
+                mstore(0x20, 0x12)       // panic code for division by zero
+                revert(0x1c, 0x24)
             }
 
-            // ln(10**18 / 10**18) = 0 is the only input whose exact result is an integer;
-            // the floored accumulator below lands on -1 for it (pinned by test and by the
-            // Lean model theorem `model_ln_wad_one_wad`). Adding this flag back yields
-            // the exact 0, branchlessly. Recorded before `x` is clobbered.
+            // ln(1) = 0 is the only input whose exact result is an integer; the floored accumulator
+            // below lands on -1 for it. Adding this flag back yields the exact 0.
             let one := eq(x, 0xde0b6b3a7640000)
 
-            // Normalize: x := m, a Q103 fixnum in [1, 2), truncated from x / 2**k. Truncation
-            // underestimates ln(x) by less than 2**-103 (only possible when k > 0).
+            // Normalize: x := m, a Q103 fixnum in [1, 2), truncated from x / 2ᵏ. Truncation
+            // underestimates ln(x) by less than 2⁻¹⁰³ (only possible when k > 0).
             let c := clz(x)
             let k := sub(0x98, c)
             x := shr(0x98, shl(c, x))
 
-            // z = (s - m)/(m + s) in Q100, truncated toward zero, where the Q103 constant
-            // s = 0xb504f333f9de6484597d89b375 = round(sqrt(2) * 2**103). Centering at s
-            // makes |z| <= 3 - 2*sqrt(2) ~= 0.17157 over m in [1, 2).
+            // z = (s - m)/(m + s) in Q100, truncated toward zero, where the Q103 constant s =
+            // 0xb504f333f9de6484597d89b375 = round(√2 ⋅ 2¹⁰³). Centering at s makes |z| ≤ 3 - 2⋅√2
+            // ≈ 0.17157 over m in [1, 2).
             let s := 0xb504f333f9de6484597d89b375
             let z := sdiv(shl(0x64, sub(s, x)), add(x, s))
 
-            // u = z**2 in Q96, truncated; u in [0, 0.029438 * 2**96].
+            // u = z² in Q96, truncated; u in [0, 0.029438 ⋅ 2⁹⁶].
             let u := shr(0x68, mul(z, z))
 
             // Constant terms of p and q in Q94; p(0) = q(0) by construction, so the
@@ -90,15 +89,15 @@ library Ln {
             let c0 := 0xb05a8b41cf51c04d1b8a08d465
 
             // Numerator p(u), Horner up the basis staircase Q68 -> Q80 -> Q86 -> Q93 -> Q94.
-            // p(u)/2**94 in [663.7, 705.5] on the domain. The leading product is nonnegative,
-            // so the first shift may be logical.
+            // p(u)/2⁹⁴ in [663.7, 705.5] on the domain. The leading product is nonnegative, so the
+            // first shift may be logical.
             let p := sub(shr(0x54, mul(0xf642b0ed5372ff45e0, u)), 0xede142e73a9acbb00e9c42)
             p := add(sar(0x5a, mul(p, u)), 0xf2a56533e74a454c9d585f70)
             p := sub(sar(0x59, mul(p, u)), 0xb44d9253cd61fb87dc7efcfbc5)
             p := add(sar(0x5f, mul(p, u)), c0)
 
             // Denominator q(u), monic, Horner up the staircase Q96 -> Q87 -> Q85 -> Q93 ->
-            // Q94. q(u)/2**94 in [-705.5, -656.0] on the domain: bounded away from zero, and
+            // Q94. q(u)/2⁹⁴ in [-705.5, -656.0] on the domain: bounded away from zero, and
             // p(u)/(-q(u)) in [1, 1.01].
             let q := sub(u, 0x364589193443b48661938f59da)
             q := add(sar(0x69, mul(q, u)), 0xe904c4e76307954df78feedf)
@@ -106,22 +105,21 @@ library Ln {
             q := add(sar(0x58, mul(q, u)), 0xd1b1fedec544f0ea0bc812bbbc)
             q := sub(sar(0x5f, mul(q, u)), c0)
 
-            // A = 2*atanh(-z/2**100) in Q100: |p * z| < 2**201 and |q| > 656 * 2**94, so
-            // the quotient fits in 98 bits.
+            // A = 2⋅atanh(-z/2¹⁰⁰) in Q100: |p ⋅ z| < 2²⁰¹ and |q| > 656 ⋅ 2⁹⁴, so the quotient
+            // fits in 98 bits.
             r := sdiv(mul(p, z), q)
 
-            // Rescale to ray in Q72: 5**27 = 10**27 * 2**72 / 2**(100 + 27); exact.
+            // Rescale to ray in Q72: 5²⁷ = 10²⁷ ⋅ 2⁷² / 2¹²⁷; exact.
             r := mul(r, 0x6765c793fa10079d)
 
-            // Add k * round(ln(2) * 10**27 * 2**72). k is two's complement (k in [-103, 151]);
-            // `mul` wraps correctly.
+            // Add k ⋅ round(ln(2) ⋅ 10²⁷ ⋅ 2⁷²). k is two's complement (k in [-103, 151])
             r := add(r, mul(0x23d5b9ff36551802aa5d6f9754b0f3fad83b19450, k))
 
-            // Add floor((ln(s/2**103) + 103*ln(2) - 18*ln(10)) * 10**27 * 2**72) - 2.36e21.
-            // The 2.36e21 subtrahend is the one-sided error margin described above.
+            // Add floor((ln(s/2¹⁰³) + 103⋅ln(2) - 18⋅ln(10)) ⋅ 10²⁷ ⋅ 2⁷²) - 2.36 ⋅ 10²¹. The
+            // subtrahend 2.36 ⋅ 10²¹ is the one-sided error margin described above.
             r := add(r, 0x61e2c6b2c35132b01ead59b21a4a764a0e2f452bd5)
 
-            // Q72 -> integer ray result (`sar` floors), then the x == 10**18 correction.
+            // Q72 -> integer ray result (`SAR` floors), then the x = 10¹⁸ correction.
             r := add(sar(0x48, r), one)
         }
     }
