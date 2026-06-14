@@ -13,6 +13,10 @@ divided-difference monotonicity of the homogenized `p`/`q` polynomials.
 -/
 
 set_option maxRecDepth 4096
+-- The bracket polynomials carry powers of two up to 2^486 as opaque integer
+-- factors; raise the elaboration evaluation threshold so they are evaluated
+-- rather than left symbolic (the default threshold is 256).
+set_option exponentiation.threshold 512
 
 namespace LnFloorCert
 
