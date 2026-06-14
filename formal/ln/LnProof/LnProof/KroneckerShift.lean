@@ -16,6 +16,15 @@ absolute-value evaluation.
 
 namespace LnPoly
 
+/-- Kronecker digit width shared by the cell-walk `checkCoverK` decides and
+the cert-vs-literal `evalPoly_ext` identities. It must exceed `log2(2·ℓ1)`
+of the certificates; the binding floor is the cell-walk `aeval` bound at
+`~2^37772` (the certificate coefficients are `~37k`-bit and decay `~104`
+bits per degree, so every monomial term is `~`constant scale), with the
+eval-identity `polyL1` floor at `~2^37392`. This clears both with a
+`~228`-bit margin, so it is near-minimal rather than arbitrary. -/
+def kB : Nat := 38000
+
 /-! ## ℓ1 of a Taylor shift -/
 
 /-- Evaluate the coefficient-magnitude polynomial at a `Nat` point. -/

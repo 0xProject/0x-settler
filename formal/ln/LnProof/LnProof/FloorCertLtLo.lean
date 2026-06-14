@@ -29,8 +29,8 @@ theorem ltTD_eq_lit : ltTD = ltTDLit := by
   decide +kernel
 
 theorem ltLo_eval_eq : ∀ x : Int, evalPoly certLtLo x = evalPoly certLtLoLit x := by
-  refine evalPoly_ext (B := 38000) certLtLo certLtLoLit ?_ ?_ ?_
-  · show polyL1 certLtLo * 2 < 2 ^ 38000
+  refine evalPoly_ext (B := kB) certLtLo certLtLoLit ?_ ?_ ?_
+  · show polyL1 certLtLo * 2 < 2 ^ kB
     unfold certLtLo
     rw [ltTN_eq_lit, ltTD_eq_lit]
     have h1 := polyL1_polyAdd
@@ -67,14 +67,14 @@ theorem ltLo_eval_eq : ∀ x : Int, evalPoly certLtLo x = evalPoly certLtLoLit x
         (-(EUD - EUN)).natAbs * (polyL1 ([0, 1] : List Int) * ((23 : Int).natAbs * (LnExp.expNum 22 (polyL1 ltTNLit) (polyL1 ltTDLit) * polyL1 ltTDLit) + (2 : Int).natAbs * polyL1 ltTNLit ^ 23)) :=
       Nat.mul_le_mul_left _ (Nat.le_trans h6 h16)
     have hfin : (((Sc : Int) * EUD * KF1).natAbs * polyL1 ltTDLit ^ 23 +
-        (-(EUD - EUN)).natAbs * (polyL1 ([0, 1] : List Int) * ((23 : Int).natAbs * (LnExp.expNum 22 (polyL1 ltTNLit) (polyL1 ltTDLit) * polyL1 ltTDLit) + (2 : Int).natAbs * polyL1 ltTNLit ^ 23))) * 2 < 2 ^ 38000 := by
+        (-(EUD - EUN)).natAbs * (polyL1 ([0, 1] : List Int) * ((23 : Int).natAbs * (LnExp.expNum 22 (polyL1 ltTNLit) (polyL1 ltTDLit) * polyL1 ltTDLit) + (2 : Int).natAbs * polyL1 ltTNLit ^ 23))) * 2 < 2 ^ kB := by
       decide +kernel
     have hA := Nat.le_trans h2 h4
     have hB := Nat.le_trans h5 h17
     omega
-  · show polyL1 certLtLoLit * 2 < 2 ^ 38000
+  · show polyL1 certLtLoLit * 2 < 2 ^ kB
     decide +kernel
-  · show evalPoly certLtLo ((2 : Int) ^ 38000) = evalPoly certLtLoLit ((2 : Int) ^ 38000)
+  · show evalPoly certLtLo ((2 : Int) ^ kB) = evalPoly certLtLoLit ((2 : Int) ^ kB)
     unfold certLtLo
     rw [ltTN_eq_lit, ltTD_eq_lit]
     simp only [evalPoly_polyAdd, evalPoly_polyScale, evalPoly_polyMul,

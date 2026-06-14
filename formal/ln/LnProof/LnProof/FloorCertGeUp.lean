@@ -30,8 +30,8 @@ theorem geTD_eq_lit : geTD = geTDLit := by
   decide +kernel
 
 theorem geUp_eval_eq : ∀ x : Int, evalPoly certGeUp x = evalPoly certGeUpLit x := by
-  refine evalPoly_ext (B := 38000) certGeUp certGeUpLit ?_ ?_ ?_
-  · show polyL1 certGeUp * 2 < 2 ^ 38000
+  refine evalPoly_ext (B := kB) certGeUp certGeUpLit ?_ ?_ ?_
+  · show polyL1 certGeUp * 2 < 2 ^ kB
     unfold certGeUp
     rw [geTN_eq_lit, geTD_eq_lit]
     have h1 := polyL1_polyAdd
@@ -67,14 +67,14 @@ theorem geUp_eval_eq : ∀ x : Int, evalPoly certGeUp x = evalPoly certGeUpLit x
       have h14' := Nat.le_trans h14 h16
       omega
     have hfin : (((EUD + EUN) * KF1).natAbs * (polyL1 ([0, 1] : List Int) * polyL1 geTDLit ^ 23) +
-        (-(Sc : Int) * EUD).natAbs * ((23 : Int).natAbs * (LnExp.expNum 22 (polyL1 geTNLit) (polyL1 geTDLit) * polyL1 geTDLit) + (2 : Int).natAbs * polyL1 geTNLit ^ 23)) * 2 < 2 ^ 38000 := by
+        (-(Sc : Int) * EUD).natAbs * ((23 : Int).natAbs * (LnExp.expNum 22 (polyL1 geTNLit) (polyL1 geTDLit) * polyL1 geTDLit) + (2 : Int).natAbs * polyL1 geTNLit ^ 23)) * 2 < 2 ^ kB := by
       decide +kernel
     have hA := Nat.le_trans h2 h6
     have hB := Nat.le_trans h7 h17
     omega
-  · show polyL1 certGeUpLit * 2 < 2 ^ 38000
+  · show polyL1 certGeUpLit * 2 < 2 ^ kB
     decide +kernel
-  · show evalPoly certGeUp ((2 : Int) ^ 38000) = evalPoly certGeUpLit ((2 : Int) ^ 38000)
+  · show evalPoly certGeUp ((2 : Int) ^ kB) = evalPoly certGeUpLit ((2 : Int) ^ kB)
     unfold certGeUp
     rw [geTN_eq_lit, geTD_eq_lit]
     simp only [evalPoly_polyAdd, evalPoly_polyScale, evalPoly_polyMul,
