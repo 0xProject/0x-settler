@@ -16,6 +16,7 @@ guard's shape in the IR ever changes.
 from __future__ import annotations
 
 import re
+from typing import cast
 
 _REVERT_GUARD = re.compile(
     r"if\s+iszero\(sgt\((\w+),\s*0\)\)\s*"
@@ -30,6 +31,7 @@ def strip_revert_guard(yul_text: str) -> str:
             f"expected exactly one LnWadUndefined() revert guard in the Yul IR, found {count}"
         )
     return stripped
+
 
 if __package__ in (None, ""):
     import pathlib
@@ -97,7 +99,8 @@ def main() -> int:
         raise SystemExit("--yul <path|-> is required")
 
     if yul_arg == "-":
-        yul_text = sys.stdin.read()
+        # typeshed types `sys.stdin` as `TextIO | Any`; the read is a `str`.
+        yul_text = cast(str, sys.stdin.read())
     else:
         with open(yul_arg) as source:
             yul_text = source.read()

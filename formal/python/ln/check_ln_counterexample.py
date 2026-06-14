@@ -76,7 +76,9 @@ def ln_wad_evm(x: int) -> int:
 def ln_wad_to_wad_evm(x: int) -> int:
     """Step-for-step mirror of `Ln.lnWad` from src/vendor/Ln.sol (wad in, wad out)."""
     r = u256(ln_wad_evm(x))
-    return _i256(_op("sdiv", _op("sub", r, _op("mul", _op("slt", r, 0), 0x3B9AC9FF)), 0x3B9ACA00))
+    return _i256(
+        _op("sdiv", _op("sub", r, _op("mul", _op("slt", r, 0), 0x3B9AC9FF)), 0x3B9ACA00)
+    )
 
 
 def floor_spec_for_witness(x: int) -> int:

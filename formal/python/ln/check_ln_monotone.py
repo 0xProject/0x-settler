@@ -99,7 +99,9 @@ def _domain() -> tuple[int, int]:
     return zmax, umax + 1
 
 
-def _stage_intervals(coeffs, umax_int, monic_first):
+def _stage_intervals(
+    coeffs: tuple[tuple[int, int, int], ...], umax_int: int, monic_first: bool
+) -> list[tuple[int, int]]:
     """Exact integer interval propagation of the Horner stages, including the
     [0, 1) truncation slop of each renormalizing shift. Returns the list of
     per-stage (lo, hi) bounds."""
@@ -115,13 +117,15 @@ def _stage_intervals(coeffs, umax_int, monic_first):
         cands = (0, lo * umax_int, hi * umax_int)
         lo = min(cands) // (1 << shift) - 1 + c
         hi = max(cands) // (1 << shift) + c
-        assert max(abs(lo * umax_int), abs(hi * umax_int)).bit_length() < 255, "mul overflow"
+        assert (
+            max(abs(lo * umax_int), abs(hi * umax_int)).bit_length() < 255
+        ), "mul overflow"
         prev_basis = b
         out.append((lo, hi))
     return out
 
 
-def _slop(coeffs, umax_int) -> Fraction:
+def _slop(coeffs: tuple[tuple[int, int, int], ...], umax_int: int) -> Fraction:
     """Bound, in final-basis units, on |integer Horner value - real-coefficient
     polynomial * 2**FINAL_BASIS|: the sum over stages of the truncation range
     [0, 1) scaled by 2**(FINAL_BASIS - basis) and u_max**j."""
@@ -132,7 +136,7 @@ def _slop(coeffs, umax_int) -> Fraction:
     return total
 
 
-def _poly_coeffs(coeffs):
+def _poly_coeffs(coeffs: tuple[tuple[int, int, int], ...]) -> list[Fraction]:
     """Real-coefficient polynomial as exact rationals, low order first."""
     out = [Fraction(0)] * 6
     for c, b, j in coeffs:
@@ -140,7 +144,7 @@ def _poly_coeffs(coeffs):
     return out
 
 
-def _poly_mul(a, b):
+def _poly_mul(a: list[Fraction], b: list[Fraction]) -> list[Fraction]:
     out = [Fraction(0)] * (len(a) + len(b) - 1)
     for i, x in enumerate(a):
         for j, y in enumerate(b):
@@ -148,11 +152,13 @@ def _poly_mul(a, b):
     return out
 
 
-def _poly_deriv(a):
+def _poly_deriv(a: list[Fraction]) -> list[Fraction]:
     return [i * c for i, c in enumerate(a)][1:]
 
 
-def _interval_horner(coeffs, lo: Fraction, hi: Fraction) -> tuple[Fraction, Fraction]:
+def _interval_horner(
+    coeffs: list[Fraction], lo: Fraction, hi: Fraction
+) -> tuple[Fraction, Fraction]:
     vlo = vhi = coeffs[-1]
     for c in reversed(coeffs[:-1]):
         cands = (vlo * lo, vlo * hi, vhi * lo, vhi * hi)
@@ -160,7 +166,9 @@ def _interval_horner(coeffs, lo: Fraction, hi: Fraction) -> tuple[Fraction, Frac
     return vlo, vhi
 
 
-def _certify_positive(coeffs, lo: Fraction, hi: Fraction, depth: int = 0) -> bool:
+def _certify_positive(
+    coeffs: list[Fraction], lo: Fraction, hi: Fraction, depth: int = 0
+) -> bool:
     """Certify min of the polynomial over [lo, hi] is nonnegative by exact
     interval bisection."""
     blo, _ = _interval_horner(coeffs, lo, hi)
@@ -169,7 +177,9 @@ def _certify_positive(coeffs, lo: Fraction, hi: Fraction, depth: int = 0) -> boo
     if depth >= 40:
         return False
     mid = (lo + hi) / 2
-    return _certify_positive(coeffs, lo, mid, depth + 1) and _certify_positive(coeffs, mid, hi, depth + 1)
+    return _certify_positive(coeffs, lo, mid, depth + 1) and _certify_positive(
+        coeffs, mid, hi, depth + 1
+    )
 
 
 def main() -> int:
@@ -197,7 +207,9 @@ def main() -> int:
     slop_q = _slop(Q_COEFFS, umax_int)
     jitter = (slop_p + r_max * slop_q) / (-q_hi)
     step_margin = r_min - zmax * 2 * jitter
-    assert step_margin > 0, f"within-octave step margin not positive: {float(step_margin)}"
+    assert (
+        step_margin > 0
+    ), f"within-octave step margin not positive: {float(step_margin)}"
 
     # (3c) the real-coefficient rational is nondecreasing on [0, u_max]:
     # N(u) = P'(u) * (-Q(u)) + P(u) * Q'(u) >= 0.
@@ -205,8 +217,12 @@ def main() -> int:
     qr = _poly_coeffs(Q_COEFFS) + []
     qr.append(Fraction(0))
     qr[5] += 1  # monic u**5 term
-    n_poly = [a + b for a, b in zip(_poly_mul(_poly_deriv(pr), [-c for c in qr]),
-                                    _poly_mul(pr, _poly_deriv(qr)))]
+    n_poly = [
+        a + b
+        for a, b in zip(
+            _poly_mul(_poly_deriv(pr), [-c for c in qr]), _poly_mul(pr, _poly_deriv(qr))
+        )
+    ]
     u_hi = Fraction(umax_int, 1 << U_BASIS)
     assert _certify_positive(n_poly, Fraction(0), u_hi), "R_real not monotone"
 
@@ -220,7 +236,14 @@ def main() -> int:
 
     print("within-octave step margin:", float(step_margin))
     print("R in [", float(r_min), ",", float(r_max), "]")
-    print("slop_p =", float(slop_p), " slop_q =", float(slop_q), " z_max*2J =", float(zmax * 2 * jitter))
+    print(
+        "slop_p =",
+        float(slop_p),
+        " slop_q =",
+        float(slop_q),
+        " z_max*2J =",
+        float(zmax * 2 * jitter),
+    )
     print("all 254 clz seams monotone; lnWadToRay(10**18) == 0")
     print("monotonicity certificate: OK")
     return 0
