@@ -3,10 +3,11 @@
 certificate polynomials, mirroring the constructions in FloorCertDefs.lean."""
 
 import math
+import pathlib
 import sys
 
 sys.set_int_max_str_digits(2000000)
-sys.path.insert(0, "/home/user/Documents/git-repos/0x-settler-lnwad")
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
 from formal.python.ln.check_ln_counterexample import (
     _C0,
     _P1,
