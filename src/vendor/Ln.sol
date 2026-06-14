@@ -62,8 +62,9 @@ library Ln {
                 revert(0x1c, 0x24)
             }
 
-            // ln(1) = 0 is the only input whose exact result is an integer; the floored accumulator
-            // below lands on -1 for it. Adding this flag back yields the exact 0.
+            // lnWadToRay(1⋅10¹⁸) = 0 is the only input whose exact result is an integer; the
+            // floored accumulator below lands on -1 for it. Adding this flag back yields the exact
+            // 0.
             let one := eq(0xde0b6b3a7640000, x)
 
             // Normalize: x := m, a Q103 fixnum in [1, 2), truncated from x / 2ᵏ. Truncation
@@ -133,7 +134,7 @@ library Ln {
         //     r = (r - (r < 0 ? 10**9 - 1 : 0)) / 10**9;
         // The subtraction cannot overflow: |r| < 2⁹⁷.
         assembly ("memory-safe") {
-            r := sdiv(sub(r, mul(slt(r, 0), 0x3b9ac9ff)), 0x3b9aca00)
+            r := sdiv(sub(r, mul(0x3b9ac9ff, sgt(0x00, r))), 0x3b9aca00)
         }
     }
 }
