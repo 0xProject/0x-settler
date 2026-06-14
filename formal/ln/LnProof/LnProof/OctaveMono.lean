@@ -92,7 +92,7 @@ theorem affine_tail_mono {a a' W : Nat}
       (by rw [e2']; clear e2 e2' e3 hKc hKlt; simp only [ipow255]; omega)
       (by rw [e2']; clear e2 e2' e3 hKc hKlt; simp only [ipow255]; omega)
   have hBIlt : BIASc < 2 ^ 256 := by simp only [BIASc]; omega
-  have hBI : toInt BIASc = (143060321855302967919159136223863753677754092301269 : Int) := by
+  have hBI : toInt BIASc = (143060321855302967919159136224515440252390103395285 : Int) := by
     rw [toInt_of_lt (by simp only [BIASc]; omega)]
     simp only [BIASc]
     omega

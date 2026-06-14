@@ -145,7 +145,7 @@ theorem clz_bounds {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
 positive, so the output cannot be negative. -/
 theorem v_pos_ge_pos {m c : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) (hc : c ≤ 152) :
     0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      143060321855302967919159136223863753677754092301269 := by
+      143060321855302967919159136224515440252390103395285 := by
   have hX1 := x1_nonneg_geF h1 h2
   have hx0 : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 :=
     Int.mul_nonneg hX1 (by omega)
@@ -182,7 +182,7 @@ theorem model_ln_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
   · obtain ⟨hbr1, hbr2⟩ := model_floor_bracket h1 h2 hne
     rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1 hbr2
     have hbr2' : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
-        ln2kInt (evmClz x) + 143060321855302967919159136223863753677754092301269 <
+        ln2kInt (evmClz x) + 143060321855302967919159136224515440252390103395285 <
         (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 := by
       have e : (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 =
           toInt (model_ln_wad_evm x) * 2 ^ 72 + 2 ^ 72 := by
