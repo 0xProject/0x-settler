@@ -91,6 +91,10 @@ jobs:
             '#print axioms LnFloorCert.model_ln_wad_to_wad_floor' \
             '#print axioms LnFloorCert.model_ln_wad_negative_iff' \
             '#print axioms LnFloorCert.model_ln_wad_to_wad_negative_iff' \
+            '#print axioms LnFloorCert.FloorSpecA_iff_cutLeLogWadRay' \
+            '#print axioms LnFloorCert.FloorSpecB_iff_cutLogWadRayLtWithMargin' \
+            '#print axioms LnFloorCert.FloorSpec_iff_cutLnWadRayBracket' \
+            '#print axioms LnFloorCert.FloorSpecToWad_iff_cutLnWadSpec' \
             '#print axioms LnFloorCert.model_ln_wad_cut_spec' \
             '#print axioms LnFloorCert.model_ln_wad_to_wad_cut_spec' \
             | lake env lean --stdin > actual_axioms.txt 2>&1
@@ -106,6 +110,10 @@ jobs:
           'LnFloorCert.model_ln_wad_to_wad_floor' depends on axioms: [propext, Classical.choice, Quot.sound]
           'LnFloorCert.model_ln_wad_negative_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
           'LnFloorCert.model_ln_wad_to_wad_negative_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+          'LnFloorCert.FloorSpecA_iff_cutLeLogWadRay' depends on axioms: [propext]
+          'LnFloorCert.FloorSpecB_iff_cutLogWadRayLtWithMargin' depends on axioms: [propext, Quot.sound]
+          'LnFloorCert.FloorSpec_iff_cutLnWadRayBracket' depends on axioms: [propext, Quot.sound]
+          'LnFloorCert.FloorSpecToWad_iff_cutLnWadSpec' depends on axioms: [propext, Quot.sound]
           'LnFloorCert.model_ln_wad_cut_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
           'LnFloorCert.model_ln_wad_to_wad_cut_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
           EXPECTED

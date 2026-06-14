@@ -209,6 +209,10 @@ theorem evmSlt_zero {r : Nat} (h : r < 2 ^ 256) :
   repeat' split
   all_goals omega
 
+theorem evmSgt_zero_eq_slt_zero (r : Nat) : evmSgt 0 r = evmSlt r 0 := by
+  unfold evmSgt evmSlt
+  rfl
+
 theorem to_wad_eq {x : Nat} (h : x < 2 ^ 256) :
     model_ln_wad_to_wad_evm x =
       evmSdiv
@@ -217,6 +221,7 @@ theorem to_wad_eq {x : Nat} (h : x < 2 ^ 256) :
         1000000000 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256_of_lt h]
+  rw [evmSgt_zero_eq_slt_zero, evmMul_comm 999999999]
 
 theorem to_wad_numerator_eq {r : Nat} (hr : r < 2 ^ 256)
     (hb1 : -(12259964326927110866866776217202473468949912977468817408 : Int) ≤ toInt r)

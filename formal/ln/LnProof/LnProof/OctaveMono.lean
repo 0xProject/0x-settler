@@ -46,6 +46,8 @@ theorem model_eq_tail {x : Nat} (h : x < 2 ^ 256) :
   simp only [Sc, P4c, P3c, P2c, P1c, C0c, Q4c, Q3c, Q2c, Q1c, Kc, LN2c, BIASc,
     u256_of_lt h]
   rw [evmEq_comm 1000000000000000000 x, evmMul_comm 7450580596923828125,
+    evmAdd_comm (evmMul 3273295013171879848905889459134067659407864468560
+      (evmSub 152 (evmClz x))),
     evmAdd_comm 143060321855302967919159136224617915605068374682581]
 
 /-- Per-`clz` bracket on the signed value of `ln2 * k`; `[-LN2c*103, LN2c*152]`. -/
