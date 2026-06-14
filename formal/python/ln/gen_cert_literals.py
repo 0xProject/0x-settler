@@ -115,7 +115,13 @@ def ptrim(a):
         out.pop()
     return out
 
-_B_CERT = 50000
+# Kronecker digit width used by the proof (FloorCert*.lean `*_eval_eq` and the
+# cell-walk `checkCoverK`). It must exceed log2(2 * ell1) of the certificates;
+# the binding floor is the cell-walk `aeval` bound at ~2^37772 (the certificate
+# coefficients are ~37k-bit and the monomials decay ~104 bits/degree, so every
+# term is ~constant scale), with the eval-identity `polyL1` floor at ~2^37392.
+# 38000 clears both with a ~228-bit margin; it is not a free parameter.
+_B_CERT = 38000
 for _name in ("certGeUpLit", "certGeLoLit", "certLtUpLit", "certLtLoLit"):
     _full = certs[_name]
     _trimmed = ptrim(_full)
