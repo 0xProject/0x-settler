@@ -86,15 +86,15 @@ library Ln {
             // literal is shared.
             let c0 := 0xb05a8b41cf51c04d1b8a08d465
 
-            // Numerator p(u), Horner up the basis staircase Q68 -> Q80 -> Q86 -> Q93 -> Q94.
-            // p(u)/2⁹⁴ ∈ [663.7, 705.5] on the domain. The leading product is nonnegative, so the
-            // first shift may be logical.
+            // Numerator p(u), Horner up the basis staircase Q68 → Q80 → Q86 → Q93 → Q94. p(u)/2⁹⁴ ∈
+            // [663.7, 705.5] on the domain. The leading product is nonnegative, so the first shift
+            // may be logical.
             let p := sub(shr(0x54, mul(0xf642b0ed5372ff45e0, u)), 0xede142e73a9acbb00e9c42)
             p := add(sar(0x5a, mul(p, u)), 0xf2a56533e74a454c9d585f70)
             p := sub(sar(0x59, mul(p, u)), 0xb44d9253cd61fb87dc7efcfbc5)
             p := add(sar(0x5f, mul(p, u)), c0)
 
-            // Denominator q(u), monic, Horner up the staircase Q96 -> Q87 -> Q85 -> Q93 ->
+            // Denominator q(u), monic, Horner up the staircase Q96 → Q87 → Q85 → Q93 →
             // Q94. q(u)/2⁹⁴ ∈ [-705.5, -656.0] on the domain: bounded away from zero, and
             // p(u)/(-q(u)) ∈ [1, 1.01].
             let q := sub(u, 0x364589193443b48661938f59da)
@@ -117,7 +117,7 @@ library Ln {
             // subtrahend 1.71 ⋅ 10²¹ is the one-sided error margin described above.
             r := add(0x61e2c6b2c35132b01ead59b23d9e6e18e745cd2bd5, r)
 
-            // Q72 -> integer ray result (`SAR` floors), then the x = 10¹⁸ correction.
+            // Q72 → integer ray result (`SAR` floors), then the x = 10¹⁸ correction.
             r := add(sar(0x48, r), one)
         }
     }
