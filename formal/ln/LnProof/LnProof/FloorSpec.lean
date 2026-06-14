@@ -1,26 +1,27 @@
 import LnProof.FloorAssembly
 
 /-!
-# The floor specification of the `lnWad` model
+# The floor-cut specification of the `lnWad` model
 
-Top-line statement: for every input `1 ≤ x < 2^255`, the model output
-`r` satisfies `r ≤ 10^27·ln(x/10^18) < r + 2` — that is, the model
-returns exactly `⌊10^27·ln(x/10^18)⌋` or one less.
+Top-line cut statement: for every input `1 ≤ x < 2^255`, the model output
+`r` satisfies the two exponential-cut predicates that correspond to
+`r ≤ 10^27·ln(x/10^18) < r + 2` under the standard real interpretation.
 
 The two sides are arithmetized without real numbers through the
 partial sums `S_N(t) = Σ_{j≤N} t^j/j!` of the exponential, using
-`e^t = sup_N S_N(t)` for `t ≥ 0`:
+the Taylor-cut interface from `LnProof.ExpSum`:
 
 * `FloorSpecA` says `e^(r/10^27) ≤ x/10^18` (for negative `r`, the
-  reciprocal form `e^(|r|/10^27) ≥ 10^18/x`), which is exactly
+  reciprocal form `e^(|r|/10^27) ≥ 10^18/x`), corresponding to
   `r ≤ 10^27·ln(x/10^18)`.
 * `FloorSpecB` says `x/10^18 < e^((r+2)/10^27)` with one part in
-  `10^30` of strictness slack (reciprocal form for `r + 2 ≤ 0`),
-  which is exactly `10^27·ln(x/10^18) < r + 2`.
+  `10^30` of strictness margin (reciprocal form for `r + 2 ≤ 0`),
+  corresponding to `10^27·ln(x/10^18) < r + 2`.
 
 Both are `capUB`/`capLB` statements over `QS = 10^27·2^99`: a `capUB`
 is a `∀ N` bound on every integer-scaled partial sum, a `capLB` exhibits
-one witness partial sum.
+one witness partial sum. `LnProof.ExpLogCutSpec` packages these predicates
+as an explicit log-cut specification.
 -/
 
 namespace LnFloorCert

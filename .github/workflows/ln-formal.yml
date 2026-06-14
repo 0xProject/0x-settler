@@ -79,6 +79,7 @@ jobs:
           printf '%s\n' \
             'import LnProof.TopMono' \
             'import LnProof.FloorSpec' \
+            'import LnProof.ExpLogCutSpec' \
             '#print axioms LnGeneratedModel.model_ln_wad_one_wad' \
             '#print axioms LnGeneratedModel.model_ln_wad_to_wad_one_wad' \
             '#print axioms LnGeneratedModel.model_ln_wad_one_wad_mono' \
@@ -90,6 +91,8 @@ jobs:
             '#print axioms LnFloorCert.model_ln_wad_to_wad_floor' \
             '#print axioms LnFloorCert.model_ln_wad_negative_iff' \
             '#print axioms LnFloorCert.model_ln_wad_to_wad_negative_iff' \
+            '#print axioms LnFloorCert.model_ln_wad_cut_spec' \
+            '#print axioms LnFloorCert.model_ln_wad_to_wad_cut_spec' \
             | lake env lean --stdin > actual_axioms.txt 2>&1
           diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
           'LnGeneratedModel.model_ln_wad_one_wad' does not depend on any axioms
@@ -103,6 +106,8 @@ jobs:
           'LnFloorCert.model_ln_wad_to_wad_floor' depends on axioms: [propext, Classical.choice, Quot.sound]
           'LnFloorCert.model_ln_wad_negative_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
           'LnFloorCert.model_ln_wad_to_wad_negative_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
+          'LnFloorCert.model_ln_wad_cut_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
+          'LnFloorCert.model_ln_wad_to_wad_cut_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
           EXPECTED
 
       - name: Fuzz-test Lean model against Solidity
