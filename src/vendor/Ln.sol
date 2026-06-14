@@ -25,7 +25,7 @@ library Ln {
         // sup-norm error of the integer-rounded rational 2⋅√u⋅|p/q - f|⋅10²⁷ is ≤0.325ulp.
         //
         // Mixed fixed-point bases, chosen so every renormalizing shift lands a value directly
-        // at the basis its consumer needs (each runtime quantity is rounded exactly once):
+        // at the basis its consumer needs (each quantity is rounded exactly once):
         //     m:      Q103 (truncated from x; error < 2⁻¹⁰³)
         //     z:      Q100 (one sdiv)
         //     u = z²: Q96 (one `shr` by 104, straight from the Q200 product)
@@ -37,7 +37,7 @@ library Ln {
         //         multiply by u consumes ~91 bits of headroom, so consecutive unrenormalized steps
         //         cannot fit in 256 bits.
         //     p, q final: Q94 (|p ⋅ z| < 2²⁰¹; both final stage shifts land there directly)
-        //     p⋅z/q: one sdiv at Q100 (granularity 2⁻¹⁰⁰, ~0.0016 ulp)
+        //     p⋅z/q: one `SDIV` at Q100 (granularity 2⁻¹⁰⁰, ~0.0016 ulp)
         //     output: multiply by 5²⁷ = 10²⁷ / 2²⁷ places the quotient on the 10²⁷ ⋅ 2⁷² grid
         //         shared by the k⋅ln(2) term and the bias, so the closing `sar(72, …)` is the
         //         single output-rounding floor
@@ -53,7 +53,7 @@ library Ln {
         // d/dm[(s-m)/(m+s)] = -2s/(m+s)² < 0 with |dz/dm| < 1, and the quotient p⋅z/q is an
         // antitone function of the integer z: per unit step of z it moves by at least Rₘᵢₙ -
         // zₘₐₓ⋅2J > 0.82 quotient units (R = p/-q ≥ 0.939; J bounds the truncation of R between
-        // adjacent u values), and `sdiv` truncation toward zero preserves order. The x = 10¹⁸
+        // adjacent u values), and `SDIV` truncation toward zero preserves order. The x = 10¹⁸
         // correction preserves monotonicity because its neighbors' results bracket [0, 999999999].
         assembly ("memory-safe") {
             if iszero(sgt(x, 0)) {
@@ -112,7 +112,7 @@ library Ln {
             // Add k ⋅ round(ln(2) ⋅ 10²⁷ ⋅ 2⁷²). k is two's complement (k ∈ [-103, 151])
             r := add(r, mul(0x23d5b9ff36551802aa5d6f9754b0f3fad83b19450, k))
 
-            // Add floor((ln(s/2¹⁰³) + 103⋅ln(2) - 18⋅ln(10)) ⋅ 10²⁷ ⋅ 2⁷²) - 1.71 ⋅ 10²¹. The
+            // Add ⌊(ln(s/2¹⁰³) + 103⋅ln(2) - 18⋅ln(10)) ⋅ 10²⁷ ⋅ 2⁷²⌋ - 1.71 ⋅ 10²¹. The
             // subtrahend 1.71 ⋅ 10²¹ is the one-sided error margin described above.
             r := add(0x61e2c6b2c35132b01ead59b23d9e6e18e745cd2bd5, r)
 
