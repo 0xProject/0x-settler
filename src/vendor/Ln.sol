@@ -67,7 +67,7 @@ library Ln {
 
             // ln(1) = 0 is the only input whose exact result is an integer; the floored accumulator
             // below lands on -1 for it. Adding this flag back yields the exact 0.
-            let one := eq(x, 0xde0b6b3a7640000)
+            let one := eq(0xde0b6b3a7640000, x)
 
             // Normalize: x := m, a Q103 fixnum in [1, 2), truncated from x / 2ᵏ. Truncation
             // underestimates ln(x) by less than 2⁻¹⁰³ (only possible when k > 0).
@@ -110,14 +110,14 @@ library Ln {
             r := sdiv(mul(p, z), q)
 
             // Rescale to ray in Q72: 5²⁷ = 10²⁷ ⋅ 2⁷² / 2¹²⁷; exact.
-            r := mul(r, 0x6765c793fa10079d)
+            r := mul(0x6765c793fa10079d, r)
 
             // Add k ⋅ round(ln(2) ⋅ 10²⁷ ⋅ 2⁷²). k is two's complement (k in [-103, 151])
             r := add(r, mul(0x23d5b9ff36551802aa5d6f9754b0f3fad83b19450, k))
 
             // Add floor((ln(s/2¹⁰³) + 103⋅ln(2) - 18⋅ln(10)) ⋅ 10²⁷ ⋅ 2⁷²) - 2.36 ⋅ 10²¹. The
             // subtrahend 2.36 ⋅ 10²¹ is the one-sided error margin described above.
-            r := add(r, 0x61e2c6b2c35132b01ead59b21a4a764a0e2f452bd5)
+            r := add(0x61e2c6b2c35132b01ead59b21a4a764a0e2f452bd5, r)
 
             // Q72 -> integer ray result (`SAR` floors), then the x = 10¹⁸ correction.
             r := add(sar(0x48, r), one)
@@ -127,7 +127,7 @@ library Ln {
     /// @notice Compute the natural logarithm of a positive fixnum with 10**18 (wad) basis,
     ///         returning the result as a fixnum with 10**18 (wad) basis.
     /// @dev Let Lw = 10¹⁸ * ln(x / 10¹⁸) be the exact, infinite-precision result. This function
-    ///      returns either `⌊L⌋` or `⌊L⌋ - 1`. Like `lnWadRay`, `lnWad(10**18) == 0` exactly, and
+    ///      returns either `⌊L⌋` or `⌊L⌋ - 1`. Like `lnWadToRay`, `lnWad(10**18) == 0` exactly, and
     ///      `lnWad` is monotonic.
     function lnWad(int256 x) internal pure returns (int256 r) {
         r = lnWadToRay(x);
