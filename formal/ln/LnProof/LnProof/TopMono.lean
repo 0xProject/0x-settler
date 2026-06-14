@@ -218,6 +218,51 @@ theorem to_wad_eq {x : Nat} (h : x < 2 ^ 256) :
   unfold model_ln_wad_to_wad_evm
   simp only [u256_of_lt h]
 
+theorem to_wad_numerator_eq {r : Nat} (hr : r < 2 ^ 256)
+    (hb1 : -(12259964326927110866866776217202473468949912977468817408 : Int) ≤ toInt r)
+    (hb2 : toInt r ≤ (12259964326927110866866776217202473468949912977468817409 : Int)) :
+    toInt (evmSub r (evmMul (evmSlt r 0) 999999999)) =
+      toInt r - (if toInt r < 0 then (999999999 : Int) else 0) := by
+  have hm1 : evmMul 1 999999999 = 999999999 := by decide
+  have hm0 : evmMul 0 999999999 = 0 := by decide
+  have h999 : toInt 999999999 = (999999999 : Int) := by decide
+  rw [evmSlt_zero hr]
+  rcases Int.lt_or_le (toInt r) 0 with hneg | hpos
+  · rw [if_pos hneg, if_pos hneg, hm1]
+    rw [evmSub_transport hr (by omega)
+      (by rw [h999]; simp only [ipow255]; omega)
+      (by rw [h999]; simp only [ipow255]; omega), h999]
+  · rw [if_neg (by omega), if_neg (by omega), hm0, evmSub_zero hr]
+    omega
+
+theorem floor_div_pos_window {a : Int} (ha : 0 ≤ a) :
+    (((a.toNat / 1000000000 : Nat) : Int) * 1000000000 ≤ a) ∧
+      (a < (((a.toNat / 1000000000 : Nat) : Int) + 1) * 1000000000) := by
+  have hsplit := Nat.div_add_mod a.toNat 1000000000
+  have hmod := Nat.mod_lt a.toNat (by decide : 0 < 1000000000)
+  have ha' : ((a.toNat : Nat) : Int) = a := Int.toNat_of_nonneg ha
+  constructor <;> omega
+
+theorem floor_div_neg_window {a : Int} (ha : a < 0) :
+    (-(((((-a).toNat + 999999999) / 1000000000 : Nat) : Int)) * 1000000000 ≤ a) ∧
+      (a < (-(((((-a).toNat + 999999999) / 1000000000 : Nat) : Int)) + 1) *
+        1000000000) := by
+  let A := (-a).toNat
+  let q := (A + 999999999) / 1000000000
+  have hapos : 0 < A := by
+    unfold A
+    rcases Nat.eq_zero_or_pos (-a).toNat with hz | hp
+    · have hcast : (((-a).toNat : Nat) : Int) = -a := Int.toNat_of_nonneg (by omega)
+      rw [hz] at hcast
+      omega
+    · exact hp
+  have ha' : ((A : Nat) : Int) = -a := by
+    unfold A
+    exact Int.toNat_of_nonneg (by omega)
+  have hsplit := Nat.div_add_mod (A + 999999999) 1000000000
+  have hmod := Nat.mod_lt (A + 999999999) (by decide : 0 < 1000000000)
+  constructor <;> unfold q at * <;> omega
+
 /-- The model's output sits inside `[-2^183, 2^183 + 1]`: the post-shift
 value is a 184-bit signed quantity plus the `one` correction. -/
 theorem lnTail_bound (one kw m : Nat) (hone : one ≤ 1) :
@@ -261,6 +306,43 @@ theorem model_bound {x : Nat} (h : x < 2 ^ 256) :
   rw [model_eq_tail h]
   exact lnTail_bound _ _ _ (evmEq_le_one _ _)
 
+theorem to_wad_floor_window {x : Nat} (h : x < 2 ^ 256) :
+    toInt (model_ln_wad_to_wad_evm x) * 1000000000 ≤ toInt (model_ln_wad_evm x) ∧
+      toInt (model_ln_wad_evm x) < (toInt (model_ln_wad_to_wad_evm x) + 1) *
+        1000000000 := by
+  have hr := model_lt h
+  obtain ⟨hb1, hb2⟩ := model_bound h
+  have hn := to_wad_numerator_eq hr hb1 hb2
+  have hnlt : evmSub (model_ln_wad_evm x) (evmMul (evmSlt (model_ln_wad_evm x) 0) 999999999) <
+      2 ^ 256 := evmSub_lt _ _
+  have hdlt : (1000000000 : Nat) < 2 ^ 256 := by omega
+  have hden : toInt 1000000000 = (1000000000 : Int) := by decide
+  have hdenN : ((1000000000 : Int)).toNat = 1000000000 := by decide
+  rw [to_wad_eq h]
+  generalize hw : evmSub (model_ln_wad_evm x) (evmMul (evmSlt (model_ln_wad_evm x) 0) 999999999) = nw at hn hnlt ⊢
+  rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) 0 with hneg | hpos
+  · rw [if_pos hneg] at hn
+    have hnum : toInt nw < 0 := by omega
+    rw [evmSdiv_neg_pos hnlt hdlt hnum (by simp only [ipow255]; omega)
+      (by rw [hden]; omega), hden, hdenN]
+    have hwnd := floor_div_neg_window (a := toInt (model_ln_wad_evm x)) hneg
+    have hmag : (-toInt nw).toNat = (-toInt (model_ln_wad_evm x)).toNat + 999999999 := by
+      apply Int.ofNat.inj
+      change ((-toInt nw).toNat : Int) =
+        (((-toInt (model_ln_wad_evm x)).toNat + 999999999 : Nat) : Int)
+      rw [Int.toNat_of_nonneg (by omega : 0 ≤ -toInt nw), Int.natCast_add,
+        Int.toNat_of_nonneg (by omega : 0 ≤ -toInt (model_ln_wad_evm x))]
+      omega
+    rw [hmag]
+    exact hwnd
+  · rw [if_neg (by omega)] at hn
+    have hnum : 0 ≤ toInt nw := by omega
+    rw [evmSdiv_pos_pos hnlt hdlt hnum (by rw [hden]; omega), hden, hdenN]
+    have hwnd := floor_div_pos_window (a := toInt (model_ln_wad_evm x)) hpos
+    have hn0 : toInt nw = toInt (model_ln_wad_evm x) := by omega
+    rw [hn0]
+    exact hwnd
+
 /-- Signed floor division by `10^9` (as the helper computes it) is monotone. -/
 theorem floordiv_mono {r r' : Nat} (hr : r < 2 ^ 256) (hr' : r' < 2 ^ 256)
     (hb1 : -(12259964326927110866866776217202473468949912977468817408 : Int) ≤ toInt r)
@@ -273,30 +355,11 @@ theorem floordiv_mono {r r' : Nat} (hr : r < 2 ^ 256) (hr' : r' < 2 ^ 256)
   have hden : toInt 1000000000 = (1000000000 : Int) := by decide
   have hdenN : ((1000000000 : Int)).toNat = 1000000000 := by decide
   have hdlt : (1000000000 : Nat) < 2 ^ 256 := by omega
-  have hm1 : evmMul 1 999999999 = 999999999 := by decide
-  have hm0 : evmMul 0 999999999 = 0 := by decide
-  have h999 : toInt 999999999 = (999999999 : Int) := by decide
-  -- normalize each numerator
-  have key : ∀ s : Nat, s < 2 ^ 256 →
-      -(12259964326927110866866776217202473468949912977468817408 : Int) ≤ toInt s →
-      toInt s ≤ (12259964326927110866866776217202473468949912977468817409 : Int) →
-      toInt (evmSub s (evmMul (evmSlt s 0) 999999999)) =
-        toInt s - (if toInt s < 0 then (999999999 : Int) else 0) := by
-    intro s hs hsb1 hsb2
-    rw [evmSlt_zero hs]
-    rcases Int.lt_or_le (toInt s) 0 with hneg | hpos
-    · rw [if_pos hneg, if_pos hneg, hm1]
-      rw [evmSub_transport hs (by omega)
-        (by rw [h999]; simp only [ipow255]; omega)
-        (by rw [h999]; simp only [ipow255]; omega), h999]
-    · rw [if_neg (by omega), if_neg (by omega), hm0, evmSub_zero hs]
-      omega
-  have e1 := key r hr hb1 hb2
-  have e1' := key r' hr' hb1' hb2'
+  have e1 := to_wad_numerator_eq hr hb1 hb2
+  have e1' := to_wad_numerator_eq hr' hb1' hb2'
   have hnlt : evmSub r (evmMul (evmSlt r 0) 999999999) < 2 ^ 256 := evmSub_lt _ _
   have hnlt' : evmSub r' (evmMul (evmSlt r' 0) 999999999) < 2 ^ 256 := evmSub_lt _ _
   have hdpos : (0 : Int) < toInt 1000000000 := by rw [hden]; omega
-  clear key hm0 hm1 h999
   generalize evmSub r (evmMul (evmSlt r 0) 999999999) = nw at e1 hnlt ⊢
   generalize evmSub r' (evmMul (evmSlt r' 0) 999999999) = nw' at e1' hnlt' ⊢
   rcases Int.lt_or_le (toInt r) 0 with hneg | hpos

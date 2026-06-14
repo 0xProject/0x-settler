@@ -8,10 +8,11 @@ library Ln {
     ///      function returns either `floor(L)` or `floor(L) - 1` (equivalently, the unique
     ///      integers r satisfy L - 2 < r <= L). It never returns a value greater than the
     ///      correctly-rounded-down result. `lnWadToRay(10**18) == 0` exactly, and the result
-    ///      is negative iff `x < 10**18`. Both properties are proven in Lean over the
+    ///      is negative iff `x < 10**18`. These properties are proven in Lean over the
     ///      generated model (formal/ln/LnProof): the floor specification
     ///      `r <= L < r + 2` is theorem `model_ln_wad_floor` (arithmetized through
-    ///      integer-scaled partial sums of the exponential, standard axioms only), and
+    ///      integer-scaled partial sums of the exponential, standard axioms only), the
+    ///      sign characterization is theorem `model_ln_wad_negative_iff`, and
     ///      monotonicity — `x1 < x2` implies `lnWadToRay(x1) <= lnWadToRay(x2)`, via the
     ///      analytic within-octave leg plus the finite leg covering the 254 clz seams and the
     ///      corrected point `x = 10**18` — is theorem `model_ln_wad_mono`, with an
@@ -147,9 +148,12 @@ library Ln {
     /// @notice Compute the natural logarithm of a positive fixnum with 10**18 (wad) basis,
     ///         returning the result as a fixnum with 10**18 (wad) basis.
     /// @dev Let Lw = 10**18 * ln(x / 10**18) be the exact, infinite-precision result. This
-    ///      function returns either `floor(Lw)` or `floor(Lw) - 1`; the contract, the
-    ///      monotonicity guarantee, and `lnWad(10**18) == 0` carry over from `lnWadToRay`
-    ///      because flooring composes exactly with floor division by 10**9.
+    ///      function returns either `floor(Lw)` or `floor(Lw) - 1`. The generated-model
+    ///      theorem `model_ln_wad_to_wad_floor` packages the ray-scale floor certificate
+    ///      with the exact signed floor-division window by 10**9. Monotonicity is theorem
+    ///      `model_ln_wad_to_wad_mono`, `lnWad(10**18) == 0` is theorem
+    ///      `model_ln_wad_to_wad_one_wad`, and the sign characterization is theorem
+    ///      `model_ln_wad_to_wad_negative_iff`.
     function lnWad(int256 x) internal pure returns (int256 r) {
         r = lnWadToRay(x);
         // Floor division of the ray result by 10**9 (`sdiv` alone truncates toward zero,

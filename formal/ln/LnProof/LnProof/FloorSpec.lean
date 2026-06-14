@@ -260,4 +260,72 @@ theorem model_ln_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
           rw [if_pos (by omega)]
           exact lo_ge_pos hbranch hmant_hi hc1 hc hbr2' (by omega) hw2
 
+/-- Floor specification for the wad-scale wrapper: the ray-scale output keeps
+the certified logarithm bracket, and the wrapper output is exactly its signed
+floor division by `10^9`. -/
+def FloorSpecToWad (ray wad : Int) (x : Nat) : Prop :=
+  FloorSpecA ray x ∧ FloorSpecB ray x ∧
+    wad * 1000000000 ≤ ray ∧ ray < (wad + 1) * 1000000000
+
+/-- **Wad floor specification.** The `lnWadToWad` model returns the signed
+floor of the certified ray-scale `lnWad` model divided by `10^9`, so the
+ray-scale floor bracket is packaged with the exact division window. -/
+theorem model_ln_wad_to_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
+    FloorSpecToWad (toInt (model_ln_wad_evm x))
+      (toInt (model_ln_wad_to_wad_evm x)) x := by
+  obtain ⟨ha, hb⟩ := model_ln_wad_floor h1 h2
+  obtain ⟨hlo, hhi⟩ := to_wad_floor_window (by omega : x < 2 ^ 256)
+  exact ⟨ha, hb, hlo, hhi⟩
+
+/-- The ray-scale model output is negative exactly below one wad. -/
+theorem model_ln_wad_negative_iff {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
+    toInt (model_ln_wad_evm x) < 0 ↔ x < 10 ^ 18 := by
+  constructor
+  · intro hneg
+    rcases Nat.lt_or_ge x (10 ^ 18) with hlt | hxle
+    · exact hlt
+    · have hm := model_ln_wad_mono (x := 10 ^ 18) (y := x) (by decide) hxle h2
+      have hi := toInt_of_sle
+        (model_lt (by decide : (10 ^ 18 : Nat) < 2 ^ 256))
+        (model_lt (by omega : x < 2 ^ 256)) hm
+      have hzero : toInt (model_ln_wad_evm (10 ^ 18)) = 0 := by
+        rw [model_ln_wad_one_wad]
+        decide
+      rw [hzero] at hi
+      omega
+  · intro hx
+    rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) 0 with hneg | hrnon
+    · exact hneg
+    · obtain ⟨ha, _⟩ := model_ln_wad_floor h1 h2
+      unfold FloorSpecA at ha
+      rw [if_pos hrnon] at ha
+      have h0 := ha 0
+      simp only [expNum, fact, Nat.pow_zero, Nat.mul_one, Nat.one_mul] at h0
+      omega
+
+/-- The wad-scale wrapper output is negative exactly below one wad. -/
+theorem model_ln_wad_to_wad_negative_iff {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
+    toInt (model_ln_wad_to_wad_evm x) < 0 ↔ x < 10 ^ 18 := by
+  constructor
+  · intro hneg
+    rcases Nat.lt_or_ge x (10 ^ 18) with hlt | hxle
+    · exact hlt
+    · have hm := model_ln_wad_to_wad_mono (x := 10 ^ 18) (y := x) (by decide) hxle h2
+      have hi := toInt_of_sle
+        (to_wad_lt (by decide : (10 ^ 18 : Nat) < 2 ^ 256))
+        (to_wad_lt (by omega : x < 2 ^ 256)) hm
+      have hzero : toInt (model_ln_wad_to_wad_evm (10 ^ 18)) = 0 := by
+        rw [model_ln_wad_to_wad_one_wad]
+        decide
+      rw [hzero] at hi
+      omega
+  · intro hx
+    have hrneg := (model_ln_wad_negative_iff h1 h2).mpr hx
+    obtain ⟨_, _, hlo, _⟩ := model_ln_wad_to_wad_floor h1 h2
+    rcases Int.lt_or_le (toInt (model_ln_wad_to_wad_evm x)) 0 with hwneg | hwpos
+    · exact hwneg
+    · have hprod : 0 ≤ toInt (model_ln_wad_to_wad_evm x) * 1000000000 := by
+        exact Int.mul_nonneg hwpos (by omega)
+      omega
+
 end LnFloorCert
