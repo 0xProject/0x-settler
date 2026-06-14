@@ -126,19 +126,15 @@ library Ln {
 
     /// @notice Compute the natural logarithm of a positive fixnum with 10**18 (wad) basis,
     ///         returning the result as a fixnum with 10**18 (wad) basis.
-    /// @dev Let Lw = 10**18 * ln(x / 10**18) be the exact, infinite-precision result. This
-    ///      function returns either `floor(Lw)` or `floor(Lw) - 1`. The generated-model
-    ///      theorem `model_ln_wad_to_wad_floor` packages the ray-scale floor certificate
-    ///      with the exact signed floor-division window by 10**9. Monotonicity is theorem
-    ///      `model_ln_wad_to_wad_mono`, `lnWad(10**18) == 0` is theorem
-    ///      `model_ln_wad_to_wad_one_wad`, and the sign characterization is theorem
-    ///      `model_ln_wad_to_wad_negative_iff`.
+    /// @dev Let Lw = 10¹⁸ * ln(x / 10¹⁸) be the exact, infinite-precision result. This function
+    ///      returns either `⌊L⌋` or `⌊L⌋ - 1`. Like `lnWadRay`, `lnWad(10**18) == 0` exactly, and
+    ///      `lnWad` is monotonic.
     function lnWad(int256 x) internal pure returns (int256 r) {
         r = lnWadToRay(x);
-        // Floor division of the ray result by 10**9 (`sdiv` alone truncates toward zero,
-        // which would round negative results the wrong way). Equivalent Solidity:
+        // Floor division of the ray result by 10⁹. `SDIV` alone truncates toward zero, which would
+        // round negative results the wrong way. Equivalent Solidity:
         //     r = (r - (r < 0 ? 10**9 - 1 : 0)) / 10**9;
-        // The subtraction cannot overflow: |r| < 2**97.
+        // The subtraction cannot overflow: |r| < 2⁹⁷.
         assembly ("memory-safe") {
             r := sdiv(sub(r, mul(slt(r, 0), 0x3b9ac9ff)), 0x3b9aca00)
         }
