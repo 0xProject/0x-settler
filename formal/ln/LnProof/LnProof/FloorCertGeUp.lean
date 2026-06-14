@@ -32,9 +32,13 @@ theorem geTD_eq_lit : geTD = geTDLit := by
 
 theorem geUp_eval_eq : ∀ x : Int, evalPoly certGeUp x = evalPoly certGeUpLit x := by
   refine evalPoly_ext (B := kB) certGeUp certGeUpLit ?_ ?_ ?_
-  · show polyL1 certGeUp * 2 < 2 ^ kB
-    unfold certGeUp
-    rw [geTN_eq_lit, geTD_eq_lit]
+  · -- Bound `polyL1 certGeUp` through the ℓ1 homomorphism lemmas applied to the
+    -- (literal-coefficient) summands, then close by `exact` through the definitional
+    -- equality `certGeUp ≡ polyAdd …`. Avoiding `unfold certGeUp` here is essential:
+    -- the `unfold` tactic forces the kernel to reduce the degree-276 construction
+    -- (minutes), whereas the defeq the final `exact` performs is lazy congruence
+    -- bottoming out at `geTD ≡ geTDLit` / `geTN ≡ geTNLit` (milliseconds).
+    show polyL1 certGeUp * 2 < 2 ^ kB
     have h1 := polyL1_polyAdd
       (polyScale ((EUD + EUN) * KF1) (polyMul [0, 1] (polyPow geTDLit 23)))
       (polyScale (-(Sc : Int) * EUD) (polyAdd (polyScale 23 (polyMul (expPolyNum geTNLit geTDLit 22) geTDLit)) (polyScale 2 (polyPow geTNLit 23))))
@@ -72,10 +76,11 @@ theorem geUp_eval_eq : ∀ x : Int, evalPoly certGeUp x = evalPoly certGeUpLit x
       decide +kernel
     have hA := Nat.le_trans h2 h6
     have hB := Nat.le_trans h7 h17
-    omega
+    exact Nat.lt_of_le_of_lt (Nat.mul_le_mul_right 2 (Nat.le_trans h1 (Nat.add_le_add hA hB))) hfin
   · show polyL1 certGeUpLit * 2 < 2 ^ kB
     decide +kernel
   · show evalPoly certGeUp ((2 : Int) ^ kB) = evalPoly certGeUpLit ((2 : Int) ^ kB)
+    rw [int_two_pow kB]
     unfold certGeUp
     rw [geTN_eq_lit, geTD_eq_lit]
     simp only [evalPoly_polyAdd, evalPoly_polyScale, evalPoly_polyMul,

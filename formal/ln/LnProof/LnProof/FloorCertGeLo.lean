@@ -31,9 +31,12 @@ theorem geTD2b_eq_lit : geTD2b = geTD2bLit := by
 
 theorem geLo_eval_eq : ∀ x : Int, evalPoly certGeLo x = evalPoly certGeLoLit x := by
   refine evalPoly_ext (B := kB) certGeLo certGeLoLit ?_ ?_ ?_
-  · show polyL1 certGeLo * 2 < 2 ^ kB
-    unfold certGeLo
-    rw [geTN2b_eq_lit, geTD2b_eq_lit]
+  · -- Bound `polyL1 certGeLo` via the ℓ1 homomorphism lemmas on the literal
+    -- summands, closing by `exact` through the definitional equality
+    -- `certGeLo ≡ polyAdd …`. `unfold certGeLo` is avoided: it forces the kernel
+    -- to reduce the full construction (minutes); the `exact` defeq is lazy
+    -- congruence bottoming out at `geTD2b ≡ geTD2bLit` (milliseconds).
+    show polyL1 certGeLo * 2 < 2 ^ kB
     have h1 := polyL1_polyAdd
       (polyScale (EUD * (Sc : Int)) (expPolyNum geTN2bLit geTD2bLit 22))
       (polyScale (-(EUD - EUN) * KF) (polyMul [0, 1] (polyPow geTD2bLit 22)))
@@ -59,26 +62,13 @@ theorem geLo_eval_eq : ∀ x : Int, evalPoly certGeLo x = evalPoly certGeLoLit x
         (-(EUD - EUN) * KF).natAbs *
           (polyL1 ([0, 1] : List Int) * polyL1 geTD2bLit ^ 22)) * 2 < 2 ^ kB := by
       decide +kernel
-    generalize hgT : polyL1 (polyAdd
-      (polyScale (EUD * (Sc : Int)) (expPolyNum geTN2bLit geTD2bLit 22))
-      (polyScale (-(EUD - EUN) * KF) (polyMul [0, 1] (polyPow geTD2bLit 22)))) = T
-      at h1 ⊢
-    generalize hgA : polyL1 (polyScale (EUD * (Sc : Int))
-      (expPolyNum geTN2bLit geTD2bLit 22)) = A at h1 h2
-    generalize hgB : polyL1 (polyScale (-(EUD - EUN) * KF)
-      (polyMul [0, 1] (polyPow geTD2bLit 22))) = B at h1 h4
-    generalize hgC : (EUD * (Sc : Int)).natAbs *
-      polyL1 (expPolyNum geTN2bLit geTD2bLit 22) = C at h2 h7
-    generalize hgD : (EUD * (Sc : Int)).natAbs *
-      LnExp.expNum 22 (polyL1 geTN2bLit) (polyL1 geTD2bLit) = D at h7 hfin
-    generalize hgE : (-(EUD - EUN) * KF).natAbs * polyL1 (polyMul ([0, 1] : List Int)
-      (polyPow geTD2bLit 22)) = E at h4 h9
-    generalize hgF : (-(EUD - EUN) * KF).natAbs *
-      (polyL1 ([0, 1] : List Int) * polyL1 geTD2bLit ^ 22) = F at h9 hfin
-    omega
+    have hA := Nat.le_trans h2 h7
+    have hB := Nat.le_trans h4 h9
+    exact Nat.lt_of_le_of_lt (Nat.mul_le_mul_right 2 (Nat.le_trans h1 (Nat.add_le_add hA hB))) hfin
   · show polyL1 certGeLoLit * 2 < 2 ^ kB
     decide +kernel
   · show evalPoly certGeLo ((2 : Int) ^ kB) = evalPoly certGeLoLit ((2 : Int) ^ kB)
+    rw [int_two_pow kB]
     unfold certGeLo
     rw [geTN2b_eq_lit, geTD2b_eq_lit]
     simp only [evalPoly_polyAdd, evalPoly_polyScale, evalPoly_polyMul,

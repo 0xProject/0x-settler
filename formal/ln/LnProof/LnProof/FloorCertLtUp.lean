@@ -32,9 +32,12 @@ theorem ltTD2b_eq_lit : ltTD2b = ltTD2bLit := by
 
 theorem ltUp_eval_eq : ∀ x : Int, evalPoly certLtUp x = evalPoly certLtUpLit x := by
   refine evalPoly_ext (B := kB) certLtUp certLtUpLit ?_ ?_ ?_
-  · show polyL1 certLtUp * 2 < 2 ^ kB
-    unfold certLtUp
-    rw [ltTN2b_eq_lit, ltTD2b_eq_lit]
+  · -- Bound `polyL1 certLtUp` via the ℓ1 homomorphism lemmas on the literal
+    -- summands, closing by `exact` through the definitional equality
+    -- `certLtUp ≡ polyAdd …`. `unfold certLtUp` is avoided: it forces the kernel
+    -- to reduce the full construction (minutes); the `exact` defeq is lazy
+    -- congruence bottoming out at `ltTD2b ≡ ltTD2bLit` (milliseconds).
+    show polyL1 certLtUp * 2 < 2 ^ kB
     have h1 := polyL1_polyAdd
       (polyScale (EUD + EUN) (polyMul [0, 1] (expPolyNum ltTN2bLit ltTD2bLit 22)))
       (polyScale (-EUD * (Sc : Int) * KF) (polyPow ltTD2bLit 22))
@@ -57,10 +60,11 @@ theorem ltUp_eval_eq : ∀ x : Int, evalPoly certLtUp x = evalPoly certLtUpLit x
       decide +kernel
     have hA := Nat.le_trans h2 h6
     have hB := Nat.le_trans h7 h9
-    omega
+    exact Nat.lt_of_le_of_lt (Nat.mul_le_mul_right 2 (Nat.le_trans h1 (Nat.add_le_add hA hB))) hfin
   · show polyL1 certLtUpLit * 2 < 2 ^ kB
     decide +kernel
   · show evalPoly certLtUp ((2 : Int) ^ kB) = evalPoly certLtUpLit ((2 : Int) ^ kB)
+    rw [int_two_pow kB]
     unfold certLtUp
     rw [ltTN2b_eq_lit, ltTD2b_eq_lit]
     simp only [evalPoly_polyAdd, evalPoly_polyScale, evalPoly_polyMul,

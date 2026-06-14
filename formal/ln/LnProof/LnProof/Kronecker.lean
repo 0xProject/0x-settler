@@ -50,6 +50,14 @@ theorem eq_zero_of_mul_pow {B : Nat} {d k : Int} (hd : d = 2 ^ B * k)
     rw [Int.mul_zero] at hd
     exact ⟨hd, rfl⟩
 
+/-- Route `(2 : Int) ^ n` through `Nat.pow`. The `Int` monoid power is
+`npowRec` (a linear chain of multiplications the kernel does not accelerate),
+whereas `Nat.pow` is a GMP-backed kernel primitive. Rewriting with this before
+a `decide +kernel` that evaluates a Kronecker point keeps the base a single
+cheap literal instead of an `n`-step reduction recomputed at every use. -/
+theorem int_two_pow (n : Nat) : (2 : Int) ^ n = ((2 ^ n : Nat) : Int) :=
+  (Int.natCast_pow 2 n).symm
+
 /-- Polynomials with small ℓ1 norm that agree at `2^B` agree everywhere. -/
 theorem evalPoly_ext {B : Nat} : ∀ (p q : List Int),
     polyL1 p * 2 < 2 ^ B → polyL1 q * 2 < 2 ^ B →
