@@ -45,9 +45,8 @@ it suffices that X1 is nondecreasing in m. That follows from this chain:
 The clz seams do not satisfy a useful one-sided bound (the rational's error
 at u_max enters both seam endpoints with the same sign and no cancellation),
 so all 254 of them are verified exactly. The certified sign of the error at
-u_max (negative, about -0.32 ulp weighted) is what makes them pass with slack
-rather than by luck; this script re-derives the seam results from the EVM
-mirror rather than trusting that analysis.
+u_max (negative, about -0.32 ulp weighted) gives the seam checks slack; this
+script derives each seam result directly from the EVM mirror.
 
 Everything here is exact integer/rational arithmetic -- no floating point.
 

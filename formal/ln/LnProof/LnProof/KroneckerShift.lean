@@ -3,16 +3,14 @@ import LnProof.Kronecker
 /-!
 # Packed Taylor shifts for the cell walks
 
-`checkCoverM` Taylor-shifts the certificate literal to each cell start by
-a synthetic-division cascade — ~38,000 kernel coefficient operations per
-cell. This file replaces that with the Kronecker-substitution
-homomorphism trick: the shifted polynomial is *computed* inside the
-decide as a handful of GMP-scale operations on sign-split packed naturals
-(`kShiftHorner`, untrusted), then *certified* by one evaluation identity
-at `2^B` through the `evalPoly_ext` seam. The packed computation needs no
-correctness lemmas: if it produced anything other than the true shift,
-the evaluation identity in the checker would fail. The one new proof
-obligation is an ℓ1 bound for true shifts, carried by `aeval`, the
+The cell checker Taylor-shifts each certificate literal with a
+Kronecker-substitution homomorphism: the shifted polynomial is *computed*
+inside the decide as a handful of GMP-scale operations on sign-split packed
+naturals (`kShiftHorner`, untrusted), then *certified* by one evaluation
+identity at `2^B` through the `evalPoly_ext` seam. The packed computation
+needs no correctness lemmas: if it produced anything other than the true
+shift, the evaluation identity in the checker would fail. The remaining
+proof obligation is an ℓ1 bound for true shifts, carried by `aeval`, the
 absolute-value evaluation.
 -/
 
@@ -219,8 +217,7 @@ def kPowL : List KPoly → Nat → KPoly
 /-- Divide-and-conquer packed Taylor shift:
 `P(x+a) = P₀(x+a) + (x+a)^m · P₁(x+a)` with `m = ⌊n/2⌋`. The expensive
 full-size multiplications happen only near the top of the recursion, so
-the cost is a handful of full-size GMP products instead of one per
-coefficient. -/
+the cost is a handful of full-size GMP products. -/
 def kShiftDC (B : Nat) (a : Int) (sq : List KPoly) : Nat → List Int → KPoly
   | 0, p => kShiftHorner B a p
   | fuel + 1, p =>

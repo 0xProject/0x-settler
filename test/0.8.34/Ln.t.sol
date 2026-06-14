@@ -18,8 +18,8 @@ contract LnTest is Test {
 
     /// Asserts that `lnWadToRay(x)` returns exactly `expected`, and that `expected` honors the
     /// specification `r == floor(L) || r == floor(L) - 1` for the independently computed
-    /// `floorL = floor(10**27 * ln(x / 10**18))`. Reference values were generated with
-    /// 1500-bit precision arithmetic.
+    /// `floorL = floor(10**27 * ln(x / 10**18))`. Reference values use 1500-bit precision
+    /// arithmetic.
     function _check(int256 x, int256 floorL, int256 expected) internal {
         assertTrue(expected == floorL || expected == floorL - 1, "vector violates spec");
         assertEq(_lnWadToRay(x), expected, "lnWadToRay mismatch");
