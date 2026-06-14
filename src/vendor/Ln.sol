@@ -18,11 +18,11 @@ library Ln {
         //     return ⌊10²⁷ ⋅ (2h + ln(s) + k⋅ln(2) - 18⋅ln(10)) - margin⌋ + (x = 10¹⁸);
         //
         // z is negated (s - m, not m - s) so that every polynomial coefficient below can be written
-        // as a positive literal; q carries the compensating negation. p/(-q) is a (4,5)-degree
+        // as a positive literal; q carries the compensating negation. p/-q is a (4,5)-degree
         // rational polynomial approximation of f(u) = atanh(√u)/√u on u ∈ [0, (3-2√2)²], fit under
         // the weight √u (the weight the error carries into ln), with q monic and p(0) = -q(0)
         // constrained so both polynomials share their constant-term literal. The weighted
-        // sup-norm error of the integer-rounded rational 2⋅√u⋅|p/(-q) - f|⋅10²⁷ is ≤0.325ulp.
+        // sup-norm error of the integer-rounded rational 2⋅√u⋅|p/-q - f|⋅10²⁷ is ≤0.325ulp.
         //
         // Mixed fixed-point bases, chosen so every renormalizing shift lands a value directly
         // at the basis its consumer needs (each quantity is rounded exactly once):
@@ -96,7 +96,7 @@ library Ln {
 
             // Denominator q(u), monic, Horner up the staircase Q96 → Q87 → Q85 → Q93 →
             // Q94. q(u)/2⁹⁴ ∈ [-705.5, -656.0] on the domain: bounded away from zero, and
-            // p(u)/(-q(u)) ∈ [1, 1.01].
+            // p(u)/-q(u) ∈ [1, 1.01].
             let q := sub(u, 0x364589193443b48661938f59da)
             q := add(sar(0x69, mul(q, u)), 0xe904c4e76307954df78feedf)
             q := sub(sar(0x62, mul(q, u)), 0xad960ab2f600bd9765c15ffd)
