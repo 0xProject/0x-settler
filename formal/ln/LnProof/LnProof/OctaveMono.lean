@@ -46,7 +46,7 @@ theorem model_eq_tail {x : Nat} (h : x < 2 ^ 256) :
   simp only [Sc, P4c, P3c, P2c, P1c, C0c, Q4c, Q3c, Q2c, Q1c, Kc, LN2c, BIASc,
     u256_of_lt h]
   rw [evmEq_comm 1000000000000000000 x, evmMul_comm 7450580596923828125,
-    evmAdd_comm 143060321855302967919159136224515440252390103395285]
+    evmAdd_comm 143060321855302967919159136224617915605068374682581]
 
 /-- Per-`clz` bracket on the signed value of `ln2 * k`; `[-LN2c*103, LN2c*152]`. -/
 def ln2kOK (c : Nat) : Bool :=
@@ -109,7 +109,7 @@ theorem affine_tail_mono {a a' W : Nat}
       (by rw [e2']; clear e2 e2' e3 hKc hKlt; simp only [ipow255]; omega)
       (by rw [e2']; clear e2 e2' e3 hKc hKlt; simp only [ipow255]; omega)
   have hBIlt : BIASc < 2 ^ 256 := by simp only [BIASc]; omega
-  have hBI : toInt BIASc = (143060321855302967919159136224515440252390103395285 : Int) := by
+  have hBI : toInt BIASc = (143060321855302967919159136224617915605068374682581 : Int) := by
     rw [toInt_of_lt (by simp only [BIASc]; omega)]
     simp only [BIASc]
     omega
