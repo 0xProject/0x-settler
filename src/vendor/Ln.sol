@@ -111,7 +111,7 @@ library Ln {
             r := mul(0x6765c793fa10079d, r)
 
             // Add k ⋅ round(ln(2) ⋅ 10²⁷ ⋅ 2⁷²). k is two's complement (k ∈ [-103, 151])
-            r := add(r, mul(0x23d5b9ff36551802aa5d6f9754b0f3fad83b19450, k))
+            r := add(mul(0x23d5b9ff36551802aa5d6f9754b0f3fad83b19450, k), r)
 
             // Add ⌊(ln(s/2¹⁰³) + 103⋅ln(2) - 18⋅ln(10)) ⋅ 10²⁷ ⋅ 2⁷²⌋ minus the one-sided error
             // margin described above.
