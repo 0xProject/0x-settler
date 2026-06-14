@@ -5,23 +5,21 @@ library Ln {
     /// @notice Compute the natural logarithm of a positive fixnum with 10**18 (wad) basis,
     ///         returning the result as a fixnum with 10**27 (ray) basis.
     /// @dev Let L = 10²⁷ ⋅ ln(x / 10¹⁸) be the exact, infinite-precision result. This function
-    ///      returns either ⌊L⌋ or ⌊L⌋ - 1 (equivalently, the unique integers r satisfy L - 2 < r ≤
-    ///      L). It never returns a value greater than the correctly-rounded-down
-    ///      result. `lnWadToRay(10**18) == 0` exactly, and the result is negative iff `x <
-    ///      10**18`. `lnWadToRay` is monotonic; x1 < x2 implies lnWadToRay(x1) ≤
-    ///      lnWadToRay(x2). Reverts with `Panic(18)` when `x <= 0`.
+    ///      returns either ⌊L⌋ or ⌊L⌋ - 1; it never overestimates. `lnWadToRay(10**18) == 0`
+    ///      exactly, and the result is negative iff `x < 10**18`. `lnWadToRay` is monotonic; x₁ <
+    ///      x₂ → lnWadToRay(x₁) ≤ lnWadToRay(x₂). Reverts with `Panic(18)` when `x <= 0`.
     function lnWadToRay(int256 x) internal pure returns (int256 r) {
         // Equivalent pseudocode, in exact real arithmetic:
         //     require(x > 0);
-        //     k = ⌊log₂(x)⌋ - 103;                      // x = m ⋅ 2ᵏ, m in [2¹⁰³, 2¹⁰⁴)
-        //     m = x / 2ᵏ;                               // Q103 fixnum in [1, 2)
+        //     k = ⌊log₂(x)⌋ - 103;                      // x = m ⋅ 2ᵏ, m ∈ [2¹⁰³, 2¹⁰⁴)
+        //     m = x / 2ᵏ;                               // Q103 fixnum ∈ [1, 2)
         //     z = (s - m) / (m + s);                    // s = √2 ⋅ 2¹⁰³; |z| ≤ 3 - 2√2
         //     A = 2 ⋅ atanh(-z) = (p(z²) ⋅ z) / q(z²);  // ln(m / 2¹⁰³) = A + ln(s / 2¹⁰³)
         //     return ⌊10²⁷ ⋅ (A + ln(s) + k⋅ln(2) - 18⋅ln(10)) - margin⌋ + (x = 10¹⁸);
         //
         // z is negated (s - m, not m - s) so that every polynomial coefficient below can be written
         // as a positive literal; p carries the compensating negation. p/q is a (4,5)-degree
-        // rational polynomial approximation of f(u) = atanh(√u)/√u on u in [0, (3-2√2)²], fit under
+        // rational polynomial approximation of f(u) = atanh(√u)/√u on u ∈ [0, (3-2√2)²], fit under
         // the weight √u (the weight the error carries into ln), with q monic and p(0) = q(0)
         // constrained so both polynomials share their constant-term literal. The weighted
         // sup-norm error of the integer-rounded rational 2⋅√u⋅|p/q - f|⋅10²⁷ is ≤0.325ulp.
@@ -77,11 +75,11 @@ library Ln {
 
             // z = (s - m)/(m + s) in Q100, truncated toward zero, where the Q103 constant s =
             // 0xb504f333f9de6484597d89b375 = round(√2 ⋅ 2¹⁰³). Centering at s makes |z| ≤ 3 - 2⋅√2
-            // ≈ 0.17157 over m in [1, 2).
+            // ≈ 0.17157 over m ∈ [1, 2).
             let s := 0xb504f333f9de6484597d89b375
             let z := sdiv(shl(0x64, sub(s, x)), add(x, s))
 
-            // u = z² in Q96, truncated; u in [0, 0.029438 ⋅ 2⁹⁶].
+            // u = z² in Q96, truncated; u ∈ [0, 0.029438 ⋅ 2⁹⁶].
             let u := shr(0x68, mul(z, z))
 
             // Constant terms of p and q in Q94; p(0) = q(0) by construction, so the
@@ -89,7 +87,7 @@ library Ln {
             let c0 := 0xb05a8b41cf51c04d1b8a08d465
 
             // Numerator p(u), Horner up the basis staircase Q68 -> Q80 -> Q86 -> Q93 -> Q94.
-            // p(u)/2⁹⁴ in [663.7, 705.5] on the domain. The leading product is nonnegative, so the
+            // p(u)/2⁹⁴ ∈ [663.7, 705.5] on the domain. The leading product is nonnegative, so the
             // first shift may be logical.
             let p := sub(shr(0x54, mul(0xf642b0ed5372ff45e0, u)), 0xede142e73a9acbb00e9c42)
             p := add(sar(0x5a, mul(p, u)), 0xf2a56533e74a454c9d585f70)
@@ -97,22 +95,22 @@ library Ln {
             p := add(sar(0x5f, mul(p, u)), c0)
 
             // Denominator q(u), monic, Horner up the staircase Q96 -> Q87 -> Q85 -> Q93 ->
-            // Q94. q(u)/2⁹⁴ in [-705.5, -656.0] on the domain: bounded away from zero, and
-            // p(u)/(-q(u)) in [1, 1.01].
+            // Q94. q(u)/2⁹⁴ ∈ [-705.5, -656.0] on the domain: bounded away from zero, and
+            // p(u)/(-q(u)) ∈ [1, 1.01].
             let q := sub(u, 0x364589193443b48661938f59da)
             q := add(sar(0x69, mul(q, u)), 0xe904c4e76307954df78feedf)
             q := sub(sar(0x62, mul(q, u)), 0xad960ab2f600bd9765c15ffd)
             q := add(sar(0x58, mul(q, u)), 0xd1b1fedec544f0ea0bc812bbbc)
             q := sub(sar(0x5f, mul(q, u)), c0)
 
-            // A = 2⋅atanh(-z/2¹⁰⁰) in Q100: |p ⋅ z| < 2²⁰¹ and |q| > 656 ⋅ 2⁹⁴, so the quotient
+            // A = 2⋅atanh(-z/2¹⁰⁰) in Q100: |p ⋅ z| < 2²⁰¹ ∧ |q| > 656 ⋅ 2⁹⁴, so the quotient
             // fits in 98 bits.
             r := sdiv(mul(p, z), q)
 
             // Rescale to ray in Q72: 5²⁷ = 10²⁷ ⋅ 2⁷² / 2¹²⁷; exact.
             r := mul(0x6765c793fa10079d, r)
 
-            // Add k ⋅ round(ln(2) ⋅ 10²⁷ ⋅ 2⁷²). k is two's complement (k in [-103, 151])
+            // Add k ⋅ round(ln(2) ⋅ 10²⁷ ⋅ 2⁷²). k is two's complement (k ∈ [-103, 151])
             r := add(r, mul(0x23d5b9ff36551802aa5d6f9754b0f3fad83b19450, k))
 
             // Add floor((ln(s/2¹⁰³) + 103⋅ln(2) - 18⋅ln(10)) ⋅ 10²⁷ ⋅ 2⁷²) - 2.36 ⋅ 10²¹. The
