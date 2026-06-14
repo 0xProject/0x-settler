@@ -32,20 +32,20 @@ theorem cap2U : capUB (LN2c * 2 ^ 27) QS (2 * (10 ^ 40 + 1)) (10 ^ 40) := by
 theorem cap2L : capLB (LN2c * 2 ^ 27) QS (2 * (10 ^ 40 - 1)) (10 ^ 40) :=
   ⟨40, by decide⟩
 
-/-- `e^(BIASc 2^27 / QS) ≤ (S/10^18)(1 - 3.61e-28)`: the bias keeps almost
-all of its 0.362-ulp margin through the cap. -/
-theorem capBU : capUB (BIASc * 2 ^ 27) QS (Sc * (10 ^ 30 - 361))
-    (10 ^ 18 * 10 ^ 30) := by
+/-- `e^(BIASc 2^27 / QS) ≤ (S/10^18)(1 - 3.402e-28)`: the bias keeps almost
+all of its 0.3403-ulp margin through the cap. -/
+theorem capBU : capUB (BIASc * 2 ^ 27) QS (Sc * (10 ^ 31 - 3402))
+    (10 ^ 18 * 10 ^ 31) := by
   refine capUB_of_partial (K := 130) QS_pos (by decide) ?_
   decide
 
-/-- `e^(BIASc 2^27 / QS) ≥ (S/10^18)(1 - 3.63e-28)`. -/
-theorem capBL : capLB (BIASc * 2 ^ 27) QS (Sc * (10 ^ 30 - 363))
-    (10 ^ 18 * 10 ^ 30) :=
+/-- `e^(BIASc 2^27 / QS) ≥ (S/10^18)(1 - 3.404e-28)`. -/
+theorem capBL : capLB (BIASc * 2 ^ 27) QS (Sc * (10 ^ 31 - 3404))
+    (10 ^ 18 * 10 ^ 31) :=
   ⟨130, by decide⟩
 
 /-- `e^(2^99/QS) = e^(1e-27) ≥ 1 + 0.999e-27`: one output ulp. -/
-theorem capEL : capLB (2 ^ 99) QS (10 ^ 30 + 999) (10 ^ 30) :=
+theorem capEL : capLB (2 ^ 99) QS (10 ^ 31 + 9990) (10 ^ 31) :=
   ⟨3, by decide⟩
 
 /-- Exact signed value of the `ln2 * k` word for every `clz` value. -/

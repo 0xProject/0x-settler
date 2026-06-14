@@ -6,11 +6,12 @@ This script extracts `lnWadToRay` and `lnWad` from the Yul IR produced by
 `forge inspect` on a wrapper contract and emits Lean definitions with
 opcode-faithful uint256 EVM semantics.
 
-The `LnWadUndefined()` revert guard is stripped before translation: the
-memory model only supports straight-line memory writes, and every Lean
-theorem about the model quantifies over the non-reverting domain
-0 < x < 2**255 anyway. The strip is exact-match and fails loudly if the
-guard's shape in the IR ever changes.
+The non-positive-input revert guard (a `Panic(uint256)` with the
+division-by-zero code `0x12`) is stripped before translation: the memory
+model only supports straight-line memory writes, and every Lean theorem
+about the model quantifies over the non-reverting domain 0 < x < 2**255
+anyway. The strip is exact-match and fails loudly if the guard's shape in
+the IR ever changes.
 """
 
 from __future__ import annotations
@@ -20,7 +21,8 @@ from typing import cast
 
 _REVERT_GUARD = re.compile(
     r"if\s+iszero\(sgt\((\w+),\s*0\)\)\s*"
-    r"\{\s*mstore\(0x00,\s*0x1615e638\)\s*revert\(0x1c,\s*0x04\)\s*\}",
+    r"\{\s*mstore\(0x00,\s*0x4e487b71\)\s*mstore\(0x20,\s*0x12\)\s*"
+    r"revert\(0x1c,\s*0x24\)\s*\}",
 )
 
 
@@ -28,7 +30,8 @@ def strip_revert_guard(yul_text: str) -> str:
     stripped, count = _REVERT_GUARD.subn("", yul_text)
     if count != 1:
         raise SystemExit(
-            f"expected exactly one LnWadUndefined() revert guard in the Yul IR, found {count}"
+            "expected exactly one non-positive-input revert guard in the Yul"
+            f" IR, found {count}"
         )
     return stripped
 

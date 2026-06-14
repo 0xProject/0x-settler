@@ -12,6 +12,10 @@ import LnProof.FloorCertLtUpC07
 import LnProof.FloorCertLtUpC08
 import LnProof.FloorCertLtUpC09
 import LnProof.FloorCertLtUpC10
+import LnProof.FloorCertLtUpC11
+import LnProof.FloorCertLtUpC12
+import LnProof.FloorCertLtUpC13
+import LnProof.FloorCertLtUpC14
 
 namespace LnFloorCert
 open LnGeneratedModel LnPoly
@@ -67,25 +71,33 @@ theorem ltUp_nonneg {m : Int} (h1 : 10141204801825835211973625643008 ≤ m) (h2 
     0 ≤ evalPoly certLtUp m := by
   have hev := ltUp_eval_eq m
   rw [hev]
-  rcases Int.lt_or_le m (10236733219469637195766410765227 + 1) with h | h
+  rcases Int.lt_or_le m (10235556958232307525494886028008 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell00 m (by omega) (by omega)
-  rcases Int.lt_or_le m (10283083180369672200219960462811 + 1) with h | h
+  rcases Int.lt_or_le m (10278716364765519398518749303920 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell01 m (by omega) (by omega)
-  rcases Int.lt_or_le m (10305530652815519157653642498119 + 1) with h | h
+  rcases Int.lt_or_le m (10292712939884798707436596404544 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell02 m (by omega) (by omega)
-  rcases Int.lt_or_le m (10675447966833128826886697468907 + 1) with h | h
+  rcases Int.lt_or_le m (10300290733559920510761662675178 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell03 m (by omega) (by omega)
-  rcases Int.lt_or_le m (10770151616997275407327261993131 + 1) with h | h
+  rcases Int.lt_or_le m (10318581351720418835446063066151 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell04 m (by omega) (by omega)
-  rcases Int.lt_or_le m (10914799648682411772312803110962 + 1) with h | h
+  rcases Int.lt_or_le m (10675431702120254763124784810886 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell05 m (by omega) (by omega)
-  rcases Int.lt_or_le m (11484527015770799509484495012553 + 1) with h | h
+  rcases Int.lt_or_le m (10756618135670645788065926471904 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell06 m (by omega) (by omega)
-  rcases Int.lt_or_le m (11611358934728331263016579609046 + 1) with h | h
+  rcases Int.lt_or_le m (10779963205013996747845870058712 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell07 m (by omega) (by omega)
-  rcases Int.lt_or_le m (12580407414500243265481207840047 + 1) with h | h
+  rcases Int.lt_or_le m (10828761738119364680208728770969 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell08 m (by omega) (by omega)
-  rcases Int.lt_or_le m (12790326440757707523851639277546 + 1) with h | h
+  rcases Int.lt_or_le m (11461059227350261950503342074044 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell09 m (by omega) (by omega)
-  exact checkCoverK_sound _ _ _ _ _ ltUp_cell10 m (by omega) h2
+  rcases Int.lt_or_le m (11567222306833343375585957498287 + 1) with h | h
+  · exact checkCoverK_sound _ _ _ _ _ ltUp_cell10 m (by omega) (by omega)
+  rcases Int.lt_or_le m (11614401749478021771482220450251 + 1) with h | h
+  · exact checkCoverK_sound _ _ _ _ _ ltUp_cell11 m (by omega) (by omega)
+  rcases Int.lt_or_le m (12570288470101219395936602426121 + 1) with h | h
+  · exact checkCoverK_sound _ _ _ _ _ ltUp_cell12 m (by omega) (by omega)
+  rcases Int.lt_or_le m (12716299221720374084609926036921 + 1) with h | h
+  · exact checkCoverK_sound _ _ _ _ _ ltUp_cell13 m (by omega) (by omega)
+  exact checkCoverK_sound _ _ _ _ _ ltUp_cell14 m (by omega) h2
 end LnFloorCert

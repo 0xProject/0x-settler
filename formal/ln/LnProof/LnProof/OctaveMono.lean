@@ -23,6 +23,21 @@ def lnTail (one kw m : Nat) : Nat :=
       (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc))
     one
 
+/-- `mul`, `add`, and `eq` are commutative on words. The generated model writes
+their constant operands first (`mul(K, r)`, `add(BIAS, r)`, `eq(10**18, x)`);
+these orient those occurrences to the constant-second form `lnTail` uses. -/
+theorem evmMul_comm (a b : Nat) : evmMul a b = evmMul b a := by
+  unfold evmMul; rw [Nat.mul_comm (u256 a) (u256 b)]
+
+theorem evmAdd_comm (a b : Nat) : evmAdd a b = evmAdd b a := by
+  unfold evmAdd; rw [Nat.add_comm (u256 a) (u256 b)]
+
+theorem evmEq_comm (a b : Nat) : evmEq a b = evmEq b a := by
+  unfold evmEq
+  by_cases h : u256 a = u256 b
+  · rw [if_pos h, if_pos h.symm]
+  · rw [if_neg h, if_neg fun he => h he.symm]
+
 theorem model_eq_tail {x : Nat} (h : x < 2 ^ 256) :
     model_ln_wad_evm x =
       lnTail (evmEq x 1000000000000000000) (evmSub 152 (evmClz x))
@@ -30,6 +45,8 @@ theorem model_eq_tail {x : Nat} (h : x < 2 ^ 256) :
   unfold model_ln_wad_evm lnTail x1W pS4 pS3 pS2 pS1 qS5 qS4 qS3 qS2 qS1 uWord zWord
   simp only [Sc, P4c, P3c, P2c, P1c, C0c, Q4c, Q3c, Q2c, Q1c, Kc, LN2c, BIASc,
     u256_of_lt h]
+  rw [evmEq_comm 1000000000000000000 x, evmMul_comm 7450580596923828125,
+    evmAdd_comm 143060321855302967919159136224617915605068374682581]
 
 /-- Per-`clz` bracket on the signed value of `ln2 * k`; `[-LN2c*103, LN2c*152]`. -/
 def ln2kOK (c : Nat) : Bool :=
@@ -92,7 +109,7 @@ theorem affine_tail_mono {a a' W : Nat}
       (by rw [e2']; clear e2 e2' e3 hKc hKlt; simp only [ipow255]; omega)
       (by rw [e2']; clear e2 e2' e3 hKc hKlt; simp only [ipow255]; omega)
   have hBIlt : BIASc < 2 ^ 256 := by simp only [BIASc]; omega
-  have hBI : toInt BIASc = (143060321855302967919159136224515440252390103395285 : Int) := by
+  have hBI : toInt BIASc = (143060321855302967919159136224617915605068374682581 : Int) := by
     rw [toInt_of_lt (by simp only [BIASc]; omega)]
     simp only [BIASc]
     omega

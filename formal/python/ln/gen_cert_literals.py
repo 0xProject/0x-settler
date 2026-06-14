@@ -24,7 +24,7 @@ S = _S
 K = 22
 KF = math.factorial(K)
 KF1 = math.factorial(K + 1)
-EUN, EUD = 36, 10**29
+EUN, EUD = 3401, 10**31
 
 PPc: list[int] = [_C0 * 2**358, -_P1 * 2**263, _P2 * 2**174, -_P3 * 2**84, _P4]
 QQc: list[int] = [-_C0 * 2**386, _Q1 * 2**291, -_Q2 * 2**203, _Q3 * 2**105, -_Q4, 1]

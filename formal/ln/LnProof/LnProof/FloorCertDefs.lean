@@ -62,8 +62,8 @@ def ltTD2b : List Int := polyScale (2 ^ 99) ltTD2
 
 def KF : Int := 1124000727777607680000
 def KF1 : Int := 25852016738884976640000
-def EUN : Int := 36
-def EUD : Int := 10 ^ 29
+def EUN : Int := 3401
+def EUD : Int := 10 ^ 31
 
 def certGeUp : List Int :=
   polyAdd (polyScale ((EUD + EUN) * KF1) (polyMul [0, 1] (polyPow geTD 23)))
