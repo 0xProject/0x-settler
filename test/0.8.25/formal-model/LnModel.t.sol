@@ -4,6 +4,7 @@ pragma solidity ^0.8.34;
 import {LnTest} from "../../0.8.34/Ln.t.sol";
 import {FormalModelFFI} from "./FormalModelFFI.t.sol";
 import {LnWrapper} from "src/wrappers/LnWrapper.sol";
+import {stdError} from "@forge-std/Test.sol";
 
 /// @dev Runs the LnTest suite against the generated Lean model via `vm.ffi`,
 /// and differentially fuzzes the model against the real contract. Requires
@@ -24,11 +25,11 @@ contract LnModelTest is LnTest, FormalModelFFI {
     /// The generated model strips the revert guard (it models the non-reverting
     /// domain), so the revert behavior is exercised against the real contract.
     function testLnWadUndefined() external override {
-        vm.expectRevert(LnWadUndefined.selector);
+        vm.expectRevert(stdError.divisionError);
         _wrapper.wrap_lnWadToRay(0);
-        vm.expectRevert(LnWadUndefined.selector);
+        vm.expectRevert(stdError.divisionError);
         _wrapper.wrap_lnWadToRay(-1);
-        vm.expectRevert(LnWadUndefined.selector);
+        vm.expectRevert(stdError.divisionError);
         _wrapper.wrap_lnWad(type(int256).min);
     }
 
