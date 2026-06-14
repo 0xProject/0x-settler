@@ -9,20 +9,20 @@ library Ln {
     ///      exactly, and the result is negative iff `x < 10**18`. `lnWadToRay` is monotonic; x₁ <
     ///      x₂ → lnWadToRay(x₁) ≤ lnWadToRay(x₂). Reverts with `Panic(18)` when `x <= 0`.
     function lnWadToRay(int256 x) internal pure returns (int256 r) {
-        // Equivalent pseudocode, in exact real arithmetic:
+        // Equivalent pseudocode; fixed-point truncations are accounted for below:
         //     require(x > 0);
         //     k = ⌊log₂(x)⌋ - 103;                      // x = m ⋅ 2ᵏ, m ∈ [2¹⁰³, 2¹⁰⁴)
         //     m = x / 2ᵏ;                               // Q103 fixnum ∈ [1, 2)
         //     z = (s - m) / (m + s);                    // s = √2 ⋅ 2¹⁰³; |z| ≤ 3 - 2√2
-        //     A = 2 ⋅ atanh(-z) = (p(z²) ⋅ z) / q(z²);  // ln(m / 2¹⁰³) = A + ln(s / 2¹⁰³)
-        //     return ⌊10²⁷ ⋅ (A + ln(s) + k⋅ln(2) - 18⋅ln(10)) - margin⌋ + (x = 10¹⁸);
+        //     h = atanh(-z) = (p(z²) ⋅ z) / q(z²);      // ln(m / 2¹⁰³) = 2h + ln(s / 2¹⁰³)
+        //     return ⌊10²⁷ ⋅ (2h + ln(s) + k⋅ln(2) - 18⋅ln(10)) - margin⌋ + (x = 10¹⁸);
         //
         // z is negated (s - m, not m - s) so that every polynomial coefficient below can be written
-        // as a positive literal; p carries the compensating negation. p/q is a (4,5)-degree
+        // as a positive literal; q carries the compensating negation. p/(-q) is a (4,5)-degree
         // rational polynomial approximation of f(u) = atanh(√u)/√u on u ∈ [0, (3-2√2)²], fit under
-        // the weight √u (the weight the error carries into ln), with q monic and p(0) = q(0)
+        // the weight √u (the weight the error carries into ln), with q monic and p(0) = -q(0)
         // constrained so both polynomials share their constant-term literal. The weighted
-        // sup-norm error of the integer-rounded rational 2⋅√u⋅|p/q - f|⋅10²⁷ is ≤0.325ulp.
+        // sup-norm error of the integer-rounded rational 2⋅√u⋅|p/(-q) - f|⋅10²⁷ is ≤0.325ulp.
         //
         // Mixed fixed-point bases, chosen so every renormalizing shift lands a value directly
         // at the basis its consumer needs (each quantity is rounded exactly once):
@@ -38,14 +38,14 @@ library Ln {
         //         cannot fit in 256 bits.
         //     p, q final: Q94 (|p ⋅ z| < 2²⁰¹; both final stage shifts land there directly)
         //     p⋅z/q: one `SDIV` at Q100 (granularity 2⁻¹⁰⁰, ~0.0016 ulp)
-        //     output: multiply by 5²⁷ = 10²⁷ / 2²⁷ places the quotient on the 10²⁷ ⋅ 2⁷² grid
-        //         shared by the k⋅ln(2) term and the bias, so the closing `sar(72, …)` is the
-        //         single output-rounding floor
+        //     output: the quotient is h in Q100; multiplying by 5²⁷ = 2⋅10²⁷⋅2⁷² / 2¹⁰⁰ folds in
+        //         the factor of 2 and places it on the 10²⁷ ⋅ 2⁷² grid shared by the k⋅ln(2) term
+        //         and the bias, so the closing `sar(72, …)` is the single output-rounding floor
         //
         // Error budget in ulps (1 ulp = 10⁻²⁷ of ln; 2⁷² pre-shift units): rational polynomial
         // approximation and coefficient quantization ≤0.325 combined; z, u, and `sdiv` truncations
         // ≤0.005 combined; Horner stage truncations ≤10⁻⁴; ln(2) and bias constant rounding
-        // ≤10⁻¹⁹. The bias is reduced by a margin of 1.61⋅10²¹ units (0.3403 ulp), so the Q72
+        // ≤10⁻¹⁹. The bias is reduced by a margin of ~1.607⋅10²¹ units (0.3403 ulp), so the Q72
         // accumulator never exceeds L⋅2⁷²; margin plus downward errors total < 0.671 ⋅ 2⁷², so it
         // always exceeds (L-1)⋅2⁷². `sar(72, …)` therefore yields ⌊L⌋ or ⌊L⌋ - 1.
         //
@@ -81,7 +81,7 @@ library Ln {
             // u = z² in Q96, truncated; u ∈ [0, 0.029438 ⋅ 2⁹⁶].
             let u := shr(0x68, mul(z, z))
 
-            // Constant terms of p and q in Q94; p(0) = q(0) by construction, so the
+            // Constant terms of p and q in Q94; p(0) = -q(0) by construction, so the
             // literal is shared.
             let c0 := 0xb05a8b41cf51c04d1b8a08d465
 
@@ -102,18 +102,18 @@ library Ln {
             q := add(sar(0x58, mul(q, u)), 0xd1b1fedec544f0ea0bc812bbbc)
             q := sub(sar(0x5f, mul(q, u)), c0)
 
-            // A = 2⋅atanh(-z/2¹⁰⁰) in Q100: |p ⋅ z| < 2²⁰¹ ∧ |q| > 656 ⋅ 2⁹⁴, so the quotient
-            // fits in 98 bits.
+            // h = atanh(-z/2¹⁰⁰) in Q100: |p ⋅ z| < 2²⁰¹ ∧ |q| > 656 ⋅ 2⁹⁴, so the quotient fits in
+            // 98 bits.
             r := sdiv(mul(p, z), q)
 
-            // Rescale to ray in Q72: 5²⁷ = 10²⁷ ⋅ 2⁷² / 2¹²⁷; exact.
+            // Double h and rescale to ray in Q72: 5²⁷ = 2 ⋅ 10²⁷ ⋅ 2⁷² / 2¹⁰⁰; exact.
             r := mul(0x6765c793fa10079d, r)
 
             // Add k ⋅ round(ln(2) ⋅ 10²⁷ ⋅ 2⁷²). k is two's complement (k ∈ [-103, 151])
             r := add(r, mul(0x23d5b9ff36551802aa5d6f9754b0f3fad83b19450, k))
 
-            // Add ⌊(ln(s/2¹⁰³) + 103⋅ln(2) - 18⋅ln(10)) ⋅ 10²⁷ ⋅ 2⁷²⌋ - 1.61 ⋅ 10²¹. The
-            // subtrahend 1.61 ⋅ 10²¹ is the one-sided error margin described above.
+            // Add ⌊(ln(s/2¹⁰³) + 103⋅ln(2) - 18⋅ln(10)) ⋅ 10²⁷ ⋅ 2⁷²⌋ minus the one-sided error
+            // margin described above.
             r := add(0x61e2c6b2c35132b01ead59b2432c8faf3a03092bd5, r)
 
             // Q72 → integer ray result (`SAR` floors), then the x = 10¹⁸ correction.
@@ -124,8 +124,8 @@ library Ln {
     /// @notice Compute the natural logarithm of a positive fixnum with 10**18 (wad) basis,
     ///         returning the result as a fixnum with 10**18 (wad) basis.
     /// @dev Let Lw = 10¹⁸ * ln(x / 10¹⁸) be the exact, infinite-precision result. This function
-    ///      returns either `⌊L⌋` or `⌊L⌋ - 1`. Like `lnWadToRay`, `lnWad(10**18) == 0` exactly, and
-    ///      `lnWad` is monotonic.
+    ///      returns either `⌊Lw⌋` or `⌊Lw⌋ - 1`. Like `lnWadToRay`, `lnWad(10**18) == 0` exactly,
+    ///      and `lnWad` is monotonic.
     function lnWad(int256 x) internal pure returns (int256 r) {
         r = lnWadToRay(x);
         // Floor division of the ray result by 10⁹. `SDIV` alone truncates toward zero, which would
