@@ -63,9 +63,9 @@ library Ln {
         // Error budget in ulps (1 ulp = 1e-27 of ln, = 2**72 pre-shift units): minimax and
         // coefficient quantization (certified together) <= 0.325; z, u, and sdiv truncations
         // <= 0.005 combined; Horner stage truncations <= 1e-4; ln(2) and bias constant
-        // rounding <= 1e-19. The bias is reduced by a margin of 2.36e21 units (0.500 ulp)
+        // rounding <= 1e-19. The bias is reduced by a margin of 1.71e21 units (0.362 ulp)
         // > certified upward error 0.329 ulp, so the Q72 accumulator never exceeds L*2**72;
-        // margin plus downward errors total < 0.830 * 2**72, so it always exceeds
+        // margin plus downward errors total < 0.692 * 2**72, so it always exceeds
         // (L-1)*2**72. `sar(72, .)` therefore yields floor(L) or floor(L) - 1.
         //
         // Monotonicity: within an octave (fixed clz), the mantissa map m -> z is antitone
@@ -136,9 +136,9 @@ library Ln {
             // `mul` wraps correctly.
             r := add(r, mul(0x23d5b9ff36551802aa5d6f9754b0f3fad83b19450, k))
 
-            // Add floor((ln(s/2**103) + 103*ln(2) - 18*ln(10)) * 10**27 * 2**72) - 2.36e21.
-            // The 2.36e21 subtrahend is the one-sided error margin described above.
-            r := add(r, 0x61e2c6b2c35132b01ead59b21a4a764a0e2f452bd5)
+            // Add floor((ln(s/2**103) + 103*ln(2) - 18*ln(10)) * 10**27 * 2**72) - 1.71e21.
+            // The 1.71e21 subtrahend is the one-sided error margin described above.
+            r := add(r, 0x61e2c6b2c35132b01ead59b23d9e6e18e745cd2bd5)
 
             // Q72 -> integer ray result (`sar` floors), then the x == 10**18 correction.
             r := add(sar(0x48, r), one)

@@ -41,7 +41,7 @@ theorem r4_value {m : Nat} (h1 : MLO ≤ m) (h2 : m < MHI) {c : Nat} (hc : c < 2
     toInt (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c (evmSub 152 c)))
         BIASc) =
       toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        143060321855302967919159136223863753677754092301269 := by
+        143060321855302967919159136224515440252390103395285 := by
   have hB := r1_bound h1 h2
   have hr1w : x1W (zWord m) < 2 ^ 256 := by unfold x1W; exact evmSdiv_lt _ _
   have hW := ln2k_bound hc
@@ -63,7 +63,7 @@ theorem r4_value {m : Nat} (h1 : MLO ≤ m) (h2 : m < MHI) {c : Nat} (hc : c < 2
       (by rw [e2]; clear e2 hKc hKlt; simp only [ipow255]; omega)
       (by rw [e2]; clear e2 hKc hKlt; simp only [ipow255]; omega)
   have hBIlt : BIASc < 2 ^ 256 := by simp only [BIASc]; omega
-  have hBI : toInt BIASc = (143060321855302967919159136223863753677754092301269 : Int) := by
+  have hBI : toInt BIASc = (143060321855302967919159136224515440252390103395285 : Int) := by
     rw [toInt_of_lt (by simp only [BIASc]; omega)]
     simp only [BIASc]
     omega
@@ -81,9 +81,9 @@ theorem model_floor_bracket {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
     (hne : x ≠ 1000000000000000000) :
     toInt (model_ln_wad_evm x) * 4722366482869645213696 ≤
         toInt (x1W (zWord (mant x))) * 7450580596923828125 + ln2kInt (evmClz x) +
-          143060321855302967919159136223863753677754092301269 ∧
+          143060321855302967919159136224515440252390103395285 ∧
       toInt (x1W (zWord (mant x))) * 7450580596923828125 + ln2kInt (evmClz x) +
-          143060321855302967919159136223863753677754092301269 <
+          143060321855302967919159136224515440252390103395285 <
         toInt (model_ln_wad_evm x) * 4722366482869645213696 +
           4722366482869645213696 := by
   have hx256 : x < 2 ^ 256 := by omega
