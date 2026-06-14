@@ -17,7 +17,7 @@ library Ln {
         //     m = x / 2ᵏ;                               // Q103 fixnum in [1, 2)
         //     z = (s - m) / (m + s);                    // s = √2 ⋅ 2¹⁰³; |z| ≤ 3 - 2√2
         //     A = 2 ⋅ atanh(-z) = (p(z²) ⋅ z) / q(z²);  // ln(m / 2¹⁰³) = A + ln(s / 2¹⁰³)
-        //     return floor(10²⁷ ⋅ (A + ln(s) + k⋅ln(2) - 18⋅ln(10)) - margin) + (x = 10¹⁸);
+        //     return ⌊10²⁷ ⋅ (A + ln(s) + k⋅ln(2) - 18⋅ln(10)) - margin⌋ + (x = 10¹⁸);
         //
         // z is negated (s - m, not m - s) so that every polynomial coefficient below can be written
         // as a positive literal; p carries the compensating negation. p/q is a (4,5)-degree
@@ -28,44 +28,36 @@ library Ln {
         //
         // Mixed fixed-point bases, chosen so every renormalizing shift lands a value directly
         // at the basis its consumer needs (each runtime quantity is rounded exactly once):
-        //     m:      Q103 (truncated from x; error < 2**-103)
+        //     m:      Q103 (truncated from x; error < 2⁻¹⁰³)
         //     z:      Q100 (one sdiv)
-        //     u = z**2: Q96 (one shr by 104, straight from the Q200 product)
-        //     Horner stages: a coefficient followed by j more multiplies by u tolerates a
-        //         shorter basis, so the stage bases form a staircase -- p: Q68, Q80, Q86,
-        //         Q93, Q94; q: Q96 (the monic stage shares u's basis for free), Q87, Q85,
-        //         Q93, Q94 -- where each stage basis is floored by the monotonicity
-        //         certificate (a truncation at basis b followed by j multiplies perturbs the
-        //         final Q94 polynomial by < 2**(94-b) * u_max**j, and the sum of these slops
-        //         must stay well below one quotient unit; see
-        //         formal/python/ln/check_ln_monotone.py) and each literal then takes the
-        //         widest basis that fits its minimal PUSH width. One sar per multiply is
-        //         forced: ray precision requires ~96 significant bits while each multiply by
-        //         u consumes ~91 bits of headroom, so consecutive unrenormalized steps cannot
-        //         fit in 256 bits.
-        //     p, q final: Q94 (|p * z| < 2**201; both final stage shifts land there directly)
-        //     p*z/q: one sdiv at Q100 (granularity 2**-100, ~0.0016 ulp)
-        //     output: multiply by 5**27 = 10**27 / 2**27 -- exact, no rounding -- places the
-        //         quotient on the 10**27 * 2**72 grid shared by the k*ln(2) term and the
-        //         bias, so the closing `sar(72)` is the single output-rounding floor
+        //     u = z²: Q96 (one `shr` by 104, straight from the Q200 product)
+        //     Horner stages: a coefficient followed by j more multiplies by u tolerates a shorter
+        //         basis, so the stage bases form a staircase -- p: Q68, Q80, Q86, Q93, Q94; q: Q96
+        //         (the monic stage shares u's basis for free), Q87, Q85, Q93, Q94. Each literal
+        //         then takes the widest basis that fits its minimal `PUSH` width. One `sar` per
+        //         multiply is forced: ray precision requires ~96 significant bits while each
+        //         multiply by u consumes ~91 bits of headroom, so consecutive unrenormalized steps
+        //         cannot fit in 256 bits.
+        //     p, q final: Q94 (|p ⋅ z| < 2²⁰¹; both final stage shifts land there directly)
+        //     p⋅z/q: one sdiv at Q100 (granularity 2⁻¹⁰⁰, ~0.0016 ulp)
+        //     output: multiply by 5²⁷ = 10²⁷ / 2²⁷ places the quotient on the 10²⁷ ⋅ 2⁷² grid
+        //         shared by the k⋅ln(2) term and the bias, so the closing `sar(72, ...)` is the
+        //         single output-rounding floor
         //
-        // Error budget in ulps (1 ulp = 1e-27 of ln, = 2**72 pre-shift units): minimax and
-        // coefficient quantization (certified together) <= 0.325; z, u, and sdiv truncations
-        // <= 0.005 combined; Horner stage truncations <= 1e-4; ln(2) and bias constant
-        // rounding <= 1e-19. The bias is reduced by a margin of 2.36e21 units (0.500 ulp)
-        // > certified upward error 0.329 ulp, so the Q72 accumulator never exceeds L*2**72;
-        // margin plus downward errors total < 0.830 * 2**72, so it always exceeds
-        // (L-1)*2**72. `sar(72, .)` therefore yields floor(L) or floor(L) - 1.
+        // Error budget in ulps (1 ulp = 10⁻²⁷ of ln; 2⁷² pre-shift units): rational polynomial
+        // approximation and coefficient quantization ≤0.325 combined; z, u, and `sdiv` truncations
+        // ≤0.005 combined; Horner stage truncations ≤10⁻⁴; ln(2) and bias constant rounding
+        // ≤10⁻¹⁹. The bias is reduced by a margin of 2.36⋅10²¹ units (0.500 ulp) > certified upward
+        // error 0.329 ulp, so the Q72 accumulator never exceeds L⋅2⁷²; margin plus downward errors
+        // total < 0.830 ⋅ 2⁷², so it always exceeds (L-1)⋅2⁷². `sar(72, …)` therefore yields ⌊L⌋ or
+        // ⌊L⌋ - 1.
         //
-        // Monotonicity: within an octave (fixed clz), the mantissa map m -> z is antitone
-        // because d/dm[(s-m)/(m+s)] = -2s/(m+s)**2 < 0 with |dz/dm| < 1, and the quotient
-        // p*z/q is an antitone function of the integer z: per unit step of z it moves by at
-        // least R_min - z_max*2J > 0.82 quotient units (R = p/-q >= 0.939 certified; J
-        // bounds the truncation jitter of R between adjacent u values), and `sdiv`
-        // truncation toward zero preserves order. Octave seams reduce to the 254 adjacent
-        // pairs (2**t - 1, 2**t), each verified exactly (the rational's error at u_max is
-        // certified negative, giving ~0.32 ulp of seam slack). The x == 10**18 correction
-        // below preserves monotonicity because its neighbors' results bracket [0, 999999999].
+        // Monotonicity: within an octave, the mantissa map m → z is antitone because
+        // d/dm[(s-m)/(m+s)] = -2s/(m+s)² < 0 with |dz/dm| < 1, and the quotient p⋅z/q is an
+        // antitone function of the integer z: per unit step of z it moves by at least Rₘᵢₙ -
+        // zₘₐₓ⋅2J > 0.82 quotient units (R = p/-q ≥ 0.939; J bounds the truncation of R between
+        // adjacent u values), and `sdiv` truncation toward zero preserves order. The x = 10¹⁸
+        // correction preserves monotonicity because its neighbors' results bracket [0, 999999999].
         assembly ("memory-safe") {
             if iszero(sgt(x, 0)) {
                 mstore(0x00, 0x1615e638) // `LnWadUndefined()`.
