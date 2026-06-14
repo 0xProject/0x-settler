@@ -23,7 +23,7 @@ theorem evmSar_sandwich_72 {w : Nat} (h : w < 2 ^ 256) :
       toInt (evmSar 72 w) * 4722366482869645213696 ≤ toInt w ∧
       toInt w < toInt (evmSar 72 w) * 4722366482869645213696 + 4722366482869645213696 := by
   unfold evmSar u256 toInt
-  simp only [word_mod_eq, ipow255, ipow256, Nat.reducePow, Nat.reduceMod]
+  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
   repeat' split
   all_goals omega
 
@@ -32,7 +32,7 @@ theorem evmSar_sandwich_88 {w : Nat} (h : w < 2 ^ 256) :
       toInt (evmSar 88 w) * 309485009821345068724781056 ≤ toInt w ∧
       toInt w < toInt (evmSar 88 w) * 309485009821345068724781056 + 309485009821345068724781056 := by
   unfold evmSar u256 toInt
-  simp only [word_mod_eq, ipow255, ipow256, Nat.reducePow, Nat.reduceMod]
+  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
   repeat' split
   all_goals omega
 
@@ -41,7 +41,7 @@ theorem evmSar_sandwich_89 {w : Nat} (h : w < 2 ^ 256) :
       toInt (evmSar 89 w) * 618970019642690137449562112 ≤ toInt w ∧
       toInt w < toInt (evmSar 89 w) * 618970019642690137449562112 + 618970019642690137449562112 := by
   unfold evmSar u256 toInt
-  simp only [word_mod_eq, ipow255, ipow256, Nat.reducePow, Nat.reduceMod]
+  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
   repeat' split
   all_goals omega
 
@@ -50,7 +50,7 @@ theorem evmSar_sandwich_90 {w : Nat} (h : w < 2 ^ 256) :
       toInt (evmSar 90 w) * 1237940039285380274899124224 ≤ toInt w ∧
       toInt w < toInt (evmSar 90 w) * 1237940039285380274899124224 + 1237940039285380274899124224 := by
   unfold evmSar u256 toInt
-  simp only [word_mod_eq, ipow255, ipow256, Nat.reducePow, Nat.reduceMod]
+  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
   repeat' split
   all_goals omega
 
@@ -59,7 +59,7 @@ theorem evmSar_sandwich_95 {w : Nat} (h : w < 2 ^ 256) :
       toInt (evmSar 95 w) * 39614081257132168796771975168 ≤ toInt w ∧
       toInt w < toInt (evmSar 95 w) * 39614081257132168796771975168 + 39614081257132168796771975168 := by
   unfold evmSar u256 toInt
-  simp only [word_mod_eq, ipow255, ipow256, Nat.reducePow, Nat.reduceMod]
+  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
   repeat' split
   all_goals omega
 
@@ -68,7 +68,7 @@ theorem evmSar_sandwich_98 {w : Nat} (h : w < 2 ^ 256) :
       toInt (evmSar 98 w) * 316912650057057350374175801344 ≤ toInt w ∧
       toInt w < toInt (evmSar 98 w) * 316912650057057350374175801344 + 316912650057057350374175801344 := by
   unfold evmSar u256 toInt
-  simp only [word_mod_eq, ipow255, ipow256, Nat.reducePow, Nat.reduceMod]
+  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
   repeat' split
   all_goals omega
 
@@ -77,7 +77,7 @@ theorem evmSar_sandwich_105 {w : Nat} (h : w < 2 ^ 256) :
       toInt (evmSar 105 w) * 40564819207303340847894502572032 ≤ toInt w ∧
       toInt w < toInt (evmSar 105 w) * 40564819207303340847894502572032 + 40564819207303340847894502572032 := by
   unfold evmSar u256 toInt
-  simp only [word_mod_eq, ipow255, ipow256, Nat.reducePow, Nat.reduceMod]
+  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
   repeat' split
   all_goals omega
 
@@ -152,13 +152,13 @@ theorem evmShl_transport_100 {w : Nat} (hw : w < 2 ^ 256)
 /-- Decoding helpers for `evmSdiv` results. -/
 theorem toInt_u256_of_small {q : Nat} (h : q < 2 ^ 255) : toInt (u256 q) = (q : Int) := by
   unfold toInt u256
-  simp only [word_mod_eq, ipow255, ipow256] at *
+  simp only [word_mod_eq, ipow256] at *
   split <;> omega
 
 theorem toInt_u256_neg {q : Nat} (h : q ≤ 2 ^ 255) :
     toInt (u256 (WORD_MOD - q)) = -(q : Int) := by
   unfold toInt u256
-  simp only [word_mod_eq, ipow255, ipow256] at *
+  simp only [word_mod_eq, ipow256] at *
   split <;> omega
 
 /-- Sign-pinned semantics of `evmSdiv`: one lemma per sign pattern, with the
@@ -168,18 +168,18 @@ theorem evmSdiv_pos_pos {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
     (h1 : 0 ≤ toInt a) (h2 : 0 < toInt b) :
     toInt (evmSdiv a b) = (((toInt a).toNat / (toInt b).toNat : Nat) : Int) := by
   have hna : ¬ 2 ^ 255 ≤ a := by
-    unfold toInt at h1; simp only [ipow255, ipow256] at *; split at h1 <;> omega
+    unfold toInt at h1; simp only [ipow256] at *; split at h1 <;> omega
   have hnb : ¬ 2 ^ 255 ≤ b := by
-    unfold toInt at h2; simp only [ipow255, ipow256] at *; split at h2 <;> omega
+    unfold toInt at h2; simp only [ipow256] at *; split at h2 <;> omega
   have hb0 : ¬ b = 0 := by
     unfold toInt at h2; split at h2 <;> omega
   have ea : (toInt a).toNat = a := by
-    unfold toInt; simp only [ipow255, ipow256] at *; split <;> omega
+    unfold toInt; simp only [ipow256] at *; split <;> omega
   have eb : (toInt b).toNat = b := by
-    unfold toInt; simp only [ipow255, ipow256] at *; split <;> omega
+    unfold toInt; simp only [ipow256] at *; split <;> omega
   unfold evmSdiv
   simp only [u256_of_lt ha, u256_of_lt hb, decide_eq_false hna, decide_eq_false hnb,
-    Bool.false_eq_true, Bool.true_eq_false, eq_self_iff_true, reduceIte,
+    Bool.false_eq_true, 
     if_true, if_false, if_neg hb0, ea, eb]
   have hq : a / b < 2 ^ 255 := by
     have := Nat.div_le_self a b
@@ -201,7 +201,7 @@ theorem evmSdiv_neg_pos {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
     unfold toInt; simp only [ipow255, ipow256] at *; split <;> omega
   unfold evmSdiv
   simp only [u256_of_lt ha, u256_of_lt hb, decide_eq_true hna, decide_eq_false hnb,
-    Bool.false_eq_true, Bool.true_eq_false, eq_self_iff_true, reduceIte,
+    Bool.false_eq_true, Bool.true_eq_false, 
     if_true, if_false, if_neg hb0, ea, eb]
   have hq : (WORD_MOD - a) / b ≤ 2 ^ 255 := by
     have h3 : WORD_MOD - a ≤ 2 ^ 255 := by
@@ -215,22 +215,22 @@ theorem evmSdiv_pos_neg {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
     (h1 : 0 ≤ toInt a) (h2 : toInt b < 0) :
     toInt (evmSdiv a b) = -(((toInt a).toNat / (- toInt b).toNat : Nat) : Int) := by
   have hna : ¬ 2 ^ 255 ≤ a := by
-    unfold toInt at h1; simp only [ipow255, ipow256] at *; split at h1 <;> omega
+    unfold toInt at h1; simp only [ipow256] at *; split at h1 <;> omega
   have hnb : 2 ^ 255 ≤ b := by
-    unfold toInt at h2; simp only [ipow255, ipow256] at *; split at h2 <;> omega
+    unfold toInt at h2; simp only [ipow256] at *; split at h2 <;> omega
   have hb0 : ¬ b = 0 := by
-    intro h; subst h; simp only [ipow255, ipow256] at hnb; omega
+    intro h; subst h; simp only [] at hnb; omega
   have ea : (toInt a).toNat = a := by
-    unfold toInt; simp only [ipow255, ipow256] at *; split <;> omega
+    unfold toInt; simp only [ipow256] at *; split <;> omega
   have eb : (- toInt b).toNat = WORD_MOD - b := by
-    unfold toInt; simp only [word_mod_eq, ipow255, ipow256] at *; split <;> omega
+    unfold toInt; simp only [word_mod_eq, ipow256] at *; split <;> omega
   unfold evmSdiv
   simp only [u256_of_lt ha, u256_of_lt hb, decide_eq_false hna, decide_eq_true hnb,
-    Bool.false_eq_true, Bool.true_eq_false, eq_self_iff_true, reduceIte,
+    Bool.false_eq_true, 
     if_true, if_false, if_neg hb0, ea, eb]
   have hq : a / (WORD_MOD - b) ≤ 2 ^ 255 := by
     have h3 : a < 2 ^ 255 := by
-      unfold toInt at h1; simp only [ipow255, ipow256] at *; split at h1 <;> omega
+      unfold toInt at h1; simp only [ipow256] at *; split at h1 <;> omega
     have := Nat.div_le_self a (WORD_MOD - b)
     omega
   rw [toInt_u256_neg hq]
@@ -243,22 +243,22 @@ theorem evmSdiv_neg_neg {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
   have hnb : 2 ^ 255 ≤ b := by
     unfold toInt at h2; simp only [ipow255, ipow256] at *; split at h2 <;> omega
   have hb0 : ¬ b = 0 := by
-    intro h; subst h; simp only [ipow255, ipow256] at hnb; omega
+    intro h; subst h; simp only [] at hnb; omega
   have ea : (- toInt a).toNat = WORD_MOD - a := by
     unfold toInt; simp only [word_mod_eq, ipow255, ipow256] at *; split <;> omega
   have eb : (- toInt b).toNat = WORD_MOD - b := by
     unfold toInt; simp only [word_mod_eq, ipow255, ipow256] at *; split <;> omega
   unfold evmSdiv
   simp only [u256_of_lt ha, u256_of_lt hb, decide_eq_true hna, decide_eq_true hnb,
-    Bool.false_eq_true, Bool.true_eq_false, eq_self_iff_true, reduceIte,
-    if_true, if_false, if_neg hb0, ea, eb]
+    
+    if_true, if_neg hb0, ea, eb]
   have hq : (WORD_MOD - a) / (WORD_MOD - b) < 2 ^ 255 := by
     have h3 : WORD_MOD - a ≤ 2 ^ 255 := by
       unfold toInt at hmin; simp only [word_mod_eq, ipow255, ipow256] at *
       split at hmin <;> omega
     have := Nat.div_le_self (WORD_MOD - a) (WORD_MOD - b)
     have h4 : ¬ WORD_MOD - a = 2 ^ 255 ∨ True := Or.inr trivial
-    simp only [word_mod_eq, ipow255, ipow256] at *
+    simp only [word_mod_eq, ipow255] at *
     omega
   rw [toInt_u256_of_small hq]
 

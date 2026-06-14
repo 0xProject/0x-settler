@@ -137,7 +137,7 @@ theorem qS1_facts {u : Nat} (hu : u ≤ Uc) :
     have h2 : toInt Q4c = (4299840983308505679614339668442 : Int) := toInt_of_lt (by simp only [Q4c]; omega)
     rw [← htu, ← h2]
     refine evmSub_transport hu256 (by simp only [Q4c]; omega) ?_ ?_ <;>
-      rw [htu, h2] <;> simp only [ipow255, ipow256] <;> omega
+      rw [htu, h2] <;> simp only [ipow255] <;> omega
   refine ⟨evmSub_lt _ _, ?_, ?_, ?_, ?_⟩
   · rw [hT]; omega
   · rw [hT]; omega
@@ -145,7 +145,7 @@ theorem qS1_facts {u : Nat} (hu : u ≤ Uc) :
     simp only [QQ1c, evalPoly, SLOPQ1]
     omega
   · rw [hT]
-    simp only [QQ1c, evalPoly, SLOPQ1]
+    simp only [QQ1c, evalPoly]
     omega
 
 /-! ## p-chain stage 1 -/
@@ -172,7 +172,7 @@ theorem pS1_facts {u : Nat} (hu : u ≤ Uc) :
     have h2 : toInt P3c = (287579185854221620442209346 : Int) := toInt_of_lt (by simp only [P3c]; omega)
     rw [← h1, ← h2]
     refine evmSub_transport (by simp only [P4c]; omega) (by simp only [P3c]; omega) ?_ ?_ <;>
-      rw [h1, h2] <;> simp only [P4c, ipow255, ipow256] <;> omega
+      rw [h1, h2] <;> simp only [P4c, ipow255] <;> omega
   refine ⟨evmSub_lt _ _, ?_, ?_, ?_, ?_⟩
   · rw [hT]; simp only [P4c]; omega
   · rw [hT]; simp only [P4c]; omega
@@ -180,7 +180,7 @@ theorem pS1_facts {u : Nat} (hu : u ≤ Uc) :
     simp only [PP1c, evalPoly, SLOPP1, P4c]
     omega
   · rw [hT]
-    simp only [PP1c, evalPoly, SLOPP1, P4c]
+    simp only [PP1c, evalPoly, P4c]
     omega
 
 theorem pS2_facts {u : Nat} (hu : u ≤ Uc) :
@@ -220,7 +220,7 @@ theorem pS2_facts {u : Nat} (hu : u ≤ Uc) :
       omega
     · clear hsl hsh hrange hs1 hs2 hmT
       rw [hcT]
-      simp only [ipow255, ipow256]
+      simp only [ipow255]
       omega
   have hstep := scaled_mul_step hsl hsh hu0 huU (by simp only [SLOPP1]; omega)
   have ec : evalPoly PP2c (u : Int) =
@@ -287,7 +287,7 @@ theorem pS3_facts {u : Nat} (hu : u ≤ Uc) :
       omega
     · clear hsl hsh hrange hs1 hs2 hmT
       rw [hcT]
-      simp only [ipow255, ipow256]
+      simp only [ipow255]
       omega
   have hstep := scaled_mul_step hsl hsh hu0 huU (by simp only [SLOPP2]; omega)
   have ec : evalPoly PP3c (u : Int) =
@@ -354,7 +354,7 @@ theorem pS4_facts {u : Nat} (hu : u ≤ Uc) :
       omega
     · clear hsl hsh hrange hs1 hs2 hmT
       rw [hcT]
-      simp only [ipow255, ipow256]
+      simp only [ipow255]
       omega
   have hstep := scaled_mul_step hsl hsh hu0 huU (by simp only [SLOPP3]; omega)
   have ec : evalPoly PPc (u : Int) =
@@ -421,7 +421,7 @@ theorem qS2_facts {u : Nat} (hu : u ≤ Uc) :
       omega
     · clear hsl hsh hrange hs1 hs2 hmT
       rw [hcT]
-      simp only [ipow255, ipow256]
+      simp only [ipow255]
       omega
   have hstep := scaled_mul_step hsl hsh hu0 huU (by simp only [SLOPQ1]; omega)
   have ec : evalPoly QQ2c (u : Int) =
@@ -488,7 +488,7 @@ theorem qS3_facts {u : Nat} (hu : u ≤ Uc) :
       omega
     · clear hsl hsh hrange hs1 hs2 hmT
       rw [hcT]
-      simp only [ipow255, ipow256]
+      simp only [ipow255]
       omega
   have hstep := scaled_mul_step hsl hsh hu0 huU (by simp only [SLOPQ2]; omega)
   have ec : evalPoly QQ3c (u : Int) =
@@ -555,7 +555,7 @@ theorem qS4_facts {u : Nat} (hu : u ≤ Uc) :
       omega
     · clear hsl hsh hrange hs1 hs2 hmT
       rw [hcT]
-      simp only [ipow255, ipow256]
+      simp only [ipow255]
       omega
   have hstep := scaled_mul_step hsl hsh hu0 huU (by simp only [SLOPQ3]; omega)
   have ec : evalPoly QQ4c (u : Int) =
@@ -622,7 +622,7 @@ theorem qS5_facts {u : Nat} (hu : u ≤ Uc) :
       omega
     · clear hsl hsh hrange hs1 hs2 hmT
       rw [hcT]
-      simp only [ipow255, ipow256]
+      simp only [ipow255]
       omega
   have hstep := scaled_mul_step hsl hsh hu0 huU (by simp only [SLOPQ4]; omega)
   have ec : evalPoly QQc (u : Int) =

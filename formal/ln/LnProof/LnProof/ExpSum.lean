@@ -17,8 +17,6 @@ bound for all `N`), and the binomial subset-product inequalities standing
 in for `e^(a+b) = e^a * e^b`.
 -/
 
-set_option linter.unusedSimpArgs false
-
 namespace LnExp
 
 def fact : Nat → Nat
@@ -265,7 +263,7 @@ theorem cho_fact : ∀ n i, i ≤ n → cho n i * (fact i * fact (n - i)) = fact
         have e2 : cho k (i + 1) * (fact (i + 1) * fact (k - i)) = (k - i) * fact k := by
           rw [hs2, show fact ((k - (i + 1)) + 1) = ((k - (i + 1)) + 1) * fact (k - (i + 1))
             from rfl, ← h2]
-          simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+          simp only [Nat.mul_left_comm]
         rw [hs1, Nat.add_mul, e1, e2, ← Nat.add_mul]
         have hc : i + 1 + (k - i) = k + 1 := by omega
         rw [hc]
@@ -480,7 +478,7 @@ theorem sum_le_prod (K p1 p2 q : Nat) :
       rw [← Nat.pow_add, ← Nat.pow_add]
       congr 1
       omega]
-  simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm, Nat.mul_one, Nat.one_mul]
+  simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm, Nat.mul_one]
 
 /-! ## Monotonicity and the tail bound -/
 
@@ -489,11 +487,11 @@ theorem div_le_trans {a b c d e f : Nat} (hd : 0 < d)
     (h1 : a * d ≤ c * b) (h2 : c * f ≤ e * d) : a * f ≤ e * b := by
   refine Nat.le_of_mul_le_mul_right ?_ hd
   calc a * f * d = a * d * f := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
     _ ≤ c * b * f := Nat.mul_le_mul_right f h1
-    _ = c * f * b := by simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+    _ = c * f * b := by simp only [Nat.mul_comm, Nat.mul_left_comm]
     _ ≤ e * d * b := Nat.mul_le_mul_right b h2
-    _ = e * b * d := by simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+    _ = e * b * d := by simp only [Nat.mul_comm, Nat.mul_left_comm]
 
 theorem expNum_step_le (n p q : Nat) :
     (n + 1) * q * expNum n p q ≤ expNum (n + 1) p q := by
@@ -588,14 +586,14 @@ theorem tail_potential_step {p q M : Nat} (hM : 2 * p ≤ (M + 2) * q) :
         expNum M p q * ((M + 1) * q) * ((M + 2) * q) := by
       simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
     have a2 : p ^ (M + 1) * ((M + 2) * q) = (M + 2) * q * p ^ (M + 1) := by
-      simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      simp only [Nat.mul_comm, Nat.mul_left_comm]
     omega
   have eR : (expNum M p q * ((M + 1) * q) + 2 * p ^ (M + 1)) * ((M + 2) * q) =
       expNum M p q * ((M + 1) * q) * ((M + 2) * q) +
         2 * ((M + 2) * q * p ^ (M + 1)) := by
     rw [Nat.add_mul (expNum M p q * ((M + 1) * q)) (2 * p ^ (M + 1)) ((M + 2) * q)]
     have a3 : 2 * p ^ (M + 1) * ((M + 2) * q) = 2 * ((M + 2) * q * p ^ (M + 1)) := by
-      simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      simp only [Nat.mul_comm, Nat.mul_left_comm]
     omega
   omega
 
@@ -716,7 +714,7 @@ theorem capLB_mul {p1 p2 q y1 w1 y2 w2 : Nat}
     _ ≤ expNum (n1 + n2) (p1 + p2) q * (fact n1 * fact n2) * (w1 * w2) :=
         Nat.mul_le_mul_right _ (prod_le_sum n1 n2 p1 p2 q)
     _ = expNum (n1 + n2) (p1 + p2) q * (w1 * w2) * (fact n1 * fact n2) := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_assoc, Nat.mul_comm]
 
 /-- Quotient mover: from `e^(a+b) ≤ C/W` and `e^b ≥ G/V`, get `e^a ≤ CV/(WG)`. -/
 theorem capUB_cancel {pa pb q C W G V : Nat} (hq : 0 < q)
@@ -788,15 +786,15 @@ theorem capUB_arg {p q p' q' y w : Nat} (hq' : 0 < q') (h : p * q' ≤ p' * q)
   refine Nat.le_of_mul_le_mul_right ?_ hd
   calc expNum n p q * w * q' ^ n
       = (expNum n p q * q' ^ n) * w := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
     _ ≤ (expNum n p' q' * q ^ n) * w :=
         Nat.mul_le_mul_right _ (expNum_arg_mono h n)
     _ = (expNum n p' q' * w) * q ^ n := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
     _ ≤ (y * (fact n * q' ^ n)) * q ^ n :=
         Nat.mul_le_mul_right _ (hub n)
     _ = y * (fact n * q ^ n) * q' ^ n := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
 
 /-- Transport a lower cap up a larger argument: `p'/q' ≤ p/q`. -/
 theorem capLB_arg {p q p' q' y w : Nat} (hq' : 0 < q') (h : p' * q ≤ p * q')
@@ -807,15 +805,15 @@ theorem capLB_arg {p q p' q' y w : Nat} (hq' : 0 < q') (h : p' * q ≤ p * q')
   refine Nat.le_of_mul_le_mul_right ?_ hd
   calc y * (fact n * q ^ n) * q' ^ n
       = (y * (fact n * q' ^ n)) * q ^ n := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
     _ ≤ (expNum n p' q' * w) * q ^ n :=
         Nat.mul_le_mul_right _ hn
     _ = (expNum n p' q' * q ^ n) * w := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
     _ ≤ (expNum n p q * q' ^ n) * w :=
         Nat.mul_le_mul_right _ (expNum_arg_mono h n)
     _ = expNum n p q * w * q' ^ n := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
 
 /-- Weaken an upper cap to a looser target: `y/w ≤ y'/w'`. -/
 theorem capUB_weaken {p q y w y' w' : Nat} (hw : 0 < w)
@@ -823,13 +821,13 @@ theorem capUB_weaken {p q y w y' w' : Nat} (hw : 0 < w)
   intro n
   refine Nat.le_of_mul_le_mul_right ?_ hw
   calc expNum n p q * w' * w = expNum n p q * w * w' := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
     _ ≤ y * (fact n * q ^ n) * w' := Nat.mul_le_mul_right _ (h n)
     _ = y * w' * (fact n * q ^ n) := by
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
     _ ≤ y' * w * (fact n * q ^ n) := Nat.mul_le_mul_right _ hyy
     _ = y' * (fact n * q ^ n) * w := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_assoc, Nat.mul_comm]
 
 /-- Strengthen a lower cap to a looser target: `y'/w' ≤ y/w`. -/
 theorem capLB_weaken {p q y w y' w' : Nat} (hw : 0 < w)
@@ -838,13 +836,13 @@ theorem capLB_weaken {p q y w y' w' : Nat} (hw : 0 < w)
   refine ⟨n, ?_⟩
   refine Nat.le_of_mul_le_mul_right ?_ hw
   calc y' * (fact n * q ^ n) * w = y' * w * (fact n * q ^ n) := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_assoc, Nat.mul_comm]
     _ ≤ y * w' * (fact n * q ^ n) := Nat.mul_le_mul_right _ hyy
     _ = y * (fact n * q ^ n) * w' := by
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
     _ ≤ expNum n p q * w * w' := Nat.mul_le_mul_right _ hn
     _ = expNum n p q * w' * w := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
 
 /-- Turn one evaluated partial sum plus the geometric tail into a full upper
 cap: with `2p ≤ (K+2)q` and

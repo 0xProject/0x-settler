@@ -61,7 +61,7 @@ theorem toInt_ofInt {x : Int} (h1 : -(2 ^ 255) ≤ x) (h2 : x < 2 ^ 255) :
 
 theorem ofInt_toInt {w : Nat} (h : w < 2 ^ 256) : ofInt (toInt w) = w := by
   unfold toInt ofInt
-  simp only [ipow255, ipow256] at *
+  simp only [ipow256] at *
   split <;> omega
 
 /-- `sle` (the comparison used by the seam theorems) agrees with `Int`
@@ -72,7 +72,7 @@ def sleInt (a b : Nat) : Bool :=
 theorem sleInt_iff {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256) :
     sleInt a b = true ↔ toInt a ≤ toInt b := by
   unfold sleInt toInt
-  simp only [word_mod_eq, decide_eq_true_eq, ipow255, ipow256]
+  simp only [word_mod_eq, decide_eq_true_eq, ipow256]
   split <;> split <;> omega
 
 /-! ## Opcode transports -/
@@ -90,7 +90,7 @@ theorem toInt_wrap {n : Nat} {x : Int}
 theorem toInt_mod_cong {w : Nat} (h : w < 2 ^ 256) :
     (w : Int) % (2 ^ 256 : Int) = toInt w % (2 ^ 256 : Int) := by
   unfold toInt
-  simp only [ipow255, ipow256] at *
+  simp only [ipow256] at *
   split <;> omega
 
 theorem evmAdd_eq (a b : Nat) : evmAdd a b = (a + b) % 2 ^ 256 := by

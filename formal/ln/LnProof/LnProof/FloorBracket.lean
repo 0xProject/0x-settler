@@ -193,7 +193,7 @@ theorem wlo_lt_un {d q u B : Nat} (hd : 46 ≤ d)
   have e3 : (d : Int) * 2 ^ 100 * B = ((d : Int) * B) * 2 ^ 100 := by
     simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
   have e3' : (B : Int) * ((d : Int) * 2 ^ 100) = ((d : Int) * B) * 2 ^ 100 := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_assoc, Int.mul_left_comm]
   have e5 : ((q : Int) * B) * ((q : Int) * B) = ((q : Int) * q) * ((B : Int) * B) := by
     simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
   have s6 : ((q : Int) * q) * ((B : Int) * B) ≤
@@ -275,7 +275,7 @@ theorem un_le_dsq {d q u B : Nat} (hB : 0 < B)
     have e4 : (2 ^ 96 * ((d : Int) * d)) * 2 ^ 104 = ((d : Int) * d) * 2 ^ 200 := by
       have h : (2 ^ 96 * ((d : Int) * d)) * 2 ^ 104 =
           ((d : Int) * d) * ((2 : Int) ^ 96 * 2 ^ 104) := by
-        simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+        simp only [Int.mul_assoc, Int.mul_comm]
       rw [h, show ((2 : Int) ^ 96 * 2 ^ 104) = 2 ^ 200 from by decide]
     clear hq1 hu
     generalize (q : Int) * (B : Int) = QB at *
@@ -340,13 +340,13 @@ theorem quartic_expand (c1 c2 c3 c4 n E3 E2 E1 : Int) :
       n * (n * (c2 * E2)) + (n * (n * (n * (c3 * E1))) + n * (n * (n * (n * c4)))) := by
     rw [Int.mul_add n (n * (c2 * E2)) _, Int.mul_add n (n * (n * (c3 * E1))) _]
   have a1 : n * (c1 * E3) = c1 * n * E3 := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm, Int.mul_left_comm]
   have a2 : n * (n * (c2 * E2)) = c2 * (n * n) * E2 := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm, Int.mul_left_comm]
   have a3 : n * (n * (n * (c3 * E1))) = c3 * (n * n * n) * E1 := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm, Int.mul_left_comm]
   have a4 : n * (n * (n * (n * c4))) = c4 * (n * n * n * n) := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm, Int.mul_left_comm]
   omega
 
 theorem df2 (x y : Int) : x * x - y * y = (x - y) * (x + y) := by
@@ -358,15 +358,15 @@ theorem df3 (x y : Int) :
     x * x * x - y * y * y = (x - y) * (x * x + x * y + y * y) := by
   rw [Int.sub_mul, Int.mul_add, Int.mul_add, Int.mul_add, Int.mul_add]
   have a1 : y * (x * x) = x * (x * y) := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm, Int.mul_left_comm]
   have a2 : x * (x * x) = x * x * x := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm]
   have a3 : y * (x * y) = y * y * x := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm, Int.mul_left_comm]
   have a4 : x * (y * y) = y * y * x := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm]
   have a5 : y * (y * y) = y * y * y := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm]
   have a6 : x * (x * y) = x * (x * y) := rfl
   omega
 
@@ -534,7 +534,7 @@ theorem homEvalI_PPc_anti {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
     have e1 : (-(5562590447406762316237749022682109217671325297934336 : Int)) * (n1 * n1 * n1) * D - (-(5562590447406762316237749022682109217671325297934336 : Int)) * (n2 * n2 * n2) * D =
         (-(5562590447406762316237749022682109217671325297934336 : Int)) * ((n1 - n2) * ((n1 * n1 + n1 * n2 + n2 * n2) * D)) := by
       rw [← Int.sub_mul, ← Int.mul_sub, hd3]
-      simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+      simp only [Int.mul_assoc, Int.mul_comm]
     rw [e1]
     refine Int.mul_nonpos_of_nonpos_of_nonneg (by decide) ?_
     exact Int.mul_nonneg hmono (Int.mul_nonneg hH3nn (by omega))
@@ -544,7 +544,7 @@ theorem homEvalI_PPc_anti {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
     have e1 : (4542704643877621417440 : Int) * (n1 * n1 * n1 * n1) - (4542704643877621417440 : Int) * (n2 * n2 * n2 * n2) =
         ((4542704643877621417440 : Int) * (n1 - n2)) * ((n1 + n2) * (n1 * n1 + n2 * n2)) := by
       rw [← Int.mul_sub, hd4]
-      simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+      simp only [Int.mul_assoc, Int.mul_comm]
     rw [e1]
     have hf : (0 : Int) ≤ (4542704643877621417440 : Int) * (n1 - n2) :=
       Int.mul_nonneg (by decide) hmono
@@ -611,15 +611,15 @@ theorem quintic_expand (c1 c2 c3 c4 c5 n E4 E3 E2 E1 : Int) :
     Int.mul_add n (c2 * n * E3 + c3 * (n * n) * E2) (c4 * (n * n * n) * E1),
     Int.mul_add n (c2 * n * E3) (c3 * (n * n) * E2)]
   have a1 : n * (c1 * E4) = c1 * n * E4 := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm, Int.mul_left_comm]
   have a2 : n * (c2 * n * E3) = c2 * (n * n) * E3 := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm, Int.mul_left_comm]
   have a3 : n * (c3 * (n * n) * E2) = c3 * (n * n * n) * E2 := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm, Int.mul_left_comm]
   have a4 : n * (c4 * (n * n * n) * E1) = c4 * (n * n * n * n) * E1 := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm, Int.mul_left_comm]
   have a5 : n * (c5 * (n * n * n * n)) = c5 * (n * n * n * n * n) := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_comm, Int.mul_left_comm]
   omega
 
 /-- Fifth-power difference, asymmetric factorization. -/
@@ -631,15 +631,15 @@ theorem df5 (x y : Int) :
       x * (x * x * x * x - y * y * y * y) + (x - y) * (y * y * y * y) := by
     rw [Int.mul_sub, Int.sub_mul]
     have a1 : x * (x * x * x * x) = x * x * x * x * x := by
-      simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+      simp only [Int.mul_comm]
     have a2 : x * (y * y * y * y) = x * (y * y * y * y) := rfl
     have a3 : y * (y * y * y * y) = y * y * y * y * y := by
-      simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+      simp only [Int.mul_comm]
     omega
   rw [e1, h4]
   have e2 : x * ((x - y) * ((x + y) * (x * x + y * y))) =
       (x - y) * (x * ((x + y) * (x * x + y * y))) := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_assoc, Int.mul_comm]
   rw [e2, ← Int.mul_add]
 
 theorem mul_le_mul_right_nonpos {a b c : Int} (h : a ≤ b) (hc : c ≤ 0) :
@@ -1754,7 +1754,7 @@ theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
   rw [evalTN2b_ge, evalTD2b_ge]
   have egoal : X1v * (2 ^ 99 * (2 ^ 56 * evalPoly geDLO (m : Int))) =
       2 ^ 99 * (X1v * (2 ^ 56 * evalPoly geDLO (m : Int))) := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_assoc, Int.mul_comm]
   rw [egoal]
   have edist : (X1v + 1) * (2 ^ 56 * evalPoly geDLO (m : Int)) =
       X1v * (2 ^ 56 * evalPoly geDLO (m : Int)) + 2 ^ 56 * evalPoly geDLO (m : Int) := by
@@ -2586,7 +2586,7 @@ theorem bracket_lt_lo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   rw [evalTN2b_lt, evalTD2b_lt]
   have egoal : X1v * (2 ^ 99 * (2 ^ 56 * evalPoly ltDLO (m : Int))) =
       2 ^ 99 * (X1v * (2 ^ 56 * evalPoly ltDLO (m : Int))) := by
-    simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+    simp only [Int.mul_assoc, Int.mul_comm]
   rw [egoal]
   have edist : (X1v + 1) * (2 ^ 56 * evalPoly ltDLO (m : Int)) =
       X1v * (2 ^ 56 * evalPoly ltDLO (m : Int)) + 2 ^ 56 * evalPoly ltDLO (m : Int) := by

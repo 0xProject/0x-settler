@@ -128,7 +128,7 @@ theorem triple_mono {a1 b1 c1 a2 b2 c2 : Int} (ha : 0 ≤ a1) (hb : 0 ≤ b1) (h
 /-- `((x*A)*y)*(z*B) = ((x*y)*z)*(A*B)` — regroup scale factors. -/
 theorem regroup (x A y z B : Int) :
     x * A * y * (z * B) = x * y * z * (A * B) := by
-  simp [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  simp [Int.mul_comm, Int.mul_left_comm]
 
 /-- Positive-branch certificate application: for `w ∈ [1, Zc]` and a `u`-step
 down, the slop-worst-case cross inequality. -/
@@ -215,7 +215,7 @@ theorem cross_to_div {n1 n2 W1 W2 : Int} (hn1 : 0 ≤ n1) (hn2 : 0 ≤ n2)
 /-- `(P * w * W) * (E1 * E2) = (P * E1) * (W * E2) * w`. -/
 theorem ident1 (P w W E1 E2 : Int) :
     P * w * W * (E1 * E2) = P * E1 * (W * E2) * w := by
-  simp [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  simp [Int.mul_comm, Int.mul_left_comm]
 
 /-- Numerator product bound: `|P * w| < 2^255` for the certified ranges. -/
 theorem pz_bound {P w : Int}

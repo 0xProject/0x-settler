@@ -328,7 +328,7 @@ theorem homEvalI_collapse (u D : Int) :
     rw [e1, Int.mul_add]
     have e2 : u * D * (D ^ cs.length * evalPoly (c2 :: cs) u) =
         D * D ^ cs.length * (u * evalPoly (c2 :: cs) u) := by
-      simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+      simp only [Int.mul_assoc, Int.mul_left_comm]
     have e3 : c * (D * D ^ cs.length) = D * D ^ cs.length * c := by
       rw [Int.mul_comm]
     omega
