@@ -59,7 +59,7 @@ theorem expNum_zero (q : Nat) : ∀ n, expNum n 0 q = fact n * q ^ n := by
     simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
     omega
 
-theorem capUB_diag {q y : Nat} (hq : 0 < q) : capUB 0 q y y := by
+theorem capUB_diag {q y : Nat} (_hq : 0 < q) : capUB 0 q y y := by
   intro n
   rw [expNum_zero]
   have e : fact n * q ^ n * y = y * (fact n * q ^ n) := Nat.mul_comm _ _
@@ -92,7 +92,7 @@ theorem mant_window_le {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
   · refine Nat.le_of_mul_le_mul_left ?_ hA0
     have e1 : A * (q * B) = 2 ^ 152 * q := by
       rw [show A * (q * B) = q * (A * B) from by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm], hsplit]
+        simp only [Nat.mul_left_comm], hsplit]
       exact Nat.mul_comm _ _
     have e2 : A * x = x * A := Nat.mul_comm _ _
     generalize hg1 : A * (q * B) = T1 at e1 ⊢
@@ -108,7 +108,7 @@ theorem mant_window_le {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
     have e1 : A * x = x * A := Nat.mul_comm _ _
     have e2 : A * ((q + 1) * B) = (q + 1) * 2 ^ 152 := by
       rw [show A * ((q + 1) * B) = (q + 1) * (A * B) from by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm], hsplit]
+        simp only [Nat.mul_assoc, Nat.mul_comm], hsplit]
     generalize hg1 : A * x = T1 at e1 ⊢
     generalize hg2 : x * A = T2 at e1 hlt
     generalize hg3 : A * ((q + 1) * B) = T3 at e2 ⊢
@@ -131,7 +131,7 @@ theorem mant_window_gt {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
   rw [hm, hsplit]
   have e : x * (2 ^ 152 * 2 ^ ((255 - Nat.log2 x) - 152)) =
       x * 2 ^ ((255 - Nat.log2 x) - 152) * 2 ^ 152 := by
-    simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+    simp only [Nat.mul_comm, Nat.mul_left_comm]
   rw [e]
   exact Nat.mul_div_cancel _ (by decide)
 

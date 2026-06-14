@@ -177,7 +177,7 @@ theorem budgetL_fold {m k : Nat} (hm : 2 ^ 103 ≤ m) (hk : k ≤ 151) :
   refine Nat.le_of_mul_le_mul_left ?_ (show 0 < 2 ^ 103 by decide)
   calc 2 ^ 103 * ((m + 1) * (2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 137))
       = ((m + 1) * 2 ^ 103) * (2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 137) := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_assoc, Nat.mul_left_comm]
     _ ≤ (m * (2 ^ 103 + 1)) * (2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 137) :=
         Nat.mul_le_mul_right _ hcross
     _ = m * ((2 ^ 103 + 1) * (2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 137)) := by
@@ -428,7 +428,7 @@ theorem up_ge_neg {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
       have e2 : x * Sc * (10 ^ 77 * (2 * (10 ^ 40 - 1)) ^ (c - 152)) =
           x * (10 ^ 77 * (2 * (10 ^ 40 - 1)) ^ (c - 152) * Sc) := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_assoc, Nat.mul_comm]
       rw [e1] at h
       rw [e2] at h
       exact h
@@ -1023,7 +1023,7 @@ theorem up_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         intro P
         rw [← Nat.mul_assoc, ← Nat.mul_assoc,
           show ((10 : Nat) ^ 18 * 10 ^ 29 * 10 ^ 30) = 10 ^ 77 from by decide]
-      simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      simp only [Nat.mul_assoc, Nat.mul_left_comm]
       rw [e' ((2 * (10 ^ 40 - 1)) ^ (c - 152))]
     generalize hT1 : Sc * (10 ^ 30 - 499) * (m * 100000000000000000000000000042 *
       (10 ^ 40 : Nat) ^ (c - 152)) * 10 ^ 18 = T1 at eY ⊢
@@ -1170,7 +1170,7 @@ theorem lo_lt_neg {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
               (2 * (10 ^ 40 + 1)) ^ (c - 152))))))) := by
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
       rw [eAC, e' ((2 * (10 ^ 40 + 1)) ^ (c - 152))]
-      simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      simp only [Nat.mul_assoc]
     have eR : Sc * (10 ^ 30 - 501) * (10 ^ 30 + 999) *
         (m * 99999999999999999999999999958 * (10 ^ 40 : Nat) ^ (c - 152)) *
         (10 ^ 18 * (10 ^ 30 - 1)) =
@@ -1773,7 +1773,7 @@ theorem bn_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         (2 * (10 ^ 40 - 1)) ^ (152 - c) * (10 ^ 30 - 501) * (10 ^ 30 + 999))) =
         m * (Sc * (10 ^ 18 * (10 ^ 30 - 1) * (10 ^ 29 - 42) *
           (2 * (10 ^ 40 - 1)) ^ (152 - c) * (10 ^ 30 - 501) * (10 ^ 30 + 999))) := by
-      simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      simp only [Nat.mul_assoc, Nat.mul_left_comm]
     rw [eSc1, eSc2] at hScf
     have eL : 1434182936954525181919537618622900000000000000000000000000000 *
         ((10 ^ 40 : Nat) ^ (152 - c) * (10 ^ 18 * 10 ^ 30) * 10 ^ 30) * (x * 10 ^ 30) ≤
@@ -1793,7 +1793,7 @@ theorem bn_lt_pos {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         10 ^ 18 * (10 ^ 30 - 1) * (m * 99999999999999999999999999958 *
           ((2 * (10 ^ 40 - 1)) ^ (152 - c) * (Sc * (10 ^ 30 - 501)) * (10 ^ 30 + 999))) := by
       rw [show (99999999999999999999999999958 : Nat) = 10 ^ 29 - 42 from by decide]
-      simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      simp only [Nat.mul_assoc, Nat.mul_left_comm]
     generalize hT1 : 1434182936954525181919537618622900000000000000000000000000000 *
       ((10 ^ 40 : Nat) ^ (152 - c) * (10 ^ 18 * 10 ^ 30) * 10 ^ 30) * (x * 10 ^ 30) = T1
       at eL ⊢

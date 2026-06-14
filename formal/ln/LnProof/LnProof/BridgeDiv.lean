@@ -100,7 +100,7 @@ theorem evmShr_eq_div_152 {w : Nat} (h : w < 2 ^ 256) : evmShr 152 w = w / 2 ^ 1
   simp only [word_mod_eq, Nat.reducePow, Nat.reduceMod]
   split <;> omega
 
-theorem evmShr_lt {s : Nat} {w : Nat} (h : w < 2 ^ 256) : evmShr s w < 2 ^ 256 := by
+theorem evmShr_lt {s : Nat} {w : Nat} (_h : w < 2 ^ 256) : evmShr s w < 2 ^ 256 := by
   unfold evmShr u256
   simp only [word_mod_eq]
   split

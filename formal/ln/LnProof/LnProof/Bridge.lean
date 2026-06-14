@@ -87,7 +87,7 @@ theorem toInt_wrap {n : Nat} {x : Int}
   simp only [ipow255, ipow256] at *
   split <;> omega
 
-theorem toInt_mod_cong {w : Nat} (h : w < 2 ^ 256) :
+theorem toInt_mod_cong {w : Nat} (_h : w < 2 ^ 256) :
     (w : Int) % (2 ^ 256 : Int) = toInt w % (2 ^ 256 : Int) := by
   unfold toInt
   simp only [ipow256] at *
