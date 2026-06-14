@@ -4,38 +4,27 @@ pragma solidity ^0.8.34;
 library Ln {
     /// @notice Compute the natural logarithm of a positive fixnum with 10**18 (wad) basis,
     ///         returning the result as a fixnum with 10**27 (ray) basis.
-    /// @dev Let L = 10**27 * ln(x / 10**18) be the exact, infinite-precision result. This
-    ///      function returns either `floor(L)` or `floor(L) - 1` (equivalently, the unique
-    ///      integers r satisfy L - 2 < r <= L). It never returns a value greater than the
-    ///      correctly-rounded-down result. `lnWadToRay(10**18) == 0` exactly, and the result
-    ///      is negative iff `x < 10**18`. These properties are proven in Lean over the
-    ///      generated model (formal/ln/LnProof): the floor specification
-    ///      `r <= L < r + 2` is theorem `model_ln_wad_floor` (arithmetized through
-    ///      integer-scaled partial sums of the exponential, standard axioms only), the
-    ///      sign characterization is theorem `model_ln_wad_negative_iff`, and
-    ///      monotonicity — `x1 < x2` implies `lnWadToRay(x1) <= lnWadToRay(x2)`, via the
-    ///      analytic within-octave leg plus the finite leg covering the 254 clz seams and the
-    ///      corrected point `x = 10**18` — is theorem `model_ln_wad_mono`, with an
-    ///      executable exact-rational counterpart in formal/python/ln/check_ln_monotone.py.
-    ///      Reverts with `LnWadUndefined()` when `x <= 0`.
+    /// @dev Let L = 10²⁷ ⋅ ln(x / 10¹⁸) be the exact, infinite-precision result. This function
+    ///      returns either ⌊L⌋ or ⌊L⌋ - 1 (equivalently, the unique integers r satisfy L - 2 < r ≤
+    ///      L). It never returns a value greater than the correctly-rounded-down
+    ///      result. `lnWadToRay(10**18) == 0` exactly, and the result is negative iff `x <
+    ///      10**18`. `lnWadToRay` is monotonic; x1 < x2 implies lnWadToRay(x1) ≤
+    ///      lnWadToRay(x2). Reverts with `Panic(18)` when `x <= 0`.
     function lnWadToRay(int256 x) internal pure returns (int256 r) {
-        // Assembly is required for `clz`, wrapping arithmetic on 256-bit fixnums, and the
-        // truncating `sar`/`sdiv` primitives whose rounding directions the error analysis
-        // below depends on. Equivalent pseudocode, in exact real arithmetic:
+        // Equivalent pseudocode, in exact real arithmetic:
         //     require(x > 0);
-        //     k = floor(log2(x)) - 103;                  // x = m * 2**k, m in [2**103, 2**104)
-        //     m = x / 2**k;                              // Q103 fixnum in [1, 2)
-        //     z = (s - m) / (m + s);                     // s = sqrt(2) * 2**103; |z| <= 3 - 2*sqrt(2)
-        //     A = 2 * atanh(-z) = (p(z**2) * z) / q(z**2);  // ln(m / 2**103) = A + ln(s / 2**103)
-        //     return floor(10**27 * (A + ln(s) + k*ln(2) - 18*ln(10)) - margin) + (x == 10**18);
+        //     k = ⌊log₂(x)⌋ - 103;                      // x = m ⋅ 2ᵏ, m in [2¹⁰³, 2¹⁰⁴)
+        //     m = x / 2ᵏ;                               // Q103 fixnum in [1, 2)
+        //     z = (s - m) / (m + s);                    // s = √2 ⋅ 2¹⁰³; |z| ≤ 3 - 2√2
+        //     A = 2 ⋅ atanh(-z) = (p(z²) ⋅ z) / q(z²);  // ln(m / 2¹⁰³) = A + ln(s / 2¹⁰³)
+        //     return floor(10²⁷ ⋅ (A + ln(s) + k⋅ln(2) - 18⋅ln(10)) - margin) + (x = 10¹⁸);
         //
-        // z is negated (s - m, not m - s) so that every polynomial coefficient below can be
-        // written as a positive literal; p carries the compensating negation. p/q is a
-        // (4,5)-degree rational minimax approximation of f(u) = atanh(sqrt(u))/sqrt(u) on
-        // u in [0, (3-2*sqrt(2))**2], fit under the weight sqrt(u) (the weight the error
-        // carries into ln), with q monic and p(0) = q(0) constrained so both polynomials
-        // share their constant-term literal. Certified weighted sup-norm error of the
-        // integer-rounded rational: 2*sqrt(u)*|p/q - f| * 10**27 <= 0.325 ulp.
+        // z is negated (s - m, not m - s) so that every polynomial coefficient below can be written
+        // as a positive literal; p carries the compensating negation. p/q is a (4,5)-degree
+        // rational polynomial approximation of f(u) = atanh(√u)/√u on u in [0, (3-2√2)²], fit under
+        // the weight √u (the weight the error carries into ln), with q monic and p(0) = q(0)
+        // constrained so both polynomials share their constant-term literal. The weighted
+        // sup-norm error of the integer-rounded rational 2⋅√u⋅|p/q - f|⋅10²⁷ is ≤0.325ulp.
         //
         // Mixed fixed-point bases, chosen so every renormalizing shift lands a value directly
         // at the basis its consumer needs (each runtime quantity is rounded exactly once):
