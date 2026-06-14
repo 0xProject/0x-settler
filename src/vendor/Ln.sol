@@ -45,10 +45,9 @@ library Ln {
         // Error budget in ulps (1 ulp = 10⁻²⁷ of ln; 2⁷² pre-shift units): rational polynomial
         // approximation and coefficient quantization ≤0.325 combined; z, u, and `sdiv` truncations
         // ≤0.005 combined; Horner stage truncations ≤10⁻⁴; ln(2) and bias constant rounding
-        // ≤10⁻¹⁹. The bias is reduced by a margin of 1.71⋅10²¹ units (0.362 ulp) > certified upward
-        // error 0.329 ulp, so the Q72 accumulator never exceeds L⋅2⁷²; margin plus downward errors
-        // total < 0.692 ⋅ 2⁷², so it always exceeds (L-1)⋅2⁷². `sar(72, …)` therefore yields ⌊L⌋ or
-        // ⌊L⌋ - 1.
+        // ≤10⁻¹⁹. The bias is reduced by a margin of 1.71⋅10²¹ units (0.362 ulp), so the Q72
+        // accumulator never exceeds L⋅2⁷²; margin plus downward errors total < 0.692 ⋅ 2⁷², so it
+        // always exceeds (L-1)⋅2⁷². `sar(72, …)` therefore yields ⌊L⌋ or ⌊L⌋ - 1.
         //
         // Monotonicity: within an octave, the mantissa map m → z is antitone because
         // d/dm[(s-m)/(m+s)] = -2s/(m+s)² < 0 with |dz/dm| < 1, and the quotient p⋅z/q is an
