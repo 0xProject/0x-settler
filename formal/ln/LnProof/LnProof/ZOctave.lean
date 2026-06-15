@@ -319,7 +319,7 @@ theorem hAt_bound {w : Int}
         toInt pword * 217494458298375249691265569570 := by
       rw [hmul]; exact mul_le_mul_left_nonneg h2 (by omega)
     have s2 : toInt pword * 217494458298375249691265569570 ≤
-        13972178604861559108982341686373 * 217494458298375249691265569570 :=
+        13972178604861559108982341686387 * 217494458298375249691265569570 :=
       mul_le_mul_right_nonneg phi (by omega)
     have hdiv : (toInt (evmMul pword (ofInt w))).toNat /
         (-toInt qword).toNat < 240000000000000000000000000001 := by
@@ -340,7 +340,7 @@ theorem hAt_bound {w : Int}
         rw [hmul, ← hPe]
         exact mul_le_mul_left_nonneg (by omega) (by omega)
       have s2 : toInt pword * 217494458298375249691265569570 ≤
-          13972178604861559108982341686373 * 217494458298375249691265569570 :=
+          13972178604861559108982341686387 * 217494458298375249691265569570 :=
         mul_le_mul_right_nonneg phi (by omega)
       have hdiv : (-toInt (evmMul pword (ofInt w))).toNat /
           (-toInt qword).toNat < 240000000000000000000000000001 := by

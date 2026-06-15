@@ -87,7 +87,7 @@ library Ln {
 
             // Constant terms of p and q in Q94; p(0) = -q(0) by construction, so the literal is
             // shared.
-            let c0 := 0xb05a8b41cf51c04d1b8a08d465
+            let c0 := 0xb05a8b41cf51c04d1b8a08d473
 
             // Numerator p(u), Horner up the basis staircase Q68 → Q80 → Q86 → Q85 → Q94. p(u)/2⁹⁴ ∈
             // [663.7, 705.5] on the domain. The leading product is nonnegative, so the first shift
@@ -100,10 +100,10 @@ library Ln {
             // Denominator q(u), monic, Horner up the staircase Q96 → Q79 → Q85 → Q93 →
             // Q94. q(u)/2⁹⁴ ∈ [-705.5, -656.0] on the domain: bounded away from zero, and
             // p(u)/-q(u) ∈ [1, 1.01].
-            let q := sub(u, 0x364589193443b48661938f59da)
+            let q := sub(u, 0x364589193443b48661938f59dc)
             q := add(sar(0x71, mul(q, u)), 0xe904c4e76307954df78fef)
             q := sub(sar(0x5a, mul(q, u)), 0xad960ab2f600bd9765c15ffd)
-            q := add(sar(0x58, mul(q, u)), 0xd1b1fedec544f0ea0bc812bbbc)
+            q := add(sar(0x58, mul(q, u)), 0xd1b1fedec544f0ea0bc812bbca)
             q := sub(sar(0x5f, mul(q, u)), c0)
 
             // h = atanh(-z/2¹⁰⁰) in Q100: |p ⋅ z| < 2²⁰¹ ∧ |q| > 656 ⋅ 2⁹⁴, so the quotient fits in
