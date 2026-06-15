@@ -50,13 +50,13 @@ library Ln {
         // always exceeds (L-1)⋅2⁷². `sar(72, …)` therefore yields ⌊L⌋ or ⌊L⌋ - 1.
         //
         // Monotonicity: within an octave, the mantissa map m → z is antitone because
-        // d/dm[(s-m)/(m+s)] = -2s/(m+s)² < 0 with |dz/dm| < 1, and the quotient p⋅z/q is an
+        // ∂/∂m⋅[(s-m)/(m+s)] = -2s/(m+s)² < 0 with |∂z/∂m| < 1, and the quotient p⋅z/q is an
         // antitone function of the integer z: per unit step of z it moves by at least Rₘᵢₙ -
         // zₘₐₓ⋅2J > 0.82 quotient units (R = p/-q ≥ 0.939; J bounds the truncation of R between
         // adjacent u values), and `SDIV` truncation toward zero preserves order. The x = 10¹⁸
         // correction preserves monotonicity because its neighbors' results bracket [0, 999999999].
         assembly ("memory-safe") {
-            if iszero(sgt(x, 0)) {
+            if iszero(slt(0x00, x)) {
                 mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
                 mstore(0x20, 0x12)       // panic code for division by zero
                 revert(0x1c, 0x24)
@@ -67,7 +67,7 @@ library Ln {
             // 0.
             let one := eq(0xde0b6b3a7640000, x)
 
-            // Normalize: x := m, a Q103 fixnum in [1, 2), truncated from x / 2ᵏ. Truncation
+            // Normalize: x := m, a Q103 fixnum, m ∈ [1, 2), truncated from x / 2ᵏ. Truncation
             // underestimates ln(x) by less than 2⁻¹⁰³ (only possible when k > 0).
             let c := clz(x)
             let k := sub(0x98, c)

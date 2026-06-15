@@ -20,7 +20,7 @@ import re
 from typing import cast
 
 _REVERT_GUARD = re.compile(
-    r"if\s+iszero\(sgt\((\w+),\s*0\)\)\s*"
+    r"if\s+iszero\(slt\(0x00,\s*(\w+)\)\)\s*"
     r"\{\s*mstore\(0x00,\s*0x4e487b71\)\s*mstore\(0x20,\s*0x12\)\s*"
     r"revert\(0x1c,\s*0x24\)\s*\}",
 )
