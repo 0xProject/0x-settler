@@ -11,10 +11,10 @@ library Ln {
     function lnWadToRay(int256 x) internal pure returns (int256 r) {
         // Equivalent pseudocode; fixed-point truncations are accounted for below:
         //     require(x > 0);
-        //     k = ⌊log₂(x)⌋ - 103;                      // x = m ⋅ 2ᵏ, m ∈ [2¹⁰³, 2¹⁰⁴)
-        //     m = x / 2ᵏ;                               // Q103 fixnum ∈ [1, 2)
-        //     z = (s - m) / (m + s);                    // s = √2 ⋅ 2¹⁰³; |z| ≤ 3 - 2√2
-        //     h = atanh(-z) = (p(z²) ⋅ z) / q(z²);      // ln(m / 2¹⁰³) = 2h + ln(s / 2¹⁰³)
+        //     k = ⌊log₂(x)⌋ - 95;                       // x = m ⋅ 2ᵏ, m ∈ [2⁹⁵, 2⁹⁶)
+        //     m = x / 2ᵏ;                               // Q95 fixnum ∈ [1, 2)
+        //     z = (s - m) / (m + s);                    // s = √2 ⋅ 2⁹⁵; |z| ≤ 3 - 2√2
+        //     h = atanh(-z) = (p(z²) ⋅ z) / q(z²);      // ln(m / 2⁹⁵) = 2h + ln(s / 2⁹⁵)
         //     return ⌊10²⁷ ⋅ (2h + ln(s) + k⋅ln(2) - 18⋅ln(10)) - margin⌋ + (x = 10¹⁸);
         //
         // z is negated (s - m, not m - s) so that every polynomial coefficient below can be written
@@ -26,7 +26,7 @@ library Ln {
         //
         // Mixed fixed-point bases, chosen so every renormalizing shift lands a value directly
         // at the basis its consumer needs (each quantity is rounded exactly once):
-        //     m:      Q103 (truncated from x; error < 2⁻¹⁰³)
+        //     m:      Q95 (truncated from x; error < 2⁻⁹⁵)
         //     z:      Q100 (one sdiv)
         //     u = z²: Q96 (one `shr` by 104, straight from the Q200 product)
         //     Horner stages: a coefficient followed by j more multiplies by u tolerates a shorter
@@ -43,18 +43,21 @@ library Ln {
         //         and the bias, so the closing `sar(72, …)` is the single output-rounding floor
         //
         // Error budget in ulps (1 ulp = 10⁻²⁷ of ln; 2⁷² pre-shift units): rational polynomial
-        // approximation and coefficient quantization ≤0.335 combined; z, u, and `sdiv` truncations
-        // ≤0.005 combined; Horner stage truncations ≤10⁻⁴; ln(2) and bias constant rounding
-        // ≤10⁻¹⁹. The bias is reduced by a margin of ~1.607⋅10²¹ units (0.3403 ulp), so the Q72
-        // accumulator never exceeds L⋅2⁷²; margin plus downward errors total < 0.680 ⋅ 2⁷², so it
-        // always exceeds (L-1)⋅2⁷². `sar(72, …)` therefore yields ⌊L⌋ or ⌊L⌋ - 1.
+        // approximation and coefficient quantization ≤0.335 combined; mantissa (Q95) truncation
+        // ≤2⁻⁹⁵⋅10²⁷ ≈ 0.026 (downward only); z, u, and `sdiv` truncations ≤0.005 combined; Horner
+        // stage truncations ≤10⁻⁴; ln(2) and bias constant rounding ≤10⁻¹⁹. The bias is reduced by a
+        // margin of ~1.607⋅10²¹ units (0.3403 ulp), so the Q72 accumulator never exceeds L⋅2⁷²;
+        // margin plus downward errors total < 0.706 ⋅ 2⁷², so it always exceeds (L-1)⋅2⁷².
+        // `sar(72, …)` therefore yields ⌊L⌋ or ⌊L⌋ - 1.
         //
-        // Monotonicity: within an octave, the mantissa map m → z is antitone because
-        // ∂/∂m⋅[(s-m)/(m+s)] = -2s/(m+s)² < 0 with |∂z/∂m| < 1, and the quotient p⋅z/q is an
-        // antitone function of the integer z: per unit step of z it moves by at least Rₘᵢₙ -
-        // zₘₐₓ⋅2J > 0.82 quotient units (R = p/-q ≥ 0.939; J bounds the truncation of R between
-        // adjacent u values), and `SDIV` truncation toward zero preserves order. The x = 10¹⁸
-        // correction preserves monotonicity because its neighbors' results bracket [0, 999999999].
+        // Monotonicity: within an octave, the integer z = sdiv((s-m)⋅2¹⁰⁰, m+s) is strictly
+        // decreasing in m -- ∂/∂m⋅[(s-m)/(m+s)⋅2¹⁰⁰] = -2s⋅2¹⁰⁰/(m+s)² ∈ [-16, -8] over the octave,
+        // so each unit step of m lowers z by 8 to 16 (and `sdiv`, monotone, never reverses that).
+        // The quotient p⋅z/q is an antitone function of the integer z: per unit step of z it moves
+        // by at least Rₘᵢₙ - zₘₐₓ⋅2J > 0.82 quotient units (R = p/-q ≥ 0.939; J bounds the truncation
+        // of R between adjacent u values), so it is antitone across each m-step's multi-unit z
+        // decrease, and `SDIV` truncation toward zero preserves order. The x = 10¹⁸ correction
+        // preserves monotonicity because its neighbors' results bracket [0, 999999999].
         assembly ("memory-safe") {
             if iszero(slt(0x00, x)) {
                 mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
@@ -67,16 +70,16 @@ library Ln {
             // 0.
             let one := eq(0xde0b6b3a7640000, x)
 
-            // Normalize: x := m, a Q103 fixnum, m ∈ [1, 2), truncated from x / 2ᵏ. Truncation
-            // underestimates ln(x) by less than 2⁻¹⁰³ (only possible when k > 0).
+            // Normalize: x := m, a Q95 fixnum, m ∈ [1, 2), truncated from x / 2ᵏ. Truncation
+            // underestimates ln(x) by less than 2⁻⁹⁵ (only possible when k > 0).
             let c := clz(x)
-            let k := sub(0x98, c)
-            x := shr(0x98, shl(c, x))
+            let k := sub(0xa0, c)
+            x := shr(0xa0, shl(c, x))
 
-            // z = (s - m)/(m + s) in Q100, truncated toward zero, where the Q103 constant s =
-            // 0xb504f333f9de6484597d89b375 = round(√2 ⋅ 2¹⁰³). Centering at s makes |z| ≤ 3 - 2⋅√2
+            // z = (s - m)/(m + s) in Q100, truncated toward zero, where the Q95 constant s =
+            // 0xb504f333f9de6484597d89b3 = round(√2 ⋅ 2⁹⁵). Centering at s makes |z| ≤ 3 - 2⋅√2
             // ≈ 0.17157 over m ∈ [1, 2).
-            let s := 0xb504f333f9de6484597d89b375
+            let s := 0xb504f333f9de6484597d89b3
             let z := sdiv(shl(0x64, sub(s, x)), add(x, s))
 
             // u = z² in Q96, truncated; u ∈ [0, 0.029438 ⋅ 2⁹⁶].
@@ -110,12 +113,12 @@ library Ln {
             // Double h and rescale to ray in Q72: 5²⁷ = 2 ⋅ 10²⁷ ⋅ 2⁷² / 2¹⁰⁰; exact.
             r := mul(0x6765c793fa10079d, r)
 
-            // Add k ⋅ round(ln(2) ⋅ 10²⁷ ⋅ 2⁷²). k is two's complement (k ∈ [-103, 151])
+            // Add k ⋅ round(ln(2) ⋅ 10²⁷ ⋅ 2⁷²). k is two's complement (k ∈ [-95, 159])
             r := add(mul(0x23d5b9ff36551802aa5d6f9754b0f3fad83b19450, k), r)
 
-            // Add ⌊(ln(s/2¹⁰³) + 103⋅ln(2) - 18⋅ln(10)) ⋅ 10²⁷ ⋅ 2⁷²⌋ minus the one-sided error
+            // Add ⌊(ln(s/2⁹⁵) + 95⋅ln(2) - 18⋅ln(10)) ⋅ 10²⁷ ⋅ 2⁷²⌋ minus the one-sided error
             // margin described above.
-            r := add(0x61e2c6b2c35132b01ead59b2432c8faf3a03092bd5, r)
+            r := add(0x4ff7e9b32826a6aec97ea1e696bd71eb764c77277c, r)
 
             // Q72 → integer ray result (`SAR` floors), then the x = 10¹⁸ correction.
             r := add(sar(0x48, r), one)
