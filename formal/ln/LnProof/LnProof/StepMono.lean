@@ -219,7 +219,7 @@ theorem ident1 (P w W E1 E2 : Int) :
 
 /-- Numerator product bound: `|P * w| < 2^255` for the certified ranges. -/
 theorem pz_bound {P w : Int}
-    (hP1 : (13131151825116561693704478250782 : Int) ≤ P)
+    (hP1 : (13131151825116561693704478250778 : Int) ≤ P)
     (hP2 : P ≤ (13972178604861559108982341686373 : Int))
     (h1 : -(217494458298375249691265569570 : Int) ≤ w)
     (h2 : w ≤ (217494458298375249691265569570 : Int)) :

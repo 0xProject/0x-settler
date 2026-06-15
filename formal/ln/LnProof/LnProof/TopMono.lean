@@ -61,9 +61,9 @@ theorem evmClz_eq {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 256) :
 /-! ## The mantissa for a fixed `clz` -/
 
 theorem mant_facts {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
-    evmShr 152 (evmShl (evmClz x) x) = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 152 ∧
-      MLO ≤ x * 2 ^ (255 - Nat.log2 x) / 2 ^ 152 ∧
-      x * 2 ^ (255 - Nat.log2 x) / 2 ^ 152 < MHI := by
+    evmShr 160 (evmShl (evmClz x) x) = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 ∧
+      MLO ≤ x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 ∧
+      x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 < MHI := by
   have hx0 : x ≠ 0 := by omega
   have ha1 : Nat.log2 x < 255 := (Nat.log2_lt hx0).mpr (by omega)
   have h2a : 2 ^ Nat.log2 x ≤ x := (Nat.le_log2 hx0).mp (Nat.le_refl _)
@@ -86,14 +86,14 @@ theorem mant_facts {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
     rw [he] at h
     exact h
   refine ⟨?_, ?_, ?_⟩
-  · rw [hclz, evmShl_eq (by omega) hov, evmShr_eq_div_152 hov]
-  · have h := Nat.div_le_div_right (c := 2 ^ 152) hlo
-    have he : (2 : Nat) ^ 255 / 2 ^ 152 = 2 ^ 103 := by decide
+  · rw [hclz, evmShl_eq (by omega) hov, evmShr_eq_div_160 hov]
+  · have h := Nat.div_le_div_right (c := 2 ^ 160) hlo
+    have he : (2 : Nat) ^ 255 / 2 ^ 160 = 2 ^ 95 := by decide
     rw [he] at h
     simp only [MLO]
     exact h
-  · have h := (Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 152)).mpr
-      (by rw [show (2 : Nat) ^ 104 * 2 ^ 152 = 2 ^ 256 by decide]; exact hov)
+  · have h := (Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 160)).mpr
+      (by rw [show (2 : Nat) ^ 96 * 2 ^ 160 = 2 ^ 256 by decide]; exact hov)
     simp only [MHI]
     exact h
 
@@ -138,8 +138,8 @@ theorem model_unit_step {x : Nat} (h1 : 1 ≤ x) (h2 : x + 1 < 2 ^ 255) :
         have hlog : Nat.log2 (x + 1) = Nat.log2 x := by omega
         obtain ⟨me, mlo, mhi⟩ := mant_facts h1 (by omega)
         obtain ⟨me', mlo', mhi'⟩ := mant_facts (x := x + 1) (by omega) h2
-        have hmm : x * 2 ^ (255 - Nat.log2 x) / 2 ^ 152 ≤
-            (x + 1) * 2 ^ (255 - Nat.log2 (x + 1)) / 2 ^ 152 := by
+        have hmm : x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 ≤
+            (x + 1) * 2 ^ (255 - Nat.log2 (x + 1)) / 2 ^ 160 := by
           rw [hlog]
           exact Nat.div_le_div_right (Nat.mul_le_mul_right _ (Nat.le_succ x))
         have hc : evmClz x < 256 := by omega

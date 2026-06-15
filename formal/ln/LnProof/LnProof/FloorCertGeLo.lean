@@ -75,35 +75,35 @@ theorem geLo_eval_eq : ∀ x : Int, evalPoly certGeLo x = evalPoly certGeLoLit x
       evalPoly_polyPow, evalPoly_expPolyNum, eval01]
     decide +kernel
 
-theorem geLo_nonneg {m : Int} (h1 : 14341829369545251819195376186275 ≤ m) (h2 : m ≤ 20282409603651670423947251286015) :
+theorem geLo_nonneg {m : Int} (h1 : 56022770974786139918731938273 ≤ m) (h2 : m ≤ 79228162514264337593543950335) :
     0 ≤ evalPoly certGeLo m := by
   have hev := geLo_eval_eq m
   rw [hev]
-  rcases Int.lt_or_le m (15935787128948216066632449236205 + 1) with h | h
+  rcases Int.lt_or_le m (62248862404922033823954520838 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell00 m (by omega) (by omega)
-  rcases Int.lt_or_le m (16139278752360617268812773783959 + 1) with h | h
+  rcases Int.lt_or_le m (63042223622777199713651466026 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell01 m (by omega) (by omega)
-  rcases Int.lt_or_le m (16697056551612731524305339424315 + 1) with h | h
+  rcases Int.lt_or_le m (64927737322685640209302100706 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell02 m (by omega) (by omega)
-  rcases Int.lt_or_le m (17598736452200977411008546368195 + 1) with h | h
+  rcases Int.lt_or_le m (68717226458158102762251661877 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell03 m (by omega) (by omega)
-  rcases Int.lt_or_le m (17725958073728107644688556445028 + 1) with h | h
+  rcases Int.lt_or_le m (69233034096605084266152150503 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell04 m (by omega) (by omega)
-  rcases Int.lt_or_le m (17852105151840201335476027974486 + 1) with h | h
+  rcases Int.lt_or_le m (69642734452756761581840935357 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell05 m (by omega) (by omega)
-  rcases Int.lt_or_le m (18888004859357826028947861809707 + 1) with h | h
+  rcases Int.lt_or_le m (73761496465424587311876899021 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell06 m (by omega) (by omega)
-  rcases Int.lt_or_le m (19034951989452419220406092183059 + 1) with h | h
+  rcases Int.lt_or_le m (74347248156118664616646853613 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell07 m (by omega) (by omega)
-  rcases Int.lt_or_le m (19074220051933406024237855970763 + 1) with h | h
+  rcases Int.lt_or_le m (74496930791525907093206183840 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell08 m (by omega) (by omega)
-  rcases Int.lt_or_le m (19824760229103743917401162234564 + 1) with h | h
+  rcases Int.lt_or_le m (77437455442871642444333051410 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell09 m (by omega) (by omega)
-  rcases Int.lt_or_le m (19931765688779127819938665734675 + 1) with h | h
+  rcases Int.lt_or_le m (77857297359333941978235389794 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell10 m (by omega) (by omega)
-  rcases Int.lt_or_le m (19955291445289458852554233347635 + 1) with h | h
+  rcases Int.lt_or_le m (77947573405191424248689952843 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell11 m (by omega) (by omega)
-  rcases Int.lt_or_le m (19970633901034205674142871278320 + 1) with h | h
+  rcases Int.lt_or_le m (78000774274960452401547714170 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell12 m (by omega) (by omega)
   exact checkCoverK_sound _ _ _ _ _ geLo_cell13 m (by omega) h2
 end LnFloorCert

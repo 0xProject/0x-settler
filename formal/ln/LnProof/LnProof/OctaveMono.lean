@@ -40,30 +40,30 @@ theorem evmEq_comm (a b : Nat) : evmEq a b = evmEq b a := by
 
 theorem model_eq_tail {x : Nat} (h : x < 2 ^ 256) :
     model_ln_wad_evm x =
-      lnTail (evmEq x 1000000000000000000) (evmSub 152 (evmClz x))
-        (evmShr 152 (evmShl (evmClz x) x)) := by
+      lnTail (evmEq x 1000000000000000000) (evmSub 160 (evmClz x))
+        (evmShr 160 (evmShl (evmClz x) x)) := by
   unfold model_ln_wad_evm lnTail x1W pS4 pS3 pS2 pS1 qS5 qS4 qS3 qS2 qS1 uWord zWord
   simp only [Sc, P4c, P3c, P2c, P1c, C0c, Q4c, Q3c, Q2c, Q1c, Kc, LN2c, BIASc,
     u256_of_lt h]
   rw [evmEq_comm 1000000000000000000 x, evmMul_comm 7450580596923828125,
     evmAdd_comm (evmMul 3273295013171879848905889459134067659407864468560
-      (evmSub 152 (evmClz x))),
-    evmAdd_comm 143060321855302967919159136224617915605068374682581]
+      (evmSub 160 (evmClz x))),
+    evmAdd_comm 116873961749927929127912020551506849476088469858172]
 
-/-- Per-`clz` bracket on the signed value of `ln2 * k`; `[-LN2c*103, LN2c*152]`. -/
+/-- Per-`clz` bracket on the signed value of `ln2 * k`; `[-LN2c*95, LN2c*160]`. -/
 def ln2kOK (c : Nat) : Bool :=
-  decide (-(337149386356703624437306614290808968919010040261680 : Int) ≤
-      toInt (evmMul LN2c (evmSub 152 c)) ∧
-    toInt (evmMul LN2c (evmSub 152 c)) ≤
-      (497540842002125737033695197788378284229995399221120 : Int))
+  decide (-(310963026251328585646059498617736427643747124513200 : Int) ≤
+      toInt (evmMul LN2c (evmSub 160 c)) ∧
+    toInt (evmMul LN2c (evmSub 160 c)) ≤
+      (523727202107500775824942313461450825505258314969600 : Int))
 
 theorem ln2k_all : (List.range 256).all ln2kOK = true := by decide
 
 theorem ln2k_bound {c : Nat} (hc : c < 256) :
-    -(337149386356703624437306614290808968919010040261680 : Int) ≤
-        toInt (evmMul LN2c (evmSub 152 c)) ∧
-      toInt (evmMul LN2c (evmSub 152 c)) ≤
-        (497540842002125737033695197788378284229995399221120 : Int) := by
+    -(310963026251328585646059498617736427643747124513200 : Int) ≤
+        toInt (evmMul LN2c (evmSub 160 c)) ∧
+      toInt (evmMul LN2c (evmSub 160 c)) ≤
+        (523727202107500775824942313461450825505258314969600 : Int) := by
   have h := ln2k_all
   rw [List.all_eq_true] at h
   have hm := h c (List.mem_range.mpr hc)
@@ -84,8 +84,8 @@ theorem affine_tail_mono {a a' W : Nat}
     (hBa2 : toInt a ≤ (240000000000000000000000000000 : Int))
     (hBa1' : -(240000000000000000000000000000 : Int) ≤ toInt a')
     (hBa2' : toInt a' ≤ (240000000000000000000000000000 : Int))
-    (hW1 : -(337149386356703624437306614290808968919010040261680 : Int) ≤ toInt W)
-    (hW2 : toInt W ≤ (497540842002125737033695197788378284229995399221120 : Int)) :
+    (hW1 : -(310963026251328585646059498617736427643747124513200 : Int) ≤ toInt W)
+    (hW2 : toInt W ≤ (523727202107500775824942313461450825505258314969600 : Int)) :
     toInt (evmAdd (evmSar 72 (evmAdd (evmAdd (evmMul a Kc) W) BIASc)) 0) ≤
       toInt (evmAdd (evmSar 72 (evmAdd (evmAdd (evmMul a' Kc) W) BIASc)) 0) := by
   have hKlt : Kc < 2 ^ 256 := by simp only [Kc]; omega
@@ -111,7 +111,7 @@ theorem affine_tail_mono {a a' W : Nat}
       (by rw [e2']; clear e2 e2' e3 hKc hKlt; simp only [ipow255]; omega)
       (by rw [e2']; clear e2 e2' e3 hKc hKlt; simp only [ipow255]; omega)
   have hBIlt : BIASc < 2 ^ 256 := by simp only [BIASc]; omega
-  have hBI : toInt BIASc = (143060321855302967919159136224617915605068374682581 : Int) := by
+  have hBI : toInt BIASc = (116873961749927929127912020551506849476088469858172 : Int) := by
     rw [toInt_of_lt (by simp only [BIASc]; omega)]
     simp only [BIASc]
     omega
@@ -154,10 +154,10 @@ theorem affine_tail_mono {a a' W : Nat}
 /-- Monotone tail: with the exponent word fixed and the `ln2 * k` term
 bracketed, the mantissa-to-result map is nondecreasing. -/
 theorem tail_mono {kw m m' : Nat} (h1 : MLO ≤ m) (h2 : m ≤ m') (h3 : m' < MHI)
-    (hW1 : -(337149386356703624437306614290808968919010040261680 : Int) ≤
+    (hW1 : -(310963026251328585646059498617736427643747124513200 : Int) ≤
       toInt (evmMul LN2c kw))
     (hW2 : toInt (evmMul LN2c kw) ≤
-      (497540842002125737033695197788378284229995399221120 : Int)) :
+      (523727202107500775824942313461450825505258314969600 : Int)) :
     toInt (lnTail 0 kw m) ≤ toInt (lnTail 0 kw m') := by
   have hm2 : m < MHI := by simp only [MLO, MHI] at *; omega
   have hm1' : MLO ≤ m' := by simp only [MLO, MHI] at *; omega

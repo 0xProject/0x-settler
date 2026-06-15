@@ -72,26 +72,26 @@ theorem model_at_wad : toInt (model_ln_wad_evm 1000000000000000000) = 0 := by
 
 /-- Binade window for the mantissa, low-shift side. -/
 theorem mant_window_le {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
-    (hc : evmClz x ≤ 152) :
-    mant x * 2 ^ (152 - evmClz x) ≤ x ∧ x < (mant x + 1) * 2 ^ (152 - evmClz x) := by
+    (hc : evmClz x ≤ 160) :
+    mant x * 2 ^ (160 - evmClz x) ≤ x ∧ x < (mant x + 1) * 2 ^ (160 - evmClz x) := by
   obtain ⟨me, _, _⟩ := mant_facts h1 h2
   have hclz : evmClz x = 255 - Nat.log2 x := evmClz_eq h1 (by omega)
-  have hm : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 152 := me
+  have hm : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 := me
   rw [hclz] at hc ⊢
-  have hdm := Nat.div_add_mod (x * 2 ^ (255 - Nat.log2 x)) (2 ^ 152)
-  have hml := Nat.mod_lt (x * 2 ^ (255 - Nat.log2 x)) (y := 2 ^ 152) (by decide)
-  have hsplit : 2 ^ (255 - Nat.log2 x) * 2 ^ (152 - (255 - Nat.log2 x)) = 2 ^ 152 := by
+  have hdm := Nat.div_add_mod (x * 2 ^ (255 - Nat.log2 x)) (2 ^ 160)
+  have hml := Nat.mod_lt (x * 2 ^ (255 - Nat.log2 x)) (y := 2 ^ 160) (by decide)
+  have hsplit : 2 ^ (255 - Nat.log2 x) * 2 ^ (160 - (255 - Nat.log2 x)) = 2 ^ 160 := by
     rw [← Nat.pow_add]
     congr 1
     omega
   rw [hm]
-  generalize hgq : x * 2 ^ (255 - Nat.log2 x) / 2 ^ 152 = q at *
+  generalize hgq : x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 = q at *
   generalize hgA : (2 : Nat) ^ (255 - Nat.log2 x) = A at *
-  generalize hgB : (2 : Nat) ^ (152 - (255 - Nat.log2 x)) = B at *
+  generalize hgB : (2 : Nat) ^ (160 - (255 - Nat.log2 x)) = B at *
   have hA0 : 0 < A := by rw [← hgA]; exact Nat.pow_pos (by omega)
   constructor
   · refine Nat.le_of_mul_le_mul_left ?_ hA0
-    have e1 : A * (q * B) = 2 ^ 152 * q := by
+    have e1 : A * (q * B) = 2 ^ 160 * q := by
       rw [show A * (q * B) = q * (A * B) from by
         simp only [Nat.mul_left_comm], hsplit]
       exact Nat.mul_comm _ _
@@ -99,39 +99,39 @@ theorem mant_window_le {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
     generalize hg1 : A * (q * B) = T1 at e1 ⊢
     generalize hg3 : A * x = T3 at e2 ⊢
     generalize hg4 : x * A = T4 at e2 hdm
-    generalize hg5 : 2 ^ 152 * q = T5 at e1 hdm
+    generalize hg5 : 2 ^ 160 * q = T5 at e1 hdm
     omega
-  · have hlt : x * A < (q + 1) * 2 ^ 152 := by
-      have e : (q + 1) * 2 ^ 152 = 2 ^ 152 * q + 2 ^ 152 := by
+  · have hlt : x * A < (q + 1) * 2 ^ 160 := by
+      have e : (q + 1) * 2 ^ 160 = 2 ^ 160 * q + 2 ^ 160 := by
         rw [Nat.add_mul, Nat.one_mul, Nat.mul_comm]
       omega
     refine Nat.lt_of_mul_lt_mul_left (a := A) ?_
     have e1 : A * x = x * A := Nat.mul_comm _ _
-    have e2 : A * ((q + 1) * B) = (q + 1) * 2 ^ 152 := by
+    have e2 : A * ((q + 1) * B) = (q + 1) * 2 ^ 160 := by
       rw [show A * ((q + 1) * B) = (q + 1) * (A * B) from by
         simp only [Nat.mul_assoc, Nat.mul_comm], hsplit]
     generalize hg1 : A * x = T1 at e1 ⊢
     generalize hg2 : x * A = T2 at e1 hlt
     generalize hg3 : A * ((q + 1) * B) = T3 at e2 ⊢
-    generalize hg5 : (q + 1) * 2 ^ 152 = T5 at e2 hlt
+    generalize hg5 : (q + 1) * 2 ^ 160 = T5 at e2 hlt
     omega
 
 /-- Binade window, high-shift side: the mantissa is exact. -/
 theorem mant_window_gt {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
-    (hc : 152 < evmClz x) :
-    mant x = x * 2 ^ (evmClz x - 152) := by
+    (hc : 160 < evmClz x) :
+    mant x = x * 2 ^ (evmClz x - 160) := by
   obtain ⟨me, _, _⟩ := mant_facts h1 h2
   have hclz : evmClz x = 255 - Nat.log2 x := evmClz_eq h1 (by omega)
-  have hm : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 152 := me
+  have hm : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 := me
   rw [hclz] at hc ⊢
   have hsplit : (2 : Nat) ^ (255 - Nat.log2 x) =
-      2 ^ 152 * 2 ^ ((255 - Nat.log2 x) - 152) := by
+      2 ^ 160 * 2 ^ ((255 - Nat.log2 x) - 160) := by
     rw [← Nat.pow_add]
     congr 1
     omega
   rw [hm, hsplit]
-  have e : x * (2 ^ 152 * 2 ^ ((255 - Nat.log2 x) - 152)) =
-      x * 2 ^ ((255 - Nat.log2 x) - 152) * 2 ^ 152 := by
+  have e : x * (2 ^ 160 * 2 ^ ((255 - Nat.log2 x) - 160)) =
+      x * 2 ^ ((255 - Nat.log2 x) - 160) * 2 ^ 160 := by
     simp only [Nat.mul_comm, Nat.mul_left_comm]
   rw [e]
   exact Nat.mul_div_cancel _ (by decide)
@@ -144,9 +144,9 @@ theorem clz_bounds {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
 
 /-- On the `m ≥ S` branch with a nonnegative shift, the accumulator is
 positive, so the output cannot be negative. -/
-theorem v_pos_ge_pos {m c : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) (hc : c ≤ 152) :
+theorem v_pos_ge_pos {m c : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) (hc : c ≤ 160) :
     0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      143060321855302967919159136224617915605068374682581 := by
+      116873961749927929127912020551506849476088469858172 := by
   have hX1 := x1_nonneg_geF h1 h2
   have hx0 : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 :=
     Int.mul_nonneg hX1 (by omega)
@@ -183,20 +183,20 @@ theorem model_ln_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
   · obtain ⟨hbr1, hbr2⟩ := model_floor_bracket h1 h2 hne
     rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1 hbr2
     have hbr2' : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
-        ln2kInt (evmClz x) + 143060321855302967919159136224617915605068374682581 <
+        ln2kInt (evmClz x) + 116873961749927929127912020551506849476088469858172 <
         (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 := by
       have e : (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 =
           toInt (model_ln_wad_evm x) * 2 ^ 72 + 2 ^ 72 := by
         rw [Int.add_mul, Int.one_mul]
       omega
     obtain ⟨me, hmlo, hmhi⟩ := mant_facts h1 h2
-    have hmant_eq : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 152 := me
+    have hmant_eq : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 := me
     have hmant_lo : MLO ≤ mant x := by rw [hmant_eq]; exact hmlo
     have hmant_hi : mant x < MHI := by rw [hmant_eq]; exact hmhi
     obtain ⟨hc1, hc255⟩ := clz_bounds h1 h2
     rcases Nat.lt_or_ge (mant x) Sc with hbranch | hbranch
     · -- m < S
-      rcases Nat.lt_or_ge 152 (evmClz x) with hcgt | hc
+      rcases Nat.lt_or_ge 160 (evmClz x) with hcgt | hc
       · have hw := mant_window_gt h1 h2 hcgt
         constructor
         · unfold FloorSpecA
@@ -226,7 +226,7 @@ theorem model_ln_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
           · rw [if_pos (by omega)]
             exact lo_lt_pos hmant_lo hbranch hc1 hc hbr2' hbr1 (by omega) hw2
     · -- m ≥ S
-      rcases Nat.lt_or_ge 152 (evmClz x) with hcgt | hc
+      rcases Nat.lt_or_ge 160 (evmClz x) with hcgt | hc
       · have hw := mant_window_gt h1 h2 hcgt
         constructor
         · unfold FloorSpecA

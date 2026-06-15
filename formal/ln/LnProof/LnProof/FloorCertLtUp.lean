@@ -71,37 +71,37 @@ theorem ltUp_eval_eq : ∀ x : Int, evalPoly certLtUp x = evalPoly certLtUpLit x
       evalPoly_polyPow, evalPoly_expPolyNum, eval01]
     decide +kernel
 
-theorem ltUp_nonneg {m : Int} (h1 : 10141204801825835211973625643008 ≤ m) (h2 : m ≤ 14341829369545251819195376186183) :
+theorem ltUp_nonneg {m : Int} (h1 : 39614081257132168796771975168 ≤ m) (h2 : m ≤ 56022770974786139918731938181) :
     0 ≤ evalPoly certLtUp m := by
   have hev := ltUp_eval_eq m
   rw [hev]
-  rcases Int.lt_or_le m (10235556958232307525494886028008 + 1) with h | h
+  rcases Int.lt_or_le m (39982530726060180992616285302 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell00 m (by omega) (by omega)
-  rcases Int.lt_or_le m (10278716364765519398518749303920 + 1) with h | h
+  rcases Int.lt_or_le m (40150840529484459081173267988 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell01 m (by omega) (by omega)
-  rcases Int.lt_or_le m (10292712939884798707436596404544 + 1) with h | h
+  rcases Int.lt_or_le m (40204970326660617590528065820 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell02 m (by omega) (by omega)
-  rcases Int.lt_or_le m (10300290733559920510761662675178 + 1) with h | h
+  rcases Int.lt_or_le m (40233044689780073357909666320 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell03 m (by omega) (by omega)
-  rcases Int.lt_or_le m (10318581351720418835446063066151 + 1) with h | h
+  rcases Int.lt_or_le m (40276316995481393586173805059 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell04 m (by omega) (by omega)
-  rcases Int.lt_or_le m (10675431702120254763124784810886 + 1) with h | h
+  rcases Int.lt_or_le m (41692401823923536401685262437 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell05 m (by omega) (by omega)
-  rcases Int.lt_or_le m (10756618135670645788065926471904 + 1) with h | h
+  rcases Int.lt_or_le m (42015659986837763307254425669 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell06 m (by omega) (by omega)
-  rcases Int.lt_or_le m (10779963205013996747845870058712 + 1) with h | h
+  rcases Int.lt_or_le m (42105474339119878441107071643 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell07 m (by omega) (by omega)
-  rcases Int.lt_or_le m (10828761738119364680208728770969 + 1) with h | h
+  rcases Int.lt_or_le m (42243140642141618723122083988 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell08 m (by omega) (by omega)
-  rcases Int.lt_or_le m (11461059227350261950503342074044 + 1) with h | h
+  rcases Int.lt_or_le m (44761456068401282094658552447 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell09 m (by omega) (by omega)
-  rcases Int.lt_or_le m (11567222306833343375585957498287 + 1) with h | h
+  rcases Int.lt_or_le m (45182202408663635743116208964 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell10 m (by omega) (by omega)
-  rcases Int.lt_or_le m (11614401749478021771482220450251 + 1) with h | h
+  rcases Int.lt_or_le m (45358307431374604781736520061 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell11 m (by omega) (by omega)
-  rcases Int.lt_or_le m (12570288470101219395936602426121 + 1) with h | h
+  rcases Int.lt_or_le m (49100597176785563576919508299 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell12 m (by omega) (by omega)
-  rcases Int.lt_or_le m (12716299221720374084609926036921 + 1) with h | h
+  rcases Int.lt_or_le m (49670405993033439910727072903 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ ltUp_cell13 m (by omega) (by omega)
   exact checkCoverK_sound _ _ _ _ _ ltUp_cell14 m (by omega) h2
 end LnFloorCert

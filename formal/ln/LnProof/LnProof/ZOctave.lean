@@ -15,8 +15,8 @@ namespace LnGeneratedModel
 
 open LnPoly
 
-def MLO : Nat := 2 ^ 103
-def MHI : Nat := 2 ^ 104
+def MLO : Nat := 2 ^ 95
+def MHI : Nat := 2 ^ 96
 
 theorem zWord_transport {m : Nat} (h1 : MLO ≤ m) (h2 : m < MHI) :
     toInt (evmShl 100 (evmSub Sc m)) =

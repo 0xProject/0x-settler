@@ -50,16 +50,16 @@ theorem capEL : capLB (2 ^ 99) QS (10 ^ 31 + 9990) (10 ^ 31) :=
 
 /-- Exact signed value of the `ln2 * k` word for every `clz` value. -/
 def ln2kExact (c : Nat) : Bool :=
-  decide (toInt (evmMul LN2c (evmSub 152 c)) =
-    if c ≤ 152 then (LN2c : Int) * ((152 - c : Nat) : Int)
-    else -((LN2c : Int) * ((c - 152 : Nat) : Int)))
+  decide (toInt (evmMul LN2c (evmSub 160 c)) =
+    if c ≤ 160 then (LN2c : Int) * ((160 - c : Nat) : Int)
+    else -((LN2c : Int) * ((c - 160 : Nat) : Int)))
 
 theorem ln2k_exact_all : (List.range 256).all ln2kExact = true := by decide
 
 theorem ln2k_exact {c : Nat} (hc : c < 256) :
-    toInt (evmMul LN2c (evmSub 152 c)) =
-      if c ≤ 152 then (LN2c : Int) * ((152 - c : Nat) : Int)
-      else -((LN2c : Int) * ((c - 152 : Nat) : Int)) := by
+    toInt (evmMul LN2c (evmSub 160 c)) =
+      if c ≤ 160 then (LN2c : Int) * ((160 - c : Nat) : Int)
+      else -((LN2c : Int) * ((c - 160 : Nat) : Int)) := by
   have h := ln2k_exact_all
   rw [List.all_eq_true] at h
   have hm := h c (List.mem_range.mpr hc)
