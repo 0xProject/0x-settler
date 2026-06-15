@@ -21,8 +21,8 @@ library Ln {
         // as a positive literal; q carries the compensating negation. p/-q is a (4,5)-degree
         // rational polynomial approximation of f(u) = atanh(√u)/√u on u ∈ [0, (3-2√2)²], fit under
         // the weight √u (the weight the error carries into ln), with q monic and p(0) = -q(0)
-        // constrained so both polynomials share their constant-term literal. The weighted
-        // sup-norm error of the integer-rounded rational 2⋅√u⋅|p/-q - f|⋅10²⁷ is ≤0.335ulp.
+        // constrained so both polynomials share their constant-term literal. The weighted sup-norm
+        // error of the integer-rounded rational 2⋅√u⋅|p/-q - f|⋅10²⁷ is ≤0.335ulp.
         //
         // Mixed fixed-point bases, chosen so every renormalizing shift lands a value directly
         // at the basis its consumer needs (each quantity is rounded exactly once):
@@ -44,20 +44,20 @@ library Ln {
         //
         // Error budget in ulps (1 ulp = 10⁻²⁷ of ln; 2⁷² pre-shift units): rational polynomial
         // approximation and coefficient quantization ≤0.335 combined; mantissa (Q95) truncation
-        // ≤2⁻⁹⁵⋅10²⁷ ≈ 0.026 (downward only); z, u, and `sdiv` truncations ≤0.005 combined; Horner
-        // stage truncations ≤10⁻⁴; ln(2) and bias constant rounding ≤10⁻¹⁹. The bias is reduced by a
-        // margin of ~1.607⋅10²¹ units (0.3403 ulp), so the Q72 accumulator never exceeds L⋅2⁷²;
+        // ≤2⁻⁹⁵⋅10²⁷ ≈ 0.026 (downward only); z, u, and `SDIV` truncations ≤0.005 combined; Horner
+        // stage truncations ≤10⁻⁴; ln(2) and bias constant rounding ≤10⁻¹⁹. The bias is reduced by
+        // a margin of ~1.607⋅10²¹ units (0.3403 ulp), so the Q72 accumulator never exceeds L⋅2⁷²;
         // margin plus downward errors total < 0.706 ⋅ 2⁷², so it always exceeds (L-1)⋅2⁷².
         // `sar(72, …)` therefore yields ⌊L⌋ or ⌊L⌋ - 1.
         //
         // Monotonicity: within an octave, the integer z = sdiv((s-m)⋅2¹⁰⁰, m+s) is strictly
         // decreasing in m -- ∂/∂m⋅[(s-m)/(m+s)⋅2¹⁰⁰] = -2s⋅2¹⁰⁰/(m+s)² ∈ [-16, -8] over the octave,
-        // so each unit step of m lowers z by 8 to 16 (and `sdiv`, monotone, never reverses that).
+        // so each unit step of m lowers z by 8 to 16 (and `SDIV`, monotone, never reverses that).
         // The quotient p⋅z/q is an antitone function of the integer z: per unit step of z it moves
-        // by at least Rₘᵢₙ - zₘₐₓ⋅2J > 0.82 quotient units (R = p/-q ≥ 0.939; J bounds the truncation
-        // of R between adjacent u values), so it is antitone across each m-step's multi-unit z
-        // decrease, and `SDIV` truncation toward zero preserves order. The x = 10¹⁸ correction
-        // preserves monotonicity because its neighbors' results bracket [0, 999999999].
+        // by at least Rₘᵢₙ - zₘₐₓ⋅2J > 0.82 quotient units (R = p/-q ≥ 0.939; J bounds the
+        // truncation of R between adjacent u values), so it is antitone across each m-step's
+        // multi-unit z decrease, and `SDIV` truncation toward zero preserves order. The x = 10¹⁸
+        // correction preserves monotonicity because its neighbors' results bracket [0, 999999999].
         assembly ("memory-safe") {
             if iszero(slt(0x00, x)) {
                 mstore(0x00, 0x4e487b71) // selector for `Panic(uint256)`
@@ -77,16 +77,16 @@ library Ln {
             x := shr(0xa0, shl(c, x))
 
             // z = (s - m)/(m + s) in Q100, truncated toward zero, where the Q95 constant s =
-            // 0xb504f333f9de6484597d89b3 = round(√2 ⋅ 2⁹⁵). Centering at s makes |z| ≤ 3 - 2⋅√2
-            // ≈ 0.17157 over m ∈ [1, 2).
+            // 0xb504f333f9de6484597d89b3 = round(√2 ⋅ 2⁹⁵). Centering at s makes |z| ≤ 3 - 2⋅√2 ≈
+            // 0.17157 over m ∈ [1, 2).
             let s := 0xb504f333f9de6484597d89b3
             let z := sdiv(shl(0x64, sub(s, x)), add(x, s))
 
             // u = z² in Q96, truncated; u ∈ [0, 0.029438 ⋅ 2⁹⁶].
             let u := shr(0x68, mul(z, z))
 
-            // Constant terms of p and q in Q94; p(0) = -q(0) by construction, so the
-            // literal is shared.
+            // Constant terms of p and q in Q94; p(0) = -q(0) by construction, so the literal is
+            // shared.
             let c0 := 0xb05a8b41cf51c04d1b8a08d465
 
             // Numerator p(u), Horner up the basis staircase Q68 → Q72 → Q78 → Q85 → Q94. p(u)/2⁹⁴ ∈
