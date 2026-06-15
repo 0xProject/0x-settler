@@ -22,7 +22,7 @@ library Ln {
         // rational polynomial approximation of f(u) = atanh(√u)/√u on u ∈ [0, (3-2√2)²], fit under
         // the weight √u (the weight the error carries into ln), with q monic and p(0) = -q(0)
         // constrained so both polynomials share their constant-term literal. The weighted sup-norm
-        // error of the integer-rounded rational 2⋅√u⋅|p/-q - f|⋅10²⁷ is ≤0.335ulp.
+        // error of the integer-rounded rational 2⋅√u⋅|p/-q - f|⋅10²⁷ is ≤0.327ulp.
         //
         // Mixed fixed-point bases, chosen so every renormalizing shift lands a value directly
         // at the basis its consumer needs (each quantity is rounded exactly once):
@@ -30,8 +30,8 @@ library Ln {
         //     z:      Q100 (one sdiv)
         //     u = z²: Q96 (one `shr` by 104, straight from the Q200 product)
         //     Horner stages: a coefficient followed by j more multiplies by u tolerates a shorter
-        //         basis, so the stage bases form a staircase -- p: Q68, Q72, Q78, Q85, Q94; q: Q96
-        //         (the monic stage shares u's basis for free), Q71, Q77, Q85, Q94. Each literal
+        //         basis, so the stage bases form a staircase -- p: Q68, Q80, Q86, Q85, Q94; q: Q96
+        //         (the monic stage shares u's basis for free), Q79, Q85, Q93, Q94. Each literal
         //         then takes the widest basis that fits its minimal `PUSH` width. One `SAR` per
         //         multiply is forced: ray precision requires ~96 significant bits while each
         //         multiply by u consumes ~91 bits of headroom, so consecutive unrenormalized steps
@@ -43,18 +43,18 @@ library Ln {
         //         and the bias, so the closing `sar(72, …)` is the single output-rounding floor
         //
         // Error budget in ulps (1 ulp = 10⁻²⁷ of ln; 2⁷² pre-shift units): rational polynomial
-        // approximation and coefficient quantization ≤0.335 combined; mantissa (Q95) truncation
+        // approximation and coefficient quantization ≤0.327 combined; mantissa (Q95) truncation
         // ≤2⁻⁹⁵⋅10²⁷ ≈ 0.026 (downward only); z, u, and `SDIV` truncations ≤0.005 combined; Horner
         // stage truncations ≤10⁻⁴; ln(2) and bias constant rounding ≤10⁻¹⁹. The bias is reduced by
         // a margin of ~1.607⋅10²¹ units (0.3403 ulp), so the Q72 accumulator never exceeds L⋅2⁷²;
-        // margin plus downward errors total < 0.706 ⋅ 2⁷², so it always exceeds (L-1)⋅2⁷².
+        // margin plus downward errors total < 0.699 ⋅ 2⁷², so it always exceeds (L-1)⋅2⁷².
         // `sar(72, …)` therefore yields ⌊L⌋ or ⌊L⌋ - 1.
         //
         // Monotonicity: within an octave, the integer z = sdiv((s-m)⋅2¹⁰⁰, m+s) is strictly
         // decreasing in m -- ∂/∂m⋅[(s-m)/(m+s)⋅2¹⁰⁰] = -2s⋅2¹⁰⁰/(m+s)² ∈ [-16, -8] over the octave,
         // so each unit step of m lowers z by 8 to 16 (and `SDIV`, monotone, never reverses that).
         // The quotient p⋅z/q is an antitone function of the integer z: per unit step of z it moves
-        // by at least Rₘᵢₙ - zₘₐₓ⋅2J > 0.82 quotient units (R = p/-q ≥ 0.939; J bounds the
+        // by at least Rₘᵢₙ - zₘₐₓ⋅2J > 0.29 quotient units (R = p/-q ≥ 0.939; J bounds the
         // truncation of R between adjacent u values), so it is antitone across each m-step's
         // multi-unit z decrease, and `SDIV` truncation toward zero preserves order. The x = 10¹⁸
         // correction preserves monotonicity because its neighbors' results bracket [0, 999999999].
@@ -89,22 +89,22 @@ library Ln {
             // shared.
             let c0 := 0xb05a8b41cf51c04d1b8a08d465
 
-            // Numerator p(u), Horner up the basis staircase Q68 → Q72 → Q78 → Q85 → Q94. p(u)/2⁹⁴ ∈
+            // Numerator p(u), Horner up the basis staircase Q68 → Q80 → Q86 → Q85 → Q94. p(u)/2⁹⁴ ∈
             // [663.7, 705.5] on the domain. The leading product is nonnegative, so the first shift
             // may be logical.
-            let p := sub(shr(0x5c, mul(0xf642b0ed5372ff45e0, u)), 0xede142e73a9acbb00e9c)
-            p := add(sar(0x5a, mul(p, u)), 0xf2a56533e74a454c9d585f)
-            p := sub(sar(0x59, mul(p, u)), 0xb44d9253cd61fb87dc7efcfc)
+            let p := sub(shr(0x54, mul(0xf642b0ed5372ff45e0, u)), 0xede142e73a9acbb00e9c42)
+            p := add(sar(0x5a, mul(p, u)), 0xf2a56533e74a454c9d585f70)
+            p := sub(sar(0x61, mul(p, u)), 0xb44d9253cd61fb87dc7efcfc)
             p := add(sar(0x57, mul(p, u)), c0)
 
-            // Denominator q(u), monic, Horner up the staircase Q96 → Q71 → Q77 → Q85 →
+            // Denominator q(u), monic, Horner up the staircase Q96 → Q79 → Q85 → Q93 →
             // Q94. q(u)/2⁹⁴ ∈ [-705.5, -656.0] on the domain: bounded away from zero, and
             // p(u)/-q(u) ∈ [1, 1.01].
             let q := sub(u, 0x364589193443b48661938f59da)
-            q := add(sar(0x79, mul(q, u)), 0xe904c4e76307954df790)
-            q := sub(sar(0x5a, mul(q, u)), 0xad960ab2f600bd9765c160)
-            q := add(sar(0x58, mul(q, u)), 0xd1b1fedec544f0ea0bc812bc)
-            q := sub(sar(0x57, mul(q, u)), c0)
+            q := add(sar(0x71, mul(q, u)), 0xe904c4e76307954df78fef)
+            q := sub(sar(0x5a, mul(q, u)), 0xad960ab2f600bd9765c15ffd)
+            q := add(sar(0x58, mul(q, u)), 0xd1b1fedec544f0ea0bc812bbbc)
+            q := sub(sar(0x5f, mul(q, u)), c0)
 
             // h = atanh(-z/2¹⁰⁰) in Q100: |p ⋅ z| < 2²⁰¹ ∧ |q| > 656 ⋅ 2⁹⁴, so the quotient fits in
             // 98 bits.

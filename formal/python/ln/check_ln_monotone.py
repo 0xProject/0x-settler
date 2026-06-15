@@ -81,9 +81,9 @@ from formal.python.ln.check_ln_counterexample import (
 # Stage layout mirrored from src/vendor/Ln.sol: (coefficient, basis, remaining
 # multiplies by u after the coefficient is added). Signs follow the p~ = -p,
 # z~ = -z convention used by the implementation.
-W = 103
-P_COEFFS = ((_P4, 68, 4), (-_P3, 80, 3), (_P2, 86, 2), (-_P1, 93, 1), (_C0, 94, 0))
-Q_COEFFS = ((-_Q4, 96, 4), (_Q3, 87, 3), (-_Q2, 85, 2), (_Q1, 93, 1), (-_C0, 94, 0))
+W = 95
+P_COEFFS = ((_P4, 68, 4), (-_P3, 80, 3), (_P2, 86, 2), (-_P1, 85, 1), (_C0, 94, 0))
+Q_COEFFS = ((-_Q4, 96, 4), (_Q3, 79, 3), (-_Q2, 85, 2), (_Q1, 93, 1), (-_C0, 94, 0))
 FINAL_BASIS = 94
 Z_BASIS = 100
 U_BASIS = 96
@@ -185,9 +185,12 @@ def _certify_positive(
 def main() -> int:
     zmax, umax_int = _domain()
 
-    # (1) the mantissa -> z map is antitone with unit steps.
+    # (1) the mantissa -> z map is strictly antitone: each unit step of m lowers the
+    # integer z by at least one (at Q95, by 8 to 16, since |d(zeta)/dm| = 2*S*2^100/(m+S)^2
+    # >= 1 over the octave). The quotient is antitone per unit step of z (3b), which
+    # telescopes over that multi-unit decrease, so z need not step by exactly one.
     two_w = 1 << W
-    assert 2 * _S << Z_BASIS < (two_w + _S) ** 2, "|d(zeta)/dm| >= 1"
+    assert 2 * _S << Z_BASIS >= ((two_w << 1) + _S) ** 2, "z not strictly decreasing in m"
 
     # (2) u steps by at most one per unit step of z.
     assert 2 * zmax + 1 < 1 << (2 * Z_BASIS - U_BASIS), "u step > 1"

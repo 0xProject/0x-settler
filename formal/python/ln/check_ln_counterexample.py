@@ -16,19 +16,19 @@ WITNESS_X = WAD + 1
 EXPECTED_FLOOR_RESULT = 10**9 - 1
 
 # Constants mirrored from src/vendor/Ln.sol (see the comments there for derivations).
-_S = 0xB504F333F9DE6484597D89B375
+_S = 0xB504F333F9DE6484597D89B3
 _P4 = 0xF642B0ED5372FF45E0
 _P3 = 0xEDE142E73A9ACBB00E9C42
 _P2 = 0xF2A56533E74A454C9D585F70
-_P1 = 0xB44D9253CD61FB87DC7EFCFBC5
+_P1 = 0xB44D9253CD61FB87DC7EFCFC
 _C0 = 0xB05A8B41CF51C04D1B8A08D465
 _Q4 = 0x364589193443B48661938F59DA
-_Q3 = 0xE904C4E76307954DF78FEEDF
+_Q3 = 0xE904C4E76307954DF78FEF
 _Q2 = 0xAD960AB2F600BD9765C15FFD
 _Q1 = 0xD1B1FEDEC544F0EA0BC812BBBC
 _K = 0x6765C793FA10079D
 _LN2 = 0x23D5B9FF36551802AA5D6F9754B0F3FAD83B19450
-_BIAS = 0x61E2C6B2C35132B01EAD59B2432C8FAF3A03092BD5
+_BIAS = 0x4FF7E9B32826A6AEC97EA1E696BD71EB764C77277C
 
 
 def _op(name: str, *args: int) -> int:
@@ -49,20 +49,20 @@ def ln_wad_evm(x: int) -> int:
     one = _op("eq", x_word, 0xDE0B6B3A7640000)
 
     c = _op("clz", x_word)
-    k = _op("sub", 0x98, c)
-    x_word = _op("shr", 0x98, _op("shl", c, x_word))
+    k = _op("sub", 0xA0, c)
+    x_word = _op("shr", 0xA0, _op("shl", c, x_word))
 
     z = _op("sdiv", _op("shl", 0x64, _op("sub", _S, x_word)), _op("add", x_word, _S))
     u = _op("shr", 0x68, _op("mul", z, z))
 
     p = _op("sub", _op("shr", 0x54, _op("mul", _P4, u)), _P3)
     p = _op("add", _op("sar", 0x5A, _op("mul", p, u)), _P2)
-    p = _op("sub", _op("sar", 0x59, _op("mul", p, u)), _P1)
-    p = _op("add", _op("sar", 0x5F, _op("mul", p, u)), _C0)
+    p = _op("sub", _op("sar", 0x61, _op("mul", p, u)), _P1)
+    p = _op("add", _op("sar", 0x57, _op("mul", p, u)), _C0)
 
     q = _op("sub", u, _Q4)
-    q = _op("add", _op("sar", 0x69, _op("mul", q, u)), _Q3)
-    q = _op("sub", _op("sar", 0x62, _op("mul", q, u)), _Q2)
+    q = _op("add", _op("sar", 0x71, _op("mul", q, u)), _Q3)
+    q = _op("sub", _op("sar", 0x5A, _op("mul", q, u)), _Q2)
     q = _op("add", _op("sar", 0x58, _op("mul", q, u)), _Q1)
     q = _op("sub", _op("sar", 0x5F, _op("mul", q, u)), _C0)
 
