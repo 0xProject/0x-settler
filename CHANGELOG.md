@@ -7,6 +7,7 @@
 ### Non-breaking changes
 
 * Add SquadSwapV3 UniV3 fork to Bnb with fork ID 38
+* Add `BRIDGE_ERC20_TO_ACROSS` and `BRIDGE_NATIVE_TO_ACROSS` to Base
 
 ## 2026-06-03
 
