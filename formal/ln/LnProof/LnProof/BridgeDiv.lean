@@ -36,15 +36,6 @@ theorem evmSar_sandwich_88 {w : Nat} (h : w < 2 ^ 256) :
   repeat' split
   all_goals omega
 
-theorem evmSar_sandwich_89 {w : Nat} (h : w < 2 ^ 256) :
-    evmSar 89 w < 2 ^ 256 ∧
-      toInt (evmSar 89 w) * 618970019642690137449562112 ≤ toInt w ∧
-      toInt w < toInt (evmSar 89 w) * 618970019642690137449562112 + 618970019642690137449562112 := by
-  unfold evmSar u256 toInt
-  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
-  repeat' split
-  all_goals omega
-
 theorem evmSar_sandwich_90 {w : Nat} (h : w < 2 ^ 256) :
     evmSar 90 w < 2 ^ 256 ∧
       toInt (evmSar 90 w) * 1237940039285380274899124224 ≤ toInt w ∧
@@ -58,24 +49,6 @@ theorem evmSar_sandwich_95 {w : Nat} (h : w < 2 ^ 256) :
     evmSar 95 w < 2 ^ 256 ∧
       toInt (evmSar 95 w) * 39614081257132168796771975168 ≤ toInt w ∧
       toInt w < toInt (evmSar 95 w) * 39614081257132168796771975168 + 39614081257132168796771975168 := by
-  unfold evmSar u256 toInt
-  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
-  repeat' split
-  all_goals omega
-
-theorem evmSar_sandwich_98 {w : Nat} (h : w < 2 ^ 256) :
-    evmSar 98 w < 2 ^ 256 ∧
-      toInt (evmSar 98 w) * 316912650057057350374175801344 ≤ toInt w ∧
-      toInt w < toInt (evmSar 98 w) * 316912650057057350374175801344 + 316912650057057350374175801344 := by
-  unfold evmSar u256 toInt
-  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
-  repeat' split
-  all_goals omega
-
-theorem evmSar_sandwich_105 {w : Nat} (h : w < 2 ^ 256) :
-    evmSar 105 w < 2 ^ 256 ∧
-      toInt (evmSar 105 w) * 40564819207303340847894502572032 ≤ toInt w ∧
-      toInt w < toInt (evmSar 105 w) * 40564819207303340847894502572032 + 40564819207303340847894502572032 := by
   unfold evmSar u256 toInt
   simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
   repeat' split
@@ -118,11 +91,6 @@ theorem evmShr_eq_div_84 {w : Nat} (h : w < 2 ^ 256) : evmShr 84 w = w / 2 ^ 84 
   split <;> omega
 
 theorem evmShr_eq_div_104 {w : Nat} (h : w < 2 ^ 256) : evmShr 104 w = w / 2 ^ 104 := by
-  unfold evmShr u256
-  simp only [word_mod_eq, Nat.reducePow, Nat.reduceMod]
-  split <;> omega
-
-theorem evmShr_eq_div_152 {w : Nat} (h : w < 2 ^ 256) : evmShr 152 w = w / 2 ^ 152 := by
   unfold evmShr u256
   simp only [word_mod_eq, Nat.reducePow, Nat.reduceMod]
   split <;> omega
