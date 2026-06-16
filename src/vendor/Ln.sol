@@ -15,7 +15,8 @@ library Ln {
         //     m = x / 2ᵏ;                               // Q95 fixnum ∈ [1, 2)
         //     z = (s - m) / (m + s);                    // s = √2 ⋅ 2⁹⁵; |z| ≤ 3 - 2√2
         //     h = atanh(-z) = (p(z²) ⋅ z) / q(z²);      // ln(m / 2⁹⁵) = 2h + ln(s / 2⁹⁵)
-        //     return ⌊10²⁷ ⋅ (2h + ln(s) + k⋅ln(2) - 18⋅ln(10)) - margin⌋ + (x = 10¹⁸);
+        //     r = ⌊10²⁷ ⋅ (2h + ln(s) + k⋅ln(2) - 18⋅ln(10)) - margin⌋
+        //     return r + (r = -1);
         //
         // z is negated (s - m, not m - s) so that every polynomial coefficient below can be written
         // as a positive literal; q carries the compensating negation. p/-q is a (4,5)-degree
@@ -64,11 +65,6 @@ library Ln {
                 mstore(0x20, 0x12)       // panic code for division by zero
                 revert(0x1c, 0x24)
             }
-
-            // lnWadToRay(1⋅10¹⁸) = 0 is the only input whose exact result is an integer; the
-            // floored accumulator below lands on -1 for it. Adding this flag back yields the exact
-            // 0.
-            let one := eq(0xde0b6b3a7640000, x)
 
             // Normalize: x := m, a Q95 fixnum, m ∈ [1, 2), truncated from x / 2ᵏ. Truncation
             // underestimates ln(x) by less than 2⁻⁹⁵ (only possible when k > 0).
@@ -120,8 +116,12 @@ library Ln {
             // margin described above.
             r := add(0x4ff7e9b32826a6aec97ea1e696bd71eb764c77277c, r)
 
-            // Q72 → integer ray result (`SAR` floors), then the x = 10¹⁸ correction.
-            r := add(sar(0x48, r), one)
+            // Q72 → integer ray result (`SAR` floors).
+            r := sar(0x48, r)
+
+            // lnWadToRay(1⋅10¹⁸) = 0 is the only input whose exact result is an integer. The
+            // approximation above lands on -1; correct this to get exactly 0.
+            r := add(iszero(not(r)), r)
         }
     }
 
