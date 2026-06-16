@@ -46,8 +46,6 @@ def ln_wad_evm(x: int) -> int:
     if _op("iszero", _op("sgt", x_word, 0)) != 0:
         raise ValueError("LnWadUndefined")
 
-    one = _op("eq", x_word, 0xDE0B6B3A7640000)
-
     c = _op("clz", x_word)
     k = _op("sub", 0xA0, c)
     x_word = _op("shr", 0xA0, _op("shl", c, x_word))
@@ -70,7 +68,11 @@ def ln_wad_evm(x: int) -> int:
     r = _op("mul", r, _K)
     r = _op("add", r, _op("mul", _LN2, k))
     r = _op("add", r, _BIAS)
-    return _i256(_op("add", _op("sar", 0x48, r), one))
+    r = _op("sar", 0x48, r)
+    # lnWadToRay(10**18) = 0 is the only integer-valued result; the floored
+    # accumulator lands on -1 there. `iszero(not(r))` adds 1 back exactly when
+    # r == -1 (and never otherwise), giving the exact 0.
+    return _i256(_op("add", _op("iszero", _op("not", r)), r))
 
 
 def ln_wad_to_wad_evm(x: int) -> int:

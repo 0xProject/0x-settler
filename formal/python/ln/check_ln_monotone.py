@@ -11,8 +11,9 @@ Write m for the Q103 mantissa and k for the exponent (x ~ m * 2**k with m in
 [2**103, 2**104)). Adjacent inputs either share (m, k) (identical result),
 advance m by one within an octave, or cross a clz seam from
 (m = 2**104 - 2**(104-t), k) to (m = 2**103, k + 1) at x = 2**t. The
-correction `+ eq(x, 10**18)` raises the single point x = 10**18 from -1 to 0,
-which preserves order against both neighbors (checked exactly below).
+correction `r + (r == -1)` raises the single floored result that equals -1
+(only x = 10**18, whose exact result is the integer 0) up to 0, which preserves
+order against both neighbors (checked exactly below).
 
 Within an octave, the result is `sar(72, X1 * 5**27 + k*LN2 + BIAS)` with
 X1 = sdiv(p(u) * z, q(u)); `sar` and the exact affine map preserve order, so

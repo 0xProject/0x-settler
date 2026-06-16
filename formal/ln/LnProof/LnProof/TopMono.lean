@@ -41,18 +41,6 @@ theorem model_lt {x : Nat} (h : x < 2 ^ 256) : model_ln_wad_evm x < 2 ^ 256 := b
 
 /-! ## Small opcode facts -/
 
-theorem evmEq_zero {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
-    (hne : a ≠ b) : evmEq a b = 0 := by
-  unfold evmEq u256
-  simp only [word_mod_eq]
-  split
-  · rename_i hcond; exfalso; omega
-  · rfl
-
-theorem evmEq_le_one (a b : Nat) : evmEq a b ≤ 1 := by
-  unfold evmEq
-  split <;> omega
-
 theorem evmClz_eq {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 256) :
     evmClz x = 255 - Nat.log2 x := by
   unfold evmClz
@@ -143,9 +131,7 @@ theorem model_unit_step {x : Nat} (h1 : 1 ≤ x) (h2 : x + 1 < 2 ^ 255) :
           rw [hlog]
           exact Nat.div_le_div_right (Nat.mul_le_mul_right _ (Nat.le_succ x))
         have hc : evmClz x < 256 := by omega
-        rw [model_eq_tail hx256, model_eq_tail hx1256,
-          evmEq_zero hx256 (by omega) (by omega),
-          evmEq_zero hx1256 (by omega) (by omega), me, me', hclz]
+        rw [model_eq_tail hx256, model_eq_tail hx1256, me, me', hclz]
         exact tail_mono mlo hmm mhi' (ln2k_bound hc).1 (ln2k_bound hc).2
       · -- clz seam: x + 1 is a power of two; decided
         have e1 := evmClz_eq h1 hx256
@@ -268,12 +254,13 @@ theorem floor_div_neg_window {a : Int} (ha : a < 0) :
   have hmod := Nat.mod_lt (A + 999999999) (by decide : 0 < 1000000000)
   constructor <;> unfold q at * <;> omega
 
-/-- The model's output sits inside `[-2^183, 2^183 + 1]`: the post-shift
-value is a 184-bit signed quantity plus the `one` correction. -/
-theorem lnTail_bound (one kw m : Nat) (hone : one ≤ 1) :
+/-- The model's output sits inside `[-2^183, 2^183 + 1]`: the post-shift value is
+a 184-bit signed quantity, and the `s + (s == -1)` self-correction keeps it there
+(it only sends `-1` to `0`). -/
+theorem lnTail_bound (kw m : Nat) :
     -(12259964326927110866866776217202473468949912977468817408 : Int) ≤
-        toInt (lnTail one kw m) ∧
-      toInt (lnTail one kw m) ≤
+        toInt (lnTail kw m) ∧
+      toInt (lnTail kw m) ≤
         (12259964326927110866866776217202473468949912977468817409 : Int) := by
   unfold lnTail
   obtain ⟨wlt, s1, s2⟩ := evmSar_sandwich_72 (evmAdd_lt
@@ -282,26 +269,13 @@ theorem lnTail_bound (one kw m : Nat) (hone : one ≤ 1) :
     (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc)
   have hwg := toInt_ge (evmAdd_lt
     (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc)
-  have honelt : one < 2 ^ 256 := by omega
-  have honei : toInt one = (one : Int) := toInt_of_lt (by omega)
+  rw [corr_toInt wlt]
   generalize toInt (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc) =
     t at s1 s2 hwl hwg
-  have hsb : -(12259964326927110866866776217202473468949912977468817408 : Int) ≤
-      toInt (evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc)) ∧
-      toInt (evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc)) ≤
-        (12259964326927110866866776217202473468949912977468817408 : Int) := by
-    generalize toInt (evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc)) =
-      s at s1 s2 ⊢
-    simp only [ipow255] at hwl hwg
-    omega
-  have he := evmAdd_transport (a := evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc))
-    (b := one) wlt honelt
-    (by rw [honei]; simp only [ipow255]; omega)
-    (by rw [honei]; simp only [ipow255]; omega)
-  rw [he, honei]
   generalize toInt (evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc)) =
-    s at hsb ⊢
-  omega
+    s at s1 s2 ⊢
+  simp only [ipow255] at hwl hwg
+  split <;> omega
 
 theorem model_bound {x : Nat} (h : x < 2 ^ 256) :
     -(12259964326927110866866776217202473468949912977468817408 : Int) ≤
@@ -309,7 +283,7 @@ theorem model_bound {x : Nat} (h : x < 2 ^ 256) :
       toInt (model_ln_wad_evm x) ≤
         (12259964326927110866866776217202473468949912977468817409 : Int) := by
   rw [model_eq_tail h]
-  exact lnTail_bound _ _ _ (evmEq_le_one _ _)
+  exact lnTail_bound _ _
 
 theorem to_wad_floor_window {x : Nat} (h : x < 2 ^ 256) :
     toInt (model_ln_wad_to_wad_evm x) * 1000000000 ≤ toInt (model_ln_wad_evm x) ∧

@@ -27,6 +27,12 @@ as an explicit log-cut specification.
 namespace LnFloorCert
 open LnGeneratedModel LnPoly LnExp LnFloor
 
+-- The self-corrected model term repeats the accumulator (the `s == -1` test
+-- reads the shifted result), so elaboration-time `whnf` of it is expensive.
+-- Keep it opaque here; the `decide +kernel` facts below still reduce it in the
+-- kernel, which ignores this hint.
+attribute [local irreducible] model_ln_wad_evm model_ln_wad_to_wad_evm
+
 set_option maxRecDepth 4096
 
 /-- `r ≤ 10^27·ln(x/10^18)`, arithmetized. -/
@@ -189,6 +195,11 @@ theorem model_ln_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
           toInt (model_ln_wad_evm x) * 2 ^ 72 + 2 ^ 72 := by
         rw [Int.add_mul, Int.one_mul]
       omega
+    -- Generalize the model word: it is the self-corrected floor, whose term
+    -- doubles the accumulator; keeping it opaque avoids reducing it below.
+    revert hbr1 hbr2'
+    generalize toInt (model_ln_wad_evm x) = R
+    intro hbr1 hbr2'
     obtain ⟨me, hmlo, hmhi⟩ := mant_facts h1 h2
     have hmant_eq : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 := me
     have hmant_lo : MLO ≤ mant x := by rw [hmant_eq]; exact hmlo
@@ -200,13 +211,13 @@ theorem model_ln_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
       · have hw := mant_window_gt h1 h2 hcgt
         constructor
         · unfold FloorSpecA
-          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) 0 with hr | hr
+          rcases Int.lt_or_le R 0 with hr | hr
           · rw [if_neg (by omega)]
             exact an_lt_neg hmant_lo hbranch hcgt hc255 hbr1 hbr2' hr hw
           · rw [if_pos hr]
             exact up_lt_neg hmant_lo hbranch hcgt hc255 hbr1 hr hw
         · unfold FloorSpecB
-          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) (-1) with hr | hr
+          rcases Int.lt_or_le R (-1) with hr | hr
           · rw [if_neg (by omega)]
             exact bn_lt_neg hmant_lo hbranch hcgt hc255 hbr2' (by omega) hw
           · rw [if_pos (by omega)]
@@ -214,13 +225,13 @@ theorem model_ln_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
       · obtain ⟨hw1, hw2⟩ := mant_window_le h1 h2 hc
         constructor
         · unfold FloorSpecA
-          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) 0 with hr | hr
+          rcases Int.lt_or_le R 0 with hr | hr
           · rw [if_neg (by omega)]
             exact an_lt_pos hmant_lo hbranch hc1 hc hbr1 hbr2' hr hw1
           · rw [if_pos hr]
             exact up_lt_pos hmant_lo hbranch hc1 hc hbr1 hr hw1
         · unfold FloorSpecB
-          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) (-1) with hr | hr
+          rcases Int.lt_or_le R (-1) with hr | hr
           · rw [if_neg (by omega)]
             exact bn_lt_pos hmant_lo hbranch hc1 hc hbr2' (by omega) hw2
           · rw [if_pos (by omega)]
@@ -230,26 +241,26 @@ theorem model_ln_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
       · have hw := mant_window_gt h1 h2 hcgt
         constructor
         · unfold FloorSpecA
-          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) 0 with hr | hr
+          rcases Int.lt_or_le R 0 with hr | hr
           · rw [if_neg (by omega)]
             exact an_ge_neg hbranch hmant_hi hcgt hc255 hbr1 hbr2' hr hw
           · rw [if_pos hr]
             exact up_ge_neg hbranch hmant_hi hcgt hc255 hbr1 hr hw
         · unfold FloorSpecB
-          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) (-1) with hr | hr
+          rcases Int.lt_or_le R (-1) with hr | hr
           · rw [if_neg (by omega)]
             exact bn_ge_neg hbranch hmant_hi hcgt hc255 hbr2' (by omega) hw
           · rw [if_pos (by omega)]
             exact lo_ge_neg hbranch hmant_hi hcgt hc255 hbr2' hbr1 (by omega) hw
       · obtain ⟨hw1, hw2⟩ := mant_window_le h1 h2 hc
         have hVpos := v_pos_ge_pos hbranch hmant_hi hc
-        have hrpos : 0 ≤ toInt (model_ln_wad_evm x) := by
-          rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) 0 with hr | hr
+        have hrpos : 0 ≤ R := by
+          rcases Int.lt_or_le R 0 with hr | hr
           · exfalso
-            have hR : (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 ≤ 0 := by
-              have hle : toInt (model_ln_wad_evm x) + 1 ≤ 0 := by omega
+            have hRle : (R + 1) * 2 ^ 72 ≤ 0 := by
+              have hle : R + 1 ≤ 0 := by omega
               have := mul_le_mul_right_nonneg hle (show (0 : Int) ≤ 2 ^ 72 by omega)
-              generalize hgT : (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 = T at this ⊢
+              generalize hgT : (R + 1) * 2 ^ 72 = T at this ⊢
               omega
             omega
           · exact hr
@@ -276,6 +287,12 @@ theorem model_ln_wad_to_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
       (toInt (model_ln_wad_to_wad_evm x)) x := by
   obtain ⟨ha, hb⟩ := model_ln_wad_floor h1 h2
   obtain ⟨hlo, hhi⟩ := to_wad_floor_window (by omega : x < 2 ^ 256)
+  -- Keep both model words opaque: their terms self-correct (and the wad word
+  -- nests the ray word twice), so unifying them directly is expensive.
+  revert ha hb hlo hhi
+  generalize toInt (model_ln_wad_evm x) = R
+  generalize toInt (model_ln_wad_to_wad_evm x) = W
+  intro ha hb hlo hhi
   exact ⟨ha, hb, hlo, hhi⟩
 
 /-- The ray-scale model output is negative exactly below one wad. -/

@@ -16,36 +16,31 @@ namespace LnGeneratedModel
 
 open LnPoly
 
-/-- The model tail downstream of `(one, k, mantissa)`. -/
-def lnTail (one kw m : Nat) : Nat :=
-  evmAdd
-    (evmSar 72
-      (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc))
-    one
+/-- The model tail downstream of `(k, mantissa)`: the floored accumulator
+`s = sar72(X1·K + ln2·k + BIAS)`, self-corrected via `s + (s == -1)`. The
+correction collapses the unique `s = -1` input (`x = 10^18`) to `0` and leaves
+every other input unchanged. -/
+def lnTail (kw m : Nat) : Nat :=
+  let s :=
+    evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc)
+  evmAdd (evmIszero (evmNot s)) s
 
-/-- `mul`, `add`, and `eq` are commutative on words. The generated model writes
-their constant operands first (`mul(K, r)`, `add(BIAS, r)`, `eq(10**18, x)`);
-these orient those occurrences to the constant-second form `lnTail` uses. -/
+/-- `mul` and `add` are commutative on words. The generated model writes their
+constant operands first (`mul(K, r)`, `add(BIAS, r)`); these orient those
+occurrences to the constant-second form `lnTail` uses. -/
 theorem evmMul_comm (a b : Nat) : evmMul a b = evmMul b a := by
   unfold evmMul; rw [Nat.mul_comm (u256 a) (u256 b)]
 
 theorem evmAdd_comm (a b : Nat) : evmAdd a b = evmAdd b a := by
   unfold evmAdd; rw [Nat.add_comm (u256 a) (u256 b)]
 
-theorem evmEq_comm (a b : Nat) : evmEq a b = evmEq b a := by
-  unfold evmEq
-  by_cases h : u256 a = u256 b
-  · rw [if_pos h, if_pos h.symm]
-  · rw [if_neg h, if_neg fun he => h he.symm]
-
 theorem model_eq_tail {x : Nat} (h : x < 2 ^ 256) :
     model_ln_wad_evm x =
-      lnTail (evmEq x 1000000000000000000) (evmSub 160 (evmClz x))
-        (evmShr 160 (evmShl (evmClz x) x)) := by
+      lnTail (evmSub 160 (evmClz x)) (evmShr 160 (evmShl (evmClz x) x)) := by
   unfold model_ln_wad_evm lnTail x1W pS4 pS3 pS2 pS1 qS5 qS4 qS3 qS2 qS1 uWord zWord
   simp only [Sc, P4c, P3c, P2c, P1c, C0c, Q4c, Q3c, Q2c, Q1c, Kc, LN2c, BIASc,
     u256_of_lt h]
-  rw [evmEq_comm 1000000000000000000 x, evmMul_comm 7450580596923828125,
+  rw [evmMul_comm 7450580596923828125,
     evmAdd_comm (evmMul 3273295013171879848905889459134067659407864468560
       (evmSub 160 (evmClz x))),
     evmAdd_comm 116873961749927929127912020551506849476088469858172]
@@ -75,8 +70,40 @@ theorem evmAdd_zero {a : Nat} (h : a < 2 ^ 256) : evmAdd a 0 = a := by
   simp only [word_mod_eq]
   omega
 
-/-- Affine tail over abstract words: `sar72(a*K + W + BIAS) (+ 0)` is
-monotone in the signed value of `a` when every leaf is bracketed. -/
+/-- The self-correction `s + (s == -1)` is the identity except it sends the
+word `-1` to `0`. -/
+theorem corr_eq {s : Nat} (hs : s < 2 ^ 256) :
+    evmAdd (evmIszero (evmNot s)) s = if s = 2 ^ 256 - 1 then 0 else s := by
+  have hnot : evmNot s = 2 ^ 256 - 1 - s := by
+    unfold evmNot u256 WORD_MOD; rw [Nat.mod_eq_of_lt hs]
+  rw [hnot]
+  by_cases h : s = 2 ^ 256 - 1
+  · subst h; simp only [Nat.sub_self]; decide
+  · rw [if_neg h]
+    have hz : evmIszero (2 ^ 256 - 1 - s) = 0 := by
+      unfold evmIszero u256 WORD_MOD
+      rw [Nat.mod_eq_of_lt (by omega : 2 ^ 256 - 1 - s < 2 ^ 256), if_neg (by omega)]
+    rw [hz, evmAdd_comm, evmAdd_zero hs]
+
+/-- `toInt` view of the self-correction: `-1` becomes `0`, all else fixed. -/
+theorem corr_toInt {s : Nat} (hs : s < 2 ^ 256) :
+    toInt (evmAdd (evmIszero (evmNot s)) s) = if toInt s = -1 then 0 else toInt s := by
+  rw [corr_eq hs]
+  by_cases h : s = 2 ^ 256 - 1
+  · subst h; decide
+  · have hne : toInt s ≠ -1 := by
+      intro hc; apply h; unfold toInt at hc; split at hc <;> simp only [ipow256] at * <;> omega
+    simp only [if_neg h, if_neg hne]
+
+/-- The self-correction is monotone in the signed value. -/
+theorem corr_mono {s s' : Nat} (hs : s < 2 ^ 256) (hs' : s' < 2 ^ 256)
+    (hle : toInt s ≤ toInt s') :
+    toInt (evmAdd (evmIszero (evmNot s)) s) ≤ toInt (evmAdd (evmIszero (evmNot s')) s') := by
+  rw [corr_toInt hs, corr_toInt hs']
+  split <;> split <;> omega
+
+/-- Affine tail over abstract words: `sar72(a*K + W + BIAS)` is monotone in the
+signed value of `a` when every leaf is bracketed. -/
 theorem affine_tail_mono {a a' W : Nat}
     (haw : a < 2 ^ 256) (haw' : a' < 2 ^ 256) (hWw : W < 2 ^ 256)
     (hA : toInt a ≤ toInt a')
@@ -86,8 +113,8 @@ theorem affine_tail_mono {a a' W : Nat}
     (hBa2' : toInt a' ≤ (240000000000000000000000000000 : Int))
     (hW1 : -(310963026251328585646059498617736427643747124513200 : Int) ≤ toInt W)
     (hW2 : toInt W ≤ (523727202107500775824942313461450825505258314969600 : Int)) :
-    toInt (evmAdd (evmSar 72 (evmAdd (evmAdd (evmMul a Kc) W) BIASc)) 0) ≤
-      toInt (evmAdd (evmSar 72 (evmAdd (evmAdd (evmMul a' Kc) W) BIASc)) 0) := by
+    toInt (evmSar 72 (evmAdd (evmAdd (evmMul a Kc) W) BIASc)) ≤
+      toInt (evmSar 72 (evmAdd (evmAdd (evmMul a' Kc) W) BIASc)) := by
   have hKlt : Kc < 2 ^ 256 := by simp only [Kc]; omega
   have hKc : toInt Kc = (7450580596923828125 : Int) := by
     rw [toInt_of_lt (by simp only [Kc]; omega)]
@@ -138,11 +165,10 @@ theorem affine_tail_mono {a a' W : Nat}
       mul_le_mul_right_nonneg hA (by omega)
     rw [e4, e4', e3, e3', e2, e2']
     omega
-  obtain ⟨w1lt, s1, s2⟩ :=
+  obtain ⟨-, s1, s2⟩ :=
     evmSar_sandwich_72 (evmAdd_lt (evmAdd (evmMul a Kc) W) BIASc)
-  obtain ⟨w1lt', s1', s2'⟩ :=
+  obtain ⟨-, s1', s2'⟩ :=
     evmSar_sandwich_72 (evmAdd_lt (evmAdd (evmMul a' Kc) W) BIASc)
-  rw [evmAdd_zero w1lt, evmAdd_zero w1lt']
   generalize toInt (evmSar 72 (evmAdd (evmAdd (evmMul a Kc) W) BIASc)) =
     sA at s1 s2 ⊢
   generalize toInt (evmSar 72 (evmAdd (evmAdd (evmMul a' Kc) W) BIASc)) =
@@ -158,7 +184,7 @@ theorem tail_mono {kw m m' : Nat} (h1 : MLO ≤ m) (h2 : m ≤ m') (h3 : m' < MH
       toInt (evmMul LN2c kw))
     (hW2 : toInt (evmMul LN2c kw) ≤
       (523727202107500775824942313461450825505258314969600 : Int)) :
-    toInt (lnTail 0 kw m) ≤ toInt (lnTail 0 kw m') := by
+    toInt (lnTail kw m) ≤ toInt (lnTail kw m') := by
   have hm2 : m < MHI := by simp only [MLO, MHI] at *; omega
   have hm1' : MLO ≤ m' := by simp only [MLO, MHI] at *; omega
   have hA := r1_mono h1 h2 h3
@@ -166,7 +192,9 @@ theorem tail_mono {kw m m' : Nat} (h1 : MLO ≤ m) (h2 : m ≤ m') (h3 : m' < MH
   have hB' := r1_bound hm1' h3
   have hr1w : x1W (zWord m) < 2 ^ 256 := by unfold x1W; exact evmSdiv_lt _ _
   have hr1w' : x1W (zWord m') < 2 ^ 256 := by unfold x1W; exact evmSdiv_lt _ _
+  have hsar := affine_tail_mono hr1w hr1w' (evmMul_lt _ _) hA hB.1 hB.2 hB'.1 hB'.2 hW1 hW2
   unfold lnTail
-  exact affine_tail_mono hr1w hr1w' (evmMul_lt _ _) hA hB.1 hB.2 hB'.1 hB'.2 hW1 hW2
+  exact corr_mono (evmSar_sandwich_72 (evmAdd_lt _ _)).1
+    (evmSar_sandwich_72 (evmAdd_lt _ _)).1 hsar
 
 end LnGeneratedModel

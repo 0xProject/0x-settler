@@ -75,6 +75,24 @@ theorem r4_value {m : Nat} (h1 : MLO ≤ m) (h2 : m < MHI) {c : Nat} (hc : c < 2
       (by rw [e3, e2, hBI]; clear e2 e3 hKc hKlt hBI hBIlt; simp only [ipow255]; omega)
   rw [e4, e3, e2, hBI, ← ln2kInt_eq hc]
 
+/-- The corrected model is nonzero away from `10^18`: monotonicity pins it
+strictly negative below `10^18` (it is `≤ lnWad(10^18 - 1) < 0`) and strictly
+positive above (it is `≥ lnWad(10^18 + 1) > 0`). The two neighbour values are
+decided directly. -/
+theorem model_ne_zero {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
+    (hne : x ≠ 1000000000000000000) : toInt (model_ln_wad_evm x) ≠ 0 := by
+  rcases Nat.lt_trichotomy x 1000000000000000000 with hlt | heq | hgt
+  · have hmono := toInt_of_sle (model_lt (by omega)) (model_lt (by omega))
+      (model_ln_wad_mono h1 (by omega : x ≤ 999999999999999999) (by decide))
+    have hlo : toInt (model_ln_wad_evm 999999999999999999) < 0 := by decide +kernel
+    omega
+  · exact absurd heq hne
+  · have hmono := toInt_of_sle (model_lt (by omega)) (model_lt (by omega))
+      (model_ln_wad_mono (by omega : 0 < 1000000000000000001)
+        (by omega : 1000000000000000001 ≤ x) h2)
+    have hhi : 0 < toInt (model_ln_wad_evm 1000000000000000001) := by decide +kernel
+    omega
+
 /-- For non-corrected inputs the model word floors the accumulator:
 `r 2^72 ≤ V < (r + 1) 2^72`. -/
 theorem model_floor_bracket {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
@@ -96,15 +114,29 @@ theorem model_floor_bracket {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
     rw [me]
     exact ⟨mlo, mhi⟩
   have hr4 := r4_value hmant.1 hmant.2 hc
+  have hsarlt : evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord (mant x))) Kc)
+      (evmMul LN2c (evmSub 160 (evmClz x)))) BIASc) < 2 ^ 256 :=
+    (evmSar_sandwich_72 (evmAdd_lt _ _)).1
+  -- The model is the self-corrected floor `s + (s == -1)`; off `10^18` it is `s`.
+  have hmc : model_ln_wad_evm x =
+      evmAdd (evmIszero (evmNot (evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord (mant x))) Kc)
+        (evmMul LN2c (evmSub 160 (evmClz x)))) BIASc))))
+      (evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord (mant x))) Kc)
+        (evmMul LN2c (evmSub 160 (evmClz x)))) BIASc)) := by
+    rw [model_eq_tail hx256]; rfl
+  have hsne : evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord (mant x))) Kc)
+      (evmMul LN2c (evmSub 160 (evmClz x)))) BIASc) ≠ 2 ^ 256 - 1 := by
+    intro hs
+    apply model_ne_zero h1 h2 hne
+    rw [hmc, hs]; decide
   have hmodel : model_ln_wad_evm x =
-      evmAdd (evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord (mant x))) Kc)
-        (evmMul LN2c (evmSub 160 (evmClz x)))) BIASc)) 0 := by
-    rw [model_eq_tail hx256, evmEq_zero hx256 (by omega) (by omega)]
-    rfl
+      evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord (mant x))) Kc)
+        (evmMul LN2c (evmSub 160 (evmClz x)))) BIASc) := by
+    rw [hmc, corr_eq hsarlt, if_neg hsne]
   obtain ⟨wlt, s1, s2⟩ := evmSar_sandwich_72 (evmAdd_lt
     (evmAdd (evmMul (x1W (zWord (mant x))) Kc)
       (evmMul LN2c (evmSub 160 (evmClz x)))) BIASc)
-  rw [hmodel, evmAdd_zero wlt]
+  rw [hmodel]
   rw [hr4] at s1 s2
   exact ⟨s1, s2⟩
 
