@@ -191,7 +191,9 @@ def main() -> int:
     # >= 1 over the octave). The quotient is antitone per unit step of z (3b), which
     # telescopes over that multi-unit decrease, so z need not step by exactly one.
     two_w = 1 << W
-    assert 2 * _S << Z_BASIS >= ((two_w << 1) + _S) ** 2, "z not strictly decreasing in m"
+    assert (
+        2 * _S << Z_BASIS >= ((two_w << 1) + _S) ** 2
+    ), "z not strictly decreasing in m"
 
     # (2) u steps by at most one per unit step of z.
     assert 2 * zmax + 1 < 1 << (2 * Z_BASIS - U_BASIS), "u step > 1"
