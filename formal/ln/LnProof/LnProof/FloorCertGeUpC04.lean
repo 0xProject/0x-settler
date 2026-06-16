@@ -1,0 +1,13 @@
+import LnProof.FloorCertLit
+import LnProof.KroneckerShift
+
+namespace LnFloorCert
+open LnPoly
+
+set_option maxRecDepth 100000
+
+theorem geUp_cell04 : checkCoverK kB certGeUpLit 66326012476199512076492819331 71285905378028973084942956446
+    [4959892901829461008450137115] = true := by
+  decide +kernel
+
+end LnFloorCert
