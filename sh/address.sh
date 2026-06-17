@@ -183,8 +183,11 @@ function create3 {
     echo "$result"
 }
 
-truncate --size=0 "$project_root/settler_predictions/${chain_name}_${token_id}.txt"
+declare -r predictions_dir="$project_root/settler_predictions"
+declare -r predictions_file="$predictions_dir/${chain_name}_${token_id}.txt"
+mkdir -p "$predictions_dir"
+: >"$predictions_file"
 declare -i nonce
 for nonce in $(seq $starting_nonce $((starting_nonce + num_addresses))) ; do
-    create3 "$deployer" "$(create3_salt $token_id $nonce)" >>"$project_root/settler_predictions/${chain_name}_${token_id}.txt"
+    create3 "$deployer" "$(create3_salt $token_id $nonce)" >>"$predictions_file"
 done
