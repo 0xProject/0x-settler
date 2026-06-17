@@ -254,10 +254,9 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             bytes memory encodedPayedAmount =
                 _setOperatorAndCall(msg.sender, data, uint32(IEkuboCallbacks.payCallback.selector), payCallback);
             assembly ("memory-safe") {
-                // We can skip all the checks performed by `abi.decode` because we know that this is the
-                // verbatim result from `payCallback` and that `payCallback` encoded the payment
-                // correctly.
-                payment := mload(add(0x60, encodedPayedAmount))
+                // We can skip all the checks performed by `abi.decode` because we know that `CORE`
+                // is well-behaved and that `CORE`'s `pay` encoded the payment correctly.
+                payment := mload(add(0x20, encodedPayedAmount))
             }
         }
     }
@@ -457,7 +456,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
         }
     }
 
-    function payCallback(bytes calldata data) private returns (bytes memory returndata) {
+    function payCallback(bytes calldata data) private returns (bytes memory) {
         IERC20 sellToken;
         uint256 sellAmount;
 
@@ -469,14 +468,5 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             sellAmount := calldataload(add(0x40, data.offset))
         }
         sellToken.safeTransfer(msg.sender, sellAmount);
-        // return abi.encode(sellAmount);
-        assembly ("memory-safe") {
-            returndata := mload(0x40)
-            mstore(returndata, 0x60)
-            mstore(add(0x20, returndata), 0x20)
-            mstore(add(0x40, returndata), 0x20)
-            mstore(add(0x60, returndata), sellAmount)
-            mstore(0x40, add(0x80, returndata))
-        }
     }
 }
