@@ -277,17 +277,23 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
                 mstore(add(0x24, data), sellToken)
                 mstore(add(0x10, data), 0x0c11dedd000000000000000000000000) // selector for pay(address) with padding for token
 
-                mstore(add(0x44, data), sellAmount)
-                let size := 0x44
-
-                // if permit is needed add it to data
-                if iszero(eq(payer, address())) {
-                    // let's skip token and sell amount and reuse the values already in data
-                    calldatacopy(add(0x64, data), add(0x40, permit), 0x40)
-                    mstore(add(0xa4, data), isForwarded)
-                    mstore(add(0xc4, data), sig.length)
-                    calldatacopy(add(0xe4, data), sig.offset, sig.length)
-                    size := add(size, add(0x80, sig.length))
+                let size
+                for {} true {} {
+                    if shl(0x60, xor(address(), payer)) {
+                        // custody-optimized payment directly from the taker
+                        // skip `sellToken` because it's already in memory
+                        calldatacopy(add(0x44, data), add(0x20, permit), 0x60)
+                        mstore(add(0xa4, data), sellAmount)
+                        mstore(add(0xc4, data), lt(0x00, isForwarded))
+                        mstore(add(0xe4, data), sig.length)
+                        calldatacopy(add(0x104, data), sig.offset, sig.length)
+                        size := add(0x104, sig.length)
+                        break
+                    }
+                    // payment from Settler's balance
+                    mstore(add(0x44, data), sellAmount)
+                    size := 0x44
+                    break
                 }
 
                 // update data length
@@ -521,16 +527,19 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
             // first 2 slots in calldata are id and token
             // id is not being used so can be skipped
             sellToken := calldataload(add(0x20, data.offset))
-            // then extra data added in _ekuboPayV2
-            sellAmount := calldataload(add(0x40, data.offset))
         }
+        // The signature `payCallback(uint256,address)` implies that there's only 2 words of
+        // arguments, but the implementation in `CORE` forwards any extra data appended to
+        // `pay(address)` to `payCallback`. This is where we put the information we need to
+        // determine how much to pay and where to pay it from.
         if (0x60 < data.length) {
             assembly ("memory-safe") {
                 // starts at the beginning of sellToken
                 permit := add(0x20, data.offset)
-                isForwarded := calldataload(add(0xa0, data.offset))
+                sellAmount := calldataload(add(0xa0, data.offset))
+                isForwarded := calldataload(add(0xc0, data.offset))
 
-                sig.offset := add(0xc0, data.offset)
+                sig.offset := add(0xe0, data.offset)
                 sig.length := calldataload(sig.offset)
                 sig.offset := add(0x20, sig.offset)
             }
@@ -538,6 +547,10 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
                 ISignatureTransfer.SignatureTransferDetails({to: msg.sender, requestedAmount: sellAmount});
             _transferFrom(permit, transferDetails, sig, isForwarded);
         } else {
+            assembly ("memory-safe") {
+                // then extra data added in _ekuboPayV2
+                sellAmount := calldataload(add(0x40, data.offset))
+            }
             sellToken.safeTransfer(msg.sender, sellAmount);
         }
         // return abi.encode(sellAmount);
