@@ -3,7 +3,7 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
-import {revertInvalidRenegadeData, revertInvalidTarget, revertTooMuchSlippage} from "./SettlerErrors.sol";
+import {revertInvalidRenegadeData, revertTooMuchSlippage} from "./SettlerErrors.sol";
 import {UnsafeMath} from "../utils/UnsafeMath.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
 
@@ -36,10 +36,7 @@ abstract contract Renegade is SettlerSwapAbstract {
     /// @dev Adding a new chain requires a source change + redeploy of this contract.
     function _renegadeGasSponsorV2() internal pure virtual returns (address);
 
-    function sellToRenegade(address target, IERC20 sellToken, bytes memory data, uint256 minBuyAmt)
-        internal
-        returns (uint256 buyAmt)
-    {
+    function sellToRenegade(IERC20 sellToken, bytes memory data, uint256 minBuyAmt) internal returns (uint256 buyAmt) {
         address recipient;
         IERC20 buyToken;
         IERC20 internalPartyOutputToken;
@@ -68,8 +65,7 @@ abstract contract Renegade is SettlerSwapAbstract {
         if (newBuyAmt < minInternalPartyAmountIn) revertInvalidRenegadeData();
         if (newBuyAmt > maxInternalPartyAmountIn) revertInvalidRenegadeData();
 
-        if (target != _renegadeGasSponsorV2()) revertInvalidTarget();
-
+        address target = _renegadeGasSponsorV2();
         uint256 buyTokenBalanceBefore = buyToken.fastBalanceOf(address(this));
         sellToken.safeApproveIfBelow(address(target), newSellAmt);
 
