@@ -7,7 +7,7 @@ import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
-import {InvalidRenegadeData, TooMuchSlippage} from "src/core/SettlerErrors.sol";
+import {InvalidRenegadeData, InvalidTarget, TooMuchSlippage} from "src/core/SettlerErrors.sol";
 import {
     BASE_AMOUNT,
     BASE_GAS_SPONSOR,
@@ -58,6 +58,18 @@ contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
         uint256 sellAmount,
         uint256 minBuyAmount
     ) internal view returns (bytes memory) {
+        return _buildExecData(BASE_GAS_SPONSOR, txnCalldata, sellToken, buyToken, sellAmount, minBuyAmount, 0);
+    }
+
+    function _buildExecData(
+        address target,
+        bytes memory txnCalldata,
+        IERC20 sellToken,
+        IERC20 buyToken,
+        uint256 sellAmount,
+        uint256 minBuyAmount,
+        uint256 outerMinAmountOut
+    ) internal view returns (bytes memory) {
         bytes memory _calldata = txnCalldata;
         assembly ("memory-safe") {
             let len := mload(_calldata)
@@ -68,19 +80,36 @@ contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
         return abi.encodeCall(
             settler.execute,
             (
-                ISettlerBase.AllowedSlippage({recipient: payable(address(this)), buyToken: buyToken, minAmountOut: 0}),
+                ISettlerBase.AllowedSlippage({
+                    recipient: payable(address(this)), buyToken: buyToken, minAmountOut: outerMinAmountOut
+                }),
                 ActionDataBuilder.build(
                     abi.encodeCall(
                         ISettlerActions.TRANSFER_FROM,
                         (address(settler), defaultERC20PermitTransfer(address(sellToken), sellAmount, 0), new bytes(0))
                     ),
-                    abi.encodeCall(
-                        ISettlerActions.RENEGADE, (BASE_GAS_SPONSOR, address(sellToken), _calldata, minBuyAmount)
-                    )
+                    abi.encodeCall(ISettlerActions.RENEGADE, (target, address(sellToken), _calldata, minBuyAmount))
                 ),
                 bytes32(0)
             )
         );
+    }
+
+    // Overwrites ABI arg word `argIndex` in a copy of `cd` (4-byte selector at byte 0).
+    // args: 1=recipient, 4=price, 5=min, 6=max.
+    function _mutate(bytes memory cd, uint256 argIndex, uint256 value) internal pure returns (bytes memory out) {
+        out = bytes.concat(cd);
+        uint256 off = 0x24 + (argIndex * 0x20);
+        assembly ("memory-safe") {
+            mstore(add(off, out), value)
+        }
+    }
+
+    function _readWord(bytes memory cd, uint256 argIndex) internal pure returns (uint256 v) {
+        uint256 off = 0x24 + (argIndex * 0x20);
+        assembly ("memory-safe") {
+            v := mload(add(off, cd))
+        }
     }
 
     function _rerunTxn(bytes memory txnCalldata, IERC20 sellToken, IERC20 buyToken, uint256 sellAmount) internal {
@@ -123,11 +152,80 @@ contract RenegadeBaseIntegrationTest is SettlerBasePairTest {
     }
 
     function testSellTokenMustMatchRenegadeOutputToken() public {
-        bytes memory ahData = _buildExecData(BASE_TXN_CALLDATA, BASE_WETH, BASE_USDC, 1 ether, 0);
+        // mutate internalPartyOutputToken so only the sellToken==output guard can revert
+        bytes memory cd = _mutate(BASE_TXN_CALLDATA, 3, uint256(uint160(address(BASE_WETH))));
+        bytes memory ahData = _buildExecData(cd, BASE_USDC, BASE_WETH, BASE_AMOUNT, 0);
 
-        deal(address(BASE_WETH), address(this), 1 ether);
-        BASE_WETH.approve(address(allowanceHolder), 1 ether);
+        deal(address(BASE_USDC), address(this), BASE_AMOUNT);
+        BASE_USDC.approve(address(allowanceHolder), BASE_AMOUNT);
         vm.expectRevert(InvalidRenegadeData.selector);
-        allowanceHolder.exec(address(settler), address(BASE_WETH), 1 ether, payable(address(settler)), ahData);
+        allowanceHolder.exec(address(settler), address(BASE_USDC), BASE_AMOUNT, payable(address(settler)), ahData);
+    }
+
+    function testTargetMustBeGasSponsor() public {
+        bytes memory ahData =
+            _buildExecData(address(0xdead), BASE_TXN_CALLDATA, BASE_USDC, BASE_WETH, BASE_AMOUNT, 0, 0);
+
+        deal(address(BASE_USDC), address(this), BASE_AMOUNT);
+        BASE_USDC.approve(address(allowanceHolder), BASE_AMOUNT);
+        vm.expectRevert(InvalidTarget.selector);
+        allowanceHolder.exec(address(settler), address(BASE_USDC), BASE_AMOUNT, payable(address(settler)), ahData);
+    }
+
+    function testRecipientMustBeSettlerOrZero() public {
+        bytes memory ahData = _buildExecData(
+            _mutate(BASE_TXN_CALLDATA, 1, uint256(uint160(address(0xBEEF)))), BASE_USDC, BASE_WETH, BASE_AMOUNT, 0
+        );
+
+        deal(address(BASE_USDC), address(this), BASE_AMOUNT);
+        BASE_USDC.approve(address(allowanceHolder), BASE_AMOUNT);
+        vm.expectRevert(InvalidRenegadeData.selector);
+        allowanceHolder.exec(address(settler), address(BASE_USDC), BASE_AMOUNT, payable(address(settler)), ahData);
+    }
+
+    function testZeroPriceReverts() public {
+        // zero price and min bound so the price!=0 guard reverts, not the bounds check
+        bytes memory cd = _mutate(_mutate(BASE_TXN_CALLDATA, 4, 0), 5, 0);
+        bytes memory ahData = _buildExecData(cd, BASE_USDC, BASE_WETH, BASE_AMOUNT, 0);
+
+        deal(address(BASE_USDC), address(this), BASE_AMOUNT);
+        BASE_USDC.approve(address(allowanceHolder), BASE_AMOUNT);
+        vm.expectRevert(InvalidRenegadeData.selector);
+        allowanceHolder.exec(address(settler), address(BASE_USDC), BASE_AMOUNT, payable(address(settler)), ahData);
+    }
+
+    function testBuyAmountBelowMinBoundReverts() public {
+        bytes memory ahData =
+            _buildExecData(_mutate(BASE_TXN_CALLDATA, 5, type(uint256).max), BASE_USDC, BASE_WETH, BASE_AMOUNT, 0);
+
+        deal(address(BASE_USDC), address(this), BASE_AMOUNT);
+        BASE_USDC.approve(address(allowanceHolder), BASE_AMOUNT);
+        vm.expectRevert(InvalidRenegadeData.selector);
+        allowanceHolder.exec(address(settler), address(BASE_USDC), BASE_AMOUNT, payable(address(settler)), ahData);
+    }
+
+    function testBuyAmountAboveMaxBoundReverts() public {
+        bytes memory ahData = _buildExecData(_mutate(BASE_TXN_CALLDATA, 6, 1), BASE_USDC, BASE_WETH, BASE_AMOUNT, 0);
+
+        deal(address(BASE_USDC), address(this), BASE_AMOUNT);
+        BASE_USDC.approve(address(allowanceHolder), BASE_AMOUNT);
+        vm.expectRevert(InvalidRenegadeData.selector);
+        allowanceHolder.exec(address(settler), address(BASE_USDC), BASE_AMOUNT, payable(address(settler)), ahData);
+    }
+
+    // minBuyAmount == the gross quote passes the pre-call check, so the post-call check (net of
+    // relayer/protocol fees) is what reverts.
+    function testPostCallSlippageRevert() public {
+        uint256 gross = (BASE_AMOUNT << 63) / _readWord(BASE_TXN_CALLDATA, 4);
+        bytes memory ahData = _buildExecData(BASE_TXN_CALLDATA, BASE_USDC, BASE_WETH, BASE_AMOUNT, gross);
+        _expectSlippageRevert(ahData, BASE_USDC, BASE_WETH, BASE_AMOUNT);
+    }
+
+    // Inner minBuyAmount == 0, yet the outer AllowedSlippage still binds against the actual receipt.
+    function testOuterSlippageBindsWhenInnerMinIsZero() public {
+        uint256 gross = (BASE_AMOUNT << 63) / _readWord(BASE_TXN_CALLDATA, 4);
+        bytes memory ahData =
+            _buildExecData(BASE_GAS_SPONSOR, BASE_TXN_CALLDATA, BASE_USDC, BASE_WETH, BASE_AMOUNT, 0, gross);
+        _expectSlippageRevert(ahData, BASE_USDC, BASE_WETH, BASE_AMOUNT);
     }
 }
