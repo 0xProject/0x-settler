@@ -18,7 +18,7 @@ cut-log predicates.
 
 namespace LnFloorCert
 
-open LnGeneratedModel LnExp LnFloor
+open LnYul LnExp LnFloor
 
 /-- Cut statement for `exp(p/q) <= y/w`: every exact Taylor partial sum is
 bounded by the target rational. -/

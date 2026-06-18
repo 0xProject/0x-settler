@@ -16,7 +16,7 @@ set_option maxRecDepth 8192
 
 namespace LnFloor
 
-open LnExp LnGeneratedModel
+open LnExp LnYul
 
 /-- Common denominator of every exponent argument. -/
 def QS : Nat := 10 ^ 27 * 2 ^ 99

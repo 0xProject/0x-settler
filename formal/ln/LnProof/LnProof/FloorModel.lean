@@ -16,7 +16,7 @@ set_option maxRecDepth 4096
 
 namespace LnFloor
 
-open LnGeneratedModel LnPoly
+open LnYul LnPoly
 
 /-- Mantissa word of `x`. -/
 def mant (x : Nat) : Nat := evmShr 160 (evmShl (evmClz x) x)

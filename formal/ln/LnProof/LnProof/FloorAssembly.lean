@@ -14,7 +14,7 @@ on each `clz` side.
 -/
 
 namespace LnFloorCert
-open LnGeneratedModel LnPoly LnExp LnFloor
+open LnYul LnPoly LnExp LnFloor
 
 /-- `V·2^27` splits into the three cap exponents (positive binade shift). -/
 theorem v_scale_pos (X1v : Int) (c : Nat) (hc : c ≤ 160) :

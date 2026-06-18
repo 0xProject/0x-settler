@@ -11,7 +11,7 @@ stays within `[-Zc, Zc]`, and `hAt` is antitone over any interval of
 
 set_option maxRecDepth 4096
 
-namespace LnGeneratedModel
+namespace LnYul
 
 open LnPoly
 
@@ -381,4 +381,4 @@ theorem r1_bound {m : Nat} (h1 : MLO ≤ m) (h2 : m < MHI) :
   rw [e]
   exact hAt_bound hr.1 hr.2
 
-end LnGeneratedModel
+end LnYul

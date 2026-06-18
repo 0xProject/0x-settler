@@ -1,5 +1,5 @@
 /.lake
 lake-manifest.json
 
-# Auto-generated from `formal/cbrt/generate_cbrt512_model.py`
-/Cbrt512Proof/GeneratedCbrt512Model.lean
+# Auto-generated from solc Yul IR by `lake exe yul_importer`
+/Cbrt512Proof/Cbrt512Yul.lean

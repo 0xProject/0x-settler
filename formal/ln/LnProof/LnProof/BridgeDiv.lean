@@ -8,7 +8,7 @@ amounts the model uses, the `evmSdiv` ↔ `Int.tdiv` transport, and the
 cross-multiplied monotonicity of truncated division.
 -/
 
-namespace LnGeneratedModel
+namespace LnYul
 
 /-! ## `evmSar` floor sandwiches (one instance per literal shift amount) -/
 
@@ -275,4 +275,4 @@ theorem nat_div_cross_mono {a b c d : Nat} (hb : 0 < b) (hd : 0 < d)
     omega
   exact Nat.le_of_mul_le_mul_right h4 hb
 
-end LnGeneratedModel
+end LnYul

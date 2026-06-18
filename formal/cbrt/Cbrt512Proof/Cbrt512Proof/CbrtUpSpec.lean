@@ -5,17 +5,17 @@
     x_hi = 0 ⟹ inlined 256-bit ceiling cbrt (= model_cbrt_up_evm from CbrtProof)
     x_hi > 0 ⟹ model_cbrt512_evm (within 1ulp) + cube-and-compare + increment
 -/
-import Cbrt512Proof.GeneratedCbrt512Model
-import Cbrt512Proof.GeneratedCbrt512Spec
+import Cbrt512Proof.Cbrt512Yul
+import Cbrt512Proof.Cbrt512YulSpec
 import Cbrt512Proof.Cbrt512Correct
 import Cbrt512Proof.CbrtWrapperSpec
-import CbrtProof.GeneratedCbrtModel
-import CbrtProof.GeneratedCbrtSpec
+import CbrtProof.CbrtYul
+import CbrtProof.CbrtYulSpec
 import CbrtProof.CbrtCorrect
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 
 -- ============================================================================
 -- Section 1: x_hi = 0 branch — bridge to model_cbrt_up_evm
@@ -23,9 +23,9 @@ open Cbrt512GeneratedModel
 
 /-- When x_hi = 0, model_cbrtUp512_wrapper_evm equals model_cbrt_up_evm from CbrtProof. -/
 theorem cbrtUp_wrapper_zero_eq_cbrt_up_evm (x_lo : Nat) :
-    model_cbrtUp512_wrapper_evm 0 x_lo = CbrtGeneratedModel.model_cbrt_up_evm x_lo := by
+    model_cbrtUp512_wrapper_evm 0 x_lo = CbrtYul.model_cbrt_up_evm x_lo := by
   unfold model_cbrtUp512_wrapper_evm model_cbrt256_up_evm
-  unfold CbrtGeneratedModel.model_cbrt_up_evm CbrtGeneratedModel.model_cbrt_evm
+  unfold CbrtYul.model_cbrt_up_evm CbrtYul.model_cbrt_evm
   simp only [evmEq_compat, evmAdd_compat,
     evmSub_compat, evmLt_compat,
     evmOr_compat, evmAnd_compat,
@@ -61,12 +61,12 @@ theorem model_cbrtUp512_wrapper_evm_correct (x_hi x_lo : Nat)
     simp only [Nat.zero_mul, Nat.zero_add]
     rw [cbrtUp_wrapper_zero_eq_cbrt_up_evm]
     -- model_cbrt_up_evm x_lo satisfies ceiling cbrt spec
-    have hspec := CbrtGeneratedModel.model_cbrt_up_evm_ceil_u256 x_lo hxlo
+    have hspec := CbrtYul.model_cbrt_up_evm_ceil_u256 x_lo hxlo
     -- Both satisfy the same uniqueness property
     have hx512 : x_lo < 2 ^ 512 := by
       calc x_lo < 2 ^ 256 := hxlo
         _ ≤ 2 ^ 512 := Nat.pow_le_pow_right (by omega) (by omega)
-    exact cbrtUp512_unique x_lo (CbrtGeneratedModel.model_cbrt_up_evm x_lo) hx512
+    exact cbrtUp512_unique x_lo (CbrtYul.model_cbrt_up_evm x_lo) hx512
       hspec.1 hspec.2
   · -- x_hi > 0: model_cbrt512_evm within 1ulp + cube-and-compare + increment
     have hxhi_pos : 0 < x_hi := Nat.pos_of_ne_zero hxhi0

@@ -20,7 +20,7 @@ set_option exponentiation.threshold 512
 
 namespace LnFloorCert
 
-open LnGeneratedModel LnPoly
+open LnYul LnPoly
 
 private theorem int_pow_one (x : Int) : x ^ 1 = x := by
   rw [Int.pow_succ, Int.pow_zero, Int.one_mul]

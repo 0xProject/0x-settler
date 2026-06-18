@@ -12,7 +12,7 @@
   EVM model correct directly, without factoring through the norm model.
 -/
 import Sqrt512Proof.Sqrt512Correct
-import Sqrt512Proof.GeneratedSqrt512Model
+import Sqrt512Proof.Sqrt512Yul
 
 namespace Sqrt512Spec
 
@@ -186,60 +186,60 @@ theorem floorSqrt_fixed_eq_natSqrt (x : Nat) (hlo : 2 ^ 254 ≤ x) (hhi : x < 2 
 -- Section 5: EVM operation simplification helpers
 -- ============================================================================
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- normAdd (unbounded) is just addition. -/
 private theorem normAdd_eq (a b : Nat) : normAdd a b = a + b := rfl
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- normShr is division by power of 2. -/
 private theorem normShr_eq (s v : Nat) : normShr s v = v / 2 ^ s := rfl
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- normDiv is Nat division. -/
 private theorem normDiv_eq (a b : Nat) : normDiv a b = a / b := rfl
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- normMod is Nat modulo. -/
 private theorem normMod_eq (a b : Nat) : normMod a b = a % b := rfl
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- normSub is Nat subtraction. -/
 private theorem normSub_eq (a b : Nat) : normSub a b = a - b := rfl
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- normMul is Nat multiplication. -/
 private theorem normMul_eq (a b : Nat) : normMul a b = a * b := rfl
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- normNot 0 = 2^256 - 1. -/
 private theorem normNot_zero : normNot 0 = WORD_MOD - 1 := rfl
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- normClz for positive x < 2^256 gives 255 - log2 x. -/
 private theorem normClz_pos (x : Nat) (hx : 0 < x) :
     normClz x = 255 - Nat.log2 x := by
   unfold normClz; simp [Nat.ne_of_gt hx]
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- normLt is a 0/1 indicator. -/
 private theorem normLt_eq (a b : Nat) : normLt a b = if a < b then 1 else 0 := rfl
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- Norm bitwise: and(and(1, 255), 255) = 1. -/
 private theorem normAnd_1_255_255 : normAnd (normAnd 1 255) 255 = 1 := by decide
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- One Babylonian step in the norm model equals bstep. -/
 private theorem normStep_eq_bstep (x z : Nat) :
     normShr (normAnd (normAnd 1 255) 255) (normAdd (normDiv x z) z) = bstep x z := by
   simp [normAnd_1_255_255, normShr_eq, normAdd_eq, normDiv_eq, bstep, Nat.add_comm]
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- The generated model_bstep equals bstep (definitional). -/
 theorem model_bstep_eq_bstep (x z : Nat) : model_bstep x z = bstep x z :=
   normStep_eq_bstep x z
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- Floor correction: sub z (lt (div x z) z) gives the standard correction. -/
 private theorem normFloor_correction (x z : Nat) (hz : 0 < z) :
     normSub z (normLt (normDiv x z) z) =
@@ -279,7 +279,7 @@ private theorem or_eq_add_shl (a b s : Nat) (hb : b < 2 ^ s) :
 -- For the EVM bridge, we reuse this by showing the EVM Babylonian steps produce
 -- the same values (since the sums don't overflow 2^256).
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- The 6 model_bstep calls equal run6Fixed. -/
 private theorem norm_6steps_eq_run6Fixed (x_hi_1 : Nat) :
     let r_hi_1 := FIXED_SEED
@@ -292,7 +292,7 @@ private theorem norm_6steps_eq_run6Fixed (x_hi_1 : Nat) :
     r_hi_7 = run6Fixed x_hi_1 := by
   simp only [model_bstep_eq_bstep, run6Fixed, FIXED_SEED, bstep]
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- The 6 steps + floor correction in the norm model = floorSqrt_fixed. -/
 private theorem norm_inner_sqrt_eq_floorSqrt_fixed (x_hi_1 : Nat) (hx : 0 < x_hi_1) :
     let r_hi_1 := FIXED_SEED
@@ -320,7 +320,7 @@ private theorem norm_inner_sqrt_eq_floorSqrt_fixed (x_hi_1 : Nat) (hx : 0 < x_hi
   unfold floorSqrt_fixed
   simp [Nat.ne_of_gt hz_pos]
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 /-- The norm inner sqrt gives natSqrt on normalized inputs. -/
 private theorem norm_inner_sqrt_eq_natSqrt (x_hi_1 : Nat)
     (hlo : 2 ^ 254 ≤ x_hi_1) (hhi : x_hi_1 < 2 ^ 256) :
@@ -344,7 +344,7 @@ private theorem norm_inner_sqrt_eq_natSqrt (x_hi_1 : Nat)
 -- ============================================================================
 
 section EvmNormBridge
-open Sqrt512GeneratedModel
+open Sqrt512Yul
 
 theorem u256_id' (x : Nat) (hx : x < WORD_MOD) : u256 x = x :=
   Nat.mod_eq_of_lt hx
@@ -472,7 +472,7 @@ end EvmNormBridge
 -- then chained in the top-level theorem.
 
 section SubModelBridge
-open Sqrt512GeneratedModel
+open Sqrt512Yul
 
 /-- The norm model of _innerSqrt gives (floorSqrt_fixed x, x - floorSqrt_fixed(x)²).
     Follows from norm_inner_sqrt_eq_floorSqrt_fixed by unfolding model_innerSqrt. -/
@@ -511,7 +511,7 @@ end SubModelBridge
 --   E. Chain: karatsubaFloor(x_hi_1, x_lo_1) / 2^k = sqrt512(x)
 
 section EvmBridge
-open Sqrt512GeneratedModel
+open Sqrt512Yul
 
 /-- Sub-lemma A: The EVM normalization phase computes the correct normalized words.
     Given x = x_hi * 2^256 + x_lo and k = (255 - log2 x_hi) / 2:
@@ -1634,9 +1634,9 @@ end EvmBridge
 theorem model_sqrt512_evm_eq_sqrt512 (x_hi x_lo : Nat)
     (hxhi_pos : 0 < x_hi) (hxhi_lt : x_hi < 2 ^ 256)
     (hxlo_lt : x_lo < 2 ^ 256) :
-    Sqrt512GeneratedModel.model_sqrt512_evm x_hi x_lo =
+    Sqrt512Yul.model_sqrt512_evm x_hi x_lo =
       sqrt512 (x_hi * 2 ^ 256 + x_lo) := by
-  open Sqrt512GeneratedModel in
+  open Sqrt512Yul in
   -- Step 0: sqrt512 takes else branch since x_hi > 0 → x ≥ 2^256
   have hx_ge : ¬(x_hi * 2 ^ 256 + x_lo < 2 ^ 256) := by omega
   unfold sqrt512; simp only [hx_ge, ↓reduceIte]
@@ -1672,7 +1672,7 @@ set_option exponentiation.threshold 512 in
 theorem model_sqrt512_evm_correct (x_hi x_lo : Nat)
     (hxhi_pos : 0 < x_hi) (hxhi_lt : x_hi < 2 ^ 256)
     (hxlo_lt : x_lo < 2 ^ 256) :
-    Sqrt512GeneratedModel.model_sqrt512_evm x_hi x_lo =
+    Sqrt512Yul.model_sqrt512_evm x_hi x_lo =
       natSqrt (x_hi * 2 ^ 256 + x_lo) := by
   rw [model_sqrt512_evm_eq_sqrt512 x_hi x_lo hxhi_pos hxhi_lt hxlo_lt]
   have hx_lt : x_hi * 2 ^ 256 + x_lo < 2 ^ 512 := by

@@ -7,17 +7,17 @@
   Case x_hi = 0: r_hi = 0, r_lo = inlined 256-bit sqrtUp(x_lo).
   Case x_hi > 0: r = floor_sqrt(x), needsUp = (x > r²), result = r + needsUp with carry.
 -/
-import Sqrt512Proof.GeneratedSqrt512Model
-import Sqrt512Proof.GeneratedSqrt512Spec
+import Sqrt512Proof.Sqrt512Yul
+import Sqrt512Proof.Sqrt512YulSpec
 import Sqrt512Proof.SqrtUpCorrect
 import Sqrt512Proof.SqrtWrapperSpec
-import SqrtProof.GeneratedSqrtModel
-import SqrtProof.GeneratedSqrtSpec
+import SqrtProof.SqrtYul
+import SqrtProof.SqrtYulSpec
 import SqrtProof.SqrtCorrect
 
 namespace Sqrt512Spec
 
-open Sqrt512GeneratedModel
+open Sqrt512Yul
 
 -- ============================================================================
 -- Section 1: x_hi = 0 branch — bridge to model_sqrt_up_evm
@@ -28,19 +28,19 @@ private theorem osqrtUp_zero_fst (x_lo : Nat) :
     (model_osqrtUp_evm 0 x_lo).1 = 0 := by
   simp only [model_osqrtUp_evm]
   simp only [evmEq_compat, u256_compat, su256_zero]
-  simp only [SqrtGeneratedModel.evmEq, SqrtGeneratedModel.u256, SqrtGeneratedModel.WORD_MOD]
+  simp only [SqrtYul.evmEq, SqrtYul.u256, SqrtYul.WORD_MOD]
   simp (config := { decide := true })
 
 /-- When x_hi = 0, the second component (r_lo) equals model_sqrt_up_evm x_lo. -/
 private theorem osqrtUp_zero_snd (x_lo : Nat) :
-    (model_osqrtUp_evm 0 x_lo).2 = SqrtGeneratedModel.model_sqrt_up_evm x_lo := by
+    (model_osqrtUp_evm 0 x_lo).2 = SqrtYul.model_sqrt_up_evm x_lo := by
   simp only [model_osqrtUp_evm, model_sqrt256_up_evm,
-    SqrtGeneratedModel.model_sqrt_up_evm, SqrtGeneratedModel.model_sqrt_evm]
+    SqrtYul.model_sqrt_up_evm, SqrtYul.model_sqrt_evm]
   simp only [evmEq_compat, evmShr_compat, evmAdd_compat, evmDiv_compat,
     evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat,
     evmMul_compat, evmGt_compat, u256_compat]
   simp only [su256_zero, su256_idem]
-  simp only [SqrtGeneratedModel.evmEq, SqrtGeneratedModel.u256, SqrtGeneratedModel.WORD_MOD]
+  simp only [SqrtYul.evmEq, SqrtYul.u256, SqrtYul.WORD_MOD]
   simp (config := { decide := true })
 
 /-- Ceiling sqrt uniqueness: if x ≤ r² and r is minimal, then r = sqrtUp512 x. -/
@@ -314,13 +314,13 @@ theorem model_osqrtUp_evm_correct (x_hi x_lo : Nat)
     rw [osqrtUp_zero_fst, osqrtUp_zero_snd]
     simp only [Nat.zero_mul, Nat.zero_add]
     -- model_sqrt_up_evm x_lo satisfies ceiling sqrt spec
-    have hspec := SqrtGeneratedModel.model_sqrt_up_evm_ceil_u256 x_lo hxlo
+    have hspec := SqrtYul.model_sqrt_up_evm_ceil_u256 x_lo hxlo
     -- sqrtUp512 x_lo also satisfies it (for x_lo < 2^256 < 2^512)
     have hx512 : x_lo < 2 ^ 512 := by
       calc x_lo < 2 ^ 256 := hxlo
         _ ≤ 2 ^ 512 := Nat.pow_le_pow_right (by omega) (by omega)
     -- Both satisfy the same uniqueness property
-    exact sqrtUp512_unique x_lo (SqrtGeneratedModel.model_sqrt_up_evm x_lo) hx512
+    exact sqrtUp512_unique x_lo (SqrtYul.model_sqrt_up_evm x_lo) hx512
       hspec.1 hspec.2
   · -- x_hi > 0: floor sqrt + carry
     have hxhi_pos : 0 < x_hi := Nat.pos_of_ne_zero hxhi0

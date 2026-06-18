@@ -8,7 +8,7 @@
     4. cbrtUp rounding                  (model_cbrt_up_evm rounds up correctly)
 -/
 import Init
-import CbrtProof.GeneratedCbrtModel
+import CbrtProof.CbrtYul
 import CbrtProof.CbrtCorrect
 import CbrtProof.CertifiedChain
 import CbrtProof.FiniteCert
@@ -17,9 +17,9 @@ import CbrtProof.OverflowSafety
 
 set_option exponentiation.threshold 300
 
-namespace CbrtGeneratedModel
+namespace CbrtYul
 
-open CbrtGeneratedModel
+open CbrtYul
 open CbrtCertified
 open CbrtCert
 open CbrtWiring
@@ -2574,4 +2574,4 @@ theorem model_cbrt_up_evm_ceil_u256
   ✓ model_cbrt_floor_evm_correct: EVM floor = icbrt
 -/
 
-end CbrtGeneratedModel
+end CbrtYul

@@ -3,9 +3,9 @@
 
 # Auto-generated; rebuild with:
 #   forge inspect src/wrappers/LnWrapper.sol:LnWrapper ir | \
-#     python3 -m formal.python.ln.generate_ln_model --yul - \
-#       --output formal/ln/LnProof/LnProof/GeneratedLnModel.lean
-/LnProof/GeneratedLnModel.lean
+#     lake -d formal/yul exe yul_importer --kind ln \
+#       --output formal/ln/LnProof/LnProof/LnYul.lean
+/LnProof/LnYul.lean
 
 # Auto-generated; rebuild with:
 #   python3 formal/python/ln/gen_cert_literals.py

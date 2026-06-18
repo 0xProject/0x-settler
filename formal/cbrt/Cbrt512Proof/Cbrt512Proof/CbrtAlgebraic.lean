@@ -2,7 +2,7 @@
   Shared algebraic lemmas for the 512-bit cbrt composition proof.
   Used by CbrtComposition.lean for sub-lemmas A and B.
 -/
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 import Cbrt512Proof.EvmBridge
 import Cbrt512Proof.CbrtBaseCase
 import Cbrt512Proof.CbrtKaratsubaQuotient
@@ -12,7 +12,7 @@ set_option exponentiation.threshold 1024
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 
 -- ============================================================================
 -- Cube expansion: (a + b)³ = a³ + 3a²b + 3ab² + b³

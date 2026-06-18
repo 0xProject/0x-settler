@@ -1,4 +1,4 @@
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 
 /-!
 # Cbrt512 model evaluator
@@ -13,7 +13,7 @@ Usage:
   cbrt512-model cbrtUp512_wrapper <hex_x_hi> <hex_x_lo>  → 1 hex word
 -/
 
-open Cbrt512GeneratedModel in
+open Cbrt512Yul in
 def evalFunction (name : String) (xHi xLo : Nat) : Option Nat :=
   match name with
   | "cbrt512"           => some (model_cbrt512_evm xHi xLo)

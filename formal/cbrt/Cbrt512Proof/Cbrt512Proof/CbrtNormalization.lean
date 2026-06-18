@@ -12,11 +12,11 @@
     (3) x_lo_1 < 2^256
     (4) shift < 86 (so 3*shift < 256)
 -/
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 
 -- ============================================================================
 -- CLZ / shift properties

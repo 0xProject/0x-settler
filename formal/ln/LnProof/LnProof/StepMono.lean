@@ -10,7 +10,7 @@ monotonicity; the `u`-step cases are the `G1`/`G2` certificates pushed
 through the truncation sandwiches.
 -/
 
-namespace LnGeneratedModel
+namespace LnYul
 
 open LnPoly
 
@@ -459,4 +459,4 @@ theorem hI_step (v : Int)
     have hdd := cross_to_div hnum1pos hnum2pos (by omega) (by omega) hcross
     omega
 
-end LnGeneratedModel
+end LnYul

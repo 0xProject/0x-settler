@@ -4,7 +4,7 @@
     res = x_hi_1 / 4 - r_hi³
     d = 3 * r_hi²
 -/
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 import Cbrt512Proof.EvmBridge
 import Cbrt512Proof.CbrtNumericCerts
 import CbrtProof.CbrtCorrect
@@ -14,7 +14,7 @@ import CbrtProof.Wiring
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 open CbrtCertified
 open CbrtCert
 

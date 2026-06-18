@@ -8,6 +8,7 @@ on:
       - src/vendor/Sqrt.sol
       - src/wrappers/SqrtWrapper.sol
       - formal/sqrt/**
+      - formal/yul/**
       - formal/python/**
       - test/0.8.25/Sqrt.t.sol
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
@@ -18,6 +19,7 @@ on:
       - src/vendor/Sqrt.sol
       - src/wrappers/SqrtWrapper.sol
       - formal/sqrt/**
+      - formal/yul/**
       - formal/python/**
       - test/0.8.25/Sqrt.t.sol
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
@@ -53,17 +55,29 @@ jobs:
         env:
           FOUNDRY_SOLC_VERSION: 0.8.34
 
+      - name: Build Yul importer
+        working-directory: formal/yul
+        run: lake build yul_importer
+
       - name: Generate Lean model from Sqrt.sol via Yul IR
         run: |
           forge inspect src/wrappers/SqrtWrapper.sol:SqrtWrapper ir | \
-            python3 -W error -m formal.python.sqrt.generate_sqrt_model \
-              --yul - \
-              --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
+            lake -d formal/yul exe yul_importer \
+              --kind sqrt \
+              --output formal/sqrt/SqrtProof/SqrtProof/SqrtYul.lean
 
       - name: Generate finite certificate from sqrt spec
         run: |
           python3 -m formal.python.sqrt.generate_sqrt_cert \
             --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
+
+      - name: Guard generated artifacts are untracked
+        run: |
+          test -z "$(git ls-files formal/sqrt/SqrtProof/SqrtProof/SqrtYul.lean)"
+
+      - name: Update Lake dependencies
+        working-directory: formal/sqrt/SqrtProof
+        run: lake update
 
       - name: Build Sqrt proof and model evaluator
         working-directory: formal/sqrt/SqrtProof
@@ -73,13 +87,13 @@ jobs:
         working-directory: formal/sqrt/SqrtProof
         run: |
           printf '%s\n' \
-            'import SqrtProof.GeneratedSqrtSpec' \
-            '#print axioms SqrtGeneratedModel.model_sqrt_floor_evm_eq_floorSqrt' \
-            '#print axioms SqrtGeneratedModel.model_sqrt_up_evm_ceil_u256' \
+            'import SqrtProof.SqrtYulSpec' \
+            '#print axioms SqrtYul.model_sqrt_floor_evm_eq_floorSqrt' \
+            '#print axioms SqrtYul.model_sqrt_up_evm_ceil_u256' \
             | lake env lean --stdin > actual_axioms.txt 2>&1
           diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
-          'SqrtGeneratedModel.model_sqrt_floor_evm_eq_floorSqrt' depends on axioms: [propext, Classical.choice, Quot.sound]
-          'SqrtGeneratedModel.model_sqrt_up_evm_ceil_u256' depends on axioms: [propext, Classical.choice, Quot.sound]
+          'SqrtYul.model_sqrt_floor_evm_eq_floorSqrt' depends on axioms: [propext, Classical.choice, Quot.sound]
+          'SqrtYul.model_sqrt_up_evm_ceil_u256' depends on axioms: [propext, Classical.choice, Quot.sound]
           EXPECTED
 
       - name: Fuzz-test Lean model against Solidity

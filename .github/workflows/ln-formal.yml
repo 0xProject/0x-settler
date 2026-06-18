@@ -8,6 +8,7 @@ on:
       - src/vendor/Ln.sol
       - src/wrappers/LnWrapper.sol
       - formal/ln/**
+      - formal/yul/**
       - formal/python/**
       - test/0.8.34/Ln.t.sol
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
@@ -18,6 +19,7 @@ on:
       - src/vendor/Ln.sol
       - src/wrappers/LnWrapper.sol
       - formal/ln/**
+      - formal/yul/**
       - formal/python/**
       - test/0.8.34/Ln.t.sol
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
@@ -59,15 +61,27 @@ jobs:
       - name: Check monotonicity certificate
         run: python3 -W error -m formal.python.ln.check_ln_monotone
 
+      - name: Build Yul importer
+        working-directory: formal/yul
+        run: lake build yul_importer
+
       - name: Generate Lean model from Ln.sol via Yul IR
         run: |
           forge inspect src/wrappers/LnWrapper.sol:LnWrapper ir | \
-            python3 -W error -m formal.python.ln.generate_ln_model \
-              --yul - \
-              --output formal/ln/LnProof/LnProof/GeneratedLnModel.lean
+            lake -d formal/yul exe yul_importer \
+              --kind ln \
+              --output formal/ln/LnProof/LnProof/LnYul.lean
 
       - name: Generate certificate coefficient literals
         run: python3 -W error formal/python/ln/gen_cert_literals.py
+
+      - name: Guard generated artifacts are untracked
+        run: |
+          test -z "$(git ls-files formal/ln/LnProof/LnProof/LnYul.lean)"
+
+      - name: Update Lake dependencies
+        working-directory: formal/ln/LnProof
+        run: lake update
 
       - name: Build Ln proof and model evaluator
         working-directory: formal/ln/LnProof
@@ -80,13 +94,13 @@ jobs:
             'import LnProof.TopMono' \
             'import LnProof.FloorSpec' \
             'import LnProof.ExpLogCutSpec' \
-            '#print axioms LnGeneratedModel.model_ln_wad_one_wad' \
-            '#print axioms LnGeneratedModel.model_ln_wad_to_wad_one_wad' \
-            '#print axioms LnGeneratedModel.model_ln_wad_one_wad_mono' \
-            '#print axioms LnGeneratedModel.model_ln_wad_seam_mono' \
-            '#print axioms LnGeneratedModel.model_ln_wad_to_wad_seam_mono' \
-            '#print axioms LnGeneratedModel.model_ln_wad_mono' \
-            '#print axioms LnGeneratedModel.model_ln_wad_to_wad_mono' \
+            '#print axioms LnYul.model_ln_wad_one_wad' \
+            '#print axioms LnYul.model_ln_wad_to_wad_one_wad' \
+            '#print axioms LnYul.model_ln_wad_one_wad_mono' \
+            '#print axioms LnYul.model_ln_wad_seam_mono' \
+            '#print axioms LnYul.model_ln_wad_to_wad_seam_mono' \
+            '#print axioms LnYul.model_ln_wad_mono' \
+            '#print axioms LnYul.model_ln_wad_to_wad_mono' \
             '#print axioms LnFloorCert.model_ln_wad_floor' \
             '#print axioms LnFloorCert.model_ln_wad_to_wad_floor' \
             '#print axioms LnFloorCert.model_ln_wad_negative_iff' \
@@ -99,13 +113,13 @@ jobs:
             '#print axioms LnFloorCert.model_ln_wad_to_wad_cut_spec' \
             | lake env lean --stdin > actual_axioms.txt 2>&1
           diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
-          'LnGeneratedModel.model_ln_wad_one_wad' does not depend on any axioms
-          'LnGeneratedModel.model_ln_wad_to_wad_one_wad' does not depend on any axioms
-          'LnGeneratedModel.model_ln_wad_one_wad_mono' does not depend on any axioms
-          'LnGeneratedModel.model_ln_wad_seam_mono' does not depend on any axioms
-          'LnGeneratedModel.model_ln_wad_to_wad_seam_mono' does not depend on any axioms
-          'LnGeneratedModel.model_ln_wad_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
-          'LnGeneratedModel.model_ln_wad_to_wad_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
+          'LnYul.model_ln_wad_one_wad' does not depend on any axioms
+          'LnYul.model_ln_wad_to_wad_one_wad' does not depend on any axioms
+          'LnYul.model_ln_wad_one_wad_mono' does not depend on any axioms
+          'LnYul.model_ln_wad_seam_mono' does not depend on any axioms
+          'LnYul.model_ln_wad_to_wad_seam_mono' does not depend on any axioms
+          'LnYul.model_ln_wad_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
+          'LnYul.model_ln_wad_to_wad_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
           'LnFloorCert.model_ln_wad_floor' depends on axioms: [propext, Classical.choice, Quot.sound]
           'LnFloorCert.model_ln_wad_to_wad_floor' depends on axioms: [propext, Classical.choice, Quot.sound]
           'LnFloorCert.model_ln_wad_negative_iff' depends on axioms: [propext, Classical.choice, Quot.sound]

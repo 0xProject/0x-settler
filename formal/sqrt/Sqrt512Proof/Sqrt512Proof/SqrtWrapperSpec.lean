@@ -5,91 +5,91 @@
     x_hi = 0 ⟹ inlined 256-bit floor sqrt (= model_sqrt_floor_evm from SqrtProof)
     x_hi > 0 ⟹ model_sqrt512_evm (already proved correct)
 -/
-import Sqrt512Proof.GeneratedSqrt512Model
-import Sqrt512Proof.GeneratedSqrt512Spec
-import SqrtProof.GeneratedSqrtModel
-import SqrtProof.GeneratedSqrtSpec
+import Sqrt512Proof.Sqrt512Yul
+import Sqrt512Proof.Sqrt512YulSpec
+import SqrtProof.SqrtYul
+import SqrtProof.SqrtYulSpec
 import SqrtProof.SqrtCorrect
 
 namespace Sqrt512Spec
 
-open Sqrt512GeneratedModel
+open Sqrt512Yul
 
 -- ============================================================================
 -- Section 1: Namespace compatibility
--- Both SqrtGeneratedModel and Sqrt512GeneratedModel define identical opcodes.
+-- Both SqrtYul and Sqrt512Yul define identical opcodes.
 -- We prove extensional equality so we can rewrite the wrapper's x_hi=0 branch
--- from Sqrt512GeneratedModel ops to SqrtGeneratedModel ops.
+-- from Sqrt512Yul ops to SqrtYul ops.
 -- ============================================================================
 
 section NamespaceCompat
 
 theorem WORD_MOD_compat :
-    @Sqrt512GeneratedModel.WORD_MOD = @SqrtGeneratedModel.WORD_MOD := rfl
+    @Sqrt512Yul.WORD_MOD = @SqrtYul.WORD_MOD := rfl
 
 theorem u256_compat (x : Nat) :
-    Sqrt512GeneratedModel.u256 x = SqrtGeneratedModel.u256 x := by
-  unfold Sqrt512GeneratedModel.u256 SqrtGeneratedModel.u256
+    Sqrt512Yul.u256 x = SqrtYul.u256 x := by
+  unfold Sqrt512Yul.u256 SqrtYul.u256
   rw [WORD_MOD_compat]
 
 theorem evmAdd_compat (a b : Nat) :
-    Sqrt512GeneratedModel.evmAdd a b = SqrtGeneratedModel.evmAdd a b := by
-  unfold Sqrt512GeneratedModel.evmAdd SqrtGeneratedModel.evmAdd
+    Sqrt512Yul.evmAdd a b = SqrtYul.evmAdd a b := by
+  unfold Sqrt512Yul.evmAdd SqrtYul.evmAdd
   simp [u256_compat]
 
 theorem evmSub_compat (a b : Nat) :
-    Sqrt512GeneratedModel.evmSub a b = SqrtGeneratedModel.evmSub a b := by
-  unfold Sqrt512GeneratedModel.evmSub SqrtGeneratedModel.evmSub
+    Sqrt512Yul.evmSub a b = SqrtYul.evmSub a b := by
+  unfold Sqrt512Yul.evmSub SqrtYul.evmSub
   simp [u256_compat, WORD_MOD_compat]
 
 theorem evmMul_compat (a b : Nat) :
-    Sqrt512GeneratedModel.evmMul a b = SqrtGeneratedModel.evmMul a b := by
-  unfold Sqrt512GeneratedModel.evmMul SqrtGeneratedModel.evmMul
+    Sqrt512Yul.evmMul a b = SqrtYul.evmMul a b := by
+  unfold Sqrt512Yul.evmMul SqrtYul.evmMul
   simp [u256_compat]
 
 theorem evmDiv_compat (a b : Nat) :
-    Sqrt512GeneratedModel.evmDiv a b = SqrtGeneratedModel.evmDiv a b := by
-  unfold Sqrt512GeneratedModel.evmDiv SqrtGeneratedModel.evmDiv
+    Sqrt512Yul.evmDiv a b = SqrtYul.evmDiv a b := by
+  unfold Sqrt512Yul.evmDiv SqrtYul.evmDiv
   simp [u256_compat]
 
 theorem evmShl_compat (s v : Nat) :
-    Sqrt512GeneratedModel.evmShl s v = SqrtGeneratedModel.evmShl s v := by
-  unfold Sqrt512GeneratedModel.evmShl SqrtGeneratedModel.evmShl
+    Sqrt512Yul.evmShl s v = SqrtYul.evmShl s v := by
+  unfold Sqrt512Yul.evmShl SqrtYul.evmShl
   simp [u256_compat]
 
 theorem evmShr_compat (s v : Nat) :
-    Sqrt512GeneratedModel.evmShr s v = SqrtGeneratedModel.evmShr s v := by
-  unfold Sqrt512GeneratedModel.evmShr SqrtGeneratedModel.evmShr
+    Sqrt512Yul.evmShr s v = SqrtYul.evmShr s v := by
+  unfold Sqrt512Yul.evmShr SqrtYul.evmShr
   simp [u256_compat]
 
 theorem evmClz_compat (v : Nat) :
-    Sqrt512GeneratedModel.evmClz v = SqrtGeneratedModel.evmClz v := by
-  unfold Sqrt512GeneratedModel.evmClz SqrtGeneratedModel.evmClz
+    Sqrt512Yul.evmClz v = SqrtYul.evmClz v := by
+  unfold Sqrt512Yul.evmClz SqrtYul.evmClz
   simp [u256_compat]
 
 theorem evmLt_compat (a b : Nat) :
-    Sqrt512GeneratedModel.evmLt a b = SqrtGeneratedModel.evmLt a b := by
-  unfold Sqrt512GeneratedModel.evmLt SqrtGeneratedModel.evmLt
+    Sqrt512Yul.evmLt a b = SqrtYul.evmLt a b := by
+  unfold Sqrt512Yul.evmLt SqrtYul.evmLt
   simp [u256_compat]
 
 theorem evmEq_compat (a b : Nat) :
-    Sqrt512GeneratedModel.evmEq a b = SqrtGeneratedModel.evmEq a b := by
-  unfold Sqrt512GeneratedModel.evmEq SqrtGeneratedModel.evmEq
+    Sqrt512Yul.evmEq a b = SqrtYul.evmEq a b := by
+  unfold Sqrt512Yul.evmEq SqrtYul.evmEq
   simp [u256_compat]
 
 theorem evmGt_compat (a b : Nat) :
-    Sqrt512GeneratedModel.evmGt a b = SqrtGeneratedModel.evmGt a b := by
-  unfold Sqrt512GeneratedModel.evmGt SqrtGeneratedModel.evmGt
+    Sqrt512Yul.evmGt a b = SqrtYul.evmGt a b := by
+  unfold Sqrt512Yul.evmGt SqrtYul.evmGt
   simp [u256_compat]
 
 theorem evmNot_compat (a : Nat) :
-    Sqrt512GeneratedModel.evmNot a = SqrtGeneratedModel.evmNot a := by
-  unfold Sqrt512GeneratedModel.evmNot SqrtGeneratedModel.evmNot
+    Sqrt512Yul.evmNot a = SqrtYul.evmNot a := by
+  unfold Sqrt512Yul.evmNot SqrtYul.evmNot
   simp [u256_compat, WORD_MOD_compat]
 
 theorem evmMulmod_compat (a b n : Nat) :
-    Sqrt512GeneratedModel.evmMulmod a b n = SqrtGeneratedModel.evmMulmod a b n := by
-  unfold Sqrt512GeneratedModel.evmMulmod SqrtGeneratedModel.evmMulmod
+    Sqrt512Yul.evmMulmod a b n = SqrtYul.evmMulmod a b n := by
+  unfold Sqrt512Yul.evmMulmod SqrtYul.evmMulmod
   simp [u256_compat]
 
 end NamespaceCompat
@@ -100,26 +100,26 @@ end NamespaceCompat
 
 /-- u256 is idempotent: u256(u256(x)) = u256(x). -/
 private theorem u256_idem (x : Nat) :
-    Sqrt512GeneratedModel.u256 (Sqrt512GeneratedModel.u256 x) = Sqrt512GeneratedModel.u256 x := by
-  unfold Sqrt512GeneratedModel.u256 Sqrt512GeneratedModel.WORD_MOD
+    Sqrt512Yul.u256 (Sqrt512Yul.u256 x) = Sqrt512Yul.u256 x := by
+  unfold Sqrt512Yul.u256 Sqrt512Yul.WORD_MOD
   exact Nat.mod_eq_of_lt (Nat.mod_lt x (Nat.two_pow_pos 256))
 
 theorem su256_idem (x : Nat) :
-    SqrtGeneratedModel.u256 (SqrtGeneratedModel.u256 x) = SqrtGeneratedModel.u256 x := by
-  unfold SqrtGeneratedModel.u256 SqrtGeneratedModel.WORD_MOD
+    SqrtYul.u256 (SqrtYul.u256 x) = SqrtYul.u256 x := by
+  unfold SqrtYul.u256 SqrtYul.WORD_MOD
   exact Nat.mod_eq_of_lt (Nat.mod_lt x (Nat.two_pow_pos 256))
 
-theorem su256_zero : SqrtGeneratedModel.u256 0 = 0 := by
-  unfold SqrtGeneratedModel.u256 SqrtGeneratedModel.WORD_MOD; simp
+theorem su256_zero : SqrtYul.u256 0 = 0 := by
+  unfold SqrtYul.u256 SqrtYul.WORD_MOD; simp
 
 /-- When x_hi = 0, model_sqrt512_wrapper_evm calls model_sqrt256_floor_evm,
     which is identical (modulo namespace) to model_sqrt_floor_evm from SqrtProof. -/
 theorem wrapper_zero_eq_sqrt_floor_evm (x_lo : Nat) :
-    model_sqrt512_wrapper_evm 0 x_lo = SqrtGeneratedModel.model_sqrt_floor_evm x_lo := by
+    model_sqrt512_wrapper_evm 0 x_lo = SqrtYul.model_sqrt_floor_evm x_lo := by
   -- Unfold all model definitions to expose the full EVM expression
   simp only [model_sqrt512_wrapper_evm, model_sqrt256_floor_evm,
-    SqrtGeneratedModel.model_sqrt_floor_evm, SqrtGeneratedModel.model_sqrt_evm]
-  -- Convert Sqrt512 namespace ops to SqrtGeneratedModel ops
+    SqrtYul.model_sqrt_floor_evm, SqrtYul.model_sqrt_evm]
+  -- Convert Sqrt512 namespace ops to SqrtYul ops
   simp only [evmEq_compat, evmShr_compat, evmAdd_compat, evmDiv_compat,
     evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat, u256_compat]
   -- Simplify: u256(u256(x)) = u256(x) and u256(0) = 0
@@ -169,7 +169,7 @@ theorem model_sqrt512_wrapper_evm_correct (x_hi x_lo : Nat)
     -- Step 1: wrapper's x_hi=0 branch = model_sqrt_floor_evm x_lo
     rw [wrapper_zero_eq_sqrt_floor_evm x_lo]
     -- Step 2: model_sqrt_floor_evm = floorSqrt
-    rw [SqrtGeneratedModel.model_sqrt_floor_evm_eq_floorSqrt x_lo hxlo]
+    rw [SqrtYul.model_sqrt_floor_evm_eq_floorSqrt x_lo hxlo]
     -- Step 3: floorSqrt = natSqrt
     exact floorSqrt_eq_natSqrt x_lo hxlo
   · -- x_hi > 0: use the existing model_sqrt512_evm_correct

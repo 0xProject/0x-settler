@@ -1,11 +1,11 @@
 import Init
-import SqrtProof.GeneratedSqrtModel
+import SqrtProof.SqrtYul
 import SqrtProof.SqrtCorrect
 import SqrtProof.CertifiedChain
 
-namespace SqrtGeneratedModel
+namespace SqrtYul
 
-open SqrtGeneratedModel
+open SqrtYul
 open SqrtCertified
 open SqrtCert
 
@@ -1048,4 +1048,4 @@ theorem model_sqrt_up_evm_ceil_u256
               simpa [hinnerEq] using hpredm
       exact minimal_of_pred_lt x (innerSqrt x) hpred
 
-end SqrtGeneratedModel
+end SqrtYul

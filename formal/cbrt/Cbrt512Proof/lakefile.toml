@@ -10,5 +10,9 @@ name = "cbrt512-model"
 root = "Main"
 
 [[require]]
+name = "FormalYul"
+path = "../../yul"
+
+[[require]]
 name = "CbrtProof"
 path = "../CbrtProof"

@@ -1,4 +1,4 @@
-import LnProof.GeneratedLnModel
+import LnProof.LnYul
 
 /-!
 # Monotonicity certificates for the generated Ln model
@@ -29,7 +29,7 @@ into `model_ln_wad_mono`, monotonicity over the whole domain.
 set_option maxRecDepth 100000
 set_option exponentiation.threshold 512
 
-namespace LnGeneratedModel
+namespace LnYul
 
 private theorem log2_eq_iff {n k : Nat} (h : n ≠ 0) :
     Nat.log2 n = k ↔ 2 ^ k ≤ n ∧ n < 2 ^ (k + 1) := by
@@ -12838,4 +12838,4 @@ theorem model_ln_wad_to_wad_seam_mono : seamMono model_ln_wad_to_wad_evm = true 
   intro t ht
   exact wad_seam_at t (List.mem_range.mp ht)
 
-end LnGeneratedModel
+end LnYul

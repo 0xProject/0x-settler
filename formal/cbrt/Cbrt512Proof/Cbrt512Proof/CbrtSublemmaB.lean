@@ -1,7 +1,7 @@
 /-
   Sub-lemma B: (r_qc - 1)³ ≤ x_norm, giving r_qc ≤ icbrt + 1.
 -/
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 import Cbrt512Proof.CbrtBaseCase
 import Cbrt512Proof.CbrtAlgebraic
 import Cbrt512Proof.EvmBridge
@@ -9,7 +9,7 @@ import CbrtProof.CbrtCorrect
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 
 -- ============================================================================
 -- Sub-lemma B: Upper bound — (r_qc - 1)³ ≤ x_norm

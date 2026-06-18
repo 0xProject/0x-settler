@@ -8,12 +8,12 @@
 
   Also proves limb_hi extraction: the next 86 bits of x_norm after the base case.
 -/
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 import Cbrt512Proof.EvmBridge
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 
 -- ============================================================================
 -- limb_hi extraction

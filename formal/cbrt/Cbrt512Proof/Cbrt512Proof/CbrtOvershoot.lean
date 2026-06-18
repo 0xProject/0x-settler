@@ -2,7 +2,7 @@
   Sub-lemma E2: When r_qc³ > x_norm (overshoot), x_norm is not a perfect cube.
   This ensures the cbrtUp wrapper's cube-and-compare correction is sound.
 -/
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 import Cbrt512Proof.CbrtBaseCase
 import Cbrt512Proof.CbrtAlgebraic
 import Cbrt512Proof.CbrtSublemmaB
@@ -11,7 +11,7 @@ import CbrtProof.CbrtCorrect
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 
 -- ============================================================================
 -- Sub-lemma E2: Overshoot implies not a perfect cube

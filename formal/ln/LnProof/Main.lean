@@ -1,4 +1,4 @@
-import LnProof.GeneratedLnModel
+import LnProof.LnYul
 
 /-!
 # Ln model evaluator
@@ -14,7 +14,7 @@ Functions: ln_wad, ln_wad_to_wad
 Output: 0x-prefixed hex uint256 (two's complement int256) on stdout.
 -/
 
-open LnGeneratedModel in
+open LnYul in
 def evalFunction (name : String) (x : Nat) : Option Nat :=
   match name with
   | "ln_wad"        => some (model_ln_wad_evm x)

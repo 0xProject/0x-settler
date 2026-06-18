@@ -1,4 +1,4 @@
-import Sqrt512Proof.GeneratedSqrt512Model
+import Sqrt512Proof.Sqrt512Yul
 
 /-!
 # Sqrt512 model evaluator
@@ -13,14 +13,14 @@ Usage:
   sqrt512-model osqrtUp          <hex_x_hi> <hex_x_lo>   → 2 hex words (ABI-encoded)
 -/
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 def evalFunction1 (name : String) (xHi xLo : Nat) : Option Nat :=
   match name with
   | "sqrt512"         => some (model_sqrt512_evm xHi xLo)
   | "sqrt512_wrapper" => some (model_sqrt512_wrapper_evm xHi xLo)
   | _                 => none
 
-open Sqrt512GeneratedModel in
+open Sqrt512Yul in
 def evalFunction2 (name : String) (xHi xLo : Nat) : Option (Nat × Nat) :=
   match name with
   | "osqrtUp" => some (model_osqrtUp_evm xHi xLo)

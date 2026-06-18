@@ -12,7 +12,7 @@ kernel evaluation over all 256 `clz` values, and `tail_mono` pushes
 
 set_option maxRecDepth 4096
 
-namespace LnGeneratedModel
+namespace LnYul
 
 open LnPoly
 
@@ -197,4 +197,4 @@ theorem tail_mono {kw m m' : Nat} (h1 : MLO ≤ m) (h2 : m ≤ m') (h3 : m' < MH
   exact corr_mono (evmSar_sandwich_72 (evmAdd_lt _ _)).1
     (evmSar_sandwich_72 (evmAdd_lt _ _)).1 hsar
 
-end LnGeneratedModel
+end LnYul

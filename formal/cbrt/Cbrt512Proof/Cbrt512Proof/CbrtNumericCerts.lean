@@ -1,11 +1,11 @@
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 import CbrtProof.FiniteCert
 
 /- Literal-heavy numeric certificates for the 512-bit cube-root proof. -/
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 open CbrtCert
 
 -- ============================================================================

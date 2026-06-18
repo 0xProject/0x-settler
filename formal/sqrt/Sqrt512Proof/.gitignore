@@ -1,5 +1,5 @@
 /.lake
 lake-manifest.json
 
-# Auto-generated from `formal/sqrt/generate_sqrt512_model.py`
-/Sqrt512Proof/GeneratedSqrt512Model.lean
+# Auto-generated from solc Yul IR by `lake exe yul_importer`
+/Sqrt512Proof/Sqrt512Yul.lean

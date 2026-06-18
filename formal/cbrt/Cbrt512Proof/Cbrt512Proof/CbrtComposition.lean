@@ -8,7 +8,7 @@
   Also contains the P1 (undershoot fires → r_qc ≤ icbrt) and
   P2 c>1 (check = 0 → icbrt ≤ r_qc) proofs.
 -/
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 import Cbrt512Proof.CbrtBaseCase
 import Cbrt512Proof.CbrtKaratsubaQuotient
 import Cbrt512Proof.CbrtAlgebraic
@@ -22,7 +22,7 @@ import CbrtProof.CbrtCorrect
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 
 -- ============================================================================
 -- Combined: r_qc_properties from sub-lemmas A, B, E

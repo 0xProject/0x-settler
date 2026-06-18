@@ -25,7 +25,7 @@ as an explicit log-cut specification.
 -/
 
 namespace LnFloorCert
-open LnGeneratedModel LnPoly LnExp LnFloor
+open LnYul LnPoly LnExp LnFloor
 
 -- The self-corrected model term repeats the accumulator (the `s == -1` test
 -- reads the shifted result), so elaboration-time `whnf` of it is expensive.

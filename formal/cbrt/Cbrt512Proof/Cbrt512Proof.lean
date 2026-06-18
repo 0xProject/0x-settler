@@ -1,5 +1,5 @@
 -- Root of the Cbrt512Proof library.
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 import Cbrt512Proof.CbrtNumericCerts
 import Cbrt512Proof.Cbrt512Correct
 import Cbrt512Proof.CbrtDenormalization
@@ -7,6 +7,6 @@ import Cbrt512Proof.CbrtNormalization
 import Cbrt512Proof.CbrtBaseCase
 import Cbrt512Proof.CbrtKaratsubaQuotient
 import Cbrt512Proof.CbrtComposition
-import Cbrt512Proof.GeneratedCbrt512Spec
+import Cbrt512Proof.Cbrt512YulSpec
 import Cbrt512Proof.CbrtWrapperSpec
 import Cbrt512Proof.CbrtUpSpec

@@ -2,13 +2,13 @@
   Quadratic correction EVM bridge: model_cbrtQuadraticCorrection_evm
   returns R + r_lo - c + undershoot where undershoot ∈ {0, 1}.
 -/
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 import Cbrt512Proof.CbrtNumericCerts
 import Cbrt512Proof.EvmBridge
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 
 -- ============================================================================
 -- QC helper lemmas

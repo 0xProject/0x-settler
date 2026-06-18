@@ -1,4 +1,4 @@
-import LnProof.GeneratedLnModel
+import LnProof.LnYul
 
 set_option maxRecDepth 100000
 
@@ -10,7 +10,7 @@ modeled EVM opcode to plain `Int` arithmetic under explicit range hypotheses
 (no overflow, divisor nonzero, ...). Everything downstream reasons in `Int`.
 -/
 
-namespace LnGeneratedModel
+namespace LnYul
 
 def toInt (w : Nat) : Int :=
   if w < 2 ^ 255 then (w : Int) else (w : Int) - 2 ^ 256
@@ -135,4 +135,4 @@ theorem evmMul_transport {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
   have hc : ((a * b : Nat) : Int) = (a : Int) * (b : Int) := by exact_mod_cast rfl
   rw [hc, Int.mul_emod, toInt_mod_cong ha, toInt_mod_cong hb, ← Int.mul_emod]
 
-end LnGeneratedModel
+end LnYul

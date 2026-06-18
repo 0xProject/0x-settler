@@ -7,5 +7,5 @@ import SqrtProof.FiniteCert
 import SqrtProof.CertifiedChain
 import SqrtProof.LeanCompat
 import SqrtProof.SqrtCorrect
-import SqrtProof.GeneratedSqrtModel
-import SqrtProof.GeneratedSqrtSpec
+import SqrtProof.SqrtYul
+import SqrtProof.SqrtYulSpec

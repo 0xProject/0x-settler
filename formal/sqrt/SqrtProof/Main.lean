@@ -1,4 +1,4 @@
-import SqrtProof.GeneratedSqrtModel
+import SqrtProof.SqrtYul
 
 /-!
 # Sqrt model evaluator
@@ -14,7 +14,7 @@ Functions: sqrt, sqrt_floor, sqrt_up
 Output: 0x-prefixed hex uint256 on stdout.
 -/
 
-open SqrtGeneratedModel in
+open SqrtYul in
 def evalFunction (name : String) (x : Nat) : Option Nat :=
   match name with
   | "sqrt"       => some (model_sqrt_evm x)

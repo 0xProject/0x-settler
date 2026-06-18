@@ -2,7 +2,7 @@
   Range bounds: R_MAX, r_qc ≤ R_MAX, R + r_lo ≤ R_MAX + 1.
   Sub-lemma E1: the cube bound r_qc³ < WORD_MOD².
 -/
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 import Cbrt512Proof.CbrtNumericCerts
 import Cbrt512Proof.CbrtBaseCase
 import Cbrt512Proof.CbrtAlgebraic
@@ -11,7 +11,7 @@ import CbrtProof.CbrtCorrect
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 
 set_option exponentiation.threshold 1024 in
 /-- For m ≥ 2^83, (3m+1) · 2^86 ≤ 27 · m · m.

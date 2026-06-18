@@ -8,3 +8,7 @@ name = "CbrtProof"
 [[lean_exe]]
 name = "cbrt-model"
 root = "Main"
+
+[[require]]
+name = "FormalYul"
+path = "../../yul"

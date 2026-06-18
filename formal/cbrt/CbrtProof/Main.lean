@@ -1,4 +1,4 @@
-import CbrtProof.GeneratedCbrtModel
+import CbrtProof.CbrtYul
 
 /-!
 # Cbrt model evaluator
@@ -14,7 +14,7 @@ Functions: cbrt, cbrt_floor, cbrt_up
 Output: 0x-prefixed hex uint256 on stdout.
 -/
 
-open CbrtGeneratedModel in
+open CbrtYul in
 def evalFunction (name : String) (x : Nat) : Option Nat :=
   match name with
   | "cbrt"       => some (model_cbrt_evm x)

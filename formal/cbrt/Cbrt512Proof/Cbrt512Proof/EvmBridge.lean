@@ -4,13 +4,13 @@
   These lemmas strip u256 wrappers and reduce evmAdd/evmSub/evmMul/evmDiv/evmShl/evmShr/evmAnd
   etc. to their Nat equivalents under appropriate bounds conditions.
 
-  Used by: CbrtComposition, GeneratedCbrt512Spec, and other bridge proofs.
+  Used by: CbrtComposition, Cbrt512YulSpec, and other bridge proofs.
 -/
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 
 theorem u256_id' (x : Nat) (hx : x < WORD_MOD) : u256 x = x :=
   Nat.mod_eq_of_lt hx

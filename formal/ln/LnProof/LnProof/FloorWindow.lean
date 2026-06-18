@@ -19,7 +19,7 @@ cover each whole branch.
 -/
 
 namespace LnFloorCert
-open LnGeneratedModel LnPoly LnExp LnFloor
+open LnYul LnPoly LnExp LnFloor
 
 set_option maxRecDepth 10000
 

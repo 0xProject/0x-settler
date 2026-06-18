@@ -13,7 +13,7 @@ the build. All scale factors are spelled as numerals (the kernel must not
 unfold `Int` powers of this size).
 -/
 
-namespace LnGeneratedModel
+namespace LnYul
 
 open LnPoly
 
@@ -655,4 +655,4 @@ theorem qS5_facts {u : Nat} (hu : u ≤ Uc) :
 def pWordD (u : Nat) : Nat := pS4 u
 def qWordD (u : Nat) : Nat := qS5 u
 
-end LnGeneratedModel
+end LnYul

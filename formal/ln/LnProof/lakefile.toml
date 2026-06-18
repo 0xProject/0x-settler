@@ -8,3 +8,7 @@ name = "LnProof"
 [[lean_exe]]
 name = "ln-model"
 root = "Main"
+
+[[require]]
+name = "FormalYul"
+path = "../../yul"

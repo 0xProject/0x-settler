@@ -10,6 +10,7 @@ on:
       - src/wrappers/CbrtWrapper.sol
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
+      - formal/yul/**
       - formal/python/**
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/Cbrt512Model.t.sol
@@ -21,6 +22,7 @@ on:
       - src/wrappers/CbrtWrapper.sol
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
+      - formal/yul/**
       - formal/python/**
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/Cbrt512Model.t.sol
@@ -56,12 +58,16 @@ jobs:
         env:
           FOUNDRY_SOLC_VERSION: 0.8.34
 
+      - name: Build Yul importer
+        working-directory: formal/yul
+        run: lake build yul_importer
+
       - name: Generate 256-bit Lean model (CbrtProof dependency)
         run: |
           forge inspect src/wrappers/CbrtWrapper.sol:CbrtWrapper ir | \
-            python3 -W error -m formal.python.cbrt.generate_cbrt_model \
-              --yul - \
-              --output formal/cbrt/CbrtProof/CbrtProof/GeneratedCbrtModel.lean
+            lake -d formal/yul exe yul_importer \
+              --kind cbrt \
+              --output formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean
 
       - name: Generate finite certificate from cbrt spec
         run: |
@@ -72,9 +78,19 @@ jobs:
         run: |
           FOUNDRY_SOLC_VERSION=0.8.34 \
             forge inspect src/wrappers/Cbrt512Wrapper.sol:Cbrt512Wrapper ir | \
-            python3 -W error -m formal.python.cbrt.generate_cbrt512_model \
-              --yul - \
-              --output formal/cbrt/Cbrt512Proof/Cbrt512Proof/GeneratedCbrt512Model.lean
+            lake -d formal/yul exe yul_importer \
+              --kind cbrt512 \
+              --output formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512Yul.lean
+
+      - name: Guard generated artifacts are untracked
+        run: |
+          test -z "$(git ls-files \
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean \
+            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512Yul.lean)"
+
+      - name: Update Lake dependencies
+        working-directory: formal/cbrt/Cbrt512Proof
+        run: lake update
 
       - name: Build Cbrt512 proof and model evaluator
         working-directory: formal/cbrt/Cbrt512Proof
@@ -84,7 +100,7 @@ jobs:
         working-directory: formal/cbrt/Cbrt512Proof
         run: |
           printf '%s\n' \
-            'import Cbrt512Proof.GeneratedCbrt512Spec' \
+            'import Cbrt512Proof.Cbrt512YulSpec' \
             'import Cbrt512Proof.CbrtUpSpec' \
             '#print axioms Cbrt512Spec.model_cbrt512_evm_within_1ulp' \
             '#print axioms Cbrt512Spec.model_cbrtUp512_wrapper_evm_correct' \

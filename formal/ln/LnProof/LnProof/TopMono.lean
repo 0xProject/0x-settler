@@ -18,7 +18,7 @@ floor division.
 
 set_option maxRecDepth 4096
 
-namespace LnGeneratedModel
+namespace LnYul
 
 /-! ## `sle` / `toInt` glue -/
 
@@ -384,4 +384,4 @@ theorem model_ln_wad_to_wad_mono {x y : Nat} (hx : 0 < x) (hxy : x ≤ y)
   rw [to_wad_eq hx256, to_wad_eq hy256]
   exact sle_of_toInt (evmSdiv_lt _ _) (evmSdiv_lt _ _) hdd
 
-end LnGeneratedModel
+end LnYul

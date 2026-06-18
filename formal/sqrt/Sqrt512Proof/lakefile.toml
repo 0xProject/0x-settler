@@ -10,5 +10,9 @@ name = "sqrt512-model"
 root = "Main"
 
 [[require]]
+name = "FormalYul"
+path = "../../yul"
+
+[[require]]
 name = "SqrtProof"
 path = "../SqrtProof"

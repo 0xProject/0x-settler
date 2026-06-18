@@ -5,78 +5,78 @@
     x_hi = 0 ⟹ inlined 256-bit floor cbrt (= model_cbrt_floor_evm from CbrtProof)
     x_hi > 0 ⟹ model_cbrt512_evm (within 1ulp) + cube-and-compare correction
 -/
-import Cbrt512Proof.GeneratedCbrt512Model
-import Cbrt512Proof.GeneratedCbrt512Spec
-import CbrtProof.GeneratedCbrtModel
-import CbrtProof.GeneratedCbrtSpec
+import Cbrt512Proof.Cbrt512Yul
+import Cbrt512Proof.Cbrt512YulSpec
+import CbrtProof.CbrtYul
+import CbrtProof.CbrtYulSpec
 import CbrtProof.CbrtCorrect
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 
 -- ============================================================================
 -- Section 1: Namespace compatibility
--- Both CbrtGeneratedModel and Cbrt512GeneratedModel define identical opcodes.
+-- Both CbrtYul and Cbrt512Yul define identical opcodes.
 -- ============================================================================
 
 section NamespaceCompat
 
-theorem WORD_MOD_compat : @Cbrt512GeneratedModel.WORD_MOD = @CbrtGeneratedModel.WORD_MOD := rfl
+theorem WORD_MOD_compat : @Cbrt512Yul.WORD_MOD = @CbrtYul.WORD_MOD := rfl
 
 theorem u256_compat (x : Nat) :
-    Cbrt512GeneratedModel.u256 x = CbrtGeneratedModel.u256 x := by
-  simp only [Cbrt512GeneratedModel.u256, CbrtGeneratedModel.u256, WORD_MOD_compat]
+    Cbrt512Yul.u256 x = CbrtYul.u256 x := by
+  simp only [Cbrt512Yul.u256, CbrtYul.u256, WORD_MOD_compat]
 
 -- All EVM ops unfold to the same expression modulo u256/WORD_MOD namespace.
 theorem evmAdd_compat (a b : Nat) :
-    Cbrt512GeneratedModel.evmAdd a b = CbrtGeneratedModel.evmAdd a b := by
-  simp only [Cbrt512GeneratedModel.evmAdd, CbrtGeneratedModel.evmAdd, u256_compat]
+    Cbrt512Yul.evmAdd a b = CbrtYul.evmAdd a b := by
+  simp only [Cbrt512Yul.evmAdd, CbrtYul.evmAdd, u256_compat]
 theorem evmSub_compat (a b : Nat) :
-    Cbrt512GeneratedModel.evmSub a b = CbrtGeneratedModel.evmSub a b := by
-  simp only [Cbrt512GeneratedModel.evmSub, CbrtGeneratedModel.evmSub, u256_compat, WORD_MOD_compat]
+    Cbrt512Yul.evmSub a b = CbrtYul.evmSub a b := by
+  simp only [Cbrt512Yul.evmSub, CbrtYul.evmSub, u256_compat, WORD_MOD_compat]
 theorem evmMul_compat (a b : Nat) :
-    Cbrt512GeneratedModel.evmMul a b = CbrtGeneratedModel.evmMul a b := by
-  simp only [Cbrt512GeneratedModel.evmMul, CbrtGeneratedModel.evmMul, u256_compat]
+    Cbrt512Yul.evmMul a b = CbrtYul.evmMul a b := by
+  simp only [Cbrt512Yul.evmMul, CbrtYul.evmMul, u256_compat]
 theorem evmDiv_compat (a b : Nat) :
-    Cbrt512GeneratedModel.evmDiv a b = CbrtGeneratedModel.evmDiv a b := by
-  simp only [Cbrt512GeneratedModel.evmDiv, CbrtGeneratedModel.evmDiv, u256_compat]
+    Cbrt512Yul.evmDiv a b = CbrtYul.evmDiv a b := by
+  simp only [Cbrt512Yul.evmDiv, CbrtYul.evmDiv, u256_compat]
 theorem evmMod_compat (a b : Nat) :
-    Cbrt512GeneratedModel.evmMod a b = CbrtGeneratedModel.evmMod a b := by
-  simp only [Cbrt512GeneratedModel.evmMod, CbrtGeneratedModel.evmMod, u256_compat]
+    Cbrt512Yul.evmMod a b = CbrtYul.evmMod a b := by
+  simp only [Cbrt512Yul.evmMod, CbrtYul.evmMod, u256_compat]
 theorem evmShl_compat (s v : Nat) :
-    Cbrt512GeneratedModel.evmShl s v = CbrtGeneratedModel.evmShl s v := by
-  simp only [Cbrt512GeneratedModel.evmShl, CbrtGeneratedModel.evmShl, u256_compat]
+    Cbrt512Yul.evmShl s v = CbrtYul.evmShl s v := by
+  simp only [Cbrt512Yul.evmShl, CbrtYul.evmShl, u256_compat]
 theorem evmShr_compat (s v : Nat) :
-    Cbrt512GeneratedModel.evmShr s v = CbrtGeneratedModel.evmShr s v := by
-  simp only [Cbrt512GeneratedModel.evmShr, CbrtGeneratedModel.evmShr, u256_compat]
+    Cbrt512Yul.evmShr s v = CbrtYul.evmShr s v := by
+  simp only [Cbrt512Yul.evmShr, CbrtYul.evmShr, u256_compat]
 theorem evmClz_compat (v : Nat) :
-    Cbrt512GeneratedModel.evmClz v = CbrtGeneratedModel.evmClz v := by
-  simp only [Cbrt512GeneratedModel.evmClz, CbrtGeneratedModel.evmClz, u256_compat]
+    Cbrt512Yul.evmClz v = CbrtYul.evmClz v := by
+  simp only [Cbrt512Yul.evmClz, CbrtYul.evmClz, u256_compat]
 theorem evmLt_compat (a b : Nat) :
-    Cbrt512GeneratedModel.evmLt a b = CbrtGeneratedModel.evmLt a b := by
-  simp only [Cbrt512GeneratedModel.evmLt, CbrtGeneratedModel.evmLt, u256_compat]
+    Cbrt512Yul.evmLt a b = CbrtYul.evmLt a b := by
+  simp only [Cbrt512Yul.evmLt, CbrtYul.evmLt, u256_compat]
 theorem evmGt_compat (a b : Nat) :
-    Cbrt512GeneratedModel.evmGt a b = CbrtGeneratedModel.evmGt a b := by
-  simp only [Cbrt512GeneratedModel.evmGt, CbrtGeneratedModel.evmGt, u256_compat]
+    Cbrt512Yul.evmGt a b = CbrtYul.evmGt a b := by
+  simp only [Cbrt512Yul.evmGt, CbrtYul.evmGt, u256_compat]
 theorem evmEq_compat (a b : Nat) :
-    Cbrt512GeneratedModel.evmEq a b = CbrtGeneratedModel.evmEq a b := by
-  simp only [Cbrt512GeneratedModel.evmEq, CbrtGeneratedModel.evmEq, u256_compat]
+    Cbrt512Yul.evmEq a b = CbrtYul.evmEq a b := by
+  simp only [Cbrt512Yul.evmEq, CbrtYul.evmEq, u256_compat]
 theorem evmNot_compat (a : Nat) :
-    Cbrt512GeneratedModel.evmNot a = CbrtGeneratedModel.evmNot a := by
-  simp only [Cbrt512GeneratedModel.evmNot, CbrtGeneratedModel.evmNot, u256_compat, WORD_MOD_compat]
+    Cbrt512Yul.evmNot a = CbrtYul.evmNot a := by
+  simp only [Cbrt512Yul.evmNot, CbrtYul.evmNot, u256_compat, WORD_MOD_compat]
 theorem evmMulmod_compat (a b n : Nat) :
-    Cbrt512GeneratedModel.evmMulmod a b n = CbrtGeneratedModel.evmMulmod a b n := by
-  simp only [Cbrt512GeneratedModel.evmMulmod, CbrtGeneratedModel.evmMulmod, u256_compat]
+    Cbrt512Yul.evmMulmod a b n = CbrtYul.evmMulmod a b n := by
+  simp only [Cbrt512Yul.evmMulmod, CbrtYul.evmMulmod, u256_compat]
 theorem evmOr_compat (a b : Nat) :
-    Cbrt512GeneratedModel.evmOr a b = CbrtGeneratedModel.evmOr a b := by
-  simp only [Cbrt512GeneratedModel.evmOr, CbrtGeneratedModel.evmOr, u256_compat]
+    Cbrt512Yul.evmOr a b = CbrtYul.evmOr a b := by
+  simp only [Cbrt512Yul.evmOr, CbrtYul.evmOr, u256_compat]
 theorem evmAnd_compat (a b : Nat) :
-    Cbrt512GeneratedModel.evmAnd a b = CbrtGeneratedModel.evmAnd a b := by
-  simp only [Cbrt512GeneratedModel.evmAnd, CbrtGeneratedModel.evmAnd, u256_compat]
+    Cbrt512Yul.evmAnd a b = CbrtYul.evmAnd a b := by
+  simp only [Cbrt512Yul.evmAnd, CbrtYul.evmAnd, u256_compat]
 theorem evmByte_compat (index value : Nat) :
-    Cbrt512GeneratedModel.evmByte index value = CbrtGeneratedModel.evmByte index value := by
-  simp only [Cbrt512GeneratedModel.evmByte, CbrtGeneratedModel.evmByte, u256_compat]
+    Cbrt512Yul.evmByte index value = CbrtYul.evmByte index value := by
+  simp only [Cbrt512Yul.evmByte, CbrtYul.evmByte, u256_compat]
 
 end NamespaceCompat
 
@@ -86,17 +86,17 @@ end NamespaceCompat
 
 /-- u256 is idempotent: u256(u256(x)) = u256(x). -/
 theorem u256_idem (x : Nat) :
-    Cbrt512GeneratedModel.u256 (Cbrt512GeneratedModel.u256 x) = Cbrt512GeneratedModel.u256 x := by
-  unfold Cbrt512GeneratedModel.u256 Cbrt512GeneratedModel.WORD_MOD
+    Cbrt512Yul.u256 (Cbrt512Yul.u256 x) = Cbrt512Yul.u256 x := by
+  unfold Cbrt512Yul.u256 Cbrt512Yul.WORD_MOD
   exact Nat.mod_eq_of_lt (Nat.mod_lt x (Nat.two_pow_pos 256))
 
 theorem cu256_idem (x : Nat) :
-    CbrtGeneratedModel.u256 (CbrtGeneratedModel.u256 x) = CbrtGeneratedModel.u256 x := by
-  unfold CbrtGeneratedModel.u256 CbrtGeneratedModel.WORD_MOD
+    CbrtYul.u256 (CbrtYul.u256 x) = CbrtYul.u256 x := by
+  unfold CbrtYul.u256 CbrtYul.WORD_MOD
   exact Nat.mod_eq_of_lt (Nat.mod_lt x (Nat.two_pow_pos 256))
 
-theorem cu256_zero : CbrtGeneratedModel.u256 0 = 0 := by
-  unfold CbrtGeneratedModel.u256 CbrtGeneratedModel.WORD_MOD; simp
+theorem cu256_zero : CbrtYul.u256 0 = 0 := by
+  unfold CbrtYul.u256 CbrtYul.WORD_MOD; simp
 
 -- ============================================================================
 -- Section 3: The wrapper's x_hi=0 branch equals model_cbrt_floor_evm
@@ -105,9 +105,9 @@ theorem cu256_zero : CbrtGeneratedModel.u256 0 = 0 := by
 /-- When x_hi = 0, model_cbrt512_wrapper_evm calls model_cbrt256_floor_evm,
     which is identical (modulo namespace) to model_cbrt_floor_evm from CbrtProof. -/
 theorem wrapper_zero_eq_cbrt_floor_evm (x_lo : Nat) :
-    model_cbrt512_wrapper_evm 0 x_lo = CbrtGeneratedModel.model_cbrt_floor_evm x_lo := by
+    model_cbrt512_wrapper_evm 0 x_lo = CbrtYul.model_cbrt_floor_evm x_lo := by
   unfold model_cbrt512_wrapper_evm model_cbrt256_floor_evm
-  unfold CbrtGeneratedModel.model_cbrt_floor_evm CbrtGeneratedModel.model_cbrt_evm
+  unfold CbrtYul.model_cbrt_floor_evm CbrtYul.model_cbrt_evm
   simp only [evmEq_compat, evmAdd_compat,
     evmSub_compat, evmLt_compat,
     evmOr_compat, evmAnd_compat,
@@ -500,11 +500,11 @@ theorem model_cbrt512_wrapper_evm_correct (x_hi x_lo : Nat)
     rw [wrapper_zero_eq_cbrt_floor_evm x_lo]
     by_cases hxlo0 : x_lo = 0
     · subst hxlo0
-      rw [CbrtGeneratedModel.model_cbrt_floor_evm_eq_floorCbrt 0 hxlo]
+      rw [CbrtYul.model_cbrt_floor_evm_eq_floorCbrt 0 hxlo]
       unfold floorCbrt innerCbrt cbrtSeed icbrt icbrtAux
       rw [Nat.log2_zero]
       decide
-    · exact CbrtGeneratedModel.model_cbrt_floor_evm_correct x_lo (Nat.pos_of_ne_zero hxlo0) hxlo
+    · exact CbrtYul.model_cbrt_floor_evm_correct x_lo (Nat.pos_of_ne_zero hxlo0) hxlo
   · have hxhi_pos : 0 < x_hi := Nat.pos_of_ne_zero hxhi0
     have hxhi_wm : x_hi < WORD_MOD := by unfold WORD_MOD; exact hxhi
     have hxlo_wm : x_lo < WORD_MOD := by unfold WORD_MOD; exact hxlo

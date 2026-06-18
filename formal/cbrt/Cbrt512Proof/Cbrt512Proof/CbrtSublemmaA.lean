@@ -2,7 +2,7 @@
   Sub-lemma A: (r_qc + 2)³ > x_norm, giving icbrt ≤ r_qc + 1.
   Also: P2 c≤1 helper — (r_qc + 1)³ > x_norm when c ≤ 1.
 -/
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 import Cbrt512Proof.CbrtBaseCase
 import Cbrt512Proof.CbrtAlgebraic
 import Cbrt512Proof.EvmBridge
@@ -10,7 +10,7 @@ import CbrtProof.CbrtCorrect
 
 namespace Cbrt512Spec
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 
 -- qc_undershoot_cube_lt is defined after sub-lemmas A, B, E1, E2 below.
 

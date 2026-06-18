@@ -9,6 +9,7 @@ on:
       - src/vendor/Sqrt.sol
       - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
+      - formal/yul/**
       - formal/python/**
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/Sqrt512Model.t.sol
@@ -19,6 +20,7 @@ on:
       - src/vendor/Sqrt.sol
       - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
+      - formal/yul/**
       - formal/python/**
       - test/0.8.25/formal-model/FormalModelFFI.t.sol
       - test/0.8.25/formal-model/Sqrt512Model.t.sol
@@ -54,12 +56,16 @@ jobs:
         env:
           FOUNDRY_SOLC_VERSION: 0.8.34
 
+      - name: Build Yul importer
+        working-directory: formal/yul
+        run: lake build yul_importer
+
       - name: Generate 256-bit Lean model (SqrtProof dependency)
         run: |
           forge inspect src/wrappers/SqrtWrapper.sol:SqrtWrapper ir | \
-            python3 -W error -m formal.python.sqrt.generate_sqrt_model \
-              --yul - \
-              --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
+            lake -d formal/yul exe yul_importer \
+              --kind sqrt \
+              --output formal/sqrt/SqrtProof/SqrtProof/SqrtYul.lean
 
       - name: Generate finite certificate from sqrt spec
         run: |
@@ -70,9 +76,19 @@ jobs:
         run: |
           FOUNDRY_SOLC_VERSION=0.8.34 \
             forge inspect src/wrappers/Sqrt512Wrapper.sol:Sqrt512Wrapper ir | \
-            python3 -W error -m formal.python.sqrt.generate_sqrt512_model \
-              --yul - \
-              --output formal/sqrt/Sqrt512Proof/Sqrt512Proof/GeneratedSqrt512Model.lean
+            lake -d formal/yul exe yul_importer \
+              --kind sqrt512 \
+              --output formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512Yul.lean
+
+      - name: Guard generated artifacts are untracked
+        run: |
+          test -z "$(git ls-files \
+            formal/sqrt/SqrtProof/SqrtProof/SqrtYul.lean \
+            formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512Yul.lean)"
+
+      - name: Update Lake dependencies
+        working-directory: formal/sqrt/Sqrt512Proof
+        run: lake update
 
       - name: Build Sqrt512 proof and model evaluator
         working-directory: formal/sqrt/Sqrt512Proof
@@ -82,7 +98,7 @@ jobs:
         working-directory: formal/sqrt/Sqrt512Proof
         run: |
           printf '%s\n' \
-            'import Sqrt512Proof.GeneratedSqrt512Spec' \
+            'import Sqrt512Proof.Sqrt512YulSpec' \
             'import Sqrt512Proof.SqrtUpCorrect' \
             'import Sqrt512Proof.OsqrtUpSpec' \
             '#print axioms Sqrt512Spec.model_sqrt512_evm_correct' \

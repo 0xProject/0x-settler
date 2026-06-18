@@ -8,7 +8,7 @@
   Architecture: model_cbrt512_evm →[direct EVM bridge]→ icbrt ± 1
 -/
 import Cbrt512Proof.Cbrt512Correct
-import Cbrt512Proof.GeneratedCbrt512Model
+import Cbrt512Proof.Cbrt512Yul
 import Cbrt512Proof.CbrtNumericCerts
 import Cbrt512Proof.CbrtDenormalization
 import Cbrt512Proof.CbrtNormalization
@@ -24,7 +24,7 @@ namespace Cbrt512Spec
 -- model_cbrt512_evm returns a value within 1ulp of icbrt for x_hi > 0.
 -- ============================================================================
 
-open Cbrt512GeneratedModel
+open Cbrt512Yul
 
 -- ============================================================================
 -- Helper 1: Normalization does not overflow 512 bits
