@@ -224,14 +224,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
         return locked(data);
     }
 
-    function _ekuboPayV2(
-        IERC20 sellToken,
-        address payer,
-        uint256 sellAmount,
-        ISignatureTransfer.PermitTransferFrom calldata permit,
-        bool isForwarded,
-        bytes calldata sig
-    ) private returns (uint256 payment) {
+    function _ekuboPayV2(IERC20 sellToken, uint256 sellAmount) private returns (uint256 payment) {
         if (sellToken == ETH_ADDRESS) {
             SafeTransferLib.safeTransferETH(payable(msg.sender), sellAmount);
             return sellAmount;
@@ -291,9 +284,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
         {
             NotePtr globalSell = state.globalSell();
             if (feeOnTransfer) {
-                globalSell.setAmount(
-                    _ekuboPayV2(globalSell.token(), address(this), globalSell.amount(), permit, isForwarded, sig)
-                );
+                globalSell.setAmount(_ekuboPayV2(globalSell.token(), globalSell.amount()));
             }
             if (globalSell.amount() >> 127 != 0) {
                 Panic.panic(Panic.ARITHMETIC_OVERFLOW);
@@ -334,15 +325,16 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
                 assembly ("memory-safe") {
                     let sellTokenShifted := shl(0x60, sellToken)
                     let buyTokenShifted := shl(0x60, buyToken)
-                    isToken1 := or(
-                        eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted),
-                        and(
-                            iszero(
-                                eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted)
-                            ),
-                            lt(buyTokenShifted, sellTokenShifted)
+                    isToken1 :=
+                        or(
+                            eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, buyTokenShifted),
+                            and(
+                                iszero(
+                                    eq(0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee000000000000000000000000, sellTokenShifted)
+                                ),
+                                lt(buyTokenShifted, sellTokenShifted)
+                            )
                         )
-                    )
                 }
                 (poolKey.token0, poolKey.token1) = isToken1.maybeSwap(address(sellToken), address(buyToken));
                 assembly ("memory-safe") {
@@ -439,7 +431,7 @@ abstract contract EkuboV2 is SettlerSwapAbstract {
                         revert(0x10, 0x24)
                     }
                 }
-                _ekuboPayV2(globalSellToken, address(this), debt, permit, isForwarded, sig);
+                _ekuboPayV2(globalSellToken, debt);
             }
 
             // return abi.encode(globalBuyAmount);
