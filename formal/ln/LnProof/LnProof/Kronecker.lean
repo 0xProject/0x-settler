@@ -144,9 +144,7 @@ theorem polyL1_polyAdd : ∀ (p q : List Int), polyL1 (polyAdd p q) ≤ polyL1 p
   induction p with
   | nil =>
     intro q
-    show polyL1 q ≤ polyL1 ([] : List Int) + polyL1 q
-    simp only [polyL1]
-    omega
+    simp [polyAdd, polyL1]
   | cons a p ih =>
     intro q
     match q with

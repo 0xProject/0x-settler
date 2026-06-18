@@ -22,6 +22,16 @@ namespace LnFloorCert
 
 open LnGeneratedModel LnPoly
 
+private theorem int_pow_one (x : Int) : x ^ 1 = x := by
+  rw [Int.pow_succ, Int.pow_zero, Int.one_mul]
+
+private theorem int_mul_pow (a b : Int) : ∀ n : Nat, (a * b) ^ n = a ^ n * b ^ n
+  | 0 => by
+      simp
+  | n + 1 => by
+      rw [Int.pow_succ, int_mul_pow a b n, Int.pow_succ, Int.pow_succ]
+      simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+
 /-- `z`-magnitude division bracket on the `m ≥ S` branch:
 `q = ⌊(m-S) 2^100 / (m+S)⌋` and `toInt (zWord m) = -q`. -/
 theorem z_bracket_ge {m : Nat} (hS : Sc ≤ m) (h2 : m < MHI) :
@@ -432,7 +442,7 @@ theorem homEvalI_PPc_anti {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
     (hb2 : -(2333000000000000000000000000 * D) ≤ n2) :
     homEvalI PPc n1 D ≤ homEvalI PPc n2 D := by
   rw [homEvalI_PPc_eq, homEvalI_PPc_eq]
-  simp only [Int.pow_zero, Int.pow_one, Int.mul_one, Int.mul_zero, Int.add_zero]
+  simp only [Int.pow_zero, int_pow_one, Int.mul_one, Int.mul_zero, Int.add_zero]
   rw [quartic_expand, quartic_expand]
   have hb1' : -(2333000000000000000000000000 * D) ≤ n1 := by omega
   have hb2' : n2 ≤ 2333000000000000000000000000 * D := by omega
@@ -491,7 +501,7 @@ theorem homEvalI_PPc_anti {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
   -- powers as products
   have p2 : D ^ 2 = D * D := by
     have h := Int.pow_succ D 1
-    rw [Int.pow_one] at h
+    rw [int_pow_one] at h
     exact h
   have p3 : D ^ 3 = D * D * D := by
     have h := Int.pow_succ D 2
@@ -659,7 +669,7 @@ theorem homEvalI_QQc_mono {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
     (hb2 : -(2333000000000000000000000000 * D) ≤ n2) :
     homEvalI QQc n2 D ≤ homEvalI QQc n1 D := by
   rw [homEvalI_QQc_eq, homEvalI_QQc_eq]
-  simp only [Int.pow_zero, Int.pow_one, Int.mul_one, Int.mul_zero, Int.add_zero]
+  simp only [Int.pow_zero, int_pow_one, Int.mul_one, Int.mul_zero, Int.add_zero]
   have qe1 := quintic_expand
     (66099322585698201304896817119133314370855648754593283446756353822335972946493244703677923116935407234039976856169480192 : Int)
     (-(690627211385037298547738551962892852267586075469791719173459072596031701017399264062472192 : Int))
@@ -708,7 +718,7 @@ theorem homEvalI_QQc_mono {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
   have hDDDD : (0 : Int) ≤ D * D * D * D := Int.mul_nonneg hDDD (by omega)
   have p2 : D ^ 2 = D * D := by
     have h := Int.pow_succ D 1
-    rw [Int.pow_one] at h
+    rw [int_pow_one] at h
     exact h
   have p3 : D ^ 3 = D * D * D := by
     have h := Int.pow_succ D 2
@@ -1219,7 +1229,7 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
       have h2' : evalPoly geD8 (m : Int) ^ 2 = evalPoly geD8 (m : Int) *
           evalPoly geD8 (m : Int) := by
         have h := Int.pow_succ (evalPoly geD8 (m : Int)) 1
-        rw [Int.pow_one] at h
+        rw [int_pow_one] at h
         exact h
       have h4' : evalPoly geD8 (m : Int) ^ 4 = evalPoly geD8 (m : Int) ^ 2 *
           evalPoly geD8 (m : Int) ^ 2 := by
@@ -1378,7 +1388,7 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     rw [hD8e, hB2e]
     rw [show ((8 : Int) * (((m : Int) + Sc) * ((m : Int) + Sc))) ^ 4 =
       4096 * (((m : Int) + Sc) * ((m : Int) + Sc)) ^ 4 from by
-        rw [Int.mul_pow]
+        rw [int_mul_pow]
         rw [show ((8 : Int) ^ 4) = 4096 from by decide]]
     rw [show (((m : Int) + Sc) * ((m : Int) + Sc)) ^ 5 =
       (((m : Int) + Sc) * ((m : Int) + Sc)) ^ 4 *
@@ -1746,7 +1756,7 @@ theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     rw [evalD8_ge, evalB2_ge]
     rw [show ((8 : Int) * (((m : Int) + Sc) * ((m : Int) + Sc))) ^ 5 =
       32768 * ((((m : Int) + Sc) * ((m : Int) + Sc)) ^ 5) from by
-        rw [Int.mul_pow]
+        rw [int_mul_pow]
         rw [show ((8 : Int) ^ 5) = 32768 from by decide]]
     rw [← Int.mul_assoc, show (2 : Int) ^ 442 * 32768 = 2 ^ 457 from by decide]
   have escale : toInt pword * (q : Int) * (2 ^ 442 * evalPoly geD8 (m : Int) ^ 5) =
@@ -2226,7 +2236,7 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     rw [hD8e, hB2e]
     rw [show ((8 : Int) * (((m : Int) + Sc) * ((m : Int) + Sc))) ^ 4 =
       4096 * (((m : Int) + Sc) * ((m : Int) + Sc)) ^ 4 from by
-        rw [Int.mul_pow]
+        rw [int_mul_pow]
         rw [show ((8 : Int) ^ 4) = 4096 from by decide]]
     rw [show (((m : Int) + Sc) * ((m : Int) + Sc)) ^ 5 =
       (((m : Int) + Sc) * ((m : Int) + Sc)) ^ 4 *
@@ -2578,7 +2588,7 @@ theorem bracket_lt_lo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     rw [evalD8_lt, evalB2_lt]
     rw [show ((8 : Int) * (((m : Int) + Sc) * ((m : Int) + Sc))) ^ 5 =
       32768 * ((((m : Int) + Sc) * ((m : Int) + Sc)) ^ 5) from by
-        rw [Int.mul_pow]
+        rw [int_mul_pow]
         rw [show ((8 : Int) ^ 5) = 32768 from by decide]]
     rw [← Int.mul_assoc, show (2 : Int) ^ 442 * 32768 = 2 ^ 457 from by decide]
   have escale : toInt pword * (q : Int) * (2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5) =

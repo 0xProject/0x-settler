@@ -1,5 +1,7 @@
 import LnProof.GeneratedLnModel
 
+set_option maxRecDepth 100000
+
 /-!
 # Two's-complement transport lemmas
 

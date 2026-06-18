@@ -106,7 +106,7 @@ theorem shift_range (x_hi : Nat) (hlo : 0 < x_hi) (hhi : x_hi < 2 ^ 256) :
     2 ^ 254 ≤ x_hi * 4 ^ shift ∧ x_hi * 4 ^ shift < 2 ^ 256 := by
   intro shift
   have hne : x_hi ≠ 0 := Nat.ne_of_gt hlo
-  have hlog := (Nat.log2_eq_iff hne).1 rfl
+  have hlog := (SqrtCompat.log2_eq_iff hne).1 rfl
   have hL : Nat.log2 x_hi ≤ 255 := by
     have := (Nat.log2_lt hne).2 hhi; omega
   have h2shift : 2 * shift ≤ 255 - Nat.log2 x_hi := Nat.mul_div_le (255 - Nat.log2 x_hi) 2

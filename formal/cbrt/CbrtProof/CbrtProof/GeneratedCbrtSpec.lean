@@ -84,11 +84,17 @@ private theorem normSub257Clz_eq_cbrtSeed_of_pos_u256
 private theorem model_cbrt_zero : model_cbrt 0 = 0 := by
   decide
 
+private theorem innerCbrt_zero : innerCbrt 0 = 0 := by
+  unfold innerCbrt cbrtSeed
+  rw [Nat.log2_zero]
+  decide
+
 /-- For uint256 inputs, model_cbrt x = innerCbrt x. -/
 theorem model_cbrt_eq_innerCbrt (x : Nat) (hx256 : x < 2 ^ 256) :
     model_cbrt x = innerCbrt x := by
   by_cases hx0 : x = 0
-  · subst hx0; decide
+  · subst hx0
+    rw [model_cbrt_zero, innerCbrt_zero]
   · have hx : 0 < x := Nat.pos_of_ne_zero hx0
     have hseed : normShr 7 (normShl (normDiv (normSub 257 (normClz x)) 3)
         (normAdd 90 (normMul 26 (normMod (normSub 257 (normClz x)) 3)))) =
@@ -468,14 +474,1552 @@ private theorem seed_sum_lt_word : ∀ i : Fin 248,
 set_option maxRecDepth 1000000 in
 -- Small x: model_cbrt_evm = model_cbrt for all x < 256.
 private theorem small_cbrt_evm_eq : ∀ v : Fin 256,
-    model_cbrt_evm v.val = model_cbrt v.val := by decide
+    model_cbrt_evm v.val = model_cbrt v.val := by
+  intro v
+  match v with
+  | ⟨0, _⟩ =>
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD]
+  | ⟨1, _⟩ =>
+    have hlog : Nat.log2 1 = 0 :=
+      (CbrtCompat.log2_eq_iff (by decide : (1 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨2, _⟩ =>
+    have hlog : Nat.log2 2 = 1 :=
+      (CbrtCompat.log2_eq_iff (by decide : (2 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨3, _⟩ =>
+    have hlog : Nat.log2 3 = 1 :=
+      (CbrtCompat.log2_eq_iff (by decide : (3 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨4, _⟩ =>
+    have hlog : Nat.log2 4 = 2 :=
+      (CbrtCompat.log2_eq_iff (by decide : (4 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨5, _⟩ =>
+    have hlog : Nat.log2 5 = 2 :=
+      (CbrtCompat.log2_eq_iff (by decide : (5 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨6, _⟩ =>
+    have hlog : Nat.log2 6 = 2 :=
+      (CbrtCompat.log2_eq_iff (by decide : (6 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨7, _⟩ =>
+    have hlog : Nat.log2 7 = 2 :=
+      (CbrtCompat.log2_eq_iff (by decide : (7 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨8, _⟩ =>
+    have hlog : Nat.log2 8 = 3 :=
+      (CbrtCompat.log2_eq_iff (by decide : (8 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨9, _⟩ =>
+    have hlog : Nat.log2 9 = 3 :=
+      (CbrtCompat.log2_eq_iff (by decide : (9 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨10, _⟩ =>
+    have hlog : Nat.log2 10 = 3 :=
+      (CbrtCompat.log2_eq_iff (by decide : (10 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨11, _⟩ =>
+    have hlog : Nat.log2 11 = 3 :=
+      (CbrtCompat.log2_eq_iff (by decide : (11 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨12, _⟩ =>
+    have hlog : Nat.log2 12 = 3 :=
+      (CbrtCompat.log2_eq_iff (by decide : (12 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨13, _⟩ =>
+    have hlog : Nat.log2 13 = 3 :=
+      (CbrtCompat.log2_eq_iff (by decide : (13 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨14, _⟩ =>
+    have hlog : Nat.log2 14 = 3 :=
+      (CbrtCompat.log2_eq_iff (by decide : (14 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨15, _⟩ =>
+    have hlog : Nat.log2 15 = 3 :=
+      (CbrtCompat.log2_eq_iff (by decide : (15 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨16, _⟩ =>
+    have hlog : Nat.log2 16 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (16 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨17, _⟩ =>
+    have hlog : Nat.log2 17 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (17 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨18, _⟩ =>
+    have hlog : Nat.log2 18 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (18 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨19, _⟩ =>
+    have hlog : Nat.log2 19 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (19 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨20, _⟩ =>
+    have hlog : Nat.log2 20 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (20 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨21, _⟩ =>
+    have hlog : Nat.log2 21 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (21 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨22, _⟩ =>
+    have hlog : Nat.log2 22 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (22 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨23, _⟩ =>
+    have hlog : Nat.log2 23 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (23 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨24, _⟩ =>
+    have hlog : Nat.log2 24 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (24 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨25, _⟩ =>
+    have hlog : Nat.log2 25 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (25 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨26, _⟩ =>
+    have hlog : Nat.log2 26 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (26 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨27, _⟩ =>
+    have hlog : Nat.log2 27 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (27 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨28, _⟩ =>
+    have hlog : Nat.log2 28 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (28 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨29, _⟩ =>
+    have hlog : Nat.log2 29 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (29 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨30, _⟩ =>
+    have hlog : Nat.log2 30 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (30 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨31, _⟩ =>
+    have hlog : Nat.log2 31 = 4 :=
+      (CbrtCompat.log2_eq_iff (by decide : (31 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨32, _⟩ =>
+    have hlog : Nat.log2 32 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (32 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨33, _⟩ =>
+    have hlog : Nat.log2 33 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (33 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨34, _⟩ =>
+    have hlog : Nat.log2 34 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (34 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨35, _⟩ =>
+    have hlog : Nat.log2 35 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (35 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨36, _⟩ =>
+    have hlog : Nat.log2 36 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (36 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨37, _⟩ =>
+    have hlog : Nat.log2 37 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (37 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨38, _⟩ =>
+    have hlog : Nat.log2 38 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (38 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨39, _⟩ =>
+    have hlog : Nat.log2 39 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (39 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨40, _⟩ =>
+    have hlog : Nat.log2 40 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (40 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨41, _⟩ =>
+    have hlog : Nat.log2 41 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (41 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨42, _⟩ =>
+    have hlog : Nat.log2 42 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (42 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨43, _⟩ =>
+    have hlog : Nat.log2 43 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (43 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨44, _⟩ =>
+    have hlog : Nat.log2 44 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (44 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨45, _⟩ =>
+    have hlog : Nat.log2 45 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (45 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨46, _⟩ =>
+    have hlog : Nat.log2 46 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (46 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨47, _⟩ =>
+    have hlog : Nat.log2 47 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (47 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨48, _⟩ =>
+    have hlog : Nat.log2 48 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (48 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨49, _⟩ =>
+    have hlog : Nat.log2 49 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (49 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨50, _⟩ =>
+    have hlog : Nat.log2 50 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (50 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨51, _⟩ =>
+    have hlog : Nat.log2 51 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (51 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨52, _⟩ =>
+    have hlog : Nat.log2 52 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (52 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨53, _⟩ =>
+    have hlog : Nat.log2 53 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (53 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨54, _⟩ =>
+    have hlog : Nat.log2 54 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (54 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨55, _⟩ =>
+    have hlog : Nat.log2 55 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (55 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨56, _⟩ =>
+    have hlog : Nat.log2 56 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (56 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨57, _⟩ =>
+    have hlog : Nat.log2 57 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (57 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨58, _⟩ =>
+    have hlog : Nat.log2 58 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (58 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨59, _⟩ =>
+    have hlog : Nat.log2 59 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (59 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨60, _⟩ =>
+    have hlog : Nat.log2 60 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (60 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨61, _⟩ =>
+    have hlog : Nat.log2 61 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (61 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨62, _⟩ =>
+    have hlog : Nat.log2 62 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (62 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨63, _⟩ =>
+    have hlog : Nat.log2 63 = 5 :=
+      (CbrtCompat.log2_eq_iff (by decide : (63 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨64, _⟩ =>
+    have hlog : Nat.log2 64 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (64 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨65, _⟩ =>
+    have hlog : Nat.log2 65 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (65 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨66, _⟩ =>
+    have hlog : Nat.log2 66 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (66 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨67, _⟩ =>
+    have hlog : Nat.log2 67 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (67 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨68, _⟩ =>
+    have hlog : Nat.log2 68 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (68 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨69, _⟩ =>
+    have hlog : Nat.log2 69 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (69 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨70, _⟩ =>
+    have hlog : Nat.log2 70 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (70 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨71, _⟩ =>
+    have hlog : Nat.log2 71 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (71 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨72, _⟩ =>
+    have hlog : Nat.log2 72 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (72 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨73, _⟩ =>
+    have hlog : Nat.log2 73 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (73 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨74, _⟩ =>
+    have hlog : Nat.log2 74 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (74 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨75, _⟩ =>
+    have hlog : Nat.log2 75 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (75 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨76, _⟩ =>
+    have hlog : Nat.log2 76 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (76 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨77, _⟩ =>
+    have hlog : Nat.log2 77 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (77 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨78, _⟩ =>
+    have hlog : Nat.log2 78 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (78 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨79, _⟩ =>
+    have hlog : Nat.log2 79 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (79 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨80, _⟩ =>
+    have hlog : Nat.log2 80 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (80 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨81, _⟩ =>
+    have hlog : Nat.log2 81 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (81 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨82, _⟩ =>
+    have hlog : Nat.log2 82 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (82 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨83, _⟩ =>
+    have hlog : Nat.log2 83 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (83 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨84, _⟩ =>
+    have hlog : Nat.log2 84 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (84 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨85, _⟩ =>
+    have hlog : Nat.log2 85 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (85 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨86, _⟩ =>
+    have hlog : Nat.log2 86 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (86 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨87, _⟩ =>
+    have hlog : Nat.log2 87 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (87 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨88, _⟩ =>
+    have hlog : Nat.log2 88 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (88 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨89, _⟩ =>
+    have hlog : Nat.log2 89 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (89 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨90, _⟩ =>
+    have hlog : Nat.log2 90 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (90 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨91, _⟩ =>
+    have hlog : Nat.log2 91 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (91 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨92, _⟩ =>
+    have hlog : Nat.log2 92 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (92 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨93, _⟩ =>
+    have hlog : Nat.log2 93 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (93 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨94, _⟩ =>
+    have hlog : Nat.log2 94 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (94 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨95, _⟩ =>
+    have hlog : Nat.log2 95 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (95 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨96, _⟩ =>
+    have hlog : Nat.log2 96 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (96 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨97, _⟩ =>
+    have hlog : Nat.log2 97 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (97 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨98, _⟩ =>
+    have hlog : Nat.log2 98 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (98 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨99, _⟩ =>
+    have hlog : Nat.log2 99 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (99 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨100, _⟩ =>
+    have hlog : Nat.log2 100 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (100 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨101, _⟩ =>
+    have hlog : Nat.log2 101 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (101 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨102, _⟩ =>
+    have hlog : Nat.log2 102 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (102 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨103, _⟩ =>
+    have hlog : Nat.log2 103 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (103 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨104, _⟩ =>
+    have hlog : Nat.log2 104 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (104 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨105, _⟩ =>
+    have hlog : Nat.log2 105 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (105 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨106, _⟩ =>
+    have hlog : Nat.log2 106 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (106 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨107, _⟩ =>
+    have hlog : Nat.log2 107 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (107 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨108, _⟩ =>
+    have hlog : Nat.log2 108 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (108 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨109, _⟩ =>
+    have hlog : Nat.log2 109 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (109 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨110, _⟩ =>
+    have hlog : Nat.log2 110 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (110 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨111, _⟩ =>
+    have hlog : Nat.log2 111 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (111 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨112, _⟩ =>
+    have hlog : Nat.log2 112 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (112 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨113, _⟩ =>
+    have hlog : Nat.log2 113 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (113 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨114, _⟩ =>
+    have hlog : Nat.log2 114 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (114 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨115, _⟩ =>
+    have hlog : Nat.log2 115 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (115 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨116, _⟩ =>
+    have hlog : Nat.log2 116 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (116 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨117, _⟩ =>
+    have hlog : Nat.log2 117 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (117 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨118, _⟩ =>
+    have hlog : Nat.log2 118 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (118 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨119, _⟩ =>
+    have hlog : Nat.log2 119 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (119 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨120, _⟩ =>
+    have hlog : Nat.log2 120 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (120 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨121, _⟩ =>
+    have hlog : Nat.log2 121 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (121 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨122, _⟩ =>
+    have hlog : Nat.log2 122 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (122 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨123, _⟩ =>
+    have hlog : Nat.log2 123 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (123 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨124, _⟩ =>
+    have hlog : Nat.log2 124 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (124 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨125, _⟩ =>
+    have hlog : Nat.log2 125 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (125 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨126, _⟩ =>
+    have hlog : Nat.log2 126 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (126 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨127, _⟩ =>
+    have hlog : Nat.log2 127 = 6 :=
+      (CbrtCompat.log2_eq_iff (by decide : (127 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨128, _⟩ =>
+    have hlog : Nat.log2 128 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (128 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨129, _⟩ =>
+    have hlog : Nat.log2 129 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (129 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨130, _⟩ =>
+    have hlog : Nat.log2 130 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (130 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨131, _⟩ =>
+    have hlog : Nat.log2 131 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (131 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨132, _⟩ =>
+    have hlog : Nat.log2 132 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (132 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨133, _⟩ =>
+    have hlog : Nat.log2 133 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (133 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨134, _⟩ =>
+    have hlog : Nat.log2 134 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (134 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨135, _⟩ =>
+    have hlog : Nat.log2 135 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (135 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨136, _⟩ =>
+    have hlog : Nat.log2 136 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (136 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨137, _⟩ =>
+    have hlog : Nat.log2 137 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (137 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨138, _⟩ =>
+    have hlog : Nat.log2 138 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (138 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨139, _⟩ =>
+    have hlog : Nat.log2 139 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (139 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨140, _⟩ =>
+    have hlog : Nat.log2 140 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (140 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨141, _⟩ =>
+    have hlog : Nat.log2 141 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (141 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨142, _⟩ =>
+    have hlog : Nat.log2 142 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (142 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨143, _⟩ =>
+    have hlog : Nat.log2 143 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (143 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨144, _⟩ =>
+    have hlog : Nat.log2 144 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (144 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨145, _⟩ =>
+    have hlog : Nat.log2 145 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (145 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨146, _⟩ =>
+    have hlog : Nat.log2 146 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (146 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨147, _⟩ =>
+    have hlog : Nat.log2 147 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (147 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨148, _⟩ =>
+    have hlog : Nat.log2 148 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (148 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨149, _⟩ =>
+    have hlog : Nat.log2 149 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (149 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨150, _⟩ =>
+    have hlog : Nat.log2 150 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (150 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨151, _⟩ =>
+    have hlog : Nat.log2 151 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (151 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨152, _⟩ =>
+    have hlog : Nat.log2 152 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (152 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨153, _⟩ =>
+    have hlog : Nat.log2 153 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (153 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨154, _⟩ =>
+    have hlog : Nat.log2 154 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (154 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨155, _⟩ =>
+    have hlog : Nat.log2 155 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (155 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨156, _⟩ =>
+    have hlog : Nat.log2 156 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (156 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨157, _⟩ =>
+    have hlog : Nat.log2 157 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (157 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨158, _⟩ =>
+    have hlog : Nat.log2 158 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (158 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨159, _⟩ =>
+    have hlog : Nat.log2 159 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (159 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨160, _⟩ =>
+    have hlog : Nat.log2 160 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (160 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨161, _⟩ =>
+    have hlog : Nat.log2 161 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (161 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨162, _⟩ =>
+    have hlog : Nat.log2 162 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (162 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨163, _⟩ =>
+    have hlog : Nat.log2 163 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (163 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨164, _⟩ =>
+    have hlog : Nat.log2 164 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (164 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨165, _⟩ =>
+    have hlog : Nat.log2 165 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (165 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨166, _⟩ =>
+    have hlog : Nat.log2 166 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (166 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨167, _⟩ =>
+    have hlog : Nat.log2 167 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (167 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨168, _⟩ =>
+    have hlog : Nat.log2 168 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (168 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨169, _⟩ =>
+    have hlog : Nat.log2 169 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (169 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨170, _⟩ =>
+    have hlog : Nat.log2 170 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (170 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨171, _⟩ =>
+    have hlog : Nat.log2 171 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (171 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨172, _⟩ =>
+    have hlog : Nat.log2 172 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (172 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨173, _⟩ =>
+    have hlog : Nat.log2 173 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (173 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨174, _⟩ =>
+    have hlog : Nat.log2 174 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (174 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨175, _⟩ =>
+    have hlog : Nat.log2 175 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (175 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨176, _⟩ =>
+    have hlog : Nat.log2 176 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (176 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨177, _⟩ =>
+    have hlog : Nat.log2 177 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (177 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨178, _⟩ =>
+    have hlog : Nat.log2 178 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (178 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨179, _⟩ =>
+    have hlog : Nat.log2 179 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (179 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨180, _⟩ =>
+    have hlog : Nat.log2 180 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (180 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨181, _⟩ =>
+    have hlog : Nat.log2 181 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (181 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨182, _⟩ =>
+    have hlog : Nat.log2 182 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (182 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨183, _⟩ =>
+    have hlog : Nat.log2 183 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (183 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨184, _⟩ =>
+    have hlog : Nat.log2 184 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (184 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨185, _⟩ =>
+    have hlog : Nat.log2 185 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (185 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨186, _⟩ =>
+    have hlog : Nat.log2 186 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (186 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨187, _⟩ =>
+    have hlog : Nat.log2 187 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (187 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨188, _⟩ =>
+    have hlog : Nat.log2 188 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (188 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨189, _⟩ =>
+    have hlog : Nat.log2 189 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (189 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨190, _⟩ =>
+    have hlog : Nat.log2 190 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (190 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨191, _⟩ =>
+    have hlog : Nat.log2 191 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (191 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨192, _⟩ =>
+    have hlog : Nat.log2 192 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (192 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨193, _⟩ =>
+    have hlog : Nat.log2 193 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (193 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨194, _⟩ =>
+    have hlog : Nat.log2 194 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (194 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨195, _⟩ =>
+    have hlog : Nat.log2 195 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (195 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨196, _⟩ =>
+    have hlog : Nat.log2 196 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (196 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨197, _⟩ =>
+    have hlog : Nat.log2 197 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (197 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨198, _⟩ =>
+    have hlog : Nat.log2 198 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (198 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨199, _⟩ =>
+    have hlog : Nat.log2 199 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (199 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨200, _⟩ =>
+    have hlog : Nat.log2 200 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (200 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨201, _⟩ =>
+    have hlog : Nat.log2 201 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (201 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨202, _⟩ =>
+    have hlog : Nat.log2 202 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (202 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨203, _⟩ =>
+    have hlog : Nat.log2 203 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (203 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨204, _⟩ =>
+    have hlog : Nat.log2 204 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (204 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨205, _⟩ =>
+    have hlog : Nat.log2 205 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (205 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨206, _⟩ =>
+    have hlog : Nat.log2 206 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (206 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨207, _⟩ =>
+    have hlog : Nat.log2 207 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (207 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨208, _⟩ =>
+    have hlog : Nat.log2 208 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (208 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨209, _⟩ =>
+    have hlog : Nat.log2 209 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (209 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨210, _⟩ =>
+    have hlog : Nat.log2 210 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (210 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨211, _⟩ =>
+    have hlog : Nat.log2 211 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (211 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨212, _⟩ =>
+    have hlog : Nat.log2 212 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (212 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨213, _⟩ =>
+    have hlog : Nat.log2 213 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (213 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨214, _⟩ =>
+    have hlog : Nat.log2 214 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (214 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨215, _⟩ =>
+    have hlog : Nat.log2 215 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (215 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨216, _⟩ =>
+    have hlog : Nat.log2 216 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (216 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨217, _⟩ =>
+    have hlog : Nat.log2 217 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (217 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨218, _⟩ =>
+    have hlog : Nat.log2 218 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (218 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨219, _⟩ =>
+    have hlog : Nat.log2 219 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (219 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨220, _⟩ =>
+    have hlog : Nat.log2 220 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (220 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨221, _⟩ =>
+    have hlog : Nat.log2 221 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (221 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨222, _⟩ =>
+    have hlog : Nat.log2 222 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (222 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨223, _⟩ =>
+    have hlog : Nat.log2 223 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (223 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨224, _⟩ =>
+    have hlog : Nat.log2 224 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (224 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨225, _⟩ =>
+    have hlog : Nat.log2 225 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (225 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨226, _⟩ =>
+    have hlog : Nat.log2 226 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (226 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨227, _⟩ =>
+    have hlog : Nat.log2 227 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (227 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨228, _⟩ =>
+    have hlog : Nat.log2 228 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (228 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨229, _⟩ =>
+    have hlog : Nat.log2 229 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (229 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨230, _⟩ =>
+    have hlog : Nat.log2 230 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (230 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨231, _⟩ =>
+    have hlog : Nat.log2 231 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (231 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨232, _⟩ =>
+    have hlog : Nat.log2 232 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (232 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨233, _⟩ =>
+    have hlog : Nat.log2 233 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (233 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨234, _⟩ =>
+    have hlog : Nat.log2 234 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (234 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨235, _⟩ =>
+    have hlog : Nat.log2 235 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (235 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨236, _⟩ =>
+    have hlog : Nat.log2 236 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (236 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨237, _⟩ =>
+    have hlog : Nat.log2 237 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (237 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨238, _⟩ =>
+    have hlog : Nat.log2 238 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (238 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨239, _⟩ =>
+    have hlog : Nat.log2 239 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (239 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨240, _⟩ =>
+    have hlog : Nat.log2 240 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (240 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨241, _⟩ =>
+    have hlog : Nat.log2 241 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (241 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨242, _⟩ =>
+    have hlog : Nat.log2 242 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (242 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨243, _⟩ =>
+    have hlog : Nat.log2 243 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (243 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨244, _⟩ =>
+    have hlog : Nat.log2 244 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (244 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨245, _⟩ =>
+    have hlog : Nat.log2 245 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (245 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨246, _⟩ =>
+    have hlog : Nat.log2 246 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (246 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨247, _⟩ =>
+    have hlog : Nat.log2 247 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (247 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨248, _⟩ =>
+    have hlog : Nat.log2 248 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (248 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨249, _⟩ =>
+    have hlog : Nat.log2 249 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (249 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨250, _⟩ =>
+    have hlog : Nat.log2 250 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (250 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨251, _⟩ =>
+    have hlog : Nat.log2 251 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (251 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨252, _⟩ =>
+    have hlog : Nat.log2 252 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (252 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨253, _⟩ =>
+    have hlog : Nat.log2 253 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (253 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨254, _⟩ =>
+    have hlog : Nat.log2 254 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (254 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨255, _⟩ =>
+    have hlog : Nat.log2 255 = 7 :=
+      (CbrtCompat.log2_eq_iff (by decide : (255 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+    simp [model_cbrt_evm, model_cbrt, evmSub, evmClz, normClz, evmShr, evmShl,
+        evmDiv, evmAdd, evmMul, evmMod, u256, normShr, normShl, normDiv, normAdd,
+        normMul, normMod, normSub, WORD_MOD, hlog]
+  | ⟨_ + 256, h⟩ => omega
 
 theorem model_cbrt_evm_eq_model_cbrt
     (x : Nat)
     (hx256 : x < WORD_MOD) :
     model_cbrt_evm x = model_cbrt x := by
   by_cases hx0 : x = 0
-  · subst hx0; decide
+  · subst hx0
+    exact small_cbrt_evm_eq ⟨0, by decide⟩
   · have hx : 0 < x := Nat.pos_of_ne_zero hx0
     by_cases hx_small : x < 256
     · exact small_cbrt_evm_eq ⟨x, hx_small⟩
@@ -501,7 +2045,7 @@ theorem model_cbrt_evm_eq_model_cbrt
         dsimp [n]
         by_cases h8 : 8 ≤ Nat.log2 x
         · exact h8
-        · have hlog := (Nat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
+        · have hlog := (CbrtCompat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
           have hlt : Nat.log2 x + 1 ≤ 8 := by omega
           have hpow : 2 ^ (Nat.log2 x + 1) ≤ 2 ^ 8 :=
             Nat.pow_le_pow_right (by decide : 1 ≤ 2) hlt
@@ -513,7 +2057,7 @@ theorem model_cbrt_evm_eq_model_cbrt
       have hidx_plus : idx.val + certOffset = n := by dsimp [idx, certOffset, n]; omega
       have hOct : 2 ^ (idx.val + certOffset) ≤ x ∧ x < 2 ^ (idx.val + certOffset + 1) := by
         rw [hidx_plus]
-        exact (Nat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
+        exact (CbrtCompat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
       -- Seed and interval
       have hseedOf : cbrtSeed x = seedOf idx := CbrtWiring.cbrtSeed_eq_certSeed idx x hOct
       have hinterval := CbrtWiring.m_within_cert_interval idx x m hmlo hmhi hOct
@@ -717,7 +2261,12 @@ theorem model_cbrt_floor_evm_eq_model_cbrt_floor
   have hx256 : x < 2 ^ 256 := by simpa [WORD_MOD] using hxW
   have hxmod : u256 x = x := u256_eq_of_lt x hxW
   by_cases hx0 : x = 0
-  · subst hx0; decide
+  · subst hx0
+    have hmodel := model_cbrt_evm_eq_model_cbrt 0 (by unfold WORD_MOD; decide)
+    unfold model_cbrt_floor_evm model_cbrt_floor
+    simp [u256, WORD_MOD]
+    rw [hmodel, model_cbrt_zero]
+    simp [evmSub, evmLt, evmDiv, evmMul, normSub, normLt, normDiv, normMul, u256, WORD_MOD]
   · have hx : 0 < x := Nat.pos_of_ne_zero hx0
     have hbr := model_cbrt_evm_bracket_u256_all x hx hx256
     have hm86 : icbrt x < 2 ^ 86 := m_lt_pow86_of_u256 (icbrt x) x (icbrt_cube_le x) hxW

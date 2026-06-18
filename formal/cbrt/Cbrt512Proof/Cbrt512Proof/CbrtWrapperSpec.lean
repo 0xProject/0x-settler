@@ -108,9 +108,9 @@ theorem wrapper_zero_eq_cbrt_floor_evm (x_lo : Nat) :
     model_cbrt512_wrapper_evm 0 x_lo = CbrtGeneratedModel.model_cbrt_floor_evm x_lo := by
   unfold model_cbrt512_wrapper_evm model_cbrt256_floor_evm
   unfold CbrtGeneratedModel.model_cbrt_floor_evm CbrtGeneratedModel.model_cbrt_evm
-  simp only [evmEq_compat, evmShr_compat, evmAdd_compat, evmDiv_compat,
-    evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat, evmMod_compat,
-    evmOr_compat, evmAnd_compat, evmByte_compat,
+  simp only [evmEq_compat, evmAdd_compat,
+    evmSub_compat, evmLt_compat,
+    evmOr_compat, evmAnd_compat,
     evmMul_compat, evmGt_compat, u256_compat]
   simp only [cu256_zero, cu256_idem]
   simp (config := { decide := true })
@@ -501,6 +501,8 @@ theorem model_cbrt512_wrapper_evm_correct (x_hi x_lo : Nat)
     by_cases hxlo0 : x_lo = 0
     · subst hxlo0
       rw [CbrtGeneratedModel.model_cbrt_floor_evm_eq_floorCbrt 0 hxlo]
+      unfold floorCbrt innerCbrt cbrtSeed icbrt icbrtAux
+      rw [Nat.log2_zero]
       decide
     · exact CbrtGeneratedModel.model_cbrt_floor_evm_correct x_lo (Nat.pos_of_ne_zero hxlo0) hxlo
   · have hxhi_pos : 0 < x_hi := Nat.pos_of_ne_zero hxhi0

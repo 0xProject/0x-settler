@@ -255,27 +255,41 @@ def render_function_defs(
         if planned.fn_name != model.fn_name:
             raise EmissionError("Lean emission plan/model order mismatch")
 
-        evm_body = build_model_body(
-            model.assignments,
-            evm=True,
-            emission=emission,
-            param_names=model.param_names,
-            return_names=model.return_names,
-            call_map=evm_call_map,
-        )
         param_sig = (
             f" ({' '.join(model.param_names)} : Nat)" if model.param_names else ""
         )
+        param_args = " ".join(model.param_names)
         ret_type = (
             "Nat"
             if len(model.return_names) == 1
             else " × ".join("Nat" for _ in model.return_names)
         )
-        parts.append(
-            f"/-- Opcode-faithful auto-generated model of `{model.fn_name}` with uint256 EVM semantics. -/\n"
-            f"def {planned.evm_name}{param_sig} : {ret_type} :=\n"
-            f"{evm_body}\n"
-        )
+        evm_alias = emission.evm_aliases.get(model.fn_name)
+        if evm_alias is not None:
+            if "\n" in evm_alias or "-/" in evm_alias:
+                raise EmissionError(
+                    f"EVM alias for {model.fn_name!r} contains invalid text"
+                )
+            alias_rhs = f"{evm_alias} {param_args}".rstrip()
+            parts.append(
+                f"/-- Opcode-faithful auto-generated model of `{model.fn_name}` with uint256 EVM semantics. -/\n"
+                f"def {planned.evm_name}{param_sig} : {ret_type} :=\n"
+                f"  {alias_rhs}\n"
+            )
+        else:
+            evm_body = build_model_body(
+                model.assignments,
+                evm=True,
+                emission=emission,
+                param_names=model.param_names,
+                return_names=model.return_names,
+                call_map=evm_call_map,
+            )
+            parts.append(
+                f"/-- Opcode-faithful auto-generated model of `{model.fn_name}` with uint256 EVM semantics. -/\n"
+                f"def {planned.evm_name}{param_sig} : {ret_type} :=\n"
+                f"{evm_body}\n"
+            )
 
         if planned.emit_norm:
             norm_body = build_model_body(
@@ -357,8 +371,14 @@ def build_lean_source(
         )
         norm_defs = "\n\n".join(norm_parts) + "\n\n"
 
+    extra_imports = "".join(f"import {module}\n" for module in emission.extra_imports)
+    for module in emission.extra_imports:
+        if "\n" in module or "-/" in module:
+            raise EmissionError(f"Extra import contains invalid text: {module!r}")
+
     return (
-        "import Init\n\n"
+        "import Init\n"
+        f"{extra_imports}\n"
         f"namespace {namespace}\n\n"
         f"/-- {emission.header_comment} -/\n"
         f"-- Source: {source_path}\n"

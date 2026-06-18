@@ -74,7 +74,9 @@ theorem capUB_diag {q y : Nat} (_hq : 0 < q) : capUB 0 q y y := by
 
 /-- The model maps the wad exactly to zero. -/
 theorem model_at_wad : toInt (model_ln_wad_evm 1000000000000000000) = 0 := by
-  decide +kernel
+  rw [show 1000000000000000000 = (10 : Nat) ^ 18 by decide,
+    model_ln_wad_one_wad]
+  decide
 
 /-- Binade window for the mantissa, low-shift side. -/
 theorem mant_window_le {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)

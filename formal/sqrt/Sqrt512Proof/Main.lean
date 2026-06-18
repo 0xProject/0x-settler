@@ -27,8 +27,8 @@ def evalFunction2 (name : String) (xHi xLo : Nat) : Option (Nat × Nat) :=
   | _         => none
 
 def natToHex64 (n : Nat) : String :=
-  let hex := String.ofList (Nat.toDigits 16 n)
-  "0x" ++ String.ofList (List.replicate (64 - hex.length) '0') ++ hex
+  let hex := String.mk (Nat.toDigits 16 n)
+  "0x" ++ String.mk (List.replicate (64 - hex.length) '0') ++ hex
 
 def parseHex (s : String) : Option Nat :=
   let s := if s.startsWith "0x" || s.startsWith "0X" then s.drop 2 else s

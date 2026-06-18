@@ -84,13 +84,19 @@ theorem model_ne_zero {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
   rcases Nat.lt_trichotomy x 1000000000000000000 with hlt | heq | hgt
   · have hmono := toInt_of_sle (model_lt (by omega)) (model_lt (by omega))
       (model_ln_wad_mono h1 (by omega : x ≤ 999999999999999999) (by decide))
-    have hlo : toInt (model_ln_wad_evm 999999999999999999) < 0 := by decide +kernel
+    have hlo : toInt (model_ln_wad_evm 999999999999999999) < 0 := by
+      rw [show 999999999999999999 = (10 : Nat) ^ 18 - 1 by decide,
+        model_ln_wad_one_wad_prev]
+      decide
     omega
   · exact absurd heq hne
   · have hmono := toInt_of_sle (model_lt (by omega)) (model_lt (by omega))
       (model_ln_wad_mono (by omega : 0 < 1000000000000000001)
         (by omega : 1000000000000000001 ≤ x) h2)
-    have hhi : 0 < toInt (model_ln_wad_evm 1000000000000000001) := by decide +kernel
+    have hhi : 0 < toInt (model_ln_wad_evm 1000000000000000001) := by
+      rw [show 1000000000000000001 = (10 : Nat) ^ 18 + 1 by decide,
+        model_ln_wad_one_wad_next]
+      decide
     omega
 
 /-- For non-corrected inputs the model word floors the accumulator:

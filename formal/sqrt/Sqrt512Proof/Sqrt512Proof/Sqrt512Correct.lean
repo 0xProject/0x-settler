@@ -92,7 +92,7 @@ private theorem normalized_lt_512 (x x_hi : Nat)
     x * 4 ^ shift < 2 ^ 512 := by
   intro shift
   have hne : x_hi ≠ 0 := Nat.ne_of_gt hxhi_pos
-  have hlog := (Nat.log2_eq_iff hne).1 rfl
+  have hlog := (SqrtCompat.log2_eq_iff hne).1 rfl
   have hL : Nat.log2 x_hi ≤ 255 := by have := (Nat.log2_lt hne).2 hxhi_lt; omega
   have h2shift : 2 * shift ≤ 255 - Nat.log2 x_hi := Nat.mul_div_le (255 - Nat.log2 x_hi) 2
   rw [four_pow_eq_two_pow']

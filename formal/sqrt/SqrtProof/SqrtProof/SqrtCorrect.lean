@@ -12,6 +12,7 @@ import Init
 import SqrtProof.FloorBound
 import SqrtProof.StepMono
 import SqrtProof.CertifiedChain
+import SqrtProof.LeanCompat
 
 -- ============================================================================
 -- Part 1: Definitions matching Sqrt.sol EVM semantics
@@ -186,7 +187,7 @@ theorem sqrtSeed_eq_seedOf_of_octave
     sqrtSeed x = SqrtCert.seedOf i := by
   have hx : 0 < x := Nat.lt_of_lt_of_le (Nat.two_pow_pos i.val) hOct.1
   have hx0 : x ≠ 0 := Nat.ne_of_gt hx
-  have hlog : Nat.log2 x = i.val := (Nat.log2_eq_iff hx0).2 hOct
+  have hlog : Nat.log2 x = i.val := (SqrtCompat.log2_eq_iff hx0).2 hOct
   unfold sqrtSeed SqrtCert.seedOf
   simp [Nat.ne_of_gt hx, hlog]
 
@@ -365,7 +366,7 @@ theorem innerSqrt_bracket_u256
   have hmhi : x < (m + 1) * (m + 1) := by simpa [m] using natSqrt_lt_succ_sq x
   have hOct : 2 ^ i.val ≤ x ∧ x < 2 ^ (i.val + 1) := by
     have hlog : 2 ^ Nat.log2 x ≤ x ∧ x < 2 ^ (Nat.log2 x + 1) :=
-      (Nat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
+      (SqrtCompat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
     simpa [i]
   exact innerSqrt_bracket_of_octave i x m hmlo hmhi hOct
 
@@ -398,7 +399,7 @@ theorem floorSqrt_correct_u256
     have hmhi : x < (m + 1) * (m + 1) := by simpa [m] using natSqrt_lt_succ_sq x
     have hOct : 2 ^ i.val ≤ x ∧ x < 2 ^ (i.val + 1) := by
       have hlog : 2 ^ Nat.log2 x ≤ x ∧ x < 2 ^ (Nat.log2 x + 1) :=
-        (Nat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
+        (SqrtCompat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
       simpa [i]
     exact floorSqrt_correct_of_octave i x m hmlo hmhi hOct
 

@@ -95,6 +95,11 @@ CONFIG = ModelConfig(
         header_comment="Auto-generated from Solidity 512Math._cbrt assembly and assignment flow.",
         generator_label="formal/python/cbrt/generate_cbrt512_model.py",
         norm_rewrite=None,
+        extra_imports=("CbrtProof.GeneratedCbrtModel",),
+        evm_aliases={
+            "cbrt": "CbrtGeneratedModel.model_cbrt_floor_evm",
+            "cbrtUp": "CbrtGeneratedModel.model_cbrt_up_evm",
+        },
     ),
     transforms=TransformConfig(
         skip_norm=frozenset(

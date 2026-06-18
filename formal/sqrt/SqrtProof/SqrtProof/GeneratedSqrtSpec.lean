@@ -331,7 +331,7 @@ theorem model_sqrt_evm_eq_model_sqrt
     have hmhi : x < (m + 1) * (m + 1) := by simpa [m] using natSqrt_lt_succ_sq x
     have hOct : 2 ^ i.val ≤ x ∧ x < 2 ^ (i.val + 1) := by
       have hlog : 2 ^ Nat.log2 x ≤ x ∧ x < 2 ^ (Nat.log2 x + 1) :=
-        (Nat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
+        (SqrtCompat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
       simpa [i]
     have hm : 0 < m := by
       by_cases hm0 : m = 0
@@ -900,7 +900,7 @@ private theorem innerSqrt_eq_natSqrt_of_square
     let i : Fin 256 := ⟨Nat.log2 x, (Nat.log2_lt (Nat.ne_of_gt hx)).2 (by simpa [WORD_MOD] using hx256)⟩
     have hOct : 2 ^ i.val ≤ x ∧ x < 2 ^ (i.val + 1) := by
       have hlog : 2 ^ Nat.log2 x ≤ x ∧ x < 2 ^ (Nat.log2 x + 1) :=
-        (Nat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
+        (SqrtCompat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
       simpa [i]
     have hseed : sqrtSeed x = seedOf i := sqrtSeed_eq_seedOf_of_octave i x hOct
     let z0 := seedOf i

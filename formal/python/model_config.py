@@ -89,13 +89,19 @@ class EmissionConfig:
     generator_label: str
     norm_rewrite: Callable[[Expr], Expr] | None
     norm_extensions: tuple[NormExtension, ...] = ()
+    extra_imports: tuple[str, ...] = ()
+    evm_aliases: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         model_names = _freeze_mapping(self.model_names)
         norm_extensions: tuple[NormExtension, ...] = tuple(self.norm_extensions)
+        extra_imports: tuple[str, ...] = tuple(self.extra_imports)
+        evm_aliases = _freeze_mapping(self.evm_aliases)
 
         object.__setattr__(self, "model_names", model_names)
         object.__setattr__(self, "norm_extensions", norm_extensions)
+        object.__setattr__(self, "extra_imports", extra_imports)
+        object.__setattr__(self, "evm_aliases", evm_aliases)
 
     def norm_helper_map(self) -> dict[str, str]:
         return {
