@@ -14,6 +14,7 @@ import {IERC20PermitCommon, IDAIStylePermit} from "src/interfaces/IERC2612.sol";
 
 import {IEulerSwap, FastEulerSwap} from "src/core/EulerSwap.sol";
 import {IUniV2Pair, FastUniswapV2Pool} from "src/core/UniswapV2.sol";
+import {IUniswapV3Pool, FastUniswapV3Pool} from "src/core/UniswapV3Fork.sol";
 import {IHanjiPool, FastHanjiPool} from "src/core/Hanji.sol";
 import {IMaverickV2Pool, FastMaverickV2Pool} from "src/core/MaverickV2.sol";
 import {IEkuboCore, PoolKey as EkuboPoolKey, Config, SqrtRatio, UnsafeEkuboCore} from "src/core/EkuboV2.sol";
@@ -77,6 +78,25 @@ contract BoolBoundaryHarness {
             zeroForOne := 0x02
         }
         FastEulerSwap.fastSwap(pool, zeroForOne, amountOut, recipient);
+    }
+
+    function uniswapV3Swap(
+        IUniswapV3Pool pool,
+        address recipient,
+        uint256 sellAmount,
+        uint160 sqrtPriceLimitX96,
+        bytes memory callbackData
+    ) external returns (bytes memory returndata) {
+        bool zeroForOne;
+        // Force a dirty true bool before calling the production encoder.
+        assembly ("memory-safe") {
+            zeroForOne := 0x02
+        }
+        (bytes memory data,) =
+            FastUniswapV3Pool.fastEncodeSwap(recipient, zeroForOne, sellAmount, sqrtPriceLimitX96, callbackData);
+        bool success;
+        (success, returndata) = address(pool).call(data);
+        require(success);
     }
 
     function hanjiPlaceMarketOrder(IHanjiPool pool) external returns (uint256 executed) {
@@ -292,6 +312,27 @@ contract BoolBoundaryTest is Utils, Test {
         address pool = makeAddr("pool");
         _mockExpectCall(pool, abi.encodeCall(IEulerSwap.swap, (0, 9, address(0x55), bytes(""))), bytes(""));
         harness.fastEulerSwap(IEulerSwap(pool), 9, address(0x55));
+    }
+
+    function testUniswapV3SwapCanonicalizesDirtyZeroForOne() public {
+        address pool = makeAddr("pool");
+        bytes memory callbackData = abi.encodePacked(address(0x55), address(0x66));
+        bytes memory returnData = abi.encode(int256(0), int256(-7));
+        bytes memory expectedCall = bytes.concat(
+            abi.encodeWithSelector(IUniswapV3Pool.swap.selector, address(0x44), true, uint256(7), uint160(9)),
+            bytes32(uint256(0xa0)),
+            bytes32(callbackData.length),
+            callbackData
+        );
+        uint256 zeroForOneWord;
+        // Verify the expected calldata uses a canonical ABI bool word for `zeroForOne`.
+        assembly ("memory-safe") {
+            zeroForOneWord := mload(add(expectedCall, 0x44))
+        }
+        assertEq(zeroForOneWord, 1);
+
+        _mockExpectCall(pool, expectedCall, returnData);
+        assertEq(harness.uniswapV3Swap(IUniswapV3Pool(pool), address(0x44), 7, 9, callbackData), returnData);
     }
 
     function testHanjiBoundaryCanonicalizesDirtyBool() public {
