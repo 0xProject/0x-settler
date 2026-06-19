@@ -266,7 +266,15 @@ contract BoolBoundaryTest is Utils, Test {
         uint256 ownerPrivateKey = 0xa11ce;
         address owner = vm.addr(ownerPrivateKey);
         address token = makeAddr("dai");
-        bytes32 domainSeparator = keccak256("MockDaiPermitToken");
+        bytes32 domainSeparator = keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+                keccak256("MockDaiPermitToken"),
+                keccak256("1"),
+                block.chainid,
+                token
+            )
+        );
 
         bytes32 structHash = keccak256(
             abi.encode(
