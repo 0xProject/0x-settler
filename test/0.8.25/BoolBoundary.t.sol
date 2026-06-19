@@ -70,18 +70,6 @@ contract MockUniswapV2Pair is IUniV2Pair {
     }
 }
 
-contract MockEulerSwap {
-    uint256 public amount0Out;
-    uint256 public amount1Out;
-    address public recipient;
-
-    function swap(uint256 amount0Out_, uint256 amount1Out_, address to, bytes calldata) external {
-        amount0Out = amount0Out_;
-        amount1Out = amount1Out_;
-        recipient = to;
-    }
-}
-
 contract MockHanjiPool is IHanjiPool {
     bool public lastIsAsk;
     bytes4 public lastSelector;
@@ -389,13 +377,11 @@ contract BoolBoundaryTest is Test {
         assertEq(pool.swapData().length, 0);
     }
 
-    function testEulerSwapBoundaryUsesCanonicalBit() public {
-        MockEulerSwap pool = new MockEulerSwap();
 
-        harness.fastEulerSwap(IEulerSwap(address(pool)), 9, address(0x55));
-        assertEq(pool.amount0Out(), 0);
-        assertEq(pool.amount1Out(), 9);
-        assertEq(pool.recipient(), address(0x55));
+    function testEulerSwapBoundaryUsesCanonicalBit() public {
+        address pool = makeAddr("pool");
+        _mockExpectCall(pool, abi.encodeCall(IEulerSwap.swap, (0, 9, address(0x55), bytes(""))),  bytes(""));
+        harness.fastEulerSwap(IEulerSwap(pool), 9, address(0x55));
     }
 
     function testHanjiBoundaryCanonicalizesDirtyBool() public {
