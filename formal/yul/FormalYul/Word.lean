@@ -166,7 +166,7 @@ def normSgt (a b : Nat) : Nat :=
   if (b % WORD_MOD + 2 ^ 255) % WORD_MOD < (a % WORD_MOD + 2 ^ 255) % WORD_MOD then 1
   else 0
 
-private def byteAt (x i : Nat) : UInt8 :=
+def byteAt (x i : Nat) : UInt8 :=
   UInt8.ofNat ((x / 2 ^ (8 * i)) % 256)
 
 def encodeWord (x : Nat) : ByteArray :=
@@ -187,7 +187,7 @@ def calldata (selector : ByteArray) (args : List Nat) : ByteArray :=
 
 def decodeWord (data : ByteArray) (offset : Nat := 0) : Nat :=
   Id.run do
-    let bytes := data.data
+    let bytes := data.data.toList
     let mut acc : Nat := 0
     for i in [0:32] do
       let j : Nat := offset + i

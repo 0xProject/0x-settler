@@ -1528,13 +1528,28 @@ def joinLines : List String → String
 def indentBlock (pad src : String) : String :=
   joinLines ((src.splitOn "\n").map fun line => pad ++ line)
 
-def renderFunction (fn : String × String) : String :=
+def sanitizeIdentChar (c : Char) : Char :=
+  if c.isAlphanum then c else '_'
+
+def sanitizeIdent (name : String) : String :=
+  let mapped := name.map sanitizeIdentChar
+  if mapped.isEmpty then "generated" else mapped
+
+def functionDefName (name : String) : String :=
+  "yulFunction_" ++ sanitizeIdent name
+
+def renderFunctionDef (fn : String × String) : String :=
   let (name, src) := fn
+  "def " ++ functionDefName name ++ " : EvmYul.Yul.Ast.FunctionDefinition :=\n" ++
+  "  <f\n" ++
+  indentBlock "  " src ++ "\n" ++
+  "  >\n"
+
+def renderFunctionInsert (fn : String × String) : String :=
+  let (name, _) := fn
   "\n  |>.insert\n" ++
   "      " ++ reprStr name ++ "\n" ++
-  "      <f\n" ++
-  indentBlock "      " src ++ "\n" ++
-  "      >"
+  "      " ++ functionDefName name
 
 def renderContract (input : String) : Except String String := do
   let code ← extractDeployedCode input
@@ -1544,14 +1559,18 @@ def renderContract (input : String) : Except String String := do
     "open EvmYul.Yul\n" ++
     "open EvmYul.Yul.Ast\n" ++
     "open scoped EvmYul.Yul.Notation\n\n" ++
-    "def yulContract : FormalYul.YulContract :=\n" ++
-    "{\n" ++
-    "dispatcher :=\n" ++
+    "def yulDispatcher : EvmYul.Yul.Ast.Stmt :=\n" ++
     "  <s {\n" ++
     indentBlock "    " dispatcher ++ "\n" ++
-    "  }>,\n" ++
-    "functions := (∅ : Finmap (fun (_ : YulFunctionName) => EvmYul.Yul.Ast.FunctionDefinition))" ++
-    joinLines (functions.map renderFunction) ++ "\n" ++
+    "  }>\n\n" ++
+    joinLines (functions.map renderFunctionDef) ++ "\n" ++
+    "def yulFunctions : Finmap (fun (_ : YulFunctionName) => EvmYul.Yul.Ast.FunctionDefinition) :=\n" ++
+    "  (∅ : Finmap (fun (_ : YulFunctionName) => EvmYul.Yul.Ast.FunctionDefinition))" ++
+    joinLines (functions.map renderFunctionInsert) ++ "\n\n" ++
+    "def yulContract : FormalYul.YulContract :=\n" ++
+    "{\n" ++
+    "dispatcher := yulDispatcher,\n" ++
+    "functions := yulFunctions\n" ++
     "}\n"
 
 def runHelpersSqrt (contractDef : String) : String :=
@@ -1705,17 +1724,35 @@ def renderRuntime (kind : ModelKind) (input output : String) : Except String Str
   .ok <|
     "import FormalYul\n" ++
     "import " ++ modelModule ++ "\n\n" ++
+    "set_option linter.style.nameCheck false\n\n" ++
     "namespace " ++ kind.namespaceName ++ "\n\n" ++
     runHelpers kind contractDef ++ "\n" ++
     "end " ++ kind.namespaceName ++ "\n"
 
-def renderProof (kind : ModelKind) (output : String) : String :=
+def renderLookupLemma (fn : String × String) : String :=
+  let (name, _) := fn
+  "\n@[simp]\n" ++
+  "theorem lookup_" ++ sanitizeIdent name ++ " :\n" ++
+  "    yulFunctions.lookup " ++ reprStr name ++ " = some " ++ functionDefName name ++ " := by\n" ++
+  "  unfold yulFunctions\n" ++
+  "  simp [Finmap.lookup_insert]\n"
+
+def renderProof (kind : ModelKind) (input output : String) : Except String String := do
+  let code ← extractDeployedCode input
+  let (_, functions) ← splitFunctions code
   let runtimeModule := moduleNameFromOutput output ++ "Runtime"
-  "import FormalYul.Preservation\n" ++
-  "import " ++ runtimeModule ++ "\n\n" ++
-  "namespace " ++ kind.namespaceName ++ "\n\n" ++
-  "/- Runtime bridge support module for the generated Yul runtime. -/\n\n" ++
-  "end " ++ kind.namespaceName ++ "\n"
+  .ok <|
+    "import FormalYul.Preservation\n" ++
+    "import " ++ runtimeModule ++ "\n\n" ++
+    "set_option linter.style.nameCheck false\n\n" ++
+    "namespace " ++ kind.namespaceName ++ "\n\n" ++
+    "/- Runtime bridge support module for the generated Yul runtime. -/\n\n" ++
+    "@[simp]\n" ++
+    "theorem yulContract_dispatcher : yulContract.dispatcher = yulDispatcher := rfl\n\n" ++
+    "@[simp]\n" ++
+    "theorem yulContract_functions : yulContract.functions = yulFunctions := rfl\n" ++
+    joinLines (functions.map renderLookupLemma) ++ "\n" ++
+    "end " ++ kind.namespaceName ++ "\n"
 
 def containsSubstr (haystack needle : String) : Bool :=
   if needle = "" then
@@ -1797,7 +1834,9 @@ def run (args : List String) : IO UInt32 := do
   let runtimeText ← match renderRuntime kind input output with
     | .ok runtimeText => pure runtimeText
     | .error err => throw <| IO.userError err
-  let proofText := renderProof kind output
+  let proofText ← match renderProof kind input output with
+    | .ok proofText => pure proofText
+    | .error err => throw <| IO.userError err
   let runtimeOutput := runtimeOutputPath output
   let proofOutput := proofOutputPath output
   IO.FS.writeFile output outputText

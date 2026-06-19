@@ -15,18 +15,31 @@ def word (x : Nat) : EvmYul.UInt256 :=
 def wordNat (x : EvmYul.UInt256) : Nat :=
   x.toNat
 
-def stateFor (contract : YulContract) (input : ByteArray) : EvmYul.Yul.State :=
-  let env : EvmYul.ExecutionEnv .Yul :=
-    { (Inhabited.default : EvmYul.ExecutionEnv .Yul) with
+def contractOwner : EvmYul.AccountAddress :=
+  Inhabited.default
+
+def accountFor (contract : YulContract) : EvmYul.Account .Yul :=
+  { (Inhabited.default : EvmYul.Account .Yul) with code := contract }
+
+def envFor (contract : YulContract) (input : ByteArray) : EvmYul.ExecutionEnv .Yul :=
+  { (Inhabited.default : EvmYul.ExecutionEnv .Yul) with
       calldata := input
       code := contract
+      codeOwner := contractOwner
       weiValue := ⟨0⟩
       perm := true }
-  let shared : EvmYul.SharedState .Yul :=
-    { (Inhabited.default : EvmYul.SharedState .Yul) with
-      executionEnv := env
+
+def accountMapFor (contract : YulContract) : EvmYul.AccountMap .Yul :=
+  (∅ : EvmYul.AccountMap .Yul).insert contractOwner (accountFor contract)
+
+def sharedFor (contract : YulContract) (input : ByteArray) : EvmYul.SharedState .Yul :=
+  { (Inhabited.default : EvmYul.SharedState .Yul) with
+      accountMap := accountMapFor contract
+      executionEnv := envFor contract input
       gasAvailable := .ofNat 1000000000 }
-  .Ok shared (Inhabited.default : EvmYul.Yul.VarStore)
+
+def stateFor (contract : YulContract) (input : ByteArray) : EvmYul.Yul.State :=
+  .Ok (sharedFor contract input) (Inhabited.default : EvmYul.Yul.VarStore)
 
 def returnOf (state : EvmYul.Yul.State) : CallResult :=
   { returndata := EvmYul.Yul.State.toMachineState state |>.H_return }
