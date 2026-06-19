@@ -438,7 +438,7 @@ contract UniswapV3UnitTest is Utils, Test {
         // uni.sell(RECIPIENT, encodedPath, minBuyAmount, permitTransfer, hex"");
     }
 
-    function testUniswapV3SellPermit2RejectsDirtyForwardedBool() public {
+    function testUniswapV3SellAllowanceHolderAcceptsDirtyForwardedBool() public {
         uint256 amount = 99999;
 
         deployCodeTo(
@@ -447,12 +447,29 @@ contract UniswapV3UnitTest is Utils, Test {
             POOL
         );
 
-        ISignatureTransfer.TokenPermissions memory permitted =
-            ISignatureTransfer.TokenPermissions({token: TOKEN0, amount: amount});
-        ISignatureTransfer.PermitTransferFrom memory permitTransfer =
-            ISignatureTransfer.PermitTransferFrom({permitted: permitted, nonce: 0, deadline: 0});
+        ISignatureTransfer.PermitTransferFrom memory permitTransfer = ISignatureTransfer.PermitTransferFrom({
+            permitted: ISignatureTransfer.TokenPermissions({token: TOKEN0, amount: amount}),
+            nonce: 0,
+            deadline: block.timestamp
+        });
 
-        vm.expectRevert(bytes(""));
-        uni.sell(RECIPIENT, encodedPath, permitTransfer, hex"deadbeef", amount);
+        _mockExpectCall(
+            address(ALLOWANCE_HOLDER),
+            abi.encodeCall(IAllowanceHolder.transferFrom, (TOKEN0, address(this), POOL, 1)),
+            abi.encode(true)
+        );
+
+        vm.prank(address(ALLOWANCE_HOLDER));
+        (bool success, bytes memory returndata) = address(uni)
+            .call(
+                abi.encodePacked(
+                    abi.encodeCall(uni.sell, (RECIPIENT, encodedPath, permitTransfer, hex"", amount)), address(this)
+                )
+            );
+        if (!success) {
+            assembly ("memory-safe") {
+                revert(add(0x20, returndata), mload(returndata))
+            }
+        }
     }
 }

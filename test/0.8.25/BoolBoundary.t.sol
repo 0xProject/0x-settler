@@ -4,18 +4,26 @@ pragma solidity ^0.8.25;
 import {Test} from "@forge-std/Test.sol";
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
+import {Utils} from "test/unit/Utils.sol";
 
 import {FastLogic} from "src/utils/FastLogic.sol";
 import {Ternary} from "src/utils/Ternary.sol";
 import {UnsafeMath, Math} from "src/utils/UnsafeMath.sol";
-import {FastPermit} from "src/utils/SafePermit.sol";
-import {IDAIStylePermit} from "src/interfaces/IERC2612.sol";
+import {FastPermit, SafePermit} from "src/utils/SafePermit.sol";
+import {IERC20PermitCommon, IDAIStylePermit} from "src/interfaces/IERC2612.sol";
 
 import {IEulerSwap, FastEulerSwap} from "src/core/EulerSwap.sol";
 import {IUniV2Pair, FastUniswapV2Pool} from "src/core/UniswapV2.sol";
 import {IHanjiPool, FastHanjiPool} from "src/core/Hanji.sol";
 import {IMaverickV2Pool, FastMaverickV2Pool} from "src/core/MaverickV2.sol";
 import {IEkuboCore, PoolKey as EkuboPoolKey, Config, SqrtRatio, UnsafeEkuboCore} from "src/core/EkuboV2.sol";
+import {
+    IEkuboCore as IEkuboCoreV3,
+    PoolKey as EkuboV3PoolKey,
+    Config as EkuboV3Config,
+    SqrtRatio as EkuboV3SqrtRatio,
+    UnsafeEkuboCore as UnsafeEkuboV3Core
+} from "src/core/EkuboV3.sol";
 import {
     IPancakeInfinityCLPoolManager,
     IPancakeInfinityBinPoolManager,
@@ -27,168 +35,9 @@ import {
 import {Encoder} from "src/core/FlashAccountingCommon.sol";
 import {BalanceDelta} from "src/core/UniswapV4Types.sol";
 
-contract MockDaiPermitToken {
-    bool public lastAllowed;
-
-    function permit(address, address, uint256, uint256, bool allowed, uint8, bytes32, bytes32) external returns (bool) {
-        lastAllowed = allowed;
-        return true;
-    }
-}
-
-contract MockUniswapV2Pair is IUniV2Pair {
-    uint112 internal reserve0;
-    uint112 internal reserve1;
-
-    uint256 public amount0Out;
-    uint256 public amount1Out;
-    address public recipient;
-    bytes public swapData;
-
-    function setReserves(uint112 reserve0_, uint112 reserve1_) external {
-        reserve0 = reserve0_;
-        reserve1 = reserve1_;
-    }
-
-    function token0() external pure returns (address) {
-        return address(0);
-    }
-
-    function token1() external pure returns (address) {
-        return address(0);
-    }
-
-    function getReserves() external view returns (uint112, uint112, uint32) {
-        return (reserve0, reserve1, 0);
-    }
-
-    function swap(uint256 amount0Out_, uint256 amount1Out_, address recipient_, bytes calldata data_) external {
-        amount0Out = amount0Out_;
-        amount1Out = amount1Out_;
-        recipient = recipient_;
-        swapData = data_;
-    }
-}
-
-contract MockHanjiPool is IHanjiPool {
-    bool public lastIsAsk;
-    bytes4 public lastSelector;
-
-    address internal tokenX;
-    address internal tokenY;
-
-    constructor(address tokenX_, address tokenY_) {
-        tokenX = tokenX_;
-        tokenY = tokenY_;
-    }
-
-    function placeOrder(bool isAsk, uint128, uint72, uint128, bool, bool, bool, uint256)
-        external
-        payable
-        override
-        returns (uint64, uint128, uint128, uint128)
-    {
-        lastSelector = msg.sig;
-        lastIsAsk = isAsk;
-        return (0, 0, 0, 0);
-    }
-
-    function placeMarketOrderWithTargetValue(bool isAsk, uint128, uint72, uint128, bool, uint256)
-        external
-        payable
-        override
-        returns (uint128, uint128, uint128)
-    {
-        lastSelector = msg.sig;
-        lastIsAsk = isAsk;
-        return (0, 0, 0);
-    }
-
-    function getConfig()
-        external
-        view
-        override
-        returns (uint256, uint256, address, address, bool, bool, address, address, uint64, uint64, uint64, uint64, bool)
-    {
-        return (0, 0, tokenX, tokenY, false, false, address(0), address(0), 0, 0, 0, 0, false);
-    }
-}
-
-contract MockMaverickPool {
-    address public lastRecipient;
-    uint256 public lastAmount;
-    bool public lastTokenAIn;
-    bool public lastExactOutput;
-    int32 public lastTickLimit;
-    bytes public lastData;
-
-    function swap(address recipient, IMaverickV2Pool.SwapParams calldata params, bytes calldata data)
-        external
-        returns (uint256 amountIn, uint256 amountOut)
-    {
-        lastRecipient = recipient;
-        lastAmount = params.amount;
-        lastTokenAIn = params.tokenAIn;
-        lastExactOutput = params.exactOutput;
-        lastTickLimit = params.tickLimit;
-        lastData = data;
-        return (0, 0);
-    }
-}
-
-contract MockEkuboCore is IEkuboCore {
-    bool public lastIsToken1;
-
-    function lock() external {}
-
-    function swap_611415377(EkuboPoolKey memory, int128, bool isToken1, SqrtRatio, uint256)
-        external
-        payable
-        returns (int128 delta0, int128 delta1)
-    {
-        lastIsToken1 = isToken1;
-        return (0, 0);
-    }
-
-    function forward(address) external {}
-
-    function pay(address) external pure returns (uint128 payment) {
-        return 0;
-    }
-
-    function withdraw(address, address, uint128) external {}
-}
-
-contract MockPancakeClManager {
-    bool public lastZeroForOne;
-    bytes public lastHookData;
-
-    function swap(
-        PancakePoolKey memory,
-        IPancakeInfinityCLPoolManager.SwapParams calldata params,
-        bytes calldata hookData
-    ) external returns (BalanceDelta delta) {
-        lastZeroForOne = params.zeroForOne;
-        lastHookData = hookData;
-        return BalanceDelta.wrap(0);
-    }
-}
-
-contract MockPancakeBinManager {
-    bool public lastSwapForY;
-    bytes public lastHookData;
-
-    function swap(PancakePoolKey memory, bool swapForY, int128, bytes calldata hookData)
-        external
-        returns (BalanceDelta delta)
-    {
-        lastSwapForY = swapForY;
-        lastHookData = hookData;
-        return BalanceDelta.wrap(0);
-    }
-}
-
 contract BoolBoundaryHarness {
+    using SafePermit for IDAIStylePermit;
+
     function fastDaiPermit(IDAIStylePermit token) external returns (bool success) {
         bool allowed;
         assembly ("memory-safe") {
@@ -196,6 +45,14 @@ contract BoolBoundaryHarness {
         }
         return
             FastPermit.fastDAIPermit(token, address(0x11), address(0x22), 0x33, 0x44, allowed, bytes32(0), bytes32(0));
+    }
+
+    function safeDaiPermit(IDAIStylePermit token, address owner, bytes32 vs, bytes32 r) external {
+        bool allowed;
+        assembly ("memory-safe") {
+            allowed := 0x02
+        }
+        token.safePermit(owner, address(0x22), 0, 0, allowed, vs, r);
     }
 
     function fastUniswapV2GetReserves(address pool) external view returns (uint256 sellReserve, uint256 buyReserve) {
@@ -263,6 +120,19 @@ contract BoolBoundaryHarness {
         return UnsafeEkuboCore.unsafeSwap(core, poolKey, amount, isToken1, sqrtRatioLimit);
     }
 
+    function ekuboV3Swap(
+        IEkuboCoreV3 core,
+        EkuboV3PoolKey memory poolKey,
+        int256 amount,
+        EkuboV3SqrtRatio sqrtRatioLimit
+    ) external returns (int256 delta0, int256 delta1) {
+        bool isToken1;
+        assembly ("memory-safe") {
+            isToken1 := 0x02
+        }
+        return UnsafeEkuboV3Core.unsafeSwap(core, poolKey, amount, isToken1, sqrtRatioLimit);
+    }
+
     function pancakeClSwap(
         IPancakeInfinityCLPoolManager poolManager,
         PancakePoolKey memory key,
@@ -314,7 +184,7 @@ contract BoolBoundaryHarness {
     }
 }
 
-contract BoolBoundaryTest is Test {
+contract BoolBoundaryTest is Utils, Test {
     using FastLogic for bool;
     using Ternary for bool;
     using UnsafeMath for uint256;
@@ -359,85 +229,177 @@ contract BoolBoundaryTest is Test {
     }
 
     function testFastDaiPermitCanonicalizesDirtyBool() public {
-        MockDaiPermitToken token = new MockDaiPermitToken();
+        address token = makeAddr("dai");
+        _mockExpectCall(
+            token,
+            abi.encodeCall(
+                IDAIStylePermit.permit,
+                (address(0x11), address(0x22), uint256(0x33), uint256(0x44), true, uint8(27), bytes32(0), bytes32(0))
+            ),
+            abi.encode(true)
+        );
 
-        assertTrue(harness.fastDaiPermit(IDAIStylePermit(address(token))));
-        assertTrue(token.lastAllowed());
+        assertTrue(harness.fastDaiPermit(IDAIStylePermit(token)));
+    }
+
+    function testSafeDaiPermitFallbackCanonicalizesDirtyBool() public {
+        uint256 ownerPrivateKey = 0xa11ce;
+        address owner = vm.addr(ownerPrivateKey);
+        address token = makeAddr("dai");
+        bytes32 domainSeparator = keccak256("MockDaiPermitToken");
+
+        bytes32 structHash = keccak256(
+            abi.encode(
+                keccak256("Permit(address holder,address spender,uint256 nonce,uint256 expiry,bool allowed)"),
+                owner,
+                address(0x22),
+                uint256(0),
+                uint256(0),
+                true
+            )
+        );
+        bytes32 signingHash = keccak256(abi.encodePacked(hex"1901", domainSeparator, structHash));
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(ownerPrivateKey, signingHash);
+        bytes32 vs = bytes32(uint256(s) | (uint256(v - 27) << 255));
+
+        _mockExpectCall(
+            token,
+            abi.encodeCall(IDAIStylePermit.permit, (owner, address(0x22), uint256(0), uint256(0), true, v, r, s)),
+            abi.encode(false)
+        );
+        _mockExpectCall(token, abi.encodeCall(IERC20PermitCommon.nonces, (owner)), abi.encode(uint256(1)));
+        _mockExpectCall(token, abi.encodeCall(IERC20.allowance, (owner, address(0x22))), abi.encode(type(uint256).max));
+        _mockExpectCall(token, abi.encodeCall(IERC20PermitCommon.DOMAIN_SEPARATOR, ()), abi.encode(domainSeparator));
+
+        harness.safeDaiPermit(IDAIStylePermit(token), owner, vs, r);
     }
 
     function testUniswapV2BoundaryUsesCanonicalBit() public {
-        MockUniswapV2Pair pool = new MockUniswapV2Pair();
-        pool.setReserves(11, 22);
+        address pool = makeAddr("pool");
+        _mockExpectCall(
+            pool, abi.encodeCall(IUniV2Pair.getReserves, ()), abi.encode(uint112(11), uint112(22), uint32(0))
+        );
 
-        (uint256 sellReserve, uint256 buyReserve) = harness.fastUniswapV2GetReserves(address(pool));
+        (uint256 sellReserve, uint256 buyReserve) = harness.fastUniswapV2GetReserves(pool);
         assertEq(sellReserve, 11);
         assertEq(buyReserve, 22);
 
-        harness.fastUniswapV2Swap(address(pool), 7, address(0x44));
-        assertEq(pool.amount0Out(), 0);
-        assertEq(pool.amount1Out(), 7);
-        assertEq(pool.recipient(), address(0x44));
-        assertEq(pool.swapData().length, 0);
+        _mockExpectCall(pool, abi.encodeCall(IUniV2Pair.swap, (uint256(0), uint256(7), address(0x44), bytes(""))), "");
+        harness.fastUniswapV2Swap(pool, 7, address(0x44));
     }
-
 
     function testEulerSwapBoundaryUsesCanonicalBit() public {
         address pool = makeAddr("pool");
-        _mockExpectCall(pool, abi.encodeCall(IEulerSwap.swap, (0, 9, address(0x55), bytes(""))),  bytes(""));
+        _mockExpectCall(pool, abi.encodeCall(IEulerSwap.swap, (0, 9, address(0x55), bytes(""))), bytes(""));
         harness.fastEulerSwap(IEulerSwap(pool), 9, address(0x55));
     }
 
     function testHanjiBoundaryCanonicalizesDirtyBool() public {
-        MockHanjiPool pool = new MockHanjiPool(address(0x11), address(0x22));
+        address pool = makeAddr("pool");
+        _mockExpectCall(
+            pool,
+            abi.encodeCall(
+                IHanjiPool.placeOrder,
+                (true, uint128(7), uint72(11), type(uint128).max, true, false, true, type(uint256).max)
+            ),
+            abi.encode(uint64(0), uint128(0), uint128(0), uint128(0))
+        );
 
-        harness.hanjiPlaceMarketOrder(IHanjiPool(address(pool)));
-        assertTrue(pool.lastIsAsk());
-        assertTrue(pool.lastSelector() == IHanjiPool.placeOrder.selector);
+        harness.hanjiPlaceMarketOrder(IHanjiPool(pool));
 
-        assertEq(address(harness.hanjiGetToken(IHanjiPool(address(pool)))), address(0x22));
+        _mockExpectCall(
+            pool,
+            abi.encodeCall(IHanjiPool.getConfig, ()),
+            abi.encode(uint256(0), uint256(0), address(0x11), address(0x22))
+        );
+        assertEq(address(harness.hanjiGetToken(IHanjiPool(pool))), address(0x22));
     }
 
     function testMaverickEncodeCanonicalizesDirtyBool() public {
-        MockMaverickPool pool = new MockMaverickPool();
         bytes memory data = harness.maverickEncode(address(0x66), 7, 9, hex"abcd");
 
-        (bool success,) = address(pool).call(data);
-        assertTrue(success);
-        assertEq(pool.lastRecipient(), address(0x66));
-        assertEq(pool.lastAmount(), 7);
-        assertTrue(pool.lastTokenAIn());
-        assertFalse(pool.lastExactOutput());
-        assertEq(pool.lastTickLimit(), 9);
-        assertEq(pool.lastData(), hex"abcd");
+        assertEq(
+            data,
+            bytes.concat(
+                abi.encodeWithSelector(
+                    IMaverickV2Pool.swap.selector,
+                    address(0x66),
+                    uint256(7),
+                    true,
+                    false,
+                    int32(9),
+                    uint256(0xc0),
+                    uint256(2)
+                ),
+                hex"abcd"
+            )
+        );
     }
 
     function testEkuboV2SwapCanonicalizesDirtyBool() public {
-        MockEkuboCore core = new MockEkuboCore();
+        address core = makeAddr("core");
         EkuboPoolKey memory key = EkuboPoolKey({token0: address(0x11), token1: address(0x22), config: Config.wrap(0)});
+        _mockExpectCall(
+            core,
+            abi.encodeCall(IEkuboCore.swap_611415377, (key, int128(7), true, SqrtRatio.wrap(9), uint256(0))),
+            abi.encode(int128(0), int128(0))
+        );
 
-        harness.ekuboV2Swap(IEkuboCore(address(core)), key, 7, SqrtRatio.wrap(9));
-        assertTrue(core.lastIsToken1());
+        harness.ekuboV2Swap(IEkuboCore(core), key, 7, SqrtRatio.wrap(9));
+    }
+
+    function testEkuboV3SwapCanonicalizesDirtyBool() public {
+        address core = makeAddr("core");
+        EkuboV3PoolKey memory key =
+            EkuboV3PoolKey({token0: address(0x11), token1: address(0x22), config: EkuboV3Config.wrap(0)});
+        bytes memory expectedCall =
+            bytes.concat(bytes4(0), abi.encode(key), abi.encodePacked(uint96(9), int128(7), uint32(0x80000000)));
+        _mockExpectCall(core, expectedCall, abi.encode(bytes32(0)));
+
+        harness.ekuboV3Swap(IEkuboCoreV3(core), key, 7, EkuboV3SqrtRatio.wrap(9));
     }
 
     function testPancakeInfinityCanonicalizesDirtyBool() public {
-        MockPancakeClManager cl = new MockPancakeClManager();
-        MockPancakeBinManager bin = new MockPancakeBinManager();
+        address cl = makeAddr("cl");
+        address bin = makeAddr("bin");
         PancakePoolKey memory key = PancakePoolKey({
             currency0: IERC20(address(0x11)),
             currency1: IERC20(address(0x22)),
             hooks: IHooks.wrap(address(0x33)),
-            poolManager: IPancakeInfinityCLPoolManager(address(cl)),
+            poolManager: IPancakeInfinityCLPoolManager(cl),
             fee: 500,
             parameters: bytes32(uint256(7))
         });
 
-        harness.pancakeClSwap(IPancakeInfinityCLPoolManager(address(cl)), key, 1, 2, hex"ab");
-        assertTrue(cl.lastZeroForOne());
-        assertEq(cl.lastHookData(), hex"ab");
+        _mockExpectCall(
+            cl,
+            bytes.concat(
+                abi.encodeWithSelector(
+                    IPancakeInfinityCLPoolManager.swap.selector,
+                    key,
+                    true,
+                    int256(1),
+                    uint160(2),
+                    uint256(0x140),
+                    uint256(1)
+                ),
+                hex"ab"
+            ),
+            abi.encode(BalanceDelta.wrap(0))
+        );
+        harness.pancakeClSwap(IPancakeInfinityCLPoolManager(cl), key, 1, 2, hex"ab");
 
-        harness.pancakeBinSwap(IPancakeInfinityBinPoolManager(address(bin)), key, 3, hex"cd");
-        assertTrue(bin.lastSwapForY());
-        assertEq(bin.lastHookData(), hex"cd");
+        _mockExpectCall(
+            bin,
+            bytes.concat(
+                abi.encodeWithSelector(
+                    IPancakeInfinityBinPoolManager.swap.selector, key, true, int128(3), uint256(0x120), uint256(1)
+                ),
+                hex"cd"
+            ),
+            abi.encode(BalanceDelta.wrap(0))
+        );
+        harness.pancakeBinSwap(IPancakeInfinityBinPoolManager(bin), key, 3, hex"cd");
     }
 
     function testFlashEncoderCanonicalizesDirtyBoolBytes() public {
