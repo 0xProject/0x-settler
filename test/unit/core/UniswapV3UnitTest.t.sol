@@ -383,7 +383,7 @@ contract UniswapV3UnitTest is Utils, Test {
         ISignatureTransfer.TokenPermissions memory permitted =
             ISignatureTransfer.TokenPermissions({token: TOKEN0, amount: amount});
         ISignatureTransfer.PermitTransferFrom memory permitTransfer =
-            ISignatureTransfer.PermitTransferFrom({permitted: permitted, nonce: 0, deadline: 0});
+            ISignatureTransfer.PermitTransferFrom({permitted: permitted, nonce: 0, deadline: block.timestamp + 1});
         ISignatureTransfer.SignatureTransferDetails memory transferDetails =
             ISignatureTransfer.SignatureTransferDetails({to: POOL, requestedAmount: 1});
 
