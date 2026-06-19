@@ -383,6 +383,145 @@ theorem call_zero_value_for_split_t_bool (fuel : Nat) (shared : EvmYul.SharedSta
     Finmap.lookup_insert, Finmap.lookup_insert_of_ne]
 
 @[simp]
+theorem call_fun__mul_1022
+    (x y : Nat) (fuel : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 80) [FormalYul.word x, FormalYul.word y]
+      (.some "fun__mul_1022") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word (evmSub (evmSub (evmMulmod x y
+        115792089237316195423570985008687907853269984665640564039457584007913129639935)
+        (evmMul x y))
+        (evmLt (evmMulmod x y
+          115792089237316195423570985008687907853269984665640564039457584007913129639935)
+          (evmMul x y))),
+       FormalYul.word (evmMul x y)]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
+    Option.getD_some, yulContract_functions, lookup_fun__mul_1022]
+  simp only [yulFunction_fun__mul_1022,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [hlookup, EvmYul.Yul.exec.eq_def, EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.evalPrimCall.eq_def, EvmYul.Yul.reverse', EvmYul.Yul.cons',
+    EvmYul.Yul.head', EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    call_zero_value_for_split_t_uint256,
+    FormalYul.word, Finmap.lookup_insert, Finmap.lookup_insert_of_ne]
+  constructor
+  · apply FormalYul.Preservation.eq_of_wordNat_eq
+    simp [FormalYul.Preservation.wordNat_sub, FormalYul.Preservation.wordNat_mulMod,
+      FormalYul.Preservation.wordNat_mul, FormalYul.Preservation.wordNat_lt,
+      FormalYul.Preservation.wordNat_not, formal_evmNot_zero]
+  · apply FormalYul.Preservation.eq_of_wordNat_eq
+    simp [FormalYul.Preservation.wordNat_mul]
+
+@[simp]
+theorem call_fun__gt_1766
+    (xHi xLo yHi yLo : Nat) (fuel : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 70)
+      [FormalYul.word xHi, FormalYul.word xLo, FormalYul.word yHi, FormalYul.word yLo]
+      (.some "fun__gt_1766") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word (evmOr (evmGt xHi yHi) (evmAnd (evmEq xHi yHi) (evmGt xLo yLo)))]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
+    Option.getD_some, yulContract_functions, lookup_fun__gt_1766]
+  simp only [yulFunction_fun__gt_1766,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [hlookup, EvmYul.Yul.exec.eq_def, EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.evalPrimCall.eq_def, EvmYul.Yul.reverse', EvmYul.Yul.cons',
+    EvmYul.Yul.head', EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    call_zero_value_for_split_t_bool,
+    FormalYul.word, Finmap.lookup_insert, Finmap.lookup_insert_of_ne]
+  apply FormalYul.Preservation.eq_of_wordNat_eq
+  simp [FormalYul.Preservation.wordNat_gt, FormalYul.Preservation.wordNat_or,
+    FormalYul.Preservation.wordNat_and, FormalYul.Preservation.wordNat_eq]
+
+@[simp]
+theorem call_fun_toUint_5616
+    (b : Nat) (fuel : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 50) [FormalYul.word b]
+      (.some "fun_toUint_5616") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word b]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
+    Option.getD_some, yulContract_functions, lookup_fun_toUint_5616]
+  simp only [yulFunction_fun_toUint_5616,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [hlookup, EvmYul.Yul.exec.eq_def, EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.evalPrimCall.eq_def, EvmYul.Yul.reverse', EvmYul.Yul.cons',
+    EvmYul.Yul.head', EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    call_zero_value_for_split_t_uint256,
+    FormalYul.word, Finmap.lookup_insert, Finmap.lookup_insert_of_ne]
+
+@[simp]
+theorem call_fun__add_637
+    (xHi xLo y : Nat) (fuel : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 70)
+      [FormalYul.word xHi, FormalYul.word xLo, FormalYul.word y]
+      (.some "fun__add_637") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word (evmAdd xHi (evmLt (evmAdd xLo y) xLo)),
+       FormalYul.word (evmAdd xLo y)]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
+    Option.getD_some, yulContract_functions, lookup_fun__add_637]
+  simp only [yulFunction_fun__add_637,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [hlookup, EvmYul.Yul.exec.eq_def, EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.evalPrimCall.eq_def, EvmYul.Yul.reverse', EvmYul.Yul.cons',
+    EvmYul.Yul.head', EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    call_zero_value_for_split_t_uint256,
+    FormalYul.word, Finmap.lookup_insert, Finmap.lookup_insert_of_ne]
+  constructor
+  · apply FormalYul.Preservation.eq_of_wordNat_eq
+    simp [FormalYul.Preservation.wordNat_add, FormalYul.Preservation.wordNat_lt]
+  · apply FormalYul.Preservation.eq_of_wordNat_eq
+    simp [FormalYul.Preservation.wordNat_add]
+
+@[simp]
 theorem call_fun__sqrt_6169
     (x : Nat) (fuel : Nat) (shared : EvmYul.SharedState .Yul)
     (store : EvmYul.Yul.VarStore)
@@ -475,6 +614,13 @@ def sharedAfterFrom0 (shared : EvmYul.SharedState .Yul) (xHi xLo : Nat) :
       ((shared.toMachineState.mstore (FormalYul.word 0) (FormalYul.word xHi)).mstore
         (FormalYul.word 32) (FormalYul.word xLo)) }
 
+def sharedAfterFrom128 (shared : EvmYul.SharedState .Yul) (xHi xLo : Nat) :
+    EvmYul.SharedState .Yul :=
+  { shared with
+    toMachineState :=
+      ((shared.toMachineState.mstore (FormalYul.word 128) (FormalYul.word xHi)).mstore
+        (FormalYul.word 160) (FormalYul.word xLo)) }
+
 @[simp]
 theorem sharedAfterFrom0_lookup
     (shared : EvmYul.SharedState .Yul) (xHi xLo : Nat)
@@ -484,6 +630,16 @@ theorem sharedAfterFrom0_lookup
         (sharedAfterFrom0 shared xHi xLo).executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract) := by
   simpa [sharedAfterFrom0] using hlookup
+
+@[simp]
+theorem sharedAfterFrom128_lookup
+    (shared : EvmYul.SharedState .Yul) (xHi xLo : Nat)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    (sharedAfterFrom128 shared xHi xLo).accountMap.find?
+        (sharedAfterFrom128 shared xHi xLo).executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract) := by
+  simpa [sharedAfterFrom128] using hlookup
 
 theorem sharedState_eta (shared : EvmYul.SharedState .Yul) :
     { toState := shared.toState, toMachineState := shared.toMachineState } = shared := by
@@ -590,6 +746,39 @@ theorem call_fun_from_156_zero
     EvmYul.Yul.State.setMachineState, EvmYul.Yul.State.toMachineState,
     call_zero_value_for_split_t_userDefinedValueType__uint512__113,
     FormalYul.word, Finmap.lookup_insert, Finmap.lookup_insert_of_ne]
+
+@[simp]
+theorem call_fun_from_156_128
+    (xHi xLo : Nat) (fuel : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 100) [FormalYul.word 128, FormalYul.word xHi, FormalYul.word xLo]
+      (.some "fun_from_156") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok (sharedAfterFrom128 shared xHi xLo) store, [FormalYul.word 128]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
+    Option.getD_some, yulContract_functions, lookup_fun_from_156]
+  simp only [yulFunction_fun_from_156,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [hlookup, sharedAfterFrom128, EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.evalPrimCall.eq_def, EvmYul.Yul.reverse', EvmYul.Yul.cons',
+    EvmYul.Yul.head', EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    EvmYul.Yul.State.setMachineState, EvmYul.Yul.State.toMachineState,
+    call_zero_value_for_split_t_userDefinedValueType__uint512__113,
+    FormalYul.word, Finmap.lookup_insert, Finmap.lookup_insert_of_ne]
+  have haddr : EvmYul.UInt256.ofNat 32 + EvmYul.UInt256.ofNat 128 =
+      EvmYul.UInt256.ofNat 160 := by
+    decide
+  rw [haddr]
 
 @[simp]
 theorem call_fun_into_182_from0
