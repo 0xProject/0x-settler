@@ -85,6 +85,7 @@ contract MockHanjiPool is IHanjiPool {
     function placeOrder(bool isAsk, uint128, uint72, uint128, bool, bool, bool, uint256)
         external
         payable
+        override
         returns (uint64, uint128, uint128, uint128)
     {
         lastSelector = msg.sig;
@@ -95,6 +96,7 @@ contract MockHanjiPool is IHanjiPool {
     function placeMarketOrderWithTargetValue(bool isAsk, uint128, uint72, uint128, bool, uint256)
         external
         payable
+        override
         returns (uint128, uint128, uint128)
     {
         lastSelector = msg.sig;
@@ -105,6 +107,7 @@ contract MockHanjiPool is IHanjiPool {
     function getConfig()
         external
         view
+        override
         returns (uint256, uint256, address, address, bool, bool, address, address, uint64, uint64, uint64, uint64, bool)
     {
         return (0, 0, tokenX, tokenY, false, false, address(0), address(0), 0, 0, 0, 0, false);
@@ -389,10 +392,7 @@ contract BoolBoundaryTest is Test {
 
         harness.hanjiPlaceMarketOrder(IHanjiPool(address(pool)));
         assertTrue(pool.lastIsAsk());
-        assertTrue(
-            pool.lastSelector() == IHanjiPool.placeOrder.selector
-                || pool.lastSelector() == IHanjiPool.placeMarketOrderWithTargetValue.selector
-        );
+        assertTrue(pool.lastSelector() == IHanjiPool.placeOrder.selector);
 
         assertEq(address(harness.hanjiGetToken(IHanjiPool(address(pool)))), address(0x22));
     }
