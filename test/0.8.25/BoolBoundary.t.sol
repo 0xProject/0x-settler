@@ -11,7 +11,7 @@ import {UnsafeMath, Math} from "src/utils/UnsafeMath.sol";
 import {FastPermit} from "src/utils/SafePermit.sol";
 import {IDAIStylePermit} from "src/interfaces/IERC2612.sol";
 
-import {IEVC, FastEvc, IEulerSwap, FastEulerSwap} from "src/core/EulerSwap.sol";
+import {IEulerSwap, FastEulerSwap} from "src/core/EulerSwap.sol";
 import {IUniV2Pair, fastUniswapV2Pool} from "src/core/UniswapV2.sol";
 import {IHanjiPool, FastHanjiPool} from "src/core/Hanji.sol";
 import {IMaverickV2Pool, FastMaverickV2Pool} from "src/core/MaverickV2.sol";
@@ -33,18 +33,6 @@ contract MockDaiPermitToken {
     function permit(address, address, uint256, uint256, bool allowed, uint8, bytes32, bytes32) external returns (bool) {
         lastAllowed = allowed;
         return true;
-    }
-}
-
-contract MockEvcBool {
-    bytes internal response;
-
-    function setResponse(bytes memory newResponse) external {
-        response = newResponse;
-    }
-
-    fallback(bytes calldata) external returns (bytes memory) {
-        return response;
     }
 }
 
@@ -210,10 +198,6 @@ contract MockPancakeBinManager {
 }
 
 contract BoolBoundaryHarness {
-    function fastIsAuthorized(IEVC evc) external view returns (bool) {
-        return FastEvc.fastIsAccountOperatorAuthorized(evc, address(0x11), address(0x22));
-    }
-
     function fastDaiPermit(IDAIStylePermit token) external returns (bool success) {
         bool allowed;
         assembly ("memory-safe") {
@@ -388,28 +372,6 @@ contract BoolBoundaryTest is Test {
 
         assertTrue(harness.fastDaiPermit(IDAIStylePermit(address(token))));
         assertTrue(token.lastAllowed());
-    }
-
-    function testFastEvcAcceptsCanonicalBool() public {
-        MockEvcBool evc = new MockEvcBool();
-
-        evc.setResponse(abi.encode(true));
-        assertTrue(harness.fastIsAuthorized(IEVC(address(evc))));
-
-        evc.setResponse(abi.encode(false));
-        assertFalse(harness.fastIsAuthorized(IEVC(address(evc))));
-    }
-
-    function testFastEvcRejectsShortOrDirtyBool() public {
-        MockEvcBool evc = new MockEvcBool();
-
-        evc.setResponse(new bytes(31));
-        vm.expectRevert(bytes(""));
-        harness.fastIsAuthorized(IEVC(address(evc)));
-
-        evc.setResponse(abi.encode(uint256(2)));
-        vm.expectRevert(bytes(""));
-        harness.fastIsAuthorized(IEVC(address(evc)));
     }
 
     function testUniswapV2BoundaryUsesCanonicalBit() public {
