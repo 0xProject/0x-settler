@@ -114,8 +114,6 @@ theorem model_unit_step {x : Nat} (h1 : 1 ≤ x) (h2 : x + 1 < 2 ^ 255) :
     · -- x = 10^18: decided
       subst hsp
       have h := toInt_of_sle (model_lt (by omega)) (model_lt (by omega)) hd.2
-      rw [show (10 : Nat) ^ 18 = 1000000000000000000 by decide,
-        show (10 : Nat) ^ 18 + 1 = 1000000000000000000 + 1 by decide] at h
       exact h
     · rcases Decidable.em (evmClz (x + 1) = evmClz x) with hclz | hclz
       · -- same octave: the analytic leg

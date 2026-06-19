@@ -73,7 +73,9 @@ jobs:
 
       - name: Guard generated artifacts are untracked
         run: |
-          test -z "$(git ls-files formal/sqrt/SqrtProof/SqrtProof/SqrtYul.lean)"
+          test -z "$(git ls-files \
+            formal/sqrt/SqrtProof/SqrtProof/SqrtYul.lean \
+            formal/sqrt/SqrtProof/SqrtProof/SqrtYulRuntime.lean)"
 
       - name: Update Lake dependencies
         working-directory: formal/sqrt/SqrtProof

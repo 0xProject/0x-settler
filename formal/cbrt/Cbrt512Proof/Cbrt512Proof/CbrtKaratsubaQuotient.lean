@@ -66,9 +66,17 @@ theorem limb_hi_correct (x_hi_1 x_lo_1 : Nat)
   have hor : evmOr (evmShl 84 (evmAnd 3 x_hi_1)) (evmShr 172 x_lo_1) =
       (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 := by
     rw [hshl, hshr]; unfold evmOr u256
-    simp [Nat.mod_eq_of_lt hprod_wm, Nat.mod_eq_of_lt hdiv_wm]
-    rw [show (x_hi_1 % 4) * 2 ^ 84 = (x_hi_1 % 4) <<< 84 from (Nat.shiftLeft_eq _ _).symm]
-    exact (Nat.shiftLeft_add_eq_or_of_lt hdiv_lt (x_hi_1 % 4)).symm
+    have hprod_wm_lit :
+        x_hi_1 % 4 * 19342813113834066795298816 < WORD_MOD := by
+      simpa using hprod_wm
+    have hdiv_wm_lit :
+        x_lo_1 / 5986310706507378352962293074805895248510699696029696 < WORD_MOD := by
+      simpa using hdiv_wm
+    simp [Nat.mod_eq_of_lt hprod_wm_lit, Nat.mod_eq_of_lt hdiv_wm_lit]
+    rw [show x_hi_1 % 4 * 19342813113834066795298816 =
+        (x_hi_1 % 4) <<< 84 from by
+          simpa using (Nat.shiftLeft_eq (x_hi_1 % 4) 84).symm]
+    simpa using (Nat.shiftLeft_add_eq_or_of_lt hdiv_lt (x_hi_1 % 4)).symm
   -- Step 5: bounds
   have hsum_lt : (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172 < 2 ^ 86 :=
     calc (x_hi_1 % 4) * 2 ^ 84 + x_lo_1 / 2 ^ 172

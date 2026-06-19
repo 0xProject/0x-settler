@@ -295,7 +295,7 @@ theorem model_cbrtBaseCase_evm_correct (x_hi_1 : Nat)
     suffices heq : (m + 1) * (m + 1) * (m + 1) = m * m * m + 3 * (m * m) + 3 * m + 1 by omega
     suffices hi : (↑((m + 1) * (m + 1) * (m + 1)) : Int) =
         ↑(m * m * m + 3 * (m * m) + 3 * m + 1) by exact_mod_cast hi
-    push_cast; simp [Int.add_mul, Int.mul_add, Int.mul_one, Int.one_mul]; omega
+    push_cast; simp [Int.add_mul, Int.mul_add]; omega
   -- ======== NR chain: 6 steps ========
   let s := (22141993662453218394297550 : Nat)
   have hs_lo : 2 ^ 83 ≤ s := by

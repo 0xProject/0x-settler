@@ -1647,24 +1647,36 @@ def runHelpers : ModelKind → String → String
 def normalizeHeader (src : String) : String :=
   src
 
-def addRuntimeImport (src : String) : String :=
-  src.replace "import Init
-" "import Init
-import FormalYul
-"
-
 def addRunHelpers (kind : ModelKind) (contractDef src : String) : String :=
   let marker := s!"end {kind.namespaceName}
 "
   src.replace marker (runHelpers kind contractDef ++ "
 " ++ marker)
 
-def render (kind : ModelKind) (input : String) : Except String String := do
+def render (kind : ModelKind) (_input : String) : Except String String := do
+  .ok <| template kind |> normalizeHeader
+
+def dropLeanExtension (path : String) : String :=
+  if path.endsWith ".lean" then path.dropRight ".lean".length else path
+
+def runtimeOutputPath (output : String) : String :=
+  dropLeanExtension output ++ "Runtime.lean"
+
+def moduleNameFromOutput (output : String) : String :=
+  match (dropLeanExtension output).splitOn "/" |>.reverse with
+  | name :: parent :: _ => parent ++ "." ++ name
+  | name :: _ => name
+  | [] => output
+
+def renderRuntime (kind : ModelKind) (input output : String) : Except String String := do
   let contractDef ← renderContract input
-  .ok <| template kind
-    |> normalizeHeader
-    |> addRuntimeImport
-    |> addRunHelpers kind contractDef
+  let modelModule := moduleNameFromOutput output
+  .ok <|
+    "import FormalYul\n" ++
+    "import " ++ modelModule ++ "\n\n" ++
+    "namespace " ++ kind.namespaceName ++ "\n\n" ++
+    runHelpers kind contractDef ++ "\n" ++
+    "end " ++ kind.namespaceName ++ "\n"
 
 def containsSubstr (haystack needle : String) : Bool :=
   if needle = "" then
@@ -1708,8 +1720,14 @@ def run (args : List String) : IO UInt32 := do
   let outputText ← match render kind input with
     | .ok outputText => pure outputText
     | .error err => throw <| IO.userError err
+  let runtimeText ← match renderRuntime kind input output with
+    | .ok runtimeText => pure runtimeText
+    | .error err => throw <| IO.userError err
+  let runtimeOutput := runtimeOutputPath output
   IO.FS.writeFile output outputText
+  IO.FS.writeFile runtimeOutput runtimeText
   IO.println s!"Generated {output}"
+  IO.println s!"Generated {runtimeOutput}"
   pure 0
 
 end YulImporter

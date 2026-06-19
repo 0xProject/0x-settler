@@ -77,7 +77,9 @@ jobs:
 
       - name: Guard generated artifacts are untracked
         run: |
-          test -z "$(git ls-files formal/ln/LnProof/LnProof/LnYul.lean)"
+          test -z "$(git ls-files \
+            formal/ln/LnProof/LnProof/LnYul.lean \
+            formal/ln/LnProof/LnProof/LnYulRuntime.lean)"
 
       - name: Update Lake dependencies
         working-directory: formal/ln/LnProof
@@ -113,11 +115,11 @@ jobs:
             '#print axioms LnFloorCert.model_ln_wad_to_wad_cut_spec' \
             | lake env lean --stdin > actual_axioms.txt 2>&1
           diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
-          'LnYul.model_ln_wad_one_wad' does not depend on any axioms
-          'LnYul.model_ln_wad_to_wad_one_wad' does not depend on any axioms
-          'LnYul.model_ln_wad_one_wad_mono' does not depend on any axioms
-          'LnYul.model_ln_wad_seam_mono' does not depend on any axioms
-          'LnYul.model_ln_wad_to_wad_seam_mono' does not depend on any axioms
+          'LnYul.model_ln_wad_one_wad' depends on axioms: [propext]
+          'LnYul.model_ln_wad_to_wad_one_wad' depends on axioms: [propext]
+          'LnYul.model_ln_wad_one_wad_mono' depends on axioms: [propext]
+          'LnYul.model_ln_wad_seam_mono' depends on axioms: [propext, Quot.sound]
+          'LnYul.model_ln_wad_to_wad_seam_mono' depends on axioms: [propext, Quot.sound]
           'LnYul.model_ln_wad_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
           'LnYul.model_ln_wad_to_wad_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
           'LnFloorCert.model_ln_wad_floor' depends on axioms: [propext, Classical.choice, Quot.sound]

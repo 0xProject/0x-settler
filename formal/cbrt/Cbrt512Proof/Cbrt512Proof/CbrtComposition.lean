@@ -24,6 +24,20 @@ namespace Cbrt512Spec
 
 open Cbrt512Yul
 
+set_option exponentiation.threshold 1024
+
+private theorem pow86_lit :
+    (77371252455336267181195264 : Nat) = 2 ^ 86 := by
+  decide
+
+private theorem pow172_lit :
+    (5986310706507378352962293074805895248510699696029696 : Nat) = 2 ^ 172 := by
+  decide
+
+private theorem pow258_lit :
+    (463168356949264781694283940034751631413079938662562256157830336031652518559744 : Nat) = 2 ^ 258 := by
+  decide
+
 -- ============================================================================
 -- Combined: r_qc_properties from sub-lemmas A, B, E
 -- ============================================================================
@@ -392,22 +406,40 @@ private theorem undershoot_implies_rem_gt_3Reps
   rcases h_cases with h_hi_lt | ⟨h_hi_eq, h_lo_lt⟩
   · -- Case 1: eps3 / 2^86 < nat_rem / 2^86
     have : eps3 / 2 ^ 86 < nat_rem / 2 ^ 86 := by
-      by_cases h : eps3 / 2 ^ 86 < nat_rem / 2 ^ 86
-      · exact h
-      · simp [h] at h_hi_lt
+      have h_lit :
+          eps3 / 77371252455336267181195264 <
+            nat_rem / 77371252455336267181195264 := by
+        by_cases h :
+            eps3 / 77371252455336267181195264 <
+              nat_rem / 77371252455336267181195264
+        · exact h
+        · simp [h] at h_hi_lt
+      simpa [pow86_lit] using h_lit
     have hlt := div_lt_implies_lt eps3 nat_rem this
     -- eps3 * R ≤ rem * 2^172 from eps3 < rem and R ≤ 2^172
     exact eps3_lt_rem_implies_prod_le eps3 nat_rem (m * 2 ^ 86)
       (by omega : m * 2 ^ 86 ≤ 2 ^ 172) hlt
   · -- Case 2: eps3 / 2^86 = nat_rem / 2^86 ∧ (eps3 % 2^86) * m < (nat_rem % 2^86) * 2^86
     have h_eq86 : eps3 / 2 ^ 86 = nat_rem / 2 ^ 86 := by
-      by_cases h : eps3 / 2 ^ 86 = nat_rem / 2 ^ 86
-      · exact h
-      · simp [h] at h_hi_eq
+      have h_lit :
+          eps3 / 77371252455336267181195264 =
+            nat_rem / 77371252455336267181195264 := by
+        by_cases h :
+            eps3 / 77371252455336267181195264 =
+              nat_rem / 77371252455336267181195264
+        · exact h
+        · simp [h] at h_hi_eq
+      simpa [pow86_lit] using h_lit
     have h_lo86 : (eps3 % 2 ^ 86) * m < (nat_rem % 2 ^ 86) * 2 ^ 86 := by
-      by_cases h : (eps3 % 2 ^ 86) * m < (nat_rem % 2 ^ 86) * 2 ^ 86
-      · exact h
-      · simp [h] at h_lo_lt
+      have h_lit :
+          eps3 % 77371252455336267181195264 * m <
+            nat_rem % 77371252455336267181195264 * 77371252455336267181195264 := by
+        by_cases h :
+            eps3 % 77371252455336267181195264 * m <
+              nat_rem % 77371252455336267181195264 * 77371252455336267181195264
+        · exact h
+        · simp [h] at h_lo_lt
+      simpa [pow86_lit] using h_lit
     -- eps3 * (m * 2^86) ≤ rem * 2^172 from the split-limb comparison
     exact split_limb_implies_prod_le eps3 nat_rem m
       (by omega : m ≤ 2 ^ 86) h_eq86 h_lo86
@@ -504,9 +536,12 @@ private theorem r_qc_cube_lt_x_norm (x_hi_1 x_lo_1 : Nat)
     cases Nat.eq_or_lt_of_le (Nat.zero_le t) with
     | inl ht0 =>
       rw [← ht0]; simp
-      have hc_pos : 0 < c := Nat.lt_trans (by omega : 0 < 1) hc_gt1
-      exact Nat.mul_pos (Nat.mul_pos (by omega : 0 < 3) hR_pos)
-        (Nat.mul_pos hc_pos hc_pos)
+      have hc_pos : 0 < c := by
+        dsimp [c]
+        exact Nat.lt_trans (by omega : 0 < 1) hc_gt1
+      exact Nat.succ_le_of_lt
+        (Nat.mul_pos (Nat.mul_pos (by decide : 0 < 3) hR_pos)
+          (Nat.mul_pos hc_pos hc_pos))
     | inr ht_pos =>
       have h1 : t * (t * t) < t * ((c + 1) * R) :=
         Nat.mul_lt_mul_of_pos_left ht_sq_lt ht_pos
@@ -844,7 +879,7 @@ private theorem r_qc_succ1_cube_gt_when_c_gt1_of_rem_bound (x_hi_1 x_lo_1 : Nat)
       R * R * R + 3 * (R * R) * nat_r_lo + nat_rem * 2 ^ 172 + c_tail := by
     calc x_hi_1 * 2 ^ 256 + x_lo_1
         = m * m * m * 2 ^ 258 + (3 * (m * m) * nat_r_lo + nat_rem) * 2 ^ 172 + c_tail := by
-            simpa [c_tail] using hx_decomp.trans (by rw [h_num_eq])
+            rw [hx_decomp, h_num_eq]
       _ = m * m * m * 2 ^ 258 + 3 * (m * m) * nat_r_lo * 2 ^ 172 + nat_rem * 2 ^ 172 + c_tail := by
             rw [Nat.add_mul]
             omega
@@ -958,8 +993,12 @@ private theorem r_qc_succ1_cube_gt_when_c_gt1_of_rem_bound (x_hi_1 x_lo_1 : Nat)
             rw [cube_sum_expand R s]
             omega
   have hsum : R + s = m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1 := by
+    have hpow :
+        m * 2 ^ 86 + (nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) =
+          m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1 := by
+      rw [← Nat.add_assoc, ← Nat.add_sub_assoc hc_le]
     dsimp [R, s, c]
-    rw [← Nat.add_assoc, ← Nat.add_sub_assoc hc_le]
+    simpa [← pow86_lit] using hpow
   calc
     x_hi_1 * 2 ^ 256 + x_lo_1 < (R + s) * (R + s) * (R + s) := hgoal
     _ = (m * 2 ^ 86 + nat_r_lo - nat_r_lo * nat_r_lo / (m * 2 ^ 86) + 1) *

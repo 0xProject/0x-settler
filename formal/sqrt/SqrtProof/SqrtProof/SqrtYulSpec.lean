@@ -268,7 +268,8 @@ private theorem seed_sum_lt_word
     seedOf i + x / seedOf i < WORD_MOD := by
   have hsPos : 0 < seedOf i := by
     have hpow : 0 < (2 : Nat) ^ ((i.val + 1) / 2) := Nat.pow_pos (by decide : 0 < (2 : Nat))
-    simpa [seedOf, Nat.shiftLeft_eq, Nat.one_mul] using hpow
+    rw [seedOf, Nat.shiftLeft_eq, Nat.one_mul]
+    exact hpow
   have hk_le : (i.val + 1) / 2 ≤ 128 := by omega
   have hz_le : seedOf i ≤ 2 ^ 128 := by
     unfold seedOf
@@ -284,7 +285,7 @@ private theorem seed_sum_lt_word
             rw [show 2 * ((i.val + 1) / 2) = ((i.val + 1) / 2) + ((i.val + 1) / 2) by omega, Nat.pow_add]
       _ = 2 * seedOf i * seedOf i := by
             unfold seedOf
-            simp [Nat.shiftLeft_eq, Nat.one_mul, Nat.mul_comm, Nat.mul_left_comm]
+            simp [Nat.shiftLeft_eq, Nat.mul_comm, Nat.mul_left_comm]
   have hxmul : x < 2 * seedOf i * seedOf i := by
     exact Nat.lt_of_lt_of_le hOct.2 (by simpa [hPowMul] using hPowLe)
   have hdiv : x / seedOf i < 2 * seedOf i := by
@@ -363,7 +364,8 @@ theorem model_sqrt_evm_eq_model_sqrt
     have hsPos : 0 < z0 := by
       dsimp [z0]
       have hpow : 0 < (2 : Nat) ^ ((i.val + 1) / 2) := Nat.pow_pos (by decide : 0 < (2 : Nat))
-      simpa [seedOf, Nat.shiftLeft_eq, Nat.one_mul] using hpow
+      rw [seedOf, Nat.shiftLeft_eq, Nat.one_mul]
+      exact hpow
     have hmz1 : m ≤ z1 := by
       dsimp [z1, z0]
       exact babylon_step_floor_bound x (seedOf i) m hsPos hmlo
@@ -913,7 +915,8 @@ private theorem innerSqrt_eq_natSqrt_of_square
     have hsPos : 0 < z0 := by
       dsimp [z0]
       have hpow : 0 < (2 : Nat) ^ ((i.val + 1) / 2) := Nat.pow_pos (by decide : 0 < (2 : Nat))
-      simpa [seedOf, Nat.shiftLeft_eq, Nat.one_mul] using hpow
+      rw [seedOf, Nat.shiftLeft_eq, Nat.one_mul]
+      exact hpow
     have hmz1 : m ≤ z1 := by
       dsimp [z1, z0]
       exact babylon_step_floor_bound x (seedOf i) m hsPos hmlo

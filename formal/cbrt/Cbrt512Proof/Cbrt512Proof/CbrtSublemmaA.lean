@@ -389,15 +389,10 @@ theorem r_qc_succ2_cube_gt (x_hi_1 x_lo_1 : Nat)
       -- In Nat: (r_lo - c + 2)² ≥ (r_lo - c)² + 4 since r_lo - c ≥ 0
       have h : (r_lo - c + 2) * (r_lo - c + 2) =
           (r_lo - c) * (r_lo - c) + 4 * (r_lo - c) + 4 := by
-        suffices hi : (↑((r_lo - c + 2) * (r_lo - c + 2)) : Int) =
-            ↑((r_lo - c) * (r_lo - c) + 4 * (r_lo - c) + 4) by exact_mod_cast hi
-        push_cast
-        have hsub : (↑(r_lo - c) : Int) = ↑r_lo - ↑c := by omega
-        rw [hsub]
-        simp only [show (4 : Int) = 2 * 2 from rfl, show (2 : Int) = 1 + 1 from rfl,
-                   Int.add_mul, Int.mul_add, Int.one_mul, Int.mul_one,
-                   Int.sub_mul, Int.mul_sub]
-        simp only [Int.mul_comm]; omega
+        let a := r_lo - c
+        change (a + 2) * (a + 2) = a * a + 4 * a + 4
+        simp [Nat.left_distrib, Nat.mul_comm]
+        omega
       omega
     -- s'² ≥ R(c-1) + 5
     have hs'sq_bound : R * (c - 1) + 5 ≤ (r_lo - c + 2) * (r_lo - c + 2) := by omega
@@ -417,7 +412,7 @@ theorem r_qc_succ2_cube_gt (x_hi_1 x_lo_1 : Nat)
     rw [hrlo1_split]
     -- Rewrite 3R²(c-1) = 3R·(R·(c-1))
     have hRR_assoc : 3 * (R * R) * (c - 1) = 3 * R * (R * (c - 1)) := by
-      simp only [Nat.mul_assoc, Nat.mul_left_comm]
+      ac_rfl
     rw [hRR_assoc]
     -- Goal: 3R²s' + 3R(R(c-1)) + 2^172 ≤ 3R²s' + 3Rs'² + s'³
     -- Need: 3R(R(c-1)) + 2^172 ≤ 3Rs'² + s'³
@@ -425,7 +420,8 @@ theorem r_qc_succ2_cube_gt (x_hi_1 x_lo_1 : Nat)
     -- From h15R: 2^172 ≤ 15R
     -- So 3R(R(c-1)) + 2^172 ≤ 3R(R(c-1)) + 15R ≤ 3Rs'² ≤ 3Rs'² + s'³
     have step1 : 3 * R * (R * (c - 1)) + 2 ^ 172 ≤
-        3 * R * (R * (c - 1)) + 15 * R := by omega
+        3 * R * (R * (c - 1)) + 15 * R :=
+      Nat.add_le_add_left h15R _
     have step2 : 3 * R * (R * (c - 1)) + 15 * R ≤
         3 * R * ((r_lo - c + 2) * (r_lo - c + 2)) := by
       -- 3R(R(c-1) + 5) ≤ 3Rs'² from h_3R_mul, and R(c-1) + 5 ≤ R(c-1) + 15R/3R...

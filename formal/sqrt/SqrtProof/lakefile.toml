@@ -1,6 +1,7 @@
 name = "SqrtProof"
 version = "0.1.0"
 defaultTargets = ["SqrtProof"]
+packagesDir = "../../yul/.lake/packages"
 
 [[lean_lib]]
 name = "SqrtProof"

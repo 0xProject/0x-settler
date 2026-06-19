@@ -1,6 +1,7 @@
 name = "LnProof"
 version = "0.1.0"
 defaultTargets = ["LnProof"]
+packagesDir = "../../yul/.lake/packages"
 
 [[lean_lib]]
 name = "LnProof"

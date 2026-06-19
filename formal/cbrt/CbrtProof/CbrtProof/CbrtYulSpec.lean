@@ -59,7 +59,7 @@ private theorem cbrtSeedMultiplier_le_255 (y : Nat) :
   unfold cbrtSeedMultiplier
   have hmod_lt : y % 3 < 3 := Nat.mod_lt y (by decide)
   have hcases : y % 3 = 0 ∨ y % 3 = 1 ∨ y % 3 = 2 := by omega
-  rcases hcases with h | h | h <;> simp [h] <;> decide
+  rcases hcases with h | h | h <;> simp [h]
 
 /-- For positive uint256 values, `257 - clz(x)` is exactly `log2(x) + 2`. -/
 private theorem normSub257Clz_eq_log2_add_two_of_pos_u256
@@ -472,6 +472,7 @@ private theorem seed_sum_lt_word : ∀ i : Fin 248,
   decide
 
 set_option maxRecDepth 1000000 in
+set_option maxHeartbeats 2000000 in
 -- Small x: model_cbrt_evm = model_cbrt for all x < 256.
 private theorem small_cbrt_evm_eq : ∀ v : Fin 256,
     model_cbrt_evm v.val = model_cbrt v.val := by

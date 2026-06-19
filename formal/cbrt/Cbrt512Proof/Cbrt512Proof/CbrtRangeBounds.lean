@@ -127,9 +127,11 @@ theorem r_qc_le_r_max (x_hi_1 x_lo_1 : Nat)
             omega
         _ ≤ 3 * (m * m) * 2 ^ 86 + 27 * (m * m) := Nat.add_le_add_left h27 _
         _ = (2 ^ 86 + 9) * d := h_rhs
+    have hM_pos : 1 ≤ M_TOP := by unfold M_TOP; omega
     -- R ≤ (M_TOP - 1) * 2^86
+    have hm_le_top_pred : m ≤ M_TOP - 1 := by omega
     have hR_le : R ≤ (M_TOP - 1) * 2 ^ 86 :=
-      Nat.mul_le_mul_right _ (by omega : m ≤ M_TOP - 1)
+      Nat.mul_le_mul_right _ hm_le_top_pred
     -- r_qc ≤ R + r_lo ≤ (M_TOP - 1) * 2^86 + 2^86 + 8 = M_TOP * 2^86 + 8
     have h_sum : R + r_lo ≤ M_TOP * 2 ^ 86 + 8 :=
       calc R + r_lo

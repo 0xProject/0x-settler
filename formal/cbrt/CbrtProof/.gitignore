@@ -6,3 +6,4 @@ lake-manifest.json
 
 # Auto-generated from solc Yul IR by `lake exe yul_importer`
 /CbrtProof/CbrtYul.lean
+/CbrtProof/CbrtYulRuntime.lean

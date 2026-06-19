@@ -17,6 +17,13 @@ namespace Cbrt512Spec
 
 open Cbrt512Yul
 
+set_option exponentiation.threshold 1024
+
+private theorem pow256_lit :
+    (115792089237316195423570985008687907853269984665640564039457584007913129639936 : Nat) =
+      2 ^ 256 := by
+  decide
+
 -- ============================================================================
 -- Section 1: x_hi = 0 branch — bridge to model_cbrt_up_evm
 -- ============================================================================
@@ -156,7 +163,13 @@ theorem model_cbrtUp512_wrapper_evm_correct (x_hi x_lo : Nat)
       have h_icbrt_lt : icbrt (x_hi * 2 ^ 256 + x_lo) * icbrt (x_hi * 2 ^ 256 + x_lo) *
           icbrt (x_hi * 2 ^ 256 + x_lo) < x_hi * 2 ^ 256 + x_lo := by
         rw [hr_eq] at hlt_x; unfold WORD_MOD at hlt_x; exact hlt_x
-      simp [h_icbrt_lt]
+      have h_icbrt_lt_lit :
+          icbrt (x_hi * 115792089237316195423570985008687907853269984665640564039457584007913129639936 + x_lo) *
+              icbrt (x_hi * 115792089237316195423570985008687907853269984665640564039457584007913129639936 + x_lo) *
+            icbrt (x_hi * 115792089237316195423570985008687907853269984665640564039457584007913129639936 + x_lo) <
+            x_hi * 115792089237316195423570985008687907853269984665640564039457584007913129639936 + x_lo := by
+        simpa [pow256_lit] using h_icbrt_lt
+      simp [h_icbrt_lt_lit]
     ·
       have hge_x : x_hi * WORD_MOD + x_lo ≤ r * r * r := Nat.not_lt.mp hlt_x
       have hcmp_zero : cmp = 0 := by
@@ -173,17 +186,23 @@ theorem model_cbrtUp512_wrapper_evm_correct (x_hi x_lo : Nat)
                  r = icbrt (x_hi * 2 ^ 256 + x_lo) + 1 := by omega
       rcases hrm with hr_eq | hr_eq
       ·
-        rw [hr_eq]
-        unfold cbrtUp512
-        have h_cube_le := icbrt_cube_le (x_hi * 2 ^ 256 + x_lo)
-        have hx_le_icbrt : x_hi * 2 ^ 256 + x_lo ≤
-            icbrt (x_hi * 2 ^ 256 + x_lo) * icbrt (x_hi * 2 ^ 256 + x_lo) *
-            icbrt (x_hi * 2 ^ 256 + x_lo) := by
-          rw [← hr_eq]; exact hx_le_rcube
-        have h_eq : ¬(icbrt (x_hi * 2 ^ 256 + x_lo) * icbrt (x_hi * 2 ^ 256 + x_lo) *
-            icbrt (x_hi * 2 ^ 256 + x_lo) < x_hi * 2 ^ 256 + x_lo) :=
-          Nat.not_lt.mpr hx_le_icbrt
-        simp [h_eq]
+          rw [hr_eq]
+          unfold cbrtUp512
+          have h_cube_le := icbrt_cube_le (x_hi * 2 ^ 256 + x_lo)
+          have hx_le_icbrt : x_hi * 2 ^ 256 + x_lo ≤
+              icbrt (x_hi * 2 ^ 256 + x_lo) * icbrt (x_hi * 2 ^ 256 + x_lo) *
+              icbrt (x_hi * 2 ^ 256 + x_lo) := by
+            rw [← hr_eq]; exact hx_le_rcube
+          have h_eq : ¬(icbrt (x_hi * 2 ^ 256 + x_lo) * icbrt (x_hi * 2 ^ 256 + x_lo) *
+              icbrt (x_hi * 2 ^ 256 + x_lo) < x_hi * 2 ^ 256 + x_lo) :=
+            Nat.not_lt.mpr hx_le_icbrt
+          have h_eq_lit :
+              ¬(icbrt (x_hi * 115792089237316195423570985008687907853269984665640564039457584007913129639936 + x_lo) *
+                  icbrt (x_hi * 115792089237316195423570985008687907853269984665640564039457584007913129639936 + x_lo) *
+                icbrt (x_hi * 115792089237316195423570985008687907853269984665640564039457584007913129639936 + x_lo) <
+                x_hi * 115792089237316195423570985008687907853269984665640564039457584007913129639936 + x_lo) := by
+            simpa [pow256_lit] using h_eq
+          simp [h_eq_lit]
       ·
         have h_rcube_gt : r * r * r > x_hi * 2 ^ 256 + x_lo := by
           have := icbrt_lt_succ_cube (x_hi * 2 ^ 256 + x_lo)

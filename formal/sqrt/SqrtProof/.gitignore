@@ -5,3 +5,4 @@
 
 # Auto-generated from solc Yul IR by `lake exe yul_importer`
 /SqrtProof/SqrtYul.lean
+/SqrtProof/SqrtYulRuntime.lean

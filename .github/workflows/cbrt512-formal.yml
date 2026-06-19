@@ -86,7 +86,9 @@ jobs:
         run: |
           test -z "$(git ls-files \
             formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean \
-            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512Yul.lean)"
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYulRuntime.lean \
+            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512Yul.lean \
+            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512YulRuntime.lean)"
 
       - name: Update Lake dependencies
         working-directory: formal/cbrt/Cbrt512Proof

@@ -73,7 +73,9 @@ jobs:
 
       - name: Guard generated artifacts are untracked
         run: |
-          test -z "$(git ls-files formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean)"
+          test -z "$(git ls-files \
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean \
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYulRuntime.lean)"
 
       - name: Update Lake dependencies
         working-directory: formal/cbrt/CbrtProof

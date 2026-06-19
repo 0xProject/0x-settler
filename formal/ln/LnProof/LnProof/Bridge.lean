@@ -28,12 +28,20 @@ theorem ipow255 :
       57896044618658097711785492504343953926634992332820282019728792003956564819968 := by
   rfl
 
+theorem npow256 :
+    (2 : Nat) ^ 256 =
+      115792089237316195423570985008687907853269984665640564039457584007913129639936 := by
+  rfl
+
 theorem word_mod_eq : WORD_MOD = 2 ^ 256 := rfl
 
 theorem u256_eq (w : Nat) : u256 w = w % 2 ^ 256 := rfl
 
 theorem u256_of_lt {w : Nat} (h : w < 2 ^ 256) : u256 w = w := by
-  simp [u256_eq, Nat.mod_eq_of_lt h]
+  have h_lit :
+      w < 115792089237316195423570985008687907853269984665640564039457584007913129639936 := by
+    simpa [npow256] using h
+  simp [u256_eq, Nat.mod_eq_of_lt h_lit]
 
 theorem toInt_lt {w : Nat} (h : w < 2 ^ 256) : toInt w < 2 ^ 255 := by
   unfold toInt; simp only [ipow255, ipow256]; split <;> omega

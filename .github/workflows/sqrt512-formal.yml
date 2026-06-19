@@ -84,7 +84,9 @@ jobs:
         run: |
           test -z "$(git ls-files \
             formal/sqrt/SqrtProof/SqrtProof/SqrtYul.lean \
-            formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512Yul.lean)"
+            formal/sqrt/SqrtProof/SqrtProof/SqrtYulRuntime.lean \
+            formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512Yul.lean \
+            formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512YulRuntime.lean)"
 
       - name: Update Lake dependencies
         working-directory: formal/sqrt/Sqrt512Proof

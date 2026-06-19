@@ -3,3 +3,4 @@ lake-manifest.json
 
 # Auto-generated from solc Yul IR by `lake exe yul_importer`
 /Cbrt512Proof/Cbrt512Yul.lean
+/Cbrt512Proof/Cbrt512YulRuntime.lean

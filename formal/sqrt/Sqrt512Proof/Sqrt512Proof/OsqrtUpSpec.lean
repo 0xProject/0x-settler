@@ -19,6 +19,8 @@ namespace Sqrt512Spec
 
 open Sqrt512Yul
 
+set_option exponentiation.threshold 1024
+
 -- ============================================================================
 -- Section 1: x_hi = 0 branch — bridge to model_sqrt_up_evm
 -- ============================================================================
@@ -299,7 +301,6 @@ private theorem add_with_carry (r needsUp : Nat) (hr : r < WORD_MOD)
 -- Section 5: Main theorem — model_osqrtUp_evm = sqrtUp512
 -- ============================================================================
 
-set_option exponentiation.threshold 1024 in
 /-- The EVM model of osqrtUp(uint512, uint512) computes sqrtUp512. -/
 theorem model_osqrtUp_evm_correct (x_hi x_lo : Nat)
     (hxhi : x_hi < 2 ^ 256) (hxlo : x_lo < 2 ^ 256) :

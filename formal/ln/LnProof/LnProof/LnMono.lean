@@ -57,15 +57,15 @@ private theorem ray_eval_one_wad :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (10 ^ 18) % 2 ^ 256 = 10 ^ 18 by decide]
-  rw [hlog]
+  simp only [show (10 ^ 18) % 2 ^ 256 = 10 ^ 18 by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_one_wad :
     model_ln_wad_to_wad_evm (10 ^ 18) = 0 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (10 ^ 18) % 2 ^ 256 = 10 ^ 18 by decide]
+  simp only [show (10 ^ 18) % 2 ^ 256 = 10 ^ 18 by decide]
   rw [ray_eval_one_wad]
   decide
 
@@ -75,8 +75,8 @@ private theorem ray_eval_one_wad_prev :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (10 ^ 18 - 1) % 2 ^ 256 = 10 ^ 18 - 1 by decide]
-  rw [hlog]
+  simp only [show (10 ^ 18 - 1) % 2 ^ 256 = 10 ^ 18 - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_one_wad_next :
@@ -85,8 +85,8 @@ private theorem ray_eval_one_wad_next :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (10 ^ 18 + 1) % 2 ^ 256 = 10 ^ 18 + 1 by decide]
-  rw [hlog]
+  simp only [show (10 ^ 18 + 1) % 2 ^ 256 = 10 ^ 18 + 1 by decide]
+  simp only [hlog]
   decide
 
 /-- `lnWad(10**18) = 0` exactly. -/
@@ -122,8 +122,8 @@ private theorem ray_eval_seam_0_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (0 + 1) - 1) % 2 ^ 256 = 2 ^ (0 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (0 + 1) - 1) % 2 ^ 256 = 2 ^ (0 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_0_hi :
@@ -132,15 +132,15 @@ private theorem ray_eval_seam_0_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (0 + 1)) % 2 ^ 256 = 2 ^ (0 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (0 + 1)) % 2 ^ 256 = 2 ^ (0 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_0_lo :
     model_ln_wad_to_wad_evm (2 ^ (0 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039416137476239236817623 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (0 + 1) - 1) % 2 ^ 256 = 2 ^ (0 + 1) - 1 by decide]
+  simp only [show (2 ^ (0 + 1) - 1) % 2 ^ 256 = 2 ^ (0 + 1) - 1 by decide]
   rw [ray_eval_seam_0_lo]
   decide
 
@@ -148,7 +148,7 @@ private theorem wad_eval_seam_0_hi :
     model_ln_wad_to_wad_evm (2 ^ (0 + 1)) = 115792089237316195423570985008687907853269984665640564039416830623419796762933 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (0 + 1)) % 2 ^ 256 = 2 ^ (0 + 1) by decide]
+  simp only [show (2 ^ (0 + 1)) % 2 ^ 256 = 2 ^ (0 + 1) by decide]
   rw [ray_eval_seam_0_hi]
   decide
 
@@ -170,8 +170,8 @@ private theorem ray_eval_seam_1_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (1 + 1) - 1) % 2 ^ 256 = 2 ^ (1 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (1 + 1) - 1) % 2 ^ 256 = 2 ^ (1 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_1_hi :
@@ -180,15 +180,15 @@ private theorem ray_eval_seam_1_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (1 + 1)) % 2 ^ 256 = 2 ^ (1 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (1 + 1)) % 2 ^ 256 = 2 ^ (1 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_1_lo :
     model_ln_wad_to_wad_evm (2 ^ (1 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039417236088527904927315 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (1 + 1) - 1) % 2 ^ 256 = 2 ^ (1 + 1) - 1 by decide]
+  simp only [show (2 ^ (1 + 1) - 1) % 2 ^ 256 = 2 ^ (1 + 1) - 1 by decide]
   rw [ray_eval_seam_1_lo]
   decide
 
@@ -196,7 +196,7 @@ private theorem wad_eval_seam_1_hi :
     model_ln_wad_to_wad_evm (2 ^ (1 + 1)) = 115792089237316195423570985008687907853269984665640564039417523770600356708242 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (1 + 1)) % 2 ^ 256 = 2 ^ (1 + 1) by decide]
+  simp only [show (2 ^ (1 + 1)) % 2 ^ 256 = 2 ^ (1 + 1) by decide]
   rw [ray_eval_seam_1_hi]
   decide
 
@@ -218,8 +218,8 @@ private theorem ray_eval_seam_2_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (2 + 1) - 1) % 2 ^ 256 = 2 ^ (2 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (2 + 1) - 1) % 2 ^ 256 = 2 ^ (2 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_2_hi :
@@ -228,15 +228,15 @@ private theorem ray_eval_seam_2_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (2 + 1)) % 2 ^ 256 = 2 ^ (2 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (2 + 1)) % 2 ^ 256 = 2 ^ (2 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_2_lo :
     model_ln_wad_to_wad_evm (2 ^ (2 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039418083386388292130928 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (2 + 1) - 1) % 2 ^ 256 = 2 ^ (2 + 1) - 1 by decide]
+  simp only [show (2 ^ (2 + 1) - 1) % 2 ^ 256 = 2 ^ (2 + 1) - 1 by decide]
   rw [ray_eval_seam_2_lo]
   decide
 
@@ -244,7 +244,7 @@ private theorem wad_eval_seam_2_hi :
     model_ln_wad_to_wad_evm (2 ^ (2 + 1)) = 115792089237316195423570985008687907853269984665640564039418216917780916653551 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (2 + 1)) % 2 ^ 256 = 2 ^ (2 + 1) by decide]
+  simp only [show (2 ^ (2 + 1)) % 2 ^ 256 = 2 ^ (2 + 1) by decide]
   rw [ray_eval_seam_2_hi]
   decide
 
@@ -266,8 +266,8 @@ private theorem ray_eval_seam_3_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (3 + 1) - 1) % 2 ^ 256 = 2 ^ (3 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (3 + 1) - 1) % 2 ^ 256 = 2 ^ (3 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_3_hi :
@@ -276,15 +276,15 @@ private theorem ray_eval_seam_3_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (3 + 1)) % 2 ^ 256 = 2 ^ (3 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (3 + 1)) % 2 ^ 256 = 2 ^ (3 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_3_lo :
     model_ln_wad_to_wad_evm (2 ^ (3 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039418845526440339027689 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (3 + 1) - 1) % 2 ^ 256 = 2 ^ (3 + 1) - 1 by decide]
+  simp only [show (2 ^ (3 + 1) - 1) % 2 ^ 256 = 2 ^ (3 + 1) - 1 by decide]
   rw [ray_eval_seam_3_lo]
   decide
 
@@ -292,7 +292,7 @@ private theorem wad_eval_seam_3_hi :
     model_ln_wad_to_wad_evm (2 ^ (3 + 1)) = 115792089237316195423570985008687907853269984665640564039418910064961476598861 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (3 + 1)) % 2 ^ 256 = 2 ^ (3 + 1) by decide]
+  simp only [show (2 ^ (3 + 1)) % 2 ^ 256 = 2 ^ (3 + 1) by decide]
   rw [ray_eval_seam_3_hi]
   decide
 
@@ -314,8 +314,8 @@ private theorem ray_eval_seam_4_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (4 + 1) - 1) % 2 ^ 256 = 2 ^ (4 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (4 + 1) - 1) % 2 ^ 256 = 2 ^ (4 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_4_hi :
@@ -324,15 +324,15 @@ private theorem ray_eval_seam_4_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (4 + 1)) % 2 ^ 256 = 2 ^ (4 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (4 + 1)) % 2 ^ 256 = 2 ^ (4 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_4_lo :
     model_ln_wad_to_wad_evm (2 ^ (4 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039419571463443721963869 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (4 + 1) - 1) % 2 ^ 256 = 2 ^ (4 + 1) - 1 by decide]
+  simp only [show (2 ^ (4 + 1) - 1) % 2 ^ 256 = 2 ^ (4 + 1) - 1 by decide]
   rw [ray_eval_seam_4_lo]
   decide
 
@@ -340,7 +340,7 @@ private theorem wad_eval_seam_4_hi :
     model_ln_wad_to_wad_evm (2 ^ (4 + 1)) = 115792089237316195423570985008687907853269984665640564039419603212142036544170 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (4 + 1)) % 2 ^ 256 = 2 ^ (4 + 1) by decide]
+  simp only [show (2 ^ (4 + 1)) % 2 ^ 256 = 2 ^ (4 + 1) by decide]
   rw [ray_eval_seam_4_hi]
   decide
 
@@ -362,8 +362,8 @@ private theorem ray_eval_seam_5_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (5 + 1) - 1) % 2 ^ 256 = 2 ^ (5 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (5 + 1) - 1) % 2 ^ 256 = 2 ^ (5 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_5_hi :
@@ -372,15 +372,15 @@ private theorem ray_eval_seam_5_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (5 + 1)) % 2 ^ 256 = 2 ^ (5 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (5 + 1)) % 2 ^ 256 = 2 ^ (5 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_5_lo :
     model_ln_wad_to_wad_evm (2 ^ (5 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039420280610965628350311 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (5 + 1) - 1) % 2 ^ 256 = 2 ^ (5 + 1) - 1 by decide]
+  simp only [show (2 ^ (5 + 1) - 1) % 2 ^ 256 = 2 ^ (5 + 1) - 1 by decide]
   rw [ray_eval_seam_5_lo]
   decide
 
@@ -388,7 +388,7 @@ private theorem wad_eval_seam_5_hi :
     model_ln_wad_to_wad_evm (2 ^ (5 + 1)) = 115792089237316195423570985008687907853269984665640564039420296359322596489480 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (5 + 1)) % 2 ^ 256 = 2 ^ (5 + 1) by decide]
+  simp only [show (2 ^ (5 + 1)) % 2 ^ 256 = 2 ^ (5 + 1) by decide]
   rw [ray_eval_seam_5_hi]
   decide
 
@@ -410,8 +410,8 @@ private theorem ray_eval_seam_6_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (6 + 1) - 1) % 2 ^ 256 = 2 ^ (6 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (6 + 1) - 1) % 2 ^ 256 = 2 ^ (6 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_6_hi :
@@ -420,15 +420,15 @@ private theorem ray_eval_seam_6_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (6 + 1)) % 2 ^ 256 = 2 ^ (6 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (6 + 1)) % 2 ^ 256 = 2 ^ (6 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_6_lo :
     model_ln_wad_to_wad_evm (2 ^ (6 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039420981663325695408896 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (6 + 1) - 1) % 2 ^ 256 = 2 ^ (6 + 1) - 1 by decide]
+  simp only [show (2 ^ (6 + 1) - 1) % 2 ^ 256 = 2 ^ (6 + 1) - 1 by decide]
   rw [ray_eval_seam_6_lo]
   decide
 
@@ -436,7 +436,7 @@ private theorem wad_eval_seam_6_hi :
     model_ln_wad_to_wad_evm (2 ^ (6 + 1)) = 115792089237316195423570985008687907853269984665640564039420989506503156434789 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (6 + 1)) % 2 ^ 256 = 2 ^ (6 + 1) by decide]
+  simp only [show (2 ^ (6 + 1)) % 2 ^ 256 = 2 ^ (6 + 1) by decide]
   rw [ray_eval_seam_6_hi]
   decide
 
@@ -458,8 +458,8 @@ private theorem ray_eval_seam_7_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (7 + 1) - 1) % 2 ^ 256 = 2 ^ (7 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (7 + 1) - 1) % 2 ^ 256 = 2 ^ (7 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_7_hi :
@@ -468,15 +468,15 @@ private theorem ray_eval_seam_7_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (7 + 1)) % 2 ^ 256 = 2 ^ (7 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (7 + 1)) % 2 ^ 256 = 2 ^ (7 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_7_lo :
     model_ln_wad_to_wad_evm (2 ^ (7 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039421678739784395243769 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (7 + 1) - 1) % 2 ^ 256 = 2 ^ (7 + 1) - 1 by decide]
+  simp only [show (2 ^ (7 + 1) - 1) % 2 ^ 256 = 2 ^ (7 + 1) - 1 by decide]
   rw [ray_eval_seam_7_lo]
   decide
 
@@ -484,7 +484,7 @@ private theorem wad_eval_seam_7_hi :
     model_ln_wad_to_wad_evm (2 ^ (7 + 1)) = 115792089237316195423570985008687907853269984665640564039421682653683716380099 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (7 + 1)) % 2 ^ 256 = 2 ^ (7 + 1) by decide]
+  simp only [show (2 ^ (7 + 1)) % 2 ^ 256 = 2 ^ (7 + 1) by decide]
   rw [ray_eval_seam_7_hi]
   decide
 
@@ -506,8 +506,8 @@ private theorem ray_eval_seam_8_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (8 + 1) - 1) % 2 ^ 256 = 2 ^ (8 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (8 + 1) - 1) % 2 ^ 256 = 2 ^ (8 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_8_hi :
@@ -516,15 +516,15 @@ private theorem ray_eval_seam_8_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (8 + 1)) % 2 ^ 256 = 2 ^ (8 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (8 + 1)) % 2 ^ 256 = 2 ^ (8 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_8_lo :
     model_ln_wad_to_wad_evm (2 ^ (8 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039422373845829440522057 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (8 + 1) - 1) % 2 ^ 256 = 2 ^ (8 + 1) - 1 by decide]
+  simp only [show (2 ^ (8 + 1) - 1) % 2 ^ 256 = 2 ^ (8 + 1) - 1 by decide]
   rw [ray_eval_seam_8_lo]
   decide
 
@@ -532,7 +532,7 @@ private theorem wad_eval_seam_8_hi :
     model_ln_wad_to_wad_evm (2 ^ (8 + 1)) = 115792089237316195423570985008687907853269984665640564039422375800864276325408 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (8 + 1)) % 2 ^ 256 = 2 ^ (8 + 1) by decide]
+  simp only [show (2 ^ (8 + 1)) % 2 ^ 256 = 2 ^ (8 + 1) by decide]
   rw [ray_eval_seam_8_hi]
   decide
 
@@ -554,8 +554,8 @@ private theorem ray_eval_seam_9_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (9 + 1) - 1) % 2 ^ 256 = 2 ^ (9 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (9 + 1) - 1) % 2 ^ 256 = 2 ^ (9 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_9_hi :
@@ -564,15 +564,15 @@ private theorem ray_eval_seam_9_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (9 + 1)) % 2 ^ 256 = 2 ^ (9 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (9 + 1)) % 2 ^ 256 = 2 ^ (9 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_9_lo :
     model_ln_wad_to_wad_evm (2 ^ (9 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039423067971005188444105 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (9 + 1) - 1) % 2 ^ 256 = 2 ^ (9 + 1) - 1 by decide]
+  simp only [show (2 ^ (9 + 1) - 1) % 2 ^ 256 = 2 ^ (9 + 1) - 1 by decide]
   rw [ray_eval_seam_9_lo]
   decide
 
@@ -580,7 +580,7 @@ private theorem wad_eval_seam_9_hi :
     model_ln_wad_to_wad_evm (2 ^ (9 + 1)) = 115792089237316195423570985008687907853269984665640564039423068948044836270717 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (9 + 1)) % 2 ^ 256 = 2 ^ (9 + 1) by decide]
+  simp only [show (2 ^ (9 + 1)) % 2 ^ 256 = 2 ^ (9 + 1) by decide]
   rw [ray_eval_seam_9_hi]
   decide
 
@@ -602,8 +602,8 @@ private theorem ray_eval_seam_10_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (10 + 1) - 1) % 2 ^ 256 = 2 ^ (10 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (10 + 1) - 1) % 2 ^ 256 = 2 ^ (10 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_10_hi :
@@ -612,15 +612,15 @@ private theorem ray_eval_seam_10_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (10 + 1)) % 2 ^ 256 = 2 ^ (10 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (10 + 1)) % 2 ^ 256 = 2 ^ (10 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_10_lo :
     model_ln_wad_to_wad_evm (2 ^ (10 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039423761606824898107152 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (10 + 1) - 1) % 2 ^ 256 = 2 ^ (10 + 1) - 1 by decide]
+  simp only [show (2 ^ (10 + 1) - 1) % 2 ^ 256 = 2 ^ (10 + 1) - 1 by decide]
   rw [ray_eval_seam_10_lo]
   decide
 
@@ -628,7 +628,7 @@ private theorem wad_eval_seam_10_hi :
     model_ln_wad_to_wad_evm (2 ^ (10 + 1)) = 115792089237316195423570985008687907853269984665640564039423762095225396216027 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (10 + 1)) % 2 ^ 256 = 2 ^ (10 + 1) by decide]
+  simp only [show (2 ^ (10 + 1)) % 2 ^ 256 = 2 ^ (10 + 1) by decide]
   rw [ray_eval_seam_10_hi]
   decide
 
@@ -650,8 +650,8 @@ private theorem ray_eval_seam_11_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (11 + 1) - 1) % 2 ^ 256 = 2 ^ (11 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (11 + 1) - 1) % 2 ^ 256 = 2 ^ (11 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_11_hi :
@@ -660,15 +660,15 @@ private theorem ray_eval_seam_11_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (11 + 1)) % 2 ^ 256 = 2 ^ (11 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (11 + 1)) % 2 ^ 256 = 2 ^ (11 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_11_lo :
     model_ln_wad_to_wad_evm (2 ^ (11 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039424454998235523987422 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (11 + 1) - 1) % 2 ^ 256 = 2 ^ (11 + 1) - 1 by decide]
+  simp only [show (2 ^ (11 + 1) - 1) % 2 ^ 256 = 2 ^ (11 + 1) - 1 by decide]
   rw [ray_eval_seam_11_lo]
   decide
 
@@ -676,7 +676,7 @@ private theorem wad_eval_seam_11_hi :
     model_ln_wad_to_wad_evm (2 ^ (11 + 1)) = 115792089237316195423570985008687907853269984665640564039424455242405956161336 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (11 + 1)) % 2 ^ 256 = 2 ^ (11 + 1) by decide]
+  simp only [show (2 ^ (11 + 1)) % 2 ^ 256 = 2 ^ (11 + 1) by decide]
   rw [ray_eval_seam_11_hi]
   decide
 
@@ -698,8 +698,8 @@ private theorem ray_eval_seam_12_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (12 + 1) - 1) % 2 ^ 256 = 2 ^ (12 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (12 + 1) - 1) % 2 ^ 256 = 2 ^ (12 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_12_hi :
@@ -708,15 +708,15 @@ private theorem ray_eval_seam_12_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (12 + 1)) % 2 ^ 256 = 2 ^ (12 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (12 + 1)) % 2 ^ 256 = 2 ^ (12 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_12_lo :
     model_ln_wad_to_wad_evm (2 ^ (12 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039425148267508752419663 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (12 + 1) - 1) % 2 ^ 256 = 2 ^ (12 + 1) - 1 by decide]
+  simp only [show (2 ^ (12 + 1) - 1) % 2 ^ 256 = 2 ^ (12 + 1) - 1 by decide]
   rw [ray_eval_seam_12_lo]
   decide
 
@@ -724,7 +724,7 @@ private theorem wad_eval_seam_12_hi :
     model_ln_wad_to_wad_evm (2 ^ (12 + 1)) = 115792089237316195423570985008687907853269984665640564039425148389586516106646 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (12 + 1)) % 2 ^ 256 = 2 ^ (12 + 1) by decide]
+  simp only [show (2 ^ (12 + 1)) % 2 ^ 256 = 2 ^ (12 + 1) by decide]
   rw [ray_eval_seam_12_hi]
   decide
 
@@ -746,8 +746,8 @@ private theorem ray_eval_seam_13_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (13 + 1) - 1) % 2 ^ 256 = 2 ^ (13 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (13 + 1) - 1) % 2 ^ 256 = 2 ^ (13 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_13_hi :
@@ -756,15 +756,15 @@ private theorem ray_eval_seam_13_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (13 + 1)) % 2 ^ 256 = 2 ^ (13 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (13 + 1)) % 2 ^ 256 = 2 ^ (13 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_13_lo :
     model_ln_wad_to_wad_evm (2 ^ (13 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039425841475730057081011 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (13 + 1) - 1) % 2 ^ 256 = 2 ^ (13 + 1) - 1 by decide]
+  simp only [show (2 ^ (13 + 1) - 1) % 2 ^ 256 = 2 ^ (13 + 1) - 1 by decide]
   rw [ray_eval_seam_13_lo]
   decide
 
@@ -772,7 +772,7 @@ private theorem wad_eval_seam_13_hi :
     model_ln_wad_to_wad_evm (2 ^ (13 + 1)) = 115792089237316195423570985008687907853269984665640564039425841536767076051955 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (13 + 1)) % 2 ^ 256 = 2 ^ (13 + 1) by decide]
+  simp only [show (2 ^ (13 + 1)) % 2 ^ 256 = 2 ^ (13 + 1) by decide]
   rw [ray_eval_seam_13_hi]
   decide
 
@@ -794,8 +794,8 @@ private theorem ray_eval_seam_14_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (14 + 1) - 1) % 2 ^ 256 = 2 ^ (14 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (14 + 1) - 1) % 2 ^ 256 = 2 ^ (14 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_14_hi :
@@ -804,15 +804,15 @@ private theorem ray_eval_seam_14_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (14 + 1)) % 2 ^ 256 = 2 ^ (14 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (14 + 1)) % 2 ^ 256 = 2 ^ (14 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_14_lo :
     model_ln_wad_to_wad_evm (2 ^ (14 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039426534653429592201503 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (14 + 1) - 1) % 2 ^ 256 = 2 ^ (14 + 1) - 1 by decide]
+  simp only [show (2 ^ (14 + 1) - 1) % 2 ^ 256 = 2 ^ (14 + 1) - 1 by decide]
   rw [ray_eval_seam_14_lo]
   decide
 
@@ -820,7 +820,7 @@ private theorem wad_eval_seam_14_hi :
     model_ln_wad_to_wad_evm (2 ^ (14 + 1)) = 115792089237316195423570985008687907853269984665640564039426534683947635997264 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (14 + 1)) % 2 ^ 256 = 2 ^ (14 + 1) by decide]
+  simp only [show (2 ^ (14 + 1)) % 2 ^ 256 = 2 ^ (14 + 1) by decide]
   rw [ray_eval_seam_14_hi]
   decide
 
@@ -842,8 +842,8 @@ private theorem ray_eval_seam_15_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (15 + 1) - 1) % 2 ^ 256 = 2 ^ (15 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (15 + 1) - 1) % 2 ^ 256 = 2 ^ (15 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_15_hi :
@@ -852,15 +852,15 @@ private theorem ray_eval_seam_15_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (15 + 1)) % 2 ^ 256 = 2 ^ (15 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (15 + 1)) % 2 ^ 256 = 2 ^ (15 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_15_lo :
     model_ln_wad_to_wad_evm (2 ^ (15 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039427227815869290463568 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (15 + 1) - 1) % 2 ^ 256 = 2 ^ (15 + 1) - 1 by decide]
+  simp only [show (2 ^ (15 + 1) - 1) % 2 ^ 256 = 2 ^ (15 + 1) - 1 by decide]
   rw [ray_eval_seam_15_lo]
   decide
 
@@ -868,7 +868,7 @@ private theorem wad_eval_seam_15_hi :
     model_ln_wad_to_wad_evm (2 ^ (15 + 1)) = 115792089237316195423570985008687907853269984665640564039427227831128195942574 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (15 + 1)) % 2 ^ 256 = 2 ^ (15 + 1) by decide]
+  simp only [show (2 ^ (15 + 1)) % 2 ^ 256 = 2 ^ (15 + 1) by decide]
   rw [ray_eval_seam_15_hi]
   decide
 
@@ -890,8 +890,8 @@ private theorem ray_eval_seam_16_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (16 + 1) - 1) % 2 ^ 256 = 2 ^ (16 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (16 + 1) - 1) % 2 ^ 256 = 2 ^ (16 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_16_hi :
@@ -900,15 +900,15 @@ private theorem ray_eval_seam_16_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (16 + 1)) % 2 ^ 256 = 2 ^ (16 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (16 + 1)) % 2 ^ 256 = 2 ^ (16 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_16_lo :
     model_ln_wad_to_wad_evm (2 ^ (16 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039427920970679332252655 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (16 + 1) - 1) % 2 ^ 256 = 2 ^ (16 + 1) - 1 by decide]
+  simp only [show (2 ^ (16 + 1) - 1) % 2 ^ 256 = 2 ^ (16 + 1) - 1 by decide]
   rw [ray_eval_seam_16_lo]
   decide
 
@@ -916,7 +916,7 @@ private theorem wad_eval_seam_16_hi :
     model_ln_wad_to_wad_evm (2 ^ (16 + 1)) = 115792089237316195423570985008687907853269984665640564039427920978308755887883 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (16 + 1)) % 2 ^ 256 = 2 ^ (16 + 1) by decide]
+  simp only [show (2 ^ (16 + 1)) % 2 ^ 256 = 2 ^ (16 + 1) by decide]
   rw [ray_eval_seam_16_hi]
   decide
 
@@ -938,8 +938,8 @@ private theorem ray_eval_seam_17_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (17 + 1) - 1) % 2 ^ 256 = 2 ^ (17 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (17 + 1) - 1) % 2 ^ 256 = 2 ^ (17 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_17_hi :
@@ -948,15 +948,15 @@ private theorem ray_eval_seam_17_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (17 + 1)) % 2 ^ 256 = 2 ^ (17 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (17 + 1)) % 2 ^ 256 = 2 ^ (17 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_17_lo :
     model_ln_wad_to_wad_evm (2 ^ (17 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039428614121674611291592 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (17 + 1) - 1) % 2 ^ 256 = 2 ^ (17 + 1) - 1 by decide]
+  simp only [show (2 ^ (17 + 1) - 1) % 2 ^ 256 = 2 ^ (17 + 1) - 1 by decide]
   rw [ray_eval_seam_17_lo]
   decide
 
@@ -964,7 +964,7 @@ private theorem wad_eval_seam_17_hi :
     model_ln_wad_to_wad_evm (2 ^ (17 + 1)) = 115792089237316195423570985008687907853269984665640564039428614125489315833193 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (17 + 1)) % 2 ^ 256 = 2 ^ (17 + 1) by decide]
+  simp only [show (2 ^ (17 + 1)) % 2 ^ 256 = 2 ^ (17 + 1) by decide]
   rw [ray_eval_seam_17_hi]
   decide
 
@@ -986,8 +986,8 @@ private theorem ray_eval_seam_18_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (18 + 1) - 1) % 2 ^ 256 = 2 ^ (18 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (18 + 1) - 1) % 2 ^ 256 = 2 ^ (18 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_18_hi :
@@ -996,15 +996,15 @@ private theorem ray_eval_seam_18_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (18 + 1)) % 2 ^ 256 = 2 ^ (18 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (18 + 1)) % 2 ^ 256 = 2 ^ (18 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_18_lo :
     model_ln_wad_to_wad_evm (2 ^ (18 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039429307270762525326698 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (18 + 1) - 1) % 2 ^ 256 = 2 ^ (18 + 1) - 1 by decide]
+  simp only [show (2 ^ (18 + 1) - 1) % 2 ^ 256 = 2 ^ (18 + 1) - 1 by decide]
   rw [ray_eval_seam_18_lo]
   decide
 
@@ -1012,7 +1012,7 @@ private theorem wad_eval_seam_18_hi :
     model_ln_wad_to_wad_evm (2 ^ (18 + 1)) = 115792089237316195423570985008687907853269984665640564039429307272669875778502 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (18 + 1)) % 2 ^ 256 = 2 ^ (18 + 1) by decide]
+  simp only [show (2 ^ (18 + 1)) % 2 ^ 256 = 2 ^ (18 + 1) by decide]
   rw [ray_eval_seam_18_hi]
   decide
 
@@ -1034,8 +1034,8 @@ private theorem ray_eval_seam_19_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (19 + 1) - 1) % 2 ^ 256 = 2 ^ (19 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (19 + 1) - 1) % 2 ^ 256 = 2 ^ (19 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_19_hi :
@@ -1044,15 +1044,15 @@ private theorem ray_eval_seam_19_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (19 + 1)) % 2 ^ 256 = 2 ^ (19 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (19 + 1)) % 2 ^ 256 = 2 ^ (19 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_19_lo :
     model_ln_wad_to_wad_evm (2 ^ (19 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039430000418896760952658 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (19 + 1) - 1) % 2 ^ 256 = 2 ^ (19 + 1) - 1 by decide]
+  simp only [show (2 ^ (19 + 1) - 1) % 2 ^ 256 = 2 ^ (19 + 1) - 1 by decide]
   rw [ray_eval_seam_19_lo]
   decide
 
@@ -1060,7 +1060,7 @@ private theorem wad_eval_seam_19_hi :
     model_ln_wad_to_wad_evm (2 ^ (19 + 1)) = 115792089237316195423570985008687907853269984665640564039430000419850435723812 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (19 + 1)) % 2 ^ 256 = 2 ^ (19 + 1) by decide]
+  simp only [show (2 ^ (19 + 1)) % 2 ^ 256 = 2 ^ (19 + 1) by decide]
   rw [ray_eval_seam_19_hi]
   decide
 
@@ -1082,8 +1082,8 @@ private theorem ray_eval_seam_20_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (20 + 1) - 1) % 2 ^ 256 = 2 ^ (20 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (20 + 1) - 1) % 2 ^ 256 = 2 ^ (20 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_20_hi :
@@ -1092,15 +1092,15 @@ private theorem ray_eval_seam_20_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (20 + 1)) % 2 ^ 256 = 2 ^ (20 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (20 + 1)) % 2 ^ 256 = 2 ^ (20 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_20_lo :
     model_ln_wad_to_wad_evm (2 ^ (20 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039430693566554158397231 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (20 + 1) - 1) % 2 ^ 256 = 2 ^ (20 + 1) - 1 by decide]
+  simp only [show (2 ^ (20 + 1) - 1) % 2 ^ 256 = 2 ^ (20 + 1) - 1 by decide]
   rw [ray_eval_seam_20_lo]
   decide
 
@@ -1108,7 +1108,7 @@ private theorem wad_eval_seam_20_hi :
     model_ln_wad_to_wad_evm (2 ^ (20 + 1)) = 115792089237316195423570985008687907853269984665640564039430693567030995669121 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (20 + 1)) % 2 ^ 256 = 2 ^ (20 + 1) by decide]
+  simp only [show (2 ^ (20 + 1)) % 2 ^ 256 = 2 ^ (20 + 1) by decide]
   rw [ray_eval_seam_20_hi]
   decide
 
@@ -1130,8 +1130,8 @@ private theorem ray_eval_seam_21_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (21 + 1) - 1) % 2 ^ 256 = 2 ^ (21 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (21 + 1) - 1) % 2 ^ 256 = 2 ^ (21 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_21_hi :
@@ -1140,15 +1140,15 @@ private theorem ray_eval_seam_21_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (21 + 1)) % 2 ^ 256 = 2 ^ (21 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (21 + 1)) % 2 ^ 256 = 2 ^ (21 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_21_lo :
     model_ln_wad_to_wad_evm (2 ^ (21 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039431386713973137006907 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (21 + 1) - 1) % 2 ^ 256 = 2 ^ (21 + 1) - 1 by decide]
+  simp only [show (2 ^ (21 + 1) - 1) % 2 ^ 256 = 2 ^ (21 + 1) - 1 by decide]
   rw [ray_eval_seam_21_lo]
   decide
 
@@ -1156,7 +1156,7 @@ private theorem wad_eval_seam_21_hi :
     model_ln_wad_to_wad_evm (2 ^ (21 + 1)) = 115792089237316195423570985008687907853269984665640564039431386714211555614430 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (21 + 1)) % 2 ^ 256 = 2 ^ (21 + 1) by decide]
+  simp only [show (2 ^ (21 + 1)) % 2 ^ 256 = 2 ^ (21 + 1) by decide]
   rw [ray_eval_seam_21_hi]
   decide
 
@@ -1178,8 +1178,8 @@ private theorem ray_eval_seam_22_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (22 + 1) - 1) % 2 ^ 256 = 2 ^ (22 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (22 + 1) - 1) % 2 ^ 256 = 2 ^ (22 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_22_hi :
@@ -1188,15 +1188,15 @@ private theorem ray_eval_seam_22_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (22 + 1)) % 2 ^ 256 = 2 ^ (22 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (22 + 1)) % 2 ^ 256 = 2 ^ (22 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_22_lo :
     model_ln_wad_to_wad_evm (2 ^ (22 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039432079861272906263084 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (22 + 1) - 1) % 2 ^ 256 = 2 ^ (22 + 1) - 1 by decide]
+  simp only [show (2 ^ (22 + 1) - 1) % 2 ^ 256 = 2 ^ (22 + 1) - 1 by decide]
   rw [ray_eval_seam_22_lo]
   decide
 
@@ -1204,7 +1204,7 @@ private theorem wad_eval_seam_22_hi :
     model_ln_wad_to_wad_evm (2 ^ (22 + 1)) = 115792089237316195423570985008687907853269984665640564039432079861392115559740 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (22 + 1)) % 2 ^ 256 = 2 ^ (22 + 1) by decide]
+  simp only [show (2 ^ (22 + 1)) % 2 ^ 256 = 2 ^ (22 + 1) by decide]
   rw [ray_eval_seam_22_hi]
   decide
 
@@ -1226,8 +1226,8 @@ private theorem ray_eval_seam_23_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (23 + 1) - 1) % 2 ^ 256 = 2 ^ (23 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (23 + 1) - 1) % 2 ^ 256 = 2 ^ (23 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_23_hi :
@@ -1236,15 +1236,15 @@ private theorem ray_eval_seam_23_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (23 + 1)) % 2 ^ 256 = 2 ^ (23 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (23 + 1)) % 2 ^ 256 = 2 ^ (23 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_23_lo :
     model_ln_wad_to_wad_evm (2 ^ (23 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039432773008513070858497 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (23 + 1) - 1) % 2 ^ 256 = 2 ^ (23 + 1) - 1 by decide]
+  simp only [show (2 ^ (23 + 1) - 1) % 2 ^ 256 = 2 ^ (23 + 1) - 1 by decide]
   rw [ray_eval_seam_23_lo]
   decide
 
@@ -1252,7 +1252,7 @@ private theorem wad_eval_seam_23_hi :
     model_ln_wad_to_wad_evm (2 ^ (23 + 1)) = 115792089237316195423570985008687907853269984665640564039432773008572675505049 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (23 + 1)) % 2 ^ 256 = 2 ^ (23 + 1) by decide]
+  simp only [show (2 ^ (23 + 1)) % 2 ^ 256 = 2 ^ (23 + 1) by decide]
   rw [ray_eval_seam_23_hi]
   decide
 
@@ -1274,8 +1274,8 @@ private theorem ray_eval_seam_24_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (24 + 1) - 1) % 2 ^ 256 = 2 ^ (24 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (24 + 1) - 1) % 2 ^ 256 = 2 ^ (24 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_24_hi :
@@ -1284,15 +1284,15 @@ private theorem ray_eval_seam_24_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (24 + 1)) % 2 ^ 256 = 2 ^ (24 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (24 + 1)) % 2 ^ 256 = 2 ^ (24 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_24_lo :
     model_ln_wad_to_wad_evm (2 ^ (24 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039433466155723433127527 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (24 + 1) - 1) % 2 ^ 256 = 2 ^ (24 + 1) - 1 by decide]
+  simp only [show (2 ^ (24 + 1) - 1) % 2 ^ 256 = 2 ^ (24 + 1) - 1 by decide]
   rw [ray_eval_seam_24_lo]
   decide
 
@@ -1300,7 +1300,7 @@ private theorem wad_eval_seam_24_hi :
     model_ln_wad_to_wad_evm (2 ^ (24 + 1)) = 115792089237316195423570985008687907853269984665640564039433466155753235450359 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (24 + 1)) % 2 ^ 256 = 2 ^ (24 + 1) by decide]
+  simp only [show (2 ^ (24 + 1)) % 2 ^ 256 = 2 ^ (24 + 1) by decide]
   rw [ray_eval_seam_24_hi]
   decide
 
@@ -1322,8 +1322,8 @@ private theorem ray_eval_seam_25_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (25 + 1) - 1) % 2 ^ 256 = 2 ^ (25 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (25 + 1) - 1) % 2 ^ 256 = 2 ^ (25 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_25_hi :
@@ -1332,15 +1332,15 @@ private theorem ray_eval_seam_25_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (25 + 1)) % 2 ^ 256 = 2 ^ (25 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (25 + 1)) % 2 ^ 256 = 2 ^ (25 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_25_lo :
     model_ln_wad_to_wad_evm (2 ^ (25 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039434159302918894234363 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (25 + 1) - 1) % 2 ^ 256 = 2 ^ (25 + 1) - 1 by decide]
+  simp only [show (2 ^ (25 + 1) - 1) % 2 ^ 256 = 2 ^ (25 + 1) - 1 by decide]
   rw [ray_eval_seam_25_lo]
   decide
 
@@ -1348,7 +1348,7 @@ private theorem wad_eval_seam_25_hi :
     model_ln_wad_to_wad_evm (2 ^ (25 + 1)) = 115792089237316195423570985008687907853269984665640564039434159302933795395668 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (25 + 1)) % 2 ^ 256 = 2 ^ (25 + 1) by decide]
+  simp only [show (2 ^ (25 + 1)) % 2 ^ 256 = 2 ^ (25 + 1) by decide]
   rw [ray_eval_seam_25_hi]
   decide
 
@@ -1370,8 +1370,8 @@ private theorem ray_eval_seam_26_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (26 + 1) - 1) % 2 ^ 256 = 2 ^ (26 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (26 + 1) - 1) % 2 ^ 256 = 2 ^ (26 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_26_hi :
@@ -1380,15 +1380,15 @@ private theorem ray_eval_seam_26_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (26 + 1)) % 2 ^ 256 = 2 ^ (26 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (26 + 1)) % 2 ^ 256 = 2 ^ (26 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_26_lo :
     model_ln_wad_to_wad_evm (2 ^ (26 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039434852450106904760353 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (26 + 1) - 1) % 2 ^ 256 = 2 ^ (26 + 1) - 1 by decide]
+  simp only [show (2 ^ (26 + 1) - 1) % 2 ^ 256 = 2 ^ (26 + 1) - 1 by decide]
   rw [ray_eval_seam_26_lo]
   decide
 
@@ -1396,7 +1396,7 @@ private theorem wad_eval_seam_26_hi :
     model_ln_wad_to_wad_evm (2 ^ (26 + 1)) = 115792089237316195423570985008687907853269984665640564039434852450114355340977 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (26 + 1)) % 2 ^ 256 = 2 ^ (26 + 1) by decide]
+  simp only [show (2 ^ (26 + 1)) % 2 ^ 256 = 2 ^ (26 + 1) by decide]
   rw [ray_eval_seam_26_hi]
   decide
 
@@ -1418,8 +1418,8 @@ private theorem ray_eval_seam_27_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (27 + 1) - 1) % 2 ^ 256 = 2 ^ (27 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (27 + 1) - 1) % 2 ^ 256 = 2 ^ (27 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_27_hi :
@@ -1428,15 +1428,15 @@ private theorem ray_eval_seam_27_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (27 + 1)) % 2 ^ 256 = 2 ^ (27 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (27 + 1)) % 2 ^ 256 = 2 ^ (27 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_27_lo :
     model_ln_wad_to_wad_evm (2 ^ (27 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039435545597291189995981 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (27 + 1) - 1) % 2 ^ 256 = 2 ^ (27 + 1) - 1 by decide]
+  simp only [show (2 ^ (27 + 1) - 1) % 2 ^ 256 = 2 ^ (27 + 1) - 1 by decide]
   rw [ray_eval_seam_27_lo]
   decide
 
@@ -1444,7 +1444,7 @@ private theorem wad_eval_seam_27_hi :
     model_ln_wad_to_wad_evm (2 ^ (27 + 1)) = 115792089237316195423570985008687907853269984665640564039435545597294915286287 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (27 + 1)) % 2 ^ 256 = 2 ^ (27 + 1) by decide]
+  simp only [show (2 ^ (27 + 1)) % 2 ^ 256 = 2 ^ (27 + 1) by decide]
   rw [ray_eval_seam_27_hi]
   decide
 
@@ -1466,8 +1466,8 @@ private theorem ray_eval_seam_28_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (28 + 1) - 1) % 2 ^ 256 = 2 ^ (28 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (28 + 1) - 1) % 2 ^ 256 = 2 ^ (28 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_28_hi :
@@ -1476,15 +1476,15 @@ private theorem ray_eval_seam_28_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (28 + 1)) % 2 ^ 256 = 2 ^ (28 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (28 + 1)) % 2 ^ 256 = 2 ^ (28 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_28_lo :
     model_ln_wad_to_wad_evm (2 ^ (28 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039436238744473612586445 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (28 + 1) - 1) % 2 ^ 256 = 2 ^ (28 + 1) - 1 by decide]
+  simp only [show (2 ^ (28 + 1) - 1) % 2 ^ 256 = 2 ^ (28 + 1) - 1 by decide]
   rw [ray_eval_seam_28_lo]
   decide
 
@@ -1492,7 +1492,7 @@ private theorem wad_eval_seam_28_hi :
     model_ln_wad_to_wad_evm (2 ^ (28 + 1)) = 115792089237316195423570985008687907853269984665640564039436238744475475231596 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (28 + 1)) % 2 ^ 256 = 2 ^ (28 + 1) by decide]
+  simp only [show (2 ^ (28 + 1)) % 2 ^ 256 = 2 ^ (28 + 1) by decide]
   rw [ray_eval_seam_28_hi]
   decide
 
@@ -1514,8 +1514,8 @@ private theorem ray_eval_seam_29_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (29 + 1) - 1) % 2 ^ 256 = 2 ^ (29 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (29 + 1) - 1) % 2 ^ 256 = 2 ^ (29 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_29_hi :
@@ -1524,15 +1524,15 @@ private theorem ray_eval_seam_29_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (29 + 1)) % 2 ^ 256 = 2 ^ (29 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (29 + 1)) % 2 ^ 256 = 2 ^ (29 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_29_lo :
     model_ln_wad_to_wad_evm (2 ^ (29 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039436931891655103854331 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (29 + 1) - 1) % 2 ^ 256 = 2 ^ (29 + 1) - 1 by decide]
+  simp only [show (2 ^ (29 + 1) - 1) % 2 ^ 256 = 2 ^ (29 + 1) - 1 by decide]
   rw [ray_eval_seam_29_lo]
   decide
 
@@ -1540,7 +1540,7 @@ private theorem wad_eval_seam_29_hi :
     model_ln_wad_to_wad_evm (2 ^ (29 + 1)) = 115792089237316195423570985008687907853269984665640564039436931891656035176906 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (29 + 1)) % 2 ^ 256 = 2 ^ (29 + 1) by decide]
+  simp only [show (2 ^ (29 + 1)) % 2 ^ 256 = 2 ^ (29 + 1) by decide]
   rw [ray_eval_seam_29_hi]
   decide
 
@@ -1562,8 +1562,8 @@ private theorem ray_eval_seam_30_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (30 + 1) - 1) % 2 ^ 256 = 2 ^ (30 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (30 + 1) - 1) % 2 ^ 256 = 2 ^ (30 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_30_hi :
@@ -1572,15 +1572,15 @@ private theorem ray_eval_seam_30_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (30 + 1)) % 2 ^ 256 = 2 ^ (30 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (30 + 1)) % 2 ^ 256 = 2 ^ (30 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_30_lo :
     model_ln_wad_to_wad_evm (2 ^ (30 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039437625038836129460928 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (30 + 1) - 1) % 2 ^ 256 = 2 ^ (30 + 1) - 1 by decide]
+  simp only [show (2 ^ (30 + 1) - 1) % 2 ^ 256 = 2 ^ (30 + 1) - 1 by decide]
   rw [ray_eval_seam_30_lo]
   decide
 
@@ -1588,7 +1588,7 @@ private theorem wad_eval_seam_30_hi :
     model_ln_wad_to_wad_evm (2 ^ (30 + 1)) = 115792089237316195423570985008687907853269984665640564039437625038836595122215 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (30 + 1)) % 2 ^ 256 = 2 ^ (30 + 1) by decide]
+  simp only [show (2 ^ (30 + 1)) % 2 ^ 256 = 2 ^ (30 + 1) by decide]
   rw [ray_eval_seam_30_hi]
   decide
 
@@ -1610,8 +1610,8 @@ private theorem ray_eval_seam_31_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (31 + 1) - 1) % 2 ^ 256 = 2 ^ (31 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (31 + 1) - 1) % 2 ^ 256 = 2 ^ (31 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_31_hi :
@@ -1620,15 +1620,15 @@ private theorem ray_eval_seam_31_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (31 + 1)) % 2 ^ 256 = 2 ^ (31 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (31 + 1)) % 2 ^ 256 = 2 ^ (31 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_31_lo :
     model_ln_wad_to_wad_evm (2 ^ (31 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039438318186016922236881 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (31 + 1) - 1) % 2 ^ 256 = 2 ^ (31 + 1) - 1 by decide]
+  simp only [show (2 ^ (31 + 1) - 1) % 2 ^ 256 = 2 ^ (31 + 1) - 1 by decide]
   rw [ray_eval_seam_31_lo]
   decide
 
@@ -1636,7 +1636,7 @@ private theorem wad_eval_seam_31_hi :
     model_ln_wad_to_wad_evm (2 ^ (31 + 1)) = 115792089237316195423570985008687907853269984665640564039438318186017155067525 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (31 + 1)) % 2 ^ 256 = 2 ^ (31 + 1) by decide]
+  simp only [show (2 ^ (31 + 1)) % 2 ^ 256 = 2 ^ (31 + 1) by decide]
   rw [ray_eval_seam_31_hi]
   decide
 
@@ -1658,8 +1658,8 @@ private theorem ray_eval_seam_32_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (32 + 1) - 1) % 2 ^ 256 = 2 ^ (32 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (32 + 1) - 1) % 2 ^ 256 = 2 ^ (32 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_32_hi :
@@ -1668,15 +1668,15 @@ private theorem ray_eval_seam_32_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (32 + 1)) % 2 ^ 256 = 2 ^ (32 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (32 + 1)) % 2 ^ 256 = 2 ^ (32 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_32_lo :
     model_ln_wad_to_wad_evm (2 ^ (32 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039439011333197598597512 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (32 + 1) - 1) % 2 ^ 256 = 2 ^ (32 + 1) - 1 by decide]
+  simp only [show (2 ^ (32 + 1) - 1) % 2 ^ 256 = 2 ^ (32 + 1) - 1 by decide]
   rw [ray_eval_seam_32_lo]
   decide
 
@@ -1684,7 +1684,7 @@ private theorem wad_eval_seam_32_hi :
     model_ln_wad_to_wad_evm (2 ^ (32 + 1)) = 115792089237316195423570985008687907853269984665640564039439011333197715012834 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (32 + 1)) % 2 ^ 256 = 2 ^ (32 + 1) by decide]
+  simp only [show (2 ^ (32 + 1)) % 2 ^ 256 = 2 ^ (32 + 1) by decide]
   rw [ray_eval_seam_32_hi]
   decide
 
@@ -1706,8 +1706,8 @@ private theorem ray_eval_seam_33_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (33 + 1) - 1) % 2 ^ 256 = 2 ^ (33 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (33 + 1) - 1) % 2 ^ 256 = 2 ^ (33 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_33_hi :
@@ -1716,15 +1716,15 @@ private theorem ray_eval_seam_33_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (33 + 1)) % 2 ^ 256 = 2 ^ (33 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (33 + 1)) % 2 ^ 256 = 2 ^ (33 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_33_lo :
     model_ln_wad_to_wad_evm (2 ^ (33 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039439704480378216750482 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (33 + 1) - 1) % 2 ^ 256 = 2 ^ (33 + 1) - 1 by decide]
+  simp only [show (2 ^ (33 + 1) - 1) % 2 ^ 256 = 2 ^ (33 + 1) - 1 by decide]
   rw [ray_eval_seam_33_lo]
   decide
 
@@ -1732,7 +1732,7 @@ private theorem wad_eval_seam_33_hi :
     model_ln_wad_to_wad_evm (2 ^ (33 + 1)) = 115792089237316195423570985008687907853269984665640564039439704480378274958143 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (33 + 1)) % 2 ^ 256 = 2 ^ (33 + 1) by decide]
+  simp only [show (2 ^ (33 + 1)) % 2 ^ 256 = 2 ^ (33 + 1) by decide]
   rw [ray_eval_seam_33_hi]
   decide
 
@@ -1754,8 +1754,8 @@ private theorem ray_eval_seam_34_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (34 + 1) - 1) % 2 ^ 256 = 2 ^ (34 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (34 + 1) - 1) % 2 ^ 256 = 2 ^ (34 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_34_hi :
@@ -1764,15 +1764,15 @@ private theorem ray_eval_seam_34_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (34 + 1)) % 2 ^ 256 = 2 ^ (34 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (34 + 1)) % 2 ^ 256 = 2 ^ (34 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_34_lo :
     model_ln_wad_to_wad_evm (2 ^ (34 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039440397627558805799622 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (34 + 1) - 1) % 2 ^ 256 = 2 ^ (34 + 1) - 1 by decide]
+  simp only [show (2 ^ (34 + 1) - 1) % 2 ^ 256 = 2 ^ (34 + 1) - 1 by decide]
   rw [ray_eval_seam_34_lo]
   decide
 
@@ -1780,7 +1780,7 @@ private theorem wad_eval_seam_34_hi :
     model_ln_wad_to_wad_evm (2 ^ (34 + 1)) = 115792089237316195423570985008687907853269984665640564039440397627558834903453 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (34 + 1)) % 2 ^ 256 = 2 ^ (34 + 1) by decide]
+  simp only [show (2 ^ (34 + 1)) % 2 ^ 256 = 2 ^ (34 + 1) by decide]
   rw [ray_eval_seam_34_hi]
   decide
 
@@ -1802,8 +1802,8 @@ private theorem ray_eval_seam_35_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (35 + 1) - 1) % 2 ^ 256 = 2 ^ (35 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (35 + 1) - 1) % 2 ^ 256 = 2 ^ (35 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_35_hi :
@@ -1812,15 +1812,15 @@ private theorem ray_eval_seam_35_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (35 + 1)) % 2 ^ 256 = 2 ^ (35 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (35 + 1)) % 2 ^ 256 = 2 ^ (35 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_35_lo :
     model_ln_wad_to_wad_evm (2 ^ (35 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039441090774739380296847 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (35 + 1) - 1) % 2 ^ 256 = 2 ^ (35 + 1) - 1 by decide]
+  simp only [show (2 ^ (35 + 1) - 1) % 2 ^ 256 = 2 ^ (35 + 1) - 1 by decide]
   rw [ray_eval_seam_35_lo]
   decide
 
@@ -1828,7 +1828,7 @@ private theorem wad_eval_seam_35_hi :
     model_ln_wad_to_wad_evm (2 ^ (35 + 1)) = 115792089237316195423570985008687907853269984665640564039441090774739394848762 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (35 + 1)) % 2 ^ 256 = 2 ^ (35 + 1) by decide]
+  simp only [show (2 ^ (35 + 1)) % 2 ^ 256 = 2 ^ (35 + 1) by decide]
   rw [ray_eval_seam_35_hi]
   decide
 
@@ -1850,8 +1850,8 @@ private theorem ray_eval_seam_36_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (36 + 1) - 1) % 2 ^ 256 = 2 ^ (36 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (36 + 1) - 1) % 2 ^ 256 = 2 ^ (36 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_36_hi :
@@ -1860,15 +1860,15 @@ private theorem ray_eval_seam_36_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (36 + 1)) % 2 ^ 256 = 2 ^ (36 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (36 + 1)) % 2 ^ 256 = 2 ^ (36 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_36_lo :
     model_ln_wad_to_wad_evm (2 ^ (36 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039441783921919947518114 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (36 + 1) - 1) % 2 ^ 256 = 2 ^ (36 + 1) - 1 by decide]
+  simp only [show (2 ^ (36 + 1) - 1) % 2 ^ 256 = 2 ^ (36 + 1) - 1 by decide]
   rw [ray_eval_seam_36_lo]
   decide
 
@@ -1876,7 +1876,7 @@ private theorem wad_eval_seam_36_hi :
     model_ln_wad_to_wad_evm (2 ^ (36 + 1)) = 115792089237316195423570985008687907853269984665640564039441783921919954794072 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (36 + 1)) % 2 ^ 256 = 2 ^ (36 + 1) by decide]
+  simp only [show (2 ^ (36 + 1)) % 2 ^ 256 = 2 ^ (36 + 1) by decide]
   rw [ray_eval_seam_36_hi]
   decide
 
@@ -1898,8 +1898,8 @@ private theorem ray_eval_seam_37_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (37 + 1) - 1) % 2 ^ 256 = 2 ^ (37 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (37 + 1) - 1) % 2 ^ 256 = 2 ^ (37 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_37_hi :
@@ -1908,15 +1908,15 @@ private theorem ray_eval_seam_37_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (37 + 1)) % 2 ^ 256 = 2 ^ (37 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (37 + 1)) % 2 ^ 256 = 2 ^ (37 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_37_lo :
     model_ln_wad_to_wad_evm (2 ^ (37 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039442477069100511101402 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (37 + 1) - 1) % 2 ^ 256 = 2 ^ (37 + 1) - 1 by decide]
+  simp only [show (2 ^ (37 + 1) - 1) % 2 ^ 256 = 2 ^ (37 + 1) - 1 by decide]
   rw [ray_eval_seam_37_lo]
   decide
 
@@ -1924,7 +1924,7 @@ private theorem wad_eval_seam_37_hi :
     model_ln_wad_to_wad_evm (2 ^ (37 + 1)) = 115792089237316195423570985008687907853269984665640564039442477069100514739381 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (37 + 1)) % 2 ^ 256 = 2 ^ (37 + 1) by decide]
+  simp only [show (2 ^ (37 + 1)) % 2 ^ 256 = 2 ^ (37 + 1) by decide]
   rw [ray_eval_seam_37_hi]
   decide
 
@@ -1946,8 +1946,8 @@ private theorem ray_eval_seam_38_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (38 + 1) - 1) % 2 ^ 256 = 2 ^ (38 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (38 + 1) - 1) % 2 ^ 256 = 2 ^ (38 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_38_hi :
@@ -1956,15 +1956,15 @@ private theorem ray_eval_seam_38_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (38 + 1)) % 2 ^ 256 = 2 ^ (38 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (38 + 1)) % 2 ^ 256 = 2 ^ (38 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_38_lo :
     model_ln_wad_to_wad_evm (2 ^ (38 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039443170216281072865701 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (38 + 1) - 1) % 2 ^ 256 = 2 ^ (38 + 1) - 1 by decide]
+  simp only [show (2 ^ (38 + 1) - 1) % 2 ^ 256 = 2 ^ (38 + 1) - 1 by decide]
   rw [ray_eval_seam_38_lo]
   decide
 
@@ -1972,7 +1972,7 @@ private theorem wad_eval_seam_38_hi :
     model_ln_wad_to_wad_evm (2 ^ (38 + 1)) = 115792089237316195423570985008687907853269984665640564039443170216281074684690 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (38 + 1)) % 2 ^ 256 = 2 ^ (38 + 1) by decide]
+  simp only [show (2 ^ (38 + 1)) % 2 ^ 256 = 2 ^ (38 + 1) by decide]
   rw [ray_eval_seam_38_hi]
   decide
 
@@ -1994,8 +1994,8 @@ private theorem ray_eval_seam_39_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (39 + 1) - 1) % 2 ^ 256 = 2 ^ (39 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (39 + 1) - 1) % 2 ^ 256 = 2 ^ (39 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_39_hi :
@@ -2004,15 +2004,15 @@ private theorem ray_eval_seam_39_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (39 + 1)) % 2 ^ 256 = 2 ^ (39 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (39 + 1)) % 2 ^ 256 = 2 ^ (39 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_39_lo :
     model_ln_wad_to_wad_evm (2 ^ (39 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039443863363461633720505 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (39 + 1) - 1) % 2 ^ 256 = 2 ^ (39 + 1) - 1 by decide]
+  simp only [show (2 ^ (39 + 1) - 1) % 2 ^ 256 = 2 ^ (39 + 1) - 1 by decide]
   rw [ray_eval_seam_39_lo]
   decide
 
@@ -2020,7 +2020,7 @@ private theorem wad_eval_seam_39_hi :
     model_ln_wad_to_wad_evm (2 ^ (39 + 1)) = 115792089237316195423570985008687907853269984665640564039443863363461634630000 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (39 + 1)) % 2 ^ 256 = 2 ^ (39 + 1) by decide]
+  simp only [show (2 ^ (39 + 1)) % 2 ^ 256 = 2 ^ (39 + 1) by decide]
   rw [ray_eval_seam_39_hi]
   decide
 
@@ -2042,8 +2042,8 @@ private theorem ray_eval_seam_40_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (40 + 1) - 1) % 2 ^ 256 = 2 ^ (40 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (40 + 1) - 1) % 2 ^ 256 = 2 ^ (40 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_40_hi :
@@ -2052,15 +2052,15 @@ private theorem ray_eval_seam_40_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (40 + 1)) % 2 ^ 256 = 2 ^ (40 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (40 + 1)) % 2 ^ 256 = 2 ^ (40 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_40_lo :
     model_ln_wad_to_wad_evm (2 ^ (40 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039444556510642194120562 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (40 + 1) - 1) % 2 ^ 256 = 2 ^ (40 + 1) - 1 by decide]
+  simp only [show (2 ^ (40 + 1) - 1) % 2 ^ 256 = 2 ^ (40 + 1) - 1 by decide]
   rw [ray_eval_seam_40_lo]
   decide
 
@@ -2068,7 +2068,7 @@ private theorem wad_eval_seam_40_hi :
     model_ln_wad_to_wad_evm (2 ^ (40 + 1)) = 115792089237316195423570985008687907853269984665640564039444556510642194575309 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (40 + 1)) % 2 ^ 256 = 2 ^ (40 + 1) by decide]
+  simp only [show (2 ^ (40 + 1)) % 2 ^ 256 = 2 ^ (40 + 1) by decide]
   rw [ray_eval_seam_40_hi]
   decide
 
@@ -2090,8 +2090,8 @@ private theorem ray_eval_seam_41_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (41 + 1) - 1) % 2 ^ 256 = 2 ^ (41 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (41 + 1) - 1) % 2 ^ 256 = 2 ^ (41 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_41_hi :
@@ -2100,15 +2100,15 @@ private theorem ray_eval_seam_41_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (41 + 1)) % 2 ^ 256 = 2 ^ (41 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (41 + 1)) % 2 ^ 256 = 2 ^ (41 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_41_lo :
     model_ln_wad_to_wad_evm (2 ^ (41 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039445249657822754293245 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (41 + 1) - 1) % 2 ^ 256 = 2 ^ (41 + 1) - 1 by decide]
+  simp only [show (2 ^ (41 + 1) - 1) % 2 ^ 256 = 2 ^ (41 + 1) - 1 by decide]
   rw [ray_eval_seam_41_lo]
   decide
 
@@ -2116,7 +2116,7 @@ private theorem wad_eval_seam_41_hi :
     model_ln_wad_to_wad_evm (2 ^ (41 + 1)) = 115792089237316195423570985008687907853269984665640564039445249657822754520619 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (41 + 1)) % 2 ^ 256 = 2 ^ (41 + 1) by decide]
+  simp only [show (2 ^ (41 + 1)) % 2 ^ 256 = 2 ^ (41 + 1) by decide]
   rw [ray_eval_seam_41_hi]
   decide
 
@@ -2138,8 +2138,8 @@ private theorem ray_eval_seam_42_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (42 + 1) - 1) % 2 ^ 256 = 2 ^ (42 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (42 + 1) - 1) % 2 ^ 256 = 2 ^ (42 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_42_hi :
@@ -2148,15 +2148,15 @@ private theorem ray_eval_seam_42_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (42 + 1)) % 2 ^ 256 = 2 ^ (42 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (42 + 1)) % 2 ^ 256 = 2 ^ (42 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_42_lo :
     model_ln_wad_to_wad_evm (2 ^ (42 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039445942805003314352241 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (42 + 1) - 1) % 2 ^ 256 = 2 ^ (42 + 1) - 1 by decide]
+  simp only [show (2 ^ (42 + 1) - 1) % 2 ^ 256 = 2 ^ (42 + 1) - 1 by decide]
   rw [ray_eval_seam_42_lo]
   decide
 
@@ -2164,7 +2164,7 @@ private theorem wad_eval_seam_42_hi :
     model_ln_wad_to_wad_evm (2 ^ (42 + 1)) = 115792089237316195423570985008687907853269984665640564039445942805003314465928 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (42 + 1)) % 2 ^ 256 = 2 ^ (42 + 1) by decide]
+  simp only [show (2 ^ (42 + 1)) % 2 ^ 256 = 2 ^ (42 + 1) by decide]
   rw [ray_eval_seam_42_hi]
   decide
 
@@ -2186,8 +2186,8 @@ private theorem ray_eval_seam_43_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (43 + 1) - 1) % 2 ^ 256 = 2 ^ (43 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (43 + 1) - 1) % 2 ^ 256 = 2 ^ (43 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_43_hi :
@@ -2196,15 +2196,15 @@ private theorem ray_eval_seam_43_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (43 + 1)) % 2 ^ 256 = 2 ^ (43 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (43 + 1)) % 2 ^ 256 = 2 ^ (43 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_43_lo :
     model_ln_wad_to_wad_evm (2 ^ (43 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039446635952183874354394 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (43 + 1) - 1) % 2 ^ 256 = 2 ^ (43 + 1) - 1 by decide]
+  simp only [show (2 ^ (43 + 1) - 1) % 2 ^ 256 = 2 ^ (43 + 1) - 1 by decide]
   rw [ray_eval_seam_43_lo]
   decide
 
@@ -2212,7 +2212,7 @@ private theorem wad_eval_seam_43_hi :
     model_ln_wad_to_wad_evm (2 ^ (43 + 1)) = 115792089237316195423570985008687907853269984665640564039446635952183874411238 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (43 + 1)) % 2 ^ 256 = 2 ^ (43 + 1) by decide]
+  simp only [show (2 ^ (43 + 1)) % 2 ^ 256 = 2 ^ (43 + 1) by decide]
   rw [ray_eval_seam_43_hi]
   decide
 
@@ -2234,8 +2234,8 @@ private theorem ray_eval_seam_44_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (44 + 1) - 1) % 2 ^ 256 = 2 ^ (44 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (44 + 1) - 1) % 2 ^ 256 = 2 ^ (44 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_44_hi :
@@ -2244,15 +2244,15 @@ private theorem ray_eval_seam_44_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (44 + 1)) % 2 ^ 256 = 2 ^ (44 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (44 + 1)) % 2 ^ 256 = 2 ^ (44 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_44_lo :
     model_ln_wad_to_wad_evm (2 ^ (44 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039447329099364434328125 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (44 + 1) - 1) % 2 ^ 256 = 2 ^ (44 + 1) - 1 by decide]
+  simp only [show (2 ^ (44 + 1) - 1) % 2 ^ 256 = 2 ^ (44 + 1) - 1 by decide]
   rw [ray_eval_seam_44_lo]
   decide
 
@@ -2260,7 +2260,7 @@ private theorem wad_eval_seam_44_hi :
     model_ln_wad_to_wad_evm (2 ^ (44 + 1)) = 115792089237316195423570985008687907853269984665640564039447329099364434356547 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (44 + 1)) % 2 ^ 256 = 2 ^ (44 + 1) by decide]
+  simp only [show (2 ^ (44 + 1)) % 2 ^ 256 = 2 ^ (44 + 1) by decide]
   rw [ray_eval_seam_44_hi]
   decide
 
@@ -2282,8 +2282,8 @@ private theorem ray_eval_seam_45_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (45 + 1) - 1) % 2 ^ 256 = 2 ^ (45 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (45 + 1) - 1) % 2 ^ 256 = 2 ^ (45 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_45_hi :
@@ -2292,15 +2292,15 @@ private theorem ray_eval_seam_45_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (45 + 1)) % 2 ^ 256 = 2 ^ (45 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (45 + 1)) % 2 ^ 256 = 2 ^ (45 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_45_lo :
     model_ln_wad_to_wad_evm (2 ^ (45 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039448022246544994287646 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (45 + 1) - 1) % 2 ^ 256 = 2 ^ (45 + 1) - 1 by decide]
+  simp only [show (2 ^ (45 + 1) - 1) % 2 ^ 256 = 2 ^ (45 + 1) - 1 by decide]
   rw [ray_eval_seam_45_lo]
   decide
 
@@ -2308,7 +2308,7 @@ private theorem wad_eval_seam_45_hi :
     model_ln_wad_to_wad_evm (2 ^ (45 + 1)) = 115792089237316195423570985008687907853269984665640564039448022246544994301856 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (45 + 1)) % 2 ^ 256 = 2 ^ (45 + 1) by decide]
+  simp only [show (2 ^ (45 + 1)) % 2 ^ 256 = 2 ^ (45 + 1) by decide]
   rw [ray_eval_seam_45_hi]
   decide
 
@@ -2330,8 +2330,8 @@ private theorem ray_eval_seam_46_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (46 + 1) - 1) % 2 ^ 256 = 2 ^ (46 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (46 + 1) - 1) % 2 ^ 256 = 2 ^ (46 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_46_hi :
@@ -2340,15 +2340,15 @@ private theorem ray_eval_seam_46_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (46 + 1)) % 2 ^ 256 = 2 ^ (46 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (46 + 1)) % 2 ^ 256 = 2 ^ (46 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_46_lo :
     model_ln_wad_to_wad_evm (2 ^ (46 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039448715393725554240060 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (46 + 1) - 1) % 2 ^ 256 = 2 ^ (46 + 1) - 1 by decide]
+  simp only [show (2 ^ (46 + 1) - 1) % 2 ^ 256 = 2 ^ (46 + 1) - 1 by decide]
   rw [ray_eval_seam_46_lo]
   decide
 
@@ -2356,7 +2356,7 @@ private theorem wad_eval_seam_46_hi :
     model_ln_wad_to_wad_evm (2 ^ (46 + 1)) = 115792089237316195423570985008687907853269984665640564039448715393725554247166 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (46 + 1)) % 2 ^ 256 = 2 ^ (46 + 1) by decide]
+  simp only [show (2 ^ (46 + 1)) % 2 ^ 256 = 2 ^ (46 + 1) by decide]
   rw [ray_eval_seam_46_hi]
   decide
 
@@ -2378,8 +2378,8 @@ private theorem ray_eval_seam_47_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (47 + 1) - 1) % 2 ^ 256 = 2 ^ (47 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (47 + 1) - 1) % 2 ^ 256 = 2 ^ (47 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_47_hi :
@@ -2388,15 +2388,15 @@ private theorem ray_eval_seam_47_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (47 + 1)) % 2 ^ 256 = 2 ^ (47 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (47 + 1)) % 2 ^ 256 = 2 ^ (47 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_47_lo :
     model_ln_wad_to_wad_evm (2 ^ (47 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039449408540906114188922 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (47 + 1) - 1) % 2 ^ 256 = 2 ^ (47 + 1) - 1 by decide]
+  simp only [show (2 ^ (47 + 1) - 1) % 2 ^ 256 = 2 ^ (47 + 1) - 1 by decide]
   rw [ray_eval_seam_47_lo]
   decide
 
@@ -2404,7 +2404,7 @@ private theorem wad_eval_seam_47_hi :
     model_ln_wad_to_wad_evm (2 ^ (47 + 1)) = 115792089237316195423570985008687907853269984665640564039449408540906114192475 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (47 + 1)) % 2 ^ 256 = 2 ^ (47 + 1) by decide]
+  simp only [show (2 ^ (47 + 1)) % 2 ^ 256 = 2 ^ (47 + 1) by decide]
   rw [ray_eval_seam_47_hi]
   decide
 
@@ -2426,8 +2426,8 @@ private theorem ray_eval_seam_48_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (48 + 1) - 1) % 2 ^ 256 = 2 ^ (48 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (48 + 1) - 1) % 2 ^ 256 = 2 ^ (48 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_48_hi :
@@ -2436,15 +2436,15 @@ private theorem ray_eval_seam_48_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (48 + 1)) % 2 ^ 256 = 2 ^ (48 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (48 + 1)) % 2 ^ 256 = 2 ^ (48 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_48_lo :
     model_ln_wad_to_wad_evm (2 ^ (48 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039450101688086674136008 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (48 + 1) - 1) % 2 ^ 256 = 2 ^ (48 + 1) - 1 by decide]
+  simp only [show (2 ^ (48 + 1) - 1) % 2 ^ 256 = 2 ^ (48 + 1) - 1 by decide]
   rw [ray_eval_seam_48_lo]
   decide
 
@@ -2452,7 +2452,7 @@ private theorem wad_eval_seam_48_hi :
     model_ln_wad_to_wad_evm (2 ^ (48 + 1)) = 115792089237316195423570985008687907853269984665640564039450101688086674137785 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (48 + 1)) % 2 ^ 256 = 2 ^ (48 + 1) by decide]
+  simp only [show (2 ^ (48 + 1)) % 2 ^ 256 = 2 ^ (48 + 1) by decide]
   rw [ray_eval_seam_48_hi]
   decide
 
@@ -2474,8 +2474,8 @@ private theorem ray_eval_seam_49_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (49 + 1) - 1) % 2 ^ 256 = 2 ^ (49 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (49 + 1) - 1) % 2 ^ 256 = 2 ^ (49 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_49_hi :
@@ -2484,15 +2484,15 @@ private theorem ray_eval_seam_49_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (49 + 1)) % 2 ^ 256 = 2 ^ (49 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (49 + 1)) % 2 ^ 256 = 2 ^ (49 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_49_lo :
     model_ln_wad_to_wad_evm (2 ^ (49 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039450794835267234082206 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (49 + 1) - 1) % 2 ^ 256 = 2 ^ (49 + 1) - 1 by decide]
+  simp only [show (2 ^ (49 + 1) - 1) % 2 ^ 256 = 2 ^ (49 + 1) - 1 by decide]
   rw [ray_eval_seam_49_lo]
   decide
 
@@ -2500,7 +2500,7 @@ private theorem wad_eval_seam_49_hi :
     model_ln_wad_to_wad_evm (2 ^ (49 + 1)) = 115792089237316195423570985008687907853269984665640564039450794835267234083094 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (49 + 1)) % 2 ^ 256 = 2 ^ (49 + 1) by decide]
+  simp only [show (2 ^ (49 + 1)) % 2 ^ 256 = 2 ^ (49 + 1) by decide]
   rw [ray_eval_seam_49_hi]
   decide
 
@@ -2522,8 +2522,8 @@ private theorem ray_eval_seam_50_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (50 + 1) - 1) % 2 ^ 256 = 2 ^ (50 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (50 + 1) - 1) % 2 ^ 256 = 2 ^ (50 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_50_hi :
@@ -2532,15 +2532,15 @@ private theorem ray_eval_seam_50_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (50 + 1)) % 2 ^ 256 = 2 ^ (50 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (50 + 1)) % 2 ^ 256 = 2 ^ (50 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_50_lo :
     model_ln_wad_to_wad_evm (2 ^ (50 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039451487982447794027959 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (50 + 1) - 1) % 2 ^ 256 = 2 ^ (50 + 1) - 1 by decide]
+  simp only [show (2 ^ (50 + 1) - 1) % 2 ^ 256 = 2 ^ (50 + 1) - 1 by decide]
   rw [ray_eval_seam_50_lo]
   decide
 
@@ -2548,7 +2548,7 @@ private theorem wad_eval_seam_50_hi :
     model_ln_wad_to_wad_evm (2 ^ (50 + 1)) = 115792089237316195423570985008687907853269984665640564039451487982447794028403 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (50 + 1)) % 2 ^ 256 = 2 ^ (50 + 1) by decide]
+  simp only [show (2 ^ (50 + 1)) % 2 ^ 256 = 2 ^ (50 + 1) by decide]
   rw [ray_eval_seam_50_hi]
   decide
 
@@ -2570,8 +2570,8 @@ private theorem ray_eval_seam_51_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (51 + 1) - 1) % 2 ^ 256 = 2 ^ (51 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (51 + 1) - 1) % 2 ^ 256 = 2 ^ (51 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_51_hi :
@@ -2580,15 +2580,15 @@ private theorem ray_eval_seam_51_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (51 + 1)) % 2 ^ 256 = 2 ^ (51 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (51 + 1)) % 2 ^ 256 = 2 ^ (51 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_51_lo :
     model_ln_wad_to_wad_evm (2 ^ (51 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039452181129628353973491 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (51 + 1) - 1) % 2 ^ 256 = 2 ^ (51 + 1) - 1 by decide]
+  simp only [show (2 ^ (51 + 1) - 1) % 2 ^ 256 = 2 ^ (51 + 1) - 1 by decide]
   rw [ray_eval_seam_51_lo]
   decide
 
@@ -2596,7 +2596,7 @@ private theorem wad_eval_seam_51_hi :
     model_ln_wad_to_wad_evm (2 ^ (51 + 1)) = 115792089237316195423570985008687907853269984665640564039452181129628353973713 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (51 + 1)) % 2 ^ 256 = 2 ^ (51 + 1) by decide]
+  simp only [show (2 ^ (51 + 1)) % 2 ^ 256 = 2 ^ (51 + 1) by decide]
   rw [ray_eval_seam_51_hi]
   decide
 
@@ -2618,8 +2618,8 @@ private theorem ray_eval_seam_52_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (52 + 1) - 1) % 2 ^ 256 = 2 ^ (52 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (52 + 1) - 1) % 2 ^ 256 = 2 ^ (52 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_52_hi :
@@ -2628,15 +2628,15 @@ private theorem ray_eval_seam_52_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (52 + 1)) % 2 ^ 256 = 2 ^ (52 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (52 + 1)) % 2 ^ 256 = 2 ^ (52 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_52_lo :
     model_ln_wad_to_wad_evm (2 ^ (52 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039452874276808913918911 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (52 + 1) - 1) % 2 ^ 256 = 2 ^ (52 + 1) - 1 by decide]
+  simp only [show (2 ^ (52 + 1) - 1) % 2 ^ 256 = 2 ^ (52 + 1) - 1 by decide]
   rw [ray_eval_seam_52_lo]
   decide
 
@@ -2644,7 +2644,7 @@ private theorem wad_eval_seam_52_hi :
     model_ln_wad_to_wad_evm (2 ^ (52 + 1)) = 115792089237316195423570985008687907853269984665640564039452874276808913919022 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (52 + 1)) % 2 ^ 256 = 2 ^ (52 + 1) by decide]
+  simp only [show (2 ^ (52 + 1)) % 2 ^ 256 = 2 ^ (52 + 1) by decide]
   rw [ray_eval_seam_52_hi]
   decide
 
@@ -2666,8 +2666,8 @@ private theorem ray_eval_seam_53_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (53 + 1) - 1) % 2 ^ 256 = 2 ^ (53 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (53 + 1) - 1) % 2 ^ 256 = 2 ^ (53 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_53_hi :
@@ -2676,15 +2676,15 @@ private theorem ray_eval_seam_53_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (53 + 1)) % 2 ^ 256 = 2 ^ (53 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (53 + 1)) % 2 ^ 256 = 2 ^ (53 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_53_lo :
     model_ln_wad_to_wad_evm (2 ^ (53 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039453567423989473864276 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (53 + 1) - 1) % 2 ^ 256 = 2 ^ (53 + 1) - 1 by decide]
+  simp only [show (2 ^ (53 + 1) - 1) % 2 ^ 256 = 2 ^ (53 + 1) - 1 by decide]
   rw [ray_eval_seam_53_lo]
   decide
 
@@ -2692,7 +2692,7 @@ private theorem wad_eval_seam_53_hi :
     model_ln_wad_to_wad_evm (2 ^ (53 + 1)) = 115792089237316195423570985008687907853269984665640564039453567423989473864332 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (53 + 1)) % 2 ^ 256 = 2 ^ (53 + 1) by decide]
+  simp only [show (2 ^ (53 + 1)) % 2 ^ 256 = 2 ^ (53 + 1) by decide]
   rw [ray_eval_seam_53_hi]
   decide
 
@@ -2714,8 +2714,8 @@ private theorem ray_eval_seam_54_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (54 + 1) - 1) % 2 ^ 256 = 2 ^ (54 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (54 + 1) - 1) % 2 ^ 256 = 2 ^ (54 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_54_hi :
@@ -2724,15 +2724,15 @@ private theorem ray_eval_seam_54_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (54 + 1)) % 2 ^ 256 = 2 ^ (54 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (54 + 1)) % 2 ^ 256 = 2 ^ (54 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_54_lo :
     model_ln_wad_to_wad_evm (2 ^ (54 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039454260571170033809613 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (54 + 1) - 1) % 2 ^ 256 = 2 ^ (54 + 1) - 1 by decide]
+  simp only [show (2 ^ (54 + 1) - 1) % 2 ^ 256 = 2 ^ (54 + 1) - 1 by decide]
   rw [ray_eval_seam_54_lo]
   decide
 
@@ -2740,7 +2740,7 @@ private theorem wad_eval_seam_54_hi :
     model_ln_wad_to_wad_evm (2 ^ (54 + 1)) = 115792089237316195423570985008687907853269984665640564039454260571170033809641 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (54 + 1)) % 2 ^ 256 = 2 ^ (54 + 1) by decide]
+  simp only [show (2 ^ (54 + 1)) % 2 ^ 256 = 2 ^ (54 + 1) by decide]
   rw [ray_eval_seam_54_hi]
   decide
 
@@ -2762,8 +2762,8 @@ private theorem ray_eval_seam_55_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (55 + 1) - 1) % 2 ^ 256 = 2 ^ (55 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (55 + 1) - 1) % 2 ^ 256 = 2 ^ (55 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_55_hi :
@@ -2772,15 +2772,15 @@ private theorem ray_eval_seam_55_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (55 + 1)) % 2 ^ 256 = 2 ^ (55 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (55 + 1)) % 2 ^ 256 = 2 ^ (55 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_55_lo :
     model_ln_wad_to_wad_evm (2 ^ (55 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039454953718350593754937 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (55 + 1) - 1) % 2 ^ 256 = 2 ^ (55 + 1) - 1 by decide]
+  simp only [show (2 ^ (55 + 1) - 1) % 2 ^ 256 = 2 ^ (55 + 1) - 1 by decide]
   rw [ray_eval_seam_55_lo]
   decide
 
@@ -2788,7 +2788,7 @@ private theorem wad_eval_seam_55_hi :
     model_ln_wad_to_wad_evm (2 ^ (55 + 1)) = 115792089237316195423570985008687907853269984665640564039454953718350593754951 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (55 + 1)) % 2 ^ 256 = 2 ^ (55 + 1) by decide]
+  simp only [show (2 ^ (55 + 1)) % 2 ^ 256 = 2 ^ (55 + 1) by decide]
   rw [ray_eval_seam_55_hi]
   decide
 
@@ -2810,8 +2810,8 @@ private theorem ray_eval_seam_56_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (56 + 1) - 1) % 2 ^ 256 = 2 ^ (56 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (56 + 1) - 1) % 2 ^ 256 = 2 ^ (56 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_56_hi :
@@ -2820,15 +2820,15 @@ private theorem ray_eval_seam_56_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (56 + 1)) % 2 ^ 256 = 2 ^ (56 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (56 + 1)) % 2 ^ 256 = 2 ^ (56 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_56_lo :
     model_ln_wad_to_wad_evm (2 ^ (56 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039455646865531153700253 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (56 + 1) - 1) % 2 ^ 256 = 2 ^ (56 + 1) - 1 by decide]
+  simp only [show (2 ^ (56 + 1) - 1) % 2 ^ 256 = 2 ^ (56 + 1) - 1 by decide]
   rw [ray_eval_seam_56_lo]
   decide
 
@@ -2836,7 +2836,7 @@ private theorem wad_eval_seam_56_hi :
     model_ln_wad_to_wad_evm (2 ^ (56 + 1)) = 115792089237316195423570985008687907853269984665640564039455646865531153700260 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (56 + 1)) % 2 ^ 256 = 2 ^ (56 + 1) by decide]
+  simp only [show (2 ^ (56 + 1)) % 2 ^ 256 = 2 ^ (56 + 1) by decide]
   rw [ray_eval_seam_56_hi]
   decide
 
@@ -2858,8 +2858,8 @@ private theorem ray_eval_seam_57_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (57 + 1) - 1) % 2 ^ 256 = 2 ^ (57 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (57 + 1) - 1) % 2 ^ 256 = 2 ^ (57 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_57_hi :
@@ -2868,15 +2868,15 @@ private theorem ray_eval_seam_57_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (57 + 1)) % 2 ^ 256 = 2 ^ (57 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (57 + 1)) % 2 ^ 256 = 2 ^ (57 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_57_lo :
     model_ln_wad_to_wad_evm (2 ^ (57 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039456340012711713645566 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (57 + 1) - 1) % 2 ^ 256 = 2 ^ (57 + 1) - 1 by decide]
+  simp only [show (2 ^ (57 + 1) - 1) % 2 ^ 256 = 2 ^ (57 + 1) - 1 by decide]
   rw [ray_eval_seam_57_lo]
   decide
 
@@ -2884,7 +2884,7 @@ private theorem wad_eval_seam_57_hi :
     model_ln_wad_to_wad_evm (2 ^ (57 + 1)) = 115792089237316195423570985008687907853269984665640564039456340012711713645569 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (57 + 1)) % 2 ^ 256 = 2 ^ (57 + 1) by decide]
+  simp only [show (2 ^ (57 + 1)) % 2 ^ 256 = 2 ^ (57 + 1) by decide]
   rw [ray_eval_seam_57_hi]
   decide
 
@@ -2906,8 +2906,8 @@ private theorem ray_eval_seam_58_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (58 + 1) - 1) % 2 ^ 256 = 2 ^ (58 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (58 + 1) - 1) % 2 ^ 256 = 2 ^ (58 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_58_hi :
@@ -2916,15 +2916,15 @@ private theorem ray_eval_seam_58_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (58 + 1)) % 2 ^ 256 = 2 ^ (58 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (58 + 1)) % 2 ^ 256 = 2 ^ (58 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_58_lo :
     model_ln_wad_to_wad_evm (2 ^ (58 + 1) - 1) = 115792089237316195423570985008687907853269984665640564039457033159892273590877 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (58 + 1) - 1) % 2 ^ 256 = 2 ^ (58 + 1) - 1 by decide]
+  simp only [show (2 ^ (58 + 1) - 1) % 2 ^ 256 = 2 ^ (58 + 1) - 1 by decide]
   rw [ray_eval_seam_58_lo]
   decide
 
@@ -2932,7 +2932,7 @@ private theorem wad_eval_seam_58_hi :
     model_ln_wad_to_wad_evm (2 ^ (58 + 1)) = 115792089237316195423570985008687907853269984665640564039457033159892273590879 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (58 + 1)) % 2 ^ 256 = 2 ^ (58 + 1) by decide]
+  simp only [show (2 ^ (58 + 1)) % 2 ^ 256 = 2 ^ (58 + 1) by decide]
   rw [ray_eval_seam_58_hi]
   decide
 
@@ -2954,8 +2954,8 @@ private theorem ray_eval_seam_59_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (59 + 1) - 1) % 2 ^ 256 = 2 ^ (59 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (59 + 1) - 1) % 2 ^ 256 = 2 ^ (59 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_59_hi :
@@ -2964,15 +2964,15 @@ private theorem ray_eval_seam_59_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (59 + 1)) % 2 ^ 256 = 2 ^ (59 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (59 + 1)) % 2 ^ 256 = 2 ^ (59 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_59_lo :
     model_ln_wad_to_wad_evm (2 ^ (59 + 1) - 1) = 142299159703896251 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (59 + 1) - 1) % 2 ^ 256 = 2 ^ (59 + 1) - 1 by decide]
+  simp only [show (2 ^ (59 + 1) - 1) % 2 ^ 256 = 2 ^ (59 + 1) - 1 by decide]
   rw [ray_eval_seam_59_lo]
   decide
 
@@ -2980,7 +2980,7 @@ private theorem wad_eval_seam_59_hi :
     model_ln_wad_to_wad_evm (2 ^ (59 + 1)) = 142299159703896252 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (59 + 1)) % 2 ^ 256 = 2 ^ (59 + 1) by decide]
+  simp only [show (2 ^ (59 + 1)) % 2 ^ 256 = 2 ^ (59 + 1) by decide]
   rw [ray_eval_seam_59_hi]
   decide
 
@@ -3002,8 +3002,8 @@ private theorem ray_eval_seam_60_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (60 + 1) - 1) % 2 ^ 256 = 2 ^ (60 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (60 + 1) - 1) % 2 ^ 256 = 2 ^ (60 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_60_hi :
@@ -3012,15 +3012,15 @@ private theorem ray_eval_seam_60_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (60 + 1)) % 2 ^ 256 = 2 ^ (60 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (60 + 1)) % 2 ^ 256 = 2 ^ (60 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_60_lo :
     model_ln_wad_to_wad_evm (2 ^ (60 + 1) - 1) = 835446340263841561 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (60 + 1) - 1) % 2 ^ 256 = 2 ^ (60 + 1) - 1 by decide]
+  simp only [show (2 ^ (60 + 1) - 1) % 2 ^ 256 = 2 ^ (60 + 1) - 1 by decide]
   rw [ray_eval_seam_60_lo]
   decide
 
@@ -3028,7 +3028,7 @@ private theorem wad_eval_seam_60_hi :
     model_ln_wad_to_wad_evm (2 ^ (60 + 1)) = 835446340263841562 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (60 + 1)) % 2 ^ 256 = 2 ^ (60 + 1) by decide]
+  simp only [show (2 ^ (60 + 1)) % 2 ^ 256 = 2 ^ (60 + 1) by decide]
   rw [ray_eval_seam_60_hi]
   decide
 
@@ -3050,8 +3050,8 @@ private theorem ray_eval_seam_61_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (61 + 1) - 1) % 2 ^ 256 = 2 ^ (61 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (61 + 1) - 1) % 2 ^ 256 = 2 ^ (61 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_61_hi :
@@ -3060,15 +3060,15 @@ private theorem ray_eval_seam_61_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (61 + 1)) % 2 ^ 256 = 2 ^ (61 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (61 + 1)) % 2 ^ 256 = 2 ^ (61 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_61_lo :
     model_ln_wad_to_wad_evm (2 ^ (61 + 1) - 1) = 1528593520823786871 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (61 + 1) - 1) % 2 ^ 256 = 2 ^ (61 + 1) - 1 by decide]
+  simp only [show (2 ^ (61 + 1) - 1) % 2 ^ 256 = 2 ^ (61 + 1) - 1 by decide]
   rw [ray_eval_seam_61_lo]
   decide
 
@@ -3076,7 +3076,7 @@ private theorem wad_eval_seam_61_hi :
     model_ln_wad_to_wad_evm (2 ^ (61 + 1)) = 1528593520823786871 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (61 + 1)) % 2 ^ 256 = 2 ^ (61 + 1) by decide]
+  simp only [show (2 ^ (61 + 1)) % 2 ^ 256 = 2 ^ (61 + 1) by decide]
   rw [ray_eval_seam_61_hi]
   decide
 
@@ -3098,8 +3098,8 @@ private theorem ray_eval_seam_62_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (62 + 1) - 1) % 2 ^ 256 = 2 ^ (62 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (62 + 1) - 1) % 2 ^ 256 = 2 ^ (62 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_62_hi :
@@ -3108,15 +3108,15 @@ private theorem ray_eval_seam_62_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (62 + 1)) % 2 ^ 256 = 2 ^ (62 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (62 + 1)) % 2 ^ 256 = 2 ^ (62 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_62_lo :
     model_ln_wad_to_wad_evm (2 ^ (62 + 1) - 1) = 2221740701383732180 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (62 + 1) - 1) % 2 ^ 256 = 2 ^ (62 + 1) - 1 by decide]
+  simp only [show (2 ^ (62 + 1) - 1) % 2 ^ 256 = 2 ^ (62 + 1) - 1 by decide]
   rw [ray_eval_seam_62_lo]
   decide
 
@@ -3124,7 +3124,7 @@ private theorem wad_eval_seam_62_hi :
     model_ln_wad_to_wad_evm (2 ^ (62 + 1)) = 2221740701383732180 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (62 + 1)) % 2 ^ 256 = 2 ^ (62 + 1) by decide]
+  simp only [show (2 ^ (62 + 1)) % 2 ^ 256 = 2 ^ (62 + 1) by decide]
   rw [ray_eval_seam_62_hi]
   decide
 
@@ -3146,8 +3146,8 @@ private theorem ray_eval_seam_63_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (63 + 1) - 1) % 2 ^ 256 = 2 ^ (63 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (63 + 1) - 1) % 2 ^ 256 = 2 ^ (63 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_63_hi :
@@ -3156,15 +3156,15 @@ private theorem ray_eval_seam_63_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (63 + 1)) % 2 ^ 256 = 2 ^ (63 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (63 + 1)) % 2 ^ 256 = 2 ^ (63 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_63_lo :
     model_ln_wad_to_wad_evm (2 ^ (63 + 1) - 1) = 2914887881943677490 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (63 + 1) - 1) % 2 ^ 256 = 2 ^ (63 + 1) - 1 by decide]
+  simp only [show (2 ^ (63 + 1) - 1) % 2 ^ 256 = 2 ^ (63 + 1) - 1 by decide]
   rw [ray_eval_seam_63_lo]
   decide
 
@@ -3172,7 +3172,7 @@ private theorem wad_eval_seam_63_hi :
     model_ln_wad_to_wad_evm (2 ^ (63 + 1)) = 2914887881943677490 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (63 + 1)) % 2 ^ 256 = 2 ^ (63 + 1) by decide]
+  simp only [show (2 ^ (63 + 1)) % 2 ^ 256 = 2 ^ (63 + 1) by decide]
   rw [ray_eval_seam_63_hi]
   decide
 
@@ -3194,8 +3194,8 @@ private theorem ray_eval_seam_64_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (64 + 1) - 1) % 2 ^ 256 = 2 ^ (64 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (64 + 1) - 1) % 2 ^ 256 = 2 ^ (64 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_64_hi :
@@ -3204,15 +3204,15 @@ private theorem ray_eval_seam_64_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (64 + 1)) % 2 ^ 256 = 2 ^ (64 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (64 + 1)) % 2 ^ 256 = 2 ^ (64 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_64_lo :
     model_ln_wad_to_wad_evm (2 ^ (64 + 1) - 1) = 3608035062503622799 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (64 + 1) - 1) % 2 ^ 256 = 2 ^ (64 + 1) - 1 by decide]
+  simp only [show (2 ^ (64 + 1) - 1) % 2 ^ 256 = 2 ^ (64 + 1) - 1 by decide]
   rw [ray_eval_seam_64_lo]
   decide
 
@@ -3220,7 +3220,7 @@ private theorem wad_eval_seam_64_hi :
     model_ln_wad_to_wad_evm (2 ^ (64 + 1)) = 3608035062503622799 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (64 + 1)) % 2 ^ 256 = 2 ^ (64 + 1) by decide]
+  simp only [show (2 ^ (64 + 1)) % 2 ^ 256 = 2 ^ (64 + 1) by decide]
   rw [ray_eval_seam_64_hi]
   decide
 
@@ -3242,8 +3242,8 @@ private theorem ray_eval_seam_65_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (65 + 1) - 1) % 2 ^ 256 = 2 ^ (65 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (65 + 1) - 1) % 2 ^ 256 = 2 ^ (65 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_65_hi :
@@ -3252,15 +3252,15 @@ private theorem ray_eval_seam_65_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (65 + 1)) % 2 ^ 256 = 2 ^ (65 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (65 + 1)) % 2 ^ 256 = 2 ^ (65 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_65_lo :
     model_ln_wad_to_wad_evm (2 ^ (65 + 1) - 1) = 4301182243063568109 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (65 + 1) - 1) % 2 ^ 256 = 2 ^ (65 + 1) - 1 by decide]
+  simp only [show (2 ^ (65 + 1) - 1) % 2 ^ 256 = 2 ^ (65 + 1) - 1 by decide]
   rw [ray_eval_seam_65_lo]
   decide
 
@@ -3268,7 +3268,7 @@ private theorem wad_eval_seam_65_hi :
     model_ln_wad_to_wad_evm (2 ^ (65 + 1)) = 4301182243063568109 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (65 + 1)) % 2 ^ 256 = 2 ^ (65 + 1) by decide]
+  simp only [show (2 ^ (65 + 1)) % 2 ^ 256 = 2 ^ (65 + 1) by decide]
   rw [ray_eval_seam_65_hi]
   decide
 
@@ -3290,8 +3290,8 @@ private theorem ray_eval_seam_66_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (66 + 1) - 1) % 2 ^ 256 = 2 ^ (66 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (66 + 1) - 1) % 2 ^ 256 = 2 ^ (66 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_66_hi :
@@ -3300,15 +3300,15 @@ private theorem ray_eval_seam_66_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (66 + 1)) % 2 ^ 256 = 2 ^ (66 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (66 + 1)) % 2 ^ 256 = 2 ^ (66 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_66_lo :
     model_ln_wad_to_wad_evm (2 ^ (66 + 1) - 1) = 4994329423623513418 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (66 + 1) - 1) % 2 ^ 256 = 2 ^ (66 + 1) - 1 by decide]
+  simp only [show (2 ^ (66 + 1) - 1) % 2 ^ 256 = 2 ^ (66 + 1) - 1 by decide]
   rw [ray_eval_seam_66_lo]
   decide
 
@@ -3316,7 +3316,7 @@ private theorem wad_eval_seam_66_hi :
     model_ln_wad_to_wad_evm (2 ^ (66 + 1)) = 4994329423623513418 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (66 + 1)) % 2 ^ 256 = 2 ^ (66 + 1) by decide]
+  simp only [show (2 ^ (66 + 1)) % 2 ^ 256 = 2 ^ (66 + 1) by decide]
   rw [ray_eval_seam_66_hi]
   decide
 
@@ -3338,8 +3338,8 @@ private theorem ray_eval_seam_67_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (67 + 1) - 1) % 2 ^ 256 = 2 ^ (67 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (67 + 1) - 1) % 2 ^ 256 = 2 ^ (67 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_67_hi :
@@ -3348,15 +3348,15 @@ private theorem ray_eval_seam_67_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (67 + 1)) % 2 ^ 256 = 2 ^ (67 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (67 + 1)) % 2 ^ 256 = 2 ^ (67 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_67_lo :
     model_ln_wad_to_wad_evm (2 ^ (67 + 1) - 1) = 5687476604183458728 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (67 + 1) - 1) % 2 ^ 256 = 2 ^ (67 + 1) - 1 by decide]
+  simp only [show (2 ^ (67 + 1) - 1) % 2 ^ 256 = 2 ^ (67 + 1) - 1 by decide]
   rw [ray_eval_seam_67_lo]
   decide
 
@@ -3364,7 +3364,7 @@ private theorem wad_eval_seam_67_hi :
     model_ln_wad_to_wad_evm (2 ^ (67 + 1)) = 5687476604183458728 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (67 + 1)) % 2 ^ 256 = 2 ^ (67 + 1) by decide]
+  simp only [show (2 ^ (67 + 1)) % 2 ^ 256 = 2 ^ (67 + 1) by decide]
   rw [ray_eval_seam_67_hi]
   decide
 
@@ -3386,8 +3386,8 @@ private theorem ray_eval_seam_68_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (68 + 1) - 1) % 2 ^ 256 = 2 ^ (68 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (68 + 1) - 1) % 2 ^ 256 = 2 ^ (68 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_68_hi :
@@ -3396,15 +3396,15 @@ private theorem ray_eval_seam_68_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (68 + 1)) % 2 ^ 256 = 2 ^ (68 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (68 + 1)) % 2 ^ 256 = 2 ^ (68 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_68_lo :
     model_ln_wad_to_wad_evm (2 ^ (68 + 1) - 1) = 6380623784743404037 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (68 + 1) - 1) % 2 ^ 256 = 2 ^ (68 + 1) - 1 by decide]
+  simp only [show (2 ^ (68 + 1) - 1) % 2 ^ 256 = 2 ^ (68 + 1) - 1 by decide]
   rw [ray_eval_seam_68_lo]
   decide
 
@@ -3412,7 +3412,7 @@ private theorem wad_eval_seam_68_hi :
     model_ln_wad_to_wad_evm (2 ^ (68 + 1)) = 6380623784743404037 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (68 + 1)) % 2 ^ 256 = 2 ^ (68 + 1) by decide]
+  simp only [show (2 ^ (68 + 1)) % 2 ^ 256 = 2 ^ (68 + 1) by decide]
   rw [ray_eval_seam_68_hi]
   decide
 
@@ -3434,8 +3434,8 @@ private theorem ray_eval_seam_69_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (69 + 1) - 1) % 2 ^ 256 = 2 ^ (69 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (69 + 1) - 1) % 2 ^ 256 = 2 ^ (69 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_69_hi :
@@ -3444,15 +3444,15 @@ private theorem ray_eval_seam_69_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (69 + 1)) % 2 ^ 256 = 2 ^ (69 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (69 + 1)) % 2 ^ 256 = 2 ^ (69 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_69_lo :
     model_ln_wad_to_wad_evm (2 ^ (69 + 1) - 1) = 7073770965303349346 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (69 + 1) - 1) % 2 ^ 256 = 2 ^ (69 + 1) - 1 by decide]
+  simp only [show (2 ^ (69 + 1) - 1) % 2 ^ 256 = 2 ^ (69 + 1) - 1 by decide]
   rw [ray_eval_seam_69_lo]
   decide
 
@@ -3460,7 +3460,7 @@ private theorem wad_eval_seam_69_hi :
     model_ln_wad_to_wad_evm (2 ^ (69 + 1)) = 7073770965303349346 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (69 + 1)) % 2 ^ 256 = 2 ^ (69 + 1) by decide]
+  simp only [show (2 ^ (69 + 1)) % 2 ^ 256 = 2 ^ (69 + 1) by decide]
   rw [ray_eval_seam_69_hi]
   decide
 
@@ -3482,8 +3482,8 @@ private theorem ray_eval_seam_70_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (70 + 1) - 1) % 2 ^ 256 = 2 ^ (70 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (70 + 1) - 1) % 2 ^ 256 = 2 ^ (70 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_70_hi :
@@ -3492,15 +3492,15 @@ private theorem ray_eval_seam_70_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (70 + 1)) % 2 ^ 256 = 2 ^ (70 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (70 + 1)) % 2 ^ 256 = 2 ^ (70 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_70_lo :
     model_ln_wad_to_wad_evm (2 ^ (70 + 1) - 1) = 7766918145863294656 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (70 + 1) - 1) % 2 ^ 256 = 2 ^ (70 + 1) - 1 by decide]
+  simp only [show (2 ^ (70 + 1) - 1) % 2 ^ 256 = 2 ^ (70 + 1) - 1 by decide]
   rw [ray_eval_seam_70_lo]
   decide
 
@@ -3508,7 +3508,7 @@ private theorem wad_eval_seam_70_hi :
     model_ln_wad_to_wad_evm (2 ^ (70 + 1)) = 7766918145863294656 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (70 + 1)) % 2 ^ 256 = 2 ^ (70 + 1) by decide]
+  simp only [show (2 ^ (70 + 1)) % 2 ^ 256 = 2 ^ (70 + 1) by decide]
   rw [ray_eval_seam_70_hi]
   decide
 
@@ -3530,8 +3530,8 @@ private theorem ray_eval_seam_71_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (71 + 1) - 1) % 2 ^ 256 = 2 ^ (71 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (71 + 1) - 1) % 2 ^ 256 = 2 ^ (71 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_71_hi :
@@ -3540,15 +3540,15 @@ private theorem ray_eval_seam_71_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (71 + 1)) % 2 ^ 256 = 2 ^ (71 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (71 + 1)) % 2 ^ 256 = 2 ^ (71 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_71_lo :
     model_ln_wad_to_wad_evm (2 ^ (71 + 1) - 1) = 8460065326423239965 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (71 + 1) - 1) % 2 ^ 256 = 2 ^ (71 + 1) - 1 by decide]
+  simp only [show (2 ^ (71 + 1) - 1) % 2 ^ 256 = 2 ^ (71 + 1) - 1 by decide]
   rw [ray_eval_seam_71_lo]
   decide
 
@@ -3556,7 +3556,7 @@ private theorem wad_eval_seam_71_hi :
     model_ln_wad_to_wad_evm (2 ^ (71 + 1)) = 8460065326423239965 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (71 + 1)) % 2 ^ 256 = 2 ^ (71 + 1) by decide]
+  simp only [show (2 ^ (71 + 1)) % 2 ^ 256 = 2 ^ (71 + 1) by decide]
   rw [ray_eval_seam_71_hi]
   decide
 
@@ -3578,8 +3578,8 @@ private theorem ray_eval_seam_72_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (72 + 1) - 1) % 2 ^ 256 = 2 ^ (72 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (72 + 1) - 1) % 2 ^ 256 = 2 ^ (72 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_72_hi :
@@ -3588,15 +3588,15 @@ private theorem ray_eval_seam_72_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (72 + 1)) % 2 ^ 256 = 2 ^ (72 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (72 + 1)) % 2 ^ 256 = 2 ^ (72 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_72_lo :
     model_ln_wad_to_wad_evm (2 ^ (72 + 1) - 1) = 9153212506983185275 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (72 + 1) - 1) % 2 ^ 256 = 2 ^ (72 + 1) - 1 by decide]
+  simp only [show (2 ^ (72 + 1) - 1) % 2 ^ 256 = 2 ^ (72 + 1) - 1 by decide]
   rw [ray_eval_seam_72_lo]
   decide
 
@@ -3604,7 +3604,7 @@ private theorem wad_eval_seam_72_hi :
     model_ln_wad_to_wad_evm (2 ^ (72 + 1)) = 9153212506983185275 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (72 + 1)) % 2 ^ 256 = 2 ^ (72 + 1) by decide]
+  simp only [show (2 ^ (72 + 1)) % 2 ^ 256 = 2 ^ (72 + 1) by decide]
   rw [ray_eval_seam_72_hi]
   decide
 
@@ -3626,8 +3626,8 @@ private theorem ray_eval_seam_73_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (73 + 1) - 1) % 2 ^ 256 = 2 ^ (73 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (73 + 1) - 1) % 2 ^ 256 = 2 ^ (73 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_73_hi :
@@ -3636,15 +3636,15 @@ private theorem ray_eval_seam_73_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (73 + 1)) % 2 ^ 256 = 2 ^ (73 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (73 + 1)) % 2 ^ 256 = 2 ^ (73 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_73_lo :
     model_ln_wad_to_wad_evm (2 ^ (73 + 1) - 1) = 9846359687543130584 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (73 + 1) - 1) % 2 ^ 256 = 2 ^ (73 + 1) - 1 by decide]
+  simp only [show (2 ^ (73 + 1) - 1) % 2 ^ 256 = 2 ^ (73 + 1) - 1 by decide]
   rw [ray_eval_seam_73_lo]
   decide
 
@@ -3652,7 +3652,7 @@ private theorem wad_eval_seam_73_hi :
     model_ln_wad_to_wad_evm (2 ^ (73 + 1)) = 9846359687543130584 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (73 + 1)) % 2 ^ 256 = 2 ^ (73 + 1) by decide]
+  simp only [show (2 ^ (73 + 1)) % 2 ^ 256 = 2 ^ (73 + 1) by decide]
   rw [ray_eval_seam_73_hi]
   decide
 
@@ -3674,8 +3674,8 @@ private theorem ray_eval_seam_74_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (74 + 1) - 1) % 2 ^ 256 = 2 ^ (74 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (74 + 1) - 1) % 2 ^ 256 = 2 ^ (74 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_74_hi :
@@ -3684,15 +3684,15 @@ private theorem ray_eval_seam_74_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (74 + 1)) % 2 ^ 256 = 2 ^ (74 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (74 + 1)) % 2 ^ 256 = 2 ^ (74 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_74_lo :
     model_ln_wad_to_wad_evm (2 ^ (74 + 1) - 1) = 10539506868103075893 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (74 + 1) - 1) % 2 ^ 256 = 2 ^ (74 + 1) - 1 by decide]
+  simp only [show (2 ^ (74 + 1) - 1) % 2 ^ 256 = 2 ^ (74 + 1) - 1 by decide]
   rw [ray_eval_seam_74_lo]
   decide
 
@@ -3700,7 +3700,7 @@ private theorem wad_eval_seam_74_hi :
     model_ln_wad_to_wad_evm (2 ^ (74 + 1)) = 10539506868103075893 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (74 + 1)) % 2 ^ 256 = 2 ^ (74 + 1) by decide]
+  simp only [show (2 ^ (74 + 1)) % 2 ^ 256 = 2 ^ (74 + 1) by decide]
   rw [ray_eval_seam_74_hi]
   decide
 
@@ -3722,8 +3722,8 @@ private theorem ray_eval_seam_75_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (75 + 1) - 1) % 2 ^ 256 = 2 ^ (75 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (75 + 1) - 1) % 2 ^ 256 = 2 ^ (75 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_75_hi :
@@ -3732,15 +3732,15 @@ private theorem ray_eval_seam_75_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (75 + 1)) % 2 ^ 256 = 2 ^ (75 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (75 + 1)) % 2 ^ 256 = 2 ^ (75 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_75_lo :
     model_ln_wad_to_wad_evm (2 ^ (75 + 1) - 1) = 11232654048663021203 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (75 + 1) - 1) % 2 ^ 256 = 2 ^ (75 + 1) - 1 by decide]
+  simp only [show (2 ^ (75 + 1) - 1) % 2 ^ 256 = 2 ^ (75 + 1) - 1 by decide]
   rw [ray_eval_seam_75_lo]
   decide
 
@@ -3748,7 +3748,7 @@ private theorem wad_eval_seam_75_hi :
     model_ln_wad_to_wad_evm (2 ^ (75 + 1)) = 11232654048663021203 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (75 + 1)) % 2 ^ 256 = 2 ^ (75 + 1) by decide]
+  simp only [show (2 ^ (75 + 1)) % 2 ^ 256 = 2 ^ (75 + 1) by decide]
   rw [ray_eval_seam_75_hi]
   decide
 
@@ -3770,8 +3770,8 @@ private theorem ray_eval_seam_76_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (76 + 1) - 1) % 2 ^ 256 = 2 ^ (76 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (76 + 1) - 1) % 2 ^ 256 = 2 ^ (76 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_76_hi :
@@ -3780,15 +3780,15 @@ private theorem ray_eval_seam_76_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (76 + 1)) % 2 ^ 256 = 2 ^ (76 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (76 + 1)) % 2 ^ 256 = 2 ^ (76 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_76_lo :
     model_ln_wad_to_wad_evm (2 ^ (76 + 1) - 1) = 11925801229222966512 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (76 + 1) - 1) % 2 ^ 256 = 2 ^ (76 + 1) - 1 by decide]
+  simp only [show (2 ^ (76 + 1) - 1) % 2 ^ 256 = 2 ^ (76 + 1) - 1 by decide]
   rw [ray_eval_seam_76_lo]
   decide
 
@@ -3796,7 +3796,7 @@ private theorem wad_eval_seam_76_hi :
     model_ln_wad_to_wad_evm (2 ^ (76 + 1)) = 11925801229222966512 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (76 + 1)) % 2 ^ 256 = 2 ^ (76 + 1) by decide]
+  simp only [show (2 ^ (76 + 1)) % 2 ^ 256 = 2 ^ (76 + 1) by decide]
   rw [ray_eval_seam_76_hi]
   decide
 
@@ -3818,8 +3818,8 @@ private theorem ray_eval_seam_77_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (77 + 1) - 1) % 2 ^ 256 = 2 ^ (77 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (77 + 1) - 1) % 2 ^ 256 = 2 ^ (77 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_77_hi :
@@ -3828,15 +3828,15 @@ private theorem ray_eval_seam_77_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (77 + 1)) % 2 ^ 256 = 2 ^ (77 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (77 + 1)) % 2 ^ 256 = 2 ^ (77 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_77_lo :
     model_ln_wad_to_wad_evm (2 ^ (77 + 1) - 1) = 12618948409782911822 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (77 + 1) - 1) % 2 ^ 256 = 2 ^ (77 + 1) - 1 by decide]
+  simp only [show (2 ^ (77 + 1) - 1) % 2 ^ 256 = 2 ^ (77 + 1) - 1 by decide]
   rw [ray_eval_seam_77_lo]
   decide
 
@@ -3844,7 +3844,7 @@ private theorem wad_eval_seam_77_hi :
     model_ln_wad_to_wad_evm (2 ^ (77 + 1)) = 12618948409782911822 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (77 + 1)) % 2 ^ 256 = 2 ^ (77 + 1) by decide]
+  simp only [show (2 ^ (77 + 1)) % 2 ^ 256 = 2 ^ (77 + 1) by decide]
   rw [ray_eval_seam_77_hi]
   decide
 
@@ -3866,8 +3866,8 @@ private theorem ray_eval_seam_78_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (78 + 1) - 1) % 2 ^ 256 = 2 ^ (78 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (78 + 1) - 1) % 2 ^ 256 = 2 ^ (78 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_78_hi :
@@ -3876,15 +3876,15 @@ private theorem ray_eval_seam_78_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (78 + 1)) % 2 ^ 256 = 2 ^ (78 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (78 + 1)) % 2 ^ 256 = 2 ^ (78 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_78_lo :
     model_ln_wad_to_wad_evm (2 ^ (78 + 1) - 1) = 13312095590342857131 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (78 + 1) - 1) % 2 ^ 256 = 2 ^ (78 + 1) - 1 by decide]
+  simp only [show (2 ^ (78 + 1) - 1) % 2 ^ 256 = 2 ^ (78 + 1) - 1 by decide]
   rw [ray_eval_seam_78_lo]
   decide
 
@@ -3892,7 +3892,7 @@ private theorem wad_eval_seam_78_hi :
     model_ln_wad_to_wad_evm (2 ^ (78 + 1)) = 13312095590342857131 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (78 + 1)) % 2 ^ 256 = 2 ^ (78 + 1) by decide]
+  simp only [show (2 ^ (78 + 1)) % 2 ^ 256 = 2 ^ (78 + 1) by decide]
   rw [ray_eval_seam_78_hi]
   decide
 
@@ -3914,8 +3914,8 @@ private theorem ray_eval_seam_79_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (79 + 1) - 1) % 2 ^ 256 = 2 ^ (79 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (79 + 1) - 1) % 2 ^ 256 = 2 ^ (79 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_79_hi :
@@ -3924,15 +3924,15 @@ private theorem ray_eval_seam_79_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (79 + 1)) % 2 ^ 256 = 2 ^ (79 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (79 + 1)) % 2 ^ 256 = 2 ^ (79 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_79_lo :
     model_ln_wad_to_wad_evm (2 ^ (79 + 1) - 1) = 14005242770902802441 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (79 + 1) - 1) % 2 ^ 256 = 2 ^ (79 + 1) - 1 by decide]
+  simp only [show (2 ^ (79 + 1) - 1) % 2 ^ 256 = 2 ^ (79 + 1) - 1 by decide]
   rw [ray_eval_seam_79_lo]
   decide
 
@@ -3940,7 +3940,7 @@ private theorem wad_eval_seam_79_hi :
     model_ln_wad_to_wad_evm (2 ^ (79 + 1)) = 14005242770902802441 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (79 + 1)) % 2 ^ 256 = 2 ^ (79 + 1) by decide]
+  simp only [show (2 ^ (79 + 1)) % 2 ^ 256 = 2 ^ (79 + 1) by decide]
   rw [ray_eval_seam_79_hi]
   decide
 
@@ -3962,8 +3962,8 @@ private theorem ray_eval_seam_80_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (80 + 1) - 1) % 2 ^ 256 = 2 ^ (80 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (80 + 1) - 1) % 2 ^ 256 = 2 ^ (80 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_80_hi :
@@ -3972,15 +3972,15 @@ private theorem ray_eval_seam_80_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (80 + 1)) % 2 ^ 256 = 2 ^ (80 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (80 + 1)) % 2 ^ 256 = 2 ^ (80 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_80_lo :
     model_ln_wad_to_wad_evm (2 ^ (80 + 1) - 1) = 14698389951462747750 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (80 + 1) - 1) % 2 ^ 256 = 2 ^ (80 + 1) - 1 by decide]
+  simp only [show (2 ^ (80 + 1) - 1) % 2 ^ 256 = 2 ^ (80 + 1) - 1 by decide]
   rw [ray_eval_seam_80_lo]
   decide
 
@@ -3988,7 +3988,7 @@ private theorem wad_eval_seam_80_hi :
     model_ln_wad_to_wad_evm (2 ^ (80 + 1)) = 14698389951462747750 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (80 + 1)) % 2 ^ 256 = 2 ^ (80 + 1) by decide]
+  simp only [show (2 ^ (80 + 1)) % 2 ^ 256 = 2 ^ (80 + 1) by decide]
   rw [ray_eval_seam_80_hi]
   decide
 
@@ -4010,8 +4010,8 @@ private theorem ray_eval_seam_81_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (81 + 1) - 1) % 2 ^ 256 = 2 ^ (81 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (81 + 1) - 1) % 2 ^ 256 = 2 ^ (81 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_81_hi :
@@ -4020,15 +4020,15 @@ private theorem ray_eval_seam_81_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (81 + 1)) % 2 ^ 256 = 2 ^ (81 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (81 + 1)) % 2 ^ 256 = 2 ^ (81 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_81_lo :
     model_ln_wad_to_wad_evm (2 ^ (81 + 1) - 1) = 15391537132022693059 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (81 + 1) - 1) % 2 ^ 256 = 2 ^ (81 + 1) - 1 by decide]
+  simp only [show (2 ^ (81 + 1) - 1) % 2 ^ 256 = 2 ^ (81 + 1) - 1 by decide]
   rw [ray_eval_seam_81_lo]
   decide
 
@@ -4036,7 +4036,7 @@ private theorem wad_eval_seam_81_hi :
     model_ln_wad_to_wad_evm (2 ^ (81 + 1)) = 15391537132022693059 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (81 + 1)) % 2 ^ 256 = 2 ^ (81 + 1) by decide]
+  simp only [show (2 ^ (81 + 1)) % 2 ^ 256 = 2 ^ (81 + 1) by decide]
   rw [ray_eval_seam_81_hi]
   decide
 
@@ -4058,8 +4058,8 @@ private theorem ray_eval_seam_82_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (82 + 1) - 1) % 2 ^ 256 = 2 ^ (82 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (82 + 1) - 1) % 2 ^ 256 = 2 ^ (82 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_82_hi :
@@ -4068,15 +4068,15 @@ private theorem ray_eval_seam_82_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (82 + 1)) % 2 ^ 256 = 2 ^ (82 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (82 + 1)) % 2 ^ 256 = 2 ^ (82 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_82_lo :
     model_ln_wad_to_wad_evm (2 ^ (82 + 1) - 1) = 16084684312582638369 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (82 + 1) - 1) % 2 ^ 256 = 2 ^ (82 + 1) - 1 by decide]
+  simp only [show (2 ^ (82 + 1) - 1) % 2 ^ 256 = 2 ^ (82 + 1) - 1 by decide]
   rw [ray_eval_seam_82_lo]
   decide
 
@@ -4084,7 +4084,7 @@ private theorem wad_eval_seam_82_hi :
     model_ln_wad_to_wad_evm (2 ^ (82 + 1)) = 16084684312582638369 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (82 + 1)) % 2 ^ 256 = 2 ^ (82 + 1) by decide]
+  simp only [show (2 ^ (82 + 1)) % 2 ^ 256 = 2 ^ (82 + 1) by decide]
   rw [ray_eval_seam_82_hi]
   decide
 
@@ -4106,8 +4106,8 @@ private theorem ray_eval_seam_83_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (83 + 1) - 1) % 2 ^ 256 = 2 ^ (83 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (83 + 1) - 1) % 2 ^ 256 = 2 ^ (83 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_83_hi :
@@ -4116,15 +4116,15 @@ private theorem ray_eval_seam_83_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (83 + 1)) % 2 ^ 256 = 2 ^ (83 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (83 + 1)) % 2 ^ 256 = 2 ^ (83 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_83_lo :
     model_ln_wad_to_wad_evm (2 ^ (83 + 1) - 1) = 16777831493142583678 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (83 + 1) - 1) % 2 ^ 256 = 2 ^ (83 + 1) - 1 by decide]
+  simp only [show (2 ^ (83 + 1) - 1) % 2 ^ 256 = 2 ^ (83 + 1) - 1 by decide]
   rw [ray_eval_seam_83_lo]
   decide
 
@@ -4132,7 +4132,7 @@ private theorem wad_eval_seam_83_hi :
     model_ln_wad_to_wad_evm (2 ^ (83 + 1)) = 16777831493142583678 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (83 + 1)) % 2 ^ 256 = 2 ^ (83 + 1) by decide]
+  simp only [show (2 ^ (83 + 1)) % 2 ^ 256 = 2 ^ (83 + 1) by decide]
   rw [ray_eval_seam_83_hi]
   decide
 
@@ -4154,8 +4154,8 @@ private theorem ray_eval_seam_84_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (84 + 1) - 1) % 2 ^ 256 = 2 ^ (84 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (84 + 1) - 1) % 2 ^ 256 = 2 ^ (84 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_84_hi :
@@ -4164,15 +4164,15 @@ private theorem ray_eval_seam_84_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (84 + 1)) % 2 ^ 256 = 2 ^ (84 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (84 + 1)) % 2 ^ 256 = 2 ^ (84 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_84_lo :
     model_ln_wad_to_wad_evm (2 ^ (84 + 1) - 1) = 17470978673702528988 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (84 + 1) - 1) % 2 ^ 256 = 2 ^ (84 + 1) - 1 by decide]
+  simp only [show (2 ^ (84 + 1) - 1) % 2 ^ 256 = 2 ^ (84 + 1) - 1 by decide]
   rw [ray_eval_seam_84_lo]
   decide
 
@@ -4180,7 +4180,7 @@ private theorem wad_eval_seam_84_hi :
     model_ln_wad_to_wad_evm (2 ^ (84 + 1)) = 17470978673702528988 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (84 + 1)) % 2 ^ 256 = 2 ^ (84 + 1) by decide]
+  simp only [show (2 ^ (84 + 1)) % 2 ^ 256 = 2 ^ (84 + 1) by decide]
   rw [ray_eval_seam_84_hi]
   decide
 
@@ -4202,8 +4202,8 @@ private theorem ray_eval_seam_85_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (85 + 1) - 1) % 2 ^ 256 = 2 ^ (85 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (85 + 1) - 1) % 2 ^ 256 = 2 ^ (85 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_85_hi :
@@ -4212,15 +4212,15 @@ private theorem ray_eval_seam_85_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (85 + 1)) % 2 ^ 256 = 2 ^ (85 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (85 + 1)) % 2 ^ 256 = 2 ^ (85 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_85_lo :
     model_ln_wad_to_wad_evm (2 ^ (85 + 1) - 1) = 18164125854262474297 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (85 + 1) - 1) % 2 ^ 256 = 2 ^ (85 + 1) - 1 by decide]
+  simp only [show (2 ^ (85 + 1) - 1) % 2 ^ 256 = 2 ^ (85 + 1) - 1 by decide]
   rw [ray_eval_seam_85_lo]
   decide
 
@@ -4228,7 +4228,7 @@ private theorem wad_eval_seam_85_hi :
     model_ln_wad_to_wad_evm (2 ^ (85 + 1)) = 18164125854262474297 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (85 + 1)) % 2 ^ 256 = 2 ^ (85 + 1) by decide]
+  simp only [show (2 ^ (85 + 1)) % 2 ^ 256 = 2 ^ (85 + 1) by decide]
   rw [ray_eval_seam_85_hi]
   decide
 
@@ -4250,8 +4250,8 @@ private theorem ray_eval_seam_86_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (86 + 1) - 1) % 2 ^ 256 = 2 ^ (86 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (86 + 1) - 1) % 2 ^ 256 = 2 ^ (86 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_86_hi :
@@ -4260,15 +4260,15 @@ private theorem ray_eval_seam_86_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (86 + 1)) % 2 ^ 256 = 2 ^ (86 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (86 + 1)) % 2 ^ 256 = 2 ^ (86 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_86_lo :
     model_ln_wad_to_wad_evm (2 ^ (86 + 1) - 1) = 18857273034822419606 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (86 + 1) - 1) % 2 ^ 256 = 2 ^ (86 + 1) - 1 by decide]
+  simp only [show (2 ^ (86 + 1) - 1) % 2 ^ 256 = 2 ^ (86 + 1) - 1 by decide]
   rw [ray_eval_seam_86_lo]
   decide
 
@@ -4276,7 +4276,7 @@ private theorem wad_eval_seam_86_hi :
     model_ln_wad_to_wad_evm (2 ^ (86 + 1)) = 18857273034822419606 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (86 + 1)) % 2 ^ 256 = 2 ^ (86 + 1) by decide]
+  simp only [show (2 ^ (86 + 1)) % 2 ^ 256 = 2 ^ (86 + 1) by decide]
   rw [ray_eval_seam_86_hi]
   decide
 
@@ -4298,8 +4298,8 @@ private theorem ray_eval_seam_87_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (87 + 1) - 1) % 2 ^ 256 = 2 ^ (87 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (87 + 1) - 1) % 2 ^ 256 = 2 ^ (87 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_87_hi :
@@ -4308,15 +4308,15 @@ private theorem ray_eval_seam_87_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (87 + 1)) % 2 ^ 256 = 2 ^ (87 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (87 + 1)) % 2 ^ 256 = 2 ^ (87 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_87_lo :
     model_ln_wad_to_wad_evm (2 ^ (87 + 1) - 1) = 19550420215382364916 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (87 + 1) - 1) % 2 ^ 256 = 2 ^ (87 + 1) - 1 by decide]
+  simp only [show (2 ^ (87 + 1) - 1) % 2 ^ 256 = 2 ^ (87 + 1) - 1 by decide]
   rw [ray_eval_seam_87_lo]
   decide
 
@@ -4324,7 +4324,7 @@ private theorem wad_eval_seam_87_hi :
     model_ln_wad_to_wad_evm (2 ^ (87 + 1)) = 19550420215382364916 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (87 + 1)) % 2 ^ 256 = 2 ^ (87 + 1) by decide]
+  simp only [show (2 ^ (87 + 1)) % 2 ^ 256 = 2 ^ (87 + 1) by decide]
   rw [ray_eval_seam_87_hi]
   decide
 
@@ -4346,8 +4346,8 @@ private theorem ray_eval_seam_88_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (88 + 1) - 1) % 2 ^ 256 = 2 ^ (88 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (88 + 1) - 1) % 2 ^ 256 = 2 ^ (88 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_88_hi :
@@ -4356,15 +4356,15 @@ private theorem ray_eval_seam_88_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (88 + 1)) % 2 ^ 256 = 2 ^ (88 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (88 + 1)) % 2 ^ 256 = 2 ^ (88 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_88_lo :
     model_ln_wad_to_wad_evm (2 ^ (88 + 1) - 1) = 20243567395942310225 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (88 + 1) - 1) % 2 ^ 256 = 2 ^ (88 + 1) - 1 by decide]
+  simp only [show (2 ^ (88 + 1) - 1) % 2 ^ 256 = 2 ^ (88 + 1) - 1 by decide]
   rw [ray_eval_seam_88_lo]
   decide
 
@@ -4372,7 +4372,7 @@ private theorem wad_eval_seam_88_hi :
     model_ln_wad_to_wad_evm (2 ^ (88 + 1)) = 20243567395942310225 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (88 + 1)) % 2 ^ 256 = 2 ^ (88 + 1) by decide]
+  simp only [show (2 ^ (88 + 1)) % 2 ^ 256 = 2 ^ (88 + 1) by decide]
   rw [ray_eval_seam_88_hi]
   decide
 
@@ -4394,8 +4394,8 @@ private theorem ray_eval_seam_89_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (89 + 1) - 1) % 2 ^ 256 = 2 ^ (89 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (89 + 1) - 1) % 2 ^ 256 = 2 ^ (89 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_89_hi :
@@ -4404,15 +4404,15 @@ private theorem ray_eval_seam_89_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (89 + 1)) % 2 ^ 256 = 2 ^ (89 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (89 + 1)) % 2 ^ 256 = 2 ^ (89 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_89_lo :
     model_ln_wad_to_wad_evm (2 ^ (89 + 1) - 1) = 20936714576502255535 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (89 + 1) - 1) % 2 ^ 256 = 2 ^ (89 + 1) - 1 by decide]
+  simp only [show (2 ^ (89 + 1) - 1) % 2 ^ 256 = 2 ^ (89 + 1) - 1 by decide]
   rw [ray_eval_seam_89_lo]
   decide
 
@@ -4420,7 +4420,7 @@ private theorem wad_eval_seam_89_hi :
     model_ln_wad_to_wad_evm (2 ^ (89 + 1)) = 20936714576502255535 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (89 + 1)) % 2 ^ 256 = 2 ^ (89 + 1) by decide]
+  simp only [show (2 ^ (89 + 1)) % 2 ^ 256 = 2 ^ (89 + 1) by decide]
   rw [ray_eval_seam_89_hi]
   decide
 
@@ -4442,8 +4442,8 @@ private theorem ray_eval_seam_90_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (90 + 1) - 1) % 2 ^ 256 = 2 ^ (90 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (90 + 1) - 1) % 2 ^ 256 = 2 ^ (90 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_90_hi :
@@ -4452,15 +4452,15 @@ private theorem ray_eval_seam_90_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (90 + 1)) % 2 ^ 256 = 2 ^ (90 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (90 + 1)) % 2 ^ 256 = 2 ^ (90 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_90_lo :
     model_ln_wad_to_wad_evm (2 ^ (90 + 1) - 1) = 21629861757062200844 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (90 + 1) - 1) % 2 ^ 256 = 2 ^ (90 + 1) - 1 by decide]
+  simp only [show (2 ^ (90 + 1) - 1) % 2 ^ 256 = 2 ^ (90 + 1) - 1 by decide]
   rw [ray_eval_seam_90_lo]
   decide
 
@@ -4468,7 +4468,7 @@ private theorem wad_eval_seam_90_hi :
     model_ln_wad_to_wad_evm (2 ^ (90 + 1)) = 21629861757062200844 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (90 + 1)) % 2 ^ 256 = 2 ^ (90 + 1) by decide]
+  simp only [show (2 ^ (90 + 1)) % 2 ^ 256 = 2 ^ (90 + 1) by decide]
   rw [ray_eval_seam_90_hi]
   decide
 
@@ -4490,8 +4490,8 @@ private theorem ray_eval_seam_91_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (91 + 1) - 1) % 2 ^ 256 = 2 ^ (91 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (91 + 1) - 1) % 2 ^ 256 = 2 ^ (91 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_91_hi :
@@ -4500,15 +4500,15 @@ private theorem ray_eval_seam_91_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (91 + 1)) % 2 ^ 256 = 2 ^ (91 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (91 + 1)) % 2 ^ 256 = 2 ^ (91 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_91_lo :
     model_ln_wad_to_wad_evm (2 ^ (91 + 1) - 1) = 22323008937622146154 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (91 + 1) - 1) % 2 ^ 256 = 2 ^ (91 + 1) - 1 by decide]
+  simp only [show (2 ^ (91 + 1) - 1) % 2 ^ 256 = 2 ^ (91 + 1) - 1 by decide]
   rw [ray_eval_seam_91_lo]
   decide
 
@@ -4516,7 +4516,7 @@ private theorem wad_eval_seam_91_hi :
     model_ln_wad_to_wad_evm (2 ^ (91 + 1)) = 22323008937622146154 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (91 + 1)) % 2 ^ 256 = 2 ^ (91 + 1) by decide]
+  simp only [show (2 ^ (91 + 1)) % 2 ^ 256 = 2 ^ (91 + 1) by decide]
   rw [ray_eval_seam_91_hi]
   decide
 
@@ -4538,8 +4538,8 @@ private theorem ray_eval_seam_92_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (92 + 1) - 1) % 2 ^ 256 = 2 ^ (92 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (92 + 1) - 1) % 2 ^ 256 = 2 ^ (92 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_92_hi :
@@ -4548,15 +4548,15 @@ private theorem ray_eval_seam_92_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (92 + 1)) % 2 ^ 256 = 2 ^ (92 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (92 + 1)) % 2 ^ 256 = 2 ^ (92 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_92_lo :
     model_ln_wad_to_wad_evm (2 ^ (92 + 1) - 1) = 23016156118182091463 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (92 + 1) - 1) % 2 ^ 256 = 2 ^ (92 + 1) - 1 by decide]
+  simp only [show (2 ^ (92 + 1) - 1) % 2 ^ 256 = 2 ^ (92 + 1) - 1 by decide]
   rw [ray_eval_seam_92_lo]
   decide
 
@@ -4564,7 +4564,7 @@ private theorem wad_eval_seam_92_hi :
     model_ln_wad_to_wad_evm (2 ^ (92 + 1)) = 23016156118182091463 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (92 + 1)) % 2 ^ 256 = 2 ^ (92 + 1) by decide]
+  simp only [show (2 ^ (92 + 1)) % 2 ^ 256 = 2 ^ (92 + 1) by decide]
   rw [ray_eval_seam_92_hi]
   decide
 
@@ -4586,8 +4586,8 @@ private theorem ray_eval_seam_93_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (93 + 1) - 1) % 2 ^ 256 = 2 ^ (93 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (93 + 1) - 1) % 2 ^ 256 = 2 ^ (93 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_93_hi :
@@ -4596,15 +4596,15 @@ private theorem ray_eval_seam_93_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (93 + 1)) % 2 ^ 256 = 2 ^ (93 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (93 + 1)) % 2 ^ 256 = 2 ^ (93 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_93_lo :
     model_ln_wad_to_wad_evm (2 ^ (93 + 1) - 1) = 23709303298742036772 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (93 + 1) - 1) % 2 ^ 256 = 2 ^ (93 + 1) - 1 by decide]
+  simp only [show (2 ^ (93 + 1) - 1) % 2 ^ 256 = 2 ^ (93 + 1) - 1 by decide]
   rw [ray_eval_seam_93_lo]
   decide
 
@@ -4612,7 +4612,7 @@ private theorem wad_eval_seam_93_hi :
     model_ln_wad_to_wad_evm (2 ^ (93 + 1)) = 23709303298742036772 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (93 + 1)) % 2 ^ 256 = 2 ^ (93 + 1) by decide]
+  simp only [show (2 ^ (93 + 1)) % 2 ^ 256 = 2 ^ (93 + 1) by decide]
   rw [ray_eval_seam_93_hi]
   decide
 
@@ -4634,8 +4634,8 @@ private theorem ray_eval_seam_94_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (94 + 1) - 1) % 2 ^ 256 = 2 ^ (94 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (94 + 1) - 1) % 2 ^ 256 = 2 ^ (94 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_94_hi :
@@ -4644,15 +4644,15 @@ private theorem ray_eval_seam_94_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (94 + 1)) % 2 ^ 256 = 2 ^ (94 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (94 + 1)) % 2 ^ 256 = 2 ^ (94 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_94_lo :
     model_ln_wad_to_wad_evm (2 ^ (94 + 1) - 1) = 24402450479301982082 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (94 + 1) - 1) % 2 ^ 256 = 2 ^ (94 + 1) - 1 by decide]
+  simp only [show (2 ^ (94 + 1) - 1) % 2 ^ 256 = 2 ^ (94 + 1) - 1 by decide]
   rw [ray_eval_seam_94_lo]
   decide
 
@@ -4660,7 +4660,7 @@ private theorem wad_eval_seam_94_hi :
     model_ln_wad_to_wad_evm (2 ^ (94 + 1)) = 24402450479301982082 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (94 + 1)) % 2 ^ 256 = 2 ^ (94 + 1) by decide]
+  simp only [show (2 ^ (94 + 1)) % 2 ^ 256 = 2 ^ (94 + 1) by decide]
   rw [ray_eval_seam_94_hi]
   decide
 
@@ -4682,8 +4682,8 @@ private theorem ray_eval_seam_95_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (95 + 1) - 1) % 2 ^ 256 = 2 ^ (95 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (95 + 1) - 1) % 2 ^ 256 = 2 ^ (95 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_95_hi :
@@ -4692,15 +4692,15 @@ private theorem ray_eval_seam_95_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (95 + 1)) % 2 ^ 256 = 2 ^ (95 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (95 + 1)) % 2 ^ 256 = 2 ^ (95 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_95_lo :
     model_ln_wad_to_wad_evm (2 ^ (95 + 1) - 1) = 25095597659861927391 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (95 + 1) - 1) % 2 ^ 256 = 2 ^ (95 + 1) - 1 by decide]
+  simp only [show (2 ^ (95 + 1) - 1) % 2 ^ 256 = 2 ^ (95 + 1) - 1 by decide]
   rw [ray_eval_seam_95_lo]
   decide
 
@@ -4708,7 +4708,7 @@ private theorem wad_eval_seam_95_hi :
     model_ln_wad_to_wad_evm (2 ^ (95 + 1)) = 25095597659861927391 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (95 + 1)) % 2 ^ 256 = 2 ^ (95 + 1) by decide]
+  simp only [show (2 ^ (95 + 1)) % 2 ^ 256 = 2 ^ (95 + 1) by decide]
   rw [ray_eval_seam_95_hi]
   decide
 
@@ -4730,8 +4730,8 @@ private theorem ray_eval_seam_96_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (96 + 1) - 1) % 2 ^ 256 = 2 ^ (96 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (96 + 1) - 1) % 2 ^ 256 = 2 ^ (96 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_96_hi :
@@ -4740,15 +4740,15 @@ private theorem ray_eval_seam_96_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (96 + 1)) % 2 ^ 256 = 2 ^ (96 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (96 + 1)) % 2 ^ 256 = 2 ^ (96 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_96_lo :
     model_ln_wad_to_wad_evm (2 ^ (96 + 1) - 1) = 25788744840421872701 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (96 + 1) - 1) % 2 ^ 256 = 2 ^ (96 + 1) - 1 by decide]
+  simp only [show (2 ^ (96 + 1) - 1) % 2 ^ 256 = 2 ^ (96 + 1) - 1 by decide]
   rw [ray_eval_seam_96_lo]
   decide
 
@@ -4756,7 +4756,7 @@ private theorem wad_eval_seam_96_hi :
     model_ln_wad_to_wad_evm (2 ^ (96 + 1)) = 25788744840421872701 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (96 + 1)) % 2 ^ 256 = 2 ^ (96 + 1) by decide]
+  simp only [show (2 ^ (96 + 1)) % 2 ^ 256 = 2 ^ (96 + 1) by decide]
   rw [ray_eval_seam_96_hi]
   decide
 
@@ -4778,8 +4778,8 @@ private theorem ray_eval_seam_97_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (97 + 1) - 1) % 2 ^ 256 = 2 ^ (97 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (97 + 1) - 1) % 2 ^ 256 = 2 ^ (97 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_97_hi :
@@ -4788,15 +4788,15 @@ private theorem ray_eval_seam_97_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (97 + 1)) % 2 ^ 256 = 2 ^ (97 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (97 + 1)) % 2 ^ 256 = 2 ^ (97 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_97_lo :
     model_ln_wad_to_wad_evm (2 ^ (97 + 1) - 1) = 26481892020981818010 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (97 + 1) - 1) % 2 ^ 256 = 2 ^ (97 + 1) - 1 by decide]
+  simp only [show (2 ^ (97 + 1) - 1) % 2 ^ 256 = 2 ^ (97 + 1) - 1 by decide]
   rw [ray_eval_seam_97_lo]
   decide
 
@@ -4804,7 +4804,7 @@ private theorem wad_eval_seam_97_hi :
     model_ln_wad_to_wad_evm (2 ^ (97 + 1)) = 26481892020981818010 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (97 + 1)) % 2 ^ 256 = 2 ^ (97 + 1) by decide]
+  simp only [show (2 ^ (97 + 1)) % 2 ^ 256 = 2 ^ (97 + 1) by decide]
   rw [ray_eval_seam_97_hi]
   decide
 
@@ -4826,8 +4826,8 @@ private theorem ray_eval_seam_98_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (98 + 1) - 1) % 2 ^ 256 = 2 ^ (98 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (98 + 1) - 1) % 2 ^ 256 = 2 ^ (98 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_98_hi :
@@ -4836,15 +4836,15 @@ private theorem ray_eval_seam_98_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (98 + 1)) % 2 ^ 256 = 2 ^ (98 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (98 + 1)) % 2 ^ 256 = 2 ^ (98 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_98_lo :
     model_ln_wad_to_wad_evm (2 ^ (98 + 1) - 1) = 27175039201541763319 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (98 + 1) - 1) % 2 ^ 256 = 2 ^ (98 + 1) - 1 by decide]
+  simp only [show (2 ^ (98 + 1) - 1) % 2 ^ 256 = 2 ^ (98 + 1) - 1 by decide]
   rw [ray_eval_seam_98_lo]
   decide
 
@@ -4852,7 +4852,7 @@ private theorem wad_eval_seam_98_hi :
     model_ln_wad_to_wad_evm (2 ^ (98 + 1)) = 27175039201541763319 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (98 + 1)) % 2 ^ 256 = 2 ^ (98 + 1) by decide]
+  simp only [show (2 ^ (98 + 1)) % 2 ^ 256 = 2 ^ (98 + 1) by decide]
   rw [ray_eval_seam_98_hi]
   decide
 
@@ -4874,8 +4874,8 @@ private theorem ray_eval_seam_99_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (99 + 1) - 1) % 2 ^ 256 = 2 ^ (99 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (99 + 1) - 1) % 2 ^ 256 = 2 ^ (99 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_99_hi :
@@ -4884,15 +4884,15 @@ private theorem ray_eval_seam_99_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (99 + 1)) % 2 ^ 256 = 2 ^ (99 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (99 + 1)) % 2 ^ 256 = 2 ^ (99 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_99_lo :
     model_ln_wad_to_wad_evm (2 ^ (99 + 1) - 1) = 27868186382101708629 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (99 + 1) - 1) % 2 ^ 256 = 2 ^ (99 + 1) - 1 by decide]
+  simp only [show (2 ^ (99 + 1) - 1) % 2 ^ 256 = 2 ^ (99 + 1) - 1 by decide]
   rw [ray_eval_seam_99_lo]
   decide
 
@@ -4900,7 +4900,7 @@ private theorem wad_eval_seam_99_hi :
     model_ln_wad_to_wad_evm (2 ^ (99 + 1)) = 27868186382101708629 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (99 + 1)) % 2 ^ 256 = 2 ^ (99 + 1) by decide]
+  simp only [show (2 ^ (99 + 1)) % 2 ^ 256 = 2 ^ (99 + 1) by decide]
   rw [ray_eval_seam_99_hi]
   decide
 
@@ -4922,8 +4922,8 @@ private theorem ray_eval_seam_100_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (100 + 1) - 1) % 2 ^ 256 = 2 ^ (100 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (100 + 1) - 1) % 2 ^ 256 = 2 ^ (100 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_100_hi :
@@ -4932,15 +4932,15 @@ private theorem ray_eval_seam_100_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (100 + 1)) % 2 ^ 256 = 2 ^ (100 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (100 + 1)) % 2 ^ 256 = 2 ^ (100 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_100_lo :
     model_ln_wad_to_wad_evm (2 ^ (100 + 1) - 1) = 28561333562661653938 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (100 + 1) - 1) % 2 ^ 256 = 2 ^ (100 + 1) - 1 by decide]
+  simp only [show (2 ^ (100 + 1) - 1) % 2 ^ 256 = 2 ^ (100 + 1) - 1 by decide]
   rw [ray_eval_seam_100_lo]
   decide
 
@@ -4948,7 +4948,7 @@ private theorem wad_eval_seam_100_hi :
     model_ln_wad_to_wad_evm (2 ^ (100 + 1)) = 28561333562661653938 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (100 + 1)) % 2 ^ 256 = 2 ^ (100 + 1) by decide]
+  simp only [show (2 ^ (100 + 1)) % 2 ^ 256 = 2 ^ (100 + 1) by decide]
   rw [ray_eval_seam_100_hi]
   decide
 
@@ -4970,8 +4970,8 @@ private theorem ray_eval_seam_101_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (101 + 1) - 1) % 2 ^ 256 = 2 ^ (101 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (101 + 1) - 1) % 2 ^ 256 = 2 ^ (101 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_101_hi :
@@ -4980,15 +4980,15 @@ private theorem ray_eval_seam_101_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (101 + 1)) % 2 ^ 256 = 2 ^ (101 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (101 + 1)) % 2 ^ 256 = 2 ^ (101 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_101_lo :
     model_ln_wad_to_wad_evm (2 ^ (101 + 1) - 1) = 29254480743221599248 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (101 + 1) - 1) % 2 ^ 256 = 2 ^ (101 + 1) - 1 by decide]
+  simp only [show (2 ^ (101 + 1) - 1) % 2 ^ 256 = 2 ^ (101 + 1) - 1 by decide]
   rw [ray_eval_seam_101_lo]
   decide
 
@@ -4996,7 +4996,7 @@ private theorem wad_eval_seam_101_hi :
     model_ln_wad_to_wad_evm (2 ^ (101 + 1)) = 29254480743221599248 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (101 + 1)) % 2 ^ 256 = 2 ^ (101 + 1) by decide]
+  simp only [show (2 ^ (101 + 1)) % 2 ^ 256 = 2 ^ (101 + 1) by decide]
   rw [ray_eval_seam_101_hi]
   decide
 
@@ -5018,8 +5018,8 @@ private theorem ray_eval_seam_102_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (102 + 1) - 1) % 2 ^ 256 = 2 ^ (102 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (102 + 1) - 1) % 2 ^ 256 = 2 ^ (102 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_102_hi :
@@ -5028,15 +5028,15 @@ private theorem ray_eval_seam_102_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (102 + 1)) % 2 ^ 256 = 2 ^ (102 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (102 + 1)) % 2 ^ 256 = 2 ^ (102 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_102_lo :
     model_ln_wad_to_wad_evm (2 ^ (102 + 1) - 1) = 29947627923781544557 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (102 + 1) - 1) % 2 ^ 256 = 2 ^ (102 + 1) - 1 by decide]
+  simp only [show (2 ^ (102 + 1) - 1) % 2 ^ 256 = 2 ^ (102 + 1) - 1 by decide]
   rw [ray_eval_seam_102_lo]
   decide
 
@@ -5044,7 +5044,7 @@ private theorem wad_eval_seam_102_hi :
     model_ln_wad_to_wad_evm (2 ^ (102 + 1)) = 29947627923781544557 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (102 + 1)) % 2 ^ 256 = 2 ^ (102 + 1) by decide]
+  simp only [show (2 ^ (102 + 1)) % 2 ^ 256 = 2 ^ (102 + 1) by decide]
   rw [ray_eval_seam_102_hi]
   decide
 
@@ -5066,8 +5066,8 @@ private theorem ray_eval_seam_103_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (103 + 1) - 1) % 2 ^ 256 = 2 ^ (103 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (103 + 1) - 1) % 2 ^ 256 = 2 ^ (103 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_103_hi :
@@ -5076,15 +5076,15 @@ private theorem ray_eval_seam_103_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (103 + 1)) % 2 ^ 256 = 2 ^ (103 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (103 + 1)) % 2 ^ 256 = 2 ^ (103 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_103_lo :
     model_ln_wad_to_wad_evm (2 ^ (103 + 1) - 1) = 30640775104341489867 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (103 + 1) - 1) % 2 ^ 256 = 2 ^ (103 + 1) - 1 by decide]
+  simp only [show (2 ^ (103 + 1) - 1) % 2 ^ 256 = 2 ^ (103 + 1) - 1 by decide]
   rw [ray_eval_seam_103_lo]
   decide
 
@@ -5092,7 +5092,7 @@ private theorem wad_eval_seam_103_hi :
     model_ln_wad_to_wad_evm (2 ^ (103 + 1)) = 30640775104341489867 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (103 + 1)) % 2 ^ 256 = 2 ^ (103 + 1) by decide]
+  simp only [show (2 ^ (103 + 1)) % 2 ^ 256 = 2 ^ (103 + 1) by decide]
   rw [ray_eval_seam_103_hi]
   decide
 
@@ -5114,8 +5114,8 @@ private theorem ray_eval_seam_104_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (104 + 1) - 1) % 2 ^ 256 = 2 ^ (104 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (104 + 1) - 1) % 2 ^ 256 = 2 ^ (104 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_104_hi :
@@ -5124,15 +5124,15 @@ private theorem ray_eval_seam_104_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (104 + 1)) % 2 ^ 256 = 2 ^ (104 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (104 + 1)) % 2 ^ 256 = 2 ^ (104 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_104_lo :
     model_ln_wad_to_wad_evm (2 ^ (104 + 1) - 1) = 31333922284901435176 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (104 + 1) - 1) % 2 ^ 256 = 2 ^ (104 + 1) - 1 by decide]
+  simp only [show (2 ^ (104 + 1) - 1) % 2 ^ 256 = 2 ^ (104 + 1) - 1 by decide]
   rw [ray_eval_seam_104_lo]
   decide
 
@@ -5140,7 +5140,7 @@ private theorem wad_eval_seam_104_hi :
     model_ln_wad_to_wad_evm (2 ^ (104 + 1)) = 31333922284901435176 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (104 + 1)) % 2 ^ 256 = 2 ^ (104 + 1) by decide]
+  simp only [show (2 ^ (104 + 1)) % 2 ^ 256 = 2 ^ (104 + 1) by decide]
   rw [ray_eval_seam_104_hi]
   decide
 
@@ -5162,8 +5162,8 @@ private theorem ray_eval_seam_105_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (105 + 1) - 1) % 2 ^ 256 = 2 ^ (105 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (105 + 1) - 1) % 2 ^ 256 = 2 ^ (105 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_105_hi :
@@ -5172,15 +5172,15 @@ private theorem ray_eval_seam_105_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (105 + 1)) % 2 ^ 256 = 2 ^ (105 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (105 + 1)) % 2 ^ 256 = 2 ^ (105 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_105_lo :
     model_ln_wad_to_wad_evm (2 ^ (105 + 1) - 1) = 32027069465461380485 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (105 + 1) - 1) % 2 ^ 256 = 2 ^ (105 + 1) - 1 by decide]
+  simp only [show (2 ^ (105 + 1) - 1) % 2 ^ 256 = 2 ^ (105 + 1) - 1 by decide]
   rw [ray_eval_seam_105_lo]
   decide
 
@@ -5188,7 +5188,7 @@ private theorem wad_eval_seam_105_hi :
     model_ln_wad_to_wad_evm (2 ^ (105 + 1)) = 32027069465461380485 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (105 + 1)) % 2 ^ 256 = 2 ^ (105 + 1) by decide]
+  simp only [show (2 ^ (105 + 1)) % 2 ^ 256 = 2 ^ (105 + 1) by decide]
   rw [ray_eval_seam_105_hi]
   decide
 
@@ -5210,8 +5210,8 @@ private theorem ray_eval_seam_106_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (106 + 1) - 1) % 2 ^ 256 = 2 ^ (106 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (106 + 1) - 1) % 2 ^ 256 = 2 ^ (106 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_106_hi :
@@ -5220,15 +5220,15 @@ private theorem ray_eval_seam_106_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (106 + 1)) % 2 ^ 256 = 2 ^ (106 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (106 + 1)) % 2 ^ 256 = 2 ^ (106 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_106_lo :
     model_ln_wad_to_wad_evm (2 ^ (106 + 1) - 1) = 32720216646021325795 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (106 + 1) - 1) % 2 ^ 256 = 2 ^ (106 + 1) - 1 by decide]
+  simp only [show (2 ^ (106 + 1) - 1) % 2 ^ 256 = 2 ^ (106 + 1) - 1 by decide]
   rw [ray_eval_seam_106_lo]
   decide
 
@@ -5236,7 +5236,7 @@ private theorem wad_eval_seam_106_hi :
     model_ln_wad_to_wad_evm (2 ^ (106 + 1)) = 32720216646021325795 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (106 + 1)) % 2 ^ 256 = 2 ^ (106 + 1) by decide]
+  simp only [show (2 ^ (106 + 1)) % 2 ^ 256 = 2 ^ (106 + 1) by decide]
   rw [ray_eval_seam_106_hi]
   decide
 
@@ -5258,8 +5258,8 @@ private theorem ray_eval_seam_107_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (107 + 1) - 1) % 2 ^ 256 = 2 ^ (107 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (107 + 1) - 1) % 2 ^ 256 = 2 ^ (107 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_107_hi :
@@ -5268,15 +5268,15 @@ private theorem ray_eval_seam_107_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (107 + 1)) % 2 ^ 256 = 2 ^ (107 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (107 + 1)) % 2 ^ 256 = 2 ^ (107 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_107_lo :
     model_ln_wad_to_wad_evm (2 ^ (107 + 1) - 1) = 33413363826581271104 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (107 + 1) - 1) % 2 ^ 256 = 2 ^ (107 + 1) - 1 by decide]
+  simp only [show (2 ^ (107 + 1) - 1) % 2 ^ 256 = 2 ^ (107 + 1) - 1 by decide]
   rw [ray_eval_seam_107_lo]
   decide
 
@@ -5284,7 +5284,7 @@ private theorem wad_eval_seam_107_hi :
     model_ln_wad_to_wad_evm (2 ^ (107 + 1)) = 33413363826581271104 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (107 + 1)) % 2 ^ 256 = 2 ^ (107 + 1) by decide]
+  simp only [show (2 ^ (107 + 1)) % 2 ^ 256 = 2 ^ (107 + 1) by decide]
   rw [ray_eval_seam_107_hi]
   decide
 
@@ -5306,8 +5306,8 @@ private theorem ray_eval_seam_108_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (108 + 1) - 1) % 2 ^ 256 = 2 ^ (108 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (108 + 1) - 1) % 2 ^ 256 = 2 ^ (108 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_108_hi :
@@ -5316,15 +5316,15 @@ private theorem ray_eval_seam_108_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (108 + 1)) % 2 ^ 256 = 2 ^ (108 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (108 + 1)) % 2 ^ 256 = 2 ^ (108 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_108_lo :
     model_ln_wad_to_wad_evm (2 ^ (108 + 1) - 1) = 34106511007141216414 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (108 + 1) - 1) % 2 ^ 256 = 2 ^ (108 + 1) - 1 by decide]
+  simp only [show (2 ^ (108 + 1) - 1) % 2 ^ 256 = 2 ^ (108 + 1) - 1 by decide]
   rw [ray_eval_seam_108_lo]
   decide
 
@@ -5332,7 +5332,7 @@ private theorem wad_eval_seam_108_hi :
     model_ln_wad_to_wad_evm (2 ^ (108 + 1)) = 34106511007141216414 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (108 + 1)) % 2 ^ 256 = 2 ^ (108 + 1) by decide]
+  simp only [show (2 ^ (108 + 1)) % 2 ^ 256 = 2 ^ (108 + 1) by decide]
   rw [ray_eval_seam_108_hi]
   decide
 
@@ -5354,8 +5354,8 @@ private theorem ray_eval_seam_109_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (109 + 1) - 1) % 2 ^ 256 = 2 ^ (109 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (109 + 1) - 1) % 2 ^ 256 = 2 ^ (109 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_109_hi :
@@ -5364,15 +5364,15 @@ private theorem ray_eval_seam_109_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (109 + 1)) % 2 ^ 256 = 2 ^ (109 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (109 + 1)) % 2 ^ 256 = 2 ^ (109 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_109_lo :
     model_ln_wad_to_wad_evm (2 ^ (109 + 1) - 1) = 34799658187701161723 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (109 + 1) - 1) % 2 ^ 256 = 2 ^ (109 + 1) - 1 by decide]
+  simp only [show (2 ^ (109 + 1) - 1) % 2 ^ 256 = 2 ^ (109 + 1) - 1 by decide]
   rw [ray_eval_seam_109_lo]
   decide
 
@@ -5380,7 +5380,7 @@ private theorem wad_eval_seam_109_hi :
     model_ln_wad_to_wad_evm (2 ^ (109 + 1)) = 34799658187701161723 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (109 + 1)) % 2 ^ 256 = 2 ^ (109 + 1) by decide]
+  simp only [show (2 ^ (109 + 1)) % 2 ^ 256 = 2 ^ (109 + 1) by decide]
   rw [ray_eval_seam_109_hi]
   decide
 
@@ -5402,8 +5402,8 @@ private theorem ray_eval_seam_110_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (110 + 1) - 1) % 2 ^ 256 = 2 ^ (110 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (110 + 1) - 1) % 2 ^ 256 = 2 ^ (110 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_110_hi :
@@ -5412,15 +5412,15 @@ private theorem ray_eval_seam_110_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (110 + 1)) % 2 ^ 256 = 2 ^ (110 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (110 + 1)) % 2 ^ 256 = 2 ^ (110 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_110_lo :
     model_ln_wad_to_wad_evm (2 ^ (110 + 1) - 1) = 35492805368261107032 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (110 + 1) - 1) % 2 ^ 256 = 2 ^ (110 + 1) - 1 by decide]
+  simp only [show (2 ^ (110 + 1) - 1) % 2 ^ 256 = 2 ^ (110 + 1) - 1 by decide]
   rw [ray_eval_seam_110_lo]
   decide
 
@@ -5428,7 +5428,7 @@ private theorem wad_eval_seam_110_hi :
     model_ln_wad_to_wad_evm (2 ^ (110 + 1)) = 35492805368261107032 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (110 + 1)) % 2 ^ 256 = 2 ^ (110 + 1) by decide]
+  simp only [show (2 ^ (110 + 1)) % 2 ^ 256 = 2 ^ (110 + 1) by decide]
   rw [ray_eval_seam_110_hi]
   decide
 
@@ -5450,8 +5450,8 @@ private theorem ray_eval_seam_111_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (111 + 1) - 1) % 2 ^ 256 = 2 ^ (111 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (111 + 1) - 1) % 2 ^ 256 = 2 ^ (111 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_111_hi :
@@ -5460,15 +5460,15 @@ private theorem ray_eval_seam_111_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (111 + 1)) % 2 ^ 256 = 2 ^ (111 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (111 + 1)) % 2 ^ 256 = 2 ^ (111 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_111_lo :
     model_ln_wad_to_wad_evm (2 ^ (111 + 1) - 1) = 36185952548821052342 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (111 + 1) - 1) % 2 ^ 256 = 2 ^ (111 + 1) - 1 by decide]
+  simp only [show (2 ^ (111 + 1) - 1) % 2 ^ 256 = 2 ^ (111 + 1) - 1 by decide]
   rw [ray_eval_seam_111_lo]
   decide
 
@@ -5476,7 +5476,7 @@ private theorem wad_eval_seam_111_hi :
     model_ln_wad_to_wad_evm (2 ^ (111 + 1)) = 36185952548821052342 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (111 + 1)) % 2 ^ 256 = 2 ^ (111 + 1) by decide]
+  simp only [show (2 ^ (111 + 1)) % 2 ^ 256 = 2 ^ (111 + 1) by decide]
   rw [ray_eval_seam_111_hi]
   decide
 
@@ -5498,8 +5498,8 @@ private theorem ray_eval_seam_112_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (112 + 1) - 1) % 2 ^ 256 = 2 ^ (112 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (112 + 1) - 1) % 2 ^ 256 = 2 ^ (112 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_112_hi :
@@ -5508,15 +5508,15 @@ private theorem ray_eval_seam_112_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (112 + 1)) % 2 ^ 256 = 2 ^ (112 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (112 + 1)) % 2 ^ 256 = 2 ^ (112 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_112_lo :
     model_ln_wad_to_wad_evm (2 ^ (112 + 1) - 1) = 36879099729380997651 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (112 + 1) - 1) % 2 ^ 256 = 2 ^ (112 + 1) - 1 by decide]
+  simp only [show (2 ^ (112 + 1) - 1) % 2 ^ 256 = 2 ^ (112 + 1) - 1 by decide]
   rw [ray_eval_seam_112_lo]
   decide
 
@@ -5524,7 +5524,7 @@ private theorem wad_eval_seam_112_hi :
     model_ln_wad_to_wad_evm (2 ^ (112 + 1)) = 36879099729380997651 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (112 + 1)) % 2 ^ 256 = 2 ^ (112 + 1) by decide]
+  simp only [show (2 ^ (112 + 1)) % 2 ^ 256 = 2 ^ (112 + 1) by decide]
   rw [ray_eval_seam_112_hi]
   decide
 
@@ -5546,8 +5546,8 @@ private theorem ray_eval_seam_113_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (113 + 1) - 1) % 2 ^ 256 = 2 ^ (113 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (113 + 1) - 1) % 2 ^ 256 = 2 ^ (113 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_113_hi :
@@ -5556,15 +5556,15 @@ private theorem ray_eval_seam_113_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (113 + 1)) % 2 ^ 256 = 2 ^ (113 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (113 + 1)) % 2 ^ 256 = 2 ^ (113 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_113_lo :
     model_ln_wad_to_wad_evm (2 ^ (113 + 1) - 1) = 37572246909940942961 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (113 + 1) - 1) % 2 ^ 256 = 2 ^ (113 + 1) - 1 by decide]
+  simp only [show (2 ^ (113 + 1) - 1) % 2 ^ 256 = 2 ^ (113 + 1) - 1 by decide]
   rw [ray_eval_seam_113_lo]
   decide
 
@@ -5572,7 +5572,7 @@ private theorem wad_eval_seam_113_hi :
     model_ln_wad_to_wad_evm (2 ^ (113 + 1)) = 37572246909940942961 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (113 + 1)) % 2 ^ 256 = 2 ^ (113 + 1) by decide]
+  simp only [show (2 ^ (113 + 1)) % 2 ^ 256 = 2 ^ (113 + 1) by decide]
   rw [ray_eval_seam_113_hi]
   decide
 
@@ -5594,8 +5594,8 @@ private theorem ray_eval_seam_114_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (114 + 1) - 1) % 2 ^ 256 = 2 ^ (114 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (114 + 1) - 1) % 2 ^ 256 = 2 ^ (114 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_114_hi :
@@ -5604,15 +5604,15 @@ private theorem ray_eval_seam_114_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (114 + 1)) % 2 ^ 256 = 2 ^ (114 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (114 + 1)) % 2 ^ 256 = 2 ^ (114 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_114_lo :
     model_ln_wad_to_wad_evm (2 ^ (114 + 1) - 1) = 38265394090500888270 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (114 + 1) - 1) % 2 ^ 256 = 2 ^ (114 + 1) - 1 by decide]
+  simp only [show (2 ^ (114 + 1) - 1) % 2 ^ 256 = 2 ^ (114 + 1) - 1 by decide]
   rw [ray_eval_seam_114_lo]
   decide
 
@@ -5620,7 +5620,7 @@ private theorem wad_eval_seam_114_hi :
     model_ln_wad_to_wad_evm (2 ^ (114 + 1)) = 38265394090500888270 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (114 + 1)) % 2 ^ 256 = 2 ^ (114 + 1) by decide]
+  simp only [show (2 ^ (114 + 1)) % 2 ^ 256 = 2 ^ (114 + 1) by decide]
   rw [ray_eval_seam_114_hi]
   decide
 
@@ -5642,8 +5642,8 @@ private theorem ray_eval_seam_115_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (115 + 1) - 1) % 2 ^ 256 = 2 ^ (115 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (115 + 1) - 1) % 2 ^ 256 = 2 ^ (115 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_115_hi :
@@ -5652,15 +5652,15 @@ private theorem ray_eval_seam_115_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (115 + 1)) % 2 ^ 256 = 2 ^ (115 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (115 + 1)) % 2 ^ 256 = 2 ^ (115 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_115_lo :
     model_ln_wad_to_wad_evm (2 ^ (115 + 1) - 1) = 38958541271060833580 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (115 + 1) - 1) % 2 ^ 256 = 2 ^ (115 + 1) - 1 by decide]
+  simp only [show (2 ^ (115 + 1) - 1) % 2 ^ 256 = 2 ^ (115 + 1) - 1 by decide]
   rw [ray_eval_seam_115_lo]
   decide
 
@@ -5668,7 +5668,7 @@ private theorem wad_eval_seam_115_hi :
     model_ln_wad_to_wad_evm (2 ^ (115 + 1)) = 38958541271060833580 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (115 + 1)) % 2 ^ 256 = 2 ^ (115 + 1) by decide]
+  simp only [show (2 ^ (115 + 1)) % 2 ^ 256 = 2 ^ (115 + 1) by decide]
   rw [ray_eval_seam_115_hi]
   decide
 
@@ -5690,8 +5690,8 @@ private theorem ray_eval_seam_116_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (116 + 1) - 1) % 2 ^ 256 = 2 ^ (116 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (116 + 1) - 1) % 2 ^ 256 = 2 ^ (116 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_116_hi :
@@ -5700,15 +5700,15 @@ private theorem ray_eval_seam_116_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (116 + 1)) % 2 ^ 256 = 2 ^ (116 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (116 + 1)) % 2 ^ 256 = 2 ^ (116 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_116_lo :
     model_ln_wad_to_wad_evm (2 ^ (116 + 1) - 1) = 39651688451620778889 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (116 + 1) - 1) % 2 ^ 256 = 2 ^ (116 + 1) - 1 by decide]
+  simp only [show (2 ^ (116 + 1) - 1) % 2 ^ 256 = 2 ^ (116 + 1) - 1 by decide]
   rw [ray_eval_seam_116_lo]
   decide
 
@@ -5716,7 +5716,7 @@ private theorem wad_eval_seam_116_hi :
     model_ln_wad_to_wad_evm (2 ^ (116 + 1)) = 39651688451620778889 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (116 + 1)) % 2 ^ 256 = 2 ^ (116 + 1) by decide]
+  simp only [show (2 ^ (116 + 1)) % 2 ^ 256 = 2 ^ (116 + 1) by decide]
   rw [ray_eval_seam_116_hi]
   decide
 
@@ -5738,8 +5738,8 @@ private theorem ray_eval_seam_117_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (117 + 1) - 1) % 2 ^ 256 = 2 ^ (117 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (117 + 1) - 1) % 2 ^ 256 = 2 ^ (117 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_117_hi :
@@ -5748,15 +5748,15 @@ private theorem ray_eval_seam_117_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (117 + 1)) % 2 ^ 256 = 2 ^ (117 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (117 + 1)) % 2 ^ 256 = 2 ^ (117 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_117_lo :
     model_ln_wad_to_wad_evm (2 ^ (117 + 1) - 1) = 40344835632180724198 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (117 + 1) - 1) % 2 ^ 256 = 2 ^ (117 + 1) - 1 by decide]
+  simp only [show (2 ^ (117 + 1) - 1) % 2 ^ 256 = 2 ^ (117 + 1) - 1 by decide]
   rw [ray_eval_seam_117_lo]
   decide
 
@@ -5764,7 +5764,7 @@ private theorem wad_eval_seam_117_hi :
     model_ln_wad_to_wad_evm (2 ^ (117 + 1)) = 40344835632180724198 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (117 + 1)) % 2 ^ 256 = 2 ^ (117 + 1) by decide]
+  simp only [show (2 ^ (117 + 1)) % 2 ^ 256 = 2 ^ (117 + 1) by decide]
   rw [ray_eval_seam_117_hi]
   decide
 
@@ -5786,8 +5786,8 @@ private theorem ray_eval_seam_118_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (118 + 1) - 1) % 2 ^ 256 = 2 ^ (118 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (118 + 1) - 1) % 2 ^ 256 = 2 ^ (118 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_118_hi :
@@ -5796,15 +5796,15 @@ private theorem ray_eval_seam_118_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (118 + 1)) % 2 ^ 256 = 2 ^ (118 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (118 + 1)) % 2 ^ 256 = 2 ^ (118 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_118_lo :
     model_ln_wad_to_wad_evm (2 ^ (118 + 1) - 1) = 41037982812740669508 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (118 + 1) - 1) % 2 ^ 256 = 2 ^ (118 + 1) - 1 by decide]
+  simp only [show (2 ^ (118 + 1) - 1) % 2 ^ 256 = 2 ^ (118 + 1) - 1 by decide]
   rw [ray_eval_seam_118_lo]
   decide
 
@@ -5812,7 +5812,7 @@ private theorem wad_eval_seam_118_hi :
     model_ln_wad_to_wad_evm (2 ^ (118 + 1)) = 41037982812740669508 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (118 + 1)) % 2 ^ 256 = 2 ^ (118 + 1) by decide]
+  simp only [show (2 ^ (118 + 1)) % 2 ^ 256 = 2 ^ (118 + 1) by decide]
   rw [ray_eval_seam_118_hi]
   decide
 
@@ -5834,8 +5834,8 @@ private theorem ray_eval_seam_119_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (119 + 1) - 1) % 2 ^ 256 = 2 ^ (119 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (119 + 1) - 1) % 2 ^ 256 = 2 ^ (119 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_119_hi :
@@ -5844,15 +5844,15 @@ private theorem ray_eval_seam_119_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (119 + 1)) % 2 ^ 256 = 2 ^ (119 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (119 + 1)) % 2 ^ 256 = 2 ^ (119 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_119_lo :
     model_ln_wad_to_wad_evm (2 ^ (119 + 1) - 1) = 41731129993300614817 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (119 + 1) - 1) % 2 ^ 256 = 2 ^ (119 + 1) - 1 by decide]
+  simp only [show (2 ^ (119 + 1) - 1) % 2 ^ 256 = 2 ^ (119 + 1) - 1 by decide]
   rw [ray_eval_seam_119_lo]
   decide
 
@@ -5860,7 +5860,7 @@ private theorem wad_eval_seam_119_hi :
     model_ln_wad_to_wad_evm (2 ^ (119 + 1)) = 41731129993300614817 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (119 + 1)) % 2 ^ 256 = 2 ^ (119 + 1) by decide]
+  simp only [show (2 ^ (119 + 1)) % 2 ^ 256 = 2 ^ (119 + 1) by decide]
   rw [ray_eval_seam_119_hi]
   decide
 
@@ -5882,8 +5882,8 @@ private theorem ray_eval_seam_120_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (120 + 1) - 1) % 2 ^ 256 = 2 ^ (120 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (120 + 1) - 1) % 2 ^ 256 = 2 ^ (120 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_120_hi :
@@ -5892,15 +5892,15 @@ private theorem ray_eval_seam_120_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (120 + 1)) % 2 ^ 256 = 2 ^ (120 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (120 + 1)) % 2 ^ 256 = 2 ^ (120 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_120_lo :
     model_ln_wad_to_wad_evm (2 ^ (120 + 1) - 1) = 42424277173860560127 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (120 + 1) - 1) % 2 ^ 256 = 2 ^ (120 + 1) - 1 by decide]
+  simp only [show (2 ^ (120 + 1) - 1) % 2 ^ 256 = 2 ^ (120 + 1) - 1 by decide]
   rw [ray_eval_seam_120_lo]
   decide
 
@@ -5908,7 +5908,7 @@ private theorem wad_eval_seam_120_hi :
     model_ln_wad_to_wad_evm (2 ^ (120 + 1)) = 42424277173860560127 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (120 + 1)) % 2 ^ 256 = 2 ^ (120 + 1) by decide]
+  simp only [show (2 ^ (120 + 1)) % 2 ^ 256 = 2 ^ (120 + 1) by decide]
   rw [ray_eval_seam_120_hi]
   decide
 
@@ -5930,8 +5930,8 @@ private theorem ray_eval_seam_121_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (121 + 1) - 1) % 2 ^ 256 = 2 ^ (121 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (121 + 1) - 1) % 2 ^ 256 = 2 ^ (121 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_121_hi :
@@ -5940,15 +5940,15 @@ private theorem ray_eval_seam_121_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (121 + 1)) % 2 ^ 256 = 2 ^ (121 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (121 + 1)) % 2 ^ 256 = 2 ^ (121 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_121_lo :
     model_ln_wad_to_wad_evm (2 ^ (121 + 1) - 1) = 43117424354420505436 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (121 + 1) - 1) % 2 ^ 256 = 2 ^ (121 + 1) - 1 by decide]
+  simp only [show (2 ^ (121 + 1) - 1) % 2 ^ 256 = 2 ^ (121 + 1) - 1 by decide]
   rw [ray_eval_seam_121_lo]
   decide
 
@@ -5956,7 +5956,7 @@ private theorem wad_eval_seam_121_hi :
     model_ln_wad_to_wad_evm (2 ^ (121 + 1)) = 43117424354420505436 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (121 + 1)) % 2 ^ 256 = 2 ^ (121 + 1) by decide]
+  simp only [show (2 ^ (121 + 1)) % 2 ^ 256 = 2 ^ (121 + 1) by decide]
   rw [ray_eval_seam_121_hi]
   decide
 
@@ -5978,8 +5978,8 @@ private theorem ray_eval_seam_122_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (122 + 1) - 1) % 2 ^ 256 = 2 ^ (122 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (122 + 1) - 1) % 2 ^ 256 = 2 ^ (122 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_122_hi :
@@ -5988,15 +5988,15 @@ private theorem ray_eval_seam_122_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (122 + 1)) % 2 ^ 256 = 2 ^ (122 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (122 + 1)) % 2 ^ 256 = 2 ^ (122 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_122_lo :
     model_ln_wad_to_wad_evm (2 ^ (122 + 1) - 1) = 43810571534980450745 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (122 + 1) - 1) % 2 ^ 256 = 2 ^ (122 + 1) - 1 by decide]
+  simp only [show (2 ^ (122 + 1) - 1) % 2 ^ 256 = 2 ^ (122 + 1) - 1 by decide]
   rw [ray_eval_seam_122_lo]
   decide
 
@@ -6004,7 +6004,7 @@ private theorem wad_eval_seam_122_hi :
     model_ln_wad_to_wad_evm (2 ^ (122 + 1)) = 43810571534980450745 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (122 + 1)) % 2 ^ 256 = 2 ^ (122 + 1) by decide]
+  simp only [show (2 ^ (122 + 1)) % 2 ^ 256 = 2 ^ (122 + 1) by decide]
   rw [ray_eval_seam_122_hi]
   decide
 
@@ -6026,8 +6026,8 @@ private theorem ray_eval_seam_123_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (123 + 1) - 1) % 2 ^ 256 = 2 ^ (123 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (123 + 1) - 1) % 2 ^ 256 = 2 ^ (123 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_123_hi :
@@ -6036,15 +6036,15 @@ private theorem ray_eval_seam_123_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (123 + 1)) % 2 ^ 256 = 2 ^ (123 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (123 + 1)) % 2 ^ 256 = 2 ^ (123 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_123_lo :
     model_ln_wad_to_wad_evm (2 ^ (123 + 1) - 1) = 44503718715540396055 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (123 + 1) - 1) % 2 ^ 256 = 2 ^ (123 + 1) - 1 by decide]
+  simp only [show (2 ^ (123 + 1) - 1) % 2 ^ 256 = 2 ^ (123 + 1) - 1 by decide]
   rw [ray_eval_seam_123_lo]
   decide
 
@@ -6052,7 +6052,7 @@ private theorem wad_eval_seam_123_hi :
     model_ln_wad_to_wad_evm (2 ^ (123 + 1)) = 44503718715540396055 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (123 + 1)) % 2 ^ 256 = 2 ^ (123 + 1) by decide]
+  simp only [show (2 ^ (123 + 1)) % 2 ^ 256 = 2 ^ (123 + 1) by decide]
   rw [ray_eval_seam_123_hi]
   decide
 
@@ -6074,8 +6074,8 @@ private theorem ray_eval_seam_124_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (124 + 1) - 1) % 2 ^ 256 = 2 ^ (124 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (124 + 1) - 1) % 2 ^ 256 = 2 ^ (124 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_124_hi :
@@ -6084,15 +6084,15 @@ private theorem ray_eval_seam_124_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (124 + 1)) % 2 ^ 256 = 2 ^ (124 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (124 + 1)) % 2 ^ 256 = 2 ^ (124 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_124_lo :
     model_ln_wad_to_wad_evm (2 ^ (124 + 1) - 1) = 45196865896100341364 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (124 + 1) - 1) % 2 ^ 256 = 2 ^ (124 + 1) - 1 by decide]
+  simp only [show (2 ^ (124 + 1) - 1) % 2 ^ 256 = 2 ^ (124 + 1) - 1 by decide]
   rw [ray_eval_seam_124_lo]
   decide
 
@@ -6100,7 +6100,7 @@ private theorem wad_eval_seam_124_hi :
     model_ln_wad_to_wad_evm (2 ^ (124 + 1)) = 45196865896100341364 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (124 + 1)) % 2 ^ 256 = 2 ^ (124 + 1) by decide]
+  simp only [show (2 ^ (124 + 1)) % 2 ^ 256 = 2 ^ (124 + 1) by decide]
   rw [ray_eval_seam_124_hi]
   decide
 
@@ -6122,8 +6122,8 @@ private theorem ray_eval_seam_125_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (125 + 1) - 1) % 2 ^ 256 = 2 ^ (125 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (125 + 1) - 1) % 2 ^ 256 = 2 ^ (125 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_125_hi :
@@ -6132,15 +6132,15 @@ private theorem ray_eval_seam_125_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (125 + 1)) % 2 ^ 256 = 2 ^ (125 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (125 + 1)) % 2 ^ 256 = 2 ^ (125 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_125_lo :
     model_ln_wad_to_wad_evm (2 ^ (125 + 1) - 1) = 45890013076660286674 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (125 + 1) - 1) % 2 ^ 256 = 2 ^ (125 + 1) - 1 by decide]
+  simp only [show (2 ^ (125 + 1) - 1) % 2 ^ 256 = 2 ^ (125 + 1) - 1 by decide]
   rw [ray_eval_seam_125_lo]
   decide
 
@@ -6148,7 +6148,7 @@ private theorem wad_eval_seam_125_hi :
     model_ln_wad_to_wad_evm (2 ^ (125 + 1)) = 45890013076660286674 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (125 + 1)) % 2 ^ 256 = 2 ^ (125 + 1) by decide]
+  simp only [show (2 ^ (125 + 1)) % 2 ^ 256 = 2 ^ (125 + 1) by decide]
   rw [ray_eval_seam_125_hi]
   decide
 
@@ -6170,8 +6170,8 @@ private theorem ray_eval_seam_126_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (126 + 1) - 1) % 2 ^ 256 = 2 ^ (126 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (126 + 1) - 1) % 2 ^ 256 = 2 ^ (126 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_126_hi :
@@ -6180,15 +6180,15 @@ private theorem ray_eval_seam_126_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (126 + 1)) % 2 ^ 256 = 2 ^ (126 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (126 + 1)) % 2 ^ 256 = 2 ^ (126 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_126_lo :
     model_ln_wad_to_wad_evm (2 ^ (126 + 1) - 1) = 46583160257220231983 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (126 + 1) - 1) % 2 ^ 256 = 2 ^ (126 + 1) - 1 by decide]
+  simp only [show (2 ^ (126 + 1) - 1) % 2 ^ 256 = 2 ^ (126 + 1) - 1 by decide]
   rw [ray_eval_seam_126_lo]
   decide
 
@@ -6196,7 +6196,7 @@ private theorem wad_eval_seam_126_hi :
     model_ln_wad_to_wad_evm (2 ^ (126 + 1)) = 46583160257220231983 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (126 + 1)) % 2 ^ 256 = 2 ^ (126 + 1) by decide]
+  simp only [show (2 ^ (126 + 1)) % 2 ^ 256 = 2 ^ (126 + 1) by decide]
   rw [ray_eval_seam_126_hi]
   decide
 
@@ -6218,8 +6218,8 @@ private theorem ray_eval_seam_127_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (127 + 1) - 1) % 2 ^ 256 = 2 ^ (127 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (127 + 1) - 1) % 2 ^ 256 = 2 ^ (127 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_127_hi :
@@ -6228,15 +6228,15 @@ private theorem ray_eval_seam_127_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (127 + 1)) % 2 ^ 256 = 2 ^ (127 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (127 + 1)) % 2 ^ 256 = 2 ^ (127 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_127_lo :
     model_ln_wad_to_wad_evm (2 ^ (127 + 1) - 1) = 47276307437780177293 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (127 + 1) - 1) % 2 ^ 256 = 2 ^ (127 + 1) - 1 by decide]
+  simp only [show (2 ^ (127 + 1) - 1) % 2 ^ 256 = 2 ^ (127 + 1) - 1 by decide]
   rw [ray_eval_seam_127_lo]
   decide
 
@@ -6244,7 +6244,7 @@ private theorem wad_eval_seam_127_hi :
     model_ln_wad_to_wad_evm (2 ^ (127 + 1)) = 47276307437780177293 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (127 + 1)) % 2 ^ 256 = 2 ^ (127 + 1) by decide]
+  simp only [show (2 ^ (127 + 1)) % 2 ^ 256 = 2 ^ (127 + 1) by decide]
   rw [ray_eval_seam_127_hi]
   decide
 
@@ -6266,8 +6266,8 @@ private theorem ray_eval_seam_128_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (128 + 1) - 1) % 2 ^ 256 = 2 ^ (128 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (128 + 1) - 1) % 2 ^ 256 = 2 ^ (128 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_128_hi :
@@ -6276,15 +6276,15 @@ private theorem ray_eval_seam_128_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (128 + 1)) % 2 ^ 256 = 2 ^ (128 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (128 + 1)) % 2 ^ 256 = 2 ^ (128 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_128_lo :
     model_ln_wad_to_wad_evm (2 ^ (128 + 1) - 1) = 47969454618340122602 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (128 + 1) - 1) % 2 ^ 256 = 2 ^ (128 + 1) - 1 by decide]
+  simp only [show (2 ^ (128 + 1) - 1) % 2 ^ 256 = 2 ^ (128 + 1) - 1 by decide]
   rw [ray_eval_seam_128_lo]
   decide
 
@@ -6292,7 +6292,7 @@ private theorem wad_eval_seam_128_hi :
     model_ln_wad_to_wad_evm (2 ^ (128 + 1)) = 47969454618340122602 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (128 + 1)) % 2 ^ 256 = 2 ^ (128 + 1) by decide]
+  simp only [show (2 ^ (128 + 1)) % 2 ^ 256 = 2 ^ (128 + 1) by decide]
   rw [ray_eval_seam_128_hi]
   decide
 
@@ -6314,8 +6314,8 @@ private theorem ray_eval_seam_129_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (129 + 1) - 1) % 2 ^ 256 = 2 ^ (129 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (129 + 1) - 1) % 2 ^ 256 = 2 ^ (129 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_129_hi :
@@ -6324,15 +6324,15 @@ private theorem ray_eval_seam_129_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (129 + 1)) % 2 ^ 256 = 2 ^ (129 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (129 + 1)) % 2 ^ 256 = 2 ^ (129 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_129_lo :
     model_ln_wad_to_wad_evm (2 ^ (129 + 1) - 1) = 48662601798900067911 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (129 + 1) - 1) % 2 ^ 256 = 2 ^ (129 + 1) - 1 by decide]
+  simp only [show (2 ^ (129 + 1) - 1) % 2 ^ 256 = 2 ^ (129 + 1) - 1 by decide]
   rw [ray_eval_seam_129_lo]
   decide
 
@@ -6340,7 +6340,7 @@ private theorem wad_eval_seam_129_hi :
     model_ln_wad_to_wad_evm (2 ^ (129 + 1)) = 48662601798900067911 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (129 + 1)) % 2 ^ 256 = 2 ^ (129 + 1) by decide]
+  simp only [show (2 ^ (129 + 1)) % 2 ^ 256 = 2 ^ (129 + 1) by decide]
   rw [ray_eval_seam_129_hi]
   decide
 
@@ -6362,8 +6362,8 @@ private theorem ray_eval_seam_130_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (130 + 1) - 1) % 2 ^ 256 = 2 ^ (130 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (130 + 1) - 1) % 2 ^ 256 = 2 ^ (130 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_130_hi :
@@ -6372,15 +6372,15 @@ private theorem ray_eval_seam_130_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (130 + 1)) % 2 ^ 256 = 2 ^ (130 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (130 + 1)) % 2 ^ 256 = 2 ^ (130 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_130_lo :
     model_ln_wad_to_wad_evm (2 ^ (130 + 1) - 1) = 49355748979460013221 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (130 + 1) - 1) % 2 ^ 256 = 2 ^ (130 + 1) - 1 by decide]
+  simp only [show (2 ^ (130 + 1) - 1) % 2 ^ 256 = 2 ^ (130 + 1) - 1 by decide]
   rw [ray_eval_seam_130_lo]
   decide
 
@@ -6388,7 +6388,7 @@ private theorem wad_eval_seam_130_hi :
     model_ln_wad_to_wad_evm (2 ^ (130 + 1)) = 49355748979460013221 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (130 + 1)) % 2 ^ 256 = 2 ^ (130 + 1) by decide]
+  simp only [show (2 ^ (130 + 1)) % 2 ^ 256 = 2 ^ (130 + 1) by decide]
   rw [ray_eval_seam_130_hi]
   decide
 
@@ -6410,8 +6410,8 @@ private theorem ray_eval_seam_131_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (131 + 1) - 1) % 2 ^ 256 = 2 ^ (131 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (131 + 1) - 1) % 2 ^ 256 = 2 ^ (131 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_131_hi :
@@ -6420,15 +6420,15 @@ private theorem ray_eval_seam_131_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (131 + 1)) % 2 ^ 256 = 2 ^ (131 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (131 + 1)) % 2 ^ 256 = 2 ^ (131 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_131_lo :
     model_ln_wad_to_wad_evm (2 ^ (131 + 1) - 1) = 50048896160019958530 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (131 + 1) - 1) % 2 ^ 256 = 2 ^ (131 + 1) - 1 by decide]
+  simp only [show (2 ^ (131 + 1) - 1) % 2 ^ 256 = 2 ^ (131 + 1) - 1 by decide]
   rw [ray_eval_seam_131_lo]
   decide
 
@@ -6436,7 +6436,7 @@ private theorem wad_eval_seam_131_hi :
     model_ln_wad_to_wad_evm (2 ^ (131 + 1)) = 50048896160019958530 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (131 + 1)) % 2 ^ 256 = 2 ^ (131 + 1) by decide]
+  simp only [show (2 ^ (131 + 1)) % 2 ^ 256 = 2 ^ (131 + 1) by decide]
   rw [ray_eval_seam_131_hi]
   decide
 
@@ -6458,8 +6458,8 @@ private theorem ray_eval_seam_132_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (132 + 1) - 1) % 2 ^ 256 = 2 ^ (132 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (132 + 1) - 1) % 2 ^ 256 = 2 ^ (132 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_132_hi :
@@ -6468,15 +6468,15 @@ private theorem ray_eval_seam_132_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (132 + 1)) % 2 ^ 256 = 2 ^ (132 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (132 + 1)) % 2 ^ 256 = 2 ^ (132 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_132_lo :
     model_ln_wad_to_wad_evm (2 ^ (132 + 1) - 1) = 50742043340579903840 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (132 + 1) - 1) % 2 ^ 256 = 2 ^ (132 + 1) - 1 by decide]
+  simp only [show (2 ^ (132 + 1) - 1) % 2 ^ 256 = 2 ^ (132 + 1) - 1 by decide]
   rw [ray_eval_seam_132_lo]
   decide
 
@@ -6484,7 +6484,7 @@ private theorem wad_eval_seam_132_hi :
     model_ln_wad_to_wad_evm (2 ^ (132 + 1)) = 50742043340579903840 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (132 + 1)) % 2 ^ 256 = 2 ^ (132 + 1) by decide]
+  simp only [show (2 ^ (132 + 1)) % 2 ^ 256 = 2 ^ (132 + 1) by decide]
   rw [ray_eval_seam_132_hi]
   decide
 
@@ -6506,8 +6506,8 @@ private theorem ray_eval_seam_133_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (133 + 1) - 1) % 2 ^ 256 = 2 ^ (133 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (133 + 1) - 1) % 2 ^ 256 = 2 ^ (133 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_133_hi :
@@ -6516,15 +6516,15 @@ private theorem ray_eval_seam_133_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (133 + 1)) % 2 ^ 256 = 2 ^ (133 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (133 + 1)) % 2 ^ 256 = 2 ^ (133 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_133_lo :
     model_ln_wad_to_wad_evm (2 ^ (133 + 1) - 1) = 51435190521139849149 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (133 + 1) - 1) % 2 ^ 256 = 2 ^ (133 + 1) - 1 by decide]
+  simp only [show (2 ^ (133 + 1) - 1) % 2 ^ 256 = 2 ^ (133 + 1) - 1 by decide]
   rw [ray_eval_seam_133_lo]
   decide
 
@@ -6532,7 +6532,7 @@ private theorem wad_eval_seam_133_hi :
     model_ln_wad_to_wad_evm (2 ^ (133 + 1)) = 51435190521139849149 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (133 + 1)) % 2 ^ 256 = 2 ^ (133 + 1) by decide]
+  simp only [show (2 ^ (133 + 1)) % 2 ^ 256 = 2 ^ (133 + 1) by decide]
   rw [ray_eval_seam_133_hi]
   decide
 
@@ -6554,8 +6554,8 @@ private theorem ray_eval_seam_134_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (134 + 1) - 1) % 2 ^ 256 = 2 ^ (134 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (134 + 1) - 1) % 2 ^ 256 = 2 ^ (134 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_134_hi :
@@ -6564,15 +6564,15 @@ private theorem ray_eval_seam_134_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (134 + 1)) % 2 ^ 256 = 2 ^ (134 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (134 + 1)) % 2 ^ 256 = 2 ^ (134 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_134_lo :
     model_ln_wad_to_wad_evm (2 ^ (134 + 1) - 1) = 52128337701699794459 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (134 + 1) - 1) % 2 ^ 256 = 2 ^ (134 + 1) - 1 by decide]
+  simp only [show (2 ^ (134 + 1) - 1) % 2 ^ 256 = 2 ^ (134 + 1) - 1 by decide]
   rw [ray_eval_seam_134_lo]
   decide
 
@@ -6580,7 +6580,7 @@ private theorem wad_eval_seam_134_hi :
     model_ln_wad_to_wad_evm (2 ^ (134 + 1)) = 52128337701699794459 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (134 + 1)) % 2 ^ 256 = 2 ^ (134 + 1) by decide]
+  simp only [show (2 ^ (134 + 1)) % 2 ^ 256 = 2 ^ (134 + 1) by decide]
   rw [ray_eval_seam_134_hi]
   decide
 
@@ -6602,8 +6602,8 @@ private theorem ray_eval_seam_135_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (135 + 1) - 1) % 2 ^ 256 = 2 ^ (135 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (135 + 1) - 1) % 2 ^ 256 = 2 ^ (135 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_135_hi :
@@ -6612,15 +6612,15 @@ private theorem ray_eval_seam_135_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (135 + 1)) % 2 ^ 256 = 2 ^ (135 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (135 + 1)) % 2 ^ 256 = 2 ^ (135 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_135_lo :
     model_ln_wad_to_wad_evm (2 ^ (135 + 1) - 1) = 52821484882259739768 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (135 + 1) - 1) % 2 ^ 256 = 2 ^ (135 + 1) - 1 by decide]
+  simp only [show (2 ^ (135 + 1) - 1) % 2 ^ 256 = 2 ^ (135 + 1) - 1 by decide]
   rw [ray_eval_seam_135_lo]
   decide
 
@@ -6628,7 +6628,7 @@ private theorem wad_eval_seam_135_hi :
     model_ln_wad_to_wad_evm (2 ^ (135 + 1)) = 52821484882259739768 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (135 + 1)) % 2 ^ 256 = 2 ^ (135 + 1) by decide]
+  simp only [show (2 ^ (135 + 1)) % 2 ^ 256 = 2 ^ (135 + 1) by decide]
   rw [ray_eval_seam_135_hi]
   decide
 
@@ -6650,8 +6650,8 @@ private theorem ray_eval_seam_136_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (136 + 1) - 1) % 2 ^ 256 = 2 ^ (136 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (136 + 1) - 1) % 2 ^ 256 = 2 ^ (136 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_136_hi :
@@ -6660,15 +6660,15 @@ private theorem ray_eval_seam_136_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (136 + 1)) % 2 ^ 256 = 2 ^ (136 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (136 + 1)) % 2 ^ 256 = 2 ^ (136 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_136_lo :
     model_ln_wad_to_wad_evm (2 ^ (136 + 1) - 1) = 53514632062819685077 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (136 + 1) - 1) % 2 ^ 256 = 2 ^ (136 + 1) - 1 by decide]
+  simp only [show (2 ^ (136 + 1) - 1) % 2 ^ 256 = 2 ^ (136 + 1) - 1 by decide]
   rw [ray_eval_seam_136_lo]
   decide
 
@@ -6676,7 +6676,7 @@ private theorem wad_eval_seam_136_hi :
     model_ln_wad_to_wad_evm (2 ^ (136 + 1)) = 53514632062819685077 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (136 + 1)) % 2 ^ 256 = 2 ^ (136 + 1) by decide]
+  simp only [show (2 ^ (136 + 1)) % 2 ^ 256 = 2 ^ (136 + 1) by decide]
   rw [ray_eval_seam_136_hi]
   decide
 
@@ -6698,8 +6698,8 @@ private theorem ray_eval_seam_137_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (137 + 1) - 1) % 2 ^ 256 = 2 ^ (137 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (137 + 1) - 1) % 2 ^ 256 = 2 ^ (137 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_137_hi :
@@ -6708,15 +6708,15 @@ private theorem ray_eval_seam_137_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (137 + 1)) % 2 ^ 256 = 2 ^ (137 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (137 + 1)) % 2 ^ 256 = 2 ^ (137 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_137_lo :
     model_ln_wad_to_wad_evm (2 ^ (137 + 1) - 1) = 54207779243379630387 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (137 + 1) - 1) % 2 ^ 256 = 2 ^ (137 + 1) - 1 by decide]
+  simp only [show (2 ^ (137 + 1) - 1) % 2 ^ 256 = 2 ^ (137 + 1) - 1 by decide]
   rw [ray_eval_seam_137_lo]
   decide
 
@@ -6724,7 +6724,7 @@ private theorem wad_eval_seam_137_hi :
     model_ln_wad_to_wad_evm (2 ^ (137 + 1)) = 54207779243379630387 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (137 + 1)) % 2 ^ 256 = 2 ^ (137 + 1) by decide]
+  simp only [show (2 ^ (137 + 1)) % 2 ^ 256 = 2 ^ (137 + 1) by decide]
   rw [ray_eval_seam_137_hi]
   decide
 
@@ -6746,8 +6746,8 @@ private theorem ray_eval_seam_138_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (138 + 1) - 1) % 2 ^ 256 = 2 ^ (138 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (138 + 1) - 1) % 2 ^ 256 = 2 ^ (138 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_138_hi :
@@ -6756,15 +6756,15 @@ private theorem ray_eval_seam_138_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (138 + 1)) % 2 ^ 256 = 2 ^ (138 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (138 + 1)) % 2 ^ 256 = 2 ^ (138 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_138_lo :
     model_ln_wad_to_wad_evm (2 ^ (138 + 1) - 1) = 54900926423939575696 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (138 + 1) - 1) % 2 ^ 256 = 2 ^ (138 + 1) - 1 by decide]
+  simp only [show (2 ^ (138 + 1) - 1) % 2 ^ 256 = 2 ^ (138 + 1) - 1 by decide]
   rw [ray_eval_seam_138_lo]
   decide
 
@@ -6772,7 +6772,7 @@ private theorem wad_eval_seam_138_hi :
     model_ln_wad_to_wad_evm (2 ^ (138 + 1)) = 54900926423939575696 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (138 + 1)) % 2 ^ 256 = 2 ^ (138 + 1) by decide]
+  simp only [show (2 ^ (138 + 1)) % 2 ^ 256 = 2 ^ (138 + 1) by decide]
   rw [ray_eval_seam_138_hi]
   decide
 
@@ -6794,8 +6794,8 @@ private theorem ray_eval_seam_139_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (139 + 1) - 1) % 2 ^ 256 = 2 ^ (139 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (139 + 1) - 1) % 2 ^ 256 = 2 ^ (139 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_139_hi :
@@ -6804,15 +6804,15 @@ private theorem ray_eval_seam_139_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (139 + 1)) % 2 ^ 256 = 2 ^ (139 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (139 + 1)) % 2 ^ 256 = 2 ^ (139 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_139_lo :
     model_ln_wad_to_wad_evm (2 ^ (139 + 1) - 1) = 55594073604499521006 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (139 + 1) - 1) % 2 ^ 256 = 2 ^ (139 + 1) - 1 by decide]
+  simp only [show (2 ^ (139 + 1) - 1) % 2 ^ 256 = 2 ^ (139 + 1) - 1 by decide]
   rw [ray_eval_seam_139_lo]
   decide
 
@@ -6820,7 +6820,7 @@ private theorem wad_eval_seam_139_hi :
     model_ln_wad_to_wad_evm (2 ^ (139 + 1)) = 55594073604499521006 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (139 + 1)) % 2 ^ 256 = 2 ^ (139 + 1) by decide]
+  simp only [show (2 ^ (139 + 1)) % 2 ^ 256 = 2 ^ (139 + 1) by decide]
   rw [ray_eval_seam_139_hi]
   decide
 
@@ -6842,8 +6842,8 @@ private theorem ray_eval_seam_140_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (140 + 1) - 1) % 2 ^ 256 = 2 ^ (140 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (140 + 1) - 1) % 2 ^ 256 = 2 ^ (140 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_140_hi :
@@ -6852,15 +6852,15 @@ private theorem ray_eval_seam_140_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (140 + 1)) % 2 ^ 256 = 2 ^ (140 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (140 + 1)) % 2 ^ 256 = 2 ^ (140 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_140_lo :
     model_ln_wad_to_wad_evm (2 ^ (140 + 1) - 1) = 56287220785059466315 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (140 + 1) - 1) % 2 ^ 256 = 2 ^ (140 + 1) - 1 by decide]
+  simp only [show (2 ^ (140 + 1) - 1) % 2 ^ 256 = 2 ^ (140 + 1) - 1 by decide]
   rw [ray_eval_seam_140_lo]
   decide
 
@@ -6868,7 +6868,7 @@ private theorem wad_eval_seam_140_hi :
     model_ln_wad_to_wad_evm (2 ^ (140 + 1)) = 56287220785059466315 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (140 + 1)) % 2 ^ 256 = 2 ^ (140 + 1) by decide]
+  simp only [show (2 ^ (140 + 1)) % 2 ^ 256 = 2 ^ (140 + 1) by decide]
   rw [ray_eval_seam_140_hi]
   decide
 
@@ -6890,8 +6890,8 @@ private theorem ray_eval_seam_141_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (141 + 1) - 1) % 2 ^ 256 = 2 ^ (141 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (141 + 1) - 1) % 2 ^ 256 = 2 ^ (141 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_141_hi :
@@ -6900,15 +6900,15 @@ private theorem ray_eval_seam_141_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (141 + 1)) % 2 ^ 256 = 2 ^ (141 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (141 + 1)) % 2 ^ 256 = 2 ^ (141 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_141_lo :
     model_ln_wad_to_wad_evm (2 ^ (141 + 1) - 1) = 56980367965619411624 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (141 + 1) - 1) % 2 ^ 256 = 2 ^ (141 + 1) - 1 by decide]
+  simp only [show (2 ^ (141 + 1) - 1) % 2 ^ 256 = 2 ^ (141 + 1) - 1 by decide]
   rw [ray_eval_seam_141_lo]
   decide
 
@@ -6916,7 +6916,7 @@ private theorem wad_eval_seam_141_hi :
     model_ln_wad_to_wad_evm (2 ^ (141 + 1)) = 56980367965619411624 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (141 + 1)) % 2 ^ 256 = 2 ^ (141 + 1) by decide]
+  simp only [show (2 ^ (141 + 1)) % 2 ^ 256 = 2 ^ (141 + 1) by decide]
   rw [ray_eval_seam_141_hi]
   decide
 
@@ -6938,8 +6938,8 @@ private theorem ray_eval_seam_142_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (142 + 1) - 1) % 2 ^ 256 = 2 ^ (142 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (142 + 1) - 1) % 2 ^ 256 = 2 ^ (142 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_142_hi :
@@ -6948,15 +6948,15 @@ private theorem ray_eval_seam_142_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (142 + 1)) % 2 ^ 256 = 2 ^ (142 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (142 + 1)) % 2 ^ 256 = 2 ^ (142 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_142_lo :
     model_ln_wad_to_wad_evm (2 ^ (142 + 1) - 1) = 57673515146179356934 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (142 + 1) - 1) % 2 ^ 256 = 2 ^ (142 + 1) - 1 by decide]
+  simp only [show (2 ^ (142 + 1) - 1) % 2 ^ 256 = 2 ^ (142 + 1) - 1 by decide]
   rw [ray_eval_seam_142_lo]
   decide
 
@@ -6964,7 +6964,7 @@ private theorem wad_eval_seam_142_hi :
     model_ln_wad_to_wad_evm (2 ^ (142 + 1)) = 57673515146179356934 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (142 + 1)) % 2 ^ 256 = 2 ^ (142 + 1) by decide]
+  simp only [show (2 ^ (142 + 1)) % 2 ^ 256 = 2 ^ (142 + 1) by decide]
   rw [ray_eval_seam_142_hi]
   decide
 
@@ -6986,8 +6986,8 @@ private theorem ray_eval_seam_143_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (143 + 1) - 1) % 2 ^ 256 = 2 ^ (143 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (143 + 1) - 1) % 2 ^ 256 = 2 ^ (143 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_143_hi :
@@ -6996,15 +6996,15 @@ private theorem ray_eval_seam_143_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (143 + 1)) % 2 ^ 256 = 2 ^ (143 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (143 + 1)) % 2 ^ 256 = 2 ^ (143 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_143_lo :
     model_ln_wad_to_wad_evm (2 ^ (143 + 1) - 1) = 58366662326739302243 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (143 + 1) - 1) % 2 ^ 256 = 2 ^ (143 + 1) - 1 by decide]
+  simp only [show (2 ^ (143 + 1) - 1) % 2 ^ 256 = 2 ^ (143 + 1) - 1 by decide]
   rw [ray_eval_seam_143_lo]
   decide
 
@@ -7012,7 +7012,7 @@ private theorem wad_eval_seam_143_hi :
     model_ln_wad_to_wad_evm (2 ^ (143 + 1)) = 58366662326739302243 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (143 + 1)) % 2 ^ 256 = 2 ^ (143 + 1) by decide]
+  simp only [show (2 ^ (143 + 1)) % 2 ^ 256 = 2 ^ (143 + 1) by decide]
   rw [ray_eval_seam_143_hi]
   decide
 
@@ -7034,8 +7034,8 @@ private theorem ray_eval_seam_144_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (144 + 1) - 1) % 2 ^ 256 = 2 ^ (144 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (144 + 1) - 1) % 2 ^ 256 = 2 ^ (144 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_144_hi :
@@ -7044,15 +7044,15 @@ private theorem ray_eval_seam_144_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (144 + 1)) % 2 ^ 256 = 2 ^ (144 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (144 + 1)) % 2 ^ 256 = 2 ^ (144 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_144_lo :
     model_ln_wad_to_wad_evm (2 ^ (144 + 1) - 1) = 59059809507299247553 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (144 + 1) - 1) % 2 ^ 256 = 2 ^ (144 + 1) - 1 by decide]
+  simp only [show (2 ^ (144 + 1) - 1) % 2 ^ 256 = 2 ^ (144 + 1) - 1 by decide]
   rw [ray_eval_seam_144_lo]
   decide
 
@@ -7060,7 +7060,7 @@ private theorem wad_eval_seam_144_hi :
     model_ln_wad_to_wad_evm (2 ^ (144 + 1)) = 59059809507299247553 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (144 + 1)) % 2 ^ 256 = 2 ^ (144 + 1) by decide]
+  simp only [show (2 ^ (144 + 1)) % 2 ^ 256 = 2 ^ (144 + 1) by decide]
   rw [ray_eval_seam_144_hi]
   decide
 
@@ -7082,8 +7082,8 @@ private theorem ray_eval_seam_145_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (145 + 1) - 1) % 2 ^ 256 = 2 ^ (145 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (145 + 1) - 1) % 2 ^ 256 = 2 ^ (145 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_145_hi :
@@ -7092,15 +7092,15 @@ private theorem ray_eval_seam_145_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (145 + 1)) % 2 ^ 256 = 2 ^ (145 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (145 + 1)) % 2 ^ 256 = 2 ^ (145 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_145_lo :
     model_ln_wad_to_wad_evm (2 ^ (145 + 1) - 1) = 59752956687859192862 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (145 + 1) - 1) % 2 ^ 256 = 2 ^ (145 + 1) - 1 by decide]
+  simp only [show (2 ^ (145 + 1) - 1) % 2 ^ 256 = 2 ^ (145 + 1) - 1 by decide]
   rw [ray_eval_seam_145_lo]
   decide
 
@@ -7108,7 +7108,7 @@ private theorem wad_eval_seam_145_hi :
     model_ln_wad_to_wad_evm (2 ^ (145 + 1)) = 59752956687859192862 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (145 + 1)) % 2 ^ 256 = 2 ^ (145 + 1) by decide]
+  simp only [show (2 ^ (145 + 1)) % 2 ^ 256 = 2 ^ (145 + 1) by decide]
   rw [ray_eval_seam_145_hi]
   decide
 
@@ -7130,8 +7130,8 @@ private theorem ray_eval_seam_146_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (146 + 1) - 1) % 2 ^ 256 = 2 ^ (146 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (146 + 1) - 1) % 2 ^ 256 = 2 ^ (146 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_146_hi :
@@ -7140,15 +7140,15 @@ private theorem ray_eval_seam_146_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (146 + 1)) % 2 ^ 256 = 2 ^ (146 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (146 + 1)) % 2 ^ 256 = 2 ^ (146 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_146_lo :
     model_ln_wad_to_wad_evm (2 ^ (146 + 1) - 1) = 60446103868419138172 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (146 + 1) - 1) % 2 ^ 256 = 2 ^ (146 + 1) - 1 by decide]
+  simp only [show (2 ^ (146 + 1) - 1) % 2 ^ 256 = 2 ^ (146 + 1) - 1 by decide]
   rw [ray_eval_seam_146_lo]
   decide
 
@@ -7156,7 +7156,7 @@ private theorem wad_eval_seam_146_hi :
     model_ln_wad_to_wad_evm (2 ^ (146 + 1)) = 60446103868419138172 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (146 + 1)) % 2 ^ 256 = 2 ^ (146 + 1) by decide]
+  simp only [show (2 ^ (146 + 1)) % 2 ^ 256 = 2 ^ (146 + 1) by decide]
   rw [ray_eval_seam_146_hi]
   decide
 
@@ -7178,8 +7178,8 @@ private theorem ray_eval_seam_147_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (147 + 1) - 1) % 2 ^ 256 = 2 ^ (147 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (147 + 1) - 1) % 2 ^ 256 = 2 ^ (147 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_147_hi :
@@ -7188,15 +7188,15 @@ private theorem ray_eval_seam_147_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (147 + 1)) % 2 ^ 256 = 2 ^ (147 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (147 + 1)) % 2 ^ 256 = 2 ^ (147 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_147_lo :
     model_ln_wad_to_wad_evm (2 ^ (147 + 1) - 1) = 61139251048979083481 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (147 + 1) - 1) % 2 ^ 256 = 2 ^ (147 + 1) - 1 by decide]
+  simp only [show (2 ^ (147 + 1) - 1) % 2 ^ 256 = 2 ^ (147 + 1) - 1 by decide]
   rw [ray_eval_seam_147_lo]
   decide
 
@@ -7204,7 +7204,7 @@ private theorem wad_eval_seam_147_hi :
     model_ln_wad_to_wad_evm (2 ^ (147 + 1)) = 61139251048979083481 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (147 + 1)) % 2 ^ 256 = 2 ^ (147 + 1) by decide]
+  simp only [show (2 ^ (147 + 1)) % 2 ^ 256 = 2 ^ (147 + 1) by decide]
   rw [ray_eval_seam_147_hi]
   decide
 
@@ -7226,8 +7226,8 @@ private theorem ray_eval_seam_148_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (148 + 1) - 1) % 2 ^ 256 = 2 ^ (148 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (148 + 1) - 1) % 2 ^ 256 = 2 ^ (148 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_148_hi :
@@ -7236,15 +7236,15 @@ private theorem ray_eval_seam_148_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (148 + 1)) % 2 ^ 256 = 2 ^ (148 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (148 + 1)) % 2 ^ 256 = 2 ^ (148 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_148_lo :
     model_ln_wad_to_wad_evm (2 ^ (148 + 1) - 1) = 61832398229539028790 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (148 + 1) - 1) % 2 ^ 256 = 2 ^ (148 + 1) - 1 by decide]
+  simp only [show (2 ^ (148 + 1) - 1) % 2 ^ 256 = 2 ^ (148 + 1) - 1 by decide]
   rw [ray_eval_seam_148_lo]
   decide
 
@@ -7252,7 +7252,7 @@ private theorem wad_eval_seam_148_hi :
     model_ln_wad_to_wad_evm (2 ^ (148 + 1)) = 61832398229539028790 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (148 + 1)) % 2 ^ 256 = 2 ^ (148 + 1) by decide]
+  simp only [show (2 ^ (148 + 1)) % 2 ^ 256 = 2 ^ (148 + 1) by decide]
   rw [ray_eval_seam_148_hi]
   decide
 
@@ -7274,8 +7274,8 @@ private theorem ray_eval_seam_149_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (149 + 1) - 1) % 2 ^ 256 = 2 ^ (149 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (149 + 1) - 1) % 2 ^ 256 = 2 ^ (149 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_149_hi :
@@ -7284,15 +7284,15 @@ private theorem ray_eval_seam_149_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (149 + 1)) % 2 ^ 256 = 2 ^ (149 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (149 + 1)) % 2 ^ 256 = 2 ^ (149 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_149_lo :
     model_ln_wad_to_wad_evm (2 ^ (149 + 1) - 1) = 62525545410098974100 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (149 + 1) - 1) % 2 ^ 256 = 2 ^ (149 + 1) - 1 by decide]
+  simp only [show (2 ^ (149 + 1) - 1) % 2 ^ 256 = 2 ^ (149 + 1) - 1 by decide]
   rw [ray_eval_seam_149_lo]
   decide
 
@@ -7300,7 +7300,7 @@ private theorem wad_eval_seam_149_hi :
     model_ln_wad_to_wad_evm (2 ^ (149 + 1)) = 62525545410098974100 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (149 + 1)) % 2 ^ 256 = 2 ^ (149 + 1) by decide]
+  simp only [show (2 ^ (149 + 1)) % 2 ^ 256 = 2 ^ (149 + 1) by decide]
   rw [ray_eval_seam_149_hi]
   decide
 
@@ -7322,8 +7322,8 @@ private theorem ray_eval_seam_150_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (150 + 1) - 1) % 2 ^ 256 = 2 ^ (150 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (150 + 1) - 1) % 2 ^ 256 = 2 ^ (150 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_150_hi :
@@ -7332,15 +7332,15 @@ private theorem ray_eval_seam_150_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (150 + 1)) % 2 ^ 256 = 2 ^ (150 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (150 + 1)) % 2 ^ 256 = 2 ^ (150 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_150_lo :
     model_ln_wad_to_wad_evm (2 ^ (150 + 1) - 1) = 63218692590658919409 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (150 + 1) - 1) % 2 ^ 256 = 2 ^ (150 + 1) - 1 by decide]
+  simp only [show (2 ^ (150 + 1) - 1) % 2 ^ 256 = 2 ^ (150 + 1) - 1 by decide]
   rw [ray_eval_seam_150_lo]
   decide
 
@@ -7348,7 +7348,7 @@ private theorem wad_eval_seam_150_hi :
     model_ln_wad_to_wad_evm (2 ^ (150 + 1)) = 63218692590658919409 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (150 + 1)) % 2 ^ 256 = 2 ^ (150 + 1) by decide]
+  simp only [show (2 ^ (150 + 1)) % 2 ^ 256 = 2 ^ (150 + 1) by decide]
   rw [ray_eval_seam_150_hi]
   decide
 
@@ -7370,8 +7370,8 @@ private theorem ray_eval_seam_151_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (151 + 1) - 1) % 2 ^ 256 = 2 ^ (151 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (151 + 1) - 1) % 2 ^ 256 = 2 ^ (151 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_151_hi :
@@ -7380,15 +7380,15 @@ private theorem ray_eval_seam_151_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (151 + 1)) % 2 ^ 256 = 2 ^ (151 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (151 + 1)) % 2 ^ 256 = 2 ^ (151 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_151_lo :
     model_ln_wad_to_wad_evm (2 ^ (151 + 1) - 1) = 63911839771218864719 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (151 + 1) - 1) % 2 ^ 256 = 2 ^ (151 + 1) - 1 by decide]
+  simp only [show (2 ^ (151 + 1) - 1) % 2 ^ 256 = 2 ^ (151 + 1) - 1 by decide]
   rw [ray_eval_seam_151_lo]
   decide
 
@@ -7396,7 +7396,7 @@ private theorem wad_eval_seam_151_hi :
     model_ln_wad_to_wad_evm (2 ^ (151 + 1)) = 63911839771218864719 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (151 + 1)) % 2 ^ 256 = 2 ^ (151 + 1) by decide]
+  simp only [show (2 ^ (151 + 1)) % 2 ^ 256 = 2 ^ (151 + 1) by decide]
   rw [ray_eval_seam_151_hi]
   decide
 
@@ -7418,8 +7418,8 @@ private theorem ray_eval_seam_152_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (152 + 1) - 1) % 2 ^ 256 = 2 ^ (152 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (152 + 1) - 1) % 2 ^ 256 = 2 ^ (152 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_152_hi :
@@ -7428,15 +7428,15 @@ private theorem ray_eval_seam_152_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (152 + 1)) % 2 ^ 256 = 2 ^ (152 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (152 + 1)) % 2 ^ 256 = 2 ^ (152 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_152_lo :
     model_ln_wad_to_wad_evm (2 ^ (152 + 1) - 1) = 64604986951778810028 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (152 + 1) - 1) % 2 ^ 256 = 2 ^ (152 + 1) - 1 by decide]
+  simp only [show (2 ^ (152 + 1) - 1) % 2 ^ 256 = 2 ^ (152 + 1) - 1 by decide]
   rw [ray_eval_seam_152_lo]
   decide
 
@@ -7444,7 +7444,7 @@ private theorem wad_eval_seam_152_hi :
     model_ln_wad_to_wad_evm (2 ^ (152 + 1)) = 64604986951778810028 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (152 + 1)) % 2 ^ 256 = 2 ^ (152 + 1) by decide]
+  simp only [show (2 ^ (152 + 1)) % 2 ^ 256 = 2 ^ (152 + 1) by decide]
   rw [ray_eval_seam_152_hi]
   decide
 
@@ -7466,8 +7466,8 @@ private theorem ray_eval_seam_153_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (153 + 1) - 1) % 2 ^ 256 = 2 ^ (153 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (153 + 1) - 1) % 2 ^ 256 = 2 ^ (153 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_153_hi :
@@ -7476,15 +7476,15 @@ private theorem ray_eval_seam_153_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (153 + 1)) % 2 ^ 256 = 2 ^ (153 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (153 + 1)) % 2 ^ 256 = 2 ^ (153 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_153_lo :
     model_ln_wad_to_wad_evm (2 ^ (153 + 1) - 1) = 65298134132338755337 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (153 + 1) - 1) % 2 ^ 256 = 2 ^ (153 + 1) - 1 by decide]
+  simp only [show (2 ^ (153 + 1) - 1) % 2 ^ 256 = 2 ^ (153 + 1) - 1 by decide]
   rw [ray_eval_seam_153_lo]
   decide
 
@@ -7492,7 +7492,7 @@ private theorem wad_eval_seam_153_hi :
     model_ln_wad_to_wad_evm (2 ^ (153 + 1)) = 65298134132338755337 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (153 + 1)) % 2 ^ 256 = 2 ^ (153 + 1) by decide]
+  simp only [show (2 ^ (153 + 1)) % 2 ^ 256 = 2 ^ (153 + 1) by decide]
   rw [ray_eval_seam_153_hi]
   decide
 
@@ -7514,8 +7514,8 @@ private theorem ray_eval_seam_154_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (154 + 1) - 1) % 2 ^ 256 = 2 ^ (154 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (154 + 1) - 1) % 2 ^ 256 = 2 ^ (154 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_154_hi :
@@ -7524,15 +7524,15 @@ private theorem ray_eval_seam_154_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (154 + 1)) % 2 ^ 256 = 2 ^ (154 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (154 + 1)) % 2 ^ 256 = 2 ^ (154 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_154_lo :
     model_ln_wad_to_wad_evm (2 ^ (154 + 1) - 1) = 65991281312898700647 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (154 + 1) - 1) % 2 ^ 256 = 2 ^ (154 + 1) - 1 by decide]
+  simp only [show (2 ^ (154 + 1) - 1) % 2 ^ 256 = 2 ^ (154 + 1) - 1 by decide]
   rw [ray_eval_seam_154_lo]
   decide
 
@@ -7540,7 +7540,7 @@ private theorem wad_eval_seam_154_hi :
     model_ln_wad_to_wad_evm (2 ^ (154 + 1)) = 65991281312898700647 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (154 + 1)) % 2 ^ 256 = 2 ^ (154 + 1) by decide]
+  simp only [show (2 ^ (154 + 1)) % 2 ^ 256 = 2 ^ (154 + 1) by decide]
   rw [ray_eval_seam_154_hi]
   decide
 
@@ -7562,8 +7562,8 @@ private theorem ray_eval_seam_155_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (155 + 1) - 1) % 2 ^ 256 = 2 ^ (155 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (155 + 1) - 1) % 2 ^ 256 = 2 ^ (155 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_155_hi :
@@ -7572,15 +7572,15 @@ private theorem ray_eval_seam_155_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (155 + 1)) % 2 ^ 256 = 2 ^ (155 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (155 + 1)) % 2 ^ 256 = 2 ^ (155 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_155_lo :
     model_ln_wad_to_wad_evm (2 ^ (155 + 1) - 1) = 66684428493458645956 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (155 + 1) - 1) % 2 ^ 256 = 2 ^ (155 + 1) - 1 by decide]
+  simp only [show (2 ^ (155 + 1) - 1) % 2 ^ 256 = 2 ^ (155 + 1) - 1 by decide]
   rw [ray_eval_seam_155_lo]
   decide
 
@@ -7588,7 +7588,7 @@ private theorem wad_eval_seam_155_hi :
     model_ln_wad_to_wad_evm (2 ^ (155 + 1)) = 66684428493458645956 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (155 + 1)) % 2 ^ 256 = 2 ^ (155 + 1) by decide]
+  simp only [show (2 ^ (155 + 1)) % 2 ^ 256 = 2 ^ (155 + 1) by decide]
   rw [ray_eval_seam_155_hi]
   decide
 
@@ -7610,8 +7610,8 @@ private theorem ray_eval_seam_156_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (156 + 1) - 1) % 2 ^ 256 = 2 ^ (156 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (156 + 1) - 1) % 2 ^ 256 = 2 ^ (156 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_156_hi :
@@ -7620,15 +7620,15 @@ private theorem ray_eval_seam_156_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (156 + 1)) % 2 ^ 256 = 2 ^ (156 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (156 + 1)) % 2 ^ 256 = 2 ^ (156 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_156_lo :
     model_ln_wad_to_wad_evm (2 ^ (156 + 1) - 1) = 67377575674018591266 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (156 + 1) - 1) % 2 ^ 256 = 2 ^ (156 + 1) - 1 by decide]
+  simp only [show (2 ^ (156 + 1) - 1) % 2 ^ 256 = 2 ^ (156 + 1) - 1 by decide]
   rw [ray_eval_seam_156_lo]
   decide
 
@@ -7636,7 +7636,7 @@ private theorem wad_eval_seam_156_hi :
     model_ln_wad_to_wad_evm (2 ^ (156 + 1)) = 67377575674018591266 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (156 + 1)) % 2 ^ 256 = 2 ^ (156 + 1) by decide]
+  simp only [show (2 ^ (156 + 1)) % 2 ^ 256 = 2 ^ (156 + 1) by decide]
   rw [ray_eval_seam_156_hi]
   decide
 
@@ -7658,8 +7658,8 @@ private theorem ray_eval_seam_157_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (157 + 1) - 1) % 2 ^ 256 = 2 ^ (157 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (157 + 1) - 1) % 2 ^ 256 = 2 ^ (157 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_157_hi :
@@ -7668,15 +7668,15 @@ private theorem ray_eval_seam_157_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (157 + 1)) % 2 ^ 256 = 2 ^ (157 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (157 + 1)) % 2 ^ 256 = 2 ^ (157 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_157_lo :
     model_ln_wad_to_wad_evm (2 ^ (157 + 1) - 1) = 68070722854578536575 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (157 + 1) - 1) % 2 ^ 256 = 2 ^ (157 + 1) - 1 by decide]
+  simp only [show (2 ^ (157 + 1) - 1) % 2 ^ 256 = 2 ^ (157 + 1) - 1 by decide]
   rw [ray_eval_seam_157_lo]
   decide
 
@@ -7684,7 +7684,7 @@ private theorem wad_eval_seam_157_hi :
     model_ln_wad_to_wad_evm (2 ^ (157 + 1)) = 68070722854578536575 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (157 + 1)) % 2 ^ 256 = 2 ^ (157 + 1) by decide]
+  simp only [show (2 ^ (157 + 1)) % 2 ^ 256 = 2 ^ (157 + 1) by decide]
   rw [ray_eval_seam_157_hi]
   decide
 
@@ -7706,8 +7706,8 @@ private theorem ray_eval_seam_158_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (158 + 1) - 1) % 2 ^ 256 = 2 ^ (158 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (158 + 1) - 1) % 2 ^ 256 = 2 ^ (158 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_158_hi :
@@ -7716,15 +7716,15 @@ private theorem ray_eval_seam_158_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (158 + 1)) % 2 ^ 256 = 2 ^ (158 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (158 + 1)) % 2 ^ 256 = 2 ^ (158 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_158_lo :
     model_ln_wad_to_wad_evm (2 ^ (158 + 1) - 1) = 68763870035138481885 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (158 + 1) - 1) % 2 ^ 256 = 2 ^ (158 + 1) - 1 by decide]
+  simp only [show (2 ^ (158 + 1) - 1) % 2 ^ 256 = 2 ^ (158 + 1) - 1 by decide]
   rw [ray_eval_seam_158_lo]
   decide
 
@@ -7732,7 +7732,7 @@ private theorem wad_eval_seam_158_hi :
     model_ln_wad_to_wad_evm (2 ^ (158 + 1)) = 68763870035138481885 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (158 + 1)) % 2 ^ 256 = 2 ^ (158 + 1) by decide]
+  simp only [show (2 ^ (158 + 1)) % 2 ^ 256 = 2 ^ (158 + 1) by decide]
   rw [ray_eval_seam_158_hi]
   decide
 
@@ -7754,8 +7754,8 @@ private theorem ray_eval_seam_159_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (159 + 1) - 1) % 2 ^ 256 = 2 ^ (159 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (159 + 1) - 1) % 2 ^ 256 = 2 ^ (159 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_159_hi :
@@ -7764,15 +7764,15 @@ private theorem ray_eval_seam_159_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (159 + 1)) % 2 ^ 256 = 2 ^ (159 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (159 + 1)) % 2 ^ 256 = 2 ^ (159 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_159_lo :
     model_ln_wad_to_wad_evm (2 ^ (159 + 1) - 1) = 69457017215698427194 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (159 + 1) - 1) % 2 ^ 256 = 2 ^ (159 + 1) - 1 by decide]
+  simp only [show (2 ^ (159 + 1) - 1) % 2 ^ 256 = 2 ^ (159 + 1) - 1 by decide]
   rw [ray_eval_seam_159_lo]
   decide
 
@@ -7780,7 +7780,7 @@ private theorem wad_eval_seam_159_hi :
     model_ln_wad_to_wad_evm (2 ^ (159 + 1)) = 69457017215698427194 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (159 + 1)) % 2 ^ 256 = 2 ^ (159 + 1) by decide]
+  simp only [show (2 ^ (159 + 1)) % 2 ^ 256 = 2 ^ (159 + 1) by decide]
   rw [ray_eval_seam_159_hi]
   decide
 
@@ -7802,8 +7802,8 @@ private theorem ray_eval_seam_160_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (160 + 1) - 1) % 2 ^ 256 = 2 ^ (160 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (160 + 1) - 1) % 2 ^ 256 = 2 ^ (160 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_160_hi :
@@ -7812,15 +7812,15 @@ private theorem ray_eval_seam_160_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (160 + 1)) % 2 ^ 256 = 2 ^ (160 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (160 + 1)) % 2 ^ 256 = 2 ^ (160 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_160_lo :
     model_ln_wad_to_wad_evm (2 ^ (160 + 1) - 1) = 70150164396258372503 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (160 + 1) - 1) % 2 ^ 256 = 2 ^ (160 + 1) - 1 by decide]
+  simp only [show (2 ^ (160 + 1) - 1) % 2 ^ 256 = 2 ^ (160 + 1) - 1 by decide]
   rw [ray_eval_seam_160_lo]
   decide
 
@@ -7828,7 +7828,7 @@ private theorem wad_eval_seam_160_hi :
     model_ln_wad_to_wad_evm (2 ^ (160 + 1)) = 70150164396258372503 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (160 + 1)) % 2 ^ 256 = 2 ^ (160 + 1) by decide]
+  simp only [show (2 ^ (160 + 1)) % 2 ^ 256 = 2 ^ (160 + 1) by decide]
   rw [ray_eval_seam_160_hi]
   decide
 
@@ -7850,8 +7850,8 @@ private theorem ray_eval_seam_161_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (161 + 1) - 1) % 2 ^ 256 = 2 ^ (161 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (161 + 1) - 1) % 2 ^ 256 = 2 ^ (161 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_161_hi :
@@ -7860,15 +7860,15 @@ private theorem ray_eval_seam_161_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (161 + 1)) % 2 ^ 256 = 2 ^ (161 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (161 + 1)) % 2 ^ 256 = 2 ^ (161 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_161_lo :
     model_ln_wad_to_wad_evm (2 ^ (161 + 1) - 1) = 70843311576818317813 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (161 + 1) - 1) % 2 ^ 256 = 2 ^ (161 + 1) - 1 by decide]
+  simp only [show (2 ^ (161 + 1) - 1) % 2 ^ 256 = 2 ^ (161 + 1) - 1 by decide]
   rw [ray_eval_seam_161_lo]
   decide
 
@@ -7876,7 +7876,7 @@ private theorem wad_eval_seam_161_hi :
     model_ln_wad_to_wad_evm (2 ^ (161 + 1)) = 70843311576818317813 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (161 + 1)) % 2 ^ 256 = 2 ^ (161 + 1) by decide]
+  simp only [show (2 ^ (161 + 1)) % 2 ^ 256 = 2 ^ (161 + 1) by decide]
   rw [ray_eval_seam_161_hi]
   decide
 
@@ -7898,8 +7898,8 @@ private theorem ray_eval_seam_162_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (162 + 1) - 1) % 2 ^ 256 = 2 ^ (162 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (162 + 1) - 1) % 2 ^ 256 = 2 ^ (162 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_162_hi :
@@ -7908,15 +7908,15 @@ private theorem ray_eval_seam_162_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (162 + 1)) % 2 ^ 256 = 2 ^ (162 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (162 + 1)) % 2 ^ 256 = 2 ^ (162 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_162_lo :
     model_ln_wad_to_wad_evm (2 ^ (162 + 1) - 1) = 71536458757378263122 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (162 + 1) - 1) % 2 ^ 256 = 2 ^ (162 + 1) - 1 by decide]
+  simp only [show (2 ^ (162 + 1) - 1) % 2 ^ 256 = 2 ^ (162 + 1) - 1 by decide]
   rw [ray_eval_seam_162_lo]
   decide
 
@@ -7924,7 +7924,7 @@ private theorem wad_eval_seam_162_hi :
     model_ln_wad_to_wad_evm (2 ^ (162 + 1)) = 71536458757378263122 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (162 + 1)) % 2 ^ 256 = 2 ^ (162 + 1) by decide]
+  simp only [show (2 ^ (162 + 1)) % 2 ^ 256 = 2 ^ (162 + 1) by decide]
   rw [ray_eval_seam_162_hi]
   decide
 
@@ -7946,8 +7946,8 @@ private theorem ray_eval_seam_163_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (163 + 1) - 1) % 2 ^ 256 = 2 ^ (163 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (163 + 1) - 1) % 2 ^ 256 = 2 ^ (163 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_163_hi :
@@ -7956,15 +7956,15 @@ private theorem ray_eval_seam_163_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (163 + 1)) % 2 ^ 256 = 2 ^ (163 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (163 + 1)) % 2 ^ 256 = 2 ^ (163 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_163_lo :
     model_ln_wad_to_wad_evm (2 ^ (163 + 1) - 1) = 72229605937938208432 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (163 + 1) - 1) % 2 ^ 256 = 2 ^ (163 + 1) - 1 by decide]
+  simp only [show (2 ^ (163 + 1) - 1) % 2 ^ 256 = 2 ^ (163 + 1) - 1 by decide]
   rw [ray_eval_seam_163_lo]
   decide
 
@@ -7972,7 +7972,7 @@ private theorem wad_eval_seam_163_hi :
     model_ln_wad_to_wad_evm (2 ^ (163 + 1)) = 72229605937938208432 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (163 + 1)) % 2 ^ 256 = 2 ^ (163 + 1) by decide]
+  simp only [show (2 ^ (163 + 1)) % 2 ^ 256 = 2 ^ (163 + 1) by decide]
   rw [ray_eval_seam_163_hi]
   decide
 
@@ -7994,8 +7994,8 @@ private theorem ray_eval_seam_164_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (164 + 1) - 1) % 2 ^ 256 = 2 ^ (164 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (164 + 1) - 1) % 2 ^ 256 = 2 ^ (164 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_164_hi :
@@ -8004,15 +8004,15 @@ private theorem ray_eval_seam_164_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (164 + 1)) % 2 ^ 256 = 2 ^ (164 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (164 + 1)) % 2 ^ 256 = 2 ^ (164 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_164_lo :
     model_ln_wad_to_wad_evm (2 ^ (164 + 1) - 1) = 72922753118498153741 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (164 + 1) - 1) % 2 ^ 256 = 2 ^ (164 + 1) - 1 by decide]
+  simp only [show (2 ^ (164 + 1) - 1) % 2 ^ 256 = 2 ^ (164 + 1) - 1 by decide]
   rw [ray_eval_seam_164_lo]
   decide
 
@@ -8020,7 +8020,7 @@ private theorem wad_eval_seam_164_hi :
     model_ln_wad_to_wad_evm (2 ^ (164 + 1)) = 72922753118498153741 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (164 + 1)) % 2 ^ 256 = 2 ^ (164 + 1) by decide]
+  simp only [show (2 ^ (164 + 1)) % 2 ^ 256 = 2 ^ (164 + 1) by decide]
   rw [ray_eval_seam_164_hi]
   decide
 
@@ -8042,8 +8042,8 @@ private theorem ray_eval_seam_165_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (165 + 1) - 1) % 2 ^ 256 = 2 ^ (165 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (165 + 1) - 1) % 2 ^ 256 = 2 ^ (165 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_165_hi :
@@ -8052,15 +8052,15 @@ private theorem ray_eval_seam_165_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (165 + 1)) % 2 ^ 256 = 2 ^ (165 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (165 + 1)) % 2 ^ 256 = 2 ^ (165 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_165_lo :
     model_ln_wad_to_wad_evm (2 ^ (165 + 1) - 1) = 73615900299058099050 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (165 + 1) - 1) % 2 ^ 256 = 2 ^ (165 + 1) - 1 by decide]
+  simp only [show (2 ^ (165 + 1) - 1) % 2 ^ 256 = 2 ^ (165 + 1) - 1 by decide]
   rw [ray_eval_seam_165_lo]
   decide
 
@@ -8068,7 +8068,7 @@ private theorem wad_eval_seam_165_hi :
     model_ln_wad_to_wad_evm (2 ^ (165 + 1)) = 73615900299058099050 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (165 + 1)) % 2 ^ 256 = 2 ^ (165 + 1) by decide]
+  simp only [show (2 ^ (165 + 1)) % 2 ^ 256 = 2 ^ (165 + 1) by decide]
   rw [ray_eval_seam_165_hi]
   decide
 
@@ -8090,8 +8090,8 @@ private theorem ray_eval_seam_166_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (166 + 1) - 1) % 2 ^ 256 = 2 ^ (166 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (166 + 1) - 1) % 2 ^ 256 = 2 ^ (166 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_166_hi :
@@ -8100,15 +8100,15 @@ private theorem ray_eval_seam_166_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (166 + 1)) % 2 ^ 256 = 2 ^ (166 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (166 + 1)) % 2 ^ 256 = 2 ^ (166 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_166_lo :
     model_ln_wad_to_wad_evm (2 ^ (166 + 1) - 1) = 74309047479618044360 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (166 + 1) - 1) % 2 ^ 256 = 2 ^ (166 + 1) - 1 by decide]
+  simp only [show (2 ^ (166 + 1) - 1) % 2 ^ 256 = 2 ^ (166 + 1) - 1 by decide]
   rw [ray_eval_seam_166_lo]
   decide
 
@@ -8116,7 +8116,7 @@ private theorem wad_eval_seam_166_hi :
     model_ln_wad_to_wad_evm (2 ^ (166 + 1)) = 74309047479618044360 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (166 + 1)) % 2 ^ 256 = 2 ^ (166 + 1) by decide]
+  simp only [show (2 ^ (166 + 1)) % 2 ^ 256 = 2 ^ (166 + 1) by decide]
   rw [ray_eval_seam_166_hi]
   decide
 
@@ -8138,8 +8138,8 @@ private theorem ray_eval_seam_167_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (167 + 1) - 1) % 2 ^ 256 = 2 ^ (167 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (167 + 1) - 1) % 2 ^ 256 = 2 ^ (167 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_167_hi :
@@ -8148,15 +8148,15 @@ private theorem ray_eval_seam_167_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (167 + 1)) % 2 ^ 256 = 2 ^ (167 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (167 + 1)) % 2 ^ 256 = 2 ^ (167 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_167_lo :
     model_ln_wad_to_wad_evm (2 ^ (167 + 1) - 1) = 75002194660177989669 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (167 + 1) - 1) % 2 ^ 256 = 2 ^ (167 + 1) - 1 by decide]
+  simp only [show (2 ^ (167 + 1) - 1) % 2 ^ 256 = 2 ^ (167 + 1) - 1 by decide]
   rw [ray_eval_seam_167_lo]
   decide
 
@@ -8164,7 +8164,7 @@ private theorem wad_eval_seam_167_hi :
     model_ln_wad_to_wad_evm (2 ^ (167 + 1)) = 75002194660177989669 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (167 + 1)) % 2 ^ 256 = 2 ^ (167 + 1) by decide]
+  simp only [show (2 ^ (167 + 1)) % 2 ^ 256 = 2 ^ (167 + 1) by decide]
   rw [ray_eval_seam_167_hi]
   decide
 
@@ -8186,8 +8186,8 @@ private theorem ray_eval_seam_168_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (168 + 1) - 1) % 2 ^ 256 = 2 ^ (168 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (168 + 1) - 1) % 2 ^ 256 = 2 ^ (168 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_168_hi :
@@ -8196,15 +8196,15 @@ private theorem ray_eval_seam_168_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (168 + 1)) % 2 ^ 256 = 2 ^ (168 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (168 + 1)) % 2 ^ 256 = 2 ^ (168 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_168_lo :
     model_ln_wad_to_wad_evm (2 ^ (168 + 1) - 1) = 75695341840737934979 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (168 + 1) - 1) % 2 ^ 256 = 2 ^ (168 + 1) - 1 by decide]
+  simp only [show (2 ^ (168 + 1) - 1) % 2 ^ 256 = 2 ^ (168 + 1) - 1 by decide]
   rw [ray_eval_seam_168_lo]
   decide
 
@@ -8212,7 +8212,7 @@ private theorem wad_eval_seam_168_hi :
     model_ln_wad_to_wad_evm (2 ^ (168 + 1)) = 75695341840737934979 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (168 + 1)) % 2 ^ 256 = 2 ^ (168 + 1) by decide]
+  simp only [show (2 ^ (168 + 1)) % 2 ^ 256 = 2 ^ (168 + 1) by decide]
   rw [ray_eval_seam_168_hi]
   decide
 
@@ -8234,8 +8234,8 @@ private theorem ray_eval_seam_169_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (169 + 1) - 1) % 2 ^ 256 = 2 ^ (169 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (169 + 1) - 1) % 2 ^ 256 = 2 ^ (169 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_169_hi :
@@ -8244,15 +8244,15 @@ private theorem ray_eval_seam_169_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (169 + 1)) % 2 ^ 256 = 2 ^ (169 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (169 + 1)) % 2 ^ 256 = 2 ^ (169 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_169_lo :
     model_ln_wad_to_wad_evm (2 ^ (169 + 1) - 1) = 76388489021297880288 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (169 + 1) - 1) % 2 ^ 256 = 2 ^ (169 + 1) - 1 by decide]
+  simp only [show (2 ^ (169 + 1) - 1) % 2 ^ 256 = 2 ^ (169 + 1) - 1 by decide]
   rw [ray_eval_seam_169_lo]
   decide
 
@@ -8260,7 +8260,7 @@ private theorem wad_eval_seam_169_hi :
     model_ln_wad_to_wad_evm (2 ^ (169 + 1)) = 76388489021297880288 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (169 + 1)) % 2 ^ 256 = 2 ^ (169 + 1) by decide]
+  simp only [show (2 ^ (169 + 1)) % 2 ^ 256 = 2 ^ (169 + 1) by decide]
   rw [ray_eval_seam_169_hi]
   decide
 
@@ -8282,8 +8282,8 @@ private theorem ray_eval_seam_170_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (170 + 1) - 1) % 2 ^ 256 = 2 ^ (170 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (170 + 1) - 1) % 2 ^ 256 = 2 ^ (170 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_170_hi :
@@ -8292,15 +8292,15 @@ private theorem ray_eval_seam_170_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (170 + 1)) % 2 ^ 256 = 2 ^ (170 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (170 + 1)) % 2 ^ 256 = 2 ^ (170 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_170_lo :
     model_ln_wad_to_wad_evm (2 ^ (170 + 1) - 1) = 77081636201857825598 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (170 + 1) - 1) % 2 ^ 256 = 2 ^ (170 + 1) - 1 by decide]
+  simp only [show (2 ^ (170 + 1) - 1) % 2 ^ 256 = 2 ^ (170 + 1) - 1 by decide]
   rw [ray_eval_seam_170_lo]
   decide
 
@@ -8308,7 +8308,7 @@ private theorem wad_eval_seam_170_hi :
     model_ln_wad_to_wad_evm (2 ^ (170 + 1)) = 77081636201857825598 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (170 + 1)) % 2 ^ 256 = 2 ^ (170 + 1) by decide]
+  simp only [show (2 ^ (170 + 1)) % 2 ^ 256 = 2 ^ (170 + 1) by decide]
   rw [ray_eval_seam_170_hi]
   decide
 
@@ -8330,8 +8330,8 @@ private theorem ray_eval_seam_171_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (171 + 1) - 1) % 2 ^ 256 = 2 ^ (171 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (171 + 1) - 1) % 2 ^ 256 = 2 ^ (171 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_171_hi :
@@ -8340,15 +8340,15 @@ private theorem ray_eval_seam_171_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (171 + 1)) % 2 ^ 256 = 2 ^ (171 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (171 + 1)) % 2 ^ 256 = 2 ^ (171 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_171_lo :
     model_ln_wad_to_wad_evm (2 ^ (171 + 1) - 1) = 77774783382417770907 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (171 + 1) - 1) % 2 ^ 256 = 2 ^ (171 + 1) - 1 by decide]
+  simp only [show (2 ^ (171 + 1) - 1) % 2 ^ 256 = 2 ^ (171 + 1) - 1 by decide]
   rw [ray_eval_seam_171_lo]
   decide
 
@@ -8356,7 +8356,7 @@ private theorem wad_eval_seam_171_hi :
     model_ln_wad_to_wad_evm (2 ^ (171 + 1)) = 77774783382417770907 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (171 + 1)) % 2 ^ 256 = 2 ^ (171 + 1) by decide]
+  simp only [show (2 ^ (171 + 1)) % 2 ^ 256 = 2 ^ (171 + 1) by decide]
   rw [ray_eval_seam_171_hi]
   decide
 
@@ -8378,8 +8378,8 @@ private theorem ray_eval_seam_172_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (172 + 1) - 1) % 2 ^ 256 = 2 ^ (172 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (172 + 1) - 1) % 2 ^ 256 = 2 ^ (172 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_172_hi :
@@ -8388,15 +8388,15 @@ private theorem ray_eval_seam_172_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (172 + 1)) % 2 ^ 256 = 2 ^ (172 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (172 + 1)) % 2 ^ 256 = 2 ^ (172 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_172_lo :
     model_ln_wad_to_wad_evm (2 ^ (172 + 1) - 1) = 78467930562977716216 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (172 + 1) - 1) % 2 ^ 256 = 2 ^ (172 + 1) - 1 by decide]
+  simp only [show (2 ^ (172 + 1) - 1) % 2 ^ 256 = 2 ^ (172 + 1) - 1 by decide]
   rw [ray_eval_seam_172_lo]
   decide
 
@@ -8404,7 +8404,7 @@ private theorem wad_eval_seam_172_hi :
     model_ln_wad_to_wad_evm (2 ^ (172 + 1)) = 78467930562977716216 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (172 + 1)) % 2 ^ 256 = 2 ^ (172 + 1) by decide]
+  simp only [show (2 ^ (172 + 1)) % 2 ^ 256 = 2 ^ (172 + 1) by decide]
   rw [ray_eval_seam_172_hi]
   decide
 
@@ -8426,8 +8426,8 @@ private theorem ray_eval_seam_173_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (173 + 1) - 1) % 2 ^ 256 = 2 ^ (173 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (173 + 1) - 1) % 2 ^ 256 = 2 ^ (173 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_173_hi :
@@ -8436,15 +8436,15 @@ private theorem ray_eval_seam_173_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (173 + 1)) % 2 ^ 256 = 2 ^ (173 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (173 + 1)) % 2 ^ 256 = 2 ^ (173 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_173_lo :
     model_ln_wad_to_wad_evm (2 ^ (173 + 1) - 1) = 79161077743537661526 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (173 + 1) - 1) % 2 ^ 256 = 2 ^ (173 + 1) - 1 by decide]
+  simp only [show (2 ^ (173 + 1) - 1) % 2 ^ 256 = 2 ^ (173 + 1) - 1 by decide]
   rw [ray_eval_seam_173_lo]
   decide
 
@@ -8452,7 +8452,7 @@ private theorem wad_eval_seam_173_hi :
     model_ln_wad_to_wad_evm (2 ^ (173 + 1)) = 79161077743537661526 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (173 + 1)) % 2 ^ 256 = 2 ^ (173 + 1) by decide]
+  simp only [show (2 ^ (173 + 1)) % 2 ^ 256 = 2 ^ (173 + 1) by decide]
   rw [ray_eval_seam_173_hi]
   decide
 
@@ -8474,8 +8474,8 @@ private theorem ray_eval_seam_174_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (174 + 1) - 1) % 2 ^ 256 = 2 ^ (174 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (174 + 1) - 1) % 2 ^ 256 = 2 ^ (174 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_174_hi :
@@ -8484,15 +8484,15 @@ private theorem ray_eval_seam_174_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (174 + 1)) % 2 ^ 256 = 2 ^ (174 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (174 + 1)) % 2 ^ 256 = 2 ^ (174 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_174_lo :
     model_ln_wad_to_wad_evm (2 ^ (174 + 1) - 1) = 79854224924097606835 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (174 + 1) - 1) % 2 ^ 256 = 2 ^ (174 + 1) - 1 by decide]
+  simp only [show (2 ^ (174 + 1) - 1) % 2 ^ 256 = 2 ^ (174 + 1) - 1 by decide]
   rw [ray_eval_seam_174_lo]
   decide
 
@@ -8500,7 +8500,7 @@ private theorem wad_eval_seam_174_hi :
     model_ln_wad_to_wad_evm (2 ^ (174 + 1)) = 79854224924097606835 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (174 + 1)) % 2 ^ 256 = 2 ^ (174 + 1) by decide]
+  simp only [show (2 ^ (174 + 1)) % 2 ^ 256 = 2 ^ (174 + 1) by decide]
   rw [ray_eval_seam_174_hi]
   decide
 
@@ -8522,8 +8522,8 @@ private theorem ray_eval_seam_175_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (175 + 1) - 1) % 2 ^ 256 = 2 ^ (175 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (175 + 1) - 1) % 2 ^ 256 = 2 ^ (175 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_175_hi :
@@ -8532,15 +8532,15 @@ private theorem ray_eval_seam_175_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (175 + 1)) % 2 ^ 256 = 2 ^ (175 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (175 + 1)) % 2 ^ 256 = 2 ^ (175 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_175_lo :
     model_ln_wad_to_wad_evm (2 ^ (175 + 1) - 1) = 80547372104657552145 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (175 + 1) - 1) % 2 ^ 256 = 2 ^ (175 + 1) - 1 by decide]
+  simp only [show (2 ^ (175 + 1) - 1) % 2 ^ 256 = 2 ^ (175 + 1) - 1 by decide]
   rw [ray_eval_seam_175_lo]
   decide
 
@@ -8548,7 +8548,7 @@ private theorem wad_eval_seam_175_hi :
     model_ln_wad_to_wad_evm (2 ^ (175 + 1)) = 80547372104657552145 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (175 + 1)) % 2 ^ 256 = 2 ^ (175 + 1) by decide]
+  simp only [show (2 ^ (175 + 1)) % 2 ^ 256 = 2 ^ (175 + 1) by decide]
   rw [ray_eval_seam_175_hi]
   decide
 
@@ -8570,8 +8570,8 @@ private theorem ray_eval_seam_176_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (176 + 1) - 1) % 2 ^ 256 = 2 ^ (176 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (176 + 1) - 1) % 2 ^ 256 = 2 ^ (176 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_176_hi :
@@ -8580,15 +8580,15 @@ private theorem ray_eval_seam_176_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (176 + 1)) % 2 ^ 256 = 2 ^ (176 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (176 + 1)) % 2 ^ 256 = 2 ^ (176 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_176_lo :
     model_ln_wad_to_wad_evm (2 ^ (176 + 1) - 1) = 81240519285217497454 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (176 + 1) - 1) % 2 ^ 256 = 2 ^ (176 + 1) - 1 by decide]
+  simp only [show (2 ^ (176 + 1) - 1) % 2 ^ 256 = 2 ^ (176 + 1) - 1 by decide]
   rw [ray_eval_seam_176_lo]
   decide
 
@@ -8596,7 +8596,7 @@ private theorem wad_eval_seam_176_hi :
     model_ln_wad_to_wad_evm (2 ^ (176 + 1)) = 81240519285217497454 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (176 + 1)) % 2 ^ 256 = 2 ^ (176 + 1) by decide]
+  simp only [show (2 ^ (176 + 1)) % 2 ^ 256 = 2 ^ (176 + 1) by decide]
   rw [ray_eval_seam_176_hi]
   decide
 
@@ -8618,8 +8618,8 @@ private theorem ray_eval_seam_177_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (177 + 1) - 1) % 2 ^ 256 = 2 ^ (177 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (177 + 1) - 1) % 2 ^ 256 = 2 ^ (177 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_177_hi :
@@ -8628,15 +8628,15 @@ private theorem ray_eval_seam_177_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (177 + 1)) % 2 ^ 256 = 2 ^ (177 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (177 + 1)) % 2 ^ 256 = 2 ^ (177 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_177_lo :
     model_ln_wad_to_wad_evm (2 ^ (177 + 1) - 1) = 81933666465777442763 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (177 + 1) - 1) % 2 ^ 256 = 2 ^ (177 + 1) - 1 by decide]
+  simp only [show (2 ^ (177 + 1) - 1) % 2 ^ 256 = 2 ^ (177 + 1) - 1 by decide]
   rw [ray_eval_seam_177_lo]
   decide
 
@@ -8644,7 +8644,7 @@ private theorem wad_eval_seam_177_hi :
     model_ln_wad_to_wad_evm (2 ^ (177 + 1)) = 81933666465777442763 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (177 + 1)) % 2 ^ 256 = 2 ^ (177 + 1) by decide]
+  simp only [show (2 ^ (177 + 1)) % 2 ^ 256 = 2 ^ (177 + 1) by decide]
   rw [ray_eval_seam_177_hi]
   decide
 
@@ -8666,8 +8666,8 @@ private theorem ray_eval_seam_178_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (178 + 1) - 1) % 2 ^ 256 = 2 ^ (178 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (178 + 1) - 1) % 2 ^ 256 = 2 ^ (178 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_178_hi :
@@ -8676,15 +8676,15 @@ private theorem ray_eval_seam_178_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (178 + 1)) % 2 ^ 256 = 2 ^ (178 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (178 + 1)) % 2 ^ 256 = 2 ^ (178 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_178_lo :
     model_ln_wad_to_wad_evm (2 ^ (178 + 1) - 1) = 82626813646337388073 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (178 + 1) - 1) % 2 ^ 256 = 2 ^ (178 + 1) - 1 by decide]
+  simp only [show (2 ^ (178 + 1) - 1) % 2 ^ 256 = 2 ^ (178 + 1) - 1 by decide]
   rw [ray_eval_seam_178_lo]
   decide
 
@@ -8692,7 +8692,7 @@ private theorem wad_eval_seam_178_hi :
     model_ln_wad_to_wad_evm (2 ^ (178 + 1)) = 82626813646337388073 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (178 + 1)) % 2 ^ 256 = 2 ^ (178 + 1) by decide]
+  simp only [show (2 ^ (178 + 1)) % 2 ^ 256 = 2 ^ (178 + 1) by decide]
   rw [ray_eval_seam_178_hi]
   decide
 
@@ -8714,8 +8714,8 @@ private theorem ray_eval_seam_179_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (179 + 1) - 1) % 2 ^ 256 = 2 ^ (179 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (179 + 1) - 1) % 2 ^ 256 = 2 ^ (179 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_179_hi :
@@ -8724,15 +8724,15 @@ private theorem ray_eval_seam_179_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (179 + 1)) % 2 ^ 256 = 2 ^ (179 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (179 + 1)) % 2 ^ 256 = 2 ^ (179 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_179_lo :
     model_ln_wad_to_wad_evm (2 ^ (179 + 1) - 1) = 83319960826897333382 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (179 + 1) - 1) % 2 ^ 256 = 2 ^ (179 + 1) - 1 by decide]
+  simp only [show (2 ^ (179 + 1) - 1) % 2 ^ 256 = 2 ^ (179 + 1) - 1 by decide]
   rw [ray_eval_seam_179_lo]
   decide
 
@@ -8740,7 +8740,7 @@ private theorem wad_eval_seam_179_hi :
     model_ln_wad_to_wad_evm (2 ^ (179 + 1)) = 83319960826897333382 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (179 + 1)) % 2 ^ 256 = 2 ^ (179 + 1) by decide]
+  simp only [show (2 ^ (179 + 1)) % 2 ^ 256 = 2 ^ (179 + 1) by decide]
   rw [ray_eval_seam_179_hi]
   decide
 
@@ -8762,8 +8762,8 @@ private theorem ray_eval_seam_180_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (180 + 1) - 1) % 2 ^ 256 = 2 ^ (180 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (180 + 1) - 1) % 2 ^ 256 = 2 ^ (180 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_180_hi :
@@ -8772,15 +8772,15 @@ private theorem ray_eval_seam_180_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (180 + 1)) % 2 ^ 256 = 2 ^ (180 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (180 + 1)) % 2 ^ 256 = 2 ^ (180 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_180_lo :
     model_ln_wad_to_wad_evm (2 ^ (180 + 1) - 1) = 84013108007457278692 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (180 + 1) - 1) % 2 ^ 256 = 2 ^ (180 + 1) - 1 by decide]
+  simp only [show (2 ^ (180 + 1) - 1) % 2 ^ 256 = 2 ^ (180 + 1) - 1 by decide]
   rw [ray_eval_seam_180_lo]
   decide
 
@@ -8788,7 +8788,7 @@ private theorem wad_eval_seam_180_hi :
     model_ln_wad_to_wad_evm (2 ^ (180 + 1)) = 84013108007457278692 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (180 + 1)) % 2 ^ 256 = 2 ^ (180 + 1) by decide]
+  simp only [show (2 ^ (180 + 1)) % 2 ^ 256 = 2 ^ (180 + 1) by decide]
   rw [ray_eval_seam_180_hi]
   decide
 
@@ -8810,8 +8810,8 @@ private theorem ray_eval_seam_181_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (181 + 1) - 1) % 2 ^ 256 = 2 ^ (181 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (181 + 1) - 1) % 2 ^ 256 = 2 ^ (181 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_181_hi :
@@ -8820,15 +8820,15 @@ private theorem ray_eval_seam_181_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (181 + 1)) % 2 ^ 256 = 2 ^ (181 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (181 + 1)) % 2 ^ 256 = 2 ^ (181 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_181_lo :
     model_ln_wad_to_wad_evm (2 ^ (181 + 1) - 1) = 84706255188017224001 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (181 + 1) - 1) % 2 ^ 256 = 2 ^ (181 + 1) - 1 by decide]
+  simp only [show (2 ^ (181 + 1) - 1) % 2 ^ 256 = 2 ^ (181 + 1) - 1 by decide]
   rw [ray_eval_seam_181_lo]
   decide
 
@@ -8836,7 +8836,7 @@ private theorem wad_eval_seam_181_hi :
     model_ln_wad_to_wad_evm (2 ^ (181 + 1)) = 84706255188017224001 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (181 + 1)) % 2 ^ 256 = 2 ^ (181 + 1) by decide]
+  simp only [show (2 ^ (181 + 1)) % 2 ^ 256 = 2 ^ (181 + 1) by decide]
   rw [ray_eval_seam_181_hi]
   decide
 
@@ -8858,8 +8858,8 @@ private theorem ray_eval_seam_182_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (182 + 1) - 1) % 2 ^ 256 = 2 ^ (182 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (182 + 1) - 1) % 2 ^ 256 = 2 ^ (182 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_182_hi :
@@ -8868,15 +8868,15 @@ private theorem ray_eval_seam_182_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (182 + 1)) % 2 ^ 256 = 2 ^ (182 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (182 + 1)) % 2 ^ 256 = 2 ^ (182 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_182_lo :
     model_ln_wad_to_wad_evm (2 ^ (182 + 1) - 1) = 85399402368577169311 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (182 + 1) - 1) % 2 ^ 256 = 2 ^ (182 + 1) - 1 by decide]
+  simp only [show (2 ^ (182 + 1) - 1) % 2 ^ 256 = 2 ^ (182 + 1) - 1 by decide]
   rw [ray_eval_seam_182_lo]
   decide
 
@@ -8884,7 +8884,7 @@ private theorem wad_eval_seam_182_hi :
     model_ln_wad_to_wad_evm (2 ^ (182 + 1)) = 85399402368577169311 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (182 + 1)) % 2 ^ 256 = 2 ^ (182 + 1) by decide]
+  simp only [show (2 ^ (182 + 1)) % 2 ^ 256 = 2 ^ (182 + 1) by decide]
   rw [ray_eval_seam_182_hi]
   decide
 
@@ -8906,8 +8906,8 @@ private theorem ray_eval_seam_183_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (183 + 1) - 1) % 2 ^ 256 = 2 ^ (183 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (183 + 1) - 1) % 2 ^ 256 = 2 ^ (183 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_183_hi :
@@ -8916,15 +8916,15 @@ private theorem ray_eval_seam_183_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (183 + 1)) % 2 ^ 256 = 2 ^ (183 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (183 + 1)) % 2 ^ 256 = 2 ^ (183 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_183_lo :
     model_ln_wad_to_wad_evm (2 ^ (183 + 1) - 1) = 86092549549137114620 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (183 + 1) - 1) % 2 ^ 256 = 2 ^ (183 + 1) - 1 by decide]
+  simp only [show (2 ^ (183 + 1) - 1) % 2 ^ 256 = 2 ^ (183 + 1) - 1 by decide]
   rw [ray_eval_seam_183_lo]
   decide
 
@@ -8932,7 +8932,7 @@ private theorem wad_eval_seam_183_hi :
     model_ln_wad_to_wad_evm (2 ^ (183 + 1)) = 86092549549137114620 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (183 + 1)) % 2 ^ 256 = 2 ^ (183 + 1) by decide]
+  simp only [show (2 ^ (183 + 1)) % 2 ^ 256 = 2 ^ (183 + 1) by decide]
   rw [ray_eval_seam_183_hi]
   decide
 
@@ -8954,8 +8954,8 @@ private theorem ray_eval_seam_184_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (184 + 1) - 1) % 2 ^ 256 = 2 ^ (184 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (184 + 1) - 1) % 2 ^ 256 = 2 ^ (184 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_184_hi :
@@ -8964,15 +8964,15 @@ private theorem ray_eval_seam_184_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (184 + 1)) % 2 ^ 256 = 2 ^ (184 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (184 + 1)) % 2 ^ 256 = 2 ^ (184 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_184_lo :
     model_ln_wad_to_wad_evm (2 ^ (184 + 1) - 1) = 86785696729697059929 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (184 + 1) - 1) % 2 ^ 256 = 2 ^ (184 + 1) - 1 by decide]
+  simp only [show (2 ^ (184 + 1) - 1) % 2 ^ 256 = 2 ^ (184 + 1) - 1 by decide]
   rw [ray_eval_seam_184_lo]
   decide
 
@@ -8980,7 +8980,7 @@ private theorem wad_eval_seam_184_hi :
     model_ln_wad_to_wad_evm (2 ^ (184 + 1)) = 86785696729697059929 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (184 + 1)) % 2 ^ 256 = 2 ^ (184 + 1) by decide]
+  simp only [show (2 ^ (184 + 1)) % 2 ^ 256 = 2 ^ (184 + 1) by decide]
   rw [ray_eval_seam_184_hi]
   decide
 
@@ -9002,8 +9002,8 @@ private theorem ray_eval_seam_185_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (185 + 1) - 1) % 2 ^ 256 = 2 ^ (185 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (185 + 1) - 1) % 2 ^ 256 = 2 ^ (185 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_185_hi :
@@ -9012,15 +9012,15 @@ private theorem ray_eval_seam_185_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (185 + 1)) % 2 ^ 256 = 2 ^ (185 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (185 + 1)) % 2 ^ 256 = 2 ^ (185 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_185_lo :
     model_ln_wad_to_wad_evm (2 ^ (185 + 1) - 1) = 87478843910257005239 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (185 + 1) - 1) % 2 ^ 256 = 2 ^ (185 + 1) - 1 by decide]
+  simp only [show (2 ^ (185 + 1) - 1) % 2 ^ 256 = 2 ^ (185 + 1) - 1 by decide]
   rw [ray_eval_seam_185_lo]
   decide
 
@@ -9028,7 +9028,7 @@ private theorem wad_eval_seam_185_hi :
     model_ln_wad_to_wad_evm (2 ^ (185 + 1)) = 87478843910257005239 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (185 + 1)) % 2 ^ 256 = 2 ^ (185 + 1) by decide]
+  simp only [show (2 ^ (185 + 1)) % 2 ^ 256 = 2 ^ (185 + 1) by decide]
   rw [ray_eval_seam_185_hi]
   decide
 
@@ -9050,8 +9050,8 @@ private theorem ray_eval_seam_186_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (186 + 1) - 1) % 2 ^ 256 = 2 ^ (186 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (186 + 1) - 1) % 2 ^ 256 = 2 ^ (186 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_186_hi :
@@ -9060,15 +9060,15 @@ private theorem ray_eval_seam_186_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (186 + 1)) % 2 ^ 256 = 2 ^ (186 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (186 + 1)) % 2 ^ 256 = 2 ^ (186 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_186_lo :
     model_ln_wad_to_wad_evm (2 ^ (186 + 1) - 1) = 88171991090816950548 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (186 + 1) - 1) % 2 ^ 256 = 2 ^ (186 + 1) - 1 by decide]
+  simp only [show (2 ^ (186 + 1) - 1) % 2 ^ 256 = 2 ^ (186 + 1) - 1 by decide]
   rw [ray_eval_seam_186_lo]
   decide
 
@@ -9076,7 +9076,7 @@ private theorem wad_eval_seam_186_hi :
     model_ln_wad_to_wad_evm (2 ^ (186 + 1)) = 88171991090816950548 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (186 + 1)) % 2 ^ 256 = 2 ^ (186 + 1) by decide]
+  simp only [show (2 ^ (186 + 1)) % 2 ^ 256 = 2 ^ (186 + 1) by decide]
   rw [ray_eval_seam_186_hi]
   decide
 
@@ -9098,8 +9098,8 @@ private theorem ray_eval_seam_187_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (187 + 1) - 1) % 2 ^ 256 = 2 ^ (187 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (187 + 1) - 1) % 2 ^ 256 = 2 ^ (187 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_187_hi :
@@ -9108,15 +9108,15 @@ private theorem ray_eval_seam_187_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (187 + 1)) % 2 ^ 256 = 2 ^ (187 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (187 + 1)) % 2 ^ 256 = 2 ^ (187 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_187_lo :
     model_ln_wad_to_wad_evm (2 ^ (187 + 1) - 1) = 88865138271376895858 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (187 + 1) - 1) % 2 ^ 256 = 2 ^ (187 + 1) - 1 by decide]
+  simp only [show (2 ^ (187 + 1) - 1) % 2 ^ 256 = 2 ^ (187 + 1) - 1 by decide]
   rw [ray_eval_seam_187_lo]
   decide
 
@@ -9124,7 +9124,7 @@ private theorem wad_eval_seam_187_hi :
     model_ln_wad_to_wad_evm (2 ^ (187 + 1)) = 88865138271376895858 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (187 + 1)) % 2 ^ 256 = 2 ^ (187 + 1) by decide]
+  simp only [show (2 ^ (187 + 1)) % 2 ^ 256 = 2 ^ (187 + 1) by decide]
   rw [ray_eval_seam_187_hi]
   decide
 
@@ -9146,8 +9146,8 @@ private theorem ray_eval_seam_188_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (188 + 1) - 1) % 2 ^ 256 = 2 ^ (188 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (188 + 1) - 1) % 2 ^ 256 = 2 ^ (188 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_188_hi :
@@ -9156,15 +9156,15 @@ private theorem ray_eval_seam_188_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (188 + 1)) % 2 ^ 256 = 2 ^ (188 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (188 + 1)) % 2 ^ 256 = 2 ^ (188 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_188_lo :
     model_ln_wad_to_wad_evm (2 ^ (188 + 1) - 1) = 89558285451936841167 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (188 + 1) - 1) % 2 ^ 256 = 2 ^ (188 + 1) - 1 by decide]
+  simp only [show (2 ^ (188 + 1) - 1) % 2 ^ 256 = 2 ^ (188 + 1) - 1 by decide]
   rw [ray_eval_seam_188_lo]
   decide
 
@@ -9172,7 +9172,7 @@ private theorem wad_eval_seam_188_hi :
     model_ln_wad_to_wad_evm (2 ^ (188 + 1)) = 89558285451936841167 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (188 + 1)) % 2 ^ 256 = 2 ^ (188 + 1) by decide]
+  simp only [show (2 ^ (188 + 1)) % 2 ^ 256 = 2 ^ (188 + 1) by decide]
   rw [ray_eval_seam_188_hi]
   decide
 
@@ -9194,8 +9194,8 @@ private theorem ray_eval_seam_189_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (189 + 1) - 1) % 2 ^ 256 = 2 ^ (189 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (189 + 1) - 1) % 2 ^ 256 = 2 ^ (189 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_189_hi :
@@ -9204,15 +9204,15 @@ private theorem ray_eval_seam_189_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (189 + 1)) % 2 ^ 256 = 2 ^ (189 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (189 + 1)) % 2 ^ 256 = 2 ^ (189 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_189_lo :
     model_ln_wad_to_wad_evm (2 ^ (189 + 1) - 1) = 90251432632496786476 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (189 + 1) - 1) % 2 ^ 256 = 2 ^ (189 + 1) - 1 by decide]
+  simp only [show (2 ^ (189 + 1) - 1) % 2 ^ 256 = 2 ^ (189 + 1) - 1 by decide]
   rw [ray_eval_seam_189_lo]
   decide
 
@@ -9220,7 +9220,7 @@ private theorem wad_eval_seam_189_hi :
     model_ln_wad_to_wad_evm (2 ^ (189 + 1)) = 90251432632496786476 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (189 + 1)) % 2 ^ 256 = 2 ^ (189 + 1) by decide]
+  simp only [show (2 ^ (189 + 1)) % 2 ^ 256 = 2 ^ (189 + 1) by decide]
   rw [ray_eval_seam_189_hi]
   decide
 
@@ -9242,8 +9242,8 @@ private theorem ray_eval_seam_190_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (190 + 1) - 1) % 2 ^ 256 = 2 ^ (190 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (190 + 1) - 1) % 2 ^ 256 = 2 ^ (190 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_190_hi :
@@ -9252,15 +9252,15 @@ private theorem ray_eval_seam_190_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (190 + 1)) % 2 ^ 256 = 2 ^ (190 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (190 + 1)) % 2 ^ 256 = 2 ^ (190 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_190_lo :
     model_ln_wad_to_wad_evm (2 ^ (190 + 1) - 1) = 90944579813056731786 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (190 + 1) - 1) % 2 ^ 256 = 2 ^ (190 + 1) - 1 by decide]
+  simp only [show (2 ^ (190 + 1) - 1) % 2 ^ 256 = 2 ^ (190 + 1) - 1 by decide]
   rw [ray_eval_seam_190_lo]
   decide
 
@@ -9268,7 +9268,7 @@ private theorem wad_eval_seam_190_hi :
     model_ln_wad_to_wad_evm (2 ^ (190 + 1)) = 90944579813056731786 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (190 + 1)) % 2 ^ 256 = 2 ^ (190 + 1) by decide]
+  simp only [show (2 ^ (190 + 1)) % 2 ^ 256 = 2 ^ (190 + 1) by decide]
   rw [ray_eval_seam_190_hi]
   decide
 
@@ -9290,8 +9290,8 @@ private theorem ray_eval_seam_191_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (191 + 1) - 1) % 2 ^ 256 = 2 ^ (191 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (191 + 1) - 1) % 2 ^ 256 = 2 ^ (191 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_191_hi :
@@ -9300,15 +9300,15 @@ private theorem ray_eval_seam_191_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (191 + 1)) % 2 ^ 256 = 2 ^ (191 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (191 + 1)) % 2 ^ 256 = 2 ^ (191 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_191_lo :
     model_ln_wad_to_wad_evm (2 ^ (191 + 1) - 1) = 91637726993616677095 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (191 + 1) - 1) % 2 ^ 256 = 2 ^ (191 + 1) - 1 by decide]
+  simp only [show (2 ^ (191 + 1) - 1) % 2 ^ 256 = 2 ^ (191 + 1) - 1 by decide]
   rw [ray_eval_seam_191_lo]
   decide
 
@@ -9316,7 +9316,7 @@ private theorem wad_eval_seam_191_hi :
     model_ln_wad_to_wad_evm (2 ^ (191 + 1)) = 91637726993616677095 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (191 + 1)) % 2 ^ 256 = 2 ^ (191 + 1) by decide]
+  simp only [show (2 ^ (191 + 1)) % 2 ^ 256 = 2 ^ (191 + 1) by decide]
   rw [ray_eval_seam_191_hi]
   decide
 
@@ -9338,8 +9338,8 @@ private theorem ray_eval_seam_192_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (192 + 1) - 1) % 2 ^ 256 = 2 ^ (192 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (192 + 1) - 1) % 2 ^ 256 = 2 ^ (192 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_192_hi :
@@ -9348,15 +9348,15 @@ private theorem ray_eval_seam_192_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (192 + 1)) % 2 ^ 256 = 2 ^ (192 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (192 + 1)) % 2 ^ 256 = 2 ^ (192 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_192_lo :
     model_ln_wad_to_wad_evm (2 ^ (192 + 1) - 1) = 92330874174176622405 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (192 + 1) - 1) % 2 ^ 256 = 2 ^ (192 + 1) - 1 by decide]
+  simp only [show (2 ^ (192 + 1) - 1) % 2 ^ 256 = 2 ^ (192 + 1) - 1 by decide]
   rw [ray_eval_seam_192_lo]
   decide
 
@@ -9364,7 +9364,7 @@ private theorem wad_eval_seam_192_hi :
     model_ln_wad_to_wad_evm (2 ^ (192 + 1)) = 92330874174176622405 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (192 + 1)) % 2 ^ 256 = 2 ^ (192 + 1) by decide]
+  simp only [show (2 ^ (192 + 1)) % 2 ^ 256 = 2 ^ (192 + 1) by decide]
   rw [ray_eval_seam_192_hi]
   decide
 
@@ -9386,8 +9386,8 @@ private theorem ray_eval_seam_193_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (193 + 1) - 1) % 2 ^ 256 = 2 ^ (193 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (193 + 1) - 1) % 2 ^ 256 = 2 ^ (193 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_193_hi :
@@ -9396,15 +9396,15 @@ private theorem ray_eval_seam_193_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (193 + 1)) % 2 ^ 256 = 2 ^ (193 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (193 + 1)) % 2 ^ 256 = 2 ^ (193 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_193_lo :
     model_ln_wad_to_wad_evm (2 ^ (193 + 1) - 1) = 93024021354736567714 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (193 + 1) - 1) % 2 ^ 256 = 2 ^ (193 + 1) - 1 by decide]
+  simp only [show (2 ^ (193 + 1) - 1) % 2 ^ 256 = 2 ^ (193 + 1) - 1 by decide]
   rw [ray_eval_seam_193_lo]
   decide
 
@@ -9412,7 +9412,7 @@ private theorem wad_eval_seam_193_hi :
     model_ln_wad_to_wad_evm (2 ^ (193 + 1)) = 93024021354736567714 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (193 + 1)) % 2 ^ 256 = 2 ^ (193 + 1) by decide]
+  simp only [show (2 ^ (193 + 1)) % 2 ^ 256 = 2 ^ (193 + 1) by decide]
   rw [ray_eval_seam_193_hi]
   decide
 
@@ -9434,8 +9434,8 @@ private theorem ray_eval_seam_194_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (194 + 1) - 1) % 2 ^ 256 = 2 ^ (194 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (194 + 1) - 1) % 2 ^ 256 = 2 ^ (194 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_194_hi :
@@ -9444,15 +9444,15 @@ private theorem ray_eval_seam_194_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (194 + 1)) % 2 ^ 256 = 2 ^ (194 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (194 + 1)) % 2 ^ 256 = 2 ^ (194 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_194_lo :
     model_ln_wad_to_wad_evm (2 ^ (194 + 1) - 1) = 93717168535296513024 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (194 + 1) - 1) % 2 ^ 256 = 2 ^ (194 + 1) - 1 by decide]
+  simp only [show (2 ^ (194 + 1) - 1) % 2 ^ 256 = 2 ^ (194 + 1) - 1 by decide]
   rw [ray_eval_seam_194_lo]
   decide
 
@@ -9460,7 +9460,7 @@ private theorem wad_eval_seam_194_hi :
     model_ln_wad_to_wad_evm (2 ^ (194 + 1)) = 93717168535296513024 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (194 + 1)) % 2 ^ 256 = 2 ^ (194 + 1) by decide]
+  simp only [show (2 ^ (194 + 1)) % 2 ^ 256 = 2 ^ (194 + 1) by decide]
   rw [ray_eval_seam_194_hi]
   decide
 
@@ -9482,8 +9482,8 @@ private theorem ray_eval_seam_195_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (195 + 1) - 1) % 2 ^ 256 = 2 ^ (195 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (195 + 1) - 1) % 2 ^ 256 = 2 ^ (195 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_195_hi :
@@ -9492,15 +9492,15 @@ private theorem ray_eval_seam_195_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (195 + 1)) % 2 ^ 256 = 2 ^ (195 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (195 + 1)) % 2 ^ 256 = 2 ^ (195 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_195_lo :
     model_ln_wad_to_wad_evm (2 ^ (195 + 1) - 1) = 94410315715856458333 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (195 + 1) - 1) % 2 ^ 256 = 2 ^ (195 + 1) - 1 by decide]
+  simp only [show (2 ^ (195 + 1) - 1) % 2 ^ 256 = 2 ^ (195 + 1) - 1 by decide]
   rw [ray_eval_seam_195_lo]
   decide
 
@@ -9508,7 +9508,7 @@ private theorem wad_eval_seam_195_hi :
     model_ln_wad_to_wad_evm (2 ^ (195 + 1)) = 94410315715856458333 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (195 + 1)) % 2 ^ 256 = 2 ^ (195 + 1) by decide]
+  simp only [show (2 ^ (195 + 1)) % 2 ^ 256 = 2 ^ (195 + 1) by decide]
   rw [ray_eval_seam_195_hi]
   decide
 
@@ -9530,8 +9530,8 @@ private theorem ray_eval_seam_196_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (196 + 1) - 1) % 2 ^ 256 = 2 ^ (196 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (196 + 1) - 1) % 2 ^ 256 = 2 ^ (196 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_196_hi :
@@ -9540,15 +9540,15 @@ private theorem ray_eval_seam_196_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (196 + 1)) % 2 ^ 256 = 2 ^ (196 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (196 + 1)) % 2 ^ 256 = 2 ^ (196 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_196_lo :
     model_ln_wad_to_wad_evm (2 ^ (196 + 1) - 1) = 95103462896416403642 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (196 + 1) - 1) % 2 ^ 256 = 2 ^ (196 + 1) - 1 by decide]
+  simp only [show (2 ^ (196 + 1) - 1) % 2 ^ 256 = 2 ^ (196 + 1) - 1 by decide]
   rw [ray_eval_seam_196_lo]
   decide
 
@@ -9556,7 +9556,7 @@ private theorem wad_eval_seam_196_hi :
     model_ln_wad_to_wad_evm (2 ^ (196 + 1)) = 95103462896416403642 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (196 + 1)) % 2 ^ 256 = 2 ^ (196 + 1) by decide]
+  simp only [show (2 ^ (196 + 1)) % 2 ^ 256 = 2 ^ (196 + 1) by decide]
   rw [ray_eval_seam_196_hi]
   decide
 
@@ -9578,8 +9578,8 @@ private theorem ray_eval_seam_197_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (197 + 1) - 1) % 2 ^ 256 = 2 ^ (197 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (197 + 1) - 1) % 2 ^ 256 = 2 ^ (197 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_197_hi :
@@ -9588,15 +9588,15 @@ private theorem ray_eval_seam_197_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (197 + 1)) % 2 ^ 256 = 2 ^ (197 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (197 + 1)) % 2 ^ 256 = 2 ^ (197 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_197_lo :
     model_ln_wad_to_wad_evm (2 ^ (197 + 1) - 1) = 95796610076976348952 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (197 + 1) - 1) % 2 ^ 256 = 2 ^ (197 + 1) - 1 by decide]
+  simp only [show (2 ^ (197 + 1) - 1) % 2 ^ 256 = 2 ^ (197 + 1) - 1 by decide]
   rw [ray_eval_seam_197_lo]
   decide
 
@@ -9604,7 +9604,7 @@ private theorem wad_eval_seam_197_hi :
     model_ln_wad_to_wad_evm (2 ^ (197 + 1)) = 95796610076976348952 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (197 + 1)) % 2 ^ 256 = 2 ^ (197 + 1) by decide]
+  simp only [show (2 ^ (197 + 1)) % 2 ^ 256 = 2 ^ (197 + 1) by decide]
   rw [ray_eval_seam_197_hi]
   decide
 
@@ -9626,8 +9626,8 @@ private theorem ray_eval_seam_198_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (198 + 1) - 1) % 2 ^ 256 = 2 ^ (198 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (198 + 1) - 1) % 2 ^ 256 = 2 ^ (198 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_198_hi :
@@ -9636,15 +9636,15 @@ private theorem ray_eval_seam_198_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (198 + 1)) % 2 ^ 256 = 2 ^ (198 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (198 + 1)) % 2 ^ 256 = 2 ^ (198 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_198_lo :
     model_ln_wad_to_wad_evm (2 ^ (198 + 1) - 1) = 96489757257536294261 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (198 + 1) - 1) % 2 ^ 256 = 2 ^ (198 + 1) - 1 by decide]
+  simp only [show (2 ^ (198 + 1) - 1) % 2 ^ 256 = 2 ^ (198 + 1) - 1 by decide]
   rw [ray_eval_seam_198_lo]
   decide
 
@@ -9652,7 +9652,7 @@ private theorem wad_eval_seam_198_hi :
     model_ln_wad_to_wad_evm (2 ^ (198 + 1)) = 96489757257536294261 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (198 + 1)) % 2 ^ 256 = 2 ^ (198 + 1) by decide]
+  simp only [show (2 ^ (198 + 1)) % 2 ^ 256 = 2 ^ (198 + 1) by decide]
   rw [ray_eval_seam_198_hi]
   decide
 
@@ -9674,8 +9674,8 @@ private theorem ray_eval_seam_199_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (199 + 1) - 1) % 2 ^ 256 = 2 ^ (199 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (199 + 1) - 1) % 2 ^ 256 = 2 ^ (199 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_199_hi :
@@ -9684,15 +9684,15 @@ private theorem ray_eval_seam_199_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (199 + 1)) % 2 ^ 256 = 2 ^ (199 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (199 + 1)) % 2 ^ 256 = 2 ^ (199 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_199_lo :
     model_ln_wad_to_wad_evm (2 ^ (199 + 1) - 1) = 97182904438096239571 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (199 + 1) - 1) % 2 ^ 256 = 2 ^ (199 + 1) - 1 by decide]
+  simp only [show (2 ^ (199 + 1) - 1) % 2 ^ 256 = 2 ^ (199 + 1) - 1 by decide]
   rw [ray_eval_seam_199_lo]
   decide
 
@@ -9700,7 +9700,7 @@ private theorem wad_eval_seam_199_hi :
     model_ln_wad_to_wad_evm (2 ^ (199 + 1)) = 97182904438096239571 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (199 + 1)) % 2 ^ 256 = 2 ^ (199 + 1) by decide]
+  simp only [show (2 ^ (199 + 1)) % 2 ^ 256 = 2 ^ (199 + 1) by decide]
   rw [ray_eval_seam_199_hi]
   decide
 
@@ -9722,8 +9722,8 @@ private theorem ray_eval_seam_200_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (200 + 1) - 1) % 2 ^ 256 = 2 ^ (200 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (200 + 1) - 1) % 2 ^ 256 = 2 ^ (200 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_200_hi :
@@ -9732,15 +9732,15 @@ private theorem ray_eval_seam_200_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (200 + 1)) % 2 ^ 256 = 2 ^ (200 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (200 + 1)) % 2 ^ 256 = 2 ^ (200 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_200_lo :
     model_ln_wad_to_wad_evm (2 ^ (200 + 1) - 1) = 97876051618656184880 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (200 + 1) - 1) % 2 ^ 256 = 2 ^ (200 + 1) - 1 by decide]
+  simp only [show (2 ^ (200 + 1) - 1) % 2 ^ 256 = 2 ^ (200 + 1) - 1 by decide]
   rw [ray_eval_seam_200_lo]
   decide
 
@@ -9748,7 +9748,7 @@ private theorem wad_eval_seam_200_hi :
     model_ln_wad_to_wad_evm (2 ^ (200 + 1)) = 97876051618656184880 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (200 + 1)) % 2 ^ 256 = 2 ^ (200 + 1) by decide]
+  simp only [show (2 ^ (200 + 1)) % 2 ^ 256 = 2 ^ (200 + 1) by decide]
   rw [ray_eval_seam_200_hi]
   decide
 
@@ -9770,8 +9770,8 @@ private theorem ray_eval_seam_201_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (201 + 1) - 1) % 2 ^ 256 = 2 ^ (201 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (201 + 1) - 1) % 2 ^ 256 = 2 ^ (201 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_201_hi :
@@ -9780,15 +9780,15 @@ private theorem ray_eval_seam_201_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (201 + 1)) % 2 ^ 256 = 2 ^ (201 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (201 + 1)) % 2 ^ 256 = 2 ^ (201 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_201_lo :
     model_ln_wad_to_wad_evm (2 ^ (201 + 1) - 1) = 98569198799216130189 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (201 + 1) - 1) % 2 ^ 256 = 2 ^ (201 + 1) - 1 by decide]
+  simp only [show (2 ^ (201 + 1) - 1) % 2 ^ 256 = 2 ^ (201 + 1) - 1 by decide]
   rw [ray_eval_seam_201_lo]
   decide
 
@@ -9796,7 +9796,7 @@ private theorem wad_eval_seam_201_hi :
     model_ln_wad_to_wad_evm (2 ^ (201 + 1)) = 98569198799216130189 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (201 + 1)) % 2 ^ 256 = 2 ^ (201 + 1) by decide]
+  simp only [show (2 ^ (201 + 1)) % 2 ^ 256 = 2 ^ (201 + 1) by decide]
   rw [ray_eval_seam_201_hi]
   decide
 
@@ -9818,8 +9818,8 @@ private theorem ray_eval_seam_202_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (202 + 1) - 1) % 2 ^ 256 = 2 ^ (202 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (202 + 1) - 1) % 2 ^ 256 = 2 ^ (202 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_202_hi :
@@ -9828,15 +9828,15 @@ private theorem ray_eval_seam_202_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (202 + 1)) % 2 ^ 256 = 2 ^ (202 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (202 + 1)) % 2 ^ 256 = 2 ^ (202 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_202_lo :
     model_ln_wad_to_wad_evm (2 ^ (202 + 1) - 1) = 99262345979776075499 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (202 + 1) - 1) % 2 ^ 256 = 2 ^ (202 + 1) - 1 by decide]
+  simp only [show (2 ^ (202 + 1) - 1) % 2 ^ 256 = 2 ^ (202 + 1) - 1 by decide]
   rw [ray_eval_seam_202_lo]
   decide
 
@@ -9844,7 +9844,7 @@ private theorem wad_eval_seam_202_hi :
     model_ln_wad_to_wad_evm (2 ^ (202 + 1)) = 99262345979776075499 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (202 + 1)) % 2 ^ 256 = 2 ^ (202 + 1) by decide]
+  simp only [show (2 ^ (202 + 1)) % 2 ^ 256 = 2 ^ (202 + 1) by decide]
   rw [ray_eval_seam_202_hi]
   decide
 
@@ -9866,8 +9866,8 @@ private theorem ray_eval_seam_203_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (203 + 1) - 1) % 2 ^ 256 = 2 ^ (203 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (203 + 1) - 1) % 2 ^ 256 = 2 ^ (203 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_203_hi :
@@ -9876,15 +9876,15 @@ private theorem ray_eval_seam_203_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (203 + 1)) % 2 ^ 256 = 2 ^ (203 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (203 + 1)) % 2 ^ 256 = 2 ^ (203 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_203_lo :
     model_ln_wad_to_wad_evm (2 ^ (203 + 1) - 1) = 99955493160336020808 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (203 + 1) - 1) % 2 ^ 256 = 2 ^ (203 + 1) - 1 by decide]
+  simp only [show (2 ^ (203 + 1) - 1) % 2 ^ 256 = 2 ^ (203 + 1) - 1 by decide]
   rw [ray_eval_seam_203_lo]
   decide
 
@@ -9892,7 +9892,7 @@ private theorem wad_eval_seam_203_hi :
     model_ln_wad_to_wad_evm (2 ^ (203 + 1)) = 99955493160336020808 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (203 + 1)) % 2 ^ 256 = 2 ^ (203 + 1) by decide]
+  simp only [show (2 ^ (203 + 1)) % 2 ^ 256 = 2 ^ (203 + 1) by decide]
   rw [ray_eval_seam_203_hi]
   decide
 
@@ -9914,8 +9914,8 @@ private theorem ray_eval_seam_204_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (204 + 1) - 1) % 2 ^ 256 = 2 ^ (204 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (204 + 1) - 1) % 2 ^ 256 = 2 ^ (204 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_204_hi :
@@ -9924,15 +9924,15 @@ private theorem ray_eval_seam_204_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (204 + 1)) % 2 ^ 256 = 2 ^ (204 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (204 + 1)) % 2 ^ 256 = 2 ^ (204 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_204_lo :
     model_ln_wad_to_wad_evm (2 ^ (204 + 1) - 1) = 100648640340895966118 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (204 + 1) - 1) % 2 ^ 256 = 2 ^ (204 + 1) - 1 by decide]
+  simp only [show (2 ^ (204 + 1) - 1) % 2 ^ 256 = 2 ^ (204 + 1) - 1 by decide]
   rw [ray_eval_seam_204_lo]
   decide
 
@@ -9940,7 +9940,7 @@ private theorem wad_eval_seam_204_hi :
     model_ln_wad_to_wad_evm (2 ^ (204 + 1)) = 100648640340895966118 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (204 + 1)) % 2 ^ 256 = 2 ^ (204 + 1) by decide]
+  simp only [show (2 ^ (204 + 1)) % 2 ^ 256 = 2 ^ (204 + 1) by decide]
   rw [ray_eval_seam_204_hi]
   decide
 
@@ -9962,8 +9962,8 @@ private theorem ray_eval_seam_205_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (205 + 1) - 1) % 2 ^ 256 = 2 ^ (205 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (205 + 1) - 1) % 2 ^ 256 = 2 ^ (205 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_205_hi :
@@ -9972,15 +9972,15 @@ private theorem ray_eval_seam_205_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (205 + 1)) % 2 ^ 256 = 2 ^ (205 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (205 + 1)) % 2 ^ 256 = 2 ^ (205 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_205_lo :
     model_ln_wad_to_wad_evm (2 ^ (205 + 1) - 1) = 101341787521455911427 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (205 + 1) - 1) % 2 ^ 256 = 2 ^ (205 + 1) - 1 by decide]
+  simp only [show (2 ^ (205 + 1) - 1) % 2 ^ 256 = 2 ^ (205 + 1) - 1 by decide]
   rw [ray_eval_seam_205_lo]
   decide
 
@@ -9988,7 +9988,7 @@ private theorem wad_eval_seam_205_hi :
     model_ln_wad_to_wad_evm (2 ^ (205 + 1)) = 101341787521455911427 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (205 + 1)) % 2 ^ 256 = 2 ^ (205 + 1) by decide]
+  simp only [show (2 ^ (205 + 1)) % 2 ^ 256 = 2 ^ (205 + 1) by decide]
   rw [ray_eval_seam_205_hi]
   decide
 
@@ -10010,8 +10010,8 @@ private theorem ray_eval_seam_206_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (206 + 1) - 1) % 2 ^ 256 = 2 ^ (206 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (206 + 1) - 1) % 2 ^ 256 = 2 ^ (206 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_206_hi :
@@ -10020,15 +10020,15 @@ private theorem ray_eval_seam_206_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (206 + 1)) % 2 ^ 256 = 2 ^ (206 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (206 + 1)) % 2 ^ 256 = 2 ^ (206 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_206_lo :
     model_ln_wad_to_wad_evm (2 ^ (206 + 1) - 1) = 102034934702015856737 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (206 + 1) - 1) % 2 ^ 256 = 2 ^ (206 + 1) - 1 by decide]
+  simp only [show (2 ^ (206 + 1) - 1) % 2 ^ 256 = 2 ^ (206 + 1) - 1 by decide]
   rw [ray_eval_seam_206_lo]
   decide
 
@@ -10036,7 +10036,7 @@ private theorem wad_eval_seam_206_hi :
     model_ln_wad_to_wad_evm (2 ^ (206 + 1)) = 102034934702015856737 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (206 + 1)) % 2 ^ 256 = 2 ^ (206 + 1) by decide]
+  simp only [show (2 ^ (206 + 1)) % 2 ^ 256 = 2 ^ (206 + 1) by decide]
   rw [ray_eval_seam_206_hi]
   decide
 
@@ -10058,8 +10058,8 @@ private theorem ray_eval_seam_207_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (207 + 1) - 1) % 2 ^ 256 = 2 ^ (207 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (207 + 1) - 1) % 2 ^ 256 = 2 ^ (207 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_207_hi :
@@ -10068,15 +10068,15 @@ private theorem ray_eval_seam_207_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (207 + 1)) % 2 ^ 256 = 2 ^ (207 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (207 + 1)) % 2 ^ 256 = 2 ^ (207 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_207_lo :
     model_ln_wad_to_wad_evm (2 ^ (207 + 1) - 1) = 102728081882575802046 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (207 + 1) - 1) % 2 ^ 256 = 2 ^ (207 + 1) - 1 by decide]
+  simp only [show (2 ^ (207 + 1) - 1) % 2 ^ 256 = 2 ^ (207 + 1) - 1 by decide]
   rw [ray_eval_seam_207_lo]
   decide
 
@@ -10084,7 +10084,7 @@ private theorem wad_eval_seam_207_hi :
     model_ln_wad_to_wad_evm (2 ^ (207 + 1)) = 102728081882575802046 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (207 + 1)) % 2 ^ 256 = 2 ^ (207 + 1) by decide]
+  simp only [show (2 ^ (207 + 1)) % 2 ^ 256 = 2 ^ (207 + 1) by decide]
   rw [ray_eval_seam_207_hi]
   decide
 
@@ -10106,8 +10106,8 @@ private theorem ray_eval_seam_208_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (208 + 1) - 1) % 2 ^ 256 = 2 ^ (208 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (208 + 1) - 1) % 2 ^ 256 = 2 ^ (208 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_208_hi :
@@ -10116,15 +10116,15 @@ private theorem ray_eval_seam_208_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (208 + 1)) % 2 ^ 256 = 2 ^ (208 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (208 + 1)) % 2 ^ 256 = 2 ^ (208 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_208_lo :
     model_ln_wad_to_wad_evm (2 ^ (208 + 1) - 1) = 103421229063135747355 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (208 + 1) - 1) % 2 ^ 256 = 2 ^ (208 + 1) - 1 by decide]
+  simp only [show (2 ^ (208 + 1) - 1) % 2 ^ 256 = 2 ^ (208 + 1) - 1 by decide]
   rw [ray_eval_seam_208_lo]
   decide
 
@@ -10132,7 +10132,7 @@ private theorem wad_eval_seam_208_hi :
     model_ln_wad_to_wad_evm (2 ^ (208 + 1)) = 103421229063135747355 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (208 + 1)) % 2 ^ 256 = 2 ^ (208 + 1) by decide]
+  simp only [show (2 ^ (208 + 1)) % 2 ^ 256 = 2 ^ (208 + 1) by decide]
   rw [ray_eval_seam_208_hi]
   decide
 
@@ -10154,8 +10154,8 @@ private theorem ray_eval_seam_209_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (209 + 1) - 1) % 2 ^ 256 = 2 ^ (209 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (209 + 1) - 1) % 2 ^ 256 = 2 ^ (209 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_209_hi :
@@ -10164,15 +10164,15 @@ private theorem ray_eval_seam_209_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (209 + 1)) % 2 ^ 256 = 2 ^ (209 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (209 + 1)) % 2 ^ 256 = 2 ^ (209 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_209_lo :
     model_ln_wad_to_wad_evm (2 ^ (209 + 1) - 1) = 104114376243695692665 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (209 + 1) - 1) % 2 ^ 256 = 2 ^ (209 + 1) - 1 by decide]
+  simp only [show (2 ^ (209 + 1) - 1) % 2 ^ 256 = 2 ^ (209 + 1) - 1 by decide]
   rw [ray_eval_seam_209_lo]
   decide
 
@@ -10180,7 +10180,7 @@ private theorem wad_eval_seam_209_hi :
     model_ln_wad_to_wad_evm (2 ^ (209 + 1)) = 104114376243695692665 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (209 + 1)) % 2 ^ 256 = 2 ^ (209 + 1) by decide]
+  simp only [show (2 ^ (209 + 1)) % 2 ^ 256 = 2 ^ (209 + 1) by decide]
   rw [ray_eval_seam_209_hi]
   decide
 
@@ -10202,8 +10202,8 @@ private theorem ray_eval_seam_210_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (210 + 1) - 1) % 2 ^ 256 = 2 ^ (210 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (210 + 1) - 1) % 2 ^ 256 = 2 ^ (210 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_210_hi :
@@ -10212,15 +10212,15 @@ private theorem ray_eval_seam_210_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (210 + 1)) % 2 ^ 256 = 2 ^ (210 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (210 + 1)) % 2 ^ 256 = 2 ^ (210 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_210_lo :
     model_ln_wad_to_wad_evm (2 ^ (210 + 1) - 1) = 104807523424255637974 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (210 + 1) - 1) % 2 ^ 256 = 2 ^ (210 + 1) - 1 by decide]
+  simp only [show (2 ^ (210 + 1) - 1) % 2 ^ 256 = 2 ^ (210 + 1) - 1 by decide]
   rw [ray_eval_seam_210_lo]
   decide
 
@@ -10228,7 +10228,7 @@ private theorem wad_eval_seam_210_hi :
     model_ln_wad_to_wad_evm (2 ^ (210 + 1)) = 104807523424255637974 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (210 + 1)) % 2 ^ 256 = 2 ^ (210 + 1) by decide]
+  simp only [show (2 ^ (210 + 1)) % 2 ^ 256 = 2 ^ (210 + 1) by decide]
   rw [ray_eval_seam_210_hi]
   decide
 
@@ -10250,8 +10250,8 @@ private theorem ray_eval_seam_211_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (211 + 1) - 1) % 2 ^ 256 = 2 ^ (211 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (211 + 1) - 1) % 2 ^ 256 = 2 ^ (211 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_211_hi :
@@ -10260,15 +10260,15 @@ private theorem ray_eval_seam_211_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (211 + 1)) % 2 ^ 256 = 2 ^ (211 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (211 + 1)) % 2 ^ 256 = 2 ^ (211 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_211_lo :
     model_ln_wad_to_wad_evm (2 ^ (211 + 1) - 1) = 105500670604815583284 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (211 + 1) - 1) % 2 ^ 256 = 2 ^ (211 + 1) - 1 by decide]
+  simp only [show (2 ^ (211 + 1) - 1) % 2 ^ 256 = 2 ^ (211 + 1) - 1 by decide]
   rw [ray_eval_seam_211_lo]
   decide
 
@@ -10276,7 +10276,7 @@ private theorem wad_eval_seam_211_hi :
     model_ln_wad_to_wad_evm (2 ^ (211 + 1)) = 105500670604815583284 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (211 + 1)) % 2 ^ 256 = 2 ^ (211 + 1) by decide]
+  simp only [show (2 ^ (211 + 1)) % 2 ^ 256 = 2 ^ (211 + 1) by decide]
   rw [ray_eval_seam_211_hi]
   decide
 
@@ -10298,8 +10298,8 @@ private theorem ray_eval_seam_212_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (212 + 1) - 1) % 2 ^ 256 = 2 ^ (212 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (212 + 1) - 1) % 2 ^ 256 = 2 ^ (212 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_212_hi :
@@ -10308,15 +10308,15 @@ private theorem ray_eval_seam_212_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (212 + 1)) % 2 ^ 256 = 2 ^ (212 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (212 + 1)) % 2 ^ 256 = 2 ^ (212 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_212_lo :
     model_ln_wad_to_wad_evm (2 ^ (212 + 1) - 1) = 106193817785375528593 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (212 + 1) - 1) % 2 ^ 256 = 2 ^ (212 + 1) - 1 by decide]
+  simp only [show (2 ^ (212 + 1) - 1) % 2 ^ 256 = 2 ^ (212 + 1) - 1 by decide]
   rw [ray_eval_seam_212_lo]
   decide
 
@@ -10324,7 +10324,7 @@ private theorem wad_eval_seam_212_hi :
     model_ln_wad_to_wad_evm (2 ^ (212 + 1)) = 106193817785375528593 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (212 + 1)) % 2 ^ 256 = 2 ^ (212 + 1) by decide]
+  simp only [show (2 ^ (212 + 1)) % 2 ^ 256 = 2 ^ (212 + 1) by decide]
   rw [ray_eval_seam_212_hi]
   decide
 
@@ -10346,8 +10346,8 @@ private theorem ray_eval_seam_213_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (213 + 1) - 1) % 2 ^ 256 = 2 ^ (213 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (213 + 1) - 1) % 2 ^ 256 = 2 ^ (213 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_213_hi :
@@ -10356,15 +10356,15 @@ private theorem ray_eval_seam_213_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (213 + 1)) % 2 ^ 256 = 2 ^ (213 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (213 + 1)) % 2 ^ 256 = 2 ^ (213 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_213_lo :
     model_ln_wad_to_wad_evm (2 ^ (213 + 1) - 1) = 106886964965935473902 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (213 + 1) - 1) % 2 ^ 256 = 2 ^ (213 + 1) - 1 by decide]
+  simp only [show (2 ^ (213 + 1) - 1) % 2 ^ 256 = 2 ^ (213 + 1) - 1 by decide]
   rw [ray_eval_seam_213_lo]
   decide
 
@@ -10372,7 +10372,7 @@ private theorem wad_eval_seam_213_hi :
     model_ln_wad_to_wad_evm (2 ^ (213 + 1)) = 106886964965935473902 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (213 + 1)) % 2 ^ 256 = 2 ^ (213 + 1) by decide]
+  simp only [show (2 ^ (213 + 1)) % 2 ^ 256 = 2 ^ (213 + 1) by decide]
   rw [ray_eval_seam_213_hi]
   decide
 
@@ -10394,8 +10394,8 @@ private theorem ray_eval_seam_214_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (214 + 1) - 1) % 2 ^ 256 = 2 ^ (214 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (214 + 1) - 1) % 2 ^ 256 = 2 ^ (214 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_214_hi :
@@ -10404,15 +10404,15 @@ private theorem ray_eval_seam_214_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (214 + 1)) % 2 ^ 256 = 2 ^ (214 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (214 + 1)) % 2 ^ 256 = 2 ^ (214 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_214_lo :
     model_ln_wad_to_wad_evm (2 ^ (214 + 1) - 1) = 107580112146495419212 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (214 + 1) - 1) % 2 ^ 256 = 2 ^ (214 + 1) - 1 by decide]
+  simp only [show (2 ^ (214 + 1) - 1) % 2 ^ 256 = 2 ^ (214 + 1) - 1 by decide]
   rw [ray_eval_seam_214_lo]
   decide
 
@@ -10420,7 +10420,7 @@ private theorem wad_eval_seam_214_hi :
     model_ln_wad_to_wad_evm (2 ^ (214 + 1)) = 107580112146495419212 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (214 + 1)) % 2 ^ 256 = 2 ^ (214 + 1) by decide]
+  simp only [show (2 ^ (214 + 1)) % 2 ^ 256 = 2 ^ (214 + 1) by decide]
   rw [ray_eval_seam_214_hi]
   decide
 
@@ -10442,8 +10442,8 @@ private theorem ray_eval_seam_215_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (215 + 1) - 1) % 2 ^ 256 = 2 ^ (215 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (215 + 1) - 1) % 2 ^ 256 = 2 ^ (215 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_215_hi :
@@ -10452,15 +10452,15 @@ private theorem ray_eval_seam_215_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (215 + 1)) % 2 ^ 256 = 2 ^ (215 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (215 + 1)) % 2 ^ 256 = 2 ^ (215 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_215_lo :
     model_ln_wad_to_wad_evm (2 ^ (215 + 1) - 1) = 108273259327055364521 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (215 + 1) - 1) % 2 ^ 256 = 2 ^ (215 + 1) - 1 by decide]
+  simp only [show (2 ^ (215 + 1) - 1) % 2 ^ 256 = 2 ^ (215 + 1) - 1 by decide]
   rw [ray_eval_seam_215_lo]
   decide
 
@@ -10468,7 +10468,7 @@ private theorem wad_eval_seam_215_hi :
     model_ln_wad_to_wad_evm (2 ^ (215 + 1)) = 108273259327055364521 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (215 + 1)) % 2 ^ 256 = 2 ^ (215 + 1) by decide]
+  simp only [show (2 ^ (215 + 1)) % 2 ^ 256 = 2 ^ (215 + 1) by decide]
   rw [ray_eval_seam_215_hi]
   decide
 
@@ -10490,8 +10490,8 @@ private theorem ray_eval_seam_216_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (216 + 1) - 1) % 2 ^ 256 = 2 ^ (216 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (216 + 1) - 1) % 2 ^ 256 = 2 ^ (216 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_216_hi :
@@ -10500,15 +10500,15 @@ private theorem ray_eval_seam_216_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (216 + 1)) % 2 ^ 256 = 2 ^ (216 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (216 + 1)) % 2 ^ 256 = 2 ^ (216 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_216_lo :
     model_ln_wad_to_wad_evm (2 ^ (216 + 1) - 1) = 108966406507615309831 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (216 + 1) - 1) % 2 ^ 256 = 2 ^ (216 + 1) - 1 by decide]
+  simp only [show (2 ^ (216 + 1) - 1) % 2 ^ 256 = 2 ^ (216 + 1) - 1 by decide]
   rw [ray_eval_seam_216_lo]
   decide
 
@@ -10516,7 +10516,7 @@ private theorem wad_eval_seam_216_hi :
     model_ln_wad_to_wad_evm (2 ^ (216 + 1)) = 108966406507615309831 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (216 + 1)) % 2 ^ 256 = 2 ^ (216 + 1) by decide]
+  simp only [show (2 ^ (216 + 1)) % 2 ^ 256 = 2 ^ (216 + 1) by decide]
   rw [ray_eval_seam_216_hi]
   decide
 
@@ -10538,8 +10538,8 @@ private theorem ray_eval_seam_217_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (217 + 1) - 1) % 2 ^ 256 = 2 ^ (217 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (217 + 1) - 1) % 2 ^ 256 = 2 ^ (217 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_217_hi :
@@ -10548,15 +10548,15 @@ private theorem ray_eval_seam_217_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (217 + 1)) % 2 ^ 256 = 2 ^ (217 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (217 + 1)) % 2 ^ 256 = 2 ^ (217 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_217_lo :
     model_ln_wad_to_wad_evm (2 ^ (217 + 1) - 1) = 109659553688175255140 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (217 + 1) - 1) % 2 ^ 256 = 2 ^ (217 + 1) - 1 by decide]
+  simp only [show (2 ^ (217 + 1) - 1) % 2 ^ 256 = 2 ^ (217 + 1) - 1 by decide]
   rw [ray_eval_seam_217_lo]
   decide
 
@@ -10564,7 +10564,7 @@ private theorem wad_eval_seam_217_hi :
     model_ln_wad_to_wad_evm (2 ^ (217 + 1)) = 109659553688175255140 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (217 + 1)) % 2 ^ 256 = 2 ^ (217 + 1) by decide]
+  simp only [show (2 ^ (217 + 1)) % 2 ^ 256 = 2 ^ (217 + 1) by decide]
   rw [ray_eval_seam_217_hi]
   decide
 
@@ -10586,8 +10586,8 @@ private theorem ray_eval_seam_218_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (218 + 1) - 1) % 2 ^ 256 = 2 ^ (218 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (218 + 1) - 1) % 2 ^ 256 = 2 ^ (218 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_218_hi :
@@ -10596,15 +10596,15 @@ private theorem ray_eval_seam_218_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (218 + 1)) % 2 ^ 256 = 2 ^ (218 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (218 + 1)) % 2 ^ 256 = 2 ^ (218 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_218_lo :
     model_ln_wad_to_wad_evm (2 ^ (218 + 1) - 1) = 110352700868735200450 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (218 + 1) - 1) % 2 ^ 256 = 2 ^ (218 + 1) - 1 by decide]
+  simp only [show (2 ^ (218 + 1) - 1) % 2 ^ 256 = 2 ^ (218 + 1) - 1 by decide]
   rw [ray_eval_seam_218_lo]
   decide
 
@@ -10612,7 +10612,7 @@ private theorem wad_eval_seam_218_hi :
     model_ln_wad_to_wad_evm (2 ^ (218 + 1)) = 110352700868735200450 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (218 + 1)) % 2 ^ 256 = 2 ^ (218 + 1) by decide]
+  simp only [show (2 ^ (218 + 1)) % 2 ^ 256 = 2 ^ (218 + 1) by decide]
   rw [ray_eval_seam_218_hi]
   decide
 
@@ -10634,8 +10634,8 @@ private theorem ray_eval_seam_219_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (219 + 1) - 1) % 2 ^ 256 = 2 ^ (219 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (219 + 1) - 1) % 2 ^ 256 = 2 ^ (219 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_219_hi :
@@ -10644,15 +10644,15 @@ private theorem ray_eval_seam_219_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (219 + 1)) % 2 ^ 256 = 2 ^ (219 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (219 + 1)) % 2 ^ 256 = 2 ^ (219 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_219_lo :
     model_ln_wad_to_wad_evm (2 ^ (219 + 1) - 1) = 111045848049295145759 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (219 + 1) - 1) % 2 ^ 256 = 2 ^ (219 + 1) - 1 by decide]
+  simp only [show (2 ^ (219 + 1) - 1) % 2 ^ 256 = 2 ^ (219 + 1) - 1 by decide]
   rw [ray_eval_seam_219_lo]
   decide
 
@@ -10660,7 +10660,7 @@ private theorem wad_eval_seam_219_hi :
     model_ln_wad_to_wad_evm (2 ^ (219 + 1)) = 111045848049295145759 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (219 + 1)) % 2 ^ 256 = 2 ^ (219 + 1) by decide]
+  simp only [show (2 ^ (219 + 1)) % 2 ^ 256 = 2 ^ (219 + 1) by decide]
   rw [ray_eval_seam_219_hi]
   decide
 
@@ -10682,8 +10682,8 @@ private theorem ray_eval_seam_220_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (220 + 1) - 1) % 2 ^ 256 = 2 ^ (220 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (220 + 1) - 1) % 2 ^ 256 = 2 ^ (220 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_220_hi :
@@ -10692,15 +10692,15 @@ private theorem ray_eval_seam_220_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (220 + 1)) % 2 ^ 256 = 2 ^ (220 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (220 + 1)) % 2 ^ 256 = 2 ^ (220 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_220_lo :
     model_ln_wad_to_wad_evm (2 ^ (220 + 1) - 1) = 111738995229855091068 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (220 + 1) - 1) % 2 ^ 256 = 2 ^ (220 + 1) - 1 by decide]
+  simp only [show (2 ^ (220 + 1) - 1) % 2 ^ 256 = 2 ^ (220 + 1) - 1 by decide]
   rw [ray_eval_seam_220_lo]
   decide
 
@@ -10708,7 +10708,7 @@ private theorem wad_eval_seam_220_hi :
     model_ln_wad_to_wad_evm (2 ^ (220 + 1)) = 111738995229855091068 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (220 + 1)) % 2 ^ 256 = 2 ^ (220 + 1) by decide]
+  simp only [show (2 ^ (220 + 1)) % 2 ^ 256 = 2 ^ (220 + 1) by decide]
   rw [ray_eval_seam_220_hi]
   decide
 
@@ -10730,8 +10730,8 @@ private theorem ray_eval_seam_221_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (221 + 1) - 1) % 2 ^ 256 = 2 ^ (221 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (221 + 1) - 1) % 2 ^ 256 = 2 ^ (221 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_221_hi :
@@ -10740,15 +10740,15 @@ private theorem ray_eval_seam_221_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (221 + 1)) % 2 ^ 256 = 2 ^ (221 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (221 + 1)) % 2 ^ 256 = 2 ^ (221 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_221_lo :
     model_ln_wad_to_wad_evm (2 ^ (221 + 1) - 1) = 112432142410415036378 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (221 + 1) - 1) % 2 ^ 256 = 2 ^ (221 + 1) - 1 by decide]
+  simp only [show (2 ^ (221 + 1) - 1) % 2 ^ 256 = 2 ^ (221 + 1) - 1 by decide]
   rw [ray_eval_seam_221_lo]
   decide
 
@@ -10756,7 +10756,7 @@ private theorem wad_eval_seam_221_hi :
     model_ln_wad_to_wad_evm (2 ^ (221 + 1)) = 112432142410415036378 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (221 + 1)) % 2 ^ 256 = 2 ^ (221 + 1) by decide]
+  simp only [show (2 ^ (221 + 1)) % 2 ^ 256 = 2 ^ (221 + 1) by decide]
   rw [ray_eval_seam_221_hi]
   decide
 
@@ -10778,8 +10778,8 @@ private theorem ray_eval_seam_222_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (222 + 1) - 1) % 2 ^ 256 = 2 ^ (222 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (222 + 1) - 1) % 2 ^ 256 = 2 ^ (222 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_222_hi :
@@ -10788,15 +10788,15 @@ private theorem ray_eval_seam_222_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (222 + 1)) % 2 ^ 256 = 2 ^ (222 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (222 + 1)) % 2 ^ 256 = 2 ^ (222 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_222_lo :
     model_ln_wad_to_wad_evm (2 ^ (222 + 1) - 1) = 113125289590974981687 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (222 + 1) - 1) % 2 ^ 256 = 2 ^ (222 + 1) - 1 by decide]
+  simp only [show (2 ^ (222 + 1) - 1) % 2 ^ 256 = 2 ^ (222 + 1) - 1 by decide]
   rw [ray_eval_seam_222_lo]
   decide
 
@@ -10804,7 +10804,7 @@ private theorem wad_eval_seam_222_hi :
     model_ln_wad_to_wad_evm (2 ^ (222 + 1)) = 113125289590974981687 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (222 + 1)) % 2 ^ 256 = 2 ^ (222 + 1) by decide]
+  simp only [show (2 ^ (222 + 1)) % 2 ^ 256 = 2 ^ (222 + 1) by decide]
   rw [ray_eval_seam_222_hi]
   decide
 
@@ -10826,8 +10826,8 @@ private theorem ray_eval_seam_223_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (223 + 1) - 1) % 2 ^ 256 = 2 ^ (223 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (223 + 1) - 1) % 2 ^ 256 = 2 ^ (223 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_223_hi :
@@ -10836,15 +10836,15 @@ private theorem ray_eval_seam_223_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (223 + 1)) % 2 ^ 256 = 2 ^ (223 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (223 + 1)) % 2 ^ 256 = 2 ^ (223 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_223_lo :
     model_ln_wad_to_wad_evm (2 ^ (223 + 1) - 1) = 113818436771534926997 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (223 + 1) - 1) % 2 ^ 256 = 2 ^ (223 + 1) - 1 by decide]
+  simp only [show (2 ^ (223 + 1) - 1) % 2 ^ 256 = 2 ^ (223 + 1) - 1 by decide]
   rw [ray_eval_seam_223_lo]
   decide
 
@@ -10852,7 +10852,7 @@ private theorem wad_eval_seam_223_hi :
     model_ln_wad_to_wad_evm (2 ^ (223 + 1)) = 113818436771534926997 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (223 + 1)) % 2 ^ 256 = 2 ^ (223 + 1) by decide]
+  simp only [show (2 ^ (223 + 1)) % 2 ^ 256 = 2 ^ (223 + 1) by decide]
   rw [ray_eval_seam_223_hi]
   decide
 
@@ -10874,8 +10874,8 @@ private theorem ray_eval_seam_224_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (224 + 1) - 1) % 2 ^ 256 = 2 ^ (224 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (224 + 1) - 1) % 2 ^ 256 = 2 ^ (224 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_224_hi :
@@ -10884,15 +10884,15 @@ private theorem ray_eval_seam_224_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (224 + 1)) % 2 ^ 256 = 2 ^ (224 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (224 + 1)) % 2 ^ 256 = 2 ^ (224 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_224_lo :
     model_ln_wad_to_wad_evm (2 ^ (224 + 1) - 1) = 114511583952094872306 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (224 + 1) - 1) % 2 ^ 256 = 2 ^ (224 + 1) - 1 by decide]
+  simp only [show (2 ^ (224 + 1) - 1) % 2 ^ 256 = 2 ^ (224 + 1) - 1 by decide]
   rw [ray_eval_seam_224_lo]
   decide
 
@@ -10900,7 +10900,7 @@ private theorem wad_eval_seam_224_hi :
     model_ln_wad_to_wad_evm (2 ^ (224 + 1)) = 114511583952094872306 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (224 + 1)) % 2 ^ 256 = 2 ^ (224 + 1) by decide]
+  simp only [show (2 ^ (224 + 1)) % 2 ^ 256 = 2 ^ (224 + 1) by decide]
   rw [ray_eval_seam_224_hi]
   decide
 
@@ -10922,8 +10922,8 @@ private theorem ray_eval_seam_225_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (225 + 1) - 1) % 2 ^ 256 = 2 ^ (225 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (225 + 1) - 1) % 2 ^ 256 = 2 ^ (225 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_225_hi :
@@ -10932,15 +10932,15 @@ private theorem ray_eval_seam_225_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (225 + 1)) % 2 ^ 256 = 2 ^ (225 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (225 + 1)) % 2 ^ 256 = 2 ^ (225 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_225_lo :
     model_ln_wad_to_wad_evm (2 ^ (225 + 1) - 1) = 115204731132654817615 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (225 + 1) - 1) % 2 ^ 256 = 2 ^ (225 + 1) - 1 by decide]
+  simp only [show (2 ^ (225 + 1) - 1) % 2 ^ 256 = 2 ^ (225 + 1) - 1 by decide]
   rw [ray_eval_seam_225_lo]
   decide
 
@@ -10948,7 +10948,7 @@ private theorem wad_eval_seam_225_hi :
     model_ln_wad_to_wad_evm (2 ^ (225 + 1)) = 115204731132654817615 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (225 + 1)) % 2 ^ 256 = 2 ^ (225 + 1) by decide]
+  simp only [show (2 ^ (225 + 1)) % 2 ^ 256 = 2 ^ (225 + 1) by decide]
   rw [ray_eval_seam_225_hi]
   decide
 
@@ -10970,8 +10970,8 @@ private theorem ray_eval_seam_226_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (226 + 1) - 1) % 2 ^ 256 = 2 ^ (226 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (226 + 1) - 1) % 2 ^ 256 = 2 ^ (226 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_226_hi :
@@ -10980,15 +10980,15 @@ private theorem ray_eval_seam_226_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (226 + 1)) % 2 ^ 256 = 2 ^ (226 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (226 + 1)) % 2 ^ 256 = 2 ^ (226 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_226_lo :
     model_ln_wad_to_wad_evm (2 ^ (226 + 1) - 1) = 115897878313214762925 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (226 + 1) - 1) % 2 ^ 256 = 2 ^ (226 + 1) - 1 by decide]
+  simp only [show (2 ^ (226 + 1) - 1) % 2 ^ 256 = 2 ^ (226 + 1) - 1 by decide]
   rw [ray_eval_seam_226_lo]
   decide
 
@@ -10996,7 +10996,7 @@ private theorem wad_eval_seam_226_hi :
     model_ln_wad_to_wad_evm (2 ^ (226 + 1)) = 115897878313214762925 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (226 + 1)) % 2 ^ 256 = 2 ^ (226 + 1) by decide]
+  simp only [show (2 ^ (226 + 1)) % 2 ^ 256 = 2 ^ (226 + 1) by decide]
   rw [ray_eval_seam_226_hi]
   decide
 
@@ -11018,8 +11018,8 @@ private theorem ray_eval_seam_227_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (227 + 1) - 1) % 2 ^ 256 = 2 ^ (227 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (227 + 1) - 1) % 2 ^ 256 = 2 ^ (227 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_227_hi :
@@ -11028,15 +11028,15 @@ private theorem ray_eval_seam_227_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (227 + 1)) % 2 ^ 256 = 2 ^ (227 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (227 + 1)) % 2 ^ 256 = 2 ^ (227 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_227_lo :
     model_ln_wad_to_wad_evm (2 ^ (227 + 1) - 1) = 116591025493774708234 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (227 + 1) - 1) % 2 ^ 256 = 2 ^ (227 + 1) - 1 by decide]
+  simp only [show (2 ^ (227 + 1) - 1) % 2 ^ 256 = 2 ^ (227 + 1) - 1 by decide]
   rw [ray_eval_seam_227_lo]
   decide
 
@@ -11044,7 +11044,7 @@ private theorem wad_eval_seam_227_hi :
     model_ln_wad_to_wad_evm (2 ^ (227 + 1)) = 116591025493774708234 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (227 + 1)) % 2 ^ 256 = 2 ^ (227 + 1) by decide]
+  simp only [show (2 ^ (227 + 1)) % 2 ^ 256 = 2 ^ (227 + 1) by decide]
   rw [ray_eval_seam_227_hi]
   decide
 
@@ -11066,8 +11066,8 @@ private theorem ray_eval_seam_228_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (228 + 1) - 1) % 2 ^ 256 = 2 ^ (228 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (228 + 1) - 1) % 2 ^ 256 = 2 ^ (228 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_228_hi :
@@ -11076,15 +11076,15 @@ private theorem ray_eval_seam_228_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (228 + 1)) % 2 ^ 256 = 2 ^ (228 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (228 + 1)) % 2 ^ 256 = 2 ^ (228 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_228_lo :
     model_ln_wad_to_wad_evm (2 ^ (228 + 1) - 1) = 117284172674334653544 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (228 + 1) - 1) % 2 ^ 256 = 2 ^ (228 + 1) - 1 by decide]
+  simp only [show (2 ^ (228 + 1) - 1) % 2 ^ 256 = 2 ^ (228 + 1) - 1 by decide]
   rw [ray_eval_seam_228_lo]
   decide
 
@@ -11092,7 +11092,7 @@ private theorem wad_eval_seam_228_hi :
     model_ln_wad_to_wad_evm (2 ^ (228 + 1)) = 117284172674334653544 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (228 + 1)) % 2 ^ 256 = 2 ^ (228 + 1) by decide]
+  simp only [show (2 ^ (228 + 1)) % 2 ^ 256 = 2 ^ (228 + 1) by decide]
   rw [ray_eval_seam_228_hi]
   decide
 
@@ -11114,8 +11114,8 @@ private theorem ray_eval_seam_229_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (229 + 1) - 1) % 2 ^ 256 = 2 ^ (229 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (229 + 1) - 1) % 2 ^ 256 = 2 ^ (229 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_229_hi :
@@ -11124,15 +11124,15 @@ private theorem ray_eval_seam_229_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (229 + 1)) % 2 ^ 256 = 2 ^ (229 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (229 + 1)) % 2 ^ 256 = 2 ^ (229 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_229_lo :
     model_ln_wad_to_wad_evm (2 ^ (229 + 1) - 1) = 117977319854894598853 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (229 + 1) - 1) % 2 ^ 256 = 2 ^ (229 + 1) - 1 by decide]
+  simp only [show (2 ^ (229 + 1) - 1) % 2 ^ 256 = 2 ^ (229 + 1) - 1 by decide]
   rw [ray_eval_seam_229_lo]
   decide
 
@@ -11140,7 +11140,7 @@ private theorem wad_eval_seam_229_hi :
     model_ln_wad_to_wad_evm (2 ^ (229 + 1)) = 117977319854894598853 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (229 + 1)) % 2 ^ 256 = 2 ^ (229 + 1) by decide]
+  simp only [show (2 ^ (229 + 1)) % 2 ^ 256 = 2 ^ (229 + 1) by decide]
   rw [ray_eval_seam_229_hi]
   decide
 
@@ -11162,8 +11162,8 @@ private theorem ray_eval_seam_230_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (230 + 1) - 1) % 2 ^ 256 = 2 ^ (230 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (230 + 1) - 1) % 2 ^ 256 = 2 ^ (230 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_230_hi :
@@ -11172,15 +11172,15 @@ private theorem ray_eval_seam_230_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (230 + 1)) % 2 ^ 256 = 2 ^ (230 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (230 + 1)) % 2 ^ 256 = 2 ^ (230 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_230_lo :
     model_ln_wad_to_wad_evm (2 ^ (230 + 1) - 1) = 118670467035454544163 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (230 + 1) - 1) % 2 ^ 256 = 2 ^ (230 + 1) - 1 by decide]
+  simp only [show (2 ^ (230 + 1) - 1) % 2 ^ 256 = 2 ^ (230 + 1) - 1 by decide]
   rw [ray_eval_seam_230_lo]
   decide
 
@@ -11188,7 +11188,7 @@ private theorem wad_eval_seam_230_hi :
     model_ln_wad_to_wad_evm (2 ^ (230 + 1)) = 118670467035454544163 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (230 + 1)) % 2 ^ 256 = 2 ^ (230 + 1) by decide]
+  simp only [show (2 ^ (230 + 1)) % 2 ^ 256 = 2 ^ (230 + 1) by decide]
   rw [ray_eval_seam_230_hi]
   decide
 
@@ -11210,8 +11210,8 @@ private theorem ray_eval_seam_231_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (231 + 1) - 1) % 2 ^ 256 = 2 ^ (231 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (231 + 1) - 1) % 2 ^ 256 = 2 ^ (231 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_231_hi :
@@ -11220,15 +11220,15 @@ private theorem ray_eval_seam_231_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (231 + 1)) % 2 ^ 256 = 2 ^ (231 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (231 + 1)) % 2 ^ 256 = 2 ^ (231 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_231_lo :
     model_ln_wad_to_wad_evm (2 ^ (231 + 1) - 1) = 119363614216014489472 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (231 + 1) - 1) % 2 ^ 256 = 2 ^ (231 + 1) - 1 by decide]
+  simp only [show (2 ^ (231 + 1) - 1) % 2 ^ 256 = 2 ^ (231 + 1) - 1 by decide]
   rw [ray_eval_seam_231_lo]
   decide
 
@@ -11236,7 +11236,7 @@ private theorem wad_eval_seam_231_hi :
     model_ln_wad_to_wad_evm (2 ^ (231 + 1)) = 119363614216014489472 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (231 + 1)) % 2 ^ 256 = 2 ^ (231 + 1) by decide]
+  simp only [show (2 ^ (231 + 1)) % 2 ^ 256 = 2 ^ (231 + 1) by decide]
   rw [ray_eval_seam_231_hi]
   decide
 
@@ -11258,8 +11258,8 @@ private theorem ray_eval_seam_232_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (232 + 1) - 1) % 2 ^ 256 = 2 ^ (232 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (232 + 1) - 1) % 2 ^ 256 = 2 ^ (232 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_232_hi :
@@ -11268,15 +11268,15 @@ private theorem ray_eval_seam_232_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (232 + 1)) % 2 ^ 256 = 2 ^ (232 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (232 + 1)) % 2 ^ 256 = 2 ^ (232 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_232_lo :
     model_ln_wad_to_wad_evm (2 ^ (232 + 1) - 1) = 120056761396574434781 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (232 + 1) - 1) % 2 ^ 256 = 2 ^ (232 + 1) - 1 by decide]
+  simp only [show (2 ^ (232 + 1) - 1) % 2 ^ 256 = 2 ^ (232 + 1) - 1 by decide]
   rw [ray_eval_seam_232_lo]
   decide
 
@@ -11284,7 +11284,7 @@ private theorem wad_eval_seam_232_hi :
     model_ln_wad_to_wad_evm (2 ^ (232 + 1)) = 120056761396574434781 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (232 + 1)) % 2 ^ 256 = 2 ^ (232 + 1) by decide]
+  simp only [show (2 ^ (232 + 1)) % 2 ^ 256 = 2 ^ (232 + 1) by decide]
   rw [ray_eval_seam_232_hi]
   decide
 
@@ -11306,8 +11306,8 @@ private theorem ray_eval_seam_233_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (233 + 1) - 1) % 2 ^ 256 = 2 ^ (233 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (233 + 1) - 1) % 2 ^ 256 = 2 ^ (233 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_233_hi :
@@ -11316,15 +11316,15 @@ private theorem ray_eval_seam_233_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (233 + 1)) % 2 ^ 256 = 2 ^ (233 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (233 + 1)) % 2 ^ 256 = 2 ^ (233 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_233_lo :
     model_ln_wad_to_wad_evm (2 ^ (233 + 1) - 1) = 120749908577134380091 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (233 + 1) - 1) % 2 ^ 256 = 2 ^ (233 + 1) - 1 by decide]
+  simp only [show (2 ^ (233 + 1) - 1) % 2 ^ 256 = 2 ^ (233 + 1) - 1 by decide]
   rw [ray_eval_seam_233_lo]
   decide
 
@@ -11332,7 +11332,7 @@ private theorem wad_eval_seam_233_hi :
     model_ln_wad_to_wad_evm (2 ^ (233 + 1)) = 120749908577134380091 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (233 + 1)) % 2 ^ 256 = 2 ^ (233 + 1) by decide]
+  simp only [show (2 ^ (233 + 1)) % 2 ^ 256 = 2 ^ (233 + 1) by decide]
   rw [ray_eval_seam_233_hi]
   decide
 
@@ -11354,8 +11354,8 @@ private theorem ray_eval_seam_234_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (234 + 1) - 1) % 2 ^ 256 = 2 ^ (234 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (234 + 1) - 1) % 2 ^ 256 = 2 ^ (234 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_234_hi :
@@ -11364,15 +11364,15 @@ private theorem ray_eval_seam_234_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (234 + 1)) % 2 ^ 256 = 2 ^ (234 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (234 + 1)) % 2 ^ 256 = 2 ^ (234 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_234_lo :
     model_ln_wad_to_wad_evm (2 ^ (234 + 1) - 1) = 121443055757694325400 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (234 + 1) - 1) % 2 ^ 256 = 2 ^ (234 + 1) - 1 by decide]
+  simp only [show (2 ^ (234 + 1) - 1) % 2 ^ 256 = 2 ^ (234 + 1) - 1 by decide]
   rw [ray_eval_seam_234_lo]
   decide
 
@@ -11380,7 +11380,7 @@ private theorem wad_eval_seam_234_hi :
     model_ln_wad_to_wad_evm (2 ^ (234 + 1)) = 121443055757694325400 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (234 + 1)) % 2 ^ 256 = 2 ^ (234 + 1) by decide]
+  simp only [show (2 ^ (234 + 1)) % 2 ^ 256 = 2 ^ (234 + 1) by decide]
   rw [ray_eval_seam_234_hi]
   decide
 
@@ -11402,8 +11402,8 @@ private theorem ray_eval_seam_235_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (235 + 1) - 1) % 2 ^ 256 = 2 ^ (235 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (235 + 1) - 1) % 2 ^ 256 = 2 ^ (235 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_235_hi :
@@ -11412,15 +11412,15 @@ private theorem ray_eval_seam_235_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (235 + 1)) % 2 ^ 256 = 2 ^ (235 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (235 + 1)) % 2 ^ 256 = 2 ^ (235 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_235_lo :
     model_ln_wad_to_wad_evm (2 ^ (235 + 1) - 1) = 122136202938254270710 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (235 + 1) - 1) % 2 ^ 256 = 2 ^ (235 + 1) - 1 by decide]
+  simp only [show (2 ^ (235 + 1) - 1) % 2 ^ 256 = 2 ^ (235 + 1) - 1 by decide]
   rw [ray_eval_seam_235_lo]
   decide
 
@@ -11428,7 +11428,7 @@ private theorem wad_eval_seam_235_hi :
     model_ln_wad_to_wad_evm (2 ^ (235 + 1)) = 122136202938254270710 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (235 + 1)) % 2 ^ 256 = 2 ^ (235 + 1) by decide]
+  simp only [show (2 ^ (235 + 1)) % 2 ^ 256 = 2 ^ (235 + 1) by decide]
   rw [ray_eval_seam_235_hi]
   decide
 
@@ -11450,8 +11450,8 @@ private theorem ray_eval_seam_236_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (236 + 1) - 1) % 2 ^ 256 = 2 ^ (236 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (236 + 1) - 1) % 2 ^ 256 = 2 ^ (236 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_236_hi :
@@ -11460,15 +11460,15 @@ private theorem ray_eval_seam_236_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (236 + 1)) % 2 ^ 256 = 2 ^ (236 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (236 + 1)) % 2 ^ 256 = 2 ^ (236 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_236_lo :
     model_ln_wad_to_wad_evm (2 ^ (236 + 1) - 1) = 122829350118814216019 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (236 + 1) - 1) % 2 ^ 256 = 2 ^ (236 + 1) - 1 by decide]
+  simp only [show (2 ^ (236 + 1) - 1) % 2 ^ 256 = 2 ^ (236 + 1) - 1 by decide]
   rw [ray_eval_seam_236_lo]
   decide
 
@@ -11476,7 +11476,7 @@ private theorem wad_eval_seam_236_hi :
     model_ln_wad_to_wad_evm (2 ^ (236 + 1)) = 122829350118814216019 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (236 + 1)) % 2 ^ 256 = 2 ^ (236 + 1) by decide]
+  simp only [show (2 ^ (236 + 1)) % 2 ^ 256 = 2 ^ (236 + 1) by decide]
   rw [ray_eval_seam_236_hi]
   decide
 
@@ -11498,8 +11498,8 @@ private theorem ray_eval_seam_237_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (237 + 1) - 1) % 2 ^ 256 = 2 ^ (237 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (237 + 1) - 1) % 2 ^ 256 = 2 ^ (237 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_237_hi :
@@ -11508,15 +11508,15 @@ private theorem ray_eval_seam_237_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (237 + 1)) % 2 ^ 256 = 2 ^ (237 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (237 + 1)) % 2 ^ 256 = 2 ^ (237 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_237_lo :
     model_ln_wad_to_wad_evm (2 ^ (237 + 1) - 1) = 123522497299374161328 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (237 + 1) - 1) % 2 ^ 256 = 2 ^ (237 + 1) - 1 by decide]
+  simp only [show (2 ^ (237 + 1) - 1) % 2 ^ 256 = 2 ^ (237 + 1) - 1 by decide]
   rw [ray_eval_seam_237_lo]
   decide
 
@@ -11524,7 +11524,7 @@ private theorem wad_eval_seam_237_hi :
     model_ln_wad_to_wad_evm (2 ^ (237 + 1)) = 123522497299374161328 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (237 + 1)) % 2 ^ 256 = 2 ^ (237 + 1) by decide]
+  simp only [show (2 ^ (237 + 1)) % 2 ^ 256 = 2 ^ (237 + 1) by decide]
   rw [ray_eval_seam_237_hi]
   decide
 
@@ -11546,8 +11546,8 @@ private theorem ray_eval_seam_238_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (238 + 1) - 1) % 2 ^ 256 = 2 ^ (238 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (238 + 1) - 1) % 2 ^ 256 = 2 ^ (238 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_238_hi :
@@ -11556,15 +11556,15 @@ private theorem ray_eval_seam_238_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (238 + 1)) % 2 ^ 256 = 2 ^ (238 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (238 + 1)) % 2 ^ 256 = 2 ^ (238 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_238_lo :
     model_ln_wad_to_wad_evm (2 ^ (238 + 1) - 1) = 124215644479934106638 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (238 + 1) - 1) % 2 ^ 256 = 2 ^ (238 + 1) - 1 by decide]
+  simp only [show (2 ^ (238 + 1) - 1) % 2 ^ 256 = 2 ^ (238 + 1) - 1 by decide]
   rw [ray_eval_seam_238_lo]
   decide
 
@@ -11572,7 +11572,7 @@ private theorem wad_eval_seam_238_hi :
     model_ln_wad_to_wad_evm (2 ^ (238 + 1)) = 124215644479934106638 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (238 + 1)) % 2 ^ 256 = 2 ^ (238 + 1) by decide]
+  simp only [show (2 ^ (238 + 1)) % 2 ^ 256 = 2 ^ (238 + 1) by decide]
   rw [ray_eval_seam_238_hi]
   decide
 
@@ -11594,8 +11594,8 @@ private theorem ray_eval_seam_239_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (239 + 1) - 1) % 2 ^ 256 = 2 ^ (239 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (239 + 1) - 1) % 2 ^ 256 = 2 ^ (239 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_239_hi :
@@ -11604,15 +11604,15 @@ private theorem ray_eval_seam_239_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (239 + 1)) % 2 ^ 256 = 2 ^ (239 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (239 + 1)) % 2 ^ 256 = 2 ^ (239 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_239_lo :
     model_ln_wad_to_wad_evm (2 ^ (239 + 1) - 1) = 124908791660494051947 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (239 + 1) - 1) % 2 ^ 256 = 2 ^ (239 + 1) - 1 by decide]
+  simp only [show (2 ^ (239 + 1) - 1) % 2 ^ 256 = 2 ^ (239 + 1) - 1 by decide]
   rw [ray_eval_seam_239_lo]
   decide
 
@@ -11620,7 +11620,7 @@ private theorem wad_eval_seam_239_hi :
     model_ln_wad_to_wad_evm (2 ^ (239 + 1)) = 124908791660494051947 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (239 + 1)) % 2 ^ 256 = 2 ^ (239 + 1) by decide]
+  simp only [show (2 ^ (239 + 1)) % 2 ^ 256 = 2 ^ (239 + 1) by decide]
   rw [ray_eval_seam_239_hi]
   decide
 
@@ -11642,8 +11642,8 @@ private theorem ray_eval_seam_240_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (240 + 1) - 1) % 2 ^ 256 = 2 ^ (240 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (240 + 1) - 1) % 2 ^ 256 = 2 ^ (240 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_240_hi :
@@ -11652,15 +11652,15 @@ private theorem ray_eval_seam_240_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (240 + 1)) % 2 ^ 256 = 2 ^ (240 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (240 + 1)) % 2 ^ 256 = 2 ^ (240 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_240_lo :
     model_ln_wad_to_wad_evm (2 ^ (240 + 1) - 1) = 125601938841053997257 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (240 + 1) - 1) % 2 ^ 256 = 2 ^ (240 + 1) - 1 by decide]
+  simp only [show (2 ^ (240 + 1) - 1) % 2 ^ 256 = 2 ^ (240 + 1) - 1 by decide]
   rw [ray_eval_seam_240_lo]
   decide
 
@@ -11668,7 +11668,7 @@ private theorem wad_eval_seam_240_hi :
     model_ln_wad_to_wad_evm (2 ^ (240 + 1)) = 125601938841053997257 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (240 + 1)) % 2 ^ 256 = 2 ^ (240 + 1) by decide]
+  simp only [show (2 ^ (240 + 1)) % 2 ^ 256 = 2 ^ (240 + 1) by decide]
   rw [ray_eval_seam_240_hi]
   decide
 
@@ -11690,8 +11690,8 @@ private theorem ray_eval_seam_241_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (241 + 1) - 1) % 2 ^ 256 = 2 ^ (241 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (241 + 1) - 1) % 2 ^ 256 = 2 ^ (241 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_241_hi :
@@ -11700,15 +11700,15 @@ private theorem ray_eval_seam_241_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (241 + 1)) % 2 ^ 256 = 2 ^ (241 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (241 + 1)) % 2 ^ 256 = 2 ^ (241 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_241_lo :
     model_ln_wad_to_wad_evm (2 ^ (241 + 1) - 1) = 126295086021613942566 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (241 + 1) - 1) % 2 ^ 256 = 2 ^ (241 + 1) - 1 by decide]
+  simp only [show (2 ^ (241 + 1) - 1) % 2 ^ 256 = 2 ^ (241 + 1) - 1 by decide]
   rw [ray_eval_seam_241_lo]
   decide
 
@@ -11716,7 +11716,7 @@ private theorem wad_eval_seam_241_hi :
     model_ln_wad_to_wad_evm (2 ^ (241 + 1)) = 126295086021613942566 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (241 + 1)) % 2 ^ 256 = 2 ^ (241 + 1) by decide]
+  simp only [show (2 ^ (241 + 1)) % 2 ^ 256 = 2 ^ (241 + 1) by decide]
   rw [ray_eval_seam_241_hi]
   decide
 
@@ -11738,8 +11738,8 @@ private theorem ray_eval_seam_242_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (242 + 1) - 1) % 2 ^ 256 = 2 ^ (242 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (242 + 1) - 1) % 2 ^ 256 = 2 ^ (242 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_242_hi :
@@ -11748,15 +11748,15 @@ private theorem ray_eval_seam_242_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (242 + 1)) % 2 ^ 256 = 2 ^ (242 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (242 + 1)) % 2 ^ 256 = 2 ^ (242 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_242_lo :
     model_ln_wad_to_wad_evm (2 ^ (242 + 1) - 1) = 126988233202173887876 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (242 + 1) - 1) % 2 ^ 256 = 2 ^ (242 + 1) - 1 by decide]
+  simp only [show (2 ^ (242 + 1) - 1) % 2 ^ 256 = 2 ^ (242 + 1) - 1 by decide]
   rw [ray_eval_seam_242_lo]
   decide
 
@@ -11764,7 +11764,7 @@ private theorem wad_eval_seam_242_hi :
     model_ln_wad_to_wad_evm (2 ^ (242 + 1)) = 126988233202173887876 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (242 + 1)) % 2 ^ 256 = 2 ^ (242 + 1) by decide]
+  simp only [show (2 ^ (242 + 1)) % 2 ^ 256 = 2 ^ (242 + 1) by decide]
   rw [ray_eval_seam_242_hi]
   decide
 
@@ -11786,8 +11786,8 @@ private theorem ray_eval_seam_243_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (243 + 1) - 1) % 2 ^ 256 = 2 ^ (243 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (243 + 1) - 1) % 2 ^ 256 = 2 ^ (243 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_243_hi :
@@ -11796,15 +11796,15 @@ private theorem ray_eval_seam_243_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (243 + 1)) % 2 ^ 256 = 2 ^ (243 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (243 + 1)) % 2 ^ 256 = 2 ^ (243 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_243_lo :
     model_ln_wad_to_wad_evm (2 ^ (243 + 1) - 1) = 127681380382733833185 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (243 + 1) - 1) % 2 ^ 256 = 2 ^ (243 + 1) - 1 by decide]
+  simp only [show (2 ^ (243 + 1) - 1) % 2 ^ 256 = 2 ^ (243 + 1) - 1 by decide]
   rw [ray_eval_seam_243_lo]
   decide
 
@@ -11812,7 +11812,7 @@ private theorem wad_eval_seam_243_hi :
     model_ln_wad_to_wad_evm (2 ^ (243 + 1)) = 127681380382733833185 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (243 + 1)) % 2 ^ 256 = 2 ^ (243 + 1) by decide]
+  simp only [show (2 ^ (243 + 1)) % 2 ^ 256 = 2 ^ (243 + 1) by decide]
   rw [ray_eval_seam_243_hi]
   decide
 
@@ -11834,8 +11834,8 @@ private theorem ray_eval_seam_244_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (244 + 1) - 1) % 2 ^ 256 = 2 ^ (244 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (244 + 1) - 1) % 2 ^ 256 = 2 ^ (244 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_244_hi :
@@ -11844,15 +11844,15 @@ private theorem ray_eval_seam_244_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (244 + 1)) % 2 ^ 256 = 2 ^ (244 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (244 + 1)) % 2 ^ 256 = 2 ^ (244 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_244_lo :
     model_ln_wad_to_wad_evm (2 ^ (244 + 1) - 1) = 128374527563293778494 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (244 + 1) - 1) % 2 ^ 256 = 2 ^ (244 + 1) - 1 by decide]
+  simp only [show (2 ^ (244 + 1) - 1) % 2 ^ 256 = 2 ^ (244 + 1) - 1 by decide]
   rw [ray_eval_seam_244_lo]
   decide
 
@@ -11860,7 +11860,7 @@ private theorem wad_eval_seam_244_hi :
     model_ln_wad_to_wad_evm (2 ^ (244 + 1)) = 128374527563293778494 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (244 + 1)) % 2 ^ 256 = 2 ^ (244 + 1) by decide]
+  simp only [show (2 ^ (244 + 1)) % 2 ^ 256 = 2 ^ (244 + 1) by decide]
   rw [ray_eval_seam_244_hi]
   decide
 
@@ -11882,8 +11882,8 @@ private theorem ray_eval_seam_245_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (245 + 1) - 1) % 2 ^ 256 = 2 ^ (245 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (245 + 1) - 1) % 2 ^ 256 = 2 ^ (245 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_245_hi :
@@ -11892,15 +11892,15 @@ private theorem ray_eval_seam_245_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (245 + 1)) % 2 ^ 256 = 2 ^ (245 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (245 + 1)) % 2 ^ 256 = 2 ^ (245 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_245_lo :
     model_ln_wad_to_wad_evm (2 ^ (245 + 1) - 1) = 129067674743853723804 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (245 + 1) - 1) % 2 ^ 256 = 2 ^ (245 + 1) - 1 by decide]
+  simp only [show (2 ^ (245 + 1) - 1) % 2 ^ 256 = 2 ^ (245 + 1) - 1 by decide]
   rw [ray_eval_seam_245_lo]
   decide
 
@@ -11908,7 +11908,7 @@ private theorem wad_eval_seam_245_hi :
     model_ln_wad_to_wad_evm (2 ^ (245 + 1)) = 129067674743853723804 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (245 + 1)) % 2 ^ 256 = 2 ^ (245 + 1) by decide]
+  simp only [show (2 ^ (245 + 1)) % 2 ^ 256 = 2 ^ (245 + 1) by decide]
   rw [ray_eval_seam_245_hi]
   decide
 
@@ -11930,8 +11930,8 @@ private theorem ray_eval_seam_246_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (246 + 1) - 1) % 2 ^ 256 = 2 ^ (246 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (246 + 1) - 1) % 2 ^ 256 = 2 ^ (246 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_246_hi :
@@ -11940,15 +11940,15 @@ private theorem ray_eval_seam_246_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (246 + 1)) % 2 ^ 256 = 2 ^ (246 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (246 + 1)) % 2 ^ 256 = 2 ^ (246 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_246_lo :
     model_ln_wad_to_wad_evm (2 ^ (246 + 1) - 1) = 129760821924413669113 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (246 + 1) - 1) % 2 ^ 256 = 2 ^ (246 + 1) - 1 by decide]
+  simp only [show (2 ^ (246 + 1) - 1) % 2 ^ 256 = 2 ^ (246 + 1) - 1 by decide]
   rw [ray_eval_seam_246_lo]
   decide
 
@@ -11956,7 +11956,7 @@ private theorem wad_eval_seam_246_hi :
     model_ln_wad_to_wad_evm (2 ^ (246 + 1)) = 129760821924413669113 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (246 + 1)) % 2 ^ 256 = 2 ^ (246 + 1) by decide]
+  simp only [show (2 ^ (246 + 1)) % 2 ^ 256 = 2 ^ (246 + 1) by decide]
   rw [ray_eval_seam_246_hi]
   decide
 
@@ -11978,8 +11978,8 @@ private theorem ray_eval_seam_247_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (247 + 1) - 1) % 2 ^ 256 = 2 ^ (247 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (247 + 1) - 1) % 2 ^ 256 = 2 ^ (247 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_247_hi :
@@ -11988,15 +11988,15 @@ private theorem ray_eval_seam_247_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (247 + 1)) % 2 ^ 256 = 2 ^ (247 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (247 + 1)) % 2 ^ 256 = 2 ^ (247 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_247_lo :
     model_ln_wad_to_wad_evm (2 ^ (247 + 1) - 1) = 130453969104973614423 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (247 + 1) - 1) % 2 ^ 256 = 2 ^ (247 + 1) - 1 by decide]
+  simp only [show (2 ^ (247 + 1) - 1) % 2 ^ 256 = 2 ^ (247 + 1) - 1 by decide]
   rw [ray_eval_seam_247_lo]
   decide
 
@@ -12004,7 +12004,7 @@ private theorem wad_eval_seam_247_hi :
     model_ln_wad_to_wad_evm (2 ^ (247 + 1)) = 130453969104973614423 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (247 + 1)) % 2 ^ 256 = 2 ^ (247 + 1) by decide]
+  simp only [show (2 ^ (247 + 1)) % 2 ^ 256 = 2 ^ (247 + 1) by decide]
   rw [ray_eval_seam_247_hi]
   decide
 
@@ -12026,8 +12026,8 @@ private theorem ray_eval_seam_248_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (248 + 1) - 1) % 2 ^ 256 = 2 ^ (248 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (248 + 1) - 1) % 2 ^ 256 = 2 ^ (248 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_248_hi :
@@ -12036,15 +12036,15 @@ private theorem ray_eval_seam_248_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (248 + 1)) % 2 ^ 256 = 2 ^ (248 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (248 + 1)) % 2 ^ 256 = 2 ^ (248 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_248_lo :
     model_ln_wad_to_wad_evm (2 ^ (248 + 1) - 1) = 131147116285533559732 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (248 + 1) - 1) % 2 ^ 256 = 2 ^ (248 + 1) - 1 by decide]
+  simp only [show (2 ^ (248 + 1) - 1) % 2 ^ 256 = 2 ^ (248 + 1) - 1 by decide]
   rw [ray_eval_seam_248_lo]
   decide
 
@@ -12052,7 +12052,7 @@ private theorem wad_eval_seam_248_hi :
     model_ln_wad_to_wad_evm (2 ^ (248 + 1)) = 131147116285533559732 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (248 + 1)) % 2 ^ 256 = 2 ^ (248 + 1) by decide]
+  simp only [show (2 ^ (248 + 1)) % 2 ^ 256 = 2 ^ (248 + 1) by decide]
   rw [ray_eval_seam_248_hi]
   decide
 
@@ -12074,8 +12074,8 @@ private theorem ray_eval_seam_249_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (249 + 1) - 1) % 2 ^ 256 = 2 ^ (249 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (249 + 1) - 1) % 2 ^ 256 = 2 ^ (249 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_249_hi :
@@ -12084,15 +12084,15 @@ private theorem ray_eval_seam_249_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (249 + 1)) % 2 ^ 256 = 2 ^ (249 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (249 + 1)) % 2 ^ 256 = 2 ^ (249 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_249_lo :
     model_ln_wad_to_wad_evm (2 ^ (249 + 1) - 1) = 131840263466093505041 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (249 + 1) - 1) % 2 ^ 256 = 2 ^ (249 + 1) - 1 by decide]
+  simp only [show (2 ^ (249 + 1) - 1) % 2 ^ 256 = 2 ^ (249 + 1) - 1 by decide]
   rw [ray_eval_seam_249_lo]
   decide
 
@@ -12100,7 +12100,7 @@ private theorem wad_eval_seam_249_hi :
     model_ln_wad_to_wad_evm (2 ^ (249 + 1)) = 131840263466093505041 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (249 + 1)) % 2 ^ 256 = 2 ^ (249 + 1) by decide]
+  simp only [show (2 ^ (249 + 1)) % 2 ^ 256 = 2 ^ (249 + 1) by decide]
   rw [ray_eval_seam_249_hi]
   decide
 
@@ -12122,8 +12122,8 @@ private theorem ray_eval_seam_250_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (250 + 1) - 1) % 2 ^ 256 = 2 ^ (250 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (250 + 1) - 1) % 2 ^ 256 = 2 ^ (250 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_250_hi :
@@ -12132,15 +12132,15 @@ private theorem ray_eval_seam_250_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (250 + 1)) % 2 ^ 256 = 2 ^ (250 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (250 + 1)) % 2 ^ 256 = 2 ^ (250 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_250_lo :
     model_ln_wad_to_wad_evm (2 ^ (250 + 1) - 1) = 132533410646653450351 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (250 + 1) - 1) % 2 ^ 256 = 2 ^ (250 + 1) - 1 by decide]
+  simp only [show (2 ^ (250 + 1) - 1) % 2 ^ 256 = 2 ^ (250 + 1) - 1 by decide]
   rw [ray_eval_seam_250_lo]
   decide
 
@@ -12148,7 +12148,7 @@ private theorem wad_eval_seam_250_hi :
     model_ln_wad_to_wad_evm (2 ^ (250 + 1)) = 132533410646653450351 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (250 + 1)) % 2 ^ 256 = 2 ^ (250 + 1) by decide]
+  simp only [show (2 ^ (250 + 1)) % 2 ^ 256 = 2 ^ (250 + 1) by decide]
   rw [ray_eval_seam_250_hi]
   decide
 
@@ -12170,8 +12170,8 @@ private theorem ray_eval_seam_251_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (251 + 1) - 1) % 2 ^ 256 = 2 ^ (251 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (251 + 1) - 1) % 2 ^ 256 = 2 ^ (251 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_251_hi :
@@ -12180,15 +12180,15 @@ private theorem ray_eval_seam_251_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (251 + 1)) % 2 ^ 256 = 2 ^ (251 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (251 + 1)) % 2 ^ 256 = 2 ^ (251 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_251_lo :
     model_ln_wad_to_wad_evm (2 ^ (251 + 1) - 1) = 133226557827213395660 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (251 + 1) - 1) % 2 ^ 256 = 2 ^ (251 + 1) - 1 by decide]
+  simp only [show (2 ^ (251 + 1) - 1) % 2 ^ 256 = 2 ^ (251 + 1) - 1 by decide]
   rw [ray_eval_seam_251_lo]
   decide
 
@@ -12196,7 +12196,7 @@ private theorem wad_eval_seam_251_hi :
     model_ln_wad_to_wad_evm (2 ^ (251 + 1)) = 133226557827213395660 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (251 + 1)) % 2 ^ 256 = 2 ^ (251 + 1) by decide]
+  simp only [show (2 ^ (251 + 1)) % 2 ^ 256 = 2 ^ (251 + 1) by decide]
   rw [ray_eval_seam_251_hi]
   decide
 
@@ -12218,8 +12218,8 @@ private theorem ray_eval_seam_252_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (252 + 1) - 1) % 2 ^ 256 = 2 ^ (252 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (252 + 1) - 1) % 2 ^ 256 = 2 ^ (252 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_252_hi :
@@ -12228,15 +12228,15 @@ private theorem ray_eval_seam_252_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (252 + 1)) % 2 ^ 256 = 2 ^ (252 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (252 + 1)) % 2 ^ 256 = 2 ^ (252 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_252_lo :
     model_ln_wad_to_wad_evm (2 ^ (252 + 1) - 1) = 133919705007773340970 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (252 + 1) - 1) % 2 ^ 256 = 2 ^ (252 + 1) - 1 by decide]
+  simp only [show (2 ^ (252 + 1) - 1) % 2 ^ 256 = 2 ^ (252 + 1) - 1 by decide]
   rw [ray_eval_seam_252_lo]
   decide
 
@@ -12244,7 +12244,7 @@ private theorem wad_eval_seam_252_hi :
     model_ln_wad_to_wad_evm (2 ^ (252 + 1)) = 133919705007773340970 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (252 + 1)) % 2 ^ 256 = 2 ^ (252 + 1) by decide]
+  simp only [show (2 ^ (252 + 1)) % 2 ^ 256 = 2 ^ (252 + 1) by decide]
   rw [ray_eval_seam_252_hi]
   decide
 
@@ -12266,8 +12266,8 @@ private theorem ray_eval_seam_253_lo :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (253 + 1) - 1) % 2 ^ 256 = 2 ^ (253 + 1) - 1 by decide]
-  rw [hlog]
+  simp only [show (2 ^ (253 + 1) - 1) % 2 ^ 256 = 2 ^ (253 + 1) - 1 by decide]
+  simp only [hlog]
   decide
 
 private theorem ray_eval_seam_253_hi :
@@ -12276,15 +12276,15 @@ private theorem ray_eval_seam_253_hi :
     rw [log2_eq_iff] <;> decide
   unfold model_ln_wad_evm evmClz
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (253 + 1)) % 2 ^ 256 = 2 ^ (253 + 1) by decide]
-  rw [hlog]
+  simp only [show (2 ^ (253 + 1)) % 2 ^ 256 = 2 ^ (253 + 1) by decide]
+  simp only [hlog]
   decide
 
 private theorem wad_eval_seam_253_lo :
     model_ln_wad_to_wad_evm (2 ^ (253 + 1) - 1) = 134612852188333286279 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (253 + 1) - 1) % 2 ^ 256 = 2 ^ (253 + 1) - 1 by decide]
+  simp only [show (2 ^ (253 + 1) - 1) % 2 ^ 256 = 2 ^ (253 + 1) - 1 by decide]
   rw [ray_eval_seam_253_lo]
   decide
 
@@ -12292,7 +12292,7 @@ private theorem wad_eval_seam_253_hi :
     model_ln_wad_to_wad_evm (2 ^ (253 + 1)) = 134612852188333286279 := by
   unfold model_ln_wad_to_wad_evm
   simp only [u256, WORD_MOD]
-  rw [show (2 ^ (253 + 1)) % 2 ^ 256 = 2 ^ (253 + 1) by decide]
+  simp only [show (2 ^ (253 + 1)) % 2 ^ 256 = 2 ^ (253 + 1) by decide]
   rw [ray_eval_seam_253_hi]
   decide
 
