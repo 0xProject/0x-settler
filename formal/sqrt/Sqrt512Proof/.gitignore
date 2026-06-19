@@ -4,3 +4,4 @@ lake-manifest.json
 # Auto-generated from solc Yul IR by `lake exe yul_importer`
 /Sqrt512Proof/Sqrt512Yul.lean
 /Sqrt512Proof/Sqrt512YulRuntime.lean
+/Sqrt512Proof/Sqrt512YulProof.lean

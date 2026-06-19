@@ -7,6 +7,7 @@
 #       --output formal/ln/LnProof/LnProof/LnYul.lean
 /LnProof/LnYul.lean
 /LnProof/LnYulRuntime.lean
+/LnProof/LnYulProof.lean
 
 # Auto-generated; rebuild with:
 #   python3 formal/python/ln/gen_cert_literals.py

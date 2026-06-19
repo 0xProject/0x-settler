@@ -34,6 +34,34 @@ def requiredMarkers : ModelKind → List String
   | .cbrt512 => ["object ", "deployed", "wrap_cbrt512", "wrap_cbrtUp512", "function fun__cbrt", "_cbrt_baseCase", "mulmod", "clz("]
   | .ln => ["object ", "deployed", "function fun_lnWad", "function fun_lnWadToRay", "sdiv", "clz("]
 
+def selectorCases : ModelKind → List String
+  | .sqrt => ["0x5b29048a", "0x65c9cba1"]
+  | .sqrt512 => ["0x3f51628a", "0x996e33a4"]
+  | .cbrt => ["0x56df2b56", "0x29f2f4f1"]
+  | .cbrt512 => ["0xa83a5c08", "0x7c0352fc"]
+  | .ln => ["0xef102248", "0x31d42abd"]
+
+def functionPrefixes : ModelKind → List String
+  | .sqrt =>
+      ["external_fun_wrap_sqrt_", "external_fun_wrap_sqrtUp_",
+       "fun_wrap_sqrt_", "fun_wrap_sqrtUp_", "fun_sqrt_", "fun_sqrtUp_", "fun__sqrt_"]
+  | .sqrt512 =>
+      ["external_fun_wrap_sqrt512_", "external_fun_wrap_osqrtUp_",
+       "fun_wrap_sqrt512_", "fun_wrap_osqrtUp_",
+       "fun__sqrt_baseCase_", "fun__sqrt_karatsubaQuotient_",
+       "fun__sqrt_correction_", "fun__sqrt_babylonianStep_"]
+  | .cbrt =>
+      ["external_fun_wrap_cbrt_", "external_fun_wrap_cbrtUp_",
+       "fun_wrap_cbrt_", "fun_wrap_cbrtUp_", "fun_cbrt_", "fun_cbrtUp_", "fun__cbrt_"]
+  | .cbrt512 =>
+      ["external_fun_wrap_cbrt512_", "external_fun_wrap_cbrtUp512_",
+       "fun_wrap_cbrt512_", "fun_wrap_cbrtUp512_",
+       "fun__cbrt_baseCase_", "fun__cbrt_karatsubaQuotient_",
+       "fun__cbrt_quadraticCorrection_", "fun__cbrt_newtonRaphsonStep_"]
+  | .ln =>
+      ["external_fun_wrap_lnWad_", "external_fun_wrap_lnWadToRay_",
+       "fun_wrap_lnWad_", "fun_wrap_lnWadToRay_", "fun_lnWad_", "fun_lnWadToRay_"]
+
 end ModelKind
 
 structure Options where
@@ -1645,7 +1673,7 @@ def runHelpers : ModelKind → String → String
   | .ln => runHelpersLn
 
 def normalizeHeader (src : String) : String :=
-  src
+  src.replace "import Init" "import FormalYul.Word"
 
 def addRunHelpers (kind : ModelKind) (contractDef src : String) : String :=
   let marker := s!"end {kind.namespaceName}
@@ -1661,6 +1689,9 @@ def dropLeanExtension (path : String) : String :=
 
 def runtimeOutputPath (output : String) : String :=
   dropLeanExtension output ++ "Runtime.lean"
+
+def proofOutputPath (output : String) : String :=
+  dropLeanExtension output ++ "Proof.lean"
 
 def moduleNameFromOutput (output : String) : String :=
   match (dropLeanExtension output).splitOn "/" |>.reverse with
@@ -1678,6 +1709,14 @@ def renderRuntime (kind : ModelKind) (input output : String) : Except String Str
     runHelpers kind contractDef ++ "\n" ++
     "end " ++ kind.namespaceName ++ "\n"
 
+def renderProof (kind : ModelKind) (output : String) : String :=
+  let runtimeModule := moduleNameFromOutput output ++ "Runtime"
+  "import FormalYul.Preservation\n" ++
+  "import " ++ runtimeModule ++ "\n\n" ++
+  "namespace " ++ kind.namespaceName ++ "\n\n" ++
+  "/- Runtime bridge support module for the generated Yul runtime. -/\n\n" ++
+  "end " ++ kind.namespaceName ++ "\n"
+
 def containsSubstr (haystack needle : String) : Bool :=
   if needle = "" then
     true
@@ -1691,9 +1730,44 @@ def commaSep : List String → String
   | [] => ""
   | marker :: markers => markers.foldl (fun acc next => acc ++ ", " ++ next) marker
 
+partial def countSubstrFrom (src needle : String) (start fuel : Nat) : Nat :=
+  match fuel with
+  | 0 => 0
+  | fuel' + 1 =>
+      match findSubstrFrom src needle start with
+      | none => 0
+      | some i => 1 + countSubstrFrom src needle (i + needle.length) fuel'
+
+def countSubstr (src needle : String) : Nat :=
+  if needle = "" then 0 else countSubstrFrom src needle 0 (src.data.length + 1)
+
+def validateSelectorCase (code selector : String) : Except String Unit :=
+  let marker := "case " ++ selector
+  match countSubstr code marker with
+  | 1 => .ok ()
+  | 0 => .error s!"deployed Yul dispatcher is missing selector case {selector}"
+  | n => .error s!"deployed Yul dispatcher contains {n} selector cases for {selector}"
+
+def namesWithPrefix (functions : List (String × String)) (pfx : String) : List String :=
+  (functions.map Prod.fst).filter fun name => name.startsWith pfx
+
+def validateFunctionPrefix (functions : List (String × String)) (pfx : String) : Except String Unit :=
+  match namesWithPrefix functions pfx with
+  | [_] => .ok ()
+  | [] => .error s!"deployed Yul is missing a function with prefix {pfx}"
+  | names => .error s!"deployed Yul prefix {pfx} is ambiguous: {commaSep names}"
+
+def validateShape (kind : ModelKind) (input : String) : Except String Unit := do
+  let code ← extractDeployedCode input
+  let (_, functions) ← splitFunctions code
+  for selector in kind.selectorCases do
+    validateSelectorCase code selector
+  for pfx in kind.functionPrefixes do
+    validateFunctionPrefix functions pfx
+
 def validateInput (kind : ModelKind) (input : String) : Except String Unit :=
   match missingMarkers kind input with
-  | [] => .ok ()
+  | [] => validateShape kind input
   | missing => .error s!"input Yul IR is missing expected marker(s): {commaSep missing}"
 
 def usage : String :=
@@ -1723,11 +1797,15 @@ def run (args : List String) : IO UInt32 := do
   let runtimeText ← match renderRuntime kind input output with
     | .ok runtimeText => pure runtimeText
     | .error err => throw <| IO.userError err
+  let proofText := renderProof kind output
   let runtimeOutput := runtimeOutputPath output
+  let proofOutput := proofOutputPath output
   IO.FS.writeFile output outputText
   IO.FS.writeFile runtimeOutput runtimeText
+  IO.FS.writeFile proofOutput proofText
   IO.println s!"Generated {output}"
   IO.println s!"Generated {runtimeOutput}"
+  IO.println s!"Generated {proofOutput}"
   pure 0
 
 end YulImporter
