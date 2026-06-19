@@ -18,7 +18,7 @@ interface IUniV2Pair {
     function swap(uint256, uint256, address, bytes calldata) external;
 }
 
-library fastUniswapV2Pool {
+library FastUniswapV2Pool {
     using Ternary for bool;
 
     function fastGetReserves(address pool, bool zeroForOne)
@@ -83,7 +83,7 @@ library fastUniswapV2Pool {
 
 abstract contract UniswapV2 is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
-    using fastUniswapV2Pool for address;
+    using FastUniswapV2Pool for address;
 
     /// @dev Sell a token for another token using UniswapV2.
     function sellToUniswapV2(
@@ -119,7 +119,7 @@ abstract contract UniswapV2 is SettlerSwapAbstract {
             }
             IERC20(sellToken).safeTransfer(address(pool), sellAmount);
         }
-        (uint256 sellReserve, uint256 buyReserve) = fastUniswapV2Pool.fastGetReserves(pool, zeroForOne);
+        (uint256 sellReserve, uint256 buyReserve) = FastUniswapV2Pool.fastGetReserves(pool, zeroForOne);
         if (sellAmount == 0 || sellTokenHasFee) {
             uint256 bal = IERC20(sellToken).fastBalanceOf(pool);
             sellAmount = bal - sellReserve;

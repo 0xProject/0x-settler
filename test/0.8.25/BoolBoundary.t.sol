@@ -12,7 +12,7 @@ import {FastPermit} from "src/utils/SafePermit.sol";
 import {IDAIStylePermit} from "src/interfaces/IERC2612.sol";
 
 import {IEulerSwap, FastEulerSwap} from "src/core/EulerSwap.sol";
-import {IUniV2Pair, fastUniswapV2Pool} from "src/core/UniswapV2.sol";
+import {IUniV2Pair, FastUniswapV2Pool} from "src/core/UniswapV2.sol";
 import {IHanjiPool, FastHanjiPool} from "src/core/Hanji.sol";
 import {IMaverickV2Pool, FastMaverickV2Pool} from "src/core/MaverickV2.sol";
 import {IEkuboCore, PoolKey as EkuboPoolKey, Config, SqrtRatio, UnsafeEkuboCore} from "src/core/EkuboV2.sol";
@@ -203,7 +203,7 @@ contract BoolBoundaryHarness {
         assembly ("memory-safe") {
             zeroForOne := 0x02
         }
-        return fastUniswapV2Pool.fastGetReserves(pool, zeroForOne);
+        return FastUniswapV2Pool.fastGetReserves(pool, zeroForOne);
     }
 
     function fastUniswapV2Swap(address pool, uint256 buyAmount, address recipient) external {
@@ -211,7 +211,7 @@ contract BoolBoundaryHarness {
         assembly ("memory-safe") {
             zeroForOne := 0x02
         }
-        fastUniswapV2Pool.fastSwap(pool, zeroForOne, buyAmount, recipient);
+        FastUniswapV2Pool.fastSwap(pool, zeroForOne, buyAmount, recipient);
     }
 
     function fastEulerSwap(IEulerSwap pool, uint256 amountOut, address recipient) external {
