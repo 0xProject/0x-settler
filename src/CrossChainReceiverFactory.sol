@@ -101,7 +101,6 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
 
     bytes32 private constant _WNATIVE_STORAGE_SALT = keccak256("Wrapped Native Token Address");
     IWrappedNative private immutable _WNATIVE;
-    bool private immutable _HAS_WNATIVE = true;
     bool private immutable _MISSING_WNATIVE = false;
 
     bytes32 private constant _MULTICALL_STORAGE_SALT = keccak256("ERC2771-forwarding MultiCall Address");
@@ -200,7 +199,6 @@ contract CrossChainReceiverFactory is ICrossChainReceiverFactory, MultiCallConte
                     == 0xa4675c945174b9ec4e7010035cbc327beed918e1ea949cf630df20b201167a0c
             );
             // `_WNATIVE` is deliberately unset
-            _HAS_WNATIVE = false;
             _MISSING_WNATIVE = true;
         } else {
             // do some behavioral checks on `_WNATIVE`
