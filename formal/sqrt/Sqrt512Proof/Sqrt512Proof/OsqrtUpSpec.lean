@@ -18,6 +18,7 @@ import SqrtProof.SqrtCorrect
 namespace Sqrt512Spec
 
 open Sqrt512Yul
+open FormalYul
 
 set_option exponentiation.threshold 1024
 
@@ -29,21 +30,14 @@ set_option exponentiation.threshold 1024
 private theorem osqrtUp_zero_fst (x_lo : Nat) :
     (model_osqrtUp_evm 0 x_lo).1 = 0 := by
   simp only [model_osqrtUp_evm]
-  simp only [evmEq_compat, u256_compat, su256_zero]
-  simp only [SqrtYul.evmEq, SqrtYul.u256, SqrtYul.WORD_MOD]
-  simp (config := { decide := true })
+  simp (config := { decide := true }) [FormalYul.u256, FormalYul.WORD_MOD]
 
 /-- When x_hi = 0, the second component (r_lo) equals model_sqrt_up_evm x_lo. -/
 private theorem osqrtUp_zero_snd (x_lo : Nat) :
     (model_osqrtUp_evm 0 x_lo).2 = SqrtYul.model_sqrt_up_evm x_lo := by
   simp only [model_osqrtUp_evm, model_sqrt256_up_evm,
     SqrtYul.model_sqrt_up_evm, SqrtYul.model_sqrt_evm]
-  simp only [evmEq_compat, evmShr_compat, evmAdd_compat, evmDiv_compat,
-    evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat,
-    evmMul_compat, evmGt_compat, u256_compat]
-  simp only [su256_zero, su256_idem]
-  simp only [SqrtYul.evmEq, SqrtYul.u256, SqrtYul.WORD_MOD]
-  simp (config := { decide := true })
+  simp (config := { decide := true }) [FormalYul.u256, FormalYul.WORD_MOD]
 
 /-- Ceiling sqrt uniqueness: if x ≤ r² and r is minimal, then r = sqrtUp512 x. -/
 private theorem sqrtUp512_unique (x r : Nat) (hx : x < 2 ^ 512)

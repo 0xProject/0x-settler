@@ -6,6 +6,7 @@ import SqrtProof.CertifiedChain
 namespace SqrtYul
 
 open SqrtYul
+open FormalYul
 open SqrtCertified
 open SqrtCert
 

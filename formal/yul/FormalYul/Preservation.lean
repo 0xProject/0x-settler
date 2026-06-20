@@ -857,31 +857,6 @@ theorem eq_of_wordNat_eq {a b : EvmYul.UInt256} (h : wordNat a = wordNat b) : a 
   rfl
 
 @[simp]
-theorem u256_u256 (x : Nat) : u256 (u256 x) = u256 x := by
-  unfold u256 WORD_MOD
-  rw [Nat.mod_mod]
-
-theorem u256_eq_self_of_lt {x : Nat} (h : x < WORD_MOD) : u256 x = x := by
-  unfold u256
-  exact Nat.mod_eq_of_lt h
-
-@[simp] theorem u256_zero : u256 0 = 0 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_one : u256 1 = 1 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_two : u256 2 = 2 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_three : u256 3 = 3 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_four : u256 4 = 4 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_eight : u256 8 = 8 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_sixteen : u256 16 = 16 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_thirty_one : u256 31 = 31 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_thirty_two : u256 32 = 32 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_sixty_four : u256 64 = 64 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_one_twenty_eight : u256 128 = 128 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_one_sixty : u256 160 = 160 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_two_twenty_four : u256 224 = 224 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_two_fifty_five : u256 255 = 255 := by norm_num [u256, WORD_MOD]
-@[simp] theorem u256_two_fifty_six : u256 256 = 256 := by norm_num [u256, WORD_MOD]
-
-@[simp]
 theorem byteArray_empty_append (b : ByteArray) : ByteArray.empty ++ b = b := by
   apply ByteArray.ext
   rw [← Array.toList_inj]

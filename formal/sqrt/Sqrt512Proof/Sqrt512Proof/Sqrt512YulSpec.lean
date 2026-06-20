@@ -16,6 +16,7 @@ import Sqrt512Proof.Sqrt512Yul
 
 namespace Sqrt512Spec
 
+open FormalYul
 open SqrtCert
 open SqrtBridge
 open SqrtCertified

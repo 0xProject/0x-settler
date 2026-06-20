@@ -10,27 +10,8 @@ set_option linter.style.nameCheck false
 
 namespace Sqrt512Yul
 
+open FormalYul
 open scoped EvmYul.Yul.Notation
-
-@[simp] theorem bridge_u256 (x : Nat) : Sqrt512Yul.u256 x = FormalYul.u256 x := rfl
-@[simp] theorem bridge_add (a b : Nat) : Sqrt512Yul.evmAdd a b = FormalYul.evmAdd a b := rfl
-@[simp] theorem bridge_sub (a b : Nat) : Sqrt512Yul.evmSub a b = FormalYul.evmSub a b := rfl
-@[simp] theorem bridge_mul (a b : Nat) : Sqrt512Yul.evmMul a b = FormalYul.evmMul a b := rfl
-@[simp] theorem bridge_div (a b : Nat) : Sqrt512Yul.evmDiv a b = FormalYul.evmDiv a b := rfl
-@[simp] theorem bridge_mod (a b : Nat) : Sqrt512Yul.evmMod a b = FormalYul.evmMod a b := rfl
-@[simp] theorem bridge_shl (a b : Nat) : Sqrt512Yul.evmShl a b = FormalYul.evmShl a b := rfl
-@[simp] theorem bridge_shr (a b : Nat) : Sqrt512Yul.evmShr a b = FormalYul.evmShr a b := rfl
-@[simp] theorem bridge_clz (a : Nat) : Sqrt512Yul.evmClz a = FormalYul.evmClz a := rfl
-@[simp] theorem bridge_lt (a b : Nat) : Sqrt512Yul.evmLt a b = FormalYul.evmLt a b := rfl
-@[simp] theorem bridge_gt (a b : Nat) : Sqrt512Yul.evmGt a b = FormalYul.evmGt a b := rfl
-@[simp] theorem bridge_eq (a b : Nat) : Sqrt512Yul.evmEq a b = FormalYul.evmEq a b := rfl
-@[simp] theorem bridge_iszero (a : Nat) : Sqrt512Yul.evmIszero a = FormalYul.evmIszero a := rfl
-@[simp] theorem bridge_and (a b : Nat) : Sqrt512Yul.evmAnd a b = FormalYul.evmAnd a b := rfl
-@[simp] theorem bridge_or (a b : Nat) : Sqrt512Yul.evmOr a b = FormalYul.evmOr a b := rfl
-@[simp] theorem bridge_mulmod (a b n : Nat) : Sqrt512Yul.evmMulmod a b n = FormalYul.evmMulmod a b n := rfl
-
-@[simp] theorem u256_idem (x : Nat) : Sqrt512Yul.u256 (Sqrt512Yul.u256 x) = Sqrt512Yul.u256 x := by
-  simp [Sqrt512Yul.u256, Sqrt512Yul.WORD_MOD]
 
 theorem uint256_ofNat_toNat_eq_formal_u256 (x : Nat) :
     (EvmYul.UInt256.ofNat x).toNat = FormalYul.u256 x := by
@@ -40,50 +21,41 @@ theorem uint256_ofNat_toNat_eq_formal_u256 (x : Nat) :
 theorem model_sqrt512_evm_u256_args (xHi xLo : Nat) :
     model_sqrt512_evm (FormalYul.u256 xHi) (FormalYul.u256 xLo) =
       model_sqrt512_evm xHi xLo := by
-  simp [model_sqrt512_evm, FormalYul.u256, Sqrt512Yul.u256,
-    FormalYul.WORD_MOD, Sqrt512Yul.WORD_MOD]
+  simp [model_sqrt512_evm]
 
 @[simp]
 theorem model_sqrt256_floor_evm_u256_arg (x : Nat) :
     model_sqrt256_floor_evm (FormalYul.u256 x) = model_sqrt256_floor_evm x := by
-  simp [model_sqrt256_floor_evm, FormalYul.u256, Sqrt512Yul.u256,
-    FormalYul.WORD_MOD, Sqrt512Yul.WORD_MOD]
+  simp [model_sqrt256_floor_evm]
 
 @[simp]
 theorem model_sqrt256_up_evm_u256_arg (x : Nat) :
     model_sqrt256_up_evm (FormalYul.u256 x) = model_sqrt256_up_evm x := by
-  simp [model_sqrt256_up_evm, FormalYul.u256, Sqrt512Yul.u256,
-    FormalYul.WORD_MOD, Sqrt512Yul.WORD_MOD]
+  simp [model_sqrt256_up_evm]
 
 theorem model_sqrt256_up_evm_eq_sqrt_up_evm (x : Nat) :
     model_sqrt256_up_evm x = SqrtYul.model_sqrt_up_evm x := by
-  simp only [model_sqrt256_up_evm, SqrtYul.model_sqrt_up_evm, SqrtYul.model_sqrt_evm]
-  simp only [Sqrt512Spec.evmShr_compat, Sqrt512Spec.evmAdd_compat,
-    Sqrt512Spec.evmDiv_compat, Sqrt512Spec.evmSub_compat,
-    Sqrt512Spec.evmClz_compat, Sqrt512Spec.evmShl_compat,
-    Sqrt512Spec.evmLt_compat, Sqrt512Spec.evmMul_compat,
-    Sqrt512Spec.evmGt_compat, Sqrt512Spec.u256_compat]
-  simp only [Sqrt512Spec.su256_idem]
+  simp [model_sqrt256_up_evm, SqrtYul.model_sqrt_up_evm, SqrtYul.model_sqrt_evm]
 
 @[simp]
 theorem sqrtYul_model_sqrt_up_evm_u256_arg (x : Nat) :
-    SqrtYul.model_sqrt_up_evm (SqrtYul.u256 x) = SqrtYul.model_sqrt_up_evm x := by
+    SqrtYul.model_sqrt_up_evm (FormalYul.u256 x) = SqrtYul.model_sqrt_up_evm x := by
   simp [SqrtYul.model_sqrt_up_evm, SqrtYul.model_sqrt_evm,
-    SqrtYul.u256, SqrtYul.WORD_MOD]
+    FormalYul.u256, FormalYul.WORD_MOD]
 
 theorem sqrtYul_model_sqrt_up_evm_lt_formal_word (x : Nat) :
     SqrtYul.model_sqrt_up_evm x < FormalYul.WORD_MOD := by
-  have hx : SqrtYul.u256 x < 2 ^ 256 := by
-    unfold SqrtYul.u256 SqrtYul.WORD_MOD
+  have hx : FormalYul.u256 x < 2 ^ 256 := by
+    unfold FormalYul.u256 FormalYul.WORD_MOD
     exact Nat.mod_lt x (Nat.two_pow_pos 256)
   rw [← sqrtYul_model_sqrt_up_evm_u256_arg x]
-  have hceil := SqrtYul.model_sqrt_up_evm_ceil_u256 (SqrtYul.u256 x) hx
+  have hceil := SqrtYul.model_sqrt_up_evm_ceil_u256 (FormalYul.u256 x) hx
   have hpow : (2 ^ 128 : Nat) * (2 ^ 128 : Nat) = 2 ^ 256 := by
     rw [← Nat.pow_add]
-  have hxle : SqrtYul.u256 x ≤ (2 ^ 128 : Nat) * (2 ^ 128 : Nat) := by
+  have hxle : FormalYul.u256 x ≤ (2 ^ 128 : Nat) * (2 ^ 128 : Nat) := by
     rw [hpow]
     exact Nat.le_of_lt hx
-  have hrle : SqrtYul.model_sqrt_up_evm (SqrtYul.u256 x) ≤ 2 ^ 128 :=
+  have hrle : SqrtYul.model_sqrt_up_evm (FormalYul.u256 x) ≤ 2 ^ 128 :=
     hceil.2 (2 ^ 128) hxle
   have h128lt256 : (2 ^ 128 : Nat) < 2 ^ 256 :=
     Nat.pow_lt_pow_right (by decide : 1 < 2) (by decide : 128 < 256)
@@ -94,83 +66,54 @@ theorem sqrtYul_model_sqrt_up_evm_lt_formal_word (x : Nat) :
 theorem u256_model_sqrt256_up_evm (x : Nat) :
     FormalYul.u256 (model_sqrt256_up_evm x) = model_sqrt256_up_evm x := by
   rw [model_sqrt256_up_evm_eq_sqrt_up_evm]
-  exact FormalYul.Preservation.u256_eq_self_of_lt
+  exact FormalYul.u256_eq_self_of_lt
     (sqrtYul_model_sqrt_up_evm_lt_formal_word x)
 
 @[simp]
 theorem model_sqrt512_wrapper_evm_u256_args (xHi xLo : Nat) :
     model_sqrt512_wrapper_evm (FormalYul.u256 xHi) (FormalYul.u256 xLo) =
       model_sqrt512_wrapper_evm xHi xLo := by
-  simp [model_sqrt512_wrapper_evm, FormalYul.u256, Sqrt512Yul.u256,
-    FormalYul.WORD_MOD, Sqrt512Yul.WORD_MOD]
+  simp [model_sqrt512_wrapper_evm]
 
 @[simp]
 theorem model_osqrtUp_evm_u256_args (xHi xLo : Nat) :
     model_osqrtUp_evm (FormalYul.u256 xHi) (FormalYul.u256 xLo) =
       model_osqrtUp_evm xHi xLo := by
-  simp [model_osqrtUp_evm, FormalYul.u256, Sqrt512Yul.u256,
-    FormalYul.WORD_MOD, Sqrt512Yul.WORD_MOD]
-
-def osqrtUpRuntimePair (xHi xLo : Nat) : Nat × Nat :=
-  let xHi := FormalYul.u256 xHi
-  let xLo := FormalYul.u256 xLo
-  let rHi := 0
-  let xHiIsZero := evmEq xHi 0
-  if evmEq xHiIsZero 0 ≠ 0 then
-    let rLo := model_sqrt512_evm xHi xLo
-    let r2Hi :=
-      evmSub
-        (evmSub
-          (evmMulmod rLo rLo
-            115792089237316195423570985008687907853269984665640564039457584007913129639935)
-          (evmMul rLo rLo))
-        (evmLt
-          (evmMulmod rLo rLo
-            115792089237316195423570985008687907853269984665640564039457584007913129639935)
-          (evmMul rLo rLo))
-    let r2Lo := evmMul rLo rLo
-    let inc := evmOr (evmGt xHi r2Hi) (evmAnd (evmEq xHi r2Hi) (evmGt xLo r2Lo))
-    (evmLt (evmAdd rLo inc) rLo, evmAdd rLo inc)
-  else
-    (rHi, model_sqrt256_up_evm xLo)
-
-theorem osqrtUpRuntimePair_eq_model (xHi xLo : Nat) :
-    osqrtUpRuntimePair xHi xLo = model_osqrtUp_evm xHi xLo := by
-  rfl
+  simp [model_osqrtUp_evm]
 
 theorem model_sqrt512_wrapper_evm_lt_word (xHi xLo : Nat) :
     model_sqrt512_wrapper_evm xHi xLo < FormalYul.WORD_MOD := by
-  have hxHi : Sqrt512Yul.u256 xHi < 2 ^ 256 := by
-    unfold Sqrt512Yul.u256 Sqrt512Yul.WORD_MOD
+  have hxHi : FormalYul.u256 xHi < 2 ^ 256 := by
+    unfold FormalYul.u256 FormalYul.WORD_MOD
     exact Nat.mod_lt xHi (Nat.two_pow_pos 256)
-  have hxLo : Sqrt512Yul.u256 xLo < 2 ^ 256 := by
-    unfold Sqrt512Yul.u256 Sqrt512Yul.WORD_MOD
+  have hxLo : FormalYul.u256 xLo < 2 ^ 256 := by
+    unfold FormalYul.u256 FormalYul.WORD_MOD
     exact Nat.mod_lt xLo (Nat.two_pow_pos 256)
   have hcorrect := Sqrt512Spec.model_sqrt512_wrapper_evm_correct
-    (Sqrt512Yul.u256 xHi) (Sqrt512Yul.u256 xLo) hxHi hxLo
+    (FormalYul.u256 xHi) (FormalYul.u256 xLo) hxHi hxLo
   have harg :
-      model_sqrt512_wrapper_evm (Sqrt512Yul.u256 xHi) (Sqrt512Yul.u256 xLo) =
+      model_sqrt512_wrapper_evm (FormalYul.u256 xHi) (FormalYul.u256 xLo) =
         model_sqrt512_wrapper_evm xHi xLo := by
-    simpa [bridge_u256] using model_sqrt512_wrapper_evm_u256_args xHi xLo
+    exact model_sqrt512_wrapper_evm_u256_args xHi xLo
   rw [← harg, hcorrect]
   rw [FormalYul.WORD_MOD]
-  suffices natSqrt (Sqrt512Yul.u256 xHi * 2 ^ 256 + Sqrt512Yul.u256 xLo) < 2 ^ 256 by
+  suffices natSqrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo) < 2 ^ 256 by
     exact this
   by_contra hnot
-  have hsquare := natSqrt_sq_le (Sqrt512Yul.u256 xHi * 2 ^ 256 + Sqrt512Yul.u256 xLo)
+  have hsquare := natSqrt_sq_le (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo)
   have hge : 2 ^ 512 ≤
-      Sqrt512Yul.u256 xHi * 2 ^ 256 + Sqrt512Yul.u256 xLo := by
-    have hle : 2 ^ 256 ≤ natSqrt (Sqrt512Yul.u256 xHi * 2 ^ 256 + Sqrt512Yul.u256 xLo) :=
+      FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo := by
+    have hle : 2 ^ 256 ≤ natSqrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo) :=
       Nat.le_of_not_gt hnot
     calc
       2 ^ 512 = 2 ^ 256 * 2 ^ 256 := by
         rw [show (512 : Nat) = 256 + 256 by omega, Nat.pow_add]
-      _ ≤ natSqrt (Sqrt512Yul.u256 xHi * 2 ^ 256 + Sqrt512Yul.u256 xLo) *
-          natSqrt (Sqrt512Yul.u256 xHi * 2 ^ 256 + Sqrt512Yul.u256 xLo) :=
+      _ ≤ natSqrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo) *
+          natSqrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo) :=
             Nat.mul_le_mul hle hle
-      _ ≤ Sqrt512Yul.u256 xHi * 2 ^ 256 + Sqrt512Yul.u256 xLo := hsquare
-  have hlt : Sqrt512Yul.u256 xHi * 2 ^ 256 + Sqrt512Yul.u256 xLo < 2 ^ 512 := by
-    have hmul : Sqrt512Yul.u256 xHi * 2 ^ 256 < 2 ^ 256 * 2 ^ 256 :=
+      _ ≤ FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo := hsquare
+  have hlt : FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo < 2 ^ 512 := by
+    have hmul : FormalYul.u256 xHi * 2 ^ 256 < 2 ^ 256 * 2 ^ 256 :=
       Nat.mul_lt_mul_of_pos_right hxHi (Nat.two_pow_pos 256)
     have hpow : 2 ^ 256 * 2 ^ 256 = 2 ^ 512 := by
       rw [← Nat.pow_add]
@@ -764,19 +707,6 @@ theorem mload_two_word_write_128_second_state (m : EvmYul.MachineState) (xHi xLo
     EvmYul.MachineState.writeWord, EvmYul.writeBytes, EvmYul.MachineState.M,
     FormalYul.word, hactive]
   decide
-
-
-@[simp] theorem sqrt_bridge_u256 (x : Nat) : SqrtYul.u256 x = FormalYul.u256 x := rfl
-@[simp] theorem sqrt_bridge_add (a b : Nat) : SqrtYul.evmAdd a b = FormalYul.evmAdd a b := rfl
-@[simp] theorem sqrt_bridge_sub (a b : Nat) : SqrtYul.evmSub a b = FormalYul.evmSub a b := rfl
-@[simp] theorem sqrt_bridge_mul (a b : Nat) : SqrtYul.evmMul a b = FormalYul.evmMul a b := rfl
-@[simp] theorem sqrt_bridge_div (a b : Nat) : SqrtYul.evmDiv a b = FormalYul.evmDiv a b := rfl
-@[simp] theorem sqrt_bridge_shl (a b : Nat) : SqrtYul.evmShl a b = FormalYul.evmShl a b := rfl
-@[simp] theorem sqrt_bridge_shr (a b : Nat) : SqrtYul.evmShr a b = FormalYul.evmShr a b := rfl
-@[simp] theorem sqrt_bridge_clz (a : Nat) : SqrtYul.evmClz a = FormalYul.evmClz a := rfl
-@[simp] theorem sqrt_bridge_lt (a b : Nat) : SqrtYul.evmLt a b = FormalYul.evmLt a b := rfl
-@[simp] theorem sqrt_bridge_gt (a b : Nat) : SqrtYul.evmGt a b = FormalYul.evmGt a b := rfl
-
 @[simp]
 theorem call_zero_value_for_split_t_uint256 (fuel : Nat) (shared : EvmYul.SharedState .Yul)
     (store : EvmYul.Yul.VarStore)
@@ -848,13 +778,13 @@ theorem call_fun__mul_1022
       (.some "fun__mul_1022") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
-      [FormalYul.word (evmSub (evmSub (evmMulmod x y
+      [FormalYul.word (FormalYul.evmSub (FormalYul.evmSub (FormalYul.evmMulmod x y
         115792089237316195423570985008687907853269984665640564039457584007913129639935)
-        (evmMul x y))
-        (evmLt (evmMulmod x y
+        (FormalYul.evmMul x y))
+        (FormalYul.evmLt (FormalYul.evmMulmod x y
           115792089237316195423570985008687907853269984665640564039457584007913129639935)
-          (evmMul x y))),
-       FormalYul.word (evmMul x y)]) := by
+          (FormalYul.evmMul x y))),
+       FormalYul.word (FormalYul.evmMul x y)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_fun__mul_1022]
@@ -891,7 +821,7 @@ theorem call_fun__gt_1766
       (.some "fun__gt_1766") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
-      [FormalYul.word (evmOr (evmGt xHi yHi) (evmAnd (evmEq xHi yHi) (evmGt xLo yLo)))]) := by
+      [FormalYul.word (FormalYul.evmOr (FormalYul.evmGt xHi yHi) (FormalYul.evmAnd (FormalYul.evmEq xHi yHi) (FormalYul.evmGt xLo yLo)))]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_fun__gt_1766]
@@ -952,8 +882,8 @@ theorem call_fun__add_637
       (.some "fun__add_637") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
-      [FormalYul.word (evmAdd xHi (evmLt (evmAdd xLo y) xLo)),
-       FormalYul.word (evmAdd xLo y)]) := by
+      [FormalYul.word (FormalYul.evmAdd xHi (FormalYul.evmLt (FormalYul.evmAdd xLo y) xLo)),
+       FormalYul.word (FormalYul.evmAdd xLo y)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_fun__add_637]
@@ -1581,7 +1511,7 @@ theorem call_fun_clz_6141
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
     EvmYul.Yul.call (fuel + 40) [FormalYul.word x] (.some "fun_clz_6141") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmClz x)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmClz x)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_fun_clz_6141]
@@ -1608,7 +1538,7 @@ theorem call_fun_unsafeDiv_5899
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
     EvmYul.Yul.call (fuel + 40) [FormalYul.word a, FormalYul.word b] (.some "fun_unsafeDiv_5899") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmDiv a b)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmDiv a b)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_fun_unsafeDiv_5899]
@@ -1635,7 +1565,7 @@ theorem call_fun_unsafeDec_5854
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
     EvmYul.Yul.call (fuel + 40) [FormalYul.word x, b] (.some "fun_unsafeDec_5854") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmSub x (FormalYul.wordNat b))]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmSub x (FormalYul.wordNat b))]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_fun_unsafeDec_5854]
@@ -1663,7 +1593,7 @@ theorem call_fun_unsafeDec_5854_1334
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
     EvmYul.Yul.call (fuel + 1334) [FormalYul.word x, b] (.some "fun_unsafeDec_5854") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmSub x (FormalYul.wordNat b))]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmSub x (FormalYul.wordNat b))]) := by
   simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_fun_unsafeDec_5854 (x := x) (b := b) (fuel := fuel + 1294)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -1675,7 +1605,7 @@ theorem call_wrapping_add_t_uint256
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
     EvmYul.Yul.call (fuel + 40) [FormalYul.word a, FormalYul.word b] (.some "wrapping_add_t_uint256") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmAdd a b)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmAdd a b)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_wrapping_add_t_uint256]
@@ -1702,7 +1632,7 @@ theorem call_wrapping_mul_t_uint256
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
     EvmYul.Yul.call (fuel + 40) [FormalYul.word a, FormalYul.word b] (.some "wrapping_mul_t_uint256") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmMul a b)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmMul a b)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_wrapping_mul_t_uint256]
@@ -1730,7 +1660,7 @@ theorem call_fun_and_5596
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
     EvmYul.Yul.call (fuel + 40) [FormalYul.word a, FormalYul.word b] (.some "fun_and_5596") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmAnd a b)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmAnd a b)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_fun_and_5596]
@@ -1759,7 +1689,7 @@ theorem call_fun_and_5596_u256
     EvmYul.Yul.call (fuel + 40) [a, b] (.some "fun_and_5596") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
-      [FormalYul.word (evmAnd (FormalYul.wordNat a) (FormalYul.wordNat b))]) := by
+      [FormalYul.word (FormalYul.evmAnd (FormalYul.wordNat a) (FormalYul.wordNat b))]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_fun_and_5596]
@@ -1788,7 +1718,7 @@ theorem call_fun_and_5596_u256_932
     EvmYul.Yul.call (fuel + 932) [a, b] (.some "fun_and_5596") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
-      [FormalYul.word (evmAnd (FormalYul.wordNat a) (FormalYul.wordNat b))]) := by
+      [FormalYul.word (FormalYul.evmAnd (FormalYul.wordNat a) (FormalYul.wordNat b))]) := by
   simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_fun_and_5596_u256 (a := a) (b := b) (fuel := fuel + 892)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -1800,7 +1730,7 @@ theorem call_fun_or_5585
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
     EvmYul.Yul.call (fuel + 40) [FormalYul.word a, FormalYul.word b] (.some "fun_or_5585") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmOr a b)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmOr a b)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_fun_or_5585]
@@ -1829,7 +1759,7 @@ theorem call_fun_or_5585_u256
     EvmYul.Yul.call (fuel + 40) [a, b] (.some "fun_or_5585") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
-      [FormalYul.word (evmOr (FormalYul.wordNat a) (FormalYul.wordNat b))]) := by
+      [FormalYul.word (FormalYul.evmOr (FormalYul.wordNat a) (FormalYul.wordNat b))]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_fun_or_5585]
@@ -1858,7 +1788,7 @@ theorem call_fun_or_5585_u256_928
     EvmYul.Yul.call (fuel + 928) [a, b] (.some "fun_or_5585") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
-      [FormalYul.word (evmOr (FormalYul.wordNat a) (FormalYul.wordNat b))]) := by
+      [FormalYul.word (FormalYul.evmOr (FormalYul.wordNat a) (FormalYul.wordNat b))]) := by
   simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_fun_or_5585_u256 (a := a) (b := b) (fuel := fuel + 888)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -1923,7 +1853,7 @@ theorem call_shift_right_unsigned_dynamic
     EvmYul.Yul.call (fuel + 20) [FormalYul.word bits, FormalYul.word value]
       (.some "shift_right_unsigned_dynamic") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShr bits value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShr bits value)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_shift_right_unsigned_dynamic]
@@ -1951,7 +1881,7 @@ theorem call_shift_left_dynamic
     EvmYul.Yul.call (fuel + 20) [FormalYul.word bits, FormalYul.word value]
       (.some "shift_left_dynamic") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShl bits value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShl bits value)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_shift_left_dynamic]
@@ -1979,7 +1909,7 @@ theorem call_shift_right_t_uint256_t_uint8_one
     EvmYul.Yul.call (fuel + 80) [FormalYul.word value, FormalYul.word 1]
       (.some "shift_right_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShr 1 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShr 1 value)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_shift_right_t_uint256_t_uint8]
@@ -2006,7 +1936,7 @@ theorem call_shift_right_t_uint256_t_uint256
     EvmYul.Yul.call (fuel + 80) [FormalYul.word value, FormalYul.word bits]
       (.some "shift_right_t_uint256_t_uint256") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShr bits value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShr bits value)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_shift_right_t_uint256_t_uint256]
@@ -2034,9 +1964,9 @@ theorem call_fun__shl256_3075
       (.some "fun__shl256_3075") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
-      [FormalYul.word (evmShr (evmSub 256 s) xHi),
-       FormalYul.word (evmOr (evmShl s xHi) (evmShr (evmSub 256 s) xLo)),
-       FormalYul.word (evmShl s xLo)]) := by
+      [FormalYul.word (FormalYul.evmShr (FormalYul.evmSub 256 s) xHi),
+       FormalYul.word (FormalYul.evmOr (FormalYul.evmShl s xHi) (FormalYul.evmShr (FormalYul.evmSub 256 s) xLo)),
+       FormalYul.word (FormalYul.evmShl s xLo)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_fun__shl256_3075]
@@ -2071,9 +2001,9 @@ theorem call_fun__shl256_3075_4981
       (.some "fun__shl256_3075") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
-      [FormalYul.word (evmShr (evmSub 256 s) xHi),
-       FormalYul.word (evmOr (evmShl s xHi) (evmShr (evmSub 256 s) xLo)),
-       FormalYul.word (evmShl s xLo)]) := by
+      [FormalYul.word (FormalYul.evmShr (FormalYul.evmSub 256 s) xHi),
+       FormalYul.word (FormalYul.evmOr (FormalYul.evmShl s xHi) (FormalYul.evmShr (FormalYul.evmSub 256 s) xLo)),
+       FormalYul.word (FormalYul.evmShl s xLo)]) := by
   simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_fun__shl256_3075 (xHi := xHi) (xLo := xLo) (s := s)
       (fuel := fuel + 4861) (shared := shared) (store := store) (hlookup := hlookup)
@@ -2087,10 +2017,10 @@ theorem call_fun__shl256_3075_u256
       (.some "fun__shl256_3075") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
-      [FormalYul.word (evmShr (evmSub 256 (FormalYul.wordNat s)) xHi),
-       FormalYul.word (evmOr (evmShl (FormalYul.wordNat s) xHi)
-        (evmShr (evmSub 256 (FormalYul.wordNat s)) xLo)),
-       FormalYul.word (evmShl (FormalYul.wordNat s) xLo)]) := by
+      [FormalYul.word (FormalYul.evmShr (FormalYul.evmSub 256 (FormalYul.wordNat s)) xHi),
+       FormalYul.word (FormalYul.evmOr (FormalYul.evmShl (FormalYul.wordNat s) xHi)
+        (FormalYul.evmShr (FormalYul.evmSub 256 (FormalYul.wordNat s)) xLo)),
+       FormalYul.word (FormalYul.evmShl (FormalYul.wordNat s) xLo)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_fun__shl256_3075]
@@ -2125,10 +2055,10 @@ theorem call_fun__shl256_3075_u256_4981
       (.some "fun__shl256_3075") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
-      [FormalYul.word (evmShr (evmSub 256 (FormalYul.wordNat s)) xHi),
-       FormalYul.word (evmOr (evmShl (FormalYul.wordNat s) xHi)
-        (evmShr (evmSub 256 (FormalYul.wordNat s)) xLo)),
-       FormalYul.word (evmShl (FormalYul.wordNat s) xLo)]) := by
+      [FormalYul.word (FormalYul.evmShr (FormalYul.evmSub 256 (FormalYul.wordNat s)) xHi),
+       FormalYul.word (FormalYul.evmOr (FormalYul.evmShl (FormalYul.wordNat s) xHi)
+        (FormalYul.evmShr (FormalYul.evmSub 256 (FormalYul.wordNat s)) xLo)),
+       FormalYul.word (FormalYul.evmShl (FormalYul.wordNat s) xLo)]) := by
   simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_fun__shl256_3075_u256 (xHi := xHi) (xLo := xLo) (s := s)
       (fuel := fuel + 4861) (shared := shared) (store := store) (hlookup := hlookup)
@@ -2141,7 +2071,7 @@ theorem call_shift_left_t_uint256_t_uint8_128
     EvmYul.Yul.call (fuel + 80) [FormalYul.word value, FormalYul.word 128]
       (.some "shift_left_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShl 128 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShl 128 value)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_shift_left_t_uint256_t_uint8]
@@ -2167,7 +2097,7 @@ theorem call_shift_left_t_uint256_t_uint8_128_990
     EvmYul.Yul.call (fuel + 990) [FormalYul.word value, EvmYul.UInt256.ofNat 128]
       (.some "shift_left_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShl 128 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShl 128 value)]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_shift_left_t_uint256_t_uint8_128 (value := value) (fuel := fuel + 910)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -2179,7 +2109,7 @@ theorem call_shift_left_t_uint256_t_uint8_128_958
     EvmYul.Yul.call (fuel + 958) [FormalYul.word value, EvmYul.UInt256.ofNat 128]
       (.some "shift_left_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShl 128 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShl 128 value)]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_shift_left_t_uint256_t_uint8_128 (value := value) (fuel := fuel + 878)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -2191,7 +2121,7 @@ theorem call_shift_left_t_uint256_t_uint8_128_955
     EvmYul.Yul.call (fuel + 955) [FormalYul.word value, EvmYul.UInt256.ofNat 128]
       (.some "shift_left_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShl 128 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShl 128 value)]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_shift_left_t_uint256_t_uint8_128 (value := value) (fuel := fuel + 875)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -2203,7 +2133,7 @@ theorem call_shift_left_t_uint256_t_uint8_128_946
     EvmYul.Yul.call (fuel + 946) [FormalYul.word value, EvmYul.UInt256.ofNat 128]
       (.some "shift_left_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShl 128 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShl 128 value)]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_shift_left_t_uint256_t_uint8_128 (value := value) (fuel := fuel + 866)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -2216,7 +2146,7 @@ theorem call_shift_right_t_uint256_t_uint8_128
     EvmYul.Yul.call (fuel + 80) [FormalYul.word value, FormalYul.word 128]
       (.some "shift_right_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShr 128 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShr 128 value)]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
     Option.getD_some, yulContract_functions, lookup_shift_right_t_uint256_t_uint8]
@@ -2242,7 +2172,7 @@ theorem call_shift_right_t_uint256_t_uint8_128_976
     EvmYul.Yul.call (fuel + 976) [FormalYul.word value, EvmYul.UInt256.ofNat 128]
       (.some "shift_right_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShr 128 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShr 128 value)]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_shift_right_t_uint256_t_uint8_128 (value := value) (fuel := fuel + 896)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -2254,7 +2184,7 @@ theorem call_shift_right_t_uint256_t_uint8_128_970
     EvmYul.Yul.call (fuel + 970) [FormalYul.word value, EvmYul.UInt256.ofNat 128]
       (.some "shift_right_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShr 128 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShr 128 value)]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_shift_right_t_uint256_t_uint8_128 (value := value) (fuel := fuel + 890)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -2266,7 +2196,7 @@ theorem call_shift_right_t_uint256_t_uint8_128_964
     EvmYul.Yul.call (fuel + 964) [FormalYul.word value, EvmYul.UInt256.ofNat 128]
       (.some "shift_right_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShr 128 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShr 128 value)]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_shift_right_t_uint256_t_uint8_128 (value := value) (fuel := fuel + 884)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -2278,7 +2208,7 @@ theorem call_shift_right_t_uint256_t_uint8_128_961
     EvmYul.Yul.call (fuel + 961) [FormalYul.word value, EvmYul.UInt256.ofNat 128]
       (.some "shift_right_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShr 128 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShr 128 value)]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_shift_right_t_uint256_t_uint8_128 (value := value) (fuel := fuel + 881)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -2290,7 +2220,7 @@ theorem call_shift_right_t_uint256_t_uint8_128_955
     EvmYul.Yul.call (fuel + 955) [FormalYul.word value, EvmYul.UInt256.ofNat 128]
       (.some "shift_right_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShr 128 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShr 128 value)]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_shift_right_t_uint256_t_uint8_128 (value := value) (fuel := fuel + 875)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -3015,7 +2945,7 @@ theorem call_shift_right_t_uint256_t_uint8_one_163
     EvmYul.Yul.call (fuel + 163) [FormalYul.word value, EvmYul.UInt256.ofNat 1]
       (.some "shift_right_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShr 1 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShr 1 value)]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_shift_right_t_uint256_t_uint8_one (value := value) (fuel := fuel + 83)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -3027,7 +2957,7 @@ theorem call_shift_right_t_uint256_t_uint8_one_4975
     EvmYul.Yul.call (fuel + 4975) [FormalYul.word value, EvmYul.UInt256.ofNat 1]
       (.some "shift_right_t_uint256_t_uint8") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (evmShr 1 value)]) := by
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShr 1 value)]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_shift_right_t_uint256_t_uint8_one (value := value) (fuel := fuel + 4895)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -3150,7 +3080,7 @@ theorem call_fun__sqrt_karatsubaQuotient_4409
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
     EvmYul.UInt256.eq0, FormalYul.word,
     Finmap.lookup_insert, Finmap.lookup_insert_of_ne]
-  by_cases hc : evmShr 128 res = 0
+  by_cases hc : FormalYul.evmShr 128 res = 0
   · have hcUInt :
         (EvmYul.UInt256.shiftRight (EvmYul.UInt256.ofNat res) (EvmYul.UInt256.ofNat 128)) =
           { val := 0 } := by
@@ -4313,8 +4243,8 @@ theorem selector_sqrt512_evmShr_prefix
   change FormalYul.evmShr 224 (FormalYul.u256 (EvmYul.fromBytesBigEndian (sel ++ tail))) =
     1062298250
   unfold FormalYul.evmShr
-  simp only [FormalYul.Preservation.u256_two_twenty_four, Nat.reduceLT, if_true,
-    FormalYul.Preservation.u256_u256]
+  simp only [FormalYul.u256_two_twenty_four, Nat.reduceLT, if_true,
+    FormalYul.u256_u256]
   have hsel : EvmYul.fromBytesBigEndian sel = 1062298250 := by decide
   have htail_lt : EvmYul.fromBytesBigEndian tail < 256 ^ 28 := by
     simpa [htail_len] using FormalYul.Preservation.fromBytesBigEndian_lt_pow_length tail
@@ -4333,7 +4263,7 @@ theorem selector_sqrt512_evmShr_prefix
           omega
       _ = 256 ^ (4 + 28) := by rw [← Nat.pow_add]
       _ = 2 ^ 256 := by decide
-  rw [FormalYul.Preservation.u256_eq_self_of_lt hval_lt]
+  rw [FormalYul.u256_eq_self_of_lt hval_lt]
   rw [hpow]
   have hdiv :
       (1062298250 * 256 ^ 28 + EvmYul.fromBytesBigEndian tail) / 256 ^ 28 =
@@ -4366,11 +4296,11 @@ theorem selector_sqrt512_shifted_calldataload0 (xHi xLo : Nat) :
         ([UInt8.ofNat 63, UInt8.ofNat 81, UInt8.ofNat 98, UInt8.ofNat 138] ++ tail))) =
     FormalYul.wordNat (EvmYul.UInt256.ofNat 1062298250)
   simp only [FormalYul.Preservation.wordNat_ofNat,
-    FormalYul.Preservation.u256_two_twenty_four]
+    FormalYul.u256_two_twenty_four]
   have htail_len : tail.length = 28 := by
     simp [tail, encodeWord_size, ByteArray.size]
   rw [selector_sqrt512_evmShr_prefix tail htail_len]
-  rw [FormalYul.Preservation.u256_eq_self_of_lt (by
+  rw [FormalYul.u256_eq_self_of_lt (by
     unfold FormalYul.WORD_MOD
     decide)]
 
@@ -4422,8 +4352,8 @@ theorem selector_osqrtUp_evmShr_prefix
   change FormalYul.evmShr 224 (FormalYul.u256 (EvmYul.fromBytesBigEndian (sel ++ tail))) =
     2574136228
   unfold FormalYul.evmShr
-  simp only [FormalYul.Preservation.u256_two_twenty_four, Nat.reduceLT, if_true,
-    FormalYul.Preservation.u256_u256]
+  simp only [FormalYul.u256_two_twenty_four, Nat.reduceLT, if_true,
+    FormalYul.u256_u256]
   have hsel : EvmYul.fromBytesBigEndian sel = 2574136228 := by decide
   have htail_lt : EvmYul.fromBytesBigEndian tail < 256 ^ 28 := by
     simpa [htail_len] using FormalYul.Preservation.fromBytesBigEndian_lt_pow_length tail
@@ -4442,7 +4372,7 @@ theorem selector_osqrtUp_evmShr_prefix
           omega
       _ = 256 ^ (4 + 28) := by rw [← Nat.pow_add]
       _ = 2 ^ 256 := by decide
-  rw [FormalYul.Preservation.u256_eq_self_of_lt hval_lt]
+  rw [FormalYul.u256_eq_self_of_lt hval_lt]
   rw [hpow]
   have hdiv :
       (2574136228 * 256 ^ 28 + EvmYul.fromBytesBigEndian tail) / 256 ^ 28 =
@@ -4475,11 +4405,11 @@ theorem selector_osqrtUp_shifted_calldataload0 (xHi xLo : Nat) :
         ([UInt8.ofNat 153, UInt8.ofNat 110, UInt8.ofNat 51, UInt8.ofNat 164] ++ tail))) =
     FormalYul.wordNat (EvmYul.UInt256.ofNat 2574136228)
   simp only [FormalYul.Preservation.wordNat_ofNat,
-    FormalYul.Preservation.u256_two_twenty_four]
+    FormalYul.u256_two_twenty_four]
   have htail_len : tail.length = 28 := by
     simp [tail, encodeWord_size, ByteArray.size]
   rw [selector_osqrtUp_evmShr_prefix tail htail_len]
-  rw [FormalYul.Preservation.u256_eq_self_of_lt (by
+  rw [FormalYul.u256_eq_self_of_lt (by
     unfold FormalYul.WORD_MOD
     decide)]
 
@@ -5034,13 +4964,13 @@ theorem call_fun__mul_1022_add_raw
       (.some "fun__mul_1022") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
-      [EvmYul.UInt256.ofNat (evmSub (evmSub (evmMulmod x y
+      [EvmYul.UInt256.ofNat (FormalYul.evmSub (FormalYul.evmSub (FormalYul.evmMulmod x y
         115792089237316195423570985008687907853269984665640564039457584007913129639935)
-        (evmMul x y))
-        (evmLt (evmMulmod x y
+        (FormalYul.evmMul x y))
+        (FormalYul.evmLt (FormalYul.evmMulmod x y
           115792089237316195423570985008687907853269984665640564039457584007913129639935)
-          (evmMul x y))),
-       EvmYul.UInt256.ofNat (evmMul x y)]) := by
+          (FormalYul.evmMul x y))),
+       EvmYul.UInt256.ofNat (FormalYul.evmMul x y)]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_fun__mul_1022 (x := x) (y := y) (fuel := fuel + extra)
       (shared := shared) (store := store) (hlookup := hlookup)
@@ -5058,7 +4988,7 @@ theorem call_fun__gt_1766_add_raw
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
       [EvmYul.UInt256.ofNat
-        (evmOr (evmGt xHi yHi) (evmAnd (evmEq xHi yHi) (evmGt xLo yLo)))]) := by
+        (FormalYul.evmOr (FormalYul.evmGt xHi yHi) (FormalYul.evmAnd (FormalYul.evmEq xHi yHi) (FormalYul.evmGt xLo yLo)))]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_fun__gt_1766 (xHi := xHi) (xLo := xLo) (yHi := yHi) (yLo := yLo)
       (fuel := fuel + extra) (shared := shared) (store := store) (hlookup := hlookup)
@@ -5088,8 +5018,8 @@ theorem call_fun__add_637_add_raw
       (.some "fun__add_637") (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok shared store,
-      [EvmYul.UInt256.ofNat (evmAdd xHi (evmLt (evmAdd xLo y) xLo)),
-       EvmYul.UInt256.ofNat (evmAdd xLo y)]) := by
+      [EvmYul.UInt256.ofNat (FormalYul.evmAdd xHi (FormalYul.evmLt (FormalYul.evmAdd xLo y) xLo)),
+       EvmYul.UInt256.ofNat (FormalYul.evmAdd xLo y)]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_fun__add_637 (xHi := xHi) (xLo := xLo) (y := y)
       (fuel := fuel + extra) (shared := shared) (store := store) (hlookup := hlookup)
@@ -5118,7 +5048,7 @@ theorem call_fun_osqrtUp_4653_osqrt
       (EvmYul.Yul.State.Ok (osqrtUpSharedAfterInput xHi xLo) store) =
     .ok (EvmYul.Yul.State.Ok
         (sharedAfterFrom0 (osqrtUpSharedAfterInput xHi xLo)
-          (osqrtUpRuntimePair xHi xLo).1 (osqrtUpRuntimePair xHi xLo).2)
+          (model_osqrtUp_evm xHi xLo).1 (model_osqrtUp_evm xHi xLo).2)
         store,
       [FormalYul.word 0]) := by
   by_cases hcond : FormalYul.evmEq xHi 0 = 0
@@ -5156,7 +5086,7 @@ theorem call_fun_osqrtUp_4653_osqrt
       call_fun_toUint_5616,
       call_fun__add_637,
       call_fun_from_156_zero_raw,
-      osqrtUpRuntimePair, FormalYul.word,
+      model_osqrtUp_evm, FormalYul.word,
       Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
       Nat.add_assoc, Nat.add_comm, Nat.add_left_comm]
   · have hswitch : ¬ EvmYul.UInt256.ofNat 0 =
@@ -5194,7 +5124,7 @@ theorem call_fun_osqrtUp_4653_osqrt
       call_convert_t_rational_0_by_1_to_t_uint256,
       call_fun_sqrtUp_6201,
       call_fun_from_156_zero_raw,
-      osqrtUpRuntimePair, FormalYul.word,
+      model_osqrtUp_evm, FormalYul.word,
       Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
       Nat.add_assoc, Nat.add_comm, Nat.add_left_comm]
 
@@ -5252,7 +5182,7 @@ theorem call_fun_osqrtUp_4653_osqrt_add_raw
       (EvmYul.Yul.State.Ok (osqrtUpSharedAfterInput xHi xLo) store) =
     .ok (EvmYul.Yul.State.Ok
         (sharedAfterFrom0 (osqrtUpSharedAfterInput xHi xLo)
-          (osqrtUpRuntimePair xHi xLo).1 (osqrtUpRuntimePair xHi xLo).2)
+          (model_osqrtUp_evm xHi xLo).1 (model_osqrtUp_evm xHi xLo).2)
         store,
       [EvmYul.UInt256.ofNat 0]) := by
   simpa [FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
@@ -5310,18 +5240,18 @@ theorem call_fun_into_182_osqrt_result_add_raw
       (.some "fun_into_182") (.some yulContract)
       (EvmYul.Yul.State.Ok
         (sharedAfterFrom0 (osqrtUpSharedAfterInput xHi xLo)
-          (osqrtUpRuntimePair xHi xLo).1 (osqrtUpRuntimePair xHi xLo).2)
+          (model_osqrtUp_evm xHi xLo).1 (model_osqrtUp_evm xHi xLo).2)
         store) =
     .ok (EvmYul.Yul.State.Ok
         (sharedAfterFrom0 (osqrtUpSharedAfterInput xHi xLo)
-          (osqrtUpRuntimePair xHi xLo).1 (osqrtUpRuntimePair xHi xLo).2)
+          (model_osqrtUp_evm xHi xLo).1 (model_osqrtUp_evm xHi xLo).2)
         store,
-      [EvmYul.UInt256.ofNat (osqrtUpRuntimePair xHi xLo).1,
-       EvmYul.UInt256.ofNat (osqrtUpRuntimePair xHi xLo).2]) := by
+      [EvmYul.UInt256.ofNat (model_osqrtUp_evm xHi xLo).1,
+       EvmYul.UInt256.ofNat (model_osqrtUp_evm xHi xLo).2]) := by
   simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
     call_fun_into_182_from0_active6_raw
-      (xHi := (osqrtUpRuntimePair xHi xLo).1)
-      (xLo := (osqrtUpRuntimePair xHi xLo).2)
+      (xHi := (model_osqrtUp_evm xHi xLo).1)
+      (xLo := (model_osqrtUp_evm xHi xLo).2)
       (fuel := fuel) (extra := extra) (shared := osqrtUpSharedAfterInput xHi xLo)
       (store := store)
       (hlookup := osqrtUpSharedAfterInput_lookup xHi xLo)
@@ -5336,10 +5266,10 @@ theorem call_fun_wrap_osqrtUp_6261
       (EvmYul.Yul.State.Ok (osqrtUpSharedAfterFreePtr xHi xLo) store) =
     .ok (EvmYul.Yul.State.Ok
         (sharedAfterFrom0 (osqrtUpSharedAfterInput xHi xLo)
-          (osqrtUpRuntimePair xHi xLo).1 (osqrtUpRuntimePair xHi xLo).2)
+          (model_osqrtUp_evm xHi xLo).1 (model_osqrtUp_evm xHi xLo).2)
         store,
-      [FormalYul.word (osqrtUpRuntimePair xHi xLo).1,
-       FormalYul.word (osqrtUpRuntimePair xHi xLo).2]) := by
+      [FormalYul.word (model_osqrtUp_evm xHi xLo).1,
+       FormalYul.word (model_osqrtUp_evm xHi xLo).2]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv,
     osqrtUpSharedAfterFreePtr_lookup xHi xLo,
@@ -5368,7 +5298,7 @@ theorem call_fun_wrap_osqrtUp_6261
     call_fun_tmp_128_add_raw,
     call_fun_osqrtUp_4653_osqrt_add_raw,
     call_fun_into_182_from0_active6_raw,
-    osqrtUpRuntimePair, FormalYul.word,
+    model_osqrtUp_evm, FormalYul.word,
     Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
     Nat.add_assoc, Nat.add_comm, Nat.add_left_comm]
 
@@ -5474,8 +5404,8 @@ theorem call_external_fun_wrap_osqrtUp_6261_halt
         .error (EvmYul.Yul.Exception.YulHalt state value) ∧
       FormalYul.returnOf state =
         { returndata :=
-            (FormalYul.word (osqrtUpRuntimePair xHi xLo).1).toByteArray ++
-              (FormalYul.word (osqrtUpRuntimePair xHi xLo).2).toByteArray } := by
+            (FormalYul.word (model_osqrtUp_evm xHi xLo).1).toByteArray ++
+              (FormalYul.word (model_osqrtUp_evm xHi xLo).2).toByteArray } := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv,
     osqrtUpSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
@@ -5548,10 +5478,10 @@ theorem call_external_fun_wrap_osqrtUp_6261_halt
         (EvmYul.Yul.State.Ok (osqrtUpSharedAfterFreePtr xHi xLo) paramStore) =
       .ok (EvmYul.Yul.State.Ok
           (sharedAfterFrom0 (osqrtUpSharedAfterInput xHi xLo)
-            (osqrtUpRuntimePair xHi xLo).1 (osqrtUpRuntimePair xHi xLo).2)
+            (model_osqrtUp_evm xHi xLo).1 (model_osqrtUp_evm xHi xLo).2)
           paramStore,
-        [EvmYul.UInt256.ofNat (osqrtUpRuntimePair xHi xLo).1,
-         EvmYul.UInt256.ofNat (osqrtUpRuntimePair xHi xLo).2]) := by
+        [EvmYul.UInt256.ofNat (model_osqrtUp_evm xHi xLo).1,
+         EvmYul.UInt256.ofNat (model_osqrtUp_evm xHi xLo).2]) := by
     simpa [paramStore, FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
       call_fun_wrap_osqrtUp_6261
         (xHi := xHi) (xLo := xLo) (fuel := fuel + 594)
@@ -5565,8 +5495,8 @@ theorem call_external_fun_wrap_osqrtUp_6261_halt
     FormalYul.word, Option.get!, Option.getD]
   simp [FormalYul.returnOf, EvmYul.Yul.State.toMachineState,
     uint256_add_sub_self_64]
-  let rHi := (osqrtUpRuntimePair xHi xLo).1
-  let rLo := (osqrtUpRuntimePair xHi xLo).2
+  let rHi := (model_osqrtUp_evm xHi xLo).1
+  let rLo := (model_osqrtUp_evm xHi xLo).2
   let finalShared := sharedAfterFrom0 (osqrtUpSharedAfterInput xHi xLo) rHi rLo
   let mload64 := finalShared.mload (EvmYul.UInt256.ofNat 64)
   change (((mload64.2.mstore mload64.1 (EvmYul.UInt256.ofNat rHi)).mstore
@@ -5878,8 +5808,8 @@ theorem exec_dispatcherSwitch_osqrtUp_halt (xHi xLo : Nat) :
     FormalYul.Preservation.ExecReturn 999993 dispatcherSwitch (.some yulContract)
       (EvmYul.Yul.State.Ok (osqrtUpSharedAfterFreePtr xHi xLo) selectorStoreOsqrt)
       { returndata :=
-          (FormalYul.word (osqrtUpRuntimePair xHi xLo).1).toByteArray ++
-            (FormalYul.word (osqrtUpRuntimePair xHi xLo).2).toByteArray } := by
+          (FormalYul.word (model_osqrtUp_evm xHi xLo).1).toByteArray ++
+            (FormalYul.word (model_osqrtUp_evm xHi xLo).2).toByteArray } := by
   unfold dispatcherSwitch
   apply FormalYul.Preservation.execReturn_switch_selected_call_nil_of_eval
     (fuel := 999989) (fn := "external_fun_wrap_osqrtUp_6261")
@@ -5916,16 +5846,16 @@ theorem exec_dispatcherIf_osqrtUp_halt (xHi xLo : Nat) :
       (EvmYul.Yul.State.Ok (osqrtUpSharedAfterFreePtr xHi xLo)
         (Inhabited.default : EvmYul.Yul.VarStore))
       { returndata :=
-          (FormalYul.word (osqrtUpRuntimePair xHi xLo).1).toByteArray ++
-            (FormalYul.word (osqrtUpRuntimePair xHi xLo).2).toByteArray } := by
+          (FormalYul.word (model_osqrtUp_evm xHi xLo).1).toByteArray ++
+            (FormalYul.word (model_osqrtUp_evm xHi xLo).2).toByteArray } := by
   change FormalYul.Preservation.ExecReturn 999996
     (EvmYul.Yul.Ast.Stmt.If dispatcherCond [dispatcherSelectorLet, dispatcherSwitch])
     (.some yulContract)
     (EvmYul.Yul.State.Ok (osqrtUpSharedAfterFreePtr xHi xLo)
       (Inhabited.default : EvmYul.Yul.VarStore))
     { returndata :=
-        (FormalYul.word (osqrtUpRuntimePair xHi xLo).1).toByteArray ++
-          (FormalYul.word (osqrtUpRuntimePair xHi xLo).2).toByteArray }
+        (FormalYul.word (model_osqrtUp_evm xHi xLo).1).toByteArray ++
+          (FormalYul.word (model_osqrtUp_evm xHi xLo).2).toByteArray }
   apply FormalYul.Preservation.execReturn_if_true_block_cons_cons_of_eval_first_ok_second
     (fuel := 999993) (first := dispatcherSelectorLet) (second := dispatcherSwitch) (rest := [])
   · exact eval_dispatcherCond_osqrtUp xHi xLo
@@ -5947,8 +5877,8 @@ theorem exec_yulDispatcher_osqrtUp_halt (xHi xLo : Nat) :
     FormalYul.Preservation.ExecReturn 999998 yulDispatcher (.some yulContract)
       (FormalYul.stateFor yulContract (selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo]))
       { returndata :=
-          (FormalYul.word (osqrtUpRuntimePair xHi xLo).1).toByteArray ++
-            (FormalYul.word (osqrtUpRuntimePair xHi xLo).2).toByteArray } := by
+          (FormalYul.word (model_osqrtUp_evm xHi xLo).1).toByteArray ++
+            (FormalYul.word (model_osqrtUp_evm xHi xLo).2).toByteArray } := by
   rw [yulDispatcher_sqrt512_shape]
   exact FormalYul.Preservation.execReturn_block_cons_cons_of_first_ok_second
     (first := dispatcherMstore) (second := dispatcherIf) (rest := [dispatcherRevert])
@@ -5970,13 +5900,13 @@ theorem dispatcherReturn_osqrtUp (xHi xLo : Nat) :
     FormalYul.Preservation.DispatcherReturn yulContract
       (selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo]) 999998
       (FormalYul.Preservation.abiPairResult
-        (osqrtUpRuntimePair xHi xLo).1 (osqrtUpRuntimePair xHi xLo).2) := by
+        (model_osqrtUp_evm xHi xLo).1 (model_osqrtUp_evm xHi xLo).2) := by
   exact FormalYul.Preservation.dispatcherReturn_of_execReturn
     (contract := yulContract) (dispatcher := yulDispatcher)
     (input := selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo])
     (execFuel := 999998)
     (result := FormalYul.Preservation.abiPairResult
-      (osqrtUpRuntimePair xHi xLo).1 (osqrtUpRuntimePair xHi xLo).2)
+      (model_osqrtUp_evm xHi xLo).1 (model_osqrtUp_evm xHi xLo).2)
     yulContract_dispatcher (exec_yulDispatcher_osqrtUp_halt xHi xLo)
 
 theorem run_sqrt512_wrapper_evm_eq_model_sqrt512_wrapper_evm (xHi xLo : Nat) :
@@ -5984,21 +5914,19 @@ theorem run_sqrt512_wrapper_evm_eq_model_sqrt512_wrapper_evm (xHi xLo : Nat) :
   unfold run_sqrt512_wrapper_evm
   apply FormalYul.Preservation.callWord_ok_of_dispatcherReturn_word_1000000
   · exact dispatcherReturn_sqrt512 xHi xLo
-  · exact FormalYul.Preservation.u256_eq_self_of_lt
+  · exact FormalYul.u256_eq_self_of_lt
       (model_sqrt512_wrapper_evm_lt_word xHi xLo)
 
 @[simp]
-theorem osqrtUpRuntimePair_u256_components (xHi xLo : Nat) :
-    (FormalYul.u256 (osqrtUpRuntimePair xHi xLo).1,
-      FormalYul.u256 (osqrtUpRuntimePair xHi xLo).2) =
-      osqrtUpRuntimePair xHi xLo := by
-  unfold osqrtUpRuntimePair
-  by_cases h : evmEq (evmEq (FormalYul.u256 xHi) 0) 0 ≠ 0
-  · rw [if_pos h]
-    simp only [Prod.fst, Prod.snd, bridge_lt, bridge_add,
+theorem model_osqrtUp_evm_u256_components (xHi xLo : Nat) :
+    (FormalYul.u256 (model_osqrtUp_evm xHi xLo).1,
+      FormalYul.u256 (model_osqrtUp_evm xHi xLo).2) =
+      model_osqrtUp_evm xHi xLo := by
+  unfold model_osqrtUp_evm
+  by_cases h : FormalYul.evmEq (FormalYul.evmEq (FormalYul.u256 xHi) 0) 0 ≠ 0
+  · simp only [if_pos h, Prod.fst, Prod.snd,
       FormalYul.Preservation.u256_evmLt, FormalYul.Preservation.u256_evmAdd]
-  · rw [if_neg h]
-    simp only [Prod.fst, Prod.snd, FormalYul.Preservation.u256_zero,
+  · simp only [if_neg h, Prod.fst, Prod.snd, FormalYul.u256_zero,
       u256_model_sqrt256_up_evm]
 
 theorem run_osqrtUp_evm_eq_model_osqrtUp_evm (xHi xLo : Nat) :
@@ -6006,7 +5934,6 @@ theorem run_osqrtUp_evm_eq_model_osqrtUp_evm (xHi xLo : Nat) :
   unfold run_osqrtUp_evm
   apply FormalYul.Preservation.callPair_ok_of_dispatcherReturn_two_words_1000000
   · exact dispatcherReturn_osqrtUp xHi xLo
-  · rw [osqrtUpRuntimePair_u256_components]
-    rw [osqrtUpRuntimePair_eq_model]
+  · rw [model_osqrtUp_evm_u256_components]
 
 end Sqrt512Yul

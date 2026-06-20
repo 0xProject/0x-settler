@@ -14,121 +14,18 @@ import SqrtProof.SqrtCorrect
 namespace Sqrt512Spec
 
 open Sqrt512Yul
-
--- ============================================================================
--- Section 1: Namespace compatibility
--- Both SqrtYul and Sqrt512Yul define identical opcodes.
--- We prove extensional equality so we can rewrite the wrapper's x_hi=0 branch
--- from Sqrt512Yul ops to SqrtYul ops.
--- ============================================================================
-
-section NamespaceCompat
-
-theorem WORD_MOD_compat :
-    @Sqrt512Yul.WORD_MOD = @SqrtYul.WORD_MOD := rfl
-
-theorem u256_compat (x : Nat) :
-    Sqrt512Yul.u256 x = SqrtYul.u256 x := by
-  unfold Sqrt512Yul.u256 SqrtYul.u256
-  rw [WORD_MOD_compat]
-
-theorem evmAdd_compat (a b : Nat) :
-    Sqrt512Yul.evmAdd a b = SqrtYul.evmAdd a b := by
-  unfold Sqrt512Yul.evmAdd SqrtYul.evmAdd
-  simp [u256_compat]
-
-theorem evmSub_compat (a b : Nat) :
-    Sqrt512Yul.evmSub a b = SqrtYul.evmSub a b := by
-  unfold Sqrt512Yul.evmSub SqrtYul.evmSub
-  simp [u256_compat, WORD_MOD_compat]
-
-theorem evmMul_compat (a b : Nat) :
-    Sqrt512Yul.evmMul a b = SqrtYul.evmMul a b := by
-  unfold Sqrt512Yul.evmMul SqrtYul.evmMul
-  simp [u256_compat]
-
-theorem evmDiv_compat (a b : Nat) :
-    Sqrt512Yul.evmDiv a b = SqrtYul.evmDiv a b := by
-  unfold Sqrt512Yul.evmDiv SqrtYul.evmDiv
-  simp [u256_compat]
-
-theorem evmShl_compat (s v : Nat) :
-    Sqrt512Yul.evmShl s v = SqrtYul.evmShl s v := by
-  unfold Sqrt512Yul.evmShl SqrtYul.evmShl
-  simp [u256_compat]
-
-theorem evmShr_compat (s v : Nat) :
-    Sqrt512Yul.evmShr s v = SqrtYul.evmShr s v := by
-  unfold Sqrt512Yul.evmShr SqrtYul.evmShr
-  simp [u256_compat]
-
-theorem evmClz_compat (v : Nat) :
-    Sqrt512Yul.evmClz v = SqrtYul.evmClz v := by
-  unfold Sqrt512Yul.evmClz SqrtYul.evmClz
-  simp [u256_compat]
-
-theorem evmLt_compat (a b : Nat) :
-    Sqrt512Yul.evmLt a b = SqrtYul.evmLt a b := by
-  unfold Sqrt512Yul.evmLt SqrtYul.evmLt
-  simp [u256_compat]
-
-theorem evmEq_compat (a b : Nat) :
-    Sqrt512Yul.evmEq a b = SqrtYul.evmEq a b := by
-  unfold Sqrt512Yul.evmEq SqrtYul.evmEq
-  simp [u256_compat]
-
-theorem evmGt_compat (a b : Nat) :
-    Sqrt512Yul.evmGt a b = SqrtYul.evmGt a b := by
-  unfold Sqrt512Yul.evmGt SqrtYul.evmGt
-  simp [u256_compat]
-
-theorem evmNot_compat (a : Nat) :
-    Sqrt512Yul.evmNot a = SqrtYul.evmNot a := by
-  unfold Sqrt512Yul.evmNot SqrtYul.evmNot
-  simp [u256_compat, WORD_MOD_compat]
-
-theorem evmMulmod_compat (a b n : Nat) :
-    Sqrt512Yul.evmMulmod a b n = SqrtYul.evmMulmod a b n := by
-  unfold Sqrt512Yul.evmMulmod SqrtYul.evmMulmod
-  simp [u256_compat]
-
-end NamespaceCompat
-
--- ============================================================================
--- Section 2: The wrapper's x_hi=0 branch equals model_sqrt_floor_evm
--- ============================================================================
-
-/-- u256 is idempotent: u256(u256(x)) = u256(x). -/
-private theorem u256_idem (x : Nat) :
-    Sqrt512Yul.u256 (Sqrt512Yul.u256 x) = Sqrt512Yul.u256 x := by
-  unfold Sqrt512Yul.u256 Sqrt512Yul.WORD_MOD
-  exact Nat.mod_eq_of_lt (Nat.mod_lt x (Nat.two_pow_pos 256))
-
-theorem su256_idem (x : Nat) :
-    SqrtYul.u256 (SqrtYul.u256 x) = SqrtYul.u256 x := by
-  unfold SqrtYul.u256 SqrtYul.WORD_MOD
-  exact Nat.mod_eq_of_lt (Nat.mod_lt x (Nat.two_pow_pos 256))
-
-theorem su256_zero : SqrtYul.u256 0 = 0 := by
-  unfold SqrtYul.u256 SqrtYul.WORD_MOD; simp
+open FormalYul
 
 /-- When x_hi = 0, model_sqrt512_wrapper_evm calls model_sqrt256_floor_evm,
-    which is identical (modulo namespace) to model_sqrt_floor_evm from SqrtProof. -/
+    which is the generated 256-bit floor sqrt model from SqrtProof. -/
 theorem wrapper_zero_eq_sqrt_floor_evm (x_lo : Nat) :
     model_sqrt512_wrapper_evm 0 x_lo = SqrtYul.model_sqrt_floor_evm x_lo := by
-  -- Unfold all model definitions to expose the full EVM expression
   simp only [model_sqrt512_wrapper_evm, model_sqrt256_floor_evm,
     SqrtYul.model_sqrt_floor_evm, SqrtYul.model_sqrt_evm]
-  -- Convert Sqrt512 namespace ops to SqrtYul ops
-  simp only [evmEq_compat, evmShr_compat, evmAdd_compat, evmDiv_compat,
-    evmSub_compat, evmClz_compat, evmShl_compat, evmLt_compat, u256_compat]
-  -- Simplify: u256(u256(x)) = u256(x) and u256(0) = 0
-  simp only [su256_zero, su256_idem]
-  -- Simplify the conditional: if True then 1 else 0 = 1, 1 ≠ 0 = True, take then-branch
-  simp (config := { decide := true })
+  simp (config := { decide := true }) [FormalYul.u256, FormalYul.WORD_MOD]
 
 -- ============================================================================
--- Section 3: natSqrt uniqueness bridge
+-- natSqrt uniqueness bridge
 -- ============================================================================
 
 /-- The integer square root is unique: if r² ≤ n < (r+1)² then r = natSqrt n. -/
@@ -154,7 +51,7 @@ theorem floorSqrt_eq_natSqrt (x : Nat) (hx : x < 2 ^ 256) :
   exact natSqrt_unique x (floorSqrt x) hlo hhi
 
 -- ============================================================================
--- Section 4: Main theorem — model_sqrt512_wrapper_evm = natSqrt
+-- Main theorem — model_sqrt512_wrapper_evm = natSqrt
 -- ============================================================================
 
 set_option exponentiation.threshold 512 in

@@ -59,12 +59,12 @@ jobs:
         working-directory: formal/yul
         run: lake build yul_importer
 
-      - name: Generate Lean model from Sqrt.sol via Yul IR
+      - name: Generate Lean artifacts from compiled SqrtWrapper Yul IR
         run: |
-          forge inspect src/wrappers/SqrtWrapper.sol:SqrtWrapper ir | \
-            lake -d formal/yul exe yul_importer \
-              --kind sqrt \
-              --output formal/sqrt/SqrtProof/SqrtProof/SqrtYul.lean
+          ./formal/yul/generate_from_forge.sh \
+            sqrt \
+            src/wrappers/SqrtWrapper.sol:SqrtWrapper \
+            formal/sqrt/SqrtProof/SqrtProof/SqrtYul.lean
 
       - name: Generate finite certificate from sqrt spec
         run: |
@@ -75,11 +75,16 @@ jobs:
         run: |
           test -z "$(git ls-files \
             formal/sqrt/SqrtProof/SqrtProof/SqrtYul.lean \
-            formal/sqrt/SqrtProof/SqrtProof/SqrtYulRuntime.lean)"
+            formal/sqrt/SqrtProof/SqrtProof/SqrtYulRuntime.lean \
+            formal/sqrt/SqrtProof/SqrtProof/SqrtYulProof.lean)"
 
       - name: Update Lake dependencies
         working-directory: formal/sqrt/SqrtProof
         run: lake update
+
+      - name: Build generated Sqrt EVMYulLean artifacts
+        working-directory: formal/sqrt/SqrtProof
+        run: lake build SqrtProof.SqrtYulRuntime SqrtProof.SqrtYulProof
 
       - name: Build Sqrt proof and model evaluator
         working-directory: formal/sqrt/SqrtProof
