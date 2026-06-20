@@ -156,6 +156,33 @@ theorem read_two_word_write_second_data
   simp [ByteArray.write, ByteArray.readWithPadding, ByteArray.readWithoutPadding,
     ByteArray.size, ha, hb, ffi.ByteArray.zeroes]
 
+theorem read_two_word_write_first_data_128_of_size_96
+    (a b dest : ByteArray) (ha : a.size = 32) (hdest : dest.size = 96) :
+    ((b.write 0 (a.write 0 dest 128 32) 160 32).readWithPadding 128 32).data.toList =
+      a.data.toList := by
+  simp [ByteArray.size] at ha hdest
+  have hdest160 : dest.data.size - 160 = 0 := by omega
+  have hmin128 : min 128 (dest.data.size + (128 - dest.data.size)) = 128 := by
+    omega
+  have hmin160 :
+      min 160
+          (min 128 (dest.data.size + (128 - dest.data.size)) +
+            (32 + (dest.data.size - 160 + (160 -
+              (min 128 (dest.data.size + (128 - dest.data.size)) +
+                (32 + (dest.data.size - 160))))))) = 160 := by
+    omega
+  simp [ByteArray.write, ByteArray.readWithPadding, ByteArray.readWithoutPadding,
+    ByteArray.size, ha, hdest, hdest160, hmin128, hmin160, List.take_append,
+    List.drop_append, ffi.ByteArray.zeroes]
+  have hleft :
+      List.take 32 (List.drop 128 (List.take 160 (List.take 128 dest.data.toList))) =
+        ([] : List UInt8) := by
+    simp
+  have hright : List.take 32 a.data.toList = a.data.toList := by
+    exact List.take_of_length_le (by simpa [Array.length_toList, ha])
+  rw [hleft, hright]
+  rfl
+
 theorem fromByteArrayBigEndian_eq_of_data_toList_eq
     {a b : ByteArray} (h : a.data.toList = b.data.toList) :
     EvmYul.fromByteArrayBigEndian a = EvmYul.fromByteArrayBigEndian b := by
@@ -293,6 +320,137 @@ theorem mload_two_word_write_second (m : EvmYul.MachineState) (xHi xLo : EvmYul.
   simp [FormalYul.u256, FormalYul.WORD_MOD, FormalYul.wordNat]
   exact xLo.val.isLt
 
+theorem mload_two_word_write_128_first_of_size_le
+    (m : EvmYul.MachineState) (xHi xLo : EvmYul.UInt256)
+    (hactive : m.activeWords = FormalYul.word 3) (hmem : m.memory.size = 96) :
+    (((m.mstore (FormalYul.word 128) xHi).mstore (FormalYul.word 160) xLo).mload (FormalYul.word 128)).1 =
+      xHi := by
+  unfold EvmYul.MachineState.mload EvmYul.MachineState.lookupMemory
+  have hsize :
+      192 ≤ (xLo.toByteArray.write 0 (xHi.toByteArray.write 0 m.memory 128 32) 160 32).size := by
+    have h := write32_size_ge xLo.toByteArray (xHi.toByteArray.write 0 m.memory 128 32) 160
+    simpa using h
+  have hsize' :
+      192 ≤ (xLo.toByteArray.write 0
+        (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 128).toNat 32)
+        (EvmYul.UInt256.ofNat 160).toNat 32).size := by
+    simpa using hsize
+  have h128 : (EvmYul.UInt256.ofNat 128).toNat = 128 := rfl
+  have hcond :
+      ¬ ((xLo.toByteArray.write 0
+                (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 128).toNat 32)
+                (EvmYul.UInt256.ofNat 160).toNat 32).size ≤
+            (EvmYul.UInt256.ofNat 128).toNat ∨
+          EvmYul.UInt256.ofNat
+                (max
+                  (EvmYul.UInt256.ofNat
+                      (max (EvmYul.UInt256.ofNat 3).toNat (((EvmYul.UInt256.ofNat 128).toNat + 32 + 31) / 32))).toNat
+                  (((EvmYul.UInt256.ofNat 160).toNat + 32 + 31) / 32)) *
+              { val := 32 } ≤
+            EvmYul.UInt256.ofNat 128) := by
+    intro h
+    cases h with
+    | inl hmemSize =>
+        have hgt :
+            (EvmYul.UInt256.ofNat 128).toNat <
+              (xLo.toByteArray.write 0
+                (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 128).toNat 32)
+                (EvmYul.UInt256.ofNat 160).toNat 32).size := by
+          rw [h128]
+          omega
+        exact (not_le_of_gt hgt) hmemSize
+    | inr hactiveMem =>
+        norm_num [EvmYul.MachineState.M, EvmYul.UInt256.ofNat, EvmYul.UInt256.mul,
+          EvmYul.UInt256.toNat, EvmYul.UInt256.size] at hactiveMem
+        exact
+          (by decide :
+            ¬ ((({ val := 6 } : EvmYul.UInt256) * ({ val := 32 } : EvmYul.UInt256)) ≤
+              ({ val := (128 : Fin EvmYul.UInt256.size) } : EvmYul.UInt256))) hactiveMem
+  simp [FormalYul.word, EvmYul.MachineState.mstore, EvmYul.MachineState.writeWord,
+    hactive, EvmYul.writeBytes, EvmYul.fromByteArrayBigEndian, EvmYul.MachineState.M,
+    hcond]
+  apply FormalYul.Preservation.eq_of_wordNat_eq
+  simp
+  have hread :
+      ((xLo.toByteArray.write 0
+            (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 128).toNat 32)
+            (EvmYul.UInt256.ofNat 160).toNat 32).readWithPadding
+          (EvmYul.UInt256.ofNat 128).toNat 32).data.toList =
+        xHi.toByteArray.data.toList := by
+    simpa using
+      read_two_word_write_first_data_128_of_size_96 xHi.toByteArray xLo.toByteArray m.memory
+        (EvmYul.UInt256.toByteArray_size xHi) hmem
+  rw [hread]
+  change FormalYul.u256 (EvmYul.fromByteArrayBigEndian xHi.toByteArray) = FormalYul.wordNat xHi
+  simp [FormalYul.u256, FormalYul.WORD_MOD, FormalYul.wordNat]
+  exact xHi.val.isLt
+
+theorem mload_two_word_write_128_second_of_size_le
+    (m : EvmYul.MachineState) (xHi xLo : EvmYul.UInt256)
+    (hactive : m.activeWords = FormalYul.word 3) :
+    (((m.mstore (FormalYul.word 128) xHi).mstore (FormalYul.word 160) xLo).mload (FormalYul.word 160)).1 =
+      xLo := by
+  unfold EvmYul.MachineState.mload EvmYul.MachineState.lookupMemory
+  have hsize :
+      192 ≤ (xLo.toByteArray.write 0 (xHi.toByteArray.write 0 m.memory 128 32) 160 32).size := by
+    have h := write32_size_ge xLo.toByteArray (xHi.toByteArray.write 0 m.memory 128 32) 160
+    simpa using h
+  have hsize' :
+      192 ≤ (xLo.toByteArray.write 0
+        (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 128).toNat 32)
+        (EvmYul.UInt256.ofNat 160).toNat 32).size := by
+    simpa using hsize
+  have h160 : (EvmYul.UInt256.ofNat 160).toNat = 160 := rfl
+  have hcond :
+      ¬ ((xLo.toByteArray.write 0
+                (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 128).toNat 32)
+                (EvmYul.UInt256.ofNat 160).toNat 32).size ≤
+            (EvmYul.UInt256.ofNat 160).toNat ∨
+          EvmYul.UInt256.ofNat
+                (max
+                  (EvmYul.UInt256.ofNat
+                      (max (EvmYul.UInt256.ofNat 3).toNat (((EvmYul.UInt256.ofNat 128).toNat + 32 + 31) / 32))).toNat
+                  (((EvmYul.UInt256.ofNat 160).toNat + 32 + 31) / 32)) *
+              { val := 32 } ≤
+            EvmYul.UInt256.ofNat 160) := by
+    intro h
+    cases h with
+    | inl hmemSize =>
+        have hgt :
+            (EvmYul.UInt256.ofNat 160).toNat <
+              (xLo.toByteArray.write 0
+                (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 128).toNat 32)
+                (EvmYul.UInt256.ofNat 160).toNat 32).size := by
+          rw [h160]
+          omega
+        exact (not_le_of_gt hgt) hmemSize
+    | inr hactiveMem =>
+        norm_num [EvmYul.MachineState.M, EvmYul.UInt256.ofNat, EvmYul.UInt256.mul,
+          EvmYul.UInt256.toNat, EvmYul.UInt256.size] at hactiveMem
+        exact
+          (by decide :
+            ¬ ((({ val := 6 } : EvmYul.UInt256) * ({ val := 32 } : EvmYul.UInt256)) ≤
+              ({ val := (160 : Fin EvmYul.UInt256.size) } : EvmYul.UInt256))) hactiveMem
+  simp [FormalYul.word, EvmYul.MachineState.mstore, EvmYul.MachineState.writeWord,
+    hactive, EvmYul.writeBytes, EvmYul.fromByteArrayBigEndian, EvmYul.MachineState.M,
+    hcond]
+  apply FormalYul.Preservation.eq_of_wordNat_eq
+  simp
+  have hread :
+      ((xLo.toByteArray.write 0
+            (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 128).toNat 32)
+            (EvmYul.UInt256.ofNat 160).toNat 32).readWithPadding
+          (EvmYul.UInt256.ofNat 160).toNat 32).data.toList =
+        xLo.toByteArray.data.toList := by
+    have hba := FormalYul.Preservation.readWithPadding_write_same_of_size
+      xLo.toByteArray (xHi.toByteArray.write 0 m.memory 128 32) 160
+      (EvmYul.UInt256.toByteArray_size xLo)
+    simpa using congrArg (fun data : ByteArray => data.data.toList) hba
+  rw [hread]
+  change FormalYul.u256 (EvmYul.fromByteArrayBigEndian xLo.toByteArray) = FormalYul.wordNat xLo
+  simp [FormalYul.u256, FormalYul.WORD_MOD, FormalYul.wordNat]
+  exact xLo.val.isLt
+
 theorem mstore_two_word_active_3 (m : EvmYul.MachineState) (xHi xLo : EvmYul.UInt256)
     (hactive : m.activeWords = FormalYul.word 3) :
     ((m.mstore (FormalYul.word 0) xHi).mstore (FormalYul.word 32) xLo).activeWords =
@@ -316,6 +474,35 @@ theorem mload_two_word_write_second_state (m : EvmYul.MachineState) (xHi xLo : E
     (hactive : m.activeWords = FormalYul.word 3) :
     (((m.mstore (FormalYul.word 0) xHi).mstore (FormalYul.word 32) xLo).mload (FormalYul.word 32)).2 =
       ((m.mstore (FormalYul.word 0) xHi).mstore (FormalYul.word 32) xLo) := by
+  cases m
+  simp [EvmYul.MachineState.mload, EvmYul.MachineState.mstore,
+    EvmYul.MachineState.writeWord, EvmYul.writeBytes, EvmYul.MachineState.M,
+    FormalYul.word, hactive]
+  decide
+
+theorem mstore_two_word_128_active_6 (m : EvmYul.MachineState) (xHi xLo : EvmYul.UInt256)
+    (hactive : m.activeWords = FormalYul.word 3) :
+    ((m.mstore (FormalYul.word 128) xHi).mstore (FormalYul.word 160) xLo).activeWords =
+      FormalYul.word 6 := by
+  cases m
+  simp [EvmYul.MachineState.mstore, EvmYul.MachineState.writeWord, EvmYul.writeBytes,
+    EvmYul.MachineState.M, FormalYul.word, hactive]
+  decide
+
+theorem mload_two_word_write_128_first_state (m : EvmYul.MachineState) (xHi xLo : EvmYul.UInt256)
+    (hactive : m.activeWords = FormalYul.word 3) :
+    (((m.mstore (FormalYul.word 128) xHi).mstore (FormalYul.word 160) xLo).mload (FormalYul.word 128)).2 =
+      ((m.mstore (FormalYul.word 128) xHi).mstore (FormalYul.word 160) xLo) := by
+  cases m
+  simp [EvmYul.MachineState.mload, EvmYul.MachineState.mstore,
+    EvmYul.MachineState.writeWord, EvmYul.writeBytes, EvmYul.MachineState.M,
+    FormalYul.word, hactive]
+  decide
+
+theorem mload_two_word_write_128_second_state (m : EvmYul.MachineState) (xHi xLo : EvmYul.UInt256)
+    (hactive : m.activeWords = FormalYul.word 3) :
+    (((m.mstore (FormalYul.word 128) xHi).mstore (FormalYul.word 160) xLo).mload (FormalYul.word 160)).2 =
+      ((m.mstore (FormalYul.word 128) xHi).mstore (FormalYul.word 160) xLo) := by
   cases m
   simp [EvmYul.MachineState.mload, EvmYul.MachineState.mstore,
     EvmYul.MachineState.writeWord, EvmYul.writeBytes, EvmYul.MachineState.M,
@@ -621,6 +808,10 @@ def sharedAfterFrom128 (shared : EvmYul.SharedState .Yul) (xHi xLo : Nat) :
       ((shared.toMachineState.mstore (FormalYul.word 128) (FormalYul.word xHi)).mstore
         (FormalYul.word 160) (FormalYul.word xLo)) }
 
+def sharedAfterAlloc128 (shared : EvmYul.SharedState .Yul) : EvmYul.SharedState .Yul :=
+  { shared with
+    toMachineState := shared.toMachineState.mstore (FormalYul.word 64) (FormalYul.word 192) }
+
 @[simp]
 theorem sharedAfterFrom0_lookup
     (shared : EvmYul.SharedState .Yul) (xHi xLo : Nat)
@@ -640,6 +831,16 @@ theorem sharedAfterFrom128_lookup
         (sharedAfterFrom128 shared xHi xLo).executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract) := by
   simpa [sharedAfterFrom128] using hlookup
+
+@[simp]
+theorem sharedAfterAlloc128_lookup
+    (shared : EvmYul.SharedState .Yul)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    (sharedAfterAlloc128 shared).accountMap.find?
+        (sharedAfterAlloc128 shared).executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract) := by
+  simpa [sharedAfterAlloc128] using hlookup
 
 theorem sharedState_eta (shared : EvmYul.SharedState .Yul) :
     { toState := shared.toState, toMachineState := shared.toMachineState } = shared := by
@@ -779,6 +980,58 @@ theorem call_fun_from_156_128
       EvmYul.UInt256.ofNat 160 := by
     decide
   rw [haddr]
+
+@[simp]
+theorem sharedAfterAlloc128_activeWords
+    (shared : EvmYul.SharedState .Yul)
+    (hactive : shared.toMachineState.activeWords = FormalYul.word 3) :
+    (sharedAfterAlloc128 shared).toMachineState.activeWords = FormalYul.word 3 := by
+  simp [sharedAfterAlloc128, EvmYul.MachineState.mstore, EvmYul.MachineState.writeWord,
+    EvmYul.writeBytes, EvmYul.MachineState.M, FormalYul.word, hactive]
+  decide
+
+@[simp]
+theorem call_fun_alloc_121_128
+    (fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract))
+    (hmload64 : (shared.mload (FormalYul.word 64)).1 = FormalYul.word 128)
+    (hmload64_state : (shared.mload (FormalYul.word 64)).2 = shared.toMachineState) :
+    EvmYul.Yul.call (fuel + 100) [] (.some "fun_alloc_121") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok (sharedAfterAlloc128 shared) store, [FormalYul.word 128]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv, hlookup,
+    Option.getD_some, yulContract_functions, lookup_fun_alloc_121]
+  simp only [yulFunction_fun_alloc_121,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [hlookup, sharedAfterAlloc128, hmload64, hmload64_state,
+    EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def, EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    EvmYul.Yul.State.setMachineState, EvmYul.Yul.State.toMachineState,
+    call_zero_value_for_split_t_userDefinedValueType__uint512__113,
+    FormalYul.word, Finmap.lookup_insert, Finmap.lookup_insert_of_ne]
+  have hval :
+      (shared.mload (EvmYul.UInt256.ofNat 64)).1 = EvmYul.UInt256.ofNat 128 := by
+    simpa [FormalYul.word] using hmload64
+  have hstate :
+      (shared.mload (EvmYul.UInt256.ofNat 64)).2 = shared.toMachineState := by
+    simpa [FormalYul.word] using hmload64_state
+  rw [hstate, hval]
+  constructor
+  · have hadd : EvmYul.UInt256.ofNat 64 + EvmYul.UInt256.ofNat 128 =
+        EvmYul.UInt256.ofNat 192 := by
+      decide
+    rw [hadd]
+  · rfl
 
 @[simp]
 theorem call_fun_into_182_from0
@@ -3287,6 +3540,16 @@ def sqrt512SharedAfterFreePtr (xHi xLo : Nat) : EvmYul.SharedState .Yul :=
   let shared := FormalYul.sharedFor yulContract (selector_sqrt512 ++ FormalYul.encodeWords [xHi, xLo])
   { shared with toMachineState := shared.toMachineState.mstore (FormalYul.word 64) (FormalYul.word 128) }
 
+def osqrtUpSharedAfterFreePtr (xHi xLo : Nat) : EvmYul.SharedState .Yul :=
+  let shared := FormalYul.sharedFor yulContract (selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo])
+  { shared with toMachineState := shared.toMachineState.mstore (FormalYul.word 64) (FormalYul.word 128) }
+
+def osqrtUpSharedAfterAlloc (xHi xLo : Nat) : EvmYul.SharedState .Yul :=
+  sharedAfterAlloc128 (osqrtUpSharedAfterFreePtr xHi xLo)
+
+def osqrtUpSharedAfterInput (xHi xLo : Nat) : EvmYul.SharedState .Yul :=
+  sharedAfterFrom128 (osqrtUpSharedAfterAlloc xHi xLo) xHi xLo
+
 theorem sharedFor_mstore_eq_sqrt512SharedAfterFreePtr (xHi xLo : Nat) :
     { (FormalYul.sharedFor yulContract (selector_sqrt512 ++ FormalYul.encodeWords [xHi, xLo])) with
       toMachineState :=
@@ -3324,16 +3587,35 @@ theorem sqrt512SharedAfterFreePtr_lookup (xHi xLo : Nat) :
   simp [sqrt512SharedAfterFreePtr]
 
 @[simp]
+theorem osqrtUpSharedAfterFreePtr_lookup (xHi xLo : Nat) :
+    (osqrtUpSharedAfterFreePtr xHi xLo).accountMap.find?
+      (osqrtUpSharedAfterFreePtr xHi xLo).executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract) := by
+  simp [osqrtUpSharedAfterFreePtr]
+
+@[simp]
 theorem sqrt512SharedAfterFreePtr_calldata (xHi xLo : Nat) :
     (sqrt512SharedAfterFreePtr xHi xLo).executionEnv.calldata =
       selector_sqrt512 ++ FormalYul.encodeWords [xHi, xLo] := by
   simp [sqrt512SharedAfterFreePtr, FormalYul.sharedFor, FormalYul.envFor]
 
 @[simp]
+theorem osqrtUpSharedAfterFreePtr_calldata (xHi xLo : Nat) :
+    (osqrtUpSharedAfterFreePtr xHi xLo).executionEnv.calldata =
+      selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo] := by
+  simp [osqrtUpSharedAfterFreePtr, FormalYul.sharedFor, FormalYul.envFor]
+
+@[simp]
 theorem sqrt512SharedAfterFreePtr_callvalue (xHi xLo : Nat) :
     (sqrt512SharedAfterFreePtr xHi xLo).executionEnv.weiValue =
       ({ val := 0 } : EvmYul.UInt256) := by
   simp [sqrt512SharedAfterFreePtr, FormalYul.sharedFor, FormalYul.envFor]
+
+@[simp]
+theorem osqrtUpSharedAfterFreePtr_callvalue (xHi xLo : Nat) :
+    (osqrtUpSharedAfterFreePtr xHi xLo).executionEnv.weiValue =
+      ({ val := 0 } : EvmYul.UInt256) := by
+  simp [osqrtUpSharedAfterFreePtr, FormalYul.sharedFor, FormalYul.envFor]
 
 @[simp]
 theorem encodeWord_size (x : Nat) : (FormalYul.encodeWord x).size = 32 := by
@@ -3522,9 +3804,23 @@ theorem sqrt512SharedAfterFreePtr_calldata_size (xHi xLo : Nat) :
   simp [sqrt512SharedAfterFreePtr_calldata]
 
 @[simp]
+theorem osqrtUpSharedAfterFreePtr_calldata_size (xHi xLo : Nat) :
+    (osqrtUpSharedAfterFreePtr xHi xLo).executionEnv.calldata.size = 68 := by
+  simp [osqrtUpSharedAfterFreePtr_calldata, selector_osqrtUp, FormalYul.bytes,
+    FormalYul.encodeWords, ByteArray.size_append, ByteArray.size_push, ByteArray.size_empty]
+
+@[simp]
 theorem sqrt512SharedAfterFreePtr_activeWords (xHi xLo : Nat) :
     (sqrt512SharedAfterFreePtr xHi xLo).toMachineState.activeWords = FormalYul.word 3 := by
   simp [sqrt512SharedAfterFreePtr, FormalYul.sharedFor, FormalYul.envFor,
+    EvmYul.MachineState.mstore, EvmYul.MachineState.writeWord, EvmYul.MachineState.M,
+    FormalYul.word]
+  decide
+
+@[simp]
+theorem osqrtUpSharedAfterFreePtr_activeWords (xHi xLo : Nat) :
+    (osqrtUpSharedAfterFreePtr xHi xLo).toMachineState.activeWords = FormalYul.word 3 := by
+  simp [osqrtUpSharedAfterFreePtr, FormalYul.sharedFor, FormalYul.envFor,
     EvmYul.MachineState.mstore, EvmYul.MachineState.writeWord, EvmYul.MachineState.M,
     FormalYul.word]
   decide
@@ -3549,6 +3845,164 @@ theorem sqrt512SharedAfterFreePtr_mload64 (xHi xLo : Nat) :
   simp [hle, EvmYul.fromByteArrayBigEndian, EvmYul.fromBytesBigEndian,
     EvmYul.fromBytes', ffi.ByteArray.zeroes]
   norm_num [UInt8.size, EvmYul.UInt256.size]
+
+@[simp]
+theorem osqrtUpSharedAfterFreePtr_mload64 (xHi xLo : Nat) :
+    ((osqrtUpSharedAfterFreePtr xHi xLo).mload (FormalYul.word 64)).1 =
+      FormalYul.word 128 := by
+  apply FormalYul.Preservation.eq_of_wordNat_eq
+  simp [osqrtUpSharedAfterFreePtr, FormalYul.sharedFor, FormalYul.envFor,
+    FormalYul.wordNat, FormalYul.word,
+    EvmYul.UInt256.toNat, EvmYul.UInt256.ofNat, EvmYul.UInt256.size,
+    Inhabited.default, EvmYul.MachineState.mload, EvmYul.MachineState.lookupMemory,
+    EvmYul.MachineState.mstore, EvmYul.MachineState.writeWord, EvmYul.writeBytes,
+    ByteArray.write, ByteArray.readWithPadding, ByteArray.readWithoutPadding,
+    ByteArray.size, EvmYul.MachineState.M, EvmYul.UInt256.toByteArray]
+  have hle :
+      ¬ (({ val := (3 : Fin EvmYul.UInt256.size) } : EvmYul.UInt256) *
+          { val := (32 : Fin EvmYul.UInt256.size) } ≤
+          ({ val := (64 : Fin EvmYul.UInt256.size) } : EvmYul.UInt256)) := by
+    decide
+  simp [hle, EvmYul.fromByteArrayBigEndian, EvmYul.fromBytesBigEndian,
+    EvmYul.fromBytes', ffi.ByteArray.zeroes]
+  norm_num [UInt8.size, EvmYul.UInt256.size]
+
+@[simp]
+theorem osqrtUpSharedAfterFreePtr_mload64_state (xHi xLo : Nat) :
+    ((osqrtUpSharedAfterFreePtr xHi xLo).mload (FormalYul.word 64)).2 =
+      (osqrtUpSharedAfterFreePtr xHi xLo).toMachineState := by
+  simp [osqrtUpSharedAfterFreePtr, FormalYul.sharedFor, FormalYul.envFor,
+    EvmYul.MachineState.mload, EvmYul.MachineState.mstore,
+    EvmYul.MachineState.writeWord, EvmYul.writeBytes, EvmYul.MachineState.M,
+    FormalYul.word]
+  decide
+
+@[simp]
+theorem osqrtUpSharedAfterAlloc_activeWords (xHi xLo : Nat) :
+    (osqrtUpSharedAfterAlloc xHi xLo).toMachineState.activeWords = FormalYul.word 3 := by
+  simpa [osqrtUpSharedAfterAlloc] using
+    sharedAfterAlloc128_activeWords (osqrtUpSharedAfterFreePtr xHi xLo)
+      (osqrtUpSharedAfterFreePtr_activeWords xHi xLo)
+
+@[simp]
+theorem osqrtUpSharedAfterAlloc_memory_size (xHi xLo : Nat) :
+    (osqrtUpSharedAfterAlloc xHi xLo).toMachineState.memory.size = 96 := by
+  simp [osqrtUpSharedAfterAlloc, sharedAfterAlloc128, osqrtUpSharedAfterFreePtr,
+    FormalYul.sharedFor, FormalYul.envFor, EvmYul.MachineState.mstore,
+    EvmYul.MachineState.writeWord, EvmYul.writeBytes, ByteArray.write,
+    ByteArray.size, FormalYul.word, EvmYul.UInt256.toNat, EvmYul.UInt256.ofNat,
+    EvmYul.UInt256.size, Inhabited.default, EvmYul.UInt256.toByteArray]
+
+@[simp]
+theorem osqrtUpSharedAfterInput_activeWords (xHi xLo : Nat) :
+    (osqrtUpSharedAfterInput xHi xLo).toMachineState.activeWords = FormalYul.word 6 := by
+  simpa [osqrtUpSharedAfterInput, sharedAfterFrom128] using
+    mstore_two_word_128_active_6 (osqrtUpSharedAfterAlloc xHi xLo).toMachineState
+      (FormalYul.word xHi) (FormalYul.word xLo)
+      (osqrtUpSharedAfterAlloc_activeWords xHi xLo)
+
+@[simp]
+theorem osqrtUpSharedAfterInput_mload128_state (xHi xLo : Nat) :
+    ((osqrtUpSharedAfterInput xHi xLo).mload (FormalYul.word 128)).2 =
+      (osqrtUpSharedAfterInput xHi xLo).toMachineState := by
+  simpa [osqrtUpSharedAfterInput, sharedAfterFrom128] using
+    mload_two_word_write_128_first_state (osqrtUpSharedAfterAlloc xHi xLo).toMachineState
+      (FormalYul.word xHi) (FormalYul.word xLo)
+      (osqrtUpSharedAfterAlloc_activeWords xHi xLo)
+
+@[simp]
+theorem osqrtUpSharedAfterInput_mload160_state (xHi xLo : Nat) :
+    ((osqrtUpSharedAfterInput xHi xLo).toMachineState.mload (FormalYul.word 160)).2 =
+      (osqrtUpSharedAfterInput xHi xLo).toMachineState := by
+  simpa [osqrtUpSharedAfterInput, sharedAfterFrom128] using
+    mload_two_word_write_128_second_state (osqrtUpSharedAfterAlloc xHi xLo).toMachineState
+      (FormalYul.word xHi) (FormalYul.word xLo)
+      (osqrtUpSharedAfterAlloc_activeWords xHi xLo)
+
+@[simp]
+theorem osqrtUpSharedAfterInput_mload128 (xHi xLo : Nat) :
+    ((osqrtUpSharedAfterInput xHi xLo).mload (FormalYul.word 128)).1 =
+      FormalYul.word xHi := by
+  simpa [osqrtUpSharedAfterInput, sharedAfterFrom128] using
+    mload_two_word_write_128_first_of_size_le
+      (osqrtUpSharedAfterAlloc xHi xLo).toMachineState
+      (FormalYul.word xHi) (FormalYul.word xLo)
+      (osqrtUpSharedAfterAlloc_activeWords xHi xLo)
+      (osqrtUpSharedAfterAlloc_memory_size xHi xLo)
+
+@[simp]
+theorem osqrtUpSharedAfterInput_mload160 (xHi xLo : Nat) :
+    ((osqrtUpSharedAfterInput xHi xLo).toMachineState.mload (FormalYul.word 160)).1 =
+      FormalYul.word xLo := by
+  simpa [osqrtUpSharedAfterInput, sharedAfterFrom128] using
+    mload_two_word_write_128_second_of_size_le
+      (osqrtUpSharedAfterAlloc xHi xLo).toMachineState
+      (FormalYul.word xHi) (FormalYul.word xLo)
+      (osqrtUpSharedAfterAlloc_activeWords xHi xLo)
+
+@[simp]
+theorem osqrtUpSharedAfterInput_lookup (xHi xLo : Nat) :
+    (osqrtUpSharedAfterInput xHi xLo).accountMap.find?
+        (osqrtUpSharedAfterInput xHi xLo).executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract) := by
+  simp [osqrtUpSharedAfterInput, osqrtUpSharedAfterAlloc]
+
+@[simp]
+theorem call_fun_into_182_from128_osqrt
+    (xHi xLo fuel : Nat) (store : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.call (fuel + 120) [FormalYul.word 128]
+      (.some "fun_into_182") (.some yulContract)
+      (EvmYul.Yul.State.Ok (osqrtUpSharedAfterInput xHi xLo) store) =
+    .ok (EvmYul.Yul.State.Ok (osqrtUpSharedAfterInput xHi xLo) store,
+      [FormalYul.word xHi, FormalYul.word xLo]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [EvmYul.Yul.State.sharedState, EvmYul.Yul.State.executionEnv,
+    osqrtUpSharedAfterInput_lookup xHi xLo,
+    Option.getD_some, yulContract_functions, lookup_fun_into_182]
+  simp only [yulFunction_fun_into_182,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [osqrtUpSharedAfterInput_mload128, osqrtUpSharedAfterInput_mload160,
+    osqrtUpSharedAfterInput_mload128_state, osqrtUpSharedAfterInput_mload160_state,
+    EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def, EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.setMachineState, EvmYul.Yul.State.toMachineState,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    call_zero_value_for_split_t_uint256,
+    FormalYul.word, Finmap.lookup_insert, Finmap.lookup_insert_of_ne]
+  have haddr : EvmYul.UInt256.ofNat 32 + EvmYul.UInt256.ofNat 128 =
+      EvmYul.UInt256.ofNat 160 := by
+    decide
+  have h128state :
+      ((osqrtUpSharedAfterInput xHi xLo).mload (EvmYul.UInt256.ofNat 128)).2 =
+        (osqrtUpSharedAfterInput xHi xLo).toMachineState := by
+    simpa [FormalYul.word] using osqrtUpSharedAfterInput_mload128_state xHi xLo
+  have h160state :
+      ((osqrtUpSharedAfterInput xHi xLo).toMachineState.mload
+          (EvmYul.UInt256.ofNat 160)).2 =
+        (osqrtUpSharedAfterInput xHi xLo).toMachineState := by
+    simpa [FormalYul.word] using osqrtUpSharedAfterInput_mload160_state xHi xLo
+  have h128value :
+      ((osqrtUpSharedAfterInput xHi xLo).mload (EvmYul.UInt256.ofNat 128)).1 =
+        EvmYul.UInt256.ofNat xHi := by
+    simpa [FormalYul.word] using osqrtUpSharedAfterInput_mload128 xHi xLo
+  have h160value :
+      ((osqrtUpSharedAfterInput xHi xLo).toMachineState.mload
+          (EvmYul.UInt256.ofNat 160)).1 =
+        EvmYul.UInt256.ofNat xLo := by
+    simpa [FormalYul.word] using osqrtUpSharedAfterInput_mload160 xHi xLo
+  constructor
+  · rw [h128state, haddr, h160state]
+  · constructor
+    · exact h128value
+    · rw [h128state, haddr]
+      exact h160value
 
 @[simp]
 theorem call_external_fun_wrap_sqrt512_6228_returnOf
