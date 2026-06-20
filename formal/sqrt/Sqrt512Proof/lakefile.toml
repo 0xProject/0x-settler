@@ -6,10 +6,6 @@ packagesDir = "../../yul/.lake/packages"
 [[lean_lib]]
 name = "Sqrt512Proof"
 
-[[lean_exe]]
-name = "sqrt512-model"
-root = "Main"
-
 [[require]]
 name = "FormalYul"
 path = "../../yul"

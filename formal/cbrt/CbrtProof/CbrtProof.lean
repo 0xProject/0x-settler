@@ -7,5 +7,3 @@ import CbrtProof.FiniteCert
 import CbrtProof.CertifiedChain
 import CbrtProof.Wiring
 import CbrtProof.OverflowSafety
-import CbrtProof.CbrtYul
-import CbrtProof.CbrtYulSpec

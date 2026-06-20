@@ -6,10 +6,6 @@ packagesDir = "../../yul/.lake/packages"
 [[lean_lib]]
 name = "Cbrt512Proof"
 
-[[lean_exe]]
-name = "cbrt512-model"
-root = "Main"
-
 [[require]]
 name = "FormalYul"
 path = "../../yul"

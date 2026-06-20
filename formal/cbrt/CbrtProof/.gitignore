@@ -4,7 +4,6 @@ lake-manifest.json
 # Auto-generated from `formal/python/cbrt/generate_cbrt_cert.py`
 /CbrtProof/FiniteCert.lean
 
-# Auto-generated from solc Yul IR by `lake exe yul_importer`
-/CbrtProof/CbrtYul.lean
+# Auto-generated EVMYulLean artifacts from solc Yul IR by `lake exe yul_importer`
 /CbrtProof/CbrtYulRuntime.lean
 /CbrtProof/CbrtYulProof.lean

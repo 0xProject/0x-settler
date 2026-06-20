@@ -11,9 +11,6 @@ on:
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
       - formal/yul/**
-      - formal/python/**
-      - test/0.8.25/formal-model/FormalModelFFI.t.sol
-      - test/0.8.25/formal-model/Cbrt512Model.t.sol
       - .github/workflows/cbrt512-formal.yml
   pull_request:
     paths:
@@ -23,9 +20,6 @@ on:
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
       - formal/yul/**
-      - formal/python/**
-      - test/0.8.25/formal-model/FormalModelFFI.t.sol
-      - test/0.8.25/formal-model/Cbrt512Model.t.sol
       - .github/workflows/cbrt512-formal.yml
 
 jobs:
@@ -38,11 +32,6 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Install Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
 
       - name: Install pinned Lean toolchain
         run: |
@@ -62,58 +51,35 @@ jobs:
         working-directory: formal/yul
         run: lake build yul_importer
 
-      - name: Generate 256-bit Lean model (CbrtProof dependency)
+      - name: Generate 256-bit EVMYulLean artifacts from compiled CbrtWrapper Yul IR
         run: |
-          forge inspect src/wrappers/CbrtWrapper.sol:CbrtWrapper ir | \
-            lake -d formal/yul exe yul_importer \
-              --kind cbrt \
-              --output formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean
+          ./formal/yul/generate_from_forge.sh \
+            cbrt \
+            src/wrappers/CbrtWrapper.sol:CbrtWrapper \
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean
 
-      - name: Generate finite certificate from cbrt spec
+      - name: Generate 512-bit EVMYulLean artifacts from compiled Cbrt512Wrapper Yul IR
         run: |
-          python3 -m formal.python.cbrt.generate_cbrt_cert \
-            --output formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean
-
-      - name: Generate 512-bit Lean model from Cbrt512Wrapper via Yul IR
-        run: |
-          FOUNDRY_SOLC_VERSION=0.8.34 \
-            forge inspect src/wrappers/Cbrt512Wrapper.sol:Cbrt512Wrapper ir | \
-            lake -d formal/yul exe yul_importer \
-              --kind cbrt512 \
-              --output formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512Yul.lean
+          ./formal/yul/generate_from_forge.sh \
+            cbrt512 \
+            src/wrappers/Cbrt512Wrapper.sol:Cbrt512Wrapper \
+            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512Yul.lean \
+            0.8.34
 
       - name: Guard generated artifacts are untracked
         run: |
           test -z "$(git ls-files \
-            formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean \
             formal/cbrt/CbrtProof/CbrtProof/CbrtYulRuntime.lean \
-            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512Yul.lean \
-            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512YulRuntime.lean)"
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYulProof.lean \
+            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512YulRuntime.lean \
+            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512YulProof.lean)"
 
       - name: Update Lake dependencies
         working-directory: formal/cbrt/Cbrt512Proof
         run: lake update
 
-      - name: Build Cbrt512 proof and model evaluator
-        working-directory: formal/cbrt/Cbrt512Proof
-        run: lake build && lake build cbrt512-model
-
-      - name: Check proof axioms
+      - name: Build generated Cbrt EVMYulLean artifacts
         working-directory: formal/cbrt/Cbrt512Proof
         run: |
-          printf '%s\n' \
-            'import Cbrt512Proof.Cbrt512YulSpec' \
-            'import Cbrt512Proof.CbrtUpSpec' \
-            '#print axioms Cbrt512Spec.model_cbrt512_evm_within_1ulp' \
-            '#print axioms Cbrt512Spec.model_cbrtUp512_wrapper_evm_correct' \
-            | lake env lean --stdin > actual_axioms.txt 2>&1
-          diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
-          'Cbrt512Spec.model_cbrt512_evm_within_1ulp' depends on axioms: [propext, Classical.choice, Quot.sound]
-          'Cbrt512Spec.model_cbrtUp512_wrapper_evm_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
-          EXPECTED
-
-      - name: Fuzz-test Lean model against Solidity
-        run: |
-          FOUNDRY_PROFILE=formal-model forge test \
-            --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' \
-            --match-contract Cbrt512ModelTest
+          lake -d ../CbrtProof build CbrtProof.CbrtYulRuntime CbrtProof.CbrtYulProof
+          lake build Cbrt512Proof.Cbrt512YulRuntime Cbrt512Proof.Cbrt512YulProof

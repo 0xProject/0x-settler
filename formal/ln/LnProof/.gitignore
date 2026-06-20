@@ -1,11 +1,10 @@
 /.lake/
 /actual_axioms.txt
 
-# Auto-generated; rebuild with:
+# Auto-generated EVMYulLean artifacts; rebuild with:
 #   forge inspect src/wrappers/LnWrapper.sol:LnWrapper ir | \
 #     lake -d formal/yul exe yul_importer --kind ln \
 #       --output formal/ln/LnProof/LnProof/LnYul.lean
-/LnProof/LnYul.lean
 /LnProof/LnYulRuntime.lean
 /LnProof/LnYulProof.lean
 

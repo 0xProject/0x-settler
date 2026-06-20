@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if [[ $# -lt 3 || $# -gt 4 ]]; then
-  echo "usage: $0 <kind> <forge-target> <output.lean> [solc-version]" >&2
+  echo "usage: $0 <kind> <forge-target> <output-stem.lean> [solc-version]" >&2
   exit 2
 fi
 

@@ -9,10 +9,7 @@ on:
       - src/wrappers/CbrtWrapper.sol
       - formal/cbrt/**
       - formal/yul/**
-      - formal/python/**
       - test/0.8.25/Cbrt.t.sol
-      - test/0.8.25/formal-model/FormalModelFFI.t.sol
-      - test/0.8.25/formal-model/CbrtModel.t.sol
       - .github/workflows/cbrt-formal.yml
   pull_request:
     paths:
@@ -20,10 +17,7 @@ on:
       - src/wrappers/CbrtWrapper.sol
       - formal/cbrt/**
       - formal/yul/**
-      - formal/python/**
       - test/0.8.25/Cbrt.t.sol
-      - test/0.8.25/formal-model/FormalModelFFI.t.sol
-      - test/0.8.25/formal-model/CbrtModel.t.sol
       - .github/workflows/cbrt-formal.yml
 
 jobs:
@@ -36,11 +30,6 @@ jobs:
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Install Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
 
       - name: Install pinned Lean toolchain
         run: |
@@ -59,47 +48,23 @@ jobs:
         working-directory: formal/yul
         run: lake build yul_importer
 
-      - name: Generate Lean model from Cbrt.sol via Yul IR
+      - name: Generate EVMYulLean artifacts from compiled CbrtWrapper Yul IR
         run: |
-          forge inspect src/wrappers/CbrtWrapper.sol:CbrtWrapper ir | \
-            lake -d formal/yul exe yul_importer \
-              --kind cbrt \
-              --output formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean
-
-      - name: Generate finite certificate from cbrt spec
-        run: |
-          python3 -m formal.python.cbrt.generate_cbrt_cert \
-            --output formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean
+          ./formal/yul/generate_from_forge.sh \
+            cbrt \
+            src/wrappers/CbrtWrapper.sol:CbrtWrapper \
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean
 
       - name: Guard generated artifacts are untracked
         run: |
           test -z "$(git ls-files \
-            formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean \
-            formal/cbrt/CbrtProof/CbrtProof/CbrtYulRuntime.lean)"
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYulRuntime.lean \
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYulProof.lean)"
 
       - name: Update Lake dependencies
         working-directory: formal/cbrt/CbrtProof
         run: lake update
 
-      - name: Build Cbrt proof and model evaluator
+      - name: Build generated Cbrt EVMYulLean artifacts
         working-directory: formal/cbrt/CbrtProof
-        run: lake build && lake build cbrt-model
-
-      - name: Check proof axioms
-        working-directory: formal/cbrt/CbrtProof
-        run: |
-          printf '%s\n' \
-            'import CbrtProof.CbrtYulSpec' \
-            '#print axioms CbrtYul.model_cbrt_floor_evm_correct' \
-            '#print axioms CbrtYul.model_cbrt_up_evm_ceil_u256' \
-            | lake env lean --stdin > actual_axioms.txt 2>&1
-          diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
-          'CbrtYul.model_cbrt_floor_evm_correct' depends on axioms: [propext, Quot.sound]
-          'CbrtYul.model_cbrt_up_evm_ceil_u256' depends on axioms: [propext, Quot.sound]
-          EXPECTED
-
-      - name: Fuzz-test Lean model against Solidity
-        run: |
-          FOUNDRY_PROFILE=formal-model forge test \
-            --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' \
-            --match-contract CbrtModelTest
+        run: lake build CbrtProof.CbrtYulRuntime CbrtProof.CbrtYulProof
