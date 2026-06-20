@@ -933,6 +933,28 @@ theorem decodeWord_append_right_of_size (a b : ByteArray) (ha : a.size = 32) :
   have hidx : 32 + i - a.data.toList.length = i := by omega
   rw [hidx]
 
+theorem decodeWord_append_right_at_size (a b : ByteArray) (offset : Nat)
+    (ha : a.size = offset) :
+    FormalYul.decodeWord (a ++ b) offset = FormalYul.decodeWord b 0 := by
+  unfold FormalYul.decodeWord
+  simp [Id.run]
+  rw [← List.range_eq_range']
+  simp only [← Array.getElem?_toList]
+  congr 1
+  funext acc i
+  have hlen : a.data.toList.length = offset := by
+    simpa [ByteArray.size, Array.length_toList] using ha
+  have hge : a.data.toList.length ≤ offset + i := by omega
+  rw [List.getElem?_append_right hge]
+  have hidx : offset + i - a.data.toList.length = i := by omega
+  rw [hidx]
+
+theorem byteArray_append_assoc (a b c : ByteArray) :
+    (a ++ b) ++ c = a ++ (b ++ c) := by
+  apply ByteArray.ext
+  rw [← Array.toList_inj]
+  simp [ByteArray.data_append]
+
 theorem encodeWord_size (x : Nat) : (FormalYul.encodeWord x).size = 32 := by
   change (FormalYul.encodeWord x).data.size = 32
   rw [← Array.length_toList]
@@ -958,10 +980,21 @@ theorem resultWords_two_encodeWords (a b : Nat) :
       (encodeWord_size a)]
   simp
 
+def abiWordResult (a : Nat) : FormalYul.CallResult :=
+  { returndata := (FormalYul.word a).toByteArray }
+
+def abiPairResult (a b : Nat) : FormalYul.CallResult :=
+  { returndata := (FormalYul.word a).toByteArray ++ (FormalYul.word b).toByteArray }
+
+def abiTripleResult (a b c : Nat) : FormalYul.CallResult :=
+  { returndata :=
+      (FormalYul.word a).toByteArray ++ (FormalYul.word b).toByteArray ++
+        (FormalYul.word c).toByteArray }
+
 theorem resultWords_two_word_toByteArray (a b : Nat) :
-    FormalYul.resultWords
-      { returndata := (FormalYul.word a).toByteArray ++ (FormalYul.word b).toByteArray } 2 =
+    FormalYul.resultWords (abiPairResult a b) 2 =
       .ok [FormalYul.u256 a, FormalYul.u256 b] := by
+  unfold abiPairResult
   simp [FormalYul.resultWords, FormalYul.decodeWords,
     ByteArray.size_append, EvmYul.UInt256.toByteArray_size,
     List.range, List.range.loop]
@@ -974,6 +1007,44 @@ theorem resultWords_two_word_toByteArray (a b : Nat) :
   · exact wordNat_ofNat a
   · exact wordNat_ofNat b
 
+theorem resultWords_three_word_toByteArray (a b c : Nat) :
+    FormalYul.resultWords (abiTripleResult a b c) 3 =
+      .ok [FormalYul.u256 a, FormalYul.u256 b, FormalYul.u256 c] := by
+  unfold abiTripleResult
+  simp [FormalYul.resultWords, FormalYul.decodeWords,
+    ByteArray.size_append, EvmYul.UInt256.toByteArray_size,
+    List.range, List.range.loop]
+  constructor
+  · rw [byteArray_append_assoc]
+    rw [decodeWord_append_left_of_size (FormalYul.word a).toByteArray
+        ((FormalYul.word b).toByteArray ++ (FormalYul.word c).toByteArray)
+        (EvmYul.UInt256.toByteArray_size (FormalYul.word a))]
+    simp [FormalYul.word, decodeWord_toByteArray]
+    exact wordNat_ofNat a
+  · constructor
+    · rw [byteArray_append_assoc]
+      rw [decodeWord_append_right_of_size (FormalYul.word a).toByteArray
+          ((FormalYul.word b).toByteArray ++ (FormalYul.word c).toByteArray)
+          (EvmYul.UInt256.toByteArray_size (FormalYul.word a))]
+      rw [decodeWord_append_left_of_size (FormalYul.word b).toByteArray
+          (FormalYul.word c).toByteArray
+          (EvmYul.UInt256.toByteArray_size (FormalYul.word b))]
+      simp [FormalYul.word, decodeWord_toByteArray]
+      exact wordNat_ofNat b
+    · rw [decodeWord_append_right_at_size
+        ((FormalYul.word a).toByteArray ++ (FormalYul.word b).toByteArray)
+        (FormalYul.word c).toByteArray 64 (by
+          simp [ByteArray.size_append, EvmYul.UInt256.toByteArray_size])]
+      simp [FormalYul.word, decodeWord_toByteArray]
+      exact wordNat_ofNat c
+
+theorem resultWord_word_toByteArray (a : Nat) :
+    FormalYul.resultWord (abiWordResult a) = .ok (FormalYul.u256 a) := by
+  unfold abiWordResult
+  simp [FormalYul.resultWord, FormalYul.word, decodeWord_toByteArray,
+    EvmYul.UInt256.toByteArray_size]
+  exact wordNat_ofNat a
+
 theorem bind_ok_resultWords (result : FormalYul.CallResult) (count : Nat) :
     (do
       let result' ← (Except.ok result : Except String FormalYul.CallResult)
@@ -985,6 +1056,12 @@ theorem bind_ok_pairFromWords (words : List Nat) :
       let words' ← (Except.ok words : Except String (List Nat))
       FormalYul.pairFromWords words') =
       FormalYul.pairFromWords words := rfl
+
+theorem bind_ok_tripleFromWords (words : List Nat) :
+    (do
+      let words' ← (Except.ok words : Except String (List Nat))
+      FormalYul.tripleFromWords words') =
+      FormalYul.tripleFromWords words := rfl
 
 theorem readWithPadding_write_same_of_size
     (source dest : ByteArray) (destAddr : Nat) (hsize : source.size = 32) :
@@ -2073,6 +2150,251 @@ theorem okWord_eq (x : Nat) : okWord x = .ok (u256 x) := rfl
 @[simp]
 theorem calldata_eq (selector : ByteArray) (args : List Nat) :
     calldata selector args = selector ++ encodeWords args := rfl
+
+def DispatcherReturn
+    (contract : YulContract) (input : ByteArray) (execFuel : Nat)
+    (result : CallResult) : Prop :=
+  ∃ state value,
+    EvmYul.Yul.exec execFuel contract.dispatcher (.some contract)
+      (stateFor contract input) =
+      .error (EvmYul.Yul.Exception.YulHalt state value) ∧
+    returnOf state = result
+
+theorem dispatcherReturn_of_exec_halt
+    {contract : YulContract} {dispatcher : EvmYul.Yul.Ast.Stmt}
+    {input : ByteArray} {execFuel : Nat} {result : CallResult}
+    (hdispatcher : contract.dispatcher = dispatcher)
+    (h :
+      ∃ state value,
+        EvmYul.Yul.exec execFuel dispatcher (.some contract)
+          (stateFor contract input) =
+          .error (EvmYul.Yul.Exception.YulHalt state value) ∧
+        returnOf state = result) :
+    DispatcherReturn contract input execFuel result := by
+  rcases h with ⟨state, value, hdisp, hret⟩
+  exact ⟨state, value, by simpa [hdispatcher] using hdisp, hret⟩
+
+theorem runContract_ok_of_dispatcherReturn
+    {contract : YulContract} {input : ByteArray} {execFuel : Nat} {result : CallResult}
+    (h : DispatcherReturn contract input execFuel result) :
+    runContract contract input (Nat.succ (Nat.succ execFuel)) = .ok result := by
+  unfold runContract
+  rw [EvmYul.Yul.callDispatcher.eq_def]
+  simp only [stateFor, EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk,
+    EvmYul.Yul.State.executionEnv, sharedFor, envFor, accountMapFor, accountFor,
+    EvmYul.Yul.State.multifill, EvmYul.Yul.State.setStore, List.zip_nil_left, List.foldr_nil,
+    functionDefinition_params_def, functionDefinition_rets_def, functionDefinition_body_def]
+  rw [EvmYul.Yul.exec.eq_def]
+  simp only
+  rcases h with ⟨state, value, hdisp, hret⟩
+  have hdisp' :
+      EvmYul.Yul.exec execFuel contract.dispatcher (.some contract)
+        (EvmYul.Yul.State.Ok
+          { (Inhabited.default : EvmYul.SharedState .Yul) with
+            accountMap := accountMapFor contract
+            executionEnv := envFor contract input
+            gasAvailable := .ofNat 1000000000 }
+          (Inhabited.default : EvmYul.Yul.VarStore)) =
+        .error (EvmYul.Yul.Exception.YulHalt state value) := by
+    simpa [stateFor, sharedFor] using hdisp
+  have hdisp'' :
+      EvmYul.Yul.exec execFuel contract.dispatcher (.some contract)
+        (EvmYul.Yul.State.Ok
+          { accountMap := accountMapFor contract,
+            σ₀ := (Inhabited.default : EvmYul.SharedState .Yul).σ₀,
+            totalGasUsedInBlock := (Inhabited.default : EvmYul.SharedState .Yul).totalGasUsedInBlock,
+            transactionReceipts := (Inhabited.default : EvmYul.SharedState .Yul).transactionReceipts,
+            substate := (Inhabited.default : EvmYul.SharedState .Yul).substate,
+            executionEnv := envFor contract input,
+            blocks := (Inhabited.default : EvmYul.SharedState .Yul).blocks,
+            genesisBlockHeader := (Inhabited.default : EvmYul.SharedState .Yul).genesisBlockHeader,
+            createdAccounts := (Inhabited.default : EvmYul.SharedState .Yul).createdAccounts,
+            gasAvailable := EvmYul.UInt256.ofNat 1000000000,
+            activeWords := (Inhabited.default : EvmYul.SharedState .Yul).activeWords,
+            memory := (Inhabited.default : EvmYul.SharedState .Yul).memory,
+            returnData := (Inhabited.default : EvmYul.SharedState .Yul).returnData,
+            H_return := (Inhabited.default : EvmYul.SharedState .Yul).H_return }
+          (Inhabited.default : EvmYul.Yul.VarStore)) =
+        .error (EvmYul.Yul.Exception.YulHalt state value) := by
+    simpa using hdisp'
+  have hdisp''' :
+      EvmYul.Yul.exec execFuel contract.dispatcher (.some contract)
+        (EvmYul.Yul.State.Ok
+          { accountMap := Batteries.RBMap.insert ∅ contractOwner
+              { (Inhabited.default : EvmYul.Account .Yul) with code := contract },
+            σ₀ := (Inhabited.default : EvmYul.SharedState .Yul).σ₀,
+            totalGasUsedInBlock := (Inhabited.default : EvmYul.SharedState .Yul).totalGasUsedInBlock,
+            transactionReceipts := (Inhabited.default : EvmYul.SharedState .Yul).transactionReceipts,
+            substate := (Inhabited.default : EvmYul.SharedState .Yul).substate,
+            executionEnv := { (Inhabited.default : EvmYul.ExecutionEnv .Yul) with
+              calldata := input
+              code := contract
+              codeOwner := contractOwner
+              weiValue := ⟨0⟩
+              perm := true },
+            blocks := (Inhabited.default : EvmYul.SharedState .Yul).blocks,
+            genesisBlockHeader := (Inhabited.default : EvmYul.SharedState .Yul).genesisBlockHeader,
+            createdAccounts := (Inhabited.default : EvmYul.SharedState .Yul).createdAccounts,
+            gasAvailable := EvmYul.UInt256.ofNat 1000000000,
+            activeWords := (Inhabited.default : EvmYul.SharedState .Yul).activeWords,
+            memory := (Inhabited.default : EvmYul.SharedState .Yul).memory,
+            returnData := (Inhabited.default : EvmYul.SharedState .Yul).returnData,
+            H_return := (Inhabited.default : EvmYul.SharedState .Yul).H_return }
+          (Inhabited.default : EvmYul.Yul.VarStore)) =
+        .error (EvmYul.Yul.Exception.YulHalt state value) := by
+    simpa [accountMapFor, accountFor, envFor] using hdisp''
+  rw [hdisp''']
+  exact congrArg Except.ok hret
+
+theorem runContract_ok_of_dispatcherReturn_1000000
+    {contract : YulContract} {input : ByteArray} {result : CallResult}
+    (h : DispatcherReturn contract input 999998 result) :
+    runContract contract input 1000000 = .ok result := by
+  simpa using runContract_ok_of_dispatcherReturn (contract := contract)
+    (input := input) (execFuel := 999998) (result := result) h
+
+theorem callDispatcher_ok_of_dispatcherReturn
+    {contract : YulContract} {input : ByteArray} {execFuel : Nat} {result : CallResult}
+    (h : DispatcherReturn contract input execFuel result) :
+    (match EvmYul.Yul.callDispatcher (Nat.succ (Nat.succ execFuel)) (.some contract)
+        (stateFor contract input) with
+      | Except.ok (state, _) => Except.ok (returnOf state)
+      | Except.error (.YulHalt state _) => Except.ok (returnOf state)
+      | Except.error .Revert => Except.error "revert"
+      | Except.error err => Except.error (reprStr err)) =
+      Except.ok result := by
+  change runContract contract input (Nat.succ (Nat.succ execFuel)) = .ok result
+  exact runContract_ok_of_dispatcherReturn h
+
+theorem callDispatcher_ok_of_dispatcherReturn_1000000
+    {contract : YulContract} {input : ByteArray} {result : CallResult}
+    (h : DispatcherReturn contract input 999998 result) :
+    (match EvmYul.Yul.callDispatcher 1000000 (.some contract)
+        (stateFor contract input) with
+      | Except.ok (state, _) => Except.ok (returnOf state)
+      | Except.error (.YulHalt state _) => Except.ok (returnOf state)
+      | Except.error .Revert => Except.error "revert"
+      | Except.error err => Except.error (reprStr err)) =
+      Except.ok result := by
+  simpa using callDispatcher_ok_of_dispatcherReturn
+    (contract := contract) (input := input) (execFuel := 999998) (result := result) h
+
+theorem callWord_ok_of_runContract_word
+    {contract : YulContract} {selector : ByteArray} {args : List Nat}
+    {fuel value model : Nat}
+    (hRun :
+      runContract contract (calldata selector args) fuel =
+        .ok (abiWordResult value))
+    (hModel : u256 value = model) :
+    callWord contract selector args fuel = .ok model := by
+  unfold callWord call
+  rw [hRun]
+  change resultWord (abiWordResult value) = .ok model
+  rw [resultWord_word_toByteArray]
+  rw [hModel]
+
+theorem callPair_ok_of_runContract_two_words
+    {contract : YulContract} {selector : ByteArray} {args : List Nat}
+    {fuel a b : Nat} {model : Nat × Nat}
+    (hRun :
+      runContract contract (calldata selector args) fuel =
+        .ok (abiPairResult a b))
+    (hModel : (u256 a, u256 b) = model) :
+    callPair contract selector args fuel = .ok model := by
+  unfold callPair callWords call
+  rw [hRun]
+  rw [bind_ok_resultWords]
+  rw [resultWords_two_word_toByteArray]
+  rw [bind_ok_pairFromWords]
+  simp only [pairFromWords]
+  rw [hModel]
+
+theorem callTriple_ok_of_runContract_three_words
+    {contract : YulContract} {selector : ByteArray} {args : List Nat}
+    {fuel a b c : Nat} {model : Nat × Nat × Nat}
+    (hRun :
+      runContract contract (calldata selector args) fuel = .ok (abiTripleResult a b c))
+    (hModel : (u256 a, u256 b, u256 c) = model) :
+    callTriple contract selector args fuel = .ok model := by
+  unfold callTriple callWords call
+  rw [hRun]
+  rw [bind_ok_resultWords]
+  rw [resultWords_three_word_toByteArray]
+  rw [bind_ok_tripleFromWords]
+  simp only [tripleFromWords]
+  rw [hModel]
+
+theorem callWord_ok_of_dispatcherReturn_word
+    {contract : YulContract} {selector : ByteArray} {args : List Nat}
+    {execFuel value model : Nat}
+    (hReturn :
+      DispatcherReturn contract (calldata selector args) execFuel
+        (abiWordResult value))
+    (hModel : u256 value = model) :
+    callWord contract selector args (Nat.succ (Nat.succ execFuel)) = .ok model := by
+  apply callWord_ok_of_runContract_word
+  · exact runContract_ok_of_dispatcherReturn hReturn
+  · exact hModel
+
+theorem callPair_ok_of_dispatcherReturn_two_words
+    {contract : YulContract} {selector : ByteArray} {args : List Nat}
+    {execFuel a b : Nat} {model : Nat × Nat}
+    (hReturn :
+      DispatcherReturn contract (calldata selector args) execFuel
+        (abiPairResult a b))
+    (hModel : (u256 a, u256 b) = model) :
+    callPair contract selector args (Nat.succ (Nat.succ execFuel)) = .ok model := by
+  apply callPair_ok_of_runContract_two_words
+  · exact runContract_ok_of_dispatcherReturn hReturn
+  · exact hModel
+
+theorem callTriple_ok_of_dispatcherReturn_three_words
+    {contract : YulContract} {selector : ByteArray} {args : List Nat}
+    {execFuel a b c : Nat} {model : Nat × Nat × Nat}
+    (hReturn :
+      DispatcherReturn contract (calldata selector args) execFuel
+        (abiTripleResult a b c))
+    (hModel : (u256 a, u256 b, u256 c) = model) :
+    callTriple contract selector args (Nat.succ (Nat.succ execFuel)) = .ok model := by
+  apply callTriple_ok_of_runContract_three_words
+  · exact runContract_ok_of_dispatcherReturn hReturn
+  · exact hModel
+
+theorem callWord_ok_of_dispatcherReturn_word_1000000
+    {contract : YulContract} {selector : ByteArray} {args : List Nat}
+    {value model : Nat}
+    (hReturn :
+      DispatcherReturn contract (calldata selector args) 999998
+        (abiWordResult value))
+    (hModel : u256 value = model) :
+    callWord contract selector args 1000000 = .ok model := by
+  simpa using callWord_ok_of_dispatcherReturn_word
+    (contract := contract) (selector := selector) (args := args) (execFuel := 999998)
+    (value := value) (model := model) hReturn hModel
+
+theorem callPair_ok_of_dispatcherReturn_two_words_1000000
+    {contract : YulContract} {selector : ByteArray} {args : List Nat}
+    {a b : Nat} {model : Nat × Nat}
+    (hReturn :
+      DispatcherReturn contract (calldata selector args) 999998
+        (abiPairResult a b))
+    (hModel : (u256 a, u256 b) = model) :
+    callPair contract selector args 1000000 = .ok model := by
+  simpa using callPair_ok_of_dispatcherReturn_two_words
+    (contract := contract) (selector := selector) (args := args) (execFuel := 999998)
+    (a := a) (b := b) (model := model) hReturn hModel
+
+theorem callTriple_ok_of_dispatcherReturn_three_words_1000000
+    {contract : YulContract} {selector : ByteArray} {args : List Nat}
+    {a b c : Nat} {model : Nat × Nat × Nat}
+    (hReturn :
+      DispatcherReturn contract (calldata selector args) 999998
+        (abiTripleResult a b c))
+    (hModel : (u256 a, u256 b, u256 c) = model) :
+    callTriple contract selector args 1000000 = .ok model := by
+  simpa using callTriple_ok_of_dispatcherReturn_three_words
+    (contract := contract) (selector := selector) (args := args) (execFuel := 999998)
+    (a := a) (b := b) (c := c) (model := model) hReturn hModel
 
 @[simp]
 theorem callWord_eq_call_resultWord

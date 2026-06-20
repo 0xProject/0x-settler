@@ -6613,212 +6613,37 @@ theorem exec_yulDispatcher_osqrtUp_halt (xHi xLo : Nat) :
   rw [hif]
   exact ⟨state, value, rfl, hret⟩
 
-@[simp]
-theorem callDispatcher_sqrt512_returnOf (xHi xLo : Nat) :
-    (match EvmYul.Yul.callDispatcher 1000000 (.some yulContract)
-        (FormalYul.stateFor yulContract (selector_sqrt512 ++ FormalYul.encodeWords [xHi, xLo])) with
-      | Except.ok (state, _) => Except.ok (FormalYul.returnOf state)
-      | Except.error (.YulHalt state _) => Except.ok (FormalYul.returnOf state)
-      | Except.error .Revert => Except.error "revert"
-      | Except.error err => Except.error (reprStr err)) =
-      Except.ok { returndata := (FormalYul.word (model_sqrt512_wrapper_evm xHi xLo)).toByteArray } := by
-  rw [EvmYul.Yul.callDispatcher.eq_def]
-  simp only [FormalYul.stateFor, EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk,
-    EvmYul.Yul.State.executionEnv, yulContract_dispatcher,
-    FormalYul.sharedFor, FormalYul.envFor, FormalYul.accountMapFor,
-    FormalYul.accountFor, EvmYul.Yul.State.multifill, EvmYul.Yul.State.setStore,
-    List.zip_nil_left, List.foldr_nil,
-    FormalYul.Preservation.functionDefinition_params_def,
-    FormalYul.Preservation.functionDefinition_rets_def,
-    FormalYul.Preservation.functionDefinition_body_def]
-  rw [EvmYul.Yul.exec.eq_def]
-  simp only
-  rcases exec_yulDispatcher_sqrt512_halt xHi xLo with ⟨state, value, hdisp, hret⟩
-  have hdisp' :
-      EvmYul.Yul.exec 999998 yulDispatcher (.some yulContract)
-        (EvmYul.Yul.State.Ok
-          { (Inhabited.default : EvmYul.SharedState .Yul) with
-            accountMap := FormalYul.accountMapFor yulContract
-            executionEnv := FormalYul.envFor yulContract
-              (selector_sqrt512 ++ FormalYul.encodeWords [xHi, xLo])
-            gasAvailable := .ofNat 1000000000 }
-          (Inhabited.default : EvmYul.Yul.VarStore)) =
-        .error (EvmYul.Yul.Exception.YulHalt state value) := by
-    simpa [FormalYul.stateFor, FormalYul.sharedFor] using hdisp
-  have hdisp'' :
-      EvmYul.Yul.exec 999998 yulDispatcher (.some yulContract)
-        (EvmYul.Yul.State.Ok
-          { accountMap := FormalYul.accountMapFor yulContract,
-            σ₀ := (Inhabited.default : EvmYul.SharedState .Yul).σ₀,
-            totalGasUsedInBlock := (Inhabited.default : EvmYul.SharedState .Yul).totalGasUsedInBlock,
-            transactionReceipts := (Inhabited.default : EvmYul.SharedState .Yul).transactionReceipts,
-            substate := (Inhabited.default : EvmYul.SharedState .Yul).substate,
-            executionEnv := FormalYul.envFor yulContract
-              (selector_sqrt512 ++ FormalYul.encodeWords [xHi, xLo]),
-            blocks := (Inhabited.default : EvmYul.SharedState .Yul).blocks,
-            genesisBlockHeader := (Inhabited.default : EvmYul.SharedState .Yul).genesisBlockHeader,
-            createdAccounts := (Inhabited.default : EvmYul.SharedState .Yul).createdAccounts,
-            gasAvailable := EvmYul.UInt256.ofNat 1000000000,
-            activeWords := (Inhabited.default : EvmYul.SharedState .Yul).activeWords,
-            memory := (Inhabited.default : EvmYul.SharedState .Yul).memory,
-            returnData := (Inhabited.default : EvmYul.SharedState .Yul).returnData,
-            H_return := (Inhabited.default : EvmYul.SharedState .Yul).H_return }
-          (Inhabited.default : EvmYul.Yul.VarStore)) =
-        .error (EvmYul.Yul.Exception.YulHalt state value) := by
-    simpa using hdisp'
-  have hdisp''' :
-      EvmYul.Yul.exec 999998 yulDispatcher (.some yulContract)
-        (EvmYul.Yul.State.Ok
-          { accountMap := Batteries.RBMap.insert ∅ FormalYul.contractOwner
-              { (Inhabited.default : EvmYul.Account .Yul) with code := yulContract },
-            σ₀ := (Inhabited.default : EvmYul.SharedState .Yul).σ₀,
-            totalGasUsedInBlock := (Inhabited.default : EvmYul.SharedState .Yul).totalGasUsedInBlock,
-            transactionReceipts := (Inhabited.default : EvmYul.SharedState .Yul).transactionReceipts,
-            substate := (Inhabited.default : EvmYul.SharedState .Yul).substate,
-            executionEnv := { (Inhabited.default : EvmYul.ExecutionEnv .Yul) with
-              calldata := selector_sqrt512 ++ FormalYul.encodeWords [xHi, xLo]
-              code := yulContract
-              codeOwner := FormalYul.contractOwner
-              weiValue := ⟨0⟩
-              perm := true },
-            blocks := (Inhabited.default : EvmYul.SharedState .Yul).blocks,
-            genesisBlockHeader := (Inhabited.default : EvmYul.SharedState .Yul).genesisBlockHeader,
-            createdAccounts := (Inhabited.default : EvmYul.SharedState .Yul).createdAccounts,
-            gasAvailable := EvmYul.UInt256.ofNat 1000000000,
-            activeWords := (Inhabited.default : EvmYul.SharedState .Yul).activeWords,
-            memory := (Inhabited.default : EvmYul.SharedState .Yul).memory,
-            returnData := (Inhabited.default : EvmYul.SharedState .Yul).returnData,
-            H_return := (Inhabited.default : EvmYul.SharedState .Yul).H_return }
-          (Inhabited.default : EvmYul.Yul.VarStore)) =
-        .error (EvmYul.Yul.Exception.YulHalt state value) := by
-    simpa [FormalYul.accountMapFor, FormalYul.accountFor, FormalYul.envFor] using hdisp''
-  rw [hdisp''']
-  exact congrArg Except.ok hret
+theorem dispatcherReturn_sqrt512 (xHi xLo : Nat) :
+    FormalYul.Preservation.DispatcherReturn yulContract
+      (selector_sqrt512 ++ FormalYul.encodeWords [xHi, xLo]) 999998
+      (FormalYul.Preservation.abiWordResult (model_sqrt512_wrapper_evm xHi xLo)) := by
+  exact FormalYul.Preservation.dispatcherReturn_of_exec_halt
+    (contract := yulContract) (dispatcher := yulDispatcher)
+    (input := selector_sqrt512 ++ FormalYul.encodeWords [xHi, xLo])
+    (execFuel := 999998)
+    (result := FormalYul.Preservation.abiWordResult (model_sqrt512_wrapper_evm xHi xLo))
+    yulContract_dispatcher (exec_yulDispatcher_sqrt512_halt xHi xLo)
 
-@[simp]
-theorem runContract_sqrt512_wrapper_returnOf (xHi xLo : Nat) :
-    FormalYul.runContract yulContract
-      (selector_sqrt512 ++ FormalYul.encodeWords [xHi, xLo]) 1000000 =
-      Except.ok { returndata := (FormalYul.word (model_sqrt512_wrapper_evm xHi xLo)).toByteArray } := by
-  unfold FormalYul.runContract
-  exact callDispatcher_sqrt512_returnOf xHi xLo
+theorem dispatcherReturn_osqrtUp (xHi xLo : Nat) :
+    FormalYul.Preservation.DispatcherReturn yulContract
+      (selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo]) 999998
+      (FormalYul.Preservation.abiPairResult
+        (osqrtUpRuntimePair xHi xLo).1 (osqrtUpRuntimePair xHi xLo).2) := by
+  exact FormalYul.Preservation.dispatcherReturn_of_exec_halt
+    (contract := yulContract) (dispatcher := yulDispatcher)
+    (input := selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo])
+    (execFuel := 999998)
+    (result := FormalYul.Preservation.abiPairResult
+      (osqrtUpRuntimePair xHi xLo).1 (osqrtUpRuntimePair xHi xLo).2)
+    yulContract_dispatcher (exec_yulDispatcher_osqrtUp_halt xHi xLo)
 
 theorem run_sqrt512_wrapper_evm_eq_model_sqrt512_wrapper_evm (xHi xLo : Nat) :
     run_sqrt512_wrapper_evm xHi xLo = .ok (model_sqrt512_wrapper_evm xHi xLo) := by
-  unfold run_sqrt512_wrapper_evm FormalYul.callWord FormalYul.call
-  change (do
-      let result ← FormalYul.runContract yulContract
-        (selector_sqrt512 ++ FormalYul.encodeWords [xHi, xLo]) 1000000
-      FormalYul.resultWord result) =
-    Except.ok (model_sqrt512_wrapper_evm xHi xLo)
-  rw [runContract_sqrt512_wrapper_returnOf xHi xLo]
-  change FormalYul.resultWord
-      { returndata := (FormalYul.word (model_sqrt512_wrapper_evm xHi xLo)).toByteArray } =
-    Except.ok (model_sqrt512_wrapper_evm xHi xLo)
-  rw [show FormalYul.resultWord
-        { returndata := (FormalYul.word (model_sqrt512_wrapper_evm xHi xLo)).toByteArray } =
-      Except.ok (FormalYul.u256 (model_sqrt512_wrapper_evm xHi xLo)) by
-        simp [FormalYul.resultWord, FormalYul.word,
-          FormalYul.Preservation.decodeWord_toByteArray,
-          EvmYul.UInt256.toByteArray_size,
-          uint256_ofNat_toNat_eq_formal_u256]]
-  rw [FormalYul.Preservation.u256_eq_self_of_lt (model_sqrt512_wrapper_evm_lt_word xHi xLo)]
-
-@[simp]
-theorem callDispatcher_osqrtUp_returnOf (xHi xLo : Nat) :
-    (match EvmYul.Yul.callDispatcher 1000000 (.some yulContract)
-        (FormalYul.stateFor yulContract (selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo])) with
-      | Except.ok (state, _) => Except.ok (FormalYul.returnOf state)
-      | Except.error (.YulHalt state _) => Except.ok (FormalYul.returnOf state)
-      | Except.error .Revert => Except.error "revert"
-      | Except.error err => Except.error (reprStr err)) =
-      Except.ok
-        { returndata :=
-            (FormalYul.word (osqrtUpRuntimePair xHi xLo).1).toByteArray ++
-              (FormalYul.word (osqrtUpRuntimePair xHi xLo).2).toByteArray } := by
-  rw [EvmYul.Yul.callDispatcher.eq_def]
-  simp only [FormalYul.stateFor, EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk,
-    EvmYul.Yul.State.executionEnv, yulContract_dispatcher,
-    FormalYul.sharedFor, FormalYul.envFor, FormalYul.accountMapFor,
-    FormalYul.accountFor, EvmYul.Yul.State.multifill, EvmYul.Yul.State.setStore,
-    List.zip_nil_left, List.foldr_nil,
-    FormalYul.Preservation.functionDefinition_params_def,
-    FormalYul.Preservation.functionDefinition_rets_def,
-    FormalYul.Preservation.functionDefinition_body_def]
-  rw [EvmYul.Yul.exec.eq_def]
-  simp only
-  rcases exec_yulDispatcher_osqrtUp_halt xHi xLo with ⟨state, value, hdisp, hret⟩
-  have hdisp' :
-      EvmYul.Yul.exec 999998 yulDispatcher (.some yulContract)
-        (EvmYul.Yul.State.Ok
-          { (Inhabited.default : EvmYul.SharedState .Yul) with
-            accountMap := FormalYul.accountMapFor yulContract
-            executionEnv := FormalYul.envFor yulContract
-              (selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo])
-            gasAvailable := .ofNat 1000000000 }
-          (Inhabited.default : EvmYul.Yul.VarStore)) =
-        .error (EvmYul.Yul.Exception.YulHalt state value) := by
-    simpa [FormalYul.stateFor, FormalYul.sharedFor] using hdisp
-  have hdisp'' :
-      EvmYul.Yul.exec 999998 yulDispatcher (.some yulContract)
-        (EvmYul.Yul.State.Ok
-          { accountMap := FormalYul.accountMapFor yulContract,
-            σ₀ := (Inhabited.default : EvmYul.SharedState .Yul).σ₀,
-            totalGasUsedInBlock := (Inhabited.default : EvmYul.SharedState .Yul).totalGasUsedInBlock,
-            transactionReceipts := (Inhabited.default : EvmYul.SharedState .Yul).transactionReceipts,
-            substate := (Inhabited.default : EvmYul.SharedState .Yul).substate,
-            executionEnv := FormalYul.envFor yulContract
-              (selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo]),
-            blocks := (Inhabited.default : EvmYul.SharedState .Yul).blocks,
-            genesisBlockHeader := (Inhabited.default : EvmYul.SharedState .Yul).genesisBlockHeader,
-            createdAccounts := (Inhabited.default : EvmYul.SharedState .Yul).createdAccounts,
-            gasAvailable := EvmYul.UInt256.ofNat 1000000000,
-            activeWords := (Inhabited.default : EvmYul.SharedState .Yul).activeWords,
-            memory := (Inhabited.default : EvmYul.SharedState .Yul).memory,
-            returnData := (Inhabited.default : EvmYul.SharedState .Yul).returnData,
-            H_return := (Inhabited.default : EvmYul.SharedState .Yul).H_return }
-          (Inhabited.default : EvmYul.Yul.VarStore)) =
-        .error (EvmYul.Yul.Exception.YulHalt state value) := by
-    simpa using hdisp'
-  have hdisp''' :
-      EvmYul.Yul.exec 999998 yulDispatcher (.some yulContract)
-        (EvmYul.Yul.State.Ok
-          { accountMap := Batteries.RBMap.insert ∅ FormalYul.contractOwner
-              { (Inhabited.default : EvmYul.Account .Yul) with code := yulContract },
-            σ₀ := (Inhabited.default : EvmYul.SharedState .Yul).σ₀,
-            totalGasUsedInBlock := (Inhabited.default : EvmYul.SharedState .Yul).totalGasUsedInBlock,
-            transactionReceipts := (Inhabited.default : EvmYul.SharedState .Yul).transactionReceipts,
-            substate := (Inhabited.default : EvmYul.SharedState .Yul).substate,
-            executionEnv := { (Inhabited.default : EvmYul.ExecutionEnv .Yul) with
-              calldata := selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo]
-              code := yulContract
-              codeOwner := FormalYul.contractOwner
-              weiValue := ⟨0⟩
-              perm := true },
-            blocks := (Inhabited.default : EvmYul.SharedState .Yul).blocks,
-            genesisBlockHeader := (Inhabited.default : EvmYul.SharedState .Yul).genesisBlockHeader,
-            createdAccounts := (Inhabited.default : EvmYul.SharedState .Yul).createdAccounts,
-            gasAvailable := EvmYul.UInt256.ofNat 1000000000,
-            activeWords := (Inhabited.default : EvmYul.SharedState .Yul).activeWords,
-            memory := (Inhabited.default : EvmYul.SharedState .Yul).memory,
-            returnData := (Inhabited.default : EvmYul.SharedState .Yul).returnData,
-            H_return := (Inhabited.default : EvmYul.SharedState .Yul).H_return }
-          (Inhabited.default : EvmYul.Yul.VarStore)) =
-        .error (EvmYul.Yul.Exception.YulHalt state value) := by
-    simpa [FormalYul.accountMapFor, FormalYul.accountFor, FormalYul.envFor] using hdisp''
-  rw [hdisp''']
-  exact congrArg Except.ok hret
-
-@[simp]
-theorem runContract_osqrtUp_returnOf (xHi xLo : Nat) :
-    FormalYul.runContract yulContract
-      (selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo]) 1000000 =
-      Except.ok
-        { returndata :=
-            (FormalYul.word (osqrtUpRuntimePair xHi xLo).1).toByteArray ++
-              (FormalYul.word (osqrtUpRuntimePair xHi xLo).2).toByteArray } := by
-  unfold FormalYul.runContract
-  exact callDispatcher_osqrtUp_returnOf xHi xLo
+  unfold run_sqrt512_wrapper_evm
+  apply FormalYul.Preservation.callWord_ok_of_dispatcherReturn_word_1000000
+  · exact dispatcherReturn_sqrt512 xHi xLo
+  · exact FormalYul.Preservation.u256_eq_self_of_lt
+      (model_sqrt512_wrapper_evm_lt_word xHi xLo)
 
 @[simp]
 theorem osqrtUpRuntimePair_u256_components (xHi xLo : Nat) :
@@ -6836,21 +6661,10 @@ theorem osqrtUpRuntimePair_u256_components (xHi xLo : Nat) :
 
 theorem run_osqrtUp_evm_eq_model_osqrtUp_evm (xHi xLo : Nat) :
     run_osqrtUp_evm xHi xLo = .ok (model_osqrtUp_evm xHi xLo) := by
-  unfold run_osqrtUp_evm FormalYul.callPair FormalYul.callWords FormalYul.call
-    FormalYul.calldata
-  change (do
-      let words ← (do
-        let result ← FormalYul.runContract yulContract
-          (selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo]) 1000000
-        FormalYul.resultWords result 2)
-      FormalYul.pairFromWords words) =
-    Except.ok (model_osqrtUp_evm xHi xLo)
-  rw [runContract_osqrtUp_returnOf xHi xLo]
-  rw [FormalYul.Preservation.bind_ok_resultWords]
-  rw [FormalYul.Preservation.resultWords_two_word_toByteArray]
-  rw [FormalYul.Preservation.bind_ok_pairFromWords]
-  simp only [FormalYul.pairFromWords]
-  rw [osqrtUpRuntimePair_u256_components]
-  rw [osqrtUpRuntimePair_eq_model]
+  unfold run_osqrtUp_evm
+  apply FormalYul.Preservation.callPair_ok_of_dispatcherReturn_two_words_1000000
+  · exact dispatcherReturn_osqrtUp xHi xLo
+  · rw [osqrtUpRuntimePair_u256_components]
+    rw [osqrtUpRuntimePair_eq_model]
 
 end Sqrt512Yul
