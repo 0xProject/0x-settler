@@ -217,6 +217,34 @@ def ExecReturn
       .error (EvmYul.Yul.Exception.YulHalt state value) ∧
     returnOf state = result
 
+theorem execReturn_block_cons_of_head
+    {fuel : Nat} {stmt : EvmYul.Yul.Ast.Stmt} {rest : List EvmYul.Yul.Ast.Stmt}
+    {code : Option EvmYul.Yul.Ast.YulContract} {start : EvmYul.Yul.State}
+    {result : CallResult}
+    (hstmt : ExecReturn fuel stmt code start result) :
+    ExecReturn (Nat.succ fuel) (EvmYul.Yul.Ast.Stmt.Block (stmt :: rest)) code
+      start result := by
+  rcases hstmt with ⟨state, value, hstmtExec, hret⟩
+  refine ⟨state, value, ?_, hret⟩
+  rw [EvmYul.Yul.exec.eq_def]
+  simp only
+  rw [hstmtExec]
+
+theorem execReturn_block_cons_of_first_ok
+    {fuel : Nat} {first : EvmYul.Yul.Ast.Stmt} {rest : List EvmYul.Yul.Ast.Stmt}
+    {code : Option EvmYul.Yul.Ast.YulContract} {start mid : EvmYul.Yul.State}
+    {result : CallResult}
+    (hfirst : EvmYul.Yul.exec fuel first code start = .ok mid)
+    (hrest : ExecReturn fuel (EvmYul.Yul.Ast.Stmt.Block rest) code mid result) :
+    ExecReturn (Nat.succ fuel) (EvmYul.Yul.Ast.Stmt.Block (first :: rest)) code
+      start result := by
+  rcases hrest with ⟨state, value, hrestExec, hret⟩
+  refine ⟨state, value, ?_, hret⟩
+  rw [EvmYul.Yul.exec.eq_def]
+  simp only
+  rw [hfirst]
+  exact hrestExec
+
 theorem execReturn_block_cons_cons_of_first_ok_second
     {fuel : Nat} {first second : EvmYul.Yul.Ast.Stmt} {rest : List EvmYul.Yul.Ast.Stmt}
     {code : Option EvmYul.Yul.Ast.YulContract} {start mid : EvmYul.Yul.State}
@@ -234,6 +262,128 @@ theorem execReturn_block_cons_cons_of_first_ok_second
   rw [EvmYul.Yul.exec.eq_def]
   simp only
   rw [hsecondExec]
+
+theorem execReturn_exprstmt_call_nil_of_call_halt
+    {fuel : Nat} {fn : EvmYul.Yul.Ast.YulFunctionName}
+    {code : Option EvmYul.Yul.Ast.YulContract} {start : EvmYul.Yul.State}
+    {result : CallResult}
+    (hcall :
+      ∃ state value,
+        EvmYul.Yul.call fuel [] (.some fn) code start =
+          .error (EvmYul.Yul.Exception.YulHalt state value) ∧
+        returnOf state = result) :
+    ExecReturn (Nat.succ (Nat.succ fuel))
+      (EvmYul.Yul.Ast.Stmt.ExprStmtCall
+        (EvmYul.Yul.Ast.Expr.Call (.inr fn) [])) code start result := by
+  rcases hcall with ⟨state, value, hcallExec, hret⟩
+  refine ⟨state, value, ?_, hret⟩
+  rw [EvmYul.Yul.exec.eq_def]
+  simp only [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalArgs.eq_def,
+    List.reverse_nil, EvmYul.Yul.reverse']
+  rw [hcallExec]
+  rfl
+
+theorem execReturn_block_single_call_nil_of_call_halt
+    {fuel : Nat} {fn : EvmYul.Yul.Ast.YulFunctionName}
+    {code : Option EvmYul.Yul.Ast.YulContract} {start : EvmYul.Yul.State}
+    {result : CallResult}
+    (hcall :
+      ∃ state value,
+        EvmYul.Yul.call fuel [] (.some fn) code start =
+          .error (EvmYul.Yul.Exception.YulHalt state value) ∧
+        returnOf state = result) :
+    ExecReturn (Nat.succ (Nat.succ (Nat.succ fuel)))
+      (EvmYul.Yul.Ast.Stmt.Block
+        [EvmYul.Yul.Ast.Stmt.ExprStmtCall
+          (EvmYul.Yul.Ast.Expr.Call (.inr fn) [])]) code start result := by
+  exact execReturn_block_cons_of_head
+    (stmt := EvmYul.Yul.Ast.Stmt.ExprStmtCall
+      (EvmYul.Yul.Ast.Expr.Call (.inr fn) []))
+    (rest := []) (execReturn_exprstmt_call_nil_of_call_halt hcall)
+
+theorem execReturn_if_true_of_eval
+    {fuel : Nat} {cond : EvmYul.Yul.Ast.Expr} {body : List EvmYul.Yul.Ast.Stmt}
+    {code : Option EvmYul.Yul.Ast.YulContract} {start mid : EvmYul.Yul.State}
+    {condValue : EvmYul.UInt256} {result : CallResult}
+    (heval : EvmYul.Yul.eval fuel cond code start = .ok (mid, condValue))
+    (hcond : condValue ≠ (⟨0⟩ : EvmYul.UInt256))
+    (hbody : ExecReturn fuel (EvmYul.Yul.Ast.Stmt.Block body) code mid result) :
+    ExecReturn (Nat.succ fuel) (EvmYul.Yul.Ast.Stmt.If cond body) code start result := by
+  rcases hbody with ⟨state, value, hbodyExec, hret⟩
+  refine ⟨state, value, ?_, hret⟩
+  rw [EvmYul.Yul.exec.eq_def]
+  simp only
+  rw [heval]
+  simp only
+  rw [if_pos hcond]
+  exact hbodyExec
+
+theorem execReturn_if_true_block_cons_cons_of_eval_first_ok_second
+    {fuel : Nat} {cond : EvmYul.Yul.Ast.Expr}
+    {first second : EvmYul.Yul.Ast.Stmt} {rest : List EvmYul.Yul.Ast.Stmt}
+    {code : Option EvmYul.Yul.Ast.YulContract}
+    {start branchStart afterFirst : EvmYul.Yul.State}
+    {condValue : EvmYul.UInt256} {result : CallResult}
+    (heval :
+      EvmYul.Yul.eval (Nat.succ (Nat.succ fuel)) cond code start =
+        .ok (branchStart, condValue))
+    (hcond : condValue ≠ (⟨0⟩ : EvmYul.UInt256))
+    (hfirst : EvmYul.Yul.exec (Nat.succ fuel) first code branchStart = .ok afterFirst)
+    (hsecond : ExecReturn fuel second code afterFirst result) :
+    ExecReturn (Nat.succ (Nat.succ (Nat.succ fuel)))
+      (EvmYul.Yul.Ast.Stmt.If cond (first :: second :: rest)) code start result := by
+  apply execReturn_if_true_of_eval
+  · exact heval
+  · exact hcond
+  · exact execReturn_block_cons_cons_of_first_ok_second
+      (first := first) (second := second) (rest := rest)
+      (hfirst := hfirst) (hsecond := hsecond)
+
+theorem execReturn_switch_of_eval_selected
+    {fuel : Nat} {cond : EvmYul.Yul.Ast.Expr}
+    {cases : List (EvmYul.Literal × List EvmYul.Yul.Ast.Stmt)}
+    {defaultStmts selected : List EvmYul.Yul.Ast.Stmt}
+    {code : Option EvmYul.Yul.Ast.YulContract} {start mid : EvmYul.Yul.State}
+    {selector : EvmYul.Literal} {result : CallResult}
+    (heval : EvmYul.Yul.eval fuel cond code start = .ok (mid, selector))
+    (hselect : EvmYul.Yul.selectSwitchCase selector cases = .some selected)
+    (hselected : ExecReturn fuel (EvmYul.Yul.Ast.Stmt.Block selected) code mid result) :
+    ExecReturn (Nat.succ fuel)
+      (EvmYul.Yul.Ast.Stmt.Switch cond cases defaultStmts) code start result := by
+  rcases hselected with ⟨state, value, hselectedExec, hret⟩
+  refine ⟨state, value, ?_, hret⟩
+  rw [EvmYul.Yul.exec.eq_def]
+  simp only
+  rw [heval]
+  simp only
+  rw [hselect]
+  exact hselectedExec
+
+theorem execReturn_switch_selected_call_nil_of_eval
+    {fuel : Nat} {fn : EvmYul.Yul.Ast.YulFunctionName}
+    {cond : EvmYul.Yul.Ast.Expr}
+    {cases : List (EvmYul.Literal × List EvmYul.Yul.Ast.Stmt)}
+    {defaultStmts : List EvmYul.Yul.Ast.Stmt}
+    {code : Option EvmYul.Yul.Ast.YulContract} {start mid : EvmYul.Yul.State}
+    {selector : EvmYul.Literal} {result : CallResult}
+    (heval :
+      EvmYul.Yul.eval (Nat.succ (Nat.succ (Nat.succ fuel))) cond code start =
+        .ok (mid, selector))
+    (hselect :
+      EvmYul.Yul.selectSwitchCase selector cases =
+        .some [EvmYul.Yul.Ast.Stmt.ExprStmtCall
+          (EvmYul.Yul.Ast.Expr.Call (.inr fn) [])])
+    (hcall :
+      ∃ state value,
+        EvmYul.Yul.call fuel [] (.some fn) code mid =
+          .error (EvmYul.Yul.Exception.YulHalt state value) ∧
+        returnOf state = result) :
+    ExecReturn (Nat.succ (Nat.succ (Nat.succ (Nat.succ fuel))))
+      (EvmYul.Yul.Ast.Stmt.Switch cond cases defaultStmts) code start result := by
+  apply execReturn_switch_of_eval_selected
+  · exact heval
+  · exact hselect
+  · exact execReturn_block_single_call_nil_of_call_halt hcall
 
 @[simp]
 theorem exec_let_lit
@@ -2182,6 +2332,15 @@ def DispatcherReturn
     (contract : YulContract) (input : ByteArray) (execFuel : Nat)
     (result : CallResult) : Prop :=
   ExecReturn execFuel contract.dispatcher (.some contract) (stateFor contract input) result
+
+theorem dispatcherReturn_of_execReturn
+    {contract : YulContract} {dispatcher : EvmYul.Yul.Ast.Stmt}
+    {input : ByteArray} {execFuel : Nat} {result : CallResult}
+    (hdispatcher : contract.dispatcher = dispatcher)
+    (h : ExecReturn execFuel dispatcher (.some contract) (stateFor contract input) result) :
+    DispatcherReturn contract input execFuel result := by
+  unfold DispatcherReturn
+  simpa [hdispatcher] using h
 
 theorem dispatcherReturn_of_exec_halt
     {contract : YulContract} {dispatcher : EvmYul.Yul.Ast.Stmt}
