@@ -227,6 +227,23 @@ theorem exec_let_var
   rw [EvmYul.Yul.exec.eq_def]
 
 @[simp]
+theorem exec_let_none
+    (fuel : Nat) (vars : List EvmYul.Identifier)
+    (code : Option EvmYul.Yul.Ast.YulContract) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec fuel.succ (EvmYul.Yul.Ast.Stmt.Let vars none) code s =
+      .ok (List.foldr (fun var s => s.insert var (⟨0⟩ : EvmYul.UInt256)) s vars) := by
+  rw [EvmYul.Yul.exec.eq_def]
+
+@[simp]
+theorem exec_let_none_add
+    (fuel extra : Nat) (vars : List EvmYul.Identifier)
+    (code : Option EvmYul.Yul.Ast.YulContract) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + (extra + 1)) (EvmYul.Yul.Ast.Stmt.Let vars none) code s =
+      .ok (List.foldr (fun var s => s.insert var (⟨0⟩ : EvmYul.UInt256)) s vars) := by
+  rw [show fuel + (extra + 1) = (fuel + extra).succ by omega]
+  rw [EvmYul.Yul.exec.eq_def]
+
+@[simp]
 theorem exec_let_prim
     (fuel : Nat) (vars : List EvmYul.Identifier) (prim : EvmYul.Operation .Yul)
     (args : List EvmYul.Yul.Ast.Expr) (code : Option EvmYul.Yul.Ast.YulContract)
@@ -367,6 +384,14 @@ theorem primCall_add (fuel : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) 
   simp only [List.mem_cons, Bool.not_eq_true, reduceCtorEq, false_or, List.not_mem_nil,
     EvmYul.step.eq_def, and_false, if_false]
   rfl
+
+@[simp]
+theorem primCall_add_add
+    (fuel extra : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (fuel + (extra + 1)) s (Operation.ADD : Operation .Yul) [a, b] =
+      .ok (s, [a + b]) := by
+  simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
+    primCall_add (fuel := fuel + extra) (s := s) (a := a) (b := b)
 
 @[simp]
 theorem primCall_sub (fuel : Nat) (s : EvmYul.Yul.State) (a b : EvmYul.UInt256) :
@@ -604,6 +629,14 @@ theorem primCall_mload (fuel : Nat) (s : EvmYul.Yul.State) (a : EvmYul.UInt256) 
   simp [EvmYul.step.eq_def, EvmYul.Yul.State.toSharedState, EvmYul.Yul.State.toMachineState,
     EvmYul.Yul.State.setMachineState]
   cases s <;> rfl
+
+@[simp]
+theorem primCall_mload_add
+    (fuel extra : Nat) (s : EvmYul.Yul.State) (a : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (fuel + (extra + 1)) s (Operation.MLOAD : Operation .Yul) [a] =
+      .ok (s.setMachineState (s.toMachineState.mload a).2, [(s.toMachineState.mload a).1]) := by
+  simpa [Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
+    primCall_mload (fuel := fuel + extra) (s := s) (a := a)
 
 @[simp]
 theorem primCall_return
@@ -848,6 +881,111 @@ theorem decodeWord_toByteArray (v : EvmYul.UInt256) :
   rw [hmap, foldl_bytes_eq_fromBytesBigEndian]
   simp [xs]
 
+theorem decodeWord_zero_eq_fromBytesBigEndian_of_size (data : ByteArray)
+    (hsize : data.size = 32) :
+    FormalYul.decodeWord data 0 = EvmYul.fromBytesBigEndian data.data.toList := by
+  unfold FormalYul.decodeWord
+  simp [Id.run]
+  rw [← List.range_eq_range']
+  simp only [← Array.getElem?_toList]
+  rw [← (List.foldl_map (f := fun i => data.data.toList[i]?.getD 0)
+    (g := fun acc b => acc * 256 + b.toNat) (l := List.range 32) (init := 0))]
+  have hmap : (List.range 32).map (fun i => data.data.toList[i]?.getD 0) =
+      data.data.toList := by
+    have hlen : data.data.toList.length = 32 := by
+      simpa [ByteArray.size, Array.length_toList] using hsize
+    rw [← hlen]
+    exact range_map_getD_eq_self data.data.toList
+  rw [hmap, foldl_bytes_eq_fromBytesBigEndian]
+
+theorem decodeWord_append_left_of_size (a b : ByteArray) (ha : a.size = 32) :
+    FormalYul.decodeWord (a ++ b) 0 = FormalYul.decodeWord a 0 := by
+  unfold FormalYul.decodeWord
+  simp [Id.run]
+  rw [← List.range_eq_range']
+  simp only [← Array.getElem?_toList]
+  rw [← (List.foldl_map (f := fun i => (a.data.toList ++ b.data.toList)[i]?.getD 0)
+    (g := fun acc b => acc * 256 + b.toNat) (l := List.range 32) (init := 0))]
+  rw [← (List.foldl_map (f := fun i => a.data.toList[i]?.getD 0)
+    (g := fun acc b => acc * 256 + b.toNat) (l := List.range 32) (init := 0))]
+  congr 1
+  apply List.map_congr_left
+  intro i hi
+  have hlen : a.data.toList.length = 32 := by
+    simpa [ByteArray.size, Array.length_toList] using ha
+  have hi' : i < a.data.toList.length := by
+    have hi32 := List.mem_range.mp hi
+    omega
+  rw [List.getElem?_append_left hi']
+
+theorem decodeWord_append_right_of_size (a b : ByteArray) (ha : a.size = 32) :
+    FormalYul.decodeWord (a ++ b) 32 = FormalYul.decodeWord b 0 := by
+  unfold FormalYul.decodeWord
+  simp [Id.run]
+  rw [← List.range_eq_range']
+  simp only [← Array.getElem?_toList]
+  congr 1
+  funext acc i
+  have hlen : a.data.toList.length = 32 := by
+    simpa [ByteArray.size, Array.length_toList] using ha
+  have hge : a.data.toList.length ≤ 32 + i := by omega
+  rw [List.getElem?_append_right hge]
+  have hidx : 32 + i - a.data.toList.length = i := by omega
+  rw [hidx]
+
+theorem encodeWord_size (x : Nat) : (FormalYul.encodeWord x).size = 32 := by
+  change (FormalYul.encodeWord x).data.size = 32
+  rw [← Array.length_toList]
+  simp [FormalYul.Preservation.encodeWord_data_toList]
+
+@[simp]
+theorem decodeWord_encodeWord (x : Nat) :
+    FormalYul.decodeWord (FormalYul.encodeWord x) 0 = FormalYul.u256 x := by
+  rw [decodeWord_zero_eq_fromBytesBigEndian_of_size]
+  · change EvmYul.fromBytes' (encodeWord x).data.toList.reverse = u256 x
+    rw [fromBytes_encodeWord]
+  · exact encodeWord_size x
+
+theorem resultWords_two_encodeWords (a b : Nat) :
+    FormalYul.resultWords { returndata := FormalYul.encodeWords [a, b] } 2 =
+      .ok [FormalYul.u256 a, FormalYul.u256 b] := by
+  simp [FormalYul.resultWords, FormalYul.decodeWords, FormalYul.encodeWords,
+    byteArray_empty_append, ByteArray.size_append, encodeWord_size,
+    List.range, List.range.loop]
+  rw [decodeWord_append_left_of_size (FormalYul.encodeWord a) (FormalYul.encodeWord b)
+      (encodeWord_size a)]
+  rw [decodeWord_append_right_of_size (FormalYul.encodeWord a) (FormalYul.encodeWord b)
+      (encodeWord_size a)]
+  simp
+
+theorem resultWords_two_word_toByteArray (a b : Nat) :
+    FormalYul.resultWords
+      { returndata := (FormalYul.word a).toByteArray ++ (FormalYul.word b).toByteArray } 2 =
+      .ok [FormalYul.u256 a, FormalYul.u256 b] := by
+  simp [FormalYul.resultWords, FormalYul.decodeWords,
+    ByteArray.size_append, EvmYul.UInt256.toByteArray_size,
+    List.range, List.range.loop]
+  rw [decodeWord_append_left_of_size (FormalYul.word a).toByteArray (FormalYul.word b).toByteArray
+      (EvmYul.UInt256.toByteArray_size (FormalYul.word a))]
+  rw [decodeWord_append_right_of_size (FormalYul.word a).toByteArray (FormalYul.word b).toByteArray
+      (EvmYul.UInt256.toByteArray_size (FormalYul.word a))]
+  simp [FormalYul.word, decodeWord_toByteArray]
+  constructor
+  · exact wordNat_ofNat a
+  · exact wordNat_ofNat b
+
+theorem bind_ok_resultWords (result : FormalYul.CallResult) (count : Nat) :
+    (do
+      let result' ← (Except.ok result : Except String FormalYul.CallResult)
+      FormalYul.resultWords result' count) =
+      FormalYul.resultWords result count := rfl
+
+theorem bind_ok_pairFromWords (words : List Nat) :
+    (do
+      let words' ← (Except.ok words : Except String (List Nat))
+      FormalYul.pairFromWords words') =
+      FormalYul.pairFromWords words := rfl
+
 theorem readWithPadding_write_same_of_size
     (source dest : ByteArray) (destAddr : Nat) (hsize : source.size = 32) :
     (source.write 0 dest destAddr 32).readWithPadding destAddr 32 = source := by
@@ -888,6 +1026,202 @@ theorem readWithPadding_write_same_of_size
   rw [hz]
   rfl
 
+theorem readWithPadding_two_word_writes_data_of_size
+    (a b dest : ByteArray) (destAddr : Nat)
+    (ha : a.size = 32) (hb : b.size = 32) (hdest : dest.size = destAddr) :
+    ((b.write 0 (a.write 0 dest destAddr 32) (destAddr + 32) 32).readWithPadding
+        destAddr 64).data.toList =
+      a.data.toList ++ b.data.toList := by
+  simp [ByteArray.size] at ha hb hdest
+  have ha_take : List.take 32 a.data.toList = a.data.toList := by
+    exact List.take_of_length_le (by simp [Array.length_toList, ha])
+  have hb_take : List.take 32 b.data.toList = b.data.toList := by
+    exact List.take_of_length_le (by simp [Array.length_toList, hb])
+  have hsub0 : destAddr - (destAddr + 32 + 32) = 0 := by omega
+  have hsub64 : destAddr + 32 + 32 - destAddr = 64 := by omega
+  simp [ByteArray.write, ByteArray.readWithPadding, ByteArray.readWithoutPadding,
+    ByteArray.size, ha, hb, hdest, ha_take, hb_take, hsub0, hsub64,
+    List.take_append, List.drop_append, ffi.ByteArray.zeroes]
+
+theorem readWithPadding_two_word_writes_of_size
+    (a b dest : ByteArray) (destAddr : Nat)
+    (ha : a.size = 32) (hb : b.size = 32) (hdest : dest.size = destAddr) :
+    (b.write 0 (a.write 0 dest destAddr 32) (destAddr + 32) 32).readWithPadding
+        destAddr 64 =
+      a ++ b := by
+  apply ByteArray.ext
+  rw [← Array.toList_inj]
+  simp [ByteArray.data_append]
+  exact readWithPadding_two_word_writes_data_of_size a b dest destAddr ha hb hdest
+
+theorem write32_size_of_size_le_addr
+    (source dest : ByteArray) (destAddr : Nat)
+    (hsource : source.size = 32) (hdest : dest.size ≤ destAddr) :
+    (source.write 0 dest destAddr 32).size = destAddr + 32 := by
+  simp [ByteArray.write, ByteArray.size] at hsource hdest ⊢
+  omega
+
+theorem write32_size_of_addr_add_le_size
+    (source dest : ByteArray) (destAddr : Nat)
+    (hsource : source.size = 32) (hdest : destAddr + 32 ≤ dest.size) :
+    (source.write 0 dest destAddr 32).size = dest.size := by
+  simp [ByteArray.write, ByteArray.size] at hsource hdest ⊢
+  omega
+
+theorem readWithPadding_64_32_write0_preserve_of_size_192
+    (source dest : ByteArray) (hsource : source.size = 32) (hdest : dest.size = 192) :
+    (source.write 0 dest 0 32).readWithPadding 64 32 =
+      dest.readWithPadding 64 32 := by
+  apply ByteArray.ext
+  rw [← Array.toList_inj]
+  simp [ByteArray.write, ByteArray.readWithPadding, ByteArray.readWithoutPadding,
+    ByteArray.size] at hsource hdest ⊢
+  have hif1 :
+      ¬ (min 32 source.data.size +
+            (32 - min 32 source.data.size + (dest.data.size - 32)) ≤ 64) := by
+    omega
+  have hif2 : ¬ dest.data.size ≤ 64 := by
+    omega
+  rw [if_neg hif1, if_neg hif2]
+  have hmin1 :
+      min 32
+          (min 32 source.data.size +
+              (32 - min 32 source.data.size + (dest.data.size - 32)) - 64) =
+        32 := by
+    omega
+  have hmin2 : min 32 (dest.data.size - 64) = 32 := by
+    omega
+  rw [hmin1, hmin2]
+  have hread :
+      List.take 32
+          (List.drop 64
+            (List.take 32 source.data.toList ++
+              (List.replicate (32 - min 32 source.data.size) 0 ++
+                List.drop 32 dest.data.toList))) =
+        List.take 32 (List.drop 64 dest.data.toList) := by
+    simp [hsource, List.drop_append, List.take_append]
+  rw [hread]
+
+theorem readWithPadding_64_32_write32_preserve_of_size_192
+    (source dest : ByteArray) (hsource : source.size = 32) (hdest : dest.size = 192) :
+    (source.write 0 dest 32 32).readWithPadding 64 32 =
+      dest.readWithPadding 64 32 := by
+  apply ByteArray.ext
+  rw [← Array.toList_inj]
+  simp [ByteArray.write, ByteArray.readWithPadding, ByteArray.readWithoutPadding,
+    ByteArray.size] at hsource hdest ⊢
+  have hif1 :
+      ¬ (min 32 (dest.data.size + (32 - dest.data.size)) +
+            (min 32 source.data.size +
+              (32 - min 32 source.data.size + (dest.data.size - 64))) ≤ 64) := by
+    omega
+  have hif2 : ¬ dest.data.size ≤ 64 := by
+    omega
+  rw [if_neg hif1, if_neg hif2]
+  have hmin1 :
+      min 32
+          (min 32 (dest.data.size + (32 - dest.data.size)) +
+              (min 32 source.data.size +
+                (32 - min 32 source.data.size + (dest.data.size - 64))) - 64) =
+        32 := by
+    omega
+  have hmin2 : min 32 (dest.data.size - 64) = 32 := by
+    omega
+  rw [hmin1, hmin2]
+  have hread :
+      List.take 32
+          (List.drop 64
+            (List.take 32 (dest.data.toList ++ List.replicate (32 - dest.data.size) 0) ++
+              (List.take 32 source.data.toList ++
+                (List.replicate (32 - min 32 source.data.size) 0 ++
+                  List.drop 64 dest.data.toList)))) =
+        List.take 32 (List.drop 64 dest.data.toList) := by
+    simp [hsource, hdest, List.drop_append, List.take_append]
+  rw [hread]
+
+theorem readWithPadding_64_32_write128_preserve_of_size_96
+    (source dest : ByteArray) (hsource : source.size = 32) (hdest : dest.size = 96) :
+    (source.write 0 dest 128 32).readWithPadding 64 32 =
+      dest.readWithPadding 64 32 := by
+  apply ByteArray.ext
+  rw [← Array.toList_inj]
+  simp [ByteArray.write, ByteArray.readWithPadding, ByteArray.readWithoutPadding,
+    ByteArray.size] at hsource hdest ⊢
+  have hif1 :
+      ¬ (min 128 (dest.data.size + (128 - dest.data.size)) +
+            (min 32 source.data.size +
+              (32 - min 32 source.data.size + (dest.data.size - 160))) ≤ 64) := by
+    omega
+  have hif2 : ¬ dest.data.size ≤ 64 := by
+    omega
+  rw [if_neg hif1, if_neg hif2]
+  have hmin1 :
+      min 32
+          (min 128 (dest.data.size + (128 - dest.data.size)) +
+              (min 32 source.data.size +
+                (32 - min 32 source.data.size + (dest.data.size - 160))) - 64) =
+        32 := by
+    omega
+  have hmin2 : min 32 (dest.data.size - 64) = 32 := by
+    omega
+  rw [hmin1, hmin2]
+  have hread :
+      List.take 32
+          (List.drop 64
+            (List.take 128 (dest.data.toList ++ List.replicate (128 - dest.data.size) 0) ++
+              (List.take 32 source.data.toList ++
+                (List.replicate (32 - min 32 source.data.size) 0 ++
+                  List.drop 160 dest.data.toList)))) =
+        List.take 32 (List.drop 64 dest.data.toList) := by
+    simp [hsource, hdest, List.drop_append, List.take_append]
+    rw [List.drop_take]
+    have hlen : (List.drop 64 dest.data.toList).length = 32 := by
+      simp [Array.length_toList, hdest]
+    rw [List.take_of_length_le
+      (show (List.drop 64 dest.data.toList).length ≤ 128 - 64 by omega)]
+    rw [List.take_of_length_le
+      (show (List.drop 64 dest.data.toList).length ≤ 32 by omega)]
+  rw [hread]
+
+theorem readWithPadding_64_32_write160_preserve_of_size_160
+    (source dest : ByteArray) (hsource : source.size = 32) (hdest : dest.size = 160) :
+    (source.write 0 dest 160 32).readWithPadding 64 32 =
+      dest.readWithPadding 64 32 := by
+  apply ByteArray.ext
+  rw [← Array.toList_inj]
+  simp [ByteArray.write, ByteArray.readWithPadding, ByteArray.readWithoutPadding,
+    ByteArray.size] at hsource hdest ⊢
+  have hif1 :
+      ¬ (min 160 (dest.data.size + (160 - dest.data.size)) +
+            (min 32 source.data.size +
+              (32 - min 32 source.data.size + (dest.data.size - 192))) ≤ 64) := by
+    omega
+  have hif2 : ¬ dest.data.size ≤ 64 := by
+    omega
+  rw [if_neg hif1, if_neg hif2]
+  have hmin1 :
+      min 32
+          (min 160 (dest.data.size + (160 - dest.data.size)) +
+              (min 32 source.data.size +
+                (32 - min 32 source.data.size + (dest.data.size - 192))) - 64) =
+        32 := by
+    omega
+  have hmin2 : min 32 (dest.data.size - 64) = 32 := by
+    omega
+  rw [hmin1, hmin2]
+  have hread :
+      List.take 32
+          (List.drop 64
+            (List.take 160 (dest.data.toList ++ List.replicate (160 - dest.data.size) 0) ++
+              (List.take 32 source.data.toList ++
+                (List.replicate (32 - min 32 source.data.size) 0 ++
+                  List.drop 192 dest.data.toList)))) =
+        List.take 32 (List.drop 64 dest.data.toList) := by
+    simp [hsource, hdest, List.drop_append, List.take_append]
+    rw [List.drop_take, List.take_take]
+    rfl
+  rw [hread]
+
 theorem evmReturn_mstore_word_H_return
     (mstate : EvmYul.MachineState) (pos value : EvmYul.UInt256) :
     ((mstate.mstore pos value).evmReturn pos (FormalYul.word 32)).H_return =
@@ -896,6 +1230,25 @@ theorem evmReturn_mstore_word_H_return
     EvmYul.MachineState.writeWord, EvmYul.writeBytes, FormalYul.word]
   exact readWithPadding_write_same_of_size value.toByteArray mstate.memory pos.toNat
     (by simp)
+
+theorem evmReturn_mstore_two_words_H_return_of_size
+    (mstate : EvmYul.MachineState) (pos value0 value1 : EvmYul.UInt256)
+    (hmem : mstate.memory.size = pos.toNat)
+    (hpos : (pos + FormalYul.word 32).toNat = pos.toNat + 32) :
+    (((mstate.mstore pos value0).mstore (pos + FormalYul.word 32) value1).evmReturn
+        pos (FormalYul.word 64)).H_return =
+      value0.toByteArray ++ value1.toByteArray := by
+  unfold EvmYul.MachineState.evmReturn EvmYul.MachineState.mstore
+    EvmYul.MachineState.writeWord EvmYul.writeBytes
+  simp only [FormalYul.word]
+  change (value1.toByteArray.write 0 (value0.toByteArray.write 0 mstate.memory pos.toNat 32)
+      (pos + EvmYul.UInt256.ofNat 32).toNat 32).readWithPadding pos.toNat 64 =
+    value0.toByteArray ++ value1.toByteArray
+  have hpos' : (pos + EvmYul.UInt256.ofNat 32).toNat = pos.toNat + 32 := by
+    simpa [FormalYul.word] using hpos
+  rw [hpos']
+  exact readWithPadding_two_word_writes_of_size value0.toByteArray value1.toByteArray
+    mstate.memory pos.toNat (by simp) (by simp) hmem
 
 theorem resultWord_evmReturn_mstore_word
     (mstate : EvmYul.MachineState) (pos value : EvmYul.UInt256) :
