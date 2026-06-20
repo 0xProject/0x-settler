@@ -208,6 +208,33 @@ theorem returnOf_exec_block_nil
   | ok state =>
       simp [EvmYul.Yul.exec.eq_def]
 
+def ExecReturn
+    (fuel : Nat) (stmt : EvmYul.Yul.Ast.Stmt)
+    (code : Option EvmYul.Yul.Ast.YulContract) (start : EvmYul.Yul.State)
+    (result : CallResult) : Prop :=
+  ∃ state value,
+    EvmYul.Yul.exec fuel stmt code start =
+      .error (EvmYul.Yul.Exception.YulHalt state value) ∧
+    returnOf state = result
+
+theorem execReturn_block_cons_cons_of_first_ok_second
+    {fuel : Nat} {first second : EvmYul.Yul.Ast.Stmt} {rest : List EvmYul.Yul.Ast.Stmt}
+    {code : Option EvmYul.Yul.Ast.YulContract} {start mid : EvmYul.Yul.State}
+    {result : CallResult}
+    (hfirst : EvmYul.Yul.exec (Nat.succ fuel) first code start = .ok mid)
+    (hsecond : ExecReturn fuel second code mid result) :
+    ExecReturn (Nat.succ (Nat.succ fuel))
+      (EvmYul.Yul.Ast.Stmt.Block (first :: second :: rest)) code start result := by
+  rcases hsecond with ⟨state, value, hsecondExec, hret⟩
+  refine ⟨state, value, ?_, hret⟩
+  rw [EvmYul.Yul.exec.eq_def]
+  simp only
+  rw [hfirst]
+  simp only
+  rw [EvmYul.Yul.exec.eq_def]
+  simp only
+  rw [hsecondExec]
+
 @[simp]
 theorem exec_let_lit
     (fuel : Nat) (vars : List EvmYul.Identifier) (lit : EvmYul.Literal)
@@ -2154,11 +2181,7 @@ theorem calldata_eq (selector : ByteArray) (args : List Nat) :
 def DispatcherReturn
     (contract : YulContract) (input : ByteArray) (execFuel : Nat)
     (result : CallResult) : Prop :=
-  ∃ state value,
-    EvmYul.Yul.exec execFuel contract.dispatcher (.some contract)
-      (stateFor contract input) =
-      .error (EvmYul.Yul.Exception.YulHalt state value) ∧
-    returnOf state = result
+  ExecReturn execFuel contract.dispatcher (.some contract) (stateFor contract input) result
 
 theorem dispatcherReturn_of_exec_halt
     {contract : YulContract} {dispatcher : EvmYul.Yul.Ast.Stmt}
