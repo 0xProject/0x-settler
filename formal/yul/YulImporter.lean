@@ -60,7 +60,8 @@ def functionPrefixes : ModelKind → List String
       ["external_fun_wrap_cbrt512_", "external_fun_wrap_cbrtUp512_",
        "fun_wrap_cbrt512_", "fun_wrap_cbrtUp512_",
        "fun__cbrt_baseCase_", "fun__cbrt_karatsubaQuotient_",
-       "fun__cbrt_quadraticCorrection_", "fun__cbrt_newtonRaphsonStep_"]
+       "fun__cbrt_quadraticCorrection_", "fun__cbrt_newtonRaphsonStep_",
+       "fun_clz_", "fun__shl256_", "fun_tmp_", "fun_from_", "fun_into_"]
   | .ln =>
       ["external_fun_wrap_lnWad_", "external_fun_wrap_lnWadToRay_",
        "fun_wrap_lnWad_", "fun_wrap_lnWadToRay_", "fun_lnWad_", "fun_lnWadToRay_"]
@@ -541,15 +542,42 @@ def generatedAliases (kind : ModelKind) (functions : List (String × String)) :
         aliasByPrefix functions "fun__cbrt" "fun__cbrt_"
       ]
   | .cbrt512 =>
+      let wrapCbrt512 ← uniqueNameWithPrefix functions "fun_wrap_cbrt512_"
+      let wrapCbrtUp512 ← uniqueNameWithPrefix functions "fun_wrap_cbrtUp512_"
+      let cbrt512 ← callWithPrefixFrom functions wrapCbrt512 "fun_cbrt_"
+      let cbrtUp512 ← callWithPrefixFrom functions wrapCbrtUp512 "fun_cbrtUp_"
+      let cbrt256 ← callWithPrefixFrom functions cbrt512 "fun_cbrt_"
+      let cbrtUp256 ← callWithPrefixFrom functions cbrtUp512 "fun_cbrtUp_"
+      let cbrt512Core ← callWithPrefixFrom functions cbrt512 "fun__cbrt_"
+      let cbrt512UpCore ← callWithPrefixFrom functions cbrtUp512 "fun__cbrt_"
+      if cbrt512Core != cbrt512UpCore then
+        .error s!"cbrt512 floor/up wrappers call different core functions: {cbrt512Core}, {cbrt512UpCore}"
+      else
+      let cbrt256Core ← callWithPrefixFrom functions cbrt256 "fun__cbrt_"
+      let cbrt256UpCore ← callWithPrefixFrom functions cbrtUp256 "fun__cbrt_"
+      if cbrt256Core != cbrt256UpCore then
+        .error s!"embedded cbrt256 floor/up wrappers call different core functions: {cbrt256Core}, {cbrt256UpCore}"
+      else
       sequence [
         aliasByPrefix functions "external_fun_wrap_cbrt512" "external_fun_wrap_cbrt512_",
         aliasByPrefix functions "external_fun_wrap_cbrtUp512" "external_fun_wrap_cbrtUp512_",
-        aliasByPrefix functions "fun_wrap_cbrt512" "fun_wrap_cbrt512_",
-        aliasByPrefix functions "fun_wrap_cbrtUp512" "fun_wrap_cbrtUp512_",
+        .ok { stable := "fun_wrap_cbrt512", original := wrapCbrt512 },
+        .ok { stable := "fun_wrap_cbrtUp512", original := wrapCbrtUp512 },
+        .ok { stable := "fun_cbrt512", original := cbrt512 },
+        .ok { stable := "fun_cbrtUp512", original := cbrtUp512 },
+        .ok { stable := "fun_cbrt256", original := cbrt256 },
+        .ok { stable := "fun_cbrtUp256", original := cbrtUp256 },
+        .ok { stable := "fun__cbrt512", original := cbrt512Core },
+        .ok { stable := "fun__cbrt256", original := cbrt256Core },
         aliasByPrefix functions "fun__cbrt_baseCase" "fun__cbrt_baseCase_",
         aliasByPrefix functions "fun__cbrt_karatsubaQuotient" "fun__cbrt_karatsubaQuotient_",
         aliasByPrefix functions "fun__cbrt_quadraticCorrection" "fun__cbrt_quadraticCorrection_",
-        aliasByPrefix functions "fun__cbrt_newtonRaphsonStep" "fun__cbrt_newtonRaphsonStep_"
+        aliasByPrefix functions "fun__cbrt_newtonRaphsonStep" "fun__cbrt_newtonRaphsonStep_",
+        aliasByPrefix functions "fun_clz" "fun_clz_",
+        aliasByPrefix functions "fun__shl256" "fun__shl256_",
+        aliasByPrefix functions "fun_tmp" "fun_tmp_",
+        aliasByPrefix functions "fun_from" "fun_from_",
+        aliasByPrefix functions "fun_into" "fun_into_"
       ]
   | .ln =>
       sequence [
@@ -615,6 +643,7 @@ def validateShape (kind : ModelKind) (input : String) : Except String Unit := do
     validateSelectorCase code selector
   for pfx in kind.functionPrefixes do
     validateFunctionPrefix functions pfx
+  discard <| generatedAliases kind functions
 
 def validateInput (kind : ModelKind) (input : String) : Except String Unit :=
   match missingMarkers kind input with

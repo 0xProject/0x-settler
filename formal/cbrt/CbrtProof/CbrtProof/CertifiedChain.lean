@@ -274,6 +274,69 @@ theorem cbrt_d1_bound
 -- Five-step certified chain
 -- ============================================================================
 
+/-- Per-step certified bounds for the first four Newton steps. -/
+theorem run4_certified_step_bounds
+    (i : Fin 248) (x m : Nat)
+    (hm2 : 2 ≤ m)
+    (hmlo : m * m * m ≤ x)
+    (hmhi : x < (m + 1) * (m + 1) * (m + 1))
+    (hlo : loOf i ≤ m)
+    (hhi : m ≤ hiOf i) :
+    let z1 := cbrtStep x (seedOf i)
+    let z2 := cbrtStep x z1
+    let z3 := cbrtStep x z2
+    let z4 := cbrtStep x z3
+    m ≤ z1 ∧ z1 - m ≤ d1Of i ∧ 2 * d1Of i ≤ m ∧
+    m ≤ z2 ∧ z2 - m ≤ d2Of i ∧ 2 * d2Of i ≤ m ∧
+    m ≤ z3 ∧ z3 - m ≤ d3Of i ∧ 2 * d3Of i ≤ m ∧
+    m ≤ z4 ∧ z4 - m ≤ d4Of i ∧ 2 * d4Of i ≤ m := by
+  let z1 := cbrtStep x (seedOf i)
+  let z2 := cbrtStep x z1
+  let z3 := cbrtStep x z2
+  let z4 := cbrtStep x z3
+
+  have hloPos : 0 < loOf i := lo_pos i
+  have hsPos : 0 < seedOf i := seed_pos i
+
+  have hmz1 : m ≤ z1 := cbrt_step_floor_bound x (seedOf i) m hsPos hmlo
+  have hz1Pos : 0 < z1 := by omega
+  have hmz2 : m ≤ z2 := cbrt_step_floor_bound x z1 m hz1Pos hmlo
+  have hz2Pos : 0 < z2 := by omega
+  have hmz3 : m ≤ z3 := cbrt_step_floor_bound x z2 m hz2Pos hmlo
+  have hz3Pos : 0 < z3 := by omega
+  have hmz4 : m ≤ z4 := cbrt_step_floor_bound x z3 m hz3Pos hmlo
+
+  have hd1 : z1 - m ≤ d1Of i := by
+    have h := cbrt_d1_bound x m (seedOf i) (loOf i) (hiOf i) hsPos hmlo hmhi hlo hhi
+    simp only at h
+    show cbrtStep x (seedOf i) - m ≤ d1Of i
+    have hd1eq := d1_eq i
+    have hmaxeq := maxabs_eq i
+    rw [hmaxeq] at hd1eq
+    rw [← hd1eq] at h
+    exact h
+  have h2d1 : 2 * d1Of i ≤ m := Nat.le_trans (two_d1_le_lo i) hlo
+
+  have hd2 : z2 - m ≤ d2Of i := by
+    have h := step_from_bound x m (loOf i) z1 (d1Of i) hm2 hloPos hlo hmhi hmz1 hd1 h2d1
+    show cbrtStep x z1 - m ≤ d2Of i
+    unfold d2Of; exact h
+  have h2d2 : 2 * d2Of i ≤ m := Nat.le_trans (two_d2_le_lo i) hlo
+
+  have hd3 : z3 - m ≤ d3Of i := by
+    have h := step_from_bound x m (loOf i) z2 (d2Of i) hm2 hloPos hlo hmhi hmz2 hd2 h2d2
+    show cbrtStep x z2 - m ≤ d3Of i
+    unfold d3Of; exact h
+  have h2d3 : 2 * d3Of i ≤ m := Nat.le_trans (two_d3_le_lo i) hlo
+
+  have hd4 : z4 - m ≤ d4Of i := by
+    have h := step_from_bound x m (loOf i) z3 (d3Of i) hm2 hloPos hlo hmhi hmz3 hd3 h2d3
+    show cbrtStep x z3 - m ≤ d4Of i
+    unfold d4Of; exact h
+  have h2d4 : 2 * d4Of i ≤ m := Nat.le_trans (two_d4_le_lo i) hlo
+
+  exact ⟨hmz1, hd1, h2d1, hmz2, hd2, h2d2, hmz3, hd3, h2d3, hmz4, hd4, h2d4⟩
+
 /-- Four-step certified chain: z₄ ≥ m, error ≤ d4, and 2*d4 ≤ m. -/
 theorem run4_certified_bounds
     (i : Fin 248) (x m : Nat)
