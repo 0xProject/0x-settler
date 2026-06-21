@@ -17,9 +17,7 @@ import SqrtProof.LeanCompat
 open SqrtCertified
 open SqrtCert
 
--- ============================================================================
--- Part 1: Definitions matching Sqrt.sol EVM semantics
--- ============================================================================
+-- Definitions matching the Sqrt.sol EVM arithmetic.
 
 /-- The seed: z₀ = 2^⌊(log2(x)+1)/2⌋. For x=0, returns 0.
     Matches EVM: shl(shr(1, sub(256, clz(x))), 1)
@@ -53,9 +51,7 @@ def sqrtUp256 (x : Nat) : Nat :=
   let r := floorSqrt x
   if r * r < x then r + 1 else r
 
--- ============================================================================
--- Part 2: Lower bound (composing Lemma 1)
--- ============================================================================
+-- Lower-bound composition.
 
 /-- The seed is positive for x > 0. -/
 theorem sqrtSeed_pos (x : Nat) (hx : 0 < x) :
@@ -125,9 +121,7 @@ theorem natSqrt_sq_le (n : Nat) : natSqrt n * natSqrt n ≤ n :=
 theorem natSqrt_lt_succ_sq (n : Nat) : n < (natSqrt n + 1) * (natSqrt n + 1) :=
   (natSqrt_spec n).2
 
--- ============================================================================
--- Part 4: Main theorems
--- ============================================================================
+-- Main correctness theorems.
 
 /-- innerSqrt gives a lower bound: for any m with m² ≤ x, m ≤ innerSqrt(x).
     This follows from 6 applications of babylon_step_floor_bound. -/
@@ -749,23 +743,3 @@ theorem sqrt_witness_correct_u256
       m ≤ innerSqrt x ∧ innerSqrt x ≤ m + 1 := by
   refine ⟨natSqrt x, natSqrt_sq_le x, natSqrt_lt_succ_sq x, ?_⟩
   simpa using innerSqrt_bracket_u256_all x hx256
-
--- ============================================================================
--- Summary of proof status
--- ============================================================================
-
-/-
-  PROOF STATUS — ALL COMPLETE (0 sorry):
-
-  ✓ Lemma 1 (Floor Bound): babylon_step_floor_bound
-  ✓ Lemma 2 (Absorbing Set): babylon_from_ceil, babylon_from_floor
-  ✓ Step Monotonicity: bstep_mono_x, bstep_mono_z
-  ✓ Overestimate Contraction: bstep_lt_of_overestimate
-  ✓ Finite certificate layer: d1..d6 bounds from offline literals
-  ✓ Lower Bound Chain: innerSqrt_lower (6x babylon_step_floor_bound)
-  ✓ Finite-Certificate Upper Bound: innerSqrt_upper_cert
-  ✓ Floor Correction: floor_correction (case split on x/z < z)
-  ✓ Octave Wiring: innerSqrt_upper_of_octave, floorSqrt_correct_of_octave
-  ✓ Universal uint256 wrappers: innerSqrt_bracket_u256_all, floorSqrt_correct_u256
-  ✓ Theorem wrappers: innerSqrt_correct, floorSqrt_correct, floorSqrt_correct_cert
--/
