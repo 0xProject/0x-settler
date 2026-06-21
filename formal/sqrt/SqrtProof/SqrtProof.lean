@@ -7,3 +7,6 @@ import SqrtProof.FiniteCert
 import SqrtProof.CertifiedChain
 import SqrtProof.LeanCompat
 import SqrtProof.SqrtCorrect
+import SqrtProof.SqrtYulRuntime
+import SqrtProof.SqrtYulProof
+import SqrtProof.SqrtYulCorrect

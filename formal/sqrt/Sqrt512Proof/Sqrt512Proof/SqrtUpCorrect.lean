@@ -1,8 +1,8 @@
-/-
-  Ceiling square root for 512-bit values.
-  Models 512Math.osqrtUp (lines 1798-1811).
--/
+/- Ceiling square root for 512-bit values. -/
+import FormalYul
 import Sqrt512Proof.Sqrt512Correct
+
+set_option exponentiation.threshold 1024
 
 private theorem sq_expand_aux (m : Nat) :
     (m + 1) * (m + 1) = m * m + 2 * m + 1 := by
@@ -14,6 +14,15 @@ private theorem sq_expand_aux (m : Nat) :
 noncomputable def sqrtUp512 (x : Nat) : Nat :=
   let r := sqrt512 x
   if r * r < x then r + 1 else r
+
+/-- Interpret two EVM words as a uint512 natural number. -/
+def uint512 (xHi xLo : Nat) : Nat :=
+  FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo
+
+/-- High/low word encoding of the 512-bit ceiling square root. -/
+noncomputable def sqrtUp512Pair (xHi xLo : Nat) : Nat × Nat :=
+  let r := sqrtUp512 (uint512 xHi xLo)
+  (r / 2 ^ 256, r % 2 ^ 256)
 
 /-- sqrtUp512 is the ceiling sqrt: x <= r^2 and r is minimal. -/
 theorem sqrtUp512_correct (x : Nat) (hx : x < 2 ^ 512) :

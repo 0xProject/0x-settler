@@ -130,11 +130,25 @@ theorem setStore_ok
       EvmYul.Yul.State.Ok shared store' := rfl
 
 @[simp]
+theorem toMachineState_ok
+    (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore) :
+    EvmYul.Yul.State.toMachineState (EvmYul.Yul.State.Ok shared store) =
+      shared.toMachineState := rfl
+
+@[simp]
 theorem setMachineState_ok
     (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (mstate : EvmYul.MachineState) :
     EvmYul.Yul.State.setMachineState mstate (EvmYul.Yul.State.Ok shared store) =
       EvmYul.Yul.State.Ok { shared with toMachineState := mstate } store := rfl
+
+@[simp]
+theorem toMachineState_setMachineState_ok
+    (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (mstate : EvmYul.MachineState) :
+    EvmYul.Yul.State.toMachineState
+      (EvmYul.Yul.State.setMachineState mstate (EvmYul.Yul.State.Ok shared store)) =
+      mstate := rfl
 
 @[simp]
 theorem accountMapFor_find_contractOwner (contract : YulContract) :
@@ -384,6 +398,65 @@ theorem execReturn_switch_selected_call_nil_of_eval
   · exact heval
   · exact hselect
   · exact execReturn_block_single_call_nil_of_call_halt hcall
+
+theorem execReturn_block_if_switch_selected_call_nil
+    {fuel : Nat}
+    {first fallback letStmt : EvmYul.Yul.Ast.Stmt}
+    {ifCond switchCond : EvmYul.Yul.Ast.Expr}
+    {cases : List (EvmYul.Literal × List EvmYul.Yul.Ast.Stmt)}
+    {defaultStmts : List EvmYul.Yul.Ast.Stmt}
+    {fn : EvmYul.Yul.Ast.YulFunctionName}
+    {code : Option EvmYul.Yul.Ast.YulContract}
+    {start afterFirst branchStart afterLet switchStart : EvmYul.Yul.State}
+    {condValue selector : EvmYul.Literal}
+    {result : CallResult}
+    (hfirst :
+      EvmYul.Yul.exec
+        (Nat.succ (Nat.succ (Nat.succ (Nat.succ (Nat.succ (Nat.succ (Nat.succ
+          (Nat.succ fuel))))))))
+        first code start = .ok afterFirst)
+    (hcond :
+      EvmYul.Yul.eval
+        (Nat.succ (Nat.succ (Nat.succ (Nat.succ (Nat.succ (Nat.succ fuel))))))
+        ifCond code afterFirst = .ok (branchStart, condValue))
+    (hcondNe : condValue ≠ (⟨0⟩ : EvmYul.UInt256))
+    (hlet :
+      EvmYul.Yul.exec
+        (Nat.succ (Nat.succ (Nat.succ (Nat.succ (Nat.succ fuel)))))
+        letStmt code branchStart = .ok afterLet)
+    (hswitchEval :
+      EvmYul.Yul.eval (Nat.succ (Nat.succ (Nat.succ fuel)))
+        switchCond code afterLet = .ok (switchStart, selector))
+    (hselect :
+      EvmYul.Yul.selectSwitchCase selector cases =
+        .some [EvmYul.Yul.Ast.Stmt.ExprStmtCall
+          (EvmYul.Yul.Ast.Expr.Call (.inr fn) [])])
+    (hcall :
+      ∃ state value,
+        EvmYul.Yul.call fuel [] (.some fn) code switchStart =
+          .error (EvmYul.Yul.Exception.YulHalt state value) ∧
+        returnOf state = result) :
+    ExecReturn
+      (Nat.succ (Nat.succ (Nat.succ (Nat.succ (Nat.succ (Nat.succ (Nat.succ
+        (Nat.succ (Nat.succ fuel)))))))))
+      (EvmYul.Yul.Ast.Stmt.Block
+        [first,
+          EvmYul.Yul.Ast.Stmt.If ifCond
+            [letStmt,
+              EvmYul.Yul.Ast.Stmt.Switch switchCond cases defaultStmts],
+          fallback])
+      code start result := by
+  apply execReturn_block_cons_of_first_ok
+  · exact hfirst
+  · apply execReturn_block_cons_of_head
+    apply execReturn_if_true_block_cons_cons_of_eval_first_ok_second
+    · exact hcond
+    · exact hcondNe
+    · exact hlet
+    · apply execReturn_switch_selected_call_nil_of_eval
+      · exact hswitchEval
+      · exact hselect
+      · exact hcall
 
 @[simp]
 theorem exec_let_lit
@@ -1479,6 +1552,207 @@ theorem evmReturn_mstore_two_words_H_return_of_size
   exact readWithPadding_two_word_writes_of_size value0.toByteArray value1.toByteArray
     mstate.memory pos.toNat (by simp) (by simp) hmem
 
+theorem read_two_word_write_first_data
+    (a b dest : ByteArray) (ha : a.size = 32) :
+    ((b.write 0 (a.write 0 dest 0 32) 32 32).readWithPadding 0 32).data.toList =
+      a.data.toList := by
+  simp [ByteArray.size] at ha
+  simp [ByteArray.write, ByteArray.readWithPadding, ByteArray.readWithoutPadding,
+    ByteArray.size, ha, ffi.ByteArray.zeroes]
+
+theorem read_two_word_write_second_data
+    (a b dest : ByteArray) (ha : a.size = 32) (hb : b.size = 32) :
+    ((b.write 0 (a.write 0 dest 0 32) 32 32).readWithPadding 32 32).data.toList =
+      b.data.toList := by
+  simp [ByteArray.size] at ha hb
+  simp [ByteArray.write, ByteArray.readWithPadding, ByteArray.readWithoutPadding,
+    ByteArray.size, ha, hb, ffi.ByteArray.zeroes]
+
+theorem write32_size_ge (source dest : ByteArray) (destAddr : Nat) :
+    destAddr + 32 ≤ (source.write 0 dest destAddr 32).size := by
+  simp [ByteArray.write, ByteArray.size]
+  omega
+
+theorem two_word_write_size_ge_64
+    (a b dest : ByteArray) :
+    64 ≤ (b.write 0 (a.write 0 dest 0 32) 32 32).size := by
+  have h := write32_size_ge b (a.write 0 dest 0 32) 32
+  simpa using h
+
+theorem mload_two_word_write_first (m : EvmYul.MachineState) (xHi xLo : EvmYul.UInt256)
+    (hactive : m.activeWords = word 3) :
+    (((m.mstore (word 0) xHi).mstore (word 32) xLo).mload (word 0)).1 =
+      xHi := by
+  unfold EvmYul.MachineState.mload EvmYul.MachineState.lookupMemory
+  have hsize :
+      64 ≤ (xLo.toByteArray.write 0 (xHi.toByteArray.write 0 m.memory 0 32) 32 32).size :=
+    two_word_write_size_ge_64 xHi.toByteArray xLo.toByteArray m.memory
+  have hsize' :
+      64 ≤ (xLo.toByteArray.write 0
+        (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 0).toNat 32)
+        (EvmYul.UInt256.ofNat 32).toNat 32).size := by
+    simpa using hsize
+  have hzero : (EvmYul.UInt256.ofNat 0).toNat = 0 := rfl
+  have hcond :
+      ¬ ((xLo.toByteArray.write 0
+                (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 0).toNat 32)
+                (EvmYul.UInt256.ofNat 32).toNat 32).size ≤
+            (EvmYul.UInt256.ofNat 0).toNat ∨
+          EvmYul.UInt256.ofNat
+                (max
+                  (EvmYul.UInt256.ofNat
+                    (max (EvmYul.UInt256.ofNat 3).toNat
+                      (((EvmYul.UInt256.ofNat 0).toNat + 32 + 31) / 32))).toNat
+                  (((EvmYul.UInt256.ofNat 32).toNat + 32 + 31) / 32)) *
+              { val := 32 } ≤
+            EvmYul.UInt256.ofNat 0) := by
+    intro h
+    cases h with
+    | inl hmem =>
+        have hgt :
+            (EvmYul.UInt256.ofNat 0).toNat <
+              (xLo.toByteArray.write 0
+                (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 0).toNat 32)
+                (EvmYul.UInt256.ofNat 32).toNat 32).size := by
+          rw [hzero]
+          omega
+        exact (not_le_of_gt hgt) hmem
+    | inr hactiveMem =>
+        norm_num [EvmYul.MachineState.M, EvmYul.UInt256.ofNat, EvmYul.UInt256.mul,
+          EvmYul.UInt256.toNat, EvmYul.UInt256.size] at hactiveMem
+        exact
+          (by decide :
+            ¬ ((({ val := 3 } : EvmYul.UInt256) * ({ val := 32 } : EvmYul.UInt256)) ≤
+              ({ val := (0 : Fin EvmYul.UInt256.size) } : EvmYul.UInt256))) hactiveMem
+  simp [word, EvmYul.MachineState.mstore, EvmYul.MachineState.writeWord,
+    hactive, EvmYul.writeBytes, EvmYul.fromByteArrayBigEndian, EvmYul.MachineState.M,
+    hcond]
+  apply eq_of_wordNat_eq
+  simp
+  have hread :
+      ((xLo.toByteArray.write 0
+            (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 0).toNat 32)
+            (EvmYul.UInt256.ofNat 32).toNat 32).readWithPadding
+          (EvmYul.UInt256.ofNat 0).toNat 32).data.toList =
+        xHi.toByteArray.data.toList := by
+    simpa using
+      read_two_word_write_first_data xHi.toByteArray xLo.toByteArray m.memory
+        (EvmYul.UInt256.toByteArray_size xHi)
+  rw [hread]
+  change u256 (EvmYul.fromByteArrayBigEndian xHi.toByteArray) = wordNat xHi
+  simp [u256, WORD_MOD, wordNat]
+  exact xHi.val.isLt
+
+theorem mload_two_word_write_second (m : EvmYul.MachineState) (xHi xLo : EvmYul.UInt256)
+    (hactive : m.activeWords = word 3) :
+    (((m.mstore (word 0) xHi).mstore (word 32) xLo).mload (word 32)).1 =
+      xLo := by
+  unfold EvmYul.MachineState.mload EvmYul.MachineState.lookupMemory
+  have hsize :
+      64 ≤ (xLo.toByteArray.write 0 (xHi.toByteArray.write 0 m.memory 0 32) 32 32).size :=
+    two_word_write_size_ge_64 xHi.toByteArray xLo.toByteArray m.memory
+  have hsize' :
+      64 ≤ (xLo.toByteArray.write 0
+        (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 0).toNat 32)
+        (EvmYul.UInt256.ofNat 32).toNat 32).size := by
+    simpa using hsize
+  have h32 : (EvmYul.UInt256.ofNat 32).toNat = 32 := rfl
+  have hcond :
+      ¬ ((xLo.toByteArray.write 0
+                (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 0).toNat 32)
+                (EvmYul.UInt256.ofNat 32).toNat 32).size ≤
+            (EvmYul.UInt256.ofNat 32).toNat ∨
+          EvmYul.UInt256.ofNat
+                (max
+                  (EvmYul.UInt256.ofNat
+                    (max (EvmYul.UInt256.ofNat 3).toNat
+                      (((EvmYul.UInt256.ofNat 0).toNat + 32 + 31) / 32))).toNat
+                  (((EvmYul.UInt256.ofNat 32).toNat + 32 + 31) / 32)) *
+              { val := 32 } ≤
+            EvmYul.UInt256.ofNat 32) := by
+    intro h
+    cases h with
+    | inl hmem =>
+        have hgt :
+            (EvmYul.UInt256.ofNat 32).toNat <
+              (xLo.toByteArray.write 0
+                (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 0).toNat 32)
+                (EvmYul.UInt256.ofNat 32).toNat 32).size := by
+          rw [h32]
+          omega
+        exact (not_le_of_gt hgt) hmem
+    | inr hactiveMem =>
+        norm_num [EvmYul.MachineState.M, EvmYul.UInt256.ofNat, EvmYul.UInt256.mul,
+          EvmYul.UInt256.toNat, EvmYul.UInt256.size] at hactiveMem
+        exact
+          (by decide :
+            ¬ ((({ val := 3 } : EvmYul.UInt256) * ({ val := 32 } : EvmYul.UInt256)) ≤
+              ({ val := (32 : Fin EvmYul.UInt256.size) } : EvmYul.UInt256))) hactiveMem
+  simp [word, EvmYul.MachineState.mstore, EvmYul.MachineState.writeWord,
+    hactive, EvmYul.writeBytes, EvmYul.fromByteArrayBigEndian, EvmYul.MachineState.M,
+    hcond]
+  apply eq_of_wordNat_eq
+  simp
+  have hread :
+      ((xLo.toByteArray.write 0
+            (xHi.toByteArray.write 0 m.memory (EvmYul.UInt256.ofNat 0).toNat 32)
+            (EvmYul.UInt256.ofNat 32).toNat 32).readWithPadding
+          (EvmYul.UInt256.ofNat 32).toNat 32).data.toList =
+        xLo.toByteArray.data.toList := by
+    simpa using
+      read_two_word_write_second_data xHi.toByteArray xLo.toByteArray m.memory
+        (EvmYul.UInt256.toByteArray_size xHi) (EvmYul.UInt256.toByteArray_size xLo)
+  rw [hread]
+  change u256 (EvmYul.fromByteArrayBigEndian xLo.toByteArray) = wordNat xLo
+  simp [u256, WORD_MOD, wordNat]
+  exact xLo.val.isLt
+
+theorem mstore_two_word_active_3 (m : EvmYul.MachineState) (xHi xLo : EvmYul.UInt256)
+    (hactive : m.activeWords = word 3) :
+    ((m.mstore (word 0) xHi).mstore (word 32) xLo).activeWords =
+      word 3 := by
+  cases m
+  simp [EvmYul.MachineState.mstore, EvmYul.MachineState.writeWord, EvmYul.writeBytes,
+    EvmYul.MachineState.M, word, hactive]
+  decide
+
+theorem mstore_two_word_active_6 (m : EvmYul.MachineState) (xHi xLo : EvmYul.UInt256)
+    (hactive : m.activeWords = word 6) :
+    ((m.mstore (word 0) xHi).mstore (word 32) xLo).activeWords =
+      word 6 := by
+  cases m
+  simp [EvmYul.MachineState.mstore, EvmYul.MachineState.writeWord, EvmYul.writeBytes,
+    EvmYul.MachineState.M, word, hactive]
+  decide
+
+theorem mload_two_word_write_first_state (m : EvmYul.MachineState)
+    (xHi xLo : EvmYul.UInt256) (hactive : m.activeWords = word 3) :
+    (((m.mstore (word 0) xHi).mstore (word 32) xLo).mload (word 0)).2 =
+      ((m.mstore (word 0) xHi).mstore (word 32) xLo) := by
+  cases m
+  simp [EvmYul.MachineState.mload, EvmYul.MachineState.mstore,
+    EvmYul.MachineState.writeWord, EvmYul.writeBytes, EvmYul.MachineState.M,
+    word, hactive]
+  decide
+
+theorem mload_two_word_write_second_state (m : EvmYul.MachineState)
+    (xHi xLo : EvmYul.UInt256) (hactive : m.activeWords = word 3) :
+    (((m.mstore (word 0) xHi).mstore (word 32) xLo).mload (word 32)).2 =
+      ((m.mstore (word 0) xHi).mstore (word 32) xLo) := by
+  cases m
+  simp [EvmYul.MachineState.mload, EvmYul.MachineState.mstore,
+    EvmYul.MachineState.writeWord, EvmYul.writeBytes, EvmYul.MachineState.M,
+    word, hactive]
+  decide
+
+theorem mload64_state_active_6
+    (m : EvmYul.MachineState) (hactive : m.activeWords = word 6) :
+    (m.mload (word 64)).2 = m := by
+  cases m
+  simp [EvmYul.MachineState.mload, EvmYul.MachineState.M, word] at hactive ⊢
+  rw [hactive]
+  decide
+
 theorem resultWord_evmReturn_mstore_word
     (mstate : EvmYul.MachineState) (pos value : EvmYul.UInt256) :
     FormalYul.resultWord
@@ -1488,12 +1762,56 @@ theorem resultWord_evmReturn_mstore_word
   simp [FormalYul.resultWord]
 
 @[simp]
+theorem sharedFor_mload_freePtr_after_mstore
+    (contract : YulContract) (input : ByteArray) :
+    (({ (sharedFor contract input) with
+      toMachineState :=
+        (sharedFor contract input).toMachineState.mstore (word 64) (word 128) }).mload
+          (word 64)).1 =
+      word 128 := by
+  apply eq_of_wordNat_eq
+  simp [sharedFor, envFor, wordNat, word,
+    EvmYul.UInt256.toNat, EvmYul.UInt256.ofNat, EvmYul.UInt256.size,
+    Inhabited.default, EvmYul.MachineState.mload, EvmYul.MachineState.lookupMemory,
+    EvmYul.MachineState.mstore, EvmYul.MachineState.writeWord, EvmYul.writeBytes,
+    ByteArray.write, ByteArray.readWithPadding, ByteArray.readWithoutPadding,
+    ByteArray.size, EvmYul.MachineState.M, EvmYul.UInt256.toByteArray]
+  have hle :
+      ¬ (({ val := (3 : Fin EvmYul.UInt256.size) } : EvmYul.UInt256) *
+          { val := (32 : Fin EvmYul.UInt256.size) } ≤
+          ({ val := (64 : Fin EvmYul.UInt256.size) } : EvmYul.UInt256)) := by
+    decide
+  simp [hle, EvmYul.fromByteArrayBigEndian, EvmYul.fromBytesBigEndian,
+    EvmYul.fromBytes', ffi.ByteArray.zeroes]
+  norm_num [UInt8.size, EvmYul.UInt256.size]
+
+@[simp]
 theorem readBytes_selector_single_arg (a b c d x : Nat) :
     ByteArray.readBytes (bytes [a, b, c, d] ++ encodeWord x) 4 32 =
       encodeWord x := by
   apply ByteArray.ext
   rw [← Array.toList_inj]
   simp [ByteArray.readBytes, bytes, ByteArray.push, ByteArray.empty,
+    ByteArray.emptyWithCapacity, ByteArray.size, ffi.ByteArray.zeroes,
+    List.range, List.range.loop, List.range']
+
+@[simp]
+theorem readBytes_selector_two_args_first (a b c d x y : Nat) :
+    ByteArray.readBytes (bytes [a, b, c, d] ++ encodeWords [x, y]) 4 32 =
+      encodeWord x := by
+  apply ByteArray.ext
+  rw [← Array.toList_inj]
+  simp [ByteArray.readBytes, bytes, encodeWords, ByteArray.push, ByteArray.empty,
+    ByteArray.emptyWithCapacity, ByteArray.size, ffi.ByteArray.zeroes,
+    List.range, List.range.loop, List.range']
+
+@[simp]
+theorem readBytes_selector_two_args_second (a b c d x y : Nat) :
+    ByteArray.readBytes (bytes [a, b, c, d] ++ encodeWords [x, y]) 36 32 =
+      encodeWord y := by
+  apply ByteArray.ext
+  rw [← Array.toList_inj]
+  simp [ByteArray.readBytes, bytes, encodeWords, ByteArray.push, ByteArray.empty,
     ByteArray.emptyWithCapacity, ByteArray.size, ffi.ByteArray.zeroes,
     List.range, List.range.loop, List.range']
 
@@ -1514,6 +1832,89 @@ theorem calldataload_single_arg_state
       (word 4) = word x := by
   simpa [EvmYul.Yul.State.toState] using
     calldataload_single_arg contract a b c d x
+
+@[simp]
+theorem calldataload_single_arg_of_calldata
+    (a b c d x : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hdata : shared.executionEnv.calldata = bytes [a, b, c, d] ++ encodeWords [x]) :
+    EvmYul.State.calldataload
+      (EvmYul.Yul.State.Ok shared store).toState (word 4) =
+      word x := by
+  simp [EvmYul.State.calldataload, EvmYul.Yul.State.toState, hdata, encodeWords]
+
+@[simp]
+theorem calldataload_two_args_first
+    (contract : YulContract) (a b c d x y : Nat) :
+    EvmYul.State.calldataload
+      (sharedFor contract (bytes [a, b, c, d] ++ encodeWords [x, y])).toState
+      (word 4) = word x := by
+  simp only [EvmYul.State.calldataload, sharedFor, envFor]
+  change EvmYul.uInt256OfByteArray
+      (ByteArray.readBytes (bytes [a, b, c, d] ++ encodeWords [x, y]) 4 32) =
+    word x
+  rw [readBytes_selector_two_args_first]
+  exact uInt256OfByteArray_encodeWord x
+
+@[simp]
+theorem calldataload_two_args_second
+    (contract : YulContract) (a b c d x y : Nat) :
+    EvmYul.State.calldataload
+      (sharedFor contract (bytes [a, b, c, d] ++ encodeWords [x, y])).toState
+      (word 36) = word y := by
+  simp only [EvmYul.State.calldataload, sharedFor, envFor]
+  change EvmYul.uInt256OfByteArray
+      (ByteArray.readBytes (bytes [a, b, c, d] ++ encodeWords [x, y]) 36 32) =
+    word y
+  rw [readBytes_selector_two_args_second]
+  exact uInt256OfByteArray_encodeWord y
+
+@[simp]
+theorem calldataload_two_args_first_state
+    (contract : YulContract) (a b c d x y : Nat) (store : EvmYul.Yul.VarStore) :
+    EvmYul.State.calldataload
+      (EvmYul.Yul.State.Ok
+        (sharedFor contract (bytes [a, b, c, d] ++ encodeWords [x, y])) store).toState
+      (word 4) = word x := by
+  simpa [EvmYul.Yul.State.toState] using
+    calldataload_two_args_first contract a b c d x y
+
+@[simp]
+theorem calldataload_two_args_second_state
+    (contract : YulContract) (a b c d x y : Nat) (store : EvmYul.Yul.VarStore) :
+    EvmYul.State.calldataload
+      (EvmYul.Yul.State.Ok
+        (sharedFor contract (bytes [a, b, c, d] ++ encodeWords [x, y])) store).toState
+      (word 36) = word y := by
+  simpa [EvmYul.Yul.State.toState] using
+    calldataload_two_args_second contract a b c d x y
+
+@[simp]
+theorem calldataload_two_args_first_of_calldata
+    (a b c d x y : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hdata : shared.executionEnv.calldata = bytes [a, b, c, d] ++ encodeWords [x, y]) :
+    EvmYul.State.calldataload
+      (EvmYul.Yul.State.Ok shared store).toState (word 4) =
+      word x := by
+  simp only [EvmYul.State.calldataload, EvmYul.Yul.State.toState, hdata]
+  change EvmYul.uInt256OfByteArray
+      (ByteArray.readBytes (bytes [a, b, c, d] ++ encodeWords [x, y]) 4 32) =
+    word x
+  rw [readBytes_selector_two_args_first]
+  exact uInt256OfByteArray_encodeWord x
+
+@[simp]
+theorem calldataload_two_args_second_of_calldata
+    (a b c d x y : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hdata : shared.executionEnv.calldata = bytes [a, b, c, d] ++ encodeWords [x, y]) :
+    EvmYul.State.calldataload
+      (EvmYul.Yul.State.Ok shared store).toState (word 36) =
+      word y := by
+  simp only [EvmYul.State.calldataload, EvmYul.Yul.State.toState, hdata]
+  change EvmYul.uInt256OfByteArray
+      (ByteArray.readBytes (bytes [a, b, c, d] ++ encodeWords [x, y]) 36 32) =
+    word y
+  rw [readBytes_selector_two_args_second]
+  exact uInt256OfByteArray_encodeWord y
 
 @[simp]
 theorem uint256_isZero_eq_self (v : EvmYul.UInt256) :
@@ -2493,6 +2894,17 @@ theorem callWord_ok_of_dispatcherReturn_word
   · exact runContract_ok_of_dispatcherReturn hReturn
   · exact hModel
 
+theorem callWord_ok_of_dispatcherReturn_result
+    {contract : YulContract} {selector : ByteArray} {args : List Nat}
+    {execFuel model : Nat} {result : CallResult}
+    (hReturn :
+      DispatcherReturn contract (calldata selector args) execFuel result)
+    (hResult : resultWord result = .ok model) :
+    callWord contract selector args (Nat.succ (Nat.succ execFuel)) = .ok model := by
+  unfold callWord call
+  rw [runContract_ok_of_dispatcherReturn hReturn]
+  exact hResult
+
 theorem callPair_ok_of_dispatcherReturn_two_words
     {contract : YulContract} {selector : ByteArray} {args : List Nat}
     {execFuel a b : Nat} {model : Nat × Nat}
@@ -2528,6 +2940,17 @@ theorem callWord_ok_of_dispatcherReturn_word_1000000
   simpa using callWord_ok_of_dispatcherReturn_word
     (contract := contract) (selector := selector) (args := args) (execFuel := 999998)
     (value := value) (model := model) hReturn hModel
+
+theorem callWord_ok_of_dispatcherReturn_result_1000000
+    {contract : YulContract} {selector : ByteArray} {args : List Nat}
+    {model : Nat} {result : CallResult}
+    (hReturn :
+      DispatcherReturn contract (calldata selector args) 999998 result)
+    (hResult : resultWord result = .ok model) :
+    callWord contract selector args 1000000 = .ok model := by
+  simpa using callWord_ok_of_dispatcherReturn_result
+    (contract := contract) (selector := selector) (args := args) (execFuel := 999998)
+    (model := model) hReturn hResult
 
 theorem callPair_ok_of_dispatcherReturn_two_words_1000000
     {contract : YulContract} {selector : ByteArray} {args : List Nat}

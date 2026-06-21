@@ -408,9 +408,150 @@ def renderLookupLemma (fn : String × String) : String :=
   "  unfold yulFunctions\n" ++
   "  simp [Finmap.lookup_insert]\n"
 
+def containsSubstr (haystack needle : String) : Bool :=
+  if needle = "" then
+    true
+  else
+    1 < (haystack.splitOn needle).length
+
+def commaSep : List String → String
+  | [] => ""
+  | marker :: markers => markers.foldl (fun acc next => acc ++ ", " ++ next) marker
+
+def namesWithPrefix (functions : List (String × String)) (pfx : String) : List String :=
+  (functions.map Prod.fst).filter fun name => name.startsWith pfx
+
+structure GeneratedAlias where
+  stable : String
+  original : String
+
+def aliasFunctionDefName (stable : String) : String :=
+  "yulFunction_" ++ sanitizeIdent stable
+
+def aliasFunctionNameName (stable : String) : String :=
+  "yulName_" ++ sanitizeIdent stable
+
+def findFunctionSource (functions : List (String × String)) (name : String) : Except String String :=
+  match functions.find? (fun fn => fn.fst = name) with
+  | some (_, src) => .ok src
+  | none => .error s!"deployed Yul has no function named {name}"
+
+def uniqueNameWithPrefix
+    (functions : List (String × String)) (pfx : String) : Except String String :=
+  match namesWithPrefix functions pfx with
+  | [name] => .ok name
+  | [] => .error s!"deployed Yul is missing a function with prefix {pfx}"
+  | names => .error s!"deployed Yul prefix {pfx} is ambiguous: {commaSep names}"
+
+def aliasByPrefix
+    (functions : List (String × String)) (stable pfx : String) :
+    Except String GeneratedAlias := do
+  let original ← uniqueNameWithPrefix functions pfx
+  .ok { stable, original }
+
+def callWithPrefixFrom
+    (functions : List (String × String)) (caller pfx : String) : Except String String := do
+  let src ← findFunctionSource functions caller
+  let callees := (namesWithPrefix functions pfx).filter fun name =>
+    name != caller && containsSubstr src (name ++ "(")
+  match callees with
+  | [callee] => .ok callee
+  | [] => .error s!"function {caller} does not call a function with prefix {pfx}"
+  | names => .error s!"function {caller} has ambiguous calls with prefix {pfx}: {commaSep names}"
+
+def aliasByCallPrefix
+    (functions : List (String × String)) (stable caller pfx : String) :
+    Except String GeneratedAlias := do
+  let original ← callWithPrefixFrom functions caller pfx
+  .ok { stable, original }
+
+def renderGeneratedAlias (entry : GeneratedAlias) : String :=
+  "\n/-- Stable generated alias for solc-emitted function `" ++ entry.original ++ "`. -/\n" ++
+  "abbrev " ++ aliasFunctionDefName entry.stable ++
+    " : EvmYul.Yul.Ast.FunctionDefinition := " ++ functionDefName entry.original ++ "\n\n" ++
+  "abbrev " ++ aliasFunctionNameName entry.stable ++ " := " ++ reprStr entry.original ++ "\n\n" ++
+  "@[simp]\n" ++
+  "theorem lookup_" ++ sanitizeIdent entry.stable ++ " :\n" ++
+  "    yulFunctions.lookup " ++ aliasFunctionNameName entry.stable ++
+  " = some " ++ aliasFunctionDefName entry.stable ++ " := by\n" ++
+  "  unfold " ++ aliasFunctionNameName entry.stable ++ "\n" ++
+  "  unfold " ++ aliasFunctionDefName entry.stable ++ "\n" ++
+  "  unfold yulFunctions\n" ++
+  "  simp [Finmap.lookup_insert]\n"
+
+def generatedAliases (kind : ModelKind) (functions : List (String × String)) :
+    Except String (List GeneratedAlias) := do
+  match kind with
+  | .sqrt =>
+      sequence [
+        aliasByPrefix functions "external_fun_wrap_sqrt" "external_fun_wrap_sqrt_",
+        aliasByPrefix functions "external_fun_wrap_sqrtUp" "external_fun_wrap_sqrtUp_",
+        aliasByPrefix functions "fun_wrap_sqrt" "fun_wrap_sqrt_",
+        aliasByPrefix functions "fun_wrap_sqrtUp" "fun_wrap_sqrtUp_",
+        aliasByPrefix functions "fun_sqrt" "fun_sqrt_",
+        aliasByPrefix functions "fun_sqrtUp" "fun_sqrtUp_",
+        aliasByPrefix functions "fun__sqrt" "fun__sqrt_"
+      ]
+  | .sqrt512 =>
+      let wrapSqrt512 ← uniqueNameWithPrefix functions "fun_wrap_sqrt512_"
+      let wrapOsqrtUp ← uniqueNameWithPrefix functions "fun_wrap_osqrtUp_"
+      let sqrt512 ← callWithPrefixFrom functions wrapSqrt512 "fun_sqrt_"
+      let osqrtUp ← callWithPrefixFrom functions wrapOsqrtUp "fun_osqrtUp_"
+      let sqrt256 ← callWithPrefixFrom functions sqrt512 "fun_sqrt_"
+      let sqrt512Core ← callWithPrefixFrom functions sqrt512 "fun__sqrt_"
+      let sqrtUp256 ← callWithPrefixFrom functions osqrtUp "fun_sqrtUp_"
+      let sqrt256Core ← callWithPrefixFrom functions sqrt256 "fun__sqrt_"
+      sequence [
+        aliasByPrefix functions "external_fun_wrap_sqrt512" "external_fun_wrap_sqrt512_",
+        aliasByPrefix functions "external_fun_wrap_osqrtUp" "external_fun_wrap_osqrtUp_",
+        .ok { stable := "fun_wrap_sqrt512", original := wrapSqrt512 },
+        .ok { stable := "fun_wrap_osqrtUp", original := wrapOsqrtUp },
+        .ok { stable := "fun_sqrt512", original := sqrt512 },
+        .ok { stable := "fun_osqrtUp", original := osqrtUp },
+        .ok { stable := "fun_sqrt256", original := sqrt256 },
+        .ok { stable := "fun_sqrtUp256", original := sqrtUp256 },
+        .ok { stable := "fun__sqrt512", original := sqrt512Core },
+        .ok { stable := "fun__sqrt256", original := sqrt256Core },
+        aliasByPrefix functions "fun__sqrt_baseCase" "fun__sqrt_baseCase_",
+        aliasByPrefix functions "fun__sqrt_karatsubaQuotient" "fun__sqrt_karatsubaQuotient_",
+        aliasByPrefix functions "fun__sqrt_correction" "fun__sqrt_correction_",
+        aliasByPrefix functions "fun__sqrt_babylonianStep" "fun__sqrt_babylonianStep_"
+      ]
+  | .cbrt =>
+      sequence [
+        aliasByPrefix functions "external_fun_wrap_cbrt" "external_fun_wrap_cbrt_",
+        aliasByPrefix functions "external_fun_wrap_cbrtUp" "external_fun_wrap_cbrtUp_",
+        aliasByPrefix functions "fun_wrap_cbrt" "fun_wrap_cbrt_",
+        aliasByPrefix functions "fun_wrap_cbrtUp" "fun_wrap_cbrtUp_",
+        aliasByPrefix functions "fun_cbrt" "fun_cbrt_",
+        aliasByPrefix functions "fun_cbrtUp" "fun_cbrtUp_",
+        aliasByPrefix functions "fun__cbrt" "fun__cbrt_"
+      ]
+  | .cbrt512 =>
+      sequence [
+        aliasByPrefix functions "external_fun_wrap_cbrt512" "external_fun_wrap_cbrt512_",
+        aliasByPrefix functions "external_fun_wrap_cbrtUp512" "external_fun_wrap_cbrtUp512_",
+        aliasByPrefix functions "fun_wrap_cbrt512" "fun_wrap_cbrt512_",
+        aliasByPrefix functions "fun_wrap_cbrtUp512" "fun_wrap_cbrtUp512_",
+        aliasByPrefix functions "fun__cbrt_baseCase" "fun__cbrt_baseCase_",
+        aliasByPrefix functions "fun__cbrt_karatsubaQuotient" "fun__cbrt_karatsubaQuotient_",
+        aliasByPrefix functions "fun__cbrt_quadraticCorrection" "fun__cbrt_quadraticCorrection_",
+        aliasByPrefix functions "fun__cbrt_newtonRaphsonStep" "fun__cbrt_newtonRaphsonStep_"
+      ]
+  | .ln =>
+      sequence [
+        aliasByPrefix functions "external_fun_wrap_lnWad" "external_fun_wrap_lnWad_",
+        aliasByPrefix functions "external_fun_wrap_lnWadToRay" "external_fun_wrap_lnWadToRay_",
+        aliasByPrefix functions "fun_wrap_lnWad" "fun_wrap_lnWad_",
+        aliasByPrefix functions "fun_wrap_lnWadToRay" "fun_wrap_lnWadToRay_",
+        aliasByPrefix functions "fun_lnWad" "fun_lnWad_",
+        aliasByPrefix functions "fun_lnWadToRay" "fun_lnWadToRay_"
+      ]
+
 def renderProof (kind : ModelKind) (input output : String) : Except String String := do
   let code ← extractDeployedCode input
   let (_, functions) ← splitFunctions code
+  let aliases ← generatedAliases kind functions
   let runtimeModule := moduleNameFromOutput output ++ "Runtime"
   .ok <|
     "import FormalYul.Preservation\n" ++
@@ -424,20 +565,11 @@ def renderProof (kind : ModelKind) (input output : String) : Except String Strin
     "@[simp]\n" ++
     "theorem yulContract_functions : yulContract.functions = yulFunctions := rfl\n" ++
     joinLines (functions.map renderLookupLemma) ++ "\n" ++
+    joinLines (aliases.map renderGeneratedAlias) ++ "\n" ++
     "end " ++ kind.namespaceName ++ "\n"
-
-def containsSubstr (haystack needle : String) : Bool :=
-  if needle = "" then
-    true
-  else
-    1 < (haystack.splitOn needle).length
 
 def missingMarkers (kind : ModelKind) (input : String) : List String :=
   (kind.requiredMarkers).filter fun marker => !(containsSubstr input marker)
-
-def commaSep : List String → String
-  | [] => ""
-  | marker :: markers => markers.foldl (fun acc next => acc ++ ", " ++ next) marker
 
 partial def countSubstrFrom (src needle : String) (start fuel : Nat) : Nat :=
   match fuel with
@@ -456,9 +588,6 @@ def validateSelectorCase (code selector : String) : Except String Unit :=
   | 1 => .ok ()
   | 0 => .error s!"deployed Yul dispatcher is missing selector case {selector}"
   | n => .error s!"deployed Yul dispatcher contains {n} selector cases for {selector}"
-
-def namesWithPrefix (functions : List (String × String)) (pfx : String) : List String :=
-  (functions.map Prod.fst).filter fun name => name.startsWith pfx
 
 def validateFunctionPrefix (functions : List (String × String)) (pfx : String) : Except String Unit :=
   match namesWithPrefix functions pfx with

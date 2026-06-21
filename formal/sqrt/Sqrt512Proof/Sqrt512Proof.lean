@@ -4,3 +4,6 @@ import Sqrt512Proof.KaratsubaStep
 import Sqrt512Proof.Correction
 import Sqrt512Proof.Sqrt512Correct
 import Sqrt512Proof.SqrtUpCorrect
+import Sqrt512Proof.Sqrt512YulRuntime
+import Sqrt512Proof.Sqrt512YulProof
+import Sqrt512Proof.Sqrt512YulCorrect

@@ -65,6 +65,6 @@ jobs:
         working-directory: formal/sqrt/SqrtProof
         run: lake update
 
-      - name: Build generated Sqrt EVMYulLean artifacts
+      - name: Build Sqrt proof package
         working-directory: formal/sqrt/SqrtProof
-        run: lake build SqrtProof.SqrtYulRuntime SqrtProof.SqrtYulProof
+        run: lake build

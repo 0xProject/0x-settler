@@ -76,8 +76,8 @@ jobs:
         working-directory: formal/sqrt/Sqrt512Proof
         run: lake update
 
-      - name: Build generated Sqrt EVMYulLean artifacts
+      - name: Build Sqrt proof packages
         working-directory: formal/sqrt/Sqrt512Proof
         run: |
-          lake -d ../SqrtProof build SqrtProof.SqrtYulRuntime SqrtProof.SqrtYulProof
-          lake build Sqrt512Proof.Sqrt512YulRuntime Sqrt512Proof.Sqrt512YulProof
+          lake -d ../SqrtProof build
+          lake build
