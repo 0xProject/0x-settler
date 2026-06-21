@@ -1010,7 +1010,7 @@ theorem fromBytes_encodeWord (x : Nat) :
   rw [show
       (List.map (fun i => byteAt (u256 x) (31 - i)) (List.range 32)).reverse =
         List.map (fun i => UInt8.ofNat ((u256 x / 256 ^ i) % 256)) (List.range 32) by
-    simp [List.range, List.range.loop, List.range', byteAt]]
+    simp [List.range, List.range.loop, byteAt]]
   rw [fromBytes_digits_256 (u256 x) 32]
   norm_num [u256, WORD_MOD]
 
@@ -1089,7 +1089,7 @@ theorem range_map_getD_eq_self (xs : List UInt8) :
 theorem decodeWord_toByteArray (v : EvmYul.UInt256) :
     FormalYul.decodeWord v.toByteArray = v.toNat := by
   unfold FormalYul.decodeWord
-  simp [Id.run, EvmYul.UInt256.toByteArray_data_toList, List.range_eq_range']
+  simp [Id.run, EvmYul.UInt256.toByteArray_data_toList]
   let xs :=
     List.replicate (32 - (EvmYul.toBytesBigEndian v.toNat).length) 0 ++
       EvmYul.toBytesBigEndian v.toNat
@@ -1793,7 +1793,7 @@ theorem readBytes_selector_single_arg (a b c d x : Nat) :
   rw [← Array.toList_inj]
   simp [ByteArray.readBytes, bytes, ByteArray.push, ByteArray.empty,
     ByteArray.emptyWithCapacity, ByteArray.size, ffi.ByteArray.zeroes,
-    List.range, List.range.loop, List.range']
+    List.range, List.range.loop]
 
 @[simp]
 theorem readBytes_selector_two_args_first (a b c d x y : Nat) :
@@ -1803,7 +1803,7 @@ theorem readBytes_selector_two_args_first (a b c d x y : Nat) :
   rw [← Array.toList_inj]
   simp [ByteArray.readBytes, bytes, encodeWords, ByteArray.push, ByteArray.empty,
     ByteArray.emptyWithCapacity, ByteArray.size, ffi.ByteArray.zeroes,
-    List.range, List.range.loop, List.range']
+    List.range, List.range.loop]
 
 @[simp]
 theorem readBytes_selector_two_args_second (a b c d x y : Nat) :
@@ -1813,7 +1813,7 @@ theorem readBytes_selector_two_args_second (a b c d x y : Nat) :
   rw [← Array.toList_inj]
   simp [ByteArray.readBytes, bytes, encodeWords, ByteArray.push, ByteArray.empty,
     ByteArray.emptyWithCapacity, ByteArray.size, ffi.ByteArray.zeroes,
-    List.range, List.range.loop, List.range']
+    List.range, List.range.loop]
 
 @[simp]
 theorem calldataload_single_arg
@@ -1830,8 +1830,7 @@ theorem calldataload_single_arg_state
       (EvmYul.Yul.State.Ok
         (sharedFor contract (bytes [a, b, c, d] ++ encodeWords [x])) store).toState
       (word 4) = word x := by
-  simpa [EvmYul.Yul.State.toState] using
-    calldataload_single_arg contract a b c d x
+  simp [EvmYul.Yul.State.toState]
 
 @[simp]
 theorem calldataload_single_arg_of_calldata
@@ -1875,8 +1874,7 @@ theorem calldataload_two_args_first_state
       (EvmYul.Yul.State.Ok
         (sharedFor contract (bytes [a, b, c, d] ++ encodeWords [x, y])) store).toState
       (word 4) = word x := by
-  simpa [EvmYul.Yul.State.toState] using
-    calldataload_two_args_first contract a b c d x y
+  simp [EvmYul.Yul.State.toState]
 
 @[simp]
 theorem calldataload_two_args_second_state
@@ -1885,8 +1883,7 @@ theorem calldataload_two_args_second_state
       (EvmYul.Yul.State.Ok
         (sharedFor contract (bytes [a, b, c, d] ++ encodeWords [x, y])) store).toState
       (word 36) = word y := by
-  simpa [EvmYul.Yul.State.toState] using
-    calldataload_two_args_second contract a b c d x y
+  simp [EvmYul.Yul.State.toState]
 
 @[simp]
 theorem calldataload_two_args_first_of_calldata
@@ -2347,8 +2344,7 @@ theorem wordNat_mulMod (a b n : EvmYul.UInt256) :
   by_cases hn : nv = 0
   · subst nv
     simp [wordNat, evmMulmod, u256, WORD_MOD, EvmYul.UInt256.mulMod,
-      EvmYul.UInt256.eq0, EvmYul.UInt256.toNat, EvmYul.UInt256.ofNat,
-      EvmYul.UInt256.size, havmod, hbvmod]
+      EvmYul.UInt256.eq0, EvmYul.UInt256.toNat, EvmYul.UInt256.size]
   · have hprodmod :
         (av * bv % nv) %
             115792089237316195423570985008687907853269984665640564039457584007913129639936 =
@@ -2449,7 +2445,7 @@ theorem wordNat_not (a : EvmYul.UInt256) :
         av := by
     exact Nat.mod_eq_of_lt hav'
   simp [wordNat, evmSub, evmNot, u256, WORD_MOD, EvmYul.UInt256.ofNat,
-    EvmYul.UInt256.toNat, EvmYul.UInt256.size, havmod, Nat.add_sub_cancel_left]
+    EvmYul.UInt256.toNat, EvmYul.UInt256.size, havmod]
   rw [show
       231584178474632390847141970017375815706539969331281128078915168015826259279871 - av =
         115792089237316195423570985008687907853269984665640564039457584007913129639936 +
@@ -2593,15 +2589,24 @@ theorem wordNat_iszero (a : EvmYul.UInt256) :
       rfl]
     rw [wordNat_ofNat]
     simp [evmIszero, u256, WORD_MOD, wordNat, EvmYul.UInt256.toNat]
-  · have hzero : EvmYul.UInt256.eq0 ({ val := ⟨av, hav⟩ } : EvmYul.UInt256) = false := by
-      simp [EvmYul.UInt256.eq0, EvmYul.UInt256.toNat, h]
+  · have havU256 : u256 av = av := by
+      unfold u256 WORD_MOD
+      exact Nat.mod_eq_of_lt hav'
+    have havU256_ne_zero : ¬u256 av = 0 := by
+      simpa [havU256] using h
+    have htoNat :
+        ({ val := ⟨av, hav⟩ } : EvmYul.UInt256).toNat = av := rfl
+    have htoNatU256_ne_zero :
+        ¬u256 ({ val := ⟨av, hav⟩ } : EvmYul.UInt256).toNat = 0 := by
+      simpa [htoNat] using havU256_ne_zero
+    have hzero : EvmYul.UInt256.eq0 ({ val := ⟨av, hav⟩ } : EvmYul.UInt256) = false := by
+      simp [EvmYul.UInt256.eq0, h]
     rw [show EvmYul.UInt256.isZero { val := ⟨av, hav⟩ } = EvmYul.UInt256.ofNat 0 by
       unfold EvmYul.UInt256.isZero EvmYul.UInt256.fromBool
       rw [hzero]
       rfl]
     rw [wordNat_ofNat]
-    simp [evmIszero, u256, WORD_MOD, wordNat, EvmYul.UInt256.toNat,
-      Nat.mod_eq_of_lt hav', h]
+    simp [evmIszero, wordNat, htoNatU256_ne_zero]
 
 @[simp]
 theorem wordNat_shiftLeft (shift value : EvmYul.UInt256) :

@@ -5,7 +5,6 @@ import Sqrt512Proof.SqrtUpCorrect
 set_option maxHeartbeats 8000000
 set_option maxRecDepth 100000
 set_option exponentiation.threshold 1024
-set_option linter.unusedSimpArgs false
 set_option linter.style.nameCheck false
 
 namespace Sqrt512Yul

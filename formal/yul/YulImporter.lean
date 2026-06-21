@@ -49,7 +49,10 @@ def functionPrefixes : ModelKind → List String
       ["external_fun_wrap_sqrt512_", "external_fun_wrap_osqrtUp_",
        "fun_wrap_sqrt512_", "fun_wrap_osqrtUp_",
        "fun__sqrt_baseCase_", "fun__sqrt_karatsubaQuotient_",
-       "fun__sqrt_correction_", "fun__sqrt_babylonianStep_"]
+       "fun__sqrt_correction_", "fun__sqrt_babylonianStep_",
+       "fun_clz_", "fun__shl256_", "fun__mul_", "fun__gt_",
+       "fun__add_", "fun_toUint_", "fun_unsafeDiv_", "fun_unsafeDec_",
+       "fun_and_", "fun_or_"]
   | .cbrt =>
       ["external_fun_wrap_cbrt_", "external_fun_wrap_cbrtUp_",
        "fun_wrap_cbrt_", "fun_wrap_cbrtUp_", "fun_cbrt_", "fun_cbrtUp_", "fun__cbrt_"]
@@ -515,7 +518,17 @@ def generatedAliases (kind : ModelKind) (functions : List (String × String)) :
         aliasByPrefix functions "fun__sqrt_baseCase" "fun__sqrt_baseCase_",
         aliasByPrefix functions "fun__sqrt_karatsubaQuotient" "fun__sqrt_karatsubaQuotient_",
         aliasByPrefix functions "fun__sqrt_correction" "fun__sqrt_correction_",
-        aliasByPrefix functions "fun__sqrt_babylonianStep" "fun__sqrt_babylonianStep_"
+        aliasByPrefix functions "fun__sqrt_babylonianStep" "fun__sqrt_babylonianStep_",
+        aliasByPrefix functions "fun_clz" "fun_clz_",
+        aliasByPrefix functions "fun__shl256" "fun__shl256_",
+        aliasByPrefix functions "fun__mul" "fun__mul_",
+        aliasByPrefix functions "fun__gt" "fun__gt_",
+        aliasByPrefix functions "fun__add" "fun__add_",
+        aliasByPrefix functions "fun_toUint" "fun_toUint_",
+        aliasByPrefix functions "fun_unsafeDiv" "fun_unsafeDiv_",
+        aliasByPrefix functions "fun_unsafeDec" "fun_unsafeDec_",
+        aliasByPrefix functions "fun_and" "fun_and_",
+        aliasByPrefix functions "fun_or" "fun_or_"
       ]
   | .cbrt =>
       sequence [
