@@ -7,7 +7,7 @@ library Ln {
     /// @dev Let L = 10²⁷ ⋅ ln(x / 10¹⁸) be the exact, infinite-precision result. This function
     ///      returns either ⌊L⌋ or ⌊L⌋ - 1; it never overestimates. `lnWadToRay(10**18) == 0`
     ///      exactly, and the result is negative iff `x < 10**18`. The maximum error is
-    ///      1.68873ulp. `lnWadToRay` is monotonic; x₁ < x₂ → lnWadToRay(x₁) ≤
+    ///      1.688727953ulp. `lnWadToRay` is monotonic; x₁ < x₂ → lnWadToRay(x₁) ≤
     ///      lnWadToRay(x₂). Reverts with `Panic(18)` when `x <= 0`.
     function lnWadToRay(int256 x) internal pure returns (int256 r) {
         // Equivalent pseudocode; fixed-point truncations are accounted for below:
