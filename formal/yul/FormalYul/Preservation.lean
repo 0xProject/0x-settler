@@ -2143,6 +2143,40 @@ theorem resultWord_evmReturn_mstore_word
   rw [evmReturn_mstore_word_H_return]
   simp [FormalYul.resultWord]
 
+theorem shared_mstore_lookup
+    (shared : EvmYul.SharedState .Yul) (pos value : EvmYul.UInt256)
+    (account : EvmYul.Account .Yul)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some account) :
+    ({ shared with toMachineState := shared.toMachineState.mstore pos value }).accountMap.find?
+        ({ shared with toMachineState := shared.toMachineState.mstore pos value }).executionEnv.codeOwner =
+      some account := by
+  simpa using hlookup
+
+theorem shared_mstore_two_words_lookup
+    (shared : EvmYul.SharedState .Yul) (pos0 pos1 value0 value1 : EvmYul.UInt256)
+    (account : EvmYul.Account .Yul)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some account) :
+    ({ shared with
+        toMachineState := (shared.toMachineState.mstore pos0 value0).mstore pos1 value1
+      }).accountMap.find?
+        ({ shared with
+          toMachineState := (shared.toMachineState.mstore pos0 value0).mstore pos1 value1
+        }).executionEnv.codeOwner =
+      some account := by
+  simpa using hlookup
+
+@[simp]
+theorem shared_mstore_calldata
+    (shared : EvmYul.SharedState .Yul) (pos value : EvmYul.UInt256) :
+    ({ shared with toMachineState := shared.toMachineState.mstore pos value }).executionEnv.calldata =
+      shared.executionEnv.calldata := rfl
+
+@[simp]
+theorem shared_mstore_weiValue
+    (shared : EvmYul.SharedState .Yul) (pos value : EvmYul.UInt256) :
+    ({ shared with toMachineState := shared.toMachineState.mstore pos value }).executionEnv.weiValue =
+      shared.executionEnv.weiValue := rfl
+
 @[simp]
 theorem sharedFor_mload_freePtr_after_mstore
     (contract : YulContract) (input : ByteArray) :
@@ -3055,6 +3089,68 @@ theorem wordNat_shiftRight (shift value : EvmYul.UInt256) :
     simp [wordNat, evmShr, u256, WORD_MOD, EvmYul.UInt256.shiftRight,
       EvmYul.UInt256.toNat, EvmYul.UInt256.size, Nat.mod_eq_of_lt hsh',
       Nat.mod_eq_of_lt hv', hge, hle]
+
+theorem shiftRight_calldataload_selector_of_readBytes
+    (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (selectorBytes tail : List UInt8)
+    (hselectorLen : selectorBytes.length = 4)
+    (htailLen : tail.length = 28)
+    (hread : (shared.executionEnv.calldata.readBytes 0 32).data.toList = selectorBytes ++ tail) :
+    EvmYul.UInt256.shiftRight
+      (EvmYul.State.calldataload
+        (EvmYul.Yul.State.Ok shared store).toState (word 0))
+      (word 224) =
+      word (EvmYul.fromBytesBigEndian selectorBytes) := by
+  have hbytesLt :
+      EvmYul.fromBytesBigEndian (selectorBytes ++ tail) < WORD_MOD := by
+    have hlt := fromBytesBigEndian_lt_pow_length (selectorBytes ++ tail)
+    simpa [hselectorLen, htailLen, WORD_MOD] using hlt
+  have hselectorLt :
+      EvmYul.fromBytesBigEndian selectorBytes < WORD_MOD := by
+    have hlt := fromBytesBigEndian_lt_pow_length selectorBytes
+    have hpow : 256 ^ selectorBytes.length ≤ WORD_MOD := by
+      rw [hselectorLen]
+      norm_num [WORD_MOD]
+    exact Nat.lt_of_lt_of_le hlt hpow
+  have hload :
+      wordNat
+        (EvmYul.State.calldataload
+          (EvmYul.Yul.State.Ok shared store).toState (word 0)) =
+        EvmYul.fromBytesBigEndian (selectorBytes ++ tail) := by
+    simp only [EvmYul.State.calldataload, EvmYul.Yul.State.toState,
+      EvmYul.uInt256OfByteArray, word]
+    change wordNat
+        (EvmYul.UInt256.ofNat
+          (EvmYul.fromBytesBigEndian
+            (shared.executionEnv.calldata.readBytes
+              (EvmYul.UInt256.ofNat 0).toNat 32).data.toList)) =
+      EvmYul.fromBytesBigEndian (selectorBytes ++ tail)
+    rw [show (EvmYul.UInt256.ofNat 0).toNat = 0 by rfl]
+    rw [hread]
+    rw [wordNat_ofNat]
+    exact u256_eq_self_of_lt hbytesLt
+  apply eq_of_wordNat_eq
+  rw [wordNat_shiftRight, hload]
+  rw [wordNat_word, wordNat_word]
+  simp [evmShr]
+  change
+    u256 (EvmYul.fromBytesBigEndian (selectorBytes ++ tail)) / 2 ^ 224 =
+      u256 (EvmYul.fromBytesBigEndian selectorBytes)
+  rw [u256_eq_self_of_lt hbytesLt]
+  rw [fromBytesBigEndian_append, htailLen]
+  have hpow : 256 ^ 28 = 2 ^ 224 := by
+    norm_num [show (256 : Nat) = 2 ^ 8 by norm_num, ← Nat.pow_mul]
+  rw [hpow]
+  rw [Nat.mul_comm (EvmYul.fromBytesBigEndian selectorBytes) (2 ^ 224)]
+  rw [Nat.mul_add_div (by norm_num : 0 < 2 ^ 224)]
+  have htailDiv :
+      EvmYul.fromBytesBigEndian tail / 2 ^ 224 = 0 := by
+    apply Nat.div_eq_of_lt
+    have hlt := fromBytesBigEndian_lt_pow_length tail
+    simpa [htailLen, hpow] using hlt
+  rw [htailDiv]
+  rw [u256_eq_self_of_lt hselectorLt]
+  rw [Nat.add_zero]
 
 @[simp]
 theorem wordNat_clz (a : EvmYul.UInt256) :

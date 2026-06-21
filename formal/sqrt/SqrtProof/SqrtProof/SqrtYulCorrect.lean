@@ -806,61 +806,14 @@ private theorem sqrt_selector_afterFreePtr (x : Nat) :
       simp
     rw [hz]
     rfl
-  have hbytesLt :
-      EvmYul.fromBytesBigEndian ([0x5b, 0x29, 0x04, 0x8a] ++ tail) <
-        FormalYul.WORD_MOD := by
-    have hlt := FormalYul.Preservation.fromBytesBigEndian_lt_pow_length
-      ([0x5b, 0x29, 0x04, 0x8a] ++ tail)
-    simpa [htailLen, FormalYul.WORD_MOD] using hlt
-  have hload :
-      FormalYul.wordNat
-        (EvmYul.State.calldataload
-          (EvmYul.Yul.State.Ok (sqrtSharedAfterFreePtr x)
-            (Inhabited.default : EvmYul.Yul.VarStore)).toState
-          (FormalYul.word 0)) =
-        EvmYul.fromBytesBigEndian ([0x5b, 0x29, 0x04, 0x8a] ++ tail) := by
-    simp only [EvmYul.State.calldataload, EvmYul.Yul.State.toState,
-      EvmYul.uInt256OfByteArray, sqrtSharedAfterFreePtr_calldata, FormalYul.word]
-    change FormalYul.wordNat
-        (EvmYul.UInt256.ofNat
-          (EvmYul.fromBytesBigEndian
-            ((selector_sqrt ++ FormalYul.encodeWords [x]).readBytes
-              (EvmYul.UInt256.ofNat 0).toNat 32).data.toList)) =
-      EvmYul.fromBytesBigEndian ([0x5b, 0x29, 0x04, 0x8a] ++ tail)
-    rw [show (EvmYul.UInt256.ofNat 0).toNat = 0 by rfl]
-    rw [hread]
-    rw [FormalYul.Preservation.wordNat_ofNat]
-    exact u256_eq_of_lt _ hbytesLt
-  apply FormalYul.Preservation.eq_of_wordNat_eq
-  rw [FormalYul.Preservation.wordNat_shiftRight]
-  rw [hload]
-  rw [FormalYul.Preservation.wordNat_word, FormalYul.Preservation.wordNat_word]
-  simp [FormalYul.evmShr]
-  change FormalYul.u256
-      (EvmYul.fromBytesBigEndian ([0x5b, 0x29, 0x04, 0x8a] ++ tail)) /
-      26959946667150639794667015087019630673637144422540572481103610249216 =
-    FormalYul.u256 1529414794
-  rw [u256_eq_of_lt _ hbytesLt]
-  rw [FormalYul.Preservation.fromBytesBigEndian_append]
-  rw [htailLen]
-  have htailDiv :
-      EvmYul.fromBytesBigEndian tail / 256 ^ 28 = 0 := by
-    apply Nat.div_eq_of_lt
-    simpa [htailLen] using
-      FormalYul.Preservation.fromBytesBigEndian_lt_pow_length tail
-  change
-    (26959946667150639794667015087019630673637144422540572481103610249216 *
-          1529414794 + EvmYul.fromBytes' tail.reverse) /
-        26959946667150639794667015087019630673637144422540572481103610249216 =
-      FormalYul.u256 1529414794
-  rw [Nat.mul_add_div (by norm_num :
-    0 < 26959946667150639794667015087019630673637144422540572481103610249216)]
-  have htailDiv' :
-      EvmYul.fromBytes' tail.reverse /
-          26959946667150639794667015087019630673637144422540572481103610249216 = 0 := by
-    simpa [EvmYul.fromBytesBigEndian] using htailDiv
-  rw [htailDiv']
-  norm_num [FormalYul.u256, FormalYul.WORD_MOD]
+  have hselector :=
+    FormalYul.Preservation.shiftRight_calldataload_selector_of_readBytes
+      (shared := sqrtSharedAfterFreePtr x)
+      (store := (Inhabited.default : EvmYul.Yul.VarStore))
+      (selectorBytes := [0x5b, 0x29, 0x04, 0x8a]) (tail := tail)
+      (by decide) htailLen
+      (by simpa [sqrtSharedAfterFreePtr_calldata] using hread)
+  simpa [EvmYul.fromBytesBigEndian, EvmYul.fromBytes', FormalYul.word] using hselector
 
 @[simp]
 private theorem sqrt_selector_sharedFor_mk (x : Nat) :
@@ -961,61 +914,14 @@ private theorem sqrtUp_selector_afterFreePtr (x : Nat) :
       simp
     rw [hz]
     rfl
-  have hbytesLt :
-      EvmYul.fromBytesBigEndian ([0x65, 0xc9, 0xcb, 0xa1] ++ tail) <
-        FormalYul.WORD_MOD := by
-    have hlt := FormalYul.Preservation.fromBytesBigEndian_lt_pow_length
-      ([0x65, 0xc9, 0xcb, 0xa1] ++ tail)
-    simpa [htailLen, FormalYul.WORD_MOD] using hlt
-  have hload :
-      FormalYul.wordNat
-        (EvmYul.State.calldataload
-          (EvmYul.Yul.State.Ok (sqrtUpSharedAfterFreePtr x)
-            (Inhabited.default : EvmYul.Yul.VarStore)).toState
-          (FormalYul.word 0)) =
-        EvmYul.fromBytesBigEndian ([0x65, 0xc9, 0xcb, 0xa1] ++ tail) := by
-    simp only [EvmYul.State.calldataload, EvmYul.Yul.State.toState,
-      EvmYul.uInt256OfByteArray, sqrtUpSharedAfterFreePtr_calldata, FormalYul.word]
-    change FormalYul.wordNat
-        (EvmYul.UInt256.ofNat
-          (EvmYul.fromBytesBigEndian
-            ((selector_sqrtUp ++ FormalYul.encodeWords [x]).readBytes
-              (EvmYul.UInt256.ofNat 0).toNat 32).data.toList)) =
-      EvmYul.fromBytesBigEndian ([0x65, 0xc9, 0xcb, 0xa1] ++ tail)
-    rw [show (EvmYul.UInt256.ofNat 0).toNat = 0 by rfl]
-    rw [hread]
-    rw [FormalYul.Preservation.wordNat_ofNat]
-    exact u256_eq_of_lt _ hbytesLt
-  apply FormalYul.Preservation.eq_of_wordNat_eq
-  rw [FormalYul.Preservation.wordNat_shiftRight]
-  rw [hload]
-  rw [FormalYul.Preservation.wordNat_word, FormalYul.Preservation.wordNat_word]
-  simp [FormalYul.evmShr]
-  change FormalYul.u256
-      (EvmYul.fromBytesBigEndian ([0x65, 0xc9, 0xcb, 0xa1] ++ tail)) /
-      26959946667150639794667015087019630673637144422540572481103610249216 =
-    FormalYul.u256 1707723681
-  rw [u256_eq_of_lt _ hbytesLt]
-  rw [FormalYul.Preservation.fromBytesBigEndian_append]
-  rw [htailLen]
-  have htailDiv :
-      EvmYul.fromBytesBigEndian tail / 256 ^ 28 = 0 := by
-    apply Nat.div_eq_of_lt
-    simpa [htailLen] using
-      FormalYul.Preservation.fromBytesBigEndian_lt_pow_length tail
-  change
-    (26959946667150639794667015087019630673637144422540572481103610249216 *
-          1707723681 + EvmYul.fromBytes' tail.reverse) /
-        26959946667150639794667015087019630673637144422540572481103610249216 =
-      FormalYul.u256 1707723681
-  rw [Nat.mul_add_div (by norm_num :
-    0 < 26959946667150639794667015087019630673637144422540572481103610249216)]
-  have htailDiv' :
-      EvmYul.fromBytes' tail.reverse /
-          26959946667150639794667015087019630673637144422540572481103610249216 = 0 := by
-    simpa [EvmYul.fromBytesBigEndian] using htailDiv
-  rw [htailDiv']
-  norm_num [FormalYul.u256, FormalYul.WORD_MOD]
+  have hselector :=
+    FormalYul.Preservation.shiftRight_calldataload_selector_of_readBytes
+      (shared := sqrtUpSharedAfterFreePtr x)
+      (store := (Inhabited.default : EvmYul.Yul.VarStore))
+      (selectorBytes := [0x65, 0xc9, 0xcb, 0xa1]) (tail := tail)
+      (by decide) htailLen
+      (by simpa [sqrtUpSharedAfterFreePtr_calldata] using hread)
+  simpa [EvmYul.fromBytesBigEndian, EvmYul.fromBytes', FormalYul.word] using hselector
 
 private theorem selectSwitchCase_sqrtUp_sharedFor_mk_raw (x : Nat) :
     EvmYul.Yul.selectSwitchCase
