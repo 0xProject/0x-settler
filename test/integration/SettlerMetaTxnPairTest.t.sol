@@ -5,7 +5,7 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
-import {SettlerBasePairTest, Shim} from "./SettlerBasePairTest.t.sol";
+import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {ICurveV2Pool} from "./vendor/ICurveV2Pool.sol";
 import {IZeroEx} from "./vendor/IZeroEx.sol";
 
@@ -42,9 +42,11 @@ abstract contract SettlerMetaTxnPairTest is SettlerBasePairTest {
     function setUp() public virtual override {
         super.setUp();
 
-        uint256 forkChainId = (new Shim()).chainId();
+        uint256 forkChainId = vm.getChainId();
         vm.chainId(31337);
         // Preserve the settlerMetaTxn address for the hardcoded signing hash.
+        new NonceBump();
+        new NonceBump();
         new NonceBump();
         settlerMetaTxn = _deploySettlerMetaTxn();
         vm.chainId(forkChainId);

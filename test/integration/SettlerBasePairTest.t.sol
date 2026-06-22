@@ -15,18 +15,6 @@ import {IAllowanceHolder, ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowance
 import {MainnetSettler} from "src/chains/Mainnet/TakerSubmitted.sol";
 import {Settler} from "src/Settler.sol";
 
-contract Shim {
-    // forgefmt: disable-next-line
-    function chainId() external returns (uint256) { // this is non-view (mutable) on purpose
-        return block.chainid;
-    }
-
-    // forgefmt: disable-next-line
-    function blockNumber() external returns (uint256) { // this is non-view (mutable) on purpose
-        return block.number;
-    }
-}
-
 abstract contract SettlerBasePairTest is BasePairTest {
     using SafeTransferLib for IERC20;
     using LibBytes for bytes;
@@ -52,7 +40,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
     function setUp() public virtual override {
         super.setUp();
 
-        uint256 forkChainId = (new Shim()).chainId();
+        uint256 forkChainId = vm.getChainId();
         vm.chainId(31337);
         settler = _deploySettler();
         vm.label(address(settler), "Settler");

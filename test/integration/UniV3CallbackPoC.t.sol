@@ -47,13 +47,6 @@ contract UniswapV3PoolDummy {
     }
 }
 
-contract Shim {
-    // forgefmt: disable-next-line
-    function chainId() external returns (uint256) { // this is non-view (mutable) on purpose
-        return block.chainid;
-    }
-}
-
 contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
     address internal constant ETH = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
@@ -94,7 +87,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
         // Deploy AllowanceHolder
         ah = ALLOWANCE_HOLDER;
         {
-            uint256 forkChainId = (new Shim()).chainId();
+            uint256 forkChainId = vm.getChainId();
             vm.chainId(31337);
             vm.etch(address(ah), address(new AllowanceHolder()).code);
             vm.chainId(forkChainId);
@@ -102,7 +95,7 @@ contract UniV3CallbackPoC is Utils, Permit2Signature, MainnetDefaultFork {
 
         // Deploy Settler.
         {
-            uint256 forkChainId = (new Shim()).chainId();
+            uint256 forkChainId = vm.getChainId();
             vm.chainId(31337);
             settler = new Settler(bytes20(0));
             vm.chainId(forkChainId);
