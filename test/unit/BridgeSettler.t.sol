@@ -31,7 +31,7 @@ contract BridgeDummy {
 }
 
 contract BridgeSettlerTestBase is Test {
-    IAllowanceHolder allowanceHolder = ALLOWANCE_HOLDER;
+    IAllowanceHolder constant allowanceHolder = ALLOWANCE_HOLDER;
     BridgeSettler bridgeSettler;
     ISettlerTakerSubmitted settler;
     IERC20 token;

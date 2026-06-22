@@ -34,7 +34,7 @@ abstract contract SettlerBasePairTest is BasePairTest {
     uint256 internal constant PERMIT2_MAKER_NONCE = 1;
 
     Settler internal settler;
-    IAllowanceHolder internal allowanceHolder;
+    IAllowanceHolder constant allowanceHolder = ALLOWANCE_HOLDER;
     IZeroEx internal ZERO_EX = IZeroEx(0xDef1C0ded9bec7F1a1670819833240f027b25EfF);
 
     function settlerInitCode() internal virtual returns (bytes memory) {
@@ -51,7 +51,6 @@ abstract contract SettlerBasePairTest is BasePairTest {
 
     function setUp() public virtual override {
         super.setUp();
-        allowanceHolder = ALLOWANCE_HOLDER;
 
         uint256 forkChainId = (new Shim()).chainId();
         vm.chainId(31337);
