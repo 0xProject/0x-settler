@@ -249,6 +249,23 @@ theorem evalCall_one_of_call_ok
   rw [EvmYul.Yul.evalCall.eq_def]
   simp [EvmYul.Yul.reverse', hcall, EvmYul.Yul.head']
 
+theorem evalCall_one_of_call_ok_add
+    {fuel extra : Nat} {fn : EvmYul.Yul.Ast.YulFunctionName}
+    {code : Option EvmYul.Yul.Ast.YulContract}
+    {args : List EvmYul.Literal}
+    {shared shared' : EvmYul.SharedState .Yul}
+    {store store' : EvmYul.Yul.VarStore}
+    {value : EvmYul.Literal}
+    (hcall :
+      EvmYul.Yul.call (fuel + extra) args (.some fn) code
+          (EvmYul.Yul.State.Ok shared store) =
+        .ok (EvmYul.Yul.State.Ok shared' store', [value])) :
+    EvmYul.Yul.evalCall (fuel + (extra + 1)) fn code
+        (EvmYul.Yul.reverse' (.ok (EvmYul.Yul.State.Ok shared store, args.reverse))) =
+      .ok (EvmYul.Yul.State.Ok shared' store', value) := by
+  rw [show fuel + (extra + 1) = Nat.succ (fuel + extra) by omega]
+  exact evalCall_one_of_call_ok hcall
+
 @[simp]
 theorem setStore_ok
     (shared shared' : EvmYul.SharedState .Yul)
@@ -298,6 +315,14 @@ theorem exec_block_nil
     EvmYul.Yul.exec fuel.succ (EvmYul.Yul.Ast.Stmt.Block []) code s = .ok s := by
   rw [EvmYul.Yul.exec.eq_def]
 
+theorem exec_block_nil_add
+    (fuel extra : Nat) (code : Option EvmYul.Yul.Ast.YulContract)
+    (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + (extra + 1)) (EvmYul.Yul.Ast.Stmt.Block []) code s =
+      .ok s := by
+  rw [show fuel + (extra + 1) = (fuel + extra).succ by omega]
+  exact exec_block_nil (fuel + extra) code s
+
 @[simp]
 theorem exec_block_cons
     (fuel : Nat) (stmt : EvmYul.Yul.Ast.Stmt) (stmts : List EvmYul.Yul.Ast.Stmt)
@@ -309,6 +334,18 @@ theorem exec_block_cons
   rw [EvmYul.Yul.exec.eq_def]
   simp only
   rfl
+
+theorem exec_block_cons_add
+    (fuel extra : Nat) (stmt : EvmYul.Yul.Ast.Stmt) (stmts : List EvmYul.Yul.Ast.Stmt)
+    (code : Option EvmYul.Yul.Ast.YulContract) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + (extra + 1))
+        (EvmYul.Yul.Ast.Stmt.Block (stmt :: stmts)) code s =
+      match EvmYul.Yul.exec (fuel + extra) stmt code s with
+      | .error e => .error e
+      | .ok s1 => EvmYul.Yul.exec (fuel + extra) (EvmYul.Yul.Ast.Stmt.Block stmts)
+          code s1 := by
+  rw [show fuel + (extra + 1) = (fuel + extra).succ by omega]
+  exact exec_block_cons (fuel + extra) stmt stmts code s
 
 theorem exec_block_cons_ok
     {fuel extra : Nat} {stmt : EvmYul.Yul.Ast.Stmt} {stmts : List EvmYul.Yul.Ast.Stmt}
