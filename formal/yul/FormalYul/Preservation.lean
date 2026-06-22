@@ -156,6 +156,24 @@ theorem execCall_one_of_call_ok_add
   rw [show fuel + (extra + 1) = Nat.succ (fuel + extra) by omega]
   exact execCall_one_of_call_ok hcall
 
+theorem execCall_one_of_call_ok_add_pos
+    {fuel extra n : Nat} (hn : 0 < n)
+    {fn : EvmYul.Yul.Ast.YulFunctionName}
+    {code : Option EvmYul.Yul.Ast.YulContract}
+    {args : List EvmYul.Literal}
+    {shared shared' : EvmYul.SharedState .Yul}
+    {store store' : EvmYul.Yul.VarStore}
+    {ret : EvmYul.Identifier} {value : EvmYul.Literal}
+    (hcall :
+      EvmYul.Yul.call (fuel + extra + (n - 1)) args (.some fn) code
+          (EvmYul.Yul.State.Ok shared store) =
+        .ok (EvmYul.Yul.State.Ok shared' store', [value])) :
+    EvmYul.Yul.execCall (fuel + extra + n) fn [ret] code
+        (EvmYul.Yul.reverse' (.ok (EvmYul.Yul.State.Ok shared store, args.reverse))) =
+      .ok (EvmYul.Yul.State.Ok shared' (Finmap.insert ret value store')) := by
+  rw [show fuel + extra + n = Nat.succ (fuel + extra + (n - 1)) by omega]
+  exact execCall_one_of_call_ok hcall
+
 theorem execCall_two_of_call_ok
     {fuel : Nat} {fn : EvmYul.Yul.Ast.YulFunctionName}
     {code : Option EvmYul.Yul.Ast.YulContract}
@@ -191,6 +209,25 @@ theorem execCall_two_of_call_ok_add
       .ok (EvmYul.Yul.State.Ok shared'
         (Finmap.insert ret₁ value₁ (Finmap.insert ret₂ value₂ store'))) := by
   rw [show fuel + (extra + 1) = Nat.succ (fuel + extra) by omega]
+  exact execCall_two_of_call_ok hcall
+
+theorem execCall_two_of_call_ok_add_pos
+    {fuel extra n : Nat} (hn : 0 < n)
+    {fn : EvmYul.Yul.Ast.YulFunctionName}
+    {code : Option EvmYul.Yul.Ast.YulContract}
+    {args : List EvmYul.Literal}
+    {shared shared' : EvmYul.SharedState .Yul}
+    {store store' : EvmYul.Yul.VarStore}
+    {ret₁ ret₂ : EvmYul.Identifier} {value₁ value₂ : EvmYul.Literal}
+    (hcall :
+      EvmYul.Yul.call (fuel + extra + (n - 1)) args (.some fn) code
+          (EvmYul.Yul.State.Ok shared store) =
+        .ok (EvmYul.Yul.State.Ok shared' store', [value₁, value₂])) :
+    EvmYul.Yul.execCall (fuel + extra + n) fn [ret₁, ret₂] code
+        (EvmYul.Yul.reverse' (.ok (EvmYul.Yul.State.Ok shared store, args.reverse))) =
+      .ok (EvmYul.Yul.State.Ok shared'
+        (Finmap.insert ret₁ value₁ (Finmap.insert ret₂ value₂ store'))) := by
+  rw [show fuel + extra + n = Nat.succ (fuel + extra + (n - 1)) by omega]
   exact execCall_two_of_call_ok hcall
 
 theorem execCall_three_of_call_ok
@@ -232,6 +269,26 @@ theorem execCall_three_of_call_ok_add
   rw [show fuel + (extra + 1) = Nat.succ (fuel + extra) by omega]
   exact execCall_three_of_call_ok hcall
 
+theorem execCall_three_of_call_ok_add_pos
+    {fuel extra n : Nat} (hn : 0 < n)
+    {fn : EvmYul.Yul.Ast.YulFunctionName}
+    {code : Option EvmYul.Yul.Ast.YulContract}
+    {args : List EvmYul.Literal}
+    {shared shared' : EvmYul.SharedState .Yul}
+    {store store' : EvmYul.Yul.VarStore}
+    {ret₁ ret₂ ret₃ : EvmYul.Identifier} {value₁ value₂ value₃ : EvmYul.Literal}
+    (hcall :
+      EvmYul.Yul.call (fuel + extra + (n - 1)) args (.some fn) code
+          (EvmYul.Yul.State.Ok shared store) =
+        .ok (EvmYul.Yul.State.Ok shared' store', [value₁, value₂, value₃])) :
+    EvmYul.Yul.execCall (fuel + extra + n) fn [ret₁, ret₂, ret₃] code
+        (EvmYul.Yul.reverse' (.ok (EvmYul.Yul.State.Ok shared store, args.reverse))) =
+      .ok (EvmYul.Yul.State.Ok shared'
+        (Finmap.insert ret₁ value₁
+          (Finmap.insert ret₂ value₂ (Finmap.insert ret₃ value₃ store')))) := by
+  rw [show fuel + extra + n = Nat.succ (fuel + extra + (n - 1)) by omega]
+  exact execCall_three_of_call_ok hcall
+
 theorem evalCall_one_of_call_ok
     {fuel : Nat} {fn : EvmYul.Yul.Ast.YulFunctionName}
     {code : Option EvmYul.Yul.Ast.YulContract}
@@ -264,6 +321,24 @@ theorem evalCall_one_of_call_ok_add
         (EvmYul.Yul.reverse' (.ok (EvmYul.Yul.State.Ok shared store, args.reverse))) =
       .ok (EvmYul.Yul.State.Ok shared' store', value) := by
   rw [show fuel + (extra + 1) = Nat.succ (fuel + extra) by omega]
+  exact evalCall_one_of_call_ok hcall
+
+theorem evalCall_one_of_call_ok_add_pos
+    {fuel extra n : Nat} (hn : 0 < n)
+    {fn : EvmYul.Yul.Ast.YulFunctionName}
+    {code : Option EvmYul.Yul.Ast.YulContract}
+    {args : List EvmYul.Literal}
+    {shared shared' : EvmYul.SharedState .Yul}
+    {store store' : EvmYul.Yul.VarStore}
+    {value : EvmYul.Literal}
+    (hcall :
+      EvmYul.Yul.call (fuel + extra + (n - 1)) args (.some fn) code
+          (EvmYul.Yul.State.Ok shared store) =
+        .ok (EvmYul.Yul.State.Ok shared' store', [value])) :
+    EvmYul.Yul.evalCall (fuel + extra + n) fn code
+        (EvmYul.Yul.reverse' (.ok (EvmYul.Yul.State.Ok shared store, args.reverse))) =
+      .ok (EvmYul.Yul.State.Ok shared' store', value) := by
+  rw [show fuel + extra + n = Nat.succ (fuel + extra + (n - 1)) by omega]
   exact evalCall_one_of_call_ok hcall
 
 @[simp]
@@ -346,6 +421,48 @@ theorem exec_block_cons_add
           code s1 := by
   rw [show fuel + (extra + 1) = (fuel + extra).succ by omega]
   exact exec_block_cons (fuel + extra) stmt stmts code s
+
+theorem exec_block_nil_add_assoc
+    (fuel extra : Nat) (code : Option EvmYul.Yul.Ast.YulContract)
+    (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + extra + 1) (EvmYul.Yul.Ast.Stmt.Block []) code s =
+      .ok s := by
+  rw [show fuel + extra + 1 = (fuel + extra).succ by omega]
+  exact exec_block_nil (fuel + extra) code s
+
+theorem exec_block_cons_add_assoc
+    (fuel extra step : Nat) (stmt : EvmYul.Yul.Ast.Stmt)
+    (stmts : List EvmYul.Yul.Ast.Stmt)
+    (code : Option EvmYul.Yul.Ast.YulContract) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + extra + (step + 1))
+        (EvmYul.Yul.Ast.Stmt.Block (stmt :: stmts)) code s =
+      match EvmYul.Yul.exec (fuel + extra + step) stmt code s with
+      | .error e => .error e
+      | .ok s1 => EvmYul.Yul.exec (fuel + extra + step)
+          (EvmYul.Yul.Ast.Stmt.Block stmts) code s1 := by
+  rw [show fuel + extra + (step + 1) = (fuel + extra + step).succ by omega]
+  exact exec_block_cons (fuel + extra + step) stmt stmts code s
+
+theorem exec_block_nil_add_pos
+    (fuel extra n : Nat) (hn : 0 < n)
+    (code : Option EvmYul.Yul.Ast.YulContract) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + extra + n) (EvmYul.Yul.Ast.Stmt.Block []) code s =
+      .ok s := by
+  rw [show fuel + extra + n = (fuel + extra + (n - 1)).succ by omega]
+  exact exec_block_nil (fuel + extra + (n - 1)) code s
+
+theorem exec_block_cons_add_pos
+    (fuel extra n : Nat) (hn : 0 < n)
+    (stmt : EvmYul.Yul.Ast.Stmt) (stmts : List EvmYul.Yul.Ast.Stmt)
+    (code : Option EvmYul.Yul.Ast.YulContract) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + extra + n)
+        (EvmYul.Yul.Ast.Stmt.Block (stmt :: stmts)) code s =
+      match EvmYul.Yul.exec (fuel + extra + (n - 1)) stmt code s with
+      | .error e => .error e
+      | .ok s1 => EvmYul.Yul.exec (fuel + extra + (n - 1))
+          (EvmYul.Yul.Ast.Stmt.Block stmts) code s1 := by
+  rw [show fuel + extra + n = (fuel + extra + (n - 1)).succ by omega]
+  exact exec_block_cons (fuel + extra + (n - 1)) stmt stmts code s
 
 theorem exec_block_cons_ok
     {fuel extra : Nat} {stmt : EvmYul.Yul.Ast.Stmt} {stmts : List EvmYul.Yul.Ast.Stmt}
@@ -670,6 +787,38 @@ theorem exec_let_none_add
   rw [EvmYul.Yul.exec.eq_def]
 
 @[simp]
+theorem exec_let_lit_add_pos
+    (fuel extra n : Nat) (hn : 0 < n)
+    (vars : List EvmYul.Identifier) (lit : EvmYul.Literal)
+    (code : Option EvmYul.Yul.Ast.YulContract) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + extra + n)
+        (EvmYul.Yul.Ast.Stmt.Let vars (.some (EvmYul.Yul.Ast.Expr.Lit lit))) code s =
+      .ok (s.insert vars.head! lit) := by
+  rw [show fuel + extra + n = (fuel + extra + (n - 1)).succ by omega]
+  exact exec_let_lit (fuel + extra + (n - 1)) vars lit code s
+
+@[simp]
+theorem exec_let_var_add_pos
+    (fuel extra n : Nat) (hn : 0 < n)
+    (vars : List EvmYul.Identifier) (id : EvmYul.Identifier)
+    (code : Option EvmYul.Yul.Ast.YulContract) (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + extra + n)
+        (EvmYul.Yul.Ast.Stmt.Let vars (.some (EvmYul.Yul.Ast.Expr.Var id))) code s =
+      .ok (s.insert vars.head! s[id]!) := by
+  rw [show fuel + extra + n = (fuel + extra + (n - 1)).succ by omega]
+  exact exec_let_var (fuel + extra + (n - 1)) vars id code s
+
+@[simp]
+theorem exec_let_none_add_pos
+    (fuel extra n : Nat) (hn : 0 < n)
+    (vars : List EvmYul.Identifier) (code : Option EvmYul.Yul.Ast.YulContract)
+    (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + extra + n) (EvmYul.Yul.Ast.Stmt.Let vars none) code s =
+      .ok (List.foldr (fun var s => s.insert var (⟨0⟩ : EvmYul.UInt256)) s vars) := by
+  rw [show fuel + extra + n = (fuel + extra + (n - 1)).succ by omega]
+  exact exec_let_none (fuel + extra + (n - 1)) vars code s
+
+@[simp]
 theorem exec_let_prim
     (fuel : Nat) (vars : List EvmYul.Identifier) (prim : EvmYul.Operation .Yul)
     (args : List EvmYul.Yul.Ast.Expr) (code : Option EvmYul.Yul.Ast.YulContract)
@@ -682,6 +831,20 @@ theorem exec_let_prim
   rw [EvmYul.Yul.exec.eq_def]
 
 @[simp]
+theorem exec_let_prim_add_pos
+    (fuel extra n : Nat) (hn : 0 < n)
+    (vars : List EvmYul.Identifier) (prim : EvmYul.Operation .Yul)
+    (args : List EvmYul.Yul.Ast.Expr) (code : Option EvmYul.Yul.Ast.YulContract)
+    (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + extra + n)
+        (EvmYul.Yul.Ast.Stmt.Let vars (.some (EvmYul.Yul.Ast.Expr.Call (.inl prim) args)))
+        code s =
+      EvmYul.Yul.execPrimCall (fuel + extra + (n - 1)) prim vars
+        (EvmYul.Yul.reverse' (EvmYul.Yul.evalArgs (fuel + extra + (n - 1)) args.reverse code s)) := by
+  rw [show fuel + extra + n = (fuel + extra + (n - 1)).succ by omega]
+  exact exec_let_prim (fuel + extra + (n - 1)) vars prim args code s
+
+@[simp]
 theorem exec_let_call
     (fuel : Nat) (vars : List EvmYul.Identifier) (fn : EvmYul.Yul.Ast.YulFunctionName)
     (args : List EvmYul.Yul.Ast.Expr) (code : Option EvmYul.Yul.Ast.YulContract)
@@ -692,6 +855,20 @@ theorem exec_let_call
       EvmYul.Yul.execCall fuel fn vars code
         (EvmYul.Yul.reverse' (EvmYul.Yul.evalArgs fuel args.reverse code s)) := by
   rw [EvmYul.Yul.exec.eq_def]
+
+@[simp]
+theorem exec_let_call_add_pos
+    (fuel extra n : Nat) (hn : 0 < n)
+    (vars : List EvmYul.Identifier) (fn : EvmYul.Yul.Ast.YulFunctionName)
+    (args : List EvmYul.Yul.Ast.Expr) (code : Option EvmYul.Yul.Ast.YulContract)
+    (s : EvmYul.Yul.State) :
+    EvmYul.Yul.exec (fuel + extra + n)
+        (EvmYul.Yul.Ast.Stmt.Let vars (.some (EvmYul.Yul.Ast.Expr.Call (.inr fn) args)))
+        code s =
+      EvmYul.Yul.execCall (fuel + extra + (n - 1)) fn vars code
+        (EvmYul.Yul.reverse' (EvmYul.Yul.evalArgs (fuel + extra + (n - 1)) args.reverse code s)) := by
+  rw [show fuel + extra + n = (fuel + extra + (n - 1)).succ by omega]
+  exact exec_let_call (fuel + extra + (n - 1)) vars fn args code s
 
 @[simp]
 theorem exec_if
