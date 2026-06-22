@@ -5,18 +5,12 @@
   No separate `cbrt512` definition is needed because `icbrt` from CbrtCorrect.lean
   is already defined for all Nat (including values >= 2^256).
 -/
+import Mathlib.Tactic.Ring
 import CbrtProof.CbrtCorrect
 
 private theorem cube_expand_aux (m : Nat) :
     (m + 1) * (m + 1) * (m + 1) = m * m * m + 3 * m * m + 3 * m + 1 := by
-  -- Prove in Int (where simp can normalize polynomial products) then cast back
-  have key : (m + 1 : Int) * (m + 1) * (m + 1) = m * m * m + 3 * m * m + 3 * m + 1 := by
-    have : (m + 1 : Int) * (m + 1) = m * m + 2 * m + 1 := by
-      simp [Int.add_mul, Int.mul_add, Int.mul_one, Int.one_mul]; omega
-    rw [this]
-    simp [Int.add_mul, Int.mul_add, Int.mul_one, Int.one_mul, Int.mul_assoc]
-    omega
-  exact_mod_cast key
+  ring_nf
 
 /-- 512-bit ceiling cube root. -/
 noncomputable def cbrtUp512 (x : Nat) : Nat :=
@@ -53,4 +47,3 @@ theorem cbrtUp512_correct (x : Nat) (_hx : x < 2 ^ 512) :
       have h4 : (icbrt x - 1) + 1 = icbrt x := by omega
       rw [h4] at h3
       omega⟩
-

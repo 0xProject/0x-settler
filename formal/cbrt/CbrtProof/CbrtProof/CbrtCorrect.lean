@@ -9,7 +9,6 @@
 -/
 import Init
 import CbrtProof.FloorBound
-import CbrtProof.LeanCompat
 
 set_option maxHeartbeats 2000000
 
@@ -81,6 +80,15 @@ def innerCbrt (x : Nat) : Nat :=
 def floorCbrt (x : Nat) : Nat :=
   let z := innerCbrt x
   if x / (z * z) < z then z - 1 else z
+
+private theorem log2_eq_of_pow_bounds {n k : Nat}
+    (hlo : 2 ^ k ≤ n) (hhi : n < 2 ^ (k + 1)) :
+    Nat.log2 n = k := by
+  have hn : n ≠ 0 :=
+    Nat.ne_of_gt (Nat.lt_of_lt_of_le (Nat.two_pow_pos k) hlo)
+  apply Nat.le_antisymm
+  · exact Nat.lt_succ_iff.mp ((Nat.log2_lt hn).2 hhi)
+  · exact (Nat.le_log2 hn).2 hlo
 
 -- ============================================================================
 -- Part 1b: Reference integer cube root (floor)
@@ -252,8 +260,6 @@ private theorem int_poly_identity (m d q r : Int)
       + (-2 * d * r + 12 * d * m + 3 * m * m - 3 * m * r - 3 * m + 6 * r - 1) := by
   simp [Int.sub_eq_add_neg, Int.add_mul, Int.mul_add,
     Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
-  repeat rw [Int.mul_neg]
-  repeat rw [Int.neg_mul]
   have hddx (x : Int) : d * (d * x) = (d * d) * x := by
     rw [← Int.mul_assoc]
   simp [hddx, hd2, Int.add_mul, Int.mul_add,
@@ -273,12 +279,6 @@ private theorem int_poly_identity (m d q r : Int)
   rw [pullCoeffNested m d q 4]
   rw [pullCoeff m r 3]
   rw [pullCoeff m m 3]
-  -- Collapse the expanded `(m + 1)^3` chunk.
-  have hcube :
-      m * (m * m) + m * m + (m * m + m) + (m * m + m + (m + 1))
-        = m * (m * m) + 3 * (m * m) + 3 * m + 1 := by
-    omega
-  rw [hcube]
   omega
 
 private theorem neg3_mul_mul (m r : Int) : -3 * m * r = -(3 * m * r) := by
@@ -554,1531 +554,1531 @@ theorem innerCbrt_upper_of_lt_256 (x : Nat) (hx : x < 256) :
     decide
   | 1 =>
     have hlog : Nat.log2 1 = 0 :=
-      (CbrtCompat.log2_eq_iff (by decide : (1 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 2 =>
     have hlog : Nat.log2 2 = 1 :=
-      (CbrtCompat.log2_eq_iff (by decide : (2 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 3 =>
     have hlog : Nat.log2 3 = 1 :=
-      (CbrtCompat.log2_eq_iff (by decide : (3 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 4 =>
     have hlog : Nat.log2 4 = 2 :=
-      (CbrtCompat.log2_eq_iff (by decide : (4 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 5 =>
     have hlog : Nat.log2 5 = 2 :=
-      (CbrtCompat.log2_eq_iff (by decide : (5 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 6 =>
     have hlog : Nat.log2 6 = 2 :=
-      (CbrtCompat.log2_eq_iff (by decide : (6 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 7 =>
     have hlog : Nat.log2 7 = 2 :=
-      (CbrtCompat.log2_eq_iff (by decide : (7 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 8 =>
     have hlog : Nat.log2 8 = 3 :=
-      (CbrtCompat.log2_eq_iff (by decide : (8 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 9 =>
     have hlog : Nat.log2 9 = 3 :=
-      (CbrtCompat.log2_eq_iff (by decide : (9 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 10 =>
     have hlog : Nat.log2 10 = 3 :=
-      (CbrtCompat.log2_eq_iff (by decide : (10 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 11 =>
     have hlog : Nat.log2 11 = 3 :=
-      (CbrtCompat.log2_eq_iff (by decide : (11 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 12 =>
     have hlog : Nat.log2 12 = 3 :=
-      (CbrtCompat.log2_eq_iff (by decide : (12 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 13 =>
     have hlog : Nat.log2 13 = 3 :=
-      (CbrtCompat.log2_eq_iff (by decide : (13 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 14 =>
     have hlog : Nat.log2 14 = 3 :=
-      (CbrtCompat.log2_eq_iff (by decide : (14 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 15 =>
     have hlog : Nat.log2 15 = 3 :=
-      (CbrtCompat.log2_eq_iff (by decide : (15 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 16 =>
     have hlog : Nat.log2 16 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (16 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 17 =>
     have hlog : Nat.log2 17 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (17 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 18 =>
     have hlog : Nat.log2 18 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (18 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 19 =>
     have hlog : Nat.log2 19 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (19 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 20 =>
     have hlog : Nat.log2 20 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (20 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 21 =>
     have hlog : Nat.log2 21 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (21 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 22 =>
     have hlog : Nat.log2 22 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (22 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 23 =>
     have hlog : Nat.log2 23 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (23 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 24 =>
     have hlog : Nat.log2 24 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (24 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 25 =>
     have hlog : Nat.log2 25 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (25 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 26 =>
     have hlog : Nat.log2 26 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (26 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 27 =>
     have hlog : Nat.log2 27 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (27 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 28 =>
     have hlog : Nat.log2 28 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (28 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 29 =>
     have hlog : Nat.log2 29 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (29 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 30 =>
     have hlog : Nat.log2 30 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (30 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 31 =>
     have hlog : Nat.log2 31 = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (31 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 32 =>
     have hlog : Nat.log2 32 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (32 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 33 =>
     have hlog : Nat.log2 33 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (33 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 34 =>
     have hlog : Nat.log2 34 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (34 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 35 =>
     have hlog : Nat.log2 35 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (35 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 36 =>
     have hlog : Nat.log2 36 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (36 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 37 =>
     have hlog : Nat.log2 37 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (37 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 38 =>
     have hlog : Nat.log2 38 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (38 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 39 =>
     have hlog : Nat.log2 39 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (39 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 40 =>
     have hlog : Nat.log2 40 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (40 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 41 =>
     have hlog : Nat.log2 41 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (41 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 42 =>
     have hlog : Nat.log2 42 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (42 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 43 =>
     have hlog : Nat.log2 43 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (43 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 44 =>
     have hlog : Nat.log2 44 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (44 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 45 =>
     have hlog : Nat.log2 45 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (45 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 46 =>
     have hlog : Nat.log2 46 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (46 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 47 =>
     have hlog : Nat.log2 47 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (47 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 48 =>
     have hlog : Nat.log2 48 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (48 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 49 =>
     have hlog : Nat.log2 49 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (49 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 50 =>
     have hlog : Nat.log2 50 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (50 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 51 =>
     have hlog : Nat.log2 51 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (51 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 52 =>
     have hlog : Nat.log2 52 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (52 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 53 =>
     have hlog : Nat.log2 53 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (53 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 54 =>
     have hlog : Nat.log2 54 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (54 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 55 =>
     have hlog : Nat.log2 55 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (55 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 56 =>
     have hlog : Nat.log2 56 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (56 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 57 =>
     have hlog : Nat.log2 57 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (57 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 58 =>
     have hlog : Nat.log2 58 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (58 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 59 =>
     have hlog : Nat.log2 59 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (59 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 60 =>
     have hlog : Nat.log2 60 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (60 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 61 =>
     have hlog : Nat.log2 61 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (61 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 62 =>
     have hlog : Nat.log2 62 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (62 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 63 =>
     have hlog : Nat.log2 63 = 5 :=
-      (CbrtCompat.log2_eq_iff (by decide : (63 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 64 =>
     have hlog : Nat.log2 64 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (64 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 65 =>
     have hlog : Nat.log2 65 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (65 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 66 =>
     have hlog : Nat.log2 66 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (66 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 67 =>
     have hlog : Nat.log2 67 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (67 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 68 =>
     have hlog : Nat.log2 68 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (68 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 69 =>
     have hlog : Nat.log2 69 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (69 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 70 =>
     have hlog : Nat.log2 70 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (70 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 71 =>
     have hlog : Nat.log2 71 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (71 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 72 =>
     have hlog : Nat.log2 72 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (72 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 73 =>
     have hlog : Nat.log2 73 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (73 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 74 =>
     have hlog : Nat.log2 74 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (74 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 75 =>
     have hlog : Nat.log2 75 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (75 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 76 =>
     have hlog : Nat.log2 76 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (76 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 77 =>
     have hlog : Nat.log2 77 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (77 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 78 =>
     have hlog : Nat.log2 78 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (78 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 79 =>
     have hlog : Nat.log2 79 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (79 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 80 =>
     have hlog : Nat.log2 80 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (80 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 81 =>
     have hlog : Nat.log2 81 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (81 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 82 =>
     have hlog : Nat.log2 82 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (82 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 83 =>
     have hlog : Nat.log2 83 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (83 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 84 =>
     have hlog : Nat.log2 84 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (84 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 85 =>
     have hlog : Nat.log2 85 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (85 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 86 =>
     have hlog : Nat.log2 86 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (86 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 87 =>
     have hlog : Nat.log2 87 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (87 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 88 =>
     have hlog : Nat.log2 88 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (88 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 89 =>
     have hlog : Nat.log2 89 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (89 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 90 =>
     have hlog : Nat.log2 90 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (90 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 91 =>
     have hlog : Nat.log2 91 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (91 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 92 =>
     have hlog : Nat.log2 92 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (92 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 93 =>
     have hlog : Nat.log2 93 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (93 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 94 =>
     have hlog : Nat.log2 94 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (94 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 95 =>
     have hlog : Nat.log2 95 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (95 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 96 =>
     have hlog : Nat.log2 96 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (96 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 97 =>
     have hlog : Nat.log2 97 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (97 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 98 =>
     have hlog : Nat.log2 98 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (98 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 99 =>
     have hlog : Nat.log2 99 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (99 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 100 =>
     have hlog : Nat.log2 100 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (100 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 101 =>
     have hlog : Nat.log2 101 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (101 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 102 =>
     have hlog : Nat.log2 102 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (102 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 103 =>
     have hlog : Nat.log2 103 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (103 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 104 =>
     have hlog : Nat.log2 104 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (104 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 105 =>
     have hlog : Nat.log2 105 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (105 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 106 =>
     have hlog : Nat.log2 106 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (106 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 107 =>
     have hlog : Nat.log2 107 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (107 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 108 =>
     have hlog : Nat.log2 108 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (108 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 109 =>
     have hlog : Nat.log2 109 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (109 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 110 =>
     have hlog : Nat.log2 110 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (110 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 111 =>
     have hlog : Nat.log2 111 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (111 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 112 =>
     have hlog : Nat.log2 112 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (112 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 113 =>
     have hlog : Nat.log2 113 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (113 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 114 =>
     have hlog : Nat.log2 114 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (114 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 115 =>
     have hlog : Nat.log2 115 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (115 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 116 =>
     have hlog : Nat.log2 116 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (116 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 117 =>
     have hlog : Nat.log2 117 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (117 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 118 =>
     have hlog : Nat.log2 118 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (118 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 119 =>
     have hlog : Nat.log2 119 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (119 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 120 =>
     have hlog : Nat.log2 120 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (120 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 121 =>
     have hlog : Nat.log2 121 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (121 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 122 =>
     have hlog : Nat.log2 122 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (122 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 123 =>
     have hlog : Nat.log2 123 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (123 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 124 =>
     have hlog : Nat.log2 124 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (124 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 125 =>
     have hlog : Nat.log2 125 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (125 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 126 =>
     have hlog : Nat.log2 126 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (126 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 127 =>
     have hlog : Nat.log2 127 = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (127 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 128 =>
     have hlog : Nat.log2 128 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (128 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 129 =>
     have hlog : Nat.log2 129 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (129 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 130 =>
     have hlog : Nat.log2 130 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (130 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 131 =>
     have hlog : Nat.log2 131 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (131 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 132 =>
     have hlog : Nat.log2 132 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (132 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 133 =>
     have hlog : Nat.log2 133 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (133 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 134 =>
     have hlog : Nat.log2 134 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (134 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 135 =>
     have hlog : Nat.log2 135 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (135 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 136 =>
     have hlog : Nat.log2 136 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (136 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 137 =>
     have hlog : Nat.log2 137 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (137 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 138 =>
     have hlog : Nat.log2 138 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (138 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 139 =>
     have hlog : Nat.log2 139 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (139 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 140 =>
     have hlog : Nat.log2 140 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (140 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 141 =>
     have hlog : Nat.log2 141 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (141 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 142 =>
     have hlog : Nat.log2 142 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (142 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 143 =>
     have hlog : Nat.log2 143 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (143 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 144 =>
     have hlog : Nat.log2 144 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (144 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 145 =>
     have hlog : Nat.log2 145 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (145 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 146 =>
     have hlog : Nat.log2 146 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (146 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 147 =>
     have hlog : Nat.log2 147 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (147 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 148 =>
     have hlog : Nat.log2 148 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (148 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 149 =>
     have hlog : Nat.log2 149 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (149 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 150 =>
     have hlog : Nat.log2 150 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (150 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 151 =>
     have hlog : Nat.log2 151 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (151 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 152 =>
     have hlog : Nat.log2 152 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (152 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 153 =>
     have hlog : Nat.log2 153 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (153 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 154 =>
     have hlog : Nat.log2 154 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (154 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 155 =>
     have hlog : Nat.log2 155 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (155 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 156 =>
     have hlog : Nat.log2 156 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (156 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 157 =>
     have hlog : Nat.log2 157 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (157 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 158 =>
     have hlog : Nat.log2 158 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (158 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 159 =>
     have hlog : Nat.log2 159 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (159 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 160 =>
     have hlog : Nat.log2 160 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (160 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 161 =>
     have hlog : Nat.log2 161 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (161 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 162 =>
     have hlog : Nat.log2 162 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (162 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 163 =>
     have hlog : Nat.log2 163 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (163 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 164 =>
     have hlog : Nat.log2 164 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (164 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 165 =>
     have hlog : Nat.log2 165 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (165 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 166 =>
     have hlog : Nat.log2 166 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (166 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 167 =>
     have hlog : Nat.log2 167 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (167 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 168 =>
     have hlog : Nat.log2 168 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (168 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 169 =>
     have hlog : Nat.log2 169 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (169 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 170 =>
     have hlog : Nat.log2 170 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (170 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 171 =>
     have hlog : Nat.log2 171 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (171 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 172 =>
     have hlog : Nat.log2 172 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (172 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 173 =>
     have hlog : Nat.log2 173 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (173 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 174 =>
     have hlog : Nat.log2 174 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (174 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 175 =>
     have hlog : Nat.log2 175 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (175 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 176 =>
     have hlog : Nat.log2 176 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (176 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 177 =>
     have hlog : Nat.log2 177 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (177 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 178 =>
     have hlog : Nat.log2 178 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (178 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 179 =>
     have hlog : Nat.log2 179 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (179 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 180 =>
     have hlog : Nat.log2 180 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (180 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 181 =>
     have hlog : Nat.log2 181 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (181 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 182 =>
     have hlog : Nat.log2 182 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (182 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 183 =>
     have hlog : Nat.log2 183 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (183 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 184 =>
     have hlog : Nat.log2 184 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (184 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 185 =>
     have hlog : Nat.log2 185 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (185 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 186 =>
     have hlog : Nat.log2 186 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (186 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 187 =>
     have hlog : Nat.log2 187 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (187 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 188 =>
     have hlog : Nat.log2 188 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (188 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 189 =>
     have hlog : Nat.log2 189 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (189 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 190 =>
     have hlog : Nat.log2 190 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (190 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 191 =>
     have hlog : Nat.log2 191 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (191 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 192 =>
     have hlog : Nat.log2 192 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (192 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 193 =>
     have hlog : Nat.log2 193 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (193 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 194 =>
     have hlog : Nat.log2 194 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (194 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 195 =>
     have hlog : Nat.log2 195 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (195 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 196 =>
     have hlog : Nat.log2 196 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (196 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 197 =>
     have hlog : Nat.log2 197 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (197 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 198 =>
     have hlog : Nat.log2 198 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (198 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 199 =>
     have hlog : Nat.log2 199 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (199 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 200 =>
     have hlog : Nat.log2 200 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (200 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 201 =>
     have hlog : Nat.log2 201 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (201 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 202 =>
     have hlog : Nat.log2 202 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (202 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 203 =>
     have hlog : Nat.log2 203 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (203 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 204 =>
     have hlog : Nat.log2 204 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (204 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 205 =>
     have hlog : Nat.log2 205 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (205 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 206 =>
     have hlog : Nat.log2 206 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (206 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 207 =>
     have hlog : Nat.log2 207 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (207 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 208 =>
     have hlog : Nat.log2 208 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (208 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 209 =>
     have hlog : Nat.log2 209 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (209 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 210 =>
     have hlog : Nat.log2 210 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (210 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 211 =>
     have hlog : Nat.log2 211 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (211 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 212 =>
     have hlog : Nat.log2 212 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (212 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 213 =>
     have hlog : Nat.log2 213 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (213 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 214 =>
     have hlog : Nat.log2 214 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (214 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 215 =>
     have hlog : Nat.log2 215 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (215 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 216 =>
     have hlog : Nat.log2 216 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (216 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 217 =>
     have hlog : Nat.log2 217 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (217 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 218 =>
     have hlog : Nat.log2 218 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (218 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 219 =>
     have hlog : Nat.log2 219 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (219 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 220 =>
     have hlog : Nat.log2 220 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (220 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 221 =>
     have hlog : Nat.log2 221 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (221 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 222 =>
     have hlog : Nat.log2 222 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (222 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 223 =>
     have hlog : Nat.log2 223 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (223 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 224 =>
     have hlog : Nat.log2 224 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (224 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 225 =>
     have hlog : Nat.log2 225 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (225 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 226 =>
     have hlog : Nat.log2 226 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (226 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 227 =>
     have hlog : Nat.log2 227 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (227 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 228 =>
     have hlog : Nat.log2 228 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (228 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 229 =>
     have hlog : Nat.log2 229 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (229 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 230 =>
     have hlog : Nat.log2 230 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (230 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 231 =>
     have hlog : Nat.log2 231 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (231 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 232 =>
     have hlog : Nat.log2 232 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (232 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 233 =>
     have hlog : Nat.log2 233 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (233 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 234 =>
     have hlog : Nat.log2 234 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (234 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 235 =>
     have hlog : Nat.log2 235 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (235 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 236 =>
     have hlog : Nat.log2 236 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (236 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 237 =>
     have hlog : Nat.log2 237 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (237 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 238 =>
     have hlog : Nat.log2 238 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (238 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 239 =>
     have hlog : Nat.log2 239 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (239 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 240 =>
     have hlog : Nat.log2 240 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (240 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 241 =>
     have hlog : Nat.log2 241 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (241 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 242 =>
     have hlog : Nat.log2 242 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (242 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 243 =>
     have hlog : Nat.log2 243 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (243 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 244 =>
     have hlog : Nat.log2 244 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (244 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 245 =>
     have hlog : Nat.log2 245 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (245 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 246 =>
     have hlog : Nat.log2 246 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (246 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 247 =>
     have hlog : Nat.log2 247 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (247 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 248 =>
     have hlog : Nat.log2 248 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (248 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 249 =>
     have hlog : Nat.log2 249 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (249 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 250 =>
     have hlog : Nat.log2 250 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (250 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 251 =>
     have hlog : Nat.log2 251 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (251 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 252 =>
     have hlog : Nat.log2 252 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (252 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 253 =>
     have hlog : Nat.log2 253 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (253 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 254 =>
     have hlog : Nat.log2 254 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (254 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 255 =>
     have hlog : Nat.log2 255 = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (255 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
@@ -2246,1531 +2246,1531 @@ theorem innerCbrt_on_perfect_cube_small_nat (m : Nat) (hm : m < 256) :
     decide
   | 1 =>
     have hlog : Nat.log2 (1 * 1 * 1) = 0 :=
-      (CbrtCompat.log2_eq_iff (by decide : (1 * 1 * 1 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 2 =>
     have hlog : Nat.log2 (2 * 2 * 2) = 3 :=
-      (CbrtCompat.log2_eq_iff (by decide : (2 * 2 * 2 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 3 =>
     have hlog : Nat.log2 (3 * 3 * 3) = 4 :=
-      (CbrtCompat.log2_eq_iff (by decide : (3 * 3 * 3 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 4 =>
     have hlog : Nat.log2 (4 * 4 * 4) = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (4 * 4 * 4 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 5 =>
     have hlog : Nat.log2 (5 * 5 * 5) = 6 :=
-      (CbrtCompat.log2_eq_iff (by decide : (5 * 5 * 5 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 6 =>
     have hlog : Nat.log2 (6 * 6 * 6) = 7 :=
-      (CbrtCompat.log2_eq_iff (by decide : (6 * 6 * 6 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 7 =>
     have hlog : Nat.log2 (7 * 7 * 7) = 8 :=
-      (CbrtCompat.log2_eq_iff (by decide : (7 * 7 * 7 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 8 =>
     have hlog : Nat.log2 (8 * 8 * 8) = 9 :=
-      (CbrtCompat.log2_eq_iff (by decide : (8 * 8 * 8 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 9 =>
     have hlog : Nat.log2 (9 * 9 * 9) = 9 :=
-      (CbrtCompat.log2_eq_iff (by decide : (9 * 9 * 9 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 10 =>
     have hlog : Nat.log2 (10 * 10 * 10) = 9 :=
-      (CbrtCompat.log2_eq_iff (by decide : (10 * 10 * 10 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 11 =>
     have hlog : Nat.log2 (11 * 11 * 11) = 10 :=
-      (CbrtCompat.log2_eq_iff (by decide : (11 * 11 * 11 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 12 =>
     have hlog : Nat.log2 (12 * 12 * 12) = 10 :=
-      (CbrtCompat.log2_eq_iff (by decide : (12 * 12 * 12 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 13 =>
     have hlog : Nat.log2 (13 * 13 * 13) = 11 :=
-      (CbrtCompat.log2_eq_iff (by decide : (13 * 13 * 13 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 14 =>
     have hlog : Nat.log2 (14 * 14 * 14) = 11 :=
-      (CbrtCompat.log2_eq_iff (by decide : (14 * 14 * 14 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 15 =>
     have hlog : Nat.log2 (15 * 15 * 15) = 11 :=
-      (CbrtCompat.log2_eq_iff (by decide : (15 * 15 * 15 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 16 =>
     have hlog : Nat.log2 (16 * 16 * 16) = 12 :=
-      (CbrtCompat.log2_eq_iff (by decide : (16 * 16 * 16 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 17 =>
     have hlog : Nat.log2 (17 * 17 * 17) = 12 :=
-      (CbrtCompat.log2_eq_iff (by decide : (17 * 17 * 17 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 18 =>
     have hlog : Nat.log2 (18 * 18 * 18) = 12 :=
-      (CbrtCompat.log2_eq_iff (by decide : (18 * 18 * 18 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 19 =>
     have hlog : Nat.log2 (19 * 19 * 19) = 12 :=
-      (CbrtCompat.log2_eq_iff (by decide : (19 * 19 * 19 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 20 =>
     have hlog : Nat.log2 (20 * 20 * 20) = 12 :=
-      (CbrtCompat.log2_eq_iff (by decide : (20 * 20 * 20 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 21 =>
     have hlog : Nat.log2 (21 * 21 * 21) = 13 :=
-      (CbrtCompat.log2_eq_iff (by decide : (21 * 21 * 21 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 22 =>
     have hlog : Nat.log2 (22 * 22 * 22) = 13 :=
-      (CbrtCompat.log2_eq_iff (by decide : (22 * 22 * 22 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 23 =>
     have hlog : Nat.log2 (23 * 23 * 23) = 13 :=
-      (CbrtCompat.log2_eq_iff (by decide : (23 * 23 * 23 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 24 =>
     have hlog : Nat.log2 (24 * 24 * 24) = 13 :=
-      (CbrtCompat.log2_eq_iff (by decide : (24 * 24 * 24 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 25 =>
     have hlog : Nat.log2 (25 * 25 * 25) = 13 :=
-      (CbrtCompat.log2_eq_iff (by decide : (25 * 25 * 25 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 26 =>
     have hlog : Nat.log2 (26 * 26 * 26) = 14 :=
-      (CbrtCompat.log2_eq_iff (by decide : (26 * 26 * 26 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 27 =>
     have hlog : Nat.log2 (27 * 27 * 27) = 14 :=
-      (CbrtCompat.log2_eq_iff (by decide : (27 * 27 * 27 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 28 =>
     have hlog : Nat.log2 (28 * 28 * 28) = 14 :=
-      (CbrtCompat.log2_eq_iff (by decide : (28 * 28 * 28 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 29 =>
     have hlog : Nat.log2 (29 * 29 * 29) = 14 :=
-      (CbrtCompat.log2_eq_iff (by decide : (29 * 29 * 29 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 30 =>
     have hlog : Nat.log2 (30 * 30 * 30) = 14 :=
-      (CbrtCompat.log2_eq_iff (by decide : (30 * 30 * 30 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 31 =>
     have hlog : Nat.log2 (31 * 31 * 31) = 14 :=
-      (CbrtCompat.log2_eq_iff (by decide : (31 * 31 * 31 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 32 =>
     have hlog : Nat.log2 (32 * 32 * 32) = 15 :=
-      (CbrtCompat.log2_eq_iff (by decide : (32 * 32 * 32 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 33 =>
     have hlog : Nat.log2 (33 * 33 * 33) = 15 :=
-      (CbrtCompat.log2_eq_iff (by decide : (33 * 33 * 33 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 34 =>
     have hlog : Nat.log2 (34 * 34 * 34) = 15 :=
-      (CbrtCompat.log2_eq_iff (by decide : (34 * 34 * 34 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 35 =>
     have hlog : Nat.log2 (35 * 35 * 35) = 15 :=
-      (CbrtCompat.log2_eq_iff (by decide : (35 * 35 * 35 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 36 =>
     have hlog : Nat.log2 (36 * 36 * 36) = 15 :=
-      (CbrtCompat.log2_eq_iff (by decide : (36 * 36 * 36 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 37 =>
     have hlog : Nat.log2 (37 * 37 * 37) = 15 :=
-      (CbrtCompat.log2_eq_iff (by decide : (37 * 37 * 37 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 38 =>
     have hlog : Nat.log2 (38 * 38 * 38) = 15 :=
-      (CbrtCompat.log2_eq_iff (by decide : (38 * 38 * 38 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 39 =>
     have hlog : Nat.log2 (39 * 39 * 39) = 15 :=
-      (CbrtCompat.log2_eq_iff (by decide : (39 * 39 * 39 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 40 =>
     have hlog : Nat.log2 (40 * 40 * 40) = 15 :=
-      (CbrtCompat.log2_eq_iff (by decide : (40 * 40 * 40 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 41 =>
     have hlog : Nat.log2 (41 * 41 * 41) = 16 :=
-      (CbrtCompat.log2_eq_iff (by decide : (41 * 41 * 41 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 42 =>
     have hlog : Nat.log2 (42 * 42 * 42) = 16 :=
-      (CbrtCompat.log2_eq_iff (by decide : (42 * 42 * 42 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 43 =>
     have hlog : Nat.log2 (43 * 43 * 43) = 16 :=
-      (CbrtCompat.log2_eq_iff (by decide : (43 * 43 * 43 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 44 =>
     have hlog : Nat.log2 (44 * 44 * 44) = 16 :=
-      (CbrtCompat.log2_eq_iff (by decide : (44 * 44 * 44 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 45 =>
     have hlog : Nat.log2 (45 * 45 * 45) = 16 :=
-      (CbrtCompat.log2_eq_iff (by decide : (45 * 45 * 45 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 46 =>
     have hlog : Nat.log2 (46 * 46 * 46) = 16 :=
-      (CbrtCompat.log2_eq_iff (by decide : (46 * 46 * 46 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 47 =>
     have hlog : Nat.log2 (47 * 47 * 47) = 16 :=
-      (CbrtCompat.log2_eq_iff (by decide : (47 * 47 * 47 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 48 =>
     have hlog : Nat.log2 (48 * 48 * 48) = 16 :=
-      (CbrtCompat.log2_eq_iff (by decide : (48 * 48 * 48 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 49 =>
     have hlog : Nat.log2 (49 * 49 * 49) = 16 :=
-      (CbrtCompat.log2_eq_iff (by decide : (49 * 49 * 49 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 50 =>
     have hlog : Nat.log2 (50 * 50 * 50) = 16 :=
-      (CbrtCompat.log2_eq_iff (by decide : (50 * 50 * 50 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 51 =>
     have hlog : Nat.log2 (51 * 51 * 51) = 17 :=
-      (CbrtCompat.log2_eq_iff (by decide : (51 * 51 * 51 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 52 =>
     have hlog : Nat.log2 (52 * 52 * 52) = 17 :=
-      (CbrtCompat.log2_eq_iff (by decide : (52 * 52 * 52 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 53 =>
     have hlog : Nat.log2 (53 * 53 * 53) = 17 :=
-      (CbrtCompat.log2_eq_iff (by decide : (53 * 53 * 53 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 54 =>
     have hlog : Nat.log2 (54 * 54 * 54) = 17 :=
-      (CbrtCompat.log2_eq_iff (by decide : (54 * 54 * 54 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 55 =>
     have hlog : Nat.log2 (55 * 55 * 55) = 17 :=
-      (CbrtCompat.log2_eq_iff (by decide : (55 * 55 * 55 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 56 =>
     have hlog : Nat.log2 (56 * 56 * 56) = 17 :=
-      (CbrtCompat.log2_eq_iff (by decide : (56 * 56 * 56 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 57 =>
     have hlog : Nat.log2 (57 * 57 * 57) = 17 :=
-      (CbrtCompat.log2_eq_iff (by decide : (57 * 57 * 57 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 58 =>
     have hlog : Nat.log2 (58 * 58 * 58) = 17 :=
-      (CbrtCompat.log2_eq_iff (by decide : (58 * 58 * 58 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 59 =>
     have hlog : Nat.log2 (59 * 59 * 59) = 17 :=
-      (CbrtCompat.log2_eq_iff (by decide : (59 * 59 * 59 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 60 =>
     have hlog : Nat.log2 (60 * 60 * 60) = 17 :=
-      (CbrtCompat.log2_eq_iff (by decide : (60 * 60 * 60 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 61 =>
     have hlog : Nat.log2 (61 * 61 * 61) = 17 :=
-      (CbrtCompat.log2_eq_iff (by decide : (61 * 61 * 61 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 62 =>
     have hlog : Nat.log2 (62 * 62 * 62) = 17 :=
-      (CbrtCompat.log2_eq_iff (by decide : (62 * 62 * 62 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 63 =>
     have hlog : Nat.log2 (63 * 63 * 63) = 17 :=
-      (CbrtCompat.log2_eq_iff (by decide : (63 * 63 * 63 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 64 =>
     have hlog : Nat.log2 (64 * 64 * 64) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (64 * 64 * 64 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 65 =>
     have hlog : Nat.log2 (65 * 65 * 65) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (65 * 65 * 65 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 66 =>
     have hlog : Nat.log2 (66 * 66 * 66) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (66 * 66 * 66 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 67 =>
     have hlog : Nat.log2 (67 * 67 * 67) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (67 * 67 * 67 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 68 =>
     have hlog : Nat.log2 (68 * 68 * 68) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (68 * 68 * 68 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 69 =>
     have hlog : Nat.log2 (69 * 69 * 69) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (69 * 69 * 69 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 70 =>
     have hlog : Nat.log2 (70 * 70 * 70) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (70 * 70 * 70 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 71 =>
     have hlog : Nat.log2 (71 * 71 * 71) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (71 * 71 * 71 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 72 =>
     have hlog : Nat.log2 (72 * 72 * 72) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (72 * 72 * 72 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 73 =>
     have hlog : Nat.log2 (73 * 73 * 73) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (73 * 73 * 73 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 74 =>
     have hlog : Nat.log2 (74 * 74 * 74) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (74 * 74 * 74 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 75 =>
     have hlog : Nat.log2 (75 * 75 * 75) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (75 * 75 * 75 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 76 =>
     have hlog : Nat.log2 (76 * 76 * 76) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (76 * 76 * 76 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 77 =>
     have hlog : Nat.log2 (77 * 77 * 77) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (77 * 77 * 77 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 78 =>
     have hlog : Nat.log2 (78 * 78 * 78) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (78 * 78 * 78 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 79 =>
     have hlog : Nat.log2 (79 * 79 * 79) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (79 * 79 * 79 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 80 =>
     have hlog : Nat.log2 (80 * 80 * 80) = 18 :=
-      (CbrtCompat.log2_eq_iff (by decide : (80 * 80 * 80 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 81 =>
     have hlog : Nat.log2 (81 * 81 * 81) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (81 * 81 * 81 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 82 =>
     have hlog : Nat.log2 (82 * 82 * 82) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (82 * 82 * 82 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 83 =>
     have hlog : Nat.log2 (83 * 83 * 83) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (83 * 83 * 83 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 84 =>
     have hlog : Nat.log2 (84 * 84 * 84) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (84 * 84 * 84 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 85 =>
     have hlog : Nat.log2 (85 * 85 * 85) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (85 * 85 * 85 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 86 =>
     have hlog : Nat.log2 (86 * 86 * 86) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (86 * 86 * 86 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 87 =>
     have hlog : Nat.log2 (87 * 87 * 87) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (87 * 87 * 87 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 88 =>
     have hlog : Nat.log2 (88 * 88 * 88) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (88 * 88 * 88 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 89 =>
     have hlog : Nat.log2 (89 * 89 * 89) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (89 * 89 * 89 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 90 =>
     have hlog : Nat.log2 (90 * 90 * 90) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (90 * 90 * 90 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 91 =>
     have hlog : Nat.log2 (91 * 91 * 91) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (91 * 91 * 91 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 92 =>
     have hlog : Nat.log2 (92 * 92 * 92) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (92 * 92 * 92 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 93 =>
     have hlog : Nat.log2 (93 * 93 * 93) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (93 * 93 * 93 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 94 =>
     have hlog : Nat.log2 (94 * 94 * 94) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (94 * 94 * 94 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 95 =>
     have hlog : Nat.log2 (95 * 95 * 95) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (95 * 95 * 95 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 96 =>
     have hlog : Nat.log2 (96 * 96 * 96) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (96 * 96 * 96 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 97 =>
     have hlog : Nat.log2 (97 * 97 * 97) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (97 * 97 * 97 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 98 =>
     have hlog : Nat.log2 (98 * 98 * 98) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (98 * 98 * 98 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 99 =>
     have hlog : Nat.log2 (99 * 99 * 99) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (99 * 99 * 99 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 100 =>
     have hlog : Nat.log2 (100 * 100 * 100) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (100 * 100 * 100 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 101 =>
     have hlog : Nat.log2 (101 * 101 * 101) = 19 :=
-      (CbrtCompat.log2_eq_iff (by decide : (101 * 101 * 101 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 102 =>
     have hlog : Nat.log2 (102 * 102 * 102) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (102 * 102 * 102 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 103 =>
     have hlog : Nat.log2 (103 * 103 * 103) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (103 * 103 * 103 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 104 =>
     have hlog : Nat.log2 (104 * 104 * 104) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (104 * 104 * 104 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 105 =>
     have hlog : Nat.log2 (105 * 105 * 105) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (105 * 105 * 105 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 106 =>
     have hlog : Nat.log2 (106 * 106 * 106) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (106 * 106 * 106 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 107 =>
     have hlog : Nat.log2 (107 * 107 * 107) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (107 * 107 * 107 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 108 =>
     have hlog : Nat.log2 (108 * 108 * 108) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (108 * 108 * 108 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 109 =>
     have hlog : Nat.log2 (109 * 109 * 109) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (109 * 109 * 109 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 110 =>
     have hlog : Nat.log2 (110 * 110 * 110) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (110 * 110 * 110 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 111 =>
     have hlog : Nat.log2 (111 * 111 * 111) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (111 * 111 * 111 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 112 =>
     have hlog : Nat.log2 (112 * 112 * 112) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (112 * 112 * 112 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 113 =>
     have hlog : Nat.log2 (113 * 113 * 113) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (113 * 113 * 113 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 114 =>
     have hlog : Nat.log2 (114 * 114 * 114) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (114 * 114 * 114 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 115 =>
     have hlog : Nat.log2 (115 * 115 * 115) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (115 * 115 * 115 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 116 =>
     have hlog : Nat.log2 (116 * 116 * 116) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (116 * 116 * 116 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 117 =>
     have hlog : Nat.log2 (117 * 117 * 117) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (117 * 117 * 117 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 118 =>
     have hlog : Nat.log2 (118 * 118 * 118) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (118 * 118 * 118 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 119 =>
     have hlog : Nat.log2 (119 * 119 * 119) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (119 * 119 * 119 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 120 =>
     have hlog : Nat.log2 (120 * 120 * 120) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (120 * 120 * 120 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 121 =>
     have hlog : Nat.log2 (121 * 121 * 121) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (121 * 121 * 121 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 122 =>
     have hlog : Nat.log2 (122 * 122 * 122) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (122 * 122 * 122 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 123 =>
     have hlog : Nat.log2 (123 * 123 * 123) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (123 * 123 * 123 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 124 =>
     have hlog : Nat.log2 (124 * 124 * 124) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (124 * 124 * 124 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 125 =>
     have hlog : Nat.log2 (125 * 125 * 125) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (125 * 125 * 125 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 126 =>
     have hlog : Nat.log2 (126 * 126 * 126) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (126 * 126 * 126 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 127 =>
     have hlog : Nat.log2 (127 * 127 * 127) = 20 :=
-      (CbrtCompat.log2_eq_iff (by decide : (127 * 127 * 127 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 128 =>
     have hlog : Nat.log2 (128 * 128 * 128) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (128 * 128 * 128 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 129 =>
     have hlog : Nat.log2 (129 * 129 * 129) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (129 * 129 * 129 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 130 =>
     have hlog : Nat.log2 (130 * 130 * 130) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (130 * 130 * 130 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 131 =>
     have hlog : Nat.log2 (131 * 131 * 131) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (131 * 131 * 131 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 132 =>
     have hlog : Nat.log2 (132 * 132 * 132) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (132 * 132 * 132 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 133 =>
     have hlog : Nat.log2 (133 * 133 * 133) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (133 * 133 * 133 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 134 =>
     have hlog : Nat.log2 (134 * 134 * 134) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (134 * 134 * 134 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 135 =>
     have hlog : Nat.log2 (135 * 135 * 135) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (135 * 135 * 135 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 136 =>
     have hlog : Nat.log2 (136 * 136 * 136) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (136 * 136 * 136 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 137 =>
     have hlog : Nat.log2 (137 * 137 * 137) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (137 * 137 * 137 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 138 =>
     have hlog : Nat.log2 (138 * 138 * 138) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (138 * 138 * 138 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 139 =>
     have hlog : Nat.log2 (139 * 139 * 139) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (139 * 139 * 139 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 140 =>
     have hlog : Nat.log2 (140 * 140 * 140) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (140 * 140 * 140 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 141 =>
     have hlog : Nat.log2 (141 * 141 * 141) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (141 * 141 * 141 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 142 =>
     have hlog : Nat.log2 (142 * 142 * 142) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (142 * 142 * 142 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 143 =>
     have hlog : Nat.log2 (143 * 143 * 143) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (143 * 143 * 143 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 144 =>
     have hlog : Nat.log2 (144 * 144 * 144) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (144 * 144 * 144 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 145 =>
     have hlog : Nat.log2 (145 * 145 * 145) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (145 * 145 * 145 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 146 =>
     have hlog : Nat.log2 (146 * 146 * 146) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (146 * 146 * 146 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 147 =>
     have hlog : Nat.log2 (147 * 147 * 147) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (147 * 147 * 147 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 148 =>
     have hlog : Nat.log2 (148 * 148 * 148) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (148 * 148 * 148 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 149 =>
     have hlog : Nat.log2 (149 * 149 * 149) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (149 * 149 * 149 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 150 =>
     have hlog : Nat.log2 (150 * 150 * 150) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (150 * 150 * 150 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 151 =>
     have hlog : Nat.log2 (151 * 151 * 151) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (151 * 151 * 151 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 152 =>
     have hlog : Nat.log2 (152 * 152 * 152) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (152 * 152 * 152 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 153 =>
     have hlog : Nat.log2 (153 * 153 * 153) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (153 * 153 * 153 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 154 =>
     have hlog : Nat.log2 (154 * 154 * 154) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (154 * 154 * 154 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 155 =>
     have hlog : Nat.log2 (155 * 155 * 155) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (155 * 155 * 155 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 156 =>
     have hlog : Nat.log2 (156 * 156 * 156) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (156 * 156 * 156 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 157 =>
     have hlog : Nat.log2 (157 * 157 * 157) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (157 * 157 * 157 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 158 =>
     have hlog : Nat.log2 (158 * 158 * 158) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (158 * 158 * 158 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 159 =>
     have hlog : Nat.log2 (159 * 159 * 159) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (159 * 159 * 159 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 160 =>
     have hlog : Nat.log2 (160 * 160 * 160) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (160 * 160 * 160 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 161 =>
     have hlog : Nat.log2 (161 * 161 * 161) = 21 :=
-      (CbrtCompat.log2_eq_iff (by decide : (161 * 161 * 161 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 162 =>
     have hlog : Nat.log2 (162 * 162 * 162) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (162 * 162 * 162 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 163 =>
     have hlog : Nat.log2 (163 * 163 * 163) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (163 * 163 * 163 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 164 =>
     have hlog : Nat.log2 (164 * 164 * 164) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (164 * 164 * 164 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 165 =>
     have hlog : Nat.log2 (165 * 165 * 165) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (165 * 165 * 165 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 166 =>
     have hlog : Nat.log2 (166 * 166 * 166) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (166 * 166 * 166 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 167 =>
     have hlog : Nat.log2 (167 * 167 * 167) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (167 * 167 * 167 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 168 =>
     have hlog : Nat.log2 (168 * 168 * 168) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (168 * 168 * 168 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 169 =>
     have hlog : Nat.log2 (169 * 169 * 169) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (169 * 169 * 169 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 170 =>
     have hlog : Nat.log2 (170 * 170 * 170) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (170 * 170 * 170 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 171 =>
     have hlog : Nat.log2 (171 * 171 * 171) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (171 * 171 * 171 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 172 =>
     have hlog : Nat.log2 (172 * 172 * 172) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (172 * 172 * 172 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 173 =>
     have hlog : Nat.log2 (173 * 173 * 173) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (173 * 173 * 173 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 174 =>
     have hlog : Nat.log2 (174 * 174 * 174) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (174 * 174 * 174 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 175 =>
     have hlog : Nat.log2 (175 * 175 * 175) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (175 * 175 * 175 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 176 =>
     have hlog : Nat.log2 (176 * 176 * 176) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (176 * 176 * 176 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 177 =>
     have hlog : Nat.log2 (177 * 177 * 177) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (177 * 177 * 177 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 178 =>
     have hlog : Nat.log2 (178 * 178 * 178) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (178 * 178 * 178 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 179 =>
     have hlog : Nat.log2 (179 * 179 * 179) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (179 * 179 * 179 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 180 =>
     have hlog : Nat.log2 (180 * 180 * 180) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (180 * 180 * 180 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 181 =>
     have hlog : Nat.log2 (181 * 181 * 181) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (181 * 181 * 181 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 182 =>
     have hlog : Nat.log2 (182 * 182 * 182) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (182 * 182 * 182 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 183 =>
     have hlog : Nat.log2 (183 * 183 * 183) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (183 * 183 * 183 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 184 =>
     have hlog : Nat.log2 (184 * 184 * 184) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (184 * 184 * 184 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 185 =>
     have hlog : Nat.log2 (185 * 185 * 185) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (185 * 185 * 185 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 186 =>
     have hlog : Nat.log2 (186 * 186 * 186) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (186 * 186 * 186 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 187 =>
     have hlog : Nat.log2 (187 * 187 * 187) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (187 * 187 * 187 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 188 =>
     have hlog : Nat.log2 (188 * 188 * 188) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (188 * 188 * 188 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 189 =>
     have hlog : Nat.log2 (189 * 189 * 189) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (189 * 189 * 189 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 190 =>
     have hlog : Nat.log2 (190 * 190 * 190) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (190 * 190 * 190 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 191 =>
     have hlog : Nat.log2 (191 * 191 * 191) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (191 * 191 * 191 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 192 =>
     have hlog : Nat.log2 (192 * 192 * 192) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (192 * 192 * 192 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 193 =>
     have hlog : Nat.log2 (193 * 193 * 193) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (193 * 193 * 193 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 194 =>
     have hlog : Nat.log2 (194 * 194 * 194) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (194 * 194 * 194 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 195 =>
     have hlog : Nat.log2 (195 * 195 * 195) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (195 * 195 * 195 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 196 =>
     have hlog : Nat.log2 (196 * 196 * 196) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (196 * 196 * 196 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 197 =>
     have hlog : Nat.log2 (197 * 197 * 197) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (197 * 197 * 197 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 198 =>
     have hlog : Nat.log2 (198 * 198 * 198) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (198 * 198 * 198 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 199 =>
     have hlog : Nat.log2 (199 * 199 * 199) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (199 * 199 * 199 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 200 =>
     have hlog : Nat.log2 (200 * 200 * 200) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (200 * 200 * 200 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 201 =>
     have hlog : Nat.log2 (201 * 201 * 201) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (201 * 201 * 201 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 202 =>
     have hlog : Nat.log2 (202 * 202 * 202) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (202 * 202 * 202 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 203 =>
     have hlog : Nat.log2 (203 * 203 * 203) = 22 :=
-      (CbrtCompat.log2_eq_iff (by decide : (203 * 203 * 203 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 204 =>
     have hlog : Nat.log2 (204 * 204 * 204) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (204 * 204 * 204 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 205 =>
     have hlog : Nat.log2 (205 * 205 * 205) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (205 * 205 * 205 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 206 =>
     have hlog : Nat.log2 (206 * 206 * 206) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (206 * 206 * 206 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 207 =>
     have hlog : Nat.log2 (207 * 207 * 207) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (207 * 207 * 207 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 208 =>
     have hlog : Nat.log2 (208 * 208 * 208) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (208 * 208 * 208 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 209 =>
     have hlog : Nat.log2 (209 * 209 * 209) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (209 * 209 * 209 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 210 =>
     have hlog : Nat.log2 (210 * 210 * 210) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (210 * 210 * 210 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 211 =>
     have hlog : Nat.log2 (211 * 211 * 211) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (211 * 211 * 211 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 212 =>
     have hlog : Nat.log2 (212 * 212 * 212) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (212 * 212 * 212 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 213 =>
     have hlog : Nat.log2 (213 * 213 * 213) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (213 * 213 * 213 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 214 =>
     have hlog : Nat.log2 (214 * 214 * 214) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (214 * 214 * 214 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 215 =>
     have hlog : Nat.log2 (215 * 215 * 215) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (215 * 215 * 215 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 216 =>
     have hlog : Nat.log2 (216 * 216 * 216) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (216 * 216 * 216 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 217 =>
     have hlog : Nat.log2 (217 * 217 * 217) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (217 * 217 * 217 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 218 =>
     have hlog : Nat.log2 (218 * 218 * 218) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (218 * 218 * 218 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 219 =>
     have hlog : Nat.log2 (219 * 219 * 219) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (219 * 219 * 219 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 220 =>
     have hlog : Nat.log2 (220 * 220 * 220) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (220 * 220 * 220 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 221 =>
     have hlog : Nat.log2 (221 * 221 * 221) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (221 * 221 * 221 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 222 =>
     have hlog : Nat.log2 (222 * 222 * 222) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (222 * 222 * 222 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 223 =>
     have hlog : Nat.log2 (223 * 223 * 223) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (223 * 223 * 223 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 224 =>
     have hlog : Nat.log2 (224 * 224 * 224) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (224 * 224 * 224 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 225 =>
     have hlog : Nat.log2 (225 * 225 * 225) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (225 * 225 * 225 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 226 =>
     have hlog : Nat.log2 (226 * 226 * 226) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (226 * 226 * 226 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 227 =>
     have hlog : Nat.log2 (227 * 227 * 227) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (227 * 227 * 227 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 228 =>
     have hlog : Nat.log2 (228 * 228 * 228) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (228 * 228 * 228 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 229 =>
     have hlog : Nat.log2 (229 * 229 * 229) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (229 * 229 * 229 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 230 =>
     have hlog : Nat.log2 (230 * 230 * 230) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (230 * 230 * 230 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 231 =>
     have hlog : Nat.log2 (231 * 231 * 231) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (231 * 231 * 231 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 232 =>
     have hlog : Nat.log2 (232 * 232 * 232) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (232 * 232 * 232 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 233 =>
     have hlog : Nat.log2 (233 * 233 * 233) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (233 * 233 * 233 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 234 =>
     have hlog : Nat.log2 (234 * 234 * 234) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (234 * 234 * 234 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 235 =>
     have hlog : Nat.log2 (235 * 235 * 235) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (235 * 235 * 235 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 236 =>
     have hlog : Nat.log2 (236 * 236 * 236) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (236 * 236 * 236 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 237 =>
     have hlog : Nat.log2 (237 * 237 * 237) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (237 * 237 * 237 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 238 =>
     have hlog : Nat.log2 (238 * 238 * 238) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (238 * 238 * 238 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 239 =>
     have hlog : Nat.log2 (239 * 239 * 239) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (239 * 239 * 239 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 240 =>
     have hlog : Nat.log2 (240 * 240 * 240) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (240 * 240 * 240 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 241 =>
     have hlog : Nat.log2 (241 * 241 * 241) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (241 * 241 * 241 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 242 =>
     have hlog : Nat.log2 (242 * 242 * 242) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (242 * 242 * 242 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 243 =>
     have hlog : Nat.log2 (243 * 243 * 243) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (243 * 243 * 243 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 244 =>
     have hlog : Nat.log2 (244 * 244 * 244) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (244 * 244 * 244 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 245 =>
     have hlog : Nat.log2 (245 * 245 * 245) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (245 * 245 * 245 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 246 =>
     have hlog : Nat.log2 (246 * 246 * 246) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (246 * 246 * 246 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 247 =>
     have hlog : Nat.log2 (247 * 247 * 247) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (247 * 247 * 247 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 248 =>
     have hlog : Nat.log2 (248 * 248 * 248) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (248 * 248 * 248 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 249 =>
     have hlog : Nat.log2 (249 * 249 * 249) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (249 * 249 * 249 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 250 =>
     have hlog : Nat.log2 (250 * 250 * 250) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (250 * 250 * 250 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 251 =>
     have hlog : Nat.log2 (251 * 251 * 251) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (251 * 251 * 251 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 252 =>
     have hlog : Nat.log2 (252 * 252 * 252) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (252 * 252 * 252 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 253 =>
     have hlog : Nat.log2 (253 * 253 * 253) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (253 * 253 * 253 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 254 =>
     have hlog : Nat.log2 (254 * 254 * 254) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (254 * 254 * 254 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide
   | 255 =>
     have hlog : Nat.log2 (255 * 255 * 255) = 23 :=
-      (CbrtCompat.log2_eq_iff (by decide : (255 * 255 * 255 : Nat) ≠ 0)).2 ⟨by decide, by decide⟩
+      log2_eq_of_pow_bounds (by decide) (by decide)
     unfold innerCbrt cbrtSeed
     rw [hlog]
     decide

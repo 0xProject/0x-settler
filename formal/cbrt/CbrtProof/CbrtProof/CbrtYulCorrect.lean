@@ -7,6 +7,7 @@ set_option linter.style.nameCheck false
 namespace CbrtYul
 
 open FormalYul
+open FormalYul.Preservation
 open CbrtEvmMath
 
 private theorem call_zero_value_for_split_t_uint256_direct

@@ -9,7 +9,6 @@
 -/
 import Init
 import CbrtProof.CbrtCorrect
-import CbrtProof.LeanCompat
 import CbrtProof.FiniteCert
 import CbrtProof.CertifiedChain
 
@@ -25,7 +24,7 @@ open CbrtCertified
 /-- For x > 0, Nat.log2 gives the octave index. -/
 private theorem log2_octave (x : Nat) (hx : x ≠ 0) :
     2 ^ Nat.log2 x ≤ x ∧ x < 2 ^ (Nat.log2 x + 1) :=
-  (CbrtCompat.log2_eq_iff hx).1 rfl
+  ⟨Nat.log2_self_le hx, Nat.lt_log2_self (n := x)⟩
 
 /-- The seed depends only on log2(x), so it matches the certificate seed. -/
 theorem cbrtSeed_eq_certSeed (i : Fin 248) (x : Nat)
@@ -33,7 +32,10 @@ theorem cbrtSeed_eq_certSeed (i : Fin 248) (x : Nat)
     cbrtSeed x = seedOf i := by
   have hx : 0 < x := Nat.lt_of_lt_of_le (Nat.two_pow_pos (i.val + certOffset)) hOct.1
   have hx0 : x ≠ 0 := Nat.ne_of_gt hx
-  have hlog : Nat.log2 x = i.val + certOffset := (CbrtCompat.log2_eq_iff hx0).2 hOct
+  have hlog : Nat.log2 x = i.val + certOffset := by
+    apply Nat.le_antisymm
+    · exact Nat.lt_succ_iff.mp ((Nat.log2_lt hx0).2 hOct.2)
+    · exact (Nat.le_log2 hx0).2 hOct.1
   unfold cbrtSeed
   simp [hlog]
   have hseed := seed_eq i

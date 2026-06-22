@@ -10,6 +10,7 @@ set_option exponentiation.threshold 300
 namespace CbrtEvmMath
 
 open FormalYul
+open FormalYul.Preservation
 open CbrtCertified
 open CbrtCert
 open CbrtWiring
@@ -85,122 +86,6 @@ private theorem innerCbrt_zero : innerCbrt 0 = 0 := by
   unfold innerCbrt cbrtSeed
   rw [Nat.log2_zero]
   decide
-
--- ============================================================================
--- Level 2: EVM helpers
--- ============================================================================
-
-private theorem word_mod_gt_256 : 256 < WORD_MOD := by
-  unfold WORD_MOD; decide
-
-theorem u256_eq_of_lt (x : Nat) (hx : x < WORD_MOD) : u256 x = x := by
-  unfold u256
-  exact Nat.mod_eq_of_lt hx
-
-private theorem evmClz_eq_normClz_of_u256 (x : Nat) (hx : x < WORD_MOD) :
-    evmClz x = normClz x := by
-  unfold evmClz normClz
-  simp [u256_eq_of_lt x hx]
-
-private theorem normClz_le_256 (x : Nat) : normClz x ≤ 256 := by
-  unfold normClz; split <;> omega
-
-private theorem evmSub_eq_normSub_of_le
-    (a b : Nat) (ha : a < WORD_MOD) (hb : b ≤ a) :
-    evmSub a b = normSub a b := by
-  have hb' : b < WORD_MOD := Nat.lt_of_le_of_lt hb ha
-  have hab' : a - b < WORD_MOD := Nat.lt_of_le_of_lt (Nat.sub_le a b) ha
-  unfold evmSub normSub
-  simp [u256_eq_of_lt a ha, u256_eq_of_lt b hb']
-  have hsplit : a + WORD_MOD - b = WORD_MOD + (a - b) := by omega
-  unfold u256
-  rw [hsplit, Nat.add_mod, Nat.mod_eq_zero_of_dvd (Nat.dvd_refl WORD_MOD), Nat.zero_add]
-  simp [Nat.mod_eq_of_lt hab']
-
-private theorem evmDiv_eq_normDiv_of_u256
-    (x z : Nat) (hx : x < WORD_MOD) (hz : z < WORD_MOD) :
-    evmDiv x z = normDiv x z := by
-  by_cases hz0 : z = 0
-  · subst hz0; unfold evmDiv normDiv u256; simp
-  · unfold evmDiv normDiv
-    rw [u256_eq_of_lt x hx, u256_eq_of_lt z hz]
-    simp [hz0]
-
-private theorem evmMod_eq_normMod_of_u256
-    (x z : Nat) (hx : x < WORD_MOD) (hz : z < WORD_MOD) (hz0 : z ≠ 0) :
-    evmMod x z = normMod x z := by
-  unfold evmMod normMod
-  rw [u256_eq_of_lt x hx, u256_eq_of_lt z hz]
-  simp [hz0]
-
-private theorem evmAdd_eq_normAdd_of_no_overflow
-    (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) (hab : a + b < WORD_MOD) :
-    evmAdd a b = normAdd a b := by
-  unfold evmAdd normAdd
-  simp [u256_eq_of_lt a ha, u256_eq_of_lt b hb, u256_eq_of_lt (a + b) hab]
-
-private theorem evmOr_eq_normOr_of_u256
-    (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
-    evmOr a b = normOr a b := by
-  unfold evmOr normOr
-  simp [u256_eq_of_lt a ha, u256_eq_of_lt b hb]
-
-private theorem evmAnd_eq_normAnd_of_u256
-    (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
-    evmAnd a b = normAnd a b := by
-  unfold evmAnd normAnd
-  simp [u256_eq_of_lt a ha, u256_eq_of_lt b hb]
-
-private theorem evmByte_eq_normByte_of_u256
-    (index value : Nat) (hindex : index < WORD_MOD) (hvalue : value < WORD_MOD) :
-    evmByte index value = normByte index value := by
-  unfold evmByte normByte
-  simp [u256_eq_of_lt index hindex, u256_eq_of_lt value hvalue]
-
-private theorem evmLt_eq_normLt_of_u256
-    (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
-    evmLt a b = normLt a b := by
-  unfold evmLt normLt; simp [u256_eq_of_lt a ha, u256_eq_of_lt b hb]
-
-private theorem evmShr_eq_normShr_of_u256
-    (s v : Nat) (hs : s < 256) (hv : v < WORD_MOD) :
-    evmShr s v = normShr s v := by
-  unfold evmShr normShr
-  have hs' : s < WORD_MOD := Nat.lt_of_lt_of_le hs (Nat.le_of_lt word_mod_gt_256)
-  simp [u256_eq_of_lt s hs', u256_eq_of_lt v hv, hs]
-
-private theorem evmShl_eq_normShl_of_safe
-    (s v : Nat) (hs : s < 256) (hv : v < WORD_MOD) (hvs : v * 2 ^ s < WORD_MOD) :
-    evmShl s v = normShl s v := by
-  unfold evmShl normShl
-  have hs' : s < WORD_MOD := Nat.lt_of_lt_of_le hs (Nat.le_of_lt word_mod_gt_256)
-  simp [u256_eq_of_lt s hs', u256_eq_of_lt v hv, hs, Nat.shiftLeft_eq]
-  exact u256_eq_of_lt (v * 2 ^ s) hvs
-
-private theorem evmMul_eq_normMul_of_no_overflow
-    (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) (hab : a * b < WORD_MOD) :
-    evmMul a b = normMul a b := by
-  unfold evmMul normMul
-  simp [u256_eq_of_lt a ha, u256_eq_of_lt b hb, u256_eq_of_lt (a * b) hab]
-
-private theorem two_pow_lt_word (n : Nat) (hn : n < 256) :
-    2 ^ n < WORD_MOD := by
-  unfold WORD_MOD
-  have hn_le : n ≤ 255 := by omega
-  have hle : 2 ^ n ≤ 2 ^ 255 :=
-    Nat.pow_le_pow_right (by decide : 1 ≤ (2 : Nat)) hn_le
-  have hlt : 2 ^ 255 < 2 ^ 256 := by
-    simp [Nat.pow_lt_pow_succ (a := 2) (n := 255) (by decide : 1 < (2 : Nat))]
-  exact Nat.lt_of_le_of_lt hle hlt
-
-private theorem one_lt_word : (1 : Nat) < WORD_MOD := by
-  unfold WORD_MOD; decide
-
-private theorem three_lt_word : (3 : Nat) < WORD_MOD := by
-  unfold WORD_MOD; decide
-
-private theorem two_fifty_five_lt_word : (255 : Nat) < WORD_MOD := by
-  unfold WORD_MOD; decide
 
 -- ============================================================================
 -- Level 2: Key bounds for no-overflow
@@ -625,7 +510,8 @@ private theorem cbrtCoreEvmBody_eq_innerCbrt_large
     dsimp [n]
     by_cases h8 : 8 ≤ Nat.log2 x
     · exact h8
-    · have hlog := (CbrtCompat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
+    · have hlog : 2 ^ Nat.log2 x ≤ x ∧ x < 2 ^ (Nat.log2 x + 1) :=
+        ⟨Nat.log2_self_le (Nat.ne_of_gt hx), Nat.lt_log2_self (n := x)⟩
       have hlt : Nat.log2 x + 1 ≤ 8 := by omega
       have hpow : 2 ^ (Nat.log2 x + 1) ≤ 2 ^ 8 :=
         Nat.pow_le_pow_right (by decide : 1 ≤ 2) hlt
@@ -637,7 +523,7 @@ private theorem cbrtCoreEvmBody_eq_innerCbrt_large
   have hidx_plus : idx.val + certOffset = n := by dsimp [idx, certOffset, n]; omega
   have hOct : 2 ^ (idx.val + certOffset) ≤ x ∧ x < 2 ^ (idx.val + certOffset + 1) := by
     rw [hidx_plus]
-    exact (CbrtCompat.log2_eq_iff (Nat.ne_of_gt hx)).1 rfl
+    exact ⟨Nat.log2_self_le (Nat.ne_of_gt hx), Nat.lt_log2_self (n := x)⟩
   -- Seed and interval
   have hseedOf : cbrtSeed x = seedOf idx := CbrtWiring.cbrtSeed_eq_certSeed idx x hOct
   have hinterval := CbrtWiring.m_within_cert_interval idx x m hmlo hmhi hOct
