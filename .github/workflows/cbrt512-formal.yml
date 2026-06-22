@@ -7,13 +7,17 @@ on:
     paths:
       - src/utils/512Math.sol
       - src/vendor/Cbrt.sol
+      - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
+      - formal/yul/**
       - .github/workflows/cbrt512-formal.yml
   pull_request:
     paths:
       - src/utils/512Math.sol
       - src/vendor/Cbrt.sol
+      - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
+      - formal/yul/**
       - .github/workflows/cbrt512-formal.yml
 
 jobs:
@@ -24,6 +28,9 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
       - name: Install pinned Lean toolchain
         run: |
           curl https://raw.githubusercontent.com/leanprover/elan/917c18d0ad52f649c2603dc8b973f5b9fa5f8f43/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
@@ -32,6 +39,29 @@ jobs:
           test "$LEAN_TOOLCHAIN" = "$(cat formal/cbrt/CbrtProof/lean-toolchain)"
           "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
           "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
+
+      - name: Install solc 0.8.34
+        run: forge build -- src/chains/Mainnet/TakerSubmitted.sol
+        env:
+          FOUNDRY_SOLC_VERSION: 0.8.34
+
+      - name: Build Yul importer
+        working-directory: formal/yul
+        run: lake build FormalYul.Preservation yul_importer
+
+      - name: Generate 512-bit EVMYulLean artifacts from compiled Cbrt512Wrapper Yul IR
+        run: |
+          ./formal/yul/generate_from_forge.sh \
+            cbrt512 \
+            src/wrappers/Cbrt512Wrapper.sol:Cbrt512Wrapper \
+            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512Yul.lean \
+            0.8.34
+
+      - name: Guard generated artifacts are untracked
+        run: |
+          test -z "$(git ls-files \
+            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512YulRuntime.lean \
+            formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512YulProof.lean)"
 
       - name: Update Lake dependencies
         working-directory: formal/cbrt/Cbrt512Proof
