@@ -1976,6 +1976,29 @@ private theorem call_fun__shl256_raw_direct
     (xHi := xHi) (xLo := xLo) (s := s) (fuel := fuel + extra)
     (shared := shared) (store := store) (hlookup := hlookup)
 
+private theorem call_fun__cbrt512_shifted_pair_raw_direct
+    (xHi xLo fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    let shift := FormalYul.evmDiv (FormalYul.evmClz xHi) 3
+    let shift3 := FormalYul.evmMul shift 3
+    EvmYul.Yul.call (fuel + (extra + 100))
+      [FormalYul.word xHi, FormalYul.word xLo, FormalYul.word shift3]
+      (.some yulName_fun__shl256) (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word (FormalYul.evmShr (FormalYul.evmSub 256 shift3) xHi),
+       FormalYul.word (FormalYul.evmOr (FormalYul.evmShl shift3 xHi)
+         (FormalYul.evmShr (FormalYul.evmSub 256 shift3) xLo)),
+       FormalYul.word (FormalYul.evmShl shift3 xLo)]) := by
+  intro shift shift3
+  exact call_fun__shl256_raw_direct
+    (xHi := xHi) (xLo := xLo) (s := shift3)
+    (fuel := fuel) (extra := extra) (shared := shared) (store := store)
+    (hlookup := hlookup)
+
 set_option linter.unusedSimpArgs false in
 private theorem call_fun__cbrt_karatsubaQuotient_raw_direct
     (res xLo d fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
