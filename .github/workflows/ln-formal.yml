@@ -46,14 +46,15 @@ jobs:
 
       - name: Build Yul importer
         working-directory: formal/yul
-        run: lake build yul_importer
+        run: lake build FormalYul.Preservation yul_importer
 
       - name: Generate EVMYulLean artifacts from compiled LnWrapper Yul IR
         run: |
           ./formal/yul/generate_from_forge.sh \
             ln \
             src/wrappers/LnWrapper.sol:LnWrapper \
-            formal/ln/LnProof/LnProof/LnYul.lean
+            formal/ln/LnProof/LnProof/LnYul.lean \
+            0.8.34
 
       - name: Guard generated artifacts are untracked
         run: |
@@ -65,6 +66,6 @@ jobs:
         working-directory: formal/ln/LnProof
         run: lake update
 
-      - name: Build generated Ln EVMYulLean artifacts
+      - name: Build Ln proof package
         working-directory: formal/ln/LnProof
-        run: lake build LnProof.LnYulRuntime LnProof.LnYulProof
+        run: lake build

@@ -47,14 +47,7 @@ jobs:
 
       - name: Build Yul importer
         working-directory: formal/yul
-        run: lake build yul_importer
-
-      - name: Generate 256-bit EVMYulLean artifacts from compiled SqrtWrapper Yul IR
-        run: |
-          ./formal/yul/generate_from_forge.sh \
-            sqrt \
-            src/wrappers/SqrtWrapper.sol:SqrtWrapper \
-            formal/sqrt/SqrtProof/SqrtProof/SqrtYul.lean
+        run: lake build FormalYul.Preservation yul_importer
 
       - name: Generate 512-bit EVMYulLean artifacts from compiled Sqrt512Wrapper Yul IR
         run: |
@@ -67,8 +60,6 @@ jobs:
       - name: Guard generated artifacts are untracked
         run: |
           test -z "$(git ls-files \
-            formal/sqrt/SqrtProof/SqrtProof/SqrtYulRuntime.lean \
-            formal/sqrt/SqrtProof/SqrtProof/SqrtYulProof.lean \
             formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512YulRuntime.lean \
             formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512YulProof.lean)"
 
@@ -76,8 +67,6 @@ jobs:
         working-directory: formal/sqrt/Sqrt512Proof
         run: lake update
 
-      - name: Build Sqrt proof packages
+      - name: Build Sqrt512 proof package
         working-directory: formal/sqrt/Sqrt512Proof
-        run: |
-          lake -d ../SqrtProof build
-          lake build
+        run: lake build

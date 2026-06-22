@@ -46,14 +46,15 @@ jobs:
 
       - name: Build Yul importer
         working-directory: formal/yul
-        run: lake build yul_importer
+        run: lake build FormalYul.Preservation yul_importer
 
       - name: Generate EVMYulLean artifacts from compiled CbrtWrapper Yul IR
         run: |
           ./formal/yul/generate_from_forge.sh \
             cbrt \
             src/wrappers/CbrtWrapper.sol:CbrtWrapper \
-            formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean \
+            0.8.34
 
       - name: Guard generated artifacts are untracked
         run: |
@@ -65,6 +66,6 @@ jobs:
         working-directory: formal/cbrt/CbrtProof
         run: lake update
 
-      - name: Build generated Cbrt EVMYulLean artifacts
+      - name: Build Cbrt proof package
         working-directory: formal/cbrt/CbrtProof
-        run: lake build CbrtProof.CbrtYulRuntime CbrtProof.CbrtYulProof
+        run: lake build
