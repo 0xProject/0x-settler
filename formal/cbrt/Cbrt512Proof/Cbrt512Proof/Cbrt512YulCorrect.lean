@@ -1028,6 +1028,61 @@ private theorem call_wrapping_sub_t_uint256_direct
   simp only [FormalYul.Preservation.wordNat_sub]
   simp [FormalYul.Preservation.evmSub_u256_left, FormalYul.Preservation.evmSub_u256_right]
 
+private theorem call_wrapping_div_t_uint256_by_three_direct
+    (x fuel : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 120) [FormalYul.word x, FormalYul.word 3]
+      (.some "wrapping_div_t_uint256") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word (FormalYul.evmDiv x 3)]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup,
+    Option.getD_some, yulContract_functions, lookup_wrapping_div_t_uint256]
+  simp only [yulFunction_wrapping_div_t_uint256,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  let baseStore : EvmYul.Yul.VarStore :=
+    Finmap.insert "x" (EvmYul.UInt256.ofNat x)
+      (Finmap.insert "y" (EvmYul.UInt256.ofNat 3)
+        (Inhabited.default : EvmYul.Yul.VarStore))
+  have hcleanupX :
+      EvmYul.Yul.call (fuel + 116) [EvmYul.UInt256.ofNat x]
+        (.some "cleanup_t_uint256") (.some yulContract)
+        (EvmYul.Yul.State.Ok shared baseStore) =
+      .ok (EvmYul.Yul.State.Ok shared baseStore, [EvmYul.UInt256.ofNat x]) := by
+    simpa [baseStore, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
+      call_cleanup_t_uint256_direct
+        (v := EvmYul.UInt256.ofNat x) (fuel := fuel + 96)
+        (shared := shared) (store := baseStore) (hlookup := hlookup)
+  have hcleanupY :
+      EvmYul.Yul.call (fuel + 115) [EvmYul.UInt256.ofNat 3]
+        (.some "cleanup_t_uint256") (.some yulContract)
+        (EvmYul.Yul.State.Ok shared baseStore) =
+      .ok (EvmYul.Yul.State.Ok shared baseStore, [EvmYul.UInt256.ofNat 3]) := by
+    simpa [baseStore, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
+      call_cleanup_t_uint256_direct
+        (v := EvmYul.UInt256.ofNat 3) (fuel := fuel + 95)
+        (shared := shared) (store := baseStore) (hlookup := hlookup)
+  simp +decide [baseStore, hcleanupX, hcleanupY,
+    EvmYul.Yul.exec.eq_def, EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head',
+    EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump,
+    EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word]
+  apply FormalYul.Preservation.eq_of_wordNat_eq
+  simp only [FormalYul.Preservation.wordNat_div, FormalYul.Preservation.wordNat_ofNat]
+  simp [FormalYul.Preservation.evmDiv_u256_left]
+
 private theorem call_wrapping_mul_t_uint256_direct
     (x y fuel : Nat) (shared : EvmYul.SharedState .Yul)
     (store : EvmYul.Yul.VarStore)
@@ -1349,6 +1404,224 @@ private theorem call_shift_right_t_uint256_t_uint256_direct
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word]
+
+private theorem call_fun__shl256_direct
+    (xHi xLo s fuel : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 100) [FormalYul.word xHi, FormalYul.word xLo, FormalYul.word s]
+      (.some yulName_fun__shl256) (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word (FormalYul.evmShr (FormalYul.evmSub 256 s) xHi),
+       FormalYul.word (FormalYul.evmOr (FormalYul.evmShl s xHi)
+         (FormalYul.evmShr (FormalYul.evmSub 256 s) xLo)),
+       FormalYul.word (FormalYul.evmShl s xLo)]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun__shl256]
+  simp only [yulFunction_fun__shl256, yulFunction_fun__shl256_3075,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head',
+    EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump,
+    EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word,
+    call_zero_value_for_split_t_uint256_direct (fuel := fuel) (extra := 76)
+      (shared := shared)
+      (store := Finmap.insert "var_x_hi_3060" (EvmYul.UInt256.ofNat xHi)
+        (Finmap.insert "var_x_lo_3062" (EvmYul.UInt256.ofNat xLo)
+          (Finmap.insert "var_s_3064" (EvmYul.UInt256.ofNat s)
+            (Inhabited.default : EvmYul.Yul.VarStore))))
+      (hlookup := hlookup),
+    call_zero_value_for_split_t_uint256_direct (fuel := fuel) (extra := 74)
+      (shared := shared)
+      (store := Finmap.insert "var_r_ex_3067" (EvmYul.UInt256.ofNat 0)
+        (Finmap.insert "zero_t_uint256_45" (EvmYul.UInt256.ofNat 0)
+          (Finmap.insert "var_x_hi_3060" (EvmYul.UInt256.ofNat xHi)
+            (Finmap.insert "var_x_lo_3062" (EvmYul.UInt256.ofNat xLo)
+              (Finmap.insert "var_s_3064" (EvmYul.UInt256.ofNat s)
+                (Inhabited.default : EvmYul.Yul.VarStore))))))
+      (hlookup := hlookup),
+    call_zero_value_for_split_t_uint256_direct (fuel := fuel) (extra := 72)
+      (shared := shared)
+      (store := Finmap.insert "var_r_hi_3069" (EvmYul.UInt256.ofNat 0)
+        (Finmap.insert "zero_t_uint256_46" (EvmYul.UInt256.ofNat 0)
+          (Finmap.insert "var_r_ex_3067" (EvmYul.UInt256.ofNat 0)
+            (Finmap.insert "zero_t_uint256_45" (EvmYul.UInt256.ofNat 0)
+              (Finmap.insert "var_x_hi_3060" (EvmYul.UInt256.ofNat xHi)
+                (Finmap.insert "var_x_lo_3062" (EvmYul.UInt256.ofNat xLo)
+                  (Finmap.insert "var_s_3064" (EvmYul.UInt256.ofNat s)
+                    (Inhabited.default : EvmYul.Yul.VarStore))))))))
+      (hlookup := hlookup)]
+  constructor
+  · apply FormalYul.Preservation.eq_of_wordNat_eq
+    simp only [FormalYul.Preservation.wordNat_shiftRight,
+      FormalYul.Preservation.wordNat_sub, FormalYul.Preservation.wordNat_ofNat]
+    simp [FormalYul.Preservation.evmShr_u256_right,
+      FormalYul.Preservation.evmSub_u256_right]
+  · constructor
+    · apply FormalYul.Preservation.eq_of_wordNat_eq
+      simp only [FormalYul.Preservation.wordNat_or,
+        FormalYul.Preservation.wordNat_shiftLeft,
+        FormalYul.Preservation.wordNat_shiftRight, FormalYul.Preservation.wordNat_sub,
+        FormalYul.Preservation.wordNat_ofNat]
+      simp [FormalYul.Preservation.evmShl_u256_left,
+        FormalYul.Preservation.evmShl_u256_right,
+        FormalYul.Preservation.evmShr_u256_right,
+        FormalYul.Preservation.evmSub_u256_right]
+    · apply FormalYul.Preservation.eq_of_wordNat_eq
+      simp only [FormalYul.Preservation.wordNat_shiftLeft]
+      simp [FormalYul.Preservation.evmShl_u256_left,
+        FormalYul.Preservation.evmShl_u256_right]
+
+private theorem call_fun__cbrt_newtonRaphsonStep_direct
+    (x r fuel : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 300) [FormalYul.word x, FormalYul.word r]
+      (.some yulName_fun__cbrt_newtonRaphsonStep) (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word
+        (FormalYul.evmDiv
+          (FormalYul.evmAdd (FormalYul.evmAdd
+            (FormalYul.evmDiv x (FormalYul.evmMul r r)) r) r) 3)]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup,
+    Option.getD_some, yulContract_functions, lookup_fun__cbrt_newtonRaphsonStep]
+  simp only [yulFunction_fun__cbrt_newtonRaphsonStep,
+    yulFunction_fun__cbrt_newtonRaphsonStep_4694,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  let paramStore : EvmYul.Yul.VarStore :=
+    Finmap.insert "var_x_4671" (EvmYul.UInt256.ofNat x)
+      (Finmap.insert "var_r_4673" (EvmYul.UInt256.ofNat r)
+        (Inhabited.default : EvmYul.Yul.VarStore))
+  let zeroStore : EvmYul.Yul.VarStore :=
+    Finmap.insert "var__4676" (EvmYul.UInt256.ofNat 0)
+      (Finmap.insert "zero_t_uint256_110" (EvmYul.UInt256.ofNat 0) paramStore)
+  have hzero :
+      EvmYul.Yul.call (fuel + 296) [] (.some "zero_value_for_split_t_uint256")
+        (.some yulContract) (EvmYul.Yul.State.Ok shared paramStore) =
+      .ok (EvmYul.Yul.State.Ok shared paramStore, [FormalYul.word 0]) := by
+    simpa [paramStore, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
+      call_zero_value_for_split_t_uint256_direct
+        (fuel := fuel) (extra := 276) (shared := shared) (store := paramStore)
+        (hlookup := hlookup)
+  let mulStore : EvmYul.Yul.VarStore :=
+    Finmap.insert "expr_4681" (EvmYul.UInt256.ofNat r)
+      (Finmap.insert "_113" (EvmYul.UInt256.ofNat r)
+        (Finmap.insert "expr_4680" (EvmYul.UInt256.ofNat r)
+          (Finmap.insert "_112" (EvmYul.UInt256.ofNat r)
+            (Finmap.insert "expr_4679_self" (EvmYul.UInt256.ofNat x)
+              (Finmap.insert "expr_4678" (EvmYul.UInt256.ofNat x)
+                (Finmap.insert "_111" (EvmYul.UInt256.ofNat x) zeroStore))))))
+  let rr := FormalYul.evmMul r r
+  have hmul :
+      EvmYul.Yul.call (fuel + 287) [EvmYul.UInt256.ofNat r, EvmYul.UInt256.ofNat r]
+        (.some "wrapping_mul_t_uint256") (.some yulContract)
+        (EvmYul.Yul.State.Ok shared mulStore) =
+      .ok (EvmYul.Yul.State.Ok shared mulStore, [EvmYul.UInt256.ofNat rr]) := by
+    simpa [mulStore, rr, FormalYul.word, Nat.add_assoc, Nat.add_comm, Nat.add_left_comm] using
+      call_wrapping_mul_t_uint256_direct
+        (x := r) (y := r) (fuel := fuel + 207)
+        (shared := shared) (store := mulStore) (hlookup := hlookup)
+  let afterMulStore : EvmYul.Yul.VarStore :=
+    Finmap.insert "expr_4682" (EvmYul.UInt256.ofNat rr) mulStore
+  let q := FormalYul.evmDiv x rr
+  have hdiv :
+      EvmYul.Yul.call (fuel + 286) [EvmYul.UInt256.ofNat x, EvmYul.UInt256.ofNat rr]
+        (.some "fun_unsafeDiv_5899") (.some yulContract)
+        (EvmYul.Yul.State.Ok shared afterMulStore) =
+      .ok (EvmYul.Yul.State.Ok shared afterMulStore, [EvmYul.UInt256.ofNat q]) := by
+    simpa [afterMulStore, q, FormalYul.word, Nat.add_assoc, Nat.add_comm,
+      Nat.add_left_comm] using
+      call_fun_unsafeDiv_direct
+        (numerator := x) (denominator := rr) (fuel := fuel + 226)
+        (shared := shared) (store := afterMulStore) (hlookup := hlookup)
+  let afterDivStore : EvmYul.Yul.VarStore :=
+    Finmap.insert "expr_4683" (EvmYul.UInt256.ofNat q) afterMulStore
+  let add1Store : EvmYul.Yul.VarStore :=
+    Finmap.insert "expr_4684" (EvmYul.UInt256.ofNat r)
+      (Finmap.insert "_114" (EvmYul.UInt256.ofNat r) afterDivStore)
+  let sum1 := FormalYul.evmAdd q r
+  have hadd1 :
+      EvmYul.Yul.call (fuel + 283) [EvmYul.UInt256.ofNat q, EvmYul.UInt256.ofNat r]
+        (.some "wrapping_add_t_uint256") (.some yulContract)
+        (EvmYul.Yul.State.Ok shared add1Store) =
+      .ok (EvmYul.Yul.State.Ok shared add1Store, [EvmYul.UInt256.ofNat sum1]) := by
+    simpa [add1Store, sum1, FormalYul.word, Nat.add_assoc, Nat.add_comm,
+      Nat.add_left_comm] using
+      call_wrapping_add_t_uint256_direct
+        (x := q) (y := r) (fuel := fuel + 203)
+        (shared := shared) (store := add1Store) (hlookup := hlookup)
+  let afterAdd1Store : EvmYul.Yul.VarStore :=
+    Finmap.insert "expr_4685" (EvmYul.UInt256.ofNat sum1) add1Store
+  let add2Store : EvmYul.Yul.VarStore :=
+    Finmap.insert "expr_4686" (EvmYul.UInt256.ofNat r)
+      (Finmap.insert "_115" (EvmYul.UInt256.ofNat r) afterAdd1Store)
+  let sum2 := FormalYul.evmAdd sum1 r
+  have hadd2 :
+      EvmYul.Yul.call (fuel + 280) [EvmYul.UInt256.ofNat sum1, EvmYul.UInt256.ofNat r]
+        (.some "wrapping_add_t_uint256") (.some yulContract)
+        (EvmYul.Yul.State.Ok shared add2Store) =
+      .ok (EvmYul.Yul.State.Ok shared add2Store, [EvmYul.UInt256.ofNat sum2]) := by
+    simpa [add2Store, sum2, FormalYul.word, Nat.add_assoc, Nat.add_comm,
+      Nat.add_left_comm] using
+      call_wrapping_add_t_uint256_direct
+        (x := sum1) (y := r) (fuel := fuel + 200)
+        (shared := shared) (store := add2Store) (hlookup := hlookup)
+  let afterAdd2Store : EvmYul.Yul.VarStore :=
+    Finmap.insert "expr_4687" (EvmYul.UInt256.ofNat sum2) add2Store
+  let convertStore : EvmYul.Yul.VarStore :=
+    Finmap.insert "expr_4689" (EvmYul.UInt256.ofNat 3)
+      (Finmap.insert "expr_4688" (EvmYul.UInt256.ofNat sum2) afterAdd2Store)
+  have hconvert :
+      EvmYul.Yul.call (fuel + 275) [EvmYul.UInt256.ofNat 3]
+        (.some "convert_t_rational_3_by_1_to_t_uint256") (.some yulContract)
+        (EvmYul.Yul.State.Ok shared convertStore) =
+      .ok (EvmYul.Yul.State.Ok shared convertStore, [EvmYul.UInt256.ofNat 3]) := by
+    simpa [convertStore, FormalYul.word, Nat.add_assoc, Nat.add_comm,
+      Nat.add_left_comm] using
+      call_convert_t_rational_3_by_1_to_t_uint256_direct
+        (value := 3) (fuel := fuel + 175)
+        (shared := shared) (store := convertStore) (hlookup := hlookup)
+  let out := FormalYul.evmDiv sum2 3
+  have hdiv3 :
+      EvmYul.Yul.call (fuel + 277) [EvmYul.UInt256.ofNat sum2, EvmYul.UInt256.ofNat 3]
+        (.some "wrapping_div_t_uint256") (.some yulContract)
+        (EvmYul.Yul.State.Ok shared convertStore) =
+      .ok (EvmYul.Yul.State.Ok shared convertStore, [EvmYul.UInt256.ofNat out]) := by
+    simpa [convertStore, out, FormalYul.word, Nat.add_assoc, Nat.add_comm,
+      Nat.add_left_comm] using
+      call_wrapping_div_t_uint256_by_three_direct
+        (x := sum2) (fuel := fuel + 157)
+        (shared := shared) (store := convertStore) (hlookup := hlookup)
+  simp +decide [paramStore, zeroStore, mulStore, afterMulStore, afterDivStore,
+    add1Store, afterAdd1Store, add2Store, afterAdd2Store, convertStore,
+    rr, q, sum1, sum2, out,
+    EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head',
+    EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    EvmYul.Yul.State.setLeave, EvmYul.Yul.State.revive,
+    Finmap.lookup_insert, FormalYul.word,
+    hzero, hmul, hdiv, hadd1, hadd2, hconvert, hdiv3]
 
 private theorem call_fun_tmp_128_direct
     (fuel : Nat) (shared : EvmYul.SharedState .Yul)
