@@ -3508,6 +3508,151 @@ theorem callTriple_eq_call_resultWords
       let words ← callWords contract selector args 3 fuel
       tripleFromWords words) := rfl
 
+/-! ## Signed uint256 transport -/
+
+def int256 (w : Nat) : Int :=
+  if w < 2 ^ 255 then (w : Int) else (w : Int) - 2 ^ 256
+
+def uint256OfInt (x : Int) : Nat := (x % (2 ^ 256 : Int)).toNat
+
+/-- `omega` needs numeral divisors for `Int.emod`; these rewrite the powers. -/
+theorem intPow256 :
+    (2 : Int) ^ 256 =
+      115792089237316195423570985008687907853269984665640564039457584007913129639936 := by
+  norm_num
+
+theorem intPow255 :
+    (2 : Int) ^ 255 =
+      57896044618658097711785492504343953926634992332820282019728792003956564819968 := by
+  norm_num
+
+theorem natPow256 :
+    (2 : Nat) ^ 256 =
+      115792089237316195423570985008687907853269984665640564039457584007913129639936 := by
+  norm_num
+
+theorem wordMod_eq_pow256 : WORD_MOD = 2 ^ 256 := rfl
+
+theorem u256_eq_mod_pow256 (w : Nat) : u256 w = w % 2 ^ 256 := rfl
+
+theorem u256_of_lt_pow256 {w : Nat} (h : w < 2 ^ 256) : u256 w = w := by
+  have h_lit :
+      w < 115792089237316195423570985008687907853269984665640564039457584007913129639936 := by
+    simpa [natPow256] using h
+  simp [u256_eq_mod_pow256, Nat.mod_eq_of_lt h_lit]
+
+theorem int256_lt {w : Nat} (h : w < 2 ^ 256) : int256 w < 2 ^ 255 := by
+  unfold int256
+  simp only [intPow255, intPow256]
+  split <;> omega
+
+theorem int256_ge {w : Nat} (h : w < 2 ^ 256) : -(2 ^ 255) ≤ int256 w := by
+  unfold int256
+  simp only [intPow255, intPow256]
+  split <;> omega
+
+theorem int256_of_lt {w : Nat} (h : w < 2 ^ 255) : int256 w = (w : Int) := by
+  unfold int256
+  split <;> omega
+
+theorem uint256OfInt_lt (x : Int) : uint256OfInt x < 2 ^ 256 := by
+  unfold uint256OfInt
+  simp only [intPow256]
+  omega
+
+theorem int256_uint256OfInt {x : Int} (h1 : -(2 ^ 255) ≤ x) (h2 : x < 2 ^ 255) :
+    int256 (uint256OfInt x) = x := by
+  unfold int256 uint256OfInt
+  simp only [intPow255, intPow256] at *
+  split <;> omega
+
+theorem uint256OfInt_int256 {w : Nat} (h : w < 2 ^ 256) : uint256OfInt (int256 w) = w := by
+  unfold int256 uint256OfInt
+  simp only [intPow256] at *
+  split <;> omega
+
+def signedLe (a b : Nat) : Bool :=
+  decide ((a + 2 ^ 255) % WORD_MOD ≤ (b + 2 ^ 255) % WORD_MOD)
+
+theorem signedLe_iff {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256) :
+    signedLe a b = true ↔ int256 a ≤ int256 b := by
+  unfold signedLe int256
+  simp only [wordMod_eq_pow256, decide_eq_true_eq, intPow256]
+  split <;> split <;> omega
+
+theorem int256_wrap {n : Nat} {x : Int}
+    (key : (n : Int) % (2 ^ 256 : Int) = x % (2 ^ 256 : Int))
+    (h1 : -(2 ^ 255) ≤ x) (h2 : x < 2 ^ 255) :
+    int256 (n % 2 ^ 256) = x := by
+  unfold int256
+  simp only [intPow255, intPow256] at *
+  split <;> omega
+
+theorem int256_mod_cong {w : Nat} (_h : w < 2 ^ 256) :
+    (w : Int) % (2 ^ 256 : Int) = int256 w % (2 ^ 256 : Int) := by
+  unfold int256
+  simp only [intPow256] at *
+  split <;> omega
+
+theorem evmAdd_eq_mod_pow256 (a b : Nat) : evmAdd a b = (a + b) % 2 ^ 256 := by
+  unfold evmAdd u256
+  simp only [wordMod_eq_pow256]
+  omega
+
+theorem evmSub_eq_mod_pow256 {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256) :
+    evmSub a b = (a + 2 ^ 256 - b) % 2 ^ 256 := by
+  unfold evmSub u256
+  simp only [wordMod_eq_pow256]
+  rw [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
+
+theorem evmMul_eq_mod_pow256 {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256) :
+    evmMul a b = (a * b) % 2 ^ 256 := by
+  unfold evmMul u256
+  simp only [wordMod_eq_pow256]
+  rw [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
+
+theorem evmAdd_lt_pow256 (a b : Nat) : evmAdd a b < 2 ^ 256 := by
+  unfold evmAdd u256
+  simp only [wordMod_eq_pow256]
+  omega
+
+theorem evmSub_lt_pow256 (a b : Nat) : evmSub a b < 2 ^ 256 := by
+  unfold evmSub u256
+  simp only [wordMod_eq_pow256]
+  omega
+
+theorem evmMul_lt_pow256 (a b : Nat) : evmMul a b < 2 ^ 256 := by
+  unfold evmMul u256
+  simp only [wordMod_eq_pow256]
+  omega
+
+theorem evmAdd_int256 {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
+    (h1 : -(2 ^ 255) ≤ int256 a + int256 b) (h2 : int256 a + int256 b < 2 ^ 255) :
+    int256 (evmAdd a b) = int256 a + int256 b := by
+  rw [evmAdd_eq_mod_pow256 a b]
+  refine int256_wrap ?_ h1 h2
+  have hc : ((a + b : Nat) : Int) = (a : Int) + (b : Int) := by omega
+  rw [hc, Int.add_emod, int256_mod_cong ha, int256_mod_cong hb, ← Int.add_emod]
+
+theorem evmSub_int256 {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
+    (h1 : -(2 ^ 255) ≤ int256 a - int256 b) (h2 : int256 a - int256 b < 2 ^ 255) :
+    int256 (evmSub a b) = int256 a - int256 b := by
+  rw [evmSub_eq_mod_pow256 ha hb]
+  refine int256_wrap ?_ h1 h2
+  have hc : ((a + 2 ^ 256 - b : Nat) : Int) = (a : Int) - (b : Int) + 2 ^ 256 := by
+    simp only [intPow256]
+    omega
+  rw [hc, Int.add_emod_right, Int.sub_emod, int256_mod_cong ha, int256_mod_cong hb,
+    ← Int.sub_emod]
+
+theorem evmMul_int256 {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
+    (h1 : -(2 ^ 255) ≤ int256 a * int256 b) (h2 : int256 a * int256 b < 2 ^ 255) :
+    int256 (evmMul a b) = int256 a * int256 b := by
+  rw [evmMul_eq_mod_pow256 ha hb]
+  refine int256_wrap ?_ h1 h2
+  have hc : ((a * b : Nat) : Int) = (a : Int) * (b : Int) := by exact_mod_cast rfl
+  rw [hc, Int.mul_emod, int256_mod_cong ha, int256_mod_cong hb, ← Int.mul_emod]
+
 end Preservation
 
 end FormalYul

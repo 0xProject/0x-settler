@@ -1,5 +1,5 @@
 import LnProof.LnYulProof
-import LnProof.LnEvmMath
+import FormalYul.Preservation
 import LnProof.LnRealSpec
 import LnProof.LnRealBridge
 
@@ -15,17 +15,18 @@ public correctness obligations against the `Real.log` fixed-point spec.
 namespace LnYul
 
 open FormalYul
+open FormalYul.Preservation
 
 noncomputable section
 
 def signedPositiveInput (x : Nat) : Prop :=
-  0 < toInt (u256 x)
+  0 < int256 (u256 x)
 
 def signedNonpositiveInput (x : Nat) : Prop :=
-  toInt (u256 x) ≤ 0
+  int256 (u256 x) ≤ 0
 
 def signedResult (result : Nat) : Int :=
-  toInt (u256 result)
+  int256 (u256 result)
 
 def runLnWadToRaySigned (x : Nat) : Except String Int :=
   match run_ln_wad_to_ray_evm x with
@@ -82,7 +83,7 @@ theorem nat_pos_of_signedPositiveInput {x : Nat} (h : signedPositiveInput x) : 0
   by_contra hx
   have hx0 : x = 0 := Nat.eq_zero_of_not_pos hx
   subst hx0
-  norm_num [signedPositiveInput, toInt, u256_eq]
+  norm_num [signedPositiveInput, int256, u256, WORD_MOD]
     at h
 
 theorem runLnWadToRaySigned_real_of_cut {x : Nat} {r : Int}

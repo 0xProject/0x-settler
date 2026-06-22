@@ -68,6 +68,15 @@ lemma expTerm_nonneg {p q : Nat} (hq : 0 < q) (i : Nat) :
   have hf : 0 ≤ ((fact i : Nat) : Real) := by positivity
   exact div_nonneg (pow_nonneg hpq i) hf
 
+lemma div_le_of_cross_mul_le {a b c d : Real} (hc : 0 < c) (hd : 0 < d)
+    (h : a * d ≤ b * c) : a / c ≤ b / d := by
+  by_contra hnot
+  have hlt : b / d < a / c := lt_of_not_ge hnot
+  have hlt1 := mul_lt_mul_of_pos_right hlt hc
+  have hlt2 := mul_lt_mul_of_pos_right hlt1 hd
+  field_simp [hc.ne', hd.ne'] at hlt2
+  nlinarith
+
 lemma capUB_bound_real {p q y w : Nat} (hq : 0 < q) (hw : 0 < w)
     (n : Nat) (h : capUB p q y w) :
     (expNum n p q : Real) / ((fact n * q ^ n : Nat) : Real) ≤ (y : Real) / w := by
@@ -78,17 +87,7 @@ lemma capUB_bound_real {p q y w : Nat} (hq : 0 < q) (hw : 0 < w)
   have hdenpos : 0 < ((fact n * q ^ n : Nat) : Real) := by
     exact_mod_cast Nat.mul_pos (fact_pos n) (Nat.pow_pos hq)
   have hwpos : 0 < (w : Real) := by exact_mod_cast hw
-  by_contra hnot
-  have hlt : (y : Real) / w < (expNum n p q : Real) / ((fact n * q ^ n : Nat) : Real) :=
-    lt_of_not_ge hnot
-  have hlt1 := mul_lt_mul_of_pos_right hlt hdenpos
-  have hlt2 := mul_lt_mul_of_pos_right hlt1 hwpos
-  have hqR : 0 < (q : Real) := by exact_mod_cast hq
-  have hdenpos' : 0 < ((fact n : Real) * (q : Real) ^ n) :=
-    mul_pos (by exact_mod_cast fact_pos n) (pow_pos hqR n)
-  norm_num [Nat.cast_mul, Nat.cast_pow] at hreal
-  field_simp [hdenpos'.ne', hwpos.ne'] at hlt2
-  nlinarith [hreal, hlt2]
+  exact div_le_of_cross_mul_le hdenpos hwpos hreal
 
 lemma capLB_bound_real {p q y w : Nat} (hq : 0 < q) (hw : 0 < w)
     {n : Nat} (h : y * (fact n * q ^ n) ≤ expNum n p q * w) :
@@ -99,17 +98,7 @@ lemma capLB_bound_real {p q y w : Nat} (hq : 0 < q) (hw : 0 < w)
   have hdenpos : 0 < ((fact n * q ^ n : Nat) : Real) := by
     exact_mod_cast Nat.mul_pos (fact_pos n) (Nat.pow_pos hq)
   have hwpos : 0 < (w : Real) := by exact_mod_cast hw
-  by_contra hnot
-  have hlt : (expNum n p q : Real) / ((fact n * q ^ n : Nat) : Real) < (y : Real) / w :=
-    lt_of_not_ge hnot
-  have hlt1 := mul_lt_mul_of_pos_right hlt hdenpos
-  have hlt2 := mul_lt_mul_of_pos_right hlt1 hwpos
-  have hqR : 0 < (q : Real) := by exact_mod_cast hq
-  have hdenpos' : 0 < ((fact n : Real) * (q : Real) ^ n) :=
-    mul_pos (by exact_mod_cast fact_pos n) (pow_pos hqR n)
-  norm_num [Nat.cast_mul, Nat.cast_pow] at hreal
-  field_simp [hdenpos'.ne', hwpos.ne'] at hlt2
-  nlinarith [hreal, hlt2]
+  exact div_le_of_cross_mul_le hwpos hdenpos hreal
 
 lemma exp_le_of_capUB {p q y w : Nat} (hq : 0 < q) (hw : 0 < w)
     (h : capUB p q y w) : Real.exp ((p : Real) / q) ≤ (y : Real) / w := by
@@ -183,23 +172,15 @@ lemma ray_exp_arg_of_nonneg {r : Int} (hr : 0 ≤ r) :
 lemma ray_exp_arg_of_neg {r : Int} (hr : r < 0) :
     ((((-r).toNat * 2 ^ 99 : Nat) : Real) / ((QS : Nat) : Real)) =
       -((r : Real) / ((10 ^ 27 : Nat) : Real)) := by
-  have hnr : 0 ≤ -r := by omega
-  have hrnat : (((-r).toNat : Nat) : Real) = (-(r : Int) : Int) := by
-    exact_mod_cast Int.toNat_of_nonneg hnr
-  unfold QS
-  norm_num [Nat.cast_mul, Nat.cast_pow, hrnat]
-  field_simp
+  rw [ray_exp_arg_of_nonneg (r := -r) (by omega)]
+  norm_num [Int.cast_neg]
   ring
 
 lemma ray_exp_arg_of_nonpos {r : Int} (hr : r ≤ 0) :
     ((((-r).toNat * 2 ^ 99 : Nat) : Real) / ((QS : Nat) : Real)) =
       -((r : Real) / ((10 ^ 27 : Nat) : Real)) := by
-  have hnr : 0 ≤ -r := by omega
-  have hrnat : (((-r).toNat : Nat) : Real) = (-(r : Int) : Int) := by
-    exact_mod_cast Int.toNat_of_nonneg hnr
-  unfold QS
-  norm_num [Nat.cast_mul, Nat.cast_pow, hrnat]
-  field_simp
+  rw [ray_exp_arg_of_nonneg (r := -r) (by omega)]
+  norm_num [Int.cast_neg]
   ring
 
 lemma wadRatio_pos {x : Nat} (hx : 0 < x) : 0 < (x : Real) / ((10 ^ 18 : Nat) : Real) := by

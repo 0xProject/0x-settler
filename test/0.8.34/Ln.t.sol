@@ -272,8 +272,7 @@ contract LnTest is Test {
         assertEq(Ln.lnWad(1e18), 0, "lnWad(1e18) != 0");
     }
 
-    /// Monotonicity across every clz seam: the only adjacent-input pairs not covered by the
-    /// within-octave certificate in formal/python/ln/check_ln_monotone.py.
+    /// Monotonicity across every clz seam for adjacent inputs at power-of-two boundaries.
     function testLnWadMonotoneBoundaries() external {
         for (uint256 t = 1; t < 255; t++) {
             int256 hi = int256(uint256(1) << t);
