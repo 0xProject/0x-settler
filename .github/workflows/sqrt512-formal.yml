@@ -40,10 +40,28 @@ jobs:
           "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
           "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
 
+      - name: Restore Lean build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            formal/yul/.lake/build
+            formal/yul/.lake/packages/*/.lake/build
+            lib/EVMYulLean/.lake/build
+            formal/sqrt/SqrtProof/.lake/build
+            formal/sqrt/Sqrt512Proof/.lake/build
+          key: ${{ runner.os }}-sqrt512-formal-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/sqrt/SqrtProof/lakefile.toml', 'formal/sqrt/SqrtProof/lake-manifest.json', 'formal/sqrt/Sqrt512Proof/lakefile.toml', 'formal/sqrt/Sqrt512Proof/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'formal/sqrt/SqrtProof/**/*.lean', 'formal/sqrt/Sqrt512Proof/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}
+          restore-keys: |
+            ${{ runner.os }}-sqrt512-formal-lean-
+            ${{ runner.os }}-formal-lean-
+
       - name: Install solc 0.8.34
         run: forge build -- src/chains/Mainnet/TakerSubmitted.sol
         env:
           FOUNDRY_SOLC_VERSION: 0.8.34
+
+      - name: Fetch Mathlib cache
+        working-directory: formal/yul
+        run: lake exe cache get
 
       - name: Build Yul importer
         working-directory: formal/yul
@@ -66,6 +84,10 @@ jobs:
       - name: Update Lake dependencies
         working-directory: formal/sqrt/Sqrt512Proof
         run: lake update
+
+      - name: Fetch proof dependency cache
+        working-directory: formal/sqrt/Sqrt512Proof
+        run: lake exe cache get
 
       - name: Build Sqrt512 proof package
         working-directory: formal/sqrt/Sqrt512Proof

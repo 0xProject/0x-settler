@@ -2641,6 +2641,153 @@ theorem evmNot_eq_normNot_of_u256 (a : Nat) (ha : a < WORD_MOD) :
   unfold evmNot normNot
   simp [u256_eq_self_of_lt ha]
 
+theorem evmSub_eq_of_le (a b : Nat) (ha : a < WORD_MOD) (hb : b ≤ a) :
+    evmSub a b = a - b := by
+  rw [evmSub_eq_normSub_of_le a b ha hb]
+  rfl
+
+theorem evmDiv_eq_of_lt
+    (a b : Nat) (ha : a < WORD_MOD) (_hb : 0 < b) (hb' : b < WORD_MOD) :
+    evmDiv a b = a / b := by
+  rw [evmDiv_eq_normDiv_of_u256 a b ha hb']
+  rfl
+
+theorem evmMod_eq_of_lt
+    (a b : Nat) (ha : a < WORD_MOD) (hb : 0 < b) (hb' : b < WORD_MOD) :
+    evmMod a b = a % b := by
+  rw [evmMod_eq_normMod_of_u256 a b ha hb' (Nat.ne_of_gt hb)]
+  rfl
+
+theorem evmOr_eq_of_lt
+    (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmOr a b = a ||| b := by
+  rw [evmOr_eq_normOr_of_u256 a b ha hb]
+  rfl
+
+theorem evmAnd_eq_of_lt
+    (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmAnd a b = a &&& b := by
+  rw [evmAnd_eq_normAnd_of_u256 a b ha hb]
+  rfl
+
+theorem evmShr_eq_of_lt
+    (s v : Nat) (hs : s < 256) (hv : v < WORD_MOD) :
+    evmShr s v = v / 2 ^ s := by
+  rw [evmShr_eq_normShr_of_u256 s v hs hv]
+  rfl
+
+theorem evmShl_eq_of_lt
+    (s v : Nat) (hs : s < 256) (hv : v < WORD_MOD) :
+    evmShl s v = (v * 2 ^ s) % WORD_MOD := by
+  have hs' : s < WORD_MOD := Nat.lt_of_lt_of_le hs (Nat.le_of_lt word_mod_gt_256)
+  unfold evmShl u256
+  simp [Nat.mod_eq_of_lt hs', Nat.mod_eq_of_lt hv, hs]
+
+theorem evmAdd_eq_of_lt
+    (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD)
+    (hab : a + b < WORD_MOD) :
+    evmAdd a b = a + b := by
+  rw [evmAdd_eq_normAdd_of_no_overflow a b ha hb hab]
+  rfl
+
+theorem evmMul_eq_mod_of_lt
+    (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmMul a b = (a * b) % WORD_MOD := by
+  unfold evmMul u256
+  simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb]
+
+theorem evmMulmod_eq_of_lt
+    (a b n : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD)
+    (hn : n < WORD_MOD) (hn0 : 0 < n) :
+    evmMulmod a b n = (a * b) % n := by
+  unfold evmMulmod
+  simp [u256_eq_self_of_lt ha, u256_eq_self_of_lt hb, u256_eq_self_of_lt hn,
+    Nat.ne_of_gt hn0]
+
+theorem evmClz_eq_of_lt (v : Nat) (hv : v < WORD_MOD) :
+    evmClz v = if v = 0 then 256 else 255 - Nat.log2 v := by
+  rw [evmClz_eq_normClz_of_u256 v hv]
+  rfl
+
+theorem evmLt_eq_of_lt
+    (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmLt a b = if a < b then 1 else 0 := by
+  rw [evmLt_eq_normLt_of_u256 a b ha hb]
+  rfl
+
+theorem evmGt_eq_of_lt
+    (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmGt a b = if b < a then 1 else 0 := by
+  rw [evmGt_eq_normGt_of_u256 a b ha hb]
+  rfl
+
+theorem evmEq_eq_of_lt
+    (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmEq a b = if a = b then 1 else 0 := by
+  rw [evmEq_eq_normEq_of_u256 a b ha hb]
+  rfl
+
+theorem evmNot_eq_of_lt (a : Nat) (ha : a < WORD_MOD) :
+    evmNot a = WORD_MOD - 1 - a := by
+  rw [evmNot_eq_normNot_of_u256 a ha]
+  rfl
+
+theorem evmSub_evmAdd_eq_of_overflow (a b : Nat)
+    (ha : a < WORD_MOD) (hb : b < WORD_MOD) (hab : a + b = WORD_MOD) :
+    evmSub (evmAdd a b) 1 = WORD_MOD - 1 := by
+  unfold evmAdd evmSub u256
+  simp [Nat.mod_eq_of_lt ha, Nat.mod_eq_of_lt hb, hab, Nat.mod_self]
+  simp [Nat.mod_eq_of_lt one_lt_word]
+
+theorem evmMul_lt_WORD_MOD (a b : Nat) : evmMul a b < WORD_MOD := by
+  unfold evmMul u256 WORD_MOD
+  exact Nat.mod_lt _ (Nat.two_pow_pos 256)
+
+theorem evmAdd_lt_WORD_MOD (a b : Nat) : evmAdd a b < WORD_MOD := by
+  unfold evmAdd u256 WORD_MOD
+  exact Nat.mod_lt _ (Nat.two_pow_pos 256)
+
+theorem evmGt_01 (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmGt a b = 0 ∨ evmGt a b = 1 := by
+  rw [evmGt_eq_of_lt a b ha hb]
+  split <;> simp
+
+theorem evmEq_01 (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmEq a b = 0 ∨ evmEq a b = 1 := by
+  rw [evmEq_eq_of_lt a b ha hb]
+  split <;> simp
+
+theorem evmLt_01 (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
+    evmLt a b = 0 ∨ evmLt a b = 1 := by
+  rw [evmLt_eq_of_lt a b ha hb]
+  split <;> simp
+
+theorem evmAnd_01 (a b : Nat) (ha : a = 0 ∨ a = 1) (hb : b = 0 ∨ b = 1) :
+    evmAnd a b = 0 ∨ evmAnd a b = 1 := by
+  have haw : a < WORD_MOD := by
+    rcases ha with rfl | rfl
+    · exact zero_lt_word
+    · exact one_lt_word
+  have hbw : b < WORD_MOD := by
+    rcases hb with rfl | rfl
+    · exact zero_lt_word
+    · exact one_lt_word
+  rw [evmAnd_eq_of_lt a b haw hbw]
+  rcases ha with rfl | rfl <;> rcases hb with rfl | rfl <;> simp
+
+theorem evmOr_01 (a b : Nat) (ha : a = 0 ∨ a = 1) (hb : b = 0 ∨ b = 1) :
+    evmOr a b = 0 ∨ evmOr a b = 1 := by
+  have haw : a < WORD_MOD := by
+    rcases ha with rfl | rfl
+    · exact zero_lt_word
+    · exact one_lt_word
+  have hbw : b < WORD_MOD := by
+    rcases hb with rfl | rfl
+    · exact zero_lt_word
+    · exact one_lt_word
+  rw [evmOr_eq_of_lt a b haw hbw]
+  rcases ha with rfl | rfl <;> rcases hb with rfl | rfl <;> simp
+
 @[simp]
 theorem evmAdd_u256_left (a b : Nat) : evmAdd (u256 a) b = evmAdd a b := by
   simp [evmAdd, u256]

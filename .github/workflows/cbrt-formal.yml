@@ -39,10 +39,27 @@ jobs:
           "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
           "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
 
+      - name: Restore Lean build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            formal/yul/.lake/build
+            formal/yul/.lake/packages/*/.lake/build
+            lib/EVMYulLean/.lake/build
+            formal/cbrt/CbrtProof/.lake/build
+          key: ${{ runner.os }}-cbrt-formal-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/cbrt/CbrtProof/lakefile.toml', 'formal/cbrt/CbrtProof/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'formal/cbrt/CbrtProof/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}
+          restore-keys: |
+            ${{ runner.os }}-cbrt-formal-lean-
+            ${{ runner.os }}-formal-lean-
+
       - name: Install solc 0.8.34
         run: forge build -- src/chains/Mainnet/TakerSubmitted.sol
         env:
           FOUNDRY_SOLC_VERSION: 0.8.34
+
+      - name: Fetch Mathlib cache
+        working-directory: formal/yul
+        run: lake exe cache get
 
       - name: Build Yul importer
         working-directory: formal/yul
@@ -65,6 +82,10 @@ jobs:
       - name: Update Lake dependencies
         working-directory: formal/cbrt/CbrtProof
         run: lake update
+
+      - name: Fetch proof dependency cache
+        working-directory: formal/cbrt/CbrtProof
+        run: lake exe cache get
 
       - name: Build Cbrt proof package
         working-directory: formal/cbrt/CbrtProof
