@@ -988,6 +988,22 @@ private theorem call_wrapping_add_t_uint256_direct
   simp only [FormalYul.Preservation.wordNat_add]
   simp [FormalYul.Preservation.evmAdd_u256_left, FormalYul.Preservation.evmAdd_u256_right]
 
+private theorem call_wrapping_add_t_uint256_raw_direct
+    (x y fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 80)) [FormalYul.word x, FormalYul.word y]
+      (.some "wrapping_add_t_uint256") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word (FormalYul.evmAdd x y)]) := by
+  rw [show fuel + (extra + 80) = (fuel + extra) + 80 by omega]
+  exact call_wrapping_add_t_uint256_direct
+    (x := x) (y := y) (fuel := fuel + extra)
+    (shared := shared) (store := store) (hlookup := hlookup)
+
 private theorem call_wrapping_sub_t_uint256_direct
     (x y fuel : Nat) (shared : EvmYul.SharedState .Yul)
     (store : EvmYul.Yul.VarStore)
@@ -1027,6 +1043,22 @@ private theorem call_wrapping_sub_t_uint256_direct
   apply FormalYul.Preservation.eq_of_wordNat_eq
   simp only [FormalYul.Preservation.wordNat_sub]
   simp [FormalYul.Preservation.evmSub_u256_left, FormalYul.Preservation.evmSub_u256_right]
+
+private theorem call_wrapping_sub_t_uint256_raw_direct
+    (x y fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 80)) [FormalYul.word x, FormalYul.word y]
+      (.some "wrapping_sub_t_uint256") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word (FormalYul.evmSub x y)]) := by
+  rw [show fuel + (extra + 80) = (fuel + extra) + 80 by omega]
+  exact call_wrapping_sub_t_uint256_direct
+    (x := x) (y := y) (fuel := fuel + extra)
+    (shared := shared) (store := store) (hlookup := hlookup)
 
 private theorem call_wrapping_div_t_uint256_by_three_direct
     (x fuel : Nat) (shared : EvmYul.SharedState .Yul)
@@ -1083,6 +1115,22 @@ private theorem call_wrapping_div_t_uint256_by_three_direct
   simp only [FormalYul.Preservation.wordNat_div, FormalYul.Preservation.wordNat_ofNat]
   simp [FormalYul.Preservation.evmDiv_u256_left]
 
+private theorem call_wrapping_div_t_uint256_by_three_raw_direct
+    (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 120)) [FormalYul.word x, FormalYul.word 3]
+      (.some "wrapping_div_t_uint256") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word (FormalYul.evmDiv x 3)]) := by
+  rw [show fuel + (extra + 120) = (fuel + extra) + 120 by omega]
+  exact call_wrapping_div_t_uint256_by_three_direct
+    (x := x) (fuel := fuel + extra)
+    (shared := shared) (store := store) (hlookup := hlookup)
+
 private theorem call_wrapping_mul_t_uint256_direct
     (x y fuel : Nat) (shared : EvmYul.SharedState .Yul)
     (store : EvmYul.Yul.VarStore)
@@ -1122,6 +1170,22 @@ private theorem call_wrapping_mul_t_uint256_direct
   apply FormalYul.Preservation.eq_of_wordNat_eq
   simp only [FormalYul.Preservation.wordNat_mul]
   simp [FormalYul.Preservation.evmMul_u256_left, FormalYul.Preservation.evmMul_u256_right]
+
+private theorem call_wrapping_mul_t_uint256_raw_direct
+    (x y fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 80)) [FormalYul.word x, FormalYul.word y]
+      (.some "wrapping_mul_t_uint256") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word (FormalYul.evmMul x y)]) := by
+  rw [show fuel + (extra + 80) = (fuel + extra) + 80 by omega]
+  exact call_wrapping_mul_t_uint256_direct
+    (x := x) (y := y) (fuel := fuel + extra)
+    (shared := shared) (store := store) (hlookup := hlookup)
 
 private theorem call_shift_right_unsigned_dynamic_direct
     (bits value fuel : Nat) (shared : EvmYul.SharedState .Yul)
