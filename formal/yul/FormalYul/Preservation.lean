@@ -2747,6 +2747,44 @@ theorem evmAdd_lt_WORD_MOD (a b : Nat) : evmAdd a b < WORD_MOD := by
   unfold evmAdd u256 WORD_MOD
   exact Nat.mod_lt _ (Nat.two_pow_pos 256)
 
+theorem lt_WORD_MOD_of_u256_eq_self {x : Nat} (h : u256 x = x) : x < WORD_MOD := by
+  rw [← h]
+  unfold u256 WORD_MOD
+  exact Nat.mod_lt _ (Nat.two_pow_pos 256)
+
+theorem evmDiv_lt_WORD_MOD (a b : Nat) : evmDiv a b < WORD_MOD :=
+  lt_WORD_MOD_of_u256_eq_self (u256_evmDiv a b)
+
+theorem evmMod_lt_WORD_MOD (a b : Nat) : evmMod a b < WORD_MOD :=
+  lt_WORD_MOD_of_u256_eq_self (u256_evmMod a b)
+
+theorem evmNot_lt_WORD_MOD (a : Nat) : evmNot a < WORD_MOD :=
+  lt_WORD_MOD_of_u256_eq_self (u256_evmNot a)
+
+theorem evmAnd_lt_WORD_MOD (a b : Nat) : evmAnd a b < WORD_MOD :=
+  lt_WORD_MOD_of_u256_eq_self (u256_evmAnd a b)
+
+theorem evmOr_lt_WORD_MOD (a b : Nat) : evmOr a b < WORD_MOD :=
+  lt_WORD_MOD_of_u256_eq_self (u256_evmOr a b)
+
+theorem evmShl_lt_WORD_MOD (s v : Nat) : evmShl s v < WORD_MOD :=
+  lt_WORD_MOD_of_u256_eq_self (u256_evmShl s v)
+
+theorem evmShr_lt_WORD_MOD (s v : Nat) : evmShr s v < WORD_MOD :=
+  lt_WORD_MOD_of_u256_eq_self (u256_evmShr s v)
+
+theorem evmClz_lt_WORD_MOD (v : Nat) : evmClz v < WORD_MOD :=
+  lt_WORD_MOD_of_u256_eq_self (u256_evmClz v)
+
+theorem evmLt_lt_WORD_MOD (a b : Nat) : evmLt a b < WORD_MOD :=
+  lt_WORD_MOD_of_u256_eq_self (u256_evmLt a b)
+
+theorem evmGt_lt_WORD_MOD (a b : Nat) : evmGt a b < WORD_MOD :=
+  lt_WORD_MOD_of_u256_eq_self (u256_evmGt a b)
+
+theorem evmEq_lt_WORD_MOD (a b : Nat) : evmEq a b < WORD_MOD :=
+  lt_WORD_MOD_of_u256_eq_self (u256_evmEq a b)
+
 theorem evmGt_01 (a b : Nat) (ha : a < WORD_MOD) (hb : b < WORD_MOD) :
     evmGt a b = 0 ∨ evmGt a b = 1 := by
   rw [evmGt_eq_of_lt a b ha hb]
@@ -3466,6 +3504,103 @@ theorem wordNat_clz (a : EvmYul.UInt256) :
     rw [wordNat_ofNat]
     simp [evmClz, u256, WORD_MOD, wordNat, EvmYul.UInt256.toNat,
       Nat.mod_eq_of_lt hav', Nat.mod_eq_of_lt hsmall, hz]
+
+theorem uint256_ofNat_add_eq_word_evmAdd (a b : Nat) :
+    EvmYul.UInt256.ofNat a + EvmYul.UInt256.ofNat b = word (evmAdd a b) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_add, wordNat_ofNat, wordNat_word]
+  simp [evmAdd_u256_left, evmAdd_u256_right]
+
+theorem uint256_ofNat_sub_eq_word_evmSub (a b : Nat) :
+    EvmYul.UInt256.ofNat a - EvmYul.UInt256.ofNat b = word (evmSub a b) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_sub, wordNat_ofNat, wordNat_word]
+  simp [evmSub_u256_left, evmSub_u256_right]
+
+theorem uint256_ofNat_mul_eq_word_evmMul (a b : Nat) :
+    EvmYul.UInt256.ofNat a * EvmYul.UInt256.ofNat b = word (evmMul a b) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_mul, wordNat_ofNat, wordNat_word]
+  simp [evmMul_u256_left, evmMul_u256_right]
+
+theorem uint256_ofNat_div_eq_word_evmDiv (a b : Nat) :
+    EvmYul.UInt256.ofNat a / EvmYul.UInt256.ofNat b = word (evmDiv a b) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_div, wordNat_ofNat, wordNat_word]
+  simp [evmDiv_u256_left, evmDiv_u256_right]
+
+theorem uint256_ofNat_mod_eq_word_evmMod (a b : Nat) :
+    EvmYul.UInt256.ofNat a % EvmYul.UInt256.ofNat b = word (evmMod a b) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_mod, wordNat_ofNat, wordNat_word]
+  simp [evmMod_u256_left, evmMod_u256_right]
+
+theorem uint256_ofNat_uint256_mod_eq_word_evmMod (a b : Nat) :
+    EvmYul.UInt256.mod (EvmYul.UInt256.ofNat a) (EvmYul.UInt256.ofNat b) =
+      word (evmMod a b) := by
+  change EvmYul.UInt256.ofNat a % EvmYul.UInt256.ofNat b = word (evmMod a b)
+  exact uint256_ofNat_mod_eq_word_evmMod a b
+
+theorem uint256_ofNat_and_eq_word_evmAnd (a b : Nat) :
+    EvmYul.UInt256.land (EvmYul.UInt256.ofNat a) (EvmYul.UInt256.ofNat b) =
+      word (evmAnd a b) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_and, wordNat_ofNat, wordNat_word]
+  simp [evmAnd_u256_left, evmAnd_u256_right]
+
+theorem uint256_ofNat_or_eq_word_evmOr (a b : Nat) :
+    EvmYul.UInt256.lor (EvmYul.UInt256.ofNat a) (EvmYul.UInt256.ofNat b) =
+      word (evmOr a b) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_or, wordNat_ofNat, wordNat_word]
+  simp [evmOr_u256_left, evmOr_u256_right]
+
+theorem uint256_ofNat_not_eq_word_evmNot (a : Nat) :
+    EvmYul.UInt256.lnot (EvmYul.UInt256.ofNat a) = word (evmNot a) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_not, wordNat_ofNat, wordNat_word]
+  simp [evmNot_u256]
+
+theorem uint256_ofNat_shiftLeft_eq_word_evmShl (shift value : Nat) :
+    EvmYul.UInt256.shiftLeft (EvmYul.UInt256.ofNat value) (EvmYul.UInt256.ofNat shift) =
+      word (evmShl shift value) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_shiftLeft, wordNat_ofNat, wordNat_word]
+  simp [evmShl_u256_left, evmShl_u256_right]
+
+theorem uint256_ofNat_shiftRight_eq_word_evmShr (shift value : Nat) :
+    EvmYul.UInt256.shiftRight (EvmYul.UInt256.ofNat value) (EvmYul.UInt256.ofNat shift) =
+      word (evmShr shift value) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_shiftRight, wordNat_ofNat, wordNat_word]
+  simp [evmShr_u256_left, evmShr_u256_right]
+
+theorem uint256_ofNat_lt_eq_word_evmLt (a b : Nat) :
+    EvmYul.UInt256.lt (EvmYul.UInt256.ofNat a) (EvmYul.UInt256.ofNat b) =
+      word (evmLt a b) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_lt, wordNat_ofNat, wordNat_word]
+  simp [evmLt_u256_left, evmLt_u256_right]
+
+theorem uint256_ofNat_gt_eq_word_evmGt (a b : Nat) :
+    EvmYul.UInt256.gt (EvmYul.UInt256.ofNat a) (EvmYul.UInt256.ofNat b) =
+      word (evmGt a b) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_gt, wordNat_ofNat, wordNat_word]
+  simp [evmGt_u256_left, evmGt_u256_right]
+
+theorem uint256_ofNat_eq_eq_word_evmEq (a b : Nat) :
+    EvmYul.UInt256.eq (EvmYul.UInt256.ofNat a) (EvmYul.UInt256.ofNat b) =
+      word (evmEq a b) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_eq, wordNat_ofNat, wordNat_word]
+  simp [evmEq_u256_left, evmEq_u256_right]
+
+theorem uint256_ofNat_clz_eq_word_evmClz (a : Nat) :
+    EvmYul.UInt256.clz (EvmYul.UInt256.ofNat a) = word (evmClz a) := by
+  apply eq_of_wordNat_eq
+  simp only [wordNat_clz, wordNat_ofNat, wordNat_word]
+  simp [evmClz_u256]
 
 @[simp]
 theorem okWord_eq (x : Nat) : okWord x = .ok (u256 x) := rfl
