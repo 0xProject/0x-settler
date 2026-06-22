@@ -139,6 +139,23 @@ theorem execCall_one_of_call_ok
   simp [EvmYul.Yul.reverse', hcall, EvmYul.Yul.multifill',
     EvmYul.Yul.State.multifill, EvmYul.Yul.State.insert]
 
+theorem execCall_one_of_call_ok_add
+    {fuel extra : Nat} {fn : EvmYul.Yul.Ast.YulFunctionName}
+    {code : Option EvmYul.Yul.Ast.YulContract}
+    {args : List EvmYul.Literal}
+    {shared shared' : EvmYul.SharedState .Yul}
+    {store store' : EvmYul.Yul.VarStore}
+    {ret : EvmYul.Identifier} {value : EvmYul.Literal}
+    (hcall :
+      EvmYul.Yul.call (fuel + extra) args (.some fn) code
+          (EvmYul.Yul.State.Ok shared store) =
+        .ok (EvmYul.Yul.State.Ok shared' store', [value])) :
+    EvmYul.Yul.execCall (fuel + (extra + 1)) fn [ret] code
+        (EvmYul.Yul.reverse' (.ok (EvmYul.Yul.State.Ok shared store, args.reverse))) =
+      .ok (EvmYul.Yul.State.Ok shared' (Finmap.insert ret value store')) := by
+  rw [show fuel + (extra + 1) = Nat.succ (fuel + extra) by omega]
+  exact execCall_one_of_call_ok hcall
+
 theorem execCall_two_of_call_ok
     {fuel : Nat} {fn : EvmYul.Yul.Ast.YulFunctionName}
     {code : Option EvmYul.Yul.Ast.YulContract}
@@ -157,6 +174,24 @@ theorem execCall_two_of_call_ok
   rw [EvmYul.Yul.execCall.eq_def]
   simp [EvmYul.Yul.reverse', hcall, EvmYul.Yul.multifill',
     EvmYul.Yul.State.multifill, EvmYul.Yul.State.insert]
+
+theorem execCall_two_of_call_ok_add
+    {fuel extra : Nat} {fn : EvmYul.Yul.Ast.YulFunctionName}
+    {code : Option EvmYul.Yul.Ast.YulContract}
+    {args : List EvmYul.Literal}
+    {shared shared' : EvmYul.SharedState .Yul}
+    {store store' : EvmYul.Yul.VarStore}
+    {ret₁ ret₂ : EvmYul.Identifier} {value₁ value₂ : EvmYul.Literal}
+    (hcall :
+      EvmYul.Yul.call (fuel + extra) args (.some fn) code
+          (EvmYul.Yul.State.Ok shared store) =
+        .ok (EvmYul.Yul.State.Ok shared' store', [value₁, value₂])) :
+    EvmYul.Yul.execCall (fuel + (extra + 1)) fn [ret₁, ret₂] code
+        (EvmYul.Yul.reverse' (.ok (EvmYul.Yul.State.Ok shared store, args.reverse))) =
+      .ok (EvmYul.Yul.State.Ok shared'
+        (Finmap.insert ret₁ value₁ (Finmap.insert ret₂ value₂ store'))) := by
+  rw [show fuel + (extra + 1) = Nat.succ (fuel + extra) by omega]
+  exact execCall_two_of_call_ok hcall
 
 theorem execCall_three_of_call_ok
     {fuel : Nat} {fn : EvmYul.Yul.Ast.YulFunctionName}
@@ -177,6 +212,25 @@ theorem execCall_three_of_call_ok
   rw [EvmYul.Yul.execCall.eq_def]
   simp [EvmYul.Yul.reverse', hcall, EvmYul.Yul.multifill',
     EvmYul.Yul.State.multifill, EvmYul.Yul.State.insert]
+
+theorem execCall_three_of_call_ok_add
+    {fuel extra : Nat} {fn : EvmYul.Yul.Ast.YulFunctionName}
+    {code : Option EvmYul.Yul.Ast.YulContract}
+    {args : List EvmYul.Literal}
+    {shared shared' : EvmYul.SharedState .Yul}
+    {store store' : EvmYul.Yul.VarStore}
+    {ret₁ ret₂ ret₃ : EvmYul.Identifier} {value₁ value₂ value₃ : EvmYul.Literal}
+    (hcall :
+      EvmYul.Yul.call (fuel + extra) args (.some fn) code
+          (EvmYul.Yul.State.Ok shared store) =
+        .ok (EvmYul.Yul.State.Ok shared' store', [value₁, value₂, value₃])) :
+    EvmYul.Yul.execCall (fuel + (extra + 1)) fn [ret₁, ret₂, ret₃] code
+        (EvmYul.Yul.reverse' (.ok (EvmYul.Yul.State.Ok shared store, args.reverse))) =
+      .ok (EvmYul.Yul.State.Ok shared'
+        (Finmap.insert ret₁ value₁
+          (Finmap.insert ret₂ value₂ (Finmap.insert ret₃ value₃ store')))) := by
+  rw [show fuel + (extra + 1) = Nat.succ (fuel + extra) by omega]
+  exact execCall_three_of_call_ok hcall
 
 theorem evalCall_one_of_call_ok
     {fuel : Nat} {fn : EvmYul.Yul.Ast.YulFunctionName}
