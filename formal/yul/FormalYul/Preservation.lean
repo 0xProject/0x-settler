@@ -236,6 +236,17 @@ theorem exec_block_cons
   simp only
   rfl
 
+theorem exec_block_cons_ok
+    {fuel extra : Nat} {stmt : EvmYul.Yul.Ast.Stmt} {stmts : List EvmYul.Yul.Ast.Stmt}
+    {code : Option EvmYul.Yul.Ast.YulContract} {s s' : EvmYul.Yul.State}
+    (h : EvmYul.Yul.exec (fuel + extra) stmt code s = .ok s') :
+    EvmYul.Yul.exec (fuel + (extra + 1)) (EvmYul.Yul.Ast.Stmt.Block (stmt :: stmts))
+        code s =
+      EvmYul.Yul.exec (fuel + extra) (EvmYul.Yul.Ast.Stmt.Block stmts) code s' := by
+  rw [show fuel + (extra + 1) = (fuel + extra).succ by omega]
+  rw [exec_block_cons]
+  rw [h]
+
 theorem returnOf_multifill_nil
     (r : Except EvmYul.Yul.Exception (EvmYul.Yul.State × List EvmYul.Literal)) :
     (match EvmYul.Yul.multifill' [] r with
