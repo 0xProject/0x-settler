@@ -365,10 +365,10 @@ def selector_lnWadToRay : ByteArray :=
 def selector_lnWad : ByteArray :=
   FormalYul.bytes [0x31, 0xd4, 0x2a, 0xbd]
 
-def run_ln_wad_evm (x : Nat) : Except String Nat :=
+def run_ln_wad_to_ray_evm (x : Nat) : Except String Nat :=
   FormalYul.callWord yulContract selector_lnWadToRay [x]
 
-def run_ln_wad_to_wad_evm (x : Nat) : Except String Nat :=
+def run_ln_wad_evm (x : Nat) : Except String Nat :=
   FormalYul.callWord yulContract selector_lnWad [x]
 "
 
