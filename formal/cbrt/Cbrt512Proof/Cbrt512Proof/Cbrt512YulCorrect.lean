@@ -1687,6 +1687,119 @@ private theorem call_fun__cbrt_newtonRaphsonStep_direct
     Finmap.lookup_insert, FormalYul.word,
     hzero, hmul, hdiv, hadd1, hadd2, hconvert, hdiv3]
 
+private theorem call_fun__cbrt_newtonRaphsonStep_raw_direct
+    (x r fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 300)) [FormalYul.word x, FormalYul.word r]
+      (.some yulName_fun__cbrt_newtonRaphsonStep) (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word
+        (FormalYul.evmDiv
+          (FormalYul.evmAdd (FormalYul.evmAdd
+            (FormalYul.evmDiv x (FormalYul.evmMul r r)) r) r) 3)]) := by
+  rw [show fuel + (extra + 300) = (fuel + extra) + 300 by omega]
+  exact call_fun__cbrt_newtonRaphsonStep_direct
+    (x := x) (r := r) (fuel := fuel + extra)
+    (shared := shared) (store := store) (hlookup := hlookup)
+
+private theorem call_convert_t_rational_2_by_1_to_t_uint8_raw_direct
+    (value fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 120)) [FormalYul.word value]
+      (.some "convert_t_rational_2_by_1_to_t_uint8")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word (FormalYul.evmAnd value 255)]) := by
+  rw [show fuel + (extra + 120) = (fuel + extra) + 120 by omega]
+  exact call_convert_t_rational_2_by_1_to_t_uint8_direct
+    (value := value) (fuel := fuel + extra)
+    (shared := shared) (store := store) (hlookup := hlookup)
+
+private theorem call_convert_t_rational_seed_to_t_uint256_raw_direct
+    (fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 100))
+      [FormalYul.word 22141993662453218394297550]
+      (.some "convert_t_rational_22141993662453218394297550_by_1_to_t_uint256")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word 22141993662453218394297550]) := by
+  rw [show fuel + (extra + 100) = (fuel + extra) + 100 by omega]
+  exact call_convert_t_rational_22141993662453218394297550_by_1_to_t_uint256_direct
+    (value := 22141993662453218394297550) (fuel := fuel + extra)
+    (shared := shared) (store := store) (hlookup := hlookup)
+
+private theorem call_convert_t_rational_3_by_1_to_t_uint256_raw_direct
+    (fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 100)) [FormalYul.word 3]
+      (.some "convert_t_rational_3_by_1_to_t_uint256")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word 3]) := by
+  rw [show fuel + (extra + 100) = (fuel + extra) + 100 by omega]
+  exact call_convert_t_rational_3_by_1_to_t_uint256_direct
+    (value := 3) (fuel := fuel + extra)
+    (shared := shared) (store := store) (hlookup := hlookup)
+
+private theorem call_shift_right_t_uint256_t_uint8_raw_direct
+    (value bits fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 100)) [FormalYul.word value, FormalYul.word bits]
+      (.some "shift_right_t_uint256_t_uint8") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word (FormalYul.evmShr (FormalYul.evmAnd bits 255) value)]) := by
+  rw [show fuel + (extra + 100) = (fuel + extra) + 100 by omega]
+  exact call_shift_right_t_uint256_t_uint8_direct
+    (value := value) (bits := bits) (fuel := fuel + extra)
+    (shared := shared) (store := store) (hlookup := hlookup)
+
+private theorem call_fun_unsafeDec_raw_direct
+    (x b fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 60)) [FormalYul.word x, FormalYul.word b]
+      (.some "fun_unsafeDec_5854") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store,
+      [FormalYul.word (FormalYul.evmSub x b)]) := by
+  rw [show fuel + (extra + 60) = (fuel + extra) + 60 by omega]
+  exact call_fun_unsafeDec_direct
+    (x := x) (b := b) (fuel := fuel + extra)
+    (shared := shared) (store := store) (hlookup := hlookup)
+
+private theorem call_cleanup_t_uint256_raw_direct
+    (v : EvmYul.UInt256) (fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 20)) [v] (.some "cleanup_t_uint256")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [v]) := by
+  rw [show fuel + (extra + 20) = (fuel + extra) + 20 by omega]
+  exact call_cleanup_t_uint256_direct
+    (v := v) (fuel := fuel + extra) (shared := shared) (store := store)
+    (hlookup := hlookup)
+
 private theorem call_fun_tmp_128_direct
     (fuel : Nat) (shared : EvmYul.SharedState .Yul)
     (store : EvmYul.Yul.VarStore)
@@ -2098,20 +2211,6 @@ private theorem call_fun_into_182_from0_raw_direct
     call_fun_into_182_from0_direct (xHi := xHi) (xLo := xLo)
       (fuel := fuel + extra) (shared := shared) (store := store)
       (hlookup := hlookup) (hactive := hactive)
-
-private theorem call_cleanup_t_uint256_raw_direct
-    (v : EvmYul.UInt256) (fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
-    (store : EvmYul.Yul.VarStore)
-    (hlookup :
-      shared.accountMap.find? shared.executionEnv.codeOwner =
-        some (FormalYul.accountFor yulContract)) :
-    EvmYul.Yul.call (fuel + (extra + 20)) [v] (.some "cleanup_t_uint256")
-      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
-    .ok (EvmYul.Yul.State.Ok shared store, [v]) := by
-  rw [show fuel + (extra + 20) = (fuel + extra) + 20 by omega]
-  exact call_cleanup_t_uint256_direct
-    (v := v) (fuel := fuel + extra) (shared := shared) (store := store)
-    (hlookup := hlookup)
 
 private theorem call_convert_t_rational_0_by_1_to_t_uint256_raw_direct
     (value fuel extra : Nat) (shared : EvmYul.SharedState .Yul)
