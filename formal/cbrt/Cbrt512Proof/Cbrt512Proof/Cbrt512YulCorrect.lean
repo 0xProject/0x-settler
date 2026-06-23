@@ -3093,6 +3093,189 @@ private def cbrt512BaseRes (xHi : Nat) : Nat :=
 private def cbrt512BaseD (xHi : Nat) : Nat :=
   (cbrt512BaseCaseCore xHi).2.2
 
+private theorem cbrt512BaseCaseCore_correct (xHi : Nat)
+    (hx_lo : 2 ^ 253 ≤ xHi) (hx_hi : xHi < FormalYul.WORD_MOD) :
+    let w := xHi / 4
+    let m := icbrt w
+    cbrt512BaseR xHi = m ∧
+    cbrt512BaseRes xHi = w - m * m * m ∧
+    cbrt512BaseD xHi = 3 * (m * m) ∧
+    2 ^ 83 ≤ m ∧ m < 2 ^ 85 ∧
+    m * m * m ≤ w ∧
+    w - m * m * m ≤ 3 * (m * m) + 3 * m ∧
+    m < FormalYul.WORD_MOD ∧
+    m * m < FormalYul.WORD_MOD ∧
+    m * m * m < FormalYul.WORD_MOD ∧
+    3 * (m * m) < FormalYul.WORD_MOD ∧
+    0 < 3 * (m * m) := by
+  simp only
+  let w := xHi / 4
+  let m := icbrt w
+  obtain ⟨hw_lo, hw_hi, hw_wm, hm_lo, hm_hi, hmcube_le, hres_bound,
+      hm_wm, hm2_wm, hm3_wm, h3m2_wm, h3m2_pos⟩ :=
+    _root_.cbrt512_base_case_math_bounds xHi hx_lo hx_hi
+  have hshift : FormalYul.evmShr (FormalYul.evmAnd (FormalYul.evmAnd 2 255) 255) xHi = w := by
+    rw [_root_.baseCaseShiftMask_eq_two]
+    simpa [w] using
+      FormalYul.Preservation.evmShr_eq_of_lt 2 xHi (by omega) hx_hi
+  let s : Nat := _root_.baseCaseSeed
+  have hs_lo : 2 ^ 83 ≤ s := by
+    change 2 ^ 83 ≤ _root_.baseCaseSeed
+    exact _root_.baseCaseSeed_bounds.1
+  have hs_hi : s < 2 ^ 88 := by
+    change _root_.baseCaseSeed < 2 ^ 88
+    exact _root_.baseCaseSeed_bounds.2
+  let z1 := cbrtStep w s
+  let z2 := cbrtStep w z1
+  let z3 := cbrtStep w z2
+  let z4 := cbrtStep w z3
+  let z5 := cbrtStep w z4
+  let z6 := cbrtStep w z5
+  have h_nr1 := _root_.cbrt512_evm_nr_step_eq_cbrtStep w s hw_hi hs_lo hs_hi
+  have h_nr1' :
+      FormalYul.evmDiv
+        (FormalYul.evmAdd
+          (FormalYul.evmAdd
+            (FormalYul.evmDiv w
+              (FormalYul.evmMul 22141993662453218394297550
+                22141993662453218394297550))
+            22141993662453218394297550)
+          22141993662453218394297550) 3 = z1 := by
+    simpa [s, z1, _root_.baseCaseSeed] using h_nr1.1
+  have h_lo1 : 2 ^ 83 ≤ z1 :=
+    Nat.le_trans hm_lo (cbrt_step_floor_bound w s m (by omega) hmcube_le)
+  have h_nr2 := _root_.cbrt512_evm_nr_step_eq_cbrtStep w z1 hw_hi h_lo1 h_nr1.2
+  have h_nr2' :
+      FormalYul.evmDiv
+        (FormalYul.evmAdd
+          (FormalYul.evmAdd (FormalYul.evmDiv w (FormalYul.evmMul z1 z1)) z1)
+          z1) 3 = z2 := by
+    simpa [z2] using h_nr2.1
+  have h_lo2 : 2 ^ 83 ≤ z2 :=
+    Nat.le_trans hm_lo (cbrt_step_floor_bound w z1 m (by omega) hmcube_le)
+  have h_nr3 := _root_.cbrt512_evm_nr_step_eq_cbrtStep w z2 hw_hi h_lo2 h_nr2.2
+  have h_nr3' :
+      FormalYul.evmDiv
+        (FormalYul.evmAdd
+          (FormalYul.evmAdd (FormalYul.evmDiv w (FormalYul.evmMul z2 z2)) z2)
+          z2) 3 = z3 := by
+    simpa [z3] using h_nr3.1
+  have h_lo3 : 2 ^ 83 ≤ z3 :=
+    Nat.le_trans hm_lo (cbrt_step_floor_bound w z2 m (by omega) hmcube_le)
+  have h_nr4 := _root_.cbrt512_evm_nr_step_eq_cbrtStep w z3 hw_hi h_lo3 h_nr3.2
+  have h_nr4' :
+      FormalYul.evmDiv
+        (FormalYul.evmAdd
+          (FormalYul.evmAdd (FormalYul.evmDiv w (FormalYul.evmMul z3 z3)) z3)
+          z3) 3 = z4 := by
+    simpa [z4] using h_nr4.1
+  have h_lo4 : 2 ^ 83 ≤ z4 :=
+    Nat.le_trans hm_lo (cbrt_step_floor_bound w z3 m (by omega) hmcube_le)
+  have h_nr5 := _root_.cbrt512_evm_nr_step_eq_cbrtStep w z4 hw_hi h_lo4 h_nr4.2
+  have h_nr5' :
+      FormalYul.evmDiv
+        (FormalYul.evmAdd
+          (FormalYul.evmAdd (FormalYul.evmDiv w (FormalYul.evmMul z4 z4)) z4)
+          z4) 3 = z5 := by
+    simpa [z5] using h_nr5.1
+  have h_lo5 : 2 ^ 83 ≤ z5 :=
+    Nat.le_trans hm_lo (cbrt_step_floor_bound w z4 m (by omega) hmcube_le)
+  have h_nr6 := _root_.cbrt512_evm_nr_step_eq_cbrtStep w z5 hw_hi h_lo5 h_nr5.2
+  have h_nr6' :
+      FormalYul.evmDiv
+        (FormalYul.evmAdd
+          (FormalYul.evmAdd (FormalYul.evmDiv w (FormalYul.evmMul z5 z5)) z5)
+          z5) 3 = z6 := by
+    simpa [z6] using h_nr6.1
+  have hnr_bounds := _root_.baseCase_NR_within_1ulp w hw_lo hw_hi
+  simp only at hnr_bounds
+  have hm_le_z6 : m ≤ z6 := by
+    simpa [m, z6, z5, z4, z3, z2, z1, s, _root_.baseCaseSeed, run6From] using
+      hnr_bounds.1
+  have hz6_le_m1 : z6 ≤ m + 1 := by
+    simpa [m, z6, z5, z4, z3, z2, z1, s, _root_.baseCaseSeed, run6From] using
+      hnr_bounds.2
+  have hz6_wm : z6 < FormalYul.WORD_MOD := by
+    unfold FormalYul.WORD_MOD
+    omega
+  have hz6_le_85 : z6 ≤ 2 ^ 85 := by
+    exact Nat.le_trans hz6_le_m1 (Nat.succ_le_of_lt (by simpa [m] using hm_hi))
+  have hz6z6_le : z6 * z6 ≤ (2 ^ 85) * (2 ^ 85) :=
+    Nat.mul_le_mul hz6_le_85 hz6_le_85
+  have hz6z6_wm : z6 * z6 < FormalYul.WORD_MOD := by
+    have : (2 : Nat) ^ 85 * 2 ^ 85 = 2 ^ 170 := by rw [← Nat.pow_add]
+    unfold FormalYul.WORD_MOD
+    omega
+  have hz6z6z6_le : z6 * z6 * z6 ≤ (2 ^ 85) * (2 ^ 85) * (2 ^ 85) :=
+    Nat.mul_le_mul hz6z6_le hz6_le_85
+  have hz6z6z6_wm : z6 * z6 * z6 < FormalYul.WORD_MOD := by
+    have : (2 : Nat) ^ 85 * 2 ^ 85 * 2 ^ 85 = 2 ^ 255 := by
+      rw [show (2 : Nat) ^ 85 * 2 ^ 85 = 2 ^ 170 from by rw [← Nat.pow_add],
+        ← Nat.pow_add]
+    unfold FormalYul.WORD_MOD
+    omega
+  have hevmMul_z6z6 : FormalYul.evmMul z6 z6 = z6 * z6 := by
+    rw [FormalYul.Preservation.evmMul_eq_mod_of_lt z6 z6 hz6_wm hz6_wm,
+      Nat.mod_eq_of_lt hz6z6_wm]
+  have hevmMul_z6sq_z6 : FormalYul.evmMul (z6 * z6) z6 = z6 * z6 * z6 := by
+    rw [FormalYul.Preservation.evmMul_eq_mod_of_lt (z6 * z6) z6 hz6z6_wm hz6_wm,
+      Nat.mod_eq_of_lt hz6z6z6_wm]
+  have hevmGt_z6cube_w :
+      FormalYul.evmGt (z6 * z6 * z6) w =
+        if z6 * z6 * z6 > w then 1 else 0 := by
+    exact FormalYul.Preservation.evmGt_eq_of_lt (z6 * z6 * z6) w hz6z6z6_wm hw_wm
+  have hmm : FormalYul.evmMul m m = m * m := by
+    rw [FormalYul.Preservation.evmMul_eq_mod_of_lt m m hm_wm hm_wm,
+      Nat.mod_eq_of_lt hm2_wm]
+  have hm2m : FormalYul.evmMul (m * m) m = m * m * m := by
+    rw [FormalYul.Preservation.evmMul_eq_mod_of_lt (m * m) m hm2_wm hm_wm,
+      Nat.mod_eq_of_lt hm3_wm]
+  have hsubwm3 : FormalYul.evmSub w (m * m * m) = w - m * m * m :=
+    FormalYul.Preservation.evmSub_eq_of_le w (m * m * m) hw_wm hmcube_le
+  have hm23 : FormalYul.evmMul (m * m) 3 = 3 * (m * m) := by
+    rw [FormalYul.Preservation.evmMul_eq_mod_of_lt (m * m) 3 hm2_wm
+      FormalYul.Preservation.three_lt_word]
+    rw [show (m * m) * 3 = 3 * (m * m) from Nat.mul_comm _ _]
+    exact Nat.mod_eq_of_lt h3m2_wm
+  suffices hcomp :
+      cbrt512BaseCaseCore xHi = (m, w - m * m * m, 3 * (m * m)) by
+    unfold cbrt512BaseR cbrt512BaseRes cbrt512BaseD
+    rw [hcomp]
+    exact ⟨rfl, rfl, rfl, hm_lo, hm_hi, hmcube_le, hres_bound, hm_wm,
+      hm2_wm, hm3_wm, h3m2_wm, h3m2_pos⟩
+  unfold cbrt512BaseCaseCore
+  simp only [hshift]
+  rw [h_nr1', h_nr2', h_nr3', h_nr4', h_nr5', h_nr6']
+  rw [hevmMul_z6z6, hevmMul_z6sq_z6, hevmGt_z6cube_w]
+  split
+  · next hgt =>
+    have hz6_eq : z6 = m + 1 := by
+      rcases (show z6 = m ∨ z6 = m + 1 from by omega) with h | h
+      · exfalso
+        have h1 : z6 * z6 * z6 ≤ w := by
+          rw [h]
+          exact hmcube_le
+        exact Nat.lt_irrefl w (Nat.lt_of_lt_of_le hgt h1)
+      · exact h
+    have hcorr : FormalYul.evmSub z6 1 = m := by
+      rw [FormalYul.Preservation.evmSub_eq_of_le z6 1 hz6_wm (by omega), hz6_eq]
+      omega
+    rw [hcorr, hmm, hm2m, hsubwm3, hm23]
+  · next hle =>
+    have hz6_eq : z6 = m := by
+      rcases (show z6 = m ∨ z6 = m + 1 from by omega) with h | h
+      · exact h
+      · exfalso
+        have h1 : z6 * z6 * z6 > w := by
+          show w < z6 * z6 * z6
+          rw [h]
+          exact icbrt_lt_succ_cube w
+        exact hle h1
+    have hcorr : FormalYul.evmSub z6 0 = m := by
+      rw [FormalYul.Preservation.evmSub_eq_of_le z6 0 hz6_wm (by omega),
+        Nat.sub_zero, hz6_eq]
+    rw [hcorr, hmm, hm2m, hsubwm3, hm23]
+
 private def cbrt512CoreShift (xHi : Nat) : Nat :=
   FormalYul.evmDiv (FormalYul.evmClz xHi) 3
 
@@ -3105,6 +3288,24 @@ private def cbrt512ShiftedHi (xHi xLo : Nat) : Nat :=
 
 private def cbrt512ShiftedLo (xHi xLo : Nat) : Nat :=
   FormalYul.evmShl (cbrt512CoreShift3 xHi) xLo
+
+private theorem cbrt512_shifted_pair_correct
+    (xHi xLo : Nat)
+    (hxHiPos : 0 < xHi) (hxHi : xHi < FormalYul.WORD_MOD)
+    (hxLo : xLo < FormalYul.WORD_MOD) :
+    let shiftedHi := cbrt512ShiftedHi xHi xLo
+    let shiftedLo := cbrt512ShiftedLo xHi xLo
+    shiftedHi * FormalYul.WORD_MOD + shiftedLo =
+      (xHi * FormalYul.WORD_MOD + xLo) *
+        2 ^ (3 * (FormalYul.evmClz xHi / 3)) %
+          (FormalYul.WORD_MOD * FormalYul.WORD_MOD) ∧
+    2 ^ 253 ≤ shiftedHi ∧
+    shiftedHi < FormalYul.WORD_MOD ∧
+    shiftedLo < FormalYul.WORD_MOD := by
+  have hnorm :=
+    _root_.cbrt512_evm_normalization_correct xHi xLo hxHiPos hxHi hxLo
+  simpa [cbrt512ShiftedHi, cbrt512ShiftedLo, cbrt512CoreShift,
+    cbrt512CoreShift3] using hnorm.2.2
 
 private def cbrt512LimbHi (shiftedHi shiftedLo : Nat) : Nat :=
   FormalYul.evmOr (FormalYul.evmShl 84 (FormalYul.evmAnd 3 shiftedHi))

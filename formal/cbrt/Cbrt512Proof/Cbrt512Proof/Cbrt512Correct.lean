@@ -4,8 +4,862 @@
 import Mathlib.Tactic.Ring
 import FormalYul.Preservation
 import CbrtProof.CbrtCorrect
+import CbrtProof.CertifiedChain
+import CbrtProof.FiniteCert
 
 open FormalYul
+open CbrtCertified
+open CbrtCert
+
+def baseCaseSeed : Nat := 22141993662453218394297550
+
+def octave251Lo : Nat := 15352400942462240883748044
+def octave251Hi : Nat := 19342813113834066795298815
+def octave251Gap : Nat := 6789592719990977510549506
+def octave251D1 : Nat := 1994218922075376856504634
+
+def octave252Lo : Nat := 19342813113834066795298816
+def octave252Hi : Nat := 24370417406302138235346347
+def octave252Gap : Nat := 2799180548619151598998734
+def octave252D1 : Nat := 365742585066387069963242
+
+def M_TOP : Nat := 0x1965fea53d6e3c82b05999
+def octave253Lo : Nat := 24370417406302138235346347
+def octave253Gap : Nat := 8562808222471263373198539
+def octave253D1 : Nat := 3738299367780524623633435
+
+def R_MAX : Nat := 0x6597fa94f5b8f20ac16666ad0f7137bc6601d885628
+
+set_option exponentiation.threshold 1024 in
+theorem baseCaseSeed_bounds :
+    2 ^ 83 ≤ baseCaseSeed ∧ baseCaseSeed < 2 ^ 88 := by
+  unfold baseCaseSeed
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem pow83_cube_le_pow251 :
+    (2 ^ 83) * (2 ^ 83) * (2 ^ 83) ≤ 2 ^ 251 := by
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem pow254_le_succ_pow85_sub_one_cube :
+    2 ^ 254 ≤ ((2 ^ 85 - 1) + 1) * ((2 ^ 85 - 1) + 1) *
+      ((2 ^ 85 - 1) + 1) := by
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem pow85_sub_one_sq_lt_word :
+    (2 ^ 85 - 1) * (2 ^ 85 - 1) < WORD_MOD := by
+  unfold WORD_MOD
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem pow85_sub_one_cube_lt_word :
+    (2 ^ 85 - 1) * (2 ^ 85 - 1) * (2 ^ 85 - 1) < WORD_MOD := by
+  unfold WORD_MOD
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave251_bounds :
+    octave251Lo * octave251Lo * octave251Lo ≤ 2 ^ 251 ∧
+    2 ^ 252 ≤ (octave251Hi + 1) * (octave251Hi + 1) * (octave251Hi + 1) := by
+  unfold octave251Lo octave251Hi
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave251_lo_two_le : 2 ≤ octave251Lo := by
+  unfold octave251Lo
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave252_bounds :
+    octave252Lo * octave252Lo * octave252Lo ≤ 2 ^ 252 ∧
+    2 ^ 253 ≤ (octave252Hi + 1) * (octave252Hi + 1) * (octave252Hi + 1) := by
+  unfold octave252Lo octave252Hi
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave252_lo_two_le : 2 ≤ octave252Lo := by
+  unfold octave252Lo
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave253_lo_cube_le_pow253 :
+    octave253Lo * octave253Lo * octave253Lo ≤ 2 ^ 253 := by
+  unfold octave253Lo
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave253_lo_two_le : 2 ≤ octave253Lo := by
+  unfold octave253Lo
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave251_gap_eq :
+    max (baseCaseSeed - octave251Lo) (octave251Hi - baseCaseSeed) =
+      octave251Gap := by
+  unfold baseCaseSeed octave251Lo octave251Hi octave251Gap
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave252_gap_eq :
+    max (baseCaseSeed - octave252Lo) (octave252Hi - baseCaseSeed) =
+      octave252Gap := by
+  unfold baseCaseSeed octave252Lo octave252Hi octave252Gap
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave253_gap_eq :
+    max (baseCaseSeed - octave253Lo) (M_TOP - baseCaseSeed) = octave253Gap := by
+  unfold baseCaseSeed octave253Lo M_TOP octave253Gap
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave251_d1_formula_eq :
+    (octave251Gap * octave251Gap * (octave251Hi + 2 * baseCaseSeed) +
+      3 * octave251Hi * (octave251Hi + 1)) /
+        (3 * (baseCaseSeed * baseCaseSeed)) = octave251D1 := by
+  unfold octave251Gap octave251Hi baseCaseSeed octave251D1
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave252_d1_formula_eq :
+    (octave252Gap * octave252Gap * (octave252Hi + 2 * baseCaseSeed) +
+      3 * octave252Hi * (octave252Hi + 1)) /
+        (3 * (baseCaseSeed * baseCaseSeed)) = octave252D1 := by
+  unfold octave252Gap octave252Hi baseCaseSeed octave252D1
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave253_d1_formula_eq :
+    (octave253Gap * octave253Gap * (M_TOP + 2 * baseCaseSeed) +
+      3 * M_TOP * (M_TOP + 1)) / (3 * (baseCaseSeed * baseCaseSeed)) =
+        octave253D1 := by
+  unfold octave253Gap M_TOP baseCaseSeed octave253D1
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave251_chain_bounds :
+    2 * octave251D1 ≤ octave251Lo ∧
+    2 * nextD octave251Lo octave251D1 ≤ octave251Lo ∧
+    2 * nextD octave251Lo (nextD octave251Lo octave251D1) ≤ octave251Lo ∧
+    2 * nextD octave251Lo (nextD octave251Lo (nextD octave251Lo octave251D1)) ≤
+      octave251Lo ∧
+    2 * nextD octave251Lo
+      (nextD octave251Lo (nextD octave251Lo (nextD octave251Lo octave251D1))) ≤
+        octave251Lo ∧
+    nextD octave251Lo
+      (nextD octave251Lo
+        (nextD octave251Lo
+          (nextD octave251Lo (nextD octave251Lo octave251D1)))) ≤ 1 := by
+  unfold octave251D1 octave251Lo nextD
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave252_chain_bounds :
+    2 * octave252D1 ≤ octave252Lo ∧
+    2 * nextD octave252Lo octave252D1 ≤ octave252Lo ∧
+    2 * nextD octave252Lo (nextD octave252Lo octave252D1) ≤ octave252Lo ∧
+    2 * nextD octave252Lo (nextD octave252Lo (nextD octave252Lo octave252D1)) ≤
+      octave252Lo ∧
+    2 * nextD octave252Lo
+      (nextD octave252Lo (nextD octave252Lo (nextD octave252Lo octave252D1))) ≤
+        octave252Lo ∧
+    nextD octave252Lo
+      (nextD octave252Lo
+        (nextD octave252Lo
+          (nextD octave252Lo (nextD octave252Lo octave252D1)))) ≤ 1 := by
+  unfold octave252D1 octave252Lo nextD
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem octave253_chain_bounds :
+    2 * octave253D1 ≤ octave253Lo ∧
+    2 * nextD octave253Lo octave253D1 ≤ octave253Lo ∧
+    2 * nextD octave253Lo (nextD octave253Lo octave253D1) ≤ octave253Lo ∧
+    2 * nextD octave253Lo (nextD octave253Lo (nextD octave253Lo octave253D1)) ≤
+      octave253Lo ∧
+    2 * nextD octave253Lo
+      (nextD octave253Lo (nextD octave253Lo (nextD octave253Lo octave253D1))) ≤
+        octave253Lo ∧
+    nextD octave253Lo
+      (nextD octave253Lo
+        (nextD octave253Lo
+          (nextD octave253Lo (nextD octave253Lo octave253D1)))) ≤ 1 := by
+  unfold octave253D1 octave253Lo nextD
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem baseCaseShiftMask_eq_two : evmAnd (evmAnd 2 255) 255 = 2 := by
+  unfold evmAnd u256 WORD_MOD
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem mask_86_eq : 77371252455336267181195263 = 2 ^ 86 - 1 := by
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem r_max_cube_lt_wm2 : R_MAX * R_MAX * R_MAX < WORD_MOD * WORD_MOD := by
+  unfold R_MAX WORD_MOD
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem r_max_is_icbrt_wm2 :
+    R_MAX * R_MAX * R_MAX ≤ WORD_MOD * WORD_MOD - 1 ∧
+    WORD_MOD * WORD_MOD - 1 < (R_MAX + 1) * (R_MAX + 1) * (R_MAX + 1) := by
+  unfold R_MAX WORD_MOD
+  constructor <;> decide
+
+set_option exponentiation.threshold 1024 in
+theorem m_top_cube_bounds :
+    M_TOP * M_TOP * M_TOP ≤ 2 ^ 254 - 1 ∧
+    2 ^ 254 ≤ (M_TOP + 1) * (M_TOP + 1) * (M_TOP + 1) := by
+  unfold M_TOP
+  constructor <;> decide
+
+set_option exponentiation.threshold 1024 in
+theorem r_max_ge_r_top : M_TOP * 2 ^ 86 ≤ R_MAX := by
+  unfold M_TOP R_MAX
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem r_lo_max_at_m_top :
+    let R := M_TOP * 2 ^ 86
+    let delta := R_MAX - R
+    let res_max := 2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP
+    let d := 3 * (M_TOP * M_TOP)
+    (res_max * 2 ^ 86 + 2 ^ 86 - 1) / d ≤ delta + 1 ∧
+    (delta + 1) * (delta + 1) / R ≥ 1 ∧
+    9 ≤ delta := by
+  unfold M_TOP R_MAX
+  decide
+
+set_option exponentiation.threshold 1024 in
+theorem m_top_three_msq_plus_3m_lt_pow171 :
+    3 * (M_TOP * M_TOP) + 3 * M_TOP < 2 ^ 171 := by
+  unfold M_TOP
+  decide
+
+theorem cbrt512_evmClz_of_pos (xHi : Nat)
+    (hpos : 0 < xHi) (hlt : xHi < WORD_MOD) :
+    evmClz xHi = 255 - Nat.log2 xHi := by
+  rw [FormalYul.Preservation.evmClz_eq_of_lt xHi hlt]
+  simp [Nat.ne_of_gt hpos]
+
+theorem cbrt512_shift_lt_86 (xHi : Nat)
+    (hpos : 0 < xHi) (hlt : xHi < WORD_MOD) :
+    evmClz xHi / 3 < 86 := by
+  have hclz : evmClz xHi < 256 := by
+    rw [cbrt512_evmClz_of_pos xHi hpos hlt]
+    have hlog : Nat.log2 xHi < 256 :=
+      (Nat.log2_lt (Nat.ne_of_gt hpos)).2 (by
+        unfold WORD_MOD at hlt
+        exact hlt)
+    omega
+  omega
+
+theorem cbrt512_three_shift_lt_256 (xHi : Nat)
+    (hpos : 0 < xHi) (hlt : xHi < WORD_MOD) :
+    3 * (evmClz xHi / 3) < 256 := by
+  have h := cbrt512_shift_lt_86 xHi hpos hlt
+  omega
+
+set_option exponentiation.threshold 1024 in
+theorem cbrt512_norm_no_overflow (xHi xLo : Nat)
+    (hxHiPos : 0 < xHi) (hxHi : xHi < WORD_MOD) (hxLo : xLo < WORD_MOD) :
+    (xHi * WORD_MOD + xLo) * 2 ^ (3 * (evmClz xHi / 3)) <
+      WORD_MOD * WORD_MOD := by
+  have hne : xHi ≠ 0 := Nat.ne_of_gt hxHiPos
+  have hHiLog : xHi < 2 ^ (Nat.log2 xHi + 1) :=
+    (Nat.log2_lt hne).mp (by omega)
+  have hLogLe : Nat.log2 xHi ≤ 255 := by
+    exact Nat.lt_succ_iff.mp ((Nat.log2_lt hne).2 (by
+      unfold WORD_MOD at hxHi
+      exact hxHi))
+  have hLogShift : Nat.log2 xHi + 1 + 3 * (evmClz xHi / 3) ≤ 256 := by
+    rw [cbrt512_evmClz_of_pos xHi hxHiPos hxHi]
+    have hdiv := Nat.div_add_mod (255 - Nat.log2 xHi) 3
+    have hmod := Nat.mod_lt (255 - Nat.log2 xHi) (by omega : 0 < 3)
+    omega
+  have hxLt : xHi * WORD_MOD + xLo < 2 ^ (Nat.log2 xHi + 1 + 256) := by
+    calc xHi * WORD_MOD + xLo
+        < xHi * WORD_MOD + WORD_MOD := by omega
+      _ = (xHi + 1) * WORD_MOD := by rw [Nat.succ_mul]
+      _ ≤ 2 ^ (Nat.log2 xHi + 1) * WORD_MOD :=
+          Nat.mul_le_mul_right _ hHiLog
+      _ = 2 ^ (Nat.log2 xHi + 1 + 256) := by
+        unfold WORD_MOD
+        exact (Nat.pow_add 2 _ 256).symm
+  calc (xHi * WORD_MOD + xLo) * 2 ^ (3 * (evmClz xHi / 3))
+      < 2 ^ (Nat.log2 xHi + 1 + 256) * 2 ^ (3 * (evmClz xHi / 3)) :=
+        Nat.mul_lt_mul_of_pos_right hxLt (Nat.two_pow_pos _)
+    _ = 2 ^ (Nat.log2 xHi + 1 + 256 + 3 * (evmClz xHi / 3)) :=
+        (Nat.pow_add 2 _ _).symm
+    _ ≤ WORD_MOD * WORD_MOD := by
+      unfold WORD_MOD
+      rw [← Nat.pow_add]
+      exact Nat.pow_le_pow_right (by omega) (by omega)
+
+theorem cbrt512_normalized_hi_ge_253 (xHi xLo : Nat)
+    (hxHiPos : 0 < xHi) (hxHi : xHi < WORD_MOD) (hxLo : xLo < WORD_MOD) :
+    let shift := evmClz xHi / 3
+    let s3 := 3 * shift
+    let shiftedHi := (xHi * 2 ^ s3 + xLo * 2 ^ s3 / WORD_MOD) % WORD_MOD
+    2 ^ 253 ≤ shiftedHi := by
+  simp only
+  have hne : xHi ≠ 0 := Nat.ne_of_gt hxHiPos
+  rw [cbrt512_evmClz_of_pos xHi hxHiPos hxHi]
+  generalize hLDef : Nat.log2 xHi = L
+  generalize hs3Def : 3 * ((255 - L) / 3) = s3
+  have hLLt : L < 256 := by
+    rw [← hLDef]
+    exact (Nat.log2_lt hne).2 (by
+      unfold WORD_MOD at hxHi
+      exact hxHi)
+  have hLLo : 2 ^ L ≤ xHi := by
+    suffices ¬ xHi < 2 ^ L by omega
+    intro hlt
+    have := (Nat.log2_lt hne).mpr hlt
+    omega
+  have hLHi : xHi < 2 ^ (L + 1) := by
+    have : Nat.log2 xHi < L + 1 := by omega
+    exact (Nat.log2_lt hne).mp this
+  have hDiv := Nat.div_add_mod (255 - L) 3
+  have hMod := Nat.mod_lt (255 - L) (by omega : 0 < 3)
+  have hLs3 : 253 ≤ L + s3 := by omega
+  have hProdLo : 2 ^ 253 ≤ xHi * 2 ^ s3 :=
+    calc 2 ^ 253 ≤ 2 ^ (L + s3) := Nat.pow_le_pow_right (by omega) hLs3
+      _ = 2 ^ L * 2 ^ s3 := Nat.pow_add 2 L s3
+      _ ≤ xHi * 2 ^ s3 := Nat.mul_le_mul_right _ hLLo
+  have hDivBound : xLo * 2 ^ s3 / WORD_MOD < 2 ^ s3 := by
+    rw [Nat.div_lt_iff_lt_mul (by unfold WORD_MOD; exact Nat.two_pow_pos 256)]
+    calc xLo * 2 ^ s3
+        < WORD_MOD * 2 ^ s3 := Nat.mul_lt_mul_of_pos_right hxLo (Nat.two_pow_pos s3)
+      _ = 2 ^ s3 * WORD_MOD := Nat.mul_comm _ _
+  have hsumLt : xHi * 2 ^ s3 + xLo * 2 ^ s3 / WORD_MOD < WORD_MOD := by
+    have hLs3Up : L + 1 + s3 ≤ 256 := by omega
+    calc xHi * 2 ^ s3 + xLo * 2 ^ s3 / WORD_MOD
+        < xHi * 2 ^ s3 + 2 ^ s3 := by omega
+      _ = (xHi + 1) * 2 ^ s3 := (Nat.succ_mul xHi (2 ^ s3)).symm
+      _ ≤ 2 ^ (L + 1) * 2 ^ s3 := Nat.mul_le_mul_right _ hLHi
+      _ = 2 ^ (L + 1 + s3) := (Nat.pow_add 2 (L + 1) s3).symm
+      _ ≤ WORD_MOD := by
+        unfold WORD_MOD
+        exact Nat.pow_le_pow_right (by omega) hLs3Up
+  rw [Nat.mod_eq_of_lt hsumLt]
+  exact Nat.le_trans hProdLo (Nat.le_add_right _ _)
+
+private theorem cbrt512_shl512_hi (xHi xLo s : Nat) (hs : s ≤ 255) :
+    (xHi * WORD_MOD + xLo) * 2 ^ s / WORD_MOD =
+      xHi * 2 ^ s + xLo / 2 ^ (256 - s) := by
+  have hrw : (xHi * WORD_MOD + xLo) * 2 ^ s =
+      xLo * 2 ^ s + xHi * 2 ^ s * WORD_MOD := by
+    rw [Nat.add_mul, Nat.mul_right_comm]
+    omega
+  rw [hrw, Nat.add_mul_div_right _ _ (by unfold WORD_MOD; exact Nat.two_pow_pos 256),
+    Nat.add_comm]
+  congr 1
+  rw [show WORD_MOD = 2 ^ (256 - s) * 2 ^ s from by
+    unfold WORD_MOD
+    rw [← Nat.pow_add]
+    congr 1
+    omega]
+  exact Nat.mul_div_mul_right _ _ (Nat.two_pow_pos s)
+
+private theorem cbrt512_shl512_lo (xHi xLo s : Nat) :
+    (xHi * WORD_MOD + xLo) * 2 ^ s % WORD_MOD =
+      (xLo * 2 ^ s) % WORD_MOD := by
+  have hrw : (xHi * WORD_MOD + xLo) * 2 ^ s =
+      xLo * 2 ^ s + xHi * 2 ^ s * WORD_MOD := by
+    rw [Nat.add_mul, Nat.mul_right_comm]
+    omega
+  rw [hrw, Nat.add_mul_mod_self_right]
+
+private theorem cbrt512_or_eq_add_shl (a b s : Nat) (hb : b < 2 ^ s) :
+    (a * 2 ^ s) ||| b = a * 2 ^ s + b := by
+  rw [← Nat.shiftLeft_eq]
+  exact (Nat.shiftLeft_add_eq_or_of_lt hb a).symm
+
+private theorem cbrt512_shl_or_shr (xHi xLo s : Nat)
+    (hsPos : 0 < s) (hs : s ≤ 255)
+    (hxHiShl : xHi * 2 ^ s < WORD_MOD) (hxLo : xLo < WORD_MOD) :
+    ((xHi * 2 ^ s) % WORD_MOD) ||| (xLo / 2 ^ (256 - s)) =
+      (xHi * WORD_MOD + xLo) * 2 ^ s / WORD_MOD := by
+  rw [Nat.mod_eq_of_lt hxHiShl]
+  have hcarry : xLo / 2 ^ (256 - s) < 2 ^ s := by
+    rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _)]
+    calc xLo < WORD_MOD := hxLo
+      _ = 2 ^ s * 2 ^ (256 - s) := by
+        unfold WORD_MOD
+        rw [← Nat.pow_add]
+        congr 1
+        omega
+  rw [cbrt512_or_eq_add_shl xHi (xLo / 2 ^ (256 - s)) s hcarry,
+    cbrt512_shl512_hi xHi xLo s hs]
+
+set_option exponentiation.threshold 1024 in
+theorem cbrt512_evm_normalization_correct (xHi xLo : Nat)
+    (hxHiPos : 0 < xHi) (hxHi : xHi < WORD_MOD) (hxLo : xLo < WORD_MOD) :
+    let shift := evmDiv (evmClz xHi) 3
+    let s3 := evmMul shift 3
+    let shiftedLo := evmShl s3 xLo
+    let shiftedHi := evmOr (evmShl s3 xHi) (evmShr (evmSub 256 s3) xLo)
+    shift = evmClz xHi / 3 ∧
+    s3 = 3 * shift ∧
+    shiftedHi * WORD_MOD + shiftedLo =
+      (xHi * WORD_MOD + xLo) * 2 ^ (3 * (evmClz xHi / 3)) %
+        (WORD_MOD * WORD_MOD) ∧
+    2 ^ 253 ≤ shiftedHi ∧
+    shiftedHi < WORD_MOD ∧
+    shiftedLo < WORD_MOD := by
+  simp only
+  have hclzW : evmClz xHi < WORD_MOD := FormalYul.Preservation.evmClz_lt_WORD_MOD xHi
+  have h3W : (3 : Nat) < WORD_MOD := FormalYul.Preservation.three_lt_word
+  have h256W : (256 : Nat) < WORD_MOD := FormalYul.Preservation.word_mod_gt_256
+  have hshiftLt := cbrt512_shift_lt_86 xHi hxHiPos hxHi
+  have hs3Lt := cbrt512_three_shift_lt_256 xHi hxHiPos hxHi
+  let shift := evmClz xHi / 3
+  let s3 := 3 * shift
+  have hshiftW : shift < WORD_MOD := by unfold WORD_MOD; omega
+  have hs3W : s3 < WORD_MOD := by unfold WORD_MOD; omega
+  have hshiftEq : evmDiv (evmClz xHi) 3 = shift := by
+    exact FormalYul.Preservation.evmDiv_eq_of_lt (evmClz xHi) 3 hclzW
+      (by omega) h3W
+  have hs3Eq : evmMul shift 3 = s3 := by
+    rw [FormalYul.Preservation.evmMul_eq_mod_of_lt shift 3 hshiftW h3W]
+    rw [Nat.mod_eq_of_lt (by unfold WORD_MOD; omega : shift * 3 < WORD_MOD)]
+    omega
+  rw [hshiftEq, hs3Eq]
+  have hsubEq : evmSub 256 s3 = 256 - s3 :=
+    FormalYul.Preservation.evmSub_eq_of_le 256 s3 h256W (by omega)
+  have hshlHi : evmShl s3 xHi = (xHi * 2 ^ s3) % WORD_MOD := by
+    exact FormalYul.Preservation.evmShl_eq_of_lt s3 xHi hs3Lt hxHi
+  have hshlLo : evmShl s3 xLo = (xLo * 2 ^ s3) % WORD_MOD := by
+    exact FormalYul.Preservation.evmShl_eq_of_lt s3 xLo hs3Lt hxLo
+  have hne : xHi ≠ 0 := Nat.ne_of_gt hxHiPos
+  have hHiLog : xHi < 2 ^ (Nat.log2 xHi + 1) :=
+    (Nat.log2_lt hne).mp (by omega)
+  have hLogLe : Nat.log2 xHi ≤ 255 := by
+    exact Nat.lt_succ_iff.mp ((Nat.log2_lt hne).2 (by
+      unfold WORD_MOD at hxHi
+      exact hxHi))
+  have hLogShiftUp : Nat.log2 xHi + 1 + s3 ≤ 256 := by
+    show Nat.log2 xHi + 1 + 3 * (evmClz xHi / 3) ≤ 256
+    rw [cbrt512_evmClz_of_pos xHi hxHiPos hxHi]
+    have hdiv := Nat.div_add_mod (255 - Nat.log2 xHi) 3
+    have hmod := Nat.mod_lt (255 - Nat.log2 xHi) (by omega : 0 < 3)
+    omega
+  have hHiShlLt : xHi * 2 ^ s3 < WORD_MOD :=
+    calc xHi * 2 ^ s3
+        < 2 ^ (Nat.log2 xHi + 1) * 2 ^ s3 :=
+          Nat.mul_lt_mul_of_pos_right hHiLog (Nat.two_pow_pos s3)
+      _ = 2 ^ (Nat.log2 xHi + 1 + s3) := (Nat.pow_add 2 _ s3).symm
+      _ ≤ WORD_MOD := by
+        unfold WORD_MOD
+        exact Nat.pow_le_pow_right (by omega) hLogShiftUp
+  by_cases hs3Zero : s3 = 0
+  · have hshrEq : evmShr (evmSub 256 s3) xLo = 0 := by
+      rw [hsubEq, hs3Zero]
+      unfold evmShr u256
+      simp [Nat.mod_eq_of_lt h256W]
+    have hshlHi0 : evmShl s3 xHi = xHi := by
+      rw [hshlHi, hs3Zero, Nat.pow_zero, Nat.mul_one]
+      exact Nat.mod_eq_of_lt hxHi
+    have hshlLo0 : evmShl s3 xLo = xLo := by
+      rw [hshlLo, hs3Zero, Nat.pow_zero, Nat.mul_one]
+      exact Nat.mod_eq_of_lt hxLo
+    have hhiEq : evmOr (evmShl s3 xHi) (evmShr (evmSub 256 s3) xLo) = xHi := by
+      have hshlW : evmShl s3 xHi < WORD_MOD := by rw [hshlHi0]; exact hxHi
+      have hshrW : evmShr (evmSub 256 s3) xLo < WORD_MOD := by
+        rw [hshrEq]
+        exact FormalYul.Preservation.zero_lt_word
+      rw [FormalYul.Preservation.evmOr_eq_of_lt _ _ hshlW hshrW,
+        hshlHi0, hshrEq]
+      simp
+    have hrecon : xHi * WORD_MOD + xLo =
+        (xHi * WORD_MOD + xLo) * 2 ^ s3 % (WORD_MOD * WORD_MOD) := by
+      rw [hs3Zero, Nat.pow_zero, Nat.mul_one, Nat.mod_eq_of_lt]
+      calc xHi * WORD_MOD + xLo
+          < xHi * WORD_MOD + WORD_MOD := by omega
+        _ = (xHi + 1) * WORD_MOD := by rw [Nat.succ_mul]
+        _ ≤ WORD_MOD * WORD_MOD := Nat.mul_le_mul_right _ hxHi
+    have hge253 : 2 ^ 253 ≤ xHi := by
+      have h := cbrt512_normalized_hi_ge_253 xHi xLo hxHiPos hxHi hxLo
+      simp only at h
+      rw [show 3 * (evmClz xHi / 3) = 0 from hs3Zero] at h
+      rw [Nat.pow_zero, Nat.mul_one, Nat.mul_one,
+        Nat.div_eq_of_lt hxLo, Nat.add_zero, Nat.mod_eq_of_lt hxHi] at h
+      exact h
+    refine ⟨rfl, rfl, ?_, ?_, ?_, ?_⟩
+    · rw [hhiEq, hshlLo0]
+      exact hrecon
+    · rw [hhiEq]
+      exact hge253
+    · rw [hhiEq]
+      exact hxHi
+    · rw [hshlLo0]
+      exact hxLo
+  · have hs3Pos : 0 < s3 := by omega
+    have hshrEq : evmShr (evmSub 256 s3) xLo = xLo / 2 ^ (256 - s3) := by
+      rw [hsubEq]
+      exact FormalYul.Preservation.evmShr_eq_of_lt (256 - s3) xLo (by omega) hxLo
+    have hdivLt : xLo / 2 ^ (256 - s3) < 2 ^ s3 := by
+      rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos _)]
+      calc xLo < WORD_MOD := hxLo
+        _ = 2 ^ s3 * 2 ^ (256 - s3) := by
+          unfold WORD_MOD
+          rw [← Nat.pow_add]
+          congr 1
+          omega
+    have hshlW : evmShl s3 xHi < WORD_MOD := by
+      rw [hshlHi]
+      exact Nat.mod_lt _ (by unfold WORD_MOD; exact Nat.two_pow_pos 256)
+    have hshrW : evmShr (evmSub 256 s3) xLo < WORD_MOD := by
+      rw [hshrEq]
+      exact Nat.lt_of_lt_of_le hdivLt (by
+        unfold WORD_MOD
+        exact Nat.pow_le_pow_right (by omega) (by omega))
+    have hhiEq : evmOr (evmShl s3 xHi) (evmShr (evmSub 256 s3) xLo) =
+        (xHi * WORD_MOD + xLo) * 2 ^ s3 / WORD_MOD := by
+      rw [FormalYul.Preservation.evmOr_eq_of_lt _ _ hshlW hshrW,
+        hshlHi, hshrEq]
+      exact cbrt512_shl_or_shr xHi xLo s3 hs3Pos (by omega) hHiShlLt hxLo
+    have hloEq : evmShl s3 xLo =
+        (xHi * WORD_MOD + xLo) * 2 ^ s3 % WORD_MOD := by
+      rw [hshlLo]
+      exact (cbrt512_shl512_lo xHi xLo s3).symm
+    have hhiVal := cbrt512_shl512_hi xHi xLo s3 (by omega : s3 ≤ 255)
+    have hhiLt : (xHi * WORD_MOD + xLo) * 2 ^ s3 / WORD_MOD < WORD_MOD := by
+      rw [hhiVal]
+      calc xHi * 2 ^ s3 + xLo / 2 ^ (256 - s3)
+          < xHi * 2 ^ s3 + 2 ^ s3 := by omega
+        _ = (xHi + 1) * 2 ^ s3 := (Nat.succ_mul xHi (2 ^ s3)).symm
+        _ ≤ 2 ^ (Nat.log2 xHi + 1) * 2 ^ s3 :=
+          Nat.mul_le_mul_right _ hHiLog
+        _ = 2 ^ (Nat.log2 xHi + 1 + s3) := (Nat.pow_add 2 _ s3).symm
+        _ ≤ WORD_MOD := by
+          unfold WORD_MOD
+          exact Nat.pow_le_pow_right (by omega) hLogShiftUp
+    have hloLt : (xHi * WORD_MOD + xLo) * 2 ^ s3 % WORD_MOD < WORD_MOD :=
+      Nat.mod_lt _ (by unfold WORD_MOD; exact Nat.two_pow_pos 256)
+    have hprodLt :
+        (xHi * WORD_MOD + xLo) * 2 ^ s3 < WORD_MOD * WORD_MOD := by
+      have hdm := Nat.div_add_mod ((xHi * WORD_MOD + xLo) * 2 ^ s3) WORD_MOD
+      rw [← hdm]
+      calc WORD_MOD * ((xHi * WORD_MOD + xLo) * 2 ^ s3 / WORD_MOD) +
+            (xHi * WORD_MOD + xLo) * 2 ^ s3 % WORD_MOD
+          < WORD_MOD * (((xHi * WORD_MOD + xLo) * 2 ^ s3 / WORD_MOD) + 1) := by
+            rw [Nat.mul_add, Nat.mul_one]
+            exact Nat.add_lt_add_left hloLt _
+        _ ≤ WORD_MOD * WORD_MOD := Nat.mul_le_mul_left _ (by omega)
+    have hrecon : (xHi * WORD_MOD + xLo) * 2 ^ s3 / WORD_MOD * WORD_MOD +
+        (xHi * WORD_MOD + xLo) * 2 ^ s3 % WORD_MOD =
+        (xHi * WORD_MOD + xLo) * 2 ^ s3 % (WORD_MOD * WORD_MOD) := by
+      rw [Nat.mul_comm ((xHi * WORD_MOD + xLo) * 2 ^ s3 / WORD_MOD) WORD_MOD,
+        Nat.div_add_mod, Nat.mod_eq_of_lt hprodLt]
+    have hge253 : 2 ^ 253 ≤ (xHi * WORD_MOD + xLo) * 2 ^ s3 / WORD_MOD := by
+      rw [hhiVal]
+      have hdivRw : xLo / 2 ^ (256 - s3) = xLo * 2 ^ s3 / WORD_MOD := by
+        rw [show WORD_MOD = 2 ^ (256 - s3) * 2 ^ s3 from by
+          unfold WORD_MOD
+          rw [← Nat.pow_add]
+          congr 1
+          omega]
+        exact (Nat.mul_div_mul_right _ _ (Nat.two_pow_pos s3)).symm
+      rw [hdivRw]
+      have h := cbrt512_normalized_hi_ge_253 xHi xLo hxHiPos hxHi hxLo
+      simp only at h
+      have hmodId :
+          (xHi * 2 ^ s3 + xLo * 2 ^ s3 / WORD_MOD) % WORD_MOD =
+            xHi * 2 ^ s3 + xLo * 2 ^ s3 / WORD_MOD := by
+        rw [Nat.mod_eq_of_lt]
+        rw [hhiVal] at hhiLt
+        omega
+      rw [hmodId] at h
+      exact h
+    refine ⟨rfl, rfl, ?_, ?_, ?_, ?_⟩
+    · rw [hhiEq, hloEq]
+      exact hrecon
+    · rw [hhiEq]
+      exact hge253
+    · rw [hhiEq]
+      exact hhiLt
+    · rw [hloEq]
+      exact hloLt
+
+private theorem chain_6steps_upper (w m lo : Nat) (s d1 : Nat)
+    (hm2 : 2 ≤ m) (hloPos : 0 < lo) (hlo : lo ≤ m) (hsPos : 0 < s)
+    (hmlo : m * m * m ≤ w) (hmhi : w < (m + 1) * (m + 1) * (m + 1))
+    (hd1 : cbrtStep w s - m ≤ d1) (h2d1 : 2 * d1 ≤ m)
+    (h2d2 : 2 * nextD lo d1 ≤ lo)
+    (h2d3 : 2 * nextD lo (nextD lo d1) ≤ lo)
+    (h2d4 : 2 * nextD lo (nextD lo (nextD lo d1)) ≤ lo)
+    (h2d5 : 2 * nextD lo (nextD lo (nextD lo (nextD lo d1))) ≤ lo)
+    (hd6_le_1 : nextD lo
+      (nextD lo (nextD lo (nextD lo (nextD lo d1)))) ≤ 1) :
+    run6From w s ≤ m + 1 := by
+  let z1 := cbrtStep w s
+  let z2 := cbrtStep w z1
+  let z3 := cbrtStep w z2
+  let z4 := cbrtStep w z3
+  let z5 := cbrtStep w z4
+  have hmz1 : m ≤ z1 := cbrt_step_floor_bound w s m hsPos hmlo
+  have hmz2 : m ≤ z2 := cbrt_step_floor_bound w z1 m (by omega) hmlo
+  have hmz3 : m ≤ z3 := cbrt_step_floor_bound w z2 m (by omega) hmlo
+  have hmz4 : m ≤ z4 := cbrt_step_floor_bound w z3 m (by omega) hmlo
+  have hmz5 : m ≤ z5 := cbrt_step_floor_bound w z4 m (by omega) hmlo
+  have hd2 : z2 - m ≤ nextD lo d1 :=
+    step_from_bound w m lo z1 d1 hm2 hloPos hlo hmhi hmz1 hd1 h2d1
+  have hd3 : z3 - m ≤ nextD lo (nextD lo d1) :=
+    step_from_bound w m lo z2 (nextD lo d1) hm2 hloPos hlo hmhi hmz2 hd2
+      (by omega)
+  have hd4 : z4 - m ≤ nextD lo (nextD lo (nextD lo d1)) :=
+    step_from_bound w m lo z3 _ hm2 hloPos hlo hmhi hmz3 hd3 (by omega)
+  have hd5 : z5 - m ≤ nextD lo (nextD lo (nextD lo (nextD lo d1))) :=
+    step_from_bound w m lo z4 _ hm2 hloPos hlo hmhi hmz4 hd4 (by omega)
+  have hd6 :
+      cbrtStep w z5 - m ≤
+        nextD lo (nextD lo (nextD lo (nextD lo (nextD lo d1)))) :=
+    step_from_bound w m lo z5 _ hm2 hloPos hlo hmhi hmz5 hd5 (by omega)
+  have hd6_1 : cbrtStep w z5 - m ≤ 1 := Nat.le_trans hd6 hd6_le_1
+  have : run6From w s = cbrtStep w z5 := rfl
+  omega
+
+private theorem octave_upper (w m s lo hi gap d1 : Nat)
+    (hsPos : 0 < s)
+    (hmlo : m * m * m ≤ w) (hmhi : w < (m + 1) * (m + 1) * (m + 1))
+    (hlo : lo ≤ m) (hhi : m ≤ hi) (hm2 : 2 ≤ m) (hloPos : 0 < lo)
+    (hgap_eq : max (s - lo) (hi - s) = gap)
+    (hd1_formula :
+      (gap * gap * (hi + 2 * s) + 3 * hi * (hi + 1)) / (3 * (s * s)) = d1)
+    (h2d1_lo : 2 * d1 ≤ lo)
+    (h2d2 : 2 * nextD lo d1 ≤ lo)
+    (h2d3 : 2 * nextD lo (nextD lo d1) ≤ lo)
+    (h2d4 : 2 * nextD lo (nextD lo (nextD lo d1)) ≤ lo)
+    (h2d5 : 2 * nextD lo (nextD lo (nextD lo (nextD lo d1))) ≤ lo)
+    (hd6_le1 : nextD lo
+      (nextD lo (nextD lo (nextD lo (nextD lo d1)))) ≤ 1) :
+    run6From w s ≤ m + 1 := by
+  have hd1 : cbrtStep w s - m ≤ d1 := by
+    have h := cbrt_d1_bound w m s lo hi hsPos hmlo hmhi hlo hhi
+    rw [hgap_eq] at h
+    simpa [hd1_formula] using h
+  exact chain_6steps_upper w m lo s d1 hm2 hloPos hlo hsPos hmlo hmhi hd1
+    (Nat.le_trans h2d1_lo hlo) h2d2 h2d3 h2d4 h2d5 hd6_le1
+
+private theorem lo_le_icbrt_of_cube_le_pow (w lo : Nat) (k : Nat)
+    (hlo_cube : lo * lo * lo ≤ 2 ^ k) (hw_lo : 2 ^ k ≤ w) :
+    lo ≤ icbrt w := by
+  have hlo_w : lo * lo * lo ≤ w := Nat.le_trans hlo_cube hw_lo
+  by_cases h : lo ≤ icbrt w
+  · exact h
+  · exfalso
+    have : icbrt w + 1 ≤ lo := by omega
+    exact Nat.lt_irrefl w (Nat.lt_of_lt_of_le (icbrt_lt_succ_cube w)
+      (Nat.le_trans (cube_monotone this) hlo_w))
+
+private theorem icbrt_le_hi_of_pow_lt_cube (w hi : Nat) (k : Nat)
+    (hhi_cube : 2 ^ (k + 1) ≤ (hi + 1) * (hi + 1) * (hi + 1))
+    (hw_hi : w < 2 ^ (k + 1)) :
+    icbrt w ≤ hi := by
+  by_cases h : icbrt w ≤ hi
+  · exact h
+  · exfalso
+    have : hi + 1 ≤ icbrt w := by omega
+    have hmono := cube_monotone this
+    exact Nat.lt_irrefl w (Nat.lt_of_lt_of_le hw_hi
+      (Nat.le_trans hhi_cube (Nat.le_trans hmono (icbrt_cube_le w))))
+
+theorem baseCase_NR_within_1ulp (w : Nat)
+    (hw_lo : 2 ^ 251 ≤ w) (hw_hi : w < 2 ^ 254) :
+    let m := icbrt w
+    let z := run6From w baseCaseSeed
+    m ≤ z ∧ z ≤ m + 1 := by
+  simp only
+  let s : Nat := baseCaseSeed
+  let m := icbrt w
+  have hmlo : m * m * m ≤ w := icbrt_cube_le w
+  have hmhi : w < (m + 1) * (m + 1) * (m + 1) := icbrt_lt_succ_cube w
+  have hw_pos : 0 < w := by omega
+  have hsPos : 0 < s := by
+    have hs_lo : 2 ^ 83 ≤ s := by
+      change 2 ^ 83 ≤ baseCaseSeed
+      exact baseCaseSeed_bounds.1
+    omega
+  have hmz : m ≤ run6From w s := by
+    unfold run6From
+    exact cbrt_step_floor_bound w _ m
+      (cbrtStep_pos w _ hw_pos
+        (cbrtStep_pos w _ hw_pos
+          (cbrtStep_pos w _ hw_pos
+            (cbrtStep_pos w _ hw_pos
+              (cbrtStep_pos w _ hw_pos hsPos)))))
+      hmlo
+  have hmz' : m ≤ run6From w baseCaseSeed := by
+    simpa [s] using hmz
+  refine ⟨hmz', ?_⟩
+  by_cases h252 : w < 2 ^ 252
+  · have hlo := lo_le_icbrt_of_cube_le_pow w octave251Lo 251 octave251_bounds.1 hw_lo
+    have hhi := icbrt_le_hi_of_pow_lt_cube w octave251Hi 251 octave251_bounds.2 h252
+    obtain ⟨h2d1, h2d2, h2d3, h2d4, h2d5, hd6_le1⟩ := octave251_chain_bounds
+    simpa [s] using octave_upper w m s octave251Lo octave251Hi octave251Gap
+      octave251D1 hsPos hmlo hmhi hlo hhi (Nat.le_trans octave251_lo_two_le hlo)
+      (Nat.lt_of_lt_of_le (by omega : 0 < 2) octave251_lo_two_le)
+      (by simpa [s] using octave251_gap_eq)
+      (by simpa [s] using octave251_d1_formula_eq)
+      h2d1 h2d2 h2d3 h2d4 h2d5 hd6_le1
+  · by_cases h253 : w < 2 ^ 253
+    · have hlo := lo_le_icbrt_of_cube_le_pow w octave252Lo 252 octave252_bounds.1
+        (by omega)
+      have hhi := icbrt_le_hi_of_pow_lt_cube w octave252Hi 252 octave252_bounds.2
+        h253
+      obtain ⟨h2d1, h2d2, h2d3, h2d4, h2d5, hd6_le1⟩ := octave252_chain_bounds
+      simpa [s] using octave_upper w m s octave252Lo octave252Hi octave252Gap
+        octave252D1 hsPos hmlo hmhi hlo hhi (Nat.le_trans octave252_lo_two_le hlo)
+        (Nat.lt_of_lt_of_le (by omega : 0 < 2) octave252_lo_two_le)
+        (by simpa [s] using octave252_gap_eq)
+        (by simpa [s] using octave252_d1_formula_eq)
+        h2d1 h2d2 h2d3 h2d4 h2d5 hd6_le1
+    · have hlo := lo_le_icbrt_of_cube_le_pow w octave253Lo 253
+        octave253_lo_cube_le_pow253 (by omega)
+      have hhi := icbrt_le_hi_of_pow_lt_cube w M_TOP 253 m_top_cube_bounds.2 hw_hi
+      obtain ⟨h2d1, h2d2, h2d3, h2d4, h2d5, hd6_le1⟩ := octave253_chain_bounds
+      simpa [s] using octave_upper w m s octave253Lo M_TOP octave253Gap octave253D1
+        hsPos hmlo hmhi hlo hhi (Nat.le_trans octave253_lo_two_le hlo)
+        (Nat.lt_of_lt_of_le (by omega : 0 < 2) octave253_lo_two_le)
+        (by simpa [s] using octave253_gap_eq)
+        (by simpa [s] using octave253_d1_formula_eq)
+        h2d1 h2d2 h2d3 h2d4 h2d5 hd6_le1
+
+theorem two_le_of_pow83_le (m : Nat) (h : 2 ^ 83 ≤ m) : 2 ≤ m :=
+  Nat.le_trans (show 2 ≤ 2 ^ 83 from by
+    rw [show (2 : Nat) ^ 83 = 2 * 2 ^ 82 from by
+      rw [show (83 : Nat) = 1 + 82 from rfl, Nat.pow_add]]
+    omega) h
+
+theorem cbrt512_evm_nr_step_eq_cbrtStep (w z : Nat)
+    (hw : w < 2 ^ 254) (hz_lo : 2 ^ 83 ≤ z) (hz_hi : z < 2 ^ 88) :
+    evmDiv (evmAdd (evmAdd (evmDiv w (evmMul z z)) z) z) 3 =
+      cbrtStep w z ∧
+    cbrtStep w z < 2 ^ 88 := by
+  have hw_wm : w < WORD_MOD := by
+    unfold WORD_MOD
+    omega
+  have hz_wm : z < WORD_MOD := by
+    unfold WORD_MOD
+    omega
+  have hzz_wm : z * z < WORD_MOD := by
+    calc z * z
+        < 2 ^ 88 * 2 ^ 88 := Nat.lt_of_lt_of_le
+            (Nat.mul_lt_mul_of_pos_left hz_hi (by omega))
+            (Nat.mul_le_mul_right _ (Nat.le_of_lt hz_hi))
+      _ = 2 ^ 176 := by rw [← Nat.pow_add]
+      _ < WORD_MOD := by
+        unfold WORD_MOD
+        exact Nat.pow_lt_pow_right (by omega) (by omega)
+  have hzz_ge : 2 ^ 166 ≤ z * z :=
+    calc 2 ^ 166 = 2 ^ 83 * 2 ^ 83 := by rw [← Nat.pow_add]
+      _ ≤ z * z := Nat.mul_le_mul hz_lo hz_lo
+  have hdiv_lt : w / (z * z) < 2 ^ 88 :=
+    (Nat.div_lt_iff_lt_mul (by omega : 0 < z * z)).mpr
+      (calc w < 2 ^ 254 := hw
+        _ = 2 ^ 88 * 2 ^ 166 := by rw [← Nat.pow_add]
+        _ ≤ 2 ^ 88 * (z * z) := Nat.mul_le_mul_left _ hzz_ge)
+  have hdiv_wm : w / (z * z) < WORD_MOD := by
+    unfold WORD_MOD
+    omega
+  have hadd1_lt : w / (z * z) + z < WORD_MOD := by
+    unfold WORD_MOD
+    omega
+  have hsum : w / (z * z) + 2 * z < WORD_MOD := by
+    unfold WORD_MOD
+    omega
+  have hsum' : w / (z * z) + z + z < WORD_MOD := by
+    omega
+  have hmul_rr : evmMul z z = z * z := by
+    rw [FormalYul.Preservation.evmMul_eq_mod_of_lt z z hz_wm hz_wm,
+      Nat.mod_eq_of_lt hzz_wm]
+  have hdiv_xrr : evmDiv w (evmMul z z) = w / (z * z) := by
+    rw [hmul_rr]
+    exact FormalYul.Preservation.evmDiv_eq_of_lt w (z * z) hw_wm (by omega) hzz_wm
+  have hadd1 : evmAdd (evmDiv w (evmMul z z)) z = w / (z * z) + z := by
+    rw [hdiv_xrr]
+    exact FormalYul.Preservation.evmAdd_eq_of_lt _ _ hdiv_wm hz_wm hadd1_lt
+  have hadd2 :
+      evmAdd (evmAdd (evmDiv w (evmMul z z)) z) z =
+        w / (z * z) + 2 * z := by
+    rw [hadd1]
+    rw [FormalYul.Preservation.evmAdd_eq_of_lt _ _ hadd1_lt hz_wm hsum']
+    omega
+  constructor
+  · rw [hadd2]
+    unfold cbrtStep
+    exact FormalYul.Preservation.evmDiv_eq_of_lt _ 3 hsum
+      (by omega) FormalYul.Preservation.three_lt_word
+  · unfold cbrtStep
+    exact (Nat.div_lt_iff_lt_mul (by omega : (0 : Nat) < 3)).mpr (by omega)
+
+theorem cbrt512_base_case_math_bounds (xHi : Nat)
+    (hx_lo : 2 ^ 253 ≤ xHi) (hx_hi : xHi < WORD_MOD) :
+    let w := xHi / 4
+    let m := icbrt w
+    2 ^ 251 ≤ w ∧ w < 2 ^ 254 ∧ w < WORD_MOD ∧
+    2 ^ 83 ≤ m ∧ m < 2 ^ 85 ∧
+    m * m * m ≤ w ∧
+    w - m * m * m ≤ 3 * (m * m) + 3 * m ∧
+    m < WORD_MOD ∧ m * m < WORD_MOD ∧ m * m * m < WORD_MOD ∧
+    3 * (m * m) < WORD_MOD ∧ 0 < 3 * (m * m) := by
+  simp only
+  let w := xHi / 4
+  let m := icbrt w
+  have hw_lo : 2 ^ 251 ≤ w := by
+    show 2 ^ 251 ≤ xHi / 4
+    omega
+  have hw_hi : w < 2 ^ 254 := by
+    show xHi / 4 < 2 ^ 254
+    unfold WORD_MOD at hx_hi
+    omega
+  have hw_wm : w < WORD_MOD := by
+    unfold WORD_MOD
+    omega
+  have hm_lo : 2 ^ 83 ≤ m :=
+    lo_le_icbrt_of_cube_le_pow w (2 ^ 83) 251 pow83_cube_le_pow251 hw_lo
+  have hm_hi : m < 2 ^ 85 := by
+    show icbrt w < 2 ^ 85
+    have := icbrt_le_hi_of_pow_lt_cube w (2 ^ 85 - 1) 253
+      pow254_le_succ_pow85_sub_one_cube hw_hi
+    omega
+  have hm_wm : m < WORD_MOD := by
+    unfold WORD_MOD
+    omega
+  have hm2_le : m * m ≤ (2 ^ 85 - 1) * (2 ^ 85 - 1) :=
+    Nat.mul_le_mul (by omega) (by omega)
+  have hm2_wm : m * m < WORD_MOD := by
+    have : (2 ^ 85 - 1) * (2 ^ 85 - 1) < WORD_MOD := pow85_sub_one_sq_lt_word
+    omega
+  have hm3_le : m * m * m ≤ (2 ^ 85 - 1) * (2 ^ 85 - 1) * (2 ^ 85 - 1) :=
+    Nat.mul_le_mul hm2_le (by omega)
+  have hm3_wm : m * m * m < WORD_MOD := by
+    have : (2 ^ 85 - 1) * (2 ^ 85 - 1) * (2 ^ 85 - 1) < WORD_MOD :=
+      pow85_sub_one_cube_lt_word
+    omega
+  have h3m2_wm : 3 * (m * m) < WORD_MOD := by
+    unfold WORD_MOD
+    omega
+  have h3m2_pos : 0 < 3 * (m * m) := by
+    have : 0 < m * m := Nat.mul_pos (by omega) (by omega)
+    omega
+  have hmcube_le : m * m * m ≤ w := icbrt_cube_le w
+  have hmsucc_gt : w < (m + 1) * (m + 1) * (m + 1) := icbrt_lt_succ_cube w
+  have hres_bound : w - m * m * m ≤ 3 * (m * m) + 3 * m := by
+    have hcube :
+        (m + 1) * (m + 1) * (m + 1) =
+          m * m * m + 3 * (m * m) + 3 * m + 1 := by
+      ring_nf
+    rw [hcube] at hmsucc_gt
+    omega
+  exact ⟨hw_lo, hw_hi, hw_wm, hm_lo, hm_hi, hmcube_le, hres_bound, hm_wm,
+    hm2_wm, hm3_wm, h3m2_wm, h3m2_pos⟩
 
 private theorem cube_expand_aux (m : Nat) :
     (m + 1) * (m + 1) * (m + 1) = m * m * m + 3 * m * m + 3 * m + 1 := by
