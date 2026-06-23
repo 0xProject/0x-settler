@@ -73,15 +73,17 @@ jobs:
             formal/cbrt/CbrtProof/CbrtProof/CbrtYul.lean \
             0.8.34
 
+      - name: Generate finite certificate from Python generator
+        run: |
+          python3 formal/python/cbrt/generate_cbrt_cert.py \
+            --output formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean
+
       - name: Guard generated artifacts are untracked
         run: |
           test -z "$(git ls-files \
             formal/cbrt/CbrtProof/CbrtProof/CbrtYulRuntime.lean \
-            formal/cbrt/CbrtProof/CbrtProof/CbrtYulProof.lean)"
-
-      - name: Update Lake dependencies
-        working-directory: formal/cbrt/CbrtProof
-        run: lake update
+            formal/cbrt/CbrtProof/CbrtProof/CbrtYulProof.lean \
+            formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean)"
 
       - name: Fetch proof dependency cache
         working-directory: formal/cbrt/CbrtProof

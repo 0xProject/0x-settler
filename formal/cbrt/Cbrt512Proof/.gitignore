@@ -1,5 +1,4 @@
 /.lake
-lake-manifest.json
 
 # Auto-generated EVMYulLean artifacts from solc Yul IR by `lake exe yul_importer`
 /Cbrt512Proof/Cbrt512YulRuntime.lean

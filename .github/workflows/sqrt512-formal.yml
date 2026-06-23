@@ -81,10 +81,6 @@ jobs:
             formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512YulRuntime.lean \
             formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512YulProof.lean)"
 
-      - name: Update Lake dependencies
-        working-directory: formal/sqrt/Sqrt512Proof
-        run: lake update
-
       - name: Fetch proof dependency cache
         working-directory: formal/sqrt/Sqrt512Proof
         run: lake exe cache get

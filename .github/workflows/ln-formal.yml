@@ -79,10 +79,6 @@ jobs:
             formal/ln/LnProof/LnProof/LnYulRuntime.lean \
             formal/ln/LnProof/LnProof/LnYulProof.lean)"
 
-      - name: Update Lake dependencies
-        working-directory: formal/ln/LnProof
-        run: lake update
-
       - name: Fetch proof dependency cache
         working-directory: formal/ln/LnProof
         run: lake exe cache get

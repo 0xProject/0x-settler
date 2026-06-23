@@ -73,15 +73,17 @@ jobs:
             formal/sqrt/SqrtProof/SqrtProof/SqrtYul.lean \
             0.8.34
 
+      - name: Generate finite certificate from Python generator
+        run: |
+          python3 formal/python/sqrt/generate_sqrt_cert.py \
+            --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
+
       - name: Guard generated artifacts are untracked
         run: |
           test -z "$(git ls-files \
             formal/sqrt/SqrtProof/SqrtProof/SqrtYulRuntime.lean \
-            formal/sqrt/SqrtProof/SqrtProof/SqrtYulProof.lean)"
-
-      - name: Update Lake dependencies
-        working-directory: formal/sqrt/SqrtProof
-        run: lake update
+            formal/sqrt/SqrtProof/SqrtProof/SqrtYulProof.lean \
+            formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean)"
 
       - name: Fetch proof dependency cache
         working-directory: formal/sqrt/SqrtProof
