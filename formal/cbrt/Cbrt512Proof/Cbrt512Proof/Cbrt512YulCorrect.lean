@@ -2156,6 +2156,32 @@ private theorem call_fun__cbrt_baseCase_enters_generated_body
     lookup_fun__cbrt_baseCase, yulFunction_fun__cbrt_baseCase]
   rfl
 
+private theorem call_fun__cbrt512_enters_generated_body
+    (xHi xLo fuel : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 980) [FormalYul.word xHi, FormalYul.word xLo]
+      (.some yulName_fun__cbrt512) (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    (match
+      EvmYul.Yul.exec (fuel + 979)
+        (EvmYul.Yul.Ast.Stmt.Block yulFunction_fun__cbrt512.body)
+        (.some yulContract)
+        (EvmYul.Yul.State.mkOk
+          ((EvmYul.Yul.State.Ok shared store).initcall
+            yulFunction_fun__cbrt512.params [FormalYul.word xHi, FormalYul.word xLo])) with
+    | .error e => .error e
+    | .ok s₂ =>
+      .ok (s₂.reviveJump.overwrite? (EvmYul.Yul.State.Ok shared store)
+          |>.setStore (EvmYul.Yul.State.Ok shared store),
+        List.map s₂.lookup! yulFunction_fun__cbrt512.rets)) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions,
+    lookup_fun__cbrt512, yulFunction_fun__cbrt512]
+  rfl
+
 private theorem call_fun_tmp_128_direct
     (fuel : Nat) (shared : EvmYul.SharedState .Yul)
     (store : EvmYul.Yul.VarStore)
