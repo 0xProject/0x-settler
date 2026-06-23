@@ -1,5 +1,6 @@
 import Cbrt512Proof.Cbrt512YulProof
 import Cbrt512Proof.Cbrt512Correct
+import Cbrt512Proof.CbrtDenormalization
 import CbrtProof.CbrtEvmMath
 
 set_option maxHeartbeats 8000000
@@ -3654,6 +3655,423 @@ private theorem cbrt512QuadraticCorrection_eq_not_gt (rHi rLo rem : Nat)
   simp only [cbrt512_qc_shift86_eq, hShl, hSq, hDiv, hSub,
     hguard, ↓reduceIte]
 
+private theorem cbrt512_evmAnd_mask86_eq_mod (x : Nat)
+    (hx : x < FormalYul.WORD_MOD) :
+    FormalYul.evmAnd x 77371252455336267181195263 = x % 2 ^ 86 := by
+  have hmask : (77371252455336267181195263 : Nat) < FormalYul.WORD_MOD := by
+    unfold FormalYul.WORD_MOD
+    omega
+  rw [FormalYul.Preservation.evmAnd_eq_of_lt x _ hx hmask]
+  have hmaskEq : (77371252455336267181195263 : Nat) = 2 ^ 86 - 1 := by
+    decide
+  rw [hmaskEq]
+  exact Nat.and_two_pow_sub_one_eq_mod x 86
+
+private theorem cbrt512_or_and_eq_one_cases (a b c : Nat)
+    (ha : a ≤ 1) (hb : b ≤ 1) (hc : c ≤ 1)
+    (h : a ||| (b &&& c) = 1) :
+    a = 1 ∨ (b = 1 ∧ c = 1) := by
+  have ha' : a = 0 ∨ a = 1 := by omega
+  have hb' : b = 0 ∨ b = 1 := by omega
+  have hc' : c = 0 ∨ c = 1 := by omega
+  rcases ha' with rfl | rfl
+  · rcases hb' with rfl | rfl <;> rcases hc' with rfl | rfl <;> simp_all
+  · exact Or.inl rfl
+
+private theorem cbrt512_natAnd_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) :
+    a &&& b ≤ 1 := by
+  have ha' : a = 0 ∨ a = 1 := by omega
+  have hb' : b = 0 ∨ b = 1 := by omega
+  rcases ha' with rfl | rfl <;> rcases hb' with rfl | rfl <;> decide
+
+private theorem cbrt512_qc_check_zero_cases (eps3 rem rHi : Nat)
+    (hcheck :
+      ((if eps3 / 2 ^ 86 < rem / 2 ^ 86 then 1 else 0) |||
+        ((if eps3 / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0) &&&
+          (if (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86 then 1 else 0))) =
+        0) :
+    rem / 2 ^ 86 < eps3 / 2 ^ 86 ∨
+      (rem / 2 ^ 86 = eps3 / 2 ^ 86 ∧
+        (rem % 2 ^ 86) * 2 ^ 86 ≤ (eps3 % 2 ^ 86) * rHi) := by
+  by_cases hHiLt : rem / 2 ^ 86 < eps3 / 2 ^ 86
+  · exact Or.inl hHiLt
+  · have hNotLt : ¬ eps3 / 2 ^ 86 < rem / 2 ^ 86 := by
+      intro hlt
+      have hge :
+          1 ≤
+            ((if eps3 / 2 ^ 86 < rem / 2 ^ 86 then 1 else 0) |||
+              ((if eps3 / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0) &&&
+                (if (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86 then 1 else 0))) := by
+        rw [if_pos hlt]
+        exact Nat.left_le_or
+      omega
+    have hHiEq : rem / 2 ^ 86 = eps3 / 2 ^ 86 := by omega
+    have hLoLe : (rem % 2 ^ 86) * 2 ^ 86 ≤ (eps3 % 2 ^ 86) * rHi := by
+      by_cases hLoLt : (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86
+      · exfalso
+        have hcheckOne :
+            ((if eps3 / 2 ^ 86 < rem / 2 ^ 86 then 1 else 0) |||
+              ((if eps3 / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0) &&&
+                (if (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86 then 1 else 0))) = 1 := by
+          rw [if_neg hNotLt, if_pos hHiEq.symm, if_pos hLoLt]
+          decide
+        rw [hcheckOne] at hcheck
+        omega
+      · exact Nat.not_lt.mp hLoLt
+    exact Or.inr ⟨hHiEq, hLoLe⟩
+
+private theorem cbrt512_div_lt_implies_lt (a b : Nat)
+    (h : a / 2 ^ 86 < b / 2 ^ 86) : a < b := by
+  have h1 : (a / 2 ^ 86 + 1) * 2 ^ 86 ≤ b := by
+    calc (a / 2 ^ 86 + 1) * 2 ^ 86
+        ≤ (b / 2 ^ 86) * 2 ^ 86 := Nat.mul_le_mul_right _ (by omega)
+      _ ≤ b := by
+        have := Nat.div_mul_le_self b (2 ^ 86)
+        omega
+  have h2 : a < (a / 2 ^ 86 + 1) * 2 ^ 86 := by
+    have hdm := Nat.div_add_mod a (2 ^ 86)
+    have hmod := Nat.mod_lt a (Nat.two_pow_pos 86)
+    omega
+  omega
+
+private theorem cbrt512_split_limb_le_implies_le (a b m : Nat)
+    (hm : m ≤ 2 ^ 86)
+    (hEq : a / 2 ^ 86 = b / 2 ^ 86)
+    (hLo : (a % 2 ^ 86) * 2 ^ 86 ≤ (b % 2 ^ 86) * m) :
+    a ≤ b := by
+  have hLo86 : (a % 2 ^ 86) * 2 ^ 86 ≤ (b % 2 ^ 86) * 2 ^ 86 :=
+    Nat.le_trans hLo (Nat.mul_le_mul_left _ hm)
+  have hLo' : a % 2 ^ 86 ≤ b % 2 ^ 86 :=
+    Nat.le_of_mul_le_mul_right hLo86 (Nat.two_pow_pos 86)
+  have hda := Nat.div_add_mod a (2 ^ 86)
+  have hdb := Nat.div_add_mod b (2 ^ 86)
+  rw [← hda, ← hdb, hEq]
+  omega
+
+private theorem cbrt512_split_limb_lt_implies_prod_le (a b m : Nat)
+    (hm : m ≤ 2 ^ 86)
+    (hEq : a / 2 ^ 86 = b / 2 ^ 86)
+    (hLo : (a % 2 ^ 86) * m < (b % 2 ^ 86) * 2 ^ 86) :
+    a * (m * 2 ^ 86) ≤ b * 2 ^ 172 := by
+  have hda := Nat.div_add_mod a (2 ^ 86)
+  have hdb := Nat.div_add_mod b (2 ^ 86)
+  have h2172 : (2 : Nat) ^ 172 = 2 ^ 86 * 2 ^ 86 := by
+    rw [show (172 : Nat) = 86 + 86 from rfl, Nat.pow_add]
+  rw [← hda, ← hdb, hEq, h2172]
+  rw [Nat.add_mul, Nat.add_mul]
+  apply Nat.add_le_add
+  · exact Nat.mul_le_mul_left _ (Nat.mul_le_mul_right _ hm)
+  · apply Nat.le_of_lt
+    rw [show a % 2 ^ 86 * (m * 2 ^ 86) =
+        (a % 2 ^ 86 * m) * 2 ^ 86 by
+          simp [Nat.mul_assoc, Nat.mul_comm m, Nat.mul_left_comm]]
+    rw [show b % 2 ^ 86 * (2 ^ 86 * 2 ^ 86) =
+        (b % 2 ^ 86 * 2 ^ 86) * 2 ^ 86 by
+          simp [Nat.mul_assoc]]
+    exact Nat.mul_lt_mul_of_pos_right hLo (Nat.two_pow_pos 86)
+
+private theorem cbrt512QCInc_eq_split (rHi rLo rem : Nat)
+    (hrHi : rHi < FormalYul.WORD_MOD) (hrLo : rLo < FormalYul.WORD_MOD)
+    (hrem : rem < FormalYul.WORD_MOD)
+    (hrHiPos : 2 ≤ rHi)
+    (hrHiBound : rHi < 2 ^ 85)
+    (hrLoBound : rLo < 2 ^ 87) :
+    let eps3 := (rLo * rLo % (rHi * 2 ^ 86)) * 3
+    cbrt512QCInc rHi rLo rem =
+      ((if eps3 / 2 ^ 86 < rem / 2 ^ 86 then 1 else 0) |||
+        ((if eps3 / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0) &&&
+          (if (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86 then 1 else 0))) := by
+  simp only
+  obtain ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hEpsW, _, _⟩ :=
+    cbrt512_qc_setup rHi rLo hrHi hrLo hrHiPos hrHiBound hrLoBound
+  let eps3 := (rLo * rLo % (rHi * 2 ^ 86)) * 3
+  have hShrEps : FormalYul.evmShr 86 eps3 = eps3 / 2 ^ 86 :=
+    FormalYul.Preservation.evmShr_eq_of_lt 86 eps3 (by omega) hEpsW
+  have hShrRem : FormalYul.evmShr 86 rem = rem / 2 ^ 86 :=
+    FormalYul.Preservation.evmShr_eq_of_lt 86 rem (by omega) hrem
+  have hEpsHiW : eps3 / 2 ^ 86 < FormalYul.WORD_MOD :=
+    Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hEpsW
+  have hRemHiW : rem / 2 ^ 86 < FormalYul.WORD_MOD :=
+    Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hrem
+  have hLtHi :
+      FormalYul.evmLt (eps3 / 2 ^ 86) (rem / 2 ^ 86) =
+        if eps3 / 2 ^ 86 < rem / 2 ^ 86 then 1 else 0 :=
+    FormalYul.Preservation.evmLt_eq_of_lt _ _ hEpsHiW hRemHiW
+  have hEqHi :
+      FormalYul.evmEq (eps3 / 2 ^ 86) (rem / 2 ^ 86) =
+        if eps3 / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0 :=
+    FormalYul.Preservation.evmEq_eq_of_lt _ _ hEpsHiW hRemHiW
+  have hAndEps : FormalYul.evmAnd eps3 77371252455336267181195263 =
+      eps3 % 2 ^ 86 :=
+    cbrt512_evmAnd_mask86_eq_mod eps3 hEpsW
+  have hAndRem : FormalYul.evmAnd rem 77371252455336267181195263 =
+      rem % 2 ^ 86 :=
+    cbrt512_evmAnd_mask86_eq_mod rem hrem
+  have hEpsLoW : eps3 % 2 ^ 86 < FormalYul.WORD_MOD := by
+    unfold FormalYul.WORD_MOD
+    exact Nat.lt_of_lt_of_le (Nat.mod_lt _ (Nat.two_pow_pos 86)) (by omega)
+  have hRemLoW : rem % 2 ^ 86 < FormalYul.WORD_MOD := by
+    unfold FormalYul.WORD_MOD
+    exact Nat.lt_of_lt_of_le (Nat.mod_lt _ (Nat.two_pow_pos 86)) (by omega)
+  have hProdEpsW : (eps3 % 2 ^ 86) * rHi < FormalYul.WORD_MOD := by
+    calc (eps3 % 2 ^ 86) * rHi
+        < 2 ^ 86 * rHi :=
+          Nat.mul_lt_mul_of_pos_right (Nat.mod_lt _ (Nat.two_pow_pos 86)) (by omega)
+      _ < 2 ^ 86 * 2 ^ 85 :=
+          Nat.mul_lt_mul_of_pos_left hrHiBound (Nat.two_pow_pos 86)
+      _ = 2 ^ 171 := by rw [← Nat.pow_add]
+      _ < FormalYul.WORD_MOD := by
+        unfold FormalYul.WORD_MOD
+        omega
+  have hMulLo : FormalYul.evmMul (eps3 % 2 ^ 86) rHi =
+      (eps3 % 2 ^ 86) * rHi := by
+    rw [FormalYul.Preservation.evmMul_eq_mod_of_lt _ _ hEpsLoW hrHi,
+      Nat.mod_eq_of_lt hProdEpsW]
+  have hProdRemW : (rem % 2 ^ 86) * 2 ^ 86 < FormalYul.WORD_MOD := by
+    calc (rem % 2 ^ 86) * 2 ^ 86
+        < 2 ^ 86 * 2 ^ 86 :=
+          Nat.mul_lt_mul_of_pos_right (Nat.mod_lt _ (Nat.two_pow_pos 86))
+            (Nat.two_pow_pos 86)
+      _ = 2 ^ 172 := by rw [← Nat.pow_add]
+      _ < FormalYul.WORD_MOD := by
+        unfold FormalYul.WORD_MOD
+        omega
+  have hShlRem : FormalYul.evmShl 86 (rem % 2 ^ 86) =
+      (rem % 2 ^ 86) * 2 ^ 86 := by
+    rw [FormalYul.Preservation.evmShl_eq_of_lt 86 (rem % 2 ^ 86) (by omega) hRemLoW,
+      Nat.mod_eq_of_lt hProdRemW]
+  have hLtLo :
+      FormalYul.evmLt ((eps3 % 2 ^ 86) * rHi) ((rem % 2 ^ 86) * 2 ^ 86) =
+        if (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86 then 1 else 0 :=
+    FormalYul.Preservation.evmLt_eq_of_lt _ _ hProdEpsW hProdRemW
+  have hBoolAnd :
+      FormalYul.evmAnd
+        (if eps3 / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0)
+        (if (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86 then 1 else 0) =
+      (if eps3 / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0) &&&
+        (if (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86 then 1 else 0) := by
+    rw [FormalYul.Preservation.evmAnd_eq_of_lt]
+    · split <;> unfold FormalYul.WORD_MOD <;> omega
+    · split <;> unfold FormalYul.WORD_MOD <;> omega
+  have hAndLe : ((if eps3 / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0) &&&
+      (if (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86 then 1 else 0)) ≤ 1 := by
+    exact cbrt512_natAnd_le_one _ _
+      (by split <;> omega)
+      (by split <;> omega)
+  have hBoolOr :
+      FormalYul.evmOr
+        (if eps3 / 2 ^ 86 < rem / 2 ^ 86 then 1 else 0)
+        (((if eps3 / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0) &&&
+          (if (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86 then 1 else 0))) =
+      ((if eps3 / 2 ^ 86 < rem / 2 ^ 86 then 1 else 0) |||
+        (((if eps3 / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0) &&&
+          (if (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86 then 1 else 0)))) := by
+    rw [FormalYul.Preservation.evmOr_eq_of_lt]
+    · split <;> unfold FormalYul.WORD_MOD <;> omega
+    · unfold FormalYul.WORD_MOD
+      omega
+  dsimp [eps3] at hShrEps hShrRem hLtHi hEqHi hAndEps hAndRem hMulLo hShlRem hLtLo hBoolAnd hBoolOr
+  unfold cbrt512QCInc
+  dsimp
+  rw [hShrEps, hShrRem, hLtHi, hEqHi, hAndEps, hAndRem, hMulLo,
+    hShlRem, hLtLo, hBoolAnd, hBoolOr]
+
+private theorem cbrt512QCInc_zero_rem_bound (rHi rLo rem : Nat)
+    (hrHi : rHi < FormalYul.WORD_MOD) (hrLo : rLo < FormalYul.WORD_MOD)
+    (hrem : rem < FormalYul.WORD_MOD)
+    (hrHiPos : 2 ≤ rHi)
+    (hrHiBound : rHi < 2 ^ 85)
+    (hrLoBound : rLo < 2 ^ 87)
+    (hremSmall : rem < 3 * (rHi * rHi))
+    (hinc : cbrt512QCInc rHi rLo rem = 0) :
+    let R := rHi * 2 ^ 86
+    let eps := rLo * rLo % R
+    rem * 2 ^ 172 ≤ 3 * R * (eps + R - rHi * rHi) := by
+  simp only
+  let R := rHi * 2 ^ 86
+  let eps := rLo * rLo % R
+  let eps3 := eps * 3
+  have hsplit := cbrt512QCInc_eq_split rHi rLo rem hrHi hrLo hrem
+    hrHiPos hrHiBound hrLoBound
+  have hincSplit :
+      ((if eps3 / 2 ^ 86 < rem / 2 ^ 86 then 1 else 0) |||
+        ((if eps3 / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0) &&&
+          (if (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86 then 1 else 0))) =
+        0 := by
+    simpa [R, eps, eps3, hsplit] using hinc
+  have hcases := cbrt512_qc_check_zero_cases eps3 rem rHi hincSplit
+  have hrHiLe86 : rHi ≤ 2 ^ 86 :=
+    Nat.le_trans (Nat.le_of_lt hrHiBound)
+      (Nat.pow_le_pow_right (by omega) (by omega : 85 ≤ 86))
+  have hremLeEps3 : rem ≤ eps3 := by
+    rcases hcases with hHi | ⟨hEq, hLo⟩
+    · exact Nat.le_of_lt (cbrt512_div_lt_implies_lt rem eps3 hHi)
+    · exact cbrt512_split_limb_le_implies_le rem eps3 rHi hrHiLe86 hEq hLo
+  have hremSmallLe : rem ≤ 3 * (rHi * rHi) := Nat.le_of_lt hremSmall
+  have hpowSplit :
+      2 ^ 172 = rHi * 2 ^ 86 + 2 ^ 86 * (2 ^ 86 - rHi) := by
+    calc 2 ^ 172 = 2 ^ 86 * 2 ^ 86 := by
+          rw [show (172 : Nat) = 86 + 86 from rfl, Nat.pow_add]
+      _ = 2 ^ 86 * (rHi + (2 ^ 86 - rHi)) := by rw [Nat.add_sub_of_le hrHiLe86]
+      _ = 2 ^ 86 * rHi + 2 ^ 86 * (2 ^ 86 - rHi) := by rw [Nat.mul_add]
+      _ = rHi * 2 ^ 86 + 2 ^ 86 * (2 ^ 86 - rHi) := by rw [Nat.mul_comm]
+  have htarget :
+      eps3 * (rHi * 2 ^ 86) +
+        (3 * (rHi * rHi)) * (2 ^ 86 * (2 ^ 86 - rHi)) =
+        3 * (rHi * 2 ^ 86) * (eps + (rHi * 2 ^ 86 - rHi * rHi)) := by
+    have hgap : rHi * 2 ^ 86 - rHi * rHi = rHi * (2 ^ 86 - rHi) := by
+      rw [Nat.mul_sub_left_distrib]
+    rw [hgap]
+    have hfirst : eps3 * (rHi * 2 ^ 86) =
+        3 * (rHi * 2 ^ 86) * eps := by
+      dsimp [eps3]
+      ac_rfl
+    have hsecond :
+        (3 * (rHi * rHi)) * (2 ^ 86 * (2 ^ 86 - rHi)) =
+          3 * (rHi * 2 ^ 86) * (rHi * (2 ^ 86 - rHi)) := by
+      ac_rfl
+    rw [hfirst, hsecond, ← Nat.mul_add]
+  have hrSqLeR : rHi * rHi ≤ rHi * 2 ^ 86 :=
+    Nat.mul_le_mul_left _ hrHiLe86
+  calc rem * 2 ^ 172
+      = rem * (rHi * 2 ^ 86) + rem * (2 ^ 86 * (2 ^ 86 - rHi)) := by
+          rw [hpowSplit, Nat.mul_add]
+    _ ≤ eps3 * (rHi * 2 ^ 86) +
+        (3 * (rHi * rHi)) * (2 ^ 86 * (2 ^ 86 - rHi)) := by
+          exact Nat.add_le_add
+            (Nat.mul_le_mul_right _ hremLeEps3)
+            (Nat.mul_le_mul_right _ hremSmallLe)
+    _ = 3 * (rHi * 2 ^ 86) *
+        (eps + (rHi * 2 ^ 86 - rHi * rHi)) := htarget
+    _ = 3 * (rHi * 2 ^ 86) *
+        (eps + rHi * 2 ^ 86 - rHi * rHi) := by
+          rw [show eps + (rHi * 2 ^ 86 - rHi * rHi) =
+              eps + rHi * 2 ^ 86 - rHi * rHi from by
+            simpa using (Nat.add_sub_assoc hrSqLeR eps).symm]
+
+private theorem cbrt512QCInc_one_rem_product (rHi rLo rem : Nat)
+    (hrHi : rHi < FormalYul.WORD_MOD) (hrLo : rLo < FormalYul.WORD_MOD)
+    (hrem : rem < FormalYul.WORD_MOD)
+    (hrHiPos : 2 ≤ rHi)
+    (hrHiBound : rHi < 2 ^ 85)
+    (hrLoBound : rLo < 2 ^ 87)
+    (hinc : cbrt512QCInc rHi rLo rem = 1) :
+    let R := rHi * 2 ^ 86
+    let eps3 := (rLo * rLo % R) * 3
+    eps3 * R ≤ rem * 2 ^ 172 := by
+  simp only
+  let R := rHi * 2 ^ 86
+  let eps3 := (rLo * rLo % R) * 3
+  have hsplit := cbrt512QCInc_eq_split rHi rLo rem hrHi hrLo hrem
+    hrHiPos hrHiBound hrLoBound
+  let a := if eps3 / 2 ^ 86 < rem / 2 ^ 86 then 1 else 0
+  let b := if eps3 / 2 ^ 86 = rem / 2 ^ 86 then 1 else 0
+  let c := if (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86 then 1 else 0
+  have hcheck : a ||| (b &&& c) = 1 := by
+    dsimp [a, b, c]
+    simpa [R, eps3, hsplit] using hinc
+  have hcases := cbrt512_or_and_eq_one_cases a b c
+    (by dsimp [a]; split <;> omega)
+    (by dsimp [b]; split <;> omega)
+    (by dsimp [c]; split <;> omega)
+    hcheck
+  have hrHiLe86 : rHi ≤ 2 ^ 86 :=
+    Nat.le_trans (Nat.le_of_lt hrHiBound)
+      (Nat.pow_le_pow_right (by omega) (by omega : 85 ≤ 86))
+  rcases hcases with hHi | ⟨hEq, hLo⟩
+  · have hlt : eps3 / 2 ^ 86 < rem / 2 ^ 86 := by
+      dsimp [a] at hHi
+      simpa using hHi
+    have hfull : eps3 < rem := cbrt512_div_lt_implies_lt eps3 rem hlt
+    exact Nat.le_trans
+      (Nat.mul_le_mul_right _ (Nat.le_of_lt hfull))
+      (Nat.mul_le_mul_left _ (by omega : R ≤ 2 ^ 172))
+  · have hEq86 : eps3 / 2 ^ 86 = rem / 2 ^ 86 := by
+      dsimp [b] at hEq
+      simpa using hEq
+    have hLoLt : (eps3 % 2 ^ 86) * rHi < (rem % 2 ^ 86) * 2 ^ 86 := by
+      dsimp [c] at hLo
+      simpa using hLo
+    exact cbrt512_split_limb_lt_implies_prod_le eps3 rem rHi hrHiLe86 hEq86 hLoLt
+
+private theorem cbrt512QuadraticCorrection_eq_nat_gt (rHi rLo rem : Nat)
+    (hrHi : rHi < FormalYul.WORD_MOD) (hrLo : rLo < FormalYul.WORD_MOD)
+    (hrHiPos : 2 ≤ rHi)
+    (hrHiBound : rHi < 2 ^ 85)
+    (hrLoBound : rLo < 2 ^ 87)
+    (hcgt : rLo * rLo / (rHi * 2 ^ 86) > 1) :
+    cbrt512QuadraticCorrection rHi rLo rem =
+      rHi * 2 ^ 86 + rLo - rLo * rLo / (rHi * 2 ^ 86) +
+        cbrt512QCInc rHi rLo rem := by
+  obtain ⟨_, _, hRW, _, _, hcLe, _, _, _, _, _, _, _, _, _, _, _, _⟩ :=
+    cbrt512_qc_setup rHi rLo hrHi hrLo hrHiPos hrHiBound hrLoBound
+  have hcorr := cbrt512QuadraticCorrection_eq_gt rHi rLo rem
+    hrHi hrLo hrHiPos hrHiBound hrLoBound hcgt
+  have hRLocW : rLo - rLo * rLo / (rHi * 2 ^ 86) < FormalYul.WORD_MOD :=
+    Nat.lt_of_le_of_lt (Nat.sub_le _ _) hrLo
+  have hIncLe := cbrt512QCInc_le_one rHi rLo rem
+  have hIncW : cbrt512QCInc rHi rLo rem < FormalYul.WORD_MOD := by
+    unfold FormalYul.WORD_MOD
+    omega
+  have hInnerW :
+      rLo - rLo * rLo / (rHi * 2 ^ 86) + cbrt512QCInc rHi rLo rem <
+        FormalYul.WORD_MOD := by
+    unfold FormalYul.WORD_MOD at hrLo ⊢
+    omega
+  have hInner :
+      FormalYul.evmAdd (rLo - rLo * rLo / (rHi * 2 ^ 86))
+        (cbrt512QCInc rHi rLo rem) =
+      rLo - rLo * rLo / (rHi * 2 ^ 86) + cbrt512QCInc rHi rLo rem :=
+    FormalYul.Preservation.evmAdd_eq_of_lt _ _ hRLocW hIncW hInnerW
+  have hOuterW :
+      rHi * 2 ^ 86 +
+        (rLo - rLo * rLo / (rHi * 2 ^ 86) + cbrt512QCInc rHi rLo rem) <
+        FormalYul.WORD_MOD := by
+    unfold FormalYul.WORD_MOD at hrHi hrLo ⊢
+    omega
+  have hOuter :
+      FormalYul.evmAdd (rHi * 2 ^ 86)
+        (rLo - rLo * rLo / (rHi * 2 ^ 86) + cbrt512QCInc rHi rLo rem) =
+      rHi * 2 ^ 86 +
+        (rLo - rLo * rLo / (rHi * 2 ^ 86) + cbrt512QCInc rHi rLo rem) :=
+    FormalYul.Preservation.evmAdd_eq_of_lt _ _ hRW hInnerW hOuterW
+  rw [hcorr, hInner, hOuter]
+  omega
+
+private theorem cbrt512QuadraticCorrection_eq_nat_not_gt (rHi rLo rem : Nat)
+    (hrHi : rHi < FormalYul.WORD_MOD) (hrLo : rLo < FormalYul.WORD_MOD)
+    (hrHiPos : 2 ≤ rHi)
+    (hrHiBound : rHi < 2 ^ 85)
+    (hrLoBound : rLo < 2 ^ 87)
+    (hcgt : ¬ rLo * rLo / (rHi * 2 ^ 86) > 1) :
+    cbrt512QuadraticCorrection rHi rLo rem =
+      rHi * 2 ^ 86 + rLo - rLo * rLo / (rHi * 2 ^ 86) := by
+  obtain ⟨_, _, hRW, _, _, hcLe, _, _, _, _, _, _, _, _, _, _, _, _⟩ :=
+    cbrt512_qc_setup rHi rLo hrHi hrLo hrHiPos hrHiBound hrLoBound
+  have hcorr := cbrt512QuadraticCorrection_eq_not_gt rHi rLo rem
+    hrHi hrLo hrHiPos hrHiBound hrLoBound hcgt
+  have hRLocW : rLo - rLo * rLo / (rHi * 2 ^ 86) < FormalYul.WORD_MOD :=
+    Nat.lt_of_le_of_lt (Nat.sub_le _ _) hrLo
+  have hInner :
+      FormalYul.evmAdd (rLo - rLo * rLo / (rHi * 2 ^ 86)) 0 =
+      rLo - rLo * rLo / (rHi * 2 ^ 86) := by
+    rw [FormalYul.Preservation.evmAdd_eq_of_lt]
+    · omega
+    · exact hRLocW
+    · exact FormalYul.Preservation.zero_lt_word
+    · simpa using hRLocW
+  have hOuterW :
+      rHi * 2 ^ 86 + (rLo - rLo * rLo / (rHi * 2 ^ 86)) <
+        FormalYul.WORD_MOD := by
+    unfold FormalYul.WORD_MOD at hrHi hrLo ⊢
+    omega
+  have hOuter :
+      FormalYul.evmAdd (rHi * 2 ^ 86) (rLo - rLo * rLo / (rHi * 2 ^ 86)) =
+      rHi * 2 ^ 86 + (rLo - rLo * rLo / (rHi * 2 ^ 86)) :=
+    FormalYul.Preservation.evmAdd_eq_of_lt _ _ hRW hRLocW hOuterW
+  rw [hcorr, hInner, hOuter]
+  omega
+
 private def cbrt512GeneratedCoreResult (xHi xLo : Nat) : Nat :=
   let shiftedHi := cbrt512ShiftedHi xHi xLo
   let shiftedLo := cbrt512ShiftedLo xHi xLo
@@ -3665,6 +4083,221 @@ private theorem cbrt512GeneratedCoreResult_lt_word (xHi xLo : Nat) :
     cbrt512GeneratedCoreResult xHi xLo < FormalYul.WORD_MOD := by
   unfold cbrt512GeneratedCoreResult
   exact FormalYul.Preservation.evmShr_lt_WORD_MOD _ _
+
+private theorem cbrt512QuadraticCorrection_lt_word (rHi rLo rem : Nat) :
+    cbrt512QuadraticCorrection rHi rLo rem < FormalYul.WORD_MOD := by
+  unfold cbrt512QuadraticCorrection
+  exact FormalYul.Preservation.evmAdd_lt_WORD_MOD _ _
+
+private theorem cbrt512_icbrt_le_of_succ_cube_gt (x r : Nat)
+    (h : x < (r + 1) * (r + 1) * (r + 1)) :
+    icbrt x ≤ r := by
+  by_contra hle
+  have hsucc : r + 1 ≤ icbrt x := Nat.succ_le_of_lt (Nat.lt_of_not_ge hle)
+  have hcube := cube_monotone hsucc
+  have hroot := icbrt_cube_le x
+  omega
+
+private theorem cbrt512_le_icbrt_of_cube_lt (x r : Nat)
+    (h : r * r * r < x) :
+    r ≤ icbrt x := by
+  by_contra hle
+  have hsucc : icbrt x + 1 ≤ r := Nat.succ_le_of_lt (Nat.lt_of_not_ge hle)
+  have hcube := cube_monotone hsucc
+  have hroot := icbrt_lt_succ_cube x
+  omega
+
+private def cbrt512NormalizedRootBounds (x r : Nat) : Prop :=
+  r * r * r < FormalYul.WORD_MOD * FormalYul.WORD_MOD ∧
+    icbrt x ≤ r ∧ r ≤ icbrt x + 1 ∧ r < FormalYul.WORD_MOD
+
+private def cbrt512RootBounds (x r : Nat) : Prop :=
+  r * r * r < FormalYul.WORD_MOD * FormalYul.WORD_MOD ∧
+    icbrt x ≤ r ∧ r ≤ icbrt x + 1
+
+private theorem cbrt512GeneratedNormalizedCore_bounds (shiftedHi shiftedLo : Nat)
+    (hHiLo : 2 ^ 253 ≤ shiftedHi)
+    (hHi : shiftedHi < FormalYul.WORD_MOD)
+    (hLo : shiftedLo < FormalYul.WORD_MOD) :
+    let out := cbrt512KaratsubaOut shiftedHi shiftedLo
+    let r1 := cbrt512QuadraticCorrection (cbrt512BaseR shiftedHi) out.1 out.2
+    let xNorm := shiftedHi * FormalYul.WORD_MOD + shiftedLo
+    cbrt512NormalizedRootBounds xNorm r1 := by
+  simp only
+  let m := icbrt (shiftedHi / 4)
+  let res := shiftedHi / 4 - m * m * m
+  let d := 3 * (m * m)
+  let limbHi := (shiftedHi % 4) * 2 ^ 84 + shiftedLo / 2 ^ 172
+  let rLo := (res * 2 ^ 86 + limbHi) / d
+  let rem := (res * 2 ^ 86 + limbHi) % d
+  let R := m * 2 ^ 86
+  let c := rLo * rLo / R
+  let rQc := R + rLo - c
+  let xNorm := shiftedHi * FormalYul.WORD_MOD + shiftedLo
+  have hbase := cbrt512BaseCaseCore_correct shiftedHi hHiLo hHi
+  simp only at hbase
+  obtain ⟨hBaseR, _, _, hmLo, hmHi, _, hresBound, hmW, _, _, hdW, hdPos⟩ := hbase
+  have hlimb := _root_.cbrt512_limb_hi_correct shiftedHi shiftedLo hHi hLo
+  simp only at hlimb
+  have hlimbEq :
+      FormalYul.evmOr (FormalYul.evmShl 84 (FormalYul.evmAnd 3 shiftedHi))
+          (FormalYul.evmShr 172 shiftedLo) = limbHi := by
+    simpa [limbHi] using hlimb.1
+  have hlimbBound : limbHi < 2 ^ 86 := by
+    rw [← hlimbEq]
+    exact hlimb.2.1
+  have hrLoBound : rLo < 2 ^ 87 := by
+    dsimp [rLo, res, limbHi, d]
+    rw [Nat.div_lt_iff_lt_mul hdPos]
+    calc (shiftedHi / 4 - m * m * m) * 2 ^ 86 +
+          (shiftedHi % 4 * 2 ^ 84 + shiftedLo / 2 ^ 172)
+        < ((shiftedHi / 4 - m * m * m) + 1) * 2 ^ 86 := by
+          omega
+      _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by
+          exact Nat.mul_le_mul_right _ (Nat.succ_le_succ hresBound)
+      _ ≤ (2 * (3 * (m * m))) * 2 ^ 86 := by
+          apply Nat.mul_le_mul_right
+          have h2m : 2 * m ≤ m * m := Nat.mul_le_mul_right m (by omega)
+          omega
+      _ = 2 ^ 87 * (3 * (m * m)) := by
+          rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
+            rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]
+          omega
+  have hrLoW : rLo < FormalYul.WORD_MOD := by
+    unfold FormalYul.WORD_MOD
+    omega
+  have hremSmall : rem < 3 * (m * m) := by
+    dsimp [rem, d]
+    exact Nat.mod_lt _ hdPos
+  have hremW : rem < FormalYul.WORD_MOD := Nat.lt_trans hremSmall hdW
+  have hkar := cbrt512KaratsubaOut_correct shiftedHi shiftedLo hHiLo hHi hLo
+  have hk1 : (cbrt512KaratsubaOut shiftedHi shiftedLo).1 = rLo := hkar.1
+  have hk2 : (cbrt512KaratsubaOut shiftedHi shiftedLo).2 = rem := hkar.2
+  rw [hBaseR, hk1, hk2]
+  generalize hr1def : cbrt512QuadraticCorrection m rLo rem = r1
+  change cbrt512NormalizedRootBounds xNorm r1
+  have hr1W : r1 < FormalYul.WORD_MOD :=
+    hr1def ▸ cbrt512QuadraticCorrection_lt_word m rLo rem
+  have hprops := _root_.cbrt512_r_qc_properties shiftedHi shiftedLo hHiLo hHi hLo
+  simp only at hprops
+  have hpropsLocal :
+      icbrt xNorm ≤ rQc + 1 ∧ rQc ≤ icbrt xNorm + 1 ∧
+      rQc * rQc * rQc < FormalYul.WORD_MOD * FormalYul.WORD_MOD ∧
+      (rQc * rQc * rQc > xNorm →
+        icbrt xNorm * icbrt xNorm * icbrt xNorm < xNorm) := by
+    simpa [xNorm, rQc, c, R, rLo, d, res, limbHi] using hprops
+  have hmPos : 2 ≤ m := _root_.two_le_of_pow83_le m hmLo
+  by_cases hcGt : c > 1
+  · let inc := cbrt512QCInc m rLo rem
+    have hcorr : cbrt512QuadraticCorrection m rLo rem = R + rLo - c + inc := by
+      simpa [R, c, inc] using
+        cbrt512QuadraticCorrection_eq_nat_gt m rLo rem hmW hrLoW hmPos hmHi hrLoBound
+          (by simpa [c, R] using hcGt)
+    have hr1Eq : r1 = rQc + inc := by
+      rw [← hr1def]; exact hcorr
+    have hincLe : inc ≤ 1 := by
+      simpa [inc] using cbrt512QCInc_le_one m rLo rem
+    have hincCases : inc = 0 ∨ inc = 1 := by omega
+    rcases hincCases with hinc0 | hinc1
+    · have hremBound :=
+        cbrt512QCInc_zero_rem_bound m rLo rem hmW hrLoW hremW hmPos hmHi hrLoBound
+          hremSmall (by simpa [inc] using hinc0)
+      have hsucc :=
+        _root_.cbrt512_qc_no_increment_c_gt_one_of_rem_bound_succ_cube_gt
+          shiftedHi shiftedLo hHiLo hHi hLo
+          (by simpa [c, R, rLo, d, res, limbHi] using hcGt)
+          (by simpa [R, rLo, rem, d, res, limbHi, c] using hremBound)
+      have hsuccLocal : xNorm < (rQc + 1) * (rQc + 1) * (rQc + 1) := by
+        simpa [xNorm, rQc, c, R, rLo, d, res, limbHi] using hsucc
+      have hlo : icbrt xNorm ≤ rQc := cbrt512_icbrt_le_of_succ_cube_gt xNorm rQc hsuccLocal
+      have hr1Eq0 : r1 = rQc := by omega
+      have hr1W0 : rQc < FormalYul.WORD_MOD := by
+        simpa [hr1Eq0] using hr1W
+      rw [hr1Eq0]
+      unfold cbrt512NormalizedRootBounds
+      exact ⟨hpropsLocal.2.2.1, hlo, hpropsLocal.2.1, hr1W0⟩
+    · have hunder :=
+        cbrt512QCInc_one_rem_product m rLo rem hmW hrLoW hremW hmPos hmHi hrLoBound
+          (by simpa [inc] using hinc1)
+      have hunderLocal : (rLo * rLo % R) * 3 * R ≤ rem * 2 ^ 172 := by
+        simpa [R, Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm] using hunder
+      have hincMath :=
+        _root_.cbrt512_qc_increment_of_undershoot_bound shiftedHi shiftedLo hHiLo hHi hLo
+          (by simpa [c, R, rLo, d, res, limbHi] using hcGt)
+          (by simpa [R, rLo, rem, d, res, limbHi] using hunderLocal)
+      have hincLocal :
+          rQc * rQc * rQc < xNorm ∧
+          (rQc + 1) * (rQc + 1) * (rQc + 1) <
+            FormalYul.WORD_MOD * FormalYul.WORD_MOD := by
+        simpa [xNorm, rQc, c, R, rLo, d, res, limbHi] using hincMath
+      have hrqcLe : rQc ≤ icbrt xNorm :=
+        cbrt512_le_icbrt_of_cube_lt xNorm rQc hincLocal.1
+      have hr1Eq1 : r1 = rQc + 1 := by omega
+      have hr1W1 : rQc + 1 < FormalYul.WORD_MOD := by
+        simpa [hr1Eq1] using hr1W
+      rw [hr1Eq1]
+      unfold cbrt512NormalizedRootBounds
+      exact ⟨hincLocal.2, hpropsLocal.1, by omega, hr1W1⟩
+  · have hcorr : cbrt512QuadraticCorrection m rLo rem = R + rLo - c := by
+      simpa [R, c] using
+        cbrt512QuadraticCorrection_eq_nat_not_gt m rLo rem hmW hrLoW hmPos hmHi hrLoBound
+          (by simpa [c, R] using hcGt)
+    have hr1Eq : r1 = rQc := by
+      rw [← hr1def]; exact hcorr
+    have hcLe1 : c ≤ 1 := by omega
+    have hsucc :=
+      _root_.cbrt512_qc_no_increment_c_le_one_succ_cube_gt shiftedHi shiftedLo hHiLo hHi hLo
+        (by simpa [c, R, rLo, d, res, limbHi] using hcLe1)
+    have hsuccLocal : xNorm < (rQc + 1) * (rQc + 1) * (rQc + 1) := by
+      simpa [xNorm, rQc, c, R, rLo, d, res, limbHi] using hsucc
+    have hlo : icbrt xNorm ≤ rQc := cbrt512_icbrt_le_of_succ_cube_gt xNorm rQc hsuccLocal
+    have hr1W0 : rQc < FormalYul.WORD_MOD := by
+      simpa [hr1Eq] using hr1W
+    rw [hr1Eq]
+    unfold cbrt512NormalizedRootBounds
+    exact ⟨hpropsLocal.2.2.1, hlo, hpropsLocal.2.1, hr1W0⟩
+
+private theorem cbrt512GeneratedCoreResult_bounds (xHi xLo : Nat)
+    (hxHi : xHi < FormalYul.WORD_MOD) (hxLo : xLo < FormalYul.WORD_MOD)
+    (hxHiPos : 0 < xHi) :
+    cbrt512RootBounds (xHi * FormalYul.WORD_MOD + xLo)
+      (cbrt512GeneratedCoreResult xHi xLo) := by
+  let k := FormalYul.evmClz xHi / 3
+  have hpair := cbrt512_shifted_pair_correct xHi xLo hxHiPos hxHi hxLo
+  simp only at hpair
+  obtain ⟨hReconMod, hShiftedHiLo, hShiftedHi, hShiftedLo⟩ := hpair
+  have hNoOverflow := _root_.cbrt512_norm_no_overflow xHi xLo hxHiPos hxHi hxLo
+  have hRecon :
+      cbrt512ShiftedHi xHi xLo * FormalYul.WORD_MOD + cbrt512ShiftedLo xHi xLo =
+        (xHi * FormalYul.WORD_MOD + xLo) * 2 ^ (3 * k) := by
+    rw [hReconMod, Nat.mod_eq_of_lt]
+    simpa [k] using hNoOverflow
+  have hnorm := cbrt512GeneratedNormalizedCore_bounds
+    (cbrt512ShiftedHi xHi xLo) (cbrt512ShiftedLo xHi xLo)
+    hShiftedHiLo hShiftedHi hShiftedLo
+  simp only at hnorm
+  unfold cbrt512NormalizedRootBounds at hnorm
+  obtain ⟨hcubeNorm, hloNorm, hhiNorm, hcorrW⟩ := hnorm
+  rw [hRecon] at hloNorm hhiNorm
+  have hshiftNorm := _root_.cbrt512_evm_normalization_correct xHi xLo hxHiPos hxHi hxLo
+  simp only at hshiftNorm
+  have hshiftEq : cbrt512CoreShift xHi = k := by
+    simpa [cbrt512CoreShift, k] using hshiftNorm.1
+  have hkLt : k < 256 := by
+    have hk86 := _root_.cbrt512_shift_lt_86 xHi hxHiPos hxHi
+    simpa [k] using Nat.lt_trans hk86 (by omega : 86 < 256)
+  rw [show cbrt512GeneratedCoreResult xHi xLo
+        = FormalYul.evmShr (cbrt512CoreShift xHi)
+            (cbrt512QuadraticCorrection (cbrt512BaseR (cbrt512ShiftedHi xHi xLo))
+              (cbrt512KaratsubaOut (cbrt512ShiftedHi xHi xLo) (cbrt512ShiftedLo xHi xLo)).1
+              (cbrt512KaratsubaOut (cbrt512ShiftedHi xHi xLo) (cbrt512ShiftedLo xHi xLo)).2)
+        from rfl]
+  rw [hshiftEq, FormalYul.Preservation.evmShr_eq_of_lt k _ hkLt hcorrW]
+  have hdenorm := _root_.Cbrt512Spec.within_1ulp_denorm
+    (xHi * FormalYul.WORD_MOD + xLo) k _ hloNorm hhiNorm
+  unfold cbrt512RootBounds
+  refine ⟨?_, hdenorm.1, hdenorm.2⟩
+  exact Nat.lt_of_le_of_lt (cube_monotone (Nat.div_le_self _ _)) hcubeNorm
 
 private theorem call_fun__cbrt_baseCase_core_raw_result_direct
     (xHi fuel : Nat) (shared : EvmYul.SharedState .Yul)
@@ -5520,66 +6153,6 @@ private theorem call_fun_cbrt512_high_from0_of_core_direct
     FormalYul.Preservation.wordNat_ofNat]
   simp [hfloor.symm]
 
-private theorem call_fun_cbrt512_high_from0_generated_of_bounds_direct
-    (xHi xLo fuel : Nat) (shared : EvmYul.SharedState .Yul)
-    (store : EvmYul.Yul.VarStore)
-    (hlookup :
-      shared.accountMap.find? shared.executionEnv.codeOwner =
-        some (FormalYul.accountFor yulContract))
-    (hactive : shared.toMachineState.activeWords = FormalYul.word 3)
-    (hxHi : xHi < FormalYul.WORD_MOD) (hxLo : xLo < FormalYul.WORD_MOD)
-    (hxHiPos : 0 < xHi)
-    (hcube :
-      cbrt512GeneratedCoreResult xHi xLo *
-        cbrt512GeneratedCoreResult xHi xLo *
-        cbrt512GeneratedCoreResult xHi xLo <
-          FormalYul.WORD_MOD * FormalYul.WORD_MOD)
-    (hwithin :
-      icbrt (xHi * FormalYul.WORD_MOD + xLo) ≤ cbrt512GeneratedCoreResult xHi xLo ∧
-        cbrt512GeneratedCoreResult xHi xLo ≤
-          icbrt (xHi * FormalYul.WORD_MOD + xLo) + 1) :
-    EvmYul.Yul.call (fuel + 1000) [FormalYul.word 0]
-      (.some yulName_fun_cbrt512) (.some yulContract)
-      (EvmYul.Yul.State.Ok (sharedAfterFrom0 shared xHi xLo) store) =
-    .ok (EvmYul.Yul.State.Ok (sharedAfterFrom0 shared xHi xLo) store,
-      [FormalYul.word (icbrt (xHi * FormalYul.WORD_MOD + xLo))]) := by
-  apply call_fun_cbrt512_high_from0_of_core_direct
-    (xHi := xHi) (xLo := xLo) (r := cbrt512GeneratedCoreResult xHi xLo)
-    (fuel := fuel) (shared := shared) (store := store)
-    (hlookup := hlookup) (hactive := hactive)
-    (hxHi := hxHi) (hxLo := hxLo) (hxHiPos := hxHiPos)
-    (hr := cbrt512GeneratedCoreResult_lt_word xHi xLo)
-    (hcube := hcube) (hwithin := hwithin)
-  let zeroStore :=
-    Finmap.insert "var_x_4994" (EvmYul.UInt256.ofNat 0)
-      (Inhabited.default : EvmYul.Yul.VarStore)
-  let intoStore :=
-    Finmap.insert "expr_5004_self" (EvmYul.UInt256.ofNat 0)
-      (Finmap.insert "expr_5003" (EvmYul.UInt256.ofNat 0)
-        (Finmap.insert "_16" (EvmYul.UInt256.ofNat 0)
-          (Finmap.insert "var_r_4997" (EvmYul.UInt256.ofNat 0)
-            (Finmap.insert "zero_t_uint256_15" (EvmYul.UInt256.ofNat 0)
-              zeroStore))))
-  let convertStore :=
-    Finmap.insert "expr_5008" (EvmYul.UInt256.ofNat 0)
-      (Finmap.insert "expr_5007" (EvmYul.UInt256.ofNat xHi)
-        (Finmap.insert "_17" (EvmYul.UInt256.ofNat xHi)
-          (Finmap.insert "var_x_lo_5002" (EvmYul.UInt256.ofNat xLo)
-            (Finmap.insert "var_x_hi_5000" (EvmYul.UInt256.ofNat xHi)
-              (Finmap.insert "expr_5005_component_1" (EvmYul.UInt256.ofNat xHi)
-                (Finmap.insert "expr_5005_component_2" (EvmYul.UInt256.ofNat xLo)
-                  intoStore))))))
-  let coreStore :=
-    Finmap.insert "expr_5019" (EvmYul.UInt256.ofNat xLo)
-      (Finmap.insert "_20" (EvmYul.UInt256.ofNat xLo)
-        (Finmap.insert "expr_5018" (EvmYul.UInt256.ofNat xHi)
-          (Finmap.insert "_19" (EvmYul.UInt256.ofNat xHi)
-            (Finmap.insert "expr_5009" (EvmYul.UInt256.ofNat 0) convertStore))))
-  simpa [zeroStore, intoStore, convertStore, coreStore] using
-    call_fun__cbrt512_raw_generated_core_result_direct
-      (xHi := xHi) (xLo := xLo) (fuel := fuel)
-      (shared := sharedAfterFrom0 shared xHi xLo) (store := coreStore)
-      (hlookup := sharedAfterFrom0_lookup shared xHi xLo hlookup)
 
 private theorem call_fun_cbrtUp512_zero_from0_direct
     (xLo fuel : Nat) (shared : EvmYul.SharedState .Yul)
@@ -5950,7 +6523,7 @@ private theorem call_fun_wrap_cbrt512_high_of_core_direct
     hzero, htmp, hfrom, hcbrt, paramStore, tmpStore, fromStore, cbrtStore,
     FormalYul.word, Finmap.lookup_insert, Finmap.lookup_insert_of_ne]
 
-private theorem call_fun_wrap_cbrt512_high_generated_of_bounds_direct
+private theorem call_fun_wrap_cbrt512_high_direct
     (xHi xLo fuel : Nat) (shared : EvmYul.SharedState .Yul)
     (store : EvmYul.Yul.VarStore)
     (hlookup :
@@ -5958,28 +6531,21 @@ private theorem call_fun_wrap_cbrt512_high_generated_of_bounds_direct
         some (FormalYul.accountFor yulContract))
     (hactive : shared.toMachineState.activeWords = FormalYul.word 3)
     (hxHi : xHi < FormalYul.WORD_MOD) (hxLo : xLo < FormalYul.WORD_MOD)
-    (hxHiPos : 0 < xHi)
-    (hcube :
-      cbrt512GeneratedCoreResult xHi xLo *
-        cbrt512GeneratedCoreResult xHi xLo *
-        cbrt512GeneratedCoreResult xHi xLo <
-          FormalYul.WORD_MOD * FormalYul.WORD_MOD)
-    (hwithin :
-      icbrt (xHi * FormalYul.WORD_MOD + xLo) ≤ cbrt512GeneratedCoreResult xHi xLo ∧
-        cbrt512GeneratedCoreResult xHi xLo ≤
-          icbrt (xHi * FormalYul.WORD_MOD + xLo) + 1) :
+    (hxHiPos : 0 < xHi) :
     EvmYul.Yul.call (fuel + 1300) [FormalYul.word xHi, FormalYul.word xLo]
       (.some yulName_fun_wrap_cbrt512) (.some yulContract)
       (EvmYul.Yul.State.Ok shared store) =
     .ok (EvmYul.Yul.State.Ok (sharedAfterFrom0 shared xHi xLo) store,
       [FormalYul.word (icbrt (xHi * FormalYul.WORD_MOD + xLo))]) := by
+  obtain ⟨hcube, hlo, hhi⟩ :=
+    cbrt512GeneratedCoreResult_bounds xHi xLo hxHi hxLo hxHiPos
   apply call_fun_wrap_cbrt512_high_of_core_direct
     (xHi := xHi) (xLo := xLo) (r := cbrt512GeneratedCoreResult xHi xLo)
     (fuel := fuel) (shared := shared) (store := store)
     (hlookup := hlookup) (hactive := hactive)
     (hxHi := hxHi) (hxLo := hxLo) (hxHiPos := hxHiPos)
     (hr := cbrt512GeneratedCoreResult_lt_word xHi xLo)
-    (hcube := hcube) (hwithin := hwithin)
+    (hcube := hcube) (hwithin := ⟨hlo, hhi⟩)
   let zeroStore :=
     Finmap.insert "var_x_4994" (EvmYul.UInt256.ofNat 0)
       (Inhabited.default : EvmYul.Yul.VarStore)
@@ -6703,104 +7269,6 @@ private theorem call_shift_right_224_unsigned_direct
       (by simpa [cbrtUp512SharedAfterFreePtr_calldata] using hread)
   simpa [EvmYul.fromBytesBigEndian, EvmYul.fromBytes', FormalYul.word] using hselector
 
-private theorem external_fun_wrap_cbrt512_zero_calldata_halts_999989
-    (xLo : Nat) (store : EvmYul.Yul.VarStore) :
-    ∃ state value,
-      EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_cbrt512) (.some yulContract)
-        (EvmYul.Yul.State.Ok (cbrt512SharedAfterFreePtr 0 xLo) store) =
-        .error (.YulHalt state value) ∧
-      FormalYul.resultWord (FormalYul.returnOf state) =
-        .ok (floorCbrt (FormalYul.u256 xLo)) := by
-  rw [EvmYul.Yul.call.eq_def]
-  simp only [
-    cbrt512SharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
-    lookup_external_fun_wrap_cbrt512]
-  simp only [yulFunction_external_fun_wrap_cbrt512, yulFunction_external_fun_wrap_cbrt512_6227,
-    FormalYul.Preservation.functionDefinition_params_def,
-    FormalYul.Preservation.functionDefinition_rets_def,
-    FormalYul.Preservation.functionDefinition_body_def,
-    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
-  let ret := floorCbrt (FormalYul.u256 xLo)
-  let paramStore : EvmYul.Yul.VarStore :=
-    Finmap.insert "param_0" (FormalYul.word 0)
-      (Finmap.insert "param_1" (FormalYul.word xLo)
-        (Inhabited.default : EvmYul.Yul.VarStore))
-  let baseStore : EvmYul.Yul.VarStore :=
-    Finmap.insert "ret_0" (FormalYul.word ret) paramStore
-  let wrapShared := sharedAfterFrom0 (cbrt512SharedAfterFreePtr 0 xLo) 0 xLo
-  let memPos :=
-    ((EvmYul.Yul.State.Ok wrapShared baseStore).toMachineState.mload
-      (FormalYul.word 64)).1
-  let memShared :=
-    { wrapShared with
-      toMachineState :=
-        ((EvmYul.Yul.State.Ok wrapShared baseStore).toMachineState.mload
-          (FormalYul.word 64)).2 }
-  let encStore := Finmap.insert "memPos" memPos baseStore
-  have hdecode :=
-    call_abi_decode_tuple_t_uint256t_uint256_selector_two_args_of_calldata
-      (a := 0xa8) (b := 0x3a) (c := 0x5c) (d := 0x08)
-      (xHi := 0) (xLo := xLo) (fuel := 999824)
-      (shared := cbrt512SharedAfterFreePtr 0 xLo)
-      (store := (Inhabited.default : EvmYul.Yul.VarStore))
-      (hlookup := cbrt512SharedAfterFreePtr_lookup 0 xLo)
-      (hdata := by
-        rw [cbrt512SharedAfterFreePtr_calldata]
-        rfl)
-  simp [FormalYul.word] at hdecode
-  have hwrap :=
-    call_fun_wrap_cbrt512_zero_direct (xLo := xLo) (fuel := 998683)
-      (shared := cbrt512SharedAfterFreePtr 0 xLo) (store := paramStore)
-      (hlookup := cbrt512SharedAfterFreePtr_lookup 0 xLo)
-      (hactive := cbrt512SharedAfterFreePtr_activeWords 0 xLo)
-  simp [FormalYul.word, yulName_fun_wrap_cbrt512, paramStore] at hwrap
-  have halloc :=
-    call_allocate_unbounded_direct (fuel := 999952) (shared := wrapShared)
-      (store := baseStore)
-      (hlookup := sharedAfterFrom0_lookup (cbrt512SharedAfterFreePtr 0 xLo) 0 xLo
-        (cbrt512SharedAfterFreePtr_lookup 0 xLo))
-  simp [FormalYul.word, baseStore, paramStore, ret, wrapShared] at halloc
-  have hencode :=
-    call_abi_encode_tuple_t_uint256__to_t_uint256__fromStack_direct
-      (pos := memPos) (value := FormalYul.word ret) (fuel := 999861)
-      (shared := memShared) (store := encStore)
-      (hlookup := by
-        simp [memShared, wrapShared,
-          sharedAfterFrom0_lookup (cbrt512SharedAfterFreePtr 0 xLo) 0 xLo
-            (cbrt512SharedAfterFreePtr_lookup 0 xLo)])
-  simp [FormalYul.word, memShared, encStore, memPos, baseStore, paramStore, ret,
-    wrapShared] at hencode
-  simp +decide [EvmYul.Yul.execCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
-    EvmYul.Yul.evalTail.eq_def,
-    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.executionEnv,
-    GetElem?.getElem!, decidableGetElem?,
-    EvmYul.Yul.State.instGetElemIdentifierLiteralMemVarStoreStore,
-    EvmYul.Yul.State.store,
-    EvmYul.Yul.State.toMachineState, FormalYul.returnOf,
-    Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
-    hdecode, hwrap, halloc, hencode]
-  have hresult := FormalYul.Preservation.resultWord_evmReturn_mstore_word
-    (((sharedAfterFrom0 (cbrt512SharedAfterFreePtr 0 xLo) 0 xLo).mload
-      (EvmYul.UInt256.ofNat 64)).2)
-    (((sharedAfterFrom0 (cbrt512SharedAfterFreePtr 0 xLo) 0 xLo).mload
-      (EvmYul.UInt256.ofNat 64)).1)
-    (EvmYul.UInt256.ofNat (floorCbrt (FormalYul.u256 xLo)))
-  simp [FormalYul.word] at hresult
-  rw [hresult]
-  have hnat :
-      (EvmYul.UInt256.ofNat (floorCbrt (FormalYul.u256 xLo))).toNat =
-        floorCbrt (FormalYul.u256 xLo) := by
-    change FormalYul.wordNat (EvmYul.UInt256.ofNat (floorCbrt (FormalYul.u256 xLo))) =
-      floorCbrt (FormalYul.u256 xLo)
-    exact (FormalYul.Preservation.wordNat_ofNat (floorCbrt (FormalYul.u256 xLo))).trans
-      (FormalYul.Preservation.u256_eq_of_lt _
-        (floorCbrt_lt_word (FormalYul.u256 xLo)
-          (Nat.mod_lt xLo (by unfold WORD_MOD; exact Nat.two_pow_pos 256))))
-  rw [hnat]
 
 private theorem external_fun_wrap_cbrtUp512_zero_calldata_halts_999989
     (xLo : Nat) (store : EvmYul.Yul.VarStore) :
@@ -6902,114 +7370,6 @@ private theorem external_fun_wrap_cbrtUp512_zero_calldata_halts_999989
           (Nat.mod_lt xLo (by unfold WORD_MOD; exact Nat.two_pow_pos 256))))
   rw [hnat]
 
-private theorem dispatcherReturn_cbrt512_zero
-    (xLo : Nat) (haltState : EvmYul.Yul.State) (haltValue : EvmYul.Literal)
-    (hhalt :
-      EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_cbrt512) (.some yulContract)
-        (EvmYul.Yul.State.Ok (cbrt512SharedAfterFreePtr 0 xLo)
-          (Finmap.insert "selector" (FormalYul.word 2822396936)
-            (Inhabited.default : EvmYul.Yul.VarStore))) =
-        .error (.YulHalt haltState haltValue)) :
-    FormalYul.Preservation.DispatcherReturn yulContract
-      (FormalYul.calldata selector_cbrt512 [0, xLo]) 999998 (FormalYul.returnOf haltState) := by
-  let start := FormalYul.stateFor yulContract
-    (FormalYul.calldata selector_cbrt512 [0, xLo])
-  let afterFreePtr : EvmYul.Yul.State :=
-    EvmYul.Yul.State.Ok (cbrt512SharedAfterFreePtr 0 xLo)
-      (Inhabited.default : EvmYul.Yul.VarStore)
-  let afterSelector : EvmYul.Yul.State :=
-    EvmYul.Yul.State.Ok (cbrt512SharedAfterFreePtr 0 xLo)
-      (Finmap.insert "selector" (FormalYul.word 2822396936)
-        (Inhabited.default : EvmYul.Yul.VarStore))
-  apply FormalYul.Preservation.dispatcherReturn_of_execReturn
-    (hdispatcher := yulContract_dispatcher)
-  simpa [start, afterFreePtr, afterSelector, yulDispatcher, FormalYul.calldata,
-      yulName_external_fun_wrap_cbrt512, yulName_external_fun_wrap_cbrtUp512] using
-    (FormalYul.Preservation.execReturn_block_if_switch_selected_call_nil
-      (fuel := 999989)
-      (first :=
-        EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call
-            (Sum.inl (EvmYul.Operation.StackMemFlow EvmYul.Operation.SMSFOp.MSTORE))
-            [EvmYul.Yul.Ast.Expr.Lit (EvmYul.UInt256.ofNat 64),
-              EvmYul.Yul.Ast.Expr.Lit (EvmYul.UInt256.ofNat 128)]))
-      (fallback :=
-        EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call
-            (Sum.inr "revert_error_42b3090547df1d2001c96683413b8cf91c1b902ef5e3cb8d9f6f304cf7446f74")
-            []))
-      (letStmt :=
-        EvmYul.Yul.Ast.Stmt.Let ["selector"]
-          (some
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "shift_right_224_unsigned")
-              [EvmYul.Yul.Ast.Expr.Call
-                (Sum.inl (EvmYul.Operation.Env EvmYul.Operation.EOp.CALLDATALOAD))
-                [EvmYul.Yul.Ast.Expr.Lit (EvmYul.UInt256.ofNat 0)]])))
-      (ifCond :=
-        EvmYul.Yul.Ast.Expr.Call
-          (Sum.inl (EvmYul.Operation.CompBit EvmYul.Operation.CBLOp.ISZERO))
-          [EvmYul.Yul.Ast.Expr.Call
-            (Sum.inl (EvmYul.Operation.CompBit EvmYul.Operation.CBLOp.LT))
-            [EvmYul.Yul.Ast.Expr.Call
-              (Sum.inl (EvmYul.Operation.Env EvmYul.Operation.EOp.CALLDATASIZE)) [],
-              EvmYul.Yul.Ast.Expr.Lit (EvmYul.UInt256.ofNat 4)]])
-      (switchCond := EvmYul.Yul.Ast.Expr.Var "selector")
-      (cases :=
-        [(FormalYul.word 2080592636,
-            [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-              (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_cbrtUp512) [])]),
-          (FormalYul.word 2822396936,
-            [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-              (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_cbrt512) [])])])
-      (defaultStmts := [])
-      (fn := yulName_external_fun_wrap_cbrt512)
-      (code := .some yulContract)
-      (start := start)
-      (afterFirst := afterFreePtr)
-      (branchStart := afterFreePtr)
-      (afterLet := afterSelector)
-      (switchStart := afterSelector)
-      (condValue := FormalYul.word 1)
-      (selector := FormalYul.word 2822396936)
-      (result := FormalYul.returnOf haltState)
-      (hfirst := by
-        simp +decide [start, afterFreePtr, FormalYul.stateFor, FormalYul.calldata,
-          EvmYul.Yul.execPrimCall.eq_def,
-          EvmYul.Yul.reverse', EvmYul.Yul.cons',
-          EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
-          EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-          EvmYul.Yul.State.toMachineState,
-          sharedFor_inherited_mstore_mk_eq_cbrt512SharedAfterFreePtr_raw])
-      (hcond := by
-        simp +decide [afterFreePtr,
-          EvmYul.Yul.evalPrimCall.eq_def,
-          EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head',
-          EvmYul.Yul.evalTail.eq_def,
-          EvmYul.Yul.State.executionEnv, FormalYul.word,
-          cbrt512SharedAfterFreePtr_calldata, cbrt512_calldata_size])
-      (hcondNe := by decide)
-      (hlet := by
-        have hselector :
-            ((EvmYul.Yul.State.Ok (cbrt512SharedAfterFreePtr 0 xLo)
-                (Inhabited.default : EvmYul.Yul.VarStore)).toState.calldataload
-                (EvmYul.UInt256.ofNat 0)).shiftRight
-              (EvmYul.UInt256.ofNat 224) =
-              EvmYul.UInt256.ofNat 2822396936 := by
-          simpa [FormalYul.word] using cbrt512_selector_afterFreePtr 0 xLo
-        simp +decide [afterFreePtr, afterSelector,
-          EvmYul.Yul.execCall.eq_def,
-          EvmYul.Yul.evalPrimCall.eq_def,
-          EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head',
-          EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
-          EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-          FormalYul.word, call_shift_right_224_unsigned_direct,
-          hselector])
-      (hswitchEval := by
-        simp [afterSelector])
-      (hselect := by
-        rfl)
-      (hcall := by
-        exact ⟨haltState, haltValue, hhalt, rfl⟩))
 
 private theorem dispatcherReturn_cbrtUp512_zero
     (xLo : Nat) (haltState : EvmYul.Yul.State) (haltValue : EvmYul.Literal)
@@ -7122,33 +7482,6 @@ private theorem dispatcherReturn_cbrtUp512_zero
       (hcall := by
         exact ⟨haltState, haltValue, hhalt, rfl⟩))
 
-theorem run_cbrt512_wrapper_evm_zero_hi_eq_icbrt
-    (xLo : Nat) :
-    run_cbrt512_wrapper_evm 0 xLo =
-      .ok (icbrt (FormalYul.u256 xLo)) := by
-  let selectorStore :=
-    Finmap.insert "selector" (FormalYul.word 2822396936)
-      (Inhabited.default : EvmYul.Yul.VarStore)
-  obtain ⟨haltState, haltValue, hhalt, hresult⟩ :=
-    external_fun_wrap_cbrt512_zero_calldata_halts_999989 xLo selectorStore
-  have hReturn :
-      FormalYul.Preservation.DispatcherReturn yulContract
-        (FormalYul.calldata selector_cbrt512 [0, xLo]) 999998
-        (FormalYul.returnOf haltState) :=
-    dispatcherReturn_cbrt512_zero xLo haltState haltValue (by
-      simpa [selectorStore] using hhalt)
-  have hcall :
-      run_cbrt512_wrapper_evm 0 xLo =
-        .ok (floorCbrt (FormalYul.u256 xLo)) := by
-    unfold run_cbrt512_wrapper_evm
-    exact FormalYul.Preservation.callWord_ok_of_dispatcherReturn_result_1000000
-      (contract := yulContract) (selector := selector_cbrt512) (args := [0, xLo])
-      (hReturn := hReturn) hresult
-  have hfloor :
-      floorCbrt (FormalYul.u256 xLo) = icbrt (FormalYul.u256 xLo) :=
-    floorCbrt_correct_u256_eq_all (FormalYul.u256 xLo)
-      (Nat.mod_lt xLo (by unfold WORD_MOD; exact Nat.two_pow_pos 256))
-  simpa [hfloor] using hcall
 
 theorem run_cbrtUp512_wrapper_evm_zero_hi_eq_cbrtUp512
     (xLo : Nat) :
@@ -7203,5 +7536,299 @@ theorem cbrtUp512_uint512_correct (xHi xLo : Nat) :
   exact cbrtUp512_correct
     (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo)
     (uint512_lt_512 xHi xLo)
+
+
+
+private theorem cbrt512_word_eq_word_u256 (x : Nat) :
+    FormalYul.word x = FormalYul.word (FormalYul.u256 x) := by
+  apply FormalYul.Preservation.eq_of_wordNat_eq
+  rw [FormalYul.Preservation.wordNat_word, FormalYul.Preservation.wordNat_word,
+    FormalYul.u256_u256]
+
+private theorem cbrt512_icbrt_lt_word_of_lt_512 (y : Nat) (hy : y < 2 ^ 512) :
+    icbrt y < FormalYul.WORD_MOD := by
+  unfold FormalYul.WORD_MOD
+  by_contra hge
+  have hge' : 2 ^ 256 ≤ icbrt y := Nat.le_of_not_lt hge
+  have hcube := icbrt_cube_le y
+  have hmul :
+      (2 ^ 256) * (2 ^ 256) * (2 ^ 256) ≤ icbrt y * icbrt y * icbrt y :=
+    Nat.mul_le_mul (Nat.mul_le_mul hge' hge') hge'
+  have h768 : (2 : Nat) ^ 256 * 2 ^ 256 * 2 ^ 256 = 2 ^ 768 := by
+    rw [← Nat.pow_add, ← Nat.pow_add]
+  have hle768 : (2 : Nat) ^ 768 ≤ y := by omega
+  have hlt : (2 : Nat) ^ 512 < 2 ^ 768 := by
+    apply Nat.pow_lt_pow_right (by omega)
+    omega
+  omega
+
+private theorem call_fun_wrap_cbrt512_direct
+    (xHi xLo fuel : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract))
+    (hactive : shared.toMachineState.activeWords = FormalYul.word 3) :
+    EvmYul.Yul.call (fuel + 1300) [FormalYul.word xHi, FormalYul.word xLo]
+      (.some yulName_fun_wrap_cbrt512) (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok (sharedAfterFrom0 shared xHi xLo) store,
+      [FormalYul.word (icbrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo))]) := by
+  have hHiW : FormalYul.u256 xHi < FormalYul.WORD_MOD :=
+    Nat.mod_lt xHi (by unfold FormalYul.WORD_MOD; exact Nat.two_pow_pos 256)
+  have hLoW : FormalYul.u256 xLo < FormalYul.WORD_MOD :=
+    Nat.mod_lt xLo (by unfold FormalYul.WORD_MOD; exact Nat.two_pow_pos 256)
+  by_cases hz : FormalYul.u256 xHi = 0
+  · have hw0 : FormalYul.word xHi = FormalYul.word 0 := by
+      apply FormalYul.Preservation.eq_of_wordNat_eq
+      rw [FormalYul.Preservation.wordNat_word, FormalYul.Preservation.wordNat_word,
+        hz, FormalYul.u256_zero]
+    have hshared : sharedAfterFrom0 shared xHi xLo = sharedAfterFrom0 shared 0 xLo := by
+      unfold sharedAfterFrom0; rw [hw0]
+    rw [hw0, hshared,
+      call_fun_wrap_cbrt512_zero_direct xLo fuel shared store hlookup hactive]
+    have hfloor : floorCbrt (FormalYul.u256 xLo) = icbrt (FormalYul.u256 xLo) :=
+      floorCbrt_correct_u256_eq_all (FormalYul.u256 xLo) hLoW
+    have hx :
+        FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo = FormalYul.u256 xLo := by
+      rw [hz]; ring
+    rw [hfloor, hx]
+  · have hpos : 0 < FormalYul.u256 xHi := Nat.pos_of_ne_zero hz
+    have hshared :
+        sharedAfterFrom0 shared xHi xLo
+          = sharedAfterFrom0 shared (FormalYul.u256 xHi) (FormalYul.u256 xLo) := by
+      unfold sharedAfterFrom0
+      rw [cbrt512_word_eq_word_u256 xHi, cbrt512_word_eq_word_u256 xLo]
+    rw [cbrt512_word_eq_word_u256 xHi, cbrt512_word_eq_word_u256 xLo, hshared,
+      call_fun_wrap_cbrt512_high_direct (FormalYul.u256 xHi) (FormalYul.u256 xLo)
+        fuel shared store hlookup hactive hHiW hLoW hpos]
+    simp only [FormalYul.WORD_MOD]
+
+private theorem external_fun_wrap_cbrt512_calldata_halts_999989
+    (xHi xLo : Nat) (store : EvmYul.Yul.VarStore) :
+    ∃ state value,
+      EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_cbrt512) (.some yulContract)
+        (EvmYul.Yul.State.Ok (cbrt512SharedAfterFreePtr xHi xLo) store) =
+        .error (.YulHalt state value) ∧
+      FormalYul.resultWord (FormalYul.returnOf state) =
+        .ok (icbrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo)) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [
+    cbrt512SharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
+    lookup_external_fun_wrap_cbrt512]
+  simp only [yulFunction_external_fun_wrap_cbrt512, yulFunction_external_fun_wrap_cbrt512_6227,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  let ret := icbrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo)
+  let paramStore : EvmYul.Yul.VarStore :=
+    Finmap.insert "param_0" (FormalYul.word xHi)
+      (Finmap.insert "param_1" (FormalYul.word xLo)
+        (Inhabited.default : EvmYul.Yul.VarStore))
+  let baseStore : EvmYul.Yul.VarStore :=
+    Finmap.insert "ret_0" (FormalYul.word ret) paramStore
+  let wrapShared := sharedAfterFrom0 (cbrt512SharedAfterFreePtr xHi xLo) xHi xLo
+  let memPos :=
+    ((EvmYul.Yul.State.Ok wrapShared baseStore).toMachineState.mload
+      (FormalYul.word 64)).1
+  let memShared :=
+    { wrapShared with
+      toMachineState :=
+        ((EvmYul.Yul.State.Ok wrapShared baseStore).toMachineState.mload
+          (FormalYul.word 64)).2 }
+  let encStore := Finmap.insert "memPos" memPos baseStore
+  have hdecode :=
+    call_abi_decode_tuple_t_uint256t_uint256_selector_two_args_of_calldata
+      (a := 0xa8) (b := 0x3a) (c := 0x5c) (d := 0x08)
+      (xHi := xHi) (xLo := xLo) (fuel := 999824)
+      (shared := cbrt512SharedAfterFreePtr xHi xLo)
+      (store := (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := cbrt512SharedAfterFreePtr_lookup xHi xLo)
+      (hdata := by
+        rw [cbrt512SharedAfterFreePtr_calldata]
+        rfl)
+  simp [FormalYul.word] at hdecode
+  have hwrap :=
+    call_fun_wrap_cbrt512_direct (xHi := xHi) (xLo := xLo) (fuel := 998683)
+      (shared := cbrt512SharedAfterFreePtr xHi xLo) (store := paramStore)
+      (hlookup := cbrt512SharedAfterFreePtr_lookup xHi xLo)
+      (hactive := cbrt512SharedAfterFreePtr_activeWords xHi xLo)
+  simp [FormalYul.word, yulName_fun_wrap_cbrt512, paramStore] at hwrap
+  have halloc :=
+    call_allocate_unbounded_direct (fuel := 999952) (shared := wrapShared)
+      (store := baseStore)
+      (hlookup := sharedAfterFrom0_lookup (cbrt512SharedAfterFreePtr xHi xLo) xHi xLo
+        (cbrt512SharedAfterFreePtr_lookup xHi xLo))
+  simp [FormalYul.word, baseStore, paramStore, ret, wrapShared] at halloc
+  have hencode :=
+    call_abi_encode_tuple_t_uint256__to_t_uint256__fromStack_direct
+      (pos := memPos) (value := FormalYul.word ret) (fuel := 999861)
+      (shared := memShared) (store := encStore)
+      (hlookup := by
+        simp [memShared, wrapShared,
+          sharedAfterFrom0_lookup (cbrt512SharedAfterFreePtr xHi xLo) xHi xLo
+            (cbrt512SharedAfterFreePtr_lookup xHi xLo)])
+  simp [FormalYul.word, memShared, encStore, memPos, baseStore, paramStore, ret,
+    wrapShared] at hencode
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.executionEnv,
+    GetElem?.getElem!, decidableGetElem?,
+    EvmYul.Yul.State.instGetElemIdentifierLiteralMemVarStoreStore,
+    EvmYul.Yul.State.store,
+    EvmYul.Yul.State.toMachineState, FormalYul.returnOf,
+    Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
+    hdecode, hwrap, halloc, hencode]
+  have hresult := FormalYul.Preservation.resultWord_evmReturn_mstore_word
+    (((sharedAfterFrom0 (cbrt512SharedAfterFreePtr xHi xLo) xHi xLo).mload
+      (EvmYul.UInt256.ofNat 64)).2)
+    (((sharedAfterFrom0 (cbrt512SharedAfterFreePtr xHi xLo) xHi xLo).mload
+      (EvmYul.UInt256.ofNat 64)).1)
+    (EvmYul.UInt256.ofNat (icbrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo)))
+  simp [FormalYul.word] at hresult
+  rw [hresult]
+  have hnat :
+      (EvmYul.UInt256.ofNat (icbrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo))).toNat =
+        icbrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo) := by
+    change FormalYul.wordNat (EvmYul.UInt256.ofNat (icbrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo))) =
+      icbrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo)
+    exact (FormalYul.Preservation.wordNat_ofNat (icbrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo))).trans
+      (FormalYul.Preservation.u256_eq_of_lt _
+        (cbrt512_icbrt_lt_word_of_lt_512 _ (uint512_lt_512 xHi xLo)))
+  exact congrArg Except.ok hnat
+
+private theorem dispatcherReturn_cbrt512
+    (xHi xLo : Nat) (haltState : EvmYul.Yul.State) (haltValue : EvmYul.Literal)
+    (hhalt :
+      EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_cbrt512) (.some yulContract)
+        (EvmYul.Yul.State.Ok (cbrt512SharedAfterFreePtr xHi xLo)
+          (Finmap.insert "selector" (FormalYul.word 2822396936)
+            (Inhabited.default : EvmYul.Yul.VarStore))) =
+        .error (.YulHalt haltState haltValue)) :
+    FormalYul.Preservation.DispatcherReturn yulContract
+      (FormalYul.calldata selector_cbrt512 [xHi, xLo]) 999998 (FormalYul.returnOf haltState) := by
+  let start := FormalYul.stateFor yulContract
+    (FormalYul.calldata selector_cbrt512 [xHi, xLo])
+  let afterFreePtr : EvmYul.Yul.State :=
+    EvmYul.Yul.State.Ok (cbrt512SharedAfterFreePtr xHi xLo)
+      (Inhabited.default : EvmYul.Yul.VarStore)
+  let afterSelector : EvmYul.Yul.State :=
+    EvmYul.Yul.State.Ok (cbrt512SharedAfterFreePtr xHi xLo)
+      (Finmap.insert "selector" (FormalYul.word 2822396936)
+        (Inhabited.default : EvmYul.Yul.VarStore))
+  apply FormalYul.Preservation.dispatcherReturn_of_execReturn
+    (hdispatcher := yulContract_dispatcher)
+  simpa [start, afterFreePtr, afterSelector, yulDispatcher, FormalYul.calldata,
+      yulName_external_fun_wrap_cbrt512, yulName_external_fun_wrap_cbrtUp512] using
+    (FormalYul.Preservation.execReturn_block_if_switch_selected_call_nil
+      (fuel := 999989)
+      (first :=
+        EvmYul.Yul.Ast.Stmt.ExprStmtCall
+          (EvmYul.Yul.Ast.Expr.Call
+            (Sum.inl (EvmYul.Operation.StackMemFlow EvmYul.Operation.SMSFOp.MSTORE))
+            [EvmYul.Yul.Ast.Expr.Lit (EvmYul.UInt256.ofNat 64),
+              EvmYul.Yul.Ast.Expr.Lit (EvmYul.UInt256.ofNat 128)]))
+      (fallback :=
+        EvmYul.Yul.Ast.Stmt.ExprStmtCall
+          (EvmYul.Yul.Ast.Expr.Call
+            (Sum.inr "revert_error_42b3090547df1d2001c96683413b8cf91c1b902ef5e3cb8d9f6f304cf7446f74")
+            []))
+      (letStmt :=
+        EvmYul.Yul.Ast.Stmt.Let ["selector"]
+          (some
+            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "shift_right_224_unsigned")
+              [EvmYul.Yul.Ast.Expr.Call
+                (Sum.inl (EvmYul.Operation.Env EvmYul.Operation.EOp.CALLDATALOAD))
+                [EvmYul.Yul.Ast.Expr.Lit (EvmYul.UInt256.ofNat 0)]])))
+      (ifCond :=
+        EvmYul.Yul.Ast.Expr.Call
+          (Sum.inl (EvmYul.Operation.CompBit EvmYul.Operation.CBLOp.ISZERO))
+          [EvmYul.Yul.Ast.Expr.Call
+            (Sum.inl (EvmYul.Operation.CompBit EvmYul.Operation.CBLOp.LT))
+            [EvmYul.Yul.Ast.Expr.Call
+              (Sum.inl (EvmYul.Operation.Env EvmYul.Operation.EOp.CALLDATASIZE)) [],
+              EvmYul.Yul.Ast.Expr.Lit (EvmYul.UInt256.ofNat 4)]])
+      (switchCond := EvmYul.Yul.Ast.Expr.Var "selector")
+      (cases :=
+        [(FormalYul.word 2080592636,
+            [EvmYul.Yul.Ast.Stmt.ExprStmtCall
+              (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_cbrtUp512) [])]),
+          (FormalYul.word 2822396936,
+            [EvmYul.Yul.Ast.Stmt.ExprStmtCall
+              (EvmYul.Yul.Ast.Expr.Call (Sum.inr yulName_external_fun_wrap_cbrt512) [])])])
+      (defaultStmts := [])
+      (fn := yulName_external_fun_wrap_cbrt512)
+      (code := .some yulContract)
+      (start := start)
+      (afterFirst := afterFreePtr)
+      (branchStart := afterFreePtr)
+      (afterLet := afterSelector)
+      (switchStart := afterSelector)
+      (condValue := FormalYul.word 1)
+      (selector := FormalYul.word 2822396936)
+      (result := FormalYul.returnOf haltState)
+      (hfirst := by
+        simp +decide [start, afterFreePtr, FormalYul.stateFor, FormalYul.calldata,
+          EvmYul.Yul.execPrimCall.eq_def,
+          EvmYul.Yul.reverse', EvmYul.Yul.cons',
+          EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+          EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+          EvmYul.Yul.State.toMachineState,
+          sharedFor_inherited_mstore_mk_eq_cbrt512SharedAfterFreePtr_raw])
+      (hcond := by
+        simp +decide [afterFreePtr,
+          EvmYul.Yul.evalPrimCall.eq_def,
+          EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head',
+          EvmYul.Yul.evalTail.eq_def,
+          EvmYul.Yul.State.executionEnv, FormalYul.word,
+          cbrt512SharedAfterFreePtr_calldata, cbrt512_calldata_size])
+      (hcondNe := by decide)
+      (hlet := by
+        have hselector :
+            ((EvmYul.Yul.State.Ok (cbrt512SharedAfterFreePtr xHi xLo)
+                (Inhabited.default : EvmYul.Yul.VarStore)).toState.calldataload
+                (EvmYul.UInt256.ofNat 0)).shiftRight
+              (EvmYul.UInt256.ofNat 224) =
+              EvmYul.UInt256.ofNat 2822396936 := by
+          simpa [FormalYul.word] using cbrt512_selector_afterFreePtr xHi xLo
+        simp +decide [afterFreePtr, afterSelector,
+          EvmYul.Yul.execCall.eq_def,
+          EvmYul.Yul.evalPrimCall.eq_def,
+          EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head',
+          EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+          EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+          FormalYul.word, call_shift_right_224_unsigned_direct,
+          hselector])
+      (hswitchEval := by
+        simp [afterSelector])
+      (hselect := by
+        rfl)
+      (hcall := by
+        exact ⟨haltState, haltValue, hhalt, rfl⟩))
+
+theorem run_cbrt512_wrapper_evm_eq_icbrt (xHi xLo : Nat) :
+    run_cbrt512_wrapper_evm xHi xLo =
+      .ok (icbrt (FormalYul.u256 xHi * 2 ^ 256 + FormalYul.u256 xLo)) := by
+  let selectorStore :=
+    Finmap.insert "selector" (FormalYul.word 2822396936)
+      (Inhabited.default : EvmYul.Yul.VarStore)
+  obtain ⟨haltState, haltValue, hhalt, hresult⟩ :=
+    external_fun_wrap_cbrt512_calldata_halts_999989 xHi xLo selectorStore
+  have hReturn :
+      FormalYul.Preservation.DispatcherReturn yulContract
+        (FormalYul.calldata selector_cbrt512 [xHi, xLo]) 999998
+        (FormalYul.returnOf haltState) :=
+    dispatcherReturn_cbrt512 xHi xLo haltState haltValue (by
+      simpa [selectorStore] using hhalt)
+  unfold run_cbrt512_wrapper_evm
+  exact FormalYul.Preservation.callWord_ok_of_dispatcherReturn_result_1000000
+    (contract := yulContract) (selector := selector_cbrt512) (args := [xHi, xLo])
+    (hReturn := hReturn) hresult
+
 
 end Cbrt512Yul
