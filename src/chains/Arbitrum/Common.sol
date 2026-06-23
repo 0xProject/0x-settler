@@ -138,10 +138,9 @@ abstract contract ArbitrumMixin is
 
             sellToDodoV1(sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
-            (IERC20 sellToken, bytes memory renegadeData, uint256 minBuyAmount) =
-                abi.decode(data, (IERC20, bytes, uint256));
+            (IERC20 sellToken, bytes memory renegadeData) = abi.decode(data, (IERC20, bytes));
 
-            sellToRenegade(sellToken, renegadeData, minBuyAmount);
+            sellToRenegade(sellToken, renegadeData);
         } else {
             return false;
         }

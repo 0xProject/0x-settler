@@ -11,9 +11,6 @@ import {InvalidRenegadeData, TooMuchSlippage} from "src/core/SettlerErrors.sol";
 abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
     uint256 private constant RECIPIENT_ARG = 1;
     uint256 private constant OUTPUT_TOKEN_ARG = 3;
-    uint256 private constant PRICE_ARG = 4;
-    uint256 private constant MIN_BUY_AMOUNT_ARG = 5;
-    uint256 private constant MAX_BUY_AMOUNT_ARG = 6;
 
     function setUp() public virtual override {
         super.setUp();
@@ -23,15 +20,11 @@ abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
     function _gasSponsor() internal pure virtual returns (address);
     function _txnCalldata() internal pure virtual returns (bytes memory);
 
-    function _buildExecData(bytes memory txnCalldata, uint256 minBuyAmount) internal view returns (bytes memory) {
-        return _buildExecData(txnCalldata, minBuyAmount, 0);
+    function _buildExecData(bytes memory txnCalldata) internal view returns (bytes memory) {
+        return _buildExecData(txnCalldata, 0);
     }
 
-    function _buildExecData(bytes memory txnCalldata, uint256 minBuyAmount, uint256 outerMinAmountOut)
-        internal
-        view
-        returns (bytes memory)
-    {
+    function _buildExecData(bytes memory txnCalldata, uint256 outerMinAmountOut) internal view returns (bytes memory) {
         bytes memory data = txnCalldata;
         assembly ("memory-safe") {
             let len := mload(data)
@@ -50,7 +43,7 @@ abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
                         ISettlerActions.TRANSFER_FROM,
                         (address(settler), defaultERC20PermitTransfer(address(fromToken()), amount(), 0), new bytes(0))
                     ),
-                    abi.encodeCall(ISettlerActions.RENEGADE, (address(fromToken()), data, minBuyAmount))
+                    abi.encodeCall(ISettlerActions.RENEGADE, (address(fromToken()), data))
                 ),
                 bytes32(0)
             )
@@ -58,24 +51,13 @@ abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
     }
 
     // Overwrites ABI arg word `argIndex` in a copy of `cd` (4-byte selector at byte 0).
-    // args: 1=recipient, 4=price, 5=min, 6=max.
+    // args: 1=recipient, 3=internalPartyOutputToken.
     function _mutate(bytes memory cd, uint256 argIndex, uint256 value) internal pure returns (bytes memory out) {
         out = bytes.concat(cd);
         uint256 off = 0x24 + (argIndex * 0x20);
         assembly ("memory-safe") {
             mstore(add(off, out), value)
         }
-    }
-
-    function _readWord(bytes memory cd, uint256 argIndex) internal pure returns (uint256 v) {
-        uint256 off = 0x24 + (argIndex * 0x20);
-        assembly ("memory-safe") {
-            v := mload(add(off, cd))
-        }
-    }
-
-    function _price(bytes memory cd) internal pure returns (uint256) {
-        return _readWord(cd, PRICE_ARG);
     }
 
     function _withRecipient(bytes memory cd, address recipient) internal pure returns (bytes memory) {
@@ -86,16 +68,10 @@ abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
         return _mutate(cd, OUTPUT_TOKEN_ARG, uint256(uint160(address(token))));
     }
 
-    function _withPrice(bytes memory cd, uint256 price) internal pure returns (bytes memory) {
-        return _mutate(cd, PRICE_ARG, price);
-    }
-
-    function _withMinBuyAmount(bytes memory cd, uint256 minBuyAmount) internal pure returns (bytes memory) {
-        return _mutate(cd, MIN_BUY_AMOUNT_ARG, minBuyAmount);
-    }
-
-    function _withMaxBuyAmount(bytes memory cd, uint256 maxBuyAmount) internal pure returns (bytes memory) {
-        return _mutate(cd, MAX_BUY_AMOUNT_ARG, maxBuyAmount);
+    function _exec(bytes memory ahData) internal {
+        deal(address(fromToken()), address(this), amount());
+        fromToken().approve(address(allowanceHolder), amount());
+        allowanceHolder.exec(address(settler), address(fromToken()), amount(), payable(address(settler)), ahData);
     }
 
     function _expectRevert(bytes memory ahData, bytes4 selector) internal {
@@ -105,10 +81,17 @@ abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
         allowanceHolder.exec(address(settler), address(fromToken()), amount(), payable(address(settler)), ahData);
     }
 
-    function _expectSlippageRevert(bytes memory ahData) internal {
+    function testSellToRenegade() public {
+        uint256 balanceBefore = balanceOf(toToken(), address(this));
+        _exec(_buildExecData(_txnCalldata()));
+        assertGt(balanceOf(toToken(), address(this)), balanceBefore);
+    }
+
+    // Slippage is enforced only by the central _checkSlippageAndTransfer against the signed minAmountOut.
+    function testOuterSlippageBinds() public {
+        bytes memory ahData = _buildExecData(_txnCalldata(), type(uint256).max);
         deal(address(fromToken()), address(this), amount());
         fromToken().approve(address(allowanceHolder), amount());
-
         try allowanceHolder.exec(address(settler), address(fromToken()), amount(), payable(address(settler)), ahData) {
             revert("expected TooMuchSlippage revert");
         } catch (bytes memory reason) {
@@ -117,46 +100,24 @@ abstract contract RenegadeIntegrationTest is SettlerBasePairTest {
             assembly ("memory-safe") {
                 revertedToken := mload(add(reason, 0x24))
             }
-            assertEq(address(revertedToken), address(toToken()), "revert should report buyToken, not sellToken");
+            assertEq(address(revertedToken), address(toToken()), "revert should report buyToken");
         }
-    }
-
-    function testSellToRenegade() public {
-        uint256 balanceBefore = balanceOf(toToken(), address(this));
-        bytes memory ahData = _buildExecData(_txnCalldata(), 0);
-        deal(address(fromToken()), address(this), amount());
-        fromToken().approve(address(allowanceHolder), amount());
-        allowanceHolder.exec(address(settler), address(fromToken()), amount(), payable(address(settler)), ahData);
-        assertGt(balanceOf(toToken(), address(this)), balanceBefore);
-    }
-
-    function testSlippageRevertReportsBuyToken() public {
-        _expectSlippageRevert(_buildExecData(_txnCalldata(), type(uint256).max));
     }
 
     function testSellTokenMustMatchRenegadeOutputToken() public {
         bytes memory cd = _withOutputToken(_txnCalldata(), toToken());
-        _expectRevert(_buildExecData(cd, 0), InvalidRenegadeData.selector);
+        _expectRevert(_buildExecData(cd), InvalidRenegadeData.selector);
     }
 
-    function testRecipientMustBeSettlerOrZero() public {
-        bytes memory cd = _withRecipient(_txnCalldata(), address(0xBEEF));
-        _expectRevert(_buildExecData(cd, 0), InvalidRenegadeData.selector);
+    // The settler overrides recipient to itself, so a solver-named recipient is ignored and the
+    // output still reaches the taker via the central transfer.
+    function testRecipientForcedToSettler() public {
+        uint256 balanceBefore = balanceOf(toToken(), address(this));
+        _exec(_buildExecData(_withRecipient(_txnCalldata(), address(0xBEEF))));
+        assertGt(balanceOf(toToken(), address(this)), balanceBefore);
     }
 
-    function testZeroPriceReverts() public {
-        // Zero price and min bound so the price guard reverts, not the bounds check.
-        bytes memory cd = _withMinBuyAmount(_withPrice(_txnCalldata(), 0), 0);
-        _expectRevert(_buildExecData(cd, 0), InvalidRenegadeData.selector);
-    }
-
-    function testBuyAmountBelowMinBoundReverts() public {
-        _expectRevert(
-            _buildExecData(_withMinBuyAmount(_txnCalldata(), type(uint256).max), 0), InvalidRenegadeData.selector
-        );
-    }
-
-    function testBuyAmountAboveMaxBoundReverts() public {
-        _expectRevert(_buildExecData(_withMaxBuyAmount(_txnCalldata(), 1), 0), InvalidRenegadeData.selector);
+    function testShortDataReverts() public {
+        _expectRevert(_buildExecData(new bytes(0x80)), InvalidRenegadeData.selector);
     }
 }

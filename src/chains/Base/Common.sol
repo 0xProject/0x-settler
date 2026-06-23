@@ -109,17 +109,16 @@ abstract contract BaseMixin is
                 sellToUniswapV4(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             } else if (action == uint32(ISettlerActions.BALANCERV3.selector)) {
                 sellToBalancerV3(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
-            } else {
-                // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
+            } else { // if (action == uint32(ISettlerActions.PANCAKE_INFINITY.selector))
                 sellToPancakeInfinity(recipient, sellToken, bps, feeOnTransfer, hashMul, hashMod, fills, amountOutMin);
             }
-            /*
-            } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
-                (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
-                    abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
+        /*
+        } else if (action == uint32(ISettlerActions.EULERSWAP.selector)) {
+            (address recipient, IERC20 sellToken, uint256 bps, IEulerSwap pool, bool zeroForOne, uint256 amountOutMin) =
+                abi.decode(data, (address, IERC20, uint256, IEulerSwap, bool, uint256));
 
-                sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
-            */
+            sellToEulerSwap(recipient, sellToken, bps, pool, zeroForOne, amountOutMin);
+        */
         } else if (action == uint32(ISettlerActions.MAVERICKV2.selector)) {
             (
                 address recipient,
@@ -150,10 +149,9 @@ abstract contract BaseMixin is
 
             sellToDodoV2(recipient, sellToken, bps, dodo, quoteForBase, minBuyAmount);
         } else if (action == uint32(ISettlerActions.RENEGADE.selector)) {
-            (IERC20 sellToken, bytes memory renegadeData, uint256 minBuyAmount) =
-                abi.decode(data, (IERC20, bytes, uint256));
+            (IERC20 sellToken, bytes memory renegadeData) = abi.decode(data, (IERC20, bytes));
 
-            sellToRenegade(sellToken, renegadeData, minBuyAmount);
+            sellToRenegade(sellToken, renegadeData);
         } else if (action == uint32(ISettlerActions.HANJI.selector)) {
             (
                 IERC20 sellToken,

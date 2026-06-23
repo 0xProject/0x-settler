@@ -49,17 +49,4 @@ contract RenegadeBaseIntegrationTest is RenegadeIntegrationTest {
     function _txnCalldata() internal pure virtual override returns (bytes memory) {
         return BASE_TXN_CALLDATA;
     }
-
-    // minBuyAmount == the gross quote passes the pre-call check, so the post-call check (net of
-    // relayer/protocol fees) is what reverts.
-    function testPostCallSlippageRevert() public {
-        uint256 gross = (BASE_AMOUNT << 63) / _price(BASE_TXN_CALLDATA);
-        _expectSlippageRevert(_buildExecData(BASE_TXN_CALLDATA, gross));
-    }
-
-    // Inner minBuyAmount == 0, yet the outer AllowedSlippage still binds against the actual receipt.
-    function testOuterSlippageBindsWhenInnerMinIsZero() public {
-        uint256 gross = (BASE_AMOUNT << 63) / _price(BASE_TXN_CALLDATA);
-        _expectSlippageRevert(_buildExecData(BASE_TXN_CALLDATA, 0, gross));
-    }
 }
