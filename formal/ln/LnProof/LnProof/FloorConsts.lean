@@ -32,15 +32,15 @@ theorem cap2U : capUB (LN2c * 2 ^ 27) QS (2 * (10 ^ 40 + 1)) (10 ^ 40) := by
 theorem cap2L : capLB (LN2c * 2 ^ 27) QS (2 * (10 ^ 40 - 1)) (10 ^ 40) :=
   ⟨40, by decide⟩
 
-/-- `e^(BIASc 2^27 / QS) ≤ (S/10^18)(1 - 3.402e-28)`: the bias keeps almost
-all of its 0.3403-ulp margin through the cap. -/
-theorem capBU : capUB (BIASc * 2 ^ 27) QS (Sc * (10 ^ 31 - 3402))
+/-- `e^(BIASc 2^27 / QS) ≤ (S/10^18)(1 - 3.386e-28)`: the bias keeps almost
+all of its 0.33866-ulp margin through the cap. -/
+theorem capBU : capUB (BIASc * 2 ^ 27) QS (Sc * (10 ^ 31 - 3386))
     (10 ^ 18 * 10 ^ 31) := by
   refine capUB_of_partial (K := 130) QS_pos (by decide) ?_
   decide
 
 /-- `e^(BIASc 2^27 / QS) ≥ (S/10^18)(1 - 3.404e-28)`. -/
-theorem capBL : capLB (BIASc * 2 ^ 27) QS (Sc * (10 ^ 31 - 3404))
+theorem capBL : capLB (BIASc * 2 ^ 27) QS (Sc * (10 ^ 31 - 3387))
     (10 ^ 18 * 10 ^ 31) :=
   ⟨130, by decide⟩
 

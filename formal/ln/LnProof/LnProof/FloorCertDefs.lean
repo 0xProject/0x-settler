@@ -62,7 +62,7 @@ def ltTD2b : List Int := polyScale (2 ^ 99) ltTD2
 
 def KF : Int := 1124000727777607680000
 def KF1 : Int := 25852016738884976640000
-def EUN : Int := 3401
+def EUN : Int := 3385
 def EUD : Int := 10 ^ 31
 
 def certGeUp : List Int :=
