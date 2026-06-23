@@ -2130,6 +2130,34 @@ private theorem call_fun__cbrt_karatsubaQuotient_raw_direct
       Finmap.lookup_insert, Finmap.lookup_insert_of_ne, FormalYul.word,
       paramStore, afterRLoZeroStore, hzeroRLo, hzeroResOut]
 
+private theorem call_fun__cbrt_quadraticCorrection_enters_generated_body
+    (rHi rLo res fuel : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 900) [FormalYul.word rHi, FormalYul.word rLo,
+      FormalYul.word res]
+      (.some yulName_fun__cbrt_quadraticCorrection) (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    (match
+      EvmYul.Yul.exec (fuel + 899)
+        (EvmYul.Yul.Ast.Stmt.Block yulFunction_fun__cbrt_quadraticCorrection.body)
+        (.some yulContract)
+        (EvmYul.Yul.State.mkOk
+          ((EvmYul.Yul.State.Ok shared store).initcall
+            yulFunction_fun__cbrt_quadraticCorrection.params
+            [FormalYul.word rHi, FormalYul.word rLo, FormalYul.word res])) with
+    | .error e => .error e
+    | .ok s₂ =>
+      .ok (s₂.reviveJump.overwrite? (EvmYul.Yul.State.Ok shared store)
+          |>.setStore (EvmYul.Yul.State.Ok shared store),
+        List.map s₂.lookup! yulFunction_fun__cbrt_quadraticCorrection.rets)) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions,
+    lookup_fun__cbrt_quadraticCorrection]
+  rfl
+
 private theorem call_fun__cbrt_baseCase_enters_generated_body
     (xHi fuel : Nat) (shared : EvmYul.SharedState .Yul)
     (store : EvmYul.Yul.VarStore)
