@@ -1146,6 +1146,997 @@ theorem cbrt512_karatsuba_quotient_correct
     · rw [hadd1, haddRem, hmodRem, hnFullDecomp]
       exact (cbrt512_mod_of_mul_add d _ _).symm
 
+private theorem cbrt512_cube_sum_expand (a b : Nat) :
+    (a + b) * (a + b) * (a + b) =
+      a * a * a + 3 * (a * a) * b + 3 * a * (b * b) + b * b * b := by
+  ring_nf
+
+private theorem cbrt512_R_cube_factor (m : Nat) :
+    m * 2 ^ 86 * (m * 2 ^ 86) * (m * 2 ^ 86) = m * m * m * 2 ^ 258 := by
+  have h258 : (2 : Nat) ^ 258 = 2 ^ 86 * (2 ^ 86 * 2 ^ 86) := by
+    rw [show (258 : Nat) = 86 + (86 + 86) from rfl, Nat.pow_add, Nat.pow_add]
+  rw [h258]
+  simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+
+private theorem cbrt512_d_pow172_eq_3R_sq (m : Nat) :
+    3 * (m * m) * 2 ^ 172 = 3 * (m * 2 ^ 86 * (m * 2 ^ 86)) := by
+  have h172 : (2 : Nat) ^ 172 = 2 ^ 86 * 2 ^ 86 := by
+    rw [show (172 : Nat) = 86 + 86 from rfl, Nat.pow_add]
+  rw [h172]
+  simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+
+private theorem cbrt512_x_norm_decomp (xHi xLo m3 : Nat)
+    (hm3_le : m3 ≤ xHi / 4) :
+    xHi * 2 ^ 256 + xLo =
+      m3 * 2 ^ 258 +
+      ((xHi / 4 - m3) * 2 ^ 86 + (xHi % 4 * 2 ^ 84 + xLo / 2 ^ 172)) *
+        2 ^ 172 +
+      xLo % 2 ^ 172 := by
+  have h_xhi := Nat.div_add_mod xHi 4
+  have h_xlo := Nat.div_add_mod xLo (2 ^ 172)
+  have h258 : (2 : Nat) ^ 258 = 2 ^ 86 * 2 ^ 172 := by
+    rw [show (258 : Nat) = 86 + 172 from rfl, Nat.pow_add]
+  have h256 : (2 : Nat) ^ 256 = 2 ^ 84 * 2 ^ 172 := by
+    rw [show (256 : Nat) = 84 + 172 from rfl, Nat.pow_add]
+  have hn_expand :
+      ((xHi / 4 - m3) * 2 ^ 86 + (xHi % 4 * 2 ^ 84 + xLo / 2 ^ 172)) *
+          2 ^ 172 =
+        (xHi / 4 - m3) * (2 ^ 86 * 2 ^ 172) +
+          (xHi % 4 * 2 ^ 84 * 2 ^ 172 + xLo / 2 ^ 172 * 2 ^ 172) := by
+    rw [Nat.add_mul, Nat.mul_assoc, Nat.add_mul, Nat.mul_assoc]
+  rw [hn_expand]
+  simp only [Nat.mul_assoc]
+  rw [← h258, ← h256]
+  omega
+
+private theorem cbrt512_sq_sum_expand (a b : Nat) :
+    (a + b) * (a + b) = a * a + 2 * a * b + b * b := by
+  ring_nf
+
+private theorem cbrt512_mm_sub_B_ge_eight (m B : Nat)
+    (hmm_lo : 2 ^ 166 ≤ m * m)
+    (hB_lt : B < 2 ^ 93) :
+    8 ≤ m * m - B := by
+  omega
+
+private theorem cbrt512_tail_dom_by_mm_gap (R mm B c_tail : Nat)
+    (hR_ge : 2 ^ 169 ≤ R)
+    (hgap : 8 ≤ mm - B)
+    (hctail_lt : c_tail < 2 ^ 172) :
+    3 * R * B + c_tail < 3 * R * mm := by
+  have hB_le_mm : B ≤ mm := by omega
+  have hctail_dom : c_tail < 3 * R * (mm - B) := by
+    calc c_tail < 2 ^ 172 := hctail_lt
+      _ = 8 * 2 ^ 169 := by
+          rw [show (172 : Nat) = 3 + 169 from rfl, Nat.pow_add]
+      _ ≤ 8 * R := Nat.mul_le_mul_left _ hR_ge
+      _ ≤ (3 * (mm - B)) * R := by
+          apply Nat.mul_le_mul_right
+          omega
+      _ = 3 * R * (mm - B) := by
+          simp only [Nat.mul_comm, Nat.mul_left_comm]
+  calc 3 * R * B + c_tail < 3 * R * B + 3 * R * (mm - B) :=
+        Nat.add_lt_add_left hctail_dom _
+    _ = 3 * R * (B + (mm - B)) := by
+        calc 3 * R * B + 3 * R * (mm - B)
+            = R * (B * 3 + (mm - B) * 3) := by
+                simp [Nat.mul_add, Nat.mul_comm, Nat.mul_left_comm]
+          _ = R * ((B + (mm - B)) * 3) := by rw [← Nat.add_mul]
+          _ = 3 * R * (B + (mm - B)) := by
+                simp [Nat.mul_comm, Nat.mul_left_comm]
+    _ = 3 * R * mm := by
+        rw [Nat.add_sub_of_le hB_le_mm]
+
+private theorem cbrt512_correction_le_rlo (rLo R : Nat) (hR_pos : 0 < R)
+    (hR_gt : rLo < R) :
+    rLo * rLo / R ≤ rLo := by
+  cases Nat.eq_or_lt_of_le (Nat.zero_le rLo) with
+  | inl h => rw [← h]; simp
+  | inr h =>
+    exact Nat.le_of_lt ((Nat.div_lt_iff_lt_mul hR_pos).mpr
+      (Nat.mul_lt_mul_of_pos_left hR_gt h))
+
+private theorem cbrt512_base_case_composition_bounds (xHi xLo : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ xHi) (hxhi_hi : xHi < WORD_MOD)
+    (hxlo : xLo < WORD_MOD) :
+    let m := icbrt (xHi / 4)
+    let R := m * 2 ^ 86
+    let d := 3 * (m * m)
+    let limbHi := (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172
+    let rLo := ((xHi / 4 - m * m * m) * 2 ^ 86 + limbHi) / d
+    2 ^ 83 ≤ m ∧ m < 2 ^ 85 ∧ 2 ≤ m ∧ m < WORD_MOD ∧
+    m * m * m ≤ xHi / 4 ∧
+    xHi / 4 - m * m * m ≤ 3 * (m * m) + 3 * m ∧
+    0 < d ∧ d < WORD_MOD ∧
+    2 ^ 169 ≤ R ∧ R < 2 ^ 171 ∧ 0 < R ∧
+    limbHi < 2 ^ 86 ∧ rLo < 2 ^ 87 := by
+  simp only
+  have hbc := cbrt512_base_case_math_bounds xHi hxhi_lo hxhi_hi
+  simp only at hbc
+  obtain ⟨_, _, _, hm_lo, hm_hi, hcube_le, hres_bound, hm_wm,
+          _, _, hd_wm, hd_pos⟩ := hbc
+  let m := icbrt (xHi / 4)
+  have hm_pos : 2 ≤ m := two_le_of_pow83_le m hm_lo
+  have hR_lo : 2 ^ 169 ≤ m * 2 ^ 86 :=
+    calc 2 ^ 169 = 2 ^ 83 * 2 ^ 86 := by rw [← Nat.pow_add]
+      _ ≤ m * 2 ^ 86 := Nat.mul_le_mul_right _ hm_lo
+  have hR_hi : m * 2 ^ 86 < 2 ^ 171 :=
+    calc m * 2 ^ 86
+        < 2 ^ 85 * 2 ^ 86 := Nat.mul_lt_mul_of_pos_right hm_hi (Nat.two_pow_pos 86)
+      _ = 2 ^ 171 := by rw [← Nat.pow_add]
+  have hR_pos : 0 < m * 2 ^ 86 :=
+    Nat.lt_of_lt_of_le (by omega : 0 < 2 ^ 169) hR_lo
+  have hlimb : (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172 < 2 ^ 86 := by
+    have hmod4 : xHi % 4 < 4 := Nat.mod_lt _ (by omega)
+    have hdiv : xLo / 2 ^ 172 < 2 ^ 84 := by
+      rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 172)]
+      calc xLo < WORD_MOD := hxlo
+        _ = 2 ^ 84 * 2 ^ 172 := by
+          unfold WORD_MOD
+          rw [← Nat.pow_add]
+    have hprod : (xHi % 4) * 2 ^ 84 < 2 ^ 86 :=
+      calc (xHi % 4) * 2 ^ 84 < 4 * 2 ^ 84 :=
+              Nat.mul_lt_mul_of_pos_right hmod4 (Nat.two_pow_pos 84)
+        _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+    omega
+  have hrLo_bound :
+      ((xHi / 4 - m * m * m) * 2 ^ 86 +
+        ((xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172)) / (3 * (m * m)) < 2 ^ 87 := by
+    rw [Nat.div_lt_iff_lt_mul hd_pos]
+    calc ((xHi / 4 - m * m * m) * 2 ^ 86 +
+            ((xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172))
+        < ((xHi / 4 - m * m * m) + 1) * 2 ^ 86 := by omega
+      _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by
+          apply Nat.mul_le_mul_right
+          exact Nat.succ_le_succ hres_bound
+      _ ≤ (2 * (3 * (m * m))) * 2 ^ 86 := by
+          apply Nat.mul_le_mul_right
+          have h2m : 2 * m ≤ m * m := Nat.mul_le_mul_right m (by omega)
+          omega
+      _ = 2 ^ 87 * (3 * (m * m)) := by
+          rw [show (2 : Nat) ^ 87 = 2 * 2 ^ 86 from by
+            rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]]
+          omega
+  exact ⟨hm_lo, hm_hi, hm_pos, hm_wm, hcube_le, hres_bound,
+    hd_pos, hd_wm, hR_lo, hR_hi, hR_pos, hlimb, hrLo_bound⟩
+
+set_option exponentiation.threshold 1024 in
+private theorem cbrt512_r_qc_succ2_cube_gt (xHi xLo : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ xHi) (hxhi_hi : xHi < WORD_MOD)
+    (hxlo : xLo < WORD_MOD) :
+    let w := xHi / 4
+    let m := icbrt w
+    let res := w - m * m * m
+    let d := 3 * (m * m)
+    let limbHi := (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172
+    let rLo := (res * 2 ^ 86 + limbHi) / d
+    let R := m * 2 ^ 86
+    let correction := rLo * rLo / R
+    let rQc := R + rLo - correction
+    let xNorm := xHi * 2 ^ 256 + xLo
+    xNorm < (rQc + 2) * (rQc + 2) * (rQc + 2) := by
+  simp only
+  obtain ⟨hm_lo, _, _, _, hcube_le_w, hres_bound,
+          hd_pos, _, hR_lo, _, hR_pos, _, hrLo_bound⟩ :=
+    cbrt512_base_case_composition_bounds xHi xLo hxhi_lo hxhi_hi hxlo
+  let m := icbrt (xHi / 4)
+  let w := xHi / 4
+  let res := w - m * m * m
+  let d := 3 * (m * m)
+  let limbHi := (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172
+  let rLo := (res * 2 ^ 86 + limbHi) / d
+  let R := m * 2 ^ 86
+  let c := rLo * rLo / R
+  let remKq := (res * 2 ^ 86 + limbHi) % d
+  let cTail := xLo % 2 ^ 172
+  have hR_gt_rLo : rLo < R :=
+    Nat.lt_of_lt_of_le hrLo_bound
+      (Nat.le_trans (Nat.pow_le_pow_right (by omega) (by omega : 87 ≤ 169)) hR_lo)
+  have hc_le : c ≤ rLo := cbrt512_correction_le_rlo rLo R hR_pos hR_gt_rLo
+  have hrem_lt : remKq < d := Nat.mod_lt _ hd_pos
+  have hctail_lt : cTail < 2 ^ 172 := Nat.mod_lt _ (Nat.two_pow_pos 172)
+  have hx_decomp := cbrt512_x_norm_decomp xHi xLo (m * m * m) hcube_le_w
+  have hn_full := Nat.div_add_mod (res * 2 ^ 86 + limbHi) d
+  have hrem_ub : remKq * 2 ^ 172 + cTail < d * 2 ^ 172 + 2 ^ 172 := by
+    have := Nat.mul_lt_mul_of_pos_right hrem_lt (Nat.two_pow_pos 172)
+    omega
+  have hx_ub : xHi * 2 ^ 256 + xLo <
+      m * m * m * 2 ^ 258 + d * (rLo + 1) * 2 ^ 172 + 2 ^ 172 := by
+    rw [hx_decomp]
+    have hnum : (res * 2 ^ 86 + limbHi) = d * rLo + remKq := hn_full.symm
+    rw [show ((xHi / 4 - m * m * m) * 2 ^ 86 +
+        (xHi % 4 * 2 ^ 84 + xLo / 2 ^ 172)) = d * rLo + remKq from hnum]
+    have hmul : (d * rLo + remKq) * 2 ^ 172 =
+        d * rLo * 2 ^ 172 + remKq * 2 ^ 172 := Nat.add_mul _ _ _
+    have hnext : d * (rLo + 1) * 2 ^ 172 =
+        d * rLo * 2 ^ 172 + d * 2 ^ 172 := by
+      rw [show d * (rLo + 1) = d * rLo + d * 1 from Nat.mul_add d rLo 1,
+        Nat.mul_one, Nat.add_mul]
+    rw [hmul, hnext]
+    omega
+  have hd_eq_3R2 := cbrt512_d_pow172_eq_3R_sq m
+  have hrqc2_eq : m * 2 ^ 86 + rLo - rLo * rLo / (m * 2 ^ 86) + 2 =
+      R + (rLo - c + 2) := by
+    show R + rLo - c + 2 = R + (rLo - c + 2)
+    omega
+  rw [hrqc2_eq]
+  rw [cbrt512_cube_sum_expand R (rLo - c + 2)]
+  have hR3 := cbrt512_R_cube_factor m
+  suffices h_suff : m * m * m * 2 ^ 258 + d * (rLo + 1) * 2 ^ 172 +
+      2 ^ 172 ≤
+      R * R * R + 3 * (R * R) * (rLo - c + 2) +
+      3 * R * ((rLo - c + 2) * (rLo - c + 2)) +
+      (rLo - c + 2) * (rLo - c + 2) * (rLo - c + 2) from
+    Nat.lt_of_lt_of_le hx_ub h_suff
+  have hs_ge_2 : 2 ≤ rLo - c + 2 := by omega
+  rw [← hR3]
+  have hd_rlo1 : d * (rLo + 1) * 2 ^ 172 = 3 * (R * R) * (rLo + 1) := by
+    show 3 * (m * m) * (rLo + 1) * 2 ^ 172 =
+      3 * (R * R) * (rLo + 1)
+    rw [← hd_eq_3R2]
+    simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+  rw [hd_rlo1]
+  by_cases hc_le1 : c ≤ 1
+  · have hs_ge_rlo1 : rLo + 1 ≤ rLo - c + 2 := by omega
+    have h1 : 3 * (R * R) * (rLo + 1) ≤ 3 * (R * R) * (rLo - c + 2) :=
+      Nat.mul_le_mul_left _ hs_ge_rlo1
+    have hs_sq : 4 ≤ (rLo - c + 2) * (rLo - c + 2) :=
+      Nat.mul_le_mul hs_ge_2 hs_ge_2
+    have h12R : 2 ^ 172 ≤ 12 * R := by
+      calc 2 ^ 172 = 2 * 2 ^ 171 := by
+            rw [show (172 : Nat) = 1 + 171 from rfl, Nat.pow_add]
+        _ ≤ 2 * (6 * R) := Nat.mul_le_mul_left _ (by omega)
+        _ = 12 * R := by omega
+    have h3Rs2 : 2 ^ 172 ≤ 3 * R * ((rLo - c + 2) * (rLo - c + 2)) :=
+      calc 2 ^ 172 ≤ 12 * R := h12R
+        _ = 3 * R * 4 := by omega
+        _ ≤ 3 * R * ((rLo - c + 2) * (rLo - c + 2)) :=
+            Nat.mul_le_mul_left _ hs_sq
+    have step1 : R * R * R + 3 * (R * R) * (rLo + 1) + 2 ^ 172 ≤
+        R * R * R + 3 * (R * R) * (rLo - c + 2) +
+          3 * R * ((rLo - c + 2) * (rLo - c + 2)) :=
+      Nat.add_le_add (Nat.add_le_add (Nat.le_refl _) h1) h3Rs2
+    exact Nat.le_trans step1 (Nat.le_add_right _ _)
+  · have hc_ge2 : 2 ≤ c := by omega
+    have hcR_le : c * R ≤ rLo * rLo := Nat.div_mul_le_self _ _
+    have hc_lt_32 : c < 32 := by
+      have hcR_lt : c * R < 2 ^ 174 := Nat.lt_of_le_of_lt hcR_le
+        (calc rLo * rLo
+            ≤ rLo * 2 ^ 87 := Nat.mul_le_mul_left _ (Nat.le_of_lt hrLo_bound)
+          _ < 2 ^ 87 * 2 ^ 87 :=
+              Nat.mul_lt_mul_of_pos_right hrLo_bound (Nat.two_pow_pos 87)
+          _ = 2 ^ 174 := by rw [← Nat.pow_add])
+      have h174 : (2 : Nat) ^ 174 = 32 * 2 ^ 169 := by
+        rw [show (174 : Nat) = 5 + 169 from rfl, Nat.pow_add]
+      by_cases hc0 : c = 0
+      · omega
+      · exact Nat.lt_of_mul_lt_mul_right
+          (calc c * R < 2 ^ 174 := hcR_lt
+            _ = 32 * 2 ^ 169 := h174
+            _ ≤ 32 * R := Nat.mul_le_mul_left _ hR_lo)
+    have hcr_lt : c * rLo < 2 ^ 92 :=
+      calc c * rLo < 32 * rLo := Nat.mul_lt_mul_of_pos_right hc_lt_32 (by omega)
+        _ ≤ 32 * 2 ^ 87 := Nat.mul_le_mul_left _ (Nat.le_of_lt hrLo_bound)
+        _ = 2 ^ 92 := by rw [show (32 : Nat) = 2 ^ 5 from rfl, ← Nat.pow_add]
+    have h2cr : 2 * c * rLo < R := by
+      calc 2 * c * rLo = 2 * (c * rLo) := Nat.mul_assoc 2 c rLo
+        _ < 2 * 2 ^ 92 := Nat.mul_lt_mul_of_pos_left hcr_lt (by omega)
+        _ = 2 ^ 93 := by rw [show (93 : Nat) = 1 + 92 from rfl, Nat.pow_add]
+        _ ≤ R := Nat.le_trans (Nat.pow_le_pow_right (by omega) (by omega : 93 ≤ 169)) hR_lo
+    have hsq_id : (rLo - c) * (rLo - c) + 2 * c * rLo = rLo * rLo + c * c := by
+      suffices h : (↑((rLo - c) * (rLo - c) + 2 * c * rLo) : Int) =
+          ↑(rLo * rLo + c * c) by exact_mod_cast h
+      push_cast
+      have hsub : (↑(rLo - c) : Int) = ↑rLo - ↑c := by omega
+      rw [hsub]
+      simp only [show (2 : Int) = 1 + 1 from rfl,
+        Int.add_mul, Int.one_mul, Int.sub_mul, Int.mul_sub]
+      simp only [Int.mul_comm]
+      omega
+    have hRc1_R : R * (c - 1) + R ≤ rLo * rLo := by
+      calc R * (c - 1) + R
+          = R * (c - 1) + R * 1 := by rw [Nat.mul_one]
+        _ = R * (c - 1 + 1) := (Nat.mul_add R (c - 1) 1).symm
+        _ = R * c := by congr 1; omega
+        _ = c * R := Nat.mul_comm R c
+        _ ≤ rLo * rLo := hcR_le
+    have hrlc_sq : R * (c - 1) + 1 ≤ (rLo - c) * (rLo - c) := by
+      have : rLo * rLo ≤ (rLo - c) * (rLo - c) + 2 * c * rLo := by
+        rw [hsq_id]
+        omega
+      omega
+    have hs_sq_ge : (rLo - c) * (rLo - c) + 4 ≤ (rLo - c + 2) * (rLo - c + 2) := by
+      have h : (rLo - c + 2) * (rLo - c + 2) =
+          (rLo - c) * (rLo - c) + 4 * (rLo - c) + 4 := by
+        ring_nf
+      omega
+    have hs_sq_bound : R * (c - 1) + 5 ≤ (rLo - c + 2) * (rLo - c + 2) := by
+      omega
+    have h_3R_mul : 3 * R * (R * (c - 1) + 5) ≤
+        3 * R * ((rLo - c + 2) * (rLo - c + 2)) :=
+      Nat.mul_le_mul_left _ hs_sq_bound
+    have h15R : 2 ^ 172 ≤ 15 * R := by
+      calc 2 ^ 172 = 8 * 2 ^ 169 := by
+            rw [show (172 : Nat) = 3 + 169 from rfl, Nat.pow_add]
+        _ ≤ 8 * R := Nat.mul_le_mul_left _ hR_lo
+        _ ≤ 15 * R := Nat.mul_le_mul_right _ (by omega)
+    have hrlo1_split : 3 * (R * R) * (rLo + 1) =
+        3 * (R * R) * (rLo - c + 2) + 3 * (R * R) * (c - 1) := by
+      rw [← Nat.mul_add]
+      congr 1
+      omega
+    rw [hrlo1_split]
+    have hRR_assoc : 3 * (R * R) * (c - 1) = 3 * R * (R * (c - 1)) := by
+      simp only [Nat.mul_assoc, Nat.mul_left_comm]
+    rw [hRR_assoc]
+    have step1 : 3 * R * (R * (c - 1)) + 2 ^ 172 ≤
+        3 * R * (R * (c - 1)) + 15 * R := by omega
+    have step2 : 3 * R * (R * (c - 1)) + 15 * R ≤
+        3 * R * ((rLo - c + 2) * (rLo - c + 2)) := by
+      calc 3 * R * (R * (c - 1)) + 15 * R
+          = 3 * R * (R * (c - 1)) + 3 * R * 5 := by omega
+        _ = 3 * R * (R * (c - 1) + 5) := (Nat.mul_add (3 * R) _ 5).symm
+        _ ≤ 3 * R * ((rLo - c + 2) * (rLo - c + 2)) := h_3R_mul
+    calc R * R * R + (3 * (R * R) * (rLo - c + 2) + 3 * R * (R * (c - 1))) +
+          2 ^ 172
+        ≤ R * R * R + (3 * (R * R) * (rLo - c + 2) +
+            3 * R * ((rLo - c + 2) * (rLo - c + 2))) := by
+          have := Nat.le_trans step1 step2
+          omega
+      _ ≤ R * R * R + 3 * (R * R) * (rLo - c + 2) +
+            3 * R * ((rLo - c + 2) * (rLo - c + 2)) +
+            (rLo - c + 2) * (rLo - c + 2) * (rLo - c + 2) := by omega
+
+private theorem cbrt512_r_qc_pred_cube_le (xHi xLo : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ xHi) (hxhi_hi : xHi < WORD_MOD)
+    (hxlo : xLo < WORD_MOD) :
+    let w := xHi / 4
+    let m := icbrt w
+    let res := w - m * m * m
+    let d := 3 * (m * m)
+    let limbHi := (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172
+    let rLo := (res * 2 ^ 86 + limbHi) / d
+    let R := m * 2 ^ 86
+    let correction := rLo * rLo / R
+    let rQc := R + rLo - correction
+    let xNorm := xHi * 2 ^ 256 + xLo
+    (rQc - 1) * (rQc - 1) * (rQc - 1) ≤ xNorm := by
+  simp only
+  obtain ⟨_, _, _, _, hcube_le_w, _,
+          _, _, hR_lo, _, _, _, _⟩ :=
+    cbrt512_base_case_composition_bounds xHi xLo hxhi_lo hxhi_hi hxlo
+  let m := icbrt (xHi / 4)
+  let w := xHi / 4
+  let res := w - m * m * m
+  let d := 3 * (m * m)
+  let limbHi := (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172
+  let rLo := (res * 2 ^ 86 + limbHi) / d
+  let R := m * 2 ^ 86
+  let c := rLo * rLo / R
+  let remKq := (res * 2 ^ 86 + limbHi) % d
+  have hR_pos : 0 < R := by omega
+  have hcR_lt : rLo * rLo < (c + 1) * R := by
+    show rLo * rLo < (rLo * rLo / R + 1) * R
+    have hdm := Nat.div_add_mod (rLo * rLo) R
+    have hmod_lt := Nat.mod_lt (rLo * rLo) hR_pos
+    calc rLo * rLo
+        = R * (rLo * rLo / R) + rLo * rLo % R := hdm.symm
+      _ < R * (rLo * rLo / R) + R := by omega
+      _ = R * (rLo * rLo / R + 1) := by rw [Nat.mul_add, Nat.mul_one]
+      _ = (rLo * rLo / R + 1) * R := Nat.mul_comm _ _
+  have hx_decomp := cbrt512_x_norm_decomp xHi xLo (m * m * m) hcube_le_w
+  have hn_full := Nat.div_add_mod (res * 2 ^ 86 + limbHi) d
+  have hnum : (res * 2 ^ 86 + limbHi) = d * rLo + remKq := hn_full.symm
+  have hnum_mul : (d * rLo + remKq) * 2 ^ 172 =
+      d * rLo * 2 ^ 172 + remKq * 2 ^ 172 := Nat.add_mul _ _ _
+  have hx_lb : m * m * m * 2 ^ 258 + d * rLo * 2 ^ 172 ≤
+      xHi * 2 ^ 256 + xLo := by
+    rw [hx_decomp]
+    rw [show ((xHi / 4 - m * m * m) * 2 ^ 86 +
+        (xHi % 4 * 2 ^ 84 + xLo / 2 ^ 172)) = d * rLo + remKq from hnum]
+    rw [hnum_mul]
+    omega
+  have hR3 := cbrt512_R_cube_factor m
+  have hd_eq_3R2 := cbrt512_d_pow172_eq_3R_sq m
+  have hx_lb2 : R * R * R + 3 * (R * R) * rLo ≤ xHi * 2 ^ 256 + xLo := by
+    calc R * R * R + 3 * (R * R) * rLo
+        = m * m * m * 2 ^ 258 + 3 * (m * m) * rLo * 2 ^ 172 := by
+          rw [← hR3]
+          show R * R * R + 3 * (R * R) * rLo =
+            R * R * R + 3 * (m * m) * rLo * 2 ^ 172
+          rw [← hd_eq_3R2]
+          simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      _ = m * m * m * 2 ^ 258 + d * rLo * 2 ^ 172 := by rfl
+      _ ≤ xHi * 2 ^ 256 + xLo := hx_lb
+  by_cases hrloc : rLo ≤ c
+  · have hrqc1_le : R + rLo - c - 1 ≤ R - 1 := by omega
+    have hR1_le : R - 1 ≤ R := Nat.sub_le _ _
+    calc (R + rLo - c - 1) * (R + rLo - c - 1) * (R + rLo - c - 1)
+        ≤ (R - 1) * (R - 1) * (R - 1) := cube_monotone hrqc1_le
+      _ ≤ R * R * R :=
+          Nat.mul_le_mul (Nat.mul_le_mul hR1_le hR1_le) hR1_le
+      _ ≤ R * R * R + 3 * (R * R) * rLo := Nat.le_add_right _ _
+      _ ≤ xHi * 2 ^ 256 + xLo := hx_lb2
+  · have hrqc1_eq : R + rLo - c - 1 = R + (rLo - c - 1) := by omega
+    rw [hrqc1_eq, cbrt512_cube_sum_expand R (rLo - c - 1)]
+    suffices h_suff : 3 * (R * R) * (rLo - c - 1) +
+        3 * R * ((rLo - c - 1) * (rLo - c - 1)) +
+        (rLo - c - 1) * (rLo - c - 1) * (rLo - c - 1) ≤
+        3 * (R * R) * rLo from
+      calc R * R * R + 3 * (R * R) * (rLo - c - 1) +
+            3 * R * ((rLo - c - 1) * (rLo - c - 1)) +
+            (rLo - c - 1) * (rLo - c - 1) * (rLo - c - 1)
+          ≤ R * R * R + 3 * (R * R) * rLo := by omega
+        _ ≤ xHi * 2 ^ 256 + xLo := hx_lb2
+    have hrlo_split : 3 * (R * R) * rLo =
+        3 * (R * R) * (rLo - c - 1) + 3 * (R * R) * (c + 1) := by
+      rw [← Nat.mul_add]
+      congr 1
+      omega
+    rw [hrlo_split]
+    suffices h_core : 3 * R * ((rLo - c - 1) * (rLo - c - 1)) +
+        (rLo - c - 1) * (rLo - c - 1) * (rLo - c - 1) ≤
+        3 * (R * R) * (c + 1) by omega
+    have ht_le_rLo : rLo - c - 1 ≤ rLo :=
+      Nat.le_trans (Nat.sub_le _ _) (Nat.sub_le _ _)
+    have ht_sq_lt_cR : (rLo - c - 1) * (rLo - c - 1) < (c + 1) * R :=
+      Nat.lt_of_le_of_lt (Nat.mul_le_mul ht_le_rLo ht_le_rLo) hcR_lt
+    have hrlo_eq : rLo = (rLo - c - 1) + (c + 1) := by omega
+    have hrlo_sq := cbrt512_sq_sum_expand (rLo - c - 1) (c + 1)
+    have h_gap : (rLo - c - 1) * (rLo - c - 1) +
+        2 * (rLo - c - 1) * (c + 1) < (c + 1) * R := by
+      have : (rLo - c - 1 + (c + 1)) * (rLo - c - 1 + (c + 1)) =
+          (rLo - c - 1) * (rLo - c - 1) + 2 * (rLo - c - 1) * (c + 1) +
+          (c + 1) * (c + 1) := hrlo_sq
+      rw [← hrlo_eq] at this
+      omega
+    cases Nat.eq_or_lt_of_le (Nat.zero_le (rLo - c - 1)) with
+    | inl ht0 =>
+      rw [← ht0]
+      simp
+    | inr ht_pos =>
+      rw [show (rLo - c - 1) * (rLo - c - 1) * (rLo - c - 1) =
+          (rLo - c - 1) * ((rLo - c - 1) * (rLo - c - 1)) from
+            Nat.mul_assoc _ _ _]
+      have ht_cube_bound : (rLo - c - 1) * ((rLo - c - 1) * (rLo - c - 1)) <
+          (rLo - c - 1) * ((c + 1) * R) :=
+        Nat.mul_lt_mul_of_pos_left ht_sq_lt_cR ht_pos
+      have hassoc1 : (rLo - c - 1) * ((c + 1) * R) =
+          (rLo - c - 1) * (c + 1) * R :=
+        (Nat.mul_assoc _ _ _).symm
+      have h_gap2 : 2 * (rLo - c - 1) * (c + 1) <
+          (c + 1) * R - (rLo - c - 1) * (rLo - c - 1) := by omega
+      have hstep2 : 2 * (rLo - c - 1) * (c + 1) * R <
+          ((c + 1) * R - (rLo - c - 1) * (rLo - c - 1)) * R :=
+        Nat.mul_lt_mul_of_pos_right h_gap2 (by omega)
+      have hchain : (rLo - c - 1) * ((c + 1) * R) <
+          3 * R * ((c + 1) * R - (rLo - c - 1) * (rLo - c - 1)) := by
+        rw [hassoc1]
+        calc (rLo - c - 1) * (c + 1) * R
+            ≤ 2 * (rLo - c - 1) * (c + 1) * R :=
+              Nat.mul_le_mul_right R
+                (Nat.mul_le_mul_right (c + 1) (Nat.le_mul_of_pos_left _ (by omega)))
+          _ < ((c + 1) * R - (rLo - c - 1) * (rLo - c - 1)) * R := hstep2
+          _ = R * ((c + 1) * R - (rLo - c - 1) * (rLo - c - 1)) := Nat.mul_comm _ _
+          _ ≤ 3 * R * ((c + 1) * R - (rLo - c - 1) * (rLo - c - 1)) :=
+              Nat.mul_le_mul_right _ (Nat.le_mul_of_pos_left R (by omega))
+      have h_sum : 3 * R * ((rLo - c - 1) * (rLo - c - 1)) +
+          3 * R * ((c + 1) * R - (rLo - c - 1) * (rLo - c - 1)) =
+          3 * R * ((c + 1) * R) := by
+        rw [← Nat.mul_add]
+        congr 1
+        omega
+      have h_assoc : 3 * R * ((c + 1) * R) = 3 * (R * R) * (c + 1) := by
+        suffices h : (↑(3 * R * ((c + 1) * R)) : Int) =
+            ↑(3 * (R * R) * (c + 1)) by exact_mod_cast h
+        push_cast
+        simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+      exact Nat.le_of_lt (calc
+        3 * R * ((rLo - c - 1) * (rLo - c - 1)) +
+            (rLo - c - 1) * ((rLo - c - 1) * (rLo - c - 1))
+          < 3 * R * ((rLo - c - 1) * (rLo - c - 1)) +
+            3 * R * ((c + 1) * R - (rLo - c - 1) * (rLo - c - 1)) := by
+              omega
+        _ = 3 * R * ((c + 1) * R) := h_sum
+        _ = 3 * (R * R) * (c + 1) := h_assoc)
+
+set_option exponentiation.threshold 1024 in
+private theorem cbrt512_tight_numerator_bound (m : Nat) (hm : 2 ^ 83 ≤ m) :
+    (3 * m + 1) * 2 ^ 86 ≤ 27 * (m * m) := by
+  have h9m : 2 ^ 86 + 2 ^ 83 ≤ 9 * m := by omega
+  have h9m_sub : 2 ^ 83 ≤ 9 * m - 2 ^ 86 := by omega
+  have h_prod : 3 * 2 ^ 166 ≤ 3 * m * (9 * m - 2 ^ 86) :=
+    calc 3 * 2 ^ 166
+        = 3 * (2 ^ 83 * 2 ^ 83) := by
+            rw [show (166 : Nat) = 83 + 83 from rfl, Nat.pow_add]
+      _ ≤ 3 * (m * (9 * m - 2 ^ 86)) :=
+          Nat.mul_le_mul_left _ (Nat.mul_le_mul hm h9m_sub)
+      _ = 3 * m * (9 * m - 2 ^ 86) := (Nat.mul_assoc 3 m _).symm
+  have h_big : (2 : Nat) ^ 86 ≤ 3 * 2 ^ 166 := by
+    calc 2 ^ 86 ≤ 1 * 2 ^ 166 := by
+          show 2 ^ 86 ≤ 2 ^ 166
+          exact Nat.pow_le_pow_right (by omega) (by omega)
+      _ ≤ 3 * 2 ^ 166 := Nat.mul_le_mul_right _ (by omega)
+  have h_split : 27 * (m * m) =
+      3 * m * 2 ^ 86 + 3 * m * (9 * m - 2 ^ 86) := by
+    rw [← Nat.mul_add]
+    have h9m_eq : 2 ^ 86 + (9 * m - 2 ^ 86) = 9 * m := by omega
+    rw [h9m_eq]
+    suffices h : (↑(27 * (m * m)) : Int) = ↑(3 * m * (9 * m)) by
+      exact_mod_cast h
+    push_cast
+    simp only [show (27 : Int) = 3 * 9 from rfl,
+      Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  have h_lhs : (3 * m + 1) * 2 ^ 86 = 3 * m * 2 ^ 86 + 2 ^ 86 := by
+    rw [Nat.add_mul, Nat.one_mul, Nat.mul_assoc]
+  rw [h_split, h_lhs]
+  exact Nat.add_le_add_left (Nat.le_trans h_big h_prod) _
+
+set_option exponentiation.threshold 1024 in
+private theorem cbrt512_r_qc_le_r_max (xHi xLo : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ xHi) (hxhi_hi : xHi < WORD_MOD)
+    (hxlo : xLo < WORD_MOD) :
+    let w := xHi / 4
+    let m := icbrt w
+    let res := w - m * m * m
+    let d := 3 * (m * m)
+    let limbHi := (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172
+    let rLo := (res * 2 ^ 86 + limbHi) / d
+    let R := m * 2 ^ 86
+    let correction := rLo * rLo / R
+    let rQc := R + rLo - correction
+    rQc ≤ R_MAX := by
+  simp only
+  obtain ⟨hm_lo, _, _, _, hcube_le_w, hres_bound,
+          hd_pos, _, _, _, _, hlimb_bound, _⟩ :=
+    cbrt512_base_case_composition_bounds xHi xLo hxhi_lo hxhi_hi hxlo
+  let m := icbrt (xHi / 4)
+  let w := xHi / 4
+  let res := w - m * m * m
+  let d := 3 * (m * m)
+  let limbHi := (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172
+  let rLo := (res * 2 ^ 86 + limbHi) / d
+  let R := m * 2 ^ 86
+  let c := rLo * rLo / R
+  have h_rqc_le : R + rLo - c ≤ R + rLo := Nat.sub_le _ _
+  by_cases hm_lt_top : m < M_TOP
+  · have hrLo_tight : rLo ≤ 2 ^ 86 + 8 := by
+      show (res * 2 ^ 86 + limbHi) / d ≤ 2 ^ 86 + 8
+      suffices h : res * 2 ^ 86 + limbHi < (2 ^ 86 + 9) * d by
+        exact Nat.lt_succ_iff.mp ((Nat.div_lt_iff_lt_mul hd_pos).mpr h)
+      have h_num : res * 2 ^ 86 + limbHi <
+          (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := by
+        calc res * 2 ^ 86 + limbHi
+            < res * 2 ^ 86 + 2 ^ 86 := by omega
+          _ = (res + 1) * 2 ^ 86 := by rw [Nat.add_mul, Nat.one_mul]
+          _ ≤ (3 * (m * m) + 3 * m + 1) * 2 ^ 86 :=
+              Nat.mul_le_mul_right _ (Nat.succ_le_succ hres_bound)
+      have h27 := cbrt512_tight_numerator_bound m hm_lo
+      have h_rhs : 3 * (m * m) * 2 ^ 86 + 27 * (m * m) =
+          (2 ^ 86 + 9) * d := by
+        show 3 * (m * m) * 2 ^ 86 + 27 * (m * m) = (2 ^ 86 + 9) * (3 * (m * m))
+        omega
+      calc res * 2 ^ 86 + limbHi
+          < (3 * (m * m) + 3 * m + 1) * 2 ^ 86 := h_num
+        _ = 3 * (m * m) * 2 ^ 86 + (3 * m + 1) * 2 ^ 86 := by
+            have : (3 * (m * m) + (3 * m + 1)) * 2 ^ 86 =
+                3 * (m * m) * 2 ^ 86 + (3 * m + 1) * 2 ^ 86 :=
+              Nat.add_mul _ _ _
+            omega
+        _ ≤ 3 * (m * m) * 2 ^ 86 + 27 * (m * m) :=
+            Nat.add_le_add_left h27 _
+        _ = (2 ^ 86 + 9) * d := h_rhs
+    have hR_le : R ≤ (M_TOP - 1) * 2 ^ 86 :=
+      Nat.mul_le_mul_right _ (by omega : m ≤ M_TOP - 1)
+    have h_sum : R + rLo ≤ M_TOP * 2 ^ 86 + 8 :=
+      calc R + rLo
+          ≤ (M_TOP - 1) * 2 ^ 86 + (2 ^ 86 + 8) :=
+              Nat.add_le_add hR_le hrLo_tight
+        _ = M_TOP * 2 ^ 86 + 8 := by
+            have hM : 1 ≤ M_TOP := by
+              unfold M_TOP
+              omega
+            omega
+    have h_delta : 9 ≤ R_MAX - M_TOP * 2 ^ 86 := (r_lo_max_at_m_top).2.2
+    have h_top_le : M_TOP * 2 ^ 86 + 8 ≤ R_MAX := by omega
+    calc R + rLo - c ≤ R + rLo := h_rqc_le
+      _ ≤ M_TOP * 2 ^ 86 + 8 := h_sum
+      _ ≤ R_MAX := h_top_le
+  · have hm_ge : M_TOP ≤ m := by omega
+    have hw_hi : w < 2 ^ 254 := by
+      show xHi / 4 < 2 ^ 254
+      unfold WORD_MOD at hxhi_hi
+      omega
+    have hm_le : m ≤ M_TOP := by
+      by_cases hm_le_top : m ≤ M_TOP
+      · exact hm_le_top
+      · exfalso
+        have hsucc_le : M_TOP + 1 ≤ m := by omega
+        have hmono : (M_TOP + 1) * (M_TOP + 1) * (M_TOP + 1) ≤ m * m * m :=
+          cube_monotone hsucc_le
+        have hm_cube_le : m * m * m ≤ w := hcube_le_w
+        have htop := m_top_cube_bounds.2
+        omega
+    have hm_eq : m = M_TOP := Nat.le_antisymm hm_le hm_ge
+    have h_rtop := r_lo_max_at_m_top
+    let delta := R_MAX - M_TOP * 2 ^ 86
+    have hres_le : res ≤ 2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP := by
+      show w - m * m * m ≤ 2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP
+      rw [hm_eq]
+      omega
+    have hd_eq : d = 3 * (M_TOP * M_TOP) := by
+      show 3 * (m * m) = 3 * (M_TOP * M_TOP)
+      rw [hm_eq]
+    have hrLo_le : rLo ≤ delta + 1 := by
+      show (res * 2 ^ 86 + limbHi) / d ≤ delta + 1
+      have h_num : res * 2 ^ 86 + limbHi ≤
+          (2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP) * 2 ^ 86 + 2 ^ 86 - 1 := by
+        have hlimb_le : limbHi ≤ 2 ^ 86 - 1 := by omega
+        calc res * 2 ^ 86 + limbHi
+            ≤ (2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP) * 2 ^ 86 + (2 ^ 86 - 1) :=
+              Nat.add_le_add (Nat.mul_le_mul_right _ hres_le) hlimb_le
+          _ = (2 ^ 254 - 1 - M_TOP * M_TOP * M_TOP) * 2 ^ 86 + 2 ^ 86 - 1 := by
+              omega
+      rw [hd_eq]
+      exact Nat.le_trans (Nat.div_le_div_right h_num) h_rtop.1
+    by_cases hrLo_delta : rLo ≤ delta
+    · have hR_eq : R = M_TOP * 2 ^ 86 := by
+        show m * 2 ^ 86 = M_TOP * 2 ^ 86
+        rw [hm_eq]
+      calc R + rLo - c
+          ≤ R + rLo := h_rqc_le
+        _ = M_TOP * 2 ^ 86 + rLo := by rw [hR_eq]
+        _ ≤ M_TOP * 2 ^ 86 + delta := Nat.add_le_add_left hrLo_delta _
+        _ = R_MAX := by unfold delta; omega
+    · have hrLo_eq : rLo = delta + 1 := by omega
+      have hR_eq : R = M_TOP * 2 ^ 86 := by
+        show m * 2 ^ 86 = M_TOP * 2 ^ 86
+        rw [hm_eq]
+      have hc_ge1 : 1 ≤ c := by
+        show 1 ≤ rLo * rLo / R
+        rw [hrLo_eq, hR_eq]
+        exact h_rtop.2.1
+      calc R + rLo - c
+          ≤ R + rLo - 1 := Nat.sub_le_sub_left hc_ge1 (R + rLo)
+        _ = M_TOP * 2 ^ 86 + (delta + 1) - 1 := by rw [hR_eq, hrLo_eq]
+        _ = M_TOP * 2 ^ 86 + delta := by omega
+        _ = R_MAX := by unfold delta; omega
+
+private theorem cbrt512_quad_correction_ge_delta (R t delta : Nat)
+    (hR_lo : 2 ^ 169 ≤ R) (hdelta_pos : 0 < delta)
+    (hcube_upper : 3 * (R * R) * delta ≤ 3 * R * (t * t) + t * t * t)
+    (hcube_lower :
+      3 * R * (t * t) + t * t * t <
+        3 * (R * R) * delta + 3 * (R * R) + 2 ^ 172) :
+    delta * R ≤ (t + delta) * (t + delta) := by
+  have hR_pos : 0 < R := by omega
+  by_cases ht_sq : t * t < 6 * R
+  · by_cases ht0 : t = 0
+    · exfalso
+      have h1 : 0 < 3 * (R * R) * delta :=
+        Nat.mul_pos (Nat.mul_pos (by omega) (Nat.mul_pos hR_pos hR_pos)) hdelta_pos
+      rw [ht0, show (0 : Nat) * 0 = 0 from rfl, Nat.mul_zero, Nat.add_zero] at hcube_upper
+      omega
+    · have ht_pos : 0 < t := by omega
+      have ht3_bound : t * t * t < 6 * R * t := by
+        rw [show t * t * t = t * (t * t) from Nat.mul_assoc _ _ _,
+          show 6 * R * t = t * (6 * R) from by
+            simp only [Nat.mul_comm, Nat.mul_left_comm]]
+        exact Nat.mul_lt_mul_of_pos_left ht_sq ht_pos
+      have h_bound : 3 * (R * R) * delta < 3 * R * (t * t + 2 * t) := by
+        have h6eq : 6 * R * t = 3 * R * (2 * t) := by
+          simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        calc 3 * (R * R) * delta
+            ≤ 3 * R * (t * t) + t * t * t := hcube_upper
+          _ < 3 * R * (t * t) + 6 * R * t := by omega
+          _ = 3 * R * (t * t) + 3 * R * (2 * t) := by rw [h6eq]
+          _ = 3 * R * (t * t + 2 * t) := by rw [← Nat.mul_add]
+      have h_cancel : R * delta < t * t + 2 * t := by
+        have h_assoc : 3 * (R * R) * delta = 3 * R * (R * delta) := by
+          simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        rw [h_assoc] at h_bound
+        exact Nat.lt_of_mul_lt_mul_left h_bound
+      have h_sq_lb : t * t + 2 * t ≤ (t + delta) * (t + delta) := by
+        rw [cbrt512_sq_sum_expand t delta]
+        have : 2 * t ≤ 2 * t * delta := Nat.le_mul_of_pos_right _ hdelta_pos
+        omega
+      calc delta * R = R * delta := Nat.mul_comm _ _
+        _ ≤ t * t + 2 * t := by omega
+        _ ≤ (t + delta) * (t + delta) := h_sq_lb
+  · have ht_sq_ge : 6 * R ≤ t * t := Nat.le_of_not_lt ht_sq
+    have ht_pos : 0 < t := by
+      cases Nat.eq_or_lt_of_le (Nat.zero_le t) with
+      | inl h =>
+        rw [← h] at ht_sq_ge
+        omega
+      | inr h => exact h
+    have h3R2_gt : 2 ^ 172 ≤ 3 * (R * R) :=
+      Nat.le_trans
+        (Nat.le_trans
+          (show 2 ^ 172 ≤ 2 ^ 169 * R from
+            calc 2 ^ 172 = 2 ^ 169 * 2 ^ 3 := by rw [← Nat.pow_add]
+              _ ≤ 2 ^ 169 * R := Nat.mul_le_mul_left _ (by omega : 2 ^ 3 ≤ R))
+          (Nat.mul_le_mul_right _ hR_lo))
+        (Nat.le_mul_of_pos_left _ (by omega))
+    have h_Rdelta2 : t * t < R * (delta + 2) := by
+      have h_rhs : 3 * (R * R) * delta + 3 * (R * R) + 2 ^ 172 ≤
+          3 * (R * R) * (delta + 2) := by
+        rw [show 3 * (R * R) * (delta + 2) =
+          3 * (R * R) * delta + 3 * (R * R) * 2 from Nat.mul_add _ _ _]
+        omega
+      have h_3Rt2 : 3 * R * (t * t) < 3 * (R * R) * (delta + 2) :=
+        calc 3 * R * (t * t) ≤ 3 * R * (t * t) + t * t * t := Nat.le_add_right _ _
+          _ < 3 * (R * R) * delta + 3 * (R * R) + 2 ^ 172 := hcube_lower
+          _ ≤ 3 * (R * R) * (delta + 2) := h_rhs
+      have h_assoc : 3 * (R * R) * (delta + 2) = 3 * R * (R * (delta + 2)) := by
+        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      rw [h_assoc] at h_3Rt2
+      exact Nat.lt_of_mul_lt_mul_left h_3Rt2
+    have h_Rdelta_lb : t * t - 2 * R ≤ R * delta := by
+      rw [show R * (delta + 2) = R * delta + R * 2 from Nat.mul_add _ _ _] at h_Rdelta2
+      omega
+    have h_6Rd : t * t ≤ 6 * (R * delta) := by
+      have h5t2 : 12 * R ≤ 5 * (t * t) :=
+        calc 12 * R ≤ 2 * (6 * R) := by omega
+          _ ≤ 2 * (t * t) := Nat.mul_le_mul_left _ ht_sq_ge
+          _ ≤ 5 * (t * t) := Nat.mul_le_mul_right _ (by omega)
+      calc t * t ≤ 6 * (t * t) - 12 * R := by omega
+        _ ≤ 6 * (t * t - 2 * R) := by omega
+        _ ≤ 6 * (R * delta) := Nat.mul_le_mul_left _ h_Rdelta_lb
+    have h_t3_le : t * t * t ≤ 6 * R * delta * t := by
+      rw [show t * t * t = t * (t * t) from Nat.mul_assoc _ _ _,
+        show 6 * R * delta * t = t * (6 * (R * delta)) from by
+          simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]]
+      exact Nat.mul_le_mul_left _ h_6Rd
+    suffices h_3R : 3 * (R * R) * delta ≤ 3 * R * ((t + delta) * (t + delta)) by
+      have h_assoc2 : 3 * (R * R) * delta = 3 * R * (R * delta) := by
+        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      rw [h_assoc2] at h_3R
+      rw [show delta * R = R * delta from Nat.mul_comm _ _]
+      exact Nat.le_of_mul_le_mul_left h_3R (by omega : 0 < 3 * R)
+    have h_factor : 3 * R * (t * t) + 6 * R * delta * t + 3 * R * (delta * delta) =
+        3 * R * (t * t + 2 * t * delta + delta * delta) := by
+      have h6 : 6 * R * delta * t = 3 * R * (2 * t * delta) := by
+        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      rw [h6, ← Nat.mul_add, ← Nat.mul_add]
+    calc 3 * (R * R) * delta
+        ≤ 3 * R * (t * t) + t * t * t := hcube_upper
+      _ ≤ 3 * R * (t * t) + 6 * R * delta * t := by omega
+      _ ≤ 3 * R * (t * t) + 6 * R * delta * t + 3 * R * (delta * delta) :=
+          Nat.le_add_right _ _
+      _ = 3 * R * (t * t + 2 * t * delta + delta * delta) := h_factor
+      _ = 3 * R * ((t + delta) * (t + delta)) := by
+          congr 1
+          exact (cbrt512_sq_sum_expand t delta).symm
+
+private theorem cbrt512_perfect_cube_no_overshoot (s R rLo c : Nat)
+    (hR_lo : 2 ^ 169 ≤ R) (hR_pos : 0 < R)
+    (hc_def : c = rLo * rLo / R)
+    (hc_strict : c < rLo)
+    (hrqc_eq : R + rLo - c = s + 1)
+    (hs_ge_R : R ≤ s)
+    (hx_lb2 : R * R * R + 3 * (R * R) * rLo ≤ s * s * s)
+    (hx_ub : s * s * s < R * R * R + 3 * (R * R) * (rLo + 1) + 2 ^ 172) :
+    False := by
+  have h_cube_expand := cbrt512_cube_sum_expand R (s - R)
+  rw [Nat.add_sub_cancel' hs_ge_R] at h_cube_expand
+  have hsR_eq : s - R = rLo - c - 1 := by
+    have : R + (rLo - c) = s + 1 := by omega
+    omega
+  have hdelta_eq : rLo - (s - R) = c + 1 := by
+    rw [hsR_eq]
+    omega
+  have hdelta_pos : 0 < rLo - (s - R) := hdelta_eq ▸ Nat.succ_pos _
+  have hcube_upper : 3 * (R * R) * (rLo - (s - R)) ≤
+      3 * R * ((s - R) * (s - R)) + (s - R) * (s - R) * (s - R) := by
+    have h_from_lb : R * R * R + 3 * (R * R) * rLo ≤
+        R * R * R + 3 * (R * R) * (s - R) +
+          3 * R * ((s - R) * (s - R)) +
+          (s - R) * (s - R) * (s - R) := by
+      calc R * R * R + 3 * (R * R) * rLo ≤ s * s * s := hx_lb2
+        _ = _ := h_cube_expand
+    have h_split : 3 * (R * R) * rLo =
+        3 * (R * R) * (s - R) + 3 * (R * R) * (rLo - (s - R)) := by
+      rw [← Nat.mul_add]
+      congr 1
+      omega
+    omega
+  have hcube_lower : 3 * R * ((s - R) * (s - R)) +
+      (s - R) * (s - R) * (s - R) <
+      3 * (R * R) * (rLo - (s - R)) + 3 * (R * R) + 2 ^ 172 := by
+    have h_from_ub : R * R * R + 3 * (R * R) * (s - R) +
+        3 * R * ((s - R) * (s - R)) + (s - R) * (s - R) * (s - R) <
+        R * R * R + 3 * (R * R) * (rLo + 1) + 2 ^ 172 := by
+      calc R * R * R + 3 * (R * R) * (s - R) +
+            3 * R * ((s - R) * (s - R)) + (s - R) * (s - R) * (s - R)
+          = s * s * s := h_cube_expand.symm
+        _ < R * R * R + 3 * (R * R) * (rLo + 1) + 2 ^ 172 := hx_ub
+    have h_rlo_split : 3 * (R * R) * (rLo + 1) =
+        3 * (R * R) * (s - R) + 3 * (R * R) * (rLo - (s - R)) +
+          3 * (R * R) := by
+      have : rLo + 1 = (s - R) + (rLo - (s - R)) + 1 := by omega
+      rw [this, show (s - R) + (rLo - (s - R)) + 1 =
+        (s - R) + ((rLo - (s - R)) + 1) from by omega]
+      simp only [Nat.mul_add, Nat.mul_one, Nat.add_assoc]
+    rw [h_rlo_split] at h_from_ub
+    omega
+  have h_qc := cbrt512_quad_correction_ge_delta R (s - R) (rLo - (s - R))
+    hR_lo hdelta_pos hcube_upper hcube_lower
+  rw [show s - R + (rLo - (s - R)) = rLo from by omega] at h_qc
+  have hc_ge_delta : rLo - (s - R) ≤ c :=
+    hc_def ▸ (Nat.le_div_iff_mul_le hR_pos).mpr h_qc
+  omega
+
+set_option exponentiation.threshold 1024 in
+private theorem cbrt512_r_qc_no_overshoot_on_cubes (xHi xLo : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ xHi) (hxhi_hi : xHi < WORD_MOD)
+    (hxlo : xLo < WORD_MOD) :
+    let w := xHi / 4
+    let m := icbrt w
+    let res := w - m * m * m
+    let d := 3 * (m * m)
+    let limbHi := (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172
+    let rLo := (res * 2 ^ 86 + limbHi) / d
+    let R := m * 2 ^ 86
+    let correction := rLo * rLo / R
+    let rQc := R + rLo - correction
+    let xNorm := xHi * 2 ^ 256 + xLo
+    rQc * rQc * rQc > xNorm →
+      icbrt xNorm * icbrt xNorm * icbrt xNorm < xNorm := by
+  simp only
+  obtain ⟨_, _, _, _, hcube_le_w, _,
+          hd_pos, _, hR_lo, _, hR_pos, _, hrLo_bound⟩ :=
+    cbrt512_base_case_composition_bounds xHi xLo hxhi_lo hxhi_hi hxlo
+  let m := icbrt (xHi / 4)
+  let w := xHi / 4
+  let res := w - m * m * m
+  let d := 3 * (m * m)
+  let limbHi := (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172
+  let rLo := (res * 2 ^ 86 + limbHi) / d
+  let R := m * 2 ^ 86
+  let c := rLo * rLo / R
+  let remKq := (res * 2 ^ 86 + limbHi) % d
+  let cTail := xLo % 2 ^ 172
+  have hrem_lt : remKq < d := Nat.mod_lt _ hd_pos
+  have hctail_lt : cTail < 2 ^ 172 := Nat.mod_lt _ (Nat.two_pow_pos 172)
+  have hx_decomp := cbrt512_x_norm_decomp xHi xLo (m * m * m) hcube_le_w
+  have hn_full := Nat.div_add_mod (res * 2 ^ 86 + limbHi) d
+  have h_num_eq : (res * 2 ^ 86 + limbHi) = d * rLo + remKq := hn_full.symm
+  have h_num_mul : (d * rLo + remKq) * 2 ^ 172 =
+      d * rLo * 2 ^ 172 + remKq * 2 ^ 172 := Nat.add_mul _ _ _
+  have hR3 := cbrt512_R_cube_factor m
+  have hd_eq_3R2 := cbrt512_d_pow172_eq_3R_sq m
+  have hrem_ub : remKq * 2 ^ 172 + cTail < d * 2 ^ 172 + 2 ^ 172 := by
+    have := Nat.mul_lt_mul_of_pos_right hrem_lt (Nat.two_pow_pos 172)
+    omega
+  have hx_lb : m * m * m * 2 ^ 258 + d * rLo * 2 ^ 172 ≤
+      xHi * 2 ^ 256 + xLo := by
+    rw [hx_decomp]
+    rw [show ((xHi / 4 - m * m * m) * 2 ^ 86 +
+        (xHi % 4 * 2 ^ 84 + xLo / 2 ^ 172)) = d * rLo + remKq from h_num_eq]
+    rw [h_num_mul]
+    omega
+  have hx_lb2 : R * R * R + 3 * (R * R) * rLo ≤ xHi * 2 ^ 256 + xLo := by
+    calc R * R * R + 3 * (R * R) * rLo
+        = m * m * m * 2 ^ 258 + 3 * (m * m) * rLo * 2 ^ 172 := by
+          rw [← hR3]
+          show R * R * R + 3 * (R * R) * rLo =
+            R * R * R + 3 * (m * m) * rLo * 2 ^ 172
+          rw [← hd_eq_3R2]
+          simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+      _ = m * m * m * 2 ^ 258 + d * rLo * 2 ^ 172 := by rfl
+      _ ≤ xHi * 2 ^ 256 + xLo := hx_lb
+  have hx_ub : xHi * 2 ^ 256 + xLo <
+      R * R * R + 3 * (R * R) * (rLo + 1) + 2 ^ 172 := by
+    have hx_ub_raw : xHi * 2 ^ 256 + xLo <
+        m * m * m * 2 ^ 258 + d * (rLo + 1) * 2 ^ 172 + 2 ^ 172 := by
+      rw [hx_decomp]
+      rw [show ((xHi / 4 - m * m * m) * 2 ^ 86 +
+          (xHi % 4 * 2 ^ 84 + xLo / 2 ^ 172)) = d * rLo + remKq from h_num_eq]
+      rw [h_num_mul]
+      have : d * (rLo + 1) * 2 ^ 172 = d * rLo * 2 ^ 172 + d * 2 ^ 172 := by
+        rw [show d * (rLo + 1) = d * rLo + d * 1 from Nat.mul_add _ _ _,
+          Nat.mul_one, Nat.add_mul]
+      omega
+    calc xHi * 2 ^ 256 + xLo
+        < m * m * m * 2 ^ 258 + d * (rLo + 1) * 2 ^ 172 + 2 ^ 172 := hx_ub_raw
+      _ = R * R * R + 3 * (R * R) * (rLo + 1) + 2 ^ 172 := by
+          have hdr1 : d * (rLo + 1) * 2 ^ 172 = 3 * (R * R) * (rLo + 1) := by
+            show 3 * (m * m) * (rLo + 1) * 2 ^ 172 =
+              3 * (R * R) * (rLo + 1)
+            rw [← hd_eq_3R2]
+            simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+          rw [← hR3, hdr1]
+  intro h_over
+  let s := icbrt (xHi * 2 ^ 256 + xLo)
+  have hcube_le := icbrt_cube_le (xHi * 2 ^ 256 + xLo)
+  have hsucc_gt := icbrt_lt_succ_cube (xHi * 2 ^ 256 + xLo)
+  by_cases h_not_perf : s * s * s < xHi * 2 ^ 256 + xLo
+  · exact h_not_perf
+  · exfalso
+    have h_perf : s * s * s = xHi * 2 ^ 256 + xLo :=
+      Nat.le_antisymm hcube_le (Nat.not_lt.mp h_not_perf)
+    have hB := cbrt512_r_qc_pred_cube_le xHi xLo hxhi_lo hxhi_hi hxlo
+    simp only at hB
+    have hrqc_gt_s : s < R + rLo - c := by
+      by_cases h : s < R + rLo - c
+      · exact h
+      · exfalso
+        have h1 := cube_monotone (Nat.not_lt.mp h)
+        rw [h_perf] at h1
+        exact Nat.lt_irrefl _ (Nat.lt_of_lt_of_le h_over h1)
+    have hrqc1_le_s : R + rLo - c - 1 ≤ s := by
+      by_cases h_gt : s < R + rLo - c - 1
+      · exfalso
+        have h1 := cube_monotone (show s + 1 ≤ R + rLo - c - 1 from by omega)
+        have h2 := Nat.le_trans h1 hB
+        exact Nat.lt_irrefl _ (Nat.lt_of_lt_of_le hsucc_gt h2)
+      · exact Nat.not_lt.mp h_gt
+    have hrqc_eq : R + rLo - c = s + 1 := Nat.le_antisymm (by omega) (by omega)
+    have hrLo_pos : 0 < rLo := by
+      cases Nat.eq_or_lt_of_le (Nat.zero_le rLo) with
+      | inr h => exact h
+      | inl h =>
+        exfalso
+        have hrLo0 : rLo = 0 := h.symm
+        have hc0 : c = 0 := by
+          rw [show c = rLo * rLo / R from rfl, hrLo0]
+          simp
+        rw [hrLo0, hc0] at hrqc_eq
+        have hR_cube_le : R * R * R ≤ xHi * 2 ^ 256 + xLo := by
+          calc R * R * R ≤ R * R * R + 3 * (R * R) * 0 := by omega
+            _ = R * R * R + 3 * (R * R) * rLo := by rw [hrLo0]
+            _ ≤ _ := hx_lb2
+        rw [← h_perf] at hR_cube_le
+        have hsucc_eq : s + 1 = R := by omega
+        have hsucc_cube : xHi * 2 ^ 256 + xLo < (s + 1) * (s + 1) * (s + 1) := hsucc_gt
+        rw [hsucc_eq] at hsucc_cube
+        omega
+    have hR_gt_rLo : rLo < R :=
+      Nat.lt_of_lt_of_le hrLo_bound
+        (Nat.le_trans (Nat.pow_le_pow_right (by omega) (by omega : 87 ≤ 169)) hR_lo)
+    have hc_strict : c < rLo :=
+      (Nat.div_lt_iff_lt_mul hR_pos).mpr
+        (Nat.mul_lt_mul_of_pos_left hR_gt_rLo hrLo_pos)
+    have hs_ge_R : R ≤ s := by omega
+    exact cbrt512_perfect_cube_no_overshoot s R rLo c hR_lo hR_pos rfl hc_strict
+      hrqc_eq hs_ge_R (h_perf ▸ hx_lb2) (h_perf ▸ hx_ub)
+
+theorem cbrt512_r_qc_properties (xHi xLo : Nat)
+    (hxhi_lo : 2 ^ 253 ≤ xHi) (hxhi_hi : xHi < WORD_MOD)
+    (hxlo : xLo < WORD_MOD) :
+    let m := icbrt (xHi / 4)
+    let res := xHi / 4 - m * m * m
+    let d := 3 * (m * m)
+    let limbHi := (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172
+    let rLo := (res * 2 ^ 86 + limbHi) / d
+    let R := m * 2 ^ 86
+    let c := rLo * rLo / R
+    let rQc := R + rLo - c
+    let xNorm := xHi * WORD_MOD + xLo
+    icbrt xNorm ≤ rQc + 1 ∧ rQc ≤ icbrt xNorm + 1 ∧
+    rQc * rQc * rQc < WORD_MOD * WORD_MOD ∧
+    (rQc * rQc * rQc > xNorm →
+      icbrt xNorm * icbrt xNorm * icbrt xNorm < xNorm) := by
+  simp only
+  have hA := cbrt512_r_qc_succ2_cube_gt xHi xLo hxhi_lo hxhi_hi hxlo
+  have hB := cbrt512_r_qc_pred_cube_le xHi xLo hxhi_lo hxhi_hi hxlo
+  have hE1 := cbrt512_r_qc_le_r_max xHi xLo hxhi_lo hxhi_hi hxlo
+  have hE2 := cbrt512_r_qc_no_overshoot_on_cubes xHi xLo hxhi_lo hxhi_hi hxlo
+  simp only at hA hB hE1 hE2
+  unfold WORD_MOD
+  have hcube_le := icbrt_cube_le (xHi * 2 ^ 256 + xLo)
+  have hsucc_gt := icbrt_lt_succ_cube (xHi * 2 ^ 256 + xLo)
+  refine ⟨?_, ?_, ?_, ?_⟩
+  · exact Nat.not_lt.mp fun h =>
+      absurd hA (Nat.not_lt.mpr (Nat.le_trans (cube_monotone h) hcube_le))
+  · exact Nat.not_lt.mp fun h =>
+      absurd hsucc_gt
+        (Nat.not_lt.mpr (Nat.le_trans (cube_monotone (Nat.le_sub_one_of_lt h)) hB))
+  · exact Nat.lt_of_le_of_lt (cube_monotone hE1) (by
+      simpa [WORD_MOD] using r_max_cube_lt_wm2)
+  · exact hE2
+
 private theorem cube_expand_aux (m : Nat) :
     (m + 1) * (m + 1) * (m + 1) = m * m * m + 3 * m * m + 3 * m + 1 := by
   ring_nf

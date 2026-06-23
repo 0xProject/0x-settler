@@ -3419,6 +3419,241 @@ private def cbrt512QuadraticCorrection (rHi rLo res : Nat) : Nat :=
   let rLoCorr := FormalYul.evmAdd rLoBase inc
   FormalYul.evmAdd R rLoCorr
 
+private theorem cbrt512_qc_shift86_eq :
+    FormalYul.evmAnd (FormalYul.evmAnd 86 255) 255 = 86 := by
+  decide
+
+private theorem cbrt512_uint256_gt_one_eq_zero_of_not_gt (c : Nat)
+    (hc : c < FormalYul.WORD_MOD) (hcgt : ¬ c > 1) :
+    (EvmYul.UInt256.ofNat c).gt (EvmYul.UInt256.ofNat 1) =
+      EvmYul.UInt256.ofNat 0 := by
+  have hgtWord := FormalYul.Preservation.uint256_ofNat_gt_eq_word_evmGt c 1
+  apply FormalYul.Preservation.eq_of_wordNat_eq
+  rw [hgtWord]
+  rw [FormalYul.Preservation.wordNat_word, FormalYul.Preservation.wordNat_ofNat]
+  have hgtNat : FormalYul.evmGt c 1 = 0 := by
+    rw [FormalYul.Preservation.evmGt_eq_of_lt c 1 hc FormalYul.Preservation.one_lt_word]
+    simp [hcgt]
+  rw [hgtNat]
+
+private theorem cbrt512_uint256_gt_one_ne_zero_of_gt (c : Nat)
+    (hc : c < FormalYul.WORD_MOD) (hcgt : c > 1) :
+    ¬ (EvmYul.UInt256.ofNat c).gt (EvmYul.UInt256.ofNat 1) =
+      EvmYul.UInt256.ofNat 0 := by
+  have hgtWord := FormalYul.Preservation.uint256_ofNat_gt_eq_word_evmGt c 1
+  have hgtNat : FormalYul.evmGt c 1 = 1 := by
+    rw [FormalYul.Preservation.evmGt_eq_of_lt c 1 hc FormalYul.Preservation.one_lt_word]
+    simp [hcgt]
+  intro hzero
+  have hw := congrArg FormalYul.wordNat hzero
+  rw [hgtWord] at hw
+  simp [FormalYul.Preservation.wordNat_word, FormalYul.Preservation.wordNat_ofNat,
+    hgtNat, FormalYul.u256, FormalYul.WORD_MOD] at hw
+
+private theorem cbrt512_evmLt_le_one (a b : Nat) : FormalYul.evmLt a b ≤ 1 := by
+  unfold FormalYul.evmLt
+  split <;> omega
+
+private theorem cbrt512_evmEq_le_one (a b : Nat) : FormalYul.evmEq a b ≤ 1 := by
+  unfold FormalYul.evmEq
+  split <;> omega
+
+private theorem cbrt512_evmAnd_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) :
+    FormalYul.evmAnd a b ≤ 1 := by
+  have ha' : a = 0 ∨ a = 1 := by omega
+  have hb' : b = 0 ∨ b = 1 := by omega
+  rcases ha' with rfl | rfl <;> rcases hb' with rfl | rfl <;>
+    decide
+
+private theorem cbrt512_evmOr_le_one (a b : Nat) (ha : a ≤ 1) (hb : b ≤ 1) :
+    FormalYul.evmOr a b ≤ 1 := by
+  have ha' : a = 0 ∨ a = 1 := by omega
+  have hb' : b = 0 ∨ b = 1 := by omega
+  rcases ha' with rfl | rfl <;> rcases hb' with rfl | rfl <;>
+    decide
+
+private theorem cbrt512_qc_undershoot_le_one (eps3 rem rHi : Nat) :
+    FormalYul.evmOr
+      (FormalYul.evmLt (FormalYul.evmShr 86 eps3) (FormalYul.evmShr 86 rem))
+      (FormalYul.evmAnd
+        (FormalYul.evmEq (FormalYul.evmShr 86 eps3) (FormalYul.evmShr 86 rem))
+        (FormalYul.evmLt
+          (FormalYul.evmMul (FormalYul.evmAnd eps3 77371252455336267181195263) rHi)
+          (FormalYul.evmShl 86
+            (FormalYul.evmAnd rem 77371252455336267181195263)))) ≤ 1 :=
+  cbrt512_evmOr_le_one _ _
+    (cbrt512_evmLt_le_one _ _)
+    (cbrt512_evmAnd_le_one _ _
+      (cbrt512_evmEq_le_one _ _)
+      (cbrt512_evmLt_le_one _ _))
+
+private theorem cbrt512_qc_setup (rHi rLo : Nat)
+    (hrHi : rHi < FormalYul.WORD_MOD) (hrLo : rLo < FormalYul.WORD_MOD)
+    (hrHiPos : 2 ≤ rHi)
+    (hrHiBound : rHi < 2 ^ 85)
+    (hrLoBound : rLo < 2 ^ 87) :
+    let R := rHi * 2 ^ 86
+    let c := rLo * rLo / R
+    2 ^ 87 ≤ R ∧ R < 2 ^ 171 ∧ R < FormalYul.WORD_MOD ∧ 0 < R ∧
+    rLo * rLo < FormalYul.WORD_MOD ∧ c ≤ rLo ∧ c * R ≤ rLo * rLo ∧
+    c < FormalYul.WORD_MOD ∧ c * R < FormalYul.WORD_MOD ∧
+    FormalYul.evmShl 86 rHi = R ∧
+    FormalYul.evmMul rLo rLo = rLo * rLo ∧
+    FormalYul.evmDiv (rLo * rLo) R = c ∧
+    FormalYul.evmMul c R = c * R ∧
+    FormalYul.evmSub (rLo * rLo) (c * R) = rLo * rLo % R ∧
+    rLo * rLo % R < FormalYul.WORD_MOD ∧
+    (rLo * rLo % R) * 3 < FormalYul.WORD_MOD ∧
+    FormalYul.evmMul (rLo * rLo % R) 3 = (rLo * rLo % R) * 3 ∧
+    FormalYul.evmSub rLo c = rLo - c := by
+  simp only
+  have hRGe : 2 ^ 87 ≤ rHi * 2 ^ 86 := by
+    calc 2 ^ 87 = 2 * 2 ^ 86 := by
+          rw [show (87 : Nat) = 1 + 86 from rfl, Nat.pow_add]
+      _ ≤ rHi * 2 ^ 86 := Nat.mul_le_mul_right _ hrHiPos
+  have hRLt : rHi * 2 ^ 86 < 2 ^ 171 :=
+    calc rHi * 2 ^ 86
+        < 2 ^ 85 * 2 ^ 86 :=
+          Nat.mul_lt_mul_of_pos_right hrHiBound (Nat.two_pow_pos 86)
+      _ = 2 ^ 171 := by rw [← Nat.pow_add]
+  have hRW : rHi * 2 ^ 86 < FormalYul.WORD_MOD := by
+    unfold FormalYul.WORD_MOD
+    omega
+  have hRPos : 0 < rHi * 2 ^ 86 := by omega
+  have hrLoSqW : rLo * rLo < FormalYul.WORD_MOD := by
+    cases Nat.eq_or_lt_of_le (Nat.zero_le rLo) with
+    | inl h =>
+        rw [← h]
+        unfold FormalYul.WORD_MOD
+        omega
+    | inr h =>
+        calc rLo * rLo
+            < rLo * 2 ^ 87 := Nat.mul_lt_mul_of_pos_left hrLoBound h
+          _ ≤ 2 ^ 87 * 2 ^ 87 :=
+            Nat.mul_le_mul_right _ (Nat.le_of_lt hrLoBound)
+          _ = 2 ^ 174 := by rw [← Nat.pow_add]
+          _ < FormalYul.WORD_MOD := by
+            unfold FormalYul.WORD_MOD
+            omega
+  have hRgtLo : rLo < rHi * 2 ^ 86 := by omega
+  have hcLe : rLo * rLo / (rHi * 2 ^ 86) ≤ rLo := by
+    cases Nat.eq_or_lt_of_le (Nat.zero_le rLo) with
+    | inl h =>
+        rw [← h]
+        simp
+    | inr h =>
+        exact Nat.le_of_lt ((Nat.div_lt_iff_lt_mul hRPos).mpr
+          (Nat.mul_lt_mul_of_pos_left hRgtLo h))
+  have hcRLe :
+      (rLo * rLo / (rHi * 2 ^ 86)) * (rHi * 2 ^ 86) ≤ rLo * rLo :=
+    Nat.div_mul_le_self _ _
+  let c := rLo * rLo / (rHi * 2 ^ 86)
+  have hcW : c < FormalYul.WORD_MOD := Nat.lt_of_le_of_lt hcLe hrLo
+  have hcRW : c * (rHi * 2 ^ 86) < FormalYul.WORD_MOD :=
+    Nat.lt_of_le_of_lt hcRLe hrLoSqW
+  have hShl :
+      FormalYul.evmShl 86 rHi = rHi * 2 ^ 86 := by
+    rw [FormalYul.Preservation.evmShl_eq_of_lt 86 rHi (by omega) hrHi]
+    exact Nat.mod_eq_of_lt hRW
+  have hSq :
+      FormalYul.evmMul rLo rLo = rLo * rLo := by
+    rw [FormalYul.Preservation.evmMul_eq_mod_of_lt rLo rLo hrLo hrLo]
+    exact Nat.mod_eq_of_lt hrLoSqW
+  have hDiv :
+      FormalYul.evmDiv (rLo * rLo) (rHi * 2 ^ 86) = c :=
+    FormalYul.Preservation.evmDiv_eq_of_lt _ _ hrLoSqW hRPos hRW
+  have hMulC :
+      FormalYul.evmMul c (rHi * 2 ^ 86) = c * (rHi * 2 ^ 86) := by
+    rw [FormalYul.Preservation.evmMul_eq_mod_of_lt c _ hcW hRW]
+    exact Nat.mod_eq_of_lt hcRW
+  have hResid :
+      FormalYul.evmSub (rLo * rLo) (c * (rHi * 2 ^ 86)) =
+        rLo * rLo % (rHi * 2 ^ 86) := by
+    rw [FormalYul.Preservation.evmSub_eq_of_le _ _ hrLoSqW hcRLe,
+      show c * (rHi * 2 ^ 86) = (rHi * 2 ^ 86) * c from Nat.mul_comm _ _]
+    have hdm := Nat.div_add_mod (rLo * rLo) (rHi * 2 ^ 86)
+    rw [Nat.add_comm] at hdm
+    exact Nat.sub_eq_of_eq_add hdm.symm
+  have hModW : rLo * rLo % (rHi * 2 ^ 86) < FormalYul.WORD_MOD :=
+    Nat.lt_of_lt_of_le (Nat.mod_lt _ hRPos) (by
+      unfold FormalYul.WORD_MOD
+      omega)
+  have hEpsW : (rLo * rLo % (rHi * 2 ^ 86)) * 3 < FormalYul.WORD_MOD := by
+    calc (rLo * rLo % (rHi * 2 ^ 86)) * 3
+        < (rHi * 2 ^ 86) * 3 :=
+          Nat.mul_lt_mul_of_pos_right (Nat.mod_lt _ hRPos) (by omega)
+      _ < 2 ^ 171 * 3 := Nat.mul_lt_mul_of_pos_right hRLt (by omega)
+      _ < FormalYul.WORD_MOD := by
+        unfold FormalYul.WORD_MOD
+        omega
+  have hEps :
+      FormalYul.evmMul (rLo * rLo % (rHi * 2 ^ 86)) 3 =
+        (rLo * rLo % (rHi * 2 ^ 86)) * 3 := by
+    rw [FormalYul.Preservation.evmMul_eq_mod_of_lt _ 3 hModW
+      FormalYul.Preservation.three_lt_word]
+    exact Nat.mod_eq_of_lt hEpsW
+  have hSub :
+      FormalYul.evmSub rLo c = rLo - c :=
+    FormalYul.Preservation.evmSub_eq_of_le _ _ hrLo hcLe
+  exact ⟨hRGe, hRLt, hRW, hRPos, hrLoSqW, hcLe, hcRLe, hcW, hcRW,
+    hShl, hSq, hDiv, hMulC, hResid, hModW, hEpsW, hEps, hSub⟩
+
+private def cbrt512QCInc (rHi rLo rem : Nat) : Nat :=
+  let eps3 := (rLo * rLo % (rHi * 2 ^ 86)) * 3
+  FormalYul.evmOr
+    (FormalYul.evmLt (FormalYul.evmShr 86 eps3) (FormalYul.evmShr 86 rem))
+    (FormalYul.evmAnd
+      (FormalYul.evmEq (FormalYul.evmShr 86 eps3) (FormalYul.evmShr 86 rem))
+      (FormalYul.evmLt
+        (FormalYul.evmMul
+          (FormalYul.evmAnd eps3 77371252455336267181195263) rHi)
+        (FormalYul.evmShl 86
+          (FormalYul.evmAnd rem 77371252455336267181195263))))
+
+private theorem cbrt512QCInc_le_one (rHi rLo rem : Nat) :
+    cbrt512QCInc rHi rLo rem ≤ 1 := by
+  unfold cbrt512QCInc
+  exact cbrt512_qc_undershoot_le_one ((rLo * rLo % (rHi * 2 ^ 86)) * 3) rem rHi
+
+private theorem cbrt512QuadraticCorrection_eq_gt (rHi rLo rem : Nat)
+    (hrHi : rHi < FormalYul.WORD_MOD) (hrLo : rLo < FormalYul.WORD_MOD)
+    (hrHiPos : 2 ≤ rHi)
+    (hrHiBound : rHi < 2 ^ 85)
+    (hrLoBound : rLo < 2 ^ 87)
+    (hcgt : rLo * rLo / (rHi * 2 ^ 86) > 1) :
+    cbrt512QuadraticCorrection rHi rLo rem =
+      FormalYul.evmAdd (rHi * 2 ^ 86)
+        (FormalYul.evmAdd (rLo - rLo * rLo / (rHi * 2 ^ 86))
+          (cbrt512QCInc rHi rLo rem)) := by
+  obtain ⟨_, _, _, _, _, _, _, hcW, _,
+      hShl, hSq, hDiv, hMulC, hResid, _, _, hEps, hSub⟩ :=
+    cbrt512_qc_setup rHi rLo hrHi hrLo hrHiPos hrHiBound hrLoBound
+  have hguard :=
+    cbrt512_uint256_gt_one_ne_zero_of_gt
+      (rLo * rLo / (rHi * 2 ^ 86)) hcW hcgt
+  unfold cbrt512QuadraticCorrection cbrt512QCInc
+  simp only [cbrt512_qc_shift86_eq, hShl, hSq, hDiv, hMulC, hResid, hEps, hSub,
+    hguard, ↓reduceIte]
+
+private theorem cbrt512QuadraticCorrection_eq_not_gt (rHi rLo rem : Nat)
+    (hrHi : rHi < FormalYul.WORD_MOD) (hrLo : rLo < FormalYul.WORD_MOD)
+    (hrHiPos : 2 ≤ rHi)
+    (hrHiBound : rHi < 2 ^ 85)
+    (hrLoBound : rLo < 2 ^ 87)
+    (hcgt : ¬ rLo * rLo / (rHi * 2 ^ 86) > 1) :
+    cbrt512QuadraticCorrection rHi rLo rem =
+      FormalYul.evmAdd (rHi * 2 ^ 86)
+        (FormalYul.evmAdd (rLo - rLo * rLo / (rHi * 2 ^ 86)) 0) := by
+  obtain ⟨_, _, _, _, _, _, _, hcW, _,
+      hShl, hSq, hDiv, hMulC, hResid, _, _, hEps, hSub⟩ :=
+    cbrt512_qc_setup rHi rLo hrHi hrLo hrHiPos hrHiBound hrLoBound
+  have hguard :=
+    cbrt512_uint256_gt_one_eq_zero_of_not_gt
+      (rLo * rLo / (rHi * 2 ^ 86)) hcW hcgt
+  unfold cbrt512QuadraticCorrection
+  simp only [cbrt512_qc_shift86_eq, hShl, hSq, hDiv, hSub,
+    hguard, ↓reduceIte]
+
 private def cbrt512GeneratedCoreResult (xHi xLo : Nat) : Nat :=
   let shiftedHi := cbrt512ShiftedHi xHi xLo
   let shiftedLo := cbrt512ShiftedLo xHi xLo
