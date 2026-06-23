@@ -2710,6 +2710,131 @@ private theorem call_fun__cbrt_quadraticCorrection_core_raw_generated_body
       (value := value) (bits := bits) (fuel := fuel) (extra := 821)
       (shared := shared) (store := store) (hlookup := hlookup)
 
+set_option maxRecDepth 100000 in
+private theorem call_fun__cbrt512_raw_of_subcall_semantics
+    (xHi xLo rHi res d corr fuel : Nat)
+    (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup :
+      shared.accountMap.find? shared.executionEnv.codeOwner =
+        some (FormalYul.accountFor yulContract))
+    (hbase :
+      let shift := FormalYul.evmDiv (FormalYul.evmClz xHi) 3
+      let shift3 := FormalYul.evmMul shift 3
+      let shiftedHi := FormalYul.evmOr (FormalYul.evmShl shift3 xHi)
+        (FormalYul.evmShr (FormalYul.evmSub 256 shift3) xLo)
+      ∀ callerStore,
+        EvmYul.Yul.call (fuel + 953) [EvmYul.UInt256.ofNat shiftedHi]
+          (.some "fun__cbrt_baseCase_4803") (.some yulContract)
+          (EvmYul.Yul.State.Ok shared callerStore) =
+        .ok (EvmYul.Yul.State.Ok shared callerStore,
+          [FormalYul.word rHi, FormalYul.word res, FormalYul.word d]))
+    (hquad :
+      let shift := FormalYul.evmDiv (FormalYul.evmClz xHi) 3
+      let shift3 := FormalYul.evmMul shift 3
+      let shiftedHi := FormalYul.evmOr (FormalYul.evmShl shift3 xHi)
+        (FormalYul.evmShr (FormalYul.evmSub 256 shift3) xLo)
+      let shiftedLo := FormalYul.evmShl shift3 xLo
+      let limbHi := FormalYul.evmOr (FormalYul.evmShl 84 (FormalYul.evmAnd 3 shiftedHi))
+        (FormalYul.evmShr 172 shiftedLo)
+      let n := FormalYul.evmOr (FormalYul.evmShl 86 res) limbHi
+      let q0 := FormalYul.evmDiv n d
+      let rem0 := FormalYul.evmMod n d
+      let c := FormalYul.evmShr 170 res
+      let q1 := FormalYul.evmAdd q0 (FormalYul.evmDiv (FormalYul.evmNot 0) d)
+      let rem1 := FormalYul.evmAdd rem0
+        (FormalYul.evmAdd 1 (FormalYul.evmMod (FormalYul.evmNot 0) d))
+      let q2 := FormalYul.evmAdd q1 (FormalYul.evmDiv rem1 d)
+      let rem2 := FormalYul.evmMod rem1 d
+      let out : Nat × Nat := if c = 0 then (q0, rem0) else (q2, rem2)
+      ∀ callerStore,
+        EvmYul.Yul.call (fuel + 927)
+          [EvmYul.UInt256.ofNat rHi, EvmYul.UInt256.ofNat out.1,
+            EvmYul.UInt256.ofNat out.2]
+          (.some "fun__cbrt_quadraticCorrection_4921") (.some yulContract)
+          (EvmYul.Yul.State.Ok shared callerStore) =
+        .ok (EvmYul.Yul.State.Ok shared callerStore, [FormalYul.word corr])) :
+    let shift := FormalYul.evmDiv (FormalYul.evmClz xHi) 3
+    EvmYul.Yul.call (fuel + 979) [EvmYul.UInt256.ofNat xHi, EvmYul.UInt256.ofNat xLo]
+      (.some yulName_fun__cbrt512) (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (FormalYul.evmShr shift corr)]) := by
+  have hkaratsuba :
+      let shift := FormalYul.evmDiv (FormalYul.evmClz xHi) 3
+      let shift3 := FormalYul.evmMul shift 3
+      let shiftedHi := FormalYul.evmOr (FormalYul.evmShl shift3 xHi)
+        (FormalYul.evmShr (FormalYul.evmSub 256 shift3) xLo)
+      let shiftedLo := FormalYul.evmShl shift3 xLo
+      let limbHi := FormalYul.evmOr (FormalYul.evmShl 84 (FormalYul.evmAnd 3 shiftedHi))
+        (FormalYul.evmShr 172 shiftedLo)
+      let n := FormalYul.evmOr (FormalYul.evmShl 86 res) limbHi
+      let q0 := FormalYul.evmDiv n d
+      let rem0 := FormalYul.evmMod n d
+      let c := FormalYul.evmShr 170 res
+      let q1 := FormalYul.evmAdd q0 (FormalYul.evmDiv (FormalYul.evmNot 0) d)
+      let rem1 := FormalYul.evmAdd rem0
+        (FormalYul.evmAdd 1 (FormalYul.evmMod (FormalYul.evmNot 0) d))
+      let q2 := FormalYul.evmAdd q1 (FormalYul.evmDiv rem1 d)
+      let rem2 := FormalYul.evmMod rem1 d
+      let out : Nat × Nat := if c = 0 then (q0, rem0) else (q2, rem2)
+      ∀ callerStore,
+        EvmYul.Yul.call (fuel + 936)
+          [EvmYul.UInt256.ofNat res,
+            EvmYul.UInt256.lor
+              (EvmYul.UInt256.shiftLeft
+                (EvmYul.UInt256.land (EvmYul.UInt256.ofNat 3)
+                  (EvmYul.UInt256.ofNat shiftedHi))
+                (EvmYul.UInt256.ofNat 84))
+              (EvmYul.UInt256.shiftRight (EvmYul.UInt256.ofNat shiftedLo)
+                (EvmYul.UInt256.ofNat 172)),
+            EvmYul.UInt256.ofNat d]
+          (.some "fun__cbrt_karatsubaQuotient_4819") (.some yulContract)
+          (EvmYul.Yul.State.Ok shared callerStore) =
+        .ok (EvmYul.Yul.State.Ok shared callerStore,
+          [FormalYul.word out.1, FormalYul.word out.2]) := by
+    intro shift shift3 shiftedHi shiftedLo limbHi n q0 rem0 c q1 rem1 q2 rem2 out
+      callerStore
+    have hlimb :
+        EvmYul.UInt256.lor
+            (EvmYul.UInt256.shiftLeft
+              (EvmYul.UInt256.land (EvmYul.UInt256.ofNat 3)
+                (EvmYul.UInt256.ofNat shiftedHi))
+              (EvmYul.UInt256.ofNat 84))
+            (EvmYul.UInt256.shiftRight (EvmYul.UInt256.ofNat shiftedLo)
+              (EvmYul.UInt256.ofNat 172)) =
+          EvmYul.UInt256.ofNat limbHi := by
+      simp [limbHi, FormalYul.word,
+        FormalYul.Preservation.uint256_ofNat_and_eq_word_evmAnd,
+        FormalYul.Preservation.uint256_ofNat_or_eq_word_evmOr,
+        FormalYul.Preservation.uint256_ofNat_shiftLeft_eq_word_evmShl,
+        FormalYul.Preservation.uint256_ofNat_shiftRight_eq_word_evmShr]
+    rw [hlimb]
+    simpa [n, q0, rem0, c, q1, rem1, q2, rem2, out, FormalYul.word] using
+      call_fun__cbrt_karatsubaQuotient_core_generated_raw_offset_direct
+        (res := res) (xLo := limbHi) (d := d) (fuel := fuel)
+        (shared := shared) (store := callerStore) (hlookup := hlookup)
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions,
+    lookup_fun__cbrt512, yulFunction_fun__cbrt512,
+    yulFunction_fun__cbrt_4991,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [hlookup, EvmYul.Yul.exec.eq_def, EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.evalCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head',
+    EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.store,
+    GetElem?.getElem!, decidableGetElem?,
+    EvmYul.Yul.State.instGetElemIdentifierLiteralMemVarStoreStore,
+    EvmYul.Yul.State.reviveJump,
+    EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
+    FormalYul.word, hbase, hkaratsuba, hquad]
+
 private theorem call_fun_tmp_128_direct
     (fuel : Nat) (shared : EvmYul.SharedState .Yul)
     (store : EvmYul.Yul.VarStore)
