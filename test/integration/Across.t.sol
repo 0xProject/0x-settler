@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
-import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
 import {ISpokePool} from "src/core/Across.sol";
@@ -82,7 +81,7 @@ contract AcrossTest is BridgeSettlerIntegrationTest {
         deal(address(this), amount);
         (bool success,) = address(WETH).call{value: amount}(abi.encodeWithSignature("deposit()"));
         assertTrue(success, "Deposit failed");
-        WETH.approve(address(ALLOWANCE_HOLDER), amount);
+        WETH.approve(address(allowanceHolder), amount);
 
         bytes[] memory bridgeActions = ActionDataBuilder.build(
             _getDefaultTransferFrom(address(WETH), amount),
@@ -93,7 +92,7 @@ contract AcrossTest is BridgeSettlerIntegrationTest {
 
         uint256 balanceBefore = WETH.balanceOf(spokePool);
         vm.expectCall(spokePool, acrossCall(2000, 2000));
-        ALLOWANCE_HOLDER.exec(
+        allowanceHolder.exec(
             address(bridgeSettler),
             address(WETH),
             amount,

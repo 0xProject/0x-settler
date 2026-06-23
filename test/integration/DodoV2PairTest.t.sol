@@ -4,21 +4,18 @@ pragma solidity ^0.8.25;
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
-import {BasePairTest} from "./BasePairTest.t.sol";
+import {SettlerBasePairTest} from "./SettlerBasePairTest.t.sol";
 import {ISettlerActions} from "src/ISettlerActions.sol";
 import {ActionDataBuilder} from "../utils/ActionDataBuilder.sol";
-import {MainnetSettler as Settler} from "src/chains/Mainnet/TakerSubmitted.sol";
-import {Shim} from "./SettlerBasePairTest.t.sol";
+import {Settler} from "src/Settler.sol";
 
 import {IAllowanceHolder} from "src/allowanceholder/IAllowanceHolder.sol";
 
-contract DodoV2PairTest is BasePairTest {
+contract DodoV2PairTest is SettlerBasePairTest {
     function _testName() internal pure override returns (string memory) {
         return "USDT-DAI";
     }
 
-    Settler internal settler;
-    IAllowanceHolder internal allowanceHolder;
     uint256 private _amount;
 
     function setUp() public override {
@@ -37,14 +34,6 @@ contract DodoV2PairTest is BasePairTest {
         }
         safeApproveIfBelow(fromToken(), FROM, address(PERMIT2), amount());
         warmPermit2Nonce(FROM);
-
-        allowanceHolder = IAllowanceHolder(0x0000000000001fF3684f28c67538d4D072C22734);
-
-        uint256 forkChainId = (new Shim()).chainId();
-        vm.chainId(31337);
-        settler = new Settler(bytes20(0));
-        vm.etch(address(allowanceHolder), vm.getDeployedCode("AllowanceHolder.sol:AllowanceHolder"));
-        vm.chainId(forkChainId);
 
         // USDT is obnoxious about throwing errors, so let's check here before
         // we run into something inscrutable. Do this here to avoid incorrectly

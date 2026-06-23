@@ -5,7 +5,6 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {Vm} from "@forge-std/Vm.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {BridgeSettlerIntegrationTest} from "./BridgeSettler.t.sol";
-import {ALLOWANCE_HOLDER} from "src/allowanceholder/IAllowanceHolder.sol";
 import {IBridgeSettlerActions} from "src/bridge/IBridgeSettlerActions.sol";
 import {InvalidFeeToken, InvalidTokenAmountsLength} from "src/core/SettlerErrors.sol";
 import {LibBytes} from "../utils/LibBytes.sol";
@@ -40,7 +39,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
 
         deal(address(USDC), address(this), 2000e6);
         deal(address(this), 10 ether);
-        USDC.approve(address(ALLOWANCE_HOLDER), 2000e6);
+        USDC.approve(address(allowanceHolder), 2000e6);
     }
 
     function getOnRamp(uint64 destinationChainSelector) internal view returns (address onRamp) {
@@ -97,7 +96,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
 
         // Execute and verify
         vm.expectCall(CCIP_ROUTER, fee, abi.encodeCall(IRouterClient.ccipSend, (ARBITRUM_SELECTOR, message)));
-        ALLOWANCE_HOLDER.exec{value: fee}(
+        allowanceHolder.exec{value: fee}(
             address(bridgeSettler),
             address(USDC),
             amount,
@@ -143,7 +142,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
 
         // Execute
         vm.expectCall(CCIP_ROUTER, fee, abi.encodeCall(IRouterClient.ccipSend, (BASE_SELECTOR, message)));
-        ALLOWANCE_HOLDER.exec{value: fee}(
+        allowanceHolder.exec{value: fee}(
             address(bridgeSettler),
             address(USDC),
             amount,
@@ -199,7 +198,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
         // Execute
         vm.expectCall(CCIP_ROUTER, fee, abi.encodeCall(IRouterClient.ccipSend, (ARBITRUM_SELECTOR, message)));
         vm.recordLogs();
-        ALLOWANCE_HOLDER.exec{value: fee}(
+        allowanceHolder.exec{value: fee}(
             address(bridgeSettler),
             address(USDC),
             amount,
@@ -256,7 +255,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
 
         // Should revert because feeToken is not address(0)
         vm.expectRevert(InvalidFeeToken.selector);
-        ALLOWANCE_HOLDER.exec(
+        allowanceHolder.exec(
             address(bridgeSettler),
             address(USDC),
             amount,
@@ -296,7 +295,7 @@ contract CCIPTest is BridgeSettlerIntegrationTest {
 
         // Should revert because tokenAmounts length is not 1
         vm.expectRevert(InvalidTokenAmountsLength.selector);
-        ALLOWANCE_HOLDER.exec(
+        allowanceHolder.exec(
             address(bridgeSettler),
             address(USDC),
             amount,

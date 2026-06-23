@@ -7,7 +7,6 @@ import {ISettlerBase} from "src/interfaces/ISettlerBase.sol";
 
 import {IPSM, WAD, DAI, USDS, USDD, USDT, UsddPSM} from "src/core/MakerPSM.sol";
 
-import {Shim} from "./SettlerBasePairTest.t.sol";
 import {MainnetSettlerMetaTxn as SettlerMetaTxn} from "src/chains/Mainnet/MetaTxn.sol";
 
 import {Settler} from "src/Settler.sol";
@@ -51,7 +50,7 @@ contract MakerPsmLiteTest is SettlerMetaTxnPairTest {
     }
 
     modifier setMakerPsmLiteBlockNumber() {
-        uint256 blockNumber = (new Shim()).blockNumber();
+        uint256 blockNumber = vm.getBlockNumber();
         vm.rollFork(makerPsmLiteBlockNumber());
         vm.setEvmVersion("osaka");
         assert(address(makerPsm()).code.length > 0);
