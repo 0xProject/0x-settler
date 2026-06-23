@@ -19,6 +19,16 @@ function revertConfusedDeputy() pure {
 /// @notice Thrown when a target contract is invalid given the context
 error InvalidTarget();
 
+/// @notice Thrown when Renegade action data is malformed
+error InvalidRenegadeData();
+
+function revertInvalidRenegadeData() pure {
+    assembly ("memory-safe") {
+        mstore(0x00, 0xaa81f37c) // selector for `InvalidRenegadeData()`
+        revert(0x1c, 0x04)
+    }
+}
+
 /// @notice Thrown when validating the caller against the expected caller
 error InvalidSender();
 

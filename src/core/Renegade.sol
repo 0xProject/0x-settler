@@ -3,111 +3,55 @@ pragma solidity ^0.8.25;
 
 import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {SettlerSwapAbstract} from "../SettlerAbstract.sol";
-import {revertTooMuchSlippage} from "./SettlerErrors.sol";
+import {revertInvalidRenegadeData} from "./SettlerErrors.sol";
 import {SafeTransferLib} from "../vendor/SafeTransferLib.sol";
-import {UnsafeMath} from "../utils/UnsafeMath.sol";
-
-// selector for `sponsorMalleableAtomicMatchSettleWithRefundOptions(uint256,uint256,address,bytes,bytes,bytes,bytes,address,uint256,bool,uint256,bytes)`
-uint32 constant ARBITRUM_SELECTOR = 0x0f977971;
-// selector for `sponsorMalleableAtomicMatchSettle(uint256,uint256,address,(((uint256,uint256,uint256)),(uint256,uint256,uint256)),((address,address,(uint256),uint256,uint256,uint8),((uint256),(uint256)),((uint256),(uint256)),uint256[],address),(((uint256,uint256)[5],(uint256,uint256),(uint256,uint256)[5],(uint256,uint256),(uint256,uint256),uint256[5],uint256[4],uint256),((uint256,uint256)[5],(uint256,uint256),(uint256,uint256)[5],(uint256,uint256),(uint256,uint256),uint256[5],uint256[4],uint256),((uint256,uint256)[5],(uint256,uint256),(uint256,uint256)[5],(uint256,uint256),(uint256,uint256),uint256[5],uint256[4],uint256)),(((uint256,uint256),(uint256,uint256)),((uint256,uint256),(uint256,uint256))),address,bool,uint256,uint256,bytes)`
-uint32 constant BASE_SELECTOR = 0x322ef840;
 
 abstract contract Renegade is SettlerSwapAbstract {
     using SafeTransferLib for IERC20;
-    using UnsafeMath for uint256;
 
-    constructor() {
-        uint32 selector = _renegadeSelector();
-        assert(
-            (block.chainid == 42161 && selector == ARBITRUM_SELECTOR)
-                || (block.chainid == 8453 && selector == BASE_SELECTOR) || block.chainid == 31337
-        );
-    }
+    // `data` is the args to `sponsorExternalMatch` minus the 4-byte selector; its payload begins at
+    // `data + 0x20`. The head is static (`BoundedMatchResult` is inlined), so we index fixed offsets:
+    // 0x20 externalPartyAmountIn, 0x40 recipient, 0x80 internalPartyOutputToken.
+    uint32 private constant RENEGADE_SELECTOR = 0x54ea46d4;
 
-    function _renegadeSelector() internal pure virtual returns (uint32);
+    /// @notice The expected `GasSponsorV2` proxy address for the current chain.
+    /// @dev Adding a new chain requires a source change + redeploy of this contract.
+    function _renegadeGasSponsorV2() internal pure virtual returns (address);
 
-    /// @dev Extracts buyToken (quoteMint or baseMint) from GasSponsor calldata.
-    /// Base: standard ABI encoding; quoteMint @ data+0x1080, baseMint @ data+0x10a0.
-    /// Arbitrum: packed 20-byte addresses in statement blob; offset pointer @ data+0xa0.
-    /// baseForQuote=true -> buyToken=quoteMint, else baseMint.
-    function _extractBuyToken(bytes memory data, bool baseForQuote) internal pure returns (IERC20 buyToken) {
-        uint256 selector = _renegadeSelector();
+    /// @dev Slippage is enforced centrally by `_checkSlippageAndTransfer`; this action performs no
+    /// slippage check of its own. The match price/bounds/deadline are validated by the GasSponsor.
+    function sellToRenegade(IERC20 sellToken, bytes memory data) internal {
+        if (data.length < 0x80) revertInvalidRenegadeData();
+
+        IERC20 internalPartyOutputToken;
         assembly ("memory-safe") {
-            switch selector
-            case 0x322ef840 {
-                // Base: quoteMint @ data+0x1080, baseMint @ data+0x10a0
-                buyToken := mload(add(data, add(0x1080, shl(0x05, iszero(baseForQuote)))))
-            }
-            case 0x0f977971 {
-                // Arbitrum: packed 20B addrs in statement blob (offset ptr @ data+0xa0)
-                let stmtOffset := mload(add(0xa0, data))
-                buyToken := shr(0x60, mload(add(data, add(mul(0x14, iszero(baseForQuote)), add(0x40, stmtOffset)))))
-            }
+            internalPartyOutputToken := mload(add(0x80, data))
         }
-    }
+        // The sponsor pulls `internalPartyOutputToken`; require it to be the token we approve so a
+        // residual max approval to the sponsor can't be used to pull a different token.
+        if (sellToken != internalPartyOutputToken) revertInvalidRenegadeData();
 
-    /// @param baseForQuote True if selling base for quote.
-    function sellToRenegade(
-        address target,
-        IERC20 sellToken,
-        bool baseForQuote,
-        bytes memory data,
-        uint256 minBuyAmount
-    ) internal returns (uint256 buyAmount) {
-        uint256 newSellAmount;
-        uint256 value;
-        if (sellToken == ETH_ADDRESS) {
-            value = address(this).balance;
-            newSellAmount = value;
-        } else {
-            newSellAmount = sellToken.fastBalanceOf(address(this));
-            sellToken.safeApproveIfBelow(address(target), newSellAmount);
-        }
+        uint256 newSellAmt = sellToken.fastBalanceOf(address(this));
+        address target = _renegadeGasSponsorV2();
+        sellToken.safeApproveIfBelow(target, newSellAmt);
 
-        // word 0: quoteAmount, word 1: baseAmount
-        uint256 originalQuoteAmount;
-        uint256 originalBaseAmount;
         assembly ("memory-safe") {
-            originalQuoteAmount := mload(add(0x20, data))
-            originalBaseAmount := mload(add(0x40, data))
-        }
+            // Override externalPartyAmountIn with our balance and force recipient to this settler, so the
+            // match output lands in our custody for the final slippage check.
+            mstore(add(0x20, data), newSellAmt)
+            mstore(add(0x40, data), address())
 
-        uint256 newQuoteAmount;
-        uint256 newBaseAmount;
-        if (baseForQuote) {
-            newBaseAmount = newSellAmount;
-            unchecked {
-                newQuoteAmount = (originalQuoteAmount * newBaseAmount).unsafeDiv(originalBaseAmount);
-            }
-            buyAmount = newQuoteAmount;
-        } else {
-            newQuoteAmount = newSellAmount;
-            unchecked {
-                newBaseAmount = (originalBaseAmount * newQuoteAmount).unsafeDiv(originalQuoteAmount);
-            }
-            buyAmount = newBaseAmount;
-        }
-
-        if (buyAmount < minBuyAmount) {
-            revertTooMuchSlippage(_extractBuyToken(data, baseForQuote), minBuyAmount, buyAmount);
-        }
-
-        uint32 selector = _renegadeSelector();
-        assembly ("memory-safe") {
-            // override quoteAmount and baseAmount
-            mstore(add(0x20, data), newQuoteAmount)
-            mstore(add(0x40, data), newBaseAmount)
-
+            // Stash the length and overwrite its slot with the selector; calldata starts at data + 0x1c.
             let len := mload(data)
-            // temporarily clobber `data` size memory area
-            mstore(data, selector)
-            // Allowed selectors don't clash with any relevant function of restricted targets so we can skip checking `target`
-            if iszero(call(gas(), target, value, add(0x1c, data), add(0x04, len), 0x00, 0x00)) {
+            mstore(data, RENEGADE_SELECTOR)
+
+            if iszero(call(gas(), target, 0x00, add(0x1c, data), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())
             }
-            // restore clobbered memory
+
+            // Restore the clobbered length word before leaving memory-safe assembly.
             mstore(data, len)
         }
     }
