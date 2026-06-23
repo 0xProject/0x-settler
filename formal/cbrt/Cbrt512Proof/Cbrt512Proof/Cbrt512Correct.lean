@@ -861,6 +861,291 @@ theorem cbrt512_base_case_math_bounds (xHi : Nat)
   exact ⟨hw_lo, hw_hi, hw_wm, hm_lo, hm_hi, hmcube_le, hres_bound, hm_wm,
     hm2_wm, hm3_wm, h3m2_wm, h3m2_pos⟩
 
+theorem cbrt512_limb_hi_correct (xHi xLo : Nat)
+    (hxHi : xHi < WORD_MOD) (hxLo : xLo < WORD_MOD) :
+    let limbHi := evmOr (evmShl 84 (evmAnd 3 xHi)) (evmShr 172 xLo)
+    limbHi = (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172 ∧
+    limbHi < 2 ^ 86 ∧
+    limbHi < WORD_MOD := by
+  simp only
+  have h3W : (3 : Nat) < WORD_MOD := FormalYul.Preservation.three_lt_word
+  have hand : evmAnd 3 xHi = xHi % 4 := by
+    rw [FormalYul.Preservation.evmAnd_eq_of_lt 3 xHi h3W hxHi]
+    rw [Nat.and_comm]
+    exact Nat.and_two_pow_sub_one_eq_mod xHi 2
+  have hmod4 : xHi % 4 < 4 := Nat.mod_lt _ (by omega)
+  have hmod4W : xHi % 4 < WORD_MOD := by
+    unfold WORD_MOD
+    omega
+  have hprodLt : (xHi % 4) * 2 ^ 84 < 2 ^ 86 :=
+    calc (xHi % 4) * 2 ^ 84
+        < 4 * 2 ^ 84 := Nat.mul_lt_mul_of_pos_right hmod4 (Nat.two_pow_pos 84)
+      _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+  have hprodW : (xHi % 4) * 2 ^ 84 < WORD_MOD := by
+    unfold WORD_MOD
+    omega
+  have hshl : evmShl 84 (evmAnd 3 xHi) = (xHi % 4) * 2 ^ 84 := by
+    rw [hand, FormalYul.Preservation.evmShl_eq_of_lt 84 (xHi % 4) (by omega) hmod4W]
+    exact Nat.mod_eq_of_lt hprodW
+  have hshr : evmShr 172 xLo = xLo / 2 ^ 172 :=
+    FormalYul.Preservation.evmShr_eq_of_lt 172 xLo (by omega) hxLo
+  have hdivLt : xLo / 2 ^ 172 < 2 ^ 84 := by
+    rw [Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 172)]
+    calc xLo < WORD_MOD := hxLo
+      _ = 2 ^ 84 * 2 ^ 172 := by
+        unfold WORD_MOD
+        rw [← Nat.pow_add]
+  have hdivW : xLo / 2 ^ 172 < WORD_MOD :=
+    Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hxLo
+  have hor : evmOr (evmShl 84 (evmAnd 3 xHi)) (evmShr 172 xLo) =
+      (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172 := by
+    rw [hshl, hshr, FormalYul.Preservation.evmOr_eq_of_lt _ _ hprodW hdivW]
+    rw [show (xHi % 4) * 2 ^ 84 = (xHi % 4) <<< 84 from
+      (Nat.shiftLeft_eq _ _).symm]
+    exact (Nat.shiftLeft_add_eq_or_of_lt hdivLt (xHi % 4)).symm
+  have hsumLt : (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172 < 2 ^ 86 :=
+    calc (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172
+        < (xHi % 4) * 2 ^ 84 + 2 ^ 84 := Nat.add_lt_add_left hdivLt _
+      _ = ((xHi % 4) + 1) * 2 ^ 84 := (Nat.succ_mul _ _).symm
+      _ ≤ 4 * 2 ^ 84 := Nat.mul_le_mul_right _ (by omega)
+      _ = 2 ^ 86 := by rw [show (4 : Nat) = 2 ^ 2 from rfl, ← Nat.pow_add]
+  have hsumW : (xHi % 4) * 2 ^ 84 + xLo / 2 ^ 172 < WORD_MOD := by
+    unfold WORD_MOD
+    omega
+  rw [hor]
+  exact ⟨rfl, hsumLt, hsumW⟩
+
+private theorem cbrt512_div_of_mul_add (d q r : Nat) (hd : 0 < d) :
+    (d * q + r) / d = q + r / d := by
+  rw [show d * q + r = r + q * d from by rw [Nat.mul_comm, Nat.add_comm],
+    Nat.add_mul_div_right r q hd, Nat.add_comm]
+
+private theorem cbrt512_mod_of_mul_add (d q r : Nat) :
+    (d * q + r) % d = r % d := by
+  rw [show d * q + r = r + q * d from by rw [Nat.mul_comm, Nat.add_comm],
+    Nat.add_mul_mod_self_right]
+
+private theorem cbrt512_mul_mod_mul_right (a n k : Nat) (hk : 0 < k) (hn : 0 < n) :
+    (a * k) % (n * k) = (a % n) * k := by
+  have hrw : a * k = (a % n) * k + (a / n) * (n * k) := by
+    have h := Nat.div_add_mod a n
+    calc a * k
+        = (n * (a / n) + a % n) * k := by rw [h]
+      _ = n * (a / n) * k + a % n * k := Nat.add_mul _ _ _
+      _ = (a / n) * (n * k) + a % n * k := by
+        rw [Nat.mul_comm n (a / n), Nat.mul_assoc]
+      _ = a % n * k + (a / n) * (n * k) := Nat.add_comm _ _
+  rw [hrw, Nat.add_mul_mod_self_right,
+    Nat.mod_eq_of_lt (Nat.mul_lt_mul_of_pos_right (Nat.mod_lt a hn) hk)]
+
+private theorem cbrt512_mul_pow86_mod_word (a : Nat) :
+    (a * 2 ^ 86) % WORD_MOD = (a % 2 ^ 170) * 2 ^ 86 := by
+  have hW : WORD_MOD = 2 ^ 170 * 2 ^ 86 := by
+    unfold WORD_MOD
+    rw [← Nat.pow_add]
+  rw [hW]
+  exact cbrt512_mul_mod_mul_right a (2 ^ 170) (2 ^ 86)
+    (Nat.two_pow_pos 86) (Nat.two_pow_pos 170)
+
+theorem cbrt512_karatsuba_quotient_correct
+    (res limbHi d : Nat)
+    (hres : res < WORD_MOD) (hlimb : limbHi < WORD_MOD)
+    (hdGe : 2 ^ 86 ≤ d) (hdBound : d < 2 ^ 172)
+    (hresBound : res < 2 ^ 171)
+    (hlimbBound : limbHi < 2 ^ 86) :
+    let n := evmOr (evmShl 86 res) limbHi
+    let q0 := evmDiv n d
+    let rem0 := evmMod n d
+    let c := evmShr 170 res
+    let q1 := evmAdd q0 (evmDiv (evmNot 0) d)
+    let rem1 := evmAdd rem0 (evmAdd 1 (evmMod (evmNot 0) d))
+    let q2 := evmAdd q1 (evmDiv rem1 d)
+    let rem2 := evmMod rem1 d
+    let out : Nat × Nat := if c = 0 then (q0, rem0) else (q2, rem2)
+    out.1 = (res * 2 ^ 86 + limbHi) / d ∧
+    out.2 = (res * 2 ^ 86 + limbHi) % d := by
+  simp only
+  have hdPos : 0 < d := by omega
+  have hdW : d < WORD_MOD := by
+    unfold WORD_MOD
+    omega
+  have hWFact : WORD_MOD = 2 ^ 170 * 2 ^ 86 := by
+    unfold WORD_MOD
+    rw [← Nat.pow_add]
+  have hresModLt : res % 2 ^ 170 < 2 ^ 170 := Nat.mod_lt _ (Nat.two_pow_pos 170)
+  have hnHiLt : (res % 2 ^ 170) * 2 ^ 86 < WORD_MOD := by
+    rw [hWFact]
+    exact Nat.mul_lt_mul_of_pos_right hresModLt (Nat.two_pow_pos 86)
+  have hnLt : (res % 2 ^ 170) * 2 ^ 86 + limbHi < WORD_MOD := by
+    calc (res % 2 ^ 170) * 2 ^ 86 + limbHi
+        < (res % 2 ^ 170) * 2 ^ 86 + 2 ^ 86 := by omega
+      _ = ((res % 2 ^ 170) + 1) * 2 ^ 86 := (Nat.succ_mul _ _).symm
+      _ ≤ 2 ^ 170 * 2 ^ 86 := Nat.mul_le_mul_right _ (by omega)
+      _ = WORD_MOD := hWFact.symm
+  have hshlRes : evmShl 86 res = (res % 2 ^ 170) * 2 ^ 86 := by
+    rw [FormalYul.Preservation.evmShl_eq_of_lt 86 res (by omega) hres]
+    exact cbrt512_mul_pow86_mod_word res
+  have horEq : evmOr ((res % 2 ^ 170) * 2 ^ 86) limbHi =
+      (res % 2 ^ 170) * 2 ^ 86 + limbHi := by
+    rw [FormalYul.Preservation.evmOr_eq_of_lt _ _ hnHiLt hlimb]
+    rw [show (res % 2 ^ 170) * 2 ^ 86 = (res % 2 ^ 170) <<< 86 from
+      (Nat.shiftLeft_eq _ _).symm]
+    exact (Nat.shiftLeft_add_eq_or_of_lt hlimbBound (res % 2 ^ 170)).symm
+  have hcEq : evmShr 170 res = res / 2 ^ 170 :=
+    FormalYul.Preservation.evmShr_eq_of_lt 170 res (by omega) hres
+  rw [hshlRes, horEq, hcEq]
+  by_cases hcZero : res / 2 ^ 170 = 0
+  · have hresSmall : res < 2 ^ 170 := by
+      by_contra h
+      have hge : 2 ^ 170 ≤ res := Nat.le_of_not_gt h
+      have hpos : 0 < res / 2 ^ 170 := Nat.div_pos hge (Nat.two_pow_pos 170)
+      omega
+    have hmodRes : res % 2 ^ 170 = res := Nat.mod_eq_of_lt hresSmall
+    have hnEq : (res % 2 ^ 170) * 2 ^ 86 + limbHi = res * 2 ^ 86 + limbHi := by
+      rw [hmodRes]
+    have hnFullLt : res * 2 ^ 86 + limbHi < WORD_MOD := by
+      rw [← hnEq]
+      exact hnLt
+    simp only [hcZero, ↓reduceIte]
+    constructor
+    · rw [hnEq]
+      exact FormalYul.Preservation.evmDiv_eq_of_lt _ d hnFullLt hdPos hdW
+    · rw [hnEq]
+      exact FormalYul.Preservation.evmMod_eq_of_lt _ d hnFullLt hdPos hdW
+  · have hresGe : 2 ^ 170 ≤ res := by
+      have hpos : 0 < res / 2 ^ 170 := Nat.pos_of_ne_zero hcZero
+      exact (Nat.le_div_iff_mul_le (Nat.two_pow_pos 170)).mp hpos
+    have hcOne : res / 2 ^ 170 = 1 := by
+      have hcLe : res / 2 ^ 170 ≤ 1 :=
+        Nat.lt_succ_iff.mp ((Nat.div_lt_iff_lt_mul (Nat.two_pow_pos 170)).mpr
+          (by omega))
+      omega
+    have hnFullEq : res * 2 ^ 86 + limbHi =
+        (res % 2 ^ 170) * 2 ^ 86 + limbHi + WORD_MOD := by
+      have hdm := Nat.div_add_mod res (2 ^ 170)
+      rw [hcOne] at hdm
+      rw [hWFact]
+      omega
+    have hnDiv : evmDiv ((res % 2 ^ 170) * 2 ^ 86 + limbHi) d =
+        ((res % 2 ^ 170) * 2 ^ 86 + limbHi) / d :=
+      FormalYul.Preservation.evmDiv_eq_of_lt _ d hnLt hdPos hdW
+    have hnMod : evmMod ((res % 2 ^ 170) * 2 ^ 86 + limbHi) d =
+        ((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d :=
+      FormalYul.Preservation.evmMod_eq_of_lt _ d hnLt hdPos hdW
+    have hnot0 : evmNot 0 = WORD_MOD - 1 :=
+      FormalYul.Preservation.evmNot_eq_of_lt 0 FormalYul.Preservation.zero_lt_word
+    have hWm1Lt : WORD_MOD - 1 < WORD_MOD := by
+      unfold WORD_MOD
+      omega
+    have hwmDiv : evmDiv (WORD_MOD - 1) d = (WORD_MOD - 1) / d :=
+      FormalYul.Preservation.evmDiv_eq_of_lt _ d hWm1Lt hdPos hdW
+    have hwmMod : evmMod (WORD_MOD - 1) d = (WORD_MOD - 1) % d :=
+      FormalYul.Preservation.evmMod_eq_of_lt _ d hWm1Lt hdPos hdW
+    rw [hnot0, hnDiv, hnMod, hwmDiv, hwmMod]
+    have hrwLt : (WORD_MOD - 1) % d < d := Nat.mod_lt _ hdPos
+    have hrwW : (WORD_MOD - 1) % d < WORD_MOD := Nat.lt_of_lt_of_le hrwLt (by omega)
+    have h1W : (1 : Nat) < WORD_MOD := FormalYul.Preservation.one_lt_word
+    have h1rwSum : 1 + (WORD_MOD - 1) % d < WORD_MOD :=
+      Nat.lt_of_le_of_lt (by omega : 1 + (WORD_MOD - 1) % d ≤ d) hdW
+    have hadd1 : evmAdd 1 ((WORD_MOD - 1) % d) =
+        1 + (WORD_MOD - 1) % d :=
+      FormalYul.Preservation.evmAdd_eq_of_lt _ _ h1W hrwW h1rwSum
+    have hr0Lt : ((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d < d :=
+      Nat.mod_lt _ hdPos
+    have hr0W : ((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d < WORD_MOD :=
+      Nat.lt_of_lt_of_le hr0Lt (by omega)
+    have hremSumW :
+        ((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d +
+          (1 + (WORD_MOD - 1) % d) < WORD_MOD :=
+      Nat.lt_of_lt_of_le (by omega : _ < 2 * d) (by unfold WORD_MOD; omega)
+    have haddRem : evmAdd (((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d)
+        (1 + (WORD_MOD - 1) % d) =
+        ((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d +
+          (1 + (WORD_MOD - 1) % d) :=
+      FormalYul.Preservation.evmAdd_eq_of_lt _ _ hr0W h1rwSum hremSumW
+    have hremSumLt2d :
+        ((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d +
+          (1 + (WORD_MOD - 1) % d) < 2 * d := by
+      omega
+    have hdivRem : evmDiv
+        (((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d + (1 + (WORD_MOD - 1) % d)) d =
+        (((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d +
+          (1 + (WORD_MOD - 1) % d)) / d :=
+      FormalYul.Preservation.evmDiv_eq_of_lt _ d hremSumW hdPos hdW
+    have hmodRem : evmMod
+        (((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d + (1 + (WORD_MOD - 1) % d)) d =
+        (((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d +
+          (1 + (WORD_MOD - 1) % d)) % d :=
+      FormalYul.Preservation.evmMod_eq_of_lt _ d hremSumW hdPos hdW
+    have hq0W : ((res % 2 ^ 170) * 2 ^ 86 + limbHi) / d < WORD_MOD :=
+      Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hnLt
+    have hqwW : (WORD_MOD - 1) / d < WORD_MOD :=
+      Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hWm1Lt
+    have hq0Lt170 : ((res % 2 ^ 170) * 2 ^ 86 + limbHi) / d < 2 ^ 170 :=
+      (Nat.div_lt_iff_lt_mul hdPos).mpr (Nat.lt_of_lt_of_le hnLt
+        (by rw [hWFact]; exact Nat.mul_le_mul_left _ hdGe))
+    have hqwLt170 : (WORD_MOD - 1) / d < 2 ^ 170 :=
+      (Nat.div_lt_iff_lt_mul hdPos).mpr (Nat.lt_of_lt_of_le hWm1Lt
+        (by rw [hWFact]; exact Nat.mul_le_mul_left _ hdGe))
+    have hqSumW :
+        ((res % 2 ^ 170) * 2 ^ 86 + limbHi) / d + (WORD_MOD - 1) / d <
+          WORD_MOD := by
+      have hlt : ((res % 2 ^ 170) * 2 ^ 86 + limbHi) / d +
+          (WORD_MOD - 1) / d < 2 ^ 171 := by
+        omega
+      exact Nat.lt_of_lt_of_le hlt (by
+        unfold WORD_MOD
+        exact Nat.pow_le_pow_right (by omega) (by omega : 171 ≤ 256))
+    have haddQ : evmAdd (((res % 2 ^ 170) * 2 ^ 86 + limbHi) / d)
+        ((WORD_MOD - 1) / d) =
+        ((res % 2 ^ 170) * 2 ^ 86 + limbHi) / d + (WORD_MOD - 1) / d :=
+      FormalYul.Preservation.evmAdd_eq_of_lt _ _ hq0W hqwW hqSumW
+    have hremDivLe1 :
+        (((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d +
+          (1 + (WORD_MOD - 1) % d)) / d ≤ 1 :=
+      Nat.lt_succ_iff.mp ((Nat.div_lt_iff_lt_mul hdPos).mpr hremSumLt2d)
+    have hremDivW :
+        (((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d +
+          (1 + (WORD_MOD - 1) % d)) / d < WORD_MOD := by
+      exact Nat.lt_of_le_of_lt hremDivLe1 (by
+        unfold WORD_MOD
+        omega)
+    have hfinalSumW :
+        ((res % 2 ^ 170) * 2 ^ 86 + limbHi) / d + (WORD_MOD - 1) / d +
+          (((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d +
+            (1 + (WORD_MOD - 1) % d)) / d < WORD_MOD := by
+      have hlt : ((res % 2 ^ 170) * 2 ^ 86 + limbHi) / d +
+          (WORD_MOD - 1) / d +
+          (((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d +
+            (1 + (WORD_MOD - 1) % d)) / d < 2 ^ 171 + 1 := by
+        omega
+      exact Nat.lt_of_lt_of_le hlt (by
+        unfold WORD_MOD
+        omega)
+    have haddFinal : evmAdd
+        (((res % 2 ^ 170) * 2 ^ 86 + limbHi) / d + (WORD_MOD - 1) / d)
+        ((((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d +
+          (1 + (WORD_MOD - 1) % d)) / d) =
+        ((res % 2 ^ 170) * 2 ^ 86 + limbHi) / d + (WORD_MOD - 1) / d +
+          (((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d +
+            (1 + (WORD_MOD - 1) % d)) / d :=
+      FormalYul.Preservation.evmAdd_eq_of_lt _ _ hqSumW hremDivW hfinalSumW
+    have hnFullDecomp : res * 2 ^ 86 + limbHi =
+        d * (((res % 2 ^ 170) * 2 ^ 86 + limbHi) / d + (WORD_MOD - 1) / d) +
+        (((res % 2 ^ 170) * 2 ^ 86 + limbHi) % d +
+          (1 + (WORD_MOD - 1) % d)) := by
+      rw [hnFullEq]
+      have h1 := (Nat.div_add_mod ((res % 2 ^ 170) * 2 ^ 86 + limbHi) d).symm
+      have h2 := (Nat.div_add_mod (WORD_MOD - 1) d).symm
+      rw [Nat.mul_add]
+      omega
+    simp only [hcZero, ↓reduceIte]
+    constructor
+    · rw [hadd1, haddRem, hdivRem, haddQ, haddFinal, hnFullDecomp]
+      exact (cbrt512_div_of_mul_add d _ _ hdPos).symm
+    · rw [hadd1, haddRem, hmodRem, hnFullDecomp]
+      exact (cbrt512_mod_of_mul_add d _ _).symm
+
 private theorem cube_expand_aux (m : Nat) :
     (m + 1) * (m + 1) * (m + 1) = m * m * m + 3 * m * m + 3 * m + 1 := by
   ring_nf

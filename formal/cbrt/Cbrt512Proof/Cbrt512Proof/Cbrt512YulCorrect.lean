@@ -3326,6 +3326,78 @@ private def cbrt512KaratsubaOut (shiftedHi shiftedLo : Nat) : Nat × Nat :=
   let rem2 := FormalYul.evmMod rem1 d
   if c = 0 then (q0, rem0) else (q2, rem2)
 
+private theorem cbrt512KaratsubaOut_correct (shiftedHi shiftedLo : Nat)
+    (hHiLo : 2 ^ 253 ≤ shiftedHi)
+    (hHi : shiftedHi < FormalYul.WORD_MOD)
+    (hLo : shiftedLo < FormalYul.WORD_MOD) :
+    let m := icbrt (shiftedHi / 4)
+    let res := shiftedHi / 4 - m * m * m
+    let d := 3 * (m * m)
+    let limbHi := (shiftedHi % 4) * 2 ^ 84 + shiftedLo / 2 ^ 172
+    (cbrt512KaratsubaOut shiftedHi shiftedLo).1 = (res * 2 ^ 86 + limbHi) / d ∧
+    (cbrt512KaratsubaOut shiftedHi shiftedLo).2 = (res * 2 ^ 86 + limbHi) % d := by
+  simp only
+  let m := icbrt (shiftedHi / 4)
+  let resNat := shiftedHi / 4 - m * m * m
+  let dNat := 3 * (m * m)
+  let limbNat := (shiftedHi % 4) * 2 ^ 84 + shiftedLo / 2 ^ 172
+  obtain ⟨hrEq, hresEq, hdEq, hmLo, hmHi, hcubeLe, hresBound,
+      hmW, hm2W, hm3W, hdW, hdPos⟩ :=
+    cbrt512BaseCaseCore_correct shiftedHi hHiLo hHi
+  have hlimb := _root_.cbrt512_limb_hi_correct shiftedHi shiftedLo hHi hLo
+  simp only at hlimb
+  obtain ⟨hlimbEq, hlimbLt86, hlimbW⟩ := hlimb
+  have hwHi : shiftedHi / 4 < 2 ^ 254 := by
+    unfold FormalYul.WORD_MOD at hHi
+    omega
+  have hmTop : m ≤ _root_.M_TOP := by
+    by_cases h : m ≤ _root_.M_TOP
+    · exact h
+    · exfalso
+      have hsucc : _root_.M_TOP + 1 ≤ m := by omega
+      have hmono := cube_monotone hsucc
+      have hcube := icbrt_cube_le (shiftedHi / 4)
+      have htop := _root_.m_top_cube_bounds.2
+      simp only [m] at hmono hcube
+      omega
+  have hresLt171 : cbrt512BaseRes shiftedHi < 2 ^ 171 := by
+    rw [hresEq]
+    have hsq : m * m ≤ _root_.M_TOP * _root_.M_TOP := Nat.mul_le_mul hmTop hmTop
+    have htop := _root_.m_top_three_msq_plus_3m_lt_pow171
+    have hle : resNat ≤ 3 * (_root_.M_TOP * _root_.M_TOP) + 3 * _root_.M_TOP := by
+      have hsq3 : 3 * (m * m) ≤ 3 * (_root_.M_TOP * _root_.M_TOP) :=
+        Nat.mul_le_mul_left 3 hsq
+      have hm3 : 3 * m ≤ 3 * _root_.M_TOP := Nat.mul_le_mul_left 3 hmTop
+      exact Nat.le_trans (by simpa [resNat] using hresBound)
+        (Nat.add_le_add hsq3 hm3)
+    exact Nat.lt_of_le_of_lt hle htop
+  have hresW : cbrt512BaseRes shiftedHi < FormalYul.WORD_MOD := by
+    rw [hresEq]
+    have hwW : shiftedHi / 4 < FormalYul.WORD_MOD := by omega
+    omega
+  have hdGe : 2 ^ 86 ≤ cbrt512BaseD shiftedHi := by
+    rw [hdEq]
+    have hm2Ge : (2 ^ 83) * (2 ^ 83) ≤ m * m := Nat.mul_le_mul hmLo hmLo
+    calc 2 ^ 86
+        ≤ 3 * ((2 ^ 83) * (2 ^ 83)) := by decide
+      _ ≤ 3 * (m * m) := Nat.mul_le_mul_left _ hm2Ge
+  have hdLt172 : cbrt512BaseD shiftedHi < 2 ^ 172 := by
+    rw [hdEq]
+    have hm2Lt : m * m < 2 ^ 170 := by
+      calc m * m
+          < 2 ^ 85 * m := Nat.mul_lt_mul_of_pos_right hmHi (by omega)
+        _ ≤ 2 ^ 85 * 2 ^ 85 := Nat.mul_le_mul_left _ (Nat.le_of_lt hmHi)
+        _ = 2 ^ 170 := by rw [← Nat.pow_add]
+    calc 3 * (m * m)
+        < 3 * 2 ^ 170 := Nat.mul_lt_mul_of_pos_left hm2Lt (by omega)
+      _ < 2 ^ 172 := by omega
+  have hk := _root_.cbrt512_karatsuba_quotient_correct
+    (cbrt512BaseRes shiftedHi) (cbrt512LimbHi shiftedHi shiftedLo)
+    (cbrt512BaseD shiftedHi)
+    hresW hlimbW hdGe hdLt172 hresLt171 hlimbLt86
+  simpa [cbrt512KaratsubaOut, cbrt512LimbHi, hresEq, hdEq, hlimbEq,
+    resNat, dNat, limbNat] using hk
+
 private def cbrt512QuadraticCorrection (rHi rLo res : Nat) : Nat :=
   let shift86 := FormalYul.evmAnd (FormalYul.evmAnd 86 255) 255
   let R := FormalYul.evmShl shift86 rHi
