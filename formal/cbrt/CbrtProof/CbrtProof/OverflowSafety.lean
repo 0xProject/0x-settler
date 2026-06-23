@@ -79,8 +79,7 @@ private theorem poly_ident (b : Nat) (hb : 2 ≤ b) :
 private theorem fBound_step_le (e : Nat) (he : 1 ≤ e) (h2e : 2 * e ≤ R_MAX + 1) :
     (R_MAX + 3 - 2 * e) * ((R_MAX + e) * (R_MAX + e)) ≥
       (R_MAX + 3 - 2 * (e + 1)) * ((R_MAX + (e + 1)) * (R_MAX + (e + 1))) := by
-  -- Let a = R+1-2e, b = R+e (avoid `set` which requires Mathlib)
-  -- Rewrite goal in terms of a, b
+  -- Rewrite the step into the form `(a + 2) * b^2 ≥ a * (b + 1)^2`.
   have h1 : R_MAX + 3 - 2 * e = (R_MAX + 1 - 2 * e) + 2 := by omega
   have h2 : R_MAX + 3 - 2 * (e + 1) = R_MAX + 1 - 2 * e := by omega
   have h3 : R_MAX + (e + 1) = (R_MAX + e) + 1 := by omega

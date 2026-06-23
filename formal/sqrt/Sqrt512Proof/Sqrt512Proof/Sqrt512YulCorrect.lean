@@ -13,16 +13,6 @@ namespace Sqrt512Yul
 open FormalYul
 open SqrtEvmMath
 
-private theorem call_on_checkpoint_5579
-    (fuel : Nat) (args : List EvmYul.Literal)
-    (fn : Option EvmYul.Yul.Ast.YulFunctionName)
-    (code : Option EvmYul.Yul.Ast.YulContract)
-    (jump : EvmYul.Yul.Jump) :
-    EvmYul.Yul.call (fuel + 5579) args fn code (EvmYul.Yul.State.Checkpoint jump) =
-      .ok (EvmYul.Yul.State.Checkpoint jump, [({ val := 0 } : EvmYul.UInt256)]) := by
-  rw [show fuel + 5579 = Nat.succ (fuel + 5578) by omega]
-  simp [EvmYul.Yul.call.eq_def]
-
 private theorem call_zero_value_for_split_t_uint256_direct
     (fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner = some (FormalYul.accountFor yulContract)) :
@@ -5372,7 +5362,7 @@ private theorem call_fun_sqrt512_from0_raw_direct
     simp +decide [hcondUInt, hcall, hbranch, sqrtStore,
       EvmYul.Yul.State.setLeave, EvmYul.Yul.State.revive,
       Finmap.lookup_insert,
-      call_on_checkpoint_5579 (fuel := fuel)]
+      FormalYul.Preservation.call_on_checkpoint (fuel := fuel) (extra := 5578)]
 
 private theorem call_fun_wrap_sqrt512_direct
     (xHi xLo : Nat) (fuel : Nat) (shared : EvmYul.SharedState .Yul)
@@ -6788,22 +6778,12 @@ private theorem call_shift_right_224_unsigned_direct
         (FormalYul.word 0))
       (FormalYul.word 224) =
       FormalYul.word 1062298250 := by
-  let tail : List UInt8 := (FormalYul.encodeWord xHi).data.toList.take 28
-  have htailLen : tail.length = 28 := by
-    simp [tail, FormalYul.Preservation.encodeWord_data_toList]
-  have hread :
-      ((selector_sqrt512 ++ FormalYul.encodeWords [xHi, xLo]).readBytes 0 32).data.toList =
-        [0x3f, 0x51, 0x62, 0x8a] ++ tail := by
-    simp [tail, ByteArray.readBytes, selector_sqrt512, FormalYul.encodeWords, FormalYul.bytes,
-      ByteArray.push, ByteArray.empty, ByteArray.emptyWithCapacity, ByteArray.size,
-      ffi.ByteArray.zeroes, List.take_append, FormalYul.Preservation.encodeWord_data_toList]
   have hselector :=
-    FormalYul.Preservation.shiftRight_calldataload_selector_of_readBytes
+    FormalYul.Preservation.shiftRight_calldataload_selector_two_args_of_calldata
       (shared := sqrt512SharedAfterFreePtr xHi xLo)
       (store := (Inhabited.default : EvmYul.Yul.VarStore))
-      (selectorBytes := [0x3f, 0x51, 0x62, 0x8a]) (tail := tail)
-      (by decide) htailLen
-      (by simpa [sqrt512SharedAfterFreePtr_calldata] using hread)
+      (a := 0x3f) (b := 0x51) (c := 0x62) (d := 0x8a) (x := xHi) (y := xLo)
+      (by simp [selector_sqrt512])
   simpa [EvmYul.fromBytesBigEndian, EvmYul.fromBytes', FormalYul.word] using hselector
 
 @[simp] private theorem osqrtUp_selector_afterFreePtr (xHi xLo : Nat) :
@@ -6814,22 +6794,12 @@ private theorem call_shift_right_224_unsigned_direct
         (FormalYul.word 0))
       (FormalYul.word 224) =
       FormalYul.word 2574136228 := by
-  let tail : List UInt8 := (FormalYul.encodeWord xHi).data.toList.take 28
-  have htailLen : tail.length = 28 := by
-    simp [tail, FormalYul.Preservation.encodeWord_data_toList]
-  have hread :
-      ((selector_osqrtUp ++ FormalYul.encodeWords [xHi, xLo]).readBytes 0 32).data.toList =
-        [0x99, 0x6e, 0x33, 0xa4] ++ tail := by
-    simp [tail, ByteArray.readBytes, selector_osqrtUp, FormalYul.encodeWords, FormalYul.bytes,
-      ByteArray.push, ByteArray.empty, ByteArray.emptyWithCapacity, ByteArray.size,
-      ffi.ByteArray.zeroes, List.take_append, FormalYul.Preservation.encodeWord_data_toList]
   have hselector :=
-    FormalYul.Preservation.shiftRight_calldataload_selector_of_readBytes
+    FormalYul.Preservation.shiftRight_calldataload_selector_two_args_of_calldata
       (shared := osqrtUpSharedAfterFreePtr xHi xLo)
       (store := (Inhabited.default : EvmYul.Yul.VarStore))
-      (selectorBytes := [0x99, 0x6e, 0x33, 0xa4]) (tail := tail)
-      (by decide) htailLen
-      (by simpa [osqrtUpSharedAfterFreePtr_calldata] using hread)
+      (a := 0x99) (b := 0x6e) (c := 0x33) (d := 0xa4) (x := xHi) (y := xLo)
+      (by simp [selector_osqrtUp])
   simpa [EvmYul.fromBytesBigEndian, EvmYul.fromBytes', FormalYul.word] using hselector
 
 private theorem dispatcherReturn_sqrt512

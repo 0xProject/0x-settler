@@ -785,34 +785,12 @@ private theorem sqrt_selector_afterFreePtr (x : Nat) :
         (FormalYul.word 0))
       (FormalYul.word 224) =
       FormalYul.word 1529414794 := by
-  let tail : List UInt8 := (FormalYul.encodeWord x).data.toList.take 28
-  have htailLen : tail.length = 28 := by
-    simp [tail, FormalYul.Preservation.encodeWord_data_toList]
-  have hread :
-      ((selector_sqrt ++ FormalYul.encodeWords [x]).readBytes 0 32).data.toList =
-        [0x5b, 0x29, 0x04, 0x8a] ++ tail := by
-    simp [tail, ByteArray.readBytes, selector_sqrt, FormalYul.encodeWords, FormalYul.bytes,
-      ByteArray.push, ByteArray.empty, ByteArray.emptyWithCapacity]
-    change (ffi.ByteArray.zeroes
-        (OfNat.ofNat 32 - OfNat.ofNat
-          (4 + (List.take 28
-            (List.map (fun i => FormalYul.byteAt (FormalYul.u256 x) (31 - i))
-              (List.range 32))).length))).data = #[]
-    rw [show (List.take 28
-        (List.map (fun i => FormalYul.byteAt (FormalYul.u256 x) (31 - i))
-          (List.range 32))).length = 28 by simp]
-    have hz : (OfNat.ofNat 32 - OfNat.ofNat (4 + 28) : USize) = 0 := by
-      apply USize.ext
-      simp
-    rw [hz]
-    rfl
   have hselector :=
-    FormalYul.Preservation.shiftRight_calldataload_selector_of_readBytes
+    FormalYul.Preservation.shiftRight_calldataload_selector_single_arg_of_calldata
       (shared := sqrtSharedAfterFreePtr x)
       (store := (Inhabited.default : EvmYul.Yul.VarStore))
-      (selectorBytes := [0x5b, 0x29, 0x04, 0x8a]) (tail := tail)
-      (by decide) htailLen
-      (by simpa [sqrtSharedAfterFreePtr_calldata] using hread)
+      (a := 0x5b) (b := 0x29) (c := 0x04) (d := 0x8a) (x := x)
+      (by simp [selector_sqrt])
   simpa [EvmYul.fromBytesBigEndian, EvmYul.fromBytes', FormalYul.word] using hselector
 
 @[simp]
@@ -893,34 +871,12 @@ private theorem sqrtUp_selector_afterFreePtr (x : Nat) :
         (FormalYul.word 0))
       (FormalYul.word 224) =
       FormalYul.word 1707723681 := by
-  let tail : List UInt8 := (FormalYul.encodeWord x).data.toList.take 28
-  have htailLen : tail.length = 28 := by
-    simp [tail, FormalYul.Preservation.encodeWord_data_toList]
-  have hread :
-      ((selector_sqrtUp ++ FormalYul.encodeWords [x]).readBytes 0 32).data.toList =
-        [0x65, 0xc9, 0xcb, 0xa1] ++ tail := by
-    simp [tail, ByteArray.readBytes, selector_sqrtUp, FormalYul.encodeWords, FormalYul.bytes,
-      ByteArray.push, ByteArray.empty, ByteArray.emptyWithCapacity]
-    change (ffi.ByteArray.zeroes
-        (OfNat.ofNat 32 - OfNat.ofNat
-          (4 + (List.take 28
-            (List.map (fun i => FormalYul.byteAt (FormalYul.u256 x) (31 - i))
-              (List.range 32))).length))).data = #[]
-    rw [show (List.take 28
-        (List.map (fun i => FormalYul.byteAt (FormalYul.u256 x) (31 - i))
-          (List.range 32))).length = 28 by simp]
-    have hz : (OfNat.ofNat 32 - OfNat.ofNat (4 + 28) : USize) = 0 := by
-      apply USize.ext
-      simp
-    rw [hz]
-    rfl
   have hselector :=
-    FormalYul.Preservation.shiftRight_calldataload_selector_of_readBytes
+    FormalYul.Preservation.shiftRight_calldataload_selector_single_arg_of_calldata
       (shared := sqrtUpSharedAfterFreePtr x)
       (store := (Inhabited.default : EvmYul.Yul.VarStore))
-      (selectorBytes := [0x65, 0xc9, 0xcb, 0xa1]) (tail := tail)
-      (by decide) htailLen
-      (by simpa [sqrtUpSharedAfterFreePtr_calldata] using hread)
+      (a := 0x65) (b := 0xc9) (c := 0xcb) (d := 0xa1) (x := x)
+      (by simp [selector_sqrtUp])
   simpa [EvmYul.fromBytesBigEndian, EvmYul.fromBytes', FormalYul.word] using hselector
 
 private theorem selectSwitchCase_sqrtUp_sharedFor_mk_raw (x : Nat) :
@@ -959,103 +915,6 @@ private theorem selectSwitchCase_sqrtUp_sharedFor_mk_raw (x : Nat) :
   rw [show EvmYul.UInt256.ofNat 224 = FormalYul.word 224 by rfl]
   rw [sqrtUp_selector_afterFreePtr x]
   rfl
-
-private theorem selectSwitchCase_sqrt_sharedFor_mk_raw_method (x : Nat) :
-    EvmYul.Yul.selectSwitchCase
-      (((EvmYul.Yul.State.Ok
-        (EvmYul.SharedState.mk
-          (FormalYul.sharedFor yulContract
-            (selector_sqrt ++ FormalYul.encodeWords [x])).toState
-          ((FormalYul.sharedFor yulContract
-            (selector_sqrt ++ FormalYul.encodeWords [x])).mstore
-              (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)))
-        (Inhabited.default : EvmYul.Yul.VarStore)).toState.calldataload
-          (EvmYul.UInt256.ofNat 0)).shiftRight
-        (EvmYul.UInt256.ofNat 224))
-      [(EvmYul.UInt256.ofNat 1529414794,
-          [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_sqrt_62") [])]),
-        (EvmYul.UInt256.ofNat 1707723681,
-          [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_sqrtUp_75") [])])] =
-      some
-        [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_sqrt_62") [])] := by
-  simpa using selectSwitchCase_sqrt_sharedFor_mk_raw x
-
-private theorem selectSwitchCase_sqrt_sharedFor_record_raw_method (x : Nat) :
-    EvmYul.Yul.selectSwitchCase
-      (((EvmYul.Yul.State.Ok
-        { toState :=
-            (FormalYul.sharedFor yulContract
-              (selector_sqrt ++ FormalYul.encodeWords [x])).toState,
-          toMachineState :=
-            (FormalYul.sharedFor yulContract
-              (selector_sqrt ++ FormalYul.encodeWords [x])).mstore
-                (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128) }
-        (Inhabited.default : EvmYul.Yul.VarStore)).toState.calldataload
-          (EvmYul.UInt256.ofNat 0)).shiftRight
-        (EvmYul.UInt256.ofNat 224))
-      [(EvmYul.UInt256.ofNat 1529414794,
-          [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_sqrt_62") [])]),
-        (EvmYul.UInt256.ofNat 1707723681,
-          [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_sqrtUp_75") [])])] =
-      some
-        [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_sqrt_62") [])] := by
-  simpa using selectSwitchCase_sqrt_sharedFor_mk_raw_method x
-
-private theorem selectSwitchCase_sqrt_sharedFor_let_raw_method (x : Nat) :
-    EvmYul.Yul.selectSwitchCase
-      (((EvmYul.Yul.State.Ok
-        (let __State :=
-            (FormalYul.sharedFor yulContract
-              (selector_sqrt ++ FormalYul.encodeWords [x])).toState
-         let __MachineState :=
-            (FormalYul.sharedFor yulContract
-              (selector_sqrt ++ FormalYul.encodeWords [x])).mstore
-                (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)
-         { toState := __State, toMachineState := __MachineState })
-        (Inhabited.default : EvmYul.Yul.VarStore)).toState.calldataload
-          (EvmYul.UInt256.ofNat 0)).shiftRight
-        (EvmYul.UInt256.ofNat 224))
-      [(EvmYul.UInt256.ofNat 1529414794,
-          [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_sqrt_62") [])]),
-        (EvmYul.UInt256.ofNat 1707723681,
-          [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_sqrtUp_75") [])])] =
-      some
-        [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_sqrt_62") [])] := by
-  simpa using selectSwitchCase_sqrt_sharedFor_record_raw_method x
-
-private theorem selectSwitchCase_sqrt_sharedFor_have_raw_method (x : Nat) :
-    EvmYul.Yul.selectSwitchCase
-      (((EvmYul.Yul.State.Ok
-        (have __State :=
-            (FormalYul.sharedFor yulContract
-              (selector_sqrt ++ FormalYul.encodeWords [x])).toState
-         have __MachineState :=
-            (FormalYul.sharedFor yulContract
-              (selector_sqrt ++ FormalYul.encodeWords [x])).mstore
-                (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)
-         { toState := __State, toMachineState := __MachineState })
-        (Inhabited.default : EvmYul.Yul.VarStore)).toState.calldataload
-          (EvmYul.UInt256.ofNat 0)).shiftRight
-        (EvmYul.UInt256.ofNat 224))
-      [(EvmYul.UInt256.ofNat 1529414794,
-          [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_sqrt_62") [])]),
-        (EvmYul.UInt256.ofNat 1707723681,
-          [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-            (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_sqrtUp_75") [])])] =
-      some
-        [EvmYul.Yul.Ast.Stmt.ExprStmtCall
-          (EvmYul.Yul.Ast.Expr.Call (Sum.inr "external_fun_wrap_sqrt_62") [])] := by
-  simpa using selectSwitchCase_sqrt_sharedFor_record_raw_method x
 
 private theorem external_fun_wrap_sqrt_sqrt_calldata_result_999989
     (x : Nat) (store : EvmYul.Yul.VarStore) :

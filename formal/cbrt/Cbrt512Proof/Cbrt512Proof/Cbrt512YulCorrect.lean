@@ -36,16 +36,6 @@ private theorem call_zero_value_for_split_t_uint256_direct
     EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word]
 
-private theorem call_on_checkpoint
-    (fuel extra : Nat) (args : List EvmYul.Literal)
-    (fn : Option EvmYul.Yul.Ast.YulFunctionName)
-    (code : Option EvmYul.Yul.Ast.YulContract)
-    (jump : EvmYul.Yul.Jump) :
-    EvmYul.Yul.call (fuel + (extra + 1)) args fn code (EvmYul.Yul.State.Checkpoint jump) =
-      .ok (EvmYul.Yul.State.Checkpoint jump, [({ val := 0 } : EvmYul.UInt256)]) := by
-  rw [show fuel + (extra + 1) = Nat.succ (fuel + extra) by omega]
-  simp [EvmYul.Yul.call.eq_def]
-
 private theorem call_zero_value_for_split_t_userDefinedValueType_uint512_direct
     (fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup :
@@ -6038,7 +6028,7 @@ private theorem call_fun_cbrt512_zero_from0_direct
     hzero, hinto, hconvert, hcleanup, hcbrt,
     zeroStore, intoStore, convertStore, cbrtStore, FormalYul.word,
     Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
-    call_on_checkpoint
+    FormalYul.Preservation.call_on_checkpoint
       (fuel := fuel)]
 
 private theorem call_fun_cbrt512_high_from0_of_core_direct
@@ -6330,7 +6320,7 @@ private theorem call_fun_cbrtUp512_zero_from0_direct
     hzero, hinto, hconvert, hcleanup, hcbrt,
     zeroStore, intoStore, convertStore, cbrtStore, FormalYul.word,
     Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
-    call_on_checkpoint
+    FormalYul.Preservation.call_on_checkpoint
       (fuel := fuel)]
 
 private theorem call_fun_wrap_cbrt512_zero_direct
@@ -7281,22 +7271,12 @@ private theorem call_shift_right_224_unsigned_direct
         (FormalYul.word 0))
       (FormalYul.word 224) =
       FormalYul.word 2822396936 := by
-  let tail : List UInt8 := (FormalYul.encodeWord xHi).data.toList.take 28
-  have htailLen : tail.length = 28 := by
-    simp [tail, FormalYul.Preservation.encodeWord_data_toList]
-  have hread :
-      ((selector_cbrt512 ++ FormalYul.encodeWords [xHi, xLo]).readBytes 0 32).data.toList =
-        [0xa8, 0x3a, 0x5c, 0x08] ++ tail := by
-    simp [tail, ByteArray.readBytes, selector_cbrt512, FormalYul.encodeWords, FormalYul.bytes,
-      ByteArray.push, ByteArray.empty, ByteArray.emptyWithCapacity, ByteArray.size,
-      ffi.ByteArray.zeroes, List.take_append, FormalYul.Preservation.encodeWord_data_toList]
   have hselector :=
-    FormalYul.Preservation.shiftRight_calldataload_selector_of_readBytes
+    FormalYul.Preservation.shiftRight_calldataload_selector_two_args_of_calldata
       (shared := cbrt512SharedAfterFreePtr xHi xLo)
       (store := (Inhabited.default : EvmYul.Yul.VarStore))
-      (selectorBytes := [0xa8, 0x3a, 0x5c, 0x08]) (tail := tail)
-      (by decide) htailLen
-      (by simpa [cbrt512SharedAfterFreePtr_calldata] using hread)
+      (a := 0xa8) (b := 0x3a) (c := 0x5c) (d := 0x08) (x := xHi) (y := xLo)
+      (by simp [selector_cbrt512])
   simpa [EvmYul.fromBytesBigEndian, EvmYul.fromBytes', FormalYul.word] using hselector
 
 @[simp] private theorem cbrtUp512_selector_afterFreePtr (xHi xLo : Nat) :
@@ -7307,22 +7287,12 @@ private theorem call_shift_right_224_unsigned_direct
         (FormalYul.word 0))
       (FormalYul.word 224) =
       FormalYul.word 2080592636 := by
-  let tail : List UInt8 := (FormalYul.encodeWord xHi).data.toList.take 28
-  have htailLen : tail.length = 28 := by
-    simp [tail, FormalYul.Preservation.encodeWord_data_toList]
-  have hread :
-      ((selector_cbrtUp512 ++ FormalYul.encodeWords [xHi, xLo]).readBytes 0 32).data.toList =
-        [0x7c, 0x03, 0x52, 0xfc] ++ tail := by
-    simp [tail, ByteArray.readBytes, selector_cbrtUp512, FormalYul.encodeWords, FormalYul.bytes,
-      ByteArray.push, ByteArray.empty, ByteArray.emptyWithCapacity, ByteArray.size,
-      ffi.ByteArray.zeroes, List.take_append, FormalYul.Preservation.encodeWord_data_toList]
   have hselector :=
-    FormalYul.Preservation.shiftRight_calldataload_selector_of_readBytes
+    FormalYul.Preservation.shiftRight_calldataload_selector_two_args_of_calldata
       (shared := cbrtUp512SharedAfterFreePtr xHi xLo)
       (store := (Inhabited.default : EvmYul.Yul.VarStore))
-      (selectorBytes := [0x7c, 0x03, 0x52, 0xfc]) (tail := tail)
-      (by decide) htailLen
-      (by simpa [cbrtUp512SharedAfterFreePtr_calldata] using hread)
+      (a := 0x7c) (b := 0x03) (c := 0x52) (d := 0xfc) (x := xHi) (y := xLo)
+      (by simp [selector_cbrtUp512])
   simpa [EvmYul.fromBytesBigEndian, EvmYul.fromBytes', FormalYul.word] using hselector
 
 

@@ -8,6 +8,7 @@
      `innerCbrt x ≤ icbrt x + 1`.
 -/
 import Init
+import Mathlib.Data.Nat.Find
 import CbrtProof.FloorBound
 
 set_option maxHeartbeats 2000000
@@ -94,15 +95,9 @@ private theorem log2_eq_of_pow_bounds {n k : Nat}
 -- Part 1b: Reference integer cube root (floor)
 -- ============================================================================
 
-/-- Search helper: largest `m ≤ n` such that `m^3 ≤ x`. -/
-def icbrtAux (x n : Nat) : Nat :=
-  match n with
-  | 0 => 0
-  | n + 1 => if (n + 1) * (n + 1) * (n + 1) ≤ x then n + 1 else icbrtAux x n
-
 /-- Reference integer cube root (floor). -/
 def icbrt (x : Nat) : Nat :=
-  icbrtAux x x
+  Nat.findGreatest (fun m => m * m * m ≤ x) x
 
 theorem cube_monotone {a b : Nat} (h : a ≤ b) :
     a * a * a ≤ b * b * b := by
@@ -125,42 +120,12 @@ private theorem le_cube_of_pos {a : Nat} (ha : 0 < a) :
     simpa [Nat.mul_one, Nat.mul_assoc] using (Nat.mul_le_mul_left (a * a) h1)
   exact Nat.le_trans h2 h3
 
-private theorem icbrtAux_cube_le (x n : Nat) :
-    icbrtAux x n * icbrtAux x n * icbrtAux x n ≤ x := by
-  induction n with
-  | zero => simp [icbrtAux]
-  | succ n ih =>
-      by_cases h : (n + 1) * (n + 1) * (n + 1) ≤ x
-      · simp [icbrtAux, h]
-      · simpa [icbrtAux, h] using ih
-
-private theorem icbrtAux_greatest (x : Nat) :
-    ∀ n m, m ≤ n → m * m * m ≤ x → m ≤ icbrtAux x n := by
-  intro n
-  induction n with
-  | zero =>
-      intro m hmn hm
-      have hm0 : m = 0 := by omega
-      subst hm0
-      simp [icbrtAux]
-  | succ n ih =>
-      intro m hmn hm
-      by_cases h : (n + 1) * (n + 1) * (n + 1) ≤ x
-      · simp [icbrtAux, h]
-        exact hmn
-      · have hm_le_n : m ≤ n := by
-          by_cases hm_eq : m = n + 1
-          · subst hm_eq
-            exact False.elim (h hm)
-          · omega
-        have hm_le_aux : m ≤ icbrtAux x n := ih m hm_le_n hm
-        simpa [icbrtAux, h] using hm_le_aux
-
 /-- Lower half of the floor specification: `icbrt(x)^3 ≤ x`. -/
 theorem icbrt_cube_le (x : Nat) :
     icbrt x * icbrt x * icbrt x ≤ x := by
   unfold icbrt
-  exact icbrtAux_cube_le x x
+  exact Nat.findGreatest_spec (P := fun m => m * m * m ≤ x) (m := 0) (n := x)
+    (Nat.zero_le x) (by simp)
 
 /-- Upper half of the floor specification: `x < (icbrt(x)+1)^3`. -/
 theorem icbrt_lt_succ_cube (x : Nat) :
@@ -174,8 +139,8 @@ theorem icbrt_lt_succ_cube (x : Nat) :
         le_cube_of_pos hpos
       exact Nat.le_trans hleCube hle
     have hmax : icbrt x + 1 ≤ icbrt x := by
-      unfold icbrt
-      exact icbrtAux_greatest x x (icbrt x + 1) hmx hle
+      exact Nat.le_findGreatest (P := fun m => m * m * m ≤ x)
+        (m := icbrt x + 1) (n := x) hmx hle
     exact False.elim ((Nat.not_succ_le_self (icbrt x)) hmax)
 
 /-- Uniqueness: any `r` satisfying the floor specification equals `icbrt(x)`. -/
@@ -190,8 +155,8 @@ theorem icbrt_eq_of_bounds (x r : Nat)
       have hrle : r ≤ r * r * r := le_cube_of_pos hrpos
       exact Nat.le_trans hrle hlo
   have h1 : r ≤ icbrt x := by
-    unfold icbrt
-    exact icbrtAux_greatest x x r hrx hlo
+    exact Nat.le_findGreatest (P := fun m => m * m * m ≤ x)
+      (m := r) (n := x) hrx hlo
   have h2 : icbrt x ≤ r := by
     by_cases hic : icbrt x ≤ r
     · exact hic
@@ -244,57 +209,18 @@ theorem cbrtStep_pos (x z : Nat) (hx : 0 < x) (hz : 0 < z) : 0 < cbrtStep x z :=
 -- ============================================================================
 
 /-- Integer polynomial identity used to upper-bound one cbrt Newton step. -/
-private theorem pullCoeff (x y c : Int) : x * (y * c) = c * (x * y) := by
-  rw [← Int.mul_assoc x y c]
-  rw [Int.mul_comm (x * y) c]
-
-private theorem pullCoeffNested (x y z c : Int) : x * (y * (z * c)) = c * (x * (y * z)) := by
-  rw [← Int.mul_assoc y z c]
-  rw [pullCoeff x (y * z) c]
-
 private theorem int_poly_identity (m d q r : Int)
     (hd2 : d * d = m * q + r) :
     ((m - 2 * d + 3 * q + 6) * ((m + d) * (m + d)) - (m + 1) * (m + 1) * (m + 1))
       =
     q * (3 * m * q + 6 * m + 3 * r + 4 * d * m)
       + (-2 * d * r + 12 * d * m + 3 * m * m - 3 * m * r - 3 * m + 6 * r - 1) := by
-  simp [Int.sub_eq_add_neg, Int.add_mul, Int.mul_add,
-    Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
-  have hddx (x : Int) : d * (d * x) = (d * d) * x := by
-    rw [← Int.mul_assoc]
-  simp [hddx, hd2, Int.add_mul, Int.mul_add,
-    Int.mul_assoc, Int.mul_left_comm]
-  -- Normalize monomials with numeric coefficients.
-  rw [pullCoeffNested m m d 2]
-  rw [pullCoeffNested m m q 2]
-  rw [pullCoeff m r 2]
-  rw [pullCoeffNested m d q 2]
-  rw [pullCoeff d r 2]
-  rw [pullCoeffNested m m q 3]
-  rw [pullCoeffNested m d q 3]
-  rw [pullCoeff m m 6]
-  rw [pullCoeff m d 6]
-  rw [pullCoeff m q 6]
-  rw [pullCoeff m d 12]
-  rw [pullCoeffNested m d q 4]
-  rw [pullCoeff m r 3]
-  rw [pullCoeff m m 3]
-  omega
-
-private theorem neg3_mul_mul (m r : Int) : -3 * m * r = -(3 * m * r) := by
-  calc
-    -3 * m * r = (-3 * m) * r := by rw [Int.mul_assoc]
-    _ = (-(3 * m)) * r := by rw [Int.neg_mul]
-    _ = -(3 * m * r) := by rw [Int.neg_mul, Int.mul_assoc]
-
-private theorem mul_coeff_expand (m d r : Int) :
-    r * (-2 * d - 3 * m + 6) = -2 * d * r - 3 * m * r + 6 * r := by
-  rw [Int.mul_add]
-  have hsum : -2 * d - 3 * m = (-2 * d) + (-3 * m) := by omega
-  rw [hsum, Int.mul_add]
-  rw [Int.mul_comm r (-2 * d), Int.mul_comm r (-3 * m), Int.mul_comm r 6]
-  repeat rw [Int.sub_eq_add_neg]
-  rw [neg3_mul_mul]
+  ring_nf at hd2 ⊢
+  have hd3 : d ^ 3 = d * (m * q + r) := by
+    rw [← hd2]
+    ring_nf
+  rw [hd2, hd3]
+  ring_nf
 
 /-- Product form of the one-step upper bound (core arithmetic bridge). -/
 private theorem one_step_prod_bound (m d : Nat) (hm2 : 2 ≤ m) :
@@ -369,27 +295,15 @@ private theorem one_step_prod_bound (m d : Nat) (hm2 : 2 ≤ m) :
         - 3 * (m : Int) + 6 * (r : Int) - 1)
       = (12 * (d : Int) * (m : Int) + 3 * (m : Int) * (m : Int) - 3 * (m : Int) - 1)
         + (r : Int) * (-2 * (d : Int) - 3 * (m : Int) + 6) := by
-    rw [mul_coeff_expand (m := (m : Int)) (d := (d : Int)) (r := (r : Int))]
-    repeat rw [Int.sub_eq_add_neg]
-    ac_rfl
+    ring_nf
 
   have h_rewrite0 :
       (12 * (d : Int) * (m : Int) + 3 * (m : Int) * (m : Int) - 3 * (m : Int) - 1)
         + ((m - 1 : Nat) : Int) * (-2 * (d : Int) - 3 * (m : Int) + 6)
       = 10 * (d : Int) * (m : Int) + 2 * (d : Int) + 6 * (m : Int) - 7 := by
-    have hm1 : 1 ≤ m := Nat.le_trans (by decide : 1 ≤ 2) hm2
     have ht : ((m - 1 : Nat) : Int) = (m : Int) - 1 := by omega
-    rw [ht, Int.sub_mul, Int.one_mul]
-    rw [mul_coeff_expand (m := (m : Int)) (d := (d : Int)) (r := (m : Int))]
-    repeat rw [Int.sub_eq_add_neg]
-    have hneg : -(-2 * (d : Int) + -(3 * (m : Int)) + 6) = 2 * (d : Int) + 3 * (m : Int) - 6 := by
-      omega
-    rw [hneg]
-    rw [Int.mul_assoc 12 (d : Int) (m : Int)]
-    rw [Int.mul_assoc (-2) (d : Int) (m : Int)]
-    rw [Int.mul_assoc 10 (d : Int) (m : Int)]
-    rw [Int.mul_assoc 3 (m : Int) (m : Int)]
-    omega
+    rw [ht]
+    ring_nf
 
   have h10dm_nonneg : 0 ≤ 10 * (d : Int) * (m : Int) := by
     have h10d_nonneg : 0 ≤ 10 * (d : Int) := Int.mul_nonneg h10_nonneg hd_nonneg

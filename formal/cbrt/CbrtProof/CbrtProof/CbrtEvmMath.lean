@@ -742,7 +742,7 @@ theorem floorCbrt_correct_u256_eq_all
     floorCbrt x = icbrt x := by
   by_cases hx0 : x = 0
   · subst hx0
-    unfold floorCbrt innerCbrt cbrtSeed icbrt icbrtAux
+    unfold floorCbrt innerCbrt cbrtSeed icbrt
     rw [Nat.log2_zero]
     decide
   · exact floorCbrt_correct_u256 x (Nat.pos_of_ne_zero hx0) hx256

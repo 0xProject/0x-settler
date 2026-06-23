@@ -139,6 +139,16 @@ theorem execCall_one_of_call_ok
   simp [EvmYul.Yul.reverse', hcall, EvmYul.Yul.multifill',
     EvmYul.Yul.State.multifill, EvmYul.Yul.State.insert]
 
+theorem call_on_checkpoint
+    (fuel extra : Nat) (args : List EvmYul.Literal)
+    (fn : Option EvmYul.Yul.Ast.YulFunctionName)
+    (code : Option EvmYul.Yul.Ast.YulContract)
+    (jump : EvmYul.Yul.Jump) :
+    EvmYul.Yul.call (fuel + (extra + 1)) args fn code (EvmYul.Yul.State.Checkpoint jump) =
+      .ok (EvmYul.Yul.State.Checkpoint jump, [({ val := 0 } : EvmYul.UInt256)]) := by
+  rw [show fuel + (extra + 1) = Nat.succ (fuel + extra) by omega]
+  simp [EvmYul.Yul.call.eq_def]
+
 theorem execCall_one_of_call_ok_add
     {fuel extra : Nat} {fn : EvmYul.Yul.Ast.YulFunctionName}
     {code : Option EvmYul.Yul.Ast.YulContract}
@@ -3775,6 +3785,66 @@ theorem shiftRight_calldataload_selector_of_readBytes
   rw [htailDiv]
   rw [u256_eq_self_of_lt hselectorLt]
   rw [Nat.add_zero]
+
+theorem shiftRight_calldataload_selector_single_arg_of_calldata
+    (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (a b c d x : Nat)
+    (hdata : shared.executionEnv.calldata = bytes [a, b, c, d] ++ encodeWords [x]) :
+    EvmYul.UInt256.shiftRight
+      (EvmYul.State.calldataload
+        (EvmYul.Yul.State.Ok shared store).toState (word 0))
+      (word 224) =
+      word (EvmYul.fromBytesBigEndian
+        [UInt8.ofNat a, UInt8.ofNat b, UInt8.ofNat c, UInt8.ofNat d]) := by
+  let tail : List UInt8 := (encodeWord x).data.toList.take 28
+  have htailLen : tail.length = 28 := by
+    simp [tail, encodeWord_data_toList]
+  have hread :
+      ((bytes [a, b, c, d] ++ encodeWords [x]).readBytes 0 32).data.toList =
+        [UInt8.ofNat a, UInt8.ofNat b, UInt8.ofNat c, UInt8.ofNat d] ++ tail := by
+    simp [tail, ByteArray.readBytes, encodeWords, bytes,
+      ByteArray.push, ByteArray.empty, ByteArray.emptyWithCapacity]
+    change (ffi.ByteArray.zeroes
+        (OfNat.ofNat 32 - OfNat.ofNat
+          (4 + (List.take 28
+            (List.map (fun i => byteAt (u256 x) (31 - i))
+              (List.range 32))).length))).data = #[]
+    rw [show (List.take 28
+        (List.map (fun i => byteAt (u256 x) (31 - i))
+          (List.range 32))).length = 28 by simp]
+    have hz : (OfNat.ofNat 32 - OfNat.ofNat (4 + 28) : USize) = 0 := by
+      apply USize.ext
+      simp
+    rw [hz]
+    rfl
+  exact shiftRight_calldataload_selector_of_readBytes
+    (shared := shared) (store := store)
+    (selectorBytes := [UInt8.ofNat a, UInt8.ofNat b, UInt8.ofNat c, UInt8.ofNat d])
+    (tail := tail) (by simp) htailLen (by simpa [hdata] using hread)
+
+theorem shiftRight_calldataload_selector_two_args_of_calldata
+    (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (a b c d x y : Nat)
+    (hdata : shared.executionEnv.calldata = bytes [a, b, c, d] ++ encodeWords [x, y]) :
+    EvmYul.UInt256.shiftRight
+      (EvmYul.State.calldataload
+        (EvmYul.Yul.State.Ok shared store).toState (word 0))
+      (word 224) =
+      word (EvmYul.fromBytesBigEndian
+        [UInt8.ofNat a, UInt8.ofNat b, UInt8.ofNat c, UInt8.ofNat d]) := by
+  let tail : List UInt8 := (encodeWord x).data.toList.take 28
+  have htailLen : tail.length = 28 := by
+    simp [tail, encodeWord_data_toList]
+  have hread :
+      ((bytes [a, b, c, d] ++ encodeWords [x, y]).readBytes 0 32).data.toList =
+        [UInt8.ofNat a, UInt8.ofNat b, UInt8.ofNat c, UInt8.ofNat d] ++ tail := by
+    simp [tail, ByteArray.readBytes, encodeWords, bytes,
+      ByteArray.push, ByteArray.empty, ByteArray.emptyWithCapacity, ByteArray.size,
+      ffi.ByteArray.zeroes, List.take_append, encodeWord_data_toList]
+  exact shiftRight_calldataload_selector_of_readBytes
+    (shared := shared) (store := store)
+    (selectorBytes := [UInt8.ofNat a, UInt8.ofNat b, UInt8.ofNat c, UInt8.ofNat d])
+    (tail := tail) (by simp) htailLen (by simpa [hdata] using hread)
 
 @[simp]
 theorem wordNat_clz (a : EvmYul.UInt256) :
