@@ -3228,3 +3228,114 @@ theorem cbrt512_floorCorrection_correct (xHi xLo r : Nat)
     rw [hcmpOne, FormalYul.Preservation.evmSub_eq_of_le _ 1 hr (by rw [hrEq]; omega)]
     rw [hrEq]
     omega
+
+/-- The cube root of a value below `WORD_MOD^2` (= 2^512) is tiny, so `icbrt x + 2`
+    still fits in a word — needed to rule out overflow in the ceiling increment. -/
+private theorem icbrt_add_two_lt_word (x : Nat) (hx : x < WORD_MOD * WORD_MOD) :
+    icbrt x + 2 < WORD_MOD := by
+  by_contra hcon
+  push_neg at hcon
+  have hcube := icbrt_cube_le x
+  have hpow : (2 : Nat) ^ 256 = 2 * 2 ^ 255 := by rw [pow_succ]; ring
+  have h255pos : (2 : Nat) ≤ 2 ^ 255 := by
+    calc (2 : Nat) = 2 ^ 1 := (pow_one 2).symm
+      _ ≤ 2 ^ 255 := Nat.pow_le_pow_right (by omega) (by omega)
+  have hge255 : (2 : Nat) ^ 255 ≤ icbrt x := by
+    unfold WORD_MOD at hcon
+    omega
+  have hmono : (2 : Nat) ^ 255 * 2 ^ 255 * 2 ^ 255 ≤ icbrt x * icbrt x * icbrt x :=
+    Nat.mul_le_mul (Nat.mul_le_mul hge255 hge255) hge255
+  have h765 : (2 : Nat) ^ 255 * 2 ^ 255 * 2 ^ 255 = 2 ^ 765 := by
+    rw [← Nat.pow_add, ← Nat.pow_add]
+  have hWM2 : WORD_MOD * WORD_MOD = 2 ^ 512 := by unfold WORD_MOD; rw [← Nat.pow_add]
+  have hlt : (2 : Nat) ^ 512 < 2 ^ 765 := Nat.pow_lt_pow_right (by omega) (by omega)
+  rw [h765] at hmono
+  rw [hWM2] at hx
+  omega
+
+/-- Ceiling correction: the EVM increment step (`add(r, [r³ < x])`) applied to a
+    within-one-ulp core result `r` yields `cbrtUp512 (xHi*WORD_MOD + xLo)`, provided
+    the overshoot guarantee that `r = icbrt x + 1` only when `x` is not a perfect cube. -/
+theorem cbrt512_ceilCorrection_correct (xHi xLo r : Nat)
+    (hxHi : xHi < WORD_MOD) (hxLo : xLo < WORD_MOD)
+    (hr : r < WORD_MOD) (hcube : r * r * r < WORD_MOD * WORD_MOD)
+    (hwithin :
+      icbrt (xHi * WORD_MOD + xLo) ≤ r ∧
+        r ≤ icbrt (xHi * WORD_MOD + xLo) + 1)
+    (hover :
+      r = icbrt (xHi * WORD_MOD + xLo) + 1 →
+        icbrt (xHi * WORD_MOD + xLo) * icbrt (xHi * WORD_MOD + xLo) *
+          icbrt (xHi * WORD_MOD + xLo) < xHi * WORD_MOD + xLo) :
+    let r2Lo := evmMul r r
+    let mm1 := evmMulmod r r (evmNot 0)
+    let r2Hi := evmSub (evmSub mm1 r2Lo) (evmLt mm1 r2Lo)
+    let mm2 := evmMulmod r2Lo r (evmNot 0)
+    let r3Lo := evmMul r2Lo r
+    let r3Hi := evmAdd (evmSub (evmSub mm2 r3Lo) (evmLt mm2 r3Lo)) (evmMul r2Hi r)
+    let cmp := evmOr (evmLt r3Hi xHi) (evmAnd (evmEq r3Hi xHi) (evmLt r3Lo xLo))
+    evmAdd r cmp = cbrtUp512 (xHi * WORD_MOD + xLo) := by
+  simp only
+  let r2Lo := evmMul r r
+  let mm1 := evmMulmod r r (evmNot 0)
+  let r2Hi := evmSub (evmSub mm1 r2Lo) (evmLt mm1 r2Lo)
+  let mm2 := evmMulmod r2Lo r (evmNot 0)
+  let r3Lo := evmMul r2Lo r
+  let r3Hi := evmAdd (evmSub (evmSub mm2 r3Lo) (evmLt mm2 r3Lo)) (evmMul r2Hi r)
+  let cmp := evmOr (evmLt r3Hi xHi) (evmAnd (evmEq r3Hi xHi) (evmLt r3Lo xLo))
+  have hcubeEq : r3Hi * WORD_MOD + r3Lo = r * r * r := by
+    simpa [r2Lo, mm1, r2Hi, mm2, r3Lo, r3Hi] using cube512_correct r hr hcube
+  have hr3Lo : r3Lo < WORD_MOD := FormalYul.Preservation.evmMul_lt_WORD_MOD _ _
+  have hr3Hi : r3Hi < WORD_MOD := FormalYul.Preservation.evmAdd_lt_WORD_MOD _ _
+  have hcmp01 : cmp = 0 ∨ cmp = 1 := by
+    simpa [cmp] using lt512_01 xHi xLo r3Hi r3Lo hxHi hxLo hr3Hi hr3Lo
+  have hcmpIff : (cmp ≠ 0) ↔ (r * r * r < xHi * WORD_MOD + xLo) := by
+    have hlt := lt512_correct xHi xLo r3Hi r3Lo hxHi hxLo hr3Hi hr3Lo
+    simp only at hlt
+    rw [hcubeEq] at hlt
+    simpa [cmp] using hlt
+  change evmAdd r cmp = cbrtUp512 (xHi * WORD_MOD + xLo)
+  have hxbound : xHi * WORD_MOD + xLo < WORD_MOD * WORD_MOD := by
+    have h2 : xHi * WORD_MOD + WORD_MOD = (xHi + 1) * WORD_MOD := by ring
+    have h3 : (xHi + 1) * WORD_MOD ≤ WORD_MOD * WORD_MOD :=
+      Nat.mul_le_mul_right _ (by omega)
+    omega
+  have hibound : icbrt (xHi * WORD_MOD + xLo) + 2 < WORD_MOD :=
+    icbrt_add_two_lt_word _ hxbound
+  have hcubeLe := icbrt_cube_le (xHi * WORD_MOD + xLo)
+  have hsuccCube := icbrt_lt_succ_cube (xHi * WORD_MOD + xLo)
+  have hrCases :
+      r = icbrt (xHi * WORD_MOD + xLo) ∨
+        r = icbrt (xHi * WORD_MOD + xLo) + 1 := by omega
+  unfold cbrtUp512
+  simp only
+  have hcmpLt : cmp < WORD_MOD := by rcases hcmp01 with h | h <;> omega
+  rcases hrCases with hrEq | hrEq
+  · by_cases hlt :
+        icbrt (xHi * WORD_MOD + xLo) * icbrt (xHi * WORD_MOD + xLo) *
+          icbrt (xHi * WORD_MOD + xLo) < xHi * WORD_MOD + xLo
+    · have hcmpOne : cmp = 1 := by
+        have hne : cmp ≠ 0 := hcmpIff.mpr (by rw [hrEq]; exact hlt)
+        rcases hcmp01 with h | h
+        · exact absurd h hne
+        · exact h
+      rw [if_pos hlt,
+        FormalYul.Preservation.evmAdd_eq_of_lt r cmp hr hcmpLt (by omega)]
+      omega
+    · have hcmpZero : cmp = 0 := by
+        rcases hcmp01 with h | h
+        · exact h
+        · exact absurd (hcmpIff.mp (by rw [h]; omega)) (by rw [hrEq]; exact hlt)
+      rw [if_neg hlt,
+        FormalYul.Preservation.evmAdd_eq_of_lt r cmp hr hcmpLt (by omega)]
+      omega
+  · have hgt : xHi * WORD_MOD + xLo < r * r * r := by rw [hrEq]; exact hsuccCube
+    have hcmpZero : cmp = 0 := by
+      rcases hcmp01 with h | h
+      · exact h
+      · exact absurd (hcmpIff.mp (by rw [h]; omega)) (by omega)
+    have hover' :
+        icbrt (xHi * WORD_MOD + xLo) * icbrt (xHi * WORD_MOD + xLo) *
+          icbrt (xHi * WORD_MOD + xLo) < xHi * WORD_MOD + xLo := hover hrEq
+    rw [if_pos hover',
+      FormalYul.Preservation.evmAdd_eq_of_lt r cmp hr hcmpLt (by omega)]
+    omega

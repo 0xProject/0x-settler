@@ -135,4 +135,24 @@ theorem overshoot_denorm (x k : Nat)
     have hle := icbrt_cube_le x
     omega
 
+/-- Denormalized overshoot for the ceiling: if the normalized result `corr`
+    (within one ulp of `icbrt(x*2^(3k))`) denormalizes to `icbrt x + 1`, then `x`
+    is not a perfect cube. -/
+theorem ceil_denorm (x k corr : Nat)
+    (hhi : corr ≤ icbrt (x * 2 ^ (3 * k)) + 1)
+    (hoverNorm :
+      corr * corr * corr > x * 2 ^ (3 * k) →
+        icbrt (x * 2 ^ (3 * k)) * icbrt (x * 2 ^ (3 * k)) * icbrt (x * 2 ^ (3 * k)) <
+          x * 2 ^ (3 * k))
+    (hg : corr / 2 ^ k = icbrt x + 1) :
+    icbrt x * icbrt x * icbrt x < x := by
+  have hk : icbrt (x * 2 ^ (3 * k)) < (icbrt x + 1) * 2 ^ k := icbrt_norm_upper x k
+  have hcorr_ge : (icbrt x + 1) * 2 ^ k ≤ corr := by
+    rw [← hg]
+    exact Nat.div_mul_le_self corr (2 ^ k)
+  have hcorr_eq : corr = icbrt (x * 2 ^ (3 * k)) + 1 := by omega
+  have hcorr3 : corr * corr * corr > x * 2 ^ (3 * k) := by
+    rw [hcorr_eq]; exact icbrt_lt_succ_cube (x * 2 ^ (3 * k))
+  exact overshoot_denorm x k (hoverNorm hcorr3)
+
 end Cbrt512Spec
