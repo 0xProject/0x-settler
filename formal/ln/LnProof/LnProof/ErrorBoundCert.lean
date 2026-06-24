@@ -1,21 +1,19 @@
 import LnProof.FloorAssembly
 
-/-! Generated certificate constants for the `lnWadToRay` 1.703500000 ulp
-upper error bound.  The Python replay script emits the same data in
-`formal/python/ln/ln_error_certificate.json`; the theorems below are checked
-again by Lean's kernel and do not trust that JSON file. -/
+/-! Certificate constants for the `lnWadToRay` 1.699000000 ulp upper error
+bound; the theorems below are checked by Lean's kernel. -/
 
 namespace LnFloorCert
 
 open LnExp LnFloor LnGeneratedModel
 
-def lnErrorBoundNum : Nat := 1703500000
+def lnErrorBoundNum : Nat := 1699000000
 def lnErrorBoundDen : Nat := 1000000000
 def lnErrorExtraNum : Nat := lnErrorBoundNum - lnErrorBoundDen
-def lnErrorExtraCap : Nat := 7035
+def lnErrorExtraCap : Nat := 6990
 def lnErrorBiasCap : Nat := 3387
 def lnErrorCoarseGePosBudgetCap : Nat := 6961
-def lnErrorCoarsePosBudgetCap : Nat := 7035
+def lnErrorCoarsePosBudgetCap : Nat := 6990
 def lnErrorCoarseNegBudgetCap : Nat := 6785
 def lnErrorCoarseGePosResidue : Nat := 0
 def lnErrorCoarsePosResidue : Nat := 0
@@ -56,8 +54,8 @@ theorem capBiasL3403 :
 
 /-- Nonnegative-shift strict lower budget with the fractional extra ulp. -/
 def errBudgetL (k : Nat) : Bool :=
-  decide ((2 ^ 95 + 1) * 2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 142 ≤
-    2 ^ 95 * (10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3387) *
+  decide (((Sc - 45) + 1) * 2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 142 ≤
+    (Sc - 45) * (10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3387) *
       (10 ^ 31 + lnErrorCoarsePosBudgetCap) * (10 ^ 31 - 10) * 10 ^ 18)
 
 /-- Ge positive-shift strict lower budget. This uses `m >= Sc` rather than
@@ -76,8 +74,8 @@ def errBudgetLn (j : Nat) : Bool :=
 /-- Reciprocal nonnegative-shift strict budget with the fractional extra ulp. -/
 def errBudgetB (k : Nat) : Bool :=
   decide ((10 : Nat) ^ 31 * (10 ^ 40 : Nat) ^ k * (10 ^ 18 * 10 ^ 31) * 10 ^ 31 *
-      ((2 ^ 95 + 1) * 2 ^ k) * 10 ^ 31 ≤
-    10 ^ 18 * (10 ^ 31 - 10) * 2 ^ 95 * (10 ^ 31 - 3385) *
+      (((Sc - 45) + 1) * 2 ^ k) * 10 ^ 31 ≤
+    10 ^ 18 * (10 ^ 31 - 10) * (Sc - 45) * (10 ^ 31 - 3385) *
       (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3387) *
       (10 ^ 31 + lnErrorCoarsePosBudgetCap))
 
@@ -104,8 +102,8 @@ theorem errBudgetBn_all : (List.range 96).all errBudgetBn = true := by
   decide +kernel
 
 theorem errBudgetL_le {k : Nat} (hk : k ≤ 159) :
-    (2 ^ 95 + 1) * 2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 142 ≤
-      2 ^ 95 * (10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3387) *
+    ((Sc - 45) + 1) * 2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 142 ≤
+      (Sc - 45) * (10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3387) *
         (10 ^ 31 + lnErrorCoarsePosBudgetCap) * (10 ^ 31 - 10) * 10 ^ 18 := by
   have h := List.all_eq_true.mp errBudgetL_all k (List.mem_range.mpr (by omega))
   simp only [errBudgetL, decide_eq_true_eq] at h
@@ -129,8 +127,8 @@ theorem errBudgetLn_le {j : Nat} (hj : j ≤ 95) :
 
 theorem errBudgetB_le {k : Nat} (hk : k ≤ 159) :
     (10 : Nat) ^ 31 * (10 ^ 40 : Nat) ^ k * (10 ^ 18 * 10 ^ 31) * 10 ^ 31 *
-      ((2 ^ 95 + 1) * 2 ^ k) * 10 ^ 31 ≤
-    10 ^ 18 * (10 ^ 31 - 10) * 2 ^ 95 * (10 ^ 31 - 3385) *
+      (((Sc - 45) + 1) * 2 ^ k) * 10 ^ 31 ≤
+    10 ^ 18 * (10 ^ 31 - 10) * (Sc - 45) * (10 ^ 31 - 3385) *
       (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3387) *
       (10 ^ 31 + lnErrorCoarsePosBudgetCap) := by
   have h := List.all_eq_true.mp errBudgetB_all k (List.mem_range.mpr (by omega))

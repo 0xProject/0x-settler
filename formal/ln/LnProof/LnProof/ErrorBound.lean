@@ -1,17 +1,19 @@
 import LnProof.ErrorBoundCore
+import LnProof.ErrCertLtBridge
 
 set_option maxRecDepth 100000
 
 /-!
 # Public cut statement for the `lnWadToRay` error bound
 
-The positive-shift region is covered by a single uniform residue argument: with
-`lnErrorCoarsePosResidue = lnErrorCoarseGePosResidue = 0`, the coarse residue
-predicate holds for every mantissa directly from the floor bracket
-`1 ≤ posResidueGap` (`posResidueGap_bounds`), so no phase cover, no per-mantissa
-cells, and no large `decide` over the octave are needed.  This yields the
-`1706800000 / 10^9 = 1.7068` ulp cut; a sharper error bound and the minimal
-bias/margin are tightened separately on top of this scaffold.
+The published cut is `1699000000 / 10^9 = 1.6990` ulp.  The positive lt octave
+splits at the bracket-validity boundary: the mantissa window `[2^95, Sc-46]`
+is covered by the degree-22 curved-cap Kronecker cell cover (`lt_pos_cut_reduced`
+fed by `errLt_hred`), and the residue band `[Sc-45, Sc)` by the coarse residue
+bound (`lo_lt_pos_exact`, whose octave budget binds at `Sc-45`).  The positive
+ge octave and the negative shift keep their coarse residue bounds (which already
+clear `1.6990`).  The coarse residue predicate holds for every mantissa directly
+from the floor bracket `1 ≤ posResidueGap` (`posResidueGap_bounds`).
 -/
 
 namespace LnFloorCert
@@ -101,13 +103,46 @@ theorem model_ln_wad_error_bound_upper_pos_shift {x : Nat}
   rw [if_pos hpos]
   change capLB (lnErrArg (toInt (model_ln_wad_evm x))) lnErrQ x (10 ^ 18)
   rcases Nat.lt_or_ge (mant x) Sc with hbranch | hbranch
-  · exact model_ln_wad_positive_shift_lt_residue_or_direct h1 h2 hne hclt hbranch
-      (model_ln_wad_positive_shift_lt_residue_or_direct_cert h1 h2 hne hclt hbranch)
+  · -- positive shift, lt octave: cell cut on `[2^95, Sc-46]`, residue band on `[Sc-45, Sc)`
+    rcases Nat.lt_or_ge (mant x) (Sc - 45) with hcell | hband
+    · -- cell domain: `mant x < Sc - 45` ⟹ `mant x + 46 ≤ Sc`
+      have hx256 : x < 2 ^ 256 := by omega
+      have htail : model_ln_wad_evm x = lnTail (evmSub 160 (evmClz x)) (mant x) := by
+        rw [model_eq_tail hx256]; rfl
+      have hh2 : mant x + 46 ≤ Sc := by omega
+      have hmin : posPhaseNatLt (mant x) (evmClz x) + minPosAvail ≤
+          lnErrArg (toInt (model_ln_wad_evm x)) := by
+        have hp := posPhaseNatLt_minAvail_le_lnErrArg hmant_lo (by omega : mant x < Sc) hclt
+        rw [← htail] at hp; exact hp
+      have hxtop : x ≤ posTopX (evmClz x) (mant x) := by
+        have hw := mant_window_le h1 h2 (by omega : evmClz x ≤ 160)
+        have hwpos : 0 < (mant x + 1) * 2 ^ (160 - evmClz x) :=
+          Nat.mul_pos (Nat.succ_pos _) (Nat.pow_pos (by decide))
+        unfold posTopX; omega
+      have hcut := lt_pos_cut_reduced (m := mant x) (c := evmClz x) (x := x)
+        (r := toInt (model_ln_wad_evm x)) hmant_lo hh2 hc1 hclt hmin hxtop
+        (errLt_hred hmant_lo hh2)
+      refine capLB_weaken (p := lnErrArg (toInt (model_ln_wad_evm x))) (q := lnErrQ)
+        (y := wadRayNum x) (w := wadRayStrictDen) (y' := x) (w' := 10 ^ 18)
+        (by decide) hcut ?_
+      unfold wadRayNum wadRayStrictDen
+      have hsub : (10 ^ 31 - 10 : Nat) ≤ 10 ^ 31 := by omega
+      calc x * (10 ^ 18 * (10 ^ 31 - 10))
+          ≤ x * (10 ^ 18 * 10 ^ 31) :=
+            Nat.mul_le_mul (Nat.le_refl _) (Nat.mul_le_mul (Nat.le_refl _) hsub)
+        _ = x * 10 ^ 31 * 10 ^ 18 := by
+            simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+    · -- residue band: `Sc - 45 ≤ mant x < Sc`
+      exact model_ln_wad_positive_shift_lt_residue_or_direct h1 h2 hne hclt hbranch hband
+        (model_ln_wad_positive_shift_lt_residue_or_direct_cert h1 h2 hne hclt hbranch)
   · exact model_ln_wad_positive_shift_ge_residue_or_direct h1 h2 hclt hbranch
       (model_ln_wad_positive_shift_ge_residue_or_direct_cert h1 h2 hclt hbranch)
 
-/-- The model satisfies the `1.7068` ulp error-bound cut (uniform residue). -/
-theorem model_ln_wad_error_bound_1_7068 {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
+/-- The model satisfies the `1.6990` ulp error-bound cut: the lt octave is
+covered by the degree-22 curved-cap cell cover on `[2^95, Sc-46]` and a residue
+band on `[Sc-45, Sc)`, the ge octave by the coarse residue bound, and the
+negative shift by its coarse residue bound. -/
+theorem model_ln_wad_error_bound_1_6990 {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
     let r := toInt (model_ln_wad_evm x)
     CutLeLogWadRay r x ∧
       CutLogWadRayLtRational x r lnErrorBoundNum lnErrorBoundDen := by

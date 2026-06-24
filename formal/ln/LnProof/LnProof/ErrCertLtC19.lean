@@ -6,8 +6,8 @@ open LnPoly
 
 set_option maxRecDepth 100000
 
-theorem errLt_cell01 : checkCoverK kB certErrLtLit 39690487033155318831492514645 39730041034935017909079144467
-    [39554001779699077586629822] = true := by
+theorem errLt_cell19 : checkCoverK kB certErrLtLit 47863312455617981068416176221 51996533350514057035622956906
+    [4133220894896075967206780685] = true := by
   decide +kernel
 
 end LnFloorCert
