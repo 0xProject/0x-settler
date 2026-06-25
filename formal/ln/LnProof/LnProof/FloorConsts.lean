@@ -1,5 +1,6 @@
 import LnProof.ExpSum
 import LnProof.Stages
+import LnProof.CutSpec
 
 open FormalYul
 open FormalYul.Preservation
@@ -20,11 +21,6 @@ set_option maxRecDepth 8192
 namespace LnFloor
 
 open LnExp LnYul
-
-/-- Common denominator of every exponent argument. -/
-def QS : Nat := 10 ^ 27 * 2 ^ 99
-
-theorem QS_pos : 0 < QS := by decide
 
 /-- `e^(LN2c 2^27 / QS) ≤ 2 (1 + 1e-40)`: the scaled `ln 2` constant. -/
 theorem cap2U : capUB (LN2c * 2 ^ 27) QS (2 * (10 ^ 40 + 1)) (10 ^ 40) := by

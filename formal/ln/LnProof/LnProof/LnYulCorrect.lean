@@ -2,6 +2,8 @@ import LnProof.LnYulProof
 import FormalYul.Preservation
 import LnProof.LnRealSpec
 import LnProof.LnRealBridge
+import LnProof.LnYulBody
+import LnProof.ExpLogCutSpec
 
 /-!
 # Public ln runtime proof surface
@@ -54,12 +56,12 @@ def LnWadRuntimeRevertsNonpositive (x : Nat) : Prop :=
 
 def LnWadToRayRuntimeCutCorrect (x : Nat) : Prop :=
   signedPositiveInput x →
-    ∃ r, runLnWadToRaySigned x = .ok r ∧ LnRealBridge.CutLnWadRayBracket r x
+    ∃ r, runLnWadToRaySigned x = .ok r ∧ LnFloorCert.CutLnWadRayBracket r x
 
 def LnWadRuntimeCutCorrect (x : Nat) : Prop :=
   signedPositiveInput x →
     ∃ ray w, runLnWadToRaySigned x = .ok ray ∧ runLnWadSigned x = .ok w ∧
-      LnRealBridge.CutLnWadSpec ray w x
+      LnFloorCert.CutLnWadSpec ray w x
 
 theorem run_ln_wad_to_ray_evm_eq_callWord (x : Nat) :
     run_ln_wad_to_ray_evm x = FormalYul.callWord yulContract selector_lnWadToRay [x] := rfl
@@ -88,14 +90,14 @@ theorem nat_pos_of_signedPositiveInput {x : Nat} (h : signedPositiveInput x) : 0
 
 theorem runLnWadToRaySigned_real_of_cut {x : Nat} {r : Int}
     (hx : 0 < x) (_hrun : runLnWadToRaySigned x = .ok r)
-    (hcut : LnRealBridge.CutLnWadRayBracket r x) :
+    (hcut : LnFloorCert.CutLnWadRayBracket r x) :
     LnRealSpec.LnWadToRaySpec x r :=
   LnRealBridge.cutLnWadRayBracket_real hx hcut
 
 theorem runLnWadSigned_real_of_cut {x : Nat} {ray wad : Int}
     (hx : 0 < x) (_hrunRay : runLnWadToRaySigned x = .ok ray)
     (_hrunWad : runLnWadSigned x = .ok wad)
-    (hcut : LnRealBridge.CutLnWadSpec ray wad x) :
+    (hcut : LnFloorCert.CutLnWadSpec ray wad x) :
     LnRealSpec.LnWadSpec x wad :=
   LnRealBridge.cutLnWadSpec_real hx hcut
 
@@ -114,6 +116,30 @@ theorem lnWadRuntimeCorrect_of_cutCorrect {x : Nat}
   obtain ⟨ray, w, hrunRay, hrunWad, hcert⟩ := hcut hxSigned
   exact ⟨w, hrunWad, runLnWadSigned_real_of_cut
     (nat_pos_of_signedPositiveInput hxSigned) hrunRay hrunWad hcert⟩
+
+/-- The compiled `lnWadToRay` runtime satisfies the explicit cut bracket for
+every 256-bit input. The wrapper's ABI argument is always a 256-bit word, so
+`x < 2 ^ 256` is the full natural domain; the runtime depends only on `u256 x`,
+which equals `x` on that domain. -/
+theorem lnWadToRayRuntimeCutCorrect_holds (x : Nat) (hx : x < 2 ^ 256) :
+    LnWadToRayRuntimeCutCorrect x := by
+  intro hxSigned
+  obtain ⟨hpos, hpos2⟩ := u256_pos_bounds hxSigned
+  have hux : u256 x = x := u256_eq_of_lt x (by simpa [WORD_MOD] using hx)
+  have hrun := run_ln_wad_to_ray_evm_eq_body x hpos hpos2
+  rw [hux] at hpos hpos2 hrun
+  refine ⟨int256 (lnWadToRayBody x), ?_, ?_⟩
+  · rw [runLnWadToRaySigned_ok_iff]
+    refine ⟨lnWadToRayBody x, hrun, ?_⟩
+    show int256 (u256 (lnWadToRayBody x)) = int256 (lnWadToRayBody x)
+    rw [u256_eq_of_lt _ (by simpa [WORD_MOD] using lnWadToRayBody_lt hx)]
+  · exact LnFloorCert.lnWadToRayBody_cut_spec hpos hpos2
+
+/-- C1 discharged unconditionally for `lnWadToRay`: the compiled runtime is
+correct against the `Real.log` fixed-point spec for every 256-bit input. -/
+theorem lnWadToRayRuntimeCorrect (x : Nat) (hx : x < 2 ^ 256) :
+    LnWadToRayRuntimeCorrect x :=
+  lnWadToRayRuntimeCorrect_of_cutCorrect (lnWadToRayRuntimeCutCorrect_holds x hx)
 
 end
 

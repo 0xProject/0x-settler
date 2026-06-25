@@ -2,12 +2,13 @@ import Mathlib.Analysis.SpecialFunctions.Log.Basic
 import Mathlib.Analysis.SpecialFunctions.Exponential
 import LnProof.ExpSum
 import LnProof.LnRealSpec
+import LnProof.CutSpec
 
 open scoped BigOperators
 
 namespace LnRealBridge
 
-open LnExp
+open LnExp LnFloor LnFloorCert
 
 noncomputable section
 
@@ -134,30 +135,7 @@ lemma le_exp_of_capLB {p q y w : Nat} (hq : 0 < q) (hw : 0 < w)
     _ ≤ ∑' i : Nat, ((p : Real) / q) ^ i / ((fact i : Nat) : Real) := by
         exact Summable.sum_le_tsum _ (fun i hi => expTerm_nonneg hq i) hs.summable
 
-def QS : Nat := 10 ^ 27 * 2 ^ 99
-
-def CutExpLe (p q y w : Nat) : Prop := capUB p q y w
-def CutRatioLeExp (y w p q : Nat) : Prop := capLB p q y w
-
-def CutLeLogWadRay (r : Int) (x : Nat) : Prop :=
-  if 0 <= r then
-    CutExpLe (r.toNat * 2 ^ 99) QS x (10 ^ 18)
-  else
-    CutRatioLeExp (10 ^ 18) x ((-r).toNat * 2 ^ 99) QS
-
-def CutLogWadRayLtWithMargin (x : Nat) (b : Int) : Prop :=
-  if 1 <= b then
-    CutRatioLeExp (x * 10 ^ 31) (10 ^ 18 * (10 ^ 31 - 10)) (b.toNat * 2 ^ 99) QS
-  else
-    CutExpLe ((-b).toNat * 2 ^ 99) QS (10 ^ 18 * (10 ^ 31 - 10)) (x * 10 ^ 31)
-
-def CutLnWadRayBracket (r : Int) (x : Nat) : Prop :=
-  CutLeLogWadRay r x ∧ CutLogWadRayLtWithMargin x (r + 2)
-
-def CutLnWadSpec (ray wad : Int) (x : Nat) : Prop :=
-  CutLnWadRayBracket ray x ∧ wad * 1000000000 <= ray ∧ ray < (wad + 1) * 1000000000
-
-lemma QS_pos : 0 < QS := by decide
+lemma QS_pos : 0 < QS := LnFloor.QS_pos
 
 lemma ray_exp_arg_of_nonneg {r : Int} (hr : 0 ≤ r) :
     (((r.toNat * 2 ^ 99 : Nat) : Real) / ((QS : Nat) : Real)) =
