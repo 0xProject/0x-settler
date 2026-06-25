@@ -93,7 +93,7 @@ theorem lt_pos_cut_factored {m c x : Nat} {r : Int}
                 (23 * (evalPoly ltTD (m : Int)).toNat) +
               2 * (evalPoly ltTN (m : Int)).toNat ^ 23)) ≤
         (((2 * (10 ^ 40 - 1)) ^ (160 - c) *
-              56022770974786139918731938208047384533687899806222561447928894477446720 *
+              biasCapNum *
               (lnErrQ + posAvailLt m c r)) *
             (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23)) * wadRayStrictDen) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
@@ -117,7 +117,7 @@ theorem lt_pos_cut_factored {m c x : Nat} {r : Int}
     (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23) at cap1
   change capLB (posConstNat c) lnErrQ
     ((2 * (10 ^ 40 - 1)) ^ (160 - c) *
-      56022770974786139918731938208047384533687899806222561447928894477446720)
+      biasCapNum)
     ((10 ^ 40 : Nat) ^ (160 - c) * (10 ^ 18 * 10 ^ 42)) at hsum0
   exact capLB_cancel_first_order_budget
     (arg := lnErrArg r)
@@ -125,7 +125,7 @@ theorem lt_pos_cut_factored {m c x : Nat} {r : Int}
     (neg := posNegXNat m)
     (q := lnErrQ)
     (C := (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-      56022770974786139918731938208047384533687899806222561447928894477446720)
+      biasCapNum)
     (W := (10 ^ 40 : Nat) ^ (160 - c) * (10 ^ 18 * 10 ^ 42))
     (G := expNum 22 (evalPoly ltTN (m : Int)).toNat (evalPoly ltTD (m : Int)).toNat *
         (23 * (evalPoly ltTD (m : Int)).toNat) + 2 * (evalPoly ltTN (m : Int)).toNat ^ 23)
@@ -157,7 +157,7 @@ theorem lt_pos_cut_reduced {m c x : Nat} {r : Int}
           (expNum 22 (evalPoly ltTN (m : Int)).toNat (evalPoly ltTD (m : Int)).toNat *
               (23 * (evalPoly ltTD (m : Int)).toNat) +
             2 * (evalPoly ltTN (m : Int)).toNat ^ 23) * lnErrQ) * (10 ^ 40 + 160) ≤
-        (56022770974786139918731938208047384533687899806222561447928894477446720 *
+        (biasCapNum *
             (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23) *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * 10 ^ 40) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
@@ -179,7 +179,7 @@ theorem lt_pos_cut_reduced {m c x : Nat} {r : Int}
           (expNum 22 (evalPoly ltTN (m : Int)).toNat (evalPoly ltTD (m : Int)).toNat *
               (23 * (evalPoly ltTD (m : Int)).toNat) +
             2 * (evalPoly ltTN (m : Int)).toNat ^ 23) * lnErrQ) * (10 ^ 40) ^ (160 - c) ≤
-        (56022770974786139918731938208047384533687899806222561447928894477446720 *
+        (biasCapNum *
             (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23) *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * ((10 ^ 40 - 1) ^ (160 - c)) := by
     refine Nat.le_of_mul_le_mul_right ?_ (show 0 < 10 ^ 40 by decide)
@@ -205,11 +205,11 @@ theorem lt_pos_cut_reduced {m c x : Nat} {r : Int}
               2 * (evalPoly ltTN (m : Int)).toNat ^ 23) * lnErrQ) * (10 ^ 40 + 160) *
             (10 ^ 40 - 1) ^ (160 - c) := by
           simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
-      _ ≤ (56022770974786139918731938208047384533687899806222561447928894477446720 *
+      _ ≤ (biasCapNum *
             (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23) *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * 10 ^ 40 *
               (10 ^ 40 - 1) ^ (160 - c) := Nat.mul_le_mul_right _ hred
-      _ = (56022770974786139918731938208047384533687899806222561447928894477446720 *
+      _ = (biasCapNum *
             (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23) *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * ((10 ^ 40 - 1) ^ (160 - c)) *
               10 ^ 40 := by simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
@@ -237,12 +237,12 @@ theorem lt_pos_cut_reduced {m c x : Nat} {r : Int}
               2 * (evalPoly ltTN (m : Int)).toNat ^ 23) * lnErrQ) *
             (10 ^ 40) ^ (160 - c)) * 2 ^ (160 - c) := by
           simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
-    _ ≤ ((56022770974786139918731938208047384533687899806222561447928894477446720 *
+    _ ≤ ((biasCapNum *
             (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23) *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * ((10 ^ 40 - 1) ^ (160 - c))) *
               2 ^ (160 - c) := Nat.mul_le_mul_right _ keyineq
     _ = (((2 * (10 ^ 40 - 1)) ^ (160 - c) *
-            56022770974786139918731938208047384533687899806222561447928894477446720 *
+            biasCapNum *
             (lnErrQ + minPosAvail)) *
             (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23)) * wadRayStrictDen := by
           simp only [Nat.mul_pow, Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]

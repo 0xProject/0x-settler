@@ -32,7 +32,7 @@ where `minPosAvailGe = 692115493·2^99 + 2^27·10^9` is the GE-internal bound
 (1.692115493 ulp) at which the ge cells were generated — tighter than the
 published bound, so the ge branch only tracks the bias here. -/
 def errGeW : Nat :=
-  56022770974786139918731938208047384533687899806222561447928894477446720 *
+  biasCapNum *
     (lnErrQ + (692115493 * 2 ^ 99 + 2 ^ 27 * 10 ^ 9)) * wadRayStrictDen * 10 ^ 40
 
 def certErrGe : List Int :=

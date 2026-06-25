@@ -150,7 +150,7 @@ theorem capGeUp {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
   refine capUB22_of_int (by omega) (by omega) ?_
   rw [htn, htd]
   rw [evalCertGeUp] at hup
-  simp only [EUD, EUN, EUNl, KF1, Sc] at hup
+  simp only [EUD, EUN, KF1, Sc] at hup
   simp only [Int.natCast_mul]
   rw [show ((560227709747861399187319382270000000000000000000000000000000 : Nat) : Int) = 560227709747861399187319382270000000000000000000000000000000 from rfl,
       show ((10000000000000000000000000003382 : Nat) : Int) = 10000000000000000000000000003382 from rfl]
@@ -193,7 +193,7 @@ theorem capGeLo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
   refine capLB22_of_int ?_
   rw [htn, htd]
   rw [evalCertGeLo] at hlo
-  simp only [EUD, EUN, EUNl, KF, Sc] at hlo
+  simp only [EUD, EUNl, KF, Sc] at hlo
   simp only [Int.natCast_mul]
   rw [show ((560227709747861399187319382270000000000000000000000000000000 : Nat) : Int) = 560227709747861399187319382270000000000000000000000000000000 from rfl,
       show ((9999999999999999999999999996615 : Nat) : Int) = 9999999999999999999999999996615 from rfl]
@@ -229,7 +229,7 @@ theorem capLtUp {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
   refine capLB22_of_int ?_
   rw [htn, htd]
   rw [evalCertLtUp] at hup
-  simp only [EUD, EUN, EUNl, KF, Sc] at hup
+  simp only [EUD, EUN, KF, Sc] at hup
   simp only [Int.natCast_mul]
   rw [show ((560227709747861399187319382270000000000000000000000000000000 : Nat) : Int) = 560227709747861399187319382270000000000000000000000000000000 from rfl,
       show ((10000000000000000000000000003382 : Nat) : Int) = 10000000000000000000000000003382 from rfl]
@@ -269,7 +269,7 @@ theorem capLtLo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
   refine capUB22_of_int (by omega) (by omega) ?_
   rw [htn, htd]
   rw [evalCertLtLo] at hlo
-  simp only [EUD, EUN, EUNl, KF1, Sc] at hlo
+  simp only [EUD, EUNl, KF1, Sc] at hlo
   simp only [Int.natCast_mul]
   rw [show ((560227709747861399187319382270000000000000000000000000000000 : Nat) : Int) = 560227709747861399187319382270000000000000000000000000000000 from rfl,
       show ((9999999999999999999999999996615 : Nat) : Int) = 9999999999999999999999999996615 from rfl]

@@ -32,7 +32,7 @@ def errLtK : Int :=
 derived from the tight bias cap and the published `minPosAvail` rather than
 tracked as a literal. -/
 def errLtW : Nat :=
-  56022770974786139918731938208047384533687899806222561447928894477446720 *
+  biasCapNum *
     (lnErrQ + minPosAvail) * wadRayStrictDen * 10 ^ 40
 
 def certErrLt : List Int :=
@@ -103,7 +103,7 @@ theorem errLt_hred {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
         (expNum 22 (evalPoly ltTN (m : Int)).toNat (evalPoly ltTD (m : Int)).toNat *
             (23 * (evalPoly ltTD (m : Int)).toNat) +
           2 * (evalPoly ltTN (m : Int)).toNat ^ 23) * lnErrQ) * (10 ^ 40 + 160) ≤
-      (56022770974786139918731938208047384533687899806222561447928894477446720 *
+      (biasCapNum *
           (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23) *
           (lnErrQ + minPosAvail) * wadRayStrictDen) * 10 ^ 40 := by
   have hw1 : (39614081257132168796771975168 : Int) ≤ (m : Int) := by
@@ -147,7 +147,7 @@ theorem errLt_hred {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   -- close `hred` by expanding the two scalar constants and AC
   have eKn : errLtK.toNat = 10 ^ 31 * (10 ^ 18 * 10 ^ 42) * lnErrQ * (10 ^ 40 + 160) := by
     decide
-  have eWn : errLtW = 56022770974786139918731938208047384533687899806222561447928894477446720 *
+  have eWn : errLtW = biasCapNum *
       (lnErrQ + minPosAvail) * wadRayStrictDen * 10 ^ 40 := by decide
   rw [show m + 1 = 1 + m from Nat.add_comm m 1]
   calc (1 + m) * 10 ^ 31 * (10 ^ 18 * 10 ^ 42) *
@@ -159,7 +159,7 @@ theorem errLt_hred {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
             2 * (evalPoly ltTN (m : Int)).toNat ^ 23)) := by
         rw [eKn]; simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
     _ ≤ errLtW * fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23 := key
-    _ = 56022770974786139918731938208047384533687899806222561447928894477446720 *
+    _ = biasCapNum *
           (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23) * (lnErrQ + minPosAvail) *
           wadRayStrictDen * 10 ^ 40 := by
         rw [eWn]; simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]

@@ -69,6 +69,13 @@ jobs:
       - name: Generate certificate coefficient literals
         run: python3 -W error formal/python/ln/gen_cert_literals.py
 
+      - name: Generate floor cert cell covers and bias cap numerator
+        working-directory: formal/ln/LnProof
+        run: |
+          lake build LnProof.FloorCertLit LnProof.KroneckerShift LnProof.FloorConsts
+          lake env lean GenCover.lean
+          lake env lean GenErr1.lean
+
       - name: Generate error-bound cert literals and cell covers
         working-directory: formal/ln/LnProof
         run: |

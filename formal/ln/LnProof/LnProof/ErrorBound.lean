@@ -131,7 +131,7 @@ theorem model_ln_wad_error_bound_upper_pos_shift {x : Nat}
           ≤ x * (10 ^ 18 * 10 ^ 31) :=
             Nat.mul_le_mul (Nat.le_refl _) (Nat.mul_le_mul (Nat.le_refl _) hsub)
         _ = x * 10 ^ 31 * 10 ^ 18 := by
-            simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+            simp only [Nat.mul_comm, Nat.mul_left_comm]
     · -- residue band: `Sc - 45 ≤ mant x < Sc`
       exact model_ln_wad_positive_shift_lt_residue_or_direct h1 h2 hne hclt hbranch hband
         (model_ln_wad_positive_shift_lt_residue_or_direct_cert h1 h2 hne hclt hbranch)

@@ -19,3 +19,14 @@
 /LnProof/ErrCertGe.lean
 /LnProof/ErrCertLtC*.lean
 /LnProof/ErrCertGeC*.lean
+
+# Auto-generated floor cert cell covers; rebuild with:
+#   lake build LnProof.FloorCertLit LnProof.KroneckerShift && lake env lean GenCover.lean
+/LnProof/FloorCertGeUpC*.lean
+/LnProof/FloorCertLtUpC*.lean
+/LnProof/FloorCertGeLoC*.lean
+/LnProof/FloorCertLtLoC*.lean
+
+# Auto-generated tight bias-cap numerator; rebuild with:
+#   lake build LnProof.FloorConsts && lake env lean GenErr1.lean
+/LnProof/BiasCapNum.lean

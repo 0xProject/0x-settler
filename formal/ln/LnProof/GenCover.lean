@@ -91,5 +91,10 @@ def loGE : Int := 56022770974786139918731938273          -- Sc + 46
 def hiGE : Int := 79228162514264337593543950335          -- 2^96 - 1
 
 -- Regenerate the never-overshoot covers (the +form certs at EUN=3382).
+-- All four floor cert covers (never-overshoot +form GeUp/LtUp, not-too-low
+-- −form GeLo/LtLo). The cover modules keep their hand-written eval_eq; only the
+-- cell files + the _nonneg ladder are generated.
 #eval emit "certGeUp" "certGeUpLit" "certGeUp" "geUp_eval_eq" "FloorCertGeUpC" "geUp_cell" "geUp_nonneg" certGeUpLit loGE hiGE
 #eval emit "certLtUp" "certLtUpLit" "certLtUp" "ltUp_eval_eq" "FloorCertLtUpC" "ltUp_cell" "ltUp_nonneg" certLtUpLit loLT hiLT
+#eval emit "certGeLo" "certGeLoLit" "certGeLo" "geLo_eval_eq" "FloorCertGeLoC" "geLo_cell" "geLo_nonneg" certGeLoLit loGE hiGE
+#eval emit "certLtLo" "certLtLoLit" "certLtLo" "ltLo_eval_eq" "FloorCertLtLoC" "ltLo_cell" "ltLo_nonneg" certLtLoLit loLT hiLT
