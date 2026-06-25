@@ -94,12 +94,6 @@ jobs:
           lake build LnProof.ErrorBoundCore
           lake env lean GenErrLit.lean
 
-      # A green build certifies that the package compiles and that the AxiomCheck
-      # `#guard_msgs` gate holds (the pinned theorems depend only on
-      # [propext, Classical.choice, Quot.sound]). `lnWadToRayRuntimeCorrect` is
-      # unconditional (the compiled `lnWadToRay` runtime is correct against the
-      # `Real.log` spec); the wad-path discharge and the revert facts are still
-      # in progress. See formal/ln/STATUS.md.
       - name: Build Ln proof package
         working-directory: formal/ln/LnProof
         run: lake build
