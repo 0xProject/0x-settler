@@ -110,6 +110,36 @@ theorem slt_zero_pos {x : Nat} (h1 : 1 ≤ u256 x) (h2 : u256 x < 2 ^ 255) :
   rw [hx, h0, if_neg c1, if_neg c2]
   simp [EvmYul.UInt256.fromBool, hlt]
 
+/-- `slt(0, x)` evaluates to the word `0` for a nonpositive signed input, so the
+interpreter takes the `if iszero(slt(0, x))` revert guard in `fun_lnWadToRay_11`. -/
+theorem slt_zero_nonpos {x : Nat} (hnonpos : int256 (u256 x) ≤ 0) :
+    EvmYul.UInt256.slt (EvmYul.UInt256.ofNat 0) (EvmYul.UInt256.ofNat x)
+      = EvmYul.UInt256.ofNat 0 := by
+  have hlt256 : u256 x < 2 ^ 256 := u256_lt_word x
+  have hx : (EvmYul.UInt256.ofNat x).toNat = u256 x := by
+    have := wordNat_ofNat x; simpa [wordNat] using this
+  have h0 : (EvmYul.UInt256.ofNat 0).toNat = 0 := by
+    have := wordNat_ofNat 0; simpa [wordNat, u256, WORD_MOD] using this
+  have hcases : u256 x = 0 ∨ 2 ^ 255 ≤ u256 x := by
+    by_contra hc
+    push_neg at hc
+    obtain ⟨hne, hge⟩ := hc
+    have hpos : 0 < u256 x := Nat.pos_of_ne_zero hne
+    unfold int256 at hnonpos
+    simp only [hge, if_true] at hnonpos
+    have : (0 : Int) < u256 x := by exact_mod_cast hpos
+    omega
+  unfold EvmYul.UInt256.slt EvmYul.UInt256.sltBool
+  rw [hx, h0, if_neg (by omega : ¬ ((0 : Nat) ≥ 2 ^ 255))]
+  rcases hcases with h0x | hge
+  · rw [if_neg (by rw [h0x]; omega : ¬ (u256 x ≥ 2 ^ 255))]
+    have hnlt : ¬ EvmYul.UInt256.ofNat 0 < EvmYul.UInt256.ofNat x := by
+      show ¬ (EvmYul.UInt256.ofNat 0).toNat < (EvmYul.UInt256.ofNat x).toNat
+      rw [h0, hx, h0x]; omega
+    simp [EvmYul.UInt256.fromBool, hnlt]
+  · rw [if_pos (by omega : u256 x ≥ 2 ^ 255)]
+    simp [EvmYul.UInt256.fromBool]
+
 /-- `wordNat` of `UInt256.complement` is `evmNot` (the complement equals the
 two's-complement bitwise-not at the `Nat` level). -/
 theorem wordNat_complement (a : EvmYul.UInt256) :
@@ -429,6 +459,51 @@ theorem call_fun_lnWadToRay_direct
     FormalYul.Preservation.u256_eq_of_lt _ (lnWadToRayBody_lt (u256_lt_word x)),
     Sc, P4c, P3c, P2c, P1c, C0c, Q4c, Q3c, Q2c, Q1c, Kc, LN2c, BIASc]
     using lnWadToRayCoreExpr_eq (FormalYul.u256 x)
+
+/-- A Yul `revert(a, b)` primitive call halts with `.error .Revert` (the
+`MachineState.evmRevert` op is total, so the `Semantics` dispatch always reaches
+the `.ok ⇒ .error .Revert` branch). Mirror of the `primCall_*` lemmas. -/
+private theorem primCall_revert_yul (fuel : Nat) (s : EvmYul.Yul.State)
+    (a b : EvmYul.UInt256) :
+    EvmYul.Yul.primCall (fuel + 1) s
+        (EvmYul.Operation.System EvmYul.Operation.SOp.REVERT : EvmYul.Operation .Yul) [a, b] =
+      .error EvmYul.Yul.Exception.Revert := by
+  rw [EvmYul.Yul.primCall.eq_def]
+  simp only [List.mem_cons, List.not_mem_nil, EvmYul.Operation.System.injEq,
+    Bool.not_eq_true, reduceCtorEq, or_false, false_or, or_self, and_false, if_false,
+    EvmYul.step.eq_def]
+  rfl
+
+set_option maxHeartbeats 8000000 in
+theorem call_fun_lnWadToRay_revert_direct
+    (x fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract))
+    (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
+    EvmYul.Yul.call (fuel + 600) [FormalYul.word x] (.some yulName_fun_lnWadToRay)
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .error EvmYul.Yul.Exception.Revert := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_lnWadToRay]
+  simp only [yulFunction_fun_lnWadToRay, yulFunction_fun_lnWadToRay_11,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word,
+    slt_zero_nonpos hnonpos, primCall_revert_yul,
+    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 576)
+      (shared := shared)
+      (store := Finmap.insert "var_x_4" (EvmYul.UInt256.ofNat x)
+        (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)]
 
 set_option maxHeartbeats 8000000 in
 theorem call_fun_wrap_lnWadToRay_direct
@@ -1745,5 +1820,423 @@ theorem run_ln_wad_evm_eq_body
   exact FormalYul.Preservation.callWord_ok_of_dispatcherReturn_result_1000000
     (contract := yulContract) (selector := selector_lnWad) (args := [x])
     (hReturn := hReturn) (by simpa using hresult)
+
+/-! ## Revert path (nonpositive input) -/
+
+set_option maxHeartbeats 8000000 in
+theorem call_fun_wrap_lnWadToRay_revert_direct
+    (x fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract))
+    (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
+    EvmYul.Yul.call (fuel + 800) [FormalYul.word x] (.some yulName_fun_wrap_lnWadToRay)
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .error EvmYul.Yul.Exception.Revert := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_lnWadToRay]
+  simp only [yulFunction_fun_wrap_lnWadToRay, yulFunction_fun_wrap_lnWadToRay_46,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have hfuel : fuel + 791 = (fuel + 191) + 600 := by omega
+  have hCall := call_fun_lnWadToRay_revert_direct (x := x) (fuel := fuel + 191) (shared := shared)
+    (store := Finmap.insert "expr_42" (EvmYul.UInt256.ofNat x)
+      (Finmap.insert "_4" (EvmYul.UInt256.ofNat x)
+        (Finmap.insert "expr_40_address" (EvmYul.UInt256.ofNat 0)
+          (Finmap.insert "var__38" (EvmYul.UInt256.ofNat 0)
+            (Finmap.insert "zero_t_int256_3" (EvmYul.UInt256.ofNat 0)
+              (Finmap.insert "var_x_35" (EvmYul.UInt256.ofNat x)
+                (Inhabited.default : EvmYul.Yul.VarStore)))))))
+    (hlookup := hlookup) hnonpos
+  simp only [FormalYul.word, yulName_fun_lnWadToRay] at hCall
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.revive, EvmYul.Yul.State.setLeave,
+    EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word, hfuel, hCall,
+    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 776)
+      (shared := shared)
+      (store := Finmap.insert "var_x_35" (EvmYul.UInt256.ofNat x)
+        (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)]
+
+-- `call_fun_lnWad_revert_direct`: the wad body reverts (it calls
+-- `fun_lnWadToRay_11`, which reverts for nonpositive input before the sdiv tail).
+set_option maxHeartbeats 8000000 in
+theorem call_fun_lnWad_revert_direct
+    (x fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract))
+    (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
+    EvmYul.Yul.call (fuel + 900) [FormalYul.word x] (.some yulName_fun_lnWad)
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .error EvmYul.Yul.Exception.Revert := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_lnWad]
+  simp only [yulFunction_fun_lnWad, yulFunction_fun_lnWad_27,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have hfuel : fuel + 892 = (fuel + 292) + 600 := by omega
+  have hCall := call_fun_lnWadToRay_revert_direct (x := x) (fuel := fuel + 292) (shared := shared)
+    (store := Finmap.insert "expr_21" (EvmYul.UInt256.ofNat x)
+      (Finmap.insert "_6" (EvmYul.UInt256.ofNat x)
+        (Finmap.insert "var_r_17" (EvmYul.UInt256.ofNat 0)
+          (Finmap.insert "zero_t_int256_5" (EvmYul.UInt256.ofNat 0)
+            (Finmap.insert "var_x_14" (EvmYul.UInt256.ofNat x)
+              (Inhabited.default : EvmYul.Yul.VarStore))))))
+    (hlookup := hlookup) hnonpos
+  simp only [FormalYul.word, yulName_fun_lnWadToRay] at hCall
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.revive, EvmYul.Yul.State.setLeave,
+    EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word, hfuel, hCall,
+    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 876)
+      (shared := shared)
+      (store := Finmap.insert "var_x_14" (EvmYul.UInt256.ofNat x)
+        (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)]
+
+set_option maxHeartbeats 8000000 in
+theorem call_fun_wrap_lnWad_revert_direct
+    (x fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract))
+    (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
+    EvmYul.Yul.call (fuel + 1100) [FormalYul.word x] (.some yulName_fun_wrap_lnWad)
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .error EvmYul.Yul.Exception.Revert := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_lnWad]
+  simp only [yulFunction_fun_wrap_lnWad, yulFunction_fun_wrap_lnWad_59,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have hfuel : fuel + 1091 = (fuel + 191) + 900 := by omega
+  have hCall := call_fun_lnWad_revert_direct (x := x) (fuel := fuel + 191) (shared := shared)
+    (store := Finmap.insert "expr_55" (EvmYul.UInt256.ofNat x)
+      (Finmap.insert "_2" (EvmYul.UInt256.ofNat x)
+        (Finmap.insert "expr_53_address" (EvmYul.UInt256.ofNat 0)
+          (Finmap.insert "var__51" (EvmYul.UInt256.ofNat 0)
+            (Finmap.insert "zero_t_int256_1" (EvmYul.UInt256.ofNat 0)
+              (Finmap.insert "var_x_48" (EvmYul.UInt256.ofNat x)
+                (Inhabited.default : EvmYul.Yul.VarStore)))))))
+    (hlookup := hlookup) hnonpos
+  simp only [FormalYul.word, yulName_fun_lnWad] at hCall
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.revive, EvmYul.Yul.State.setLeave,
+    EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word, hfuel, hCall,
+    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 1076)
+      (shared := shared)
+      (store := Finmap.insert "var_x_48" (EvmYul.UInt256.ofNat x)
+        (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := hlookup)]
+
+set_option maxHeartbeats 8000000 in
+theorem external_fun_wrap_lnWadToRay_calldata_revert
+    (x : Nat) (store : EvmYul.Yul.VarStore) (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
+    EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_lnWadToRay) (.some yulContract)
+        (EvmYul.Yul.State.Ok (lnWadToRaySharedAfterFreePtr x) store) =
+      .error EvmYul.Yul.Exception.Revert := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [lnWadToRaySharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
+    lookup_external_fun_wrap_lnWadToRay]
+  simp only [yulFunction_external_fun_wrap_lnWadToRay, yulFunction_external_fun_wrap_lnWadToRay_46,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have hdecode :=
+    call_abi_decode_tuple_t_int256_of_calldata (x := x) (fuel := 999854)
+      (shared := lnWadToRaySharedAfterFreePtr x)
+      (store := (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := lnWadToRaySharedAfterFreePtr_lookup x)
+      (hdata := lnWadToRaySharedAfterFreePtr_calldata x)
+  simp [FormalYul.word] at hdecode
+  have hwrap :=
+    call_fun_wrap_lnWadToRay_revert_direct (x := x) (fuel := 999183)
+      (shared := lnWadToRaySharedAfterFreePtr x)
+      (store := Finmap.insert "param_0" (FormalYul.word x)
+        (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := lnWadToRaySharedAfterFreePtr_lookup x) hnonpos
+  simp [FormalYul.word, yulName_fun_wrap_lnWadToRay] at hwrap
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.executionEnv,
+    GetElem?.getElem!, decidableGetElem?,
+    EvmYul.Yul.State.instGetElemIdentifierLiteralMemVarStoreStore,
+    EvmYul.Yul.State.store,
+    EvmYul.Yul.State.toMachineState,
+    Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
+    hdecode, hwrap]
+
+set_option maxHeartbeats 8000000 in
+theorem external_fun_wrap_lnWad_calldata_revert
+    (x : Nat) (store : EvmYul.Yul.VarStore) (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
+    EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_lnWad) (.some yulContract)
+        (EvmYul.Yul.State.Ok (lnWadSharedAfterFreePtr x) store) =
+      .error EvmYul.Yul.Exception.Revert := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [lnWadSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
+    lookup_external_fun_wrap_lnWad]
+  simp only [yulFunction_external_fun_wrap_lnWad, yulFunction_external_fun_wrap_lnWad_59,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have hdecode :=
+    call_abi_decode_tuple_t_int256_lnWad_of_calldata (x := x) (fuel := 999854)
+      (shared := lnWadSharedAfterFreePtr x)
+      (store := (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := lnWadSharedAfterFreePtr_lookup x)
+      (hdata := lnWadSharedAfterFreePtr_calldata x)
+  simp [FormalYul.word] at hdecode
+  have hwrap :=
+    call_fun_wrap_lnWad_revert_direct (x := x) (fuel := 998883)
+      (shared := lnWadSharedAfterFreePtr x)
+      (store := Finmap.insert "param_0" (FormalYul.word x)
+        (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := lnWadSharedAfterFreePtr_lookup x) hnonpos
+  simp [FormalYul.word, yulName_fun_wrap_lnWad] at hwrap
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.executionEnv,
+    GetElem?.getElem!, decidableGetElem?,
+    EvmYul.Yul.State.instGetElemIdentifierLiteralMemVarStoreStore,
+    EvmYul.Yul.State.store,
+    EvmYul.Yul.State.toMachineState,
+    Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
+    hdecode, hwrap]
+
+set_option maxHeartbeats 8000000 in
+theorem external_fun_wrap_lnWadToRay_dispatcher_state_revert
+    (x : Nat) (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
+    EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_lnWadToRay) (.some yulContract)
+        (EvmYul.Yul.State.Ok
+          (EvmYul.SharedState.mk
+            (FormalYul.sharedFor yulContract
+              (selector_lnWadToRay ++ FormalYul.encodeWords [x])).toState
+            ((FormalYul.sharedFor yulContract
+              (selector_lnWadToRay ++ FormalYul.encodeWords [x])).mstore
+                (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)))
+          (Finmap.insert "selector"
+            (EvmYul.UInt256.shiftRight
+              (EvmYul.State.calldataload
+                (EvmYul.Yul.State.Ok
+                  (EvmYul.SharedState.mk
+                    (FormalYul.sharedFor yulContract
+                      (selector_lnWadToRay ++ FormalYul.encodeWords [x])).toState
+                    ((FormalYul.sharedFor yulContract
+                      (selector_lnWadToRay ++ FormalYul.encodeWords [x])).mstore
+                        (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)))
+                  (Inhabited.default : EvmYul.Yul.VarStore)).toState
+                (EvmYul.UInt256.ofNat 0))
+              (EvmYul.UInt256.ofNat 224))
+            (Inhabited.default : EvmYul.Yul.VarStore))) =
+        .error EvmYul.Yul.Exception.Revert := by
+  rw [sharedFor_inherited_mstore_mk_eq_lnWadToRaySharedAfterFreePtr_raw]
+  exact external_fun_wrap_lnWadToRay_calldata_revert (x := x)
+    (store := Finmap.insert "selector"
+        (EvmYul.UInt256.shiftRight
+          (EvmYul.State.calldataload
+            (EvmYul.Yul.State.Ok (lnWadToRaySharedAfterFreePtr x)
+              (Inhabited.default : EvmYul.Yul.VarStore)).toState
+            (EvmYul.UInt256.ofNat 0))
+          (EvmYul.UInt256.ofNat 224))
+        (Inhabited.default : EvmYul.Yul.VarStore)) hnonpos
+
+set_option maxHeartbeats 8000000 in
+theorem external_fun_wrap_lnWad_dispatcher_state_revert
+    (x : Nat) (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
+    EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_lnWad) (.some yulContract)
+        (EvmYul.Yul.State.Ok
+          (EvmYul.SharedState.mk
+            (FormalYul.sharedFor yulContract
+              (selector_lnWad ++ FormalYul.encodeWords [x])).toState
+            ((FormalYul.sharedFor yulContract
+              (selector_lnWad ++ FormalYul.encodeWords [x])).mstore
+                (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)))
+          (Finmap.insert "selector"
+            (EvmYul.UInt256.shiftRight
+              (EvmYul.State.calldataload
+                (EvmYul.Yul.State.Ok
+                  (EvmYul.SharedState.mk
+                    (FormalYul.sharedFor yulContract
+                      (selector_lnWad ++ FormalYul.encodeWords [x])).toState
+                    ((FormalYul.sharedFor yulContract
+                      (selector_lnWad ++ FormalYul.encodeWords [x])).mstore
+                        (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)))
+                  (Inhabited.default : EvmYul.Yul.VarStore)).toState
+                (EvmYul.UInt256.ofNat 0))
+              (EvmYul.UInt256.ofNat 224))
+            (Inhabited.default : EvmYul.Yul.VarStore))) =
+        .error EvmYul.Yul.Exception.Revert := by
+  rw [sharedFor_inherited_mstore_mk_eq_lnWadSharedAfterFreePtr_raw]
+  exact external_fun_wrap_lnWad_calldata_revert (x := x)
+    (store := Finmap.insert "selector"
+        (EvmYul.UInt256.shiftRight
+          (EvmYul.State.calldataload
+            (EvmYul.Yul.State.Ok (lnWadSharedAfterFreePtr x)
+              (Inhabited.default : EvmYul.Yul.VarStore)).toState
+            (EvmYul.UInt256.ofNat 0))
+          (EvmYul.UInt256.ofNat 224))
+        (Inhabited.default : EvmYul.Yul.VarStore)) hnonpos
+
+/-- Revert-analogue of `Preservation.runContract_ok_of_dispatcherReturn`: if the
+bare dispatcher `exec` on `stateFor` reverts, the wrapped `runContract` returns
+`.error "revert"`. The state-normalization chain mirrors that lemma; only the
+result leaf differs. -/
+private theorem runContract_revert_of_exec_revert
+    {contract : YulContract} {input : ByteArray} {execFuel : Nat}
+    (h : EvmYul.Yul.exec execFuel contract.dispatcher (.some contract)
+          (stateFor contract input) = .error EvmYul.Yul.Exception.Revert) :
+    runContract contract input (Nat.succ (Nat.succ execFuel)) = .error "revert" := by
+  unfold runContract
+  rw [EvmYul.Yul.callDispatcher.eq_def]
+  simp only [stateFor, EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk,
+    EvmYul.Yul.State.executionEnv, sharedFor, envFor, accountMapFor, accountFor,
+    EvmYul.Yul.State.multifill, EvmYul.Yul.State.setStore, List.zip_nil_left, List.foldr_nil,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def]
+  rw [EvmYul.Yul.exec.eq_def]
+  simp only
+  have hdisp' :
+      EvmYul.Yul.exec execFuel contract.dispatcher (.some contract)
+        (EvmYul.Yul.State.Ok
+          { (Inhabited.default : EvmYul.SharedState .Yul) with
+            accountMap := accountMapFor contract
+            executionEnv := envFor contract input
+            gasAvailable := .ofNat 1000000000 }
+          (Inhabited.default : EvmYul.Yul.VarStore)) =
+        .error EvmYul.Yul.Exception.Revert := by
+    simpa [stateFor, sharedFor] using h
+  have hdisp'' :
+      EvmYul.Yul.exec execFuel contract.dispatcher (.some contract)
+        (EvmYul.Yul.State.Ok
+          { accountMap := accountMapFor contract,
+            σ₀ := (Inhabited.default : EvmYul.SharedState .Yul).σ₀,
+            totalGasUsedInBlock := (Inhabited.default : EvmYul.SharedState .Yul).totalGasUsedInBlock,
+            transactionReceipts := (Inhabited.default : EvmYul.SharedState .Yul).transactionReceipts,
+            substate := (Inhabited.default : EvmYul.SharedState .Yul).substate,
+            executionEnv := envFor contract input,
+            blocks := (Inhabited.default : EvmYul.SharedState .Yul).blocks,
+            genesisBlockHeader := (Inhabited.default : EvmYul.SharedState .Yul).genesisBlockHeader,
+            createdAccounts := (Inhabited.default : EvmYul.SharedState .Yul).createdAccounts,
+            gasAvailable := EvmYul.UInt256.ofNat 1000000000,
+            activeWords := (Inhabited.default : EvmYul.SharedState .Yul).activeWords,
+            memory := (Inhabited.default : EvmYul.SharedState .Yul).memory,
+            returnData := (Inhabited.default : EvmYul.SharedState .Yul).returnData,
+            H_return := (Inhabited.default : EvmYul.SharedState .Yul).H_return }
+          (Inhabited.default : EvmYul.Yul.VarStore)) =
+        .error EvmYul.Yul.Exception.Revert := by
+    simpa using hdisp'
+  have hdisp''' :
+      EvmYul.Yul.exec execFuel contract.dispatcher (.some contract)
+        (EvmYul.Yul.State.Ok
+          { accountMap := Batteries.RBMap.insert ∅ contractOwner
+              { (Inhabited.default : EvmYul.Account .Yul) with code := contract },
+            σ₀ := (Inhabited.default : EvmYul.SharedState .Yul).σ₀,
+            totalGasUsedInBlock := (Inhabited.default : EvmYul.SharedState .Yul).totalGasUsedInBlock,
+            transactionReceipts := (Inhabited.default : EvmYul.SharedState .Yul).transactionReceipts,
+            substate := (Inhabited.default : EvmYul.SharedState .Yul).substate,
+            executionEnv := { (Inhabited.default : EvmYul.ExecutionEnv .Yul) with
+              calldata := input
+              code := contract
+              codeOwner := contractOwner
+              weiValue := ⟨0⟩
+              perm := true },
+            blocks := (Inhabited.default : EvmYul.SharedState .Yul).blocks,
+            genesisBlockHeader := (Inhabited.default : EvmYul.SharedState .Yul).genesisBlockHeader,
+            createdAccounts := (Inhabited.default : EvmYul.SharedState .Yul).createdAccounts,
+            gasAvailable := EvmYul.UInt256.ofNat 1000000000,
+            activeWords := (Inhabited.default : EvmYul.SharedState .Yul).activeWords,
+            memory := (Inhabited.default : EvmYul.SharedState .Yul).memory,
+            returnData := (Inhabited.default : EvmYul.SharedState .Yul).returnData,
+            H_return := (Inhabited.default : EvmYul.SharedState .Yul).H_return }
+          (Inhabited.default : EvmYul.Yul.VarStore)) =
+        .error EvmYul.Yul.Exception.Revert := by
+    simpa [accountMapFor, accountFor, envFor] using hdisp''
+  rw [hdisp''']
+
+set_option maxHeartbeats 8000000 in
+theorem run_ln_wad_to_ray_evm_revert (x : Nat) (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
+    run_ln_wad_to_ray_evm x = .error "revert" := by
+  have hexec :
+      EvmYul.Yul.exec 999998 yulContract.dispatcher (.some yulContract)
+        (stateFor yulContract (FormalYul.calldata selector_lnWadToRay [x])) =
+        .error EvmYul.Yul.Exception.Revert := by
+    rw [yulContract_dispatcher]
+    simp +decide [FormalYul.calldata, stateFor, yulDispatcher,
+      EvmYul.Yul.execCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
+      EvmYul.Yul.evalPrimCall.eq_def, EvmYul.Yul.reverse', EvmYul.Yul.cons',
+      EvmYul.Yul.head', EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+      EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+      EvmYul.Yul.State.executionEnv, EvmYul.Yul.State.toMachineState,
+      FormalYul.word, call_shift_right_224_unsigned_direct]
+    rw [selectSwitchCase_lnWadToRay_sharedFor_mk_raw x]
+    simp +decide [external_fun_wrap_lnWadToRay_dispatcher_state_revert x hnonpos,
+      EvmYul.Yul.exec.eq_def, EvmYul.Yul.execCall.eq_def,
+      EvmYul.Yul.reverse', EvmYul.Yul.multifill']
+  have hrun :
+      runContract yulContract (FormalYul.calldata selector_lnWadToRay [x]) 1000000 =
+        .error "revert" :=
+    runContract_revert_of_exec_revert hexec
+  unfold run_ln_wad_to_ray_evm FormalYul.callWord FormalYul.call
+  rw [hrun]
+  rfl
+
+set_option maxHeartbeats 8000000 in
+theorem run_ln_wad_evm_revert (x : Nat) (hnonpos : int256 (FormalYul.u256 x) ≤ 0) :
+    run_ln_wad_evm x = .error "revert" := by
+  have hexec :
+      EvmYul.Yul.exec 999998 yulContract.dispatcher (.some yulContract)
+        (stateFor yulContract (FormalYul.calldata selector_lnWad [x])) =
+        .error EvmYul.Yul.Exception.Revert := by
+    rw [yulContract_dispatcher]
+    simp +decide [FormalYul.calldata, stateFor, yulDispatcher,
+      EvmYul.Yul.execCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
+      EvmYul.Yul.evalPrimCall.eq_def, EvmYul.Yul.reverse', EvmYul.Yul.cons',
+      EvmYul.Yul.head', EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+      EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+      EvmYul.Yul.State.executionEnv, EvmYul.Yul.State.toMachineState,
+      FormalYul.word, call_shift_right_224_unsigned_direct]
+    rw [selectSwitchCase_lnWad_sharedFor_mk_raw x]
+    simp +decide [external_fun_wrap_lnWad_dispatcher_state_revert x hnonpos,
+      EvmYul.Yul.exec.eq_def, EvmYul.Yul.execCall.eq_def,
+      EvmYul.Yul.reverse', EvmYul.Yul.multifill']
+  have hrun :
+      runContract yulContract (FormalYul.calldata selector_lnWad [x]) 1000000 =
+        .error "revert" :=
+    runContract_revert_of_exec_revert hexec
+  unfold run_ln_wad_evm FormalYul.callWord FormalYul.call
+  rw [hrun]
+  rfl
 
 end LnYul
