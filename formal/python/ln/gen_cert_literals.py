@@ -3,23 +3,24 @@
 certificate polynomials, mirroring the constructions in FloorCertDefs.lean."""
 
 import math
-import pathlib
 import sys
 
 sys.set_int_max_str_digits(2000000)
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
-from formal.python.ln.check_ln_counterexample import (
-    _C0,
-    _P1,
-    _P2,
-    _P3,
-    _P4,
-    _Q1,
-    _Q2,
-    _Q3,
-    _Q4,
-    _S,
-)
+
+# Polynomial coefficients mirrored from src/vendor/Ln.sol: the (4,5)-degree
+# rational approximation p/-q of atanh(sqrt(u))/sqrt(u) over the centered
+# mantissa, sharing the constant term C0 = p(0) = -q(0); S = round(sqrt(2)·2^95)
+# is the octave-centering point.  See the derivation comments in Ln.sol.
+_S = 0xB504F333F9DE6484597D89B3
+_P4 = 0xF642B0ED5372FF45E0
+_P3 = 0xEDE142E73A9ACBB00E9C42
+_P2 = 0xF2A56533E74A454C9D585F70
+_P1 = 0xB44D9253CD61FB87DC7EFCFC
+_C0 = 0xB05A8B41CF51C04D1B8A08D473
+_Q4 = 0x364589193443B48661938F59DC
+_Q3 = 0xE904C4E76307954DF78FEF
+_Q2 = 0xAD960AB2F600BD9765C15FFD
+_Q1 = 0xD1B1FEDEC544F0EA0BC812BBCA
 
 S = _S
 K = 22

@@ -53,12 +53,6 @@ jobs:
         env:
           FOUNDRY_SOLC_VERSION: 0.8.34
 
-      - name: Check floor-specification witness and helper mirror
-        run: python3 -W error -m formal.python.ln.check_ln_counterexample
-
-      - name: Check monotonicity certificate
-        run: python3 -W error -m formal.python.ln.check_ln_monotone
-
       - name: Generate Lean model from Ln.sol via Yul IR
         run: |
           forge inspect src/wrappers/LnWrapper.sol:LnWrapper ir | \
