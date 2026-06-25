@@ -1,6 +1,9 @@
 import LnProof.TopMono
 import LnProof.FloorConsts
 
+open FormalYul
+open FormalYul.Preservation
+
 /-!
 # Model-side decomposition for the floor specification
 
@@ -27,7 +30,7 @@ def ln2kInt (c : Nat) : Int :=
   else -((LN2c : Int) * ((c - 160 : Nat) : Int))
 
 theorem ln2kInt_eq {c : Nat} (hc : c < 256) :
-    toInt (evmMul LN2c (evmSub 160 c)) = ln2kInt c :=
+    int256 (evmMul LN2c (evmSub 160 c)) = ln2kInt c :=
   ln2k_exact hc
 
 theorem ln2kInt_bound {c : Nat} (hc : c < 256) :
@@ -38,37 +41,37 @@ theorem ln2kInt_bound {c : Nat} (hc : c < 256) :
 
 /-- The pre-shift accumulator decomposes exactly. -/
 theorem r4_value {m : Nat} (h1 : MLO ≤ m) (h2 : m < MHI) {c : Nat} (hc : c < 256) :
-    toInt (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c (evmSub 160 c)))
+    int256 (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c (evmSub 160 c)))
         BIASc) =
-      toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         116873961749927929127912020551516284764321243411868 := by
   have hB := r1_bound h1 h2
   have hr1w : x1W (zWord m) < 2 ^ 256 := by unfold x1W; exact evmSdiv_lt _ _
   have hW := ln2k_bound hc
   generalize hg : x1W (zWord m) = r1w at *
   have hKlt : Kc < 2 ^ 256 := by simp only [Kc]; omega
-  have hKc : toInt Kc = (7450580596923828125 : Int) := by
+  have hKc : int256 Kc = (7450580596923828125 : Int) := by
     rw [toInt_of_lt (by simp only [Kc]; omega)]
     simp only [Kc]
     omega
-  have e2 : toInt (evmMul r1w Kc) = toInt r1w * toInt Kc :=
+  have e2 : int256 (evmMul r1w Kc) = int256 r1w * int256 Kc :=
     evmMul_transport (a := r1w) (b := Kc) hr1w hKlt
       (by rw [hKc]; simp only [ipow255]; omega)
       (by rw [hKc]; simp only [ipow255]; omega)
   rw [hKc] at e2
-  have e3 : toInt (evmAdd (evmMul r1w Kc) (evmMul LN2c (evmSub 160 c))) =
-      toInt (evmMul r1w Kc) + toInt (evmMul LN2c (evmSub 160 c)) :=
+  have e3 : int256 (evmAdd (evmMul r1w Kc) (evmMul LN2c (evmSub 160 c))) =
+      int256 (evmMul r1w Kc) + int256 (evmMul LN2c (evmSub 160 c)) :=
     evmAdd_transport (a := evmMul r1w Kc) (b := evmMul LN2c (evmSub 160 c))
       (evmMul_lt _ _) (evmMul_lt _ _)
       (by rw [e2]; clear e2 hKc hKlt; simp only [ipow255]; omega)
       (by rw [e2]; clear e2 hKc hKlt; simp only [ipow255]; omega)
   have hBIlt : BIASc < 2 ^ 256 := by simp only [BIASc]; omega
-  have hBI : toInt BIASc = (116873961749927929127912020551516284764321243411868 : Int) := by
+  have hBI : int256 BIASc = (116873961749927929127912020551516284764321243411868 : Int) := by
     rw [toInt_of_lt (by simp only [BIASc]; omega)]
     simp only [BIASc]
     omega
-  have e4 : toInt (evmAdd (evmAdd (evmMul r1w Kc) (evmMul LN2c (evmSub 160 c))) BIASc) =
-      toInt (evmAdd (evmMul r1w Kc) (evmMul LN2c (evmSub 160 c))) + toInt BIASc :=
+  have e4 : int256 (evmAdd (evmAdd (evmMul r1w Kc) (evmMul LN2c (evmSub 160 c))) BIASc) =
+      int256 (evmAdd (evmMul r1w Kc) (evmMul LN2c (evmSub 160 c))) + int256 BIASc :=
     evmAdd_transport (a := evmAdd (evmMul r1w Kc) (evmMul LN2c (evmSub 160 c)))
       (b := BIASc) (evmAdd_lt _ _) hBIlt
       (by rw [e3, e2, hBI]; clear e2 e3 hKc hKlt hBI hBIlt; simp only [ipow255]; omega)
@@ -80,11 +83,11 @@ strictly negative below `10^18` (it is `≤ lnWad(10^18 - 1) < 0`) and strictly
 positive above (it is `≥ lnWad(10^18 + 1) > 0`). The two neighbour values are
 decided directly. -/
 theorem lnWadToRayBody_ne_zero {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
-    (hne : x ≠ 1000000000000000000) : toInt (lnWadToRayBody x) ≠ 0 := by
+    (hne : x ≠ 1000000000000000000) : int256 (lnWadToRayBody x) ≠ 0 := by
   rcases Nat.lt_trichotomy x 1000000000000000000 with hlt | heq | hgt
   · have hmono := toInt_of_sle (lnWadToRayBody_lt (by omega)) (lnWadToRayBody_lt (by omega))
       (lnWadToRayBody_mono h1 (by omega : x ≤ 999999999999999999) (by decide))
-    have hlo : toInt (lnWadToRayBody 999999999999999999) < 0 := by
+    have hlo : int256 (lnWadToRayBody 999999999999999999) < 0 := by
       rw [lnWadToRayBody_eq_tail (by norm_num : 999999999999999999 < 2 ^ 256),
         bodyMantissa_wad_minus, bodyClz_wad_minus]
       decide
@@ -93,7 +96,7 @@ theorem lnWadToRayBody_ne_zero {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
   · have hmono := toInt_of_sle (lnWadToRayBody_lt (by omega)) (lnWadToRayBody_lt (by omega))
       (lnWadToRayBody_mono (by omega : 0 < 1000000000000000001)
         (by omega : 1000000000000000001 ≤ x) h2)
-    have hhi : 0 < toInt (lnWadToRayBody 1000000000000000001) := by
+    have hhi : 0 < int256 (lnWadToRayBody 1000000000000000001) := by
       rw [lnWadToRayBody_eq_tail (by norm_num : 1000000000000000001 < 2 ^ 256),
         bodyMantissa_wad_plus, bodyClz_wad_plus]
       decide
@@ -103,12 +106,12 @@ theorem lnWadToRayBody_ne_zero {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
 `r 2^72 ≤ V < (r + 1) 2^72`. -/
 theorem lnWadToRayBody_floor_bracket {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
     (hne : x ≠ 1000000000000000000) :
-    toInt (lnWadToRayBody x) * 4722366482869645213696 ≤
-        toInt (x1W (zWord (mant x))) * 7450580596923828125 + ln2kInt (evmClz x) +
+    int256 (lnWadToRayBody x) * 4722366482869645213696 ≤
+        int256 (x1W (zWord (mant x))) * 7450580596923828125 + ln2kInt (evmClz x) +
           116873961749927929127912020551516284764321243411868 ∧
-      toInt (x1W (zWord (mant x))) * 7450580596923828125 + ln2kInt (evmClz x) +
+      int256 (x1W (zWord (mant x))) * 7450580596923828125 + ln2kInt (evmClz x) +
           116873961749927929127912020551516284764321243411868 <
-        toInt (lnWadToRayBody x) * 4722366482869645213696 +
+        int256 (lnWadToRayBody x) * 4722366482869645213696 +
           4722366482869645213696 := by
   have hx256 : x < 2 ^ 256 := by omega
   have hc : evmClz x < 256 := by

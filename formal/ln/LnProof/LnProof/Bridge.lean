@@ -1,11 +1,14 @@
-import LnProof.LnYulPrimitives
+import FormalYul.Preservation
+
+open FormalYul
+open FormalYul.Preservation
 
 set_option maxRecDepth 10000
 
 /-!
 # Two's-complement transport lemmas
 
-`toInt` is the signed view of a uint256 word; each lemma here transports one
+`int256` is the signed view of a uint256 word; each lemma here transports one
 EVM word opcode to plain `Int` arithmetic under explicit range hypotheses
 (no overflow, divisor nonzero, ...). Everything downstream reasons in `Int`.
 -/
@@ -30,26 +33,26 @@ theorem u256_eq (w : Nat) : u256 w = w % 2 ^ 256 := rfl
 theorem u256_of_lt {w : Nat} (h : w < 2 ^ 256) : u256 w = w := by
   simpa [u256_eq] using Nat.mod_eq_of_lt h
 
-theorem toInt_lt {w : Nat} (h : w < 2 ^ 256) : toInt w < 2 ^ 255 := by
-  unfold toInt; simp only [ipow255, ipow256]; split <;> omega
+theorem toInt_lt {w : Nat} (h : w < 2 ^ 256) : int256 w < 2 ^ 255 := by
+  unfold int256; simp only [ipow255, ipow256]; split <;> omega
 
-theorem toInt_ge {w : Nat} (h : w < 2 ^ 256) : -(2 ^ 255) ≤ toInt w := by
-  unfold toInt; simp only [ipow255, ipow256]; split <;> omega
+theorem toInt_ge {w : Nat} (h : w < 2 ^ 256) : -(2 ^ 255) ≤ int256 w := by
+  unfold int256; simp only [ipow255, ipow256]; split <;> omega
 
-theorem toInt_of_lt {w : Nat} (h : w < 2 ^ 255) : toInt w = (w : Int) := by
-  unfold toInt; split <;> omega
+theorem toInt_of_lt {w : Nat} (h : w < 2 ^ 255) : int256 w = (w : Int) := by
+  unfold int256; split <;> omega
 
-theorem ofInt_lt (x : Int) : ofInt x < 2 ^ 256 := by
-  unfold ofInt; simp only [ipow256]; omega
+theorem ofInt_lt (x : Int) : uint256OfInt x < 2 ^ 256 := by
+  unfold uint256OfInt; simp only [ipow256]; omega
 
 theorem toInt_ofInt {x : Int} (h1 : -(2 ^ 255) ≤ x) (h2 : x < 2 ^ 255) :
-    toInt (ofInt x) = x := by
-  unfold toInt ofInt
+    int256 (uint256OfInt x) = x := by
+  unfold int256 uint256OfInt
   simp only [ipow255, ipow256] at *
   split <;> omega
 
-theorem ofInt_toInt {w : Nat} (h : w < 2 ^ 256) : ofInt (toInt w) = w := by
-  unfold toInt ofInt
+theorem ofInt_toInt {w : Nat} (h : w < 2 ^ 256) : uint256OfInt (int256 w) = w := by
+  unfold int256 uint256OfInt
   simp only [ipow256] at *
   split <;> omega
 
@@ -59,8 +62,8 @@ def sleInt (a b : Nat) : Bool :=
   decide ((a + 2 ^ 255) % WORD_MOD ≤ (b + 2 ^ 255) % WORD_MOD)
 
 theorem sleInt_iff {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256) :
-    sleInt a b = true ↔ toInt a ≤ toInt b := by
-  unfold sleInt toInt
+    sleInt a b = true ↔ int256 a ≤ int256 b := by
+  unfold sleInt int256
   simp only [word_mod_eq, decide_eq_true_eq, ipow256]
   split <;> split <;> omega
 
@@ -71,14 +74,14 @@ theorem sleInt_iff {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256) :
 theorem toInt_wrap {n : Nat} {x : Int}
     (key : (n : Int) % (2 ^ 256 : Int) = x % (2 ^ 256 : Int))
     (h1 : -(2 ^ 255) ≤ x) (h2 : x < 2 ^ 255) :
-    toInt (n % 2 ^ 256) = x := by
-  unfold toInt
+    int256 (n % 2 ^ 256) = x := by
+  unfold int256
   simp only [ipow255, ipow256] at *
   split <;> omega
 
 theorem toInt_mod_cong {w : Nat} (_h : w < 2 ^ 256) :
-    (w : Int) % (2 ^ 256 : Int) = toInt w % (2 ^ 256 : Int) := by
-  unfold toInt
+    (w : Int) % (2 ^ 256 : Int) = int256 w % (2 ^ 256 : Int) := by
+  unfold int256
   simp only [ipow256] at *
   split <;> omega
 
@@ -105,16 +108,16 @@ theorem evmMul_lt (a b : Nat) : evmMul a b < 2 ^ 256 := by
   unfold evmMul u256; simp only [word_mod_eq]; omega
 
 theorem evmAdd_transport {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
-    (h1 : -(2 ^ 255) ≤ toInt a + toInt b) (h2 : toInt a + toInt b < 2 ^ 255) :
-    toInt (evmAdd a b) = toInt a + toInt b := by
+    (h1 : -(2 ^ 255) ≤ int256 a + int256 b) (h2 : int256 a + int256 b < 2 ^ 255) :
+    int256 (evmAdd a b) = int256 a + int256 b := by
   rw [evmAdd_eq a b]
   refine toInt_wrap ?_ h1 h2
   have hc : ((a + b : Nat) : Int) = (a : Int) + (b : Int) := by omega
   rw [hc, Int.add_emod, toInt_mod_cong ha, toInt_mod_cong hb, ← Int.add_emod]
 
 theorem evmSub_transport {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
-    (h1 : -(2 ^ 255) ≤ toInt a - toInt b) (h2 : toInt a - toInt b < 2 ^ 255) :
-    toInt (evmSub a b) = toInt a - toInt b := by
+    (h1 : -(2 ^ 255) ≤ int256 a - int256 b) (h2 : int256 a - int256 b < 2 ^ 255) :
+    int256 (evmSub a b) = int256 a - int256 b := by
   rw [evmSub_eq ha hb]
   refine toInt_wrap ?_ h1 h2
   have hc : ((a + 2 ^ 256 - b : Nat) : Int) = (a : Int) - (b : Int) + 2 ^ 256 := by
@@ -123,8 +126,8 @@ theorem evmSub_transport {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
     ← Int.sub_emod]
 
 theorem evmMul_transport {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
-    (h1 : -(2 ^ 255) ≤ toInt a * toInt b) (h2 : toInt a * toInt b < 2 ^ 255) :
-    toInt (evmMul a b) = toInt a * toInt b := by
+    (h1 : -(2 ^ 255) ≤ int256 a * int256 b) (h2 : int256 a * int256 b < 2 ^ 255) :
+    int256 (evmMul a b) = int256 a * int256 b := by
   rw [evmMul_eq ha hb]
   refine toInt_wrap ?_ h1 h2
   have hc : ((a * b : Nat) : Int) = (a : Int) * (b : Int) := by exact_mod_cast rfl

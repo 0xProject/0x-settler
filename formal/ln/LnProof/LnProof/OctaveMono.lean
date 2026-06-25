@@ -1,5 +1,8 @@
 import LnProof.ZOctave
 
+open FormalYul
+open FormalYul.Preservation
+
 /-!
 # Within-octave monotonicity of the `lnWadToRay` body tail
 
@@ -47,16 +50,16 @@ theorem lnWadToRayBody_eq_tail {x : Nat} (_h : x < 2 ^ 256) :
 /-- Per-`clz` bracket on the signed value of `ln2 * k`; `[-LN2c*95, LN2c*160]`. -/
 def ln2kOK (c : Nat) : Bool :=
   decide (-(310963026251328585646059498617736427643747124513200 : Int) ≤
-      toInt (evmMul LN2c (evmSub 160 c)) ∧
-    toInt (evmMul LN2c (evmSub 160 c)) ≤
+      int256 (evmMul LN2c (evmSub 160 c)) ∧
+    int256 (evmMul LN2c (evmSub 160 c)) ≤
       (523727202107500775824942313461450825505258314969600 : Int))
 
 theorem ln2k_all : (List.range 256).all ln2kOK = true := by decide
 
 theorem ln2k_bound {c : Nat} (hc : c < 256) :
     -(310963026251328585646059498617736427643747124513200 : Int) ≤
-        toInt (evmMul LN2c (evmSub 160 c)) ∧
-      toInt (evmMul LN2c (evmSub 160 c)) ≤
+        int256 (evmMul LN2c (evmSub 160 c)) ∧
+      int256 (evmMul LN2c (evmSub 160 c)) ≤
         (523727202107500775824942313461450825505258314969600 : Int) := by
   have h := ln2k_all
   rw [List.all_eq_true] at h
@@ -84,20 +87,20 @@ theorem corr_eq {s : Nat} (hs : s < 2 ^ 256) :
       rw [Nat.mod_eq_of_lt (by omega : 2 ^ 256 - 1 - s < 2 ^ 256), if_neg (by omega)]
     rw [hz, evmAdd_comm, evmAdd_zero hs]
 
-/-- `toInt` view of the self-correction: `-1` becomes `0`, all else fixed. -/
+/-- `int256` view of the self-correction: `-1` becomes `0`, all else fixed. -/
 theorem corr_toInt {s : Nat} (hs : s < 2 ^ 256) :
-    toInt (evmAdd (evmIszero (evmNot s)) s) = if toInt s = -1 then 0 else toInt s := by
+    int256 (evmAdd (evmIszero (evmNot s)) s) = if int256 s = -1 then 0 else int256 s := by
   rw [corr_eq hs]
   by_cases h : s = 2 ^ 256 - 1
   · subst h; decide
-  · have hne : toInt s ≠ -1 := by
-      intro hc; apply h; unfold toInt at hc; split at hc <;> simp only [ipow256] at * <;> omega
+  · have hne : int256 s ≠ -1 := by
+      intro hc; apply h; unfold int256 at hc; split at hc <;> simp only [ipow256] at * <;> omega
     simp only [if_neg h, if_neg hne]
 
 /-- The self-correction is monotone in the signed value. -/
 theorem corr_mono {s s' : Nat} (hs : s < 2 ^ 256) (hs' : s' < 2 ^ 256)
-    (hle : toInt s ≤ toInt s') :
-    toInt (evmAdd (evmIszero (evmNot s)) s) ≤ toInt (evmAdd (evmIszero (evmNot s')) s') := by
+    (hle : int256 s ≤ int256 s') :
+    int256 (evmAdd (evmIszero (evmNot s)) s) ≤ int256 (evmAdd (evmIszero (evmNot s')) s') := by
   rw [corr_toInt hs, corr_toInt hs']
   split <;> split <;> omega
 
@@ -105,62 +108,62 @@ theorem corr_mono {s s' : Nat} (hs : s < 2 ^ 256) (hs' : s' < 2 ^ 256)
 signed value of `a` when every leaf is bracketed. -/
 theorem affine_tail_mono {a a' W : Nat}
     (haw : a < 2 ^ 256) (haw' : a' < 2 ^ 256) (hWw : W < 2 ^ 256)
-    (hA : toInt a ≤ toInt a')
-    (hBa1 : -(240000000000000000000000000000 : Int) ≤ toInt a)
-    (hBa2 : toInt a ≤ (240000000000000000000000000000 : Int))
-    (hBa1' : -(240000000000000000000000000000 : Int) ≤ toInt a')
-    (hBa2' : toInt a' ≤ (240000000000000000000000000000 : Int))
-    (hW1 : -(310963026251328585646059498617736427643747124513200 : Int) ≤ toInt W)
-    (hW2 : toInt W ≤ (523727202107500775824942313461450825505258314969600 : Int)) :
-    toInt (evmSar 72 (evmAdd (evmAdd (evmMul a Kc) W) BIASc)) ≤
-      toInt (evmSar 72 (evmAdd (evmAdd (evmMul a' Kc) W) BIASc)) := by
+    (hA : int256 a ≤ int256 a')
+    (hBa1 : -(240000000000000000000000000000 : Int) ≤ int256 a)
+    (hBa2 : int256 a ≤ (240000000000000000000000000000 : Int))
+    (hBa1' : -(240000000000000000000000000000 : Int) ≤ int256 a')
+    (hBa2' : int256 a' ≤ (240000000000000000000000000000 : Int))
+    (hW1 : -(310963026251328585646059498617736427643747124513200 : Int) ≤ int256 W)
+    (hW2 : int256 W ≤ (523727202107500775824942313461450825505258314969600 : Int)) :
+    int256 (evmSar 72 (evmAdd (evmAdd (evmMul a Kc) W) BIASc)) ≤
+      int256 (evmSar 72 (evmAdd (evmAdd (evmMul a' Kc) W) BIASc)) := by
   have hKlt : Kc < 2 ^ 256 := by simp only [Kc]; omega
-  have hKc : toInt Kc = (7450580596923828125 : Int) := by
+  have hKc : int256 Kc = (7450580596923828125 : Int) := by
     rw [toInt_of_lt (by simp only [Kc]; omega)]
     simp only [Kc]
     omega
-  have e2 : toInt (evmMul a Kc) = toInt a * toInt Kc :=
+  have e2 : int256 (evmMul a Kc) = int256 a * int256 Kc :=
     evmMul_transport (a := a) (b := Kc) haw hKlt
       (by rw [hKc]; simp only [ipow255]; omega)
       (by rw [hKc]; simp only [ipow255]; omega)
-  have e2' : toInt (evmMul a' Kc) = toInt a' * toInt Kc :=
+  have e2' : int256 (evmMul a' Kc) = int256 a' * int256 Kc :=
     evmMul_transport (a := a') (b := Kc) haw' hKlt
       (by rw [hKc]; simp only [ipow255]; omega)
       (by rw [hKc]; simp only [ipow255]; omega)
   rw [hKc] at e2 e2'
-  have e3 : toInt (evmAdd (evmMul a Kc) W) = toInt (evmMul a Kc) + toInt W :=
+  have e3 : int256 (evmAdd (evmMul a Kc) W) = int256 (evmMul a Kc) + int256 W :=
     evmAdd_transport (a := evmMul a Kc) (b := W) (evmMul_lt _ _) hWw
       (by rw [e2]; clear e2 e2' hKc hKlt; simp only [ipow255]; omega)
       (by rw [e2]; clear e2 e2' hKc hKlt; simp only [ipow255]; omega)
-  have e3' : toInt (evmAdd (evmMul a' Kc) W) = toInt (evmMul a' Kc) + toInt W :=
+  have e3' : int256 (evmAdd (evmMul a' Kc) W) = int256 (evmMul a' Kc) + int256 W :=
     evmAdd_transport (a := evmMul a' Kc) (b := W) (evmMul_lt _ _) hWw
       (by rw [e2']; clear e2 e2' e3 hKc hKlt; simp only [ipow255]; omega)
       (by rw [e2']; clear e2 e2' e3 hKc hKlt; simp only [ipow255]; omega)
   have hBIlt : BIASc < 2 ^ 256 := by simp only [BIASc]; omega
-  have hBI : toInt BIASc = (116873961749927929127912020551516284764321243411868 : Int) := by
+  have hBI : int256 BIASc = (116873961749927929127912020551516284764321243411868 : Int) := by
     rw [toInt_of_lt (by simp only [BIASc]; omega)]
     simp only [BIASc]
     omega
-  have e4 : toInt (evmAdd (evmAdd (evmMul a Kc) W) BIASc) =
-      toInt (evmAdd (evmMul a Kc) W) + toInt BIASc :=
+  have e4 : int256 (evmAdd (evmAdd (evmMul a Kc) W) BIASc) =
+      int256 (evmAdd (evmMul a Kc) W) + int256 BIASc :=
     evmAdd_transport (a := evmAdd (evmMul a Kc) W) (b := BIASc)
       (evmAdd_lt _ _) hBIlt
       (by rw [e3, e2, hBI]; clear e2 e2' e3 e3' hKc hKlt hBI hBIlt
           simp only [ipow255]; omega)
       (by rw [e3, e2, hBI]; clear e2 e2' e3 e3' hKc hKlt hBI hBIlt
           simp only [ipow255]; omega)
-  have e4' : toInt (evmAdd (evmAdd (evmMul a' Kc) W) BIASc) =
-      toInt (evmAdd (evmMul a' Kc) W) + toInt BIASc :=
+  have e4' : int256 (evmAdd (evmAdd (evmMul a' Kc) W) BIASc) =
+      int256 (evmAdd (evmMul a' Kc) W) + int256 BIASc :=
     evmAdd_transport (a := evmAdd (evmMul a' Kc) W) (b := BIASc)
       (evmAdd_lt _ _) hBIlt
       (by rw [e3', e2', hBI]; clear e2 e2' e3 e3' e4 hKc hKlt hBI hBIlt
           simp only [ipow255]; omega)
       (by rw [e3', e2', hBI]; clear e2 e2' e3 e3' e4 hKc hKlt hBI hBIlt
           simp only [ipow255]; omega)
-  have hord : toInt (evmAdd (evmAdd (evmMul a Kc) W) BIASc) ≤
-      toInt (evmAdd (evmAdd (evmMul a' Kc) W) BIASc) := by
-    have hmul : toInt a * (7450580596923828125 : Int) ≤
-        toInt a' * (7450580596923828125 : Int) :=
+  have hord : int256 (evmAdd (evmAdd (evmMul a Kc) W) BIASc) ≤
+      int256 (evmAdd (evmAdd (evmMul a' Kc) W) BIASc) := by
+    have hmul : int256 a * (7450580596923828125 : Int) ≤
+        int256 a' * (7450580596923828125 : Int) :=
       mul_le_mul_right_nonneg hA (by omega)
     rw [e4, e4', e3, e3', e2, e2']
     omega
@@ -168,22 +171,22 @@ theorem affine_tail_mono {a a' W : Nat}
     evmSar_sandwich_72 (evmAdd_lt (evmAdd (evmMul a Kc) W) BIASc)
   obtain ⟨-, s1', s2'⟩ :=
     evmSar_sandwich_72 (evmAdd_lt (evmAdd (evmMul a' Kc) W) BIASc)
-  generalize toInt (evmSar 72 (evmAdd (evmAdd (evmMul a Kc) W) BIASc)) =
+  generalize int256 (evmSar 72 (evmAdd (evmAdd (evmMul a Kc) W) BIASc)) =
     sA at s1 s2 ⊢
-  generalize toInt (evmSar 72 (evmAdd (evmAdd (evmMul a' Kc) W) BIASc)) =
+  generalize int256 (evmSar 72 (evmAdd (evmAdd (evmMul a' Kc) W) BIASc)) =
     sB at s1' s2' ⊢
-  generalize toInt (evmAdd (evmAdd (evmMul a Kc) W) BIASc) = tA at s1 s2 hord
-  generalize toInt (evmAdd (evmAdd (evmMul a' Kc) W) BIASc) = tB at s1' s2' hord
+  generalize int256 (evmAdd (evmAdd (evmMul a Kc) W) BIASc) = tA at s1 s2 hord
+  generalize int256 (evmAdd (evmAdd (evmMul a' Kc) W) BIASc) = tB at s1' s2' hord
   omega
 
 /-- Monotone tail: with the exponent word fixed and the `ln2 * k` term
 bracketed, the mantissa-to-result map is nondecreasing. -/
 theorem tail_mono {kw m m' : Nat} (h1 : MLO ≤ m) (h2 : m ≤ m') (h3 : m' < MHI)
     (hW1 : -(310963026251328585646059498617736427643747124513200 : Int) ≤
-      toInt (evmMul LN2c kw))
-    (hW2 : toInt (evmMul LN2c kw) ≤
+      int256 (evmMul LN2c kw))
+    (hW2 : int256 (evmMul LN2c kw) ≤
       (523727202107500775824942313461450825505258314969600 : Int)) :
-    toInt (lnTail kw m) ≤ toInt (lnTail kw m') := by
+    int256 (lnTail kw m) ≤ int256 (lnTail kw m') := by
   have hm2 : m < MHI := by simp only [MLO, MHI] at *; omega
   have hm1' : MLO ≤ m' := by simp only [MLO, MHI] at *; omega
   have hA := r1_mono h1 h2 h3

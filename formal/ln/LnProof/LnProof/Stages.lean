@@ -1,6 +1,9 @@
 import LnProof.BridgeDiv
 import LnProof.Poly
 
+open FormalYul
+open FormalYul.Preservation
+
 /-!
 # Horner stage lemmas
 
@@ -135,7 +138,7 @@ theorem mul_range {s u lo hi U : Int} (h1 : lo ≤ s) (h2 : s ≤ hi) (h3 : 0 �
       rw [Int.zero_mul] at a1
       omega
 
-theorem toInt_u {u : Nat} (h : u ≤ Uc) : toInt u = (u : Int) := by
+theorem toInt_u {u : Nat} (h : u ≤ Uc) : int256 u = (u : Int) := by
   refine toInt_of_lt ?_
   simp only [Uc] at h
   omega
@@ -144,16 +147,16 @@ theorem toInt_u {u : Nat} (h : u ≤ Uc) : toInt u = (u : Int) := by
 
 theorem qS1_facts {u : Nat} (hu : u ≤ Uc) :
     qS1 u < 2 ^ 256 ∧
-    (-(4299840983308505679614339668444 : Int)) ≤ toInt (qS1 u) ∧
-    toInt (qS1 u) ≤ (-(4297508723960879298573659030192 : Int)) ∧
-    evalPoly QQ1c (u : Int) - SLOPQ1 ≤ toInt (qS1 u) * 1 ∧
-    toInt (qS1 u) * 1 ≤ evalPoly QQ1c (u : Int) := by
-  have htu : toInt u = (u : Int) := toInt_u hu
+    (-(4299840983308505679614339668444 : Int)) ≤ int256 (qS1 u) ∧
+    int256 (qS1 u) ≤ (-(4297508723960879298573659030192 : Int)) ∧
+    evalPoly QQ1c (u : Int) - SLOPQ1 ≤ int256 (qS1 u) * 1 ∧
+    int256 (qS1 u) * 1 ≤ evalPoly QQ1c (u : Int) := by
+  have htu : int256 u = (u : Int) := toInt_u hu
   simp only [Uc] at hu
   have hu256 : u < 2 ^ 256 := by omega
-  have hT : toInt (qS1 u) = (u : Int) - (4299840983308505679614339668444 : Int) := by
+  have hT : int256 (qS1 u) = (u : Int) - (4299840983308505679614339668444 : Int) := by
     unfold qS1
-    have h2 : toInt Q4c = (4299840983308505679614339668444 : Int) := toInt_of_lt (by simp only [Q4c]; omega)
+    have h2 : int256 Q4c = (4299840983308505679614339668444 : Int) := toInt_of_lt (by simp only [Q4c]; omega)
     rw [← htu, ← h2]
     refine evmSub_transport hu256 (by simp only [Q4c]; omega) ?_ ?_ <;>
       rw [htu, h2] <;> simp only [ipow255] <;> omega
@@ -171,10 +174,10 @@ theorem qS1_facts {u : Nat} (hu : u ≤ Uc) :
 
 theorem pS1_facts {u : Nat} (hu : u ≤ Uc) :
     pS1 u < 2 ^ 256 ∧
-    (-(287579185854221620442209346 : Int)) ≤ toInt (pS1 u) ∧
-    toInt (pS1 u) ≤ (-(287031449322475267106929263 : Int)) ∧
-    evalPoly PP1c (u : Int) - SLOPP1 ≤ toInt (pS1 u) * 19342813113834066795298816 ∧
-    toInt (pS1 u) * 19342813113834066795298816 ≤ evalPoly PP1c (u : Int) := by
+    (-(287579185854221620442209346 : Int)) ≤ int256 (pS1 u) ∧
+    int256 (pS1 u) ≤ (-(287031449322475267106929263 : Int)) ∧
+    evalPoly PP1c (u : Int) - SLOPP1 ≤ int256 (pS1 u) * 19342813113834066795298816 ∧
+    int256 (pS1 u) * 19342813113834066795298816 ≤ evalPoly PP1c (u : Int) := by
   simp only [Uc] at hu
   have hm1 : evmMul P4c u = P4c * u := by
     unfold evmMul u256
@@ -183,12 +186,12 @@ theorem pS1_facts {u : Nat} (hu : u ≤ Uc) :
   have hm1lt : P4c * u < 2 ^ 256 := by simp only [P4c]; omega
   have hd1 : evmShr 84 (evmMul P4c u) = P4c * u / 2 ^ 84 := by
     rw [hm1]; exact evmShr_eq_div_84 hm1lt
-  have hT : toInt (pS1 u) = ((P4c * u / 2 ^ 84 : Nat) : Int) - (287579185854221620442209346 : Int) := by
+  have hT : int256 (pS1 u) = ((P4c * u / 2 ^ 84 : Nat) : Int) - (287579185854221620442209346 : Int) := by
     unfold pS1
     rw [hd1]
-    have h1 : toInt (P4c * u / 2 ^ 84 : Nat) = ((P4c * u / 2 ^ 84 : Nat) : Int) :=
+    have h1 : int256 (P4c * u / 2 ^ 84 : Nat) = ((P4c * u / 2 ^ 84 : Nat) : Int) :=
       toInt_of_lt (by simp only [P4c]; omega)
-    have h2 : toInt P3c = (287579185854221620442209346 : Int) := toInt_of_lt (by simp only [P3c]; omega)
+    have h2 : int256 P3c = (287579185854221620442209346 : Int) := toInt_of_lt (by simp only [P3c]; omega)
     rw [← h1, ← h2]
     refine evmSub_transport (by simp only [P4c]; omega) (by simp only [P3c]; omega) ?_ ?_ <;>
       rw [h1, h2] <;> simp only [P4c, ipow255] <;> omega
@@ -204,32 +207,32 @@ theorem pS1_facts {u : Nat} (hu : u ≤ Uc) :
 
 theorem pS2_facts {u : Nat} (hu : u ≤ Uc) :
     pS2 u < 2 ^ 256 ∧
-    (74553528440556136823910938445 : Int) ≤ toInt (pS2 u) ∧
-    toInt (pS2 u) ≤ (75095323053466847604974837616 : Int) ∧
-    evalPoly PP2c (u : Int) - SLOPP2 ≤ toInt (pS2 u) * 23945242826029513411849172299223580994042798784118784 ∧
-    toInt (pS2 u) * 23945242826029513411849172299223580994042798784118784 ≤ evalPoly PP2c (u : Int) := by
+    (74553528440556136823910938445 : Int) ≤ int256 (pS2 u) ∧
+    int256 (pS2 u) ≤ (75095323053466847604974837616 : Int) ∧
+    evalPoly PP2c (u : Int) - SLOPP2 ≤ int256 (pS2 u) * 23945242826029513411849172299223580994042798784118784 ∧
+    int256 (pS2 u) * 23945242826029513411849172299223580994042798784118784 ≤ evalPoly PP2c (u : Int) := by
   obtain ⟨hw, hlo, hhi, hsl, hsh⟩ := pS1_facts hu
-  have htu : toInt u = (u : Int) := toInt_u hu
+  have htu : int256 u = (u : Int) := toInt_u hu
   simp only [Uc] at hu
   have hu256 : u < 2 ^ 256 := by omega
   have hu0 : (0 : Int) ≤ (u : Int) := by omega
   have huU : (u : Int) ≤ 2332259347626381040680638252 := by omega
   have hrange := mul_range hlo hhi hu0 huU
-  have hmT : toInt (evmMul (pS1 u) u) = toInt (pS1 u) * (u : Int) := by
+  have hmT : int256 (evmMul (pS1 u) u) = int256 (pS1 u) * (u : Int) := by
     rw [← htu]
     refine evmMul_transport hw hu256 ?_ ?_ <;> rw [htu] <;>
       simp only [ipow255] <;> omega
   obtain ⟨hwm, hs1, hs2⟩ := evmSar_sandwich_90 (evmMul_lt (pS1 u) u)
   rw [hmT] at hs1 hs2
-  have hdb : (-(541794612910710781063899171 : Int)) ≤ toInt (evmSar 90 (evmMul (pS1 u) u)) ∧
-      toInt (evmSar 90 (evmMul (pS1 u) u)) ≤ (0 : Int) := by
+  have hdb : (-(541794612910710781063899171 : Int)) ≤ int256 (evmSar 90 (evmMul (pS1 u) u)) ∧
+      int256 (evmSar 90 (evmMul (pS1 u) u)) ≤ (0 : Int) := by
     clear hsl hsh hmT hw htu hu256 hu
-    generalize hB : toInt (pS1 u) * (u : Int) = B at hs1 hs2 hrange
-    generalize hD : toInt (evmSar 90 (evmMul (pS1 u) u)) = D at hs1 hs2 ⊢
+    generalize hB : int256 (pS1 u) * (u : Int) = B at hs1 hs2 hrange
+    generalize hD : int256 (evmSar 90 (evmMul (pS1 u) u)) = D at hs1 hs2 ⊢
     omega
-  have hcT : toInt P2c = (75095323053466847604974837616 : Int) := toInt_of_lt (by simp only [P2c]; omega)
-  have hT : toInt (pS2 u) =
-      toInt (evmSar 90 (evmMul (pS1 u) u)) + (75095323053466847604974837616 : Int) := by
+  have hcT : int256 P2c = (75095323053466847604974837616 : Int) := toInt_of_lt (by simp only [P2c]; omega)
+  have hT : int256 (pS2 u) =
+      int256 (evmSar 90 (evmMul (pS1 u) u)) + (75095323053466847604974837616 : Int) := by
     unfold pS2
     rw [← hcT]
     refine evmAdd_transport hwm (by simp only [P2c]; omega) ?_ ?_
@@ -257,46 +260,46 @@ theorem pS2_facts {u : Nat} (hu : u ≤ Uc) :
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPP1] at hstep
     simp only [SLOPP2]
-    generalize hB : toInt (pS1 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (pS1 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly PP1c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 90 (evmMul (pS1 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 90 (evmMul (pS1 u) u)) = D at hs1 hs2 ⊢
     omega
   · rw [hT, ec]
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPP1] at hstep
-    generalize hB : toInt (pS1 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (pS1 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly PP1c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 90 (evmMul (pS1 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 90 (evmMul (pS1 u) u)) = D at hs1 hs2 ⊢
     omega
 
 theorem pS3_facts {u : Nat} (hu : u ≤ Uc) :
     pS3 u < 2 ^ 256 ∧
-    (-(55801080067338082314461576444 : Int)) ≤ toInt (pS3 u) ∧
-    toInt (pS3 u) ≤ (-(54695780110880438990702023699 : Int)) ∧
-    evalPoly PP3c (u : Int) - SLOPP3 ≤ toInt (pS3 u) * 3794275180128377091639574036764685364535950857523710002444946112771297432041422848 ∧
-    toInt (pS3 u) * 3794275180128377091639574036764685364535950857523710002444946112771297432041422848 ≤ evalPoly PP3c (u : Int) := by
+    (-(55801080067338082314461576444 : Int)) ≤ int256 (pS3 u) ∧
+    int256 (pS3 u) ≤ (-(54695780110880438990702023699 : Int)) ∧
+    evalPoly PP3c (u : Int) - SLOPP3 ≤ int256 (pS3 u) * 3794275180128377091639574036764685364535950857523710002444946112771297432041422848 ∧
+    int256 (pS3 u) * 3794275180128377091639574036764685364535950857523710002444946112771297432041422848 ≤ evalPoly PP3c (u : Int) := by
   obtain ⟨hw, hlo, hhi, hsl, hsh⟩ := pS2_facts hu
-  have htu : toInt u = (u : Int) := toInt_u hu
+  have htu : int256 u = (u : Int) := toInt_u hu
   simp only [Uc] at hu
   have hu256 : u < 2 ^ 256 := by omega
   have hu0 : (0 : Int) ≤ (u : Int) := by omega
   have huU : (u : Int) ≤ 2332259347626381040680638252 := by omega
   have hrange := mul_range hlo hhi hu0 huU
-  have hmT : toInt (evmMul (pS2 u) u) = toInt (pS2 u) * (u : Int) := by
+  have hmT : int256 (evmMul (pS2 u) u) = int256 (pS2 u) * (u : Int) := by
     rw [← htu]
     refine evmMul_transport hw hu256 ?_ ?_ <;> rw [htu] <;>
       simp only [ipow255] <;> omega
   obtain ⟨hwm, hs1, hs2⟩ := evmSar_sandwich_97 (evmMul_lt (pS2 u) u)
   rw [hmT] at hs1 hs2
-  have hdb : (0 : Int) ≤ toInt (evmSar 97 (evmMul (pS2 u) u)) ∧
-      toInt (evmSar 97 (evmMul (pS2 u) u)) ≤ (1105299956457643323759552745 : Int) := by
+  have hdb : (0 : Int) ≤ int256 (evmSar 97 (evmMul (pS2 u) u)) ∧
+      int256 (evmSar 97 (evmMul (pS2 u) u)) ≤ (1105299956457643323759552745 : Int) := by
     clear hsl hsh hmT hw htu hu256 hu
-    generalize hB : toInt (pS2 u) * (u : Int) = B at hs1 hs2 hrange
-    generalize hD : toInt (evmSar 97 (evmMul (pS2 u) u)) = D at hs1 hs2 ⊢
+    generalize hB : int256 (pS2 u) * (u : Int) = B at hs1 hs2 hrange
+    generalize hD : int256 (evmSar 97 (evmMul (pS2 u) u)) = D at hs1 hs2 ⊢
     omega
-  have hcT : toInt P1c = (55801080067338082314461576444 : Int) := toInt_of_lt (by simp only [P1c]; omega)
-  have hT : toInt (pS3 u) =
-      toInt (evmSar 97 (evmMul (pS2 u) u)) - (55801080067338082314461576444 : Int) := by
+  have hcT : int256 P1c = (55801080067338082314461576444 : Int) := toInt_of_lt (by simp only [P1c]; omega)
+  have hT : int256 (pS3 u) =
+      int256 (evmSar 97 (evmMul (pS2 u) u)) - (55801080067338082314461576444 : Int) := by
     unfold pS3
     rw [← hcT]
     refine evmSub_transport hwm (by simp only [P1c]; omega) ?_ ?_
@@ -324,46 +327,46 @@ theorem pS3_facts {u : Nat} (hu : u ≤ Uc) :
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPP2] at hstep
     simp only [SLOPP3]
-    generalize hB : toInt (pS2 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (pS2 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly PP2c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 97 (evmMul (pS2 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 97 (evmMul (pS2 u) u)) = D at hs1 hs2 ⊢
     omega
   · rw [hT, ec]
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPP2] at hstep
-    generalize hB : toInt (pS2 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (pS2 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly PP2c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 97 (evmMul (pS2 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 97 (evmMul (pS2 u) u)) = D at hs1 hs2 ⊢
     omega
 
 theorem pS4_facts {u : Nat} (hu : u ≤ Uc) :
     pS4 u < 2 ^ 256 ∧
-    (13131151825116561693704478250792 : Int) ≤ toInt (pS4 u) ∧
-    toInt (pS4 u) ≤ (13972178604861559108982341686387 : Int) ∧
-    evalPoly PPc (u : Int) - SLOPPc ≤ toInt (pS4 u) * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 ∧
-    toInt (pS4 u) * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 ≤ evalPoly PPc (u : Int) := by
+    (13131151825116561693704478250792 : Int) ≤ int256 (pS4 u) ∧
+    int256 (pS4 u) ≤ (13972178604861559108982341686387 : Int) ∧
+    evalPoly PPc (u : Int) - SLOPPc ≤ int256 (pS4 u) * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 ∧
+    int256 (pS4 u) * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 ≤ evalPoly PPc (u : Int) := by
   obtain ⟨hw, hlo, hhi, hsl, hsh⟩ := pS3_facts hu
-  have htu : toInt u = (u : Int) := toInt_u hu
+  have htu : int256 u = (u : Int) := toInt_u hu
   simp only [Uc] at hu
   have hu256 : u < 2 ^ 256 := by omega
   have hu0 : (0 : Int) ≤ (u : Int) := by omega
   have huU : (u : Int) ≤ 2332259347626381040680638252 := by omega
   have hrange := mul_range hlo hhi hu0 huU
-  have hmT : toInt (evmMul (pS3 u) u) = toInt (pS3 u) * (u : Int) := by
+  have hmT : int256 (evmMul (pS3 u) u) = int256 (pS3 u) * (u : Int) := by
     rw [← htu]
     refine evmMul_transport hw hu256 ?_ ?_ <;> rw [htu] <;>
       simp only [ipow255] <;> omega
   obtain ⟨hwm, hs1, hs2⟩ := evmSar_sandwich_87 (evmMul_lt (pS3 u) u)
   rw [hmT] at hs1 hs2
-  have hdb : (-(841026779744997415277863435595 : Int)) ≤ toInt (evmSar 87 (evmMul (pS3 u) u)) ∧
-      toInt (evmSar 87 (evmMul (pS3 u) u)) ≤ (0 : Int) := by
+  have hdb : (-(841026779744997415277863435595 : Int)) ≤ int256 (evmSar 87 (evmMul (pS3 u) u)) ∧
+      int256 (evmSar 87 (evmMul (pS3 u) u)) ≤ (0 : Int) := by
     clear hsl hsh hmT hw htu hu256 hu
-    generalize hB : toInt (pS3 u) * (u : Int) = B at hs1 hs2 hrange
-    generalize hD : toInt (evmSar 87 (evmMul (pS3 u) u)) = D at hs1 hs2 ⊢
+    generalize hB : int256 (pS3 u) * (u : Int) = B at hs1 hs2 hrange
+    generalize hD : int256 (evmSar 87 (evmMul (pS3 u) u)) = D at hs1 hs2 ⊢
     omega
-  have hcT : toInt C0c = (13972178604861559108982341686387 : Int) := toInt_of_lt (by simp only [C0c]; omega)
-  have hT : toInt (pS4 u) =
-      toInt (evmSar 87 (evmMul (pS3 u) u)) + (13972178604861559108982341686387 : Int) := by
+  have hcT : int256 C0c = (13972178604861559108982341686387 : Int) := toInt_of_lt (by simp only [C0c]; omega)
+  have hT : int256 (pS4 u) =
+      int256 (evmSar 87 (evmMul (pS3 u) u)) + (13972178604861559108982341686387 : Int) := by
     unfold pS4
     rw [← hcT]
     refine evmAdd_transport hwm (by simp only [C0c]; omega) ?_ ?_
@@ -391,46 +394,46 @@ theorem pS4_facts {u : Nat} (hu : u ≤ Uc) :
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPP3] at hstep
     simp only [SLOPPc]
-    generalize hB : toInt (pS3 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (pS3 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly PP3c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 87 (evmMul (pS3 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 87 (evmMul (pS3 u) u)) = D at hs1 hs2 ⊢
     omega
   · rw [hT, ec]
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPP3] at hstep
-    generalize hB : toInt (pS3 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (pS3 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly PP3c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 87 (evmMul (pS3 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 87 (evmMul (pS3 u) u)) = D at hs1 hs2 ⊢
     omega
 
 theorem qS2_facts {u : Nat} (hu : u ≤ Uc) :
     qS2 u < 2 ^ 256 ∧
-    (280736543239593144629477427 : Int) ≤ toInt (qS2 u) ∧
-    toInt (qS2 u) ≤ (281702237671157106654810095 : Int) ∧
-    evalPoly QQ2c (u : Int) - SLOPQ2 ≤ toInt (qS2 u) * 10384593717069655257060992658440192 ∧
-    toInt (qS2 u) * 10384593717069655257060992658440192 ≤ evalPoly QQ2c (u : Int) := by
+    (280736543239593144629477427 : Int) ≤ int256 (qS2 u) ∧
+    int256 (qS2 u) ≤ (281702237671157106654810095 : Int) ∧
+    evalPoly QQ2c (u : Int) - SLOPQ2 ≤ int256 (qS2 u) * 10384593717069655257060992658440192 ∧
+    int256 (qS2 u) * 10384593717069655257060992658440192 ≤ evalPoly QQ2c (u : Int) := by
   obtain ⟨hw, hlo, hhi, hsl, hsh⟩ := qS1_facts hu
-  have htu : toInt u = (u : Int) := toInt_u hu
+  have htu : int256 u = (u : Int) := toInt_u hu
   simp only [Uc] at hu
   have hu256 : u < 2 ^ 256 := by omega
   have hu0 : (0 : Int) ≤ (u : Int) := by omega
   have huU : (u : Int) ≤ 2332259347626381040680638252 := by omega
   have hrange := mul_range hlo hhi hu0 huU
-  have hmT : toInt (evmMul (qS1 u) u) = toInt (qS1 u) * (u : Int) := by
+  have hmT : int256 (evmMul (qS1 u) u) = int256 (qS1 u) * (u : Int) := by
     rw [← htu]
     refine evmMul_transport hw hu256 ?_ ?_ <;> rw [htu] <;>
       simp only [ipow255] <;> omega
   obtain ⟨hwm, hs1, hs2⟩ := evmSar_sandwich_113 (evmMul_lt (qS1 u) u)
   rw [hmT] at hs1 hs2
-  have hdb : (-(965694431563962025332668 : Int)) ≤ toInt (evmSar 113 (evmMul (qS1 u) u)) ∧
-      toInt (evmSar 113 (evmMul (qS1 u) u)) ≤ (0 : Int) := by
+  have hdb : (-(965694431563962025332668 : Int)) ≤ int256 (evmSar 113 (evmMul (qS1 u) u)) ∧
+      int256 (evmSar 113 (evmMul (qS1 u) u)) ≤ (0 : Int) := by
     clear hsl hsh hmT hw htu hu256 hu
-    generalize hB : toInt (qS1 u) * (u : Int) = B at hs1 hs2 hrange
-    generalize hD : toInt (evmSar 113 (evmMul (qS1 u) u)) = D at hs1 hs2 ⊢
+    generalize hB : int256 (qS1 u) * (u : Int) = B at hs1 hs2 hrange
+    generalize hD : int256 (evmSar 113 (evmMul (qS1 u) u)) = D at hs1 hs2 ⊢
     omega
-  have hcT : toInt Q3c = (281702237671157106654810095 : Int) := toInt_of_lt (by simp only [Q3c]; omega)
-  have hT : toInt (qS2 u) =
-      toInt (evmSar 113 (evmMul (qS1 u) u)) + (281702237671157106654810095 : Int) := by
+  have hcT : int256 Q3c = (281702237671157106654810095 : Int) := toInt_of_lt (by simp only [Q3c]; omega)
+  have hT : int256 (qS2 u) =
+      int256 (evmSar 113 (evmMul (qS1 u) u)) + (281702237671157106654810095 : Int) := by
     unfold qS2
     rw [← hcT]
     refine evmAdd_transport hwm (by simp only [Q3c]; omega) ?_ ?_
@@ -458,46 +461,46 @@ theorem qS2_facts {u : Nat} (hu : u ≤ Uc) :
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPQ1] at hstep
     simp only [SLOPQ2]
-    generalize hB : toInt (qS1 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (qS1 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly QQ1c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 113 (evmMul (qS1 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 113 (evmMul (qS1 u) u)) = D at hs1 hs2 ⊢
     omega
   · rw [hT, ec]
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPQ1] at hstep
-    generalize hB : toInt (qS1 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (qS1 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly QQ1c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 113 (evmMul (qS1 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 113 (evmMul (qS1 u) u)) = D at hs1 hs2 ⊢
     omega
 
 theorem qS3_facts {u : Nat} (hu : u ≤ Uc) :
     qS3 u < 2 ^ 256 ∧
-    (-(53722296096946541673620529149 : Int)) ≤ toInt (qS3 u) ∧
-    toInt (qS3 u) ≤ (-(53191573560954338523077576765 : Int)) ∧
-    evalPoly QQ3c (u : Int) - SLOPQ3 ≤ toInt (qS3 u) * 12855504354071922204335696738729300820177623950262342682411008 ∧
-    toInt (qS3 u) * 12855504354071922204335696738729300820177623950262342682411008 ≤ evalPoly QQ3c (u : Int) := by
+    (-(53722296096946541673620529149 : Int)) ≤ int256 (qS3 u) ∧
+    int256 (qS3 u) ≤ (-(53191573560954338523077576765 : Int)) ∧
+    evalPoly QQ3c (u : Int) - SLOPQ3 ≤ int256 (qS3 u) * 12855504354071922204335696738729300820177623950262342682411008 ∧
+    int256 (qS3 u) * 12855504354071922204335696738729300820177623950262342682411008 ≤ evalPoly QQ3c (u : Int) := by
   obtain ⟨hw, hlo, hhi, hsl, hsh⟩ := qS2_facts hu
-  have htu : toInt u = (u : Int) := toInt_u hu
+  have htu : int256 u = (u : Int) := toInt_u hu
   simp only [Uc] at hu
   have hu256 : u < 2 ^ 256 := by omega
   have hu0 : (0 : Int) ≤ (u : Int) := by omega
   have huU : (u : Int) ≤ 2332259347626381040680638252 := by omega
   have hrange := mul_range hlo hhi hu0 huU
-  have hmT : toInt (evmMul (qS2 u) u) = toInt (qS2 u) * (u : Int) := by
+  have hmT : int256 (evmMul (qS2 u) u) = int256 (qS2 u) * (u : Int) := by
     rw [← htu]
     refine evmMul_transport hw hu256 ?_ ?_ <;> rw [htu] <;>
       simp only [ipow255] <;> omega
   obtain ⟨hwm, hs1, hs2⟩ := evmSar_sandwich_90 (evmMul_lt (qS2 u) u)
   rw [hmT] at hs1 hs2
-  have hdb : (0 : Int) ≤ toInt (evmSar 90 (evmMul (qS2 u) u)) ∧
-      toInt (evmSar 90 (evmMul (qS2 u) u)) ≤ (530722535992203150542952384 : Int) := by
+  have hdb : (0 : Int) ≤ int256 (evmSar 90 (evmMul (qS2 u) u)) ∧
+      int256 (evmSar 90 (evmMul (qS2 u) u)) ≤ (530722535992203150542952384 : Int) := by
     clear hsl hsh hmT hw htu hu256 hu
-    generalize hB : toInt (qS2 u) * (u : Int) = B at hs1 hs2 hrange
-    generalize hD : toInt (evmSar 90 (evmMul (qS2 u) u)) = D at hs1 hs2 ⊢
+    generalize hB : int256 (qS2 u) * (u : Int) = B at hs1 hs2 hrange
+    generalize hD : int256 (evmSar 90 (evmMul (qS2 u) u)) = D at hs1 hs2 ⊢
     omega
-  have hcT : toInt Q2c = (53722296096946541673620529149 : Int) := toInt_of_lt (by simp only [Q2c]; omega)
-  have hT : toInt (qS3 u) =
-      toInt (evmSar 90 (evmMul (qS2 u) u)) - (53722296096946541673620529149 : Int) := by
+  have hcT : int256 Q2c = (53722296096946541673620529149 : Int) := toInt_of_lt (by simp only [Q2c]; omega)
+  have hT : int256 (qS3 u) =
+      int256 (evmSar 90 (evmMul (qS2 u) u)) - (53722296096946541673620529149 : Int) := by
     unfold qS3
     rw [← hcT]
     refine evmSub_transport hwm (by simp only [Q2c]; omega) ?_ ?_
@@ -525,46 +528,46 @@ theorem qS3_facts {u : Nat} (hu : u ≤ Uc) :
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPQ2] at hstep
     simp only [SLOPQ3]
-    generalize hB : toInt (qS2 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (qS2 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly QQ2c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 90 (evmMul (qS2 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 90 (evmMul (qS2 u) u)) = D at hs1 hs2 ⊢
     omega
   · rw [hT, ec]
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPQ2] at hstep
-    generalize hB : toInt (qS2 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (qS2 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly QQ2c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 90 (evmMul (qS2 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 90 (evmMul (qS2 u) u)) = D at hs1 hs2 ⊢
     omega
 
 theorem qS4_facts {u : Nat} (hu : u ≤ Uc) :
     qS4 u < 2 ^ 256 ∧
-    (16208925125278758204286268920273 : Int) ≤ toInt (qS4 u) ∧
-    toInt (qS4 u) ≤ (16613772931382142257332678212554 : Int) ∧
-    evalPoly QQ4c (u : Int) - SLOPQ4 ≤ toInt (qS4 u) * 3978585891278293137243057985174566720803649206378781739523711815145275976100267004264448 ∧
-    toInt (qS4 u) * 3978585891278293137243057985174566720803649206378781739523711815145275976100267004264448 ≤ evalPoly QQ4c (u : Int) := by
+    (16208925125278758204286268920273 : Int) ≤ int256 (qS4 u) ∧
+    int256 (qS4 u) ≤ (16613772931382142257332678212554 : Int) ∧
+    evalPoly QQ4c (u : Int) - SLOPQ4 ≤ int256 (qS4 u) * 3978585891278293137243057985174566720803649206378781739523711815145275976100267004264448 ∧
+    int256 (qS4 u) * 3978585891278293137243057985174566720803649206378781739523711815145275976100267004264448 ≤ evalPoly QQ4c (u : Int) := by
   obtain ⟨hw, hlo, hhi, hsl, hsh⟩ := qS3_facts hu
-  have htu : toInt u = (u : Int) := toInt_u hu
+  have htu : int256 u = (u : Int) := toInt_u hu
   simp only [Uc] at hu
   have hu256 : u < 2 ^ 256 := by omega
   have hu0 : (0 : Int) ≤ (u : Int) := by omega
   have huU : (u : Int) ≤ 2332259347626381040680638252 := by omega
   have hrange := mul_range hlo hhi hu0 huU
-  have hmT : toInt (evmMul (qS3 u) u) = toInt (qS3 u) * (u : Int) := by
+  have hmT : int256 (evmMul (qS3 u) u) = int256 (qS3 u) * (u : Int) := by
     rw [← htu]
     refine evmMul_transport hw hu256 ?_ ?_ <;> rw [htu] <;>
       simp only [ipow255] <;> omega
   obtain ⟨hwm, hs1, hs2⟩ := evmSar_sandwich_88 (evmMul_lt (qS3 u) u)
   rw [hmT] at hs1 hs2
-  have hdb : (-(404847806103384053046409292281 : Int)) ≤ toInt (evmSar 88 (evmMul (qS3 u) u)) ∧
-      toInt (evmSar 88 (evmMul (qS3 u) u)) ≤ (0 : Int) := by
+  have hdb : (-(404847806103384053046409292281 : Int)) ≤ int256 (evmSar 88 (evmMul (qS3 u) u)) ∧
+      int256 (evmSar 88 (evmMul (qS3 u) u)) ≤ (0 : Int) := by
     clear hsl hsh hmT hw htu hu256 hu
-    generalize hB : toInt (qS3 u) * (u : Int) = B at hs1 hs2 hrange
-    generalize hD : toInt (evmSar 88 (evmMul (qS3 u) u)) = D at hs1 hs2 ⊢
+    generalize hB : int256 (qS3 u) * (u : Int) = B at hs1 hs2 hrange
+    generalize hD : int256 (evmSar 88 (evmMul (qS3 u) u)) = D at hs1 hs2 ⊢
     omega
-  have hcT : toInt Q1c = (16613772931382142257332678212554 : Int) := toInt_of_lt (by simp only [Q1c]; omega)
-  have hT : toInt (qS4 u) =
-      toInt (evmSar 88 (evmMul (qS3 u) u)) + (16613772931382142257332678212554 : Int) := by
+  have hcT : int256 Q1c = (16613772931382142257332678212554 : Int) := toInt_of_lt (by simp only [Q1c]; omega)
+  have hT : int256 (qS4 u) =
+      int256 (evmSar 88 (evmMul (qS3 u) u)) + (16613772931382142257332678212554 : Int) := by
     unfold qS4
     rw [← hcT]
     refine evmAdd_transport hwm (by simp only [Q1c]; omega) ?_ ?_
@@ -592,46 +595,46 @@ theorem qS4_facts {u : Nat} (hu : u ≤ Uc) :
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPQ3] at hstep
     simp only [SLOPQ4]
-    generalize hB : toInt (qS3 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (qS3 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly QQ3c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 88 (evmMul (qS3 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 88 (evmMul (qS3 u) u)) = D at hs1 hs2 ⊢
     omega
   · rw [hT, ec]
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPQ3] at hstep
-    generalize hB : toInt (qS3 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (qS3 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly QQ3c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 88 (evmMul (qS3 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 88 (evmMul (qS3 u) u)) = D at hs1 hs2 ⊢
     omega
 
 theorem qS5_facts {u : Nat} (hu : u ≤ Uc) :
     qS5 u < 2 ^ 256 ∧
-    (-(13972178604861559108982341686387 : Int)) ≤ toInt (qS5 u) ∧
-    toInt (qS5 u) ≤ (-(12994050979812020140807993775673 : Int)) ∧
-    evalPoly QQc (u : Int) - SLOPQc ≤ toInt (qS5 u) * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 ∧
-    toInt (qS5 u) * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 ≤ evalPoly QQc (u : Int) := by
+    (-(13972178604861559108982341686387 : Int)) ≤ int256 (qS5 u) ∧
+    int256 (qS5 u) ≤ (-(12994050979812020140807993775673 : Int)) ∧
+    evalPoly QQc (u : Int) - SLOPQc ≤ int256 (qS5 u) * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 ∧
+    int256 (qS5 u) * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 ≤ evalPoly QQc (u : Int) := by
   obtain ⟨hw, hlo, hhi, hsl, hsh⟩ := qS4_facts hu
-  have htu : toInt u = (u : Int) := toInt_u hu
+  have htu : int256 u = (u : Int) := toInt_u hu
   simp only [Uc] at hu
   have hu256 : u < 2 ^ 256 := by omega
   have hu0 : (0 : Int) ≤ (u : Int) := by omega
   have huU : (u : Int) ≤ 2332259347626381040680638252 := by omega
   have hrange := mul_range hlo hhi hu0 huU
-  have hmT : toInt (evmMul (qS4 u) u) = toInt (qS4 u) * (u : Int) := by
+  have hmT : int256 (evmMul (qS4 u) u) = int256 (qS4 u) * (u : Int) := by
     rw [← htu]
     refine evmMul_transport hw hu256 ?_ ?_ <;> rw [htu] <;>
       simp only [ipow255] <;> omega
   obtain ⟨hwm, hs1, hs2⟩ := evmSar_sandwich_95 (evmMul_lt (qS4 u) u)
   rw [hmT] at hs1 hs2
-  have hdb : (0 : Int) ≤ toInt (evmSar 95 (evmMul (qS4 u) u)) ∧
-      toInt (evmSar 95 (evmMul (qS4 u) u)) ≤ (978127625049538968174347910714 : Int) := by
+  have hdb : (0 : Int) ≤ int256 (evmSar 95 (evmMul (qS4 u) u)) ∧
+      int256 (evmSar 95 (evmMul (qS4 u) u)) ≤ (978127625049538968174347910714 : Int) := by
     clear hsl hsh hmT hw htu hu256 hu
-    generalize hB : toInt (qS4 u) * (u : Int) = B at hs1 hs2 hrange
-    generalize hD : toInt (evmSar 95 (evmMul (qS4 u) u)) = D at hs1 hs2 ⊢
+    generalize hB : int256 (qS4 u) * (u : Int) = B at hs1 hs2 hrange
+    generalize hD : int256 (evmSar 95 (evmMul (qS4 u) u)) = D at hs1 hs2 ⊢
     omega
-  have hcT : toInt C0c = (13972178604861559108982341686387 : Int) := toInt_of_lt (by simp only [C0c]; omega)
-  have hT : toInt (qS5 u) =
-      toInt (evmSar 95 (evmMul (qS4 u) u)) - (13972178604861559108982341686387 : Int) := by
+  have hcT : int256 C0c = (13972178604861559108982341686387 : Int) := toInt_of_lt (by simp only [C0c]; omega)
+  have hT : int256 (qS5 u) =
+      int256 (evmSar 95 (evmMul (qS4 u) u)) - (13972178604861559108982341686387 : Int) := by
     unfold qS5
     rw [← hcT]
     refine evmSub_transport hwm (by simp only [C0c]; omega) ?_ ?_
@@ -659,16 +662,16 @@ theorem qS5_facts {u : Nat} (hu : u ≤ Uc) :
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPQ4] at hstep
     simp only [SLOPQc]
-    generalize hB : toInt (qS4 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (qS4 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly QQ4c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 95 (evmMul (qS4 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 95 (evmMul (qS4 u) u)) = D at hs1 hs2 ⊢
     omega
   · rw [hT, ec]
     clear hrange hdb hsl hsh hmT hwm hw htu hu256 hcT hu hlo hhi
     simp only [SLOPQ4] at hstep
-    generalize hB : toInt (qS4 u) * (u : Int) = B at hs1 hs2 hstep
+    generalize hB : int256 (qS4 u) * (u : Int) = B at hs1 hs2 hstep
     generalize hE : evalPoly QQ4c (u : Int) * (u : Int) = E at hstep ⊢
-    generalize hD : toInt (evmSar 95 (evmMul (qS4 u) u)) = D at hs1 hs2 ⊢
+    generalize hD : int256 (evmSar 95 (evmMul (qS4 u) u)) = D at hs1 hs2 ⊢
     omega
 
 def pWordD (u : Nat) : Nat := pS4 u

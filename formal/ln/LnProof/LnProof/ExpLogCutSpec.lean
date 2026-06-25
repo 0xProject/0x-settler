@@ -1,5 +1,8 @@
 import LnProof.FloorSpec
 
+open FormalYul
+open FormalYul.Preservation
+
 /-!
 # Exponential/logarithm cut specification
 
@@ -99,12 +102,12 @@ theorem FloorSpecToWad_iff_cutLnWadSpec {ray wad : Int} {x : Nat} :
 
 /-- The ray-scale body satisfies the explicit cut-log bracket. -/
 theorem lnWadToRayBody_cut_spec {x : Nat} (h1 : 1 <= x) (h2 : x < 2 ^ 255) :
-    CutLnWadRayBracket (toInt (lnWadToRayBody x)) x := by
+    CutLnWadRayBracket (int256 (lnWadToRayBody x)) x := by
   exact FloorSpec_iff_cutLnWadRayBracket.mp (lnWadToRayBody_floor h1 h2)
 
 /-- The wad-scale wrapper body satisfies the explicit cut-log wrapper spec. -/
 theorem lnWadBody_cut_spec {x : Nat} (h1 : 1 <= x) (h2 : x < 2 ^ 255) :
-    CutLnWadSpec (toInt (lnWadToRayBody x)) (toInt (lnWadBody x)) x := by
+    CutLnWadSpec (int256 (lnWadToRayBody x)) (int256 (lnWadBody x)) x := by
   exact FloorSpecToWad_iff_cutLnWadSpec.mp (lnWadBody_floor h1 h2)
 
 end LnFloorCert

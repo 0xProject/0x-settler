@@ -1,6 +1,9 @@
 import LnProof.ExpLogCutSpec
 import LnProof.ErrorBoundCert
 
+open FormalYul
+open FormalYul.Preservation
+
 set_option maxRecDepth 100000
 
 /-!
@@ -628,9 +631,9 @@ theorem sumGE_mono_N {n m p q y w : Nat} (hq : 0 < q) (hnm : n ≤ m)
 theorem pos_shift_direct_exact_of_sumGE {x n : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) (hclt : evmClz x < 160)
     (hleaf : sumGE n
-      (lnErrArg (toInt (lnTail (evmSub 160 (evmClz x)) (mant x)))) lnErrQ
+      (lnErrArg (int256 (lnTail (evmSub 160 (evmClz x)) (mant x)))) lnErrQ
       (posTopX (evmClz x) (mant x)) (10 ^ 18)) :
-    capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
+    capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
   have hx256 : x < 2 ^ 256 := by omega
   have hbody :
       lnWadToRayBody x = lnTail (evmSub 160 (evmClz x)) (mant x) := by
@@ -643,8 +646,8 @@ theorem pos_shift_direct_exact_of_sumGE {x n : Nat}
     unfold posTopX
     omega
   refine capLB_exact_of_sumGE_mono (n := n) (p0 :=
-      lnErrArg (toInt (lnTail (evmSub 160 (evmClz x)) (mant x))))
-      (p := lnErrArg (toInt (lnWadToRayBody x)))
+      lnErrArg (int256 (lnTail (evmSub 160 (evmClz x)) (mant x))))
+      (p := lnErrArg (int256 (lnWadToRayBody x)))
       (y0 := posTopX (evmClz x) (mant x)) (y := x) ?_ htop hleaf
   rw [hbody]
 
@@ -657,13 +660,13 @@ theorem lnErrArg_mono {r0 r : Int} (hle : r0 ≤ r) : lnErrArg r0 ≤ lnErrArg r
 
 theorem capLB_exact_of_body_interval_sumGE {n x lo hi : Nat}
     (hlo : 1 ≤ lo) (hxlo : lo ≤ x) (hxhi : x ≤ hi) (hhi : hi < 2 ^ 255)
-    (h : sumGE n (lnErrArg (toInt (lnWadToRayBody lo))) lnErrQ hi (10 ^ 18)) :
-    capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
+    (h : sumGE n (lnErrArg (int256 (lnWadToRayBody lo))) lnErrQ hi (10 ^ 18)) :
+    capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
   have hmono := lnWadToRayBody_mono (x := lo) (y := x) (by omega) hxlo (by omega)
-  have hrle : toInt (lnWadToRayBody lo) ≤ toInt (lnWadToRayBody x) :=
+  have hrle : int256 (lnWadToRayBody lo) ≤ int256 (lnWadToRayBody x) :=
     toInt_of_sle (lnWadToRayBody_lt (by omega : lo < 2 ^ 256))
       (lnWadToRayBody_lt (by omega : x < 2 ^ 256)) hmono
-  exact capLB_exact_of_sumGE_mono (p0 := lnErrArg (toInt (lnWadToRayBody lo)))
+  exact capLB_exact_of_sumGE_mono (p0 := lnErrArg (int256 (lnWadToRayBody lo)))
     (y0 := hi) (lnErrArg_mono hrle) hxhi h
 
 /-- The exact wad input has `r = 0`, and the published fractional bound is
@@ -796,12 +799,12 @@ theorem phase_lt_scaled_le {V T : Int} (h : V < T) :
   omega
 
 def posPhaseI (m c : Nat) : Int :=
-  toInt (x1W (zWord m)) * lnPhaseScaleI +
+  int256 (x1W (zWord m)) * lnPhaseScaleI +
     ((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
       lnBiasI * twoPow27I
 
 def posAccI (m c : Nat) : Int :=
-  toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c + lnBiasI
+  int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c + lnBiasI
 
 def posResidueGap (m c : Nat) (r : Int) : Int :=
   (r + 1) * twoPow72I - posAccI m c
@@ -880,7 +883,7 @@ theorem posAccI_nonneg {m c : Nat}
   have hb := (LnYul.r1_bound hmlo hmhi).1
   have hx1 :
       -(240000000000000000000000000000 : Int) * 7450580596923828125 ≤
-        toInt (x1W (zWord m)) * 7450580596923828125 :=
+        int256 (x1W (zWord m)) * 7450580596923828125 :=
     Int.mul_le_mul_of_nonneg_right hb (by decide)
   have hln2 : (LN2c : Int) ≤ ln2kInt c := by
     unfold ln2kInt
@@ -901,7 +904,7 @@ theorem posAccI_nonneg {m c : Nat}
 
 theorem lnTail_floor_bracket_pos {m c : Nat}
     (hmlo : MLO ≤ m) (hmhi : m < MHI) (hc : c < 160) :
-    let r := toInt (lnTail (evmSub 160 c) m)
+    let r := int256 (lnTail (evmSub 160 c) m)
     r * twoPow72I ≤ posAccI m c ∧ posAccI m c < (r + 1) * twoPow72I := by
   have hc256 : c < 256 := by omega
   have hacc := r4_value hmlo hmhi hc256
@@ -913,15 +916,15 @@ theorem lnTail_floor_bracket_pos {m c : Nat}
     unfold s
     exact hs.1
   have hnon := posAccI_nonneg hmlo hmhi hc
-  have hcorr : toInt (lnTail (evmSub 160 c) m) = toInt s := by
+  have hcorr : int256 (lnTail (evmSub 160 c) m) = int256 s := by
     unfold lnTail
-    change toInt (evmAdd (evmIszero (evmNot s)) s) = toInt s
+    change int256 (evmAdd (evmIszero (evmNot s)) s) = int256 s
     rw [corr_toInt hslt]
     rw [if_neg]
     intro hsneg
     have hhi := hs.2.2
     rw [hacc] at hhi
-    change posAccI m c < toInt s * 4722366482869645213696 +
+    change posAccI m c < int256 s * 4722366482869645213696 +
       4722366482869645213696 at hhi
     rw [hsneg] at hhi
     omega
@@ -929,24 +932,24 @@ theorem lnTail_floor_bracket_pos {m c : Nat}
   have hlo := hs.2.1
   have hhi := hs.2.2
   rw [hacc] at hlo hhi
-  change toInt s * 4722366482869645213696 ≤ posAccI m c at hlo
-  change posAccI m c < toInt s * 4722366482869645213696 +
+  change int256 s * 4722366482869645213696 ≤ posAccI m c at hlo
+  change posAccI m c < int256 s * 4722366482869645213696 +
     4722366482869645213696 at hhi
   have hpow : twoPow72I = (4722366482869645213696 : Int) := by
     unfold twoPow72I
     decide
   rw [hpow]
-  have heq : (toInt s + 1) * (4722366482869645213696 : Int) =
-      toInt s * 4722366482869645213696 + 4722366482869645213696 := by
+  have heq : (int256 s + 1) * (4722366482869645213696 : Int) =
+      int256 s * 4722366482869645213696 + 4722366482869645213696 := by
     rw [Int.add_mul, Int.one_mul]
-  change toInt s * (4722366482869645213696 : Int) ≤ posAccI m c ∧
-    posAccI m c < (toInt s + 1) * (4722366482869645213696 : Int)
+  change int256 s * (4722366482869645213696 : Int) ≤ posAccI m c ∧
+    posAccI m c < (int256 s + 1) * (4722366482869645213696 : Int)
   rw [heq]
   exact ⟨hlo, hhi⟩
 
 theorem lnTail_nonneg_pos {m c : Nat}
     (hmlo : MLO ≤ m) (hmhi : m < MHI) (hc : c < 160) :
-    0 ≤ toInt (lnTail (evmSub 160 c) m) := by
+    0 ≤ int256 (lnTail (evmSub 160 c) m) := by
   have hbr := lnTail_floor_bracket_pos hmlo hmhi hc
   have hnon := posAccI_nonneg hmlo hmhi hc
   unfold twoPow72I at hbr
@@ -954,7 +957,7 @@ theorem lnTail_nonneg_pos {m c : Nat}
 
 theorem posResidueGap_bounds {m c : Nat}
     (hmlo : MLO ≤ m) (hmhi : m < MHI) (hc : c < 160) :
-    let r := toInt (lnTail (evmSub 160 c) m)
+    let r := int256 (lnTail (evmSub 160 c) m)
     1 ≤ posResidueGap m c r ∧ posResidueGap m c r ≤ twoPow72I := by
   have hbr := lnTail_floor_bracket_pos hmlo hmhi hc
   unfold posResidueGap
@@ -966,7 +969,7 @@ theorem posResidueGap_bounds {m c : Nat}
 
 theorem posResidueGap_eq_twoPow72_sub_mod {m c : Nat}
     (hmlo : MLO ≤ m) (hmhi : m < MHI) (hc : c < 160) :
-    let r := toInt (lnTail (evmSub 160 c) m)
+    let r := int256 (lnTail (evmSub 160 c) m)
     posResidueGap m c r =
       ((twoPow72N - (posAccI m c).toNat % twoPow72N : Nat) : Int) := by
   intro r
@@ -1019,14 +1022,14 @@ theorem lnTail_eq_of_posAcc_window {lo m c : Nat}
     (hlo1 : MLO ≤ lo) (hlom : lo ≤ m) (hmhi : m < MHI) (hc : c < 160)
     (hdiff :
       posAccI m c - posAccI lo c +
-          posResidueGap m c (toInt (lnTail (evmSub 160 c) m)) ≤ twoPow72I) :
-    toInt (lnTail (evmSub 160 c) lo) =
-      toInt (lnTail (evmSub 160 c) m) := by
+          posResidueGap m c (int256 (lnTail (evmSub 160 c) m)) ≤ twoPow72I) :
+    int256 (lnTail (evmSub 160 c) lo) =
+      int256 (lnTail (evmSub 160 c) m) := by
   have hlohi : lo < MHI := by omega
   have hbrLo := lnTail_floor_bracket_pos hlo1 hlohi hc
   have hbrM := lnTail_floor_bracket_pos (by omega : MLO ≤ m) hmhi hc
-  let rlo := toInt (lnTail (evmSub 160 c) lo)
-  let rm := toInt (lnTail (evmSub 160 c) m)
+  let rlo := int256 (lnTail (evmSub 160 c) lo)
+  let rm := int256 (lnTail (evmSub 160 c) m)
   have hrloLo := hbrLo.1
   have hrloHi := hbrLo.2
   have hrmLo := hbrM.1
@@ -1113,10 +1116,10 @@ theorem posAccI_mono_m {lo m c : Nat}
 theorem lnTail_eq_of_same_posAcc_endpoints {lo hi m c : Nat}
     (hlo : MLO ≤ lo) (hlom : lo ≤ m) (hmhi : m ≤ hi) (hhi : hi < MHI)
     (hc : c < 160)
-    (heq : toInt (lnTail (evmSub 160 c) lo) =
-      toInt (lnTail (evmSub 160 c) hi)) :
-    toInt (lnTail (evmSub 160 c) m) =
-      toInt (lnTail (evmSub 160 c) hi) := by
+    (heq : int256 (lnTail (evmSub 160 c) lo) =
+      int256 (lnTail (evmSub 160 c) hi)) :
+    int256 (lnTail (evmSub 160 c) m) =
+      int256 (lnTail (evmSub 160 c) hi) := by
   have hmlo : MLO ≤ m := by omega
   have hmhi' : m < MHI := by omega
   have hlohi : lo < MHI := by omega
@@ -1132,40 +1135,40 @@ theorem lnTail_eq_of_same_posAcc_endpoints {lo hi m c : Nat}
     decide
   rw [hpow] at hbrLo hbrM hbrHi
   generalize hQ : (4722366482869645213696 : Int) = Q at hbrLo hbrM hbrHi
-  change toInt (lnTail (evmSub 160 c) lo) * Q ≤ posAccI lo c ∧
-    posAccI lo c < (toInt (lnTail (evmSub 160 c) lo) + 1) * Q at hbrLo
-  change toInt (lnTail (evmSub 160 c) m) * Q ≤ posAccI m c ∧
-    posAccI m c < (toInt (lnTail (evmSub 160 c) m) + 1) * Q at hbrM
-  change toInt (lnTail (evmSub 160 c) hi) * Q ≤ posAccI hi c ∧
-    posAccI hi c < (toInt (lnTail (evmSub 160 c) hi) + 1) * Q at hbrHi
+  change int256 (lnTail (evmSub 160 c) lo) * Q ≤ posAccI lo c ∧
+    posAccI lo c < (int256 (lnTail (evmSub 160 c) lo) + 1) * Q at hbrLo
+  change int256 (lnTail (evmSub 160 c) m) * Q ≤ posAccI m c ∧
+    posAccI m c < (int256 (lnTail (evmSub 160 c) m) + 1) * Q at hbrM
+  change int256 (lnTail (evmSub 160 c) hi) * Q ≤ posAccI hi c ∧
+    posAccI hi c < (int256 (lnTail (evmSub 160 c) hi) + 1) * Q at hbrHi
   rw [← heq] at hbrHi
   have hQnonneg : (0 : Int) ≤ Q := by rw [← hQ]; decide
   have succ_le_of_not_le {A B : Int} (h : ¬ A ≤ B) : B + 1 ≤ A := by omega
   have le_lt_false {A B : Int} (hBA : B ≤ A) (hAB : A < B) : False := by omega
   have hm_eq_lo :
-      toInt (lnTail (evmSub 160 c) m) =
-        toInt (lnTail (evmSub 160 c) lo) := by
-    have hm_le_lo : toInt (lnTail (evmSub 160 c) m) ≤
-        toInt (lnTail (evmSub 160 c) lo) := by
-      by_cases hle : toInt (lnTail (evmSub 160 c) m) ≤
-          toInt (lnTail (evmSub 160 c) lo)
+      int256 (lnTail (evmSub 160 c) m) =
+        int256 (lnTail (evmSub 160 c) lo) := by
+    have hm_le_lo : int256 (lnTail (evmSub 160 c) m) ≤
+        int256 (lnTail (evmSub 160 c) lo) := by
+      by_cases hle : int256 (lnTail (evmSub 160 c) m) ≤
+          int256 (lnTail (evmSub 160 c) lo)
       · exact hle
-      · have hsucc : toInt (lnTail (evmSub 160 c) lo) + 1 ≤
-            toInt (lnTail (evmSub 160 c) m) := succ_le_of_not_le hle
+      · have hsucc : int256 (lnTail (evmSub 160 c) lo) + 1 ≤
+            int256 (lnTail (evmSub 160 c) m) := succ_le_of_not_le hle
         have hmul := Int.mul_le_mul_of_nonneg_right hsucc hQnonneg
-        have hcontr : (toInt (lnTail (evmSub 160 c) lo) + 1) * Q ≤
+        have hcontr : (int256 (lnTail (evmSub 160 c) lo) + 1) * Q ≤
             posAccI hi c :=
           Int.le_trans (Int.le_trans hmul hbrM.1) haccMHi
         exact False.elim (le_lt_false hcontr hbrHi.2)
-    have hlo_le_m : toInt (lnTail (evmSub 160 c) lo) ≤
-        toInt (lnTail (evmSub 160 c) m) := by
-      by_cases hle : toInt (lnTail (evmSub 160 c) lo) ≤
-          toInt (lnTail (evmSub 160 c) m)
+    have hlo_le_m : int256 (lnTail (evmSub 160 c) lo) ≤
+        int256 (lnTail (evmSub 160 c) m) := by
+      by_cases hle : int256 (lnTail (evmSub 160 c) lo) ≤
+          int256 (lnTail (evmSub 160 c) m)
       · exact hle
-      · have hsucc : toInt (lnTail (evmSub 160 c) m) + 1 ≤
-            toInt (lnTail (evmSub 160 c) lo) := succ_le_of_not_le hle
+      · have hsucc : int256 (lnTail (evmSub 160 c) m) + 1 ≤
+            int256 (lnTail (evmSub 160 c) lo) := succ_le_of_not_le hle
         have hmul := Int.mul_le_mul_of_nonneg_right hsucc hQnonneg
-        have hcontr : (toInt (lnTail (evmSub 160 c) m) + 1) * Q ≤
+        have hcontr : (int256 (lnTail (evmSub 160 c) m) + 1) * Q ≤
             posAccI m c :=
           Int.le_trans (Int.le_trans hmul hbrLo.1) haccLoM
         exact False.elim (le_lt_false hcontr hbrM.2)
@@ -1175,10 +1178,10 @@ theorem lnTail_eq_of_same_posAcc_endpoints {lo hi m c : Nat}
 theorem posResidueGap_ge_of_same_posAcc_endpoints {lo hi m c : Nat}
     (hlo : MLO ≤ lo) (hlom : lo ≤ m) (hmhi : m ≤ hi) (hhi : hi < MHI)
     (hc : c < 160)
-    (heq : toInt (lnTail (evmSub 160 c) lo) =
-      toInt (lnTail (evmSub 160 c) hi)) :
-    posResidueGap hi c (toInt (lnTail (evmSub 160 c) hi)) ≤
-      posResidueGap m c (toInt (lnTail (evmSub 160 c) m)) := by
+    (heq : int256 (lnTail (evmSub 160 c) lo) =
+      int256 (lnTail (evmSub 160 c) hi)) :
+    posResidueGap hi c (int256 (lnTail (evmSub 160 c) hi)) ≤
+      posResidueGap m c (int256 (lnTail (evmSub 160 c) m)) := by
   have hmlo : MLO ≤ m := by omega
   have htail :=
     lnTail_eq_of_same_posAcc_endpoints hlo hlom hmhi hhi hc heq
@@ -1191,7 +1194,7 @@ theorem posResidueGap_ge_of_same_posAcc_endpoints {lo hi m c : Nat}
 
 theorem lnErrArg_eq_posPhase_gap {m c : Nat}
     (hmlo : MLO ≤ m) (hmhi : m < MHI) (hc : c < 160) :
-    let r := toInt (lnTail (evmSub 160 c) m)
+    let r := int256 (lnTail (evmSub 160 c) m)
     ((lnErrArg r : Nat) : Int) =
       posPhaseI m c * (lnErrorBoundDen : Int) +
         (lnErrorExtraNum : Int) * twoPow99I +
@@ -1201,7 +1204,7 @@ theorem lnErrArg_eq_posPhase_gap {m c : Nat}
   have harg : 0 ≤ r * (lnErrorBoundDen : Int) + (lnErrorBoundNum : Int) := by
     unfold lnErrorBoundDen lnErrorBoundNum
     omega
-  have hVs := v_scale_pos (toInt (x1W (zWord m))) c (by omega : c ≤ 160)
+  have hVs := v_scale_pos (int256 (x1W (zWord m))) c (by omega : c ≤ 160)
   have hVs' : posAccI m c * twoPow27I = posPhaseI m c := by
     unfold posAccI posPhaseI
     simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
@@ -1290,13 +1293,13 @@ theorem PosShiftDirectResidueGapOk.of_bool {m c : Nat} {r : Int}
 theorem PosShiftDirectResidueGapOk.of_modB {m c : Nat}
     (hmlo : MLO ≤ m) (hmhi : m < MHI) (hc : c < 160)
     (h : directResidueGapModOkB m c = true) :
-    PosShiftDirectResidueGapOk m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftDirectResidueGapOk m c (int256 (lnTail (evmSub 160 c) m)) := by
   unfold directResidueGapModOkB at h
   have hmod :
       (posAccI m c).toNat % twoPow72N ≤ twoPow72N - lnErrorDirectResidueGap :=
     of_decide_eq_true h
   have heq := posResidueGap_eq_twoPow72_sub_mod (m := m) (c := c) hmlo hmhi hc
-  change posResidueGap m c (toInt (lnTail (evmSub 160 c) m)) =
+  change posResidueGap m c (int256 (lnTail (evmSub 160 c) m)) =
       ((twoPow72N - (posAccI m c).toNat % twoPow72N : Nat) : Int) at heq
   unfold PosShiftDirectResidueGapOk
   rw [heq]
@@ -1338,7 +1341,7 @@ theorem posResidueGap_lt_threshold_of_not_ok {m c : Nat} {r : Int}
 theorem PosShiftResidueOk_of_gap {m c : Nat} {r : Int}
     (hc : c ≤ 160) (hgap : PosShiftResidueGapOk m c r) :
     PosShiftResidueOk m c r := by
-  have hVs := v_scale_pos (toInt (x1W (zWord m))) c hc
+  have hVs := v_scale_pos (int256 (x1W (zWord m))) c hc
   have hVs' : posAccI m c * twoPow27I = posPhaseI m c := by
     unfold posAccI posPhaseI
     simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
@@ -1361,7 +1364,7 @@ theorem PosShiftResidueOk_of_gapB {m c : Nat} {r : Int}
 theorem PosShiftGeResidueOk_of_gap {m c : Nat} {r : Int}
     (hc : c ≤ 160) (hgap : PosShiftGeResidueGapOk m c r) :
     PosShiftGeResidueOk m c r := by
-  have hVs := v_scale_pos (toInt (x1W (zWord m))) c hc
+  have hVs := v_scale_pos (int256 (x1W (zWord m))) c hc
   have hVs' : posAccI m c * twoPow27I = posPhaseI m c := by
     unfold posAccI posPhaseI
     simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
@@ -1390,25 +1393,25 @@ def geResidueCellOkB (lo hi c : Nat) : Bool :=
     decide (lo ≤ hi) &&
       decide (hi < MHI) &&
         decide (c < 160) &&
-          decide (toInt (lnTail (evmSub 160 c) lo) =
-            toInt (lnTail (evmSub 160 c) hi)) &&
-            geResidueGapOkB hi c (toInt (lnTail (evmSub 160 c) hi))
+          decide (int256 (lnTail (evmSub 160 c) lo) =
+            int256 (lnTail (evmSub 160 c) hi)) &&
+            geResidueGapOkB hi c (int256 (lnTail (evmSub 160 c) hi))
 
 def directResidueCellOkB (lo hi c : Nat) : Bool :=
   decide (MLO ≤ lo) &&
     decide (lo ≤ hi) &&
       decide (hi < MHI) &&
         decide (c < 160) &&
-          decide (toInt (lnTail (evmSub 160 c) lo) =
-            toInt (lnTail (evmSub 160 c) hi)) &&
-            directResidueGapOkB hi c (toInt (lnTail (evmSub 160 c) hi))
+          decide (int256 (lnTail (evmSub 160 c) lo) =
+            int256 (lnTail (evmSub 160 c) hi)) &&
+            directResidueGapOkB hi c (int256 (lnTail (evmSub 160 c) hi))
 
 def geResidueRunCellOkB (lo hi c : Nat) : Bool :=
   decide (Sc ≤ lo) &&
     decide (lo ≤ hi) &&
       decide (hi < MHI) &&
         decide (c < 160) &&
-          let rlo := toInt (lnTail (evmSub 160 c) lo)
+          let rlo := int256 (lnTail (evmSub 160 c) lo)
           decide (posAccI hi c < (rlo + 1) * twoPow72I) &&
             decide ((lnErrorCoarseGePosResidue : Int) ≤
               ((rlo + 1) * twoPow72I - posAccI hi c) * twoPow27I *
@@ -1419,7 +1422,7 @@ def residueRunCellOkB (lo hi c : Nat) : Bool :=
     decide (lo ≤ hi) &&
       decide (hi < MHI) &&
         decide (c < 160) &&
-          let rlo := toInt (lnTail (evmSub 160 c) lo)
+          let rlo := int256 (lnTail (evmSub 160 c) lo)
           decide (posAccI hi c < (rlo + 1) * twoPow72I) &&
             decide ((lnErrorCoarsePosResidue : Int) ≤
               ((rlo + 1) * twoPow72I - posAccI hi c) * twoPow27I *
@@ -1430,7 +1433,7 @@ def directResidueRunCellOkB (lo hi c : Nat) : Bool :=
     decide (lo ≤ hi) &&
       decide (hi < MHI) &&
         decide (c < 160) &&
-          let rlo := toInt (lnTail (evmSub 160 c) lo)
+          let rlo := int256 (lnTail (evmSub 160 c) lo)
           decide (posAccI hi c < (rlo + 1) * twoPow72I) &&
             decide ((lnErrorDirectResidueGap : Int) ≤
               (rlo + 1) * twoPow72I - posAccI hi c)
@@ -1438,7 +1441,7 @@ def directResidueRunCellOkB (lo hi c : Nat) : Bool :=
 theorem geResidueCellOkB_sound {lo hi m c : Nat}
     (h : geResidueCellOkB lo hi c = true)
     (hlom : lo ≤ m) (hmhi : m ≤ hi) :
-    PosShiftGeResidueOk m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftGeResidueOk m c (int256 (lnTail (evmSub 160 c) m)) := by
   unfold geResidueCellOkB at h
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
   obtain ⟨⟨⟨⟨⟨hloSc, _hlohi⟩, hhi⟩, hc⟩, htailEq⟩, hgapHiB⟩ := h
@@ -1449,7 +1452,7 @@ theorem geResidueCellOkB_sound {lo hi m c : Nat}
     posResidueGap_ge_of_same_posAcc_endpoints hloMLO hlom hmhi hhi hc htailEq
   have hgapHi := PosShiftGeResidueGapOk.of_bool hgapHiB
   have hgapM :
-      PosShiftGeResidueGapOk m c (toInt (lnTail (evmSub 160 c) m)) := by
+      PosShiftGeResidueGapOk m c (int256 (lnTail (evmSub 160 c) m)) := by
     unfold PosShiftGeResidueGapOk at hgapHi ⊢
     have h27 : 0 ≤ twoPow27I := by
       change (0 : Int) ≤ 134217728
@@ -1465,7 +1468,7 @@ theorem geResidueCellOkB_sound {lo hi m c : Nat}
 theorem directResidueCellOkB_sound {lo hi m c : Nat}
     (h : directResidueCellOkB lo hi c = true)
     (hlom : lo ≤ m) (hmhi : m ≤ hi) :
-    PosShiftDirectResidueGapOk m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftDirectResidueGapOk m c (int256 (lnTail (evmSub 160 c) m)) := by
   unfold directResidueCellOkB at h
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
   obtain ⟨⟨⟨⟨⟨hlo, _hlohi⟩, hhi⟩, hc⟩, htailEq⟩, hgapHiB⟩ := h
@@ -1479,17 +1482,17 @@ theorem lnTail_eq_of_residue_run {lo hi m c : Nat}
     (hlo : MLO ≤ lo) (hlom : lo ≤ m) (hmhi : m ≤ hi) (hhi : hi < MHI)
     (hc : c < 160)
     (hboundary : posAccI hi c <
-      (toInt (lnTail (evmSub 160 c) lo) + 1) * twoPow72I) :
-    toInt (lnTail (evmSub 160 c) m) =
-      toInt (lnTail (evmSub 160 c) lo) := by
+      (int256 (lnTail (evmSub 160 c) lo) + 1) * twoPow72I) :
+    int256 (lnTail (evmSub 160 c) m) =
+      int256 (lnTail (evmSub 160 c) lo) := by
   have hlohi : lo < MHI := by omega
   have hmhi' : m < MHI := by omega
   have hbrLo := lnTail_floor_bracket_pos hlo hlohi hc
   have hbrM := lnTail_floor_bracket_pos (by omega : MLO ≤ m) hmhi' hc
   have haccLoM := posAccI_mono_m (c := c) hlo hlom hmhi'
   have haccMHi := posAccI_mono_m (c := c) (by omega : MLO ≤ m) hmhi hhi
-  let rlo := toInt (lnTail (evmSub 160 c) lo)
-  let rm := toInt (lnTail (evmSub 160 c) m)
+  let rlo := int256 (lnTail (evmSub 160 c) lo)
+  let rm := int256 (lnTail (evmSub 160 c) m)
   have hboundaryM : posAccI m c < (rlo + 1) * twoPow72I := by
     exact Int.lt_of_le_of_lt haccMHi (by simpa [rlo] using hboundary)
   have hrm_le : rm ≤ rlo := by
@@ -1511,7 +1514,7 @@ theorem lnTail_eq_of_residue_run {lo hi m c : Nat}
 theorem geResidueRunCellOkB_sound {lo hi m c : Nat}
     (h : geResidueRunCellOkB lo hi c = true)
     (hlom : lo ≤ m) (hmhi : m ≤ hi) :
-    PosShiftGeResidueOk m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftGeResidueOk m c (int256 (lnTail (evmSub 160 c) m)) := by
   unfold geResidueRunCellOkB at h
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
   obtain ⟨⟨⟨⟨hloSc, _hlohi⟩, hhi⟩, hc⟩, hrun⟩ := h
@@ -1522,8 +1525,8 @@ theorem geResidueRunCellOkB_sound {lo hi m c : Nat}
   have htail := lnTail_eq_of_residue_run hlo hlom hmhi hhi hc hboundary
   have hmhi' : m < MHI := by omega
   have haccMHi := posAccI_mono_m (c := c) (by omega : MLO ≤ m) hmhi hhi
-  let rlo := toInt (lnTail (evmSub 160 c) lo)
-  let rm := toInt (lnTail (evmSub 160 c) m)
+  let rlo := int256 (lnTail (evmSub 160 c) lo)
+  let rm := int256 (lnTail (evmSub 160 c) m)
   have hgapLe :
       (rlo + 1) * twoPow72I - posAccI hi c ≤
         (rm + 1) * twoPow72I - posAccI m c := by
@@ -1553,15 +1556,15 @@ theorem geResidueRunCellOkB_sound {lo hi m c : Nat}
 theorem residueRunCellOkB_sound {lo hi m c : Nat}
     (h : residueRunCellOkB lo hi c = true)
     (hlom : lo ≤ m) (hmhi : m ≤ hi) :
-    PosShiftResidueOk m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftResidueOk m c (int256 (lnTail (evmSub 160 c) m)) := by
   unfold residueRunCellOkB at h
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
   obtain ⟨⟨⟨⟨hlo, _hlohi⟩, hhi⟩, hc⟩, hrun⟩ := h
   obtain ⟨hboundary, hgapHi⟩ := hrun
   have htail := lnTail_eq_of_residue_run hlo hlom hmhi hhi hc hboundary
   have haccMHi := posAccI_mono_m (c := c) (by omega : MLO ≤ m) hmhi hhi
-  let rlo := toInt (lnTail (evmSub 160 c) lo)
-  let rm := toInt (lnTail (evmSub 160 c) m)
+  let rlo := int256 (lnTail (evmSub 160 c) lo)
+  let rm := int256 (lnTail (evmSub 160 c) m)
   have hgapLe :
       (rlo + 1) * twoPow72I - posAccI hi c ≤
         (rm + 1) * twoPow72I - posAccI m c := by
@@ -1591,15 +1594,15 @@ theorem residueRunCellOkB_sound {lo hi m c : Nat}
 theorem directResidueRunCellOkB_sound {lo hi m c : Nat}
     (h : directResidueRunCellOkB lo hi c = true)
     (hlom : lo ≤ m) (hmhi : m ≤ hi) :
-    PosShiftDirectResidueGapOk m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftDirectResidueGapOk m c (int256 (lnTail (evmSub 160 c) m)) := by
   unfold directResidueRunCellOkB at h
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
   obtain ⟨⟨⟨⟨hlo, _hlohi⟩, hhi⟩, hc⟩, hrun⟩ := h
   obtain ⟨hboundary, hgapHi⟩ := hrun
   have htail := lnTail_eq_of_residue_run hlo hlom hmhi hhi hc hboundary
   have haccMHi := posAccI_mono_m (c := c) (by omega : MLO ≤ m) hmhi hhi
-  let rlo := toInt (lnTail (evmSub 160 c) lo)
-  let rm := toInt (lnTail (evmSub 160 c) m)
+  let rlo := int256 (lnTail (evmSub 160 c) lo)
+  let rm := int256 (lnTail (evmSub 160 c) m)
   have hgapLe :
       (rlo + 1) * twoPow72I - posAccI hi c ≤
         (rm + 1) * twoPow72I - posAccI m c := by
@@ -1622,7 +1625,7 @@ def geResidueCellListCoverB (c : Nat) : Nat → Nat → List ResidueCell → Boo
 theorem geResidueCellListCoverB_sound {cells : List ResidueCell} {c lo hi m : Nat}
     (h : geResidueCellListCoverB c lo hi cells = true)
     (hlom : lo ≤ m) (hmhi : m ≤ hi) :
-    PosShiftGeResidueOk m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftGeResidueOk m c (int256 (lnTail (evmSub 160 c) m)) := by
   induction cells generalizing lo with
   | nil =>
       unfold geResidueCellListCoverB at h
@@ -1648,7 +1651,7 @@ def directResidueCellListCoverB (c : Nat) : Nat → Nat → List ResidueCell →
 theorem directResidueCellListCoverB_sound {cells : List ResidueCell} {c lo hi m : Nat}
     (h : directResidueCellListCoverB c lo hi cells = true)
     (hlom : lo ≤ m) (hmhi : m ≤ hi) :
-    PosShiftDirectResidueGapOk m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftDirectResidueGapOk m c (int256 (lnTail (evmSub 160 c) m)) := by
   induction cells generalizing lo with
   | nil =>
       unfold directResidueCellListCoverB at h
@@ -1688,7 +1691,7 @@ theorem direct_residue_phase_bound {m c : Nat} {r : Int}
     posPhaseI m c * (lnErrorBoundDen : Int) +
         (lnErrorDirectResidueGap : Int) * twoPow27I * (lnErrorBoundDen : Int) ≤
       (r + 1) * twoPow99I * (lnErrorBoundDen : Int) := by
-  have hVs := v_scale_pos (toInt (x1W (zWord m))) c hc
+  have hVs := v_scale_pos (int256 (x1W (zWord m))) c hc
   have hVs' : posAccI m c * twoPow27I = posPhaseI m c := by
     unfold posAccI posPhaseI
     simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
@@ -1703,7 +1706,7 @@ theorem direct_residue_phase_bound {m c : Nat} {r : Int}
   omega
 
 def posPhaseNatGe (m c : Nat) : Nat :=
-  (toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+  (int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
     (160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
       BIASc * twoPow27N * lnErrorBoundDen
 
@@ -1734,7 +1737,7 @@ def posConstNat (c : Nat) : Nat :=
     BIASc * twoPow27N * lnErrorBoundDen
 
 def posNegXNat (m : Nat) : Nat :=
-  (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen
+  (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen
 
 def posPhaseNatLt (m c : Nat) : Nat :=
   posConstNat c - posNegXNat m
@@ -1761,10 +1764,10 @@ def PosShiftLtBudgetIneqOk (m c x : Nat) (r : Int) : Prop :=
     (posBaseYLt m c * (lnErrQ + posAvailLt m c r)) * wadRayStrictDen
 
 def PosShiftGeTopBudgetIneqOk (m c : Nat) : Prop :=
-  PosShiftGeBudgetIneqOk m c (posTopX c m) (toInt (lnTail (evmSub 160 c) m))
+  PosShiftGeBudgetIneqOk m c (posTopX c m) (int256 (lnTail (evmSub 160 c) m))
 
 def PosShiftLtTopBudgetIneqOk (m c : Nat) : Prop :=
-  PosShiftLtBudgetIneqOk m c (posTopX c m) (toInt (lnTail (evmSub 160 c) m))
+  PosShiftLtBudgetIneqOk m c (posTopX c m) (int256 (lnTail (evmSub 160 c) m))
 
 def lnPhaseExtraArg : Nat := lnErrorExtraNum * twoPow99N
 
@@ -1859,13 +1862,13 @@ theorem gePhaseLowerQD_pos {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     (geTD2b_pos_of_outer h1 h2)
 
 theorem posPhaseNatGe_cast_decomp {m c : Nat}
-    (hX : 0 ≤ toInt (x1W (zWord m))) :
+    (hX : 0 ≤ int256 (x1W (zWord m))) :
     ((posPhaseNatGe m c : Nat) : Int) =
-      toInt (x1W (zWord m)) *
+      int256 (x1W (zWord m)) *
         ((lnPhaseScaleN * lnErrorBoundDen : Nat) : Int) +
           (posConstNat c : Int) := by
-  have hXn : (((toInt (x1W (zWord m))).toNat : Nat) : Int) =
-      toInt (x1W (zWord m)) :=
+  have hXn : (((int256 (x1W (zWord m))).toNat : Nat) : Int) =
+      int256 (x1W (zWord m)) :=
     Int.toNat_of_nonneg hX
   unfold posPhaseNatGe posConstNat
   simp only [Int.natCast_add, Int.natCast_mul, hXn]
@@ -1882,7 +1885,7 @@ theorem gePhaseLowerPN_le_phase_mul_TD {m c : Nat}
   generalize hTD : evalPoly geTD2b (m : Int) = TD at hbr ⊢
   have hX := x1_nonneg_ge h1 h2
   have hphase0 := posPhaseNatGe_cast_decomp (m := m) (c := c) hX
-  generalize hXV : toInt (x1W (zWord m)) = X at hbr hphase0 ⊢
+  generalize hXV : int256 (x1W (zWord m)) = X at hbr hphase0 ⊢
   let K : Int := ((lnPhaseScaleN * lnErrorBoundDen : Nat) : Int)
   let C : Int := (posConstNat c : Int)
   let E : Int := (lnPhaseExtraArg : Int)
@@ -2025,7 +2028,7 @@ theorem gePhaseLowerPNMin_le_phase_mul_TD {m c : Nat}
   generalize hTD : evalPoly geTD2b (m : Int) = TD at hbr ⊢
   have hX := x1_nonneg_ge h1 h2
   have hphase0 := posPhaseNatGe_cast_decomp (m := m) (c := c) hX
-  generalize hXV : toInt (x1W (zWord m)) = X at hbr hphase0 ⊢
+  generalize hXV : int256 (x1W (zWord m)) = X at hbr hphase0 ⊢
   let K : Int := ((lnPhaseScaleN * lnErrorBoundDen : Nat) : Int)
   let C : Int := (posConstNat c : Int)
   let E : Int := (minPosAvail : Int)
@@ -2092,7 +2095,7 @@ theorem gePhaseLowerMarginValMin_sound {m c : Nat}
   exact sumGE_arg_mono (q' := QD.toNat) hqpos harg hsum
 
 def PosShiftTopDirectOk (n m c : Nat) : Prop :=
-  sumGE n (lnErrArg (toInt (lnTail (evmSub 160 c) m))) lnErrQ
+  sumGE n (lnErrArg (int256 (lnTail (evmSub 160 c) m))) lnErrQ
     (posTopX c m) (10 ^ 18)
 
 def expSumState (p q : Nat) : Nat → Nat × Nat × Nat
@@ -2159,7 +2162,7 @@ structure PosShiftDirectCell where
 
 def PosShiftDirectCell.Ok (cell : PosShiftDirectCell) : Prop :=
   MLO ≤ cell.lo ∧ cell.lo ≤ cell.hi ∧ cell.hi < MHI ∧ cell.c < 160 ∧
-    sumGE cell.n (lnErrArg (toInt (lnTail (evmSub 160 cell.c) cell.lo))) lnErrQ
+    sumGE cell.n (lnErrArg (int256 (lnTail (evmSub 160 cell.c) cell.lo))) lnErrQ
       (posTopX cell.c cell.hi) (10 ^ 18)
 
 def PosShiftDirectCell.okB (cell : PosShiftDirectCell) : Bool :=
@@ -2168,7 +2171,7 @@ def PosShiftDirectCell.okB (cell : PosShiftDirectCell) : Bool :=
       decide (cell.hi < MHI) &&
         decide (cell.c < 160) &&
           decide (sumGE cell.n
-            (lnErrArg (toInt (lnTail (evmSub 160 cell.c) cell.lo))) lnErrQ
+            (lnErrArg (int256 (lnTail (evmSub 160 cell.c) cell.lo))) lnErrQ
             (posTopX cell.c cell.hi) (10 ^ 18))
 
 def PosShiftDirectCell.Covers (cell : PosShiftDirectCell) (m c : Nat) : Prop :=
@@ -2223,7 +2226,7 @@ theorem posTopX_mono_m {c m hi : Nat} (hm : m ≤ hi) :
 theorem lnTail_mono_m {c lo m hi : Nat}
     (hlo : MLO ≤ lo) (hlom : lo ≤ m) (hmhi : m ≤ hi) (hhi : hi < MHI)
     (hc : c < 256) :
-    toInt (lnTail (evmSub 160 c) lo) ≤ toInt (lnTail (evmSub 160 c) m) := by
+    int256 (lnTail (evmSub 160 c) lo) ≤ int256 (lnTail (evmSub 160 c) m) := by
   have hmhi' : m < MHI := by omega
   have hw := ln2k_bound (c := c) hc
   exact tail_mono hlo hlom hmhi' hw.1 hw.2
@@ -2236,8 +2239,8 @@ theorem PosShiftDirectCell.sound {cell : PosShiftDirectCell} {m c : Nat}
   subst c
   unfold PosShiftTopDirectOk
   refine sumGE_exact_mono (n := cell.n)
-    (p0 := lnErrArg (toInt (lnTail (evmSub 160 cell.c) cell.lo)))
-    (p := lnErrArg (toInt (lnTail (evmSub 160 cell.c) m)))
+    (p0 := lnErrArg (int256 (lnTail (evmSub 160 cell.c) cell.lo)))
+    (p := lnErrArg (int256 (lnTail (evmSub 160 cell.c) m)))
     (y0 := posTopX cell.c cell.hi) (y := posTopX cell.c m) ?_ ?_ hsum
   · exact lnErrArg_mono (lnTail_mono_m hlo hmlo hmhi hhi (by omega))
   · exact posTopX_mono_m hmhi
@@ -2302,11 +2305,11 @@ theorem posPhaseNatGe_mono_m {lo m c : Nat}
     simp only [Sc, MLO] at hlo ⊢
     omega
   have hx := LnYul.r1_mono hmlo hlom hmhi
-  have hxNat : (toInt (x1W (zWord lo))).toNat ≤
-      (toInt (x1W (zWord m))).toNat :=
+  have hxNat : (int256 (x1W (zWord lo))).toNat ≤
+      (int256 (x1W (zWord m))).toNat :=
     Int.toNat_le_toNat hx
-  have hmul : (toInt (x1W (zWord lo))).toNat * lnPhaseScaleN * lnErrorBoundDen ≤
-      (toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen := by
+  have hmul : (int256 (x1W (zWord lo))).toNat * lnPhaseScaleN * lnErrorBoundDen ≤
+      (int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen := by
     exact Nat.mul_le_mul_right _ (Nat.mul_le_mul_right _ hxNat)
   omega
 
@@ -2315,10 +2318,10 @@ theorem posNegXNat_antitone_m {lo m : Nat}
     posNegXNat m ≤ posNegXNat lo := by
   unfold posNegXNat
   have hx := LnYul.r1_mono hlo hlom hmhi
-  have hneg : -toInt (x1W (zWord m)) ≤ -toInt (x1W (zWord lo)) := by
+  have hneg : -int256 (x1W (zWord m)) ≤ -int256 (x1W (zWord lo)) := by
     omega
-  have hn : (-toInt (x1W (zWord m))).toNat ≤
-      (-toInt (x1W (zWord lo))).toNat :=
+  have hn : (-int256 (x1W (zWord m))).toNat ≤
+      (-int256 (x1W (zWord lo))).toNat :=
     Int.toNat_le_toNat hneg
   exact Nat.mul_le_mul_right _ (Nat.mul_le_mul_right _ hn)
 
@@ -2382,7 +2385,7 @@ def geTopBudgetRunCellOkB (lo hi c : Nat) : Bool :=
     decide (lo ≤ hi) &&
       decide (hi < MHI) &&
         decide (c < 160) &&
-          let rlo := toInt (lnTail (evmSub 160 c) lo)
+          let rlo := int256 (lnTail (evmSub 160 c) lo)
           decide (posAccI hi c < (rlo + 1) * twoPow72I) &&
             decide (wadRayNum (posTopX c hi) * (posBaseWGe c * lnErrQ) ≤
               (posBaseYGe lo c * (lnErrQ + posAvailGe hi c rlo)) * wadRayStrictDen)
@@ -2392,7 +2395,7 @@ def ltTopBudgetRunCellOkB (lo hi c : Nat) : Bool :=
     decide (lo ≤ hi) &&
       decide (hi < Sc) &&
         decide (c < 160) &&
-          let rlo := toInt (lnTail (evmSub 160 c) lo)
+          let rlo := int256 (lnTail (evmSub 160 c) lo)
           decide (posAccI hi c < (rlo + 1) * twoPow72I) &&
             decide (wadRayNum (posTopX c hi) * (posBaseWLt c * lnErrQ) ≤
               (posBaseYLt lo c * (lnErrQ + posAvailLt hi c rlo)) * wadRayStrictDen)
@@ -2622,17 +2625,17 @@ theorem ltPhaseCellListCoverB_sound {cells : List PhaseCell} {c lo hi m : Nat}
       · exact ih hrest (by omega)
 
 theorem posPhaseI_le_of_floor {m c : Nat} {r : Int} (hc : c ≤ 160)
-    (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       lnBiasI < (r + 1) * 2 ^ 72) :
     posPhaseI m c ≤ (r + 1) * twoPow99I - twoPow27I := by
   have h := phase_lt_scaled_le hr
-  change (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+  change (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       lnBiasI) * twoPow27I ≤ ((r + 1) * twoPow72I - 1) * twoPow27I at h
-  have hVs := v_scale_pos (toInt (x1W (zWord m))) c hc
+  have hVs := v_scale_pos (int256 (x1W (zWord m))) c hc
   have hVs' :
-      (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
           lnBiasI) * twoPow27I =
-        toInt (x1W (zWord m)) * lnPhaseScaleI +
+        int256 (x1W (zWord m)) * lnPhaseScaleI +
           ((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
             lnBiasI * twoPow27I := by
     simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
@@ -2647,11 +2650,11 @@ theorem posPhaseI_le_of_floor {m c : Nat} {r : Int} (hc : c ≤ 160)
   simpa [posPhaseI, lnPhaseScaleI, twoPow27I, lnBiasI] using h
 
 theorem posPhaseNatGe_cast {m c : Nat}
-    (hX : 0 ≤ toInt (x1W (zWord m))) :
+    (hX : 0 ≤ int256 (x1W (zWord m))) :
     ((posPhaseNatGe m c : Nat) : Int) =
       posPhaseI m c * (lnErrorBoundDen : Int) := by
-  have hXn : (((toInt (x1W (zWord m))).toNat : Nat) : Int) =
-      toInt (x1W (zWord m)) :=
+  have hXn : (((int256 (x1W (zWord m))).toNat : Nat) : Int) =
+      int256 (x1W (zWord m)) :=
     Int.toNat_of_nonneg hX
   have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
     simp only [Int.natCast_mul]
@@ -2703,18 +2706,18 @@ theorem posConstNat_cast (c : Nat) :
   rw [Int.add_mul]
 
 theorem posNegXNat_cast {m : Nat}
-    (hX : toInt (x1W (zWord m)) ≤ 0) :
+    (hX : int256 (x1W (zWord m)) ≤ 0) :
     ((posNegXNat m : Nat) : Int) =
-      (-toInt (x1W (zWord m)) * lnPhaseScaleI) * (lnErrorBoundDen : Int) := by
-  have hXn : (((-toInt (x1W (zWord m))).toNat : Nat) : Int) =
-      -toInt (x1W (zWord m)) :=
+      (-int256 (x1W (zWord m)) * lnPhaseScaleI) * (lnErrorBoundDen : Int) := by
+  have hXn : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) =
+      -int256 (x1W (zWord m)) :=
     Int.toNat_of_nonneg (by omega)
   have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
   unfold posNegXNat
   simp only [Int.natCast_mul, hXn, hscale]
 
 theorem posPhaseNatLt_cast {m c : Nat}
-    (hX : toInt (x1W (zWord m)) ≤ 0)
+    (hX : int256 (x1W (zWord m)) ≤ 0)
     (hneg : posNegXNat m ≤ posConstNat c) :
     ((posPhaseNatLt m c : Nat) : Int) =
       posPhaseI m c * (lnErrorBoundDen : Int) := by
@@ -2727,15 +2730,15 @@ theorem posPhaseNatLt_cast {m c : Nat}
   rw [hsub, hconst, hnegc]
   unfold posPhaseI
   rw [Int.add_mul, Int.add_mul, Int.add_mul]
-  rw [show (-toInt (x1W (zWord m)) * lnPhaseScaleI) *
+  rw [show (-int256 (x1W (zWord m)) * lnPhaseScaleI) *
       (lnErrorBoundDen : Int) =
-        -(toInt (x1W (zWord m)) * lnPhaseScaleI * (lnErrorBoundDen : Int)) by
+        -(int256 (x1W (zWord m)) * lnPhaseScaleI * (lnErrorBoundDen : Int)) by
         rw [Int.neg_mul, Int.neg_mul]]
   omega
 
 theorem posPhaseNatGe_le_lnErrArg {m c : Nat} {r : Int}
     (hge : Sc ≤ m) (hmhi : m < MHI) (hc : c ≤ 160)
-    (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       lnBiasI < (r + 1) * 2 ^ 72)
     (hr0 : -1 ≤ r) :
     posPhaseNatGe m c ≤ lnErrArg r := by
@@ -2764,20 +2767,20 @@ theorem posPhaseNatGe_le_lnErrArg {m c : Nat} {r : Int}
   simpa [lnErrorBoundDen, lnErrorBoundNum, twoPow99I] using hle
 
 theorem posNegXNat_le_posConstNat {m c : Nat}
-    (hX : toInt (x1W (zWord m)) ≤ 0) (hc : c ≤ 160)
-    (hV0 : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    (hX : int256 (x1W (zWord m)) ≤ 0) (hc : c ≤ 160)
+    (hV0 : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       lnBiasI) :
     posNegXNat m ≤ posConstNat c := by
-  have hVs := v_scale_pos (toInt (x1W (zWord m))) c hc
+  have hVs := v_scale_pos (int256 (x1W (zWord m))) c hc
   have hV0s : 0 ≤ posPhaseI m c := by
     have hmul := Int.mul_nonneg hV0
       (by unfold twoPow27I; decide : 0 ≤ twoPow27I)
-    change 0 ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    change 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       lnBiasI) * twoPow27I at hmul
     have hVs' :
-        (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+        (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
             lnBiasI) * twoPow27I =
-          toInt (x1W (zWord m)) * lnPhaseScaleI +
+          int256 (x1W (zWord m)) * lnPhaseScaleI +
             ((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
               lnBiasI * twoPow27I := by
       simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
@@ -2787,12 +2790,12 @@ theorem posNegXNat_le_posConstNat {m c : Nat}
   rw [posNegXNat_cast hX, posConstNat_cast c]
   unfold posPhaseI at hV0s
   have hmain :
-      -toInt (x1W (zWord m)) * lnPhaseScaleI ≤
+      -int256 (x1W (zWord m)) * lnPhaseScaleI ≤
         ((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
           lnBiasI * twoPow27I := by
-    rw [show -toInt (x1W (zWord m)) * lnPhaseScaleI =
-        -(toInt (x1W (zWord m)) * lnPhaseScaleI) by rw [Int.neg_mul]]
-    generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hV0s ⊢
+    rw [show -int256 (x1W (zWord m)) * lnPhaseScaleI =
+        -(int256 (x1W (zWord m)) * lnPhaseScaleI) by rw [Int.neg_mul]]
+    generalize int256 (x1W (zWord m)) * lnPhaseScaleI = A at hV0s ⊢
     omega
   exact Int.mul_le_mul_of_nonneg_right hmain (Int.natCast_nonneg _)
 
@@ -2854,19 +2857,19 @@ theorem ltPhaseLowerQD_pos {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     (ltTD_pos_of_outer h1 h2)
 
 theorem posPhaseNatLt_cast_decomp {m c : Nat}
-    (hX : toInt (x1W (zWord m)) ≤ 0)
+    (hX : int256 (x1W (zWord m)) ≤ 0)
     (hneg : posNegXNat m ≤ posConstNat c) :
     ((posPhaseNatLt m c : Nat) : Int) =
       (posConstNat c : Int) -
-        (-toInt (x1W (zWord m))) *
+        (-int256 (x1W (zWord m))) *
           ((lnPhaseScaleN * lnErrorBoundDen : Nat) : Int) := by
   have hnegc : ((posNegXNat m : Nat) : Int) =
-      (-toInt (x1W (zWord m))) *
+      (-int256 (x1W (zWord m))) *
         ((lnPhaseScaleN * lnErrorBoundDen : Nat) : Int) := by
     rw [posNegXNat_cast (m := m) hX]
-    change ((-toInt (x1W (zWord m))) * ((lnPhaseScaleN : Nat) : Int)) *
+    change ((-int256 (x1W (zWord m))) * ((lnPhaseScaleN : Nat) : Int)) *
         ((lnErrorBoundDen : Nat) : Int) =
-      (-toInt (x1W (zWord m))) * ((lnPhaseScaleN * lnErrorBoundDen : Nat) : Int)
+      (-int256 (x1W (zWord m))) * ((lnPhaseScaleN * lnErrorBoundDen : Nat) : Int)
     rw [Int.natCast_mul]
     rw [Int.mul_assoc]
   have hsub : ((posConstNat c - posNegXNat m : Nat) : Int) =
@@ -2906,12 +2909,12 @@ theorem ltPhaseLowerPN_le_phase_mul_TD {m c : Nat}
   have hmhi : m < MHI := by
     simp only [Sc, MHI] at h2 ⊢
     omega
-  have hV0 : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 +
+  have hV0 : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 +
       ln2kInt c + lnBiasI := by
     simpa [posAccI] using posAccI_nonneg h1 hmhi hc
   have hneg := posNegXNat_le_posConstNat hX (Nat.le_of_lt hc) hV0
   have hphase0 := posPhaseNatLt_cast_decomp (m := m) (c := c) hX hneg
-  generalize hNegV : -toInt (x1W (zWord m)) = X at hbr hphase0 ⊢
+  generalize hNegV : -int256 (x1W (zWord m)) = X at hbr hphase0 ⊢
   let K : Int := ((lnPhaseScaleN * lnErrorBoundDen : Nat) : Int)
   let C : Int := (posConstNat c : Int)
   let E : Int := (lnPhaseExtraArg : Int)
@@ -3053,12 +3056,12 @@ theorem ltPhaseLowerPNMin_le_phase_mul_TD {m c : Nat}
   have hmhi : m < MHI := by
     simp only [Sc, MHI] at h2 ⊢
     omega
-  have hV0 : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 +
+  have hV0 : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 +
       ln2kInt c + lnBiasI := by
     simpa [posAccI] using posAccI_nonneg h1 hmhi hc
   have hneg := posNegXNat_le_posConstNat hX (Nat.le_of_lt hc) hV0
   have hphase0 := posPhaseNatLt_cast_decomp (m := m) (c := c) hX hneg
-  generalize hNegV : -toInt (x1W (zWord m)) = X at hbr hphase0 ⊢
+  generalize hNegV : -int256 (x1W (zWord m)) = X at hbr hphase0 ⊢
   let K : Int := ((lnPhaseScaleN * lnErrorBoundDen : Nat) : Int)
   let C : Int := (posConstNat c : Int)
   let E : Int := (minPosAvail : Int)
@@ -3240,8 +3243,8 @@ theorem minPosAvail_cast :
 theorem posPhaseNatGe_minAvail_le_lnErrArg {m c : Nat}
     (hge : Sc ≤ m) (hmhi : m < MHI) (hc : c < 160) :
     posPhaseNatGe m c + minPosAvail ≤
-      lnErrArg (toInt (lnTail (evmSub 160 c) m)) := by
-  let r := toInt (lnTail (evmSub 160 c) m)
+      lnErrArg (int256 (lnTail (evmSub 160 c) m)) := by
+  let r := int256 (lnTail (evmSub 160 c) m)
   have hmlo : MLO ≤ m := by
     simp only [Sc, MLO] at hge ⊢
     omega
@@ -3291,14 +3294,14 @@ theorem posPhaseNatGe_minAvail_le_lnErrArg {m c : Nat}
 theorem posPhaseNatLt_minAvail_le_lnErrArg {m c : Nat}
     (hmlo : MLO ≤ m) (hmlt : m < Sc) (hc : c < 160) :
     posPhaseNatLt m c + minPosAvail ≤
-      lnErrArg (toInt (lnTail (evmSub 160 c) m)) := by
-  let r := toInt (lnTail (evmSub 160 c) m)
+      lnErrArg (int256 (lnTail (evmSub 160 c) m)) := by
+  let r := int256 (lnTail (evmSub 160 c) m)
   have hmhi : m < MHI := by
     simp only [Sc, MHI] at hmlt ⊢
     omega
   have hX := x1_nonpos_ltF hmlo hmlt
   have hV0 : 0 ≤
-      toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c + lnBiasI := by
+      int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c + lnBiasI := by
     simpa [posAccI] using posAccI_nonneg hmlo hmhi hc
   have hneg := posNegXNat_le_posConstNat hX (by omega : c ≤ 160) hV0
   have hgap : 1 ≤ posResidueGap m c r := by
@@ -3346,7 +3349,7 @@ theorem posPhaseNatLt_minAvail_le_lnErrArg {m c : Nat}
 theorem posAvailGe_min {m c : Nat}
     (hge : Sc ≤ m) (hmhi : m < MHI) (hc : c < 160) :
     minPosAvail ≤
-      posAvailGe m c (toInt (lnTail (evmSub 160 c) m)) := by
+      posAvailGe m c (int256 (lnTail (evmSub 160 c) m)) := by
   unfold posAvailGe
   have h := posPhaseNatGe_minAvail_le_lnErrArg hge hmhi hc
   omega
@@ -3354,7 +3357,7 @@ theorem posAvailGe_min {m c : Nat}
 theorem posAvailLt_min {m c : Nat}
     (hmlo : MLO ≤ m) (hmlt : m < Sc) (hc : c < 160) :
     minPosAvail ≤
-      posAvailLt m c (toInt (lnTail (evmSub 160 c) m)) := by
+      posAvailLt m c (int256 (lnTail (evmSub 160 c) m)) := by
   unfold posAvailLt
   have h := posPhaseNatLt_minAvail_le_lnErrArg hmlo hmlt hc
   omega
@@ -3395,7 +3398,7 @@ theorem geTopBudgetCoarseCellOkB_sound {lo hi m c : Nat}
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
   obtain ⟨⟨⟨⟨hlo, _hlohi⟩, hhi⟩, hc⟩, hineq⟩ := h
   unfold PosShiftGeTopBudgetIneqOk PosShiftGeBudgetIneqOk
-  let r := toInt (lnTail (evmSub 160 c) m)
+  let r := int256 (lnTail (evmSub 160 c) m)
   have hleft :
       wadRayNum (posTopX c m) * (posBaseWGe c * lnErrQ) ≤
         wadRayNum (posTopX c hi) * (posBaseWGe c * lnErrQ) := by
@@ -3420,7 +3423,7 @@ theorem ltTopBudgetCoarseCellOkB_sound {lo hi m c : Nat}
   simp only [Bool.and_eq_true, decide_eq_true_eq] at h
   obtain ⟨⟨⟨⟨hlo, _hlohi⟩, hhi⟩, hc⟩, hineq⟩ := h
   unfold PosShiftLtTopBudgetIneqOk PosShiftLtBudgetIneqOk
-  let r := toInt (lnTail (evmSub 160 c) m)
+  let r := int256 (lnTail (evmSub 160 c) m)
   have hleft :
       wadRayNum (posTopX c m) * (posBaseWLt c * lnErrQ) ≤
         wadRayNum (posTopX c hi) * (posBaseWLt c * lnErrQ) := by
@@ -3448,9 +3451,9 @@ theorem geTopBudgetRunCellOkB_sound {lo hi m c : Nat}
   have hlo : MLO ≤ lo := by
     simp only [Sc, MLO] at hloSc ⊢
     omega
-  let rlo := toInt (lnTail (evmSub 160 c) lo)
-  let rm := toInt (lnTail (evmSub 160 c) m)
-  let rhi := toInt (lnTail (evmSub 160 c) hi)
+  let rlo := int256 (lnTail (evmSub 160 c) lo)
+  let rm := int256 (lnTail (evmSub 160 c) m)
+  let rhi := int256 (lnTail (evmSub 160 c) hi)
   have hmhi' : m < MHI := by omega
   have htailM : rm = rlo := by
     simpa [rm, rlo] using
@@ -3495,9 +3498,9 @@ theorem ltTopBudgetRunCellOkB_sound {lo hi m c : Nat}
   have hhi : hi < MHI := by
     simp only [Sc, MHI] at hhiSc ⊢
     omega
-  let rlo := toInt (lnTail (evmSub 160 c) lo)
-  let rm := toInt (lnTail (evmSub 160 c) m)
-  let rhi := toInt (lnTail (evmSub 160 c) hi)
+  let rlo := int256 (lnTail (evmSub 160 c) lo)
+  let rm := int256 (lnTail (evmSub 160 c) m)
+  let rhi := int256 (lnTail (evmSub 160 c) hi)
   have hmhi' : m < MHI := by omega
   have htailM : rm = rlo := by
     simpa [rm, rlo] using
@@ -3534,9 +3537,9 @@ theorem ltTopBudgetRunCellOkB_sound {lo hi m c : Nat}
   simpa [rm] using hle
 
 theorem posPhaseNatLt_le_lnErrArg {m c : Nat} {r : Int}
-    (hX : toInt (x1W (zWord m)) ≤ 0) (hc : c ≤ 160)
+    (hX : int256 (x1W (zWord m)) ≤ 0) (hc : c ≤ 160)
     (hneg : posNegXNat m ≤ posConstNat c)
-    (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       lnBiasI < (r + 1) * 2 ^ 72)
     (hr0 : -1 ≤ r) :
     posPhaseNatLt m c ≤ lnErrArg r := by
@@ -3565,7 +3568,7 @@ theorem posPhaseNatLt_le_lnErrArg {m c : Nat} {r : Int}
 
 theorem posPhaseNatGe_extra_le_lnErrArg {m c : Nat} {r : Int}
     (hge : Sc ≤ m) (hmhi : m < MHI) (hc : c ≤ 160)
-    (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       lnBiasI < (r + 1) * 2 ^ 72)
     (hr0 : -1 ≤ r) :
     posPhaseNatGe m c + lnPhaseExtraArg ≤ lnErrArg r := by
@@ -3601,9 +3604,9 @@ theorem posPhaseNatGe_extra_le_lnErrArg {m c : Nat} {r : Int}
     using hcore
 
 theorem posPhaseNatLt_extra_le_lnErrArg {m c : Nat} {r : Int}
-    (hX : toInt (x1W (zWord m)) ≤ 0) (hc : c ≤ 160)
+    (hX : int256 (x1W (zWord m)) ≤ 0) (hc : c ≤ 160)
     (hneg : posNegXNat m ≤ posConstNat c)
-    (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       lnBiasI < (r + 1) * 2 ^ 72)
     (hr0 : -1 ≤ r) :
     posPhaseNatLt m c + lnPhaseExtraArg ≤ lnErrArg r := by
@@ -3638,7 +3641,7 @@ theorem posPhaseNatLt_extra_le_lnErrArg {m c : Nat} {r : Int}
     using hcore
 
 theorem posPhaseNatGe_gap_extra_le_lnErrArg {m c : Nat} {r : Int}
-    (hX : 0 ≤ toInt (x1W (zWord m))) (hc : c ≤ 160) (hr0 : -1 ≤ r)
+    (hX : 0 ≤ int256 (x1W (zWord m))) (hc : c ≤ 160) (hr0 : -1 ≤ r)
     (hgap : PosShiftDirectResidueGapOk m c r) :
     posPhaseNatGe m c + lnPhaseExtraArg + lnDirectGapArg ≤ lnErrArg r := by
   have hres := direct_residue_phase_bound (m := m) (c := c) (r := r) hc hgap
@@ -3677,7 +3680,7 @@ theorem posPhaseNatGe_gap_extra_le_lnErrArg {m c : Nat} {r : Int}
     using hcore
 
 theorem posPhaseNatLt_gap_extra_le_lnErrArg {m c : Nat} {r : Int}
-    (hX : toInt (x1W (zWord m)) ≤ 0) (hc : c ≤ 160)
+    (hX : int256 (x1W (zWord m)) ≤ 0) (hc : c ≤ 160)
     (hneg : posNegXNat m ≤ posConstNat c) (hr0 : -1 ≤ r)
     (hgap : PosShiftDirectResidueGapOk m c r) :
     posPhaseNatLt m c + lnPhaseExtraArg + lnDirectGapArg ≤ lnErrArg r := by
@@ -3717,7 +3720,7 @@ theorem posPhaseNatLt_gap_extra_le_lnErrArg {m c : Nat} {r : Int}
     using hcore
 
 theorem ge_phase_gap_direct_to_top {n m c : Nat} {r : Int}
-    (hX : 0 ≤ toInt (x1W (zWord m))) (hc : c ≤ 160) (hr0 : -1 ≤ r)
+    (hX : 0 ≤ int256 (x1W (zWord m))) (hc : c ≤ 160) (hr0 : -1 ≤ r)
     (hgap : PosShiftDirectResidueGapOk m c r)
     (hdirect : PosShiftGePhaseGapDirectOk n m c) :
     sumGE n (lnErrArg r) lnErrQ (posTopX c m) (10 ^ 18) := by
@@ -3727,7 +3730,7 @@ theorem ge_phase_gap_direct_to_top {n m c : Nat} {r : Int}
     (Nat.le_refl _) hdirect
 
 theorem lt_phase_gap_direct_to_top {n m c : Nat} {r : Int}
-    (hX : toInt (x1W (zWord m)) ≤ 0) (hc : c ≤ 160)
+    (hX : int256 (x1W (zWord m)) ≤ 0) (hc : c ≤ 160)
     (hneg : posNegXNat m ≤ posConstNat c) (hr0 : -1 ≤ r)
     (hgap : PosShiftDirectResidueGapOk m c r)
     (hdirect : PosShiftLtPhaseGapDirectOk n m c) :
@@ -3965,7 +3968,7 @@ theorem ln_err_neg_arg_le_int {A r : Int}
   omega
 
 theorem v_c160_nonneg {m : Nat} (h1 : MLO ≤ m) (h2 : m < MHI) :
-    0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
+    0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
       lnBiasI := by
   have hb := (LnYul.r1_bound h1 h2).1
   have hm := Int.mul_le_mul_of_nonneg_right hb
@@ -3996,7 +3999,7 @@ def c160R4 : Nat := 10 ^ 18
 def c160R : Nat := Sc * (c160R0 * c160R1 * c160R2 * c160R3 * c160R4)
 
 theorem lo_ge_c160_exact {m x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
-    (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
+    (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
       116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
     (hr0 : -1 ≤ r) (hmx : m ≤ x) (hxm : x < m + 1) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
@@ -4009,22 +4012,22 @@ theorem lo_ge_c160_exact {m x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
   have cap12 := capLB_mul cap1 capB
   have cap123 := capLB_mul cap12 capEFracL
   have hmul :
-      ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 *
+      ((int256 (x1W (zWord m))).toNat * 1000000000000000000000000000 *
         lnErrorBoundDen + BIASc * 2 ^ 27 * lnErrorBoundDen +
           lnErrorExtraNum * 2 ^ 99) * lnErrQ ≤ lnErrArg r * lnErrQ := by
     have hmul0 :
-        ((((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
+        ((((int256 (x1W (zWord m))).toNat * 1000000000000000000000000000 +
           BIASc * 2 ^ 27) * lnErrorBoundDen +
             lnErrorExtraNum * 2 ^ 99) * lnErrQ ≤ lnErrArg r * lnErrQ) := by
       simpa [lnErrArg, lnErrQ] using
       Nat.mul_le_mul_right (QS * lnErrorBoundDen)
-        (c160_phase_arg_le (X := toInt (x1W (zWord m))) hX1
+        (c160_phase_arg_le (X := int256 (x1W (zWord m))) hX1
           (phase_lt_scaled_le hr) harg_nonneg)
     have hdist :
-        (toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 *
+        (int256 (x1W (zWord m))).toNat * 1000000000000000000000000000 *
           lnErrorBoundDen + BIASc * 2 ^ 27 * lnErrorBoundDen +
             lnErrorExtraNum * 2 ^ 99 =
-        (((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 +
+        (((int256 (x1W (zWord m))).toNat * 1000000000000000000000000000 +
           BIASc * 2 ^ 27) * lnErrorBoundDen +
             lnErrorExtraNum * 2 ^ 99) := by
       rw [Nat.add_mul]
@@ -4037,7 +4040,7 @@ theorem lo_ge_c160_exact {m x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         (10 ^ 18 * 10 ^ 31)) * 10 ^ 31) :=
     @capLB_arg
       (lnErrArg r) lnErrQ
-      (((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000 *
+      (((int256 (x1W (zWord m))).toNat * 1000000000000000000000000000 *
         lnErrorBoundDen + BIASc * 2 ^ 27 * lnErrorBoundDen +
           lnErrorExtraNum * 2 ^ 99))
       lnErrQ
@@ -4077,7 +4080,7 @@ theorem lo_ge_c160_exact {m x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     exact hb
 
 theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
-    (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
+    (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
       116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
     (hmx : m ≤ x) (hxm : x < m + 1) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
@@ -4087,7 +4090,7 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     simp only [Sc, MHI] at h2 ⊢
     omega
   have hV0I := v_c160_nonneg h1 hmhi
-  have hV0 : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
+  have hV0 : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
       116873961749927929127912020551516284764321243411868 := by
     simpa [lnBiasI] using hV0I
   have hr0 : -1 ≤ r := by
@@ -4103,20 +4106,20 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   have cap1 := capUB_lift_right (den := lnErrorBoundDen) QS_pos (x1capLtLoF h1 h2)
   have capB := capLB_lift_right (den := lnErrorBoundDen) QS_pos capBL
   have capBE := capLB_mul capB capEFracL
-  change capUB ((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen)
+  change capUB ((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen)
     lnErrQ 560227709747861399187319382270000000000000000000000000000000
       (m * 9999999999999999999999999996615) at cap1
   change capLB (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N)
     lnErrQ (Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorExtraCap))
       (10 ^ 18 * 10 ^ 31 * 10 ^ 31) at capBE
-  have hVs0 : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
+  have hVs0 : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
         lnBiasI) * twoPow27I =
-      toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
-    have hVs := v_scale_pos (toInt (x1W (zWord m))) 160 (by decide)
+      int256 (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
+    have hVs := v_scale_pos (int256 (x1W (zWord m))) 160 (by decide)
     simpa only [Nat.sub_self, Nat.zero_mul, Int.natCast_zero, Int.zero_mul,
       Int.add_zero, twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
   have hV0s : 0 ≤
-      toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
+      int256 (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
     have hpow27 : (0 : Int) ≤ twoPow27I := by
       unfold twoPow27I
       decide
@@ -4124,8 +4127,8 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     rw [hVs0] at h
     exact h
   have hnegXn :
-      (((-toInt (x1W (zWord m))).toNat : Nat) : Int) =
-        -toInt (x1W (zWord m)) :=
+      (((-int256 (x1W (zWord m))).toNat : Nat) : Int) =
+        -int256 (x1W (zWord m)) :=
     Int.toNat_of_nonneg (by omega)
   have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
     unfold twoPow27N twoPow27I lnBiasI
@@ -4138,14 +4141,14 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       698600000 * twoPow99I := by
     unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen twoPow99N twoPow99I
     decide +kernel
-  have hsub_le : (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN *
+  have hsub_le : (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN *
         lnErrorBoundDen ≤
       BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N := by
     apply Int.ofNat_le.mp
     simp only [Int.natCast_add, Int.natCast_mul, hnegXn, hBc, hscale, hden, hextra]
-    have hmain : (-toInt (x1W (zWord m))) * lnPhaseScaleI ≤ lnBiasI * twoPow27I := by
+    have hmain : (-int256 (x1W (zWord m))) * lnPhaseScaleI ≤ lnBiasI * twoPow27I := by
       rw [Int.neg_mul]
-      generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hV0s ⊢
+      generalize int256 (x1W (zWord m)) * lnPhaseScaleI = A at hV0s ⊢
       generalize lnBiasI * twoPow27I = B at hV0s ⊢
       omega
     have hmul := Int.mul_le_mul_of_nonneg_right hmain (by decide : 0 ≤ (1000000000 : Int))
@@ -4156,14 +4159,14 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   have hsplit :
       BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N =
         (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
-          (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen) +
-          (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen := by
+          (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen) +
+          (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen := by
     exact (Nat.sub_add_cancel hsub_le).symm
   rw [hsplit] at capBE
   have capV := capLB_cancel (q := lnErrQ) (by unfold lnErrQ; decide) capBE cap1
   have hple :
       BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
-          (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen ≤
+          (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen ≤
         lnErrArg r := by
     apply Int.ofNat_le.mp
     have htarget : (((r * (lnErrorBoundDen : Int) + (lnErrorBoundNum : Int)).toNat *
@@ -4174,27 +4177,27 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       rfl
     have hsub_cast :
         (((BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
-          (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen : Nat) : Int)) =
-        (toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I) *
+          (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen : Nat) : Int)) =
+        (int256 (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I) *
             (1000000000 : Int) + 698600000 * twoPow99I := by
       have hsI := congrArg (fun n : Nat => ((n : Nat) : Int)) hsplit
       simp only [Int.natCast_add, Int.natCast_mul, hnegXn, hBc, hscale, hden, hextra] at hsI
       rw [Int.neg_mul] at hsI
       generalize (((BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
-        (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen : Nat) : Int)) = S
+        (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen : Nat) : Int)) = S
         at hsI ⊢
-      generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
+      generalize int256 (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
       generalize lnBiasI * twoPow27I = B at hsI ⊢
       generalize 698600000 * twoPow99I = E at hsI ⊢
       omega
     rw [lnErrArg, htarget, hsub_cast]
-    have hsc : (toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I) ≤
+    have hsc : (int256 (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I) ≤
         (r + 1) * twoPow99I - twoPow27I := by
-      have hrI : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
+      have hrI : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
           lnBiasI < (r + 1) * 2 ^ 72 := by
         simpa [lnBiasI] using hr
       have h := phase_lt_scaled_le hrI
-      change (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
+      change (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
           lnBiasI) * twoPow27I ≤ ((r + 1) * twoPow72I - 1) * twoPow27I at h
       rw [hVs0] at h
       have er : ((r + 1) * twoPow72I - 1) * twoPow27I =
@@ -4206,11 +4209,11 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       rw [er] at h
       exact h
     have hcore := c160_arg_le_int (A :=
-        toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I) (r := r) hsc
+        int256 (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I) (r := r) hsc
     simpa [lnErrorBoundDen, lnErrorBoundNum, twoPow99I] using hcore
   have hmul :
       (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
-          (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen) * lnErrQ ≤
+          (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen) * lnErrQ ≤
         lnErrArg r * lnErrQ :=
     Nat.mul_le_mul_right _ hple
   have capR : capLB (lnErrArg r) lnErrQ
@@ -4221,7 +4224,7 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     @capLB_arg
       (lnErrArg r) lnErrQ
       (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
-        (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen)
+        (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen)
       lnErrQ
       ((Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorExtraCap)) *
         (m * 9999999999999999999999999996615))
@@ -4273,7 +4276,7 @@ theorem lo_ge_pos_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
   have cap123 := capLB_mul cap12 capB
   have cap1234 := capLB_mul cap123 capECoarsePosL
   change capLB
-    (((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+    (((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
       (160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
         BIASc * twoPow27N * lnErrorBoundDen) +
       (lnErrorExtraNum * twoPow99N + lnErrorCoarsePosResidue))
@@ -4286,7 +4289,7 @@ theorem lo_ge_pos_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         ((10 ^ 40 : Nat) ^ (160 - c))) *
         (10 ^ 18 * 10 ^ 31)) * 10 ^ 31) at cap1234
   have hple :
-      ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         (160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
           BIASc * twoPow27N * lnErrorBoundDen) +
         (lnErrorExtraNum * twoPow99N + lnErrorCoarsePosResidue) ≤
@@ -4298,8 +4301,8 @@ theorem lo_ge_pos_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       rw [Int.natCast_mul, Int.toNat_of_nonneg harg_nonneg]
       unfold twoPow99I
       rfl
-    have hX1n : ((toInt (x1W (zWord m))).toNat : Int) =
-        toInt (x1W (zWord m)) :=
+    have hX1n : ((int256 (x1W (zWord m))).toNat : Int) =
+        int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
       unfold twoPow27N twoPow27I lnBiasI
@@ -4325,7 +4328,7 @@ theorem lo_ge_pos_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
             simp only [Nat.mul_assoc]]
       simp only [Int.natCast_mul, hLc, hden]
     have hsum_cast :
-        ((((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+        ((((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           (160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
             BIASc * twoPow27N * lnErrorBoundDen) +
           (lnErrorExtraNum * twoPow99N + lnErrorCoarsePosResidue) : Nat) : Int) =
@@ -4335,7 +4338,7 @@ theorem lo_ge_pos_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       simp only [Int.natCast_add, Int.natCast_mul, hX1n, hBc, hN, hden,
         hextra, hscale]
       unfold posPhaseI
-      generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A
+      generalize int256 (x1W (zWord m)) * lnPhaseScaleI = A
       generalize ((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B
       generalize lnBiasI * twoPow27I = C
       generalize (lnErrorExtraNum : Int) * twoPow99I = E
@@ -4344,7 +4347,7 @@ theorem lo_ge_pos_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     rw [lnErrArg, htarget, hsum_cast]
     exact pos_residue_arg_le_int hres
   have hmul :
-      (((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      (((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         (160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
           BIASc * twoPow27N * lnErrorBoundDen) +
         (lnErrorExtraNum * twoPow99N + lnErrorCoarsePosResidue)) * lnErrQ ≤
@@ -4451,7 +4454,7 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
   have cap123 := capLB_mul cap12 capB
   have cap1234 := capLB_mul cap123 capECoarseGePosL
   change capLB
-    (((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+    (((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
       (160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
         BIASc * twoPow27N * lnErrorBoundDen) +
       (lnErrorExtraNum * twoPow99N + lnErrorCoarseGePosResidue))
@@ -4464,7 +4467,7 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
         ((10 ^ 40 : Nat) ^ (160 - c))) *
         (10 ^ 18 * 10 ^ 31)) * 10 ^ 31) at cap1234
   have hple :
-      ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         (160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
           BIASc * twoPow27N * lnErrorBoundDen) +
         (lnErrorExtraNum * twoPow99N + lnErrorCoarseGePosResidue) ≤
@@ -4476,8 +4479,8 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
       rw [Int.natCast_mul, Int.toNat_of_nonneg harg_nonneg]
       unfold twoPow99I
       rfl
-    have hX1n : ((toInt (x1W (zWord m))).toNat : Int) =
-        toInt (x1W (zWord m)) :=
+    have hX1n : ((int256 (x1W (zWord m))).toNat : Int) =
+        int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
       unfold twoPow27N twoPow27I lnBiasI
@@ -4503,7 +4506,7 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
             simp only [Nat.mul_assoc]]
       simp only [Int.natCast_mul, hLc, hden]
     have hsum_cast :
-        ((((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+        ((((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           (160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
             BIASc * twoPow27N * lnErrorBoundDen) +
           (lnErrorExtraNum * twoPow99N + lnErrorCoarseGePosResidue) : Nat) : Int) =
@@ -4513,7 +4516,7 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
       simp only [Int.natCast_add, Int.natCast_mul, hX1n, hBc, hN, hden,
         hextra, hscale]
       unfold posPhaseI
-      generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A
+      generalize int256 (x1W (zWord m)) * lnPhaseScaleI = A
       generalize ((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B
       generalize lnBiasI * twoPow27I = C
       generalize (lnErrorExtraNum : Int) * twoPow99I = E
@@ -4522,7 +4525,7 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
     rw [lnErrArg, htarget, hsum_cast]
     exact pos_ge_residue_arg_le_int hres
   have hmul :
-      (((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      (((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         (160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
           BIASc * twoPow27N * lnErrorBoundDen) +
         (lnErrorExtraNum * twoPow99N + lnErrorCoarseGePosResidue)) * lnErrQ ≤
@@ -4614,7 +4617,7 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
 
 theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < Sc)
     (hc1 : 1 ≤ c) (hc : c < 160)
-    (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 +
+    (hrlo : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 +
       ln2kInt c + 116873961749927929127912020551516284764321243411868)
     (hr0 : 0 ≤ r)
     (hres : PosShiftResidueOk m c r)
@@ -4629,18 +4632,18 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
   have cap2B := capLB_mul cap2 capB
   have hsum := capLB_mul cap2B capECoarsePosL
   have hX1 := x1_nonpos_ltF hmlo h2
-  have hVs := v_scale_pos (toInt (x1W (zWord m))) c (by omega : c ≤ 160)
-  have hV0 : 0 ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+  have hVs := v_scale_pos (int256 (x1W (zWord m))) c (by omega : c ≤ 160)
+  have hV0 : 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
     have h0 : 0 ≤ r * 2 ^ 72 := Int.mul_nonneg hr0 (by decide)
-    have hg : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    have hg : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         116873961749927929127912020551516284764321243411868 := by
-      generalize hgV : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      generalize hgV : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         116873961749927929127912020551516284764321243411868 = V at hrlo ⊢
       generalize hgR : r * 2 ^ 72 = R at hrlo h0
       omega
     exact Int.mul_nonneg hg (by decide)
-  change capUB ((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen)
+  change capUB ((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen)
     lnErrQ 560227709747861399187319382270000000000000000000000000000000
       (m * 9999999999999999999999999996615) at cap1
   change capLB
@@ -4651,8 +4654,8 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
       (((2 * (10 ^ 40 - 1)) ^ (160 - c) * (Sc * (10 ^ 31 - 3384))) *
         (10 ^ 31 + lnErrorCoarsePosBudgetCap))
       ((((10 ^ 40 : Nat) ^ (160 - c) * (10 ^ 18 * 10 ^ 31)) * 10 ^ 31)) at hsum
-  have hnegXn : (((-toInt (x1W (zWord m))).toNat : Nat) : Int) =
-      -toInt (x1W (zWord m)) :=
+  have hnegXn : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) =
+      -int256 (x1W (zWord m)) :=
     Int.toNat_of_nonneg (by omega)
   have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
     unfold twoPow27N twoPow27I lnBiasI
@@ -4678,34 +4681,34 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
           simp only [Nat.mul_assoc]]
     simp only [Int.natCast_mul, hLc, hden]
   have hVsI :
-      (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
           lnBiasI) * twoPow27I = posPhaseI m c := by
     unfold posPhaseI
     simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
   have hV0I : 0 ≤ posPhaseI m c := by
-    have hV0' : 0 ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    have hV0' : 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         lnBiasI) * twoPow27I := by
       simpa [lnBiasI, twoPow27I] using hV0
     rw [hVsI] at hV0'
     exact hV0'
   have hcancel_le :
-      (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen ≤
+      (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen ≤
         ((160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
           BIASc * twoPow27N * lnErrorBoundDen) +
           (lnErrorExtraNum * twoPow99N + lnErrorCoarsePosResidue) := by
     apply Int.ofNat_le.mp
     simp only [Int.natCast_add, Int.natCast_mul, hnegXn, hBc, hN, hden, hextra, hscale]
-    have hmain : (-toInt (x1W (zWord m))) * lnPhaseScaleI ≤
+    have hmain : (-int256 (x1W (zWord m))) * lnPhaseScaleI ≤
         ((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
           lnBiasI * twoPow27I := by
       unfold posPhaseI at hV0I
       rw [Int.neg_mul]
-      generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hV0I ⊢
+      generalize int256 (x1W (zWord m)) * lnPhaseScaleI = A at hV0I ⊢
       generalize ((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B at hV0I ⊢
       generalize lnBiasI * twoPow27I = C at hV0I ⊢
       omega
     have hmul := Int.mul_le_mul_of_nonneg_right hmain (by decide : 0 ≤ (1000000000 : Int))
-    have hmul' : (-toInt (x1W (zWord m))) * lnPhaseScaleI * (1000000000 : Int) ≤
+    have hmul' : (-int256 (x1W (zWord m))) * lnPhaseScaleI * (1000000000 : Int) ≤
         ((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) * (1000000000 : Int) +
           lnBiasI * twoPow27I * (1000000000 : Int) := by
       have e : (((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
@@ -4729,8 +4732,8 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
       (((160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
         BIASc * twoPow27N * lnErrorBoundDen) +
         (lnErrorExtraNum * twoPow99N + lnErrorCoarsePosResidue) -
-          (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen) +
-        (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen := by
+          (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen) +
+        (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen := by
     exact (Nat.sub_add_cancel hcancel_le).symm
   rw [hsplit] at hsum
   have capV := capLB_cancel (q := lnErrQ) (by unfold lnErrQ; decide) hsum cap1
@@ -4738,7 +4741,7 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
       ((160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
         BIASc * twoPow27N * lnErrorBoundDen) +
         (lnErrorExtraNum * twoPow99N + lnErrorCoarsePosResidue) -
-          (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen ≤
+          (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen ≤
       lnErrArg r := by
     apply Int.ofNat_le.mp
     have htarget : (((r * (lnErrorBoundDen : Int) + (lnErrorBoundNum : Int)).toNat *
@@ -4751,7 +4754,7 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
         (((((160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
           BIASc * twoPow27N * lnErrorBoundDen) +
           (lnErrorExtraNum * twoPow99N + lnErrorCoarsePosResidue) -
-            (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN *
+            (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN *
               lnErrorBoundDen : Nat) : Int)) =
         posPhaseI m c * (lnErrorBoundDen : Int) +
           (lnErrorExtraNum : Int) * twoPow99I +
@@ -4759,16 +4762,16 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
       have hsI := congrArg (fun n : Nat => ((n : Nat) : Int)) hsplit
       simp only [Int.natCast_add, Int.natCast_mul, hnegXn, hBc, hN, hden,
         hextra, hscale] at hsI
-      rw [show -toInt (x1W (zWord m)) * lnPhaseScaleI =
-          -(toInt (x1W (zWord m)) * lnPhaseScaleI) by rw [Int.neg_mul]] at hsI
+      rw [show -int256 (x1W (zWord m)) * lnPhaseScaleI =
+          -(int256 (x1W (zWord m)) * lnPhaseScaleI) by rw [Int.neg_mul]] at hsI
       generalize (((((160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
         BIASc * twoPow27N * lnErrorBoundDen) +
         (lnErrorExtraNum * twoPow99N + lnErrorCoarsePosResidue) -
-          (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN *
+          (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN *
             lnErrorBoundDen : Nat) : Int)) = S at hsI ⊢
       unfold posPhaseI
       rw [hden]
-      generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
+      generalize int256 (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
       generalize ((160 - c : Nat) : Int) * ((LN2c : Int) * twoPow27I) = L at hsI ⊢
       generalize lnBiasI * twoPow27I = B at hsI ⊢
       generalize (lnErrorExtraNum : Int) * twoPow99I = E at hsI ⊢
@@ -4780,7 +4783,7 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
       (((160 - c) * ((LN2c * twoPow27N) * lnErrorBoundDen) +
         BIASc * twoPow27N * lnErrorBoundDen) +
         (lnErrorExtraNum * twoPow99N + lnErrorCoarsePosResidue) -
-          (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen) * lnErrQ ≤
+          (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen) * lnErrQ ≤
       lnErrArg r * lnErrQ :=
     Nat.mul_le_mul_right _ hple
   have capR := capLB_arg (q := lnErrQ) (by unfold lnErrQ; decide) hmul capV
@@ -4867,9 +4870,9 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
 
 theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 160 < c) (hc2 : c ≤ 255)
-    (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
-    (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    (hrlo : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       116873961749927929127912020551516284764321243411868)
     (hr0 : 0 ≤ r)
     (hmx : m = x * 2 ^ (c - 160)) :
@@ -4882,18 +4885,18 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
   have cap2UQ := capUB_lift_right (den := lnErrorBoundDen) QS_pos cap2U
   have cap2 := capUB_pow (by unfold QS lnErrorBoundDen; decide) cap2UQ (c - 160)
   have hX1 := x1_nonneg_geF h1 h2
-  have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
-  have hV0 : 0 ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+  have hVs := v_scale_neg (int256 (x1W (zWord m))) c hc
+  have hV0 : 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
     have h0 : 0 ≤ r * 2 ^ 72 := Int.mul_nonneg hr0 (by decide)
-    have hg : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    have hg : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         116873961749927929127912020551516284764321243411868 := by
-      generalize hgV : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      generalize hgV : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         116873961749927929127912020551516284764321243411868 = V at hrlo ⊢
       generalize hgR : r * 2 ^ 72 = R at hrlo h0
       omega
     exact Int.mul_nonneg hg (by decide)
-  change capLB ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+  change capLB ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
       BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N)
     lnErrQ
       ((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3384)) *
@@ -4901,10 +4904,10 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       ((560227709747861399187319382270000000000000000000000000000000 *
         (10 ^ 18 * 10 ^ 31)) * 10 ^ 31) at cap1BE
   have hcancel_le : (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) ≤
-      (toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      (int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N := by
     apply Int.ofNat_le.mp
-    have hX1n : ((toInt (x1W (zWord m))).toNat : Int) = toInt (x1W (zWord m)) :=
+    have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
       unfold twoPow27N twoPow27I lnBiasI
@@ -4922,21 +4925,21 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen twoPow99N twoPow99I
       decide +kernel
     have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
-    have hV0I : 0 ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    have hV0I : 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         lnBiasI) * twoPow27I := by
       simpa [lnBiasI, twoPow27I] using hV0
     have hVsI :
-        (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+        (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
             lnBiasI) * twoPow27I +
           ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) =
-        toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
+        int256 (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
       simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
-    generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       lnBiasI) * twoPow27I = V27 at hV0I hVsI
-    generalize hgA : toInt (x1W (zWord m)) * lnPhaseScaleI = A at hVsI
+    generalize hgA : int256 (x1W (zWord m)) * lnPhaseScaleI = A at hVsI
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B at hVsI hLc
     generalize hgC : (c - 160) * (LN2c * twoPow27N) = Cn at hLc ⊢
-    generalize hgD : (toInt (x1W (zWord m))).toNat * lnPhaseScaleN = D at ⊢
+    generalize hgD : (int256 (x1W (zWord m))).toNat * lnPhaseScaleN = D at ⊢
     have hAD : (D : Int) = A := by
       rw [← hgA, ← hgD, Int.natCast_mul, hX1n, hscale]
     generalize hgE : BIASc * twoPow27N = E at hBc ⊢
@@ -4951,16 +4954,16 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     clear hX1n hX1 cap1 capB cap1B cap1BE cap2UQ cap2 hr h1 h2 hc hc2 hmx hrlo hVs
     simp only [Int.natCast_add, Int.natCast_mul, hden, hAD, hBc, hextra, hN]
     omega
-  have hsplit : (toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+  have hsplit : (int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
       BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N =
-      ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
           (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen)) +
         (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) := by
     exact (Nat.sub_add_cancel hcancel_le).symm
   rw [hsplit] at cap1BE
   have capV := capLB_cancel (q := lnErrQ) (by unfold lnErrQ; decide) cap1BE cap2
-  have hple : (toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+  have hple : (int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
       BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
         (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) ≤
       lnErrArg r := by
@@ -4971,7 +4974,7 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       rw [Int.natCast_mul, Int.toNat_of_nonneg harg_nonneg]
       unfold twoPow99I
       rfl
-    have hX1n : ((toInt (x1W (zWord m))).toNat : Int) = toInt (x1W (zWord m)) :=
+    have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
       unfold twoPow27N twoPow27I lnBiasI
@@ -4990,10 +4993,10 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       decide +kernel
     have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
     have hsub_cast :
-        (((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+        (((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
             (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) : Nat) : Int) =
-        (toInt (x1W (zWord m)) * lnPhaseScaleI -
+        (int256 (x1W (zWord m)) * lnPhaseScaleI -
             ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
             lnBiasI * twoPow27I) * (1000000000 : Int) +
           698600000 * twoPow99I := by
@@ -5007,24 +5010,24 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         simp only [Int.natCast_mul, hLc, hden]
       simp only [Int.natCast_add, Int.natCast_mul, hX1n, hBc, hN, hden,
         hextra, hscale] at hsI
-      generalize (((toInt (x1W (zWord m))).toNat * lnPhaseScaleN *
+      generalize (((int256 (x1W (zWord m))).toNat * lnPhaseScaleN *
         lnErrorBoundDen + BIASc * twoPow27N * lnErrorBoundDen +
         lnErrorExtraNum * twoPow99N -
         (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) : Nat) : Int) = S at hsI ⊢
-      generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
+      generalize int256 (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
       generalize ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B at hsI ⊢
       generalize lnBiasI * twoPow27I = C at hsI ⊢
       generalize 698600000 * twoPow99I = E at hsI ⊢
       omega
     rw [lnErrArg, htarget, hsub_cast]
-    have hsc : toInt (x1W (zWord m)) * lnPhaseScaleI -
+    have hsc : int256 (x1W (zWord m)) * lnPhaseScaleI -
           ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
           lnBiasI * twoPow27I ≤
         (r + 1) * twoPow99I - twoPow27I := by
-      have h := phase_lt_scaled_le (V := toInt (x1W (zWord m)) *
+      have h := phase_lt_scaled_le (V := int256 (x1W (zWord m)) *
           7450580596923828125 + ln2kInt c + lnBiasI)
         (T := (r + 1) * twoPow72I) (by simpa [lnBiasI, twoPow72I] using hr)
-      change (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      change (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
           lnBiasI) * twoPow27I ≤ ((r + 1) * twoPow72I - 1) * twoPow27I at h
       have er : ((r + 1) * twoPow72I - 1) * twoPow27I =
           (r + 1) * twoPow99I - twoPow27I := by
@@ -5034,24 +5037,24 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         omega
       rw [er] at h
       have hVsI :
-          (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+          (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
               lnBiasI) * twoPow27I +
             ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) =
-          toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
+          int256 (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
         simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
-      generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 +
+      generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 +
         ln2kInt c + lnBiasI) * twoPow27I = V27 at h hVsI
       generalize hgL : ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = L at hVsI ⊢
-      generalize hgA : toInt (x1W (zWord m)) * lnPhaseScaleI = A at hVsI ⊢
+      generalize hgA : int256 (x1W (zWord m)) * lnPhaseScaleI = A at hVsI ⊢
       generalize hgB : lnBiasI * twoPow27I = B at hVsI ⊢
       omega
     have hcore := c160_arg_le_int (A :=
-      toInt (x1W (zWord m)) * lnPhaseScaleI -
+      int256 (x1W (zWord m)) * lnPhaseScaleI -
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
         lnBiasI * twoPow27I) (r := r) hsc
     simpa [lnErrorBoundDen, lnErrorBoundNum, twoPow99I] using hcore
   have hmul :
-      ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
           (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen)) * lnErrQ ≤
         lnErrArg r * lnErrQ :=
@@ -5063,7 +5066,7 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         (10 ^ 18 * 10 ^ 31)) * 10 ^ 31) * (2 * (10 ^ 40 + 1)) ^ (c - 160))) :=
     @capLB_arg
       (lnErrArg r) lnErrQ
-      ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
           (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen))
       lnErrQ
@@ -5122,9 +5125,9 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
 
 theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 160 < c) (hc2 : c ≤ 255)
-    (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
-    (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    (hrlo : r * 2 ^ 72 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       116873961749927929127912020551516284764321243411868)
     (hr0 : 0 ≤ r)
     (hmx : m = x * 2 ^ (c - 160)) :
@@ -5137,18 +5140,18 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   have capB := capLB_lift_right (den := lnErrorBoundDen) QS_pos capBL
   have hsum := capLB_mul capB capECoarseNegL
   have hX1 := x1_nonpos_ltF h1 h2
-  have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
-  have hV0 : 0 ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+  have hVs := v_scale_neg (int256 (x1W (zWord m))) c hc
+  have hV0 : 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
     have h0 : 0 ≤ r * 2 ^ 72 := Int.mul_nonneg hr0 (by decide)
-    have hg : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    have hg : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         116873961749927929127912020551516284764321243411868 := by
-      generalize hgV : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      generalize hgV : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         116873961749927929127912020551516284764321243411868 = V at hrlo ⊢
       generalize hgR : r * 2 ^ 72 = R at hrlo h0
       omega
     exact Int.mul_nonneg hg (by decide)
-  change capUB (((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen) +
+  change capUB (((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen) +
       (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen))
     lnErrQ
       (560227709747861399187319382270000000000000000000000000000000 *
@@ -5158,12 +5161,12 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     lnErrQ (Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap))
       ((10 ^ 18 * 10 ^ 31) * 10 ^ 31) at hsum
   have hcancel_le :
-      (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) ≤
       BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N := by
     apply Int.ofNat_le.mp
-    have hX1n : (((-toInt (x1W (zWord m))).toNat : Nat) : Int) =
-        -toInt (x1W (zWord m)) :=
+    have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) =
+        -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
       unfold twoPow27N twoPow27I lnBiasI
@@ -5181,21 +5184,21 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen twoPow99N twoPow99I
       decide +kernel
     have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
-    have hV0I : 0 ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    have hV0I : 0 ≤ (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         lnBiasI) * twoPow27I := by
       simpa [lnBiasI, twoPow27I] using hV0
     have hVsI :
-        (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+        (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
             lnBiasI) * twoPow27I +
           ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) =
-        toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
+        int256 (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
       simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
-    generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       lnBiasI) * twoPow27I = V27 at hV0I hVsI
-    generalize hgA : toInt (x1W (zWord m)) * lnPhaseScaleI = A at hVsI
+    generalize hgA : int256 (x1W (zWord m)) * lnPhaseScaleI = A at hVsI
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B at hVsI hLc
     generalize hgC : (c - 160) * (LN2c * twoPow27N) = Cn at hLc ⊢
-    generalize hgD : (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN = D at ⊢
+    generalize hgD : (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN = D at ⊢
     have hAD : (D : Int) = -A := by
       rw [← hgA, ← hgD, Int.natCast_mul, hX1n, hscale]
       rw [Int.neg_mul]
@@ -5213,15 +5216,15 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     omega
   have hsplit : BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N =
       (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
-        ((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+        ((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen))) +
-        ((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+        ((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen)) := by
     exact (Nat.sub_add_cancel hcancel_le).symm
   rw [hsplit] at hsum
   have capV := capLB_cancel (q := lnErrQ) (by unfold lnErrQ; decide) hsum hb
   have hple : BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
-      ((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      ((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen)) ≤
       lnErrArg r := by
     apply Int.ofNat_le.mp
@@ -5231,8 +5234,8 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       rw [Int.natCast_mul, Int.toNat_of_nonneg harg_nonneg]
       unfold twoPow99I
       rfl
-    have hX1n : (((-toInt (x1W (zWord m))).toNat : Nat) : Int) =
-        -toInt (x1W (zWord m)) :=
+    have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) =
+        -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
       unfold twoPow27N twoPow27I lnBiasI
@@ -5259,35 +5262,35 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       simp only [Int.natCast_mul, hLc, hden]
     have hsub_cast :
         (((BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
-          ((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+          ((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
             (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen)) : Nat) : Int)) =
-        (toInt (x1W (zWord m)) * lnPhaseScaleI -
+        (int256 (x1W (zWord m)) * lnPhaseScaleI -
             ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
             lnBiasI * twoPow27I) * (1000000000 : Int) +
           698600000 * twoPow99I := by
       have hsI := congrArg (fun n : Nat => ((n : Nat) : Int)) hsplit
       simp only [Int.natCast_add, Int.natCast_mul, hX1n, hBc, hN, hden,
         hextra, hscale] at hsI
-      rw [show -toInt (x1W (zWord m)) * lnPhaseScaleI =
-          -(toInt (x1W (zWord m)) * lnPhaseScaleI) by rw [Int.neg_mul]] at hsI
+      rw [show -int256 (x1W (zWord m)) * lnPhaseScaleI =
+          -(int256 (x1W (zWord m)) * lnPhaseScaleI) by rw [Int.neg_mul]] at hsI
       generalize (((BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum *
-        twoPow99N - ((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN *
+        twoPow99N - ((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN *
         lnErrorBoundDen + (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen)) : Nat) : Int)) = S
         at hsI ⊢
-      generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
+      generalize int256 (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
       generalize ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B at hsI ⊢
       generalize lnBiasI * twoPow27I = C at hsI ⊢
       generalize 698600000 * twoPow99I = E at hsI ⊢
       omega
     rw [lnErrArg, htarget, hsub_cast]
-    have hsc : toInt (x1W (zWord m)) * lnPhaseScaleI -
+    have hsc : int256 (x1W (zWord m)) * lnPhaseScaleI -
           ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
           lnBiasI * twoPow27I ≤
         (r + 1) * twoPow99I - twoPow27I := by
-      have h := phase_lt_scaled_le (V := toInt (x1W (zWord m)) *
+      have h := phase_lt_scaled_le (V := int256 (x1W (zWord m)) *
           7450580596923828125 + ln2kInt c + lnBiasI)
         (T := (r + 1) * twoPow72I) (by simpa [lnBiasI, twoPow72I] using hr)
-      change (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      change (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
           lnBiasI) * twoPow27I ≤ ((r + 1) * twoPow72I - 1) * twoPow27I at h
       have er : ((r + 1) * twoPow72I - 1) * twoPow27I =
           (r + 1) * twoPow99I - twoPow27I := by
@@ -5297,24 +5300,24 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         omega
       rw [er] at h
       have hVsI :
-          (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+          (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
               lnBiasI) * twoPow27I +
             ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) =
-          toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
+          int256 (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
         simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
-      generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 +
+      generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 +
         ln2kInt c + lnBiasI) * twoPow27I = V27 at h hVsI
       generalize hgL : ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = L at hVsI ⊢
-      generalize hgA : toInt (x1W (zWord m)) * lnPhaseScaleI = A at hVsI ⊢
+      generalize hgA : int256 (x1W (zWord m)) * lnPhaseScaleI = A at hVsI ⊢
       generalize hgB : lnBiasI * twoPow27I = B at hVsI ⊢
       omega
     have hcore := c160_arg_le_int (A :=
-      toInt (x1W (zWord m)) * lnPhaseScaleI -
+      int256 (x1W (zWord m)) * lnPhaseScaleI -
         ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
         lnBiasI * twoPow27I) (r := r) hsc
     simpa [lnErrorBoundDen, lnErrorBoundNum, twoPow99I] using hcore
   have hmul : (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
-      ((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      ((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen))) * lnErrQ ≤
       lnErrArg r * lnErrQ :=
     Nat.mul_le_mul_right _ hple
@@ -5327,7 +5330,7 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     @capLB_arg
       (lnErrArg r) lnErrQ
       (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
-        ((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+        ((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen)))
       lnErrQ
       ((Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap)) *
@@ -5391,7 +5394,7 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
 
 theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 160 < c) (hc2 : c ≤ 255)
-    (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
     (hrneg : r ≤ -2)
     (hmx : m = x * 2 ^ (c - 160)) :
@@ -5404,12 +5407,12 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
   have cap2UQ := capUB_lift_right (den := lnErrorBoundDen) QS_pos cap2U
   have hsum := capUB_pow (by unfold QS lnErrorBoundDen; decide) cap2UQ (c - 160)
   have hX1 := x1_nonneg_geF h1 h2
-  have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
-  have hgap : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+  have hVs := v_scale_neg (int256 (x1W (zWord m))) c hc
+  have hgap : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤
       (r + 1) * 2 ^ 99 - 2 ^ 27 := by
     have hsc := Int.mul_le_mul_of_nonneg_right
-      (show toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      (show int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         116873961749927929127912020551516284764321243411868 ≤ (r + 1) * 2 ^ 72 - 1
         from by omega) (by decide : (0 : Int) ≤ 2 ^ 27)
     have er : ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 = (r + 1) * 2 ^ 99 - 2 ^ 27 := by
@@ -5418,7 +5421,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       omega
     rw [er] at hsc
     exact hsc
-  change capLB ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+  change capLB ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
       BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N)
     lnErrQ
       ((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3384)) *
@@ -5426,11 +5429,11 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       ((560227709747861399187319382270000000000000000000000000000000 *
         (10 ^ 18 * 10 ^ 31)) * 10 ^ 31) at hb
   have hcancel_le :
-      (toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      (int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N ≤
         (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) := by
     apply Int.ofNat_le.mp
-    have hX1n : ((toInt (x1W (zWord m))).toNat : Int) = toInt (x1W (zWord m)) :=
+    have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
       unfold twoPow27N twoPow27I lnBiasI
@@ -5449,20 +5452,20 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       decide +kernel
     have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
     have hVsI :
-        (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+        (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
             lnBiasI) * twoPow27I +
           ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) =
-        toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
+        int256 (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
       simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
-    have hgapI : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    have hgapI : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         lnBiasI) * twoPow27I ≤ (r + 1) * twoPow99I - twoPow27I := by
       simpa [lnBiasI, twoPow27I, twoPow99I] using hgap
-    generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       lnBiasI) * twoPow27I = V27 at hgapI hVsI
-    generalize hgA : toInt (x1W (zWord m)) * lnPhaseScaleI = A at hVsI
+    generalize hgA : int256 (x1W (zWord m)) * lnPhaseScaleI = A at hVsI
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B at hgapI hVsI hLc
     generalize hgC : (c - 160) * (LN2c * twoPow27N) = Cn at hLc ⊢
-    generalize hgD : (toInt (x1W (zWord m))).toNat * lnPhaseScaleN = D at ⊢
+    generalize hgD : (int256 (x1W (zWord m))).toNat * lnPhaseScaleN = D at ⊢
     have hAD : (D : Int) = A := by
       rw [← hgA, ← hgD, Int.natCast_mul, hX1n, hscale]
     generalize hgE : BIASc * twoPow27N = E at hBc ⊢
@@ -5482,9 +5485,9 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     omega
   have hsplit : (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) =
       ((c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) -
-        ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+        ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N)) +
-        ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+        ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N) := by
     exact (Nat.sub_add_cancel hcancel_le).symm
   change capUB ((c - 160) * (LN2c * twoPow27N * lnErrorBoundDen)) lnErrQ
@@ -5493,7 +5496,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
   have capV := capUB_cancel (q := lnErrQ) (by unfold lnErrQ; decide) hsum hb
   have hple : lnErrNegArg r ≤
       (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) -
-        ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+        ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N) := by
     apply Int.ofNat_le.mp
     have htarget : (((-(r * (lnErrorBoundDen : Int) + (lnErrorBoundNum : Int))).toNat *
@@ -5502,7 +5505,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       rw [Int.natCast_mul, Int.toNat_of_nonneg hneg_nonneg]
       unfold twoPow99I
       rfl
-    have hX1n : ((toInt (x1W (zWord m))).toNat : Int) = toInt (x1W (zWord m)) :=
+    have hX1n : ((int256 (x1W (zWord m))).toNat : Int) = int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg hX1
     have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
       unfold twoPow27N twoPow27I lnBiasI
@@ -5529,9 +5532,9 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       simp only [Int.natCast_mul, hLc, hden]
     have hsub_cast :
         ((((c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) -
-          ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+          ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
             BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N) : Nat) : Int)) =
-        -((toInt (x1W (zWord m)) * lnPhaseScaleI -
+        -((int256 (x1W (zWord m)) * lnPhaseScaleI -
             ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
             lnBiasI * twoPow27I) * (1000000000 : Int) +
           698600000 * twoPow99I) := by
@@ -5539,38 +5542,38 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       simp only [Int.natCast_add, Int.natCast_mul, hX1n, hBc, hN, hden,
         hextra, hscale] at hsI
       generalize ((((c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) -
-          ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+          ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
             BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N) : Nat) : Int)) = S
         at hsI ⊢
-      generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
+      generalize int256 (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
       generalize ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B at hsI ⊢
       generalize lnBiasI * twoPow27I = C at hsI ⊢
       generalize 698600000 * twoPow99I = E at hsI ⊢
       omega
     rw [lnErrNegArg, htarget, hsub_cast]
-    have hsc : toInt (x1W (zWord m)) * lnPhaseScaleI -
+    have hsc : int256 (x1W (zWord m)) * lnPhaseScaleI -
           ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
           lnBiasI * twoPow27I ≤
         (r + 1) * twoPow99I - twoPow27I := by
       have hVsI :
-          (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+          (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
               lnBiasI) * twoPow27I +
             ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) =
-          toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
+          int256 (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
         simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
-      have hgapI : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      have hgapI : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
           lnBiasI) * twoPow27I ≤ (r + 1) * twoPow99I - twoPow27I := by
         simpa [lnBiasI, twoPow27I, twoPow99I] using hgap
-      generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 +
+      generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 +
         ln2kInt c + lnBiasI) * twoPow27I = V27 at hgapI hVsI
       generalize hgL : ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = L at hVsI ⊢
-      generalize hgA : toInt (x1W (zWord m)) * lnPhaseScaleI = A at hVsI ⊢
+      generalize hgA : int256 (x1W (zWord m)) * lnPhaseScaleI = A at hVsI ⊢
       generalize hgB : lnBiasI * twoPow27I = B at hVsI ⊢
       omega
     exact ln_err_neg_arg_le_int hsc hrneg
   have hmul : lnErrNegArg r * lnErrQ ≤
       ((c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) -
-        ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+        ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N)) * lnErrQ :=
     Nat.mul_le_mul_right _ hple
   have capR0 : capUB (lnErrNegArg r) lnErrQ
@@ -5583,7 +5586,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     @capUB_arg
       (lnErrNegArg r) lnErrQ
       ((c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) -
-        ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+        ((int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N))
       lnErrQ
       ((2 * (10 ^ 40 + 1)) ^ (c - 160) *
@@ -5642,7 +5645,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
 
 theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 160 < c) (hc2 : c ≤ 255)
-    (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
     (hrneg : r ≤ -2)
     (hmx : m = x * 2 ^ (c - 160)) :
@@ -5655,12 +5658,12 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   have capB := capLB_lift_right (den := lnErrorBoundDen) QS_pos capBL
   have hb := capLB_mul capB capECoarseNegL
   have hX1 := x1_nonpos_ltF h1 h2
-  have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
-  have hgap : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+  have hVs := v_scale_neg (int256 (x1W (zWord m))) c hc
+  have hgap : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤
       (r + 1) * 2 ^ 99 - 2 ^ 27 := by
     have hsc := Int.mul_le_mul_of_nonneg_right
-      (show toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      (show int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         116873961749927929127912020551516284764321243411868 ≤ (r + 1) * 2 ^ 72 - 1
         from by omega) (by decide : (0 : Int) ≤ 2 ^ 27)
     have er : ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 = (r + 1) * 2 ^ 99 - 2 ^ 27 := by
@@ -5669,7 +5672,7 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       omega
     rw [er] at hsc
     exact hsc
-  change capUB ((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+  change capUB ((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
       (c - 160) * (LN2c * twoPow27N * lnErrorBoundDen))
     lnErrQ
       (560227709747861399187319382270000000000000000000000000000000 *
@@ -5679,11 +5682,11 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     lnErrQ (Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap))
       ((10 ^ 18 * 10 ^ 31) * 10 ^ 31) at hb
   have hcancel_le : BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N ≤
-      (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         (c - 160) * (LN2c * twoPow27N * lnErrorBoundDen) := by
     apply Int.ofNat_le.mp
-    have hX1n : (((-toInt (x1W (zWord m))).toNat : Nat) : Int) =
-        -toInt (x1W (zWord m)) :=
+    have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) =
+        -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
       unfold twoPow27N twoPow27I lnBiasI
@@ -5702,20 +5705,20 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       decide +kernel
     have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
     have hVsI :
-        (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+        (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
             lnBiasI) * twoPow27I +
           ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) =
-        toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
+        int256 (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
       simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
-    have hgapI : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    have hgapI : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
         lnBiasI) * twoPow27I ≤ (r + 1) * twoPow99I - twoPow27I := by
       simpa [lnBiasI, twoPow27I, twoPow99I] using hgap
-    generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       lnBiasI) * twoPow27I = V27 at hgapI hVsI
-    generalize hgA : toInt (x1W (zWord m)) * lnPhaseScaleI = A at hVsI
+    generalize hgA : int256 (x1W (zWord m)) * lnPhaseScaleI = A at hVsI
     generalize hgB : ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B at hgapI hVsI hLc
     generalize hgC : (c - 160) * (LN2c * twoPow27N) = Cn at hLc ⊢
-    generalize hgD : (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN = D at ⊢
+    generalize hgD : (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN = D at ⊢
     have hAD : (D : Int) = -A := by
       rw [← hgA, ← hgD, Int.natCast_mul, hX1n, hscale]
       rw [Int.neg_mul]
@@ -5734,9 +5737,9 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     unfold twoPow99I twoPow27I at hgapI
     unfold twoPow99I at ⊢
     omega
-  have hsplit : (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+  have hsplit : (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
       (c - 160) * (LN2c * twoPow27N * lnErrorBoundDen) =
-      ((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      ((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         (c - 160) * (LN2c * twoPow27N * lnErrorBoundDen) -
           (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N)) +
         (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N) := by
@@ -5744,7 +5747,7 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   rw [hsplit] at hsum
   have capV := capUB_cancel (q := lnErrQ) (by unfold lnErrQ; decide) hsum hb
   have hple : lnErrNegArg r ≤
-      (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      (-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         (c - 160) * (LN2c * twoPow27N * lnErrorBoundDen) -
           (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N) := by
     apply Int.ofNat_le.mp
@@ -5754,8 +5757,8 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       rw [Int.natCast_mul, Int.toNat_of_nonneg hneg_nonneg]
       unfold twoPow99I
       rfl
-    have hX1n : (((-toInt (x1W (zWord m))).toNat : Nat) : Int) =
-        -toInt (x1W (zWord m)) :=
+    have hX1n : (((-int256 (x1W (zWord m))).toNat : Nat) : Int) =
+        -int256 (x1W (zWord m)) :=
       Int.toNat_of_nonneg (by omega)
     have hBc : ((BIASc * twoPow27N : Nat) : Int) = lnBiasI * twoPow27I := by
       unfold twoPow27N twoPow27I lnBiasI
@@ -5781,50 +5784,50 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
             simp only [Nat.mul_assoc]]
       simp only [Int.natCast_mul, hLc, hden]
     have hsub_cast :
-        ((((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+        ((((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           (c - 160) * (LN2c * twoPow27N * lnErrorBoundDen) -
           (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N) : Nat) : Int)) =
-        -((toInt (x1W (zWord m)) * lnPhaseScaleI -
+        -((int256 (x1W (zWord m)) * lnPhaseScaleI -
             ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
             lnBiasI * twoPow27I) * (1000000000 : Int) +
           698600000 * twoPow99I) := by
       have hsI := congrArg (fun n : Nat => ((n : Nat) : Int)) hsplit
       simp only [Int.natCast_add, Int.natCast_mul, hX1n, hBc, hN, hden,
         hextra, hscale] at hsI
-      rw [show -toInt (x1W (zWord m)) * lnPhaseScaleI =
-          -(toInt (x1W (zWord m)) * lnPhaseScaleI) by rw [Int.neg_mul]] at hsI
-      generalize ((((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      rw [show -int256 (x1W (zWord m)) * lnPhaseScaleI =
+          -(int256 (x1W (zWord m)) * lnPhaseScaleI) by rw [Int.neg_mul]] at hsI
+      generalize ((((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         (c - 160) * (LN2c * twoPow27N * lnErrorBoundDen) -
         (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N) : Nat) : Int)) = S
         at hsI ⊢
-      generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
+      generalize int256 (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
       generalize ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B at hsI ⊢
       generalize lnBiasI * twoPow27I = C at hsI ⊢
       generalize 698600000 * twoPow99I = E at hsI ⊢
       omega
     rw [lnErrNegArg, htarget, hsub_cast]
-    have hsc : toInt (x1W (zWord m)) * lnPhaseScaleI -
+    have hsc : int256 (x1W (zWord m)) * lnPhaseScaleI -
           ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
           lnBiasI * twoPow27I ≤
         (r + 1) * twoPow99I - twoPow27I := by
       have hVsI :
-          (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+          (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
               lnBiasI) * twoPow27I +
             ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) =
-          toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
+          int256 (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I := by
         simpa [twoPow27I, lnPhaseScaleI, lnBiasI] using hVs
-      have hgapI : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+      have hgapI : (int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
           lnBiasI) * twoPow27I ≤ (r + 1) * twoPow99I - twoPow27I := by
         simpa [lnBiasI, twoPow27I, twoPow99I] using hgap
-      generalize hgV : (toInt (x1W (zWord m)) * 7450580596923828125 +
+      generalize hgV : (int256 (x1W (zWord m)) * 7450580596923828125 +
         ln2kInt c + lnBiasI) * twoPow27I = V27 at hgapI hVsI
       generalize hgL : ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = L at hVsI ⊢
-      generalize hgA : toInt (x1W (zWord m)) * lnPhaseScaleI = A at hVsI ⊢
+      generalize hgA : int256 (x1W (zWord m)) * lnPhaseScaleI = A at hVsI ⊢
       generalize hgB : lnBiasI * twoPow27I = B at hVsI ⊢
       omega
     exact ln_err_neg_arg_le_int hsc hrneg
   have hmul : lnErrNegArg r * lnErrQ ≤
-      ((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
+      ((-int256 (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
         (c - 160) * (LN2c * twoPow27N * lnErrorBoundDen) -
           (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N)) * lnErrQ :=
     Nat.mul_le_mul_right _ hple
@@ -5868,9 +5871,9 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     omega
 
 theorem r_nonneg_of_c160_v_nonneg {m : Nat} {R : Int}
-    (hV0 : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
+    (hV0 : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
       116873961749927929127912020551516284764321243411868)
-    (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
+    (hr : int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
       116873961749927929127912020551516284764321243411868 < (R + 1) * 2 ^ 72) :
     0 ≤ R := by
   rcases Int.lt_or_le R 0 with hneg | hnon
@@ -5900,27 +5903,27 @@ theorem wad_le_of_clz_lt_160 {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
 
 theorem lnWadToRayBody_nonneg_of_clz_lt_160 {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
     (hclt : evmClz x < 160) :
-    0 ≤ toInt (lnWadToRayBody x) := by
+    0 ≤ int256 (lnWadToRayBody x) := by
   have hxge := wad_le_of_clz_lt_160 h1 h2 hclt
-  rcases Int.lt_or_le (toInt (lnWadToRayBody x)) 0 with hneg | hnon
+  rcases Int.lt_or_le (int256 (lnWadToRayBody x)) 0 with hneg | hnon
   · have hxlt := (lnWadToRayBody_negative_iff h1 h2).mp hneg
     omega
   · exact hnon
 
 theorem lnWadToRayBody_error_bound_upper_c160 {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
     (hne : x ≠ 10 ^ 18) (hc160 : evmClz x = 160) :
-    CutLogWadRayLtRational x (toInt (lnWadToRayBody x)) lnErrorBoundNum lnErrorBoundDen := by
+    CutLogWadRayLtRational x (int256 (lnWadToRayBody x)) lnErrorBoundNum lnErrorBoundDen := by
   obtain ⟨hbr1, hbr2⟩ := lnWadToRayBody_floor_bracket h1 h2 hne
   rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1 hbr2
-  have hbr2' : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+  have hbr2' : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
       ln2kInt (evmClz x) + 116873961749927929127912020551516284764321243411868 <
-      (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 := by
-    have e : (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 =
-        toInt (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
+      (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 := by
+    have e : (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 =
+        int256 (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
       rw [Int.add_mul, Int.one_mul]
     omega
   revert hbr1 hbr2'
-  generalize toInt (lnWadToRayBody x) = R
+  generalize int256 (lnWadToRayBody x) = R
   intro hbr1 hbr2'
   obtain ⟨me, hmlo, hmhi⟩ := mant_facts h1 h2
   have hmant_eq : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 := me
@@ -5934,7 +5937,7 @@ theorem lnWadToRayBody_error_bound_upper_c160 {x : Nat} (h1 : 1 ≤ x) (h2 : x <
   have hw2' : x < mant x + 1 := by
     rw [hc160] at hw2
     simpa only [Nat.sub_self, Nat.pow_zero, Nat.mul_one] using hw2
-  have hbr2c : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+  have hbr2c : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
       ln2kInt 160 + 116873961749927929127912020551516284764321243411868 <
       (R + 1) * 2 ^ 72 := by
     simpa [hc160] using hbr2'
@@ -5949,7 +5952,7 @@ theorem lnWadToRayBody_error_bound_upper_c160 {x : Nat} (h1 : 1 ≤ x) (h2 : x <
   · rcases Nat.lt_or_ge (mant x) Sc with hbranch | hbranch
     · have hmhi : mant x < MHI := hmant_hi
       have hV0I := v_c160_nonneg hmant_lo hmhi
-      have hV0 : 0 ≤ toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+      have hV0 : 0 ≤ int256 (x1W (zWord (mant x))) * 7450580596923828125 +
           ln2kInt 160 + 116873961749927929127912020551516284764321243411868 := by
         simpa [lnBiasI] using hV0I
       have hr0 := r_nonneg_of_c160_v_nonneg hV0 hbr2c
@@ -5962,19 +5965,19 @@ theorem lnWadToRayBody_error_bound_upper_c160 {x : Nat} (h1 : 1 ≤ x) (h2 : x <
 
 theorem lnWadToRayBody_error_bound_upper_neg_shift_nonneg {x : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) (hne : x ≠ 10 ^ 18)
-    (hcgt : 160 < evmClz x) (hr0 : 0 ≤ toInt (lnWadToRayBody x)) :
-    CutLogWadRayLtRational x (toInt (lnWadToRayBody x)) lnErrorBoundNum lnErrorBoundDen := by
+    (hcgt : 160 < evmClz x) (hr0 : 0 ≤ int256 (lnWadToRayBody x)) :
+    CutLogWadRayLtRational x (int256 (lnWadToRayBody x)) lnErrorBoundNum lnErrorBoundDen := by
   obtain ⟨hbr1, hbr2⟩ := lnWadToRayBody_floor_bracket h1 h2 hne
   rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1 hbr2
-  have hbr2' : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+  have hbr2' : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
       ln2kInt (evmClz x) + 116873961749927929127912020551516284764321243411868 <
-      (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 := by
-    have e : (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 =
-        toInt (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
+      (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 := by
+    have e : (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 =
+        int256 (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
       rw [Int.add_mul, Int.one_mul]
     omega
   revert hbr1 hbr2' hr0
-  generalize toInt (lnWadToRayBody x) = R
+  generalize int256 (lnWadToRayBody x) = R
   intro hr0 hbrLo hbrHi
   obtain ⟨me, hmlo, hmhi⟩ := mant_facts h1 h2
   have hmant_eq : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 := me
@@ -5995,19 +5998,19 @@ theorem lnWadToRayBody_error_bound_upper_neg_shift_nonneg {x : Nat}
 
 theorem lnWadToRayBody_error_bound_upper_neg_shift_rec_ge {x : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) (hne : x ≠ 10 ^ 18)
-    (hcgt : 160 < evmClz x) (hrneg : toInt (lnWadToRayBody x) ≤ -2) :
-    CutLogWadRayLtRational x (toInt (lnWadToRayBody x)) lnErrorBoundNum lnErrorBoundDen := by
+    (hcgt : 160 < evmClz x) (hrneg : int256 (lnWadToRayBody x) ≤ -2) :
+    CutLogWadRayLtRational x (int256 (lnWadToRayBody x)) lnErrorBoundNum lnErrorBoundDen := by
   obtain ⟨_hbr1, hbr2⟩ := lnWadToRayBody_floor_bracket h1 h2 hne
   rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr2
-  have hbrHi : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+  have hbrHi : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
       ln2kInt (evmClz x) + 116873961749927929127912020551516284764321243411868 <
-      (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 := by
-    have e : (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 =
-        toInt (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
+      (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 := by
+    have e : (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 =
+        int256 (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
       rw [Int.add_mul, Int.one_mul]
     omega
   revert hbrHi hrneg
-  generalize toInt (lnWadToRayBody x) = R
+  generalize int256 (lnWadToRayBody x) = R
   intro hrneg hbrHi
   obtain ⟨me, hmlo, hmhi⟩ := mant_facts h1 h2
   have hmant_eq : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 := me
@@ -6031,7 +6034,7 @@ theorem lnWadToRayBody_positive_shift_ge_top_or_direct {x : Nat}
     (hclt : evmClz x < 160) (hge : Sc ≤ mant x)
     (hcert : PosShiftGeTopBudgetIneqOk (mant x) (evmClz x) ∨
       PosShiftTopDirectOk 320 (mant x) (evmClz x)) :
-    capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
+    capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
   have hx256 : x < 2 ^ 256 := by omega
   have htail :
       lnWadToRayBody x = lnTail (evmSub 160 (evmClz x)) (mant x) := by
@@ -6046,11 +6049,11 @@ theorem lnWadToRayBody_positive_shift_ge_top_or_direct {x : Nat}
       omega
     obtain ⟨_hbr1, hbr2⟩ := lnWadToRayBody_floor_bracket h1 h2 hne
     rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr2
-    have hbrHi : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+    have hbrHi : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
         ln2kInt (evmClz x) + lnBiasI <
-        (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 := by
-      have e : (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 =
-          toInt (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
+        (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 := by
+      have e : (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 =
+          int256 (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
         rw [Int.add_mul, Int.one_mul]
       rw [e]
       simpa [lnBiasI] using hbr2
@@ -6061,12 +6064,12 @@ theorem lnWadToRayBody_positive_shift_ge_top_or_direct {x : Nat}
       exact hmhi
     have hr0 := lnWadToRayBody_nonneg_of_clz_lt_160 h1 h2 hclt
     have hphase :
-        posPhaseNatGe (mant x) (evmClz x) ≤ lnErrArg (toInt (lnWadToRayBody x)) :=
+        posPhaseNatGe (mant x) (evmClz x) ≤ lnErrArg (int256 (lnWadToRayBody x)) :=
       posPhaseNatGe_le_lnErrArg hge hmant_hi (by omega) hbrHi (by omega)
     have hineq : PosShiftGeBudgetIneqOk (mant x) (evmClz x) x
-        (toInt (lnWadToRayBody x)) := by
+        (int256 (lnWadToRayBody x)) := by
       change PosShiftGeBudgetIneqOk (mant x) (evmClz x)
-        (posTopX (evmClz x) (mant x)) (toInt (lnTail (evmSub 160 (evmClz x)) (mant x))) at htopBudget
+        (posTopX (evmClz x) (mant x)) (int256 (lnTail (evmSub 160 (evmClz x)) (mant x))) at htopBudget
       rw [← htail] at htopBudget
       unfold PosShiftGeBudgetIneqOk at htopBudget ⊢
       have hnum : wadRayNum x ≤ wadRayNum (posTopX (evmClz x) (mant x)) := by
@@ -6084,7 +6087,7 @@ theorem lnWadToRayBody_positive_shift_lt_top_or_direct {x : Nat}
     (hclt : evmClz x < 160) (hlt : mant x < Sc)
     (hcert : PosShiftLtTopBudgetIneqOk (mant x) (evmClz x) ∨
       PosShiftTopDirectOk 320 (mant x) (evmClz x)) :
-    capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
+    capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
   have hx256 : x < 2 ^ 256 := by omega
   have htail :
       lnWadToRayBody x = lnTail (evmSub 160 (evmClz x)) (mant x) := by
@@ -6099,11 +6102,11 @@ theorem lnWadToRayBody_positive_shift_lt_top_or_direct {x : Nat}
       omega
     obtain ⟨hbr1, hbr2⟩ := lnWadToRayBody_floor_bracket h1 h2 hne
     rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1 hbr2
-    have hbrHi : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+    have hbrHi : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
         ln2kInt (evmClz x) + lnBiasI <
-        (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 := by
-      have e : (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 =
-          toInt (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
+        (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 := by
+      have e : (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 =
+          int256 (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
         rw [Int.add_mul, Int.one_mul]
       rw [e]
       simpa [lnBiasI] using hbr2
@@ -6114,20 +6117,20 @@ theorem lnWadToRayBody_positive_shift_lt_top_or_direct {x : Nat}
       exact hmlo
     have hX := x1_nonpos_ltF hmant_lo hlt
     have hr0 := lnWadToRayBody_nonneg_of_clz_lt_160 h1 h2 hclt
-    have hV0 : 0 ≤ toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+    have hV0 : 0 ≤ int256 (x1W (zWord (mant x))) * 7450580596923828125 +
         ln2kInt (evmClz x) + lnBiasI := by
-      have hR0 : 0 ≤ toInt (lnWadToRayBody x) * 2 ^ 72 :=
+      have hR0 : 0 ≤ int256 (lnWadToRayBody x) * 2 ^ 72 :=
         Int.mul_nonneg hr0 (by decide)
       have h := Int.le_trans hR0 hbr1
       simpa [lnBiasI] using h
     have hneg := posNegXNat_le_posConstNat hX (by omega) hV0
     have hphase :
-        posPhaseNatLt (mant x) (evmClz x) ≤ lnErrArg (toInt (lnWadToRayBody x)) :=
+        posPhaseNatLt (mant x) (evmClz x) ≤ lnErrArg (int256 (lnWadToRayBody x)) :=
       posPhaseNatLt_le_lnErrArg hX (by omega) hneg hbrHi (by omega)
     have hineq : PosShiftLtBudgetIneqOk (mant x) (evmClz x) x
-        (toInt (lnWadToRayBody x)) := by
+        (int256 (lnWadToRayBody x)) := by
       change PosShiftLtBudgetIneqOk (mant x) (evmClz x)
-        (posTopX (evmClz x) (mant x)) (toInt (lnTail (evmSub 160 (evmClz x)) (mant x))) at htopBudget
+        (posTopX (evmClz x) (mant x)) (int256 (lnTail (evmSub 160 (evmClz x)) (mant x))) at htopBudget
       rw [← htail] at htopBudget
       unfold PosShiftLtBudgetIneqOk at htopBudget ⊢
       have hnum : wadRayNum x ≤ wadRayNum (posTopX (evmClz x) (mant x)) := by
@@ -6143,9 +6146,9 @@ theorem lnWadToRayBody_positive_shift_lt_top_or_direct {x : Nat}
 theorem lnWadToRayBody_positive_shift_ge_residue_or_direct {x : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
     (hclt : evmClz x < 160) (hge : Sc ≤ mant x)
-    (hcert : PosShiftGeResidueOk (mant x) (evmClz x) (toInt (lnWadToRayBody x)) ∨
+    (hcert : PosShiftGeResidueOk (mant x) (evmClz x) (int256 (lnWadToRayBody x)) ∨
       PosShiftTopDirectOk 320 (mant x) (evmClz x)) :
-    capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
+    capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
   rcases hcert with hres | hdirect
   · obtain ⟨_me, _hmlo, hmhi⟩ := mant_facts h1 h2
     have hmant_hi : mant x < MHI := by
@@ -6163,9 +6166,9 @@ theorem lnWadToRayBody_positive_shift_ge_residue_or_direct {x : Nat}
 theorem lnWadToRayBody_positive_shift_lt_residue_or_direct {x : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) (hne : x ≠ 10 ^ 18)
     (hclt : evmClz x < 160) (hlt : mant x < Sc) (hband_lo : Sc - 45 ≤ mant x)
-    (hcert : PosShiftResidueOk (mant x) (evmClz x) (toInt (lnWadToRayBody x)) ∨
+    (hcert : PosShiftResidueOk (mant x) (evmClz x) (int256 (lnWadToRayBody x)) ∨
       PosShiftTopDirectOk 320 (mant x) (evmClz x)) :
-    capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
+    capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
   rcases hcert with hres | hdirect
   · obtain ⟨hbr1, _hbr2⟩ := lnWadToRayBody_floor_bracket h1 h2 hne
     rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1
@@ -6181,14 +6184,14 @@ theorem lnWadToRayBody_positive_shift_ge_phase_direct {x : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) (hne : x ≠ 10 ^ 18)
     (hclt : evmClz x < 160) (hge : Sc ≤ mant x)
     (hcert : PosShiftGePhaseDirectOk 320 (mant x) (evmClz x)) :
-    capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
+    capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
   obtain ⟨_hbr1, hbr2⟩ := lnWadToRayBody_floor_bracket h1 h2 hne
   rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr2
-  have hbrHi : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+  have hbrHi : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
       ln2kInt (evmClz x) + lnBiasI <
-      (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 := by
-    have e : (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 =
-        toInt (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
+      (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 := by
+    have e : (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 =
+        int256 (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
       rw [Int.add_mul, Int.one_mul]
     rw [e]
     simpa [lnBiasI] using hbr2
@@ -6203,7 +6206,7 @@ theorem lnWadToRayBody_positive_shift_ge_phase_direct {x : Nat}
       lnErrQ (posTopX (evmClz x) (mant x)) (10 ^ 18) := by
     unfold PosShiftGePhaseDirectOk at hcert
     exact ⟨320, hcert⟩
-  have capR : capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ
+  have capR : capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ
       (posTopX (evmClz x) (mant x)) (10 ^ 18) := by
     refine capLB_arg (q' := lnErrQ) (by unfold lnErrQ; decide) ?_ cap0
     exact Nat.mul_le_mul_right lnErrQ hp
@@ -6213,7 +6216,7 @@ theorem lnWadToRayBody_positive_shift_ge_phase_direct {x : Nat}
       Nat.mul_pos (Nat.succ_pos _) (Nat.pow_pos (by decide))
     unfold posTopX
     omega
-  refine capLB_weaken (p := lnErrArg (toInt (lnWadToRayBody x))) (q := lnErrQ)
+  refine capLB_weaken (p := lnErrArg (int256 (lnWadToRayBody x))) (q := lnErrQ)
     (y := posTopX (evmClz x) (mant x)) (w := 10 ^ 18)
     (y' := x) (w' := 10 ^ 18) (by decide) capR ?_
   exact Nat.mul_le_mul_right (10 ^ 18) htop
@@ -6222,14 +6225,14 @@ theorem lnWadToRayBody_positive_shift_lt_phase_direct {x : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) (hne : x ≠ 10 ^ 18)
     (hclt : evmClz x < 160) (hlt : mant x < Sc)
     (hcert : PosShiftLtPhaseDirectOk 320 (mant x) (evmClz x)) :
-    capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
+    capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
   obtain ⟨hbr1, hbr2⟩ := lnWadToRayBody_floor_bracket h1 h2 hne
   rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1 hbr2
-  have hbrHi : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+  have hbrHi : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
       ln2kInt (evmClz x) + lnBiasI <
-      (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 := by
-    have e : (toInt (lnWadToRayBody x) + 1) * 2 ^ 72 =
-        toInt (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
+      (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 := by
+    have e : (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 =
+        int256 (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
       rw [Int.add_mul, Int.one_mul]
     rw [e]
     simpa [lnBiasI] using hbr2
@@ -6240,9 +6243,9 @@ theorem lnWadToRayBody_positive_shift_lt_phase_direct {x : Nat}
     exact hmlo
   have hX := x1_nonpos_ltF hmant_lo hlt
   have hr0 := lnWadToRayBody_nonneg_of_clz_lt_160 h1 h2 hclt
-  have hV0 : 0 ≤ toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+  have hV0 : 0 ≤ int256 (x1W (zWord (mant x))) * 7450580596923828125 +
       ln2kInt (evmClz x) + lnBiasI := by
-    have hR0 : 0 ≤ toInt (lnWadToRayBody x) * 2 ^ 72 :=
+    have hR0 : 0 ≤ int256 (lnWadToRayBody x) * 2 ^ 72 :=
       Int.mul_nonneg hr0 (by decide)
     have h := Int.le_trans hR0 hbr1
     simpa [lnBiasI] using h
@@ -6252,7 +6255,7 @@ theorem lnWadToRayBody_positive_shift_lt_phase_direct {x : Nat}
       lnErrQ (posTopX (evmClz x) (mant x)) (10 ^ 18) := by
     unfold PosShiftLtPhaseDirectOk at hcert
     exact ⟨320, hcert⟩
-  have capR : capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ
+  have capR : capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ
       (posTopX (evmClz x) (mant x)) (10 ^ 18) := by
     refine capLB_arg (q' := lnErrQ) (by unfold lnErrQ; decide) ?_ cap0
     exact Nat.mul_le_mul_right lnErrQ hp
@@ -6262,7 +6265,7 @@ theorem lnWadToRayBody_positive_shift_lt_phase_direct {x : Nat}
       Nat.mul_pos (Nat.succ_pos _) (Nat.pow_pos (by decide))
     unfold posTopX
     omega
-  refine capLB_weaken (p := lnErrArg (toInt (lnWadToRayBody x))) (q := lnErrQ)
+  refine capLB_weaken (p := lnErrArg (int256 (lnWadToRayBody x))) (q := lnErrQ)
     (y := posTopX (evmClz x) (mant x)) (w := 10 ^ 18)
     (y' := x) (w' := 10 ^ 18) (by decide) capR ?_
   exact Nat.mul_le_mul_right (10 ^ 18) htop
@@ -6271,7 +6274,7 @@ theorem lnWadToRayBody_positive_shift_ge_min_phase_direct {x : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
     (hclt : evmClz x < 160) (hge : Sc ≤ mant x)
     (hcert : PosShiftGeMinPhaseDirectOk 320 (mant x) (evmClz x)) :
-    capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
+    capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
   have hx256 : x < 2 ^ 256 := by omega
   have htail :
       lnWadToRayBody x = lnTail (evmSub 160 (evmClz x)) (mant x) := by
@@ -6288,7 +6291,7 @@ theorem lnWadToRayBody_positive_shift_ge_min_phase_direct {x : Nat}
       lnErrQ (posTopX (evmClz x) (mant x)) (10 ^ 18) := by
     unfold PosShiftGeMinPhaseDirectOk at hcert
     exact ⟨320, hcert⟩
-  have capR : capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ
+  have capR : capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ
       (posTopX (evmClz x) (mant x)) (10 ^ 18) := by
     refine capLB_arg (q' := lnErrQ) (by unfold lnErrQ; decide) ?_ cap0
     exact Nat.mul_le_mul_right lnErrQ hp
@@ -6298,7 +6301,7 @@ theorem lnWadToRayBody_positive_shift_ge_min_phase_direct {x : Nat}
       Nat.mul_pos (Nat.succ_pos _) (Nat.pow_pos (by decide))
     unfold posTopX
     omega
-  refine capLB_weaken (p := lnErrArg (toInt (lnWadToRayBody x))) (q := lnErrQ)
+  refine capLB_weaken (p := lnErrArg (int256 (lnWadToRayBody x))) (q := lnErrQ)
     (y := posTopX (evmClz x) (mant x)) (w := 10 ^ 18)
     (y' := x) (w' := 10 ^ 18) (by decide) capR ?_
   exact Nat.mul_le_mul_right (10 ^ 18) htop
@@ -6307,7 +6310,7 @@ theorem lnWadToRayBody_positive_shift_lt_min_phase_direct {x : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
     (hclt : evmClz x < 160) (hlt : mant x < Sc)
     (hcert : PosShiftLtMinPhaseDirectOk 320 (mant x) (evmClz x)) :
-    capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
+    capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
   have hx256 : x < 2 ^ 256 := by omega
   have htail :
       lnWadToRayBody x = lnTail (evmSub 160 (evmClz x)) (mant x) := by
@@ -6324,7 +6327,7 @@ theorem lnWadToRayBody_positive_shift_lt_min_phase_direct {x : Nat}
       lnErrQ (posTopX (evmClz x) (mant x)) (10 ^ 18) := by
     unfold PosShiftLtMinPhaseDirectOk at hcert
     exact ⟨320, hcert⟩
-  have capR : capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ
+  have capR : capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ
       (posTopX (evmClz x) (mant x)) (10 ^ 18) := by
     refine capLB_arg (q' := lnErrQ) (by unfold lnErrQ; decide) ?_ cap0
     exact Nat.mul_le_mul_right lnErrQ hp
@@ -6334,7 +6337,7 @@ theorem lnWadToRayBody_positive_shift_lt_min_phase_direct {x : Nat}
       Nat.mul_pos (Nat.succ_pos _) (Nat.pow_pos (by decide))
     unfold posTopX
     omega
-  refine capLB_weaken (p := lnErrArg (toInt (lnWadToRayBody x))) (q := lnErrQ)
+  refine capLB_weaken (p := lnErrArg (int256 (lnWadToRayBody x))) (q := lnErrQ)
     (y := posTopX (evmClz x) (mant x)) (w := 10 ^ 18)
     (y' := x) (w' := 10 ^ 18) (by decide) capR ?_
   exact Nat.mul_le_mul_right (10 ^ 18) htop
@@ -6356,17 +6359,17 @@ def PosShiftLtBranchCert (m c : Nat) (r : Int) : Prop :=
 def posShiftGeTopBudgetIneqOkB (m c : Nat) : Bool :=
   decide (wadRayNum (posTopX c m) * (posBaseWGe c * lnErrQ) ≤
     (posBaseYGe m c *
-      (lnErrQ + posAvailGe m c (toInt (lnTail (evmSub 160 c) m)))) *
+      (lnErrQ + posAvailGe m c (int256 (lnTail (evmSub 160 c) m)))) *
         wadRayStrictDen)
 
 def posShiftLtTopBudgetIneqOkB (m c : Nat) : Bool :=
   decide (wadRayNum (posTopX c m) * (posBaseWLt c * lnErrQ) ≤
     (posBaseYLt m c *
-      (lnErrQ + posAvailLt m c (toInt (lnTail (evmSub 160 c) m)))) *
+      (lnErrQ + posAvailLt m c (int256 (lnTail (evmSub 160 c) m)))) *
         wadRayStrictDen)
 
 def posShiftTopDirectOkB (m c : Nat) : Bool :=
-  sumGEB 320 (lnErrArg (toInt (lnTail (evmSub 160 c) m))) lnErrQ
+  sumGEB 320 (lnErrArg (int256 (lnTail (evmSub 160 c) m))) lnErrQ
     (posTopX c m) (10 ^ 18)
 
 def posShiftGePhaseDirectOkB (m c : Nat) : Bool :=
@@ -6411,7 +6414,7 @@ def posShiftLtBranchCertB (m c : Nat) (r : Int) : Bool :=
 
 def hardMantissaLtGapBranchB (c : Nat) : Bool :=
   directResidueGapOkB lnErrorHardMantissa c
-      (toInt (lnTail (evmSub 160 c) lnErrorHardMantissa)) &&
+      (int256 (lnTail (evmSub 160 c) lnErrorHardMantissa)) &&
     posShiftLtPhaseGapDirectOkB lnErrorHardMantissa c
 
 theorem hardMantissaLtGapBranch_all :
@@ -6420,7 +6423,7 @@ theorem hardMantissaLtGapBranch_all :
 
 theorem hardMantissaLtGapBranch {c : Nat} (hc1 : 1 ≤ c) (hc : c < 160) :
     PosShiftDirectResidueGapOk lnErrorHardMantissa c
-        (toInt (lnTail (evmSub 160 c) lnErrorHardMantissa)) ∧
+        (int256 (lnTail (evmSub 160 c) lnErrorHardMantissa)) ∧
       PosShiftLtPhaseGapDirectOk 320 lnErrorHardMantissa c := by
   have h := List.all_eq_true.mp hardMantissaLtGapBranch_all (c - 1)
     (List.mem_range.mpr (by omega : c - 1 < 159))
@@ -6434,7 +6437,7 @@ theorem hardMantissaLtGapBranch {c : Nat} (hc1 : 1 ≤ c) (hc : c < 160) :
 
 theorem hardMantissaLtBranchCert {c : Nat} (hc1 : 1 ≤ c) (hc : c < 160) :
     PosShiftLtBranchCert lnErrorHardMantissa c
-      (toInt (lnTail (evmSub 160 c) lnErrorHardMantissa)) := by
+      (int256 (lnTail (evmSub 160 c) lnErrorHardMantissa)) := by
   exact Or.inr (Or.inr (Or.inr (Or.inr (hardMantissaLtGapBranch hc1 hc))))
 
 theorem posShiftGeBranchCert_of_bool {m c : Nat} {r : Int} (hc : c ≤ 160)
@@ -6529,7 +6532,7 @@ def ltBranchCellOkB (lo hi c : Nat) : Bool :=
 theorem geBranchCellOkB_sound {lo hi m c : Nat}
     (h : geBranchCellOkB lo hi c = true)
     (hlom : lo ≤ m) (hmhi : m ≤ hi) :
-    PosShiftGeBranchCert m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftGeBranchCert m c (int256 (lnTail (evmSub 160 c) m)) := by
   unfold geBranchCellOkB at h
   simp only [Bool.or_eq_true, Bool.and_eq_true] at h
   rcases h with hrun | hrest
@@ -6559,7 +6562,7 @@ theorem geBranchCellOkB_sound {lo hi m c : Nat}
 theorem ltBranchCellOkB_sound {lo hi m c : Nat}
     (h : ltBranchCellOkB lo hi c = true)
     (hlom : lo ≤ m) (hmhi : m ≤ hi) :
-    PosShiftLtBranchCert m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftLtBranchCert m c (int256 (lnTail (evmSub 160 c) m)) := by
   unfold ltBranchCellOkB at h
   simp only [Bool.or_eq_true, Bool.and_eq_true] at h
   rcases h with hres | hrest
@@ -6605,7 +6608,7 @@ def ltBranchCellListCoverB (c : Nat) : Nat → Nat → List ResidueCell → Bool
 theorem geBranchCellListCoverB_sound {cells : List ResidueCell} {c lo hi m : Nat}
     (h : geBranchCellListCoverB c lo hi cells = true)
     (hlom : lo ≤ m) (hmhi : m ≤ hi) :
-    PosShiftGeBranchCert m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftGeBranchCert m c (int256 (lnTail (evmSub 160 c) m)) := by
   induction cells generalizing lo with
   | nil =>
       unfold geBranchCellListCoverB at h
@@ -6622,7 +6625,7 @@ theorem geBranchCellListCoverB_sound {cells : List ResidueCell} {c lo hi m : Nat
 theorem ltBranchCellListCoverB_sound {cells : List ResidueCell} {c lo hi m : Nat}
     (h : ltBranchCellListCoverB c lo hi cells = true)
     (hlom : lo ≤ m) (hmhi : m ≤ hi) :
-    PosShiftLtBranchCert m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftLtBranchCert m c (int256 (lnTail (evmSub 160 c) m)) := by
   induction cells generalizing lo with
   | nil =>
       unfold ltBranchCellListCoverB at h
@@ -6664,7 +6667,7 @@ def ltBranchCoverB : Nat → Nat → Nat → Nat → Bool
 
 theorem geBranchCoverB_sound {fuel c lo hi m : Nat}
     (h : geBranchCoverB fuel c lo hi = true) (hlom : lo ≤ m) (hmhi : m ≤ hi) :
-    PosShiftGeBranchCert m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftGeBranchCert m c (int256 (lnTail (evmSub 160 c) m)) := by
   revert lo
   induction fuel with
   | zero =>
@@ -6689,7 +6692,7 @@ theorem geBranchCoverB_sound {fuel c lo hi m : Nat}
 
 theorem ltBranchCoverB_sound {fuel c lo hi m : Nat}
     (h : ltBranchCoverB fuel c lo hi = true) (hlom : lo ≤ m) (hmhi : m ≤ hi) :
-    PosShiftLtBranchCert m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftLtBranchCert m c (int256 (lnTail (evmSub 160 c) m)) := by
   revert lo
   induction fuel with
   | zero =>
@@ -6814,8 +6817,8 @@ theorem lnWadToRayBody_positive_shift_ge_branch_cert {x : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) (hne : x ≠ 10 ^ 18)
     (hclt : evmClz x < 160) (hge : Sc ≤ mant x)
     (hcert : PosShiftGeBranchCert (mant x) (evmClz x)
-      (toInt (lnWadToRayBody x))) :
-    capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
+      (int256 (lnWadToRayBody x))) :
+    capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
   rcases hcert with hres | hrest
   · exact lnWadToRayBody_positive_shift_ge_residue_or_direct h1 h2 hclt hge
       (Or.inl hres)
@@ -6841,14 +6844,14 @@ theorem lnWadToRayBody_positive_shift_ge_branch_cert {x : Nat}
     have hr0 := lnWadToRayBody_nonneg_of_clz_lt_160 h1 h2 hclt
     have hc160 : evmClz x ≤ 160 :=
       Nat.le_of_lt_succ (Nat.lt_of_lt_of_le hclt (by decide : 160 ≤ 161))
-    have hrm1 : -1 ≤ toInt (lnWadToRayBody x) :=
+    have hrm1 : -1 ≤ int256 (lnWadToRayBody x) :=
       Int.le_trans (by decide : (-1 : Int) ≤ 0) hr0
     have hsum := ge_phase_gap_direct_to_top
-      (m := mant x) (c := evmClz x) (r := toInt (lnWadToRayBody x))
+      (m := mant x) (c := evmClz x) (r := int256 (lnWadToRayBody x))
       hX hc160 hrm1 hgap.1 hgap.2
     have hsumTail :
         sumGE 320
-          (lnErrArg (toInt (lnTail (evmSub 160 (evmClz x)) (mant x)))) lnErrQ
+          (lnErrArg (int256 (lnTail (evmSub 160 (evmClz x)) (mant x)))) lnErrQ
           (posTopX (evmClz x) (mant x)) (10 ^ 18) := by
       simpa [htail] using hsum
     exact pos_shift_direct_exact_of_sumGE h1 h2 hclt hsumTail
@@ -6857,8 +6860,8 @@ theorem lnWadToRayBody_positive_shift_lt_branch_cert {x : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) (hne : x ≠ 10 ^ 18)
     (hclt : evmClz x < 160) (hlt : mant x < Sc) (hband_lo : Sc - 45 ≤ mant x)
     (hcert : PosShiftLtBranchCert (mant x) (evmClz x)
-      (toInt (lnWadToRayBody x))) :
-    capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
+      (int256 (lnWadToRayBody x))) :
+    capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ x (10 ^ 18) := by
   rcases hcert with hres | hrest
   · exact lnWadToRayBody_positive_shift_lt_residue_or_direct h1 h2 hne hclt hlt hband_lo
       (Or.inl hres)
@@ -6886,21 +6889,21 @@ theorem lnWadToRayBody_positive_shift_lt_branch_cert {x : Nat}
     have hr0 := lnWadToRayBody_nonneg_of_clz_lt_160 h1 h2 hclt
     have hc160 : evmClz x ≤ 160 :=
       Nat.le_of_lt_succ (Nat.lt_of_lt_of_le hclt (by decide : 160 ≤ 161))
-    have hV0 : 0 ≤ toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+    have hV0 : 0 ≤ int256 (x1W (zWord (mant x))) * 7450580596923828125 +
         ln2kInt (evmClz x) + lnBiasI := by
-      have hR0 : 0 ≤ toInt (lnWadToRayBody x) * 2 ^ 72 :=
+      have hR0 : 0 ≤ int256 (lnWadToRayBody x) * 2 ^ 72 :=
         Int.mul_nonneg hr0 (by decide)
       have h := Int.le_trans hR0 hbr1
       simpa [lnBiasI] using h
     have hneg := posNegXNat_le_posConstNat hX hc160 hV0
-    have hrm1 : -1 ≤ toInt (lnWadToRayBody x) :=
+    have hrm1 : -1 ≤ int256 (lnWadToRayBody x) :=
       Int.le_trans (by decide : (-1 : Int) ≤ 0) hr0
     have hsum := lt_phase_gap_direct_to_top
-      (m := mant x) (c := evmClz x) (r := toInt (lnWadToRayBody x))
+      (m := mant x) (c := evmClz x) (r := int256 (lnWadToRayBody x))
       hX hc160 hneg hrm1 hgap.1 hgap.2
     have hsumTail :
         sumGE 320
-          (lnErrArg (toInt (lnTail (evmSub 160 (evmClz x)) (mant x)))) lnErrQ
+          (lnErrArg (int256 (lnTail (evmSub 160 (evmClz x)) (mant x)))) lnErrQ
           (posTopX (evmClz x) (mant x)) (10 ^ 18) := by
       simpa [htail] using hsum
     exact pos_shift_direct_exact_of_sumGE h1 h2 hclt hsumTail

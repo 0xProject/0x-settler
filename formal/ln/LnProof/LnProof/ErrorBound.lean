@@ -1,6 +1,9 @@
 import LnProof.ErrorBoundCore
 import LnProof.ErrCertLtBridge
 
+open FormalYul
+open FormalYul.Preservation
+
 set_option maxRecDepth 100000
 
 /-!
@@ -26,7 +29,7 @@ attribute [local irreducible] lnWadToRayBody
 the floor bracket because `lnErrorCoarsePosResidue = 0`. -/
 theorem PosShiftResidueOk_uniform {m c : Nat} (hmlo : MLO ≤ m) (hmhi : m < MHI)
     (hc : c < 160) :
-    PosShiftResidueOk m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftResidueOk m c (int256 (lnTail (evmSub 160 c) m)) := by
   refine PosShiftResidueOk_of_gap (by omega) ?_
   unfold PosShiftResidueGapOk
   have hcoarse : (lnErrorCoarsePosResidue : Int) = 0 := by
@@ -41,7 +44,7 @@ theorem PosShiftResidueOk_uniform {m c : Nat} (hmlo : MLO ≤ m) (hmhi : m < MHI
 /-- Uniform coarse residue (ge branch), `lnErrorCoarseGePosResidue = 0`. -/
 theorem PosShiftGeResidueOk_uniform {m c : Nat} (hmlo : MLO ≤ m) (hmhi : m < MHI)
     (hc : c < 160) :
-    PosShiftGeResidueOk m c (toInt (lnTail (evmSub 160 c) m)) := by
+    PosShiftGeResidueOk m c (int256 (lnTail (evmSub 160 c) m)) := by
   refine PosShiftGeResidueOk_of_gap (by omega) ?_
   unfold PosShiftGeResidueGapOk
   have hcoarse : (lnErrorCoarseGePosResidue : Int) = 0 := by
@@ -56,7 +59,7 @@ theorem PosShiftGeResidueOk_uniform {m c : Nat} (hmlo : MLO ≤ m) (hmhi : m < M
 theorem lnWadToRayBody_positive_shift_ge_residue_or_direct_cert {x : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
     (hclt : evmClz x < 160) (_hge : Sc ≤ mant x) :
-    PosShiftGeResidueOk (mant x) (evmClz x) (toInt (lnWadToRayBody x)) ∨
+    PosShiftGeResidueOk (mant x) (evmClz x) (int256 (lnWadToRayBody x)) ∨
       PosShiftTopDirectOk 320 (mant x) (evmClz x) := by
   have hx256 : x < 2 ^ 256 := by omega
   have htail :
@@ -72,7 +75,7 @@ theorem lnWadToRayBody_positive_shift_ge_residue_or_direct_cert {x : Nat}
 theorem lnWadToRayBody_positive_shift_lt_residue_or_direct_cert {x : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) (_hne : x ≠ 10 ^ 18)
     (hclt : evmClz x < 160) (_hlt : mant x < Sc) :
-    PosShiftResidueOk (mant x) (evmClz x) (toInt (lnWadToRayBody x)) ∨
+    PosShiftResidueOk (mant x) (evmClz x) (int256 (lnWadToRayBody x)) ∨
       PosShiftTopDirectOk 320 (mant x) (evmClz x) := by
   have hx256 : x < 2 ^ 256 := by omega
   have htail :
@@ -88,20 +91,20 @@ theorem lnWadToRayBody_positive_shift_lt_residue_or_direct_cert {x : Nat}
 theorem lnWadToRayBody_error_bound_upper_pos_shift {x : Nat}
     (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) (hne : x ≠ 10 ^ 18)
     (hclt : evmClz x < 160) :
-    CutLogWadRayLtRational x (toInt (lnWadToRayBody x)) lnErrorBoundNum lnErrorBoundDen := by
+    CutLogWadRayLtRational x (int256 (lnWadToRayBody x)) lnErrorBoundNum lnErrorBoundDen := by
   obtain ⟨me, hmlo, hmhi⟩ := mant_facts h1 h2
   have hmant_eq : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 := me
   have hmant_lo : MLO ≤ mant x := by rw [hmant_eq]; exact hmlo
   have hmant_hi : mant x < MHI := by rw [hmant_eq]; exact hmhi
   obtain ⟨hc1, _hc255⟩ := clz_bounds h1 h2
-  have hpos : 1 ≤ toInt (lnWadToRayBody x) * (lnErrorBoundDen : Int) +
+  have hpos : 1 ≤ int256 (lnWadToRayBody x) * (lnErrorBoundDen : Int) +
       (lnErrorBoundNum : Int) := by
     have hr0 := lnWadToRayBody_nonneg_of_clz_lt_160 h1 h2 hclt
     unfold lnErrorBoundDen lnErrorBoundNum
     omega
   unfold CutLogWadRayLtRational
   rw [if_pos hpos]
-  change capLB (lnErrArg (toInt (lnWadToRayBody x))) lnErrQ x (10 ^ 18)
+  change capLB (lnErrArg (int256 (lnWadToRayBody x))) lnErrQ x (10 ^ 18)
   rcases Nat.lt_or_ge (mant x) Sc with hbranch | hbranch
   · -- positive shift, lt octave: cell cut on `[2^95, Sc-46]`, residue band on `[Sc-45, Sc)`
     rcases Nat.lt_or_ge (mant x) (Sc - 45) with hcell | hband
@@ -111,7 +114,7 @@ theorem lnWadToRayBody_error_bound_upper_pos_shift {x : Nat}
         rw [lnWadToRayBody_eq_tail hx256]; rfl
       have hh2 : mant x + 46 ≤ Sc := by omega
       have hmin : posPhaseNatLt (mant x) (evmClz x) + minPosAvail ≤
-          lnErrArg (toInt (lnWadToRayBody x)) := by
+          lnErrArg (int256 (lnWadToRayBody x)) := by
         have hp := posPhaseNatLt_minAvail_le_lnErrArg hmant_lo (by omega : mant x < Sc) hclt
         rw [← htail] at hp; exact hp
       have hxtop : x ≤ posTopX (evmClz x) (mant x) := by
@@ -120,9 +123,9 @@ theorem lnWadToRayBody_error_bound_upper_pos_shift {x : Nat}
           Nat.mul_pos (Nat.succ_pos _) (Nat.pow_pos (by decide))
         unfold posTopX; omega
       have hcut := lt_pos_cut_reduced (m := mant x) (c := evmClz x) (x := x)
-        (r := toInt (lnWadToRayBody x)) hmant_lo hh2 hc1 hclt hmin hxtop
+        (r := int256 (lnWadToRayBody x)) hmant_lo hh2 hc1 hclt hmin hxtop
         (errLt_hred hmant_lo hh2)
-      refine capLB_weaken (p := lnErrArg (toInt (lnWadToRayBody x))) (q := lnErrQ)
+      refine capLB_weaken (p := lnErrArg (int256 (lnWadToRayBody x))) (q := lnErrQ)
         (y := wadRayNum x) (w := wadRayStrictDen) (y' := x) (w' := 10 ^ 18)
         (by decide) hcut ?_
       unfold wadRayNum wadRayStrictDen
@@ -143,7 +146,7 @@ covered by the degree-22 curved-cap cell cover on `[2^95, Sc-46]` and a residue
 band on `[Sc-45, Sc)`, the ge octave by the coarse residue bound, and the
 negative shift by its coarse residue bound. -/
 theorem lnWadToRayBody_error_bound_1_6986 {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
-    let r := toInt (lnWadToRayBody x)
+    let r := int256 (lnWadToRayBody x)
     CutLeLogWadRay r x ∧
       CutLogWadRayLtRational x r lnErrorBoundNum lnErrorBoundDen := by
   by_cases hwad : x = 10 ^ 18
@@ -154,7 +157,7 @@ theorem lnWadToRayBody_error_bound_1_6986 {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^
       rw [if_pos (by decide)]
       exact capUB_diag QS_pos
     · exact cutLogWadRayLtRational_at_wad
-  let r := toInt (lnWadToRayBody x)
+  let r := int256 (lnWadToRayBody x)
   change CutLeLogWadRay r x ∧
     CutLogWadRayLtRational x r lnErrorBoundNum lnErrorBoundDen
   constructor

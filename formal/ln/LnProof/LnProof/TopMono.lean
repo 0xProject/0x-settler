@@ -1,6 +1,9 @@
 import LnProof.OctaveMono
 import LnProof.LnMono
 
+open FormalYul
+open FormalYul.Preservation
+
 /-!
 # Monotonicity of the generated `lnWad` body over its whole domain
 
@@ -20,17 +23,17 @@ set_option maxRecDepth 4096
 
 namespace LnYul
 
-/-! ## `sle` / `toInt` glue -/
+/-! ## `sle` / `int256` glue -/
 
 theorem sle_eq_sleInt (a b : Nat) : sle a b = sleInt a b := rfl
 
 theorem sle_of_toInt {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
-    (h : toInt a ≤ toInt b) : sle a b = true := by
+    (h : int256 a ≤ int256 b) : sle a b = true := by
   rw [sle_eq_sleInt]
   exact (sleInt_iff ha hb).mpr h
 
 theorem toInt_of_sle {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
-    (h : sle a b = true) : toInt a ≤ toInt b := by
+    (h : sle a b = true) : int256 a ≤ int256 b := by
   rw [sle_eq_sleInt] at h
   exact (sleInt_iff ha hb).mp h
 
@@ -98,7 +101,7 @@ theorem seam_extract {t : Nat} (ht1 : 1 ≤ t) (ht2 : t ≤ 254) :
 /-! ## The unit step -/
 
 theorem lnWadToRayBody_unit_step {x : Nat} (h1 : 1 ≤ x) (h2 : x + 1 < 2 ^ 255) :
-    toInt (lnWadToRayBody x) ≤ toInt (lnWadToRayBody (x + 1)) := by
+    int256 (lnWadToRayBody x) ≤ int256 (lnWadToRayBody (x + 1)) := by
   have hx256 : x < 2 ^ 256 := by omega
   have hx1256 : x + 1 < 2 ^ 256 := by omega
   have hd := lnWadToRayBody_one_wad_mono
@@ -165,7 +168,7 @@ theorem lnWadToRayBody_unit_step {x : Nat} (h1 : 1 ≤ x) (h2 : x + 1 < 2 ^ 255)
 theorem lnWadToRayBody_mono {x y : Nat} (hx : 0 < x) (hxy : x ≤ y)
     (hy : y < 2 ^ 255) : sle (lnWadToRayBody x) (lnWadToRayBody y) = true := by
   have key : ∀ n : Nat, x + n < 2 ^ 255 →
-      toInt (lnWadToRayBody x) ≤ toInt (lnWadToRayBody (x + n)) := by
+      int256 (lnWadToRayBody x) ≤ int256 (lnWadToRayBody (x + n)) := by
     intro n
     induction n with
     | zero => intro _; exact Int.le_refl _
@@ -187,8 +190,8 @@ theorem evmSub_zero {a : Nat} (h : a < 2 ^ 256) : evmSub a 0 = a := by
   omega
 
 theorem evmSlt_zero {r : Nat} (h : r < 2 ^ 256) :
-    evmSlt r 0 = if toInt r < 0 then 1 else 0 := by
-  unfold evmSlt u256 toInt
+    evmSlt r 0 = if int256 r < 0 then 1 else 0 := by
+  unfold evmSlt u256 int256
   simp only [word_mod_eq]
   repeat' split
   all_goals omega
@@ -208,15 +211,15 @@ theorem to_wad_eq {x : Nat} (_h : x < 2 ^ 256) :
   rw [evmSgt_zero_eq_slt_zero, evmMul_comm 999999999]
 
 theorem to_wad_numerator_eq {r : Nat} (hr : r < 2 ^ 256)
-    (hb1 : -(12259964326927110866866776217202473468949912977468817408 : Int) ≤ toInt r)
-    (hb2 : toInt r ≤ (12259964326927110866866776217202473468949912977468817409 : Int)) :
-    toInt (evmSub r (evmMul (evmSlt r 0) 999999999)) =
-      toInt r - (if toInt r < 0 then (999999999 : Int) else 0) := by
+    (hb1 : -(12259964326927110866866776217202473468949912977468817408 : Int) ≤ int256 r)
+    (hb2 : int256 r ≤ (12259964326927110866866776217202473468949912977468817409 : Int)) :
+    int256 (evmSub r (evmMul (evmSlt r 0) 999999999)) =
+      int256 r - (if int256 r < 0 then (999999999 : Int) else 0) := by
   have hm1 : evmMul 1 999999999 = 999999999 := by decide
   have hm0 : evmMul 0 999999999 = 0 := by decide
-  have h999 : toInt 999999999 = (999999999 : Int) := by decide
+  have h999 : int256 999999999 = (999999999 : Int) := by decide
   rw [evmSlt_zero hr]
-  rcases Int.lt_or_le (toInt r) 0 with hneg | hpos
+  rcases Int.lt_or_le (int256 r) 0 with hneg | hpos
   · rw [if_pos hneg, if_pos hneg, hm1]
     rw [evmSub_transport hr (by omega)
       (by rw [h999]; simp only [ipow255]; omega)
@@ -257,8 +260,8 @@ a 184-bit signed quantity, and the `s + (s == -1)` self-correction keeps it ther
 (it only sends `-1` to `0`). -/
 theorem lnTail_bound (kw m : Nat) :
     -(12259964326927110866866776217202473468949912977468817408 : Int) ≤
-        toInt (lnTail kw m) ∧
-      toInt (lnTail kw m) ≤
+        int256 (lnTail kw m) ∧
+      int256 (lnTail kw m) ≤
         (12259964326927110866866776217202473468949912977468817409 : Int) := by
   unfold lnTail
   obtain ⟨wlt, s1, s2⟩ := evmSar_sandwich_72 (evmAdd_lt
@@ -268,24 +271,24 @@ theorem lnTail_bound (kw m : Nat) :
   have hwg := toInt_ge (evmAdd_lt
     (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc)
   rw [corr_toInt wlt]
-  generalize toInt (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc) =
+  generalize int256 (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc) =
     t at s1 s2 hwl hwg
-  generalize toInt (evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc)) =
+  generalize int256 (evmSar 72 (evmAdd (evmAdd (evmMul (x1W (zWord m)) Kc) (evmMul LN2c kw)) BIASc)) =
     s at s1 s2 ⊢
   simp only [ipow255] at hwl hwg
   split <;> omega
 
 theorem lnWadToRayBody_bound {x : Nat} (h : x < 2 ^ 256) :
     -(12259964326927110866866776217202473468949912977468817408 : Int) ≤
-        toInt (lnWadToRayBody x) ∧
-      toInt (lnWadToRayBody x) ≤
+        int256 (lnWadToRayBody x) ∧
+      int256 (lnWadToRayBody x) ≤
         (12259964326927110866866776217202473468949912977468817409 : Int) := by
   rw [lnWadToRayBody_eq_tail h]
   exact lnTail_bound _ _
 
 theorem to_wad_floor_window {x : Nat} (h : x < 2 ^ 256) :
-    toInt (lnWadBody x) * 1000000000 ≤ toInt (lnWadToRayBody x) ∧
-      toInt (lnWadToRayBody x) < (toInt (lnWadBody x) + 1) *
+    int256 (lnWadBody x) * 1000000000 ≤ int256 (lnWadToRayBody x) ∧
+      int256 (lnWadToRayBody x) < (int256 (lnWadBody x) + 1) *
         1000000000 := by
   have hr := lnWadToRayBody_lt h
   obtain ⟨hb1, hb2⟩ := lnWadToRayBody_bound h
@@ -293,71 +296,71 @@ theorem to_wad_floor_window {x : Nat} (h : x < 2 ^ 256) :
   have hnlt : evmSub (lnWadToRayBody x) (evmMul (evmSlt (lnWadToRayBody x) 0) 999999999) <
       2 ^ 256 := evmSub_lt _ _
   have hdlt : (1000000000 : Nat) < 2 ^ 256 := by omega
-  have hden : toInt 1000000000 = (1000000000 : Int) := by decide
+  have hden : int256 1000000000 = (1000000000 : Int) := by decide
   have hdenN : ((1000000000 : Int)).toNat = 1000000000 := by decide
   rw [to_wad_eq h]
   generalize hw : evmSub (lnWadToRayBody x) (evmMul (evmSlt (lnWadToRayBody x) 0) 999999999) = nw at hn hnlt ⊢
-  rcases Int.lt_or_le (toInt (lnWadToRayBody x)) 0 with hneg | hpos
+  rcases Int.lt_or_le (int256 (lnWadToRayBody x)) 0 with hneg | hpos
   · rw [if_pos hneg] at hn
-    have hnum : toInt nw < 0 := by omega
+    have hnum : int256 nw < 0 := by omega
     rw [evmSdiv_neg_pos hnlt hdlt hnum (by simp only [ipow255]; omega)
       (by rw [hden]; omega), hden, hdenN]
-    have hwnd := floor_div_neg_window (a := toInt (lnWadToRayBody x)) hneg
-    have hmag : (-toInt nw).toNat = (-toInt (lnWadToRayBody x)).toNat + 999999999 := by
+    have hwnd := floor_div_neg_window (a := int256 (lnWadToRayBody x)) hneg
+    have hmag : (-int256 nw).toNat = (-int256 (lnWadToRayBody x)).toNat + 999999999 := by
       apply Int.ofNat.inj
-      change ((-toInt nw).toNat : Int) =
-        (((-toInt (lnWadToRayBody x)).toNat + 999999999 : Nat) : Int)
-      rw [Int.toNat_of_nonneg (by omega : 0 ≤ -toInt nw), Int.natCast_add,
-        Int.toNat_of_nonneg (by omega : 0 ≤ -toInt (lnWadToRayBody x))]
+      change ((-int256 nw).toNat : Int) =
+        (((-int256 (lnWadToRayBody x)).toNat + 999999999 : Nat) : Int)
+      rw [Int.toNat_of_nonneg (by omega : 0 ≤ -int256 nw), Int.natCast_add,
+        Int.toNat_of_nonneg (by omega : 0 ≤ -int256 (lnWadToRayBody x))]
       omega
     rw [hmag]
     exact hwnd
   · rw [if_neg (by omega)] at hn
-    have hnum : 0 ≤ toInt nw := by omega
+    have hnum : 0 ≤ int256 nw := by omega
     rw [evmSdiv_pos_pos hnlt hdlt hnum (by rw [hden]; omega), hden, hdenN]
-    have hwnd := floor_div_pos_window (a := toInt (lnWadToRayBody x)) hpos
-    have hn0 : toInt nw = toInt (lnWadToRayBody x) := by omega
+    have hwnd := floor_div_pos_window (a := int256 (lnWadToRayBody x)) hpos
+    have hn0 : int256 nw = int256 (lnWadToRayBody x) := by omega
     rw [hn0]
     exact hwnd
 
 /-- Signed floor division by `10^9` (as the helper computes it) is monotone. -/
 theorem floordiv_mono {r r' : Nat} (hr : r < 2 ^ 256) (hr' : r' < 2 ^ 256)
-    (hb1 : -(12259964326927110866866776217202473468949912977468817408 : Int) ≤ toInt r)
-    (hb2 : toInt r ≤ (12259964326927110866866776217202473468949912977468817409 : Int))
-    (hb1' : -(12259964326927110866866776217202473468949912977468817408 : Int) ≤ toInt r')
-    (hb2' : toInt r' ≤ (12259964326927110866866776217202473468949912977468817409 : Int))
-    (hle : toInt r ≤ toInt r') :
-    toInt (evmSdiv (evmSub r (evmMul (evmSlt r 0) 999999999)) 1000000000) ≤
-      toInt (evmSdiv (evmSub r' (evmMul (evmSlt r' 0) 999999999)) 1000000000) := by
-  have hden : toInt 1000000000 = (1000000000 : Int) := by decide
+    (hb1 : -(12259964326927110866866776217202473468949912977468817408 : Int) ≤ int256 r)
+    (hb2 : int256 r ≤ (12259964326927110866866776217202473468949912977468817409 : Int))
+    (hb1' : -(12259964326927110866866776217202473468949912977468817408 : Int) ≤ int256 r')
+    (hb2' : int256 r' ≤ (12259964326927110866866776217202473468949912977468817409 : Int))
+    (hle : int256 r ≤ int256 r') :
+    int256 (evmSdiv (evmSub r (evmMul (evmSlt r 0) 999999999)) 1000000000) ≤
+      int256 (evmSdiv (evmSub r' (evmMul (evmSlt r' 0) 999999999)) 1000000000) := by
+  have hden : int256 1000000000 = (1000000000 : Int) := by decide
   have hdenN : ((1000000000 : Int)).toNat = 1000000000 := by decide
   have hdlt : (1000000000 : Nat) < 2 ^ 256 := by omega
   have e1 := to_wad_numerator_eq hr hb1 hb2
   have e1' := to_wad_numerator_eq hr' hb1' hb2'
   have hnlt : evmSub r (evmMul (evmSlt r 0) 999999999) < 2 ^ 256 := evmSub_lt _ _
   have hnlt' : evmSub r' (evmMul (evmSlt r' 0) 999999999) < 2 ^ 256 := evmSub_lt _ _
-  have hdpos : (0 : Int) < toInt 1000000000 := by rw [hden]; omega
+  have hdpos : (0 : Int) < int256 1000000000 := by rw [hden]; omega
   generalize evmSub r (evmMul (evmSlt r 0) 999999999) = nw at e1 hnlt ⊢
   generalize evmSub r' (evmMul (evmSlt r' 0) 999999999) = nw' at e1' hnlt' ⊢
-  rcases Int.lt_or_le (toInt r) 0 with hneg | hpos
+  rcases Int.lt_or_le (int256 r) 0 with hneg | hpos
   · rw [if_pos hneg] at e1
-    have hnum : toInt nw < 0 := by omega
+    have hnum : int256 nw < 0 := by omega
     rw [evmSdiv_neg_pos hnlt hdlt hnum (by simp only [ipow255]; omega) hdpos, e1, hden,
       hdenN]
-    rcases Int.lt_or_le (toInt r') 0 with hneg' | hpos'
+    rcases Int.lt_or_le (int256 r') 0 with hneg' | hpos'
     · rw [if_pos hneg'] at e1'
-      have hnum' : toInt nw' < 0 := by omega
+      have hnum' : int256 nw' < 0 := by omega
       rw [evmSdiv_neg_pos hnlt' hdlt hnum' (by simp only [ipow255]; omega) hdpos, e1',
         hden, hdenN]
       omega
     · rw [if_neg (by omega)] at e1'
-      have hnum' : (0 : Int) ≤ toInt nw' := by omega
+      have hnum' : (0 : Int) ≤ int256 nw' := by omega
       rw [evmSdiv_pos_pos hnlt' hdlt hnum' hdpos, e1', hden, hdenN]
       omega
   · rw [if_neg (by omega)] at e1
     rw [if_neg (by omega)] at e1'
-    have hnum : (0 : Int) ≤ toInt nw := by omega
-    have hnum' : (0 : Int) ≤ toInt nw' := by omega
+    have hnum : (0 : Int) ≤ int256 nw := by omega
+    have hnum' : (0 : Int) ≤ int256 nw' := by omega
     rw [evmSdiv_pos_pos hnlt hdlt hnum hdpos,
       evmSdiv_pos_pos hnlt' hdlt hnum' hdpos, e1, e1', hden, hdenN]
     omega

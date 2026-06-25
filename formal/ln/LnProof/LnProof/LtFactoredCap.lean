@@ -1,5 +1,8 @@
 import LnProof.FactoredCap
 
+open FormalYul
+open FormalYul.Preservation
+
 /-!
 # Factored-octave cap primitive for the LT branch (capUB / error-bound direction)
 
@@ -19,7 +22,7 @@ set_option maxRecDepth 100000
 /-- Degree-22 curved upper cap for the LT x1/H part, transported along the floor
 bracket `(−X1)·ltTD ≤ ltTN·2^99`.  capUB analog of `ge_x1_cap_d22`. -/
 theorem lt_x1_cap_d22 {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
-    capUB ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
+    capUB ((-int256 (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       (expNum 22 (evalPoly ltTN (m : Int)).toNat (evalPoly ltTD (m : Int)).toNat *
           (23 * (evalPoly ltTD (m : Int)).toNat) +
         2 * (evalPoly ltTN (m : Int)).toNat ^ 23)
@@ -34,10 +37,10 @@ theorem lt_x1_cap_d22 {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   have hHc : 2 * evalPoly ltTN (m : Int) ≤ 24 * evalPoly ltTD (m : Int) := by
     have h := ltH_nonneg hw1 hw2; rw [evalCertLtH] at h; omega
   have hbr := bracket_lt_up h1 h2
-  have hH : 0 ≤ -toInt (x1W (zWord m)) := by have := x1_nonpos_lt h1 h2; omega
+  have hH : 0 ≤ -int256 (x1W (zWord m)) := by have := x1_nonpos_lt h1 h2; omega
   generalize hTNe : evalPoly ltTN (m : Int) = TN at hbr hTN hHc ⊢
   generalize hTDe : evalPoly ltTD (m : Int) = TD at hbr hTD hHc ⊢
-  generalize hHe : -toInt (x1W (zWord m)) = H at hbr hH ⊢
+  generalize hHe : -int256 (x1W (zWord m)) = H at hbr hH ⊢
   have hTDnat : 0 < TD.toNat := by rw [Int.lt_toNat]; simpa using hTD
   have etn : ((TN.toNat : Nat) : Int) = TN := Int.toNat_of_nonneg hTN
   have etd : ((TD.toNat : Nat) : Int) = TD := Int.toNat_of_nonneg (Int.le_of_lt hTD)
@@ -166,7 +169,7 @@ theorem lt_pos_cut_reduced {m c x : Nat} {r : Int}
     have hsc : Sc < MHI := by unfold Sc MHI; decide
     omega
   have hX := x1_nonpos_ltF h1 hmlt
-  have hV0 : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c + lnBiasI := by
+  have hV0 : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c + lnBiasI := by
     simpa [posAccI] using posAccI_nonneg h1 hmhi hc
   have hneg_le := posNegXNat_le_posConstNat hX (by omega : c ≤ 160) hV0
   have hphase : posPhaseNatLt m c ≤ lnErrArg r :=

@@ -1,6 +1,9 @@
 import Mathlib.Tactic
 import LnProof.OctaveMono
 
+open FormalYul
+open FormalYul.Preservation
+
 /-!
 # Monotonicity certificates for the `lnWadToRay` Yul body
 
