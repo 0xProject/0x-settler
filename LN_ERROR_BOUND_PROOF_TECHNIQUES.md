@@ -3227,3 +3227,40 @@ Two-subagent investigation + trusted-Lean-model (`accOf`=pre-floor r_4, bracket 
 **Lowest feasibly-proven bound:** B_min = W_true(M_min_prov) + box_loss. With M_min_prov ≈ 0.3376–0.3387 ⇒ W_true ≈ 1.6858–1.6869; box_loss (LT upper-bracket, error-bound) = 0.00937 ulp per-m at the under-est worst, ≈0.0142 ulp as a wide-cell cover max. So **B_min ≈ 1.696 (per-m best) to 1.700 (cell)**. Barely below the deployed/proven 1.7035.
 
 **CONCLUSION:** lowering the bias margin does NOT meaningfully help. The never-overshoot bracket slop (~0.009 ulp) nearly equals the over-estimate headroom (~0.010 ulp), so the provable margin can't drop more than ~0.001; and even at the true minimum margin (0.3286, NOT provable with the current never-overshoot bracket) the floor is W_true 1.6768 + box_loss 0.0142 = ~1.691. The absolute lowest feasibly-proven error bound at any provable margin ≈ **1.696–1.700 ulp**; the deployed 1.7035 is within ~0.004 of it. To go materially lower (~1.69) one would need BOTH a tighter never-overshoot bracket (to make M_min_true provable) AND the error-bound cell route — and even then only ~1.691.
+
+---
+
+## RESULT (2026-06-25): proven bound lowered to **1.6986 ulp** (commit 02f249d6)
+
+The "B_min ≈ 1.696–1.700, can't go materially lower" conclusion above was based
+on a uniform-bracket worst-case. The error-bound **cell route** (curved capUB
+`x1W` envelope + c-independent octave collapse) plus a small bias raise beats it:
+the published bound is now **< 1.6986 ulp**, axiom-clean
+(`model_ln_wad_error_bound_1_6986`, [propext, Classical.choice, Quot.sound]),
+full build green.
+
+**What worked (vs. the pessimistic estimate):** the never-overshoot bracket slop
+does NOT block a ~0.0004-ulp bias raise, because the binding never-overshoot
+certificate (LT, `certLtUp`) tolerates a margin floor of `EUN=3382` (it fails at
+3381). So the bias rises 4 slop-units (margin 0.33866→0.33830), and the
+error-bound cell covers — regenerated at the higher bias (larger `BIASCAPNUM`) —
+re-certify the tighter bound with a comfortable cell count (errLt 18, errGe 15).
+
+**Key correctness lesson — never-overshoot vs. not-too-low certs:** raising the
+bias *tightens* never-overshoot but *relaxes* the undershoot bound, so the two
+directions need different margin floors. The +form certs (`EUD+EUN`: certGeUp,
+certLtUp) are the **never-overshoot** side (capUB on `r`, used by `up_*`); the
+−form certs (`EUD−EUN`: certGeLo, certLtLo) are the **not-too-low** side (capLB
+on `r`, used by `lo_*`/`an_*`/`bn_*`). Split the floor into `EUN=3382` (+form,
+lowered) and `EUNl=3385` (−form, unchanged). The `lo`/`up` lemma names and the
+`certXxLo`/`certXxUp` cert names do NOT line up with the direction in the obvious
+way — `certLtUp` is never-overshoot, `certLtLo` is not-too-low; verify against
+the `x1capLt{Up,Lo}F` usage in FloorAssembly, not the name.
+
+**Provable margin floor:** `μ_min = EUN_no + 1 = 3383` (the budgetU gap forces
+capBU ≥ EUN_no+1). So margin ≥ 0.3383; the deployed margin sits at 0.338302
+(capBU=3383, capBL=3384). Going below needs EUN_no=3381, which `certLtUp` rejects.
+
+**Reproducibility:** the error-bound cert literals + covers are now CI-generated
+(GenErrLit, a Lean #eval computing BIASCAPNUM/errW/certs from the committed
+inputs); `errLtW`/`errGeW` are formula definitions, not tracked literals.
