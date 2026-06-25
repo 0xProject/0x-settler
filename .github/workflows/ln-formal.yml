@@ -69,6 +69,12 @@ jobs:
       - name: Generate certificate coefficient literals
         run: python3 -W error formal/python/ln/gen_cert_literals.py
 
+      - name: Generate error-bound cert literals and cell covers
+        working-directory: formal/ln/LnProof
+        run: |
+          lake build LnProof.ErrorBoundCore
+          lake env lean GenErrLit.lean
+
       - name: Build Ln proof and model evaluator
         working-directory: formal/ln/LnProof
         run: lake build && lake build ln-model

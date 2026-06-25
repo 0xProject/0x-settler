@@ -10,3 +10,12 @@
 # Auto-generated; rebuild with:
 #   python3 formal/python/ln/gen_cert_literals.py
 /LnProof/FloorCertLit.lean
+
+# Auto-generated error-bound cert literals + cell covers; rebuild with:
+#   lake build LnProof.ErrorBoundCore && lake env lean GenErrLit.lean
+/LnProof/ErrCertLtLit.lean
+/LnProof/ErrCertGeLit.lean
+/LnProof/ErrCertLt.lean
+/LnProof/ErrCertGe.lean
+/LnProof/ErrCertLtC*.lean
+/LnProof/ErrCertGeC*.lean

@@ -11,10 +11,14 @@ open LnPoly LnFloorCert LnExp LnFloor LnGeneratedModel
 
 namespace GenErrLit
 
-def errLtK : Int := 63382530011411470074835160268800000001014120480182583521197362564300800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-def errGeK : Int := 63382530011411470074835160268800000001014120480182583521197362564300800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-def errLtW : Nat := 3550864962631813931471340474605602525086155208949182483393131823026194872971536101998892269735065570843009162547284327412750539715096996420696892912576537978470400000000000000000000000000000000000000000000000000000000000000000
-def errGeW : Nat := 3550864962631813931471340474582576916379914473087859055802254161455235801988744087918340449892173785220415643810587383485229574106090956592771097999224589015530340352000000000000000000000000000000000000000000000000000000000000
+-- All derived from the committed inputs (BIASc in the model, boundNum in
+-- ErrorBoundCert), so regenerating tracks any change to those automatically.
+def biasCapNum : Nat :=
+  (LnExp.expNum 130 (BIASc * 2 ^ 27) QS * (10 ^ 18 * 10 ^ 42)) / (LnExp.fact 130 * QS ^ 130)
+def errLtK : Int := (10 ^ 31 * (10 ^ 18 * 10 ^ 42) * lnErrQ * (10 ^ 40 + 160) : Nat)
+def errGeK : Int := errLtK
+def errLtW : Nat := biasCapNum * (lnErrQ + minPosAvail) * wadRayStrictDen * 10 ^ 40
+def errGeW : Nat := biasCapNum * (lnErrQ + (692115493 * 2 ^ 99 + 2 ^ 27 * 10 ^ 9)) * wadRayStrictDen * 10 ^ 40
 
 def cLt : List Int :=
   polyAdd (polyScale ((errLtW : Int) * (fact 23 : Int)) (polyPow ltTDLit 23))
@@ -52,28 +56,32 @@ partial def walk (C : List Int) (lo hi : Int) : Bool × List (Int × Int) :=
 
 def pad2 (i : Nat) : String := (if i < 10 then "0" else "") ++ toString i
 
-def emit (litFile litName modPrefix cellPrefix nonnegName : String) (C : List Int) (lo hi : Int) : IO Unit := do
+/-- Walk `[lo,hi]`, write one cell file per sub-cell, and write the complete
+cover module `coverMod` (cell imports + the literal-signature `nonnegName`
+ladder). The error covers carry no hand-written content, so they are fully
+generated. -/
+def emit (litFile litName coverMod modPrefix cellPrefix nonnegName : String) (C : List Int) (lo hi : Int) : IO Unit := do
   let (ok, cells) := walk C lo hi
-  IO.println s!"-- {nonnegName}: reached={ok} ncells={cells.length}"
+  IO.println s!"-- {coverMod}: reached={ok} ncells={cells.length}"
   if ! ok then IO.println s!"-- FAILED tail: {cells.drop (cells.length-2)}"; return
   for (aw, i) in cells.zipIdx do
     let (a, w) := aw
     IO.FS.writeFile s!"LnProof/{modPrefix}{pad2 i}.lean"
       s!"import LnProof.{litFile}\nimport LnProof.KroneckerShift\n\nnamespace LnFloorCert\nopen LnPoly\n\nset_option maxRecDepth 100000\n\ntheorem {cellPrefix}{pad2 i} : checkCoverK kB {litName} {a} {a + w}\n    [{w}] = true := by\n  decide +kernel\n\nend LnFloorCert\n"
-  IO.println "==== IMPORTS ===="
-  for (_, i) in cells.zipIdx do IO.println s!"import LnProof.{modPrefix}{pad2 i}"
-  IO.println "==== LADDER ===="
   let lb := "{"; let rb := "}"
-  IO.println s!"theorem {nonnegName} {lb}m : Int{rb} (h1 : {lo} ≤ m) (h2 : m ≤ {hi}) :"
-  IO.println s!"    0 ≤ evalPoly {litName} m := by"
+  let mut s := ""
+  for (_, i) in cells.zipIdx do s := s ++ s!"import LnProof.{modPrefix}{pad2 i}\n"
+  s := s ++ s!"\nnamespace LnFloorCert\nopen LnPoly\n\nset_option maxRecDepth 100000\n\n"
+  s := s ++ s!"theorem {nonnegName} {lb}m : Int{rb} (h1 : {lo} ≤ m) (h2 : m ≤ {hi}) :\n    0 ≤ evalPoly {litName} m := by\n"
   let n := cells.length
   for (aw, i) in cells.zipIdx do
     let (a, w) := aw
     if i + 1 < n then
-      IO.println s!"  rcases Int.lt_or_le m ({a + w} + 1) with h | h"
-      IO.println s!"  · exact checkCoverK_sound _ _ _ _ _ {cellPrefix}{pad2 i} m (by omega) (by omega)"
+      s := s ++ s!"  rcases Int.lt_or_le m ({a + w} + 1) with h | h\n  · exact checkCoverK_sound _ _ _ _ _ {cellPrefix}{pad2 i} m (by omega) (by omega)\n"
     else
-      IO.println s!"  exact checkCoverK_sound _ _ _ _ _ {cellPrefix}{pad2 i} m (by omega) h2"
+      s := s ++ s!"  exact checkCoverK_sound _ _ _ _ _ {cellPrefix}{pad2 i} m (by omega) h2\n"
+  s := s ++ "\nend LnFloorCert\n"
+  IO.FS.writeFile s!"LnProof/{coverMod}.lean" s
 
 def litText (name : String) (c : List Int) : String :=
   "namespace LnFloorCert\n\ndef " ++ name ++ " : List Int := [\n  " ++
@@ -90,5 +98,5 @@ def hiGE : Int := 79228162514264337593543950335
   IO.FS.writeFile "LnProof/ErrCertLtLit.lean" (litText "certErrLtLit" (ptrim cLt))
   IO.FS.writeFile "LnProof/ErrCertGeLit.lean" (litText "certErrGeLit" (ptrim cGe))
   IO.println "literals written"
-  emit "ErrCertLtLit" "certErrLtLit" "ErrCertLtC" "errLt_cell" "errLt_nonneg" (ptrim cLt) loLT hiLT
-  emit "ErrCertGeLit" "certErrGeLit" "ErrCertGeC" "errGe_cell" "errGe_nonneg" (ptrim cGe) loGE hiGE
+  emit "ErrCertLtLit" "certErrLtLit" "ErrCertLt" "ErrCertLtC" "errLt_cell" "errLt_nonneg" (ptrim cLt) loLT hiLT
+  emit "ErrCertGeLit" "certErrGeLit" "ErrCertGe" "ErrCertGeC" "errGe_cell" "errGe_nonneg" (ptrim cGe) loGE hiGE
