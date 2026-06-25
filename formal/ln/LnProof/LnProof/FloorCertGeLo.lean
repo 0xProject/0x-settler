@@ -15,6 +15,8 @@ import LnProof.FloorCertGeLoC10
 import LnProof.FloorCertGeLoC11
 import LnProof.FloorCertGeLoC12
 import LnProof.FloorCertGeLoC13
+import LnProof.FloorCertGeLoC14
+import LnProof.FloorCertGeLoC15
 
 namespace LnFloorCert
 open LnGeneratedModel LnPoly
@@ -39,27 +41,27 @@ theorem geLo_eval_eq : ∀ x : Int, evalPoly certGeLo x = evalPoly certGeLoLit x
     show polyL1 certGeLo * 2 < 2 ^ kB
     have h1 := polyL1_polyAdd
       (polyScale (EUD * (Sc : Int)) (expPolyNum geTN2bLit geTD2bLit 22))
-      (polyScale (-(EUD - EUN) * KF) (polyMul [0, 1] (polyPow geTD2bLit 22)))
+      (polyScale (-(EUD - EUNl) * KF) (polyMul [0, 1] (polyPow geTD2bLit 22)))
     have h2 := polyL1_polyScale (EUD * (Sc : Int)) (expPolyNum geTN2bLit geTD2bLit 22)
     have h3 := polyL1_expPolyNum geTN2bLit geTD2bLit 22
     have h7 : (EUD * (Sc : Int)).natAbs * polyL1 (expPolyNum geTN2bLit geTD2bLit 22) ≤
         (EUD * (Sc : Int)).natAbs *
           LnExp.expNum 22 (polyL1 geTN2bLit) (polyL1 geTD2bLit) :=
       Nat.mul_le_mul_left _ h3
-    have h4 := polyL1_polyScale (-(EUD - EUN) * KF) (polyMul [0, 1] (polyPow geTD2bLit 22))
+    have h4 := polyL1_polyScale (-(EUD - EUNl) * KF) (polyMul [0, 1] (polyPow geTD2bLit 22))
     have h5 := polyL1_polyMul ([0, 1] : List Int) (polyPow geTD2bLit 22)
     have h6 := polyL1_polyPow geTD2bLit 22
     have h8 : polyL1 ([0, 1] : List Int) * polyL1 (polyPow geTD2bLit 22) ≤
         polyL1 ([0, 1] : List Int) * polyL1 geTD2bLit ^ 22 :=
       Nat.mul_le_mul_left _ h6
-    have h9 : (-(EUD - EUN) * KF).natAbs * polyL1 (polyMul ([0, 1] : List Int)
+    have h9 : (-(EUD - EUNl) * KF).natAbs * polyL1 (polyMul ([0, 1] : List Int)
         (polyPow geTD2bLit 22)) ≤
-        (-(EUD - EUN) * KF).natAbs *
+        (-(EUD - EUNl) * KF).natAbs *
           (polyL1 ([0, 1] : List Int) * polyL1 geTD2bLit ^ 22) :=
       Nat.mul_le_mul_left _ (Nat.le_trans h5 h8)
     have hfin : ((EUD * (Sc : Int)).natAbs *
         LnExp.expNum 22 (polyL1 geTN2bLit) (polyL1 geTD2bLit) +
-        (-(EUD - EUN) * KF).natAbs *
+        (-(EUD - EUNl) * KF).natAbs *
           (polyL1 ([0, 1] : List Int) * polyL1 geTD2bLit ^ 22)) * 2 < 2 ^ kB := by
       decide +kernel
     have hA := Nat.le_trans h2 h7
@@ -79,31 +81,36 @@ theorem geLo_nonneg {m : Int} (h1 : 56022770974786139918731938273 ≤ m) (h2 : m
     0 ≤ evalPoly certGeLo m := by
   have hev := geLo_eval_eq m
   rw [hev]
-  rcases Int.lt_or_le m (62248863508307989581262617183 + 1) with h | h
+  rcases Int.lt_or_le m (62244752178564837341413711044 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell00 m (by omega) (by omega)
-  rcases Int.lt_or_le m (63042232383408656869457414737 + 1) with h | h
+  rcases Int.lt_or_le m (63021047966864144477302463709 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell01 m (by omega) (by omega)
-  rcases Int.lt_or_le m (64929052012891719377728977367 + 1) with h | h
+  rcases Int.lt_or_le m (63732504204331280578284050406 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell02 m (by omega) (by omega)
-  rcases Int.lt_or_le m (68717504609657537844941640470 + 1) with h | h
+  rcases Int.lt_or_le m (68555078677578616072739796057 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell03 m (by omega) (by omega)
-  rcases Int.lt_or_le m (69233132140651152842861403916 + 1) with h | h
+  rcases Int.lt_or_le m (69188950000471302436179690222 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell04 m (by omega) (by omega)
-  rcases Int.lt_or_le m (69643680272268497720544738509 + 1) with h | h
+  rcases Int.lt_or_le m (69421653762451729097000721095 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell05 m (by omega) (by omega)
-  rcases Int.lt_or_le m (73761687789119228727691347873 + 1) with h | h
+  rcases Int.lt_or_le m (73730556485602365085160742340 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell06 m (by omega) (by omega)
-  rcases Int.lt_or_le m (74347359659513480232328600324 + 1) with h | h
+  rcases Int.lt_or_le m (74329863996105955191718353701 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell07 m (by omega) (by omega)
-  rcases Int.lt_or_le m (74497159690857676763262189492 + 1) with h | h
+  rcases Int.lt_or_le m (74464216934146832631101548902 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell08 m (by omega) (by omega)
-  rcases Int.lt_or_le m (77437517811705333581000648120 + 1) with h | h
+  rcases Int.lt_or_le m (74624338318165849272995850728 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell09 m (by omega) (by omega)
-  rcases Int.lt_or_le m (77857333859755213679737086192 + 1) with h | h
+  rcases Int.lt_or_le m (77449142725659361688692863981 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell10 m (by omega) (by omega)
-  rcases Int.lt_or_le m (77947664376793543259244624794 + 1) with h | h
+  rcases Int.lt_or_le m (77854395661672196008615607277 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell11 m (by omega) (by omega)
-  rcases Int.lt_or_le m (78001071025949577278638182916 + 1) with h | h
+  rcases Int.lt_or_le m (77938896631029212070537782373 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geLo_cell12 m (by omega) (by omega)
-  exact checkCoverK_sound _ _ _ _ _ geLo_cell13 m (by omega) h2
+  rcases Int.lt_or_le m (77976060836007440768847374767 + 1) with h | h
+  · exact checkCoverK_sound _ _ _ _ _ geLo_cell13 m (by omega) (by omega)
+  rcases Int.lt_or_le m (78012383942778533660629771928 + 1) with h | h
+  · exact checkCoverK_sound _ _ _ _ _ geLo_cell14 m (by omega) (by omega)
+  exact checkCoverK_sound _ _ _ _ _ geLo_cell15 m (by omega) h2
+
 end LnFloorCert

@@ -25,7 +25,7 @@ S = _S
 K = 22
 KF = math.factorial(K)
 KF1 = math.factorial(K + 1)
-EUN, EUD = 3401, 10**31
+EUN, EUNl, EUD = 3382, 3385, 10**31
 
 PPc: list[int] = [_C0 * 2**358, -_P1 * 2**271, _P2 * 2**174, -_P3 * 2**84, _P4]
 QQc: list[int] = [-_C0 * 2**386, _Q1 * 2**291, -_Q2 * 2**203, _Q3 * 2**113, -_Q4, 1]
@@ -121,7 +121,7 @@ certs["certGeUpLit"] = padd(
 EPN2_ge = exp_poly_num(GE["TN2b"], GE["TD2b"], K)
 certs["certGeLoLit"] = padd(
     pscale(EUD * S, EPN2_ge),
-    pscale(-(EUD - EUN) * KF, pmul([0, 1], ppow(GE["TD2b"], K))),
+    pscale(-(EUD - EUNl) * KF, pmul([0, 1], ppow(GE["TD2b"], K))),
 )
 EPNlt_w = exp_poly_num(LT["TN2b"], LT["TD2b"], K)
 certs["certLtUpLit"] = padd(
@@ -132,7 +132,7 @@ EPNlt_t = exp_poly_num(LT["TN"], LT["TD"], K)
 certs["certLtLoLit"] = padd(
     pscale(S * EUD * KF1, ppow(LT["TD"], K + 1)),
     pscale(
-        -(EUD - EUN),
+        -(EUD - EUNl),
         pmul(
             [0, 1],
             padd(

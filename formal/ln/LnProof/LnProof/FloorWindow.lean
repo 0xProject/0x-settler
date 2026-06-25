@@ -32,8 +32,8 @@ def wCheckGe (i : Nat) : Bool :=
       1000000000000000000000000000) QS * (23 * QS) +
       2 * ((toInt (x1W (zWord (Sc + i)))).toNat * 1000000000000000000000000000) ^ 23) *
       560227709747861399187319382270000000000000000000000000000000 ≤
-    (Sc + i) * 10000000000000000000000000003401 * (fact 23 * QS ^ 23)) &&
-  decide ((Sc + i) * 9999999999999999999999999996599 * (fact 22 * QS ^ 22) ≤
+    (Sc + i) * 10000000000000000000000000003382 * (fact 23 * QS ^ 23)) &&
+  decide ((Sc + i) * 9999999999999999999999999996615 * (fact 22 * QS ^ 22) ≤
     expNum 22 ((toInt (x1W (zWord (Sc + i)))).toNat * 1000000000000000000000000000) QS *
       560227709747861399187319382270000000000000000000000000000000)
 
@@ -46,14 +46,14 @@ def wCheckLt (i : Nat) : Bool :=
       1000000000000000000000000000) QS * (23 * QS) +
       2 * ((-toInt (x1W (zWord (Sc - 45 + i)))).toNat *
         1000000000000000000000000000) ^ 23) *
-      ((Sc - 45 + i) * 9999999999999999999999999996599) ≤
+      ((Sc - 45 + i) * 9999999999999999999999999996615) ≤
     560227709747861399187319382270000000000000000000000000000000 *
       (fact 23 * QS ^ 23)) &&
   decide (560227709747861399187319382270000000000000000000000000000000 *
       (fact 22 * QS ^ 22) ≤
     expNum 22 ((-toInt (x1W (zWord (Sc - 45 + i)))).toNat *
       1000000000000000000000000000) QS *
-      ((Sc - 45 + i) * 10000000000000000000000000003401))
+      ((Sc - 45 + i) * 10000000000000000000000000003382))
 
 theorem wCheckGe_all : (List.range 46).all wCheckGe = true := by
   decide +kernel
@@ -64,10 +64,10 @@ theorem wCheckLt_all : (List.range 45).all wCheckLt = true := by
 theorem wGe_facts {m : Nat} (h1 : Sc ≤ m) (h2 : m ≤ Sc + 45) :
     0 ≤ toInt (x1W (zWord m)) ∧
     capUB ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
-      (m * 10000000000000000000000000003401)
+      (m * 10000000000000000000000000003382)
       560227709747861399187319382270000000000000000000000000000000 ∧
     capLB ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
-      (m * 9999999999999999999999999996599)
+      (m * 9999999999999999999999999996615)
       560227709747861399187319382270000000000000000000000000000000 := by
   have hi := List.all_eq_true.mp wCheckGe_all (m - Sc) (List.mem_range.mpr (by omega))
   simp only [wCheckGe, Bool.and_eq_true, decide_eq_true_eq] at hi
@@ -80,10 +80,10 @@ theorem wLt_facts {m : Nat} (h1 : Sc - 45 ≤ m) (h2 : m < Sc) :
     toInt (x1W (zWord m)) ≤ 0 ∧
     capLB ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       560227709747861399187319382270000000000000000000000000000000
-      (m * 10000000000000000000000000003401) ∧
+      (m * 10000000000000000000000000003382) ∧
     capUB ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       560227709747861399187319382270000000000000000000000000000000
-      (m * 9999999999999999999999999996599) := by
+      (m * 9999999999999999999999999996615) := by
   have hi := List.all_eq_true.mp wCheckLt_all (m - (Sc - 45))
     (List.mem_range.mpr (by simp only [Sc] at h1 h2 ⊢; omega))
   simp only [wCheckLt, Bool.and_eq_true, decide_eq_true_eq] at hi
@@ -108,7 +108,7 @@ theorem x1_nonpos_ltF {m : Nat} (h1 : MLO ≤ m) (h2 : m < Sc) :
 
 theorem x1capGeUpF {m : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) :
     capUB ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
-      (m * 10000000000000000000000000003401)
+      (m * 10000000000000000000000000003382)
       560227709747861399187319382270000000000000000000000000000000 := by
   rcases Nat.lt_or_ge m (Sc + 46) with hw | ho
   · exact (wGe_facts h1 (by omega)).2.1
@@ -121,7 +121,7 @@ theorem x1capGeUpF {m : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) :
 
 theorem x1capGeLoF {m : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) :
     capLB ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
-      (m * 9999999999999999999999999996599)
+      (m * 9999999999999999999999999996615)
       560227709747861399187319382270000000000000000000000000000000 := by
   rcases Nat.lt_or_ge m (Sc + 46) with hw | ho
   · exact (wGe_facts h1 (by omega)).2.2
@@ -135,7 +135,7 @@ theorem x1capGeLoF {m : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) :
 theorem x1capLtUpF {m : Nat} (h1 : MLO ≤ m) (h2 : m < Sc) :
     capLB ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       560227709747861399187319382270000000000000000000000000000000
-      (m * 10000000000000000000000000003401) := by
+      (m * 10000000000000000000000000003382) := by
   rcases Nat.lt_or_ge m (Sc - 45) with ho | hw
   · have hup := ltUp_nonneg (m := (m : Int))
       (by simp only [MLO] at h1; omega) (by simp only [Sc] at ho ⊢; omega)
@@ -148,7 +148,7 @@ theorem x1capLtUpF {m : Nat} (h1 : MLO ≤ m) (h2 : m < Sc) :
 theorem x1capLtLoF {m : Nat} (h1 : MLO ≤ m) (h2 : m < Sc) :
     capUB ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       560227709747861399187319382270000000000000000000000000000000
-      (m * 9999999999999999999999999996599) := by
+      (m * 9999999999999999999999999996615) := by
   rcases Nat.lt_or_ge m (Sc - 45) with ho | hw
   · have hlo := ltLo_nonneg (m := (m : Int))
       (by simp only [MLO] at h1; omega) (by simp only [Sc] at ho ⊢; omega)
