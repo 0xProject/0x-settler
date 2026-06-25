@@ -8,16 +8,20 @@ fails if a proof starts depending on anything beyond Lean's standard `propext`,
 `Classical.choice`, `Quot.sound` (in particular, a stray `sorry` introduces
 `sorryAx` and breaks this gate).
 
-`lnWadToRayRuntimeCorrect` is unconditional: for every 256-bit input the
-compiled `lnWadToRay` runtime is correct against the `Real.log` fixed-point
-spec, with no `CutCorrect` hypothesis. The `lnWadRuntimeCorrect_of_cutCorrect`
-theorem remains conditional on the `CutCorrect` hypothesis for the wad path; its
-pin asserts only its axiom dependency set, not unconditional correctness.
+`lnWadToRayRuntimeCorrect` and `lnWadRuntimeCorrect` are both unconditional: for
+every 256-bit input the compiled `lnWadToRay`/`lnWad` runtimes are correct
+against the `Real.log` fixed-point spec, with no `CutCorrect` hypothesis. The
+`*_of_cutCorrect` theorems are the conditional building blocks; their pins assert
+only their axiom dependency sets.
 -/
 
 /-- info: 'LnYul.lnWadToRayRuntimeCorrect' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms LnYul.lnWadToRayRuntimeCorrect
+
+/-- info: 'LnYul.lnWadRuntimeCorrect' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms LnYul.lnWadRuntimeCorrect
 
 /-- info: 'LnYul.lnWadToRayRuntimeCorrect_of_cutCorrect' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

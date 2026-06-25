@@ -141,6 +141,34 @@ theorem lnWadToRayRuntimeCorrect (x : Nat) (hx : x < 2 ^ 256) :
     LnWadToRayRuntimeCorrect x :=
   lnWadToRayRuntimeCorrect_of_cutCorrect (lnWadToRayRuntimeCutCorrect_holds x hx)
 
+/-- The compiled `lnWad` runtime satisfies the explicit cut spec (ray + wad
+brackets) for every 256-bit input, using both the ray and wad runtime
+equalities. -/
+theorem lnWadRuntimeCutCorrect_holds (x : Nat) (hx : x < 2 ^ 256) :
+    LnWadRuntimeCutCorrect x := by
+  intro hxSigned
+  obtain ⟨hpos, hpos2⟩ := u256_pos_bounds hxSigned
+  have hux : u256 x = x := u256_eq_of_lt x (by simpa [WORD_MOD] using hx)
+  have hrunRay := run_ln_wad_to_ray_evm_eq_body x hpos hpos2
+  have hrunWad := run_ln_wad_evm_eq_body x hpos hpos2
+  rw [hux] at hpos hpos2 hrunRay hrunWad
+  refine ⟨int256 (lnWadToRayBody x), int256 (lnWadBody x), ?_, ?_, ?_⟩
+  · rw [runLnWadToRaySigned_ok_iff]
+    refine ⟨lnWadToRayBody x, hrunRay, ?_⟩
+    show int256 (u256 (lnWadToRayBody x)) = int256 (lnWadToRayBody x)
+    rw [u256_eq_of_lt _ (by simpa [WORD_MOD] using lnWadToRayBody_lt hx)]
+  · rw [runLnWadSigned_ok_iff]
+    refine ⟨lnWadBody x, hrunWad, ?_⟩
+    show int256 (u256 (lnWadBody x)) = int256 (lnWadBody x)
+    rw [u256_eq_of_lt _ (by simpa [WORD_MOD] using to_wad_lt hx)]
+  · exact LnFloorCert.lnWadBody_cut_spec hpos hpos2
+
+/-- C1 discharged unconditionally for `lnWad`: the compiled runtime is correct
+against the `Real.log` fixed-point spec for every 256-bit input. -/
+theorem lnWadRuntimeCorrect (x : Nat) (hx : x < 2 ^ 256) :
+    LnWadRuntimeCorrect x :=
+  lnWadRuntimeCorrect_of_cutCorrect (lnWadRuntimeCutCorrect_holds x hx)
+
 end
 
 end LnYul
