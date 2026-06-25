@@ -1,9 +1,24 @@
 /.lake/
 /actual_axioms.txt
 
-# Auto-generated EVMYulLean artifacts; rebuild with:
-#   forge inspect src/wrappers/LnWrapper.sol:LnWrapper ir | \
-#     lake -d formal/yul exe yul_importer --kind ln \
-#       --output formal/ln/LnProof/LnProof/LnYul.lean
+# EVMYulLean artifacts generated from compiled LnWrapper Yul IR.
 /LnProof/LnYulRuntime.lean
 /LnProof/LnYulProof.lean
+
+# Lean-generated floor certificate literals and cell covers.
+/LnProof/FloorCertLit.lean
+/LnProof/FloorCertGeUpC*.lean
+/LnProof/FloorCertLtUpC*.lean
+/LnProof/FloorCertGeLoC*.lean
+/LnProof/FloorCertLtLoC*.lean
+
+# Lean-generated error-bound certificate literals and cell covers.
+/LnProof/ErrCertLtLit.lean
+/LnProof/ErrCertGeLit.lean
+/LnProof/ErrCertLt.lean
+/LnProof/ErrCertGe.lean
+/LnProof/ErrCertLtC*.lean
+/LnProof/ErrCertGeC*.lean
+
+# Lean-generated bias cap numerator.
+/LnProof/BiasCapNum.lean

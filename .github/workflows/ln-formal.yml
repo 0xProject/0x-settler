@@ -83,6 +83,17 @@ jobs:
         working-directory: formal/ln/LnProof
         run: lake exe cache get
 
+      - name: Generate Lean certificate artifacts
+        working-directory: formal/ln/LnProof
+        run: |
+          lake build LnProof.FloorCertDefs LnProof.KroneckerShift LnProof.FloorConsts
+          lake env lean GenFloorCertLit.lean
+          lake build LnProof.FloorCertLit
+          lake env lean GenCover.lean
+          lake env lean GenErr1.lean
+          lake build LnProof.ErrorBoundCore
+          lake env lean GenErrLit.lean
+
       - name: Build Ln proof package
         working-directory: formal/ln/LnProof
         run: lake build

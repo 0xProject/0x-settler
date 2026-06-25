@@ -114,7 +114,7 @@ library Ln {
 
             // Add ⌊(ln(s/2⁹⁵) + 95⋅ln(2) - 18⋅ln(10)) ⋅ 10²⁷ ⋅ 2⁷²⌋ minus the one-sided error
             // margin described above.
-            r := add(0x4ff7e9b32826a6aec97ea1e696bd71eb764c77277c, r)
+            r := add(0x4ff7e9b32826a6aec97ea1e6974062cc1e985b359c, r)
 
             // Q72 → integer ray result (`SAR` floors).
             r := sar(0x48, r)

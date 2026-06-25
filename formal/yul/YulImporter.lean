@@ -249,8 +249,13 @@ def indentBlock (pad src : String) : String :=
 def sanitizeIdentChar (c : Char) : Char :=
   if c.isAlphanum then c else '_'
 
+def collapseUnderscores : List Char → List Char
+  | [] => []
+  | '_' :: '_' :: rest => collapseUnderscores ('_' :: rest)
+  | c :: rest => c :: collapseUnderscores rest
+
 def sanitizeIdent (name : String) : String :=
-  let mapped := name.map sanitizeIdentChar
+  let mapped := String.mk (collapseUnderscores (name.map sanitizeIdentChar).data)
   if mapped.isEmpty then "generated" else mapped
 
 def functionDefName (name : String) : String :=
@@ -399,7 +404,6 @@ def renderRuntime (kind : ModelKind) (input _output : String) : Except String St
   .ok <|
     "import FormalYul\n" ++
     "\n" ++
-    "set_option linter.style.nameCheck false\n\n" ++
     "namespace " ++ kind.namespaceName ++ "\n\n" ++
     runHelpers kind contractDef ++ "\n" ++
     "end " ++ kind.namespaceName ++ "\n"
@@ -597,7 +601,6 @@ def renderProof (kind : ModelKind) (input output : String) : Except String Strin
   .ok <|
     "import FormalYul.Preservation\n" ++
     "import " ++ runtimeModule ++ "\n\n" ++
-    "set_option linter.style.nameCheck false\n\n" ++
     "set_option maxRecDepth 100000\n\n" ++
     "namespace " ++ kind.namespaceName ++ "\n\n" ++
     "/- Runtime bridge support module for the generated Yul runtime. -/\n\n" ++
