@@ -3837,7 +3837,7 @@ theorem errBudgetL_fold {m k : Nat} (hm : Sc - 45 ≤ m) (hk : k ≤ 159) :
     _ = (Sc - 45) * (m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k *
           (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18)) := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
 
 theorem errBudgetL_ge_fold {m k : Nat} (hm : Sc ≤ m) (hk : k ≤ 159) :
     (m + 1) * (2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 142) ≤
@@ -3868,7 +3868,7 @@ theorem errBudgetL_ge_fold {m k : Nat} (hm : Sc ≤ m) (hk : k ≤ 159) :
     _ = Sc * (m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k *
           (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18)) := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
 
 theorem lo_ge_pos_budget_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (_hc : c < 160)
@@ -4386,7 +4386,7 @@ theorem lo_ge_pos_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
           m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
             (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
             (10 ^ 31 - 10) * 10 ^ 18) * Sc := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
       rw [e1] at h
       rw [e2] at h
       exact h
@@ -4563,7 +4563,7 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
           m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
             (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
             (10 ^ 31 - 10) * 10 ^ 18) * Sc := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
       rw [e1] at h
       rw [e2] at h
       exact h
@@ -4816,7 +4816,7 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
           m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
             (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
             (10 ^ 31 - 10) * 10 ^ 18) * Sc := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_comm, Nat.mul_left_comm]
       rw [e1] at h
       rw [e2] at h
       exact h

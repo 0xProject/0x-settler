@@ -70,10 +70,10 @@ theorem lt_x1_cap_d22 {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   -- goal (Nat): (H.toNat·10²⁷)·TD.toNat ≤ TN.toNat·QS
   calc H.toNat * 1000000000000000000000000000 * TD.toNat
       = H.toNat * TD.toNat * 1000000000000000000000000000 := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_assoc, Nat.mul_comm]
     _ ≤ TN.toNat * 2 ^ 99 * 1000000000000000000000000000 := Nat.mul_le_mul_right _ hbrN
     _ = TN.toNat * QS := by
-        rw [hQSe]; simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        rw [hQSe]; simp only [Nat.mul_assoc, Nat.mul_comm]
 
 /-- Factored LT positive-shift cut (capUB / error-bound direction).  capUB analog
 of `ge_pos_cut_factored`: the curved degree-22 upper cap `lt_x1_cap_d22` (`G/V`)

@@ -108,10 +108,10 @@ theorem ge_x1_cap_d22 {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
   have hQSe : QS = 1000000000000000000000000000 * 2 ^ 99 := by decide
   calc TN.toNat * QS
       = TN.toNat * 2 ^ 99 * 1000000000000000000000000000 := by
-        rw [hQSe]; simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        rw [hQSe]; simp only [Nat.mul_assoc, Nat.mul_comm]
     _ ≤ H.toNat * TD.toNat * 1000000000000000000000000000 := Nat.mul_le_mul_right _ hbrN
     _ = H.toNat * 1000000000000000000000000000 * TD.toNat := by
-        simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
+        simp only [Nat.mul_assoc, Nat.mul_comm]
 
 /-- Composition: the ge positive-shift upper cut from (i) the smooth-phase floor
 bound, and (ii) the closing budget inequality `hclose` with the degree-22 x1 cap
