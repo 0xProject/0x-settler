@@ -33,7 +33,7 @@ theorem evalCertGeLo (m : Nat) :
     evalPoly certGeLo (m : Int) =
       EUD * (Sc : Int) *
           expNumI 22 (evalPoly geTN2b (m : Int)) (evalPoly geTD2b (m : Int)) +
-        -(EUD - EUN) * KF * ((m : Int) * evalPoly geTD2b (m : Int) ^ 22) := by
+        -(EUD - EUNl) * KF * ((m : Int) * evalPoly geTD2b (m : Int) ^ 22) := by
   unfold certGeLo
   simp only [evalPoly_polyAdd, evalPoly_polyScale, evalPoly_polyMul, evalPoly_polyPow,
     evalPoly_expPolyNum, eval01]
@@ -50,7 +50,7 @@ theorem evalCertLtUp (m : Nat) :
 theorem evalCertLtLo (m : Nat) :
     evalPoly certLtLo (m : Int) =
       (Sc : Int) * EUD * KF1 * evalPoly ltTD (m : Int) ^ 23 +
-        -(EUD - EUN) * ((m : Int) *
+        -(EUD - EUNl) * ((m : Int) *
           (23 * (expNumI 22 (evalPoly ltTN (m : Int)) (evalPoly ltTD (m : Int)) *
             evalPoly ltTD (m : Int)) + 2 * evalPoly ltTN (m : Int) ^ 23)) := by
   unfold certLtLo
@@ -128,7 +128,7 @@ theorem capLB22_of_int {tn td y w : Nat}
 theorem capGeUp {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
     (hup : 0 ≤ evalPoly certGeUp (m : Int)) :
     capUB (evalPoly geTN (m : Int)).toNat (evalPoly geTD (m : Int)).toNat
-      (m * 10000000000000000000000000003385)
+      (m * 10000000000000000000000000003382)
       560227709747861399187319382270000000000000000000000000000000 := by
   have hw1 : (56022770974786139918731938273 : Int) ≤ (m : Int) := by
     simp only [Sc] at h1; omega
@@ -150,19 +150,19 @@ theorem capGeUp {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
   refine capUB22_of_int (by omega) (by omega) ?_
   rw [htn, htd]
   rw [evalCertGeUp] at hup
-  simp only [EUD, EUN, KF1, Sc] at hup
+  simp only [EUD, EUN, EUNl, KF1, Sc] at hup
   simp only [Int.natCast_mul]
   rw [show ((560227709747861399187319382270000000000000000000000000000000 : Nat) : Int) = 560227709747861399187319382270000000000000000000000000000000 from rfl,
-      show ((10000000000000000000000000003385 : Nat) : Int) = 10000000000000000000000000003385 from rfl]
+      show ((10000000000000000000000000003382 : Nat) : Int) = 10000000000000000000000000003382 from rfl]
   have eS : expNumI 22 (evalPoly geTN (m : Int)) (evalPoly geTD (m : Int)) *
       (23 * evalPoly geTD (m : Int)) =
       23 * (expNumI 22 (evalPoly geTN (m : Int)) (evalPoly geTD (m : Int)) *
         evalPoly geTD (m : Int)) := by
     simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
   rw [eS]
-  have eR : (m : Int) * 10000000000000000000000000003385 *
+  have eR : (m : Int) * 10000000000000000000000000003382 *
       (25852016738884976640000 * evalPoly geTD (m : Int) ^ 23) =
-      10000000000000000000000000003385 * 25852016738884976640000 *
+      10000000000000000000000000003382 * 25852016738884976640000 *
         ((m : Int) * evalPoly geTD (m : Int) ^ 23) := by
     simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
   rw [eR]
@@ -193,7 +193,7 @@ theorem capGeLo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
   refine capLB22_of_int ?_
   rw [htn, htd]
   rw [evalCertGeLo] at hlo
-  simp only [EUD, EUN, KF, Sc] at hlo
+  simp only [EUD, EUN, EUNl, KF, Sc] at hlo
   simp only [Int.natCast_mul]
   rw [show ((560227709747861399187319382270000000000000000000000000000000 : Nat) : Int) = 560227709747861399187319382270000000000000000000000000000000 from rfl,
       show ((9999999999999999999999999996615 : Nat) : Int) = 9999999999999999999999999996615 from rfl]
@@ -212,7 +212,7 @@ theorem capLtUp {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
     (hup : 0 ≤ evalPoly certLtUp (m : Int)) :
     capLB (evalPoly ltTN2b (m : Int)).toNat (evalPoly ltTD2b (m : Int)).toNat
       560227709747861399187319382270000000000000000000000000000000
-      (m * 10000000000000000000000000003385) := by
+      (m * 10000000000000000000000000003382) := by
   have hw1 : (39614081257132168796771975168 : Int) ≤ (m : Int) := by
     simp only [MLO] at h1; omega
   have hw2 : (m : Int) ≤ 56022770974786139918731938181 := by
@@ -229,13 +229,13 @@ theorem capLtUp {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
   refine capLB22_of_int ?_
   rw [htn, htd]
   rw [evalCertLtUp] at hup
-  simp only [EUD, EUN, KF, Sc] at hup
+  simp only [EUD, EUN, EUNl, KF, Sc] at hup
   simp only [Int.natCast_mul]
   rw [show ((560227709747861399187319382270000000000000000000000000000000 : Nat) : Int) = 560227709747861399187319382270000000000000000000000000000000 from rfl,
-      show ((10000000000000000000000000003385 : Nat) : Int) = 10000000000000000000000000003385 from rfl]
+      show ((10000000000000000000000000003382 : Nat) : Int) = 10000000000000000000000000003382 from rfl]
   have eR : expNumI 22 (evalPoly ltTN2b (m : Int)) (evalPoly ltTD2b (m : Int)) *
-      ((m : Int) * 10000000000000000000000000003385) =
-      10000000000000000000000000003385 *
+      ((m : Int) * 10000000000000000000000000003382) =
+      10000000000000000000000000003382 *
         ((m : Int) * expNumI 22 (evalPoly ltTN2b (m : Int)) (evalPoly ltTD2b (m : Int))) := by
     simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
   rw [eR]
@@ -269,7 +269,7 @@ theorem capLtLo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
   refine capUB22_of_int (by omega) (by omega) ?_
   rw [htn, htd]
   rw [evalCertLtLo] at hlo
-  simp only [EUD, EUN, KF1, Sc] at hlo
+  simp only [EUD, EUN, EUNl, KF1, Sc] at hlo
   simp only [Int.natCast_mul]
   rw [show ((560227709747861399187319382270000000000000000000000000000000 : Nat) : Int) = 560227709747861399187319382270000000000000000000000000000000 from rfl,
       show ((9999999999999999999999999996615 : Nat) : Int) = 9999999999999999999999999996615 from rfl]
@@ -357,7 +357,7 @@ theorem x1capGeUp {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
     (hup : 0 ≤ evalPoly certGeUp (m : Int)) :
     capUB ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000)
       633825300114114700748351602688000000000000000000000000000
-      (m * 10000000000000000000000000003385)
+      (m * 10000000000000000000000000003382)
       560227709747861399187319382270000000000000000000000000000000 := by
   have hw1 : (56022770974786139918731938273 : Int) ≤ (m : Int) := by
     simp only [Sc] at h1; omega
@@ -469,7 +469,7 @@ theorem x1capLtUp {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc)
     capLB ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000)
       633825300114114700748351602688000000000000000000000000000
       560227709747861399187319382270000000000000000000000000000000
-      (m * 10000000000000000000000000003385) := by
+      (m * 10000000000000000000000000003382) := by
   have hw1 : (39614081257132168796771975168 : Int) ≤ (m : Int) := by
     simp only [MLO] at h1; omega
   have hw2 : (m : Int) ≤ 56022770974786139918731938181 := by

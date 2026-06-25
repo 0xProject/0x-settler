@@ -72,7 +72,7 @@ def twoPow72I : Int := 2 ^ 72
 def twoPow99I : Int := 2 ^ 99
 def lnPhaseScaleN : Nat := 1000000000000000000000000000
 def lnPhaseScaleI : Int := 1000000000000000000000000000
-def lnBiasI : Int := 116873961749927929127912020551514598262029661683100
+def lnBiasI : Int := 116873961749927929127912020551516284764321243411868
 
 /-- First-order exact-wad budget with the common `10^18` and `2^99` factors
 cancelled out. -/
@@ -656,8 +656,8 @@ theorem lnErrArg_mono {r0 r : Int} (hle : r0 ≤ r) : lnErrArg r0 ≤ lnErrArg r
   unfold lnErrArg lnErrorBoundDen lnErrorBoundNum
   exact Nat.mul_le_mul_right (2 ^ 99)
     (Int.toNat_le_toNat (by omega :
-      r0 * (1000000000 : Int) + (1699000000 : Int) ≤
-        r * (1000000000 : Int) + (1699000000 : Int)))
+      r0 * (1000000000 : Int) + (1698600000 : Int) ≤
+        r * (1000000000 : Int) + (1698600000 : Int)))
 
 theorem capLB_exact_of_model_interval_sumGE {n x lo hi : Nat}
     (hlo : 1 ≤ lo) (hxlo : lo ≤ x) (hxhi : x ≤ hi) (hhi : hi < 2 ^ 255)
@@ -714,15 +714,15 @@ theorem cutLogWadRayLtRational_at_neg_one {x : Nat}
 
 theorem c160_arg_le_int {A r : Int}
     (h : A ≤ (r + 1) * twoPow99I - twoPow27I) :
-    A * 1000000000 + 699000000 * twoPow99I ≤
-      (r * 1000000000 + 1699000000) * twoPow99I := by
+    A * 1000000000 + 698600000 * twoPow99I ≤
+      (r * 1000000000 + 1698600000) * twoPow99I := by
   have hm : A * (1000000000 : Int) ≤
       ((r + 1) * twoPow99I - twoPow27I) * (1000000000 : Int) :=
     Int.mul_le_mul_of_nonneg_right h (by decide)
-  have hle := Int.add_le_add_right hm (699000000 * twoPow99I)
+  have hle := Int.add_le_add_right hm (698600000 * twoPow99I)
   have e : ((r + 1) * twoPow99I - twoPow27I) *
-        (1000000000 : Int) + 699000000 * twoPow99I =
-      (r * 1000000000 + 1699000000) * twoPow99I -
+        (1000000000 : Int) + 698600000 * twoPow99I =
+      (r * 1000000000 + 1698600000) * twoPow99I -
         twoPow27I * (1000000000 : Int) := by
     simp only [Int.sub_mul, Int.add_mul, Int.one_mul]
     simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
@@ -730,21 +730,21 @@ theorem c160_arg_le_int {A r : Int}
   have hslack : 0 ≤ twoPow27I * (1000000000 : Int) :=
     Int.mul_nonneg (by unfold twoPow27I; decide) (by decide)
   calc
-    A * 1000000000 + 699000000 * twoPow99I
+    A * 1000000000 + 698600000 * twoPow99I
         ≤ ((r + 1) * twoPow99I - twoPow27I) *
-            1000000000 + 699000000 * twoPow99I := hle
-    _ = (r * 1000000000 + 1699000000) * twoPow99I -
+            1000000000 + 698600000 * twoPow99I := hle
+    _ = (r * 1000000000 + 1698600000) * twoPow99I -
         twoPow27I * (1000000000 : Int) := e
-    _ ≤ (r * 1000000000 + 1699000000) * twoPow99I :=
+    _ ≤ (r * 1000000000 + 1698600000) * twoPow99I :=
         Int.sub_le_self _ hslack
 
 theorem c160_arg_le {a b : Nat} {r : Int}
     (h : (a : Int) + (b : Int) ≤ (r + 1) * twoPow99I - twoPow27I)
-    (harg : 0 ≤ r * (1000000000 : Int) + 1699000000) :
-    (a + b) * 1000000000 + 699000000 * twoPow99N ≤
-      (r * (1000000000 : Int) + 1699000000).toNat * twoPow99N := by
-  have hcast : (((r * (1000000000 : Int) + 1699000000).toNat : Nat) : Int) =
-      r * (1000000000 : Int) + 1699000000 :=
+    (harg : 0 ≤ r * (1000000000 : Int) + 1698600000) :
+    (a + b) * 1000000000 + 698600000 * twoPow99N ≤
+      (r * (1000000000 : Int) + 1698600000).toNat * twoPow99N := by
+  have hcast : (((r * (1000000000 : Int) + 1698600000).toNat : Nat) : Int) =
+      r * (1000000000 : Int) + 1698600000 :=
     Int.toNat_of_nonneg harg
   have hsum : ((a + b : Nat) : Int) ≤
       (r + 1) * twoPow99I - twoPow27I := by
@@ -1212,10 +1212,10 @@ theorem lnErrArg_eq_posPhase_gap {m c : Nat}
   have hden : ((lnErrorBoundDen : Nat) : Int) = (1000000000 : Int) := by
     unfold lnErrorBoundDen
     rfl
-  have hnum : ((lnErrorBoundNum : Nat) : Int) = (1699000000 : Int) := by
+  have hnum : ((lnErrorBoundNum : Nat) : Int) = (1698600000 : Int) := by
     unfold lnErrorBoundNum
     rfl
-  have hextra : ((lnErrorExtraNum : Nat) : Int) = (699000000 : Int) := by
+  have hextra : ((lnErrorExtraNum : Nat) : Int) = (698600000 : Int) := by
     unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen
     decide +kernel
   unfold lnErrArg posResidueGap
@@ -1224,22 +1224,22 @@ theorem lnErrArg_eq_posPhase_gap {m c : Nat}
   unfold twoPow99I twoPow27I at hVs' ⊢
   unfold twoPow72I
   rw [← hVs']
-  change (r * 1000000000 + 1699000000) * 633825300114114700748351602688 =
+  change (r * 1000000000 + 1698600000) * 633825300114114700748351602688 =
     posAccI m c * 134217728 * 1000000000 +
-      699000000 * 633825300114114700748351602688 +
+      698600000 * 633825300114114700748351602688 +
         ((r + 1) * 4722366482869645213696 - posAccI m c) * 134217728 *
           1000000000
   have hP : (4722366482869645213696 : Int) * 134217728 =
       633825300114114700748351602688 := by
     decide
-  have hN : (1699000000 : Int) = 1000000000 + 699000000 := by
+  have hN : (1698600000 : Int) = 1000000000 + 698600000 := by
     decide
   rw [hN, ← hP]
   simp only [Int.add_mul, Int.mul_add, Int.add_assoc, Int.sub_eq_add_neg,
     Int.neg_mul, Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
   generalize r * (134217728 * (1000000000 * 4722366482869645213696)) = X
   generalize 134217728 * (1000000000 * 4722366482869645213696) = Y
-  generalize 134217728 * (699000000 * 4722366482869645213696) = Z
+  generalize 134217728 * (698600000 * 4722366482869645213696) = Z
   generalize posAccI m c * (134217728 * 1000000000) = W
   omega
 
@@ -1676,10 +1676,10 @@ theorem pos_direct_residue_arg_le_int {A r : Int}
   have hden : ((lnErrorBoundDen : Nat) : Int) = (1000000000 : Int) := by
     unfold lnErrorBoundDen
     rfl
-  have hnum : ((lnErrorBoundNum : Nat) : Int) = (1699000000 : Int) := by
+  have hnum : ((lnErrorBoundNum : Nat) : Int) = (1698600000 : Int) := by
     unfold lnErrorBoundNum
     rfl
-  have hextra : ((lnErrorExtraNum : Nat) : Int) = (699000000 : Int) := by
+  have hextra : ((lnErrorExtraNum : Nat) : Int) = (698600000 : Int) := by
     unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen
     decide +kernel
   rw [hden] at hres
@@ -1717,7 +1717,7 @@ def posAvailGe (m c : Nat) (r : Int) : Nat :=
 def posBaseYGe (m c : Nat) : Nat :=
   ((m * 9999999999999999999999999996615) *
     ((2 * (10 ^ 40 - 1)) ^ (160 - c))) *
-    (Sc * (10 ^ 31 - 3387))
+    (Sc * (10 ^ 31 - 3384))
 
 def posBaseWGe (c : Nat) : Nat :=
   (560227709747861399187319382270000000000000000000000000000000 *
@@ -1747,7 +1747,7 @@ def posAvailLt (m c : Nat) (r : Int) : Nat :=
   lnErrArg r - posPhaseNatLt m c
 
 def posBaseYLt (m c : Nat) : Nat :=
-  ((2 * (10 ^ 40 - 1)) ^ (160 - c) * (Sc * (10 ^ 31 - 3387))) *
+  ((2 * (10 ^ 40 - 1)) ^ (160 - c) * (Sc * (10 ^ 31 - 3384))) *
     (m * 9999999999999999999999999996615)
 
 def posBaseWLt (c : Nat) : Nat :=
@@ -2750,7 +2750,7 @@ theorem posPhaseNatGe_le_lnErrArg {m c : Nat} {r : Int}
     have h0 : 0 ≤ r + 1 := by omega
     have hp : 0 ≤ (r + 1) * (1000000000 : Int) :=
       Int.mul_nonneg h0 (by decide)
-    have e : (r + 1) * (1000000000 : Int) + 699000000 =
+    have e : (r + 1) * (1000000000 : Int) + 698600000 =
         r * (lnErrorBoundDen : Int) + (lnErrorBoundNum : Int) := by
       unfold lnErrorBoundDen lnErrorBoundNum
       rw [Int.add_mul, Int.one_mul]
@@ -2761,7 +2761,7 @@ theorem posPhaseNatGe_le_lnErrArg {m c : Nat} {r : Int}
   rw [posPhaseNatGe_cast hX]
   unfold lnErrArg
   rw [Int.natCast_mul, Int.toNat_of_nonneg harg]
-  have hnon : 0 ≤ 699000000 * twoPow99I := by
+  have hnon : 0 ≤ 698600000 * twoPow99I := by
     unfold twoPow99I
     decide
   have hle := Int.le_trans (Int.le_add_of_nonneg_right hnon) hcore
@@ -3543,7 +3543,7 @@ theorem posPhaseNatLt_le_lnErrArg {m c : Nat} {r : Int}
     have h0 : 0 ≤ r + 1 := by omega
     have hp : 0 ≤ (r + 1) * (1000000000 : Int) :=
       Int.mul_nonneg h0 (by decide)
-    have e : (r + 1) * (1000000000 : Int) + 699000000 =
+    have e : (r + 1) * (1000000000 : Int) + 698600000 =
         r * (lnErrorBoundDen : Int) + (lnErrorBoundNum : Int) := by
       unfold lnErrorBoundDen lnErrorBoundNum
       rw [Int.add_mul, Int.one_mul]
@@ -3554,7 +3554,7 @@ theorem posPhaseNatLt_le_lnErrArg {m c : Nat} {r : Int}
   rw [posPhaseNatLt_cast hX hneg]
   unfold lnErrArg
   rw [Int.natCast_mul, Int.toNat_of_nonneg harg]
-  have hnon : 0 ≤ 699000000 * twoPow99I := by
+  have hnon : 0 ≤ 698600000 * twoPow99I := by
     unfold twoPow99I
     decide
   have hle := Int.le_trans (Int.le_add_of_nonneg_right hnon) hcore
@@ -3573,7 +3573,7 @@ theorem posPhaseNatGe_extra_le_lnErrArg {m c : Nat} {r : Int}
     have h0 : 0 ≤ r + 1 := by omega
     have hp : 0 ≤ (r + 1) * (1000000000 : Int) :=
       Int.mul_nonneg h0 (by decide)
-    have e : (r + 1) * (1000000000 : Int) + 699000000 =
+    have e : (r + 1) * (1000000000 : Int) + 698600000 =
         r * (lnErrorBoundDen : Int) + (lnErrorBoundNum : Int) := by
       unfold lnErrorBoundDen lnErrorBoundNum
       rw [Int.add_mul, Int.one_mul]
@@ -3610,7 +3610,7 @@ theorem posPhaseNatLt_extra_le_lnErrArg {m c : Nat} {r : Int}
     have h0 : 0 ≤ r + 1 := by omega
     have hp : 0 ≤ (r + 1) * (1000000000 : Int) :=
       Int.mul_nonneg h0 (by decide)
-    have e : (r + 1) * (1000000000 : Int) + 699000000 =
+    have e : (r + 1) * (1000000000 : Int) + 698600000 =
         r * (lnErrorBoundDen : Int) + (lnErrorBoundNum : Int) := by
       unfold lnErrorBoundDen lnErrorBoundNum
       rw [Int.add_mul, Int.one_mul]
@@ -3644,7 +3644,7 @@ theorem posPhaseNatGe_gap_extra_le_lnErrArg {m c : Nat} {r : Int}
     have h0 : 0 ≤ r + 1 := by omega
     have hp : 0 ≤ (r + 1) * (1000000000 : Int) :=
       Int.mul_nonneg h0 (by decide)
-    have e : (r + 1) * (1000000000 : Int) + 699000000 =
+    have e : (r + 1) * (1000000000 : Int) + 698600000 =
         r * (lnErrorBoundDen : Int) + (lnErrorBoundNum : Int) := by
       unfold lnErrorBoundDen lnErrorBoundNum
       rw [Int.add_mul, Int.one_mul]
@@ -3684,7 +3684,7 @@ theorem posPhaseNatLt_gap_extra_le_lnErrArg {m c : Nat} {r : Int}
     have h0 : 0 ≤ r + 1 := by omega
     have hp : 0 ≤ (r + 1) * (1000000000 : Int) :=
       Int.mul_nonneg h0 (by decide)
-    have e : (r + 1) * (1000000000 : Int) + 699000000 =
+    have e : (r + 1) * (1000000000 : Int) + 698600000 =
         r * (lnErrorBoundDen : Int) + (lnErrorBoundNum : Int) := by
       unfold lnErrorBoundDen lnErrorBoundNum
       rw [Int.add_mul, Int.one_mul]
@@ -3778,10 +3778,10 @@ theorem pos_residue_arg_le_int {A r : Int}
   have hden : ((lnErrorBoundDen : Nat) : Int) = (1000000000 : Int) := by
     unfold lnErrorBoundDen
     rfl
-  have hnum : ((lnErrorBoundNum : Nat) : Int) = (1699000000 : Int) := by
+  have hnum : ((lnErrorBoundNum : Nat) : Int) = (1698600000 : Int) := by
     unfold lnErrorBoundNum
     rfl
-  have hextra : ((lnErrorExtraNum : Nat) : Int) = (699000000 : Int) := by
+  have hextra : ((lnErrorExtraNum : Nat) : Int) = (698600000 : Int) := by
     unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen
     decide +kernel
   rw [hden] at hres
@@ -3798,10 +3798,10 @@ theorem pos_ge_residue_arg_le_int {A r : Int}
   have hden : ((lnErrorBoundDen : Nat) : Int) = (1000000000 : Int) := by
     unfold lnErrorBoundDen
     rfl
-  have hnum : ((lnErrorBoundNum : Nat) : Int) = (1699000000 : Int) := by
+  have hnum : ((lnErrorBoundNum : Nat) : Int) = (1698600000 : Int) := by
     unfold lnErrorBoundNum
     rfl
-  have hextra : ((lnErrorExtraNum : Nat) : Int) = (699000000 : Int) := by
+  have hextra : ((lnErrorExtraNum : Nat) : Int) = (698600000 : Int) := by
     unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen
     decide +kernel
   rw [hden] at hres
@@ -3811,7 +3811,7 @@ theorem pos_ge_residue_arg_le_int {A r : Int}
 
 theorem errBudgetL_fold {m k : Nat} (hm : Sc - 45 ≤ m) (hk : k ≤ 159) :
     (m + 1) * (2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 142) ≤
-      m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3387) *
+      m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3384) *
         (10 ^ 31 + lnErrorCoarsePosBudgetCap) * (10 ^ 31 - 10) * 10 ^ 18) := by
   have hb := errBudgetL_le (k := k) hk
   have hcross : (m + 1) * (Sc - 45) ≤ m * ((Sc - 45) + 1) := by
@@ -3831,17 +3831,17 @@ theorem errBudgetL_fold {m k : Nat} (hm : Sc - 45 ≤ m) (hk : k ≤ 159) :
     _ = m * (((Sc - 45) + 1) * 2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 142) := by
         simp only [Nat.mul_assoc]
     _ ≤ m * ((Sc - 45) * (10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18) :=
         Nat.mul_le_mul_left _ hb
     _ = (Sc - 45) * (m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18)) := by
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
 
 theorem errBudgetL_ge_fold {m k : Nat} (hm : Sc ≤ m) (hk : k ≤ 159) :
     (m + 1) * (2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 142) ≤
-      m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3387) *
+      m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3384) *
         (10 ^ 31 + lnErrorCoarseGePosBudgetCap) * (10 ^ 31 - 10) * 10 ^ 18) := by
   have hb := errBudgetLGe_le (k := k) hk
   have hcross : (m + 1) * Sc ≤ m * (Sc + 1) := by
@@ -3861,12 +3861,12 @@ theorem errBudgetL_ge_fold {m k : Nat} (hm : Sc ≤ m) (hk : k ≤ 159) :
     _ = m * ((Sc + 1) * 2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 142) := by
         simp only [Nat.mul_assoc]
     _ ≤ m * (Sc * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18)) :=
         Nat.mul_le_mul_left _ (by
           simpa only [Nat.mul_assoc] using hb)
     _ = Sc * (m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18)) := by
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
 
@@ -3907,14 +3907,14 @@ theorem lo_lt_pos_budget_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m 
     560227709747861399187319382270000000000000000000000000000000
     (m * 9999999999999999999999999996615) at cap1
   change capLB (posConstNat c) lnErrQ
-    ((2 * (10 ^ 40 - 1)) ^ (160 - c) * (Sc * (10 ^ 31 - 3387)))
+    ((2 * (10 ^ 40 - 1)) ^ (160 - c) * (Sc * (10 ^ 31 - 3384)))
     (((10 ^ 40 : Nat) ^ (160 - c) * (10 ^ 18 * 10 ^ 31))) at hsum0
   refine capLB_cancel_first_order_budget
     (arg := lnErrArg r)
     (const := posConstNat c)
     (neg := posNegXNat m)
     (q := lnErrQ)
-    (C := ((2 * (10 ^ 40 - 1)) ^ (160 - c) * (Sc * (10 ^ 31 - 3387))))
+    (C := ((2 * (10 ^ 40 - 1)) ^ (160 - c) * (Sc * (10 ^ 31 - 3384))))
     (W := (((10 ^ 40 : Nat) ^ (160 - c) * (10 ^ 18 * 10 ^ 31))))
     (G := 560227709747861399187319382270000000000000000000000000000000)
     (V := m * 9999999999999999999999999996615)
@@ -3932,7 +3932,7 @@ theorem ln_err_arg_nonneg {r : Int} (hr0 : -1 ≤ r) :
   have h0 : 0 ≤ r + 1 := by omega
   have hp : 0 ≤ (r + 1) * (1000000000 : Int) :=
     Int.mul_nonneg h0 (by decide)
-  have e : (r + 1) * (1000000000 : Int) + 699000000 =
+  have e : (r + 1) * (1000000000 : Int) + 698600000 =
       r * (lnErrorBoundDen : Int) + (lnErrorBoundNum : Int) := by
     unfold lnErrorBoundDen lnErrorBoundNum
     rw [Int.add_mul, Int.one_mul]
@@ -3948,13 +3948,13 @@ theorem ln_err_neg_arg_nonneg {r : Int} (hr : r ≤ -2) :
 theorem ln_err_neg_arg_le_int {A r : Int}
     (hA : A ≤ (r + 1) * twoPow99I - twoPow27I) (_hr : r ≤ -2) :
     (-(r * (lnErrorBoundDen : Int) + (lnErrorBoundNum : Int))) * twoPow99I ≤
-      -(A * (lnErrorBoundDen : Int) + 699000000 * twoPow99I) := by
+      -(A * (lnErrorBoundDen : Int) + 698600000 * twoPow99I) := by
   unfold twoPow99I twoPow27I at hA
   have hmul := Int.mul_le_mul_of_nonneg_right hA (by decide : 0 ≤ (1000000000 : Int))
   have eDen : ((lnErrorBoundDen : Nat) : Int) = (1000000000 : Int) := by
     unfold lnErrorBoundDen
     rfl
-  have eNum : ((lnErrorBoundNum : Nat) : Int) = (1699000000 : Int) := by
+  have eNum : ((lnErrorBoundNum : Nat) : Int) = (1698600000 : Int) := by
     unfold lnErrorBoundNum
     rfl
   rw [eDen, eNum]
@@ -3986,7 +3986,7 @@ def c160W0 : Nat := Sc * ten31
 def c160W : Nat := Sc * (10 : Nat) ^ 111
 
 def c160R0 : Nat := ten31 - 3385
-def c160R1 : Nat := ten31 - 3387
+def c160R1 : Nat := ten31 - 3384
 def c160R2 : Nat := ten31 + lnErrorExtraCap
 def c160R3 : Nat := ten31 - 10
 def c160R4 : Nat := 10 ^ 18
@@ -3994,7 +3994,7 @@ def c160R : Nat := Sc * (c160R0 * c160R1 * c160R2 * c160R3 * c160R4)
 
 theorem lo_ge_c160_exact {m x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
-      116873961749927929127912020551514598262029661683100 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
     (hr0 : -1 ≤ r) (hmx : m ≤ x) (hxm : x < m + 1) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
   have hx : x = m := by omega
@@ -4028,7 +4028,7 @@ theorem lo_ge_c160_exact {m x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     rw [hdist]
     exact hmul0
   have capR : capLB (lnErrArg r) lnErrQ
-      (((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3387))) *
+      (((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3384))) *
         (10 ^ 31 + lnErrorExtraCap))
       ((560227709747861399187319382270000000000000000000000000000000 *
         (10 ^ 18 * 10 ^ 31)) * 10 ^ 31) :=
@@ -4038,13 +4038,13 @@ theorem lo_ge_c160_exact {m x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         lnErrorBoundDen + BIASc * 2 ^ 27 * lnErrorBoundDen +
           lnErrorExtraNum * 2 ^ 99))
       lnErrQ
-      ((((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3387))) *
+      ((((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3384))) *
         (10 ^ 31 + lnErrorExtraCap)))
       (((560227709747861399187319382270000000000000000000000000000000 *
         (10 ^ 18 * 10 ^ 31)) * 10 ^ 31))
       (by unfold lnErrQ; decide) hmul cap123
   refine capLB_weaken (p := lnErrArg r) (q := lnErrQ)
-    (y := ((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3387))) *
+    (y := ((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3384))) *
       (10 ^ 31 + lnErrorExtraCap))
     (w := ((560227709747861399187319382270000000000000000000000000000000 *
       (10 ^ 18 * 10 ^ 31)) * 10 ^ 31))
@@ -4061,9 +4061,9 @@ theorem lo_ge_c160_exact {m x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         Sc * (10 : Nat) ^ 31 from by unfold Sc; decide]
       simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
     have eR : (((m * 9999999999999999999999999996615) *
-          (Sc * (10 ^ 31 - 3387))) * (10 ^ 31 + lnErrorExtraCap)) *
+          (Sc * (10 ^ 31 - 3384))) * (10 ^ 31 + lnErrorExtraCap)) *
           (10 ^ 18 * (10 ^ 31 - 10)) =
-        m * Sc * (((10 : Nat) ^ 31 - 3385) * ((10 : Nat) ^ 31 - 3387) *
+        m * Sc * (((10 : Nat) ^ 31 - 3385) * ((10 : Nat) ^ 31 - 3384) *
           ((10 : Nat) ^ 31 + lnErrorExtraCap) * ((10 : Nat) ^ 31 - 10) *
             (10 : Nat) ^ 18) := by
       rw [show (9999999999999999999999999996615 : Nat) = (10 : Nat) ^ 31 - 3385
@@ -4075,7 +4075,7 @@ theorem lo_ge_c160_exact {m x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
 
 theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
-      116873961749927929127912020551514598262029661683100 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
     (hmx : m ≤ x) (hxm : x < m + 1) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
   have hx : x = m := by omega
@@ -4085,7 +4085,7 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     omega
   have hV0I := v_c160_nonneg h1 hmhi
   have hV0 : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
-      116873961749927929127912020551514598262029661683100 := by
+      116873961749927929127912020551516284764321243411868 := by
     simpa [lnBiasI] using hV0I
   have hr0 : -1 ≤ r := by
     rcases Int.lt_or_le r (-1) with hlt | hle
@@ -4104,7 +4104,7 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     lnErrQ 560227709747861399187319382270000000000000000000000000000000
       (m * 9999999999999999999999999996615) at cap1
   change capLB (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N)
-    lnErrQ (Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorExtraCap))
+    lnErrQ (Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorExtraCap))
       (10 ^ 18 * 10 ^ 31 * 10 ^ 31) at capBE
   have hVs0 : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
         lnBiasI) * twoPow27I =
@@ -4132,7 +4132,7 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     unfold lnErrorBoundDen
     rfl
   have hextra : ((lnErrorExtraNum * twoPow99N : Nat) : Int) =
-      699000000 * twoPow99I := by
+      698600000 * twoPow99I := by
     unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen twoPow99N twoPow99I
     decide +kernel
   have hsub_le : (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN *
@@ -4146,7 +4146,7 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       generalize lnBiasI * twoPow27I = B at hV0s ⊢
       omega
     have hmul := Int.mul_le_mul_of_nonneg_right hmain (by decide : 0 ≤ (1000000000 : Int))
-    have hnon : 0 ≤ 699000000 * twoPow99I := by
+    have hnon : 0 ≤ 698600000 * twoPow99I := by
       unfold twoPow99I
       decide
     exact Int.le_trans hmul (Int.le_add_of_nonneg_right hnon)
@@ -4173,7 +4173,7 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         (((BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
           (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen : Nat) : Int)) =
         (toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I) *
-            (1000000000 : Int) + 699000000 * twoPow99I := by
+            (1000000000 : Int) + 698600000 * twoPow99I := by
       have hsI := congrArg (fun n : Nat => ((n : Nat) : Int)) hsplit
       simp only [Int.natCast_add, Int.natCast_mul, hnegXn, hBc, hscale, hden, hextra] at hsI
       rw [Int.neg_mul] at hsI
@@ -4182,7 +4182,7 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         at hsI ⊢
       generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
       generalize lnBiasI * twoPow27I = B at hsI ⊢
-      generalize 699000000 * twoPow99I = E at hsI ⊢
+      generalize 698600000 * twoPow99I = E at hsI ⊢
       omega
     rw [lnErrArg, htarget, hsub_cast]
     have hsc : (toInt (x1W (zWord m)) * lnPhaseScaleI + lnBiasI * twoPow27I) ≤
@@ -4211,7 +4211,7 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         lnErrArg r * lnErrQ :=
     Nat.mul_le_mul_right _ hple
   have capR : capLB (lnErrArg r) lnErrQ
-      ((Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorExtraCap)) *
+      ((Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorExtraCap)) *
         (m * 9999999999999999999999999996615))
       (((10 ^ 18 * 10 ^ 31) * 10 ^ 31) *
         560227709747861399187319382270000000000000000000000000000000) :=
@@ -4220,13 +4220,13 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
         (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen)
       lnErrQ
-      ((Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorExtraCap)) *
+      ((Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorExtraCap)) *
         (m * 9999999999999999999999999996615))
       (((10 ^ 18 * 10 ^ 31) * 10 ^ 31) *
         560227709747861399187319382270000000000000000000000000000000)
       (by unfold lnErrQ; decide) hmul capV
   refine capLB_weaken (p := lnErrArg r) (q := lnErrQ)
-    (y := (Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorExtraCap)) *
+    (y := (Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorExtraCap)) *
       (m * 9999999999999999999999999996615))
     (w := ((10 ^ 18 * 10 ^ 31) * 10 ^ 31) *
       560227709747861399187319382270000000000000000000000000000000)
@@ -4241,10 +4241,10 @@ theorem lo_lt_c160_exact {m x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       rw [show (560227709747861399187319382270000000000000000000000000000000 : Nat) =
         Sc * (10 : Nat) ^ 31 from by unfold Sc; decide]
       simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
-    have eR : ((Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorExtraCap)) *
+    have eR : ((Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorExtraCap)) *
           (m * 9999999999999999999999999996615)) *
           (10 ^ 18 * (10 ^ 31 - 10)) =
-        m * Sc * (((10 : Nat) ^ 31 - 3385) * ((10 : Nat) ^ 31 - 3387) *
+        m * Sc * (((10 : Nat) ^ 31 - 3385) * ((10 : Nat) ^ 31 - 3384) *
           ((10 : Nat) ^ 31 + lnErrorExtraCap) * ((10 : Nat) ^ 31 - 10) *
             (10 : Nat) ^ 18) := by
       rw [show (9999999999999999999999999996615 : Nat) = (10 : Nat) ^ 31 - 3385
@@ -4277,7 +4277,7 @@ theorem lo_ge_pos_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     lnErrQ
       (((m * 9999999999999999999999999996615) *
         ((2 * (10 ^ 40 - 1)) ^ (160 - c))) *
-        (Sc * (10 ^ 31 - 3387)) *
+        (Sc * (10 ^ 31 - 3384)) *
         (10 ^ 31 + lnErrorCoarsePosBudgetCap))
       (((560227709747861399187319382270000000000000000000000000000000 *
         ((10 ^ 40 : Nat) ^ (160 - c))) *
@@ -4351,7 +4351,7 @@ theorem lo_ge_pos_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
   refine capLB_weaken (p := lnErrArg r) (q := lnErrQ)
     (y := (((m * 9999999999999999999999999996615) *
       ((2 * (10 ^ 40 - 1)) ^ (160 - c))) *
-      (Sc * (10 ^ 31 - 3387)) *
+      (Sc * (10 ^ 31 - 3384)) *
       (10 ^ 31 + lnErrorCoarsePosBudgetCap)))
     (w := (((560227709747861399187319382270000000000000000000000000000000 *
       ((10 ^ 40 : Nat) ^ (160 - c))) *
@@ -4372,7 +4372,7 @@ theorem lo_ge_pos_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     have hfold : (m + 1) * 2 ^ (160 - c) *
         (Sc * ((10 ^ 40 : Nat) ^ (160 - c) * 10 ^ 142)) ≤
         m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18) * Sc := by
       have h := Nat.mul_le_mul_left Sc hb
       have e1 : Sc * ((m + 1) * (2 ^ (160 - c) *
@@ -4381,10 +4381,10 @@ theorem lo_ge_pos_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
             (Sc * ((10 ^ 40 : Nat) ^ (160 - c) * 10 ^ 142)) := by
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
       have e2 : Sc * (m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18)) =
           m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-            (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
+            (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
             (10 ^ 31 - 10) * 10 ^ 18) * Sc := by
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
       rw [e1] at h
@@ -4407,10 +4407,10 @@ theorem lo_ge_pos_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       exact Nat.mul_le_mul_right _ (by omega : x ≤ x + 1)
     have eR : (((m * 9999999999999999999999999996615) *
         ((2 * (10 ^ 40 - 1)) ^ (160 - c))) *
-        (Sc * (10 ^ 31 - 3387)) * (10 ^ 31 + lnErrorCoarsePosBudgetCap)) *
+        (Sc * (10 ^ 31 - 3384)) * (10 ^ 31 + lnErrorCoarsePosBudgetCap)) *
         (10 ^ 18 * (10 ^ 31 - 10)) =
         m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18) * Sc := by
       rw [show (9999999999999999999999999996615 : Nat) = 10 ^ 31 - 3385 from by decide]
       simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
@@ -4424,11 +4424,11 @@ theorem lo_ge_pos_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     generalize hT3 : (m + 1) * 2 ^ (160 - c) *
       (Sc * ((10 ^ 40 : Nat) ^ (160 - c) * 10 ^ 142)) = T3 at hxw hfold
     generalize hT4 : m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-      (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
+      (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
       (10 ^ 31 - 10) * 10 ^ 18) * Sc = T4 at hfold eR
     generalize hT5 : (((m * 9999999999999999999999999996615) *
       ((2 * (10 ^ 40 - 1)) ^ (160 - c))) *
-      (Sc * (10 ^ 31 - 3387)) * (10 ^ 31 + lnErrorCoarsePosBudgetCap)) *
+      (Sc * (10 ^ 31 - 3384)) * (10 ^ 31 + lnErrorCoarsePosBudgetCap)) *
       (10 ^ 18 * (10 ^ 31 - 10)) = T5 at eR ⊢
     omega
 
@@ -4455,7 +4455,7 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
     lnErrQ
       (((m * 9999999999999999999999999996615) *
         ((2 * (10 ^ 40 - 1)) ^ (160 - c))) *
-        (Sc * (10 ^ 31 - 3387)) *
+        (Sc * (10 ^ 31 - 3384)) *
         (10 ^ 31 + lnErrorCoarseGePosBudgetCap))
       (((560227709747861399187319382270000000000000000000000000000000 *
         ((10 ^ 40 : Nat) ^ (160 - c))) *
@@ -4529,7 +4529,7 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
   refine capLB_weaken (p := lnErrArg r) (q := lnErrQ)
     (y := (((m * 9999999999999999999999999996615) *
       ((2 * (10 ^ 40 - 1)) ^ (160 - c))) *
-      (Sc * (10 ^ 31 - 3387)) *
+      (Sc * (10 ^ 31 - 3384)) *
       (10 ^ 31 + lnErrorCoarseGePosBudgetCap)))
     (w := (((560227709747861399187319382270000000000000000000000000000000 *
       ((10 ^ 40 : Nat) ^ (160 - c))) *
@@ -4549,7 +4549,7 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
     have hfold : (m + 1) * 2 ^ (160 - c) *
         (Sc * ((10 ^ 40 : Nat) ^ (160 - c) * 10 ^ 142)) ≤
         m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18) * Sc := by
       have h := Nat.mul_le_mul_left Sc hb
       have e1 : Sc * ((m + 1) * (2 ^ (160 - c) *
@@ -4558,10 +4558,10 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
             (Sc * ((10 ^ 40 : Nat) ^ (160 - c) * 10 ^ 142)) := by
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
       have e2 : Sc * (m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18)) =
           m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-            (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
+            (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
             (10 ^ 31 - 10) * 10 ^ 18) * Sc := by
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
       rw [e1] at h
@@ -4584,10 +4584,10 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
       exact Nat.mul_le_mul_right _ (by omega : x ≤ x + 1)
     have eR : (((m * 9999999999999999999999999996615) *
         ((2 * (10 ^ 40 - 1)) ^ (160 - c))) *
-        (Sc * (10 ^ 31 - 3387)) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap)) *
+        (Sc * (10 ^ 31 - 3384)) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap)) *
         (10 ^ 18 * (10 ^ 31 - 10)) =
         m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18) * Sc := by
       rw [show (9999999999999999999999999996615 : Nat) = 10 ^ 31 - 3385 from by decide]
       simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
@@ -4601,18 +4601,18 @@ theorem lo_ge_pos_exact_ge_residue {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 :
     generalize hT3 : (m + 1) * 2 ^ (160 - c) *
       (Sc * ((10 ^ 40 : Nat) ^ (160 - c) * 10 ^ 142)) = T3 at hxw hfold
     generalize hT4 : m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-      (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
+      (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap) *
       (10 ^ 31 - 10) * 10 ^ 18) * Sc = T4 at hfold eR
     generalize hT5 : (((m * 9999999999999999999999999996615) *
       ((2 * (10 ^ 40 - 1)) ^ (160 - c))) *
-      (Sc * (10 ^ 31 - 3387)) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap)) *
+      (Sc * (10 ^ 31 - 3384)) * (10 ^ 31 + lnErrorCoarseGePosBudgetCap)) *
       (10 ^ 18 * (10 ^ 31 - 10)) = T5 at eR ⊢
     omega
 
 theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < Sc)
     (hc1 : 1 ≤ c) (hc : c < 160)
     (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 +
-      ln2kInt c + 116873961749927929127912020551514598262029661683100)
+      ln2kInt c + 116873961749927929127912020551516284764321243411868)
     (hr0 : 0 ≤ r)
     (hres : PosShiftResidueOk m c r)
     (hxm : x < (m + 1) * 2 ^ (160 - c)) :
@@ -4628,12 +4628,12 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
   have hX1 := x1_nonpos_ltF hmlo h2
   have hVs := v_scale_pos (toInt (x1W (zWord m))) c (by omega : c ≤ 160)
   have hV0 : 0 ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551514598262029661683100) * 2 ^ 27 := by
+      116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
     have h0 : 0 ≤ r * 2 ^ 72 := Int.mul_nonneg hr0 (by decide)
     have hg : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551514598262029661683100 := by
+        116873961749927929127912020551516284764321243411868 := by
       generalize hgV : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551514598262029661683100 = V at hrlo ⊢
+        116873961749927929127912020551516284764321243411868 = V at hrlo ⊢
       generalize hgR : r * 2 ^ 72 = R at hrlo h0
       omega
     exact Int.mul_nonneg hg (by decide)
@@ -4645,7 +4645,7 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
       BIASc * twoPow27N * lnErrorBoundDen) +
       (lnErrorExtraNum * twoPow99N + lnErrorCoarsePosResidue))
     lnErrQ
-      (((2 * (10 ^ 40 - 1)) ^ (160 - c) * (Sc * (10 ^ 31 - 3387))) *
+      (((2 * (10 ^ 40 - 1)) ^ (160 - c) * (Sc * (10 ^ 31 - 3384))) *
         (10 ^ 31 + lnErrorCoarsePosBudgetCap))
       ((((10 ^ 40 : Nat) ^ (160 - c) * (10 ^ 18 * 10 ^ 31)) * 10 ^ 31)) at hsum
   have hnegXn : (((-toInt (x1W (zWord m))).toNat : Nat) : Int) =
@@ -4782,7 +4782,7 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
     Nat.mul_le_mul_right _ hple
   have capR := capLB_arg (q := lnErrQ) (by unfold lnErrQ; decide) hmul capV
   refine capLB_weaken (p := lnErrArg r) (q := lnErrQ)
-    (y := ((((2 * (10 ^ 40 - 1)) ^ (160 - c) * (Sc * (10 ^ 31 - 3387))) *
+    (y := ((((2 * (10 ^ 40 - 1)) ^ (160 - c) * (Sc * (10 ^ 31 - 3384))) *
       (10 ^ 31 + lnErrorCoarsePosBudgetCap)) *
       (m * 9999999999999999999999999996615)))
     (w := ((((10 ^ 40 : Nat) ^ (160 - c) * (10 ^ 18 * 10 ^ 31)) *
@@ -4802,7 +4802,7 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
     have hfold : (m + 1) * 2 ^ (160 - c) *
         (Sc * ((10 ^ 40 : Nat) ^ (160 - c) * 10 ^ 142)) ≤
         m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18) * Sc := by
       have h := Nat.mul_le_mul_left Sc hb
       have e1 : Sc * ((m + 1) * (2 ^ (160 - c) *
@@ -4811,10 +4811,10 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
             (Sc * ((10 ^ 40 : Nat) ^ (160 - c) * 10 ^ 142)) := by
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
       have e2 : Sc * (m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18)) =
           m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-            (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
+            (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
             (10 ^ 31 - 10) * 10 ^ 18) * Sc := by
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
       rw [e1] at h
@@ -4836,12 +4836,12 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
         ((10 : Nat) ^ 31 * ((10 : Nat) ^ 31 * (10 : Nat) ^ 31)))) = 10 ^ 142
         from by decide]
       exact Nat.mul_le_mul_right _ (by omega : x ≤ x + 1)
-    have eR : ((((2 * (10 ^ 40 - 1)) ^ (160 - c) * (Sc * (10 ^ 31 - 3387))) *
+    have eR : ((((2 * (10 ^ 40 - 1)) ^ (160 - c) * (Sc * (10 ^ 31 - 3384))) *
         (10 ^ 31 + lnErrorCoarsePosBudgetCap)) *
         (m * 9999999999999999999999999996615)) *
         (10 ^ 18 * (10 ^ 31 - 10)) =
         m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18) * Sc := by
       rw [show (9999999999999999999999999996615 : Nat) = 10 ^ 31 - 3385 from by decide]
       simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
@@ -4854,10 +4854,10 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
     generalize hT3 : (m + 1) * 2 ^ (160 - c) *
       (Sc * ((10 ^ 40 : Nat) ^ (160 - c) * 10 ^ 142)) = T3 at hxw hfold
     generalize hT4 : m * ((10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ (160 - c) *
-      (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
+      (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarsePosBudgetCap) *
       (10 ^ 31 - 10) * 10 ^ 18) * Sc = T4 at hfold eR
     generalize hT5 : ((((2 * (10 ^ 40 - 1)) ^ (160 - c) *
-      (Sc * (10 ^ 31 - 3387))) * (10 ^ 31 + lnErrorCoarsePosBudgetCap)) *
+      (Sc * (10 ^ 31 - 3384))) * (10 ^ 31 + lnErrorCoarsePosBudgetCap)) *
       (m * 9999999999999999999999999996615)) *
       (10 ^ 18 * (10 ^ 31 - 10)) = T5 at eR ⊢
     omega
@@ -4865,9 +4865,9 @@ theorem lo_lt_pos_exact {m c x : Nat} {r : Int} (h1 : Sc - 45 ≤ m) (h2 : m < S
 theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551514598262029661683100 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
     (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551514598262029661683100)
+      116873961749927929127912020551516284764321243411868)
     (hr0 : 0 ≤ r)
     (hmx : m = x * 2 ^ (c - 160)) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
@@ -4881,19 +4881,19 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
   have hX1 := x1_nonneg_geF h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
   have hV0 : 0 ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551514598262029661683100) * 2 ^ 27 := by
+      116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
     have h0 : 0 ≤ r * 2 ^ 72 := Int.mul_nonneg hr0 (by decide)
     have hg : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551514598262029661683100 := by
+        116873961749927929127912020551516284764321243411868 := by
       generalize hgV : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551514598262029661683100 = V at hrlo ⊢
+        116873961749927929127912020551516284764321243411868 = V at hrlo ⊢
       generalize hgR : r * 2 ^ 72 = R at hrlo h0
       omega
     exact Int.mul_nonneg hg (by decide)
   change capLB ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
       BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N)
     lnErrQ
-      ((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3387)) *
+      ((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3384)) *
         (10 ^ 31 + lnErrorCoarseNegBudgetCap))
       ((560227709747861399187319382270000000000000000000000000000000 *
         (10 ^ 18 * 10 ^ 31)) * 10 ^ 31) at cap1BE
@@ -4915,7 +4915,7 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       unfold lnErrorBoundDen
       rfl
     have hextra : ((lnErrorExtraNum * twoPow99N : Nat) : Int) =
-        699000000 * twoPow99I := by
+        698600000 * twoPow99I := by
       unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen twoPow99N twoPow99I
       decide +kernel
     have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
@@ -4982,7 +4982,7 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       unfold lnErrorBoundDen
       rfl
     have hextra : ((lnErrorExtraNum * twoPow99N : Nat) : Int) =
-        699000000 * twoPow99I := by
+        698600000 * twoPow99I := by
       unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen twoPow99N twoPow99I
       decide +kernel
     have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
@@ -4993,7 +4993,7 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         (toInt (x1W (zWord m)) * lnPhaseScaleI -
             ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
             lnBiasI * twoPow27I) * (1000000000 : Int) +
-          699000000 * twoPow99I := by
+          698600000 * twoPow99I := by
       have hsI := congrArg (fun n : Nat => ((n : Nat) : Int)) hsplit
       have hN : (((c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen) : Nat) : Int) =
           (((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I)) *
@@ -5011,7 +5011,7 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
       generalize ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B at hsI ⊢
       generalize lnBiasI * twoPow27I = C at hsI ⊢
-      generalize 699000000 * twoPow99I = E at hsI ⊢
+      generalize 698600000 * twoPow99I = E at hsI ⊢
       omega
     rw [lnErrArg, htarget, hsub_cast]
     have hsc : toInt (x1W (zWord m)) * lnPhaseScaleI -
@@ -5054,7 +5054,7 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         lnErrArg r * lnErrQ :=
     Nat.mul_le_mul_right _ hple
   have capR : capLB (lnErrArg r) lnErrQ
-      (((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3387)) *
+      (((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3384)) *
         (10 ^ 31 + lnErrorCoarseNegBudgetCap)) * (10 ^ 40) ^ (c - 160))
       ((((560227709747861399187319382270000000000000000000000000000000 *
         (10 ^ 18 * 10 ^ 31)) * 10 ^ 31) * (2 * (10 ^ 40 + 1)) ^ (c - 160))) :=
@@ -5064,13 +5064,13 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N -
           (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen))
       lnErrQ
-      (((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3387)) *
+      (((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3384)) *
         (10 ^ 31 + lnErrorCoarseNegBudgetCap)) * (10 ^ 40) ^ (c - 160))
       ((((560227709747861399187319382270000000000000000000000000000000 *
         (10 ^ 18 * 10 ^ 31)) * 10 ^ 31) * (2 * (10 ^ 40 + 1)) ^ (c - 160)))
       (by unfold lnErrQ; decide) hmul capV
   refine capLB_weaken (p := lnErrArg r) (q := lnErrQ)
-    (y := (((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3387)) *
+    (y := (((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3384)) *
       (10 ^ 31 + lnErrorCoarseNegBudgetCap)) * (10 ^ 40) ^ (c - 160)))
     (w := ((((560227709747861399187319382270000000000000000000000000000000 *
       (10 ^ 18 * 10 ^ 31)) * 10 ^ 31) * (2 * (10 ^ 40 + 1)) ^ (c - 160))))
@@ -5094,11 +5094,11 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
             from by decide]
       simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
       rw [e' ((2 * (10 ^ 40 + 1)) ^ (c - 160))]
-    have eR : (((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3387)) *
+    have eR : (((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3384)) *
         (10 ^ 31 + lnErrorCoarseNegBudgetCap)) * (10 ^ 40 : Nat) ^ (c - 160)) *
         (10 ^ 18 * (10 ^ 31 - 10)) =
         x * Sc * (2 ^ (c - 160) * (10 ^ 40 : Nat) ^ (c - 160) * (10 ^ 31 - 3385) *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseNegBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18) := by
       rw [hmx, show (9999999999999999999999999996615 : Nat) = 10 ^ 31 - 3385 from by decide]
       simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
@@ -5110,9 +5110,9 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     generalize hT2 : x * Sc * ((10 : Nat) ^ 142 * (2 * (10 ^ 40 + 1)) ^ (c - 160)) = T2
       at eL hbf
     generalize hT3 : x * Sc * (2 ^ (c - 160) * (10 ^ 40 : Nat) ^ (c - 160) *
-      (10 ^ 31 - 3385) * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseNegBudgetCap) *
+      (10 ^ 31 - 3385) * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap) *
       (10 ^ 31 - 10) * 10 ^ 18) = T3 at eR hbf
-    generalize hT4 : (((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3387)) *
+    generalize hT4 : (((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3384)) *
       (10 ^ 31 + lnErrorCoarseNegBudgetCap)) * (10 ^ 40 : Nat) ^ (c - 160)) *
       (10 ^ 18 * (10 ^ 31 - 10)) = T4 at eR ⊢
     omega
@@ -5120,9 +5120,9 @@ theorem lo_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
 theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551514598262029661683100 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
     (hrlo : r * 2 ^ 72 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551514598262029661683100)
+      116873961749927929127912020551516284764321243411868)
     (hr0 : 0 ≤ r)
     (hmx : m = x * 2 ^ (c - 160)) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
@@ -5136,12 +5136,12 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
   have hV0 : 0 ≤ (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551514598262029661683100) * 2 ^ 27 := by
+      116873961749927929127912020551516284764321243411868) * 2 ^ 27 := by
     have h0 : 0 ≤ r * 2 ^ 72 := Int.mul_nonneg hr0 (by decide)
     have hg : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551514598262029661683100 := by
+        116873961749927929127912020551516284764321243411868 := by
       generalize hgV : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551514598262029661683100 = V at hrlo ⊢
+        116873961749927929127912020551516284764321243411868 = V at hrlo ⊢
       generalize hgR : r * 2 ^ 72 = R at hrlo h0
       omega
     exact Int.mul_nonneg hg (by decide)
@@ -5152,7 +5152,7 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         ((2 * (10 ^ 40 + 1)) ^ (c - 160)))
       ((m * 9999999999999999999999999996615) * ((10 ^ 40) ^ (c - 160))) at hb
   change capLB (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N)
-    lnErrQ (Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseNegBudgetCap))
+    lnErrQ (Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap))
       ((10 ^ 18 * 10 ^ 31) * 10 ^ 31) at hsum
   have hcancel_le :
       (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
@@ -5174,7 +5174,7 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       unfold lnErrorBoundDen
       rfl
     have hextra : ((lnErrorExtraNum * twoPow99N : Nat) : Int) =
-        699000000 * twoPow99I := by
+        698600000 * twoPow99I := by
       unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen twoPow99N twoPow99I
       decide +kernel
     have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
@@ -5243,7 +5243,7 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       unfold lnErrorBoundDen
       rfl
     have hextra : ((lnErrorExtraNum * twoPow99N : Nat) : Int) =
-        699000000 * twoPow99I := by
+        698600000 * twoPow99I := by
       unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen twoPow99N twoPow99I
       decide +kernel
     have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
@@ -5261,7 +5261,7 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         (toInt (x1W (zWord m)) * lnPhaseScaleI -
             ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
             lnBiasI * twoPow27I) * (1000000000 : Int) +
-          699000000 * twoPow99I := by
+          698600000 * twoPow99I := by
       have hsI := congrArg (fun n : Nat => ((n : Nat) : Int)) hsplit
       simp only [Int.natCast_add, Int.natCast_mul, hX1n, hBc, hN, hden,
         hextra, hscale] at hsI
@@ -5274,7 +5274,7 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
       generalize ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B at hsI ⊢
       generalize lnBiasI * twoPow27I = C at hsI ⊢
-      generalize 699000000 * twoPow99I = E at hsI ⊢
+      generalize 698600000 * twoPow99I = E at hsI ⊢
       omega
     rw [lnErrArg, htarget, hsub_cast]
     have hsc : toInt (x1W (zWord m)) * lnPhaseScaleI -
@@ -5316,7 +5316,7 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       lnErrArg r * lnErrQ :=
     Nat.mul_le_mul_right _ hple
   have capR : capLB (lnErrArg r) lnErrQ
-      ((Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseNegBudgetCap)) *
+      ((Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap)) *
         (m * 9999999999999999999999999996615 * (10 ^ 40 : Nat) ^ (c - 160)))
       (((10 ^ 18 * 10 ^ 31) * 10 ^ 31) *
         (560227709747861399187319382270000000000000000000000000000000 *
@@ -5327,14 +5327,14 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         ((-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
           (c - 160) * ((LN2c * twoPow27N) * lnErrorBoundDen)))
       lnErrQ
-      ((Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseNegBudgetCap)) *
+      ((Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap)) *
         (m * 9999999999999999999999999996615 * (10 ^ 40 : Nat) ^ (c - 160)))
       (((10 ^ 18 * 10 ^ 31) * 10 ^ 31) *
         (560227709747861399187319382270000000000000000000000000000000 *
           (2 * (10 ^ 40 + 1)) ^ (c - 160)))
       (by unfold lnErrQ; decide) hmul capV
   refine capLB_weaken (p := lnErrArg r) (q := lnErrQ)
-    (y := ((Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseNegBudgetCap)) *
+    (y := ((Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap)) *
       (m * 9999999999999999999999999996615 * (10 ^ 40 : Nat) ^ (c - 160))))
     (w := (((10 ^ 18 * 10 ^ 31) * 10 ^ 31) *
       (560227709747861399187319382270000000000000000000000000000000 *
@@ -5364,11 +5364,11 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
       rw [eAC, e' ((2 * (10 ^ 40 + 1)) ^ (c - 160))]
       simp only [Nat.mul_assoc]
-    have eR : ((Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseNegBudgetCap)) *
+    have eR : ((Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap)) *
         (m * 9999999999999999999999999996615 * (10 ^ 40 : Nat) ^ (c - 160))) *
         (10 ^ 18 * (10 ^ 31 - 10)) =
         x * Sc * (2 ^ (c - 160) * (10 ^ 40 : Nat) ^ (c - 160) * (10 ^ 31 - 3385) *
-          (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseNegBudgetCap) *
+          (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap) *
           (10 ^ 31 - 10) * 10 ^ 18) := by
       rw [hmx, show (9999999999999999999999999996615 : Nat) = 10 ^ 31 - 3385 from by decide]
       simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
@@ -5379,9 +5379,9 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     generalize hT2 : x * Sc * ((10 : Nat) ^ 142 * (2 * (10 ^ 40 + 1)) ^ (c - 160)) = T2
       at eL hbf
     generalize hT3 : x * Sc * (2 ^ (c - 160) * (10 ^ 40 : Nat) ^ (c - 160) *
-      (10 ^ 31 - 3385) * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseNegBudgetCap) *
+      (10 ^ 31 - 3385) * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap) *
       (10 ^ 31 - 10) * 10 ^ 18) = T3 at eR hbf
-    generalize hT4 : ((Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseNegBudgetCap)) *
+    generalize hT4 : ((Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap)) *
       (m * 9999999999999999999999999996615 * (10 ^ 40 : Nat) ^ (c - 160))) *
       (10 ^ 18 * (10 ^ 31 - 10)) = T4 at eR ⊢
     omega
@@ -5389,7 +5389,7 @@ theorem lo_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
 theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551514598262029661683100 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
     (hrneg : r ≤ -2)
     (hmx : m = x * 2 ^ (c - 160)) :
     capUB (lnErrNegArg r) lnErrQ wadRayStrictDen (wadRayNum x) := by
@@ -5403,11 +5403,11 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
   have hX1 := x1_nonneg_geF h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
   have hgap : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551514598262029661683100) * 2 ^ 27 ≤
+      116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤
       (r + 1) * 2 ^ 99 - 2 ^ 27 := by
     have hsc := Int.mul_le_mul_of_nonneg_right
       (show toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551514598262029661683100 ≤ (r + 1) * 2 ^ 72 - 1
+        116873961749927929127912020551516284764321243411868 ≤ (r + 1) * 2 ^ 72 - 1
         from by omega) (by decide : (0 : Int) ≤ 2 ^ 27)
     have er : ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 = (r + 1) * 2 ^ 99 - 2 ^ 27 := by
       rw [Int.sub_mul, Int.mul_assoc, show ((2 : Int) ^ 72 * 2 ^ 27) = 2 ^ 99 from
@@ -5418,7 +5418,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
   change capLB ((toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
       BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N)
     lnErrQ
-      ((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3387)) *
+      ((m * 9999999999999999999999999996615) * (Sc * (10 ^ 31 - 3384)) *
         (10 ^ 31 + lnErrorCoarseNegBudgetCap))
       ((560227709747861399187319382270000000000000000000000000000000 *
         (10 ^ 18 * 10 ^ 31)) * 10 ^ 31) at hb
@@ -5441,7 +5441,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       unfold lnErrorBoundDen
       rfl
     have hextra : ((lnErrorExtraNum * twoPow99N : Nat) : Int) =
-        699000000 * twoPow99I := by
+        698600000 * twoPow99I := by
       unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen twoPow99N twoPow99I
       decide +kernel
     have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
@@ -5513,7 +5513,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       unfold lnErrorBoundDen
       rfl
     have hextra : ((lnErrorExtraNum * twoPow99N : Nat) : Int) =
-        699000000 * twoPow99I := by
+        698600000 * twoPow99I := by
       unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen twoPow99N twoPow99I
       decide +kernel
     have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
@@ -5531,7 +5531,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         -((toInt (x1W (zWord m)) * lnPhaseScaleI -
             ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
             lnBiasI * twoPow27I) * (1000000000 : Int) +
-          699000000 * twoPow99I) := by
+          698600000 * twoPow99I) := by
       have hsI := congrArg (fun n : Nat => ((n : Nat) : Int)) hsplit
       simp only [Int.natCast_add, Int.natCast_mul, hX1n, hBc, hN, hden,
         hextra, hscale] at hsI
@@ -5542,7 +5542,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
       generalize ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B at hsI ⊢
       generalize lnBiasI * twoPow27I = C at hsI ⊢
-      generalize 699000000 * twoPow99I = E at hsI ⊢
+      generalize 698600000 * twoPow99I = E at hsI ⊢
       omega
     rw [lnErrNegArg, htarget, hsub_cast]
     have hsc : toInt (x1W (zWord m)) * lnPhaseScaleI -
@@ -5575,7 +5575,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         (560227709747861399187319382270000000000000000000000000000000 *
           (10 ^ 18 * 10 ^ 31) * 10 ^ 31))
       ((10 ^ 40) ^ (c - 160) *
-        (m * 9999999999999999999999999996615 * (Sc * (10 ^ 31 - 3387)) *
+        (m * 9999999999999999999999999996615 * (Sc * (10 ^ 31 - 3384)) *
           (10 ^ 31 + lnErrorCoarseNegBudgetCap))) :=
     @capUB_arg
       (lnErrNegArg r) lnErrQ
@@ -5587,7 +5587,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
         (560227709747861399187319382270000000000000000000000000000000 *
           (10 ^ 18 * 10 ^ 31) * 10 ^ 31))
       ((10 ^ 40) ^ (c - 160) *
-        (m * 9999999999999999999999999996615 * (Sc * (10 ^ 31 - 3387)) *
+        (m * 9999999999999999999999999996615 * (Sc * (10 ^ 31 - 3384)) *
           (10 ^ 31 + lnErrorCoarseNegBudgetCap)))
       (by unfold lnErrQ; decide) hmul capV
   refine capUB_weaken (p := lnErrNegArg r) (q := lnErrQ)
@@ -5595,7 +5595,7 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       (560227709747861399187319382270000000000000000000000000000000 *
         (10 ^ 18 * 10 ^ 31) * 10 ^ 31)))
     (w := ((10 ^ 40) ^ (c - 160) *
-      (m * 9999999999999999999999999996615 * (Sc * (10 ^ 31 - 3387)) *
+      (m * 9999999999999999999999999996615 * (Sc * (10 ^ 31 - 3384)) *
         (10 ^ 31 + lnErrorCoarseNegBudgetCap)))) ?_ capR0 ?_
   · have h1' : 0 < (10 ^ 40 : Nat) ^ (c - 160) := Nat.pow_pos (by decide)
     have hm0 : 0 < m := by simp only [Sc] at h1; omega
@@ -5615,10 +5615,10 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
       simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
     have eR : (10 ^ 18 * (10 ^ 31 - 10)) *
         ((10 ^ 40 : Nat) ^ (c - 160) *
-          (m * 9999999999999999999999999996615 * (Sc * (10 ^ 31 - 3387)) *
+          (m * 9999999999999999999999999996615 * (Sc * (10 ^ 31 - 3384)) *
             (10 ^ 31 + lnErrorCoarseNegBudgetCap))) =
         x * Sc * (10 ^ 18 * (10 ^ 31 - 10) * (10 ^ 40 : Nat) ^ (c - 160) *
-          2 ^ (c - 160) * (10 ^ 31 - 3385) * (10 ^ 31 - 3387) *
+          2 ^ (c - 160) * (10 ^ 31 - 3385) * (10 ^ 31 - 3384) *
           (10 ^ 31 + lnErrorCoarseNegBudgetCap)) := by
       rw [hmx, show (9999999999999999999999999996615 : Nat) = 10 ^ 31 - 3385 from by decide]
       simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
@@ -5629,18 +5629,18 @@ theorem bn_ge_neg_exact {m c x : Nat} {r : Int} (h1 : Sc ≤ m) (h2 : m < MHI)
     generalize hT2 : x * Sc * ((2 * (10 ^ 40 + 1)) ^ (c - 160) * (10 : Nat) ^ 31 *
       (10 ^ 18 * 10 ^ 31) * 10 ^ 31 * 10 ^ 31) = T2 at eL hbf
     generalize hT3 : x * Sc * (10 ^ 18 * (10 ^ 31 - 10) * (10 ^ 40 : Nat) ^ (c - 160) *
-      2 ^ (c - 160) * (10 ^ 31 - 3385) * (10 ^ 31 - 3387) *
+      2 ^ (c - 160) * (10 ^ 31 - 3385) * (10 ^ 31 - 3384) *
       (10 ^ 31 + lnErrorCoarseNegBudgetCap)) = T3 at eR hbf
     generalize hT4 : (10 ^ 18 * (10 ^ 31 - 10)) *
       ((10 ^ 40 : Nat) ^ (c - 160) *
-        (m * 9999999999999999999999999996615 * (Sc * (10 ^ 31 - 3387)) *
+        (m * 9999999999999999999999999996615 * (Sc * (10 ^ 31 - 3384)) *
           (10 ^ 31 + lnErrorCoarseNegBudgetCap))) = T4 at eR ⊢
     omega
 
 theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     (hc : 160 < c) (hc2 : c ≤ 255)
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551514598262029661683100 < (r + 1) * 2 ^ 72)
+      116873961749927929127912020551516284764321243411868 < (r + 1) * 2 ^ 72)
     (hrneg : r ≤ -2)
     (hmx : m = x * 2 ^ (c - 160)) :
     capUB (lnErrNegArg r) lnErrQ wadRayStrictDen (wadRayNum x) := by
@@ -5654,11 +5654,11 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
   have hX1 := x1_nonpos_ltF h1 h2
   have hVs := v_scale_neg (toInt (x1W (zWord m))) c hc
   have hgap : (toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-      116873961749927929127912020551514598262029661683100) * 2 ^ 27 ≤
+      116873961749927929127912020551516284764321243411868) * 2 ^ 27 ≤
       (r + 1) * 2 ^ 99 - 2 ^ 27 := by
     have hsc := Int.mul_le_mul_of_nonneg_right
       (show toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
-        116873961749927929127912020551514598262029661683100 ≤ (r + 1) * 2 ^ 72 - 1
+        116873961749927929127912020551516284764321243411868 ≤ (r + 1) * 2 ^ 72 - 1
         from by omega) (by decide : (0 : Int) ≤ 2 ^ 27)
     have er : ((r + 1) * 2 ^ 72 - 1) * 2 ^ 27 = (r + 1) * 2 ^ 99 - 2 ^ 27 := by
       rw [Int.sub_mul, Int.mul_assoc, show ((2 : Int) ^ 72 * 2 ^ 27) = 2 ^ 99 from
@@ -5673,7 +5673,7 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         ((2 * (10 ^ 40 + 1)) ^ (c - 160)))
       ((m * 9999999999999999999999999996615) * ((10 ^ 40) ^ (c - 160))) at hsum
   change capLB (BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N)
-    lnErrQ (Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseNegBudgetCap))
+    lnErrQ (Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap))
       ((10 ^ 18 * 10 ^ 31) * 10 ^ 31) at hb
   have hcancel_le : BIASc * twoPow27N * lnErrorBoundDen + lnErrorExtraNum * twoPow99N ≤
       (-toInt (x1W (zWord m))).toNat * lnPhaseScaleN * lnErrorBoundDen +
@@ -5694,7 +5694,7 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       unfold lnErrorBoundDen
       rfl
     have hextra : ((lnErrorExtraNum * twoPow99N : Nat) : Int) =
-        699000000 * twoPow99I := by
+        698600000 * twoPow99I := by
       unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen twoPow99N twoPow99I
       decide +kernel
     have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
@@ -5766,7 +5766,7 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       unfold lnErrorBoundDen
       rfl
     have hextra : ((lnErrorExtraNum * twoPow99N : Nat) : Int) =
-        699000000 * twoPow99I := by
+        698600000 * twoPow99I := by
       unfold lnErrorExtraNum lnErrorBoundNum lnErrorBoundDen twoPow99N twoPow99I
       decide +kernel
     have hscale : ((lnPhaseScaleN : Nat) : Int) = lnPhaseScaleI := rfl
@@ -5784,7 +5784,7 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
         -((toInt (x1W (zWord m)) * lnPhaseScaleI -
             ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) +
             lnBiasI * twoPow27I) * (1000000000 : Int) +
-          699000000 * twoPow99I) := by
+          698600000 * twoPow99I) := by
       have hsI := congrArg (fun n : Nat => ((n : Nat) : Int)) hsplit
       simp only [Int.natCast_add, Int.natCast_mul, hX1n, hBc, hN, hden,
         hextra, hscale] at hsI
@@ -5797,7 +5797,7 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       generalize toInt (x1W (zWord m)) * lnPhaseScaleI = A at hsI ⊢
       generalize ((c - 160 : Nat) : Int) * ((LN2c : Int) * twoPow27I) = B at hsI ⊢
       generalize lnBiasI * twoPow27I = C at hsI ⊢
-      generalize 699000000 * twoPow99I = E at hsI ⊢
+      generalize 698600000 * twoPow99I = E at hsI ⊢
       omega
     rw [lnErrNegArg, htarget, hsub_cast]
     have hsc : toInt (x1W (zWord m)) * lnPhaseScaleI -
@@ -5844,9 +5844,9 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
       simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
     have eR : 10 ^ 18 * (10 ^ 31 - 10) * (m * 9999999999999999999999999996615 *
         (10 ^ 40 : Nat) ^ (c - 160) *
-          (Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseNegBudgetCap))) =
+          (Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap))) =
         x * Sc * (10 ^ 18 * (10 ^ 31 - 10) * (10 ^ 40 : Nat) ^ (c - 160) *
-          2 ^ (c - 160) * (10 ^ 31 - 3385) * (10 ^ 31 - 3387) *
+          2 ^ (c - 160) * (10 ^ 31 - 3385) * (10 ^ 31 - 3384) *
           (10 ^ 31 + lnErrorCoarseNegBudgetCap)) := by
       rw [hmx, show (9999999999999999999999999996615 : Nat) = 10 ^ 31 - 3385 from by decide]
       simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
@@ -5857,18 +5857,18 @@ theorem bn_lt_neg_exact {m c x : Nat} {r : Int} (h1 : MLO ≤ m) (h2 : m < Sc)
     generalize hT2 : x * Sc * ((2 * (10 ^ 40 + 1)) ^ (c - 160) * (10 : Nat) ^ 31 *
       (10 ^ 18 * 10 ^ 31) * 10 ^ 31 * 10 ^ 31) = T2 at eL hbf
     generalize hT3 : x * Sc * (10 ^ 18 * (10 ^ 31 - 10) * (10 ^ 40 : Nat) ^ (c - 160) *
-      2 ^ (c - 160) * (10 ^ 31 - 3385) * (10 ^ 31 - 3387) *
+      2 ^ (c - 160) * (10 ^ 31 - 3385) * (10 ^ 31 - 3384) *
       (10 ^ 31 + lnErrorCoarseNegBudgetCap)) = T3 at eR hbf
     generalize hT4 : 10 ^ 18 * (10 ^ 31 - 10) * (m * 9999999999999999999999999996615 *
       (10 ^ 40 : Nat) ^ (c - 160) *
-        (Sc * (10 ^ 31 - 3387) * (10 ^ 31 + lnErrorCoarseNegBudgetCap))) = T4 at eR ⊢
+        (Sc * (10 ^ 31 - 3384) * (10 ^ 31 + lnErrorCoarseNegBudgetCap))) = T4 at eR ⊢
     omega
 
 theorem r_nonneg_of_c160_v_nonneg {m : Nat} {R : Int}
     (hV0 : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
-      116873961749927929127912020551514598262029661683100)
+      116873961749927929127912020551516284764321243411868)
     (hr : toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt 160 +
-      116873961749927929127912020551514598262029661683100 < (R + 1) * 2 ^ 72) :
+      116873961749927929127912020551516284764321243411868 < (R + 1) * 2 ^ 72) :
     0 ≤ R := by
   rcases Int.lt_or_le R 0 with hneg | hnon
   · exfalso
@@ -5910,7 +5910,7 @@ theorem model_ln_wad_error_bound_upper_c160 {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2
   obtain ⟨hbr1, hbr2⟩ := model_floor_bracket h1 h2 hne
   rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1 hbr2
   have hbr2' : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
-      ln2kInt (evmClz x) + 116873961749927929127912020551514598262029661683100 <
+      ln2kInt (evmClz x) + 116873961749927929127912020551516284764321243411868 <
       (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 := by
     have e : (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 =
         toInt (model_ln_wad_evm x) * 2 ^ 72 + 2 ^ 72 := by
@@ -5932,7 +5932,7 @@ theorem model_ln_wad_error_bound_upper_c160 {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2
     rw [hc160] at hw2
     simpa only [Nat.sub_self, Nat.pow_zero, Nat.mul_one] using hw2
   have hbr2c : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
-      ln2kInt 160 + 116873961749927929127912020551514598262029661683100 <
+      ln2kInt 160 + 116873961749927929127912020551516284764321243411868 <
       (R + 1) * 2 ^ 72 := by
     simpa [hc160] using hbr2'
   apply CutLogWadRayLtRational_of_strict (by omega)
@@ -5947,7 +5947,7 @@ theorem model_ln_wad_error_bound_upper_c160 {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2
     · have hmhi : mant x < MHI := hmant_hi
       have hV0I := v_c160_nonneg hmant_lo hmhi
       have hV0 : 0 ≤ toInt (x1W (zWord (mant x))) * 7450580596923828125 +
-          ln2kInt 160 + 116873961749927929127912020551514598262029661683100 := by
+          ln2kInt 160 + 116873961749927929127912020551516284764321243411868 := by
         simpa [lnBiasI] using hV0I
       have hr0 := r_nonneg_of_c160_v_nonneg hV0 hbr2c
       unfold lnErrorBoundDen lnErrorBoundNum
@@ -5964,7 +5964,7 @@ theorem model_ln_wad_error_bound_upper_neg_shift_nonneg {x : Nat}
   obtain ⟨hbr1, hbr2⟩ := model_floor_bracket h1 h2 hne
   rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1 hbr2
   have hbr2' : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
-      ln2kInt (evmClz x) + 116873961749927929127912020551514598262029661683100 <
+      ln2kInt (evmClz x) + 116873961749927929127912020551516284764321243411868 <
       (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 := by
     have e : (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 =
         toInt (model_ln_wad_evm x) * 2 ^ 72 + 2 ^ 72 := by
@@ -5997,7 +5997,7 @@ theorem model_ln_wad_error_bound_upper_neg_shift_rec_ge {x : Nat}
   obtain ⟨_hbr1, hbr2⟩ := model_floor_bracket h1 h2 hne
   rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr2
   have hbrHi : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
-      ln2kInt (evmClz x) + 116873961749927929127912020551514598262029661683100 <
+      ln2kInt (evmClz x) + 116873961749927929127912020551516284764321243411868 <
       (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 := by
     have e : (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 =
         toInt (model_ln_wad_evm x) * 2 ^ 72 + 2 ^ 72 := by

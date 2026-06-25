@@ -62,7 +62,13 @@ def ltTD2b : List Int := polyScale (2 ^ 99) ltTD2
 
 def KF : Int := 1124000727777607680000
 def KF1 : Int := 25852016738884976640000
-def EUN : Int := 3385
+/-- Never-overshoot margin floor (the +form certs `certGeUp`, `certLtUp`): the
+bias keeps at least this much of its `1e-31`-unit margin.  Lowered to `3382`
+when the bias is raised. -/
+def EUN : Int := 3382
+/-- Not-too-low margin ceiling (the −form certs `certGeLo`, `certLtLo`): an upper
+bound on the bias margin.  Unchanged by raising the bias. -/
+def EUNl : Int := 3385
 def EUD : Int := 10 ^ 31
 
 def certGeUp : List Int :=
@@ -70,13 +76,13 @@ def certGeUp : List Int :=
     (polyScale (-(Sc : Int) * EUD) (polyAdd (polyScale 23 (polyMul (expPolyNum geTN geTD 22) geTD)) (polyScale 2 (polyPow geTN 23))))
 def certGeLo : List Int :=
   polyAdd (polyScale (EUD * (Sc : Int)) (expPolyNum geTN2b geTD2b 22))
-    (polyScale (-(EUD - EUN) * KF) (polyMul [0, 1] (polyPow geTD2b 22)))
+    (polyScale (-(EUD - EUNl) * KF) (polyMul [0, 1] (polyPow geTD2b 22)))
 def certLtUp : List Int :=
   polyAdd (polyScale (EUD + EUN) (polyMul [0, 1] (expPolyNum ltTN2b ltTD2b 22)))
     (polyScale (-EUD * (Sc : Int) * KF) (polyPow ltTD2b 22))
 def certLtLo : List Int :=
   polyAdd (polyScale ((Sc : Int) * EUD * KF1) (polyPow ltTD 23))
-    (polyScale (-(EUD - EUN)) (polyMul [0, 1] (polyAdd (polyScale 23 (polyMul (expPolyNum ltTN ltTD 22) ltTD)) (polyScale 2 (polyPow ltTN 23)))))
+    (polyScale (-(EUD - EUNl)) (polyMul [0, 1] (polyAdd (polyScale 23 (polyMul (expPolyNum ltTN ltTD 22) ltTD)) (polyScale 2 (polyPow ltTN 23)))))
 def UB : Int := 2333000000000000000000000000
 def certGeWS : List Int := polyAdd (polyScale UB geB2) (polyScale (-(2 ^ 96)) geA2)
 def certLtWS : List Int := polyAdd (polyScale UB ltB2) (polyScale (-(2 ^ 96)) ltA2)

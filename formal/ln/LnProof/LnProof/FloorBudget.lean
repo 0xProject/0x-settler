@@ -50,24 +50,24 @@ namespace LnFloorCert
 
 /-- Upper weakening budget, `k = 160 - clz ≥ 0` (worst case `x = m 2^k`). -/
 def budgetU (k : Nat) : Bool :=
-  decide ((10 ^ 31 + 3385) * (2 * (10 ^ 40 + 1)) ^ k * (10 ^ 31 - 3386) * 10 ^ 18 ≤
+  decide ((10 ^ 31 + 3382) * (2 * (10 ^ 40 + 1)) ^ k * (10 ^ 31 - 3383) * 10 ^ 18 ≤
     2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 80)
 
 /-- Lower weakening budget, `k ≥ 0` (worst case `x = (m+1) 2^k`, `m = 2^95`). -/
 def budgetL (k : Nat) : Bool :=
   decide ((2 ^ 95 + 1) * 2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 142 ≤
-    2 ^ 95 * (10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3387) *
+    2 ^ 95 * (10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3384) *
       (10 ^ 31 + 9990) * (10 ^ 31 - 10) * 10 ^ 18)
 
 /-- Upper weakening budget, `k < 0` with `j = -k` (exact mantissa `m = x 2^j`). -/
 def budgetUn (j : Nat) : Bool :=
-  decide ((10 ^ 31 + 3385) * (10 ^ 31 - 3386) * (10 ^ 40 : Nat) ^ j * 2 ^ j * 10 ^ 18 ≤
+  decide ((10 ^ 31 + 3382) * (10 ^ 31 - 3383) * (10 ^ 40 : Nat) ^ j * 2 ^ j * 10 ^ 18 ≤
     10 ^ 80 * (2 * (10 ^ 40 - 1)) ^ j)
 
 /-- Lower weakening budget, `k < 0` (exact mantissa). -/
 def budgetLn (j : Nat) : Bool :=
   decide ((10 : Nat) ^ 142 * (2 * (10 ^ 40 + 1)) ^ j ≤
-    2 ^ j * (10 ^ 40 : Nat) ^ j * (10 ^ 31 - 3385) * (10 ^ 31 - 3387) *
+    2 ^ j * (10 ^ 40 : Nat) ^ j * (10 ^ 31 - 3385) * (10 ^ 31 - 3384) *
       (10 ^ 31 + 9990) * (10 ^ 31 - 10) * 10 ^ 18)
 
 theorem budgetU_all : (List.range 160).all budgetU = true := by
@@ -83,7 +83,7 @@ theorem budgetLn_all : (List.range 96).all budgetLn = true := by
   decide +kernel
 
 theorem budgetU_le {k : Nat} (hk : k ≤ 159) :
-    (10 ^ 31 + 3385) * (2 * (10 ^ 40 + 1)) ^ k * (10 ^ 31 - 3386) * 10 ^ 18 ≤
+    (10 ^ 31 + 3382) * (2 * (10 ^ 40 + 1)) ^ k * (10 ^ 31 - 3383) * 10 ^ 18 ≤
       2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 80 := by
   have h := List.all_eq_true.mp budgetU_all k (List.mem_range.mpr (by omega))
   simp only [budgetU, decide_eq_true_eq] at h
@@ -91,14 +91,14 @@ theorem budgetU_le {k : Nat} (hk : k ≤ 159) :
 
 theorem budgetL_le {k : Nat} (hk : k ≤ 159) :
     (2 ^ 95 + 1) * 2 ^ k * (10 ^ 40 : Nat) ^ k * 10 ^ 142 ≤
-      2 ^ 95 * (10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3387) *
+      2 ^ 95 * (10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k * (10 ^ 31 - 3384) *
         (10 ^ 31 + 9990) * (10 ^ 31 - 10) * 10 ^ 18 := by
   have h := List.all_eq_true.mp budgetL_all k (List.mem_range.mpr (by omega))
   simp only [budgetL, decide_eq_true_eq] at h
   exact h
 
 theorem budgetUn_le {j : Nat} (hj : j ≤ 95) :
-    (10 ^ 31 + 3385) * (10 ^ 31 - 3386) * (10 ^ 40 : Nat) ^ j * 2 ^ j * 10 ^ 18 ≤
+    (10 ^ 31 + 3382) * (10 ^ 31 - 3383) * (10 ^ 40 : Nat) ^ j * 2 ^ j * 10 ^ 18 ≤
       10 ^ 80 * (2 * (10 ^ 40 - 1)) ^ j := by
   have h := List.all_eq_true.mp budgetUn_all j (List.mem_range.mpr (by omega))
   simp only [budgetUn, decide_eq_true_eq] at h
@@ -106,7 +106,7 @@ theorem budgetUn_le {j : Nat} (hj : j ≤ 95) :
 
 theorem budgetLn_le {j : Nat} (hj : j ≤ 95) :
     (10 : Nat) ^ 142 * (2 * (10 ^ 40 + 1)) ^ j ≤
-      2 ^ j * (10 ^ 40 : Nat) ^ j * (10 ^ 31 - 3385) * (10 ^ 31 - 3387) *
+      2 ^ j * (10 ^ 40 : Nat) ^ j * (10 ^ 31 - 3385) * (10 ^ 31 - 3384) *
         (10 ^ 31 + 9990) * (10 ^ 31 - 10) * 10 ^ 18 := by
   have h := List.all_eq_true.mp budgetLn_all j (List.mem_range.mpr (by omega))
   simp only [budgetLn, decide_eq_true_eq] at h
@@ -118,14 +118,14 @@ def budgetB (k : Nat) : Bool :=
   decide ((10 : Nat) ^ 31 * (10 ^ 40 : Nat) ^ k * (10 ^ 18 * 10 ^ 31) * 10 ^ 31 *
       ((2 ^ 95 + 1) * 2 ^ k) * 10 ^ 31 ≤
     10 ^ 18 * (10 ^ 31 - 10) * 2 ^ 95 * (10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k *
-      (10 ^ 31 - 3387) * (10 ^ 31 + 9990))
+      (10 ^ 31 - 3384) * (10 ^ 31 + 9990))
 
 /-- Reciprocal-side strict budget, `k < 0` (exact mantissa). -/
 def budgetBn (j : Nat) : Bool :=
   decide ((2 * (10 ^ 40 + 1)) ^ j * (10 : Nat) ^ 31 * (10 ^ 18 * 10 ^ 31) * 10 ^ 31 *
       10 ^ 31 ≤
     10 ^ 18 * (10 ^ 31 - 10) * (10 ^ 40 : Nat) ^ j * 2 ^ j * (10 ^ 31 - 3385) *
-      (10 ^ 31 - 3387) * (10 ^ 31 + 9990))
+      (10 ^ 31 - 3384) * (10 ^ 31 + 9990))
 
 theorem budgetB_all : (List.range 160).all budgetB = true := by
   decide +kernel
@@ -137,7 +137,7 @@ theorem budgetB_le {k : Nat} (hk : k ≤ 159) :
     (10 : Nat) ^ 31 * (10 ^ 40 : Nat) ^ k * (10 ^ 18 * 10 ^ 31) * 10 ^ 31 *
       ((2 ^ 95 + 1) * 2 ^ k) * 10 ^ 31 ≤
     10 ^ 18 * (10 ^ 31 - 10) * 2 ^ 95 * (10 ^ 31 - 3385) * (2 * (10 ^ 40 - 1)) ^ k *
-      (10 ^ 31 - 3387) * (10 ^ 31 + 9990) := by
+      (10 ^ 31 - 3384) * (10 ^ 31 + 9990) := by
   have h := List.all_eq_true.mp budgetB_all k (List.mem_range.mpr (by omega))
   simp only [budgetB, decide_eq_true_eq] at h
   exact h
@@ -146,7 +146,7 @@ theorem budgetBn_le {j : Nat} (hj : j ≤ 95) :
     (2 * (10 ^ 40 + 1)) ^ j * (10 : Nat) ^ 31 * (10 ^ 18 * 10 ^ 31) * 10 ^ 31 *
       10 ^ 31 ≤
     10 ^ 18 * (10 ^ 31 - 10) * (10 ^ 40 : Nat) ^ j * 2 ^ j * (10 ^ 31 - 3385) *
-      (10 ^ 31 - 3387) * (10 ^ 31 + 9990) := by
+      (10 ^ 31 - 3384) * (10 ^ 31 + 9990) := by
   have h := List.all_eq_true.mp budgetBn_all j (List.mem_range.mpr (by omega))
   simp only [budgetBn, decide_eq_true_eq] at h
   exact h

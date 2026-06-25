@@ -32,7 +32,7 @@ needs.  Since the bias argument is constant, a `130`-term lower sum pins it to
 `~1e-39` relative with a `10^60` denominator. -/
 theorem capBLtight :
     capLB (BIASc * 2 ^ 27) QS
-      56022770974786139918731938207935451037280277068306373453512740455438595
+      56022770974786139918731938208047384533687899806222561447928894477446720
       (10 ^ 18 * 10 ^ 42) :=
   ⟨130, by decide⟩
 
@@ -126,7 +126,7 @@ theorem ge_pos_cut_factored {m c x : Nat} {r : Int}
               (10 ^ 40) ^ (160 - c)) * (10 ^ 18 * 10 ^ 42)) * lnErrQ) ≤
         (((expNum 22 (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat *
             (2 * (10 ^ 40 - 1)) ^ (160 - c)) *
-            56022770974786139918731938207935451037280277068306373453512740455438595) *
+            56022770974786139918731938208047384533687899806222561447928894477446720) *
           (lnErrQ + posAvailGe m c r)) * wadRayStrictDen) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
   have hTDnat : 0 < (evalPoly geTD2b (m : Int)).toNat := by
@@ -176,7 +176,7 @@ theorem ge_pos_cut_reduced {m c x : Nat} {r : Int}
       ((m + 1) * 10 ^ 31 * (fact 22 * (evalPoly geTD2b (m : Int)).toNat ^ 22) *
           (10 ^ 18 * 10 ^ 42) * lnErrQ) * (10 ^ 40 + 160) ≤
         (expNum 22 (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat *
-            56022770974786139918731938207935451037280277068306373453512740455438595 *
+            56022770974786139918731938208047384533687899806222561447928894477446720 *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * 10 ^ 40) :
     capLB (lnErrArg r) lnErrQ (wadRayNum x) wadRayStrictDen := by
   have hphase : posPhaseNatGe m c ≤ lnErrArg r := Nat.le_trans (Nat.le_add_right _ _) hmin
@@ -188,7 +188,7 @@ theorem ge_pos_cut_reduced {m c x : Nat} {r : Int}
       ((m + 1) * 10 ^ 31 * (fact 22 * (evalPoly geTD2b (m : Int)).toNat ^ 22) *
           (10 ^ 18 * 10 ^ 42) * lnErrQ) * (10 ^ 40) ^ (160 - c) ≤
         (expNum 22 (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat *
-            56022770974786139918731938207935451037280277068306373453512740455438595 *
+            56022770974786139918731938208047384533687899806222561447928894477446720 *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * ((10 ^ 40 - 1) ^ (160 - c)) := by
     refine Nat.le_of_mul_le_mul_right ?_ (show 0 < 10 ^ 40 by decide)
     calc ((m + 1) * 10 ^ 31 * (fact 22 * (evalPoly geTD2b (m : Int)).toNat ^ 22) *
@@ -203,11 +203,11 @@ theorem ge_pos_cut_reduced {m c x : Nat} {r : Int}
             (10 ^ 18 * 10 ^ 42) * lnErrQ) * (10 ^ 40 + 160) * (10 ^ 40 - 1) ^ (160 - c) := by
           simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
       _ ≤ (expNum 22 (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat *
-            56022770974786139918731938207935451037280277068306373453512740455438595 *
+            56022770974786139918731938208047384533687899806222561447928894477446720 *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * 10 ^ 40 *
               (10 ^ 40 - 1) ^ (160 - c) := Nat.mul_le_mul_right _ hred
       _ = (expNum 22 (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat *
-            56022770974786139918731938207935451037280277068306373453512740455438595 *
+            56022770974786139918731938208047384533687899806222561447928894477446720 *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * ((10 ^ 40 - 1) ^ (160 - c)) *
               10 ^ 40 := by simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
   -- now assemble `hclose`
@@ -230,12 +230,12 @@ theorem ge_pos_cut_reduced {m c x : Nat} {r : Int}
             (10 ^ 18 * 10 ^ 42) * lnErrQ) * (10 ^ 40) ^ (160 - c)) * 2 ^ (160 - c) := by
           simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
     _ ≤ ((expNum 22 (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat *
-            56022770974786139918731938207935451037280277068306373453512740455438595 *
+            56022770974786139918731938208047384533687899806222561447928894477446720 *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * ((10 ^ 40 - 1) ^ (160 - c))) *
               2 ^ (160 - c) := Nat.mul_le_mul_right _ keyineq
     _ = (((expNum 22 (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat *
             (2 * (10 ^ 40 - 1)) ^ (160 - c)) *
-            56022770974786139918731938207935451037280277068306373453512740455438595) *
+            56022770974786139918731938208047384533687899806222561447928894477446720) *
             (lnErrQ + minPosAvail)) * wadRayStrictDen := by
           simp only [Nat.mul_pow, Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
 

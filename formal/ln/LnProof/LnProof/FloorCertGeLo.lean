@@ -39,27 +39,27 @@ theorem geLo_eval_eq : ∀ x : Int, evalPoly certGeLo x = evalPoly certGeLoLit x
     show polyL1 certGeLo * 2 < 2 ^ kB
     have h1 := polyL1_polyAdd
       (polyScale (EUD * (Sc : Int)) (expPolyNum geTN2bLit geTD2bLit 22))
-      (polyScale (-(EUD - EUN) * KF) (polyMul [0, 1] (polyPow geTD2bLit 22)))
+      (polyScale (-(EUD - EUNl) * KF) (polyMul [0, 1] (polyPow geTD2bLit 22)))
     have h2 := polyL1_polyScale (EUD * (Sc : Int)) (expPolyNum geTN2bLit geTD2bLit 22)
     have h3 := polyL1_expPolyNum geTN2bLit geTD2bLit 22
     have h7 : (EUD * (Sc : Int)).natAbs * polyL1 (expPolyNum geTN2bLit geTD2bLit 22) ≤
         (EUD * (Sc : Int)).natAbs *
           LnExp.expNum 22 (polyL1 geTN2bLit) (polyL1 geTD2bLit) :=
       Nat.mul_le_mul_left _ h3
-    have h4 := polyL1_polyScale (-(EUD - EUN) * KF) (polyMul [0, 1] (polyPow geTD2bLit 22))
+    have h4 := polyL1_polyScale (-(EUD - EUNl) * KF) (polyMul [0, 1] (polyPow geTD2bLit 22))
     have h5 := polyL1_polyMul ([0, 1] : List Int) (polyPow geTD2bLit 22)
     have h6 := polyL1_polyPow geTD2bLit 22
     have h8 : polyL1 ([0, 1] : List Int) * polyL1 (polyPow geTD2bLit 22) ≤
         polyL1 ([0, 1] : List Int) * polyL1 geTD2bLit ^ 22 :=
       Nat.mul_le_mul_left _ h6
-    have h9 : (-(EUD - EUN) * KF).natAbs * polyL1 (polyMul ([0, 1] : List Int)
+    have h9 : (-(EUD - EUNl) * KF).natAbs * polyL1 (polyMul ([0, 1] : List Int)
         (polyPow geTD2bLit 22)) ≤
-        (-(EUD - EUN) * KF).natAbs *
+        (-(EUD - EUNl) * KF).natAbs *
           (polyL1 ([0, 1] : List Int) * polyL1 geTD2bLit ^ 22) :=
       Nat.mul_le_mul_left _ (Nat.le_trans h5 h8)
     have hfin : ((EUD * (Sc : Int)).natAbs *
         LnExp.expNum 22 (polyL1 geTN2bLit) (polyL1 geTD2bLit) +
-        (-(EUD - EUN) * KF).natAbs *
+        (-(EUD - EUNl) * KF).natAbs *
           (polyL1 ([0, 1] : List Int) * polyL1 geTD2bLit ^ 22)) * 2 < 2 ^ kB := by
       decide +kernel
     have hA := Nat.le_trans h2 h7

@@ -142,7 +142,7 @@ theorem model_ln_wad_error_bound_upper_pos_shift {x : Nat}
 covered by the degree-22 curved-cap cell cover on `[2^95, Sc-46]` and a residue
 band on `[Sc-45, Sc)`, the ge octave by the coarse residue bound, and the
 negative shift by its coarse residue bound. -/
-theorem model_ln_wad_error_bound_1_6990 {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
+theorem model_ln_wad_error_bound_1_6986 {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
     let r := toInt (model_ln_wad_evm x)
     CutLeLogWadRay r x ∧
       CutLogWadRayLtRational x r lnErrorBoundNum lnErrorBoundDen := by

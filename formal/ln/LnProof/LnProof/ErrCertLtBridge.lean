@@ -29,7 +29,7 @@ def errLtK : Int :=
   63382530011411470074835160268800000001014120480182583521197362564300800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 
 def errLtW : Nat :=
-  3550864962631813931471340474599928242875869568362488840747148006607569582093066275757113707189475215647519012993416168121809966240269005626770645496419514843136000000000000000000000000000000000000000000000000000000000000000000
+  3550864962631813931471340474605602525086155208949182483393131823026194872971536101998892269735065570843009162547284327412750539715096996420696892912576537978470400000000000000000000000000000000000000000000000000000000000000000
 
 def certErrLt : List Int :=
   polyAdd (polyScale ((errLtW : Int) * (fact 23 : Int)) (polyPow ltTD 23))
@@ -99,7 +99,7 @@ theorem errLt_hred {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
         (expNum 22 (evalPoly ltTN (m : Int)).toNat (evalPoly ltTD (m : Int)).toNat *
             (23 * (evalPoly ltTD (m : Int)).toNat) +
           2 * (evalPoly ltTN (m : Int)).toNat ^ 23) * lnErrQ) * (10 ^ 40 + 160) ≤
-      (56022770974786139918731938207935451037280277068306373453512740455438595 *
+      (56022770974786139918731938208047384533687899806222561447928894477446720 *
           (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23) *
           (lnErrQ + minPosAvail) * wadRayStrictDen) * 10 ^ 40 := by
   have hw1 : (39614081257132168796771975168 : Int) ≤ (m : Int) := by
@@ -143,7 +143,7 @@ theorem errLt_hred {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   -- close `hred` by expanding the two scalar constants and AC
   have eKn : errLtK.toNat = 10 ^ 31 * (10 ^ 18 * 10 ^ 42) * lnErrQ * (10 ^ 40 + 160) := by
     decide
-  have eWn : errLtW = 56022770974786139918731938207935451037280277068306373453512740455438595 *
+  have eWn : errLtW = 56022770974786139918731938208047384533687899806222561447928894477446720 *
       (lnErrQ + minPosAvail) * wadRayStrictDen * 10 ^ 40 := by decide
   rw [show m + 1 = 1 + m from Nat.add_comm m 1]
   calc (1 + m) * 10 ^ 31 * (10 ^ 18 * 10 ^ 42) *
@@ -155,7 +155,7 @@ theorem errLt_hred {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
             2 * (evalPoly ltTN (m : Int)).toNat ^ 23)) := by
         rw [eKn]; simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
     _ ≤ errLtW * fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23 := key
-    _ = 56022770974786139918731938207935451037280277068306373453512740455438595 *
+    _ = 56022770974786139918731938208047384533687899806222561447928894477446720 *
           (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23) * (lnErrQ + minPosAvail) *
           wadRayStrictDen * 10 ^ 40 := by
         rw [eWn]; simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]

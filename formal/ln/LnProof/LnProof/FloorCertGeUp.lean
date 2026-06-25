@@ -91,33 +91,34 @@ theorem geUp_nonneg {m : Int} (h1 : 56022770974786139918731938273 ≤ m) (h2 : m
     0 ≤ evalPoly certGeUp m := by
   have hev := geUp_eval_eq m
   rw [hev]
-  rcases Int.lt_or_le m (59279354229259720917350213723 + 1) with h | h
+  rcases Int.lt_or_le m (59266081817351235913474286845 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell00 m (by omega) (by omega)
-  rcases Int.lt_or_le m (60868875837913635876431211872 + 1) with h | h
+  rcases Int.lt_or_le m (60261195396300777138610597146 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell01 m (by omega) (by omega)
-  rcases Int.lt_or_le m (65647199166770921808412026255 + 1) with h | h
+  rcases Int.lt_or_le m (65565966845362846449121124691 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell02 m (by omega) (by omega)
-  rcases Int.lt_or_le m (66326012476199512076492819330 + 1) with h | h
+  rcases Int.lt_or_le m (66268224935948723932208112262 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell03 m (by omega) (by omega)
-  rcases Int.lt_or_le m (71285905378028973084942956446 + 1) with h | h
+  rcases Int.lt_or_le m (71273341474262273478494121528 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell04 m (by omega) (by omega)
-  rcases Int.lt_or_le m (71968434253869915164444390522 + 1) with h | h
+  rcases Int.lt_or_le m (71949306592399438020188468464 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell05 m (by omega) (by omega)
-  rcases Int.lt_or_le m (72408786498893991617815899218 + 1) with h | h
+  rcases Int.lt_or_le m (72253963783645493179901998777 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell06 m (by omega) (by omega)
-  rcases Int.lt_or_le m (75861708703758292357820627133 + 1) with h | h
+  rcases Int.lt_or_le m (75848344205939394473959398558 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell07 m (by omega) (by omega)
-  rcases Int.lt_or_le m (76378401319591968748569314938 + 1) with h | h
+  rcases Int.lt_or_le m (76368615273267926498199066888 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell08 m (by omega) (by omega)
-  rcases Int.lt_or_le m (76545349455617885268024766253 + 1) with h | h
+  rcases Int.lt_or_le m (76512522319826533298339061377 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell09 m (by omega) (by omega)
-  rcases Int.lt_or_le m (78599445424075384278202074396 + 1) with h | h
+  rcases Int.lt_or_le m (78595188666574508701639272524 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell10 m (by omega) (by omega)
-  rcases Int.lt_or_le m (78838265257980444338216869245 + 1) with h | h
+  rcases Int.lt_or_le m (78835627367648889913153387938 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell11 m (by omega) (by omega)
-  rcases Int.lt_or_le m (78899360831234549898244564055 + 1) with h | h
+  rcases Int.lt_or_le m (78893863486352981843045626396 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell12 m (by omega) (by omega)
-  rcases Int.lt_or_le m (78974765181663678167544320606 + 1) with h | h
+  rcases Int.lt_or_le m (78941888558111820679980811876 + 1) with h | h
   · exact checkCoverK_sound _ _ _ _ _ geUp_cell13 m (by omega) (by omega)
   exact checkCoverK_sound _ _ _ _ _ geUp_cell14 m (by omega) h2
+
 end LnFloorCert
