@@ -3,29 +3,30 @@
 certificate polynomials, mirroring the constructions in FloorCertDefs.lean."""
 
 import math
-import pathlib
 import sys
 
 sys.set_int_max_str_digits(2000000)
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3]))
-from formal.python.ln.check_ln_counterexample import (
-    _C0,
-    _P1,
-    _P2,
-    _P3,
-    _P4,
-    _Q1,
-    _Q2,
-    _Q3,
-    _Q4,
-    _S,
-)
+
+# Polynomial coefficients mirrored from src/vendor/Ln.sol: the (4,5)-degree
+# rational approximation p/-q of atanh(sqrt(u))/sqrt(u) over the centered
+# mantissa, sharing the constant term C0 = p(0) = -q(0); S = round(sqrt(2)·2^95)
+# is the octave-centering point.  See the derivation comments in Ln.sol.
+_S = 0xB504F333F9DE6484597D89B3
+_P4 = 0xF642B0ED5372FF45E0
+_P3 = 0xEDE142E73A9ACBB00E9C42
+_P2 = 0xF2A56533E74A454C9D585F70
+_P1 = 0xB44D9253CD61FB87DC7EFCFC
+_C0 = 0xB05A8B41CF51C04D1B8A08D473
+_Q4 = 0x364589193443B48661938F59DC
+_Q3 = 0xE904C4E76307954DF78FEF
+_Q2 = 0xAD960AB2F600BD9765C15FFD
+_Q1 = 0xD1B1FEDEC544F0EA0BC812BBCA
 
 S = _S
 K = 22
 KF = math.factorial(K)
 KF1 = math.factorial(K + 1)
-EUN, EUD = 3401, 10**31
+EUN, EUNl, EUD = 3382, 3385, 10**31
 
 PPc: list[int] = [_C0 * 2**358, -_P1 * 2**271, _P2 * 2**174, -_P3 * 2**84, _P4]
 QQc: list[int] = [-_C0 * 2**386, _Q1 * 2**291, -_Q2 * 2**203, _Q3 * 2**113, -_Q4, 1]
@@ -121,7 +122,7 @@ certs["certGeUpLit"] = padd(
 EPN2_ge = exp_poly_num(GE["TN2b"], GE["TD2b"], K)
 certs["certGeLoLit"] = padd(
     pscale(EUD * S, EPN2_ge),
-    pscale(-(EUD - EUN) * KF, pmul([0, 1], ppow(GE["TD2b"], K))),
+    pscale(-(EUD - EUNl) * KF, pmul([0, 1], ppow(GE["TD2b"], K))),
 )
 EPNlt_w = exp_poly_num(LT["TN2b"], LT["TD2b"], K)
 certs["certLtUpLit"] = padd(
@@ -132,7 +133,7 @@ EPNlt_t = exp_poly_num(LT["TN"], LT["TD"], K)
 certs["certLtLoLit"] = padd(
     pscale(S * EUD * KF1, ppow(LT["TD"], K + 1)),
     pscale(
-        -(EUD - EUN),
+        -(EUD - EUNl),
         pmul(
             [0, 1],
             padd(

@@ -53,12 +53,6 @@ jobs:
         env:
           FOUNDRY_SOLC_VERSION: 0.8.34
 
-      - name: Check floor-specification witness and helper mirror
-        run: python3 -W error -m formal.python.ln.check_ln_counterexample
-
-      - name: Check monotonicity certificate
-        run: python3 -W error -m formal.python.ln.check_ln_monotone
-
       - name: Generate Lean model from Ln.sol via Yul IR
         run: |
           forge inspect src/wrappers/LnWrapper.sol:LnWrapper ir | \
@@ -68,6 +62,19 @@ jobs:
 
       - name: Generate certificate coefficient literals
         run: python3 -W error formal/python/ln/gen_cert_literals.py
+
+      - name: Generate floor cert cell covers and bias cap numerator
+        working-directory: formal/ln/LnProof
+        run: |
+          lake build LnProof.FloorCertLit LnProof.KroneckerShift LnProof.FloorConsts
+          lake env lean GenCover.lean
+          lake env lean GenErr1.lean
+
+      - name: Generate error-bound cert literals and cell covers
+        working-directory: formal/ln/LnProof
+        run: |
+          lake build LnProof.ErrorBoundCore
+          lake env lean GenErrLit.lean
 
       - name: Build Ln proof and model evaluator
         working-directory: formal/ln/LnProof
