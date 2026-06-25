@@ -176,7 +176,7 @@ theorem lnWadRuntimeCorrect (x : Nat) (hx : x < 2 ^ 256) :
 theorem run_ln_wad_to_ray_evm_zero_at_wad :
     run_ln_wad_to_ray_evm (10 ^ 18) = .ok 0 := by
   have hlt : (10 : Nat) ^ 18 < 2 ^ 256 := by norm_num
-  have hux : u256 (10 ^ 18) = 10 ^ 18 := u256_eq_of_lt _ (by simpa [WORD_MOD] using hlt)
+  have hux : u256 (10 ^ 18) = 10 ^ 18 := u256_eq_of_lt _ (by simp [WORD_MOD])
   have hpos : 1 ≤ u256 (10 ^ 18) := by rw [hux]; norm_num
   have hpos2 : u256 (10 ^ 18) < 2 ^ 255 := by rw [hux]; norm_num
   have h := run_ln_wad_to_ray_evm_eq_body (10 ^ 18) hpos hpos2

@@ -145,8 +145,7 @@ two's-complement bitwise-not at the `Nat` level). -/
 theorem wordNat_complement (a : EvmYul.UInt256) :
     wordNat (EvmYul.UInt256.complement a) = evmNot (wordNat a) := by
   have hav : a.toNat < 2 ^ 256 := by
-    have := a.val.isLt
-    simpa [EvmYul.UInt256.toNat, EvmYul.UInt256.size] using this
+    simp [EvmYul.UInt256.toNat, EvmYul.UInt256.size]
   simp only [wordNat, EvmYul.UInt256.complement, EvmYul.UInt256.toNat, evmNot, u256, WORD_MOD,
     Fin.sub_def, Fin.add_def, Fin.val_zero, Fin.val_one, EvmYul.UInt256.size]
   omega
@@ -157,9 +156,9 @@ decomposition `sar = complement (complement b >>> a)` (for negative `b`) and
 theorem wordNat_sar (a b : EvmYul.UInt256) :
     wordNat (EvmYul.UInt256.sar a b) = evmSar (wordNat a) (wordNat b) := by
   have hb : wordNat b < 2 ^ 256 := by
-    have := b.val.isLt; simpa [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat] using this
+    simp [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat]
   have ha : wordNat a < 2 ^ 256 := by
-    have := a.val.isLt; simpa [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat] using this
+    simp [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat]
   have huina : u256 (wordNat a) = wordNat a := by
     unfold u256 WORD_MOD; exact Nat.mod_eq_of_lt ha
   have huinb : u256 (wordNat b) = wordNat b := by
@@ -171,7 +170,7 @@ theorem wordNat_sar (a b : EvmYul.UInt256) :
   have hsltz : EvmYul.UInt256.sltBool b ⟨0⟩ = true ↔ 2 ^ 255 ≤ wordNat b := by
     unfold EvmYul.UInt256.sltBool
     by_cases hb255 : 2 ^ 255 ≤ wordNat b <;>
-      simp [hb255, hbz, wordNat, show (⟨0⟩ : EvmYul.UInt256).toNat = 0 from rfl]
+      simp [hbz, wordNat, show (⟨0⟩ : EvmYul.UInt256).toNat = 0 from rfl]
   unfold EvmYul.UInt256.sar
   by_cases hneg : EvmYul.UInt256.sltBool b ⟨0⟩ = true
   · rw [if_pos hneg]
@@ -238,9 +237,9 @@ negated arms; all powers kept as `2^n` to avoid kernel literal materialization. 
 theorem wordNat_sdiv (a b : EvmYul.UInt256) :
     wordNat (EvmYul.UInt256.sdiv a b) = evmSdiv (wordNat a) (wordNat b) := by
   have ha : wordNat a < 2 ^ 256 := by
-    have := a.val.isLt; simpa [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat] using this
+    simp [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat]
   have hb : wordNat b < 2 ^ 256 := by
-    have := b.val.isLt; simpa [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat] using this
+    simp [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat]
   have hua : u256 (wordNat a) = wordNat a := by unfold u256 WORD_MOD; exact Nat.mod_eq_of_lt ha
   have hub : u256 (wordNat b) = wordNat b := by unfold u256 WORD_MOD; exact Nat.mod_eq_of_lt hb
   have hwm : WORD_MOD = 2 ^ 256 := word_mod_eq
@@ -255,8 +254,7 @@ theorem wordNat_sdiv (a b : EvmYul.UInt256) :
     have m2 : (2 ^ 256 - wordNat b) % 2 ^ 256 = 2 ^ 256 - wordNat b := Nat.mod_eq_of_lt (by omega)
     rw [if_pos (show 2 ^ 255 ≤ a.toNat from hna), if_pos (show 2 ^ 255 ≤ b.toNat from hnb),
       wordNat_div, wordNat_abs, wordNat_abs, hsz, if_pos hna, if_pos hnb]
-    simp only [dna, dnb, eq_self_iff_true, Bool.true_eq_false, Bool.false_eq_true,
-      if_true, if_false]
+    simp only [dna, dnb, if_true]
     simp only [evmDiv, u256, WORD_MOD, m1, m2]
     have hq : (2 ^ 256 - wordNat a) / (2 ^ 256 - wordNat b) ≤ 2 ^ 256 - wordNat a := Nat.div_le_self _ _
     revert hq
@@ -270,7 +268,7 @@ theorem wordNat_sdiv (a b : EvmYul.UInt256) :
     have hmodb : wordNat b % 2 ^ 256 = wordNat b := Nat.mod_eq_of_lt hb
     rw [if_pos (show 2 ^ 255 ≤ a.toNat from hna), if_neg (show ¬ 2 ^ 255 ≤ b.toNat from hnb),
       toNat_neg_one, hsz, wordNat_div, wordNat_abs, hsz, if_pos hna]
-    simp only [dna, dnb, eq_self_iff_true, Bool.true_eq_false, Bool.false_eq_true,
+    simp only [dna, dnb, Bool.true_eq_false, Bool.false_eq_true,
       if_true, if_false]
     simp only [evmDiv, u256, WORD_MOD, m1, hmodb]
     have hq : (2 ^ 256 - wordNat a) / wordNat b ≤ 2 ^ 256 - wordNat a := Nat.div_le_self _ _
@@ -285,7 +283,7 @@ theorem wordNat_sdiv (a b : EvmYul.UInt256) :
     have hmoda : wordNat a % 2 ^ 256 = wordNat a := Nat.mod_eq_of_lt ha
     rw [if_neg (show ¬ 2 ^ 255 ≤ a.toNat from hna), if_pos (show 2 ^ 255 ≤ b.toNat from hnb),
       toNat_neg_one, hsz, wordNat_div, wordNat_abs, hsz, if_pos hnb]
-    simp only [dna, dnb, eq_self_iff_true, Bool.true_eq_false, Bool.false_eq_true,
+    simp only [dna, dnb, Bool.false_eq_true,
       if_true, if_false]
     simp only [evmDiv, u256, WORD_MOD, m2, hmoda]
     have hq : wordNat a / (2 ^ 256 - wordNat b) ≤ wordNat a := Nat.div_le_self _ _
@@ -300,7 +298,7 @@ theorem wordNat_sdiv (a b : EvmYul.UInt256) :
     have hmodb : wordNat b % 2 ^ 256 = wordNat b := Nat.mod_eq_of_lt hb
     rw [if_neg (show ¬ 2 ^ 255 ≤ a.toNat from hna), if_neg (show ¬ 2 ^ 255 ≤ b.toNat from hnb),
       wordNat_div]
-    simp only [dna, dnb, eq_self_iff_true, Bool.true_eq_false, Bool.false_eq_true,
+    simp only [dna, dnb, Bool.false_eq_true,
       if_true, if_false]
     simp only [evmDiv, u256, WORD_MOD, hmoda, hmodb]
     have hq : wordNat a / wordNat b ≤ wordNat a := Nat.div_le_self _ _
@@ -350,8 +348,7 @@ zero-left case is needed: the `mul(999999999, sgt(0, r))` rounding term in
 theorem wordNat_sgt_zero (r : EvmYul.UInt256) :
     wordNat (EvmYul.UInt256.sgt (EvmYul.UInt256.ofNat 0) r) = evmSgt 0 (wordNat r) := by
   have hr : wordNat r < 2 ^ 256 := by
-    have := r.val.isLt
-    simpa [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat] using this
+    simp [EvmYul.UInt256.toNat, EvmYul.UInt256.size, wordNat]
   have h0 : (EvmYul.UInt256.ofNat 0).toNat = 0 := by
     have := FormalYul.Preservation.wordNat_ofNat 0
     simpa [wordNat, u256, WORD_MOD] using this
@@ -470,7 +467,7 @@ private theorem primCall_revert_yul (fuel : Nat) (s : EvmYul.Yul.State)
       .error EvmYul.Yul.Exception.Revert := by
   rw [EvmYul.Yul.primCall.eq_def]
   simp only [List.mem_cons, List.not_mem_nil, EvmYul.Operation.System.injEq,
-    Bool.not_eq_true, reduceCtorEq, or_false, false_or, or_self, and_false, if_false,
+    Bool.not_eq_true, reduceCtorEq, or_self, and_false, if_false,
     EvmYul.step.eq_def]
   rfl
 
@@ -495,9 +492,8 @@ theorem call_fun_lnWadToRay_revert_direct
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
-    Finmap.lookup_insert, FormalYul.word,
+    EvmYul.Yul.State.setStore,
+    FormalYul.word,
     slt_zero_nonpos hnonpos, primCall_revert_yul,
     call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 576)
       (shared := shared)
@@ -534,8 +530,7 @@ theorem call_fun_wrap_lnWadToRay_direct
     (hlookup := hlookup) hpos hpos2
   simp only [FormalYul.word, yulName_fun_lnWadToRay] at hCall
   simp +decide [EvmYul.Yul.execCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
@@ -581,7 +576,7 @@ theorem call_fun_lnWad_direct
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.revive, EvmYul.Yul.State.setLeave,
+    EvmYul.Yul.State.reviveJump,
     EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word, hfuel, hCall,
     call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 876)
@@ -629,8 +624,7 @@ theorem call_fun_wrap_lnWad_direct
     (hlookup := hlookup) hpos hpos2
   simp only [FormalYul.word, yulName_fun_lnWad] at hCall
   simp +decide [EvmYul.Yul.execCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
     EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
@@ -1851,14 +1845,11 @@ theorem call_fun_wrap_lnWadToRay_revert_direct
     (hlookup := hlookup) hnonpos
   simp only [FormalYul.word, yulName_fun_lnWadToRay] at hCall
   simp +decide [EvmYul.Yul.execCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.revive, EvmYul.Yul.State.setLeave,
-    EvmYul.Yul.State.overwrite?,
-    Finmap.lookup_insert, FormalYul.word, hfuel, hCall,
+    EvmYul.Yul.State.setStore,
+    FormalYul.word, hfuel, hCall,
     call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 776)
       (shared := shared)
       (store := Finmap.insert "var_x_35" (EvmYul.UInt256.ofNat x)
@@ -1894,14 +1885,11 @@ theorem call_fun_lnWad_revert_direct
     (hlookup := hlookup) hnonpos
   simp only [FormalYul.word, yulName_fun_lnWadToRay] at hCall
   simp +decide [EvmYul.Yul.execCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.revive, EvmYul.Yul.State.setLeave,
-    EvmYul.Yul.State.overwrite?,
-    Finmap.lookup_insert, FormalYul.word, hfuel, hCall,
+    EvmYul.Yul.State.setStore,
+    FormalYul.word, hfuel, hCall,
     call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 876)
       (shared := shared)
       (store := Finmap.insert "var_x_14" (EvmYul.UInt256.ofNat x)
@@ -1936,14 +1924,11 @@ theorem call_fun_wrap_lnWad_revert_direct
     (hlookup := hlookup) hnonpos
   simp only [FormalYul.word, yulName_fun_lnWad] at hCall
   simp +decide [EvmYul.Yul.execCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
-    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
-    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
-    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.revive, EvmYul.Yul.State.setLeave,
-    EvmYul.Yul.State.overwrite?,
-    Finmap.lookup_insert, FormalYul.word, hfuel, hCall,
+    EvmYul.Yul.State.setStore,
+    FormalYul.word, hfuel, hCall,
     call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 1076)
       (shared := shared)
       (store := Finmap.insert "var_x_48" (EvmYul.UInt256.ofNat x)
@@ -1979,7 +1964,7 @@ theorem external_fun_wrap_lnWadToRay_calldata_revert
       (hlookup := lnWadToRaySharedAfterFreePtr_lookup x) hnonpos
   simp [FormalYul.word, yulName_fun_wrap_lnWadToRay] at hwrap
   simp +decide [EvmYul.Yul.execCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.evalPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
@@ -1988,8 +1973,7 @@ theorem external_fun_wrap_lnWadToRay_calldata_revert
     GetElem?.getElem!, decidableGetElem?,
     EvmYul.Yul.State.instGetElemIdentifierLiteralMemVarStoreStore,
     EvmYul.Yul.State.store,
-    EvmYul.Yul.State.toMachineState,
-    Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
+    Finmap.lookup_insert,
     hdecode, hwrap]
 
 set_option maxHeartbeats 8000000 in
@@ -2021,7 +2005,7 @@ theorem external_fun_wrap_lnWad_calldata_revert
       (hlookup := lnWadSharedAfterFreePtr_lookup x) hnonpos
   simp [FormalYul.word, yulName_fun_wrap_lnWad] at hwrap
   simp +decide [EvmYul.Yul.execCall.eq_def,
-    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.evalPrimCall.eq_def,
     EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
     EvmYul.Yul.evalTail.eq_def,
     EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
@@ -2030,8 +2014,7 @@ theorem external_fun_wrap_lnWad_calldata_revert
     GetElem?.getElem!, decidableGetElem?,
     EvmYul.Yul.State.instGetElemIdentifierLiteralMemVarStoreStore,
     EvmYul.Yul.State.store,
-    EvmYul.Yul.State.toMachineState,
-    Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
+    Finmap.lookup_insert,
     hdecode, hwrap]
 
 set_option maxHeartbeats 8000000 in
