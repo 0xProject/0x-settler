@@ -15,6 +15,7 @@ on:
       - src/vendor/Sqrt.sol
       - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
+      - formal/python/sqrt/**
       - formal/yul/**
       - .github/workflows/sqrt512-formal.yml
   pull_request:
@@ -29,6 +30,7 @@ on:
       - src/vendor/Sqrt.sol
       - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
+      - formal/python/sqrt/**
       - formal/yul/**
       - .github/workflows/sqrt512-formal.yml
 
@@ -87,11 +89,17 @@ jobs:
             formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512Yul.lean \
             0.8.34
 
+      - name: Generate 256-bit sqrt finite certificate (SqrtProof dependency) from Python generator
+        run: |
+          python3 formal/python/sqrt/generate_sqrt_cert.py \
+            --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
+
       - name: Guard generated artifacts are untracked
         run: |
           test -z "$(git ls-files \
             formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512YulRuntime.lean \
-            formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512YulProof.lean)"
+            formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512YulProof.lean \
+            formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean)"
 
       - name: Fetch proof dependency cache
         working-directory: formal/sqrt/Sqrt512Proof

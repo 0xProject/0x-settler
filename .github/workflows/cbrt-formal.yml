@@ -8,6 +8,7 @@ on:
       - src/vendor/Cbrt.sol
       - src/wrappers/CbrtWrapper.sol
       - formal/cbrt/**
+      - formal/python/cbrt/**
       - formal/yul/**
       - test/0.8.25/Cbrt.t.sol
       - .github/workflows/cbrt-formal.yml
@@ -16,6 +17,7 @@ on:
       - src/vendor/Cbrt.sol
       - src/wrappers/CbrtWrapper.sol
       - formal/cbrt/**
+      - formal/python/cbrt/**
       - formal/yul/**
       - test/0.8.25/Cbrt.t.sol
       - .github/workflows/cbrt-formal.yml
