@@ -1,6 +1,10 @@
+import Lean
+import EvmYul.Yul.YulNotation
 import FormalYul
 
 namespace YulImporter
+
+open Lean
 
 inductive ModelKind where
   | sqrt
@@ -26,13 +30,6 @@ def namespaceName : ModelKind → String
   | .cbrt => "CbrtYul"
   | .cbrt512 => "Cbrt512Yul"
   | .ln => "LnYul"
-
-def requiredMarkers : ModelKind → List String
-  | .sqrt => ["object ", "deployed", "function fun__sqrt", "function fun_sqrt", "function fun_sqrtUp", "clz("]
-  | .sqrt512 => ["object ", "deployed", "wrap_sqrt512", "wrap_osqrtUp", "function fun__sqrt", "_sqrt_baseCase", "mulmod", "clz("]
-  | .cbrt => ["object ", "deployed", "function fun__cbrt", "function fun_cbrt", "function fun_cbrtUp", "clz("]
-  | .cbrt512 => ["object ", "deployed", "wrap_cbrt512", "wrap_cbrtUp512", "function fun__cbrt", "_cbrt_baseCase", "mulmod", "clz("]
-  | .ln => ["object ", "deployed", "function fun_lnWad", "function fun_lnWadToRay", "sdiv", "clz("]
 
 def selectorCases : ModelKind → List String
   | .sqrt => ["0x5b29048a", "0x65c9cba1"]
@@ -65,6 +62,13 @@ def functionPrefixes : ModelKind → List String
   | .ln =>
       ["external_fun_wrap_lnWad_", "external_fun_wrap_lnWadToRay_",
        "fun_wrap_lnWad_", "fun_wrap_lnWadToRay_", "fun_lnWad_", "fun_lnWadToRay_"]
+
+def requiredCalls : ModelKind → List String
+  | .sqrt => ["clz"]
+  | .sqrt512 => ["clz", "mulmod"]
+  | .cbrt => ["clz"]
+  | .cbrt512 => ["clz", "mulmod"]
+  | .ln => ["clz", "sdiv"]
 
 end ModelKind
 
@@ -239,6 +243,119 @@ partial def splitFunctionsAux
 def splitFunctions (src : String) : Except String (String × List (String × String)) :=
   splitFunctionsAux src 0 0 "" []
 
+structure FunctionSource where
+  name : String
+  source : String
+  stx : Syntax
+
+structure ParsedContract where
+  dispatcher : String
+  dispatcherStx : Syntax
+  functions : List FunctionSource
+
+unsafe def loadYulParserEnv : IO Environment := do
+  initSearchPath (← findSysroot)
+  importModules #[{ module := `EvmYul.Yul.YulNotation, importAll := true }] {} 0 #[] false true
+
+def parseYulStmt (env : Environment) (label src : String) : Except String Syntax :=
+  match Parser.runParserCategory env `stmt src label with
+  | .ok stx => .ok stx
+  | .error err => .error s!"failed to parse Yul fragment {label}: {err}"
+
+def syntaxChildren : Syntax → List Syntax
+  | .node _ _ args => args.toList
+  | _ => []
+
+def identText? : Syntax → Option String
+  | .ident _ raw _ _ => some raw.toString
+  | _ => none
+
+partial def firstIdent? (stx : Syntax) : Option String :=
+  match stx with
+  | .ident _ raw _ _ => some raw.toString
+  | .node _ _ args => firstIdentInList? args.toList
+  | _ => none
+where
+  firstIdentInList? : List Syntax → Option String
+    | [] => none
+    | stx :: stxs =>
+        match firstIdent? stx with
+        | some name => some name
+        | none => firstIdentInList? stxs
+
+partial def functionDefinitionName? (stx : Syntax) : Option String :=
+  match stx with
+  | .node _ kind args =>
+      if kind == `EvmYul.Yul.Notation.function_definition then
+        firstIdent? stx
+      else
+        functionDefinitionNameInList? args.toList
+  | _ => none
+where
+  functionDefinitionNameInList? : List Syntax → Option String
+    | [] => none
+    | stx :: stxs =>
+        match functionDefinitionName? stx with
+        | some name => some name
+        | none => functionDefinitionNameInList? stxs
+
+def parseContract (env : Environment) (input : String) : Except String ParsedContract := do
+  let code ← extractDeployedCode input
+  let (dispatcher, rawFunctions) ← splitFunctions code
+  let dispatcherStx ← parseYulStmt env "deployed dispatcher" ("{\n" ++ dispatcher ++ "\n}")
+  let functions ← rawFunctions.mapM fun (splitName, source) => do
+    let stx ← parseYulStmt env splitName source
+    let parsedName ← match functionDefinitionName? stx with
+      | some name => .ok name
+      | none => .error s!"parsed Yul fragment {splitName} is not a function definition"
+    if parsedName != splitName then
+      .error s!"function splitter found {splitName}, but EVMYulLean parsed {parsedName}"
+    else
+      .ok { name := parsedName, source, stx }
+  .ok { dispatcher, dispatcherStx, functions }
+
+partial def firstNumLiteral? (stx : Syntax) : Option String :=
+  match stx with
+  | .node _ `num #[.atom _ lit] => some lit
+  | .node _ _ args => firstNumLiteralInList? args.toList
+  | _ => none
+where
+  firstNumLiteralInList? : List Syntax → Option String
+    | [] => none
+    | stx :: stxs =>
+        match firstNumLiteral? stx with
+        | some lit => some lit
+        | none => firstNumLiteralInList? stxs
+
+partial def calledNames (stx : Syntax) : List String :=
+  let nested := (syntaxChildren stx).flatMap calledNames
+  match stx with
+  | .node _ kind args =>
+      let here :=
+        if kind == `EvmYul.Yul.Notation.function_call then
+          match args.toList with
+          | fn :: _ => (identText? fn).toList
+          | [] => []
+        else
+          []
+      here ++ nested
+  | _ => nested
+
+partial def caseLiterals (stx : Syntax) : List String :=
+  let nested := (syntaxChildren stx).flatMap caseLiterals
+  match stx with
+  | .node _ kind _ =>
+      let here :=
+        if kind == `EvmYul.Yul.Notation.case then
+          (firstNumLiteral? stx).toList
+        else
+          []
+      here ++ nested
+  | _ => nested
+
+def contractCalledNames (contract : ParsedContract) : List String :=
+  calledNames contract.dispatcherStx ++ (contract.functions.flatMap fun fn => calledNames fn.stx)
+
 def joinLines : List String → String
   | [] => ""
   | line :: lines => lines.foldl (fun acc next => acc ++ "\n" ++ next) line
@@ -256,40 +373,42 @@ def sanitizeIdent (name : String) : String :=
 def functionDefName (name : String) : String :=
   "yulFunction_" ++ sanitizeIdent name
 
-def renderFunctionDef (fn : String × String) : String :=
-  let (name, src) := fn
+def renderFunctionDef (fn : FunctionSource) : String :=
+  let name := fn.name
+  let src := fn.source
   "def " ++ functionDefName name ++ " : EvmYul.Yul.Ast.FunctionDefinition :=\n" ++
   "  <f\n" ++
   indentBlock "  " src ++ "\n" ++
   "  >\n"
 
-def renderFunctionInsert (fn : String × String) : String :=
-  let (name, _) := fn
+def renderFunctionInsert (fn : FunctionSource) : String :=
+  let name := fn.name
   "\n  |>.insert\n" ++
   "      " ++ reprStr name ++ "\n" ++
   "      " ++ functionDefName name
 
-def renderContract (input : String) : Except String String := do
-  let code ← extractDeployedCode input
-  let (dispatcher, functions) ← splitFunctions code
-  .ok <|
-    "open EvmYul\n" ++
-    "open EvmYul.Yul\n" ++
-    "open EvmYul.Yul.Ast\n" ++
-    "open scoped EvmYul.Yul.Notation\n\n" ++
-    "def yulDispatcher : EvmYul.Yul.Ast.Stmt :=\n" ++
-    "  <s {\n" ++
-    indentBlock "    " dispatcher ++ "\n" ++
-    "  }>\n\n" ++
-    joinLines (functions.map renderFunctionDef) ++ "\n" ++
-    "def yulFunctions : Finmap (fun (_ : YulFunctionName) => EvmYul.Yul.Ast.FunctionDefinition) :=\n" ++
-    "  (∅ : Finmap (fun (_ : YulFunctionName) => EvmYul.Yul.Ast.FunctionDefinition))" ++
-    joinLines (functions.map renderFunctionInsert) ++ "\n\n" ++
-    "def yulContract : FormalYul.YulContract :=\n" ++
-    "{\n" ++
-    "dispatcher := yulDispatcher,\n" ++
-    "functions := yulFunctions\n" ++
-    "}\n"
+def renderContract (contract : ParsedContract) : String :=
+  let dispatcher := contract.dispatcher
+  let functions := contract.functions
+  let renderedFunctions := functions.map renderFunctionDef
+  let renderedInserts := functions.map renderFunctionInsert
+  "open EvmYul\n" ++
+  "open EvmYul.Yul\n" ++
+  "open EvmYul.Yul.Ast\n" ++
+  "open scoped EvmYul.Yul.Notation\n\n" ++
+  "def yulDispatcher : EvmYul.Yul.Ast.Stmt :=\n" ++
+  "  <s {\n" ++
+  indentBlock "    " dispatcher ++ "\n" ++
+  "  }>\n\n" ++
+  joinLines renderedFunctions ++ "\n" ++
+  "def yulFunctions : Finmap (fun (_ : YulFunctionName) => EvmYul.Yul.Ast.FunctionDefinition) :=\n" ++
+  "  (∅ : Finmap (fun (_ : YulFunctionName) => EvmYul.Yul.Ast.FunctionDefinition))" ++
+  joinLines renderedInserts ++ "\n\n" ++
+  "def yulContract : FormalYul.YulContract :=\n" ++
+  "{\n" ++
+  "dispatcher := yulDispatcher,\n" ++
+  "functions := yulFunctions\n" ++
+  "}\n"
 
 def runHelpersSqrt (contractDef : String) : String :=
 contractDef ++ "
@@ -394,35 +513,28 @@ def moduleNameFromOutput (output : String) : String :=
   | name :: _ => name
   | [] => output
 
-def renderRuntime (kind : ModelKind) (input _output : String) : Except String String := do
-  let contractDef ← renderContract input
-  .ok <|
-    "import FormalYul\n" ++
-    "\n" ++
-    "namespace " ++ kind.namespaceName ++ "\n\n" ++
-    runHelpers kind contractDef ++ "\n" ++
-    "end " ++ kind.namespaceName ++ "\n"
+def renderRuntime (kind : ModelKind) (contract : ParsedContract) (_output : String) : String :=
+  let contractDef := renderContract contract
+  "import FormalYul\n" ++
+  "\n" ++
+  "namespace " ++ kind.namespaceName ++ "\n\n" ++
+  runHelpers kind contractDef ++ "\n" ++
+  "end " ++ kind.namespaceName ++ "\n"
 
-def renderLookupLemma (fn : String × String) : String :=
-  let (name, _) := fn
+def renderLookupLemma (fn : FunctionSource) : String :=
+  let name := fn.name
   "\n@[simp]\n" ++
   "theorem lookup_" ++ sanitizeIdent name ++ " :\n" ++
   "    yulFunctions.lookup " ++ reprStr name ++ " = some " ++ functionDefName name ++ " := by\n" ++
   "  unfold yulFunctions\n" ++
   "  simp [Finmap.lookup_insert]\n"
 
-def containsSubstr (haystack needle : String) : Bool :=
-  if needle = "" then
-    true
-  else
-    1 < (haystack.splitOn needle).length
-
 def commaSep : List String → String
   | [] => ""
   | marker :: markers => markers.foldl (fun acc next => acc ++ ", " ++ next) marker
 
-def namesWithPrefix (functions : List (String × String)) (pfx : String) : List String :=
-  (functions.map Prod.fst).filter fun name => name.startsWith pfx
+def namesWithPrefix (functions : List FunctionSource) (pfx : String) : List String :=
+  (functions.map fun fn => fn.name).filter fun name => name.startsWith pfx
 
 structure GeneratedAlias where
   stable : String
@@ -434,36 +546,37 @@ def aliasFunctionDefName (stable : String) : String :=
 def aliasFunctionNameName (stable : String) : String :=
   "yulName_" ++ sanitizeIdent stable
 
-def findFunctionSource (functions : List (String × String)) (name : String) : Except String String :=
-  match functions.find? (fun fn => fn.fst = name) with
-  | some (_, src) => .ok src
+def findFunction (functions : List FunctionSource) (name : String) : Except String FunctionSource :=
+  match functions.find? (fun fn => fn.name = name) with
+  | some fn => .ok fn
   | none => .error s!"deployed Yul has no function named {name}"
 
 def uniqueNameWithPrefix
-    (functions : List (String × String)) (pfx : String) : Except String String :=
+    (functions : List FunctionSource) (pfx : String) : Except String String :=
   match namesWithPrefix functions pfx with
   | [name] => .ok name
   | [] => .error s!"deployed Yul is missing a function with prefix {pfx}"
   | names => .error s!"deployed Yul prefix {pfx} is ambiguous: {commaSep names}"
 
 def aliasByPrefix
-    (functions : List (String × String)) (stable pfx : String) :
+    (functions : List FunctionSource) (stable pfx : String) :
     Except String GeneratedAlias := do
   let original ← uniqueNameWithPrefix functions pfx
   .ok { stable, original }
 
 def callWithPrefixFrom
-    (functions : List (String × String)) (caller pfx : String) : Except String String := do
-  let src ← findFunctionSource functions caller
+    (functions : List FunctionSource) (caller pfx : String) : Except String String := do
+  let callerFn ← findFunction functions caller
+  let callerCalls := calledNames callerFn.stx
   let callees := (namesWithPrefix functions pfx).filter fun name =>
-    name != caller && containsSubstr src (name ++ "(")
+    name != caller && callerCalls.contains name
   match callees with
   | [callee] => .ok callee
   | [] => .error s!"function {caller} does not call a function with prefix {pfx}"
   | names => .error s!"function {caller} has ambiguous calls with prefix {pfx}: {commaSep names}"
 
 def aliasByCallPrefix
-    (functions : List (String × String)) (stable caller pfx : String) :
+    (functions : List FunctionSource) (stable caller pfx : String) :
     Except String GeneratedAlias := do
   let original ← callWithPrefixFrom functions caller pfx
   .ok { stable, original }
@@ -482,7 +595,7 @@ def renderGeneratedAlias (entry : GeneratedAlias) : String :=
   "  unfold yulFunctions\n" ++
   "  simp [Finmap.lookup_insert]\n"
 
-def generatedAliases (kind : ModelKind) (functions : List (String × String)) :
+def generatedAliases (kind : ModelKind) (functions : List FunctionSource) :
     Except String (List GeneratedAlias) := do
   match kind with
   | .sqrt =>
@@ -588,9 +701,8 @@ def generatedAliases (kind : ModelKind) (functions : List (String × String)) :
         aliasByPrefix functions "fun_lnWadToRay" "fun_lnWadToRay_"
       ]
 
-def renderProof (kind : ModelKind) (input output : String) : Except String String := do
-  let code ← extractDeployedCode input
-  let (_, functions) ← splitFunctions code
+def renderProof (kind : ModelKind) (contract : ParsedContract) (output : String) : Except String String := do
+  let functions := contract.functions
   let aliases ← generatedAliases kind functions
   let runtimeModule := moduleNameFromOutput output ++ "Runtime"
   .ok <|
@@ -607,51 +719,40 @@ def renderProof (kind : ModelKind) (input output : String) : Except String Strin
     joinLines (aliases.map renderGeneratedAlias) ++ "\n" ++
     "end " ++ kind.namespaceName ++ "\n"
 
-def missingMarkers (kind : ModelKind) (input : String) : List String :=
-  (kind.requiredMarkers).filter fun marker => !(containsSubstr input marker)
-
-partial def countSubstrFrom (src needle : String) (start fuel : Nat) : Nat :=
-  match fuel with
-  | 0 => 0
-  | fuel' + 1 =>
-      match findSubstrFrom src needle start with
-      | none => 0
-      | some i => 1 + countSubstrFrom src needle (i + needle.length) fuel'
-
-def countSubstr (src needle : String) : Nat :=
-  if needle = "" then 0 else countSubstrFrom src needle 0 (src.data.length + 1)
-
-def validateSelectorCase (code selector : String) : Except String Unit :=
-  let marker := "case " ++ selector
-  match countSubstr code marker with
+def validateSelectorCase (dispatcherStx : Syntax) (selector : String) : Except String Unit :=
+  match (caseLiterals dispatcherStx).filter (fun lit => lit = selector) |>.length with
   | 1 => .ok ()
   | 0 => .error s!"deployed Yul dispatcher is missing selector case {selector}"
   | n => .error s!"deployed Yul dispatcher contains {n} selector cases for {selector}"
 
-def validateFunctionPrefix (functions : List (String × String)) (pfx : String) : Except String Unit :=
+def validateFunctionPrefix (functions : List FunctionSource) (pfx : String) : Except String Unit :=
   match namesWithPrefix functions pfx with
   | [_] => .ok ()
   | [] => .error s!"deployed Yul is missing a function with prefix {pfx}"
   | names => .error s!"deployed Yul prefix {pfx} is ambiguous: {commaSep names}"
 
-def validateShape (kind : ModelKind) (input : String) : Except String Unit := do
-  let code ← extractDeployedCode input
-  let (_, functions) ← splitFunctions code
-  for selector in kind.selectorCases do
-    validateSelectorCase code selector
-  for pfx in kind.functionPrefixes do
-    validateFunctionPrefix functions pfx
-  discard <| generatedAliases kind functions
+def validateRequiredCall (contract : ParsedContract) (name : String) : Except String Unit :=
+  if (contractCalledNames contract).contains name then
+    .ok ()
+  else
+    .error s!"deployed Yul AST has no call to required primitive/function {name}"
 
-def validateInput (kind : ModelKind) (input : String) : Except String Unit :=
-  match missingMarkers kind input with
-  | [] => validateShape kind input
-  | missing => .error s!"input Yul IR is missing expected marker(s): {commaSep missing}"
+def validateShape (kind : ModelKind) (contract : ParsedContract) : Except String Unit := do
+  for selector in kind.selectorCases do
+    validateSelectorCase contract.dispatcherStx selector
+  for pfx in kind.functionPrefixes do
+    validateFunctionPrefix contract.functions pfx
+  for call in kind.requiredCalls do
+    validateRequiredCall contract call
+  discard <| generatedAliases kind contract.functions
+
+def validateInput (kind : ModelKind) (contract : ParsedContract) : Except String Unit :=
+  validateShape kind contract
 
 def usage : String :=
   "usage: yul_importer --kind <sqrt|sqrt512|cbrt|cbrt512|ln> --output <output-stem.lean> < solc-ir"
 
-def run (args : List String) : IO UInt32 := do
+unsafe def run (args : List String) : IO UInt32 := do
   let opts ← match parseArgs args {} with
     | .ok opts => pure opts
     | .error err => throw <| IO.userError s!"{err}
@@ -666,13 +767,15 @@ def run (args : List String) : IO UInt32 := do
 {usage}"
   let stdin ← IO.getStdin
   let input ← stdin.readToEnd
-  match validateInput kind input with
+  let env ← loadYulParserEnv
+  let contract ← match parseContract env input with
+    | .ok contract => pure contract
+    | .error err => throw <| IO.userError err
+  match validateInput kind contract with
   | .ok () => pure ()
   | .error err => throw <| IO.userError err
-  let runtimeText ← match renderRuntime kind input output with
-    | .ok runtimeText => pure runtimeText
-    | .error err => throw <| IO.userError err
-  let proofText ← match renderProof kind input output with
+  let runtimeText := renderRuntime kind contract output
+  let proofText ← match renderProof kind contract output with
     | .ok proofText => pure proofText
     | .error err => throw <| IO.userError err
   let runtimeOutput := runtimeOutputPath output
@@ -685,5 +788,5 @@ def run (args : List String) : IO UInt32 := do
 
 end YulImporter
 
-def main (args : List String) : IO UInt32 :=
+unsafe def main (args : List String) : IO UInt32 :=
   YulImporter.run args

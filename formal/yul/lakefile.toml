@@ -8,6 +8,7 @@ name = "FormalYul"
 [[lean_exe]]
 name = "yul_importer"
 root = "YulImporter"
+supportInterpreter = true
 
 [[require]]
 name = "evmyul"
