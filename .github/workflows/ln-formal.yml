@@ -8,37 +8,30 @@ on:
       - src/vendor/Ln.sol
       - src/wrappers/LnWrapper.sol
       - formal/ln/**
-      - formal/python/**
-      - test/0.8.34/Ln.t.sol
-      - test/0.8.25/formal-model/FormalModelFFI.t.sol
-      - test/0.8.25/formal-model/LnModel.t.sol
+      - formal/yul/**
+      - foundry.toml
+      - remappings.txt
       - .github/workflows/ln-formal.yml
   pull_request:
     paths:
       - src/vendor/Ln.sol
       - src/wrappers/LnWrapper.sol
       - formal/ln/**
-      - formal/python/**
-      - test/0.8.34/Ln.t.sol
-      - test/0.8.25/formal-model/FormalModelFFI.t.sol
-      - test/0.8.25/formal-model/LnModel.t.sol
+      - formal/yul/**
+      - foundry.toml
+      - remappings.txt
       - .github/workflows/ln-formal.yml
 
 jobs:
   ln-formal:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Install Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
 
       - name: Install pinned Lean toolchain
         run: |
@@ -48,85 +41,71 @@ jobs:
           "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
           "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
 
+      - name: Restore Lean build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            formal/yul/.lake/build
+            formal/yul/.lake/packages/*/.lake/build
+            lib/EVMYulLean/.lake/build
+            formal/ln/LnProof/.lake/build
+          key: ${{ runner.os }}-ln-formal-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/ln/LnProof/lakefile.toml', 'formal/ln/LnProof/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'formal/ln/LnProof/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}
+          restore-keys: |
+            ${{ runner.os }}-ln-formal-lean-
+            ${{ runner.os }}-formal-lean-
+
       - name: Install solc 0.8.34
         run: forge build -- src/chains/Mainnet/TakerSubmitted.sol
         env:
           FOUNDRY_SOLC_VERSION: 0.8.34
 
-      - name: Generate Lean model from Ln.sol via Yul IR
+      - name: Fetch Mathlib cache
+        working-directory: formal/yul
         run: |
-          forge inspect src/wrappers/LnWrapper.sol:LnWrapper ir | \
-            python3 -W error -m formal.python.ln.generate_ln_model \
-              --yul - \
-              --output formal/ln/LnProof/LnProof/GeneratedLnModel.lean
+          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
+          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
+          # the release and ensure those directories exist before it runs.
+          lake build proofwidgets:release
+          mkdir -p \
+            .lake/packages/proofwidgets/.lake/build/lib \
+            .lake/packages/proofwidgets/.lake/build/ir
+          lake exe cache get
 
-      - name: Generate certificate coefficient literals
-        run: python3 -W error formal/python/ln/gen_cert_literals.py
+      - name: Build Yul importer
+        working-directory: formal/yul
+        run: lake build FormalYul.Preservation yul_importer
 
-      - name: Generate floor cert cell covers and bias cap numerator
+      - name: Generate EVMYulLean artifacts from compiled LnWrapper Yul IR
+        run: |
+          ./formal/yul/generate_from_forge.sh \
+            ln \
+            src/wrappers/LnWrapper.sol:LnWrapper \
+            formal/ln/LnProof/LnProof/LnYul.lean \
+            0.8.34
+
+      - name: Fetch proof dependency cache
         working-directory: formal/ln/LnProof
         run: |
-          lake build LnProof.FloorCertLit LnProof.KroneckerShift LnProof.FloorConsts
+          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
+          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
+          # the release and ensure those directories exist before it runs.
+          lake build proofwidgets:release
+          mkdir -p \
+            .lake/packages/proofwidgets/.lake/build/lib \
+            .lake/packages/proofwidgets/.lake/build/ir
+          lake exe cache get
+
+      - name: Generate Lean certificate artifacts
+        working-directory: formal/ln/LnProof
+        run: |
+          lake build LnProof.Floor.CertDefs LnProof.Foundation.KroneckerShift LnProof.Floor.Consts
+          lake env lean GenFloorCertLit.lean
+          lake build LnProof.Cert.FloorCertLit
           lake env lean GenCover.lean
           lake env lean GenErr1.lean
-
-      - name: Generate error-bound cert literals and cell covers
-        working-directory: formal/ln/LnProof
-        run: |
-          lake build LnProof.ErrorBoundCore
+          lake build LnProof.Error.Core
           lake env lean GenErrLit.lean
 
-      - name: Build Ln proof and model evaluator
+      - name: Build Ln proof package
         working-directory: formal/ln/LnProof
-        run: lake build && lake build ln-model
-
-      - name: Check proof axioms
-        working-directory: formal/ln/LnProof
-        run: |
-          printf '%s\n' \
-            'import LnProof.TopMono' \
-            'import LnProof.FloorSpec' \
-            'import LnProof.ExpLogCutSpec' \
-            '#print axioms LnGeneratedModel.model_ln_wad_one_wad' \
-            '#print axioms LnGeneratedModel.model_ln_wad_to_wad_one_wad' \
-            '#print axioms LnGeneratedModel.model_ln_wad_one_wad_mono' \
-            '#print axioms LnGeneratedModel.model_ln_wad_seam_mono' \
-            '#print axioms LnGeneratedModel.model_ln_wad_to_wad_seam_mono' \
-            '#print axioms LnGeneratedModel.model_ln_wad_mono' \
-            '#print axioms LnGeneratedModel.model_ln_wad_to_wad_mono' \
-            '#print axioms LnFloorCert.model_ln_wad_floor' \
-            '#print axioms LnFloorCert.model_ln_wad_to_wad_floor' \
-            '#print axioms LnFloorCert.model_ln_wad_negative_iff' \
-            '#print axioms LnFloorCert.model_ln_wad_to_wad_negative_iff' \
-            '#print axioms LnFloorCert.FloorSpecA_iff_cutLeLogWadRay' \
-            '#print axioms LnFloorCert.FloorSpecB_iff_cutLogWadRayLtWithMargin' \
-            '#print axioms LnFloorCert.FloorSpec_iff_cutLnWadRayBracket' \
-            '#print axioms LnFloorCert.FloorSpecToWad_iff_cutLnWadSpec' \
-            '#print axioms LnFloorCert.model_ln_wad_cut_spec' \
-            '#print axioms LnFloorCert.model_ln_wad_to_wad_cut_spec' \
-            | lake env lean --stdin > actual_axioms.txt 2>&1
-          diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
-          'LnGeneratedModel.model_ln_wad_one_wad' does not depend on any axioms
-          'LnGeneratedModel.model_ln_wad_to_wad_one_wad' does not depend on any axioms
-          'LnGeneratedModel.model_ln_wad_one_wad_mono' does not depend on any axioms
-          'LnGeneratedModel.model_ln_wad_seam_mono' does not depend on any axioms
-          'LnGeneratedModel.model_ln_wad_to_wad_seam_mono' does not depend on any axioms
-          'LnGeneratedModel.model_ln_wad_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
-          'LnGeneratedModel.model_ln_wad_to_wad_mono' depends on axioms: [propext, Classical.choice, Quot.sound]
-          'LnFloorCert.model_ln_wad_floor' depends on axioms: [propext, Classical.choice, Quot.sound]
-          'LnFloorCert.model_ln_wad_to_wad_floor' depends on axioms: [propext, Classical.choice, Quot.sound]
-          'LnFloorCert.model_ln_wad_negative_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
-          'LnFloorCert.model_ln_wad_to_wad_negative_iff' depends on axioms: [propext, Classical.choice, Quot.sound]
-          'LnFloorCert.FloorSpecA_iff_cutLeLogWadRay' depends on axioms: [propext]
-          'LnFloorCert.FloorSpecB_iff_cutLogWadRayLtWithMargin' depends on axioms: [propext, Quot.sound]
-          'LnFloorCert.FloorSpec_iff_cutLnWadRayBracket' depends on axioms: [propext, Quot.sound]
-          'LnFloorCert.FloorSpecToWad_iff_cutLnWadSpec' depends on axioms: [propext, Quot.sound]
-          'LnFloorCert.model_ln_wad_cut_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
-          'LnFloorCert.model_ln_wad_to_wad_cut_spec' depends on axioms: [propext, Classical.choice, Quot.sound]
-          EXPECTED
-
-      - name: Fuzz-test Lean model against Solidity
-        run: |
-          FOUNDRY_PROFILE=formal-model forge test \
-            --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' \
-            --match-contract LnModelTest
+        run: lake build

@@ -19,3 +19,6 @@
 [submodule "lib/openzeppelin-contracts"]
 	path = lib/openzeppelin-contracts
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts.git
+[submodule "lib/EVMYulLean"]
+	path = lib/EVMYulLean
+	url = https://github.com/0xProject/EVMYulLean.git

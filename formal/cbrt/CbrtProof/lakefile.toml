@@ -1,10 +1,11 @@
 name = "CbrtProof"
 version = "0.1.0"
 defaultTargets = ["CbrtProof"]
+packagesDir = "../../yul/.lake/packages"
 
 [[lean_lib]]
 name = "CbrtProof"
 
-[[lean_exe]]
-name = "cbrt-model"
-root = "Main"
+[[require]]
+name = "FormalYul"
+path = "../../yul"

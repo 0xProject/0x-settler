@@ -1,18 +1,19 @@
-import LnProof.ErrorBoundCore
-import LnProof.KroneckerShift
+import LnProof.Error.Core
+import LnProof.Foundation.KroneckerShift
 
-/-! Regenerate the error-bound cert literals (ErrCertLtLit / ErrCertGeLit) and
-their covers for the new BIASc + boundNum.  Computes `certErrLt`/`certErrGe`
+/-! Generate the error-bound cert literals (ErrCertLtLit / ErrCertGeLit) and
+their covers for the current BIASc and `lnErrorBoundNum`. Computes
+`certErrLt`/`certErrGe`
 inline (mirroring the ErrCert*Bridge constructions) so it does not depend on the
 bridges building, then walks the `checkCoverK` covers (literal signature, as the
-committed `errLt_nonneg`/`errGe_nonneg` use). -/
+checked `errLt_nonneg`/`errGe_nonneg` theorems use). -/
 
-open LnPoly LnFloorCert LnExp LnFloor LnGeneratedModel
+open LnPoly LnFloorCert LnExp LnFloor LnYul
 
 namespace GenErrLit
 
--- All derived from the committed inputs (BIASc in the model, boundNum in
--- ErrorBoundCert), so regenerating tracks any change to those automatically.
+-- All derived from the model inputs (BIASc in the model and `lnErrorBoundNum`
+-- in ErrorBoundCert), so generation tracks changes to those.
 def biasCapNum : Nat :=
   (LnExp.expNum 130 (BIASc * 2 ^ 27) QS * (10 ^ 18 * 10 ^ 42)) / (LnExp.fact 130 * QS ^ 130)
 def errLtK : Int := (10 ^ 31 * (10 ^ 18 * 10 ^ 42) * lnErrQ * (10 ^ 40 + 160) : Nat)
@@ -66,11 +67,11 @@ def emit (litFile litName coverMod modPrefix cellPrefix nonnegName : String) (C 
   if ! ok then IO.println s!"-- FAILED tail: {cells.drop (cells.length-2)}"; return
   for (aw, i) in cells.zipIdx do
     let (a, w) := aw
-    IO.FS.writeFile s!"LnProof/{modPrefix}{pad2 i}.lean"
-      s!"import LnProof.{litFile}\nimport LnProof.KroneckerShift\n\nnamespace LnFloorCert\nopen LnPoly\n\nset_option maxRecDepth 100000\n\ntheorem {cellPrefix}{pad2 i} : checkCoverK kB {litName} {a} {a + w}\n    [{w}] = true := by\n  decide +kernel\n\nend LnFloorCert\n"
+    IO.FS.writeFile s!"LnProof/Cert/{modPrefix}{pad2 i}.lean"
+      s!"import LnProof.Cert.{litFile}\nimport LnProof.Foundation.KroneckerShift\n\nnamespace LnFloorCert\nopen LnPoly\n\nset_option maxRecDepth 100000\n\ntheorem {cellPrefix}{pad2 i} : checkCoverK kB {litName} {a} {a + w}\n    [{w}] = true := by\n  decide +kernel\n\nend LnFloorCert\n"
   let lb := "{"; let rb := "}"
   let mut s := ""
-  for (_, i) in cells.zipIdx do s := s ++ s!"import LnProof.{modPrefix}{pad2 i}\n"
+  for (_, i) in cells.zipIdx do s := s ++ s!"import LnProof.Cert.{modPrefix}{pad2 i}\n"
   s := s ++ s!"\nnamespace LnFloorCert\nopen LnPoly\n\nset_option maxRecDepth 100000\n\n"
   s := s ++ s!"theorem {nonnegName} {lb}m : Int{rb} (h1 : {lo} ≤ m) (h2 : m ≤ {hi}) :\n    0 ≤ evalPoly {litName} m := by\n"
   let n := cells.length
@@ -81,7 +82,7 @@ def emit (litFile litName coverMod modPrefix cellPrefix nonnegName : String) (C 
     else
       s := s ++ s!"  exact checkCoverK_sound _ _ _ _ _ {cellPrefix}{pad2 i} m (by omega) h2\n"
   s := s ++ "\nend LnFloorCert\n"
-  IO.FS.writeFile s!"LnProof/{coverMod}.lean" s
+  IO.FS.writeFile s!"LnProof/Cert/{coverMod}.lean" s
 
 def litText (name : String) (c : List Int) : String :=
   "namespace LnFloorCert\n\ndef " ++ name ++ " : List Int := [\n  " ++
@@ -95,8 +96,8 @@ def loGE : Int := 56022770974786139918731938273
 def hiGE : Int := 79228162514264337593543950335
 
 #eval do
-  IO.FS.writeFile "LnProof/ErrCertLtLit.lean" (litText "certErrLtLit" (ptrim cLt))
-  IO.FS.writeFile "LnProof/ErrCertGeLit.lean" (litText "certErrGeLit" (ptrim cGe))
+  IO.FS.writeFile "LnProof/Cert/ErrCertLtLit.lean" (litText "certErrLtLit" (ptrim cLt))
+  IO.FS.writeFile "LnProof/Cert/ErrCertGeLit.lean" (litText "certErrGeLit" (ptrim cGe))
   IO.println "literals written"
   emit "ErrCertLtLit" "certErrLtLit" "ErrCertLt" "ErrCertLtC" "errLt_cell" "errLt_nonneg" (ptrim cLt) loLT hiLT
   emit "ErrCertGeLit" "certErrGeLit" "ErrCertGe" "ErrCertGeC" "errGe_cell" "errGe_nonneg" (ptrim cGe) loGE hiGE

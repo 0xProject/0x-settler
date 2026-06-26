@@ -1,8 +1,9 @@
 /-
   Overflow safety proof for cbrtUp.
 
-  Main theorem: `innerCbrt_cube_lt_word`
-    For all x < 2^256, innerCbrt(x) * (innerCbrt(x) * innerCbrt(x)) < 2^256.
+  Overflow bound:
+    `innerCbrt_cube_lt_word` proves that for all x < 2^256,
+    innerCbrt(x) * (innerCbrt(x) * innerCbrt(x)) < 2^256.
 -/
 import Init
 import CbrtProof.CbrtCorrect
@@ -79,8 +80,7 @@ private theorem poly_ident (b : Nat) (hb : 2 ≤ b) :
 private theorem fBound_step_le (e : Nat) (he : 1 ≤ e) (h2e : 2 * e ≤ R_MAX + 1) :
     (R_MAX + 3 - 2 * e) * ((R_MAX + e) * (R_MAX + e)) ≥
       (R_MAX + 3 - 2 * (e + 1)) * ((R_MAX + (e + 1)) * (R_MAX + (e + 1))) := by
-  -- Let a = R+1-2e, b = R+e (avoid `set` which requires Mathlib)
-  -- Rewrite goal in terms of a, b
+  -- Rewrite the step into the form `(a + 2) * b^2 ≥ a * (b + 1)^2`.
   have h1 : R_MAX + 3 - 2 * e = (R_MAX + 1 - 2 * e) + 2 := by omega
   have h2 : R_MAX + 3 - 2 * (e + 1) = R_MAX + 1 - 2 * e := by omega
   have h3 : R_MAX + (e + 1) = (R_MAX + e) + 1 := by omega
@@ -206,7 +206,7 @@ private theorem run4_hi_bound
   have hm2 : 2 ≤ R_MAX := by unfold R_MAX; omega
   have hsPos : 0 < seedOf idx := seed_pos idx
   -- We need this local chain because it uses R_MAX as the denominator.
-  -- Step 1: floor bound
+  -- The first step uses the floor bound.
   have hmz1 : R_MAX ≤ cbrtStep x (seedOf idx) :=
     cbrt_step_floor_bound x (seedOf idx) R_MAX hsPos hmlo
   -- d1 bound from certificate
@@ -216,7 +216,7 @@ private theorem run4_hi_bound
       hinterval.1 hinterval.2
     simp only at h
     exact Nat.le_trans h (Nat.le_of_eq d1_bound_247)
-  -- Steps 2-4 using step_from_bound with R_MAX as both m and lo
+  -- The remaining steps use step_from_bound with R_MAX as both m and lo.
   have hloPos : 0 < R_MAX := by omega
   have hmz2 : R_MAX ≤ cbrtStep x (cbrtStep x (seedOf idx)) :=
     cbrt_step_floor_bound x _ R_MAX (by omega) hmlo
@@ -237,7 +237,7 @@ private theorem run4_hi_bound
   exact ⟨hmz4, by omega⟩
 
 -- ============================================================================
--- Main theorem
+-- Runtime overflow bound
 -- ============================================================================
 
 /-- innerCbrt(x)³ < 2^256 for all x < 2^256 with x > 0. -/

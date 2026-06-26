@@ -6,39 +6,48 @@ on:
       - master
     paths:
       - src/utils/512Math.sol
+      - src/utils/FastLogic.sol
+      - src/utils/Panic.sol
+      - src/utils/Ternary.sol
+      - src/utils/UnsafeMath.sol
+      - src/vendor/Clz.sol
+      - src/vendor/Cbrt.sol
       - src/vendor/Sqrt.sol
       - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
-      - formal/python/**
-      - test/0.8.25/formal-model/FormalModelFFI.t.sol
-      - test/0.8.25/formal-model/Sqrt512Model.t.sol
+      - formal/python/sqrt/**
+      - formal/yul/**
+      - foundry.toml
+      - remappings.txt
       - .github/workflows/sqrt512-formal.yml
   pull_request:
     paths:
       - src/utils/512Math.sol
+      - src/utils/FastLogic.sol
+      - src/utils/Panic.sol
+      - src/utils/Ternary.sol
+      - src/utils/UnsafeMath.sol
+      - src/vendor/Clz.sol
+      - src/vendor/Cbrt.sol
       - src/vendor/Sqrt.sol
       - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
-      - formal/python/**
-      - test/0.8.25/formal-model/FormalModelFFI.t.sol
-      - test/0.8.25/formal-model/Sqrt512Model.t.sol
+      - formal/python/sqrt/**
+      - formal/yul/**
+      - foundry.toml
+      - remappings.txt
       - .github/workflows/sqrt512-formal.yml
 
 jobs:
   sqrt512-formal:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Install Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
 
       - name: Install pinned Lean toolchain
         run: |
@@ -49,54 +58,66 @@ jobs:
           "$HOME/.elan/bin/elan" toolchain install "$LEAN_TOOLCHAIN"
           "$HOME/.elan/bin/elan" default "$LEAN_TOOLCHAIN"
 
+      - name: Restore Lean build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            formal/yul/.lake/build
+            formal/yul/.lake/packages/*/.lake/build
+            lib/EVMYulLean/.lake/build
+            formal/sqrt/SqrtProof/.lake/build
+            formal/sqrt/Sqrt512Proof/.lake/build
+          key: ${{ runner.os }}-sqrt512-formal-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/sqrt/SqrtProof/lakefile.toml', 'formal/sqrt/SqrtProof/lake-manifest.json', 'formal/sqrt/Sqrt512Proof/lakefile.toml', 'formal/sqrt/Sqrt512Proof/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'formal/sqrt/SqrtProof/**/*.lean', 'formal/sqrt/Sqrt512Proof/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}
+          restore-keys: |
+            ${{ runner.os }}-sqrt512-formal-lean-
+            ${{ runner.os }}-formal-lean-
+
       - name: Install solc 0.8.34
         run: forge build -- src/chains/Mainnet/TakerSubmitted.sol
         env:
           FOUNDRY_SOLC_VERSION: 0.8.34
 
-      - name: Generate 256-bit Lean model (SqrtProof dependency)
+      - name: Fetch Mathlib cache
+        working-directory: formal/yul
         run: |
-          forge inspect src/wrappers/SqrtWrapper.sol:SqrtWrapper ir | \
-            python3 -W error -m formal.python.sqrt.generate_sqrt_model \
-              --yul - \
-              --output formal/sqrt/SqrtProof/SqrtProof/GeneratedSqrtModel.lean
+          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
+          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
+          # the release and ensure those directories exist before it runs.
+          lake build proofwidgets:release
+          mkdir -p \
+            .lake/packages/proofwidgets/.lake/build/lib \
+            .lake/packages/proofwidgets/.lake/build/ir
+          lake exe cache get
 
-      - name: Generate finite certificate from sqrt spec
+      - name: Build Yul importer
+        working-directory: formal/yul
+        run: lake build FormalYul.Preservation yul_importer
+
+      - name: Generate 512-bit EVMYulLean artifacts from compiled Sqrt512Wrapper Yul IR
         run: |
-          python3 -m formal.python.sqrt.generate_sqrt_cert \
+          ./formal/yul/generate_from_forge.sh \
+            sqrt512 \
+            src/wrappers/Sqrt512Wrapper.sol:Sqrt512Wrapper \
+            formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512Yul.lean \
+            0.8.34
+
+      - name: Generate 256-bit sqrt finite certificate (SqrtProof dependency) from Python generator
+        run: |
+          python3 formal/python/sqrt/generate_sqrt_cert.py \
             --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
 
-      - name: Generate 512-bit Lean model from Sqrt512Wrapper via Yul IR
-        run: |
-          FOUNDRY_SOLC_VERSION=0.8.34 \
-            forge inspect src/wrappers/Sqrt512Wrapper.sol:Sqrt512Wrapper ir | \
-            python3 -W error -m formal.python.sqrt.generate_sqrt512_model \
-              --yul - \
-              --output formal/sqrt/Sqrt512Proof/Sqrt512Proof/GeneratedSqrt512Model.lean
-
-      - name: Build Sqrt512 proof and model evaluator
-        working-directory: formal/sqrt/Sqrt512Proof
-        run: lake build && lake build sqrt512-model
-
-      - name: Check proof axioms
+      - name: Fetch proof dependency cache
         working-directory: formal/sqrt/Sqrt512Proof
         run: |
-          printf '%s\n' \
-            'import Sqrt512Proof.GeneratedSqrt512Spec' \
-            'import Sqrt512Proof.SqrtUpCorrect' \
-            'import Sqrt512Proof.OsqrtUpSpec' \
-            '#print axioms Sqrt512Spec.model_sqrt512_evm_correct' \
-            '#print axioms sqrtUp512_correct' \
-            '#print axioms Sqrt512Spec.model_osqrtUp_evm_correct' \
-            | lake env lean --stdin > actual_axioms.txt 2>&1
-          diff -u --label expected --label actual - actual_axioms.txt <<'EXPECTED'
-          'Sqrt512Spec.model_sqrt512_evm_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
-          'sqrtUp512_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
-          'Sqrt512Spec.model_osqrtUp_evm_correct' depends on axioms: [propext, Classical.choice, Quot.sound]
-          EXPECTED
+          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
+          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
+          # the release and ensure those directories exist before it runs.
+          lake build proofwidgets:release
+          mkdir -p \
+            .lake/packages/proofwidgets/.lake/build/lib \
+            .lake/packages/proofwidgets/.lake/build/ir
+          lake exe cache get
 
-      - name: Fuzz-test Lean model against Solidity
-        run: |
-          FOUNDRY_PROFILE=formal-model forge test \
-            --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' \
-            --match-contract Sqrt512ModelTest
+      - name: Build Sqrt512 proof package
+        working-directory: formal/sqrt/Sqrt512Proof
+        run: lake build

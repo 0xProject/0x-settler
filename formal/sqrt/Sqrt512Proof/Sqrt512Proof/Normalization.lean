@@ -1,15 +1,9 @@
 /-
-  Normalization lemma for 512-bit square root.
-
-  Main theorem: natSqrt(x * 4^k) / 2^k = natSqrt(x)
-
-  Justifies the even-shift normalize / un-normalize pattern in 512Math._sqrt.
+  Normalization lemmas for the even-shift scale/unscale step in the
+  512-bit square-root proof.
 -/
+import Mathlib.Tactic.Ring.RingNF
 import SqrtProof.SqrtCorrect
-
--- ============================================================================
--- Part 1: Uniqueness of floor sqrt
--- ============================================================================
 
 /-- If m^2 <= n < (m+1)^2, then natSqrt n = m. -/
 theorem natSqrt_unique (n m : Nat)
@@ -30,15 +24,8 @@ theorem natSqrt_unique (n m : Nat)
     omega
   omega
 
--- ============================================================================
--- Part 2: Bracket for natSqrt of scaled value
--- ============================================================================
-
 private theorem mul_sq (a b : Nat) : (a * b) * (a * b) = (a * a) * (b * b) := by
-  calc (a * b) * (a * b)
-      = a * (b * (a * b)) := by rw [Nat.mul_assoc]
-    _ = a * (a * (b * b)) := by rw [Nat.mul_left_comm b a b]
-    _ = (a * a) * (b * b) := by rw [Nat.mul_assoc]
+  ring_nf
 
 theorem natSqrt_mul_sq_lower (x c : Nat) :
     natSqrt x * c ≤ natSqrt (x * (c * c)) := by
@@ -64,10 +51,6 @@ theorem natSqrt_mul_sq_upper (x c : Nat) (hc : 0 < c) :
   have h3 := natSqrt_sq_le (x * (c * c))
   omega
 
--- ============================================================================
--- Part 3: Division theorem
--- ============================================================================
-
 private theorem four_pow_eq (k : Nat) : 4 ^ k = 2 ^ k * 2 ^ k := by
   have : (4 : Nat) = 2 ^ 2 := by decide
   rw [this, ← Nat.pow_mul, ← Nat.pow_add]
@@ -87,16 +70,11 @@ theorem natSqrt_shift_div (x k : Nat) :
       exact hlo
     have h2 : natSqrt (x * (2 ^ k * 2 ^ k)) / 2 ^ k < natSqrt x + 1 := by
       rw [Nat.div_lt_iff_lt_mul hpow]
-      -- Need: natSqrt(x * (2^k * 2^k)) < (natSqrt x + 1) * 2^k
-      -- hhi says exactly this
       exact hhi
     omega
 
--- ============================================================================
--- Part 4: Shift-range lemma
--- ============================================================================
-
-private theorem four_pow_eq_two_pow (shift : Nat) : 4 ^ shift = 2 ^ (2 * shift) := by
+/-- Rewrite powers of four as even powers of two. -/
+theorem four_pow_eq_two_pow (shift : Nat) : 4 ^ shift = 2 ^ (2 * shift) := by
   have : (4 : Nat) = 2 ^ 2 := by decide
   rw [this, ← Nat.pow_mul]
 
@@ -106,7 +84,7 @@ theorem shift_range (x_hi : Nat) (hlo : 0 < x_hi) (hhi : x_hi < 2 ^ 256) :
     2 ^ 254 ≤ x_hi * 4 ^ shift ∧ x_hi * 4 ^ shift < 2 ^ 256 := by
   intro shift
   have hne : x_hi ≠ 0 := Nat.ne_of_gt hlo
-  have hlog := (Nat.log2_eq_iff hne).1 rfl
+  have hlog := (SqrtCompat.log2_eq_iff hne).1 rfl
   have hL : Nat.log2 x_hi ≤ 255 := by
     have := (Nat.log2_lt hne).2 hhi; omega
   have h2shift : 2 * shift ≤ 255 - Nat.log2 x_hi := Nat.mul_div_le (255 - Nat.log2 x_hi) 2

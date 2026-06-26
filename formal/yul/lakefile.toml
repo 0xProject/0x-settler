@@ -1,0 +1,15 @@
+name = "FormalYul"
+version = "0.1.0"
+defaultTargets = ["FormalYul"]
+
+[[lean_lib]]
+name = "FormalYul"
+
+[[lean_exe]]
+name = "yul_importer"
+root = "YulImporter"
+supportInterpreter = true
+
+[[require]]
+name = "evmyul"
+path = "../../lib/EVMYulLean"

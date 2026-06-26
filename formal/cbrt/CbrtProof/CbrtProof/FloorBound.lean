@@ -3,43 +3,18 @@
   Core: (3m - 2z) * z² ≤ m³ (cubic AM-GM).
 -/
 import Init
-
--- ============================================================================
--- Cubic expansion (algebraic identity, proof is mechanical expansion)
--- ============================================================================
+import Mathlib.Tactic.Ring
 
 /-- (d+z)³ = d³ + 3d²z + 3dz² + z³ (left-associated products). -/
 private theorem cube_expand (d z : Nat) :
     (d + z) * (d + z) * (d + z) =
     d * d * d + 3 * (d * d * z) + 3 * (d * z * z) + z * z * z := by
-  -- Mechanical expansion of a binomial cube.
-  -- Both sides equal the sum of 8 triple products, grouped 1+3+3+1.
-  -- Proof: expand via add_mul/mul_add, normalize with mul_assoc/mul_comm, omega collects.
-  simp only [Nat.add_mul, Nat.mul_add]
-  simp only [Nat.mul_assoc]
-  simp only [Nat.mul_comm z d, Nat.mul_left_comm z d]
-  omega
-
--- ============================================================================
--- Cubic witness: (3d+z)*z² + d²*(d+3z) = (d+z)³
--- ============================================================================
+  ring_nf
 
 /-- Both sides expand to d³+3d²z+3dz²+z³. -/
 private theorem cubic_witness (d z : Nat) :
     (3 * d + z) * (z * z) + d * d * (d + 3 * z) = (d + z) * (d + z) * (d + z) := by
-  -- LHS = 3dz² + z³ + d³ + 3d²z = d³ + 3d²z + 3dz² + z³
-  rw [Nat.add_mul (3 * d) z (z * z)]
-  rw [Nat.mul_add (d * d) d (3 * z)]
-  rw [cube_expand d z]
-  -- After expansion of LHS and RHS to canonical form, omega matches.
-  -- Need to normalize: 3*d*(z*z) to 3*(d*z*z) etc.
-  rw [Nat.mul_assoc 3 d (z * z)]
-  rw [Nat.mul_comm (d * d) (3 * z), Nat.mul_assoc 3 z (d * d), Nat.mul_comm z (d * d)]
-  -- LHS: 3*(d*(z*z)) + z*(z*z) + (d*d*d + 3*((d*d)*z))
-  -- RHS: d*d*d + 3*(d*d*z) + 3*(d*z*z) + z*z*z
-  -- The products d*(z*z) vs d*z*z differ in association: d*(z*z) vs (d*z)*z.
-  simp only [Nat.mul_assoc]
-  omega
+  ring_nf
 
 -- ============================================================================
 -- Cubic AM-GM
@@ -63,17 +38,7 @@ theorem cubic_identity_le (z m : Nat) (h : z ≤ m) :
 private theorem cubic_witness_ge (a b : Nat) :
     a * ((a + 3 * b) * (a + 3 * b)) + b * b * (3 * a + 8 * b) =
     (a + 2 * b) * (a + 2 * b) * (a + 2 * b) := by
-  -- Eliminate numeric constants by converting to repeated addition.
-  -- This ensures simp only sees pure products of a and b.
-  rw [show 3 * b = b + (b + b) from by omega]
-  rw [show 3 * a = a + (a + a) from by omega]
-  rw [show 8 * b = b + (b + (b + (b + (b + (b + (b + b)))))) from by omega]
-  rw [show 2 * b = b + b from by omega]
-  -- Now distribute, right-associate, sort variables, collect.
-  simp only [Nat.add_mul, Nat.mul_add]
-  simp only [Nat.mul_assoc]
-  simp only [Nat.mul_comm b a, Nat.mul_left_comm b a]
-  omega
+  ring_nf
 
 theorem cubic_identity_ge (z m : Nat) (h1 : m ≤ z) (h2 : 2 * z ≤ 3 * m) :
     (3 * m - 2 * z) * (z * z) + (z - m) * (z - m) * (m + 2 * z) = m * m * m := by
@@ -99,10 +64,7 @@ theorem cubic_am_gm (z m : Nat) : (3 * m - 2 * z) * (z * z) ≤ m * m * m := by
 -- Floor Bound
 -- ============================================================================
 
-/--
-**Floor Bound for cube root Newton-Raphson.**
-
-For any `m` with `m³ ≤ x`, and `z > 0`:
+/-- For any `m` with `m³ ≤ x`, and `z > 0`:
     m ≤ (x / (z * z) + 2 * z) / 3
 
 A single truncated NR step for cube root never undershoots `icbrt(x)`.
