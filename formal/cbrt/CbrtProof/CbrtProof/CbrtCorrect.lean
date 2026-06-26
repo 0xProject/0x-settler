@@ -1,11 +1,10 @@
 /-
   Full correctness proof of Cbrt.sol:_cbrt and cbrt.
 
-  This file includes:
-  1) A concrete integer cube-root function `icbrt` with formal floor specification.
-  2) Explicit (named) correctness theorems for `innerCbrt` and `floorCbrt`,
-     parameterized by the remaining upper-bound hypothesis
-     `innerCbrt x ≤ icbrt x + 1`.
+  This file contains a concrete integer cube-root function `icbrt` with formal
+  floor specification and named correctness theorems for `innerCbrt` and
+  `floorCbrt`, parameterized by the upper-bound hypothesis
+  `innerCbrt x ≤ icbrt x + 1`.
 -/
 import Init
 import Mathlib.Data.Nat.Find
@@ -14,7 +13,7 @@ import CbrtProof.FloorBound
 set_option maxHeartbeats 2000000
 
 -- ============================================================================
--- Part 1: Definitions matching Cbrt.sol EVM semantics
+-- Definitions matching Cbrt.sol EVM semantics
 -- ============================================================================
 
 /-- One Newton-Raphson step for cube root: ⌊(⌊x/z²⌋ + 2z) / 3⌋.
@@ -92,7 +91,7 @@ private theorem log2_eq_of_pow_bounds {n k : Nat}
   · exact (Nat.le_log2 hn).2 hlo
 
 -- ============================================================================
--- Part 1b: Reference integer cube root (floor)
+-- Reference integer cube root (floor)
 -- ============================================================================
 
 /-- Reference integer cube root (floor). -/
@@ -169,7 +168,7 @@ theorem icbrt_eq_of_bounds (x r : Nat)
   exact Nat.le_antisymm h1 h2
 
 -- ============================================================================
--- Part 2: Seed and step positivity
+-- Seed and step positivity
 -- ============================================================================
 
 /-- The cbrt seed is always positive. -/
@@ -205,7 +204,7 @@ theorem cbrtStep_pos (x z : Nat) (hx : 0 < x) (hz : 0 < z) : 0 < cbrtStep x z :=
     omega
 
 -- ============================================================================
--- Part 3: Upper bound machinery (one-step contraction)
+-- Upper bound machinery (one-step contraction)
 -- ============================================================================
 
 /-- Integer polynomial identity used to upper-bound one cbrt Newton step. -/
@@ -446,7 +445,7 @@ theorem cbrtStep_upper_of_le
   exact Nat.le_trans hstep' hmono
 
 -- ============================================================================
--- Part 4: innerCbrt structure
+-- innerCbrt structure
 -- ============================================================================
 
 /-- `_cbrt` is exactly `run5From` from the seed (definitional). -/
@@ -2015,7 +2014,7 @@ theorem innerCbrt_lower (x m : Nat) (hx : 0 < x)
   exact cbrt_step_floor_bound x _ m h4 hm
 
 -- ============================================================================
--- Part 5: Main correctness theorems (under explicit upper-bound hypothesis)
+-- Correctness theorems under explicit upper-bound hypothesis
 -- ============================================================================
 
 /-- Positivity of `innerCbrt` for positive `x`. -/
@@ -2058,7 +2057,7 @@ theorem innerCbrt_lt_succ_cube (x : Nat) (hx : 0 < x) :
     exact False.elim ((Nat.not_succ_le_self (innerCbrt x)) hcontra)
 
 -- ============================================================================
--- Part 6: Perfect-cube exactness (innerCbrt(m³) = m)
+-- Perfect-cube exactness (innerCbrt(m³) = m)
 -- ============================================================================
 
 /-- cbrtStep is a fixed point at the exact cube root: cbrtStep(m³, m) = m. -/
@@ -2095,7 +2094,7 @@ theorem cbrtStep_eq_on_perfect_cube_of_sq_lt
     have hzz : 0 < z * z := Nat.mul_pos hz hz
     -- Goal: (m*m*m / (z*z) + 2*z) / 3 ≤ m, i.e., numerator ≤ 3m+2
     -- Strategy: show m³ < (m-2d+3)*z², so m³/z² ≤ m-2d+2, so num ≤ 3m+2, so step ≤ m.
-    -- Step 1: d²(3m+2d) < 3z² (the key inequality using d² < m)
+    -- Key inequality using d² < m: d²(3m+2d) < 3z².
     have hkey : d * d * (3 * m + 2 * d) < 3 * (z * z) := by
       -- d²(3m+2d) < m(3m+2d) ≤ 3(m+d)²
       have h3m2d : 0 < 3 * m + 2 * d := by omega
@@ -2113,7 +2112,7 @@ theorem cbrtStep_eq_on_perfect_cube_of_sq_lt
           rw [Nat.add_mul, Nat.mul_add, Nat.mul_add, Nat.mul_comm d m]; omega
         rw [Nat.mul_add m, hLmm, hLmd, hR]; omega
       exact Nat.lt_of_lt_of_le hstep1 hstep2
-    -- Step 2: polynomial identity m³ = z²(m-2d) + d²(3m+2d)
+    -- Polynomial identity: m³ = z²(m-2d) + d²(3m+2d).
     -- Substitute a = m - 2d to eliminate Nat subtraction, then expand both sides.
     have hident : m * m * m = z * z * (m - 2 * d) + d * d * (3 * m + 2 * d) := by
       show m * m * m = (m + d) * (m + d) * (m - 2 * d) + d * d * (3 * m + 2 * d)
@@ -2132,7 +2131,7 @@ theorem cbrtStep_eq_on_perfect_cube_of_sq_lt
       simp only [Nat.mul_assoc]
       simp only [Nat.mul_comm d a, Nat.mul_left_comm d a]
       omega
-    -- Step 3: combine identity + key inequality to get m³ < (m-2d+3)*z²
+    -- Combine the identity and key inequality to get m³ < (m-2d+3)*z².
     have hlt : m * m * m < (m - 2 * d + 3) * (z * z) := by
       calc m * m * m
           = z * z * (m - 2 * d) + d * d * (3 * m + 2 * d) := hident
@@ -2140,7 +2139,7 @@ theorem cbrtStep_eq_on_perfect_cube_of_sq_lt
         _ = z * z * (m - 2 * d) + z * z * 3 := by rw [Nat.mul_comm 3 _]
         _ = z * z * (m - 2 * d + 3) := by rw [← Nat.mul_add]
         _ = (m - 2 * d + 3) * (z * z) := Nat.mul_comm _ _
-    -- Step 4: from m³ < (m-2d+3)*z², derive m³/z² < m-2d+3, so m³/z² ≤ m-2d+2
+    -- Divide by z² to get m³/z² < m-2d+3, hence m³/z² ≤ m-2d+2.
     have hdiv_lt : m * m * m / (z * z) < m - 2 * d + 3 :=
       (Nat.div_lt_iff_lt_mul hzz).2 hlt
     have hdiv_le : m * m * m / (z * z) ≤ m - 2 * d + 2 := by omega
@@ -3696,7 +3695,7 @@ theorem innerCbrt_on_perfect_cube_small :
   exact innerCbrt_on_perfect_cube_small_nat i.val i.2
 
 -- ============================================================================
--- Part 7: Floor correction
+-- Floor correction
 -- ============================================================================
 
 /-- The cbrt floor correction is correct.

@@ -143,7 +143,7 @@ theorem toInt_u {u : Nat} (h : u ≤ Uc) : int256 u = (u : Int) := by
   simp only [Uc] at h
   omega
 
-/-! ## q-chain stage 1 (exact) -/
+/-! ## q-chain exact first stage -/
 
 theorem qS1_facts {u : Nat} (hu : u ≤ Uc) :
     qS1 u < 2 ^ 256 ∧
@@ -170,7 +170,7 @@ theorem qS1_facts {u : Nat} (hu : u ≤ Uc) :
     simp only [QQ1c, evalPoly]
     omega
 
-/-! ## p-chain stage 1 -/
+/-! ## p-chain first stage -/
 
 theorem pS1_facts {u : Nat} (hu : u ≤ Uc) :
     pS1 u < 2 ^ 256 ∧

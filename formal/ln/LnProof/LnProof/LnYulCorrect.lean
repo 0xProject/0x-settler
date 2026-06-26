@@ -8,10 +8,10 @@ import LnProof.ExpLogCutSpec
 /-!
 # Public ln runtime proof surface
 
-This module is the tracked entry point for statements about the generated
+This module is the entry point for statements about the generated
 `LnWrapper` runtime. The generated `LnYulRuntime` and `LnYulProof` modules are
 ignored artifacts rebuilt from `forge inspect`; the predicates below state the
-public correctness obligations against the `Real.log` fixed-point spec.
+public correctness properties against the `Real.log` fixed-point spec.
 -/
 
 namespace LnYul
@@ -135,8 +135,8 @@ theorem lnWadToRayRuntimeCutCorrect_holds (x : Nat) (hx : x < 2 ^ 256) :
     rw [u256_eq_of_lt _ (by simpa [WORD_MOD] using lnWadToRayBody_lt hx)]
   · exact LnFloorCert.lnWadToRayBody_cut_spec hpos hpos2
 
-/-- C1 discharged unconditionally for `lnWadToRay`: the compiled runtime is
-correct against the `Real.log` fixed-point spec for every 256-bit input. -/
+/-- The compiled `lnWadToRay` runtime is correct against the `Real.log`
+fixed-point spec for every 256-bit input. -/
 theorem lnWadToRayRuntimeCorrect (x : Nat) (hx : x < 2 ^ 256) :
     LnWadToRayRuntimeCorrect x :=
   lnWadToRayRuntimeCorrect_of_cutCorrect (lnWadToRayRuntimeCutCorrect_holds x hx)
@@ -163,8 +163,8 @@ theorem lnWadRuntimeCutCorrect_holds (x : Nat) (hx : x < 2 ^ 256) :
     rw [u256_eq_of_lt _ (by simpa [WORD_MOD] using to_wad_lt hx)]
   · exact LnFloorCert.lnWadBody_cut_spec hpos hpos2
 
-/-- C1 discharged unconditionally for `lnWad`: the compiled runtime is correct
-against the `Real.log` fixed-point spec for every 256-bit input. -/
+/-- The compiled `lnWad` runtime is correct against the `Real.log` fixed-point
+spec for every 256-bit input. -/
 theorem lnWadRuntimeCorrect (x : Nat) (hx : x < 2 ^ 256) :
     LnWadRuntimeCorrect x :=
   lnWadRuntimeCorrect_of_cutCorrect (lnWadRuntimeCutCorrect_holds x hx)
@@ -286,15 +286,13 @@ theorem lnWadRuntimeMono (x y : Nat) (hx : 0 < x) (hxy : x ≤ y) (hy : y < 2 ^ 
   · exact toInt_of_sle (to_wad_lt hx256) (to_wad_lt hy256)
       (lnWadBody_mono hx hxy hy)
 
-/-! ## Revert obligations (nonpositive input) -/
+/-! ## Nonpositive input reverts -/
 
-/-- F-REVERT discharged for `lnWadToRay`: the compiled runtime reverts on every
-nonpositive signed input. -/
+/-- The compiled `lnWadToRay` runtime reverts on every nonpositive signed input. -/
 theorem lnWadToRayRuntimeRevertsNonpositive_holds (x : Nat) :
     LnWadToRayRuntimeRevertsNonpositive x := fun h => run_ln_wad_to_ray_evm_revert x h
 
-/-- F-REVERT discharged for `lnWad`: the compiled runtime reverts on every
-nonpositive signed input. -/
+/-- The compiled `lnWad` runtime reverts on every nonpositive signed input. -/
 theorem lnWadRuntimeRevertsNonpositive_holds (x : Nat) :
     LnWadRuntimeRevertsNonpositive x := fun h => run_ln_wad_evm_revert x h
 

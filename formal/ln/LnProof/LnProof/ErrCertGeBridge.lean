@@ -3,14 +3,14 @@ import LnProof.FloorCertGeLo
 import LnProof.FactoredCap
 
 /-!
-# Bridge: the ge error cell cover ⇒ the `sumGE` inequality (`hred`)
+# Bridge from the ge error cell cover to the `sumGE` inequality
 
 `errGe_nonneg` proves `0 ≤ evalPoly certErrGeLit m` over the ge domain.  Here we
 identify the literal cert with the symbolic margin
 `certErrGe = expMarginPoly 22 geTN2b geTD2b (errGeK·(m+1)) errGeW`
 (an `evalPoly_ext` identity, exactly as `geLo_eval_eq`), and feed the existing
 `sumGE_of_expMarginPoly` to obtain the `sumGE`-shaped budget inequality that
-`ge_pos_cut_reduced` consumes (`hred`).
+`ge_pos_cut_reduced` consumes.
 
 The constants are the octave-extracted cell parameters at
 `lnErrorBoundNum = 1692115493`:
@@ -29,7 +29,7 @@ def errGeK : Int :=
 
 /-- `errGeW = BIASCAPNUM · (lnErrQ + minPosAvailGe) · wadRayStrictDen · 10^40`,
 where `minPosAvailGe = 692115493·2^99 + 2^27·10^9` is the GE-internal bound
-(1.692115493 ulp) at which the ge cells were generated — tighter than the
+(1.692115493 ulp) used by the ge cells, tighter than the
 published bound, so the ge branch only tracks the bias here. -/
 def errGeW : Nat :=
   biasCapNum *
@@ -89,7 +89,7 @@ theorem errGe_eval_eq : ∀ x : Int, evalPoly certErrGe x = evalPoly certErrGeLi
       evalPoly_polyPow, evalPoly_expPolyNum, eval01]
     decide +kernel
 
-/-- The ge cell cover discharges the `sumGE`-shaped budget inequality. -/
+/-- The ge cell cover proves the `sumGE`-shaped budget inequality. -/
 theorem errGe_sumGE {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     sumGE 22 (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat
       (evalPoly (polyScale errGeK [1, 1]) (m : Int)).toNat errGeW := by

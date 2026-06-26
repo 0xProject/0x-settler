@@ -421,10 +421,18 @@ Comments, notes, commit messages, PR descriptions, and docs must describe only
 the current implementation unless historical context is required for present
 correctness. Archaeology is forbidden.
 
+Work product must not reference opaque external planning material. Code,
+comments, docs, commit messages, PR descriptions, and other in-repo literature
+must not include outside task identifiers, plan-document labels, milestone
+names, tracking IDs, TODO placeholders, or similar references unless the
+referenced artifact is committed in this repository and the reference is
+required for current correctness.
+
 ### DO NOT
 
 - Create documentation files unless explicitly requested
 - Write notes, comments, docs, commit messages, or PR descriptions that describe historical evolution instead of the current system unless the history is required for current correctness
+- Write comments, code, docs, commit messages, PR descriptions, or other in-repo literature that cite opaque outside task identifiers, plan labels, milestones, tracking IDs, TODO placeholders, or issue labels
 - Use comments to explain what used to be true, what changed, why something was once necessary, or that a workaround/kludge existed previously
 - Make up performance numbers or generic justifications for changes
 - Add features beyond what was asked (no over-engineering)

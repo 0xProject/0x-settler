@@ -2,14 +2,14 @@ import LnProof.FloorCertLit
 import LnProof.KroneckerShift
 
 /-!
-# Cover generator (committed tool)
+# Cover generator
 
 Greedily walks `[lo, hi]` for a certificate polynomial, computing at each anchor
 `a` the largest cell width `w` with `0 ≤ (hornerIv (kShiftWitness kB C a) 0 w).1`
 — exactly the predicate the in-kernel `checkCoverK` decides, so the emitted
 covers are guaranteed `decide`-acceptable.  Writes one `…C<NN>.lean` cell file
-per sub-cell and prints the `_nonneg` ladder + import block to splice into the
-cover module.
+per sub-cell and prints the `_nonneg` ladder and import block for the cover
+module.
 
 Run with `lake env lean GenCover.lean` (after `lake build LnProof.FloorCertLit`).
 -/
@@ -90,10 +90,9 @@ def hiLT : Int := 56022770974786139918731938181          -- Sc - 46
 def loGE : Int := 56022770974786139918731938273          -- Sc + 46
 def hiGE : Int := 79228162514264337593543950335          -- 2^96 - 1
 
--- Regenerate the never-overshoot covers (the +form certs at EUN=3382).
--- All four floor cert covers (never-overshoot +form GeUp/LtUp, not-too-low
--- −form GeLo/LtLo). The cover modules keep their hand-written eval_eq; only the
--- cell files + the _nonneg ladder are generated.
+-- Generate the floor cert covers: never-overshoot upper forms (GeUp/LtUp) and
+-- not-too-low lower forms (GeLo/LtLo). The cover modules keep their hand-written
+-- eval_eq; only the cell files and the _nonneg ladder are generated.
 #eval emit "certGeUp" "certGeUpLit" "certGeUp" "geUp_eval_eq" "FloorCertGeUpC" "geUp_cell" "geUp_nonneg" certGeUpLit loGE hiGE
 #eval emit "certLtUp" "certLtUpLit" "certLtUp" "ltUp_eval_eq" "FloorCertLtUpC" "ltUp_cell" "ltUp_nonneg" certLtUpLit loLT hiLT
 #eval emit "certGeLo" "certGeLoLit" "certGeLo" "geLo_eval_eq" "FloorCertGeLoC" "geLo_cell" "geLo_nonneg" certGeLoLit loGE hiGE

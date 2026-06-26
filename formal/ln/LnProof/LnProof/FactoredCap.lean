@@ -5,9 +5,9 @@ open FormalYul
 open FormalYul.Preservation
 
 /-!
-# Factored-octave cap primitive (checkpoint)
+# Factored-octave cap primitive
 
-The positive-shift phase-direct route proves `e^(phase) ≥ posTopX` with a
+The positive-shift phase-direct proof shows `e^(phase) ≥ posTopX` with a
 single `sumGE 320` because it keeps the *full* log argument (~110).  This file
 factors that exponential into
 
@@ -16,7 +16,7 @@ factors that exponential into
 so the only piece that still needs a per-`m` exponential bound is the small
 `x1 = H·10^27` residual (argument in `[0, ln2/2]` on the ge branch).  That
 residual is captured tightly by a low-degree cap rather than the linear
-`x1capGeLoF`, which is what lets the global certificate avoid the intractable
+`x1capGeLoF`, which lets the global certificate avoid the intractable
 degree-320 Kronecker cells.
 
 `lo_ge_pos_factored` is the soundness bridge: it is exactly the
@@ -31,7 +31,7 @@ open LnYul LnFloor LnExp LnPoly
 set_option maxRecDepth 100000
 
 /-- Sharpened bias cap.  `capBL` keeps only ~31 digits (slop `3404`, i.e.
-`3.4e-28` relative), which is too loose for the tight cells the factored route
+`3.4e-28` relative), which is too loose for the tight cells the factored cap
 needs.  Since the bias argument is constant, a `130`-term lower sum pins it to
 `~1e-39` relative with a `10^60` denominator. -/
 theorem capBLtight :
@@ -116,11 +116,10 @@ theorem ge_x1_cap_d22 {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     _ = H.toNat * 1000000000000000000000000000 * TD.toNat := by
         simp only [Nat.mul_assoc, Nat.mul_comm]
 
-/-- Composition: the ge positive-shift upper cut from (i) the smooth-phase floor
-bound, and (ii) the closing budget inequality `hclose` with the degree-22 x1 cap
-and the sharp bias.  This pins exactly what a c-independent cell cover must
-discharge (`hclose`); the octave power on each side cancels, so `hclose` is a
-per-`m` obligation up to the per-`k` octave-looseness factor. -/
+/-- Composition: the ge positive-shift upper cut from the smooth-phase floor
+bound and the closing budget inequality `hclose` with the degree-22 x1 cap and
+the sharp bias.  The octave power on each side cancels, leaving a per-`m`
+inequality up to the per-`k` octave-looseness factor. -/
 theorem ge_pos_cut_factored {m c x : Nat} {r : Int}
     (h1 : Sc + 46 ≤ m) (h2 : m < MHI)
     (hphase : posPhaseNatGe m c ≤ lnErrArg r)
@@ -140,7 +139,7 @@ theorem ge_pos_cut_factored {m c x : Nat} {r : Int}
     (by decide : 0 < 10 ^ 18 * 10 ^ 42)
     (ge_x1_cap_d22 h1 h2) capBLtight hclose
 
-/-- Octave-collapse bound, batched as one kernel `decide` over `k ∈ [0,159]`.
+/-- Octave ratio bound, batched as one kernel `decide` over `k ∈ [0,159]`.
 `(10^40/(10^40-1))^k` peaks at `k=159` below the tight rational `(10^40+160)/10^40`
 (looseness `~10^-40`), so the cell polynomial keeps small coefficients instead of
 carrying the `~2^21000` octave power. -/
@@ -159,24 +158,24 @@ theorem octaveGeBound {k : Nat} (hk : k ≤ 159) :
 
 The closing inequality factors as `octave · (x1/H cell) · bias · first-order`.
 Three monotone substitutions collapse all `c`/`r`/`x` dependence into a single
-degree-221 polynomial obligation in `m`:
+degree-221 polynomial inequality in `m`:
 
-* **min-phase** `minPosAvail ≤ posAvailGe m c r` (from
-  `posPhaseNatGe_minAvail_le_lnErrArg`) lets `(lnErrQ + posAvailGe)` be lowered to
-  the constant `(lnErrQ + minPosAvail)`;
-* **window top** `x ≤ posTopX c m ≤ (m+1)·2^(160-c)` pulls the only `x` factor into
-  `(m+1)·2^(160-c)`;
-* **octave collapse** `A·(10^40)^k ≤ B·(10^40-1)^k` follows from the small-coefficient
-  cell obligation `A·(10^40+160) ≤ B·10^40` via `octaveGeBound` (the tight rational
-  octave bound), keeping the cell polynomial at floor-proof coefficient scale.
+* `minPosAvail ≤ posAvailGe m c r` (from
+  `posPhaseNatGe_minAvail_le_lnErrArg`) lowers `(lnErrQ + posAvailGe)` to the
+  constant `(lnErrQ + minPosAvail)`.
+* `x ≤ posTopX c m ≤ (m+1)·2^(160-c)` pulls the only `x` factor into
+  `(m+1)·2^(160-c)`.
+* `A·(10^40)^k ≤ B·(10^40-1)^k` follows from the small-coefficient inequality
+  `A·(10^40+160) ≤ B·10^40` via `octaveGeBound`, keeping the cell polynomial at
+  floor-proof coefficient scale.
 
-The surviving hypothesis `hred` is exactly the c-independent inequality a degree-221
-Kronecker cell cover discharges. -/
+The remaining hypothesis is the c-independent inequality checked by the
+degree-221 Kronecker cell cover. -/
 theorem ge_pos_cut_reduced {m c x : Nat} {r : Int}
     (h1 : Sc + 46 ≤ m) (h2 : m < MHI) (hc1 : 1 ≤ c) (hc : c < 160)
     (hmin : posPhaseNatGe m c + minPosAvail ≤ lnErrArg r)
     (hxtop : x ≤ posTopX c m)
-    (hred :
+    (hReduced :
       ((m + 1) * 10 ^ 31 * (fact 22 * (evalPoly geTD2b (m : Int)).toNat ^ 22) *
           (10 ^ 18 * 10 ^ 42) * lnErrQ) * (10 ^ 40 + 160) ≤
         (expNum 22 (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat *
@@ -187,7 +186,7 @@ theorem ge_pos_cut_reduced {m c x : Nat} {r : Int}
   have hmineq : minPosAvail ≤ posAvailGe m c r := by
     unfold posAvailGe; omega
   have hoct := octaveGeBound (k := 160 - c) (by omega)
-  -- chain the octave bound with `hred`, then cancel the common `10^40`
+  -- Chain the octave bound with the reduced inequality, then cancel the common `10^40`.
   have keyineq :
       ((m + 1) * 10 ^ 31 * (fact 22 * (evalPoly geTD2b (m : Int)).toNat ^ 22) *
           (10 ^ 18 * 10 ^ 42) * lnErrQ) * (10 ^ 40) ^ (160 - c) ≤
@@ -209,7 +208,7 @@ theorem ge_pos_cut_reduced {m c x : Nat} {r : Int}
       _ ≤ (expNum 22 (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat *
             biasCapNum *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * 10 ^ 40 *
-              (10 ^ 40 - 1) ^ (160 - c) := Nat.mul_le_mul_right _ hred
+              (10 ^ 40 - 1) ^ (160 - c) := Nat.mul_le_mul_right _ hReduced
       _ = (expNum 22 (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat *
             biasCapNum *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * ((10 ^ 40 - 1) ^ (160 - c)) *

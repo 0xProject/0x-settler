@@ -3,7 +3,7 @@ import LnProof.FloorConsts
 /-! Generate `BiasCapNum.lean`: the tight bias-cap numerator
 `biasCapNum = ⌊expNum 130 (BIASc·2²⁷) QS · 10⁶⁰ / (130!·QS¹³⁰)⌋`, the sharp lower
 cap on `e^(BIASc·2²⁷/QS)` used by `capBLtight` and the error weights. Computed
-from the committed inputs (BIASc), so it tracks any bias change. Run with
+from the model inputs (BIASc), so it tracks any bias change. Run with
 `lake env lean GenErr1.lean` (after `lake build LnProof.FloorConsts`). -/
 
 open LnExp LnFloor LnYul

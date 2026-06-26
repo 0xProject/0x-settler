@@ -50,7 +50,7 @@ theorem eq_zero_of_mul_pow {B : Nat} {d k : Int} (hd : d = 2 ^ B * k)
     rw [Int.mul_zero] at hd
     exact ⟨hd, rfl⟩
 
-/-- Route `(2 : Int) ^ n` through `Nat.pow`. The `Int` monoid power is
+/-- Rewrite `(2 : Int) ^ n` through `Nat.pow`. The `Int` monoid power is
 `npowRec` (a linear chain of multiplications the kernel does not accelerate),
 whereas `Nat.pow` is a GMP-backed kernel primitive. Rewriting with this before
 a `decide +kernel` that evaluates a Kronecker point keeps the base a single

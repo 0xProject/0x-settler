@@ -1,8 +1,9 @@
 /-
   Overflow safety proof for cbrtUp.
 
-  Main theorem: `innerCbrt_cube_lt_word`
-    For all x < 2^256, innerCbrt(x) * (innerCbrt(x) * innerCbrt(x)) < 2^256.
+  Overflow bound:
+    `innerCbrt_cube_lt_word` proves that for all x < 2^256,
+    innerCbrt(x) * (innerCbrt(x) * innerCbrt(x)) < 2^256.
 -/
 import Init
 import CbrtProof.CbrtCorrect
@@ -205,7 +206,7 @@ private theorem run4_hi_bound
   have hm2 : 2 ≤ R_MAX := by unfold R_MAX; omega
   have hsPos : 0 < seedOf idx := seed_pos idx
   -- We need this local chain because it uses R_MAX as the denominator.
-  -- Step 1: floor bound
+  -- The first step uses the floor bound.
   have hmz1 : R_MAX ≤ cbrtStep x (seedOf idx) :=
     cbrt_step_floor_bound x (seedOf idx) R_MAX hsPos hmlo
   -- d1 bound from certificate
@@ -215,7 +216,7 @@ private theorem run4_hi_bound
       hinterval.1 hinterval.2
     simp only at h
     exact Nat.le_trans h (Nat.le_of_eq d1_bound_247)
-  -- Steps 2-4 using step_from_bound with R_MAX as both m and lo
+  -- The remaining steps use step_from_bound with R_MAX as both m and lo.
   have hloPos : 0 < R_MAX := by omega
   have hmz2 : R_MAX ≤ cbrtStep x (cbrtStep x (seedOf idx)) :=
     cbrt_step_floor_bound x _ R_MAX (by omega) hmlo
@@ -236,7 +237,7 @@ private theorem run4_hi_bound
   exact ⟨hmz4, by omega⟩
 
 -- ============================================================================
--- Main theorem
+-- Runtime overflow bound
 -- ============================================================================
 
 /-- innerCbrt(x)³ < 2^256 for all x < 2^256 with x > 0. -/

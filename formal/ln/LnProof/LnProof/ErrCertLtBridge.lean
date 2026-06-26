@@ -3,13 +3,13 @@ import LnProof.FloorCertLtLo
 import LnProof.LtFactoredCap
 
 /-!
-# Bridge: the lt error cell cover ⇒ `lt_pos_cut_reduced`'s `hred`
+# Bridge from the lt error cell cover to the reduced error inequality
 
 `errLt_nonneg` proves `0 ≤ evalPoly certErrLtLit m` over the lt domain
 `[2^95, Sc-46]`.  Here we identify the literal cert with the symbolic margin
 `certErrLt = errLtW·23!·ltTD^23 − errLtK·(m+1)·G` (an `evalPoly_ext` identity,
-exactly as `ltLo_eval_eq`), and read off the `hred` inequality that
-`lt_pos_cut_reduced` consumes — directly, with no `sumGE`/`expMarginPoly`
+exactly as `ltLo_eval_eq`), and read off the reduced inequality that
+`lt_pos_cut_reduced` consumes directly, with no `sumGE`/`expMarginPoly`
 (the curved cap numerator `G` sits on the `(m+1)` side, its denominator
 `23!·ltTD^23` on the bias side).
 
@@ -95,10 +95,9 @@ theorem errLt_eval_eq : ∀ x : Int, evalPoly certErrLt x = evalPoly certErrLtLi
       evalPoly_polyPow, evalPoly_expPolyNum]
     decide +kernel
 
-/-- The lt cell cover discharges `lt_pos_cut_reduced`'s `hred` (the
-c-independent error-bound obligation), via the `evalPoly_ext` identity and the
-direct `polySub` margin (no `sumGE`). -/
-theorem errLt_hred {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
+/-- The lt cell cover proves the c-independent error-bound inequality, via the
+`evalPoly_ext` identity and the direct `polySub` margin (no `sumGE`). -/
+theorem errLt_reduced_ineq {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     ((m + 1) * 10 ^ 31 * (10 ^ 18 * 10 ^ 42) *
         (expNum 22 (evalPoly ltTN (m : Int)).toNat (evalPoly ltTD (m : Int)).toNat *
             (23 * (evalPoly ltTD (m : Int)).toNat) +
@@ -144,7 +143,7 @@ theorem errLt_hred {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     refine Int.ofNat_le.mp ?_
     rw [Int.neg_mul, ← hPB, ← hPA] at hcert
     omega
-  -- close `hred` by expanding the two scalar constants and AC
+  -- Close the reduced inequality by expanding the two scalar constants and AC.
   have eKn : errLtK.toNat = 10 ^ 31 * (10 ^ 18 * 10 ^ 42) * lnErrQ * (10 ^ 40 + 160) := by
     decide
   have eWn : errLtW = biasCapNum *

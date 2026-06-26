@@ -7,7 +7,7 @@ open FormalYul.Preservation
 /-!
 # Monotonicity of the generated `lnWad` body over its whole domain
 
-The three legs are stitched together here:
+The three components are composed here:
 
 * within an octave (`evmClz` fixed), `tail_mono` carries the analytic
   certificates through the body tail;
@@ -88,7 +88,7 @@ theorem mant_facts {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
     simp only [MHI]
     exact h
 
-/-! ## The decided legs, extracted -/
+/-! ## Decided components -/
 
 theorem seam_extract {t : Nat} (ht1 : 1 ≤ t) (ht2 : t ≤ 254) :
     sle (lnWadToRayBody (2 ^ t - 1)) (lnWadToRayBody (2 ^ t)) = true := by

@@ -17,7 +17,7 @@ The certificate rationals only bracket the pipeline outside the
 the window the pipeline argument is within a few parts in `10^30` of
 zero, so the caps hold pointwise with room to spare; they are checked
 here by kernel evaluation of the partial-sum conditions at each of the
-91 mantissas, and combined with the certificate route into caps that
+91 mantissas, and combined with the certificate inequalities into caps that
 cover each whole branch.
 -/
 

@@ -7,7 +7,7 @@ Dense `Int` polynomials (coefficients low-order first), interval-Horner
 evaluation over nonnegative domains, and a fuel-bounded adaptive bisection
 checker whose `true` result soundly certifies `0 ≤ P(x)` for every integer
 `x` in the queried range. The checker is executed by the kernel via `decide`,
-so the analytic legs of the monotonicity proof reduce to computation.
+so the analytic components of the monotonicity proof reduce to computation.
 -/
 
 namespace LnPoly

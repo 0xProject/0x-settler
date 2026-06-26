@@ -1,5 +1,5 @@
 /-
-  Lemma 1 (Floor Bound) for _sqrt convergence — Mathlib-free.
+  Floor-bound proof for _sqrt convergence.
   For any m with m² ≤ x, and z > 0:  m ≤ (z + x / z) / 2
 -/
 import Init
@@ -69,13 +69,10 @@ theorem two_mul_le_add_div_sq (m z : Nat) (hz : 0 < z) :
   exact mul_two_sub_le_sq z m
 
 -- ============================================================================
--- MAIN THEOREM: Lemma 1 (Floor Bound)
+-- Floor bound
 -- ============================================================================
 
-/--
-**Lemma 1 (Floor Bound).**
-
-For any `m` with `m * m ≤ x`, and `z > 0`:
+/-- For any `m` with `m * m ≤ x`, and `z > 0`:
     m ≤ (z + x / z) / 2
 
 A single truncated Babylonian step never undershoots any `m` with `m² ≤ x`.
@@ -88,7 +85,7 @@ theorem babylon_step_floor_bound (x z m : Nat) (hz : 0 < z) (hm : m * m ≤ x) :
   omega
 
 -- ============================================================================
--- Lemma 2: Absorbing set {m, m+1}
+-- Absorbing set {m, m+1}
 -- ============================================================================
 
 /-- (m+1)² = m² + 2m + 1 -/

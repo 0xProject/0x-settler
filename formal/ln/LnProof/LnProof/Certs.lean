@@ -4,7 +4,7 @@ import LnProof.Poly
 /-!
 # Decidable certificates
 
-The analytic legs of the within-octave step inequality, reduced to polynomial
+The analytic components of the within-octave step inequality, reduced to polynomial
 nonnegativity over `[0, Uc]` and checked by the kernel through the adaptive
 bisection checker. `G1`/`G2` encode the cross-multiplied worst-case step
 inequalities (worst `|z| = Zc`, worst truncation slops); `certP`/`certQ` give

@@ -169,9 +169,9 @@ theorem v_pos_ge_pos {m c : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) (hc : c ≤ 160)
   generalize int256 (x1W (zWord m)) * 7450580596923828125 = X at hx0 ⊢
   omega
 
-/-! ## The theorem -/
+/-! ## Floor theorem -/
 
-/-- **Floor specification.** For every `1 ≤ x < 2^255` the body output
+/-- Floor specification. For every `1 ≤ x < 2^255` the body output
 `r` satisfies `r ≤ 10^27·ln(x/10^18) < r + 2`: the body computes
 `⌊10^27·ln(x/10^18)⌋` exactly or one less. -/
 theorem lnWadToRayBody_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
@@ -285,7 +285,7 @@ def FloorSpecToWad (ray wad : Int) (x : Nat) : Prop :=
   FloorSpecA ray x ∧ FloorSpecB ray x ∧
     wad * 1000000000 ≤ ray ∧ ray < (wad + 1) * 1000000000
 
-/-- **Wad floor specification.** The `lnWad` body returns the signed
+/-- Wad floor specification. The `lnWad` body returns the signed
 floor of the certified ray-scale `lnWadToRay` body divided by `10^9`, so the
 ray-scale floor bracket is packaged with the exact division window. -/
 theorem lnWadBody_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :

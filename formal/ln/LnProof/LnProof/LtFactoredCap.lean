@@ -147,15 +147,15 @@ theorem lt_pos_cut_factored {m c x : Nat} {r : Int}
     hbudget
 
 /-- C-independent reduction of `lt_pos_cut_factored`'s `hbudget` (capUB mirror of
-`ge_pos_cut_reduced`).  min-phase, window-top and octave-collapse substitutions
-fold all `c`/`r`/`x` dependence into the single inequality `hred`, which a
-Kronecker cell cover discharges.  The curved cap numerator `G` sits on the
-`(m+1)` side and its denominator `V = fact 23 · ltTD^23` on the bias side. -/
+`ge_pos_cut_reduced`).  The same monotone substitutions fold all `c`/`r`/`x`
+dependence into a single inequality checked by the Kronecker cell cover.  The
+curved cap numerator `G` sits on the `(m+1)` side and its denominator
+`V = fact 23 · ltTD^23` on the bias side. -/
 theorem lt_pos_cut_reduced {m c x : Nat} {r : Int}
     (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) (hc1 : 1 ≤ c) (hc : c < 160)
     (hmin : posPhaseNatLt m c + minPosAvail ≤ lnErrArg r)
     (hxtop : x ≤ posTopX c m)
-    (hred :
+    (hReduced :
       ((m + 1) * 10 ^ 31 * (10 ^ 18 * 10 ^ 42) *
           (expNum 22 (evalPoly ltTN (m : Int)).toNat (evalPoly ltTD (m : Int)).toNat *
               (23 * (evalPoly ltTD (m : Int)).toNat) +
@@ -176,7 +176,7 @@ theorem lt_pos_cut_reduced {m c x : Nat} {r : Int}
     Nat.le_trans (Nat.le_add_right _ _) hmin
   have hmineq : minPosAvail ≤ posAvailLt m c r := by unfold posAvailLt; omega
   have hoct := octaveGeBound (k := 160 - c) (by omega)
-  -- chain the octave bound with `hred`, then cancel the common `10^40`
+  -- Chain the octave bound with the reduced inequality, then cancel the common `10^40`.
   have keyineq :
       ((m + 1) * 10 ^ 31 * (10 ^ 18 * 10 ^ 42) *
           (expNum 22 (evalPoly ltTN (m : Int)).toNat (evalPoly ltTD (m : Int)).toNat *
@@ -211,7 +211,7 @@ theorem lt_pos_cut_reduced {m c x : Nat} {r : Int}
       _ ≤ (biasCapNum *
             (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23) *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * 10 ^ 40 *
-              (10 ^ 40 - 1) ^ (160 - c) := Nat.mul_le_mul_right _ hred
+              (10 ^ 40 - 1) ^ (160 - c) := Nat.mul_le_mul_right _ hReduced
       _ = (biasCapNum *
             (fact 23 * (evalPoly ltTD (m : Int)).toNat ^ 23) *
             (lnErrQ + minPosAvail) * wadRayStrictDen) * ((10 ^ 40 - 1) ^ (160 - c)) *

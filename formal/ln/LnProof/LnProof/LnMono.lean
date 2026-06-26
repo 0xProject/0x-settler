@@ -24,8 +24,8 @@ Monotonicity of `lnWad` over its whole domain `0 < x < 2^255` decomposes as:
   integer value of the function) is decided here together with its
   neighbors.
 
-The theorems in this file are the finitely-decidable legs of that argument.
-`LnProof.TopMono` composes all of the legs into `lnWadToRayBody_mono`,
+This file contains the finitely-decidable components of that argument.
+`LnProof.TopMono` composes them into `lnWadToRayBody_mono`,
 monotonicity over the whole domain.
 -/
 

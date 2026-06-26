@@ -453,7 +453,7 @@ theorem homEvalI_PPc_anti {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
   have hsq2 := sq_le_of_abs_le hb2 hb2'
   have hcross := mul_bound2 hb1' hb1 hb2 hb2'
   rw [hUDsq] at hsq1 hsq2 hcross
-  -- H3 facts
+  -- nonnegativity for the cubic difference factor
   have hH3nn : 0 ≤ n1 * n1 + n1 * n2 + n2 * n2 := by
     have hid : (n1 + n2) * (n1 + n2) = n1 * n1 + n1 * n2 + (n1 * n2 + n2 * n2) := by
       rw [Int.add_mul, Int.mul_add, Int.mul_add]
@@ -463,7 +463,7 @@ theorem homEvalI_PPc_anti {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
     have s2 := sq_nonneg' n1
     have s3 := sq_nonneg' n2
     omega
-  -- sum-of-squares bound for H4
+  -- bound for the quartic difference factor
   have hss_nn : 0 ≤ n1 * n1 + n2 * n2 := by
     have s2 := sq_nonneg' n1
     have s3 := sq_nonneg' n2
@@ -511,13 +511,13 @@ theorem homEvalI_PPc_anti {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
   have hd3 := df3 n1 n2
   have hd4 := df4 n1 n2
   have hmono : 0 ≤ n1 - n2 := by omega
-  -- T1: exact column difference
+  -- exact linear column difference
   have hT1 : (-(211724653123857194763950383720687822670307458715746667734762451892717657012841722322962591250252321890880192512 : Int)) * n1 * (D * D * D) - (-(211724653123857194763950383720687822670307458715746667734762451892717657012841722322962591250252321890880192512 : Int)) * n2 * (D * D * D) =
       (n1 - n2) * (-(211724653123857194763950383720687822670307458715746667734762451892717657012841722322962591250252321890880192512 : Int)) * (D * D * D) := by
     rw [← Int.sub_mul, ← Int.mul_sub]
     have : (-(211724653123857194763950383720687822670307458715746667734762451892717657012841722322962591250252321890880192512 : Int)) * (n1 - n2) = (n1 - n2) * (-(211724653123857194763950383720687822670307458715746667734762451892717657012841722322962591250252321890880192512 : Int)) := Int.mul_comm _ _
     rw [this]
-  -- T2
+  -- quadratic column bound
   have hT2 : (1798175745614395766239082622521528960720477616324792863638563111730471590055378944 : Int) * (n1 * n1) * (D * D) - (1798175745614395766239082622521528960720477616324792863638563111730471590055378944 : Int) * (n2 * n2) * (D * D) ≤
       (n1 - n2) * (8390288029036770645271559516685454130721748557771483501737535479334380439198398152704000000000000000000000000 : Int) * (D * D * D) := by
     have e1 : (1798175745614395766239082622521528960720477616324792863638563111730471590055378944 : Int) * (n1 * n1) * (D * D) - (1798175745614395766239082622521528960720477616324792863638563111730471590055378944 : Int) * (n2 * n2) * (D * D) =
@@ -536,7 +536,7 @@ theorem homEvalI_PPc_anti {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
         simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
       rw [h, show ((1798175745614395766239082622521528960720477616324792863638563111730471590055378944 : Int) * 4666000000000000000000000000) = (8390288029036770645271559516685454130721748557771483501737535479334380439198398152704000000000000000000000000 : Int) from by decide]
     omega
-  -- T3 (nonpositive)
+  -- cubic column is nonpositive
   have hT3 : (-(5562590447406762316237749022682109217671325297934336 : Int)) * (n1 * n1 * n1) * D - (-(5562590447406762316237749022682109217671325297934336 : Int)) * (n2 * n2 * n2) * D ≤ 0 := by
     have e1 : (-(5562590447406762316237749022682109217671325297934336 : Int)) * (n1 * n1 * n1) * D - (-(5562590447406762316237749022682109217671325297934336 : Int)) * (n2 * n2 * n2) * D =
         (-(5562590447406762316237749022682109217671325297934336 : Int)) * ((n1 - n2) * ((n1 * n1 + n1 * n2 + n2 * n2) * D)) := by
@@ -545,7 +545,7 @@ theorem homEvalI_PPc_anti {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
     rw [e1]
     refine Int.mul_nonpos_of_nonpos_of_nonneg (by decide) ?_
     exact Int.mul_nonneg hmono (Int.mul_nonneg hH3nn (by omega))
-  -- T4
+  -- quartic column bound
   have hT4 : (4542704643877621417440 : Int) * (n1 * n1 * n1 * n1) - (4542704643877621417440 : Int) * (n2 * n2 * n2 * n2) ≤
       (n1 - n2) * (230737779356982067054774587381120000000000000000000000000000000000000000000000000000000000000000000000000 : Int) * (D * D * D) := by
     have e1 : (4542704643877621417440 : Int) * (n1 * n1 * n1 * n1) - (4542704643877621417440 : Int) * (n2 * n2 * n2 * n2) =
@@ -722,7 +722,7 @@ theorem homEvalI_QQc_mono {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
     rw [p3] at h
     exact h
   rw [p2, p3, p4]
-  -- H4 interval (for the q4 column)
+  -- quartic interval for the q4 column
   have hH4 := mul_bound (a := n1 + n2) (A := (4666000000000000000000000000 : Int) * D)
     (b := n1 * n1 + n2 * n2) (B := (10885778000000000000000000000000000000000000000000000000 : Int) * (D * D)) hsum_lb hsum_ub hss_nn hss_ub
   have hH4m : ((4666000000000000000000000000 : Int) * D) * ((10885778000000000000000000000000000000000000000000000000 : Int) * (D * D)) =
@@ -740,7 +740,7 @@ theorem homEvalI_QQc_mono {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
   have hd3 := df3 n1 n2
   have hd4 := df4 n1 n2
   have hd5 := df5 n1 n2
-  -- T2 lower bound
+  -- quadratic column lower bound
   have hT2 : (-(690627211385037298547738551962892852267586075469791719173459072596031701017399264062472192 : Int)) * (n1 * n1) * (D * D * D) -
       (-(690627211385037298547738551962892852267586075469791719173459072596031701017399264062472192 : Int)) * (n2 * n2) * (D * D * D) ≥
       -((n1 - n2) * (3222466568322584035023748083458858048680556628142048161663360032733083916947184966115495247872000000000000000000000000 : Int) * (D * D * D * D)) := by
@@ -762,7 +762,7 @@ theorem homEvalI_QQc_mono {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
       rw [h, show ((-(690627211385037298547738551962892852267586075469791719173459072596031701017399264062472192 : Int)) * 4666000000000000000000000000) = -(3222466568322584035023748083458858048680556628142048161663360032733083916947184966115495247872000000000000000000000000 : Int) from by decide]
       rw [Int.mul_neg, Int.neg_mul]
     omega
-  -- T3 nonnegative
+  -- cubic column is nonnegative
   have hT3 : ((2925363287404360843667081098480704995728827760271876675338240 : Int)) * (n1 * n1 * n1) * (D * D) - ((2925363287404360843667081098480704995728827760271876675338240 : Int)) * (n2 * n2 * n2) * (D * D) ≥ 0 := by
     have e1 : ((2925363287404360843667081098480704995728827760271876675338240 : Int)) * (n1 * n1 * n1) * (D * D) - ((2925363287404360843667081098480704995728827760271876675338240 : Int)) * (n2 * n2 * n2) * (D * D) =
         ((2925363287404360843667081098480704995728827760271876675338240 : Int)) * ((n1 - n2) * ((n1 * n1 + n1 * n2 + n2 * n2) * (D * D))) := by
@@ -771,7 +771,7 @@ theorem homEvalI_QQc_mono {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
     rw [e1]
     refine Int.mul_nonneg (by decide) ?_
     exact Int.mul_nonneg hmono (Int.mul_nonneg hH3nn hDD)
-  -- T4 lower bound
+  -- quartic column lower bound
   have hT4 : (-(4299840983308505679614339668444 : Int)) * (n1 * n1 * n1 * n1) * D - (-(4299840983308505679614339668444 : Int)) * (n2 * n2 * n2 * n2) * D ≥
       -((n1 - n2) * (218401995695204726854537179935785100689712000000000000000000000000000000000000000000000000000000000000000000000000 : Int) * (D * D * D * D)) := by
     have e1 : (-(4299840983308505679614339668444 : Int)) * (n1 * n1 * n1 * n1) * D - (-(4299840983308505679614339668444 : Int)) * (n2 * n2 * n2 * n2) * D =
@@ -790,7 +790,7 @@ theorem homEvalI_QQc_mono {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
         simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
       rw [h, show ((-(4299840983308505679614339668444 : Int)) * (50793040148000000000000000000000000000000000000000000000000000000000000000000000000 : Int)) = -(218401995695204726854537179935785100689712000000000000000000000000000000000000000000000000000000000000000000000000 : Int) from by decide, Int.mul_neg, Int.neg_mul]
     omega
-  -- T5 lower bound via the asymmetric quintic factor
+  -- quintic lower bound via the asymmetric factor
   have hT5 : n1 * n1 * n1 * n1 * n1 - n2 * n2 * n2 * n2 * n2 ≥
       -((n1 - n2) * (118500162665284000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000 : Int) * (D * D * D * D)) := by
     rw [hd5]
@@ -842,7 +842,7 @@ theorem homEvalI_QQc_mono {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
         rw [Int.mul_assoc]
       rw [h]
     omega
-  -- T1 exact
+  -- exact linear column identity
   have hT1 : (66099322585698201304896817119133314370855648754593283446756353822335972946493244703677923116935407234039976856169480192 : Int) * n1 * (D * D * D * D) - (66099322585698201304896817119133314370855648754593283446756353822335972946493244703677923116935407234039976856169480192 : Int) * n2 * (D * D * D * D) =
       (n1 - n2) * (66099322585698201304896817119133314370855648754593283446756353822335972946493244703677923116935407234039976856169480192 : Int) * (D * D * D * D) := by
     rw [← Int.sub_mul, ← Int.mul_sub]
@@ -1307,11 +1307,11 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     rw [hD8e]
     refine pow_nonneg' (Int.mul_nonneg (by omega) (Int.mul_nonneg ?_ ?_)) 4 <;>
       simp only [Sc] <;> omega
-  -- step 1: X1v (-QHV) ≤ X1v ((-qword) 2^386 B2v^5)
+  -- Replace -QHV by the bounded qword expression.
   have s1 : X1v * -QHV ≤ X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) := by
     have h := mul_le_mul_left_nonneg hQfin hX1_nn
     exact h
-  -- step 2: pull the division bracket through
+  -- Pull the division bracket through.
   have s2 : X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) ≤
       int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) := by
     have e1 : X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) =
@@ -1320,7 +1320,7 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     have hf : (0 : Int) ≤ 2 ^ 386 * B2v ^ 5 := Int.mul_nonneg (by omega) hB25
     have h := mul_le_mul_right_nonneg hX1br hf
     omega
-  -- step 3: multiply by B and use the z bracket
+  -- Multiply by B and use the z bracket.
   have s3 : int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) ≤
       int256 pword * (((m : Int) - Sc) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) := by
     have e1 : int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) =
@@ -1333,7 +1333,7 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
       Int.mul_nonneg hppos (Int.mul_nonneg (by omega) hB25)
     have h := mul_le_mul_left_nonneg hq1 hf
     omega
-  -- step 4: bring in the P bound
+  -- Bring in the P bound.
   have s4 : int256 pword * (((m : Int) - Sc) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
       (2 ^ 358 * D8v ^ 4) ≤
       PHV * (((m : Int) - Sc) * (2 ^ 486 * B2v ^ 5)) := by
@@ -2155,11 +2155,11 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     rw [hD8e]
     refine pow_nonneg' (Int.mul_nonneg (by omega) (Int.mul_nonneg ?_ ?_)) 4 <;>
       simp only [Sc] <;> omega
-  -- step 1: X1v (-QHV) ≤ X1v ((-qword) 2^386 B2v^5)
+  -- Replace -QHV by the bounded qword expression.
   have s1 : X1v * -QHV ≤ X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) := by
     have h := mul_le_mul_left_nonneg hQfin hX1_nn
     exact h
-  -- step 2: pull the division bracket through
+  -- Pull the division bracket through.
   have s2 : X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) ≤
       int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) := by
     have e1 : X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) =
@@ -2168,7 +2168,7 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     have hf : (0 : Int) ≤ 2 ^ 386 * B2v ^ 5 := Int.mul_nonneg (by omega) hB25
     have h := mul_le_mul_right_nonneg hX1br hf
     omega
-  -- step 3: multiply by B and use the z bracket
+  -- Multiply by B and use the z bracket.
   have s3 : int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) ≤
       int256 pword * (((Sc : Int) - m) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) := by
     have e1 : int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) =
@@ -2181,7 +2181,7 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
       Int.mul_nonneg hppos (Int.mul_nonneg (by omega) hB25)
     have h := mul_le_mul_left_nonneg hq1 hf
     omega
-  -- step 4: bring in the P bound
+  -- Bring in the P bound.
   have s4 : int256 pword * (((Sc : Int) - m) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
       (2 ^ 358 * D8v ^ 4) ≤
       PHV * (((Sc : Int) - m) * (2 ^ 486 * B2v ^ 5)) := by

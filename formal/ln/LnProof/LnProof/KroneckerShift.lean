@@ -7,10 +7,10 @@ The cell checker Taylor-shifts each certificate literal with a
 Kronecker-substitution homomorphism: the shifted polynomial is *computed*
 inside the decide as a handful of GMP-scale operations on sign-split packed
 naturals (`kShiftHorner`, untrusted), then *certified* by one evaluation
-identity at `2^B` through the `evalPoly_ext` seam. The packed computation
+identity at `2^B` through `evalPoly_ext`. The packed computation
 needs no correctness lemmas: if it produced anything other than the true
 shift, the evaluation identity in the checker would fail. The remaining
-proof obligation is an ℓ1 bound for true shifts, carried by `aeval`, the
+bound is an ℓ1 bound for true shifts, carried by `aeval`, the
 absolute-value evaluation.
 -/
 

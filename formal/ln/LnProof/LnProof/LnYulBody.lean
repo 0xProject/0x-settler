@@ -6,13 +6,13 @@ import LnProof.BridgeDiv
 import LnProof.TopMono
 
 /-!
-# Runtime ↔ model equivalence (Part B), building blocks
+# Runtime-to-model equivalence building blocks
 
-Toward proving that the compiled `LnWrapper` runtime computes the hand model
-`Stages.lnWadToRayBody` / `Stages.lnWadBody`. This file establishes the
-arithmetic facts that drive the revert guard `if iszero(slt(0, x))` in
-`fun_lnWadToRay_11`: for a positive signed input the guard is skipped, for a
-nonpositive one it is taken.
+This file contains the arithmetic facts used to show that the compiled
+`LnWrapper` runtime computes the hand model `Stages.lnWadToRayBody` /
+`Stages.lnWadBody`. These facts drive the revert guard
+`if iszero(slt(0, x))` in `fun_lnWadToRay_11`: for a positive signed input the
+guard is skipped, for a nonpositive one it is taken.
 -/
 
 namespace LnYul
