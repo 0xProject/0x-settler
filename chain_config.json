@@ -15,10 +15,18 @@
     "wnative": "0xfff9976782d46cc05630d1f6ebab18b2324d6b14",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/sep/api"
     },
     "governance": {
@@ -52,10 +60,18 @@
     "wnative": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/eth/api"
     },
     "governance": {
@@ -89,10 +105,18 @@
     "wnative": "0x0d500B1d8E8eF31E21C99d1Db9A6444d3ADf1270",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/pol/api"
     },
     "governance": {
@@ -126,10 +150,18 @@
     "wnative": "0x4200000000000000000000000000000000000006",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/base/api"
     },
     "governance": {
@@ -163,10 +195,18 @@
     "wnative": "0x4200000000000000000000000000000000000006",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/oeth/api"
     },
     "governance": {
@@ -200,10 +240,18 @@
     "wnative": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/arb1/api"
     },
     "governance": {
@@ -237,10 +285,18 @@
     "wnative": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/bnb/api"
     },
     "governance": {
@@ -274,10 +330,18 @@
     "wnative": "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/avax/api"
     },
     "governance": {
@@ -311,10 +375,18 @@
     "wnative": "0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/linea/api"
     },
     "governance": {
@@ -348,10 +420,18 @@
     "wnative": "0x5300000000000000000000000000000000000004",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/scr/api"
     },
     "governance": {
@@ -385,10 +465,18 @@
     "wnative": "0x78c1b0C915c4FAA5FffA6CAbf0219DA63d7f4cb8",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/mantle/api"
     },
     "governance": {
@@ -422,10 +510,18 @@
     "wnative": "0x4200000000000000000000000000000000000006",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/wc/api"
     },
     "governance": {
@@ -496,10 +592,18 @@
     "wnative": "0x4200000000000000000000000000000000000006",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/ink/api"
     },
     "governance": {
@@ -569,10 +673,18 @@
     "wnative": "0x6969696969696969696969696969696969696969",
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/berachain/api"
     },
     "governance": {
@@ -605,10 +717,18 @@
     "minGasPriceGwei": 2,
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/hyper/api"
     },
     "governance": {
@@ -642,10 +762,18 @@
     "minGasPriceGwei": 2,
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/plasma/api"
     },
     "governance": {
@@ -678,10 +806,18 @@
     "minGasPriceGwei": 52,
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/monad/api"
     },
     "governance": {
@@ -750,10 +886,18 @@
     "minGasPriceGwei": 10,
     "safe": {
       "toehold": "0x914d7Fec6aaC8cd542e72Bca78B30650d45643d7",
-      "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
-      "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
-      "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
-      "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B",
+      "v1.3.0": {
+        "singleton": "0xfb1bffC9d739B8D520DaF37dF666da4C687191EA",
+        "factory": "0xC22834581EbC8527d974F8a1c97E1bEA4EF910BC",
+        "fallback": "0x017062a1dE2FE6b99BE3d9d37841FeD19F573804",
+        "multiCall": "0xA1dabEF33b3B82c7814B6D82A79e50F4AC44102B"
+      },
+      "v1.4.1": {
+        "singleton": "0x29fcB43b46531BcA003ddC8FCB67FFE91900C762",
+        "factory": "0x4e1DCf7AD4e460CfD30791CCC4F9c8a4f820ec67",
+        "fallback": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
+        "multiCall": "0x9641d764fc13c8B624c04430C7356C1C7C8102e2"
+      },
       "apiUrl": "https://api.safe.global/tx-service/tempo/api"
     },
     "deployment": {
