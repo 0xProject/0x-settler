@@ -6,7 +6,13 @@ on:
       - master
     paths:
       - src/utils/512Math.sol
+      - src/utils/FastLogic.sol
+      - src/utils/Panic.sol
+      - src/utils/Ternary.sol
+      - src/utils/UnsafeMath.sol
+      - src/vendor/Clz.sol
       - src/vendor/Cbrt.sol
+      - src/vendor/Sqrt.sol
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
       - formal/yul/**
@@ -14,7 +20,13 @@ on:
   pull_request:
     paths:
       - src/utils/512Math.sol
+      - src/utils/FastLogic.sol
+      - src/utils/Panic.sol
+      - src/utils/Ternary.sol
+      - src/utils/UnsafeMath.sol
+      - src/vendor/Clz.sol
       - src/vendor/Cbrt.sol
+      - src/vendor/Sqrt.sol
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
       - formal/yul/**

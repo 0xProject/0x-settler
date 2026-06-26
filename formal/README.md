@@ -1,6 +1,6 @@
 # Formal Verification
 
-Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler. Zero `sorry`, no `native_decide`; every top-level theorem depends only on Lean's standard axioms `propext`, `Classical.choice`, and `Quot.sound`. This is enforced in CI by the `#guard_msgs` axiom gate in each proof's `AxiomCheck.lean` (the build fails if any theorem's axiom set changes).
+Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler. The public runtime correctness theorem surface is pinned to Lean's standard axioms `propext`, `Classical.choice`, and `Quot.sound`. This is enforced in CI by the `#guard_msgs` axiom gate in each proof's `AxiomCheck.lean` (the build fails if any gated theorem's axiom set changes).
 
 ## Scope
 

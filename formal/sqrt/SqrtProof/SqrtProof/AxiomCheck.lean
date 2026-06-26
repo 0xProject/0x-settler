@@ -3,7 +3,7 @@ import SqrtProof.SqrtYulCorrect
 /-!
 # Axiom gate
 
-`#guard_msgs` pins the axiom dependency set of each top-level correctness theorem.
+`#guard_msgs` pins the axiom dependency set of each public runtime correctness theorem.
 The build fails if a proof starts depending on anything beyond Lean's standard
 `propext`, `Classical.choice`, `Quot.sound` (in particular, a stray `sorry`
 introduces `sorryAx` and breaks this gate).

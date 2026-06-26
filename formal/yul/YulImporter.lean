@@ -249,13 +249,8 @@ def indentBlock (pad src : String) : String :=
 def sanitizeIdentChar (c : Char) : Char :=
   if c.isAlphanum then c else '_'
 
-def collapseUnderscores : List Char → List Char
-  | [] => []
-  | '_' :: '_' :: rest => collapseUnderscores ('_' :: rest)
-  | c :: rest => c :: collapseUnderscores rest
-
 def sanitizeIdent (name : String) : String :=
-  let mapped := String.mk (collapseUnderscores (name.map sanitizeIdentChar).data)
+  let mapped := name.map sanitizeIdentChar
   if mapped.isEmpty then "generated" else mapped
 
 def functionDefName (name : String) : String :=
