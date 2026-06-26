@@ -31,7 +31,6 @@ library SafeConfig {
                 || block.chainid == 59144 // linea
                 || block.chainid == 80094 // berachain
                 || block.chainid == 534352 // scroll
-                || block.chainid == 747474 // katana
         ) {
             return false;
         }
@@ -62,7 +61,6 @@ library SafeConfig {
                 || block.chainid == 59144 // linea
                 || block.chainid == 80094 // berachain
                 || block.chainid == 534352 // scroll
-                || block.chainid == 747474 // katana
                 || block.chainid == 11155111 // sepolia
         ) {
             return false;
@@ -96,7 +94,6 @@ library SafeConfig {
                 || block.chainid == 59144 // linea
                 || block.chainid == 80094 // berachain
                 || block.chainid == 534352 // scroll
-                || block.chainid == 747474 // katana
                 || block.chainid == 11155111 // sepolia
         ) {
             return false;
@@ -124,13 +121,21 @@ library SafeConfig {
 
     // forgefmt: disable-next-line
     function getDeploymentSafeSigners() internal view returns (address[] memory) { // this is non-pure (view) on purpose
-        address[] memory result = new address[](6);
+        address[] memory result = new address[](5);
         result[0] = 0x24420bC8C760787F3eEF3b809e81f44d31a9c5A2; // Jacob
         result[1] = 0x052809d05DC83F317b2f578710411e6cbF88AC5a; // Josh
         result[2] = 0xDCa4ee0070b4aa44b30D8af22F3CBbb2cC859dAf; // Kevin
         result[3] = 0xD6B66609E5C05210BE0A690aB3b9788BA97aFa60; // Duncan
-        result[4] = 0xEC3E1F7aC9Df42c31570b02068f2e7500915e557; // Andy
-        result[5] = 0x36b7E0738fe11f05d26dA55d10eE679e684e06f4; // Lazaro
+        result[4] = 0x36b7E0738fe11f05d26dA55d10eE679e684e06f4; // Lazaro
         return result;
+    }
+
+    uint256 internal constant daoSafeThreshold = 2;
+
+    function getDAOSafeSigners() internal pure returns (address[] memory result) {
+        result = new address[](3);
+        result[0] = 0x3C6A208ae02554e744e0EF8fc6d1cd1afAF03B1C;
+        result[1] = 0x026f80585A532F6bB68A1c1Fda61F5DF71C2b10E;
+        result[2] = 0x0abaA253d9C3D9E94771D3daa662cdA5df69EA53;
     }
 }
