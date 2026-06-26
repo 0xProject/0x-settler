@@ -7,5 +7,5 @@
 
 # Lean-generated certificate literals and cell covers — the whole Cert/ tree is
 # machine output (floor + error-bound literals, cell covers, bias cap numerator).
-+/LnProof/Cert/*
-+!/LnProof/Cert/.gitkeep
+/LnProof/Cert/*
+!/LnProof/Cert/.gitkeep
