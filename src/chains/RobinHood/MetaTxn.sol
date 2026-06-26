@@ -44,6 +44,7 @@ contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodMixin {
             ) = abi.decode(
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
             );
+
             if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
                 sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
             } else { // if (action == uint32(ISettlerActions.METATXN_EKUBOV3_VIP.selector))
