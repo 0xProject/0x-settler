@@ -137,6 +137,12 @@ declare allowanceholder_initcode
 allowanceholder_initcode="$(jq -rM '.bytecode.object' < out/AllowanceHolder.sol/AllowanceHolder.json)"
 declare -r allowanceholder_initcode
 
+if [[ $(cast keccak "$allowanceholder_initcode") != '0x7510de5fbf18124b7fab39b9a5a30164534a44b1ef51b34bb91636e51c74089f' ]] ; then
+    echo 'Unexpected AllowanceHolder inithash '"$(cast keccak "$allowanceholder_initcode")" >&2
+    echo '                           expected 0x7510de5fbf18124b7fab39b9a5a30164534a44b1ef51b34bb91636e51c74089f' >&2
+    exit 1
+fi
+
 declare -i gas_limit
 declare -a maybe_broadcast=()
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then

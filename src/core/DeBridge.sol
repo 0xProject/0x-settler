@@ -56,37 +56,46 @@ IDlnSource constant DLN_SOURCE = IDlnSource(0xeF4fB24aD0916217251F553c0596F8Edc6
 contract DeBridge {
     using SafeTransferLib for IERC20;
 
+    /// @notice Bridge ERC20 tokens via DeBridge
+    /// @param globalFee The global fixed native fee
+    /// @param createOrderData Encoded call to `IDlnSource.createSaltedOrder` without selector
     function bridgeToDeBridge(uint256 globalFee, bytes memory createOrderData) internal {
         IERC20 inputToken;
-        uint256 value;
+        uint256 amount;
+        uint256 orderCreationPtr;
         assembly ("memory-safe") {
-            // offset to giveTokenAddress
-            inputToken := mload(add(0xe0, createOrderData))
-            value := selfbalance()
+            // `createOrderData` layout:
+            // +0x00: createOrderData length
+            // ... all other `IDlnSource.createSaltedOrder` parameters
+            let createOrderPtr := add(0x20, createOrderData)
+            orderCreationPtr := add(mload(createOrderPtr), createOrderPtr)
+            // `IDlnSource.OrderCreation` layout at `orderCreationPtr`:
+            // +0x00: giveTokenAddress
+            // +0x20: giveAmount
+            // ... all other `IDlnSource.OrderCreation` fields
+            inputToken := mload(orderCreationPtr)
         }
         // Store the constant into source to read it only once
         IDlnSource source = DLN_SOURCE;
         if (address(inputToken) == address(0)) {
-            _bridgeToDeBridge(source, value, value - globalFee, createOrderData);
+            uint256 balance = address(this).balance;
+            amount = balance - globalFee;
+            globalFee = balance;
         } else {
-            uint256 amount = inputToken.fastBalanceOf(address(this));
+            amount = inputToken.fastBalanceOf(address(this));
             inputToken.safeApproveIfBelow(address(source), amount);
-
-            _bridgeToDeBridge(source, value, amount, createOrderData);
         }
-    }
 
-    function _bridgeToDeBridge(IDlnSource source, uint256 value, uint256 amount, bytes memory createOrderData) private {
         assembly ("memory-safe") {
             // override giveAmount
-            mstore(add(0x100, createOrderData), amount)
+            mstore(add(0x20, orderCreationPtr), amount)
 
             let len := mload(createOrderData)
             // temporarily clobber `createOrderData` size memory area
-            mstore(createOrderData, 0xb9303701) // selector for `createSaltedOrder((address,uint256,bytes,uint256,uint256,bytes,address,bytes,bytes,bytes,bytes),uint64,bytes,uint32,bytes,bytes)`
-            // `createSaltedOrder` doesn't clash with any relevant function of restricted targets so we can skip checking `source`
-            // `source` is also meant to be DLN_SOURCE
-            if iszero(call(gas(), source, value, add(0x1c, createOrderData), add(0x04, len), 0x00, 0x00)) {
+            mstore(createOrderData, 0xb9303701) // selector for `IDlnSource.createSaltedOrder`
+            // `IDlnSource.createSaltedOrder` doesn't clash with restricted targets (AllowanceHolder & Permit2).
+            // `source` is also hardcoded to `DLN_SOURCE`.
+            if iszero(call(gas(), source, globalFee, add(0x1c, createOrderData), add(0x04, len), 0x00, 0x00)) {
                 let ptr := mload(0x40)
                 returndatacopy(ptr, 0x00, returndatasize())
                 revert(ptr, returndatasize())

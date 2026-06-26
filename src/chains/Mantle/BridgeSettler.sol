@@ -19,12 +19,9 @@ contract MantleBridgeSettler is BridgeSettler, StargateV2, DeBridge {
     {
         if (super._dispatch(i, action, data)) {
             return true;
-        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_ERC20_TO_STARGATE_V2.selector)) {
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_STARGATE_V2.selector)) {
             (IERC20 token, address pool, bytes memory sendData) = abi.decode(data, (IERC20, address, bytes));
-            bridgeERC20ToStargateV2(token, pool, sendData);
-        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_NATIVE_TO_STARGATE_V2.selector)) {
-            (address pool, uint256 destinationGas, bytes memory sendData) = abi.decode(data, (address, uint256, bytes));
-            bridgeNativeToStargateV2(pool, destinationGas, sendData);
+            bridgeToStargateV2(token, pool, sendData);
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_DEBRIDGE.selector)) {
             (uint256 globalFee, bytes memory createOrderData) = abi.decode(data, (uint256, bytes));
             bridgeToDeBridge(globalFee, createOrderData);
