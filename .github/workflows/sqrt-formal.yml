@@ -61,7 +61,15 @@ jobs:
 
       - name: Fetch Mathlib cache
         working-directory: formal/yul
-        run: lake exe cache get
+        run: |
+          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
+          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
+          # the release and ensure those directories exist before it runs.
+          lake build proofwidgets:release
+          mkdir -p \
+            .lake/packages/proofwidgets/.lake/build/lib \
+            .lake/packages/proofwidgets/.lake/build/ir
+          lake exe cache get
 
       - name: Build Yul importer
         working-directory: formal/yul
@@ -82,7 +90,15 @@ jobs:
 
       - name: Fetch proof dependency cache
         working-directory: formal/sqrt/SqrtProof
-        run: lake exe cache get
+        run: |
+          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
+          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
+          # the release and ensure those directories exist before it runs.
+          lake build proofwidgets:release
+          mkdir -p \
+            .lake/packages/proofwidgets/.lake/build/lib \
+            .lake/packages/proofwidgets/.lake/build/ir
+          lake exe cache get
 
       - name: Build Sqrt proof package
         working-directory: formal/sqrt/SqrtProof

@@ -59,7 +59,15 @@ jobs:
 
       - name: Fetch Mathlib cache
         working-directory: formal/yul
-        run: lake exe cache get
+        run: |
+          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
+          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
+          # the release and ensure those directories exist before it runs.
+          lake build proofwidgets:release
+          mkdir -p \
+            .lake/packages/proofwidgets/.lake/build/lib \
+            .lake/packages/proofwidgets/.lake/build/ir
+          lake exe cache get
 
       - name: Build Yul importer
         working-directory: formal/yul
@@ -75,7 +83,15 @@ jobs:
 
       - name: Fetch proof dependency cache
         working-directory: formal/ln/LnProof
-        run: lake exe cache get
+        run: |
+          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
+          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
+          # the release and ensure those directories exist before it runs.
+          lake build proofwidgets:release
+          mkdir -p \
+            .lake/packages/proofwidgets/.lake/build/lib \
+            .lake/packages/proofwidgets/.lake/build/ir
+          lake exe cache get
 
       - name: Generate Lean certificate artifacts
         working-directory: formal/ln/LnProof
