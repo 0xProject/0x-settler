@@ -448,6 +448,7 @@ non-idiomatic structure in order to achieve its goal.
 - Add features beyond what was asked (no over-engineering)
 - Modify the `_dispatch` copy/paste pattern without updating all locations
 - Create standalone test files; use the project's test infrastructure
+- Use the `-f` or the `--force` flag to _**ANY**_ tool or utility, _EVER_.
 
 ### ALWAYS
 
