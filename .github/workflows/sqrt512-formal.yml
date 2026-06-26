@@ -6,17 +6,31 @@ on:
       - master
     paths:
       - src/utils/512Math.sol
+      - src/utils/FastLogic.sol
+      - src/utils/Panic.sol
+      - src/utils/Ternary.sol
+      - src/utils/UnsafeMath.sol
+      - src/vendor/Clz.sol
+      - src/vendor/Cbrt.sol
       - src/vendor/Sqrt.sol
       - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
+      - formal/python/sqrt/**
       - formal/yul/**
       - .github/workflows/sqrt512-formal.yml
   pull_request:
     paths:
       - src/utils/512Math.sol
+      - src/utils/FastLogic.sol
+      - src/utils/Panic.sol
+      - src/utils/Ternary.sol
+      - src/utils/UnsafeMath.sol
+      - src/vendor/Clz.sol
+      - src/vendor/Cbrt.sol
       - src/vendor/Sqrt.sol
       - src/wrappers/Sqrt512Wrapper.sol
       - formal/sqrt/**
+      - formal/python/sqrt/**
       - formal/yul/**
       - .github/workflows/sqrt512-formal.yml
 
@@ -74,6 +88,11 @@ jobs:
             src/wrappers/Sqrt512Wrapper.sol:Sqrt512Wrapper \
             formal/sqrt/Sqrt512Proof/Sqrt512Proof/Sqrt512Yul.lean \
             0.8.34
+
+      - name: Generate 256-bit sqrt finite certificate (SqrtProof dependency) from Python generator
+        run: |
+          python3 formal/python/sqrt/generate_sqrt_cert.py \
+            --output formal/sqrt/SqrtProof/SqrtProof/FiniteCert.lean
 
       - name: Fetch proof dependency cache
         working-directory: formal/sqrt/Sqrt512Proof

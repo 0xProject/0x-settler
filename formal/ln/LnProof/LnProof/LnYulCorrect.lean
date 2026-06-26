@@ -182,6 +182,16 @@ theorem run_ln_wad_to_ray_evm_zero_at_wad :
   have h := run_ln_wad_to_ray_evm_eq_body (10 ^ 18) hpos hpos2
   rwa [hux, lnWadToRayBody_one_wad] at h
 
+/-- At the wad scale-point the compiled `lnWad` runtime returns `0`
+(`ln(1) = 0`). -/
+theorem run_ln_wad_evm_zero_at_wad :
+    run_ln_wad_evm (10 ^ 18) = .ok 0 := by
+  have hux : u256 (10 ^ 18) = 10 ^ 18 := u256_eq_of_lt _ (by simp [WORD_MOD])
+  have hpos : 1 ≤ u256 (10 ^ 18) := by rw [hux]; norm_num
+  have hpos2 : u256 (10 ^ 18) < 2 ^ 255 := by rw [hux]; norm_num
+  have h := run_ln_wad_evm_eq_body (10 ^ 18) hpos hpos2
+  rwa [hux, lnWadBody_one_wad] at h
+
 /-- The compiled `lnWadToRay` runtime result is signed-negative iff the input is
 below the wad scale-point (`ln(x) < 0 ↔ x < 1`). -/
 theorem lnWadToRayRuntimeNegativeIff (x : Nat) (hx : x < 2 ^ 256) :
@@ -198,6 +208,23 @@ theorem lnWadToRayRuntimeNegativeIff (x : Nat) (hx : x < 2 ^ 256) :
     show int256 (u256 (lnWadToRayBody x)) = int256 (lnWadToRayBody x)
     rw [u256_eq_of_lt _ (by simpa [WORD_MOD] using lnWadToRayBody_lt hx)]
   · exact LnFloorCert.lnWadToRayBody_negative_iff hpos hpos2
+
+/-- The compiled `lnWad` runtime result is signed-negative iff the input is
+below the wad scale-point (`ln(x) < 0 ↔ x < 1`). -/
+theorem lnWadRuntimeNegativeIff (x : Nat) (hx : x < 2 ^ 256) :
+    signedPositiveInput x →
+      ∃ w, runLnWadSigned x = .ok w ∧ (w < 0 ↔ u256 x < 10 ^ 18) := by
+  intro hxSigned
+  obtain ⟨hpos, hpos2⟩ := u256_pos_bounds hxSigned
+  have hux : u256 x = x := u256_eq_of_lt x (by simpa [WORD_MOD] using hx)
+  have hrun := run_ln_wad_evm_eq_body x hpos hpos2
+  rw [hux] at hpos hpos2 hrun ⊢
+  refine ⟨int256 (lnWadBody x), ?_, ?_⟩
+  · rw [runLnWadSigned_ok_iff]
+    refine ⟨lnWadBody x, hrun, ?_⟩
+    show int256 (u256 (lnWadBody x)) = int256 (lnWadBody x)
+    rw [u256_eq_of_lt _ (by simpa [WORD_MOD] using to_wad_lt hx)]
+  · exact LnFloorCert.lnWadBody_negative_iff hpos hpos2
 
 /-- Runtime monotonicity: the compiled `lnWadToRay` signed results are
 `≤`-ordered for ordered positive inputs (`x ≤ y < 2^255`). -/
@@ -228,6 +255,36 @@ theorem lnWadToRayRuntimeMono (x y : Nat) (hx : 0 < x) (hxy : x ≤ y) (hy : y <
     rw [u256_eq_of_lt _ (by simpa [WORD_MOD] using lnWadToRayBody_lt hy256)]
   · exact toInt_of_sle (lnWadToRayBody_lt hx256) (lnWadToRayBody_lt hy256)
       (lnWadToRayBody_mono hx hxy hy)
+
+/-- Runtime monotonicity: the compiled `lnWad` signed results are `≤`-ordered
+for ordered positive inputs (`x ≤ y < 2^255`). -/
+theorem lnWadRuntimeMono (x y : Nat) (hx : 0 < x) (hxy : x ≤ y) (hy : y < 2 ^ 255) :
+    ∃ wx wy, runLnWadSigned x = .ok wx ∧ runLnWadSigned y = .ok wy ∧ wx ≤ wy := by
+  have hpow : (2 : Nat) ^ 256 = 2 * 2 ^ 255 := by rw [pow_succ]; ring
+  have hpp : 0 < (2 : Nat) ^ 255 := by positivity
+  have hx256 : x < 2 ^ 256 := by omega
+  have hy256 : y < 2 ^ 256 := by omega
+  have huxx : u256 x = x := u256_eq_of_lt x (by simpa [WORD_MOD] using hx256)
+  have huyy : u256 y = y := u256_eq_of_lt y (by simpa [WORD_MOD] using hy256)
+  have hposx : 1 ≤ u256 x := by rw [huxx]; omega
+  have hpos2x : u256 x < 2 ^ 255 := by rw [huxx]; omega
+  have hposy : 1 ≤ u256 y := by rw [huyy]; omega
+  have hpos2y : u256 y < 2 ^ 255 := by rw [huyy]; omega
+  have hrunx := run_ln_wad_evm_eq_body x hposx hpos2x
+  have hruny := run_ln_wad_evm_eq_body y hposy hpos2y
+  rw [huxx] at hrunx
+  rw [huyy] at hruny
+  refine ⟨int256 (lnWadBody x), int256 (lnWadBody y), ?_, ?_, ?_⟩
+  · rw [runLnWadSigned_ok_iff]
+    refine ⟨lnWadBody x, hrunx, ?_⟩
+    show int256 (u256 (lnWadBody x)) = int256 (lnWadBody x)
+    rw [u256_eq_of_lt _ (by simpa [WORD_MOD] using to_wad_lt hx256)]
+  · rw [runLnWadSigned_ok_iff]
+    refine ⟨lnWadBody y, hruny, ?_⟩
+    show int256 (u256 (lnWadBody y)) = int256 (lnWadBody y)
+    rw [u256_eq_of_lt _ (by simpa [WORD_MOD] using to_wad_lt hy256)]
+  · exact toInt_of_sle (to_wad_lt hx256) (to_wad_lt hy256)
+      (lnWadBody_mono hx hxy hy)
 
 /-! ## Revert obligations (nonpositive input) -/
 

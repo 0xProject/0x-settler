@@ -864,7 +864,7 @@ private theorem call_abi_encode_t_int256_to_t_int256_fromStack_direct
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
     hcleanup]
 
-private theorem call_abi_encode_tuple_t_int256_to_t_int256_fromStack_direct
+private theorem call_abi_encode_tuple_t_int256__to_t_int256__fromStack_direct
     (headStart value : EvmYul.UInt256) (fuel : Nat) (shared : EvmYul.SharedState .Yul)
     (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
@@ -877,8 +877,8 @@ private theorem call_abi_encode_tuple_t_int256_to_t_int256_fromStack_direct
       [headStart + FormalYul.word 32]) := by
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions,
-    lookup_abi_encode_tuple_t_int256_to_t_int256_fromStack]
-  simp only [yulFunction_abi_encode_tuple_t_int256_to_t_int256_fromStack,
+    lookup_abi_encode_tuple_t_int256__to_t_int256__fromStack]
+  simp only [yulFunction_abi_encode_tuple_t_int256__to_t_int256__fromStack,
     FormalYul.Preservation.functionDefinition_params_def,
     FormalYul.Preservation.functionDefinition_rets_def,
     FormalYul.Preservation.functionDefinition_body_def,
@@ -956,7 +956,7 @@ private theorem external_fun_wrap_lnWadToRay_calldata_result
       (store := baseStore) (hlookup := lnWadToRaySharedAfterFreePtr_lookup x)
   simp [FormalYul.word, baseStore] at halloc
   have hencode :=
-    call_abi_encode_tuple_t_int256_to_t_int256_fromStack_direct
+    call_abi_encode_tuple_t_int256__to_t_int256__fromStack_direct
       (headStart := memPos) (value := FormalYul.word ret) (fuel := 999831)
       (shared := memShared) (store := encStore)
       (hlookup := by simp [memShared, lnWadToRaySharedAfterFreePtr_lookup x])
@@ -1042,7 +1042,7 @@ private theorem external_fun_wrap_lnWadToRay_calldata_halts
       (store := baseStore) (hlookup := lnWadToRaySharedAfterFreePtr_lookup x)
   simp [FormalYul.word, baseStore] at halloc
   have hencode :=
-    call_abi_encode_tuple_t_int256_to_t_int256_fromStack_direct
+    call_abi_encode_tuple_t_int256__to_t_int256__fromStack_direct
       (headStart := memPos) (value := FormalYul.word ret) (fuel := 999831)
       (shared := memShared) (store := encStore)
       (hlookup := by simp [memShared, lnWadToRaySharedAfterFreePtr_lookup x])
@@ -1487,7 +1487,7 @@ private theorem external_fun_wrap_lnWad_calldata_result
       (store := baseStore) (hlookup := lnWadSharedAfterFreePtr_lookup x)
   simp [FormalYul.word, baseStore] at halloc
   have hencode :=
-    call_abi_encode_tuple_t_int256_to_t_int256_fromStack_direct
+    call_abi_encode_tuple_t_int256__to_t_int256__fromStack_direct
       (headStart := memPos) (value := FormalYul.word ret) (fuel := 999831)
       (shared := memShared) (store := encStore)
       (hlookup := by simp [memShared, lnWadSharedAfterFreePtr_lookup x])
@@ -1573,7 +1573,7 @@ private theorem external_fun_wrap_lnWad_calldata_halts
       (store := baseStore) (hlookup := lnWadSharedAfterFreePtr_lookup x)
   simp [FormalYul.word, baseStore] at halloc
   have hencode :=
-    call_abi_encode_tuple_t_int256_to_t_int256_fromStack_direct
+    call_abi_encode_tuple_t_int256__to_t_int256__fromStack_direct
       (headStart := memPos) (value := FormalYul.word ret) (fuel := 999831)
       (shared := memShared) (store := encStore)
       (hlookup := by simp [memShared, lnWadSharedAfterFreePtr_lookup x])

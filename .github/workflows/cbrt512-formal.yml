@@ -6,17 +6,31 @@ on:
       - master
     paths:
       - src/utils/512Math.sol
+      - src/utils/FastLogic.sol
+      - src/utils/Panic.sol
+      - src/utils/Ternary.sol
+      - src/utils/UnsafeMath.sol
+      - src/vendor/Clz.sol
       - src/vendor/Cbrt.sol
+      - src/vendor/Sqrt.sol
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
+      - formal/python/cbrt/**
       - formal/yul/**
       - .github/workflows/cbrt512-formal.yml
   pull_request:
     paths:
       - src/utils/512Math.sol
+      - src/utils/FastLogic.sol
+      - src/utils/Panic.sol
+      - src/utils/Ternary.sol
+      - src/utils/UnsafeMath.sol
+      - src/vendor/Clz.sol
       - src/vendor/Cbrt.sol
+      - src/vendor/Sqrt.sol
       - src/wrappers/Cbrt512Wrapper.sol
       - formal/cbrt/**
+      - formal/python/cbrt/**
       - formal/yul/**
       - .github/workflows/cbrt512-formal.yml
 
@@ -74,6 +88,11 @@ jobs:
             src/wrappers/Cbrt512Wrapper.sol:Cbrt512Wrapper \
             formal/cbrt/Cbrt512Proof/Cbrt512Proof/Cbrt512Yul.lean \
             0.8.34
+
+      - name: Generate 256-bit cbrt finite certificate (CbrtProof dependency) from Python generator
+        run: |
+          python3 formal/python/cbrt/generate_cbrt_cert.py \
+            --output formal/cbrt/CbrtProof/CbrtProof/FiniteCert.lean
 
       - name: Fetch proof dependency cache
         working-directory: formal/cbrt/Cbrt512Proof

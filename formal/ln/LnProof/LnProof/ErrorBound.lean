@@ -9,13 +9,13 @@ set_option maxRecDepth 100000
 /-!
 # Public cut statement for the `lnWadToRay` error bound
 
-The published cut is `1699000000 / 10^9 = 1.6990` ulp.  The positive lt octave
+The published cut is `1698600000 / 10^9 = 1.6986` ulp.  The positive lt octave
 splits at the bracket-validity boundary: the mantissa window `[2^95, Sc-46]`
 is covered by the degree-22 curved-cap Kronecker cell cover (`lt_pos_cut_reduced`
 fed by `errLt_hred`), and the residue band `[Sc-45, Sc)` by the coarse residue
 bound (`lo_lt_pos_exact`, whose octave budget binds at `Sc-45`).  The positive
 ge octave and the negative shift keep their coarse residue bounds (which already
-clear `1.6990`).  The coarse residue predicate holds for every mantissa directly
+clear `1.6986`).  The coarse residue predicate holds for every mantissa directly
 from the floor bracket `1 ≤ posResidueGap` (`posResidueGap_bounds`).
 -/
 
@@ -141,7 +141,7 @@ theorem lnWadToRayBody_error_bound_upper_pos_shift {x : Nat}
   · exact lnWadToRayBody_positive_shift_ge_residue_or_direct h1 h2 hclt hbranch
       (lnWadToRayBody_positive_shift_ge_residue_or_direct_cert h1 h2 hclt hbranch)
 
-/-- The body decomposition satisfies the `1.6990` ulp error-bound cut: the lt octave is
+/-- The body decomposition satisfies the `1.6986` ulp error-bound cut: the lt octave is
 covered by the degree-22 curved-cap cell cover on `[2^95, Sc-46]` and a residue
 band on `[Sc-45, Sc)`, the ge octave by the coarse residue bound, and the
 negative shift by its coarse residue bound. -/

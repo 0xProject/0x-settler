@@ -13,9 +13,9 @@ exactly as `ltLo_eval_eq`), and read off the `hred` inequality that
 (the curved cap numerator `G` sits on the `(m+1)` side, its denominator
 `23!·ltTD^23` on the bias side).
 
-The constants are the octave-extracted cell parameters at the deployed
-`lnErrorBoundNum = 1699000000`:
-`errLtK = 10^31·(10^18·10^42)·lnErrQ·(10^40+160)` (boundNum-independent),
+The constants are the octave-extracted cell parameters at the active
+`lnErrorBoundNum = 1698600000`:
+`errLtK = 10^31·(10^18·10^42)·lnErrQ·(10^40+160)` (`lnErrorBoundNum`-independent),
 `errLtW = BIASCAPNUM·(lnErrQ+minPosAvail)·wadRayStrictDen·10^40`.
 -/
 

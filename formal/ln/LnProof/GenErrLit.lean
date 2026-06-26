@@ -2,7 +2,8 @@ import LnProof.ErrorBoundCore
 import LnProof.KroneckerShift
 
 /-! Regenerate the error-bound cert literals (ErrCertLtLit / ErrCertGeLit) and
-their covers for the new BIASc + boundNum.  Computes `certErrLt`/`certErrGe`
+their covers for the current BIASc + `lnErrorBoundNum`. Computes
+`certErrLt`/`certErrGe`
 inline (mirroring the ErrCert*Bridge constructions) so it does not depend on the
 bridges building, then walks the `checkCoverK` covers (literal signature, as the
 committed `errLt_nonneg`/`errGe_nonneg` use). -/
@@ -11,8 +12,8 @@ open LnPoly LnFloorCert LnExp LnFloor LnYul
 
 namespace GenErrLit
 
--- All derived from the committed inputs (BIASc in the model, boundNum in
--- ErrorBoundCert), so regenerating tracks any change to those automatically.
+-- All derived from the committed inputs (BIASc in the model and
+-- `lnErrorBoundNum` in ErrorBoundCert), so regenerating tracks changes to those.
 def biasCapNum : Nat :=
   (LnExp.expNum 130 (BIASc * 2 ^ 27) QS * (10 ^ 18 * 10 ^ 42)) / (LnExp.fact 130 * QS ^ 130)
 def errLtK : Int := (10 ^ 31 * (10 ^ 18 * 10 ^ 42) * lnErrQ * (10 ^ 40 + 160) : Nat)

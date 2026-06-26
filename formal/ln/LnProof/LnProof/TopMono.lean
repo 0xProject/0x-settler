@@ -370,7 +370,7 @@ theorem to_wad_lt {x : Nat} (h : x < 2 ^ 256) :
   rw [to_wad_eq h]
   exact evmSdiv_lt _ _
 
-/-- `lnWadToWad` is monotone nondecreasing over the entire domain
+/-- `lnWad` is monotone nondecreasing over the entire domain
 `0 < x ≤ y < 2^255`. -/
 theorem lnWadBody_mono {x y : Nat} (hx : 0 < x) (hxy : x ≤ y)
     (hy : y < 2 ^ 255) :
