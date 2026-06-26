@@ -898,7 +898,7 @@
         "factory": "0xc329D02fd8CB2fc13aa919005aF46320794a8629",
         "fallback": "0x9301E98DD367135f21bdF66f342A249c9D5F9069",
         "multiCall": "0x0408EF011960d02349d50286D20531229BCef773"
-      }
+      },
       "apiUrl": "https://transaction.safe.abs.xyz/api"
     },
     "deployment": {
