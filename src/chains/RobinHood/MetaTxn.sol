@@ -8,6 +8,8 @@ import {IERC20} from "@forge-std/interfaces/IERC20.sol";
 import {ISignatureTransfer} from "@permit2/interfaces/ISignatureTransfer.sol";
 import {ISettlerActions} from "../../ISettlerActions.sol";
 
+import {FastLogic} from "../../utils/FastLogic.sol";
+
 // Solidity inheritance is stupid
 import {SettlerBase} from "../../SettlerBase.sol";
 import {AbstractContext} from "../../Context.sol";
@@ -16,6 +18,8 @@ import {Permit2PaymentBase} from "../../core/Permit2Payment.sol";
 
 /// @custom:security-contact security@0x.org
 contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodMixin {
+    using FastLogic for bool;
+
     constructor(bytes20 gitCommit) SettlerBase(gitCommit) {}
 
     function _dispatchVIP(uint256 action, bytes calldata data, bytes calldata sig)
@@ -27,7 +31,8 @@ contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodMixin {
     {
         if (super._dispatchVIP(action, data, sig)) {
             return true;
-        } else if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
+        } else if ((action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector))
+            .or(action == uint32(ISettlerActions.METATXN_EKUBOV3_VIP.selector))) {
             (
                 address recipient,
                 ISignatureTransfer.PermitTransferFrom memory permit,
@@ -39,8 +44,11 @@ contract RobinHoodSettlerMetaTxn is SettlerMetaTxn, RobinHoodMixin {
             ) = abi.decode(
                 data, (address, ISignatureTransfer.PermitTransferFrom, bool, uint256, uint256, bytes, uint256)
             );
-
-            sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            if (action == uint32(ISettlerActions.METATXN_UNISWAPV4_VIP.selector)) {
+                sellToUniswapV4VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            } else { // if (action == uint32(ISettlerActions.METATXN_EKUBOV3_VIP.selector))
+                sellToEkuboV3VIP(recipient, feeOnTransfer, hashMul, hashMod, fills, permit, sig, amountOutMin);
+            }
         } else {
             return false;
         }
