@@ -19,7 +19,7 @@ import LnProof.FloorCertLtLoC14
 import LnProof.FloorCertLtLoC15
 
 namespace LnFloorCert
-open LnGeneratedModel LnPoly
+open LnYul LnPoly
 
 set_option maxRecDepth 100000
 

@@ -1,5 +1,8 @@
 import LnProof.Certs
 
+open FormalYul
+open FormalYul.Preservation
+
 /-!
 # The within-octave step
 
@@ -10,13 +13,13 @@ monotonicity; the `u`-step cases are the `G1`/`G2` certificates pushed
 through the truncation sandwiches.
 -/
 
-namespace LnGeneratedModel
+namespace LnYul
 
 open LnPoly
 
 def x1W (z : Nat) : Nat := evmSdiv (evmMul (pS4 (uWord z)) z) (qS5 (uWord z))
 
-def hAt (v : Int) : Nat := x1W (ofInt v)
+def hAt (v : Int) : Nat := x1W (uint256OfInt v)
 
 /-- Nat-level `u` of an integer `z`-value. -/
 def uVal (v : Int) : Nat := (v * v).toNat / 2 ^ 104
@@ -37,32 +40,32 @@ theorem sq_bound {v Z : Int} (hZ : 0 ≤ Z) (h1 : -Z ≤ v) (h2 : v ≤ Z) :
 
 theorem zsq_facts (v : Int) (h1 : -(217494458298375249691265569570 : Int) ≤ v)
     (h2 : v ≤ (217494458298375249691265569570 : Int)) :
-    toInt (evmMul (ofInt v) (ofInt v)) = v * v ∧
-      evmMul (ofInt v) (ofInt v) = (v * v).toNat := by
+    int256 (evmMul (uint256OfInt v) (uint256OfInt v)) = v * v ∧
+      evmMul (uint256OfInt v) (uint256OfInt v) = (v * v).toNat := by
   have hsq := sq_bound (by omega : (0:Int) ≤ 217494458298375249691265569570) h1 h2
   have hb : -(2 ^ 255) ≤ v ∧ v < 2 ^ 255 := by
     simp only [ipow255]; omega
-  have ht : toInt (ofInt v) = v := toInt_ofInt hb.1 hb.2
+  have ht : int256 (uint256OfInt v) = v := toInt_ofInt hb.1 hb.2
   have hsqB : v * v < 2 ^ 255 := by
     simp only [ipow255]
     omega
-  have hT : toInt (evmMul (ofInt v) (ofInt v)) = v * v := by
+  have hT : int256 (evmMul (uint256OfInt v) (uint256OfInt v)) = v * v := by
     have := evmMul_transport (ofInt_lt v) (ofInt_lt v)
       (by rw [ht]; omega) (by rw [ht]; exact hsqB)
     rw [ht] at this
     exact this
   refine ⟨hT, ?_⟩
-  have hlt : evmMul (ofInt v) (ofInt v) < 2 ^ 256 := evmMul_lt _ _
-  have ht2 : evmMul (ofInt v) (ofInt v) < 2 ^ 255 := by
+  have hlt : evmMul (uint256OfInt v) (uint256OfInt v) < 2 ^ 256 := evmMul_lt _ _
+  have ht2 : evmMul (uint256OfInt v) (uint256OfInt v) < 2 ^ 255 := by
     have h' := hT
-    unfold toInt at h'
+    unfold int256 at h'
     split at h' <;> simp only [ipow255, ipow256] at * <;> omega
   have ht3 := toInt_of_lt ht2
   omega
 
 theorem uWord_eq (v : Int) (h1 : -(217494458298375249691265569570 : Int) ≤ v)
     (h2 : v ≤ (217494458298375249691265569570 : Int)) :
-    uWord (ofInt v) = uVal v := by
+    uWord (uint256OfInt v) = uVal v := by
   obtain ⟨_, hw⟩ := zsq_facts v h1 h2
   unfold uWord uVal
   rw [hw]
@@ -242,12 +245,12 @@ theorem pz_bound {P w : Int}
 theorem hAt_facts (w : Int)
     (h1 : -(217494458298375249691265569570 : Int) ≤ w)
     (h2 : w ≤ (217494458298375249691265569570 : Int)) :
-    hAt w = evmSdiv (evmMul (pS4 (uVal w)) (ofInt w)) (qS5 (uVal w)) ∧
-      toInt (evmMul (pS4 (uVal w)) (ofInt w)) = toInt (pS4 (uVal w)) * w := by
+    hAt w = evmSdiv (evmMul (pS4 (uVal w)) (uint256OfInt w)) (qS5 (uVal w)) ∧
+      int256 (evmMul (pS4 (uVal w)) (uint256OfInt w)) = int256 (pS4 (uVal w)) * w := by
   have hue := uWord_eq w h1 h2
   have hul := uVal_le w h1 h2
   obtain ⟨pw, plo, phi, _, _⟩ := pS4_facts hul
-  have hofw : toInt (ofInt w) = w :=
+  have hofw : int256 (uint256OfInt w) = w :=
     toInt_ofInt (by simp only [ipow255]; omega) (by simp only [ipow255]; omega)
   have hb := pz_bound plo phi h1 h2
   constructor
@@ -270,7 +273,7 @@ theorem le_of_mul_le_mul_pos {a b c : Int} (h : a * c ≤ b * c) (hc : 0 < c) :
 theorem hI_step (v : Int)
     (hlo : -(217494458298375249691265569570 : Int) ≤ v - 1)
     (hhi : v ≤ (217494458298375249691265569570 : Int)) :
-    toInt (hAt v) ≤ toInt (hAt (v - 1)) := by
+    int256 (hAt v) ≤ int256 (hAt (v - 1)) := by
   have hv1 : -(217494458298375249691265569570 : Int) ≤ v := by omega
   have hv2 : v - 1 ≤ (217494458298375249691265569570 : Int) := by omega
   have hu2le := uVal_le v hv1 hhi
@@ -307,89 +310,89 @@ theorem hI_step (v : Int)
     fun h => by rw [h]
   have hqeq : uVal (v - 1) = uVal v → qS5 (uVal (v - 1)) = qS5 (uVal v) :=
     fun h => by rw [h]
-  have hm2lt := evmMul_lt (pS4 (uVal v)) (ofInt v)
-  have hm1lt := evmMul_lt (pS4 (uVal (v - 1))) (ofInt (v - 1))
+  have hm2lt := evmMul_lt (pS4 (uVal v)) (uint256OfInt v)
+  have hm1lt := evmMul_lt (pS4 (uVal (v - 1))) (uint256OfInt (v - 1))
   generalize hu2g : uVal v = u2 at *
   generalize hu1g : uVal (v - 1) = u1 at *
   generalize hp2g : pS4 u2 = pword2 at *
   generalize hp1g : pS4 u1 = pword1 at *
   generalize hq2g : qS5 u2 = qword2 at *
   generalize hq1g : qS5 u1 = qword1 at *
-  generalize hm2g : evmMul pword2 (ofInt v) = mword2 at *
-  generalize hm1g : evmMul pword1 (ofInt (v - 1)) = mword1 at *
+  generalize hm2g : evmMul pword2 (uint256OfInt v) = mword2 at *
+  generalize hm1g : evmMul pword1 (uint256OfInt (v - 1)) = mword1 at *
   clear hu2g hu1g hp2g hp1g hq2g hq1g hm2g hm1g
-  have hq2neg : toInt qword2 < 0 := by omega
-  have hq1neg : toInt qword1 < 0 := by omega
-  have hp2pos : (0 : Int) ≤ toInt pword2 := by omega
-  have hp1pos : (0 : Int) ≤ toInt pword1 := by omega
+  have hq2neg : int256 qword2 < 0 := by omega
+  have hq1neg : int256 qword1 < 0 := by omega
+  have hp2pos : (0 : Int) ≤ int256 pword2 := by omega
+  have hp1pos : (0 : Int) ≤ int256 pword1 := by omega
   rcases Int.lt_or_le v 1 with hneg | hpos
   · -- v ≤ 0, v - 1 ≤ -1
     have hv0 : v ≤ 0 := by omega
     obtain ⟨hus1, hus2⟩ := hstepN hv0
-    have hnum1neg : toInt pword1 * (v - 1) < 0 := by
+    have hnum1neg : int256 pword1 * (v - 1) < 0 := by
       have h := mul_le_mul_left_nonneg (show v - 1 ≤ -1 by omega) hp1pos
       omega
     have hf1 := evmSdiv_neg_neg hm1lt qw1
-      (hn1 ▸ hnum1neg) (hn1 ▸ (by omega : -(2 ^ 255) < toInt pword1 * (v - 1)))
+      (hn1 ▸ hnum1neg) (hn1 ▸ (by omega : -(2 ^ 255) < int256 pword1 * (v - 1)))
       hq1neg
     rcases Int.lt_or_le v 0 with hvneg | hveq
     · -- v ≤ -1
-      have hnum2neg : toInt pword2 * v < 0 := by
+      have hnum2neg : int256 pword2 * v < 0 := by
         have h := mul_le_mul_left_nonneg (show v ≤ -1 by omega) hp2pos
         omega
       have hf2 := evmSdiv_neg_neg hm2lt qw2
-        (hn2 ▸ hnum2neg) (hn2 ▸ (by omega : -(2 ^ 255) < toInt pword2 * v))
+        (hn2 ▸ hnum2neg) (hn2 ▸ (by omega : -(2 ^ 255) < int256 pword2 * v))
         hq2neg
       rw [hf2, hf1, hn2, hn1]
       clear hf2 hf1 hn2 hn1 hb2 hb1
-      have hcross : -(toInt pword2 * v) * (-toInt qword1) ≤
-          -(toInt pword1 * (v - 1)) * (-toInt qword2) := by
+      have hcross : -(int256 pword2 * v) * (-int256 qword1) ≤
+          -(int256 pword1 * (v - 1)) * (-int256 qword2) := by
         rcases Nat.lt_or_ge u2 u1 with hustep | husame
         · have hcast : ((u1 : Nat) : Int) = ((u2 : Nat) : Int) + 1 := by omega
           have hg := g2_step (um1 := ((u2 : Nat) : Int))
             (by omega) (by simp only [UcI]; omega)
             (m := -v) (by omega) (by simp only [ZcI]; omega)
           rw [← hcast] at hg
-          have lhsP : (0 : Int) ≤ toInt pword2 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 := by omega
-          have lhsW : (0 : Int) ≤ -toInt qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 := by omega
-          have lb : -toInt qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 ≤
+          have lhsP : (0 : Int) ≤ int256 pword2 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 := by omega
+          have lhsW : (0 : Int) ≤ -int256 qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 := by omega
+          have lb : -int256 qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 ≤
               -evalPoly QQc ((u1 : Nat) : Int) + SLOPQc := by omega
-          have l1 : toInt pword2 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-toInt qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * -v ≤
+          have l1 : int256 pword2 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-int256 qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * -v ≤
               evalPoly PPc ((u2 : Nat) : Int) *
                 (-evalPoly QQc ((u1 : Nat) : Int) + SLOPQc) * -v :=
             triple_mono lhsP lhsW (by omega) psh2 lb (by omega)
           have rb1 : evalPoly PPc ((u1 : Nat) : Int) + -SLOPPc ≤
-              toInt pword1 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 := by omega
-          have rb2 : -evalPoly QQc ((u2 : Nat) : Int) ≤ -toInt qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 := by
+              int256 pword1 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 := by omega
+          have rb2 : -evalPoly QQc ((u2 : Nat) : Int) ≤ -int256 qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 := by
             omega
           have r1 : (evalPoly PPc ((u1 : Nat) : Int) + -SLOPPc) *
               -evalPoly QQc ((u2 : Nat) : Int) * (-v + 1) ≤
-              toInt pword1 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-toInt qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * (-v + 1) :=
+              int256 pword1 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-int256 qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * (-v + 1) :=
             triple_mono (by omega) (by omega) (by omega) rb1 rb2 (by omega)
-          have eL := ident1 (toInt pword2) (-v) (-toInt qword1) (587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744) (157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264)
-          have eR := ident1 (toInt pword1) (-v + 1) (-toInt qword2) (587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744) (157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264)
+          have eL := ident1 (int256 pword2) (-v) (-int256 qword1) (587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744) (157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264)
+          have eR := ident1 (int256 pword1) (-v + 1) (-int256 qword2) (587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744) (157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264)
           refine le_of_mul_le_mul_pos (c := (587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 : Int) * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) ?_ (by omega)
-          have m1 : -(toInt pword2 * v) = toInt pword2 * -v := by rw [Int.mul_neg]
-          have m2 : -(toInt pword1 * (v - 1)) = toInt pword1 * (-v + 1) := by
+          have m1 : -(int256 pword2 * v) = int256 pword2 * -v := by rw [Int.mul_neg]
+          have m2 : -(int256 pword1 * (v - 1)) = int256 pword1 * (-v + 1) := by
             rw [show (-v + 1 : Int) = -(v - 1) by omega, Int.mul_neg]
           rw [m1, m2, eL, eR]
-          generalize gA : toInt pword2 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-toInt qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * -v = A at l1 ⊢
+          generalize gA : int256 pword2 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-int256 qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * -v = A at l1 ⊢
           generalize gB : evalPoly PPc ((u2 : Nat) : Int) *
             (-evalPoly QQc ((u1 : Nat) : Int) + SLOPQc) * -v = B at l1 hg
           generalize gC : (evalPoly PPc ((u1 : Nat) : Int) + -SLOPPc) *
             -evalPoly QQc ((u2 : Nat) : Int) * (-v + 1) = C at hg r1
-          generalize gD : toInt pword1 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 *
-            (-toInt qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * (-v + 1) = D at r1 ⊢
+          generalize gD : int256 pword1 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 *
+            (-int256 qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * (-v + 1) = D at r1 ⊢
           omega
         · have huv : u1 = u2 := by omega
           have hpe := hpeq huv
           have hqe := hqeq huv
           rw [hpe, hqe]
-          have m1 : -(toInt pword2 * v) = toInt pword2 * -v := by rw [Int.mul_neg]
-          have m2 : -(toInt pword2 * (v - 1)) = toInt pword2 * (-v + 1) := by
+          have m1 : -(int256 pword2 * v) = int256 pword2 * -v := by rw [Int.mul_neg]
+          have m2 : -(int256 pword2 * (v - 1)) = int256 pword2 * (-v + 1) := by
             rw [show (-v + 1 : Int) = -(v - 1) by omega, Int.mul_neg]
           rw [m1, m2]
-          have hmono : toInt pword2 * -v ≤ toInt pword2 * (-v + 1) :=
+          have hmono : int256 pword2 * -v ≤ int256 pword2 * (-v + 1) :=
             mul_le_mul_left_nonneg (by omega) hp2pos
           exact mul_le_mul_right_nonneg hmono (by omega)
       have hdd := cross_to_div (by omega) (by omega) (by omega) (by omega) hcross
@@ -398,23 +401,23 @@ theorem hI_step (v : Int)
       have hveq0 : v = 0 := by omega
       subst hveq0
       have hf2 := evmSdiv_pos_neg hm2lt qw2
-        (hn2 ▸ (by omega : (0 : Int) ≤ toInt pword2 * 0)) hq2neg
+        (hn2 ▸ (by omega : (0 : Int) ≤ int256 pword2 * 0)) hq2neg
       rw [hf2, hf1, hn2, hn1]
       clear hf2 hf1 hn2 hn1 hb2 hb1
       simp only [Int.mul_zero, Int.toNat_zero, Nat.zero_div]
       have hq := Int.natCast_nonneg
-        ((-(toInt pword1 * (0 - 1))).toNat / (-toInt qword1).toNat)
+        ((-(int256 pword1 * (0 - 1))).toNat / (-int256 qword1).toNat)
       omega
   · -- v ≥ 1, v - 1 ≥ 0
     obtain ⟨hus1, hus2⟩ := hstepP hpos
-    have hnum2pos : 0 ≤ toInt pword2 * v := Int.mul_nonneg hp2pos (by omega)
-    have hnum1pos : 0 ≤ toInt pword1 * (v - 1) := Int.mul_nonneg hp1pos (by omega)
+    have hnum2pos : 0 ≤ int256 pword2 * v := Int.mul_nonneg hp2pos (by omega)
+    have hnum1pos : 0 ≤ int256 pword1 * (v - 1) := Int.mul_nonneg hp1pos (by omega)
     have hf2 := evmSdiv_pos_neg hm2lt qw2 (hn2 ▸ hnum2pos) hq2neg
     have hf1 := evmSdiv_pos_neg hm1lt qw1 (hn1 ▸ hnum1pos) hq1neg
     rw [hf2, hf1, hn2, hn1]
     clear hf2 hf1 hn2 hn1 hb2 hb1
-    have hcross : toInt pword1 * (v - 1) * (-toInt qword2) ≤
-        toInt pword2 * v * (-toInt qword1) := by
+    have hcross : int256 pword1 * (v - 1) * (-int256 qword2) ≤
+        int256 pword2 * v * (-int256 qword1) := by
       rcases Nat.lt_or_ge u1 u2 with hustep | husame
       · have hcast : ((u1 : Nat) : Int) = ((u2 : Nat) : Int) - 1 := by omega
         have hg := g1_step (um1 := ((u2 : Nat) : Int) - 1)
@@ -422,41 +425,41 @@ theorem hI_step (v : Int)
           (w := v) hpos (by simp only [ZcI]; omega)
         rw [show ((u2 : Nat) : Int) - 1 + 1 = ((u2 : Nat) : Int) by omega,
           ← hcast] at hg
-        have lhsP : (0 : Int) ≤ toInt pword1 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 := by omega
-        have lhsW : (0 : Int) ≤ -toInt qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 := by omega
-        have lb : -toInt qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 ≤
+        have lhsP : (0 : Int) ≤ int256 pword1 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 := by omega
+        have lhsW : (0 : Int) ≤ -int256 qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 := by omega
+        have lb : -int256 qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 ≤
             -evalPoly QQc ((u2 : Nat) : Int) + SLOPQc := by omega
-        have l1 : toInt pword1 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-toInt qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * (v - 1) ≤
+        have l1 : int256 pword1 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-int256 qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * (v - 1) ≤
             evalPoly PPc ((u1 : Nat) : Int) *
               (-evalPoly QQc ((u2 : Nat) : Int) + SLOPQc) * (v - 1) :=
           triple_mono lhsP lhsW (by omega) psh1 lb (by omega)
         have rb1 : evalPoly PPc ((u2 : Nat) : Int) + -SLOPPc ≤
-            toInt pword2 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 := by omega
-        have rb2 : -evalPoly QQc ((u1 : Nat) : Int) ≤ -toInt qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 := by
+            int256 pword2 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 := by omega
+        have rb2 : -evalPoly QQc ((u1 : Nat) : Int) ≤ -int256 qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264 := by
           omega
         have r1 : (evalPoly PPc ((u2 : Nat) : Int) + -SLOPPc) *
             -evalPoly QQc ((u1 : Nat) : Int) * v ≤
-            toInt pword2 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-toInt qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * v :=
+            int256 pword2 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-int256 qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * v :=
           triple_mono (by omega) (by omega) (by omega) rb1 rb2 (by omega)
-        have eL := ident1 (toInt pword1) (v - 1) (-toInt qword2) (587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744) (157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264)
-        have eR := ident1 (toInt pword2) v (-toInt qword1) (587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744) (157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264)
+        have eL := ident1 (int256 pword1) (v - 1) (-int256 qword2) (587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744) (157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264)
+        have eR := ident1 (int256 pword2) v (-int256 qword1) (587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744) (157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264)
         refine le_of_mul_le_mul_pos (c := (587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 : Int) * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) ?_ (by omega)
         rw [eL, eR]
-        generalize gA : toInt pword1 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-toInt qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * (v - 1) = A at l1 ⊢
+        generalize gA : int256 pword1 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-int256 qword2 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * (v - 1) = A at l1 ⊢
         generalize gB : evalPoly PPc ((u1 : Nat) : Int) *
           (-evalPoly QQc ((u2 : Nat) : Int) + SLOPQc) * (v - 1) = B at l1 hg
         generalize gC : (evalPoly PPc ((u2 : Nat) : Int) + -SLOPPc) *
           -evalPoly QQc ((u1 : Nat) : Int) * v = C at hg r1
-        generalize gD : toInt pword2 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-toInt qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * v = D at r1 ⊢
+        generalize gD : int256 pword2 * 587135645693458306972370149197334256843920637227079967676822742883052256278652110865924749596192175757983744 * (-int256 qword1 * 157608024785577916849116160400574455220318957081861786671793173616982887085988842445657065019539662563226511961227264) * v = D at r1 ⊢
         omega
       · have huv : u1 = u2 := by omega
         have hpe := hpeq huv
         have hqe := hqeq huv
         rw [hpe, hqe]
-        have hmono : toInt pword2 * (v - 1) ≤ toInt pword2 * v :=
+        have hmono : int256 pword2 * (v - 1) ≤ int256 pword2 * v :=
           mul_le_mul_left_nonneg (by omega) hp2pos
         exact mul_le_mul_right_nonneg hmono (by omega)
     have hdd := cross_to_div hnum1pos hnum2pos (by omega) (by omega) hcross
     omega
 
-end LnGeneratedModel
+end LnYul

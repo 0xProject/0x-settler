@@ -1,10 +1,11 @@
 name = "LnProof"
 version = "0.1.0"
 defaultTargets = ["LnProof"]
+packagesDir = "../../yul/.lake/packages"
 
 [[lean_lib]]
 name = "LnProof"
 
-[[lean_exe]]
-name = "ln-model"
-root = "Main"
+[[require]]
+name = "FormalYul"
+path = "../../yul"

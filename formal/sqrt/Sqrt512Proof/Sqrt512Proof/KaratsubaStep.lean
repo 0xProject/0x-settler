@@ -6,10 +6,6 @@
 -/
 import SqrtProof.SqrtCorrect
 
--- ============================================================================
--- Helpers
--- ============================================================================
-
 private theorem sq_expand (a b : Nat) :
     (a + b) * (a + b) = a * a + 2 * a * b + b * b := by
   rw [Nat.add_mul, Nat.mul_add, Nat.mul_add, Nat.mul_comm b a]
@@ -22,10 +18,6 @@ private theorem mul_reassoc (a b : Nat) : a * b * (a * b) = a * a * (b * b) := b
 private theorem succ_sq (m : Nat) : (m + 1) * (m + 1) = m * m + 2 * m + 1 := by
   have := sq_expand m 1; simp [Nat.mul_one] at this; omega
 
--- ============================================================================
--- Part 1: Algebraic identity (explicit parameters, no let)
--- ============================================================================
-
 theorem karatsuba_identity
     (x_hi x_lo_hi x_lo_lo r_hi H : Nat)
     (hres : r_hi * r_hi ≤ x_hi) :
@@ -35,27 +27,17 @@ theorem karatsuba_identity
     (r_hi * H + ((x_hi - r_hi * r_hi) * H + x_lo_hi) / (2 * r_hi)) *
       (r_hi * H + ((x_hi - r_hi * r_hi) * H + x_lo_hi) / (2 * r_hi)) +
     ((x_hi - r_hi * r_hi) * H + x_lo_hi) % (2 * r_hi) * H + x_lo_lo := by
-  -- Both sides equal r_hi^2*(H*H) + n*H + x_lo_lo + q^2
-  -- where n = (x_hi - r_hi^2)*H + x_lo_hi
-  -- Euclidean division: (2*r_hi) * q + rem = n
   have heuc := Nat.div_add_mod ((x_hi - r_hi * r_hi) * H + x_lo_hi) (2 * r_hi)
-  -- Expand square: (r_hi*H + q)^2 = r_hi*H*(r_hi*H) + 2*(r_hi*H)*q + q*q
   have hexp := sq_expand (r_hi * H) (((x_hi - r_hi * r_hi) * H + x_lo_hi) / (2 * r_hi))
-  -- r_hi*H*(r_hi*H) = r_hi*r_hi*(H*H)
   have hreassoc := mul_reassoc r_hi H
-  -- Step 1: Expand square and reassociate on RHS
   rw [hexp, hreassoc]
-  -- Step 2: Factor LHS: x_hi*(H*H) + x_lo_hi*H = r_hi*r_hi*(H*H) + n*H
   have hfact1 : x_hi * (H * H) + x_lo_hi * H =
       r_hi * r_hi * (H * H) + ((x_hi - r_hi * r_hi) * H + x_lo_hi) * H := by
-    -- Work from RHS to LHS
     symm
     rw [Nat.add_mul, Nat.mul_assoc (x_hi - r_hi * r_hi) H H,
         ← Nat.add_assoc, ← Nat.add_mul]
     congr 1; congr 1; omega
   rw [hfact1]
-  -- Step 3: Show 2*(r_hi*H)*q + rem*H = n*H and substitute back
-  -- Helper: 2*(a*b)*c = 2*a*c*b (rearranges to factor out b)
   have h_prod_comm : ∀ a b c : Nat, 2 * (a * b) * c = 2 * a * c * b := by
     intro a b c
     rw [(Nat.mul_assoc 2 a b).symm, Nat.mul_assoc (2 * a) b c,
@@ -66,12 +48,7 @@ theorem karatsuba_identity
       ((x_hi - r_hi * r_hi) * H + x_lo_hi) * H := by
     rw [h_prod_comm, ← Nat.add_mul]; congr 1
   rw [← hfact2]
-  -- Step 4: Both sides have the same atoms, just in different order
   simp only [Nat.add_comm, Nat.add_left_comm]
-
--- ============================================================================
--- Part 2: Lower bound
--- ============================================================================
 
 theorem rhi_H_le_natSqrt (x_hi x_lo r_hi H : Nat)
     (hr_hi : r_hi * r_hi ≤ x_hi) :
@@ -88,10 +65,6 @@ theorem rhi_H_le_natSqrt (x_hi x_lo r_hi H : Nat)
   have h3 := natSqrt_lt_succ_sq (x_hi * (H * H) + x_lo)
   omega
 
--- ============================================================================
--- Part 3: Combined bracket (specialized to 512-bit case)
--- ============================================================================
-
 private theorem natSqrt_ge_pow127 (x_hi : Nat) (hlo : 2 ^ 254 ≤ x_hi) :
     2 ^ 127 ≤ natSqrt x_hi := by
   suffices h : ¬(natSqrt x_hi < 2 ^ 127) by omega
@@ -102,7 +75,6 @@ private theorem natSqrt_ge_pow127 (x_hi : Nat) (hlo : 2 ^ 254 ≤ x_hi) :
   have h4 : (2 : Nat) ^ 127 * 2 ^ 127 = 2 ^ 254 := by rw [← Nat.pow_add]
   omega
 
-set_option maxRecDepth 4096 in
 /-- The Karatsuba bracket for the 512-bit case: natSqrt(x) ≤ r ≤ natSqrt(x) + 1.
     Stated with fully expanded terms to avoid let-binding issues. -/
 theorem karatsuba_bracket_512 (x_hi x_lo_hi x_lo_lo : Nat)

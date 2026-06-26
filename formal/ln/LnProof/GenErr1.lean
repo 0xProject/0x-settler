@@ -6,7 +6,7 @@ cap on `e^(BIASc·2²⁷/QS)` used by `capBLtight` and the error weights. Comput
 from the committed inputs (BIASc), so it tracks any bias change. Run with
 `lake env lean GenErr1.lean` (after `lake build LnProof.FloorConsts`). -/
 
-open LnExp LnFloor LnGeneratedModel
+open LnExp LnFloor LnYul
 
 #eval do
   let bcap := (LnExp.expNum 130 (BIASc * 2 ^ 27) QS * (10 ^ 18 * 10 ^ 42)) / (LnExp.fact 130 * QS ^ 130)

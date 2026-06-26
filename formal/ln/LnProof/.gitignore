@@ -1,18 +1,18 @@
 /.lake/
 /actual_axioms.txt
 
-# Auto-generated; rebuild with:
-#   forge inspect src/wrappers/LnWrapper.sol:LnWrapper ir | \
-#     python3 -m formal.python.ln.generate_ln_model --yul - \
-#       --output formal/ln/LnProof/LnProof/GeneratedLnModel.lean
-/LnProof/GeneratedLnModel.lean
+# EVMYulLean artifacts generated from compiled LnWrapper Yul IR.
+/LnProof/LnYulRuntime.lean
+/LnProof/LnYulProof.lean
 
-# Auto-generated; rebuild with:
-#   python3 formal/python/ln/gen_cert_literals.py
+# Lean-generated floor certificate literals and cell covers.
 /LnProof/FloorCertLit.lean
+/LnProof/FloorCertGeUpC*.lean
+/LnProof/FloorCertLtUpC*.lean
+/LnProof/FloorCertGeLoC*.lean
+/LnProof/FloorCertLtLoC*.lean
 
-# Auto-generated error-bound cert literals + cell covers; rebuild with:
-#   lake build LnProof.ErrorBoundCore && lake env lean GenErrLit.lean
+# Lean-generated error-bound certificate literals and cell covers.
 /LnProof/ErrCertLtLit.lean
 /LnProof/ErrCertGeLit.lean
 /LnProof/ErrCertLt.lean
@@ -20,13 +20,5 @@
 /LnProof/ErrCertLtC*.lean
 /LnProof/ErrCertGeC*.lean
 
-# Auto-generated floor cert cell covers; rebuild with:
-#   lake build LnProof.FloorCertLit LnProof.KroneckerShift && lake env lean GenCover.lean
-/LnProof/FloorCertGeUpC*.lean
-/LnProof/FloorCertLtUpC*.lean
-/LnProof/FloorCertGeLoC*.lean
-/LnProof/FloorCertLtLoC*.lean
-
-# Auto-generated tight bias-cap numerator; rebuild with:
-#   lake build LnProof.FloorConsts && lake env lean GenErr1.lean
+# Lean-generated bias cap numerator.
 /LnProof/BiasCapNum.lean

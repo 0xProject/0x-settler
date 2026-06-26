@@ -11,7 +11,7 @@ inequalities (worst `|z| = Zc`, worst truncation slops); `certP`/`certQ` give
 the polynomial-side sign facts.
 -/
 
-namespace LnGeneratedModel
+namespace LnYul
 
 open LnPoly
 
@@ -98,4 +98,4 @@ theorem G2_all {v : Int} (h0 : 0 ≤ v) (h1 : v ≤ UcI - 1) :
   rw [G2_unpack] at h
   exact h
 
-end LnGeneratedModel
+end LnYul

@@ -6,6 +6,7 @@
     icbrt(x) ≤ r ≤ icbrt(x) + 1
   plus the overshoot property transfer.
 -/
+import Mathlib.Tactic.Ring
 import CbrtProof.CbrtCorrect
 
 namespace Cbrt512Spec
@@ -17,10 +18,7 @@ namespace Cbrt512Spec
 /-- (a * b)³ = a³ * b³. -/
 private theorem cube_mul (a b : Nat) :
     (a * b) * (a * b) * (a * b) = a * a * a * (b * b * b) := by
-  suffices hi : (↑((a * b) * (a * b) * (a * b)) : Int) =
-      ↑(a * a * a * (b * b * b)) by exact_mod_cast hi
-  push_cast
-  simp [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
+  ring_nf
 
 /-- (a * 2^k)³ = a³ * 2^(3k). -/
 private theorem cube_mul_pow (a k : Nat) :
@@ -123,14 +121,10 @@ theorem overshoot_denorm (x k : Nat)
       rw [← hcube]
       let n := m * 2 ^ k
       show n * n * n < (n + 1) * (n + 1) * (n + 1)
-      -- (n+1)³ - n³ = 3n² + 3n + 1 > 0
-      -- (n+1)³ = n³ + 3n² + 3n + 1 > n³
       have hnn : n * n * n < n * n * n + (3 * (n * n) + 3 * n + 1) := by omega
       suffices heq : (n + 1) * (n + 1) * (n + 1) = n * n * n + (3 * (n * n) + 3 * n + 1) by
         rw [heq]; exact hnn
-      suffices hi : (↑((n + 1) * (n + 1) * (n + 1)) : Int) =
-          ↑(n * n * n + (3 * (n * n) + 3 * n + 1)) by exact_mod_cast hi
-      push_cast; simp [Int.add_mul, Int.mul_add, Int.mul_one, Int.one_mul]; omega
+      ring_nf
     have hicbrt_eq := icbrt_eq_of_bounds (x * 2 ^ (3 * k)) (m * 2 ^ k)
       (Nat.le_of_eq hcube) hsucc_cube
     -- hicbrt_eq : m * 2^k = icbrt(x_norm)
@@ -140,5 +134,25 @@ theorem overshoot_denorm (x k : Nat)
   · -- ¬(icbrt(x)³ = x) and icbrt(x)³ ≤ x implies icbrt(x)³ < x
     have hle := icbrt_cube_le x
     omega
+
+/-- Denormalized overshoot for the ceiling: if the normalized result `corr`
+    (within one ulp of `icbrt(x*2^(3k))`) denormalizes to `icbrt x + 1`, then `x`
+    is not a perfect cube. -/
+theorem ceil_denorm (x k corr : Nat)
+    (hhi : corr ≤ icbrt (x * 2 ^ (3 * k)) + 1)
+    (hoverNorm :
+      corr * corr * corr > x * 2 ^ (3 * k) →
+        icbrt (x * 2 ^ (3 * k)) * icbrt (x * 2 ^ (3 * k)) * icbrt (x * 2 ^ (3 * k)) <
+          x * 2 ^ (3 * k))
+    (hg : corr / 2 ^ k = icbrt x + 1) :
+    icbrt x * icbrt x * icbrt x < x := by
+  have hk : icbrt (x * 2 ^ (3 * k)) < (icbrt x + 1) * 2 ^ k := icbrt_norm_upper x k
+  have hcorr_ge : (icbrt x + 1) * 2 ^ k ≤ corr := by
+    rw [← hg]
+    exact Nat.div_mul_le_self corr (2 ^ k)
+  have hcorr_eq : corr = icbrt (x * 2 ^ (3 * k)) + 1 := by omega
+  have hcorr3 : corr * corr * corr > x * 2 ^ (3 * k) := by
+    rw [hcorr_eq]; exact icbrt_lt_succ_cube (x * 2 ^ (3 * k))
+  exact overshoot_denorm x k (hoverNorm hcorr3)
 
 end Cbrt512Spec

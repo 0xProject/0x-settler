@@ -1,6 +1,9 @@
 import LnProof.ErrorBoundCore
 import LnProof.BiasCapNum
 
+open FormalYul
+open FormalYul.Preservation
+
 /-!
 # Factored-octave cap primitive (checkpoint)
 
@@ -23,7 +26,7 @@ so any sharper `capLB` for the x1 part drops straight in.
 
 namespace LnFloorCert
 
-open LnGeneratedModel LnFloor LnExp LnPoly
+open LnYul LnFloor LnExp LnPoly
 
 set_option maxRecDepth 100000
 
@@ -44,7 +47,7 @@ theorem lo_ge_pos_factored {m c x : Nat} {r : Int}
     {x1num x1den biasnum biasden : Nat}
     (hphase : posPhaseNatGe m c ≤ lnErrArg r)
     (hx1den : 0 < x1den) (hbiasden : 0 < biasden)
-    (hx1 : capLB ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
+    (hx1 : capLB ((int256 (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       x1num x1den)
     (hbias : capLB (BIASc * 2 ^ 27) QS biasnum biasden)
     (hclose :
@@ -84,18 +87,18 @@ floor bracket `geTN2b·2⁹⁹ ≤ H·geTD2b`.  No Kronecker: a trivial degree-2
 cap at argument `geTN2b/geTD2b` is moved up to the true argument `H·10²⁷/QS` by
 `capLB_arg`.  c-independent and bias-independent. -/
 theorem ge_x1_cap_d22 {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
-    capLB ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
+    capLB ((int256 (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       (expNum 22 (evalPoly geTN2b (m : Int)).toNat (evalPoly geTD2b (m : Int)).toNat)
       (fact 22 * (evalPoly geTD2b (m : Int)).toNat ^ 22) := by
   have hTD : 0 < evalPoly geTD2b (m : Int) := geTD2b_pos_of_outer h1 h2
   have hTN : 0 ≤ evalPoly geTN2b (m : Int) := geTN2b_nonneg_of_outer h1 h2
-  have hH : 0 ≤ toInt (x1W (zWord m)) := x1_nonneg_ge h1 h2
+  have hH : 0 ≤ int256 (x1W (zWord m)) := x1_nonneg_ge h1 h2
   have hbr := bracket_ge_lo h1 h2
   -- generalize the degree-12 Horner evaluations to opaque integers so no tactic
   -- expands `evalPoly` (which overflows the kernel)
   generalize hTNe : evalPoly geTN2b (m : Int) = TN at hbr hTN ⊢
   generalize hTDe : evalPoly geTD2b (m : Int) = TD at hbr hTD ⊢
-  generalize hHe : toInt (x1W (zWord m)) = H at hbr hH ⊢
+  generalize hHe : int256 (x1W (zWord m)) = H at hbr hH ⊢
   have hTDnat : 0 < TD.toNat := by rw [Int.lt_toNat]; simpa using hTD
   refine capLB_arg (q' := TD.toNat) hTDnat ?_ (capLB_expNum_self 22 _ _)
   -- Nat bracket TN.toNat·2⁹⁹ ≤ H.toNat·TD.toNat from the Int bracket hbr

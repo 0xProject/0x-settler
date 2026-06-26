@@ -1,5 +1,9 @@
 import LnProof.ExpSum
 import LnProof.Stages
+import LnProof.CutSpec
+
+open FormalYul
+open FormalYul.Preservation
 
 /-!
 # Constant-piece exponential caps
@@ -16,12 +20,7 @@ set_option maxRecDepth 8192
 
 namespace LnFloor
 
-open LnExp LnGeneratedModel
-
-/-- Common denominator of every exponent argument. -/
-def QS : Nat := 10 ^ 27 * 2 ^ 99
-
-theorem QS_pos : 0 < QS := by decide
+open LnExp LnYul
 
 /-- `e^(LN2c 2^27 / QS) ≤ 2 (1 + 1e-40)`: the scaled `ln 2` constant. -/
 theorem cap2U : capUB (LN2c * 2 ^ 27) QS (2 * (10 ^ 40 + 1)) (10 ^ 40) := by
@@ -50,14 +49,14 @@ theorem capEL : capLB (2 ^ 99) QS (10 ^ 31 + 9990) (10 ^ 31) :=
 
 /-- Exact signed value of the `ln2 * k` word for every `clz` value. -/
 def ln2kExact (c : Nat) : Bool :=
-  decide (toInt (evmMul LN2c (evmSub 160 c)) =
+  decide (int256 (evmMul LN2c (evmSub 160 c)) =
     if c ≤ 160 then (LN2c : Int) * ((160 - c : Nat) : Int)
     else -((LN2c : Int) * ((c - 160 : Nat) : Int)))
 
 theorem ln2k_exact_all : (List.range 256).all ln2kExact = true := by decide
 
 theorem ln2k_exact {c : Nat} (hc : c < 256) :
-    toInt (evmMul LN2c (evmSub 160 c)) =
+    int256 (evmMul LN2c (evmSub 160 c)) =
       if c ≤ 160 then (LN2c : Int) * ((160 - c : Nat) : Int)
       else -((LN2c : Int) * ((c - 160 : Nat) : Int)) := by
   have h := ln2k_exact_all

@@ -267,21 +267,6 @@ def generate_lean_file(
         for n in range(start_octave, 256)
     ]
 
-    def finite_forall_decide_proof(length: int) -> str:
-        lines: list[str] = []
-        indent = "  "
-        for _ in range(length):
-            lines.append(f"{indent}refine (Fin.forall_fin_succ).2 ?_")
-            lines.append(f"{indent}constructor")
-            lines.append(f"{indent}· decide")
-            lines.append(f"{indent}·")
-            indent += "  "
-        lines.append(f"{indent}intro i")
-        lines.append(f"{indent}exact Fin.elim0 i")
-        return "\n".join(lines)
-
-    forall_decide_proof = finite_forall_decide_proof(num)
-
     content = f"""import Init
 
 /-
@@ -301,6 +286,7 @@ def generate_lean_file(
 namespace CbrtCert
 
 set_option maxRecDepth 1000000
+set_option maxHeartbeats 2000000
 
 /-- Offset: certificate octave index i corresponds to bit-length octave i + {start_octave}. -/
 def certOffset : Nat := {start_octave}
@@ -315,81 +301,146 @@ def certOffset : Nat := {start_octave}
 
 {fmt_array("d1Table", d1_vals, "First-step error bound per octave.")}
 
-def loOf (i : Fin {num}) : Nat := loTable[i.val]!
-def hiOf (i : Fin {num}) : Nat := hiTable[i.val]!
-def seedOf (i : Fin {num}) : Nat := seedTable[i.val]!
-def maxAbsOf (i : Fin {num}) : Nat := maxAbsTable[i.val]!
-def d1Of (i : Fin {num}) : Nat := d1Table[i.val]!
+def loOfNat (i : Nat) : Nat := loTable[i]!
+def hiOfNat (i : Nat) : Nat := hiTable[i]!
+def seedOfNat (i : Nat) : Nat := seedTable[i]!
+def maxAbsOfNat (i : Nat) : Nat := maxAbsTable[i]!
+def d1OfNat (i : Nat) : Nat := d1Table[i]!
+
+def loOf (i : Fin {num}) : Nat := loOfNat i.val
+def hiOf (i : Fin {num}) : Nat := hiOfNat i.val
+def seedOf (i : Fin {num}) : Nat := seedOfNat i.val
+def maxAbsOf (i : Fin {num}) : Nat := maxAbsOfNat i.val
+def d1Of (i : Fin {num}) : Nat := d1OfNat i.val
 
 /-- Error recurrence: d^2/lo + 1. -/
 def nextD (lo d : Nat) : Nat := d * d / lo + 1
 
-def d2Of (i : Fin {num}) : Nat := nextD (loOf i) (d1Of i)
-def d3Of (i : Fin {num}) : Nat := nextD (loOf i) (d2Of i)
-def d4Of (i : Fin {num}) : Nat := nextD (loOf i) (d3Of i)
-def d5Of (i : Fin {num}) : Nat := nextD (loOf i) (d4Of i)
+def d2OfNat (i : Nat) : Nat := nextD (loOfNat i) (d1OfNat i)
+def d3OfNat (i : Nat) : Nat := nextD (loOfNat i) (d2OfNat i)
+def d4OfNat (i : Nat) : Nat := nextD (loOfNat i) (d3OfNat i)
+def d5OfNat (i : Nat) : Nat := nextD (loOfNat i) (d4OfNat i)
+
+def d2Of (i : Fin {num}) : Nat := d2OfNat i.val
+def d3Of (i : Fin {num}) : Nat := d3OfNat i.val
+def d4Of (i : Fin {num}) : Nat := d4OfNat i.val
+def d5Of (i : Fin {num}) : Nat := d5OfNat i.val
+
+def checkForAll (p : Nat → Prop) [DecidablePred p] : Bool :=
+  (List.range {num}).all fun i => decide (p i)
+
+private theorem of_checkForAll {{p : Nat → Prop}} [DecidablePred p]
+    (h : checkForAll p = true) (i : Fin {num}) : p i.val := by
+  have hmem : i.val ∈ List.range {num} := List.mem_range.mpr i.isLt
+  have hall := (List.all_eq_true).1 h i.val hmem
+  exact of_decide_eq_true hall
+
+def certProp (i : Nat) : Prop :=
+  0 < loOfNat i ∧
+  2 ≤ loOfNat i ∧
+  loOfNat i ≤ hiOfNat i ∧
+  0 < seedOfNat i ∧
+  loOfNat i * loOfNat i * loOfNat i ≤ 2 ^ (i + certOffset) ∧
+  2 ^ (i + certOffset + 1) ≤
+      (hiOfNat i + 1) * (hiOfNat i + 1) * (hiOfNat i + 1) ∧
+  d1OfNat i = (maxAbsOfNat i * maxAbsOfNat i * (hiOfNat i + 2 * seedOfNat i) +
+              3 * hiOfNat i * (hiOfNat i + 1)) / (3 * (seedOfNat i * seedOfNat i)) ∧
+  maxAbsOfNat i = max (seedOfNat i - loOfNat i) (hiOfNat i - seedOfNat i) ∧
+  d5OfNat i ≤ 1 ∧
+  2 * d1OfNat i ≤ loOfNat i ∧
+  2 * d2OfNat i ≤ loOfNat i ∧
+  2 * d3OfNat i ≤ loOfNat i ∧
+  2 * d4OfNat i ≤ loOfNat i ∧
+  seedOfNat i =
+      (((#[0x8e, 0xb4, 0xe8][(i + certOffset) % 3]!) <<<
+        ((i + certOffset) / 3)) >>> 7) ∧
+  d4OfNat i * d4OfNat i < loOfNat i
+
+private instance certPropDecidable : DecidablePred certProp := by
+  intro i
+  unfold certProp
+  infer_instance
 
 -- ============================================================================
 -- Computational verification of certificate properties
 -- ============================================================================
 
+private theorem check_certProp : checkForAll certProp = true := by
+  rfl
+
+private theorem certProp_holds (i : Fin {num}) : certProp i.val :=
+  of_checkForAll check_certProp i
+
 /-- lo is always positive. -/
 theorem lo_pos : ∀ i : Fin {num}, 0 < loOf i := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).1
 
 /-- lo >= 2 (needed for cbrtStep_upper_of_le). -/
 theorem lo_ge_two : ∀ i : Fin {num}, 2 ≤ loOf i := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.1
 
 /-- lo <= hi. -/
 theorem lo_le_hi : ∀ i : Fin {num}, loOf i ≤ hiOf i := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.2.1
 
 /-- seed is positive. -/
 theorem seed_pos : ∀ i : Fin {num}, 0 < seedOf i := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.2.2.1
 
 /-- lo^3 <= 2^(i + certOffset). -/
 theorem lo_cube_le_pow2 : ∀ i : Fin {num},
     loOf i * loOf i * loOf i ≤ 2 ^ (i.val + certOffset) := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.2.2.2.1
 
 /-- 2^(i + certOffset + 1) <= (hi+1)^3. -/
 theorem pow2_succ_le_hi_succ_cube : ∀ i : Fin {num},
     2 ^ (i.val + certOffset + 1) ≤ (hiOf i + 1) * (hiOf i + 1) * (hiOf i + 1) := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.2.2.2.2.1
 
 /-- d1 is the correct analytic bound:
     d1Of(i) = (maxAbsOf(i)^2 * (hiOf(i) + 2*seedOf(i)) + 3*hiOf(i)*(hiOf(i)+1)) / (3*seedOf(i)^2) -/
 theorem d1_eq : ∀ i : Fin {num},
     d1Of i = (maxAbsOf i * maxAbsOf i * (hiOf i + 2 * seedOf i) +
               3 * hiOf i * (hiOf i + 1)) / (3 * (seedOf i * seedOf i)) := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.2.2.2.2.2.1
 
 /-- maxAbs captures the correct value. -/
 theorem maxabs_eq : ∀ i : Fin {num},
     maxAbsOf i = max (seedOf i - loOf i) (hiOf i - seedOf i) := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.2.2.2.2.2.2.1
 
 /-- Terminal bound: d5 <= 1 for all certificate octaves. -/
 theorem d5_le_one : ∀ i : Fin {num}, d5Of i ≤ 1 := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.2.2.2.2.2.2.2.1
 
 /-- Side condition: 2 * d1 <= lo. -/
 theorem two_d1_le_lo : ∀ i : Fin {num}, 2 * d1Of i ≤ loOf i := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.2.2.2.2.2.2.2.2.1
 
 /-- Side condition: 2 * d2 <= lo. -/
 theorem two_d2_le_lo : ∀ i : Fin {num}, 2 * d2Of i ≤ loOf i := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.2.2.2.2.2.2.2.2.2.1
 
 /-- Side condition: 2 * d3 <= lo. -/
 theorem two_d3_le_lo : ∀ i : Fin {num}, 2 * d3Of i ≤ loOf i := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.2.2.2.2.2.2.2.2.2.2.1
 
 /-- Side condition: 2 * d4 <= lo. -/
 theorem two_d4_le_lo : ∀ i : Fin {num}, 2 * d4Of i ≤ loOf i := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.2.2.2.2.2.2.2.2.2.2.2.1
 
 /-- Seed matches the cbrt seed formula:
     seedOf(i) = ((multiplier(i) <<< ((i + certOffset) / 3)) >>> 7),
@@ -398,13 +449,15 @@ theorem seed_eq : ∀ i : Fin {num},
     seedOf i =
       (((#[0x8e, 0xb4, 0xe8][(i.val + certOffset) % 3]!) <<<
         ((i.val + certOffset) / 3)) >>> 7) := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.2.2.2.2.2.2.2.2.2.2.2.2.1
 
 /-- Perfect-cube key: d4² < lo for all certificate octaves.
     This ensures that on perfect cubes x = m³, the 5th NR step gives exactly m
     (since the per-step error d²/m < 1 when d² < m and m ≥ lo). -/
 theorem d4_sq_lt_lo : ∀ i : Fin {num}, d4Of i * d4Of i < loOf i := by
-{forall_decide_proof}
+  intro i
+  exact (certProp_holds i).2.2.2.2.2.2.2.2.2.2.2.2.2.2
 
 end CbrtCert
 """

@@ -1,7 +1,8 @@
 /.lake
 
-# Auto-generated from `formal/sqrt/generate_sqrt_cert.py`
+# Auto-generated from `formal/python/sqrt/generate_sqrt_cert.py`
 /SqrtProof/FiniteCert.lean
 
-# Auto-generated from `formal/sqrt/generate_sqrt_model.py`
-/SqrtProof/GeneratedSqrtModel.lean
+# Auto-generated EVMYulLean artifacts from solc Yul IR by `lake exe yul_importer`
+/SqrtProof/SqrtYulRuntime.lean
+/SqrtProof/SqrtYulProof.lean

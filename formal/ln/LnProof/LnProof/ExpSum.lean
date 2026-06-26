@@ -7,9 +7,9 @@ import Init
 `expNum N p q = Σ_{j ≤ N} (N!/j!) p^j q^(N-j)`, so that
 `S_N(p/q) = expNum N p q / (N! q^N)`. Arguments are nonnegative rationals
 given as `Nat` pairs. For `t ≥ 0` the partial sums increase to `e^t`, which
-is how the floor specification of `lnWad` is arithmetized: an upper bound
-on `e^t` is `∀ N` a bound on `S_N`, a lower bound is witnessed by a single
-`S_N`.
+is how the finite cut certificates arithmetize the `lnWad` logarithm bounds:
+an upper bound on `e^t` is `∀ N` a bound on `S_N`, and a lower bound is
+witnessed by a single `S_N`.
 
 Everything here is `Nat` arithmetic: monotonicity in `N` and in the
 argument, a geometric tail bound (turning one evaluated partial sum into a

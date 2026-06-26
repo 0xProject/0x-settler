@@ -6,6 +6,9 @@ import LnProof.FloorCertGeLo
 import LnProof.FloorCertLtUp
 import LnProof.FloorCertLtLo
 
+open FormalYul
+open FormalYul.Preservation
+
 /-!
 # Full-branch X1 caps
 
@@ -19,39 +22,39 @@ cover each whole branch.
 -/
 
 namespace LnFloorCert
-open LnGeneratedModel LnPoly LnExp LnFloor
+open LnYul LnPoly LnExp LnFloor
 
 set_option maxRecDepth 10000
 
 /-- Pointwise window check, `m = Sc + i`, `0 ≤ i ≤ 45`. -/
 def wCheckGe (i : Nat) : Bool :=
-  decide (0 ≤ toInt (x1W (zWord (Sc + i)))) &&
-  decide (2 * ((toInt (x1W (zWord (Sc + i)))).toNat * 1000000000000000000000000000) ≤
+  decide (0 ≤ int256 (x1W (zWord (Sc + i)))) &&
+  decide (2 * ((int256 (x1W (zWord (Sc + i)))).toNat * 1000000000000000000000000000) ≤
     24 * QS) &&
-  decide ((expNum 22 ((toInt (x1W (zWord (Sc + i)))).toNat *
+  decide ((expNum 22 ((int256 (x1W (zWord (Sc + i)))).toNat *
       1000000000000000000000000000) QS * (23 * QS) +
-      2 * ((toInt (x1W (zWord (Sc + i)))).toNat * 1000000000000000000000000000) ^ 23) *
+      2 * ((int256 (x1W (zWord (Sc + i)))).toNat * 1000000000000000000000000000) ^ 23) *
       560227709747861399187319382270000000000000000000000000000000 ≤
     (Sc + i) * 10000000000000000000000000003382 * (fact 23 * QS ^ 23)) &&
   decide ((Sc + i) * 9999999999999999999999999996615 * (fact 22 * QS ^ 22) ≤
-    expNum 22 ((toInt (x1W (zWord (Sc + i)))).toNat * 1000000000000000000000000000) QS *
+    expNum 22 ((int256 (x1W (zWord (Sc + i)))).toNat * 1000000000000000000000000000) QS *
       560227709747861399187319382270000000000000000000000000000000)
 
 /-- Pointwise window check, `m = Sc - 45 + i`, `0 ≤ i ≤ 44`. -/
 def wCheckLt (i : Nat) : Bool :=
-  decide (toInt (x1W (zWord (Sc - 45 + i))) ≤ 0) &&
-  decide (2 * ((-toInt (x1W (zWord (Sc - 45 + i)))).toNat *
+  decide (int256 (x1W (zWord (Sc - 45 + i))) ≤ 0) &&
+  decide (2 * ((-int256 (x1W (zWord (Sc - 45 + i)))).toNat *
     1000000000000000000000000000) ≤ 24 * QS) &&
-  decide ((expNum 22 ((-toInt (x1W (zWord (Sc - 45 + i)))).toNat *
+  decide ((expNum 22 ((-int256 (x1W (zWord (Sc - 45 + i)))).toNat *
       1000000000000000000000000000) QS * (23 * QS) +
-      2 * ((-toInt (x1W (zWord (Sc - 45 + i)))).toNat *
+      2 * ((-int256 (x1W (zWord (Sc - 45 + i)))).toNat *
         1000000000000000000000000000) ^ 23) *
       ((Sc - 45 + i) * 9999999999999999999999999996615) ≤
     560227709747861399187319382270000000000000000000000000000000 *
       (fact 23 * QS ^ 23)) &&
   decide (560227709747861399187319382270000000000000000000000000000000 *
       (fact 22 * QS ^ 22) ≤
-    expNum 22 ((-toInt (x1W (zWord (Sc - 45 + i)))).toNat *
+    expNum 22 ((-int256 (x1W (zWord (Sc - 45 + i)))).toNat *
       1000000000000000000000000000) QS *
       ((Sc - 45 + i) * 10000000000000000000000000003382))
 
@@ -62,11 +65,11 @@ theorem wCheckLt_all : (List.range 45).all wCheckLt = true := by
   decide +kernel
 
 theorem wGe_facts {m : Nat} (h1 : Sc ≤ m) (h2 : m ≤ Sc + 45) :
-    0 ≤ toInt (x1W (zWord m)) ∧
-    capUB ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
+    0 ≤ int256 (x1W (zWord m)) ∧
+    capUB ((int256 (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       (m * 10000000000000000000000000003382)
       560227709747861399187319382270000000000000000000000000000000 ∧
-    capLB ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
+    capLB ((int256 (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       (m * 9999999999999999999999999996615)
       560227709747861399187319382270000000000000000000000000000000 := by
   have hi := List.all_eq_true.mp wCheckGe_all (m - Sc) (List.mem_range.mpr (by omega))
@@ -77,11 +80,11 @@ theorem wGe_facts {m : Nat} (h1 : Sc ≤ m) (h2 : m ≤ Sc + 45) :
   exact capUB_of_partial QS_pos hH hUB
 
 theorem wLt_facts {m : Nat} (h1 : Sc - 45 ≤ m) (h2 : m < Sc) :
-    toInt (x1W (zWord m)) ≤ 0 ∧
-    capLB ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
+    int256 (x1W (zWord m)) ≤ 0 ∧
+    capLB ((-int256 (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       560227709747861399187319382270000000000000000000000000000000
       (m * 10000000000000000000000000003382) ∧
-    capUB ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
+    capUB ((-int256 (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       560227709747861399187319382270000000000000000000000000000000
       (m * 9999999999999999999999999996615) := by
   have hi := List.all_eq_true.mp wCheckLt_all (m - (Sc - 45))
@@ -95,19 +98,19 @@ theorem wLt_facts {m : Nat} (h1 : Sc - 45 ≤ m) (h2 : m < Sc) :
 /-! ## Full-branch caps and signs -/
 
 theorem x1_nonneg_geF {m : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) :
-    0 ≤ toInt (x1W (zWord m)) := by
+    0 ≤ int256 (x1W (zWord m)) := by
   rcases Nat.lt_or_ge m (Sc + 46) with hw | ho
   · exact (wGe_facts h1 (by omega)).1
   · exact x1_nonneg_ge ho h2
 
 theorem x1_nonpos_ltF {m : Nat} (h1 : MLO ≤ m) (h2 : m < Sc) :
-    toInt (x1W (zWord m)) ≤ 0 := by
+    int256 (x1W (zWord m)) ≤ 0 := by
   rcases Nat.lt_or_ge m (Sc - 45) with ho | hw
   · exact x1_nonpos_lt h1 (by simp only [Sc] at ho ⊢; omega)
   · exact (wLt_facts hw h2).1
 
 theorem x1capGeUpF {m : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) :
-    capUB ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
+    capUB ((int256 (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       (m * 10000000000000000000000000003382)
       560227709747861399187319382270000000000000000000000000000000 := by
   rcases Nat.lt_or_ge m (Sc + 46) with hw | ho
@@ -120,7 +123,7 @@ theorem x1capGeUpF {m : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) :
     exact h
 
 theorem x1capGeLoF {m : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) :
-    capLB ((toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
+    capLB ((int256 (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       (m * 9999999999999999999999999996615)
       560227709747861399187319382270000000000000000000000000000000 := by
   rcases Nat.lt_or_ge m (Sc + 46) with hw | ho
@@ -133,7 +136,7 @@ theorem x1capGeLoF {m : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) :
     exact h
 
 theorem x1capLtUpF {m : Nat} (h1 : MLO ≤ m) (h2 : m < Sc) :
-    capLB ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
+    capLB ((-int256 (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       560227709747861399187319382270000000000000000000000000000000
       (m * 10000000000000000000000000003382) := by
   rcases Nat.lt_or_ge m (Sc - 45) with ho | hw
@@ -146,7 +149,7 @@ theorem x1capLtUpF {m : Nat} (h1 : MLO ≤ m) (h2 : m < Sc) :
   · exact (wLt_facts hw h2).2.1
 
 theorem x1capLtLoF {m : Nat} (h1 : MLO ≤ m) (h2 : m < Sc) :
-    capUB ((-toInt (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
+    capUB ((-int256 (x1W (zWord m))).toNat * 1000000000000000000000000000) QS
       560227709747861399187319382270000000000000000000000000000000
       (m * 9999999999999999999999999996615) := by
   rcases Nat.lt_or_ge m (Sc - 45) with ho | hw

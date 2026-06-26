@@ -299,6 +299,10 @@ function testFuzz_myFeature(uint256 amount, address user) public {
 
 Foundry v1.5.1, Node.js 18.x, and git submodules (`git submodule update --recursive --init`).
 
+### Formal Yul Proofs
+
+The implementation must exist in exactly one place: Solidity. Do not check in or hand-maintain generated Lean models of Solidity/Yul functions. Formal proof machinery must consume the Yul emitted by `solc`/`forge inspect` indirectly through EVMYulLean-generated artifacts so proofs stay anchored to the exact code being compiled and cannot drift from the implementation.
+
 ### Solc Versions
 
 The codebase uses `auto_detect_solc = true` — the compiler version is determined by each file's pragma. Multiple Solidity compiler versions are in use:

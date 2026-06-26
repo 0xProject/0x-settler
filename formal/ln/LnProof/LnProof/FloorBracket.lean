@@ -1,10 +1,13 @@
 import LnProof.ZOctave
 import LnProof.FloorCertAux
 
+open FormalYul
+open FormalYul.Preservation
+
 /-!
 # Pipeline brackets against the certificate rationals
 
-For each mantissa `m`, the pipeline value `X1 = toInt (x1W (zWord m))`
+For each mantissa `m`, the pipeline value `X1 = int256 (x1W (zWord m))`
 is trapped between the certificate bracket rationals: on `m ≥ S`,
 `geTN2b/geTD2b ≤ X1/2^99 ≤ geTN/geTD`, and on `m ≤ S` the mirrored
 brackets hold for `-X1`. The chains run through the exact division
@@ -20,25 +23,25 @@ set_option exponentiation.threshold 512
 
 namespace LnFloorCert
 
-open LnGeneratedModel LnPoly
+open LnYul LnPoly
 
 /-- `z`-magnitude division bracket on the `m ≥ S` branch:
-`q = ⌊(m-S) 2^100 / (m+S)⌋` and `toInt (zWord m) = -q`. -/
+`q = ⌊(m-S) 2^100 / (m+S)⌋` and `int256 (zWord m) = -q`. -/
 theorem z_bracket_ge {m : Nat} (hS : Sc ≤ m) (h2 : m < MHI) :
     ∃ q : Nat,
-      toInt (zWord m) = -(q : Int) ∧
+      int256 (zWord m) = -(q : Int) ∧
       (q : Int) * ((m : Int) + Sc) ≤ ((m : Int) - Sc) * 2 ^ 100 ∧
       ((m : Int) - Sc) * 2 ^ 100 < ((q : Int) + 1) * ((m : Int) + Sc) := by
   have h1 : MLO ≤ m := by simp only [MLO]; simp only [Sc] at hS ⊢; omega
   obtain ⟨e2, e3⟩ := zWord_transport h1 h2
   simp only [MLO, MHI] at h1 h2
-  have hden : (0 : Int) < toInt (evmAdd m Sc) := by
+  have hden : (0 : Int) < int256 (evmAdd m Sc) := by
     rw [e3]; simp only [Sc]; omega
   have hSpos : (0 : Nat) < Sc := by simp only [Sc]; omega
   rcases Nat.eq_or_lt_of_le hS with heq | hlt
   · -- m = Sc: z = 0
     refine ⟨0, ?_, ?_, ?_⟩
-    · have hz : toInt (evmShl 100 (evmSub Sc m)) = 0 := by
+    · have hz : int256 (evmShl 100 (evmSub Sc m)) = 0 := by
         rw [e2, show ((Sc : Int) - m) = 0 by omega, Int.zero_mul]
       unfold zWord
       rw [evmSdiv_pos_pos (evmShl_lt _ _) (evmAdd_lt _ _) (by omega) hden, hz]
@@ -50,7 +53,7 @@ theorem z_bracket_ge {m : Nat} (hS : Sc ≤ m) (h2 : m < MHI) :
   · -- m > Sc
     have hND : 0 < m + Sc := by omega
     refine ⟨(m - Sc) * 2 ^ 100 / (m + Sc), ?_, ?_, ?_⟩
-    · have hneg : toInt (evmShl 100 (evmSub Sc m)) < 0 := by
+    · have hneg : int256 (evmShl 100 (evmSub Sc m)) < 0 := by
         rw [e2]
         have h := mul_le_mul_right_nonneg
           (show ((Sc : Int) - m) ≤ -1 by omega)
@@ -59,7 +62,7 @@ theorem z_bracket_ge {m : Nat} (hS : Sc ≤ m) (h2 : m < MHI) :
       unfold zWord
       rw [evmSdiv_neg_pos (evmShl_lt _ _) (evmAdd_lt _ _) hneg
         (by rw [e2]; simp only [Sc, ipow255] at *; omega) hden]
-      have hnum : (-toInt (evmShl 100 (evmSub Sc m))).toNat =
+      have hnum : (-int256 (evmShl 100 (evmSub Sc m))).toNat =
           (m - Sc) * 2 ^ 100 := by
         rw [e2]
         have : -(((Sc : Int) - m) * 1267650600228229401496703205376) =
@@ -67,7 +70,7 @@ theorem z_bracket_ge {m : Nat} (hS : Sc ≤ m) (h2 : m < MHI) :
           rw [show ((Sc : Int) - m) = -(((m - Sc : Nat) : Int)) by omega, Int.neg_mul]
           omega
         omega
-      have hdenn : (toInt (evmAdd m Sc)).toNat = m + Sc := by
+      have hdenn : (int256 (evmAdd m Sc)).toNat = m + Sc := by
         rw [e3]; omega
       rw [hnum, hdenn]
     · have hdm := Nat.div_add_mod ((m - Sc) * 2 ^ 100) (m + Sc)
@@ -92,32 +95,32 @@ theorem z_bracket_ge {m : Nat} (hS : Sc ≤ m) (h2 : m < MHI) :
       rw [e]
       omega
 
-/-- `z` division bracket on the `m ≤ S` branch: `toInt (zWord m) = q`. -/
+/-- `z` division bracket on the `m ≤ S` branch: `int256 (zWord m) = q`. -/
 theorem z_bracket_lt {m : Nat} (h1 : MLO ≤ m) (hS : m ≤ Sc) :
     ∃ q : Nat,
-      toInt (zWord m) = (q : Int) ∧
+      int256 (zWord m) = (q : Int) ∧
       (q : Int) * ((m : Int) + Sc) ≤ ((Sc : Int) - m) * 2 ^ 100 ∧
       ((Sc : Int) - m) * 2 ^ 100 < ((q : Int) + 1) * ((m : Int) + Sc) := by
   have h2 : m < MHI := by simp only [MHI]; simp only [Sc] at hS; omega
   obtain ⟨e2, e3⟩ := zWord_transport h1 h2
   simp only [MLO, MHI] at h1 h2
-  have hden : (0 : Int) < toInt (evmAdd m Sc) := by
+  have hden : (0 : Int) < int256 (evmAdd m Sc) := by
     rw [e3]; simp only [Sc]; omega
   have hND : 0 < m + Sc := by simp only [Sc]; omega
-  have hpos : (0 : Int) ≤ toInt (evmShl 100 (evmSub Sc m)) := by
+  have hpos : (0 : Int) ≤ int256 (evmShl 100 (evmSub Sc m)) := by
     rw [e2]
     exact Int.mul_nonneg (by omega) (by omega)
   refine ⟨(Sc - m) * 2 ^ 100 / (m + Sc), ?_, ?_, ?_⟩
   · unfold zWord
     rw [evmSdiv_pos_pos (evmShl_lt _ _) (evmAdd_lt _ _) hpos hden]
-    have hnum : (toInt (evmShl 100 (evmSub Sc m))).toNat = (Sc - m) * 2 ^ 100 := by
+    have hnum : (int256 (evmShl 100 (evmSub Sc m))).toNat = (Sc - m) * 2 ^ 100 := by
       rw [e2]
       have : ((Sc : Int) - m) * 1267650600228229401496703205376 =
           (((Sc - m) * 2 ^ 100 : Nat) : Int) := by
         rw [show ((Sc : Int) - m) = (((Sc - m : Nat)) : Int) by omega]
         omega
       omega
-    have hdenn : (toInt (evmAdd m Sc)).toNat = m + Sc := by
+    have hdenn : (int256 (evmAdd m Sc)).toNat = m + Sc := by
       rw [e3]; omega
     rw [hnum, hdenn]
   · have hdm := Nat.div_add_mod ((Sc - m) * 2 ^ 100) (m + Sc)
@@ -432,7 +435,7 @@ theorem homEvalI_PPc_anti {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
     (hb2 : -(2333000000000000000000000000 * D) ≤ n2) :
     homEvalI PPc n1 D ≤ homEvalI PPc n2 D := by
   rw [homEvalI_PPc_eq, homEvalI_PPc_eq]
-  simp only [Int.pow_zero, Int.pow_one, Int.mul_one, Int.mul_zero, Int.add_zero]
+  simp only [Int.pow_zero, pow_one, Int.mul_one, Int.mul_zero, Int.add_zero]
   rw [quartic_expand, quartic_expand]
   have hb1' : -(2333000000000000000000000000 * D) ≤ n1 := by omega
   have hb2' : n2 ≤ 2333000000000000000000000000 * D := by omega
@@ -491,7 +494,7 @@ theorem homEvalI_PPc_anti {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
   -- powers as products
   have p2 : D ^ 2 = D * D := by
     have h := Int.pow_succ D 1
-    rw [Int.pow_one] at h
+    rw [pow_one] at h
     exact h
   have p3 : D ^ 3 = D * D * D := by
     have h := Int.pow_succ D 2
@@ -659,7 +662,7 @@ theorem homEvalI_QQc_mono {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
     (hb2 : -(2333000000000000000000000000 * D) ≤ n2) :
     homEvalI QQc n2 D ≤ homEvalI QQc n1 D := by
   rw [homEvalI_QQc_eq, homEvalI_QQc_eq]
-  simp only [Int.pow_zero, Int.pow_one, Int.mul_one, Int.mul_zero, Int.add_zero]
+  simp only [Int.pow_zero, pow_one, Int.mul_one, Int.mul_zero, Int.add_zero]
   have qe1 := quintic_expand
     (66099322585698201304896817119133314370855648754593283446756353822335972946493244703677923116935407234039976856169480192 : Int)
     (-(690627211385037298547738551962892852267586075469791719173459072596031701017399264062472192 : Int))
@@ -708,7 +711,7 @@ theorem homEvalI_QQc_mono {n1 n2 D : Int} (hD : 0 < D) (h21 : n2 ≤ n1)
   have hDDDD : (0 : Int) ≤ D * D * D * D := Int.mul_nonneg hDDD (by omega)
   have p2 : D ^ 2 = D * D := by
     have h := Int.pow_succ D 1
-    rw [Int.pow_one] at h
+    rw [pow_one] at h
     exact h
   have p3 : D ^ 3 = D * D * D := by
     have h := Int.pow_succ D 2
@@ -1047,7 +1050,7 @@ theorem evalTD2b_ge (m : Nat) :
 /-- The pipeline value sits below the upper certificate rational on the
 `m ≥ S` branch: `X1 · TD(m) ≤ TN(m) · 2^99`. -/
 theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
-    toInt (x1W (zWord m)) * evalPoly geTD (m : Int) ≤
+    int256 (x1W (zWord m)) * evalPoly geTD (m : Int) ≤
       evalPoly geTN (m : Int) * 2 ^ 99 := by
   have hMLO : MLO ≤ m := by
     simp only [MLO]; simp only [Sc] at h1; omega
@@ -1056,11 +1059,11 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
   obtain ⟨q, hzq, hq1, hq2⟩ := z_bracket_ge hSle h2
   have hzr := zWord_range hMLO h2
   have hwlt : zWord m < 2 ^ 256 := by unfold zWord; exact evmSdiv_lt _ _
-  have hx1 : x1W (zWord m) = hAt (toInt (zWord m)) := by
+  have hx1 : x1W (zWord m) = hAt (int256 (zWord m)) := by
     unfold hAt; rw [ofInt_toInt hwlt]
-  obtain ⟨heq, hmul⟩ := hAt_facts (toInt (zWord m)) hzr.1 hzr.2
+  obtain ⟨heq, hmul⟩ := hAt_facts (int256 (zWord m)) hzr.1 hzr.2
   -- u-hat and its division bracket
-  have huv : uVal (toInt (zWord m)) = q * q / 2 ^ 104 := by
+  have huv : uVal (int256 (zWord m)) = q * q / 2 ^ 104 := by
     unfold uVal
     rw [hzq]
     have e : -(q : Int) * -(q : Int) = ((q * q : Nat) : Int) := by
@@ -1069,7 +1072,7 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     rw [e]
     omega
   have hu_le : q * q / 2 ^ 104 ≤ Uc := by
-    have := uVal_le (toInt (zWord m)) hzr.1 hzr.2
+    have := uVal_le (int256 (zWord m)) hzr.1 hzr.2
     rw [huv] at this
     exact this
   have hudm := Nat.div_add_mod (q * q) (2 ^ 104)
@@ -1094,43 +1097,43 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
   generalize hw2 : qS5 (q * q / 2 ^ 104) = qword at heq qw qlo qhi qsl qsh
   generalize hPP : evalPoly PPc ((q * q / 2 ^ 104 : Nat) : Int) = PPv at psl psh
   generalize hQQ : evalPoly QQc ((q * q / 2 ^ 104 : Nat) : Int) = QQv at qsl qsh
-  have hxe : x1W (zWord m) = evmSdiv (evmMul pword (ofInt (toInt (zWord m)))) qword :=
+  have hxe : x1W (zWord m) = evmSdiv (evmMul pword (uint256OfInt (int256 (zWord m)))) qword :=
     hx1.trans heq
-  have hnum_neg : toInt (evmMul pword (ofInt (toInt (zWord m)))) < 0 := by
+  have hnum_neg : int256 (evmMul pword (uint256OfInt (int256 (zWord m)))) < 0 := by
     rw [hmul, hzq]
     have h := mul_le_mul_left_nonneg (show (1 : Int) ≤ (q : Int) by omega)
-      (show (0 : Int) ≤ toInt pword by omega)
-    have e : toInt pword * -(q : Int) = -(toInt pword * (q : Int)) := Int.mul_neg _ _
+      (show (0 : Int) ≤ int256 pword by omega)
+    have e : int256 pword * -(q : Int) = -(int256 pword * (q : Int)) := Int.mul_neg _ _
     omega
   have hpz := pz_bound plo phi hzr.1 hzr.2
-  have hX1v : toInt (x1W (zWord m)) =
-      (((toInt pword * (q : Int)).toNat / (-toInt qword).toNat : Nat) : Int) := by
+  have hX1v : int256 (x1W (zWord m)) =
+      (((int256 pword * (q : Int)).toNat / (-int256 qword).toNat : Nat) : Int) := by
     rw [hxe, evmSdiv_neg_neg (evmMul_lt _ _) qw hnum_neg
       (by rw [hmul]; exact hpz.1) (by omega), hmul, hzq]
-    have e : -(toInt pword * -(q : Int)) = toInt pword * (q : Int) := by
+    have e : -(int256 pword * -(q : Int)) = int256 pword * (q : Int) := by
       rw [Int.mul_neg]
       omega
     rw [e]
-  have hpq_pos : (0 : Int) ≤ toInt pword * (q : Int) :=
+  have hpq_pos : (0 : Int) ≤ int256 pword * (q : Int) :=
     Int.mul_nonneg (by omega) (by omega)
-  have hX1_nn : (0 : Int) ≤ toInt (x1W (zWord m)) := by
+  have hX1_nn : (0 : Int) ≤ int256 (x1W (zWord m)) := by
     rw [hX1v]
     exact Int.natCast_nonneg _
   -- the division bracket for X1
-  have hdiv := Nat.div_mul_le_self (toInt pword * (q : Int)).toNat (-toInt qword).toNat
-  have hX1br : toInt (x1W (zWord m)) * (-toInt qword) ≤ toInt pword * (q : Int) := by
+  have hdiv := Nat.div_mul_le_self (int256 pword * (q : Int)).toNat (-int256 qword).toNat
+  have hX1br : int256 (x1W (zWord m)) * (-int256 qword) ≤ int256 pword * (q : Int) := by
     rw [hX1v]
-    have e : (((toInt pword * (q : Int)).toNat / (-toInt qword).toNat : Nat) : Int) *
-        (-toInt qword) =
-        ((((toInt pword * (q : Int)).toNat / (-toInt qword).toNat) *
-          (-toInt qword).toNat : Nat) : Int) := by
+    have e : (((int256 pword * (q : Int)).toNat / (-int256 qword).toNat : Nat) : Int) *
+        (-int256 qword) =
+        ((((int256 pword * (q : Int)).toNat / (-int256 qword).toNat) *
+          (-int256 qword).toNat : Nat) : Int) := by
       rw [Int.natCast_mul]
-      have : ((-toInt qword).toNat : Int) = -toInt qword := by omega
+      have : ((-int256 qword).toNat : Int) = -int256 qword := by omega
       rw [this]
     rw [e]
     omega
   clear heq hxe hmul hX1v hnum_neg hdiv hpz hx1 hzr hwlt hudm huml hzq hw1 hw2
-  generalize hXg : toInt (x1W (zWord m)) = X1v at hX1br hX1_nn ⊢
+  generalize hXg : int256 (x1W (zWord m)) = X1v at hX1br hX1_nn ⊢
   -- value abbreviations
   have huI1 : ((q * q / 2 ^ 104 : Nat) : Int) * 2 ^ 104 ≤ (q : Int) * q := by
     have e : (q : Int) * q = ((q * q : Nat) : Int) := by omega
@@ -1213,13 +1216,13 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
   have hPanti := homEvalI_PPc_anti (n1 := ((q * q / 2 ^ 104 : Nat) : Int) *
       evalPoly geD8 (m : Int)) (n2 := evalPoly geWLO (m : Int))
     (D := evalPoly geD8 (m : Int)) hD8pos hordP hb1P hb2P
-  have hPfin : toInt pword * 2 ^ 358 * evalPoly geD8 (m : Int) ^ 4 ≤
+  have hPfin : int256 pword * 2 ^ 358 * evalPoly geD8 (m : Int) ^ 4 ≤
       homEvalI PPc (evalPoly geWLO (m : Int)) (evalPoly geD8 (m : Int)) := by
     have hD84 : (0 : Int) ≤ evalPoly geD8 (m : Int) ^ 4 := by
       have h2' : evalPoly geD8 (m : Int) ^ 2 = evalPoly geD8 (m : Int) *
           evalPoly geD8 (m : Int) := by
         have h := Int.pow_succ (evalPoly geD8 (m : Int)) 1
-        rw [Int.pow_one] at h
+        rw [pow_one] at h
         exact h
       have h4' : evalPoly geD8 (m : Int) ^ 4 = evalPoly geD8 (m : Int) ^ 2 *
           evalPoly geD8 (m : Int) ^ 2 := by
@@ -1231,7 +1234,7 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
       rw [h4', h2']
       exact Int.mul_nonneg (Int.mul_nonneg (by omega) (by omega))
         (Int.mul_nonneg (by omega) (by omega))
-    have s1 : toInt pword * 2 ^ 358 * evalPoly geD8 (m : Int) ^ 4 ≤
+    have s1 : int256 pword * 2 ^ 358 * evalPoly geD8 (m : Int) ^ 4 ≤
         PPv * evalPoly geD8 (m : Int) ^ 4 :=
       mul_le_mul_right_nonneg psh hD84
     have e1 : PPv * evalPoly geD8 (m : Int) ^ 4 =
@@ -1242,7 +1245,7 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
       (evalPoly geD8 (m : Int)) = HW at hPanti ⊢
     generalize hg3 : PPv * evalPoly geD8 (m : Int) ^ 4 = P1 at s1 e1
     generalize hg4 : evalPoly geD8 (m : Int) ^ 4 * PPv = P2 at e1 hcolP
-    generalize hg5 : toInt pword * 2 ^ 358 * evalPoly geD8 (m : Int) ^ 4 = P0 at s1 ⊢
+    generalize hg5 : int256 pword * 2 ^ 358 * evalPoly geD8 (m : Int) ^ 4 = P0 at s1 ⊢
     omega
   -- Q comparison
   have hb1Q : evalPoly geA96 (m : Int) ≤
@@ -1269,19 +1272,19 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
       homEvalI_collapse, ← hQQ]
     rfl
   have hQfin : -homEvalI QQc (evalPoly geA96 (m : Int)) (evalPoly geB2 (m : Int)) ≤
-      -toInt qword * 2 ^ 386 * evalPoly geB2 (m : Int) ^ 5 := by
+      -int256 qword * 2 ^ 386 * evalPoly geB2 (m : Int) ^ 5 := by
     have hB25 : (0 : Int) ≤ evalPoly geB2 (m : Int) ^ 5 := pow_nonneg' (by omega) 5
     have s1 : evalPoly geB2 (m : Int) ^ 5 * QQv ≤
         homEvalI QQc (evalPoly geA96 (m : Int)) (evalPoly geB2 (m : Int)) := by
       rw [← hcolQ]
       exact hQmono
-    have s2 : toInt qword * 2 ^ 386 * evalPoly geB2 (m : Int) ^ 5 ≤
+    have s2 : int256 qword * 2 ^ 386 * evalPoly geB2 (m : Int) ^ 5 ≤
         QQv * evalPoly geB2 (m : Int) ^ 5 :=
       mul_le_mul_right_nonneg qsh hB25
     have e1 : QQv * evalPoly geB2 (m : Int) ^ 5 =
         evalPoly geB2 (m : Int) ^ 5 * QQv := Int.mul_comm _ _
-    have e2 : -toInt qword * 2 ^ 386 * evalPoly geB2 (m : Int) ^ 5 =
-        -(toInt qword * 2 ^ 386 * evalPoly geB2 (m : Int) ^ 5) := by
+    have e2 : -int256 qword * 2 ^ 386 * evalPoly geB2 (m : Int) ^ 5 =
+        -(int256 qword * 2 ^ 386 * evalPoly geB2 (m : Int) ^ 5) := by
       rw [Int.neg_mul, Int.neg_mul]
     omega
   -- final assembly
@@ -1294,8 +1297,8 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
   have hB2e := evalB2_ge m
   generalize hD8g : evalPoly geD8 (m : Int) = D8v at hPfin hD8e
   generalize hB2g : evalPoly geB2 (m : Int) = B2v at hQfin hB2e
-  have hqpos : (0 : Int) < -toInt qword := by omega
-  have hppos : (0 : Int) ≤ toInt pword := by omega
+  have hqpos : (0 : Int) < -int256 qword := by omega
+  have hppos : (0 : Int) ≤ int256 pword := by omega
   have hApos : (0 : Int) ≤ (m : Int) - Sc := by simp only [Sc] at h1 ⊢; omega
   have hB25 : (0 : Int) ≤ B2v ^ 5 := by
     rw [hB2e]
@@ -1305,38 +1308,38 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     refine pow_nonneg' (Int.mul_nonneg (by omega) (Int.mul_nonneg ?_ ?_)) 4 <;>
       simp only [Sc] <;> omega
   -- step 1: X1v (-QHV) ≤ X1v ((-qword) 2^386 B2v^5)
-  have s1 : X1v * -QHV ≤ X1v * (-toInt qword * 2 ^ 386 * B2v ^ 5) := by
+  have s1 : X1v * -QHV ≤ X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) := by
     have h := mul_le_mul_left_nonneg hQfin hX1_nn
     exact h
   -- step 2: pull the division bracket through
-  have s2 : X1v * (-toInt qword * 2 ^ 386 * B2v ^ 5) ≤
-      toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) := by
-    have e1 : X1v * (-toInt qword * 2 ^ 386 * B2v ^ 5) =
-        (X1v * -toInt qword) * (2 ^ 386 * B2v ^ 5) := by
+  have s2 : X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) ≤
+      int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) := by
+    have e1 : X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) =
+        (X1v * -int256 qword) * (2 ^ 386 * B2v ^ 5) := by
       simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
     have hf : (0 : Int) ≤ 2 ^ 386 * B2v ^ 5 := Int.mul_nonneg (by omega) hB25
     have h := mul_le_mul_right_nonneg hX1br hf
     omega
   -- step 3: multiply by B and use the z bracket
-  have s3 : toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) ≤
-      toInt pword * (((m : Int) - Sc) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) := by
-    have e1 : toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) =
-        (toInt pword * (2 ^ 386 * B2v ^ 5)) * ((q : Int) * ((m : Int) + Sc)) := by
+  have s3 : int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) ≤
+      int256 pword * (((m : Int) - Sc) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) := by
+    have e1 : int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) =
+        (int256 pword * (2 ^ 386 * B2v ^ 5)) * ((q : Int) * ((m : Int) + Sc)) := by
       simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
-    have e2 : toInt pword * (((m : Int) - Sc) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) =
-        (toInt pword * (2 ^ 386 * B2v ^ 5)) * (((m : Int) - Sc) * 2 ^ 100) := by
+    have e2 : int256 pword * (((m : Int) - Sc) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) =
+        (int256 pword * (2 ^ 386 * B2v ^ 5)) * (((m : Int) - Sc) * 2 ^ 100) := by
       simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
-    have hf : (0 : Int) ≤ toInt pword * (2 ^ 386 * B2v ^ 5) :=
+    have hf : (0 : Int) ≤ int256 pword * (2 ^ 386 * B2v ^ 5) :=
       Int.mul_nonneg hppos (Int.mul_nonneg (by omega) hB25)
     have h := mul_le_mul_left_nonneg hq1 hf
     omega
   -- step 4: bring in the P bound
-  have s4 : toInt pword * (((m : Int) - Sc) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
+  have s4 : int256 pword * (((m : Int) - Sc) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
       (2 ^ 358 * D8v ^ 4) ≤
       PHV * (((m : Int) - Sc) * (2 ^ 486 * B2v ^ 5)) := by
-    have e1 : toInt pword * (((m : Int) - Sc) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
+    have e1 : int256 pword * (((m : Int) - Sc) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
         (2 ^ 358 * D8v ^ 4) =
-        (toInt pword * 2 ^ 358 * D8v ^ 4) *
+        (int256 pword * 2 ^ 358 * D8v ^ 4) *
           (((m : Int) - Sc) * (2 ^ 100 * 2 ^ 386 * B2v ^ 5)) := by
       simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
     have hf : (0 : Int) ≤ ((m : Int) - Sc) * (2 ^ 100 * 2 ^ 386 * B2v ^ 5) :=
@@ -1354,22 +1357,22 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     Int.mul_pos hBpos (Int.mul_pos (by omega) hD84pos)
   have hMnn : (0 : Int) ≤ ((m : Int) + Sc) * (2 ^ 358 * D8v ^ 4) := by omega
   have k1 : X1v * -QHV * (((m : Int) + Sc) * (2 ^ 358 * D8v ^ 4)) ≤
-      X1v * (-toInt qword * 2 ^ 386 * B2v ^ 5) *
+      X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) *
         (((m : Int) + Sc) * (2 ^ 358 * D8v ^ 4)) :=
     mul_le_mul_right_nonneg s1 hMnn
-  have k2 : X1v * (-toInt qword * 2 ^ 386 * B2v ^ 5) *
+  have k2 : X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) *
       (((m : Int) + Sc) * (2 ^ 358 * D8v ^ 4)) ≤
-      toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) *
+      int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) *
         (((m : Int) + Sc) * (2 ^ 358 * D8v ^ 4)) :=
     mul_le_mul_right_nonneg s2 hMnn
-  have k3 : toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) *
+  have k3 : int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) *
       (((m : Int) + Sc) * (2 ^ 358 * D8v ^ 4)) =
-      toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) *
+      int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) *
         (2 ^ 358 * D8v ^ 4) := by
     simp only [Int.mul_assoc]
-  have k4 : toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) *
+  have k4 : int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) *
       (2 ^ 358 * D8v ^ 4) ≤
-      toInt pword * (((m : Int) - Sc) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
+      int256 pword * (((m : Int) - Sc) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
         (2 ^ 358 * D8v ^ 4) :=
     mul_le_mul_right_nonneg s3 (Int.mul_nonneg (by omega) (by omega))
   have k6 : 2 ^ 17 * (((m : Int) - Sc) * ((m : Int) + Sc) * PHV) * 2 ^ 99 *
@@ -1378,7 +1381,7 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     rw [hD8e, hB2e]
     rw [show ((8 : Int) * (((m : Int) + Sc) * ((m : Int) + Sc))) ^ 4 =
       4096 * (((m : Int) + Sc) * ((m : Int) + Sc)) ^ 4 from by
-        rw [Int.mul_pow]
+        rw [mul_pow]
         rw [show ((8 : Int) ^ 4) = 4096 from by decide]]
     rw [show (((m : Int) + Sc) * ((m : Int) + Sc)) ^ 5 =
       (((m : Int) + Sc) * ((m : Int) + Sc)) ^ 4 *
@@ -1403,17 +1406,17 @@ theorem bracket_ge_up {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
 `m ≥ S` branch: `TN2b(m) · 2^99 ≤ X1 · TD2b(m)`. -/
 theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     evalPoly geTN2b (m : Int) * 2 ^ 99 ≤
-      toInt (x1W (zWord m)) * evalPoly geTD2b (m : Int) := by
+      int256 (x1W (zWord m)) * evalPoly geTD2b (m : Int) := by
   have hMLO : MLO ≤ m := by
     simp only [MLO]; simp only [Sc] at h1; omega
   have hSle : Sc ≤ m := by simp only [Sc] at h1 ⊢; omega
   obtain ⟨q, hzq, hq1, hq2⟩ := z_bracket_ge hSle h2
   have hzr := zWord_range hMLO h2
   have hwlt : zWord m < 2 ^ 256 := by unfold zWord; exact evmSdiv_lt _ _
-  have hx1 : x1W (zWord m) = hAt (toInt (zWord m)) := by
+  have hx1 : x1W (zWord m) = hAt (int256 (zWord m)) := by
     unfold hAt; rw [ofInt_toInt hwlt]
-  obtain ⟨heq, hmul⟩ := hAt_facts (toInt (zWord m)) hzr.1 hzr.2
-  have huv : uVal (toInt (zWord m)) = q * q / 2 ^ 104 := by
+  obtain ⟨heq, hmul⟩ := hAt_facts (int256 (zWord m)) hzr.1 hzr.2
+  have huv : uVal (int256 (zWord m)) = q * q / 2 ^ 104 := by
     unfold uVal
     rw [hzq]
     have e : -(q : Int) * -(q : Int) = ((q * q : Nat) : Int) := by
@@ -1422,7 +1425,7 @@ theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     rw [e]
     omega
   have hu_le : q * q / 2 ^ 104 ≤ Uc := by
-    have := uVal_le (toInt (zWord m)) hzr.1 hzr.2
+    have := uVal_le (int256 (zWord m)) hzr.1 hzr.2
     rw [huv] at this
     exact this
   have hudm := Nat.div_add_mod (q * q) (2 ^ 104)
@@ -1445,55 +1448,55 @@ theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
   generalize hw2 : qS5 (q * q / 2 ^ 104) = qword at heq qw qlo qhi qsl qsh
   generalize hPP : evalPoly PPc ((q * q / 2 ^ 104 : Nat) : Int) = PPv at psl psh
   generalize hQQ : evalPoly QQc ((q * q / 2 ^ 104 : Nat) : Int) = QQv at qsl qsh
-  have hxe : x1W (zWord m) = evmSdiv (evmMul pword (ofInt (toInt (zWord m)))) qword :=
+  have hxe : x1W (zWord m) = evmSdiv (evmMul pword (uint256OfInt (int256 (zWord m)))) qword :=
     hx1.trans heq
-  have hnum_neg : toInt (evmMul pword (ofInt (toInt (zWord m)))) < 0 := by
+  have hnum_neg : int256 (evmMul pword (uint256OfInt (int256 (zWord m)))) < 0 := by
     rw [hmul, hzq]
     have h := mul_le_mul_left_nonneg (show (1 : Int) ≤ (q : Int) by omega)
-      (show (0 : Int) ≤ toInt pword by omega)
-    have e : toInt pword * -(q : Int) = -(toInt pword * (q : Int)) := Int.mul_neg _ _
+      (show (0 : Int) ≤ int256 pword by omega)
+    have e : int256 pword * -(q : Int) = -(int256 pword * (q : Int)) := Int.mul_neg _ _
     omega
   have hpz := pz_bound plo phi hzr.1 hzr.2
-  have hX1v : toInt (x1W (zWord m)) =
-      (((toInt pword * (q : Int)).toNat / (-toInt qword).toNat : Nat) : Int) := by
+  have hX1v : int256 (x1W (zWord m)) =
+      (((int256 pword * (q : Int)).toNat / (-int256 qword).toNat : Nat) : Int) := by
     rw [hxe, evmSdiv_neg_neg (evmMul_lt _ _) qw hnum_neg
       (by rw [hmul]; exact hpz.1) (by omega), hmul, hzq]
-    have e : -(toInt pword * -(q : Int)) = toInt pword * (q : Int) := by
+    have e : -(int256 pword * -(q : Int)) = int256 pword * (q : Int) := by
       rw [Int.mul_neg]
       omega
     rw [e]
-  have hpq_pos : (0 : Int) ≤ toInt pword * (q : Int) :=
+  have hpq_pos : (0 : Int) ≤ int256 pword * (q : Int) :=
     Int.mul_nonneg (by omega) (by omega)
-  have hX1_nn : (0 : Int) ≤ toInt (x1W (zWord m)) := by
+  have hX1_nn : (0 : Int) ≤ int256 (x1W (zWord m)) := by
     rw [hX1v]
     exact Int.natCast_nonneg _
   -- LOWER division bracket: pw q < (X1+1)(-qw)
-  have hdm2 := Nat.div_add_mod (toInt pword * (q : Int)).toNat (-toInt qword).toNat
-  have hml2 := Nat.mod_lt (toInt pword * (q : Int)).toNat
-    (y := (-toInt qword).toNat) (by omega)
-  have hX1lo : toInt pword * (q : Int) <
-      (toInt (x1W (zWord m)) + 1) * (-toInt qword) := by
+  have hdm2 := Nat.div_add_mod (int256 pword * (q : Int)).toNat (-int256 qword).toNat
+  have hml2 := Nat.mod_lt (int256 pword * (q : Int)).toNat
+    (y := (-int256 qword).toNat) (by omega)
+  have hX1lo : int256 pword * (q : Int) <
+      (int256 (x1W (zWord m)) + 1) * (-int256 qword) := by
     rw [hX1v]
-    have e : (((toInt pword * (q : Int)).toNat / (-toInt qword).toNat : Nat) : Int) + 1 =
-        (((toInt pword * (q : Int)).toNat / (-toInt qword).toNat + 1 : Nat) : Int) := by
+    have e : (((int256 pword * (q : Int)).toNat / (-int256 qword).toNat : Nat) : Int) + 1 =
+        (((int256 pword * (q : Int)).toNat / (-int256 qword).toNat + 1 : Nat) : Int) := by
       omega
     rw [e]
-    have e2 : (((toInt pword * (q : Int)).toNat / (-toInt qword).toNat + 1 : Nat) : Int) *
-        (-toInt qword) =
-        ((((toInt pword * (q : Int)).toNat / (-toInt qword).toNat + 1) *
-          (-toInt qword).toNat : Nat) : Int) := by
+    have e2 : (((int256 pword * (q : Int)).toNat / (-int256 qword).toNat + 1 : Nat) : Int) *
+        (-int256 qword) =
+        ((((int256 pword * (q : Int)).toNat / (-int256 qword).toNat + 1) *
+          (-int256 qword).toNat : Nat) : Int) := by
       rw [Int.natCast_mul]
-      have : ((-toInt qword).toNat : Int) = -toInt qword := by omega
+      have : ((-int256 qword).toNat : Int) = -int256 qword := by omega
       rw [this]
     rw [e2]
-    have hexp : ((toInt pword * (q : Int)).toNat / (-toInt qword).toNat + 1) *
-        (-toInt qword).toNat =
-        (-toInt qword).toNat * ((toInt pword * (q : Int)).toNat / (-toInt qword).toNat) +
-          (-toInt qword).toNat := by
+    have hexp : ((int256 pword * (q : Int)).toNat / (-int256 qword).toNat + 1) *
+        (-int256 qword).toNat =
+        (-int256 qword).toNat * ((int256 pword * (q : Int)).toNat / (-int256 qword).toNat) +
+          (-int256 qword).toNat := by
       rw [Nat.add_mul, Nat.one_mul, Nat.mul_comm]
     omega
   clear heq hxe hmul hX1v hnum_neg hpz hx1 hzr hwlt hudm huml hzq hw1 hw2 hdm2 hml2
-  generalize hXg : toInt (x1W (zWord m)) = X1v at hX1lo hX1_nn ⊢
+  generalize hXg : int256 (x1W (zWord m)) = X1v at hX1lo hX1_nn ⊢
   -- u-hat brackets in Int form
   have huI1 : ((q * q / 2 ^ 104 : Nat) : Int) * 2 ^ 104 ≤ (q : Int) * q := by
     have hudm := Nat.div_add_mod (q * q) (2 ^ 104)
@@ -1617,14 +1620,14 @@ theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
   have hD5nn : (0 : Int) ≤ evalPoly geD8 (m : Int) ^ 5 := pow_nonneg' (by omega) 5
   -- P upper comparison: PLOP(m) ≤ p-hat 2^358 (B²)^4
   have hPfin : evalPoly gePLOP (m : Int) ≤
-      toInt pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 := by
+      int256 pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 := by
     rw [evalPLOP_ge]
     have s1P : homEvalI PPc (evalPoly geA96 (m : Int)) (evalPoly geB2 (m : Int)) ≤
         PPv * evalPoly geB2 (m : Int) ^ 4 := by
       rw [← hcolP']
       exact hPanti
     have s2P : (PPv - SLOPPc) * evalPoly geB2 (m : Int) ^ 4 ≤
-        toInt pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 :=
+        int256 pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 :=
       mul_le_mul_right_nonneg (by omega) hB24
     have e1P : (PPv - SLOPPc) * evalPoly geB2 (m : Int) ^ 4 =
         PPv * evalPoly geB2 (m : Int) ^ 4 - SLOPPc * evalPoly geB2 (m : Int) ^ 4 :=
@@ -1635,10 +1638,10 @@ theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     generalize hg3 : PPv * B4 = PB4 at s1P e1P
     generalize hg4 : SLOPPc * B4 = SB4 at e1P ⊢
     generalize hg5 : (PPv - SLOPPc) * B4 = PSB at s2P e1P
-    generalize hg6 : toInt pword * 2 ^ 358 * B4 = PW4 at s2P ⊢
+    generalize hg6 : int256 pword * 2 ^ 358 * B4 = PW4 at s2P ⊢
     omega
   -- Q lower comparison: (-q-hat) 2^386 (8B²)^5 ≤ DLO(m)
-  have hQfin : -toInt qword * 2 ^ 386 * evalPoly geD8 (m : Int) ^ 5 ≤
+  have hQfin : -int256 qword * 2 ^ 386 * evalPoly geD8 (m : Int) ^ 5 ≤
       evalPoly geDLO (m : Int) := by
     rw [evalDLO_ge]
     have s1Q : homEvalI QQc (evalPoly geWLO (m : Int)) (evalPoly geD8 (m : Int)) ≤
@@ -1646,13 +1649,13 @@ theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
       rw [← hcolQ']
       exact hQmono
     have s2Q : (QQv - SLOPQc) * evalPoly geD8 (m : Int) ^ 5 ≤
-        toInt qword * 2 ^ 386 * evalPoly geD8 (m : Int) ^ 5 :=
+        int256 qword * 2 ^ 386 * evalPoly geD8 (m : Int) ^ 5 :=
       mul_le_mul_right_nonneg (by omega) hD5nn
     have e1Q : (QQv - SLOPQc) * evalPoly geD8 (m : Int) ^ 5 =
         QQv * evalPoly geD8 (m : Int) ^ 5 - SLOPQc * evalPoly geD8 (m : Int) ^ 5 :=
       Int.sub_mul _ _ _
-    have e2Q : -toInt qword * 2 ^ 386 * evalPoly geD8 (m : Int) ^ 5 =
-        -(toInt qword * 2 ^ 386 * evalPoly geD8 (m : Int) ^ 5) := by
+    have e2Q : -int256 qword * 2 ^ 386 * evalPoly geD8 (m : Int) ^ 5 =
+        -(int256 qword * 2 ^ 386 * evalPoly geD8 (m : Int) ^ 5) := by
       rw [Int.neg_mul, Int.neg_mul]
     generalize hg1 : homEvalI QQc (evalPoly geWLO (m : Int))
       (evalPoly geD8 (m : Int)) = HS at s1Q ⊢
@@ -1660,8 +1663,8 @@ theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     generalize hg3 : QQv * D5 = QD at s1Q e1Q
     generalize hg4 : SLOPQc * D5 = SD at e1Q ⊢
     generalize hg5 : (QQv - SLOPQc) * D5 = QSD at s2Q e1Q
-    generalize hg6 : toInt qword * 2 ^ 386 * D5 = QW at s2Q e2Q
-    generalize hg7 : -toInt qword * 2 ^ 386 * D5 = QWn at e2Q ⊢
+    generalize hg6 : int256 qword * 2 ^ 386 * D5 = QW at s2Q e2Q
+    generalize hg7 : -int256 qword * 2 ^ 386 * D5 = QWn at e2Q ⊢
     omega
   -- AZ bounds: 0 ≤ AZ(m) ≤ q (m + S)
   have hAZnn : (0 : Int) ≤ evalPoly geAZ (m : Int) := by
@@ -1680,61 +1683,61 @@ theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     omega
   -- numerator chain: 2^99-free part, PLOP·AZ·B ≤ p-hat q 2^358 (B²)^5
   have hBnn : (0 : Int) ≤ (m : Int) + Sc := by simp only [Sc]; omega
-  have hPWnn : (0 : Int) ≤ toInt pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 :=
+  have hPWnn : (0 : Int) ≤ int256 pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 :=
     Int.mul_nonneg (Int.mul_nonneg (by omega) (by omega)) hB24
   have t1 : evalPoly gePLOP (m : Int) * evalPoly geAZ (m : Int) ≤
-      toInt pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 * evalPoly geAZ (m : Int) :=
+      int256 pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 * evalPoly geAZ (m : Int) :=
     mul_le_mul_right_nonneg hPfin hAZnn
   have t1b : evalPoly gePLOP (m : Int) * evalPoly geAZ (m : Int) * ((m : Int) + Sc) ≤
-      toInt pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 * evalPoly geAZ (m : Int) *
+      int256 pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 * evalPoly geAZ (m : Int) *
         ((m : Int) + Sc) :=
     mul_le_mul_right_nonneg t1 hBnn
-  have t2 : toInt pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 *
+  have t2 : int256 pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 *
       evalPoly geAZ (m : Int) ≤
-      toInt pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 *
+      int256 pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 *
         ((q : Int) * ((m : Int) + Sc)) :=
     mul_le_mul_left_nonneg hAZle hPWnn
-  have t2b : toInt pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 *
+  have t2b : int256 pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 *
       evalPoly geAZ (m : Int) * ((m : Int) + Sc) ≤
-      toInt pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 *
+      int256 pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 *
         ((q : Int) * ((m : Int) + Sc)) * ((m : Int) + Sc) :=
     mul_le_mul_right_nonneg t2 hBnn
-  have t34 : toInt pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 *
+  have t34 : int256 pword * 2 ^ 358 * evalPoly geB2 (m : Int) ^ 4 *
       ((q : Int) * ((m : Int) + Sc)) * ((m : Int) + Sc) =
-      toInt pword * (q : Int) * (2 ^ 358 * evalPoly geB2 (m : Int) ^ 5) := by
+      int256 pword * (q : Int) * (2 ^ 358 * evalPoly geB2 (m : Int) ^ 5) := by
     rw [show evalPoly geB2 (m : Int) ^ 5 =
       evalPoly geB2 (m : Int) ^ 4 * evalPoly geB2 (m : Int) from by rw [Int.pow_succ]]
     rw [evalB2_ge]
     simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
   have hTfin : evalPoly gePLOP (m : Int) * evalPoly geAZ (m : Int) * ((m : Int) + Sc) ≤
-      toInt pword * (q : Int) * (2 ^ 358 * evalPoly geB2 (m : Int) ^ 5) := by
+      int256 pword * (q : Int) * (2 ^ 358 * evalPoly geB2 (m : Int) ^ 5) := by
     refine Int.le_trans t1b ?_
     rw [← t34]
     exact t2b
   -- denominator chain: (p-hat q + 1) 2^442 (8B²)^5 ≤ (X1 + 1) 2^56 DLO
   have hFnn : (0 : Int) ≤ 2 ^ 442 * evalPoly geD8 (m : Int) ^ 5 :=
     Int.mul_nonneg (by omega) hD5nn
-  have u2 : toInt pword * (q : Int) + 1 ≤ (X1v + 1) * -toInt qword := by
+  have u2 : int256 pword * (q : Int) + 1 ≤ (X1v + 1) * -int256 qword := by
     have h := hX1lo
-    generalize hg1 : toInt pword * (q : Int) = PQt at h ⊢
-    generalize hg2 : (X1v + 1) * -toInt qword = XQt at h ⊢
+    generalize hg1 : int256 pword * (q : Int) = PQt at h ⊢
+    generalize hg2 : (X1v + 1) * -int256 qword = XQt at h ⊢
     omega
-  have u3 : (toInt pword * (q : Int) + 1) * (2 ^ 442 * evalPoly geD8 (m : Int) ^ 5) ≤
-      (X1v + 1) * -toInt qword * (2 ^ 442 * evalPoly geD8 (m : Int) ^ 5) :=
+  have u3 : (int256 pword * (q : Int) + 1) * (2 ^ 442 * evalPoly geD8 (m : Int) ^ 5) ≤
+      (X1v + 1) * -int256 qword * (2 ^ 442 * evalPoly geD8 (m : Int) ^ 5) :=
     mul_le_mul_right_nonneg u2 hFnn
-  have u4 : (X1v + 1) * -toInt qword * (2 ^ 442 * evalPoly geD8 (m : Int) ^ 5) =
-      (X1v + 1) * (2 ^ 56 * (-toInt qword * 2 ^ 386 * evalPoly geD8 (m : Int) ^ 5)) := by
+  have u4 : (X1v + 1) * -int256 qword * (2 ^ 442 * evalPoly geD8 (m : Int) ^ 5) =
+      (X1v + 1) * (2 ^ 56 * (-int256 qword * 2 ^ 386 * evalPoly geD8 (m : Int) ^ 5)) := by
     rw [show (2 : Int) ^ 442 = 2 ^ 56 * 2 ^ 386 from by decide]
     simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
-  have u1b : 2 ^ 56 * (-toInt qword * 2 ^ 386 * evalPoly geD8 (m : Int) ^ 5) ≤
+  have u1b : 2 ^ 56 * (-int256 qword * 2 ^ 386 * evalPoly geD8 (m : Int) ^ 5) ≤
       2 ^ 56 * evalPoly geDLO (m : Int) :=
     mul_le_mul_left_nonneg hQfin (by omega)
   have hX1p1 : (0 : Int) ≤ X1v + 1 := by omega
-  have u5 : (X1v + 1) * (2 ^ 56 * (-toInt qword * 2 ^ 386 *
+  have u5 : (X1v + 1) * (2 ^ 56 * (-int256 qword * 2 ^ 386 *
       evalPoly geD8 (m : Int) ^ 5)) ≤
       (X1v + 1) * (2 ^ 56 * evalPoly geDLO (m : Int)) :=
     mul_le_mul_left_nonneg u1b hX1p1
-  have hRfin : (toInt pword * (q : Int) + 1) *
+  have hRfin : (int256 pword * (q : Int) + 1) *
       (2 ^ 442 * evalPoly geD8 (m : Int) ^ 5) ≤
       (X1v + 1) * (2 ^ 56 * evalPoly geDLO (m : Int)) := by
     refine Int.le_trans ?_ u5
@@ -1746,11 +1749,11 @@ theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
     rw [evalD8_ge, evalB2_ge]
     rw [show ((8 : Int) * (((m : Int) + Sc) * ((m : Int) + Sc))) ^ 5 =
       32768 * ((((m : Int) + Sc) * ((m : Int) + Sc)) ^ 5) from by
-        rw [Int.mul_pow]
+        rw [mul_pow]
         rw [show ((8 : Int) ^ 5) = 32768 from by decide]]
     rw [← Int.mul_assoc, show (2 : Int) ^ 442 * 32768 = 2 ^ 457 from by decide]
-  have escale : toInt pword * (q : Int) * (2 ^ 442 * evalPoly geD8 (m : Int) ^ 5) =
-      2 ^ 99 * (toInt pword * (q : Int) * (2 ^ 358 * evalPoly geB2 (m : Int) ^ 5)) := by
+  have escale : int256 pword * (q : Int) * (2 ^ 442 * evalPoly geD8 (m : Int) ^ 5) =
+      2 ^ 99 * (int256 pword * (q : Int) * (2 ^ 358 * evalPoly geB2 (m : Int) ^ 5)) := by
     rw [ebr]
     rw [show (2 : Int) ^ 457 = 2 ^ 99 * 2 ^ 358 from by decide]
     simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
@@ -1763,9 +1766,9 @@ theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
   have edist : (X1v + 1) * (2 ^ 56 * evalPoly geDLO (m : Int)) =
       X1v * (2 ^ 56 * evalPoly geDLO (m : Int)) + 2 ^ 56 * evalPoly geDLO (m : Int) := by
     rw [Int.add_mul, Int.one_mul]
-  have edist2 : (toInt pword * (q : Int) + 1) *
+  have edist2 : (int256 pword * (q : Int) + 1) *
       (2 ^ 442 * evalPoly geD8 (m : Int) ^ 5) =
-      toInt pword * (q : Int) * (2 ^ 442 * evalPoly geD8 (m : Int) ^ 5) +
+      int256 pword * (q : Int) * (2 ^ 442 * evalPoly geD8 (m : Int) ^ 5) +
         2 ^ 442 * evalPoly geD8 (m : Int) ^ 5 := by
     rw [Int.add_mul, Int.one_mul]
   generalize hgT : evalPoly gePLOP (m : Int) * evalPoly geAZ (m : Int) *
@@ -1773,7 +1776,7 @@ theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
   generalize hgDLO : evalPoly geDLO (m : Int) = DLO at hRfin edist ⊢
   generalize hgD5 : evalPoly geD8 (m : Int) ^ 5 = D5g at hRfin edist2 escale hD5nn
   generalize hgB5 : evalPoly geB2 (m : Int) ^ 5 = B5g at hTfin escale
-  generalize hgPQ : toInt pword * (q : Int) = PQ at hTfin hRfin edist2 escale
+  generalize hgPQ : int256 pword * (q : Int) = PQ at hTfin hRfin edist2 escale
   generalize hgPB : PQ * (2 ^ 358 * B5g) = PB at hTfin escale
   generalize hgPQD : PQ * (2 ^ 442 * D5g) = PQD at edist2 escale
   generalize hgRD : (PQ + 1) * (2 ^ 442 * D5g) = RD at hRfin edist2
@@ -1912,7 +1915,7 @@ theorem evalTD2b_lt (m : Nat) :
 /-- The pipeline magnitude sits below the upper certificate rational on the
 `m < S` branch: `(-X1) · TD(m) ≤ TN(m) · 2^99`. -/
 theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
-    -toInt (x1W (zWord m)) * evalPoly ltTD (m : Int) ≤
+    -int256 (x1W (zWord m)) * evalPoly ltTD (m : Int) ≤
       evalPoly ltTN (m : Int) * 2 ^ 99 := by
   have hSge : m ≤ Sc := by simp only [Sc] at h2 ⊢; omega
   have hMHI : m < MHI := by simp only [MHI]; simp only [Sc] at h2; omega
@@ -1920,18 +1923,18 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   obtain ⟨q, hzq, hq1, hq2⟩ := z_bracket_lt h1 hSge
   have hzr := zWord_range h1 hMHI
   have hwlt : zWord m < 2 ^ 256 := by unfold zWord; exact evmSdiv_lt _ _
-  have hx1 : x1W (zWord m) = hAt (toInt (zWord m)) := by
+  have hx1 : x1W (zWord m) = hAt (int256 (zWord m)) := by
     unfold hAt; rw [ofInt_toInt hwlt]
-  obtain ⟨heq, hmul⟩ := hAt_facts (toInt (zWord m)) hzr.1 hzr.2
+  obtain ⟨heq, hmul⟩ := hAt_facts (int256 (zWord m)) hzr.1 hzr.2
   -- u-hat and its division bracket
-  have huv : uVal (toInt (zWord m)) = q * q / 2 ^ 104 := by
+  have huv : uVal (int256 (zWord m)) = q * q / 2 ^ 104 := by
     unfold uVal
     rw [hzq]
     have e : (q : Int) * (q : Int) = ((q * q : Nat) : Int) := by omega
     rw [e]
     omega
   have hu_le : q * q / 2 ^ 104 ≤ Uc := by
-    have := uVal_le (toInt (zWord m)) hzr.1 hzr.2
+    have := uVal_le (int256 (zWord m)) hzr.1 hzr.2
     rw [huv] at this
     exact this
   have hudm := Nat.div_add_mod (q * q) (2 ^ 104)
@@ -1956,37 +1959,37 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   generalize hw2 : qS5 (q * q / 2 ^ 104) = qword at heq qw qlo qhi qsl qsh
   generalize hPP : evalPoly PPc ((q * q / 2 ^ 104 : Nat) : Int) = PPv at psl psh
   generalize hQQ : evalPoly QQc ((q * q / 2 ^ 104 : Nat) : Int) = QQv at qsl qsh
-  have hxe : x1W (zWord m) = evmSdiv (evmMul pword (ofInt (toInt (zWord m)))) qword :=
+  have hxe : x1W (zWord m) = evmSdiv (evmMul pword (uint256OfInt (int256 (zWord m)))) qword :=
     hx1.trans heq
-  have hpq_pos : (0 : Int) ≤ toInt pword * (q : Int) :=
+  have hpq_pos : (0 : Int) ≤ int256 pword * (q : Int) :=
     Int.mul_nonneg (by omega) (by omega)
-  have hnum_nn : (0 : Int) ≤ toInt (evmMul pword (ofInt (toInt (zWord m)))) := by
+  have hnum_nn : (0 : Int) ≤ int256 (evmMul pword (uint256OfInt (int256 (zWord m)))) := by
     rw [hmul, hzq]
     exact hpq_pos
-  have hX1v : toInt (x1W (zWord m)) =
-      -((((toInt pword * (q : Int)).toNat / (-toInt qword).toNat : Nat) : Int)) := by
+  have hX1v : int256 (x1W (zWord m)) =
+      -((((int256 pword * (q : Int)).toNat / (-int256 qword).toNat : Nat) : Int)) := by
     rw [hxe, evmSdiv_pos_neg (evmMul_lt _ _) qw hnum_nn (by omega), hmul, hzq]
-  have hX1neg : -toInt (x1W (zWord m)) =
-      (((toInt pword * (q : Int)).toNat / (-toInt qword).toNat : Nat) : Int) := by
+  have hX1neg : -int256 (x1W (zWord m)) =
+      (((int256 pword * (q : Int)).toNat / (-int256 qword).toNat : Nat) : Int) := by
     rw [hX1v, Int.neg_neg]
-  have hX1_nn : (0 : Int) ≤ -toInt (x1W (zWord m)) := by
+  have hX1_nn : (0 : Int) ≤ -int256 (x1W (zWord m)) := by
     rw [hX1neg]
     exact Int.natCast_nonneg _
   -- the division bracket for the magnitude of X1
-  have hdiv := Nat.div_mul_le_self (toInt pword * (q : Int)).toNat (-toInt qword).toNat
-  have hX1br : -toInt (x1W (zWord m)) * (-toInt qword) ≤ toInt pword * (q : Int) := by
+  have hdiv := Nat.div_mul_le_self (int256 pword * (q : Int)).toNat (-int256 qword).toNat
+  have hX1br : -int256 (x1W (zWord m)) * (-int256 qword) ≤ int256 pword * (q : Int) := by
     rw [hX1neg]
-    have e : (((toInt pword * (q : Int)).toNat / (-toInt qword).toNat : Nat) : Int) *
-        (-toInt qword) =
-        ((((toInt pword * (q : Int)).toNat / (-toInt qword).toNat) *
-          (-toInt qword).toNat : Nat) : Int) := by
+    have e : (((int256 pword * (q : Int)).toNat / (-int256 qword).toNat : Nat) : Int) *
+        (-int256 qword) =
+        ((((int256 pword * (q : Int)).toNat / (-int256 qword).toNat) *
+          (-int256 qword).toNat : Nat) : Int) := by
       rw [Int.natCast_mul]
-      have : ((-toInt qword).toNat : Int) = -toInt qword := by omega
+      have : ((-int256 qword).toNat : Int) = -int256 qword := by omega
       rw [this]
     rw [e]
     omega
   clear heq hxe hmul hX1v hnum_nn hdiv hx1 hzr hwlt hudm huml hzq hw1 hw2 hX1neg
-  generalize hXg : -toInt (x1W (zWord m)) = X1v at hX1br hX1_nn ⊢
+  generalize hXg : -int256 (x1W (zWord m)) = X1v at hX1br hX1_nn ⊢
   -- value abbreviations
   have huI1 : ((q * q / 2 ^ 104 : Nat) : Int) * 2 ^ 104 ≤ (q : Int) * q := by
     have e : (q : Int) * q = ((q * q : Nat) : Int) := by omega
@@ -2069,10 +2072,10 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   have hPanti := homEvalI_PPc_anti (n1 := ((q * q / 2 ^ 104 : Nat) : Int) *
       evalPoly ltD8 (m : Int)) (n2 := evalPoly ltWLO (m : Int))
     (D := evalPoly ltD8 (m : Int)) hD8pos hordP hb1P hb2P
-  have hPfin : toInt pword * 2 ^ 358 * evalPoly ltD8 (m : Int) ^ 4 ≤
+  have hPfin : int256 pword * 2 ^ 358 * evalPoly ltD8 (m : Int) ^ 4 ≤
       homEvalI PPc (evalPoly ltWLO (m : Int)) (evalPoly ltD8 (m : Int)) := by
     have hD84 : (0 : Int) ≤ evalPoly ltD8 (m : Int) ^ 4 := pow_nonneg' (by omega) 4
-    have s1 : toInt pword * 2 ^ 358 * evalPoly ltD8 (m : Int) ^ 4 ≤
+    have s1 : int256 pword * 2 ^ 358 * evalPoly ltD8 (m : Int) ^ 4 ≤
         PPv * evalPoly ltD8 (m : Int) ^ 4 :=
       mul_le_mul_right_nonneg psh hD84
     have e1 : PPv * evalPoly ltD8 (m : Int) ^ 4 =
@@ -2083,7 +2086,7 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
       (evalPoly ltD8 (m : Int)) = HW at hPanti ⊢
     generalize hg3 : PPv * evalPoly ltD8 (m : Int) ^ 4 = P1 at s1 e1
     generalize hg4 : evalPoly ltD8 (m : Int) ^ 4 * PPv = P2 at e1 hcolP
-    generalize hg5 : toInt pword * 2 ^ 358 * evalPoly ltD8 (m : Int) ^ 4 = P0 at s1 ⊢
+    generalize hg5 : int256 pword * 2 ^ 358 * evalPoly ltD8 (m : Int) ^ 4 = P0 at s1 ⊢
     omega
   -- Q comparison
   have hb1Q : evalPoly ltA96 (m : Int) ≤
@@ -2110,27 +2113,27 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
       homEvalI_collapse, ← hQQ]
     rfl
   have hQfin : -homEvalI QQc (evalPoly ltA96 (m : Int)) (evalPoly ltB2 (m : Int)) ≤
-      -toInt qword * 2 ^ 386 * evalPoly ltB2 (m : Int) ^ 5 := by
+      -int256 qword * 2 ^ 386 * evalPoly ltB2 (m : Int) ^ 5 := by
     have hB25 : (0 : Int) ≤ evalPoly ltB2 (m : Int) ^ 5 := pow_nonneg' (by omega) 5
     have s1 : evalPoly ltB2 (m : Int) ^ 5 * QQv ≤
         homEvalI QQc (evalPoly ltA96 (m : Int)) (evalPoly ltB2 (m : Int)) := by
       rw [← hcolQ]
       exact hQmono
-    have s2 : toInt qword * 2 ^ 386 * evalPoly ltB2 (m : Int) ^ 5 ≤
+    have s2 : int256 qword * 2 ^ 386 * evalPoly ltB2 (m : Int) ^ 5 ≤
         QQv * evalPoly ltB2 (m : Int) ^ 5 :=
       mul_le_mul_right_nonneg qsh hB25
     have e1 : QQv * evalPoly ltB2 (m : Int) ^ 5 =
         evalPoly ltB2 (m : Int) ^ 5 * QQv := Int.mul_comm _ _
-    have e2 : -toInt qword * 2 ^ 386 * evalPoly ltB2 (m : Int) ^ 5 =
-        -(toInt qword * 2 ^ 386 * evalPoly ltB2 (m : Int) ^ 5) := by
+    have e2 : -int256 qword * 2 ^ 386 * evalPoly ltB2 (m : Int) ^ 5 =
+        -(int256 qword * 2 ^ 386 * evalPoly ltB2 (m : Int) ^ 5) := by
       rw [Int.neg_mul, Int.neg_mul]
     generalize hg1 : homEvalI QQc (evalPoly ltA96 (m : Int))
       (evalPoly ltB2 (m : Int)) = HW at s1 ⊢
     generalize hg2 : evalPoly ltB2 (m : Int) ^ 5 = B5 at s1 s2 e1 e2 hB25 ⊢
     generalize hg3 : QQv * B5 = Q1 at s2 e1
     generalize hg4 : B5 * QQv = Q2 at e1 s1
-    generalize hg5 : toInt qword * 2 ^ 386 * B5 = Q0 at s2 e2
-    generalize hg6 : -toInt qword * 2 ^ 386 * B5 = Q0n at e2 ⊢
+    generalize hg5 : int256 qword * 2 ^ 386 * B5 = Q0 at s2 e2
+    generalize hg6 : -int256 qword * 2 ^ 386 * B5 = Q0n at e2 ⊢
     omega
   -- final assembly
   rw [evalTD_lt, evalTN_lt]
@@ -2142,8 +2145,8 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   have hB2e := evalB2_lt m
   generalize hD8g : evalPoly ltD8 (m : Int) = D8v at hPfin hD8e
   generalize hB2g : evalPoly ltB2 (m : Int) = B2v at hQfin hB2e
-  have hqpos : (0 : Int) < -toInt qword := by omega
-  have hppos : (0 : Int) ≤ toInt pword := by omega
+  have hqpos : (0 : Int) < -int256 qword := by omega
+  have hppos : (0 : Int) ≤ int256 pword := by omega
   have hApos : (0 : Int) ≤ (Sc : Int) - m := by simp only [Sc] at h2 ⊢; omega
   have hB25 : (0 : Int) ≤ B2v ^ 5 := by
     rw [hB2e]
@@ -2153,38 +2156,38 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     refine pow_nonneg' (Int.mul_nonneg (by omega) (Int.mul_nonneg ?_ ?_)) 4 <;>
       simp only [Sc] <;> omega
   -- step 1: X1v (-QHV) ≤ X1v ((-qword) 2^386 B2v^5)
-  have s1 : X1v * -QHV ≤ X1v * (-toInt qword * 2 ^ 386 * B2v ^ 5) := by
+  have s1 : X1v * -QHV ≤ X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) := by
     have h := mul_le_mul_left_nonneg hQfin hX1_nn
     exact h
   -- step 2: pull the division bracket through
-  have s2 : X1v * (-toInt qword * 2 ^ 386 * B2v ^ 5) ≤
-      toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) := by
-    have e1 : X1v * (-toInt qword * 2 ^ 386 * B2v ^ 5) =
-        (X1v * -toInt qword) * (2 ^ 386 * B2v ^ 5) := by
+  have s2 : X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) ≤
+      int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) := by
+    have e1 : X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) =
+        (X1v * -int256 qword) * (2 ^ 386 * B2v ^ 5) := by
       simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
     have hf : (0 : Int) ≤ 2 ^ 386 * B2v ^ 5 := Int.mul_nonneg (by omega) hB25
     have h := mul_le_mul_right_nonneg hX1br hf
     omega
   -- step 3: multiply by B and use the z bracket
-  have s3 : toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) ≤
-      toInt pword * (((Sc : Int) - m) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) := by
-    have e1 : toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) =
-        (toInt pword * (2 ^ 386 * B2v ^ 5)) * ((q : Int) * ((m : Int) + Sc)) := by
+  have s3 : int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) ≤
+      int256 pword * (((Sc : Int) - m) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) := by
+    have e1 : int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) =
+        (int256 pword * (2 ^ 386 * B2v ^ 5)) * ((q : Int) * ((m : Int) + Sc)) := by
       simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
-    have e2 : toInt pword * (((Sc : Int) - m) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) =
-        (toInt pword * (2 ^ 386 * B2v ^ 5)) * (((Sc : Int) - m) * 2 ^ 100) := by
+    have e2 : int256 pword * (((Sc : Int) - m) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) =
+        (int256 pword * (2 ^ 386 * B2v ^ 5)) * (((Sc : Int) - m) * 2 ^ 100) := by
       simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
-    have hf : (0 : Int) ≤ toInt pword * (2 ^ 386 * B2v ^ 5) :=
+    have hf : (0 : Int) ≤ int256 pword * (2 ^ 386 * B2v ^ 5) :=
       Int.mul_nonneg hppos (Int.mul_nonneg (by omega) hB25)
     have h := mul_le_mul_left_nonneg hq1 hf
     omega
   -- step 4: bring in the P bound
-  have s4 : toInt pword * (((Sc : Int) - m) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
+  have s4 : int256 pword * (((Sc : Int) - m) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
       (2 ^ 358 * D8v ^ 4) ≤
       PHV * (((Sc : Int) - m) * (2 ^ 486 * B2v ^ 5)) := by
-    have e1 : toInt pword * (((Sc : Int) - m) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
+    have e1 : int256 pword * (((Sc : Int) - m) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
         (2 ^ 358 * D8v ^ 4) =
-        (toInt pword * 2 ^ 358 * D8v ^ 4) *
+        (int256 pword * 2 ^ 358 * D8v ^ 4) *
           (((Sc : Int) - m) * (2 ^ 100 * 2 ^ 386 * B2v ^ 5)) := by
       simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
     have hf : (0 : Int) ≤ ((Sc : Int) - m) * (2 ^ 100 * 2 ^ 386 * B2v ^ 5) :=
@@ -2202,22 +2205,22 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     Int.mul_pos hBpos (Int.mul_pos (by omega) hD84pos)
   have hMnn : (0 : Int) ≤ ((m : Int) + Sc) * (2 ^ 358 * D8v ^ 4) := by omega
   have k1 : X1v * -QHV * (((m : Int) + Sc) * (2 ^ 358 * D8v ^ 4)) ≤
-      X1v * (-toInt qword * 2 ^ 386 * B2v ^ 5) *
+      X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) *
         (((m : Int) + Sc) * (2 ^ 358 * D8v ^ 4)) :=
     mul_le_mul_right_nonneg s1 hMnn
-  have k2 : X1v * (-toInt qword * 2 ^ 386 * B2v ^ 5) *
+  have k2 : X1v * (-int256 qword * 2 ^ 386 * B2v ^ 5) *
       (((m : Int) + Sc) * (2 ^ 358 * D8v ^ 4)) ≤
-      toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) *
+      int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) *
         (((m : Int) + Sc) * (2 ^ 358 * D8v ^ 4)) :=
     mul_le_mul_right_nonneg s2 hMnn
-  have k3 : toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) *
+  have k3 : int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) *
       (((m : Int) + Sc) * (2 ^ 358 * D8v ^ 4)) =
-      toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) *
+      int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) *
         (2 ^ 358 * D8v ^ 4) := by
     simp only [Int.mul_assoc]
-  have k4 : toInt pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) *
+  have k4 : int256 pword * (q : Int) * (2 ^ 386 * B2v ^ 5) * ((m : Int) + Sc) *
       (2 ^ 358 * D8v ^ 4) ≤
-      toInt pword * (((Sc : Int) - m) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
+      int256 pword * (((Sc : Int) - m) * 2 ^ 100) * (2 ^ 386 * B2v ^ 5) *
         (2 ^ 358 * D8v ^ 4) :=
     mul_le_mul_right_nonneg s3 (Int.mul_nonneg (by omega) (by omega))
   have k6 : 2 ^ 17 * (((Sc : Int) - m) * ((m : Int) + Sc) * PHV) * 2 ^ 99 *
@@ -2226,7 +2229,7 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     rw [hD8e, hB2e]
     rw [show ((8 : Int) * (((m : Int) + Sc) * ((m : Int) + Sc))) ^ 4 =
       4096 * (((m : Int) + Sc) * ((m : Int) + Sc)) ^ 4 from by
-        rw [Int.mul_pow]
+        rw [mul_pow]
         rw [show ((8 : Int) ^ 4) = 4096 from by decide]]
     rw [show (((m : Int) + Sc) * ((m : Int) + Sc)) ^ 5 =
       (((m : Int) + Sc) * ((m : Int) + Sc)) ^ 4 *
@@ -2251,23 +2254,23 @@ theorem bracket_lt_up {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
 `m < S` branch: `TN2b(m) · 2^99 ≤ (-X1) · TD2b(m)`. -/
 theorem bracket_lt_lo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     evalPoly ltTN2b (m : Int) * 2 ^ 99 ≤
-      -toInt (x1W (zWord m)) * evalPoly ltTD2b (m : Int) := by
+      -int256 (x1W (zWord m)) * evalPoly ltTD2b (m : Int) := by
   have hSge : m ≤ Sc := by simp only [Sc] at h2 ⊢; omega
   have hMHI : m < MHI := by simp only [MHI]; simp only [Sc] at h2; omega
   obtain ⟨q, hzq, hq1, hq2⟩ := z_bracket_lt h1 hSge
   have hzr := zWord_range h1 hMHI
   have hwlt : zWord m < 2 ^ 256 := by unfold zWord; exact evmSdiv_lt _ _
-  have hx1 : x1W (zWord m) = hAt (toInt (zWord m)) := by
+  have hx1 : x1W (zWord m) = hAt (int256 (zWord m)) := by
     unfold hAt; rw [ofInt_toInt hwlt]
-  obtain ⟨heq, hmul⟩ := hAt_facts (toInt (zWord m)) hzr.1 hzr.2
-  have huv : uVal (toInt (zWord m)) = q * q / 2 ^ 104 := by
+  obtain ⟨heq, hmul⟩ := hAt_facts (int256 (zWord m)) hzr.1 hzr.2
+  have huv : uVal (int256 (zWord m)) = q * q / 2 ^ 104 := by
     unfold uVal
     rw [hzq]
     have e : (q : Int) * (q : Int) = ((q * q : Nat) : Int) := by omega
     rw [e]
     omega
   have hu_le : q * q / 2 ^ 104 ≤ Uc := by
-    have := uVal_le (toInt (zWord m)) hzr.1 hzr.2
+    have := uVal_le (int256 (zWord m)) hzr.1 hzr.2
     rw [huv] at this
     exact this
   have hq_ge1 : 1 ≤ q := by
@@ -2288,49 +2291,49 @@ theorem bracket_lt_lo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   generalize hw2 : qS5 (q * q / 2 ^ 104) = qword at heq qw qlo qhi qsl qsh
   generalize hPP : evalPoly PPc ((q * q / 2 ^ 104 : Nat) : Int) = PPv at psl psh
   generalize hQQ : evalPoly QQc ((q * q / 2 ^ 104 : Nat) : Int) = QQv at qsl qsh
-  have hxe : x1W (zWord m) = evmSdiv (evmMul pword (ofInt (toInt (zWord m)))) qword :=
+  have hxe : x1W (zWord m) = evmSdiv (evmMul pword (uint256OfInt (int256 (zWord m)))) qword :=
     hx1.trans heq
-  have hpq_pos : (0 : Int) ≤ toInt pword * (q : Int) :=
+  have hpq_pos : (0 : Int) ≤ int256 pword * (q : Int) :=
     Int.mul_nonneg (by omega) (by omega)
-  have hnum_nn : (0 : Int) ≤ toInt (evmMul pword (ofInt (toInt (zWord m)))) := by
+  have hnum_nn : (0 : Int) ≤ int256 (evmMul pword (uint256OfInt (int256 (zWord m)))) := by
     rw [hmul, hzq]
     exact hpq_pos
-  have hX1v : toInt (x1W (zWord m)) =
-      -((((toInt pword * (q : Int)).toNat / (-toInt qword).toNat : Nat) : Int)) := by
+  have hX1v : int256 (x1W (zWord m)) =
+      -((((int256 pword * (q : Int)).toNat / (-int256 qword).toNat : Nat) : Int)) := by
     rw [hxe, evmSdiv_pos_neg (evmMul_lt _ _) qw hnum_nn (by omega), hmul, hzq]
-  have hX1neg : -toInt (x1W (zWord m)) =
-      (((toInt pword * (q : Int)).toNat / (-toInt qword).toNat : Nat) : Int) := by
+  have hX1neg : -int256 (x1W (zWord m)) =
+      (((int256 pword * (q : Int)).toNat / (-int256 qword).toNat : Nat) : Int) := by
     rw [hX1v, Int.neg_neg]
-  have hX1_nn : (0 : Int) ≤ -toInt (x1W (zWord m)) := by
+  have hX1_nn : (0 : Int) ≤ -int256 (x1W (zWord m)) := by
     rw [hX1neg]
     exact Int.natCast_nonneg _
   -- LOWER division bracket: pw q < (-X1 + 1)(-qw)
-  have hdm2 := Nat.div_add_mod (toInt pword * (q : Int)).toNat (-toInt qword).toNat
-  have hml2 := Nat.mod_lt (toInt pword * (q : Int)).toNat
-    (y := (-toInt qword).toNat) (by omega)
-  have hX1lo : toInt pword * (q : Int) <
-      (-toInt (x1W (zWord m)) + 1) * (-toInt qword) := by
+  have hdm2 := Nat.div_add_mod (int256 pword * (q : Int)).toNat (-int256 qword).toNat
+  have hml2 := Nat.mod_lt (int256 pword * (q : Int)).toNat
+    (y := (-int256 qword).toNat) (by omega)
+  have hX1lo : int256 pword * (q : Int) <
+      (-int256 (x1W (zWord m)) + 1) * (-int256 qword) := by
     rw [hX1neg]
-    have e : (((toInt pword * (q : Int)).toNat / (-toInt qword).toNat : Nat) : Int) + 1 =
-        (((toInt pword * (q : Int)).toNat / (-toInt qword).toNat + 1 : Nat) : Int) := by
+    have e : (((int256 pword * (q : Int)).toNat / (-int256 qword).toNat : Nat) : Int) + 1 =
+        (((int256 pword * (q : Int)).toNat / (-int256 qword).toNat + 1 : Nat) : Int) := by
       omega
     rw [e]
-    have e2 : (((toInt pword * (q : Int)).toNat / (-toInt qword).toNat + 1 : Nat) : Int) *
-        (-toInt qword) =
-        ((((toInt pword * (q : Int)).toNat / (-toInt qword).toNat + 1) *
-          (-toInt qword).toNat : Nat) : Int) := by
+    have e2 : (((int256 pword * (q : Int)).toNat / (-int256 qword).toNat + 1 : Nat) : Int) *
+        (-int256 qword) =
+        ((((int256 pword * (q : Int)).toNat / (-int256 qword).toNat + 1) *
+          (-int256 qword).toNat : Nat) : Int) := by
       rw [Int.natCast_mul]
-      have : ((-toInt qword).toNat : Int) = -toInt qword := by omega
+      have : ((-int256 qword).toNat : Int) = -int256 qword := by omega
       rw [this]
     rw [e2]
-    have hexp : ((toInt pword * (q : Int)).toNat / (-toInt qword).toNat + 1) *
-        (-toInt qword).toNat =
-        (-toInt qword).toNat * ((toInt pword * (q : Int)).toNat / (-toInt qword).toNat) +
-          (-toInt qword).toNat := by
+    have hexp : ((int256 pword * (q : Int)).toNat / (-int256 qword).toNat + 1) *
+        (-int256 qword).toNat =
+        (-int256 qword).toNat * ((int256 pword * (q : Int)).toNat / (-int256 qword).toNat) +
+          (-int256 qword).toNat := by
       rw [Nat.add_mul, Nat.one_mul, Nat.mul_comm]
     omega
   clear heq hxe hmul hX1v hnum_nn hx1 hzr hwlt hzq hw1 hw2 hdm2 hml2 hX1neg
-  generalize hXg : -toInt (x1W (zWord m)) = X1v at hX1lo hX1_nn ⊢
+  generalize hXg : -int256 (x1W (zWord m)) = X1v at hX1lo hX1_nn ⊢
   -- u-hat brackets in Int form
   have huI1 : ((q * q / 2 ^ 104 : Nat) : Int) * 2 ^ 104 ≤ (q : Int) * q := by
     have e : (q : Int) * q = ((q * q : Nat) : Int) := by omega
@@ -2450,14 +2453,14 @@ theorem bracket_lt_lo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   have hD5nn : (0 : Int) ≤ evalPoly ltD8 (m : Int) ^ 5 := pow_nonneg' (by omega) 5
   -- P upper comparison: PLOP(m) ≤ p-hat 2^358 (B²)^4
   have hPfin : evalPoly ltPLOP (m : Int) ≤
-      toInt pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 := by
+      int256 pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 := by
     rw [evalPLOP_lt]
     have s1P : homEvalI PPc (evalPoly ltA96 (m : Int)) (evalPoly ltB2 (m : Int)) ≤
         PPv * evalPoly ltB2 (m : Int) ^ 4 := by
       rw [← hcolP']
       exact hPanti
     have s2P : (PPv - SLOPPc) * evalPoly ltB2 (m : Int) ^ 4 ≤
-        toInt pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 :=
+        int256 pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 :=
       mul_le_mul_right_nonneg (by omega) hB24
     have e1P : (PPv - SLOPPc) * evalPoly ltB2 (m : Int) ^ 4 =
         PPv * evalPoly ltB2 (m : Int) ^ 4 - SLOPPc * evalPoly ltB2 (m : Int) ^ 4 :=
@@ -2468,10 +2471,10 @@ theorem bracket_lt_lo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     generalize hg3 : PPv * B4 = PB4 at s1P e1P
     generalize hg4 : SLOPPc * B4 = SB4 at e1P ⊢
     generalize hg5 : (PPv - SLOPPc) * B4 = PSB at s2P e1P
-    generalize hg6 : toInt pword * 2 ^ 358 * B4 = PW4 at s2P ⊢
+    generalize hg6 : int256 pword * 2 ^ 358 * B4 = PW4 at s2P ⊢
     omega
   -- Q lower comparison: (-q-hat) 2^386 (8B²)^5 ≤ DLO(m)
-  have hQfin : -toInt qword * 2 ^ 386 * evalPoly ltD8 (m : Int) ^ 5 ≤
+  have hQfin : -int256 qword * 2 ^ 386 * evalPoly ltD8 (m : Int) ^ 5 ≤
       evalPoly ltDLO (m : Int) := by
     rw [evalDLO_lt]
     have s1Q : homEvalI QQc (evalPoly ltWLO (m : Int)) (evalPoly ltD8 (m : Int)) ≤
@@ -2479,13 +2482,13 @@ theorem bracket_lt_lo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
       rw [← hcolQ']
       exact hQmono
     have s2Q : (QQv - SLOPQc) * evalPoly ltD8 (m : Int) ^ 5 ≤
-        toInt qword * 2 ^ 386 * evalPoly ltD8 (m : Int) ^ 5 :=
+        int256 qword * 2 ^ 386 * evalPoly ltD8 (m : Int) ^ 5 :=
       mul_le_mul_right_nonneg (by omega) hD5nn
     have e1Q : (QQv - SLOPQc) * evalPoly ltD8 (m : Int) ^ 5 =
         QQv * evalPoly ltD8 (m : Int) ^ 5 - SLOPQc * evalPoly ltD8 (m : Int) ^ 5 :=
       Int.sub_mul _ _ _
-    have e2Q : -toInt qword * 2 ^ 386 * evalPoly ltD8 (m : Int) ^ 5 =
-        -(toInt qword * 2 ^ 386 * evalPoly ltD8 (m : Int) ^ 5) := by
+    have e2Q : -int256 qword * 2 ^ 386 * evalPoly ltD8 (m : Int) ^ 5 =
+        -(int256 qword * 2 ^ 386 * evalPoly ltD8 (m : Int) ^ 5) := by
       rw [Int.neg_mul, Int.neg_mul]
     generalize hg1 : homEvalI QQc (evalPoly ltWLO (m : Int))
       (evalPoly ltD8 (m : Int)) = HS at s1Q ⊢
@@ -2493,8 +2496,8 @@ theorem bracket_lt_lo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     generalize hg3 : QQv * D5 = QD at s1Q e1Q
     generalize hg4 : SLOPQc * D5 = SD at e1Q ⊢
     generalize hg5 : (QQv - SLOPQc) * D5 = QSD at s2Q e1Q
-    generalize hg6 : toInt qword * 2 ^ 386 * D5 = QW at s2Q e2Q
-    generalize hg7 : -toInt qword * 2 ^ 386 * D5 = QWn at e2Q ⊢
+    generalize hg6 : int256 qword * 2 ^ 386 * D5 = QW at s2Q e2Q
+    generalize hg7 : -int256 qword * 2 ^ 386 * D5 = QWn at e2Q ⊢
     omega
   -- AZ bounds: 0 ≤ AZ(m) ≤ q (m + S)
   have hAZnn : (0 : Int) ≤ evalPoly ltAZ (m : Int) := by
@@ -2512,61 +2515,61 @@ theorem bracket_lt_lo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     omega
   -- numerator chain: PLOP·AZ·B ≤ p-hat q 2^358 (B²)^5
   have hBnn : (0 : Int) ≤ (m : Int) + Sc := by simp only [Sc]; omega
-  have hPWnn : (0 : Int) ≤ toInt pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 :=
+  have hPWnn : (0 : Int) ≤ int256 pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 :=
     Int.mul_nonneg (Int.mul_nonneg (by omega) (by omega)) hB24
   have t1 : evalPoly ltPLOP (m : Int) * evalPoly ltAZ (m : Int) ≤
-      toInt pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 * evalPoly ltAZ (m : Int) :=
+      int256 pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 * evalPoly ltAZ (m : Int) :=
     mul_le_mul_right_nonneg hPfin hAZnn
   have t1b : evalPoly ltPLOP (m : Int) * evalPoly ltAZ (m : Int) * ((m : Int) + Sc) ≤
-      toInt pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 * evalPoly ltAZ (m : Int) *
+      int256 pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 * evalPoly ltAZ (m : Int) *
         ((m : Int) + Sc) :=
     mul_le_mul_right_nonneg t1 hBnn
-  have t2 : toInt pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 *
+  have t2 : int256 pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 *
       evalPoly ltAZ (m : Int) ≤
-      toInt pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 *
+      int256 pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 *
         ((q : Int) * ((m : Int) + Sc)) :=
     mul_le_mul_left_nonneg hAZle hPWnn
-  have t2b : toInt pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 *
+  have t2b : int256 pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 *
       evalPoly ltAZ (m : Int) * ((m : Int) + Sc) ≤
-      toInt pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 *
+      int256 pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 *
         ((q : Int) * ((m : Int) + Sc)) * ((m : Int) + Sc) :=
     mul_le_mul_right_nonneg t2 hBnn
-  have t34 : toInt pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 *
+  have t34 : int256 pword * 2 ^ 358 * evalPoly ltB2 (m : Int) ^ 4 *
       ((q : Int) * ((m : Int) + Sc)) * ((m : Int) + Sc) =
-      toInt pword * (q : Int) * (2 ^ 358 * evalPoly ltB2 (m : Int) ^ 5) := by
+      int256 pword * (q : Int) * (2 ^ 358 * evalPoly ltB2 (m : Int) ^ 5) := by
     rw [show evalPoly ltB2 (m : Int) ^ 5 =
       evalPoly ltB2 (m : Int) ^ 4 * evalPoly ltB2 (m : Int) from by rw [Int.pow_succ]]
     rw [evalB2_lt]
     simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
   have hTfin : evalPoly ltPLOP (m : Int) * evalPoly ltAZ (m : Int) * ((m : Int) + Sc) ≤
-      toInt pword * (q : Int) * (2 ^ 358 * evalPoly ltB2 (m : Int) ^ 5) := by
+      int256 pword * (q : Int) * (2 ^ 358 * evalPoly ltB2 (m : Int) ^ 5) := by
     refine Int.le_trans t1b ?_
     rw [← t34]
     exact t2b
   -- denominator chain: (p-hat q + 1) 2^442 (8B²)^5 ≤ (-X1 + 1) 2^56 DLO
   have hFnn : (0 : Int) ≤ 2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5 :=
     Int.mul_nonneg (by omega) hD5nn
-  have u2 : toInt pword * (q : Int) + 1 ≤ (X1v + 1) * -toInt qword := by
+  have u2 : int256 pword * (q : Int) + 1 ≤ (X1v + 1) * -int256 qword := by
     have h := hX1lo
-    generalize hg1 : toInt pword * (q : Int) = PQt at h ⊢
-    generalize hg2 : (X1v + 1) * -toInt qword = XQt at h ⊢
+    generalize hg1 : int256 pword * (q : Int) = PQt at h ⊢
+    generalize hg2 : (X1v + 1) * -int256 qword = XQt at h ⊢
     omega
-  have u3 : (toInt pword * (q : Int) + 1) * (2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5) ≤
-      (X1v + 1) * -toInt qword * (2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5) :=
+  have u3 : (int256 pword * (q : Int) + 1) * (2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5) ≤
+      (X1v + 1) * -int256 qword * (2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5) :=
     mul_le_mul_right_nonneg u2 hFnn
-  have u4 : (X1v + 1) * -toInt qword * (2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5) =
-      (X1v + 1) * (2 ^ 56 * (-toInt qword * 2 ^ 386 * evalPoly ltD8 (m : Int) ^ 5)) := by
+  have u4 : (X1v + 1) * -int256 qword * (2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5) =
+      (X1v + 1) * (2 ^ 56 * (-int256 qword * 2 ^ 386 * evalPoly ltD8 (m : Int) ^ 5)) := by
     rw [show (2 : Int) ^ 442 = 2 ^ 56 * 2 ^ 386 from by decide]
     simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
-  have u1b : 2 ^ 56 * (-toInt qword * 2 ^ 386 * evalPoly ltD8 (m : Int) ^ 5) ≤
+  have u1b : 2 ^ 56 * (-int256 qword * 2 ^ 386 * evalPoly ltD8 (m : Int) ^ 5) ≤
       2 ^ 56 * evalPoly ltDLO (m : Int) :=
     mul_le_mul_left_nonneg hQfin (by omega)
   have hX1p1 : (0 : Int) ≤ X1v + 1 := by omega
-  have u5 : (X1v + 1) * (2 ^ 56 * (-toInt qword * 2 ^ 386 *
+  have u5 : (X1v + 1) * (2 ^ 56 * (-int256 qword * 2 ^ 386 *
       evalPoly ltD8 (m : Int) ^ 5)) ≤
       (X1v + 1) * (2 ^ 56 * evalPoly ltDLO (m : Int)) :=
     mul_le_mul_left_nonneg u1b hX1p1
-  have hRfin : (toInt pword * (q : Int) + 1) *
+  have hRfin : (int256 pword * (q : Int) + 1) *
       (2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5) ≤
       (X1v + 1) * (2 ^ 56 * evalPoly ltDLO (m : Int)) := by
     refine Int.le_trans ?_ u5
@@ -2578,11 +2581,11 @@ theorem bracket_lt_lo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
     rw [evalD8_lt, evalB2_lt]
     rw [show ((8 : Int) * (((m : Int) + Sc) * ((m : Int) + Sc))) ^ 5 =
       32768 * ((((m : Int) + Sc) * ((m : Int) + Sc)) ^ 5) from by
-        rw [Int.mul_pow]
+        rw [mul_pow]
         rw [show ((8 : Int) ^ 5) = 32768 from by decide]]
     rw [← Int.mul_assoc, show (2 : Int) ^ 442 * 32768 = 2 ^ 457 from by decide]
-  have escale : toInt pword * (q : Int) * (2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5) =
-      2 ^ 99 * (toInt pword * (q : Int) * (2 ^ 358 * evalPoly ltB2 (m : Int) ^ 5)) := by
+  have escale : int256 pword * (q : Int) * (2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5) =
+      2 ^ 99 * (int256 pword * (q : Int) * (2 ^ 358 * evalPoly ltB2 (m : Int) ^ 5)) := by
     rw [ebr]
     rw [show (2 : Int) ^ 457 = 2 ^ 99 * 2 ^ 358 from by decide]
     simp only [Int.mul_assoc, Int.mul_comm, Int.mul_left_comm]
@@ -2595,9 +2598,9 @@ theorem bracket_lt_lo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   have edist : (X1v + 1) * (2 ^ 56 * evalPoly ltDLO (m : Int)) =
       X1v * (2 ^ 56 * evalPoly ltDLO (m : Int)) + 2 ^ 56 * evalPoly ltDLO (m : Int) := by
     rw [Int.add_mul, Int.one_mul]
-  have edist2 : (toInt pword * (q : Int) + 1) *
+  have edist2 : (int256 pword * (q : Int) + 1) *
       (2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5) =
-      toInt pword * (q : Int) * (2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5) +
+      int256 pword * (q : Int) * (2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5) +
         2 ^ 442 * evalPoly ltD8 (m : Int) ^ 5 := by
     rw [Int.add_mul, Int.one_mul]
   generalize hgT : evalPoly ltPLOP (m : Int) * evalPoly ltAZ (m : Int) *
@@ -2605,7 +2608,7 @@ theorem bracket_lt_lo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   generalize hgDLO : evalPoly ltDLO (m : Int) = DLO at hRfin edist ⊢
   generalize hgD5 : evalPoly ltD8 (m : Int) ^ 5 = D5g at hRfin edist2 escale hD5nn
   generalize hgB5 : evalPoly ltB2 (m : Int) ^ 5 = B5g at hTfin escale
-  generalize hgPQ : toInt pword * (q : Int) = PQ at hTfin hRfin edist2 escale
+  generalize hgPQ : int256 pword * (q : Int) = PQ at hTfin hRfin edist2 escale
   generalize hgPB : PQ * (2 ^ 358 * B5g) = PB at hTfin escale
   generalize hgPQD : PQ * (2 ^ 442 * D5g) = PQD at edist2 escale
   generalize hgRD : (PQ + 1) * (2 ^ 442 * D5g) = RD at hRfin edist2

@@ -1,9 +1,12 @@
 import LnProof.FloorAssembly
 
+open FormalYul
+open FormalYul.Preservation
+
 /-!
 # The floor-cut specification of the `lnWad` model
 
-Top-line cut statement: for every input `1 ≤ x < 2^255`, the model output
+Top-line cut statement: for every input `1 ≤ x < 2^255`, the body output
 `r` satisfies the two exponential-cut predicates that correspond to
 `r ≤ 10^27·ln(x/10^18) < r + 2` under the standard real interpretation.
 
@@ -25,13 +28,13 @@ as an explicit log-cut specification.
 -/
 
 namespace LnFloorCert
-open LnGeneratedModel LnPoly LnExp LnFloor
+open LnYul LnPoly LnExp LnFloor
 
--- The self-corrected model term repeats the accumulator (the `s == -1` test
+-- The self-corrected body term repeats the accumulator (the `s == -1` test
 -- reads the shifted result), so elaboration-time `whnf` of it is expensive.
 -- Keep it opaque here; the `decide +kernel` facts below still reduce it in the
 -- kernel, which ignores this hint.
-attribute [local irreducible] model_ln_wad_evm model_ln_wad_to_wad_evm
+attribute [local irreducible] lnWadToRayBody lnWadBody
 
 set_option maxRecDepth 4096
 
@@ -72,9 +75,12 @@ theorem capUB_diag {q y : Nat} (_hq : 0 < q) : capUB 0 q y y := by
   have e : fact n * q ^ n * y = y * (fact n * q ^ n) := Nat.mul_comm _ _
   omega
 
-/-- The model maps the wad exactly to zero. -/
-theorem model_at_wad : toInt (model_ln_wad_evm 1000000000000000000) = 0 := by
-  decide +kernel
+/-- The body maps the wad exactly to zero. -/
+theorem lnWadToRayBody_at_wad : int256 (lnWadToRayBody 1000000000000000000) = 0 := by
+  have h := lnWadToRayBody_one_wad
+  rw [show (10 : Nat) ^ 18 = 1000000000000000000 by decide] at h
+  rw [h]
+  decide
 
 /-- Binade window for the mantissa, low-shift side. -/
 theorem mant_window_le {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255)
@@ -151,29 +157,29 @@ theorem clz_bounds {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
 /-- On the `m ≥ S` branch with a nonnegative shift, the accumulator is
 positive, so the output cannot be negative. -/
 theorem v_pos_ge_pos {m c : Nat} (h1 : Sc ≤ m) (h2 : m < MHI) (hc : c ≤ 160) :
-    0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
+    0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 + ln2kInt c +
       116873961749927929127912020551516284764321243411868 := by
   have hX1 := x1_nonneg_geF h1 h2
-  have hx0 : 0 ≤ toInt (x1W (zWord m)) * 7450580596923828125 :=
+  have hx0 : 0 ≤ int256 (x1W (zWord m)) * 7450580596923828125 :=
     Int.mul_nonneg hX1 (by omega)
   have hl : 0 ≤ ln2kInt c := by
     unfold ln2kInt
     rw [if_pos hc]
     exact Int.mul_nonneg (by omega) (Int.natCast_nonneg _)
-  generalize toInt (x1W (zWord m)) * 7450580596923828125 = X at hx0 ⊢
+  generalize int256 (x1W (zWord m)) * 7450580596923828125 = X at hx0 ⊢
   omega
 
 /-! ## The theorem -/
 
-/-- **Floor specification.** For every `1 ≤ x < 2^255` the model output
-`r` satisfies `r ≤ 10^27·ln(x/10^18) < r + 2`: the model computes
+/-- **Floor specification.** For every `1 ≤ x < 2^255` the body output
+`r` satisfies `r ≤ 10^27·ln(x/10^18) < r + 2`: the body computes
 `⌊10^27·ln(x/10^18)⌋` exactly or one less. -/
-theorem model_ln_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
-    FloorSpecA (toInt (model_ln_wad_evm x)) x ∧
-      FloorSpecB (toInt (model_ln_wad_evm x)) x := by
+theorem lnWadToRayBody_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
+    FloorSpecA (int256 (lnWadToRayBody x)) x ∧
+      FloorSpecB (int256 (lnWadToRayBody x)) x := by
   by_cases hne : x = 1000000000000000000
   · subst hne
-    rw [model_at_wad]
+    rw [lnWadToRayBody_at_wad]
     constructor
     · show FloorSpecA 0 1000000000000000000
       unfold FloorSpecA
@@ -186,19 +192,19 @@ theorem model_ln_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
       unfold FloorSpecB
       rw [if_pos (by omega)]
       exact ⟨1, by decide +kernel⟩
-  · obtain ⟨hbr1, hbr2⟩ := model_floor_bracket h1 h2 hne
+  · obtain ⟨hbr1, hbr2⟩ := lnWadToRayBody_floor_bracket h1 h2 hne
     rw [show (4722366482869645213696 : Int) = 2 ^ 72 from by decide] at hbr1 hbr2
-    have hbr2' : toInt (x1W (zWord (mant x))) * 7450580596923828125 +
+    have hbr2' : int256 (x1W (zWord (mant x))) * 7450580596923828125 +
         ln2kInt (evmClz x) + 116873961749927929127912020551516284764321243411868 <
-        (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 := by
-      have e : (toInt (model_ln_wad_evm x) + 1) * 2 ^ 72 =
-          toInt (model_ln_wad_evm x) * 2 ^ 72 + 2 ^ 72 := by
+        (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 := by
+      have e : (int256 (lnWadToRayBody x) + 1) * 2 ^ 72 =
+          int256 (lnWadToRayBody x) * 2 ^ 72 + 2 ^ 72 := by
         rw [Int.add_mul, Int.one_mul]
       omega
-    -- Generalize the model word: it is the self-corrected floor, whose term
+    -- Generalize the body word: it is the self-corrected floor, whose term
     -- doubles the accumulator; keeping it opaque avoids reducing it below.
     revert hbr1 hbr2'
-    generalize toInt (model_ln_wad_evm x) = R
+    generalize int256 (lnWadToRayBody x) = R
     intro hbr1 hbr2'
     obtain ⟨me, hmlo, hmhi⟩ := mant_facts h1 h2
     have hmant_eq : mant x = x * 2 ^ (255 - Nat.log2 x) / 2 ^ 160 := me
@@ -279,42 +285,42 @@ def FloorSpecToWad (ray wad : Int) (x : Nat) : Prop :=
   FloorSpecA ray x ∧ FloorSpecB ray x ∧
     wad * 1000000000 ≤ ray ∧ ray < (wad + 1) * 1000000000
 
-/-- **Wad floor specification.** The `lnWadToWad` model returns the signed
-floor of the certified ray-scale `lnWad` model divided by `10^9`, so the
+/-- **Wad floor specification.** The `lnWad` body returns the signed
+floor of the certified ray-scale `lnWadToRay` body divided by `10^9`, so the
 ray-scale floor bracket is packaged with the exact division window. -/
-theorem model_ln_wad_to_wad_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
-    FloorSpecToWad (toInt (model_ln_wad_evm x))
-      (toInt (model_ln_wad_to_wad_evm x)) x := by
-  obtain ⟨ha, hb⟩ := model_ln_wad_floor h1 h2
+theorem lnWadBody_floor {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
+    FloorSpecToWad (int256 (lnWadToRayBody x))
+      (int256 (lnWadBody x)) x := by
+  obtain ⟨ha, hb⟩ := lnWadToRayBody_floor h1 h2
   obtain ⟨hlo, hhi⟩ := to_wad_floor_window (by omega : x < 2 ^ 256)
-  -- Keep both model words opaque: their terms self-correct (and the wad word
+  -- Keep both body words opaque: their terms self-correct (and the wad word
   -- nests the ray word twice), so unifying them directly is expensive.
   revert ha hb hlo hhi
-  generalize toInt (model_ln_wad_evm x) = R
-  generalize toInt (model_ln_wad_to_wad_evm x) = W
+  generalize int256 (lnWadToRayBody x) = R
+  generalize int256 (lnWadBody x) = W
   intro ha hb hlo hhi
   exact ⟨ha, hb, hlo, hhi⟩
 
-/-- The ray-scale model output is negative exactly below one wad. -/
-theorem model_ln_wad_negative_iff {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
-    toInt (model_ln_wad_evm x) < 0 ↔ x < 10 ^ 18 := by
+/-- The ray-scale body output is negative exactly below one wad. -/
+theorem lnWadToRayBody_negative_iff {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
+    int256 (lnWadToRayBody x) < 0 ↔ x < 10 ^ 18 := by
   constructor
   · intro hneg
     rcases Nat.lt_or_ge x (10 ^ 18) with hlt | hxle
     · exact hlt
-    · have hm := model_ln_wad_mono (x := 10 ^ 18) (y := x) (by decide) hxle h2
+    · have hm := lnWadToRayBody_mono (x := 10 ^ 18) (y := x) (by decide) hxle h2
       have hi := toInt_of_sle
-        (model_lt (by decide : (10 ^ 18 : Nat) < 2 ^ 256))
-        (model_lt (by omega : x < 2 ^ 256)) hm
-      have hzero : toInt (model_ln_wad_evm (10 ^ 18)) = 0 := by
-        rw [model_ln_wad_one_wad]
+        (lnWadToRayBody_lt (by decide : (10 ^ 18 : Nat) < 2 ^ 256))
+        (lnWadToRayBody_lt (by omega : x < 2 ^ 256)) hm
+      have hzero : int256 (lnWadToRayBody (10 ^ 18)) = 0 := by
+        rw [lnWadToRayBody_one_wad]
         decide
       rw [hzero] at hi
       omega
   · intro hx
-    rcases Int.lt_or_le (toInt (model_ln_wad_evm x)) 0 with hneg | hrnon
+    rcases Int.lt_or_le (int256 (lnWadToRayBody x)) 0 with hneg | hrnon
     · exact hneg
-    · obtain ⟨ha, _⟩ := model_ln_wad_floor h1 h2
+    · obtain ⟨ha, _⟩ := lnWadToRayBody_floor h1 h2
       unfold FloorSpecA at ha
       rw [if_pos hrnon] at ha
       have h0 := ha 0
@@ -322,27 +328,27 @@ theorem model_ln_wad_negative_iff {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
       omega
 
 /-- The wad-scale wrapper output is negative exactly below one wad. -/
-theorem model_ln_wad_to_wad_negative_iff {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
-    toInt (model_ln_wad_to_wad_evm x) < 0 ↔ x < 10 ^ 18 := by
+theorem lnWadBody_negative_iff {x : Nat} (h1 : 1 ≤ x) (h2 : x < 2 ^ 255) :
+    int256 (lnWadBody x) < 0 ↔ x < 10 ^ 18 := by
   constructor
   · intro hneg
     rcases Nat.lt_or_ge x (10 ^ 18) with hlt | hxle
     · exact hlt
-    · have hm := model_ln_wad_to_wad_mono (x := 10 ^ 18) (y := x) (by decide) hxle h2
+    · have hm := lnWadBody_mono (x := 10 ^ 18) (y := x) (by decide) hxle h2
       have hi := toInt_of_sle
         (to_wad_lt (by decide : (10 ^ 18 : Nat) < 2 ^ 256))
         (to_wad_lt (by omega : x < 2 ^ 256)) hm
-      have hzero : toInt (model_ln_wad_to_wad_evm (10 ^ 18)) = 0 := by
-        rw [model_ln_wad_to_wad_one_wad]
+      have hzero : int256 (lnWadBody (10 ^ 18)) = 0 := by
+        rw [lnWadBody_one_wad]
         decide
       rw [hzero] at hi
       omega
   · intro hx
-    have hrneg := (model_ln_wad_negative_iff h1 h2).mpr hx
-    obtain ⟨_, _, hlo, _⟩ := model_ln_wad_to_wad_floor h1 h2
-    rcases Int.lt_or_le (toInt (model_ln_wad_to_wad_evm x)) 0 with hwneg | hwpos
+    have hrneg := (lnWadToRayBody_negative_iff h1 h2).mpr hx
+    obtain ⟨_, _, hlo, _⟩ := lnWadBody_floor h1 h2
+    rcases Int.lt_or_le (int256 (lnWadBody x)) 0 with hwneg | hwpos
     · exact hwneg
-    · have hprod : 0 ≤ toInt (model_ln_wad_to_wad_evm x) * 1000000000 := by
+    · have hprod : 0 ≤ int256 (lnWadBody x) * 1000000000 := by
         exact Int.mul_nonneg hwpos (by omega)
       omega
 

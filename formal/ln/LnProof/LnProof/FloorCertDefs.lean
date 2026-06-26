@@ -14,7 +14,7 @@ are in the `FloorCert*` files.
 
 namespace LnFloorCert
 
-open LnPoly LnGeneratedModel
+open LnPoly LnYul
 
 def WINDOW : Nat := 46
 

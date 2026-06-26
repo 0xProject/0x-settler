@@ -272,9 +272,7 @@ contract LnTest is Test {
         assertEq(Ln.lnWad(1e18), 0, "lnWad(1e18) != 0");
     }
 
-    /// Monotonicity across every clz (octave) seam — the adjacent-input pairs that straddle a
-    /// power-of-two boundary. Within-octave monotonicity is established by the Lean proof
-    /// `LnGeneratedModel.model_ln_wad_mono` (formal/ln/LnProof).
+    /// Monotonicity across every clz seam for adjacent inputs at power-of-two boundaries.
     function testLnWadMonotoneBoundaries() external {
         for (uint256 t = 1; t < 255; t++) {
             int256 hi = int256(uint256(1) << t);

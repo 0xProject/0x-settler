@@ -1,18 +1,10 @@
 /-
   End-to-end correctness of 512-bit square root.
-
-  Composes normalization, Karatsuba step, correction, and un-normalization:
-
-    sqrt512(x) = natSqrt(x) for x < 2^512
 -/
 import SqrtProof.SqrtCorrect
 import Sqrt512Proof.Normalization
 import Sqrt512Proof.KaratsubaStep
 import Sqrt512Proof.Correction
-
--- ============================================================================
--- Part 1: Karatsuba uncorrected and corrected
--- ============================================================================
 
 /-- Uncorrected Karatsuba result (before correction step). -/
 noncomputable def karatsubaR (x_hi x_lo : Nat) : Nat :=
@@ -76,14 +68,7 @@ theorem karatsubaFloor_eq_natSqrt (x_hi x_lo : Nat)
       x_lo / (2 : Nat) ^ 128 * (2 : Nat) ^ 128 + x_lo % (2 : Nat) ^ 128)
     (karatsubaR x_hi x_lo) hbracket.1 hbracket.2
 
--- ============================================================================
--- Part 2: Normalization bounds
--- ============================================================================
-
-private theorem four_pow_eq_two_pow' (shift : Nat) : 4 ^ shift = 2 ^ (2 * shift) := by
-  have : (4 : Nat) = 2 ^ 2 := by decide
-  rw [this, ← Nat.pow_mul]
-
+set_option exponentiation.threshold 1024 in
 /-- x * 4^shift < 2^512 when x and shift are properly constrained. -/
 private theorem normalized_lt_512 (x x_hi : Nat)
     (hxhi_pos : 0 < x_hi) (hxhi_lt : x_hi < 2 ^ 256)
@@ -92,10 +77,10 @@ private theorem normalized_lt_512 (x x_hi : Nat)
     x * 4 ^ shift < 2 ^ 512 := by
   intro shift
   have hne : x_hi ≠ 0 := Nat.ne_of_gt hxhi_pos
-  have hlog := (Nat.log2_eq_iff hne).1 rfl
+  have hlog := (SqrtCompat.log2_eq_iff hne).1 rfl
   have hL : Nat.log2 x_hi ≤ 255 := by have := (Nat.log2_lt hne).2 hxhi_lt; omega
   have h2shift : 2 * shift ≤ 255 - Nat.log2 x_hi := Nat.mul_div_le (255 - Nat.log2 x_hi) 2
-  rw [four_pow_eq_two_pow']
+  rw [four_pow_eq_two_pow]
   calc x * 2 ^ (2 * shift)
       < (x_hi + 1) * 2 ^ 256 * 2 ^ (2 * shift) :=
         Nat.mul_lt_mul_of_pos_right hx_lt (Nat.two_pow_pos _)
@@ -123,10 +108,6 @@ private theorem normalized_hi_lower (x x_hi : Nat)
       _ ≤ x * 4 ^ shift := h1
   exact Nat.le_trans hsr.1 h2
 
--- ============================================================================
--- Part 3: The full 512-bit sqrt
--- ============================================================================
-
 /-- 512-bit floor square root (Nat model). -/
 noncomputable def sqrt512 (x : Nat) : Nat :=
   if x < 2 ^ 256 then
@@ -144,8 +125,9 @@ theorem sqrt512_correct (x : Nat) (hx : x < 2 ^ 512) :
     sqrt512 x = natSqrt x := by
   unfold sqrt512
   by_cases hlt : x < 2 ^ 256
-  · simp [hlt]
-  · simp [hlt]
+  · rw [if_pos hlt]
+  · rw [if_neg hlt]
+    simp only
     have hge : 2 ^ 256 ≤ x := by omega
     have hxhi_pos : 0 < x / 2 ^ 256 :=
       Nat.div_pos hge (Nat.two_pow_pos 256)
@@ -172,11 +154,6 @@ theorem sqrt512_correct (x : Nat) (hx : x < 2 ^ 512) :
       (x * 4 ^ ((255 - Nat.log2 (x / 2 ^ 256)) / 2) / 2 ^ 256)
       (x * 4 ^ ((255 - Nat.log2 (x / 2 ^ 256)) / 2) % 2 ^ 256)
       hxhi'_lo hxlo'_bound
-    -- hkf : karatsubaFloor (x'/2^256) (x'%2^256) = natSqrt (x'/2^256 * 2^256 + x'%2^256)
-    -- We need: karatsubaFloor (x'/2^256) (x'%2^256) / 2^shift = natSqrt x
-    -- Since x'/2^256 * 2^256 + x'%2^256 = x' (Euclidean decomposition)
-    -- hkf gives karatsubaFloor ... = natSqrt x'
-    -- Then natSqrt x' / 2^shift = natSqrt x (by natSqrt_shift_div)
     have hx'_eq : x * 4 ^ ((255 - Nat.log2 (x / 2 ^ 256)) / 2) / 2 ^ 256 * 2 ^ 256 +
         x * 4 ^ ((255 - Nat.log2 (x / 2 ^ 256)) / 2) % 2 ^ 256 =
         x * 4 ^ ((255 - Nat.log2 (x / 2 ^ 256)) / 2) := by
