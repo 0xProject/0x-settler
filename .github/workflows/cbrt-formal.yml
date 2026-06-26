@@ -10,7 +10,8 @@ on:
       - formal/cbrt/**
       - formal/python/cbrt/**
       - formal/yul/**
-      - test/0.8.25/Cbrt.t.sol
+      - foundry.toml
+      - remappings.txt
       - .github/workflows/cbrt-formal.yml
   pull_request:
     paths:
@@ -19,7 +20,8 @@ on:
       - formal/cbrt/**
       - formal/python/cbrt/**
       - formal/yul/**
-      - test/0.8.25/Cbrt.t.sol
+      - foundry.toml
+      - remappings.txt
       - .github/workflows/cbrt-formal.yml
 
 jobs:

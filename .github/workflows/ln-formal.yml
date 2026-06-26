@@ -9,7 +9,8 @@ on:
       - src/wrappers/LnWrapper.sol
       - formal/ln/**
       - formal/yul/**
-      - test/0.8.34/Ln.t.sol
+      - foundry.toml
+      - remappings.txt
       - .github/workflows/ln-formal.yml
   pull_request:
     paths:
@@ -17,7 +18,8 @@ on:
       - src/wrappers/LnWrapper.sol
       - formal/ln/**
       - formal/yul/**
-      - test/0.8.34/Ln.t.sol
+      - foundry.toml
+      - remappings.txt
       - .github/workflows/ln-formal.yml
 
 jobs:

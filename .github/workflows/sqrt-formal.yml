@@ -10,7 +10,8 @@ on:
       - formal/sqrt/**
       - formal/python/sqrt/**
       - formal/yul/**
-      - test/0.8.25/Sqrt.t.sol
+      - foundry.toml
+      - remappings.txt
       - .github/workflows/sqrt-formal.yml
   pull_request:
     paths:
@@ -19,7 +20,8 @@ on:
       - formal/sqrt/**
       - formal/python/sqrt/**
       - formal/yul/**
-      - test/0.8.25/Sqrt.t.sol
+      - foundry.toml
+      - remappings.txt
       - .github/workflows/sqrt-formal.yml
 
 jobs:
