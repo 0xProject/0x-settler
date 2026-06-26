@@ -428,6 +428,20 @@ names, tracking IDs, TODO placeholders, or similar references unless the
 referenced artifact is committed in this repository and the reference is
 required for current correctness.
 
+### Commenting Discipline
+
+Comments must be added only where the code cannot speak for itself, and code
+must be written so that this is rare. Delete any comment that restates what the
+code does.
+
+Comments must explain only their associated code. A comment must never explain
+the chat, the task, the plan, or the changes from a previous revision.
+
+Comments must refer to behavior and intent, never to function or variable names.
+A comment must explain _what_ a function does only when, by external constraints
+or the desire to optimize, that function is forced into an obtuse, arcane, or
+non-idiomatic structure in order to achieve its goal.
+
 ### DO NOT
 
 - Create documentation files unless explicitly requested
