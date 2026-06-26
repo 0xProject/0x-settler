@@ -64,10 +64,7 @@ theorem cubic_am_gm (z m : Nat) : (3 * m - 2 * z) * (z * z) ≤ m * m * m := by
 -- Floor Bound
 -- ============================================================================
 
-/--
-**Floor Bound for cube root Newton-Raphson.**
-
-For any `m` with `m³ ≤ x`, and `z > 0`:
+/-- For any `m` with `m³ ≤ x`, and `z > 0`:
     m ≤ (x / (z * z) + 2 * z) / 3
 
 A single truncated NR step for cube root never undershoots `icbrt(x)`.

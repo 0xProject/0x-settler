@@ -1,5 +1,5 @@
 /-
-  Certified chain: 5 cbrt NR steps with per-octave error tracking.
+  Five cbrt NR steps with per-octave error bounds.
 
   Given a certificate octave i with:
     - lo ≤ m ≤ hi (bounds on icbrt(x))
@@ -8,9 +8,8 @@
 
   We prove: run5From x (seedOf i) ≤ m + 1.
 
-  The proof chains:
-    Step 1: d1 bound from analytic formula (cbrt_d1_bound)
-    Steps 2-5: each step contracts via cbrtStep_upper_of_le + relaxation to lo
+  The proof first bounds d1 with the analytic formula (`cbrt_d1_bound`), then
+  contracts each later step via `cbrtStep_upper_of_le` plus relaxation to lo.
 -/
 import Init
 import CbrtProof.FloorBound
@@ -38,7 +37,7 @@ private theorem poly_id_le (d m : Nat) :
   ring_nf
 
 -- ============================================================================
--- Step-from-bound: one NR step error bound using lo as denominator
+-- Single-step error bound using lo as denominator.
 -- ============================================================================
 
 /-- One NR step with certificate denominator.
@@ -318,7 +317,7 @@ theorem run4_certified_bounds
   have hz3Pos : 0 < z3 := by omega
   have hmz4 : m ≤ z4 := cbrt_step_floor_bound x z3 m hz3Pos hmlo
 
-  -- Step 1: d1 bound from analytic formula
+  -- Initial d1 bound from the analytic formula.
   have hd1 : z1 - m ≤ d1Of i := by
     have h := cbrt_d1_bound x m (seedOf i) (loOf i) (hiOf i) hsPos hmlo hmhi hlo hhi
     simp only at h
@@ -330,7 +329,7 @@ theorem run4_certified_bounds
     exact h
   have h2d1 : 2 * d1Of i ≤ m := Nat.le_trans (two_d1_le_lo i) hlo
 
-  -- Steps 2-4 via step_from_bound
+  -- Subsequent bounds via step_from_bound.
   have hd2 : z2 - m ≤ d2Of i := by
     have h := step_from_bound x m (loOf i) z1 (d1Of i) hm2 hloPos hlo hmhi hmz1 hd1 h2d1
     show cbrtStep x z1 - m ≤ d2Of i
@@ -362,7 +361,7 @@ theorem run5_le_m_plus_one
     (hhi : m ≤ hiOf i) :
     run5From x (seedOf i) ≤ m + 1 := by
   have ⟨hmz4, hd4, h2d4⟩ := run4_certified_bounds i x m hm2 hmlo hmhi hlo hhi
-  -- Step 5 error bound
+  -- Final error bound.
   have hloPos : 0 < loOf i := lo_pos i
   have hd5 : cbrtStep x (run4From x (seedOf i)) - m ≤ d5Of i := by
     have h := step_from_bound x m (loOf i) (run4From x (seedOf i)) (d4Of i)

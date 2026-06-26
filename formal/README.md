@@ -1,6 +1,6 @@
 # Formal Verification
 
-Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler. The public runtime correctness theorem surface is pinned to Lean's standard axioms `propext`, `Classical.choice`, and `Quot.sound`. This is enforced in CI by the `#guard_msgs` axiom gate in each proof's `AxiomCheck.lean` (the build fails if any gated theorem's axiom set changes).
+Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler. The public runtime correctness theorem surface is pinned to Lean's standard axioms `propext`, `Classical.choice`, and `Quot.sound`. This is enforced in CI by a `#guard_msgs` axiom gate (in each proof's `AxiomCheck.lean`, or `Theorems.lean` for `ln`); the build fails if any gated theorem's axiom set changes.
 
 ## Scope
 
@@ -10,7 +10,7 @@ Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler.
 | `sqrt/Sqrt512Proof` | `src/utils/512Math.sol` | `_sqrt` (512-bit) correct: `sqrt(x_hi * 2^256 + x_lo) = natSqrt(x)` |
 | `cbrt/CbrtProof` | `src/vendor/Cbrt.sol` | `_cbrt`, `cbrt`, `cbrtUp` correct on uint256 |
 | `cbrt/Cbrt512Proof` | `src/utils/512Math.sol` | `_cbrt` (512-bit) correct: `cbrt(x_hi * 2^256 + x_lo) = icbrt(x)` |
-| `ln/LnProof` | `src/vendor/Ln.sol` | `lnWadToRay`, `lnWad` monotonicity and floor/cut specifications |
+| `ln/LnProof` | `src/vendor/Ln.sol` | `lnWadToRay`, `lnWad` correct vs. `Real.log`, monotone, with a 1.6986-ulp error bound |
 
 ## Method
 

@@ -121,7 +121,7 @@ theorem natSqrt_sq_le (n : Nat) : natSqrt n * natSqrt n ≤ n :=
 theorem natSqrt_lt_succ_sq (n : Nat) : n < (natSqrt n + 1) * (natSqrt n + 1) :=
   (natSqrt_spec n).2
 
--- Main correctness theorems.
+-- Correctness theorems.
 
 /-- innerSqrt gives a lower bound: for any m with m² ≤ x, m ≤ innerSqrt(x).
     This follows from 6 applications of babylon_step_floor_bound. -/
@@ -287,7 +287,7 @@ theorem floor_correction (x z : Nat) (hz : 0 < z)
     exact ⟨h_zsq, hhi⟩
 
 -- ============================================================================
--- Named wrappers for the advertised theorem entry points
+-- Named wrapper theorems
 -- ============================================================================
 
 /-- `innerSqrt_correct`: established lower-bound component.
@@ -735,7 +735,7 @@ theorem sqrtUpInner_eq_sqrtUp256_u256
     rw [if_neg hnot, if_neg hsqNatNot]
     simp [m, hz]
 
-/-- Canonical witness package for the advertised uint256 statement. -/
+/-- Canonical witness package for the uint256 correctness statement. -/
 theorem sqrt_witness_correct_u256
     (x : Nat)
     (hx256 : x < 2 ^ 256) :

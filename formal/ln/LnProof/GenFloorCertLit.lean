@@ -1,4 +1,4 @@
-import LnProof.FloorCertDefs
+import LnProof.Floor.CertDefs
 
 open LnFloorCert
 
@@ -31,4 +31,4 @@ def litText : String :=
 
 end GenFloorCertLit
 
-#eval IO.FS.writeFile "LnProof/FloorCertLit.lean" GenFloorCertLit.litText
+#eval IO.FS.writeFile "LnProof/Cert/FloorCertLit.lean" GenFloorCertLit.litText

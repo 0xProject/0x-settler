@@ -80,12 +80,12 @@ jobs:
       - name: Generate Lean certificate artifacts
         working-directory: formal/ln/LnProof
         run: |
-          lake build LnProof.FloorCertDefs LnProof.KroneckerShift LnProof.FloorConsts
+          lake build LnProof.Floor.CertDefs LnProof.Foundation.KroneckerShift LnProof.Floor.Consts
           lake env lean GenFloorCertLit.lean
-          lake build LnProof.FloorCertLit
+          lake build LnProof.Cert.FloorCertLit
           lake env lean GenCover.lean
           lake env lean GenErr1.lean
-          lake build LnProof.ErrorBoundCore
+          lake build LnProof.Error.Core
           lake env lean GenErrLit.lean
 
       - name: Build Ln proof package
