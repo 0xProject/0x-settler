@@ -6,7 +6,63 @@ import {Deployer, Feature} from "src/deployer/Deployer.sol";
 import {SafeConfig} from "./SafeConfig.sol";
 import {SafeBytecodes} from "./SafeCode.sol";
 
+interface ISafeMigration {
+    function migrateL2WithFallbackHandler() external;
+    function SAFE_L2_SINGLETON() external view returns (address);
+    function SAFE_FALLBACK_HANDLER() external view returns (address);
+}
+
 contract RedeploySettlers is SafeMultisend {
+    // Canonical Safe `SafeMigration` (v1.4.1) contract, deployed deterministically across non-EraVm chains.
+    bytes32 internal constant safeMigrationCodehash =
+        0xc00d7921460cd5a05393e7772e634bd7d212f356356aa3a77f0120a9b8e25e99;
+    // keccak256("fallback_manager.handler.address")
+    bytes32 internal constant fallbackSlot = 0x6c9a6c4a39284e37ed1cf53d337577d14212a4870fb976a4366c693b939918d5;
+
+    // Switch the upgrade Safe's singleton (and fallback handler) from Safe v1.3.0 to v1.4.1 by `DelegateCall`ing
+    // the `SafeMigration` contract. The migration contract is pinned by codehash and cross-checked to target
+    // exactly the configured v1.4.1 singleton/fallback handler, so a wrong/absent address can't mis-migrate.
+    function _migrateUpgradeSafe(
+        SafeCompatConfig memory safeCompatConfig,
+        address upgradeSafe,
+        address safeMigration,
+        address safeSingletonV141,
+        address safeFallbackV141,
+        bytes memory upgradeSignature
+    ) internal {
+        require(safeMigration.codehash == safeMigrationCodehash, "unexpected SafeMigration codehash");
+        require(
+            ISafeMigration(safeMigration).SAFE_L2_SINGLETON() == safeSingletonV141, "SafeMigration singleton mismatch"
+        );
+        require(
+            ISafeMigration(safeMigration).SAFE_FALLBACK_HANDLER() == safeFallbackV141, "SafeMigration fallback mismatch"
+        );
+
+        _execTransaction(
+            safeCompatConfig,
+            ISafeExecute(upgradeSafe),
+            safeMigration,
+            0,
+            abi.encodeCall(ISafeMigration.migrateL2WithFallbackHandler, ()),
+            ISafeExecute.Operation.DelegateCall,
+            0,
+            0,
+            0,
+            address(0),
+            address(0),
+            upgradeSignature
+        );
+
+        require(
+            address(uint160(uint256(vm.load(upgradeSafe, 0)))) == safeSingletonV141,
+            "upgrade safe not migrated to v1.4.1"
+        );
+        require(
+            address(uint160(uint256(vm.load(upgradeSafe, fallbackSlot)))) == safeFallbackV141,
+            "upgrade safe fallback not migrated to v1.4.1"
+        );
+    }
+
     function _execDelegateCall(
         SafeCompatConfig memory safeCompatConfig,
         address safe,
@@ -61,6 +117,10 @@ contract RedeploySettlers is SafeMultisend {
         address safeSingleton,
         address safeFallback,
         address safeMulticall,
+        address safeSingletonV141,
+        address safeFallbackV141,
+        address safeMigration,
+        bool migrateUpgradeSafe,
         Feature takerSubmittedFeature,
         Feature metaTxFeature,
         Feature intentFeature,
@@ -193,7 +253,7 @@ contract RedeploySettlers is SafeMultisend {
         bytes memory deploymentSignature = abi.encodePacked(uint256(uint160(moduleDeployer)), bytes32(0), uint8(1));
         bytes memory upgradeSignature = abi.encodePacked(uint256(uint160(proxyDeployer)), bytes32(0), uint8(1));
 
-        uint256[] memory gasSplits = new uint256[](11);
+        uint256[] memory gasSplits = new uint256[](migrateUpgradeSafe ? 12 : 11);
 
         _startBroadcast(safeCompatConfig, proxyDeployerKey, proxyDeployer);
 
@@ -222,16 +282,25 @@ contract RedeploySettlers is SafeMultisend {
         _execDelegateCall(safeCompatConfig, deploymentSafe, safeMulticall, solversTx, deploymentSignature);
 
         gasSplits[7] = gasleft();
-        _execDelegateCall(safeCompatConfig, deploymentSafe, safeMulticall, deploymentChangeOwnersTx, deploymentSignature);
+        _execDelegateCall(
+            safeCompatConfig, deploymentSafe, safeMulticall, deploymentChangeOwnersTx, deploymentSignature
+        );
 
         gasSplits[8] = gasleft();
         _stopBroadcast(safeCompatConfig);
 
-        // finally, hand the upgradeSafe back to its multisig
+        // finally, optionally migrate the upgradeSafe to Safe v1.4.1, then hand it back to its multisig
         _startBroadcast(safeCompatConfig, proxyDeployerKey, proxyDeployer);
-        gasSplits[9] = gasleft();
+        uint256 gasIdx = 9;
+        if (migrateUpgradeSafe) {
+            gasSplits[gasIdx++] = gasleft();
+            _migrateUpgradeSafe(
+                safeCompatConfig, upgradeSafe, safeMigration, safeSingletonV141, safeFallbackV141, upgradeSignature
+            );
+        }
+        gasSplits[gasIdx++] = gasleft();
         _execDelegateCall(safeCompatConfig, upgradeSafe, safeMulticall, upgradeChangeOwnersTx, upgradeSignature);
-        gasSplits[10] = gasleft();
+        gasSplits[gasIdx] = gasleft();
         _stopBroadcast(safeCompatConfig);
 
         _assertEip7825(gasSplits);

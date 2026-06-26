@@ -149,18 +149,58 @@ declare upgrade_safe
 upgrade_safe="$(get_config governance.upgradeSafe)"
 declare -r upgrade_safe
 
+# The existing Safes on an abandoned chain were deployed at Safe v1.3.0, so the script operates against the
+# v1.3.0 infra (codehash assertions + EraVm etching must match the pre-migration state).
 declare safe_factory
-safe_factory="$(get_config safe.factory)"
+safe_factory="$(get_config 'safe."v1.3.0".factory')"
 declare -r safe_factory
 declare safe_singleton
-safe_singleton="$(get_config safe.singleton)"
+safe_singleton="$(get_config 'safe."v1.3.0".singleton')"
 declare -r safe_singleton
 declare safe_fallback
-safe_fallback="$(get_config safe.fallback)"
+safe_fallback="$(get_config 'safe."v1.3.0".fallback')"
 declare -r safe_fallback
 declare safe_multicall
-safe_multicall="$(get_config safe.multiCall)"
+safe_multicall="$(get_config 'safe."v1.3.0".multiCall')"
 declare -r safe_multicall
+
+# v1.4.1 migration targets: the upgrade Safe is switched to the v1.4.1 singleton/fallback handler via a
+# `DelegateCall` to the canonical Safe `SafeMigration` contract (`safe."v1.4.1".migration`).
+declare safe_singleton_v141
+safe_singleton_v141="$(get_config 'safe."v1.4.1".singleton')"
+declare -r safe_singleton_v141
+declare safe_fallback_v141
+safe_fallback_v141="$(get_config 'safe."v1.4.1".fallback')"
+declare -r safe_fallback_v141
+declare safe_migration
+safe_migration="$(get_config 'safe."v1.4.1".migration')"
+if [[ $safe_migration == null ]] ; then
+    safe_migration=0x0000000000000000000000000000000000000000
+fi
+declare -r safe_migration
+
+# Slot 0 of a Safe proxy holds its singleton (master copy). Only migrate the upgrade Safe if it isn't
+# already on the v1.4.1 singleton; anything other than the known v1.3.0/v1.4.1 singletons is unexpected.
+declare current_upgrade_singleton
+current_upgrade_singleton="$(cast storage "$upgrade_safe" 0 --rpc-url "$rpc_url")"
+current_upgrade_singleton="0x${current_upgrade_singleton: -40}"
+declare migrate_upgrade_safe
+if [[ "${current_upgrade_singleton,,}" == "${safe_singleton_v141,,}" ]] ; then
+    migrate_upgrade_safe=false
+elif [[ "${current_upgrade_singleton,,}" == "${safe_singleton,,}" ]] ; then
+    migrate_upgrade_safe=true
+else
+    echo 'Upgrade Safe '"$upgrade_safe"' is on unexpected singleton '"$current_upgrade_singleton"' (expected v1.3.0 '"$safe_singleton"' or v1.4.1 '"$safe_singleton_v141"')' >&2
+    exit 1
+fi
+declare -r migrate_upgrade_safe
+
+# `SafeMigration` is not deployed deterministically on EraVm chains, so this script can't migrate there;
+# the upgrade Safe must already be on v1.4.1.
+if [[ $era_vm == [Tt]rue && $migrate_upgrade_safe == true ]] ; then
+    echo 'Upgrade Safe on EraVm chain '"$chain_name"' is still on Safe v1.3.0; migrate it to v1.4.1 manually before reviving' >&2
+    exit 1
+fi
 
 # set minimum gas price (mostly for Arbitrum and BNB)
 declare -i min_gas_price
@@ -200,11 +240,11 @@ function _run_redeploy_script {
         --rpc-url "$rpc_url"                                 \
         -vvvvv                                               \
         "$@"                                                 \
-        --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,uint128,uint128,uint128,uint128,string,bytes,address[])' \
+        --sig 'run(bool,address,address,address,address,address,address,address,address,address,address,address,address,address,bool,uint128,uint128,uint128,uint128,string,bytes,address[])' \
         $(get_config extraFlags)                             \
         $(get_config extraScriptFlags)                       \
         script/RedeploySettlers.s.sol:RedeploySettlers       \
-        "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" \
+        "$era_vm" "$module_deployer" "$proxy_deployer" "$ice_cold_coffee" "$deployer_proxy" "$deployment_safe" "$upgrade_safe" "$safe_factory" "$safe_singleton" "$safe_fallback" "$safe_multicall" "$safe_singleton_v141" "$safe_fallback_v141" "$safe_migration" "$migrate_upgrade_safe" \
         2 3 4 5 \
         "$chain_display_name" "$constructor_args" "$(IFS=, ; echo "[${solvers[*]}]")"
 }
