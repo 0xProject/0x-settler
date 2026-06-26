@@ -45,10 +45,22 @@ stray `sorry` introduces `sorryAx` and breaks this gate.
 #guard_msgs in
 #print axioms LnYul.run_ln_wad_to_ray_evm_zero_at_wad
 
+/-- info: 'LnYul.run_ln_wad_evm_zero_at_wad' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms LnYul.run_ln_wad_evm_zero_at_wad
+
 /-- info: 'LnYul.lnWadToRayRuntimeNegativeIff' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms LnYul.lnWadToRayRuntimeNegativeIff
 
+/-- info: 'LnYul.lnWadRuntimeNegativeIff' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms LnYul.lnWadRuntimeNegativeIff
+
 /-- info: 'LnYul.lnWadToRayRuntimeMono' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms LnYul.lnWadToRayRuntimeMono
+
+/-- info: 'LnYul.lnWadRuntimeMono' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms LnYul.lnWadRuntimeMono

@@ -179,14 +179,14 @@ theorem bodyMantissa_wad_plus :
 theorem lnTail_one_wad : lnTail (evmSub 160 196) 68719476736000000000000000000 = 0 := by
   decide
 
-/-- `lnWad(10**18) = 0` exactly (the branchless `eq` correction in the
+/-- `lnWadToRay(10**18) = 0` exactly (the branchless `eq` correction in the
 implementation lands the lone integer-valued point of the function). -/
 theorem lnWadToRayBody_one_wad : lnWadToRayBody (10 ^ 18) = 0 := by
   rw [show (10 : Nat) ^ 18 = 1000000000000000000 by decide]
   rw [lnWadToRayBody_eq_tail (by norm_num), bodyMantissa_wad, bodyClz_wad]
   exact lnTail_one_wad
 
-/-- `lnWadToWad(10**18) = 0` exactly. -/
+/-- `lnWad(10**18) = 0` exactly. -/
 theorem lnWadBody_one_wad : lnWadBody (10 ^ 18) = 0 := by
   unfold lnWadBody
   rw [lnWadToRayBody_one_wad]
@@ -264,7 +264,7 @@ theorem lnWadToRayBody_seam_mono : seamMono lnWadToRayBody = true := by
   exact lnWadToRayBody_seam_at (t := t + 1) (by omega)
     (by exact Nat.succ_le_of_lt (List.mem_range.mp ht))
 
-/-- `lnWadToWad` is monotone across every clz seam. -/
+/-- `lnWad` is monotone across every clz seam. -/
 theorem lnWadBody_seam_mono : seamMono lnWadBody = true := by
   rw [seamMono, List.all_eq_true]
   intro t ht

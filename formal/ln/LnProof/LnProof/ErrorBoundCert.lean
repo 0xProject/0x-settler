@@ -19,7 +19,7 @@ def lnErrorCoarseGePosResidue : Nat := 0
 def lnErrorCoarsePosResidue : Nat := 0
 def lnErrorDirectResidueGap : Nat := 336460000000000000
 
-/-- `e^((0.703500000)·10^-27) ≥ 1 + 6885·10^-31`. -/
+/-- `e^((0.698600000)·10^-27) ≥ 1 + 6986·10^-31`. -/
 theorem capEFracL :
     capLB (lnErrorExtraNum * 2 ^ 99) (QS * lnErrorBoundDen)
       (10 ^ 31 + lnErrorExtraCap) (10 ^ 31) :=
