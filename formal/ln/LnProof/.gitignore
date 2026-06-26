@@ -5,20 +5,6 @@
 /LnProof/LnYulRuntime.lean
 /LnProof/LnYulProof.lean
 
-# Lean-generated floor certificate literals and cell covers.
-/LnProof/FloorCertLit.lean
-/LnProof/FloorCertGeUpC*.lean
-/LnProof/FloorCertLtUpC*.lean
-/LnProof/FloorCertGeLoC*.lean
-/LnProof/FloorCertLtLoC*.lean
-
-# Lean-generated error-bound certificate literals and cell covers.
-/LnProof/ErrCertLtLit.lean
-/LnProof/ErrCertGeLit.lean
-/LnProof/ErrCertLt.lean
-/LnProof/ErrCertGe.lean
-/LnProof/ErrCertLtC*.lean
-/LnProof/ErrCertGeC*.lean
-
-# Lean-generated bias cap numerator.
-/LnProof/BiasCapNum.lean
+# Lean-generated certificate literals and cell covers — the whole Cert/ tree is
+# machine output (floor + error-bound literals, cell covers, bias cap numerator).
+/LnProof/Cert/

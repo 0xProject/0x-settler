@@ -1,9 +1,4 @@
 -- This module serves as the root of the `LnProof` library.
--- Import modules here that should be built as part of the library.
-import LnProof.LnYulCorrect
-import LnProof.LnYulBody
-import LnProof.TopMono
-import LnProof.FloorSpec
-import LnProof.ExpLogCutSpec
-import LnProof.ErrorBound
-import LnProof.AxiomCheck
+-- `Theorems` is the signpost: it states every proven property of the compiled
+-- runtime and runs the axiom gate, transitively importing the whole proof.
+import LnProof.Theorems

@@ -1,5 +1,5 @@
-import LnProof.FloorCertLit
-import LnProof.KroneckerShift
+import LnProof.Cert.FloorCertLit
+import LnProof.Foundation.KroneckerShift
 
 /-!
 # Cover generator
@@ -11,7 +11,7 @@ covers are guaranteed `decide`-acceptable.  Writes one `…C<NN>.lean` cell file
 per sub-cell and prints the `_nonneg` ladder and import block for the cover
 module.
 
-Run with `lake env lean GenCover.lean` (after `lake build LnProof.FloorCertLit`).
+Run with `lake env lean GenCover.lean` (after `lake build LnProof.Cert.FloorCertLit`).
 -/
 
 open LnPoly LnFloorCert
@@ -57,12 +57,12 @@ def emit (nm litName symName evalEqName modPrefix cellPrefix nonnegName : String
     let (a, w) := aw
     let nn := pad2 i
     let body :=
-      s!"import LnProof.FloorCertLit\nimport LnProof.KroneckerShift\n\nnamespace LnFloorCert\nopen LnPoly\n\nset_option maxRecDepth 100000\n\ntheorem {cellPrefix}{nn} : checkCoverK kB {litName} {a} {a + w}\n    [{w}] = true := by\n  decide +kernel\n\nend LnFloorCert\n"
-    IO.FS.writeFile s!"LnProof/{modPrefix}{nn}.lean" body
+      s!"import LnProof.Cert.FloorCertLit\nimport LnProof.Foundation.KroneckerShift\n\nnamespace LnFloorCert\nopen LnPoly\n\nset_option maxRecDepth 100000\n\ntheorem {cellPrefix}{nn} : checkCoverK kB {litName} {a} {a + w}\n    [{w}] = true := by\n  decide +kernel\n\nend LnFloorCert\n"
+    IO.FS.writeFile s!"LnProof/Cert/{modPrefix}{nn}.lean" body
   -- ladder + imports
   let mut imps := ""
   for (_, i) in cells.zipIdx do
-    imps := imps ++ s!"import LnProof.{modPrefix}{pad2 i}\n"
+    imps := imps ++ s!"import LnProof.Cert.{modPrefix}{pad2 i}\n"
   IO.println "==== IMPORTS ===="
   IO.println imps
   IO.println "==== LADDER ===="
