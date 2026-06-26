@@ -41,6 +41,11 @@ jobs:
           MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
           BNB_MAINNET_RPC_URL: ${{ secrets.BNB_MAINNET_RPC_URL }}
 
+      - name: Run RedeploySettlers migration test
+        run: forge test --skip 'src/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.28/*' --mp test/0.8.25/RedeploySettlersMigration.t.sol
+        env:
+          MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+
       - name: Run EulerSwap math tests
         run: forge test --skip 'src/*' --skip 'script/*' --skip 'test/unit/*' --skip 'test/integration/*' --skip 'test/0.8.25/*' --mp test/0.8.28/EulerSwapBUSL.t.sol
 
