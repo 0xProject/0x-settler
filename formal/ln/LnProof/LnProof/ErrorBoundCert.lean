@@ -1,6 +1,6 @@
 import LnProof.FloorAssembly
 
-/-! Certificate constants for the `lnWadToRay` 1.699000000 ulp upper error
+/-! Certificate constants for the `lnWadToRay` 1.698600000 ulp upper error
 bound; the theorems below are checked by Lean's kernel. -/
 
 namespace LnFloorCert
