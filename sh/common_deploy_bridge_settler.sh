@@ -15,8 +15,7 @@ bridge_settler_artifact="$project_root"/out/"$chain_display_name"BridgeSettlerFl
 declare -r bridge_settler_artifact
 
 if [ ! -f "$bridge_settler_artifact" ] ; then
-    echo 'Cannot find '"$chain_display_name"'BridgeSettler.json' >&2
-    exit 1
+    die 'Cannot find '"$chain_display_name"'BridgeSettler.json'
 fi
 
 if [[ -z "${constructor_args-}" ]] ; then
@@ -24,8 +23,7 @@ if [[ -z "${constructor_args-}" ]] ; then
     constructor_args="$(cast abi-encode 'constructor(bytes20)' 0x"$(git rev-parse HEAD)")"
     declare -r constructor_args
 elif [[ "$constructor_args" != "$(cast abi-encode 'constructor(bytes20)' 0x"$(git rev-parse HEAD)")" ]] ; then
-    echo 'Malformed constructor arguments' >&2
-    exit 1
+    die 'Malformed constructor arguments'
 fi
 
 declare bridge_settler_initcode

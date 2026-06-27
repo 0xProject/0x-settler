@@ -33,8 +33,7 @@ intent_artifact="$project_root"/out/"$chain_display_name"IntentFlat.sol/"$chain_
 declare -r intent_artifact
 
 if [ ! -f "$taker_artifact" ] || [ ! -f "$metatx_artifact" ] || [ ! -f "$intent_artifact" ] ; then
-    echo 'Cannot find '"$chain_display_name"'Settler.json' >&2
-    exit 1
+    die 'Cannot find '"$chain_display_name"'Settler.json'
 fi
 
 declare constructor_args
@@ -70,8 +69,7 @@ declare -r deploy_intent_calldata
 declare next_intent_settler_address
 if [[ -z "${deployer_address-}" ]] ; then
     if [[ $(get_config hardfork.shanghai) != [Tt]rue ]] ; then
-        echo 'NO NEW LONDON CHAINS!!!' >&2
-        exit 1
+        die 'NO NEW LONDON CHAINS!!!'
     fi
     next_intent_settler_address="$(cast keccak "$(cast concat-hex 0xff 0x00000000000004533Fe15556B1E086BB1A72cEae "$(cast to-uint256 "$(bc <<<'obase=16;4*2^128+'"$chainid"'*2^64+1')")" 0x3bf3f97f0be1e2c00023033eefeb4fc062ac552ff36778b17060d90b6764902f)")"
     next_intent_settler_address="${next_intent_settler_address:26:40}"

@@ -122,14 +122,8 @@ cd "$project_root"
 . "$project_root"/sh/common.sh
 
 if (( $# != 0 )) ; then
-    echo 'Unexpected extra arguments' >&2
-    exit 1
+    die 'Unexpected extra arguments'
 fi
-
-function die {
-    echo "$1" >&2
-    exit 1
-}
 
 function ensure_hex {
     declare _ensure_hex_value="$1"
@@ -588,8 +582,7 @@ function start_anvil_fork {
 
 function start_anvil_zksync_fork {
     if ! hash anvil-zksync &>/dev/null ; then
-        echo 'anvil-zksync is not installed' >&2
-        exit 1
+        die 'anvil-zksync is not installed'
     fi
 
     declare -r _start_anvil_zksync_protocol_version="${ANVIL_ZKSYNC_PROTOCOL_VERSION:-29}"
@@ -801,8 +794,7 @@ function dry_run_eravm_deployment {
 
 if [[ $era_vm = [Ff]alse ]] ; then
     if ! hash anvil &>/dev/null ; then
-        echo 'anvil is not installed' >&2
-        exit 1
+        die 'anvil is not installed'
     fi
     dry_run_evm_deployment
 else

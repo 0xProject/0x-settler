@@ -8,7 +8,7 @@ else
     select wallet_type in ledger trezor hot frame ; do break ; done
 
     if [[ ${wallet_type:-unset} = 'unset' ]] ; then
-        exit 1
+        die
     fi
 
     echo "$wallet_type" >"$saved_wallet_type"
@@ -31,8 +31,7 @@ case $wallet_type in
         wallet_args=(--unlocked)
         ;;
     *)
-        echo 'Unrecognized wallet type: '"$wallet_type" >&2
-        exit 1
+        die 'Unrecognized wallet type: '"$wallet_type"
         ;;
 esac
 

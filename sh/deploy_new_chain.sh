@@ -119,24 +119,21 @@ project_root="$(_directory "$(_directory "$(realpath "${BASH_SOURCE[0]}")")")"
 declare -r project_root
 cd "$project_root"
 
+. "$project_root"/sh/common.sh
+
 if [[ ! -f "$project_root"/sh/initial_description_taker.md ]] ; then
-    echo 'sh/initial_description_taker.md is missing' >&2
-    exit 1
+    die 'sh/initial_description_taker.md is missing'
 fi
 if [[ ! -f "$project_root"/sh/initial_description_metatx.md ]] ; then
-    echo 'sh/initial_description_metatx.md is missing' >&2
-    exit 1
+    die 'sh/initial_description_metatx.md is missing'
 fi
 if [[ ! -f "$project_root"/sh/initial_description_bridge_settler.md ]] ; then
-    echo 'sh/initial_description_bridge_settler.md is missing' >&2
-    exit 1
+    die 'sh/initial_description_bridge_settler.md is missing'
 fi
 if [[ ! -f "$project_root"/sh/initial_description_crosschain_intent.md ]] ; then
-    echo 'sh/initial_description_crosschain_intent.md is missing' >&2
-    exit 1
+    die 'sh/initial_description_crosschain_intent.md is missing'
 fi
 
-. "$project_root"/sh/common.sh
 . "$project_root"/sh/common_secrets.sh
 
 decrypt_secrets
@@ -311,12 +308,10 @@ declare -r -a maybe_broadcast
 
 if [[ ${BROADCAST-no} = [Yy]es ]] ; then
     if (( $(cast balance --rpc-url "$rpc_url" "$module_deployer") == 0 )) ; then
-        echo 'You forgot to send ETH to '"$module_deployer"'.' >&2
-        exit 1
+        die 'You forgot to send ETH to '"$module_deployer"'.'
     fi
     if (( $(cast balance --rpc-url "$rpc_url" "$proxy_deployer") == 0 )) ; then
-        echo 'You forgot to send ETH to '"$proxy_deployer"'.' >&2
-        exit 1
+        die 'You forgot to send ETH to '"$proxy_deployer"'.'
     fi
 fi
 

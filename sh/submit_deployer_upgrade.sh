@@ -133,9 +133,8 @@ declare -r safe_address
 . "$project_root"/sh/common_safe_deployer.sh
 
 if [[ $safe_url != 'NOT SUPPORTED' ]] ; then
-    echo 'Just use the safe dApp' >&2
-    echo 'Why are you running this script?' >&2
-    exit 1
+    die 'Just use the safe dApp' \
+        'Why are you running this script?'
 fi
 
 declare new_implementation

@@ -33,13 +33,11 @@ function apply_gas_multiplier {
         # Tempo increases state access costs _AND_ transaction gas limit
         if (( chainid == 4217 )) ; then
             if (( _gas_estimate > tempo_gas_limit )) ; then
-                echo 'Gas estimate without buffer /already/ exceeds the Tempo gas limit' >&2
-                exit 1
+                die 'Gas estimate without buffer /already/ exceeds the Tempo gas limit'
             fi
         # Mantle has funky gas rules, exclude it from this logic. EraVm chains similarly price in ergs, not gas.
         elif (( chainid != 5000 )) && [[ $era_vm != [Tt]rue ]] ; then
-            echo 'Gas estimate without buffer /already/ exceeds the EIP-7825 limit' >&2
-            exit 1
+            die 'Gas estimate without buffer /already/ exceeds the EIP-7825 limit'
         fi
     fi
 
@@ -52,9 +50,7 @@ function apply_gas_multiplier {
                 IFS='' read -p 'Gas limit with multiplier exceeds Tempo gas limit. Cap gas limit and keep going? [y/N]: ' -e -r -i n _gas_limit_keep_going
                 declare -r _gas_limit_keep_going
                 if [[ "${_gas_limit_keep_going:-n}" != [Yy] ]] ; then
-                    echo >&2
-                    echo 'Exiting as requested' >&2
-                    exit 1
+                    die '' 'Exiting as requested'
                 fi
                 _gas_limit=$tempo_gas_limit
             fi
@@ -63,9 +59,7 @@ function apply_gas_multiplier {
             IFS='' read -p 'Gas limit with multiplier exceeds EIP-7825 limit. Cap gas limit and keep going? [y/N]: ' -e -r -i n _gas_limit_keep_going
             declare -r _gas_limit_keep_going
             if [[ "${_gas_limit_keep_going:-n}" != [Yy] ]] ; then
-                echo >&2
-                echo 'Exiting as requested' >&2
-                exit 1
+                die '' 'Exiting as requested'
             fi
             _gas_limit=$eip7825_gas_limit
         fi
