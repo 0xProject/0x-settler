@@ -152,8 +152,7 @@ multicall="$(get_config safe.multiCall)"
 declare -r multicall
 
 if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" "$deployer")") != "$deployer_hash" ]] ; then
-    echo 'Deterministic deployer does not exist; cannot proceed' >&2
-    exit 1
+    die 'Deterministic deployer does not exist; cannot proceed'
 fi
 
 if [[ $(cast keccak "$(cast code --rpc-url "$rpc_url" "$singleton")") != "$singleton_hash" ]] ; then
