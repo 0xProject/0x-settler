@@ -5,23 +5,7 @@ fi
 declare flat_bridge_settler_source
 flat_bridge_settler_source="$project_root"/src/flat/"$chain_display_name"BridgeSettlerFlat.sol
 declare -r flat_bridge_settler_source
-
-if [[ "${bridge_settler_skip_clean-no}" == [Yy]es ]] ; then
-    declare swap_settler_trap
-    swap_settler_trap="$(trap -p EXIT)"
-
-    if [[ $swap_settler_trap != "trap -- 'trap - EXIT; set +e; "* ]] || [[ $swap_settler_trap != *"' EXIT" ]] ; then
-        echo '`trap EXIT` cleanup malformed; cannot add a new cleanup' >&2
-        exit 1
-    fi
-    swap_settler_trap="${swap_settler_trap%\' EXIT}"
-    swap_settler_trap="${swap_settler_trap#trap -- \'trap - EXIT; set +e; }"
-    trap 'trap - EXIT; set +e; '"$swap_settler_trap"'; rm -f '"$(_escape "$flat_bridge_settler_source")" EXIT
-
-    unset -v swap_settler_trap
-else
-    trap 'trap - EXIT; set +e; rm -f '"$(_escape "$flat_bridge_settler_source")" EXIT
-fi
+register_exit_cleanup 'rm -f '"$(_escape "$flat_bridge_settler_source")"
 
 forge flatten -o "$flat_bridge_settler_source" src/chains/"$chain_display_name"/BridgeSettler.sol >/dev/null
 FOUNDRY_SOLC_VERSION=0.8.34 forge build "$flat_bridge_settler_source"

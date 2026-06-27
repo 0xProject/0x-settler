@@ -1,17 +1,83 @@
 . "$project_root"/sh/common_bash_version_check.sh
 
+function register_exit_cleanup {
+    declare -r _register_exit_cleanup="$1"
+    declare _register_exit_trap
+    _register_exit_trap="$(trap -p EXIT)"
+
+    if [[ -z $_register_exit_trap ]] || [[ $_register_exit_trap = 'trap -- - EXIT' ]] ; then
+        trap 'trap - EXIT; set +e; '"$_register_exit_cleanup" EXIT
+        return
+    fi
+
+    if [[ $_register_exit_trap != "trap -- 'trap - EXIT; set +e; "* ]] || [[ $_register_exit_trap != *"' EXIT" ]] ; then
+        echo '`trap EXIT` cleanup malformed; cannot add a new cleanup' >&2
+        exit 1
+    fi
+    _register_exit_trap="${_register_exit_trap%\' EXIT}"
+    _register_exit_trap="${_register_exit_trap#trap -- \'trap - EXIT; set +e; }"
+    trap 'trap - EXIT; set +e; '"$_register_exit_cleanup"'; '"$_register_exit_trap" EXIT
+}
+
 if ! hash forge &>/dev/null ; then
     echo 'foundry is not installed' >&2
     exit 1
 fi
 
-if [[ $(forge --version) != *b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2* ]] ; then
-    echo 'Wrong foundry version installed' >&2
-    echo 'Run `foundryup -i v1.5.1`' >&2
-    echo 'This doesn'"'"'t work on old versions of `foundryup`' >&2
-    echo 'You have to `curl -L https://foundry.paradigm.xyz | bash` to update `foundryup`' >&2
+if ! hash cast &>/dev/null ; then
+    echo 'cast is not installed' >&2
     exit 1
 fi
+
+declare foundry_version
+foundry_version="$(forge --version)"
+declare -r foundry_version
+
+declare cast_version
+cast_version="$(cast --version)"
+declare -r cast_version
+
+declare foundry_flavor
+if [[ $foundry_version == *foundry-zksync* ]] ; then
+    foundry_flavor=zkfoundry
+else
+    foundry_flavor=vanilla
+fi
+declare -r foundry_flavor
+
+declare cast_flavor
+if [[ $cast_version == *foundry-zksync* ]] ; then
+    cast_flavor=zkfoundry
+else
+    cast_flavor=vanilla
+fi
+declare -r cast_flavor
+
+if [[ $cast_flavor != "$foundry_flavor" ]] ; then
+    echo '`forge` and `cast` are from different Foundry toolchains' >&2
+    echo 'forge: '"$foundry_version" >&2
+    echo 'cast:  '"$cast_version" >&2
+    exit 1
+fi
+
+function require_vanilla_foundry {
+    if [[ $foundry_flavor != vanilla ]] ; then
+        echo 'This operation requires vanilla Foundry, but `forge` is the zkFoundry fork' >&2
+        exit 1
+    fi
+}
+
+function require_zk_foundry {
+    if [[ $era_vm != [Tt]rue ]] ; then
+        echo 'This operation requested zkFoundry on a non-EraVM chain' >&2
+        exit 1
+    fi
+    if [[ $foundry_flavor != zkfoundry ]] ; then
+        echo 'This operation requires the zkFoundry fork for EraVM bytecode' >&2
+        echo 'Install it with `foundryup-zksync --install 0.1.9` and make sure it is first in PATH' >&2
+        exit 1
+    fi
+}
 
 if ! hash curl &>/dev/null ; then
     echo 'curl is not installed' >&2
@@ -78,6 +144,38 @@ fi
 declare era_vm
 era_vm="$(get_config hardfork.eraVm)"
 declare -r era_vm
+
+if [[ $foundry_flavor = zkfoundry ]] && [[ $era_vm = [Ff]alse ]] ; then
+    echo 'zkFoundry must not be used on non-EraVM chains' >&2
+    echo 'Run this script with vanilla Foundry v1.5.1 first in PATH' >&2
+    exit 1
+fi
+
+if [[ $foundry_flavor = vanilla ]] ; then
+    if [[ $foundry_version != *b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2* ]] ; then
+        echo 'Wrong vanilla Foundry version installed' >&2
+        echo 'Run `foundryup -i v1.5.1`' >&2
+        echo 'This doesn'"'"'t work on old versions of `foundryup`' >&2
+        echo 'You have to `curl -L https://foundry.paradigm.xyz | bash` to update `foundryup`' >&2
+        exit 1
+    fi
+    if [[ $cast_version != *b0a9dd9ceda36f63e2326ce530c10e6916f4b8a2* ]] ; then
+        echo 'Wrong vanilla cast version installed' >&2
+        echo 'Run `foundryup -i v1.5.1`' >&2
+        exit 1
+    fi
+else
+    if [[ $foundry_version != *foundry-zksync-v0.1.9* ]] ; then
+        echo 'Wrong zkFoundry version installed' >&2
+        echo 'Run `foundryup-zksync --install 0.1.9`' >&2
+        exit 1
+    fi
+    if [[ $cast_version != *foundry-zksync-v0.1.9* ]] ; then
+        echo 'Wrong zkFoundry cast version installed' >&2
+        echo 'Run `foundryup-zksync --install 0.1.9`' >&2
+        exit 1
+    fi
+fi
 
 if [[ $era_vm != [Ff]alse ]] ; then
     if (( $(get_config gasMultiplierPercent) < 500 )) ; then
