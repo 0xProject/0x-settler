@@ -139,6 +139,7 @@ Chain-specific functionality is composed via mixins. When adding a new DEX:
 | Precede every assembly block with: brief justification + equivalent Solidity pseudocode | Documents intent for reviewers |
 | Mark assembly blocks `memory-safe` when criteria are met | Enables compiler optimizations |
 | Use hex for all numeric constants in assembly (e.g. `0x60` not `96`, `0x20` not `32`) | Codebase convention; keeps assembly style uniform |
+| Put literal operands on the left of commutative ops (`add`, `mul`, `and`, `or`, `xor`, `eq`); when only one variant is commutative, use the operand-flipped opcode to keep the literal left (e.g. `slt(C, x)` for `x > C`, `gt(C, x)` for `x < C`) | A leading literal is `PUSH`ed last, so the variable stays on top of the stack; this avoids `SWAP`/`DUP` shuffling during `via_ir` codegen and saves contract size |
 
 ### Gas Optimization
 
@@ -453,6 +454,13 @@ non-idiomatic structure in order to achieve its goal.
 - Modify the `_dispatch` copy/paste pattern without updating all locations
 - Create standalone test files; use the project's test infrastructure
 - Use the `-f` or the `--force` flag to _**ANY**_ tool or utility, _EVER_.
+- Use `pkill` or `killall`. To stop a specific background process, target it by its
+  PID (e.g. `kill "$pid"`); never match processes by name or pattern.
+- Write a Yul `switch` of the form `switch <cond> case 1 { … } default { … }`. When
+  switching on a boolean, put the zero arm first: `switch <cond> case 0 { … } default
+  { … }`, so the `default` arm handles the truthy case (any nonzero), matching EVM
+  truthiness. Prefer a branchless select or an `if` over a two-arm boolean `switch`
+  where it reads more clearly.
 
 ### ALWAYS
 
