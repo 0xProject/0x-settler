@@ -1,0 +1,10 @@
+/.lake/
+/actual_axioms.txt
+
+# EVMYulLean artifacts generated from compiled ExpWrapper Yul IR.
+/ExpProof/ExpYulRuntime.lean
+/ExpProof/ExpYulProof.lean
+
+# Lean-generated certificate literals and cell covers — machine output.
+/ExpProof/Cert/*
+!/ExpProof/Cert/.gitkeep

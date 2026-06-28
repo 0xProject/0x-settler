@@ -1,0 +1,11 @@
+name = "ExpProof"
+version = "0.1.0"
+defaultTargets = ["ExpProof"]
+packagesDir = "../../yul/.lake/packages"
+
+[[lean_lib]]
+name = "ExpProof"
+
+[[require]]
+name = "FormalYul"
+path = "../../yul"

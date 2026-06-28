@@ -21,6 +21,7 @@ case "$kind" in
   cbrt)    expected="29f2f4f1 56df2b56" ;;
   cbrt512) expected="7c0352fc a83a5c08" ;;
   ln)      expected="31d42abd ef102248" ;;
+  exp)     expected="4187462b" ;;
   *) echo "unknown kind: $kind" >&2; exit 2 ;;
 esac
 

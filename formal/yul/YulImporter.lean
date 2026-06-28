@@ -12,6 +12,7 @@ inductive ModelKind where
   | cbrt
   | cbrt512
   | ln
+  | exp
   deriving DecidableEq, Repr
 
 namespace ModelKind
@@ -22,6 +23,7 @@ def parse : String → Option ModelKind
   | "cbrt" => some .cbrt
   | "cbrt512" => some .cbrt512
   | "ln" => some .ln
+  | "exp" => some .exp
   | _ => none
 
 def namespaceName : ModelKind → String
@@ -30,6 +32,7 @@ def namespaceName : ModelKind → String
   | .cbrt => "CbrtYul"
   | .cbrt512 => "Cbrt512Yul"
   | .ln => "LnYul"
+  | .exp => "ExpYul"
 
 def selectorCases : ModelKind → List String
   | .sqrt => ["0x5b29048a", "0x65c9cba1"]
@@ -37,6 +40,7 @@ def selectorCases : ModelKind → List String
   | .cbrt => ["0x56df2b56", "0x29f2f4f1"]
   | .cbrt512 => ["0xa83a5c08", "0x7c0352fc"]
   | .ln => ["0xef102248", "0x31d42abd"]
+  | .exp => ["0x4187462b"]
 
 def functionPrefixes : ModelKind → List String
   | .sqrt =>
@@ -62,6 +66,9 @@ def functionPrefixes : ModelKind → List String
   | .ln =>
       ["external_fun_wrap_lnWad_", "external_fun_wrap_lnWadToRay_",
        "fun_wrap_lnWad_", "fun_wrap_lnWadToRay_", "fun_lnWad_", "fun_lnWadToRay_"]
+  | .exp =>
+      ["external_fun_wrap_expRayToWad_",
+       "fun_wrap_expRayToWad_", "fun_expRayToWad_", "fun__expRayToWad_"]
 
 def requiredCalls : ModelKind → List String
   | .sqrt => ["clz"]
@@ -69,6 +76,7 @@ def requiredCalls : ModelKind → List String
   | .cbrt => ["clz"]
   | .cbrt512 => ["clz", "mulmod"]
   | .ln => ["clz", "sdiv"]
+  | .exp => ["sdiv"]
 
 end ModelKind
 
@@ -491,12 +499,22 @@ def run_ln_wad_evm (x : Nat) : Except String Nat :=
   FormalYul.callWord yulContract selector_lnWad [x]
 "
 
+def runHelpersExp (contractDef : String) : String :=
+contractDef ++ "
+def selector_expRayToWad : ByteArray :=
+  FormalYul.bytes [0x41, 0x87, 0x46, 0x2b]
+
+def run_exp_ray_to_wad_evm (x : Nat) : Except String Nat :=
+  FormalYul.callWord yulContract selector_expRayToWad [x]
+"
+
 def runHelpers : ModelKind → String → String
   | .sqrt => runHelpersSqrt
   | .sqrt512 => runHelpersSqrt512
   | .cbrt => runHelpersCbrt
   | .cbrt512 => runHelpersCbrt512
   | .ln => runHelpersLn
+  | .exp => runHelpersExp
 
 def dropLeanExtension (path : String) : String :=
   if path.endsWith ".lean" then path.dropRight ".lean".length else path
@@ -699,6 +717,13 @@ def generatedAliases (kind : ModelKind) (functions : List FunctionSource) :
         aliasByPrefix functions "fun_wrap_lnWadToRay" "fun_wrap_lnWadToRay_",
         aliasByPrefix functions "fun_lnWad" "fun_lnWad_",
         aliasByPrefix functions "fun_lnWadToRay" "fun_lnWadToRay_"
+      ]
+  | .exp =>
+      sequence [
+        aliasByPrefix functions "external_fun_wrap_expRayToWad" "external_fun_wrap_expRayToWad_",
+        aliasByPrefix functions "fun_wrap_expRayToWad" "fun_wrap_expRayToWad_",
+        aliasByPrefix functions "fun_expRayToWad" "fun_expRayToWad_",
+        aliasByPrefix functions "fun__expRayToWad" "fun__expRayToWad_"
       ]
 
 def renderProof (kind : ModelKind) (contract : ParsedContract) (output : String) : Except String String := do
