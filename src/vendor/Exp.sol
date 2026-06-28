@@ -43,7 +43,7 @@ library Exp {
     ///      Mixed fixed-point bases (a staircase): every quantity is rounded exactly once, and each
     ///      coefficient takes the widest basis fitting its minimal byte width, so a coefficient
     ///      followed by j more multiplies by v tolerates a shorter basis.
-    ///          t:      Q128 (one sdiv-free reduction; |t| ≤ ln2/2)
+    ///          t:      Q128 (one `sar` from the Q235 reduction K27⋅x - k⋅LN2; |t| ≤ ln2/2)
     ///          v = t²: Q128 (one `shr` by 128 from the Q256 product)
     ///          Ev Horner up the staircase Q99 → Q97 → Q97 → Q91 → Q87 (monic leading stage at Q99)
     ///          Od Horner up the staircase Q105 → Q102 → Q93 → Q94 → Q87
@@ -53,32 +53,28 @@ library Exp {
     ///              `sar(126 - k, …)` is the single output-rounding floor, with 2ᵏ folded in
     ///
     ///      Error budget in output ulp (1 ulp = 10⁻¹⁸ of the result). Writing the margin-free
-    ///      accumulator's excess over E as RAW = 10¹⁸⋅e⋅2ᵏ - E, the terms grow with the octave — the
-    ///      reduction bias as k⋅2ᵏ, the rational and `sdiv` terms as 2ᵏ — so RAW peaks at the
-    ///      supported edge k = 63. Bounding each source there:
-    ///          reduction:  ⌊ln2⋅2¹²⁸⌋ is rounded down, so k⋅ln2 is under-subtracted; the reduced
-    ///              argument's positive bias lifts the accumulator by ≤ 0.6127005744787467880 ulp.
-    ///          real-coefficient rational approximation + coefficient quantization (smooth) and the
-    ///              integer Horner + closing `sdiv` truncation (a one-sided envelope, the Horner
-    ///              error cancelling at the leading order because Ev appears in both Ev ± t⋅Od):
-    ///              together ≤ 0.0849 ulp at the edge.
-    ///      Hence RAW ≤ S, with the proven bound S = 0.6976014718030033189 ulp. The margin is the
-    ///      least integer that covers S once placed in the Q126 grid: 0x594b01498486da8f = ⌈2⁶³⋅S⌉
-    ///      (worth ⌈2⁶³⋅S⌉⋅2⁻⁶³ ≈ S ulp at k = 63). So 10¹⁸⋅e⋅2ᵏ - margin ≤ E (never overestimates), and because
-    ///      RAW ≥ +0.0005121490606 there (the reduction bias keeps the accumulator above E), the
-    ///      floor falls short by E - A ≤ 0.6970893227 < 1 — always ⌊E⌋ or ⌊E⌋ - 1. (No smaller
-    ///      margin is provable; the largest demonstrably necessary is 0x513aec9797940001, the true
-    ///      minimum lying between.) At k = 64 the margin exceeds one ulp and the floor can fall two
-    ///      below E, so that input is reverted. On the central octave k = 0 the margin is
-    ///      ⌈2⁶³⋅S⌉⋅2⁻¹²⁶ ≈ 7.56⋅10⁻²⁰ ulp and the downward total stays far below the ≈10⁻⁹ ulp gap
-    ///      `lnWadToRay` leaves, so the round trip floors to ⌊E⌋. `round(x/(10²⁷⋅ln2))` is half-open,
-    ///      so the k = 0 band is exactly [-H, H) with H = ⌊10²⁷⋅ln2/2⌋, matching `lnWadToRay`'s image
-    ///      over [1/√2, √2).
+    ///      accumulator's excess over E as RAW = 10¹⁸⋅e⋅2ᵏ - E, the rational and `sdiv` terms grow
+    ///      as 2ᵏ, so RAW peaks at the supported edge k = 63. Bounding each source there:
+    ///          reduction:  ln2 is carried at Q235, so the under-subtraction of k⋅ln2 lifts the
+    ///              accumulator by ≤ 2.32⋅10⁻⁶ ulp (negligible).
+    ///          real-coefficient rational approximation + coefficient quantization (smooth), and the
+    ///              integer Horner + closing `sdiv` truncation: a one-sided envelope. The Ev shared
+    ///              by the numerator Ev + t⋅Od and denominator Ev - t⋅Od cancels at leading order, so
+    ///              its truncation barely perturbs the quotient; together these stay ≤ 0.0859 ulp.
+    ///      Hence RAW ≤ S, with the proven bound S = 0.0858862987232991853 ulp. The margin is the
+    ///      least integer that covers S once placed in the Q126 grid: 0xafe527e18748a8a = ⌈2⁶³⋅S⌉
+    ///      (worth ≈ S ulp at k = 63). So 10¹⁸⋅e⋅2ᵏ - margin ≤ E (never overestimates), and
+    ///      E - A ≤ margin - min RAW ≤ 0.6057 < 1, so the floor is ⌊E⌋ or ⌊E⌋ - 1. At k = 64 the
+    ///      margin exceeds one ulp and the floor can fall two below E, so that input is reverted. On
+    ///      the central octave k = 0 the margin is ⌈2⁶³⋅S⌉⋅2⁻¹²⁶ ≈ 9.3⋅10⁻²¹ ulp, far below the
+    ///      ≈10⁻⁹ ulp gap `lnWadToRay` leaves, so the round trip floors to ⌊E⌋. `round(x/(10²⁷⋅ln2))`
+    ///      is half-open, so the k = 0 band is exactly [-H, H) with H = ⌊10²⁷⋅ln2/2⌋, matching
+    ///      `lnWadToRay`'s image over [1/√2, √2).
     ///
     ///      Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, a relative
-    ///      gain that exceeds the entire error span above (≤ S ≈ 7⋅10⁻³⁸ relative at k = 63, and
+    ///      gain that exceeds the entire error span above (≤ S ≈ 7⋅10⁻³⁹ relative at k = 63, and
     ///      ∝ 2ᵏ below it) and its per-step variation — including the margin's doubling at each
-    ///      octave boundary (≤ ⌈2⁶³⋅S⌉⋅2ᵏ⁻¹²⁶ ≈ 7⋅10⁻³⁸ relative) — by more than nine orders of
+    ///      octave boundary (≤ ⌈2⁶³⋅S⌉⋅2ᵏ⁻¹²⁶ ≈ 7⋅10⁻³⁹ relative) — by more than nine orders of
     ///      magnitude, so the pre-floor accumulator strictly increases at every step and its floor
     ///      is non-decreasing. The zeroing clamp and the +1 pin preserve order: below C the result
     ///      is 0 while just above it ⌊E⌋ ≥ 0, and at x = 0 the exact-on-central neighbours bracket
@@ -89,12 +85,17 @@ library Exp {
             // and `sar(200, …)` round to nearest with ties resolved toward +∞.
             let k := sar(0xc8, add(shl(0xc7, 0x01), mul(0x724d54edbacbebbb95c52a0f6076, x)))
 
-            // t in Q128. K27 = round(2²³⁵ / 10²⁷) places x/10²⁷ at Q128 after `sar(107, …)`;
-            // subtracting k ⋅ ⌊ln2 ⋅ 2¹²⁸⌋ leaves the reduced argument.
+            // t in Q128. K27 = round(2²³⁵ / 10²⁷) and LN2 = round(ln2 ⋅ 2²³⁵). Subtracting k ⋅ LN2
+            // from K27 ⋅ x at the Q235 product basis (so the k ⋅ ln2 rounding error is ~2⁻²³⁵, far
+            // below an output ulp) then one `sar(107, …)` leaves the reduced argument at Q128.
+            // Carrying ln2 in a single wide word matches the op count of a Q128 reduction.
             let t :=
-                sub(
-                    sar(0x6b, mul(0x279d346de4781f921dd7a89933d54d1f72928, x)),
-                    mul(0xb17217f7d1cf79abc9e3b39803f2f6af, k)
+                sar(
+                    0x6b,
+                    sub(
+                        mul(0x279d346de4781f921dd7a89933d54d1f72928, x),
+                        mul(0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d, k)
+                    )
                 )
 
             // v = t² in Q128 (nonnegative; logical shift).
@@ -125,9 +126,9 @@ library Exp {
             r := sdiv(shl(0x7e, add(ev, tod)), sub(ev, tod))
 
             // E in Q126 on the 10¹⁸⋅2¹²⁶ grid, less the one-sided margin (the provable minimum
-            // 0x594b01498486da8f = ⌈2⁶³⋅S⌉; see the budget above), then floored by `sar(126 - k, …)`
+            // 0xafe527e18748a8a = ⌈2⁶³⋅S⌉; see the budget above), then floored by `sar(126 - k, …)`
             // which folds in the 2ᵏ octave scaling (126 - k ∈ [64, 188]).
-            r := sar(sub(0x7e, k), sub(mul(0xde0b6b3a7640000, r), 0x594b01498486da8f))
+            r := sar(sub(0x7e, k), sub(mul(0xde0b6b3a7640000, r), 0xafe527e18748a8a))
 
             // Zero the result at and below C = ⌊-18⋅ln10⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x
             // with E < 1. This is the exact 0/1 output boundary, and it sits far above the inputs
