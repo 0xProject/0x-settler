@@ -31,8 +31,8 @@ contract ExpTest is Test {
     }
 
     /// Differential fuzz against the oracle: never overestimates and is floor-or-one-less across
-    /// the whole supported range. FFI spawns a process per run, so the run count is reduced.
-    /// forge-config: default.fuzz.runs = 512
+    /// the whole supported range.
+    /// forge-config: default.fuzz.runs = 10000
     function testFuzzExpRayToWadDifferential(int256 x) external {
         x = bound(x, _ZERO_MAX, _TOO_BIG - 1);
         int256 r = Exp.expRayToWad(x);
@@ -47,8 +47,7 @@ contract ExpTest is Test {
     }
 
     /// Direct oracle check over the central reduced-argument band, where the output is exact.
-    /// FFI spawns a process per run, so the run count is reduced.
-    /// forge-config: default.fuzz.runs = 512
+    /// forge-config: default.fuzz.runs = 10000
     function testFuzzExpRayToWadCentralExact(int256 x) external {
         x = bound(x, _CENTRAL_X_LO, _CENTRAL_X_HI - 1);
         assertEq(Exp.expRayToWad(x), _ref(x), "central floor not exact");
@@ -92,5 +91,48 @@ contract ExpTest is Test {
     function testFuzzExpRayToWadMonotone(int256 x) external pure {
         x = bound(x, _ZERO_MAX, _TOO_BIG - 2);
         assertGe(Exp.expRayToWad(x + 1), Exp.expRayToWad(x), "not monotone");
+    }
+
+    /// First input of octave k: the least x with round(x / (10**27 * ln2)) == k, computed as
+    /// ceil((k*2**200 - 2**199) / CINV) with CINV = round(2**200 / (10**27 * ln2)), the same
+    /// reciprocal the kernel rounds with.
+    function _octaveStart(int256 k) private pure returns (int256) {
+        int256 CINV = 0x724d54edbacbebbb95c52a0f6076;
+        int256 num = k * (int256(1) << 200) - (int256(1) << 199);
+        return num >= 0 ? (num + CINV - 1) / CINV : num / CINV;
+    }
+
+    /// Monotonicity is tightest where the octave count increments and the margin doubles. Check
+    /// every octave boundary in the supported range deterministically.
+    function testExpRayToWadOctaveBoundaryMonotone() external pure {
+        for (int256 k = -60; k <= 63; ++k) {
+            int256 xb = _octaveStart(k);
+            for (int256 x = xb - 2; x <= xb + 1; ++x) {
+                if (x + 1 >= _TOO_BIG) continue;
+                assertGe(Exp.expRayToWad(x + 1), Exp.expRayToWad(x), "octave-boundary monotonicity");
+            }
+        }
+    }
+
+    /// High-k inputs whose exact result sits just below an integer: the tightest points for the
+    /// never-overestimate guarantee, where the margin must cover the full reduction bias.
+    function testExpRayToWadNeverOverestimateHighK() external pure {
+        int256[4] memory xs = [
+            int256(44014845965556527147989858478),
+            43997357674525079384913362454,
+            43314167405007111804561657812,
+            43956299042314536509785490661
+        ];
+        int256[4] memory floors = [
+            int256(13043817825332782212292423780355560294),
+            12817686828684532031135154053443771706,
+            6472974441739539356346729565753819877,
+            12302067878139647644374925801327210534
+        ];
+        for (uint256 i; i < xs.length; ++i) {
+            int256 r = Exp.expRayToWad(xs[i]);
+            assertLe(r, floors[i], "overestimates exp");
+            assertGe(r, floors[i] - 1, "below floor minus one");
+        }
     }
 }
