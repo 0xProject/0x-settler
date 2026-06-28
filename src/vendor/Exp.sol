@@ -13,7 +13,7 @@ library Exp {
     ///      ⌊E⌋): for w with w / 10¹⁸ ∈ [1/√2, √2), `expRayToWad(lnWadToRay(w)) == w - 1` (and
     ///      `== w` at the scale point w = 10¹⁸), so a consumer constrained to that regime recovers
     ///      `w` by adding one. Reverts with `Panic(17)` when x is large enough to leave the
-    ///      supported range (x ≥ 0x8e383a2cdfa1b74a9422d2e1 ≈ 44.01 ⋅ 10²⁷, i.e. E ≳ 1.30 ⋅ 10¹⁹).
+    ///      supported range (x ≥ 0x8e383a2cdfa1b74a9422d2e1 ≈ 44.01 ⋅ 10²⁷, i.e. E ≳ 1.30 ⋅ 10³⁷).
     function expRayToWad(int256 x) internal pure returns (int256 r) {
         // At this input the octave count k = round(x / (10²⁷⋅ln2)) reaches 64, where the margin
         // (which scales as 2ᵏ⁻⁶⁴ ulp) reaches one and the floor can fall two below E.
@@ -63,16 +63,12 @@ library Exp {
             // and `sar(200, …)` round to nearest with ties resolved toward +∞.
             let k := sar(0xc8, add(shl(0xc7, 0x01), mul(0x724d54edbacbebbb95c52a0f6076, x)))
 
-            // t in Q128. K27 = round(2²³⁵ / 10²⁷) places x/10²⁷ at Q135; subtracting
-            // k ⋅ round(ln2 ⋅ 2¹³⁵) leaves t at Q135 (the wider ln2 basis keeps k⋅ln2 exact),
-            // then `sar(7, …)` drops it to the Q128 working basis.
+            // t in Q128. K27 = round(2²³⁵ / 10²⁷) places x/10²⁷ at Q128 after `sar(107, …)`;
+            // subtracting k ⋅ ⌊ln2 ⋅ 2¹²⁸⌋ leaves the reduced argument.
             let t :=
-                sar(
-                    0x07,
-                    sub(
-                        sar(0x64, mul(0x279d346de4781f921dd7a89933d54d1f72928, x)),
-                        mul(0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a0, k)
-                    )
+                sub(
+                    sar(0x6b, mul(0x279d346de4781f921dd7a89933d54d1f72928, x)),
+                    mul(0xb17217f7d1cf79abc9e3b39803f2f6af, k)
                 )
 
             // v = t² in Q128 (nonnegative; logical shift).

@@ -10,6 +10,9 @@ contract ExpTest is Test {
     int256 private constant _TOO_BIG = 0x8e383a2cdfa1b74a9422d2e1;
     // floor(1e27 * ln(1e-18)): the greatest input whose exact result is < 1 and floors to 0.
     int256 private constant _ZERO_MAX = -41446531673892822312323846185;
+    // Central octave in ray input: [floor(-1e27 * ln(2) / 2), ceil(1e27 * ln(2) / 2)).
+    int256 private constant _CENTRAL_X_LO = -346573590279972654708616061;
+    int256 private constant _CENTRAL_X_HI = 346573590279972654708616061;
     // Central octave [1/sqrt(2), sqrt(2)) in wad: the image over which the round trip is exact.
     uint256 private constant _W_LO = 707106781186547525;
     uint256 private constant _W_HI = 1414213562373095048;
@@ -41,6 +44,14 @@ contract ExpTest is Test {
 
     function testExpRayToWadExactZero() external pure {
         assertEq(Exp.expRayToWad(0), 1e18, "expRayToWad(0) != 1e18");
+    }
+
+    /// Direct oracle check over the central reduced-argument band, where the output is exact.
+    /// FFI spawns a process per run, so the run count is reduced.
+    /// forge-config: default.fuzz.runs = 512
+    function testFuzzExpRayToWadCentralExact(int256 x) external {
+        x = bound(x, _CENTRAL_X_LO, _CENTRAL_X_HI - 1);
+        assertEq(Exp.expRayToWad(x), _ref(x), "central floor not exact");
     }
 
     function testExpRayToWadOverRangeReverts() external {
