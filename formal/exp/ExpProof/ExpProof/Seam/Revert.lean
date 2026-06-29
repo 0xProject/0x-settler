@@ -61,14 +61,15 @@ set_option maxHeartbeats 8000000 in
 /-- For inputs at/above the overflow threshold, `fun_expRayToWad_70` takes the guard branch and
 reverts via `fun_panic_8(ARITHMETIC_OVERFLOW)`. -/
 theorem call_fun_expRayToWad_70_revert_direct
-    (x fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
     (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
       some (FormalYul.accountFor yulContract))
     (h1 : (0x8e383a2cdfa1b74a9422d2e1 : Nat) ≤ FormalYul.u256 x)
     (h2 : FormalYul.u256 x < 2 ^ 255) :
-    EvmYul.Yul.call (fuel + 1000) [FormalYul.word x] (.some "fun_expRayToWad_70")
+    EvmYul.Yul.call (fuel + (extra + 1000)) [FormalYul.word x] (.some "fun_expRayToWad_70")
       (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
     .error EvmYul.Yul.Exception.Revert := by
+  rw [show fuel + (extra + 1000) = (fuel + extra) + 1000 by omega]
   rw [EvmYul.Yul.call.eq_def]
   simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_expRayToWad_70]
   simp only [yulFunction_fun_expRayToWad_70,
@@ -77,16 +78,16 @@ theorem call_fun_expRayToWad_70_revert_direct
     FormalYul.Preservation.functionDefinition_body_def,
     EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
   have hconv44 :=
-    call_convert_44_to_int256_direct (v := 0x8e383a2cdfa1b74a9422d2e1) (fuel := fuel) (extra := 867)
+    call_convert_44_to_int256_direct (v := 0x8e383a2cdfa1b74a9422d2e1) (fuel := fuel + extra) (extra := 867)
       (shared := shared) (hlookup := hlookup)
   have hcleanup :=
-    call_cleanup_t_int256_direct (v := x) (fuel := fuel) (extra := 965)
+    call_cleanup_t_int256_direct (v := x) (fuel := fuel + extra) (extra := 965)
       (shared := shared) (hlookup := hlookup)
   have hconvu :=
-    call_convert_uint8_to_uint256_17_direct (fuel := fuel) (extra := 865)
+    call_convert_uint8_to_uint256_17_direct (fuel := fuel + extra) (extra := 865)
       (shared := shared) (hlookup := hlookup)
   have hpanic :=
-    call_fun_panic_8_revert_direct (code := 0x11) (fuel := fuel) (extra := 384)
+    call_fun_panic_8_revert_direct (code := 0x11) (fuel := fuel + extra) (extra := 384)
       (shared := shared) (hlookup := hlookup)
   simp only [Nat.reduceAdd, FormalYul.word] at hconv44 hcleanup hconvu hpanic
   simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
@@ -98,10 +99,46 @@ theorem call_fun_expRayToWad_70_revert_direct
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word,
     slt_thresh_ge h1 h2,
-    call_zero_value_for_split_t_int256_direct (fuel := fuel) (extra := 976)
+    call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 976)
       (shared := shared) (hlookup := hlookup),
-    call_constant_ARITHMETIC_OVERFLOW_17_direct (fuel := fuel) (extra := 826)
+    call_constant_ARITHMETIC_OVERFLOW_17_direct (fuel := fuel + extra) (extra := 826)
       (shared := shared) (hlookup := hlookup),
     hcleanup, hconv44, hconvu, hpanic]
+
+set_option maxHeartbeats 8000000 in
+/-- The thin wrapper `fun_wrap_expRayToWad_99` just forwards to `fun_expRayToWad_70`, so it reverts
+on the same out-of-range inputs. -/
+theorem call_fun_wrap_expRayToWad_revert_direct
+    (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract))
+    (h1 : (0x8e383a2cdfa1b74a9422d2e1 : Nat) ≤ FormalYul.u256 x)
+    (h2 : FormalYul.u256 x < 2 ^ 255) :
+    EvmYul.Yul.call (fuel + (extra + 1200)) [FormalYul.word x] (.some "fun_wrap_expRayToWad_99")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .error EvmYul.Yul.Exception.Revert := by
+  rw [show fuel + (extra + 1200) = (fuel + extra) + 1200 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun_wrap_expRayToWad]
+  simp only [yulFunction_fun_wrap_expRayToWad, yulFunction_fun_wrap_expRayToWad_99,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have h70 :=
+    call_fun_expRayToWad_70_revert_direct (x := x) (fuel := fuel + extra) (extra := 191)
+      (shared := shared) (h1 := h1) (h2 := h2) (hlookup := hlookup)
+  simp only [Nat.reduceAdd, FormalYul.word] at h70
+  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word,
+    call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 1176)
+      (shared := shared) (hlookup := hlookup),
+    h70]
 
 end ExpYul
