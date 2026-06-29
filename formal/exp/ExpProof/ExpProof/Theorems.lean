@@ -2,6 +2,7 @@ import ExpProof.Seam.Revert
 import ExpProof.Seam.Value
 import ExpProof.Mono
 import ExpProof.Floor.Public
+import ExpProof.Floor.Fold
 
 /-!
 # `expRayToWad` — proven properties of the compiled runtime (signpost)
@@ -136,5 +137,18 @@ example (H' : RuntimeAccumBound) (x : Nat) (hx : x < 2 ^ 256)
 /-- info: 'ExpYul.run_exp_ray_to_wad_evm_underByAtMostOne' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms run_exp_ray_to_wad_evm_underByAtMostOne
+
+/-! ## The accumulator obligation reduced to the octave-folded `r0` bound
+
+`RuntimeAccumBound` (the accumulator-vs-target bracket) reduces — by the unconditional closing-shift
+plumbing — to `RuntimeR0Bound`, the cleaner statement that the Q126 quotient `r0Tree x` brackets the
+target across the octave shift `2^(126 − k)`. The public floor brackets therefore reduce to
+`RuntimeR0Bound` (the cert `Floor.Caps` against `ê = NUM/DEN`, folded with `2^k`, plus the
+reduced-argument and Horner-`sdiv` truncation envelopes the `MARGIN` absorbs). -/
+example (H : RuntimeR0Bound) : RuntimeAccumBound := runtimeAccumBound_of_r0 H
+
+/-- info: 'ExpYul.runtimeAccumBound_of_r0' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms runtimeAccumBound_of_r0
 
 end ExpYul
