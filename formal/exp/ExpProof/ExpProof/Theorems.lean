@@ -3,6 +3,7 @@ import ExpProof.Seam.Value
 import ExpProof.Mono
 import ExpProof.Floor.Public
 import ExpProof.Floor.Fold
+import ExpProof.Floor.R0Bound
 
 /-!
 # `expRayToWad` — proven properties of the compiled runtime (signpost)
@@ -150,5 +151,39 @@ example (H : RuntimeR0Bound) : RuntimeAccumBound := runtimeAccumBound_of_r0 H
 /-- info: 'ExpYul.runtimeAccumBound_of_r0' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms runtimeAccumBound_of_r0
+
+/-! ## Discharged ingredients of `RuntimeR0Bound`
+
+The single open obligation `RuntimeR0Bound` is being discharged piecewise. The following are proved
+unconditionally and axiom-clean:
+
+* `tTree_in_cert_domain` — the runtime reduced argument stays in the certificate domain
+  `|tTree x| ≤ H128`, so the Taylor caps (`Floor.Caps`) instantiate at `t := tTree x`;
+* `evTree_bracket` / `odTree_bracket` — the **gap-2 Horner-truncation bridge**: the runtime even/odd
+  accumulators bracket the exact integer polynomials `evNumV`/`odNumV` (in `v = vTree x`) within `2`
+  units at the cleared scales `2^553`/`2^530`;
+* `belowC_target_lt_two` — the `RuntimeR0Bound.belowC` field (below the clamp boundary `E < 2`). -/
+example {x : Nat} (hx : x < 2 ^ 256)
+    (hC : FormalYul.Preservation.int256 Cmask < FormalYul.Preservation.int256 x)
+    (hC0 : FormalYul.Preservation.int256 x < FormalYul.Preservation.int256 C0thresh) :
+    -(117932881612756647068972071382077242199 : Int) ≤ FormalYul.Preservation.int256 (tTree x) ∧
+      FormalYul.Preservation.int256 (tTree x) ≤ 117932881612756647068972071382077242199 :=
+  tTree_in_cert_domain hx hC hC0
+
+/-- info: 'ExpYul.tTree_in_cert_domain' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms tTree_in_cert_domain
+
+/-- info: 'ExpYul.evTree_bracket' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms evTree_bracket
+
+/-- info: 'ExpYul.odTree_bracket' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms odTree_bracket
+
+/-- info: 'ExpYul.belowC_target_lt_two' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms belowC_target_lt_two
 
 end ExpYul
