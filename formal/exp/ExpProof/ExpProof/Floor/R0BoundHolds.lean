@@ -1,5 +1,6 @@
 import ExpProof.Floor.Fold
 import ExpProof.Floor.R0Exp
+import ExpProof.Floor.R0ExpUnder
 
 /-!
 # Discharging the never-over / deficit / below-clamp fields of `RuntimeR0Bound`
