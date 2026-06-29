@@ -1,6 +1,7 @@
 import ExpProof.Mono.Shell
 import ExpProof.Mono.ShellOn
 import ExpProof.Mono.RunBridge
+import ExpProof.Mono.Pin
 
 /-!
 # Top-level monotonicity reduction
@@ -45,6 +46,28 @@ structure RegionMonotonicityFacts : Prop where
 theorem int256_C0thresh : int256 C0thresh = 44014845965556527147994239713 := by
   unfold C0thresh int256
   norm_num
+
+/-- The region monotonicity facts hold given the octave-seam step: `range`/`nonneg` are
+unconditional, and `mono`/`pin` reduce (via the same-octave step and the region induction) to
+`SeamStep`. -/
+theorem regionMonotonicityFacts_of_seam (hseamstep : SeamStep) : RegionMonotonicityFacts where
+  range := fun x hx hC hC0 => r1Tree_range hx hC hC0
+  nonneg := fun x _ _ _ => r1Tree_nonneg x
+  mono := fun x1 x2 hx1 hx2 hC1 hle hC02 => by
+    have h := r1Tree_region_mono hseamstep hx1 hx2 hC1 hle hC02
+    -- transport `int256 ≤` to `Nat-cast ≤` (both below `2^254 < 2^255`)
+    have hC2 : int256 Cmask < int256 x2 := lt_of_lt_of_le hC1 hle
+    have hC01 : int256 x1 < int256 C0thresh := lt_of_le_of_lt hle hC02
+    have hr1 : r1Tree x1 < 2 ^ 254 := r1Tree_range hx1 hC1 hC01
+    have hr2 : r1Tree x2 < 2 ^ 254 := r1Tree_range hx2 hC2 hC02
+    have e1 : int256 (r1Tree x1) = (r1Tree x1 : Int) :=
+      int256_of_lt (by have : (2:Nat)^254 < 2^255 := by norm_num
+                       omega)
+    have e2 : int256 (r1Tree x2) = (r1Tree x2 : Int) :=
+      int256_of_lt (by have : (2:Nat)^254 < 2^255 := by norm_num
+                       omega)
+    rw [e1, e2] at h; exact h
+  pin := fun x hx hpos hC0 => r1Tree_pin hseamstep hx hpos hC0
 
 theorem int256_Cmask_lt0 : int256 Cmask < 0 := by rw [int256_Cmask]; norm_num
 
@@ -142,5 +165,15 @@ theorem run_exp_ray_to_wad_evm_mono (H : RegionMonotonicityFacts) (x1 x2 : Nat)
   · exact run_exp_ray_to_wad_evm_eq_expTree x1 (domain_of_below_C0 hx1 hdom1)
   · exact run_exp_ray_to_wad_evm_eq_expTree x2 (domain_of_below_C0 hx2 hdom)
   · exact expTree_mono H hx1 hx2 hle hdom
+
+/-- **Runtime monotonicity, modulo the octave seam.** With `range`/`nonneg` and the
+same-octave/induction machinery all discharged, monotonicity over the entire non-reverting domain
+follows from the single octave-seam step `SeamStep`. -/
+theorem run_exp_ray_to_wad_evm_mono_of_seam (hseamstep : SeamStep) (x1 x2 : Nat)
+    (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
+    (hle : int256 x1 ≤ int256 x2) (hdom : int256 x2 < int256 C0thresh) :
+    ∃ r1 r2, run_exp_ray_to_wad_evm x1 = .ok r1 ∧ run_exp_ray_to_wad_evm x2 = .ok r2 ∧
+      int256 r1 ≤ int256 r2 :=
+  run_exp_ray_to_wad_evm_mono (regionMonotonicityFacts_of_seam hseamstep) x1 x2 hx1 hx2 hle hdom
 
 end ExpYul
