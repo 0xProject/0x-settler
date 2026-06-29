@@ -16,10 +16,13 @@ stray `sorry` (or any new axiom) breaks the build.
 |-------------------------------------------------|----------------------------------|
 | Reverts on inputs ≥ `0x8e383a2cdfa1b74a9422d2e1`| `run_exp_ray_to_wad_evm_revert`  |
 | Scale point: `expRayToWad(0) = 10^18`           | `run_exp_ray_to_wad_evm_zero`    |
+| Value path reduces to the `evm*` tree           | `run_exp_ray_to_wad_evm_eq_tree` |
 
 The supported-range threshold is `0x8e383a2cdfa1b74a9422d2e1`; at or above it (and below `2^255`,
 i.e. for any non-negative `int256` that large) the wrapper run halts with `revert`. At the scale
-point `x = 0` the run returns the wad unit `10^18` exactly.
+point `x = 0` the run returns the wad unit `10^18` exactly. For any signed input strictly below the
+threshold the run returns the inline `evm*` arithmetic tree (the handle for the floor/monotone/bound
+properties), reduced with no hand model.
 -/
 
 namespace ExpYul
@@ -44,5 +47,9 @@ example : run_exp_ray_to_wad_evm 0 = .ok 1000000000000000000 :=
 /-- info: 'ExpYul.run_exp_ray_to_wad_evm_zero' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms run_exp_ray_to_wad_evm_zero
+
+/-- info: 'ExpYul.run_exp_ray_to_wad_evm_eq_tree' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_exp_ray_to_wad_evm_eq_tree
 
 end ExpYul

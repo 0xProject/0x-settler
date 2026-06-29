@@ -234,6 +234,15 @@ theorem wordNat_slt (a b : EvmYul.UInt256) :
     rw [hua', hub', word_mod_eq]
   rw [hLHS, hRHS]
 
+/-- An `evmAdd` result is already `u256`-wrapped, so injecting it through `ofNat` and reading its
+`toNat` is the identity. Discharges the run-level `resultWord` extraction without re-stating the
+evm* tree. -/
+theorem toNat_ofNat_evmAdd (a b : Nat) :
+    (EvmYul.UInt256.ofNat (evmAdd a b)).toNat = evmAdd a b := by
+  change wordNat (EvmYul.UInt256.ofNat (evmAdd a b)) = evmAdd a b
+  rw [FormalYul.Preservation.wordNat_ofNat]
+  exact FormalYul.Preservation.u256_evmAdd a b
+
 theorem evmSlt_u256_left (a b : Nat) : evmSlt (u256 a) b = evmSlt a b := by
   simp only [evmSlt, u256_idem]
 theorem evmSlt_u256_right (a b : Nat) : evmSlt a (u256 b) = evmSlt a b := by

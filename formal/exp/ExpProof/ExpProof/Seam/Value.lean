@@ -584,4 +584,389 @@ theorem call_fun_wrap_expRayToWad_direct
       (shared := shared) (hlookup := hlookup),
     h70]
 
+set_option maxHeartbeats 16000000 in
+/-- The external entrypoint for a signed input below the threshold ABI-encodes and returns the
+`evm*` tree. -/
+theorem external_fun_wrap_expRayToWad_calldata_result
+    (x : Nat) (store : EvmYul.Yul.VarStore)
+    (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
+    ((match
+      EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_expRayToWad) (.some yulContract)
+        (EvmYul.Yul.State.Ok (expSharedAfterFreePtr x) store)
+    with
+    | .error (.YulHalt state _) => FormalYul.resultWord (FormalYul.returnOf state)
+    | .error .Revert => .error "revert"
+    | .error err => .error (reprStr err)
+    | .ok (state, _) => FormalYul.resultWord (FormalYul.returnOf state)) :
+      Except String Nat) =
+      .ok (
+      let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
+        (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
+      let v := evmShr 0x80 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
+        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
+        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
+        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
+        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
+        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
+        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
+        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
+        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let tod := evmSar 0x80 (evmMul t od)
+      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0xafe527e18748a8a)
+      evmAdd (evmIszero x)
+        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
+    ) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
+    lookup_external_fun_wrap_expRayToWad]
+  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_99,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  set tree : Nat :=
+      (let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
+        (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
+      let v := evmShr 0x80 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
+        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
+        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
+        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
+        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
+        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
+        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
+        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
+        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let tod := evmSar 0x80 (evmMul t od)
+      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0xafe527e18748a8a)
+      evmAdd (evmIszero x)
+        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1))
+    with htree
+  let baseStore :=
+    Finmap.insert "ret_0" (FormalYul.word tree)
+      (Finmap.insert "param_0" (FormalYul.word x) (Inhabited.default : EvmYul.Yul.VarStore))
+  let memPos :=
+    ((EvmYul.Yul.State.Ok (expSharedAfterFreePtr x) baseStore).toMachineState.mload
+      (FormalYul.word 64)).1
+  let memShared :=
+    { expSharedAfterFreePtr x with
+      toMachineState :=
+        ((EvmYul.Yul.State.Ok (expSharedAfterFreePtr x) baseStore).toMachineState.mload
+          (FormalYul.word 64)).2 }
+  let encStore := Finmap.insert "memPos" memPos baseStore
+  have hdecode :=
+    call_abi_decode_tuple_t_int256_of_calldata (x := x) (fuel := 0) (extra := 999664)
+      (shared := expSharedAfterFreePtr x)
+      (store := (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := expSharedAfterFreePtr_lookup x)
+      (hdata := expSharedAfterFreePtr_calldata x)
+  simp only [Nat.reduceAdd, FormalYul.word] at hdecode
+  have hwrap :=
+    call_fun_wrap_expRayToWad_direct (x := x) (fuel := 0) (extra := 998883)
+      (shared := expSharedAfterFreePtr x)
+      (store := Finmap.insert "param_0" (FormalYul.word x)
+        (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := expSharedAfterFreePtr_lookup x) (hval := hval)
+  simp only [Nat.reduceAdd, FormalYul.word, ← htree] at hwrap
+  have halloc :=
+    call_allocate_unbounded_direct (fuel := 999962) (shared := expSharedAfterFreePtr x)
+      (store := baseStore) (hlookup := expSharedAfterFreePtr_lookup x)
+  simp only [FormalYul.word, baseStore] at halloc
+  have hencode :=
+    call_abi_encode_tuple_t_int256__to_t_int256__fromStack_direct
+      (headStart := memPos) (v := tree) (fuel := 999831)
+      (shared := memShared) (store := encStore)
+      (hlookup := by simp [memShared, expSharedAfterFreePtr_lookup x])
+  simp [FormalYul.word, memShared, encStore, memPos, baseStore] at hencode
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.executionEnv,
+    expSharedAfterFreePtr_weiValue, expSharedAfterFreePtr_calldata, expRayToWad_calldata_size,
+    GetElem?.getElem!, decidableGetElem?,
+    EvmYul.Yul.State.instGetElemIdentifierLiteralMemVarStoreStore,
+    EvmYul.Yul.State.store,
+    EvmYul.Yul.State.toMachineState, FormalYul.returnOf,
+    Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
+    hdecode, hwrap, halloc, hencode, baseStore, memPos, memShared, encStore]
+  have hmload :
+      ((expSharedAfterFreePtr x).mload (EvmYul.UInt256.ofNat 64)).1 =
+        EvmYul.UInt256.ofNat 128 := by
+    simpa [FormalYul.word] using expSharedAfterFreePtr_mload64 x
+  rw [hmload]
+  have hretLen :
+      EvmYul.UInt256.ofNat 128 + EvmYul.UInt256.ofNat 32 - EvmYul.UInt256.ofNat 128 =
+        FormalYul.word 32 := by decide
+  rw [hretLen]
+  rw [FormalYul.Preservation.resultWord_evmReturn_mstore_word]
+  rw [htree]
+  exact congrArg _ (toNat_ofNat_evmAdd _ _)
+
+set_option maxHeartbeats 16000000 in
+/-- The external entrypoint halts (returns) for a signed input below the threshold. -/
+theorem external_fun_wrap_expRayToWad_calldata_halts
+    (x : Nat) (store : EvmYul.Yul.VarStore)
+    (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
+    ∃ state value,
+      EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_expRayToWad) (.some yulContract)
+        (EvmYul.Yul.State.Ok (expSharedAfterFreePtr x) store) =
+        .error (.YulHalt state value) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
+    lookup_external_fun_wrap_expRayToWad]
+  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_99,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  set tree : Nat :=
+      (let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
+        (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
+      let v := evmShr 0x80 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
+        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
+        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
+        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
+        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
+        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
+        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
+        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
+        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let tod := evmSar 0x80 (evmMul t od)
+      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0xafe527e18748a8a)
+      evmAdd (evmIszero x)
+        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1))
+    with htree
+  let baseStore :=
+    Finmap.insert "ret_0" (FormalYul.word tree)
+      (Finmap.insert "param_0" (FormalYul.word x) (Inhabited.default : EvmYul.Yul.VarStore))
+  let memPos :=
+    ((EvmYul.Yul.State.Ok (expSharedAfterFreePtr x) baseStore).toMachineState.mload
+      (FormalYul.word 64)).1
+  let memShared :=
+    { expSharedAfterFreePtr x with
+      toMachineState :=
+        ((EvmYul.Yul.State.Ok (expSharedAfterFreePtr x) baseStore).toMachineState.mload
+          (FormalYul.word 64)).2 }
+  let encStore := Finmap.insert "memPos" memPos baseStore
+  have hdecode :=
+    call_abi_decode_tuple_t_int256_of_calldata (x := x) (fuel := 0) (extra := 999664)
+      (shared := expSharedAfterFreePtr x)
+      (store := (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := expSharedAfterFreePtr_lookup x)
+      (hdata := expSharedAfterFreePtr_calldata x)
+  simp only [Nat.reduceAdd, FormalYul.word] at hdecode
+  have hwrap :=
+    call_fun_wrap_expRayToWad_direct (x := x) (fuel := 0) (extra := 998883)
+      (shared := expSharedAfterFreePtr x)
+      (store := Finmap.insert "param_0" (FormalYul.word x)
+        (Inhabited.default : EvmYul.Yul.VarStore))
+      (hlookup := expSharedAfterFreePtr_lookup x) (hval := hval)
+  simp only [Nat.reduceAdd, FormalYul.word, ← htree] at hwrap
+  have halloc :=
+    call_allocate_unbounded_direct (fuel := 999962) (shared := expSharedAfterFreePtr x)
+      (store := baseStore) (hlookup := expSharedAfterFreePtr_lookup x)
+  simp only [FormalYul.word, baseStore] at halloc
+  have hencode :=
+    call_abi_encode_tuple_t_int256__to_t_int256__fromStack_direct
+      (headStart := memPos) (v := tree) (fuel := 999831)
+      (shared := memShared) (store := encStore)
+      (hlookup := by simp [memShared, expSharedAfterFreePtr_lookup x])
+  simp [FormalYul.word, memShared, encStore, memPos, baseStore] at hencode
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.executionEnv,
+    expSharedAfterFreePtr_weiValue, expSharedAfterFreePtr_calldata, expRayToWad_calldata_size,
+    GetElem?.getElem!, decidableGetElem?,
+    EvmYul.Yul.State.instGetElemIdentifierLiteralMemVarStoreStore,
+    EvmYul.Yul.State.store,
+    EvmYul.Yul.State.toMachineState,
+    Finmap.lookup_insert, Finmap.lookup_insert_of_ne,
+    hdecode, hwrap, halloc, hencode, baseStore, memPos, memShared, encStore]
+
+set_option maxHeartbeats 16000000 in
+/-- Result from the dispatcher-handed state. -/
+theorem external_fun_wrap_expRayToWad_dispatcher_state_result
+    (x : Nat)
+    (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
+    ((match
+      EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_expRayToWad) (.some yulContract)
+        (EvmYul.Yul.State.Ok
+          (EvmYul.SharedState.mk
+            (FormalYul.sharedFor yulContract
+              (selector_expRayToWad ++ FormalYul.encodeWords [x])).toState
+            ((FormalYul.sharedFor yulContract
+              (selector_expRayToWad ++ FormalYul.encodeWords [x])).mstore
+                (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)))
+          (Finmap.insert "selector"
+            (EvmYul.UInt256.shiftRight
+              (EvmYul.State.calldataload
+                (EvmYul.Yul.State.Ok
+                  (EvmYul.SharedState.mk
+                    (FormalYul.sharedFor yulContract
+                      (selector_expRayToWad ++ FormalYul.encodeWords [x])).toState
+                    ((FormalYul.sharedFor yulContract
+                      (selector_expRayToWad ++ FormalYul.encodeWords [x])).mstore
+                        (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)))
+                  (Inhabited.default : EvmYul.Yul.VarStore)).toState
+                (EvmYul.UInt256.ofNat 0))
+              (EvmYul.UInt256.ofNat 224))
+            (Inhabited.default : EvmYul.Yul.VarStore)))
+    with
+    | .error (.YulHalt state _) => FormalYul.resultWord (FormalYul.returnOf state)
+    | .error .Revert => .error "revert"
+    | .error err => .error (reprStr err)
+    | .ok (state, _) => FormalYul.resultWord (FormalYul.returnOf state)) :
+      Except String Nat) =
+      .ok (
+      let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
+        (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
+      let v := evmShr 0x80 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
+        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
+        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
+        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
+        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
+        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
+        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
+        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
+        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let tod := evmSar 0x80 (evmMul t od)
+      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0xafe527e18748a8a)
+      evmAdd (evmIszero x)
+        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
+    ) := by
+  rw [sharedFor_inherited_mstore_mk_eq_expSharedAfterFreePtr_raw]
+  exact external_fun_wrap_expRayToWad_calldata_result (x := x)
+    (store := Finmap.insert "selector"
+      (EvmYul.UInt256.shiftRight
+        (EvmYul.State.calldataload
+          (EvmYul.Yul.State.Ok (expSharedAfterFreePtr x)
+            (Inhabited.default : EvmYul.Yul.VarStore)).toState
+          (EvmYul.UInt256.ofNat 0))
+        (EvmYul.UInt256.ofNat 224))
+      (Inhabited.default : EvmYul.Yul.VarStore)) hval
+
+set_option maxHeartbeats 16000000 in
+/-- Halt from the dispatcher-handed state. -/
+theorem external_fun_wrap_expRayToWad_dispatcher_state_halts
+    (x : Nat)
+    (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
+    ∃ state value,
+      EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_expRayToWad) (.some yulContract)
+        (EvmYul.Yul.State.Ok
+          (EvmYul.SharedState.mk
+            (FormalYul.sharedFor yulContract
+              (selector_expRayToWad ++ FormalYul.encodeWords [x])).toState
+            ((FormalYul.sharedFor yulContract
+              (selector_expRayToWad ++ FormalYul.encodeWords [x])).mstore
+                (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)))
+          (Finmap.insert "selector"
+            (EvmYul.UInt256.shiftRight
+              (EvmYul.State.calldataload
+                (EvmYul.Yul.State.Ok
+                  (EvmYul.SharedState.mk
+                    (FormalYul.sharedFor yulContract
+                      (selector_expRayToWad ++ FormalYul.encodeWords [x])).toState
+                    ((FormalYul.sharedFor yulContract
+                      (selector_expRayToWad ++ FormalYul.encodeWords [x])).mstore
+                        (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)))
+                  (Inhabited.default : EvmYul.Yul.VarStore)).toState
+                (EvmYul.UInt256.ofNat 0))
+              (EvmYul.UInt256.ofNat 224))
+            (Inhabited.default : EvmYul.Yul.VarStore))) =
+        .error (.YulHalt state value) := by
+  rw [sharedFor_inherited_mstore_mk_eq_expSharedAfterFreePtr_raw]
+  exact external_fun_wrap_expRayToWad_calldata_halts (x := x)
+    (store := Finmap.insert "selector"
+        (EvmYul.UInt256.shiftRight
+          (EvmYul.State.calldataload
+            (EvmYul.Yul.State.Ok (expSharedAfterFreePtr x)
+              (Inhabited.default : EvmYul.Yul.VarStore)).toState
+            (EvmYul.UInt256.ofNat 0))
+          (EvmYul.UInt256.ofNat 224))
+        (Inhabited.default : EvmYul.Yul.VarStore)) hval
+
+set_option maxHeartbeats 16000000 in
+/-- **Value path.** For any signed input strictly below the supported-range threshold,
+`run_exp_ray_to_wad_evm x` returns the `evm*` arithmetic tree `<TREE x>`. The handle for
+the runtime floor and monotonicity claims at the run level. -/
+theorem run_exp_ray_to_wad_evm_eq_tree
+    (x : Nat)
+    (hval : FormalYul.u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ FormalYul.u256 x) :
+    run_exp_ray_to_wad_evm x = .ok (
+      let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
+        (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
+      let v := evmShr 0x80 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
+        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
+        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
+        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
+        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
+        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
+        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
+        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
+        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let tod := evmSar 0x80 (evmMul t od)
+      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0xafe527e18748a8a)
+      evmAdd (evmIszero x)
+        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
+    ) := by
+  obtain ⟨haltState, _haltValue, hhalt⟩ :=
+    external_fun_wrap_expRayToWad_dispatcher_state_halts x hval
+  have hresult := external_fun_wrap_expRayToWad_dispatcher_state_result x hval
+  rw [hhalt] at hresult
+  have hReturn :
+      FormalYul.Preservation.DispatcherReturn yulContract
+        (FormalYul.calldata selector_expRayToWad [x]) 999998 (FormalYul.returnOf haltState) := by
+    apply FormalYul.Preservation.dispatcherReturn_of_exec_halt
+      (hdispatcher := yulContract_dispatcher)
+    refine ⟨haltState, _haltValue, ?_, rfl⟩
+    simp +decide [FormalYul.calldata, FormalYul.stateFor,
+      yulDispatcher, EvmYul.Yul.execCall.eq_def,
+      EvmYul.Yul.execPrimCall.eq_def,
+      EvmYul.Yul.evalPrimCall.eq_def, EvmYul.Yul.reverse', EvmYul.Yul.cons',
+      EvmYul.Yul.head', EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+      EvmYul.Yul.State.insert,
+      EvmYul.Yul.State.multifill,
+      EvmYul.Yul.State.lookup!,
+      EvmYul.Yul.State.executionEnv,
+      EvmYul.Yul.State.toMachineState,
+      GetElem?.getElem!, decidableGetElem?,
+      EvmYul.Yul.State.instGetElemIdentifierLiteralMemVarStoreStore,
+      EvmYul.Yul.State.store, Finmap.lookup_insert,
+      FormalYul.word,
+      call_shift_right_224_unsigned_direct]
+    rw [selectSwitchCase_expRayToWad_sharedFor_mk_raw x]
+    simp +decide [hhalt, EvmYul.Yul.exec.eq_def,
+      EvmYul.Yul.execCall.eq_def,
+      EvmYul.Yul.reverse', EvmYul.Yul.multifill']
+  unfold run_exp_ray_to_wad_evm
+  exact FormalYul.Preservation.callWord_ok_of_dispatcherReturn_result_1000000
+    (contract := yulContract) (selector := selector_expRayToWad) (args := [x])
+    (hReturn := hReturn) (by simpa using hresult)
+
 end ExpYul
