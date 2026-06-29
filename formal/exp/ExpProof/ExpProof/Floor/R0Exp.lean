@@ -262,7 +262,7 @@ theorem todNumV_bracket {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
     (htnn : 0 ≤ int256 (tTree x)) :
     2 ^ 1193 * (int256 (todTree x)) ≤ evalPoly ExpCertV.todNumV (int256 (tTree x)) ∧
-      evalPoly ExpCertV.todNumV (int256 (tTree x)) < 2 ^ 1193 * (int256 (todTree x)) + 2 ^ 5 * 2 ^ 1193 := by
+      evalPoly ExpCertV.todNumV (int256 (tTree x)) < 2 ^ 1193 * (int256 (todTree x)) + 4 * 2 ^ 1193 := by
   obtain ⟨_, _, htodlo, htodhi⟩ := todTree_bound hx hC hC0
   obtain ⟨hodlo, hodhi⟩ := odNumVPoly_bracket hx hC hC0
   set t := int256 (tTree x) with htdef
@@ -298,7 +298,7 @@ theorem todNumV_bracket {x : Nat} (hx : x < 2 ^ 256)
       have : (2:Int)^127 < 2 ^ 128 := by norm_num
       omega
     have key : 2 ^ 23 * (t * evalPoly ExpCertV.odNumVPoly t) <
-        2 ^ 1193 * (int256 (todTree x)) + 2 ^ 5 * 2 ^ 1193 := by
+        2 ^ 1193 * (int256 (todTree x)) + 4 * 2 ^ 1193 := by
       have h1 : t * evalPoly ExpCertV.odNumVPoly t ≤ 2 ^ 1042 * (t * (odTree x : Int)) + 3 * 2 ^ 1042 * t := by
         nlinarith [hmul_hi]
       have h2 : t * (odTree x : Int) < (2 ^ 128 : Int) * (int256 (todTree x)) + 2 ^ 128 := htod_hi
