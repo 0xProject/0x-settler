@@ -4,6 +4,7 @@ import ExpProof.Floor.Reduce
 import ExpProof.Mono.Quot
 import ExpProof.Mono.Cross
 import Common.Seam.RealExpBridge
+import Mathlib.Analysis.SpecialFunctions.Pow.Real
 
 /-!
 # The per-point `r0`-vs-`exp` bridge
@@ -527,5 +528,313 @@ theorem r0_vs_certRatio {x : Nat} (hx : x < 2 ^ 256)
   constructor
   · nlinarith [hfl_lo, hnumstep, hr0den_lo, hr0_loss, hDEpos, hp1193]
   · nlinarith [hfl_hi, hNEstep, hr0den_hi, hunder_loss, hDEpos, hp1193]
+
+/-! ## The octave real identity `E·2^(126−k) = WAD·2¹²⁶·exp(rt)`
+
+The target `E = WAD·exp(X/RAY)`. With `rt = X/RAY − k·ln2` the reduced argument, `exp(X/RAY) =
+exp(rt)·2^k`, so the closing-shift fold `E·2^(126−k) = WAD·2¹²⁶·exp(rt)`. This collapses the
+`RuntimeR0Bound.over`/`under` inequalities (stated against `E·2^s`, `s = 126 − k`) onto the clean
+octave-independent never-over/deficit relation `r0 ≈ 2¹²⁶·exp(rt)`. -/
+
+open ExpRealSpec Real Common.RealExpBridge
+
+/-- `exp(X/RAY) = exp(rt)·2^k` (`k = int256 (kTree x)`, possibly negative; `2^k` is a real `zpow`). -/
+theorem exp_X_over_RAY (x : Nat) :
+    Real.exp ((int256 x : Real) / (10 ^ 27 : Real)) =
+      Real.exp (reducedArg x) * (2 : Real) ^ (int256 (kTree x)) := by
+  have hlog : Real.exp ((int256 (kTree x) : Real) * Real.log 2) = (2 : Real) ^ (int256 (kTree x)) := by
+    rw [← Real.rpow_intCast 2 (int256 (kTree x)),
+      Real.rpow_def_of_pos (by norm_num : (0:Real) < 2), mul_comm]
+  rw [show (int256 x : Real) / (10 ^ 27 : Real) =
+        reducedArg x + (int256 (kTree x) : Real) * Real.log 2 from by
+      unfold reducedArg; ring,
+    Real.exp_add, hlog]
+
+/-- **The octave fold of the target.** `E·2^(126−k) = WAD·2¹²⁶·exp(rt)`, with `s = 126 − k` the
+closing shift. -/
+theorem target_octave_fold {x : Nat} (s : Nat) (hs : (s : Int) = 126 - int256 (kTree x)) :
+    expRayToWadTarget (int256 x) * (2 ^ s : Real) =
+      (WAD : Real) * (2 ^ 126 : Real) * Real.exp (reducedArg x) := by
+  unfold expRayToWadTarget
+  rw [show (RAY : Real) = (10 ^ 27 : Real) from by unfold RAY; norm_num, exp_X_over_RAY x]
+  -- 2^k · 2^s = 2^126 with k+s = 126 (k : Int, s : Nat).
+  set k := int256 (kTree x) with hkdef
+  have hks : k + (s : Int) = 126 := by omega
+  have hpow : (2 : Real) ^ k * (2 : Real) ^ (s : Nat) = (2 : Real) ^ (126 : Nat) := by
+    rw [show ((2 : Real) ^ (s : Nat)) = (2 : Real) ^ (s : Int) from by
+      rw [zpow_natCast], ← zpow_add₀ (by norm_num : (2:Real) ≠ 0), hks]
+    norm_num
+  rw [show ((2 ^ s : Real)) = (2 : Real) ^ (s : Nat) from by norm_num]
+  calc (WAD : Real) * (Real.exp (reducedArg x) * (2 : Real) ^ k) * (2 : Real) ^ (s : Nat)
+      = (WAD : Real) * ((2 : Real) ^ k * (2 : Real) ^ (s : Nat)) * Real.exp (reducedArg x) := by ring
+    _ = (WAD : Real) * (2 ^ 126 : Real) * Real.exp (reducedArg x) := by
+          rw [hpow]
+
+/-! ## The cert `Real.exp` bounds at the runtime reduced argument (nonnegative half)
+
+Instantiating the v-form Taylor caps (`ExpCertV.capExpUp`/`capExpLo`) at `t = int256 (tTree x)` (in
+the cert domain `[0, H128]` on the nonnegative half) and pushing through the abstract
+`Common.RealExpBridge` yields `Real.exp(t/2¹²⁸)` bracketed by the margin-nudged rational `ê_v =
+NE/DE`. Both `NE = evalPoly numExpV t` and `DE = evalPoly denExpV t` are positive on the domain. -/
+
+/-- The numerator/denominator cert-polynomial values are nonnegative / positive on `[0, H128]`. -/
+theorem certNE_nonneg {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (ExpCertV.H128 : Int)) :
+    0 ≤ evalPoly ExpCertV.numExpV t := ExpCertV.numExpV_nonneg' h1 h2
+
+theorem certDE_pos {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (ExpCertV.H128 : Int)) :
+    1 ≤ evalPoly ExpCertV.denExpV t := ExpCertV.denExpV_ge_one h1 h2
+
+/-- **Never-over cert real bound (nonneg half).** `(2¹³⁰−1)·NE / (2¹³⁰·DE) ≤ exp(t/2¹²⁸)`, the
+not-two-below cap pushed to `Real.exp`. -/
+theorem certLo_real {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (ExpCertV.H128 : Int)) :
+    ((2 ^ 130 - 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
+        (((2 ^ 130 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) ≤
+      Real.exp ((t : Real) / (2 ^ 128 : Real)) := by
+  have hcap := ExpCertV.capExpLo h1 h2
+  have hwpos : 0 < (evalPoly ExpCertV.wLB t).toNat := by
+    have hpos : 0 < evalPoly ExpCertV.wLB t := by
+      rw [ExpCertV.evalWLB]
+      exact mul_pos (by norm_num) (by have := certDE_pos h1 h2; omega)
+    omega
+  have h := le_exp_of_capLB (q := ExpCertV.Qexp) ExpCertV.Qexp_pos hwpos hcap
+  -- the cap is on `(t.toNat : Real)/Qexp`; rewrite to `(t:Real)/2^128`
+  have htn : (t.toNat : Int) = t := Int.toNat_of_nonneg h1
+  have hylb : 0 ≤ evalPoly ExpCertV.yLB t := by
+    rw [ExpCertV.evalYLB]; exact Int.mul_nonneg (by norm_num) (certNE_nonneg h1 h2)
+  have hwlb : 0 ≤ evalPoly ExpCertV.wLB t := by
+    rw [ExpCertV.evalWLB]
+    exact Int.mul_nonneg (by norm_num) (by have := certDE_pos h1 h2; omega)
+  have hyn : ((evalPoly ExpCertV.yLB t).toNat : Int) = evalPoly ExpCertV.yLB t := Int.toNat_of_nonneg hylb
+  have hwn : ((evalPoly ExpCertV.wLB t).toNat : Int) = evalPoly ExpCertV.wLB t := Int.toNat_of_nonneg hwlb
+  have harg : ((t.toNat : Nat) : Real) / ((ExpCertV.Qexp : Nat) : Real) = (t : Real) / (2 ^ 128 : Real) := by
+    rw [show ((ExpCertV.Qexp : Nat) : Real) = (2 ^ 128 : Real) from by unfold ExpCertV.Qexp; norm_num]
+    congr 1
+    have : ((t.toNat : Nat) : Real) = (t : Real) := by
+      have := htn; exact_mod_cast this
+    exact this
+  rw [harg] at h
+  -- rewrite yLB/wLB to (2^130-1)·NE / (2^130·DE)
+  have hynr : ((evalPoly ExpCertV.yLB t).toNat : Real) = ((2 ^ 130 - 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) := by
+    have : ((evalPoly ExpCertV.yLB t).toNat : Int) = (2 ^ 130 - 1) * evalPoly ExpCertV.numExpV t := by
+      rw [hyn, ExpCertV.evalYLB]
+    have := congrArg (fun z : Int => (z : Real)) this
+    push_cast at this ⊢; linarith [this]
+  have hwnr : ((evalPoly ExpCertV.wLB t).toNat : Real) = ((2 ^ 130 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) := by
+    have : ((evalPoly ExpCertV.wLB t).toNat : Int) = 2 ^ 130 * evalPoly ExpCertV.denExpV t := by
+      rw [hwn, ExpCertV.evalWLB]
+    have := congrArg (fun z : Int => (z : Real)) this
+    push_cast at this ⊢; linarith [this]
+  rw [hynr, hwnr] at h
+  exact h
+
+/-- **Not-two-below cert real bound (nonneg half).** `exp(t/2¹²⁸) ≤ (2¹³⁰+1)·NE / (2¹³⁰·DE)`. -/
+theorem certUp_real {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (ExpCertV.H128 : Int)) :
+    Real.exp ((t : Real) / (2 ^ 128 : Real)) ≤
+      ((2 ^ 130 + 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) /
+        (((2 ^ 130 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real)) := by
+  have hcap := ExpCertV.capExpUp h1 h2
+  have hwpos : 0 < (evalPoly ExpCertV.wUB t).toNat := by
+    have hpos : 0 < evalPoly ExpCertV.wUB t := by
+      rw [ExpCertV.evalWUB]
+      exact mul_pos (by norm_num) (by have := certDE_pos h1 h2; omega)
+    omega
+  have h := exp_le_of_capUB (q := ExpCertV.Qexp) ExpCertV.Qexp_pos hwpos hcap
+  have htn : (t.toNat : Int) = t := Int.toNat_of_nonneg h1
+  have hyub : 0 ≤ evalPoly ExpCertV.yUB t := by
+    rw [ExpCertV.evalYUB]; exact Int.mul_nonneg (by norm_num) (certNE_nonneg h1 h2)
+  have hwub : 0 ≤ evalPoly ExpCertV.wUB t := by
+    rw [ExpCertV.evalWUB]
+    exact Int.mul_nonneg (by norm_num) (by have := certDE_pos h1 h2; omega)
+  have hyn : ((evalPoly ExpCertV.yUB t).toNat : Int) = evalPoly ExpCertV.yUB t := Int.toNat_of_nonneg hyub
+  have hwn : ((evalPoly ExpCertV.wUB t).toNat : Int) = evalPoly ExpCertV.wUB t := Int.toNat_of_nonneg hwub
+  have harg : ((t.toNat : Nat) : Real) / ((ExpCertV.Qexp : Nat) : Real) = (t : Real) / (2 ^ 128 : Real) := by
+    rw [show ((ExpCertV.Qexp : Nat) : Real) = (2 ^ 128 : Real) from by unfold ExpCertV.Qexp; norm_num]
+    congr 1
+    have : ((t.toNat : Nat) : Real) = (t : Real) := by
+      have := htn; exact_mod_cast this
+    exact this
+  rw [harg] at h
+  have hynr : ((evalPoly ExpCertV.yUB t).toNat : Real) = ((2 ^ 130 + 1 : Int) : Real) * (evalPoly ExpCertV.numExpV t : Real) := by
+    have : ((evalPoly ExpCertV.yUB t).toNat : Int) = (2 ^ 130 + 1) * evalPoly ExpCertV.numExpV t := by
+      rw [hyn, ExpCertV.evalYUB]
+    have := congrArg (fun z : Int => (z : Real)) this
+    push_cast at this ⊢; linarith [this]
+  have hwnr : ((evalPoly ExpCertV.wUB t).toNat : Real) = ((2 ^ 130 : Int) : Real) * (evalPoly ExpCertV.denExpV t : Real) := by
+    have : ((evalPoly ExpCertV.wUB t).toNat : Int) = 2 ^ 130 * evalPoly ExpCertV.denExpV t := by
+      rw [hwn, ExpCertV.evalWUB]
+    have := congrArg (fun z : Int => (z : Real)) this
+    push_cast at this ⊢; linarith [this]
+  rw [hynr, hwnr] at h
+  exact h
+
+/-! ## The reduced argument stays below `ln2/2`, and the loose exp envelopes -/
+
+/-- On the nonnegative half of the region the reduced argument is below `ln2/2`:
+`t/2¹²⁸ ≤ log 2 / 2`. -/
+theorem t_over_2128_le_half_log2 {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htnn : 0 ≤ int256 (tTree x)) :
+    (int256 (tTree x) : Real) / (2 ^ 128 : Real) ≤ Real.log 2 / 2 := by
+  obtain ⟨_, hthi⟩ := tTree_in_cert_domain hx hC hC0
+  -- t ≤ H128 ≤ ⌊ln2/2·2^128⌋, and LN2/2^235 ≤ ln2 gives H128/2^128 ≤ ln2/2
+  have hln2lo := ln2_lower
+  rw [LN2c_eq] at hln2lo
+  -- LN2/2^235 ≤ log 2. H128 = 117932881612756647068972071382077242199.
+  -- t/2^128 ≤ H128/2^128. need H128/2^128 ≤ log2/2. Use 2·H128/2^128 ≤ 2·(ln2/2) = ln2.
+  have htR : (int256 (tTree x) : Real) ≤ (117932881612756647068972071382077242199 : Real) := by
+    have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hthi; push_cast at this; linarith [this]
+  have hp128 : (0 : Real) < (2 ^ 128 : Real) := by positivity
+  rw [div_le_div_iff₀ hp128 (by norm_num : (0:Real) < 2)]
+  -- t·2 ≤ log2·2^128. Have t ≤ H128, and 2·H128 ≤ log2·2^128 (from LN2 bound).
+  have hkey : (2 : Real) * (117932881612756647068972071382077242199 : Real) ≤ Real.log 2 * (2 ^ 128 : Real) := by
+    -- log2 ≥ LN2/2^235 ⟹ log2·2^128 ≥ LN2·2^128/2^235 = LN2/2^107. Check 2·H128 ≤ LN2/2^107.
+    have h1 : (38271408169742254668347313025622401492114385419650052359639581444463709 : Real) / (2 ^ 235 : Real) * (2 ^ 128 : Real) ≤ Real.log 2 * (2 ^ 128 : Real) := by
+      apply mul_le_mul_of_nonneg_right hln2lo (by positivity)
+    have h2 : (2 : Real) * (117932881612756647068972071382077242199 : Real) ≤
+        (38271408169742254668347313025622401492114385419650052359639581444463709 : Real) / (2 ^ 235 : Real) * (2 ^ 128 : Real) := by
+      rw [div_mul_eq_mul_div, le_div_iff₀ (by positivity : (0:Real) < 2 ^ 235)]
+      norm_num
+    linarith [h1, h2]
+  nlinarith [htR, hkey]
+
+/-- The reduced exponential is below `√2 < 2` (loose). -/
+theorem exp_reducedArg_le_two {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    Real.exp (reducedArg x) ≤ 2 := by
+  -- |rt| ≤ ln2/2 + tiny ⟹ rt < log2 ⟹ exp(rt) < exp(log2) = 2; we prove ≤ 2 generously.
+  obtain ⟨htlo, hthi⟩ := tTree_in_cert_domain hx hC hC0
+  have hclose := reducedArg_close hx hC hC0
+  have habs := abs_lt.mp hclose
+  -- rt < t/2^128 + 9/(8·2^128) ≤ H128/2^128 + 1 < log2 (very loose: H128/2^128 < 0.347)
+  have hp128 : (0 : Real) < (2 ^ 128 : Real) := by positivity
+  have htR : (int256 (tTree x) : Real) ≤ (117932881612756647068972071382077242199 : Real) := by
+    have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hthi; push_cast at this; linarith [this]
+  have hln2 : (0.6931471805 : Real) ≤ Real.log 2 := by
+    have := ln2_lower; rw [LN2c_eq] at this
+    have h2 : (0.6931471805 : Real) ≤ (38271408169742254668347313025622401492114385419650052359639581444463709 : Real) / (2 ^ 235 : Real) := by
+      rw [le_div_iff₀ (by positivity : (0:Real) < 2 ^ 235)]; norm_num
+    linarith [this, h2]
+  have hrtlt : reducedArg x ≤ Real.log 2 := by
+    have h9 : (9 : Real) / (8 * (2 ^ 128 : Real)) ≤ 1 := by
+      rw [div_le_one (by positivity)]; norm_num
+    have htdiv : (int256 (tTree x) : Real) / (2 ^ 128 : Real) ≤ 0.35 := by
+      rw [div_le_iff₀ hp128]; nlinarith [htR]
+    -- rt < t/2^128 + 9/(8·2^128) ≤ 0.35 + 1 ... too loose vs log2 ≈ 0.693. tighten 9/8 bound.
+    have h9' : (9 : Real) / (8 * (2 ^ 128 : Real)) ≤ 0.34 := by
+      rw [div_le_iff₀ (by positivity)]; norm_num
+    linarith [habs.2, htdiv, h9', hln2]
+  calc Real.exp (reducedArg x) ≤ Real.exp (Real.log 2) := Real.exp_le_exp.mpr hrtlt
+    _ = 2 := Real.exp_log (by norm_num)
+
+/-- `exp(t/2¹²⁸) ≤ 2` (loose). -/
+theorem exp_t_le_two {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htnn : 0 ≤ int256 (tTree x)) :
+    Real.exp ((int256 (tTree x) : Real) / (2 ^ 128 : Real)) ≤ 2 := by
+  have hle := t_over_2128_le_half_log2 hx hC hC0 htnn
+  have hhalf : Real.log 2 / 2 ≤ Real.log 2 := by
+    have : (0:Real) ≤ Real.log 2 := by rw [Real.le_log_iff_exp_le (by norm_num)]; simp [Real.exp_zero]
+    linarith
+  calc Real.exp ((int256 (tTree x) : Real) / (2 ^ 128 : Real))
+      ≤ Real.exp (Real.log 2) := Real.exp_le_exp.mpr (le_trans hle hhalf)
+    _ = 2 := Real.exp_log (by norm_num)
+
+/-- The convexity bound `exp(b) − exp(a) ≤ (b−a)·exp(b)`. -/
+theorem exp_diff_le (a b : Real) : Real.exp b - Real.exp a ≤ (b - a) * Real.exp b := by
+  have key : Real.exp a = Real.exp (a - b) * Real.exp b := by rw [← Real.exp_add]; ring_nf
+  have h1 : a - b + 1 ≤ Real.exp (a - b) := Real.add_one_le_exp (a - b)
+  have hb : 0 < Real.exp b := Real.exp_pos b
+  rw [key]; nlinarith [h1, hb]
+
+/-! ## The loose per-point real bounds (nonnegative half)
+
+These bracket `(r0Tree x : Real)` against `2¹²⁶·exp(rt)` with loose octave-seam-absorbed constants
+(`+50` over, `+701` under). They suffice for `SeamR0Bound`, whose octave-seam doubling has ~10¹¹
+slack. The over side does not yet meet the per-point `MARGIN` budget — that needs the tight
+cross-product sharpening; here only the loose `r0_vs_certRatio` constants are used. -/
+
+/-- **Loose per-point never-over** (nonneg half): `r0 ≤ 2¹²⁶·exp(rt) + 50`. -/
+theorem r0_real_over_loose {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htnn : 0 ≤ int256 (tTree x)) :
+    (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) + 50 := by
+  obtain ⟨hover, _⟩ := r0_vs_certRatio hx hC hC0 htnn
+  obtain ⟨_, hthi⟩ := tTree_in_cert_domain hx hC hC0
+  set t := int256 (tTree x) with htdef
+  have htdom : t ≤ (ExpCertV.H128 : Int) := by
+    rw [show ((ExpCertV.H128 : Nat) : Int) = 117932881612756647068972071382077242199 from by
+      unfold ExpCertV.H128; norm_num]
+    exact hthi
+  have hDElb := denExpV_lb hx hC hC0 htnn
+  set NE := evalPoly ExpCertV.numExpV t with hNEdef
+  set DE := evalPoly ExpCertV.denExpV t with hDEdef
+  have hDEpos_int : (0 : Int) < DE := by
+    have : (0:Int) < 2 ^ 1317 := by positivity
+    linarith [hDElb, this]
+  have hDEpos : (0 : Real) < (DE : Real) := by exact_mod_cast hDEpos_int
+  have hoverR : (int256 (r0Tree x) : Real) * (DE : Real) <
+      (2 ^ 126 : Real) * (NE : Real) + 49 * (DE : Real) := by
+    have := (@Int.cast_lt Real _ _ _ _ _ _ _).mpr hover
+    push_cast at this; linarith [this]
+  have hr0_lt : (int256 (r0Tree x) : Real) < (2 ^ 126 : Real) * (NE : Real) / (DE : Real) + 49 := by
+    rw [div_add' _ _ _ (ne_of_gt hDEpos), lt_div_iff₀ hDEpos]
+    nlinarith [hoverR, hDEpos]
+  have hcertlo := certLo_real htnn htdom
+  have hNEnn : (0 : Real) ≤ (NE : Real) := by
+    have := certNE_nonneg htnn htdom; exact_mod_cast this
+  set Et := Real.exp ((t : Real) / (2 ^ 128 : Real)) with hEtdef
+  have hExp_t_le_two := exp_t_le_two hx hC hC0 htnn
+  rw [← hEtdef] at hExp_t_le_two
+  set Mp : Real := (2 ^ 130 : Real) / ((2 ^ 130 : Real) - 1) with hMpdef
+  have hNEDE_le : (NE : Real) / (DE : Real) ≤ Et * Mp := by
+    have hc : ((2 ^ 130 - 1 : Int) : Real) * (NE : Real) /
+        (((2 ^ 130 : Int) : Real) * (DE : Real)) ≤ Et := hcertlo
+    rw [hMpdef]
+    have key : (NE : Real) / (DE : Real) =
+        ((2 ^ 130 : Real) / ((2 ^ 130 : Real) - 1)) *
+          (((2 ^ 130 - 1 : Int) : Real) * (NE : Real) /
+            (((2 ^ 130 : Int) : Real) * (DE : Real))) := by
+      push_cast; field_simp; ring
+    rw [key, mul_comm Et _]
+    exact mul_le_mul_of_nonneg_left hc (by positivity)
+  have hclose := abs_lt.mp (reducedArg_close hx hC hC0)
+  set Ert := Real.exp (reducedArg x) with hErtdef
+  have hExp_diff : Et - Ert ≤ ((t : Real) / (2 ^ 128 : Real) - reducedArg x) * Et := exp_diff_le _ _
+  have hgap1 : (t : Real) / (2 ^ 128 : Real) - reducedArg x < 9 / (8 * (2 ^ 128 : Real)) := by
+    have := hclose.1; linarith [this]
+  have hEt_nonneg : (0:Real) ≤ Et := le_of_lt (Real.exp_pos _)
+  have hMp1 : Mp - 1 = 1 / ((2 ^ 130 : Real) - 1) := by rw [hMpdef]; field_simp
+  have hEtMp_Ert : Et * Mp - Ert ≤
+      Et * (1 / ((2 ^ 130 : Real) - 1)) + (9 / (8 * (2 ^ 128 : Real))) * Et := by
+    have h1 : Et * Mp - Ert = Et * (Mp - 1) + (Et - Ert) := by ring
+    rw [h1, hMp1]
+    have hgap : Et - Ert ≤ (9 / (8 * (2 ^ 128 : Real))) * Et := by
+      calc Et - Ert ≤ ((t : Real) / (2 ^ 128 : Real) - reducedArg x) * Et := hExp_diff
+        _ ≤ (9 / (8 * (2 ^ 128 : Real))) * Et :=
+            mul_le_mul_of_nonneg_right (le_of_lt hgap1) hEt_nonneg
+    linarith [hgap]
+  have hfinal : (2 ^ 126 : Real) * (Et * Mp) ≤ (2 ^ 126 : Real) * Ert + 1 := by
+    have hb1 : Et * (1 / ((2 ^ 130 : Real) - 1)) ≤ 2 / ((2 ^ 130 : Real) - 1) := by
+      rw [mul_one_div, div_le_div_iff₀ (by norm_num) (by norm_num)]; nlinarith [hExp_t_le_two]
+    have hb2 : (9 / (8 * (2 ^ 128 : Real))) * Et ≤ (9 / (8 * (2 ^ 128 : Real))) * 2 :=
+      mul_le_mul_of_nonneg_left hExp_t_le_two (by positivity)
+    have hbb : Et * Mp - Ert ≤
+        2 / ((2 ^ 130 : Real) - 1) + (9 / (8 * (2 ^ 128 : Real))) * 2 := by
+      linarith [hEtMp_Ert, hb1, hb2]
+    have hnum : (2 ^ 126 : Real) *
+        (2 / ((2 ^ 130 : Real) - 1) + (9 / (8 * (2 ^ 128 : Real))) * 2) ≤ 1 := by norm_num
+    set Xb : Real := 2 / ((2 ^ 130 : Real) - 1) + (9 / (8 * (2 ^ 128 : Real))) * 2 with hXbdef
+    have hscaled : (2 ^ 126 : Real) * (Et * Mp - Ert) ≤ (2 ^ 126 : Real) * Xb :=
+      mul_le_mul_of_nonneg_left hbb (by positivity)
+    have hdist : (2 ^ 126 : Real) * (Et * Mp - Ert) =
+        (2 ^ 126 : Real) * (Et * Mp) - (2 ^ 126 : Real) * Ert := by ring
+    rw [hdist] at hscaled
+    linarith [hscaled, hnum]
+  have hstep : (2 ^ 126 : Real) * ((NE : Real) / (DE : Real)) ≤ (2 ^ 126 : Real) * Ert + 1 :=
+    le_trans (mul_le_mul_of_nonneg_left hNEDE_le (by positivity : (0:Real) ≤ (2 ^ 126 : Real))) hfinal
+  have heq : (2 ^ 126 : Real) * (NE : Real) / (DE : Real) =
+      (2 ^ 126 : Real) * ((NE : Real) / (DE : Real)) := by ring
+  rw [heq] at hr0_lt
+  linarith [hr0_lt, hstep]
 
 end ExpYul
