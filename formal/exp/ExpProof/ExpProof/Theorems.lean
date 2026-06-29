@@ -7,6 +7,7 @@ import ExpProof.Floor.PublicUncond
 import ExpProof.Floor.R0BoundHolds
 import ExpProof.Floor.Fold
 import ExpProof.Floor.R0Bound
+import ExpProof.Floor.RoundTrip
 
 /-!
 # `expRayToWad` — proven properties of the compiled runtime (signpost)
@@ -19,12 +20,13 @@ stray `sorry` (or any new axiom) breaks the build.
 
 ## Documented properties (about the runtime)
 
-| Property                                        | Theorem                          |
-|-------------------------------------------------|----------------------------------|
-| Reverts on inputs ≥ `0x8e383a2cdfa1b74a9422d2e1`| `run_exp_ray_to_wad_evm_revert`  |
-| Scale point: `expRayToWad(0) = 10^18`           | `run_exp_ray_to_wad_evm_zero`    |
-| Value path reduces to the `evm*` tree           | `run_exp_ray_to_wad_evm_eq_tree` |
-| Monotone in the input (modulo the region core)  | `run_exp_ray_to_wad_evm_mono`    |
+| Property                                        | Theorem                                       |
+|-------------------------------------------------|-----------------------------------------------|
+| Reverts on inputs ≥ `0x8e383a2cdfa1b74a9422d2e1`| `run_exp_ray_to_wad_evm_revert`               |
+| Scale point: `expRayToWad(0) = 10^18`           | `run_exp_ray_to_wad_evm_zero`                 |
+| Value path reduces to the `evm*` tree           | `run_exp_ray_to_wad_evm_eq_tree`              |
+| Monotone in the input (modulo the region core)  | `run_exp_ray_to_wad_evm_mono`                 |
+| `lnWadToRay` round trip recovers `w − 1`        | `run_exp_ray_to_wad_evm_lnWadToRay_roundTrip` |
 
 The monotonicity theorem `run_exp_ray_to_wad_evm_mono` is proved over the whole supported domain;
 it takes the analytic facts of the meaningful region (`RegionMonotonicityFacts`: `r1Tree` in range,
@@ -241,6 +243,24 @@ example (x : Nat) (hx : x < 2 ^ 256)
 /-- info: 'ExpYul.run_exp_ray_to_wad_evm_underByAtMostOne_uncond' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms run_exp_ray_to_wad_evm_underByAtMostOne_uncond
+
+/-! ## The `lnWadToRay` round trip
+
+For `w` with `w/10¹⁸ ∈ [1/√2, √2)`, the compiled composition
+`expRayToWad(lnWadToRay(w))` returns `w − 1`, and returns `w` at the scale point
+`w = 10¹⁸`. The proof composes the verified `lnWadToRay` runtime (`LnProof`) with the exp runtime. -/
+
+/-- The `lnWadToRay` round trip, with no analytic hypothesis. For `w` on the central band
+(`Wlo ≤ w ≤ Whi`, i.e. `w/10¹⁸ ∈ [1/√2, √2)`), the runtime composition returns `w − 1`, and `w` at
+the scale point. -/
+example {w : Nat} (hlo : Wlo ≤ w) (hhi : w ≤ Whi) :
+    ∃ x r : Nat, LnYul.run_ln_wad_to_ray_evm w = .ok x ∧ run_exp_ray_to_wad_evm x = .ok r ∧
+      (w = 10 ^ 18 → (r : Int) = 10 ^ 18) ∧ (w ≠ 10 ^ 18 → (r : Int) = (w : Int) - 1) :=
+  run_exp_ray_to_wad_evm_lnWadToRay_roundTrip hlo hhi
+
+/-- info: 'ExpYul.run_exp_ray_to_wad_evm_lnWadToRay_roundTrip' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_exp_ray_to_wad_evm_lnWadToRay_roundTrip
 
 /-! ## Central-octave exact floor from central exactness
 
