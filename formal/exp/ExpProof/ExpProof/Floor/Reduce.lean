@@ -40,10 +40,11 @@ def reducedArg (x : Nat) : Real :=
   (int256 x : Real) / (10 ^ 27 : Real) - (int256 (kTree x) : Real) * Real.log 2
 
 /-- **Reduced-argument real bound (gap-1).** On the meaningful region the reduced argument `rt`
-agrees with `t/2¹²⁸` to within `2/2¹²⁸`. -/
+agrees with `t/2¹²⁸` to within `9/(8·2¹²⁸)` (the integer `t`-rounding sandwich `[0, 1/2¹²⁸)`
+dominates; the rational and `ln2`-grid errors are below `2⁻¹³²`). -/
 theorem reducedArg_close {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    |reducedArg x - (int256 (tTree x) : Real) / (2 ^ 128 : Real)| < 2 / (2 ^ 128 : Real) := by
+    |reducedArg x - (int256 (tTree x) : Real) / (2 ^ 128 : Real)| < 9 / (8 * (2 ^ 128 : Real)) := by
   obtain ⟨htlo, hthi⟩ := tTree_sandwich hx hC hC0
   obtain ⟨hklo, hkhi⟩ := kTree_bound hx hC hC0
   obtain ⟨hxlo, hxhi⟩ := region_x_bound hC hC0
@@ -100,7 +101,7 @@ theorem reducedArg_close {x : Nat} (hx : x < 2 ^ 256)
   have hcoeff_num : K27R * (10 ^ 27 : Real) - N235 = 222636907558699806209605632 := by
     rw [hK27R, hN235]; norm_num
   -- |P1| < 2⁻¹³² (a generous bound):  |XR| < 2^96, |coeff| = m, and 2^96·m < 2⁻¹³².
-  have hP1_abs : |P1| < 1 / (4 * N128) := by
+  have hP1_abs : |P1| < 1 / (64 * N128) := by
     rw [hP1def, hcoeff_eq, hcoeff_num, abs_mul]
     have hden_pos : (0 : Real) < N235 * (10 ^ 27 : Real) := by positivity
     have hco_abs : |(-(222636907558699806209605632 / (N235 * (10 ^ 27 : Real))))| =
@@ -114,7 +115,7 @@ theorem reducedArg_close {x : Nat} (hx : x < 2 ^ 256)
           (mul_lt_mul_right hco_pos).mpr hX_abs
       _ = 79228162514264337593543950336 * 222636907558699806209605632 /
             (N235 * (10 ^ 27 : Real)) := by rw [mul_div_assoc]
-      _ < 1 / (4 * N128) := by
+      _ < 1 / (64 * N128) := by
           rw [hN235, hN128, div_lt_div_iff₀ (by positivity) (by positivity)]; norm_num
   -- bound P2 : 0 ≤ LN2R/N235 − LR... actually ln2 ≥ LN2/2^235, so LN2R/N235 − LR ≤ 0, and ≥ −1/N235.
   have hP2_lo : LN2R / N235 - LR ≤ 0 := by linarith [hln2lo]
@@ -126,7 +127,7 @@ theorem reducedArg_close {x : Nat} (hx : x < 2 ^ 256)
     have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hklo; rw [hkRdef]; push_cast at this; linarith [this]
   have hkhiR : kR ≤ (63 : Real) := by
     have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hkhi; rw [hkRdef]; push_cast at this; linarith [this]
-  have hP2_abs : |P2| < 1 / (4 * N128) := by
+  have hP2_abs : |P2| < 1 / (64 * N128) := by
     rw [hP2def]
     have h1 : |kR| ≤ 63 := abs_le.mpr ⟨by linarith [hkloR], hkhiR⟩
     have h2 : |LN2R / N235 - LR| ≤ 1 / N235 := by
@@ -137,7 +138,7 @@ theorem reducedArg_close {x : Nat} (hx : x < 2 ^ 256)
     have hbound : |kR * (LN2R / N235 - LR)| ≤ 63 * (1 / N235) := by
       rw [abs_mul]
       exact mul_le_mul h1 h2 (abs_nonneg _) (by norm_num)
-    have hlt : 63 * (1 / N235) < 1 / (4 * N128) := by
+    have hlt : 63 * (1 / N235) < 1 / (64 * N128) := by
       rw [hN235, hN128, mul_one_div, div_lt_div_iff₀ (by positivity) (by positivity)]; norm_num
     linarith [hbound, hlt]
   -- bound P3 ∈ [0, 1/N128) from the integer sandwich
@@ -161,31 +162,35 @@ theorem reducedArg_close {x : Nat} (hx : x < 2 ^ 256)
     rw [hP3eq, hsplit, div_lt_div_iff₀ (by positivity) (by positivity)]
     nlinarith [hnumR_hi, hp128]
   -- assemble
-  show |reducedArg x - tR / N128| < 2 / N128
+  show |reducedArg x - tR / N128| < 9 / (8 * N128)
   rw [show reducedArg x = XR / (10 ^ 27 : Real) - kR * LR from rfl]
   rw [hident, abs_lt]
   have hP1 := abs_lt.mp hP1_abs
   have hP2 := abs_lt.mp hP2_abs
   clear_value N128 N235
-  -- 1/(4N) + 1/(4N) = 1/(2N) ≤ 1/N ≤ 2/N
-  have hquarter : (1 : Real) / (4 * N128) + 1 / (4 * N128) ≤ 1 / N128 := by
-    have he : (1 : Real) / (4 * N128) + 1 / (4 * N128) = (1 / N128) / 2 := by
-      field_simp; ring
-    rw [he]; linarith [div_nonneg (le_of_lt (by positivity : (0:Real) < 1/N128)) (by norm_num : (0:Real) ≤ 2),
-      half_le_self (le_of_lt (by positivity : (0:Real) < 1/N128))]
-  have htwo : (1 : Real) / N128 ≤ 2 / N128 := by
-    have : (2 : Real) / N128 = 1/N128 + 1/N128 := by ring
-    rw [this]; linarith [div_pos (by norm_num : (0:Real) < 1) hp128]
-  have hsum_hi : P1 + P2 + P3 < 2 / N128 := by
-    have h12 : P1 + P2 < 1 / N128 := by linarith [hP1.2, hP2.2, hquarter]
-    have : (2 : Real) / N128 = 1 / N128 + 1 / N128 := by ring
-    rw [this]; linarith [h12, hP3_hi]
-  have hsum_lo : -(2 / N128) < P1 + P2 + P3 := by
-    have h12 : -(1 / N128) < P1 + P2 := by
-      have hq2 : -(1 / N128) ≤ -(1 / (4 * N128)) + -(1 / (4 * N128)) := by linarith [hquarter]
-      linarith [hP1.1, hP2.1, hq2]
-    have : (2 : Real) / N128 = 1 / N128 + 1 / N128 := by ring
-    rw [this]; linarith [h12, hP3_lo]
+  -- P1+P2 < 2/(64N) = 1/(32N); P3 ∈ [0, 1/N).  9/(8N) = 36/(32N) covers 33/(32N).
+  have hp128' : (0 : Real) < 1 / N128 := by positivity
+  -- 1/(64N)+1/(64N) ≤ 1/(32N) ≤ 1/(8N)
+  have he12 : (1 : Real) / (64 * N128) + 1 / (64 * N128) = 1 / (32 * N128) := by
+    field_simp; ring
+  have h32_8 : (1 : Real) / (32 * N128) ≤ 1 / (8 * N128) := by
+    rw [div_le_div_iff₀ (by positivity) (by positivity)]; linarith [hp128]
+  have h1_8N : (1 : Real) / N128 + 1 / (8 * N128) = 9 / (8 * N128) := by
+    field_simp; ring
+  have hsum_hi : P1 + P2 + P3 < 9 / (8 * N128) := by
+    have h12 : P1 + P2 < 1 / (8 * N128) := by
+      have : P1 + P2 < 1 / (32 * N128) := by rw [← he12]; linarith [hP1.2, hP2.2]
+      linarith [this, h32_8]
+    rw [← h1_8N]; linarith [h12, hP3_hi]
+  have hsum_lo : -(9 / (8 * N128)) < P1 + P2 + P3 := by
+    have h12 : -(1 / (8 * N128)) < P1 + P2 := by
+      have hlo : -(1 / (32 * N128)) < P1 + P2 := by
+        rw [show -(1 / (32 * N128)) = -(1 / (64 * N128)) + -(1 / (64 * N128)) from by rw [← he12]; ring]
+        linarith [hP1.1, hP2.1]
+      linarith [hlo, h32_8]
+    have hneg : -(9 / (8 * N128)) < -(1 / (8 * N128)) + 0 := by
+      rw [← h1_8N]; linarith [hp128']
+    linarith [h12, hP3_lo, hneg]
   exact ⟨hsum_lo, hsum_hi⟩
 
 /-- info: 'ExpYul.reducedArg_close' depends on axioms: [propext, Classical.choice, Quot.sound] -/

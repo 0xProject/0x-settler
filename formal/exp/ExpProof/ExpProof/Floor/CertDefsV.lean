@@ -83,12 +83,14 @@ def expN27 : List Int := expPolyNum [0, 1] [(Qexp : Int)] 27
 
 /-! ## Margin-nudged rational targets
 
-`yUB/wUB = ê_v·(1 + 2⁻¹²⁰)` and `yLB/wLB = ê_v·(1 − 2⁻¹²⁶)`. -/
+`yUB/wUB = ê_v·(1 + 2⁻¹³⁰)` and `yLB/wLB = ê_v·(1 − 2⁻¹³⁰)`. The tight `2⁻¹³⁰` margins keep the
+`2¹²⁶·(ê_v − exp)` contribution to the runtime over/under budget below `2¹²⁶·exp·2⁻¹³⁰ ≈ 0.09` ulp,
+inside the `MARGIN`; the verified envelope `2¹²⁶·|ê_v − exp(t/2¹²⁸)| ≤ 0.057` ulp leaves slack. -/
 
-def yUB : List Int := polyScale (2 ^ 120 + 1) numExpV
-def wUB : List Int := polyScale (2 ^ 120) denExpV
-def yLB : List Int := polyScale (2 ^ 126 - 1) numExpV
-def wLB : List Int := polyScale (2 ^ 126) denExpV
+def yUB : List Int := polyScale (2 ^ 130 + 1) numExpV
+def wUB : List Int := polyScale (2 ^ 130) denExpV
+def yLB : List Int := polyScale (2 ^ 130 - 1) numExpV
+def wLB : List Int := polyScale (2 ^ 130) denExpV
 
 /-! ## The cut certificate polynomials -/
 
