@@ -24,6 +24,7 @@ open FormalYul
 open FormalYul.Preservation
 
 set_option maxRecDepth 100000
+set_option maxHeartbeats 1000000
 
 /-! ## Gap-2: the even Horner accumulator brackets the exact polynomial
 
@@ -88,6 +89,85 @@ theorem tele_step (e0 e1 v A c0 s E0 : Nat)
   · nlinarith [key_lo]
   · nlinarith [key_hi]
 
+/-! ## The fractional telescoping bound
+
+The integer `tele_step` above yields a per-stage `+2` width because it carries the input width
+verbatim (`E0 < 2^c0·e0 + 2·2^c0`). The *fractional* version tracks the exact deficit width as
+`Wnum·2^p` (a dyadic rational `Wnum/2^(cum-p)` at the cumulative scale `2^cum`). Across a stage with
+shift `s ≥ 127` the carried width is attenuated by `v/2^s ≤ 2^(126-s) < 1`, so the width evolves as
+`W' = W·2^(126-s) + 1`. With `r_i = 2^(126-s_i) < 1` the widths stay strictly below `1/(1−max r)`,
+recovering the true ≈1.02-unit gap-2 envelope instead of the loose `+2`.
+
+The state is `2^cum·e ≤ E < 2^cum·e + Wnum·2^p` with `p ≤ cum` (the width exponent). One stage with
+shift `s` (constant `A`, `e1 = A + ⌊e0·v/2^s⌋`) produces the new width `Wnum' = Wnum + 2^(cum+s−p−126)`
+at exponent `p' = p + 126` and scale `cum' = cum + s`. -/
+theorem tele_step_frac (e0 e1 v A cum s p Wnum E0 : Nat)
+    (hv : v < 2^126) (hs : 126 ≤ s) (hAe1 : A ≤ e1) (hpcum : p + 126 ≤ cum + s)
+    (hb0lo : 2^cum * e0 ≤ E0) (hb0hi : E0 < 2^cum * e0 + Wnum * 2^p)
+    (hslo : 2^s * (e1 - A) ≤ e0 * v) (hshi : e0 * v < 2^s * (e1 - A) + 2^s) :
+    2^(cum+s) * e1 ≤ A * 2^(cum+s) + E0 * v ∧
+      A * 2^(cum+s) + E0 * v <
+        2^(cum+s) * e1 + (Wnum + 2^(cum+s-(p+126))) * 2^(p+126) := by
+  -- factor the relevant power identities, then abstract every `2^…` to an opaque var
+  have hsplit : (2:Nat)^(cum+s) = 2^cum * 2^s := by rw [Nat.pow_add]
+  -- key: 2^cum · 2^s = 2^(p+126) · 2^(cum+s-(p+126)) = 2^p · 2^126 · G
+  have hG : (2:Nat)^cum * 2^s = (2^p * 2^126) * 2^(cum+s-(p+126)) := by
+    rw [show (2:Nat)^p * 2^126 = 2^(p+126) from by rw [Nat.pow_add],
+      ← Nat.pow_add, ← Nat.pow_add]; congr 1; omega
+  have hPP126 : (2:Nat)^(p+126) = 2^p * 2^126 := by rw [Nat.pow_add]
+  have hP126 : (0:Nat) < 2^126 := Nat.two_pow_pos _
+  have hPcum : (0:Nat) < 2^cum := Nat.two_pow_pos _
+  set d := e1 - A with hd
+  have he1eq : e1 = A + d := by omega
+  -- abstract powers
+  set P := (2:Nat)^cum with hPdef
+  set Q := (2:Nat)^s with hQdef
+  set R := (2:Nat)^p with hRdef
+  set H := (2:Nat)^126 with hHdef
+  set G := (2:Nat)^(cum+s-(p+126)) with hGdef
+  -- collected facts in abstract form
+  rw [hsplit, he1eq]
+  rw [show (2:Nat)^(p+126) = R * H from hPP126]
+  have hPQ : P * Q = (R * H) * G := hG
+  have hvH : v ≤ H := le_of_lt hv
+  have hRpos : 0 < R := by rw [hRdef]; exact Nat.two_pow_pos _
+  have hHpos : 0 < H := by rw [hHdef]; exact Nat.two_pow_pos _
+  have hGpos : 0 < G := by rw [hGdef]; exact Nat.two_pow_pos _
+  clear_value P Q R H G
+  have hRHpos : 0 < R * H := Nat.mul_pos hRpos hHpos
+  -- lower bound
+  have key_lo : P * Q * d ≤ E0 * v := by
+    calc P * Q * d = P * (Q * d) := by ring
+      _ ≤ P * (e0 * v) := by gcongr
+      _ = (P * e0) * v := by ring
+      _ ≤ E0 * v := by gcongr
+  -- upper bound, an explicit chain in the abstract powers
+  have key_hi : E0 * v < P * Q * d + (Wnum + G) * (R * H) := by
+    rcases Nat.eq_zero_or_pos v with hv0 | hv0
+    · subst hv0
+      have hpos : (0:Nat) < (Wnum + G) * (R * H) :=
+        Nat.mul_pos (by omega) hRHpos
+      have : E0 * 0 < P * Q * d + (Wnum + G) * (R * H) := by
+        rw [Nat.mul_zero]; exact Nat.lt_of_lt_of_le hpos (Nat.le_add_left _ _)
+      simpa using this
+    have h1 : E0 * v < (P * e0 + Wnum * R) * v := (Nat.mul_lt_mul_right hv0).mpr hb0hi
+    have h3 : P * (e0 * v) < P * (Q * d + Q) := (Nat.mul_lt_mul_left hPcum).mpr hshi
+    have hcarry : Wnum * R * v ≤ Wnum * (R * H) := by
+      calc Wnum * R * v ≤ Wnum * R * H := by gcongr
+        _ = Wnum * (R * H) := by ring
+    calc E0 * v < (P * e0 + Wnum * R) * v := h1
+      _ = P * (e0 * v) + Wnum * R * v := by ring
+      _ < P * (Q * d + Q) + Wnum * (R * H) := by
+            exact Nat.add_lt_add_of_lt_of_le h3 hcarry
+      _ = P * Q * d + (R * H) * G + Wnum * (R * H) := by rw [← hPQ]; ring
+      _ = P * Q * d + (Wnum + G) * (R * H) := by ring
+  refine ⟨?_, ?_⟩
+  · calc P * Q * (A + d) = A * (P * Q) + P * Q * d := by ring
+      _ ≤ A * (P * Q) + E0 * v := by exact Nat.add_le_add_left key_lo _
+  · calc A * (P * Q) + E0 * v < A * (P * Q) + (P * Q * d + (Wnum + G) * (R * H)) :=
+            Nat.add_lt_add_left key_hi _
+      _ = P * Q * (A + d) + (Wnum + G) * (R * H) := by ring
+
 theorem ev0_exact {v : Nat} (hv : v < 2 ^ 126) :
     2^0x1d * (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v) - 0xb9aacfad41060587203a79af0ebc) ≤ v ∧
       v < 2^0x1d * (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v) - 0xb9aacfad41060587203a79af0ebc) + 2^0x1d := by
@@ -139,9 +219,40 @@ theorem horner_stage (c P prev v cum sh Eprev : Nat)
     omega
   exact tele_step prev ev1 v c cum sh Eprev hv hs hge hElo hEhi hst.1 hst.2
 
+/-- The fractional version of `horner_stage`: a runtime Horner stage propagates a *dyadic-fraction*
+deficit width `Wnum·2^p` into `(Wnum + 2^(cum+sh−p−126))·2^(p+126)` (the carried width is attenuated
+by `v/2^sh ≤ 2^(126−sh) < 1`). Consumes `tele_step_frac`. -/
+theorem horner_stage_frac (c P prev v cum sh p Wnum Eprev : Nat)
+    (hv : v < 2^126) (hs : 126 ≤ sh) (hsh256 : sh < 256) (hprevlt : prev < P)
+    (hPV : P * 2^126 < 2^256) (hpcum : p + 126 ≤ cum + sh)
+    (hsum : c + P * 2^126 / 2^sh < 2^256) (hclt : c < 2^256)
+    (hElo : 2^cum * prev ≤ Eprev) (hEhi : Eprev < 2^cum * prev + Wnum * 2^p) :
+    2^(cum+sh) * (evmAdd c (evmShr sh (evmMul prev v))) ≤ c * 2^(cum+sh) + Eprev * v ∧
+      c * 2^(cum+sh) + Eprev * v <
+        2^(cum+sh) * (evmAdd c (evmShr sh (evmMul prev v))) +
+          (Wnum + 2^(cum+sh-(p+126))) * 2^(p+126) := by
+  have hprev256 : prev < 2^256 := by have : P ≤ 2^256 := by omega
+                                     omega
+  have hv256 : v < 2^256 := by have : (2:Nat)^126 < 2^256 := by norm_num
+                               omega
+  have hpv : prev * v < 2^256 := lt_of_lt_of_le (Nat.mul_lt_mul'' hprevlt hv) (by omega)
+  have hsum' : c + prev * v / 2^sh < 2^256 := by
+    have : prev * v / 2^sh ≤ P * 2^126 / 2^sh := by
+      apply Nat.div_le_div_right; exact Nat.le_of_lt (Nat.mul_lt_mul'' hprevlt hv)
+    omega
+  have hst := stage_exact hprev256 hv256 hpv hsh256 hclt hsum'
+  set ev1 := evmAdd c (evmShr sh (evmMul prev v)) with hev1
+  have hge : c ≤ ev1 := by
+    rw [hev1, evmAdd_eq_nat hclt (by exact evmShr_lt _ _) (by
+      have hmul : evmMul prev v = prev * v := evmMul_eq_nat hprev256 hv256 hpv
+      have : evmShr sh (evmMul prev v) = prev*v/2^sh := by rw [hmul]; exact evmShr_eq_div (by omega) hpv
+      rw [this]; omega)]
+    omega
+  exact tele_step_frac prev ev1 v c cum sh p Wnum Eprev hv hs hge hpcum hElo hEhi hst.1 hst.2
+
 
 theorem evTree_bracket {x : Nat} (hv : vTree x < 2 ^ 126) :
-    2^553 * evTree x ≤ evNumV (vTree x) ∧ evNumV (vTree x) < 2^553 * evTree x + 2 * 2^553 := by
+    2^553 * evTree x ≤ evNumV (vTree x) ∧ evNumV (vTree x) < 2^553 * evTree x + 1065041 * 2^533 := by
   have hev : evTree x =
       evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
       (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
@@ -149,71 +260,73 @@ theorem evTree_bracket {x : Nat} (hv : vTree x < 2 ^ 126) :
       (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
       (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d (vTree x))) (vTree x)))) (vTree x)))) (vTree x)))) (vTree x))) := rfl
   set v := vTree x with hvdef
-  -- stage 0
+  -- stage 0: width 1·2^29 (p=29, Wnum=1)
   have h0 := ev0_exact hv
   set e0 := evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v) with he0
   have he0lt : e0 < 2 ^ 113 := ev0_lt hv
   have he0ge : 0xb9aacfad41060587203a79af0ebc ≤ e0 := ev0_ge hv
-  -- E0 = A4*2^29 + v; bracket 2^29*e0 <= E0 < 2^29*e0 + 2*2^29
   have h29 : (0x1d : Nat) = 29 := by norm_num
   rw [h29] at h0
   have hE0lo : 2^29 * e0 ≤ 0xb9aacfad41060587203a79af0ebc * 2^29 + v := by have := h0.1; omega
-  have hE0hi : 0xb9aacfad41060587203a79af0ebc * 2^29 + v < 2^29 * e0 + 2 * 2^29 := by have := h0.2; omega
-  -- stage 1: cum 29 -> 159, sh=0x82=130, P=2^113
-  have s1 := horner_stage 0x9a036222e11aee18465042f8ea64c8 (2^113) e0 v 29 0x82
+  have hE0hi : 0xb9aacfad41060587203a79af0ebc * 2^29 + v < 2^29 * e0 + 1 * 2^29 := by have := h0.2; omega
+  -- stage 1: cum 29 -> 159, sh=130; p 29 -> 155; Wnum 1 -> 17
+  have s1 := horner_stage_frac 0x9a036222e11aee18465042f8ea64c8 (2^113) e0 v 29 0x82 29 1
     (0xb9aacfad41060587203a79af0ebc * 2^29 + v) hv (by norm_num) (by norm_num) he0lt (by norm_num)
-    (by rw [pvd 113 126 130 109 (by norm_num)]; norm_num) (by norm_num) hE0lo hE0hi
+    (by norm_num) (by rw [pvd 113 126 130 109 (by norm_num)]; norm_num) (by norm_num) hE0lo hE0hi
+  -- normalise the stage-1 width `(1 + 2^(159-155))·2^155` to `17·2^155`
+  rw [show (29:Nat)+0x82-(29+126) = 4 from by norm_num, show (1:Nat)+2^4 = 17 from by norm_num,
+    show (29:Nat)+126 = 155 from by norm_num, show (29:Nat)+0x82 = 159 from by norm_num] at s1
   set e1 := evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul e0 v)) with he1
   have he1lt : e1 < 2^121 := by
     have := (stage_bounds (c := 0x9a036222e11aee18465042f8ea64c8) (prev := e0) (v := v)
       (P := 2^113) (V := 2^126) (sh := 0x82) he0lt hv (by norm_num) (by norm_num)
       (by rw [pvd 113 126 130 109 (by norm_num)]; norm_num)).2
     rw [pvd 113 126 130 109 (by norm_num)] at this; omega
-  -- E1 = A1stage*2^159 + E0*v (cum 159). s1 gives bracket on e1 with this E1.
-  -- stage 2: cum 159 -> 287, sh=0x80=128, P=2^121
-  have s2 := horner_stage 0x9064d965e1c4863b73604e0ddbec53f9 (2^121) e1 v 159 0x80
+  -- stage 2: cum 159 -> 287, sh=128; p 155 -> 281; Wnum 17 -> 81
+  have s2 := horner_stage_frac 0x9064d965e1c4863b73604e0ddbec53f9 (2^121) e1 v 159 0x80 155 17
     (0x9a036222e11aee18465042f8ea64c8 * 2^159 + (0xb9aacfad41060587203a79af0ebc * 2^29 + v) * v)
     hv (by norm_num) (by norm_num) he1lt (by norm_num)
-    (by rw [pvd 121 126 128 119 (by norm_num)]; norm_num) (by norm_num) s1.1 s1.2
+    (by norm_num) (by rw [pvd 121 126 128 119 (by norm_num)]; norm_num) (by norm_num) s1.1 s1.2
+  rw [show (159:Nat)+0x80-(155+126) = 6 from by norm_num, show (17:Nat)+2^6 = 81 from by norm_num,
+    show (155:Nat)+126 = 281 from by norm_num, show (159:Nat)+0x80 = 287 from by norm_num] at s2
   set e2 := evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul e1 v)) with he2
   have he2lt : e2 < 2^129 := by
     have := (stage_bounds (c := 0x9064d965e1c4863b73604e0ddbec53f9) (prev := e1) (v := v)
       (P := 2^121) (V := 2^126) (sh := 0x80) he1lt hv (by norm_num) (by norm_num)
       (by rw [pvd 121 126 128 119 (by norm_num)]; norm_num)).2
     rw [pvd 121 126 128 119 (by norm_num)] at this; omega
-  -- stage 3: cum 287 -> 421, sh=0x86=134, P=2^129
-  have s3 := horner_stage 0x93f11e65781741b92fa7fc4f4fffcca2 (2^129) e2 v 287 0x86
+  -- stage 3: cum 287 -> 421, sh=134; p 281 -> 407; Wnum 81 -> 16465
+  have s3 := horner_stage_frac 0x93f11e65781741b92fa7fc4f4fffcca2 (2^129) e2 v 287 0x86 281 81
     (0x9064d965e1c4863b73604e0ddbec53f9 * 2^287 +
       (0x9a036222e11aee18465042f8ea64c8 * 2^159 + (0xb9aacfad41060587203a79af0ebc * 2^29 + v) * v) * v)
     hv (by norm_num) (by norm_num) he2lt (by norm_num)
-    (by rw [pvd 129 126 134 121 (by norm_num)]; norm_num) (by norm_num) s2.1 s2.2
+    (by norm_num) (by rw [pvd 129 126 134 121 (by norm_num)]; norm_num) (by norm_num) s2.1 s2.2
+  rw [show (287:Nat)+0x86-(281+126) = 14 from by norm_num, show (81:Nat)+2^14 = 16465 from by norm_num,
+    show (281:Nat)+126 = 407 from by norm_num, show (287:Nat)+0x86 = 421 from by norm_num] at s3
   set e3 := evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul e2 v)) with he3
   have he3lt : e3 < 2^129 := by
     have := (stage_bounds (c := 0x93f11e65781741b92fa7fc4f4fffcca2) (prev := e2) (v := v)
       (P := 2^129) (V := 2^126) (sh := 0x86) he2lt hv (by norm_num) (by norm_num)
       (by rw [pvd 129 126 134 121 (by norm_num)]; norm_num)).2
     rw [pvd 129 126 134 121 (by norm_num)] at this; omega
-  -- stage 4: cum 421 -> 553, sh=0x84=132, P=2^129
-  have s4 := horner_stage 0x4e14a45e8ec305e233e11b4174e214ac (2^129) e3 v 421 0x84
+  -- stage 4: cum 421 -> 553, sh=132; p 407 -> 533; Wnum 16465 -> 1065041
+  have s4 := horner_stage_frac 0x4e14a45e8ec305e233e11b4174e214ac (2^129) e3 v 421 0x84 407 16465
     (0x93f11e65781741b92fa7fc4f4fffcca2 * 2^421 +
       (0x9064d965e1c4863b73604e0ddbec53f9 * 2^287 +
         (0x9a036222e11aee18465042f8ea64c8 * 2^159 +
           (0xb9aacfad41060587203a79af0ebc * 2^29 + v) * v) * v) * v)
     hv (by norm_num) (by norm_num) he3lt (by norm_num)
-    (by rw [pvd 129 126 132 123 (by norm_num)]; norm_num) (by norm_num) s3.1 s3.2
+    (by norm_num) (by rw [pvd 129 126 132 123 (by norm_num)]; norm_num) (by norm_num) s3.1 s3.2
+  rw [show (421:Nat)+0x84-(407+126) = 20 from by norm_num,
+    show (16465:Nat)+2^20 = 1065041 from by norm_num,
+    show (407:Nat)+126 = 533 from by norm_num, show (421:Nat)+0x84 = 553 from by norm_num] at s4
   -- assemble: evTree x = e4 (the stage-4 value), evNumV v = the cumulative E4.
   rw [hev]
-  -- unfold evNumV to the same E4 expression
   show 2^553 * evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul e3 v)) ≤ evNumV v ∧
-    evNumV v < 2^553 * evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul e3 v)) + 2 * 2^553
+    evNumV v < 2^553 * evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul e3 v)) + 1065041 * 2^533
   unfold evNumV
-  -- s4 has the right shape with cum+sh = 421+132 = 553
-  have e553 : (421:Nat) + 0x84 = 553 := by norm_num
-  rw [e553] at s4
-  -- the E4 in s4 = A0*2^553 + E3*v matches evNumV's let-expansion
   constructor
   · have := s4.1
-    -- s4.1: 2^553 * e4 <= A0 * 2^553 + E3 * v.  evNumV v = A0*2^553 + E3*v (after let).
     convert this using 2 <;> ring
   · have := s4.2
     convert this using 2 <;> ring
@@ -236,9 +349,10 @@ def odNumV (v : Nat) : Nat :=
   let o3 := 0xaf5662483c4ce783a9ef5fe025f42e9e * 2^395 + o2 * v
   0x270a522f476182f119f08da0ba710a56 * 2^530 + o3 * v
 
-/-- Runtime odd-Horner accumulator brackets the exact polynomial within `2` ulp at scale `2^530`. -/
+/-- Runtime odd-Horner accumulator brackets the exact polynomial within `1.003·2^530` (the
+fractional gap-2 envelope) at scale `2^530`. -/
 theorem odTree_bracket {x : Nat} (hv : vTree x < 2 ^ 126) :
-    2^530 * odTree x ≤ odNumV (vTree x) ∧ odNumV (vTree x) < 2^530 * odTree x + 2 * 2^530 := by
+    2^530 * odTree x ≤ odNumV (vTree x) ∧ odNumV (vTree x) < 2^530 * odTree x + 67305505 * 2^504 := by
   have hod : odTree x =
       evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
       (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
@@ -246,52 +360,59 @@ theorem odTree_bracket {x : Nat} (hv : vTree x < 2 ^ 126) :
       (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
       0xdc07aff85e5bb5629d0fb64a84bb (vTree x)))) (vTree x)))) (vTree x)))) (vTree x))) := rfl
   set v := vTree x with hvdef
-  -- the leading constant is its own (trivial) cumulative bracket at scale 2^0
+  -- the leading constant is exact; track it as width 1·2^0 (B0 < B0 + 1)
   have hB4lo : 2^0 * 0xdc07aff85e5bb5629d0fb64a84bb ≤ 0xdc07aff85e5bb5629d0fb64a84bb := by norm_num
-  have hB4hi : (0xdc07aff85e5bb5629d0fb64a84bb : Nat) < 2^0 * 0xdc07aff85e5bb5629d0fb64a84bb + 2 * 2^0 := by norm_num
-  -- stage 1: cum 0 -> 131, sh=0x83=131, prev=B4<2^112
-  have s1 := horner_stage 0xc926ddbf3830ca5561cc01585402d0 (2^112) 0xdc07aff85e5bb5629d0fb64a84bb v 0 0x83
+  have hB4hi : (0xdc07aff85e5bb5629d0fb64a84bb : Nat) < 2^0 * 0xdc07aff85e5bb5629d0fb64a84bb + 1 * 2^0 := by norm_num
+  -- stage 1: cum 0 -> 131, sh=131; p 0 -> 126; Wnum 1 -> 33
+  have s1 := horner_stage_frac 0xc926ddbf3830ca5561cc01585402d0 (2^112) 0xdc07aff85e5bb5629d0fb64a84bb v 0 0x83 0 1
     0xdc07aff85e5bb5629d0fb64a84bb hv (by norm_num) (by norm_num) (by norm_num) (by norm_num)
-    (by rw [pvd 112 126 131 107 (by norm_num)]; norm_num) (by norm_num) hB4lo hB4hi
+    (by norm_num) (by rw [pvd 112 126 131 107 (by norm_num)]; norm_num) (by norm_num) hB4lo hB4hi
+  rw [show (0:Nat)+0x83-(0+126) = 5 from by norm_num, show (1:Nat)+2^5 = 33 from by norm_num,
+    show (0:Nat)+126 = 126 from by norm_num, show (0:Nat)+0x83 = 131 from by norm_num] at s1
   set o1 := evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul 0xdc07aff85e5bb5629d0fb64a84bb v)) with ho1
   have ho1lt : o1 < 2^121 := by
     have := (stage_bounds (c := 0xc926ddbf3830ca5561cc01585402d0) (prev := 0xdc07aff85e5bb5629d0fb64a84bb) (v := v)
       (P := 2^112) (V := 2^126) (sh := 0x83) (by norm_num) hv (by norm_num) (by norm_num)
       (by rw [pvd 112 126 131 107 (by norm_num)]; norm_num)).2
     rw [pvd 112 126 131 107 (by norm_num)] at this; omega
-  -- stage 2: cum 131 -> 268, sh=0x89=137, prev=o1<2^121
-  have s2 := horner_stage 0xad4506b00b1246c7e5b4fd33e1201b (2^121) o1 v 131 0x89
+  -- stage 2: cum 131 -> 268, sh=137; p 126 -> 252; Wnum 33 -> 65569
+  have s2 := horner_stage_frac 0xad4506b00b1246c7e5b4fd33e1201b (2^121) o1 v 131 0x89 126 33
     (0xc926ddbf3830ca5561cc01585402d0 * 2^131 + 0xdc07aff85e5bb5629d0fb64a84bb * v) hv (by norm_num) (by norm_num) ho1lt (by norm_num)
-    (by rw [pvd 121 126 137 110 (by norm_num)]; norm_num) (by norm_num) s1.1 s1.2
+    (by norm_num) (by rw [pvd 121 126 137 110 (by norm_num)]; norm_num) (by norm_num) s1.1 s1.2
+  rw [show (131:Nat)+0x89-(126+126) = 16 from by norm_num, show (33:Nat)+2^16 = 65569 from by norm_num,
+    show (126:Nat)+126 = 252 from by norm_num, show (131:Nat)+0x89 = 268 from by norm_num] at s2
   set o2 := evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul o1 v)) with ho2
   have ho2lt : o2 < 2^121 := by
     have := (stage_bounds (c := 0xad4506b00b1246c7e5b4fd33e1201b) (prev := o1) (v := v)
       (P := 2^121) (V := 2^126) (sh := 0x89) ho1lt hv (by norm_num) (by norm_num)
       (by rw [pvd 121 126 137 110 (by norm_num)]; norm_num)).2
     rw [pvd 121 126 137 110 (by norm_num)] at this; omega
-  -- stage 3: cum 268 -> 395, sh=0x7f=127, prev=o2<2^121
-  have s3 := horner_stage 0xaf5662483c4ce783a9ef5fe025f42e9e (2^121) o2 v 268 0x7f
+  -- stage 3: cum 268 -> 395, sh=127; p 252 -> 378; Wnum 65569 -> 196641
+  have s3 := horner_stage_frac 0xaf5662483c4ce783a9ef5fe025f42e9e (2^121) o2 v 268 0x7f 252 65569
     (0xad4506b00b1246c7e5b4fd33e1201b * 2^268 +
       (0xc926ddbf3830ca5561cc01585402d0 * 2^131 + 0xdc07aff85e5bb5629d0fb64a84bb * v) * v) hv (by norm_num) (by norm_num) ho2lt (by norm_num)
-    (by rw [pvd 121 126 127 120 (by norm_num)]; norm_num) (by norm_num) s2.1 s2.2
+    (by norm_num) (by rw [pvd 121 126 127 120 (by norm_num)]; norm_num) (by norm_num) s2.1 s2.2
+  rw [show (268:Nat)+0x7f-(252+126) = 17 from by norm_num, show (65569:Nat)+2^17 = 196641 from by norm_num,
+    show (252:Nat)+126 = 378 from by norm_num, show (268:Nat)+0x7f = 395 from by norm_num] at s3
   set o3 := evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul o2 v)) with ho3
   have ho3lt : o3 < 2^129 := by
     have := (stage_bounds (c := 0xaf5662483c4ce783a9ef5fe025f42e9e) (prev := o2) (v := v)
       (P := 2^121) (V := 2^126) (sh := 0x7f) ho2lt hv (by norm_num) (by norm_num)
       (by rw [pvd 121 126 127 120 (by norm_num)]; norm_num)).2
     rw [pvd 121 126 127 120 (by norm_num)] at this; omega
-  -- stage 4: cum 395 -> 530, sh=0x87=135, prev=o3<2^129
-  have s4 := horner_stage 0x270a522f476182f119f08da0ba710a56 (2^129) o3 v 395 0x87
+  -- stage 4: cum 395 -> 530, sh=135; p 378 -> 504; Wnum 196641 -> 67305505
+  have s4 := horner_stage_frac 0x270a522f476182f119f08da0ba710a56 (2^129) o3 v 395 0x87 378 196641
     (0xaf5662483c4ce783a9ef5fe025f42e9e * 2^395 +
       (0xad4506b00b1246c7e5b4fd33e1201b * 2^268 +
         (0xc926ddbf3830ca5561cc01585402d0 * 2^131 + 0xdc07aff85e5bb5629d0fb64a84bb * v) * v) * v) hv (by norm_num) (by norm_num) ho3lt (by norm_num)
-    (by rw [pvd 129 126 135 120 (by norm_num)]; norm_num) (by norm_num) s3.1 s3.2
+    (by norm_num) (by rw [pvd 129 126 135 120 (by norm_num)]; norm_num) (by norm_num) s3.1 s3.2
+  rw [show (395:Nat)+0x87-(378+126) = 26 from by norm_num,
+    show (196641:Nat)+2^26 = 67305505 from by norm_num,
+    show (378:Nat)+126 = 504 from by norm_num, show (395:Nat)+0x87 = 530 from by norm_num] at s4
   rw [hod]
   show 2^530 * evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul o3 v)) ≤ odNumV v ∧
-    odNumV v < 2^530 * evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul o3 v)) + 2 * 2^530
+    odNumV v < 2^530 * evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul o3 v)) + 67305505 * 2^504
   unfold odNumV
-  have e530 : (395:Nat) + 0x87 = 530 := by norm_num
-  rw [e530] at s4
   constructor
   · have := s4.1; convert this using 2 <;> ring
   · have := s4.2; convert this using 2 <;> ring
