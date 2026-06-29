@@ -13,3 +13,7 @@ path = "../../yul"
 [[require]]
 name = "Common"
 path = "../../common"
+
+[[require]]
+name = "LnProof"
+path = "../../ln/LnProof"

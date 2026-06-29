@@ -6,8 +6,11 @@ on:
       - master
     paths:
       - src/vendor/Exp.sol
+      - src/vendor/Ln.sol
       - src/wrappers/ExpWrapper.sol
+      - src/wrappers/LnWrapper.sol
       - formal/exp/**
+      - formal/ln/**
       - formal/common/**
       - formal/yul/**
       - foundry.toml
@@ -16,8 +19,11 @@ on:
   pull_request:
     paths:
       - src/vendor/Exp.sol
+      - src/vendor/Ln.sol
       - src/wrappers/ExpWrapper.sol
+      - src/wrappers/LnWrapper.sol
       - formal/exp/**
+      - formal/ln/**
       - formal/common/**
       - formal/yul/**
       - foundry.toml
@@ -51,8 +57,9 @@ jobs:
             formal/yul/.lake/packages/*/.lake/build
             lib/EVMYulLean/.lake/build
             formal/common/.lake/build
+            formal/ln/LnProof/.lake/build
             formal/exp/ExpProof/.lake/build
-          key: ${{ runner.os }}-exp-formal-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/common/lakefile.toml', 'formal/common/lake-manifest.json', 'formal/common/**/*.lean', 'formal/exp/ExpProof/lakefile.toml', 'formal/exp/ExpProof/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'formal/exp/ExpProof/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}
+          key: ${{ runner.os }}-exp-formal-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/common/lakefile.toml', 'formal/common/lake-manifest.json', 'formal/common/**/*.lean', 'formal/ln/LnProof/lakefile.toml', 'formal/ln/LnProof/lake-manifest.json', 'formal/ln/LnProof/**/*.lean', 'formal/exp/ExpProof/lakefile.toml', 'formal/exp/ExpProof/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'formal/exp/ExpProof/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}
           restore-keys: |
             ${{ runner.os }}-exp-formal-lean-
             ${{ runner.os }}-formal-lean-
@@ -85,6 +92,41 @@ jobs:
             src/wrappers/ExpWrapper.sol:ExpWrapper \
             formal/exp/ExpProof/ExpProof/ExpYul.lean \
             0.8.34
+
+      - name: Generate EVMYulLean artifacts from compiled LnWrapper Yul IR
+        run: |
+          ./formal/yul/generate_from_forge.sh \
+            ln \
+            src/wrappers/LnWrapper.sol:LnWrapper \
+            formal/ln/LnProof/LnProof/LnYul.lean \
+            0.8.34
+
+      - name: Fetch ln proof dependency cache
+        working-directory: formal/ln/LnProof
+        run: |
+          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
+          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
+          # the release and ensure those directories exist before it runs.
+          lake build proofwidgets:release
+          mkdir -p \
+            .lake/packages/proofwidgets/.lake/build/lib \
+            .lake/packages/proofwidgets/.lake/build/ir
+          lake exe cache get
+
+      - name: Generate ln Lean certificate artifacts
+        working-directory: formal/ln/LnProof
+        run: |
+          lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts
+          lake env lean GenFloorCertLit.lean
+          lake build LnProof.Cert.FloorCertLit
+          lake env lean GenCover.lean
+          lake env lean GenErr1.lean
+          lake build LnProof.Error.Core
+          lake env lean GenErrLit.lean
+
+      - name: Build Ln proof dependency
+        working-directory: formal/ln/LnProof
+        run: lake build
 
       - name: Fetch proof dependency cache
         working-directory: formal/exp/ExpProof
