@@ -124,4 +124,60 @@ theorem kTree_mono {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   have hpow : (0 : Int) < 2 ^ 200 := by norm_num
   nlinarith [hlo1, hhi2, hargle, hpow]
 
+/-- On the meaningful region the octave index is bounded: `-61 ≤ k ≤ 63`. -/
+theorem kTree_bound {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    -61 ≤ int256 (kTree x) ∧ int256 (kTree x) ≤ 63 := by
+  obtain ⟨hlo, hhi⟩ := kTree_sandwich hx hC hC0
+  have hCi : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
+  have hC0i : int256 C0thresh = 44014845965556527147994239713 := by
+    unfold C0thresh int256; norm_num
+  rw [hCi] at hC
+  rw [hC0i] at hC0
+  have hcinv : (0x724d54edbacbebbb95c52a0f6076 : Int) = 2318321547468254865173387471183990 := by
+    norm_num
+  -- bound the rounding-shift argument from the exact region endpoints.
+  have hprod_lo : (0x724d54edbacbebbb95c52a0f6076 : Int) * int256 x >
+      0x724d54edbacbebbb95c52a0f6076 * (-41446531673892822312323846185) := by
+    rw [hcinv]; nlinarith [hC]
+  have hprod_hi : (0x724d54edbacbebbb95c52a0f6076 : Int) * int256 x <
+      0x724d54edbacbebbb95c52a0f6076 * 44014845965556527147994239713 := by
+    rw [hcinv]; nlinarith [hC0]
+  constructor
+  · nlinarith [hhi, hprod_lo]
+  · nlinarith [hlo, hprod_hi]
+
+/-! ## The reduced argument `t` -/
+
+/-- The argument of the `t`-reduction shift, transported to `Int`:
+`K27 · int256 x − LN2 · int256 k`. -/
+theorem int256_tArg {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    int256 (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
+        (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d (kTree x))) =
+      0x279d346de4781f921dd7a89933d54d1f72928 * int256 x -
+        0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d * int256 (kTree x) := by
+  have hCi : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
+  have hC0i : int256 C0thresh = 44014845965556527147994239713 := by
+    unfold C0thresh int256; norm_num
+  have hxr := hC; rw [hCi] at hxr
+  have hxr0 := hC0; rw [hC0i] at hxr0
+  obtain ⟨hklo, hkhi⟩ := kTree_bound hx hC hC0
+  have hk256 : kTree x < 2 ^ 256 := by unfold kTree; exact evmSar_lt _ _
+  -- transport the two products.
+  have hmul1 : int256 (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x) =
+      0x279d346de4781f921dd7a89933d54d1f72928 * int256 x := by
+    rw [evmMul_transport (by norm_num) hx ?_ ?_, int256_K27]
+    · rw [int256_K27]; simp only [ipow255]; nlinarith [hxr, hxr0]
+    · rw [int256_K27]; simp only [ipow255]; nlinarith [hxr, hxr0]
+  have hmul2 :
+      int256 (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d (kTree x)) =
+      0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d * int256 (kTree x) := by
+    rw [evmMul_transport (by norm_num) (by exact evmSar_lt _ _) ?_ ?_, int256_LN2]
+    · rw [int256_LN2]; simp only [ipow255]; nlinarith [hklo, hkhi]
+    · rw [int256_LN2]; simp only [ipow255]; nlinarith [hklo, hkhi]
+  rw [evmSub_transport (evmMul_lt _ _) (evmMul_lt _ _) ?_ ?_, hmul1, hmul2]
+  · rw [hmul1, hmul2]; simp only [ipow255]; nlinarith [hxr, hxr0, hklo, hkhi]
+  · rw [hmul1, hmul2]; simp only [ipow255]; nlinarith [hxr, hxr0, hklo, hkhi]
+
 end ExpYul
