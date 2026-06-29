@@ -258,6 +258,28 @@ theorem evalDenExpV (t : Int) :
     evalPoly ExpCertV.denExpV t = evalPoly ExpCertV.evNumVPoly t - evalPoly ExpCertV.todNumV t := by
   unfold ExpCertV.denExpV; rw [evalPoly_polySub]
 
+/-- `evNumVPoly` is even (`= Pev(t²)`). -/
+theorem evNumVPoly_even (t : Int) :
+    evalPoly ExpCertV.evNumVPoly (-t) = evalPoly ExpCertV.evNumVPoly t := by
+  rw [evNumVPoly_eq_Pev_sq, evNumVPoly_eq_Pev_sq]
+  congr 1; ring
+
+/-- `todNumV` is odd (`= 2²³·t·Pod(t²)`). -/
+theorem todNumV_odd (t : Int) :
+    evalPoly ExpCertV.todNumV (-t) = -evalPoly ExpCertV.todNumV t := by
+  rw [evalTodNumV, evalTodNumV, odNumVPoly_eq_Pod_sq, odNumVPoly_eq_Pod_sq]
+  rw [show ((-t)^2 : Int) = t^2 from by ring]
+  ring
+
+/-- **Reciprocal symmetry** `numExpV(−t) = denExpV(t)` and `denExpV(−t) = numExpV(t)`. -/
+theorem numExpV_neg_eq_denExpV (t : Int) :
+    evalPoly ExpCertV.numExpV (-t) = evalPoly ExpCertV.denExpV t := by
+  rw [evalNumExpV, evalDenExpV, evNumVPoly_even, todNumV_odd]; ring
+
+theorem denExpV_neg_eq_numExpV (t : Int) :
+    evalPoly ExpCertV.denExpV (-t) = evalPoly ExpCertV.numExpV t := by
+  rw [evalDenExpV, evalNumExpV, evNumVPoly_even, todNumV_odd]; ring
+
 /-- **The `t·Od` cert term brackets the runtime `tod`** (nonnegative half): for `0 ≤ t`,
 `2¹¹⁹³·tod ≤ evalPoly todNumV t < 2¹¹⁹³·tod + 2⁵·2¹¹⁹³`. -/
 theorem todNumV_bracket {x : Nat} (hx : x < 2 ^ 256)
@@ -525,6 +547,180 @@ theorem r0_vs_certRatio {x : Nat} (hx : x < 2 ^ 256)
   have hr0den_lo := mul_le_mul_of_nonneg_left (le_of_lt hden2_hi) hr0pos
   have hr0den_hi := mul_le_mul_of_nonneg_left hden2_lo (by linarith [hr0pos] : (0:Int) ≤ r0 + 1)
   -- expand products into a common shape via ring_nf, then linarith over the atoms
+  constructor
+  · nlinarith [hfl_lo, hnumstep, hr0den_lo, hr0_loss, hDEpos, hp1193]
+  · nlinarith [hfl_hi, hNEstep, hr0den_hi, hunder_loss, hDEpos, hp1193]
+
+/-! ## The negative-half integer brackets
+
+For `t < 0` the runtime `tod = ⌊t·od/2¹²⁸⌋` is nonpositive, so the `t·Od` cert term `todNumV(t)`
+(odd in `t`) is also nonpositive; multiplying the (sign-independent) odd-Horner bracket by `2²³·t < 0`
+flips the inequalities. The even-Horner bracket `evNumVPoly_bracket` is sign-independent (even poly).
+Assembling gives the numerator/denominator brackets and the same loose `r0`-vs-`ê_v` constants, with
+the floor sandwich `r0_floor_sandwich` (itself sign-free). -/
+
+/-- **`todNumV` bracket (negative half).** For `t ≤ 0`:
+`2¹¹⁹³·tod − 4·2¹¹⁹³ < todNumV(t) < 2¹¹⁹³·tod + 2·2¹¹⁹³`. -/
+theorem todNumV_bracket_neg {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htneg : int256 (tTree x) ≤ 0) :
+    2 ^ 1193 * (int256 (todTree x)) - 4 * 2 ^ 1193 < evalPoly ExpCertV.todNumV (int256 (tTree x)) ∧
+      evalPoly ExpCertV.todNumV (int256 (tTree x)) < 2 ^ 1193 * (int256 (todTree x)) + 2 * 2 ^ 1193 := by
+  obtain ⟨_, _, htodlo, htodhi⟩ := todTree_bound hx hC hC0
+  obtain ⟨hodlo, hodhi⟩ := odNumVPoly_bracket hx hC hC0
+  obtain ⟨htlo', hthi'⟩ := tTree_bound hx hC hC0
+  set t := int256 (tTree x) with htdef
+  rw [evalTodNumV]
+  have hodnn : (0 : Int) ≤ (odTree x : Int) := by positivity
+  have hodpolynn : (0 : Int) ≤ evalPoly ExpCertV.odNumVPoly t := le_trans (by positivity) hodlo
+  -- multiply odd bracket by t ≤ 0 (flips):
+  have hmul_lo : t * evalPoly ExpCertV.odNumVPoly t ≤ t * (2 ^ 1042 * (odTree x : Int)) :=
+    mul_le_mul_of_nonpos_left hodlo htneg
+  have hmul_hi : t * (2 ^ 1042 * (odTree x : Int) + 3 * 2 ^ 1042) ≤ t * evalPoly ExpCertV.odNumVPoly t :=
+    mul_le_mul_of_nonpos_left (le_of_lt hodhi) htneg
+  have htod_lo : (2 ^ 128 : Int) * (int256 (todTree x)) ≤ t * (odTree x : Int) := htodlo
+  have htod_hi : t * (odTree x : Int) < (2 ^ 128 : Int) * (int256 (todTree x)) + 2 ^ 128 := htodhi
+  have htgt : -(2 ^ 128 : Int) < t := by
+    have : -(2:Int)^127 < t := htlo'
+    have h2 : -(2:Int)^128 < -(2:Int)^127 := by norm_num
+    omega
+  constructor
+  · -- todNumV = 2^23·(t·odpoly) > 2^23·(t·(2^1042 odTree + 3·2^1042)) (since hmul_hi gives ≥)
+    -- = 2^1065·(t·odTree) + 3·2^1065·t ≥ 2^1193·tod + 3·2^1065·t > 2^1193·tod - 3·2^1193
+    have h1 : 2 ^ 1042 * (t * (odTree x : Int)) + 3 * 2 ^ 1042 * t ≤ t * evalPoly ExpCertV.odNumVPoly t := by
+      nlinarith [hmul_hi]
+    have h2 : (2 ^ 128 : Int) * (int256 (todTree x)) ≤ t * (odTree x : Int) := htod_lo
+    nlinarith [h1, h2, htgt]
+  · -- todNumV = 2^23·(t·odpoly) ≤ 2^23·(t·2^1042 odTree) = 2^1065·(t·odTree) < 2^1193·tod + 2^1193
+    have h1 : t * evalPoly ExpCertV.odNumVPoly t ≤ 2 ^ 1042 * (t * (odTree x : Int)) := by
+      nlinarith [hmul_lo]
+    have h2 : t * (odTree x : Int) < (2 ^ 128 : Int) * (int256 (todTree x)) + 2 ^ 128 := htod_hi
+    nlinarith [h1, h2]
+
+/-- **Numerator/denominator brackets (negative half).** `NE ∈ (S·num_rt − 4S, S·num_rt + 4S)`,
+`DE ∈ (S·den_rt − 2S, S·den_rt + 4S)` (`S = 2¹¹⁹³`, `num_rt = ev + tod`, `den_rt = ev − tod`). -/
+theorem numExpV_bracket_neg {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htneg : int256 (tTree x) ≤ 0) :
+    2 ^ 1193 * ((evTree x : Int) + int256 (todTree x)) - 4 * 2 ^ 1193 <
+        evalPoly ExpCertV.numExpV (int256 (tTree x)) ∧
+      evalPoly ExpCertV.numExpV (int256 (tTree x)) <
+        2 ^ 1193 * ((evTree x : Int) + int256 (todTree x)) + 5 * 2 ^ 1193 := by
+  obtain ⟨hevlo, hevhi⟩ := evNumVPoly_bracket hx hC hC0
+  obtain ⟨htodlo, htodhi⟩ := todNumV_bracket_neg hx hC hC0 htneg
+  rw [evalNumExpV]
+  constructor
+  · nlinarith [hevlo, htodlo]
+  · nlinarith [hevhi, htodhi]
+
+theorem denExpV_bracket_neg {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htneg : int256 (tTree x) ≤ 0) :
+    2 ^ 1193 * ((evTree x : Int) - int256 (todTree x)) - 2 * 2 ^ 1193 <
+        evalPoly ExpCertV.denExpV (int256 (tTree x)) ∧
+      evalPoly ExpCertV.denExpV (int256 (tTree x)) <
+        2 ^ 1193 * ((evTree x : Int) - int256 (todTree x)) + 7 * 2 ^ 1193 := by
+  obtain ⟨hevlo, hevhi⟩ := evNumVPoly_bracket hx hC hC0
+  obtain ⟨htodlo, htodhi⟩ := todNumV_bracket_neg hx hC hC0 htneg
+  rw [evalDenExpV]
+  constructor
+  · nlinarith [hevlo, htodhi]
+  · nlinarith [hevhi, htodlo]
+
+/-- The cert denominator stays large on the negative half too: `denExpV(t) > 2¹³¹⁷`. (For `t < 0`,
+`den_rt = ev − tod ≥ ev > 2¹²⁵`, so `DE > S·2¹²⁵ − 2S > 2¹³¹⁷`.) -/
+theorem denExpV_lb_neg {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htneg : int256 (tTree x) ≤ 0) :
+    (2 : Int) ^ 1317 < evalPoly ExpCertV.denExpV (int256 (tTree x)) := by
+  obtain ⟨hlo, _⟩ := denExpV_bracket_neg hx hC hC0 htneg
+  -- den_rt = ev − tod ≥ ev > 2^125 (tod ≤ 0 on the negative half)
+  obtain ⟨hevlo, _⟩ := evTree_facts (vTree_eq hx hC hC0).2
+  obtain ⟨htod_lo, htod_hi, _, _⟩ := todTree_bound hx hC hC0
+  have hev : (0x4e14a45e8ec305e233e11b4174e214ac : Int) ≤ (evTree x : Int) := by exact_mod_cast hevlo
+  rw [show (0x4e14a45e8ec305e233e11b4174e214ac : Int) = 103786963415199049567855548359006885036 from by norm_num] at hev
+  -- tod ≤ 0 ⇒ den_rt = ev − tod ≥ ev > 2^125
+  have htodnp : int256 (todTree x) ≤ 0 := by
+    -- from todTree_bound: 2^128·tod ≤ t·od, t ≤ 0, od ≥ 0 ⇒ t·od ≤ 0 ⇒ tod ≤ 0
+    obtain ⟨_, _, htl, _⟩ := todTree_bound hx hC hC0
+    have hodnn : (0:Int) ≤ (odTree x : Int) := by positivity
+    have : int256 (tTree x) * (odTree x : Int) ≤ 0 := mul_nonpos_of_nonpos_of_nonneg htneg hodnn
+    nlinarith [htl, this]
+  have hden_rt : (2 : Int) ^ 125 < (evTree x : Int) - int256 (todTree x) := by
+    rw [show (2:Int)^125 = 42535295865117307932921825928971026432 from by norm_num]
+    omega
+  have hstep : 2 ^ 1193 * ((evTree x : Int) - int256 (todTree x)) - 2 * 2 ^ 1193 >
+      2 ^ 1193 * (2 ^ 125 : Int) - 2 * 2 ^ 1193 := by
+    have := mul_lt_mul_of_pos_left hden_rt (by positivity : (0:Int) < 2 ^ 1193)
+    linarith [this]
+  have hnum : 2 ^ 1193 * (2 ^ 125 : Int) - 2 * 2 ^ 1193 > 2 ^ 1317 := by
+    rw [show (2:Int)^1193 * 2 ^ 125 = 2 ^ 1318 from by rw [← pow_add]]
+    have h18 : (2:Int)^1318 = 2 * 2 ^ 1317 := by rw [show (1318:Nat) = 1 + 1317 from rfl, pow_add]; ring
+    have h93 : (2:Int)^1193 < 2 ^ 1317 := pow_lt_pow_right₀ (by norm_num) (by norm_num)
+    nlinarith [h18, h93]
+  linarith [hlo, hstep, hnum]
+
+/-- **`r0`-vs-cert-rational bracket (negative half).** Same loose constants as the nonnegative half. -/
+theorem r0_vs_certRatio_neg {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htneg : int256 (tTree x) ≤ 0) :
+    int256 (r0Tree x) * evalPoly ExpCertV.denExpV (int256 (tTree x)) <
+        2 ^ 126 * evalPoly ExpCertV.numExpV (int256 (tTree x)) +
+          150 * evalPoly ExpCertV.denExpV (int256 (tTree x)) ∧
+      2 ^ 126 * evalPoly ExpCertV.numExpV (int256 (tTree x)) <
+        (int256 (r0Tree x) + 1) * evalPoly ExpCertV.denExpV (int256 (tTree x)) +
+          700 * evalPoly ExpCertV.denExpV (int256 (tTree x)) := by
+  obtain ⟨hfloor_lo, hfloor_hi⟩ := r0_floor_sandwich hx hC hC0
+  obtain ⟨hnumlo, hnumhi⟩ := numExpV_bracket_neg hx hC hC0 htneg
+  obtain ⟨hdenlo, hdenhi⟩ := denExpV_bracket_neg hx hC hC0 htneg
+  obtain ⟨hr0lo, hr0hi⟩ := r0Tree_bounds hx hC hC0
+  have hdenExpV_lb := denExpV_lb_neg hx hC hC0 htneg
+  set r0 := int256 (r0Tree x) with hr0def
+  set num := (evTree x : Int) + int256 (todTree x) with hnumdef
+  set den := (evTree x : Int) - int256 (todTree x) with hdendef
+  set NE := evalPoly ExpCertV.numExpV (int256 (tTree x)) with hNEdef
+  set DE := evalPoly ExpCertV.denExpV (int256 (tTree x)) with hDEdef
+  have hDEpos : (0 : Int) < DE := by
+    have h : (2:Int)^1317 > 0 := by positivity
+    linarith [hdenExpV_lb, h]
+  have hr0pos : 0 ≤ r0 := by linarith [hr0lo]
+  have hr0lt : r0 < 2 ^ 128 := hr0hi
+  have hp1193 : (0 : Int) < 2 ^ 1193 := by positivity
+  -- DE bounds vs den·2^1193:  DE - 7·2^1193 < den·2^1193 ≤ DE + 2·2^1193
+  have hden2_lo : 2 ^ 1193 * den ≤ DE + 2 * 2 ^ 1193 := by linarith [hdenlo]
+  have hden2_hi : DE - 7 * 2 ^ 1193 < 2 ^ 1193 * den := by linarith [hdenhi]
+  -- NE bounds:  num·2^1193 - 4·2^1193 ≤ NE < num·2^1193 + 5·2^1193
+  have hnum2_lo : 2 ^ 1193 * num - 4 * 2 ^ 1193 ≤ NE := by linarith [hnumlo]
+  have hnum2_hi : NE < 2 ^ 1193 * num + 5 * 2 ^ 1193 := hnumhi
+  -- loss budgets dominated by 150·DE / 700·DE (DE > 2^1317, r0 < 2^128)
+  have hr0_loss : 7 * 2 ^ 1193 * r0 + 4 * 2 ^ 126 * 2 ^ 1193 < 150 * DE := by
+    have h1 : (7 : Int) * 2 ^ 1193 * r0 < 7 * 2 ^ 1193 * 2 ^ 128 := by
+      have := mul_lt_mul_of_pos_left hr0lt (by positivity : (0:Int) < 7 * 2 ^ 1193)
+      nlinarith [this]
+    have hb : (7 : Int) * 2 ^ 1193 * 2 ^ 128 + 4 * 2 ^ 126 * 2 ^ 1193 < 150 * 2 ^ 1317 := by
+      rw [show (7:Int) * 2 ^ 1193 * 2 ^ 128 = 7 * 2 ^ 1321 from by rw [mul_assoc, ← pow_add],
+        show (4:Int) * 2 ^ 126 * 2 ^ 1193 = 4 * 2 ^ 1319 from by rw [mul_assoc, ← pow_add],
+        show (1321:Nat) = 4 + 1317 from rfl, show (1319:Nat) = 2 + 1317 from rfl, pow_add, pow_add]
+      ring_nf; nlinarith [pow_pos (by norm_num : (0:Int)<2) 1317]
+    linarith [h1, hb, mul_lt_mul_of_pos_left hdenExpV_lb (by norm_num : (0:Int) < 150)]
+  have hunder_loss : 5 * 2 ^ 126 * 2 ^ 1193 + 2 * 2 ^ 1193 * (r0 + 1) < 700 * DE := by
+    have h1 : 2 * 2 ^ 1193 * (r0 + 1) < 2 * 2 ^ 1193 * (2 ^ 128 + 1) := by
+      apply mul_lt_mul_of_pos_left (by linarith [hr0lt]); positivity
+    have hr0p1 : (2 : Int) * 2 ^ 1193 * (2 ^ 128 + 1) < 3 * 2 ^ 1321 := by
+      rw [show (1321:Nat) = 4 + 1317 from rfl, pow_add]; ring_nf
+      nlinarith [pow_pos (by norm_num : (0:Int)<2) 1193, pow_pos (by norm_num : (0:Int)<2) 1317]
+    have h35 : (5 : Int) * 2 ^ 126 * 2 ^ 1193 = 5 * 2 ^ 1319 := by rw [mul_assoc, ← pow_add]
+    have hbound : (5 : Int) * 2 ^ 1319 + 3 * 2 ^ 1321 < 700 * 2 ^ 1317 := by
+      rw [show (1319:Nat) = 2 + 1317 from rfl, show (1321:Nat) = 4 + 1317 from rfl, pow_add, pow_add]
+      ring_nf; nlinarith [pow_pos (by norm_num : (0:Int)<2) 1317]
+    rw [h35]
+    linarith [h1, hr0p1, hbound, mul_lt_mul_of_pos_left hdenExpV_lb (by norm_num : (0:Int) < 700)]
+  have hfl_lo := mul_le_mul_of_nonneg_left hfloor_lo (by positivity : (0:Int) ≤ 2 ^ 1193)
+  have hfl_hi := mul_lt_mul_of_pos_left hfloor_hi hp1193
+  have hnumstep := mul_le_mul_of_nonneg_left hnum2_lo (by positivity : (0:Int) ≤ 2 ^ 126)
+  have hNEstep := mul_lt_mul_of_pos_left hnum2_hi (by positivity : (0:Int) < 2 ^ 126)
+  have hr0den_lo := mul_le_mul_of_nonneg_left (le_of_lt hden2_hi) hr0pos
+  have hr0den_hi := mul_le_mul_of_nonneg_left hden2_lo (by linarith [hr0pos] : (0:Int) ≤ r0 + 1)
   constructor
   · nlinarith [hfl_lo, hnumstep, hr0den_lo, hr0_loss, hDEpos, hp1193]
   · nlinarith [hfl_hi, hNEstep, hr0den_hi, hunder_loss, hDEpos, hp1193]
