@@ -70,20 +70,20 @@ structure RuntimeR0Bound : Prop where
   over : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
     ∀ s : Nat, (s : Int) = 126 - int256 (kTree x) →
       (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 792161285993433738 ≤
-        expRayToWadTarget x * (2 ^ s : Real)
+        expRayToWadTarget (int256 x) * (2 ^ s : Real)
   /-- Deficit under one: `E·2^(126 − k) < WAD·r0 − MARGIN + 2^(126 − k)`. -/
   under : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
     ∀ s : Nat, (s : Int) = 126 - int256 (kTree x) →
-      expRayToWadTarget x * (2 ^ s : Real) <
+      expRayToWadTarget (int256 x) * (2 ^ s : Real) <
         (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 792161285993433738 + (2 ^ s : Real)
   /-- Core-octave exactness, in the same `WAD·r0`-vs-`E` shape: on `x ∈ [−H, H)` the deficit closes
   to the sharper `E·2^s < WAD·r0 − MARGIN + 2^s`, where additionally `2^s` is small enough that the
   floor catches `E` exactly. Stated as the body-result-relative bound to mirror `centralExactness`. -/
   centralExactness : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
     -H ≤ int256 x → int256 x < H →
-    expRayToWadTarget x < (int256 (r1Tree x) : Real) + 1
+    expRayToWadTarget (int256 x) < (int256 (r1Tree x) : Real) + 1
   /-- Below the clamp boundary `E < 1` (carried through verbatim). -/
-  belowC : ∀ x : Nat, int256 x ≤ int256 Cmask → expRayToWadTarget x < 2
+  belowC : ∀ x : Nat, int256 x ≤ int256 Cmask → expRayToWadTarget (int256 x) < 2
 
 /-- **The plumbing reduction.** `RuntimeR0Bound` discharges `RuntimeAccumBound`: the never-over and
 deficit inequalities transport across the closing shift `2^s > 0`. -/
@@ -101,7 +101,7 @@ theorem runtimeAccumBound_of_r0 (H : RuntimeR0Bound) : RuntimeAccumBound where
     -- goal `E < accumReal x + 1`; rewrite `accumReal` and clear the `/2^s`
     rw [hAeq]
     -- `E < arg/2^s + 1`  ⟺  `E·2^s < arg + 2^s`
-    have key : expRayToWadTarget x * (2 ^ s : Real) <
+    have key : expRayToWadTarget (int256 x) * (2 ^ s : Real) <
         ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 792161285993433738) + (2 ^ s : Real) :=
       hb
     have hdiv : ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 792161285993433738) /

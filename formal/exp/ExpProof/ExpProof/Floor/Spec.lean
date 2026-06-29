@@ -134,19 +134,19 @@ structure RuntimeAccumBound : Prop where
   input (the never-over relation `r0 ≤ exp(t)·2¹²⁶ + MARGIN/WAD` is octave-independent and
   sign-symmetric). -/
   over : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
-    accumReal x ≤ expRayToWadTarget x
+    accumReal x ≤ expRayToWadTarget (int256 x)
   /-- Deficit under one: the target is below the accumulator plus one. -/
   under : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
-    expRayToWadTarget x < accumReal x + 1
+    expRayToWadTarget (int256 x) < accumReal x + 1
   /-- Core-octave exactness: on the core band `x ∈ [−H, H)` the negligible `k = 0` margin floors
   `E` exactly onto the result. -/
   centralExactness : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
     -H ≤ int256 x → int256 x < H →
-    expRayToWadTarget x < (int256 (r1Tree x) : Real) + 1
+    expRayToWadTarget (int256 x) < (int256 (r1Tree x) : Real) + 1
   /-- Below the clamp boundary the target is below one output unit (`E < 1`), so the clamped result
   `0` is the floor. `Cmask = ⌊−18·ln10·10²⁷⌋` is the exact 0/1 boundary; `x ≤ Cmask` gives
   `x/10²⁷ ≤ −18·ln10`, hence `E = 10¹⁸·exp(x/10²⁷) ≤ 1`. -/
-  belowC : ∀ x : Nat, int256 x ≤ int256 Cmask → expRayToWadTarget x < 2
+  belowC : ∀ x : Nat, int256 x ≤ int256 Cmask → expRayToWadTarget (int256 x) < 2
 
 /-! ## The region floor brackets, given `RuntimeAccumBound` -/
 
@@ -162,7 +162,7 @@ theorem int256_zero_le_Cmask : int256 Cmask < 0 := by rw [int256_Cmask]; norm_nu
 `r = int256 (r1Tree x)` satisfies `r ≤ E ∧ E < r + 2`. -/
 theorem floorOrOneLessBracket_region {x : Nat} (H' : RuntimeAccumBound) (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    FloorOrOneLessBracket x (int256 (r1Tree x)) := by
+    FloorOrOneLessBracket (int256 x) (int256 (r1Tree x)) := by
   obtain ⟨hfl, hfl1⟩ := r1Tree_floor_accum hx hC hC0
   exact ExpRealBridge.floorOrOneLessBracket_of_accum hfl hfl1
     (H'.over x hx hC hC0) (H'.under x hx hC hC0)
@@ -171,7 +171,7 @@ theorem floorOrOneLessBracket_region {x : Nat} (H' : RuntimeAccumBound) (hx : x 
 bound: `r ≤ E ∧ E < r + 1`. -/
 theorem exactFloorBracket_region {x : Nat} (H' : RuntimeAccumBound) (hx : x < 2 ^ 256)
     (hlo : -H ≤ int256 x) (hhi : int256 x < H) :
-    ExactFloorBracket x (int256 (r1Tree x)) := by
+    ExactFloorBracket (int256 x) (int256 (r1Tree x)) := by
   have hCmlt : int256 Cmask < -H := by rw [int256_Cmask]; unfold H; norm_num
   have hC : int256 Cmask < int256 x := lt_of_lt_of_le hCmlt hlo
   have hC0 : int256 x < int256 C0thresh := lt_of_lt_of_le hhi (le_of_lt int256_H_lt_C0)
@@ -182,7 +182,7 @@ theorem exactFloorBracket_region {x : Nat} (H' : RuntimeAccumBound) (hx : x < 2 
 /-- **One-unit underestimation bound on the region**, given the analytic accumulator bound: `⌊E⌋ − 1 ≤ r`. -/
 theorem underByAtMostOne_region {x : Nat} (H' : RuntimeAccumBound) (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    UnderByAtMostOne x (int256 (r1Tree x)) :=
+    UnderByAtMostOne (int256 x) (int256 (r1Tree x)) :=
   ExpRealBridge.underByAtMostOne_of_floorOrOneLess (floorOrOneLessBracket_region H' hx hC hC0)
 
 end
