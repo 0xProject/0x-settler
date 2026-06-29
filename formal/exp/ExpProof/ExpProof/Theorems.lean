@@ -1,6 +1,7 @@
 import ExpProof.Seam.Revert
 import ExpProof.Seam.Value
 import ExpProof.Mono
+import ExpProof.Floor.Public
 
 /-!
 # `expRayToWad` — proven properties of the compiled runtime (signpost)
@@ -90,5 +91,50 @@ example (hr0 : SeamR0Bound) (x1 x2 : Nat)
 /-- info: 'ExpYul.run_exp_ray_to_wad_evm_mono_of_seamR0' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms run_exp_ray_to_wad_evm_mono_of_seamR0
+
+/-! ## `Real.exp` floor brackets, modulo the runtime accumulator bound
+
+Each bracket is stated on the runtime result `r` (`run_exp_ray_to_wad_evm x = .ok r`) against the
+target `E = 10¹⁸·exp(x/10²⁷)`, and carries the single analytic obligation `RuntimeAccumBound` (the
+real pre-floor accumulator brackets `E`: never over, deficit under one, core-octave exact, and the
+below-clamp `E < 1`). The runtime reduction, the closing-shift floor, the clamp/pin shell branch
+split, and the scale-point exactness are proved directly; the floor brackets depend on
+`RuntimeAccumBound` — the cert (`Floor.Caps`, against the exact rational `ê = NUM/DEN`) folded with
+the octave `2^k`, plus the reduced-argument and Horner-`sdiv` truncation envelopes the `MARGIN`
+absorbs. This mirrors `run_exp_ray_to_wad_evm_mono`'s `RegionMonotonicityFacts` hypothesis. -/
+
+/-- Global never-over and floor-or-one-less bracket, given the runtime accumulator bound. -/
+example (H' : RuntimeAccumBound) (x : Nat) (hx : x < 2 ^ 256)
+    (hC0 : FormalYul.Preservation.int256 x < FormalYul.Preservation.int256 C0thresh) :
+    ∃ r, run_exp_ray_to_wad_evm x = .ok r ∧ ExpRealSpec.FloorOrOneLessBracket x
+      (FormalYul.Preservation.int256 r) :=
+  run_exp_ray_to_wad_evm_floorOrOneLess H' x hx hC0
+
+/-- info: 'ExpYul.run_exp_ray_to_wad_evm_floorOrOneLess' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_exp_ray_to_wad_evm_floorOrOneLess
+
+/-- Central-octave exact floor, given the runtime accumulator bound. -/
+example (H' : RuntimeAccumBound) (x : Nat) (hx : x < 2 ^ 256)
+    (hlo : -ExpRealSpec.H ≤ FormalYul.Preservation.int256 x)
+    (hhi : FormalYul.Preservation.int256 x < ExpRealSpec.H) :
+    ∃ r, run_exp_ray_to_wad_evm x = .ok r ∧ ExpRealSpec.ExactFloorBracket x
+      (FormalYul.Preservation.int256 r) :=
+  run_exp_ray_to_wad_evm_exactFloor H' x hx hlo hhi
+
+/-- info: 'ExpYul.run_exp_ray_to_wad_evm_exactFloor' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_exp_ray_to_wad_evm_exactFloor
+
+/-- One-unit underestimation bound, given the runtime accumulator bound. -/
+example (H' : RuntimeAccumBound) (x : Nat) (hx : x < 2 ^ 256)
+    (hC0 : FormalYul.Preservation.int256 x < FormalYul.Preservation.int256 C0thresh) :
+    ∃ r, run_exp_ray_to_wad_evm x = .ok r ∧ ExpRealSpec.UnderByAtMostOne x
+      (FormalYul.Preservation.int256 r) :=
+  run_exp_ray_to_wad_evm_underByAtMostOne H' x hx hC0
+
+/-- info: 'ExpYul.run_exp_ray_to_wad_evm_underByAtMostOne' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_exp_ray_to_wad_evm_underByAtMostOne
 
 end ExpYul

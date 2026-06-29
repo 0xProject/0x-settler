@@ -64,8 +64,10 @@ library Exp {
     ///      Hence RAW ≤ S, with the proven bound S = 0.0858862987232991853 ulp. The margin is the
     ///      least integer that covers S once placed in the Q126 grid: 0xafe527e18748a8a = ⌈2⁶³⋅S⌉
     ///      (worth ≈ S ulp at k = 63). So 10¹⁸⋅e⋅2ᵏ - margin ≤ E (never overestimates), and
-    ///      E - A ≤ margin - min RAW ≤ 0.6057 < 1, so the floor is ⌊E⌋ or ⌊E⌋ - 1. At k = 64 the
-    ///      margin exceeds one ulp and the floor can fall two below E, so that input is reverted. On
+    ///      E - A ≤ margin - min RAW ≤ 0.6057 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1 (the 1-ulp
+    ///      underestimate is achieved, ⌊E⌋ - 2 never occurs). At k = 64 the margin and truncation
+    ///      envelope scale to more than one ulp and the floor can fall two below E, so that input is
+    ///      reverted. On
     ///      the central octave k = 0 the margin is ⌈2⁶³⋅S⌉⋅2⁻¹²⁶ ≈ 9.3⋅10⁻²¹ ulp, far below the
     ///      ≈10⁻⁹ ulp gap `lnWadToRay` leaves, so the round trip floors to ⌊E⌋. `round(x/(10²⁷⋅ln2))`
     ///      is half-open, so the k = 0 band is exactly [-H, H) with H = ⌊10²⁷⋅ln2/2⌋, matching
