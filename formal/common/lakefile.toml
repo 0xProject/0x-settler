@@ -1,0 +1,11 @@
+name = "Common"
+version = "0.1.0"
+defaultTargets = ["Common"]
+packagesDir = "../yul/.lake/packages"
+
+[[lean_lib]]
+name = "Common"
+
+[[require]]
+name = "FormalYul"
+path = "../yul"
