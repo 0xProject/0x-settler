@@ -400,4 +400,68 @@ theorem run_exp_ray_to_wad_evm_zero :
     (contract := yulContract) (selector := selector_expRayToWad) (args := [0])
     (hReturn := hReturn) (by simpa using hresult)
 
+set_option maxHeartbeats 4000000 in
+/-- General kernel reduction for symbolic `x`: `fun__expRayToWad_80(x)` evaluates to the inline,
+`let`-shared `evm*` arithmetic tree transcribed from `Exp.sol`'s `_expRayToWad` (constants are the
+literal hex). No hand model: the RHS is the interpreter's own `evm*` ops. The foundation for
+the runtime floor and monotonicity claims. -/
+theorem call_fun__expRayToWad_80_direct
+    (x fuel extra : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + (extra + 700)) [FormalYul.word x] (.some "fun__expRayToWad_80")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok (EvmYul.Yul.State.Ok shared store, [FormalYul.word (
+      let k := evmSar 0xc8 (evmAdd (evmShl 0xc7 1) (evmMul 0x724d54edbacbebbb95c52a0f6076 x))
+      let t := evmSar 0x6b (evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
+        (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d k))
+      let v := evmShr 0x80 (evmMul t t)
+      let ev := evmAdd 0x4e14a45e8ec305e233e11b4174e214ac (evmShr 0x84 (evmMul
+        (evmAdd 0x93f11e65781741b92fa7fc4f4fffcca2 (evmShr 0x86 (evmMul
+        (evmAdd 0x9064d965e1c4863b73604e0ddbec53f9 (evmShr 0x80 (evmMul
+        (evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul
+        (evmAdd 0xb9aacfad41060587203a79af0ebc (evmShr 0x1d v)) v))) v))) v))) v))
+      let od := evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
+        (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
+        (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
+        (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
+        0xdc07aff85e5bb5629d0fb64a84bb v))) v))) v))) v))
+      let tod := evmSar 0x80 (evmMul t od)
+      let r0 := evmSdiv (evmShl 0x7e (evmAdd ev tod)) (evmSub ev tod)
+      let r1 := evmSar (evmSub 0x7e k) (evmSub (evmMul 0xde0b6b3a7640000 r0) 0xafe527e18748a8a)
+      evmAdd (evmIszero x)
+        (evmMul (evmSlt 0xffffffffffffffffffffffffffffffffffffffff7a143b87dbdabf5ee0a0efd7 x) r1)
+    )]) := by
+  rw [show fuel + (extra + 700) = (fuel + extra) + 700 by omega]
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_fun__expRayToWad_80]
+  simp only [yulFunction_fun__expRayToWad_80,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word,
+    call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 676)
+      (shared := shared) (hlookup := hlookup)]
+  apply FormalYul.Preservation.eq_of_wordNat_eq
+  simp only [FormalYul.Preservation.wordNat_shiftRight, FormalYul.Preservation.wordNat_shiftLeft,
+    FormalYul.Preservation.wordNat_add, FormalYul.Preservation.wordNat_sub,
+    FormalYul.Preservation.wordNat_mul, FormalYul.Preservation.wordNat_iszero,
+    FormalYul.Preservation.wordNat_ofNat, wordNat_sar, wordNat_sdiv, wordNat_slt]
+  simp only [FormalYul.Preservation.evmAdd_u256_left, FormalYul.Preservation.evmAdd_u256_right,
+    FormalYul.Preservation.evmSub_u256_left, FormalYul.Preservation.evmSub_u256_right,
+    FormalYul.Preservation.evmMul_u256_left, FormalYul.Preservation.evmMul_u256_right,
+    FormalYul.Preservation.evmShl_u256_left, FormalYul.Preservation.evmShl_u256_right,
+    FormalYul.Preservation.evmShr_u256_left, FormalYul.Preservation.evmShr_u256_right,
+    FormalYul.Preservation.evmIszero_u256, evmSar_u256_left, evmSar_u256_right,
+    evmSdiv_u256_left, evmSdiv_u256_right, evmSlt_u256_left, evmSlt_u256_right,
+    u256_idem, FormalYul.Preservation.u256_evmAdd]
+
 end ExpYul
