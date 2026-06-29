@@ -46,4 +46,33 @@ theorem slt_thresh_ge {x : Nat}
     rw [hx, hC]; omega
   simp [EvmYul.UInt256.fromBool, hnlt]
 
+/-- The overflow guard `slt(x, C)` is the word `1` for a signed input strictly below the threshold
+(`x` either a negative signed value, `2^255 ≤ u256 x`, or a nonnegative value below `C`), so
+`iszero(slt(x, C))` is `0` and the panic branch is skipped (value path). -/
+theorem slt_thresh_lt {x : Nat}
+    (hval : u256 x < 0x8e383a2cdfa1b74a9422d2e1 ∨ 2 ^ 255 ≤ u256 x) :
+    EvmYul.UInt256.slt (EvmYul.UInt256.ofNat x)
+        (EvmYul.UInt256.ofNat 0x8e383a2cdfa1b74a9422d2e1)
+      = EvmYul.UInt256.ofNat 1 := by
+  have hx : (EvmYul.UInt256.ofNat x).toNat = u256 x := by
+    have := wordNat_ofNat x; simpa [wordNat] using this
+  have hC : (EvmYul.UInt256.ofNat 0x8e383a2cdfa1b74a9422d2e1).toNat
+      = 0x8e383a2cdfa1b74a9422d2e1 := by
+    have := wordNat_ofNat 0x8e383a2cdfa1b74a9422d2e1
+    simpa [wordNat, u256, WORD_MOD] using this
+  have hCb : (0x8e383a2cdfa1b74a9422d2e1 : Nat) < 2 ^ 255 := thresh_lt_pow
+  unfold EvmYul.UInt256.slt EvmYul.UInt256.sltBool
+  rw [hx, hC]
+  rw [if_neg (by omega : ¬ ((0x8e383a2cdfa1b74a9422d2e1 : Nat) ≥ 2 ^ 255))]
+  rcases hval with hlt | hneg
+  · rw [if_neg (by omega : ¬ (u256 x ≥ 2 ^ 255))]
+    have hlt' : EvmYul.UInt256.ofNat x
+        < EvmYul.UInt256.ofNat 0x8e383a2cdfa1b74a9422d2e1 := by
+      show (EvmYul.UInt256.ofNat x).toNat
+        < (EvmYul.UInt256.ofNat 0x8e383a2cdfa1b74a9422d2e1).toNat
+      rw [hx, hC]; omega
+    simp [EvmYul.UInt256.fromBool, hlt']
+  · rw [if_pos (by omega : u256 x ≥ 2 ^ 255)]
+    simp [EvmYul.UInt256.fromBool]
+
 end ExpYul
