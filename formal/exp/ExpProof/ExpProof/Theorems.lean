@@ -74,4 +74,21 @@ example (H : RegionMonotonicityFacts) (x1 x2 : Nat)
 #guard_msgs in
 #print axioms run_exp_ray_to_wad_evm_mono
 
+/-- Monotone over the whole supported domain, reduced to the single analytic obligation
+`SeamR0Bound` (the octave-seam `r0` doubling bound). The kernel-wall floor reduction, the
+`range`/`nonneg` obligations, the same-octave step, the region induction, and the scale-point pin are
+all proved unconditionally; what remains for an unconditional monotonicity theorem is the minimax
+accuracy bound `SeamR0Bound`. -/
+example (hr0 : SeamR0Bound) (x1 x2 : Nat)
+    (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
+    (hle : FormalYul.Preservation.int256 x1 ≤ FormalYul.Preservation.int256 x2)
+    (hdom : FormalYul.Preservation.int256 x2 < FormalYul.Preservation.int256 C0thresh) :
+    ∃ r1 r2, run_exp_ray_to_wad_evm x1 = .ok r1 ∧ run_exp_ray_to_wad_evm x2 = .ok r2 ∧
+      FormalYul.Preservation.int256 r1 ≤ FormalYul.Preservation.int256 r2 :=
+  run_exp_ray_to_wad_evm_mono_of_seamR0 hr0 x1 x2 hx1 hx2 hle hdom
+
+/-- info: 'ExpYul.run_exp_ray_to_wad_evm_mono_of_seamR0' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_exp_ray_to_wad_evm_mono_of_seamR0
+
 end ExpYul
