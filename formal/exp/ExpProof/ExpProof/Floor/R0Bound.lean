@@ -50,7 +50,7 @@ theorem stage_exact {c prev v sh : Nat} (hprev : prev < 2^256) (hvw : v < 2^256)
   omega
 
 theorem tele_step (e0 e1 v A c0 s E0 : Nat)
-    (hv : v < 2^126) (hs : 128 ≤ s) (hAe1 : A ≤ e1)
+    (hv : v < 2^126) (hs : 127 ≤ s) (hAe1 : A ≤ e1)
     (hb0lo : 2^c0 * e0 ≤ E0) (hb0hi : E0 < 2^c0 * e0 + 2 * 2^c0)
     (hslo : 2^s * (e1 - A) ≤ e0 * v) (hshi : e0 * v < 2^s * (e1 - A) + 2^s) :
     2^(c0+s) * e1 ≤ A * 2^(c0+s) + E0 * v ∧
@@ -111,9 +111,11 @@ def evNumV (v : Nat) : Nat :=
   let e3 := 0x93f11e65781741b92fa7fc4f4fffcca2 * 2^421 + e2 * v
   0x4e14a45e8ec305e233e11b4174e214ac * 2^553 + e3 * v
 
--- helper: one telescoping stage as applied to runtime tree, producing the stage value bound + bracket
-theorem even_stage (c P prev v cum sh Eprev : Nat)
-    (hv : v < 2^126) (hs : 128 ≤ sh) (hsh256 : sh < 256) (hprevlt : prev < P) (hPV : P * 2^126 < 2^256)
+/-- One telescoped runtime Horner stage: the stage value `evmAdd c (shr sh (mul prev v))` cleared to
+scale `2^(cum+sh)` brackets `c·2^(cum+sh) + Eprev·v` within `2·2^(cum+sh)`, given the cumulative
+bracket on `prev` at scale `2^cum`. -/
+theorem horner_stage (c P prev v cum sh Eprev : Nat)
+    (hv : v < 2^126) (hs : 127 ≤ sh) (hsh256 : sh < 256) (hprevlt : prev < P) (hPV : P * 2^126 < 2^256)
     (hsum : c + P * 2^126 / 2^sh < 2^256) (hclt : c < 2^256)
     (hElo : 2^cum * prev ≤ Eprev) (hEhi : Eprev < 2^cum * prev + 2 * 2^cum) :
     2^(cum+sh) * (evmAdd c (evmShr sh (evmMul prev v))) ≤ c * 2^(cum+sh) + Eprev * v ∧
@@ -137,7 +139,6 @@ theorem even_stage (c P prev v cum sh Eprev : Nat)
     omega
   exact tele_step prev ev1 v c cum sh Eprev hv hs hge hElo hEhi hst.1 hst.2
 
-#check @even_stage
 
 theorem evTree_bracket {x : Nat} (hv : vTree x < 2 ^ 126) :
     2^553 * evTree x ≤ evNumV (vTree x) ∧ evNumV (vTree x) < 2^553 * evTree x + 2 * 2^553 := by
@@ -159,7 +160,7 @@ theorem evTree_bracket {x : Nat} (hv : vTree x < 2 ^ 126) :
   have hE0lo : 2^29 * e0 ≤ 0xb9aacfad41060587203a79af0ebc * 2^29 + v := by have := h0.1; omega
   have hE0hi : 0xb9aacfad41060587203a79af0ebc * 2^29 + v < 2^29 * e0 + 2 * 2^29 := by have := h0.2; omega
   -- stage 1: cum 29 -> 159, sh=0x82=130, P=2^113
-  have s1 := even_stage 0x9a036222e11aee18465042f8ea64c8 (2^113) e0 v 29 0x82
+  have s1 := horner_stage 0x9a036222e11aee18465042f8ea64c8 (2^113) e0 v 29 0x82
     (0xb9aacfad41060587203a79af0ebc * 2^29 + v) hv (by norm_num) (by norm_num) he0lt (by norm_num)
     (by rw [pvd 113 126 130 109 (by norm_num)]; norm_num) (by norm_num) hE0lo hE0hi
   set e1 := evmAdd 0x9a036222e11aee18465042f8ea64c8 (evmShr 0x82 (evmMul e0 v)) with he1
@@ -170,7 +171,7 @@ theorem evTree_bracket {x : Nat} (hv : vTree x < 2 ^ 126) :
     rw [pvd 113 126 130 109 (by norm_num)] at this; omega
   -- E1 = A1stage*2^159 + E0*v (cum 159). s1 gives bracket on e1 with this E1.
   -- stage 2: cum 159 -> 287, sh=0x80=128, P=2^121
-  have s2 := even_stage 0x9064d965e1c4863b73604e0ddbec53f9 (2^121) e1 v 159 0x80
+  have s2 := horner_stage 0x9064d965e1c4863b73604e0ddbec53f9 (2^121) e1 v 159 0x80
     (0x9a036222e11aee18465042f8ea64c8 * 2^159 + (0xb9aacfad41060587203a79af0ebc * 2^29 + v) * v)
     hv (by norm_num) (by norm_num) he1lt (by norm_num)
     (by rw [pvd 121 126 128 119 (by norm_num)]; norm_num) (by norm_num) s1.1 s1.2
@@ -181,7 +182,7 @@ theorem evTree_bracket {x : Nat} (hv : vTree x < 2 ^ 126) :
       (by rw [pvd 121 126 128 119 (by norm_num)]; norm_num)).2
     rw [pvd 121 126 128 119 (by norm_num)] at this; omega
   -- stage 3: cum 287 -> 421, sh=0x86=134, P=2^129
-  have s3 := even_stage 0x93f11e65781741b92fa7fc4f4fffcca2 (2^129) e2 v 287 0x86
+  have s3 := horner_stage 0x93f11e65781741b92fa7fc4f4fffcca2 (2^129) e2 v 287 0x86
     (0x9064d965e1c4863b73604e0ddbec53f9 * 2^287 +
       (0x9a036222e11aee18465042f8ea64c8 * 2^159 + (0xb9aacfad41060587203a79af0ebc * 2^29 + v) * v) * v)
     hv (by norm_num) (by norm_num) he2lt (by norm_num)
@@ -193,7 +194,7 @@ theorem evTree_bracket {x : Nat} (hv : vTree x < 2 ^ 126) :
       (by rw [pvd 129 126 134 121 (by norm_num)]; norm_num)).2
     rw [pvd 129 126 134 121 (by norm_num)] at this; omega
   -- stage 4: cum 421 -> 553, sh=0x84=132, P=2^129
-  have s4 := even_stage 0x4e14a45e8ec305e233e11b4174e214ac (2^129) e3 v 421 0x84
+  have s4 := horner_stage 0x4e14a45e8ec305e233e11b4174e214ac (2^129) e3 v 421 0x84
     (0x93f11e65781741b92fa7fc4f4fffcca2 * 2^421 +
       (0x9064d965e1c4863b73604e0ddbec53f9 * 2^287 +
         (0x9a036222e11aee18465042f8ea64c8 * 2^159 +
@@ -221,6 +222,83 @@ theorem evTree_bracket {x : Nat} (hv : vTree x < 2 ^ 126) :
 /-- info: 'ExpYul.evTree_bracket' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms evTree_bracket
+
+/-! ## Gap-2: the odd Horner accumulator brackets the exact polynomial
+
+The odd accumulator starts at the leading constant `B4` (scale `0`) and runs four mul/shr stages
+(shifts `0x83, 0x89, 0x7f, 0x87`, cumulative `131, 268, 395, 530`). Cleared to scale `2^530` the
+runtime `odTree x` brackets the exact degree-4 polynomial `odNumV (vTree x)` within `2·2^530`. -/
+
+/-- Exact integer odd-Horner numerator (degree-4 in `v`, scale `2^530`). -/
+def odNumV (v : Nat) : Nat :=
+  let o1 := 0xc926ddbf3830ca5561cc01585402d0 * 2^131 + 0xdc07aff85e5bb5629d0fb64a84bb * v
+  let o2 := 0xad4506b00b1246c7e5b4fd33e1201b * 2^268 + o1 * v
+  let o3 := 0xaf5662483c4ce783a9ef5fe025f42e9e * 2^395 + o2 * v
+  0x270a522f476182f119f08da0ba710a56 * 2^530 + o3 * v
+
+/-- Runtime odd-Horner accumulator brackets the exact polynomial within `2` ulp at scale `2^530`. -/
+theorem odTree_bracket {x : Nat} (hv : vTree x < 2 ^ 126) :
+    2^530 * odTree x ≤ odNumV (vTree x) ∧ odNumV (vTree x) < 2^530 * odTree x + 2 * 2^530 := by
+  have hod : odTree x =
+      evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul
+      (evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul
+      (evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul
+      (evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul
+      0xdc07aff85e5bb5629d0fb64a84bb (vTree x)))) (vTree x)))) (vTree x)))) (vTree x))) := rfl
+  set v := vTree x with hvdef
+  -- the leading constant is its own (trivial) cumulative bracket at scale 2^0
+  have hB4lo : 2^0 * 0xdc07aff85e5bb5629d0fb64a84bb ≤ 0xdc07aff85e5bb5629d0fb64a84bb := by norm_num
+  have hB4hi : (0xdc07aff85e5bb5629d0fb64a84bb : Nat) < 2^0 * 0xdc07aff85e5bb5629d0fb64a84bb + 2 * 2^0 := by norm_num
+  -- stage 1: cum 0 -> 131, sh=0x83=131, prev=B4<2^112
+  have s1 := horner_stage 0xc926ddbf3830ca5561cc01585402d0 (2^112) 0xdc07aff85e5bb5629d0fb64a84bb v 0 0x83
+    0xdc07aff85e5bb5629d0fb64a84bb hv (by norm_num) (by norm_num) (by norm_num) (by norm_num)
+    (by rw [pvd 112 126 131 107 (by norm_num)]; norm_num) (by norm_num) hB4lo hB4hi
+  set o1 := evmAdd 0xc926ddbf3830ca5561cc01585402d0 (evmShr 0x83 (evmMul 0xdc07aff85e5bb5629d0fb64a84bb v)) with ho1
+  have ho1lt : o1 < 2^121 := by
+    have := (stage_bounds (c := 0xc926ddbf3830ca5561cc01585402d0) (prev := 0xdc07aff85e5bb5629d0fb64a84bb) (v := v)
+      (P := 2^112) (V := 2^126) (sh := 0x83) (by norm_num) hv (by norm_num) (by norm_num)
+      (by rw [pvd 112 126 131 107 (by norm_num)]; norm_num)).2
+    rw [pvd 112 126 131 107 (by norm_num)] at this; omega
+  -- stage 2: cum 131 -> 268, sh=0x89=137, prev=o1<2^121
+  have s2 := horner_stage 0xad4506b00b1246c7e5b4fd33e1201b (2^121) o1 v 131 0x89
+    (0xc926ddbf3830ca5561cc01585402d0 * 2^131 + 0xdc07aff85e5bb5629d0fb64a84bb * v) hv (by norm_num) (by norm_num) ho1lt (by norm_num)
+    (by rw [pvd 121 126 137 110 (by norm_num)]; norm_num) (by norm_num) s1.1 s1.2
+  set o2 := evmAdd 0xad4506b00b1246c7e5b4fd33e1201b (evmShr 0x89 (evmMul o1 v)) with ho2
+  have ho2lt : o2 < 2^121 := by
+    have := (stage_bounds (c := 0xad4506b00b1246c7e5b4fd33e1201b) (prev := o1) (v := v)
+      (P := 2^121) (V := 2^126) (sh := 0x89) ho1lt hv (by norm_num) (by norm_num)
+      (by rw [pvd 121 126 137 110 (by norm_num)]; norm_num)).2
+    rw [pvd 121 126 137 110 (by norm_num)] at this; omega
+  -- stage 3: cum 268 -> 395, sh=0x7f=127, prev=o2<2^121
+  have s3 := horner_stage 0xaf5662483c4ce783a9ef5fe025f42e9e (2^121) o2 v 268 0x7f
+    (0xad4506b00b1246c7e5b4fd33e1201b * 2^268 +
+      (0xc926ddbf3830ca5561cc01585402d0 * 2^131 + 0xdc07aff85e5bb5629d0fb64a84bb * v) * v) hv (by norm_num) (by norm_num) ho2lt (by norm_num)
+    (by rw [pvd 121 126 127 120 (by norm_num)]; norm_num) (by norm_num) s2.1 s2.2
+  set o3 := evmAdd 0xaf5662483c4ce783a9ef5fe025f42e9e (evmShr 0x7f (evmMul o2 v)) with ho3
+  have ho3lt : o3 < 2^129 := by
+    have := (stage_bounds (c := 0xaf5662483c4ce783a9ef5fe025f42e9e) (prev := o2) (v := v)
+      (P := 2^121) (V := 2^126) (sh := 0x7f) ho2lt hv (by norm_num) (by norm_num)
+      (by rw [pvd 121 126 127 120 (by norm_num)]; norm_num)).2
+    rw [pvd 121 126 127 120 (by norm_num)] at this; omega
+  -- stage 4: cum 395 -> 530, sh=0x87=135, prev=o3<2^129
+  have s4 := horner_stage 0x270a522f476182f119f08da0ba710a56 (2^129) o3 v 395 0x87
+    (0xaf5662483c4ce783a9ef5fe025f42e9e * 2^395 +
+      (0xad4506b00b1246c7e5b4fd33e1201b * 2^268 +
+        (0xc926ddbf3830ca5561cc01585402d0 * 2^131 + 0xdc07aff85e5bb5629d0fb64a84bb * v) * v) * v) hv (by norm_num) (by norm_num) ho3lt (by norm_num)
+    (by rw [pvd 129 126 135 120 (by norm_num)]; norm_num) (by norm_num) s3.1 s3.2
+  rw [hod]
+  show 2^530 * evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul o3 v)) ≤ odNumV v ∧
+    odNumV v < 2^530 * evmAdd 0x270a522f476182f119f08da0ba710a56 (evmShr 0x87 (evmMul o3 v)) + 2 * 2^530
+  unfold odNumV
+  have e530 : (395:Nat) + 0x87 = 530 := by norm_num
+  rw [e530] at s4
+  constructor
+  · have := s4.1; convert this using 2 <;> ring
+  · have := s4.2; convert this using 2 <;> ring
+
+/-- info: 'ExpYul.odTree_bracket' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms odTree_bracket
 
 /-! ## The below-clamp target bound (`RuntimeR0Bound.belowC`) -/
 
