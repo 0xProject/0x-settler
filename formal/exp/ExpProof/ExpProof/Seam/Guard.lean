@@ -1,4 +1,4 @@
-import ExpProof.Seam.RuntimeShared
+import Common.Word
 
 /-!
 # The overflow-guard comparison

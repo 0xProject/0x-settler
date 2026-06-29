@@ -1,4 +1,4 @@
-import ExpProof.Seam.RuntimeShared
+import Common.Word
 
 /-!
 # Word-level monotonicity and transport lemmas for the `exp` tree
@@ -22,6 +22,7 @@ namespace ExpYul
 
 open FormalYul
 open FormalYul.Preservation
+open Common.Word
 
 set_option maxRecDepth 100000
 

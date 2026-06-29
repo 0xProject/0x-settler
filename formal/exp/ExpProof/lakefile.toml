@@ -9,3 +9,7 @@ name = "ExpProof"
 [[require]]
 name = "FormalYul"
 path = "../../yul"
+
+[[require]]
+name = "Common"
+path = "../../common"

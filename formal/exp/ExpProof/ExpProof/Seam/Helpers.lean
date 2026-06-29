@@ -1,5 +1,5 @@
 import ExpProof.ExpYulProof
-import ExpProof.Seam.RuntimeShared
+import Common.Word
 import FormalYul.Preservation
 
 /-!

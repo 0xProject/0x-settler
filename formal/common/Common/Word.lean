@@ -1,16 +1,17 @@
 import FormalYul.Preservation
 
 /-!
-# Reusable, contract-agnostic word lemmas for the Exp runtime reduction
+# Reusable, contract-agnostic EVM-word lemmas
 
-These facts are general (not specific to `exp`): the `u256`/`int256` bounds and the
-`wordNat`-preservation bridges for `sar` and `sdiv` (which `FormalYul.Preservation` does not
-provide for signed shifts/division), plus the `u256`-idempotence absorbers for the `evm*`
-results. They are used both by the revert proof and the kernel arithmetic reduction. Bodies are
-copied verbatim from the `ln` proof's `Seam/RuntimeModel.lean` (they are not `ln`-specific).
+Function-agnostic facts about the compiled-runtime word operations: the
+`u256`/`int256` bounds, the `wordNat`-preservation bridges for `sar`/`sdiv`/`slt`
+(which `FormalYul.Preservation` does not provide for signed shifts/division),
+and the `u256`-idempotence absorbers for the `evm*` results. They are used by
+the runtime reductions of the per-function proofs and contain nothing specific
+to any one implementation.
 -/
 
-namespace ExpYul
+namespace Common.Word
 
 open FormalYul
 open FormalYul.Preservation
@@ -257,4 +258,4 @@ theorem evmSdiv_u256_left (a b : Nat) : evmSdiv (u256 a) b = evmSdiv a b := by
 theorem evmSdiv_u256_right (a b : Nat) : evmSdiv a (u256 b) = evmSdiv a b := by
   simp only [evmSdiv, u256_idem]
 
-end ExpYul
+end Common.Word

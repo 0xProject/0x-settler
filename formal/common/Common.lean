@@ -3,8 +3,10 @@
 -- proofs (`LnProof`, `ExpProof`). Nothing here models any specific
 -- implementation. It is generic interval-Horner nonnegativity certificates and
 -- Kronecker identity-testing / packed-shift cell walks (`Common.Poly`), the
--- `e^(p/q)` Taylor-cut framework (`Common.Exp`), and the `Real.exp` bridge for
--- the partial-sum caps (`Common.RealExpBridge`).
+-- `e^(p/q)` Taylor-cut framework (`Common.Exp`), the `Real.exp` bridge for the
+-- partial-sum caps (`Common.RealExpBridge`), and the EVM-word op-preservation
+-- bridges (`Common.Word`).
+import Common.Word
 import Common.Foundation.Poly
 import Common.Foundation.ExpSum
 import Common.Foundation.ShiftCert

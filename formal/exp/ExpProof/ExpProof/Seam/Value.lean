@@ -1,5 +1,5 @@
 import ExpProof.ExpYulProof
-import ExpProof.Seam.RuntimeShared
+import Common.Word
 import ExpProof.Seam.Helpers
 import ExpProof.Seam.Guard
 import ExpProof.Seam.Dispatcher
@@ -17,6 +17,7 @@ namespace ExpYul
 
 open FormalYul
 open FormalYul.Preservation
+open Common.Word
 
 set_option maxRecDepth 100000
 
