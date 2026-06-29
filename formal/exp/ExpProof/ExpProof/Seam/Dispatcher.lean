@@ -165,6 +165,107 @@ theorem call_abi_decode_tuple_t_int256_of_calldata
     EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
     Finmap.lookup_insert, FormalYul.word, hdecode]
 
+/-- `allocate_unbounded() := mload(64)` — returns the current free pointer. -/
+theorem call_allocate_unbounded_direct
+    (fuel : Nat) (shared : EvmYul.SharedState .Yul) (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 20) [] (.some "allocate_unbounded") (.some yulContract)
+      (EvmYul.Yul.State.Ok shared store) =
+    .ok
+      ((EvmYul.Yul.State.Ok shared store).setMachineState
+        (((EvmYul.Yul.State.Ok shared store).toMachineState.mload (FormalYul.word 64)).2),
+        [((EvmYul.Yul.State.Ok shared store).toMachineState.mload (FormalYul.word 64)).1]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions, lookup_allocate_unbounded]
+  simp only [yulFunction_allocate_unbounded,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  simp +decide [
+    EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word]
+
+/-- `abi_encode_t_int256_to_t_int256_fromStack(value, pos) := mstore(pos, cleanup(value))`,
+specialized to a literal `value = word v` (the only shape the return path needs). -/
+theorem call_abi_encode_t_int256_to_t_int256_fromStack_direct
+    (v : Nat) (pos : EvmYul.UInt256) (fuel : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 90) [FormalYul.word v, pos]
+      (.some "abi_encode_t_int256_to_t_int256_fromStack")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok ((EvmYul.Yul.State.Ok shared store).setMachineState
+      ((EvmYul.Yul.State.Ok shared store).toMachineState.mstore pos (FormalYul.word v)), []) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions,
+    lookup_abi_encode_t_int256_to_t_int256_fromStack]
+  simp only [yulFunction_abi_encode_t_int256_to_t_int256_fromStack,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have hcleanup :=
+    call_cleanup_t_int256_direct (v := v) (fuel := fuel) (extra := 64) (shared := shared)
+      (store := Finmap.insert "value" (FormalYul.word v)
+        (Finmap.insert "pos" pos (Inhabited.default : EvmYul.Yul.VarStore)))
+      (hlookup := hlookup)
+  simp only [Nat.reduceAdd, FormalYul.word] at hcleanup
+  simp +decide [EvmYul.Yul.evalCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word, hcleanup]
+
+/-- `abi_encode_tuple_t_int256__to_t_int256__fromStack(headStart, value)` encodes a single `int256`
+return value (`value = word v`) and returns the tail pointer `headStart + 32`. -/
+theorem call_abi_encode_tuple_t_int256__to_t_int256__fromStack_direct
+    (headStart : EvmYul.UInt256) (v : Nat) (fuel : Nat) (shared : EvmYul.SharedState .Yul)
+    (store : EvmYul.Yul.VarStore)
+    (hlookup : shared.accountMap.find? shared.executionEnv.codeOwner =
+      some (FormalYul.accountFor yulContract)) :
+    EvmYul.Yul.call (fuel + 150) [headStart, FormalYul.word v]
+      (.some "abi_encode_tuple_t_int256__to_t_int256__fromStack")
+      (.some yulContract) (EvmYul.Yul.State.Ok shared store) =
+    .ok ((EvmYul.Yul.State.Ok shared store).setMachineState
+      ((EvmYul.Yul.State.Ok shared store).toMachineState.mstore headStart (FormalYul.word v)),
+      [headStart + FormalYul.word 32]) := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [hlookup, Option.getD_some, yulContract_functions,
+    lookup_abi_encode_tuple_t_int256__to_t_int256__fromStack]
+  simp only [yulFunction_abi_encode_tuple_t_int256__to_t_int256__fromStack,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have hencode :=
+    call_abi_encode_t_int256_to_t_int256_fromStack_direct
+      (v := v) (pos := headStart + FormalYul.word 0) (fuel := fuel + 55)
+      (shared := shared)
+      (store := Finmap.insert "tail" (headStart + FormalYul.word 32)
+        (Finmap.insert "headStart" headStart
+          (Finmap.insert "value0" (FormalYul.word v) (Inhabited.default : EvmYul.Yul.VarStore))))
+      (hlookup := hlookup)
+  simp [FormalYul.word] at hencode
+  simp +decide [EvmYul.Yul.execCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.reviveJump, EvmYul.Yul.State.overwrite?,
+    Finmap.lookup_insert, FormalYul.word, hencode]
+
 /-- `shift_right_224_unsigned(value) := shr(224, value)`. -/
 theorem call_shift_right_224_unsigned_direct
     (v : EvmYul.UInt256) (fuel : Nat)
