@@ -125,9 +125,11 @@ theorem Pev_mono {a b : Int} (ha : 0 ≤ a) (hab : a ≤ b) :
 theorem Pod_mono {a b : Int} (ha : 0 ≤ a) (hab : a ≤ b) :
     evalPoly Pod a ≤ evalPoly Pod b := evalPoly_mono_of_nonneg Pod_coeffs_nonneg ha hab
 
-/-- One `v`-step of the even Horner polynomial is below `2⁵⁵³` for `v < 2¹²⁶`. -/
+/-- One `v`-step of the even Horner polynomial is below `2⁵⁴⁹ = 2⁵⁵³/16` for `v < 2¹²⁶` (the step is
+`≈ 0.036·2⁵⁵³` at the band top; the dyadic `2⁵⁴⁹` leaves comfortable headroom). The tightness here
+feeds the joint `over` budget. -/
 theorem evNumV_step {v : Nat} (hv : v < 2 ^ 126) :
-    (evNumV (v + 1) : Int) - (evNumV v : Int) < 2 ^ 553 := by
+    (evNumV (v + 1) : Int) - (evNumV v : Int) < 2 ^ 549 := by
   unfold evNumV
   push_cast
   have hvle : (v : Int) < 2 ^ 126 := by exact_mod_cast hv
@@ -135,9 +137,9 @@ theorem evNumV_step {v : Nat} (hv : v < 2 ^ 126) :
   nlinarith [hvle, hvnn, mul_nonneg hvnn hvnn, Int.mul_nonneg hvnn (Int.mul_nonneg hvnn hvnn),
     Int.mul_nonneg (Int.mul_nonneg hvnn hvnn) (Int.mul_nonneg hvnn hvnn)]
 
-/-- One `v`-step of the odd Horner polynomial is below `2⁵³⁰` for `v < 2¹²⁶`. -/
+/-- One `v`-step of the odd Horner polynomial is below `2⁵²⁵ = 2⁵³⁰/32` for `v < 2¹²⁶`. -/
 theorem odNumV_step {v : Nat} (hv : v < 2 ^ 126) :
-    (odNumV (v + 1) : Int) - (odNumV v : Int) < 2 ^ 530 := by
+    (odNumV (v + 1) : Int) - (odNumV v : Int) < 2 ^ 525 := by
   unfold odNumV
   push_cast
   have hvle : (v : Int) < 2 ^ 126 := by exact_mod_cast hv
@@ -162,13 +164,13 @@ theorem tsq_split {x : Nat} (hx : x < 2 ^ 256)
   · nlinarith [hdm, hmod_lt]
 
 /-- **The even cert polynomial brackets the runtime even accumulator** (gap-2 ∘ v-truncation):
-`2¹¹⁹³·evTree x ≤ evalPoly evNumVPoly t < 2¹¹⁹³·evTree x + 2113617·2¹¹⁷³` (the fractional gap-2 width
-`1065041·2¹¹⁷³` plus one v-step `2¹¹⁹³ = 2²⁰·2¹¹⁷³`, summing to `2113617·2¹¹⁷³ ≈ 2.0157·2¹¹⁹³`). -/
+`2¹¹⁹³·evTree x ≤ evalPoly evNumVPoly t < 2¹¹⁹³·evTree x + 1130577·2¹¹⁷³` (the fractional gap-2 width
+`1065041·2¹¹⁷³` plus one tight v-step `2¹¹⁸⁹ = 2¹⁶·2¹¹⁷³`, summing to `1130577·2¹¹⁷³ ≈ 1.078·2¹¹⁹³`). -/
 theorem evNumVPoly_bracket {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
     2 ^ 1193 * (evTree x : Int) ≤ evalPoly ExpCertV.evNumVPoly (int256 (tTree x)) ∧
       evalPoly ExpCertV.evNumVPoly (int256 (tTree x)) <
-        2 ^ 1193 * (evTree x : Int) + 2113617 * 2 ^ 1173 := by
+        2 ^ 1193 * (evTree x : Int) + 1130577 * 2 ^ 1173 := by
   obtain ⟨_, hvlt⟩ := vTree_eq hx hC hC0
   obtain ⟨hg2lo, hg2hi⟩ := evTree_bracket hvlt
   obtain ⟨hsqlo, hsqhi⟩ := tsq_split hx hC hC0
@@ -194,25 +196,26 @@ theorem evNumVPoly_bracket {x : Nat} (hx : x < 2 ^ 256)
     have h : evNumV (vTree x) < 2 ^ 553 * evTree x + 1065041 * 2 ^ 533 := hg2hi
     have : (evNumV (vTree x) : Int) < (2 ^ 553 * evTree x + 1065041 * 2 ^ 533 : Nat) := by exact_mod_cast h
     push_cast at this; nlinarith [this]
-  -- step bound: evNumV(vTree+1)·2^640 < evNumV(vTree)·2^640 + 2^1193
+  -- tight v-step: evNumV(vTree+1)·2^640 < evNumV(vTree)·2^640 + 2^549·2^640 = … + 2^1189
   have hstep := evNumV_step hvlt
-  have hstep' : (evNumV (vTree x + 1) : Int) * 2 ^ 640 < (evNumV (vTree x) : Int) * 2 ^ 640 + 2 ^ 1193 := by
-    nlinarith [hstep]
+  have hstep' : (evNumV (vTree x + 1) : Int) * 2 ^ 640 < (evNumV (vTree x) : Int) * 2 ^ 640 + 2 ^ 1189 := by
+    have he : (2:Int) ^ 1189 = 2 ^ 549 * 2 ^ 640 := by rw [← pow_add]
+    rw [he]; nlinarith [hstep, pow_pos (by norm_num : (0:Int) < 2) 640]
   refine ⟨le_trans hg2lo' hmono_lo, ?_⟩
   calc evalPoly Pev (t ^ 2) ≤ (evNumV (vTree x + 1) : Int) * 2 ^ 640 := hmono_hi
-    _ < (evNumV (vTree x) : Int) * 2 ^ 640 + 2 ^ 1193 := hstep'
-    _ < 2 ^ 1193 * (evTree x : Int) + 1065041 * 2 ^ 1173 + 2 ^ 1193 := by linarith [hg2hi']
-    _ = 2 ^ 1193 * (evTree x : Int) + 2113617 * 2 ^ 1173 := by
-          rw [show (2:Int) ^ 1193 = 2 ^ 20 * 2 ^ 1173 from by rw [← pow_add]]; ring
+    _ < (evNumV (vTree x) : Int) * 2 ^ 640 + 2 ^ 1189 := hstep'
+    _ < 2 ^ 1193 * (evTree x : Int) + 1065041 * 2 ^ 1173 + 2 ^ 1189 := by linarith [hg2hi']
+    _ = 2 ^ 1193 * (evTree x : Int) + 1130577 * 2 ^ 1173 := by
+          rw [show (2:Int) ^ 1189 = 2 ^ 16 * 2 ^ 1173 from by rw [← pow_add]]; ring
 
 /-- **The odd cert polynomial brackets the runtime odd accumulator** (gap-2 ∘ v-truncation):
-`2¹⁰⁴²·odTree x ≤ evalPoly odNumVPoly t < 2¹⁰⁴²·odTree x + 134414369·2¹⁰¹⁶` (the fractional gap-2
-width `67305505·2¹⁰¹⁶` plus one v-step `2¹⁰⁴² = 2²⁶·2¹⁰¹⁶`, summing to `≈ 1.003·2¹⁰⁴²`). -/
+`2¹⁰⁴²·odTree x ≤ evalPoly odNumVPoly t < 2¹⁰⁴²·odTree x + 69402657·2¹⁰¹⁶` (the fractional gap-2
+width `67305505·2¹⁰¹⁶` plus one tight v-step `2¹⁰³⁷ = 2²¹·2¹⁰¹⁶`, summing to `≈ 1.003·2¹⁰⁴²`). -/
 theorem odNumVPoly_bracket {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
     2 ^ 1042 * (odTree x : Int) ≤ evalPoly ExpCertV.odNumVPoly (int256 (tTree x)) ∧
       evalPoly ExpCertV.odNumVPoly (int256 (tTree x)) <
-        2 ^ 1042 * (odTree x : Int) + 134414369 * 2 ^ 1016 := by
+        2 ^ 1042 * (odTree x : Int) + 69402657 * 2 ^ 1016 := by
   obtain ⟨_, hvlt⟩ := vTree_eq hx hC hC0
   obtain ⟨hg2lo, hg2hi⟩ := odTree_bracket hvlt
   obtain ⟨hsqlo, hsqhi⟩ := tsq_split hx hC hC0
@@ -236,14 +239,15 @@ theorem odNumVPoly_bracket {x : Nat} (hx : x < 2 ^ 256)
     have : (odNumV (vTree x) : Int) < (2 ^ 530 * odTree x + 67305505 * 2 ^ 504 : Nat) := by exact_mod_cast h
     push_cast at this; nlinarith [this]
   have hstep := odNumV_step hvlt
-  have hstep' : (odNumV (vTree x + 1) : Int) * 2 ^ 512 < (odNumV (vTree x) : Int) * 2 ^ 512 + 2 ^ 1042 := by
-    nlinarith [hstep]
+  have hstep' : (odNumV (vTree x + 1) : Int) * 2 ^ 512 < (odNumV (vTree x) : Int) * 2 ^ 512 + 2 ^ 1037 := by
+    have he : (2:Int) ^ 1037 = 2 ^ 525 * 2 ^ 512 := by rw [← pow_add]
+    rw [he]; nlinarith [hstep, pow_pos (by norm_num : (0:Int) < 2) 512]
   refine ⟨le_trans hg2lo' hmono_lo, ?_⟩
   calc evalPoly Pod (t ^ 2) ≤ (odNumV (vTree x + 1) : Int) * 2 ^ 512 := hmono_hi
-    _ < (odNumV (vTree x) : Int) * 2 ^ 512 + 2 ^ 1042 := hstep'
-    _ < 2 ^ 1042 * (odTree x : Int) + 67305505 * 2 ^ 1016 + 2 ^ 1042 := by linarith [hg2hi']
-    _ = 2 ^ 1042 * (odTree x : Int) + 134414369 * 2 ^ 1016 := by
-          rw [show (2:Int) ^ 1042 = 2 ^ 26 * 2 ^ 1016 from by rw [← pow_add]]; ring
+    _ < (odNumV (vTree x) : Int) * 2 ^ 512 + 2 ^ 1037 := hstep'
+    _ < 2 ^ 1042 * (odTree x : Int) + 67305505 * 2 ^ 1016 + 2 ^ 1037 := by linarith [hg2hi']
+    _ = 2 ^ 1042 * (odTree x : Int) + 69402657 * 2 ^ 1016 := by
+          rw [show (2:Int) ^ 1037 = 2 ^ 21 * 2 ^ 1016 from by rw [← pow_add]]; ring
 
 /-! ## The `t·Od` term and the numerator/denominator brackets (nonnegative half `t ≥ 0`) -/
 
@@ -304,7 +308,7 @@ theorem todNumV_bracket {x : Nat} (hx : x < 2 ^ 256)
   -- multiply odd bracket by t·2^23 (t ≥ 0):
   have hmul_lo : t * (2 ^ 1042 * (odTree x : Int)) ≤ t * evalPoly ExpCertV.odNumVPoly t :=
     mul_le_mul_of_nonneg_left hodlo htnn
-  have hmul_hi : t * evalPoly ExpCertV.odNumVPoly t ≤ t * (2 ^ 1042 * (odTree x : Int) + 134414369 * 2 ^ 1016) :=
+  have hmul_hi : t * evalPoly ExpCertV.odNumVPoly t ≤ t * (2 ^ 1042 * (odTree x : Int) + 69402657 * 2 ^ 1016) :=
     mul_le_mul_of_nonneg_left (le_of_lt hodhi) htnn
   -- tod·2^128 ≤ t·odTree and t·odTree < tod·2^128 + 2^128
   have htod_lo : (2 ^ 128 : Int) * (int256 (todTree x)) ≤ t * (odTree x : Int) := htodlo
@@ -320,8 +324,8 @@ theorem todNumV_bracket {x : Nat} (hx : x < 2 ^ 256)
     calc 2 ^ 1193 * (int256 (todTree x)) ≤ 2 ^ 23 * (t * (2 ^ 1042 * (odTree x : Int))) := key
       _ ≤ 2 ^ 23 * (t * evalPoly ExpCertV.odNumVPoly t) :=
           mul_le_mul_of_nonneg_left hmul_lo (by positivity)
-  · -- 2^23·(t·odpoly) < 2^1193·tod + 4·2^1193 (the tight odd width 134414369·2^1016·t stays well under)
-    -- t·odpoly ≤ 2^1042·(t·odTree) + 134414369·2^1016·t, t·odTree < 2^128·tod + 2^128, t < 2^128.
+  · -- 2^23·(t·odpoly) < 2^1193·tod + 4·2^1193 (the tight odd width 69402657·2^1016·t stays well under)
+    -- t·odpoly ≤ 2^1042·(t·odTree) + 69402657·2^1016·t, t·odTree < 2^128·tod + 2^128, t < 2^128.
     obtain ⟨htlo', hthi'⟩ := tTree_bound hx hC hC0
     have htlt : t < 2 ^ 128 := by
       have : t < 2 ^ 127 := by rw [show ((2:Int)^127) = 170141183460469231731687303715884105728 from by norm_num]; exact hthi'
@@ -330,20 +334,20 @@ theorem todNumV_bracket {x : Nat} (hx : x < 2 ^ 256)
     have key : 2 ^ 23 * (t * evalPoly ExpCertV.odNumVPoly t) <
         2 ^ 1193 * (int256 (todTree x)) + 4 * 2 ^ 1193 := by
       have h1 : t * evalPoly ExpCertV.odNumVPoly t ≤
-          2 ^ 1042 * (t * (odTree x : Int)) + 134414369 * 2 ^ 1016 * t := by
+          2 ^ 1042 * (t * (odTree x : Int)) + 69402657 * 2 ^ 1016 * t := by
         nlinarith [hmul_hi]
       have h2 : t * (odTree x : Int) < (2 ^ 128 : Int) * (int256 (todTree x)) + 2 ^ 128 := htod_hi
-      -- 2^23·134414369·2^1016·t < 134414369·2^1167 < 3·2^1193 (t < 2^128, 134414369 < 3·2^26)
-      have hpow : (134414369 : Int) * 2 ^ 1167 < 3 * 2 ^ 1193 := by
+      -- 2^23·69402657·2^1016·t < 69402657·2^1167 < 3·2^1193 (t < 2^128, 69402657 < 3·2^26)
+      have hpow : (69402657 : Int) * 2 ^ 1167 < 3 * 2 ^ 1193 := by
         have he : (3:Int) * 2 ^ 1193 = (3 * 2 ^ 26) * 2 ^ 1167 := by
           rw [show (3:Int) * 2 ^ 26 * 2 ^ 1167 = 3 * (2 ^ 26 * 2 ^ 1167) from by ring,
             show (2:Int) ^ 26 * 2 ^ 1167 = 2 ^ (26 + 1167) from by rw [← pow_add],
             show (26:Nat) + 1167 = 1193 from by norm_num]
         rw [he]
-        have : (134414369 : Int) < 3 * 2 ^ 26 := by norm_num
+        have : (69402657 : Int) < 3 * 2 ^ 26 := by norm_num
         nlinarith [pow_pos (by norm_num : (0:Int) < 2) 1167, this]
-      have hcarry : (2:Int) ^ 23 * (134414369 * 2 ^ 1016 * t) ≤ 134414369 * 2 ^ 1167 := by
-        have ht : (2:Int) ^ 23 * (134414369 * 2 ^ 1016 * t) = 134414369 * 2 ^ 1039 * t := by
+      have hcarry : (2:Int) ^ 23 * (69402657 * 2 ^ 1016 * t) ≤ 69402657 * 2 ^ 1167 := by
+        have ht : (2:Int) ^ 23 * (69402657 * 2 ^ 1016 * t) = 69402657 * 2 ^ 1039 * t := by
           rw [show (2:Int) ^ 1039 = 2 ^ 23 * 2 ^ 1016 from by rw [← pow_add]]; ring
         rw [ht, show (2:Int) ^ 1167 = 2 ^ 1039 * 2 ^ 128 from by rw [← pow_add]]
         nlinarith [pow_pos (by norm_num : (0:Int) < 2) 1039, htlt, htnn]
@@ -597,7 +601,7 @@ theorem todNumV_bracket_neg {x : Nat} (hx : x < 2 ^ 256)
   -- multiply odd bracket by t ≤ 0 (flips):
   have hmul_lo : t * evalPoly ExpCertV.odNumVPoly t ≤ t * (2 ^ 1042 * (odTree x : Int)) :=
     mul_le_mul_of_nonpos_left hodlo htneg
-  have hmul_hi : t * (2 ^ 1042 * (odTree x : Int) + 134414369 * 2 ^ 1016) ≤ t * evalPoly ExpCertV.odNumVPoly t :=
+  have hmul_hi : t * (2 ^ 1042 * (odTree x : Int) + 69402657 * 2 ^ 1016) ≤ t * evalPoly ExpCertV.odNumVPoly t :=
     mul_le_mul_of_nonpos_left (le_of_lt hodhi) htneg
   have htod_lo : (2 ^ 128 : Int) * (int256 (todTree x)) ≤ t * (odTree x : Int) := htodlo
   have htod_hi : t * (odTree x : Int) < (2 ^ 128 : Int) * (int256 (todTree x)) + 2 ^ 128 := htodhi
@@ -606,22 +610,22 @@ theorem todNumV_bracket_neg {x : Nat} (hx : x < 2 ^ 256)
     have h2 : -(2:Int)^128 < -(2:Int)^127 := by norm_num
     omega
   constructor
-  · -- todNumV = 2^23·(t·odpoly) ≥ 2^1065·(t·odTree) + 134414369·2^1039·t (since t ≤ 0, the odd width
-    -- contributes a negative shift) ≥ 2^1193·tod − 134414369·2^1167/... > 2^1193·tod − 4·2^1193
-    have h1 : 2 ^ 1042 * (t * (odTree x : Int)) + 134414369 * 2 ^ 1016 * t ≤
+  · -- todNumV = 2^23·(t·odpoly) ≥ 2^1065·(t·odTree) + 69402657·2^1039·t (since t ≤ 0, the odd width
+    -- contributes a negative shift) ≥ 2^1193·tod − 69402657·2^1167/... > 2^1193·tod − 4·2^1193
+    have h1 : 2 ^ 1042 * (t * (odTree x : Int)) + 69402657 * 2 ^ 1016 * t ≤
         t * evalPoly ExpCertV.odNumVPoly t := by nlinarith [hmul_hi]
     have h2 : (2 ^ 128 : Int) * (int256 (todTree x)) ≤ t * (odTree x : Int) := htod_lo
-    -- 2^23·134414369·2^1016·t > -134414369·2^1167 > -3·2^1193 (t > -2^128)
-    have hcarry : -(134414369 * 2 ^ 1167 : Int) < (2:Int) ^ 23 * (134414369 * 2 ^ 1016 * t) := by
-      have ht : (2:Int) ^ 23 * (134414369 * 2 ^ 1016 * t) = 134414369 * 2 ^ 1039 * t := by
+    -- 2^23·69402657·2^1016·t > -69402657·2^1167 > -3·2^1193 (t > -2^128)
+    have hcarry : -(69402657 * 2 ^ 1167 : Int) < (2:Int) ^ 23 * (69402657 * 2 ^ 1016 * t) := by
+      have ht : (2:Int) ^ 23 * (69402657 * 2 ^ 1016 * t) = 69402657 * 2 ^ 1039 * t := by
         rw [show (2:Int) ^ 1039 = 2 ^ 23 * 2 ^ 1016 from by rw [← pow_add]]; ring
-      rw [ht, show (134414369 : Int) * 2 ^ 1167 = 134414369 * 2 ^ 1039 * 2 ^ 128 from by
+      rw [ht, show (69402657 : Int) * 2 ^ 1167 = 69402657 * 2 ^ 1039 * 2 ^ 128 from by
         rw [show (2:Int) ^ 1167 = 2 ^ 1039 * 2 ^ 128 from by rw [← pow_add]]; ring]
       nlinarith [pow_pos (by norm_num : (0:Int) < 2) 1039, htgt]
-    have hpow : -(134414369 * 2 ^ 1167 : Int) ≥ -(3 * 2 ^ 1193) := by
+    have hpow : -(69402657 * 2 ^ 1167 : Int) ≥ -(3 * 2 ^ 1193) := by
       rw [ge_iff_le, neg_le_neg_iff, show (3:Int) * 2 ^ 1193 = (3 * 2 ^ 26) * 2 ^ 1167 from by
         rw [show (2:Int) ^ 1193 = 2 ^ 26 * 2 ^ 1167 from by rw [← pow_add]]; ring]
-      have : (134414369 : Int) ≤ 3 * 2 ^ 26 := by norm_num
+      have : (69402657 : Int) ≤ 3 * 2 ^ 26 := by norm_num
       nlinarith [pow_pos (by norm_num : (0:Int) < 2) 1167, this]
     nlinarith [h1, h2, htgt, hcarry, hpow]
   · -- todNumV = 2^23·(t·odpoly) ≤ 2^23·(t·2^1042 odTree) = 2^1065·(t·odTree) < 2^1193·tod + 2^1193
