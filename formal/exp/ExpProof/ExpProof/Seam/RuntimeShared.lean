@@ -191,6 +191,54 @@ theorem wordNat_sdiv (a b : EvmYul.UInt256) :
     intro hq
     split_ifs <;> omega
 
+theorem wordNat_slt (a b : EvmYul.UInt256) :
+    wordNat (EvmYul.UInt256.slt a b) = evmSlt (wordNat a) (wordNat b) := by
+  have ha : a.toNat < 2 ^ 256 := by simp [EvmYul.UInt256.toNat, EvmYul.UInt256.size]
+  have hb : b.toNat < 2 ^ 256 := by simp [EvmYul.UInt256.toNat, EvmYul.UInt256.size]
+  have hua : u256 (wordNat a) = wordNat a := by unfold u256 WORD_MOD; exact Nat.mod_eq_of_lt ha
+  have hub : u256 (wordNat b) = wordNat b := by unfold u256 WORD_MOD; exact Nat.mod_eq_of_lt hb
+  have hlt2 : (a < b) ↔ (a.toNat < b.toNat) := Iff.rfl
+  -- Offset (excess-2^255) values of the two operands, in closed form per sign.
+  have offneg : ∀ c : Nat, c < 2 ^ 256 → 2 ^ 255 ≤ c →
+      (c + 2 ^ 255) % 2 ^ 256 = c - 2 ^ 255 := by
+    intro c hc hcn
+    rw [show c + 2 ^ 255 = (c - 2 ^ 255) + 2 ^ 256 by omega, Nat.add_mod_right,
+      Nat.mod_eq_of_lt (by omega)]
+  have offpos : ∀ c : Nat, c < 2 ^ 256 → c < 2 ^ 255 →
+      (c + 2 ^ 255) % 2 ^ 256 = c + 2 ^ 255 := by
+    intro c hc hcp; exact Nat.mod_eq_of_lt (by omega)
+  have key : EvmYul.UInt256.sltBool a b =
+      decide ((a.toNat + 2 ^ 255) % 2 ^ 256 < (b.toNat + 2 ^ 255) % 2 ^ 256) := by
+    unfold EvmYul.UInt256.sltBool
+    simp only [ge_iff_le]
+    by_cases hna : 2 ^ 255 ≤ a.toNat <;> by_cases hnb : 2 ^ 255 ≤ b.toNat
+    · rw [if_pos hna, if_pos hnb, offneg _ ha hna, offneg _ hb hnb]
+      apply decide_eq_decide.mpr; rw [hlt2]; omega
+    · rw [if_pos hna, if_neg hnb, offneg _ ha hna, offpos _ hb (by omega), eq_comm,
+        decide_eq_true_eq]; omega
+    · rw [if_neg hna, if_pos hnb, offpos _ ha (by omega), offneg _ hb hnb, eq_comm,
+        decide_eq_false_iff_not]; omega
+    · rw [if_neg hna, if_neg hnb, offpos _ ha (by omega), offpos _ hb (by omega)]
+      apply decide_eq_decide.mpr; rw [hlt2]; omega
+  have hLHS : wordNat (EvmYul.UInt256.slt a b) =
+      if (a.toNat + 2 ^ 255) % 2 ^ 256 < (b.toNat + 2 ^ 255) % 2 ^ 256 then 1 else 0 := by
+    unfold EvmYul.UInt256.slt
+    rw [key]
+    simp only [EvmYul.fromBool, Bool.toUInt256, decide_eq_true_eq]
+    split_ifs <;> decide
+  have hua' : u256 (wordNat a) = a.toNat := hua
+  have hub' : u256 (wordNat b) = b.toNat := hub
+  have hRHS : evmSlt (wordNat a) (wordNat b) =
+      if (a.toNat + 2 ^ 255) % 2 ^ 256 < (b.toNat + 2 ^ 255) % 2 ^ 256 then 1 else 0 := by
+    unfold evmSlt
+    rw [hua', hub', word_mod_eq]
+  rw [hLHS, hRHS]
+
+theorem evmSlt_u256_left (a b : Nat) : evmSlt (u256 a) b = evmSlt a b := by
+  simp only [evmSlt, u256_idem]
+theorem evmSlt_u256_right (a b : Nat) : evmSlt a (u256 b) = evmSlt a b := by
+  simp only [evmSlt, u256_idem]
+
 theorem evmSar_u256_left (s v : Nat) : evmSar (u256 s) v = evmSar s v := by
   simp only [evmSar, u256_idem]
 theorem evmSar_u256_right (s v : Nat) : evmSar s (u256 v) = evmSar s v := by
