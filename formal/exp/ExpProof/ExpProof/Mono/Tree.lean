@@ -90,6 +90,7 @@ def r1Tree (x : Nat) : Nat :=
 def expTree (x : Nat) : Nat :=
   evmAdd (evmIszero x) (evmMul (evmSlt Cmask x) (r1Tree x))
 
+theorem r0Tree_lt (x : Nat) : r0Tree x < 2 ^ 256 := by unfold r0Tree; exact evmSdiv_lt _ _
 theorem r1Tree_lt (x : Nat) : r1Tree x < 2 ^ 256 := by unfold r1Tree; exact evmSar_lt _ _
 theorem expTree_lt (x : Nat) : expTree x < 2 ^ 256 := by unfold expTree; exact evmAdd_lt _ _
 
