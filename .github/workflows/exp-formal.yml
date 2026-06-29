@@ -98,6 +98,12 @@ jobs:
             .lake/packages/proofwidgets/.lake/build/ir
           lake exe cache get
 
+      - name: Generate Lean certificate artifacts
+        working-directory: formal/exp/ExpProof
+        run: |
+          lake build ExpProof.Floor.CertDefs Common.Foundation.KroneckerShift
+          lake env lean GenExpLit.lean
+
       - name: Build Exp proof package
         working-directory: formal/exp/ExpProof
         run: lake build
