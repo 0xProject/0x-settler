@@ -2,6 +2,7 @@ import ExpProof.Floor.R0Bound
 import ExpProof.Floor.CapsV
 import ExpProof.Floor.Reduce
 import ExpProof.Mono.Quot
+import ExpProof.Mono.Cross
 import Common.Seam.RealExpBridge
 
 /-!
@@ -197,5 +198,227 @@ theorem evNumVPoly_bracket {x : Nat} (hx : x < 2 ^ 256)
     _ < (evNumV (vTree x) : Int) * 2 ^ 640 + 2 ^ 1193 := hstep'
     _ < 2 ^ 1193 * (evTree x : Int) + 2 * 2 ^ 1193 + 2 ^ 1193 := by linarith [hg2hi']
     _ = 2 ^ 1193 * (evTree x : Int) + 3 * 2 ^ 1193 := by ring
+
+/-- **The odd cert polynomial brackets the runtime odd accumulator** (gap-2 ∘ v-truncation):
+`2¹⁰⁴²·odTree x ≤ evalPoly odNumVPoly t < 2¹⁰⁴²·odTree x + 3·2¹⁰⁴²`. -/
+theorem odNumVPoly_bracket {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    2 ^ 1042 * (odTree x : Int) ≤ evalPoly ExpCertV.odNumVPoly (int256 (tTree x)) ∧
+      evalPoly ExpCertV.odNumVPoly (int256 (tTree x)) < 2 ^ 1042 * (odTree x : Int) + 3 * 2 ^ 1042 := by
+  obtain ⟨_, hvlt⟩ := vTree_eq hx hC hC0
+  obtain ⟨hg2lo, hg2hi⟩ := odTree_bracket hvlt
+  obtain ⟨hsqlo, hsqhi⟩ := tsq_split hx hC hC0
+  set t := int256 (tTree x) with htdef
+  have hsqnn : (0 : Int) ≤ t ^ 2 := sq_nonneg _
+  have hgridnn : (0 : Int) ≤ 2 ^ 128 * (vTree x : Int) := by positivity
+  have hmono_lo : evalPoly Pod (2 ^ 128 * (vTree x : Int)) ≤ evalPoly Pod (t ^ 2) :=
+    Pod_mono hgridnn hsqlo
+  have hmono_hi : evalPoly Pod (t ^ 2) ≤ evalPoly Pod (2 ^ 128 * ((vTree x + 1 : Nat) : Int)) := by
+    apply Pod_mono hsqnn
+    push_cast; linarith [hsqhi]
+  rw [odNumVPoly_eq_Pod_sq]
+  rw [Pod_grid] at hmono_lo
+  rw [Pod_grid (vTree x + 1)] at hmono_hi
+  have hg2lo' : 2 ^ 1042 * (odTree x : Int) ≤ (odNumV (vTree x) : Int) * 2 ^ 512 := by
+    have h : (2 ^ 530 * odTree x : Nat) ≤ odNumV (vTree x) := hg2lo
+    have : (2 ^ 530 * odTree x : Int) ≤ (odNumV (vTree x) : Int) := by exact_mod_cast h
+    nlinarith [this]
+  have hg2hi' : (odNumV (vTree x) : Int) * 2 ^ 512 < 2 ^ 1042 * (odTree x : Int) + 2 * 2 ^ 1042 := by
+    have h : odNumV (vTree x) < 2 ^ 530 * odTree x + 2 * 2 ^ 530 := hg2hi
+    have : (odNumV (vTree x) : Int) < (2 ^ 530 * odTree x + 2 * 2 ^ 530 : Nat) := by exact_mod_cast h
+    push_cast at this; nlinarith [this]
+  have hstep := odNumV_step hvlt
+  have hstep' : (odNumV (vTree x + 1) : Int) * 2 ^ 512 < (odNumV (vTree x) : Int) * 2 ^ 512 + 2 ^ 1042 := by
+    nlinarith [hstep]
+  refine ⟨le_trans hg2lo' hmono_lo, ?_⟩
+  calc evalPoly Pod (t ^ 2) ≤ (odNumV (vTree x + 1) : Int) * 2 ^ 512 := hmono_hi
+    _ < (odNumV (vTree x) : Int) * 2 ^ 512 + 2 ^ 1042 := hstep'
+    _ < 2 ^ 1042 * (odTree x : Int) + 2 * 2 ^ 1042 + 2 ^ 1042 := by linarith [hg2hi']
+    _ = 2 ^ 1042 * (odTree x : Int) + 3 * 2 ^ 1042 := by ring
+
+/-! ## The `t·Od` term and the numerator/denominator brackets (nonnegative half `t ≥ 0`) -/
+
+/-- `evalPoly todNumV t = 2²³ · t · evalPoly odNumVPoly t`. -/
+theorem evalTodNumV (t : Int) :
+    evalPoly ExpCertV.todNumV t = 2 ^ 23 * (t * evalPoly ExpCertV.odNumVPoly t) := by
+  unfold ExpCertV.todNumV
+  rw [evalPoly_polyScale]
+  simp only [evalPoly]
+  ring
+
+/-- `evalPoly numExpV t = evalPoly evNumVPoly t + evalPoly todNumV t`. -/
+theorem evalNumExpV (t : Int) :
+    evalPoly ExpCertV.numExpV t = evalPoly ExpCertV.evNumVPoly t + evalPoly ExpCertV.todNumV t := by
+  unfold ExpCertV.numExpV; rw [evalPoly_polyAdd]
+
+/-- `evalPoly denExpV t = evalPoly evNumVPoly t − evalPoly todNumV t`. -/
+theorem evalDenExpV (t : Int) :
+    evalPoly ExpCertV.denExpV t = evalPoly ExpCertV.evNumVPoly t - evalPoly ExpCertV.todNumV t := by
+  unfold ExpCertV.denExpV; rw [evalPoly_polySub]
+
+/-- **The `t·Od` cert term brackets the runtime `tod`** (nonnegative half): for `0 ≤ t`,
+`2¹¹⁹³·tod ≤ evalPoly todNumV t < 2¹¹⁹³·tod + 2⁵·2¹¹⁹³`. -/
+theorem todNumV_bracket {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htnn : 0 ≤ int256 (tTree x)) :
+    2 ^ 1193 * (int256 (todTree x)) ≤ evalPoly ExpCertV.todNumV (int256 (tTree x)) ∧
+      evalPoly ExpCertV.todNumV (int256 (tTree x)) < 2 ^ 1193 * (int256 (todTree x)) + 2 ^ 5 * 2 ^ 1193 := by
+  obtain ⟨_, _, htodlo, htodhi⟩ := todTree_bound hx hC hC0
+  obtain ⟨hodlo, hodhi⟩ := odNumVPoly_bracket hx hC hC0
+  set t := int256 (tTree x) with htdef
+  rw [evalTodNumV]
+  -- odTree ≥ 0
+  have hodnn : (0 : Int) ≤ (odTree x : Int) := by positivity
+  -- 2^128·tod ≤ t·odTree < 2^128·tod + 2^128
+  -- multiply odd bracket by t·2^23 (t ≥ 0):
+  have hmul_lo : t * (2 ^ 1042 * (odTree x : Int)) ≤ t * evalPoly ExpCertV.odNumVPoly t :=
+    mul_le_mul_of_nonneg_left hodlo htnn
+  have hmul_hi : t * evalPoly ExpCertV.odNumVPoly t ≤ t * (2 ^ 1042 * (odTree x : Int) + 3 * 2 ^ 1042) :=
+    mul_le_mul_of_nonneg_left (le_of_lt hodhi) htnn
+  -- tod·2^128 ≤ t·odTree and t·odTree < tod·2^128 + 2^128
+  have htod_lo : (2 ^ 128 : Int) * (int256 (todTree x)) ≤ t * (odTree x : Int) := htodlo
+  have htod_hi : t * (odTree x : Int) < (2 ^ 128 : Int) * (int256 (todTree x)) + 2 ^ 128 := htodhi
+  constructor
+  · -- 2^1193·tod ≤ 2^23·(t·odpoly).  2^1193·tod = 2^23·(2^1042·(2^128·tod)) ... use 2^1193=2^23·2^1042·2^128
+    have key : 2 ^ 1193 * (int256 (todTree x)) ≤ 2 ^ 23 * (t * (2 ^ 1042 * (odTree x : Int))) := by
+      have e : (2 : Int) ^ 23 * (2 ^ 1042 * ((2:Int) ^ 128 * (int256 (todTree x)))) =
+          2 ^ 1193 * (int256 (todTree x)) := by ring
+      rw [← e]
+      have := mul_le_mul_of_nonneg_left htod_lo (by positivity : (0:Int) ≤ 2 ^ 23 * 2 ^ 1042)
+      nlinarith [this]
+    calc 2 ^ 1193 * (int256 (todTree x)) ≤ 2 ^ 23 * (t * (2 ^ 1042 * (odTree x : Int))) := key
+      _ ≤ 2 ^ 23 * (t * evalPoly ExpCertV.odNumVPoly t) :=
+          mul_le_mul_of_nonneg_left hmul_lo (by positivity)
+  · -- 2^23·(t·odpoly) < 2^1193·tod + 2^5·2^1193
+    -- t·odpoly ≤ t·(2^1042·odTree + 3·2^1042) = 2^1042·(t·odTree) + 3·2^1042·t
+    -- t·odTree < 2^128·tod + 2^128. t < 2^128 (|t| < H128 < 2^128).
+    obtain ⟨htlo', hthi'⟩ := tTree_bound hx hC hC0
+    have htlt : t < 2 ^ 128 := by
+      have : t < 2 ^ 127 := by rw [show ((2:Int)^127) = 170141183460469231731687303715884105728 from by norm_num]; exact hthi'
+      have : (2:Int)^127 < 2 ^ 128 := by norm_num
+      omega
+    have key : 2 ^ 23 * (t * evalPoly ExpCertV.odNumVPoly t) <
+        2 ^ 1193 * (int256 (todTree x)) + 2 ^ 5 * 2 ^ 1193 := by
+      have h1 : t * evalPoly ExpCertV.odNumVPoly t ≤ 2 ^ 1042 * (t * (odTree x : Int)) + 3 * 2 ^ 1042 * t := by
+        nlinarith [hmul_hi]
+      have h2 : t * (odTree x : Int) < (2 ^ 128 : Int) * (int256 (todTree x)) + 2 ^ 128 := htod_hi
+      nlinarith [h1, h2, htlt, htnn, mul_nonneg htnn hodnn]
+    exact key
+
+/-! ## The numerator/denominator cert brackets and the `r0`-vs-`ê_v` bracket -/
+
+/-- The numerator cert polynomial brackets `2¹¹⁹³·num_rt` (`num_rt = ev + tod`): within `35·2¹¹⁹³`. -/
+theorem numExpV_bracket {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htnn : 0 ≤ int256 (tTree x)) :
+    2 ^ 1193 * ((evTree x : Int) + int256 (todTree x)) ≤ evalPoly ExpCertV.numExpV (int256 (tTree x)) ∧
+      evalPoly ExpCertV.numExpV (int256 (tTree x)) <
+        2 ^ 1193 * ((evTree x : Int) + int256 (todTree x)) + 35 * 2 ^ 1193 := by
+  obtain ⟨hevlo, hevhi⟩ := evNumVPoly_bracket hx hC hC0
+  obtain ⟨htodlo, htodhi⟩ := todNumV_bracket hx hC hC0 htnn
+  rw [evalNumExpV]
+  constructor
+  · nlinarith [hevlo, htodlo]
+  · nlinarith [hevhi, htodhi]
+
+/-- The denominator cert polynomial brackets `2¹¹⁹³·den_rt` (`den_rt = ev − tod`): within `32·2¹¹⁹³`. -/
+theorem denExpV_bracket {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htnn : 0 ≤ int256 (tTree x)) :
+    2 ^ 1193 * ((evTree x : Int) - int256 (todTree x)) - 32 * 2 ^ 1193 ≤
+        evalPoly ExpCertV.denExpV (int256 (tTree x)) ∧
+      evalPoly ExpCertV.denExpV (int256 (tTree x)) <
+        2 ^ 1193 * ((evTree x : Int) - int256 (todTree x)) + 3 * 2 ^ 1193 := by
+  obtain ⟨hevlo, hevhi⟩ := evNumVPoly_bracket hx hC hC0
+  obtain ⟨htodlo, htodhi⟩ := todNumV_bracket hx hC hC0 htnn
+  rw [evalDenExpV]
+  constructor
+  · nlinarith [hevlo, htodhi]
+  · nlinarith [hevhi, htodlo]
+
+/-! ## The `sdiv` floor sandwich -/
+
+/-- The Q126 quotient is the integer floor: `r0·den_rt ≤ 2¹²⁶·num_rt < (r0+1)·den_rt` with
+`num_rt = ev + tod`, `den_rt = ev − tod`. -/
+theorem r0_floor_sandwich {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    int256 (r0Tree x) * ((evTree x : Int) - int256 (todTree x)) ≤
+        2 ^ 126 * ((evTree x : Int) + int256 (todTree x)) ∧
+      2 ^ 126 * ((evTree x : Int) + int256 (todTree x)) <
+        (int256 (r0Tree x) + 1) * ((evTree x : Int) - int256 (todTree x)) := by
+  obtain ⟨hadd, hsub, hnum_pos, hden_pos⟩ := numden_pos hx hC hC0
+  obtain ⟨hr0lo, hr0hi⟩ := r0Tree_bounds hx hC hC0
+  set num := evmAdd (evTree x) (todTree x) with hnumdef
+  set den := evmSub (evTree x) (todTree x) with hdendef
+  have hnumw : num < 2 ^ 256 := evmAdd_lt _ _
+  have hdenw : den < 2 ^ 256 := evmSub_lt _ _
+  -- num, den are below 2^128 (signed = Nat value)
+  have hnumi : int256 num = (evTree x : Int) + int256 (todTree x) := hadd
+  have hdeni : int256 den = (evTree x : Int) - int256 (todTree x) := hsub
+  -- num < 2^128, den < 2^128
+  obtain ⟨hnumeq, hnum255⟩ := int256_eq_of_nonneg hnumw (by rw [hnumi]; omega)
+  obtain ⟨hdeneq, hden255⟩ := int256_eq_of_nonneg hdenw (by rw [hdeni]; omega)
+  -- the shl: int256 (shl 126 num) = 2^126·int256 num
+  have hnumlt128 : int256 num < 2 ^ 128 := by
+    -- num = ev + tod < 2^127 + 2^125 < 2^128
+    obtain ⟨_, hevhi⟩ := evTree_facts (vTree_eq hx hC hC0).2
+    obtain ⟨_, htod_hi, _, _⟩ := todTree_bound hx hC hC0
+    rw [hnumi]
+    have : (evTree x : Int) < 2 ^ 127 := by exact_mod_cast hevhi
+    have ht125 : int256 (todTree x) < 2 ^ 125 := by
+      rw [show (2:Int)^125 = 42535295865117307932921825928971026432 from by norm_num]; exact htod_hi
+    nlinarith [this, ht125]
+  have hshl : int256 (evmShl 0x7e num) = 2 ^ 0x7e * int256 num :=
+    shl126_transport hnumw (by rw [hnumi]; omega) hnumlt128
+  -- r0 = sdiv (shl 126 num) den, with both operands positive
+  have hr0eq : r0Tree x = evmSdiv (evmShl 0x7e num) den := rfl
+  have hshlw : evmShl 0x7e num < 2 ^ 256 := evmShl_lt _ _
+  have hshlpos : 0 ≤ int256 (evmShl 0x7e num) := by rw [hshl, hnumi]; positivity
+  have hdenpos' : 0 < int256 den := by rw [hdeni]; omega
+  have hdiv := evmSdiv_pos_pos hshlw hdenw hshlpos hdenpos'
+  rw [← hr0eq] at hdiv
+  -- toNat values
+  have hshl_toNat : (int256 (evmShl 0x7e num)).toNat = (evmShl 0x7e num) := by
+    have h := int256_eq_of_nonneg hshlw hshlpos
+    rw [h.1, Int.toNat_natCast]
+  have hden_toNat : (int256 den).toNat = den := by rw [hdeneq, Int.toNat_natCast]
+  rw [hshl_toNat, hden_toNat] at hdiv
+  -- the Nat floor: r0 = (shl 126 num) / den
+  have hnumnat128 : num < 2 ^ 128 := by
+    have hh : ((num : Nat) : Int) < 2 ^ 128 := by rw [hnumeq] at hnumlt128; exact hnumlt128
+    exact_mod_cast hh
+  have hshlval : evmShl 0x7e num = num * 2 ^ 0x7e := by
+    refine evmShl_eq (by norm_num) ?_
+    calc num * 2 ^ 0x7e < 2 ^ 128 * 2 ^ 0x7e := (Nat.mul_lt_mul_right (Nat.two_pow_pos _)).mpr hnumnat128
+      _ = 2 ^ 254 := by rw [← Nat.pow_add]
+      _ < 2 ^ 256 := by norm_num
+  -- Nat floor sandwich on the opaque dividend M := num·2^126
+  have hdennat : 0 < den := by
+    have hh : (0:Int) < (den:Int) := by rw [hdeneq] at hdenpos'; exact hdenpos'
+    exact_mod_cast hh
+  rw [hshlval] at hdiv
+  set M := num * 2 ^ 0x7e with hMdef
+  set q := M / den with hqdef
+  have hfloor_lo : q * den ≤ M := Nat.div_mul_le_self _ _
+  have hfloor_hi : M < (q + 1) * den := by
+    have hdm : den * q + M % den = M := Nat.div_add_mod M den
+    have hmod : M % den < den := Nat.mod_lt M hdennat
+    calc M = den * q + M % den := hdm.symm
+      _ < den * q + den := Nat.add_lt_add_left hmod _
+      _ = (q + 1) * den := by ring
+  -- transport to Int with the canonical values
+  have hr0nat : int256 (r0Tree x) = (q : Int) := hdiv
+  -- canonical: (num:Int) = ev + tod, (den:Int) = ev - tod
+  have hgoalnum : (evTree x : Int) + int256 (todTree x) = (num : Int) := by rw [← hnumi, hnumeq]
+  have hgoalden : (evTree x : Int) - int256 (todTree x) = (den : Int) := by rw [← hdeni, hdeneq]
+  rw [hr0nat, hgoalnum, hgoalden]
+  have heM : (M : Int) = 2 ^ 126 * (num : Int) := by rw [hMdef]; push_cast; ring
+  constructor
+  · have h : (q * den : Nat) ≤ M := hfloor_lo
+    have hInt : (q : Int) * (den : Int) ≤ (M : Int) := by exact_mod_cast h
+    rw [heM] at hInt; linarith [hInt]
+  · have h : M < ((q + 1) * den : Nat) := hfloor_hi
+    have hInt : (M : Int) < ((q : Int) + 1) * (den : Int) := by exact_mod_cast h
+    rw [heM] at hInt; linarith [hInt]
 
 end ExpYul
