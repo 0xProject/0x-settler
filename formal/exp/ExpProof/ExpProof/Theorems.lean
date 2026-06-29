@@ -3,6 +3,8 @@ import ExpProof.Seam.Value
 import ExpProof.Mono
 import ExpProof.Mono.SeamR0
 import ExpProof.Floor.Public
+import ExpProof.Floor.PublicUncond
+import ExpProof.Floor.R0BoundHolds
 import ExpProof.Floor.Fold
 import ExpProof.Floor.R0Bound
 
@@ -209,5 +211,61 @@ example {x : Nat} (hx : x < 2 ^ 256)
 /-- info: 'ExpYul.belowC_target_lt_two' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms belowC_target_lt_two
+
+/-! ## Hypothesis-free global floor brackets
+
+The never-over (`r0_real_over_within`) and deficit (`r0_real_under_within`) per-point `r0`-vs-`exp`
+brackets, folded onto the target through the closing-shift octave fold, discharge the accumulator's
+never-over (`accumReal_over`) and deficit (`accumReal_under`) fields unconditionally and axiom-clean.
+The global floor-or-one-less and one-unit underestimation brackets consume only those plus the
+below-clamp `belowC_target_lt_two`, so they hold with no analytic hypothesis. -/
+
+/-- Global floor-or-one-less bracket, with no analytic hypothesis. -/
+example (x : Nat) (hx : x < 2 ^ 256)
+    (hC0 : FormalYul.Preservation.int256 x < FormalYul.Preservation.int256 C0thresh) :
+    ∃ r, run_exp_ray_to_wad_evm x = .ok r ∧ ExpRealSpec.FloorOrOneLessBracket
+      (FormalYul.Preservation.int256 x) (FormalYul.Preservation.int256 r) :=
+  run_exp_ray_to_wad_evm_floorOrOneLess_uncond x hx hC0
+
+/-- info: 'ExpYul.run_exp_ray_to_wad_evm_floorOrOneLess_uncond' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_exp_ray_to_wad_evm_floorOrOneLess_uncond
+
+/-- One-unit underestimation bound, with no analytic hypothesis. -/
+example (x : Nat) (hx : x < 2 ^ 256)
+    (hC0 : FormalYul.Preservation.int256 x < FormalYul.Preservation.int256 C0thresh) :
+    ∃ r, run_exp_ray_to_wad_evm x = .ok r ∧ ExpRealSpec.UnderByAtMostOne
+      (FormalYul.Preservation.int256 x) (FormalYul.Preservation.int256 r) :=
+  run_exp_ray_to_wad_evm_underByAtMostOne_uncond x hx hC0
+
+/-- info: 'ExpYul.run_exp_ray_to_wad_evm_underByAtMostOne_uncond' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_exp_ray_to_wad_evm_underByAtMostOne_uncond
+
+/-! ## Central-octave exact floor from central exactness
+
+The never-over and floor facts of the central-octave exact-floor bracket are hypothesis-free. The
+additional input is the core-octave upper exactness `E < r1Tree x + 1` on `[−H, H)`,
+`CentralExactness`; together these imply that the runtime returns exactly `⌊E⌋` on the core octave. -/
+
+/-- Central-octave exact floor, given central exactness. -/
+example (hcentral : CentralExactness) (x : Nat) (hx : x < 2 ^ 256)
+    (hlo : -ExpRealSpec.H ≤ FormalYul.Preservation.int256 x)
+    (hhi : FormalYul.Preservation.int256 x < ExpRealSpec.H) :
+    ∃ r, run_exp_ray_to_wad_evm x = .ok r ∧ ExpRealSpec.ExactFloorBracket
+      (FormalYul.Preservation.int256 x) (FormalYul.Preservation.int256 r) :=
+  run_exp_ray_to_wad_evm_exactFloor_of_centralExactness hcentral x hx hlo hhi
+
+/-- info: 'ExpYul.run_exp_ray_to_wad_evm_exactFloor_of_centralExactness' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_exp_ray_to_wad_evm_exactFloor_of_centralExactness
+
+/-- info: 'ExpYul.accumReal_over' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms accumReal_over
+
+/-- info: 'ExpYul.accumReal_under' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms accumReal_under
 
 end ExpYul
