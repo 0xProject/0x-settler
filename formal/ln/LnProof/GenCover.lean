@@ -1,5 +1,5 @@
 import LnProof.Cert.FloorCertLit
-import LnProof.Foundation.KroneckerShift
+import Common.Foundation.KroneckerShift
 
 /-!
 # Cover generator
@@ -14,7 +14,7 @@ module.
 Run with `lake env lean GenCover.lean` (after `lake build LnProof.Cert.FloorCertLit`).
 -/
 
-open LnPoly LnFloorCert
+open Common.Poly LnFloorCert
 
 namespace GenCover
 
@@ -57,7 +57,7 @@ def emit (nm litName symName evalEqName modPrefix cellPrefix nonnegName : String
     let (a, w) := aw
     let nn := pad2 i
     let body :=
-      s!"import LnProof.Cert.FloorCertLit\nimport LnProof.Foundation.KroneckerShift\n\nnamespace LnFloorCert\nopen LnPoly\n\nset_option maxRecDepth 100000\n\ntheorem {cellPrefix}{nn} : checkCoverK kB {litName} {a} {a + w}\n    [{w}] = true := by\n  decide +kernel\n\nend LnFloorCert\n"
+      s!"import LnProof.Cert.FloorCertLit\nimport Common.Foundation.KroneckerShift\n\nnamespace LnFloorCert\nopen Common.Poly\n\nset_option maxRecDepth 100000\n\ntheorem {cellPrefix}{nn} : checkCoverK kB {litName} {a} {a + w}\n    [{w}] = true := by\n  decide +kernel\n\nend LnFloorCert\n"
     IO.FS.writeFile s!"LnProof/Cert/{modPrefix}{nn}.lean" body
   -- ladder + imports
   let mut imps := ""

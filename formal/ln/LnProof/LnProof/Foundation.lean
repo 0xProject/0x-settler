@@ -1,16 +1,16 @@
 /-!
 # Foundation facade
 
-Domain-agnostic primitives shared across the proof: EVM-word arithmetic
-transport (`Word`, `WordDiv`), the exponential partial-sum interface
-(`ExpSum`), and the polynomial-positivity / Kronecker certificate machinery
-(`Poly`, `ShiftCert`, `Kronecker`, `KroneckerShift`). No `lnWad`-specific
-semantics live here.
+Domain-agnostic primitives this proof relies on: EVM-word arithmetic transport
+(`Word`, `WordDiv`, local), plus the function-agnostic machinery from the
+shared `Common` package — the exponential partial-sum interface (`Common.Exp`)
+and the polynomial-positivity / Kronecker certificate machinery
+(`Common.Poly`). No `lnWad`-specific semantics live here.
 -/
 import LnProof.Foundation.Word
 import LnProof.Foundation.WordDiv
-import LnProof.Foundation.ExpSum
-import LnProof.Foundation.Poly
-import LnProof.Foundation.ShiftCert
-import LnProof.Foundation.Kronecker
-import LnProof.Foundation.KroneckerShift
+import Common.Foundation.ExpSum
+import Common.Foundation.Poly
+import Common.Foundation.ShiftCert
+import Common.Foundation.Kronecker
+import Common.Foundation.KroneckerShift

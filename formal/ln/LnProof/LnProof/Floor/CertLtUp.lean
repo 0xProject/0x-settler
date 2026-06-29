@@ -1,6 +1,6 @@
 import LnProof.Floor.CertDefs
 import LnProof.Cert.FloorCertLit
-import LnProof.Foundation.Kronecker
+import Common.Foundation.Kronecker
 import LnProof.Cert.FloorCertLtUpC00
 import LnProof.Cert.FloorCertLtUpC01
 import LnProof.Cert.FloorCertLtUpC02
@@ -20,7 +20,7 @@ import LnProof.Cert.FloorCertLtUpC15
 import LnProof.Cert.FloorCertLtUpC16
 
 namespace LnFloorCert
-open LnYul LnPoly
+open LnYul Common.Poly
 
 set_option maxRecDepth 100000
 
@@ -47,17 +47,17 @@ theorem ltUp_eval_eq : ∀ x : Int, evalPoly certLtUp x = evalPoly certLtUpLit x
     have h3 := polyL1_polyMul ([0, 1] : List Int) (expPolyNum ltTN2bLit ltTD2bLit 22)
     have h4 := polyL1_expPolyNum ltTN2bLit ltTD2bLit 22
     have h5 : polyL1 ([0, 1] : List Int) * polyL1 (expPolyNum ltTN2bLit ltTD2bLit 22) ≤
-        polyL1 ([0, 1] : List Int) * LnExp.expNum 22 (polyL1 ltTN2bLit) (polyL1 ltTD2bLit) :=
+        polyL1 ([0, 1] : List Int) * Common.Exp.expNum 22 (polyL1 ltTN2bLit) (polyL1 ltTD2bLit) :=
       Nat.mul_le_mul_left _ h4
     have h6 : (EUD + EUN).natAbs * polyL1 (polyMul ([0, 1] : List Int) (expPolyNum ltTN2bLit ltTD2bLit 22)) ≤
-        (EUD + EUN).natAbs * (polyL1 ([0, 1] : List Int) * LnExp.expNum 22 (polyL1 ltTN2bLit) (polyL1 ltTD2bLit)) :=
+        (EUD + EUN).natAbs * (polyL1 ([0, 1] : List Int) * Common.Exp.expNum 22 (polyL1 ltTN2bLit) (polyL1 ltTD2bLit)) :=
       Nat.mul_le_mul_left _ (Nat.le_trans h3 h5)
     have h7 := polyL1_polyScale (-EUD * (Sc : Int) * KF) (polyPow ltTD2bLit 22)
     have h8 := polyL1_polyPow ltTD2bLit 22
     have h9 : (-EUD * (Sc : Int) * KF).natAbs * polyL1 (polyPow ltTD2bLit 22) ≤
         (-EUD * (Sc : Int) * KF).natAbs * polyL1 ltTD2bLit ^ 22 :=
       Nat.mul_le_mul_left _ h8
-    have hfin : ((EUD + EUN).natAbs * (polyL1 ([0, 1] : List Int) * LnExp.expNum 22 (polyL1 ltTN2bLit) (polyL1 ltTD2bLit)) +
+    have hfin : ((EUD + EUN).natAbs * (polyL1 ([0, 1] : List Int) * Common.Exp.expNum 22 (polyL1 ltTN2bLit) (polyL1 ltTD2bLit)) +
         (-EUD * (Sc : Int) * KF).natAbs * polyL1 ltTD2bLit ^ 22) * 2 < 2 ^ kB := by
       decide +kernel
     have hA := Nat.le_trans h2 h6

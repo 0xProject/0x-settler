@@ -1,5 +1,5 @@
 import LnProof.Foundation.WordDiv
-import LnProof.Foundation.Poly
+import Common.Foundation.Poly
 
 open FormalYul
 open FormalYul.Preservation
@@ -18,7 +18,7 @@ unfold `Int` powers of this size).
 
 namespace LnYul
 
-open LnPoly
+open Common.Poly
 
 def Sc : Nat := 56022770974786139918731938227
 def P4c : Nat := 4542704643877621417440

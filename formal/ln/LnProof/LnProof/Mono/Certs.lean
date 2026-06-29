@@ -1,5 +1,5 @@
 import LnProof.Model.Body
-import LnProof.Foundation.Poly
+import Common.Foundation.Poly
 
 /-!
 # Decidable certificates
@@ -13,7 +13,7 @@ the polynomial-side sign facts.
 
 namespace LnYul
 
-open LnPoly
+open Common.Poly
 
 def UcI : Int := 2332259347626381040680638252
 def ZcI : Int := 217494458298375249691265569570

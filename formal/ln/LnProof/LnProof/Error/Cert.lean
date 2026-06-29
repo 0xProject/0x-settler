@@ -5,7 +5,7 @@ bound; the theorems below are checked by Lean's kernel. -/
 
 namespace LnFloorCert
 
-open LnExp LnFloor LnYul
+open Common.Exp LnFloor LnYul
 
 def lnErrorBoundNum : Nat := 1698600000
 def lnErrorBoundDen : Nat := 1000000000

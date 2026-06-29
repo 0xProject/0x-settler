@@ -1,6 +1,6 @@
 import LnProof.Floor.CertDefs
 import LnProof.Cert.FloorCertLit
-import LnProof.Foundation.Kronecker
+import Common.Foundation.Kronecker
 import LnProof.Cert.FloorCertLtLoC00
 import LnProof.Cert.FloorCertLtLoC01
 import LnProof.Cert.FloorCertLtLoC02
@@ -19,7 +19,7 @@ import LnProof.Cert.FloorCertLtLoC14
 import LnProof.Cert.FloorCertLtLoC15
 
 namespace LnFloorCert
-open LnYul LnPoly
+open LnYul Common.Poly
 
 set_option maxRecDepth 100000
 
@@ -54,26 +54,26 @@ theorem ltLo_eval_eq : ∀ x : Int, evalPoly certLtLo x = evalPoly certLtLoLit x
     have h9 := polyL1_polyMul (expPolyNum ltTNLit ltTDLit 22) ltTDLit
     have h10 := polyL1_expPolyNum ltTNLit ltTDLit 22
     have h11 : polyL1 (expPolyNum ltTNLit ltTDLit 22) * polyL1 ltTDLit ≤
-        LnExp.expNum 22 (polyL1 ltTNLit) (polyL1 ltTDLit) * polyL1 ltTDLit :=
+        Common.Exp.expNum 22 (polyL1 ltTNLit) (polyL1 ltTDLit) * polyL1 ltTDLit :=
       Nat.mul_le_mul_right _ h10
     have h12 : (23 : Int).natAbs * polyL1 (polyMul (expPolyNum ltTNLit ltTDLit 22) ltTDLit) ≤
-        (23 : Int).natAbs * (LnExp.expNum 22 (polyL1 ltTNLit) (polyL1 ltTDLit) * polyL1 ltTDLit) :=
+        (23 : Int).natAbs * (Common.Exp.expNum 22 (polyL1 ltTNLit) (polyL1 ltTDLit) * polyL1 ltTDLit) :=
       Nat.mul_le_mul_left _ (Nat.le_trans h9 h11)
     have h13 := polyL1_polyScale (2 : Int) (polyPow ltTNLit 23)
     have h14 := polyL1_polyPow ltTNLit 23
     have h15 : (2 : Int).natAbs * polyL1 (polyPow ltTNLit 23) ≤
         (2 : Int).natAbs * polyL1 ltTNLit ^ 23 := Nat.mul_le_mul_left _ h14
     have h16 : polyL1 ([0, 1] : List Int) * polyL1 (polyAdd (polyScale 23 (polyMul (expPolyNum ltTNLit ltTDLit 22) ltTDLit)) (polyScale 2 (polyPow ltTNLit 23))) ≤
-        polyL1 ([0, 1] : List Int) * ((23 : Int).natAbs * (LnExp.expNum 22 (polyL1 ltTNLit) (polyL1 ltTDLit) * polyL1 ltTDLit) + (2 : Int).natAbs * polyL1 ltTNLit ^ 23) := by
+        polyL1 ([0, 1] : List Int) * ((23 : Int).natAbs * (Common.Exp.expNum 22 (polyL1 ltTNLit) (polyL1 ltTDLit) * polyL1 ltTDLit) + (2 : Int).natAbs * polyL1 ltTNLit ^ 23) := by
       refine Nat.mul_le_mul_left _ ?_
       have hx := Nat.le_trans h8 h12
       have hy := Nat.le_trans h13 h15
       omega
     have h17 : (-(EUD - EUNl)).natAbs * polyL1 (polyMul ([0, 1] : List Int) (polyAdd (polyScale 23 (polyMul (expPolyNum ltTNLit ltTDLit 22) ltTDLit)) (polyScale 2 (polyPow ltTNLit 23)))) ≤
-        (-(EUD - EUNl)).natAbs * (polyL1 ([0, 1] : List Int) * ((23 : Int).natAbs * (LnExp.expNum 22 (polyL1 ltTNLit) (polyL1 ltTDLit) * polyL1 ltTDLit) + (2 : Int).natAbs * polyL1 ltTNLit ^ 23)) :=
+        (-(EUD - EUNl)).natAbs * (polyL1 ([0, 1] : List Int) * ((23 : Int).natAbs * (Common.Exp.expNum 22 (polyL1 ltTNLit) (polyL1 ltTDLit) * polyL1 ltTDLit) + (2 : Int).natAbs * polyL1 ltTNLit ^ 23)) :=
       Nat.mul_le_mul_left _ (Nat.le_trans h6 h16)
     have hfin : (((Sc : Int) * EUD * KF1).natAbs * polyL1 ltTDLit ^ 23 +
-        (-(EUD - EUNl)).natAbs * (polyL1 ([0, 1] : List Int) * ((23 : Int).natAbs * (LnExp.expNum 22 (polyL1 ltTNLit) (polyL1 ltTDLit) * polyL1 ltTDLit) + (2 : Int).natAbs * polyL1 ltTNLit ^ 23))) * 2 < 2 ^ kB := by
+        (-(EUD - EUNl)).natAbs * (polyL1 ([0, 1] : List Int) * ((23 : Int).natAbs * (Common.Exp.expNum 22 (polyL1 ltTNLit) (polyL1 ltTDLit) * polyL1 ltTDLit) + (2 : Int).natAbs * polyL1 ltTNLit ^ 23))) * 2 < 2 ^ kB := by
       decide +kernel
     have hA := Nat.le_trans h2 h4
     have hB := Nat.le_trans h5 h17

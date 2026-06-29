@@ -15,7 +15,7 @@ The LT-branch error-bound cut needs an *upper* cap on `e^(|H|·part)` (because
 
 namespace LnFloorCert
 
-open LnYul LnFloor LnExp LnPoly
+open LnYul LnFloor Common.Exp Common.Poly
 
 set_option maxRecDepth 100000
 

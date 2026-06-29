@@ -14,7 +14,7 @@ mirrors, with `ε = 42/10^29`, over the common denominator `10^27 · 2^99`.
 -/
 
 namespace LnFloorCert
-open LnYul LnPoly LnExp
+open LnYul Common.Poly Common.Exp
 
 set_option maxRecDepth 100000
 

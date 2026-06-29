@@ -18,7 +18,7 @@ set_option maxRecDepth 100000
 
 namespace LnFloorCert
 
-open LnYul LnFloor LnExp LnPoly
+open LnYul LnFloor Common.Exp Common.Poly
 
 attribute [local irreducible] lnWadToRayBody
 

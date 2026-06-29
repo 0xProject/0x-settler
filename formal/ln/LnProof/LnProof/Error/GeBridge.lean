@@ -20,7 +20,7 @@ The constants are the octave-extracted cell parameters at
 
 namespace LnFloorCert
 
-open LnYul LnPoly LnExp
+open LnYul Common.Poly Common.Exp
 
 set_option maxRecDepth 100000
 

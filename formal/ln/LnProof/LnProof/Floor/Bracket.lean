@@ -23,7 +23,7 @@ set_option exponentiation.threshold 512
 
 namespace LnFloorCert
 
-open LnYul LnPoly
+open LnYul Common.Poly
 
 /-- `z`-magnitude division bracket on the `m ≥ S` branch:
 `q = ⌊(m-S) 2^100 / (m+S)⌋` and `int256 (zWord m) = -q`. -/
@@ -1760,8 +1760,8 @@ theorem bracket_ge_lo {m : Nat} (h1 : Sc + 46 ≤ m) (h2 : m < MHI) :
   -- final assembly
   rw [evalTN2b_ge, evalTD2b_ge]
   have egoal : X1v * (2 ^ 99 * (2 ^ 56 * evalPoly geDLO (m : Int))) =
-      2 ^ 99 * (X1v * (2 ^ 56 * evalPoly geDLO (m : Int))) := by
-    simp only [Int.mul_assoc, Int.mul_comm]
+      2 ^ 99 * (X1v * (2 ^ 56 * evalPoly geDLO (m : Int))) :=
+    Int.mul_left_comm _ _ _
   rw [egoal]
   have edist : (X1v + 1) * (2 ^ 56 * evalPoly geDLO (m : Int)) =
       X1v * (2 ^ 56 * evalPoly geDLO (m : Int)) + 2 ^ 56 * evalPoly geDLO (m : Int) := by
@@ -2592,8 +2592,8 @@ theorem bracket_lt_lo {m : Nat} (h1 : MLO ≤ m) (h2 : m + 46 ≤ Sc) :
   -- final assembly
   rw [evalTN2b_lt, evalTD2b_lt]
   have egoal : X1v * (2 ^ 99 * (2 ^ 56 * evalPoly ltDLO (m : Int))) =
-      2 ^ 99 * (X1v * (2 ^ 56 * evalPoly ltDLO (m : Int))) := by
-    simp only [Int.mul_assoc, Int.mul_comm]
+      2 ^ 99 * (X1v * (2 ^ 56 * evalPoly ltDLO (m : Int))) :=
+    Int.mul_left_comm _ _ _
   rw [egoal]
   have edist : (X1v + 1) * (2 ^ 56 * evalPoly ltDLO (m : Int)) =
       X1v * (2 ^ 56 * evalPoly ltDLO (m : Int)) + 2 ^ 56 * evalPoly ltDLO (m : Int) := by

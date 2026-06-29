@@ -1,4 +1,4 @@
-import LnProof.Foundation.ExpSum
+import Common.Foundation.ExpSum
 
 /-!
 # Per-exponent budget inequalities
@@ -18,7 +18,7 @@ Also provides `capLB_cancel`, the lower mirror of `capUB_cancel`, used
 to move the `2^|k|` factor across the quotient when `k < 0`.
 -/
 
-namespace LnExp
+namespace Common.Exp
 
 /-- `e^(pa/q) = e^((pa+pb)/q) / e^(pb/q) ≥ (C/W) / (G/V)`. -/
 theorem capLB_cancel {pa pb q C W G V : Nat} (hq : 0 < q)
@@ -44,7 +44,7 @@ theorem capLB_cancel {pa pb q C W G V : Nat} (hq : 0 < q)
     _ = expNum n pa q * (W * G) * (fact n * q ^ n) := by
         simp only [Nat.mul_assoc, Nat.mul_comm, Nat.mul_left_comm]
 
-end LnExp
+end Common.Exp
 
 namespace LnFloorCert
 

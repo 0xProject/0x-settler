@@ -1,6 +1,6 @@
 import LnProof.Floor.CertDefs
 import LnProof.Cert.FloorCertLit
-import LnProof.Foundation.Kronecker
+import Common.Foundation.Kronecker
 import LnProof.Cert.FloorCertGeLoC00
 import LnProof.Cert.FloorCertGeLoC01
 import LnProof.Cert.FloorCertGeLoC02
@@ -19,7 +19,7 @@ import LnProof.Cert.FloorCertGeLoC14
 import LnProof.Cert.FloorCertGeLoC15
 
 namespace LnFloorCert
-open LnYul LnPoly
+open LnYul Common.Poly
 
 set_option maxRecDepth 100000
 
@@ -46,7 +46,7 @@ theorem geLo_eval_eq : ∀ x : Int, evalPoly certGeLo x = evalPoly certGeLoLit x
     have h3 := polyL1_expPolyNum geTN2bLit geTD2bLit 22
     have h7 : (EUD * (Sc : Int)).natAbs * polyL1 (expPolyNum geTN2bLit geTD2bLit 22) ≤
         (EUD * (Sc : Int)).natAbs *
-          LnExp.expNum 22 (polyL1 geTN2bLit) (polyL1 geTD2bLit) :=
+          Common.Exp.expNum 22 (polyL1 geTN2bLit) (polyL1 geTD2bLit) :=
       Nat.mul_le_mul_left _ h3
     have h4 := polyL1_polyScale (-(EUD - EUNl) * KF) (polyMul [0, 1] (polyPow geTD2bLit 22))
     have h5 := polyL1_polyMul ([0, 1] : List Int) (polyPow geTD2bLit 22)
@@ -60,7 +60,7 @@ theorem geLo_eval_eq : ∀ x : Int, evalPoly certGeLo x = evalPoly certGeLoLit x
           (polyL1 ([0, 1] : List Int) * polyL1 geTD2bLit ^ 22) :=
       Nat.mul_le_mul_left _ (Nat.le_trans h5 h8)
     have hfin : ((EUD * (Sc : Int)).natAbs *
-        LnExp.expNum 22 (polyL1 geTN2bLit) (polyL1 geTD2bLit) +
+        Common.Exp.expNum 22 (polyL1 geTN2bLit) (polyL1 geTD2bLit) +
         (-(EUD - EUNl) * KF).natAbs *
           (polyL1 ([0, 1] : List Int) * polyL1 geTD2bLit ^ 22)) * 2 < 2 ^ kB := by
       decide +kernel

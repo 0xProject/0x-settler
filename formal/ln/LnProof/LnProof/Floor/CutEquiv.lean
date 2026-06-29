@@ -22,7 +22,7 @@ cut-log predicates.
 
 namespace LnFloorCert
 
-open LnYul LnExp LnFloor
+open LnYul Common.Exp LnFloor
 
 /-- `FloorSpecA` is exactly the lower cut-log comparison. -/
 theorem FloorSpecA_iff_cutLeLogWadRay {r : Int} {x : Nat} :

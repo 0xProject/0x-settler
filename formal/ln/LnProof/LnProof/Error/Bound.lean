@@ -21,7 +21,7 @@ from the floor bracket `1 ≤ posResidueGap` (`posResidueGap_bounds`).
 
 namespace LnFloorCert
 
-open LnYul LnFloor LnExp LnPoly
+open LnYul LnFloor Common.Exp Common.Poly
 
 attribute [local irreducible] lnWadToRayBody
 

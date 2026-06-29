@@ -1,5 +1,5 @@
 import LnProof.Error.Core
-import LnProof.Foundation.KroneckerShift
+import Common.Foundation.KroneckerShift
 
 /-! Generate the error-bound cert literals (ErrCertLtLit / ErrCertGeLit) and
 their covers for the current BIASc and `lnErrorBoundNum`. Computes
@@ -8,14 +8,14 @@ inline (mirroring the ErrCert*Bridge constructions) so it does not depend on the
 bridges building, then walks the `checkCoverK` covers (literal signature, as the
 checked `errLt_nonneg`/`errGe_nonneg` theorems use). -/
 
-open LnPoly LnFloorCert LnExp LnFloor LnYul
+open Common.Poly LnFloorCert Common.Exp LnFloor LnYul
 
 namespace GenErrLit
 
 -- All derived from the model inputs (BIASc in the model and `lnErrorBoundNum`
 -- in ErrorBoundCert), so generation tracks changes to those.
 def biasCapNum : Nat :=
-  (LnExp.expNum 130 (BIASc * 2 ^ 27) QS * (10 ^ 18 * 10 ^ 42)) / (LnExp.fact 130 * QS ^ 130)
+  (Common.Exp.expNum 130 (BIASc * 2 ^ 27) QS * (10 ^ 18 * 10 ^ 42)) / (Common.Exp.fact 130 * QS ^ 130)
 def errLtK : Int := (10 ^ 31 * (10 ^ 18 * 10 ^ 42) * lnErrQ * (10 ^ 40 + 160) : Nat)
 def errGeK : Int := errLtK
 def errLtW : Nat := biasCapNum * (lnErrQ + minPosAvail) * wadRayStrictDen * 10 ^ 40
@@ -68,11 +68,11 @@ def emit (litFile litName coverMod modPrefix cellPrefix nonnegName : String) (C 
   for (aw, i) in cells.zipIdx do
     let (a, w) := aw
     IO.FS.writeFile s!"LnProof/Cert/{modPrefix}{pad2 i}.lean"
-      s!"import LnProof.Cert.{litFile}\nimport LnProof.Foundation.KroneckerShift\n\nnamespace LnFloorCert\nopen LnPoly\n\nset_option maxRecDepth 100000\n\ntheorem {cellPrefix}{pad2 i} : checkCoverK kB {litName} {a} {a + w}\n    [{w}] = true := by\n  decide +kernel\n\nend LnFloorCert\n"
+      s!"import LnProof.Cert.{litFile}\nimport Common.Foundation.KroneckerShift\n\nnamespace LnFloorCert\nopen Common.Poly\n\nset_option maxRecDepth 100000\n\ntheorem {cellPrefix}{pad2 i} : checkCoverK kB {litName} {a} {a + w}\n    [{w}] = true := by\n  decide +kernel\n\nend LnFloorCert\n"
   let lb := "{"; let rb := "}"
   let mut s := ""
   for (_, i) in cells.zipIdx do s := s ++ s!"import LnProof.Cert.{modPrefix}{pad2 i}\n"
-  s := s ++ s!"\nnamespace LnFloorCert\nopen LnPoly\n\nset_option maxRecDepth 100000\n\n"
+  s := s ++ s!"\nnamespace LnFloorCert\nopen Common.Poly\n\nset_option maxRecDepth 100000\n\n"
   s := s ++ s!"theorem {nonnegName} {lb}m : Int{rb} (h1 : {lo} ≤ m) (h2 : m ≤ {hi}) :\n    0 ≤ evalPoly {litName} m := by\n"
   let n := cells.length
   for (aw, i) in cells.zipIdx do

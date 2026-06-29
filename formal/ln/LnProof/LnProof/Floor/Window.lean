@@ -22,7 +22,7 @@ cover each whole branch.
 -/
 
 namespace LnFloorCert
-open LnYul LnPoly LnExp LnFloor
+open LnYul Common.Poly Common.Exp LnFloor
 
 set_option maxRecDepth 10000
 

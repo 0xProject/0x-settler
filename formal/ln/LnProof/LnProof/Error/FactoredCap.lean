@@ -26,7 +26,7 @@ so any sharper `capLB` for the x1 part drops straight in.
 
 namespace LnFloorCert
 
-open LnYul LnFloor LnExp LnPoly
+open LnYul LnFloor Common.Exp Common.Poly
 
 set_option maxRecDepth 100000
 

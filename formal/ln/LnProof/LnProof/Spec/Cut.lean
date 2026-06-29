@@ -1,4 +1,4 @@
-import LnProof.Foundation.ExpSum
+import Common.Foundation.ExpSum
 
 /-!
 # Shared exponential/logarithm cut specification
@@ -23,7 +23,7 @@ end LnFloor
 
 namespace LnFloorCert
 
-open LnExp LnFloor
+open Common.Exp LnFloor
 
 /-- Cut statement for `exp(p/q) <= y/w`: every exact Taylor partial sum is
 bounded by the target rational. -/

@@ -15,7 +15,7 @@ through the truncation sandwiches.
 
 namespace LnYul
 
-open LnPoly
+open Common.Poly
 
 def x1W (z : Nat) : Nat := evmSdiv (evmMul (pS4 (uWord z)) z) (qS5 (uWord z))
 
