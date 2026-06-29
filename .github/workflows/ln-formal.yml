@@ -8,6 +8,7 @@ on:
       - src/vendor/Ln.sol
       - src/wrappers/LnWrapper.sol
       - formal/ln/**
+      - formal/common/**
       - formal/yul/**
       - foundry.toml
       - remappings.txt
@@ -17,6 +18,7 @@ on:
       - src/vendor/Ln.sol
       - src/wrappers/LnWrapper.sol
       - formal/ln/**
+      - formal/common/**
       - formal/yul/**
       - foundry.toml
       - remappings.txt
@@ -48,8 +50,9 @@ jobs:
             formal/yul/.lake/build
             formal/yul/.lake/packages/*/.lake/build
             lib/EVMYulLean/.lake/build
+            formal/common/.lake/build
             formal/ln/LnProof/.lake/build
-          key: ${{ runner.os }}-ln-formal-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/ln/LnProof/lakefile.toml', 'formal/ln/LnProof/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'formal/ln/LnProof/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}
+          key: ${{ runner.os }}-ln-formal-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/common/lakefile.toml', 'formal/common/lake-manifest.json', 'formal/common/**/*.lean', 'formal/ln/LnProof/lakefile.toml', 'formal/ln/LnProof/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'formal/ln/LnProof/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}
           restore-keys: |
             ${{ runner.os }}-ln-formal-lean-
             ${{ runner.os }}-formal-lean-
@@ -98,7 +101,7 @@ jobs:
       - name: Generate Lean certificate artifacts
         working-directory: formal/ln/LnProof
         run: |
-          lake build LnProof.Floor.CertDefs LnProof.Foundation.KroneckerShift LnProof.Floor.Consts
+          lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts
           lake env lean GenFloorCertLit.lean
           lake build LnProof.Cert.FloorCertLit
           lake env lean GenCover.lean

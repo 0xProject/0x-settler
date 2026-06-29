@@ -8,6 +8,7 @@ on:
       - src/vendor/Exp.sol
       - src/wrappers/ExpWrapper.sol
       - formal/exp/**
+      - formal/common/**
       - formal/yul/**
       - foundry.toml
       - remappings.txt
@@ -17,6 +18,7 @@ on:
       - src/vendor/Exp.sol
       - src/wrappers/ExpWrapper.sol
       - formal/exp/**
+      - formal/common/**
       - formal/yul/**
       - foundry.toml
       - remappings.txt
@@ -48,8 +50,9 @@ jobs:
             formal/yul/.lake/build
             formal/yul/.lake/packages/*/.lake/build
             lib/EVMYulLean/.lake/build
+            formal/common/.lake/build
             formal/exp/ExpProof/.lake/build
-          key: ${{ runner.os }}-exp-formal-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/exp/ExpProof/lakefile.toml', 'formal/exp/ExpProof/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'formal/exp/ExpProof/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}
+          key: ${{ runner.os }}-exp-formal-lean-${{ hashFiles('formal/yul/lean-toolchain', 'formal/yul/lakefile.toml', 'formal/yul/lake-manifest.json', 'formal/common/lakefile.toml', 'formal/common/lake-manifest.json', 'formal/common/**/*.lean', 'formal/exp/ExpProof/lakefile.toml', 'formal/exp/ExpProof/lake-manifest.json', 'formal/yul/FormalYul/**/*.lean', 'formal/exp/ExpProof/**/*.lean', 'lib/EVMYulLean/**/*.lean') }}
           restore-keys: |
             ${{ runner.os }}-exp-formal-lean-
             ${{ runner.os }}-formal-lean-
