@@ -1949,7 +1949,8 @@ theorem r0_certRatio_over_neg {x : Nat} (hx : x < 2 ^ 256)
     obtain ⟨_, _, htodlo, _⟩ := todTree_bound hx hC hC0
     -- 2^128·tod ≤ t·od ≤ 0
     have htod_nonpos : (2 ^ 128 : Int) * tod ≤ 0 := le_trans htodlo (mul_nonpos_of_nonpos_of_nonneg htneg hodnn)
-    nlinarith [htod_nonpos]
+    have h2 : (2 ^ 128 : Int) * tod ≤ 2 ^ 128 * 0 := by simpa using htod_nonpos
+    exact le_of_mul_le_mul_left h2 (by norm_num)
   -- r0 ≤ 2^126: r0·den ≤ 2^126·num ≤ 2^126·den (num ≤ den ⟺ tod ≤ 0); den > 0
   have hdenpos : (0:Int) < ev - tod := by
     have := den_ge_072 hx hC hC0; rw [← hevdef, ← htoddef] at this
@@ -1973,8 +1974,13 @@ theorem r0_certRatio_over_neg {x : Nat} (hx : x < 2 ^ 256)
   have hfloor : r0 * (ev - tod) - 2 ^ 126 * (ev + tod) ≤ 0 := by linarith [hfloor_lo]
   have hfloor1193 : (2 ^ 1193 : Int) * (r0 * (ev - tod) - 2 ^ 126 * (ev + tod)) ≤ 0 :=
     mul_nonpos_of_nonneg_of_nonpos (by positivity) hfloor
-  -- assemble
-  nlinarith [hterm1, hterm2, hfloor1193]
+  -- assemble: the goal LHS is evP·(r0−2^126) − todP·(r0+2^126); the bound terms collapse via the floor
+  have hid1 : r0 * (evP - todP) - 2 ^ 126 * (evP + todP) = evP * (r0 - 2 ^ 126) - todP * (r0 + 2 ^ 126) := by ring
+  have hid2 : 2 ^ 1193 * ev * (r0 - 2 ^ 126) - (2 ^ 1193 * tod + 69402657 * 2 ^ 1039 * t) * (r0 + 2 ^ 126)
+      = 2 ^ 1193 * (r0 * (ev - tod) - 2 ^ 126 * (ev + tod)) + 69402657 * 2 ^ 1039 * (-t) * (r0 + 2 ^ 126) := by
+    ring
+  rw [hid1]
+  linarith [hterm1, hterm2, hfloor1193, hid2]
 
 /-- **The joint per-point never-over (negative half).** `r0 ≤ 2¹²⁶·exp(rt) + 19/25` for `t ≤ 0`. -/
 
@@ -2006,8 +2012,9 @@ theorem r0_certRatio_over_neg_bound {x : Nat} (hx : x < 2 ^ 256)
   have hodnn : (0:Int) ≤ od := le_of_lt hodpos
   have htod_np : tod ≤ 0 := by
     have hle : (2 ^ 128 : Int) * tod ≤ t * od := htodlo
-    have : t * od ≤ 0 := mul_nonpos_of_nonpos_of_nonneg htnp hodnn
-    nlinarith [hle, this]
+    have hp : t * od ≤ 0 := mul_nonpos_of_nonpos_of_nonneg htnp hodnn
+    have h2 : (2 ^ 128 : Int) * tod ≤ 2 ^ 128 * 0 := by simpa using le_trans hle hp
+    exact le_of_mul_le_mul_left h2 (by norm_num)
   have hntodnn : (0:Int) ≤ -tod := by omega
   -- den := ev - tod > 0; den ≥ 0.72·2^126
   have hden072 : (61251667550081741634933722430035858604 : Int) ≤ ev - tod := by
@@ -2015,7 +2022,10 @@ theorem r0_certRatio_over_neg_bound {x : Nat} (hx : x < 2 ^ 256)
   have hdenpos : (0:Int) < ev - tod := lt_of_lt_of_le (by norm_num) hden072
   -- (1) (−t)·od ≤ 2^128·(−tod):  2^128·tod ≤ t·od ⟹ −t·od ≤ −2^128·tod = 2^128·(−tod)
   have hstep1 : (-t) * od ≤ 2 ^ 128 * (-tod) := by
-    have hle : (2 ^ 128 : Int) * tod ≤ t * od := htodlo; nlinarith [hle]
+    have hle : (2 ^ 128 : Int) * tod ≤ t * od := htodlo
+    have he : (-t) * od = -(t * od) := by ring
+    have he2 : (2:Int) ^ 128 * (-tod) = -(2 ^ 128 * tod) := by ring
+    rw [he, he2]; linarith [hle]
   -- (2) (r0+2^126)·(ev−tod) ≤ 2^127·ev:  r0·(ev−tod) ≤ 2^126·(ev+tod) (floor), +2^126·(ev−tod)
   have hstep2 : (r0 + 2 ^ 126) * (ev - tod) ≤ 2 ^ 127 * ev := by
     have hfl : r0 * (ev - tod) ≤ 2 ^ 126 * (ev + tod) := hfloor_lo
@@ -2052,7 +2062,7 @@ theorem r0_certRatio_over_neg_bound {x : Nat} (hx : x < 2 ^ 256)
   have hP2 : 2 ^ 128 * (-tod) * ((r0 + 2 ^ 126) * den) ≤ 2 ^ 128 * (-tod) * (2 ^ 127 * ev) :=
     mul_le_mul_of_nonneg_left hdR2 hntden
   -- combine + hstep4: 36·(−t)·od·(r0+2^126)·den ≤ 36·2^255·(−tod)·ev ≤ 5·2^255·den²
-  have hevnn : (0:Int) ≤ ev := by nlinarith [hdenpos, htod_np]
+  have hevnn : (0:Int) ≤ ev := by rw [hevdef]; exact Int.natCast_nonneg _
   have hP3 : 36 * ((-t) * od * ((r0 + 2 ^ 126) * den)) ≤ 5 * 2 ^ 255 * den ^ 2 := by
     have h255 : 2 ^ 128 * (-tod) * (2 ^ 127 * ev) = 2 ^ 255 * ((-tod) * ev) := by
       rw [show (2:Int) ^ 255 = 2 ^ 128 * 2 ^ 127 from by rw [← pow_add]]; ring
