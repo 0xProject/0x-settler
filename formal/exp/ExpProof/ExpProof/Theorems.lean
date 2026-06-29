@@ -1,5 +1,6 @@
 import ExpProof.Seam.Revert
 import ExpProof.Seam.Value
+import ExpProof.Mono
 
 /-!
 # `expRayToWad` — proven properties of the compiled runtime (signpost)
@@ -17,6 +18,14 @@ stray `sorry` (or any new axiom) breaks the build.
 | Reverts on inputs ≥ `0x8e383a2cdfa1b74a9422d2e1`| `run_exp_ray_to_wad_evm_revert`  |
 | Scale point: `expRayToWad(0) = 10^18`           | `run_exp_ray_to_wad_evm_zero`    |
 | Value path reduces to the `evm*` tree           | `run_exp_ray_to_wad_evm_eq_tree` |
+| Monotone in the input (modulo the region core)  | `run_exp_ray_to_wad_evm_mono`    |
+
+The monotonicity theorem `run_exp_ray_to_wad_evm_mono` is proved over the whole supported domain;
+it takes the analytic facts of the meaningful region (`RegionMonotonicityFacts`: `r1Tree` in range,
+nonnegative, nondecreasing, and the scale-point pin clearance) as a hypothesis. The clamp/pin
+shell, the run-level bridge, and the octave-index / reduced-argument transports and their
+monotonicity are proved without that hypothesis; the rational-quotient (`sdiv`) within-octave step
+and the octave-seam compensation are represented by `RegionMonotonicityFacts`.
 
 The supported-range threshold is `0x8e383a2cdfa1b74a9422d2e1`; at or above it (and below `2^255`,
 i.e. for any non-negative `int256` that large) the wrapper run halts with `revert`. At the scale
@@ -51,5 +60,18 @@ example : run_exp_ray_to_wad_evm 0 = .ok 1000000000000000000 :=
 /-- info: 'ExpYul.run_exp_ray_to_wad_evm_eq_tree' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms run_exp_ray_to_wad_evm_eq_tree
+
+/-- Monotone over the whole supported domain, given the meaningful-region analytic core. -/
+example (H : RegionMonotonicityFacts) (x1 x2 : Nat)
+    (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
+    (hle : FormalYul.Preservation.int256 x1 ≤ FormalYul.Preservation.int256 x2)
+    (hdom : FormalYul.Preservation.int256 x2 < FormalYul.Preservation.int256 C0thresh) :
+    ∃ r1 r2, run_exp_ray_to_wad_evm x1 = .ok r1 ∧ run_exp_ray_to_wad_evm x2 = .ok r2 ∧
+      FormalYul.Preservation.int256 r1 ≤ FormalYul.Preservation.int256 r2 :=
+  run_exp_ray_to_wad_evm_mono H x1 x2 hx1 hx2 hle hdom
+
+/-- info: 'ExpYul.run_exp_ray_to_wad_evm_mono' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_exp_ray_to_wad_evm_mono
 
 end ExpYul
