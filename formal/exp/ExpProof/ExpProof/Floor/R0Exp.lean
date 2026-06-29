@@ -30,6 +30,7 @@ open FormalYul.Preservation
 open Common.Poly
 
 set_option maxRecDepth 100000
+set_option maxHeartbeats 1600000
 
 /-! ## The even/odd Horner polynomials in `w = t²` and the cert-polynomial bridge -/
 
@@ -420,5 +421,111 @@ theorem r0_floor_sandwich {x : Nat} (hx : x < 2 ^ 256)
   · have h : M < ((q + 1) * den : Nat) := hfloor_hi
     have hInt : (M : Int) < ((q : Int) + 1) * (den : Int) := by exact_mod_cast h
     rw [heM] at hInt; linarith [hInt]
+
+/-! ## A positive lower bound on the cert denominator -/
+
+/-- `den_rt = ev − tod > 2¹²⁵` on the region (the even accumulator dominates `|tod|`). -/
+theorem den_rt_lb {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    (2 : Int) ^ 125 < (evTree x : Int) - int256 (todTree x) := by
+  obtain ⟨hevlo, _⟩ := evTree_facts (vTree_eq hx hC hC0).2
+  obtain ⟨htod_lo, htod_hi, _, _⟩ := todTree_bound hx hC hC0
+  have hev : (0x4e14a45e8ec305e233e11b4174e214ac : Int) ≤ (evTree x : Int) := by exact_mod_cast hevlo
+  have ht125 : int256 (todTree x) < 2 ^ 125 := by
+    rw [show (2:Int)^125 = 42535295865117307932921825928971026432 from by norm_num]; exact htod_hi
+  rw [show (0x4e14a45e8ec305e233e11b4174e214ac : Int) = 103786963415199049567855548359006885036 from by norm_num] at hev
+  rw [show (2:Int)^125 = 42535295865117307932921825928971026432 from by norm_num] at ht125 ⊢
+  omega
+
+/-- The cert denominator is bounded below: `denExpV(t) > 2¹³¹⁷` on the region. -/
+theorem denExpV_lb {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htnn : 0 ≤ int256 (tTree x)) :
+    (2 : Int) ^ 1317 < evalPoly ExpCertV.denExpV (int256 (tTree x)) := by
+  obtain ⟨hlo, _⟩ := denExpV_bracket hx hC hC0 htnn
+  have hden := den_rt_lb hx hC hC0
+  -- denExpV ≥ 2^1193·den_rt − 32·2^1193 > 2^1193·2^125 − 32·2^1193 = 2^1318 − 32·2^1193 > 2^1317
+  have hstep : 2 ^ 1193 * ((evTree x : Int) - int256 (todTree x)) - 32 * 2 ^ 1193 >
+      2 ^ 1193 * (2 ^ 125 : Int) - 32 * 2 ^ 1193 := by
+    have := mul_lt_mul_of_pos_left hden (by positivity : (0:Int) < 2 ^ 1193)
+    linarith [this]
+  have hnum : 2 ^ 1193 * (2 ^ 125 : Int) - 32 * 2 ^ 1193 > 2 ^ 1317 := by
+    rw [show (2:Int)^1193 * 2 ^ 125 = 2 ^ 1318 from by rw [← pow_add]]
+    have h18 : (2:Int)^1318 = 2 * 2 ^ 1317 := by rw [show (1318:Nat) = 1 + 1317 from rfl, pow_add]; ring
+    have h93 : (2:Int)^1193 < 2 ^ 1317 := by
+      apply pow_lt_pow_right₀ (by norm_num) (by norm_num)
+    nlinarith [h18, h93]
+  linarith [hlo, hstep, hnum]
+
+/-! ## The `r0`-vs-cert-rational bracket (direct chain) -/
+
+/-- **`r0Tree x` brackets `2¹²⁶·ê_v`**: `r0·denExpV < 2¹²⁶·numExpV + 49·denExpV` and
+`2¹²⁶·numExpV < (r0+1)·denExpV + 700·denExpV`. The loose constants are MARGIN/seam-absorbed. -/
+theorem r0_vs_certRatio {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
+    (htnn : 0 ≤ int256 (tTree x)) :
+    int256 (r0Tree x) * evalPoly ExpCertV.denExpV (int256 (tTree x)) <
+        2 ^ 126 * evalPoly ExpCertV.numExpV (int256 (tTree x)) +
+          49 * evalPoly ExpCertV.denExpV (int256 (tTree x)) ∧
+      2 ^ 126 * evalPoly ExpCertV.numExpV (int256 (tTree x)) <
+        (int256 (r0Tree x) + 1) * evalPoly ExpCertV.denExpV (int256 (tTree x)) +
+          700 * evalPoly ExpCertV.denExpV (int256 (tTree x)) := by
+  obtain ⟨hfloor_lo, hfloor_hi⟩ := r0_floor_sandwich hx hC hC0
+  obtain ⟨hnumlo, hnumhi⟩ := numExpV_bracket hx hC hC0 htnn
+  obtain ⟨hdenlo, hdenhi⟩ := denExpV_bracket hx hC hC0 htnn
+  obtain ⟨hr0lo, hr0hi⟩ := r0Tree_bounds hx hC hC0
+  have hdenExpV_lb := denExpV_lb hx hC hC0 htnn
+  set r0 := int256 (r0Tree x) with hr0def
+  set num := (evTree x : Int) + int256 (todTree x) with hnumdef
+  set den := (evTree x : Int) - int256 (todTree x) with hdendef
+  set NE := evalPoly ExpCertV.numExpV (int256 (tTree x)) with hNEdef
+  set DE := evalPoly ExpCertV.denExpV (int256 (tTree x)) with hDEdef
+  have hDEpos : (0 : Int) < DE := by
+    have h : (2:Int)^1317 > 0 := by positivity
+    linarith [hdenExpV_lb, h]
+  have hr0pos : 0 ≤ r0 := by linarith [hr0lo]
+  have hr0lt : r0 < 2 ^ 128 := hr0hi
+  have hp1193 : (0 : Int) < 2 ^ 1193 := by positivity
+  have hden_nn : (0 : Int) ≤ den := by
+    have h := den_rt_lb hx hC hC0; rw [← hdendef] at h; positivity
+  -- DE bounds vs den·2^1193 (denExpV_bracket): DE - 3·2^1193 < den·2^1193 ≤ DE + 32·2^1193
+  have hden2_lo : 2 ^ 1193 * den ≤ DE + 32 * 2 ^ 1193 := by linarith [hdenlo]
+  have hden2_hi : DE - 3 * 2 ^ 1193 < 2 ^ 1193 * den := by linarith [hdenhi]
+  -- NE bounds (numExpV_bracket): num·2^1193 ≤ NE < num·2^1193 + 35·2^1193
+  have hnum2_lo : 2 ^ 1193 * num ≤ NE := hnumlo
+  have hnum2_hi : NE < 2 ^ 1193 * num + 35 * 2 ^ 1193 := hnumhi
+  -- 49·DE > 49·2^1317 > 3·2^1321 ≥ 3·2^1193·r0
+  have h2_1321 : (3 : Int) * 2 ^ 1193 * (2 ^ 128 : Int) = 3 * 2 ^ 1321 := by rw [mul_assoc, ← pow_add]
+  have hr0_loss : 3 * 2 ^ 1193 * r0 < 49 * DE := by
+    have h1 : 3 * 2 ^ 1193 * r0 < 3 * 2 ^ 1193 * 2 ^ 128 := by
+      apply mul_lt_mul_of_pos_left hr0lt; positivity
+    have h2 : (3 : Int) * 2 ^ 1321 < 49 * 2 ^ 1317 := by
+      rw [show (1321:Nat) = 4 + 1317 from rfl, pow_add]; ring_nf; nlinarith [pow_pos (by norm_num : (0:Int)<2) 1317]
+    rw [h2_1321] at h1
+    linarith [h1, h2, mul_lt_mul_of_pos_left hdenExpV_lb (by norm_num : (0:Int) < 49)]
+  -- 700·DE > 35·2^1319 + 32·2^1193·(r0+1)  (under loss)
+  have hunder_loss : 35 * 2 ^ 126 * 2 ^ 1193 + 32 * 2 ^ 1193 * (r0 + 1) < 700 * DE := by
+    have h1 : 32 * 2 ^ 1193 * (r0 + 1) < 32 * 2 ^ 1193 * (2 ^ 128 + 1) := by
+      apply mul_lt_mul_of_pos_left (by linarith [hr0lt]); positivity
+    have hr0p1 : (32 : Int) * 2 ^ 1193 * (2 ^ 128 + 1) < 33 * 2 ^ 1321 := by
+      rw [show (1321:Nat) = 4 + 1317 from rfl, pow_add]; ring_nf
+      nlinarith [pow_pos (by norm_num : (0:Int)<2) 1193, pow_pos (by norm_num : (0:Int)<2) 1317]
+    have h35 : (35 : Int) * 2 ^ 126 * 2 ^ 1193 = 35 * 2 ^ 1319 := by rw [mul_assoc, ← pow_add]
+    have hbound : (35 : Int) * 2 ^ 1319 + 33 * 2 ^ 1321 < 700 * 2 ^ 1317 := by
+      rw [show (1319:Nat) = 2 + 1317 from rfl, show (1321:Nat) = 4 + 1317 from rfl, pow_add, pow_add]
+      ring_nf; nlinarith [pow_pos (by norm_num : (0:Int)<2) 1317]
+    rw [h35]
+    linarith [h1, hr0p1, hbound, mul_lt_mul_of_pos_left hdenExpV_lb (by norm_num : (0:Int) < 700)]
+  -- abstract the powers so the final steps stay linear in the kernel
+  have hfl_lo := mul_le_mul_of_nonneg_left hfloor_lo (by positivity : (0:Int) ≤ 2 ^ 1193)
+  have hfl_hi := mul_lt_mul_of_pos_left hfloor_hi hp1193
+  have hnumstep := mul_le_mul_of_nonneg_left hnum2_lo (by positivity : (0:Int) ≤ 2 ^ 126)
+  have hNEstep := mul_lt_mul_of_pos_left hnum2_hi (by positivity : (0:Int) < 2 ^ 126)
+  have hr0den_lo := mul_le_mul_of_nonneg_left (le_of_lt hden2_hi) hr0pos
+  have hr0den_hi := mul_le_mul_of_nonneg_left hden2_lo (by linarith [hr0pos] : (0:Int) ≤ r0 + 1)
+  -- expand products into a common shape via ring_nf, then linarith over the atoms
+  constructor
+  · nlinarith [hfl_lo, hnumstep, hr0den_lo, hr0_loss, hDEpos, hp1193]
+  · nlinarith [hfl_hi, hNEstep, hr0den_hi, hunder_loss, hDEpos, hp1193]
 
 end ExpYul
