@@ -1420,4 +1420,123 @@ theorem r0_real_under {x : Nat} (hx : x < 2 ^ 256)
   · exact r0_real_under_loose hx hC hC0 htnn
   · exact r0_real_under_loose_neg hx hC hC0 (le_of_lt htneg)
 
+/-! ## The octave-seam `r0`-doubling consequence -/
+
+/-- The reduced argument is above `−log 2` on the region, so `exp(rt) > 1/2`. -/
+theorem exp_reducedArg_gt_half {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    (1 : Real) / 2 < Real.exp (reducedArg x) := by
+  obtain ⟨htlo, _⟩ := tTree_in_cert_domain hx hC hC0
+  have hclose := abs_lt.mp (reducedArg_close hx hC hC0)
+  have hp128 : (0 : Real) < (2 ^ 128 : Real) := by positivity
+  have htR : -(117932881612756647068972071382077242199 : Real) ≤ (int256 (tTree x) : Real) := by
+    have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr htlo; push_cast at this; linarith [this]
+  -- rt > t/2^128 - 9/(8·2^128) ≥ -H128/2^128 - 1 > -log 2 (log2 ≥ 0.693)
+  have hln2 : (0.6931471805 : Real) ≤ Real.log 2 := by
+    have := ln2_lower; rw [LN2c_eq] at this
+    have h2 : (0.6931471805 : Real) ≤
+        (38271408169742254668347313025622401492114385419650052359639581444463709 : Real) / (2 ^ 235 : Real) := by
+      rw [le_div_iff₀ (by positivity : (0:Real) < 2 ^ 235)]; norm_num
+    linarith [this, h2]
+  have htdiv : -(0.35 : Real) ≤ (int256 (tTree x) : Real) / (2 ^ 128 : Real) := by
+    rw [le_div_iff₀ hp128]; nlinarith [htR]
+  have h9 : (9 : Real) / (8 * (2 ^ 128 : Real)) ≤ 0.34 := by
+    rw [div_le_iff₀ (by positivity)]; norm_num
+  have hrt : -(Real.log 2) < reducedArg x := by linarith [hclose.1, htdiv, h9, hln2]
+  have : Real.exp (-(Real.log 2)) < Real.exp (reducedArg x) := Real.exp_lt_exp.mpr hrt
+  rwa [Real.exp_neg, Real.exp_log (by norm_num : (0:Real) < 2), show (2:Real)⁻¹ = 1/2 from by norm_num] at this
+
+/-- A lower bound on the quotient: `2¹²⁴ < r0Tree x`. (`r0 ≥ 2¹²⁶·exp(rt) − 705 > 2¹²⁶·(1/2) − 705`.) -/
+theorem r0Tree_gt_2_124 {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    (2 : Real) ^ 124 < (int256 (r0Tree x) : Real) := by
+  have hu := r0_real_under hx hC hC0
+  have hh := exp_reducedArg_gt_half hx hC hC0
+  -- 2^126·exp(rt) > 2^126·(1/2) = 2^125; r0 ≥ 2^126·exp(rt) − 705 > 2^125 − 705 > 2^124
+  have h1 : (2 ^ 126 : Real) * (1 / 2) < (2 ^ 126 : Real) * Real.exp (reducedArg x) :=
+    mul_lt_mul_of_pos_left hh (by positivity)
+  have h2 : (2 ^ 126 : Real) * (1 / 2) = (2 ^ 125 : Real) := by norm_num
+  have h3 : (2 : Real) ^ 124 + 705 < (2 ^ 125 : Real) := by norm_num
+  linarith [hu, h1, h2 ▸ h1, h3]
+
+/-- **The seam exp relation.** Across a seam (`X2 = X1 + 1`, `k2 = k1 + 1`),
+`exp(rt1) = 2·exp(rt2)·exp(−1/RAY)`. -/
+theorem reducedArg_seam {x1 x2 : Nat}
+    (hk : int256 (kTree x2) = int256 (kTree x1) + 1)
+    (hadj : int256 x2 = int256 x1 + 1) :
+    Real.exp (reducedArg x1) =
+      2 * Real.exp (reducedArg x2) * Real.exp (-(1 / (10 ^ 27 : Real))) := by
+  have hrel : reducedArg x1 = reducedArg x2 + Real.log 2 + (-(1 / (10 ^ 27 : Real))) := by
+    unfold reducedArg
+    rw [show (int256 x2 : Real) = (int256 x1 : Real) + 1 from by exact_mod_cast hadj,
+      show (int256 (kTree x2) : Real) = (int256 (kTree x1) : Real) + 1 from by exact_mod_cast hk]
+    ring
+  rw [hrel, Real.exp_add, Real.exp_add, Real.exp_log (by norm_num : (0:Real) < 2)]
+  ring
+
+/-- **`r0` at most doubles across a seam** (real reduction of `SeamR0Bound`). The strict slack from
+`exp(−1/RAY) < 1` (and `r0Tree x2 > 2¹²⁴`) dwarfs the loose per-point envelope constants. -/
+theorem r0_seam_double {x1 x2 : Nat}
+    (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
+    (hC1 : int256 Cmask < int256 x1) (hC01 : int256 x1 < int256 C0thresh)
+    (hC2 : int256 Cmask < int256 x2) (hC02 : int256 x2 < int256 C0thresh)
+    (hk : int256 (kTree x2) = int256 (kTree x1) + 1)
+    (hadj : int256 x2 = int256 x1 + 1) :
+    int256 (r0Tree x1) < 2 * int256 (r0Tree x2) := by
+  have hover1 := r0_real_over hx1 hC1 hC01
+  have hunder2 := r0_real_under hx2 hC2 hC02
+  have hr0_2_big := r0Tree_gt_2_124 hx2 hC2 hC02
+  have hseam := reducedArg_seam hk hadj
+  -- exp(-1/RAY) < 1 and ≥ 1 - 1/RAY  ⇒ 1 - exp(-1/RAY) ≥ 1/RAY - ... use the convexity-style bound
+  set E1 := Real.exp (reducedArg x1) with hE1
+  set E2 := Real.exp (reducedArg x2) with hE2
+  set y := Real.exp (-(1 / (10 ^ 27 : Real))) with hy
+  have hy_lt_one : y < 1 := by
+    rw [hy]; rw [show (1:Real) = Real.exp 0 from (Real.exp_zero).symm]
+    exact Real.exp_lt_exp.mpr (by norm_num)
+  have hy_pos : 0 < y := Real.exp_pos _
+  -- y ≤ 1 - 1/(2·RAY)  (since exp(-z) ≤ 1 - z + z²/2 ≤ 1 - z/2 for small z>0)
+  have hy_bound : y ≤ 1 - 1 / (2 * (10 ^ 27 : Real)) := by
+    -- exp(-z) = 1/exp(z) ≤ 1/(1+z) ≤ 1 - z/2 for z ∈ (0,1]
+    rw [hy]
+    have hz : (0:Real) < 1 / (10 ^ 27 : Real) := by positivity
+    have hez : (1 : Real) + 1 / (10 ^ 27 : Real) ≤ Real.exp (1 / (10 ^ 27 : Real)) := by
+      have := Real.add_one_le_exp (1 / (10 ^ 27 : Real)); linarith [this]
+    rw [Real.exp_neg]
+    have hexppos : 0 < Real.exp (1 / (10 ^ 27 : Real)) := Real.exp_pos _
+    rw [inv_le_iff_one_le_mul₀ hexppos]
+    have h1z : (1 - 1 / (2 * (10 ^ 27 : Real))) * (1 + 1 / (10 ^ 27 : Real)) ≥ 1 := by
+      rw [ge_iff_le]; nlinarith [sq_nonneg (1 / (10 ^ 27 : Real))]
+    nlinarith [hez, h1z, hexppos, mul_pos (by positivity : (0:Real) < 1 - 1/(2*(10^27:Real))) hexppos]
+  -- 2^126·E1 = 2·(2^126·E2)·y ≤ 2·(r0_2 + 705)·y
+  have hE2bound : (2 ^ 126 : Real) * E2 ≤ (int256 (r0Tree x2) : Real) + 705 := hunder2
+  have hr0_1 : (int256 (r0Tree x1) : Real) ≤ 2 * ((int256 (r0Tree x2) : Real) + 705) * y + 152 := by
+    have h1 : (2 ^ 126 : Real) * E1 = 2 * ((2 ^ 126 : Real) * E2) * y := by rw [hseam]; ring
+    have h2 : (int256 (r0Tree x1) : Real) ≤ (2 ^ 126 : Real) * E1 + 152 := hover1
+    rw [h1] at h2
+    have h3 : 2 * ((2 ^ 126 : Real) * E2) * y ≤ 2 * ((int256 (r0Tree x2) : Real) + 705) * y :=
+      mul_le_mul_of_nonneg_right (by linarith [mul_le_mul_of_nonneg_left hE2bound (by norm_num : (0:Real) ≤ 2)]) (le_of_lt hy_pos)
+    linarith [h2, h3]
+  -- need: 2·(r0_2+705)·y + 152 < 2·r0_2.  use y ≤ 1 - 1/(2·RAY), r0_2 > 2^124.
+  have hr0_2nn : (0:Real) ≤ (int256 (r0Tree x2) : Real) := by linarith [hr0_2_big, (by positivity : (0:Real) ≤ (2:Real)^124)]
+  have hkey : 2 * ((int256 (r0Tree x2) : Real) + 705) * y + 152 < 2 * (int256 (r0Tree x2) : Real) := by
+    -- 2(r0+705)y ≤ 2(r0+705)(1 - 1/(2RAY)).  Then 2(r0+705) - 2(r0+705)/(2RAY) + 152 < 2 r0
+    -- ⟺ 1410 + 152 < 2(r0+705)/(2RAY) = (r0+705)/RAY.  r0 > 2^124 ⇒ (r0+705)/RAY > 2^124/10^27 ≈ 21
+    -- WAIT: 2^124/10^27 ≈ 21 < 1562.  Need bigger lower bound on r0!  use r0 > 2^124 too weak.
+    have hyb : 2 * ((int256 (r0Tree x2) : Real) + 705) * y ≤
+        2 * ((int256 (r0Tree x2) : Real) + 705) * (1 - 1 / (2 * (10 ^ 27 : Real))) :=
+      mul_le_mul_of_nonneg_left hy_bound (by linarith [hr0_2nn])
+    have hexpand : 2 * ((int256 (r0Tree x2) : Real) + 705) * (1 - 1 / (2 * (10 ^ 27 : Real))) =
+        2 * (int256 (r0Tree x2) : Real) + 1410 -
+          ((int256 (r0Tree x2) : Real) + 705) / (10 ^ 27 : Real) := by field_simp; ring
+    have hbig : ((int256 (r0Tree x2) : Real) + 705) / (10 ^ 27 : Real) > 1562 := by
+      rw [gt_iff_lt, lt_div_iff₀ (by positivity)]
+      nlinarith [hr0_2_big, (by norm_num : (1562:Real) * 10 ^ 27 + 1 < 2 ^ 124)]
+    linarith [hyb, hexpand ▸ hyb, hbig]
+  have hreal : (int256 (r0Tree x1) : Real) < 2 * (int256 (r0Tree x2) : Real) := by
+    linarith [hr0_1, hkey]
+  have : (int256 (r0Tree x1) : Real) < ((2 * int256 (r0Tree x2) : Int) : Real) := by
+    push_cast; linarith [hreal]
+  exact_mod_cast this
+
 end ExpYul

@@ -1,6 +1,7 @@
 import ExpProof.Seam.Revert
 import ExpProof.Seam.Value
 import ExpProof.Mono
+import ExpProof.Mono.SeamR0
 import ExpProof.Floor.Public
 import ExpProof.Floor.Fold
 import ExpProof.Floor.R0Bound
@@ -80,8 +81,8 @@ example (H : RegionMonotonicityFacts) (x1 x2 : Nat)
 /-- Monotone over the whole supported domain, reduced to the single analytic obligation
 `SeamR0Bound` (the octave-seam `r0` doubling bound). The kernel-wall floor reduction, the
 `range`/`nonneg` obligations, the same-octave step, the region induction, and the scale-point pin are
-all proved unconditionally; what remains for an unconditional monotonicity theorem is the minimax
-accuracy bound `SeamR0Bound`. -/
+proved without this hypothesis; the monotonicity theorem here depends on the seam accuracy bound
+`SeamR0Bound`. -/
 example (hr0 : SeamR0Bound) (x1 x2 : Nat)
     (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
     (hle : FormalYul.Preservation.int256 x1 ≤ FormalYul.Preservation.int256 x2)
@@ -93,6 +94,30 @@ example (hr0 : SeamR0Bound) (x1 x2 : Nat)
 /-- info: 'ExpYul.run_exp_ray_to_wad_evm_mono_of_seamR0' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms run_exp_ray_to_wad_evm_mono_of_seamR0
+
+/-! ## Runtime monotonicity with the seam bound discharged
+
+The octave-seam `r0`-doubling bound `SeamR0Bound` is discharged (`seamR0Bound_holds`, via the
+per-point real bracket `r0Tree x ≈ 2¹²⁶·exp(rt)` and the seam relation `exp(rt1) =
+2·exp(rt2)·exp(−1/RAY)`), so monotonicity holds over the whole supported domain with no analytic
+hypothesis. -/
+
+/-- Monotone over the whole supported domain without an external monotonicity hypothesis. -/
+example (x1 x2 : Nat)
+    (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
+    (hle : FormalYul.Preservation.int256 x1 ≤ FormalYul.Preservation.int256 x2)
+    (hdom : FormalYul.Preservation.int256 x2 < FormalYul.Preservation.int256 C0thresh) :
+    ∃ r1 r2, run_exp_ray_to_wad_evm x1 = .ok r1 ∧ run_exp_ray_to_wad_evm x2 = .ok r2 ∧
+      FormalYul.Preservation.int256 r1 ≤ FormalYul.Preservation.int256 r2 :=
+  run_exp_ray_to_wad_evm_mono_unconditional x1 x2 hx1 hx2 hle hdom
+
+/-- info: 'ExpYul.run_exp_ray_to_wad_evm_mono_unconditional' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_exp_ray_to_wad_evm_mono_unconditional
+
+/-- info: 'ExpYul.seamR0Bound_holds' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms seamR0Bound_holds
 
 /-! ## `Real.exp` floor brackets, modulo the runtime accumulator bound
 
@@ -154,8 +179,7 @@ example (H : RuntimeR0Bound) : RuntimeAccumBound := runtimeAccumBound_of_r0 H
 
 /-! ## Discharged ingredients of `RuntimeR0Bound`
 
-The single open obligation `RuntimeR0Bound` is being discharged piecewise. The following are proved
-unconditionally and axiom-clean:
+The following `RuntimeR0Bound` ingredients are proved directly and axiom-clean:
 
 * `tTree_in_cert_domain` — the runtime reduced argument stays in the certificate domain
   `|tTree x| ≤ H128`, so the Taylor caps (`Floor.Caps`) instantiate at `t := tTree x`;
