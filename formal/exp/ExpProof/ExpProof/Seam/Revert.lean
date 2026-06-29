@@ -2,6 +2,7 @@ import ExpProof.ExpYulProof
 import ExpProof.Seam.RuntimeShared
 import ExpProof.Seam.Guard
 import ExpProof.Seam.Helpers
+import ExpProof.Seam.Dispatcher
 import FormalYul.Preservation
 
 /-!
@@ -140,5 +141,122 @@ theorem call_fun_wrap_expRayToWad_revert_direct
     call_zero_value_for_split_t_int256_direct (fuel := fuel + extra) (extra := 1176)
       (shared := shared) (hlookup := hlookup),
     h70]
+
+set_option maxHeartbeats 8000000 in
+/-- The external entrypoint `external_fun_wrap_expRayToWad_99` decodes the calldata argument `x`
+(`callvalue` is 0, so the value guard is skipped) and forwards to `fun_wrap_expRayToWad_99`, which
+reverts for out-of-range `x`. -/
+theorem external_fun_wrap_expRayToWad_calldata_revert
+    (x : Nat) (store : EvmYul.Yul.VarStore)
+    (h1 : (0x8e383a2cdfa1b74a9422d2e1 : Nat) ≤ FormalYul.u256 x)
+    (h2 : FormalYul.u256 x < 2 ^ 255) :
+    EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_expRayToWad) (.some yulContract)
+        (EvmYul.Yul.State.Ok (expSharedAfterFreePtr x) store) =
+      .error EvmYul.Yul.Exception.Revert := by
+  rw [EvmYul.Yul.call.eq_def]
+  simp only [expSharedAfterFreePtr_lookup, Option.getD_some, yulContract_functions,
+    lookup_external_fun_wrap_expRayToWad]
+  simp only [yulFunction_external_fun_wrap_expRayToWad, yulFunction_external_fun_wrap_expRayToWad_99,
+    FormalYul.Preservation.functionDefinition_params_def,
+    FormalYul.Preservation.functionDefinition_rets_def,
+    FormalYul.Preservation.functionDefinition_body_def,
+    EvmYul.Yul.State.initcall, EvmYul.Yul.State.mkOk]
+  have hdecode :=
+    call_abi_decode_tuple_t_int256_of_calldata (x := x) (fuel := 0) (extra := 999664)
+      (shared := expSharedAfterFreePtr x)
+      (hlookup := expSharedAfterFreePtr_lookup x)
+      (hdata := expSharedAfterFreePtr_calldata x)
+  simp only [Nat.reduceAdd, FormalYul.word] at hdecode
+  have hwrap :=
+    call_fun_wrap_expRayToWad_revert_direct (x := x) (fuel := 0) (extra := 998783)
+      (shared := expSharedAfterFreePtr x)
+      (hlookup := expSharedAfterFreePtr_lookup x) (h1 := h1) (h2 := h2)
+  simp only [Nat.reduceAdd, FormalYul.word] at hwrap
+  simp +decide [EvmYul.Yul.execCall.eq_def, EvmYul.Yul.evalCall.eq_def,
+    EvmYul.Yul.execPrimCall.eq_def, EvmYul.Yul.evalPrimCall.eq_def,
+    EvmYul.Yul.reverse', EvmYul.Yul.cons', EvmYul.Yul.head', EvmYul.Yul.multifill',
+    EvmYul.Yul.evalTail.eq_def,
+    EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+    EvmYul.Yul.State.lookup!, EvmYul.Yul.State.setStore,
+    EvmYul.Yul.State.executionEnv,
+    expSharedAfterFreePtr_weiValue, expSharedAfterFreePtr_calldata, expRayToWad_calldata_size,
+    GetElem?.getElem!, decidableGetElem?,
+    EvmYul.Yul.State.instGetElemIdentifierLiteralMemVarStoreStore,
+    EvmYul.Yul.State.store,
+    Finmap.lookup_insert,
+    hdecode, hwrap]
+
+set_option maxHeartbeats 8000000 in
+/-- The same revert, but starting from the exact state the dispatcher hands the external function
+(free-pointer `mstore` baked into a `SharedState.mk`, with the extracted `selector` in the store). -/
+theorem external_fun_wrap_expRayToWad_dispatcher_state_revert
+    (x : Nat)
+    (h1 : (0x8e383a2cdfa1b74a9422d2e1 : Nat) ≤ FormalYul.u256 x)
+    (h2 : FormalYul.u256 x < 2 ^ 255) :
+    EvmYul.Yul.call 999989 [] (.some yulName_external_fun_wrap_expRayToWad) (.some yulContract)
+        (EvmYul.Yul.State.Ok
+          (EvmYul.SharedState.mk
+            (FormalYul.sharedFor yulContract
+              (selector_expRayToWad ++ FormalYul.encodeWords [x])).toState
+            ((FormalYul.sharedFor yulContract
+              (selector_expRayToWad ++ FormalYul.encodeWords [x])).mstore
+                (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)))
+          (Finmap.insert "selector"
+            (EvmYul.UInt256.shiftRight
+              (EvmYul.State.calldataload
+                (EvmYul.Yul.State.Ok
+                  (EvmYul.SharedState.mk
+                    (FormalYul.sharedFor yulContract
+                      (selector_expRayToWad ++ FormalYul.encodeWords [x])).toState
+                    ((FormalYul.sharedFor yulContract
+                      (selector_expRayToWad ++ FormalYul.encodeWords [x])).mstore
+                        (EvmYul.UInt256.ofNat 64) (EvmYul.UInt256.ofNat 128)))
+                  (Inhabited.default : EvmYul.Yul.VarStore)).toState
+                (EvmYul.UInt256.ofNat 0))
+              (EvmYul.UInt256.ofNat 224))
+            (Inhabited.default : EvmYul.Yul.VarStore))) =
+        .error EvmYul.Yul.Exception.Revert := by
+  rw [sharedFor_inherited_mstore_mk_eq_expSharedAfterFreePtr_raw]
+  exact external_fun_wrap_expRayToWad_calldata_revert (x := x)
+    (store := Finmap.insert "selector"
+        (EvmYul.UInt256.shiftRight
+          (EvmYul.State.calldataload
+            (EvmYul.Yul.State.Ok (expSharedAfterFreePtr x)
+              (Inhabited.default : EvmYul.Yul.VarStore)).toState
+            (EvmYul.UInt256.ofNat 0))
+          (EvmYul.UInt256.ofNat 224))
+        (Inhabited.default : EvmYul.Yul.VarStore)) h1 h2
+
+set_option maxHeartbeats 8000000 in
+/-- **Supported-range revert.** For any input at or above the supported-range threshold (and below `2^255`),
+`expRayToWad` reverts: the EVM run of the `ExpWrapper` returns `.error "revert"`. -/
+theorem run_exp_ray_to_wad_evm_revert
+    (x : Nat)
+    (h1 : (0x8e383a2cdfa1b74a9422d2e1 : Nat) ≤ FormalYul.u256 x)
+    (h2 : FormalYul.u256 x < 2 ^ 255) :
+    run_exp_ray_to_wad_evm x = .error "revert" := by
+  have hexec :
+      EvmYul.Yul.exec 999998 yulContract.dispatcher (.some yulContract)
+        (stateFor yulContract (FormalYul.calldata selector_expRayToWad [x])) =
+        .error EvmYul.Yul.Exception.Revert := by
+    rw [yulContract_dispatcher]
+    simp +decide [FormalYul.calldata, stateFor, yulDispatcher,
+      EvmYul.Yul.execCall.eq_def, EvmYul.Yul.execPrimCall.eq_def,
+      EvmYul.Yul.evalPrimCall.eq_def, EvmYul.Yul.reverse', EvmYul.Yul.cons',
+      EvmYul.Yul.head', EvmYul.Yul.multifill', EvmYul.Yul.evalTail.eq_def,
+      EvmYul.Yul.State.insert, EvmYul.Yul.State.multifill,
+      EvmYul.Yul.State.executionEnv, EvmYul.Yul.State.toMachineState,
+      FormalYul.word, call_shift_right_224_unsigned_direct]
+    rw [selectSwitchCase_expRayToWad_sharedFor_mk_raw x]
+    simp +decide [external_fun_wrap_expRayToWad_dispatcher_state_revert x h1 h2,
+      EvmYul.Yul.exec.eq_def, EvmYul.Yul.execCall.eq_def,
+      EvmYul.Yul.reverse', EvmYul.Yul.multifill']
+  have hrun :
+      runContract yulContract (FormalYul.calldata selector_expRayToWad [x]) 1000000 =
+        .error "revert" :=
+    runContract_revert_of_exec_revert hexec
+  unfold run_exp_ray_to_wad_evm FormalYul.callWord FormalYul.call
+  rw [hrun]
+  rfl
 
 end ExpYul
