@@ -180,4 +180,44 @@ theorem int256_tArg {x : Nat} (hx : x < 2 ^ 256)
   · rw [hmul1, hmul2]; simp only [ipow255]; nlinarith [hxr, hxr0, hklo, hkhi]
   · rw [hmul1, hmul2]; simp only [ipow255]; nlinarith [hxr, hxr0, hklo, hkhi]
 
+/-- The `t`-reduction shift argument is a valid word. -/
+theorem tArg_lt {x : Nat} :
+    evmSub (evmMul 0x279d346de4781f921dd7a89933d54d1f72928 x)
+        (evmMul 0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d (kTree x))
+      < 2 ^ 256 := evmSub_lt _ _
+
+/-- `t = sar(107, tArg)` floor sandwich: `2^107·t ≤ K27·x − LN2·k < 2^107·t + 2^107`. -/
+theorem tTree_sandwich {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    (2 ^ 107 : Int) * int256 (tTree x) ≤
+        0x279d346de4781f921dd7a89933d54d1f72928 * int256 x -
+          0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d * int256 (kTree x) ∧
+      0x279d346de4781f921dd7a89933d54d1f72928 * int256 x -
+          0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d * int256 (kTree x) <
+        (2 ^ 107 : Int) * int256 (tTree x) + 2 ^ 107 := by
+  unfold tTree
+  obtain ⟨_, hlo, hhi⟩ := evmSar_sandwich (s := 0x6b) (by norm_num) (tArg_lt (x := x))
+  rw [int256_tArg hx hC hC0] at hlo hhi
+  exact ⟨by simpa using hlo, by simpa using hhi⟩
+
+/-- Within a fixed octave (`k` constant), `t` is nondecreasing in the signed input
+(`K27 > 0`, and the floor of an increasing affine map is monotone). -/
+theorem tTree_mono_sameOctave {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
+    (hC1 : int256 Cmask < int256 x1) (hC01 : int256 x1 < int256 C0thresh)
+    (hC2 : int256 Cmask < int256 x2) (hC02 : int256 x2 < int256 C0thresh)
+    (hk : int256 (kTree x1) = int256 (kTree x2)) (hle : int256 x1 ≤ int256 x2) :
+    int256 (tTree x1) ≤ int256 (tTree x2) := by
+  obtain ⟨hlo1, hhi1⟩ := tTree_sandwich hx1 hC1 hC01
+  obtain ⟨hlo2, hhi2⟩ := tTree_sandwich hx2 hC2 hC02
+  rw [hk] at hlo1 hhi1
+  have hk27 : (0 : Int) < 0x279d346de4781f921dd7a89933d54d1f72928 := by norm_num
+  have hargle : 0x279d346de4781f921dd7a89933d54d1f72928 * int256 x1 -
+        0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d * int256 (kTree x2) ≤
+      0x279d346de4781f921dd7a89933d54d1f72928 * int256 x2 -
+        0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d * int256 (kTree x2) := by
+    have := mul_le_mul_left_nonneg hle (le_of_lt hk27)
+    omega
+  have hpow : (0 : Int) < 2 ^ 107 := by norm_num
+  nlinarith [hlo1, hhi2, hargle, hpow]
+
 end ExpYul
