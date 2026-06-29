@@ -1,5 +1,6 @@
 import ExpProof.Mono.Top
 import ExpProof.Mono.Octave
+import ExpProof.Mono.Seam
 
 /-!
 # Mono facade
