@@ -1,0 +1,71 @@
+import ExpProof.Mono.Octave
+import Mathlib.Tactic.IntervalCases
+
+/-!
+# The reduced argument stays in the cert domain `[−H128, H128]`
+
+The reduced-argument Taylor caps (`Floor.Caps`) are certified over `t ∈ [0, H128]` with
+`H128 = ⌊ln2/2 · 2¹²⁸⌋`. To instantiate them at the runtime reduced argument `t = tTree x` we
+need `|tTree x| ≤ H128` on the meaningful region.
+
+This is the integer-`k` fact the experiments flagged: a real linear-program relaxation of the
+octave/reduced-argument sandwiches is unbounded (it decouples `k` from `x`), but the *integer*
+`k`-rounding sandwich `2²⁰⁰·k ≤ 2¹⁹⁹ + CINV·x < 2²⁰⁰·k + 2²⁰⁰` ties `k` to `x` tightly enough that
+the maximum of the reduction argument `K27·x − LN2·k` over the integer region is strictly below
+`2¹⁰⁷·(H128 + 1)` (and symmetrically above `−2¹⁰⁷·(H128 + 1)`). `omega` discharges the resulting
+linear-integer system — it performs the per-`k`-band case analysis internally.
+-/
+
+namespace ExpYul
+
+open FormalYul
+open FormalYul.Preservation
+
+set_option maxRecDepth 100000
+
+/-- On the meaningful region the reduced argument lands in the certificate domain:
+`-H128 ≤ tTree x ≤ H128` (as signed integers), where `H128 = ⌊ln2/2 · 2¹²⁸⌋`. -/
+theorem tTree_in_cert_domain {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
+    -(117932881612756647068972071382077242199 : Int) ≤ int256 (tTree x) ∧
+      int256 (tTree x) ≤ 117932881612756647068972071382077242199 := by
+  obtain ⟨htlo, hthi⟩ := tTree_sandwich hx hC hC0
+  obtain ⟨hklo, hkhi⟩ := kTree_sandwich hx hC hC0
+  obtain ⟨hxlo, hxhi⟩ := region_x_bound hC hC0
+  obtain ⟨hkblo, hkbhi⟩ := kTree_bound hx hC hC0
+  -- region endpoints as decimals
+  have hCi : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
+  have hC0i : int256 C0thresh = 44014845965556527147994239713 := by
+    unfold C0thresh int256; norm_num
+  rw [hCi] at hC
+  rw [hC0i] at hC0
+  -- constants as decimals
+  have hK27 : (0x279d346de4781f921dd7a89933d54d1f72928 : Int) =
+      55213970774324510299478046898216203619608872 := by norm_num
+  have hLN2 : (0x58b90bfbe8e7bcd5e4f1d9cc01f97b57a079a193394c5b16c5068badc5d : Int) =
+      38271408169742254668347313025622401492114385419650052359639581444463709 := by norm_num
+  have hCINV : (0x724d54edbacbebbb95c52a0f6076 : Int) = 2318321547468254865173387471183990 := by
+    norm_num
+  rw [hK27, hLN2] at htlo hthi
+  rw [hCINV] at hklo hkhi
+  set t := int256 (tTree x) with htdef
+  set k := int256 (kTree x) with hkdef
+  set X := int256 x with hXdef
+  -- powers of two as decimals
+  have p107 : (2 : Int) ^ 107 = 162259276829213363391578010288128 := by norm_num
+  have p199 : (2 : Int) ^ 199 =
+      803469022129495137770981046170581301261101496891396417650688 := by norm_num
+  have p200 : (2 : Int) ^ 200 =
+      1606938044258990275541962092341162602522202993782792835301376 := by norm_num
+  have pH : (117932881612756647068972071382077242199 : Int) =
+      117932881612756647068972071382077242199 := rfl
+  rw [p107] at htlo hthi
+  rw [p199, p200] at hklo hkhi
+  clear_value k
+  -- For each fixed integer octave index `k ∈ [−61, 63]` the band of consistent `x` together with
+  -- the reduction sandwich pins `t` to the cert domain; `omega` closes each band (the coupling is
+  -- linear in `x` and `t` once `k` is a literal).
+  clear htdef hXdef hkdef hCi hC0i hK27 hLN2 hCINV pH p107 p199 p200 hx hxlo hxhi
+  interval_cases k <;> constructor <;> omega
+
+end ExpYul
