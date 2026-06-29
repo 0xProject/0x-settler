@@ -1408,7 +1408,7 @@ brackets valid for every meaningful-region input. -/
 theorem r0_real_over {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
     (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) + 152 := by
-  rcases le_or_lt 0 (int256 (tTree x)) with htnn | htneg
+  rcases le_or_gt 0 (int256 (tTree x)) with htnn | htneg
   · linarith [r0_real_over_loose hx hC hC0 htnn]
   · exact r0_real_over_loose_neg hx hC hC0 (le_of_lt htneg)
 
@@ -1416,7 +1416,7 @@ theorem r0_real_over {x : Nat} (hx : x < 2 ^ 256)
 theorem r0_real_under {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
     (2 ^ 126 : Real) * Real.exp (reducedArg x) ≤ (int256 (r0Tree x) : Real) + 705 := by
-  rcases le_or_lt 0 (int256 (tTree x)) with htnn | htneg
+  rcases le_or_gt 0 (int256 (tTree x)) with htnn | htneg
   · exact r0_real_under_loose hx hC hC0 htnn
   · exact r0_real_under_loose_neg hx hC hC0 (le_of_lt htneg)
 
