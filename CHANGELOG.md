@@ -9,6 +9,7 @@
 * Add UniswapV3 UniV3 fork on RobinHood chain
 * Add UniswapV4 actions to RobinHood chain
 * Add EkuboV3 actions on RobinHood chain
+* Add PancakeSwapV3 UniV3 fork on RobinHood chain
 
 ## 2026-06-03
 

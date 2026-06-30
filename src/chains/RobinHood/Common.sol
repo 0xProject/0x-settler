@@ -19,6 +19,12 @@ import {
     uniswapV3ForkId,
     IUniswapV3Callback
 } from "../../core/univ3forks/UniswapV3.sol";
+import {
+    pancakeSwapV3Factory,
+    pancakeSwapV3InitHash,
+    pancakeSwapV3ForkId,
+    IPancakeSwapV3Callback
+} from "../../core/univ3forks/PancakeSwapV3.sol";
 import {ROBINHOOD_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
 
 import {FastLogic} from "../../utils/FastLogic.sol";
@@ -77,6 +83,10 @@ abstract contract RobinHoodMixin is FreeMemory, SettlerBase, UniswapV4, EkuboV3 
             factory = uniswapV3RobinhoodFactory;
             initHash = uniswapV3InitHash;
             callbackSelector = uint32(IUniswapV3Callback.uniswapV3SwapCallback.selector);
+        } else if (forkId == pancakeSwapV3ForkId) {
+            factory = pancakeSwapV3Factory;
+            initHash = pancakeSwapV3InitHash;
+            callbackSelector = uint32(IPancakeSwapV3Callback.pancakeV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
