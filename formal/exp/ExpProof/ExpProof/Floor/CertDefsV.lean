@@ -22,7 +22,7 @@ cleared scale `2^1193` and `odNumVPoly` accumulates `Od` to `2^1042`; `t·Od` (l
 numerator/denominator are degree 10.
 
 The cut is the standard `Common.Exp.capUB_of_partial`/`capLB` shape at Taylor depth `K = 27`, nudging
-the rational by a dyadic margin (`yUB/wUB = ê_v·(1 + 2⁻¹²⁰)`, `yLB/wLB = ê_v·(1 − 2⁻¹²⁶)`); the
+the rational by a dyadic margin (`yUB/wUB = ê_v·(1 + 2⁻¹³⁰)`, `yLB/wLB = ê_v·(1 − 2⁻¹³⁰)`); the
 verified envelope `2¹²⁶·|ê_v − exp(t/2¹²⁸)| ≤ 0.057` ulp is far inside those margins.
 -/
 

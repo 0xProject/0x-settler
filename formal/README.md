@@ -1,6 +1,6 @@
 # Formal Verification
 
-Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler. The public runtime correctness theorem surface is pinned to Lean's standard axioms `propext`, `Classical.choice`, and `Quot.sound`. This is enforced in CI by a `#guard_msgs` axiom gate (in each proof's `AxiomCheck.lean`, or `Theorems.lean` for `ln`); the build fails if any gated theorem's axiom set changes.
+Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler. The public runtime correctness theorem surface is pinned to Lean's standard axioms `propext`, `Classical.choice`, and `Quot.sound`. This is enforced in CI by a `#guard_msgs` axiom gate (in each proof's `AxiomCheck.lean`, or `Theorems.lean` for `ln` and `exp`); the build fails if any gated theorem's axiom set changes.
 
 ## Scope
 
@@ -11,6 +11,7 @@ Machine-checked Lean 4 correctness proofs for root math libraries in 0x Settler.
 | `cbrt/CbrtProof` | `src/vendor/Cbrt.sol` | `_cbrt`, `cbrt`, `cbrtUp` correct on uint256 |
 | `cbrt/Cbrt512Proof` | `src/utils/512Math.sol` | `_cbrt` (512-bit) correct: `cbrt(x_hi * 2^256 + x_lo) = icbrt(x)` |
 | `ln/LnProof` | `src/vendor/Ln.sol` | `lnWadToRay`, `lnWad` correct vs. `Real.log`, monotone, with a 1.6986-ulp error bound |
+| `exp/ExpProof` | `src/vendor/Exp.sol` | `expRayToWad` correct vs. `Real.exp`: never over, floor-or-one-less, monotone, and the central `lnWadToRay` round trip |
 
 ## Method
 
@@ -76,4 +77,17 @@ cd formal/cbrt/Cbrt512Proof && \
 
 cd formal/ln/LnProof && \
   lake build LnProof.LnYulRuntime LnProof.LnYulProof
+
+# --- exp ---
+./formal/yul/generate_from_forge.sh \
+  exp \
+  src/wrappers/ExpWrapper.sol:ExpWrapper \
+  formal/exp/ExpProof/ExpProof/ExpYul.lean \
+  0.8.34
+
+cd formal/exp/ExpProof && \
+  lake build ExpProof.ExpYulRuntime ExpProof.ExpYulProof && \
+  lake build ExpProof.Floor.CertDefsV Common.Foundation.KroneckerShift && \
+  lake env lean GenExpVLit.lean && \
+  lake build
 ```
