@@ -84,20 +84,20 @@ theorem seamStep_of_r0 (hr0 : SeamR0Bound) {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (h
   obtain ⟨harg1eq, _, _⟩ := shiftArg_bounds_of (r0 := r0Tree x1) (r0Tree_lt x1) hr0lo1 hr0hi1
   obtain ⟨harg2eq, _, _⟩ := shiftArg_bounds_of (r0 := r0Tree x2) (r0Tree_lt x2) hr0lo2 hr0hi2
   have hr1eq1 : r1Tree x1 =
-      evmSar s1 (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0xafe527e18748a8a) := by
+      evmSar s1 (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0x9fe769d0fa58e9f) := by
     unfold r1Tree; rw [hs1eq]
   have hr1eq2 : r1Tree x2 =
-      evmSar s2 (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0xafe527e18748a8a) := by
+      evmSar s2 (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0x9fe769d0fa58e9f) := by
     unfold r1Tree; rw [hs2eq]
   rw [hr1eq1, hr1eq2]
   -- name the deep shift arguments opaquely before feeding the floor lemma
-  set arg1 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0xafe527e18748a8a with harg1def
-  set arg2 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0xafe527e18748a8a with harg2def
+  set arg1 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0x9fe769d0fa58e9f with harg1def
+  set arg2 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0x9fe769d0fa58e9f with harg2def
   have hr0bound : int256 (r0Tree x1) < 2 * int256 (r0Tree x2) :=
     hr0 hx1 hx2 hC1 hC01 hC2 hC02 hk hadj
   have hargle : int256 arg1 ≤ 2 * int256 arg2 := by
     rw [harg1eq, harg2eq, show (0xde0b6b3a7640000 : Int) = 1000000000000000000 by norm_num,
-      show (0xafe527e18748a8a : Int) = 792161285993433738 by norm_num]
+      show (0x9fe769d0fa58e9f : Int) = 720143407370309279 by norm_num]
     -- `WAD·r0a − M ≤ 2·(WAD·r0b − M)` ⟸ `WAD·r0a + M ≤ 2·WAD·r0b` ⟸ `r0a ≤ 2·r0b − 1` and `M ≤ WAD`
     nlinarith [hr0bound]
   exact seam_close (harg1def ▸ evmSub_lt _ _) (harg2def ▸ evmSub_lt _ _) hs1lt hs2lt hseq hargle

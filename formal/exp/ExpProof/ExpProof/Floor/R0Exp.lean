@@ -1165,13 +1165,17 @@ theorem den_ge_072 {x : Nat} (hx : x < 2 ^ 256)
   rw [show (2:Int)^125 = 42535295865117307932921825928971026432 from by norm_num] at ht125
   omega
 
-/-- **The joint per-point never-over (nonneg half).** `r0 ≤ 2¹²⁶·exp(rt) + 19/25` — within the
-`MARGIN/WAD = 0.792` budget. Combines the joint cert-ratio over (the shared even truncation cancels
-via the floor), `exp(t/2¹²⁸) ≤ √2`, `den ≥ 0.72·2¹²⁶`, and the tight one-sided gap-1. -/
+/-- **The joint per-point never-over (nonneg half).** `r0 ≤ 2¹²⁶·exp(rt) + 7201434073703092789/10000000000000000000` — within
+the `MARGIN/WAD ≈ 0.72014341` budget. Combines the joint cert-ratio over (the shared even truncation
+cancels via the floor), `exp(t/2¹²⁸) ≤ √2`, `den ≥ 0.72·2¹²⁶`, and the tight one-sided gap-1. The
+three contributions are bounded at their suprema: the Horner/`sdiv` truncation jitter
+(`≤ 6207065162659510332/10¹⁹`, the dominant ≈0.62 term), the rational `Mp` factor
+(`≤ 883883476483184406/10¹⁹`, `√2`-driven via `hsqrt2_hi`), and the reduced-argument gap
+(`≤ 110485434560398051/10¹⁹`, likewise). -/
 theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
     (htnn : 0 ≤ int256 (tTree x)) :
-    (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) + 19 / 25 := by
+    (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) + 7201434073703092789 / 10000000000000000000 := by
   obtain ⟨_, hthi⟩ := tTree_in_cert_domain hx hC hC0
   set t := int256 (tTree x) with htdef
   have htdom : t ≤ (ExpCertV.H128 : Int) := by
@@ -1244,8 +1248,13 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
           apply mul_le_mul_of_nonneg_left (le_of_lt hdenhiR)
           rw [hMpdef]; positivity
       _ = (2 ^ 1193 : Real) * (Real.sqrt 2 * Mp * ((den : Real) + 3)) := by ring
-  -- √2 ≤ 14143/10000 (since (14143/10000)² > 2)
+  -- √2 ≤ 14143/10000 (since (14143/10000)² > 2); the coarse bound feeds the `den ≥ 0.72` /
+  -- `√2·Mp ≤ 14144/10000` step. A high-precision companion bound (its square also exceeds 2) drives
+  -- the gap-1 and `Mp`-factor terms down to their irrational suprema, so their ceilings carry no
+  -- avoidable slack.
   have hsqrt2_val : Real.sqrt 2 ≤ 14143 / 10000 := by
+    rw [Real.sqrt_le_iff]; constructor <;> norm_num
+  have hsqrt2_hi : Real.sqrt 2 ≤ 141421356237309504880168872421 / 100000000000000000000000000000 := by
     rw [Real.sqrt_le_iff]; constructor <;> norm_num
   have hsqrt2_nn : (0:Real) ≤ Real.sqrt 2 := Real.sqrt_nonneg _
   -- Mp ≤ 14143/10000 ⁻¹ ... we need √2·Mp ≤ 14144/10000 (a hair above √2; Mp = 1 + 1/(2^130−1))
@@ -1294,9 +1303,9 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
     rw [hdendef, hDEdef]; push_cast; linarith [h]
   -- cR term: W_ev·(r0−2^126)/DE ≤ 64/100  (provable ≈ 0.62)
   have hr0m_nn : (0:Real) ≤ (r0 : Real) - 2 ^ 126 ∨ (r0 : Real) - 2 ^ 126 < 0 := le_or_gt _ _ |>.imp_left id
-  have hcR : (1130577 : Real) * 2 ^ 1173 * ((r0 : Real) - 2 ^ 126) / (DE : Real) ≤ 64 / 100 := by
+  have hcR : (1130577 : Real) * 2 ^ 1173 * ((r0 : Real) - 2 ^ 126) / (DE : Real) ≤ 6207065162659510332 / 10000000000000000000 := by
     rcases le_or_gt ((r0:Real) - 2^126) 0 with hle0 | hgt0
-    · -- numerator ≤ 0, so the fraction ≤ 0 ≤ 64/100
+    · -- numerator ≤ 0, so the fraction ≤ 0 ≤ 621/1000
       have hnumneg : (1130577 : Real) * 2 ^ 1173 * ((r0 : Real) - 2 ^ 126) ≤ 0 :=
         mul_nonpos_of_nonneg_of_nonpos (by positivity) hle0
       have : (1130577 : Real) * 2 ^ 1173 * ((r0 : Real) - 2 ^ 126) / (DE : Real) ≤ 0 :=
@@ -1304,36 +1313,36 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
       linarith [this]
     · -- 0 < r0−2^126 ≤ 2^126·4145/10000; DE ≥ 2^1193(den−32) > 0 with den ≥ 0.72·2^126
       rw [div_le_iff₀ hDEpos]
-      -- W_ev·(r0−2^126) ≤ (64/100)·DE.  W_ev = 1130577·2^1173.  use DE ≥ 2^1193(den−32).
+      -- W_ev·(r0−2^126) ≤ (621/1000)·DE.  W_ev = 1130577·2^1173.  use DE ≥ 2^1193(den−32).
       have hnum_le : (1130577 : Real) * 2 ^ 1173 * ((r0 : Real) - 2 ^ 126) ≤
           1130577 * 2 ^ 1173 * ((2 ^ 126 : Real) * 4145 / 10000) :=
         mul_le_mul_of_nonneg_left hr0m_bound (by positivity)
-      -- (64/100)·DE ≥ (64/100)·2^1193·(den−32); need W_ev·2^126·4145/10000 ≤ (64/100)·2^1193·(den−32)
+      -- (621/1000)·DE ≥ (621/1000)·2^1193·(den−32); need W_ev·2^126·4145/10000 ≤ (621/1000)·2^1193·(den−32)
       have hbudget : (1130577 : Real) * 2 ^ 1173 * ((2 ^ 126 : Real) * 4145 / 10000) ≤
-          (64 / 100) * ((2 ^ 1193 : Real) * (den : Real) - 32 * 2 ^ 1193) := by
-        -- both sides are (·)·2^1193.  LHS = (1130577·4145/10000·2^106)·2^1193; RHS = (64/100·(den−32))·2^1193
+          (6207065162659510332 / 10000000000000000000) * ((2 ^ 1193 : Real) * (den : Real) - 32 * 2 ^ 1193) := by
+        -- both sides are (·)·2^1193.  LHS = (1130577·4145/10000·2^106)·2^1193; RHS = (621/1000·(den−32))·2^1193
         have hLHS : (1130577 : Real) * 2 ^ 1173 * ((2 ^ 126 : Real) * 4145 / 10000) =
             (1130577 * 4145 / 10000 * 2 ^ 106) * 2 ^ 1193 := by
           have e1 : (2:Real) ^ 1173 * 2 ^ 126 = 2 ^ 106 * 2 ^ 1193 := by
             rw [← pow_add, ← pow_add]
           linear_combination (1130577 * 4145 / 10000) * e1
-        have hRHS : (64 / 100 : Real) * ((2 ^ 1193 : Real) * (den : Real) - 32 * 2 ^ 1193) =
-            (64 / 100 * ((den : Real) - 32)) * 2 ^ 1193 := by ring
+        have hRHS : (6207065162659510332 / 10000000000000000000 : Real) * ((2 ^ 1193 : Real) * (den : Real) - 32 * 2 ^ 1193) =
+            (6207065162659510332 / 10000000000000000000 * ((den : Real) - 32)) * 2 ^ 1193 := by ring
         rw [hLHS, hRHS]
         have hp : (0:Real) < (2 ^ 1193 : Real) := by positivity
         rw [mul_le_mul_right hp]
         have h106 : (1130577 * 4145 / 10000 * 2 ^ 106 : Real) ≤
-            64 / 100 * (61251667550081741634933722430035858604 - 32) := by
+            6207065162659510332 / 10000000000000000000 * (61251667550081741634933722430035858604 - 32) := by
           rw [show (2:Real) ^ 106 = 81129638414606681695789005144064 from by norm_num]; norm_num
         nlinarith [h106, hden072R]
       calc (1130577 : Real) * 2 ^ 1173 * ((r0 : Real) - 2 ^ 126)
           ≤ 1130577 * 2 ^ 1173 * ((2 ^ 126 : Real) * 4145 / 10000) := hnum_le
-        _ ≤ (64 / 100) * ((2 ^ 1193 : Real) * (den : Real) - 32 * 2 ^ 1193) := hbudget
-        _ ≤ (64 / 100) * (DE : Real) := mul_le_mul_of_nonneg_left hDElo32 (by norm_num)
-  -- r0 ≤ 2^126·NE/DE + 64/100 (case-split: small ⟹ r0·DE ≤ 2^126·NE; big ⟹ joint + hcR)
-  have hr0_div : (r0 : Real) ≤ (2 ^ 126 : Real) * ((NE : Real) / (DE : Real)) + 64 / 100 := by
+        _ ≤ (6207065162659510332 / 10000000000000000000) * ((2 ^ 1193 : Real) * (den : Real) - 32 * 2 ^ 1193) := hbudget
+        _ ≤ (6207065162659510332 / 10000000000000000000) * (DE : Real) := mul_le_mul_of_nonneg_left hDElo32 (by norm_num)
+  -- r0 ≤ 2^126·NE/DE + 621/1000 (case-split: small ⟹ r0·DE ≤ 2^126·NE; big ⟹ joint + hcR)
+  have hr0_div : (r0 : Real) ≤ (2 ^ 126 : Real) * ((NE : Real) / (DE : Real)) + 6207065162659510332 / 10000000000000000000 := by
     rcases le_or_gt r0 (2^126) with hsm | hbg
-    · -- small: r0·DE ≤ 2^126·NE (r0_certRatio_over_small), so r0 ≤ 2^126·NE/DE ≤ … + 64/100
+    · -- small: r0·DE ≤ 2^126·NE (r0_certRatio_over_small), so r0 ≤ 2^126·NE/DE ≤ … + 621/1000
       have hi := r0_certRatio_over_small hx hC hC0 htnn hsm
       have hiR : (r0 : Real) * (DE : Real) ≤ (2 ^ 126 : Real) * (NE : Real) := by
         have := (@Int.cast_le Real _ _ _ _ _ _ _).mpr hi; push_cast at this; linarith [this]
@@ -1352,21 +1361,21 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
       linarith [hstep, hcR]
   -- 2^126·NE/DE ≤ 2^126·Et·Mp = 2^126·Et + 2^126·Et·(Mp−1); cMp = 2^126·Et·(Mp−1) ≤ small
   have hMp1 : Mp - 1 = 1 / (2 ^ 130 - 1 : Real) := by rw [hMpdef]; field_simp
-  have hcMp : (2 ^ 126 : Real) * Et * (Mp - 1) ≤ 1 / 10 := by
+  have hcMp : (2 ^ 126 : Real) * Et * (Mp - 1) ≤ 883883476483184406 / 10000000000000000000 := by
     rw [hMp1]
     have hb : (2 ^ 126 : Real) * Et * (1 / (2 ^ 130 - 1 : Real)) ≤
         (2 ^ 126 : Real) * Real.sqrt 2 * (1 / (2 ^ 130 - 1 : Real)) := by
       apply mul_le_mul_of_nonneg_right _ (by positivity)
       exact mul_le_mul_of_nonneg_left hEtsqrt2 (by positivity)
-    have hn : (2 ^ 126 : Real) * Real.sqrt 2 * (1 / (2 ^ 130 - 1 : Real)) ≤ 1 / 10 := by
+    have hn : (2 ^ 126 : Real) * Real.sqrt 2 * (1 / (2 ^ 130 - 1 : Real)) ≤ 883883476483184406 / 10000000000000000000 := by
       rw [mul_one_div, div_le_div_iff₀ (by norm_num) (by norm_num)]
-      nlinarith [hsqrt2_val, hsqrt2_nn]
+      nlinarith [hsqrt2_hi, hsqrt2_nn]
     linarith [hb, hn]
   -- gap1: Et − exp(rt) ≤ (t/2^128 − rt)·Et < (1/(32·2^128))·Et ≤ (1/(32·2^128))·√2
   set Ert := Real.exp (reducedArg x) with hErtdef
   have hgapover := reducedArg_close_over hx hC hC0
   have hExp_diff : Et - Ert ≤ ((t : Real) / (2 ^ 128 : Real) - reducedArg x) * Et := exp_diff_le _ _
-  have hcGap1 : (2 ^ 126 : Real) * (Et - Ert) ≤ 1 / 50 := by
+  have hcGap1 : (2 ^ 126 : Real) * (Et - Ert) ≤ 110485434560398051 / 10000000000000000000 := by
     have h1 : Et - Ert ≤ (1 / (32 * (2 ^ 128 : Real))) * Et :=
       le_trans hExp_diff (mul_le_mul_of_nonneg_right (le_of_lt hgapover) hEtnn)
     have h2 : (2 ^ 126 : Real) * (Et - Ert) ≤ (2 ^ 126 : Real) * ((1 / (32 * (2 ^ 128 : Real))) * Et) :=
@@ -1374,11 +1383,11 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
     have h3 : (2 ^ 126 : Real) * ((1 / (32 * (2 ^ 128 : Real))) * Et) ≤
         (2 ^ 126 : Real) * ((1 / (32 * (2 ^ 128 : Real))) * Real.sqrt 2) :=
       mul_le_mul_of_nonneg_left (mul_le_mul_of_nonneg_left hEtsqrt2 (by positivity)) (by positivity)
-    have h4 : (2 ^ 126 : Real) * ((1 / (32 * (2 ^ 128 : Real))) * Real.sqrt 2) ≤ 1 / 50 := by
+    have h4 : (2 ^ 126 : Real) * ((1 / (32 * (2 ^ 128 : Real))) * Real.sqrt 2) ≤ 110485434560398051 / 10000000000000000000 := by
       rw [show (2 ^ 126 : Real) * ((1 / (32 * (2 ^ 128 : Real))) * Real.sqrt 2) =
             Real.sqrt 2 * (2 ^ 126 / (32 * 2 ^ 128)) from by ring]
       have : (2 ^ 126 : Real) / (32 * 2 ^ 128) = 1 / 128 := by norm_num
-      rw [this]; nlinarith [hsqrt2_val, hsqrt2_nn]
+      rw [this]; nlinarith [hsqrt2_hi, hsqrt2_nn]
     linarith [h2, h3, h4]
   -- assemble: r0 ≤ 2^126·(NE/DE) + 64/100 ≤ 2^126·Et·Mp + 64/100
   --   = 2^126·Et + 2^126·Et·(Mp−1) + 64/100 ≤ 2^126·Et + 1/10 + 64/100
@@ -1389,13 +1398,13 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
     have h := mul_le_mul_of_nonneg_left hNEDE_le (by positivity : (0:Real) ≤ (2 ^ 126 : Real))
     nlinarith [h]
   -- final
-  have hEtErt : (2 ^ 126 : Real) * Et ≤ (2 ^ 126 : Real) * Ert + 1 / 50 := by
+  have hEtErt : (2 ^ 126 : Real) * Et ≤ (2 ^ 126 : Real) * Ert + 110485434560398051 / 10000000000000000000 := by
     nlinarith [hcGap1]
-  calc (r0 : Real) ≤ (2 ^ 126 : Real) * ((NE : Real) / (DE : Real)) + 64 / 100 := hr0_div
-    _ ≤ ((2 ^ 126 : Real) * Et + (2 ^ 126 : Real) * Et * (Mp - 1)) + 64 / 100 := by linarith [hNEMp]
-    _ ≤ ((2 ^ 126 : Real) * Et + 1 / 10) + 64 / 100 := by linarith [hcMp]
-    _ ≤ (((2 ^ 126 : Real) * Ert + 1 / 50) + 1 / 10) + 64 / 100 := by linarith [hEtErt]
-    _ = (2 ^ 126 : Real) * Real.exp (reducedArg x) + 19 / 25 := by rw [hErtdef]; ring
+  calc (r0 : Real) ≤ (2 ^ 126 : Real) * ((NE : Real) / (DE : Real)) + 6207065162659510332 / 10000000000000000000 := hr0_div
+    _ ≤ ((2 ^ 126 : Real) * Et + (2 ^ 126 : Real) * Et * (Mp - 1)) + 6207065162659510332 / 10000000000000000000 := by linarith [hNEMp]
+    _ ≤ ((2 ^ 126 : Real) * Et + 883883476483184406 / 10000000000000000000) + 6207065162659510332 / 10000000000000000000 := by linarith [hcMp]
+    _ ≤ (((2 ^ 126 : Real) * Ert + 110485434560398051 / 10000000000000000000) + 883883476483184406 / 10000000000000000000) + 6207065162659510332 / 10000000000000000000 := by linarith [hEtErt]
+    _ = (2 ^ 126 : Real) * Real.exp (reducedArg x) + 7201434073703092789 / 10000000000000000000 := by rw [hErtdef]; ring
 
 
 
@@ -1982,7 +1991,8 @@ theorem r0_certRatio_over_neg {x : Nat} (hx : x < 2 ^ 256)
   rw [hid1]
   linarith [hterm1, hterm2, hfloor1193, hid2]
 
-/-- **The joint per-point never-over (negative half).** `r0 ≤ 2¹²⁶·exp(rt) + 19/25` for `t ≤ 0`. -/
+/-- **The joint per-point never-over (negative half).** `r0 ≤ 2¹²⁶·exp(rt) + 7201434073703092789/10000000000000000000` for `t ≤ 0`
+(the negative-half contributions sum to `1/128 + 1/16 + 64/100 = 0.7103`, comfortably inside it). -/
 
 theorem r0_certRatio_over_neg_bound {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
@@ -2127,7 +2137,7 @@ theorem r0_certRatio_over_neg_bound {x : Nat} (hx : x < 2 ^ 256)
 theorem r0_real_over_tight_neg {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh)
     (htneg : int256 (tTree x) ≤ 0) :
-    (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) + 19 / 25 := by
+    (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) + 7201434073703092789 / 10000000000000000000 := by
   have htdom := tdom_neg hx hC hC0 htneg
   set t := int256 (tTree x) with htdef
   have hDElb := denExpV_lb_neg hx hC hC0 htneg
@@ -2213,14 +2223,14 @@ theorem r0_real_over_tight_neg {x : Nat} (hx : x < 2 ^ 256)
     _ ≤ ((2 ^ 126 : Real) * Et + (2 ^ 126 : Real) * Et * (Mpp - 1)) + 64 / 100 := by linarith [hNEMp]
     _ ≤ ((2 ^ 126 : Real) * Et + 1 / 16) + 64 / 100 := by linarith [hcMp]
     _ ≤ (((2 ^ 126 : Real) * Ert + 1 / 128) + 1 / 16) + 64 / 100 := by linarith [hEtErt]
-    _ ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) + 19 / 25 := by
-        rw [hErtdef]; have : (1:Real)/128 + 1/16 + 64/100 ≤ 19/25 := by norm_num
+    _ ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) + 7201434073703092789 / 10000000000000000000 := by
+        rw [hErtdef]; have : (1:Real)/128 + 1/16 + 64/100 ≤ 7201434073703092789/10000000000000000000 := by norm_num
         linarith [this]
 
-/-- **Per-point never-over (tight, any sign):** `r0 ≤ 2¹²⁶·exp(rt) + 19/25` (≤ MARGIN/WAD). -/
+/-- **Per-point never-over (tight, any sign):** `r0 ≤ 2¹²⁶·exp(rt) + 7201434073703092789/10000000000000000000` (< MARGIN/WAD). -/
 theorem r0_real_over_within {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) + 19 / 25 := by
+    (int256 (r0Tree x) : Real) ≤ (2 ^ 126 : Real) * Real.exp (reducedArg x) + 7201434073703092789 / 10000000000000000000 := by
   rcases le_or_gt 0 (int256 (tTree x)) with htnn | htneg
   · exact r0_real_over_tight hx hC hC0 htnn
   · exact r0_real_over_tight_neg hx hC hC0 (le_of_lt htneg)

@@ -103,7 +103,8 @@ contract ExpTest is Test {
     }
 
     /// High-k inputs whose exact result sits just below an integer: the tightest points for the
-    /// never-overestimate guarantee, where the margin must cover the full reduction bias.
+    /// never-overestimate guarantee, where the over-side envelope (rational approximation plus the
+    /// Horner/sdiv truncation jitter) the margin must cover is largest, scaling as 2ᵏ.
     function testExpRayToWadNeverOverestimateHighK() external pure {
         int256[4] memory xs = [
             int256(44014845965556527147989858478),

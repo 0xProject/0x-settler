@@ -10,7 +10,7 @@ as `Int`) and the closing-shift value (`closing_shift`: the shift word is `126 �
 nonnegative), the never-over and deficit inequalities collapse to *octave-folded* `r0` bounds against
 the target.
 
-Writing `s = 126 − int256 (kTree x) ≥ 0`, `WAD = 10¹⁸`, `MARGIN = 0xafe527e18748a8a`, the algebra is:
+Writing `s = 126 − int256 (kTree x) ≥ 0`, `WAD = 10¹⁸`, `MARGIN = 0x9fe769d0fa58e9f`, the algebra is:
 
 ```
 accumReal x ≤ E   ⟺   WAD·r0 − MARGIN ≤ E·2^s
@@ -44,7 +44,7 @@ theorem accumReal_eq {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
     ∃ s : Nat, (s : Int) = 126 - int256 (kTree x) ∧
       accumReal x =
-        ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - (792161285993433738 : Real)) /
+        ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - (720143407370309279 : Real)) /
           (2 ^ s : Real) := by
   obtain ⟨s, hseq, _, _, hsint⟩ := closing_shift hx hC hC0
   obtain ⟨hr0lo, hr0hi⟩ := r0Tree_bounds hx hC hC0
@@ -54,7 +54,7 @@ theorem accumReal_eq {x : Nat} (hx : x < 2 ^ 256)
   rw [hseq]
   -- the integer shift argument has the closed value `WAD·r0 − MARGIN`
   have hwadc : (0xde0b6b3a7640000 : Int) = 1000000000000000000 := by norm_num
-  have hmarc : (0xafe527e18748a8a : Int) = 792161285993433738 := by norm_num
+  have hmarc : (0x9fe769d0fa58e9f : Int) = 720143407370309279 := by norm_num
   rw [hargeq, hwadc, hmarc]
   push_cast
   ring
@@ -69,13 +69,13 @@ structure RuntimeR0Bound : Prop where
   /-- Never over: `WAD·r0 − MARGIN ≤ E·2^(126 − k)`. -/
   over : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
     ∀ s : Nat, (s : Int) = 126 - int256 (kTree x) →
-      (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 792161285993433738 ≤
+      (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 720143407370309279 ≤
         expRayToWadTarget (int256 x) * (2 ^ s : Real)
   /-- Deficit under one: `E·2^(126 − k) < WAD·r0 − MARGIN + 2^(126 − k)`. -/
   under : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
     ∀ s : Nat, (s : Int) = 126 - int256 (kTree x) →
       expRayToWadTarget (int256 x) * (2 ^ s : Real) <
-        (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 792161285993433738 + (2 ^ s : Real)
+        (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 720143407370309279 + (2 ^ s : Real)
   /-- Below the clamp boundary `E < 1` (carried through verbatim). -/
   belowC : ∀ x : Nat, int256 x ≤ int256 Cmask → expRayToWadTarget (int256 x) < 2
 
@@ -96,11 +96,11 @@ theorem runtimeAccumBound_of_r0 (H : RuntimeR0Bound) : RuntimeAccumBound where
     rw [hAeq]
     -- `E < arg/2^s + 1`  ⟺  `E·2^s < arg + 2^s`
     have key : expRayToWadTarget (int256 x) * (2 ^ s : Real) <
-        ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 792161285993433738) + (2 ^ s : Real) :=
+        ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 720143407370309279) + (2 ^ s : Real) :=
       hb
-    have hdiv : ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 792161285993433738) /
+    have hdiv : ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 720143407370309279) /
         (2 ^ s : Real) + 1 =
-        (((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 792161285993433738) + (2 ^ s : Real)) /
+        (((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 720143407370309279) + (2 ^ s : Real)) /
           (2 ^ s : Real) := by
       field_simp
     rw [hdiv, lt_div_iff₀ hps]

@@ -58,17 +58,17 @@ theorem closing_shift {x : Nat} (hx : x < 2 ^ 256)
 its signed value is in `[WAD − MARGIN, 2^188)`, in particular nonnegative and below `2^188`. -/
 theorem shiftArg_bounds_of {r0 : Nat} (hr0w : r0 < 2 ^ 256)
     (hr0_lo : 1 ≤ int256 r0) (hr0_hi : int256 r0 < 2 ^ 128) :
-    int256 (evmSub (evmMul 0xde0b6b3a7640000 r0) 0xafe527e18748a8a) =
-        0xde0b6b3a7640000 * int256 r0 - 0xafe527e18748a8a ∧
-      0 ≤ 0xde0b6b3a7640000 * int256 r0 - 0xafe527e18748a8a ∧
-      0xde0b6b3a7640000 * int256 r0 - 0xafe527e18748a8a < 2 ^ 188 := by
+    int256 (evmSub (evmMul 0xde0b6b3a7640000 r0) 0x9fe769d0fa58e9f) =
+        0xde0b6b3a7640000 * int256 r0 - 0x9fe769d0fa58e9f ∧
+      0 ≤ 0xde0b6b3a7640000 * int256 r0 - 0x9fe769d0fa58e9f ∧
+      0xde0b6b3a7640000 * int256 r0 - 0x9fe769d0fa58e9f < 2 ^ 188 := by
   have hwad : int256 (0xde0b6b3a7640000 : Nat) = 0xde0b6b3a7640000 := by
     rw [int256_of_lt (by norm_num)]; simp
   have hwadlt : (0xde0b6b3a7640000 : Nat) < 2 ^ 256 := by norm_num
   have hp128 : (2:Int)^128 = 340282366920938463463374607431768211456 := by norm_num
   have hp188 : (2:Int)^188 = 392318858461667547739736838950479151006397215279002157056 := by norm_num
   have hwadc : (0xde0b6b3a7640000 : Int) = 1000000000000000000 := by norm_num
-  have hmarc : (0xafe527e18748a8a : Int) = 792161285993433738 := by norm_num
+  have hmarc : (0x9fe769d0fa58e9f : Int) = 720143407370309279 := by norm_num
   rw [hp128] at hr0_hi
   -- the product WAD·r0 transported
   have hmul : int256 (evmMul 0xde0b6b3a7640000 r0) = 0xde0b6b3a7640000 * int256 r0 := by
@@ -77,12 +77,12 @@ theorem shiftArg_bounds_of {r0 : Nat} (hr0w : r0 < 2 ^ 256)
       (by rw [hwad, hwadc]; simp only [ipow255]; nlinarith [hr0_lo, hr0_hi])
     rw [hwad] at this; exact this
   have hmullt : evmMul 0xde0b6b3a7640000 r0 < 2 ^ 256 := evmMul_lt _ _
-  have hmarlt : (0xafe527e18748a8a : Nat) < 2 ^ 256 := by norm_num
-  have hmari : int256 (0xafe527e18748a8a : Nat) = 0xafe527e18748a8a := by
+  have hmarlt : (0x9fe769d0fa58e9f : Nat) < 2 ^ 256 := by norm_num
+  have hmari : int256 (0x9fe769d0fa58e9f : Nat) = 0x9fe769d0fa58e9f := by
     rw [int256_of_lt (by norm_num)]; simp
   -- transport the subtraction
-  have hsub : int256 (evmSub (evmMul 0xde0b6b3a7640000 r0) 0xafe527e18748a8a) =
-      0xde0b6b3a7640000 * int256 r0 - 0xafe527e18748a8a := by
+  have hsub : int256 (evmSub (evmMul 0xde0b6b3a7640000 r0) 0x9fe769d0fa58e9f) =
+      0xde0b6b3a7640000 * int256 r0 - 0x9fe769d0fa58e9f := by
     have := evmSub_transport hmullt hmarlt
       (by rw [hmul, hmari, hwadc, hmarc]; simp only [ipow255]; nlinarith [hr0_lo, hr0_hi])
       (by rw [hmul, hmari, hwadc, hmarc]; simp only [ipow255]; nlinarith [hr0_lo, hr0_hi])
@@ -135,7 +135,7 @@ theorem r1Tree_int256_nonneg {x : Nat} (hx : x < 2 ^ 256)
   obtain ⟨hr0lo, hr0hi⟩ := r0Tree_bounds hx hC hC0
   obtain ⟨hargeq, hargnn, harghi⟩ := shiftArg_bounds_of (r0 := r0Tree x) (r0Tree_lt x) hr0lo hr0hi
   have hr1 : r1Tree x = evmSar (evmSub 0x7e (kTree x))
-      (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0xafe527e18748a8a) := rfl
+      (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0x9fe769d0fa58e9f) := rfl
   rw [hr1, hseq]
   exact (closingSar_facts (evmSub_lt _ _) hslo hshi (by rw [hargeq]; exact hargnn)
     (by rw [hargeq]; exact harghi)).1
@@ -148,11 +148,11 @@ theorem r1Tree_range {x : Nat} (hx : x < 2 ^ 256)
   obtain ⟨hr0lo, hr0hi⟩ := r0Tree_bounds hx hC hC0
   obtain ⟨hargeq, hargnn, harghi⟩ := shiftArg_bounds_of (r0 := r0Tree x) (r0Tree_lt x) hr0lo hr0hi
   have hr1 : r1Tree x = evmSar (evmSub 0x7e (kTree x))
-      (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0xafe527e18748a8a) := rfl
-  obtain ⟨hnn, hlt⟩ := closingSar_facts (W := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0xafe527e18748a8a)
+      (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0x9fe769d0fa58e9f) := rfl
+  obtain ⟨hnn, hlt⟩ := closingSar_facts (W := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0x9fe769d0fa58e9f)
     (s := s) (evmSub_lt _ _) hslo hshi (by rw [hargeq]; exact hargnn) (by rw [hargeq]; exact harghi)
   -- int256 (r1Tree x) ∈ [0, 2^125) ⇒ the Nat word is < 2^254
-  have hReq : int256 (r1Tree x) = int256 (evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0xafe527e18748a8a)) := by
+  have hReq : int256 (r1Tree x) = int256 (evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x)) 0x9fe769d0fa58e9f)) := by
     rw [hr1, hseq]
   rw [← hReq] at hnn hlt
   have hr1w : r1Tree x < 2 ^ 256 := r1Tree_lt x

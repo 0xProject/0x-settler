@@ -90,14 +90,14 @@ theorem r1_mono_adjacent {x1 x2 : Nat} (hx1 : x1 < 2 ^ 256) (hx2 : x2 < 2 ^ 256)
   have hk2w : kTree x2 < 2 ^ 256 := by unfold kTree; exact evmSar_lt _ _
   have hseq := closing_shift_eq hk hk1w hk2w
   obtain ⟨s, hseqx, hslo, hshi, _⟩ := closing_shift hx1 hC1 hC01
-  have hr1eq1 : r1Tree x1 = evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0xafe527e18748a8a) := by
+  have hr1eq1 : r1Tree x1 = evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0x9fe769d0fa58e9f) := by
     unfold r1Tree; rw [hseqx]
-  have hr1eq2 : r1Tree x2 = evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0xafe527e18748a8a) := by
+  have hr1eq2 : r1Tree x2 = evmSar s (evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0x9fe769d0fa58e9f) := by
     unfold r1Tree; rw [← hseq, hseqx]
   rw [hr1eq1, hr1eq2]
   -- the two shift arguments, transported to `Int`, are ordered (monotone `r0`)
-  set arg1 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0xafe527e18748a8a with harg1
-  set arg2 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0xafe527e18748a8a with harg2
+  set arg1 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x1)) 0x9fe769d0fa58e9f with harg1
+  set arg2 := evmSub (evmMul 0xde0b6b3a7640000 (r0Tree x2)) 0x9fe769d0fa58e9f with harg2
   have hargle : int256 arg1 ≤ int256 arg2 := by
     rw [harg1eq, harg2eq]
     have hwad : (0 : Int) ≤ 0xde0b6b3a7640000 := by norm_num
