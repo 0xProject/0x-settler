@@ -72,9 +72,7 @@ jobs:
       - name: Fetch Mathlib cache
         working-directory: formal/yul
         run: |
-          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
-          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
-          # the release and ensure those directories exist before it runs.
+          # ProofWidgets release directories must exist for `lake exe cache get`.
           lake build proofwidgets:release
           mkdir -p \
             .lake/packages/proofwidgets/.lake/build/lib \
@@ -104,9 +102,7 @@ jobs:
       - name: Fetch ln proof dependency cache
         working-directory: formal/ln/LnProof
         run: |
-          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
-          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
-          # the release and ensure those directories exist before it runs.
+          # ProofWidgets release directories must exist for `lake exe cache get`.
           lake build proofwidgets:release
           mkdir -p \
             .lake/packages/proofwidgets/.lake/build/lib \
@@ -131,9 +127,7 @@ jobs:
       - name: Fetch proof dependency cache
         working-directory: formal/exp/ExpProof
         run: |
-          # Mathlib's `cache get` fetches the ProofWidgets cloud release, then
-          # deletes its `lib`/`ir` outputs and fails if they are missing. Fetch
-          # the release and ensure those directories exist before it runs.
+          # ProofWidgets release directories must exist for `lake exe cache get`.
           lake build proofwidgets:release
           mkdir -p \
             .lake/packages/proofwidgets/.lake/build/lib \
@@ -143,8 +137,7 @@ jobs:
       - name: Generate Lean certificate artifacts
         working-directory: formal/exp/ExpProof
         run: |
-          lake build ExpProof.Floor.CertDefs ExpProof.Floor.CertDefsV Common.Foundation.KroneckerShift
-          lake env lean GenExpLit.lean
+          lake build ExpProof.Floor.CertDefsV Common.Foundation.KroneckerShift
           lake env lean GenExpVLit.lean
 
       - name: Build Exp proof package

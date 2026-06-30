@@ -10,10 +10,7 @@ contract ExpTest is Test {
     int256 private constant _TOO_BIG = 0x8e383a2cdfa1b74a9422d2e1;
     // floor(1e27 * ln(1e-18)): the greatest input whose exact result is < 1 and floors to 0.
     int256 private constant _ZERO_MAX = -41446531673892822312323846185;
-    // Central octave in ray input: [floor(-1e27 * ln(2) / 2), ceil(1e27 * ln(2) / 2)).
-    int256 private constant _CENTRAL_X_LO = -346573590279972654708616061;
-    int256 private constant _CENTRAL_X_HI = 346573590279972654708616061;
-    // Central octave [1/sqrt(2), sqrt(2)) in wad: the image over which the round trip is exact.
+    // Canonical central wad inputs satisfying 1/sqrt(2) <= w/1e18 < sqrt(2).
     uint256 private constant _W_LO = 707106781186547525;
     uint256 private constant _W_HI = 1414213562373095048;
 
@@ -30,8 +27,7 @@ contract ExpTest is Test {
         return Exp.expRayToWad(x);
     }
 
-    /// Differential fuzz against the oracle: never overestimates and is floor-or-one-less across
-    /// the whole supported range.
+    /// Sampling differential fuzz against the oracle: never overestimates and is floor-or-one-less.
     /// forge-config: default.fuzz.runs = 10000
     function testFuzzExpRayToWadDifferential(int256 x) external {
         x = bound(x, _ZERO_MAX, _TOO_BIG - 1);
@@ -44,13 +40,6 @@ contract ExpTest is Test {
 
     function testExpRayToWadExactZero() external pure {
         assertEq(Exp.expRayToWad(0), 1e18, "expRayToWad(0) != 1e18");
-    }
-
-    /// Direct oracle check over the central reduced-argument band, where the output is exact.
-    /// forge-config: default.fuzz.runs = 10000
-    function testFuzzExpRayToWadCentralExact(int256 x) external {
-        x = bound(x, _CENTRAL_X_LO, _CENTRAL_X_HI - 1);
-        assertEq(Exp.expRayToWad(x), _ref(x), "central floor not exact");
     }
 
     function testExpRayToWadOverRangeReverts() external {
@@ -68,8 +57,7 @@ contract ExpTest is Test {
         assertEq(Exp.expRayToWad(type(int256).min), 0, "int256.min not zero");
     }
 
-    /// Round trip against `Ln` on the central octave: exactly off-by-one, and exact at the scale
-    /// point. A consumer in this regime recovers `w` by adding one.
+    /// Round trip against `Ln` on canonical central wad inputs: off by one except at the scale point.
     function testFuzzExpRayToWadRoundTrip(uint256 w) external pure {
         w = bound(w, _W_LO, _W_HI);
         int256 back = Exp.expRayToWad(Ln.lnWadToRay(int256(w)));

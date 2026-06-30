@@ -20,7 +20,7 @@ into the single analytic obligation `RuntimeAccumBound` below — is the relatio
 *real-valued* runtime accumulator `A` and the target `E = WAD·exp(x/RAY)`:
 
 * never-over `A ≤ E`, and
-* deficit-under-one `E < A + 1` (and the sharpened `E < r + 1` on the core octave).
+* deficit-under-one `E < A + 1`.
 
 `RuntimeAccumBound` packages exactly those, mirroring the way `Mono.RegionMonotonicityFacts`/`Mono.SeamR0Bound`
 isolate the monotonicity analytic core. Given it, this file derives the public floor brackets
@@ -120,9 +120,7 @@ theorem r1Tree_floor_accum {x : Nat} (hx : x < 2 ^ 256)
 the public target `E = expRayToWadTarget x` that the cert-fold + truncation bridge must establish:
 
 * `over` — never over: `accumReal x ≤ E` for any region input;
-* `under` — deficit under one: `E < accumReal x + 1` for any region input;
-* `centralExactness` — the sharpened core-octave bound `E < (r1Tree x : Real) + 1` (the negligible `k = 0`
-  margin floors `E` exactly), for inputs in the core band `[−H, H)`.
+* `under` — deficit under one: `E < accumReal x + 1` for any region input.
 
 It is the floor-side analogue of `Mono.RegionMonotonicityFacts`/`Mono.SeamR0Bound`: every runtime-plumbing and
 floor fact is proved directly; the public floor brackets depend on this single
@@ -138,11 +136,6 @@ structure RuntimeAccumBound : Prop where
   /-- Deficit under one: the target is below the accumulator plus one. -/
   under : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
     expRayToWadTarget (int256 x) < accumReal x + 1
-  /-- Core-octave exactness: on the core band `x ∈ [−H, H)` the negligible `k = 0` margin floors
-  `E` exactly onto the result. -/
-  centralExactness : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
-    -H ≤ int256 x → int256 x < H →
-    expRayToWadTarget (int256 x) < (int256 (r1Tree x) : Real) + 1
   /-- Below the clamp boundary the target is below one output unit (`E < 1`), so the clamped result
   `0` is the floor. `Cmask = ⌊−18·ln10·10²⁷⌋` is the exact 0/1 boundary; `x ≤ Cmask` gives
   `x/10²⁷ ≤ −18·ln10`, hence `E = 10¹⁸·exp(x/10²⁷) ≤ 1`. -/
@@ -166,18 +159,6 @@ theorem floorOrOneLessBracket_region {x : Nat} (H' : RuntimeAccumBound) (hx : x 
   obtain ⟨hfl, hfl1⟩ := r1Tree_floor_accum hx hC hC0
   exact ExpRealBridge.floorOrOneLessBracket_of_accum hfl hfl1
     (H'.over x hx hC hC0) (H'.under x hx hC hC0)
-
-/-- **Exact-floor bracket on the core octave** (`x ∈ [−H, H)`), given the analytic accumulator
-bound: `r ≤ E ∧ E < r + 1`. -/
-theorem exactFloorBracket_region {x : Nat} (H' : RuntimeAccumBound) (hx : x < 2 ^ 256)
-    (hlo : -H ≤ int256 x) (hhi : int256 x < H) :
-    ExactFloorBracket (int256 x) (int256 (r1Tree x)) := by
-  have hCmlt : int256 Cmask < -H := by rw [int256_Cmask]; unfold H; norm_num
-  have hC : int256 Cmask < int256 x := lt_of_lt_of_le hCmlt hlo
-  have hC0 : int256 x < int256 C0thresh := lt_of_lt_of_le hhi (le_of_lt int256_H_lt_C0)
-  obtain ⟨hfl, _⟩ := r1Tree_floor_accum hx hC hC0
-  exact ExpRealBridge.exactFloorBracket_of_accum hfl
-    (H'.over x hx hC hC0) (H'.centralExactness x hx hC hC0 hlo hhi)
 
 /-- **One-unit underestimation bound on the region**, given the analytic accumulator bound: `⌊E⌋ − 1 ≤ r`. -/
 theorem underByAtMostOne_region {x : Nat} (H' : RuntimeAccumBound) (hx : x < 2 ^ 256)

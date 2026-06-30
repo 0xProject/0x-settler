@@ -65,14 +65,6 @@ into `E < A + 1` is a bridge hypothesis. -/
 def ExpNotTwoBelowCut (tNum tDen k yLB wLB : Nat) : Prop :=
   capLB (k * tDen + tNum) tDen yLB wLB
 
-/-- **Core-octave exact cut.** On the core octave `k = 0` the never-over and
-not-two-below cuts collapse onto the bare reduced argument: an upper cap with
-target `yUB/wUB` and a lower cap with target `yLB/wLB` on `exp(tNum/tDen)`. The
-1-wide exact-floor bracket follows from these alone (no octave fold; the margin
-slack at `k = 0` is negligible). -/
-def CoreOctaveExactCut (tNum tDen yUB wUB yLB wLB : Nat) : Prop :=
-  CutExpTaylorLe tNum tDen yUB wUB ∧ CutRatioLeExpTaylor yLB wLB tNum tDen
-
 /-! ## Octave fold
 
 The cut predicates are stated already-folded (`k * tDen + tNum`). The factored

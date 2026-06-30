@@ -3,20 +3,18 @@ import ExpProof.Floor.R0Exp
 import ExpProof.Floor.R0ExpUnder
 
 /-!
-# Discharging the never-over / deficit / below-clamp fields of `RuntimeR0Bound`
+# Discharging the `RuntimeR0Bound` fields
 
 The per-point `r0`-vs-`exp` brackets (`r0_real_over_within`, `r0_real_under_within`) and the
-below-clamp bound (`belowC_target_lt_two`) discharge three of the four `RuntimeAccumBound` fields
-unconditionally and axiom-clean, via the octave fold `E·2^s = WAD·2¹²⁶·exp(rt)` (`s = 126 − k`, the
+below-clamp bound (`belowC_target_lt_two`) discharge `RuntimeAccumBound` unconditionally and
+axiom-clean, via the octave fold `E·2^s = WAD·2¹²⁶·exp(rt)` (`s = 126 − k`, the
 closing shift; `k ≤ 63` so `s ≥ 63`).
 
 * `over`  ⟸ `r0 ≤ 2¹²⁶·exp(rt) + 19/25` and `WAD·19/25 ≤ MARGIN`;
 * `under` ⟸ `2¹²⁶·exp(rt) ≤ r0 + 8` and `8·WAD + MARGIN < 2⁶³ ≤ 2^s`;
 * `belowC` ⟸ `belowC_target_lt_two`.
 
-These make the global floor-or-one-less and one-unit underestimation brackets hypothesis-free
-(they consume only `over`/`under`/`belowC`). The central-octave exact-floor bracket additionally
-depends on the `centralExactness` obligation.
+These make the global floor-or-one-less and one-unit underestimation brackets hypothesis-free.
 -/
 
 namespace ExpYul

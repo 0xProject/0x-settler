@@ -75,20 +75,6 @@ theorem expBound_of_notTwoBelowCut {tNum tDen k yLB wLB : Nat}
     (yLB : Real) / wLB ≤ Real.exp (((k * tDen + tNum : Nat) : Real) / (tDen : Real)) :=
   le_exp_of_capLB hq hw hcut
 
-/-- Core-octave (`k = 0`) upper bound on the bare reduced argument. -/
-theorem expBound_of_coreOctaveExactCut_le {tNum tDen yUB wUB yLB wLB : Nat}
-    (hq : 0 < tDen) (hw : 0 < wUB)
-    (hcut : CoreOctaveExactCut tNum tDen yUB wUB yLB wLB) :
-    Real.exp ((tNum : Real) / (tDen : Real)) ≤ (yUB : Real) / wUB :=
-  exp_le_of_capUB hq hw hcut.1
-
-/-- Core-octave (`k = 0`) lower bound on the bare reduced argument. -/
-theorem expBound_of_coreOctaveExactCut_ge {tNum tDen yUB wUB yLB wLB : Nat}
-    (hq : 0 < tDen) (hw : 0 < wLB)
-    (hcut : CoreOctaveExactCut tNum tDen yUB wUB yLB wLB) :
-    (yLB : Real) / wLB ≤ Real.exp ((tNum : Real) / (tDen : Real)) :=
-  le_exp_of_capLB hq hw hcut.2
-
 /-! ## Negative-argument reciprocal
 
 For `x < 0` the runtime reduces `−x` and forms `exp(x/RAY) = 1 / exp(−x/RAY)`.
@@ -139,16 +125,6 @@ theorem floorOrOneLessBracket_of_accum {x : Int} {r : Int} {A : Real}
   calc expRayToWadTarget x < A + 1 := hunder
     _ < ((r : Real) + 1) + 1 := by linarith
     _ = (r : Real) + 2 := by ring
-
-/-- **Exact-floor reduction.** On the core octave the margin slack is negligible,
-so the floor catches `E` exactly: from `r ≤ A`, the never-over `A ≤ E`, and the
-sharpened upper bound `E < r + 1`, the 1-wide bracket holds. -/
-theorem exactFloorBracket_of_accum {x : Int} {r : Int} {A : Real}
-    (hfloor : (r : Real) ≤ A)
-    (hover : A ≤ expRayToWadTarget x)
-    (hexact : expRayToWadTarget x < (r : Real) + 1) :
-    ExactFloorBracket x r :=
-  ⟨le_trans hfloor hover, hexact⟩
 
 /-- **One-unit underestimation reduction.** The lower bound `r ≥ ⌊E⌋ − 1` is the
 lower half of the floor-or-one-less bracket; given that bracket it follows. -/

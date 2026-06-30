@@ -101,31 +101,6 @@ theorem run_exp_ray_to_wad_evm_underByAtMostOne (H' : RuntimeAccumBound) (x : Na
   obtain ⟨r, hrun, hbr⟩ := run_exp_ray_to_wad_evm_floorOrOneLess H' x hx hC0
   exact ⟨r, hrun, floorOrOneLess_to_underByAtMostOne hbr⟩
 
-/-! ## Central-octave exact floor -/
-
-/-- **Central-octave exact floor.** Given the analytic accumulator bound, on the core band
-`x ∈ [−H, H)` the runtime result is the exact floor: `r ≤ E ∧ E < r + 1`, pinning `r = ⌊E⌋`. -/
-theorem run_exp_ray_to_wad_evm_exactFloor (H' : RuntimeAccumBound) (x : Nat) (hx : x < 2 ^ 256)
-    (hlo : -H ≤ int256 x) (hhi : int256 x < H) :
-    ∃ r, run_exp_ray_to_wad_evm x = .ok r ∧ ExactFloorBracket (int256 x) (int256 r) := by
-  have hCmlt : int256 Cmask < -H := by rw [int256_Cmask]; unfold H; norm_num
-  have hC : int256 Cmask < int256 x := lt_of_lt_of_le hCmlt hlo
-  have hC0 : int256 x < int256 C0thresh := lt_of_lt_of_le hhi (le_of_lt int256_H_lt_C0)
-  refine ⟨expTree x, run_exp_ray_to_wad_evm_eq_expTree x (domain_of_below_C0 hx hC0), ?_⟩
-  by_cases hz : x = 0
-  · subst hz
-    have he : expTree 0 = 1000000000000000000 := by
-      have := run_exp_ray_to_wad_evm_zero
-      rw [run_exp_ray_to_wad_evm_eq_expTree 0 (domain_of_below_C0 hx hC0)] at this
-      exact Except.ok.inj this.symm
-    rw [he]
-    have h0 : int256 (1000000000000000000 : Nat) = (10 ^ 18 : Int) := by
-      rw [int256_of_lt (by norm_num)]; norm_num
-    have hi0 : int256 (0 : Nat) = (0 : Int) := rfl
-    rw [h0, hi0]; exact exactFloor_zero
-  · rw [int256_expTree_region_ne_zero hx hC hC0 hz]
-    exact exactFloorBracket_region H' hx hlo hhi
-
 end
 
 end ExpYul

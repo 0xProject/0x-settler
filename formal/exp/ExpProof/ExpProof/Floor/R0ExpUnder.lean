@@ -3,9 +3,8 @@ import ExpProof.Floor.R0Exp
 /-!
 # The deficit (under) side of the per-point `r0`-vs-`exp` bridge
 
-Split out of `R0Exp.lean` so the over and under clusters compile (and kernel-check) in parallel and
-incremental edits to one do not recheck the other. Mirror of the never-over `r0_real_over_within`:
-the per-point deficit `2¹²⁶·exp(rt) ≤ r0 + 8` (`r0_real_under_within`), both signs.
+This module contains the counterpart to the never-over `r0_real_over_within`: the per-point deficit
+`2¹²⁶·exp(rt) ≤ r0 + 8` (`r0_real_under_within`), both signs.
 -/
 
 namespace ExpYul

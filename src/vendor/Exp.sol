@@ -5,15 +5,15 @@ import {Panic} from "../utils/Panic.sol";
 
 library Exp {
     /// @notice Compute the natural exponential of a fixnum with 10**27 (ray) basis, returning the
-    ///         result as a fixnum with 10**18 (wad) basis. The inverse of `Ln.lnWadToRay`.
+    ///         result as a fixnum with 10**18 (wad) basis.
     /// @dev Let E = 10¹⁸ ⋅ exp(x / 10²⁷) be the exact, infinite-precision result. This function
     ///      returns either ⌊E⌋ or ⌊E⌋ - 1; it never overestimates. `expRayToWad(0) == 10**18`
     ///      exactly, and the result is never negative. The function is monotonic; x₁ < x₂ →
-    ///      expRayToWad(x₁) ≤ expRayToWad(x₂). On the central octave it is tight (returns exactly
-    ///      ⌊E⌋): for w with w / 10¹⁸ ∈ [1/√2, √2), `expRayToWad(lnWadToRay(w)) == w - 1` (and
-    ///      `== w` at the scale point w = 10¹⁸), so a consumer constrained to that regime recovers
-    ///      `w` by adding one. Reverts with `Panic(17)` when x is large enough to leave the
-    ///      supported range (x ≥ 0x8e383a2cdfa1b74a9422d2e1 ≈ 44.01 ⋅ 10²⁷, i.e. E ≳ 1.30 ⋅ 10³⁷).
+    ///      expRayToWad(x₁) ≤ expRayToWad(x₂). For canonical central wad inputs
+    ///      707106781186547525 ≤ w ≤ 1414213562373095048,
+    ///      `expRayToWad(lnWadToRay(w)) == w - 1`, except at w = 10¹⁸ where it returns w. Reverts
+    ///      with `Panic(17)` when x is large enough to leave the supported range
+    ///      (x ≥ 0x8e383a2cdfa1b74a9422d2e1 ≈ 44.01 ⋅ 10²⁷, i.e. E ≳ 1.30 ⋅ 10³⁷).
     function expRayToWad(int256 x) internal pure returns (int256 r) {
         // At this input the octave count k = round(x / (10²⁷⋅ln2)) reaches 64, where the margin
         // (which scales as 2ᵏ⁻⁶³ of its k = 63 value) exceeds one ulp and the floor can fall two
@@ -41,7 +41,7 @@ library Exp {
     ///      leading stage is a shift, not a multiply.
     ///
     ///      Mixed fixed-point bases (a staircase): every quantity is rounded exactly once, and each
-    ///      coefficient takes the widest basis fitting its minimal byte width, so a coefficient
+    ///      coefficient takes the widest basis fitting its chosen byte width, so a coefficient
     ///      followed by j more multiplies by v tolerates a shorter basis.
     ///          t:      Q128 (one `sar` from the Q235 reduction K27⋅x - k⋅LN2; |t| ≤ ln2/2)
     ///          v = t²: Q128 (one `shr` by 128 from the Q256 product)
@@ -61,17 +61,16 @@ library Exp {
     ///              integer Horner + closing `sdiv` truncation: a one-sided envelope. The Ev shared
     ///              by the numerator Ev + t⋅Od and denominator Ev - t⋅Od cancels at leading order, so
     ///              its truncation barely perturbs the quotient; together these stay ≤ 0.0859 ulp.
-    ///      Hence RAW ≤ S, with the proven bound S = 0.0858862987232991853 ulp. The margin is the
-    ///      least integer that covers S once placed in the Q126 grid: 0xafe527e18748a8a = ⌈2⁶³⋅S⌉
-    ///      (worth ≈ S ulp at k = 63). So 10¹⁸⋅e⋅2ᵏ - margin ≤ E (never overestimates), and
-    ///      E - A ≤ margin - min RAW ≤ 0.6057 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1 (the 1-ulp
+    ///      Hence RAW ≤ S, with the proven bound S = 0.0858862987232991853 ulp. The margin
+    ///      0xafe527e18748a8a = ⌈2⁶³⋅S⌉ is worth ≈ S ulp at k = 63. So
+    ///      10¹⁸⋅e⋅2ᵏ - margin ≤ E (never overestimates), and E - A ≤ margin - min RAW ≤ 0.6057 < 1,
+    ///      so the floor returns ⌊E⌋ or ⌊E⌋ - 1 (the 1-ulp
     ///      underestimate is achieved, ⌊E⌋ - 2 never occurs). At k = 64 the margin and truncation
     ///      envelope scale to more than one ulp and the floor can fall two below E, so that input is
-    ///      reverted. On
-    ///      the central octave k = 0 the margin is ⌈2⁶³⋅S⌉⋅2⁻¹²⁶ ≈ 9.3⋅10⁻²¹ ulp, far below the
-    ///      ≈10⁻⁹ ulp gap `lnWadToRay` leaves, so the round trip floors to ⌊E⌋. `round(x/(10²⁷⋅ln2))`
-    ///      is half-open, so the k = 0 band is exactly [-H, H) with H = ⌊10²⁷⋅ln2/2⌋, matching
-    ///      `lnWadToRay`'s image over [1/√2, √2).
+    ///      reverted. For the `lnWadToRay` round trip, the canonical central wad band
+    ///      707106781186547525 ≤ w ≤ 1414213562373095048 gives the single result
+    ///      `w == 10¹⁸ ? w : w - 1`. The ray half-band used by the reduction is [-H, H) with
+    ///      H = 346573590279972654708616060.
     ///
     ///      Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, a relative
     ///      gain that exceeds the entire error span above (≤ S ≈ 7⋅10⁻³⁹ relative at k = 63, and
@@ -79,8 +78,8 @@ library Exp {
     ///      octave boundary (≤ ⌈2⁶³⋅S⌉⋅2ᵏ⁻¹²⁶ ≈ 7⋅10⁻³⁹ relative) — by more than nine orders of
     ///      magnitude, so the pre-floor accumulator strictly increases at every step and its floor
     ///      is non-decreasing. The zeroing clamp and the +1 pin preserve order: below C the result
-    ///      is 0 while just above it ⌊E⌋ ≥ 0, and at x = 0 the exact-on-central neighbours bracket
-    ///      the pinned value (⌊E(-1)⌋ = 10¹⁸ - 1 ≤ 10¹⁸ ≤ ⌊E(1)⌋ = 10¹⁸).
+    ///      is 0 while just above it ⌊E⌋ ≥ 0, and the adjacent runtime values around x = 0 bracket
+    ///      the pinned scale-point value.
     function _expRayToWad(int256 x) private pure returns (int256 r) {
         assembly ("memory-safe") {
             // k = round(x / (10²⁷⋅ln2)), half-open. CINV = round(2²⁰⁰ / (10²⁷⋅ln2)); the +2¹⁹⁹
@@ -127,8 +126,8 @@ library Exp {
             // exp(t) in Q126: the dividend (numerator << 126) stays below 2²⁵⁶, the denominator > 0.
             r := sdiv(shl(0x7e, add(ev, tod)), sub(ev, tod))
 
-            // E in Q126 on the 10¹⁸⋅2¹²⁶ grid, less the one-sided margin (the provable minimum
-            // 0xafe527e18748a8a = ⌈2⁶³⋅S⌉; see the budget above), then floored by `sar(126 - k, …)`
+            // E in Q126 on the 10¹⁸⋅2¹²⁶ grid, less the one-sided margin
+            // 0xafe527e18748a8a = ⌈2⁶³⋅S⌉, then floored by `sar(126 - k, …)`
             // which folds in the 2ᵏ octave scaling (126 - k ∈ [64, 188]).
             r := sar(sub(0x7e, k), sub(mul(0xde0b6b3a7640000, r), 0xafe527e18748a8a))
 

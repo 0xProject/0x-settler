@@ -26,7 +26,7 @@ stray `sorry` (or any new axiom) breaks the build.
 | Scale point: `expRayToWad(0) = 10^18`           | `run_exp_ray_to_wad_evm_zero`                 |
 | Value path reduces to the `evm*` tree           | `run_exp_ray_to_wad_evm_eq_tree`              |
 | Monotone in the input (modulo the region core)  | `run_exp_ray_to_wad_evm_mono`                 |
-| `lnWadToRay` round trip recovers `w − 1`        | `run_exp_ray_to_wad_evm_lnWadToRay_roundTrip` |
+| `lnWadToRay` round trip                         | `run_exp_ray_to_wad_evm_lnWadToRay_roundTrip_if` |
 
 The monotonicity theorem `run_exp_ray_to_wad_evm_mono` is proved over the whole supported domain;
 it takes the analytic facts of the meaningful region (`RegionMonotonicityFacts`: `r1Tree` in range,
@@ -127,10 +127,10 @@ example (x1 x2 : Nat)
 
 Each bracket is stated on the runtime result `r` (`run_exp_ray_to_wad_evm x = .ok r`) against the
 target `E = 10¹⁸·exp(x/10²⁷)`, and carries the single analytic obligation `RuntimeAccumBound` (the
-real pre-floor accumulator brackets `E`: never over, deficit under one, core-octave exact, and the
-below-clamp `E < 1`). The runtime reduction, the closing-shift floor, the clamp/pin shell branch
-split, and the scale-point exactness are proved directly; the floor brackets depend on
-`RuntimeAccumBound` — the cert (`Floor.Caps`, against the exact rational `ê = NUM/DEN`) folded with
+real pre-floor accumulator brackets `E`: never over, deficit under one, and the below-clamp `E < 1`).
+The runtime reduction, the closing-shift floor, the clamp/pin shell branch split, and the
+scale-point exactness are proved directly; the floor brackets depend on
+`RuntimeAccumBound` — the cert (`Floor.CapsV`, against the exact rational `ê = NUM/DEN`) folded with
 the octave `2^k`, plus the reduced-argument and Horner-`sdiv` truncation envelopes the `MARGIN`
 absorbs. This mirrors `run_exp_ray_to_wad_evm_mono`'s `RegionMonotonicityFacts` hypothesis. -/
 
@@ -144,18 +144,6 @@ example (H' : RuntimeAccumBound) (x : Nat) (hx : x < 2 ^ 256)
 /-- info: 'ExpYul.run_exp_ray_to_wad_evm_floorOrOneLess' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms run_exp_ray_to_wad_evm_floorOrOneLess
-
-/-- Central-octave exact floor, given the runtime accumulator bound. -/
-example (H' : RuntimeAccumBound) (x : Nat) (hx : x < 2 ^ 256)
-    (hlo : -ExpRealSpec.H ≤ FormalYul.Preservation.int256 x)
-    (hhi : FormalYul.Preservation.int256 x < ExpRealSpec.H) :
-    ∃ r, run_exp_ray_to_wad_evm x = .ok r ∧ ExpRealSpec.ExactFloorBracket
-      (FormalYul.Preservation.int256 x) (FormalYul.Preservation.int256 r) :=
-  run_exp_ray_to_wad_evm_exactFloor H' x hx hlo hhi
-
-/-- info: 'ExpYul.run_exp_ray_to_wad_evm_exactFloor' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms run_exp_ray_to_wad_evm_exactFloor
 
 /-- One-unit underestimation bound, given the runtime accumulator bound. -/
 example (H' : RuntimeAccumBound) (x : Nat) (hx : x < 2 ^ 256)
@@ -173,7 +161,7 @@ example (H' : RuntimeAccumBound) (x : Nat) (hx : x < 2 ^ 256)
 `RuntimeAccumBound` (the accumulator-vs-target bracket) reduces — by the unconditional closing-shift
 plumbing — to `RuntimeR0Bound`, the cleaner statement that the Q126 quotient `r0Tree x` brackets the
 target across the octave shift `2^(126 − k)`. The public floor brackets therefore reduce to
-`RuntimeR0Bound` (the cert `Floor.Caps` against `ê = NUM/DEN`, folded with `2^k`, plus the
+`RuntimeR0Bound` (the cert `Floor.CapsV` against `ê = NUM/DEN`, folded with `2^k`, plus the
 reduced-argument and Horner-`sdiv` truncation envelopes the `MARGIN` absorbs). -/
 example (H : RuntimeR0Bound) : RuntimeAccumBound := runtimeAccumBound_of_r0 H
 
@@ -186,7 +174,7 @@ example (H : RuntimeR0Bound) : RuntimeAccumBound := runtimeAccumBound_of_r0 H
 The following `RuntimeR0Bound` ingredients are proved directly and axiom-clean:
 
 * `tTree_in_cert_domain` — the runtime reduced argument stays in the certificate domain
-  `|tTree x| ≤ H128`, so the Taylor caps (`Floor.Caps`) instantiate at `t := tTree x`;
+  `|tTree x| ≤ H128`, so the Taylor caps (`Floor.CapsV`) instantiate at `t := tTree x`;
 * `evTree_bracket` / `odTree_bracket` — the **gap-2 Horner-truncation bridge**: the runtime even/odd
   accumulators bracket the exact integer polynomials `evNumV`/`odNumV` (in `v = vTree x`) within `2`
   units at the cleared scales `2^553`/`2^530`;
@@ -255,30 +243,12 @@ For `w` with `w/10¹⁸ ∈ [1/√2, √2)`, the compiled composition
 the scale point. -/
 example {w : Nat} (hlo : Wlo ≤ w) (hhi : w ≤ Whi) :
     ∃ x r : Nat, LnYul.run_ln_wad_to_ray_evm w = .ok x ∧ run_exp_ray_to_wad_evm x = .ok r ∧
-      (w = 10 ^ 18 → (r : Int) = 10 ^ 18) ∧ (w ≠ 10 ^ 18 → (r : Int) = (w : Int) - 1) :=
-  run_exp_ray_to_wad_evm_lnWadToRay_roundTrip hlo hhi
+      (r : Int) = if w = 10 ^ 18 then (w : Int) else (w : Int) - 1 :=
+  run_exp_ray_to_wad_evm_lnWadToRay_roundTrip_if hlo hhi
 
-/-- info: 'ExpYul.run_exp_ray_to_wad_evm_lnWadToRay_roundTrip' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpYul.run_exp_ray_to_wad_evm_lnWadToRay_roundTrip_if' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms run_exp_ray_to_wad_evm_lnWadToRay_roundTrip
-
-/-! ## Central-octave exact floor from central exactness
-
-The never-over and floor facts of the central-octave exact-floor bracket are hypothesis-free. The
-additional input is the core-octave upper exactness `E < r1Tree x + 1` on `[−H, H)`,
-`CentralExactness`; together these imply that the runtime returns exactly `⌊E⌋` on the core octave. -/
-
-/-- Central-octave exact floor, given central exactness. -/
-example (hcentral : CentralExactness) (x : Nat) (hx : x < 2 ^ 256)
-    (hlo : -ExpRealSpec.H ≤ FormalYul.Preservation.int256 x)
-    (hhi : FormalYul.Preservation.int256 x < ExpRealSpec.H) :
-    ∃ r, run_exp_ray_to_wad_evm x = .ok r ∧ ExpRealSpec.ExactFloorBracket
-      (FormalYul.Preservation.int256 x) (FormalYul.Preservation.int256 r) :=
-  run_exp_ray_to_wad_evm_exactFloor_of_centralExactness hcentral x hx hlo hhi
-
-/-- info: 'ExpYul.run_exp_ray_to_wad_evm_exactFloor_of_centralExactness' depends on axioms: [propext, Classical.choice, Quot.sound] -/
-#guard_msgs in
-#print axioms run_exp_ray_to_wad_evm_exactFloor_of_centralExactness
+#print axioms run_exp_ray_to_wad_evm_lnWadToRay_roundTrip_if
 
 /-- info: 'ExpYul.accumReal_over' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in

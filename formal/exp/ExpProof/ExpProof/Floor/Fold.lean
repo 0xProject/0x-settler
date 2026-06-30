@@ -17,10 +17,10 @@ accumReal x ≤ E   ⟺   WAD·r0 − MARGIN ≤ E·2^s
 E < accumReal x + 1   ⟺   E·2^s < WAD·r0 − MARGIN + 2^s
 ```
 
-with `E = expRayToWadTarget x`. `RuntimeR0Bound` packages exactly those two inequalities (plus the
-sign facts the transport needs), so a discharge of it gives `RuntimeAccumBound.over`/`under`
+with `E = expRayToWadTarget x`. `RuntimeR0Bound` packages exactly those two inequalities, so a
+discharge of it gives `RuntimeAccumBound.over`/`under`
 directly. The analytic content of `RuntimeR0Bound` — `r0Tree x ≈ exp(x/10²⁷)·2^126/2^k`
-within the `MARGIN` envelope — is the cert (`Floor.Caps`, against `ê = NUM/DEN`) folded with the
+within the `MARGIN` envelope — is the cert (`Floor.CapsV`, against `ê = NUM/DEN`) folded with the
 octave `2^k` together with the reduced-argument and Horner-`sdiv` truncation envelopes; this module
 performs only the (unconditional, axiom-clean) plumbing reduction.
 -/
@@ -76,12 +76,6 @@ structure RuntimeR0Bound : Prop where
     ∀ s : Nat, (s : Int) = 126 - int256 (kTree x) →
       expRayToWadTarget (int256 x) * (2 ^ s : Real) <
         (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 792161285993433738 + (2 ^ s : Real)
-  /-- Core-octave exactness, in the same `WAD·r0`-vs-`E` shape: on `x ∈ [−H, H)` the deficit closes
-  to the sharper `E·2^s < WAD·r0 − MARGIN + 2^s`, where additionally `2^s` is small enough that the
-  floor catches `E` exactly. Stated as the body-result-relative bound to mirror `centralExactness`. -/
-  centralExactness : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
-    -H ≤ int256 x → int256 x < H →
-    expRayToWadTarget (int256 x) < (int256 (r1Tree x) : Real) + 1
   /-- Below the clamp boundary `E < 1` (carried through verbatim). -/
   belowC : ∀ x : Nat, int256 x ≤ int256 Cmask → expRayToWadTarget (int256 x) < 2
 
@@ -111,7 +105,6 @@ theorem runtimeAccumBound_of_r0 (H : RuntimeR0Bound) : RuntimeAccumBound where
       field_simp
     rw [hdiv, lt_div_iff₀ hps]
     linarith [key]
-  centralExactness := fun x hx hC hC0 hlo hhi => H.centralExactness x hx hC hC0 hlo hhi
   belowC := fun x hxle => H.belowC x hxle
 
 end

@@ -6,7 +6,7 @@ import LnProof.Spec.Real
 /-!
 # The `lnWadToRay` round trip: `expRayToWad(lnWadToRay(w)) = w − 1`
 
-`Exp.sol` documents that `expRayToWad` is the inverse of `Ln.lnWadToRay` on the central octave: for
+`Exp.sol` documents the `Ln.lnWadToRay` composition on the central octave: for
 `w` with `w/10¹⁸ ∈ [1/√2, √2)` the round trip returns `w − 1` (and `w` at the scale point
 `w = 10¹⁸`). The proof targets that documented composition: `lnWadToRay`'s ≈10⁻⁹-ulp envelope keeps
 the target `E` a fixed distance below the integer `w`, far above the ≈10⁻¹⁹-ulp accumulator deficit.
@@ -388,6 +388,23 @@ theorem run_exp_ray_to_wad_evm_lnWadToRay_roundTrip {w : Nat} (hlo : Wlo ≤ w) 
 /-- info: 'ExpYul.run_exp_ray_to_wad_evm_lnWadToRay_roundTrip' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
 #print axioms run_exp_ray_to_wad_evm_lnWadToRay_roundTrip
+
+/-- The `lnWadToRay` round trip as a single canonical result expression. -/
+theorem run_exp_ray_to_wad_evm_lnWadToRay_roundTrip_if {w : Nat} (hlo : Wlo ≤ w) (hhi : w ≤ Whi) :
+    ∃ x r : Nat, LnYul.run_ln_wad_to_ray_evm w = .ok x ∧ run_exp_ray_to_wad_evm x = .ok r ∧
+      (r : Int) = if w = 10 ^ 18 then (w : Int) else (w : Int) - 1 := by
+  obtain ⟨x, r, hln, hexp, hscale, hne⟩ := run_exp_ray_to_wad_evm_lnWadToRay_roundTrip hlo hhi
+  refine ⟨x, r, hln, hexp, ?_⟩
+  by_cases hw : w = 10 ^ 18
+  · rw [if_pos hw]
+    rw [hw]
+    exact hscale hw
+  · rw [if_neg hw]
+    exact hne hw
+
+/-- info: 'ExpYul.run_exp_ray_to_wad_evm_lnWadToRay_roundTrip_if' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+#guard_msgs in
+#print axioms run_exp_ray_to_wad_evm_lnWadToRay_roundTrip_if
 
 end
 

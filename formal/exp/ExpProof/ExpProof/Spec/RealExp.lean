@@ -12,8 +12,7 @@ is `E = 10^18 · exp(x / 10^27)`.
 
 The global bracket is 2-wide: `r ≤ E` (never over) together with `E < r + 2`
 (under by less than two output units). It pins `r` to `{⌊E⌋, ⌊E⌋ − 1}` and gives
-`r ≤ ⌊E⌋`. The central-octave bracket is 1-wide, `r ≤ E ∧ E < r + 1`, which pins
-`r = ⌊E⌋`. The one-unit underestimation bound is `r ≥ ⌊E⌋ − 1`, with a separate
+`r ≤ ⌊E⌋`. The one-unit underestimation bound is `r ≥ ⌊E⌋ − 1`, with a separate
 achieved-witness predicate for a supported input attaining `r = ⌊E⌋ − 1`.
 
 These predicates are stated over abstract `r : Int`; the EVM-side modules
@@ -39,11 +38,6 @@ def expRayToWadTarget (x : Int) : Real :=
 by strictly less than two output units: `r ≤ E ∧ E < r + 2`. -/
 def FloorOrOneLessBracket (x : Int) (r : Int) : Prop :=
   (r : Real) ≤ expRayToWadTarget x ∧ expRayToWadTarget x < (r : Real) + 2
-
-/-- **Exact-floor bracket (core octave).** On the core octave `x ∈ [−H, H)`
-the result is the exact floor: `r ≤ E ∧ E < r + 1`. -/
-def ExactFloorBracket (x : Int) (r : Int) : Prop :=
-  (r : Real) ≤ expRayToWadTarget x ∧ expRayToWadTarget x < (r : Real) + 1
 
 /-- **One-unit underestimation bound.** The result underestimates by at most one output
 unit: `r ≥ ⌊E⌋ − 1`. -/
@@ -76,19 +70,6 @@ theorem floorOrOneLess_le_floor {x r : Int} (h : FloorOrOneLessBracket x r) :
     r ≤ ⌊expRayToWadTarget x⌋ :=
   Int.le_floor.mpr h.1
 
-/-- A 1-wide never-over bracket forces `r = ⌊E⌋` exactly. -/
-theorem exactFloor_eq_floor {x r : Int} (h : ExactFloorBracket x r) :
-    r = ⌊expRayToWadTarget x⌋ := by
-  obtain ⟨hle, hlt⟩ := h
-  set E := expRayToWadTarget x with hE
-  have hrle : r ≤ ⌊E⌋ := Int.le_floor.mpr hle
-  -- `E < r + 1` means `⌊E⌋ ≤ r`.
-  have hge : ⌊E⌋ ≤ r := by
-    have hlt' : E < ((r + 1 : Int) : Real) := by push_cast; linarith
-    have : ⌊E⌋ < r + 1 := Int.floor_lt.mpr hlt'
-    omega
-  omega
-
 /-- The floor-or-one-less bracket implies the one-unit underestimation bound. -/
 theorem floorOrOneLess_to_underByAtMostOne {x r : Int} (h : FloorOrOneLessBracket x r) :
     UnderByAtMostOne x r := by
@@ -102,10 +83,6 @@ theorem expRayToWadTarget_zero : expRayToWadTarget 0 = (WAD : Real) := by
 
 /-- The floor-or-one-less bracket holds at the scale point with the proven result `r = 10^18`. -/
 theorem floorOrOneLess_zero : FloorOrOneLessBracket 0 (10 ^ 18) := by
-  constructor <;> rw [expRayToWadTarget_zero] <;> simp [WAD]
-
-/-- The exact-floor bracket holds at the scale point with the proven result `r = 10^18`. -/
-theorem exactFloor_zero : ExactFloorBracket 0 (10 ^ 18) := by
   constructor <;> rw [expRayToWadTarget_zero] <;> simp [WAD]
 
 end

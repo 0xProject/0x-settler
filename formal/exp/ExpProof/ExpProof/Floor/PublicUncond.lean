@@ -7,9 +7,6 @@ import ExpProof.Floor.R0BoundHolds
 The global floor-or-one-less and one-unit underestimation brackets consume only the
 never-over/deficit/below-clamp facts (`accumReal_over`, `accumReal_under`,
 `belowC_target_lt_two`). They become hypothesis-free here.
-
-The central-octave exact-floor bracket additionally needs `CentralExactness`: the obligation
-`E < r1Tree x + 1` on `[−H, H)`.
 -/
 
 namespace ExpYul
@@ -67,45 +64,6 @@ theorem run_exp_ray_to_wad_evm_underByAtMostOne_uncond (x : Nat) (hx : x < 2 ^ 2
     ∃ r, run_exp_ray_to_wad_evm x = .ok r ∧ UnderByAtMostOne (int256 x) (int256 r) := by
   obtain ⟨r, hrun, hbr⟩ := run_exp_ray_to_wad_evm_floorOrOneLess_uncond x hx hC0
   exact ⟨r, hrun, floorOrOneLess_to_underByAtMostOne hbr⟩
-
-/-! ## Central-octave exact floor from central exactness
-
-The central exactness obligation states that on `[−H, H)` the runtime body satisfies
-`E < r1Tree x + 1`, which completes the exact-floor bracket together with the already proved
-never-over and floor facts. -/
-
-/-- The central-exactness obligation (`E < r1Tree x + 1` on the core octave). -/
-def CentralExactness : Prop :=
-  ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
-    -H ≤ int256 x → int256 x < H →
-    expRayToWadTarget (int256 x) < (int256 (r1Tree x) : Real) + 1
-
-/-- **Central-octave exact floor, given central exactness.** On `x ∈ [−H, H)` the runtime result is
-the exact floor `r = ⌊E⌋`. The never-over and floor facts are hypothesis-free; only the upper
-exactness `E < r + 1` is assumed. -/
-theorem run_exp_ray_to_wad_evm_exactFloor_of_centralExactness
-    (hcentral : CentralExactness) (x : Nat) (hx : x < 2 ^ 256)
-    (hlo : -H ≤ int256 x) (hhi : int256 x < H) :
-    ∃ r, run_exp_ray_to_wad_evm x = .ok r ∧ ExactFloorBracket (int256 x) (int256 r) := by
-  have hCmlt : int256 Cmask < -H := by rw [int256_Cmask]; unfold H; norm_num
-  have hC : int256 Cmask < int256 x := lt_of_lt_of_le hCmlt hlo
-  have hC0 : int256 x < int256 C0thresh := lt_of_lt_of_le hhi (le_of_lt int256_H_lt_C0)
-  refine ⟨expTree x, run_exp_ray_to_wad_evm_eq_expTree x (domain_of_below_C0 hx hC0), ?_⟩
-  by_cases hz : x = 0
-  · subst hz
-    have he : expTree 0 = 1000000000000000000 := by
-      have := run_exp_ray_to_wad_evm_zero
-      rw [run_exp_ray_to_wad_evm_eq_expTree 0 (domain_of_below_C0 hx hC0)] at this
-      exact Except.ok.inj this.symm
-    rw [he]
-    have h0 : int256 (1000000000000000000 : Nat) = (10 ^ 18 : Int) := by
-      rw [int256_of_lt (by norm_num)]; norm_num
-    have hi0 : int256 (0 : Nat) = (0 : Int) := rfl
-    rw [h0, hi0]; exact exactFloor_zero
-  · rw [int256_expTree_region_ne_zero hx hC hC0 hz]
-    obtain ⟨hfl, _⟩ := r1Tree_floor_accum hx hC hC0
-    exact ExpRealBridge.exactFloorBracket_of_accum hfl
-      (accumReal_over x hx hC hC0) (hcentral x hx hC hC0 hlo hhi)
 
 end
 

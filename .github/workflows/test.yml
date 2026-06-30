@@ -29,6 +29,9 @@ jobs:
       - name: Install dependencies
         run: git submodule update --recursive --init
 
+      - name: Install Python test dependencies
+        run: python3 -m pip install mpmath==1.3.0
+
       - name: Build Safe Guard
         run: forge build src/deployer/SafeGuard.sol
         env:

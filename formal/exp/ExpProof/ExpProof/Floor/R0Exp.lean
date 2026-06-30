@@ -2323,12 +2323,9 @@ theorem r0_seam_double {x1 x2 : Nat}
     have h3 : 2 * ((2 ^ 126 : Real) * E2) * y ≤ 2 * ((int256 (r0Tree x2) : Real) + 705) * y :=
       mul_le_mul_of_nonneg_right (by linarith [mul_le_mul_of_nonneg_left hE2bound (by norm_num : (0:Real) ≤ 2)]) (le_of_lt hy_pos)
     linarith [h2, h3]
-  -- need: 2·(r0_2+705)·y + 152 < 2·r0_2.  use y ≤ 1 - 1/(2·RAY), r0_2 > 2^124.
   have hr0_2nn : (0:Real) ≤ (int256 (r0Tree x2) : Real) := by linarith [hr0_2_big, (by positivity : (0:Real) ≤ (2:Real)^124)]
   have hkey : 2 * ((int256 (r0Tree x2) : Real) + 705) * y + 152 < 2 * (int256 (r0Tree x2) : Real) := by
-    -- 2(r0+705)y ≤ 2(r0+705)(1 - 1/(2RAY)).  Then 2(r0+705) - 2(r0+705)/(2RAY) + 152 < 2 r0
-    -- ⟺ 1410 + 152 < 2(r0+705)/(2RAY) = (r0+705)/RAY.  r0 > 2^124 ⇒ (r0+705)/RAY > 2^124/10^27 ≈ 21
-    -- WAIT: 2^124/10^27 ≈ 21 < 1562.  Need bigger lower bound on r0!  use r0 > 2^124 too weak.
+    -- The seam gap is dominated by `(r0 + 705) / RAY`; the quotient is above `1562` on this region.
     have hyb : 2 * ((int256 (r0Tree x2) : Real) + 705) * y ≤
         2 * ((int256 (r0Tree x2) : Real) + 705) * (1 - 1 / (2 * (10 ^ 27 : Real))) :=
       mul_le_mul_of_nonneg_left hy_bound (by linarith [hr0_2nn])

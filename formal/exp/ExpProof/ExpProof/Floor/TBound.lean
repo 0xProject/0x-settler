@@ -4,7 +4,7 @@ import Mathlib.Tactic.IntervalCases
 /-!
 # The reduced argument stays in the cert domain `[−H128, H128]`
 
-The reduced-argument Taylor caps (`Floor.Caps`) are certified over `t ∈ [0, H128]` with
+The reduced-argument Taylor caps (`Floor.CapsV`) are certified over `t ∈ [0, H128]` with
 `H128 = ⌊ln2/2 · 2¹²⁸⌋`. To instantiate them at the runtime reduced argument `t = tTree x` we
 need `|tTree x| ≤ H128` on the meaningful region.
 

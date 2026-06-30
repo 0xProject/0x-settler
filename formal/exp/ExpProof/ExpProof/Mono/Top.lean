@@ -12,8 +12,8 @@ import ExpProof.Mono.Seam
 
 * `r1Tree` is in range (`< 2^254`);
 * `r1Tree` is nondecreasing in the signed input;
-* the scale-point jump: `1 + r1Tree 0 ≤ r1Tree x` for any `x > 0` in the region (the `+1` pin at
-  `x = 0` is bracketed by the exact-on-central neighbours).
+* the scale-point jump: `1 + r1Tree 0 ≤ r1Tree x` for any `x > 0` in the region, matching the
+  `+1` pin at `x = 0`.
 
 The clamp forces `0` below the boundary, and `0 ≤ r1Tree` there above, so the boundary crossing is
 order-preserving. Inputs are canonical words (`x < 2^256`, as the ABI decode produces). This file
