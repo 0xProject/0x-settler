@@ -137,9 +137,9 @@ structure RuntimeAccumBound : Prop where
   under : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
     expRayToWadTarget (int256 x) < accumReal x + 1
   /-- Below the clamp boundary the target is below one output unit (`E < 1`), so the clamped result
-  `0` is the floor. `Cmask = ⌊−18·ln10·10²⁷⌋` is the exact 0/1 boundary; `x ≤ Cmask` gives
-  `x/10²⁷ ≤ −18·ln10`, hence `E = 10¹⁸·exp(x/10²⁷) ≤ 1`. -/
-  belowC : ∀ x : Nat, int256 x ≤ int256 Cmask → expRayToWadTarget (int256 x) < 2
+  `0` is the floor. `Cmask` is the exact 0/1 boundary: the target is still strictly below one at
+  `Cmask` and strictly above one at `Cmask + 1`. -/
+  belowC : ∀ x : Nat, int256 x ≤ int256 Cmask → expRayToWadTarget (int256 x) < 1
 
 /-! ## The region floor brackets, given `RuntimeAccumBound` -/
 

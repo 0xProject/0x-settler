@@ -6,13 +6,13 @@ import ExpProof.Floor.R0ExpUnder
 # Discharging the `RuntimeR0Bound` fields
 
 The per-point `r0`-vs-`exp` brackets (`r0_real_over_within`, `r0_real_under_within`) and the
-below-clamp bound (`belowC_target_lt_two`) discharge `RuntimeAccumBound` unconditionally and
+below-clamp bound (`belowC_target_lt_one`) discharge `RuntimeAccumBound` unconditionally and
 axiom-clean, via the octave fold `E·2^s = WAD·2¹²⁶·exp(rt)` (`s = 126 − k`, the
 closing shift; `k ≤ 63` so `s ≥ 63`).
 
 * `over`  ⟸ `r0 ≤ 2¹²⁶·exp(rt) + 7201434073703092789/10000000000000000000` and `WAD·7201434073703092789/10000000000000000000 ≤ MARGIN`;
 * `under` ⟸ `2¹²⁶·exp(rt) ≤ r0 + 13/2` and `(13/2)·WAD + MARGIN < 2⁶³ ≤ 2^s`;
-* `belowC` ⟸ `belowC_target_lt_two`.
+* `belowC` ⟸ `belowC_target_lt_one`.
 
 These make the global floor-or-one-less and one-unit underestimation brackets hypothesis-free.
 -/

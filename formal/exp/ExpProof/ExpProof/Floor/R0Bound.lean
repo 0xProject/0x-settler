@@ -424,45 +424,113 @@ theorem odTree_bracket {x : Nat} (hv : vTree x < 2 ^ 126) :
 /-! ## The below-clamp target bound (`RuntimeR0Bound.belowC`) -/
 
 open ExpRealSpec
+open Common.Exp Common.RealExpBridge
 open Real
 
 noncomputable section
 
-/-- **Below the clamp boundary the target is under two output units.** For any word `x` whose signed
-value is at or below the 0/1 clamp boundary `Cmask`, `E = 10¹⁸·exp(int256 x / 10²⁷) < 2`. -/
-theorem belowC_target_lt_two {x : Nat} (hxle : int256 x ≤ int256 Cmask) :
-    expRayToWadTarget (int256 x) < 2 := by
-  unfold expRayToWadTarget
-  have hCm : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
-  rw [hCm] at hxle
-  have hRAY : (RAY : Real) = 10 ^ 27 := by unfold RAY; norm_num
-  have hWAD : (WAD : Real) = 10 ^ 18 := by unfold WAD; norm_num
-  have hxR : (int256 x : Real) ≤ -41446531673892822312323846185 := by exact_mod_cast hxle
-  have harg : (int256 x : Real) / (RAY : Real) ≤ -41 := by
-    rw [hRAY, div_le_iff₀ (by norm_num : (0:Real) < 10 ^ 27)]
-    nlinarith [hxR]
-  have hmono : Real.exp ((int256 x : Real) / (RAY : Real)) ≤ Real.exp (-41) :=
-    Real.exp_le_exp.mpr harg
-  have hexp41 : (5 * 10 ^ 17 : ℝ) < (Real.exp 1) ^ 41 := by
-    have h2 : (5 * 10 ^ 17 : ℝ) < (2.7182818283 : ℝ) ^ 41 := by norm_num
-    calc (5 * 10 ^ 17 : ℝ) < (2.7182818283 : ℝ) ^ 41 := h2
-      _ < (Real.exp 1) ^ 41 := by gcongr; exact Real.exp_one_gt_d9
-  have hen : Real.exp (-41) = ((Real.exp 1) ^ 41)⁻¹ := by
-    rw [show (-41 : ℝ) = -((41 : ℕ) * (1 : ℝ)) by push_cast; ring, Real.exp_neg, Real.exp_nat_mul]
-  have hp : (0 : ℝ) < (Real.exp 1) ^ 41 := by positivity
-  have hexpneg41 : Real.exp (-41) < 2 / 10 ^ 18 := by
-    rw [hen, inv_lt_iff_one_lt_mul₀ hp, div_mul_eq_mul_div, lt_div_iff₀ (by norm_num : (0:ℝ) < 10 ^ 18)]
-    nlinarith [hexp41]
-  rw [hWAD]
-  calc (10 ^ 18 : ℝ) * Real.exp ((int256 x : Real) / (RAY : Real))
-      ≤ 10 ^ 18 * Real.exp (-41) := by
-        nlinarith [hmono, Real.exp_pos ((int256 x : Real) / (RAY : Real))]
-    _ < 10 ^ 18 * (2 / 10 ^ 18) := by nlinarith [hexpneg41]
-    _ = 2 := by norm_num
+/-- Absolute value of the signed clamp boundary. -/
+private abbrev CmaskAbs : Nat := 41446531673892822312323846185
 
-/-- info: 'ExpYul.belowC_target_lt_two' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- A lower cap certifying `10¹⁸ < exp(|Cmask| / 10²⁷)`. -/
+private theorem exp_CmaskAbs_capLB : capLB CmaskAbs (10 ^ 27) (10 ^ 28 + 1) (10 ^ 10) := by
+  refine ⟨129, ?_⟩
+  unfold CmaskAbs
+  decide +kernel
+
+/-- An upper cap certifying `exp((|Cmask| - 1) / 10²⁷) < 10¹⁸`. -/
+private theorem exp_CmaskAbs_pred_capUB : capUB (CmaskAbs - 1) (10 ^ 27) (10 ^ 28 - 1) (10 ^ 10) := by
+  refine capUB_of_partial (by norm_num) (K := 129) ?_ ?_
+  · unfold CmaskAbs
+    norm_num
+  · unfold CmaskAbs
+    decide +kernel
+
+private theorem exp_CmaskAbs_gt_WAD :
+    (WAD : Real) < Real.exp ((CmaskAbs : Real) / (RAY : Real)) := by
+  have hcap := le_exp_of_capLB (p := CmaskAbs) (q := 10 ^ 27)
+    (y := 10 ^ 28 + 1) (w := 10 ^ 10) (by norm_num) (by norm_num) exp_CmaskAbs_capLB
+  have htarget : (WAD : Real) < ((10 ^ 28 + 1 : Nat) : Real) / ((10 ^ 10 : Nat) : Real) := by
+    unfold WAD
+    norm_num
+  have h := lt_of_lt_of_le htarget hcap
+  simpa [RAY] using h
+
+private theorem exp_CmaskAbs_pred_lt_WAD :
+    Real.exp (((CmaskAbs - 1 : Nat) : Real) / (RAY : Real)) < (WAD : Real) := by
+  have hcap := exp_le_of_capUB (p := CmaskAbs - 1) (q := 10 ^ 27)
+    (y := 10 ^ 28 - 1) (w := 10 ^ 10) (by norm_num) (by norm_num) exp_CmaskAbs_pred_capUB
+  have htarget : ((10 ^ 28 - 1 : Nat) : Real) / ((10 ^ 10 : Nat) : Real) < (WAD : Real) := by
+    unfold WAD
+    norm_num
+  have h := lt_of_le_of_lt hcap htarget
+  simpa [RAY] using h
+
+/-- At `Cmask`, the real target is below one output unit. -/
+theorem expRayToWadTarget_Cmask_lt_one : expRayToWadTarget (int256 Cmask) < 1 := by
+  have hCm : int256 Cmask = - (CmaskAbs : Int) := by
+    rw [int256_Cmask]
+    norm_num [CmaskAbs]
+  have hgt := exp_CmaskAbs_gt_WAD
+  unfold expRayToWadTarget
+  rw [hCm]
+  simp only [Int.cast_neg, Int.cast_natCast]
+  rw [neg_div, Real.exp_neg, ← div_eq_mul_inv]
+  rw [div_lt_iff₀ (Real.exp_pos ((CmaskAbs : Real) / (RAY : Real)))]
+  simpa using hgt
+
+/-- Just above `Cmask`, the real target is above one output unit. -/
+theorem one_lt_expRayToWadTarget_Cmask_succ : 1 < expRayToWadTarget (int256 Cmask + 1) := by
+  have hCm : int256 Cmask = - (CmaskAbs : Int) := by
+    rw [int256_Cmask]
+    norm_num [CmaskAbs]
+  have hpred : int256 Cmask + 1 = - ((CmaskAbs - 1 : Nat) : Int) := by
+    rw [hCm]
+    norm_num [CmaskAbs]
+  have hlt := exp_CmaskAbs_pred_lt_WAD
+  unfold expRayToWadTarget
+  rw [hpred]
+  simp only [Int.cast_neg, Int.cast_natCast]
+  rw [neg_div, Real.exp_neg, ← div_eq_mul_inv]
+  rw [lt_div_iff₀ (Real.exp_pos (((CmaskAbs - 1 : Nat) : Real) / (RAY : Real)))]
+  simpa using hlt
+
+/-- The real target is monotone in the signed input. -/
+theorem expRayToWadTarget_mono {a b : Int} (h : a ≤ b) :
+    expRayToWadTarget a ≤ expRayToWadTarget b := by
+  unfold expRayToWadTarget
+  have hRAY : (0 : Real) < (RAY : Real) := by
+    unfold RAY
+    norm_num
+  have hargs : (a : Real) / (RAY : Real) ≤ (b : Real) / (RAY : Real) := by
+    rw [div_le_div_iff_of_pos_right hRAY]
+    exact_mod_cast h
+  exact mul_le_mul_of_nonneg_left (Real.exp_le_exp.mpr hargs) (by unfold WAD; norm_num)
+
+/-- `Cmask` is the exact signed boundary where the real target crosses one output unit. -/
+theorem expRayToWadTarget_lt_one_iff (z : Int) :
+    expRayToWadTarget z < 1 ↔ z ≤ int256 Cmask := by
+  constructor
+  · intro hz
+    by_contra hnot
+    push_neg at hnot
+    have hsucc : int256 Cmask + 1 ≤ z := by omega
+    have hmono := expRayToWadTarget_mono hsucc
+    have h1 := one_lt_expRayToWadTarget_Cmask_succ
+    linarith
+  · intro hz
+    have hmono := expRayToWadTarget_mono hz
+    have hlt := expRayToWadTarget_Cmask_lt_one
+    linarith
+
+/-- Below the clamp boundary the target is under one output unit. -/
+theorem belowC_target_lt_one {x : Nat} (hxle : int256 x ≤ int256 Cmask) :
+    expRayToWadTarget (int256 x) < 1 :=
+  (expRayToWadTarget_lt_one_iff (int256 x)).2 hxle
+
+/-- info: 'ExpYul.belowC_target_lt_one' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms belowC_target_lt_two
+#print axioms belowC_target_lt_one
 
 end
 

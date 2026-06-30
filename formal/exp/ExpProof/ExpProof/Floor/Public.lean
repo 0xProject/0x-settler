@@ -72,7 +72,7 @@ theorem run_exp_ray_to_wad_evm_floorOrOneLess (H' : RuntimeAccumBound) (x : Nat)
       rw [h0, hi0]; exact floorOrOneLess_zero
     · rw [int256_expTree_region_ne_zero hx hC hC0 hz]
       exact floorOrOneLessBracket_region H' hx hC hC0
-  · -- below/at the clamp boundary: result is 0, E < 2
+  · -- below/at the clamp boundary: result is 0, E < 1
     push_neg at hC
     have hle : int256 (u256 x) ≤ int256 (u256 Cmask) := by
       rw [u256_of_lt hx, u256_of_lt Cmask_lt]; exact hC

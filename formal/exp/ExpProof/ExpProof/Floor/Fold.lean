@@ -77,7 +77,7 @@ structure RuntimeR0Bound : Prop where
       expRayToWadTarget (int256 x) * (2 ^ s : Real) <
         (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 720143407370309279 + (2 ^ s : Real)
   /-- Below the clamp boundary `E < 1` (carried through verbatim). -/
-  belowC : ∀ x : Nat, int256 x ≤ int256 Cmask → expRayToWadTarget (int256 x) < 2
+  belowC : ∀ x : Nat, int256 x ≤ int256 Cmask → expRayToWadTarget (int256 x) < 1
 
 /-- **The plumbing reduction.** `RuntimeR0Bound` discharges `RuntimeAccumBound`: the never-over and
 deficit inequalities transport across the closing shift `2^s > 0`. -/

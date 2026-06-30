@@ -6,7 +6,7 @@ import ExpProof.Floor.R0BoundHolds
 
 The global floor-or-one-less and one-unit underestimation brackets consume only the
 never-over/deficit/below-clamp facts (`accumReal_over`, `accumReal_under`,
-`belowC_target_lt_two`). They become hypothesis-free here.
+`belowC_target_lt_one`). They become hypothesis-free here.
 -/
 
 namespace ExpYul
@@ -55,7 +55,7 @@ theorem run_exp_ray_to_wad_evm_floorOrOneLess_uncond (x : Nat) (hx : x < 2 ^ 256
         have := Real.exp_pos ((int256 x : Real) / (RAY : Real))
         positivity
       exact hpos
-    · have := belowC_target_lt_two hle'
+    · have := belowC_target_lt_one hle'
       rw [Int.cast_zero]; linarith [this]
 
 /-- **One-unit underestimation bound (global).** `⌊E⌋ − 1 ≤ r`. -/

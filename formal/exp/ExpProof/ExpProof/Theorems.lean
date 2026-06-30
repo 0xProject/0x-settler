@@ -178,7 +178,7 @@ The following `RuntimeR0Bound` ingredients are proved directly and axiom-clean:
 * `evTree_bracket` / `odTree_bracket` — the **gap-2 Horner-truncation bridge**: the runtime even/odd
   accumulators bracket the exact integer polynomials `evNumV`/`odNumV` (in `v = vTree x`) within `2`
   units at the cleared scales `2^553`/`2^530`;
-* `belowC_target_lt_two` — the `RuntimeR0Bound.belowC` field (below the clamp boundary `E < 2`). -/
+* `belowC_target_lt_one` — the `RuntimeR0Bound.belowC` field (below the clamp boundary `E < 1`). -/
 example {x : Nat} (hx : x < 2 ^ 256)
     (hC : FormalYul.Preservation.int256 Cmask < FormalYul.Preservation.int256 x)
     (hC0 : FormalYul.Preservation.int256 x < FormalYul.Preservation.int256 C0thresh) :
@@ -198,9 +198,9 @@ example {x : Nat} (hx : x < 2 ^ 256)
 #guard_msgs in
 #print axioms odTree_bracket
 
-/-- info: 'ExpYul.belowC_target_lt_two' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpYul.belowC_target_lt_one' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms belowC_target_lt_two
+#print axioms belowC_target_lt_one
 
 /-! ## Hypothesis-free global floor brackets
 
@@ -208,7 +208,7 @@ The never-over (`r0_real_over_within`) and deficit (`r0_real_under_within`) per-
 brackets, folded onto the target through the closing-shift octave fold, discharge the accumulator's
 never-over (`accumReal_over`) and deficit (`accumReal_under`) fields unconditionally and axiom-clean.
 The global floor-or-one-less and one-unit underestimation brackets consume only those plus the
-below-clamp `belowC_target_lt_two`, so they hold with no analytic hypothesis. -/
+below-clamp `belowC_target_lt_one`, so they hold with no analytic hypothesis. -/
 
 /-- Global floor-or-one-less bracket, with no analytic hypothesis. -/
 example (x : Nat) (hx : x < 2 ^ 256)
