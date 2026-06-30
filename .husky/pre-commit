@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+new_markdown=()
+while IFS= read -r -d '' path; do
+    case "${path,,}" in
+        *.md|*.markdown)
+            new_markdown+=("$path")
+            ;;
+    esac
+done < <(git diff --cached --name-only --diff-filter=AR -z --)
+
+if (( ${#new_markdown[@]} != 0 )); then
+    printf 'pre-commit: refusing to add new Markdown file(s):\n' >&2
+    printf '  %s\n' "${new_markdown[@]}" >&2
+    printf '\nAdd durable guidance to AGENTS.md or update an existing tracked document instead of adding ad hoc Markdown notes.\n' >&2
+    exit 1
+fi

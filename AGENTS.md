@@ -423,11 +423,18 @@ the current implementation unless historical context is required for present
 correctness. Archaeology is forbidden.
 
 Work product must not reference opaque external planning material. Code,
-comments, docs, commit messages, PR descriptions, and other in-repo literature
-must not include outside task identifiers, plan-document labels, milestone
-names, tracking IDs, TODO placeholders, or similar references unless the
-referenced artifact is committed in this repository and the reference is
-required for current correctness.
+comments, docs, commit messages, PR titles/descriptions/review responses, and
+other project literature must not include outside task identifiers, plan-document
+labels, milestone names, phase names, tracking IDs, TODO placeholders,
+scratchpad/worklog names, agent-conversation breadcrumbs, or similar references.
+Describe the current invariant, proof obligation, implementation fact, or
+operational requirement directly instead.
+
+References to planning artifacts are permitted only when the referenced artifact
+is committed in this repository, is a normative source for current correctness,
+and cannot be replaced by a direct statement of the relevant requirement. A
+committed progress log, scratchpad, milestone note, or plan document is not a
+normative source merely because it is present in the repository.
 
 ### Commenting Discipline
 
@@ -447,7 +454,7 @@ non-idiomatic structure in order to achieve its goal.
 
 - Create documentation files unless explicitly requested
 - Write notes, comments, docs, commit messages, or PR descriptions that describe historical evolution instead of the current system unless the history is required for current correctness
-- Write comments, code, docs, commit messages, PR descriptions, or other in-repo literature that cite opaque outside task identifiers, plan labels, milestones, tracking IDs, TODO placeholders, or issue labels
+- Write comments, code, docs, commit messages, PR titles/descriptions/review responses, or other project literature that cite opaque outside task identifiers, plan-document labels, milestones, phases, tracking IDs, TODO placeholders, issue labels, scratchpads, worklogs, or agent-conversation breadcrumbs
 - Use comments to explain what used to be true, what changed, why something was once necessary, or that a workaround/kludge existed previously
 - Make up performance numbers or generic justifications for changes
 - Add features beyond what was asked (no over-engineering)
