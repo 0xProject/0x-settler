@@ -64,10 +64,10 @@ theorem accumReal_over_strict (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < 
   rw [hAeq, div_lt_iff₀ hps]; linarith [hbound]
 
 /-- **Accumulator deficit, region-uniform.** On the region the accumulator is below the target by
-strictly less than `24/25`: `E − 24/25 < accumReal x`. The deficit `r0 ≥ 2¹²⁶·exp(rt) − 8` and the
-octave fold give `accumReal x ≥ E − (8·WAD + MARGIN)/2^s` with `s = 126 − k ≥ 63`, and
-`(8·WAD + MARGIN)/2⁶³ < 24/25`. The tightness below one is what closes the round trip together with
-`lnWadToRay`'s ≈10⁻⁹ envelope. -/
+strictly less than `24/25`: `E − 24/25 < accumReal x`. The deficit `r0 ≥ 2¹²⁶·exp(rt) − 13/2` and the
+octave fold give `accumReal x ≥ E − ((13/2)·WAD + MARGIN)/2^s` with `s = 126 − k ≥ 63`, and
+`((13/2)·WAD + MARGIN)/2⁶³ ≈ 0.783 < 24/25`. The tightness below one is what closes the round trip
+together with `lnWadToRay`'s ≈10⁻⁹ envelope. -/
 theorem accumReal_deficit_lt_one (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256 x)
     (hC0 : int256 x < int256 C0thresh) :
     expRayToWadTarget (int256 x) - 24 / 25 < accumReal x := by
@@ -86,16 +86,16 @@ theorem accumReal_deficit_lt_one (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask
       (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 720143407370309279 := by
     have hkey : expRayToWadTarget (int256 x) * (2 ^ s : Real) =
         (WAD : Real) * (2 ^ 126 : Real) * Ert := hfold
-    have hr0R : (2 ^ 126 : Real) * Ert ≤ (int256 (r0Tree x) : Real) + 8 := hunder
+    have hr0R : (2 ^ 126 : Real) * Ert ≤ (int256 (r0Tree x) : Real) + 13 / 2 := hunder
     have hwad : (WAD : Real) = (10 ^ 18 : Real) := by unfold WAD; norm_num
     have h8wad : (10 ^ 18 : Real) * ((2 ^ 126 : Real) * Ert) ≤
-        (10 ^ 18 : Real) * ((int256 (r0Tree x) : Real) + 8) :=
+        (10 ^ 18 : Real) * ((int256 (r0Tree x) : Real) + 13 / 2) :=
       mul_le_mul_of_nonneg_left hr0R (by norm_num)
-    have hbudget : (10 ^ 18 : Real) * 8 + 720143407370309279 < (24 / 25) * (2 ^ 63 : Real) := by
+    have hbudget : (10 ^ 18 : Real) * (13 / 2) + 720143407370309279 < (24 / 25) * (2 ^ 63 : Real) := by
       norm_num
     rw [hwad] at hkey
     have hEs : (10 ^ 18 : Real) * 2 ^ 126 * Ert ≤
-        (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) + (10 ^ 18 : Real) * 8 := by
+        (10 ^ 18 : Real) * (int256 (r0Tree x) : Real) + (10 ^ 18 : Real) * (13 / 2) := by
       nlinarith [h8wad]
     -- (E − 24/25)·2^s = E·2^s − (24/25)·2^s ; E·2^s = 10^18·2^126·Ert ; (24/25)·2^s ≥ (24/25)·2^63
     have h2425 : (24 / 25 : Real) * (2 ^ 63 : Real) ≤ (24 / 25) * (2 ^ s : Real) :=

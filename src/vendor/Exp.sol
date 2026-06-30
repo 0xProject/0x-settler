@@ -68,10 +68,14 @@ library Exp {
     ///      S = 10¹⁸⋅Δ/2⁶³ ≈ 0.0781 ulp (1 ulp = 10⁻¹⁸ of the result). The margin is the least integer
     ///      strictly above 2⁶³⋅S: 0x9fe769d0fa58e9f = ⌊10¹⁸⋅Δ⌋ + 1 = 720143407370309279 (worth ≈ S ulp
     ///      at k = 63; the +1 makes the never-over strict, which the round trip below needs). So
-    ///      10¹⁸⋅e⋅2ᵏ - margin ≤ E (never overestimates), and with the one-sided under truncation
-    ///      e⋅2¹²⁶ ≥ exp(t)⋅2¹²⁶ - 8, E - A ≤ (8⋅10¹⁸ + margin)/2⁶³ ≈ 0.945 < 1, so the floor returns
-    ///      ⌊E⌋ or ⌊E⌋ - 1 (the 1-ulp underestimate is achieved, ⌊E⌋ - 2 never occurs). The deficit
-    ///      envelope (8⋅10¹⁸ + margin)/2^(126 - k) doubles each octave, so at k = 64 it exceeds one ulp
+    ///      10¹⁸⋅e⋅2ᵏ - margin ≤ E (never overestimates). The under side is bounded to the same
+    ///      precision: e⋅2¹²⁶ ≥ exp(t)⋅2¹²⁶ - 13/2, where 13/2 is the proven sum of the integer-rational
+    ///      deficit (≤ 6001/1000, the Horner/`sdiv`/floor truncation against the denominator), the `Mp`
+    ///      factor (≤ 1/10, via e ≤ 1.45·2¹²⁶), and the under-direction reduced-argument gap (≤ 37/100,
+    ///      via exp(t) ≤ √2). Hence the maximum underestimation of the pre-floor accumulator A is
+    ///      E - A ≤ ((13/2)⋅10¹⁸ + margin)/2⁶³ ≈ 0.78281 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1 (the
+    ///      1-ulp underestimate is achieved, ⌊E⌋ - 2 never occurs). The deficit envelope
+    ///      ((13/2)⋅10¹⁸ + margin)/2^(126 - k) doubles each octave, so at k = 64 it exceeds one ulp
     ///      and the floor can fall two below E; that input is reverted. On the central octave k = 0 the
     ///      margin is margin⋅2⁻¹²⁶ ≈ 8.5⋅10⁻²¹ ulp, far below the ≈10⁻⁹ ulp gap `lnWadToRay` leaves, so
     ///      the round trip floors to ⌊E⌋. `round(x/(10²⁷⋅ln2))` is half-open, so the k = 0 band is

@@ -11,7 +11,7 @@ axiom-clean, via the octave fold `E·2^s = WAD·2¹²⁶·exp(rt)` (`s = 126 −
 closing shift; `k ≤ 63` so `s ≥ 63`).
 
 * `over`  ⟸ `r0 ≤ 2¹²⁶·exp(rt) + 7201434073703092789/10000000000000000000` and `WAD·7201434073703092789/10000000000000000000 ≤ MARGIN`;
-* `under` ⟸ `2¹²⁶·exp(rt) ≤ r0 + 8` and `8·WAD + MARGIN < 2⁶³ ≤ 2^s`;
+* `under` ⟸ `2¹²⁶·exp(rt) ≤ r0 + 13/2` and `(13/2)·WAD + MARGIN < 2⁶³ ≤ 2^s`;
 * `belowC` ⟸ `belowC_target_lt_two`.
 
 These make the global floor-or-one-less and one-unit underestimation brackets hypothesis-free.
@@ -63,16 +63,16 @@ theorem accumReal_under (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256
   have hbound : expRayToWadTarget (int256 x) * (2 ^ s : Real) <
       ((10 ^ 18 : Real) * (int256 (r0Tree x) : Real) - 720143407370309279) + (2 ^ s : Real) := by
     rw [hfold]
-    have hr0R : (2 ^ 126 : Real) * Ert ≤ (int256 (r0Tree x) : Real) + 8 := hunder
+    have hr0R : (2 ^ 126 : Real) * Ert ≤ (int256 (r0Tree x) : Real) + 13 / 2 := hunder
     have hwad : (WAD : Real) = (10 ^ 18 : Real) := by unfold WAD; norm_num
     have hs63 : (63 : Int) ≤ (s : Int) := by rw [hsint]; linarith [hkhi]
     have hs63n : 63 ≤ s := by exact_mod_cast hs63
     have hpow : (2 ^ 63 : Real) ≤ (2 ^ s : Real) := pow_le_pow_right₀ (by norm_num) hs63n
     rw [hwad]
     have h8wad : (10 ^ 18 : Real) * ((2 ^ 126 : Real) * Ert) ≤
-        (10 ^ 18 : Real) * ((int256 (r0Tree x) : Real) + 8) :=
+        (10 ^ 18 : Real) * ((int256 (r0Tree x) : Real) + 13 / 2) :=
       mul_le_mul_of_nonneg_left (by linarith [hr0R]) (by norm_num)
-    have hbudget : (10 ^ 18 : Real) * 8 + 720143407370309279 < (2 ^ 63 : Real) := by norm_num
+    have hbudget : (10 ^ 18 : Real) * (13 / 2) + 720143407370309279 < (2 ^ 63 : Real) := by norm_num
     nlinarith [h8wad, hbudget, hpow]
   -- E < accumReal + 1  ⟺  E·2^s < (WAD·r0 − MARGIN) + 2^s
   rw [hAeq]
