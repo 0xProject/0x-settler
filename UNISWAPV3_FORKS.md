@@ -45,3 +45,5 @@
    36. AboreanCL
    <!-- -->
    37. Thena (Algebra-like)
+   <!-- -->
+   38. SquadSwapV3

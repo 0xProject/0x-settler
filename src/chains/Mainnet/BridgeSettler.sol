@@ -9,8 +9,9 @@ import {Across} from "../../core/Across.sol";
 import {Mayan} from "../../core/Mayan.sol";
 import {StargateV2} from "../../core/StargateV2.sol";
 import {DeBridge} from "../../core/DeBridge.sol";
+import {NucleusTeller} from "../../core/NucleusTeller.sol";
 
-contract MainnetBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBridge {
+contract MainnetBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBridge, NucleusTeller {
     constructor(bytes20 gitCommit) BridgeSettlerBase(gitCommit) {
         assert(block.chainid == 1 || block.chainid == 31337);
     }
@@ -36,6 +37,12 @@ contract MainnetBridgeSettler is BridgeSettler, Across, Mayan, StargateV2, DeBri
         } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_DEBRIDGE.selector)) {
             (uint256 globalFee, bytes memory createOrderData) = abi.decode(data, (uint256, bytes));
             bridgeToDeBridge(globalFee, createOrderData);
+        } else if (action == uint32(IBridgeSettlerActions.BRIDGE_TO_NUCLEUS_TELLER.selector)) {
+            bytes memory bridgeCallData = abi.decode(data, (bytes));
+            bridgeToNucleusTeller(bridgeCallData);
+        } else if (action == uint32(IBridgeSettlerActions.DEPOSIT_AND_BRIDGE_TO_NUCLEUS_TELLER.selector)) {
+            bytes memory depositAndBridgeCallData = abi.decode(data, (bytes));
+            depositAndBridgeToNucleusTeller(depositAndBridgeCallData);
         } else {
             return false;
         }

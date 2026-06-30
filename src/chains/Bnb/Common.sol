@@ -33,6 +33,12 @@ import {
 } from "../../core/univ3forks/PancakeSwapV3.sol";
 //import {sushiswapV3BnbFactory, sushiswapV3ForkId} from "../../core/univ3forks/SushiswapV3.sol";
 import {thenaFactory, thenaInitHash, thenaForkId} from "../../core/univ3forks/Thena.sol";
+import {
+    squadSwapV3PoolDeployer,
+    squadSwapV3InitHash,
+    squadSwapV3ForkId,
+    ISquadSwapV3Callback
+} from "../../core/univ3forks/SquadSwapV3.sol";
 import {IAlgebraCallback} from "../../core/univ3forks/Algebra.sol";
 
 import {BNB_POOL_MANAGER} from "../../core/UniswapV4Addresses.sol";
@@ -158,6 +164,10 @@ abstract contract BnbMixin is
             factory = thenaFactory;
             initHash = thenaInitHash;
             callbackSelector = uint32(IAlgebraCallback.algebraSwapCallback.selector);
+        } else if (forkId == squadSwapV3ForkId) {
+            factory = squadSwapV3PoolDeployer;
+            initHash = squadSwapV3InitHash;
+            callbackSelector = uint32(ISquadSwapV3Callback.squadV3SwapCallback.selector);
         } else {
             revertUnknownForkId(forkId);
         }
