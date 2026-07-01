@@ -48,7 +48,8 @@ library Exp {
     ///          Ev Horner up the staircase Q99 → Q97 → Q97 → Q91 → Q87 (monic leading stage at Q99)
     ///          Od Horner up the staircase Q105 → Q102 → Q93 → Q94 → Q87
     ///          Ev, Od, t⋅Od, and the numerator/denominator: Q87 (the basis the closing quotient shares)
-    ///          quotient: one `sdiv` placing exp(t) at Q126 (the dividend, numerator << 126, < 2²⁵⁶)
+    ///          quotient: one `sdiv` placing exp(t) at Q126 (the dividend, numerator << 126, stays
+    ///              below 2²⁵⁵: a nonnegative signed word)
     ///          output: multiplying by 10¹⁸ lands E on the 10¹⁸⋅2¹²⁶ grid; the closing
     ///              `sar(126 - k, …)` is the single output-rounding floor, with 2ᵏ folded in
     ///
@@ -61,9 +62,11 @@ library Exp {
     ///              truncation barely perturbs e; this jitter (the dominant term) stays ≤ 0.6207065163.
     ///          rational `Mp`-factor (the dyadic gap between the reciprocal-symmetric form and exp):
     ///              ≤ 0.0883883477 (its supremum is √2⋅2¹²⁶/(2¹³⁰-1)).
-    ///          reduced-argument gap:  ln2 is carried at Q235, so the k⋅ln2 under-subtraction is
-    ///              ~2⁻²³⁵ (negligible); the residual Q128 truncation of t lifts e by ≤ 0.0110485435
-    ///              (its supremum is √2/128).
+    ///          reduced-argument gap: the Q128 floor of t only pushes e downward (that direction
+    ///              is budgeted on the under side); the over side is the K27/LN2 constant-grid
+    ///              residue (the k⋅ln2 grid error stays below 2⁻²²⁹), which the proof envelopes
+    ///              one-sidedly at 2⁻¹³³ of reduced argument, lifting e by ≤ 0.0110485435
+    ///              (√2⋅2¹²⁶/(32⋅2¹²⁸) = √2/128).
     ///      Scaling by 10¹⁸⋅2ᵏ, the accumulator's excess over E peaks at the supported edge k = 63 at
     ///      S = 10¹⁸⋅Δ/2⁶³ ≈ 0.0781 ulp (1 ulp = 10⁻¹⁸ of the result). The margin is the least integer
     ///      strictly above 2⁶³⋅S: 0x9fe769d0fa58e9f = ⌊10¹⁸⋅Δ⌋ + 1 = 720143407370309279 (worth ≈ S ulp
@@ -88,11 +91,13 @@ library Exp {
     ///      would need either round-to-nearest Horner stages (more gas and code) or a number-theoretic
     ///      bound on the fractional part of E, so the margin rests here.
     ///
-    ///      Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, a relative
-    ///      gain that exceeds the entire error span above (≤ Δ⋅2⁻¹²⁶ ≈ 8.5⋅10⁻³⁹ relative
-    ///      at k = 63, and ∝ 2ᵏ below it) and its per-step variation — including the margin's doubling
-    ///      at each octave boundary (≤ margin⋅2ᵏ⁻¹²⁶ ≈ 8.5⋅10⁻³⁹ relative) — by more than nine orders of
-    ///      magnitude, so the pre-floor accumulator strictly increases at every step and its floor
+    ///      Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves
+    ///      the pre-floor accumulator by at least 10¹⁸⋅2¹²⁶⋅10⁻²⁷/√2 ≈ 6⋅10²⁸ grid units. The
+    ///      error terms above confine the accumulator to a band of width 10¹⁸⋅(Δ + 13/2) ≈
+    ///      7.2⋅10¹⁸ grid units just below E's grid image at every octave (in grid units the band
+    ///      is k-independent; an octave seam rescales E and the band together), so the per-step
+    ///      gain exceeds any adverse swing within the band by more than nine orders of magnitude,
+    ///      and the pre-floor accumulator strictly increases at every step; its floor
     ///      is non-decreasing. The zeroing clamp and the +1 pin preserve order: below C the result
     ///      is 0 while just above it ⌊E⌋ ≥ 0, and the adjacent runtime values around x = 0 bracket
     ///      the pinned scale-point value.
@@ -144,7 +149,7 @@ library Exp {
 
             // E in Q126 on the 10¹⁸⋅2¹²⁶ grid, less the one-sided margin (the provable minimum
             // 0x9fe769d0fa58e9f = ⌊10¹⁸⋅Δ⌋ + 1; see the budget above), then floored by `sar(126 - k, …)`
-            // which folds in the 2ᵏ octave scaling (126 - k ∈ [64, 188]).
+            // which folds in the 2ᵏ octave scaling (126 - k ∈ [63, 187]).
             r := sar(sub(0x7e, k), sub(mul(0xde0b6b3a7640000, r), 0x9fe769d0fa58e9f))
 
             // Zero the result at and below C = ⌊-18⋅ln10⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x
