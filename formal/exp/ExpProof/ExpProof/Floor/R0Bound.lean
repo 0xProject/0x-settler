@@ -1,20 +1,23 @@
 import ExpProof.Floor.Fold
 import ExpProof.Floor.TBound
 import ExpProof.Mono.Quot
+import ExpProof.Spec.RealExp
+import Common.Foundation.ExpSum
+import Common.Seam.RealExpBridge
 import Mathlib.Data.Complex.ExponentialBounds
 
 /-!
 # Discharging the runtime `r0` bound
 
-`RuntimeR0Bound` (the single analytic obligation for the public floor brackets) brackets the Q126 quotient
-`r0Tree x` against the target `E = 10¹⁸·exp(int256 x / 10²⁷)` across the octave shift `2^(126 − k)`.
-This file builds two ingredients of that discharge:
+The public floor brackets need the Q126 quotient `r0Tree x` bracketed against the target
+`E = 10¹⁸·exp(int256 x / 10²⁷)` across the octave shift `2^(126 − k)`. This file builds two
+ingredients of that discharge:
 
-* the **gap-2 (Horner-truncation) bridge** for the even accumulator — the runtime `evTree x`, which
+* the **Horner-truncation bridge** for the even accumulator — the runtime `evTree x`, which
   truncates each Horner `>>` stage, brackets the exact even polynomial `evNumV (vTree x)` (a degree-5
   polynomial in `v` at the cleared scale `2^553`) within `2` units: per-stage floor losses telescope
   with shrinking amplification (each stage shift exceeds `126 = ⌈log₂ v⌉`);
-* the self-contained **`belowC`** field — below the clamp boundary the target is under one output
+* the self-contained **below-clamp bound** — below the clamp boundary the target is under one output
   unit — directly from a `Real.exp` rational bound.
 -/
 
@@ -421,7 +424,7 @@ theorem odTree_bracket {x : Nat} (hv : vTree x < 2 ^ 126) :
 #guard_msgs in
 #print axioms odTree_bracket
 
-/-! ## The below-clamp target bound (`RuntimeR0Bound.belowC`) -/
+/-! ## The below-clamp target bound -/
 
 open ExpRealSpec
 open Common.Exp Common.RealExpBridge

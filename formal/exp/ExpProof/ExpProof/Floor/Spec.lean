@@ -1,6 +1,8 @@
+import Mathlib.Data.Real.Basic
+import Mathlib.Tactic.Positivity
+import Mathlib.Tactic.Linarith
 import ExpProof.Mono.RunBridge
 import ExpProof.Mono.RangeNonneg
-import ExpProof.Seam.RealExp
 
 /-!
 # Floor + branch assembly: the public `Real.exp` brackets
@@ -15,18 +17,11 @@ A = (WAD·r0 − MARGIN) / 2^(126 − k).
 ```
 
 The two floor facts `(r : Real) ≤ A` and `A < (r : Real) + 1` (i.e. `r = ⌊A⌋`) are established here
-from the `evmSar` sandwich. What is not a runtime-plumbing fact — and is collected
-into the single analytic obligation `RuntimeAccumBound` below — is the relation between the
-*real-valued* runtime accumulator `A` and the target `E = WAD·exp(x/RAY)`:
-
-* never-over `A ≤ E`, and
-* deficit-under-one `E < A + 1`.
-
-`RuntimeAccumBound` packages exactly those, mirroring the way `Mono.RegionMonotonicityFacts`/`Mono.SeamR0Bound`
-isolate the monotonicity analytic core. Given it, this file derives the public floor brackets
-(chaining the `ExpRealBridge.*_of_accum` reductions); the analytic core itself
-is the cert-fold + truncation bridge (the cert `Floor/Caps` against the exact rational, plus the
-reduced-argument and Horner-truncation envelopes the `MARGIN` absorbs).
+from the `evmSar` sandwich. The relation between the *real-valued* runtime accumulator `A` and the
+target `E = WAD·exp(x/RAY)` — never-over `A ≤ E` and deficit-under-one `E < A + 1` — is not a
+runtime-plumbing fact; it is discharged in `Floor.R0BoundHolds` (`accumReal_over`/`accumReal_under`:
+the cert `Floor/CapsV` against the exact rational, plus the reduced-argument and Horner-truncation
+envelopes the `MARGIN` absorbs).
 -/
 
 namespace ExpYul
@@ -34,7 +29,6 @@ namespace ExpYul
 open FormalYul
 open FormalYul.Preservation
 open Common.Word
-open ExpRealSpec
 
 noncomputable section
 
@@ -113,58 +107,6 @@ theorem r1Tree_floor_accum {x : Nat} (hx : x < 2 ^ 256)
     unfold accumReal; rw [hseq]
   rw [hAeq, hr1]
   exact hfloor
-
-/-! ## The analytic obligation: the runtime accumulator brackets `E`
-
-`RuntimeAccumBound` packages the relation between the real pre-floor accumulator `accumReal x` and
-the public target `E = expRayToWadTarget x` that the cert-fold + truncation bridge must establish:
-
-* `over` — never over: `accumReal x ≤ E` for any region input;
-* `under` — deficit under one: `E < accumReal x + 1` for any region input.
-
-It is the floor-side analogue of `Mono.RegionMonotonicityFacts`/`Mono.SeamR0Bound`: every runtime-plumbing and
-floor fact is proved directly; the public floor brackets depend on this single
-analytic core (the cert against the exact rational `ê(t) = NUM/DEN` folded with the octave `2^k`,
-together with the reduced-argument `(x/RAY − k·ln2)` ≈ `tTree/2¹²⁸` envelope and the Horner-`sdiv`
-truncation envelope — all absorbed by the `MARGIN`). -/
-structure RuntimeAccumBound : Prop where
-  /-- Never over: the real pre-floor accumulator does not exceed the target. Holds for any region
-  input (the never-over relation `r0 ≤ exp(t)·2¹²⁶ + MARGIN/WAD` is octave-independent and
-  sign-symmetric). -/
-  over : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
-    accumReal x ≤ expRayToWadTarget (int256 x)
-  /-- Deficit under one: the target is below the accumulator plus one. -/
-  under : ∀ x : Nat, x < 2 ^ 256 → int256 Cmask < int256 x → int256 x < int256 C0thresh →
-    expRayToWadTarget (int256 x) < accumReal x + 1
-  /-- Below the clamp boundary the target is below one output unit (`E < 1`), so the clamped result
-  `0` is the floor. `Cmask` is the exact 0/1 boundary: the target is still strictly below one at
-  `Cmask` and strictly above one at `Cmask + 1`. -/
-  belowC : ∀ x : Nat, int256 x ≤ int256 Cmask → expRayToWadTarget (int256 x) < 1
-
-/-! ## The region floor brackets, given `RuntimeAccumBound` -/
-
-theorem int256_C0thresh_floc : int256 C0thresh = 44014845965556527147994239713 := by
-  unfold C0thresh int256; norm_num
-
-theorem int256_H_lt_C0 : (H : Int) < int256 C0thresh := by
-  rw [int256_C0thresh_floc]; unfold H; norm_num
-
-theorem int256_zero_le_Cmask : int256 Cmask < 0 := by rw [int256_Cmask]; norm_num
-
-/-- **Floor-or-one-less bracket on the region**, given the analytic accumulator bound: the body result
-`r = int256 (r1Tree x)` satisfies `r ≤ E ∧ E < r + 2`. -/
-theorem floorOrOneLessBracket_region {x : Nat} (H' : RuntimeAccumBound) (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    FloorOrOneLessBracket (int256 x) (int256 (r1Tree x)) := by
-  obtain ⟨hfl, hfl1⟩ := r1Tree_floor_accum hx hC hC0
-  exact ExpRealBridge.floorOrOneLessBracket_of_accum hfl hfl1
-    (H'.over x hx hC hC0) (H'.under x hx hC hC0)
-
-/-- **One-unit underestimation bound on the region**, given the analytic accumulator bound: `⌊E⌋ − 1 ≤ r`. -/
-theorem underByAtMostOne_region {x : Nat} (H' : RuntimeAccumBound) (hx : x < 2 ^ 256)
-    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
-    UnderByAtMostOne (int256 x) (int256 (r1Tree x)) :=
-  ExpRealBridge.underByAtMostOne_of_floorOrOneLess (floorOrOneLessBracket_region H' hx hC hC0)
 
 end
 

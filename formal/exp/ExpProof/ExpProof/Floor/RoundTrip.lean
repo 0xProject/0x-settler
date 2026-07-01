@@ -211,7 +211,7 @@ theorem expTarget_band {w : Nat} (r : Int) (hlo : Wlo ≤ w) (hhi : w ≤ Whi)
     linarith [hmul, h2wd]
   -- region membership of r
   have hCmask : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
-  have hC0 : int256 C0thresh = 44014845965556527147994239713 := int256_C0thresh_floc
+  have hC0 : int256 C0thresh = 44014845965556527147994239713 := int256_C0thresh
   -- L > log(1/2) = −log 2 > −1 ; X = 10^27·L > −10^27 ; r ≥ X − 2 > Cmask
   have hLgt : -(1 : Real) < L := by
     have h12 : Real.log ((1:Real)/2) < L := by

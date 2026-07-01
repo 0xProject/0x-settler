@@ -10,12 +10,13 @@ import Mathlib.Analysis.SpecialFunctions.Pow.Real
 # The per-point `r0`-vs-`exp` bridge
 
 This module brackets the Q126 quotient `r0Tree x` against `2¹²⁶·exp(rt)` (`rt = X/RAY − k·ln2` the
-reduced argument), the single content left for `RuntimeR0Bound`/`SeamR0Bound`. It chains:
+reduced argument), the analytic content the floor brackets (`Floor.R0BoundHolds`) and the seam bound
+(`SeamR0Bound`) consume. It chains:
 
 * the **v-truncation** `evNumV(vTree x)·2⁶⁴⁰ ≤ evalPoly evNumVPoly t < evNumV(vTree x)·2⁶⁴⁰ + 2¹¹⁹³`
-  (the cert polynomial in `t` uses the exact `v = t²/2¹²⁸`; the gap-2 bridge uses the truncated
-  `vTree x = ⌊t²/2¹²⁸⌋`; one `v`-step of the monotone Horner polynomial is below `2⁵⁵³`);
-* the **gap-2 Horner-truncation bridge** (`evTree_bracket`/`odTree_bracket`, already proven);
+  (the cert polynomial in `t` uses the exact `v = t²/2¹²⁸`; the Horner-truncation bridge uses the
+  truncated `vTree x = ⌊t²/2¹²⁸⌋`; one `v`-step of the monotone Horner polynomial is below `2⁵⁵³`);
+* the **Horner-truncation bridge** (`evTree_bracket`/`odTree_bracket`);
 * the **`sdiv` floor** `r0·den ≤ 2¹²⁶·num < (r0+1)·den`;
 * the **v-form cert** (`CapsV`) `exp(t/2¹²⁸) ≈ ê_v` within a dyadic margin;
 * the **reduced-argument bound** (`Reduce`) `|rt − t/2¹²⁸| < 2/2¹²⁸`.
@@ -838,8 +839,8 @@ theorem r0_vs_certRatio_neg {x : Nat} (hx : x < 2 ^ 256)
 
 The target `E = WAD·exp(X/RAY)`. With `rt = X/RAY − k·ln2` the reduced argument, `exp(X/RAY) =
 exp(rt)·2^k`, so the closing-shift fold `E·2^(126−k) = WAD·2¹²⁶·exp(rt)`. This collapses the
-`RuntimeR0Bound.over`/`under` inequalities (stated against `E·2^s`, `s = 126 − k`) onto the clean
-octave-independent never-over/deficit relation `r0 ≈ 2¹²⁶·exp(rt)`. -/
+never-over/deficit inequalities (stated against `E·2^s`, `s = 126 − k`) onto the clean
+octave-independent relation `r0 ≈ 2¹²⁶·exp(rt)`. -/
 
 open ExpRealSpec Real Common.RealExpBridge
 

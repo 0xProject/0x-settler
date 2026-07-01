@@ -1,12 +1,22 @@
-import ExpProof.Floor.Public
 import ExpProof.Floor.R0BoundHolds
+import ExpProof.Mono
 
 /-!
 # Hypothesis-free global floor brackets for the compiled runtime
 
+Assembling the floor brackets and the clamp/pin shell (`Mono.Shell`/`Mono.ShellOn`) into run-level
+statements about `run_exp_ray_to_wad_evm`. The result word `expTree x` decomposes by the clamp
+boundary:
+
+* `x = 0` — the scale point, `expTree 0 = 10¹⁸`; the brackets hold by the scale-point lemmas;
+* `int256 x ≤ int256 Cmask` — below the 0/1 boundary, `expTree x = 0` and `E < 1`, so the global
+  bracket holds with `r = 0`;
+* the meaningful region with `x ≠ 0` — `int256 (expTree x) = int256 (r1Tree x)` (the clamp is
+  transparent and the pin does not fire), so the region brackets transport directly.
+
 The global floor-or-one-less and one-unit underestimation brackets consume only the
 never-over/deficit/below-clamp facts (`accumReal_over`, `accumReal_under`,
-`belowC_target_lt_one`). They become hypothesis-free here.
+`belowC_target_lt_one`); they carry no analytic hypothesis.
 -/
 
 namespace ExpYul
@@ -19,6 +29,21 @@ open ExpRealSpec
 noncomputable section
 
 set_option maxRecDepth 100000
+
+/-- For a region input that is not the scale point, the run result is the body floor: above the
+clamp boundary the clamp is transparent and the `x = 0` pin does not fire. -/
+theorem int256_expTree_region_ne_zero {x : Nat} (hx : x < 2 ^ 256)
+    (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) (hne : x ≠ 0) :
+    int256 (expTree x) = int256 (r1Tree x) := by
+  have hr1 : r1Tree x < 2 ^ 254 := r1Tree_range hx hC hC0
+  have hmask : int256 (u256 Cmask) < int256 (u256 x) := by
+    rw [u256_of_lt Cmask_lt, u256_of_lt hx]; exact hC
+  rw [int256_expTree_of_gt hmask hr1]
+  have hx0 : u256 x ≠ 0 := by rw [u256_of_lt hx]; exact hne
+  have hr1eq : int256 (r1Tree x) = (r1Tree x : Int) :=
+    int256_of_lt (by have : (2:Nat)^254 < 2^255 := by norm_num
+                     omega)
+  rw [if_neg hx0, zero_add, hr1eq]
 
 /-- **Global floor-or-one-less bracket.** For every signed input strictly below the supported
 threshold the runtime result `r` satisfies the 2-wide never-over bracket `r ≤ E ∧ E < r + 2`. -/

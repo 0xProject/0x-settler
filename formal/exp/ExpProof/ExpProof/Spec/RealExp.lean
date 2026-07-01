@@ -11,9 +11,8 @@ input `x` is a signed ray-scale exponent (an `int256`, transported here as an
 is `E = 10^18 · exp(x / 10^27)`.
 
 The global bracket is 2-wide: `r ≤ E` (never over) together with `E < r + 2`
-(under by less than two output units). It pins `r` to `{⌊E⌋, ⌊E⌋ − 1}` and gives
-`r ≤ ⌊E⌋`. The one-unit underestimation bound is `r ≥ ⌊E⌋ − 1`, with a separate
-achieved-witness predicate for a supported input attaining `r = ⌊E⌋ − 1`.
+(under by less than two output units). It pins `r` to `{⌊E⌋, ⌊E⌋ − 1}`. The
+one-unit underestimation bound is `r ≥ ⌊E⌋ − 1`.
 
 These predicates are stated over abstract `r : Int`; the EVM-side modules
 discharge them for the runtime result. The arithmetic facts here are
@@ -26,9 +25,6 @@ noncomputable section
 
 def WAD : Nat := 10 ^ 18
 def RAY : Nat := 10 ^ 27
-
-/-- The half-octave bound `H = ⌊10²⁷·ln2/2⌋`; the core octave is `x ∈ [−H, H)`. -/
-def H : Int := 346573590279972654708616060
 
 /-- `E = 10^18 · exp(x / 10^27)`, the real target of `expRayToWad`. -/
 def expRayToWadTarget (x : Int) : Real :=
@@ -44,12 +40,6 @@ unit: `r ≥ ⌊E⌋ − 1`. -/
 def UnderByAtMostOne (x : Int) (r : Int) : Prop :=
   ⌊expRayToWadTarget x⌋ - 1 ≤ r
 
-/-- **One-unit underestimation witness.** Some supported input attains the worst-case
-1-unit underestimate `r = ⌊E⌋ − 1` (a `run`-level existence statement; the
-predicate carries the runtime result via `result`). -/
-def UnderByOneWitness (supported : Int → Prop) (result : Int → Int) : Prop :=
-  ∃ x : Int, supported x ∧ result x = ⌊expRayToWadTarget x⌋ - 1
-
 /-! ## Floor facts: turning the brackets into membership / equality -/
 
 /-- A 2-wide never-over bracket forces `r ∈ {⌊E⌋, ⌊E⌋ − 1}`. -/
@@ -64,11 +54,6 @@ theorem floorOrOneLess_mem_floor {x r : Int} (h : FloorOrOneLessBracket x r) :
   have hlt2' : (⌊E⌋ : Real) < ((r + 2 : Int) : Real) := by push_cast; linarith
   have hge : ⌊E⌋ < r + 2 := by exact_mod_cast hlt2'
   omega
-
-/-- The never-over half: `r ≤ ⌊E⌋`. -/
-theorem floorOrOneLess_le_floor {x r : Int} (h : FloorOrOneLessBracket x r) :
-    r ≤ ⌊expRayToWadTarget x⌋ :=
-  Int.le_floor.mpr h.1
 
 /-- The floor-or-one-less bracket implies the one-unit underestimation bound. -/
 theorem floorOrOneLess_to_underByAtMostOne {x r : Int} (h : FloorOrOneLessBracket x r) :

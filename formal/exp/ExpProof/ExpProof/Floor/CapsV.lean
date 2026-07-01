@@ -2,11 +2,11 @@ import Mathlib.Tactic.NormNum
 import Mathlib.Tactic.Ring
 import Mathlib.Tactic.Positivity
 import Mathlib.Algebra.Order.Floor.Defs
+import Common.Foundation.ExpSum
 import ExpProof.Cert.ExpVUp
 import ExpProof.Cert.ExpVLo
 import ExpProof.Cert.ExpVNum
 import ExpProof.Cert.ExpVDenM1
-import ExpProof.Spec.Cut
 
 /-!
 # From cell certificates to the **v-form** reduced-argument Taylor caps
@@ -17,19 +17,15 @@ nonnegativity into the two bare-argument Taylor caps the floor layer folds with 
 implementation's exact **v-form** rational `ê_v(t) = NUM(t)/DEN(t)` (built from the even/odd Horner
 polynomials in `v = t²`) nudged by the dyadic margin, with `Qexp = 2^128`:
 
-* `cutExpTaylorLeV_holds` — `CutExpTaylorLe t Qexp (yUB t) (wUB t)` (never-over `exp(t) ≤ ê_v·(1+2⁻¹³⁰)`);
-* `cutRatioLeExpTaylorV_holds` — `CutRatioLeExpTaylor (yLB t) (wLB t) t Qexp`
-  (not-two-below `ê_v·(1−2⁻¹³⁰) ≤ exp(t)`).
+* `capExpUp` — never-over `exp(t/Qexp) ≤ yUB(t)/wUB(t)` with `yUB/wUB = ê_v·(1 + 2⁻¹³⁰)`;
+* `capExpLo` — not-two-below `yLB(t)/wLB(t) ≤ exp(t/Qexp)` with `yLB/wLB = ê_v·(1 − 2⁻¹³⁰)`.
 
-These differ from the t-form caps only in the rational target (`ê_v` vs `ê_t`, equal as reals
-but distinct integer polynomials): the runtime truncation bridge lands on `ê_v`, so the floor layer
-needs the cut phrased on `ê_v`. The bridge is the depth-`K = 27` `Common.Exp.capUB_of_partial`/`capLB`
-shape.
+The bridge is the depth-`K = 27` `Common.Exp.capUB_of_partial`/`capLB` shape.
 -/
 
 namespace ExpCertV
 
-open Common.Poly Common.Exp ExpFloorCert
+open Common.Poly Common.Exp
 
 set_option maxRecDepth 100000
 
@@ -185,26 +181,12 @@ theorem capExpLo {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H128 : Int)) :
       = 10888869450418352160768000000 * ((2 : Int) ^ 128) ^ 27 * evalPoly yLB t := by ring
     _ ≤ expNumI 27 t (2 ^ 128) * evalPoly wLB t := by omega
 
-/-! ## The bare-argument v-form caps as cut predicates -/
-
-/-- **Never-over Taylor cut (v-form).** For every reduced argument `t ∈ [0, H128]`,
-`exp(t/Qexp) ≤ yUB(t)/wUB(t)` with `yUB/wUB = ê_v(t)·(1 + 2⁻¹²⁰)`. -/
-theorem cutExpTaylorLeV_holds {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H128 : Int)) :
-    CutExpTaylorLe t.toNat Qexp (evalPoly yUB t).toNat (evalPoly wUB t).toNat :=
-  capExpUp h1 h2
-
-/-- **Not-two-below Taylor cut (v-form).** For every reduced argument `t ∈ [0, H128]`,
-`yLB(t)/wLB(t) ≤ exp(t/Qexp)` with `yLB/wLB = ê_v(t)·(1 − 2⁻¹²⁶)`. -/
-theorem cutRatioLeExpTaylorV_holds {t : Int} (h1 : 0 ≤ t) (h2 : t ≤ (H128 : Int)) :
-    CutRatioLeExpTaylor (evalPoly yLB t).toNat (evalPoly wLB t).toNat t.toNat Qexp :=
-  capExpLo h1 h2
-
-/-- info: 'ExpCertV.cutExpTaylorLeV_holds' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpCertV.capExpUp' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms cutExpTaylorLeV_holds
+#print axioms capExpUp
 
-/-- info: 'ExpCertV.cutRatioLeExpTaylorV_holds' depends on axioms: [propext, Classical.choice, Quot.sound] -/
+/-- info: 'ExpCertV.capExpLo' depends on axioms: [propext, Classical.choice, Quot.sound] -/
 #guard_msgs in
-#print axioms cutRatioLeExpTaylorV_holds
+#print axioms capExpLo
 
 end ExpCertV

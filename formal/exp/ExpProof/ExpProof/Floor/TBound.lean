@@ -35,8 +35,7 @@ theorem tTree_in_cert_domain {x : Nat} (hx : x < 2 ^ 256)
   obtain ⟨hkblo, hkbhi⟩ := kTree_bound hx hC hC0
   -- region endpoints as decimals
   have hCi : int256 Cmask = -41446531673892822312323846185 := int256_Cmask
-  have hC0i : int256 C0thresh = 44014845965556527147994239713 := by
-    unfold C0thresh int256; norm_num
+  have hC0i : int256 C0thresh = 44014845965556527147994239713 := int256_C0thresh
   rw [hCi] at hC
   rw [hC0i] at hC0
   -- constants as decimals

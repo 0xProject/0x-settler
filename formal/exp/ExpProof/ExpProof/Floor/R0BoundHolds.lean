@@ -1,18 +1,18 @@
 import ExpProof.Floor.Fold
 import ExpProof.Floor.R0Exp
 import ExpProof.Floor.R0ExpUnder
+import ExpProof.Seam.RealExp
 
 /-!
-# Discharging the `RuntimeR0Bound` fields
+# The accumulator-vs-target brackets, discharged
 
 The per-point `r0`-vs-`exp` brackets (`r0_real_over_within`, `r0_real_under_within`) and the
-below-clamp bound (`belowC_target_lt_one`) discharge `RuntimeAccumBound` unconditionally and
-axiom-clean, via the octave fold `E·2^s = WAD·2¹²⁶·exp(rt)` (`s = 126 − k`, the
-closing shift; `k ≤ 63` so `s ≥ 63`).
+below-clamp bound (`belowC_target_lt_one`) establish the never-over and deficit-under-one facts
+about the real pre-floor accumulator unconditionally and axiom-clean, via the octave fold
+`E·2^s = WAD·2¹²⁶·exp(rt)` (`s = 126 − k`, the closing shift; `k ≤ 63` so `s ≥ 63`).
 
-* `over`  ⟸ `r0 ≤ 2¹²⁶·exp(rt) + 7201434073703092789/10000000000000000000` and `WAD·7201434073703092789/10000000000000000000 ≤ MARGIN`;
-* `under` ⟸ `2¹²⁶·exp(rt) ≤ r0 + 13/2` and `(13/2)·WAD + MARGIN < 2⁶³ ≤ 2^s`;
-* `belowC` ⟸ `belowC_target_lt_one`.
+* `accumReal_over`  ⟸ `r0 ≤ 2¹²⁶·exp(rt) + 7201434073703092789/10000000000000000000` and `WAD·7201434073703092789/10000000000000000000 ≤ MARGIN`;
+* `accumReal_under` ⟸ `2¹²⁶·exp(rt) ≤ r0 + 13/2` and `(13/2)·WAD + MARGIN < 2⁶³ ≤ 2^s`.
 
 These make the global floor-or-one-less and one-unit underestimation brackets hypothesis-free.
 -/
@@ -28,7 +28,7 @@ noncomputable section
 
 set_option maxRecDepth 100000
 
-/-- The accumulator never exceeds the target on the region (`RuntimeAccumBound.over`). -/
+/-- The accumulator never exceeds the target on the region. -/
 theorem accumReal_over (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256 x)
     (hC0 : int256 x < int256 C0thresh) :
     accumReal x ≤ expRayToWadTarget (int256 x) := by
@@ -49,7 +49,7 @@ theorem accumReal_over (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256 
     rw [hwad]; nlinarith [hscaled]
   rw [hAeq, div_le_iff₀ hps]; linarith [hbound]
 
-/-- The target is below the accumulator plus one on the region (`RuntimeAccumBound.under`). -/
+/-- The target is below the accumulator plus one on the region. -/
 theorem accumReal_under (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256 x)
     (hC0 : int256 x < int256 C0thresh) :
     expRayToWadTarget (int256 x) < accumReal x + 1 := by
@@ -85,7 +85,7 @@ theorem accumReal_under (x : Nat) (hx : x < 2 ^ 256) (hC : int256 Cmask < int256
 /-! ## Hypothesis-free region brackets for the global floor bounds -/
 
 /-- **Floor-or-one-less bracket on the region.** The body result satisfies `r ≤ E ∧ E < r+2`,
-discharged from the proven `accumReal_over`/`accumReal_under` (no `RuntimeAccumBound` hypothesis). -/
+discharged from the proven `accumReal_over`/`accumReal_under`. -/
 theorem floorOrOneLessBracket_region_uncond {x : Nat} (hx : x < 2 ^ 256)
     (hC : int256 Cmask < int256 x) (hC0 : int256 x < int256 C0thresh) :
     FloorOrOneLessBracket (int256 x) (int256 (r1Tree x)) := by

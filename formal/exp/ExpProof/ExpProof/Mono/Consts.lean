@@ -52,4 +52,8 @@ theorem Cmask_lt : Cmask < 2 ^ 256 := by
   unfold Cmask
   norm_num
 
+theorem int256_C0thresh : int256 C0thresh = 44014845965556527147994239713 := by
+  unfold C0thresh int256
+  norm_num
+
 end ExpYul

@@ -44,10 +44,6 @@ structure RegionMonotonicityFacts : Prop where
   pin : ∀ x : Nat, x < 2 ^ 256 → 0 < int256 x → int256 x < int256 C0thresh →
     1 + (r1Tree 0 : Int) ≤ (r1Tree x : Int)
 
-theorem int256_C0thresh : int256 C0thresh = 44014845965556527147994239713 := by
-  unfold C0thresh int256
-  norm_num
-
 /-- The region monotonicity facts hold given the octave-seam step: `range`/`nonneg` are
 unconditional, and `mono`/`pin` reduce (via the same-octave step and the region induction) to
 `SeamStep`. -/
