@@ -73,12 +73,21 @@ cd formal/cbrt/Cbrt512Proof && \
 ./formal/yul/generate_from_forge.sh \
   ln \
   src/wrappers/LnWrapper.sol:LnWrapper \
-  formal/ln/LnProof/LnProof/LnYul.lean
+  formal/ln/LnProof/LnProof/LnYul.lean \
+  0.8.34
 
 cd formal/ln/LnProof && \
-  lake build LnProof.LnYulRuntime LnProof.LnYulProof
+  lake build LnProof.LnYulRuntime LnProof.LnYulProof && \
+  lake build LnProof.Floor.CertDefs Common.Foundation.KroneckerShift LnProof.Floor.Consts && \
+  lake env lean GenFloorCertLit.lean && \
+  lake build LnProof.Cert.FloorCertLit && \
+  lake env lean GenCover.lean && \
+  lake env lean GenErr1.lean && \
+  lake build LnProof.Error.Core && \
+  lake env lean GenErrLit.lean && \
+  lake build
 
-# --- exp ---
+# --- exp (requires a fully built LnProof for the round trip: run the ln block first) ---
 ./formal/yul/generate_from_forge.sh \
   exp \
   src/wrappers/ExpWrapper.sol:ExpWrapper \

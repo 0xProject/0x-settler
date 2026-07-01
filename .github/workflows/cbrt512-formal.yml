@@ -19,6 +19,8 @@ on:
       - formal/yul/**
       - foundry.toml
       - remappings.txt
+      - .gitmodules
+      - lib/EVMYulLean
       - .github/workflows/cbrt512-formal.yml
   pull_request:
     paths:
@@ -36,6 +38,8 @@ on:
       - formal/yul/**
       - foundry.toml
       - remappings.txt
+      - .gitmodules
+      - lib/EVMYulLean
       - .github/workflows/cbrt512-formal.yml
 
 jobs:

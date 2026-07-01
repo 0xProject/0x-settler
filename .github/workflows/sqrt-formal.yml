@@ -12,6 +12,8 @@ on:
       - formal/yul/**
       - foundry.toml
       - remappings.txt
+      - .gitmodules
+      - lib/EVMYulLean
       - .github/workflows/sqrt-formal.yml
   pull_request:
     paths:
@@ -22,6 +24,8 @@ on:
       - formal/yul/**
       - foundry.toml
       - remappings.txt
+      - .gitmodules
+      - lib/EVMYulLean
       - .github/workflows/sqrt-formal.yml
 
 jobs:
