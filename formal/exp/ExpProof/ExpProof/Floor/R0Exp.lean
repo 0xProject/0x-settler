@@ -1413,8 +1413,8 @@ theorem r0_real_over_tight {x : Nat} (hx : x < 2 ^ 256)
 
 These bracket `(r0Tree x : Real)` against `2¹²⁶·exp(rt)` with loose octave-seam-absorbed constants
 (`+50` over, `+701` under). They suffice for `SeamR0Bound`, whose octave-seam doubling has ~10¹¹
-slack. The over side does not yet meet the per-point `MARGIN` budget — that needs the tight
-cross-product sharpening; here only the loose `r0_vs_certRatio` constants are used. -/
+slack, and consume only the loose `r0_vs_certRatio` constants; the per-point `MARGIN` budget is met
+by `r0_real_over_tight` above, via the cross-product sharpening. -/
 
 /-- **Loose per-point never-over** (nonneg half): `r0 ≤ 2¹²⁶·exp(rt) + 50`. -/
 theorem r0_real_over_loose {x : Nat} (hx : x < 2 ^ 256)

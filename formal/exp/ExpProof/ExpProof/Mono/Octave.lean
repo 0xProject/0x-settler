@@ -10,7 +10,7 @@ bounds, and proves `k` is nondecreasing in `int256 x` and (for a fixed `k`) `t` 
 `int256 x`.
 
 Constants and their bit widths (so every product stays below `2^255`):
-`CINV` 111 bits, `K27` 146 bits, `LN2` 235 bits, `|int256 x| < 2^96`, `k ∈ [-60, 63]`.
+`CINV` 111 bits, `K27` 146 bits, `LN2` 235 bits, `|int256 x| < 2^96`, `k ∈ [-61, 63]`.
 -/
 
 namespace ExpYul

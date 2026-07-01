@@ -8,8 +8,8 @@ The reduced-argument Taylor caps (`Floor.CapsV`) are certified over `t ∈ [0, H
 `H128 = ⌊ln2/2 · 2¹²⁸⌋`. To instantiate them at the runtime reduced argument `t = tTree x` we
 need `|tTree x| ≤ H128` on the meaningful region.
 
-This is the integer-`k` fact the experiments flagged: a real linear-program relaxation of the
-octave/reduced-argument sandwiches is unbounded (it decouples `k` from `x`), but the *integer*
+This is an integer-`k` fact: a real linear-program relaxation of the octave/reduced-argument
+sandwiches is unbounded (it decouples `k` from `x`), but the *integer*
 `k`-rounding sandwich `2²⁰⁰·k ≤ 2¹⁹⁹ + CINV·x < 2²⁰⁰·k + 2²⁰⁰` ties `k` to `x` tightly enough that
 the maximum of the reduction argument `K27·x − LN2·k` over the integer region is strictly below
 `2¹⁰⁷·(H128 + 1)` (and symmetrically above `−2¹⁰⁷·(H128 + 1)`). `omega` discharges the resulting
