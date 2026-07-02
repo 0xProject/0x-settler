@@ -43,7 +43,7 @@ contract ExpTest is Test {
         assertEq(Exp.expRayToWad(-50e27), 0, "deep negative not zero");
         assertEq(Exp.expRayToWad(-1e40), 0, "reduction-overflow region not zero");
         assertEq(Exp.expRayToWad(type(int256).min), 0, "int256.min not zero");
-        // First input past the clamp: E - 1 ~= 3.2e-28 (mpmath, 80 digits), so floor(E) = 1.
+        // First input past the clamp: E - 1 ~= 3.2e-28, so floor(E) = 1.
         assertEq(Exp.expRayToWad(_ZERO_MAX + 1), 1, "first live input not one");
     }
 
@@ -101,8 +101,8 @@ contract ExpTest is Test {
         }
     }
 
-    /// The largest supported input, one below the revert threshold. floor(E) computed with
-    /// mpmath at 80 digits; frac(E) ~= 0.74, comfortably inside the k = 63 deficit envelope.
+    /// The largest supported input, one below the revert threshold. frac(E) ~= 0.74, comfortably
+    /// inside the k = 63 deficit envelope.
     function testExpRayToWadSupportedEdge() external pure {
         int256 r = Exp.expRayToWad(_TOO_BIG - 1);
         int256 floorE = 13043817825332782212349571798501714341;
@@ -111,8 +111,8 @@ contract ExpTest is Test {
     }
 
     /// The 1-ulp underestimate is achieved: the least x >= 44e27 whose result is floor(E) - 1.
-    /// frac(E) ~= 0.1605 (mpmath, 80 digits) sits below the accumulated deficit at k = 63, so
-    /// the floored accumulator lands one under the exact floor.
+    /// frac(E) ~= 0.1605 sits below the accumulated deficit at k = 63, so the floored accumulator
+    /// lands one under the exact floor.
     function testExpRayToWadUnderestimateByOneWitness() external pure {
         int256 x = 44000000000000000000000000001;
         int256 floorE = 12851600114359308275809299644994699372;
