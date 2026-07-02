@@ -14,7 +14,7 @@ library Exp {
     ///      returns w. Reverts with `Panic(17)` when x is large enough to leave the supported range
     ///      (x ≥ 0x8e383a2cdfa1b74a9422d2e1 ≈ 44.01 ⋅ 10²⁷, i.e. E ≳ 1.30 ⋅ 10³⁷).
     function expRayToWad(int256 x) internal pure returns (int256 r) {
-        // At this input the octave count k = round(x / (10²⁷⋅ln2)) reaches 64. The error in
+        // At this input the octave count k = round(x / (10²⁷⋅ln(2))) reaches 64. The error in
         // `_expRayToWad` exceeds 1ulp at that scale.
         if (x >= 0x8e383a2cdfa1b74a9422d2e1) {
             Panic.panic(Panic.ARITHMETIC_OVERFLOW);
@@ -25,8 +25,8 @@ library Exp {
     /// @dev The rational polynomial approximation kernel
     function _expRayToWad(int256 x) private pure returns (int256 r) {
         // Equivalent pseudocode; fixed-point truncations are accounted for below:
-        //     k = round(x / (10²⁷⋅ln(2)));                   // x = (k⋅ln2 + t)⋅10²⁷, |t| ≤ ln2/2
-        //     t = x/10²⁷ - k⋅ln2;                            // reduced argument (Q128)
+        //     k = round(x / (10²⁷⋅ln(2)));                   // x = (k⋅ln(2) + t)⋅10²⁷, |t| ≤ ln(2)/2
+        //     t = x/10²⁷ - k⋅ln(2);                          // reduced argument (Q128)
         //     e = (Ev(t²) + t⋅Od(t²)) / (Ev(t²) - t⋅Od(t²)); // ≈ exp(t) (Ev Q87; Od Q87; e Q126)
         //     r = ⌊(10¹⁸⋅e)⋅2ᵏ - margin⌋;                    // wad
         //     r = r ⋅ (x > C);                               // C = ⌊-18⋅ln10⋅10²⁷⌋; 0 where E < 1
@@ -69,12 +69,12 @@ library Exp {
         //         0.32906: one v-grain moves the quotient by 2t⋅(Od⋅ΔEv - Ev⋅ΔOd)/(D⋅D′), whose
         //         one-signed numerator maximal at each piece's upper edge and whose denominator is
         //         floored piecewise over 32 domain pieces (the pointwise supremum is ≈ 0.3287 at t
-        //         = ln2/2). The t < 0 direction is budgeted on the under side.
+        //         = ln(2)/2). The t < 0 direction is budgeted on the under side.
         //     rational `Mp`-factor (the dyadic gap between the reciprocal-symmetric form and exp):
         //         < 0.04420 (its supremum is √2⋅2¹²⁶/(2¹³¹-1)).
         //     reduced-argument gap: the Q128 floor of t only pushes e downward (that direction is
         //         budgeted on the under side); the over side is the K27/LN2 constant-grid residue
-        //         (the k⋅ln2 grid error stays below 2⁻²²⁹), which the proof envelopes one-sidedly
+        //         (the k⋅ln(2) grid error stays below 2⁻²²⁹), which the proof envelopes one-sidedly
         //         at 2⁻¹³³ of reduced argument, lifting e by < 0.01105 (√2⋅2¹²⁶/(32⋅2¹²⁸) =
         //         √2/128).
         // Scaling by 10¹⁸⋅2ᵏ, the accumulator's excess over E peaks at the supported edge k = 63 at
@@ -92,7 +92,7 @@ library Exp {
         // deficit envelope ((67/10)⋅10¹⁸ + 2¹⁸⋅margin)/2^(126 - k) doubles each octave, so at k = 64 it
         // exceeds 1ulp. On the central octave k = 0 the margin is margin⋅2⁻¹⁰⁸ ≈ 1.2⋅10⁻²⁰ ulp, far
         // below the ≈10⁻⁹ ulp gap `lnWadToRay` leaves, so the round trip floors to ⌊E⌋. The k = 0
-        // band is exactly [-H, H] with H = ⌊10²⁷⋅ln2/2⌋, matching `lnWadToRay`'s image over [1/√2,
+        // band is exactly [-H, H] with H = ⌊10²⁷⋅ln(2)/2⌋, matching `lnWadToRay`'s image over [1/√2,
         // √2).
         //
         // Monotonicity: one unit step in x multiplies E by exp(10⁻²⁷) ≈ 1 + 10⁻²⁷, which moves the
@@ -110,9 +110,10 @@ library Exp {
             // and `sar(200, …)` round to nearest with ties resolved toward +∞.
             let k := sar(0xc8, add(shl(0xc7, 0x01), mul(0x724d54edbacbebbb95c52a0f6076, x)))
 
-            // t in Q128. K27 = round(2²³⁵ / 10²⁷) and LN2 = round(ln(2) ⋅ 2²³⁵). Subtracting k ⋅ LN2
-            // from K27 ⋅ x at the Q235 product basis (so the k ⋅ ln2 rounding error is ~2⁻²³⁵, far
-            // below an output ulp) then one `sar(107, …)` leaves the reduced argument at Q128.
+            // t in Q128. K27 = round(2²³⁵ / 10²⁷) and LN2 = round(ln(2) ⋅ 2²³⁵). Subtracting k ⋅
+            // LN2 from K27 ⋅ x at the Q235 product basis (so the k ⋅ ln(2) rounding error is
+            // ~2⁻²³⁵, far below an output ulp) then one `sar(107, …)` leaves the reduced argument
+            // at Q128.
             let t :=
                 sar(
                     0x6b,
