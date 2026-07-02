@@ -1,5 +1,6 @@
 import LnProof.Floor.Bracket
 import LnProof.Floor.CertAux
+import Common.Foundation.Kronecker
 
 open FormalYul
 open FormalYul.Preservation
@@ -17,10 +18,6 @@ namespace LnFloorCert
 open LnYul Common.Poly Common.Exp
 
 set_option maxRecDepth 100000
-
-theorem eval01 (x : Int) : evalPoly ([0, 1] : List Int) x = x := by
-  show (0 : Int) + x * (1 + x * 0) = x
-  omega
 
 theorem evalCertGeUp (m : Nat) :
     evalPoly certGeUp (m : Int) =

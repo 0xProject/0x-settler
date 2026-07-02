@@ -258,4 +258,150 @@ theorem evmSdiv_u256_left (a b : Nat) : evmSdiv (u256 a) b = evmSdiv a b := by
 theorem evmSdiv_u256_right (a b : Nat) : evmSdiv a (u256 b) = evmSdiv a b := by
   simp only [evmSdiv, u256_idem]
 
+/-! ## Shift and division floor lemmas (general shift amounts) -/
+
+theorem evmShr_lt (s w : Nat) : evmShr s w < 2 ^ 256 := by
+  unfold evmShr u256
+  simp only [word_mod_eq]
+  have hv : w % 2 ^ 256 < 2 ^ 256 := Nat.mod_lt _ (Nat.two_pow_pos 256)
+  split
+  · exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) hv
+  · exact Nat.two_pow_pos 256
+
+theorem evmShl_lt (s w : Nat) : evmShl s w < 2 ^ 256 := by
+  unfold evmShl u256
+  simp only [word_mod_eq]
+  split
+  · exact Nat.mod_lt _ (Nat.two_pow_pos 256)
+  · exact Nat.two_pow_pos 256
+
+/-- `evmShr` is plain `Nat` floor division for an in-range word and shift. -/
+theorem evmShr_eq_div {s : Nat} (hs : s < 256) {w : Nat} (h : w < 2 ^ 256) :
+    evmShr s w = w / 2 ^ s := by
+  have hwm : w % 2 ^ 256 = w := Nat.mod_eq_of_lt h
+  have hsm : s % 2 ^ 256 = s := Nat.mod_eq_of_lt (by omega)
+  unfold evmShr u256
+  simp only [word_mod_eq, hwm, hsm]
+  rw [if_pos (by omega : s < 256)]
+
+/-- `evmShl` is plain multiplication when the product fits. -/
+theorem evmShl_eq {s : Nat} (hs : s < 256) {w : Nat} (h : w * 2 ^ s < 2 ^ 256) :
+    evmShl s w = w * 2 ^ s := by
+  unfold evmShl u256
+  simp only [word_mod_eq]
+  have hs2 : s % 2 ^ 256 = s := Nat.mod_eq_of_lt (by omega)
+  have hpos : 0 < 2 ^ s := Nat.two_pow_pos s
+  have hw : w < 2 ^ 256 := by
+    have h1 : w * 1 ≤ w * 2 ^ s := Nat.mul_le_mul_left w hpos
+    omega
+  rw [hs2, if_pos hs, Nat.mod_eq_of_lt hw, Nat.mod_eq_of_lt h]
+
+/-- `evmSar s w` is the signed floor of `int256 w / 2^s` for a shift `s < 256`:
+`2^s · int256 (evmSar s w) ≤ int256 w < 2^s · int256 (evmSar s w) + 2^s`, and the result is a
+valid word. -/
+theorem evmSar_sandwich {s : Nat} (hs : s < 256) {w : Nat} (h : w < 2 ^ 256) :
+    evmSar s w < 2 ^ 256 ∧
+      (2 ^ s : Int) * int256 (evmSar s w) ≤ int256 w ∧
+      int256 w < (2 ^ s : Int) * int256 (evmSar s w) + (2 ^ s : Int) := by
+  have hps : (0 : Nat) < 2 ^ s := Nat.two_pow_pos s
+  have hwm : w % 2 ^ 256 = w := Nat.mod_eq_of_lt h
+  have hsm : s % 2 ^ 256 = s := Nat.mod_eq_of_lt (by omega)
+  -- `2^256 = 2^s * 2^(256-s)`, so the complement's floor relates to `w`'s floor.
+  have hsplit : (2 : Nat) ^ 256 = 2 ^ s * 2 ^ (256 - s) := by
+    rw [← Nat.pow_add]; congr 1; omega
+  have hsne : ¬ 256 ≤ s := by omega
+  unfold evmSar u256 int256
+  simp only [word_mod_eq, hwm, hsm, hsne, if_false]
+  by_cases hneg : 2 ^ 255 ≤ w
+  · rw [if_pos hneg]
+    -- result word = 2^256 - 1 - (2^256 - 1 - w)/2^s; it is in the negative half.
+    set m := 2 ^ 256 - 1 - w with hm
+    set q := m / 2 ^ s with hq
+    have hmlt : m < 2 ^ 255 := by omega
+    -- floor facts for q
+    have hqlo : 2 ^ s * q ≤ m := by rw [Nat.mul_comm]; exact Nat.div_mul_le_self m (2 ^ s)
+    have hqhi : m < 2 ^ s * q + 2 ^ s := by
+      have hdm := Nat.div_add_mod m (2 ^ s)
+      have hmod := Nat.mod_lt m hps
+      have hc : 2 ^ s * (m / 2 ^ s) = q * 2 ^ s := by rw [← hq]; exact Nat.mul_comm _ _
+      have hc2 : 2 ^ s * q = q * 2 ^ s := Nat.mul_comm _ _
+      omega
+    have hqle : q ≤ m := by rw [hq]; exact Nat.div_le_self m (2 ^ s)
+    have hqlt : q < 2 ^ 255 := by omega
+    -- the result word `rw = 2^256 - 1 - q` lies in the negative half
+    have hrwlt : (2 ^ 256 - 1 - q) < 2 ^ 256 :=
+      Nat.lt_of_le_of_lt (Nat.sub_le _ _) (by omega)
+    have hrwneg : 2 ^ 255 ≤ 2 ^ 256 - 1 - q := by omega
+    rw [if_neg (Nat.not_lt.mpr hrwneg)]
+    rw [if_neg (Nat.not_lt.mpr hneg)]
+    -- Cast the Nat-level floor facts to `Int` once, as relations among `↑q`, `↑w`, `↑(2^s)`.
+    have hqloI : (2 ^ s : Int) * (q : Int) ≤ (2 ^ 256 : Int) - 1 - (w : Int) := by
+      have h0 : ((2 ^ s * q : Nat) : Int) ≤ ((m : Nat) : Int) := by exact_mod_cast hqlo
+      have hmI : ((m : Nat) : Int) = (2 ^ 256 : Int) - 1 - (w : Int) := by
+        rw [hm]; simp only [intPow256]; push_cast [Nat.sub_sub]; omega
+      push_cast at h0; rw [hmI] at h0; linarith
+    have hqhiI : (2 ^ 256 : Int) - 1 - (w : Int) < (2 ^ s : Int) * (q : Int) + (2 ^ s : Int) := by
+      have h0 : ((m : Nat) : Int) < ((2 ^ s * q + 2 ^ s : Nat) : Int) := by exact_mod_cast hqhi
+      have hmI : ((m : Nat) : Int) = (2 ^ 256 : Int) - 1 - (w : Int) := by
+        rw [hm]; simp only [intPow256]; push_cast [Nat.sub_sub]; omega
+      push_cast at h0; rw [hmI] at h0; linarith
+    have hresI : ((2 ^ 256 - 1 - q : Nat) : Int) = (2 ^ 256 : Int) - 1 - (q : Int) := by
+      simp only [intPow256]; push_cast [Nat.sub_sub]; omega
+    refine ⟨hrwlt, ?_, ?_⟩
+    · rw [hresI]; nlinarith [hqloI]
+    · rw [hresI]; nlinarith [hqhiI]
+  · rw [if_neg hneg]
+    -- nonnegative: result word = w / 2^s, both halves nonnegative.
+    set q := w / 2 ^ s with hq
+    have hqlt : q < 2 ^ 255 := by
+      have : w / 2 ^ s ≤ w := Nat.div_le_self w (2 ^ s)
+      omega
+    have hqlt2 : q < 2 ^ 256 := by omega
+    rw [if_pos hqlt, if_pos (by omega : w < 2 ^ 255)]
+    have hfloor := Nat.div_mul_le_self w (2 ^ s)
+    have hfloor2 : w < (w / 2 ^ s) * 2 ^ s + 2 ^ s := by
+      have hdm := Nat.div_add_mod w (2 ^ s)
+      have hmod := Nat.mod_lt w hps
+      have hc : 2 ^ s * (w / 2 ^ s) = (w / 2 ^ s) * 2 ^ s := Nat.mul_comm _ _
+      omega
+    refine ⟨hqlt2, ?_, ?_⟩
+    · have he : (2 ^ s : Int) * (q : Int) = ((2 ^ s * q : Nat) : Int) := by push_cast; ring
+      rw [he]
+      have hh : 2 ^ s * q ≤ w := by rw [hq, Nat.mul_comm]; exact hfloor
+      exact_mod_cast hh
+    · have he : (2 ^ s : Int) * (q : Int) + (2 ^ s : Int) = ((2 ^ s * q + 2 ^ s : Nat) : Int) := by
+        push_cast; ring
+      rw [he]
+      have hh : w < 2 ^ s * q + 2 ^ s := by rw [hq, Nat.mul_comm]; exact hfloor2
+      exact_mod_cast hh
+
+/-! ## Cross-multiplied monotonicity of truncated division -/
+
+theorem nat_div_cross_mono {a b c d : Nat} (hb : 0 < b) (hd : 0 < d)
+    (h : a * d ≤ c * b) : a / b ≤ c / d := by
+  rw [Nat.le_div_iff_mul_le hd]
+  have h1 : a / b * b ≤ a := Nat.div_mul_le_self a b
+  have h2 : a / b * b * d ≤ a * d := Nat.mul_le_mul_right d h1
+  have h3 : a / b * b * d ≤ c * b := Nat.le_trans h2 h
+  have h4 : a / b * d * b ≤ c * b := by
+    have : a / b * b * d = a / b * d * b := by
+      rw [Nat.mul_assoc, Nat.mul_comm b d, ← Nat.mul_assoc]
+    omega
+  exact Nat.le_of_mul_le_mul_right h4 hb
+
+theorem toNat_mul_of_nonneg {x y : Int} (hx : 0 ≤ x) (hy : 0 ≤ y) :
+    x.toNat * y.toNat = (x * y).toNat := by
+  obtain ⟨a, rfl⟩ := Int.eq_ofNat_of_zero_le hx
+  obtain ⟨b, rfl⟩ := Int.eq_ofNat_of_zero_le hy
+  rfl
+
+/-- Cross-multiplication to truncated-division monotonicity over signed positive numerators. -/
+theorem cross_to_div {n1 n2 W1 W2 : Int} (hn1 : 0 ≤ n1) (hn2 : 0 ≤ n2)
+    (hW1 : 0 < W1) (hW2 : 0 < W2) (hcross : n1 * W2 ≤ n2 * W1) :
+    n1.toNat / W1.toNat ≤ n2.toNat / W2.toNat := by
+  refine nat_div_cross_mono (by omega) (by omega) ?_
+  have e1 := toNat_mul_of_nonneg hn1 (by omega : (0:Int) ≤ W2)
+  have e2 := toNat_mul_of_nonneg hn2 (by omega : (0:Int) ≤ W1)
+  omega
+
 end Common.Word

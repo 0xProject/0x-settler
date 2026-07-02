@@ -1,4 +1,5 @@
 import LnProof.Foundation.Word
+import Common.Word
 
 open FormalYul
 open FormalYul.Preservation
@@ -25,95 +26,75 @@ theorem evmSar_sandwich_72 {w : Nat} (h : w < 2 ^ 256) :
     evmSar 72 w < 2 ^ 256 ∧
       int256 (evmSar 72 w) * 4722366482869645213696 ≤ int256 w ∧
       int256 w < int256 (evmSar 72 w) * 4722366482869645213696 + 4722366482869645213696 := by
-  unfold evmSar u256 int256
-  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
-  repeat' split
-  all_goals omega
+  obtain ⟨h1, h2, h3⟩ := Common.Word.evmSar_sandwich (s := 72) (by norm_num) h
+  norm_num at h2 h3
+  exact ⟨h1, by linarith, by linarith⟩
 
 theorem evmSar_sandwich_88 {w : Nat} (h : w < 2 ^ 256) :
     evmSar 88 w < 2 ^ 256 ∧
       int256 (evmSar 88 w) * 309485009821345068724781056 ≤ int256 w ∧
       int256 w < int256 (evmSar 88 w) * 309485009821345068724781056 + 309485009821345068724781056 := by
-  unfold evmSar u256 int256
-  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
-  repeat' split
-  all_goals omega
+  obtain ⟨h1, h2, h3⟩ := Common.Word.evmSar_sandwich (s := 88) (by norm_num) h
+  norm_num at h2 h3
+  exact ⟨h1, by linarith, by linarith⟩
 
 theorem evmSar_sandwich_90 {w : Nat} (h : w < 2 ^ 256) :
     evmSar 90 w < 2 ^ 256 ∧
       int256 (evmSar 90 w) * 1237940039285380274899124224 ≤ int256 w ∧
       int256 w < int256 (evmSar 90 w) * 1237940039285380274899124224 + 1237940039285380274899124224 := by
-  unfold evmSar u256 int256
-  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
-  repeat' split
-  all_goals omega
+  obtain ⟨h1, h2, h3⟩ := Common.Word.evmSar_sandwich (s := 90) (by norm_num) h
+  norm_num at h2 h3
+  exact ⟨h1, by linarith, by linarith⟩
 
 theorem evmSar_sandwich_95 {w : Nat} (h : w < 2 ^ 256) :
     evmSar 95 w < 2 ^ 256 ∧
       int256 (evmSar 95 w) * 39614081257132168796771975168 ≤ int256 w ∧
       int256 w < int256 (evmSar 95 w) * 39614081257132168796771975168 + 39614081257132168796771975168 := by
-  unfold evmSar u256 int256
-  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
-  repeat' split
-  all_goals omega
+  obtain ⟨h1, h2, h3⟩ := Common.Word.evmSar_sandwich (s := 95) (by norm_num) h
+  norm_num at h2 h3
+  exact ⟨h1, by linarith, by linarith⟩
 
 theorem evmSar_sandwich_87 {w : Nat} (h : w < 2 ^ 256) :
     evmSar 87 w < 2 ^ 256 ∧
       int256 (evmSar 87 w) * 154742504910672534362390528 ≤ int256 w ∧
       int256 w < int256 (evmSar 87 w) * 154742504910672534362390528 + 154742504910672534362390528 := by
-  unfold evmSar u256 int256
-  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
-  repeat' split
-  all_goals omega
+  obtain ⟨h1, h2, h3⟩ := Common.Word.evmSar_sandwich (s := 87) (by norm_num) h
+  norm_num at h2 h3
+  exact ⟨h1, by linarith, by linarith⟩
 
 theorem evmSar_sandwich_97 {w : Nat} (h : w < 2 ^ 256) :
     evmSar 97 w < 2 ^ 256 ∧
       int256 (evmSar 97 w) * 158456325028528675187087900672 ≤ int256 w ∧
       int256 w < int256 (evmSar 97 w) * 158456325028528675187087900672 + 158456325028528675187087900672 := by
-  unfold evmSar u256 int256
-  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
-  repeat' split
-  all_goals omega
+  obtain ⟨h1, h2, h3⟩ := Common.Word.evmSar_sandwich (s := 97) (by norm_num) h
+  norm_num at h2 h3
+  exact ⟨h1, by linarith, by linarith⟩
 
 theorem evmSar_sandwich_113 {w : Nat} (h : w < 2 ^ 256) :
     evmSar 113 w < 2 ^ 256 ∧
       int256 (evmSar 113 w) * 10384593717069655257060992658440192 ≤ int256 w ∧
       int256 w < int256 (evmSar 113 w) * 10384593717069655257060992658440192 + 10384593717069655257060992658440192 := by
-  unfold evmSar u256 int256
-  simp only [word_mod_eq, ipow256, Nat.reducePow, Nat.reduceMod]
-  repeat' split
-  all_goals omega
+  obtain ⟨h1, h2, h3⟩ := Common.Word.evmSar_sandwich (s := 113) (by norm_num) h
+  norm_num at h2 h3
+  exact ⟨h1, by linarith, by linarith⟩
 
 end Sar
 
 /-! ## `evmShr` for nonnegative operands at literal shifts -/
 
-theorem evmShr_eq_div_84 {w : Nat} (h : w < 2 ^ 256) : evmShr 84 w = w / 2 ^ 84 := by
-  unfold evmShr u256
-  simp only [word_mod_eq, Nat.reducePow, Nat.reduceMod]
-  split <;> omega
+theorem evmShr_eq_div_84 {w : Nat} (h : w < 2 ^ 256) : evmShr 84 w = w / 2 ^ 84 :=
+  Common.Word.evmShr_eq_div (by norm_num) h
 
-theorem evmShr_eq_div_104 {w : Nat} (h : w < 2 ^ 256) : evmShr 104 w = w / 2 ^ 104 := by
-  unfold evmShr u256
-  simp only [word_mod_eq, Nat.reducePow, Nat.reduceMod]
-  split <;> omega
+theorem evmShr_eq_div_104 {w : Nat} (h : w < 2 ^ 256) : evmShr 104 w = w / 2 ^ 104 :=
+  Common.Word.evmShr_eq_div (by norm_num) h
 
-theorem evmShr_eq_div_160 {w : Nat} (h : w < 2 ^ 256) : evmShr 160 w = w / 2 ^ 160 := by
-  unfold evmShr u256
-  simp only [word_mod_eq, Nat.reducePow, Nat.reduceMod]
-  split <;> omega
+theorem evmShr_eq_div_160 {w : Nat} (h : w < 2 ^ 256) : evmShr 160 w = w / 2 ^ 160 :=
+  Common.Word.evmShr_eq_div (by norm_num) h
 
-theorem evmShr_lt {s : Nat} {w : Nat} (_h : w < 2 ^ 256) : evmShr s w < 2 ^ 256 := by
-  unfold evmShr u256
-  simp only [word_mod_eq]
-  split
-  · exact Nat.lt_of_le_of_lt (Nat.div_le_self _ _) (by omega)
-  · omega
+theorem evmShr_lt {s : Nat} {w : Nat} (_h : w < 2 ^ 256) : evmShr s w < 2 ^ 256 :=
+  Common.Word.evmShr_lt s w
 
-theorem evmShl_lt (s w : Nat) : evmShl s w < 2 ^ 256 := by
-  unfold evmShl u256
-  simp only [word_mod_eq]
-  split <;> omega
+theorem evmShl_lt (s w : Nat) : evmShl s w < 2 ^ 256 := Common.Word.evmShl_lt s w
 
 theorem evmSdiv_lt (a b : Nat) : evmSdiv a b < 2 ^ 256 := by
   unfold evmSdiv u256
@@ -126,15 +107,7 @@ theorem evmSdiv_lt (a b : Nat) : evmSdiv a b < 2 ^ 256 := by
 /-- Unwrapped left shift when the product genuinely fits (variable shift,
 used by the clz normalization). -/
 theorem evmShl_eq {s : Nat} (hs : s < 256) {w : Nat} (h : w * 2 ^ s < 2 ^ 256) :
-    evmShl s w = w * 2 ^ s := by
-  unfold evmShl u256
-  simp only [word_mod_eq]
-  have hs2 : s % 2 ^ 256 = s := Nat.mod_eq_of_lt (by omega)
-  have hpos : 0 < 2 ^ s := Nat.two_pow_pos s
-  have hw : w < 2 ^ 256 := by
-    have h1 : w * 1 ≤ w * 2 ^ s := Nat.mul_le_mul_left w hpos
-    omega
-  rw [hs2, if_pos hs, Nat.mod_eq_of_lt hw, Nat.mod_eq_of_lt h]
+    evmShl s w = w * 2 ^ s := Common.Word.evmShl_eq hs h
 
 /-- Signed left shift by 100 (the `z` numerator). -/
 theorem evmShl_transport_100 {w : Nat} (hw : w < 2 ^ 256)
@@ -267,15 +240,6 @@ theorem evmSdiv_neg_neg {a b : Nat} (ha : a < 2 ^ 256) (hb : b < 2 ^ 256)
 
 /-- Cross-multiplied monotonicity of Nat division. -/
 theorem nat_div_cross_mono {a b c d : Nat} (hb : 0 < b) (hd : 0 < d)
-    (h : a * d ≤ c * b) : a / b ≤ c / d := by
-  rw [Nat.le_div_iff_mul_le hd]
-  have h1 : a / b * b ≤ a := Nat.div_mul_le_self a b
-  have h2 : a / b * b * d ≤ a * d := Nat.mul_le_mul_right d h1
-  have h3 : a / b * b * d ≤ c * b := Nat.le_trans h2 h
-  have h4 : a / b * d * b ≤ c * b := by
-    have : a / b * b * d = a / b * d * b := by
-      rw [Nat.mul_assoc, Nat.mul_comm b d, ← Nat.mul_assoc]
-    omega
-  exact Nat.le_of_mul_le_mul_right h4 hb
+    (h : a * d ≤ c * b) : a / b ≤ c / d := Common.Word.nat_div_cross_mono hb hd h
 
 end LnYul
