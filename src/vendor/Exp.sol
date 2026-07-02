@@ -60,16 +60,16 @@ library Exp {
         // exact quotient as Δ = (e - exp(t))⋅2¹²⁶ (in Q126 units, one unit = 2⁻¹²⁶). Δ is the
         // tightest bound the proof technique can bear, in spite of the fact that the worst-case
         // error contributions do not co-occur. The budget bounds Δ ≤ 1.0050013498897899168, the sum
-        // of three one-sided contributions:
+        // of four one-sided contributions:
         //     integer Horner + closing `DIV` truncation: the Ev shared by the numerator Ev + t⋅Od
         //         and denominator Ev - t⋅Od cancels to first order in the quotient, so its
         //         truncation barely perturbs e; this jitter stays < 0.62071.
         //     argument granularity: v carries t² on the Q123 grid, and its floor only lowers the
         //         polynomials' shared argument (by < 2⁻¹²³), which lifts e on the t > 0 half by <
         //         0.32906: one v-grain moves the quotient by 2t⋅(Od⋅ΔEv - Ev⋅ΔOd)/(D⋅D′), whose
-        //         one-signed numerator maximal at each piece's upper edge and whose denominator is
-        //         floored piecewise over 32 domain pieces (the pointwise supremum is ≈ 0.3287 at t
-        //         = ln(2)/2). The t < 0 direction is budgeted on the under side.
+        //         one-signed numerator is maximal at each piece's upper edge and whose denominator
+        //         is floored piecewise over 32 domain pieces (the pointwise supremum is ≈ 0.3287 at
+        //         t = ln(2)/2). The t < 0 direction is budgeted on the under side.
         //     rational `Mp`-factor (the dyadic gap between the reciprocal-symmetric form and exp):
         //         < 0.04420 (its supremum is √2⋅2¹²⁶/(2¹³¹-1)).
         //     reduced-argument gap: the Q128 floor of t only pushes e downward (that direction is
@@ -78,7 +78,7 @@ library Exp {
         //         at 2⁻¹³³ of reduced argument, lifting e by < 0.01105 (√2⋅2¹²⁶/(32⋅2¹²⁸) =
         //         √2/128).
         // Scaling by 10¹⁸⋅2ᵏ, the accumulator's excess over E peaks at the supported edge k = 63 at
-        // S = 10¹⁸⋅Δ/2⁶³ ≈ 0.1090 ulp (1 ulp = 10⁻¹⁸ of the result).The margin is the least integer
+        // S = 10¹⁸⋅Δ/2⁶³ ≈ 0.1090 ulp (1 ulp = 10⁻¹⁸ of the result). The margin is the least integer
         // on the 2¹⁰⁸ output grid strictly above Δ's image: 0x37c9ed9cabf = ⌊5¹⁸⋅Δ⌋ + 1 =
         // 3833775901375 (worth ≈ S ulp at k = 63; the +1 is needed to meet the strict never
         // overestimate requirement). So 10¹⁸⋅e⋅2ᵏ - margin ≤ E. The under side is bounded to the
@@ -123,7 +123,7 @@ library Exp {
                     )
                 )
 
-            // v = t² in Q128 (nonnegative; logical shift): the widest basis at which the
+            // v = t² in Q123 (nonnegative; logical shift): the widest basis at which the
             // monic-stage product below stays inside 256 bits.
             let v := shr(0x85, mul(t, t))
 
@@ -151,9 +151,9 @@ library Exp {
             r := div(shl(0x7e, add(ev, tod)), sub(ev, tod))
 
             // E on the 2¹⁰⁸ output grid (5¹⁸ = 10¹⁸/2¹⁸ multiplies the Q126 quotient), less the
-            // one-sided margin (0xe17cfd91868d72d = ⌊5¹⁸⋅Δ⌋ + 1; see the budget above), then
-            // floored by `shr(126 - k, …)` which folds in the 2ᵏ octave scaling and the wad unit's
-            // remaining 2¹⁸ (108 - k ∈ [45, 168]).
+            // one-sided margin (0x37c9ed9cabf = ⌊5¹⁸⋅Δ⌋ + 1; see the budget above), then floored by
+            // `shr(108 - k, …)` which folds in the 2ᵏ octave scaling and the wad unit's remaining
+            // 2¹⁸ (108 - k ∈ [45, 168]).
             r := shr(sub(0x6c, k), sub(mul(0x3782dace9d9, r), 0x37c9ed9cabf))
 
             // Zero the result at and below C = ⌊-18⋅ln10⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x
