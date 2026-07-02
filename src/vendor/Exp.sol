@@ -53,8 +53,10 @@ library Exp {
     ///              `sar(126 - k, …)` is the single output-rounding floor, with 2ᵏ folded in
     ///
     ///      Error budget. The integer rational `e` lands on the Q126 grid; write its excess over
-    ///      the exact quotient as Δ = (e - exp(t))⋅2¹²⁶ (in Q126 units, one unit = 2⁻¹²⁶). The
-    ///      proof bounds Δ ≤ 0.7201434073703092789, the sum of three one-sided contributions:
+    ///      the exact quotient as Δ = (e - exp(t))⋅2¹²⁶ (in Q126 units, one unit = 2⁻¹²⁶). Δ is the
+    ///      tightest bound the proof technique can bear, in spite of the fact that the worst-case
+    ///      error contributions do not co-occur. The proof bounds Δ ≤ 0.7201434073703092789, the
+    ///      sum of three one-sided contributions:
     ///          integer Horner + closing `sdiv` truncation: the Ev shared by the numerator Ev +
     ///              t⋅Od and denominator Ev - t⋅Od cancels to first order in the quotient, so its
     ///              truncation barely perturbs e; this jitter (the dominant term) stays <
