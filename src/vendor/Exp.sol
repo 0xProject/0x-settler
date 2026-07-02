@@ -37,7 +37,9 @@ library Exp {
     ///      N(t) = Ev(t²) + t⋅Od(t²) the quotient N(t)/N(-t) is the reciprocal-symmetric rational
     ///      that matches `Od/Ev` to `tanh(√v/2)/√v` on v = t² ∈ [0, (ln2/2)²]. Ev is degree 5 and
     ///      Od degree 4; in exact arithmetic this (4,5) form approximates exp to ≈135 bits, and the
-    ///      integer coefficients realize ≈126 of them (the Q126 quotient). Ev is monic and its
+    ///      integer coefficients realize ≈131 of them (the Q126 quotient): each coefficient's low bits
+    ///      are chosen jointly, after rounding at the staircase bases, to re-center the ten
+    ///      quantization residuals, holding the realized envelope at ≤ 0.019 ulp. Ev is monic and its
     ///      leading coefficient literal is carried at v's own basis, so its leading stage is a
     ///      single add: no multiply and no shift.
     ///
@@ -59,7 +61,7 @@ library Exp {
     ///
     ///      Error budget. The integer rational `e` lands on the Q126 grid; write its excess over the
     ///      exact quotient as Δ = (e - exp(t))⋅2¹²⁶ (in Q126 units, one unit = 2⁻¹²⁶). The budget
-    ///      bounds Δ ≤ 1.0488641098665399539 (each term below carried to its supremum at 19 decimal
+    ///      bounds Δ ≤ 1.0046699360423807336 (each term below carried to its supremum at 19 decimal
     ///      places), the sum of four one-sided contributions:
     ///          integer Horner + closing `sdiv` truncation: the Ev shared by the numerator Ev + t⋅Od
     ///              and denominator Ev - t⋅Od cancels to first order in the quotient, so its
@@ -70,24 +72,24 @@ library Exp {
     ///              supremum 0.0410900878… sits at t = ln2/2). The t < 0 direction is budgeted
     ///              on the under side.
     ///          rational `Mp`-factor (the dyadic gap between the reciprocal-symmetric form and exp):
-    ///              ≤ 0.0883883477 (its supremum is √2⋅2¹²⁶/(2¹³⁰-1)).
+    ///              ≤ 0.0441941739 (its supremum is √2⋅2¹²⁶/(2¹³¹-1)).
     ///          reduced-argument gap: the Q128 floor of t only pushes e downward (that direction
     ///              is budgeted on the under side); the over side is the K27/LN2 constant-grid
     ///              residue (the k⋅ln2 grid error stays below 2⁻²²⁹), enveloped one-sidedly at
     ///              2⁻¹³³ of reduced argument, lifting e by ≤ 0.0110485435
     ///              (√2⋅2¹²⁶/(32⋅2¹²⁸) = √2/128).
     ///      Scaling by 10¹⁸⋅2ᵏ, the accumulator's excess over E peaks at the supported edge k = 63 at
-    ///      S = 10¹⁸⋅Δ/2⁶³ ≈ 0.1137 ulp (1 ulp = 10⁻¹⁸ of the result). The margin is the least integer
-    ///      strictly above 2⁶³⋅S: 0xe8e5059ce405bb2 = ⌊10¹⁸⋅Δ⌋ + 1 = 1048864109866539954 (worth ≈ S ulp
+    ///      S = 10¹⁸⋅Δ/2⁶³ ≈ 0.1089 ulp (1 ulp = 10⁻¹⁸ of the result). The margin is the least integer
+    ///      strictly above 2⁶³⋅S: 0xdf14dfbde520dbe = ⌊10¹⁸⋅Δ⌋ + 1 = 1004669936042380734 (worth ≈ S ulp
     ///      at k = 63; the +1 makes the never-over strict, which the round trip below needs). So
     ///      10¹⁸⋅e⋅2ᵏ - margin ≤ E (never overestimates). The under side is bounded to the same
     ///      precision: e⋅2¹²⁶ ≥ exp(t)⋅2¹²⁶ - 67/10, where 67/10 bounds the sum of the integer-rational
     ///      deficit (≤ 6001/1000, the Horner/`sdiv`/floor truncation against the denominator), the `Mp`
-    ///      factor (≤ 1/10, via e ≤ 1.45·2¹²⁶), the under-direction reduced-argument gap (≤ 37/100,
+    ///      factor (≤ 1/20, via e ≤ 1.45·2¹²⁶), the under-direction reduced-argument gap (≤ 37/100,
     ///      via exp(t) ≤ √2), and the under-direction argument granularity (≤ 17/100: the over-side
     ///      supremum divided by e^(ln2) = 2, by reciprocal symmetry). Hence the maximum
     ///      underestimation of the pre-floor accumulator A is
-    ///      E - A ≤ ((67/10)⋅10¹⁸ + margin)/2⁶³ ≈ 0.84013 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1 (the
+    ///      E - A ≤ ((67/10)⋅10¹⁸ + margin)/2⁶³ ≈ 0.83535 < 1, so the floor returns ⌊E⌋ or ⌊E⌋ - 1 (the
     ///      1-ulp underestimate is achieved, ⌊E⌋ - 2 never occurs). The deficit envelope
     ///      ((67/10)⋅10¹⁸ + margin)/2^(126 - k) doubles each octave, so at k = 64 it exceeds one ulp
     ///      and the floor can fall two below E; that input is reverted. On the central octave k = 0 the
@@ -141,18 +143,18 @@ library Exp {
             // single add. Both polynomials carry a common scaling (the reciprocal of Ev's
             // pre-normalization leading coefficient) that makes Ev monic and cancels in the
             // quotient below.
-            let ev := add(0xb9aacfad41060587203a79af0ebc000000, v)
-            ev := add(0x9a036222e11aee18465042f8ea64c8, shr(0x95, mul(ev, v)))
-            ev := add(0x9064d965e1c4863b73604e0ddbec53f9, shr(0x7b, mul(ev, v)))
-            ev := add(0x93f11e65781741b92fa7fc4f4fffcca2, shr(0x81, mul(ev, v)))
-            ev := add(0x4e14a45e8ec305e233e11b4174e214ac, shr(0x7f, mul(ev, v)))
+            let ev := add(0xb9aacfacf3c10b378435f8e22adf48500e, v)
+            ev := add(0x9a036222841f47c6ed6fc3f7602053, shr(0x95, mul(ev, v)))
+            ev := add(0x9064d9657e9a21fc16bb69331c5c3057, shr(0x7b, mul(ev, v)))
+            ev := add(0x93f11e650dd6c64b96ce79065cdf809e, shr(0x81, mul(ev, v)))
+            ev := add(0x4e14a45e5650b506e97f4c5da23861e2, shr(0x7f, mul(ev, v)))
 
             // Od(v), Horner up the staircase.
-            let od := 0xdc07aff85e5bb5629d0fb64a84bb
-            od := add(0xc926ddbf3830ca5561cc01585402d0, shr(0x7e, mul(od, v)))
-            od := add(0xad4506b00b1246c7e5b4fd33e1201b, shr(0x84, mul(od, v)))
-            od := add(0xaf5662483c4ce783a9ef5fe025f42e9e, shr(0x7a, mul(od, v)))
-            od := add(0x270a522f476182f119f08da0ba710a56, shr(0x82, mul(od, v)))
+            let od := 0xdc07aff8276bde9a361278df6a10
+            od := add(0xc926ddbecdeeb42e68cd16db7da8c1, shr(0x7e, mul(od, v)))
+            od := add(0xad4506af99be27419341e1816ff351, shr(0x84, mul(od, v)))
+            od := add(0xaf566247c05753b42892f77b67a6b7c6, shr(0x7a, mul(od, v)))
+            od := add(0x270a522f2b285a8374bfa62ed11c30f1, shr(0x82, mul(od, v)))
 
             // t⋅Od in Q87 (signed via t); the numerator Ev + t⋅Od and denominator Ev - t⋅Od are
             // both positive.
@@ -162,9 +164,9 @@ library Exp {
             r := sdiv(shl(0x7e, add(ev, tod)), sub(ev, tod))
 
             // E in Q126 on the 10¹⁸⋅2¹²⁶ grid, less the one-sided margin
-            // (0xe8e5059ce405bb2 = ⌊10¹⁸⋅Δ⌋ + 1; see the budget above), then floored by `sar(126 - k, …)`
+            // (0xdf14dfbde520dbe = ⌊10¹⁸⋅Δ⌋ + 1; see the budget above), then floored by `sar(126 - k, …)`
             // which folds in the 2ᵏ octave scaling (126 - k ∈ [63, 187]).
-            r := sar(sub(0x7e, k), sub(mul(0xde0b6b3a7640000, r), 0xe8e5059ce405bb2))
+            r := sar(sub(0x7e, k), sub(mul(0xde0b6b3a7640000, r), 0xdf14dfbde520dbe))
 
             // Zero the result at and below C = ⌊-18⋅ln10⋅10²⁷⌋ = ⌊10²⁷⋅ln(10⁻¹⁸)⌋, the greatest x
             // with E < 1. This is the exact 0/1 output boundary, and it sits far above the inputs
