@@ -19,6 +19,7 @@ on:
       - .gitmodules
       - lib/EVMYulLean
       - .github/workflows/exp-formal.yml
+      - .github/actions/build-ln-proof/action.yml
   pull_request:
     paths:
       - src/utils/Panic.sol
@@ -35,6 +36,7 @@ on:
       - .gitmodules
       - lib/EVMYulLean
       - .github/workflows/exp-formal.yml
+      - .github/actions/build-ln-proof/action.yml
 
 jobs:
   exp-formal:
